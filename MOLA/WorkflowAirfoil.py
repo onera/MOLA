@@ -2395,52 +2395,52 @@ def compareAgainstXFoil(AirfoilKeyword, config, CASE_LABEL, DistributedLoads,
     None. A matplotlib figure is shown.
     '''
 
-        if Field2Compare == 'Cp':
-            ylabel = '$C_p$'
-            invert_yaxis = True
+    if Field2Compare == 'Cp':
+        ylabel = '$C_p$'
+        invert_yaxis = True
 
-        elif Field2Compare == 'Cf':
-            ylabel = '$C_f$'
-            invert_yaxis = False
+    elif Field2Compare == 'Cf':
+        ylabel = '$C_f$'
+        invert_yaxis = False
 
-        else:
-            raise ValueError('Field2Compare must be "Cp" or "Cf"')
+    else:
+        raise ValueError('Field2Compare must be "Cp" or "Cf"')
 
-        from . import XFoil
-        import matplotlib.pyplot as plt
-        from matplotlib.ticker import AutoMinorLocator
+    from . import XFoil
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import AutoMinorLocator
 
-        XFoilParams = dict(Ncr=1)
-        XFoilParams.update(XFoilOptions)
+    XFoilParams = dict(Ncr=1)
+    XFoilParams.update(XFoilOptions)
 
-        for case in config.JobsQueues:
-            if case['CASE_LABEL'] == CASE_LABEL:
-                Reynolds = case['elsAParams']['Reynolds']
-                Mach = case['elsAParams']['MachPolar']
-                AoA = case['elsAParams']['AngleOfAttackDeg']
-                break
+    for case in config.JobsQueues:
+        if case['CASE_LABEL'] == CASE_LABEL:
+            Reynolds = case['elsAParams']['Reynolds']
+            Mach = case['elsAParams']['MachPolar']
+            AoA = case['elsAParams']['AngleOfAttackDeg']
+            break
 
-        XFoilResults = XFoil.computePolars(AirfoilKeyword, [Reynolds], [Mach],
-                                           [AoA], **XFoilParams)
+    XFoilResults = XFoil.computePolars(AirfoilKeyword, [Reynolds], [Mach],
+                                       [AoA], **XFoilParams)
 
 
-        fig, ax = plt.subplots(1,1,dpi=150)
-        ax.plot(DistributedLoads['CoordinateX'],DistributedLoads[Field2Compare], label='CFD')
-        ax.plot(XFoilResults['x'].flatten(), XFoilResults[Field2Compare].flatten(), label='XFoil')
-        if invert_yaxis: ax.invert_yaxis()
-        ax.set_ylabel(ylabel)
-        ax.set_xlabel('$x/c$')
-        minLocX = AutoMinorLocator()
-        ax.xaxis.set_minor_locator(minLocX)
-        minLocY = AutoMinorLocator()
-        ax.yaxis.set_minor_locator(minLocY)
-        ax.xaxis.grid(True, which='major')
-        ax.xaxis.grid(True, which='minor',linestyle=':')
-        ax.yaxis.grid(True, which='major')
-        ax.yaxis.grid(True, which='minor',linestyle=':')
-        ax.legend(loc='upper left')
-        plt.tight_layout()
-        plt.show()
+    fig, ax = plt.subplots(1,1,dpi=150)
+    ax.plot(DistributedLoads['CoordinateX'],DistributedLoads[Field2Compare], label='CFD')
+    ax.plot(XFoilResults['x'].flatten(), XFoilResults[Field2Compare].flatten(), label='XFoil')
+    if invert_yaxis: ax.invert_yaxis()
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel('$x/c$')
+    minLocX = AutoMinorLocator()
+    ax.xaxis.set_minor_locator(minLocX)
+    minLocY = AutoMinorLocator()
+    ax.yaxis.set_minor_locator(minLocY)
+    ax.xaxis.grid(True, which='major')
+    ax.xaxis.grid(True, which='minor',linestyle=':')
+    ax.yaxis.grid(True, which='major')
+    ax.yaxis.grid(True, which='minor',linestyle=':')
+    ax.legend(loc='upper left')
+    plt.tight_layout()
+    plt.show()
 
 
 def correctPolar(t, useBigRangeValuesIf_StdCLisHigherThan=0.0005,
