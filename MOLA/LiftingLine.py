@@ -201,7 +201,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
 
     # Get some relevant data from Propeller
-    Kin_n = I.getNodeFromName1(Propeller,'.Kinematics')
+    Kin_n = I.getNodeFromName(Propeller,'.Kinematics')
     RotAxis = I.getValue(I.getNodeFromName1(Kin_n,'RotationAxis'))
     RotCenter = I.getValue(I.getNodeFromName1(Kin_n,'RotationCenter'))
     RightHandRuleRotation = I.getValue(I.getNodeFromName1(Kin_n,'RightHandRuleRotation'))
@@ -4055,17 +4055,18 @@ def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
         GuidePoint = getItemOrRaiseWarning('GuidePoint')
         RightHandRuleRotation = getItemOrRaiseWarning('RightHandRuleRotation')
 
+        setKinematicsUsingConstantRPM(LiftingLine,RotationCenter=RotationCenter,
+                                  RotationAxis=RotationAxis,
+                                  RPM=0.0,
+                                  RightHandRuleRotation=RightHandRuleRotation)
+
         RequiredVariables = NumberOfBlades,RotationCenter,RotationAxis, \
                             GuidePoint
 
         if not all(RequiredVariables):
             continue
 
-        Propeller = buildPropeller(LiftingLine, NumberOfBlades,
-                                   RotCenter=RotationCenter,
-                                   RotAxis=RotationAxis,
-                                   GuidePoint=GuidePoint,
-                                   direct=RightHandRuleRotation)
+        Propeller = buildPropeller(LiftingLine, NBlades=NumberOfBlades)
         prepareUnsteadyLiftingLine(Propeller)
 
         Propeller[0] = RotorName
