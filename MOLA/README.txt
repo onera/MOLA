@@ -42,7 +42,7 @@ Some default environment source files can be found at
 Changelog
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Dev - 20/07/2020 - Major improvements on most modules. Introduction
+v1.11 - 20/07/2020 - Major improvements on most modules. Introduction
     of stable versions of Workflows: Standard and Airfoil.
 
 v1.10 - 19/03/2020 - Temporary working version of MOLA. Workflow Standard and
