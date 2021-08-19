@@ -4629,3 +4629,59 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
         AllSourceZones.append(Sources)
 
     return AllSourceZones
+
+def getTrailingEdge(LiftingLine):
+    '''
+    construct the curve corresponding to the TrailingEdge from a LiftingLine,
+    conserving all original fields and data.
+
+    INPUTS
+
+    LiftingLine - (zone) - the lifting-line (situated at c/4)
+
+    OUTPUTS
+
+    TrailingEdge - (zone) - the curve corresponding to trailing edge
+    '''
+    TrailingEdge = I.copyTree(LiftingLine)
+    txyz, nxyz, bxyz = updateLocalFrame(TrailingEdge)
+    x, y, z = J.getxyz(TrailingEdge)
+    Chord, Twist = J.getVars(TrailingEdge, ['Chord', 'Twist'])
+    TwistInRadians = np.deg2rad(Twist)
+    Distance2TrailingEdge = 0.75 * Chord
+    TangentialDistance =   Distance2TrailingEdge * np.cos( TwistInRadians )
+    AxialDistance      = - Distance2TrailingEdge * np.sin( TwistInRadians )
+    DisplacementVector = TangentialDistance * bxyz + AxialDistance * nxyz
+    x += DisplacementVector[0,:]
+    y += DisplacementVector[1,:]
+    z += DisplacementVector[2,:]
+
+    return TrailingEdge
+
+def getLeadingEdge(LiftingLine):
+    '''
+    construct the curve corresponding to the LeadingEdge from a LiftingLine,
+    conserving all original fields and data.
+
+    INPUTS
+
+    LiftingLine - (zone) - the lifting-line (situated at c/4)
+
+    OUTPUTS
+
+    LeadingEdge - (zone) - the curve corresponding to trailing edge
+    '''
+    LeadingEdge = I.copyTree(LiftingLine)
+    txyz, nxyz, bxyz = updateLocalFrame(LeadingEdge)
+    x, y, z = J.getxyz(LeadingEdge)
+    Chord, Twist = J.getVars(LeadingEdge, ['Chord', 'Twist'])
+    TwistInRadians = np.deg2rad(Twist)
+    Distance2LeadingEdge = 0.25 * Chord
+    TangentialDistance = - Distance2LeadingEdge * np.cos( TwistInRadians )
+    AxialDistance      = + Distance2LeadingEdge * np.sin( TwistInRadians )
+    DisplacementVector = TangentialDistance * bxyz + AxialDistance * nxyz
+    x += DisplacementVector[0,:]
+    y += DisplacementVector[1,:]
+    z += DisplacementVector[2,:]
+
+    return LeadingEdge
