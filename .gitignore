@@ -1,0 +1,12 @@
+*.pyc
+__pycache__
+*.dat
+*.cgns
+*.tp
+*.plt
+*debug*
+*.pdf
+*.png
+*.ppt*
+*.doc*
+*.odt*
