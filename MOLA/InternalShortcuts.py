@@ -24,6 +24,21 @@ MAGE  = '\033[95m'
 CYAN  = '\033[96m'
 ENDC  = '\033[0m'
 
+def toto(path, field_storage, temporary):
+    '''
+    Args:
+        path (str): The path of the file to wrap
+        field_storage (FileStorage): The :class:`FileStorage` instance to wrap
+        temporary (bool): Whether or not to delete the file when the File
+           instance is destructed
+
+    Returns:
+        BufferedFileStorage: A buffered writable file descriptor
+    '''
+    a = 2
+
+    return a
+
 
 def set(parent,childname,**kwargs):
     '''
@@ -1438,5 +1453,5 @@ def sortListsUsingSortOrderOfFirstList(*arraysOrLists):
             NewArray = [a[i] for i in SortInd]
 
         NewArrays.append( NewArray )
-        
+
     return NewArrays
