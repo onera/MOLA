@@ -257,8 +257,11 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
     FluidProperties = computeFluidProperties()
     ReferenceValues = computeReferenceValues(FluidProperties,
                                              **ReferenceValuesParams)
-    NProc = max(D2.getProcList(t))+1
-    ReferenceValues['NProc'] = int(NProc)                                             
+    ProcList = D2.getProcList(t)
+    print(ProcList)
+    sys.exit()
+    NProc = max(D2.getProcList(t))
+    ReferenceValues['NProc'] = int(NProc)
     elsAkeysCFD      = getElsAkeysCFD()
     elsAkeysModel    = getElsAkeysModel(FluidProperties, ReferenceValues)
     if BodyForceInputData: NumericalParams['useBodyForce'] = True
