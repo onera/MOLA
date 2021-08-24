@@ -87,3 +87,113 @@ def new(t, FieldNames, Container='FlowSolution', LocationIfAbsent='Vertex'):
             fields.append( field )
 
     return fields
+
+def get(t, FieldsNames=[], Container='FlowSolution', OutputObject='list',
+        NumpyAsVector=False):
+    '''
+    Get the the pointers of numpy arrays of all (or some requested)
+    fields of a CGNS component.
+
+    INPUTS
+
+    t - (PyTree, Base, zone, list of zones) - Element with zones where numpy
+        pointers are requested
+
+    FieldNames - (list of strings) - list of field names to get. If the list
+        is empty, then all suitable fields found at the container are returned.
+
+    Container - (string) - Name of the container (FlowSolution_t type) where the
+        fields are found
+
+    OutputObject - (string) - Choose the kind of output object returned:
+
+        'list': a single list including all numpy arrays, as found from the
+            top-down structure of the user-provided input <t>. Example:
+
+                [numpy.ndarray, numpy.ndarray, numpy.ndarray, ...]
+
+        'dict': a single dictionary whose values are the corresponding numpy
+            arrays. ONLY SUITABLE FOR A SINGLE ZONE. Example:
+
+                    OutputDict[<fieldname>] = numpy.ndarray
+
+        'dictWithZoneNames': a dictionary of dictionaries. First key is the
+            corresponding zone name (must be unique!). Second key corresponds
+            to the field name. Example:
+
+            OutputDict[<ZoneName>][<fieldname>] = numpy.ndarray
+
+    NumpyAsVector - (boolean) - if True, returns a 1D (ravel) view of the numpy
+        array
+
+    OUTPUTS
+
+    list or dictionary of numpy arrays. See OutputObject attribute for more
+    information
+    '''
+    zones = I.getZones(t)
+    ZonesQty =  len(zones)
+
+    getAllFields = True if not FieldNames else False
+
+    if OutputObject == 'list':
+        out = []
+        for z in zones:
+            FlowSol = I.getNodeFromName1(z, Container)
+            if getAllFields:
+                for fieldNode in FlowSol[2]:
+                    if fieldNode[3] != 'DataArray_t': continue
+                    if NumpyAsVector: out.append(fieldNode[1].ravel(order='K'))
+                    else: out.append(fieldNode[1])
+            else:
+                for fieldNode in FlowSol[2]:
+                    if fieldNode[0] not in FieldsNames: continue
+                    if NumpyAsVector: out.append(fieldNode[1].ravel(order='K'))
+                    else: out.append(fieldNode[1])
+
+    if OutputObject == 'dict':
+        if ZonesQty > 1: raise AttributeError('More than one zone exist. Cannot use OutputObject="dict"')
+        out = {}
+        FlowSol = I.getNodeFromName1(zones[0], Container)
+        if getAllFields:
+            for fieldNode in FlowSol[2]:
+                if fieldNode[3] != 'DataArray_t': continue
+                fieldname = fieldNode[0]
+                if NumpyAsVector:
+                    out[fieldname] = fieldNode[1].ravel(order='K'))
+                else:
+                    out[fieldname] = fieldNode[1]
+        else:
+            for fieldname in FieldsNames:
+                fieldNode = I.getNodeFromName1(FlowSol, fieldname)
+                if NumpyAsVector:
+                    out[fieldname] = fieldNode[1].ravel(order='K'))
+                else:
+                    out[fieldname] = fieldNode[1]
+
+    elif OutputObject == 'dictWithZoneNames':
+        out = {}
+        for z in zones:
+            ZoneName = z[0]
+            out[ZoneName] = {}
+            FlowSol = I.getNodeFromName1(z, Container)
+            if getAllFields:
+                for fieldNode in FlowSol[2]:
+                    if fieldNode[3] != 'DataArray_t': continue
+                    fieldname = fieldNode[0]
+                    if NumpyAsVector:
+                        out[ZoneName][fieldname] = fieldNode[1].ravel(order='K')
+                    else:
+                        out[ZoneName][fieldname] = fieldNode[1]
+            else:
+                for fieldname in FieldsNames:
+                    fieldNode = I.getNodeFromName1(FlowSol, fieldname)
+                    if NumpyAsVector:
+                        out[ZoneName][fieldname] = fieldNode[1].ravel(order='K')
+                    else:
+                        out[ZoneName][fieldname] = fieldNode[1]
+
+    else:
+        raise AttributeError('OutputObject %s not recognized'%OutputObject)
+
+    return out
