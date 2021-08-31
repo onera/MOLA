@@ -44,42 +44,60 @@ def sweepSections(sections=[], SpanPositions=None,
     This function builds a sweep surface from a given profile, or a set of
     profiles, throughout a spine. The result is a structured surface.
 
-    sections : List of sections that will be used to sweep around the spine.
-    Beware that the total number of points of each section must be the same.
+    Parameters
+    ----------
 
-    SpanPositions : Vector between 0 and 1, with the same number of elements as
-    the number of sections. It is used to place each section at the desired
-    position along the spine. If not provided, sections are distributed
-    uniformely.
+        sections : :py:class:`list` of zone
+            List of sections that will be used to sweep around the **spine**.
+            They are structured curves.
+            Beware that the total number of points of each section must be the
+            same. The orientation of the section must be the same too.
 
-    rotation : Vector of twist angles imposed to the profiles along the spine.
-    You may use a single value, and the imposed rotation will be the same
-    throughout the spine. You may use only two values, and the rotation will be
-    distributed linearly from start to end. You may use the same number of values
-    as the number of sections, then the twist angle is imposed following the law
-    (rotationLaw) at each section's position.
+            .. attention:: **sections** are supposed to be at **XY** plane
 
-    rotationLaw : It controls the law imposed to interpolate the rotation
-    between two sections. Can be 'linear', 'nearest', 'zero', 'slinear',
-    'quadratic' or 'cubic'.
+        SpanPositions : numpy 1D array between 0 and 1
+            It must have the same number of elements as the number of sections.
+            It is used to place each section at the desired position along the
+            **spine**. If not provided, sections are distributed uniformely.
 
-    NormalDirection : 3 element vector describing the extrusion orientation
-    used to find the local reference frame. As the sections are supposed to be
-    placed in the XY plane, this vector will typically be (0,0,1).
+        rotation : numpy 1D array
+            Vector of twist angles imposed to the profiles along the spine.
+            You may use a single value, and the imposed rotation will be the
+            same throughout the spine. You may use only two values, and the
+            rotation will be distributed linearly from start to end. You may use
+            the same number of values as the number of sections, then the twist
+            angle is imposed following the law defined by user **rotationLaw**
+            at each section's position.
 
-    spine : 1D curve where the sections will be swept along. The spine-wise
-    discretization is exactly the same as the node distribution of the spine.
-    Hence, if you wish to control the discretization along the spine, change
-    your spine preferrably with linelaw or splinelaw.
+        rotationLaw : str
+            It controls the law imposed to interpolate the rotation
+            between two sections. Possible values:
+            ``'linear'``, ``'nearest'``, ``'zero'``, ``'slinear'``,
+            ``'quadratic'`` or ``'cubic'``.
 
-    sectionShapeLaw : It controls the law imposed to interpolate the airfoils
-    between two sections. Can be 'linear', 'nearest', 'zero', 'slinear',
-    'quadratic' or 'cubic'.
-    ______________
-    Important note: We suppose that the input sections are positioned in the
-    XY plane. The reference point from which the rotation
-    angles are applied is the origin (0,0,0). If you wish to re-position
-    this reference, you may apply a translation to the sections beforehand.
+        NormalDirection : 3-element :py:class:`tuple` of :py:class:`float`
+            Vector describing the extrusion orientation used to find the local
+            reference frame. As the sections are supposed to be
+            placed in the XY plane, this vector will typically be ``(0,0,1)``.
+
+        spine : zone
+            structured curve where the sections will be swept along.
+            The spine-wise discretization is exactly the same as the node
+            distribution of the spine.
+
+            .. hint:: if you wish to control de discretization of the spine,
+                you may want to use :py:func:`MOLA.Wireframe.discretize`
+
+        sectionShapeLaw : str
+            It controls the law imposed to interpolate the airfoils
+            between two sections. Possible values:
+            ``'linear'``, ``'nearest'``, ``'zero'``, ``'slinear'``,
+            ``'quadratic'`` or ``'cubic'``.
+
+    .. important:: We suppose that the input sections are positioned in the
+        XY plane. The reference point from which the rotation
+        angles are applied is the origin (0,0,0). If you wish to re-position
+        this reference, you may apply a translation to the sections beforehand.
     '''
     NormalDirection = np.array(NormalDirection,dtype=np.float64)
 
@@ -169,7 +187,7 @@ def sweepSections(sections=[], SpanPositions=None,
 
 def stackSections(Sections):
     """
-    TODO: Make documentation
+    .. warning:: this function must be replaced by ``G.stack()``
     """
     Nj = len(Sections)
     Ni = C.getNPts(Sections[0])
@@ -196,82 +214,124 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
     trailing edge points roughly in (-X) direction, and top side of airfoils
     point towards roughly (+Y direction).
 
-    INPUTS
+    Parameters
+    ----------
 
-    Span - (numpy 1D vector, list, W.linelaw compatible distribution dictionary,
-        or 1D CGNS zone) - This polymorphic input is used to infer the spanwise
-        dimensions and discretization that new wing surface will use.
-        Typical use is np.linspace(MinimumSpan, MaximumSpan, NbOfSpanwisePoints)
-        For detailed information on possible inputs of Span, please see
-        MOLA.InternalShortcuts getDistributionFromHeterogeneousInput__() doc.
+        Span : multiple types accepted
+            This polymorphic input is used to infer the spanwise
+            dimensions and discretization that new wing surface will use.
+            It shall start at wing's root (minimum span) and end at wing's tip
+            (maximum span).
 
-    ChordRelRef - (float) - This is the stacking point for the sections. Twist
-        law is applied with respect to this reference, as well as sweep and
-        dihedral laws.
+            For detailed information on possible inputs of Span, please refer to
+            :py:func:`MOLA.InternalShortcuts.getDistributionFromHeterogeneousInput__` doc.
 
-    NPtsTrailingEdge - (integer) - If provided sections are open at trailing
-        edge, this parameter is used for discretizing the gap distance at
-        trailing edge.
+            For example, a wing starting at :math:`\mathrm{root} =1 \,\mathrm{m}` and ending at
+            :math:`\mathrm{tip} =10 \,\mathrm{m}`, with uniform discretization using 101 points would
+            be obtained using:
 
-    AvoidAirfoilModification - (boolean) - If True, the user-provided airfoils
-        are merely interpolated, scaled and rotated, in order to position each
-        section at its corresponding place. This requires that the user-provided
-        airfoils must be placed on XY plane, with leading edge situated at (0,0)
-        and trailing edge at (1,0), with top side at greater Y-coordinates and
-        oriented clockwise starting from trailing edge. Moreover, all airfoils
-        shall yield the same number of points (beware that the final wing
-        distribution will use this discretization).
+            >>> Span = np.linspace(1, 10, 101)
 
-        If False, then the aforementioned constraints are not compulsory, and
-        spanwise airfoil-modification laws can be provided. However, surface
-        construction will take longer, as automatic detection of top and bottom
-        sides (and other characteristics) of each section is performed.
+        ChordRelRef : float
+            This is the stacking point for the sections. Twist law is applied
+            with respect to this reference, as well as sweep and dihedral laws.
+            Typical practice is using the quart of chord line (:math:`c/4`), which
+            is obtained setting:
 
-    splitAirfoilOptions - (Python dictionary) - Parameters to be passed to
-        MOLA.Wireframe splitAirfoil() function required for airfoil modification
-        This is only relevant if AvoidAirfoilModification = False.
-        Their values may determine the accuracy of the automatic determination
-        of the leading and trailing edges of arbitrary airfoil-like geometry.
+            >>> ChordRelRef = 0.25
 
-    kwargs - (pairs of "argument=dictionary" atributes). These are used for
-        providing the spanwise geometrical laws and airfoil sections. Some
-        possible argument names are:
+        NPtsTrailingEdge : int
+            If provided sections are open at trailing edge, this parameter is
+            used for discretizing the gap distance at trailing edge (closing).
 
-        Airfoil=, Chord=, Twist=, Sweep=, Dihedral=
+        AvoidAirfoilModification : bool
+            If ``True``, the user-provided airfoils are interpolated, scaled and
+            rotated, in order to position each section at its corresponding
+            place. This requires that the user-provided airfoils must be placed
+            on **XY** plane, with leading edge situated at ``(0,0)`` and
+            trailing edge at ``(1,0)``, with top side at greater Y-coordinates
+            and oriented **clockwise** starting from trailing edge. Moreover,
+            all airfoils shall yield the same number of points (beware that the
+            final wing distribution will use this discretization).
 
-        Additional argument names are acceptable if the parameter
-        AvoidAirfoilModification=False and they are supported as
-        MOLA.Wireframe modifyAirfoil() function inputs:
+            If ``False``, then the aforementioned constraints are not
+            compulsory, and spanwise airfoil-modification laws can be provided.
+            However, surface construction will take longer, as automatic
+            detection of top and bottom sides (and other characteristics) of
+            each section is performed.
 
-        MaxThickness=, MaxRelativeThickness=, MaxThicknessRelativeLocation=,
-        MaxCamber=, MaxRelativeCamber=, MaxCamberRelativeLocation=, MinCamber=,
-        MinRelativeCamber=, MinCamberRelativeLocation=
+            .. hint:: using **AvoidAirfoilModification** = ``True`` is faster and
+                more robust, but one cannot modify airfoils following its
+                properties (like thickness, camber, etc...)
 
-        Any geometrical law, employs the same input interface based in standard
-        Python dictionaries. For example:
+        splitAirfoilOptions : dict
+            Parameters to be passed to :py:func:`MOLA.Wireframe.splitAirfoil`
+            required for airfoil modifications.
+            This is only relevant if **AvoidAirfoilModification** = ``False``.
+            Their values may determine the accuracy of the automatic computation
+            of the leading and trailing edges of arbitrary airfoil-like geometry.
 
-            Twist = dict(RelativeSpan = [0.2,  0.6,  1.0],
-                                Twist = [30.,  6.0, -7.0],
-                         InterpolationLaw = 'akima')
+        kwargs : additional parameters
+            These are used for providing the spanwise geometrical laws and
+            airfoil sections. Some possible argument names are:
 
-        Note that arguments name (here, Twist) is repeated in both the
-        function's argument name and its dictionary element.
+            ``Airfoil=, Chord=, Twist=, Sweep=, Dihedral=``
 
-        InterpolationLaw may be any supported by MOLA.InternalShortcuts
-        interpolate__() function.
+            Additional argument names are acceptable if the parameter
+            **AvoidAirfoilModification** = ``False`` and they are supported in
+            :py:func:`MOLA.Wireframe.modifyAirfoil` function, like for example:
 
-        For the special case of Airfoil input, each provided element must be a
-        1D zone. For example:
+            ::
 
-        NACA4412 = W.airfoil('NACA4412', ClosedTolerance=0)
-        AirfoilsDict = dict(RelativeSpan     = [  0.20,     1.000],
-                            Airfoil          = [NACA4412,  NACA4412],
-                            InterpolationLaw = 'rectbivariatespline_1')
-        And in this case, InterpolationLaw must be rectbivariatespline_X
-        replacing X with the desired order of interpolation.
+                MaxThickness MaxRelativeThickness MaxThicknessRelativeLocation
+                MaxCamber MaxRelativeCamber MaxCamberRelativeLocation MinCamber
+                MinRelativeCamber MinCamberRelativeLocation
 
-        NOTE: Airfoil's geomatrical interpolation functions are not correlated
-        to interpolate__() accepted laws.
+            All *geometrical laws* employ the same input interface based in
+            standard Python dictionaries. For example:
+
+            ::
+
+                Twist = dict(RelativeSpan = [0.2,  0.6,  1.0],
+                                    Twist = [30.,  6.0, -7.0],
+                             InterpolationLaw = 'akima')
+
+            Note that arguments name (here, **Twist**) is repeated in both the
+            function's argument name and its dictionary element.
+
+            **InterpolationLaw** may be any supported by
+            :py:func:`MOLA.InternalShortcuts.interpolate__` function.
+
+            For the special case of **Airfoil** input, each provided element
+            must be a 1D zone. For example:
+
+            ::
+
+                NACA4412 = W.airfoil('NACA4412', ClosedTolerance=0)
+                AirfoilsDict = dict(RelativeSpan     = [  0.20,     1.000],
+                                    Airfoil          = [NACA4412,  NACA4412],
+                                    InterpolationLaw = 'rectbivariatespline_1')
+
+            And in this case, **InterpolationLaw** must be
+            ``rectbivariatespline_X`` replacing ``X`` with the desired order of
+            interpolation (1, 2, 3...).
+
+            .. note:: Airfoil's geometrical interpolation functions are **not**
+                provided by :py:func:`MOLA.InternalShortcuts.interpolate__`
+                accepted laws.
+
+    Returns
+    -------
+
+        Sections : :py:class:`list` of zone
+            list of spanwise sections defining the wing
+
+        Wing : zone
+            structured surface defining the wing
+
+        DistributionResult : dict
+            dictionary containing the resulting geometrical laws as 1D numpy
+            arrays with same dimensions
     '''
 
     import scipy.interpolate
@@ -555,7 +615,7 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
         SecZ = J.getz(Section)
         SecZ[:] = -WingSpan[j]
 
-    Wing = stackSections(Sections)
+    Wing = stackSections(Sections) # TODO replace with G.stack
     Wing[0] = 'wing'
 
     AirfoilProperties = J.get(Sections[0], '.AirfoilProperties')
@@ -573,26 +633,36 @@ def extendBlockByTFI2D(cart, distrib, reverse=False, angleSplit=20.,
     (2D function) given a desired distribution. The resulting
     mesh is of kind H.
 
-    INPUTS
+    Parameters
+    ----------
 
-    cart - (zone) - Zone 2D structured
+        cart : zone
+            Zone 2D structured
 
-    distrib - (zone) - Zone Structured curve 1D. Shall be an horizontal
-        line starting at (0,0,0), as obtained from D.getDistribution()
+        distrib : zone
+            Zone Structured curve 1D. Shall be an horizontal
+            line starting at (0,0,0), as obtained from
+            :py:func:`D.getDistribution()`
 
-    reverse - (boolean) - Used to change the orientation of boundary
+        reverse : bool
+            Used to change the orientation of boundary
 
-    angleSplit - (float) - Angle (degrees) of threshold for the
-        definition of the contour of cart.
+        angleSplit : float
+            Angle (degrees) of threshold for the definition of the contour of
+            cart.
 
-    boundaryKind - (string) - Shall be 'Line' or 'Arc'. Defines the
-        geometry of the external boundary of the resulting mesh.
+        boundaryKind : str
+            Shall be ``'Line'`` or ``'Arc'``. Defines the
+            geometry of the external boundary of the resulting mesh.
 
-    OUTPUTS
+    Returns
+    -------
 
-    t - (PyTree) - with a base and several zones of the resulting mesh.
+        t : PyTree
+            with a base and several zones of the resulting mesh.
 
-    ExternalFaces - (list of zones) - The contour of the external boundary.
+        ExternalFaces : :py:class:`list` of zones
+            The contour of the external boundary.
     '''
     ef = P.exteriorFaces(cart)
     ef = C.convertBAR2Struct(ef)
@@ -681,47 +751,63 @@ def getSuitableSetOfPointsForTFITri(N1, N2, N3,
         tellMeWhatYouDo=False):
     '''
     The function returns a new set of suitable number of points that
-    best matches the user-provided ones, such that Generator.TFITri() can be
-    performed.
+    best matches the user-provided ones, such that :py:func:`Generator.TFITri`
+    can be performed.
 
-    INPUTS
+    Parameters
+    ----------
 
-    N1 - (integer) - Initial guess of number of points discritizing the first
-        curve (boundary) of the TFITri contour.
+        N1 : int
+            Initial guess of number of points discritizing the first
+            curve (boundary) of the TFITri contour.
 
-    N2 - (integer) - Initial guess of number of points discritizing the second
-        curve (boundary) of the TFITri contour.
+        N2 : int
+            Initial guess of number of points discritizing the second
+            curve (boundary) of the TFITri contour.
 
-    N3 - (integer) - Initial guess of number of points discritizing the third
-        curve (boundary) of the TFITri contour.
+        N3 : int
+            Initial guess of number of points discritizing the third
+            curve (boundary) of the TFITri contour.
 
-    choosePriority - (list of strings) - list of priority (descending order) for
-        proposing a new set of suitable G.TFITri() points. Possible choices:
-        'N1' - Attempt to respect provided N1 by adapting N2 and N3
-        'N2' - Attempt to respect provided N2 by adapting N1 and N3
-        'N3' - Attempt to respect provided N3 by adapting N1 and N2
-        'best' - Adapt N1, N2 and N3, as closely as possible from provided ones
+        choosePriority : :py:class:`list` of :py:class:`str`
+            list of priority (descending order) for
+            proposing a new set of suitable :py:func:`G.TFITri` points.
+            Possible choices:
 
-    QtySearch - (integer) - Initial amount of points (plus and minus) allowed for
-        adaptation of new set of number of points. The higher the value, the
-        more costly the search procedure is, but best chances exist of finding
-        a suitable set of number of points. If no suitable set is found within
-        the initial QtySearch, the algorithm recursively calls itself adding 1
-        at each call, in order to have best chances of finding a suitable set
+            * ``'N1'`` : Attempt to respect provided **N1** by adapting **N2** and **N3**
 
-    tellMeWhatYouDo - (boolean) - if True, the function prints relevant
-        information about the adaptation of points
+            * ``'N2'`` : Attempt to respect provided **N2** by adapting **N1** and **N3**
 
-    OUTPUTS
+            * ``'N3'`` : Attempt to respect provided **N3** by adapting **N1** and **N2**
 
-    N1new - (integer) - New suitable proposal of number of points discritizing
-        the first curve (boundary) of the TFITri contour.
+            * ``'best'`` : Adapt **N1**, **N2** and **N3**, as closely as possible from provided ones
 
-    N2new - (integer) - New suitable proposal of number of points discritizing
-        the second curve (boundary) of the TFITri contour.
+        QtySearch : int
+            Initial amount of points (plus and minus) allowed for
+            adaptation of new set of number of points. The higher the value, the
+            more costly the search procedure is, but best chances exist of finding
+            a suitable set of number of points. If no suitable set is found within
+            the initial **QtySearch**, the algorithm recursively calls itself adding 1
+            at each call, in order to have best chances of finding a suitable set
 
-    N3new - (integer) - New suitable proposal of number of points discritizing
-        the third curve (boundary) of the TFITri contour.
+        tellMeWhatYouDo : bool
+            if ``True``, the function prints relevant information about the
+            adaptation of points
+
+    Returns
+    -------
+
+        N1new : :py:class:`int`
+            New suitable proposal of number of points discritizing
+            the first curve (boundary) of the TFITri contour.
+
+        N2new : :py:class:`int`
+            New suitable proposal of number of points discritizing
+            the second curve (boundary) of the TFITri contour.
+
+        N3new : :py:class:`int`
+            New suitable proposal of number of points discritizing
+            the third curve (boundary) of the TFITri contour.
     '''
 
     Check0 = (N3-N2+N1)%2 == 1
@@ -843,38 +929,52 @@ def closeAirfoil(Airfoil, Topology='ThickTE_simple', options=dict(NPtsUnion=21,
     This function is useful for closing the tip of wings or blades, or even for
     meshing the interior of a wing or blade (for thermal or structural analysis)
 
-    INPUTS
+    Parameters
+    ----------
 
-    Airfoil - (zone) - 1D PyTree structured zone.
+        Airfoil : zone
+            1D PyTree structured zone.
 
-    Topology - (string) - Choose the kind of topology for meshing the interior
-        of the airfoil:
+        Topology : str
+            Choose the kind of topology for meshing the interior
+            of the airfoil:
 
-        'SharpTE_TFITri': Suitable for sharp Trailing Edge. Relevant options:
+            * ``'SharpTE_TFITri'``:
+                Suitable for sharp Trailing Edge. Relevant **options**:
 
-            NPtsUnion - (integer) - Number of points across the airfoil.
+                * NPtsUnion : :py:class:`int`
+                    Number of points across the airfoil.
 
-            TFITriAbscissa - (float) - Curvilinear-abscissa reference (between
-                0 and 1) up to where the TRI TFI will be performed from the
-                i=0 point (usually, the trailing edge).
+                * TFITriAbscissa : :py:class:`float`
+                    Curvilinear-abscissa reference (between
+                    0 and 1) up to where the TRI TFI will be performed from the
+                    ``i=0`` point (usually, the trailing edge).
 
+            * ``'ThickTE_simple'``:
+                    Suitable for thick Trailing Edge (open airfoil).
+                    Build a single TFI based on the 4 boundaries defined using the
+                    Trailing Edge as one boundary. Relevant **options**:
 
-        'ThickTE_simple': Suitable for thick Trailing Edge (open airfoil).
-                Build a single TFI based on the 4 boundaries defined using the
-                Trailing Edge as one boundary. Relevant options:
+                    * TEdetectionAngleThreshold : :py:class:`float`
+                        If provided, use
+                        this value as the threshold angle (degrees) used for split
+                        Trailing Edge curve from the rest of the airfoil. If not
+                        provided (None) then uses **NPtsUnion** as reference (see next)
 
-                TEdetectionAngleThreshold - (float or None) - If provided, use
-                    this value as the threshold angle (degrees) used for split
-                    Trailing Edge curve from the rest of the airfoil. If not
-                    provided (None) then uses NPtsUnion as reference (see next)
+                    * NPtsUnion : :py:class:`int`
+                        Only relevant if value of None is given
+                        to **TEdetectionAngleThreshold**. It uses this amount of points
+                        for splitting top/bottom sides of the airfoil and building
+                        Leading Edge and Trailing Edge curves.
 
-                NPtsUnion - (integer) - Only relevant if value of None is given
-                    to TEdetectionAngleThreshold. It uses this amount of points
-                    for splitting top/bottom sides of the airfoil and building
-                    Leading Edge and Trailing Edge curves.
+        options : dict
+            Contextual arguments (see **Topology** for relevant options)
 
-    options - (Python dictionary) - Contextual arguments (see Topology for
-        relevant options)
+    Returns
+    -------
+
+        ClosedZones : :py:class:`list` of zone
+            list of surfaces representing the closed region inside the airfoil
     '''
     NPts = C.getNPts(Airfoil)
     s = W.gets(Airfoil)
@@ -1005,38 +1105,45 @@ def multiSections(ProvidedSections, SpineDiscretization,
     This function makes a sweep across a list of provided sections (curves)
     that are exactly placed in 3D space (passing points).
 
-    INPUTS
+    Parameters
+    ----------
 
-    ProvidedSections - (list of zones) - each zone must be a 1D structured curve
-        All provided sections must have the same number of points. Also, they
-        shall have the same index ordering, in order to avoid self-intersecting
-        resulting surface. Each one of the provided sections must be exactly
-        placed in 3D space at the passing points where the new surface will be
-        pass across. Bad results can be expected if some sections are coplanar.
+        ProvidedSections : :py:class:`list` of zones
+            each zone must be a 1D structured curve
+            All provided sections must have the same number of points. Also, they
+            shall have the same index ordering, in order to avoid self-intersecting
+            resulting surface. Each one of the provided sections must be exactly
+            placed in 3D space at the passing points where the new surface will be
+            pass across. Bad results can be expected if some sections are coplanar.
 
-    SpineDiscretization - (numpy 1d array or zone) - This is a polymorphic
-        argument that provides information on how to discretize the spine of
-        the surface to build. If it is a numpy 1D, it shall be a monotonically
-        increasing vector between 0 and 1. If it is a zone, it must be a 1D
-        structured curve, and the algorithm will extract its distribution for
-        use it as SpineDiscretization.
+        SpineDiscretization : numpy 1d array or zone
+            This is a polymorphic
+            argument that provides information on how to discretize the spine of
+            the surface to build. If it is a numpy 1D, it shall be a monotonically
+            increasing vector between 0 and 1. If it is a zone, it must be a 1D
+            structured curve, and the algorithm will extract its distribution for
+            use it as **SpineDiscretization**.
 
-    InterpolationData - (python dictionary) - This is a dictionary that contains
-        options for the interpolation process. Relevant options:
-        InterpolationLaw - (string) - Indicates the interpolation law to be
-            employed when constructing the surface. Interpolation is performed
-            index-by-index of each point of the provided surface coordinates.
-            The interpolation abscissa is the SpineDiscretization, whereas the
-            interpolated quantities are the grid coordinates.
+        InterpolationData : dict
+            This is a dictionary that contains
+            options for the interpolation process. Relevant options:
 
-    OUTPUTS
+            * InterpolationLaw : :py:class:`str`
+                Indicates the interpolation law to be
+                employed when constructing the surface. Interpolation is performed
+                index-by-index of each point of the provided surface coordinates.
+                The interpolation abscissa is the SpineDiscretization, whereas the
+                interpolated quantities are the grid coordinates.
 
-    Surface - (zone) - 2D structured surface of the surface that passes across
-        all the user-provided sections.
+    Returns
+    -------
 
-    SpineCurve - (zone) - 1D structured curve corresponding to the spine of the
-        surface.
+        Surface : zone
+            2D structured surface of the surface that passes across
+            all the user-provided sections.
 
+        SpineCurve : zone
+            1D structured curve corresponding to the spine of the surface.
     '''
     AllowedInterpolationLaws = ('interp1d_<KindOfInterpolation>', 'pchip',
                                 'akima', 'cubic')
@@ -1159,7 +1266,7 @@ def multiSections(ProvidedSections, SpineDiscretization,
 
 
 
-    Surface = stackSections(Sections)
+    Surface = stackSections(Sections) # TODO replace with G.stack
 
     return Surface, SpineCurve
 
@@ -1173,34 +1280,46 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
     infer the airfoils and its camber lines, as well as getting the blade's
     geometrical laws.
 
-    INPUTS
-    BladeSurface - (PyTree) - Tree containing the blade surface. It can be
-        mono- or multi-block, unstructured or structured or both.
+    Parameters
+    ----------
 
-    RelativeSpanDistribution - (1D numpy array) - array between 0 and 1 used to
-        discretize the scanner distribution
+        BladeSurface : PyTree
+            Tree containing the blade surface. It can be
+            mono- or multi-block, unstructured or structured, or both.
 
-    RotationCenter - (3-float array) - coordinates of the blade rotation center
+        RelativeSpanDistribution : 1D numpy array
+            array between 0 and 1 used to discretize the scanner distribution
 
-    RotationAxis - (3-float array) - unit vector specifying the rotation
-        direction of the blade using right-hand rule convention
+        RotationCenter : 3-:py:class:`float` array
+            coordinates of the blade rotation center
 
-    BladeDirection - (3-float array) - unit vector specifying the orientation of
-        the blade. Scanner is made perpendicular to this direction
+        RotationAxis : 3-:py:class:`float` array
+            unit vector specifying the rotation
+            direction of the blade using right-hand rule convention
 
-    RelativeChordReference (float) between 0 and 1 (0.25 recommended) is the
-        stacking reference of section's chord. Inferred geometrical laws are
-        meaningful considering the stacking RelativeChordReference.
+        BladeDirection : 3-:py:class:`float` array
+            unit vector specifying the orientation of
+            the blade. Scanner is made perpendicular to this direction
 
-    buildCamberOptions (dictionary) - Optional argument passed to W.buildCamber
-        function. Parameters may influence precision of the geometrical laws
+        RelativeChordReference : float
+            stacking reference of section's chord. Typical value is 0.25.
+            Inferred geometrical laws are meaningful considering the stacking
+            **RelativeChordReference**.
 
-    splitAirfoilOptions (dictionary) - Optional argument passed to
-        W.splitAirfoil function. Parameters may influence precision of the
-        resulting geometrical laws
+        buildCamberOptions : dict
+            Optional argument passed to :py:func:`MOLA.Wireframe.buildCamber`
+            function. Parameters may influence precision of the geometrical laws
 
-    OUTPUT
-        ScannerPyTree - PyTree containing the BladeSurface, the BladeLine,
+        splitAirfoilOptions : dict
+            Optional argument passed to :py:func:`MOLA.Wireframe.splitAirfoil`
+            function. Parameters may influence precision of the resulting
+            geometrical laws
+
+    Returns
+    -------
+
+        ScannerPyTree : PyTree
+            contains the *BladeSurface*, the *BladeLine*,
             the sections and its cambers; and normalized airfoils and cambers
     '''
 
@@ -1327,43 +1446,62 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
 def getBoundary(zone,window='imin',layer=0):
     '''
     Given a structured zone, extract the window corresponding to
-    'imin', 'imax', 'jmin', 'jmax', 'kmin' or 'kmax'.
-    The optional argument "layer" is used to extract the layer
-    corresponding to (min+layer) or (max-layer), if "layer" is
-    an integer. If layer is a tuple, the function attempts
-    to make a full slice (volume). See the examples section for more
-    details.
+    ``'imin'``, ``'imax'``, ``'jmin'``, ``'jmax'``, ``'kmin'`` or ``'kmax'``.
+    The optional argument **layer** is used to extract the layer
+    corresponding to ``(min+layer)`` or ``(max-layer)``, if **layer** is
+    an :py:class:`int`. If **layer** is a :py:class:`tuple`, the function attempts
+    to make a full slice (volume).
 
-    INPUTS
+    Parameters
+    ----------
 
-    zone - (zone) - PyTree Structured zone (1D, 2D or 3D).
+        zone : zone
+            PyTree Structured zone (1D, 2D or 3D).
 
-    window - (string) - from which window to extract ('imin', 'imax',
-            'jmin', 'jmax', 'kmin' or 'kmax')
+        window : str
+            from which window to extract (``'imin'``, ``'imax'``, ``'jmin'``,
+            ``'jmax'``, ``'kmin'`` or ``'kmax'``)
 
-    layer (integer or 2-float tuple). Possibilities:
-        (integer) extracts (min+layer) or (max-layer)
-        (2-float tuple) -  extracts
-                           (min+layer[0] to min+layer[0])
-                           or
-                           (max-layer[0] to max-layer[1])
+        layer : :py:class:`int` or (:py:class:`int`, :py:class:`int`)
+            Possibilities:
 
-    BEWARE: layer values shall always be positive. Negative values may produce
-        unexpected results.
+            * :py:class:`int`
+                extracts ``(min+layer)`` or ``(max-layer)``
+            * (:py:class:`int`, :py:class:`int`)
+                extracts ``(min+layer[0] to min+layer[0])`` or
+                ``(max-layer[0] to max-layer[1])``
 
-    OUTPUT
+            .. attention:: **layer** values shall always be **positive**
+                *(negative values may produce unexpected results)*
 
-    The extracted window (PyTree zone)
+    Returns
+    -------
+
+        window : zone
+            The extracted window surface or volume
 
 
-    EXAMPLES
-    1. Extract the window kmin:
+    Examples
+    --------
 
-        getBoundary(zone,'kmin')
+    ::
 
-    2. Extract the last 10 layers of i-window:
+        import Converter.PyTree as C
+        import Generator.PyTree as G
+        import MOLA.GenerativeShapeDesign as GSD
 
-        getBoundary(zone,'imax',(0,10))
+        zone = G.cart((0,0,0),(1,1,1),(20,20,20))
+
+        # Extract the window kmin:
+        winK = GSD.getBoundary(zone,'kmin')
+        C.convertPyTree2File(winK, 'surface.cgns')
+
+        # Extract the first 10 layers of i-window:
+        winI = GSD.getBoundary(zone,'imin',(0,10))
+        C.convertPyTree2File(winI, 'volume.cgns')
+
+
+
     '''
     TypeZone,Ni,Nj,Nk,Dim= I.getZoneDim(zone)
 
@@ -1395,18 +1533,23 @@ def getBoundary(zone,window='imin',layer=0):
 
     return Extraction
 
-def _magnetize(zones, magneticzones, tol=1e-10):
+def magnetize(zones, magneticzones, tol=1e-10):
     '''
-    Glues the points of "zones" to the points of "magneticzones"
+    Glues the points of **zones** to the closest points of **magneticzones**
     given a tolerance.
 
-    INPUTS
+    Parameters
+    ----------
 
-    zones - (list of zones) - The zones whose points are to be glued. The zones
-        are modified.
+        zones : :py:class:`list` of zone
+            The zones whose points are to be glued.
 
-    magneticzones - (list of zones) - zones defining the final position where
-        the points of "zones" are to be glued.
+            ..note:: the **zones** are modified.
+
+        magneticzones : :py:class:`list` of zone
+            zones defining the final position where
+            the points of "zones" are to be glued.
+
     '''
     for zone in zones:
         x,y,z = J.getxyz(zone)
@@ -1439,31 +1582,35 @@ def _magnetize(zones, magneticzones, tol=1e-10):
             y[IndicesZone] = my[IndicesMagZone]
             z[IndicesZone] = mz[IndicesMagZone]
 
-    return None
 
-def _prepareGlue(zones,gluezones,tol=1e-10):
+def prepareGlue(zones,gluezones,tol=1e-10):
     '''
-    Add the .glueData nodes that specifies the PointList to glue
-    between the provided "zones" and "gluezones". This function
-    is intended to be used jointly with _applyGlue(), e.g.:
+    Add the .glueData nodes that specifies the ``PointList`` to glue
+    between the provided **zones** and **gluezones**. This function
+    is intended to be used jointly with :py:func:`applyGlue`, e.g.:
 
-    # Add glue information:
-    _prepareGlue(zones,gluezones)
+    Add glue information:
 
-    # User operations that may brake the mesh connection:
-    <Projections, extrusions, etc...>
+    >>> prepareGlue(zones,gluezones)
 
-    # Apply glue information to reconnect the mesh
-    _applyGlue(zones,gluezones)
+    User operations that may brake the mesh connection:
+    *Projections, extrusions, etc...*
 
-    INPUTS:
-    zones = (PyTree Zones) where Glue information will be added
+    Apply glue information to reconnect the mesh
 
-    gluezones = (PyTree Zones) specify the location where the
-    zones will be glued. This is not necessarily the contour.
+    >>> applyGlue(zones,gluezones)
 
-    OUTPUTS:
-    None (in-place function) Modifies "zones".
+    Parameters
+    ----------
+
+        zones : :py:class:`list` of zone
+            where Glue information will be added
+
+            .. note:: **zones** are modified *(* ``.glueData`` *is added)*
+
+        gluezones : :py:class:`list` of zone
+            specify the location where the zones will be glued.
+
     '''
     for zone in zones:
         glueElements = -1
@@ -1505,20 +1652,22 @@ def _prepareGlue(zones,gluezones,tol=1e-10):
 
 
 
-def _applyGlue(zones, gluezones):
+def applyGlue(zones, gluezones):
     """
-    Apply the information contained in .glueData nodes in order
-    to glue "zones" points to "gluezones" locations. For usage
-    see documentation of _prepareGlue().
+    Use the information contained in ``.glueData`` nodes in order
+    to apply glue to points of **zone** towards **gluezones** locations.
+    For usage see documentation of :py:func:`prepareGlue`.
 
-    INPUTS:
-    zones = (PyTree Zones) where Glue information will be added
+    Parameters
+    ----------
 
-    gluezones = (PyTree Zones) specify the location where the
-    zones will be glued. This is not necessarily the contour.
+        zones : :py:class:`list` of zone
+            where Glue information will be added
 
-    OUTPUTS:
-    None (in-place function) Modifies "zones".
+            .. note:: **zones** are modified *(points are displaced)*
+
+        gluezones : :py:class:`list` of zone
+            specify the location where the zones will be glued.
     """
 
     for zone in zones:
@@ -1570,15 +1719,22 @@ def surfacesIntersection(surface1, surface2):
     Compute the intersection between two surfaces, resulting
     in a BAR curve.
 
-    INPUTS:
-    surface1 = PyTree mono or multi-block surface, not
-               necessarily closed nor unstructured.
+    Parameters
+    ----------
 
-    surface2 = PyTree mono or multi-block surface, not
-               necessarily closed nor unstructured.
+        surface1 : zone or :py:class:`list` of zones
+            PyTree mono or multi-block surface, not necessarily closed nor
+            unstructured.
 
-    OUTPUTS:
-    theIntersection = BAR of the intersection
+        surface2 : zone or :py:class:`list` of zones
+            PyTree mono or multi-block surface, not necessarily closed nor
+            unstructured.
+
+    Returns
+    -------
+
+        theIntersection : zone
+            unstructured curve BAR of the intersection
     '''
 
     # Make surfaces mono-block unstructured
@@ -1605,32 +1761,42 @@ def surfacesIntersection(surface1, surface2):
 def extrapolateSurface(Surface, Boundary, SpineDiscretization, mode='tangent',
                        direction=(1,0,0)):
     '''
-    Extrapolate a Surface from a Boundary following a given
-    dimensional ExtrpolateDistribution.
+    Extrapolate a **Surface** from a **Boundary** following a given
+    dimensional extrapolation **direction**.
 
-    INPUTS
+    Parameters
+    ----------
 
-    Surface - Zone PyTree Structured, surface.
+        Surface : zone
+            Structured surface.
 
-    Boundary - One of: 'imin','imax','jmin','jmax'
+        Boundary : str
+            One of: ``'imin','imax','jmin','jmax'``
 
-    SpineDiscretization - 1D numpy array or PyTree curve
-        used to define the position and distance of the new
-        extrapolation sections.
+        SpineDiscretization : 1D numpy array or zone
+            used to define the position and distance of the new
+            extrapolation sections (array or curve)
 
-    mode - (string) - Can be one of:
-        'tangent' = extrapolates the surface tangentially at the selected
-            boundary
+        mode : str
+            Can be one of:
 
-        'directional' = extrapolates the surface following a user-defined
-            direction
+            * ``'tangent'``
+                extrapolates the surface tangentially at the selected
+                boundary
 
-    direction - (3-float tuple) - extrapolation direction. Only relevant
-        if mode='directional'
+            * ``'directional'``
+                extrapolates the surface following a user-defined direction
 
-    OUTPUT
+        direction : 3-:py:class:`float` :py:class:`list`, :py:class:`tuple` or array
+            unitary vector pointing towards the desired extrapolation direction.
 
-    surface - (zone) - New surface including the extrapolation region
+            .. note:: only relevant if **mode** = ``'directional'``
+
+    Returns
+    -------
+
+        surface : zone
+            New surface including the extrapolation region
     '''
 
     # Verify SpineDiscretization argument
@@ -1731,145 +1897,171 @@ def extrapolateSurface(Surface, Boundary, SpineDiscretization, mode='tangent',
 def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
                                   Points={},Cells={},options={}):
     '''
-    Build a 2D mesh around a given airfoil geometry (1D structured).
-    For the moment, only a C-topology of the mesh is employed.
-    This means that trailing edge of the airfoil shall not be rounded.
+    Build a 2D mesh around a given airfoil geometry.
 
-    INPUTS:
+    .. attention:: For the moment, only a C-topology of the mesh is employed
+        (see Cassiopee ticket `6466 <https://elsa.onera.fr/issues/6466>`_).
+        This means that trailing edge of the airfoil **shall not** be rounded.
 
-    airfoilCurve - (1D Structured Zone) - An airfoil positioned in the XY
-        plane -point (0,0) is Leading Edge] and point (1,0) is Trailing Edge-
-        such that index-ordering is clockwise (first index starts from
-        trailing edge of bottom side). Airfoil might be either open or closed
+    .. attention:: poor wall-adjacent cell orthogonality may be produced (
+        see Cassiopee ticket `7517 <https://elsa.onera.fr/issues/7517>`_)
 
+    Parameters
+    ----------
 
-    References - (Python dictionary, OPTIONAL)
-        Reynolds - (float) - Reference Reynolds number used for computation of
-            wall-adjacent cell size following:
-            Frank M. White's Fluid Mechanics 5th Ed., page 467.
+        airfoilCurve : zone
+            An airfoil positioned in the XY plane. The point (0,0) must be the
+            Leading Edge and point (1,0) must be the Trailing Edge.
+            Index-ordering must be **clockwise** (first index starts from
+            trailing edge of bottom side).
+            Airfoil might be either open or closed.
 
-        DeltaYPlus - (float) - Reference Delta Y+ number used for computation of
-            wall-adjacent cell size following:
-            Frank M. White's Fluid Mechanics 5th Ed., page 467.
+        References : dict
+            Relevant keys are:
 
-    Sizes - (Python dictionary, OPTIONAL) - Dictionary describing the sizing
-        of the computational domain. If not provided (or partially provided),
-        then missing information is got from following default values:
+            * Reynolds : :py:class:`float`
+                Reference Reynolds number used for computation of
+                wall-adjacent cell size following:
 
-        Sizes = dict(
-        Height                  = 50.*Chord, # Domain height
+                *Frank M. White's Fluid Mechanics 5th Ed., page 467*
 
-        Wake                    = 50.*Chord, # Domain width
+            * DeltaYPlus : :py:class:`float`
+                Reference :math:`\Delta y^+` number used for computation of
+                wall-adjacent cell size following:
 
-        BoundaryLayerMaxHeight  = 0.1*Chord, # Maximum allowable orthogonal
-                                       # extrusion for Boundary-layer
+                *Frank M. White's Fluid Mechanics 5th Ed., page 467*
 
+        Sizes : dict
+            Dictionary describing the sizing of the computational domain.
+            If not provided (or partially provided),
+            then missing information is got from following default values:
 
-        TrailingEdgeTension     = 0.5*Chord, # Controls the wake direction
-                                       # coming out of Trailing Edge
-                                       # (fraction of Wake)
-        )
+            ::
 
+                Sizes = dict(
+                Height                  = 50.*Chord, # Domain height
 
-    Points - (Python dictionary, OPTIONAL) - Dictionary describing the
-        sampling of the grid. If not provided (or partially provided),
-        then missing information is got from following default values:
+                Wake                    = 50.*Chord, # Domain width
 
-        Points = dict(
-        Extrusion               = 300, # Nb of pts in extrusion direction
+                BoundaryLayerMaxHeight  = 0.1*Chord, # Maximum allowable orthogonal
+                                                     # extrusion for Boundary-layer
 
-        # The following two arguments are used to discretize the airfoil's
-        # Bottom and Top side, using lists of parameters (clockwise
-        # direction). Useful for refinement in shock-wave or bubbles.
-        # NPts (integer) Number of points in interval
-        # BreakPoint(x) (float) Reference breakpoint in x-coordinate where
-        #     JoinCellLength will be imposed
-        # JoinCellLength (float) Cell length to be imposed at BreakPoint
+                TrailingEdgeTension     = 0.5*Chord # controls the wake direction
+                                                     # coming out of Trailing Edge
+                                                     # (fraction of Wake)
+                )
 
-        Bottom=[{'NPts': 70,'BreakPoint(x)':None,'JoinCellLength':None}],
-        Top   =[{'NPts':100,'BreakPoint(x)':None,'JoinCellLength':None}],
+        Points : dict
+            Dictionary describing the
+            sampling of the grid. If not provided (or partially provided),
+            then missing information is got from following default values:
 
-        Wake                    = 200, # Nb of pts in wake's direction
+            ::
 
-        WakeHeightMaxPoints     = 50,  # Maximum allowable Nb of pts in height
-                                       # direction of wake (only relevant if
-                                       # airfoil is open at Trailing Edge)
+                Points = dict(
+                Extrusion               = 300, # Nb of pts in extrusion direction
 
-        BoundaryLayerGrowthRate = 1.05,# Geometrical growth rate for boundary
-                                       # layer extrusion
+                # The following two arguments are used to discretize the airfoil's
+                # Bottom and Top side, using lists of parameters (clockwise
+                # direction). Useful for refinement in shock-wave or bubbles.
+                # NPts (integer) Number of points in interval
+                # BreakPoint(x) (float) Reference breakpoint in x-coordinate where
+                #     JoinCellLength will be imposed
+                # JoinCellLength (float) Cell length to be imposed at BreakPoint
 
-        BoundaryLayerMaxPoints  = 100, # Maximum allowable Nb of pts for
-                                       # boundary-layer extrusion
-        )
+                Bottom=[{'NPts': 70,'BreakPoint(x)':None,'JoinCellLength':None}],
+                Top   =[{'NPts':100,'BreakPoint(x)':None,'JoinCellLength':None}],
 
-    Cells - (Python dictionary, OPTIONAL) - Dictionary describing the
-        cell sizes of the grid. If not provided (or partially provided),
-        then missing information is got from following default values:
+                Wake                    = 200, # Nb of pts in wake's direction
 
-        Cells = dict(
-        TrailingEdge = 0.005*Chord,  # foilwise size of Trailing Edge cell
+                WakeHeightMaxPoints     = 50,  # Maximum allowable Nb of pts in height
+                                               # direction of wake (only relevant if
+                                               # airfoil is open at Trailing Edge)
 
-        LeadingEdge  = 0.0005*Chord, # foilwise size of Leading Edge cell
+                BoundaryLayerGrowthRate = 1.05,# Geometrical growth rate for boundary
+                                               # layer extrusion
 
-        Farfield     = 2.0*Chord,    # normalwise size of Farfield cells
+                BoundaryLayerMaxPoints  = 100, # Maximum allowable Nb of pts for
+                                               # boundary-layer extrusion
+                )
 
-        WakeFarfieldAspectRatio = 0.02, # Aspect ratio of farfield Wake cell
+        Cells : dict
+            Dictionary describing the
+            cell sizes of the grid. If not provided (or partially provided),
+            then missing information is got from following default values:
 
-        LEFarfieldAspectRatio   = 1.0,  # Aspect ratio of farfield cell
-                                        # propagated from Leading Edge
+            ::
 
-        FarfieldAspectRatio     = 0.05, # Aspect ratio of farfield cells
-                                        # propagating from Leading Edge and
-                                        # Trailing Edge
+                Cells = dict(
+                TrailingEdge = 0.005*Chord,  # foilwise size of Trailing Edge cell
 
-        # The following two parameters are only relevant if airfoil is
-        # closed (closed Trailing Edge). They are used to control the
-        # parabolic cell height augmentation from Trailing Edge up to
-        # Wake farfield
-        ClosedWakeAbscissaCtrl  = 0.50, # Wake-wise abscissa control point
-                                        # Must be in (0,1)
+                LeadingEdge  = 0.0005*Chord, # foilwise size of Leading Edge cell
 
-        ClosedWakeAbscissaRatio = 0.25, # Cell Height fraction (of Wake
-                                          farfield height) at the ctrl point
-                                          Must be in (0,1)
+                Farfield     = 2.0*Chord,    # normalwise size of Farfield cells
 
-        )
+                WakeFarfieldAspectRatio = 0.02, # Aspect ratio of farfield Wake cell
 
-    options - (Python dictionary, OPTIONAL) - Dictionary describing the
-        additional grid options . If not provided (or partially provided),
-        then missing information is got from following default values:
+                LEFarfieldAspectRatio   = 1.0,  # Aspect ratio of farfield cell
+                                                # propagated from Leading Edge
 
-        options = dict(
-        NProc=28,                        # Number of blocs for split
+                FarfieldAspectRatio     = 0.05, # Aspect ratio of farfield cells
+                                                # propagating from Leading Edge and
+                                                # Trailing Edge
 
-        DenseSamplingNPts = 5000,         # Number of points for sampling
-                                          # geometrical entities during
-                                          # auxiliary operations
+                # The following two parameters are only relevant if airfoil is
+                # closed (closed Trailing Edge). They are used to control the
+                # parabolic cell height augmentation from Trailing Edge up to
+                # Wake farfield
+                ClosedWakeAbscissaCtrl  = 0.50, # Wake-wise abscissa control point
+                                                # Must be in (0,1)
 
-        LEsearchAbscissas = [0.35, 0.65], # foilwise curvilinear abscissa
-                                          # range of search for Leading Edge
-                                          # point. Should be around 0.5.
+                ClosedWakeAbscissaRatio = 0.25, # Cell Height fraction (of Wake
+                                                  farfield height) at the ctrl point
+                                                  Must be in (0,1)
 
-        LEsearchEpsilon   = 1.e-8,        # Small tolerance criterion for
-                                          # determining the Leading Edge point
+                )
 
-        MappingLaw        = 'cubic',      # Mapping law of the airfoil. For
-                                          # allowable values see doc of:
-                                          # W.discretize() function
+        options : dict
+            Dictionary describing the
+            additional grid options . If not provided (or partially provided),
+            then missing information is got from following default values:
 
-        TEclosureTolerance= 3.e-5,        # Euclidean distance (in chord
-                                          # units) used to determine if
-                                          # provided airfoils is open or
-                                          # closed, which will serve to
-                                          # determine if additional wake
-                                          # zone has to be built or not
-            )
+            ::
 
-    OUTPUT - 2 elements
+                options = dict(
+                NProc=28,                        # Number of blocs for split
 
-    grid - (PyTree) - Including zones, splitting, connectivity, etc
+                DenseSamplingNPts = 5000,         # Number of points for sampling
+                                                  # geometrical entities during
+                                                  # auxiliary operations
 
-    meshParamsDict (dict) - Includes size,pts,cells,opts dictionaries
+                LEsearchAbscissas = [0.35, 0.65], # foilwise curvilinear abscissa
+                                                  # range of search for Leading Edge
+                                                  # point. Should be around 0.5.
+
+                LEsearchEpsilon   = 1.e-8,        # Small tolerance criterion for
+                                                  # determining the Leading Edge point
+
+                MappingLaw        = 'cubic',      # Mapping law of the airfoil. For
+                                                  # allowable values see doc of:
+                                                  # W.discretize() function
+
+                TEclosureTolerance= 3.e-5,        # Euclidean distance (in chord
+                                                  # units) used to determine if
+                                                  # provided airfoils is open or
+                                                  # closed, which will serve to
+                                                  # determine if additional wake
+                                                  # zone has to be built or not
+                    )
+
+    Returns
+    -------
+
+        grid : PyTree
+            Including zones, splitting, connectivity, etc
+
+        meshParamsDict : :py:class:`dict`
+            Includes size,pts,cells,opts dictionaries
     '''
 
     xmax = C.getMaxValue(airfoilCurve,'CoordinateX')
@@ -2613,14 +2805,18 @@ def buildWatertightBodyFromSurfaces(walls):
     Given a set of surfaces, construct a closed watertight surface.
     Resulting surface is unstructured of triangles elements (TRI)
 
-    INPUTS
+    Parameters
+    ----------
 
-    walls - (list of zones) - multiple blocks defining the surface patches of
-        where the body will be supported
+        walls : :py:class:`list` of zone
+            multiple blocks defining the surface patches of
+            where the body will be supported
 
-    OUTPUTS
+    Returns
+    -------
 
-    body - (zone) - watertight body, unstructured (TRI)
+        body : zone
+            watertight body surface unstructured (TRI)
     '''
     tri = convertSurfaces2SingleTriangular(walls)
     body = G.gapsmanager(tri)
@@ -2636,13 +2832,17 @@ def convertSurfaces2SingleTriangular(t):
     Given a set of surfaces, transform them into a single unstructured TRI
     surface (merging).
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree, base, zone, or list of zones) - contains the surfaces to merge
+        t : PyTree, base, zone, or list of zones
+            contains the surfaces to merge
 
-    OUTPUTS
+    Returns
+    -------
 
-    tri - (zone) - a single surface (TRI) connecting all provided surfaces
+        tri : zone
+            a single surface (TRI) connecting all provided surfaces
     '''
     tri = C.convertArray2Tetra(t)
     tri = T.join(tri)
@@ -2658,23 +2858,31 @@ def buildPropellerDisc(Rmin=0.1, Rmax=0.6, NCellRadial=30, NCellQuarter=20,
     '''
     Build a 2D flat propeller disc on XY plane.
 
-    INPUTS
+    Parameters
+    ----------
 
-    Rmin (float) minimum radius of propeller
+        Rmin : float
+            minimum radius of propeller
 
-    Rmax (float) maximum radius of propeller
+        Rmax : float
+            maximum radius of propeller
 
-    NCellRadial (integer) number of radial cells between Rmin and Rmax
+        NCellRadial : int
+            number of radial cells between **Rmin** and **Rmax**
 
-    NCellQuarter (integer) number of azimutal cells in 90 degrees
+        NCellQuarter : int
+            number of azimutal cells in 90 degrees
 
-    ghostHubCartesianFractionFromRmin (float) fraction of Rmin from which
-        middle hub zone (diamond) is constructed and number of connecting cells
-        is computed (recommended value is 0.8)
+        ghostHubCartesianFractionFromRmin : float
+            fraction of **Rmin** from which
+            middle hub zone (diamond) is constructed and number of connecting
+            cells is computed (recommended value is ``0.8``)
 
-    OUTPUTS
+    Returns
+    -------
 
-    t (PyTree) - 2D Propeller disc PyTree
+        t : PyTree
+            2D Propeller disc PyTree
     '''
     def newQuarter(zone, i):
         return T.rotate(zone, (0,0,0),(0,0,1),90.*(i+1))
@@ -2750,19 +2958,26 @@ def buildPropellerDisc(Rmin=0.1, Rmax=0.6, NCellRadial=30, NCellQuarter=20,
 
 def isClosed(surface, tol=1e-8):
     '''
-    Determines if a surface is closed or not. See ticket #7867.
+    Determines if a surface is closed or not.
 
-    INPUT
+    .. hint:: see ticket `7867 <https://elsa.onera.fr/issues/7867>`_
 
-    surface - (PyTree, base, zone, or list of zones) - input surface (or set of
-        surfaces) where the closed topology will be evaluated.
+    Parameters
+    ----------
 
-    tol - (float) - geometrical tolerance to merge points when closing the
-        auxiliary surface used for determining if input is closed.
+        surface : PyTree, base, zone, or list of zones
+            input surface (or set of surfaces) where the closed topology will be
+            evaluated.
 
-    OUTPUT
+        tol : float
+            geometrical tolerance to merge points when closing the
+            auxiliary surface used for determining if input is closed.
 
-    closed - (boolean) - if True, surface topology is closed, False otherwise.
+    Returns
+    -------
+
+        closed : bool
+            if ``True``, surface topology is closed, ``False`` otherwise.
     '''
     # See ticket #7867
     surfTRI = C.convertArray2Tetra(surface)
@@ -2777,17 +2992,20 @@ def isClosed(surface, tol=1e-8):
 
 def getAreas(t):
     '''
-    Compute the area of each surface zone provided by the user.
+    Compute the total area of each surface zone provided by the user.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree, base, zone or list of zones) - object containing exclusively
-        the surfaces whose area will be computed.
+        t : PyTree, base, zone or list of zones
+            object containing exclusively the surfaces whose area will be
+            computed.
 
-    OUTPUT
+    Returns
+    -------
 
-    areas - (list of floats) - the areas of each one of the user-provided
-        surfaces
+        areas : :py:class:`list` of :py:class:`float`
+            the areas of each one of the user-provided surfaces
     '''
     areas = []
     for zone in I.getZones(t):
@@ -2802,20 +3020,24 @@ def filterSurfacesByArea(surfaces, ratio=0.5):
     Distribute a user-provided list of surfaces into two lists (large surfaces
     and small surfaces). Large surfaces are those whose area is bigger than
     the median. If the selection criterion is requested to be different, then
-    user may change the parameter ratio. If ratio=0.5, then the selection
+    user may change the parameter ratio. If ``ratio=0.5``, then the selection
     criterion corresponds to the median.
 
-    INPUTS
+    Parameters
+    ----------
 
-    surfaces - (PyTree, base or list of zones) - inputs surfaces to filter.
+        surfaces : PyTree, base or list of zones
+            inputs surfaces to filter.
 
-    OUTPUTS
+    Returns
+    -------
 
-    LargeSurfaces - (list of zones) - surfaces whose area is greater or equal
-        than ratio*(max(areas)+min(areas))
+        LargeSurfaces : :py:class:`list` of zone
+            surfaces whose area is greater or equal
+            than ``ratio*(max(areas)+min(areas))``
 
-    SmallSurfaces - (list of zones) - surfaces whose area is less than
-        ratio*(max(areas)+min(areas))
+        SmallSurfaces : :py:class:`list` of zone
+            surfaces whose area is less than ``ratio*(max(areas)+min(areas))``
     '''
     surfzones = I.getZones(surfaces)
     areas = getAreas(surfzones)

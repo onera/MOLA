@@ -8,23 +8,6 @@ Helicopter Rotors, Ducted Fans, etc)
 This module makes use of Cassiopee modules.
 
 File history:
-31/07/2020 - v1.8.01 - L. Bernardos - Adapted to J.getNearestZone
-23/05/2020 - v1.8 - L. Bernardos - Shipped to MOLA v1.8
-19/04/2020 - v1.7 - L. Bernardos - Shipped to MOLA v1.7
-05/12/2019 - v1.5 - L. Bernardos - Shipped to MOLA v1.5
-08/11/2019 - v1.4 - L. Bernardos - Shipped to MOLA v1.4
-06/11/2019 - v1.3.01 - L. Bernardos - Module adapted to
-    Python v3.
-30/10/2019 - v1.3 - L. Bernardos - Shipped to MOLA v1.3
-29/10/2019 - v1.2.01 - L. Bernardos - Added optional mode
-    AxisProjectionConstraint to extrudePeriodicProfiles()
-03/10/2019 - v1.2 - L. Bernardos - Corrections on normals
-    orientations in extrudePeriodicProfiles() function.
-    Shipped to MOLA v1.2
-10/09/2019 - v1.1.00 - L. Bernardos - extrudePeriodicProfiles()
-    requires now oriented spinner profile. AxeDir orientation
-    changed on Leading Edge point.
-17/07/2019 - v1.0 - L. Bernardos - Shipped at MOLA v1.0.
 19/03/2019 - v1.0 - L. Bernardos - Creation.
 '''
 
@@ -64,32 +47,34 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
     This user-level function constructs a hub (Propeller's spinner) geometry
     from a user-provided profile (a curve).
 
-    INPUTS
+    Parameters
+    ----------
 
-    Profile - (zone) - curve defining the hub's generator line. It does not
-        need to be coplanar. BEWARE ! indexing of curve must be oriented from
-        leading edge towards trailing edge
+        Profile : zone
+            curve defining the hub's generator line. It does not
+            need to be coplanar. BEWARE ! indexing of curve must be oriented from
+            leading edge towards trailing edge
 
-    AxeCenter - (3-float list) - coordinates of the axis center for the
-        revolution operation [m]
+        AxeCenter - (3-float list) - coordinates of the axis center for the
+            revolution operation [m]
 
-    AxeDir - (3-float list) - unitary vector pointing towards the direction
-        of revolution
+        AxeDir - (3-float list) - unitary vector pointing towards the direction
+            of revolution
 
-    NPsi - (integer) - number of points discretizing the hub
+        NPsi - (integer) - number of points discretizing the hub
 
-    BladeNumberForPeriodic -  (integer) - If provided, then only an angular
-        portion of the hub is constructed, corresponding to the blade number
-        specified by this argument.
+        BladeNumberForPeriodic -  (integer) - If provided, then only an angular
+            portion of the hub is constructed, corresponding to the blade number
+            specified by this argument.
 
-    LeadingEdgeAbscissa - (float) - dimensionless abscissa indicating the point
-        at which leading edge is "cut" in order to perform the diamond join
+        LeadingEdgeAbscissa - (float) - dimensionless abscissa indicating the point
+            at which leading edge is "cut" in order to perform the diamond join
 
-    TrailingEdgeAbscissa - (float) - dimensionless abscissa indicating the point
-        at which trailing edge is "cut" in order to perform the diamond join
+        TrailingEdgeAbscissa - (float) - dimensionless abscissa indicating the point
+            at which trailing edge is "cut" in order to perform the diamond join
 
-    SmoothingParameters - (dictionary) - literally, the parameters passed to
-        T._smooth() function
+        SmoothingParameters - (dictionary) - literally, the parameters passed to
+            T._smooth() function
 
     OUTPUT
 
