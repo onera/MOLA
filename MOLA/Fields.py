@@ -2,9 +2,13 @@
 MOLA 2 - Fields module
 
 Operations on Flow Solution fields
+
+First creation : 23/08/2020 - L. Bernardos
 '''
 
 import numpy as np
+
+import Converter.PyTree as C
 import Converter.Internal as I
 
 def new(t, FieldNames, Container='FlowSolution', LocationIfAbsent='Vertex'):
@@ -88,7 +92,7 @@ def new(t, FieldNames, Container='FlowSolution', LocationIfAbsent='Vertex'):
 
     return fields
 
-def get(t, FieldsNames=[], Container='FlowSolution', OutputObject='list',
+def get(t, FieldNames=[], Container='FlowSolution', OutputObject='list',
         NumpyAsVector=False):
     '''
     Get the the pointers of numpy arrays of all (or some requested)
@@ -151,7 +155,7 @@ def get(t, FieldsNames=[], Container='FlowSolution', OutputObject='list',
                     if NumpyAsVector: out.append(fieldNode[1].ravel(order='K'))
                     else: out.append(fieldNode[1])
 
-    if OutputObject == 'dict':
+    elif OutputObject == 'dict':
         if ZonesQty > 1: raise AttributeError('More than one zone exist. Cannot use OutputObject="dict"')
         out = {}
         FlowSol = I.getNodeFromName1(zones[0], Container)
@@ -160,14 +164,14 @@ def get(t, FieldsNames=[], Container='FlowSolution', OutputObject='list',
                 if fieldNode[3] != 'DataArray_t': continue
                 fieldname = fieldNode[0]
                 if NumpyAsVector:
-                    out[fieldname] = fieldNode[1].ravel(order='K'))
+                    out[fieldname] = fieldNode[1].ravel(order='K')
                 else:
                     out[fieldname] = fieldNode[1]
         else:
             for fieldname in FieldsNames:
                 fieldNode = I.getNodeFromName1(FlowSol, fieldname)
                 if NumpyAsVector:
-                    out[fieldname] = fieldNode[1].ravel(order='K'))
+                    out[fieldname] = fieldNode[1].ravel(order='K')
                 else:
                     out[fieldname] = fieldNode[1]
 
@@ -192,6 +196,94 @@ def get(t, FieldsNames=[], Container='FlowSolution', OutputObject='list',
                         out[ZoneName][fieldname] = fieldNode[1].ravel(order='K')
                     else:
                         out[ZoneName][fieldname] = fieldNode[1]
+
+    else:
+        raise AttributeError('OutputObject %s not recognized'%OutputObject)
+
+    return out
+
+
+def coordinates(t, OutputObject='list', NumpyAsVector=False, AtCenters=False):
+    '''
+    Get the the pointers of numpy arrays of all grid coordinates of a CGNS
+    component.
+
+    INPUTS
+
+    t - (PyTree, Base, zone, list of zones) - Element with zones where numpy
+        pointers are requested
+
+    OutputObject - (string) - Choose the kind of output object returned:
+
+        'list': a single list including all numpy arrays, as found from the
+            top-down structure of the user-provided input <t>. Example:
+
+                [numpy.ndarray, numpy.ndarray, numpy.ndarray, ...]
+
+        'dict': a single dictionary whose values are the corresponding numpy
+            arrays. ONLY SUITABLE FOR A SINGLE ZONE. Example:
+
+                    OutputDict[<coordinatename>] = numpy.ndarray
+
+        'dictWithZoneNames': a dictionary of dictionaries. First key is the
+            corresponding zone name (must be unique!). Second key corresponds
+            to the field name. Example:
+
+            OutputDict[<ZoneName>][<coordinatename>] = numpy.ndarray
+
+    NumpyAsVector - (boolean) - if True, returns a 1D (ravel) view of the numpy
+        array
+
+    AtCenters - (boolean) - if True, cell-centered coordinates are returned
+        by the function. If so, an internal copy is done such that any
+        modification of the returned numpy arrays does not have any impact on
+        the user-provided zones.
+
+    OUTPUTS
+
+    list or dictionary of numpy arrays. See OutputObject attribute for more
+    information
+    '''
+    CoordinateNames = ['CoordinateX', 'CoordinateY', 'CoordinateZ']
+    zones = I.getZones(t)
+    ZonesQty =  len(zones)
+
+    if OutputObject == 'list':
+        out = []
+        for z in zones:
+            if AtCenters: z = C.node2Center(z)
+            GridCoord = I.getNodeFromName1(z, 'GridCoordinates')
+            for coordName in CoordinateNames:
+                coordNode = I.getNodeFromName1(GridCoord, coordName)
+                if NumpyAsVector: out.append(coordNode[1].ravel(order='K'))
+                else: out.append(coordNode[1])
+
+    elif OutputObject == 'dict':
+        if ZonesQty > 1: raise AttributeError('More than one zone exist. Cannot use OutputObject="dict"')
+        out = {}
+        z = zones[0]
+        if AtCenters: z = C.node2Center(z)
+        GridCoord = I.getNodeFromName1(z, 'GridCoordinates')
+        for coordName in CoordinateNames:
+            coordNode = I.getNodeFromName1(GridCoord, coordName)
+            if NumpyAsVector:
+                out[coordName] = coordNode[1].ravel(order='K')
+            else:
+                out[coordName] = coordNode[1]
+
+    elif OutputObject == 'dictWithZoneNames':
+        out = {}
+        for z in zones:
+            if AtCenters: z = C.node2Center(zones[0])
+            ZoneName = z[0]
+            out[ZoneName] = {}
+            GridCoord = I.getNodeFromName1(z, 'GridCoordinates')
+            for coordName in CoordinateNames:
+                coordNode = I.getNodeFromName1(GridCoord, coordName)
+                if NumpyAsVector:
+                    out[ZoneName][coordName] = coordNode[1].ravel(order='K')
+                else:
+                    out[ZoneName][coordName] = coordNode[1]
 
     else:
         raise AttributeError('OutputObject %s not recognized'%OutputObject)

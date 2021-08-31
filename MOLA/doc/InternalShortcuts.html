@@ -1,0 +1,1061 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>InternalShortcuts &#8212; MOLA  documentation</title>
+    
+  <link href="_static/css/theme.css" rel="stylesheet" />
+  <link href="_static/css/index.c5995385ac14fb8791e8eb36b4908be2.css" rel="stylesheet" />
+
+    
+  <link rel="stylesheet"
+    href="_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    
+      
+
+    
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css" />
+    
+  <link rel="preload" as="script" href="_static/js/index.1c5a1a01449ed65a7b51.js">
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/clipboard.min.js"></script>
+    <script src="_static/copybutton.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Wireframe" href="Wireframe.html" />
+    <link rel="prev" title="Welcome to MOLA’s documentation!" href="index.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="en" />
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="80">
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+    <nav class="navbar navbar-light navbar-expand-lg bg-light fixed-top bd-navbar" id="navbar-main"><div class="container-xl">
+
+  <div id="navbar-start">
+    
+    
+<a class="navbar-brand" href="index.html">
+<p class="title">MOLA</p>
+</a>
+
+    
+  </div>
+
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar-collapsible" aria-controls="navbar-collapsible" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+
+  
+  <div id="navbar-collapsible" class="col-lg-9 collapse navbar-collapse">
+    <div id="navbar-center" class="mr-auto">
+      
+      <div class="navbar-center-item">
+        <ul id="navbar-main-elements" class="navbar-nav">
+    <li class="toctree-l1 current active nav-item">
+ <a class="current reference internal nav-link" href="#">
+  InternalShortcuts
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="Wireframe.html">
+  Wireframe
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="GenerativeShapeDesign.html">
+  GenerativeShapeDesign
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="GenerativeVolumeDesign.html">
+  GenerativeVolumeDesign
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="RotatoryWings.html">
+  RotatoryWings
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="Preprocess.html">
+  Preprocess
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="Coprocess.html">
+  Coprocess
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="Postprocess.html">
+  Postprocess
+ </a>
+</li>
+
+    
+</ul>
+      </div>
+      
+    </div>
+
+    <div id="navbar-end">
+      
+      <div class="navbar-end-item">
+        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
+      </ul>
+      </div>
+      
+    </div>
+  </div>
+</div>
+    </nav>
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+            
+            <!-- Only show if we have sidebars configured, else just a small margin  -->
+            <div class="col-12 col-md-3 bd-sidebar"><form class="bd-search d-flex align-items-center" action="search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
+  <div class="bd-toc-item active">
+    
+  </div>
+</nav>
+            </div>
+            
+          
+
+          
+          <div class="d-none d-xl-block col-xl-2 bd-toc">
+            
+              
+              <div class="toc-item">
+                
+
+<nav id="bd-toc-nav">
+    
+</nav>
+              </div>
+              
+              <div class="toc-item">
+                
+              </div>
+              
+            
+          </div>
+          
+
+          
+          
+            
+          
+          <main class="col-12 col-md-9 col-xl-7 py-md-5 pl-md-5 pr-md-4 bd-content" role="main">
+              
+              <div>
+                
+  <div class="section" id="module-MOLA.InternalShortcuts">
+<span id="internalshortcuts"></span><h1>InternalShortcuts<a class="headerlink" href="#module-MOLA.InternalShortcuts" title="Permalink to this headline">¶</a></h1>
+<p>MOLA - InternalShortcuts.py</p>
+<p>This module defines some handy shortcuts of the Cassiopee’s
+Converter.Internal module.</p>
+<p>First creation:
+27/02/2019 - L. Bernardos</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.checkEmptyBC">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">checkEmptyBC</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.checkEmptyBC" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if input PyTree has undefined zones in it and prints a message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>t</strong> (<em>PyTree</em>) – the tree to be checked</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>hasEmpty</strong> – <code class="docutils literal notranslate"><span class="pre">True</span></code> if <strong>t</strong> has at least one empty BC</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.convertNode2Tetra">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">convertNode2Tetra</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zone</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.convertNode2Tetra" title="Permalink to this definition">¶</a></dt>
+<dd><p>Makes use of scipy’s Delaunay function in order to produce
+a TRI (2D) or TETRA (3D) mesh from a point cloud defined by
+the input zone of type NODE. If FlowSolutions exist in the
+input zone, those are preserved in the final output.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>zone</strong> (<em>zone</em>) – <p>Points cloud zone as a form of <a class="reference external" href="https://cgns.github.io/CGNS_docs_current/sids/conv.html#unstructgrid">NODE</a> zone (as got from
+<code class="docutils literal notranslate"><span class="pre">C.convertArray2Node()</span></code>).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>if all values of CoordinateZ are the same, then <strong>zone</strong>
+is supposed to be 2D.</p>
+</div>
+</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>zoneUns</strong> (<em>zone</em>) – Unstructured meshed of type TRI (2D) or TETRA (3D).</p></li>
+<li><p><strong>Delaunay</strong> (<em>scipy’s Delaunay object</em>) – Returns also the scipy’s Delaunay object</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.createZone">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">createZone</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Arrays</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Vars</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.createZone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convenient function for creating a PyTree zone for I/O
+and writing data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Name of the new zone</p></li>
+<li><p><strong>Arrays</strong> (<em>list of numpy.ndarray</em>) – <p>List of the numpy arrays defining the list (coordinates and
+fields).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>all numpy arrays contained in argument <em>Arrays</em> must
+have the <strong>same</strong> dimensions</p>
+</div>
+</p></li>
+<li><p><strong>Vars</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – <p>The field name (or coordinate name) corresponding to the provided
+array, in the same order.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>since all fields must have a name, one must verify
+<code class="docutils literal notranslate"><span class="pre">len(Arrays)</span> <span class="pre">==</span> <span class="pre">len(Vars)</span></code></p>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>zone</strong> – newly created zone</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>zone</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">Converter.PyTree</span> <span class="k">as</span> <span class="nn">C</span>
+<span class="kn">import</span> <span class="nn">MOLA.InternalShortcuts</span> <span class="k">as</span> <span class="nn">J</span>
+
+<span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">x</span><span class="o">*</span><span class="mf">1.5</span>
+<span class="n">z</span> <span class="o">=</span> <span class="n">y</span><span class="o">*</span><span class="mf">1.5</span>
+<span class="n">Ro</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">10</span><span class="p">))</span> <span class="o">+</span> <span class="mf">1.225</span>
+<span class="n">MyZone</span> <span class="o">=</span> <span class="n">J</span><span class="o">.</span><span class="n">createZone</span><span class="p">(</span><span class="s1">&#39;MyTitle&#39;</span><span class="p">,</span>
+                      <span class="p">[</span>            <span class="n">x</span><span class="p">,</span>            <span class="n">y</span><span class="p">,</span>            <span class="n">z</span><span class="p">,</span>       <span class="n">Ro</span><span class="p">],</span>
+                      <span class="p">[</span><span class="s1">&#39;CoordinateX&#39;</span><span class="p">,</span><span class="s1">&#39;CoordinateY&#39;</span><span class="p">,</span><span class="s1">&#39;CoordinateZ&#39;</span><span class="p">,</span><span class="s1">&#39;Density&#39;</span><span class="p">])</span>
+<span class="n">C</span><span class="o">.</span><span class="n">convertPyTree2File</span><span class="p">(</span><span class="n">MyZone</span><span class="p">,</span><span class="s1">&#39;MyZone.cgns&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.get">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">childname</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.get" title="Permalink to this definition">¶</a></dt>
+<dd><p>Recover the name and values of children of a node named <em>childname</em> inside a
+<em>parent</em> node. Such pair of name and values are
+recovered as a python dictionary:
+Dict[<em>nodename</em>] = <strong>nodevalue</strong></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parent</strong> (<em>node</em>) – the CGNS node where the child named <em>childname</em> is found</p></li>
+<li><p><strong>childname</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – a child node name contained in node <em>parent</em>, from which children
+are extracted. This operation is recursive.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A dictionary Dict[<em>nodename</em>] = <strong>nodevalue</strong></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>pointers - (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)">dict</a>)</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="#MOLA.InternalShortcuts.set" title="MOLA.InternalShortcuts.set"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set</span></code></a></dt><dd><p>set a CGNS node containing children</p>
+</dd>
+</dl>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.get2DQhullZone__">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">get2DQhullZone__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rescale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.get2DQhullZone__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Construct the convex-hull <em>(Qhull)</em> of 2D data defined by a set of
+scattered <strong>(x, y)</strong> points.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>1D-numpy array</em>) – A vector containing all X-values defining the scattered data</p></li>
+<li><p><strong>y</strong> (<em>1D-numpy array</em>) – A vector containing all Y-values defining the scattered data</p></li>
+<li><p><strong>rescale</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, then rescales the data for computation of Qhull.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>QhullZone</strong> (<em>zone</em>) – a CGNS Structured zone containing the curve of the convex-hull
+around the provided scattered data</p></li>
+<li><p><strong>xScale</strong> (<em>float</em>) – Employed value for rescaling X-data</p></li>
+<li><p><strong>yScale</strong> (<em>float</em>) – Employed value for rescaling Y-data</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#MOLA.InternalShortcuts.sampleIn2DQhull__" title="MOLA.InternalShortcuts.sampleIn2DQhull__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sampleIn2DQhull__</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.getDistributionFromHeterogeneousInput__">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">getDistributionFromHeterogeneousInput__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">InputDistrib</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.getDistributionFromHeterogeneousInput__" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function accepts a polymorphic object <strong>InputDistrib</strong> and
+conveniently translates it into 1D numpy distributions
+and <code class="docutils literal notranslate"><span class="pre">D.getDistribution()</span></code>-compliant distribution zone.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>InputDistrib</strong> (<em>polymorphic</em>) – <p>One of the following objects are accepted:</p>
+<ul>
+<li><dl>
+<dt>numpy 1D vector</dt><dd><p>for example,</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">15.</span><span class="p">,</span> <span class="mf">20.</span><span class="p">,</span> <span class="mf">25.</span><span class="p">,</span> <span class="mf">30.</span><span class="p">])</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</li>
+<li><dl>
+<dt>Python list of float</dt><dd><p>for example,</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="mf">15.</span><span class="p">,</span> <span class="mf">20.</span><span class="p">,</span> <span class="mf">25.</span><span class="p">,</span> <span class="mf">30.</span><span class="p">]</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</li>
+<li><dl>
+<dt>Python dictionary</dt><dd><p>A <code class="docutils literal notranslate"><span class="pre">W.linelaw()</span></code>-compliant dictionary which must
+include, at least, the following keys:</p>
+<p><code class="docutils literal notranslate"><span class="pre">'P1'</span></code>, <code class="docutils literal notranslate"><span class="pre">'P2'</span></code> and <code class="docutils literal notranslate"><span class="pre">'N'</span></code>.</p>
+<p>Other possible keys are the
+<code class="docutils literal notranslate"><span class="pre">distrib</span></code> possible keys and values of <code class="docutils literal notranslate"><span class="pre">W.linelaw()</span></code>.</p>
+<p>For example,</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">dict</span><span class="p">(</span><span class="n">P1</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">),</span> <span class="n">P2</span><span class="o">=</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">),</span>
+     <span class="n">N</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s1">&#39;tanhOneSide&#39;</span><span class="p">,</span>
+     <span class="n">FirstCellHeight</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</li>
+</ul>
+</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>Span</strong> (<em>1D numpy</em>) – vector monotonically increasing. <strong>Absolute length</strong> dimensions.</p></li>
+<li><p><strong>Abscissa</strong> (<em>1D numpy</em>) – corresponding curvilinear abscissa (from 0 to 1) <strong>dimensionless</strong>.</p></li>
+<li><p><strong>Distribution</strong> (<em>zone</em>) – <code class="docutils literal notranslate"><span class="pre">G.map()</span></code>-compliant 1D PyTree curve as got from
+<code class="docutils literal notranslate"><span class="pre">D.getDistribution()</span></code></p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.getNearestPointIndex">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">getNearestPointIndex</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">P</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.getNearestPointIndex" title="Permalink to this definition">¶</a></dt>
+<dd><div class="admonition danger">
+<p class="admonition-title">Danger</p>
+<p>AVOID USAGE - this function will be replaced in future</p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.getNearestPointIndexOfZone__">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">getNearestPointIndexOfZone__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zone1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Point</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.getNearestPointIndexOfZone__" title="Permalink to this definition">¶</a></dt>
+<dd><div class="admonition danger">
+<p class="admonition-title">Danger</p>
+<p>AVOID USAGE - this function will be replaced in future</p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.getNearestZone">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">getNearestZone</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ZonesOrPyTree</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Point</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.getNearestZone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieve the nearest zone with respect to a provided Point
+from a provided <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>this function is being deprecated</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ZonesOrPyTree</strong> (PyTree or <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone) – </p></li>
+<li><p><strong>Point</strong> (<em>Tuple of 3-float</em><em> (</em><em>x</em><em>,</em><em>y</em><em>,</em><em>z</em><em>) or </em><em>PyTree Point</em>) – Location from which the distance between zones and this Point is
+measured</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>NearestZone</strong> (<em>zone</em>) – It is the closest zone from the <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone with respect to the
+provided <em>Point</em>.</p></li>
+<li><p><strong>NearestZoneNo</strong> (<em>int</em>) – The nearest zone index.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.getVars">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">getVars</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zone</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">VariablesName</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Container</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'FlowSolution'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.getVars" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the list of numpy arrays from a <em>zone</em> of the variables
+specified in <em>VariablesName</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>zone</strong> (<em>zone</em>) – The CGNS zone from which numpy arrays are being retreived</p></li>
+<li><p><strong>VariablesName</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – List of the field names to be retreived</p></li>
+<li><p><strong>Container</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – The name of the node to look for the requested variable
+(e.g. <code class="docutils literal notranslate"><span class="pre">'FlowSolution'</span></code>). Container should be at 1 depth level
+inside zone.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>numpies</strong> – If a variable is not found, <code class="docutils literal notranslate"><span class="pre">None</span></code> is returned by the function.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>list of numpy.ndarray</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">Converter.PyTree</span> <span class="k">as</span> <span class="nn">C</span>
+<span class="kn">import</span> <span class="nn">Generator.PyTree</span> <span class="k">as</span> <span class="nn">G</span>
+<span class="kn">import</span> <span class="nn">MOLA.InternalShortcuts</span> <span class="k">as</span> <span class="nn">J</span>
+
+<span class="n">zone</span> <span class="o">=</span> <span class="n">G</span><span class="o">.</span><span class="n">cart</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">),(</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">),(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+
+<span class="n">C</span><span class="o">.</span><span class="n">_initVars</span><span class="p">(</span><span class="n">zone</span><span class="p">,</span><span class="s1">&#39;ViscosityMolecular&#39;</span><span class="p">,</span><span class="mf">1.78938e-5</span><span class="p">)</span>
+<span class="n">C</span><span class="o">.</span><span class="n">_initVars</span><span class="p">(</span><span class="n">zone</span><span class="p">,</span><span class="s1">&#39;Density&#39;</span><span class="p">,</span><span class="mf">1.225</span><span class="p">)</span>
+
+<span class="n">mu</span><span class="p">,</span> <span class="n">rho</span> <span class="o">=</span> <span class="n">J</span><span class="o">.</span><span class="n">getVars</span><span class="p">(</span><span class="n">zone</span><span class="p">,[</span><span class="s1">&#39;ViscosityMolecular&#39;</span><span class="p">,</span> <span class="s1">&#39;Density&#39;</span><span class="p">])</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">mu</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>will produce the following output</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[[[</span><span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span><span class="p">]</span>
+  <span class="p">[</span><span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span><span class="p">]</span>
+  <span class="p">[</span><span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span><span class="p">]]</span>
+
+ <span class="p">[[</span><span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span><span class="p">]</span>
+  <span class="p">[</span><span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span><span class="p">]</span>
+  <span class="p">[</span><span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span><span class="p">]]</span>
+
+ <span class="p">[[</span><span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span><span class="p">]</span>
+  <span class="p">[</span><span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span><span class="p">]</span>
+  <span class="p">[</span><span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span><span class="p">]]]</span>
+<span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#MOLA.InternalShortcuts.getVars2Dict" title="MOLA.InternalShortcuts.getVars2Dict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getVars2Dict</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.getVars2Dict">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">getVars2Dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zone</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">VariablesName</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Container</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'FlowSolution'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.getVars2Dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a dict containing the numpy arrays from a <em>zone</em> of the variables
+specified in <em>VariablesName</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>zone</strong> (<em>zone</em>) – The CGNS zone from which numpy arrays are being retreived</p></li>
+<li><p><strong>VariablesName</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – List of the field names to be retreived</p></li>
+<li><p><strong>Container</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – The name of the node to look for the requested variable
+(e.g. <code class="docutils literal notranslate"><span class="pre">'FlowSolution'</span></code>). Container should be at 1 depth level
+inside zone.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p><strong>VarsDict</strong> – Contains the numpy arrays as <code class="docutils literal notranslate"><span class="pre">VarsDict[&lt;FieldName&gt;]</span></code></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>if a variable is not found, <code class="docutils literal notranslate"><span class="pre">None</span></code> is returned for such
+occurrence.</p>
+</div>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)">dict</a></p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">Converter.PyTree</span> <span class="k">as</span> <span class="nn">C</span>
+<span class="kn">import</span> <span class="nn">Generator.PyTree</span> <span class="k">as</span> <span class="nn">G</span>
+<span class="kn">import</span> <span class="nn">MOLA.InternalShortcuts</span> <span class="k">as</span> <span class="nn">J</span>
+
+<span class="n">zone</span> <span class="o">=</span> <span class="n">G</span><span class="o">.</span><span class="n">cart</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">),(</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">),(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+
+<span class="n">C</span><span class="o">.</span><span class="n">_initVars</span><span class="p">(</span><span class="n">zone</span><span class="p">,</span><span class="s1">&#39;ViscosityMolecular&#39;</span><span class="p">,</span><span class="mf">1.78938e-5</span><span class="p">)</span>
+<span class="n">C</span><span class="o">.</span><span class="n">_initVars</span><span class="p">(</span><span class="n">zone</span><span class="p">,</span><span class="s1">&#39;Density&#39;</span><span class="p">,</span><span class="mf">1.225</span><span class="p">)</span>
+
+<span class="n">v</span> <span class="o">=</span> <span class="n">J</span><span class="o">.</span><span class="n">getVars2Dict</span><span class="p">(</span><span class="n">zone</span><span class="p">,[</span><span class="s1">&#39;ViscosityMolecular&#39;</span><span class="p">,</span> <span class="s1">&#39;Density&#39;</span><span class="p">])</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="s1">&#39;ViscosityMolecular&#39;</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="s1">&#39;ViscosityMolecular&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>will produce the following output</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[[[</span><span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span><span class="p">]</span>
+  <span class="p">[</span><span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span><span class="p">]</span>
+  <span class="p">[</span><span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span><span class="p">]]</span>
+
+ <span class="p">[[</span><span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span><span class="p">]</span>
+  <span class="p">[</span><span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span><span class="p">]</span>
+  <span class="p">[</span><span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span><span class="p">]]</span>
+
+ <span class="p">[[</span><span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span><span class="p">]</span>
+  <span class="p">[</span><span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span><span class="p">]</span>
+  <span class="p">[</span><span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span> <span class="mf">1.78938e-05</span><span class="p">]]]</span>
+<span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.getx">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">getx</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zone</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.getx" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the pointer of the numpy array of <em>CoordinateX</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>zone</strong> (<em>zone</em>) – Zone PyTree node from where <em>CoordinateX</em> is being extracted</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>x</strong> – the x-coordinate</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>numpy.ndarray</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#MOLA.InternalShortcuts.gety" title="MOLA.InternalShortcuts.gety"><code class="xref py py-obj docutils literal notranslate"><span class="pre">gety</span></code></a>, <a class="reference internal" href="#MOLA.InternalShortcuts.getz" title="MOLA.InternalShortcuts.getz"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getz</span></code></a>, <a class="reference internal" href="#MOLA.InternalShortcuts.getxy" title="MOLA.InternalShortcuts.getxy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getxy</span></code></a>, <a class="reference internal" href="#MOLA.InternalShortcuts.getxyz" title="MOLA.InternalShortcuts.getxyz"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getxyz</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.getxy">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">getxy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zone</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.getxy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the pointers of the numpy array of <em>CoordinateX</em> and <em>CoordinateY</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>zone</strong> (<em>zone</em>) – Zone PyTree node from where <em>CoordinateX</em> and <em>CoordinateY</em> are
+being extracted</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>x</strong> (<em>numpy.ndarray</em>) – the x-coordinate</p></li>
+<li><p><strong>y</strong> (<em>numpy.ndarray</em>) – the y-coordinate</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#MOLA.InternalShortcuts.getx" title="MOLA.InternalShortcuts.getx"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getx</span></code></a>, <a class="reference internal" href="#MOLA.InternalShortcuts.gety" title="MOLA.InternalShortcuts.gety"><code class="xref py py-obj docutils literal notranslate"><span class="pre">gety</span></code></a>, <a class="reference internal" href="#MOLA.InternalShortcuts.getz" title="MOLA.InternalShortcuts.getz"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getz</span></code></a>, <a class="reference internal" href="#MOLA.InternalShortcuts.getxyz" title="MOLA.InternalShortcuts.getxyz"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getxyz</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.getxyz">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">getxyz</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zone</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.getxyz" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the pointers of the numpy array of <em>CoordinateX</em>,
+<em>CoordinateY</em> and <em>CoordinateZ</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>zone</strong> (<em>zone</em>) – Zone PyTree node from where coordinates are being extracted</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>x</strong> (<em>numpy.ndarray</em>) – the x-coordinate</p></li>
+<li><p><strong>y</strong> (<em>numpy.ndarray</em>) – the y-coordinate</p></li>
+<li><p><strong>z</strong> (<em>numpy.ndarray</em>) – the z-coordinate</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#MOLA.InternalShortcuts.getx" title="MOLA.InternalShortcuts.getx"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getx</span></code></a>, <a class="reference internal" href="#MOLA.InternalShortcuts.gety" title="MOLA.InternalShortcuts.gety"><code class="xref py py-obj docutils literal notranslate"><span class="pre">gety</span></code></a>, <a class="reference internal" href="#MOLA.InternalShortcuts.getz" title="MOLA.InternalShortcuts.getz"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getz</span></code></a>, <a class="reference internal" href="#MOLA.InternalShortcuts.getxy" title="MOLA.InternalShortcuts.getxy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getxy</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.gety">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">gety</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zone</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.gety" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the pointer of the numpy array of <em>CoordinateY</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>zone</strong> (<em>zone</em>) – Zone PyTree node from where <em>CoordinateY</em> is being extracted</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>y</strong> – the y-coordinate</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>numpy.ndarray</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#MOLA.InternalShortcuts.getx" title="MOLA.InternalShortcuts.getx"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getx</span></code></a>, <a class="reference internal" href="#MOLA.InternalShortcuts.getz" title="MOLA.InternalShortcuts.getz"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getz</span></code></a>, <a class="reference internal" href="#MOLA.InternalShortcuts.getxy" title="MOLA.InternalShortcuts.getxy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getxy</span></code></a>, <a class="reference internal" href="#MOLA.InternalShortcuts.getxyz" title="MOLA.InternalShortcuts.getxyz"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getxyz</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.getz">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">getz</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zone</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.getz" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the pointer of the numpy array of <em>CoordinateZ</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>zone</strong> (<em>zone</em>) – Zone PyTree node from where <em>CoordinateZ</em> is being extracted</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>z</strong> – the z-coordinate</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>numpy.ndarray</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#MOLA.InternalShortcuts.getx" title="MOLA.InternalShortcuts.getx"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getx</span></code></a>, <a class="reference internal" href="#MOLA.InternalShortcuts.gety" title="MOLA.InternalShortcuts.gety"><code class="xref py py-obj docutils literal notranslate"><span class="pre">gety</span></code></a>, <a class="reference internal" href="#MOLA.InternalShortcuts.getxy" title="MOLA.InternalShortcuts.getxy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getxy</span></code></a>, <a class="reference internal" href="#MOLA.InternalShortcuts.getxyz" title="MOLA.InternalShortcuts.getxyz"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getxyz</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.interpolate__">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">interpolate__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">AbscissaRequest</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AbscissaData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ValuesData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Law</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'interp1d_linear'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.interpolate__" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is a general-purpose interpolation macro for
+N-dimensional data. This function conveniently wraps
+a set of <a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/interpolate.html">scipy.interpolate</a>
+functions. Future implementations may include other 3rd party libraries.</p>
+<p>Interpolations (and extrapolations) are applied on the last
+axis of <strong>ValuesData</strong>, based on the reference vector
+<strong>AbscissaData</strong>, for the requested points contained in the
+vector <strong>AbscissaRequest</strong>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>AbscissaRequest</strong> (<em>1D numpy array</em>) – The user-requested points where inter/extrapolation will be
+performed.</p></li>
+<li><p><strong>AbscissaData</strong> (<em>1D numpy array</em>) – <p>Reference abscissa where <strong>ValuesData</strong> are coherent.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>AbscissaData</strong> must be monotonically increasing.</p>
+</div>
+</p></li>
+<li><p><strong>ValuesData</strong> (<em>N-d numpy array</em>) – <p>Set of data to interpolate.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>the last dimension of <strong>ValuesData</strong> must be equal to
+the length of <strong>AbscissaData</strong>.</p>
+</div>
+</p></li>
+<li><p><strong>Law</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>Controls the algorithm of interpolation
+to be employed. Current implementation includes:</p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">'linear'</span></code><span class="classifier">linear interpolation <span class="math notranslate nohighlight">\(\mathcal{O}(1)\)</span> mode</span></dt><dd><p>Makes use of the function <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.interp.html">numpy.interp()</a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">'interp1d_&lt;kind&gt;'</span></code><span class="classifier">one-dimensional interpolation (multiple orders)</span></dt><dd><p>Makes use of the function
+<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.interp1d.html">scipy.interpolate.interp1d</a>,
+where <code class="docutils literal notranslate"><span class="pre">&lt;kind&gt;</span></code> may be one of <em>(for scipy v1.4.1)</em>:
+(<code class="docutils literal notranslate"><span class="pre">linear</span></code>, <code class="docutils literal notranslate"><span class="pre">nearest</span></code>, <code class="docutils literal notranslate"><span class="pre">zero</span></code>, <code class="docutils literal notranslate"><span class="pre">slinear</span></code>, <code class="docutils literal notranslate"><span class="pre">quadratic</span></code>,
+<code class="docutils literal notranslate"><span class="pre">cubic</span></code>, <code class="docutils literal notranslate"><span class="pre">previous</span></code> or <code class="docutils literal notranslate"><span class="pre">next</span></code>).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">'pchip'</span></code><span class="classifier">Piecewise Cubic Hermite Interpolating Polynomial <span class="math notranslate nohighlight">\(\mathcal{O}(3)\)</span></span></dt><dd><p>Makes use of the function <a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.PchipInterpolator.html">scipy.interpolate.PchipInterpolator</a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">'akima'</span></code><span class="classifier">Akima interpolator <span class="math notranslate nohighlight">\(\mathcal{O}(3)\)</span></span></dt><dd><p>Makes use of the function <a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.Akima1DInterpolator.html">scipy.interpolate.Akima1DInterpolator</a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">'cubic'</span></code><span class="classifier">Cubic spline <span class="math notranslate nohighlight">\(\mathcal{O}(3)\)</span></span></dt><dd><p>Makes use of the function <a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.CubicSpline.html">scipy.interpolate.CubicSpline</a></p>
+<p>In this case, an additional keyword is available for
+specification of spline’s <em>boundary conditions</em> in <strong>kwargs</strong>,
+for example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">CubicSplineBoundaryConditions</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;clamped&#39;</span><span class="p">,</span> <span class="s1">&#39;not_a_knot&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The first element of the tupple indicates the boundary
+condition of the spline at the start and the second one
+indicates the boundary condition at the end.</p>
+</dd>
+</dl>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>Result</strong> – Result of interpolation</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>N-dimension numpy array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.invokeFields">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">invokeFields</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zone</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">VariableNames</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">locationTag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'nodes:'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.invokeFields" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initializes the variables by the names provided as argument
+for the input zone. Returns the list of numpy arrays of such
+new created variables.
+Exists also inplace <code class="xref py py-func docutils literal notranslate"><span class="pre">_invokeFields()</span></code> and returns <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>zone</strong> (<em>zone</em>) – CGNS zone where fields are initialized</p></li>
+<li><p><strong>VariablesName</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – List of the variables names.</p></li>
+<li><p><strong>locationTag</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Can be either <code class="docutils literal notranslate"><span class="pre">nodes:</span></code> or <code class="docutils literal notranslate"><span class="pre">centers:</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>numpies</strong> – List of numpy.array of the newly created fields.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>list of numpy.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.invokeFieldsDict">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">invokeFieldsDict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zone</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">VariableNames</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">locationTag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'nodes:'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.invokeFieldsDict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initializes the variables by the names provided as argument
+for the input zone. Returns a dictionary of numpy arrays of
+such newly created variables.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>zone</strong> (<em>zone</em>) – The CGNS zone from which numpy arrays are being retreived</p></li>
+<li><p><strong>VariablesName</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – List of the field names to be retreived</p></li>
+<li><p><strong>Container</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – The name of the node to look for the requested variable
+(e.g. <code class="docutils literal notranslate"><span class="pre">'FlowSolution'</span></code>). Container should be at 1 depth level
+inside zone.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p><strong>VarsDict</strong> – Contains the numpy arrays as <code class="docutils literal notranslate"><span class="pre">VarsDict[&lt;FieldName&gt;]</span></code></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>if a variable is not found, <code class="docutils literal notranslate"><span class="pre">None</span></code> is returned for such
+occurrence.</p>
+</div>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.migrateFields">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">migrateFields</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Donor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Receiver</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keepMigrationDataForReuse</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">forceAddMigrationData</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.migrateFields" title="Permalink to this definition">¶</a></dt>
+<dd><p>Migrate all fields contained in <code class="docutils literal notranslate"><span class="pre">FlowSolution_t</span></code> type nodes of <strong>Donor</strong>
+towards <strong>Receiver</strong> using a zero-th order interpolation (nearest) strategy.</p>
+<p>The same structure of FlowSolution containers of <strong>Donor</strong> are kept in
+<strong>Receiver</strong>. Specifically, interpolations are done from Vertex containers
+towards vertex containers and CellCenter containers towards CellCenter
+containers.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Donor</strong> (Tree/base/zone, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone/bases/Trees) – Donor elements.</p></li>
+<li><p><strong>Receiver</strong> (Tree/base/zone, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone/bases/Trees) – <p>Receiver elements.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p><strong>Receiver</strong> is modified.</p>
+</div>
+</p></li>
+<li><p><strong>keepMigrationDataForReuse</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – <p>if <code class="docutils literal notranslate"><span class="pre">True</span></code>, special nodes <code class="docutils literal notranslate"><span class="pre">.MigrationData</span></code>
+are stored on <strong>Receiver</strong> zones so that migration can be further
+reused, for numerical efficiency. Otherwise, special nodes
+<code class="docutils literal notranslate"><span class="pre">.MigrationData</span></code> are destroyed.</p>
+<div class="admonition hint">
+<p class="admonition-title">Hint</p>
+<p>use <code class="docutils literal notranslate"><span class="pre">keepMigrationDataForReuse=True</span></code> if you plan
+doing additional migrations of fields <strong>only if</strong> <strong>Donor</strong> and
+<strong>Receiver</strong> fields do not move.</p>
+</div>
+</p></li>
+<li><p><strong>forceAddMigrationData</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if True, re-compute special nodes <code class="docutils literal notranslate"><span class="pre">.MigrationData</span></code>, regardless of
+their previous existence.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.sampleIn2DQhull__">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">sampleIn2DQhull__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">QhullNPts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">QhullScale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grading</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rescale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.sampleIn2DQhull__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Produce a new set of scattered data <strong>(x,y)</strong>.</p>
+<p>The technique performs a 2D discretization of initially provided scattered
+data, by first constructing  the convex-hull (<em>Qhull</em>), and then making
+a sampling of points <em>inside</em> the <em>Qhull</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>1D-numpy array</em>) – A vector containing all X-values defining the scattered data</p></li>
+<li><p><strong>y</strong> (<em>1D-numpy array</em>) – A vector containing all Y-values defining the scattered data</p></li>
+<li><p><strong>QhullNPts</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – Number of points used to uniformly discretize the <em>Qhull</em></p></li>
+<li><p><strong>QhullScale</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – <p>Scaling factor used for deforming resulting <em>Qhull</em> from its
+barycenter.</p>
+<div class="admonition hint">
+<p class="admonition-title">Hint</p>
+<p>use <strong>QhullScale</strong> slightly greater than 1 in order to
+obtain a margin for sampling the interior of a scattered region.</p>
+</div>
+</p></li>
+<li><p><strong>grading</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Refinement criterion used for sampling the interior points of the
+<em>Qhull</em>, as employed by <strong>grading</strong> attribute of function
+<code class="docutils literal notranslate"><span class="pre">G.T3mesher2D</span></code></p></li>
+<li><p><strong>rescale</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, then rescales the scatter data from which <em>Qhull</em>
+is computed.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>xnew</strong> (<em>1D numpy vector</em>) – New set of X-values defining scattered data at the interior of
+the <em>Qhull</em></p></li>
+<li><p><strong>ynew</strong> (<em>1D numpy vector</em>) – New set of Y-values defining scattered data at the interior of
+the <em>Qhull</em></p></li>
+<li><p><strong>QhullZone</strong> (<em>zone</em>) – a CGNS Structured zone containing the curve of the convex-hull
+around the provided scattered data</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#MOLA.InternalShortcuts.get2DQhullZone__" title="MOLA.InternalShortcuts.get2DQhullZone__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get2DQhullZone__</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.secant">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">secant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fun</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ftol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">()</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.secant" title="Permalink to this definition">¶</a></dt>
+<dd><p>Optimization function with similar interface as scipy’s <a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.root_scalar.html">root_scalar</a>
+routine, but this version yields enhanced capabilities of error and bounds
+managment.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fun</strong> (<em>callable function</em>) – <p>the scalar callable function where root has to be found.</p>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>for convenience, <code class="docutils literal notranslate"><span class="pre">fun()</span></code> can
+return more than two objects, but <strong>only the first one</strong> is
+intended to be the float value where root has to be found.</p>
+</div>
+</p></li>
+<li><p><strong>ftol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – absolute tolerance of function for termination.</p></li>
+<li><p><strong>x0</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – first guess of the secant method</p></li>
+<li><p><strong>x1</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – second guess of the secant method</p></li>
+<li><p><strong>bounds</strong> (<em>2-float tuple</em>) – minimum and maximum bounds of <strong>x</strong> for accepted search of the root.</p></li>
+<li><p><strong>maxiter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – maximum number of search iterations. If
+algorithm reaches this number and <strong>ftol</strong> is not satisfied,
+then it returns the closest candidate to the root</p></li>
+<li><p><strong>args</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.9)"><em>tuple</em></a>) – Additional set of arguments to be passed to the function</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>sol</strong> – Contains the optimization problem solution and information</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.set">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">childname</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.set" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set (or add, if inexistent) a child node containing an arbitrary number
+of nodes.</p>
+<p>Return the pointers of the new CGNS nodes as a python dictionary get()</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parent</strong> (<em>node</em>) – root node where children will be added</p></li>
+<li><p><strong>childname</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – name of the new child node.</p></li>
+<li><p><strong>**kwargs</strong> – Each pair <em>name</em> = <strong>value</strong> will be a node of
+type <a class="reference external" href="https://cgns.github.io/CGNS_docs_current/sids/data.html#DataArray">DataArray_t</a> added as child to the node named <em>childname</em>.
+If <strong>value</strong> is a python dictionary, then their contents are added
+recursively following the same logic</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>literally, result of <a class="reference internal" href="#MOLA.InternalShortcuts.get" title="MOLA.InternalShortcuts.get"><code class="xref py py-func docutils literal notranslate"><span class="pre">get()</span></code></a> once all nodes have been
+added</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>pointers - (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)">dict</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.sortListsUsingSortOrderOfFirstList">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">sortListsUsingSortOrderOfFirstList</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">arraysOrLists</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.sortListsUsingSortOrderOfFirstList" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function accepts an arbitrary number of lists (or arrays) as input.
+It sorts all input lists (or arrays) following the ordering of the first
+list after sorting.</p>
+<p>Returns all lists with new ordering.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>arraysOrLists</strong> (<em>comma-separated arrays</em><em> or </em><em>lists</em>) – Arbitrary number of arrays or lists</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>NewArrays</strong> – list containing the new sorted arrays or lists following the order
+of first the list or array (after sorting).</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)">list</a></p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">MOLA.InternalShortcuts</span> <span class="k">as</span> <span class="nn">J</span>
+
+<span class="n">First</span> <span class="o">=</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">4</span><span class="p">]</span>
+<span class="n">Second</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;a&#39;</span><span class="p">,</span><span class="s1">&#39;c&#39;</span><span class="p">,</span><span class="s1">&#39;f&#39;</span><span class="p">,</span><span class="s1">&#39;h&#39;</span><span class="p">]</span>
+<span class="n">Third</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">10</span><span class="p">,</span><span class="mi">20</span><span class="p">,</span><span class="mi">30</span><span class="p">,</span><span class="mi">40</span><span class="p">])</span>
+
+<span class="n">NewFirst</span><span class="p">,</span> <span class="n">NewSecond</span><span class="p">,</span> <span class="n">NewThird</span> <span class="o">=</span> <span class="n">J</span><span class="o">.</span><span class="n">sortListsUsingSortOrderOfFirstList</span><span class="p">(</span><span class="n">First</span><span class="p">,</span><span class="n">Second</span><span class="p">,</span><span class="n">Third</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">NewFirst</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">NewSecond</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">NewThird</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>will produce</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">]</span>
+<span class="p">[</span><span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;h&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;f&#39;</span><span class="p">]</span>
+<span class="p">[</span><span class="mi">20</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">30</span><span class="p">]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.InternalShortcuts.writePythonFile">
+<span class="sig-prename descclassname"><span class="pre">MOLA.InternalShortcuts.</span></span><span class="sig-name descname"><span class="pre">writePythonFile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">DictOfVariables</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">writemode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'w'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.InternalShortcuts.writePythonFile" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function writes a Python-compatible file using a dictionary
+where each key corresponds to the variable name and the value is
+associated to the assignment.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – New file name (e.g. <code class="docutils literal notranslate"><span class="pre">'toto.py'</span></code>)</p></li>
+<li><p><strong>DictOfVariables</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – Pairs of key:value to be written as <code class="docutils literal notranslate"><span class="pre">key</span> <span class="pre">=</span> <span class="pre">value</span></code></p></li>
+<li><p><strong>writemode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">'w'</span></code>-for write or <code class="docutils literal notranslate"><span class="pre">'a'</span></code>-for append</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>writes file</strong></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)">None</a></p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">writePythonFile</span><span class="p">(</span><span class="s1">&#39;toto.py&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;MyValue&#39;</span><span class="p">:</span><span class="mf">50.0</span><span class="p">,</span><span class="s1">&#39;MyList&#39;</span><span class="p">:[</span><span class="mf">1.</span><span class="p">,</span><span class="mf">2.</span><span class="p">,</span><span class="mi">3</span><span class="p">]})</span>
+</pre></div>
+</div>
+<p>will create a file <code class="docutils literal notranslate"><span class="pre">toto.py</span></code> containing:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">MyValue</span><span class="o">=</span><span class="mf">50.</span>
+<span class="n">MyList</span><span class="o">=</span><span class="p">[</span><span class="mf">1.</span><span class="p">,</span><span class="mf">2.</span><span class="p">,</span><span class="mf">3.</span><span class="p">]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</div>
+
+
+              </div>
+              
+              
+              <div class='prev-next-bottom'>
+                
+    <a class='left-prev' id="prev-link" href="index.html" title="previous page">Welcome to MOLA’s documentation!</a>
+    <a class='right-next' id="next-link" href="Wireframe.html" title="next page">Wireframe</a>
+
+              </div>
+              
+          </main>
+          
+
+      </div>
+    </div>
+  
+  <script src="_static/js/index.1c5a1a01449ed65a7b51.js"></script>
+
+  <footer class="footer mt-5 mt-md-0">
+  <div class="container">
+    
+    <div class="footer-item">
+      <p class="copyright">
+    &copy; Copyright 2021, ONERA.<br/>
+</p>
+    </div>
+    
+    <div class="footer-item">
+      <p class="sphinx-version">
+Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.1.2.<br/>
+</p>
+    </div>
+    
+  </div>
+</footer>
+  </body>
+</html>

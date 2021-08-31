@@ -24,44 +24,29 @@ MAGE  = '\033[95m'
 CYAN  = '\033[96m'
 ENDC  = '\033[0m'
 
-def toto(path, field_storage, temporary):
-    '''
-    Args:
-        path (str): The path of the file to wrap
-        field_storage (FileStorage): The :class:`FileStorage` instance to wrap
-        temporary (bool): Whether or not to delete the file when the File
-           instance is destructed
-
-    Returns:
-        BufferedFileStorage: A buffered writable file descriptor
-    '''
-    a = 2
-
-    return a
-
 
 def set(parent,childname,**kwargs):
     '''
-    Set a pairs of "name"=value given as kwargs into a unique child named <name>
-    added to a <parent> node with default types given by _addSetOfNodes()
+    Set (or add, if inexistent) a child node containing an arbitrary number
+    of nodes.
 
     Return the pointers of the new CGNS nodes as a python dictionary get()
 
-    INPUTS
+    Args:
+        parent (node):
+            root node where children will be added
+        childname (str):
+            name of the new child node.
+        **kwargs
+            Each pair *name* = **value** will be a node of
+            type `DataArray_t`_ added as child to the node named *childname*.
+            If **value** is a python dictionary, then their contents are added
+            recursively following the same logic
 
-    parent - (node) - root node where children will be added
-
-    childname - (string) - name of the new child node.
-
-    kwargs - (pairs of name=value) - Each pair name=value will be a node of
-        type DataArray_t added as child to the node named "childname".
-        If value is a python dictionary, then their contents are added
-        recursively following the same logic
-
-    OUTPUTS
-
-    pointers - (python dictionary) - literally result of get(parent, chlidname)
-        once all nodes has been added
+    Returns:
+        pointers - (dict):
+            literally, result of :py:func:`get` once all nodes have been
+            added
     '''
     children = []
     SubChildren = []
@@ -79,21 +64,27 @@ def set(parent,childname,**kwargs):
 
 def get(parent, childname):
     '''
-    Recover the name and values of children of a node named <childname> inside a
-    <parent> node. Such pair of name and values are
+    Recover the name and values of children of a node named *childname* inside a
+    *parent* node. Such pair of name and values are
     recovered as a python dictionary:
-    Dict[<nodename>] = <nodevalue>
+    Dict[*nodename*] = **nodevalue**
 
-    INPUTS
+    Parameters
+    ----------
+        parent : node
+            the CGNS node where the child named *childname* is found
+        childname : str
+            a child node name contained in node *parent*, from which children
+            are extracted. This operation is recursive.
 
-    parent - (node) - the CGNS node where the child named <childname> is found
+    Returns
+    -------
+        pointers - (dict):
+            A dictionary Dict[*nodename*] = **nodevalue**
 
-    childname - (string) - a child node name contained in node <parent>, from
-        which children are extracted. This operation is recursive.
-
-    OUTPUTS
-
-    data - (Python dictionary) - structured as Dict[<nodename>] = <nodevalue>
+    See Also
+    --------
+    set : set a CGNS node containing children
     '''
 
     child_n = I.getNodeFromName1(parent,childname)
@@ -115,23 +106,61 @@ def get(parent, childname):
 
 def getVars(zone, VariablesName, Container='FlowSolution'):
     """
-    Get the list of numpy arrays from a zone of the variables
-    specified in <VariablesName>.
+    Get the list of numpy arrays from a *zone* of the variables
+    specified in *VariablesName*.
 
-    INPUT
-    zone          = Zone PyTree node.
-    VariablesName = List of strings of the variables names.
+    Parameters
+    ----------
+        zone : zone
+            The CGNS zone from which numpy arrays are being retreived
+        VariablesName : :py:class:`list` of :py:class:`str`
+            List of the field names to be retreived
+        Container : str
+            The name of the node to look for the requested variable
+            (e.g. ``'FlowSolution'``). Container should be at 1 depth level
+            inside zone.
 
-    Container     = The name of the node to look for the requested variable
-                    (e.g. "FlowSolution"). Container should be at 1 depth level
-                    inside zone.
+    Returns
+    -------
+        numpies : list of numpy.ndarray
+            If a variable is not found, ``None`` is returned by the function.
 
-    OUTPUT
-    List of numpy.array. If a variable is not found, None is
-    returned by the function.
+    Examples
+    --------
+    ::
 
-    Example:
-    mu, rho = getVars(zone,['ViscosityMolecular', 'Density'])
+        import Converter.PyTree as C
+        import Generator.PyTree as G
+        import MOLA.InternalShortcuts as J
+
+        zone = G.cart((0,0,0),(1,1,1),(3,3,3))
+
+        C._initVars(zone,'ViscosityMolecular',1.78938e-5)
+        C._initVars(zone,'Density',1.225)
+
+        mu, rho = J.getVars(zone,['ViscosityMolecular', 'Density'])
+
+        print(mu)
+        print(mu.shape)
+
+    will produce the following output ::
+
+        [[[1.78938e-05 1.78938e-05 1.78938e-05]
+          [1.78938e-05 1.78938e-05 1.78938e-05]
+          [1.78938e-05 1.78938e-05 1.78938e-05]]
+
+         [[1.78938e-05 1.78938e-05 1.78938e-05]
+          [1.78938e-05 1.78938e-05 1.78938e-05]
+          [1.78938e-05 1.78938e-05 1.78938e-05]]
+
+         [[1.78938e-05 1.78938e-05 1.78938e-05]
+          [1.78938e-05 1.78938e-05 1.78938e-05]
+          [1.78938e-05 1.78938e-05 1.78938e-05]]]
+        (3, 3, 3)
+
+    See also
+    --------
+    getVars2Dict
     """
     Pointers = []
     FlowSolution = I.getNodeFromName1(zone, Container)
@@ -149,23 +178,60 @@ def getVars(zone, VariablesName, Container='FlowSolution'):
 
 def getVars2Dict(zone,VariablesName,Container='FlowSolution'):
     """
-    Get a dict containing the numpy arrays from a zone of the variables
-    specified in VariablesName.
+    Get a dict containing the numpy arrays from a *zone* of the variables
+    specified in *VariablesName*.
 
-    INPUTS
-    zone          = Zone PyTree node.
-    VariablesName = List of strings of the variables names.
-                    (Search is performed through 2 levels of depth)
-    Container     = The name of the FlowSolution_t type node to
-                    look for the requested variable.
+    Parameters
+    ----------
+        zone : zone
+            The CGNS zone from which numpy arrays are being retreived
+        VariablesName : :py:class:`list` of :py:class:`str`
+            List of the field names to be retreived
+        Container : str
+            The name of the node to look for the requested variable
+            (e.g. ``'FlowSolution'``). Container should be at 1 depth level
+            inside zone.
 
+    Returns
+    -------
+        VarsDict : dict
+            Contains the numpy arrays as ``VarsDict[<FieldName>]``
 
-    OUTPUTS
-    Python dictionary of numpy.array. If a variable is not found, None is
-    returned by the function.
+            .. note:: if a variable is not found, ``None`` is returned for such
+                occurrence.
 
-    Example:
-    VarsDict = getVars2Dict(zone,['visclam','Density'])
+    Examples
+    --------
+    ::
+
+        import Converter.PyTree as C
+        import Generator.PyTree as G
+        import MOLA.InternalShortcuts as J
+
+        zone = G.cart((0,0,0),(1,1,1),(3,3,3))
+
+        C._initVars(zone,'ViscosityMolecular',1.78938e-5)
+        C._initVars(zone,'Density',1.225)
+
+        v = J.getVars2Dict(zone,['ViscosityMolecular', 'Density'])
+
+        print(v['ViscosityMolecular'])
+        print(v['ViscosityMolecular'].shape)
+
+    will produce the following output ::
+
+        [[[1.78938e-05 1.78938e-05 1.78938e-05]
+          [1.78938e-05 1.78938e-05 1.78938e-05]
+          [1.78938e-05 1.78938e-05 1.78938e-05]]
+
+         [[1.78938e-05 1.78938e-05 1.78938e-05]
+          [1.78938e-05 1.78938e-05 1.78938e-05]
+          [1.78938e-05 1.78938e-05 1.78938e-05]]
+
+         [[1.78938e-05 1.78938e-05 1.78938e-05]
+          [1.78938e-05 1.78938e-05 1.78938e-05]
+          [1.78938e-05 1.78938e-05 1.78938e-05]]]
+        (3, 3, 3)
     """
     Pointers = {}
     FlowSolution = I.getNodeFromName1(zone,Container)
@@ -179,24 +245,26 @@ def getVars2Dict(zone,VariablesName,Container='FlowSolution'):
     return Pointers
 
 
-def invokeFields(zone,VariableNames,locationTag='nodes:'):
+def invokeFields(zone, VariableNames, locationTag='nodes:'):
     """
     Initializes the variables by the names provided as argument
     for the input zone. Returns the list of numpy arrays of such
     new created variables.
-    Exists also inplace _invokeFields and returns None.
+    Exists also inplace :py:func:`_invokeFields` and returns ``None``.
 
-    Input:
-    zone          = Zone PyTree node.
-    VariablesName = List of strings of the variables names.
-    locationTag   = C.initVars-like tag for the location of
-                    the new variable
+    Parameters
+    ----------
+        zone : zone
+            CGNS zone where fields are initialized
+        VariablesName : :py:class:`list` of :py:class:`str`
+            List of the variables names.
+        locationTag : str
+            Can be either ``nodes:`` or ``centers:``
 
-    Output:
-    List of numpy.array of the newly created fields.
-
-    Example:
-    Vort, Qcrit = invokeFields(zone,['Vorticity','Qcriterion'])
+    Returns
+    -------
+        numpies : list of numpy.ndarray
+            List of numpy.array of the newly created fields.
     """
     _invokeFields(zone,VariableNames,locationTag=locationTag)
     # TODO: replace locationTag by general Container
@@ -207,9 +275,7 @@ def invokeFields(zone,VariableNames,locationTag='nodes:'):
 
 def _invokeFields(zone,VariableNames,locationTag='nodes:'):
     '''
-    See documentation of invokeFields.
-    Example:
-    _invokeFields(zone,['Vorticity','Qcriterion'])
+    See documentation of :py:func:`invokeFields`.
     '''
     # TODO: Make more efficient variables initialization (using numpy and
     # adding children)
@@ -223,17 +289,24 @@ def invokeFieldsDict(zone,VariableNames,locationTag='nodes:'):
     for the input zone. Returns a dictionary of numpy arrays of
     such newly created variables.
 
-    INPUTS
-    zone          = Zone PyTree node.
-    VariablesName = List of strings of the variables names.
-    locationTag   = C.initVars-like tag for the location of
-                    the new variable
+    Parameters
+    ----------
+        zone : zone
+            The CGNS zone from which numpy arrays are being retreived
+        VariablesName : :py:class:`list` of :py:class:`str`
+            List of the field names to be retreived
+        Container : str
+            The name of the node to look for the requested variable
+            (e.g. ``'FlowSolution'``). Container should be at 1 depth level
+            inside zone.
 
-    OUTPUTS
-       Dictionnary of numpy arrays of the new variables
+    Returns
+    -------
+        VarsDict : dict
+            Contains the numpy arrays as ``VarsDict[<FieldName>]``
 
-    Example:
-    VarsDict = invokeFieldsDict(zone,['Vorticity','Qcriterion'])
+            .. note:: if a variable is not found, ``None`` is returned for such
+                occurrence.
     """
     # TODO: replace locationTag by general Container
     ListOfVars = invokeFields(zone,VariableNames,locationTag=locationTag)
@@ -266,89 +339,132 @@ def _add2Field(zone,FieldName,FieldNumpy):
 
 def getx(zone):
     '''
-    Get the pointer of the numpy array of CoordinateX.
+    Get the pointer of the numpy array of *CoordinateX*.
 
-    Input:
-    zone = Zone PyTree node.
+    Parameters
+    ----------
+        zone : zone
+            Zone PyTree node from where *CoordinateX* is being extracted
 
-    Output:
-    numpy.array of the x-coordinate
+    Returns
+    -------
 
-    Example:
-    x = getx(zone)
+        x : numpy.ndarray
+            the x-coordinate
+
+    See also
+    --------
+    gety, getz, getxy, getxyz
     '''
     return I.getNodeFromName2(zone,'CoordinateX')[1]
 
 
 def gety(zone):
     '''
-    Get the pointer of the numpy array of CoordinateY.
+    Get the pointer of the numpy array of *CoordinateY*.
 
-    Input:
-    zone = Zone PyTree node.
+    Parameters
+    ----------
 
-    Output:
-    numpy.array of the y-coordinate
+        zone : zone
+            Zone PyTree node from where *CoordinateY* is being extracted
 
-    Example:
-    y = gety(zone)
+    Returns
+    -------
+
+        y : numpy.ndarray
+            the y-coordinate
+
+    See also
+    --------
+    getx, getz, getxy, getxyz
     '''
     return I.getNodeFromName2(zone,'CoordinateY')[1]
 
 def getz(zone):
     '''
-    Get the pointer of the numpy array of CoordinateZ.
+    Get the pointer of the numpy array of *CoordinateZ*.
 
-    Input:
-    zone = Zone PyTree node.
+    Parameters
+    ----------
 
-    Output:
-    numpy.array of the z-coordinate
+        zone : zone
+            Zone PyTree node from where *CoordinateZ* is being extracted
 
-    Example:
-    z = getz(zone)
+    Returns
+    -------
+
+        z : numpy.ndarray
+            the z-coordinate
+
+    See also
+    --------
+    getx, gety, getxy, getxyz
     '''
     return I.getNodeFromName2(zone,'CoordinateZ')[1]
 
 def getxy(zone):
     '''
-    Get the pointers of the numpy array of CoordinateX
-    and CoordinateY.
+    Get the pointers of the numpy array of *CoordinateX* and *CoordinateY*.
 
-    Input:
-    zone = Zone PyTree node.
+    Parameters
+    ----------
 
-    Output:
-    List of 2 elements containing numpy.array corresponding to the
-    x-coordinate and y-coordinate respectively.
+        zone : zone
+            Zone PyTree node from where *CoordinateX* and *CoordinateY* are
+            being extracted
 
-    Example:
-    x, y = getxy(zone)
+    Returns
+    -------
+
+        x : numpy.ndarray
+            the x-coordinate
+
+        y : numpy.ndarray
+            the y-coordinate
+
+    See also
+    --------
+    getx, gety, getz, getxyz
     '''
     return getx(zone), gety(zone)
 
 
 def getxyz(zone):
     '''
-    Get the pointers of the numpy array of CoordinateX,
-    CoordinateY and CoordinateZ
+    Get the pointers of the numpy array of *CoordinateX*,
+    *CoordinateY* and *CoordinateZ*.
 
-    Input:
-    zone = Zone PyTree node.
+    Parameters
+    ----------
 
-    Output:
-    List of 3 elements containing numpy.array corresponding to the
-    x-coordinate, y-coordinate and z-coordinate respectively.
+        zone : zone
+            Zone PyTree node from where coordinates are being extracted
 
-    Example:
-    x, y, z = getxyz(zone)
+    Returns
+    -------
+
+        x : numpy.ndarray
+            the x-coordinate
+
+        y : numpy.ndarray
+            the y-coordinate
+
+        z : numpy.ndarray
+            the z-coordinate
+
+    See also
+    --------
+    getx, gety, getz, getxy
     '''
     return getx(zone), gety(zone), getz(zone)
 
 
 def getNearestPointIndex(a,P):
     '''
-    AVOID USAGE - this function will be replaced in future
+
+    .. danger:: AVOID USAGE - this function will be replaced in future
+
     '''
     NPts = len(P) if isinstance(P, list) else 1
 
@@ -370,7 +486,7 @@ def getNearestPointIndex(a,P):
                 return getNearestPointIndexOfZone__(a,P)
             else:
                 return map(lambda pt: getNearestPointIndexOfZone__(a,pt), P)
-        elif stdNode == 0: # a is a list of zones
+        elif stdNode == 0: # a is a :py:class:`list` of zone
             zones = a
             res = []
             Points = [P] if NPts == 1 else P
@@ -381,12 +497,14 @@ def getNearestPointIndex(a,P):
                 res += [IndxDist4AllZones[NearestZoneNb]]
             return res
         else:
-            raise AttributeError('Could not recognize the first argument. Please provide Tree, Zone or List of Zones')
+            raise AttributeError('Could not recognize the first argument. Please provide Tree, Zone or :py:class:`list` of zone')
 
 
 def getNearestPointIndexOfZone__(zone1, Point):
     '''
-    AVOID USAGE - this function will be replaced in future
+
+    .. danger:: AVOID USAGE - this function will be replaced in future
+
     '''
     x = I.getNodeFromName2(zone1,'CoordinateX')[1].ravel(order='F')
     y = I.getNodeFromName2(zone1,'CoordinateY')[1].ravel(order='F')
@@ -404,17 +522,24 @@ def getNearestPointIndexOfZone__(zone1, Point):
 def getNearestZone(ZonesOrPyTree, Point):
     '''
     Retrieve the nearest zone with respect to a provided Point
-    from a provided list of zones.
+    from a provided :py:class:`list` of zone.
 
-    Inputs:
-    ZonesOrPyTree = List of PyTree zones or PyTree with zones.
-    Point = Tuple of 3-float (x,y,z) or PyTree Point from which
-            the distance between zones and this Point is measured
+    .. warning:: this function is being deprecated
 
-    Outputs:
-    NearestZone = PyTree Zone. It is the closest zone from the
-                  list of zones w.r.t. the provided Point.
-    NearestZoneNo = The nearest zone index.
+    Parameters
+    ----------
+        ZonesOrPyTree : PyTree or :py:class:`list` of zone
+        Point : Tuple of 3-float (x,y,z) or PyTree Point
+            Location from which the distance between zones and this Point is
+            measured
+
+    Returns
+    -------
+        NearestZone : zone
+            It is the closest zone from the :py:class:`list` of zone with respect to the
+            provided *Point*.
+        NearestZoneNo : int
+            The nearest zone index.
     '''
     if I.isStdNode(Point) == -1: Point = getxyz(Point)
 
@@ -423,6 +548,7 @@ def getNearestZone(ZonesOrPyTree, Point):
     else:
         zones = I.getNodesFromType(ZonesOrPyTree,'Zone_t')
 
+    # TODO replace getNearestPointIndex !!
     Distances = [getNearestPointIndex(z,Point)[1] for z in zones]
     DistancesNumpy = np.array(Distances)
     NearestZoneNo  = np.argmin(DistancesNumpy)
@@ -434,13 +560,49 @@ def getNearestZone(ZonesOrPyTree, Point):
 def createZone(Name, Arrays, Vars):
     """
     Convenient function for creating a PyTree zone for I/O
-    and writing data. Example of usage:
+    and writing data.
 
-    MyZone = createZone('MyTitle',[x,y,z,Ro],
-        ['CoordinateX','CoordinateY','CoordinateZ','Density'])
+    Parameters
+    ----------
+        Name : str
+            Name of the new zone
+        Arrays : list of numpy.ndarray
+            List of the numpy arrays defining the list (coordinates and
+            fields).
 
-    Data contained in "Arrays" variable must be homogeneous
-    and <type 'numpy.ndarray'>
+            .. note:: all numpy arrays contained in argument *Arrays* must
+                have the **same** dimensions
+
+        Vars : :py:class:`list` of :py:class:`str`
+            The field name (or coordinate name) corresponding to the provided
+            array, in the same order.
+
+            .. note:: since all fields must have a name, one must verify
+                ``len(Arrays) == len(Vars)``
+
+    Returns
+    -------
+        zone : zone
+            newly created zone
+
+    Examples
+    --------
+    ::
+
+        import numpy as np
+        import Converter.PyTree as C
+        import MOLA.InternalShortcuts as J
+
+        x = np.linspace(0,1,10)
+        y = x*1.5
+        z = y*1.5
+        Ro = np.zeros((10)) + 1.225
+        MyZone = J.createZone('MyTitle',
+                              [            x,            y,            z,       Ro],
+                              ['CoordinateX','CoordinateY','CoordinateZ','Density'])
+        C.convertPyTree2File(MyZone,'MyZone.cgns')
+
+
     """
     ni,nj,nk=(list(Arrays[0].shape)+[1,1,1])[:3]
     try:
@@ -479,19 +641,24 @@ def convertNode2Tetra(zone):
     the input zone of type NODE. If FlowSolutions exist in the
     input zone, those are preserved in the final output.
 
-    INPUTS
+    Parameters
+    ----------
 
-    zone (PyZone NODE 2D or 3D) - Points cloud zone as a form
-        of NODE zone [as got from C.convertArray2Node()]. Zone
-        is supposed to be 2D if all values of CoordinateZ have
-        the same value.
+        zone : zone
+            Points cloud zone as a form of `NODE`_ zone (as got from
+            ``C.convertArray2Node()``).
 
-    OUTPUTS
+            .. note:: if all values of CoordinateZ are the same, then **zone**
+                is supposed to be 2D.
 
-    zoneUns (PyZone TRI 2D or TETRA 3D) - Unstructured meshed
-        zone.
+    Returns
+    -------
 
-    Delaunay (scipy's Delaunay obect)
+        zoneUns : zone
+            Unstructured meshed of type TRI (2D) or TETRA (3D).
+
+        Delaunay : scipy's Delaunay object
+            Returns also the scipy's Delaunay object
     '''
 
     from scipy.spatial import Delaunay
@@ -534,64 +701,76 @@ def convertNode2Tetra(zone):
     return zoneUns, tri
 
 def interpolate__(AbscissaRequest, AbscissaData, ValuesData,
-                  Law='interp1d_linear', axis=-1, **kwargs):
+                  Law='interp1d_linear', axis= -1, **kwargs):
     """
-    ______________________PRIVATE FUNCTION______________________
     This is a general-purpose interpolation macro for
     N-dimensional data. This function conveniently wraps
-    a set of scipy.interpolate functions. Future implementations
-    may include other 3rd party libraries.
+    a set of `scipy.interpolate <https://docs.scipy.org/doc/scipy/reference/interpolate.html>`_
+    functions. Future implementations may include other 3rd party libraries.
 
     Interpolations (and extrapolations) are applied on the last
-    axis of ValuesData, based on the reference vector
-    AbscissaData, for the requested points contained in the
-    vector AbscissaRequest.
+    axis of **ValuesData**, based on the reference vector
+    **AbscissaData**, for the requested points contained in the
+    vector **AbscissaRequest**.
 
-    INPUTS
-    AbscissaRequest (1D numpy array) - The user-requested points
-        where inter/extrapolation will be performed.
+    Parameters
+    ----------
 
-    AbscissaData (1D numpy array) - Reference abscissa where
-        ValuesData are coherent. Monotonically increasing.
+        AbscissaRequest : 1D numpy array
+            The user-requested points where inter/extrapolation will be
+            performed.
 
-    ValuesData (N-d numpy array) - Set of data to interpolate.
-        The last dimension of ValuesData must be equal to the
-        length of AbscissaData.
+        AbscissaData : 1D numpy array
+            Reference abscissa where **ValuesData** are coherent.
 
-    Law (string) - Controls the algorithm of interpolation
-        to be employed. Current implementation includes:
+            .. warning:: **AbscissaData** must be monotonically increasing.
 
-        'linear' : Makes use of the function numpy.interp()
+        ValuesData : N-d numpy array
+            Set of data to interpolate.
 
-        'interp1d_<kind>' : Makes use of the function
-            scipy.interpolate.interp1d(), where <kind> may be
-            for scipy v1.4.1 one of:
-            (linear, nearest, zero, slinear, quadratic, cubic,
-            previous or next).
+            .. warning:: the last dimension of **ValuesData** must be equal to
+                the length of **AbscissaData**.
 
-        'pchip : Makes use of the function
-                 scipy.interpolate.PchipInterpolator()
+        Law : str
+            Controls the algorithm of interpolation
+            to be employed. Current implementation includes:
 
-        'akima' : Makes use of the function
-                 scipy.interpolate.Akima1DInterpolator()
+            ``'linear'`` : linear interpolation :math:`\mathcal{O}(1)` mode
+                Makes use of the function `numpy.interp() <https://numpy.org/doc/stable/reference/generated/numpy.interp.html>`_
 
-        'cubic' : Makes use of the function
-          scipy.interpolate.CubicSpline
-          In this case, an additional keyword is available for
-          specification of boundary conditions, in kwargs,
-          for example:
+            ``'interp1d_<kind>'`` : one-dimensional interpolation (multiple orders)
+                Makes use of the function
+                `scipy.interpolate.interp1d <https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.interp1d.html>`_,
+                where ``<kind>`` may be one of *(for scipy v1.4.1)*:
+                (``linear``, ``nearest``, ``zero``, ``slinear``, ``quadratic``,
+                ``cubic``, ``previous`` or ``next``).
 
-                  CubicSplineBoundaryConditions =
-                  ('clamped', 'not_a_knot')
+            ``'pchip'`` : Piecewise Cubic Hermite Interpolating Polynomial :math:`\mathcal{O}(3)`
+                Makes use of the function `scipy.interpolate.PchipInterpolator <https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.PchipInterpolator.html>`_
 
-          The first element of the tupple indicates the boundary
-          condition of the spline at root and the second one
-          indicates the boundary condition at blade's tip.
+            ``'akima'`` : Akima interpolator :math:`\mathcal{O}(3)`
+                Makes use of the function `scipy.interpolate.Akima1DInterpolator <https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.Akima1DInterpolator.html>`_
 
-    OUTPUTS
+            ``'cubic'`` : Cubic spline :math:`\mathcal{O}(3)`
+                Makes use of the function `scipy.interpolate.CubicSpline <https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.CubicSpline.html>`_
 
-    Result (N-dimension numpy array) - Result of interpolation
+                In this case, an additional keyword is available for
+                specification of spline's *boundary conditions* in **kwargs**,
+                for example:
 
+                ::
+
+                    CubicSplineBoundaryConditions = ('clamped', 'not_a_knot')
+
+                The first element of the tupple indicates the boundary
+                condition of the spline at the start and the second one
+                indicates the boundary condition at the end.
+
+    Returns
+    -------
+
+        Result : N-dimension numpy array
+            Result of interpolation
     """
     import scipy.interpolate
     LawLower = Law.lower()
@@ -625,28 +804,56 @@ def interpolate__(AbscissaRequest, AbscissaData, ValuesData,
 
 def getDistributionFromHeterogeneousInput__(InputDistrib):
     """
-    ______________________PRIVATE FUNCTION______________________
-    This function accepts an heterogeneous InputDistrib and
-    conveniently translates it into a 1D numpy distribution
-    and D.getDistribution() - compliant distribution.
+    This function accepts a polymorphic object **InputDistrib** and
+    conveniently translates it into 1D numpy distributions
+    and ``D.getDistribution()``-compliant distribution zone.
 
-    InputDistrib may be one of:
-        numpy 1D vector
-        Python float-list
-        Python dictionary [W.linelaw()-compliant] which must
-            include, apart from W.linelaw()-compliant distrib
-            keys, the following keys:
-            'P1', 'P2' and 'N' -> to complete the definition
-            of the call of W.linelaw()
+    Parameters
+    ----------
 
-    OUTPUT
+        InputDistrib : polymorphic
+            One of the following objects are accepted:
 
-        Span - (1D numpy) vector monotonically increasing
-            checked. Absolute length dimensions.
-        Abscissa - (1D numpy ) corresponding curvilinear
-            abscissa [0 to 1] dimensionless.
-        Distribution (PyTreeZone) - G.map()-compliant
-            1D PyTree curve as got from D.getDistribution()
+            * numpy 1D vector
+                for example,
+                ::
+
+                    np.array([15., 20., 25., 30.])
+
+            * Python list of float
+                for example,
+                ::
+
+                    [15., 20., 25., 30.]
+
+            * Python dictionary
+                A ``W.linelaw()``-compliant dictionary which must
+                include, at least, the following keys:
+
+                ``'P1'``, ``'P2'`` and ``'N'``.
+
+                Other possible keys are the
+                ``distrib`` possible keys and values of ``W.linelaw()``.
+
+                For example,
+                ::
+
+                    dict(P1=(15,0,0), P2=(20,0,0),
+                         N=100, kind='tanhOneSide',
+                         FirstCellHeight=0.01)
+
+    Returns
+    -------
+
+        Span : 1D numpy
+            vector monotonically increasing. **Absolute length** dimensions.
+
+        Abscissa : 1D numpy
+            corresponding curvilinear abscissa (from 0 to 1) **dimensionless**.
+
+        Distribution : zone
+            ``G.map()``-compliant 1D PyTree curve as got from
+            ``D.getDistribution()``
     """
     import Geom.PyTree as D
 
@@ -719,8 +926,37 @@ def getDistributionFromHeterogeneousInput__(InputDistrib):
 
 def get2DQhullZone__(x,y,rescale=True):
     '''
-    Private function.
-    From a given set of scattered 2D points, get the Qhull.
+    Construct the convex-hull *(Qhull)* of 2D data defined by a set of
+    scattered **(x, y)** points.
+
+    Parameters
+    ----------
+
+        x : 1D-numpy array
+            A vector containing all X-values defining the scattered data
+
+        y : 1D-numpy array
+            A vector containing all Y-values defining the scattered data
+
+        rescale : bool
+            if ``True``, then rescales the data for computation of Qhull.
+
+    Returns
+    -------
+
+        QhullZone : zone
+            a CGNS Structured zone containing the curve of the convex-hull
+            around the provided scattered data
+
+        xScale : float
+            Employed value for rescaling X-data
+
+        yScale : float
+            Employed value for rescaling Y-data
+
+    See also
+    --------
+    sampleIn2DQhull__
     '''
     from scipy.spatial import ConvexHull
     import Transform.PyTree as T
@@ -753,10 +989,58 @@ def get2DQhullZone__(x,y,rescale=True):
 
 def sampleIn2DQhull__(x,y,QhullNPts=20,QhullScale=1.2, grading=0.1, rescale=True):
     '''
-    Private function.
-    From a given set of scattered 2D points, this function
-    performs a sampling inside the convex-hull of the provided
-    data.
+    Produce a new set of scattered data **(x,y)**.
+
+    The technique performs a 2D discretization of initially provided scattered
+    data, by first constructing  the convex-hull (*Qhull*), and then making
+    a sampling of points *inside* the *Qhull*.
+
+    Parameters
+    ----------
+
+        x : 1D-numpy array
+            A vector containing all X-values defining the scattered data
+
+        y : 1D-numpy array
+            A vector containing all Y-values defining the scattered data
+
+        QhullNPts : int
+            Number of points used to uniformly discretize the *Qhull*
+
+        QhullScale : float
+            Scaling factor used for deforming resulting *Qhull* from its
+            barycenter.
+
+            .. hint:: use **QhullScale** slightly greater than 1 in order to
+                obtain a margin for sampling the interior of a scattered region.
+
+        grading : float
+            Refinement criterion used for sampling the interior points of the
+            *Qhull*, as employed by **grading** attribute of function
+            ``G.T3mesher2D``
+
+        rescale : bool
+            if ``True``, then rescales the scatter data from which *Qhull*
+            is computed.
+
+    Returns
+    -------
+
+        xnew : 1D numpy vector
+            New set of X-values defining scattered data at the interior of
+            the *Qhull*
+
+        ynew : 1D numpy vector
+            New set of Y-values defining scattered data at the interior of
+            the *Qhull*
+
+        QhullZone : zone
+            a CGNS Structured zone containing the curve of the convex-hull
+            around the provided scattered data
+
+    See also
+    --------
+    get2DQhullZone__
     '''
     import Generator.PyTree as G
     import Transform.PyTree as T
@@ -788,38 +1072,45 @@ def sampleIn2DQhull__(x,y,QhullNPts=20,QhullScale=1.2, grading=0.1, rescale=True
 
 def secant(fun, x0=None, x1=None, ftol=1e-6, bounds=None, maxiter=20, args=()):
     '''
-    Optimization function with similar interface as scipy's root_scalar "secant" routine, but this version yields
-    enhanced capabilities of error handling and bounds.
+    Optimization function with similar interface as scipy's `root_scalar <https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.root_scalar.html>`_
+    routine, but this version yields enhanced capabilities of error and bounds
+    managment.
 
-    INPUTS
+    Parameters
+    ----------
 
-    fun (callable function) the scalar callable function where
-        root has to be found. BEWARE: for convenience, fun() shall
-        return at least two objects, but only the first one is
-        intended to be the float value where root has to be found.
-        fun() shall accept one variable exclusively [fun(x)]
+        fun : callable function
+            the scalar callable function where root has to be found.
 
-    ftol (float) absolute tolerance of function for termination.
+            .. attention:: for convenience, ``fun()`` can
+                return more than two objects, but **only the first one** is
+                intended to be the float value where root has to be found.
 
-    x0 (float) first guess of the secant method
+        ftol : float
+            absolute tolerance of function for termination.
 
-    x1 (float) second guess of the secant method
+        x0 : float
+            first guess of the secant method
 
-    bounds (2-float tuple) minimum and maximum bounds of <x> for
-        allowable search of the root.
+        x1 : float
+            second guess of the secant method
 
-    maxiter (integer) maximum number of search iterations. If
-        algorithm reaches this number and xtol is not satisfied,
-        then it returns the closest candidate to the root
+        bounds : 2-float tuple
+            minimum and maximum bounds of **x** for accepted search of the root.
 
-    args (tuple) Additional set of arguments to be passed to the
-        function.
+        maxiter : int
+            maximum number of search iterations. If
+            algorithm reaches this number and **ftol** is not satisfied,
+            then it returns the closest candidate to the root
 
-    OUTPUTS
+        args : tuple
+            Additional set of arguments to be passed to the function
 
-    sol (Python dictionary) - optimization problem solution.
-        Keys should be self-explanatory
+    Returns
+    -------
 
+        sol : dict
+            Contains the optimization problem solution and information
     '''
 
     if bounds is None: bounds = (-np.inf, +np.inf)
@@ -983,23 +1274,37 @@ def writePythonFile(filename,DictOfVariables,writemode='w'):
     where each key corresponds to the variable name and the value is
     associated to the assignment.
 
-    EXAMPLE:
-    DictOfVariables = {'MyValue':50.0,'MyList':[1.,2.,3],}
 
-    will write:
-    MyValue=50.
-    MyList=[1.,2.,3.]
+    Parameters
+    ----------
+
+        filename : str
+            New file name (e.g. ``'toto.py'``)
+
+        DictOfVariables : dict
+            Pairs of key:value to be written as ``key = value``
+
+        writemode : str
+            ``'w'``-for write or ``'a'``-for append
+
+    Returns
+    -------
+
+        writes file : None
+
+    Examples
+    --------
+
+    >>> writePythonFile('toto.py', {'MyValue':50.0,'MyList':[1.,2.,3]})
+
+    will create a file ``toto.py`` containing:
+
+    ::
+
+        MyValue=50.
+        MyList=[1.,2.,3.]
 
 
-    INPUTS
-    filename (string) - New file name (e.g. toto.py)
-
-    DictOfVariables (dictionary) Pairs of variable = value (key, value)
-
-    writemode (string) - 'w'-for write or 'a'-for append
-
-    OUTPUTS
-    None. Creates filename.
     '''
     import pprint
 
@@ -1020,28 +1325,39 @@ def writePythonFile(filename,DictOfVariables,writemode='w'):
 def migrateFields(Donor, Receiver, keepMigrationDataForReuse=True,
                  forceAddMigrationData=False):
     '''
-    Migrate all fields contained in FlowSolution_t type nodes of <Donor>
-    towards <Receiver> using a zero-th order interpolation (nearest) strategy.
+    Migrate all fields contained in ``FlowSolution_t`` type nodes of **Donor**
+    towards **Receiver** using a zero-th order interpolation (nearest) strategy.
 
-    The same structure of FlowSolution containers of <Donor> are kept in
-    <Receiver>. Specifically, interpolations are done from Vertex containers
+    The same structure of FlowSolution containers of **Donor** are kept in
+    **Receiver**. Specifically, interpolations are done from Vertex containers
     towards vertex containers and CellCenter containers towards CellCenter
     containers.
 
-    INPUTS:
+    Parameters
+    ----------
 
-    Donor - (Tree/base/zone, list of zones/bases/Trees) - Donor elements.
+        Donor : Tree/base/zone, :py:class:`list` of zone/bases/Trees
+            Donor elements.
 
-    Receiver - (Tree/base/zone, list of zones/bases/Trees) - Receiver elements.
-        Receiver is modified.
+        Receiver : Tree/base/zone, :py:class:`list` of zone/bases/Trees
+            Receiver elements.
 
-    keepMigrationDataForReuse (boolean) - if True, special nodes .MigrationData
-        are kept on <Receiver> zones so that migration can be further reused,
-        for numerical efficiency. Otherwise, special nodes .MigrationData are
-        destroyed.
+            .. important:: **Receiver** is modified.
 
-    forceAddMigrationData - (boolean) - if True, re-compute special nodes
-        .MigrationData, regardless of their previous existence.
+        keepMigrationDataForReuse : bool
+            if ``True``, special nodes ``.MigrationData``
+            are stored on **Receiver** zones so that migration can be further
+            reused, for numerical efficiency. Otherwise, special nodes
+            ``.MigrationData`` are destroyed.
+
+            .. hint:: use ``keepMigrationDataForReuse=True`` if you plan
+                doing additional migrations of fields **only if** **Donor** and
+                **Receiver** fields do not move.
+
+        forceAddMigrationData : bool
+            if True, re-compute special nodes ``.MigrationData``, regardless of
+            their previous existence.
+
     '''
     import Geom.PyTree as D
 
@@ -1397,15 +1713,19 @@ def migrateFields(Donor, Receiver, keepMigrationDataForReuse=True,
 
 def checkEmptyBC(t):
     '''
-    Check if input PyTree has undefined zones in it, while printing a message.
+    Check if input PyTree has undefined zones in it and prints a message.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree) - the tree to be checked
+        t : PyTree
+            the tree to be checked
 
-    OUTPUTS
+    Returns
+    -------
 
-    hasEmpty - (boolean) - True if <t> has at least one empty BC.
+        hasEmpty : bool
+            ``True`` if **t** has at least one empty BC
     '''
     def isEmpty(emptyBC):
         if isinstance(emptyBC, list):
@@ -1429,17 +1749,50 @@ def checkEmptyBC(t):
 
 def sortListsUsingSortOrderOfFirstList(*arraysOrLists):
     '''
-    This function accepts an arbitrary number of lists as input.
-    It sorts all input lists following the ordering of the first list.
-    Returns all lists with new ordering
+    This function accepts an arbitrary number of lists (or arrays) as input.
+    It sorts all input lists (or arrays) following the ordering of the first
+    list after sorting.
 
-    INPUT
+    Returns all lists with new ordering.
 
-    arbitrary number of lists or arrays
+    Parameters
+    ----------
 
-    OUTPUT
+        arraysOrLists : comma-separated arrays or lists
+            Arbitrary number of arrays or lists
 
-    sorted arrays or lists following order of first list or array
+    Returns
+    -------
+
+        NewArrays : list
+            list containing the new sorted arrays or lists following the order
+            of first the list or array (after sorting).
+
+    Examples
+    --------
+
+    ::
+
+        import numpy as np
+        import MOLA.InternalShortcuts as J
+
+        First = [5,1,6,4]
+        Second = ['a','c','f','h']
+        Third = np.array([10,20,30,40])
+
+        NewFirst, NewSecond, NewThird = J.sortListsUsingSortOrderOfFirstList(First,Second,Third)
+        print(NewFirst)
+        print(NewSecond)
+        print(NewThird)
+
+    will produce
+
+    ::
+
+        [1, 4, 5, 6]
+        ['c', 'h', 'a', 'f']
+        [20, 40, 10, 30]
+
     '''
     SortInd = np.argsort(arraysOrLists[0])
     NewArrays = []

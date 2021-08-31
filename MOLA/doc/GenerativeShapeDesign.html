@@ -1,0 +1,1146 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GenerativeShapeDesign &#8212; MOLA  documentation</title>
+    
+  <link href="_static/css/theme.css" rel="stylesheet" />
+  <link href="_static/css/index.c5995385ac14fb8791e8eb36b4908be2.css" rel="stylesheet" />
+
+    
+  <link rel="stylesheet"
+    href="_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    
+      
+
+    
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css" />
+    
+  <link rel="preload" as="script" href="_static/js/index.1c5a1a01449ed65a7b51.js">
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/clipboard.min.js"></script>
+    <script src="_static/copybutton.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="GenerativeVolumeDesign" href="GenerativeVolumeDesign.html" />
+    <link rel="prev" title="Wireframe" href="Wireframe.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="en" />
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="80">
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+    <nav class="navbar navbar-light navbar-expand-lg bg-light fixed-top bd-navbar" id="navbar-main"><div class="container-xl">
+
+  <div id="navbar-start">
+    
+    
+<a class="navbar-brand" href="index.html">
+<p class="title">MOLA</p>
+</a>
+
+    
+  </div>
+
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar-collapsible" aria-controls="navbar-collapsible" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+
+  
+  <div id="navbar-collapsible" class="col-lg-9 collapse navbar-collapse">
+    <div id="navbar-center" class="mr-auto">
+      
+      <div class="navbar-center-item">
+        <ul id="navbar-main-elements" class="navbar-nav">
+    <li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="InternalShortcuts.html">
+  InternalShortcuts
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="Wireframe.html">
+  Wireframe
+ </a>
+</li>
+
+<li class="toctree-l1 current active nav-item">
+ <a class="current reference internal nav-link" href="#">
+  GenerativeShapeDesign
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="GenerativeVolumeDesign.html">
+  GenerativeVolumeDesign
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="RotatoryWings.html">
+  RotatoryWings
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="Preprocess.html">
+  Preprocess
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="Coprocess.html">
+  Coprocess
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="Postprocess.html">
+  Postprocess
+ </a>
+</li>
+
+    
+</ul>
+      </div>
+      
+    </div>
+
+    <div id="navbar-end">
+      
+      <div class="navbar-end-item">
+        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
+      </ul>
+      </div>
+      
+    </div>
+  </div>
+</div>
+    </nav>
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+            
+            <!-- Only show if we have sidebars configured, else just a small margin  -->
+            <div class="col-12 col-md-3 bd-sidebar"><form class="bd-search d-flex align-items-center" action="search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
+  <div class="bd-toc-item active">
+    
+  </div>
+</nav>
+            </div>
+            
+          
+
+          
+          <div class="d-none d-xl-block col-xl-2 bd-toc">
+            
+              
+              <div class="toc-item">
+                
+
+<nav id="bd-toc-nav">
+    
+</nav>
+              </div>
+              
+              <div class="toc-item">
+                
+              </div>
+              
+            
+          </div>
+          
+
+          
+          
+            
+          
+          <main class="col-12 col-md-9 col-xl-7 py-md-5 pl-md-5 pr-md-4 bd-content" role="main">
+              
+              <div>
+                
+  <div class="section" id="module-MOLA.GenerativeShapeDesign">
+<span id="generativeshapedesign"></span><h1>GenerativeShapeDesign<a class="headerlink" href="#module-MOLA.GenerativeShapeDesign" title="Permalink to this headline">¶</a></h1>
+<p>MOLA - GenerativeShapeDesign.py</p>
+<p>This module proposes functionalities for shape generation, useful
+for parametric mesh generation. The functions of this module
+deal mainly with surfaces.</p>
+<p>This module makes use of Cassiopee modules.</p>
+<p>First creation:
+01/03/2019 - L. Bernardos - Creation by recycling.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.applyGlue">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">applyGlue</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zones</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gluezones</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.applyGlue" title="Permalink to this definition">¶</a></dt>
+<dd><p>Use the information contained in <code class="docutils literal notranslate"><span class="pre">.glueData</span></code> nodes in order
+to apply glue to points of <strong>zone</strong> towards <strong>gluezones</strong> locations.
+For usage see documentation of <a class="reference internal" href="#MOLA.GenerativeShapeDesign.prepareGlue" title="MOLA.GenerativeShapeDesign.prepareGlue"><code class="xref py py-func docutils literal notranslate"><span class="pre">prepareGlue()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>zones</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone) – <p>where Glue information will be added</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>zones</strong> are modified <em>(points are displaced)</em></p>
+</div>
+</p></li>
+<li><p><strong>gluezones</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone) – specify the location where the zones will be glued.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.buildPropellerDisc">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">buildPropellerDisc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Rmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Rmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NCellRadial</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NCellQuarter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">buildHub</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RadialBufferFractionOfRmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NCellRadialBuffer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">11</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RadialCellSizeBoundary</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ghostHubCartesianFractionFromRmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.8</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.buildPropellerDisc" title="Permalink to this definition">¶</a></dt>
+<dd><p>Build a 2D flat propeller disc on XY plane.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Rmin</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – minimum radius of propeller</p></li>
+<li><p><strong>Rmax</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – maximum radius of propeller</p></li>
+<li><p><strong>NCellRadial</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – number of radial cells between <strong>Rmin</strong> and <strong>Rmax</strong></p></li>
+<li><p><strong>NCellQuarter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – number of azimutal cells in 90 degrees</p></li>
+<li><p><strong>ghostHubCartesianFractionFromRmin</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – fraction of <strong>Rmin</strong> from which
+middle hub zone (diamond) is constructed and number of connecting
+cells is computed (recommended value is <code class="docutils literal notranslate"><span class="pre">0.8</span></code>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>t</strong> – 2D Propeller disc PyTree</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>PyTree</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.buildWatertightBodyFromSurfaces">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">buildWatertightBodyFromSurfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">walls</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.buildWatertightBodyFromSurfaces" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given a set of surfaces, construct a closed watertight surface.
+Resulting surface is unstructured of triangles elements (TRI)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>walls</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone) – multiple blocks defining the surface patches of
+where the body will be supported</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>body</strong> – watertight body surface unstructured (TRI)</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>zone</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.closeAirfoil">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">closeAirfoil</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Airfoil</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Topology</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ThickTE_simple'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'NPtsUnion':</span> <span class="pre">21,</span> <span class="pre">'TEdetectionAngleThreshold':</span> <span class="pre">None,</span> <span class="pre">'TFITriAbscissa':</span> <span class="pre">0.1}</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.closeAirfoil" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given an airfoil-like curve, this function meshes the area inside the
+contour following a user-requested topology kind.</p>
+<p>This function is useful for closing the tip of wings or blades, or even for
+meshing the interior of a wing or blade (for thermal or structural analysis)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Airfoil</strong> (<em>zone</em>) – 1D PyTree structured zone.</p></li>
+<li><p><strong>Topology</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>Choose the kind of topology for meshing the interior
+of the airfoil:</p>
+<ul>
+<li><dl>
+<dt><code class="docutils literal notranslate"><span class="pre">'SharpTE_TFITri'</span></code>:</dt><dd><p>Suitable for sharp Trailing Edge. Relevant <strong>options</strong>:</p>
+<ul>
+<li><dl>
+<dt>NPtsUnion<span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></span></dt><dd><p>Number of points across the airfoil.</p>
+</dd>
+</dl>
+</li>
+<li><dl>
+<dt>TFITriAbscissa<span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></span></dt><dd><p>Curvilinear-abscissa reference (between
+0 and 1) up to where the TRI TFI will be performed from the
+<code class="docutils literal notranslate"><span class="pre">i=0</span></code> point (usually, the trailing edge).</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl>
+<dt><code class="docutils literal notranslate"><span class="pre">'ThickTE_simple'</span></code>:</dt><dd><p>Suitable for thick Trailing Edge (open airfoil).
+Build a single TFI based on the 4 boundaries defined using the
+Trailing Edge as one boundary. Relevant <strong>options</strong>:</p>
+<ul>
+<li><dl>
+<dt>TEdetectionAngleThreshold<span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></span></dt><dd><p>If provided, use
+this value as the threshold angle (degrees) used for split
+Trailing Edge curve from the rest of the airfoil. If not
+provided (None) then uses <strong>NPtsUnion</strong> as reference (see next)</p>
+</dd>
+</dl>
+</li>
+<li><dl>
+<dt>NPtsUnion<span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></span></dt><dd><p>Only relevant if value of None is given
+to <strong>TEdetectionAngleThreshold</strong>. It uses this amount of points
+for splitting top/bottom sides of the airfoil and building
+Leading Edge and Trailing Edge curves.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</p></li>
+<li><p><strong>options</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – Contextual arguments (see <strong>Topology</strong> for relevant options)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>ClosedZones</strong> – list of surfaces representing the closed region inside the airfoil</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.convertSurfaces2SingleTriangular">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">convertSurfaces2SingleTriangular</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.convertSurfaces2SingleTriangular" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given a set of surfaces, transform them into a single unstructured TRI
+surface (merging).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>t</strong> (<em>PyTree</em><em>, </em><em>base</em><em>, </em><em>zone</em><em>, or </em><em>list of zones</em>) – contains the surfaces to merge</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>tri</strong> – a single surface (TRI) connecting all provided surfaces</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>zone</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.extendBlockByTFI2D">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">extendBlockByTFI2D</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cart</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distrib</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reverse</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">angleSplit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundaryKind</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Arc'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.extendBlockByTFI2D" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function is used to extend a 2D zone in the XY plane
+(2D function) given a desired distribution. The resulting
+mesh is of kind H.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cart</strong> (<em>zone</em>) – Zone 2D structured</p></li>
+<li><p><strong>distrib</strong> (<em>zone</em>) – Zone Structured curve 1D. Shall be an horizontal
+line starting at (0,0,0), as obtained from
+<code class="xref py py-func docutils literal notranslate"><span class="pre">D.getDistribution()</span></code></p></li>
+<li><p><strong>reverse</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – Used to change the orientation of boundary</p></li>
+<li><p><strong>angleSplit</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Angle (degrees) of threshold for the definition of the contour of
+cart.</p></li>
+<li><p><strong>boundaryKind</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Shall be <code class="docutils literal notranslate"><span class="pre">'Line'</span></code> or <code class="docutils literal notranslate"><span class="pre">'Arc'</span></code>. Defines the
+geometry of the external boundary of the resulting mesh.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>t</strong> (<em>PyTree</em>) – with a base and several zones of the resulting mesh.</p></li>
+<li><p><strong>ExternalFaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zones) – The contour of the external boundary.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.extrapolateSurface">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">extrapolateSurface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Surface</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Boundary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">SpineDiscretization</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'tangent'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(1,</span> <span class="pre">0,</span> <span class="pre">0)</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.extrapolateSurface" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extrapolate a <strong>Surface</strong> from a <strong>Boundary</strong> following a given
+dimensional extrapolation <strong>direction</strong>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Surface</strong> (<em>zone</em>) – Structured surface.</p></li>
+<li><p><strong>Boundary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – One of: <code class="docutils literal notranslate"><span class="pre">'imin','imax','jmin','jmax'</span></code></p></li>
+<li><p><strong>SpineDiscretization</strong> (<em>1D numpy array</em><em> or </em><em>zone</em>) – used to define the position and distance of the new
+extrapolation sections (array or curve)</p></li>
+<li><p><strong>mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>Can be one of:</p>
+<ul>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">'tangent'</span></code></dt><dd><p>extrapolates the surface tangentially at the selected
+boundary</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">'directional'</span></code></dt><dd><p>extrapolates the surface following a user-defined direction</p>
+</dd>
+</dl>
+</li>
+</ul>
+</p></li>
+<li><p><strong>direction</strong> (3-<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a> <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a> or array) – <p>unitary vector pointing towards the desired extrapolation direction.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>only relevant if <strong>mode</strong> = <code class="docutils literal notranslate"><span class="pre">'directional'</span></code></p>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>surface</strong> – New surface including the extrapolation region</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>zone</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.extrudeAirfoil2D">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">extrudeAirfoil2D</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">airfoilCurve</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">References</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Sizes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Points</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Cells</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.extrudeAirfoil2D" title="Permalink to this definition">¶</a></dt>
+<dd><p>Build a 2D mesh around a given airfoil geometry.</p>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>For the moment, only a C-topology of the mesh is employed
+(see Cassiopee ticket <a class="reference external" href="https://elsa.onera.fr/issues/6466">6466</a>).
+This means that trailing edge of the airfoil <strong>shall not</strong> be rounded.</p>
+</div>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>poor wall-adjacent cell orthogonality may be produced (
+see Cassiopee ticket <a class="reference external" href="https://elsa.onera.fr/issues/7517">7517</a>)</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>airfoilCurve</strong> (<em>zone</em>) – An airfoil positioned in the XY plane. The point (0,0) must be the
+Leading Edge and point (1,0) must be the Trailing Edge.
+Index-ordering must be <strong>clockwise</strong> (first index starts from
+trailing edge of bottom side).
+Airfoil might be either open or closed.</p></li>
+<li><p><strong>References</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – <p>Relevant keys are:</p>
+<ul>
+<li><dl>
+<dt>Reynolds<span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></span></dt><dd><p>Reference Reynolds number used for computation of
+wall-adjacent cell size following:</p>
+<p><em>Frank M. White’s Fluid Mechanics 5th Ed., page 467</em></p>
+</dd>
+</dl>
+</li>
+<li><dl>
+<dt>DeltaYPlus<span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></span></dt><dd><p>Reference <span class="math notranslate nohighlight">\(\Delta y^+\)</span> number used for computation of
+wall-adjacent cell size following:</p>
+<p><em>Frank M. White’s Fluid Mechanics 5th Ed., page 467</em></p>
+</dd>
+</dl>
+</li>
+</ul>
+</p></li>
+<li><p><strong>Sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – <p>Dictionary describing the sizing of the computational domain.
+If not provided (or partially provided),
+then missing information is got from following default values:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Sizes</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+<span class="n">Height</span>                  <span class="o">=</span> <span class="mf">50.</span><span class="o">*</span><span class="n">Chord</span><span class="p">,</span> <span class="c1"># Domain height</span>
+
+<span class="n">Wake</span>                    <span class="o">=</span> <span class="mf">50.</span><span class="o">*</span><span class="n">Chord</span><span class="p">,</span> <span class="c1"># Domain width</span>
+
+<span class="n">BoundaryLayerMaxHeight</span>  <span class="o">=</span> <span class="mf">0.1</span><span class="o">*</span><span class="n">Chord</span><span class="p">,</span> <span class="c1"># Maximum allowable orthogonal</span>
+                                     <span class="c1"># extrusion for Boundary-layer</span>
+
+<span class="n">TrailingEdgeTension</span>     <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">Chord</span> <span class="c1"># controls the wake direction</span>
+                                     <span class="c1"># coming out of Trailing Edge</span>
+                                     <span class="c1"># (fraction of Wake)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>Points</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – <p>Dictionary describing the
+sampling of the grid. If not provided (or partially provided),
+then missing information is got from following default values:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Points</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+<span class="n">Extrusion</span>               <span class="o">=</span> <span class="mi">300</span><span class="p">,</span> <span class="c1"># Nb of pts in extrusion direction</span>
+
+<span class="c1"># The following two arguments are used to discretize the airfoil&#39;s</span>
+<span class="c1"># Bottom and Top side, using lists of parameters (clockwise</span>
+<span class="c1"># direction). Useful for refinement in shock-wave or bubbles.</span>
+<span class="c1"># NPts (integer) Number of points in interval</span>
+<span class="c1"># BreakPoint(x) (float) Reference breakpoint in x-coordinate where</span>
+<span class="c1">#     JoinCellLength will be imposed</span>
+<span class="c1"># JoinCellLength (float) Cell length to be imposed at BreakPoint</span>
+
+<span class="n">Bottom</span><span class="o">=</span><span class="p">[{</span><span class="s1">&#39;NPts&#39;</span><span class="p">:</span> <span class="mi">70</span><span class="p">,</span><span class="s1">&#39;BreakPoint(x)&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span><span class="s1">&#39;JoinCellLength&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">}],</span>
+<span class="n">Top</span>   <span class="o">=</span><span class="p">[{</span><span class="s1">&#39;NPts&#39;</span><span class="p">:</span><span class="mi">100</span><span class="p">,</span><span class="s1">&#39;BreakPoint(x)&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span><span class="s1">&#39;JoinCellLength&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">}],</span>
+
+<span class="n">Wake</span>                    <span class="o">=</span> <span class="mi">200</span><span class="p">,</span> <span class="c1"># Nb of pts in wake&#39;s direction</span>
+
+<span class="n">WakeHeightMaxPoints</span>     <span class="o">=</span> <span class="mi">50</span><span class="p">,</span>  <span class="c1"># Maximum allowable Nb of pts in height</span>
+                               <span class="c1"># direction of wake (only relevant if</span>
+                               <span class="c1"># airfoil is open at Trailing Edge)</span>
+
+<span class="n">BoundaryLayerGrowthRate</span> <span class="o">=</span> <span class="mf">1.05</span><span class="p">,</span><span class="c1"># Geometrical growth rate for boundary</span>
+                               <span class="c1"># layer extrusion</span>
+
+<span class="n">BoundaryLayerMaxPoints</span>  <span class="o">=</span> <span class="mi">100</span><span class="p">,</span> <span class="c1"># Maximum allowable Nb of pts for</span>
+                               <span class="c1"># boundary-layer extrusion</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>Cells</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – <p>Dictionary describing the
+cell sizes of the grid. If not provided (or partially provided),
+then missing information is got from following default values:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Cells</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+<span class="n">TrailingEdge</span> <span class="o">=</span> <span class="mf">0.005</span><span class="o">*</span><span class="n">Chord</span><span class="p">,</span>  <span class="c1"># foilwise size of Trailing Edge cell</span>
+
+<span class="n">LeadingEdge</span>  <span class="o">=</span> <span class="mf">0.0005</span><span class="o">*</span><span class="n">Chord</span><span class="p">,</span> <span class="c1"># foilwise size of Leading Edge cell</span>
+
+<span class="n">Farfield</span>     <span class="o">=</span> <span class="mf">2.0</span><span class="o">*</span><span class="n">Chord</span><span class="p">,</span>    <span class="c1"># normalwise size of Farfield cells</span>
+
+<span class="n">WakeFarfieldAspectRatio</span> <span class="o">=</span> <span class="mf">0.02</span><span class="p">,</span> <span class="c1"># Aspect ratio of farfield Wake cell</span>
+
+<span class="n">LEFarfieldAspectRatio</span>   <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>  <span class="c1"># Aspect ratio of farfield cell</span>
+                                <span class="c1"># propagated from Leading Edge</span>
+
+<span class="n">FarfieldAspectRatio</span>     <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="c1"># Aspect ratio of farfield cells</span>
+                                <span class="c1"># propagating from Leading Edge and</span>
+                                <span class="c1"># Trailing Edge</span>
+
+<span class="c1"># The following two parameters are only relevant if airfoil is</span>
+<span class="c1"># closed (closed Trailing Edge). They are used to control the</span>
+<span class="c1"># parabolic cell height augmentation from Trailing Edge up to</span>
+<span class="c1"># Wake farfield</span>
+<span class="n">ClosedWakeAbscissaCtrl</span>  <span class="o">=</span> <span class="mf">0.50</span><span class="p">,</span> <span class="c1"># Wake-wise abscissa control point</span>
+                                <span class="c1"># Must be in (0,1)</span>
+
+<span class="n">ClosedWakeAbscissaRatio</span> <span class="o">=</span> <span class="mf">0.25</span><span class="p">,</span> <span class="c1"># Cell Height fraction (of Wake</span>
+                                  <span class="n">farfield</span> <span class="n">height</span><span class="p">)</span> <span class="n">at</span> <span class="n">the</span> <span class="n">ctrl</span> <span class="n">point</span>
+                                  <span class="n">Must</span> <span class="n">be</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>options</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – <p>Dictionary describing the
+additional grid options . If not provided (or partially provided),
+then missing information is got from following default values:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">options</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+<span class="n">NProc</span><span class="o">=</span><span class="mi">28</span><span class="p">,</span>                        <span class="c1"># Number of blocs for split</span>
+
+<span class="n">DenseSamplingNPts</span> <span class="o">=</span> <span class="mi">5000</span><span class="p">,</span>         <span class="c1"># Number of points for sampling</span>
+                                  <span class="c1"># geometrical entities during</span>
+                                  <span class="c1"># auxiliary operations</span>
+
+<span class="n">LEsearchAbscissas</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.35</span><span class="p">,</span> <span class="mf">0.65</span><span class="p">],</span> <span class="c1"># foilwise curvilinear abscissa</span>
+                                  <span class="c1"># range of search for Leading Edge</span>
+                                  <span class="c1"># point. Should be around 0.5.</span>
+
+<span class="n">LEsearchEpsilon</span>   <span class="o">=</span> <span class="mf">1.e-8</span><span class="p">,</span>        <span class="c1"># Small tolerance criterion for</span>
+                                  <span class="c1"># determining the Leading Edge point</span>
+
+<span class="n">MappingLaw</span>        <span class="o">=</span> <span class="s1">&#39;cubic&#39;</span><span class="p">,</span>      <span class="c1"># Mapping law of the airfoil. For</span>
+                                  <span class="c1"># allowable values see doc of:</span>
+                                  <span class="c1"># W.discretize() function</span>
+
+<span class="n">TEclosureTolerance</span><span class="o">=</span> <span class="mf">3.e-5</span><span class="p">,</span>        <span class="c1"># Euclidean distance (in chord</span>
+                                  <span class="c1"># units) used to determine if</span>
+                                  <span class="c1"># provided airfoils is open or</span>
+                                  <span class="c1"># closed, which will serve to</span>
+                                  <span class="c1"># determine if additional wake</span>
+                                  <span class="c1"># zone has to be built or not</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>grid</strong> (<em>PyTree</em>) – Including zones, splitting, connectivity, etc</p></li>
+<li><p><strong>meshParamsDict</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Includes size,pts,cells,opts dictionaries</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.filterSurfacesByArea">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">filterSurfacesByArea</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">surfaces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ratio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.filterSurfacesByArea" title="Permalink to this definition">¶</a></dt>
+<dd><p>Distribute a user-provided list of surfaces into two lists (large surfaces
+and small surfaces). Large surfaces are those whose area is bigger than
+the median. If the selection criterion is requested to be different, then
+user may change the parameter ratio. If <code class="docutils literal notranslate"><span class="pre">ratio=0.5</span></code>, then the selection
+criterion corresponds to the median.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>surfaces</strong> (<em>PyTree</em><em>, </em><em>base</em><em> or </em><em>list of zones</em>) – inputs surfaces to filter.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>LargeSurfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone) – surfaces whose area is greater or equal
+than <code class="docutils literal notranslate"><span class="pre">ratio*(max(areas)+min(areas))</span></code></p></li>
+<li><p><strong>SmallSurfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone) – surfaces whose area is less than <code class="docutils literal notranslate"><span class="pre">ratio*(max(areas)+min(areas))</span></code></p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.getAreas">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">getAreas</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.getAreas" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the total area of each surface zone provided by the user.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>t</strong> (<em>PyTree</em><em>, </em><em>base</em><em>, </em><em>zone</em><em> or </em><em>list of zones</em>) – object containing exclusively the surfaces whose area will be
+computed.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>areas</strong> – the areas of each one of the user-provided surfaces</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.getBoundary">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">getBoundary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zone</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'imin'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">layer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.getBoundary" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given a structured zone, extract the window corresponding to
+<code class="docutils literal notranslate"><span class="pre">'imin'</span></code>, <code class="docutils literal notranslate"><span class="pre">'imax'</span></code>, <code class="docutils literal notranslate"><span class="pre">'jmin'</span></code>, <code class="docutils literal notranslate"><span class="pre">'jmax'</span></code>, <code class="docutils literal notranslate"><span class="pre">'kmin'</span></code> or <code class="docutils literal notranslate"><span class="pre">'kmax'</span></code>.
+The optional argument <strong>layer</strong> is used to extract the layer
+corresponding to <code class="docutils literal notranslate"><span class="pre">(min+layer)</span></code> or <code class="docutils literal notranslate"><span class="pre">(max-layer)</span></code>, if <strong>layer</strong> is
+an <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>. If <strong>layer</strong> is a <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a>, the function attempts
+to make a full slice (volume).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>zone</strong> (<em>zone</em>) – PyTree Structured zone (1D, 2D or 3D).</p></li>
+<li><p><strong>window</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – from which window to extract (<code class="docutils literal notranslate"><span class="pre">'imin'</span></code>, <code class="docutils literal notranslate"><span class="pre">'imax'</span></code>, <code class="docutils literal notranslate"><span class="pre">'jmin'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'jmax'</span></code>, <code class="docutils literal notranslate"><span class="pre">'kmin'</span></code> or <code class="docutils literal notranslate"><span class="pre">'kmax'</span></code>)</p></li>
+<li><p><strong>layer</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a> or (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>)) – <p>Possibilities:</p>
+<ul>
+<li><dl class="simple">
+<dt><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></dt><dd><p>extracts <code class="docutils literal notranslate"><span class="pre">(min+layer)</span></code> or <code class="docutils literal notranslate"><span class="pre">(max-layer)</span></code></p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>(<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>)</dt><dd><p>extracts <code class="docutils literal notranslate"><span class="pre">(min+layer[0]</span> <span class="pre">to</span> <span class="pre">min+layer[0])</span></code> or
+<code class="docutils literal notranslate"><span class="pre">(max-layer[0]</span> <span class="pre">to</span> <span class="pre">max-layer[1])</span></code></p>
+</dd>
+</dl>
+</li>
+</ul>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p><strong>layer</strong> values shall always be <strong>positive</strong>
+<em>(negative values may produce unexpected results)</em></p>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>window</strong> – The extracted window surface or volume</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>zone</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">Converter.PyTree</span> <span class="k">as</span> <span class="nn">C</span>
+<span class="kn">import</span> <span class="nn">Generator.PyTree</span> <span class="k">as</span> <span class="nn">G</span>
+<span class="kn">import</span> <span class="nn">MOLA.GenerativeShapeDesign</span> <span class="k">as</span> <span class="nn">GSD</span>
+
+<span class="n">zone</span> <span class="o">=</span> <span class="n">G</span><span class="o">.</span><span class="n">cart</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">),(</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">),(</span><span class="mi">20</span><span class="p">,</span><span class="mi">20</span><span class="p">,</span><span class="mi">20</span><span class="p">))</span>
+
+<span class="c1"># Extract the window kmin:</span>
+<span class="n">winK</span> <span class="o">=</span> <span class="n">GSD</span><span class="o">.</span><span class="n">getBoundary</span><span class="p">(</span><span class="n">zone</span><span class="p">,</span><span class="s1">&#39;kmin&#39;</span><span class="p">)</span>
+<span class="n">C</span><span class="o">.</span><span class="n">convertPyTree2File</span><span class="p">(</span><span class="n">winK</span><span class="p">,</span> <span class="s1">&#39;surface.cgns&#39;</span><span class="p">)</span>
+
+<span class="c1"># Extract the first 10 layers of i-window:</span>
+<span class="n">winI</span> <span class="o">=</span> <span class="n">GSD</span><span class="o">.</span><span class="n">getBoundary</span><span class="p">(</span><span class="n">zone</span><span class="p">,</span><span class="s1">&#39;imin&#39;</span><span class="p">,(</span><span class="mi">0</span><span class="p">,</span><span class="mi">10</span><span class="p">))</span>
+<span class="n">C</span><span class="o">.</span><span class="n">convertPyTree2File</span><span class="p">(</span><span class="n">winI</span><span class="p">,</span> <span class="s1">&#39;volume.cgns&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.getSuitableSetOfPointsForTFITri">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">getSuitableSetOfPointsForTFITri</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">choosePriority</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['N1',</span> <span class="pre">'N2',</span> <span class="pre">'N3',</span> <span class="pre">'best']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">QtySearch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tellMeWhatYouDo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.getSuitableSetOfPointsForTFITri" title="Permalink to this definition">¶</a></dt>
+<dd><p>The function returns a new set of suitable number of points that
+best matches the user-provided ones, such that <code class="xref py py-func docutils literal notranslate"><span class="pre">Generator.TFITri()</span></code>
+can be performed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>N1</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – Initial guess of number of points discritizing the first
+curve (boundary) of the TFITri contour.</p></li>
+<li><p><strong>N2</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – Initial guess of number of points discritizing the second
+curve (boundary) of the TFITri contour.</p></li>
+<li><p><strong>N3</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – Initial guess of number of points discritizing the third
+curve (boundary) of the TFITri contour.</p></li>
+<li><p><strong>choosePriority</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – <p>list of priority (descending order) for
+proposing a new set of suitable <code class="xref py py-func docutils literal notranslate"><span class="pre">G.TFITri()</span></code> points.
+Possible choices:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">'N1'</span></code> : Attempt to respect provided <strong>N1</strong> by adapting <strong>N2</strong> and <strong>N3</strong></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'N2'</span></code> : Attempt to respect provided <strong>N2</strong> by adapting <strong>N1</strong> and <strong>N3</strong></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'N3'</span></code> : Attempt to respect provided <strong>N3</strong> by adapting <strong>N1</strong> and <strong>N2</strong></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'best'</span></code> : Adapt <strong>N1</strong>, <strong>N2</strong> and <strong>N3</strong>, as closely as possible from provided ones</p></li>
+</ul>
+</p></li>
+<li><p><strong>QtySearch</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – Initial amount of points (plus and minus) allowed for
+adaptation of new set of number of points. The higher the value, the
+more costly the search procedure is, but best chances exist of finding
+a suitable set of number of points. If no suitable set is found within
+the initial <strong>QtySearch</strong>, the algorithm recursively calls itself adding 1
+at each call, in order to have best chances of finding a suitable set</p></li>
+<li><p><strong>tellMeWhatYouDo</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, the function prints relevant information about the
+adaptation of points</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>N1new</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – New suitable proposal of number of points discritizing
+the first curve (boundary) of the TFITri contour.</p></li>
+<li><p><strong>N2new</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – New suitable proposal of number of points discritizing
+the second curve (boundary) of the TFITri contour.</p></li>
+<li><p><strong>N3new</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – New suitable proposal of number of points discritizing
+the third curve (boundary) of the TFITri contour.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.isClosed">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">isClosed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">surface</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-08</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.isClosed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determines if a surface is closed or not.</p>
+<div class="admonition hint">
+<p class="admonition-title">Hint</p>
+<p>see ticket <a class="reference external" href="https://elsa.onera.fr/issues/7867">7867</a></p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>surface</strong> (<em>PyTree</em><em>, </em><em>base</em><em>, </em><em>zone</em><em>, or </em><em>list of zones</em>) – input surface (or set of surfaces) where the closed topology will be
+evaluated.</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – geometrical tolerance to merge points when closing the
+auxiliary surface used for determining if input is closed.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>closed</strong> – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, surface topology is closed, <code class="docutils literal notranslate"><span class="pre">False</span></code> otherwise.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.magnetize">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">magnetize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zones</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">magneticzones</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-10</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.magnetize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Glues the points of <strong>zones</strong> to the closest points of <strong>magneticzones</strong>
+given a tolerance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>zones</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone) – <p>The zones whose points are to be glued.</p>
+<p>..note:: the <strong>zones</strong> are modified.</p>
+</p></li>
+<li><p><strong>magneticzones</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone) – zones defining the final position where
+the points of “zones” are to be glued.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.multiSections">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">multiSections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ProvidedSections</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">SpineDiscretization</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">InterpolationData</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'InterpolationLaw':</span> <span class="pre">'interp1d_linear'}</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.multiSections" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function makes a sweep across a list of provided sections (curves)
+that are exactly placed in 3D space (passing points).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ProvidedSections</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zones) – each zone must be a 1D structured curve
+All provided sections must have the same number of points. Also, they
+shall have the same index ordering, in order to avoid self-intersecting
+resulting surface. Each one of the provided sections must be exactly
+placed in 3D space at the passing points where the new surface will be
+pass across. Bad results can be expected if some sections are coplanar.</p></li>
+<li><p><strong>SpineDiscretization</strong> (<em>numpy 1d array</em><em> or </em><em>zone</em>) – This is a polymorphic
+argument that provides information on how to discretize the spine of
+the surface to build. If it is a numpy 1D, it shall be a monotonically
+increasing vector between 0 and 1. If it is a zone, it must be a 1D
+structured curve, and the algorithm will extract its distribution for
+use it as <strong>SpineDiscretization</strong>.</p></li>
+<li><p><strong>InterpolationData</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – <p>This is a dictionary that contains
+options for the interpolation process. Relevant options:</p>
+<ul>
+<li><dl>
+<dt>InterpolationLaw<span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></dt><dd><p>Indicates the interpolation law to be
+employed when constructing the surface. Interpolation is performed
+index-by-index of each point of the provided surface coordinates.
+The interpolation abscissa is the SpineDiscretization, whereas the
+interpolated quantities are the grid coordinates.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>Surface</strong> (<em>zone</em>) – 2D structured surface of the surface that passes across
+all the user-provided sections.</p></li>
+<li><p><strong>SpineCurve</strong> (<em>zone</em>) – 1D structured curve corresponding to the spine of the surface.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.prepareGlue">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">prepareGlue</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zones</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gluezones</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-10</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.prepareGlue" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add the .glueData nodes that specifies the <code class="docutils literal notranslate"><span class="pre">PointList</span></code> to glue
+between the provided <strong>zones</strong> and <strong>gluezones</strong>. This function
+is intended to be used jointly with <a class="reference internal" href="#MOLA.GenerativeShapeDesign.applyGlue" title="MOLA.GenerativeShapeDesign.applyGlue"><code class="xref py py-func docutils literal notranslate"><span class="pre">applyGlue()</span></code></a>, e.g.:</p>
+<p>Add glue information:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">prepareGlue</span><span class="p">(</span><span class="n">zones</span><span class="p">,</span><span class="n">gluezones</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>User operations that may brake the mesh connection:
+<em>Projections, extrusions, etc…</em></p>
+<p>Apply glue information to reconnect the mesh</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">applyGlue</span><span class="p">(</span><span class="n">zones</span><span class="p">,</span><span class="n">gluezones</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>zones</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone) – <p>where Glue information will be added</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>zones</strong> are modified <em>(</em> <code class="docutils literal notranslate"><span class="pre">.glueData</span></code> <em>is added)</em></p>
+</div>
+</p></li>
+<li><p><strong>gluezones</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone) – specify the location where the zones will be glued.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.scanBlade">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">scanBlade</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">BladeSurface</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RelativeSpanDistribution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RotationCenter</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RotationAxis</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">BladeDirection</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RelativeChordReference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">buildCamberOptions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">splitAirfoilOptions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.scanBlade" title="Permalink to this definition">¶</a></dt>
+<dd><p>Make a scanner of a blade surface in order to construct the sections,
+infer the airfoils and its camber lines, as well as getting the blade’s
+geometrical laws.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>BladeSurface</strong> (<em>PyTree</em>) – Tree containing the blade surface. It can be
+mono- or multi-block, unstructured or structured, or both.</p></li>
+<li><p><strong>RelativeSpanDistribution</strong> (<em>1D numpy array</em>) – array between 0 and 1 used to discretize the scanner distribution</p></li>
+<li><p><strong>RotationCenter</strong> (3-<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a> array) – coordinates of the blade rotation center</p></li>
+<li><p><strong>RotationAxis</strong> (3-<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a> array) – unit vector specifying the rotation
+direction of the blade using right-hand rule convention</p></li>
+<li><p><strong>BladeDirection</strong> (3-<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a> array) – unit vector specifying the orientation of
+the blade. Scanner is made perpendicular to this direction</p></li>
+<li><p><strong>RelativeChordReference</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – stacking reference of section’s chord. Typical value is 0.25.
+Inferred geometrical laws are meaningful considering the stacking
+<strong>RelativeChordReference</strong>.</p></li>
+<li><p><strong>buildCamberOptions</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – Optional argument passed to <a class="reference internal" href="Wireframe.html#MOLA.Wireframe.buildCamber" title="MOLA.Wireframe.buildCamber"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.Wireframe.buildCamber()</span></code></a>
+function. Parameters may influence precision of the geometrical laws</p></li>
+<li><p><strong>splitAirfoilOptions</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – Optional argument passed to <a class="reference internal" href="Wireframe.html#MOLA.Wireframe.splitAirfoil" title="MOLA.Wireframe.splitAirfoil"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.Wireframe.splitAirfoil()</span></code></a>
+function. Parameters may influence precision of the resulting
+geometrical laws</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>ScannerPyTree</strong> – contains the <em>BladeSurface</em>, the <em>BladeLine</em>,
+the sections and its cambers; and normalized airfoils and cambers</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>PyTree</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.stackSections">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">stackSections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Sections</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.stackSections" title="Permalink to this definition">¶</a></dt>
+<dd><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>this function must be replaced by <code class="docutils literal notranslate"><span class="pre">G.stack()</span></code></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.surfacesIntersection">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">surfacesIntersection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">surface1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">surface2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.surfacesIntersection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the intersection between two surfaces, resulting
+in a BAR curve.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>surface1</strong> (zone or <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zones) – PyTree mono or multi-block surface, not necessarily closed nor
+unstructured.</p></li>
+<li><p><strong>surface2</strong> (zone or <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zones) – PyTree mono or multi-block surface, not necessarily closed nor
+unstructured.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>theIntersection</strong> – unstructured curve BAR of the intersection</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>zone</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.sweepSections">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">sweepSections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sections</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">SpanPositions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0.0]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotationLaw</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'linear'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NormalDirection</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(1,</span> <span class="pre">0,</span> <span class="pre">0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spine</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sectionShapeLaw</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'linear'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.sweepSections" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function builds a sweep surface from a given profile, or a set of
+profiles, throughout a spine. The result is a structured surface.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sections</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone) – <p>List of sections that will be used to sweep around the <strong>spine</strong>.
+They are structured curves.
+Beware that the total number of points of each section must be the
+same. The orientation of the section must be the same too.</p>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p><strong>sections</strong> are supposed to be at <strong>XY</strong> plane</p>
+</div>
+</p></li>
+<li><p><strong>SpanPositions</strong> (<em>numpy 1D array between 0 and 1</em>) – It must have the same number of elements as the number of sections.
+It is used to place each section at the desired position along the
+<strong>spine</strong>. If not provided, sections are distributed uniformely.</p></li>
+<li><p><strong>rotation</strong> (<em>numpy 1D array</em>) – Vector of twist angles imposed to the profiles along the spine.
+You may use a single value, and the imposed rotation will be the
+same throughout the spine. You may use only two values, and the
+rotation will be distributed linearly from start to end. You may use
+the same number of values as the number of sections, then the twist
+angle is imposed following the law defined by user <strong>rotationLaw</strong>
+at each section’s position.</p></li>
+<li><p><strong>rotationLaw</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – It controls the law imposed to interpolate the rotation
+between two sections. Possible values:
+<code class="docutils literal notranslate"><span class="pre">'linear'</span></code>, <code class="docutils literal notranslate"><span class="pre">'nearest'</span></code>, <code class="docutils literal notranslate"><span class="pre">'zero'</span></code>, <code class="docutils literal notranslate"><span class="pre">'slinear'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'quadratic'</span></code> or <code class="docutils literal notranslate"><span class="pre">'cubic'</span></code>.</p></li>
+<li><p><strong>NormalDirection</strong> (3-element <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – Vector describing the extrusion orientation used to find the local
+reference frame. As the sections are supposed to be
+placed in the XY plane, this vector will typically be <code class="docutils literal notranslate"><span class="pre">(0,0,1)</span></code>.</p></li>
+<li><p><strong>spine</strong> (<em>zone</em>) – <p>structured curve where the sections will be swept along.
+The spine-wise discretization is exactly the same as the node
+distribution of the spine.</p>
+<div class="admonition hint">
+<p class="admonition-title">Hint</p>
+<p>if you wish to control de discretization of the spine,
+you may want to use <a class="reference internal" href="Wireframe.html#MOLA.Wireframe.discretize" title="MOLA.Wireframe.discretize"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.Wireframe.discretize()</span></code></a></p>
+</div>
+</p></li>
+<li><p><strong>sectionShapeLaw</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – It controls the law imposed to interpolate the airfoils
+between two sections. Possible values:
+<code class="docutils literal notranslate"><span class="pre">'linear'</span></code>, <code class="docutils literal notranslate"><span class="pre">'nearest'</span></code>, <code class="docutils literal notranslate"><span class="pre">'zero'</span></code>, <code class="docutils literal notranslate"><span class="pre">'slinear'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'quadratic'</span></code> or <code class="docutils literal notranslate"><span class="pre">'cubic'</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>We suppose that the input sections are positioned in the
+XY plane. The reference point from which the rotation
+angles are applied is the origin (0,0,0). If you wish to re-position
+this reference, you may apply a translation to the sections beforehand.</p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeShapeDesign.wing">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeShapeDesign.</span></span><span class="sig-name descname"><span class="pre">wing</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Span</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ChordRelRef</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NPtsTrailingEdge</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AvoidAirfoilModification</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">splitAirfoilOptions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'FirstEdgeSearchPortion':</span> <span class="pre">0.99,</span> <span class="pre">'RelativeRadiusTolerance':</span> <span class="pre">0.1,</span> <span class="pre">'SecondEdgeSearchPortion':</span> <span class="pre">-</span> <span class="pre">0.99}</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeShapeDesign.wing" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function is used to build a wing-like surface (also suitable for
+tail planes, propeller or rotor blades). It employs geometrical laws defined
+through Python dictionaries as well as airfoil geometries provided by user.</p>
+<p>The new wing is positioned such that spanwise direction is in (-Z) direction,
+trailing edge points roughly in (-X) direction, and top side of airfoils
+point towards roughly (+Y direction).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Span</strong> (<em>multiple types accepted</em>) – <p>This polymorphic input is used to infer the spanwise
+dimensions and discretization that new wing surface will use.
+It shall start at wing’s root (minimum span) and end at wing’s tip
+(maximum span).</p>
+<p>For detailed information on possible inputs of Span, please refer to
+<a class="reference internal" href="InternalShortcuts.html#MOLA.InternalShortcuts.getDistributionFromHeterogeneousInput__" title="MOLA.InternalShortcuts.getDistributionFromHeterogeneousInput__"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.InternalShortcuts.getDistributionFromHeterogeneousInput__()</span></code></a> doc.</p>
+<p>For example, a wing starting at <span class="math notranslate nohighlight">\(\mathrm{root} =1 \,\mathrm{m}\)</span> and ending at
+<span class="math notranslate nohighlight">\(\mathrm{tip} =10 \,\mathrm{m}\)</span>, with uniform discretization using 101 points would
+be obtained using:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">Span</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">101</span><span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>ChordRelRef</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – <p>This is the stacking point for the sections. Twist law is applied
+with respect to this reference, as well as sweep and dihedral laws.
+Typical practice is using the quart of chord line (<span class="math notranslate nohighlight">\(c/4\)</span>), which
+is obtained setting:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ChordRelRef</span> <span class="o">=</span> <span class="mf">0.25</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>NPtsTrailingEdge</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – If provided sections are open at trailing edge, this parameter is
+used for discretizing the gap distance at trailing edge (closing).</p></li>
+<li><p><strong>AvoidAirfoilModification</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – <p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the user-provided airfoils are interpolated, scaled and
+rotated, in order to position each section at its corresponding
+place. This requires that the user-provided airfoils must be placed
+on <strong>XY</strong> plane, with leading edge situated at <code class="docutils literal notranslate"><span class="pre">(0,0)</span></code> and
+trailing edge at <code class="docutils literal notranslate"><span class="pre">(1,0)</span></code>, with top side at greater Y-coordinates
+and oriented <strong>clockwise</strong> starting from trailing edge. Moreover,
+all airfoils shall yield the same number of points (beware that the
+final wing distribution will use this discretization).</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">False</span></code>, then the aforementioned constraints are not
+compulsory, and spanwise airfoil-modification laws can be provided.
+However, surface construction will take longer, as automatic
+detection of top and bottom sides (and other characteristics) of
+each section is performed.</p>
+<div class="admonition hint">
+<p class="admonition-title">Hint</p>
+<p>using <strong>AvoidAirfoilModification</strong> = <code class="docutils literal notranslate"><span class="pre">True</span></code> is faster and
+more robust, but one cannot modify airfoils following its
+properties (like thickness, camber, etc…)</p>
+</div>
+</p></li>
+<li><p><strong>splitAirfoilOptions</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – Parameters to be passed to <a class="reference internal" href="Wireframe.html#MOLA.Wireframe.splitAirfoil" title="MOLA.Wireframe.splitAirfoil"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.Wireframe.splitAirfoil()</span></code></a>
+required for airfoil modifications.
+This is only relevant if <strong>AvoidAirfoilModification</strong> = <code class="docutils literal notranslate"><span class="pre">False</span></code>.
+Their values may determine the accuracy of the automatic computation
+of the leading and trailing edges of arbitrary airfoil-like geometry.</p></li>
+<li><p><strong>kwargs</strong> (<em>additional parameters</em>) – <p>These are used for providing the spanwise geometrical laws and
+airfoil sections. Some possible argument names are:</p>
+<p><code class="docutils literal notranslate"><span class="pre">Airfoil=,</span> <span class="pre">Chord=,</span> <span class="pre">Twist=,</span> <span class="pre">Sweep=,</span> <span class="pre">Dihedral=</span></code></p>
+<p>Additional argument names are acceptable if the parameter
+<strong>AvoidAirfoilModification</strong> = <code class="docutils literal notranslate"><span class="pre">False</span></code> and they are supported in
+<a class="reference internal" href="Wireframe.html#MOLA.Wireframe.modifyAirfoil" title="MOLA.Wireframe.modifyAirfoil"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.Wireframe.modifyAirfoil()</span></code></a> function, like for example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">MaxThickness</span> <span class="n">MaxRelativeThickness</span> <span class="n">MaxThicknessRelativeLocation</span>
+<span class="n">MaxCamber</span> <span class="n">MaxRelativeCamber</span> <span class="n">MaxCamberRelativeLocation</span> <span class="n">MinCamber</span>
+<span class="n">MinRelativeCamber</span> <span class="n">MinCamberRelativeLocation</span>
+</pre></div>
+</div>
+<p>All <em>geometrical laws</em> employ the same input interface based in
+standard Python dictionaries. For example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Twist</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">RelativeSpan</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.2</span><span class="p">,</span>  <span class="mf">0.6</span><span class="p">,</span>  <span class="mf">1.0</span><span class="p">],</span>
+                    <span class="n">Twist</span> <span class="o">=</span> <span class="p">[</span><span class="mf">30.</span><span class="p">,</span>  <span class="mf">6.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">7.0</span><span class="p">],</span>
+             <span class="n">InterpolationLaw</span> <span class="o">=</span> <span class="s1">&#39;akima&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Note that arguments name (here, <strong>Twist</strong>) is repeated in both the
+function’s argument name and its dictionary element.</p>
+<p><strong>InterpolationLaw</strong> may be any supported by
+<a class="reference internal" href="InternalShortcuts.html#MOLA.InternalShortcuts.interpolate__" title="MOLA.InternalShortcuts.interpolate__"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.InternalShortcuts.interpolate__()</span></code></a> function.</p>
+<p>For the special case of <strong>Airfoil</strong> input, each provided element
+must be a 1D zone. For example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">NACA4412</span> <span class="o">=</span> <span class="n">W</span><span class="o">.</span><span class="n">airfoil</span><span class="p">(</span><span class="s1">&#39;NACA4412&#39;</span><span class="p">,</span> <span class="n">ClosedTolerance</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">AirfoilsDict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">RelativeSpan</span>     <span class="o">=</span> <span class="p">[</span>  <span class="mf">0.20</span><span class="p">,</span>     <span class="mf">1.000</span><span class="p">],</span>
+                    <span class="n">Airfoil</span>          <span class="o">=</span> <span class="p">[</span><span class="n">NACA4412</span><span class="p">,</span>  <span class="n">NACA4412</span><span class="p">],</span>
+                    <span class="n">InterpolationLaw</span> <span class="o">=</span> <span class="s1">&#39;rectbivariatespline_1&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>And in this case, <strong>InterpolationLaw</strong> must be
+<code class="docutils literal notranslate"><span class="pre">rectbivariatespline_X</span></code> replacing <code class="docutils literal notranslate"><span class="pre">X</span></code> with the desired order of
+interpolation (1, 2, 3…).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Airfoil’s geometrical interpolation functions are <strong>not</strong>
+provided by <a class="reference internal" href="InternalShortcuts.html#MOLA.InternalShortcuts.interpolate__" title="MOLA.InternalShortcuts.interpolate__"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.InternalShortcuts.interpolate__()</span></code></a>
+accepted laws.</p>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>Sections</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone) – list of spanwise sections defining the wing</p></li>
+<li><p><strong>Wing</strong> (<em>zone</em>) – structured surface defining the wing</p></li>
+<li><p><strong>DistributionResult</strong> (<em>dict</em>) – dictionary containing the resulting geometrical laws as 1D numpy
+arrays with same dimensions</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+              </div>
+              
+              
+              <div class='prev-next-bottom'>
+                
+    <a class='left-prev' id="prev-link" href="Wireframe.html" title="previous page">Wireframe</a>
+    <a class='right-next' id="next-link" href="GenerativeVolumeDesign.html" title="next page">GenerativeVolumeDesign</a>
+
+              </div>
+              
+          </main>
+          
+
+      </div>
+    </div>
+  
+  <script src="_static/js/index.1c5a1a01449ed65a7b51.js"></script>
+
+  <footer class="footer mt-5 mt-md-0">
+  <div class="container">
+    
+    <div class="footer-item">
+      <p class="copyright">
+    &copy; Copyright 2021, ONERA.<br/>
+</p>
+    </div>
+    
+    <div class="footer-item">
+      <p class="sphinx-version">
+Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.1.2.<br/>
+</p>
+    </div>
+    
+  </div>
+</footer>
+  </body>
+</html>

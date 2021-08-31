@@ -1,0 +1,841 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Coprocess &#8212; MOLA  documentation</title>
+    
+  <link href="_static/css/theme.css" rel="stylesheet" />
+  <link href="_static/css/index.c5995385ac14fb8791e8eb36b4908be2.css" rel="stylesheet" />
+
+    
+  <link rel="stylesheet"
+    href="_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    
+      
+
+    
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css" />
+    
+  <link rel="preload" as="script" href="_static/js/index.1c5a1a01449ed65a7b51.js">
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/clipboard.min.js"></script>
+    <script src="_static/copybutton.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Postprocess" href="Postprocess.html" />
+    <link rel="prev" title="Preprocess" href="Preprocess.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="en" />
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="80">
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+    <nav class="navbar navbar-light navbar-expand-lg bg-light fixed-top bd-navbar" id="navbar-main"><div class="container-xl">
+
+  <div id="navbar-start">
+    
+    
+<a class="navbar-brand" href="index.html">
+<p class="title">MOLA</p>
+</a>
+
+    
+  </div>
+
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar-collapsible" aria-controls="navbar-collapsible" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+
+  
+  <div id="navbar-collapsible" class="col-lg-9 collapse navbar-collapse">
+    <div id="navbar-center" class="mr-auto">
+      
+      <div class="navbar-center-item">
+        <ul id="navbar-main-elements" class="navbar-nav">
+    <li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="InternalShortcuts.html">
+  InternalShortcuts
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="Wireframe.html">
+  Wireframe
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="GenerativeShapeDesign.html">
+  GenerativeShapeDesign
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="GenerativeVolumeDesign.html">
+  GenerativeVolumeDesign
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="RotatoryWings.html">
+  RotatoryWings
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="Preprocess.html">
+  Preprocess
+ </a>
+</li>
+
+<li class="toctree-l1 current active nav-item">
+ <a class="current reference internal nav-link" href="#">
+  Coprocess
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="Postprocess.html">
+  Postprocess
+ </a>
+</li>
+
+    
+</ul>
+      </div>
+      
+    </div>
+
+    <div id="navbar-end">
+      
+      <div class="navbar-end-item">
+        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
+      </ul>
+      </div>
+      
+    </div>
+  </div>
+</div>
+    </nav>
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+            
+            <!-- Only show if we have sidebars configured, else just a small margin  -->
+            <div class="col-12 col-md-3 bd-sidebar"><form class="bd-search d-flex align-items-center" action="search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
+  <div class="bd-toc-item active">
+    
+  </div>
+</nav>
+            </div>
+            
+          
+
+          
+          <div class="d-none d-xl-block col-xl-2 bd-toc">
+            
+              
+              <div class="toc-item">
+                
+
+<nav id="bd-toc-nav">
+    
+</nav>
+              </div>
+              
+              <div class="toc-item">
+                
+              </div>
+              
+            
+          </div>
+          
+
+          
+          
+            
+          
+          <main class="col-12 col-md-9 col-xl-7 py-md-5 pl-md-5 pr-md-4 bd-content" role="main">
+              
+              <div>
+                
+  <div class="section" id="module-MOLA.Coprocess">
+<span id="coprocess"></span><h1>Coprocess<a class="headerlink" href="#module-MOLA.Coprocess" title="Permalink to this headline">¶</a></h1>
+<p>MOLA Coprocess module - designed to be used in coupling (trigger) elsA context</p>
+<p>Recommended syntax for use:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">MOLA.Coprocess</span> <span class="k">as</span> <span class="nn">CO</span>
+</pre></div>
+</div>
+<p>23/12/2020 - L. Bernardos - creation by recycling</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.adaptEndOfRun">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">adaptEndOfRun</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">to</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.adaptEndOfRun" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function is used to make adaptations of the coupling trigger tree
+provided by elsA. The following operations are performed:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">GridCoordinates</span></code> node is created from <code class="docutils literal notranslate"><span class="pre">FlowSolution#EndOfRun#Coords</span></code></p></li>
+<li><p>adapt name of masking field (<code class="docutils literal notranslate"><span class="pre">cellnf</span></code> is renamed as <code class="docutils literal notranslate"><span class="pre">cellN</span></code>)</p></li>
+<li><p>rename <code class="docutils literal notranslate"><span class="pre">FlowSolution#EndOfRun</span></code> as <code class="docutils literal notranslate"><span class="pre">FlowSolution#Init</span></code></p></li>
+</ul>
+<blockquote>
+<div><blockquote>
+<div><dl>
+<dt>to<span class="classifier">PyTree</span></dt><dd><p>Coupling tree as obtained from function</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">elsAxdt</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">elsAxdt</span><span class="o">.</span><span class="n">OUTPUT_TREE</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>tree <strong>to</strong> is modified</p>
+</div>
+</dd>
+</dl>
+</div></blockquote>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.addBodyForcePropeller2Loads">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">addBodyForcePropeller2Loads</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loads</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">BodyForceDisks</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.addBodyForcePropeller2Loads" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function is an interface adapted to body-force computations.
+It transfers the integral information of each body-force disk into
+the <strong>loads</strong> dictionary.</p>
+<p>The fields that are appended to <strong>loads</strong> are:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="s1">&#39;Thrust&#39;</span><span class="p">,</span> <span class="s1">&#39;RPM&#39;</span><span class="p">,</span> <span class="s1">&#39;Power&#39;</span><span class="p">,</span> <span class="s1">&#39;Pitch&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>hence, these values must exist in <code class="docutils literal notranslate"><span class="pre">.Info</span></code> CGNS node of each CGNS zone
+contained in <strong>BodyForceDisks</strong></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The new component of load dictionary has the same name as its
+corresponding body-force disk.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>loads</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – <p>Contains integral data in the following form:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">loads</span><span class="p">[</span><span class="s1">&#39;FamilyBCNameOrElementName&#39;</span><span class="p">][</span><span class="s1">&#39;VariableName&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span>
+</pre></div>
+</div>
+<p>parameter <strong>loads</strong> is modified</p>
+</p></li>
+<li><p><strong>BodyForceDisks</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone) – Current bodyforce disks as obtained from
+<code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.LiftingLine.computePropellerBodyForce()</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.addLoads">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">addLoads</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loads</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ZoneName</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ListOfLoadsNames</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NumpyArrays</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.addLoads" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function is an interface for adding new user-defined loads into the
+<strong>loads</strong> Python dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>loads</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – <p>Contains integral data in the following form:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">loads</span><span class="p">[</span><span class="s1">&#39;FamilyBCNameOrElementName&#39;</span><span class="p">][</span><span class="s1">&#39;VariableName&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span>
+</pre></div>
+</div>
+<p>parameter <strong>loads</strong> is modified</p>
+</p></li>
+<li><p><strong>ZoneName</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Name of the existing or new component where new loads are going
+to be added. (FamilyBC or Component name)</p></li>
+<li><p><strong>ListOfLoadsNames</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – <p>Each element of this list is a name of the new loads to be added.
+For example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="s1">&#39;MyFirstLoad&#39;</span><span class="p">,</span> <span class="s1">&#39;AnotherLoad&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>NumpyArrays</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of numpy 1d arrays) – <p>Values to be added to <strong>loads</strong></p>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>All arrays provided to <strong>NumpyArrays</strong> <em>(which belongs to the
+same component)</em> must have exactly the same number of elements</p>
+</div>
+</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.addMemoryUsage2Loads">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">addMemoryUsage2Loads</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loads</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.addMemoryUsage2Loads" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function adds or updates a component in <strong>loads</strong> for monitoring the
+employed memory. Only nodes are monitored (not every single proc, as this
+would produce redundant information). The number of cores contained in each
+computational node is retreived from the user-specified variable contained
+in <code class="docutils literal notranslate"><span class="pre">setup</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">setup</span><span class="o">.</span><span class="n">ReferenceValues</span><span class="p">[</span><span class="s1">&#39;CoreNumberPerNode&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>If this information does not exist, a value of <code class="docutils literal notranslate"><span class="pre">28</span></code> is taken by default.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>loads</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – <p>Contains integral data in the following form:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">loads</span><span class="p">[</span><span class="s1">&#39;FamilyBCNameOrElementName&#39;</span><span class="p">][</span><span class="s1">&#39;VariableName&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span>
+</pre></div>
+</div>
+<p>parameter <strong>loads</strong> is modified</p>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.boundaryConditions2Surfaces">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">boundaryConditions2Surfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">to</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">onlyWalls</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.boundaryConditions2Surfaces" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extract the BC data contained in the coupling tree as a list of CGNS zones.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>to</strong> (<em>PyTree</em>) – Coupling tree as obtained from <a class="reference internal" href="#MOLA.Coprocess.adaptEndOfRun" title="MOLA.Coprocess.adaptEndOfRun"><code class="xref py py-func docutils literal notranslate"><span class="pre">adaptEndOfRun()</span></code></a></p></li>
+<li><p><strong>onlyWalls</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, only BC with keyword <code class="docutils literal notranslate"><span class="pre">'wall'</span></code> contained in
+their type are extracted. Otherwise, all BC are extracted,
+regardless of their type.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>BCs</strong> – List of surfaces, including fields stored in FlowSolution containers</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.computeTransitionOnsets">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">computeTransitionOnsets</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">to</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.computeTransitionOnsets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extracts the airfoil’s top and bottom side transition onset locations.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>This function is adapted only to <strong>Workflow Airfoil</strong> cases.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>to</strong> (<em>PyTree</em>) – Coupling tree as obtained from <cite>adaptEndOfRun</cite></p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>XtrTop</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – X-coordinate location of the transition onset location
+at the top side of the airfoil</p></li>
+<li><p><strong>XtrBottom</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – X-coordinate location of the transition onset location
+at the bottom side of the airfoil</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.copyOutputFiles">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">copyOutputFiles</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">files2copy</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.copyOutputFiles" title="Permalink to this definition">¶</a></dt>
+<dd><p>Copy the files provided as input <em>(comma-separated variables)</em> by addding to
+their name <code class="docutils literal notranslate"><span class="pre">'_AfterIter&lt;X&gt;'</span></code> where <code class="docutils literal notranslate"><span class="pre">&lt;X&gt;</span></code> will be replaced with the
+corresponding interation</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>file2copy</strong> (comma-separated <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – file(s) name(s) to copy at <code class="docutils literal notranslate"><span class="pre">OUTPUT</span></code> directory.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">copyOutputFiles</span><span class="p">(</span><span class="s1">&#39;surfaces.cgns&#39;</span><span class="p">,</span><span class="s1">&#39;loads.cgns&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.distributeAndSavePyTree">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">distributeAndSavePyTree</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ListOfZones</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tagWithIteration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.distributeAndSavePyTree" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given a <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone (possibly empty list at some
+ranks), this function assigns a rank number to each zone and then
+saves the provided zones in a single CGNS file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ListOfZones</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone) – List of CGNS zones to be saved in parallel</p></li>
+<li><p><strong>filename</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>filename where zones will be writen</p>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p><strong>filename</strong> extension must be <code class="docutils literal notranslate"><span class="pre">.cgns</span></code></p>
+</div>
+</p></li>
+<li><p><strong>tagWithIteration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, adds a suffix <code class="docutils literal notranslate"><span class="pre">_AfterIter&lt;iteration&gt;</span></code>
+to the saved filename (creates a copy)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.getIntegralDataName">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">getIntegralDataName</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">IntegralDataNode</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.getIntegralDataName" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transforms the elsA provided <strong>IntegralDataNode</strong> name into a suitable name
+for further storing it at <strong>loads</strong> dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>IntegralDataNode</strong> (<em>node</em>) – Contains integral data as provided by elsA</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>IntegralDataName</strong> – name of the integral quantity</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.getOption">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">getOption</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">OptionName</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.getOption" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function is an interface for easily accessing the values of dictionary
+<code class="docutils literal notranslate"><span class="pre">ReferenceValues['CoprocessOptions']</span></code> contained in <code class="docutils literal notranslate"><span class="pre">setup.py</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>OptionName</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Name of the key to return.</p></li>
+<li><p><strong>default</strong> – value to return if <strong>OptionName</strong> key is not present in
+<code class="docutils literal notranslate"><span class="pre">ReferenceValues['CoprocessOptions']</span></code> dictionary</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>the value contained in
+<code class="docutils literal notranslate"><span class="pre">ReferenceValues['CoprocessOptions'][&lt;OptionName&gt;]</span></code> or the default
+value if key is not found</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>value</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.getSignal">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">getSignal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.getSignal" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a signal using an temporary auxiliar file technique.</p>
+<p>If the intermediary file exists (signal received) then it is removed, and
+the function returns <code class="docutils literal notranslate"><span class="pre">True</span></code> to all processors. Otherwise, it returns
+<code class="docutils literal notranslate"><span class="pre">False</span></code> to all processors.</p>
+<p>This function is employed for controling a simulation in a simple manner,
+for example using UNIX command <code class="docutils literal notranslate"><span class="pre">touch</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>touch filename
+</pre></div>
+</div>
+<p>at the same directory where <a class="reference internal" href="#MOLA.Coprocess.getSignal" title="MOLA.Coprocess.getSignal"><code class="xref py py-func docutils literal notranslate"><span class="pre">getSignal()</span></code></a> is called.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>filename</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – the name of the file (the signal keyword)</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>isOrder</strong> – <code class="docutils literal notranslate"><span class="pre">True</span></code> if the signal is received, otherwise <code class="docutils literal notranslate"><span class="pre">False</span></code>, to all
+processors</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.hasReachedTimeOutMargin">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">hasReachedTimeOutMargin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ElapsedTime</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TimeOut</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MarginBeforeTimeOut</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.hasReachedTimeOutMargin" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function returns <code class="docutils literal notranslate"><span class="pre">True</span></code> to all processors if the margin before
+time-out is satisfied. Otherwise, it returns <code class="docutils literal notranslate"><span class="pre">False</span></code> to all processors.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ElapsedTime</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – total elapsed time in seconds since the launch of <code class="docutils literal notranslate"><span class="pre">compute.py</span></code>
+elsA script.</p></li>
+<li><p><strong>TimeOut</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – total time-out in seconds. It shall correspond to the
+remaining time of a slurm job before forced termination.</p></li>
+<li><p><strong>MarginBeforeTimeOut</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Margin in seconds before time out is reached. Shall account for safe
+postprocessing operations before the job triggers forced termination</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p><strong>ReachedTimeOutMargin</strong> – <code class="docutils literal notranslate"><span class="pre">True</span></code> if</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ElapsedTime</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="n">TimeOut</span> <span class="o">-</span> <span class="n">MarginBeforeTimeOut</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Otherwise, returns <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>the same value (<code class="docutils literal notranslate"><span class="pre">True</span></code> or <code class="docutils literal notranslate"><span class="pre">False</span></code>) is sent to <em>all</em>
+processors.</p>
+</div>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.invokeCoprocessLogFile">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">invokeCoprocessLogFile</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.invokeCoprocessLogFile" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function creates the <code class="docutils literal notranslate"><span class="pre">coprocess.log</span></code> file used for monitoring the
+progress of the simulation.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.invokeLoads">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">invokeLoads</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.invokeLoads" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create <strong>loads</strong> Python dictionary by reading any pre-existing data
+contained in <code class="docutils literal notranslate"><span class="pre">OUTPUT/loads.cgns</span></code></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>an empty dictionary is returned if no <code class="docutils literal notranslate"><span class="pre">OUTPUT/loads.cgns</span></code> file
+is found</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><p><strong>loads</strong> – Contains integral data in the following form:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">loads</span><span class="p">[</span><span class="s1">&#39;FamilyBCNameOrElementName&#39;</span><span class="p">][</span><span class="s1">&#39;VariableName&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span>
+</pre></div>
+</div>
+</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.isConverged">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">isConverged</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ZoneName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'AIRFOIL'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">FluxName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'std-CL'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">FluxThreshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.isConverged" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method is used to determine if a given load is converged by looking
+at its standard deviation and comparing it to a user-provided threshold.
+If converged, the signal returns <code class="docutils literal notranslate"><span class="pre">True</span></code> to all ranks and writes a message
+to <code class="docutils literal notranslate"><span class="pre">coprocess.log</span></code> file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ZoneName</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Component name (shall exist in <strong>loads</strong> dictionary)</p></li>
+<li><p><strong>FluxName</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Name of the load quantity (typically, standard deviation statistic
+of some effort) used for convergence determination.</p></li>
+<li><p><strong>FluxThreshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – if the last element of the flux named <strong>FluxName</strong> is less than the
+user-provided <strong>FluxThreshold</strong>, then the convergence
+criterion is satisfied</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>ConvergedCriterion</strong> – <code class="docutils literal notranslate"><span class="pre">True</span></code> if the convergence criterion is satisfied</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.loadsDict2PyTree">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">loadsDict2PyTree</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loads</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.loadsDict2PyTree" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function converts the <strong>loads</strong> Python dictionary to a PyTree (CGNS)
+structure <strong>t</strong>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>loads</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – <p>Contains integral data in the following form:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">loads</span><span class="p">[</span><span class="s1">&#39;FamilyBCNameOrElementName&#39;</span><span class="p">][</span><span class="s1">&#39;VariableName&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span>
+</pre></div>
+</div>
+</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>t</strong> – same information as input, but structured in a PyTree CGNS form</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>PyTree</p>
+</dd>
+</dl>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>after calling the function, <strong>loads</strong> and <strong>t</strong> do <em>NOT</em>
+share memory, which means that modifications on <strong>loads</strong> will not
+affect <strong>t</strong> and vice-versa</p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.moveCoordsFromEndOfRunToGridCoords">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">moveCoordsFromEndOfRunToGridCoords</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">to</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.moveCoordsFromEndOfRunToGridCoords" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function is used to make adaptations of the coupling trigger tree
+provided by elsA. The following operations are performed:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">GridCoordinates</span></code> node is created from <code class="docutils literal notranslate"><span class="pre">FlowSolution#EndOfRun#Coords</span></code></p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>to</strong> (<em>PyTree</em>) – <p>Coupling tree as obtained from function</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">elsAxdt</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">elsAxdt</span><span class="o">.</span><span class="n">OUTPUT_TREE</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>tree <strong>to</strong> is modified</p>
+</div>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.printCo">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">printCo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">proc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.printCo" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function is used for easily writing messages in <code class="docutils literal notranslate"><span class="pre">coproces.log</span></code> file.
+It is designed to be used in a MPI context (coprocessing).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>message</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Message to be written in <code class="docutils literal notranslate"><span class="pre">coprocess.log</span></code> file</p></li>
+<li><p><strong>proc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><em>None</em></a>) – if provided, only local MPI rank will write the message.
+If <code class="docutils literal notranslate"><span class="pre">None</span></code>, all procs will write the message.</p></li>
+<li><p><strong>color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – endscape code for terminal colored output.
+For example, red output is obtained like this: <code class="docutils literal notranslate"><span class="pre">color='\033[91m'</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.saveAll">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">saveAll</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">CouplingTreeWithSkeleton</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">CouplingTree</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loads</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">DesiredStatistics</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">BodyForceInputData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">BodyForceDisks</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.saveAll" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method is used to save all relevant data of the simulation, e.g.:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">setup.py</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">OUTPUT/fields.cgns</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">OUTPUT/surfaces.cgns</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">OUTPUT/loads.cgns</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">OUTPUT/BodyForceSources.cgns</span></code></p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The method can be used to stop the elsA simulation after saving all data
+by providing the argument <strong>quit</strong> = <code class="docutils literal notranslate"><span class="pre">True</span></code></p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>CouplingTreeWithSkeleton</strong> (<em>PyTree</em>) – <p>This is the partial tree as obtained using <a class="reference internal" href="#MOLA.Coprocess.adaptEndOfRun" title="MOLA.Coprocess.adaptEndOfRun"><code class="xref py py-func docutils literal notranslate"><span class="pre">adaptEndOfRun()</span></code></a>,
+but including also the entire Skeleton.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p><strong>CouplingTreeWithSkeleton</strong> is the result of adding the
+skeleton to elsA’s output tree <strong>CouplingTree</strong> as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">CouplingTreeWithSkeleton</span> <span class="o">=</span> <span class="n">I</span><span class="o">.</span><span class="n">merge</span><span class="p">([</span><span class="n">Skeleton</span><span class="p">,</span> <span class="n">CouplingTree</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+</p></li>
+<li><p><strong>CouplingTree</strong> (<em>PyTree</em>) – This is the partial tree as obtained using <a class="reference internal" href="#MOLA.Coprocess.adaptEndOfRun" title="MOLA.Coprocess.adaptEndOfRun"><code class="xref py py-func docutils literal notranslate"><span class="pre">adaptEndOfRun()</span></code></a></p></li>
+<li><p><strong>loads</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – It contains the integral data that will be saved as
+<code class="docutils literal notranslate"><span class="pre">OUTPUT/loads.cgns</span></code>. Its structure is:
+<code class="docutils literal notranslate"><span class="pre">loads['FamilyBCNameOrElementName']['VariableName']</span> <span class="pre">=</span> <span class="pre">np.array</span></code></p></li>
+<li><p><strong>DesiredStatistics</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Desired statistics to infer from loads dictionary. For more
+information see documentation of function <a class="reference internal" href="#MOLA.Coprocess.updateAndSaveLoads" title="MOLA.Coprocess.updateAndSaveLoads"><code class="xref py py-func docutils literal notranslate"><span class="pre">updateAndSaveLoads()</span></code></a></p></li>
+<li><p><strong>BodyForceInputData</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><em>list</em></a>) – This object contains the user-provided information contained in
+<strong>BodyForceInputData</strong> list of <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> file</p></li>
+<li><p><strong>BodyForceDisks</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone) – Current bodyforce disks as obtained from function
+<code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.LiftingLine.computePropellerBodyForce()</span></code></p></li>
+<li><p><strong>quit</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, force quit the simulation after saving relevant data.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.saveDistributedPyTree">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">saveDistributedPyTree</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tagWithIteration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.saveDistributedPyTree" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given an already distributed PyTree (with coherent <em>proc</em> number), save it
+in a single CGNS file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t</strong> (<em>PyTree</em>) – Distributed PyTree</p></li>
+<li><p><strong>filename</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>Name of the file where data will be writen.</p>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p><strong>filename</strong> extension must be <code class="docutils literal notranslate"><span class="pre">.cgns</span></code></p>
+</div>
+</p></li>
+<li><p><strong>tagWithIteration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, adds a suffix <code class="docutils literal notranslate"><span class="pre">_AfterIter&lt;iteration&gt;</span></code>
+to the saved filename (creates a copy)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.saveSurfaces">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">saveSurfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">to</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tagWithIteration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">onlyWalls</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.saveSurfaces" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save the <code class="docutils literal notranslate"><span class="pre">OUTPUT/surfaces.cgns</span></code> file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>to</strong> (<em>PyTree</em>) – Coupling tree as obtained from <a class="reference internal" href="#MOLA.Coprocess.adaptEndOfRun" title="MOLA.Coprocess.adaptEndOfRun"><code class="xref py py-func docutils literal notranslate"><span class="pre">adaptEndOfRun()</span></code></a></p></li>
+<li><p><strong>tagWithIteration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, adds a suffix <code class="docutils literal notranslate"><span class="pre">_AfterIter&lt;iteration&gt;</span></code>
+to the saved filename (creates a copy)</p></li>
+<li><p><strong>onlyWalls</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, only BC defined with <code class="docutils literal notranslate"><span class="pre">BCWall*</span></code> type are extracted.
+Otherwise, all BC (but not GridConnectivity) are extracted</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.updateAndSaveLoads">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">updateAndSaveLoads</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">to</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loads</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">DesiredStatistics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['std-CL',</span> <span class="pre">'std-CD']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tagWithIteration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">monitorMemory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.updateAndSaveLoads" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extract integral data from coupling tree <strong>to</strong>, and update <strong>loads</strong> Python
+dictionary adding statistics requested by the user.
+Then, write <code class="docutils literal notranslate"><span class="pre">OUTPUT/loads.cgns</span></code> file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>to</strong> (<em>PyTree</em>) – Coupling tree as obtained from <a class="reference internal" href="#MOLA.Coprocess.adaptEndOfRun" title="MOLA.Coprocess.adaptEndOfRun"><code class="xref py py-func docutils literal notranslate"><span class="pre">adaptEndOfRun()</span></code></a></p></li>
+<li><p><strong>loads</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – <p>Contains integral data in the following form:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">loads</span><span class="p">[</span><span class="s1">&#39;FamilyBCNameOrElementName&#39;</span><span class="p">][</span><span class="s1">&#39;VariableName&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>DesiredStatistics</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – <p>Here, the user requests the additional statistics to be computed.
+The syntax of each quantity must be as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s1">&#39;&lt;preffix&gt;-&lt;integral_quantity_name&gt;&#39;</span>
+</pre></div>
+</div>
+<p><cite>&lt;preffix&gt;</cite> can be <code class="docutils literal notranslate"><span class="pre">'avg'</span></code> (for cumulative average) or <code class="docutils literal notranslate"><span class="pre">'std'</span></code>
+(for standard deviation). <code class="docutils literal notranslate"><span class="pre">&lt;integral_quantity_name&gt;</span></code> can be any
+quantity contained in loads, including other statistics.</p>
+<div class="admonition hint">
+<p class="admonition-title">Hint</p>
+<p>chaining preffixes is perfectly accepted, like
+<code class="docutils literal notranslate"><span class="pre">'std-std-CL'</span></code> which would compute the cumulative standard
+deviation of the cumulative standard deviation of the
+lift coefficient (<span class="math notranslate nohighlight">\(\sigma(\sigma(C_L))\)</span>)</p>
+</div>
+</p></li>
+<li><p><strong>tagWithIteration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, adds a suffix <code class="docutils literal notranslate"><span class="pre">_AfterIter&lt;iteration&gt;</span></code>
+to the saved filename (creates a copy)</p></li>
+<li><p><strong>monitorMemory</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, function <a class="reference internal" href="#MOLA.Coprocess.addMemoryUsage2Loads" title="MOLA.Coprocess.addMemoryUsage2Loads"><code class="xref py py-func docutils literal notranslate"><span class="pre">addMemoryUsage2Loads()</span></code></a> is
+called, which adds memory usage information into <strong>loads</strong></p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.updateAndWriteSetup">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">updateAndWriteSetup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">setup</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.updateAndWriteSetup" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function is used for adapting <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> information for a new run.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>setup</strong> (<em>module</em>) – <p>Python module object as obtained from command</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">setup</span>
+</pre></div>
+</div>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.write4Debug">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">write4Debug</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">MSG</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.write4Debug" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function allows for writing into separated files (one per processor)
+named <code class="docutils literal notranslate"><span class="pre">LOGS/rank&lt;P&gt;.log</span></code> where <code class="docutils literal notranslate"><span class="pre">&lt;P&gt;</span></code> is replaced with the proc number.
+It is useful for debugging.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>MSG</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Message to append into appropriate file following the local
+proc number.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.Coprocess.writeSetup">
+<span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">writeSetup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">setup</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.writeSetup" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write the <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> file using as input the setup module object.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This function will be replaced by <a class="reference internal" href="Preprocess.html#MOLA.Preprocess.writeSetup" title="MOLA.Preprocess.writeSetup"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.Preprocess.writeSetup()</span></code></a>
+and <a class="reference internal" href="Preprocess.html#MOLA.Preprocess.writeSetupFromModuleObject" title="MOLA.Preprocess.writeSetupFromModuleObject"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.Preprocess.writeSetupFromModuleObject()</span></code></a> functions</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>setup</strong> (<em>module</em>) – <p>Python module object as obtained from command</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">setup</span>
+</pre></div>
+</div>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+              </div>
+              
+              
+              <div class='prev-next-bottom'>
+                
+    <a class='left-prev' id="prev-link" href="Preprocess.html" title="previous page">Preprocess</a>
+    <a class='right-next' id="next-link" href="Postprocess.html" title="next page">Postprocess</a>
+
+              </div>
+              
+          </main>
+          
+
+      </div>
+    </div>
+  
+  <script src="_static/js/index.1c5a1a01449ed65a7b51.js"></script>
+
+  <footer class="footer mt-5 mt-md-0">
+  <div class="container">
+    
+    <div class="footer-item">
+      <p class="copyright">
+    &copy; Copyright 2021, ONERA.<br/>
+</p>
+    </div>
+    
+    <div class="footer-item">
+      <p class="sphinx-version">
+Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.1.2.<br/>
+</p>
+    </div>
+    
+  </div>
+</footer>
+  </body>
+</html>

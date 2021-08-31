@@ -3,23 +3,23 @@ from timeit import default_timer as tic
 import Converter.PyTree as C
 import Generator.PyTree as G
 
-import MOLA.Fields as Fields
+from MOLA import Fields
 
-zone = G.cart((0,0,0),(1,1,1),(1000,1000,1000))
-toc = tic()
-for i in range(20):
-    print(i)
-    Fields.new(zone,['field1','field2','field3','field4'])
-ET = tic() - toc
-print('Initialization of fields using Fields.new(): %g s'%ET)
-C.convertPyTree2File(zone, 'FieldsNew.cgns')
+zone = G.cart((0,0,0),(1,1,1),(10,10,10))
+Fields.new(zone,['field1','field2','field3','field4'])
 
-zone = G.cart((0,0,0),(1,1,1),(1000,1000,1000))
-toc = tic()
-for i in range(20):
-    print(i)
-    for fn in ['field1','field2','field3','field4']:
-        C._initVars(zone,fn,0)
-ET = tic() - toc
-print('Initialization of fields using C._initVars(): %g s'%ET)
-C.convertPyTree2File(zone, 'initVars.cgns')
+v = Fields.get(zone, OutputObject='dict')
+
+v['field1'] += 1.
+v['field2'] += 2.
+v['field3'] += 3.
+v['field4'] += 4.
+
+v2 = Fields.coordinates(zone, OutputObject='dict', AtCenters=True)
+
+v.update(v2)
+
+for i in v:
+    print('field: %s shape %s'%(i,str(v[i].shape)))
+
+C.convertPyTree2File(zone, 'test.cgns')

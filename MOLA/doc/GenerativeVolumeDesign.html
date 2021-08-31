@@ -1,0 +1,848 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GenerativeVolumeDesign &#8212; MOLA  documentation</title>
+    
+  <link href="_static/css/theme.css" rel="stylesheet" />
+  <link href="_static/css/index.c5995385ac14fb8791e8eb36b4908be2.css" rel="stylesheet" />
+
+    
+  <link rel="stylesheet"
+    href="_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    
+      
+
+    
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css" />
+    
+  <link rel="preload" as="script" href="_static/js/index.1c5a1a01449ed65a7b51.js">
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/clipboard.min.js"></script>
+    <script src="_static/copybutton.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="RotatoryWings" href="RotatoryWings.html" />
+    <link rel="prev" title="GenerativeShapeDesign" href="GenerativeShapeDesign.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="en" />
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="80">
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+    <nav class="navbar navbar-light navbar-expand-lg bg-light fixed-top bd-navbar" id="navbar-main"><div class="container-xl">
+
+  <div id="navbar-start">
+    
+    
+<a class="navbar-brand" href="index.html">
+<p class="title">MOLA</p>
+</a>
+
+    
+  </div>
+
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar-collapsible" aria-controls="navbar-collapsible" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+
+  
+  <div id="navbar-collapsible" class="col-lg-9 collapse navbar-collapse">
+    <div id="navbar-center" class="mr-auto">
+      
+      <div class="navbar-center-item">
+        <ul id="navbar-main-elements" class="navbar-nav">
+    <li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="InternalShortcuts.html">
+  InternalShortcuts
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="Wireframe.html">
+  Wireframe
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="GenerativeShapeDesign.html">
+  GenerativeShapeDesign
+ </a>
+</li>
+
+<li class="toctree-l1 current active nav-item">
+ <a class="current reference internal nav-link" href="#">
+  GenerativeVolumeDesign
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="RotatoryWings.html">
+  RotatoryWings
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="Preprocess.html">
+  Preprocess
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="Coprocess.html">
+  Coprocess
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="Postprocess.html">
+  Postprocess
+ </a>
+</li>
+
+    
+</ul>
+      </div>
+      
+    </div>
+
+    <div id="navbar-end">
+      
+      <div class="navbar-end-item">
+        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
+      </ul>
+      </div>
+      
+    </div>
+  </div>
+</div>
+    </nav>
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+            
+            <!-- Only show if we have sidebars configured, else just a small margin  -->
+            <div class="col-12 col-md-3 bd-sidebar"><form class="bd-search d-flex align-items-center" action="search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
+  <div class="bd-toc-item active">
+    
+  </div>
+</nav>
+            </div>
+            
+          
+
+          
+          <div class="d-none d-xl-block col-xl-2 bd-toc">
+            
+              
+              <div class="toc-item">
+                
+
+<nav id="bd-toc-nav">
+    
+</nav>
+              </div>
+              
+              <div class="toc-item">
+                
+              </div>
+              
+            
+          </div>
+          
+
+          
+          
+            
+          
+          <main class="col-12 col-md-9 col-xl-7 py-md-5 pl-md-5 pr-md-4 bd-content" role="main">
+              
+              <div>
+                
+  <div class="section" id="module-MOLA.GenerativeVolumeDesign">
+<span id="generativevolumedesign"></span><h1>GenerativeVolumeDesign<a class="headerlink" href="#module-MOLA.GenerativeVolumeDesign" title="Permalink to this headline">¶</a></h1>
+<p>MOLA - GenerativeVolumeDesign.py</p>
+<p>This module proposes functionalities for volume meshing, useful
+for parametric mesh generation.</p>
+<p>This module makes use of Cassiopee modules.</p>
+<p>First creation:
+01/03/2019 - L. Bernardos - Creation by recycling.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeVolumeDesign.addExtrusionConstraint">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeVolumeDesign.</span></span><span class="sig-name descname"><span class="pre">addExtrusionConstraint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tExtru</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kind</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Imposed'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">curve</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">surface</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ProjectionMode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ortho'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ProjectionDir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MatchDir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copyCurve</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeVolumeDesign.addExtrusionConstraint" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is a private function called by user-level function <a class="reference internal" href="#MOLA.GenerativeVolumeDesign.extrude" title="MOLA.GenerativeVolumeDesign.extrude"><code class="xref py py-func docutils literal notranslate"><span class="pre">extrude()</span></code></a></p>
+<p>Its purpose is to add the constraints surfaces and curves as well as
+characteristics, as CGNS data into <strong>tExtru</strong> pytree.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>kind</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>kind of constraint to be processed into <strong>tExtru</strong>. Possible values:</p>
+<ul>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">'Imposed'</span></code></dt><dd><p>impose the extrusion direction following the fields
+<code class="docutils literal notranslate"><span class="pre">{sx}</span></code>, <code class="docutils literal notranslate"><span class="pre">{sy}</span></code> and <code class="docutils literal notranslate"><span class="pre">{sz}</span></code> defined in user-provided zone through
+attribute <strong>curve</strong></p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">'Initial'</span></code></dt><dd><p>like <code class="docutils literal notranslate"><span class="pre">'Imposed'</span></code>, except that instead of using the <code class="docutils literal notranslate"><span class="pre">{sx}</span></code>,
+<code class="docutils literal notranslate"><span class="pre">{sy}</span></code> and <code class="docutils literal notranslate"><span class="pre">{sz}</span></code> fields of the user-provided zone <strong>curve</strong>, it uses
+the local normals of the extrusion front, and avoid to smooth them</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">'Projected'</span></code></dt><dd><p>constraint the closest points of the extrusion front
+with respect to the provided curve towards a user-provided
+surface.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">'Copy'</span></code></dt><dd><p>Copy the fields at points near to <strong>curve</strong> using fields defined
+at <strong>copyCurve</strong></p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">'Match'</span></code></dt><dd><p>Exactly follow a neighbor point set.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</p></li>
+<li><p><strong>curve</strong> (<em>zone</em>) – curve that will serve to define the points of the
+extrusion front where constraint is applied.</p></li>
+<li><p><strong>surface</strong> (<em>zone</em>) – auxiliar surface employed by different kinds of
+constraints (e.g. <code class="docutils literal notranslate"><span class="pre">'Projected'</span></code> or <code class="docutils literal notranslate"><span class="pre">'Match'</span></code>)</p></li>
+<li><p><strong>ProjectionMode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>Accepted values:</p>
+<ul>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">'ortho'</span></code></dt><dd><p>projection mode is orthogonal</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">'dir'</span></code></dt><dd><p>projection mode is directional</p>
+</dd>
+</dl>
+</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>only relevant if <strong>kind</strong> == <code class="docutils literal notranslate"><span class="pre">'Projected'</span></code></p>
+</div>
+</p></li>
+<li><p><strong>ProjectionDir</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a> containing 3 <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – if <strong>ProjectionMode</strong> == <code class="docutils literal notranslate"><span class="pre">'dir'</span></code>, then this
+attribute indicates the direction of projection, that will remain
+constant throughout the entire extrusion process.</p></li>
+<li><p><strong>MatchDir</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – <p>If procided, it specifies the front-advance index of matching
+(1=i, 2=j, 3=k) of the <strong>surface</strong>. If not provided (<code class="docutils literal notranslate"><span class="pre">None</span></code>),
+then the matching direction is automatically computed.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>only relevant if <strong>kind</strong> == <code class="docutils literal notranslate"><span class="pre">'Match'</span></code></p>
+</div>
+</p></li>
+<li><p><strong>copyCurve</strong> (<em>zone</em>) – <p>curve where fields to be copied towards extrusion front
+corresponding points are defined.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>only relevant if <strong>kind</strong> == <code class="docutils literal notranslate"><span class="pre">'Copy'</span></code></p>
+</div>
+</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeVolumeDesign.buildBodyForceRotorMesh">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeVolumeDesign.</span></span><span class="sig-name descname"><span class="pre">buildBodyForceRotorMesh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">NCellsWidth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NCellBuffer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">BufferWidth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ExternalCellSize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">propellerDiscParams</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeVolumeDesign.buildBodyForceRotorMesh" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function allows for easily building a refined structured volume disc
+suitable for the CFD-Bodyforce technique in an Overset grid context.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>NCellsWidth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – number of cells that discretizes the interior of the disc.</p></li>
+<li><p><strong>Width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – width length of the interior of the disc</p></li>
+<li><p><strong>NCellBuffer</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – number of cells discretizing each side around the interior of the
+disc (buffer, where overlap will be found)</p></li>
+<li><p><strong>BufferWidth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Dimensions of the buffer zone</p></li>
+<li><p><strong>ExternalCellSize</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Dimensions of the buffer’s external cell size.
+It must be lower that BufferWidth and as close as possible as the
+background grid, in an Overset context.</p></li>
+<li><p><strong>propellerDiscParams</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – parameters to be passed to function
+<a class="reference internal" href="GenerativeShapeDesign.html#MOLA.GenerativeShapeDesign.buildPropellerDisc" title="MOLA.GenerativeShapeDesign.buildPropellerDisc"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.GenerativeShapeDesign.buildPropellerDisc()</span></code></a>, for the
+construction of the 2D disc.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>t</strong> – tree containing the resulting mesh</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>PyTree</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeVolumeDesign.computeVolumeAndHullAreaOfSurface">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeVolumeDesign.</span></span><span class="sig-name descname"><span class="pre">computeVolumeAndHullAreaOfSurface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'NGON'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeVolumeDesign.computeVolumeAndHullAreaOfSurface" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the solid-volume of a surface defined by argument <strong>t</strong>.
+The input surface shall be connex, but not necessarily watertight.
+The algorithm will attempt to close the surface in order to make it
+watertight. If it fails to do this, a warning is prompted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t</strong> (<em>PyTree</em><em>, </em><em>base</em><em>, </em><em>zone</em><em> or </em><em>list of zones</em>) – connex surfaces.</p></li>
+<li><p><strong>method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Two techniques are currently available:
+<code class="docutils literal notranslate"><span class="pre">'NGON'</span></code> or <code class="docutils literal notranslate"><span class="pre">'tetraMesher'</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>Volume</strong> (<em>float</em>) – Volume contained in the watertight surface.</p></li>
+<li><p><strong>Surface</strong> (<em>float</em>) – Total area of closed Surface (hull).</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeVolumeDesign.extrude">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeVolumeDesign.</span></span><span class="sig-name descname"><span class="pre">extrude</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Distributions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Constraints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extractMesh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ExtrusionAuxiliarCellType</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'TRI'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">modeSmooth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'dualing'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">growthEquation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'nodes:dH={nodes:dH}*maximum(1.+tanh(-{nodes:growthfactor}*{nodes:divs}),0.5)*maximum(1.+tanh({nodes:growthfactor}*0.01*mean({nodes:vol})/{nodes:vol}),0.5)'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">closeExtrusionLayer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">printIters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plotIters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extractMeshHardSmoothOptions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'FactordH':</span> <span class="pre">2.0,</span> <span class="pre">'HardSmoothLayerProtection':</span> <span class="pre">100,</span> <span class="pre">'niter':</span> <span class="pre">0,</span> <span class="pre">'window':</span> <span class="pre">'jmin'}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">HardSmoothPoints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">HardSmoothRescaling</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeVolumeDesign.extrude" title="Permalink to this definition">¶</a></dt>
+<dd><p>Make a hyperbolic extrusion of a surface following its normal direction.
+<strong>Constraints</strong> to be satisfied through extrusion can be provided by the user.</p>
+<p>Please refer to the tutorial <code class="docutils literal notranslate"><span class="pre">&quot;MinimalConstrainedExtrusionExamples.py&quot;</span></code> for
+proper understanding of the basic capabilities of this function.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t</strong> (<em>PyTree</em><em>, </em><em>base</em><em>, </em><em>zone</em><em> or </em><em>list of zones</em>) – CGNS object where the surfaces
+to be extruded are located (exclusively). Beware that the extrusion
+direction is the normal direction of the surfaces.</p></li>
+<li><p><strong>Distributions</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><em>list</em></a>) – <p>List of zones of 1D structured curves used to
+guide the local cell heights through the extrusion process. Smoothing
+parameters are contained in these curves via FlowSolution fields
+named <code class="docutils literal notranslate"><span class="pre">'normalfactor'</span></code>, <code class="docutils literal notranslate"><span class="pre">'growthfactor'</span></code>, <code class="docutils literal notranslate"><span class="pre">'normaliters'</span></code> and
+<code class="docutils literal notranslate"><span class="pre">'growthiters'</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>aforementioned fields <strong>MUST BE</strong> present in the
+<code class="docutils literal notranslate"><span class="pre">FlowSolution</span></code> container of each curve zone.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>at least one distribution guide is required for the
+extrusion.</p>
+</div>
+</p></li>
+<li><p><strong>Constraints</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><em>list</em></a>) – <p>Each element of this list is
+a dictionary used to set the constraints that shall be satisfied
+during the extrusion process. For information on relevant accepted
+values to provide, please refer to <a class="reference internal" href="#MOLA.GenerativeVolumeDesign.addExtrusionConstraint" title="MOLA.GenerativeVolumeDesign.addExtrusionConstraint"><code class="xref py py-func docutils literal notranslate"><span class="pre">addExtrusionConstraint()</span></code></a>
+doc.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>the dictionary is entirely passed to <a class="reference internal" href="#MOLA.GenerativeVolumeDesign.addExtrusionConstraint" title="MOLA.GenerativeVolumeDesign.addExtrusionConstraint"><code class="xref py py-func docutils literal notranslate"><span class="pre">addExtrusionConstraint()</span></code></a>
+via <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code>)</p>
+</div>
+</p></li>
+<li><p><strong>extractMesh</strong> (<em>zone</em>) – <div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>this is an EXPERIMENTAL feature and may
+significantly change or even be deleted in future.*</p>
+</div>
+<p>If user assigns a
+zone to this argument, then any flowfield contained in the provided zone
+will override the fields of the same name of the extrusion front. This
+includes, for example: <code class="docutils literal notranslate"><span class="pre">sx</span></code>, <code class="docutils literal notranslate"><span class="pre">sy</span></code>, <code class="docutils literal notranslate"><span class="pre">sz</span></code> (direction of extrusion). These
+will hence be employed for extrusion instead of being calculated.
+The extrusion front surface grid coordinates are directly smoothed.
+If <strong>extractMesh</strong> is not <code class="docutils literal notranslate"><span class="pre">None</span></code>, then <strong>extractMeshHardSmoothOptions</strong>
+dictionary is meaningful. This technique may be useful for allowing for
+smoothing of the extrusion layer front while veryfing imposed
+extrusion directions (it can be seen as a soft overall constraint).</p>
+</p></li>
+<li><p><strong>ExtrusionAuxiliarCellType</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>Sets the cell type employed
+by the extrusion front surface. May be one of: ‘TRI’,’QUAD’,’ORIGINAL’.</p>
+<p>’TRI’ is Recommended.</p>
+</p></li>
+<li><p><strong>modeSmooth</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>Sets the normals and cell height smoothing
+technique. Currently, only two options are available:</p>
+<ul>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">'dualing'</span></code></dt><dd><p>default behavior. Note that distribution’s fields
+‘normalfactor’, ‘normaliters’ and ‘growthiters’ are employed in
+this technique</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">'ignore'</span></code></dt><dd><p>do not smooth</p>
+</dd>
+</dl>
+</li>
+</ul>
+</p></li>
+<li><p><strong>growthEquation</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>This is a <code class="docutils literal notranslate"><span class="pre">Converter.initVars</span></code>-compatible
+string used for tuning the local extrusion cell height of the front.
+Extrusion quality and robustness strongly depends on this equation.
+The equation may involve any <code class="docutils literal notranslate"><span class="pre">FlowSolution</span></code> field defined on the extrusion
+front surface (which is a CGNS zone).
+Some examples of quantities typically employed in the equation are:</p>
+<ul>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">{nodes:dH}</span></code></dt><dd><p>the local cell height of extrusion.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">{nodes:growthfactor}</span></code></dt><dd><p>parameter inferred from Distributions list.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">{nodes:divs}</span></code></dt><dd><p>a measure of the concavity/convexity. It corresponds
+to the divergence of the normals.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">{nodes:vol}</span></code></dt><dd><p>the volume (or more precisely, the area) of each cell
+of the extrusion front.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">{nodes:regularity}</span></code></dt><dd><p>the regularity of the extrusion front cells.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</p></li>
+<li><p><strong>closeExtrusionLayer</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, force the extrusion front surface
+to be closed. This is necessary in order to perform “O-shaped” extrusion
+around watertight surfaces.</p></li>
+<li><p><strong>printIters</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, prints to standard output messages
+during the extrusion process.</p></li>
+<li><p><strong>plotIters</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, interactively open a CPlot window and
+show the extrusion front during the extrusion process. This is a
+valuable help for setting the smoothing parameters and growth equation</p></li>
+<li><p><strong>extractMeshHardSmoothOptions</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – <p>here, a set of
+parameters are sent to the extractMesh-constraining technique.
+Relevant parameters are:</p>
+<ul>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">niter</span></code><span class="classifier">int</span></dt><dd><p>number of iterations to pass to function <code class="xref py py-func docutils literal notranslate"><span class="pre">T.smooth()</span></code>
+that is applied on the extrusion front surface</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">HardSmoothLayerProtection</span></code><span class="classifier">int</span></dt><dd><p>this parameter behaves as a
+protection in order to avoid smoothing the grid coordinates of the
+extrusion front at layers lower than this value. It is useful to
+avoid smoothing layers that are likely conained in boundary-layer</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">window</span></code><span class="classifier">str</span></dt><dd><p>must be a window keyword compatible with
+<a class="reference internal" href="GenerativeShapeDesign.html#MOLA.GenerativeShapeDesign.getBoundary" title="MOLA.GenerativeShapeDesign.getBoundary"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.GenerativeShapeDesign.getBoundary()</span></code></a>. It indicates
+from which window a slice of the
+provided zone in extractMesh attribute is built.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">FactordH</span></code><span class="classifier">float</span></dt><dd><p>This indicates the local scaling of the window
+slice in order to create a proper 1-cell height volume mesh for
+accurate <code class="xref py py-func docutils literal notranslate"><span class="pre">P.extractMesh()</span></code> usage.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</p></li>
+<li><p><strong>HardSmoothPoints</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><em>list</em></a>) – each element of the list is a zone
+point (as obtained from function <code class="xref py py-func docutils literal notranslate"><span class="pre">D.point()</span></code> ). During extrusion process,
+all points of this list are projected towards the extrusion surface
+front. Each point defines a region where a hard <code class="xref py py-func docutils literal notranslate"><span class="pre">T.smooth()</span></code> operation
+will be performed at each extrusion step. The parameters for the call
+of the <code class="xref py py-func docutils literal notranslate"><span class="pre">T.smooth()</span></code> function are extracted from <code class="docutils literal notranslate"><span class="pre">FlowSolution</span></code> of each
+point. Hence, the <code class="docutils literal notranslate"><span class="pre">FlowSolution</span></code> of each point may only exclusively
+be composed of the accepted attributes of <code class="xref py py-func docutils literal notranslate"><span class="pre">T.smooth()</span></code> function.</p></li>
+<li><p><strong>HardSmoothRescaling</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, performs an auxiliary
+normalization of the extrusion front for the application of the
+HardSmoothPoints. This may be necessary for big grids, as <code class="xref py py-func docutils literal notranslate"><span class="pre">T.smooth()</span></code>
+depends on the dimensions of the grid.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>tExtru</strong> – tree where each base contains different kind of
+information (e.g. the resulting extruded volume, the constraints,
+the curves employed as distributions, etc)</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>PyTree</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeVolumeDesign.extrudeSurfaceFollowingCurve">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeVolumeDesign.</span></span><span class="sig-name descname"><span class="pre">extrudeSurfaceFollowingCurve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">surface</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">curve</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeVolumeDesign.extrudeSurfaceFollowingCurve" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extrude a <strong>surface</strong> following the direction defined by a 3D structured
+<strong>curve</strong>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>surface</strong> (<em>zone</em>) – surface to be extruded</p></li>
+<li><p><strong>curve</strong> (<em>zone</em>) – curve used for extrusion</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>t</strong> – the new PyTree containing the new volume zone</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>PyTree</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeVolumeDesign.extrudeWingOnSupport">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeVolumeDesign.</span></span><span class="sig-name descname"><span class="pre">extrudeWingOnSupport</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Wing</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Support</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Distributions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Constraints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">SupportMode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'intersection'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extrapolatePoints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">InterMinSep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">CollarRelativeRootDistance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extrudeOptions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'ExtrusionAuxiliarCellType':</span> <span class="pre">'TRI',</span> <span class="pre">'plotIters':</span> <span class="pre">False,</span> <span class="pre">'printIters':</span> <span class="pre">True}</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeVolumeDesign.extrudeWingOnSupport" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extrude a wing-like (or rotor/blade) surface to generate a
+volume mesh. The Root of the wing is supported on the
+user-provided <strong>Support</strong> surface.</p>
+<p>The extrusion is done using the user-provided <strong>Distributions</strong>
+and <strong>Constraints</strong>, which are compatible with <a class="reference internal" href="#MOLA.GenerativeVolumeDesign.extrude" title="MOLA.GenerativeVolumeDesign.extrude"><code class="xref py py-func docutils literal notranslate"><span class="pre">extrude()</span></code></a> function,
+and hence <strong>Distributions</strong> include smoothing parameters fields.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>please read carefully documentation of function <a class="reference internal" href="#MOLA.GenerativeVolumeDesign.extrude" title="MOLA.GenerativeVolumeDesign.extrude"><code class="xref py py-func docutils literal notranslate"><span class="pre">extrude()</span></code></a></p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Wing</strong> (<em>PyTree</em>) – <p>PyTree with at least one zone which is the main wing
+structured surface.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p><strong>Wing</strong> surface must be
+i-oriented following airfoil wise contour, and j-oriented
+following the root-to-tip wingspan.</p>
+</div>
+</p></li>
+<li><p><strong>Support</strong> (<em>PyTree</em>) – contains the surface at root where wing will be supported</p></li>
+<li><p><strong>Distributions</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><em>list</em></a>) – equivalent input as for <a class="reference internal" href="#MOLA.GenerativeVolumeDesign.extrude" title="MOLA.GenerativeVolumeDesign.extrude"><code class="xref py py-func docutils literal notranslate"><span class="pre">extrude()</span></code></a></p></li>
+<li><p><strong>Constraints</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – equivalent input as for <a class="reference internal" href="#MOLA.GenerativeVolumeDesign.extrude" title="MOLA.GenerativeVolumeDesign.extrude"><code class="xref py py-func docutils literal notranslate"><span class="pre">extrude()</span></code></a></p></li>
+<li><p><strong>SupportMode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>indicate the provided support configuration with
+respect to the wing. Three possibilities exist:</p>
+<ul>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">'extrapolate'</span></code></dt><dd><p>the wing does not intersect the support <em>(an
+extrapolation is required)</em></p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">'intersection'</span></code></dt><dd><p>the wing intersects the support <em>(a trim is required)</em></p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">'supported'</span></code></dt><dd><p>the wing is already perfectly supported on support surface
+(a line-to-surface extrusion projected on the support is
+performed and then it is used as constraint for wing extrusion)</p>
+</dd>
+</dl>
+</li>
+</ul>
+</p></li>
+<li><p><strong>extrapolatePoints</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – Number of points for the discretization of the extrapolation zone</p></li>
+<li><p><strong>InterMinSep</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Minimum distance that shall verify the trimming of
+the wing when configuration is such that <strong>SupportMode</strong> =
+<code class="docutils literal notranslate"><span class="pre">'intersection'</span></code></p></li>
+<li><p><strong>CollarRelativeRootDistance</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Relative distance from wing’s Root (<code class="docutils literal notranslate"><span class="pre">0</span></code>) and Tip (<code class="docutils literal notranslate"><span class="pre">1</span></code>) from
+which to perform the collar grid.</p></li>
+<li><p><strong>extrudeOptions</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – Specifies additional options to <a class="reference internal" href="#MOLA.GenerativeVolumeDesign.extrude" title="MOLA.GenerativeVolumeDesign.extrude"><code class="xref py py-func docutils literal notranslate"><span class="pre">extrude()</span></code></a></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>t</strong> – tree containing the extruded wing volume grid.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>PyTree</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeVolumeDesign.fillCollar">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeVolumeDesign.</span></span><span class="sig-name descname"><span class="pre">fillCollar</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Outter</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Inner</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Side1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Side2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeVolumeDesign.fillCollar" title="Permalink to this definition">¶</a></dt>
+<dd><p>From the 4 boundaries defining a collar grid, perform the
+required operations in order to fill by transfinite-interpolation (TFI)
+the volume contained within the user-provided boundary surfaces.</p>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>For <strong>ALL</strong> the zones, the airfoil-wise points must
+be ordered in i-direction and must be consistent.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Outter</strong> (<em>zone</em>) – structured surface defining the external (outter) surface.</p></li>
+<li><p><strong>Inner</strong> (<em>zone</em>) – structured surface defining the wing-wall surface.</p></li>
+<li><p><strong>Side1</strong> (<em>zone</em>) – structured surface defining one of the sides.</p></li>
+<li><p><strong>Side2</strong> (<em>zone</em>) – structured surface defining the ramaining side that closes
+Collar volume.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>Zone</strong> – Collar grid.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>zone</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeVolumeDesign.invokeExtrusionPyTree">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeVolumeDesign.</span></span><span class="sig-name descname"><span class="pre">invokeExtrusionPyTree</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tSurf</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeVolumeDesign.invokeExtrusionPyTree" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is a private function called by user-level function <a class="reference internal" href="#MOLA.GenerativeVolumeDesign.extrude" title="MOLA.GenerativeVolumeDesign.extrude"><code class="xref py py-func docutils literal notranslate"><span class="pre">extrude()</span></code></a></p>
+<p>This function invokes the extrusion PyTree <strong>tExtru</strong>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tSurf</strong> (<em>PyTree</em><em>, </em><em>base</em><em>, </em><em>zone</em><em> or </em><em>list of zones</em>) – the surfaces to extrude</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>tExtru</strong> – the extrusion tree employed during the extrusion process</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>PyTree</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeVolumeDesign.multiSections">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeVolumeDesign.</span></span><span class="sig-name descname"><span class="pre">multiSections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ProvidedSections</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">SpineDiscretization</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">InterpolationData</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'InterpolationLaw':</span> <span class="pre">'interp1d_linear'}</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeVolumeDesign.multiSections" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function makes a sweep across a list of provided sections (surfaces)
+that are exactly placed in 3D space (passing points).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ProvidedSections</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone) – each zone must be a 1D structured surface.
+All provided sections must have the same number of points. Also, they
+shall have the same index ordering, in order to avoid self-intersecting
+resulting surface. Each one of the provided sections must be exactly
+placed in 3D space at the passing points where the new surface will be
+pass across. Bad results can be expected if some sections are coplanar.</p></li>
+<li><p><strong>SpineDiscretization</strong> (<em>numpy 1d array</em><em> or </em><em>zone</em>) – This is a polymorphic
+argument that provides information on how to discretize the spine of
+the surface to build. If it is a numpy 1D, it shall be a monotonically
+increasing vector between 0 and 1. If it is a zone, it must be a 1D
+structured curve, and the algorithm will extract its distribution for
+use it as SpineDiscretization.</p></li>
+<li><p><strong>InterpolationData</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – <p>This is a dictionary that contains
+options for the interpolation process. Relevant options:</p>
+<ul>
+<li><dl class="simple">
+<dt>InterpolationLaw<span class="classifier">str</span></dt><dd><p>Indicates the interpolation law to be
+employed when constructing the surface. Interpolation is performed
+index-by-index of each point of the provided surface coordinates.
+The interpolation abscissa is the <strong>SpineDiscretization</strong>,
+whereas the
+interpolated quantities are the grid coordinates.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>Volume</strong> (<em>zone</em>) – 3D structured grid of the volume that passes across
+all the user-provided sections.</p></li>
+<li><p><strong>SpineCurve</strong> (<em>zone</em>) – 1D structured curve corresponding to the spine of the volume.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeVolumeDesign.newBaseLayer">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeVolumeDesign.</span></span><span class="sig-name descname"><span class="pre">newBaseLayer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tExtru</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">layer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeVolumeDesign.newBaseLayer" title="Permalink to this definition">¶</a></dt>
+<dd><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>this is a private function called by user-function <a class="reference internal" href="#MOLA.GenerativeVolumeDesign.extrude" title="MOLA.GenerativeVolumeDesign.extrude"><code class="xref py py-func docutils literal notranslate"><span class="pre">extrude()</span></code></a></p>
+</div>
+<p>The purpose of this function is to create an intermediary base employed
+to store the surface of the extrusion front surface for a given layer.
+This information will then be employed by <code class="docutils literal notranslate"><span class="pre">_stackLayers</span></code> for stacking zones
+and creating the final volume mesh.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tExtru</strong> (<em>PyTree</em>) – the extrusion tree</p></li>
+<li><p><strong>layer</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – the current layer number at which extrusion surface front
+will be stored</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>NewLayerBase</strong> – new base containing the stored surface front</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>base</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeVolumeDesign.normalizeVector">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeVolumeDesign.</span></span><span class="sig-name descname"><span class="pre">normalizeVector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vectorNames</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['sx',</span> <span class="pre">'sy',</span> <span class="pre">'sz']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">container</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'FlowSolution'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeVolumeDesign.normalizeVector" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function is a convenient alternative of <code class="xref py py-func docutils literal notranslate"><span class="pre">C._normalize()</span></code>. It deals with
+specific container of the aimed vector.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t</strong> (<em>PyTree</em><em>, </em><em>base</em><em>, </em><em>zone</em><em> or </em><em>list of zones</em>) – <p>input where CGNS zones with the aimed fields to normalize exist</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>t</strong> is modified</p>
+</div>
+</p></li>
+<li><p><strong>vectorNames</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of 3 <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – specify the three 3D components of the flow field to normalize</p></li>
+<li><p><strong>container</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – specify the container where the vector fields are located</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeVolumeDesign.stackSections">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeVolumeDesign.</span></span><span class="sig-name descname"><span class="pre">stackSections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Sections</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeVolumeDesign.stackSections" title="Permalink to this definition">¶</a></dt>
+<dd><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>this function must be replaced by <code class="docutils literal notranslate"><span class="pre">G.stack()</span></code></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeVolumeDesign.stackSurfacesWithFields">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeVolumeDesign.</span></span><span class="sig-name descname"><span class="pre">stackSurfacesWithFields</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">FirstSurface</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">LastSurface</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Distribution</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeVolumeDesign.stackSurfacesWithFields" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function performs a two-section extrusion following a given
+Distribution while keeping the original FlowSolution, if existing.
+Surfaces MUST be structured zones with equal <span class="math notranslate nohighlight">\(N_i \times N_j\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>FirstSurface</strong> (<em>zone</em>) – surface containing possibly fields at nodes of type <cite>FlowSolution_t</cite></p></li>
+<li><p><strong>LastSurface</strong> (<em>zone</em>) – last surface of the extrusion</p></li>
+<li><p><strong>Distribution</strong> (<em>multiple types</em>) – distribution as accepted by the function
+<a class="reference internal" href="InternalShortcuts.html#MOLA.InternalShortcuts.getDistributionFromHeterogeneousInput__" title="MOLA.InternalShortcuts.getDistributionFromHeterogeneousInput__"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.InternalShortcuts.getDistributionFromHeterogeneousInput__()</span></code></a></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>VolumeMesh</strong> – resulting volume grid containing possibly fields</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>zone</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.GenerativeVolumeDesign.stackUnstructured">
+<span class="sig-prename descclassname"><span class="pre">MOLA.GenerativeVolumeDesign.</span></span><span class="sig-name descname"><span class="pre">stackUnstructured</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ListOfZones2Stack</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.GenerativeVolumeDesign.stackUnstructured" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stacks a list of unstructured zones.
+This shall be replaced by yet-to-be-implemented evolution of <code class="xref py py-func docutils literal notranslate"><span class="pre">G.stack()</span></code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This does not work with NGON nor BAR element types</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>ListOfZones2Stack</strong> (<code class="xref py py-func docutils literal notranslate"><span class="pre">list()</span></code> of zone) – unstructured surfaces of the same element type.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>StackedZone</strong> – resulting volume mesh after stacking surfaces</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>zone</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+              </div>
+              
+              
+              <div class='prev-next-bottom'>
+                
+    <a class='left-prev' id="prev-link" href="GenerativeShapeDesign.html" title="previous page">GenerativeShapeDesign</a>
+    <a class='right-next' id="next-link" href="RotatoryWings.html" title="next page">RotatoryWings</a>
+
+              </div>
+              
+          </main>
+          
+
+      </div>
+    </div>
+  
+  <script src="_static/js/index.1c5a1a01449ed65a7b51.js"></script>
+
+  <footer class="footer mt-5 mt-md-0">
+  <div class="container">
+    
+    <div class="footer-item">
+      <p class="copyright">
+    &copy; Copyright 2021, ONERA.<br/>
+</p>
+    </div>
+    
+    <div class="footer-item">
+      <p class="sphinx-version">
+Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.1.2.<br/>
+</p>
+    </div>
+    
+  </div>
+</footer>
+  </body>
+</html>

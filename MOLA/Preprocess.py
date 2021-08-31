@@ -35,69 +35,94 @@ def prepareMesh4ElsA(InputMeshes, NProcs=None, ProcPointsLoad=250000):
 
     The sequence of operations performed are the following:
 
-        1. load and assemble the meshes
-        2. apply transformations
-        3. apply connectivity
-        4. set the boundary conditions
-        5. split the mesh
-        6. distribute the mesh
-        7. add and group families
-        8. perform overset preprocessing
-        9. make final elsA-specific adaptations of CGNS data
+    #. load and assemble the meshes
+    #. apply transformations
+    #. apply connectivity
+    #. set the boundary conditions
+    #. split the mesh
+    #. distribute the mesh
+    #. add and group families
+    #. perform overset preprocessing
+    #. make final elsA-specific adaptations of CGNS data
 
-    INPUTS
+    Parameters
+    ----------
 
-    InputMeshes - (list of Python dictinaries) - user-provided data.
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            User-provided data.
 
-        Each list item corresponds to a CGNS Base element (in the sense of an
-        overset component). Most prioritary items (less likely to be masked)
-        must be placed first of the list. Hence, background grid (most likely to
-        be masked) must always be last item of the list.
+            Each list item corresponds to a CGNS Base element (in the sense of an
+            overset component). Most prioritary items (less likely to be masked)
+            must be placed first of the list. Hence, background grid (most likely to
+            be masked) must always be last item of the list.
 
-        Each list item is a Python dictionary with special keywords.
-        Possible pairs of keywords and its associated values are presented:
+            Each list item is a Python dictionary with special keywords.
+            Possible pairs of keywords and its associated values are presented:
 
-        'file' : (string) - path of the file containing the grid.
-            BEWARE! each component must have a unique base.
+            * file : :py:class:`str`
+                path of the file containing the grid.
 
-        'baseName' : (string) - the new name to give to the component.
+                .. attention:: each component must have a unique base. If
+                    input file have several bases, please separate each base
+                    into different files.
 
-        'Transform' : (Python dictionary) - see transform() doc for
-            more information on accepted values.
+            * baseName : :py:class:`str`
+                the new name to give to the component.
 
-        'Connection': (list of Python dictionaries) - see connectMesh() doc for
-            more information on accepted values.
+                .. attention:: each base name must be unique
 
-        'BoundaryConditions': (list of Python dictionaries) - see
-            setBoundaryConditions() doc for more information on accepted values.
+            * Transform : :py:class:`dict`
+                see :py:func:`transform` doc for more information on accepted
+                values.
 
-        'OversetOptions': (Python dictionary) - see addOversetData() doc for
-            more information on accepted values.
+            * Connection : :py:class:`list` of :py:class:`dict`
+                see :py:func:`connectMesh` doc for more information on accepted
+                values.
 
-        'SplitBlocks': (boolean) - if True, allow to split this component in
-            order to satisfy the user-provided rules of total number of used
-            processors and block points load during simulation. If False, the
-            component is protected against splitting.
-            BEWARE! split operation results in loss of connectivity information.
-            Hence, if SplitBlocks=True, then user must specify match rules on
-            list 'Connection'.
+                .. attention:: if the mesh is to be split, user must provide
+                    the **Connection** attribute
 
-    NProcs - (integer>0 or None) - If an integer is provided, then the
-        distribution of the tree (and eventually the splitting) will be done in
-        order to satisfy a total number of processors provided by this value.
-        If not provided (None) then it is automatically determined using as
-        information <ProcPointsLoad> variable.
+            * BoundaryConditions : :py:class:`list` of :py:class:`dict`
+                see :py:func:`setBoundaryConditions` doc for more information on
+                accepted values.
 
-    ProcPointsLoad - (integer>0) - this is the desired number of grid points
-        attributed to each processor. If 'SplitBlocks':True, then it is used to
-        split zones that have more points than <ProcPointsLoad>. If NProcs==None
-        then <ProcPointsLoad> is used to determine the NProcs to be used.
+            * OversetOptions : :py:class:`dict`
+                see :py:func:`addOversetData` doc for more information on
+                accepted values.
 
-    OUTPUT
+            * SplitBlocks : :py:class:`bool`
+                if ``True``, allow for splitting this component in
+                order to satisfy the user-provided rules of total number of used
+                processors and block points load during simulation. If ``False``,
+                the component is protected against splitting.
 
-    t - (PyTree) - the pre-processed mesh tree (usually stored as mesh.cgns)
-        BEWARE This tree is NOT ready for elsA computation yet !
-        The user shall employ function prepareMainCGNS4ElsA() as next step
+                .. attention:: split operation results in loss of connectivity information.
+                    Hence, if ``SplitBlocks=True`` , then user must specify connection
+                    rules in list **Connection**.
+
+        NProcs : int
+            If a positive integer is provided, then the
+            distribution of the tree (and eventually the splitting) will be done in
+            order to satisfy a total number of processors provided by this value.
+            If not provided (``None``) then the number of procs is automatically
+            determined using as information **ProcPointsLoad** variable.
+
+        ProcPointsLoad : int
+            this is the desired number of grid points
+            attributed to each processor. If **SplitBlocks** = ``True``, then it is used to
+            split zones that have more points than **ProcPointsLoad**. If
+            **NProcs** = ``None`` , then **ProcPointsLoad** is used to determine
+            the **NProcs** to be used.
+
+    Returns
+    -------
+
+        t : PyTree
+            the pre-processed mesh tree (usually saved as ``mesh.cgns``)
+
+            .. important:: This tree is **NOT** ready for elsA computation yet !
+                The user shall employ function :py:func:`prepareMainCGNS4ElsA`
+                as next step
     '''
 
     t = getMeshesAssembled(InputMeshes)
@@ -119,122 +144,173 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, BodyForceInputData=[], writeOutputFields=True):
     '''
     This macro-function takes as input a preprocessed grid file (as produced
-    by function prepareMesh4ElsA() ) and adds all remaining information
-    required by elsA computation. Most of this adaptations are elsA-specific.
+    by function :py:func:`prepareMesh4ElsA` ) and adds all remaining information
+    required by elsA computation.
+
+    .. important:: Most of this adaptations are elsA-specific
 
     Several operations are performed on the main tree:
 
-        1. add .Solver#BC nodes
-        2. add trigger nodes
-        3. add extraction nodes
-        4. add reference state nodes
-        5. add governing equations nodes
-        6. initialize flowfields (uniformly)
-        7. create links between FlowSolution#Init and OUTPUT/fields.cgns
+    #. add ``.Solver#BC`` nodes
+    #. add trigger nodes
+    #. add extraction nodes
+    #. add reference state nodes
+    #. add governing equations nodes
+    #. initialize flowfields (uniformly)
+    #. create links between ``FlowSolution#Init`` and ``OUTPUT/fields.cgns``
 
-    INPUTS
+    Parameters
+    ----------
 
-    FILE_MESH - (string) - path to the mesh.cgns file where the result of
-        function prepareMesh4ElsA() has been writen.
+        FILE_MESH : str
+            path to the ``mesh.cgns`` file where the result of
+            function :py:func:`prepareMesh4ElsA` has been writen.
 
-    ReferenceValuesParams - (Python dictionary) - dictionary containing the
-        Reference Values and other relevant data of the specific case to be
-        run using elsA. For information on acceptable values, please
-        see the documentation of function computeReferenceValues().
-        NOTE: This dictionary is passed as kwargs as follows:
-                computeReferenceValues(arg, **ReferenceValuesParams)
+        ReferenceValuesParams : dict
+            Python dictionary containing the
+            Reference Values and other relevant data of the specific case to be
+            run using elsA. For information on acceptable values, please
+            see the documentation of function :py:func:`computeReferenceValues` .
 
-    NumericalParams - (Python dictionary) - dictionary containing the numerical
-        settings for elsA. For information on acceptable values, please see
-        the documentation of function getElsAkeysNumerics()
-        NOTE: This dictionary is passed as kwargs as follows
-                getElsAkeysNumerics(arg, **NumericalParams)
+            .. note:: internally, this dictionary is passed as *kwargs* as follows:
 
-    BodyForceInputData - (list of Python dictionaries) - if provided, each
-        item of this list constitutes a body-force modeling component.
-        Currently acceptable pairs of keywords and associated values are:
+                >>> PRE.computeReferenceValues(arg, **ReferenceValuesParams)
 
-        'name': (string) - the name to provide to the bodyforce component
+        NumericalParams : dict
+            dictionary containing the numerical
+            settings for elsA. For information on acceptable values, please see
+            the documentation of function :py:func:`getElsAkeysNumerics`
 
-        'proc': (integer) - sets the proc at which the bodyforce component
-            is associated for Lifting-Line operations.
-            The only requirement is that 0 < proc < NProcs.
+            .. note:: internally, this dictionary is passed as *kwargs* as follows:
 
-        'FILE_LiftingLine': (string) - path to the LiftingLine CGNS file to
-            consider for the bodyforce modeling element.
-            BEWARE! LiftingLine must be placed in native location as
-            resulting from LL.buildLiftLine() function !
+                >>> PRE.getElsAkeysNumerics(arg, **NumericalParams)
 
-        'FILE_Polars': (string) - path to the Airfoil 2D polars CGNS file
-            to employ for the lifting-line used as bodyforce modeling element
+        BodyForceInputData : :py:class:`list` of :py:class:`dict`
+            if provided, each item of this list constitutes a body-force modeling component.
+            Currently acceptable pairs of keywords and associated values are:
 
-        'NumberOfBlades': (integer) - the number of blades that constitute the
-            propeller or rotor
+            * name : :py:class:`str`
+                the name to provide to the bodyforce component
 
-        'RotationCenter': (3-float list) - the (x,y,z) coordinates of the
-            rotation center of the rotor.
+            * proc : :py:class:`int`
+                sets the processor at which the bodyforce component
+                is associated for Lifting-Line operations.
 
-        'RotationAxis': (3-float list) - unitary vector (in x,y,z frame) where
-            the rotor is positionned. RotationAxis points towards the desired
-            Thrust direction of the propeller.
+                .. note:: **proc** must be :math:`\in (0, \mathrm{NProc}-1)`
 
-        'GuidePoint': (3-float list) - (x,y,z) coordinates of the point where
-            the first blade will be approximately pointing to. This will be
-            deprecated as it does not seem useful.
+            * FILE_LiftingLine : :py:class:`str`
+                path to the LiftingLine CGNS file to
+                consider for the bodyforce modeling element.
 
-        'RightHandRuleRotation': (boolean) - if True, the propeller rotates
-            around RotationAxis following the right-hand-rule direction.
-            False, otherwise.
+                .. attention:: LiftingLine curve must be placed in native location
+                    as resulting from :py:func:`MOLA.LiftingLine.buildLiftingLine` function !
+                    This is required for coherent use of relocation functions
+                    employed by this method.
 
-        'NumberOfAzimutalPoints': (integer) - number of azimutal points used to
-            discretize the bodyforce disk.
+            * FILE_Polars : :py:class:`str`
+                path to the Airfoil 2D polars CGNS file
+                to employ for the lifting-line used as bodyforce modeling element
 
-        'buildBodyForceDiskOptions': (python dictionary) - Acceptable
-            pairs of keywords and their associated values are:
+            * NumberOfBlades : :py:class:`int`
+                the number of blades that the propeller or rotor is composed of
 
-            'RPM': (float) - the number of revolutions per minute of the rotor,
-                if 'CommandType' is not 'RPM'
+            * RotationCenter : :py:class:`list` of 3 :py:class:`float`
+                the :math:`(x,y,z)` coordinates of the rotation center of the rotor.
 
-            'Pitch': (float) - The pitch to be applied to the blades if
-                'CommandType' is not 'Pitch'
+            * RotationAxis : :py:class:`list` of 3 :py:class:`float`
+                unitary vector (in absolute :math:`(x,y,z)` frame) where
+                the rotor is located. **RotationAxis** points towards the desired
+                Thrust direction of the propeller.
 
-            'CommandType': (string) - one of:
-                'Pitch' - adjusts the pitch in order to verify a constraint
-                'RPM' - adjusts the RPM in order to verify a constraint
+            * GuidePoint : :py:class:`list` of 3 :py:class:`float`
+                :math:`(x,y,z)` coordinates of the point where
+                the first blade will be approximately pointing to.
 
-            'Constraint': (string) - constraint type to be satisfied by
-                controling the command defined by 'CommandType':
-                                    'Thrust' or 'Power'
+                .. attention:: This will be probably deprecated as it does not
+                    seem useful in a body-force context
 
-            'ConstraintValue': (float) - constraint value to be satisfied by
-                controling the command defined by 'CommandType'
+            * RightHandRuleRotation : :py:class:`bool`
+                if ``True``, the propeller rotates
+                around **RotationAxis** vector following the right-hand-rule
+                direction. if ``False``, rotation follows the left-hand-rule.
 
-            'ValueTol': (float) - tolerance of <ConstraintValue> to determine
-                if constraint is satisfied
+            * NumberOfAzimutalPoints : :py:class:`int`
+                number of azimutal points used to discretize the bodyforce disk
 
-            'AttemptCommandGuess': - (list of 2-float lists) - Used as
-                search bounds [min, max] for the trim procedure.
-                Use as many sets of [min,max] elements as
-                the number of attempts of trimming.
+            * buildBodyForceDiskOptions : :py:class:`dict`
+                Additional options defining the bodyforce element. Acceptable
+                pairs of keywords and their associated values are:
 
-            'StackOptions': (python dictionary) - parameters to be passed as
-                kwargs to function LL.stackBodyForceComponent(). Refer to the
-                documentation for more information on acceptable values.
+                * ``'RPM'`` : :py:class:`float`
+                    the number of revolutions per minute of the rotor,
+                    if ``'CommandType'`` is not ``'RPM'``
 
-    writeOutputFields - (boolean) - if True, write initialized fields overriding
-        a possibly existing OUTPUT/fields.cgns file. If False, no
-        OUTPUT/fields.cgns file is writen, but in this case the user must
-        provide a compatible OUTPUT/fields.cgns file to elsA (for example,
-        using a previous computation result).
+                * ``'Pitch'`` : :py:class:`float`
+                    The pitch to be applied to the blades if
+                    ``'CommandType'`` is not ``'Pitch'``
 
-    OUTPUT
+                * ``'CommandType'`` : :py:class:`str`
+                    Can be one of:
 
-    None - a set of files are written:
+                    * ``'Pitch'``
+                        adjusts the pitch in order to verify a constraint
 
-        main.cgns - main CGNS file to be read directly by elsA
-        OUTPUT/fields.cgns - file containing the initial fields
-        setup.py - ultra-light file containing all relevant data of the
-            simulation
+                    * ``'RPM'``
+                        adjusts the RPM in order to verify a constraint
+
+                * ``'Constraint'`` : :py:class:`str`
+                    constraint type to be satisfied by
+                    controling the command defined by ``'CommandType'``:
+
+                    * ``'Thrust'``
+                        Aims a *thrust* value, to be specified in
+                        ``'ConstraintValue'`` in [N]
+
+                    * ``'Power'``
+                        Aims a *power* value, to be specified in
+                        ``'ConstraintValue'`` in [W]
+
+                * ``'ConstraintValue'`` : :py:class:`float`
+                    constraint value to be satisfied by
+                    controling the command defined by ``'CommandType'``
+
+                * ``'ValueTol'`` : :py:class:`float`
+                    tolerance of ``'ConstraintValue'`` to determine
+                    if the constraint is satisfied
+
+                * ``'AttemptCommandGuess'`` : :py:class:`list` of 2 :py:class:`float`
+                    Used as search bounds ``[min, max]`` for the trim procedure.
+
+                    .. tip:: use as many sets of ``[min, max]`` items as
+                        the desired number of attempts for trimming
+
+                * ``'StackOptions'`` : :py:class:`dict`
+                    parameters to be passed as  *kwargs* to function
+                    :py:func:`MOLA.LiftingLine.stackBodyForceComponent`. Refer
+                    to the documentation for more information on acceptable values
+
+        writeOutputFields : bool
+            if ``True``, write initialized fields overriding
+            a possibly existing ``OUTPUT/fields.cgns`` file. If ``False``, no
+            ``OUTPUT/fields.cgns`` file is writen, but in this case the user must
+            provide a compatible ``OUTPUT/fields.cgns`` file to elsA (for example,
+            using a previous computation result).
+
+
+    Returns
+    -------
+
+        files : None
+            A number of files are written:
+
+            * ``main.cgns``
+                main CGNS file to be read directly by elsA
+
+            * ``OUTPUT/fields.cgns``
+                file containing the initial fields (if ``writeOutputFields=True``)
+
+            * ``setup.py``
+                ultra-light file containing all relevant info of the simulation
     '''
 
     def addFieldExtraction(fieldname):
@@ -257,11 +333,9 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
     FluidProperties = computeFluidProperties()
     ReferenceValues = computeReferenceValues(FluidProperties,
                                              **ReferenceValuesParams)
-    ProcList = D2.getProcList(t)
-    print(ProcList)
-    sys.exit()
-    NProc = max(D2.getProcList(t))
+    NProc = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
     ReferenceValues['NProc'] = int(NProc)
+    ReferenceValuesParams['NProc'] = int(NProc)
     elsAkeysCFD      = getElsAkeysCFD()
     elsAkeysModel    = getElsAkeysModel(FluidProperties, ReferenceValues)
     if BodyForceInputData: NumericalParams['useBodyForce'] = True
@@ -279,6 +353,7 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
     to = newRestartFieldsFromCGNS(t)
     saveMainCGNSwithLinkToOutputFields(t,to,writeOutputFields=writeOutputFields)
 
+
     print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
                                                ReferenceValues['NProc'],J.ENDC))
 
@@ -287,19 +362,31 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
 def getMeshesAssembled(InputMeshes):
     '''
     This function reads the grid files provided by the user-provided list
-    <InputMeshes> and merges all components into a unique tree, returned by the
+    **InputMeshes** and merges all components into a unique tree, returned by the
     function.
 
-    INPUT
+    Parameters
+    ----------
 
-    InputMeshes - (list of Python dictionaries) - each component corresponds to
-        a base. Two keys are compulsory:
-        'file': (string) - the CGNS file containing the grid and possibly
-            other CGNS information. It must contain only 1 base.
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            each component (:py:class:`dict`) is associated to a base.
+            Two keys are *compulsory*:
 
-    OUTPUT
+            * file : :py:class:`str`
+                the CGNS file containing the grid and possibly
+                other CGNS information.
 
-    t - (PyTree) - merged Tree
+                .. danger:: It must contain only 1 base
+
+            * baseName : :py:class:`str`
+                the name to attribute to the new base associated to the grid
+                component
+
+    Returns
+    -------
+
+        t : PyTree
+            assembled tree
 
     '''
     print('assembling meshes...')
@@ -322,26 +409,33 @@ def getMeshesAssembled(InputMeshes):
 
 def transform(t, InputMeshes):
     '''
-    This function applies the 'Transform' key contained in user-provided
-    list of Python dictionaries <InputMeshes> as described in
-    function prepareMesh4ElsA().
+    This function applies the ``'Transform'`` key contained in user-provided
+    list of Python dictionaries **InputMeshes** as introduced in
+    function :py:func:`prepareMesh4ElsA` documentation.
 
-    Acceptable values for 'Transform' dictionary are the following:
+    .. important:: in all cases, this function forces the grid to be direct
 
-    'scale': (float) - Scaling factor to apply to the grid component.
+    Parameters
+    ----------
 
-    In all cases, this function forces grid to be direct.
+        t : PyTree
+            Assembled PyTree as obtained from :py:func:`getMeshesAssembled`
 
-    INPUTS
+            .. note:: tree **t** is modified
 
-    t - (PyTree) - Assembled PyTree as obtained from getMeshesAssembled()
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            preprocessing information provided by user as defined in
+            :py:func:`prepareMesh4ElsA` doc.
 
-    InputMeshes - (list of Python dictionaries) - preprocessing information
-        provided by user as defined in prepareMesh4ElsA() doc
+            Acceptable values concerning the :py:class:`dict` associated to
+            the key ``'Transform'`` are the following:
 
-    OUTPUTS
+                * 'scale' : :py:class:`float`
+                    Scaling factor to apply to the grid component.
 
-    None - <t> is modified
+                    .. tip:: use this option to transform a grid built in milimeters
+                        into meters
+
     '''
     for meshInfo in InputMeshes:
         if 'Transform' not in meshInfo: continue
@@ -357,31 +451,43 @@ def transform(t, InputMeshes):
 def connectMesh(t, InputMeshes):
     '''
     This function applies connectivity to the grid following instructions given
-    by 'Connection' list of dictionaries.
-    Each item contained in the list (a Python dictionary) represents a
-    connection instruction.
+    by the list of dictionaries associated to ``Connection`` key of each
+    :py:class:`dict` item in **InputMeshes**.
 
-    Possible values for connection instructions:
 
-    'type': (string) - indicates the type of the connection:
-        'Match' -> makes an exact match within a prescribed tolerance
-        'NearMatch' -> makes a near-match operation using prescribed tolerance
-            and ratio.
+    Parameters
+    ----------
 
-    'tolerance': (float) - employed tolerance for the connection instruction.
+        t : PyTree
+            assembled tree
 
-    'ratio': (integer) - employed ratio for connection 'type':'NearMatch'
+            .. note:: tree **t** is modified
 
-    INPUT
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            user-provided preprocessing instructions as introduced in
+            :py:func:`prepareMesh4ElsA` documentation.
 
-    t - (PyTree) - assembled tree
+            Each item contained in the list associated to key ``Connection`` is
+            a Python dictionary representing a connection instruction.
 
-    InputMeshes - (list of Python dictionaries) - user-provided preprocessing
-        instructions as described in prepareMesh4ElsA()
+            Possible values for connection instructions:
 
-    OUTPUT
+            * ``'type'`` : :py:class:`str`
+                indicates the type of the connection. Two possibilities:
 
-    None - <t> is modified
+                * ``'Match'``
+                    makes an exact match within a prescribed **tolerance**
+
+                * ``'NearMatch'``
+                    makes a near-match operation using prescribed **tolerance**
+                    and **ratio**
+
+            * ``'tolerance'`` : :py:class:`float`
+                employed tolerance for the connection instruction
+
+            * ``'ratio'`` : :py:class:`int`
+                employed ratio for connection ``'type':'NearMatch'``
+
     '''
     for meshInfo in InputMeshes:
         if 'Connection' not in meshInfo: continue
@@ -405,67 +511,91 @@ def connectMesh(t, InputMeshes):
 def setBoundaryConditions(t, InputMeshes):
     '''
     This function is used for setting the boundary-conditions (including
-    BCOverlap) to a grid by means of the user-provided set of preprocessing
-    instructions <InputMeshes>.
+    *BCOverlap*) to a grid by means of the user-provided set of preprocessing
+    instructions **InputMeshes**.
 
-    This function expects that item in <InputMeshes> contains a list of
-    Python dictionaries as value contained in keyword 'BoundaryConditions'.
+    This function expects that item in **InputMeshes** contains a list of
+    Python dictionaries as value contained in key  ``BoundaryConditions``.
 
     Each item of the provided list specifies an instruction for setting a BC.
 
-    Acceptable pairs of keywords and associated values for the python dictionary
-    contained in the list attributed to 'BoundaryConditions' are:
 
-    'location': (string) - specifies the location of the boundary-condition to
-        be set. Acceptable values are:
+    Parameters
+    ----------
 
-        'imin' 'imax' 'jmin' 'jmax' 'kmin' 'kmax' - corresponds to the
-            boundaries of a structured zone.
+        t : PyTree
+            Assembled PyTree as obtained from :py:func:`getMeshesAssembled`
 
-        'special' - this keyword indicates that a special location is specified.
-            Then, additional instructions are provided through keyword
-            'specialLocation' (see next)
+            .. note:: tree **t** is modified
 
-    'specialLocation': (string) - must be specified if 'location':'specialLocation'.
-        Currently available special locations are the following:
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            preprocessing information provided by user as defined in
+            :py:func:`prepareMesh4ElsA` doc.
 
-            'plane#TAG#' - sets the boundary-condition at windows that ENTIRELY
-                lays on a plane provided by user. Possible values of #TAG#:
-                    'YZ' - plane OXZ (x=0)
-                    'XZ' - plane OXZ (y=0)
-                    'XY' - plane OXY (z=0)
+            Acceptable pairs of keywords and associated values for the python dictionary
+            contained in the list attributed to ``BoundaryConditions`` are:
 
-            'fillEmpty' - sets the boundary-condition at all windows with
-                undefined BC or connectivity.
+            * ``'location'`` : :py:class:`str`
+                specifies the location of the boundary-condition to
+                be set. Acceptable values are:
 
-            'fillEmptyAfterRemovingExistingBCType' - like the precedent, except
-                that it removes any pre-existing BCType as indicated by user.
-                The BCType to remove before appying fillEmpty is indicated
-                by 'BCType2Remove' key (see next)
+                * ``'imin', 'imax', 'jmin', 'jmax', 'kmin'`` or ``'kmax'``
+                    which corresponds to the boundaries of a structured zone.
 
-    'BCType2Remove': (string) - Specify the type of BC to remove before applying
-        fillEmptyBC. Only relevant if user specifies:
-        'location':'special'  AND
-        'specialLocation':'fillEmptyAfterRemovingExistingBCType'
+                * ``'special'``
+                    this keyword indicates that a special location is specified.
+                    Then, additional instructions are provided through keyword
+                    ``'specialLocation'`` (see next)
 
-    'name': (string) - name of the BC to specify.
+            * ``'specialLocation'`` : :py:class:`str`
+                must be specified if ``'location':'specialLocation'``.
+                Currently available special locations are the following:
 
-    'type': (string) - can be any compatible with Converter.addBC2Zone,
-        including family specification (starting with 'FamilySpecified:').
+                * ``'plane#TAG#'``
+                    sets the boundary-condition at windows that *entirely*
+                    lays on a plane provided by user. Possible values of ``#TAG#``:
 
-    'familySpecifiedType': (string) - Specifies the actual BC type if
-        'type' instruction started with 'FamilySpecified:'.
+                    * ``'YZ'``
+                        plane :math:`OYZ` (:math:`x=0`)
 
-    INPUT
+                    * ``'XZ'``
+                        plane :math:`OXZ` (:math:`y=0`)
 
-    t - (PyTree) - assembled tree
+                    * ``'XY'``
+                        plane :math:`OXY` (:math:`z=0`)
 
-    InputMeshes - (list of Python dictionaries) - user-provided preprocessing
-        instructions as described in prepareMesh4ElsA()
+                * 'fillEmpty'
+                    sets the boundary-condition at all windows with
+                    undefined BC or connectivity.
 
-    OUTPUT
+                * 'fillEmptyAfterRemovingExistingBCType'
+                    like the precedent, except
+                    that it removes any pre-existing BCType as indicated by user.
+                    The BCType to remove before appying fillEmpty is indicated
+                    by ``'BCType2Remove'`` key (see next)
 
-    None - <t> is modified
+            * ``'BCType2Remove'`` : :py:class:`str`
+                Specify the type of BC to remove before applying
+                fillEmptyBC.
+
+                .. note:: only relevant if user specifies:
+                    ``'location':'special'`` AND
+                    ``'specialLocation':'fillEmptyAfterRemovingExistingBCType'``
+
+            * ``'name'`` : :py:class:`str`
+                name of the BC to specify
+
+            * ``'type'`` : :py:class:`str`
+                can be any compatible with :py:class:`Converter.PyTree.addBC2Zone`
+                including family specification (starting with ``'FamilySpecified:'``).
+
+            * ``'familySpecifiedType'`` : :py:class:`str`
+                Specifies the actual BC type if
+                ``'type'`` instruction started with ``'FamilySpecified:'``.
+
+            .. warning:: this interface can be significantly change in
+                future versions
+
     '''
     print('setting boundary conditions...')
     for meshInfo in InputMeshes:
@@ -506,26 +636,33 @@ def setBoundaryConditions(t, InputMeshes):
 
 def getWindowTagsAtPlane(zone, planeTag='planeXZ', tolerance=1e-8):
     '''
-    Returns the windows keywords of a structured zone that entirely (within a
-    geometrical tolerance) lies on a plane provided by user.
+    Returns the windows keywords of a structured zone that entirely lies (within
+    a geometrical tolerance) on a plane provided by user.
 
-    INPUT
+    Parameters
+    ----------
 
-    zone - (zone) - a structured zone
+        zone : zone
+            a structured zone
 
-    planeTag - (string) - a keyword used to specify the requested plane.
-        Possible tags: 'planeXZ' 'planeXY' 'planeYZ'
+        planeTag : str
+            a keyword used to specify the requested plane.
+            Possible tags: ``'planeXZ'``, ``'planeXY'`` or ``'planeYZ'``
 
-    tolerance - (float) - maximum geometrical distance allowed to all window
-        coordinates to be satisfied if the window is a valid candidate
+        tolerance : float
+            maximum geometrical distance allowed to all window
+            coordinates to be satisfied if the window is a valid candidate
 
-    OUTPUT
+    Returns
+    -------
 
-    WindowTagsAtPlane - (list of strings) - A list containing any of the
-        following window tags: 'imin','imax','jmin','jmax','kmin','kmax'.
-        If no window lies on the plane, the function returns empty list.
-        If more than one window entirely lies on the plane, then the returned
-        list will have several items.
+        WindowTagsAtPlane : :py:class:`list` of :py:class:`str`
+            A list containing any of the
+            following window tags: ``'imin', 'imax', 'jmin', 'jmax', 'kmin', 'kmax'``.
+
+            .. important:: If no window lies on the plane, the function returns an empty list.
+                If more than one window entirely lies on the plane, then the returned
+                list will have several items.
     '''
     WindowTags = ('imin','imax','jmin','jmax','kmin','kmax')
     Windows = [GSD.getBoundary(zone, window=w) for w in WindowTags]
@@ -553,18 +690,19 @@ def getWindowTagsAtPlane(zone, planeTag='planeXZ', tolerance=1e-8):
 def addFamilies(t, InputMeshes, tagZonesWithBaseName=True):
     '''
     This function is used to set all required CGNS nodes involving families of
-    zones and families of BC. It also groups UserDefined BC families by name.
+    zones and families of BC. It also groups ``UserDefined`` BC families by name.
 
-    INPUT
+    Parameters
+    ----------
 
-    t - (PyTree) - assembled tree
+        t : PyTree
+            assembled tree
 
-    InputMeshes - (list of Python dictionaries) - user-provided preprocessing
-        instructions as described in prepareMesh4ElsA()
+            .. note:: tree **t** is modified
 
-    OUTPUT
-
-    None - <t> is modified
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            user-provided preprocessing
+            instructions as described in :py:func:`prepareMesh4ElsA` doc
     '''
     print('adding families...')
     for meshInfo in InputMeshes:
@@ -598,35 +736,43 @@ def addFamilies(t, InputMeshes, tagZonesWithBaseName=True):
 
 def splitAndDistribute(t, InputMeshes, NProcs=None, ProcPointsLoad=2e5):
     '''
-    Split a PyTree <t> using the desired proc points load <ProcPointsLoad>.
-    Distribute the PyTree <t> using a user-provided <NProcs>. If <NProcs> is not
-    provided, it is then automatically computed.
+    Split a PyTree **t** using the desired proc points load **ProcPointsLoad**.
+    Distribute the PyTree **t** using a user-provided **NProcs**. If **NProcs**
+    is not provided, then it is automatically computed.
 
-    Returns new split and distributed PyTree.
+    Returns a new split and distributed PyTree.
 
-    Only <InputMeshes> where 'SplitBlocks':True are split.
+    .. note:: only **InputMeshes** where ``'SplitBlocks':True`` are split.
 
-    INPUT
+    Parameters
+    ----------
 
-    t - (PyTree) - assembled tree
+        t : PyTree
+            assembled tree
 
-    InputMeshes - (list of Python dictionaries) - user-provided preprocessing
-        instructions as described in prepareMesh4ElsA().
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            user-provided preprocessing
+            instructions as described in :py:func:`prepareMesh4ElsA` doc
 
-    NProcs - (integer>0 or None) - If an integer is provided, then the
-        distribution of the tree (and eventually the splitting) will be done in
-        order to satisfy a total number of processors provided by this value.
-        If not provided (None) then it is automatically determined using as
-        information <ProcPointsLoad> variable.
+        NProcs : int
+            If a positive integer is provided, then the
+            distribution of the tree (and eventually the splitting) will be done in
+            order to satisfy a total number of processors provided by this value.
+            If not provided (``None``) then the number of procs is automatically
+            determined using as information **ProcPointsLoad** variable.
 
-    ProcPointsLoad - (integer>0) - this is the desired number of grid points
-        attributed to each processor. If 'SplitBlocks':True, then it is used to
-        split zones that have more points than <ProcPointsLoad>. If NProcs==None
-        then <ProcPointsLoad> is used to determine the NProcs to be used.
+        ProcPointsLoad : int
+            this is the desired number of grid points
+            attributed to each processor. If **SplitBlocks** = ``True``, then it is used to
+            split zones that have more points than **ProcPointsLoad**. If
+            **NProcs** = ``None`` , then **ProcPointsLoad** is used to determine
+            the **NProcs** to be used.
 
-    OUTPUT
+    Returns
+    -------
 
-    t - (PyTree) - new split and distributed tree.
+        t : PyTree
+            new distributed *(and possibly split)* tree
 
     '''
     print('splitting and distributing mesh...')
@@ -699,23 +845,28 @@ def splitAndDistribute(t, InputMeshes, NProcs=None, ProcPointsLoad=2e5):
 
 def getBasesBasedOnSplitPolicy(t,InputMeshes):
     '''
-    PRIVATE function
+    Returns two different lists, one with bases to split and other with bases
+    not to split. The filter is done depending on the boolean value
+    of ``SplitBlocks`` key provided by user for each component of **InputMeshes**.
 
-    returns bases to split and bases not to split depending on the boolean value
-    of 'SplitBlocks' key provided by user for each component of <InputMeshes>
+    Parameters
+    ----------
 
-    INPUT
+        t : PyTree
+            assembled tree
 
-    t - (PyTree) - assembled tree
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            user-provided preprocessing
+            instructions as described in :py:func:`prepareMesh4ElsA` doc
 
-    InputMeshes - (list of Python dictionaries) - user-provided preprocessing
-        instructions as described in prepareMesh4ElsA().
+    Returns
+    -------
 
-    OUTPUT
+        basesToSplit : :py:class`list` of base
+            bases that are to be split.
 
-    basesToSplit - (list of bases) - bases that are to be split.
-
-    basesNotToSplit - (list of bases) - bases that are NOT to be split.
+        basesNotToSplit : :py:class`list` of base
+            bases that are NOT to be split.
     '''
     basesToSplit = []
     basesNotToSplit = []
@@ -737,17 +888,18 @@ def showStatisticsAndCheckDistribution(tNew, stats, CoresPerNode=28):
     Print statistics on the distribution of a PyTree and also indicates the load
     attributed to each computational node.
 
-    INPUT
+    Parameters
+    ----------
 
-    tNew - (PyTree) - tree where distribution is done.
+        tNew : PyTree
+            tree where distribution was done.
 
-    stats - (Python dictionary) - result of D2.distribute()
+        stats : dict
+            result of :py:func:`Distributor2.PyTree.distribute`
 
-    CoresPerNode - (integer) - number of processors per node.
+        CoresPerNode : int
+            number of processors per node.
 
-    OUTPUT
-
-    None - only statistics are printed on standard output
     '''
     ProcDistributed = D2.getProc(tNew)
     ResultingNProc = max(ProcDistributed)+1
@@ -805,83 +957,106 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
     Global overset options are provided by the optional arguments of the
     function.
 
-    Component-specific instructions for overlap settings are provided
-    through <InputMeshes> component by means of keyword 'OversetOptions', which
-    accepts a Python dictionary with several allowed pairs of keywords and their
-    associated values:
 
-    'BlankingMethod': (string) - currently, two blanking methods are allowed:
-        'blankCellsTri' - makes use of Connector's function of same name
-        'blankCells' - makes use of Connector's function of same name
+    Parameters
+    ----------
 
-    'BlankingMethodOptions': (python dictionary) - literally, all options
-        to provide to Connector's function specified by 'BlankingMethod'.
+        t : PyTree
+            assembled tree
 
-    'NCellsOffset': (integer>0) - if set, then masks constructed from BCOverlap
-        boundaries are built by producing an offset towards the interior of
-        the grid following the number of cells provided by this value. This
-        option is well suited if cell size around BCOverlaps are similar and
-        they have also similar size with respect to background grids (which
-        should be the case for proper quality of the interpolations).
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            user-provided preprocessing instructions as described in
+            :py:func:`prepareMesh4ElsA` .
 
-        VERY IMPORTANT NOTE ! 'NCellsOffset' and 'OffsetDistanceOfOverlapMask'
-            MUST NOT be defined simultaneously (for a same <InputMeshes> item)
-            as they use very different masking techniques !
+            Component-specific instructions for overlap settings are provided
+            through **InputMeshes** component by means of keyword ``OversetOptions``, which
+            accepts a Python dictionary with several allowed pairs of keywords and their
+            associated values:
 
-    'OffsetDistanceOfOverlapMask': (float>0) - if set, then masks constructed
-        from BCOverlap boundaries are built by producing a  offset towards the
-        interior of the grid following a normal distance provided by this value.
-        This option is better suited than 'NCellsOffset' if cell sizes are
-        irregular. However, this strategy is more costly and less robust.
-        It is recommended to try 'NCellsOffset' in priority.
+            * ``'BlankingMethod'`` : :py:class:`str`
+                currently, two blanking methods are allowed:
 
-        VERY IMPORTANT NOTE ! 'NCellsOffset' and 'OffsetDistanceOfOverlapMask'
-            MUST NOT be defined simultaneously (for a same <InputMeshes> item)
-            as they use very different masking techniques !
+                * ``'blankCellsTri'``
+                    makes use of Connector's function of same name
 
-    'CreateMaskFromWall': (boolean) - If False, then walls of this component
-        will not be used for masking. This shall only be used if user knows
-        a priori that this component's walls are not masking any grid. If
-        this is the case, then user can put this value to False in order to
-        slightly accelerate the preprocess time. By default, the value of this
-        key is True.
+                * ``'blankCells'``
+                    makes use of Connector's function of same name
 
-    'OnlyMaskedByWalls': (boolean) - if True, then this overset component
-        is strongly protected against masking. Only other component's walls
-        are allowed to mask this component.
+            * ``'BlankingMethodOptions'`` : :py:class:`dict`
+                literally, all options to provide to Connector's function
+                specified by ``'BlankingMethod'`` key.
 
-    'ForbiddenOverlapMaskingThisBase': (list of strings) - This is a list of
-        base names (names of <InputMeshes> components) whose masking bodies
-        built from their BCOverlaps are not allowed to mask this component.
-        This is used to protect this component from being masked by other
-        component's masks (only affects masks constructed from offset of
-        overlap bodies, this does not include masks constructed from walls).
+            * ``'NCellsOffset'`` : :py:class:`int`
+                if provided, then masks constructed from *BCOverlap*
+                boundaries are built by producing an offset towards the interior of
+                the grid following the number of cells provided by this value. This
+                option is well suited if cell size around BCOverlaps are similar and
+                they have also similar size with respect to background grids (which
+                should be the case for proper quality of the interpolations).
 
-    INPUT
+                .. important:: ``'NCellsOffset'`` and ``'OffsetDistanceOfOverlapMask'``
+                    **MUST NOT** be defined **simultaneously** (for a same **InputMeshes** item)
+                    as they use very different masking techniques !
 
-    t - (PyTree) - assembled tree
+            * ``'OffsetDistanceOfOverlapMask'`` : :py:class:`float`
+                if set, then masks constructed
+                from *BCOverlap* boundaries are built by producing a  offset towards the
+                interior of the grid following a normal distance provided by this value.
+                This option is better suited than ``'NCellsOffset'`` if cell sizes are
+                irregular. However, this strategy is more costly and less robust.
+                It is recommended to try ``'NCellsOffset'`` in priority.
 
-    InputMeshes - (list of Python dictionaries) - user-provided preprocessing
-        instructions as described in prepareMesh4ElsA().
+                .. important:: ``'NCellsOffset'`` and ``'OffsetDistanceOfOverlapMask'``
+                    **MUST NOT** be defined **simultaneously** (for a same **InputMeshes** item)
+                    as they use very different masking techniques !
 
-    depth - (integer) - depth of the interpolation region.
+            * ``'CreateMaskFromWall'`` : :py:class:`bool`
+                If ``False``, then walls of this component
+                will not be used for masking. This shall only be used if user knows
+                a priori that this component's walls are not masking any grid. If
+                this is the case, then user can put this value to ``False`` in order to
+                slightly accelerate the preprocess time.
 
-    optimizeOverlap - (boolean) - if True, then applies X.optimizeOverlap()
-        function.
+                .. note:: by default, the value of this key is ``True``.
 
-    prioritiesIfOptimize - (list of strings and integers) - literally, the
-        priorities argument passed to X.optimizeOverlap. Only relevant if
-        optimizeOverlap key is set to True.
+            * ``'OnlyMaskedByWalls'`` : :py:class:`bool`
+                if ``True``, then this overset component
+                is strongly protected against masking. Only other component's walls
+                are allowed to mask this component.
 
-    double_wall - (integer) - 0: no double_wall; 1: double_wall
+            * ``'ForbiddenOverlapMaskingThisBase'`` : :py:class:`list` of :py:class:`str`
+                This is a list of
+                base names (names of **InputMeshes** components) whose masking bodies
+                built from their *BCOverlap* are not allowed to mask this component.
+                This is used to protect this component from being masked by other
+                component's masks (only affects masks constructed from offset of
+                overlap bodies, this does not include masks constructed from walls).
 
-    saveMaskBodiesTree - (boolean) - if True, then saves the file masks.cgns,
-        allowing the user to analyze if maskas has been properly generated.
+        depth : int
+            depth of the interpolation region.
 
-    OUTPUT
+        optimizeOverlap : bool
+            if ``True``, then applies :py:func:`Connector.PyTree.optimizeOverlap` function.
 
-    t - (PyTree) - new pytree including cellN values at FlowSolution#Centers
-        and elsA's ID* nodes including interpolation coefficients information.
+        prioritiesIfOptimize : list
+            literally, the
+            priorities argument passed to :py:func:`Connector.PyTree.optimizeOverlap`.
+
+            .. note:: only relevant if **optimizeOverlap** is set to ``True``.
+
+        double_wall : bool
+            if ``True``, double walls exist
+
+        saveMaskBodiesTree : bool
+            if ``True``, then saves the file ``masks.cgns``,
+            allowing the user to analyze if masks have been properly generated.
+
+    Returns
+    -------
+
+        t : PyTree
+            new pytree including ``cellN`` values at ``FlowSolution#Centers``
+            and elsA's ``ID*`` nodes including interpolation coefficients information.
 
     '''
 
@@ -969,23 +1144,33 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
 
 def getBlankingMatrix(bodies, InputMeshes):
     '''
-    This is a private-level function. Users shall use user-level function
-    addOversetData().
+    .. attention:: this is a **private-level** function. Users shall employ
+        user-level function :py:func:`addOversetData`.
 
-    This function constructs the blanking matrix
+    This function constructs the blanking matrix :math:`BM_{ij}`, such that
+    :math:`BM_{ij}=1` means that :math:`i`-th basis is blanked by :math:`j`-th
+    body. If :math:`BM_{ij}=0`, then :math:`i`-th basis is **not** blanked by
+    :math:`j`-th body.
 
+    Parameters
+    ----------
 
-    INPUTS
+        bodies : :py:class:`list` of :py:class:`zone`
+            list of watertight surfaces used for blanking (masks)
 
-    bodies - (list of zones) - list of watertight zones used for blanking.
+            .. attention:: unstructured *TRI* surfaces must be oriented inwards
 
-    InputMeshes - (list of Python dictionaries) - user-provided preprocessing
-        instructions as described in prepareMesh4ElsA().
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            user-provided preprocessing instructions as described in
+            :py:func:`prepareMesh4ElsA` .
 
-    OUTPUT
+    Returns
+    -------
 
-    BlankingMatrix - (numpy 2D array) - BM(i,j)=1 means that ith basis is
-        blanked by jth body.
+        BlankingMatrix : numpy.ndarray
+            2D matrix of shape :math:`N_B \\times N_m`  where :math:`N_B` is the
+            total number of bases and :math:`N_m` is the total number of
+            masking surfaces.
     '''
 
     def getBodyParentBaseName(BodyName):
@@ -1042,22 +1227,26 @@ def getMaskingBodiesAsDict(t, InputMeshes):
     '''
     This function generates a python dictionary of the following structure:
 
-    baseName2BodiesDict[<basename>] = [list of zones]
+    >>> baseName2BodiesDict['<basename>'] = [list of zones]
 
     The list of zones correspond to the masks produced at the base named
-    <basename>.
+    **<basename>**.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree) - assembled PyTree as generated by getMeshesAssembled()
+        t : PyTree
+            assembled PyTree as generated by :py:func:`getMeshesAssembled`
 
-    InputMeshes - (list of Python dictionaries) - user-provided preprocessing
-        instructions as described in prepareMesh4ElsA().
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            user-provided preprocessing
+            instructions as described in :py:func:`prepareMesh4ElsA`
 
-    OUTPUT
+    Returns
+    -------
 
-    baseName2BodiesDict - (Python dictionary) - each value is a list of
-        zones (the bodies of the base)
+        baseName2BodiesDict : :py:class:`dict`
+            each value is a list of zones (the masking bodies of the base)
     '''
     baseName2BodiesDict = {}
     for base in I.getBases(t):
@@ -1137,6 +1326,25 @@ def getMaskingBodiesAsDict(t, InputMeshes):
 
 
 def getWalls(t, SuffixTag=None):
+    '''
+    Get closed watertight surfaces from walls (defined using ``BCWall*``)
+
+    Parameters
+    ----------
+
+        t : PyTree
+            assembled tree
+
+        SuffixTag : str
+            if provided, include a tag on newly created zone names
+
+    Returns
+    -------
+
+        walls - list
+            closed watertight surfaces (TRI)
+    '''
+
     # note: this works also for BCWall* defined by families
     walls = C.extractBCOfType(t, 'BCWall*', reorder=True)
     if not walls: return []
@@ -1150,27 +1358,33 @@ def getOverlapMaskByExtrusion(t, SuffixTag=None, OffsetDistanceOfOverlapMask=0.,
                               MatchTolerance=1e-8,
                               MaskOffsetNormalsSmoothIterations=None):
     '''
-    Build the overlap mask by negative extrusion from BCOverlap boundaries.
+    Build the overlap mask by negative extrusion from *BCOverlap* boundaries.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree) - the assembled PyTree containing boundary conditions.
+        t :  PyTree
+            the assembled PyTree containing boundary conditions.
 
-    SuffixTag - (string) - The suffix to attribute to the new mask name.
+        SuffixTag : str
+            The suffix to attribute to the new mask name.
 
-    OffsetDistanceOfOverlapMask - (float) - distance of negative extrusion
-        to apply from BCOverlap
+        OffsetDistanceOfOverlapMask : float
+            distance of negative extrusion to apply from *BCOverlap*
 
-    MatchTolerance - (float) - small value used for merging auxiliar surface
-        patches.
+        MatchTolerance : float
+            small value used for merging auxiliar surface patches.
 
-    MaskOffsetNormalsSmoothIterations - (integer) - number of iterations of
-        normal smoothing employed for computing the extrusion direction.
+        MaskOffsetNormalsSmoothIterations : int
+            number of iterations of normal smoothing employed for computing
+            the extrusion direction.
 
-    OUTPUTS
+    Returns
+    -------
 
-    mask - (zone) - unstructured zone consisting in a watertight closed surface
-        that can be employed as a mask.
+        mask : zone
+            unstructured zone consisting in a watertight closed surface
+            that can be employed as a mask.
     '''
 
     # get Overlap masks and merge them without making them watertight
@@ -1226,22 +1440,27 @@ def getOverlapMaskByCellsOffset(base, SuffixTag=None, NCellsOffset=2,
     Build the overlap mask by selecting a fringe of cells from overlap
     boundaries.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree) - the assembled PyTree containing boundary conditions.
+        t : PyTree
+            the assembled PyTree containing boundary conditions
 
-    SuffixTag - (string) - The suffix to attribute to the new mask name.
+        SuffixTag : str
+            The suffix to attribute to the new mask name
 
-    NCellsOffset - (integer) - number of cells to offset the mask from
-        BCOverlap
+        NCellsOffset : int
+            number of cells to offset the mask from *BCOverlap*
 
-    MatchTolerance - (float) - small value used for merging auxiliar surface
-        patches.
+        MatchTolerance : float
+            small value used for merging auxiliar surface patches
 
-    OUTPUTS
+    Returns
+    -------
 
-    mask - (zone) - unstructured zone consisting in a watertight closed surface
-        that can be employed as a mask.
+        mask : zone
+            unstructured zone consisting in a watertight closed surface
+            that can be employed as a mask.
     '''
     # make a temporary tree as elsAProfile.overlapGC2BC() does not accept bases
     t = C.newPyTree([])
@@ -1268,20 +1487,28 @@ def getOverlapMaskByCellsOffset(base, SuffixTag=None, NCellsOffset=2,
 
 def applyOffset2ClosedMask(mask, offset, niter=None):
     '''
-    This is a private-level function. Creates an offset of a surface removing
+    .. warning:: this is a **private-level** function.
+
+    Creates an offset of a surface removing
     geometrical singularities.
 
-    INPUTS
+    Parameters
+    ----------
 
-    mask - (zone) - input surface
+        mask : zone
+            input surface
 
-    offset - (float) - offset distance
+        offset : float
+            offset distance
 
-    niter - (integer) - number of iterations to deform normals (deprecated)
+        niter : integer
+            number of iterations to deform normals *(deprecated)*
 
-    OUTPUT
+    Returns
+    -------
 
-    NewClosedMask - (zone) - mask surface
+        NewClosedMask : zone
+            mask surface
     '''
     if not offset: return mask
     mask = T.reorderAll(mask, dir=-1) # force normals to point inwards
@@ -1304,23 +1531,33 @@ def applyOffset2ClosedMask(mask, offset, niter=None):
 
 def applyOffset2OpenMask(mask, offset, support, niter=None):
     '''
-    This is a private-level function. Applies an offset to an open surface,
+
+    .. warning:: this is a **private-level** function.
+
+    Applies an offset to an open surface,
     while respecting a constraint on a given support and removing geometrical
     singularities.
 
-    INPUTS
+    Parameters
+    ----------
 
-    mask - (zone) - input surface
+        mask : zone
+            input surface
 
-    offset - (float) - offset distance
+        offset : float
+            offset distance
 
-    support - (zone) - zone employed of support during the extrusion process.
+        support : zone
+            zone employed of support during the extrusion process.
 
-    niter - (integer) - number of iterations to deform normals
+        niter : integer
+            number of iterations to deform normals
 
-    OUTPUT
+    Returns
+    -------
 
-    NewClosedMask - (zone) - mask surface
+        NewClosedMask : zone
+            mask surface
 
     '''
     if not niter: niter = 0
@@ -1353,15 +1590,21 @@ def applyOffset2OpenMask(mask, offset, support, niter=None):
 def removeSingularitiesOnMask(mask):
     '''
     Remove geometrical singularities that may have arised after the negative
-    extrusion priocess.
+    extrusion process.
 
-    INPUTS
+    .. danger:: this function is not sufficiently robust
 
-    mask - (zone) - surface of the mask including singularities.
+    Parameters
+    ----------
 
-    OUTPUTS
+        mask : zone
+            surface of the mask including singularities.
 
-    NewClosedMask - (zone) - new zone without geometrical singularities.
+    Returns
+    -------
+
+        NewClosedMask : zone
+            new zone without geometrical singularities.
     '''
     Name = mask[0]
     mask = XOR.conformUnstr(mask, left_or_right=0, itermax=1)
@@ -1403,15 +1646,23 @@ def buildWatertightBodyFromSurfaces(walls, imposeNormalsOrientation='inwards'):
     Given a set of surfaces, this function creates a single manifold and
     watertight closed unstructured surface.
 
-    INPUTS
+    Parameters
+    ----------
 
-    walls - (list of zones) - surfaces
+        walls : list
+            list of zones (the surfaces or patches of surfaces)
 
-    imposeNormalsOrientation - (string) - can be 'inwards' or 'outwards'
+        imposeNormalsOrientation : str
+            can be ``'inwards'`` or ``'outwards'``
 
-    OUTPUTS
+            .. tip:: set **imposeNormalsOrientation** = ``'inwards'`` to use
+                result as blanking mask
 
-    body - (zone) - closed watertight surface
+    Returns
+    -------
+
+        body : zone
+            closed watertight surface (TRI)
     '''
 
     walls = C.convertArray2Tetra(walls)
@@ -1436,17 +1687,27 @@ def buildWatertightBodiesFromSurfaces(walls, imposeNormalsOrientation='inwards',
     Given a set of surfaces, this function creates a set of manifold and
     watertight closed unstructured surfaces.
 
-    INPUTS
+    Parameters
+    ----------
 
-    walls - (list of zones) - surfaces
+        walls : list
+            list of zones (the surfaces or patches of surfaces)
 
-    imposeNormalsOrientation - (string) - can be 'inwards' or 'outwards'
+        imposeNormalsOrientation : str
+            can be ``'inwards'`` or ``'outwards'``
 
-    SuffixTag - (string) - tag to add as suffix to new zones
+            .. tip:: set **imposeNormalsOrientation** = ``'inwards'`` to use
+                result as blanking mask
 
-    OUTPUTS
+        SuffixTag : str
+            tag to add as suffix to new zones
 
-    bodies - (list of zones) - closed watertight surfaces
+    Returns
+    -------
+
+        bodies : list
+            list of zones, which are closed watertight surfaces (TRI)
+
     '''
 
     walls = C.convertArray2Tetra(walls)
@@ -1471,11 +1732,13 @@ def buildWatertightBodiesFromSurfaces(walls, imposeNormalsOrientation='inwards',
 
 def removeMatchAndNearMatch(t):
     '''
-    Remove 'GridConnectivity1to1_t' and 'Abbuting' type of connectivity.
+    Remove ``GridConnectivity1to1_t`` and ``Abbuting`` type of connectivity.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree) - tree to modify
+        t : PyTree
+            tree to modify
     '''
     I._rmNodesByType(t, 'GridConnectivity1to1_t')
     for GridConnectivityNode in I.getNodesFromType(t, 'GridConnectivity_t'):
@@ -1494,19 +1757,27 @@ def computeFluidProperties(Gamma=1.4, RealGas=287.053, Prandtl=0.72,
     Please note reference default reference values:
 
     Reference elsA Theory Manual v4.2.01, Table 2.1, Section 2.1.1.5:
-    RealGas = 287.053
-    Gamma = 1.4
-    SutherlandConstant = 110.4
-    SutherlandTemperature = 288.15
-    SutherlandViscosity = 1.78938e-5
+
+    ::
+
+        RealGas = 287.053
+        Gamma = 1.4
+        SutherlandConstant = 110.4
+        SutherlandTemperature = 288.15
+        SutherlandViscosity = 1.78938e-5
 
     Default values for air in elsA documentation for model object:
-    PrandtlTurbulence = 0.9
-    Prandtl = 0.72 (BEWARE depends on temperature, different from Table 2.1)
 
-    OUTPUT
+    ::
 
-    FluidProperties - (dictionary) - set of fluid properties constants
+        PrandtlTurbulence = 0.9
+        Prandtl = 0.72 # (BEWARE depends on temperature, different from Table 2.1)
+
+    Returns
+    -------
+
+        FluidProperties : dict
+            set of fluid properties constants
     '''
 
 
@@ -1542,75 +1813,101 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     '''
     Compute ReferenceValues dictionary used for pre/co/postprocessing a CFD
     case. It contains multiple information and is mostly self-explanatory.
-    This dictionary is used to setup elsA's objects.
+    Some information contained in this dictionary can used to setup elsA's objects.
 
     The following is a list of attributes for creating the ReferenceValues
     dictionary. Please note that any variable may be modified/added after the
     creation of the dictionary. The inputs of this function are the most
     commonly modified parameters of a case.
 
-    INPUTS
-        FluidProperties (dictionary) see computeFluidProperties() doc
+    Parameters
+    ----------
 
-        Density (float) Air density in kg/m3.
+        FluidProperties : dict
+            as produced by :py:func:`computeFluidProperties`
 
-        Temperature (float) air external static temperature in Kelvin.
+        Density : float
+            Air density in [kg/m3].
 
-        Velocity (float) farfield true-air-speed magnitude in m/s
+        Temperature : float
+            air external static temperature in [Kelvin].
 
-        AngleOfAttackDeg |   for information on these attributes
-        AngleOfSlipDeg   |   please see the documentation
-        YawAxis          |   of the function:
-        PitchAxis        |       getFlowDirections()
+        Velocity : float
+            farfield true-air-speed magnitude in [m/s]
 
-        TurbulenceLevel (float) Turbulence intensity used at farfield
+        AngleOfAttackDeg : float
+            .. note:: see :py:func:`getFlowDirections`
 
-        Surface (float) Reference surface for coefficients computations in m2
+        AngleOfSlipDeg : float
+            .. note:: see :py:func:`getFlowDirections`
 
-        Length (float) Reference length for coefficients computations and
-            Reynolds computation, expressed in m
+        YawAxis : float
+            .. note:: see :py:func:`getFlowDirections`
 
-        TorqueOrigin (3-element float) Reference location for the moments
-            computation, expressed in m
+        PitchAxis : float
+            .. note:: see :py:func:`getFlowDirections`
 
-        TurbulenceModel (string) NASA's conventional turbulence model existing
-            in elsA are included:
-            'SA', 'BSL','BSL-V','SST-2003','SST','SST-V','Wilcox2006-klim',
-            'SST-2003-LM2009', 'SSG/LRR-RSM-w2012'
-            see https://turbmodels.larc.nasa.gov/ for more information
+        TurbulenceLevel : float
+            Turbulence intensity used at farfield
+
+        Surface : float
+            Reference surface for coefficients computations in [m2]
+
+        Length : float
+            Reference length for coefficients computations and
+            Reynolds computation, expressed in [m]
+
+        TorqueOrigin : :py:class:`list` of 3 :py:class:`float`
+            Reference location coordinates origin :math:`(x,y,z)` for the moments
+            computation, expressed in [m]
+
+        TurbulenceModel : str
+            Some `NASA's conventional turbulence model <https://turbmodels.larc.nasa.gov/>`_
+            available in elsA are included:
+            ``'SA'``, ``'BSL'``, ``'BSL-V'``, ``'SST-2003'``, ``'SST'``,
+            ``'SST-V'``, ``'Wilcox2006-klim'``, ``'SST-2003-LM2009'``,
+            ``'SSG/LRR-RSM-w2012'``
 
             other non-conventional turbulence models:
-            'smith' reference doi:10.2514/6.1995-232
+            ``'smith'`` reference `doi:10.2514/6.1995-232 <http://doi.org/10.2514/6.1995-232>`_
 
-        Viscosity_EddyMolecularRatio (float) - Expected ratio of eddy to
-            molecular viscosity at farfield.
+        Viscosity_EddyMolecularRatio : float
+            Expected ratio of eddy to molecular viscosity at farfield
 
-        TurbulenceCutoff (float) - Ratio of farfield turbulent quantities used
-            for imposing a cutoff.
-            NOTA BENE: this affects only turbulent quantities and not eddy
-            viscosity.
+        TurbulenceCutoff : float
+            Ratio of farfield turbulent quantities used for imposing a cutoff.
 
-        TransitionMode - Not implemented in current workflow.
+        TransitionMode : str
+            .. attention:: not implemented in workflow standard
 
-        CoprocessOptions (dictionary) Override default coprocess options
-            dictionary with this one. Default options are:
-            'UpdateRestartFrequency' : 1000,
-            'UpdateLoadsFrequency'   : 20,
-            'NewSurfacesFrequency'   : 500,
-            'AveragingIterations'    : 3000,
-            'MaxConvergedCLStd'      : 1e-4,
-            'ItersMinEvenIfConverged': 1000,
-            'TimeOutInSeconds'       : 53100.0, # 14.75 h * 3600 s/h = 53100 s
-            'SecondsMargin4QuitBeforeTimeOut' : 900.,
-            'ConvergenceCriterionFamilyName' : '', # Add familyBCname
+        CoprocessOptions : dict
+            Override default coprocess options dictionary with this paramter.
+            Default options are:
 
-        FieldsAdditionalExtractions - (string) - space separated keywords of
+            ::
+
+                'UpdateRestartFrequency' : 1000,
+                'UpdateLoadsFrequency'   : 20,
+                'NewSurfacesFrequency'   : 500,
+                'AveragingIterations'    : 3000,
+                'MaxConvergedCLStd'      : 1e-4,
+                'ItersMinEvenIfConverged': 1000,
+                'TimeOutInSeconds'       : 53100.0, # 14.75 h * 3600 s/h = 53100 s
+                'SecondsMargin4QuitBeforeTimeOut' : 900.,
+                'ConvergenceCriterionFamilyName' : '', # Add familyBCname
+
+        FieldsAdditionalExtractions : str
+            space separated keywords of
             additional fields to be included as extraction.
 
-    OUTPUTS
+            .. warning:: interface of this parameter will change in future versions,
+                to become a :py:class:`list` of :py:class:`str`
 
-    ReferenceValues - (dictionary) - dictionary containing all reference
-        values of the simulation
+    Returns
+    -------
+
+        ReferenceValues : dict
+            dictionary containing all reference values of the simulation
     '''
 
 
@@ -1826,6 +2123,18 @@ def getElsAkeysCFD(config='3d'):
     '''
     Create a dictionary of pairs of elsA keyword/values to be employed as
     cfd problem object.
+
+    Parameters
+    ----------
+
+        config : str
+            elsa keyword config (``'2d'`` or ``'3d'``)
+
+    Returns
+    -------
+
+        elsAkeysCFD : dict
+            dictionary containing key/value for elsA *cfd* object
     '''
     elsAkeysCFD      = dict(
         config=config,
@@ -1835,9 +2144,23 @@ def getElsAkeysCFD(config='3d'):
 
 def getElsAkeysModel(FluidProperties, ReferenceValues):
     '''
-    Produce the elsA model object keys as a Python dictionary, using the
-    ReferenceValues and FluidProperties dictionaries produced by
-    functions computeFluidProperties() and computeReferenceValues() functions.
+    Produce the elsA model object keys as a Python dictionary.
+
+    Parameters
+    ----------
+
+        FluidProperties : dict
+            as obtained from :py:func:`computeFluidProperties`
+
+        ReferenceValues : dict
+            as obtained from :py:func:`computeReferenceValues`
+
+    Returns
+    -------
+
+        elsAkeysModel : dict
+            dictionary containing key/value for elsA *model* object
+
     '''
     TurbulenceModel = ReferenceValues['TurbulenceModel']
     TransitionMode  = ReferenceValues['TransitionMode']
@@ -2063,29 +2386,41 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     '''
     Get the Numerics elsA keys as a Python dictionary.
 
-    INPUTS
+    Parameters
+    ----------
 
-    ReferenceValues - Python dictionary - as got from computeReferenceValues()
+        ReferenceValues : dict
+            as got from :py:func:`computeReferenceValues`
 
-    NumericalScheme - (string) - One of: ('jameson', 'ausm+', 'roe')
+        NumericalScheme : str
+            one of: (``'jameson'``, ``'ausm+'``, ``'roe'``)
 
-    TimeMarching - (string) - One of: ('steady', 'gear', 'DualTimeStep')
+        TimeMarching : str
+            One of: (``'steady'``, ``'gear'``, ``'DualTimeStep'``)
 
-    inititer - (integer) - initial iteration
+        inititer : int
+            initial iteration
 
-    Niter - (integer) - total number of iterations to run
+        Niter : int
+            total number of iterations to run
 
-    CFLparams - (dictionary) - indicates the CFL function to be employed
+        CFLparams : dict
+            indicates the CFL function to be employed
 
-    timestep - (float) - timestep for unsteady simulation (in seconds)
+        timestep : float
+            timestep for unsteady simulation (in seconds)
 
-    useBodyForce - (boolean) - True if bodyforce is employed
+        useBodyForce : bool
+            ``True`` if bodyforce is employed
 
-    useChimera - (boolean) - True if chimera is employed
+        useChimera : bool
+            ``True`` if chimera (static) is employed
 
-    OUTPUTS
+    Returns
+    -------
 
-    elsAkeysNumerics - (dictionary) - contains Numerics object elsA keys
+        elsAkeysNumerics : dict
+            contains *numerics* object elsA keys/values
     '''
     DIRECTORY_OVERSET='OVERSET' # TODO: adapt
 
@@ -2215,29 +2550,37 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
 def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
                      FULL_CGNS_MODE=False, dim=3):
     '''
-    Given a preprocessed grid using prepareMesh4ElsA() and setup information
+    Given a preprocessed grid using :py:func:`prepareMesh4ElsA` and setup information
     dictionaries, this function creates the main CGNS tree and writes the
-    setup.py file.
+    ``setup.py`` file.
 
-    INPUT
+    Parameters
+    ----------
 
-    t - (PyTree) - preprocessed tree as performed by prepareMesh4ElsA()
+        t : PyTree
+            preprocessed tree as performed by :py:func:`prepareMesh4ElsA`
 
-    AllSetupDictionaries - (dictionary) - dictionary containing at least the
-        dictionaries: 'ReferenceValues', 'elsAkeysCFD', 'elsAkeysModel' and
-        'elsAkeysNumerics'.
+        AllSetupDictionaries : dict
+            dictionary containing at least the
+            dictionaries: ``ReferenceValues``, ``elsAkeysCFD``,
+            ``elsAkeysModel`` and ``elsAkeysNumerics``.
 
-    initializeFlow - (boolean) - if True, calls newFlowSolutionInit(), which
-        creates FlowSolution#Init fields used for initialization of the flow
+        initializeFlow : bool
+            if ``True``, calls :py:func:`newFlowSolutionInit`, which
+            creates ``FlowSolution#Init`` fields used for initialization of the flow
 
-    FULL_CGNS_MODE - (boolean) - if True, add elsa keys in .Solver#Compute
-        CGNS container
+        FULL_CGNS_MODE : bool
+            if ``True``, add elsa keys in ``.Solver#Compute`` CGNS container
 
-    dim - (integer) - dimension of the problem (2 or 3).
+        dim : int
+            dimension of the problem (``2`` or ``3``).
 
-    OUTPUT
+    Returns
+    -------
 
-    tNew - (PyTree) - CGNS tree containing all required data for elsA computation
+        tNew : PyTree
+            CGNS tree containing all required data for elsA computation
+
     '''
     t = I.copyRef(t)
 
@@ -2264,7 +2607,7 @@ def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
 
 def newRestartFieldsFromCGNS(t):
     '''
-    TODO - REARRANGE THIS FUNCTION
+    .. warning:: this function interface will change
     '''
     print('invoking EndOfRun from restart')
     to = I.copyRef(t)
@@ -2295,32 +2638,53 @@ def saveMainCGNSwithLinkToOutputFields(t, to, DIRECTORY_OUTPUT='OUTPUT',
                                Fields_FlowSolutionName='FlowSolution#Init',
                                writeOutputFields=True):
     '''
-    Saves the main.cgns file including linsk towards OUTPUT/fields.cgns file,
-    which contains FlowSolution#Init fields.
+    Saves the ``main.cgns`` file including linsk towards ``OUTPUT/fields.cgns``
+    file, which contains ``FlowSolution#Init`` fields.
 
-    INPUT
+    Parameters
+    ----------
 
-    t - (PyTree) - fully preprocessed PyTree
+        t : PyTree
+            fully preprocessed PyTree
 
-    to - (PyTree) - reference copy of t (to be removed)
+        to : PyTree
+            reference copy of t
 
-    DIRECTORY_OUTPUT - (string) - folder containing the file fields.cgns
+            .. warning:: this input will be removed in future as it is useless
 
-    MainCGNSFilename - (string) - name for main CGNS file
+        DIRECTORY_OUTPUT : str
+            folder containing the file ``fields.cgns``
 
-    FieldsFilename - (string) - name for CGNS file containing initial fields
+            .. note:: it is advised to use ``'OUTPUT'``
 
-    MainCGNS_FlowSolutionName - (string) - name of container of initial fields
-        at main.cgns
+        MainCGNSFilename : str
+            name for main CGNS file.
 
-    Fields_FlowSolutionName - (string) - name of container of initial fields at
-        fields.cgns
+            .. note:: it is advised to use ``'main.cgns'``
 
-    writeOutputFields - (boolean) - if True, write fields.cgns file
+        FieldsFilename : str
+            name of CGNS file containing initial fields
 
-    OUTPUT
+            .. note:: it is advised to use ``'fields.cgns'``
 
-    None - write file main.cgns and eventually OUTPUT/fields.cgns
+        MainCGNS_FlowSolutionName : str
+            name of container of initial fields at ``main.cgns``
+
+            .. important:: it is strongly recommended using ``'FlowSolution#Init'``
+
+        Fields_FlowSolutionName : str
+            name of container of initial fields at ``fields.cgns``
+
+            .. important:: it is strongly recommended using ``'FlowSolution#Init'``
+
+        writeOutputFields : bool
+            if ``True``, write ``fields.cgns`` file
+
+    Returns
+    -------
+
+        None - None
+            files ``main.cgns`` and eventually ``OUTPUT/fields.cgns`` are written
     '''
     print('gathering links between main CGNS and fields')
     AllCGNSLinks = []
@@ -2353,7 +2717,13 @@ def saveMainCGNSwithLinkToOutputFields(t, to, DIRECTORY_OUTPUT='OUTPUT',
 
 def addSolverBC(t):
     '''
-    Increase family integer value to .Solver#BC at FamilyBC_t nodes
+    Increase family integer value to ``.Solver#BC`` at ``FamilyBC_t`` nodes
+
+    Parameters
+    ----------
+
+        t : PyTree
+            the main tree. It is modified.
     '''
     FamilyNodes = I.getNodesFromType2(t, 'Family_t')
     for i, fn in enumerate(FamilyNodes):
@@ -2363,7 +2733,19 @@ def addSolverBC(t):
 
 def addTrigger(t, coprocessFilename='coprocess.py'):
     '''
-    Add .Solver#Trigger node to all zones.
+    Add ``.Solver#Trigger`` node to all zones.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            the main tree. It is modified.
+
+        coprocessFilename : str
+            the name of the coprocess file.
+
+            .. note:: it is recommended using ``'coprocess.py'``
+
     '''
 
     C._tagWithFamily(t,'ALLZONES',add=True)
@@ -2379,21 +2761,23 @@ def addTrigger(t, coprocessFilename='coprocess.py'):
 def addExtractions(t, ReferenceValues, elsAkeysModel):
     '''
     Include surfacic and field extraction information to CGNS tree using
-    information contained in dictionaries ReferenceValues and elsAkeysModel.
+    information contained in dictionaries **ReferenceValues** and
+    **elsAkeysModel**.
 
-    INPUT
+    Parameters
+    ----------
 
-    t - (PyTree) - prepared grid as produced by prepareMesh4ElsA() function
+        t : PyTree
+            prepared grid as produced by :py:func:`prepareMesh4ElsA` function.
 
-    ReferenceValues - (dictionary) - dictionary as produced by
-        computeReferenceValues() function
+            .. note:: tree **t** is modified
 
-    elsAkeysModel - (dictionary) - dictionary as produced by
-        getElsAkeysModel() function
+        ReferenceValues : dict
+            dictionary as produced by :py:func:`computeReferenceValues` function
 
-    OUTPUT
+        elsAkeysModel : dict
+            dictionary as produced by :py:func:`getElsAkeysModel` function
 
-    None (tree is modified)
     '''
     addSurfacicExtractions(t, ReferenceValues, elsAkeysModel)
     addFieldExtractions(t, ReferenceValues)
@@ -2403,21 +2787,22 @@ def addExtractions(t, ReferenceValues, elsAkeysModel):
 def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel):
     '''
     Include surfacic extraction information to CGNS tree using
-    information contained in dictionaries ReferenceValues and elsAkeysModel.
+    information contained in dictionaries **ReferenceValues** and
+    **elsAkeysModel**.
 
-    INPUT
+    Parameters
+    ----------
 
-    t - (PyTree) - prepared grid as produced by prepareMesh4ElsA() function
+        t : PyTree
+            prepared grid as produced by :py:func:`prepareMesh4ElsA` function.
 
-    ReferenceValues - (dictionary) - dictionary as produced by
-        computeReferenceValues() function
+            .. note:: tree **t** is modified
 
-    elsAkeysModel - (dictionary) - dictionary as produced by
-        getElsAkeysModel() function
+        ReferenceValues : dict
+            dictionary as produced by :py:func:`computeReferenceValues` function
 
-    OUTPUT
-
-    None (tree is modified)
+        elsAkeysModel : dict
+            dictionary as produced by :py:func:`getElsAkeysModel` function
     '''
 
     FamilyNodes = I.getNodesFromType2(t, 'Family_t')
@@ -2467,18 +2852,19 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel):
 def addFieldExtractions(t, ReferenceValues):
     '''
     Include fields extraction information to CGNS tree using
-    information contained in dictionary ReferenceValues.
+    information contained in dictionary **ReferenceValues**.
 
-    INPUT
+    Parameters
+    ----------
 
-    t - (PyTree) - prepared grid as produced by prepareMesh4ElsA() function
+        t : PyTree
+            prepared grid as produced by :py:func:`prepareMesh4ElsA` function.
 
-    ReferenceValues - (dictionary) - dictionary as produced by
-        computeReferenceValues() function
+            .. note:: tree **t** is modified
 
-    OUTPUT
+        ReferenceValues : dict
+            dictionary as produced by :py:func:`computeReferenceValues` function
 
-    None (tree is modified)
     '''
 
     Fields2Extract = (ReferenceValues['Fields']+' '+
@@ -2523,17 +2909,20 @@ def addFieldExtractions(t, ReferenceValues):
 
 def addGoverningEquations(t, dim=3):
     '''
-    Add the nodes corresponding to newFlowEquationSet_t
+    Add the nodes corresponding to `newFlowEquationSet_t`
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree) - main pytree to preprocess
+        t : PyTree
+            prepared grid as produced by :py:func:`prepareMesh4ElsA` function.
 
-    dim - (integer) - dimension of the equations (2 or 3)
+            .. note:: tree **t** is modified
 
-    OUTPUTS
 
-    None (tree is modified)
+        dim : int
+            dimension of the equations (``2`` or ``3``)
+
     '''
     I._rmNodesByType(t, 'newFlowEquationSet_t')
     for b in I.getBases(t):
@@ -2545,18 +2934,19 @@ def addGoverningEquations(t, dim=3):
 
 def addElsAKeys2CGNS(t, AllElsAKeys):
     '''
-    Include node .Solver#Compute , where elsA keys are set in full CGNS mode.
+    Include node ``.Solver#Compute`` , where elsA keys are set in full CGNS mode.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree) - main CGNS tree
+        t : PyTree
+            main CGNS tree
 
-    AllElsAKeys - (list of Python dictionaries) - include all dictinaries of
-        elsA keys to be set into .Solver#Compute
+            .. note:: tree **t** is modified
 
-    OUTPUTS
+        AllElsAKeys : :py:class:`list` of :py:class:`dict`
+            include all dictinaries of elsA keys to be set into ``.Solver#Compute``
 
-    None (tree is modified)
     '''
     I._rmNodesByName(t, '.Solver#Compute')
     AllComputeModels = dict()
@@ -2566,19 +2956,22 @@ def addElsAKeys2CGNS(t, AllElsAKeys):
 
 def newFlowSolutionInit(t, ReferenceValues):
     '''
-    Invoke FlowSolution#Init fields using information contained in
-    ReferenceValue['ReferenceState'] and ReferenceValues['Fields']. This is
-    equivalent as a uniform initialization of flow.
+    Invoke ``FlowSolution#Init`` fields using information contained in
+    ``ReferenceValue['ReferenceState']`` and ``ReferenceValues['Fields']``.
 
-    INPUTS
+    .. note:: This is equivalent as a *uniform* initialization of flow.
 
-    t - (PyTree) - main CGNS PyTree where fields are going to be initialized
+    Parameters
+    ----------
 
-    ReferenceValues - (dictionary) - as got from computeReferenceValues()
+        t : PyTree
+            main CGNS PyTree where fields are going to be initialized
 
-    OUTPUS
+            .. note:: tree **t** is modified
 
-    None (tree is modified)
+        ReferenceValues : dict
+            as produced by :py:func:`computeReferenceValues`
+
     '''
     print('invoking FlowSolution#Init with uniform fields using ReferenceState')
     I._renameNode(t,'FlowSolution#Centers','FlowSolution#Init')
@@ -2605,19 +2998,18 @@ def newFlowSolutionInit(t, ReferenceValues):
 
 def writeSetup(AllSetupDictionaries, setupFilename='setup.py'):
     '''
-    Write setup.py file using a dictionary of dictionaries containing setup
+    Write ``setup.py`` file using a dictionary of dictionaries containing setup
     information
 
-    INPUTS
+    Parameters
+    ----------
 
-    AllSetupDictionaries - (dictionary) - contains all dictionaries to be
-        included in setup.py
+        AllSetupDictionaries : dict
+            contains all dictionaries to be included in ``setup.py``
 
-    setupFilename - (string) - name of setup file
+        setupFilename : str
+            name of setup file
 
-    OUTPUTS
-
-    None (setup.py is writen)
     '''
 
     Lines = ['#!/usr/bin/python\n']
@@ -2633,18 +3025,20 @@ def writeSetup(AllSetupDictionaries, setupFilename='setup.py'):
 
 def writeSetupFromModuleObject(setup, setupFilename='setup.py'):
     '''
-    Write setup.py file using "setup" module object as got from an import
+    Write ``setup.py`` file using "setup" module object as got from an import
     operation.
 
-    INPUTS
+    Parameters
+    ----------
 
-    setup - (module object) - as got from instruction "import setup"
+        setup : module object
+            as got from instruction
 
-    setupFilename - (string) - name of the new setup file to write
+            >>> import setup
 
-    OUTPUT
+        setupFilename : str
+            name of the new setup file to write
 
-    None (setup.py is writen)
     '''
     Lines = ['#!/usr/bin/python\n']
     Lines = ["'''\nsetup.py file automatically generated in PREPROCESS\n'''\n"]
@@ -2661,19 +3055,22 @@ def writeSetupFromModuleObject(setup, setupFilename='setup.py'):
 
 def addReferenceState(t, FluidProperties, ReferenceValues):
     '''
-    Add ReferenceState node to CGNS using user-provided conditions
+    Add ``ReferenceState`` node to CGNS using user-provided conditions
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree) - main CGNS tree where ReferenceState will be set
+        t : PyTree
+            main CGNS tree where ReferenceState will be set
 
-    FluidProperties - (dictionary) - as got from computeFluidProperties()
+            .. note:: tree **t** is modified
 
-    ReferenceValues - (dictionary) - as got from computeReferenceValues()
+        FluidProperties : dict
+            as produced by :py:func:`computeFluidProperties`
 
-    OUTPUT
+        ReferenceValues : dict
+            as produced by :py:func:`computeReferenceValues`
 
-    None (tree is modified)
     '''
     bases = I.getBases(t)
     # BEWARE: zip behavior change between Python 2 and 3.
@@ -2701,21 +3098,23 @@ def addReferenceState(t, FluidProperties, ReferenceValues):
          type2='DataArray_t')
 
 
-def removeEmptyOversetData(t, silent=False):
+def removeEmptyOversetData(t, silent=True):
     '''
     Remove spurious 0-length lists or numpy arrays created during overset
     preprocessing.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree) - main CGNS to clean
+        t : PyTree
+            main CGNS to clean
 
-    silent - (boolean) - if False, then it prints information on the
-        performed operations
+            .. note:: tree **t** is modified
 
-    OUTPUTS
+        silent : bool
+            if ``False``, then it prints information on the
+            performed operations
 
-    None (tree is modified)
     '''
     OversetNodeNames = ('InterpolantsDonor',
                         'InterpolantsType',
@@ -2759,45 +3158,55 @@ def getFlowDirections(AngleOfAttackDeg, AngleOfSlipDeg, YawAxis, PitchAxis):
     conditions and to compute aero-forces (Drag, Side, Lift) by projection of
     cartesian (X, Y, Z) forces onto the corresponding Flow Direction.
 
-    INPUTS
-        AngleOfAttackDeg - (float) - Angle-of-attack in degree. A positive
+    Parameters
+    ----------
+
+        AngleOfAttackDeg : float
+            Angle-of-attack in degree. A positive
             angle-of-attack has an analogous impact as making a rotation of the
-            aircraft around the PitchAxis, and this will likely contribute in
+            aircraft around the **PitchAxis**, and this will likely contribute in
             increasing the Lift force component.
 
-        AngleOfSlipDeg - (float) - Angle-of-attack in degree. A positive
+        AngleOfSlipDeg : float
+            Angle-of-attack in degree. A positive
             angle-of-slip has an analogous impact as making a rotation of the
-            aircraft around the YawAxis, and this will likely contribute in
+            aircraft around the **YawAxis**, and this will likely contribute in
             increasing the Side force component.
 
-        YawAxis - (3-float array) - Vector indicating the Yaw-axis of the
-            aircraft, which commonly points towards the top side of the aircraft
-            A positive rotation around YawAxis is commonly produced by applying
+        YawAxis : array of 3 :py:class:`float`
+            Vector indicating the Yaw-axis of the
+            aircraft, which commonly points towards the top side of the aircraft.
+            A positive rotation around **YawAxis** is commonly produced by applying
             left-pedal rudder (rotation towards the left side of the aircraft).
             This left-pedal rudder application will commonly produce a positive
             angle-of-slip and thus a positive side force.
 
-        PitchAxis - (3-float array) - Vector indicating the Pitch-axis of the
+        PitchAxis : array of 3 :py:class:`float`
+            Vector indicating the Pitch-axis of the
             aircraft, which commonly points towards the right side of the
-            aircraft. A positive rotation around Pitch-axis is commonly produced
+            aircraft. A positive rotation around **PitchAxis** is commonly produced
             by pulling the elevator, provoking a rotation towards the top side
             of the aircraft. By pulling the elevator, a positive angle-of-attack
             is created, which commonly produces an increase of Lift force.
 
-    OUTPUTS - list of 3 objects:
+    Returns
+    -------
 
-        DragDirection - (3-float array) - Vector indicating the main flow
+        DragDirection : array of 3 :py:class:`float`
+            Vector indicating the main flow
             direction. The Drag force is obtained by projection of the absolute
             (X, Y, Z) forces onto this vector. The inflow vector for reference
             state is also obtained by projection of the momentum magnitude onto
             this vector.
 
-        SideDirection - (3-float array) - Vector orthogonal to the main flow
+        SideDirection : array of 3 :py:class:`float`
+            Vector normal to the main flow
             direction pointing towards the Side direction. The Side force is
             obtained by projection of the absolute (X, Y, Z) forces onto this
             vector.
 
-        LiftDirection - (3-float array) - Vector orthogonal to the main flow
+        LiftDirection : array of 3 :py:class:`float`
+            Vector normal to the main flow
             direction pointing towards the Lift direction. The Lift force is
             obtained by projection of the absolute (X, Y, Z) forces onto this
             vector.
@@ -2848,41 +3257,53 @@ def getFlowDirections(AngleOfAttackDeg, AngleOfSlipDeg, YawAxis, PitchAxis):
     return DragDirection, SideDirection, LiftDirection
 
 
-def getMeshInfoFromBaseName(Basename, InputMeshes):
+def getMeshInfoFromBaseName(baseName, InputMeshes):
     '''
-    Private-level function. Used to pick the right InputMesh item based on the
-    basename value.
+    .. note:: this is a private-level function.
 
-    INPUTS
+    Used to pick the right InputMesh item associated to the
+    **baseName** value.
 
-    Basename - (string) - name of the concerned base
+    Parameters
+    ----------
 
-    InputMeshes - (list of Python dictionaries) - same input as explained
-        in prepareMesh4ElsA()
+        baseName : str
+            name of the base
 
-    OUTPUT
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            same input as introduced in :py:func:`prepareMesh4ElsA`
 
-    meshInfo - (Python dictionary) - item contained in InputMeshes with
-        same base name as requested
+    Returns
+    -------
+
+        meshInfo : dict
+            item contained in **InputMeshes** with same base name as requested
+            by **baseName**
     '''
     for meshInfo in InputMeshes:
-        if meshInfo['baseName'] == Basename:
+        if meshInfo['baseName'] == baseName:
             return meshInfo
 
 
 def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
     '''
-    Get the BCType of BCs defined by a given family BC name.
+    Get the *BCType* of BCs defined by a given family BC name.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree) - main CGNS tree
+        t : PyTree
+            main CGNS tree
 
-    FamilyBCName - (string) - requested name of the FamilyBC
+        FamilyBCName : str
+            requested name of the *FamilyBC*
 
-    OUTPUTS
+    Returns
+    -------
 
-    BCType - (string) - the resulting BCType. None if FamilyBCName is not found
+        BCType : str
+            the resulting *BCType*. Returns``None`` if **FamilyBCName** is not
+            found
     '''
     FamilyNode = I.getNodeFromName3(t, FamilyBCName)
     if not FamilyNode: return
@@ -2909,13 +3330,17 @@ def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
 
 def groupUserDefinedBCFamiliesByName(t):
     '''
-    It is an extension of C.groupBCByBCType(). This function follows UserDefined
-    BCType by its actual defining value located at FamilyBC_t, and use its
-    value to group Families. This does not apply to BCOverlap.
+    It is an extension of ``Converter.PyTree.groupBCByBCType``.
+    This function follows ``UserDefined`` *BCType* by its actual defining value
+    located at ``FamilyBC_t``, and use its value to group Families.
 
-    INPUTS
+    .. note:: this distinction does not apply to *BCOverlap*.
 
-    t - (PyTree) - main CGNS tree where UserDefined families are to be grouped
+    Parameters
+    ----------
+
+        t : PyTree
+            main CGNS tree where ``UserDefined`` families are to be grouped
     '''
     for b in I.getBases(t):
         FamilyBCName2Type = C.getFamilyBCNamesDict(b)
@@ -2929,9 +3354,9 @@ def groupUserDefinedBCFamiliesByName(t):
 
 def adapt2elsA(t, InputMeshes):
     '''
-    This function is similar to Converter.elsAProfile.convert2elsAxdt(t),
-    except that it employs InputMeshes information in order to precondition
-    unnecessary operations. It also cleans spurious 0-length data that
+    This function is similar to :py:func:`Converter.elsAProfile.convert2elsAxdt`,
+    except that it employs **InputMeshes** information in order to precondition
+    unnecessary operations. It also cleans spurious 0-length data CGNS nodes that
     can be generated during overset preprocessing.
     '''
     if hasAnyNearMatch(InputMeshes):
@@ -2954,17 +3379,20 @@ def adapt2elsA(t, InputMeshes):
 
 def hasAnyNearMatch(InputMeshes):
     '''
-    Determine if at least one item in InputMeshes has a connectivity of
-    type NearMatch.
+    Determine if at least one item in **InputMeshes** has a connectivity of
+    type ``NearMatch``.
 
-    INPUT
+    Parameters
+    ----------
 
-    InputMeshes - (list of Python dictionaries) - as described by
-        prepareMesh4ElsA()
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            as described by :py:func:`prepareMesh4ElsA`
 
-    OUTPUT
+    Returns
+    -------
 
-    boolean - True if has 'NearMatch' connectivity. False otherwise.
+        bool : bool
+            ``True`` if has ``NearMatch`` connectivity. ``False`` otherwise.
     '''
     for meshInfo in InputMeshes:
         try: Connection = meshInfo['Connection']
@@ -2979,17 +3407,20 @@ def hasAnyNearMatch(InputMeshes):
 
 def hasAnyPeriodicMatch(InputMeshes):
     '''
-    Determine if at least one item in InputMeshes has a connectivity of
-    type PeriodicMatch.
+    Determine if at least one item in **InputMeshes** has a connectivity of
+    type ``PeriodicMatch``.
 
-    INPUT
+    Parameters
+    ----------
 
-    InputMeshes - (list of Python dictionaries) - as described by
-        prepareMesh4ElsA()
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            as described by :py:func:`prepareMesh4ElsA`
 
-    OUTPUT
+    Returns
+    -------
 
-    boolean - True if has 'PeriodicMatch' connectivity. False otherwise.
+        bool : bool
+            ``True`` if has ``PeriodicMatch`` connectivity. ``False`` otherwise.
     '''
 
     for meshInfo in InputMeshes:
@@ -3005,17 +3436,20 @@ def hasAnyPeriodicMatch(InputMeshes):
 
 def hasAnyOversetData(InputMeshes):
     '''
-    Determine if at least one item in InputMeshes has an overset kind of
+    Determine if at least one item in **InputMeshes** has an overset kind of
     assembly.
 
-    INPUT
+    Parameters
+    ----------
 
-    InputMeshes - (list of Python dictionaries) - as described by
-        prepareMesh4ElsA()
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            as described by :py:func:`prepareMesh4ElsA`
 
-    OUTPUT
+    Returns
+    -------
 
-    boolean - True if has overset assembly. False otherwise.
+        bool : bool
+            ``True`` if has overset assembly. ``False`` otherwise.
     '''
     for meshInfo in InputMeshes:
         try:

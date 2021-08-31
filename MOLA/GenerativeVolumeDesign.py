@@ -44,54 +44,71 @@ def extrudeWingOnSupport(Wing, Support, Distributions, Constraints=[],
     '''
     Extrude a wing-like (or rotor/blade) surface to generate a
     volume mesh. The Root of the wing is supported on the
-    user-provided Support Surface.
+    user-provided **Support** surface.
 
-    The extrusion is done using the user-provided Distributions
-    and Constraints, which are compatible with extrude() function,
-    and hence Distributions include smoothing parameters fields.
+    The extrusion is done using the user-provided **Distributions**
+    and **Constraints**, which are compatible with :py:func:`extrude` function,
+    and hence **Distributions** include smoothing parameters fields.
+
+    .. tip:: please read carefully documentation of function :py:func:`extrude`
 
 
-    INPUTS
+    Parameters
+    ----------
 
-    Wing - (PyTree) - PyTree with at least one zone which is the main wing
-        structured surface. Such structured wing surface must be
-        i-oriented following airfoil wise contour, and j-oriented
-        following the root-to-tip wingspan.
+        Wing : PyTree
+            PyTree with at least one zone which is the main wing
+            structured surface.
 
-    Support - (PyTree) - contains the surface at root where wing will be
-        supported.
+            .. important:: **Wing** surface must be
+                i-oriented following airfoil wise contour, and j-oriented
+                following the root-to-tip wingspan.
 
-    Distributions - (list of zones) - same input as extrude()
+        Support : PyTree
+            contains the surface at root where wing will be supported
 
-    Constraints - (list of Python dictionaries) - same input as extrude()
+        Distributions : list
+            equivalent input as for :py:func:`extrude`
 
-    SupportMode - (string) - indicate the provided support configuration with
-        respect to the wing. Three possibilities exist:
+        Constraints : dict
+            equivalent input as for :py:func:`extrude`
 
-        'extrapolate': the wing does not intersects the support (an
-            extrapolation is required)
+        SupportMode : str
+            indicate the provided support configuration with
+            respect to the wing. Three possibilities exist:
 
-        'intersection': the wing intersects the support (a trim is required)
+            * ``'extrapolate'``
+                the wing does not intersect the support *(an
+                extrapolation is required)*
 
-        'supported': the wing is already perfectly supported on support surface
-            (a line-to-surface extrusion projected on the support is performed
-            and then it is used as constraint for wing extrusion)
+            * ``'intersection'``
+                the wing intersects the support *(a trim is required)*
 
-    extrapolatePoints - (integer) -  Number of points for the discretization of
-        the extrapolation zone
+            * ``'supported'``
+                the wing is already perfectly supported on support surface
+                (a line-to-surface extrusion projected on the support is
+                performed and then it is used as constraint for wing extrusion)
 
-    InterMinSep - (float) - Minimum distance that shall verify the trimming of
-        the wing when configuration is such that SupportMode='intersection'
+        extrapolatePoints : int
+            Number of points for the discretization of the extrapolation zone
 
-    CollarRelativeRootDistance - (float between 0 and 1) Relative distance from
-        wing's Root (0) and Tip (1) from which to perform the collar grid.
+        InterMinSep : float
+            Minimum distance that shall verify the trimming of
+            the wing when configuration is such that **SupportMode** =
+            ``'intersection'``
 
-    extrudeOptions - (Python Dictionnary) - Specifies additional options to
-        extrude() function (see function documentation).
+        CollarRelativeRootDistance : float
+            Relative distance from wing's Root (``0``) and Tip (``1``) from
+            which to perform the collar grid.
 
-    OUTPUTS
+        extrudeOptions : dict
+            Specifies additional options to :py:func:`extrude`
 
-    t - (PyTree) - tree containing the extruded wing volume grid.
+    Returns
+    -------
+
+        t : PyTree
+            tree containing the extruded wing volume grid.
     '''
 
     # TODO: replace SupportMode input by a function that automatically computes
@@ -443,123 +460,163 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
             HardSmoothPoints=[], HardSmoothRescaling=False):
     '''
     Make a hyperbolic extrusion of a surface following its normal direction.
-    Constraints to be satisfied through extrusion can be provided by the user.
+    **Constraints** to be satisfied through extrusion can be provided by the user.
 
-    Please refer to the tutorial "MinimalConstrainedExtrusionExamples.py" for
+    Please refer to the tutorial ``"MinimalConstrainedExtrusionExamples.py"`` for
     proper understanding of the basic capabilities of this function.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree, base, zone or list of zones) - CGNS object where the surfaces
-        to be extruded are located (exclusively). Beware that the extrusion
-        direction is the normal direction of the surfaces.
+        t : PyTree, base, zone or list of zones
+            CGNS object where the surfaces
+            to be extruded are located (exclusively). Beware that the extrusion
+            direction is the normal direction of the surfaces.
 
-    Distributions - (list of zones) - List of 1D structured curves used to
-        guide the local cell heights through the extrusion process. Smoothing
-        parameters are contained in these curves via FlowSolution fields
-        named 'normalfactor', 'growthfactor', 'normaliters' and 'growthiters'.
-        Please note that these fields MUST BE present in the curves. At least
-        one distribution guide is required for the extrusion.
+        Distributions : list
+            List of zones of 1D structured curves used to
+            guide the local cell heights through the extrusion process. Smoothing
+            parameters are contained in these curves via FlowSolution fields
+            named ``'normalfactor'``, ``'growthfactor'``, ``'normaliters'`` and
+            ``'growthiters'``.
 
-    Constraints - (list of Python dictionaries) - Each element of this list is
-        a dictionary used to set the constraints that shall be satisfied
-        during the extrusion process. For information on relevant accepted
-        values to provide, please refer to _addExtrusionConstraint() doc. (Note
-        that the dictionary is entirely passed to _addExtrusionConstraint
-        via **kwargs)
+            .. note:: aforementioned fields **MUST BE** present in the
+                ``FlowSolution`` container of each curve zone.
 
-    extractMesh - (zone or None) - This is an EXPERIMENTAL feature and may
-        significantly change or even be deleted in future. If user assigns a
-        zone to this argument, then any flowfield contained in the provided zone
-        will override the fields of the same name of the extrusion front. This
-        includes, for example: 'sx', 'sy', 'sz' (direction of extrusion). These
-        will hence be employed for extrusion instead of being calculated.
-        The extrusion front surface grid coordinates are directly smoothed.
-        If extractMesh is not None, then extractMeshHardSmoothOptions
-        dictionary is meaningful. This technique may be useful for allowing for
-        smoothing of the extrusion layer front while veryfing imposed
-        extrusion directions (it can be seen as a soft overall constraint).
+            .. note:: at least one distribution guide is required for the
+                extrusion.
 
-    ExtrusionAuxiliarCellType - (string) - Sets the cell type employed
-        by the extrusion front surface. May be one of: 'TRI','QUAD','ORIGINAL'.
-        'TRI' is Recommended.
+        Constraints : list
+            Each element of this list is
+            a dictionary used to set the constraints that shall be satisfied
+            during the extrusion process. For information on relevant accepted
+            values to provide, please refer to :py:func:`addExtrusionConstraint`
+            doc.
 
-    modeSmooth - (string) - Sets the normals and cell height smoothing
-        technique. Currently, only two options are available:
-            'dualing': default behavior. Note that distribution's fields
+            .. note:: the dictionary is entirely passed to :py:func:`addExtrusionConstraint`
+                via ``**kwargs``)
+
+        extractMesh : zone
+            .. warning :: this is an EXPERIMENTAL feature and may
+                significantly change or even be deleted in future.*
+
+            If user assigns a
+            zone to this argument, then any flowfield contained in the provided zone
+            will override the fields of the same name of the extrusion front. This
+            includes, for example: ``sx``, ``sy``, ``sz`` (direction of extrusion). These
+            will hence be employed for extrusion instead of being calculated.
+            The extrusion front surface grid coordinates are directly smoothed.
+            If **extractMesh** is not ``None``, then **extractMeshHardSmoothOptions**
+            dictionary is meaningful. This technique may be useful for allowing for
+            smoothing of the extrusion layer front while veryfing imposed
+            extrusion directions (it can be seen as a soft overall constraint).
+
+        ExtrusionAuxiliarCellType : str
+            Sets the cell type employed
+            by the extrusion front surface. May be one of: 'TRI','QUAD','ORIGINAL'.
+
+            'TRI' is Recommended.
+
+        modeSmooth : str
+            Sets the normals and cell height smoothing
+            technique. Currently, only two options are available:
+
+            * ``'dualing'``
+                default behavior. Note that distribution's fields
                 'normalfactor', 'normaliters' and 'growthiters' are employed in
                 this technique
-            'ignore': do not smooth
 
-    growthEquation - (string) - This is a Converter.initVars-compatible
-        string used for tuning the local extrusion cell height of the front.
-        Extrusion quality and robustness strongly depends on this equation.
-        The equation may involve any FlowSolution field defined on the extrusion
-        front surface (which is a CGNS zone).
-        Some examples of quantities typically employed in the equation are:
+            * ``'ignore'``
+                do not smooth
 
-        {nodes:dH}: the local cell height of extrusion.
+        growthEquation : str
+            This is a ``Converter.initVars``-compatible
+            string used for tuning the local extrusion cell height of the front.
+            Extrusion quality and robustness strongly depends on this equation.
+            The equation may involve any ``FlowSolution`` field defined on the extrusion
+            front surface (which is a CGNS zone).
+            Some examples of quantities typically employed in the equation are:
 
-        {nodes:growthfactor}: parameter inferred from Distributions list.
+            * ``{nodes:dH}``
+                the local cell height of extrusion.
 
-        {nodes:divs}: a measure of the concavity/convexity. It corresponds
-            to the divergence of the normals.
+            * ``{nodes:growthfactor}``
+                parameter inferred from Distributions list.
 
-        {nodes:vol}: the volume (or more precisely, the area) of each cell
-            of the extrusion front.
+            * ``{nodes:divs}``
+                a measure of the concavity/convexity. It corresponds
+                to the divergence of the normals.
 
-        {nodes:regularity}: the regularity of the extrusion front cells.
+            * ``{nodes:vol}``
+                the volume (or more precisely, the area) of each cell
+                of the extrusion front.
 
-    closeExtrusionLayer - (boolean) - if True, force the extrusion front surface
-        to be closed. This is necessary in order to perform "O-shaped" extrusion
-        around watertight surfaces.
+            * ``{nodes:regularity}``
+                the regularity of the extrusion front cells.
 
-    printIters - (boolean) - if True, prints to standard output messages
-        during the extrusion process.
+        closeExtrusionLayer : bool
+            if ``True``, force the extrusion front surface
+            to be closed. This is necessary in order to perform "O-shaped" extrusion
+            around watertight surfaces.
 
-    plotIters - (boolean) - if True, interactively open a CPlot window and
-        show the extrusion front during the extrusion process. This is a
-        valuable help for setting the smoothing parameters and growth equation
+        printIters : bool
+            if ``True``, prints to standard output messages
+            during the extrusion process.
 
-    extractMeshHardSmoothOptions - (Python dictionary) - here, a set of
-        parameters are sent to the extractMesh-constraining technique.
-        Relevant parameters are:
+        plotIters : bool
+            if ``True``, interactively open a CPlot window and
+            show the extrusion front during the extrusion process. This is a
+            valuable help for setting the smoothing parameters and growth equation
 
-        'niter' (integer) number of iterations to pass to function T.smooth()
-            that is applied on the extrusion front surface
+        extractMeshHardSmoothOptions : dict
+            here, a set of
+            parameters are sent to the extractMesh-constraining technique.
+            Relevant parameters are:
 
-        'HardSmoothLayerProtection' (integer) this parameter behaves as a
-            protection in order to avoid smoothing the grid coordinates of the
-            extrusion front at layers lower than this value. It is useful to
-            avoid smoothing layers that are likely conained in boundary-layer
+            * ``niter`` : int
+                number of iterations to pass to function :py:func:`T.smooth()`
+                that is applied on the extrusion front surface
 
-        'window' (string) must be a window keyword compatible with
-            GSD.getBoundary(). It indicates from which window a slice of the
-            provided zone in extractMesh attribute is built.
+            * ``HardSmoothLayerProtection`` : int
+                this parameter behaves as a
+                protection in order to avoid smoothing the grid coordinates of the
+                extrusion front at layers lower than this value. It is useful to
+                avoid smoothing layers that are likely conained in boundary-layer
 
-        'FactordH' (float) This indicates the local scaling of the window
-            slice in order to create a proper 1-cell height volume mesh for
-            accurate P.extractMesh() usage.
+            * ``window`` : str
+                must be a window keyword compatible with
+                :py:func:`MOLA.GenerativeShapeDesign.getBoundary`. It indicates
+                from which window a slice of the
+                provided zone in extractMesh attribute is built.
 
-    HardSmoothPoints - (list of zones) - each element of the list is a zone
-        point (as obtained from function D.point() ). During extrusion process,
-        all points of this list are projected towards the extrusion surface
-        front. Each point defines a region where a hard T.smooth() operation
-        will be performed at each extrusion step. The parameters for the call
-        of the T.smooth() function are extracted from FlowSolution of each
-        point. Hence, the FlowSolution of each point may only exclusively
-        be composed of the accepted attributes of T.smooth() function.
+            * ``FactordH`` : float
+                This indicates the local scaling of the window
+                slice in order to create a proper 1-cell height volume mesh for
+                accurate :py:func:`P.extractMesh` usage.
 
-    HardSmoothRescaling - (boolean) - if True, performs an auxiliary
-        normalization of the extrusion front for the application of the
-        HardSmoothPoints. This may be necessary for big grids, as T.smooth()
-        depends on the dimensions of the grid.
+        HardSmoothPoints : list
+            each element of the list is a zone
+            point (as obtained from function :py:func:`D.point` ). During extrusion process,
+            all points of this list are projected towards the extrusion surface
+            front. Each point defines a region where a hard :py:func:`T.smooth` operation
+            will be performed at each extrusion step. The parameters for the call
+            of the :py:func:`T.smooth` function are extracted from ``FlowSolution`` of each
+            point. Hence, the ``FlowSolution`` of each point may only exclusively
+            be composed of the accepted attributes of :py:func:`T.smooth` function.
 
-    OUTPUTS
+        HardSmoothRescaling : bool
+            if ``True``, performs an auxiliary
+            normalization of the extrusion front for the application of the
+            HardSmoothPoints. This may be necessary for big grids, as :py:func:`T.smooth`
+            depends on the dimensions of the grid.
 
-    tExtru - (PyTree) - tree where each base contains different kind of
-        information (e.g. the resulting extruded volume, the constraints,
-        the curves employed as distributions, etc)
+    Returns
+    -------
+
+        tExtru : PyTree
+            tree where each base contains different kind of
+            information (e.g. the resulting extruded volume, the constraints,
+            the curves employed as distributions, etc)
     '''
 
     tExtru = invokeExtrusionPyTree(t)
@@ -574,7 +631,7 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
         _addExtrusionDistribution(tExtru,d)
     NLayers = min(NLayers)
 
-    for c in Constraints: _addExtrusionConstraint(tExtru, **c)
+    for c in Constraints: addExtrusionConstraint(tExtru, **c)
 
     _addHardSmoothPoints(tExtru, HardSmoothPoints)
 
@@ -772,19 +829,22 @@ def _constrainedSmoothing(tExtru, mode='dualing',
 
 def normalizeVector(t, vectorNames=['sx','sy','sz'], container='FlowSolution'):
     '''
-    This function is a convenient alternative of C._normalize(). It deals with
+    This function is a convenient alternative of :py:func:`C._normalize`. It deals with
     specific container of the aimed vector.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree, base, zone or list of zones) - input where CGNS zones with
-        the aimed fields to normalize exist;
+        t : PyTree, base, zone or list of zones
+            input where CGNS zones with the aimed fields to normalize exist
 
-    vectorNames - (list of 3 strings) - specify the three 3D components of the
-        flow field to normalize
+            .. note:: **t** is modified
 
-    container - (string) - specify the container where the vector fields are
-        located
+        vectorNames : :py:class:`list` of 3 :py:class:`str`
+            specify the three 3D components of the flow field to normalize
+
+        container : str
+            specify the container where the vector fields are located
     '''
 
     for z in I.getZones(t):
@@ -1212,23 +1272,29 @@ def _transferExtractMeshData(ExtrudeLayer, extractMesh,
 
 def newBaseLayer(tExtru,layer=0):
     '''
-    This is a private function called by user-function extrude()
+
+    .. note:: this is a private function called by user-function :py:func:`extrude`
 
     The purpose of this function is to create an intermediary base employed
     to store the surface of the extrusion front surface for a given layer.
-    This information will then be employed by _stackLayers for stacking zones
+    This information will then be employed by ``_stackLayers`` for stacking zones
     and creating the final volume mesh.
 
-    INPUTS
+    Parameters
+    ----------
 
-    tExtru - (PyTree) - the extrusion tree
+        tExtru : PyTree
+            the extrusion tree
 
-    layer - (layer) - the current layer number at which extrusion surface front
-        will be stored
+        layer : int
+            the current layer number at which extrusion surface front
+            will be stored
 
-    OUTPUTS
+    Returns
+    -------
 
-    NewLayerBase - (base) - new base containing the stored surface front
+        NewLayerBase : base
+            new base containing the stored surface front
     '''
 
     InitSurfBase = I.getNodeFromName1(tExtru,'InitialSurface')
@@ -1329,17 +1395,21 @@ def _distanceBetweenSurfaces__(zone1, zone2):
 def stackUnstructured(ListOfZones2Stack):
     '''
     Stacks a list of unstructured zones.
-    This shall be replaced by yet-to-be-implemented evolution of G.stack().
-    This does not work with NGON nor BAR.
+    This shall be replaced by yet-to-be-implemented evolution of :py:func:`G.stack`.
 
-    INPUTS
+    .. warning:: This does not work with NGON nor BAR element types
 
-    ListOfZones2Stack - (list of zones) - unstructured surfaces of the same
-        element type.
+    Parameters
+    ----------
 
-    OUTPUTS
+        ListOfZones2Stack : :py:func:`list` of zone
+            unstructured surfaces of the same element type.
 
-    StackedZone - (zone) - resulting volume mesh after stacking surfaces
+    Returns
+    -------
+
+        StackedZone : zone
+            resulting volume mesh after stacking surfaces
     '''
 
     Zones2Join = []
@@ -1474,17 +1544,23 @@ def _stackLayers(tExtru, AllLayersBases):
 
 def extrudeSurfaceFollowingCurve(surface, curve):
     '''
-    Extrude a surface following the direction defined by a 3D structured curve.
+    Extrude a **surface** following the direction defined by a 3D structured
+    **curve**.
 
-    INPUTS
+    Parameters
+    ----------
 
-    surface - (zone) - surface to be extruded
+        surface : zone
+            surface to be extruded
 
-    curve - (zone) - curve used for extrusion
+        curve : zone
+            curve used for extrusion
 
-    OUTPUTS
+    Returns
+    -------
 
-    t - (PyTree) - the new PyTree containing the new volume zone
+        t : PyTree
+            the new PyTree containing the new volume zone
     '''
 
     xCurve, yCurve, zCurve = J.getxyz(curve)
@@ -1505,17 +1581,21 @@ def extrudeSurfaceFollowingCurve(surface, curve):
 
 def invokeExtrusionPyTree(tSurf):
     '''
-    This is a private function called by user-level function extrude()
+    This is a private function called by user-level function :py:func:`extrude`
 
-    This function invokes the extrusion PyTree <tExtru>.
+    This function invokes the extrusion PyTree **tExtru**.
 
-    INPUTS
+    Parameters
+    ----------
 
-    tSurf - (PyTree, base, zone or list of zones) - the surfaces to extrude
+        tSurf : PyTree, base, zone or list of zones
+            the surfaces to extrude
 
-    OUTPUT
+    Returns
+    -------
 
-    tExtru - (PyTree) - the extrusion tree employed during the extrusion process
+        tExtru : PyTree
+            the extrusion tree employed during the extrusion process
     '''
     I._rmNodesFromType(tSurf, 'FlowSolution_t')
     tExtru = C.newPyTree(['InitialSurface',I.getZones(tSurf),
@@ -1596,62 +1676,85 @@ def _addExtrusionLayerSurface(tExtru, mode='TRI', closeExtrusionLayer=False):
         # anyRepeatedPoint = np.any(map(lambda plr: plr-PointListDonor == 0,PointListDonor))
         # anyRepeatedPoint = np.any([plr-PointListDonor == 0 for plr in PointListDonor])
         # if anyRepeatedPoint:
-        #     print('WARNING: _addExtrusionConstraint(): Multiply defined match for initialZone zone "%s"'%initialZone[0])
+        #     print('WARNING: addExtrusionConstraint(): Multiply defined match for initialZone zone "%s"'%initialZone[0])
         I.createUniqueChild(ExtrusionData,'PointListDonor','DataArray_t',value=PointListDonor)
 
 
 
-def _addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
+def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
         ProjectionMode='ortho', ProjectionDir=None, MatchDir=None,
         copyCurve=None):
     '''
-    This is a private function called by user-level function extrude()
+    This is a private function called by user-level function :py:func:`extrude`
 
     Its purpose is to add the constraints surfaces and curves as well as
-    characteristics, as CGNS data into <tExtru> pytree.
+    characteristics, as CGNS data into **tExtru** pytree.
 
-    INPUTS
+    Parameters
+    ----------
 
-    kind - (string) - kind of constraint to be processed into <tExtru>
-        Possible values:
+        kind : str
+            kind of constraint to be processed into **tExtru**. Possible values:
 
-        'Imposed': impose the extrusion direction following the fields
-            {sx}, {sy} and {sz} defined in user-provided zone through
-            attribute <curve>
+            * ``'Imposed'``
+                impose the extrusion direction following the fields
+                ``{sx}``, ``{sy}`` and ``{sz}`` defined in user-provided zone through
+                attribute **curve**
 
-        'Initial': like 'Imposed', except that instead of using the {sx},
-            {sy} and {sz} fields of the user-provided zone <curve>, it uses
-            the local normals of the extrusion front, and avoid to smooth them
+            * ``'Initial'``
+                like ``'Imposed'``, except that instead of using the ``{sx}``,
+                ``{sy}`` and ``{sz}`` fields of the user-provided zone **curve**, it uses
+                the local normals of the extrusion front, and avoid to smooth them
 
-        'Projected': constraint the closest points of the extrusion front
-            with respect to the provided curve towards a user-provided
-            surface.
+            * ``'Projected'``
+                constraint the closest points of the extrusion front
+                with respect to the provided curve towards a user-provided
+                surface.
 
-        'Copy': Copy the fields at points near to <curve> using fields defined
-            at <copyCurve>
+            * ``'Copy'``
+                Copy the fields at points near to **curve** using fields defined
+                at **copyCurve**
 
-        'Match': Exactly follow a neighbor point set.
+            * ``'Match'``
+                Exactly follow a neighbor point set.
 
-    curve - (zone) - curve that will serve to define the points of the
-        extrusion front where constraint is applied.
+        curve : zone
+            curve that will serve to define the points of the
+            extrusion front where constraint is applied.
 
-    surface - (zone) - auxiliar surface employed by different kinds of
-        constraints (e.g. 'Projected' or 'Match')
+        surface : zone
+            auxiliar surface employed by different kinds of
+            constraints (e.g. ``'Projected'`` or ``'Match'``)
 
-    ProjectionMode - (string) - if kind=='Projected', this attribute
-        determines if the projection mode is orthongonal or directional:
-                                'ortho' or 'dir'.
+        ProjectionMode : str
+            Accepted values:
 
-    ProjectionDir - (3-float tuple) - if ProjectionMode=='dir', then this
-        attribute indicates the direction of projection, that will remain
-        constant throughout the entire extrusion process.
+            * ``'ortho'``
+                projection mode is orthogonal
 
-    MatchDir - (integer or None) - Specify the front-advance index of matching
-        (1=i, 2=j, 3=k) of the <surface>. If None, then it is automatically
-        computed. Only relevant if kind=='Match'
+            * ``'dir'``
+                projection mode is directional
 
-    copyCurve - (zone) - curve where fields to be copied towards extrusion front
-        corresponding points are defined. Only relevant if kind=='copy'
+            .. note:: only relevant if **kind** == ``'Projected'``
+
+        ProjectionDir : :py:class:`tuple` containing 3 :py:class:`float`
+            if **ProjectionMode** == ``'dir'``, then this
+            attribute indicates the direction of projection, that will remain
+            constant throughout the entire extrusion process.
+
+        MatchDir : int
+            If procided, it specifies the front-advance index of matching
+            (1=i, 2=j, 3=k) of the **surface**. If not provided (``None``),
+            then the matching direction is automatically computed.
+
+            .. note:: only relevant if **kind** == ``'Match'``
+
+        copyCurve : zone
+            curve where fields to be copied towards extrusion front
+            corresponding points are defined.
+
+            .. note:: only relevant if **kind** == ``'Copy'``
+
     '''
 
 
@@ -1806,7 +1909,7 @@ def _addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
     Indices = [J.getNearestPointIndex(ExtrudeLayer,(xC[i],yC[i],zC[i]))[0] for i in range(CurveNPts)]
     PointListReceiver = np.array(Indices, dtype=np.int64,order='F')
     if  any(np.diff(PointListReceiver)==0):
-        print('WARNING: _addExtrusionConstraint(): Multiply defined constraint for single curve "%s"'%curve[0])
+        print('WARNING: addExtrusionConstraint(): Multiply defined constraint for single curve "%s"'%curve[0])
 
     I.createUniqueChild(ExtrusionData,'PointListReceiver','DataArray_t',value=PointListReceiver)
 
@@ -1875,12 +1978,7 @@ def _addExtrusionDistribution(tExtru, DistributionZone):
 
 def stackSections(Sections):
     """
-    Stack a list of surfaces in order to obtain a volume mesh.
-    This function will be depracated, as shall be replaced by G.stack()
-
-    INPUTS
-
-    Sections - (list of zones) - list of surfaces compatible for stacking
+    .. warning:: this function must be replaced by ``G.stack()``
     """
     Nk = len(Sections)
     Ni, Nj = J.getx(Sections[0]).shape
@@ -1900,37 +1998,46 @@ def multiSections(ProvidedSections, SpineDiscretization,InterpolationData={'Inte
     This function makes a sweep across a list of provided sections (surfaces)
     that are exactly placed in 3D space (passing points).
 
-    INPUTS
+    Parameters
+    ----------
 
-    ProvidedSections - (list of zones) - each zone must be a 1D structured surf.
-        All provided sections must have the same number of points. Also, they
-        shall have the same index ordering, in order to avoid self-intersecting
-        resulting surface. Each one of the provided sections must be exactly
-        placed in 3D space at the passing points where the new surface will be
-        pass across. Bad results can be expected if some sections are coplanar.
+        ProvidedSections : :py:class:`list` of zone
+            each zone must be a 1D structured surface.
+            All provided sections must have the same number of points. Also, they
+            shall have the same index ordering, in order to avoid self-intersecting
+            resulting surface. Each one of the provided sections must be exactly
+            placed in 3D space at the passing points where the new surface will be
+            pass across. Bad results can be expected if some sections are coplanar.
 
-    SpineDiscretization - (numpy 1d array or zone) - This is a polymorphic
-        argument that provides information on how to discretize the spine of
-        the surface to build. If it is a numpy 1D, it shall be a monotonically
-        increasing vector between 0 and 1. If it is a zone, it must be a 1D
-        structured curve, and the algorithm will extract its distribution for
-        use it as SpineDiscretization.
+        SpineDiscretization : numpy 1d array or zone
+            This is a polymorphic
+            argument that provides information on how to discretize the spine of
+            the surface to build. If it is a numpy 1D, it shall be a monotonically
+            increasing vector between 0 and 1. If it is a zone, it must be a 1D
+            structured curve, and the algorithm will extract its distribution for
+            use it as SpineDiscretization.
 
-    InterpolationData - (python dictionary) - This is a dictionary that contains
-        options for the interpolation process. Relevant options:
-        InterpolationLaw - (string) - Indicates the interpolation law to be
-            employed when constructing the surface. Interpolation is performed
-            index-by-index of each point of the provided surface coordinates.
-            The interpolation abscissa is the SpineDiscretization, whereas the
-            interpolated quantities are the grid coordinates.
+        InterpolationData : dict
+            This is a dictionary that contains
+            options for the interpolation process. Relevant options:
 
-    OUTPUTS
+            * InterpolationLaw : str
+                Indicates the interpolation law to be
+                employed when constructing the surface. Interpolation is performed
+                index-by-index of each point of the provided surface coordinates.
+                The interpolation abscissa is the **SpineDiscretization**,
+                whereas the
+                interpolated quantities are the grid coordinates.
 
-    Volume - (zone) - 3D structured grid of the volume that passes across
-        all the user-provided sections.
+    Returns
+    -------
 
-    SpineCurve - (zone) - 1D structured curve corresponding to the spine of the
-        volume.
+        Volume : zone
+            3D structured grid of the volume that passes across
+            all the user-provided sections.
+
+        SpineCurve : zone
+            1D structured curve corresponding to the spine of the volume.
     '''
     AllowedInterpolationLaws = ('interp1d_<KindOfInterpolation>', 'pchip', 'akima', 'cubic')
 
@@ -2063,20 +2170,26 @@ def stackSurfacesWithFields(FirstSurface, LastSurface, Distribution):
     '''
     This function performs a two-section extrusion following a given
     Distribution while keeping the original FlowSolution, if existing.
-    Surfaces MUST be structured zones with equal Ni x Nj
+    Surfaces MUST be structured zones with equal :math:`N_i \\times N_j`
 
-    INPUTS
+    Parameters
+    ----------
 
-    FirstSurface - (zone) - surface containing possibly FlowSolutions
+        FirstSurface : zone
+            surface containing possibly fields at nodes of type `FlowSolution_t`
 
-    LastSurface - (zone) - last surface of the extrusion
+        LastSurface : zone
+            last surface of the extrusion
 
-    Distribution - (polimorphic input) - distribution as accepted by
-        getDistributionFromHeterogeneousInput__() function
+        Distribution : multiple types
+            distribution as accepted by the function
+            :py:func:`MOLA.InternalShortcuts.getDistributionFromHeterogeneousInput__`
 
-    OUTPUTS
+    Returns
+    -------
 
-    VolumeMesh - (zone) - resulting volume grid containing possibly fields
+        VolumeMesh : zone
+            resulting volume grid containing possibly fields
     '''
 
     xF, yF, zF = J.getxyz(FirstSurface)
@@ -2106,22 +2219,29 @@ def stackSurfacesWithFields(FirstSurface, LastSurface, Distribution):
 
 def computeVolumeAndHullAreaOfSurface(t,method='NGON'):
     '''
-    Compute the solid-volume of a surface defined by argument "t".
+    Compute the solid-volume of a surface defined by argument **t**.
     The input surface shall be connex, but not necessarily watertight.
     The algorithm will attempt to close the surface in order to make it
     watertight. If it fails to do this, a warning is prompted.
 
-    INPUTS
-    t - (PyTree, base, zone or list of zones) connex surfaces.
+    Parameters
+    ----------
 
-    method - (string) - Two techniques are currently available:
-        'NGON' or 'tetraMesher'
+        t : PyTree, base, zone or list of zones
+            connex surfaces.
 
-    OUTPUTS
+        method : str
+            Two techniques are currently available:
+            ``'NGON'`` or ``'tetraMesher'``
 
-    Volume - (float) - Volume contained in the watertight surface.
+    Returns
+    -------
 
-    Surface - (float) - Total area of closed Surface (hull).
+        Volume : float
+            Volume contained in the watertight surface.
+
+        Surface : float
+            Total area of closed Surface (hull).
     '''
 
     # Make a single unstructured surface mesh
@@ -2171,29 +2291,34 @@ def computeVolumeAndHullAreaOfSurface(t,method='NGON'):
 def fillCollar(Outter, Inner, Side1, Side2):
     '''
     From the 4 boundaries defining a collar grid, perform the
-    required operations in order to fill by TFI the volume
-    contained within the user-provided boundary surfaces.
+    required operations in order to fill by transfinite-interpolation (TFI)
+    the volume contained within the user-provided boundary surfaces.
 
-    _________________________________________________________
-    BEWARE: For ALL the zones, the airfoil-wise points must
-            be ordered in i-direction and must be consistent.
-    _________________________________________________________
+    .. attention:: For **ALL** the zones, the airfoil-wise points must
+        be ordered in i-direction and must be consistent.
 
 
-    INPUTS (Structured PyTree surface Zones)
+    Parameters
+    ----------
 
-    Outter - (zone) - structured surface defining the external (outter) surface.
+        Outter : zone
+            structured surface defining the external (outter) surface.
 
-    Inner  - (zone) - structured surface defining the wing-wall surface.
+        Inner  : zone
+            structured surface defining the wing-wall surface.
 
-    Side1  - (zone) - structured surface defining one of the sides.
+        Side1  : zone
+            structured surface defining one of the sides.
 
-    Side2  - (zone) - structured surface defining the ramaining side that closes
-             Collar volume.
+        Side2  : zone
+            structured surface defining the ramaining side that closes
+            Collar volume.
 
-    OUTPUTS
+    Returns
+    -------
 
-    Zone - (zone) - Collar grid.
+        Zone : zone
+            Collar grid.
     '''
 
     # Perform some verifications upon Outter and Inner surfaces
@@ -2303,29 +2428,37 @@ def buildBodyForceRotorMesh(NCellsWidth=30, Width=0.25,
     This function allows for easily building a refined structured volume disc
     suitable for the CFD-Bodyforce technique in an Overset grid context.
 
-    INPUTS
+    Parameters
+    ----------
 
-    NCellsWidth - (integer) - number of cells that discretizes the interior of
-        the disc.
+        NCellsWidth : int
+            number of cells that discretizes the interior of the disc.
 
-    Width - (float) - width length of the interior of the disc
+        Width : float
+            width length of the interior of the disc
 
-    NCellBuffer - (integer) - number of cells discretizing each side around the
-        interior of the disc (buffer, where overlap will be found)
+        NCellBuffer : int
+            number of cells discretizing each side around the interior of the
+            disc (buffer, where overlap will be found)
 
-    BufferWidth - (float) - Dimensions of the buffer zone
+        BufferWidth : float
+            Dimensions of the buffer zone
 
-    ExternalCellSize - (float) - Dimensions of the buffer's external cell size.
-        It must be lower that BufferWidth and as close as possible as the
-        background grid, in an Overset context.
+        ExternalCellSize : float
+            Dimensions of the buffer's external cell size.
+            It must be lower that BufferWidth and as close as possible as the
+            background grid, in an Overset context.
 
-    propellerDiscParams - (Python dictionary) - parameters to be passed to
-        MOLA.GenerativeShapeDesign.buildPropellerDisc() function, for the
-        construction of the 2D disc.
+        propellerDiscParams : dict
+            parameters to be passed to function
+            :py:func:`MOLA.GenerativeShapeDesign.buildPropellerDisc`, for the
+            construction of the 2D disc.
 
-    OUTPUTS
+    Returns
+    -------
 
-    t - (PyTree) - tree containing the resulting mesh
+        t : PyTree
+            tree containing the resulting mesh
     '''
 
     ThicknessCellSize = Width/float(NCellsWidth)
