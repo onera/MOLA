@@ -1,0 +1,36 @@
+* CO.moveCoordsFromEndOfRunToGridCoords : delete .Solver#Output
+
+* investigate iteration number tagging of MemoryUsageOfProc
+
+* corriger tag AfterIter (-2 vers -1) (investiguer comment obtenir dernier loads)
+
+* updateAndSaveLoads : concatener données de multiples IntegralData (différents tags)
+  ignorer appels de fonctions si fields non trouvés (p.ex. MomentumXFlux non extraits)
+
+* DOCUMENTATION (sphinx)
+
+* TUTORIALS (sphinx)
+
+* CO.boundaryConditions2Surfaces
+  -> make it multi-container
+
+* TEMPLATES -> correct versions of prepareMesh and prepareMainCGNS
+
+* EXTRACTIONS
+  Include extractions for:
+   -> probes
+   -> slices (from existing variables, including distance to wall!)
+   -> basic shapes (sphere, cube, cylinder)
+
+* PREPROCESS
+  -> Include computation of distance to wall
+  -> include restart O(2)
+  -> include special location of BC capabilities
+
+* WORKFLOW AIRFOIL
+  -> allow rounded trailing edge mesh generation
+
+* NEW WORKFLOWS
+  -> isolated propeller
+  -> unsteady overset
+  -> turbomachine

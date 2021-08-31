@@ -46,11 +46,27 @@ def distance(P1,P2):
 
     P1 and P2 can be either a 3-float array, list or tuple; or a PyTree zone.
 
-    Return:
-    Float. Euclidean distance.
+    Parameters
+    ----------
 
-    Example:
-    TheDistance = distance((0,0,0),(1,0,0))
+        P1 : zone or :py:class:`list` or :py:class:`tuple` or array
+            First point. It can be a CGNS zone of a point (as result of
+            function :py:func:`D.point`) or a 3-float tuple, list or numpy array
+
+        P2 : zone or :py:class:`list` or :py:class:`tuple` or array
+            Second point. It can be a CGNS zone of a point (as result of
+            function :py:func:`D.point`) or a 3-float tuple, list or numpy array
+
+    Returns
+    -------
+
+        distance : float
+            euclidean distance.
+
+    Examples
+    --------
+
+    >>> TheDistance = W.distance((0,0,0),(1,0,0))
     '''
     if isPyTreePoint(P1):
         x1,y1,z1 = J.getxyz(P1)
@@ -71,16 +87,33 @@ def distance(P1,P2):
 
 def angle2D(P1,P2):
     '''
-    Compute planar angle between the X axis and the direction
-    given by vector P1->P2.
+    Compute planar angle between the :math:`x`-axis and the direction
+    given by vector :math:`\overrightarrow{P_1 P_2}` (vector defined
+    ``P1->P2``).
 
-    P1 and P2 can be either a 3-float array, list or tuple; or a PyTree zone.
 
-    Return:
-    Float. 2D planar angle in degrees.
+    Parameters
+    ----------
 
-    Example:
-    MyAngle = angle2D((0.5,0,0),(1,1,0))
+        P1 : zone or :py:class:`list` or :py:class:`tuple` or array
+            First point. It can be a CGNS zone of a point (as result of
+            function :py:func:`D.point`) or a 3-float tuple, list or numpy array
+
+        P2 : zone or :py:class:`list` or :py:class:`tuple` or array
+            Second point. It can be a CGNS zone of a point (as result of
+            function :py:func:`D.point`) or a 3-float tuple, list or numpy array
+
+    Returns
+    -------
+
+        angle : float
+            2D planar angle in degrees
+
+
+    Examples
+    --------
+
+    >>> MyAngle = W.angle2D((0.5,0,0),(1,1,0))
     '''
 
     if isPyTreePoint(P1):
@@ -102,7 +135,8 @@ def angle2D(P1,P2):
 
 def isPyTreePoint(P):
     '''
-    Return True if input argument <P> is a PyTree point. Otherwise, return False
+    Return ``True`` if input argument **P** is a PyTree point (a zone).
+    Otherwise, return ``False``
     '''
     if (I.isStdNode(P) == -2) or (I.isStdNode(P) == 0): return False
     if C.getNPts(P) != 1: return False
@@ -114,14 +148,20 @@ def gets(curve):
     Get the numpy array of a 1D structured curve corresponding
     to its curvilinear abscissa.
 
-    Input:
-    curve = Structured Zone PyTree curve.
+    Parameters
+    ----------
+        curve : zone
+            structured Zone PyTree curve
 
-    Output:
-    numpy.array.
+    Returns
+    -------
+        s : numpy.array
+            Curvilinear abscissa :math:`s \in [0,\,1]`
 
-    Example:
-    s = gets(curve)
+    Examples
+    --------
+
+    >>> s = W.gets(curve)
     '''
     D._getCurvilinearAbscissa(curve)
     s = I.getNodeFromName(curve,'s')[1]
@@ -130,24 +170,37 @@ def gets(curve):
 
 def getTanhDistTwo__(Nx, CellStart, CellEnd):
     '''
-    Module's internal function. (Called by linelaw).
-    Not intended to be called directly by the user.
+    .. note:: Private-level function, called by user-level
+        :py:func:`linelaw`. Not intended to be called directly by the user.
 
-    Build the 1D normalized distribution of Nx points, with
-    provided CellStart and CellEnd sizes.
-    Calls enforce function of Generator.
+    Build the 1D normalized distribution of **Nx** points, with
+    provided **CellStart** and **CellEnd** sizes.
 
-    Input:
-    Nx        = Integer. Number of points. (shall be >= 6).
-    CellStart = Float. Normalized start cell size.
-    CellEnd   = Float. Normalized end cell size.
+    .. note:: current version makes use of
+        :py:func:`Generator.PyTree.enforcePlusX` and :py:func:`Generator.PyTree.enforceMoinsX`
 
-    Output:
-    x  = numpy.array. 1D vector in (0,1) with the
-         normalized distribution.
+    Parameters
+    ----------
 
-    Example:
-    x = getTanhDistTwo__(100,0.01,0.1)
+        Nx : int
+            Number of points. (shall be :math:`\geq 6`).
+
+        CellStart : float
+            Normalized start cell size.
+
+        CellEnd : float
+            Normalized end cell size.
+
+    Returns
+    -------
+
+        x : numpy.array
+            1D vector in (0,1) with the normalized distribution
+
+    Examples
+    --------
+
+    >>> x = W.getTanhDistTwo__(100,0.01,0.1)
 
     '''
     if Nx < 6: raise ValueError("getTanhDistTwo__: at least 6 pts are required")
@@ -162,23 +215,39 @@ def getTanhDistTwo__(Nx, CellStart, CellEnd):
 
 def getTanhDist__(Nx, CellStart,isCellEnd=False):
     '''
-    Module's internal function. (Called by linelaw).
-    Not intended to be called directly by the user.
+    .. note:: Private-level function, called by user-level
+        :py:func:`linelaw`. Not intended to be called directly by the user.
 
-    Build the 1D normalized distribution of Nx points, with
-    provided CellStart size.
-    Calls enforce function of Generator.
+    Build the 1D normalized distribution of **Nx** points, with
+    provided **CellStart** size.
 
-    Input:
-    Nx        = Integer. Number of points (shall be >= 4).
-    CellStart = Float. Normalized start cell size.
+    .. note:: current version makes use of
+        :py:func:`Generator.PyTree.enforcePlusX` or:py:func:`Generator.PyTree.enforceMoinsX`
 
-    Output:
-    x  = numpy.array. 1D vector in (0,1) with the
-         normalized distribution.
 
-    Example:
-    x = getTanhDist__(100,0.001)
+
+    Parameters
+    ----------
+
+        Nx : int
+            Number of points. (shall be :math:`\geq 6`).
+
+        CellStart : float
+            Normalized start cell size.
+
+        isCellEnd : bool
+            `True` if reversed function (**CellStart** is actually **CellEnd**)
+
+    Returns
+    -------
+
+        x : numpy.array
+            1D vector in (0,1) with the normalized distribution
+
+    Examples
+    --------
+
+    >>> x = W.getTanhDist__(100,0.001)
     '''
 
     if Nx < 4: raise ValueError("getTanhDist__: at least 4 pts are required")
@@ -191,25 +260,35 @@ def getTanhDist__(Nx, CellStart,isCellEnd=False):
 
 def getTrigoLinDistribution__(Nx, p):
     '''
-    Module's internal function. (Called by linelaw).
-    Not intended to be called directly by the user.
+    .. note:: Private-level function, called by user-level
+        :py:func:`linelaw`. Not intended to be called directly by the user.
 
-    Build the 1D normalized distribution of Nx points, such that
+    Build the 1D normalized distribution of **Nx** points, such that
     points are distributed following a trigonometric-linear
-    composite law defined by the parameter p in [-3,3]. Parameter
-    p controls the discretization as the M. Drela XFoil or AVL
-    discretization tools.
+    composite law defined by the parameter **p** :math:`\in [-3,3]`.
 
-    Input:
-    Nx        = Integer. Number of points.
-    p         = Float. Discretization control parameter (-3<=p<=3).
+    .. note:: Parameter **p** controls the discretization as the M. Drela XFoil
+        or AVL tools.
 
-    Output:
-    x  = numpy.array. 1D vector in (0,1) with the
-         normalized distribution.
+    Parameters
+    ----------
 
-    Example:
-    x  = getTanhDist__(100, 2.2)
+        Nx : int
+            Number of points.
+
+        p : float
+            Discretization control parameter :math:`p \in [-3,3]`.
+
+    Returns
+    -------
+
+        x : numpy.array
+            1D vector in (0,1) with the normalized distribution
+
+    Examples
+    --------
+
+    >>> x  = W.getTanhDist__(100, 2.2)
     '''
 
     x = np.linspace(0,1,Nx)
@@ -256,53 +335,85 @@ def getTrigoLinDistribution__(Nx, p):
 
 def linelaw(P1=(0,0,0), P2=(1,0,0), N=100, Distribution = None):
     '''
-    Create a line of N points between P1 and P2 points, following
+    Create a line of **N** points between **P1** and **P2** points, following
     a distribution constructed by the instructions contained
-    in the dictionary Distribution.
+    in the dictionary **Distribution**.
 
-    INPUT
-    P1 = 3-float list. Start point of the line. Default: (0,0,0)
+    Parameters
+    ----------
 
-    P2 = 3-float list. End point of the line. Default: (1,0,0)
+        P1 : :py:class:`list` of 3-:py:class:`float`
+            Start point of the line
 
-    N  = float. Points quantity that the line will contain.
-                Default: 100.
+        P2 : :py:class:`list` of 3-:py:class:`float`
+            End point of the line
 
-    Distribution = Python dictionary specifying distribution
-                   instructions.
-                   Default value is None (uniform distribution).
-                   The expected keys are:
+        N : int
+            Points quantity that the line will contain
 
-       'kind' : 'uniform' Makes an uniform spacing.
+        Distribution : dict
 
-                'tanhOneSide' Specifies the size of the first cell.
-                   Expected additional keys:
-                   'FirstCellHeight': float.
+            Python dictionary specifying distribution instructions.
+            Default value is ``None``, which produces a uniform distribution.
+            Accepted keys are:
 
-                'tanhTwoSides' Specifies the size of the first and
-                last cell.
-                   Expected additional keys:
-                   'FirstCellHeight': float.
-                   'LastCellHeight': float.
+            * kind : :py:class:`str`
+                Can be one of:
 
-                'trigonometric' Specify the value of the parameter
-                of a linear-trigonometric distribution.
-                   Expected additional keys:
-                   'parameter': float. (in range [-3,3])
+                * ``'uniform'``
+                    Makes an uniform spacing.
 
-                'ratio' is geometrical-law type.
-                    Expected additional keys:
-                    'growth': float (growth rate)
-                    'FirstCellHeight': float.
+                * ``'tanhOneSide'``
+                    Specifies the size of the first cell.
 
-    OUTPUTS
-    Line = curve in form of a Structured Zone PyTree.
+                * ``'tanhTwoSides'``
+                    Specifies the size of the first and last cell.
 
-    Example:
-    Line = linelaw( (0,0,1), (2,3,0), 200,
-           {'kind':'tanhTwoSides',
-                      'FirstCellHeight':0.001,
-                      'LastCellHeight' :0.02})
+                * ``'trigonometric'``
+                    Employs a composite linear-trigonometric distribution.
+
+                * ``'ratio'``
+                    Employs a geometrical-growth type of law
+
+            * FirstCellHeight : :py:class:`float`
+                Specifies the size of the first cell
+
+                .. note:: only relevant if **kind** is ``'tanhOneSide'`` ,
+                    ``'tanhTwoSides'`` or ``'ratio'``
+
+            * LastCellHeight : :py:class:`float`
+                Specifies the size of the last cell
+
+                .. note:: only relevant if **kind** is ``'tanhOneSide'`` or
+                    ``'tanhTwoSides'``
+
+            * parameter : :py:class:`float`
+                Adjusts the composite linear-trigonometric distribution.
+
+                .. note:: only relevant if **kind** is ``'trigonometric'``
+
+                .. note:: **parameter** must be :math:`\in [-3,3]`
+
+            * growth : :py:class:`float`
+                geometrical growth rate
+
+                .. note:: only relevant if **kind** is ``'ratio'``
+
+    Returns
+    -------
+
+        Line : zone
+            curve in form of a Structured Zone PyTree.
+
+    Examples
+    --------
+
+    ::
+
+        Line = W.linelaw( (0,0,1), (2,3,0), 200, dict(kind='tanhTwoSides',
+                                                      FirstCellHeight=0.001,
+                                                      LastCellHeight=0.02))
+
 
     '''
 
@@ -429,35 +540,60 @@ def airfoil(designation='NACA0012',Ntop=None, Nbot=None, ChordLength=1.,
         TopDistribution=None, BottomDistribution=None,
         ClosedTolerance=True,LeadingEdgePos=None):
     """
-    TODO: FUNCTION TO BE UPDATED.
 
-    Creates a 4-digit or 5-digit series NACA airfoil with discretization
-    parameters:
-    designation : String of 4 or 5 digits, is the NACA airfoil identifier.
-    Ntop : Number of points of the Top side of the airfoil.
-    Nbot : Number of points of the Bottom side of the airfoil. If Nbot is not
-           provided, then Ntop is the total number of points of the whole foil.
-    ChordLength : The chord length of the airfoil.
-    TopDistribution : A distribution dictionnary establishing the discretization
-                      law of the top side of the airfoil.
-    BottomDistribution : A distribution dictionnary establishing the
-                        discretization law of the bottom side of the airfoil.
+    .. warning:: this function must be updated
 
-    ClosedTolerance : Geometrical criterion to determine if forcing closed
-        Trailing Edge is desired or not (relative to ChordLength).
-        Use ClosedTolerance>1 for always forcing closed airfoil
-        This will also imply a slightly different 5-digit NACA equation
+    Creates a 4-digit or 5-digit series NACA airfoil including discretization
+    parameters.
 
-    LeadingEdgePos : A float between 0.0 and 1.0 and typically close to 0.5
-                     establishing the parametric relative position of the
-                     Leading Edge position. It is used to accurately control
-                     the location of the leading edge refinement point. A value
-                     of 0 corresponds to the bottom side trailing edge, and a
-                     value of 1 corresponds to the top side trailing edge.
-                     If None, then makes no refinement based on curve length,
-                     but based only on the X coordinate.
-    Usage example: airfoil(designation,Ntop,Nbot,ChordLength,TopDistribution,
-                           BottomDistribution,Closed,LeadingEdgePos )
+    Alternatively, reads a selig or lidnicer airfoil coordinate format (``.dat``)
+
+    Parameters
+    ----------
+
+        designation : str
+            NACA airfoil identifier of 4 or 5 digits
+
+        Ntop : int
+            Number of points of the Top side of the airfoil.
+
+        Nbot : int
+            Number of points of the Bottom side of the airfoil. If **Nbot** is not
+            provided, then **Ntop** is the total number of points of the whole foil.
+
+        ChordLength : float
+            The chord length of the airfoil.
+
+        TopDistribution : dict
+            A distribution dictionary establishing the discretization
+            law of the top side of the airfoil.
+
+        BottomDistribution : dict
+            A distribution dictionary establishing the discretization law of the
+            bottom side of the airfoil.
+
+        ClosedTolerance : float
+            Geometrical criterion to determine if forcing closed
+            Trailing Edge is desired or not (relative to **ChordLength**).
+
+            .. hint:: Use **ClosedTolerance** :math:`\gg 1` for always forcing the closing of the airfoil.
+                This will also trigger a slightly different 5-digit NACA formulation.
+
+        LeadingEdgePos : float
+            A float between :math:`\in (0,1)` and typically :math:`\\approx 0.5`
+            establishing the parametric relative position of the
+            Leading Edge position. It is used to accurately control
+            the location of the leading edge refinement point. A value
+            of 0 corresponds to the bottom side trailing edge, and a
+            value of 1 corresponds to the top side trailing edge.
+            If ``None``, then makes no refinement based on curve length,
+            but based only on the X coordinate.
+
+    Returns
+    -------
+
+        Airfoil : zone
+            the structured curve of the airfoil
     """
 
     # Prepares the X-distributions
@@ -692,23 +828,47 @@ def airfoil(designation='NACA0012',Ntop=None, Nbot=None, ChordLength=1.,
 
 def discretize(curve, N=None, Distribution=None, MappingLaw='Generator.map'):
     '''
-    Discretize a (ideally dense) curve, with N points
-    following a distribution governed by python dictionnary
-    Distribution (cf. linelaw's Distribution).
+    *(Re)*-discretize a *(ideally dense)* curve, using **N** points and
+    following a distribution governed by python dictionary
+    **Distribution** and using the technique specified in **MappingLaw**.
 
-    Inputs:
-    curve = Structured Zone PyTree corresponding to the curve to be
-            (re)discretized.
-    N = integer. Number of desired points of final discretization.
-    Distribution = Dictionary specifying the distribution law.
-                   For properties and keys, see linelaw doc.
-                                     OR
-                   PyTree curve with desired distribution, in this
-                   case <N> argument is ignored.
+    .. important :: this function does not migrate the **curve**
+        fields contained in nodes of type ``FlowSolution_t``. If desired, user
+        may want to perform a :py:func:`Post.extractMesh` operation *after*
+        calling this function
 
-    Result:
-    MyCurve = new Zone PyTree corresponding to the new curve's
-              discretization. Does not copy the FlowSolutions.
+    Parameters
+    ----------
+
+        curve : zone
+            Structured Zone PyTree corresponding to the curve to be
+            (re)discretized
+
+        N : int
+            Number of desired points of final discretization
+
+        Distribution : :py:class:`dict` or zone
+            if the provided type is a :py:class:`dict`, then it is supposed to
+            be a distribution dictionary compatible with :py:func:`linelaw`. If
+            the provided input is a zone, then it is supposed to be a curve
+            whose distribution is to be copied.
+
+        MappingLaw : str
+            Choose the discretization algorithm:
+
+            * ``'Generator.map'``
+                employs :py:func:`Generator.map` function
+
+            * Law
+                Any **Law** attribute (:py:class:`str`) supported by function
+                :py:func:`MOLA.InternalShortcuts.interpolate__`
+
+    Returns
+    -------
+
+        MyCurve : zone
+            new Zone PyTree corresponding to the new curve's
+            discretization
 
     '''
 
@@ -740,8 +900,22 @@ def discretize(curve, N=None, Distribution=None, MappingLaw='Generator.map'):
 
 def copyDistribution(curve):
     '''
-    Copy the distribution of a curve. This is a DIMENSIONAL
-    version of D.getDistribution(curve)
+    Copy the distribution of a curve.
+
+    .. note:: this is a dimensional version of :py:func:`Geom.PyTree.getDistribution`
+
+    Parameters
+    ----------
+
+        curve : zone
+            structured curve
+
+    Returns
+    -------
+
+        distribution : zone
+            structured curve with :math:`x \in [0, \mathrm{L}]` where :math:`L`
+            is the length of the provided **curve**
     '''
     Length = D.getLength(curve)
     dist = D.getDistribution(curve)
@@ -755,15 +929,21 @@ def concatenate(curves):
     '''
     Given a list of curves, this function joins all curves
     following the input order, concatenating the ending point
-    of one curve with the starting point of the next line,
-    REGARDLESS of its actual distance. It also copies the
-    FlowSolutions located at nodes.
+    of one curve with the starting point of the next curve,
+    *regardless* of its actual distance.
 
-    Inputs:
-    curves = List of PyTree Structured Zones of curves.
+    .. note:: this function also copies the fields contained at ``FlowSolution``
+        container defined at ``Internal.__FlowSolutionNodes__``
 
-    Output:
-    mergedCurves = Structured PyTree Zone.
+    Parameters
+    ----------
+        curves : list
+            List of PyTree Structured Zones of curves to be concatenated
+
+    Returns
+    -------
+        mergedCurves : zone
+            concatenated curve (structured zone)
     '''
 
 
@@ -818,31 +998,56 @@ def concatenate(curves):
 
 def polyDiscretize(curve, Distributions, MappingLaw='Generator.map'):
     '''
-    (Re)discretize an (ideally dense) structured curve using the
-    instructions provided by the list of Distributions. Each
-    dictionary is used to discretize a portion of the curve,
-    which is determined by the key 'BreakPoint'.
+    *(Re)*-discretize a *(ideally dense)* structured curve using the
+    instructions provided by the :py:class:`list` of **Distributions**, whose
+    items are dictionaries used to discretize a portion of the curve,
+    which is spatially determined using the key ``'BreakPoint'``.
 
-    Input:
-    curve = Structured Zone PyTree. Curve to be (re)discretized.
-    Distributions = List of Python dictionaries. To see admitted
-                    keys, see doc of linelaw.
-                    Each dictionary MUST contain ADDITIONALLY:
-                    'N': integer. Number of points.
-                    'BreakPoint': float in (0,1]. Determines the
-                    breakpoint up to where the discretization is
-                    applied based on the curve's curvilinear
-                    abscissa, starting from the previous Break-
-                    point.
-
-    Output:
-    curveDisc = Structured Zone PyTree. Newly discretized curve.
-                Does not copy the FlowSolutions.
+    .. important :: this function does not migrate the **curve**
+        fields contained in nodes of type ``FlowSolution_t``. If desired, user
+        may want to perform a :py:func:`Post.extractMesh` operation *after*
+        calling this function
 
 
-    Example:
-    curveDisc = polyDiscretize(curve,[{'N':10,'BreakPoint':0.2},
-                                      {'N':10,'BreakPoint':1.0}])
+    Parameters
+    ----------
+
+        curve : zone
+            Structured Zone PyTree. Curve to be (re)discretized.
+
+        Distributions : list
+            List of Python dictionaries. Each :py:class:`dict` defines a
+            distribution concerning a rediscretization interval.
+            Acceptable values are the same as **Distribution** attribute of
+            function  :py:func:`linelaw`.
+
+            Each dictionary **must** contain, in **addition**, the following keys:
+
+            * N : :py:class:`int`
+                Number of points of the interval
+
+            * BreakPoint : :py:class:`float`
+                must be :math:`\in (0,1]`. Determines the
+                breakpoint up to where the discretization is
+                applied based on the curve's curvilinear
+                abscissa, starting from the previous Break-
+                point.
+
+    Returns
+    -------
+
+        curveDisc : zone
+            Structured Zone PyTree. Newly discretized curve.
+
+
+
+    Examples
+    --------
+
+    ::
+
+        curveDisc = W.polyDiscretize(curve,[{'N':10,'BreakPoint':0.2},
+                                            {'N':10,'BreakPoint':1.0}])
 
     '''
 
@@ -893,7 +1098,8 @@ def polyDiscretize(curve, Distributions, MappingLaw='Generator.map'):
 
 def getAbscissaFromCoordinate(curve, station, coordinate='x'):
     '''
-    getAbscissaFromCoordinate() is being deprecated. Use getAbscissaAtStation() instead.
+    .. danger:: **getAbscissaFromCoordinate** is being deprecated.
+        Use :py:func:`getAbscissaAtStation` instead.
     '''
     print ('Warning: getAbscissaFromCoordinate() is being deprecated. Use getAbscissaAtStation() instead.')
     s = gets(curve)
@@ -943,21 +1149,34 @@ def getAbscissaFromCoordinate(curve, station, coordinate='x'):
 
 def getAbscissaAtStation(curve, station, coordinate='x'):
     '''
-    From a provided curve, compute the (possibly multiple) absci-
-    ssa points where the curve intersects the plane of constant
-    coordinate (x, y or z) at provided station value.
+    From a provided **curve**, compute the *(possibly multiple)* abscissa
+    points where the curve intersects the plane of constant coordinate
+    :math:`(x, y, z)` at provided **station** value.
 
-    Inputs:
-    curve = PyTree Zone curve, BAR or STRUCT.
-    station = float. Will define the intersecting plane.
-    coordinate = string in ['x','y','z']. Define the constant
-                 coordinate plane.
+    Parameters
+    ----------
 
-    Outputs:
-    result = List of floats in [0,1].
+        curve : zone
+            PyTree Zone curve, BAR or STRUCT.
 
-    Example:
-    Abscissas = getAbscissaAtStation(MyAirfoil, station=0.1)
+        station : float
+            Will define the intersecting plane
+
+        coordinate : str
+            string in [``'x'``, ``'y'``, ``'z'``]. Define the constant
+            coordinate plane.
+
+    Returns
+    -------
+
+        result : list
+            List of floats :math:`\in [0,1]`. Each item defines the
+            corresponding curvilinear abscissa :math:`s` value
+
+    Examples
+    --------
+
+    >>> Abscissas = W.getAbscissaAtStation(MyAirfoil, station=0.1)
     '''
 
 
@@ -987,25 +1206,40 @@ def getAbscissaAtStation(curve, station, coordinate='x'):
 
 def makeFillet2D(c1,c2,R,position=1,reverseFillet=False,intersectionElement=0):
     '''
-    Perform a fillet of radius (R) between two curves (c1,c2)
-    that lie on the XY plane.
+    Perform a fillet of radius **R** between two curves (**c1**, **c2**)
+    that lie on the :math:`OXY` plane.
 
-    This function is expected to be used just before joinFillet.
+    This function is expected to be used just before :py:func:`joinFillet`.
 
-    Inputs:
-    c1 = PyTree Zone. First curve.
-    c2 = PyTree Zone. Second curve.
-    R  = float. Fillet radius.
-    position = float in (1,2,3,4). Used to choose among the 4
-               different geometrical possible results.
-    reverseFillet = Boolean. Used to eventually change the fillet
-                    complementary angle of the circle.
-    intersectionElement = Integer. Used to choose among the
-                        different points where c1 and c2 may
-                        intersect.
+    Parameters
+    ----------
 
-    Output:
-    Fillet = PyTree Structured Zone. Arc of circle of the Fillet.
+        c1 : zone
+            PyTree Zone. First curve.
+
+        c2 : zone
+            PyTree Zone. Second curve.
+
+        R : float
+            Fillet radius.
+
+        position : int
+            Must be in (1,2,3,4). Used to choose among the 4
+            different geometrical possible results.
+
+        reverseFillet : bool
+            Used to eventually change the fillet
+            complementary angle of the circle.
+
+        intersectionElement : int
+            Used to choose among the different points where **c1** and **c2** may
+            intersect.
+
+    Returns
+    -------
+
+        Fillet : zone
+            PyTree Structured Zone. Arc of circle of the Fillet.
     '''
 
     import Intersector.PyTree as XOR
@@ -1062,20 +1296,32 @@ def makeFillet2D(c1,c2,R,position=1,reverseFillet=False,intersectionElement=0):
 def joinFillet(c1, Fillet, c2, c1dir=True, c2dir=True):
     '''
     Join the three elements of a Fillet. Resulting geometry
-    is the joined smooth curve c1+Fillet+c2, where c1 and c2
-    have been conveniently split.
+    is the joined smooth curve **c1** + **Fillet** + **c2**, where **c1** and
+    **c2** have been conveniently split.
 
-    Inputs:
-    c1 = PyTree Structured Zone. First curve.
-    Fillet = PyTree Structured Zone. Arc of circle (fillet)
-    c2 = PyTree Structured Zone. Second curve.
-    c1dir = Boolean. Use to choose the preserved split portion
-            of the c1 curve.
-    c2dir = Boolean. Use to choose the preserved split portion
-            of the c2 curve.
+    Parameters
+    ----------
 
-    Outputs:
-    joined = PyTree Structured Zone. Joined curve c1+Fillet+c2.
+        c1 : zone
+            PyTree Structured Zone. First curve.
+
+        Fillet : zone
+            PyTree Structured Zone. Arc of circle (fillet)
+
+        c2 : zone
+            PyTree Structured Zone. Second curve.
+
+        c1dir : bool
+            Use to choose the preserved split portion of the **c1** curve.
+
+        c2dir : bool
+            Use to choose the preserved split portion of the **c2** curve.
+
+    Returns
+    -------
+
+        joined : zone
+            PyTree Structured Zone. Joined curve **c1** + **Fillet** + **c2**
     '''
     Fx, Fy, Fz = A.getxyz(Fillet)
     Fstart = (Fx[0], Fy[0],Fz[0])
@@ -1109,21 +1355,39 @@ def joinFillet(c1, Fillet, c2, c1dir=True, c2dir=True):
 
 def splitCurves(c1,c2,select=0,tol=1e-6):
     '''
-    Split intersecting curves (c1,c2) into different portions.
+    Split intersecting curves (**c1**, **c2**) into different portions.
 
-    Inputs:
-    c1 = Zone PyTree. First curve.
-    c2 = Zone PyTree. Second curve.
-    select - (integer). May be one of:
-        0 -> no selection. All subparts are returned by function.
-        1 -> Only subparts belonging to c1 are returned
-        2 -> Only subparts belonging to c2 are returned
-    tol - (float) - tolerance squared distance used for determining
-        which subparts correspond to each curve. Shall be small.
+    Parameters
+    ----------
 
-    Outputs:
-    SplitCurves = List of PyTree Zones. Correspond to the
-                  different portions of the split.
+        c1 : zone
+            Zone PyTree. First curve.
+
+        c2 : zone
+            Zone PyTree. Second curve.
+
+        select : int
+            May be one of:
+
+            * ``0``
+                no selection. All subparts are returned by function.
+
+            * ``1``
+                Only subparts belonging to **c1** are returned
+
+            * ``2``
+                Only subparts belonging to **c2** are returned
+
+        tol : float
+            tolerance. Squared distance used for determining
+            which subparts correspond to each curve. Shall be small.
+
+    Returns
+    -------
+
+        SplitCurves : list
+            List of PyTree Zones. Corresponds to the
+            different portions of the split.
     '''
 
     import Intersector.PyTree as XOR
@@ -1151,21 +1415,27 @@ def splitCurves(c1,c2,select=0,tol=1e-6):
 
 def isSubzone(subzone,zone,tol=1.e-10):
     '''
-    Check if a block is totally contained in another block.
-    Hence, all points of <subzone> matches (between tolerance) some
-    points of <zone>.
+    Check if a block is *totally* contained in another block.
+    Hence, all points of **subzone** matches (between tolerance) some
+    points of **zone**.
 
-    INPUTS
-    subzone (PyTree Zone) - zone that function will determine if is
-        subzone or not.
+    Parameters
+    ----------
 
-    zone (PyTree Zone) - zone where <subzone> may be contained.
+        subzone : zone
+            zone that function will determine if is subzone or not
 
-    tol - (float) - tolerance squared distance used for determining
-        result of function
+        zone : zone
+            zone where **subzone** may be contained
 
-    OUTPUTS
-    boolean - True if <subzone> totally lies in <zone>, False otherwise
+        tol : float
+            tolerance squared distance used for determining result of function
+
+    Returns
+    -------
+
+        ItIs : bool
+            ``True`` if **subzone** totally lies in **zone**, ``False`` otherwise
     '''
     xs,ys,zs = J.getxyz(subzone)
     xs_ = xs.ravel(order='K')
@@ -1179,6 +1449,7 @@ def isSubzone(subzone,zone,tol=1.e-10):
 
     SubzonePoints = [(xs_[i],ys_[i],zs_[i]) for i in range(NPtsSub)]
 
+    # TODO optimize this
     Res = D.getNearestPointIndex(zone,SubzonePoints)
     sqdist = np.array([i[1] for i in Res])
     if np.any(sqdist>tol): return False
@@ -1191,19 +1462,39 @@ def addWakeLines2D(foil, WakePts, WakeLength, Name='Wake'):
     Construct a simple Wake line from the extrema of an airfoil
     (from its Trailing Edge). Useful for C-type grids extrusion.
 
-    Inputs:
-    foil = PyTree Zone. Corresponds to the airfoil contour.
-    WakePts = Integer. Number of points to add in the wake.
-    WakeLength = Float. Length of the wake length.
-    TODO: Add optional arguments defaulted to None:
-        WakeTension = To control tension of wake
-        WakeAngle   = To control angle of wake
-        WakeDivergenceDistance = To control divergence
-        WakeLastCellLength = (explicit)
 
-    Outputs:
-    Merged = PyTree Zone of the joined curve foil+wakes.
+
+    Parameters
+    ----------
+
+        foil : zone
+            PyTree Zone. Corresponds to the airfoil contour.
+
+            .. attention:: **foil** must be placed in :math:`OXY` plane
+
+        WakePts : int
+            Number of points to add in the wake
+
+        WakeLength : float
+            Length of the wake
+
+        Name : str
+            name of the newly created zone
+
+    Returns
+    -------
+
+        Merged : zone
+            PyTree Zone of the joined curve **foil** + **wakes**
     '''
+
+    # TODO Add optional arguments defaulted to None:
+    #     WakeTension = To control tension of wake
+    #     WakeAngle   = To control angle of wake
+    #     WakeDivergenceDistance = To control divergence
+    #     WakeLastCellLength = (explicit)
+
+
     foil_x, foil_y = A.getxy(foil)
     foilNpts       = len(foil_x)
     foilTang = D.getTangent(foil)
@@ -1234,12 +1525,20 @@ def isCurveClosed(AirfoilCurve, tol=1.e-10):
     given a tolerance tol. May be Unstructured (curve is first
     converted to structured).
 
-    Inputs:
-    curve = Zone PyTree.
-    tol   = float. Tolerance of the criterion.
+    Parameters
+    ----------
 
-    Outputs:
-    Result = Boolean. True if it is closed, False if it is open.
+        curve : zone
+            structured zone corresponding to the curve
+
+        tol : float
+            geometrical tolerance of the criterion.
+
+    Returns
+    -------
+
+        Result : bool
+            ``True`` if it is closed, ``False`` if it is open.
     '''
 
     isStructured = checkAirfoilAndGetTopo(AirfoilCurve)
@@ -1260,11 +1559,23 @@ def closeCurve(curve,NPts4closingGap=3, tol=1e-10):
     Close a curve by its extrema points, by making a line with
     user-provided number of points.
 
-    Inputs:
-    curve = Structured Zone PyTree.
+    Parameters
+    ----------
 
-    Outputs:
-    ClosedCurve = Structured ZonePyTree.
+        curve : zone
+            structured Zone PyTree
+
+        NPts4closingGap : int
+            number of points discretizing the gap after closing the curve
+
+        tol : float
+            geometrical tolerance
+
+    Returns
+    -------
+
+        ClosedCurve : zone
+            Structured ZonePyTree.
     '''
 
     isStructured = checkAirfoilAndGetTopo(curve)
@@ -1327,20 +1638,27 @@ def extrapolate(curve, ExtrapDistance, mode='tangent', opposedExtremum=False):
     '''
     Extrapolate a curve from one of its boundaries.
 
-    INPUTS
+    Parameters
+    ----------
 
-    curve - (zone) - structured curve
+        curve : zone
+            structured curve
 
-    ExtrapDistance - (float) - distance to extrude [m]
+        ExtrapDistance : float
+            distance to extrude [m]
 
-    mode - (string) - choice of the mode of extrusion: currently, only 'tangent'
-        is available
+        mode : str
+            choice of the mode of extrusion: currently, only ``'tangent'``
+            is available
 
-    opposedExtremum - (boolean) - if True, extrapolates from last index
+        opposedExtremum : bool
+            if ``True``, extrapolates starting from last index of **curve**
 
-    OUTPUTS
+    Returns
+    -------
 
-    ExtrapolatedCurve - (zone) - extrapolated curve (structured)
+        ExtrapolatedCurve : zone
+            extrapolated curve (structured)
     '''
 
     if opposedExtremum: T._reorder(curve,(-1,2,3))
@@ -1366,28 +1684,34 @@ def extrapolate(curve, ExtrapDistance, mode='tangent', opposedExtremum=False):
 
 def findLeadingEdgeAndSplit(Airfoil, LeadingEdgeCmin=0.5):
     '''
-    WARNING ! THIS FUNCTION IS BEING DEPRECATED. MUST BE REPLACED BY
-    findLeadingOrTrailingEdge()
+    .. danger:: **THIS FUNCTION IS BEING DEPRECATED. MUST BE REPLACED BY**
+     :py:func:`findLeadingOrTrailingEdge`
 
     find the leading edge point and split the airfoil.
 
     This function supposes that airfoil is normalized (chordwise direction
     is on X-axis).
 
-    INPUTS
+    Parameters
+    ----------
 
-    Airfoil - (zone) - airfoil positioned through x-axis chordwise
+        Airfoil : zone
+            airfoil positioned through x-axis chordwise
 
-    LeadingEdgeCmin - (float) - relative value of X-coordinate (over chord)
-        where to search leading edge
+        LeadingEdgeCmin : float
+            relative value of X-coordinate (over chord) where to search leading edge
 
-    OUTPUT
+    Returns
+    -------
 
-    iLE - (integer) - nearest point index corresponding to leading edge
+        iLE : int
+            nearest point index corresponding to leading edge
 
-    Top - (zone) - top side curve of the airfoil
+        Top : zone
+            top side curve of the airfoil
 
-    Bottom - (zone) - bottom side curve of the airfoil
+        Bottom : zone
+            bottom side curve of the airfoil
     '''
 
 
@@ -1424,25 +1748,31 @@ def findLeadingEdgeAndSplit(Airfoil, LeadingEdgeCmin=0.5):
 
 def findTrailingEdgeAndSplit(Airfoil):
     '''
-    WARNING ! THIS FUNCTION IS BEING DEPRECATED. MUST BE REPLACED BY
-    findLeadingOrTrailingEdge()
+    .. danger:: **THIS FUNCTION IS BEING DEPRECATED. MUST BE REPLACED BY**
+     :py:func:`findLeadingOrTrailingEdge`
 
     find the trailing edge point and split the airfoil.
 
     This function supposes that airfoil is normalized (chordwise direction
     is on X-axis).
 
-    INPUTS
+    Parameters
+    ----------
 
-    Airfoil - (zone) - airfoil positioned through x-axis chordwise
+        Airfoil : zone
+            airfoil positioned through x-axis chordwise
 
-    OUTPUT
+    Returns
+    -------
 
-    iTE - (integer) - nearest point index corresponding to trailing edge
+        iTE : int
+            nearest point index corresponding to trailing edge
 
-    Top - (zone) - top side curve of the airfoil
+        Top : zone
+            top side curve of the airfoil
 
-    Bottom - (zone) - bottom side curve of the airfoil
+        Bottom :
+            bottom side curve of the airfoil
     '''
     isClockwise = is2DCurveClockwiseOriented(Airfoil)
 
@@ -1466,7 +1796,7 @@ def findTrailingEdgeAndSplit(Airfoil):
 
 def getChord(Airfoil):
     '''
-    WARNING ! THIS FUNCTION IS BEING DEPRECATED AND MUST BE REPLACED
+    .. danger:: THIS FUNCTION IS BEING DEPRECATED AND MUST BE REPLACED
 
     Literally, compute the airfoils chord as max(x) - min(x)
     '''
@@ -1478,8 +1808,8 @@ def getChord(Airfoil):
 def getCamber(Airfoil, CamberDistribution=None, LeadingEdgeCmin=0.5,
                        camberMinSearchPoint=0.01):
     '''
-    WARNING ! THIS FUNCTION IS BEING DEPRECATED AND MUST BE REPLACED
-    BY buildCamber()
+    .. danger:: THIS FUNCTION IS BEING DEPRECATED AND MUST BE REPLACED
+        BY :py:func:`buildCamber`
     '''
 
     WRNMSG = ('WARNING: getCamber() will be deprecated.\n'
@@ -1576,7 +1906,7 @@ def getCamber(Airfoil, CamberDistribution=None, LeadingEdgeCmin=0.5,
 
 def distancesCurve2SurfDirectional(Curve,Surface,DirX,DirY,DirZ):
     '''
-    WARNING ! THIS FUNCTION IS COSTLY AND WILL BE REMOVED
+    .. warning:: THIS FUNCTION IS COSTLY AND WILL BE REMOVED IN FUTURE
     '''
     # CurveX, CurveY, CurveZ = J.getxyz(Curve)
     CurveX = I.getNodeFromName2(Curve,'CoordinateX')[1]
@@ -1598,7 +1928,7 @@ def distancesCurve2SurfDirectional(Curve,Surface,DirX,DirY,DirZ):
 
 def projectCurve2SurfDirectional(Curve,Surface,DirX,DirY,DirZ,oriented=False):
     '''
-    WARNING ! THIS FUNCTION IS NOT USEFUL AND WILL BE REMOVED
+    .. warning:: THIS FUNCTION IS COSTLY AND WILL BE REMOVED IN FUTURE
     '''
     ProjectedCurve = I.copyTree(Curve)
     CurveX, CurveY, CurveZ = J.getxyz(ProjectedCurve)
@@ -1623,8 +1953,8 @@ def projectCurve2SurfDirectional(Curve,Surface,DirX,DirY,DirZ,oriented=False):
 
 def getCamberOptim(Airfoil,CamberDistribution=None,LeadingEdgeCmin=0.5,method='hybr',options=None):
     '''
-    WARNING ! THIS FUNCTION IS BEING DEPRECATED AND MUST BE REPLACED
-    BY buildCamber()
+    .. danger:: THIS FUNCTION IS BEING DEPRECATED AND MUST BE REPLACED
+        BY :py:func:`buildCamber`
     '''
 
     WRNMSG = ('WARNING: getCamberOptim() will be deprecated.\n'
@@ -1732,25 +2062,37 @@ def getCamberOptim(Airfoil,CamberDistribution=None,LeadingEdgeCmin=0.5,method='h
 def buildAirfoilFromCamberLine(CamberLine, NormalDirection=None,
                                TopDistribution=None, BottomDistribution=None):
     '''
-    This function constructs an airfoil from a CamberLine (this means, a
-    structured curve containing field {RelativeThickness}).
+    This function constructs an airfoil from a **CamberLine** (this means, a
+    structured curve containing field ``{RelativeThickness}``).
 
-    INPUTS
+    Parameters
+    ----------
 
-    CamberLine - (zone) - structured curve indexed from leading towards
-        trailing edge and containing FlowSolution named {RelativeThickness}
+        CamberLine : zone
+            structured curve indexed from leading towards
+            trailing edge and containing ``FlowSolution`` field named
+            ``RelativeThickness``
 
-    NormalDirection - (3-float array) - chord-normal direction, which points
-        towards the "top" of the airfoil. If not provided, the CamberLine is
-        supposed to be placed at canonical OXY plane.
+        NormalDirection : array of 3 :py:class:`float`
+            chord-normal direction, which points
+            towards the "top" of the airfoil. If not provided, the **CamberLine** is
+            supposed to be placed at canonical :math:`OXY` plane.
 
-    TopDistribution - (zone) - a G.map() compatible distribution
+        TopDistribution : zone
+            a :py:func:`Generator.map` compatible distribution
 
-    BottomDistribution - (zone) - a G.map() compatible distribution
+            .. hint:: as obtained from :py:func:`copyDistribution`
 
-    OUTPUTS
+        BottomDistribution : zone
+            a :py:func:`Generator.map` compatible distribution
 
-    Airfoil - (zone) - the new airfoil curve
+            .. hint:: as obtained from :py:func:`copyDistribution`
+
+    Returns
+    -------
+
+        Airfoil : zone
+            the new airfoil curve
     '''
 
     CamberLine = I.copyTree(CamberLine)
@@ -1830,8 +2172,8 @@ def buildAirfoilFromCamberLine(CamberLine, NormalDirection=None,
 def setAirfoilCamberAndThickness(Airfoil, Camber=None, MaxCamberLocation=None,
         Thickness=None, MaxThicknessLocation=None):
     '''
-    WARNING ! THIS IS FUNCTION IS BEING DEPRECATED. IT MUST BE REPLACED
-    BY modifyAirfoil()
+    .. danger:: THIS IS FUNCTION IS BEING DEPRECATED. IT MUST BE REPLACED
+        BY :py:func:`modifyAirfoil`
     '''
     iLE, Top, Bottom = findLeadingEdgeAndSplit(Airfoil,0.5)
     T._reorder(Top,(-1,2,3))
@@ -1981,7 +2323,10 @@ def setAirfoilCamberAndThickness(Airfoil, Camber=None, MaxCamberLocation=None,
 
 def is2DCurveClockwiseOriented(curve):
     '''
-    TODO: TO BE DOCUMENTED AND VERIFIED
+    .. warning:: this function requires further validation
+
+    returns ``True`` if provided **curve** supported on :math:`OXY` plane
+    is oriented clockwise
     '''
     # TODO try to uniformly discretize curve before evaluating orientation
     cx, cy = J.getxy(curve)
@@ -1996,7 +2341,10 @@ def is2DCurveClockwiseOriented(curve):
 
 def isAirfoilClockwiseOriented(curve):
     '''
-    Shall not be used. TODO: TO BE DOCUMENTED AND VERIFIED
+    .. warning:: this function requires further validation
+
+    returns ``True`` if provided **curve** supported on :math:`OXY` plane
+    is oriented clockwise
     '''
     # TODO try to uniformly discretize curve before evaluating orientation
     raise ValueError('isAirfoilClockwiseOriented must be replaced with is2DCurveClockwiseOriented')
@@ -2020,13 +2368,14 @@ def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge(foil):
     This function transforms the input airfoil into clockwise-oriented and
     starting from trailing edge.
 
-    INPUTS
+    Parameters
+    ----------
 
-    foil - (zone) - structured curve of the airfoil
+        foil : zone
+            structured curve of the airfoil
 
-    OUTPUTS
+            .. note:: **foil** is modified
 
-    None (foil is modified)
     '''
     OriginalAirfoil = I.copyTree(foil)
 
@@ -2061,7 +2410,7 @@ def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge(foil):
 
 def setTrailingEdge(Airfoil):
     '''
-    WARNING ! THIS FUNCTION IS BEING DEPRECATED
+    .. warning:: THIS FUNCTION IS BEING DEPRECATED
     '''
     _, Top, Bottom = findTrailingEdgeAndSplit(Airfoil)
 
@@ -2072,17 +2421,30 @@ def setTrailingEdge(Airfoil):
 
 def getCurveNormalMap(curve):
     '''
-    Equivalent of G._getNormalMap(), but for use with curves
-    The normal vector (sx, sy, sz) is located on both
+    Equivalent of :py:func:`Generator.PyTree._getNormalMap`, but for use with
+    curves.
+    The normal vector (``{sx}``, ``{sy}``, ``{sz}``) is located on both
     nodes and centers. The computed normal vector is constructed
     from the unitary tangent vector of the curve and the mean
     binormal vector (mean oscullatory plane).
 
-    Inputs:
-    curve = PyTree curve. Possibly a BAR.
+    Parameters
+    ----------
 
-    Output: List of 3 numpy vectors of:
-        MeanNormal, MeanTangent, MeanBinormal
+        curve : zone
+            PyTree curve. Possibly a BAR.
+
+            .. note:: **curve** is modified
+
+
+    Returns
+    -------
+
+        MeanNormal : float
+
+        MeanTangent : float
+
+        MeanBinormal : float
     '''
 
     # Step 1: Compute tangent vector (possibly BAR)
@@ -2144,19 +2506,28 @@ def distances(zone1, zone2):
     '''
     Compute the average, minimum, and maximum distances between two zones.
 
-    INPUTS
+    .. warning:: this function shall be optimized
 
-    zone1 - (zone) - first zone to evaluate
+    Parameters
+    ----------
 
-    zone2 - (zone) - second zone to evaluate
+        zone1 : zone
+            first zone to evaluate
 
-    OUTPUTS
+        zone2 : zone
+            second zone to evaluate
 
-    AverageDistance - (float) - average distance between zones [m]
+    Returns
+    -------
 
-    MinimumDistance - (float) - minimum distance between zones [m]
+        AverageDistance : float
+            average distance between zones [m]
 
-    MaximumDistance - (float) - maximum distance between zones [m]
+        MinimumDistance : float
+            minimum distance between zones [m]
+
+        MaximumDistance : float
+            maximum distance between zones [m]
     '''
     x,y,z = J.getxyz(zone1)
     x = x.ravel(order='K')
@@ -2167,8 +2538,8 @@ def distances(zone1, zone2):
     Nzone1 = len(x)
     PtsZone1 = [(x[i],y[i],z[i]) for i in range(Nzone1)]
 
+    # TODO replace getNearestPointIndex
     try:
-        # TODO replace getNearestPointIndex
         Res = D.getNearestPointIndex(zone2,PtsZone1)
     except SystemError as e:
         print(PtsZone1)
@@ -2187,21 +2558,28 @@ def distances(zone1, zone2):
 def reOrientateAndOpenAirfoil(zoneFoil,maxTrailingEdgeThickness=0.01):
     """
     This function was created as an auxiliar operation after
-    using GSD.scanWing(). This function properly orientates
+    using :py:func:`MOLA.GenerativeShapeDesign.scanWing`.
+    This function properly orientates
     airfoil (upper side: suction side; lower side: pressure
     side) and oriented such that freestream flows from the
     left to the right. It also opens the airfoil at a given
     coordinate. This function does NOT re-scale or re-twist
     the airfoil
 
-    Inputs :
-    zoneFoil (PyTreeZone) defininng 1D-structured
-        curve situated at OXY plane.
-    maxTrailingEdgeThickness (float) distance (absolute!)
-        used as reference for opening the trailing edge.
+    Parameters
+    ----------
 
-    Outputs :
-        NewFoil (PyTreeZone) new modified airfoil
+        zoneFoil : zone
+            defininng 1D-structured curve situated at :math:`OXY` plane
+
+        maxTrailingEdgeThickness : float
+            distance *(absolute!)* used as reference for opening the trailing edge
+
+    Returns
+    -------
+
+        NewFoil : zone
+            modified airfoil
     """
 
     FoilName = zoneFoil[0]
@@ -2315,15 +2693,20 @@ def getFirstAndLastCellLengths(curve):
     '''
     From a 1D structured curve, get the First and Last cell (segment) lengths
 
-    INPUTS
+    Parameters
+    ----------
 
-    curve - (zone 1D Structured) - Input curve
+        curve : zone
+            zone 1D Structured, input curve
 
-    OUTPUTS (list of 2 elements)
+    Returns
+    -------
 
-    FirstCellLength - (float) - distance between first and second point of curve
+        FirstCellLength : float
+            distance between first and second point of curve
 
-    LastCellLength - (float) - distance between last and before-last points
+        LastCellLength : float
+            distance between last and before-last points
     '''
     x,y,z = J.getxyz(curve)
     FirstCellLength = ((x[1]-x[0])**2+(y[1]-y[0])**2+(z[1]-z[0])**2)**0.5
@@ -2335,22 +2718,34 @@ def cutTrailingEdgeOfAirfoil(foil, TEthickness, DesiredXChord=None,Xmin=0.8):
     '''
     Cut the trailing edge of an airfoil in order to verify a given
     trailing edge thickness.
-    If DesiredXChord is not None, then appropriate scaling of airfoil
+    If **DesiredXChord** is not ``None``, then appropriate scaling of airfoil
     is performed so that final cut airfoil yields the desired chord;
     otherwise, the new cut airfoil will systematically have a smaller chord.
 
-    INPUTS
-    foil (1D Structured PyTree) - Airfoil placed at XY plane, with starting
-        index at Trailing edge and oriented clockwise.
+    Parameters
+    ----------
 
-    TEThickness (float) - Absolute thickness of the new cut of trailing edge.
+        foil : zone
+            1D Structured zone, Airfoil placed at :math:`OXY` plane, with starting
+            index at Trailing edge and oriented clockwise.
 
-    DesiredXChord (float or None) - Resulting new xchord (must be lower than
-        original provided xchord of <foil>)
-        If not provided, new foil will be a simple cut of foil.
+        TEThickness : float
+            Absolute thickness of the new cut of trailing edge.
 
-    Xmin (float) - Minimum allowable cut station. Cut searches are performed
-        for stations bigger than Xmin.
+        DesiredXChord : float
+            Resulting new xchord (must be lower than
+            original provided xchord of **foil**)
+            If not provided (``None``), new foil will be a simple cut of foil.
+
+        Xmin : float
+            Minimum allowable cut station. Cut searches are performed
+            for stations bigger than Xmin.
+
+    Returns
+    -------
+
+        FoilCut : zone
+
     '''
 
     xf = J.getx(foil)
@@ -2460,36 +2855,44 @@ def setImposedFieldLSTT(sidecurve, fieldname='intermittency_imposed',
                         Xref=0.2, LengthScale=0.01, a_boost=2.15,
                         sa=0.182, sb=0.414):
     '''
-    Create new field in provided zone <sidecurve> following LSTT19 convention
-    consisting in a cubic tangent polynomial.
+    Create new field in provided zone **sidecurve** following `LSTT19 <https://arc.aiaa.org/doi/10.2514/1.J057734>`_
+    convention consisting in a cubic tangent polynomial.
 
-    Arguments:
-    sidecurve - (1D Structured PyTree curve) - Must correspond to top or
-        bottom side of the airfoil and must be oriented (i-increasing) in the
-        main streamwise direction.
+    Parameters
+    ----------
 
-    fieldname - (string) - The new field created in <sidecurve>. Can be, for
-        example: 'intermittency_imposed' or 'clim_imposed'
+        sidecurve : zone
+            Must correspond to the top or the bottom side of the airfoil and
+            must be oriented (i-increasing) in the main streamwise direction.
 
-    Xref - (float) - X-coordinate (absolute) corresponding to the start of
-        the LSTT region. It is usually the transition onset location.
+            .. note:: **sidecurve** is modified
 
-    LengthScale - (float) - Absolute length scale that determines the LSTT
-        polynomial scaling. It is usually the laminar bubble length or a
-        factor of the reference integral boundary-layer thickness.
+        fieldname : str
+            The new field created in **sidecurve**. Can be, for
+            example: ``'intermittency_imposed'`` or ``'clim_imposed'``
 
-    a_boost - (float) - Maximum value of the boosting of field <fieldname>.
+        Xref : float
+            X-coordinate (absolute) corresponding to the start of
+            the LSTT region. It is usually the transition onset location.
 
-    sa - (float) - scale that determines the boost region (increase), such that
-        sa*LengthScale correspond to the abscissa portion of the increase of
-        the variable.
+        LengthScale : float
+            Absolute length scale that determines the LSTT
+            polynomial scaling. It is usually the laminar bubble length or a
+            factor of the reference integral boundary-layer thickness.
 
-    sb - (float) - scale that determines the relax region (decrease), such that
-        sb*LengthScale correspond to the abscissa portion of the decrease of
-        the variable.
+        a_boost : float
+            Maximum value of the boosting of field **fieldname**.
 
-    Output:
-        Modification of <sidecurve>
+        sa : float
+            scale that determines the boost region (increase), such that
+            ``sa * LengthScale`` correspond to the abscissa portion of the
+            increase of the variable.
+
+        sb : float
+            scale that determines the relax region (decrease), such that
+            ``sb * LengthScale`` correspond to the abscissa portion of the
+            decrease of the variable.
+
     '''
 
     field, = J.invokeFields(sidecurve, [fieldname])
@@ -2518,10 +2921,20 @@ def setImposedFieldLSTT(sidecurve, fieldname='intermittency_imposed',
 
 def checkAirfoilAndGetTopo(AirfoilCurve):
     '''
-    Make verifications on <AirfoilCurve>, which must be a PyTree 1D node
+    Make verifications on **AirfoilCurve**, which must be a PyTree 1D node
     manifold and single branch. Otherwise, raises an exception.
 
-    Returns <isStructured>
+    Parameters
+    ----------
+
+        AirfoilCurve : zone
+            zone to be checked
+
+    Returns
+    -------
+
+        isStructured : bool
+            ``True`` if the zone is structured
     '''
     if I.isStdNode(AirfoilCurve) != -1:
         raise AttributeError('Standard PyTree node is required')
@@ -2555,9 +2968,23 @@ def checkAirfoilAndGetTopo(AirfoilCurve):
 
 def getDecreasingDirections(OBB):
     '''
-    Given a cartesian cell, as got from Generator.OBB(), compute the main
-    directions (absolute) in decrasing order, such that the first
-    result is the longest direction of a OBB.
+    Given a cartesian cell, as got from :py:func:`Generator.PyTree.OBB`, compute
+    the main directions (absolute) in decrasing order, such that the first
+    result is the longest direction of a OBB (*oriented bounding-box*).
+
+    Parameters
+    ----------
+
+        OBB : zone
+            oriented bounding-box as obtained from :py:func:`Generator.PyTree.OBB`
+
+    Returns
+    -------
+
+        Directions : list
+            3 lists of 1D numpy.array vectors, indicating the three main
+            directions of the OBB, in decrasing order (longest axe first)
+
     '''
     x,y,z = J.getxyz(OBB)
 
@@ -2606,18 +3033,27 @@ def getDecreasingDirections(OBB):
 
 def computeChordwiseAndThickwiseIndicators(AirfoilCurve):
     '''
-    Given an airfoil <AirfoilCurve>, create new fields named:
-    "ChordwiseIndicator" and "ThickwiseIndicator", both comprised
-    between -1 and +1, where =-1 and =+1 indicates the extremums following
-    the chordwise or thickwise directions, respectively.
+    Given an airfoil **AirfoilCurve**, create new fields named:
+    ``"ChordwiseIndicator"`` and ``"ThickwiseIndicator"``, both comprised
+    between ``-1`` and ``+1``, where ``=-1`` and ``=+1`` indicates the extrema
+    following the chordwise or thickwise directions, respectively.
 
-    INPUTS
-    AirfoilCurve - (PyTree 1D curve) - The input airfoil (is modified)
+    Parameters
+    ----------
 
-    OUTPUTS
-    ApproximateChord - (float) - The approximate chord length
+        AirfoilCurve : zone
+            PyTree 1D curve, the input airfoil
 
-    ApproximateThickness - (float) - The approximate maximum airfoil thickness
+            .. note:: **AirfoilCurve** is modified
+
+    Returns
+    -------
+
+        ApproximateChord : float
+            The approximated chord length [m]
+
+        ApproximateThickness : float
+            The approximated maximum airfoil thickness [m]
     '''
 
     AirfoilCurveForOBB = C.convertBAR2Struct(AirfoilCurve)
@@ -2667,18 +3103,28 @@ def computeChordwiseAndThickwiseIndicators(AirfoilCurve):
 
 def getApproximateChordAndThickness(AirfoilCurve):
     '''
-    Given an airfoil <AirfoilCurve>, returns the approximate Chord and
+    Given an airfoil **AirfoilCurve**, returns the approximative Chord and
     Thickness. It also creates Chordwise and Thickwise indicators if
-    not already exist on curve (<AirfoilCurve> is modified), using
-    computeChordwiseAndThickwiseIndicators() function.
+    not already exist on curve, using
+    :py:func:`computeChordwiseAndThickwiseIndicators` .
 
-    INPUTS
-    AirfoilCurve - (PyTree 1D curve) - The input airfoil (is modified)
+    Parameters
+    ----------
 
-    OUTPUTS
-    ApproximateChord - (float) - The approximate chord length
+        AirfoilCurve : zone
+            PyTree 1D curve, the input airfoil
 
-    ApproximateThickness - (float) - The approximate maximum airfoil thickness
+            .. note:: **AirfoilCurve** is modified
+
+    Returns
+    -------
+
+        ApproximateChord : :py:class:`float`
+            The approximated chord length [m]
+
+        ApproximateThickness : :py:class:`float`
+            The approximated maximum airfoil thickness [m]
+
     '''
     computedChordwiseIndicator = C.isNamePresent(AirfoilCurve,
                                 'ChordwiseIndicator') >= 0
@@ -2723,24 +3169,37 @@ def getApproximateChordAndThickness(AirfoilCurve):
 def findLeadingOrTrailingEdge(AirfoilCurve, ChordwiseRegion='> +0.5',
         ToleranceRelativeRadius=1e-02):
     '''
-    Given a curve of an airfoil <AirfoilCurve>, compute the characteristic
+    Given a curve of an airfoil **AirfoilCurve**, compute the characteristic
     edge (Leading or Trailing) based on curvature radius. The search
-    region is defined by <ChordwiseRegion> argument.
+    region is defined by **ChordwiseRegion** argument.
 
-    INPUTS:
+    Parameters
+    ----------
 
-    AirfoilCurve - (PyTree 1D) - Curve of the airfoil
+        AirfoilCurve : zone
+            PyTree 1D, curve of the airfoil
 
-    ChordwiseRegion - (string) - comparison criterion for establishing the
-        filtered region where search is performed
+        ChordwiseRegion : str
+            comparison criterion for establishing the
+            filtered region where search is performed
 
-    ToleranceRelativeRadius - (float) - small number determining the search
-        region as [ rmin + ToleranceRelativeRadius * ( Chord - rmin ) ]
+        ToleranceRelativeRadius : float
+            small number determining the search
+            region as
 
-    OUTPUTS:
-    Point - (PyTree point) - characteristic point found
+            ::
 
-    rmin - (float) - minimum radius of candidates search procedure
+                [ rmin + ToleranceRelativeRadius * ( Chord - rmin ) ]
+
+
+    Returns
+    -------
+
+        Point : zone
+            PyTree point, characteristic point found
+
+        rmin : :py:class:`float`
+            minimum radius of candidates search procedure
     '''
 
     Chord, Thickness = getApproximateChordAndThickness(AirfoilCurve)
@@ -2823,15 +3282,21 @@ def findLeadingOrTrailingEdge(AirfoilCurve, ChordwiseRegion='> +0.5',
 
 def closeStructCurve(AirfoilCurve, tol=1e-10):
     '''
-    Given a 1D curve defined by <AirfoilCurve>, check if it is closed
-    within geomatrical tolerance <tol>. Otherwise, add new point and force
+    Given a 1D curve defined by **AirfoilCurve**, check if it is closed
+    within geomatrical tolerance **tol**. Otherwise, add new point and force
     closing.
 
-    Inputs
-    AirfoilCurve (1D PyTree curve) - input airfoil
+    Parameters
+    ----------
 
-    Outputs
-    AirfoilCurve (1D PyTree curve) - output airfoil (closed)
+        AirfoilCurve : zone
+            1D PyTree curve, input airfoil
+
+    Returns
+    -------
+
+        AirfoilCurveOut : zone
+            1D PyTree curve, output airfoil (closed)
     '''
 
     isStructured = checkAirfoilAndGetTopo(AirfoilCurve)
@@ -2864,40 +3329,56 @@ def splitAirfoil(AirfoilCurve, FirstEdgeSearchPortion = 0.50,
         FieldCriterion='CoordinateY',
         SideChoiceCriteriaPriorities=['field','distance']):
     '''
-    Split an airfoil shape into top and bottom sides.
+    Split an airfoil shape into *top* (suction) and *bottom* (pressure) sides.
 
-    INPUTS
-    AirfoilCurve - (1D PyTree zone) - The airfoil shape.
+    Parameters
+    ----------
 
-    FirstEdgeSearchPortion - (float) - Used for determining the search region
-        of the first characteristic point of the airfoil (Leading Edge or
-        Trailing Edge), so that search region is given by:
-           {ChordwiseIndicator} > {FirstEdgeSearchPortion}
+        AirfoilCurve : zone
+            1D PyTree zone, The airfoil shape.
 
-        Hence, its value MUST be in 0 < FirstEdgeSearchPortion < 1
+        FirstEdgeSearchPortion : float
+            Used for determining the search region
+            of the *first* characteristic point of the airfoil (Leading Edge or
+            Trailing Edge), so that search region is given by:
 
-    SecondEdgeSearchPortion - (float) - Used for determining the search region
-        of the second characteristic point of the airfoil (Leading Edge or
-        Trailing Edge), so that search region is given by:
-           {ChordwiseIndicator} < {SecondEdgeSearchPortion}
+            ::
 
-        Hence, its value MUST be in -1 < SecondEdgeSearchPortion < 0
+                {ChordwiseIndicator} > FirstEdgeSearchPortion
 
-    RelativeRadiusTolerance - (float) - relatively small value used to
-        determine the characteristic points region as specified in the
-        documentation of function findLeadingOrTrailingEdge()
+            Hence, **FirstEdgeSearchPortion** MUST be :math:`\in (0,1)`
 
-    MergePointsTolerance - (float) - Small value used to infer if
-        characteristic points are to be merged on final sides result or not.
-        It is also used for determining if input airfoil shall be closed or
-        not.
+        SecondEdgeSearchPortion : float
+            Used for determining the search region
+            of the *second* characteristic point of the airfoil (Leading Edge or
+            Trailing Edge), so that search region is given by:
 
-    OUTPUTS
-    TopSide - (1D PyTree zone) - Structured curve, with increasing index from
-        Leading Edge towards Trailing Edge, corresponding to Top Side.
+            ::
 
-    BottomSide - (1D PyTree zone) - Structured curve, with increasing index from
-        Leading Edge towards Trailing Edge, corresponding to Bottom Side.
+                {ChordwiseIndicator} < SecondEdgeSearchPortion
+
+            Hence, **SecondEdgeSearchPortion** MUST be :math:`\in (-1, 0)`
+
+        RelativeRadiusTolerance : float
+            relatively small value used to
+            determine the characteristic points region as specified in the
+            documentation of function :py:func:`findLeadingOrTrailingEdge`
+
+        MergePointsTolerance : float
+            Small value used to infer if  characteristic points are to be merged
+            on final sides result or not. It is also used for determining if
+            input airfoil shall be closed or not.
+
+    Returns
+    -------
+
+        TopSide : zone
+            Structured curve, with increasing index from
+            Leading Edge towards Trailing Edge, corresponding to Top Side.
+
+        BottomSide : zone
+            Structured curve, with increasing index from
+            Leading Edge towards Trailing Edge, corresponding to Bottom Side.
 
     '''
 
@@ -3067,14 +3548,21 @@ def computePlaneEquation(point, normal):
     '''
     Compute the plane equation using a passing point and a normal direction.
 
-    INPUTS
-    point - (3-float list, tuple or numpy) - X, Y, Z coordinates of point
+    Parameters
+    ----------
 
-    normal - (3-float list, tuple or numpy) - X, Y, Z components of the normal
-        direction of the plane
+        point : :py:class:`list` or :py:class:`tuple` or numpy of 3 :py:class:`float`
+            :math:`(x,y,z)` coordinates of point
 
-    OUTPUT
-    Equation - (string) - PyTree-compatible string used as equation
+        normal : :py:class:`list` or :py:class:`tuple` or numpy of 3 :py:class:`float`
+            3 components of the unitary normal vector of the plane,
+            :math:`\\vec{n} = (n_x, n_y, n_z)`
+
+    Returns
+    -------
+
+        Equation : str
+            :py:func:`Converter.PyTree.initVars`-compatible string used as equation
     '''
     p = np.array(point)
     n = np.array(normal)
@@ -3094,41 +3582,48 @@ def buildCamber(AirfoilCurve, MaximumControlPoints=100, StepControlPoints=10,
         StartRelaxationFactor=0.5, ConvergenceTolerance=1e-6, MaxIters=500,
         FinalDistribution=None, splitAirfoilOptions={}):
     '''
-    Given an AirfoilCurve, build the Camber line oriented from Leading Edge
-    towards Trailing Edge and containing RelativeThickness field.
+    Given an **AirfoilCurve**, build the Camber line oriented from Leading Edge
+    towards Trailing Edge and containing ``{RelativeThickness}`` field.
 
-    INPUTS
+    Parameters
+    ----------
 
-    AirfoilCurve - (zone) - Airfoil structured curve from which to build the
-        camber line
+        AirfoilCurve : zone
+            Airfoil structured curve from which to build the camber line
 
-    MaximumControlPoints - (integer) - Maximum number of control points for
-        determining the camber line during its iterative process.
+        MaximumControlPoints : int
+            Maximum number of control points for determining the camber line
+            during its iterative process.
 
-    StepControlPoints - (integer) - Number of points to increase after each
-        iterative step of searching of camber line.
+        StepControlPoints : int
+            Number of points to increase after each
+            iterative step of searching of camber line.
 
-    StartRelaxationFactor - (float) - starting relaxation factor
+        StartRelaxationFactor : float
+            starting relaxation factor
 
-    ConvergenceTolerance - (float) - convergence tolerance threshold criterion
-        used to determine if camber has been found. Residual must be lower
-        to convergence tolerance in order to satisfy convergence condition.
-        Residual is the L2 norm of the distance to top side minus the distance
-        to bottom side.
+        ConvergenceTolerance : float
+            convergence tolerance threshold criterion
+            used to determine if camber has been found. Residual must be lower
+            to convergence tolerance in order to satisfy convergence condition.
+            Residual is the L2 norm of the distance to top side minus the distance
+            to bottom side.
 
-    MaxIters - (integer) - maximum number of iterations for computing the
-        camber line
+        MaxIters : int
+            maximum number of iterations for computing the camber line
 
-    FinalDistribution - (dictionary) - W.linelaw() compatible distribution
-        dictionary for the discretization of the camber line
+        FinalDistribution : dict
+            a :py:func:`linelaw`-compatible distribution
+            dictionary for the discretization of the camber line
 
-    splitAirfoilOptions - (dictionary) - literally, all parameters passed
-        to splitAirfoil() function
+        splitAirfoilOptions : dict
+            literally, all parameters passed to :py:func:`splitAirfoil` function
 
-    OUTPUTS
+    Returns
+    -------
 
-    Camber - (zone) - camber line including (among others) the field
-        {RelativeThickness}
+        Camber : zone
+            camber line including (among others) the field ``{RelativeThickness}``
     '''
 
 
@@ -3293,41 +3788,47 @@ def buildCamber(AirfoilCurve, MaximumControlPoints=100, StepControlPoints=10,
 def getAirfoilPropertiesAndCamber(AirfoilCurve, buildCamberOptions={},
                                   splitAirfoilOptions={}):
     '''
-    This function compute the geometrical properties of an airfoil, and
-    returns them as a python dictionary and stores them as UserDefinedData_t
+    This function computes the geometrical properties of an airfoil, and
+    returns them as a python dictionary and stores them as ``UserDefinedData_t``
     node into the airfoil zone.
+
     The computed geometrical characterstics are :
-        'LeadingEdge',
-        'TrailingEdge',
-        'Chord',
-        'ChordDirection', 'BinormalDirection', 'NormalDirection'
-        'MaxRelativeThickness'
-        'MaxThickness'
-        'MaxThicknessRelativeLocation'
-        'MaxCamber'
-        'MaxRelativeCamber'
-        'MaxCamberRelativeLocation'
-        'MinCamber'
-        'MinRelativeCamber'
-        'MinCamberRelativeLocation'
+        ``'LeadingEdge'``,
+        ``'TrailingEdge'``,
+        ``'Chord'``,
+        ``'ChordDirection'``, ``'BinormalDirection'``, ``'NormalDirection'``
+        ``'MaxRelativeThickness'``
+        ``'MaxThickness'``
+        ``'MaxThicknessRelativeLocation'``
+        ``'MaxCamber'``
+        ``'MaxRelativeCamber'``
+        ``'MaxCamberRelativeLocation'``
+        ``'MinCamber'``
+        ``'MinRelativeCamber'``
+        ``'MinCamberRelativeLocation'``
 
-    INPUTS
+    Parameters
+    ----------
 
-    AirfoilCurve - (zone) - structured curve of the airfoil. It is modified
-        in-place
+        AirfoilCurve : zone
+            structured curve of the airfoil.
 
-    buildCamberOptions - (dictionary) - literally, options to pass to
-        buildCamber() function
+            .. note:: **AirfoilCurve** is modified
 
-    splitAirfoilOptions - (dictionary) - literally, options to pass to
-        splitAirfoil() function
+        buildCamberOptions : dict
+            literally, options to pass to :py:func:`buildCamber` function
 
-    OUTPUTS
+        splitAirfoilOptions : dict
+            literally, options to pass to :py:func:`splitAirfoil` function
 
-    AirfoilProperties - (dictionary) - contains the aforementioned
-        airfoil geomatrical characterstics
+    Returns
+    -------
 
-    CamberLine - (zone) - the camber line of the airfoil
+        AirfoilProperties : :py:class:`dict`
+            contains the aforementioned airfoil geomatrical characteristics
+
+        CamberLine : zone
+            the camber line of the airfoil
     '''
 
     AirfoilProperties = dict()
@@ -3414,24 +3915,27 @@ def getAirfoilPropertiesAndCamber(AirfoilCurve, buildCamberOptions={},
 
 def normalizeFromAirfoilProperties(t, AirfoilProperties, Fields2Rotate=[]):
     '''
-    Performs in-place normalization of input PyTree <t> following the data
-    contained in the dictionary <AirfoilProperties>, which can be obtained
-    using getAirfoilPropertiesAndCamber function.
+    Performs in-place normalization of input PyTree **t** following the data
+    contained in the dictionary **AirfoilProperties**, which can be obtained
+    using :py:func:`getAirfoilPropertiesAndCamber` function.
 
-    Fields2Rotate are passed to Transform.rotate function, and allows for
-    rotation of vector fields.
+    **Fields2Rotate** are passed to :py:func:`Transform.PyTree.rotate` function,
+    and allows for rotation of vector fields.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree, base, zone, list of zones) - object containing the item
-        to be normalized following the provided airfoil properties.
-        Geometry (and eventually fields) are modified in place.
+        t : PyTree, base, zone, list of zones
+            object containing the item
+            to be normalized following the provided airfoil properties.
 
-    AirfoilProperties - (dictionary) - as obtained from the function
-        getAirfoilPropertiesAndCamber()
+            .. note:: Geometry (and eventually fields) of **t** are modified
 
-    Fields2Rotate - (list of strings) - list containing the field names to
-        rotate during the normalization
+        AirfoilProperties : dict
+            as obtained from the function :py:func:`getAirfoilPropertiesAndCamber`
+
+        Fields2Rotate : :py:func:`list` of :py:func:`str`
+            list containing the field names to rotate during the normalization
     '''
     LeadingEdge = AirfoilProperties['LeadingEdge']
     Chord = AirfoilProperties['Chord']
@@ -3451,20 +3955,27 @@ def normalizeFromAirfoilProperties(t, AirfoilProperties, Fields2Rotate=[]):
 def addDistanceRespectToLine(t, LinePassingPoint, LineDirection,
                                 FieldNameToAdd='Distance2Line'):
     '''
-    Add the distance to line of the points of a zone.
+    Add the distance to line of the points of a zone in form of a new field.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree, base, zone or list of zones) - grid where distance to
-        line is to be computed. A field <FieldNameToAdd> will be added.
+        t : PyTree, base, zone or list of zones
+            grid where distance to
+            line is to be computed.
 
-    LinePassingPoint - (3-float array) - coordinates of the passing point
-        of the line
+            .. important:: a field named after parameter **FieldNameToAdd** will
+                be added to **t** at container ``FlowSolution``
 
-    LineDirection - (3-float array) - unitary vector of the line
+        LinePassingPoint : array of 3 :py:class:`float`
+            coordinates of the passing point :math:`(x,y,z)` of the line
 
-    FieldNameToAdd - (string) - name to give to the new field representing
-        the distance to the line
+        LineDirection : array of 3 :py:class:`float`
+            unitary vector of the line direction :math:`\\vec{l} = (l_x,l_y,l_z)`
+
+        FieldNameToAdd : str
+            name to give to the new field to be added in **t**, representing the
+            distance to the line
     '''
     a = np.array(LinePassingPoint,dtype=np.float)
     n = np.array(LineDirection,dtype=np.float)
@@ -3499,31 +4010,87 @@ def modifyAirfoil(AirfoilInput, Chord=None,
     Create new airfoil by modifying geometrical properties of a provided
     airfoil curve.
 
-    INPUTS
+    Parameters
+    ----------
 
-    AirfoilInput - (zone) - structured zone represnting the airfoil
+        AirfoilInput : zone
+            structured zone representing the airfoil
 
-    Parameters 'Chord' to 'MinCamberRelativeLocation' - (float) - aimed
-        characteristic of the new airfoil
+        Chord : float
+            Aimed chord [m] length of the new airfoil.
+            Use ``None`` if this parameter is not aimed.
 
-    ScalingRelativeChord - (float) - relative chordwise position at which
-        scaling is applied
+        MaxThickness : float
+            Aimed thickness [m] of the new airfoil.
+            Use ``None`` if this parameter is not aimed.
 
-    ScalingMode - (string) - 'auto' (based on camber) or 'airfoil' (based on
-        the straight line from leading edge towards trailing edge)
+        MaxRelativeThickness : float
+            Aimed relative thickness (with respect to chord length) of the new airfoil.
+            Use ``None`` if this parameter is not aimed.
 
-    buildCamberOptions - (dictionary) - literally, options passed to
-        buildCamber() function
+        MaxThicknessRelativeLocation : float
+            Relative chordwise location of maximum thickness, with respect to the
+            chord length. Must be :math:`\in (0,1)`
+            Use ``None`` if this parameter is not aimed.
 
-    splitAirfoilOptions - (dictionary) - literally, options passed to
-        splitAirfoil() function
+        MaxCamber : float
+            Aimed maximum camber [m] (in top-side direction) of the new airfoil.
+            Use ``None`` if this parameter is not aimed.
 
-    InterpolationLaw - (string) - interpolation law to be applied for the
-        modification of camber and thickness
+        MaxRelativeCamber : float
+            Aimed relative (with respect to chord length) maximum camber
+            (in top-side direction) of the new airfoil.
+            Use ``None`` if this parameter is not aimed.
 
-    OUTPUT
+        MaxCamberRelativeLocation : float
+            Relative chordwise location of maximum camber in top-side direction),
+            with respect to the chord length. Must be :math:`\in (0,1)`
+            Use ``None`` if this parameter is not aimed.
 
-    NewAirfoil - (zone) - structured curve of the new airfoil
+        MinCamber : float
+            Aimed minimum camber [m] (in bottom-side direction) of the new airfoil.
+            Use ``None`` if this parameter is not aimed.
+
+        MinRelativeCamber : float
+            Aimed relative (with respect to chord length) minimum camber
+            (in bottom-side direction) of the new airfoil.
+            Use ``None`` if this parameter is not aimed.
+
+        MinCamberRelativeLocation : float
+            Relative chordwise location (with respect to chord length) o
+            minimum camber (in bottom-side direction), with respect to the
+            chord length. Must be :math:`\in (0,1)`
+            Use ``None`` if this parameter is not aimed.
+
+        ScalingRelativeChord : float
+            relative chordwise position at which scaling is applied.
+            It must be :math:`\in (0,1)`
+
+        ScalingMode : str
+            How to scale the airfoil. Two possibilities:
+
+            * ``'auto'``
+                based on the chord length extracted after computing camber line
+
+            * ``'airfoil'``
+                based on the chord length approximated using the straight line
+                from leading edge towards trailing edge
+
+        buildCamberOptions : dict
+            literally, options passed to :py:func:`buildCamber` function
+
+        splitAirfoilOptions : dict
+            literally, options passed to :py:func:`splitAirfoil` function
+
+        InterpolationLaw : str
+            interpolation law to be applied for the modification of camber and
+            thickness
+
+    Returns
+    -------
+
+        NewAirfoil : zone
+            structured curve of the new airfoil
     '''
 
 
@@ -3582,26 +4149,36 @@ def modifyThicknessOfCamberLine(CamberCurve, NormalDirection, MaxThickness=None,
                 MaxRelativeThickness=None, MaxThicknessRelativeLocation=None,
                 InterpolationLaw='interp1d_cubic'):
     '''
-    Modify the {RelativeThickness} fields contained in a CamberLine zone.
+    Modify the ``RelativeThickness`` fields contained in a CamberLine zone.
 
-    INPUTS
+    Parameters
+    ----------
 
-    CamberCurve - (zone) - the camber curve to modify
+        CamberCurve : zone
+            the camber curve to modify, as obtained from :py:func:`buildCamber`
 
-    NormalDirection - (3-float array) - the normal direction, perpendicular
-        to the chord direction, and pointint towards the top side of airfoil
+            .. note::  **CamberCurve** is modified
 
-    MaxThickness - (float or None) - if provided, sets the maximum thickness
-        in absolute value [m]
+        NormalDirection : array of 3 :py:class:`float`
+            the normal direction, perpendicular to the chord direction, and
+            pointing towards the top side of airfoil
 
-    MaxRelativeThickness - (float or None) - if provided, sets the maximum
-        thickness in relative value (normalized by the chord length)
+        MaxThickness : float
+            if provided, sets the maximum thickness in absolute value [m]
 
-    MaxThicknessRelativeLocation - (float or None) - if provided, sets the
-        chordwise relative location at which thickness is maximum.
+        MaxRelativeThickness : float
+            if provided, sets the maximum thickness in relative value
+            (normalized by the chord length)
 
-    InterpolationLaw - (string) - interpolation law to be applied for the
-        modification of thickness
+        MaxThicknessRelativeLocation : float
+            if provided, sets the chordwise relative location at which thickness
+            is maximum.
+
+        InterpolationLaw : str
+            interpolation law to be applied for the modification of thickness
+
+            .. note:: **InterpolationLaw** is the parameter **Law** of function
+                :py:func:`MOLA.InternalShortcuts.interpolate__`
     '''
 
     needModification = MaxThickness or MaxRelativeThickness or MaxThicknessRelativeLocation
@@ -3695,33 +4272,52 @@ def modifyCamberOfCamberLine(CamberCurve, NormalDirection,
     '''
     Modify the camber geometry of a user-provided camber line.
 
-    INPUTS
+    Parameters
+    ----------
 
-    CamberCurve - (zone) - the camber curve to modify
+        CamberCurve : zone
+            the camber curve to modify, as obtained from :py:func:`buildCamber`
 
-    NormalDirection - (3-float array) - the normal direction, perpendicular
-        to the chord direction, and pointint towards the top side of airfoil
+            .. note::  **CamberCurve** is modified
 
-    MaxCamber - (float or None) - if provided, sets the maximum camber
-        in absolute value [m]
+        NormalDirection : array of 3 :py:class:`float`
+            the normal direction, perpendicular to the chord direction, and
+            pointing towards the top side of airfoil
 
-    MaxRelativeCamber - (float or None) - if provided, sets the maximum
-        camber in relative value (normalized by the chord length)
+        MaxCamber : float
+            Aimed maximum camber [m] (in top-side direction) of the new airfoil.
+            Use ``None`` if this parameter is not aimed.
 
-    MaxCamberRelativeLocation - (float or None) - if provided, sets the
-        chordwise relative location at which camber is maximum.
+        MaxRelativeCamber : float
+            Aimed relative (with respect to chord length) maximum camber
+            (in top-side direction) of the new airfoil.
+            Use ``None`` if this parameter is not aimed.
 
-    MinCamber - (float or None) - if provided, sets the minimum camber
-        in absolute value [m]
+        MaxCamberRelativeLocation : float
+            Relative chordwise location of maximum camber in top-side direction),
+            with respect to the chord length. Must be :math:`\in (0,1)`
+            Use ``None`` if this parameter is not aimed.
 
-    MinRelativeCamber - (float or None) - if provided, sets the minimum
-        camber in relative value (normalized by the chord length)
+        MinCamber : float
+            Aimed minimum camber [m] (in bottom-side direction) of the new airfoil.
+            Use ``None`` if this parameter is not aimed.
 
-    MinCamberRelativeLocation - (float or None) - if provided, sets the
-        chordwise relative location at which camber is minimum.
+        MinRelativeCamber : float
+            Aimed relative (with respect to chord length) minimum camber
+            (in bottom-side direction) of the new airfoil.
+            Use ``None`` if this parameter is not aimed.
 
-    InterpolationLaw - (string) - interpolation law to be applied for the
-        modification of thickness
+        MinCamberRelativeLocation : float
+            Relative chordwise location (with respect to chord length) o
+            minimum camber (in bottom-side direction), with respect to the
+            chord length. Must be :math:`\in (0,1)`
+            Use ``None`` if this parameter is not aimed.
+
+        InterpolationLaw : str
+            interpolation law to be applied for the modification of thickness
+
+            .. note:: **InterpolationLaw** is the parameter **Law** of function
+                :py:func:`MOLA.InternalShortcuts.interpolate__`
     '''
 
     needModification = ((MaxCamber is not None) or
@@ -3868,22 +4464,28 @@ def modifyCamberOfCamberLine(CamberCurve, NormalDirection,
 
 def convertDatFile2PyTreeZone(filename, name='foil', skiprows=1):
     '''
-    Convert a *.dat containing a 3D structured curve (e.g. as obtained from
-    Pointwise) to a suitable CGNS structured zone.
+    Convert a ``*.dat`` file containing a 3D structured curve (e.g. as obtained
+    from Pointwise) to a suitable CGNS structured zone.
     Coordinates (x, y and z) should be organized vertically in input file.
 
-    INPUTS
+    Parameters
+    ----------
 
-    filename - (string) - file name (including relative or absolute path if
-        necessary) of the input file to read where coordinates are found.
+        filename : str
+            file name (including relative or absolute path if
+            necessary) of the input file to read where coordinates are found.
 
-    name - (string) - the name to give to the new zone to be created
+        name : str
+            the name to give to the new zone to be created
 
-    skiprows - (integer) - number of heading lines to ignore
+        skiprows : int
+            number of heading lines to ignore
 
-    OUTPUT
+    Returns
+    -------
 
-    curve - (zone) - structured curve containing the coordinates of the curve
+        curve : zone
+            structured curve containing the coordinates of the curve
     '''
     x,y,z = np.loadtxt(filename, delimiter=None, skiprows=skiprows, unpack=True)
     curve = D.line((0,0,0),(1,0,0),len(x))

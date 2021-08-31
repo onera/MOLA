@@ -825,7 +825,7 @@ def buildLiftingLine(Span, **kwargs):
         the kwargs argument "Polars" and the Tag number of the
         PyZonePolar. Example:
             Polars={'RelativeSpan':[Rmin/Rmax, 1],
-                    'Polars' :     [        0, 1],
+                    'PyZonePolarNames' :   [ 'foilA', 'foilB'],
                     'InterpolationLaw':'interp1d_linear'}
 
             this will make a linear interpolation between

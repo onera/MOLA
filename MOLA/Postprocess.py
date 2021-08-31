@@ -37,21 +37,26 @@ def extractBoundaryLayer(surf, PressureDynamic=1.0, PressureRef=101325.):
     postprocessing for computing relevant wall quantities as well as
     boundary-layer edges.
 
-    INPUTS
+    Parameters
+    ----------
 
-    surf - (zone) - surface containing flowfields around the airfoil, as result
-        of function buildAuxiliarWallNormalSurface()
+        surf : zone
+            surface containing flowfields around the airfoil, as result
+            of function :py:func:`buildAuxiliarWallNormalSurface`
 
-    PressureDynamic - (float) - Dynamic Pressure in [Pa] used for computation
-        of skin-friction and pressure coefficients.
+        PressureDynamic : float
+            Dynamic Pressure in [Pa] used for computation
+            of skin-friction and pressure coefficients.
 
-    PressureRef - (float) - Reference Pressure in [Pa] used for computation
-        of pressure coefficient (typically, freestream static pressure).
+        PressureRef : float
+            Reference Pressure in [Pa] used for computation
+            of pressure coefficient (typically, freestream static pressure).
 
-    OUTPUTS
+    Returns
+    -------
 
-    WallCurve - (PyTree) - identical to output of function
-        postProcessWallsFromElsaExtraction()
+        WallCurve : PyTree
+            identical to output of function :py:func:`postProcessWallsFromElsaExtraction`
 
     '''
 
@@ -122,22 +127,30 @@ def postProcessWallsFromElsaExtraction(t, PressureDynamic=1., PressureRef=1.):
     TopSide and BottomSide zones yield additional post-processed variables.
 
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree, base, zone, list of zones) - CGNS tree containing a 1-cell
-        depth wall surface. It must contain the required fields by function
-        addNewWallVariablesFromElsaQuantities()
+        t : PyTree, base, zone, list of zones
+            CGNS tree containing a 1-cell
+            depth wall surface.
 
-    PressureDynamic - (float) - Dynamic Pressure in [Pa] used for computation
-        of skin-friction and pressure coefficients.
+            .. attention:: It **must** contain the required fields by function
+                :py:func:`addNewWallVariablesFromElsaQuantities`
 
-    PressureRef - (float) - Reference Pressure in [Pa] used for computation
-        of pressure coefficient (typically, freestream static pressure).
+        PressureDynamic : float
+            Dynamic Pressure in [Pa] used for computation
+            of skin-friction and pressure coefficients.
 
-    OUTPUTS
+        PressureRef : float
+            Reference Pressure in [Pa] used for computation
+            of pressure coefficient (typically, freestream static pressure)
 
-    t - (PyTree) - Airfoil split in top and bottom sides including postprocessed
-        fields. It also includes zones corresponding to boundary-layer edges
+    Returns
+    -------
+
+        t : PyTree
+            Airfoil split in top and bottom sides including postprocessed
+            fields. It also includes zones corresponding to boundary-layer edges
     '''
 
     t = mergeWallsAndSplitAirfoilSides(t)
@@ -155,15 +168,18 @@ def mergeWallsAndSplitAirfoilSides(t):
     Given a 1-cell-depth surface defining the wall of an airfoil, produce two
     curves corresponding to the Top and Bottom sides of the airfoil.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree, base, zone, list of zones) - CGNS tree containing a 1-cell
-        depth wall surface. It may contain flow solutions
+        t : PyTree, base, zone, list of zones
+            CGNS tree containing a 1-cell depth wall surface. It may contain
+            flow solutions fields
 
-    OUTPUTS
+    Returns
+    -------
 
-    t - (PyTree) - Airfoil split in top and bottom sides including original
-        fields.
+        t : PyTree
+            Airfoil split in top and bottom sides including original fields.
     '''
 
     tRef = I.copyRef(t)
@@ -184,26 +200,30 @@ def mergeWallsAndSplitAirfoilSides(t):
 
 def addNewWallVariablesFromElsaQuantities(t, PressureDynamic=1., PressureRef=1.):
     '''
-    Given a wall in pytree <t> and reference values produce additional
-    variables:  cf, Cp and ReynoldsTheta of an AIRFOIL.
+    Given a wall in pytree **t** and some reference values, produce additional
+    variables:  `cf`, `Cp` and `ReynoldsTheta` of an AIRFOIL.
 
-    This function modifies <t>.
+    As the sign of ``cf`` depends on the side of the airfoil, if special keyword
+    ``'bottomside'`` is contained in a zone name of **t**, the sign is considered as
+    *negative* in i-increasing direction, otherwise it is considered *positive*.
 
-    As the sign of 'cf' depends on the side of the airfoil, if special keyword
-    'bottomside' is contained in a zone name of <t>, the sign is considered as
-    "negative" in i-increasing direction, otherwise it is considered "positive".
+    Parameters
+    ----------
 
-    INPUTS
+        t : PyTree
+            CGNS tree containing the two sides of the airfoil, as
+            produced by :py:func:`mergeWallsAndSplitAirfoilSides`.
+            New fields are added to the tree.
 
-    t - (PyTree) - CGNS tree containing the two sides of the airfoil, as
-        produced by mergeWallsAndSplitAirfoilSides(). New fields are added to
-        the tree.
+            .. note:: tree **t** is modified
 
-    PressureDynamic - (float) - Dynamic Pressure in [Pa] used for computation
-        of skin-friction and pressure coefficients.
+        PressureDynamic : float
+            Dynamic Pressure in [Pa] used for computation
+            of skin-friction and pressure coefficients.
 
-    PressureRef - (float) - Reference Pressure in [Pa] used for computation
-        of pressure coefficient (typically, freestream static pressure).
+        PressureRef : float
+            Reference Pressure in [Pa] used for computation
+            of pressure coefficient (typically, freestream static pressure).
     '''
 
     CompulsoryFields = ('nx', 'ny', 'nz', 'Pressure', 'runit', 'theta11',
@@ -238,16 +258,19 @@ def addNewWallVariablesFromElsaQuantities(t, PressureDynamic=1., PressureRef=1.)
 
 def addBoundaryLayerEdges(t):
     '''
-    Add to <t> new zones representing the boundary-layer edges if <t>
-    contains the normal fields ('nx', 'ny', 'nz') and at least one of:
-    'delta', 'delta1', 'delta11'
+    Add to **t** new zones representing the boundary-layer edges if **t**
+    contains the normal fields ``nx``, ``ny``, ``nz`` and at least one of:
+    ``delta``, ``delta1``, ``delta11``
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree, base, zone, list of zones) - surface containing the fields
-        {nx} {ny} {nz} and at least one of: {delta}, {delta1}, {theta11}
-        The tree is modified : a new base including the zones of the
-        boundary-layer thicknesses is appended to the tree
+        t : PyTree, base, zone, list of zones
+            surface containing the fields
+            ``nx`` ``ny`` ``nz`` and at least one of: ``delta``, ``delta1``, ``theta11``
+
+            .. note:: the input **t** is modified : a new base including the
+                zones of the boundary-layer thicknesses is appended to the tree
     '''
 
     t2 = C.normalize(t, ['nx','ny','nz'])
@@ -284,22 +307,26 @@ def postProcessBoundaryLayer(surf, VORTRATIOLIM=1e-3):
     airfoil) where the i-minimum window corresponds to the wall and j-increasing
     corresponds to wall-normal direction.
 
-    The input surface is designed to be the result of function named:
-        buildAuxiliarWallNormalSurface()
 
     New added fields include:
-            {TurbulentDistance}, {delta}, {delta1}, {theta11}, {runit}
-            {VelocityTangential}, {VelocityTransversal}
-            {VelocityEdgeX}, {VelocityEdgeY}, {VelocityEdgeZ}
 
-    INPUTS
+    ``TurbulentDistance``, ``delta``, ``delta1``, ``theta11``, ``runit``
+     ``VelocityTangential``, ``VelocityTransversal``
+     ``VelocityEdgeX``, ``VelocityEdgeY``, ``VelocityEdgeZ``
 
-    surf - (zone) - as result of function buildAuxiliarWallNormalSurface().
-        This surface is modified (new fields are added)
+    Parameters
+    ----------
 
-    VORTRATIOLIM - (float) - threshold for determining the boundary-layer edge
-        with respect to the maximum value of field {RotationScale} starting
-        from the wall.
+        surf : zone
+            as result of function :py:func:`buildAuxiliarWallNormalSurface`.
+
+            .. note:: **surf** is modified *(new fields are added)*
+
+        VORTRATIOLIM : float
+            threshold for determining the boundary-layer edge
+            with respect to the maximum value of field ``RotationScale`` starting
+            from the wall.
+
     '''
     NewFields = ['TurbulentDistance', 'delta', 'delta1', 'theta11', 'runit',
                  'VelocityTangential', 'VelocityTransversal',
@@ -384,13 +411,17 @@ def getWalls(t):
     '''
     Get the walls from PyTree as a list of zones (surfaces)
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree) - tree containing BCWall type
+        t : PyTree
+            tree containing *BCWall* type
 
-    OUTPUTS
+    Returns
+    -------
 
-    OutputWalls - (list of zones) - list of surfaces corresponding to the walls
+        OutputWalls : :py:class:`list` of zone
+            list of surfaces corresponding to the walls
     '''
     walls = C.extractBCOfType(t,'BCWall',reorder=True)
     I._rmNodesByType(walls,'FlowSolution_t')
@@ -433,19 +464,24 @@ def buildAuxiliarWallNormalSurface(t, wall, MaximumBoundaryLayerDistance=0.5,
     Build an auxiliar merged surface from a PyTree of a 2D computation of the
     flow around an Airfoil from elsA.
 
-    This auxiliar surface is required for performing post-processing operations.
+    .. note:: this auxiliar surface is required for performing post-processing
+        operations.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree) - saved tree of an elsA simulation of the 2D flow around an
-        airfoil
+        t : PyTree
+            saved tree of an elsA simulation of the 2D flow around an airfoil
 
-    wall - (PyTree, base, zone, list of zones) - wall surfaces
+        wall : PyTree, base, zone, list of zones
+            wall surfaces
 
-    OUTPUTS
+    Returns
+    -------
 
-    surf - (zone) - auxiliar surface including scales based on velocity
-        gradients, required for further boundary-layer type of post-processing
+        surf : zone
+            auxiliar surface including scales based on velocity
+            gradients, required for further boundary-layer type of post-processing
     '''
 
     xMax = C.getMaxValue(wall,'CoordinateX')
@@ -528,13 +564,17 @@ def getMeshDimensionFromTree(t):
     '''
     Return the dimensions of a PyTree (0, 1, 2, 3)
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree) - tree with all same dimensions
+        t : PyTree
+            tree with zones that have all the same dimension
 
-    OUTPUTS
+    Returns
+    -------
 
-    Dimension - (integer) - can be 0, 1, 2 or 3
+        Dimension : int
+            can be 0, 1, 2 or 3
     '''
     Dims = np.array([I.getZoneDim(z)[4] for z in I.getZones(t)])
     if not np.all(Dims == Dims[0]):
@@ -545,11 +585,13 @@ def getMeshDimensionFromTree(t):
 
 def putNormalsPointingOutwards(zone):
     '''
-    Force the normals of a airfoil wall surface {nx} {ny} {nz} to point outwards
+    Force the normals of a airfoil wall surface ``nx`` ``ny`` ``nz`` to point outwards
 
-    INPUT
+    Parameters
+    ----------
 
-    zone - (zone) - surface containing {nx} {ny} {nz}. It is modified in-place.
+        zone : zone
+            surface containing ``nx`` ``ny`` ``nz``. It is modified in-place.
     '''
     x = J.getx(zone)
     nx, ny, nz = J.getVars(zone, ['nx', 'ny', 'nz'])
@@ -560,12 +602,14 @@ def putNormalsPointingOutwards(zone):
 
 def addViscosityMolecularIfAbsent(t):
     '''
-    Add field {centers:ViscosityMolecular} from ReferenceState and primitive
+    Add field ``{centers:ViscosityMolecular}`` using *ReferenceState* and primitive
     fields.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree) - PyTree with required fields. It is modified.
+        t : PyTree
+            PyTree with required fields. It is modified.
     '''
     if C.isNamePresent(t,'centers:ViscosityMolecular') == -1:
         try:
@@ -598,11 +642,13 @@ def addViscosityMolecularIfAbsent(t):
 
 def addPressureIfAbsent(t):
     '''
-    Add field {centers:Pressure} from ReferenceState and primitive fields.
+    Add field ``{centers:Pressure}`` using *ReferenceState* and primitive fields.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree) - PyTree with required fields. It is modified.
+        t : PyTree
+            PyTree with required fields. It is modified.
     '''
 
     if C.isNamePresent(t,'centers:Pressure') == -1:
