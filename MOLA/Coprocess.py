@@ -199,6 +199,7 @@ def saveSurfaces(to, tagWithIteration=False, onlyWalls=True):
             Otherwise, all BC (but not GridConnectivity) are extracted
     '''
     BCs = boundaryConditions2Surfaces(to, onlyWalls=onlyWalls)
+    _renameTooLongZones(BCs)
     try:
         Cmpi._setProc(BCs,rank)
         I._adaptZoneNamesForSlash(BCs)
@@ -589,8 +590,8 @@ def _appendIntegralDataNode2Loads(loads, IntegralDataNode):
             AppendArray = IntegralData[integralKey][FirstIndex2Update:]
             loadsSubset[integralKey] = np.hstack((PreviousArray, AppendArray))
         else:
-            loadsSubset[integralKey] = np.copy(IntegralData[integralKey],
-                                               order='F')
+            loadsSubset[integralKey] = np.array(IntegralData[integralKey],
+                                               order='F', ndmin=1)
 
 
 
@@ -1211,6 +1212,42 @@ def boundaryConditions2Surfaces(to, onlyWalls=True):
 
     return BCs
 
+def _renameTooLongZones(to, n=20):
+    '''
+    Beware: this is a private function, employed by :py:func:`saveSurfaces`
+
+    This function rename zones in a PyTree <to> if their names are too long
+    to be save in a CGNS file (maximum length = 32 characters).
+
+    The new name of a zone follows this format:
+    <NewName> = <First <n> characters of old name>_<ID>
+    with <n> an integer and <ID> the lowest integer (starting form 0) such as
+    <NewName> does not already exist in the PyTree.
+
+    Parameters
+    ----------
+
+        to : PyTree
+            PyTree to check. Zones with a too long name will be renamed.
+
+            .. note:: tree **to** is modified
+
+        n : integer
+            Number of characters to keep in the old zone name.
+    '''
+    for zone in I.getZones(to):
+        zoneName = I.getName(zone)
+        if len(zoneName) > 32:
+            CurrentZoneNames = [I.getName(z) for z in I.getZones(to)]
+            c = 0
+            newName = '{}_{}'.format(zoneName[:n+1], c)
+            while newName in CurrentZoneNames and c < 1000:
+                c += 1
+                newName = '{}_{}'.format(zoneName[:n+1], c)
+            if c == 1000:
+                ERRMSG = 'Zone {} has not been renamed by renameTooLongZones() but its length ({}) is greater than maximum authorized length (32)'.format(zoneName, len(zoneName))
+                raise ValueError(FAIL+ERRMSG+ENDC)
+            I.setName(zone, newName)
 
 def getOption(OptionName, default=None):
     '''
