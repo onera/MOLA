@@ -198,6 +198,7 @@ def saveSurfaces(to, tagWithIteration=False, onlyWalls=True):
             if ``True``, only BC defined with ``BCWall*`` type are extracted.
             Otherwise, all BC (but not GridConnectivity) are extracted
     '''
+    _reshapeBCDatasetNodes(to)
     BCs = boundaryConditions2Surfaces(to, onlyWalls=onlyWalls)
     _renameTooLongZones(BCs)
     try:
@@ -434,6 +435,24 @@ def updateAndSaveLoads(to, loads, DesiredStatistics=['std-CL', 'std-CD'],
         _extendLoadsWithProjectedLoads(loads, IntegralDataName)
         _extendLoadsWithStatistics(loads, IntegralDataName, DesiredStatistics)
     if monitorMemory: addMemoryUsage2Loads(loads)
+        saveLoads(loads, tagWithIteration)
+
+def saveLoads(loads, tagWithIteration=False):
+    '''
+    Save the ``OUTPUT/loads.cgns`` file.
+
+    Parameters
+    ----------
+
+        loads : dict
+            Contains integral data in the following form:
+
+            >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
+
+        tagWithIteration : bool
+            if ``True``, adds a suffix ``_AfterIter<iteration>``
+            to the saved filename (creates a copy)
+    '''
     loadsPyTree = loadsDict2PyTree(loads)
     printCo(CYAN+'saving loads...'+ENDC, proc=0)
     Cmpi.barrier()
@@ -442,7 +461,6 @@ def updateAndSaveLoads(to, loads, DesiredStatistics=['std-CL', 'std-CD'],
     Cmpi.barrier()
     printCo(GREEN+'loads saved OK'+ENDC, proc=0)
     if tagWithIteration and rank == 0: copyOutputFiles(FILE_LOADS)
-
 
 
 def addMemoryUsage2Loads(loads):
@@ -1248,6 +1266,52 @@ def _renameTooLongZones(to, n=20):
                 ERRMSG = 'Zone {} has not been renamed by renameTooLongZones() but its length ({}) is greater than maximum authorized length (32)'.format(zoneName, len(zoneName))
                 raise ValueError(FAIL+ERRMSG+ENDC)
             I.setName(zone, newName)
+
+def _reshapeBCDatasetNodes(to):
+    '''
+    Beware: this is a private function, employed by :py:func:`saveSurfaces`
+
+    This function check the shape of DataArray in all BCData_t nodes in a
+    PyTree <to>.
+    For some unknown reason, the extraction of BCData throught a BCDataSet is
+    done sometime in unstructured 1D shape, so it is not consistant with BC
+    PointRange. If so, this function reshape the DataArray to the BC shape.
+    Link to Anomaly #6186 (see https://elsa-e.onera.fr/issues/6186)
+
+    Parameters
+    ----------
+
+        to : PyTree
+            PyTree to check.
+
+            .. note:: tree **to** is modified
+    '''
+    def _getBCShape(bc):
+        PointRange = I.getValue(I.getNodeFromName(bc, 'PointRange'))
+        print('PointRange: {}'.format(PointRange))
+        imin = PointRange[0, 0]
+        imax = PointRange[0, 1]
+        jmin = PointRange[1, 0]
+        jmax = PointRange[1, 1]
+        kmin = PointRange[2, 0]
+        kmax = PointRange[2, 1]
+        if imin == imax:
+            bc_shape = (jmax-jmin, kmax-kmin)
+        elif jmin == jmax:
+            bc_shape = (imax-imin, kmax-kmin)
+        else:
+            bc_shape = (imax-imin, jmax-jmin)
+        return bc_shape
+
+    for bc in I.getNodesFromType(to, 'BC_t'):
+        bc_shape = _getBCShape(bc)
+        for BCData in I.getNodesFromType(bc, 'BCData_t'):
+            for node in I.getNodesFromType(BCData, 'DataArray_t'):
+                value = I.getValue(node)
+                if isinstance(value, np.ndarray):
+                    if value.shape != bc_shape:
+                        I.setValue(node, value.reshape(bc_shape, order='F'))
+    return 0
 
 def getOption(OptionName, default=None):
     '''
