@@ -38,7 +38,7 @@ from . import Preprocess as PRE
 
 
 def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
-        NumericalParams={}, PostParameters={},
+        NumericalParams={}, TurboConfiguration={}, PostParameters={},
         BodyForceInputData=[], writeOutputFields=True):
     '''
     This is mainly a function similar to Preprocess prepareMainCGNS4ElsA
@@ -72,7 +72,7 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
     if BodyForceInputData: PRE.addFieldExtraction('Temperature')
 
     FluidProperties = PRE.computeFluidProperties()
-    ReferenceValues = computeReferenceValues(t, FluidProperties,
+    ReferenceValues = computeReferenceValues(FluidProperties,
                                              **ReferenceValuesParams)
 
     NProc = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
@@ -82,7 +82,7 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
     elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues)
     if BodyForceInputData: NumericalParams['useBodyForce'] = True
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues, **NumericalParams)
-    #TurboConfiguration = setTurboConfiguration(**TurboConfiguration)
+    TurboConfiguration = setTurboConfiguration(TurboConfiguration)
     PostParameters = setPostParameters(**PostParameters)
 
     AllSetupDics = dict(FluidProperties=FluidProperties,
@@ -90,7 +90,7 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
-                        #TurboConfiguration=TurboConfiguration,
+                        TurboConfiguration=TurboConfiguration,
                         PostParameters=PostParameters)
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
@@ -103,7 +103,7 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
                                                ReferenceValues['NProc'],J.ENDC))
 
 
-def computeReferenceValues(t, FluidProperties, Massflow, PressureStagnation,
+def computeReferenceValues(FluidProperties, Massflow, PressureStagnation,
         TemperatureStagnation, Surface, TurbulenceLevel=0.001,
         Viscosity_EddyMolecularRatio=0.1, TurbulenceModel='Wilcox2006-klim',
         TurbulenceCutoff=1.0, TransitionMode=None, CoprocessOptions={},
@@ -160,7 +160,6 @@ def computeReferenceValues(t, FluidProperties, Massflow, PressureStagnation,
         PressureStagnation = PressureStagnation,
         TemperatureStagnation = TemperatureStagnation,
         Massflow = Massflow,
-        RotationSpeed = getRotationSpeedOfRows(t)
         )
 
     ReferenceValues.update(addKeys)
@@ -168,12 +167,44 @@ def computeReferenceValues(t, FluidProperties, Massflow, PressureStagnation,
     return ReferenceValues
 
 
-def setTurboConfiguration(t, rowNames):
+def setTurboConfiguration(TurboConfiguration):
     '''
     Construct a dictionary of values concerning the compressor properties.
     ::
 
-        row_names = ''
+        ShaftRotationSpeed : float
+            Shaft speed in rad/s
+            BEWARE: only for single shaft configuration
+
+        HubRotationSpeed : list of tuples
+        Hub rotation speed. Each tuple (xmin, xmax) corresponds to a CoordinateX
+        interval where the speed at hub wall is ShaftRotationSpeed. It is zero
+        outsides these intervals.
+
+        Rows : dict
+            This dictionary has one entry for each row domain. The key names
+            must be the family names in the CGNS Tree.
+            For each family name, the following entries are expected:
+
+                RotationSpeed : float or str
+                Rotation speed in rad/s (watch out for the sign)
+                Set 'auto' to automatically set ShaftRotationSpeed (for a
+                rotor).
+
+                NumberOfBlades : int
+                The number of blades in the row
+
+                NumberOfBladesSimulated : int
+                The number of blades in the computational domain. Set to
+                <NumberOfBlades> for a full 360 simulation.
+
+                PlaneIn : float
+                    Position (in CoordinateX) of the inlet plane for this row.
+                    This planes is used for post-processing and convergence
+                    monitoring.
+
+                PlaneOut : float
+                    Position of the outlet plane for this row.
 
     Returns
     -------
@@ -182,13 +213,12 @@ def setTurboConfiguration(t, rowNames):
             set of compressor properties
     '''
 
-    TurboConfiguration = dict(
-        rowNames      = ['row_1'],
-        nb_blades     = [16],
-        periodicities = [16],
-        RotationSpeedDict = getRotationSpeedOfRows(t),
-        x_fct         = [-999.0, 0.0742685]
-        )
+    omega = TurboConfiguration['ShaftRotationSpeed']
+    for row, rowParams in TurboConfiguration['Rows'].items():
+        for key, value in rowParams.items():
+            if key == 'RotationSpeed' and value == 'auto':
+                rowParams[key] = omega
+
     return TurboConfiguration
 
 def setPostParameters(IsoSurfaces={}, Variables=[]):

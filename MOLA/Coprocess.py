@@ -180,7 +180,8 @@ def saveAll(CouplingTreeWithSkeleton, CouplingTree,
 
 
 
-def saveSurfaces(to, tagWithIteration=False, onlyWalls=True):
+def saveSurfaces(to, loads, DesiredStatistics=None, tagWithIteration=False,
+                onlyWalls=True):
     '''
     Save the ``OUTPUT/surfaces.cgns`` file.
 
@@ -190,11 +191,23 @@ def saveSurfaces(to, tagWithIteration=False, onlyWalls=True):
     *. IsoSurfaces if the entry PostParameters is present in setup.py, else
        do nothing
 
+    For a turbomachinery case, monitor the performance of each row and save the
+    results in loads.cgns
+
     Parameters
     ----------
 
         to : PyTree
             Coupling tree as obtained from :py:func:`adaptEndOfRun`
+
+        loads : dict
+            Contains integral data in the following form:
+
+            >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
+
+        DesiredStatistics : :py:class:`list` of :py:class:`str`
+            Here, the user requests the additional statistics to be computed.
+            See documentation of function updateAndSaveLoads for more details.
 
         tagWithIteration : bool
             if ``True``, adds a suffix ``_AfterIter<iteration>``
@@ -226,6 +239,14 @@ def saveSurfaces(to, tagWithIteration=False, onlyWalls=True):
     printCo('surfaces saved OK', proc=0, color=GREEN)
     Cmpi.barrier()
     if tagWithIteration and rank == 0: copyOutputFiles(FILE_SURFACES)
+
+    if 'TurboConfiguration' in dir(setup):
+        if DesiredStatistics is None:
+            l = ['MassflowIn', 'MassflowOut', 'PressureStagnationRatio', 'TemperatureStagnationRatio', 'EfficiencyIsentropic']
+            DesiredStatistics  = ['avg-{}'.format(var) for var in l]
+            DesiredStatistics += ['std-{}'.format(var) for var in l]
+        monitorTurboPerformance(surfaces, loads, DesiredStatistics,
+                                tagWithIteration=tagWithIteration)
 
 
 def extractIsoSurfaces(to):
@@ -271,6 +292,122 @@ def extractIsoSurfaces(to):
             base = I.newCGNSBase('ISO_{}_{}'.format(varname, value), 2, 3, parent=surfaces)
             I.addChild(base, iso)
     return surfaces
+
+def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[],
+                            tagWithIteration=False):
+    '''
+    This function monitors performance (massflow in/out, total pressure ratio,
+    total temperature ratio, isentropic efficiency) for each row in a compressor
+    simulation.
+
+    Parameters
+    ----------
+
+        loads : dict
+            Contains integral data in the following form:
+
+            >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
+
+        DesiredStatistics : :py:class:`list` of :py:class:`str`
+            Here, the user requests the additional statistics to be computed.
+            See documentation of function updateAndSaveLoads for more details.
+
+        tagWithIteration : bool
+            if ``True``, adds a suffix ``_AfterIter<iteration>``
+            to the saved filename (creates a copy)
+
+    '''
+    def massflowWeightedIntegral(t, var):
+        t = C.initVars(t, 'rou_var={MomentumX}*{%s}'%(var))
+        integ  = abs(P.integNorm(t, 'rou_var')[0][0])
+        return integ
+
+    gamma = setup.FluidProperties['Gamma']
+
+    for row, rowParams in setup.TurboConfiguration['Rows'].items():
+        # Read inlet and outlet planes
+        planeUpstream   = I.getNodeFromName(surfaces, 'ISO_CoordinateX_{}'.format(rowParams['PlaneIn']))
+        planeDownstream = I.getNodeFromName(surfaces, 'ISO_CoordinateX_{}'.format(rowParams['PlaneOut']))
+
+        # Convert to Tetra arrays for integration
+        planeUpstream = C.convertArray2Tetra(planeUpstream)
+        planeDownstream = C.convertArray2Tetra(planeDownstream)
+
+        if I.getNodesFromType(planeUpstream, 'FlowSolution_t') == []:
+            massflowInLocal    = np.array(0.)
+            PtInIntegralLocal  = np.array(0.)
+            TtInIntegralLocal  = np.array(0.)
+        else:
+            # Massflow rate (local to the processor)
+            massflowInLocal     = np.array(abs(P.integNorm(planeUpstream, var='MomentumX')[0][0]))
+            # Compute local integrals of Pt and Tt
+            PtInIntegralLocal   = np.array(massflowWeightedIntegral(planeUpstream, 'PressureStagnation'))
+            TtInIntegralLocal   = np.array(massflowWeightedIntegral(planeUpstream, 'TemperatureStagnation'))
+
+        if I.getNodesFromType(planeDownstream, 'FlowSolution_t') == []:
+            massflowOutLocal   = np.array(0.)
+            PtOutIntegralLocal = np.array(0.)
+            TtOutIntegralLocal = np.array(0.)
+        else:
+            massflowOutLocal    = np.array(abs(P.integNorm(planeDownstream, var='MomentumX')[0][0]))
+            PtOutIntegralLocal  = np.array(massflowWeightedIntegral(planeDownstream, 'PressureStagnation'))
+            TtOutIntegralLocal  = np.array(massflowWeightedIntegral(planeDownstream, 'TemperatureStagnation'))
+
+        # MPI Reduction to sum quantities on proc 0
+        massflowIn    = np.array(0.)
+        massflowOut   = np.array(0.)
+        PtInIntegral  = np.array(0.)
+        PtOutIntegral = np.array(0.)
+        TtInIntegral  = np.array(0.)
+        TtOutIntegral = np.array(0.)
+        Cmpi.barrier()
+        comm.Reduce([massflowInLocal, MPI.DOUBLE],
+            [massflowIn, MPI.DOUBLE], op=MPI.SUM, root=0)
+        comm.Reduce([massflowOutLocal, MPI.DOUBLE],
+            [massflowOut, MPI.DOUBLE], op=MPI.SUM, root=0)
+        comm.Reduce([PtInIntegralLocal, MPI.DOUBLE],
+            [PtInIntegral, MPI.DOUBLE], op=MPI.SUM, root=0)
+        comm.Reduce([PtOutIntegralLocal, MPI.DOUBLE],
+            [PtOutIntegral, MPI.DOUBLE], op=MPI.SUM, root=0)
+        comm.Reduce([TtInIntegralLocal, MPI.DOUBLE],
+            [TtInIntegral, MPI.DOUBLE], op=MPI.SUM, root=0)
+        comm.Reduce([TtOutIntegralLocal, MPI.DOUBLE],
+            [TtOutIntegral, MPI.DOUBLE], op=MPI.SUM, root=0)
+        Cmpi.barrier()
+
+        if rank == 0:
+            # Compute total quantities ratio between in/out planes
+            PtRatio = (PtOutIntegral / massflowOut) / (PtInIntegral / massflowIn)
+            TtRatio = (TtOutIntegral / massflowOut) / (TtInIntegral / massflowIn)
+            # Compute Isentropic Efficiency
+            etaIs = (PtRatio**((gamma-1.)/gamma) - 1.) / (TtRatio - 1.)
+
+            try:
+                perfos = loads['PERFOS_{}'.format(row)]
+            except KeyError:
+                # Initialize dictionary with empty arrays
+                loads['PERFOS_{}'.format(row)] = dict(
+                    IterationNumber            = np.array([], dtype=int),
+                    MassflowIn                 = np.array([]),
+                    MassflowOut                = np.array([]),
+                    PressureStagnationRatio    = np.array([]),
+                    TemperatureStagnationRatio = np.array([]),
+                    EfficiencyIsentropic       = np.array([])
+                    )
+                perfos = loads['PERFOS_{}'.format(row)]
+
+            fluxcoeff = rowParams['NumberOfBlades'] / rowParams['NumberOfBladesSimulated']
+
+            perfos['IterationNumber']            = np.append(perfos['IterationNumber'], CurrentIteration)
+            perfos['MassflowIn']                 = np.append(perfos['MassflowIn'], massflowIn*fluxcoeff)
+            perfos['MassflowOut']                = np.append(perfos['MassflowOut'], massflowOut*fluxcoeff)
+            perfos['PressureStagnationRatio']    = np.append(perfos['PressureStagnationRatio'], PtRatio)
+            perfos['TemperatureStagnationRatio'] = np.append(perfos['TemperatureStagnationRatio'], TtRatio)
+            perfos['EfficiencyIsentropic']       = np.append(perfos['EfficiencyIsentropic'], etaIs)
+
+            _extendLoadsWithStatistics(loads, 'PERFOS_{}'.format(row), DesiredStatistics)
+
+    saveLoads(loads, tagWithIteration=tagWithIteration)
 
 
 def distributeAndSavePyTree(ListOfZones, filename, tagWithIteration=False):
