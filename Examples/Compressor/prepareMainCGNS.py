@@ -28,6 +28,39 @@ including the flight conditions, modeling parameters, and coprocess options.
 All this is done in the call to the function PRE.computeReferenceValues
 '''
 
+TurboConfiguration = dict(
+    # Shaft speed in rad/s
+    # BEWARE: only for single shaft configuration
+    ShaftRotationSpeed = -11000. * np.pi / 30.,
+
+    # Hub rotation speed
+    # List of tuples. Each tuple (xmin, xmax) corresponds to a CoordinateX
+    # interval where the speed at hub wall is ShaftRotationSpeed. It is zero
+    # outsides these intervals.
+    HubRotationSpeed = [(-999.0, 0.0742685)],
+
+    # This dictionary has one entry for each row domain.
+    # The key names must be the family names in the CGNS Tree.
+    Rows = dict(
+        row_1 = dict(
+            # For each row, set here the following parameters:
+            # Rotation speed in rad/s (watch out for the sign)
+            # Set 'auto' to automatically set ShaftRotationSpeed (for a rotor).
+            RotationSpeed = 'auto',
+            # The number of blades in the row
+            NumberOfBlades = 16,
+            # The number of blades in the computational domain
+            # set to <NumberOfBlades> for a full 360 simulation
+            NumberOfBladesSimulated = 1,
+            # The positions (in CoordinateX) of the inlet and outlet planes for
+            # this row. These planes are used for post-processing and convergence
+            # monitoring.
+            PlaneIn = -0.2432,
+            PlaneOut = 0.0398
+            )
+        )
+    )
+
 ReferenceValues = dict(
     # Here we state the flight conditions and reference quantities.
     # These variables are self-explanatory :
@@ -105,10 +138,11 @@ PostParameters = dict(
         CoordinateX   = [-0.2432, 0.0398],
         ChannelHeight = [0.1, 0.5, 0.9]
         ),
-    Variables     = ['Pressure', 'PressureStagnation', 'TemperatureStagnation', 'Entropy',
-                     'Radius', 'rovr', 'rovt', 'rowt', 'rowy', 'rowz', 'W', 'V', 'Vm', 'a', 'rvt', 'Machr', 'beta', 'alpha', 'phi']
+    # Variables     = ['Pressure', 'PressureStagnation', 'TemperatureStagnation', 'Entropy',
+    #                  'Radius', 'rovr', 'rovt', 'rowt', 'rowy', 'rowz', 'W', 'V', 'Vm', 'a', 'rvt', 'Machr', 'beta', 'alpha', 'phi']
     )
 
 WF.prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams=ReferenceValues,
-        NumericalParams=NumericalParams, PostParameters=PostParameters,
-        BodyForceInputData=[], writeOutputFields=True)
+        NumericalParams=NumericalParams, TurboConfiguration=TurboConfiguration,
+        PostParameters=PostParameters, BodyForceInputData=[],
+        writeOutputFields=True)

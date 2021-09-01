@@ -20,77 +20,81 @@ from matplotlib.ticker import AutoMinorLocator, LogLocator, NullFormatter
 FILE_LOADS = 'OUTPUT/loads.cgns'
 
 varnames = ['MassflowIn', 'PressureStagnationRatio', 'TemperatureStagnationRatio', 'EfficiencyIsentropic']
-
-figname = 'perfos.pdf' 
-
 Nvars = len(varnames)
 
-t = Filter.readNodesFromPaths(FILE_LOADS, ['/Base/PERFOS'])[0]
-fig, axes = plt.subplots(Nvars,2,figsize=(8.,8.),dpi=120, sharex=True)
+t = C.convertFile2PyTree(FILE_LOADS)
+zones = I.getNodesFromNameAndType(t, 'PERFOS_*', 'Zone_t')
 
-if Nvars == 1: axes = [axes] 
+for zone in zones:
 
-for varname, ax in zip(varnames, axes):
-    v = J.getVars2Dict(t, ['IterationNumber', 
-                              varname,
-                              'avg-'+varname,
-                              'std-'+varname,])
-    ax[0].set_title(varname.rstrip('In'))
+    row = I.getName(zone).lstrip('PERFOS_')
+    figname = 'perfos_{}.pdf'.format(row)
 
-    ax[0].plot(v['IterationNumber'], v[varname], label=varname, color='k')
-    ax[0].plot(v['IterationNumber'], v['avg-'+varname],
-               label='average '+varname, color='k', linestyle='--')
+    fig, axes = plt.subplots(Nvars,2,figsize=(8.,8.),dpi=120, sharex=True)
 
-    ax[1].plot(v['IterationNumber'], v['std-'+varname],
-            label='std(%s)'%varname, color='k')
-    
-    if varname == 'MassflowIn':
-        varname = 'MassflowOut'
-        
-        v = J.getVars2Dict(t, ['IterationNumber', 
-                              varname,
-                              'avg-'+varname,
-                              'std-'+varname,])
+    if Nvars == 1: axes = [axes]
 
-        ax[0].plot(v['IterationNumber'], v[varname], label=varname, color='C0')
+    for varname, ax in zip(varnames, axes):
+        v = J.getVars2Dict(zone, ['IterationNumber',
+                                  varname,
+                                  'avg-'+varname,
+                                  'std-'+varname,])
+        ax[0].set_title('{} {}'.format(row, varname.rstrip('In')))
+
+        ax[0].plot(v['IterationNumber'], v[varname], label=varname, color='k')
         ax[0].plot(v['IterationNumber'], v['avg-'+varname],
-                   label='average '+varname, color='C0', linestyle='--')
+                   label='average '+varname, color='k', linestyle='--')
 
         ax[1].plot(v['IterationNumber'], v['std-'+varname],
-                label='std(%s)'%varname, color='C0')
+                label='std(%s)'%varname, color='k')
 
-    ax[1].set_yscale('log')
-    for a in ax:
-        a.set_xlabel('iteration')
-        a.legend(loc='best')
+        if varname == 'MassflowIn':
+            varname = 'MassflowOut'
 
-FlatListAxes = [i for j in axes for i in j]
-drawMinorGrid = True
-for ax in FlatListAxes:
-    minLocX = AutoMinorLocator()
-    ax.xaxis.set_minor_locator(minLocX)
-    ScaleType = ax.get_yscale()
-    if ScaleType == 'linear':
-        minLocY = AutoMinorLocator()
-        ax.yaxis.set_minor_locator(minLocY)
-    elif ScaleType == 'log':
-        locmaj = LogLocator(base=10.0,
-                            subs=(1.0, ),
-                            numticks=100)
-        ax.yaxis.set_major_locator(locmaj)
-        locmin = LogLocator(base=10.0,
-                            subs=np.arange(2, 10) * .1,
-                            numticks=100)
-        ax.yaxis.set_minor_locator(locmin)
-        # ax.yaxis.set_minor_formatter(NullFormatter())
-    ax.xaxis.grid(True, which='major') 
-    if drawMinorGrid:
-        ax.xaxis.grid(True, which='minor',linestyle=':') 
-    else:
-        ax.xaxis.grid(False, which='minor') 
+            v = J.getVars2Dict(zone, ['IterationNumber',
+                                  varname,
+                                  'avg-'+varname,
+                                  'std-'+varname,])
 
-plt.tight_layout()
-print('Saving %s%s%s ...'%(J.CYAN,figname,J.ENDC))
-plt.savefig(figname)
-print(J.GREEN+'ok'+J.ENDC)
+            ax[0].plot(v['IterationNumber'], v[varname], label=varname, color='C0')
+            ax[0].plot(v['IterationNumber'], v['avg-'+varname],
+                       label='average '+varname, color='C0', linestyle='--')
+
+            ax[1].plot(v['IterationNumber'], v['std-'+varname],
+                    label='std(%s)'%varname, color='C0')
+
+        ax[1].set_yscale('log')
+        for a in ax:
+            a.set_xlabel('iteration')
+            a.legend(loc='best')
+
+    FlatListAxes = [i for j in axes for i in j]
+    drawMinorGrid = True
+    for ax in FlatListAxes:
+        minLocX = AutoMinorLocator()
+        ax.xaxis.set_minor_locator(minLocX)
+        ScaleType = ax.get_yscale()
+        if ScaleType == 'linear':
+            minLocY = AutoMinorLocator()
+            ax.yaxis.set_minor_locator(minLocY)
+        elif ScaleType == 'log':
+            locmaj = LogLocator(base=10.0,
+                                subs=(1.0, ),
+                                numticks=100)
+            ax.yaxis.set_major_locator(locmaj)
+            locmin = LogLocator(base=10.0,
+                                subs=np.arange(2, 10) * .1,
+                                numticks=100)
+            ax.yaxis.set_minor_locator(locmin)
+            # ax.yaxis.set_minor_formatter(NullFormatter())
+        ax.xaxis.grid(True, which='major')
+        if drawMinorGrid:
+            ax.xaxis.grid(True, which='minor',linestyle=':')
+        else:
+            ax.xaxis.grid(False, which='minor')
+
+    plt.tight_layout()
+    print('Saving %s%s%s ...'%(J.CYAN,figname,J.ENDC))
+    plt.savefig(figname)
+    print(J.GREEN+'ok'+J.ENDC)
 plt.show()
