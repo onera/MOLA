@@ -184,6 +184,12 @@ def saveSurfaces(to, tagWithIteration=False, onlyWalls=True):
     '''
     Save the ``OUTPUT/surfaces.cgns`` file.
 
+    Extract:
+
+    *. Boundary Conditions
+    *. IsoSurfaces if the entry PostParameters is present in setup.py, else
+       do nothing
+
     Parameters
     ----------
 
@@ -198,21 +204,73 @@ def saveSurfaces(to, tagWithIteration=False, onlyWalls=True):
             if ``True``, only BC defined with ``BCWall*`` type are extracted.
             Otherwise, all BC (but not GridConnectivity) are extracted
     '''
+    to = I.renameNode(to, 'FlowSolution#Init', 'FlowSolution#Centers')
+    to = I.renameNode(to, 'FlowSolution#Height', 'FlowSolution') # BEWARE if there is already a FlowSolution node
     _reshapeBCDatasetNodes(to)
+    # Extraction of Boundary Conditions
     BCs = boundaryConditions2Surfaces(to, onlyWalls=onlyWalls)
-    _renameTooLongZones(BCs)
+    # Extractions of iso-surfaces
+    isosurf = extractIsoSurfaces(to)
+    # Merge of both trees
+    surfaces = I.merge([BCs, isosurf])
+    _renameTooLongZones(surfaces)
     try:
-        Cmpi._setProc(BCs,rank)
-        I._adaptZoneNamesForSlash(BCs)
+        Cmpi._setProc(surfaces, rank)
+        I._adaptZoneNamesForSlash(surfaces)
     except:
         pass
     Cmpi.barrier()
     printCo('saving surfaces', proc=0, color=CYAN)
     Cmpi.barrier()
-    Cmpi.convertPyTree2File(BCs, os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES))
+    Cmpi.convertPyTree2File(surfaces, os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES))
     printCo('surfaces saved OK', proc=0, color=GREEN)
     Cmpi.barrier()
     if tagWithIteration and rank == 0: copyOutputFiles(FILE_SURFACES)
+
+
+def extractIsoSurfaces(to):
+    '''
+    Extract IsoSurfaces in the PyTree <to>. The parametrization is done with the
+    entry PostParameters in setup.py, that must contain keys:
+
+    *. IsoSurfaces: a dictionary whose keys are variable names and values are
+        lists of associated levels.
+    *. Variables: a list of strings to compute extra variables on the extracted
+        surfaces.
+
+    .. note:: If PostParameters is not present in setup.py, or if both IsoSurfaces
+    and Variables are not present in PostParameters, then the function return an
+    empty PyTree.
+
+    Parameters
+    ----------
+
+        to : PyTree
+            Coupling tree as obtained from :py:func:`adaptEndOfRun`
+
+    Returns
+    -------
+
+        surfaces : PyTree
+            PyTree with extracted IsoSurfaces. There is one Base for each, with
+            the following naming convention : ISO_<Variable>_<Value>
+    '''
+    surfaces = I.newCGNSTree()
+    if not 'PostParameters' in dir(setup):
+        return surfaces
+    elif not ('IsoSurfaces' in setup.PostParameters.keys()
+                and 'Variables' in setup.PostParameters.keys()):
+        return surfaces
+    # EXTRACT ISO-SURFACES
+    pto = Cmpi.convert2PartialTree(to)
+    for varname, values in setup.PostParameters['IsoSurfaces'].items():
+        for value in values:
+            iso = P.isoSurfMC(pto, varname, value)
+            if iso != []:
+                P._computeVariables(iso, setup.PostParameters['Variables'])
+            base = I.newCGNSBase('ISO_{}_{}'.format(varname, value), 2, 3, parent=surfaces)
+            I.addChild(base, iso)
+    return surfaces
 
 
 def distributeAndSavePyTree(ListOfZones, filename, tagWithIteration=False):
@@ -435,7 +493,7 @@ def updateAndSaveLoads(to, loads, DesiredStatistics=['std-CL', 'std-CD'],
         _extendLoadsWithProjectedLoads(loads, IntegralDataName)
         _extendLoadsWithStatistics(loads, IntegralDataName, DesiredStatistics)
     if monitorMemory: addMemoryUsage2Loads(loads)
-        saveLoads(loads, tagWithIteration)
+    saveLoads(loads, tagWithIteration)
 
 def saveLoads(loads, tagWithIteration=False):
     '''
@@ -1192,7 +1250,7 @@ def moveCoordsFromEndOfRunToGridCoords(to):
 
 def boundaryConditions2Surfaces(to, onlyWalls=True):
     '''
-    Extract the BC data contained in the coupling tree as a list of CGNS zones.
+    Extract the BC data contained in the coupling tree as a PyTree.
 
     Parameters
     ----------
@@ -1208,23 +1266,27 @@ def boundaryConditions2Surfaces(to, onlyWalls=True):
     Returns
     -------
 
-        BCs : :py:class:`list` of zone
-            List of surfaces, including fields stored in FlowSolution containers
+        BCs : PyTree
+            PyTree with one base by BC Family. Include fields stored in
+            FlowSolution containers
     '''
     Cmpi.barrier()
     tR = I.renameNode(to, 'FlowSolution#Init', 'FlowSolution#Centers')
     DictBCNames2Type = C.getFamilyBCNamesDict(tR)
 
-    BCs = []
+    BCs = I.newCGNSTree()
     for FamilyName in DictBCNames2Type:
         BCType = DictBCNames2Type[FamilyName]
+        BC = None
         if onlyWalls:
             if 'wall' in BCType.lower():
                 BC = C.extractBCOfName(tR,'FamilySpecified:'+FamilyName)
-                BCs.extend(BC)
         else:
             BC = C.extractBCOfName(tR,'FamilySpecified:'+FamilyName)
-            BCs.extend(BC)
+        if BC:
+            base = I.newCGNSBase(FamilyName, 2, 3, parent=BCs)
+            for bc in BC:
+                I.addChild(base, bc)
 
     Cmpi.barrier()
 
