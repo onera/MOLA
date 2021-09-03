@@ -123,7 +123,7 @@ def getVars(zone, VariablesName, Container='FlowSolution'):
     Returns
     -------
         numpies : list of numpy.ndarray
-            If a variable is not found, ``None`` is returned by the function.
+            If a variable is not found, :py:obj:`None` is returned by the function.
 
     Examples
     --------
@@ -197,7 +197,7 @@ def getVars2Dict(zone,VariablesName,Container='FlowSolution'):
         VarsDict : dict
             Contains the numpy arrays as ``VarsDict[<FieldName>]``
 
-            .. note:: if a variable is not found, ``None`` is returned for such
+            .. note:: if a variable is not found, :py:obj:`None` is returned for such
                 occurrence.
 
     Examples
@@ -250,7 +250,7 @@ def invokeFields(zone, VariableNames, locationTag='nodes:'):
     Initializes the variables by the names provided as argument
     for the input zone. Returns the list of numpy arrays of such
     new created variables.
-    Exists also inplace :py:func:`_invokeFields` and returns ``None``.
+    Exists also inplace :py:func:`_invokeFields` and returns :py:obj:`None`.
 
     Parameters
     ----------
@@ -305,7 +305,7 @@ def invokeFieldsDict(zone,VariableNames,locationTag='nodes:'):
         VarsDict : dict
             Contains the numpy arrays as ``VarsDict[<FieldName>]``
 
-            .. note:: if a variable is not found, ``None`` is returned for such
+            .. note:: if a variable is not found, :py:obj:`None` is returned for such
                 occurrence.
     """
     # TODO: replace locationTag by general Container
@@ -939,7 +939,7 @@ def get2DQhullZone__(x,y,rescale=True):
             A vector containing all Y-values defining the scattered data
 
         rescale : bool
-            if ``True``, then rescales the data for computation of Qhull.
+            if :py:obj:`True`, then rescales the data for computation of Qhull.
 
     Returns
     -------
@@ -1020,7 +1020,7 @@ def sampleIn2DQhull__(x,y,QhullNPts=20,QhullScale=1.2, grading=0.1, rescale=True
             ``G.T3mesher2D``
 
         rescale : bool
-            if ``True``, then rescales the scatter data from which *Qhull*
+            if :py:obj:`True`, then rescales the scatter data from which *Qhull*
             is computed.
 
     Returns
@@ -1345,7 +1345,7 @@ def migrateFields(Donor, Receiver, keepMigrationDataForReuse=True,
             .. important:: **Receiver** is modified.
 
         keepMigrationDataForReuse : bool
-            if ``True``, special nodes ``.MigrationData``
+            if :py:obj:`True`, special nodes ``.MigrationData``
             are stored on **Receiver** zones so that migration can be further
             reused, for numerical efficiency. Otherwise, special nodes
             ``.MigrationData`` are destroyed.
@@ -1725,7 +1725,7 @@ def checkEmptyBC(t):
     -------
 
         hasEmpty : bool
-            ``True`` if **t** has at least one empty BC
+            :py:obj:`True` if **t** has at least one empty BC
     '''
     def isEmpty(emptyBC):
         if isinstance(emptyBC, list):

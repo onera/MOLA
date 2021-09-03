@@ -1,0 +1,997 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PropellerAnalysis &#8212; MOLA  documentation</title>
+    
+  <link href="_static/css/theme.css" rel="stylesheet" />
+  <link href="_static/css/index.c5995385ac14fb8791e8eb36b4908be2.css" rel="stylesheet" />
+
+    
+  <link rel="stylesheet"
+    href="_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    
+      
+
+    
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css" />
+    
+  <link rel="preload" as="script" href="_static/js/index.1c5a1a01449ed65a7b51.js">
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/clipboard.min.js"></script>
+    <script src="_static/copybutton.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Visu" href="Visu.html" />
+    <link rel="prev" title="LiftingLine" href="LiftingLine.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="en" />
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="80">
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+    <nav class="navbar navbar-light navbar-expand-lg bg-light fixed-top bd-navbar" id="navbar-main"><div class="container-xl">
+
+  <div id="navbar-start">
+    
+    
+<a class="navbar-brand" href="index.html">
+<p class="title">MOLA</p>
+</a>
+
+    
+  </div>
+
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar-collapsible" aria-controls="navbar-collapsible" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+
+  
+  <div id="navbar-collapsible" class="col-lg-9 collapse navbar-collapse">
+    <div id="navbar-center" class="mr-auto">
+      
+      <div class="navbar-center-item">
+        <ul id="navbar-main-elements" class="navbar-nav">
+    <li class="toctree-l1 current active nav-item">
+ <a class="reference internal nav-link" href="Modules.html">
+  Modules
+ </a>
+</li>
+
+    
+</ul>
+      </div>
+      
+    </div>
+
+    <div id="navbar-end">
+      
+      <div class="navbar-end-item">
+        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
+      </ul>
+      </div>
+      
+    </div>
+  </div>
+</div>
+    </nav>
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+            
+            <!-- Only show if we have sidebars configured, else just a small margin  -->
+            <div class="col-12 col-md-3 bd-sidebar"><form class="bd-search d-flex align-items-center" action="search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
+  <div class="bd-toc-item active">
+    <ul class="current nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="InternalShortcuts.html">
+   InternalShortcuts
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Wireframe.html">
+   Wireframe
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="GenerativeShapeDesign.html">
+   GenerativeShapeDesign
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="GenerativeVolumeDesign.html">
+   GenerativeVolumeDesign
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="RotatoryWings.html">
+   RotatoryWings
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Preprocess.html">
+   Preprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Coprocess.html">
+   Coprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Postprocess.html">
+   Postprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="WorkflowAirfoil.html">
+   WorkflowAirfoil
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="LiftingLine.html">
+   LiftingLine
+  </a>
+ </li>
+ <li class="toctree-l1 current active">
+  <a class="current reference internal" href="#">
+   PropellerAnalysis
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Visu.html">
+   Visu
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="XFoil.html">
+   XFoil
+  </a>
+ </li>
+</ul>
+
+  </div>
+</nav>
+            </div>
+            
+          
+
+          
+          <div class="d-none d-xl-block col-xl-2 bd-toc">
+            
+              
+              <div class="toc-item">
+                
+
+<nav id="bd-toc-nav">
+    
+</nav>
+              </div>
+              
+              <div class="toc-item">
+                
+              </div>
+              
+            
+          </div>
+          
+
+          
+          
+            
+          
+          <main class="col-12 col-md-9 col-xl-7 py-md-5 pl-md-5 pr-md-4 bd-content" role="main">
+              
+              <div>
+                
+  <div class="section" id="module-MOLA.PropellerAnalysis">
+<span id="propelleranalysis"></span><h1>PropellerAnalysis<a class="headerlink" href="#module-MOLA.PropellerAnalysis" title="Permalink to this headline">¶</a></h1>
+<p>MOLA - PropellerAnalysis.py</p>
+<p>PROPELLER ANALYSIS MODULE</p>
+<p>Collection of routines and functions designed for performing
+rapid Propeller Analysis.</p>
+<p>File history:
+23/05/2020 - v1.8 - L. Bernardos - Shipped to MOLA v1.8
+23/05/2020 - v1.7.06 - L. Bernardos - Added variable</p>
+<blockquote>
+<div><p>PitchIfTrimCommandIsRPM to computeBEMT Drela and Adkins.
+Bug corrected in Drela initialization.</p>
+</div></blockquote>
+<dl class="simple">
+<dt>15/05/2020 - v1.7.05 - L. Bernardos - Improved computePUMA()</dt><dd><p>attributes and computation loop.
+Adapted and enhanced Adkins BEMT algorithm and interface.</p>
+</dd>
+<dt>14/05/2020 - v1.7.04 - L. Bernardos - Included Span</dt><dd><p>Discretization law in computePUMA() arguments. Adapted
+convertLiftingLine2PUMABladeDef() for non-existing Sweep
+or Dihedral laws</p>
+</dd>
+<dt>13/05/2020 - v1.7.03 - L. Bernardos - Several interventions:</dt><dd><ul class="simple">
+<li><p>Back to local section Drela’s BEMT algorithm</p></li>
+<li><p>Better handling of OutOfRange values (structured)</p></li>
+<li><p>Improved blade-tip singularity handling</p></li>
+<li><p>Command for Trim may now be Pitch or RPM</p></li>
+</ul>
+</dd>
+<dt>04/05/2020 - v1.7.02 - L. Bernardos - Implemented beta-versions</dt><dd><p>of unsteady LiftingLines functions:
+buildPropeller
+prepareUnsteadyLiftingLine
+_setMotionConstantRPM
+_moveLiftingLines
+updateFrame
+_computeLocalVelocity
+_addPerturbationFields
+_computeLiftingLine3DLoads
+_updateLiftingLines
+_nextTimeStep
+buildBodyForceElement</p>
+</dd>
+<dt>02/05/2020 - v1.7.01 - L. Bernardos - Added .Component#Info node</dt><dd><p>including kind=’LiftingLine’ child in buildLiftingLine().
+Solved OutOfRange bug in RbfInterpolator.</p>
+</dd>
+</dl>
+<p>19/04/2020 - v1.7 - L. Bernardos - Shipped to MOLA v1.7
+12/04/2020 - v1.6.12 - L. Bernardos - Improved trim option.</p>
+<blockquote>
+<div><p>replaced buildLiftLine() name by buildLiftingLine()</p>
+</div></blockquote>
+<dl class="simple">
+<dt>11/04/2020 - v1.6.11 - L. Bernardos - Added trim option at</dt><dd><p>Drela algorithm. Added direct design BEMT function.
+Added LL.resetPitch. Improved designAdkins.
+Major changes in BEMT interface (buildInterpolators as
+input; set/get for flight conditions, and so on)</p>
+</dd>
+<dt>07/04/2020 - v1.6.10 - L. Bernardos - Added plotOperatingRanges</dt><dd><p>improved getPolarOperatingRanges.</p>
+</dd>
+<dt>06/04/2020 - v1.6.09 - L. Bernardos - Merged improved Drela</dt><dd><p>algorithm.</p>
+</dd>
+<dt>05/04/2020 - v1.6.08 - L. Bernardos - Added functions</dt><dd><p>kinematicReynoldsAndMach() and getPolarOperatingRanges()</p>
+</dd>
+<dt>01/04/2020 - v1.6.07 - L. Bernardos - Replaced DictOfEquations</dt><dd><p>by ListOfEquations strategy</p>
+</dd>
+<dt>01/04/2020 - v1.6.06 - L. Bernardos - BUG corrected in</dt><dd><p>DictOfEquations application.</p>
+</dd>
+<dt>30/03/2020 - v1.6.05 - L. Bernardos - BUG corrected in span</dt><dd><p>attribute of buildLiftLine(). First functional
+prototype of postLiftingLine2Surface(). Some private
+functions included.</p>
+</dd>
+<dt>27/03/2020 - v1.6.04 - L. Bernardos - BUG corrected for</dt><dd><p>OutOfRangeValues handling of extractorFromPyZonePolar</p>
+</dd>
+<dt>25/03/2020 - v1.6.03 - L. Bernardos - designAdkins() output</dt><dd><p>modified. Returns dictionary instead of Lifting Line.
+Modified output of BEMT analysis Drela, Adkins and Heene.</p>
+</dd>
+<dt>25/03/2020 - v1.6.02 - L. Bernardos - BEMT Pitch is reset</dt><dd><p>at its original position at the end of BEMT computation.
+Added computeBEMT() macro-function.</p>
+</dd>
+<dt>06/02/2020 - v1.6.01 - L. Bernardos - Enhanced user Error handling</dt><dd><p>when calling buildLiftLine()</p>
+</dd>
+<dt>27/01/2020 - v1.5.03 - L. Bernardos - Bug fixes on BEMT variables</dt><dd><p>initializations.</p>
+</dd>
+<dt>20/01/2020 - v1.5.02 - L. Bernardos - Major modifications in terms</dt><dd><p>of the Sweep and Dihedral representation.</p>
+</dd>
+<dt>17/12/2019 - v1.5.01 - L. Bernardos - Support different values</dt><dd><p>of BigAngleOfAttack for each Cl, Cd, Cm values of HOST file.
+Implementation of Analytical polars for BEMT.</p>
+</dd>
+</dl>
+<p>05/12/2019 - v1.5 - L. Bernardos - Shipped to MOLA v1.5
+13/11/2019 - v1.4.02 - L. Bernardos - General bug corrections
+13/11/2019 - v1.4.01 - L. Bernardos - Bug correction on</p>
+<blockquote>
+<div><p>computePUMA()</p>
+</div></blockquote>
+<p>08/11/2019 - v1.4 - L. Bernardos - Shipped to MOLA v1.4
+06/11/2019 - v1.3.01 - L. Bernardos - Module adapted to</p>
+<blockquote>
+<div><p>Python v3.</p>
+</div></blockquote>
+<p>30/10/2019 - v1.3 - L. Bernardos - Shipped to MOLA v1.3
+- Untracked modifications (TODO: Track modifications)
+03/10/2019 - v1.2 - L. Bernardos - Shipped to MOLA v1.2
+19/07/2019 - L. Bernardos - Creation</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.PropellerAnalysis.TipLossFactor">
+<span class="sig-prename descclassname"><span class="pre">MOLA.PropellerAnalysis.</span></span><span class="sig-name descname"><span class="pre">TipLossFactor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">NBlades</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Velocity</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Omega</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Rmax</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kind</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Adkins'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.PropellerAnalysis.TipLossFactor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the tip loss factor, F, for use with Blade Element Theory code.</p>
+<div class="admonition hint">
+<p class="admonition-title">Hint</p>
+<p>all input parameters may be arrays of the same length, in this
+case the returned value is also an array</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>NBlades</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – Number of Blades</p></li>
+<li><p><strong>Velocity</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Advance velocity [m/s]</p></li>
+<li><p><strong>Omega</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Rotation velocity [rad / s]</p></li>
+<li><p><strong>phi</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Geometric flow angle [rad]</p></li>
+<li><p><strong>r</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – section Radius [m]</p></li>
+<li><p><strong>Rmax</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Blade tip radius [m]</p></li>
+<li><p><strong>kind</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>May be one of:</p>
+<ul>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">&quot;Adkins&quot;</span></code></dt><dd><p><span class="math notranslate nohighlight">\(\frac{2}{\pi} \arccos{\left(\exp{-\frac{(1-\frac{r}{R}) N_b/2}{\frac{r}{R}\tan{\phi}}}\right)}\)</span></p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">&quot;Glauert&quot;</span></code></dt><dd><p><span class="math notranslate nohighlight">\(\frac{2}{\pi} \arccos{\left(\exp{-\frac{(1-\frac{r}{R}) N_b/2}{\frac{r}{R}\sin{\phi}}}\right)}\)</span></p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">&quot;Prandtl&quot;</span></code></dt><dd><p><span class="math notranslate nohighlight">\(\frac{2}{\pi} \arccos{\left(\exp{-(1-\frac{r}{R}) N_b/2} \sqrt{1 - (\frac{\Omega r}{V})^2} \right)}\)</span></p>
+</dd>
+</dl>
+</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>we recommend <code class="docutils literal notranslate"><span class="pre">&quot;Adkins&quot;</span></code> formulation, which is more
+appropriate for highly-loaded propellers, as discussed by
+<a class="reference external" href="https://www.google.com/url?sa=t&amp;rct=j&amp;q=&amp;esrc=s&amp;source=web&amp;cd=&amp;ved=2ahUKEwiplIKBsODyAhXViVwKHaeAAcMQFnoECAUQAQ&amp;url=http%3A%2F%2Fweb.mit.edu%2Fdrela%2FPublic%2Fweb%2Fqprop%2Fqprop_theory.pdf&amp;usg=AOvVaw2pOfpH6zAeAbDA94_XElRg">Mark Drela</a>.</p>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>F</strong> – Tip loss factor</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)">float</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.PropellerAnalysis.buildQpropFile">
+<span class="sig-prename descclassname"><span class="pre">MOLA.PropellerAnalysis.</span></span><span class="sig-name descname"><span class="pre">buildQpropFile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">LiftingLine</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">PyZonePolars</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">OutputQpropFilename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'prop.qprop'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NBlades</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Velocity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">27.77</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RPM</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Temperature</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">303.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.89425</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">LinearFitAoACLmaxFactor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">REexps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-</span> <span class="pre">0.7,</span> <span class="pre">-</span> <span class="pre">0.5)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RElow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100000.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.PropellerAnalysis.buildQpropFile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Build a Drela’s Qprop-compliant propeller file based on
+a LiftingLine and PyZonePolar objects.</p>
+<p>In order to produce Qprop-compliant airfoil’s polar
+information, the user shall provide a reference flight
+condition (advance Velocity, RPM, Temperature, Density)
+so that (Reynolds, Mach) can be calculated and used
+as reference for the Qprop’s analytical fit at each
+required section.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>LiftingLine</strong> (<em>zone</em>) – liftin-line object</p></li>
+<li><p><strong>PyZonePolars</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><em>list</em></a>) – list of CGNS zone containing 2D polars</p></li>
+<li><p><strong>OutputQpropFilename</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – output file name of qprop</p></li>
+<li><p><strong>NBlades</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – number of blades</p></li>
+<li><p><strong>Velocity</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – advance velocity (m/s)</p></li>
+<li><p><strong>RPM</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – rotation speed of the propeller (revolutions per minute)</p></li>
+<li><p><strong>Temperature</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Temperature of air (Kelvin)</p></li>
+<li><p><strong>Density</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Density of air (kg /m3)</p></li>
+<li><p><strong>LinearFitAoACLmaxFactor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – maximum value of CL to consider for linear fitting of <span class="math notranslate nohighlight">\(c_L(\alpha)\)</span>
+linear function employed by QProp</p></li>
+<li><p><strong>REexps</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of 2 <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – Employ first Reynolds exponent if Reynolds is  less than <strong>RElow</strong>,
+or employ second Reynolds exponent otherwise</p></li>
+<li><p><strong>RElow</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – determine the threshold of usage of <strong>REexps</strong></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>None</strong> – write qprop file named after <strong>OutputQpropFilename</strong></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)">None</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.PropellerAnalysis.computeAxialLoads">
+<span class="sig-prename descclassname"><span class="pre">MOLA.PropellerAnalysis.</span></span><span class="sig-name descname"><span class="pre">computeAxialLoads</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">LiftingLine</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">VariablesDict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ConditionsDict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.PropellerAnalysis.computeAxialLoads" title="Permalink to this definition">¶</a></dt>
+<dd><div class="admonition danger">
+<p class="admonition-title">Danger</p>
+<p>THIS FUNCTION IS BEING DEPRECATED, PLEASE USE:
+<a class="reference internal" href="LiftingLine.html#MOLA.LiftingLine.computeGeneralLoadsOfLiftingLine" title="MOLA.LiftingLine.computeGeneralLoadsOfLiftingLine"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.LiftingLine.computeGeneralLoadsOfLiftingLine()</span></code></a> instead</p>
+</div>
+<p>If <strong>LiftingLine</strong> object is provided, then the arguments
+<strong>VariablesDict</strong> and <strong>ConditionsDict</strong> are IGNORED.
+In this case, Integral data is also stored in the LiftingLine
+object in <code class="docutils literal notranslate"><span class="pre">.Loads</span></code> node.</p>
+<p><strong>LiftingLine</strong> object may be omitted if BOTH <strong>VariablesDict</strong>
+and <strong>ConditionsDict</strong> are provided (useful for numerical
+performance)</p>
+<p>If <strong>VariablesDict</strong> is provided, it must contain:
+<code class="docutils literal notranslate"><span class="pre">['VelocityMagnitudeLocal','phiRad',</span> <span class="pre">'Span',</span> <span class="pre">'Chord',</span> <span class="pre">'Cl',</span> <span class="pre">'Cd',</span> <span class="pre">'dFx',</span> <span class="pre">'dMx']</span></code></p>
+<p>If <strong>ConditionsDict</strong> is provided, it must contain:
+<code class="docutils literal notranslate"><span class="pre">['Density',</span> <span class="pre">'NBlades',</span> <span class="pre">'RPM']</span></code></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.PropellerAnalysis.computeBEMT">
+<span class="sig-prename descclassname"><span class="pre">MOLA.PropellerAnalysis.</span></span><span class="sig-name descname"><span class="pre">computeBEMT</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">LiftingLine</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">PolarsInterpolatorDict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Adkins'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">LiftingLineInterpolator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NBlades</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Velocity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RPM</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Temperature</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ListOfEquations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TipLosses</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Adkins'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Constraint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Pitch'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ConstraintValue</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ValueTol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AttemptCommandGuess</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[[0.0,</span> <span class="pre">25.0],</span> <span class="pre">[5.0,</span> <span class="pre">40.0]]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">CommandType</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Pitch'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">PitchIfTrimCommandIsRPM</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">FailedAsNaN</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.PropellerAnalysis.computeBEMT" title="Permalink to this definition">¶</a></dt>
+<dd><div class="admonition danger">
+<p class="admonition-title">Danger</p>
+<p>this function is beeing DEPRECATED. Please use:
+<a class="reference internal" href="#MOLA.PropellerAnalysis.computeBEMTaxial3D" title="MOLA.PropellerAnalysis.computeBEMTaxial3D"><code class="xref py py-func docutils literal notranslate"><span class="pre">computeBEMTaxial3D()</span></code></a> function instead.</p>
+<p>In future, both functions will be totally merged.</p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.PropellerAnalysis.computeBEMTaxial3D">
+<span class="sig-prename descclassname"><span class="pre">MOLA.PropellerAnalysis.</span></span><span class="sig-name descname"><span class="pre">computeBEMTaxial3D</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">LiftingLine</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">PolarsInterpolatorDict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NBlades</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Velocity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0.0,</span> <span class="pre">0.0,</span> <span class="pre">0.0]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RPM</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Temperature</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RotationCenter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0.0,</span> <span class="pre">0.0,</span> <span class="pre">0.0]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RotationAxis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0.0,</span> <span class="pre">0.0,</span> <span class="pre">1.0]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RightHandRuleRotation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Heene'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ListOfEquations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TipLosses</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Adkins'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Constraint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Pitch'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ConstraintValue</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ValueTol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AttemptCommandGuess</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[[0.0,</span> <span class="pre">25.0],</span> <span class="pre">[5.0,</span> <span class="pre">40.0]]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">CommandType</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Pitch'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">PitchIfTrimCommandIsRPM</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">FailedAsNaN</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.PropellerAnalysis.computeBEMTaxial3D" title="Permalink to this definition">¶</a></dt>
+<dd><p>Theory reference document : <a class="reference external" href="https://www.google.com/url?sa=t&amp;rct=j&amp;q=&amp;esrc=s&amp;source=web&amp;cd=&amp;cad=rja&amp;uact=8&amp;ved=2ahUKEwjb9pWhquDyAhWfQkEAHXJkDKYQFnoECAUQAQ&amp;url=http%3A%2F%2Fkth.diva-portal.org%2Fsmash%2Fget%2Fdiva2%3A559083%2FFULLTEXT01.pdf&amp;usg=AOvVaw3HEbEZVJfHL1tCtLg2AYim">Mario Heene’s Master Thesis</a>.
+Governing equations are (2.38) and (2.39).</p>
+<p>Perform a blade-element momentum-theory (BEMT) computation of a propeller
+flying in axial flight.</p>
+<p>Returns a dictionary of integral loads.</p>
+<p>Updates relevant spanwise quantities on LiftingLine zone.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>LiftingLine</strong> (<em>zone</em>) – Lifting-line modeling the blades of the propeller.
+The LiftingLine is modified.</p></li>
+<li><p><strong>PolarsInterpolatorDict</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – dictionary of interpolator functions of 2D polars, as obtained from
+<a class="reference internal" href="LiftingLine.html#MOLA.LiftingLine.buildPolarsInterpolatorDict" title="MOLA.LiftingLine.buildPolarsInterpolatorDict"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.LiftingLine.buildPolarsInterpolatorDict()</span></code></a> function.</p></li>
+<li><p><strong>NBlades</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – number of blades of the propeller</p></li>
+<li><p><strong>Velocity</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of 3 <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – <p>Velocity components.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>in current implementation, <strong>Velocity</strong> <em>must be</em>
+aligned with <strong>RotationAxis</strong>.</p>
+</div>
+<div class="admonition hint">
+<p class="admonition-title">Hint</p>
+<p>for canonical placement of LiftingLine, use:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">Velocity</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="n">Value</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</p></li>
+<li><p><strong>RPM</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – rotational speed of the propeller [rev / minute]</p></li>
+<li><p><strong>Density</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – air density [kg/m3]</p></li>
+<li><p><strong>Temperature</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – air temperature [K]</p></li>
+<li><p><strong>RotationCenter</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of 3 <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – coordinates of the rotation point [m] in math:<cite>(x,y,z)</cite></p></li>
+<li><p><strong>RotationAxis</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of 3 <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – unitary vector pointing towards the rotation axis (which is the
+desired direction of thrust).</p></li>
+<li><p><strong>RightHandRuleRotation</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, propeller rotates around <strong>RotationAxis</strong>
+following the right-hand-rule rotation. <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a> otherwise.</p></li>
+<li><p><strong>model</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>currently, only <code class="docutils literal notranslate"><span class="pre">'Heene'</span></code> model is available.</p>
+</div>
+</p></li>
+<li><p><strong>ListOfEquations</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – converter-compatible equations to be applied
+after each lifting-line’s polar interpolation operation.</p></li>
+<li><p><strong>TipLosses</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>the model of tip-losses. Can be one of:
+<code class="docutils literal notranslate"><span class="pre">'Adkins'</span></code>, <code class="docutils literal notranslate"><span class="pre">'Glauert'</span></code> or <code class="docutils literal notranslate"><span class="pre">'Prandtl'</span></code>.</p>
+<div class="admonition hint">
+<p class="admonition-title">Hint</p>
+<p>we recommend <code class="docutils literal notranslate"><span class="pre">'Adkins'</span></code>.</p>
+</div>
+</p></li>
+<li><p><strong>Constraint</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – can be <code class="docutils literal notranslate"><span class="pre">'Thrust'</span></code>, <code class="docutils literal notranslate"><span class="pre">'Power'</span></code> or <code class="docutils literal notranslate"><span class="pre">'Pitch'</span></code>.</p></li>
+<li><p><strong>ConstraintValue</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – value of the constraint to be verified <em>(dimensions are contextual)</em></p></li>
+<li><p><strong>ValueTol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – threshold tolerance for determining if Trim condition
+is satisfied with respect to <strong>ConstraintValue</strong>.</p></li>
+<li><p><strong>AttemptCommandGuess</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of 2-<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a> lists) – <p>each item of the list establishes the pairs of minimum and maximum
+boundaries of trim command.
+Each item is a command guess. In case of failure, the next candidate is
+tested and so on.</p>
+<div class="admonition hint">
+<p class="admonition-title">Hint</p>
+<p>use as many different lists of <code class="docutils literal notranslate"><span class="pre">[min,</span> <span class="pre">max]</span></code> as the number
+of trials for reaching the requested trimmed condition</p>
+</div>
+</p></li>
+<li><p><strong>CommandType</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – can be <code class="docutils literal notranslate"><span class="pre">'Pitch'</span></code> or <code class="docutils literal notranslate"><span class="pre">'RPM'</span></code></p></li>
+<li><p><strong>PitchIfTrimCommandIsRPM</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – if <strong>CommandType</strong> is <code class="docutils literal notranslate"><span class="pre">'RPM'</span></code> and <strong>Constraint</strong> is not <code class="docutils literal notranslate"><span class="pre">'Pitch'</span></code>,
+then this argument sets the employed pitch.</p></li>
+<li><p><strong>FailedAsNaN</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, if trim fails, then returns <code class="docutils literal notranslate"><span class="pre">NaN</span></code> values as
+integral loads</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>DictOfIntegralData</strong> – contains the integral loads of the propeller</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.PropellerAnalysis.computePUMA">
+<span class="sig-prename descclassname"><span class="pre">MOLA.PropellerAnalysis.</span></span><span class="sig-name descname"><span class="pre">computePUMA</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">NBlades</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Velocity</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RPM</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Temperature</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Density</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Constraint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Thrust'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ConstraintValue</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">PerturbationField</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">PrescribedWake</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">FroudeVelocity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Restart</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">GeomBladeFile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'GeomBlade.py'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">PUMADir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'PUMADir'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Spinner</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ExtractVolume</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">SpanDiscretization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">StopDeltaTtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">saveKimFiles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AdvancedOptions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'AdvanceRatioHoverLim':</span> <span class="pre">0.01,</span> <span class="pre">'BoundMach':</span> <span class="pre">0.95,</span> <span class="pre">'Boundaries':</span> <span class="pre">[False,</span> <span class="pre">True],</span> <span class="pre">'Dpsi':</span> <span class="pre">10.0,</span> <span class="pre">'InitialPitch':</span> <span class="pre">0.0,</span> <span class="pre">'MaximumNrevs':</span> <span class="pre">10.0,</span> <span class="pre">'MinimumRevsAfterWakeRevs':</span> <span class="pre">5.0,</span> <span class="pre">'NbSections':</span> <span class="pre">None,</span> <span class="pre">'ReynoldsFormula':</span> <span class="pre">'Cd=Cd*(%f/%f)**(-0.11)',</span> <span class="pre">'WakeRevs':</span> <span class="pre">5.0}</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.PropellerAnalysis.computePUMA" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is a macro-function used for making a simple isolated propeller PUMA
+simulation in axial flight.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>NBlades</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – number of blades of the propeller</p></li>
+<li><p><strong>Velocity</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – axial advancing velocity of the propeller [m/s]</p></li>
+<li><p><strong>RPM</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – rotational speed of the propeller [revolutions per minute]</p></li>
+<li><p><strong>Temperature</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – external air temperature [K]</p></li>
+<li><p><strong>Density</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – air density [kg / m3]</p></li>
+<li><p><strong>Constraint</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – one of: <code class="docutils literal notranslate"><span class="pre">'Thrust'</span></code>, <code class="docutils literal notranslate"><span class="pre">'Power'</span></code> or <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>. Specifies the
+trim constraint</p></li>
+<li><p><strong>ConstraintValue</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – if trim <strong>Constraint</strong> type is provided, then this
+argument specifies its value.</p></li>
+<li><p><strong>PerturbationField</strong> (zone or <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – zone containing <code class="docutils literal notranslate"><span class="pre">VelocityX</span></code>, <code class="docutils literal notranslate"><span class="pre">VelocityY</span></code> and <code class="docutils literal notranslate"><span class="pre">VelocityZ</span></code>
+perturbation fields or None if no perturbation is imposed</p></li>
+<li><p><strong>PrescribedWake</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, wake is not free, but prescribed.</p></li>
+<li><p><strong>FroudeVelocity</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, Froude velocity is computed. This
+shall be set to <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> if <strong>PrescribedWake</strong> == <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>
+for consistency.</p></li>
+<li><p><strong>Restart</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – <p>If <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, restart from fields <code class="docutils literal notranslate"><span class="pre">Restart.plt</span></code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>this feature is bugged in PUMA in its last tested version</p>
+</div>
+</p></li>
+<li><p><strong>GeomBladeFile</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – name of the file containing blade geometry of PUMA</p></li>
+<li><p><strong>PUMADir</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – name of the compute directory of PUMA</p></li>
+<li><p><strong>Spinner</strong> (<a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, zone or <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – <ul>
+<li><p>if <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, then no spinner modeling</p></li>
+<li><p>if zone, then use provided surface for modeling spinner</p></li>
+<li><dl class="simple">
+<dt>if <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, then it can be <code class="docutils literal notranslate"><span class="pre">'Standard'</span></code>, then a default</dt><dd><p>spinner is constructed</p>
+</dd>
+</dl>
+</li>
+</ul>
+</p></li>
+<li><p><strong>ExtractVolume</strong> (<a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, zone or <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – <ul>
+<li><p>if <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, then no volume data is extracted</p></li>
+<li><p>if zone, then use provided zone for extracting volume fields</p></li>
+<li><p>if <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> then it can be one of:</p>
+<blockquote>
+<div><ul class="simple">
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">&quot;cartesian2D&quot;</span></code></dt><dd><p>use a default 2D cartesian surface</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">&quot;cartesian3D&quot;</span></code></dt><dd><p>use a default 3D cartesian block</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">&quot;cylinder&quot;</span></code></dt><dd><p>use a default 3D cylinder</p>
+</dd>
+</dl>
+</li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</p></li>
+<li><p><strong>SpanDiscretization</strong> (<a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> or <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – kind of discretization law for blades <code class="docutils literal notranslate"><span class="pre">'sqrt'</span></code> or <code class="docutils literal notranslate"><span class="pre">'linear'</span></code></p></li>
+<li><p><strong>StopDeltaTtol</strong> (<a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> or <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – if provided, sets the threshold difference
+of thrust used to determine if convergence is reached [N]</p></li>
+<li><p><strong>saveKimFiles</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, save <code class="docutils literal notranslate"><span class="pre">kim.geom</span></code> and kim.autre files</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>DictOfIntegralData</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – dictionary including predictions</p></li>
+<li><p><strong>Prop.Loads.Data</strong> (<em>PUMA object</em>)</p></li>
+<li><p><strong>SectionalLoadsLL</strong> (<em>PUMA object</em>)</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.PropellerAnalysis.computeQprop">
+<span class="sig-prename descclassname"><span class="pre">MOLA.PropellerAnalysis.</span></span><span class="sig-name descname"><span class="pre">computeQprop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">QpropFile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Velocity</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Pitch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RPM</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Thrust</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Power</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Temperature</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">288.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.225</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">QpropExecutable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/home/lbernard/Outils/Qprop/bin/qprop'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.PropellerAnalysis.computeQprop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Launch Qprop computation based on provided QpropFile,
+(see <a class="reference internal" href="#MOLA.PropellerAnalysis.buildQpropFile" title="MOLA.PropellerAnalysis.buildQpropFile"><code class="xref py py-func docutils literal notranslate"><span class="pre">buildQpropFile()</span></code></a> function to know how to generate
+the file) and operating conditions. Possible inputs are
+as expected by Qprop:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">qprop</span> <span class="n">propfile</span> <span class="n">motorfile</span> <span class="n">Vel</span> <span class="n">Rpm</span> <span class="p">[</span> <span class="n">Volt</span> <span class="n">dBeta</span> <span class="n">Thrust</span> <span class="n">Torque</span> <span class="n">Amps</span> <span class="n">Pele</span> <span class="p">]</span>
+</pre></div>
+</div>
+<p>This means that <strong>Velocity</strong> and <strong>Pitch</strong> arguments shall
+<em>ALWAYS</em> be specified by user. However, the rest of
+variables are optional, and Qprop will attempt to find
+a mechanical equilibrium if at least one of (<strong>RPM</strong>, <strong>Thrust</strong> or
+<strong>Power</strong>) is also specified.</p>
+<p>Note that Motor parameters is not implemented, so
+motorfile, <em>Volt</em>, <em>Amps</em> and <em>Pele</em> are never used.</p>
+<p>Note that for the moment only single-point computations are possible.
+Multi-point behavior can be mimicked by using this function inside a loop.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Velocity</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Velocity of advance of propeller (m/s)</p></li>
+<li><p><strong>Pitch</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Pitch angle (degrees)</p></li>
+<li><p><strong>RPM</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a> or <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Rotational speed in rev / minute</p></li>
+<li><p><strong>Thrust</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a> or <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Required Thrust (N)</p></li>
+<li><p><strong>Power</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a> or <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Required Power (W)</p></li>
+<li><p><strong>Temperature</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Temperature (Kelvin)</p></li>
+<li><p><strong>Density</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Air density (kg / m^3)</p></li>
+<li><p><strong>QpropExecutable</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Location of qprop executable</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>Result</strong> – To be printed or post-processed with <a class="reference internal" href="#MOLA.PropellerAnalysis.extractQprop" title="MOLA.PropellerAnalysis.extractQprop"><code class="xref py py-class docutils literal notranslate"><span class="pre">extractQprop</span></code></a> function</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.PropellerAnalysis.designDirectBEMT">
+<span class="sig-prename descclassname"><span class="pre">MOLA.PropellerAnalysis.</span></span><span class="sig-name descname"><span class="pre">designDirectBEMT</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">LiftingLine</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">PolarsInterpolatorsDict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">LiftingLineInterpolator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NBlades</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Velocity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RPM</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Temperature</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ListOfEquations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TipLosses</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Adkins'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Constraint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Thrust'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ConstraintValue</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Objective</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'PropulsiveEfficiency'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ChordPairs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TwistPairs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'L-BFGS-B'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">OptimOptions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AttemptCommandGuess</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[[5.0,</span> <span class="pre">15.0],</span> <span class="pre">[0.0,</span> <span class="pre">20.0],</span> <span class="pre">[0.0,</span> <span class="pre">25.0],</span> <span class="pre">[0.0,</span> <span class="pre">30.0]]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ValueTol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AcceptableTol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TwistScale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">makeOnlyInitialGuess</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stdout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.PropellerAnalysis.designDirectBEMT" title="Permalink to this definition">¶</a></dt>
+<dd><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>this function is experimental. Poor convergence rates has been
+obtained using scipy’s optimizers.</p>
+</div>
+<p><strong>ChordPairs</strong> and <strong>TwistPairs</strong> are <span class="math notranslate nohighlight">\(2 \times Nparam\)</span> numpy arrays.
+The second row stands for the relative span position
+and the first row stands for its corresponding value.
+E.g :</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ChordPairs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">],</span>  <span class="c1"># VALUES</span>
+                       <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]])</span> <span class="c1"># REL SPAN POSIT.</span>
+</pre></div>
+</div>
+<p>means that Chord distribution has 2 parameters,
+located at <span class="math notranslate nohighlight">\(r/R=0.1\)</span> whith initial value of
+<span class="math notranslate nohighlight">\(c=0.2\)</span>, and the other one located at blade tip <span class="math notranslate nohighlight">\(r/R=1\)</span>
+with initial value of <span class="math notranslate nohighlight">\(c=0.1\)</span>.</p>
+<p>bounds is a tuple of tuples. Each tuple is a two-float
+standing for the minimum and maximum value of each design
+parameter.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.PropellerAnalysis.designPropellerAdkins">
+<span class="sig-prename descclassname"><span class="pre">MOLA.PropellerAnalysis.</span></span><span class="sig-name descname"><span class="pre">designPropellerAdkins</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">LiftingLine</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">PolarsInterpolatorDict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NBlades</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Velocity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RPM</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Temperature</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TipLosses</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Adkins'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ListOfEquations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Constraint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Thrust'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ConstraintValue</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AirfoilAim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'maxClCd'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AimValue</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AoASearchBounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-</span> <span class="pre">2,</span> <span class="pre">8)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">SmoothAoA</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">itMaxAoAsearch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.PropellerAnalysis.designPropellerAdkins" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function performs a minimum induced loss design of a propeller
+in axial flight conditions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>LiftingLine</strong> (<em>zone</em>) – <p>lifting-line used for design (values of chord and
+twist can be arbitrary).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>this <strong>LiftingLine</strong> will be modified as a result of design</p>
+</div>
+</p></li>
+<li><p><strong>PolarsInterpolatorDict</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – dictionary of interpolator functions of 2D polars, as obtained from
+<a class="reference internal" href="LiftingLine.html#MOLA.LiftingLine.buildPolarsInterpolatorDict" title="MOLA.LiftingLine.buildPolarsInterpolatorDict"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.LiftingLine.buildPolarsInterpolatorDict()</span></code></a></p></li>
+<li><p><strong>NBlades</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – the number of blades of the design candidate</p></li>
+<li><p><strong>Velocity</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – the advance velocity of the propeller [m/s]</p></li>
+<li><p><strong>RPM</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – the rotational velocity of the propeller [rev / minute]</p></li>
+<li><p><strong>Temperature</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – the air temperature [K]</p></li>
+<li><p><strong>Density</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – the air density [kg / m3]</p></li>
+<li><p><strong>TipLosses</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>the model of tip-losses. Can be one of:
+<code class="docutils literal notranslate"><span class="pre">'Adkins'</span></code>, <code class="docutils literal notranslate"><span class="pre">'Glauert'</span></code> or <code class="docutils literal notranslate"><span class="pre">'Prandtl'</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>we recommend using <code class="docutils literal notranslate"><span class="pre">'Adkins'</span></code>.</p>
+</div>
+</p></li>
+<li><p><strong>ListOfEquations</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <code class="xref py py-func docutils literal notranslate"><span class="pre">Converter.PyTree.initVars()</span></code>-compatible equations to be applied
+after each lifting-line’s polar interpolation operation.</p></li>
+<li><p><strong>Constraint</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – constraint type for the optimization. Can be: <code class="docutils literal notranslate"><span class="pre">'Thrust'</span></code> or <code class="docutils literal notranslate"><span class="pre">'Power'</span></code></p></li>
+<li><p><strong>ConstraintValue</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – the value of the constraint for the design</p></li>
+<li><p><strong>Aim</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>can be one of:</p>
+<ul>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">'Cl'</span></code></dt><dd><p>aims a given <code class="docutils literal notranslate"><span class="pre">Cl</span></code>, <span class="math notranslate nohighlight">\(c_l\)</span> , value (provided by argument <strong>AimValue</strong>)
+throughout the entire lifting line</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">'minCd'</span></code></dt><dd><p>aims the minimum <code class="docutils literal notranslate"><span class="pre">Cd</span></code>, <span class="math notranslate nohighlight">\(\min(c_d)\)</span> , value</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">'maxClCd'</span></code></dt><dd><p>aims the maximum aero efficiency <span class="math notranslate nohighlight">\(\max(c_l/c_d)\)</span> value</p>
+</dd>
+</dl>
+</li>
+</ul>
+</p></li>
+<li><p><strong>AimValue</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Specifies the aimed value for corresponding relevant <strong>Aim</strong> types
+(e.g. <code class="docutils literal notranslate"><span class="pre">'Cl'</span></code>).</p></li>
+<li><p><strong>AoASearchBounds</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a> of 2 <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – As there may exist multiple AoA values
+verifying the requested conditions, this argument constraints the
+research interval of angle-of-attack of valid candidates.</p></li>
+<li><p><strong>SmoothAoA</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – <p>if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, perform a post-smoothing of angle of
+attack spanwise distribution after optimization.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>this is useful in order to avoid “shark-teeth” shaped
+distribution.</p>
+</div>
+</p></li>
+<li><p><strong>itMaxAoAsearch</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – maximum number of iterations allowed for reaching the desired AoA
+distribution type</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p><strong>DictOfIntegralData</strong> – dictionary containing LiftingLine loads.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>for design result, please refer to input argument
+<strong>LiftingLine</strong>, which is modified (<code class="docutils literal notranslate"><span class="pre">Chord</span></code> and <code class="docutils literal notranslate"><span class="pre">Twist</span></code>
+values are updated).</p>
+</div>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.PropellerAnalysis.designPropellerPatterson">
+<span class="sig-prename descclassname"><span class="pre">MOLA.PropellerAnalysis.</span></span><span class="sig-name descname"><span class="pre">designPropellerPatterson</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">LiftingLine</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NBlades</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Velocity</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RPM</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">PyZonePolars</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Temperature</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">288.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.225</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TipLosses</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Adkins'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RadiusCoordinate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'x'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Constraint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Thrust'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ConstraintValue</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">OptionalStep1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">OptionalStep2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MaximumChangeTangentialFactor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AirfoilAim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'maxClCd'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AimValue</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AoASearchBounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-</span> <span class="pre">2,</span> <span class="pre">8)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">SmoothAoA</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.PropellerAnalysis.designPropellerPatterson" title="Permalink to this definition">¶</a></dt>
+<dd><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>little advantage has been obtained by using Patterson’s
+algorithm for designing propellers. This function will documentation will
+not be updated. However, most of its parameters can be understood by
+similarity to <a class="reference internal" href="#MOLA.PropellerAnalysis.designPropellerAdkins" title="MOLA.PropellerAnalysis.designPropellerAdkins"><code class="xref py py-func docutils literal notranslate"><span class="pre">designPropellerAdkins()</span></code></a> function.</p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.PropellerAnalysis.extractQprop">
+<span class="sig-prename descclassname"><span class="pre">MOLA.PropellerAnalysis.</span></span><span class="sig-name descname"><span class="pre">extractQprop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">QpropResult</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.PropellerAnalysis.extractQprop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given a Qprop result string (as obtained from <a class="reference internal" href="#MOLA.PropellerAnalysis.computeQprop" title="MOLA.PropellerAnalysis.computeQprop"><code class="xref py py-func docutils literal notranslate"><span class="pre">computeQprop()</span></code></a>),
+build a results dictionary</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>QpropResult</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – as obtained from <a class="reference internal" href="#MOLA.PropellerAnalysis.computeQprop" title="MOLA.PropellerAnalysis.computeQprop"><code class="xref py py-func docutils literal notranslate"><span class="pre">computeQprop()</span></code></a></p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>Results</strong> – dictionary containing all predictions of QProp</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.PropellerAnalysis.getPolarOperatingRanges">
+<span class="sig-prename descclassname"><span class="pre">MOLA.PropellerAnalysis.</span></span><span class="sig-name descname"><span class="pre">getPolarOperatingRanges</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">LiftingLine</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Velocity</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RPM</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Density</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Temperature</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">OverlapFactor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">QhullNPts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">QhullScale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grading</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rescale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">includeQhull</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">showplot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">saveplot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.PropellerAnalysis.getPolarOperatingRanges" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the Reynolds and Mach expected operating ranges
+of a <strong>LiftingLine</strong> with <code class="docutils literal notranslate"><span class="pre">.Polar#Info</span></code> node based on a set of
+operating conditions. This function is useful for determining
+the Reynolds and Mach that are to be passed to a Polar
+computation workflow <em>(CFD, XFoil, both…)</em></p>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>the number of elements contained in lists <strong>Velocity</strong>,
+<strong>RPM</strong>, <strong>Density</strong>, <strong>Temperature</strong> and <strong>Labels</strong> must be all the SAME</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>LiftingLine</strong> (<em>zone</em>) – LiftingLine object as built from <code class="xref py py-func docutils literal notranslate"><span class="pre">buildLiftingLine()</span></code> function.</p></li>
+<li><p><strong>Velocity</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – Set of velocities to consider as operating conditions (m/s)</p></li>
+<li><p><strong>RPM</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – Set of rotational speeds to consider as operating conditions (rev/minute)</p></li>
+<li><p><strong>Density</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – Set of air densities to consider as operating conditions (kg/m3)</p></li>
+<li><p><strong>Temperature</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – Set of Temperatures to consider as operating conditions (Kelvin)</p></li>
+<li><p><strong>Labels</strong> – <p>List used to provide a user-defined label to each operating condition.
+This argument has several purposes:</p>
+<ul>
+<li><p>It is used to appropriately store each operating
+condition inside Results Python dictionary. The Labels
+argument are the keys of such Result dictionary.</p></li>
+<li><p>If argument showplot==True, then Labels are also used for
+providing a legend on the plot figure.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>if <strong>Labels</strong> is not provided (an empty list), then it is
+automatically transformed into a integer range with as
+many elements as operating conditions.</p>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul>
+<li><p><strong>ResultsDict</strong> (<em>dict</em>) – Stores the results of the kinematic computation for each operating
+condition:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ResultsDict</span><span class="p">[</span><span class="s1">&#39;&lt;label&gt;&#39;</span><span class="p">][</span><span class="o">&lt;</span><span class="s1">&#39;Reynolds&#39;</span> <span class="ow">or</span> <span class="s1">&#39;Mach&#39;</span><span class="o">&gt;</span><span class="p">]</span>
+</pre></div>
+</div>
+<ul>
+<li><dl>
+<dt><code class="docutils literal notranslate"><span class="pre">'&lt;label&gt;'</span></code><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></dt><dd><p>shall be repaced by one of the user-provided <strong>Labels</strong>
+corresponding to a given operating condition.</p>
+</dd>
+</dl>
+</li>
+<li><dl>
+<dt><code class="docutils literal notranslate"><span class="pre">&lt;'Reynolds'</span> <span class="pre">or</span> <span class="pre">'Mach'&gt;</span></code><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></dt><dd><p>shall be <code class="docutils literal notranslate"><span class="pre">&quot;Reynolds&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;Mach&quot;</span></code>, and
+provides access to the resulting 1D numpy array along
+the <strong>LiftingLine</strong>.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</li>
+<li><p><strong>SamplesDict</strong> (<em>dict</em>) – Stores the interpolated space of requested samples, and may be used
+as input for each airfoil’s set of Reynolds and Mach for
+computing polars. This dictionary is organized as:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">SamplesDict</span><span class="p">[</span><span class="o">&lt;</span><span class="n">AirfoilIdentifier</span><span class="o">&gt;</span><span class="p">][</span><span class="o">&lt;</span><span class="s1">&#39;Reynolds&#39;</span> <span class="ow">or</span> <span class="s1">&#39;Mach&#39;</span><span class="o">&gt;</span><span class="p">]</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Airfoil identifier is skipped if <code class="docutils literal notranslate"><span class="pre">.Polar#Info</span></code> node does
+not exist</p>
+</div>
+<ul>
+<li><dl>
+<dt><code class="docutils literal notranslate"><span class="pre">&lt;'Reynolds'</span> <span class="pre">or</span> <span class="pre">'Mach'&gt;</span></code><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span></dt><dd><p>shall be <code class="docutils literal notranslate"><span class="pre">&quot;Reynolds&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;Mach&quot;</span></code>, and
+provides access to the resulting 1D numpy array of elements on
+the flight envelope.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.PropellerAnalysis.kinematicReynoldsAndMach">
+<span class="sig-prename descclassname"><span class="pre">MOLA.PropellerAnalysis.</span></span><span class="sig-name descname"><span class="pre">kinematicReynoldsAndMach</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">LiftingLine</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Velocity</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RPM</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.225</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Temperature</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">288.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.PropellerAnalysis.kinematicReynoldsAndMach" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given a <strong>LiftingLine</strong> object and operating conditions,
+compute the kinematic Reynolds and Mach.
+This function updates LiftingLine’s <code class="docutils literal notranslate"><span class="pre">Reynolds</span></code> and <code class="docutils literal notranslate"><span class="pre">Mach</span></code> fields located
+at container <code class="docutils literal notranslate"><span class="pre">FlowSolution</span></code> and returns its corresponding 1D numpy arrays.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>LiftingLine</strong> (<em>PyTree</em>) – <p>a lifting-line as generated by <code class="xref py py-func docutils literal notranslate"><span class="pre">buildLiftingLine()</span></code>.
+Does not need <code class="docutils literal notranslate"><span class="pre">.Polar#Info</span></code> node.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>zone <strong>LiftingLine</strong> is modified (fields are updated)</p>
+</div>
+</p></li>
+<li><p><strong>Velocity</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Advance velocity in [m/s]</p></li>
+<li><p><strong>RPM</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Rotational speed in [rev/minute]</p></li>
+<li><p><strong>Density</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Air density in [kg/m3]</p></li>
+<li><p><strong>Temperature</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Air temperature in [Kelvin]</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>Reynolds</strong> (<em>numpy.ndarray</em>) – 1d numpy copy of Reynolds array</p></li>
+<li><p><strong>Mach</strong> (<em>numpy.ndarray</em>) – 1d numpy copy of Mach array</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.PropellerAnalysis.plotOperatingRanges">
+<span class="sig-prename descclassname"><span class="pre">MOLA.PropellerAnalysis.</span></span><span class="sig-name descname"><span class="pre">plotOperatingRanges</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ResultsDict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">SamplesDict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">PyZonePolars</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">saveplot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">showplot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.PropellerAnalysis.plotOperatingRanges" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convenient macro-function used to plot at least one of
+the user-provided arguments.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ResultsDict</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – first output of <a class="reference internal" href="#MOLA.PropellerAnalysis.getPolarOperatingRanges" title="MOLA.PropellerAnalysis.getPolarOperatingRanges"><code class="xref py py-func docutils literal notranslate"><span class="pre">getPolarOperatingRanges()</span></code></a></p></li>
+<li><p><strong>SamplesDict</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – second output of <a class="reference internal" href="#MOLA.PropellerAnalysis.getPolarOperatingRanges" title="MOLA.PropellerAnalysis.getPolarOperatingRanges"><code class="xref py py-func docutils literal notranslate"><span class="pre">getPolarOperatingRanges()</span></code></a></p></li>
+<li><p><strong>PyZonePolars</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><em>list</em></a>) – list of zones <em>PyZonePolar</em> containing 2D polar data</p></li>
+<li><p><strong>saveplot</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> or <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – if a <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> is provided, then this function saves
+PDF files with the corresponding curves</p></li>
+<li><p><strong>showplot</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, then the function opens a graphical window
+with the matplotlib figure plot</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>if <strong>showplot</strong> = <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a> and <strong>saveplot</strong> = <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>
+then this function does not do anything useful</p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="MOLA.PropellerAnalysis.saveKimFilesFromPUMA">
+<span class="sig-prename descclassname"><span class="pre">MOLA.PropellerAnalysis.</span></span><span class="sig-name descname"><span class="pre">saveKimFilesFromPUMA</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Pb</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.PropellerAnalysis.saveKimFilesFromPUMA" title="Permalink to this definition">¶</a></dt>
+<dd><p><strong>Original author: R. Boisard</strong>
+<strong>Included to MOLA by M. Balmaseda on 17/08/2021</strong></p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Only a unique propeller is studied -&gt; The anisotropies are not
+considered! Convergence is supposed as reached in the last iteration!
+Propeller must rotate around X axis, such that local blade’s incidence
+can be computed as <span class="math notranslate nohighlight">\(atan(y,x)\)</span></p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>Pb</strong> (<em>problem object of PUMA</em>) – the compatible problem object of PUMA</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>None</strong> – only files kim.geom and kim.autre are writen</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)">None</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+              </div>
+              
+              
+              <div class='prev-next-bottom'>
+                
+    <a class='left-prev' id="prev-link" href="LiftingLine.html" title="previous page">LiftingLine</a>
+    <a class='right-next' id="next-link" href="Visu.html" title="next page">Visu</a>
+
+              </div>
+              
+          </main>
+          
+
+      </div>
+    </div>
+  
+  <script src="_static/js/index.1c5a1a01449ed65a7b51.js"></script>
+
+  <footer class="footer mt-5 mt-md-0">
+  <div class="container">
+    
+    <div class="footer-item">
+      <p class="copyright">
+    &copy; Copyright 2021, ONERA.<br/>
+</p>
+    </div>
+    
+    <div class="footer-item">
+      <p class="sphinx-version">
+Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.1.2.<br/>
+</p>
+    </div>
+    
+  </div>
+</footer>
+  </body>
+</html>

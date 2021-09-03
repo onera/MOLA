@@ -55,33 +55,40 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
             need to be coplanar. BEWARE ! indexing of curve must be oriented from
             leading edge towards trailing edge
 
-        AxeCenter - (3-float list) - coordinates of the axis center for the
-            revolution operation [m]
+        AxeCenter : :py:class:`list` of 3 :py:class:`float`
+            coordinates of the axis center for the revolution operation [m]
 
-        AxeDir - (3-float list) - unitary vector pointing towards the direction
-            of revolution
+        AxeDir : :py:class:`list` of 3 :py:class:`float`
+            unitary vector pointing towards the direction of revolution
 
-        NPsi - (integer) - number of points discretizing the hub
+        NPsi : int
+            number of points discretizing the hub
 
-        BladeNumberForPeriodic -  (integer) - If provided, then only an angular
+        BladeNumberForPeriodic : int
+            If provided, then only an angular
             portion of the hub is constructed, corresponding to the blade number
             specified by this argument.
 
-        LeadingEdgeAbscissa - (float) - dimensionless abscissa indicating the point
+        LeadingEdgeAbscissa : float
+            dimensionless abscissa indicating the point
             at which leading edge is "cut" in order to perform the diamond join
 
-        TrailingEdgeAbscissa - (float) - dimensionless abscissa indicating the point
+        TrailingEdgeAbscissa : float
+            dimensionless abscissa indicating the point
             at which trailing edge is "cut" in order to perform the diamond join
 
-        SmoothingParameters - (dictionary) - literally, the parameters passed to
-            T._smooth() function
+        SmoothingParameters : dict
+            literally, the parameters passed to :py:func:`Transform.PyTree.smooth`
+            function
 
-    OUTPUT
+    Returns
+    -------
 
-    t - (PyTree) - surface of the hub
+        t : PyTree
+            surface of the hub
 
-    PeriodicProfiles - (list of zones) - curves defining the periodic profiles
-        boundaries
+        PeriodicProfiles : :py:class:`list`
+            curves (structured zones) defining the periodic profiles boundaries
     '''
 
     Px, Py, Pz = J.getxyz(Profile)
@@ -321,31 +328,49 @@ def extrudePeriodicProfiles(PeriodicProfiles,
     This function is used to peform the extrusion of the periodic profiles,
     in order to guarantee that there is exact axi-symmetric periodic matching.
 
-    INPUTS
+    Parameters
+    ----------
 
-    PeriodicProfiles - (list of zones) - the periodic profiles boundaries to
-        extrude, as obtained from makeHub() function.
+    PeriodicProfiles : :py:class:`list` of zone
+            the periodic profiles boundaries to extrude, as obtained from
+            :py:func:`makeHub` function.
 
-    Distributions - (list of zones) - the set of distributions to apply during
-        the extrusion of the profile (as input of GVD.extrude() function)
+        Distributions : :py:class:`list` of zone
+            the set of distributions to apply during the extrusion of the profile
 
-    Constraints - (list of dictionaries) - the set of constraints to apply
-        during the extrusion of the profile (as input of GVD.extrude() function)
+            .. note:: this is the same input attribute as in
+                :py:func:`MOLA.GenerativeVolumeDesign.extrude` function
 
-    AxeDir - (3-float list) - indicats the rotation axis direction
+        Constraints : :py:class:`list` of :py:class:`dict`
+            the set of constraints to apply
+            during the extrusion of the profile
 
-    NBlades - (integer) - number of blades
+            .. note:: this is the same input attribute as in
+                :py:func:`MOLA.GenerativeVolumeDesign.extrude` function
 
-    extrudeOptions - (dictionary) - literally, the extrusion options to pass
-        to the function GVD.extrude()
 
-    AxisProjectionConstraint - (boolean) - if True, force the extrema of the
-        profile boundaries to be projected onto the rotation axis.
+        AxeDir : :py:class:`list` of 3 :py:class:`float`
+            indicates the rotation axis direction
 
-    OUTPUTS
+        NBlades : int
+            number of blades
 
-    FirstPeriodicSurf - (zone) - first periodic surface
-    SecondPeriodicSurf - (zone) - second periodic surface
+        extrudeOptions : dict
+            literally, the extrusion options to pass
+            to the function :py:func:`MOLA.GenerativeVolumeDesign.extrude`
+
+        AxisProjectionConstraint : bool
+            if :py:obj:`True`, force the extrema of the
+            profile boundaries to be projected onto the rotation axis.
+
+    Returns
+    -------
+
+        FirstPeriodicSurf : zone
+            first periodic surface
+
+        SecondPeriodicSurf : zone
+            second periodic surface
     '''
 
     # ~~~~~~~ PERFORM EXTRUSION OF THE FIRST PROFILE ~~~~~~~ #
@@ -486,34 +511,49 @@ def makeSimpleSpinner(Height, Width, Length, TensionLeadingEdge=0.05,
     This function is used to make a simple spinner given general geometrical
     paramaters.
 
-    INPUTS
+    Parameters
+    ----------
 
-    Height - (float) - total height of the spinner [m]
+        Height : float
+            total height of the spinner [m]
 
-    Width - (float) - total width of the spinner [m]
+        Width : float
+            total width of the spinner [m]
 
-    Length - (float) - total length of the spinner [m]
+        Length : float
+            total length of the spinner [m]
 
-    TensionLeadingEdge - (float) - dimensionless parameter controling the
-        tension at the leading edge
+        TensionLeadingEdge : float
+            dimensionless parameter controling the
+            tension at the leading edge
 
-    TensionRoot - (float) - dimensionless parameter controling the
-        tension at the blade's root
+        TensionRoot : float
+            dimensionless parameter controling the
+            tension at the blade's root
 
-    TensionTrailingEdge - (float) - dimensionless parameter controling the
-        tension at the trailing edge
+        TensionTrailingEdge : float
+            dimensionless parameter controling the
+            tension at the trailing edge
 
-    NptsTop - (integer) - number of points on top
+        NptsTop : int
+            number of points on top
 
-    NptsBottom - (integer) - number of points on bottom
+        NptsBottom : int
+            number of points on bottom
 
-    NptsAzimut - (integer) - number of points in azimut
+        NptsAzimut : int
+            number of points in azimut
 
-    OUTPUTS
+    Returns
+    -------
 
-    SpinnerProfile - (zone) - spinner profile (can be employed by makeHub() )
+        SpinnerProfile : zone
+            spinner profile
 
-    SpinnerUnstr - (zone) - unstructured spinner surface composed of QUAD
+            .. hint:: can be employed by :py:func:`makeHub`
+
+        SpinnerUnstr : zone
+            unstructured spinner surface composed of QUAD
     """
 
     Poly1 = D.polyline([(Height,0,0),
@@ -549,17 +589,24 @@ def getFrenetFromRotationAxisAndPhaseDirection(RotationAxis,
     '''
     Get the Frenet's frame from a rotation axis and a phase direction.
 
-    INPUTS
+    Parameters
+    ----------
 
-    RotationAxis - (3-float array) - the rotation axis unitary vector
+        RotationAxis : array of 3 :py:class:`float`
+            the rotation axis unitary vector
 
-    PhaseDirection - (3-float array) - the phase direction unitary vector. It
-        must not be aligned with RotationAxis
+        PhaseDirection : array of 3 :py:class:`float`
+            the phase direction unitary vector.
 
-    OUTPUTS
+            .. warning:: It must not be aligned with **RotationAxis**
 
-    FrenetFrame - (3 tuples of 3-float tuples) - The frenet frame as follows:
-                (tuple(PhaseDir), tuple(Binormal), tuple(RotAxis))
+    Returns
+    -------
+
+        FrenetFrame : 3 :py:class:`tuple`  of 3 :py:class:`float` :py:class:`tuple`
+            The frenet frame as follows:
+
+            >>> (tuple(PhaseDir), tuple(Binormal), tuple(RotAxis))
     '''
     RotAxis  = np.array(list(RotationAxis),dtype=np.float)
     RotAxis /= np.sqrt(RotAxis.dot(RotAxis))
@@ -595,16 +642,24 @@ def getEulerAngles4PUMA(RotationAxis, PhaseDirection=(1,0,0)):
     Given a RotationAxis and a Phase Direction, produce the Euler angles that
     can be provided to PUMA in order to position the propeller.
 
-    INPUTS
+    Parameters
+    ----------
 
-    RotationAxis - (3-float array) - the rotation axis unitary vector
+        RotationAxis : array of 3 :py:class:`float`
+            the rotation axis unitary vector
 
-    PhaseDirection - (3-float array) - the phase direction unitary vector. It
-        must not be aligned with RotationAxis
+        PhaseDirection : array of 3 :py:class:`float`
+            the phase direction unitary vector.
 
-    OUTPUTS
+            .. warning:: It must not be aligned with **RotationAxis**
 
-    EulerAngles - (3-float array) - the XYZ transformation angles [degree]
+
+    Returns
+    -------
+
+        EulerAngles : array of 3 :py:class:`float`
+            the `intrinsic XYZ <https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.as_euler.html>`_
+            transformation angles [degree]
     '''
 
     FrenetDEST = getFrenetFromRotationAxisAndPhaseDirection(RotationAxis)

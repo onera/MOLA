@@ -84,7 +84,7 @@ def printCo(message, proc=None, color=None):
 
         proc : int or None
             if provided, only local MPI rank will write the message.
-            If ``None``, all procs will write the message.
+            If :py:obj:`None`, all procs will write the message.
 
         color : str
             endscape code for terminal colored output.
@@ -114,7 +114,7 @@ def saveAll(CouplingTreeWithSkeleton, CouplingTree,
 
 
     .. note:: The method can be used to stop the elsA simulation after saving all data
-        by providing the argument **quit** = ``True``
+        by providing the argument **quit** = :py:obj:`True`
 
     Parameters
     ----------
@@ -150,7 +150,7 @@ def saveAll(CouplingTreeWithSkeleton, CouplingTree,
             :py:func:`MOLA.LiftingLine.computePropellerBodyForce`
 
         quit : bool
-            if ``True``, force quit the simulation after saving relevant data.
+            if :py:obj:`True`, force quit the simulation after saving relevant data.
     '''
     printCo('SAVING ALL', proc=0, color=GREEN)
     Cmpi.barrier()
@@ -191,11 +191,11 @@ def saveSurfaces(to, tagWithIteration=False, onlyWalls=True):
             Coupling tree as obtained from :py:func:`adaptEndOfRun`
 
         tagWithIteration : bool
-            if ``True``, adds a suffix ``_AfterIter<iteration>``
+            if :py:obj:`True`, adds a suffix ``_AfterIter<iteration>``
             to the saved filename (creates a copy)
 
         onlyWalls : bool
-            if ``True``, only BC defined with ``BCWall*`` type are extracted.
+            if :py:obj:`True`, only BC defined with ``BCWall*`` type are extracted.
             Otherwise, all BC (but not GridConnectivity) are extracted
     '''
     BCs = boundaryConditions2Surfaces(to, onlyWalls=onlyWalls)
@@ -231,7 +231,7 @@ def distributeAndSavePyTree(ListOfZones, filename, tagWithIteration=False):
             .. attention:: **filename** extension must be ``.cgns``
 
         tagWithIteration : bool
-            if ``True``, adds a suffix ``_AfterIter<iteration>``
+            if :py:obj:`True`, adds a suffix ``_AfterIter<iteration>``
             to the saved filename (creates a copy)
     '''
     DetectedZones = I.getZones(ListOfZones)
@@ -262,7 +262,7 @@ def saveDistributedPyTree(t, filename, tagWithIteration=False):
             .. attention:: **filename** extension must be ``.cgns``
 
         tagWithIteration : bool
-            if ``True``, adds a suffix ``_AfterIter<iteration>``
+            if :py:obj:`True`, adds a suffix ``_AfterIter<iteration>``
             to the saved filename (creates a copy)
     '''
     printCo('saving '+filename, proc=0, color=CYAN)
@@ -419,11 +419,11 @@ def updateAndSaveLoads(to, loads, DesiredStatistics=['std-CL', 'std-CD'],
                 lift coefficient (:math:`\sigma(\sigma(C_L))`)
 
         tagWithIteration : bool
-            if ``True``, adds a suffix ``_AfterIter<iteration>``
+            if :py:obj:`True`, adds a suffix ``_AfterIter<iteration>``
             to the saved filename (creates a copy)
 
         monitorMemory : bool
-            if ``True``, function :py:func:`addMemoryUsage2Loads` is
+            if :py:obj:`True`, function :py:func:`addMemoryUsage2Loads` is
             called, which adds memory usage information into **loads**
     '''
     IntegralDataNodes = I.getNodesFromType2(to, 'IntegralData_t')
@@ -781,7 +781,7 @@ def isConverged(ZoneName='AIRFOIL', FluxName='std-CL', FluxThreshold=0.001):
     '''
     This method is used to determine if a given load is converged by looking
     at its standard deviation and comparing it to a user-provided threshold.
-    If converged, the signal returns ``True`` to all ranks and writes a message
+    If converged, the signal returns :py:obj:`True` to all ranks and writes a message
     to ``coprocess.log`` file.
 
     Parameters
@@ -803,7 +803,7 @@ def isConverged(ZoneName='AIRFOIL', FluxName='std-CL', FluxThreshold=0.001):
     -------
 
         ConvergedCriterion : bool
-            ``True`` if the convergence criterion is satisfied
+            :py:obj:`True` if the convergence criterion is satisfied
     '''
     ConvergedCriterion = False
     if rank == 0:
@@ -832,8 +832,8 @@ def isConverged(ZoneName='AIRFOIL', FluxName='std-CL', FluxThreshold=0.001):
 
 def hasReachedTimeOutMargin(ElapsedTime, TimeOut, MarginBeforeTimeOut):
     '''
-    This function returns ``True`` to all processors if the margin before
-    time-out is satisfied. Otherwise, it returns ``False`` to all processors.
+    This function returns :py:obj:`True` to all processors if the margin before
+    time-out is satisfied. Otherwise, it returns :py:obj:`False` to all processors.
 
     Parameters
     ----------
@@ -854,15 +854,15 @@ def hasReachedTimeOutMargin(ElapsedTime, TimeOut, MarginBeforeTimeOut):
     -------
 
         ReachedTimeOutMargin : bool
-            ``True`` if
+            :py:obj:`True` if
 
             ::
 
                 ElapsedTime >= (TimeOut - MarginBeforeTimeOut)
 
-            Otherwise, returns ``False``.
+            Otherwise, returns :py:obj:`False`.
 
-            .. note:: the same value (``True`` or ``False``) is sent to *all*
+            .. note:: the same value (:py:obj:`True` or :py:obj:`False`) is sent to *all*
                 processors.
     '''
     ReachedTimeOutMargin = False
@@ -1079,8 +1079,8 @@ def getSignal(filename):
     Get a signal using an temporary auxiliar file technique.
 
     If the intermediary file exists (signal received) then it is removed, and
-    the function returns ``True`` to all processors. Otherwise, it returns
-    ``False`` to all processors.
+    the function returns :py:obj:`True` to all processors. Otherwise, it returns
+    :py:obj:`False` to all processors.
 
     This function is employed for controling a simulation in a simple manner,
     for example using UNIX command ``touch``:
@@ -1101,7 +1101,7 @@ def getSignal(filename):
     -------
 
         isOrder : bool
-            ``True`` if the signal is received, otherwise ``False``, to all
+            :py:obj:`True` if the signal is received, otherwise :py:obj:`False`, to all
             processors
     '''
     isOrder = False
@@ -1182,7 +1182,7 @@ def boundaryConditions2Surfaces(to, onlyWalls=True):
             Coupling tree as obtained from :py:func:`adaptEndOfRun`
 
         onlyWalls : bool
-            if ``True``, only BC with keyword ``'wall'`` contained in
+            if :py:obj:`True`, only BC with keyword ``'wall'`` contained in
             their type are extracted. Otherwise, all BC are extracted,
             regardless of their type.
 
@@ -1194,6 +1194,8 @@ def boundaryConditions2Surfaces(to, onlyWalls=True):
     '''
     Cmpi.barrier()
     tR = I.renameNode(to, 'FlowSolution#Init', 'FlowSolution#Centers')
+    # TODO make sure that I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
+    # TODO make it multi-container
     DictBCNames2Type = C.getFamilyBCNamesDict(tR)
 
     BCs = []

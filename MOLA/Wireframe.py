@@ -135,8 +135,8 @@ def angle2D(P1,P2):
 
 def isPyTreePoint(P):
     '''
-    Return ``True`` if input argument **P** is a PyTree point (a zone).
-    Otherwise, return ``False``
+    Return :py:obj:`True` if input argument **P** is a PyTree point (a zone).
+    Otherwise, return :py:obj:`False`
     '''
     if (I.isStdNode(P) == -2) or (I.isStdNode(P) == 0): return False
     if C.getNPts(P) != 1: return False
@@ -354,7 +354,7 @@ def linelaw(P1=(0,0,0), P2=(1,0,0), N=100, Distribution = None):
         Distribution : dict
 
             Python dictionary specifying distribution instructions.
-            Default value is ``None``, which produces a uniform distribution.
+            Default value is :py:obj:`None`, which produces a uniform distribution.
             Accepted keys are:
 
             * kind : :py:class:`str`
@@ -586,7 +586,7 @@ def airfoil(designation='NACA0012',Ntop=None, Nbot=None, ChordLength=1.,
             the location of the leading edge refinement point. A value
             of 0 corresponds to the bottom side trailing edge, and a
             value of 1 corresponds to the top side trailing edge.
-            If ``None``, then makes no refinement based on curve length,
+            If :py:obj:`None`, then makes no refinement based on curve length,
             but based only on the X coordinate.
 
     Returns
@@ -1435,7 +1435,7 @@ def isSubzone(subzone,zone,tol=1.e-10):
     -------
 
         ItIs : bool
-            ``True`` if **subzone** totally lies in **zone**, ``False`` otherwise
+            :py:obj:`True` if **subzone** totally lies in **zone**, :py:obj:`False` otherwise
     '''
     xs,ys,zs = J.getxyz(subzone)
     xs_ = xs.ravel(order='K')
@@ -1538,7 +1538,7 @@ def isCurveClosed(AirfoilCurve, tol=1.e-10):
     -------
 
         Result : bool
-            ``True`` if it is closed, ``False`` if it is open.
+            :py:obj:`True` if it is closed, :py:obj:`False` if it is open.
     '''
 
     isStructured = checkAirfoilAndGetTopo(AirfoilCurve)
@@ -1652,7 +1652,7 @@ def extrapolate(curve, ExtrapDistance, mode='tangent', opposedExtremum=False):
             is available
 
         opposedExtremum : bool
-            if ``True``, extrapolates starting from last index of **curve**
+            if :py:obj:`True`, extrapolates starting from last index of **curve**
 
     Returns
     -------
@@ -2325,7 +2325,7 @@ def is2DCurveClockwiseOriented(curve):
     '''
     .. warning:: this function requires further validation
 
-    returns ``True`` if provided **curve** supported on :math:`OXY` plane
+    returns :py:obj:`True` if provided **curve** supported on :math:`OXY` plane
     is oriented clockwise
     '''
     # TODO try to uniformly discretize curve before evaluating orientation
@@ -2343,7 +2343,7 @@ def isAirfoilClockwiseOriented(curve):
     '''
     .. warning:: this function requires further validation
 
-    returns ``True`` if provided **curve** supported on :math:`OXY` plane
+    returns :py:obj:`True` if provided **curve** supported on :math:`OXY` plane
     is oriented clockwise
     '''
     # TODO try to uniformly discretize curve before evaluating orientation
@@ -2718,7 +2718,7 @@ def cutTrailingEdgeOfAirfoil(foil, TEthickness, DesiredXChord=None,Xmin=0.8):
     '''
     Cut the trailing edge of an airfoil in order to verify a given
     trailing edge thickness.
-    If **DesiredXChord** is not ``None``, then appropriate scaling of airfoil
+    If **DesiredXChord** is not :py:obj:`None`, then appropriate scaling of airfoil
     is performed so that final cut airfoil yields the desired chord;
     otherwise, the new cut airfoil will systematically have a smaller chord.
 
@@ -2735,7 +2735,7 @@ def cutTrailingEdgeOfAirfoil(foil, TEthickness, DesiredXChord=None,Xmin=0.8):
         DesiredXChord : float
             Resulting new xchord (must be lower than
             original provided xchord of **foil**)
-            If not provided (``None``), new foil will be a simple cut of foil.
+            If not provided (:py:obj:`None`), new foil will be a simple cut of foil.
 
         Xmin : float
             Minimum allowable cut station. Cut searches are performed
@@ -2934,7 +2934,7 @@ def checkAirfoilAndGetTopo(AirfoilCurve):
     -------
 
         isStructured : bool
-            ``True`` if the zone is structured
+            :py:obj:`True` if the zone is structured
     '''
     if I.isStdNode(AirfoilCurve) != -1:
         raise AttributeError('Standard PyTree node is required')
@@ -4018,49 +4018,49 @@ def modifyAirfoil(AirfoilInput, Chord=None,
 
         Chord : float
             Aimed chord [m] length of the new airfoil.
-            Use ``None`` if this parameter is not aimed.
+            Use :py:obj:`None` if this parameter is not aimed.
 
         MaxThickness : float
             Aimed thickness [m] of the new airfoil.
-            Use ``None`` if this parameter is not aimed.
+            Use :py:obj:`None` if this parameter is not aimed.
 
         MaxRelativeThickness : float
             Aimed relative thickness (with respect to chord length) of the new airfoil.
-            Use ``None`` if this parameter is not aimed.
+            Use :py:obj:`None` if this parameter is not aimed.
 
         MaxThicknessRelativeLocation : float
             Relative chordwise location of maximum thickness, with respect to the
             chord length. Must be :math:`\in (0,1)`
-            Use ``None`` if this parameter is not aimed.
+            Use :py:obj:`None` if this parameter is not aimed.
 
         MaxCamber : float
             Aimed maximum camber [m] (in top-side direction) of the new airfoil.
-            Use ``None`` if this parameter is not aimed.
+            Use :py:obj:`None` if this parameter is not aimed.
 
         MaxRelativeCamber : float
             Aimed relative (with respect to chord length) maximum camber
             (in top-side direction) of the new airfoil.
-            Use ``None`` if this parameter is not aimed.
+            Use :py:obj:`None` if this parameter is not aimed.
 
         MaxCamberRelativeLocation : float
             Relative chordwise location of maximum camber in top-side direction),
             with respect to the chord length. Must be :math:`\in (0,1)`
-            Use ``None`` if this parameter is not aimed.
+            Use :py:obj:`None` if this parameter is not aimed.
 
         MinCamber : float
             Aimed minimum camber [m] (in bottom-side direction) of the new airfoil.
-            Use ``None`` if this parameter is not aimed.
+            Use :py:obj:`None` if this parameter is not aimed.
 
         MinRelativeCamber : float
             Aimed relative (with respect to chord length) minimum camber
             (in bottom-side direction) of the new airfoil.
-            Use ``None`` if this parameter is not aimed.
+            Use :py:obj:`None` if this parameter is not aimed.
 
         MinCamberRelativeLocation : float
             Relative chordwise location (with respect to chord length) o
             minimum camber (in bottom-side direction), with respect to the
             chord length. Must be :math:`\in (0,1)`
-            Use ``None`` if this parameter is not aimed.
+            Use :py:obj:`None` if this parameter is not aimed.
 
         ScalingRelativeChord : float
             relative chordwise position at which scaling is applied.
@@ -4286,32 +4286,32 @@ def modifyCamberOfCamberLine(CamberCurve, NormalDirection,
 
         MaxCamber : float
             Aimed maximum camber [m] (in top-side direction) of the new airfoil.
-            Use ``None`` if this parameter is not aimed.
+            Use :py:obj:`None` if this parameter is not aimed.
 
         MaxRelativeCamber : float
             Aimed relative (with respect to chord length) maximum camber
             (in top-side direction) of the new airfoil.
-            Use ``None`` if this parameter is not aimed.
+            Use :py:obj:`None` if this parameter is not aimed.
 
         MaxCamberRelativeLocation : float
             Relative chordwise location of maximum camber in top-side direction),
             with respect to the chord length. Must be :math:`\in (0,1)`
-            Use ``None`` if this parameter is not aimed.
+            Use :py:obj:`None` if this parameter is not aimed.
 
         MinCamber : float
             Aimed minimum camber [m] (in bottom-side direction) of the new airfoil.
-            Use ``None`` if this parameter is not aimed.
+            Use :py:obj:`None` if this parameter is not aimed.
 
         MinRelativeCamber : float
             Aimed relative (with respect to chord length) minimum camber
             (in bottom-side direction) of the new airfoil.
-            Use ``None`` if this parameter is not aimed.
+            Use :py:obj:`None` if this parameter is not aimed.
 
         MinCamberRelativeLocation : float
             Relative chordwise location (with respect to chord length) o
             minimum camber (in bottom-side direction), with respect to the
             chord length. Must be :math:`\in (0,1)`
-            Use ``None`` if this parameter is not aimed.
+            Use :py:obj:`None` if this parameter is not aimed.
 
         InterpolationLaw : str
             interpolation law to be applied for the modification of thickness

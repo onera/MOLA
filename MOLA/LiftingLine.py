@@ -72,86 +72,106 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     Macro-function used to generate the ready-to-use BodyForce
     element for interfacing with a CFD solver.
 
-    The BodyForce element is a disc if HeightDistribution=None.
-    If HeightDistribution is a 1D Zone, then this is used for
-    extruding the BodyForce disc and distribute forces based on
-    HeightDistribution's {ratio} FlowSolution along the
-    BodyForce cylinder's height.
+    Parameters
+    ----------
 
-    INPUTS
+        Propeller : base
+            A propeller as produced by the function :py:func:`buildPropeller`
 
-    Propeller (CGNSBase) - A propeller as produced by the
-        function buildPropeller()
+        PolarsInterpolatorsDict : dict
+            Contains airfoil's polar interpolators. As constructed by the function
+            :py:func:`buildPolarsInterpolatorDict`
 
-    PolarsInterpolatorsDict (Python dict) - Contains airfoil's
-        polar interpolators. As constructed by the function
-        buildPolarsInterpolatorDict()
+        NPtsAzimut : int
+            Number of points used for sampling a revolution.
 
-    NPtsAzimut (integer) - Number of points used for sampling
-        a revolution.
+        RPM : float
+            Propeller's revolutions per minute. If not
+            :py:obj:`None`, then this value overrides the possibly existing
+            one contained in special CGNS node ``.Kinematics`` associated to
+            a *LiftingLine* zone
 
-    RPM (float) - Propeller's revolutions per minute. If not
-        None, then this value overrides the possibly existing
-        one in the .Kinematics
+        Pitch : float
+            Propeller's pitch. If not
+            :py:obj:`None`, then this value overrides the possibly existing
+            one contained in special CGNS node ``.Kinematics`` associated to
+            a *LiftingLine* zone
 
-    Pitch (float) - Propeller's pitch. If not None, then this value overrides
-        the possibly existing one in the .Kinematics
+        CommandType : str
+            Type of command used for trim. May be ``'Pitch'`` or ``'RPM'``
 
-    CommandType (string) - Type of command used for trim.
-        May be 'Pitch' or 'RPM'.
+        Constraint : str
+            Used constraint for setting pitch.
+            It may be: ``'Pitch'``, ``'Thrust'`` or ``'Power'``
 
-    Constraint (string) - Used constraint for setting pitch.
-        It may be: ('Pitch','Thrust','Power').
+        ConstraintValue : float
+            Value to satisfy the constraint.
+            Its value is context-dependent (depends on **Constraint**).
+            Thus, value may be in degree, Newton or Watt.
 
-    ConstraintValue (float) - Value to satisfy the constraint.
-        Its value is context-dependent (depends on <Constraint>).
-        Thus, value may be in degree, Newton or Watt.
+        ValueTol : float
+            Tolerance to verify for **Constraint** success.
+            An acceptable trim is produced if
 
-    ValueTol (float) - Tolerance to verify for Constraint success
-        An acceptable trim is produced if
-            ValueTol >= |ActualComputedValue-ConstraintValue|
+            :math:`ValueTol \geq | ActualComputedValue - ConstraintValue |`
 
-    AttemptCommandGuess (list of 2-float lists) - Used as
-        search bounds [min, max] for the trim procedure.
-        Use as many sets of [min,max] elements as
-        the number of attempts of trimming.
+        AttemptCommandGuess : :py:class:`list` of lists containing 2 :py:class:`float`
+            Used as search bounds ``[min, max]`` for the trim procedure.
 
-    PerturbationFields (PyTree) - extractMesh-compatible PyTree
-        used as PerturbationFields. It must contain fields:
-        ('VelocityInducedX', '...Y' and '...Z')
-        This typically comes from CFD.
+            .. hint:: use as many different sets of ``[min, max]`` elements as
+                the desired number of attempts for trimming.
 
-    ZonesNameSuffixTag (string) - suffix to append to the newly bodyforce
-        component name.
+        PerturbationFields : PyTree
+            :py:func:`Post.PyTree.extractMesh`-compatible PyTree
+            used as perturbation fields.
 
-    LiftingLineSolver - (string) - The Lifting Line solver technique:
-        'MOLA' or 'PUMA'
+            .. important:: **PerturbationFields** must contain the fields:
+                ``'VelocityInducedX'``, ``'VelocityInducedY'`` and
+                ``'VelocityInducedZ'``
 
-    StackOptions - (Python dictionary) - Options to be passed to the function
-        stackBodyForceComponent()
+            These values typically comes from CFD.
 
-    WeightEqns (list of strings) - If not empty, applies sequentially the
-        equations given by this list after the disk extrusion and before
-        source terms computation.
-        For use with Biel Ortun distribution employing Weibull :
-        output=gamma/alpha*((x-mu)/alpha)**(gamma-1.) * np.exp(-((x-mu)/alpha)**gamma)
-        gamma=2, alpha=0.3, mu=0, x=InverseThickwiseCoordinate
+        ZonesNameSuffixTag : str
+            suffix to append to the newly bodyforce component name
 
-        Introduce:
-        "weight=2.0/0.3*(({InverseThickwiseCoordinate})/0.3)**(2.0-1.)*exp(-(({InverseThickwiseCoordinate})/0.3)**2.0)"
+        LiftingLineSolver : str
+            The Lifting Line solver technique: ``'MOLA'`` or ``'PUMA'``
 
-    SourceTermScale - (float) - Scaling of source terms. Increase this value for
-        compensate dissipation effects during the flow data transfers between
-        grids or overset operations
+        StackOptions : dict
+            Optional parameters to be passed to the function
+            :py:func:`stackBodyForceComponent`
 
-    OUTPUTS
+        WeightEqns : :py:class:`list` of :py:class:`str`
+            If not empty, applies sequentially the
+            equations given by this list after the disk extrusion and before
+            source terms computation.
 
-    BodyForceElement (PyZone) - A surface (or volume) mesh
-        containing fields ('SourceDensity','SourceMomentumX',
-        'SourceMomentumY','SourceMomentumZ','SourceEnergy').
+            .. hint:: for use with `Biel Ortun <http://ispserveur.onera/onera/web/upload/dap/DAAA17076.1509005573.pdf>`_ distribution employing Weibull :
 
-        By means of extractMesh(), <BodyForceElement> can be
-        used to inject source terms into a CFD solver.
+                :math:`\\frac{\gamma}{\\alpha} \left(\\frac{x - \mu}{\\alpha}\\right)^{\gamma - 1} e^{-\left(\\frac{x - \mu}{\\alpha}\\right)^{\gamma}}`
+
+                with :math:`\gamma=2`, :math:`\\alpha=0.3`, :math:`\mu=0` and
+                 :math:`x=\mathrm{InverseThickwiseCoordinate}`
+
+                Please introduce: ``"weight=2.0/0.3*(({InverseThickwiseCoordinate})/0.3)**(2.0-1.)*exp(-(({InverseThickwiseCoordinate})/0.3)**2.0)"``
+
+        SourceTermScale : float
+            Scaling of source terms.
+
+            .. tip:: slightly increase this value for
+                compensating dissipation effects during the flow data transfers
+                between grids or overset operations
+
+    Returns
+    -------
+
+        BodyForceElement : zone
+            A volume mesh containing fields ``'SourceDensity'``, ``'SourceMomentumX'``,
+            ``'SourceMomentumY'``, ``'SourceMomentumZ'``, ``'SourceEnergy'``.
+
+            .. hint:: by means of :py:func:`Post.PyTree.extractMesh`,
+                **BodyForceElement** can be used to inject source terms into a
+                CFD solver.
     '''
 
     Cmpi.barrier()
@@ -466,38 +486,55 @@ def stackBodyForceComponent(Component, RotationAxis, StackStrategy='constant',
     Transform a body-force 2D surface disc into a 3D volume grid suitable for
     transfer data towards CFD grid.
 
-    INPUTS
+    Parameters
+    ----------
 
-    Component - (zone) - bodyforce 2D component
+        Component : zone
+            bodyforce 2D component
 
-    RotationAxis - (3-float tuple) - orientation of the propeller rotation axis
+        RotationAxis : :py:class:`tuple` of 3 :py:class:`float`
+            orientation of the propeller's rotation axis
 
-    StackStrategy - (string) - how stacking is performed. Two possibilities:
-        'silhouette': following the silhouette of the volume swept during the
-            propeller rotation
+        StackStrategy : str
+            how stacking is performed. Two possibilities:
 
-        'constant': a constant extrusion distance provided by user.
+            * ``'silhouette'``
+                following the silhouette of the volume swept during the
+                propeller rotation
 
-    StackRelativeChord - (float) - this parameter controls the relative position
-        of the bodyforce block respect to the lifting line actual position.
-        A value of 1 means that the trailing surface of the bodyforce block
-        matches the lifting line (all sources will be put upstream of Lifting
-        line). A value of 0 means that the entire block is put downstream of
-        the liftingline, the leading surface coincides with the lifting line.
-        A value of 0.5 means that lifting line is in the middle of the block
-        and so on.
+            * ``'constant'``
+                a constant extrusion distance provided by user [m]
 
-    ExtrusionDistance - (float) - this parameter controls the bodyforce source
-        width. If None, by default it takes:  1.5 * Chord.max()
+                .. see also:: parameter **ExtrusionDistance**
 
-    StackDistribution - (None or polymorphic) - desired thickwise distribution
-        of the block. It may be polymorphic following acceptable inputs of
-        J.getDistributionFromHeterogeneousInput__(). If None, a uniform set
-        of 21 points is done.
+        StackRelativeChord : float
+            this parameter controls the relative position
+            of the bodyforce block respect to the lifting line actual position.
+            A value of ``1`` means that the trailing surface of the bodyforce block
+            matches the lifting line (all sources will be put upstream of Lifting
+            line). A value of ``0`` means that the entire block is put downstream of
+            the liftingline, the leading surface coincides with the lifting line.
+            A value of ``0.5`` means that lifting line is in the middle of the block
+            (and so on)
 
-    OUTPUTS
+        ExtrusionDistance : float
+            this parameter controls the bodyforce source
+            width.
 
-    VolumeMesh - (zone) - the bodyforce volume grid
+            .. note:: if :py:obj:`None`, by default it takes:  ``1.5 * Chord.max()``
+
+        StackDistribution : multiple
+            desired thickwise distribution
+            of the block. It may be polymorphic following acceptable inputs of
+            :py:func:`MOLA.InternalShortcuts.getDistributionFromHeterogeneousInput__`.
+
+            .. note:: if :py:obj:`None`, a uniform distribution of 21 points is done.
+
+    Returns
+    -------
+
+        VolumeMesh : zone
+            the bodyforce volume grid
     '''
 
     LeadingEdge = I.copyTree(Component)
@@ -546,19 +583,22 @@ def stackBodyForceComponent(Component, RotationAxis, StackStrategy='constant',
 
 def addThickwiseCoordinate2BodyForceDisk(disk, RotationAxis):
     '''
-    This function adds the fields {ThickwiseCoordinate} and
-    {InverseThickwiseCoordinate} to the volume grid of a bodyforce disk.
+    This function adds the fields ``ThickwiseCoordinate`` and
+    ``InverseThickwiseCoordinate`` to the volume grid of a bodyforce disk.
     These fields can be used for applying distributions of source terms in an
-    easy manner. The field {ThickwiseCoordinate} yields 0 at the trailing edge
-    of the disk and 1 at the leading edge.
+    easy manner. The field ``ThickwiseCoordinate`` yields ``0`` at the trailing edge
+    of the disk and ``1`` at the leading edge.
 
-    INPUTS
+    Parameters
+    ----------
 
-    disk - (zone) - bodyforce disk as obtained from stackBodyForceComponent().
-        The zone is modified in-place (fields are added)
+        disk : zone
+            bodyforce disk as obtained from :py:func:`stackBodyForceComponent`.
 
-    RotationAxis - (3-float tuple or array) - the rotation axis vector
-        components of the rotor.
+            .. note:: zone **disk** is modified *(fields are added)*
+
+        RotationAxis : :py:class:`tuple` of 3 :py:class:`float`
+            the rotation axis vector components of the rotor.
     '''
     ThickwiseCoordinate, InverseThickwiseCoordinate = J.invokeFields(disk,
                            ['ThickwiseCoordinate','InverseThickwiseCoordinate'])
@@ -611,21 +651,28 @@ def addThickwiseCoordinate2BodyForceDisk(disk, RotationAxis):
 def computeSourceTerms(zone, SourceTermScale=1.0):
     '''
     This function computes the source terms of a bodyforce disk using the
-    required fields 'VelocityTangential', 'fx', 'fy', 'fz', 'ft'.
+    *required fields* ``VelocityTangential``, ``fx``, ``fy``, ``fz``, ``ft``.
 
-    INPUTS
+    Parameters
+    ----------
 
-    zone - (zone) - BodyForce disk. IMPORTANT NOTE: It must contain the fields:
-        'Density', 'MomentumX','MomentumY', 'MomentumZ',
-        'EnergyStagnationDensity', 'VelocityTangential', 'fx', 'fy', 'fz', 'ft'
-        located at nodes (FlowSolution container).
-        The zone is modified (new cell-centered fields are added in
-        FlowSolution#SourceTerm container).
+        zone : zone
+            BodyForce disk.
 
-    SourceTermScale - (float) - overall weighting coefficient for source terms.
-        User can use values slightly higher than 1 in order to compensate
-        dissipation effects provoked by the transfer of fields from the disk
-        towards the CFD computational grid.
+            .. important:: It must contain the fields:
+                ``Density``, ``MomentumX``,``MomentumY``, ``MomentumZ``,
+                ``EnergyStagnationDensity``, ``VelocityTangential``,
+                ``fx``, ``fy``, ``fz``, ``ft``
+                located at nodes (``FlowSolution`` container).
+
+            .. note:: **zone** is modified (new cell-centered fields are added in
+                ``FlowSolution#SourceTerm`` container)
+
+        SourceTermScale : float
+            overall weighting coefficient for source terms.
+            User can use values slightly higher than ``1`` in order to compensate
+            dissipation effects provoked by the transfer of fields from the disk
+            towards the CFD computational grid.
     '''
     I._rmNodesByName1(zone, 'FlowSolution#Centers')
 
@@ -649,27 +696,36 @@ def computeSourceTerms(zone, SourceTermScale=1.0):
 
 def migrateSourceTerms2MainPyTree(donor, receiver):
     '''
-    Migrate by interpolation the source terms of a donor (typically, a bodyforce
-    disk) towards a receiver (typically a CFD grid).
-    This function is designed to be used in a distributed MPI context.
+    Migrate by interpolation the source terms of a donor *(typically, a bodyforce
+    disk)* towards a receiver *(typically a CFD grid)*.
 
-    INPUTS
+    .. note:: this function is designed to be used in a distributed MPI context.
 
-    donor - (PyTree, base, zone, list of zones) - Element containing the
-        source terms to be transfered. The source terms must be contained in a
-        cell-centered FlowSolution#SourceTerm container, as obtained using
-        computeSourceTerms() function.
+    Parameters
+    ----------
 
-    receiver - (PyTree) - it must be fully distributed. New transfered fields
-        will be introduced into a cell-centered FlowSolution#SourceTerm
-        container.
+        donor : PyTree, base, zone, list of zones
+            Element containing the
+            source terms to be transfered.
 
-    OUTPUTS
+            .. important:: the source terms must be contained in a
+                cell-centered ``FlowSolution#SourceTerm`` container, as obtained
+                using :py:func:`computeSourceTerms` function.
 
-    tRec - (PyTree or empty list) - reference copy of the receiver PyTree
-        including the new cell-centered FlowSolution#SourceTerm container.
-        If no receiver is present at a given rank, then an empty list is
-        returned.
+        receiver : PyTree
+            it must be fully distributed. New transfered fields
+            will be introduced into a cell-centered ``FlowSolution#SourceTerm``
+            container.
+
+    Returns
+    -------
+
+        tRec : PyTree
+            reference copy of the receiver PyTree
+            including the new cell-centered ``FlowSolution#SourceTerm`` container.
+
+            .. note:: if no receiver is present at a given rank, then an empty list is
+                returned
     '''
     Cmpi.barrier()
     BodyForceDisks = I.getZones(donor)
@@ -704,33 +760,39 @@ def migrateSourceTerms2MainPyTree(donor, receiver):
 
 def buildPropeller(LiftingLine, NBlades=2, GuidePoint=[0,1,0]):
     '''
-    Construct a propeller object using a LiftingLine with native location, i.e.
-    as generated by buildLiftingLine() function.
-    Also, LiftingLine must contain .Kinematics information as provided by,
-    e.g., function setKinematicsUsingConstantRPM().
+    Construct a propeller object using a **LiftingLine** with native location, i.e.
+    as generated by :py:func:`buildLiftingLine` function.
+    Also, **LiftingLine** must contain `.Kinematics` information as provided by,
+    e.g., function :py:func:`setKinematicsUsingConstantRPM`.
 
-    A propeller object is a CGNSBase_t object, in which several LiftingLine
+    A propeller object is a ``CGNSBase_t`` object, in which several LiftingLine
     objects are contained. Special motion nodes may be contained in the base.
 
-    INPUTS
+    Parameters
+    ----------
 
-    LiftingLine - (PyTree 1D Zone) - A Lifting Line object, as generated from
-        function buildLiftingLine(), with Kinematics information as provided
-        by e.g. setKinematicsUsingConstantRPM() function.
+        LiftingLine : zone
+            A Lifting Line object, as generated from
+            function :py:func:`buildLiftingLine`, with Kinematics information
+            as provided by e.g. :py:func:`setKinematicsUsingConstantRPM` function.
 
-    NBlades - (integer >0) Number of blades. Will make copies of LiftingLine.
+        NBlades : int
+            Number of blades. Will make copies of **LiftingLine**
 
-    GuidePoint - (3 element 1D numpy) - Auxiliary point used to
-        indicate where the first blade of the propeller shall be
-        pointing to. If not contained in the propeller's rotation
-        plane, the function will perform a projection.
-        BEWARE: This point must NOT be aligned with RotCenter in
-        RotAxis direction (this would not make sense, and raises
-        an error)
+        GuidePoint : array of 3 :py:class:`float`
+            Auxiliary point used to
+            indicate where the first blade of the propeller shall be
+            pointing to. If not contained in the propeller's rotation
+            plane, the function will perform a projection.
 
-    OUTPUT
+            .. warning:: this point must **NOT** be aligned with rotation center
+                following the rotation axis direction
 
-    Propeller - (PyTree Base) - CGNSBase_t object representing the propeller
+    Returns
+    -------
+
+        Propeller : base
+            ``CGNSBase_t`` object with lifting-line zones representing the propeller
     '''
 
     LiftingLine, = I.getZones(LiftingLine)
@@ -795,46 +857,65 @@ def buildPropeller(LiftingLine, NBlades=2, GuidePoint=[0,1,0]):
 
 def buildLiftingLine(Span, **kwargs):
     '''
-    Make a PyTree-Line zone defining a Lifting-line. The construction of this
-    element is the same as in function GenerativeShapeDesign.wing(), same logic
-    is used here !
+    Make a PyTree-Line zone defining a Lifting-line. The construction
+    procedure of this element is the same as in function
+    :py:func:`MOLA.GenerativeShapeDesign.wing`, same logic is used here !
 
 
-    BEWARE: The native lifting line location is set towards:
-        +X spanwise
-        -Y sweepwise
-        +Z dihedralwise
-        and centered at (0,0,0).
+    .. important:: The native lifting line location is set towards:
 
-    INPUTS
+        :math:`+X` spanwise
 
-    Span - (numpy 1D vector, list, W.linelaw compatible distribution dictionary,
-        or 1D CGNS zone) - This polymorphic input is used to infer the spanwise
-        dimensions and discretization that new wing surface will use.
-        Typical use is np.linspace(MinimumSpan, MaximumSpan, NbOfSpanwisePoints)
-        For detailed information on possible inputs of Span, please see
-        MOLA.InternalShortcuts getDistributionFromHeterogeneousInput__() doc.
+        :math:`-Y` sweepwise
 
-    kwargs - (pair of attribute=dictionary inputs) - This is an arbitrary
-        number of input arguments following the same structure as GSD.wing()
-        function. For example:
-                    Twist = dict(RelativeSpan = [0.2,  0.6,  1.0],
-                                        Twist = [30.,  6.0, -7.0],
-                                 InterpolationLaw = 'akima')
-        For introduction of Polar data, this shall be done using
-        the kwargs argument "Polars" and the Tag number of the
-        PyZonePolar. Example:
-            Polars={'RelativeSpan':[Rmin/Rmax, 1],
-                    'PyZonePolarNames' :   [ 'foilA', 'foilB'],
-                    'InterpolationLaw':'interp1d_linear'}
+        :math:`+Z` dihedralwise
 
-            this will make a linear interpolation between
-            PyZonePolar tagged 0 at Root and PyZonePolar tagged 1
-            at tip.
+        and centered at :math:`(0,0,0)`
 
-    OUTPUTS
 
-    LiftingLine - (zone) - zone defining the new lifting line.
+    Parameters
+    ----------
+
+        Span : multiple
+            This polymorphic input is used to infer the spanwise
+            dimensions and discretization that new lifting-line will use.
+
+            For detailed information on possible inputs of **Span**, please see
+            :py:func:`MOLA.InternalShortcuts.getDistributionFromHeterogeneousInput__` doc.
+
+            .. tip:: typical use is ``np.linspace(MinimumSpan, MaximumSpan, NbOfSpanwisePoints)``
+
+        kwargs : pairs of **attribute** = :py:class:`dict`
+            This is an arbitrary number of input arguments following the same
+            structure as :py:func:`MOLA.GenerativeShapeDesign.wing` function.
+
+            For example, for setting a twist law:
+
+            ::
+
+                Twist = dict(RelativeSpan = [0.2,  0.6,  1.0],
+                                    Twist = [30.,  6.0, -7.0],
+                             InterpolationLaw = 'akima')
+
+            .. note:: For introduction of Polar data, this shall be done using
+                the kwargs argument **Polars** and the Tag number of the
+                **PyZonePolar**. Example:
+
+                ::
+
+                    Polars={'RelativeSpan':[Rmin/Rmax, 1],
+                            'PyZonePolarNames' :   [ 'foilA', 'foilB'],
+                            'InterpolationLaw':'interp1d_linear'}
+
+                this will make a linear interpolation between
+                **PyZonePolar** tagged ``'foilA'`` at Root and **PyZonePolar**
+                tagged ``'foilB'`` at tip.
+
+    Returns
+    -------
+
+        LiftingLine : zone
+            structured curve zone corresponding to the new lifting line
 
     '''
     # ------------ PERFORM SOME VERIFICATIONS ------------ #
@@ -911,17 +992,22 @@ def buildLiftingLine(Span, **kwargs):
 def checkComponentKind(component, kind='LiftingLine'):
     '''
     Function to determine whether a component (CGNS Base or zone) is of kind
-    given by attribute <kind>.
+    given by attribute **kind**.
 
-    INPUTS
+    Parameters
+    ----------
 
-    Component - (CGNS node) - Component whose kind verification is desired.
+        Component : node
+            Component whose kind verification is requested
 
-    kind - (string) - Kind to verify ('Propeller','LiftingLine'...)
+        kind : str
+            Kind to verify. For example : ``'Propeller'``, ``'LiftingLine'``...
 
-    OUTPUTS
+    Returns
+    -------
 
-    Result - (boolean) - True if node kind corresponds to the requested one
+        Result : bool
+            :py:obj:`True` if node kind corresponds to the requested one
     '''
     ZoneInfo = I.getNodeFromName1(component,'.Component#Info')
     if ZoneInfo is None: return False
@@ -935,28 +1021,42 @@ def buildPolarsInterpolatorDict(PyZonePolars, InterpFields=['Cl', 'Cd','Cm'],
         Nrequest=None):
     """
     Build a Python dictionary of interpolation functions of polars from a list
-    of PyZonePolars. Each key is the name of the PyZonePolar (the airfoil's tag)
-    and the value is the interpolation function, e.g:
-                    InterpDict['MyPolar'](AoA,
-                                          Mach,
-                                          Reynolds)
+    of **PyZonePolars**. Each key is the name of the **PyZonePolar**
+    (the airfoil's tag) and the value is the interpolation function.
 
-    INPUTS
+    .. note:: typical usage of the returned dictionary goes like this:
 
-    PyZonePolars - (list of zones) - list of special zones containing the 2D
-        aerodynamic polars of the airfoils.
+        >>> Cl, Cd, Cm = InterpDict['MyPolar'](AoA, Mach, Reynolds)
 
-    InterpFields - (list of strings) - list of names of fields to be
-        interpolated. Acceptable names are the field names contained in
-        all PyZonePolars fields located in FlowSolution container.
+        where ``AoA``, ``Mach`` and ``Reynolds`` are :py:class:`float` or
+        numpy 1D arrays (all yielding the same length)
 
-    Nrequest - (integer>0 or None) - Number of points requested by the
-        interpolation if technique is 'PyZoneExtractMesh' (deprecated)
 
-    OUTPUT
+    Parameters
+    ----------
 
-    InterpDict - (Python dictionary) - resulting python dictionary containing
-        the interpolation functions of the 2D polars.
+        PyZonePolars : :py:class:`list` of zone
+            list of special zones containing the 2D aerodynamic polars of the
+            airfoils.
+
+        InterpFields : :py:class:`list` of :py:class:`str`
+            list of names of fields to be interpolated.
+            Acceptable names are the field names contained in
+            all **PyZonePolars** fields located in ``FlowSolution`` container.
+
+        Nrequest : int
+            if provided, set the number of points requested by the
+            interpolation.
+
+            .. note:: only relevant if technique is ``'PyZoneExtractMesh'``
+                *(which is being deprecated!)*
+
+    Returns
+    -------
+
+        InterpDict : dict
+            resulting python dictionary containing the interpolation functions
+            of the 2D polars.
     """
     InterpDict = {}
     for polar in I.getZones(PyZonePolars):
@@ -981,14 +1081,17 @@ def buildPolarsAnalyticalDict(CLmin=-1.0, CLmax=1.5, CL0=0.0, CLa=2*np.pi,
         REexp = 0.):
     """
     Construct a python dictionary of analytical functions allowing for
-    determination of aerodynamic coefficients ('Cl', 'Cd', 'Cm').
+    determination of aerodynamic coefficients :math:`(c_l,\, c_d,\, c_m)`.
     The call of the analytical functions is made as follows:
 
-        Cl, Cd, Cm = AnalyticalDict['MyPolar'](AoA, Mach, Reynolds)
+    >>> Cl, Cd, Cm = AnalyticalDict['MyPolar'](AoA, Mach, Reynolds)
 
-    INPUTS
 
-    Set of mathematical coefficients defining the CL, CD and CM as follows:
+    The paramaters of :py:func:`buildPolarsAnalyticalDict` are coefficients
+    (:py:class:`float`) that define the mathematical analytical functions like
+    follows:
+
+    ::
 
             # Linear for CL(AoA)
             CL = np.minimum(np.maximum((CL0 + CLa*np.deg2rad(AoA))/np.sqrt(1-Mach**2),CLmin),CLmax)
@@ -1001,10 +1104,11 @@ def buildPolarsAnalyticalDict(CLmin=-1.0, CLmax=1.5, CL0=0.0, CLa=2*np.pi,
 
             CM = 0.
 
-    OUTPUTS
+    Returns
+    -------
 
-    AnalyticalDict - (Python dictionary) - dictionary containing the analytical
-        functions.
+        AnalyticalDict : dict
+            dictionary containing the analytical functions.
     """
     InterpDict = {}
     for polar in AnalyticalPolarsDict:
@@ -1033,21 +1137,30 @@ def buildPolarsAnalyticalDict(CLmin=-1.0, CLmax=1.5, CL0=0.0, CLa=2*np.pi,
 
 def buildLiftingLineInterpolator(LiftingLine, InterpFields=['Cl', 'Cd', 'Cm']):
     '''
-    This function is to be deprecated (replaced by _applyPolarOnLiftingLine).
+
+    .. danger:: this function is to be deprecated (replaced by
+        :py:func:`_applyPolarOnLiftingLine`).
+
     This method employs Cassiopee's Connector interpolation capabilities for
     interpolation of 2D Polar data.
 
-    INPUTS
+    Parameters
+    ----------
 
-    LiftingLine - (zone) - Lifting line.
+        LiftingLine : zone
+            Lifting line.
 
-    InterpFields - (list of strings) - name of fields to be interpolated
+        InterpFields : :py:class:`list` of :py:class:`str`
+            name of fields to be interpolated
 
-    OUTPUTS
+    Returns
+    -------
 
-    LiftingLineInterpolator - (list of zones) - Two zones :
-        DataSurface - (zone) - surface zone containing data of polars
-        RequestLine - (zone) - curve zone yielding the request points
+        DataSurface : zone
+            surface zone containing data of polars
+
+        RequestLine : zone
+            curve zone yielding the request points
     '''
 
     # Get curvilinear abscissa of actual LiftingLine
@@ -1097,22 +1210,28 @@ def interpolatorFromPyZonePolar(PyZonePolar, interpOptions=None,
 
     It handles out-of-range polar-specified angles of attack.
 
-    INPUTS
+    Parameters
+    ----------
 
-    PyZonePolar - (zone) - PyTree Zone containing Polar information,
-        as produced by e.g. convertHOSTDict2PyZonePolar()
+        PyZonePolar : zone
+            PyTree Zone containing Polar information,
+            as produced by e.g. :py:func:`convertHOSTPolarFile2PyZonePolar`
 
-    interpOptions - options to pass to the interpolator function.
-        FUTURE DEPRECATION WARNING: this will be included as PyZonePolar node.
+        interpOptions : options to pass to the interpolator function.
 
-    InterpFields - tupple containing the strings of the variables to be
-        interpolated.
+            .. warning:: this will be included as **PyZonePolar** node in future
+                versions
 
-    OUTPUTS
+        InterpFields : :py:class:`tuple` of :py:class:`str`
+            contains the strings of the variables to be interpolated.
 
-    InterpolationFunctions - Function with arguments:
-        InterpolationFunctions(AoA, Mach, Reynolds,
-                               ListOfEquations=[])
+    Returns
+    -------
+
+        InterpolationFunctions : function
+            a function to be employed like this:
+
+            >>> InterpolationFunctions(AoA, Mach, Reynolds, ListOfEquations=[])
 
     '''
 
@@ -1354,26 +1473,37 @@ def interpolatorFromPyZonePolar(PyZonePolar, interpOptions=None,
 def extractorFromPyZonePolar(PyZonePolar, Nrequest,
         InterpFields=['Cl', 'Cd', 'Cm']):
     '''
+
+    .. danger:: this function is being deprecated
+
     This function create the interpolation function of Polar
     data of an airfoil stored as a PyTree Zone.
 
     It handles out-of-range polar-specified angles of attack.
 
+    Parameters
+    ----------
 
-    Inputs:
-     PyZonePolar - PyTree Zone containing Polar information,
-        as produced by e.g. convertHOSTDict2PyZonePolar()
+         PyZonePolar : zone
+            PyTree Zone containing Polar information,
+            as produced by e.g. :py:func:`convertHOSTPolarFile2PyZonePolar`
 
-    interpOptions - options to pass to the interpolator
-        function. TODO: include as PyZonePolar node.
+        interpOptions : dict
+            options to pass to the interpolator
+            function.
 
-    InterpFields - tupple containing the strings of the
-        variables to be interpolated.
+            .. note:: this will be included in a node of **PyZonePolar**
 
-    Outputs:
-     InterpolationFunctions - Function with arguments:
-        InterpolationFunctions(AoA, Mach, Reynolds,
-                               ListOfEquations=[])
+        InterpFields - :py:func`tuple` of :py:func`str`
+            specify the variables to be interpolated.
+
+    Returns
+    -------
+
+        InterpolationFunctions : function
+            function with usage:
+
+            >>> InterpolationFunctions(AoA, Mach, Reynolds, ListOfEquations=[])
 
     '''
 
@@ -1473,26 +1603,32 @@ def extractorFromPyZonePolar(PyZonePolar, Nrequest,
 
 def RbfInterpFromPyZonePolar(PyZonePolar, InterpFields=['Cl', 'Cd', 'Cm']):
     '''
-    This function create the interpolation function of Polar
-    data of an airfoil stored as a PyTree Zone.
+    This function creates the interpolation function of Polar
+    data of an airfoil stored as a PyTree Zone, using radial-basis-functions.
 
     It handles out-of-range polar-specified angles of attack.
 
-    INPUTS
+    Parameters
+    ----------
 
-    PyZonePolar - PyTree Zone containing Polar information,
-        as produced by e.g. convertHOSTDict2PyZonePolar()
+        PyZonePolar : PyTree Zone containing Polar information,
+            as produced by e.g. :py:func:`convertHOSTPolarFile2PyZonePolar`
 
-    interpOptions - options to pass to the interpolator
-        function. TODO: include as PyZonePolar node.
+        interpOptions : dict
+            options to pass to the interpolator function.
 
-    InterpFields - tupple containing the strings of the
-        variables to be interpolated.
+            .. warning:: this will be include in a node inside **PyZonePolar**
 
-    OUTPUTS
+        InterpFields : :py:class:`tuple` of :py:class:`str`
+            variables to be interpolated.
 
-    InterpolationFunctions - Function with arguments:
-        InterpolationFunctions(AoA, Mach, Reynolds)
+    Returns
+    -------
+
+        InterpolationFunction : function
+            function of interpolation, with expected usage:
+
+            >>> Cl, Cd, Cm = InterpolationFunction(AoA, Mach, Reynolds)
     '''
 
 
@@ -1693,22 +1829,29 @@ def RbfInterpFromPyZonePolar(PyZonePolar, InterpFields=['Cl', 'Cd', 'Cm']):
 def _applyLiftingLineInterpolator(LiftingLine, LiftingLineInterpolator,
         PolarsInterpolatorDict, InterpFields=['Cl','Cd','Cm']):
     '''
-    This function will be deprecated. It employs Cassiopee's Connector module
+    .. danger:: this function will be deprecated
+
+    It employs Cassiopee's Connector module
     for interpolating 2D polar characteristics onto the LiftingLine.
 
-    INPUTS
+    Parameters
+    ----------
 
-    LiftingLine - (zone) - LiftingLine with {AoA}, {Mach} and {Reynolds} fields
-        used for interpolating aerodynamic characteristics at each section.
+        LiftingLine : zone
+            LiftingLine with ``AoA``, ``Mach`` and ``Reynolds`` fields
+            used for interpolating aerodynamic characteristics at each section.
 
-    LiftingLineInterpolator - (2-zones list) - interpolator as obtained from
-        buildLiftingLineInterpolator() function
+            .. note:: zone **LiftingLine** is modified
 
-    PolarsInterpolatorDict - (dictionary of functions) - as obtained from
-        buildPolarsInterpolatorDict().
+        LiftingLineInterpolator : :py:class:`list` of 2 zone
+            objects returned by :py:func:`buildLiftingLineInterpolator`
 
-    InterpFields - (list of strings) - names of aerodynamic characteristics to
-        be interpolated. These fields are added to LiftingLine.
+        PolarsInterpolatorDict : dict
+            as returned by :py:func:`buildPolarsInterpolatorDict`
+
+        InterpFields : :py:func:`list` of :py:func:`str`
+            names of aerodynamic characteristics to
+            be interpolated. These fields are added to LiftingLine.
     '''
 
     # Unpack LiftingLine Interpolator objects
@@ -1756,23 +1899,30 @@ def _applyPolarOnLiftingLine(LiftingLine, PolarsInterpolatorDict,
                              InterpFields=['Cl', 'Cd','Cm']):
     """
     This function computes aerodynamic characteristics of of each section of the
-    LiftingLine using the local conditions defined by {AoA}, {Mach} and
-    {Reynolds} fields (located in LiftingLine's vertices, at the container
-    FlowSolution).
+    LiftingLine using the local conditions defined by ``AoA``, ``Mach`` and
+    ``Reynolds`` fields (located in LiftingLine's vertices, at the container
+    ``FlowSolution``).
 
-    INPUTS
+    Parameters
+    ----------
 
-    LiftingLine - (zone) - LiftingLine curve with {AoA}, {Mach}, {Reynolds}
-        fields defining the local flow characteristics. New interpolated fields
-        will be added into FlowSolution container.
+        LiftingLine : dict
+            LiftingLine curve with ``AoA``, ``Mach``, ``Reynolds``
+            fields defining the local flow characteristics. New interpolated fields
+            will be added into ``FlowSolution`` container.
 
-    PolarsInterpolatorDict - (dictionary of functions) - dictionary of
-        interpolator functions of 2D polars, as obtained from
-        buildPolarsInterpolatorDict() function.
+            .. note:: zone **LiftingLine** is modified
 
-    InterpFields - (list of strings) - names of aerodynamic characteristics to
-        be interpolated. These fields are added to LiftingLine.
+        PolarsInterpolatorDict : dict
+            dictionary of interpolator functions of 2D polars, as obtained from
+            :py:func:`buildPolarsInterpolatorDict` function.
+
+        InterpFields : :py:class:`list` of :py:class:`str`
+            names of aerodynamic characteristics to be interpolated.
+            These fields are added to **LiftingLine**.
     """
+
+    # TODO remove starting "_" from function name
 
     LiftingLines = [z for z in I.getZones(LiftingLine) if checkComponentKind(z,'LiftingLine')]
     for LiftingLine in LiftingLines:
@@ -1828,39 +1978,56 @@ def _findOptimumAngleOfAttackOnLiftLine(LiftingLine, PolarsInterpolatorDict,
         Aim='Cl', AimValue=0.5, AoASearchBounds=(-2,6),
         SpecificSections=None, ListOfEquations=[]):
     """
-    Update {AoA} field with the optimum angle of attack based on a given
-    <Aim>, using the provided <PolarsInterpolatorDict> as well as the existing
-    {Reynolds} and {Mach} number values contained in FlowSolution container.
+    Update ``AoA`` field with the optimum angle of attack based on a given
+    **Aim**, using the provided **PolarsInterpolatorDict** as well as the existing
+    ``Reynolds`` and ``Mach`` number values contained in ``FlowSolution`` container.
 
-    Aim in ['Cl', 'minCd', 'maxClCd']
+    Parameters
+    ----------
 
-    INPUTS
+        LiftingLine : zone
+            the lifting line where ``AoA`` field will be updated
 
-    LiftingLine - (zone) - the lifting line where {AoA} field will be updated
+            .. note:: zone **LiftingLine** is modified
 
-    PolarsInterpolatorDict - (dictionary of functions) - dictionary of
-        interpolator functions of 2D polars, as obtained from
-        buildPolarsInterpolatorDict() function.
+        PolarsInterpolatorDict : dict
+            dictionary of
+            interpolator functions of 2D polars, as obtained from
+            :py:func:`buildPolarsInterpolatorDict` function.
 
-    Aim - (string) - can be one of:
-        'Cl' : aims a given Cl value (provided by argument <AimValue>)
-            throughout the entire lifting line
-        'minCd' : aims the minimum Cd value
-        'maxClCd' : aims the maximum Cl/Cd value
+        Aim : str
+            can be one of:
 
-    AimValue - (float) - Specifies the aimed value for corresponding relevant
-        Aim types (e.g. 'Cl').
+            * ``'Cl'``
+                aims a requested ``Cl`` (:math:`c_l`) value (provided by argument
+                **AimValue**) throughout the entire lifting line
 
-    AoASearchBounds - (2-float tuple) - As there may exist multiple AoA values
-        verifying the requested conditions, this argument constraints the
-        research interval of angle-of-attack of valid candidates.
+            * ``'minCd'``
+                aims the minimum ``Cd`` value, :math:`\min (c_d)`
 
-    SpecificSections - (list of integers>=0 or None) - If specified, only the
-        indices corresponding to the user-provided sections are updated.
+            * ``'maxClCd'``
+                aims the maximum ``Cl/Cd`` value, :math:`\max (c_l / c_d)`
 
-    ListOfEquations - (list of strings) - list of equations compatible with
-        the syntax allowed in Converter.initVars (FlowSolution located at
-        vertex), in order to tune or correct the aerodynamic coefficients.
+        AimValue : float
+            Specifies the aimed value for corresponding relevant
+            Aim types.
+
+            .. note:: currently, only relevant for **Aim** = ``'Cl'``
+
+        AoASearchBounds : :py:class:`tuple` of 2 :py:class:`float`
+            Since there may exist multiple angle-of-attack (*AoA*) values
+            verifying the requested conditions, this argument constraints the
+            research interval of angle-of-attack of valid candidates.
+
+        SpecificSections : :py:class:`list` of :py:class:`int`
+            If specified (not :py:obj:`None`), only the
+            indices corresponding to the user-provided sections are updated.
+
+        ListOfEquations : :py:class:`list` of :py:class:`str`
+            list of equations compatible with
+            the syntax allowed in :py:func:`Converter.PyTree.initVars`
+            (``FlowSolution`` located at vertex), in order to tune or correct
+            the aerodynamic coefficients.
     """
 
 
@@ -1925,22 +2092,26 @@ def _findOptimumAngleOfAttackOnLiftLine(LiftingLine, PolarsInterpolatorDict,
 
 def pyZonePolar2AirfoilZone(pyzonename, PyZonePolars):
     '''
-    Conveniently use ".Polar#FoilGeometry" coordinates of a PyZonePolar in order
-    to build a 1D zone.
+    Conveniently use ``.Polar#FoilGeometry`` coordinates of a **PyZonePolar** in
+    order to build a structured curve zone.
 
-    INPUTS
+    Parameters
+    ----------
 
-    pyzonename - (string) - name to be employed in new curve zone defining the
-        airfoil geometry.
+        pyzonename : str
+            name to be employed in new curve zone defining the airfoil geometry.
 
-    PyZonePolars - (list of zones) - list of special PyZonePolar zones
-        containing 2D polar information as well as the geometry. Specifically,
-        the polars must contain the node '.Polar#FoilGeometry' with the
-        nodes 'CoordinateX' and 'CoordinateY'.
+        PyZonePolars : :py:class:`list` of zone
+            list of special **PyZonePolar** zones
+            containing 2D polar information as well as the geometry. Specifically,
+            the polars must contain the node ``.Polar#FoilGeometry`` with the
+            children nodes ``CoordinateX`` and ``CoordinateY``.
 
-    OUTPUTS
+    Returns
+    -------
 
-    AirfoilGeom - (zone) - the 1D curve of the airfoil.
+        AirfoilGeom : zone
+            the 1D curve of the airfoil.
     '''
     zone = [z for z in PyZonePolars if z[0]==pyzonename][0]
     FoilGeom_n = I.getNodeFromName1(zone,'.Polar#FoilGeometry')
@@ -1957,26 +2128,34 @@ def pyZonePolar2AirfoilZone(pyzonename, PyZonePolars):
 def resetPitch(LiftingLine, ZeroPitchRelativeSpan=0.75, modifyLiftingLine=True):
     '''
     Given an existing LiftingLine object, reset the pitch taking
-    as reference the value in attribute <ZeroPitchRelativeSpan>,
-    which modifies in-place the LiftingLine object (update of Twist)
-    applying a DeltaTwist value such that the resulting Twist
-    yield 0 degrees at <ZeroPitchRelativeSpan>.
-    The value of DeltaTwist is returned by the function.
+    as reference the value in attribute **ZeroPitchRelativeSpan**,
+    which modifies in-place the **LiftingLine** object (update of ``Twist``
+    field) applying a *DeltaTwist* value such that the resulting Twist
+    yields ``0`` degrees at **ZeroPitchRelativeSpan**.
+    The value of *DeltaTwist* is returned by the function.
 
-    INPUTS
+    Parameters
+    ----------
 
-    LiftingLine - (zone) - the lifting line zone
+        LiftingLine : zone
+            the lifting line zone
 
-    ZeroPitchRelativeSpan - (float) - the relative span location where zero
-        twist must be placed.
+            .. note:: zone **LiftingLine** is modified if **modifyLiftingLine**
+                = :py:obj:`True`
 
-    modifyLiftingLine - (boolean) - if True, modify the {Twist} field of the
-        LiftingLine accordingly.
+        ZeroPitchRelativeSpan : float
+            the relative span location where zero twist must be placed.
 
-    OUTPUTS
+        modifyLiftingLine : bool
+            if :py:obj:`True`, modify the ``Twist`` field of the
+            **LiftingLine** accordingly.
 
-    DeltaTwist - (float) - Value required to be added to {Twist} field in order
-        to verify Twist=0 at ZeroPitchRelativeSpan location.
+    Returns
+    -------
+
+        DeltaTwist : float
+            Value required to be added to ``Twist`` field in order
+            to verify :math:`Twist=0` at the location requested by **ZeroPitchRelativeSpan**
     '''
     r, Twist = J.getVars(LiftingLine,['Span','Twist'])
     DeltaTwist = J.interpolate__(np.array([0.75]), r/r.max(), Twist)
@@ -1988,34 +2167,39 @@ def resetPitch(LiftingLine, ZeroPitchRelativeSpan=0.75, modifyLiftingLine=True):
 def remapLiftingLine(LiftingLine, NewRelativeDistribution,
                      InterpolationLaw='interp1d_linear'):
     '''
-    From an existing LiftingLine, this function generates a new
+    From an existing **LiftingLine**, this function generates a new
     one with user-defined spanwise discretization. If the
-    existing LiftingLine had FlowSolutions, those are also
-    remapped into the new LiftingLine.
+    existing **LiftingLine** had fields in ``FlowSolutions``, those are also
+    remapped into the new LiftingLine returned by the function.
 
-    Special nodes named '.Polar#Info','.Component#Info','.Loads','.Kinematics'
-    are conserved in new rediscretized LiftingLine.
+    .. note:: special nodes named ``.Polar#Info``, ``.Component#Info``,
+        ``.Loads``,``.Kinematics`` are conserved in new rediscretized LiftingLine
 
-    INPUTS
+    Parameters
+    ----------
 
-    LiftingLine (PyTree zone) - The original LiftingLine where
-        remapping will be applied from
+        LiftingLine : zone
+            The original LiftingLine where remapping will be applied from
 
-    NewRelativeDistribution - (numpy 1D vector, list, W.linelaw compatible
-        distribution dictionary, or 1D CGNS zone) -
-        This polymorphic input is used to infer the spanwise
-        dimensions and discretization that new wing surface will use.
-        Typical use is np.linspace(MinimumSpan, MaximumSpan, NbOfSpanwisePoints)
-        For detailed information on possible inputs of Span, please see
-        MOLA.InternalShortcuts getDistributionFromHeterogeneousInput__() doc.
+        NewRelativeDistribution : multiple
+            This polymorphic input is used to infer the spanwise
+            dimensions and discretization that new wing surface will use.
+            Typical use is:
 
-    InterpolationLaw (string) - defines the interpolation law
-        used for remapping the LiftingLine.
+            >>> np.linspace(MinimumSpan, MaximumSpan, NbOfSpanwisePoints)
 
-    OUTPUTS
+            For detailed information on possible inputs, please see
+            :py:func:`MOLA.InternalShortcuts getDistributionFromHeterogeneousInput__` doc.
 
-    NewLiftingLine - (1D PyTree Zone) - The newly discretized
-        LiftingLine including remapped FlowSolutions.
+        InterpolationLaw : str
+            defines the interpolation law used for remapping the LiftingLine.
+
+    Returns
+    -------
+
+        NewLiftingLine : zone
+            The newly discretized LiftingLine, including remapped fields
+            located at ``FlowSolution``
     '''
 
     # List of variables to remap
@@ -2055,54 +2239,62 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
                                      RelativeRadiusTolerance = 1e-1,
                                      )):
     '''
-    Post-process a Lifting Line element using enhanced PyZonePolars data in
-    order to build surface fields (like Cp, theta, fields...) from a BEMT
-    solution (or alternatively from PUMA solution converted into a LiftingLine
-    equivalent CGNS object).
+    Post-process a **LiftingLine** element using enhanced **PyZonePolars** data
+    in order to build surface fields (like ``Cp``, ``theta``...) from a BEMT
+    solution *(or alternatively from PUMA solution converted into a LiftingLine
+    equivalent CGNS object with adequate renaming of fields)*.
 
-    INPUT:
+    Parameters
+    ----------
 
-    LiftingLine (PyTree Zone) - Result of a BEMT computation (or PUMA result
-        adapted to CGNS following the same convention).
+        LiftingLine : zone
+            Result of a BEMT computation (or PUMA result
+            adapted to CGNS following the same convention).
 
-    PyZonePolars (list of PyTree Zones) - Enhanced PyZonePolars
-        for each airfoil, containing also foilwise distributions
-        fields (Cp, theta, delta1...)
+        PyZonePolars : :py:func:`list` of :py:func:`zone`
+            Enhanced **PyZonePolars** for each airfoil, containing also foilwise
+            distributions fields (``Cp``, ``theta``, ``delta1``...)
 
-    Variables (list of strings) - The variables to be built
-        on the newly created surface.
+        Variables : :py:class:`list` of :py:class:`str`
+            The variables to be built on the newly created surface.
+            For example:
 
-        example: ['Cp', 'theta']
+            >>> Variables = ['Cp', 'theta']
 
-    ChordRelRef (float) - Reference chordwise used for stacking
-        the sections.
+        ChordRelRef : float
+            Reference chordwise used for stacking the sections.
 
-    FoilDistribution (PyTree 1D distribution curve
-                       as obtained from D.getDistribution() )
-        Indicates the dimensionless curvilinear abscissa to be
-        employed for each section in the newly created surface.
-        Hence, each airfoil section is rediscretized.
-        This is useful if the number of points or the
-        distribution of points of the input data of airfoils
-        contained in PyZonePolars is not homogeneous.
-        If FoilDistribution==None, then no re-distribution is
-        performed on existing data, and all airfoil sections
-        should be be homogeneous (should have the same number
-        of points). If not, the distribution of the first
-        airfoil in PyZonePolars is used for remapping the
-        sections which yield different number of points.
+        FoilDistribution : zone
+            Indicates the dimensionless curvilinear abscissa to be
+            employed for each section in the newly created surface.
+            Hence, each airfoil section is rediscretized.
+            This is useful if the number of points or the
+            distribution of points of the input data of airfoils
+            contained in PyZonePolars is not homogeneous.
+            If :py:obj:`None` is provided, then no re-distribution is
+            performed on existing data, and all airfoil sections
+            should be be homogeneous (should have the same number
+            of points). If not, the distribution of the first
+            airfoil in PyZonePolars is used for remapping the
+            sections which yield different number of points.
 
-    OrderInterpolationAirfoils - (integer) - order of interpolation
-        for employed airfoils
+            .. note:: as obtained from applying
+                :py:func:`Geom.PyTree.getDistribution` to an airfoil curve with
+                the desired distribution
 
-    splitAirfoilOptions - (dictionary) - argument to be passed to
-        GenerativeShapeDesign.wing() function
+        OrderInterpolationAirfoils : int
+            order of interpolation of the geometry between airfoils
 
-    OUTPUT:
+        splitAirfoilOptions : dict
+            argument to be passed to :py:func:`MOLA.GenerativeShapeDesign.wing`
+            function defining the optional parameters
 
-    Surface (PyTree surface Zone) - Surface containing
-        FlowSolution nodes, where the variables requested by
-        the user are interpolated.
+    Returns
+    -------
+
+        Surface : zone
+            structured surface containing fields at ``FlowSolution``, where the
+            variables requested by the user are interpolated.
     '''
 
     def _applyInterpolationFunction__(VariableArray, Var, InterpolationLaw):
@@ -2317,21 +2509,29 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
 
 def addAccurateSectionArea2LiftingLine(LiftingLine, PyZonePolars):
     '''
-    Add a field named {SectionArea} info the <LiftingLine> using the airfoil's
-    geometry contained in <PyZonePolars>.
+    Add a field named ``SectionArea`` info the **LiftingLine** using the airfoil's
+    geometry contained in **PyZonePolars**.
 
-    INPUTS
+    Parameters
+    ----------
 
-    LiftingLine - (zone) - the lifting line zone where {SectionArea} is added
+        LiftingLine : zone
+            the lifting line zone where ``SectionArea`` field is added
 
-    PyZonePolars - (list of zones) - list of special PyZonePolar zones
-        containing 2D polar information as well as the geometry. Specifically,
-        the polars must contain the node '.Polar#FoilGeometry' with the
-        nodes 'CoordinateX' and 'CoordinateY'.
+            .. note:: zone **LiftingLine** is modified
 
-    OUTPUTS
+        PyZonePolars : :py:class:`list` of zone
+            list of special **PyZonePolar** zones
+            containing 2D polar information as well as the geometry. Specifically,
+            the polars must contain the node ``.Polar#FoilGeometry`` with the
+            children nodes ``CoordinateX`` and ``CoordinateY``.
 
-    LiftingLineSurface - (zone) - the corresponding surface of the lifting line
+    Returns
+    -------
+
+        LiftingLineSurface : zone
+            the corresponding surface of the lifting line, that has been
+            generated as an auxiliar item during the function call
     '''
     Surf = postLiftingLine2Surface(LiftingLine, PyZonePolars)
     SectionArea, = J.invokeFields(LiftingLine, ['SectionArea'])
@@ -2357,17 +2557,20 @@ def plotStructPyZonePolars(PyZonePolars, addiationalQuantities=[],
 
     It produces a set of figures in PDF format.
 
-    INPUTS
+    Parameters
+    ----------
 
-    PyZonePolars - (list of zones) - list of special PyZonePolar zones
-        containing 2D polar information as well as the geometry.
+        PyZonePolars : :py:class:`list` of zone
+            list of special PyZonePolar zones
+            containing 2D polar information as well as the geometry.
 
-    addiationalQuantities - (list of strings) - quantities to be plotted.
-        Allowable names are the field names contained in PyZonePolars
-        FlowSolution container.
+        addiationalQuantities : :py:class:`list` of :py:class:`str`
+            quantities to be plotted.
+            Allowable names are the field names contained in **PyZonePolars**
+            ``FlowSolution`` container.
 
-    filesuffix - (string) - suffix to append to new PDF files produced by
-        the function
+        filesuffix : str
+            suffix to append to new PDF files produced by the function
     '''
 
     import matplotlib.pyplot as plt
@@ -2479,26 +2682,34 @@ def setKinematicsUsingConstantRPM(LiftingLines, RotationCenter=[0,0,0],
                                   RotationAxis=[1,0,0], RPM=2500.0,
                                   RightHandRuleRotation=True):
     '''
-    This function is a convenient wrap used for setting the .Kinematics
-    node of LiftingLine object. Information contained in .Kinematics node
-    is used by moveLiftingLines() and computeKinematicVelocity() functions.
+    This function is a convenient wrap used for setting the ``.Kinematics``
+    node of **LiftingLine** object.
 
-    INPUTS
+    .. note:: information contained in ``.Kinematics`` node
+        is used by :py:func:`moveLiftingLines` and :py:func:`computeKinematicVelocity`
+        functions.
 
-    LiftingLines - (PyTree, base, zone or list of zones) - Lifting lines where
-        .Kinematics node is to be set.
+    Parameters
+    ----------
 
-    RotationCenter - (3-float tuple, list or array) - Rotation Center of the
-        motion (x,y,z components).
+        LiftingLines : PyTree, base, zone or list of zones
+            Container with Lifting lines where ``.Kinematics`` node is to be set
 
-    RotationAxis - (3-float tuple, list or array) - Rotation axis of the
-        motion (x,y,z components).
+            .. note:: zones contained in **LiftingLines** are modified
 
-    RPM - (float) - revolution per minute. Angular speed of the motion.
+        RotationCenter : :py:class:`list` of 3 :py:class:`float`
+            Rotation Center of the motion :math:`(x,y,z)` components
 
-    RightHandRuleRotation - (boolean) - if True, the motion is done around
-        the RotationAxis following the right-hand-rule convention. False
-        otherwise.
+        RotationAxis : :py:class:`list` of 3 :py:class:`float`
+            Rotation axis of the motion :math:`(x,y,z)` components
+
+        RPM : float
+            revolution per minute. Angular speed of the motion.
+
+        RightHandRuleRotation : bool
+            if :py:obj:`True`, the motion is done around
+            the **RotationAxis** following the right-hand-rule convention.
+            :py:obj:`False` otherwise.
     '''
 
     for LiftingLine in I.getZones( LiftingLines ):
@@ -2512,22 +2723,29 @@ def setKinematicsUsingConstantRPM(LiftingLines, RotationCenter=[0,0,0],
 def setConditions(LiftingLines, VelocityFreestream=[0,0,0], Density=1.225,
                   Temperature=288.15):
     '''
-    This function is a convenient wrap used for setting the .Conditions
-    node of LiftingLine object. Information contained in .Conditions node
-    is used for computation of Reynolds and Mach number, as well as other
-    required input of methods such that Vortex Particle Method.
+    This function is a convenient wrap used for setting the ``.Conditions``
+    node of **LiftingLine** object.
 
-    INPUTS
+    .. note:: information contained in ``.Conditions`` node
+        is used for computation of Reynolds and Mach number, as well as other
+        required input of methods such that Vortex Particle Method.
 
-    LiftingLines - (PyTree, base, zone or list of zones) - Lifting lines where
-        .Conditions node is to be set.
+    Parameters
+    ----------
 
-    VelocityFreestream - (3-float tuple, list or array) - Components (x,y,z)
-        of the freestream velocity, in [m/s].
+        LiftingLines : PyTree, base, zone or list of zones
+            Container with Lifting lines where ``.Conditions`` node is to be set
 
-    Density - (float) - air density in [kg/m3]
+            .. note:: zones contained in **LiftingLines** are modified
 
-    Temperature - (float) - air temperature in [K]
+        VelocityFreestream : :py:class:`list` of 3 :py:class:`float`
+            Components :math:`(x,y,z)` of the freestream velocity, in [m/s].
+
+        Density : float
+            air density in [kg/m3]
+
+        Temperature : float
+            air temperature in [K]
     '''
     for LiftingLine in I.getZones( LiftingLines ):
         J.set(LiftingLine,'.Conditions', VelocityFreestream=VelocityFreestream,
@@ -2538,14 +2756,20 @@ def setConditions(LiftingLines, VelocityFreestream=[0,0,0], Density=1.225,
 
 def getRotationAxisCenterAndDirFromKinematics(LiftingLine):
     '''
-    This is a private function.
-    Extract RotationAxis, RotationCenter and rotation direction from
-    .Kinematics node.
 
-    INPUTS
+    .. note:: this is a private function
 
-    LiftingLine - (zone) - Lifting-line with .Kinematics node defined
-        using setKinematicsUsingConstantRPM() function.
+    Extract **RotationAxis**, **RotationCenter** and rotation direction from
+    ``.Kinematics`` node.
+
+    Parameters
+    ----------
+
+        LiftingLine : zone
+            Lifting-line with ``.Kinematics`` node defined
+            using :py:func:`setKinematicsUsingConstantRPM`
+
+            .. note:: zone **LiftingLine** is modified
     '''
     Kinematics_n = I.getNodeFromName(LiftingLine,'.Kinematics')
     if not Kinematics_n:
@@ -2574,14 +2798,17 @@ def getRotationAxisCenterAndDirFromKinematics(LiftingLine):
 
 def computeKinematicVelocity(t):
     '''
-    Compute or update {VelocityKinematicX}, {VelocityKinematicY} and
-    {VelocityKinematicZ} fields of LiftingLines provided to function using
-    information contained in .Kinematics node attached to each LiftingLine.
+    Compute or update ``VelocityKinematicX``, ``VelocityKinematicY`` and
+    ``VelocityKinematicZ`` fields of LiftingLines provided to function using
+    information contained in ``.Kinematics`` node attached to each LiftingLine.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree, Base, list of zones, zone) - CGNS container with LiftingLines.
-        Lifting-lines are modified.
+        t : Pytree, base, list of zones, zone
+            container with LiftingLines
+
+            .. note:: LiftingLines contained in **t** are modified.
     '''
 
     RequiredFieldNames = ['VelocityKinematicX',
@@ -2630,39 +2857,51 @@ def assembleAndProjectVelocities(t):
 
     The new or updated fields are the following :
 
-    {VelocityX} Three components of the VelocityInduced + VelocityFreestream
-    {VelocityY}
-    {VelocityZ}
+    * ``VelocityX`` ``VelocityY`` ``VelocityZ``
+        Three components of the VelocityInduced + VelocityFreestream
 
-    {VelocityAxial} Relative velocity in -RotationAxis direction
-    {VelocityTangential} Relative velocity in the rotation plane direction
+    * ``VelocityAxial``
+        Relative velocity in -RotationAxis direction
 
-    {VelocityNormal2D} This is the normal-wise (in {nx} {ny} {nz} direction)
+    * ``VelocityTangential``
+        Relative velocity in the rotation plane direction
+
+    * ``VelocityNormal2D``
+        This is the normal-wise (in ``nx`` ``ny`` ``nz`` direction)
         of the 2D velocity
-    {VelocityTangential2D} This is the tangential (in {bx} {by} {bz} direction)
+
+    * ``VelocityTangential2D``
+        This is the tangential (in ``bx`` ``by`` ``bz`` direction)
         of the 2D velocity
 
-    {phiRad} Angle of the flow with respect to rotation plane as
-                            np.arctan2( V2Dn, V2Dt )
+    * ``phiRad``
+        Angle of the flow with respect to rotation plane as
+        ``np.arctan2( VelocityNormal2D, VelocityTangential2D )``
 
-    {AoA} Local angle-of-attack of the blade section
+    * ``AoA``
+        Local angle-of-attack of the blade section
 
-    {VelocityMagnitudeLocal} Magnitude of the local velocity neglecting the
-        radial contribution
+    * ``VelocityMagnitudeLocal``
+        Magnitude of the local velocity neglecting the radial contribution
 
-    {Mach} Mach number neglecting the radial contribution
+    * ``Mach``
+        Mach number neglecting the radial contribution
 
-    {Reynolds} Reynolds number neglecting the radial contribution
+    * ``Reynolds``
+        Reynolds number neglecting the radial contribution
 
-    Please note that this function requires the LiftingLine to have the fields
-            {VelocityKinematicX}, {VelocityKinematicY}, {VelocityKinematicZ},
-              {VelocityInducedX},   {VelocityInducedY},   {VelocityInducedZ},
-    if they are not found, then they are created with zero values.
+    .. attention:: please note that this function requires the LiftingLine to
+        have the fields: ``VelocityKinematicX``, ``VelocityKinematicY``, ``VelocityKinematicZ``,
+        ``VelocityInducedX``,   ``VelocityInducedY``,   ``VelocityInducedZ``,
+        if they are not found, then they are created (with zero values).
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree, Base, list of zones, zone) - CGNS container with LiftingLines.
-        Lifting-lines are modified.
+        t : PyTree, base, list of zones, zone
+            container with LiftingLines.
+
+            .. note:: Lifting-lines contained in **t** are modified.
 
     '''
     RequiredFieldNames = ['VelocityKinematicX',
@@ -2752,18 +2991,22 @@ def assembleAndProjectVelocities(t):
 
 def moveLiftingLines(t, TimeStep):
     '''
-    Move the lifting lines following their .Kinematics law while storing the
-    previous location of GridCoordinates as
-    {CoordinateXm1}, {CoordinateYm1}, {CoordinateZm1} fields.
+    Move the lifting lines following their ``.Kinematics`` law while storing the
+    previous location of ``GridCoordinates`` as
+    ``CoordinateXm1``, ``CoordinateYm1``, ``CoordinateZm1`` fields.
 
     It also updates the local frame quantities of the lifting lines.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree, Base, list of zones, zone) - CGNS container with LiftingLines.
-        Lifting-lines are modified.
+        t : PyTree, base, list of zones, zone
+            container with LiftingLines.
 
-    TimeStep - (float) - time step for the movement of the lifting-lines in [s]
+            .. note:: Lifting-lines contained in **t** are modified.
+
+        TimeStep : float
+            time step for the movement of the lifting-lines in [s]
     '''
     LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
     for LiftingLine in LiftingLines:
@@ -2790,20 +3033,36 @@ def updateLocalFrame(LiftingLine):
     Update the LiftingLine's Frenet frame unit vectors.
     This method is designed to be employed at each timestep.
 
-    INPUT
+    Parameters
+    ----------
 
-    LiftingLine (zone object)
+        LiftingLine : zone
+            CGNS zone of LiftingLine type at an arbitrary position,
+            including ``.Kinematics`` data provided by e.g.
+            function :py:func:`setKinematicsUsingConstantRPM`
 
-    OUTPUT
+            .. note:: zone **LiftingLine** is modified
 
-    txyz (3xLiftingLineNPts numpy array) - Convenient array of
-        tangent (spanwise) unit vectors.
+    Returns
+    -------
 
-    nxyz (3xLiftingLineNPts numpy array) - Convenient array of
-        normal (pseudo-axialwise) unit vectors.
+        txyz : numpy.ndarray
+            numpy array of shape :math:`3 \\times N_{pts}` where :math:`N_{pts}`
+            is the total number of points of the lifting-line. It is a convenient
+            array of *tangent* *(spanwise)* unit vectors. Each row
+            corresponds to a coordinate direction :math:`(x,y,z)`
 
-    bxyz (3xLiftingLineNPts numpy array) - Convenient array of
-        binormal (pseudo-tangential) unit vectors.
+        nxyz : numpy.ndarray
+            numpy array of shape :math:`3 \\times N_{pts}` where :math:`N_{pts}`
+            is the total number of points of the lifting-line. It is a convenient
+            array of *normal* *(pseudo-axialwise)* unit vectors. Each row
+            corresponds to a coordinate direction :math:`(x,y,z)`
+
+        bxyz : numpy.ndarray
+            numpy array of shape :math:`3 \\times N_{pts}` where :math:`N_{pts}`
+            is the total number of points of the lifting-line. It is a convenient
+            array of *binormal* *(pseudo-tangential)* unit vectors. Each row
+            corresponds to a coordinate direction :math:`(x,y,z)`
     '''
 
     RequiredFieldNames = ['tx','ty','tz',
@@ -2878,31 +3137,9 @@ def updateLocalFrame(LiftingLine):
 
 def updateFrame(LiftingLine, RotAxis, direct):
     '''
-    TO BE DEPRECATED
+    .. danger:: **THIS FUNCTION IS BEING DEPRECATED AND SHALL NOT BE USED**
+        Please use :py:func:`updateLocalFrame` instead
 
-    Update the LiftingLine's Frenet frame unit vectors.
-    This method is designed to be employed at each timestep.
-
-    INPUT
-
-    LiftingLine (PyTree object)
-
-    RotAxis (3-float numpy array) - Rotation axis or reference
-        direction
-
-    direct (boolean) - True if rotation right-handed rule.
-        False otherwise.
-
-    OUTPUT
-
-    txyz (3xLiftingLineNPts numpy array) - Convenient array of
-        tangent (spanwise) unit vectors.
-
-    nxyz (3xLiftingLineNPts numpy array) - Convenient array of
-        normal (pseudo-axialwise) unit vectors.
-
-    bxyz (3xLiftingLineNPts numpy array) - Convenient array of
-        binormal (pseudo-tangential) unit vectors.
     '''
 
     # Get frenet's frame unit vector arrays and LiftingLine's coordinates
@@ -2949,23 +3186,28 @@ def updateFrame(LiftingLine, RotAxis, direct):
 
 def addPerturbationFields(t, PerturbationFields=None):
     '''
-    Sets the existing {VelocityInducedX,Y,Z} fields of Lifting
-    Lines contained in <t> the perturbation contribution
-    contained in <PerturbationFields>.
-    If no PerturbationFields is given, then this function
-    simply sets {VelocityInducedX,Y,Z} to zero.
+    Sets the existing ``VelocityInducedX``, ``VelocityInducedY``,
+    ``VelocityInducedZ`` fields of Lifting Lines contained in **t** the
+    perturbation contribution contained in **PerturbationFields**.
 
-    INPUTS
-    t (PyTree) - Contains LiftingLines.
+    .. note:: if no **PerturbationFields** is given (object :py:obj:`None` is
+        provided), then this function simply sets ``VelocityInducedX``,
+        ``VelocityInducedY``, ``VelocityInducedZ`` to zero
 
-    PerturbationFields (PyTree, Base, Zone, Zones...) -
-        Post.extractMesh()-compatible set of donor.
-        BEWARE! It must contain the following fields:
-        {Density},{MomentumX,Y,Z}
+    Parameters
+    ----------
 
-    OUTPUTS
-    None (in-place function) - Modify t. Updates the fields
-        {VelocityInducedX,Y,Z}.
+        t : PyTree
+            Container with CGNS LiftingLines objects.
+
+            .. note:: lifting-line zones contained in **t** are modified
+
+        PerturbationFields : PyTree, base, zone, list of zones
+            donor compatible with :py:func:`Post.PyTree.extractMesh` function.
+
+            .. attention:: **PerturbationFields**  must contain the following
+                fields: ``Density`` , ``MomentumX``, ``MomentumY``, ``MomentumZ``
+
     '''
 
     Cmpi.barrier()
@@ -3043,25 +3285,36 @@ def addPerturbationFields(t, PerturbationFields=None):
 
 def migratePerturbationsFromAuxiliarDisc2LiftingLines(AuxiliarDisc, LiftingLines):
     '''
-    Migrate the perturbation fields ('Density',
-        'MomentumX', 'MomentumY', 'MomentumZ',
-        'EnergyStagnationDensity', 'Temperature',
-        'VelocityInducedX', 'VelocityInducedY', 'VelocityInducedZ')
-    from AuxiliarDisc to the LiftingLines. The number of LiftingLines must
-    coincide with the azimuthal discretization of the AuxiliarDisc.
+    Migrate the perturbation fields :
+    ``Density``,
+    ``MomentumX``, ``MomentumY``, ``MomentumZ``,
+    ``EnergyStagnationDensity``, ``Temperature``,
+    ``VelocityInducedX``, ``VelocityInducedY``, ``VelocityInducedZ``
+    from **AuxiliarDisc** to the **LiftingLines**.
 
-    INPUTS
+    .. warning:: the number of **LiftingLines** zones
+        *must* coincide with the azimuthal discretization of the **AuxiliarDisc**
 
-    AuxiliarDisc - (zone) - Auxiliar disc (bodyforce) where perturbation fields
-        are contained.
+    Parameters
+    ----------
 
-    LiftingLines - (list of zones) - list of lifting lines where perturbation
-        fields will be transfered. Lifting lines must be exactly supported on
-        the auxiliar disc. This imposes a number of constraints: the amount of
-        lifting lines must be the same as the azimuthal discretization of the
-        auxiliar disc. The spanwise discretization must be the same as the
-        radial discretization of the auxiliar disc (except the root and tip
-        points of auxiliar disc, which lies outside of lifting line).
+        AuxiliarDisc : zone
+            Auxiliar disc *(bodyforce)* where perturbation fields are contained.
+
+        LiftingLines : :py:class:`list` of zone
+            list of lifting lines where perturbation
+            fields will be transfered.
+
+            .. important:: **LiftingLines** must be exactly supported on
+                the auxiliar disc. This imposes a number of constraints:
+
+                #. the amount of
+                   lifting lines **must be** the same as the azimuthal discretization of the
+                   auxiliar disc.
+
+                #. the spanwise discretization **must be** the same as the
+                   radial discretization of the auxiliar disc (except the root and tip
+                   points of auxiliar disc, which lies outside of lifting line).
     '''
     PerturbationFields = ('Density', 'MomentumX', 'MomentumY', 'MomentumZ',
         'EnergyStagnationDensity', 'Temperature',
@@ -3142,66 +3395,105 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0):
     This function is used to compute local and integral loads of a lifting line
     with general orientation and shape (including sweep and dihedral).
 
-    INPUTS
+    .. important:: the flow's contribution to the efforts in the tangential
+        direction of the lifting-line is neglected. This means that radial
+        contribution on rotors is neglected.
 
-    t - (PyTree, base, zone, list of zones) - container of Lifting Line zones.
-        Each LiftingLine must contain the minimum required fields:
-            {phiRad} Local angle of the flow in radians
-            {Cl} {Cd} {Cm} Local aerodynamic coefficients of the lifting line
-                sections
-            {Chord} Local chord of the sections
-            {VelocityMagnitudeLocal} velocity magnitude employed for computing
-                the fluxes, moments and local bound circulation.
-            {s} curvilinear abscissa
-            {Span} local span (cylindric distance from RotationAxis to each
-                section)
+    Parameters
+    ----------
 
+        t : PyTree, base, zone, list of zones
+            container with Lifting Line zones.
+            Each LiftingLine must contain the minimum required fields:
 
-        Frenet fields: see documentation of updateLocalFrame() function
+            * ``phiRad``
+                Local angle of the flow in radians
 
-        {tx} {ty} {tz} unitary vector pointing towards the local abscissa
-            direction of the lifting line curve.
-        {bx} {by} {bz} unitary vector normal to the local lifting line curve
-            and contained in the rotation plane of the blade.
-        {nx} {ny} {nz} unitary vector normal to the local lifting line curve
-            forming a right-hand-rule frame with the aforementioned vectors
-        {tanx} {tany} {tanz} unitary vector of the section's local direction
-            tangent to the rotation plane and perpendicular to the rotation
-            axis. This is employed for computing torque and power.
+            * ``Cl`` ``Cd`` ``Cm``
+                Local aerodynamic coefficients of the lifting line sections
 
-        New fields are created as a result of this function call:
+            * ``Chord``
+                Local chord of the sections
 
-        {fx} {fy} {fz} local linear forces at each lifting line's section
-            in [N/m]. Each component (x,y,z) corresponds to absolute coordinate
-            frame (same as GridCoordinates)
+            * ``VelocityMagnitudeLocal``
+                velocity magnitude employed for computing the fluxes, moments
+                and local bound circulation.
 
-        {fa} {ft} local linear forces projected onto axial and tangential
-            directions. {fa} contributes to Thrust. {ft} contributes to torque.
-            They have dimensions of [N/m]
+            * ``s``
+                curvilinear abscissa
 
-        {fn} {fb} local linear forces projected onto 2D frame defined by
-            {nx} {ny} {nz} direction and {bx} {by} {bz} direction, respectively.
-            They have dimensions of [N/m]
+            * ``Span``
+                local span, which is the cylindric distance from **RotationAxis**
+                (information contained in ``.Kinematics`` node) to each section
 
-        {mx} {my} {mz} local linear moments in (x,y,z) frame. Dimensions are [N]
-            The moments are applied on 1/4 chord (at LiftingLine's nodes)
+            Required Frenet fields (if absent, they will be computed):
 
-        {m0x} {m0y} {m0z} local linear moments in (x,y,z) frame applied at
-            rotation center of the blade. Dimensions are [N]
+            .. see also:: :py:func:`updateLocalFrame`
 
-        {Lx} {Ly} {Lz} {La} {Lt} {Ln} {Lb} linear Lift contribution following
-            the directions (x,y,z) axial, tangential normal and binormal. [N/m]
+            * ``tx`` ``ty`` ``tz``
+                unitary vector pointing towards the local abscissa direction of
+                the lifting line curve.
 
-        {Dx} {Dy} {Dz} {Da} {Dt} {Dn} {Db} linear Drag contribution following
-            the directions (x,y,z) axial, tangential normal and binormal. [N/m]
+            * ``bx`` ``by`` ``bz``
+                unitary vector normal to the local lifting line curve
+                and contained in the rotation plane of the blade.
 
-        {Gamma} circulation magnitude of the blade section following the
-            Kutta-Joukowski theorem
+            * ``nx`` ``ny`` ``nz``
+                unitary vector normal to the local lifting line curve
+                forming a right-hand-rule frame with the aforementioned vectors
 
-        {GammaX} {GammaY} {GammaZ} circulation vector of the blade section
-            following the Kutta-Joukowski theorem
+            * ``tanx`` ``tany`` ``tanz``
+                unitary vector of the section's local direction
+                tangent to the rotation plane and perpendicular to the rotation
+                axis. This is employed for computing torque and power.
 
-    NBlades - (float) - Multiplication factor of integral loads
+            New fields are created as a result of this function call:
+
+            * ``fx`` ``fy`` ``fz``
+                local linear forces at each lifting line's section
+                in [N/m]. Each component :math:`(x,y,z)` corresponds to absolute
+                coordinate frame (same as ``GridCoordinates``)
+
+            * ``fa`` ``ft``
+                local linear forces projected onto axial and tangential
+                directions. ``fa`` contributes to Thrust. ``ft`` contributes to Torque.
+                They have dimensions of [N/m]
+
+            * ``fn`` ``fb``
+                local linear forces projected onto 2D frame defined by
+                ``nx`` ``ny`` ``nz`` direction and ``bx`` ``by`` ``bz`` direction, respectively.
+                They have dimensions of [N/m]
+
+            * ``mx`` ``my`` ``mz``
+                local linear moments in :math:`(x,y,z)` frame. Dimensions are [N]
+                The moments are applied on 1/4 chord (at LiftingLine's nodes)
+
+            * ``m0x`` ``m0y`` ``m0z``
+                local linear moments in :math:`(x,y,z)` frame applied at
+                rotation center of the blade. Dimensions are [N]
+
+            * ``Lx`` ``Ly`` ``Lz`` ``La`` ``Lt`` ``Ln`` ``Lb``
+                Respectively linear Lift contribution following
+                the directions :math:`(x,y,z)` axial, tangential normal and
+                binormal. [N/m]
+
+            * ``Dx`` ``Dy`` ``Dz`` ``Da`` ``Dt`` ``Dn`` ``Db``
+                linear Drag contribution following
+                the directions :math:`(x,y,z)` axial, tangential normal and
+                binormal. [N/m]
+
+            * ``Gamma``
+                circulation magnitude of the blade section following the
+                Kutta-Joukowski theorem
+
+            * ``GammaX`` ``GammaY`` ``GammaZ``
+                circulation vector of the blade section following the
+                Kutta-Joukowski theorem
+
+            .. note::
+                LiftingLine zones contained in **t** are modified
+        NBlades : float
+            Multiplication factor of integral loads
     '''
 
     FrenetFields = ('tx','ty','tz','nx','ny','nz','bx','by','bz',
@@ -3538,39 +3830,8 @@ def _updateLiftingLines(t, PolarsInterpolatorsDict):
 def prepareUnsteadyLiftingLine(t, VelocityFreestream=np.array([0.,0.,0.]),
                                Density=1.225, Temperature=288., VPMdata=None):
     '''
-    Private function used in BODYFORCE method, to be deprecated.
+    .. danger :: Private function used in BODYFORCE method, to be deprecated.
 
-    Prepares (initializes) the simulation
-
-    INPUTS
-    t (PyTree) Simulation problem containing propellers,
-        Lifting Line objects, etc.
-
-    VelocityFreestream (3-float numpy vector) - 3 cartesian
-        components of the Freestream Velocity (in m/s)
-
-    Density (float) - Air density in kg/m3
-
-    Temperature (float) - Air temperature in kelvin
-
-    VPMdata (Python dictionary) - If provided, set-up <t>
-        for VPM simulation. <VPMdata> contains:
-
-        ParticlesZone (a NODE Zone) - As created from
-        buildParticlesFromLiftingLines() function.
-
-        VPMparameters (Python dictionary) - Overall VPM options
-        that will be added to parent <t> object as a node named
-        .VPM#Params
-
-    OUTPUTS
-    None - in-place function that modifies t. Modifications:
-        -> Add .Conditions node (VelocityFreestream, Density,
-            Temperature)
-        -> Initialize LiftingLine's required fields (added to
-            FlowSolution node)
-        -> Eventually attach all ParticlesZones for VPM
-        -> Eventually include .VPM#Params node in parent
     '''
 
     J.set(t,'.Conditions',VelocityFreestream=VelocityFreestream, Density=Density, Temperature=Temperature)
@@ -3646,6 +3907,9 @@ def _plotChordAndTwist(LiftingLines, savefigname=None):
     Convenient function for interactively plot chord and twist
     geometrical laws of a list of Lifting Lines
     '''
+
+    # TODO remove "_"
+
     import matplotlib.pyplot as plt
 
     fig, ax1 = plt.subplots()
@@ -3671,6 +3935,9 @@ def _plotAoAAndCl(LiftingLines, savefigname=None):
     Convenient function for interactively plot AoA and Cl
     geometrical laws of a list of Lifting Lines
     '''
+
+    # TODO remove "_"
+
     import matplotlib.pyplot as plt
 
     LiftingLines = I.getZones(LiftingLines)
@@ -3700,13 +3967,17 @@ def convertHOSTPolarFile2Dict(filename):
     Dictionnary, given a filename including path of a HOST
     formatted file.
 
-    INPUT
+    Parameters
+    ----------
 
-    filename (string) Path+filename of HOST formatted file
+        filename : str
+            full or relative path towards HOST formatted file
 
-    OUTPUT
+    Returns
+    -------
 
-    Python Dictionnary containing the numerical values.
+        Result : dict
+            Python Dictionnary containing the numerical values
     '''
     def scan(line,OutputType=float, RegExpr=r'[-+]?(?:(?:\d*\.\d+)|(?:\d+\.?))(?:[Ee][+-]?\d+)?'):
         scanned = re.findall(RegExpr,line)
@@ -3805,19 +4076,22 @@ def convertHOSTPolarFile2Dict(filename):
 
 def convertDict2PyZonePolar(HostDictionnary):
     """
-    Convert the dictionary obtained using convertHOSTPolarFile2Dict()
+    Convert the dictionary obtained using :py:func:`convertHOSTPolarFile2Dict`
     to a CGNS format polar zone.
 
-    INPUT
+    Parameters
+    ----------
 
-    HostDictionnary - (Python dictionary) - as provided by the function
-        convertHOSTPolarFile2Dict()
+        HostDictionnary : dict
+            as provided by the function :py:func:`convertHOSTPolarFile2Dict`
 
-    OUTPUT
+    Returns
+    -------
 
-    PyZonePolar - (zone) - CGNS structured data containing the 2D airfoil
-        aerodynamic haracteristics and other relevant data for interpolation
-        operations
+        PyZonePolar : zone
+            CGNS structured data containing the 2D airfoil
+            aerodynamic haracteristics and other relevant data for interpolation
+            operations
     """
 
     # Get the size of the main data array
@@ -3887,6 +4161,18 @@ def convertDict2PyZonePolar(HostDictionnary):
 def convertHOSTPolarFile2PyZonePolar(filename):
     '''
     Convert a HOST-format 2D polar file into a CGNS-structured polar.
+
+    Parameters
+    ----------
+
+        filename : str
+            full or relative path of HOST polars
+
+    Returns
+    -------
+
+        PyZonePolar : zone
+            specific zone including 2D polar predictions
     '''
     Data        = convertHOSTPolarFile2Dict(filename)
     PyZonePolar = convertDict2PyZonePolar(Data)
@@ -3898,15 +4184,21 @@ def convertLiftingLine2PUMABladeDef(LiftingLine, PolarName2FileDict,
     """
     Write PUMA's GeomBlade definition from a CGNS Lifting-Line CGNS object.
 
-    INPUT
+    Parameters
+    ----------
 
-    LiftingLine - (zone) - LiftingLine used for the conversion
+        LiftingLine : zone
+            lifting-line used for the conversion
 
-    PolarName2FileDict - (Python dictionary) - indicates the relative paths
-        of the HOST polars to the new GeomBlade python file.
-        The syntax is: PolarName2FileDict[<PolarName>] = 'FullPathString'
+        PolarName2FileDict : dict
+            indicates the relative paths
+            of the HOST polars to the new GeomBlade python file.
+            The syntax is:
 
-    OutputFile - (string) - name of the new GeomBlade python file
+            >>> PolarName2FileDict['<PolarName>'] = 'FullPathString'
+
+        OutputFile : str
+            name of the new GeomBlade python file
     """
     import pprint
 
@@ -3965,20 +4257,25 @@ def convertLiftingLine2PUMABladeDef(LiftingLine, PolarName2FileDict,
 
 def getLocalBodyForceInputData(BodyForceInputData):
     '''
-    Private function.
+    .. warning:: Private function.
+
     This function appends the bodyforce input data into a local list if
-    the 'proc' value corresponds to the local rank.
+    the *proc* value corresponds to the local rank.
 
-    INPUT
+    Parameters
+    ----------
 
-    BodyForceInputData - (list) - as defined in setup.py workflow for bodyforce.
-        For more specific details, see documentation of the function
-        PRE.prepareMainCGNS4ElsA()
+        BodyForceInputData : list
+            as defined in ``setup.py`` workflow for bodyforce.
+            For more specific details, see documentation of the function
+            :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
 
-    OUTPUT
+    Returns
+    -------
 
-    LocalBodyForceInputData - (list) - only of rotor with proc = rank. Otherwise
-        the list is empty.
+        LocalBodyForceInputData : list
+            only of rotor such that ``proc = rank``. Otherwise
+            the list is empty.
     '''
     LocalBodyForceInputData = []
     for Rotor in BodyForceInputData:
@@ -3995,15 +4292,17 @@ def getLocalBodyForceInputData(BodyForceInputData):
 
 def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
     '''
-    This is a private function employed in BODYFORCE technique.
+
+    .. attention:: this is a private function employed in BODYFORCE technique.
 
     It builds and append local objects used for bodyforce (propeller,
     lifting-lines, interpolators, PUMA folders and files if PUMA is used)
 
-    INPUT
+    Parameters
+    ----------
 
-    LocalBodyForceInputData - (list) - as obtained from the function
-        getLocalBodyForceInputData()
+        LocalBodyForceInputData : list
+            as obtained from the function :py:func:`getLocalBodyForceInputData`
     '''
 
     def getItemOrRaiseWarning(itemName):
@@ -4085,17 +4384,23 @@ def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
 def getNumberOfSerialRuns(BodyForceInputData, NProcs):
     '''
     Determine the number of serial runs employed given the employed number
-    of procs and the BodyForceInputData.
+    of procs and the **BodyForceInputData**.
 
-    INPUT
+    Parameters
+    ----------
 
-    BodyForceInputData - (list) - list of data as established in setup.py
+        BodyForceInputData : list
+            list of data as established in ``setup.py`` (see
+            :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`)
 
-    NProcs - (integer) - total number of procs employed
+        NProcs : int
+            total number of procs employed
 
-    OUTPUT
+    Returns
+    -------
 
-    NumberOfSerialRuns - (integer) - Required number of serial runs
+        NumberOfSerialRuns : int
+            Required number of serial runs
     '''
     NRunsPerProc = np.zeros(NProcs, dtype=np.int)
     for inputData in BodyForceInputData:
@@ -4110,21 +4415,25 @@ def computePropellerBodyForce(to, NumberOfSerialRuns, LocalBodyForceInputData):
     This is a user-level function called in the BodyForce technique context
     in elsA trigger computation. It is used to construct the bodyforce disks.
 
-    INPUTS
+    Parameters
+    ----------
 
-    to - (PyTree) - Distributed CFD PyTree with full Skeleton containing actual
-        fields.
+        to : PyTree
+            Distributed CFD PyTree with full Skeleton containing actual fields
 
-    NumberOfSerialRuns - (integer) - as obtained from getNumberOfSerialRuns()
+        NumberOfSerialRuns : int
+            as obtained from :py:func:`getNumberOfSerialRuns`
 
-    LocalBodyForceInputData - (list) - as obtained from
-        getLocalBodyForceInputData()
+        LocalBodyForceInputData : list
+            as obtained from :py:func:`getLocalBodyForceInputData`
 
-    OUTPUT
+    Returns
+    -------
 
-    BodyForceDisks - (list of zones) - list of zones containing fields in
-        FlowSolution#SourceTerm container, ready to be migrated into CFD grid
-        ( see migrateSourceTerms2MainPyTree() )
+        BodyForceDisks : :py:class:`list` of zone
+            list of zones containing fields in ``FlowSolution#SourceTerm``
+            container, ready to be migrated into CFD grid
+            ( see :py:func:`migrateSourceTerms2MainPyTree` )
     '''
     BodyForceDisks = []
     BodyForcePropellers = []
@@ -4177,26 +4486,30 @@ def prepareComputeDirectoryPUMA(FILE_LiftingLine, FILE_Polars,
     This function is used for creating a working directory and files
     required by PUMA from CGNS objects employed by MOLA.
 
-    INPUT
+    Parameters
+    ----------
 
-    FILE_LiftingLine - (string) - full path of CGNS file containing the
-        LiftingLine
+        FILE_LiftingLine : str
+            full path of CGNS file containing the LiftingLine
 
-    FILE_Polars - (string) - full path of CGNS file containing the
-        2D polars data
+        FILE_Polars : str
+            full path of CGNS file containing the 2D polars data
 
-    DIRECTORY_PUMA - (string) - name of the new working directory that will
-        contain relevant PUMA files
+        DIRECTORY_PUMA : str
+            name of the new working directory that will contain relevant PUMA files
 
-    GeomBladeFilename - (string) - name of the python file where the
-        BladeDef dictionary required by PUMA is writen
+        GeomBladeFilename : str
+            name of the python file where the BladeDef dictionary required by
+            PUMA is writen
 
-    OutputFileNamePreffix - (string) - A preffix to append to the name of the
-        HOST files.
+        OutputFileNamePreffix : str
+            A preffix to append to the name of the HOST files
 
-    OUTPUT
+    Returns
+    -------
 
-    files created in <DIRECTORY_PUMA>
+        None : None
+            files created in **DIRECTORY_PUMA**
     '''
 
     if not os.path.isdir(DIRECTORY_PUMA): os.makedirs(DIRECTORY_PUMA)
@@ -4224,23 +4537,27 @@ def convertPolarsCGNS2HOSTformat(PyZonePolars,
                                  DIRECTORY_SAVE='PUMA_DIR',
                                  OutputFileNamePreffix='HOST_'):
     '''
-    This function performs a conversion from CGNS PyZonePolar files towards
+    This function performs a conversion from CGNS *PyZonePolar* files towards
     HOST ascii format (neglecting special information that cannot be translated
     into HOST format)
 
-    INPUTS
+    Parameters
+    ----------
 
-    PyZonePolars - (list of zones) - zones of 2D polars to be converted
+        PyZonePolars : :py:class:`list` of zone
+            zones of 2D polars to be converted
 
-    DIRECTORY_SAVE - (string) - The directory where new HOST files are to be
-        writen
+        DIRECTORY_SAVE : str
+            The directory where new HOST files are to be writen
 
-    OutputFileNamePreffix - (string) - A preffix to append to the name of the
-        HOST files.
+        OutputFileNamePreffix : str
+            a preffix to append to the name of the HOST files.
 
-    OUTPUTS
+    Returns
+    -------
 
-    HOST files
+        None : None
+            HOST files
     '''
 
     AllowedQuantities = ('Cl','Cd','Cm')
@@ -4328,31 +4645,41 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
         RotationCenter, RotationAxis, RightHandRuleRotation,
         NumberOfAzimutalPoints, RPM, Pitch):
     '''
-    This private function is employed in the BODYFORCE context using PUMA.
+
+    .. warning:: this private function is employed in the BODYFORCE context
+        using PUMA.
 
     This function employs PUMA for making the perturbation and inferring
     LiftingLine's local section characteristics and blade's integral loads
 
-    INPUT
+    Parameters
+    ----------
 
-    perturbationField - (zone) - Perturbation disk as obtained from
-        addPerturbationFields() function
+        perturbationField : zone
+            Perturbation disk as obtained from :py:func:`addPerturbationFields`
+            function
 
-    DIRECTORY_PUMA - (string) - path of the working directory where PUMA is
-        executed.
+        DIRECTORY_PUMA : str
+            path of the working directory where PUMA is executed
 
-    RotationCenter - (3-float tuple) - Rotation Center of the rotor
+        RotationCenter : :py:class:`tuple` of 3 :py:class:`float`
+            Rotation Center location coordinates :math:`(x,y,z)` of the rotor
 
-    RotationAxis - (3-float tuple) - Rotation Axis of the rotor
+        RotationAxis : :py:class:`tuple` of 3 :py:class:`float`
+            Rotation Axis direction :math:`(x,y,z)` of the rotor
 
-    RightHandRuleRotation - (boolean) - True if right hand rule convention
-        rotation around RotationAxis.
+        RightHandRuleRotation : bool
+            :py:obj:`True` if right hand rule convention rotation around
+            **RotationAxis**
 
-    NumberOfAzimutalPoints - (integer) - discretization of the disk
+        NumberOfAzimutalPoints : int
+            discretization of the disk
 
-    RPM - (float) - revolution per minute of the blade
+        RPM : float
+            revolution per minute of the blade
 
-    Pitch - (float) - employed pitch of the blades
+        Pitch : float
+            employed pitch of the blades
     '''
 
     Density = C.getMeanValue(perturbationField,'Density')
@@ -4514,24 +4841,33 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
                                             IntegralLaw='interp1d_quadratic'):
     '''
     Build a set of zones composed of particles with fields:
-        'CoordinateXm1','CoordinateYm1','CoordinateZm1',
-        'VelocityKinematicX','VelocityKinematicY','VelocityKinematicZ',
-        'Gamma','Gammam1','SectionArea'
 
-    INPUTS
+    ``s``, ``CoordinateX``, ``CoordinateY``, ``CoordinateZ``,
+    ``CoordinateXm1``, ``CoordinateYm1``, ``CoordinateZm1``,
+    ``VelocityKinematicX``, ``VelocityKinematicY``, ``VelocityKinematicZ``,
+    ``VelocityKinematicXm1``, ``VelocityKinematicYm1``, ``VelocityKinematicZm1``,
+    ``Gamma``, ``Gammam1``, ``SectionArea``,
+    ``tx``, ``ty``, ``tz``
 
-    t - (PyTree, base, zone, list of zones) - CGNS container of LiftingLines
+    Parameters
+    ----------
 
-    AbscissaSegments - (tuple, list or 1D numpy array between 0 and 1) -
-        it defines the segments that discretizes the lifting line
+        t : PyTree, base, zone, list of zones
+            container with lifting-line zones
 
-    IntegralLaw - (string) - interpolation law for the interpolation of data
-        contained in the lifting line.
+        AbscissaSegments : :py:class:`tuple`, :py:class:`list` or 1D numpy array
+            it defines the segments that discretizes the lifting line.
+            It must be :math:`\in [0,1]`
 
-    OUTPUTS
+        IntegralLaw : str
+            interpolation law for the interpolation of data contained in the
+            lifting line
 
-    AllSourceZones - (list of zones) - list of zones composed of particles
-        element type (NODE)
+    Returns
+    -------
+
+        AllSourceZones : :py:class:`list` of zone
+            list of zones composed of particles element type (*NODE*)
     '''
 
     NbOfSegments = len(AbscissaSegments) - 1
@@ -4635,13 +4971,17 @@ def getTrailingEdge(LiftingLine):
     construct the curve corresponding to the TrailingEdge from a LiftingLine,
     conserving all original fields and data.
 
-    INPUTS
+    Parameters
+    ----------
 
-    LiftingLine - (zone) - the lifting-line (situated at c/4)
+        LiftingLine : zone
+            the lifting-line (situated at :math:`c/4`)
 
-    OUTPUTS
+    Returns
+    -------
 
-    TrailingEdge - (zone) - the curve corresponding to trailing edge
+        TrailingEdge : zone
+            the curve corresponding to trailing edge
     '''
     TrailingEdge = I.copyTree(LiftingLine)
     txyz, nxyz, bxyz = updateLocalFrame(TrailingEdge)
@@ -4663,13 +5003,17 @@ def getLeadingEdge(LiftingLine):
     construct the curve corresponding to the LeadingEdge from a LiftingLine,
     conserving all original fields and data.
 
-    INPUTS
+    Parameters
+    ----------
 
-    LiftingLine - (zone) - the lifting-line (situated at c/4)
+        LiftingLine : zone
+            the lifting-line (situated at :math:`c/4`)
 
-    OUTPUTS
+    Returns
+    -------
 
-    LeadingEdge - (zone) - the curve corresponding to trailing edge
+        LeadingEdge : zone
+            the curve corresponding to leading edge
     '''
     LeadingEdge = I.copyTree(LiftingLine)
     txyz, nxyz, bxyz = updateLocalFrame(LeadingEdge)

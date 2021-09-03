@@ -38,7 +38,7 @@
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Wireframe" href="Wireframe.html" />
-    <link rel="prev" title="Welcome to MOLA’s documentation!" href="index.html" />
+    <link rel="prev" title="Modules" href="Modules.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="en" />
     
@@ -71,50 +71,8 @@
       <div class="navbar-center-item">
         <ul id="navbar-main-elements" class="navbar-nav">
     <li class="toctree-l1 current active nav-item">
- <a class="current reference internal nav-link" href="#">
-  InternalShortcuts
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Wireframe.html">
-  Wireframe
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="GenerativeShapeDesign.html">
-  GenerativeShapeDesign
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="GenerativeVolumeDesign.html">
-  GenerativeVolumeDesign
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="RotatoryWings.html">
-  RotatoryWings
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Preprocess.html">
-  Preprocess
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Coprocess.html">
-  Coprocess
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Postprocess.html">
-  Postprocess
+ <a class="reference internal nav-link" href="Modules.html">
+  Modules
  </a>
 </li>
 
@@ -147,7 +105,74 @@
   <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
 </form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
   <div class="bd-toc-item active">
-    
+    <ul class="current nav bd-sidenav">
+ <li class="toctree-l1 current active">
+  <a class="current reference internal" href="#">
+   InternalShortcuts
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Wireframe.html">
+   Wireframe
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="GenerativeShapeDesign.html">
+   GenerativeShapeDesign
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="GenerativeVolumeDesign.html">
+   GenerativeVolumeDesign
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="RotatoryWings.html">
+   RotatoryWings
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Preprocess.html">
+   Preprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Coprocess.html">
+   Coprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Postprocess.html">
+   Postprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="WorkflowAirfoil.html">
+   WorkflowAirfoil
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="LiftingLine.html">
+   LiftingLine
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="PropellerAnalysis.html">
+   PropellerAnalysis
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Visu.html">
+   Visu
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="XFoil.html">
+   XFoil
+  </a>
+ </li>
+</ul>
+
   </div>
 </nav>
             </div>
@@ -198,7 +223,7 @@ Converter.Internal module.</p>
 <dd class="field-odd"><p><strong>t</strong> (<em>PyTree</em>) – the tree to be checked</p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>hasEmpty</strong> – <code class="docutils literal notranslate"><span class="pre">True</span></code> if <strong>t</strong> has at least one empty BC</p>
+<dd class="field-even"><p><strong>hasEmpty</strong> – <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> if <strong>t</strong> has at least one empty BC</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)">bool</a></p>
@@ -326,7 +351,7 @@ scattered <strong>(x, y)</strong> points.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>x</strong> (<em>1D-numpy array</em>) – A vector containing all X-values defining the scattered data</p></li>
 <li><p><strong>y</strong> (<em>1D-numpy array</em>) – A vector containing all Y-values defining the scattered data</p></li>
-<li><p><strong>rescale</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, then rescales the data for computation of Qhull.</p></li>
+<li><p><strong>rescale</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, then rescales the data for computation of Qhull.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -463,7 +488,7 @@ inside zone.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>numpies</strong> – If a variable is not found, <code class="docutils literal notranslate"><span class="pre">None</span></code> is returned by the function.</p>
+<dd class="field-even"><p><strong>numpies</strong> – If a variable is not found, <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> is returned by the function.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>list of numpy.ndarray</p>
@@ -525,7 +550,7 @@ inside zone.</p></li>
 <dd class="field-even"><p><p><strong>VarsDict</strong> – Contains the numpy arrays as <code class="docutils literal notranslate"><span class="pre">VarsDict[&lt;FieldName&gt;]</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>if a variable is not found, <code class="docutils literal notranslate"><span class="pre">None</span></code> is returned for such
+<p>if a variable is not found, <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> is returned for such
 occurrence.</p>
 </div>
 </p>
@@ -751,7 +776,7 @@ indicates the boundary condition at the end.</p>
 <dd><p>Initializes the variables by the names provided as argument
 for the input zone. Returns the list of numpy arrays of such
 new created variables.
-Exists also inplace <code class="xref py py-func docutils literal notranslate"><span class="pre">_invokeFields()</span></code> and returns <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+Exists also inplace <code class="xref py py-func docutils literal notranslate"><span class="pre">_invokeFields()</span></code> and returns <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -789,7 +814,7 @@ inside zone.</p></li>
 <dd class="field-even"><p><p><strong>VarsDict</strong> – Contains the numpy arrays as <code class="docutils literal notranslate"><span class="pre">VarsDict[&lt;FieldName&gt;]</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>if a variable is not found, <code class="docutils literal notranslate"><span class="pre">None</span></code> is returned for such
+<p>if a variable is not found, <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> is returned for such
 occurrence.</p>
 </div>
 </p>
@@ -819,7 +844,7 @@ containers.</p>
 <p><strong>Receiver</strong> is modified.</p>
 </div>
 </p></li>
-<li><p><strong>keepMigrationDataForReuse</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – <p>if <code class="docutils literal notranslate"><span class="pre">True</span></code>, special nodes <code class="docutils literal notranslate"><span class="pre">.MigrationData</span></code>
+<li><p><strong>keepMigrationDataForReuse</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – <p>if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, special nodes <code class="docutils literal notranslate"><span class="pre">.MigrationData</span></code>
 are stored on <strong>Receiver</strong> zones so that migration can be further
 reused, for numerical efficiency. Otherwise, special nodes
 <code class="docutils literal notranslate"><span class="pre">.MigrationData</span></code> are destroyed.</p>
@@ -861,7 +886,7 @@ obtain a margin for sampling the interior of a scattered region.</p>
 <li><p><strong>grading</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Refinement criterion used for sampling the interior points of the
 <em>Qhull</em>, as employed by <strong>grading</strong> attribute of function
 <code class="docutils literal notranslate"><span class="pre">G.T3mesher2D</span></code></p></li>
-<li><p><strong>rescale</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, then rescales the scatter data from which <em>Qhull</em>
+<li><p><strong>rescale</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, then rescales the scatter data from which <em>Qhull</em>
 is computed.</p></li>
 </ul>
 </dd>
@@ -1027,7 +1052,7 @@ associated to the assignment.</p>
               
               <div class='prev-next-bottom'>
                 
-    <a class='left-prev' id="prev-link" href="index.html" title="previous page">Welcome to MOLA’s documentation!</a>
+    <a class='left-prev' id="prev-link" href="Modules.html" title="previous page">Modules</a>
     <a class='right-next' id="next-link" href="Wireframe.html" title="next page">Wireframe</a>
 
               </div>

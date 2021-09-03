@@ -69,51 +69,9 @@
       
       <div class="navbar-center-item">
         <ul id="navbar-main-elements" class="navbar-nav">
-    <li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="InternalShortcuts.html">
-  InternalShortcuts
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Wireframe.html">
-  Wireframe
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="GenerativeShapeDesign.html">
-  GenerativeShapeDesign
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="GenerativeVolumeDesign.html">
-  GenerativeVolumeDesign
- </a>
-</li>
-
-<li class="toctree-l1 current active nav-item">
- <a class="current reference internal nav-link" href="#">
-  RotatoryWings
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Preprocess.html">
-  Preprocess
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Coprocess.html">
-  Coprocess
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Postprocess.html">
-  Postprocess
+    <li class="toctree-l1 current active nav-item">
+ <a class="reference internal nav-link" href="Modules.html">
+  Modules
  </a>
 </li>
 
@@ -146,7 +104,74 @@
   <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
 </form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
   <div class="bd-toc-item active">
-    
+    <ul class="current nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="InternalShortcuts.html">
+   InternalShortcuts
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Wireframe.html">
+   Wireframe
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="GenerativeShapeDesign.html">
+   GenerativeShapeDesign
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="GenerativeVolumeDesign.html">
+   GenerativeVolumeDesign
+  </a>
+ </li>
+ <li class="toctree-l1 current active">
+  <a class="current reference internal" href="#">
+   RotatoryWings
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Preprocess.html">
+   Preprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Coprocess.html">
+   Coprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Postprocess.html">
+   Postprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="WorkflowAirfoil.html">
+   WorkflowAirfoil
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="LiftingLine.html">
+   LiftingLine
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="PropellerAnalysis.html">
+   PropellerAnalysis
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Visu.html">
+   Visu
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="XFoil.html">
+   XFoil
+  </a>
+ </li>
+</ul>
+
   </div>
 </nav>
             </div>
@@ -189,55 +214,43 @@ and assembly of CFD simple cases of Rotatory Wings (Propellers,
 Helicopter Rotors, Ducted Fans, etc)</p>
 <p>This module makes use of Cassiopee modules.</p>
 <p>File history:
-31/07/2020 - v1.8.01 - L. Bernardos - Adapted to J.getNearestZone
-23/05/2020 - v1.8 - L. Bernardos - Shipped to MOLA v1.8
-19/04/2020 - v1.7 - L. Bernardos - Shipped to MOLA v1.7
-05/12/2019 - v1.5 - L. Bernardos - Shipped to MOLA v1.5
-08/11/2019 - v1.4 - L. Bernardos - Shipped to MOLA v1.4
-06/11/2019 - v1.3.01 - L. Bernardos - Module adapted to</p>
-<blockquote>
-<div><p>Python v3.</p>
-</div></blockquote>
-<p>30/10/2019 - v1.3 - L. Bernardos - Shipped to MOLA v1.3
-29/10/2019 - v1.2.01 - L. Bernardos - Added optional mode</p>
-<blockquote>
-<div><p>AxisProjectionConstraint to extrudePeriodicProfiles()</p>
-</div></blockquote>
-<dl class="simple">
-<dt>03/10/2019 - v1.2 - L. Bernardos - Corrections on normals</dt><dd><p>orientations in extrudePeriodicProfiles() function.
-Shipped to MOLA v1.2</p>
-</dd>
-<dt>10/09/2019 - v1.1.00 - L. Bernardos - extrudePeriodicProfiles()</dt><dd><p>requires now oriented spinner profile. AxeDir orientation
-changed on Leading Edge point.</p>
-</dd>
-</dl>
-<p>17/07/2019 - v1.0 - L. Bernardos - Shipped at MOLA v1.0.
 19/03/2019 - v1.0 - L. Bernardos - Creation.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="MOLA.RotatoryWings.extrudePeriodicProfiles">
 <span class="sig-prename descclassname"><span class="pre">MOLA.RotatoryWings.</span></span><span class="sig-name descname"><span class="pre">extrudePeriodicProfiles</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">PeriodicProfiles</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Distributions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Constraints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AxeDir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(1,</span> <span class="pre">0,</span> <span class="pre">0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NBlades</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extrudeOptions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AxisProjectionConstraint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.RotatoryWings.extrudePeriodicProfiles" title="Permalink to this definition">¶</a></dt>
 <dd><p>This function is used to peform the extrusion of the periodic profiles,
 in order to guarantee that there is exact axi-symmetric periodic matching.</p>
-<p>INPUTS</p>
-<dl class="simple">
-<dt>PeriodicProfiles - (list of zones) - the periodic profiles boundaries to</dt><dd><p>extrude, as obtained from makeHub() function.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>PeriodicProfiles</strong> – <dl>
+<dt>the periodic profiles boundaries to extrude, as obtained from</dt><dd><p><a class="reference internal" href="#MOLA.RotatoryWings.makeHub" title="MOLA.RotatoryWings.makeHub"><code class="xref py py-func docutils literal notranslate"><span class="pre">makeHub()</span></code></a> function.</p>
 </dd>
-<dt>Distributions - (list of zones) - the set of distributions to apply during</dt><dd><p>the extrusion of the profile (as input of GVD.extrude() function)</p>
+<dt>Distributions<span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone</span></dt><dd><p>the set of distributions to apply during the extrusion of the profile</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>this is the same input attribute as in
+<a class="reference internal" href="GenerativeVolumeDesign.html#MOLA.GenerativeVolumeDesign.extrude" title="MOLA.GenerativeVolumeDesign.extrude"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.GenerativeVolumeDesign.extrude()</span></code></a> function</p>
+</div>
 </dd>
-<dt>Constraints - (list of dictionaries) - the set of constraints to apply</dt><dd><p>during the extrusion of the profile (as input of GVD.extrude() function)</p>
+<dt>Constraints<span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a></span></dt><dd><p>the set of constraints to apply
+during the extrusion of the profile</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>this is the same input attribute as in
+<a class="reference internal" href="GenerativeVolumeDesign.html#MOLA.GenerativeVolumeDesign.extrude" title="MOLA.GenerativeVolumeDesign.extrude"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.GenerativeVolumeDesign.extrude()</span></code></a> function</p>
+</div>
 </dd>
 </dl>
-<p>AxeDir - (3-float list) - indicats the rotation axis direction</p>
-<p>NBlades - (integer) - number of blades</p>
-<dl class="simple">
-<dt>extrudeOptions - (dictionary) - literally, the extrusion options to pass</dt><dd><p>to the function GVD.extrude()</p>
+</p>
 </dd>
-<dt>AxisProjectionConstraint - (boolean) - if True, force the extrema of the</dt><dd><p>profile boundaries to be projected onto the rotation axis.</p>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>FirstPeriodicSurf</strong> (<em>zone</em>) – first periodic surface</p></li>
+<li><p><strong>SecondPeriodicSurf</strong> (<em>zone</em>) – second periodic surface</p></li>
+</ul>
+</p>
 </dd>
 </dl>
-<p>OUTPUTS</p>
-<p>FirstPeriodicSurf - (zone) - first periodic surface
-SecondPeriodicSurf - (zone) - second periodic surface</p>
 </dd></dl>
 
 <dl class="py function">
@@ -245,29 +258,53 @@ SecondPeriodicSurf - (zone) - second periodic surface</p>
 <span class="sig-prename descclassname"><span class="pre">MOLA.RotatoryWings.</span></span><span class="sig-name descname"><span class="pre">getEulerAngles4PUMA</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">RotationAxis</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">PhaseDirection</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(1,</span> <span class="pre">0,</span> <span class="pre">0)</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.RotatoryWings.getEulerAngles4PUMA" title="Permalink to this definition">¶</a></dt>
 <dd><p>Given a RotationAxis and a Phase Direction, produce the Euler angles that
 can be provided to PUMA in order to position the propeller.</p>
-<p>INPUTS</p>
-<p>RotationAxis - (3-float array) - the rotation axis unitary vector</p>
-<dl class="simple">
-<dt>PhaseDirection - (3-float array) - the phase direction unitary vector. It</dt><dd><p>must not be aligned with RotationAxis</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>RotationAxis</strong> (array of 3 <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – the rotation axis unitary vector</p></li>
+<li><p><strong>PhaseDirection</strong> (array of 3 <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – <p>the phase direction unitary vector.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>It must not be aligned with <strong>RotationAxis</strong></p>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>EulerAngles</strong> – the <a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.as_euler.html">intrinsic XYZ</a>
+transformation angles [degree]</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array of 3 <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
 </dd>
 </dl>
-<p>OUTPUTS</p>
-<p>EulerAngles - (3-float array) - the XYZ transformation angles [degree]</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="MOLA.RotatoryWings.getFrenetFromRotationAxisAndPhaseDirection">
 <span class="sig-prename descclassname"><span class="pre">MOLA.RotatoryWings.</span></span><span class="sig-name descname"><span class="pre">getFrenetFromRotationAxisAndPhaseDirection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">RotationAxis</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">PhaseDirection</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(1,</span> <span class="pre">0,</span> <span class="pre">0)</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.RotatoryWings.getFrenetFromRotationAxisAndPhaseDirection" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get the Frenet’s frame from a rotation axis and a phase direction.</p>
-<p>INPUTS</p>
-<p>RotationAxis - (3-float array) - the rotation axis unitary vector</p>
-<dl class="simple">
-<dt>PhaseDirection - (3-float array) - the phase direction unitary vector. It</dt><dd><p>must not be aligned with RotationAxis</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>RotationAxis</strong> (array of 3 <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – the rotation axis unitary vector</p></li>
+<li><p><strong>PhaseDirection</strong> (array of 3 <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – <p>the phase direction unitary vector.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>It must not be aligned with <strong>RotationAxis</strong></p>
+</div>
+</p></li>
+</ul>
 </dd>
-</dl>
-<p>OUTPUTS</p>
-<dl class="simple">
-<dt>FrenetFrame - (3 tuples of 3-float tuples) - The frenet frame as follows:</dt><dd><p>(tuple(PhaseDir), tuple(Binormal), tuple(RotAxis))</p>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p><strong>FrenetFrame</strong> – The frenet frame as follows:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">PhaseDir</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">Binormal</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">RotAxis</span><span class="p">))</span>
+</pre></div>
+</div>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>3 <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a>  of 3 <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a> <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -277,32 +314,32 @@ can be provided to PUMA in order to position the propeller.</p>
 <span class="sig-prename descclassname"><span class="pre">MOLA.RotatoryWings.</span></span><span class="sig-name descname"><span class="pre">makeHub</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Profile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AxeCenter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0,</span> <span class="pre">0,</span> <span class="pre">0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AxeDir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(1,</span> <span class="pre">0,</span> <span class="pre">0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NPsi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">359</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">BladeNumberForPeriodic</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">LeadingEdgeAbscissa</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TrailingEdgeAbscissa</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">SmoothingParameters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'eps':</span> <span class="pre">0.5,</span> <span class="pre">'niter':</span> <span class="pre">300,</span> <span class="pre">'type':</span> <span class="pre">2}</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.RotatoryWings.makeHub" title="Permalink to this definition">¶</a></dt>
 <dd><p>This user-level function constructs a hub (Propeller’s spinner) geometry
 from a user-provided profile (a curve).</p>
-<p>INPUTS</p>
-<dl class="simple">
-<dt>Profile - (zone) - curve defining the hub’s generator line. It does not</dt><dd><p>need to be coplanar. BEWARE ! indexing of curve must be oriented from
-leading edge towards trailing edge</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Profile</strong> (<em>zone</em>) – curve defining the hub’s generator line. It does not
+need to be coplanar. BEWARE ! indexing of curve must be oriented from
+leading edge towards trailing edge</p></li>
+<li><p><strong>AxeCenter</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of 3 <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – coordinates of the axis center for the revolution operation [m]</p></li>
+<li><p><strong>AxeDir</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of 3 <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – unitary vector pointing towards the direction of revolution</p></li>
+<li><p><strong>NPsi</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – number of points discretizing the hub</p></li>
+<li><p><strong>BladeNumberForPeriodic</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – If provided, then only an angular
+portion of the hub is constructed, corresponding to the blade number
+specified by this argument.</p></li>
+<li><p><strong>LeadingEdgeAbscissa</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – dimensionless abscissa indicating the point
+at which leading edge is “cut” in order to perform the diamond join</p></li>
+<li><p><strong>TrailingEdgeAbscissa</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – dimensionless abscissa indicating the point
+at which trailing edge is “cut” in order to perform the diamond join</p></li>
+<li><p><strong>SmoothingParameters</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – literally, the parameters passed to <code class="xref py py-func docutils literal notranslate"><span class="pre">Transform.PyTree.smooth()</span></code>
+function</p></li>
+</ul>
 </dd>
-<dt>AxeCenter - (3-float list) - coordinates of the axis center for the</dt><dd><p>revolution operation [m]</p>
-</dd>
-<dt>AxeDir - (3-float list) - unitary vector pointing towards the direction</dt><dd><p>of revolution</p>
-</dd>
-</dl>
-<p>NPsi - (integer) - number of points discretizing the hub</p>
-<dl class="simple">
-<dt>BladeNumberForPeriodic -  (integer) - If provided, then only an angular</dt><dd><p>portion of the hub is constructed, corresponding to the blade number
-specified by this argument.</p>
-</dd>
-<dt>LeadingEdgeAbscissa - (float) - dimensionless abscissa indicating the point</dt><dd><p>at which leading edge is “cut” in order to perform the diamond join</p>
-</dd>
-<dt>TrailingEdgeAbscissa - (float) - dimensionless abscissa indicating the point</dt><dd><p>at which trailing edge is “cut” in order to perform the diamond join</p>
-</dd>
-<dt>SmoothingParameters - (dictionary) - literally, the parameters passed to</dt><dd><p>T._smooth() function</p>
-</dd>
-</dl>
-<p>OUTPUT</p>
-<p>t - (PyTree) - surface of the hub</p>
-<dl class="simple">
-<dt>PeriodicProfiles - (list of zones) - curves defining the periodic profiles</dt><dd><p>boundaries</p>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>t</strong> (<em>PyTree</em>) – surface of the hub</p></li>
+<li><p><strong>PeriodicProfiles</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>) – curves (structured zones) defining the periodic profiles boundaries</p></li>
+</ul>
+</p>
 </dd>
 </dl>
 </dd></dl>
@@ -312,24 +349,36 @@ specified by this argument.</p>
 <span class="sig-prename descclassname"><span class="pre">MOLA.RotatoryWings.</span></span><span class="sig-name descname"><span class="pre">makeSimpleSpinner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Height</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Length</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TensionLeadingEdge</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TensionRoot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TensionTrailingEdge</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NptsTop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NptsBottom</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">150</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NptsAzimut</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">180</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.RotatoryWings.makeSimpleSpinner" title="Permalink to this definition">¶</a></dt>
 <dd><p>This function is used to make a simple spinner given general geometrical
 paramaters.</p>
-<p>INPUTS</p>
-<p>Height - (float) - total height of the spinner [m]</p>
-<p>Width - (float) - total width of the spinner [m]</p>
-<p>Length - (float) - total length of the spinner [m]</p>
-<dl class="simple">
-<dt>TensionLeadingEdge - (float) - dimensionless parameter controling the</dt><dd><p>tension at the leading edge</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Height</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – total height of the spinner [m]</p></li>
+<li><p><strong>Width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – total width of the spinner [m]</p></li>
+<li><p><strong>Length</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – total length of the spinner [m]</p></li>
+<li><p><strong>TensionLeadingEdge</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – dimensionless parameter controling the
+tension at the leading edge</p></li>
+<li><p><strong>TensionRoot</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – dimensionless parameter controling the
+tension at the blade’s root</p></li>
+<li><p><strong>TensionTrailingEdge</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – dimensionless parameter controling the
+tension at the trailing edge</p></li>
+<li><p><strong>NptsTop</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – number of points on top</p></li>
+<li><p><strong>NptsBottom</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – number of points on bottom</p></li>
+<li><p><strong>NptsAzimut</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – number of points in azimut</p></li>
+</ul>
 </dd>
-<dt>TensionRoot - (float) - dimensionless parameter controling the</dt><dd><p>tension at the blade’s root</p>
-</dd>
-<dt>TensionTrailingEdge - (float) - dimensionless parameter controling the</dt><dd><p>tension at the trailing edge</p>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul>
+<li><p><strong>SpinnerProfile</strong> (<em>zone</em>) – spinner profile</p>
+<div class="admonition hint">
+<p class="admonition-title">Hint</p>
+<p>can be employed by <a class="reference internal" href="#MOLA.RotatoryWings.makeHub" title="MOLA.RotatoryWings.makeHub"><code class="xref py py-func docutils literal notranslate"><span class="pre">makeHub()</span></code></a></p>
+</div>
+</li>
+<li><p><strong>SpinnerUnstr</strong> (<em>zone</em>) – unstructured spinner surface composed of QUAD</p></li>
+</ul>
+</p>
 </dd>
 </dl>
-<p>NptsTop - (integer) - number of points on top</p>
-<p>NptsBottom - (integer) - number of points on bottom</p>
-<p>NptsAzimut - (integer) - number of points in azimut</p>
-<p>OUTPUTS</p>
-<p>SpinnerProfile - (zone) - spinner profile (can be employed by makeHub() )</p>
-<p>SpinnerUnstr - (zone) - unstructured spinner surface composed of QUAD</p>
 </dd></dl>
 
 </div>

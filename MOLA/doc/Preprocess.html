@@ -70,51 +70,9 @@
       
       <div class="navbar-center-item">
         <ul id="navbar-main-elements" class="navbar-nav">
-    <li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="InternalShortcuts.html">
-  InternalShortcuts
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Wireframe.html">
-  Wireframe
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="GenerativeShapeDesign.html">
-  GenerativeShapeDesign
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="GenerativeVolumeDesign.html">
-  GenerativeVolumeDesign
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="RotatoryWings.html">
-  RotatoryWings
- </a>
-</li>
-
-<li class="toctree-l1 current active nav-item">
- <a class="current reference internal nav-link" href="#">
-  Preprocess
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Coprocess.html">
-  Coprocess
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Postprocess.html">
-  Postprocess
+    <li class="toctree-l1 current active nav-item">
+ <a class="reference internal nav-link" href="Modules.html">
+  Modules
  </a>
 </li>
 
@@ -147,7 +105,74 @@
   <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
 </form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
   <div class="bd-toc-item active">
-    
+    <ul class="current nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="InternalShortcuts.html">
+   InternalShortcuts
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Wireframe.html">
+   Wireframe
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="GenerativeShapeDesign.html">
+   GenerativeShapeDesign
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="GenerativeVolumeDesign.html">
+   GenerativeVolumeDesign
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="RotatoryWings.html">
+   RotatoryWings
+  </a>
+ </li>
+ <li class="toctree-l1 current active">
+  <a class="current reference internal" href="#">
+   Preprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Coprocess.html">
+   Coprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Postprocess.html">
+   Postprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="WorkflowAirfoil.html">
+   WorkflowAirfoil
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="LiftingLine.html">
+   LiftingLine
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="PropellerAnalysis.html">
+   PropellerAnalysis
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Visu.html">
+   Visu
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="XFoil.html">
+   XFoil
+  </a>
+ </li>
+</ul>
+
   </div>
 </nav>
             </div>
@@ -369,20 +394,20 @@ as they use very different masking techniques !</p>
 </dl>
 </li>
 <li><dl>
-<dt><code class="docutils literal notranslate"><span class="pre">'CreateMaskFromWall'</span></code><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></span></dt><dd><p>If <code class="docutils literal notranslate"><span class="pre">False</span></code>, then walls of this component
+<dt><code class="docutils literal notranslate"><span class="pre">'CreateMaskFromWall'</span></code><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></span></dt><dd><p>If <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>, then walls of this component
 will not be used for masking. This shall only be used if user knows
 a priori that this component’s walls are not masking any grid. If
-this is the case, then user can put this value to <code class="docutils literal notranslate"><span class="pre">False</span></code> in order to
+this is the case, then user can put this value to <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a> in order to
 slightly accelerate the preprocess time.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>by default, the value of this key is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
+<p>by default, the value of this key is <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>.</p>
 </div>
 </dd>
 </dl>
 </li>
 <li><dl>
-<dt><code class="docutils literal notranslate"><span class="pre">'OnlyMaskedByWalls'</span></code><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></span></dt><dd><p>if <code class="docutils literal notranslate"><span class="pre">True</span></code>, then this overset component
+<dt><code class="docutils literal notranslate"><span class="pre">'OnlyMaskedByWalls'</span></code><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></span></dt><dd><p>if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, then this overset component
 is strongly protected against masking. Only other component’s walls
 are allowed to mask this component.</p>
 </dd>
@@ -401,16 +426,16 @@ overlap bodies, this does not include masks constructed from walls).</p>
 </ul>
 </p></li>
 <li><p><strong>depth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – depth of the interpolation region.</p></li>
-<li><p><strong>optimizeOverlap</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, then applies <code class="xref py py-func docutils literal notranslate"><span class="pre">Connector.PyTree.optimizeOverlap()</span></code> function.</p></li>
+<li><p><strong>optimizeOverlap</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, then applies <code class="xref py py-func docutils literal notranslate"><span class="pre">Connector.PyTree.optimizeOverlap()</span></code> function.</p></li>
 <li><p><strong>prioritiesIfOptimize</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><em>list</em></a>) – <p>literally, the
 priorities argument passed to <code class="xref py py-func docutils literal notranslate"><span class="pre">Connector.PyTree.optimizeOverlap()</span></code>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>only relevant if <strong>optimizeOverlap</strong> is set to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
+<p>only relevant if <strong>optimizeOverlap</strong> is set to <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>.</p>
 </div>
 </p></li>
-<li><p><strong>double_wall</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, double walls exist</p></li>
-<li><p><strong>saveMaskBodiesTree</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, then saves the file <code class="docutils literal notranslate"><span class="pre">masks.cgns</span></code>,
+<li><p><strong>double_wall</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, double walls exist</p></li>
+<li><p><strong>saveMaskBodiesTree</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, then saves the file <code class="docutils literal notranslate"><span class="pre">masks.cgns</span></code>,
 allowing the user to analyze if masks have been properly generated.</p></li>
 </ul>
 </dd>
@@ -892,8 +917,8 @@ cfd problem object.</p>
 <li><p><strong>Niter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – total number of iterations to run</p></li>
 <li><p><strong>CFLparams</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – indicates the CFL function to be employed</p></li>
 <li><p><strong>timestep</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – timestep for unsteady simulation (in seconds)</p></li>
-<li><p><strong>useBodyForce</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – <code class="docutils literal notranslate"><span class="pre">True</span></code> if bodyforce is employed</p></li>
-<li><p><strong>useChimera</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – <code class="docutils literal notranslate"><span class="pre">True</span></code> if chimera (static) is employed</p></li>
+<li><p><strong>useBodyForce</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> if bodyforce is employed</p></li>
+<li><p><strong>useChimera</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> if chimera (static) is employed</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -917,7 +942,7 @@ cfd problem object.</p>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>BCType</strong> – the resulting <em>BCType</em>. Returns``None`` if <strong>FamilyBCName</strong> is not
+<dd class="field-even"><p><strong>BCType</strong> – the resulting <em>BCType</em>. Returns:py:obj:<cite>None</cite> if <strong>FamilyBCName</strong> is not
 found</p>
 </dd>
 <dt class="field-odd">Return type</dt>
@@ -1198,7 +1223,7 @@ type <code class="docutils literal notranslate"><span class="pre">NearMatch</spa
 <dd class="field-odd"><p><strong>InputMeshes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – as described by <a class="reference internal" href="#MOLA.Preprocess.prepareMesh4ElsA" title="MOLA.Preprocess.prepareMesh4ElsA"><code class="xref py py-func docutils literal notranslate"><span class="pre">prepareMesh4ElsA()</span></code></a></p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>bool</strong> – <code class="docutils literal notranslate"><span class="pre">True</span></code> if has <code class="docutils literal notranslate"><span class="pre">NearMatch</span></code> connectivity. <code class="docutils literal notranslate"><span class="pre">False</span></code> otherwise.</p>
+<dd class="field-even"><p><strong>bool</strong> – <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> if has <code class="docutils literal notranslate"><span class="pre">NearMatch</span></code> connectivity. <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a> otherwise.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)">bool</a></p>
@@ -1216,7 +1241,7 @@ assembly.</p>
 <dd class="field-odd"><p><strong>InputMeshes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – as described by <a class="reference internal" href="#MOLA.Preprocess.prepareMesh4ElsA" title="MOLA.Preprocess.prepareMesh4ElsA"><code class="xref py py-func docutils literal notranslate"><span class="pre">prepareMesh4ElsA()</span></code></a></p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>bool</strong> – <code class="docutils literal notranslate"><span class="pre">True</span></code> if has overset assembly. <code class="docutils literal notranslate"><span class="pre">False</span></code> otherwise.</p>
+<dd class="field-even"><p><strong>bool</strong> – <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> if has overset assembly. <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a> otherwise.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)">bool</a></p>
@@ -1234,7 +1259,7 @@ type <code class="docutils literal notranslate"><span class="pre">PeriodicMatch<
 <dd class="field-odd"><p><strong>InputMeshes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – as described by <a class="reference internal" href="#MOLA.Preprocess.prepareMesh4ElsA" title="MOLA.Preprocess.prepareMesh4ElsA"><code class="xref py py-func docutils literal notranslate"><span class="pre">prepareMesh4ElsA()</span></code></a></p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>bool</strong> – <code class="docutils literal notranslate"><span class="pre">True</span></code> if has <code class="docutils literal notranslate"><span class="pre">PeriodicMatch</span></code> connectivity. <code class="docutils literal notranslate"><span class="pre">False</span></code> otherwise.</p>
+<dd class="field-even"><p><strong>bool</strong> – <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> if has <code class="docutils literal notranslate"><span class="pre">PeriodicMatch</span></code> connectivity. <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a> otherwise.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)">bool</a></p>
@@ -1255,9 +1280,9 @@ dictionaries, this function creates the main CGNS tree and writes the
 <li><p><strong>AllSetupDictionaries</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – dictionary containing at least the
 dictionaries: <code class="docutils literal notranslate"><span class="pre">ReferenceValues</span></code>, <code class="docutils literal notranslate"><span class="pre">elsAkeysCFD</span></code>,
 <code class="docutils literal notranslate"><span class="pre">elsAkeysModel</span></code> and <code class="docutils literal notranslate"><span class="pre">elsAkeysNumerics</span></code>.</p></li>
-<li><p><strong>initializeFlow</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, calls <a class="reference internal" href="#MOLA.Preprocess.newFlowSolutionInit" title="MOLA.Preprocess.newFlowSolutionInit"><code class="xref py py-func docutils literal notranslate"><span class="pre">newFlowSolutionInit()</span></code></a>, which
+<li><p><strong>initializeFlow</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, calls <a class="reference internal" href="#MOLA.Preprocess.newFlowSolutionInit" title="MOLA.Preprocess.newFlowSolutionInit"><code class="xref py py-func docutils literal notranslate"><span class="pre">newFlowSolutionInit()</span></code></a>, which
 creates <code class="docutils literal notranslate"><span class="pre">FlowSolution#Init</span></code> fields used for initialization of the flow</p></li>
-<li><p><strong>FULL_CGNS_MODE</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, add elsa keys in <code class="docutils literal notranslate"><span class="pre">.Solver#Compute</span></code> CGNS container</p></li>
+<li><p><strong>FULL_CGNS_MODE</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, add elsa keys in <code class="docutils literal notranslate"><span class="pre">.Solver#Compute</span></code> CGNS container</p></li>
 <li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – dimension of the problem (<code class="docutils literal notranslate"><span class="pre">2</span></code> or <code class="docutils literal notranslate"><span class="pre">3</span></code>).</p></li>
 </ul>
 </dd>
@@ -1375,7 +1400,7 @@ consider for the bodyforce modeling element.</p>
 <div class="admonition attention">
 <p class="admonition-title">Attention</p>
 <p>LiftingLine curve must be placed in native location
-as resulting from <code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.LiftingLine.buildLiftingLine()</span></code> function !
+as resulting from <a class="reference internal" href="LiftingLine.html#MOLA.LiftingLine.buildLiftingLine" title="MOLA.LiftingLine.buildLiftingLine"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.LiftingLine.buildLiftingLine()</span></code></a> function !
 This is required for coherent use of relocation functions
 employed by this method.</p>
 </div>
@@ -1417,9 +1442,9 @@ seem useful in a body-force context</p>
 </dl>
 </li>
 <li><dl>
-<dt>RightHandRuleRotation<span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></span></dt><dd><p>if <code class="docutils literal notranslate"><span class="pre">True</span></code>, the propeller rotates
+<dt>RightHandRuleRotation<span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></span></dt><dd><p>if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, the propeller rotates
 around <strong>RotationAxis</strong> vector following the right-hand-rule
-direction. if <code class="docutils literal notranslate"><span class="pre">False</span></code>, rotation follows the left-hand-rule.</p>
+direction. if <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>, rotation follows the left-hand-rule.</p>
 </dd>
 </dl>
 </li>
@@ -1505,7 +1530,7 @@ the desired number of attempts for trimming</p>
 </li>
 <li><dl>
 <dt><code class="docutils literal notranslate"><span class="pre">'StackOptions'</span></code><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a></span></dt><dd><p>parameters to be passed as  <em>kwargs</em> to function
-<code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.LiftingLine.stackBodyForceComponent()</span></code>. Refer
+<a class="reference internal" href="LiftingLine.html#MOLA.LiftingLine.stackBodyForceComponent" title="MOLA.LiftingLine.stackBodyForceComponent"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.LiftingLine.stackBodyForceComponent()</span></code></a>. Refer
 to the documentation for more information on acceptable values</p>
 </dd>
 </dl>
@@ -1516,8 +1541,8 @@ to the documentation for more information on acceptable values</p>
 </li>
 </ul>
 </p></li>
-<li><p><strong>writeOutputFields</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, write initialized fields overriding
-a possibly existing <code class="docutils literal notranslate"><span class="pre">OUTPUT/fields.cgns</span></code> file. If <code class="docutils literal notranslate"><span class="pre">False</span></code>, no
+<li><p><strong>writeOutputFields</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, write initialized fields overriding
+a possibly existing <code class="docutils literal notranslate"><span class="pre">OUTPUT/fields.cgns</span></code> file. If <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>, no
 <code class="docutils literal notranslate"><span class="pre">OUTPUT/fields.cgns</span></code> file is writen, but in this case the user must
 provide a compatible <code class="docutils literal notranslate"><span class="pre">OUTPUT/fields.cgns</span></code> file to elsA (for example,
 using a previous computation result).</p></li>
@@ -1628,9 +1653,9 @@ accepted values.</p>
 </dl>
 </li>
 <li><dl>
-<dt>SplitBlocks<span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></span></dt><dd><p>if <code class="docutils literal notranslate"><span class="pre">True</span></code>, allow for splitting this component in
+<dt>SplitBlocks<span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></span></dt><dd><p>if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, allow for splitting this component in
 order to satisfy the user-provided rules of total number of used
-processors and block points load during simulation. If <code class="docutils literal notranslate"><span class="pre">False</span></code>,
+processors and block points load during simulation. If <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>,
 the component is protected against splitting.</p>
 <div class="admonition attention">
 <p class="admonition-title">Attention</p>
@@ -1646,12 +1671,12 @@ rules in list <strong>Connection</strong>.</p>
 <li><p><strong>NProcs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – If a positive integer is provided, then the
 distribution of the tree (and eventually the splitting) will be done in
 order to satisfy a total number of processors provided by this value.
-If not provided (<code class="docutils literal notranslate"><span class="pre">None</span></code>) then the number of procs is automatically
+If not provided (<a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) then the number of procs is automatically
 determined using as information <strong>ProcPointsLoad</strong> variable.</p></li>
 <li><p><strong>ProcPointsLoad</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – this is the desired number of grid points
-attributed to each processor. If <strong>SplitBlocks</strong> = <code class="docutils literal notranslate"><span class="pre">True</span></code>, then it is used to
+attributed to each processor. If <strong>SplitBlocks</strong> = <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, then it is used to
 split zones that have more points than <strong>ProcPointsLoad</strong>. If
-<strong>NProcs</strong> = <code class="docutils literal notranslate"><span class="pre">None</span></code> , then <strong>ProcPointsLoad</strong> is used to determine
+<strong>NProcs</strong> = <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> , then <strong>ProcPointsLoad</strong> is used to determine
 the <strong>NProcs</strong> to be used.</p></li>
 </ul>
 </dd>
@@ -1685,7 +1710,7 @@ preprocessing.</p>
 <p>tree <strong>t</strong> is modified</p>
 </div>
 </p></li>
-<li><p><strong>silent</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">False</span></code>, then it prints information on the
+<li><p><strong>silent</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>, then it prints information on the
 performed operations</p></li>
 </ul>
 </dd>
@@ -1770,7 +1795,7 @@ file, which contains <code class="docutils literal notranslate"><span class="pre
 <p>it is strongly recommended using <code class="docutils literal notranslate"><span class="pre">'FlowSolution#Init'</span></code></p>
 </div>
 </p></li>
-<li><p><strong>writeOutputFields</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, write <code class="docutils literal notranslate"><span class="pre">fields.cgns</span></code> file</p></li>
+<li><p><strong>writeOutputFields</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, write <code class="docutils literal notranslate"><span class="pre">fields.cgns</span></code> file</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -1947,12 +1972,12 @@ instructions as described in <a class="reference internal" href="#MOLA.Preproces
 <li><p><strong>NProcs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – If a positive integer is provided, then the
 distribution of the tree (and eventually the splitting) will be done in
 order to satisfy a total number of processors provided by this value.
-If not provided (<code class="docutils literal notranslate"><span class="pre">None</span></code>) then the number of procs is automatically
+If not provided (<a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) then the number of procs is automatically
 determined using as information <strong>ProcPointsLoad</strong> variable.</p></li>
 <li><p><strong>ProcPointsLoad</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – this is the desired number of grid points
-attributed to each processor. If <strong>SplitBlocks</strong> = <code class="docutils literal notranslate"><span class="pre">True</span></code>, then it is used to
+attributed to each processor. If <strong>SplitBlocks</strong> = <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, then it is used to
 split zones that have more points than <strong>ProcPointsLoad</strong>. If
-<strong>NProcs</strong> = <code class="docutils literal notranslate"><span class="pre">None</span></code> , then <strong>ProcPointsLoad</strong> is used to determine
+<strong>NProcs</strong> = <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> , then <strong>ProcPointsLoad</strong> is used to determine
 the <strong>NProcs</strong> to be used.</p></li>
 </ul>
 </dd>

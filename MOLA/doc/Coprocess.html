@@ -70,51 +70,9 @@
       
       <div class="navbar-center-item">
         <ul id="navbar-main-elements" class="navbar-nav">
-    <li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="InternalShortcuts.html">
-  InternalShortcuts
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Wireframe.html">
-  Wireframe
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="GenerativeShapeDesign.html">
-  GenerativeShapeDesign
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="GenerativeVolumeDesign.html">
-  GenerativeVolumeDesign
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="RotatoryWings.html">
-  RotatoryWings
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Preprocess.html">
-  Preprocess
- </a>
-</li>
-
-<li class="toctree-l1 current active nav-item">
- <a class="current reference internal nav-link" href="#">
-  Coprocess
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Postprocess.html">
-  Postprocess
+    <li class="toctree-l1 current active nav-item">
+ <a class="reference internal nav-link" href="Modules.html">
+  Modules
  </a>
 </li>
 
@@ -147,7 +105,74 @@
   <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
 </form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
   <div class="bd-toc-item active">
-    
+    <ul class="current nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="InternalShortcuts.html">
+   InternalShortcuts
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Wireframe.html">
+   Wireframe
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="GenerativeShapeDesign.html">
+   GenerativeShapeDesign
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="GenerativeVolumeDesign.html">
+   GenerativeVolumeDesign
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="RotatoryWings.html">
+   RotatoryWings
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Preprocess.html">
+   Preprocess
+  </a>
+ </li>
+ <li class="toctree-l1 current active">
+  <a class="current reference internal" href="#">
+   Coprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Postprocess.html">
+   Postprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="WorkflowAirfoil.html">
+   WorkflowAirfoil
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="LiftingLine.html">
+   LiftingLine
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="PropellerAnalysis.html">
+   PropellerAnalysis
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Visu.html">
+   Visu
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="XFoil.html">
+   XFoil
+  </a>
+ </li>
+</ul>
+
   </div>
 </nav>
             </div>
@@ -244,7 +269,7 @@ corresponding body-force disk.</p>
 <p>parameter <strong>loads</strong> is modified</p>
 </p></li>
 <li><p><strong>BodyForceDisks</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone) – Current bodyforce disks as obtained from
-<code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.LiftingLine.computePropellerBodyForce()</span></code></p></li>
+<a class="reference internal" href="LiftingLine.html#MOLA.LiftingLine.computePropellerBodyForce" title="MOLA.LiftingLine.computePropellerBodyForce"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.LiftingLine.computePropellerBodyForce()</span></code></a></p></li>
 </ul>
 </dd>
 </dl>
@@ -316,7 +341,7 @@ in <code class="docutils literal notranslate"><span class="pre">setup</span></co
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>to</strong> (<em>PyTree</em>) – Coupling tree as obtained from <a class="reference internal" href="#MOLA.Coprocess.adaptEndOfRun" title="MOLA.Coprocess.adaptEndOfRun"><code class="xref py py-func docutils literal notranslate"><span class="pre">adaptEndOfRun()</span></code></a></p></li>
-<li><p><strong>onlyWalls</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, only BC with keyword <code class="docutils literal notranslate"><span class="pre">'wall'</span></code> contained in
+<li><p><strong>onlyWalls</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, only BC with keyword <code class="docutils literal notranslate"><span class="pre">'wall'</span></code> contained in
 their type are extracted. Otherwise, all BC are extracted,
 regardless of their type.</p></li>
 </ul>
@@ -387,7 +412,7 @@ saves the provided zones in a single CGNS file.</p>
 <p><strong>filename</strong> extension must be <code class="docutils literal notranslate"><span class="pre">.cgns</span></code></p>
 </div>
 </p></li>
-<li><p><strong>tagWithIteration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, adds a suffix <code class="docutils literal notranslate"><span class="pre">_AfterIter&lt;iteration&gt;</span></code>
+<li><p><strong>tagWithIteration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, adds a suffix <code class="docutils literal notranslate"><span class="pre">_AfterIter&lt;iteration&gt;</span></code>
 to the saved filename (creates a copy)</p></li>
 </ul>
 </dd>
@@ -441,8 +466,8 @@ value if key is not found</p>
 <span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">getSignal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.getSignal" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get a signal using an temporary auxiliar file technique.</p>
 <p>If the intermediary file exists (signal received) then it is removed, and
-the function returns <code class="docutils literal notranslate"><span class="pre">True</span></code> to all processors. Otherwise, it returns
-<code class="docutils literal notranslate"><span class="pre">False</span></code> to all processors.</p>
+the function returns <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> to all processors. Otherwise, it returns
+<a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a> to all processors.</p>
 <p>This function is employed for controling a simulation in a simple manner,
 for example using UNIX command <code class="docutils literal notranslate"><span class="pre">touch</span></code>:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>touch filename
@@ -454,7 +479,7 @@ for example using UNIX command <code class="docutils literal notranslate"><span 
 <dd class="field-odd"><p><strong>filename</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – the name of the file (the signal keyword)</p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>isOrder</strong> – <code class="docutils literal notranslate"><span class="pre">True</span></code> if the signal is received, otherwise <code class="docutils literal notranslate"><span class="pre">False</span></code>, to all
+<dd class="field-even"><p><strong>isOrder</strong> – <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> if the signal is received, otherwise <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>, to all
 processors</p>
 </dd>
 <dt class="field-odd">Return type</dt>
@@ -466,8 +491,8 @@ processors</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="MOLA.Coprocess.hasReachedTimeOutMargin">
 <span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">hasReachedTimeOutMargin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ElapsedTime</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TimeOut</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MarginBeforeTimeOut</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.hasReachedTimeOutMargin" title="Permalink to this definition">¶</a></dt>
-<dd><p>This function returns <code class="docutils literal notranslate"><span class="pre">True</span></code> to all processors if the margin before
-time-out is satisfied. Otherwise, it returns <code class="docutils literal notranslate"><span class="pre">False</span></code> to all processors.</p>
+<dd><p>This function returns <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> to all processors if the margin before
+time-out is satisfied. Otherwise, it returns <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a> to all processors.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -480,14 +505,14 @@ postprocessing operations before the job triggers forced termination</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><p><strong>ReachedTimeOutMargin</strong> – <code class="docutils literal notranslate"><span class="pre">True</span></code> if</p>
+<dd class="field-even"><p><p><strong>ReachedTimeOutMargin</strong> – <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> if</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ElapsedTime</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="n">TimeOut</span> <span class="o">-</span> <span class="n">MarginBeforeTimeOut</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Otherwise, returns <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<p>Otherwise, returns <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>the same value (<code class="docutils literal notranslate"><span class="pre">True</span></code> or <code class="docutils literal notranslate"><span class="pre">False</span></code>) is sent to <em>all</em>
+<p>the same value (<a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> or <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) is sent to <em>all</em>
 processors.</p>
 </div>
 </p>
@@ -534,7 +559,7 @@ is found</p>
 <span class="sig-prename descclassname"><span class="pre">MOLA.Coprocess.</span></span><span class="sig-name descname"><span class="pre">isConverged</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ZoneName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'AIRFOIL'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">FluxName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'std-CL'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">FluxThreshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Coprocess.isConverged" title="Permalink to this definition">¶</a></dt>
 <dd><p>This method is used to determine if a given load is converged by looking
 at its standard deviation and comparing it to a user-provided threshold.
-If converged, the signal returns <code class="docutils literal notranslate"><span class="pre">True</span></code> to all ranks and writes a message
+If converged, the signal returns <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> to all ranks and writes a message
 to <code class="docutils literal notranslate"><span class="pre">coprocess.log</span></code> file.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -548,7 +573,7 @@ criterion is satisfied</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>ConvergedCriterion</strong> – <code class="docutils literal notranslate"><span class="pre">True</span></code> if the convergence criterion is satisfied</p>
+<dd class="field-even"><p><strong>ConvergedCriterion</strong> – <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> if the convergence criterion is satisfied</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)">bool</a></p>
@@ -617,7 +642,7 @@ It is designed to be used in a MPI context (coprocessing).</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>message</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Message to be written in <code class="docutils literal notranslate"><span class="pre">coprocess.log</span></code> file</p></li>
 <li><p><strong>proc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><em>None</em></a>) – if provided, only local MPI rank will write the message.
-If <code class="docutils literal notranslate"><span class="pre">None</span></code>, all procs will write the message.</p></li>
+If <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, all procs will write the message.</p></li>
 <li><p><strong>color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – endscape code for terminal colored output.
 For example, red output is obtained like this: <code class="docutils literal notranslate"><span class="pre">color='\033[91m'</span></code></p></li>
 </ul>
@@ -639,7 +664,7 @@ For example, red output is obtained like this: <code class="docutils literal not
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The method can be used to stop the elsA simulation after saving all data
-by providing the argument <strong>quit</strong> = <code class="docutils literal notranslate"><span class="pre">True</span></code></p>
+by providing the argument <strong>quit</strong> = <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a></p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -664,8 +689,8 @@ information see documentation of function <a class="reference internal" href="#M
 <li><p><strong>BodyForceInputData</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><em>list</em></a>) – This object contains the user-provided information contained in
 <strong>BodyForceInputData</strong> list of <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> file</p></li>
 <li><p><strong>BodyForceDisks</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of zone) – Current bodyforce disks as obtained from function
-<code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.LiftingLine.computePropellerBodyForce()</span></code></p></li>
-<li><p><strong>quit</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, force quit the simulation after saving relevant data.</p></li>
+<a class="reference internal" href="LiftingLine.html#MOLA.LiftingLine.computePropellerBodyForce" title="MOLA.LiftingLine.computePropellerBodyForce"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.LiftingLine.computePropellerBodyForce()</span></code></a></p></li>
+<li><p><strong>quit</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, force quit the simulation after saving relevant data.</p></li>
 </ul>
 </dd>
 </dl>
@@ -686,7 +711,7 @@ in a single CGNS file.</p>
 <p><strong>filename</strong> extension must be <code class="docutils literal notranslate"><span class="pre">.cgns</span></code></p>
 </div>
 </p></li>
-<li><p><strong>tagWithIteration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, adds a suffix <code class="docutils literal notranslate"><span class="pre">_AfterIter&lt;iteration&gt;</span></code>
+<li><p><strong>tagWithIteration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, adds a suffix <code class="docutils literal notranslate"><span class="pre">_AfterIter&lt;iteration&gt;</span></code>
 to the saved filename (creates a copy)</p></li>
 </ul>
 </dd>
@@ -701,9 +726,9 @@ to the saved filename (creates a copy)</p></li>
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>to</strong> (<em>PyTree</em>) – Coupling tree as obtained from <a class="reference internal" href="#MOLA.Coprocess.adaptEndOfRun" title="MOLA.Coprocess.adaptEndOfRun"><code class="xref py py-func docutils literal notranslate"><span class="pre">adaptEndOfRun()</span></code></a></p></li>
-<li><p><strong>tagWithIteration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, adds a suffix <code class="docutils literal notranslate"><span class="pre">_AfterIter&lt;iteration&gt;</span></code>
+<li><p><strong>tagWithIteration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, adds a suffix <code class="docutils literal notranslate"><span class="pre">_AfterIter&lt;iteration&gt;</span></code>
 to the saved filename (creates a copy)</p></li>
-<li><p><strong>onlyWalls</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, only BC defined with <code class="docutils literal notranslate"><span class="pre">BCWall*</span></code> type are extracted.
+<li><p><strong>onlyWalls</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, only BC defined with <code class="docutils literal notranslate"><span class="pre">BCWall*</span></code> type are extracted.
 Otherwise, all BC (but not GridConnectivity) are extracted</p></li>
 </ul>
 </dd>
@@ -741,9 +766,9 @@ deviation of the cumulative standard deviation of the
 lift coefficient (<span class="math notranslate nohighlight">\(\sigma(\sigma(C_L))\)</span>)</p>
 </div>
 </p></li>
-<li><p><strong>tagWithIteration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, adds a suffix <code class="docutils literal notranslate"><span class="pre">_AfterIter&lt;iteration&gt;</span></code>
+<li><p><strong>tagWithIteration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, adds a suffix <code class="docutils literal notranslate"><span class="pre">_AfterIter&lt;iteration&gt;</span></code>
 to the saved filename (creates a copy)</p></li>
-<li><p><strong>monitorMemory</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, function <a class="reference internal" href="#MOLA.Coprocess.addMemoryUsage2Loads" title="MOLA.Coprocess.addMemoryUsage2Loads"><code class="xref py py-func docutils literal notranslate"><span class="pre">addMemoryUsage2Loads()</span></code></a> is
+<li><p><strong>monitorMemory</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, function <a class="reference internal" href="#MOLA.Coprocess.addMemoryUsage2Loads" title="MOLA.Coprocess.addMemoryUsage2Loads"><code class="xref py py-func docutils literal notranslate"><span class="pre">addMemoryUsage2Loads()</span></code></a> is
 called, which adds memory usage information into <strong>loads</strong></p></li>
 </ul>
 </dd>

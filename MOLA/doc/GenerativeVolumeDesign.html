@@ -70,51 +70,9 @@
       
       <div class="navbar-center-item">
         <ul id="navbar-main-elements" class="navbar-nav">
-    <li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="InternalShortcuts.html">
-  InternalShortcuts
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Wireframe.html">
-  Wireframe
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="GenerativeShapeDesign.html">
-  GenerativeShapeDesign
- </a>
-</li>
-
-<li class="toctree-l1 current active nav-item">
- <a class="current reference internal nav-link" href="#">
-  GenerativeVolumeDesign
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="RotatoryWings.html">
-  RotatoryWings
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Preprocess.html">
-  Preprocess
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Coprocess.html">
-  Coprocess
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Postprocess.html">
-  Postprocess
+    <li class="toctree-l1 current active nav-item">
+ <a class="reference internal nav-link" href="Modules.html">
+  Modules
  </a>
 </li>
 
@@ -147,7 +105,74 @@
   <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
 </form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
   <div class="bd-toc-item active">
-    
+    <ul class="current nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="InternalShortcuts.html">
+   InternalShortcuts
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Wireframe.html">
+   Wireframe
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="GenerativeShapeDesign.html">
+   GenerativeShapeDesign
+  </a>
+ </li>
+ <li class="toctree-l1 current active">
+  <a class="current reference internal" href="#">
+   GenerativeVolumeDesign
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="RotatoryWings.html">
+   RotatoryWings
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Preprocess.html">
+   Preprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Coprocess.html">
+   Coprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Postprocess.html">
+   Postprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="WorkflowAirfoil.html">
+   WorkflowAirfoil
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="LiftingLine.html">
+   LiftingLine
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="PropellerAnalysis.html">
+   PropellerAnalysis
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Visu.html">
+   Visu
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="XFoil.html">
+   XFoil
+  </a>
+ </li>
+</ul>
+
   </div>
 </nav>
             </div>
@@ -261,7 +286,7 @@ constraints (e.g. <code class="docutils literal notranslate"><span class="pre">'
 attribute indicates the direction of projection, that will remain
 constant throughout the entire extrusion process.</p></li>
 <li><p><strong>MatchDir</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – <p>If procided, it specifies the front-advance index of matching
-(1=i, 2=j, 3=k) of the <strong>surface</strong>. If not provided (<code class="docutils literal notranslate"><span class="pre">None</span></code>),
+(1=i, 2=j, 3=k) of the <strong>surface</strong>. If not provided (<a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>),
 then the matching direction is automatically computed.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -386,7 +411,7 @@ will override the fields of the same name of the extrusion front. This
 includes, for example: <code class="docutils literal notranslate"><span class="pre">sx</span></code>, <code class="docutils literal notranslate"><span class="pre">sy</span></code>, <code class="docutils literal notranslate"><span class="pre">sz</span></code> (direction of extrusion). These
 will hence be employed for extrusion instead of being calculated.
 The extrusion front surface grid coordinates are directly smoothed.
-If <strong>extractMesh</strong> is not <code class="docutils literal notranslate"><span class="pre">None</span></code>, then <strong>extractMeshHardSmoothOptions</strong>
+If <strong>extractMesh</strong> is not <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, then <strong>extractMeshHardSmoothOptions</strong>
 dictionary is meaningful. This technique may be useful for allowing for
 smoothing of the extrusion layer front while veryfing imposed
 extrusion directions (it can be seen as a soft overall constraint).</p>
@@ -448,12 +473,12 @@ of the extrusion front.</p>
 </li>
 </ul>
 </p></li>
-<li><p><strong>closeExtrusionLayer</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, force the extrusion front surface
+<li><p><strong>closeExtrusionLayer</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, force the extrusion front surface
 to be closed. This is necessary in order to perform “O-shaped” extrusion
 around watertight surfaces.</p></li>
-<li><p><strong>printIters</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, prints to standard output messages
+<li><p><strong>printIters</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, prints to standard output messages
 during the extrusion process.</p></li>
-<li><p><strong>plotIters</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, interactively open a CPlot window and
+<li><p><strong>plotIters</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, interactively open a CPlot window and
 show the extrusion front during the extrusion process. This is a
 valuable help for setting the smoothing parameters and growth equation</p></li>
 <li><p><strong>extractMeshHardSmoothOptions</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – <p>here, a set of
@@ -499,7 +524,7 @@ will be performed at each extrusion step. The parameters for the call
 of the <code class="xref py py-func docutils literal notranslate"><span class="pre">T.smooth()</span></code> function are extracted from <code class="docutils literal notranslate"><span class="pre">FlowSolution</span></code> of each
 point. Hence, the <code class="docutils literal notranslate"><span class="pre">FlowSolution</span></code> of each point may only exclusively
 be composed of the accepted attributes of <code class="xref py py-func docutils literal notranslate"><span class="pre">T.smooth()</span></code> function.</p></li>
-<li><p><strong>HardSmoothRescaling</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, performs an auxiliary
+<li><p><strong>HardSmoothRescaling</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, performs an auxiliary
 normalization of the extrusion front for the application of the
 HardSmoothPoints. This may be necessary for big grids, as <code class="xref py py-func docutils literal notranslate"><span class="pre">T.smooth()</span></code>
 depends on the dimensions of the grid.</p></li>

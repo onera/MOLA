@@ -70,51 +70,9 @@
       
       <div class="navbar-center-item">
         <ul id="navbar-main-elements" class="navbar-nav">
-    <li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="InternalShortcuts.html">
-  InternalShortcuts
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Wireframe.html">
-  Wireframe
- </a>
-</li>
-
-<li class="toctree-l1 current active nav-item">
- <a class="current reference internal nav-link" href="#">
-  GenerativeShapeDesign
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="GenerativeVolumeDesign.html">
-  GenerativeVolumeDesign
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="RotatoryWings.html">
-  RotatoryWings
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Preprocess.html">
-  Preprocess
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Coprocess.html">
-  Coprocess
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Postprocess.html">
-  Postprocess
+    <li class="toctree-l1 current active nav-item">
+ <a class="reference internal nav-link" href="Modules.html">
+  Modules
  </a>
 </li>
 
@@ -147,7 +105,74 @@
   <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
 </form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
   <div class="bd-toc-item active">
-    
+    <ul class="current nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="InternalShortcuts.html">
+   InternalShortcuts
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Wireframe.html">
+   Wireframe
+  </a>
+ </li>
+ <li class="toctree-l1 current active">
+  <a class="current reference internal" href="#">
+   GenerativeShapeDesign
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="GenerativeVolumeDesign.html">
+   GenerativeVolumeDesign
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="RotatoryWings.html">
+   RotatoryWings
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Preprocess.html">
+   Preprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Coprocess.html">
+   Coprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Postprocess.html">
+   Postprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="WorkflowAirfoil.html">
+   WorkflowAirfoil
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="LiftingLine.html">
+   LiftingLine
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="PropellerAnalysis.html">
+   PropellerAnalysis
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Visu.html">
+   Visu
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="XFoil.html">
+   XFoil
+  </a>
+ </li>
+</ul>
+
   </div>
 </nav>
             </div>
@@ -722,7 +747,7 @@ more costly the search procedure is, but best chances exist of finding
 a suitable set of number of points. If no suitable set is found within
 the initial <strong>QtySearch</strong>, the algorithm recursively calls itself adding 1
 at each call, in order to have best chances of finding a suitable set</p></li>
-<li><p><strong>tellMeWhatYouDo</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, the function prints relevant information about the
+<li><p><strong>tellMeWhatYouDo</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, the function prints relevant information about the
 adaptation of points</p></li>
 </ul>
 </dd>
@@ -758,7 +783,7 @@ auxiliary surface used for determining if input is closed.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>closed</strong> – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, surface topology is closed, <code class="docutils literal notranslate"><span class="pre">False</span></code> otherwise.</p>
+<dd class="field-even"><p><strong>closed</strong> – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, surface topology is closed, <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a> otherwise.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)">bool</a></p>
@@ -1025,7 +1050,7 @@ is obtained setting:</p>
 </p></li>
 <li><p><strong>NPtsTrailingEdge</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – If provided sections are open at trailing edge, this parameter is
 used for discretizing the gap distance at trailing edge (closing).</p></li>
-<li><p><strong>AvoidAirfoilModification</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – <p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the user-provided airfoils are interpolated, scaled and
+<li><p><strong>AvoidAirfoilModification</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – <p>If <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, the user-provided airfoils are interpolated, scaled and
 rotated, in order to position each section at its corresponding
 place. This requires that the user-provided airfoils must be placed
 on <strong>XY</strong> plane, with leading edge situated at <code class="docutils literal notranslate"><span class="pre">(0,0)</span></code> and
@@ -1033,28 +1058,28 @@ trailing edge at <code class="docutils literal notranslate"><span class="pre">(1
 and oriented <strong>clockwise</strong> starting from trailing edge. Moreover,
 all airfoils shall yield the same number of points (beware that the
 final wing distribution will use this discretization).</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">False</span></code>, then the aforementioned constraints are not
+<p>If <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>, then the aforementioned constraints are not
 compulsory, and spanwise airfoil-modification laws can be provided.
 However, surface construction will take longer, as automatic
 detection of top and bottom sides (and other characteristics) of
 each section is performed.</p>
 <div class="admonition hint">
 <p class="admonition-title">Hint</p>
-<p>using <strong>AvoidAirfoilModification</strong> = <code class="docutils literal notranslate"><span class="pre">True</span></code> is faster and
+<p>using <strong>AvoidAirfoilModification</strong> = <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> is faster and
 more robust, but one cannot modify airfoils following its
 properties (like thickness, camber, etc…)</p>
 </div>
 </p></li>
 <li><p><strong>splitAirfoilOptions</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – Parameters to be passed to <a class="reference internal" href="Wireframe.html#MOLA.Wireframe.splitAirfoil" title="MOLA.Wireframe.splitAirfoil"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.Wireframe.splitAirfoil()</span></code></a>
 required for airfoil modifications.
-This is only relevant if <strong>AvoidAirfoilModification</strong> = <code class="docutils literal notranslate"><span class="pre">False</span></code>.
+This is only relevant if <strong>AvoidAirfoilModification</strong> = <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>.
 Their values may determine the accuracy of the automatic computation
 of the leading and trailing edges of arbitrary airfoil-like geometry.</p></li>
 <li><p><strong>kwargs</strong> (<em>additional parameters</em>) – <p>These are used for providing the spanwise geometrical laws and
 airfoil sections. Some possible argument names are:</p>
 <p><code class="docutils literal notranslate"><span class="pre">Airfoil=,</span> <span class="pre">Chord=,</span> <span class="pre">Twist=,</span> <span class="pre">Sweep=,</span> <span class="pre">Dihedral=</span></code></p>
 <p>Additional argument names are acceptable if the parameter
-<strong>AvoidAirfoilModification</strong> = <code class="docutils literal notranslate"><span class="pre">False</span></code> and they are supported in
+<strong>AvoidAirfoilModification</strong> = <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a> and they are supported in
 <a class="reference internal" href="Wireframe.html#MOLA.Wireframe.modifyAirfoil" title="MOLA.Wireframe.modifyAirfoil"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.Wireframe.modifyAirfoil()</span></code></a> function, like for example:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">MaxThickness</span> <span class="n">MaxRelativeThickness</span> <span class="n">MaxThicknessRelativeLocation</span>
 <span class="n">MaxCamber</span> <span class="n">MaxRelativeCamber</span> <span class="n">MaxCamberRelativeLocation</span> <span class="n">MinCamber</span>

@@ -70,51 +70,9 @@
       
       <div class="navbar-center-item">
         <ul id="navbar-main-elements" class="navbar-nav">
-    <li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="InternalShortcuts.html">
-  InternalShortcuts
- </a>
-</li>
-
-<li class="toctree-l1 current active nav-item">
- <a class="current reference internal nav-link" href="#">
-  Wireframe
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="GenerativeShapeDesign.html">
-  GenerativeShapeDesign
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="GenerativeVolumeDesign.html">
-  GenerativeVolumeDesign
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="RotatoryWings.html">
-  RotatoryWings
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Preprocess.html">
-  Preprocess
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Coprocess.html">
-  Coprocess
- </a>
-</li>
-
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="Postprocess.html">
-  Postprocess
+    <li class="toctree-l1 current active nav-item">
+ <a class="reference internal nav-link" href="Modules.html">
+  Modules
  </a>
 </li>
 
@@ -147,7 +105,74 @@
   <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
 </form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
   <div class="bd-toc-item active">
-    
+    <ul class="current nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="InternalShortcuts.html">
+   InternalShortcuts
+  </a>
+ </li>
+ <li class="toctree-l1 current active">
+  <a class="current reference internal" href="#">
+   Wireframe
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="GenerativeShapeDesign.html">
+   GenerativeShapeDesign
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="GenerativeVolumeDesign.html">
+   GenerativeVolumeDesign
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="RotatoryWings.html">
+   RotatoryWings
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Preprocess.html">
+   Preprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Coprocess.html">
+   Coprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Postprocess.html">
+   Postprocess
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="WorkflowAirfoil.html">
+   WorkflowAirfoil
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="LiftingLine.html">
+   LiftingLine
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="PropellerAnalysis.html">
+   PropellerAnalysis
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="Visu.html">
+   Visu
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="XFoil.html">
+   XFoil
+  </a>
+ </li>
+</ul>
+
   </div>
 </nav>
             </div>
@@ -280,7 +305,7 @@ Leading Edge position. It is used to accurately control
 the location of the leading edge refinement point. A value
 of 0 corresponds to the bottom side trailing edge, and a
 value of 1 corresponds to the top side trailing edge.
-If <code class="docutils literal notranslate"><span class="pre">None</span></code>, then makes no refinement based on curve length,
+If <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, then makes no refinement based on curve length,
 but based only on the X coordinate.</p></li>
 </ul>
 </dd>
@@ -402,7 +427,7 @@ manifold and single branch. Otherwise, raises an exception.</p>
 <dd class="field-odd"><p><strong>AirfoilCurve</strong> (<em>zone</em>) – zone to be checked</p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>isStructured</strong> – <code class="docutils literal notranslate"><span class="pre">True</span></code> if the zone is structured</p>
+<dd class="field-even"><p><strong>isStructured</strong> – <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> if the zone is structured</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)">bool</a></p>
@@ -574,7 +599,7 @@ is the length of the provided <strong>curve</strong></p>
 <span class="sig-prename descclassname"><span class="pre">MOLA.Wireframe.</span></span><span class="sig-name descname"><span class="pre">cutTrailingEdgeOfAirfoil</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">foil</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TEthickness</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">DesiredXChord</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Xmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.8</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Wireframe.cutTrailingEdgeOfAirfoil" title="Permalink to this definition">¶</a></dt>
 <dd><p>Cut the trailing edge of an airfoil in order to verify a given
 trailing edge thickness.
-If <strong>DesiredXChord</strong> is not <code class="docutils literal notranslate"><span class="pre">None</span></code>, then appropriate scaling of airfoil
+If <strong>DesiredXChord</strong> is not <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, then appropriate scaling of airfoil
 is performed so that final cut airfoil yields the desired chord;
 otherwise, the new cut airfoil will systematically have a smaller chord.</p>
 <dl class="field-list simple">
@@ -585,7 +610,7 @@ index at Trailing edge and oriented clockwise.</p></li>
 <li><p><strong>TEThickness</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Absolute thickness of the new cut of trailing edge.</p></li>
 <li><p><strong>DesiredXChord</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Resulting new xchord (must be lower than
 original provided xchord of <strong>foil</strong>)
-If not provided (<code class="docutils literal notranslate"><span class="pre">None</span></code>), new foil will be a simple cut of foil.</p></li>
+If not provided (<a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>), new foil will be a simple cut of foil.</p></li>
 <li><p><strong>Xmin</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Minimum allowable cut station. Cut searches are performed
 for stations bigger than Xmin.</p></li>
 </ul>
@@ -722,7 +747,7 @@ function <code class="xref py py-func docutils literal notranslate"><span class=
 <li><p><strong>ExtrapDistance</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – distance to extrude [m]</p></li>
 <li><p><strong>mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – choice of the mode of extrusion: currently, only <code class="docutils literal notranslate"><span class="pre">'tangent'</span></code>
 is available</p></li>
-<li><p><strong>opposedExtremum</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <code class="docutils literal notranslate"><span class="pre">True</span></code>, extrapolates starting from last index of <strong>curve</strong></p></li>
+<li><p><strong>opposedExtremum</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, extrapolates starting from last index of <strong>curve</strong></p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -1163,7 +1188,7 @@ to its curvilinear abscissa.</p>
 <p class="admonition-title">Warning</p>
 <p>this function requires further validation</p>
 </div>
-<p>returns <code class="docutils literal notranslate"><span class="pre">True</span></code> if provided <strong>curve</strong> supported on <span class="math notranslate nohighlight">\(OXY\)</span> plane
+<p>returns <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> if provided <strong>curve</strong> supported on <span class="math notranslate nohighlight">\(OXY\)</span> plane
 is oriented clockwise</p>
 </dd></dl>
 
@@ -1174,7 +1199,7 @@ is oriented clockwise</p>
 <p class="admonition-title">Warning</p>
 <p>this function requires further validation</p>
 </div>
-<p>returns <code class="docutils literal notranslate"><span class="pre">True</span></code> if provided <strong>curve</strong> supported on <span class="math notranslate nohighlight">\(OXY\)</span> plane
+<p>returns <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> if provided <strong>curve</strong> supported on <span class="math notranslate nohighlight">\(OXY\)</span> plane
 is oriented clockwise</p>
 </dd></dl>
 
@@ -1192,7 +1217,7 @@ converted to structured).</p>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>Result</strong> – <code class="docutils literal notranslate"><span class="pre">True</span></code> if it is closed, <code class="docutils literal notranslate"><span class="pre">False</span></code> if it is open.</p>
+<dd class="field-even"><p><strong>Result</strong> – <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> if it is closed, <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a> if it is open.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)">bool</a></p>
@@ -1203,8 +1228,8 @@ converted to structured).</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="MOLA.Wireframe.isPyTreePoint">
 <span class="sig-prename descclassname"><span class="pre">MOLA.Wireframe.</span></span><span class="sig-name descname"><span class="pre">isPyTreePoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">P</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.Wireframe.isPyTreePoint" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return <code class="docutils literal notranslate"><span class="pre">True</span></code> if input argument <strong>P</strong> is a PyTree point (a zone).
-Otherwise, return <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+<dd><p>Return <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> if input argument <strong>P</strong> is a PyTree point (a zone).
+Otherwise, return <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a></p>
 </dd></dl>
 
 <dl class="py function">
@@ -1222,7 +1247,7 @@ points of <strong>zone</strong>.</p>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>ItIs</strong> – <code class="docutils literal notranslate"><span class="pre">True</span></code> if <strong>subzone</strong> totally lies in <strong>zone</strong>, <code class="docutils literal notranslate"><span class="pre">False</span></code> otherwise</p>
+<dd class="field-even"><p><strong>ItIs</strong> – <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> if <strong>subzone</strong> totally lies in <strong>zone</strong>, <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a> otherwise</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)">bool</a></p>
@@ -1268,7 +1293,7 @@ in the dictionary <strong>Distribution</strong>.</p>
 <li><p><strong>P2</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of 3-<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – End point of the line</p></li>
 <li><p><strong>N</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – Points quantity that the line will contain</p></li>
 <li><p><strong>Distribution</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – <p>Python dictionary specifying distribution instructions.
-Default value is <code class="docutils literal notranslate"><span class="pre">None</span></code>, which produces a uniform distribution.
+Default value is <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, which produces a uniform distribution.
 Accepted keys are:</p>
 <ul>
 <li><dl>
@@ -1403,31 +1428,31 @@ airfoil curve.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>AirfoilInput</strong> (<em>zone</em>) – structured zone representing the airfoil</p></li>
 <li><p><strong>Chord</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Aimed chord [m] length of the new airfoil.
-Use <code class="docutils literal notranslate"><span class="pre">None</span></code> if this parameter is not aimed.</p></li>
+Use <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> if this parameter is not aimed.</p></li>
 <li><p><strong>MaxThickness</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Aimed thickness [m] of the new airfoil.
-Use <code class="docutils literal notranslate"><span class="pre">None</span></code> if this parameter is not aimed.</p></li>
+Use <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> if this parameter is not aimed.</p></li>
 <li><p><strong>MaxRelativeThickness</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Aimed relative thickness (with respect to chord length) of the new airfoil.
-Use <code class="docutils literal notranslate"><span class="pre">None</span></code> if this parameter is not aimed.</p></li>
+Use <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> if this parameter is not aimed.</p></li>
 <li><p><strong>MaxThicknessRelativeLocation</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Relative chordwise location of maximum thickness, with respect to the
 chord length. Must be <span class="math notranslate nohighlight">\(\in (0,1)\)</span>
-Use <code class="docutils literal notranslate"><span class="pre">None</span></code> if this parameter is not aimed.</p></li>
+Use <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> if this parameter is not aimed.</p></li>
 <li><p><strong>MaxCamber</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Aimed maximum camber [m] (in top-side direction) of the new airfoil.
-Use <code class="docutils literal notranslate"><span class="pre">None</span></code> if this parameter is not aimed.</p></li>
+Use <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> if this parameter is not aimed.</p></li>
 <li><p><strong>MaxRelativeCamber</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Aimed relative (with respect to chord length) maximum camber
 (in top-side direction) of the new airfoil.
-Use <code class="docutils literal notranslate"><span class="pre">None</span></code> if this parameter is not aimed.</p></li>
+Use <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> if this parameter is not aimed.</p></li>
 <li><p><strong>MaxCamberRelativeLocation</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Relative chordwise location of maximum camber in top-side direction),
 with respect to the chord length. Must be <span class="math notranslate nohighlight">\(\in (0,1)\)</span>
-Use <code class="docutils literal notranslate"><span class="pre">None</span></code> if this parameter is not aimed.</p></li>
+Use <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> if this parameter is not aimed.</p></li>
 <li><p><strong>MinCamber</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Aimed minimum camber [m] (in bottom-side direction) of the new airfoil.
-Use <code class="docutils literal notranslate"><span class="pre">None</span></code> if this parameter is not aimed.</p></li>
+Use <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> if this parameter is not aimed.</p></li>
 <li><p><strong>MinRelativeCamber</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Aimed relative (with respect to chord length) minimum camber
 (in bottom-side direction) of the new airfoil.
-Use <code class="docutils literal notranslate"><span class="pre">None</span></code> if this parameter is not aimed.</p></li>
+Use <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> if this parameter is not aimed.</p></li>
 <li><p><strong>MinCamberRelativeLocation</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Relative chordwise location (with respect to chord length) o
 minimum camber (in bottom-side direction), with respect to the
 chord length. Must be <span class="math notranslate nohighlight">\(\in (0,1)\)</span>
-Use <code class="docutils literal notranslate"><span class="pre">None</span></code> if this parameter is not aimed.</p></li>
+Use <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> if this parameter is not aimed.</p></li>
 <li><p><strong>ScalingRelativeChord</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – relative chordwise position at which scaling is applied.
 It must be <span class="math notranslate nohighlight">\(\in (0,1)\)</span></p></li>
 <li><p><strong>ScalingMode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>How to scale the airfoil. Two possibilities:</p>
@@ -1476,22 +1501,22 @@ thickness</p></li>
 <li><p><strong>NormalDirection</strong> (array of 3 <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – the normal direction, perpendicular to the chord direction, and
 pointing towards the top side of airfoil</p></li>
 <li><p><strong>MaxCamber</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Aimed maximum camber [m] (in top-side direction) of the new airfoil.
-Use <code class="docutils literal notranslate"><span class="pre">None</span></code> if this parameter is not aimed.</p></li>
+Use <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> if this parameter is not aimed.</p></li>
 <li><p><strong>MaxRelativeCamber</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Aimed relative (with respect to chord length) maximum camber
 (in top-side direction) of the new airfoil.
-Use <code class="docutils literal notranslate"><span class="pre">None</span></code> if this parameter is not aimed.</p></li>
+Use <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> if this parameter is not aimed.</p></li>
 <li><p><strong>MaxCamberRelativeLocation</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Relative chordwise location of maximum camber in top-side direction),
 with respect to the chord length. Must be <span class="math notranslate nohighlight">\(\in (0,1)\)</span>
-Use <code class="docutils literal notranslate"><span class="pre">None</span></code> if this parameter is not aimed.</p></li>
+Use <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> if this parameter is not aimed.</p></li>
 <li><p><strong>MinCamber</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Aimed minimum camber [m] (in bottom-side direction) of the new airfoil.
-Use <code class="docutils literal notranslate"><span class="pre">None</span></code> if this parameter is not aimed.</p></li>
+Use <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> if this parameter is not aimed.</p></li>
 <li><p><strong>MinRelativeCamber</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Aimed relative (with respect to chord length) minimum camber
 (in bottom-side direction) of the new airfoil.
-Use <code class="docutils literal notranslate"><span class="pre">None</span></code> if this parameter is not aimed.</p></li>
+Use <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> if this parameter is not aimed.</p></li>
 <li><p><strong>MinCamberRelativeLocation</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – Relative chordwise location (with respect to chord length) o
 minimum camber (in bottom-side direction), with respect to the
 chord length. Must be <span class="math notranslate nohighlight">\(\in (0,1)\)</span>
-Use <code class="docutils literal notranslate"><span class="pre">None</span></code> if this parameter is not aimed.</p></li>
+Use <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> if this parameter is not aimed.</p></li>
 <li><p><strong>InterpolationLaw</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>interpolation law to be applied for the modification of thickness</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
