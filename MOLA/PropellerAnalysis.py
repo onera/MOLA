@@ -163,71 +163,98 @@ def computePUMA(NBlades, Velocity, RPM, Temperature, Density,
     This is a macro-function used for making a simple isolated propeller PUMA
     simulation in axial flight.
 
-    INPUTS
+    Parameters
+    ----------
 
-    NBlades - (integer) - number of blades of the propeller
+        NBlades : int
+            number of blades of the propeller
 
-    Velocity - (float) - axial advancing velocity of the propeller [m/s]
+        Velocity : float
+            axial advancing velocity of the propeller [m/s]
 
-    RPM - (float) - rotational speed of the propeller [revolutions per minute]
+        RPM : float
+            rotational speed of the propeller [revolutions per minute]
 
-    Temperature - (float) - external air temperature [K]
+        Temperature : float
+            external air temperature [K]
 
-    Density - (float) - air density [kg / m3]
+        Density : float
+            air density [kg / m3]
 
-    Constraint - (string) one of: 'Thrust', 'Power' or None. Specifies the
-        trim constraint
+        Constraint : str
+            one of: ``'Thrust'``, ``'Power'`` or :py:obj:`None`. Specifies the
+            trim constraint
 
-    ConstraintValue - (float) - if trim Constraint type is provided, then this
-        argument specifies its value.
+        ConstraintValue : float
+            if trim **Constraint** type is provided, then this
+            argument specifies its value.
 
-    PerturbationField - (zone or None) - zone containing VelocityX, VelocityY
-        and VelocityZ perturbation fields or None if no perturbation is
-        imposed.
+        PerturbationField : zone or :py:obj:`None`
+            zone containing ``VelocityX``, ``VelocityY`` and ``VelocityZ``
+            perturbation fields or None if no perturbation is imposed
 
-    PrescribedWake - (boolean) - if True, wake is not free, but prescribed.
+        PrescribedWake : bool
+            if :py:obj:`True`, wake is not free, but prescribed.
 
-    FroudeVelocity - (boolean) - if True, Froude velocity is computed. This
-        shall be set to True if PrescribedWake==True for consistency.
+        FroudeVelocity : bool
+            if :py:obj:`True`, Froude velocity is computed. This
+            shall be set to :py:obj:`True` if **PrescribedWake** == :py:obj:`True`
+            for consistency.
 
-    Restart - (False) - If true, restart from fields Restart.plt.
-        DISCLAIMER! this feature is bugged in PUMA in its last tested version
+        Restart : bool
+            If :py:obj:`True`, restart from fields ``Restart.plt``.
 
-    GeomBladeFile - (string) - name of the file containing blade
-        geometry of PUMA.
+            .. warning:: this feature is bugged in PUMA in its last tested version
 
-    PUMADir - (string) - name of the compute directory of PUMA.
+        GeomBladeFile : str
+            name of the file containing blade geometry of PUMA
 
-    Spinner - (None, zone or string) -
-        If None -> then no spinner modeling
+        PUMADir : str
+            name of the compute directory of PUMA
 
-        if zone -> then use provided surface for modeling spinner
+        Spinner : :py:obj:`None`, zone or :py:class:`str`
+            * if :py:obj:`None`, then no spinner modeling
 
-        if string -> can be 'Standard', then a default spinner is constructed
+            * if zone, then use provided surface for modeling spinner
 
-    ExtractVolume - (None, zone or string) -
-        If None -> then no volume data is extracted
+            * if :py:class:`str`, then it can be ``'Standard'``, then a default
+                spinner is constructed
 
-        if zone -> then use provided zone for extracting volume fields
+        ExtractVolume : :py:obj:`None`, zone or :py:class:`str`
+            * if :py:obj:`None`, then no volume data is extracted
 
-        if string -> can be:
-            "cartesian2D" : use a default 2D cartesian surface
-            "cartesian3D" : use a default 3D cartesian block
-            "cylinder"    : use a default 3D cylinder
+            * if zone, then use provided zone for extracting volume fields
 
-    SpanDiscretization - (None or string) - kind of discretization law for
-        blades 'sqrt' or 'linear'
+            * if :py:class:`str` then it can be one of:
 
-    StopDeltaTtol - (None or float) - if provided, sets the threshold difference
-        of thrust used to determine if convergence is reached [N]
+                * ``"cartesian2D"``
+                    use a default 2D cartesian surface
 
-    saveKimFiles - (boolean) - if True, save kim.geom and kim.autre files
+                * ``"cartesian3D"``
+                    use a default 3D cartesian block
 
-    OUTPUT
+                * ``"cylinder"``
+                    use a default 3D cylinder
 
-    List of:
+        SpanDiscretization : :py:obj:`None` or :py:class:`str`
+            kind of discretization law for blades ``'sqrt'`` or ``'linear'``
 
-    DictOfIntegralData, Prop.Loads.Data, SectionalLoadsLL
+        StopDeltaTtol : :py:obj:`None` or :py:class:`float`
+            if provided, sets the threshold difference
+            of thrust used to determine if convergence is reached [N]
+
+        saveKimFiles : bool
+            if :py:obj:`True`, save ``kim.geom`` and kim.autre files
+
+    Returns
+    -------
+
+        DictOfIntegralData : :py:class:`dict`
+            dictionary including predictions
+
+        Prop.Loads.Data : PUMA object
+
+        SectionalLoadsLL : PUMA object
     '''
     import imp
     import Generator.PyTree as G
@@ -561,40 +588,63 @@ def computePUMA(NBlades, Velocity, RPM, Temperature, Density,
     SectionalLoadsLL = BladesTrees[0]
     return DictOfIntegralData, Prop.Loads.Data, SectionalLoadsLL
 
-def computeQprop(QpropFile, Velocity, Pitch, RPM=None, Thrust=None, Power=None, Temperature = 288., Density=1.225, QpropExecutable="/home/lbernard/Outils/Qprop/bin/qprop"):
+def computeQprop(QpropFile, Velocity, Pitch, RPM=None, Thrust=None, Power=None,
+        Temperature = 288., Density=1.225,
+        QpropExecutable="/home/lbernard/Outils/Qprop/bin/qprop"):
     """
     Launch Qprop computation based on provided QpropFile,
-    [see buildQpropFile() function to know how to generate
-    the file] and operating conditions. Possible inputs are
+    (see :py:func:`buildQpropFile` function to know how to generate
+    the file) and operating conditions. Possible inputs are
     as expected by Qprop:
 
-    qprop propfile motorfile Vel Rpm [ Volt dBeta Thrust Torque Amps Pele ]
+    ::
 
-    This means that Velocity and Pitch arguments shall
-    ALWAYS be specified by user. However, the rest of
+        qprop propfile motorfile Vel Rpm [ Volt dBeta Thrust Torque Amps Pele ]
+
+    This means that **Velocity** and **Pitch** arguments shall
+    *ALWAYS* be specified by user. However, the rest of
     variables are optional, and Qprop will attempt to find
-    a mechanical equilibrium if at least one of (RPM,Thrust or Power) is also specified.
+    a mechanical equilibrium if at least one of (**RPM**, **Thrust** or
+    **Power**) is also specified.
 
     Note that Motor parameters is not implemented, so
-    motorfile, Volt, Amps and Pele are never used.
+    motorfile, *Volt*, *Amps* and *Pele* are never used.
 
-    Note that for the moment only single-point computations are possible. Multi-point behavior can be mimicked by
-    using this function inside a loop.
+    Note that for the moment only single-point computations are possible.
+    Multi-point behavior can be mimicked by using this function inside a loop.
 
-    Inputs:
-        Velocity: Float. Velocity of advance of propeller (m/s)
-        Pitch: Float. Pitch angle (degrees)
-        RPM: Float or None. Rotational speed in rev / minute
-        Thrust: Float or None. Required Thrust (N)
-        Power: Float or None. Required Power (W)
-        Temperature: Float. Temperature (Kelvin)
-        Density: Float. Air density (kg / m^3)
-        QpropExecutable: string. Location of qprop
-                                 executable
+    Parameters
+    ----------
 
-    Output:
-        Result: string. To be printed or post-processed with
-            extractQprop() function
+        Velocity : float
+            Velocity of advance of propeller (m/s)
+
+        Pitch : float
+            Pitch angle (degrees)
+
+        RPM : :py:class:`float` or :py:obj:`None`
+            Rotational speed in rev / minute
+
+        Thrust : :py:class:`float` or :py:obj:`None`
+            Required Thrust (N)
+
+        Power : :py:class:`float` or :py:obj:`None`
+            Required Power (W)
+
+        Temperature : float
+            Temperature (Kelvin)
+
+        Density : float
+            Air density (kg / m^3)
+
+        QpropExecutable : str
+            Location of qprop executable
+
+    Returns
+    -------
+
+        Result : str
+            To be printed or post-processed with :py:class:`extractQprop` function
     """
 
     import subprocess
@@ -629,7 +679,10 @@ def computeQprop(QpropFile, Velocity, Pitch, RPM=None, Thrust=None, Power=None, 
 
     return result
 
-def buildQpropFile(LiftingLine, PyZonePolars, OutputQpropFilename='prop.qprop',NBlades=6,Velocity=27.77,RPM=500., Temperature = 288-4.5+20., Density=1.225*0.73, LinearFitAoACLmaxFactor=0.5, REexps=(-0.7,-0.5),RElow=1.e5):
+def buildQpropFile(LiftingLine, PyZonePolars, OutputQpropFilename='prop.qprop',
+        NBlades=6,Velocity=27.77,RPM=500., Temperature = 288-4.5+20.,
+        Density=1.225*0.73, LinearFitAoACLmaxFactor=0.5,
+        REexps=(-0.7,-0.5), RElow=1.e5):
     """
     Build a Drela's Qprop-compliant propeller file based on
     a LiftingLine and PyZonePolar objects.
@@ -640,6 +693,51 @@ def buildQpropFile(LiftingLine, PyZonePolars, OutputQpropFilename='prop.qprop',N
     so that (Reynolds, Mach) can be calculated and used
     as reference for the Qprop's analytical fit at each
     required section.
+
+    Parameters
+    ----------
+
+        LiftingLine : zone
+            liftin-line object
+
+        PyZonePolars : list
+            list of CGNS zone containing 2D polars
+
+        OutputQpropFilename : str
+            output file name of qprop
+
+        NBlades : int
+            number of blades
+
+        Velocity : float
+            advance velocity (m/s)
+
+        RPM : float
+            rotation speed of the propeller (revolutions per minute)
+
+        Temperature : float
+            Temperature of air (Kelvin)
+
+        Density : float
+            Density of air (kg /m3)
+
+        LinearFitAoACLmaxFactor : float
+            maximum value of CL to consider for linear fitting of :math:`c_L(\\alpha)`
+            linear function employed by QProp
+
+        REexps : :py:class:`list` of 2 :py:class:`float`
+            Employ first Reynolds exponent if Reynolds is  less than **RElow**,
+            or employ second Reynolds exponent otherwise
+
+        RElow : float
+            determine the threshold of usage of **REexps**
+
+    Returns
+    -------
+
+        None : None
+            write qprop file named after **OutputQpropFilename**
+
     """
     import scipy.optimize as so
 
@@ -870,8 +968,20 @@ def buildQpropFile(LiftingLine, PyZonePolars, OutputQpropFilename='prop.qprop',N
 
 def extractQprop(QpropResult):
     """
-    TODO: TO BE IMPLEMENTED
-    TODO: TO BE DOCUMENTED
+    Given a Qprop result string (as obtained from :py:func:`computeQprop`),
+    build a results dictionary
+
+    Parameters
+    ----------
+
+        QpropResult : str
+            as obtained from :py:func:`computeQprop`
+
+    Returns
+    -------
+
+        Results : dict
+            dictionary containing all predictions of QProp
     """
 
     import re
@@ -938,61 +1048,92 @@ def designPropellerAdkins(LiftingLine, PolarsInterpolatorDict, NBlades=None,
     This function performs a minimum induced loss design of a propeller
     in axial flight conditions.
 
-    INPUT
+    Parameters
+    ----------
 
-    LiftingLine - (zone) - lifting-line used for design (values of chord and
-        twist can be arbitrary). It will be modified as a result of design.
+        LiftingLine : zone
+            lifting-line used for design (values of chord and
+            twist can be arbitrary).
 
-    PolarsInterpolatorDict - (dictionary of functions) - dictionary of
-        interpolator functions of 2D polars, as obtained from
-        LL.buildPolarsInterpolatorDict() function.
+            .. note:: this **LiftingLine** will be modified as a result of design
 
-    NBlades - (integer) - the number of blades of the design candidate.
+        PolarsInterpolatorDict : dict
+            dictionary of interpolator functions of 2D polars, as obtained from
+            :py:func:`MOLA.LiftingLine.buildPolarsInterpolatorDict`
 
-    Velocity - (float) - the advance velocity of the propeller [m/s]
+        NBlades : int
+            the number of blades of the design candidate
 
-    RPM - (float) - the rotational velocity of the propeller [rev / minute]
+        Velocity : float
+            the advance velocity of the propeller [m/s]
 
-    Temperature - (float) - the air temperature [K]
+        RPM : float
+            the rotational velocity of the propeller [rev / minute]
 
-    Density - (float) - the air density [kg / m3]
+        Temperature : float
+            the air temperature [K]
 
-    TipLosses - (string) - the model of tip-losses. Can be one of:
-        'Adkins', 'Glauert' or 'Prandtl'. We recommend 'Adkins'.
+        Density : float
+            the air density [kg / m3]
 
-    ListOfEquations - (string) - converter-compatible equations to be applied
-        after each lifting-line's polar interpolation operation.
+        TipLosses : str
+            the model of tip-losses. Can be one of:
+            ``'Adkins'``, ``'Glauert'`` or ``'Prandtl'``.
 
-    Constraint - (string) - constraint type for the optimization. Can be:
-        'Thrust' or 'Power'
+            .. note:: we recommend using ``'Adkins'``.
 
-    ConstraintValue - (float) - the value of the constraint for the design.
+        ListOfEquations : str
+            :py:func:`Converter.PyTree.initVars`-compatible equations to be applied
+            after each lifting-line's polar interpolation operation.
 
-    Aim - (string) - can be one of:
-        'Cl' : aims a given Cl value (provided by argument <AimValue>)
-            throughout the entire lifting line
-        'minCd' : aims the minimum Cd value
-        'maxClCd' : aims the maximum Cl/Cd value
+        Constraint : str
+            constraint type for the optimization. Can be: ``'Thrust'`` or ``'Power'``
 
-    AimValue - (float) - Specifies the aimed value for corresponding relevant
-        Aim types (e.g. 'Cl').
+        ConstraintValue : float
+            the value of the constraint for the design
 
-    AoASearchBounds - (2-float tuple) - As there may exist multiple AoA values
-        verifying the requested conditions, this argument constraints the
-        research interval of angle-of-attack of valid candidates.
+        Aim : str
+            can be one of:
 
-    SmoothAoA - (boolean) - if True, perform a post-smoothing of angle of
-        attack spanwise distribution after optimization. It is useful in order
-        to avoid "shark-teeth" shaped distribution.
+            * ``'Cl'``
+                aims a given ``Cl``, :math:`c_l` , value (provided by argument **AimValue**)
+                throughout the entire lifting line
 
-    itMaxAoAsearch - (integer) - maximum number of iterations allowed for
-        reaching the desired AoA distribution type.
+            * ``'minCd'``
+                aims the minimum ``Cd``, :math:`\min(c_d)` , value
 
-    OUTPUT
+            * ``'maxClCd'``
+                aims the maximum aero efficiency :math:`\max(c_l/c_d)` value
 
-    DictOfIntegralData - (dictionary) - dictionary containing LiftingLine loads
-        For design result, please refer to input argument LiftingLine, which is
-        modified (Chord and Twist values are updated).
+        AimValue : float
+            Specifies the aimed value for corresponding relevant **Aim** types
+            (e.g. ``'Cl'``).
+
+        AoASearchBounds : :py:class:`tuple` of 2 :py:class:`float`
+            As there may exist multiple AoA values
+            verifying the requested conditions, this argument constraints the
+            research interval of angle-of-attack of valid candidates.
+
+        SmoothAoA : bool
+            if :py:obj:`True`, perform a post-smoothing of angle of
+            attack spanwise distribution after optimization.
+
+            .. tip:: this is useful in order to avoid "shark-teeth" shaped
+                distribution.
+
+        itMaxAoAsearch : int
+            maximum number of iterations allowed for reaching the desired AoA
+            distribution type
+
+    Returns
+    -------
+
+        DictOfIntegralData : dict
+            dictionary containing LiftingLine loads.
+
+            .. note:: for design result, please refer to input argument
+                **LiftingLine**, which is modified (``Chord`` and ``Twist``
+                values are updated).
     '''
 
     NPts = C.getNPts(LiftingLine)
@@ -1222,10 +1363,10 @@ def designPropellerPatterson(LiftingLine, NBlades, Velocity, RPM, PyZonePolars=N
         MaximumChangeTangentialFactor=1.25, AirfoilAim='maxClCd', AimValue=None,
         AoASearchBounds=(-2,8), SmoothAoA=False):
     """
-    DISCLAIMER - little advantage has been obtained by using Patterson's
-    algorithm for designing propellers. This function will documentation will
-    not be updated. However, most of its parameters can be understood by
-    similarity to designPropellerAdkins() function.
+    .. warning:: little advantage has been obtained by using Patterson's
+        algorithm for designing propellers. This function will documentation will
+        not be updated. However, most of its parameters can be understood by
+        similarity to :py:func:`designPropellerAdkins` function.
     """
     import scipy.optimize as so
 
@@ -1439,19 +1580,23 @@ def designDirectBEMT(LiftingLine, PolarsInterpolatorsDict,
             ValueTol=10., AcceptableTol=50., TwistScale=0.1,
             makeOnlyInitialGuess=False, stdout=None):
     """
-    DISCLAIMER - this function is experimental. Poor convergence rates has been
-    obtained using scipy's optimizers.
+    .. warning:: this function is experimental. Poor convergence rates has been
+        obtained using scipy's optimizers.
 
-    ChordPairs and TwistPairs are (2 x Nparam) numpy arrays.
+    **ChordPairs** and **TwistPairs** are :math:`2 \\times Nparam` numpy arrays.
     The second row stands for the relative span position
     and the first row stands for its corresponding value.
     E.g :
-    ChordPairs = np.array([[0.2, 0.1],  # VALUES
-                           [0.1, 1.0]]) # REL SPAN POSIT.
-          means that Chord distribution has 2 parameters,
-          located at (r/R=0.1) whith initial value of
-          c=0.2, and the other one located at blade tip (r/R=1)
-          with initial value of c=0.1.
+
+    ::
+
+        ChordPairs = np.array([[0.2, 0.1],  # VALUES
+                               [0.1, 1.0]]) # REL SPAN POSIT.
+
+    means that Chord distribution has 2 parameters,
+    located at :math:`r/R=0.1` whith initial value of
+    :math:`c=0.2`, and the other one located at blade tip :math:`r/R=1`
+    with initial value of :math:`c=0.1`.
 
     bounds is a tuple of tuples. Each tuple is a two-float
     standing for the minimum and maximum value of each design
@@ -1669,10 +1814,10 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
                 AttemptCommandGuess=[[0.,25.],[5.,40.]], CommandType='Pitch',
                 PitchIfTrimCommandIsRPM=0., FailedAsNaN=False):
     """
-    DISCLAIMER - this function is beeing DEPRECATED. Please use:
-    computeBEMTaxial3D() function instead.
+    .. danger:: this function is beeing DEPRECATED. Please use:
+        :py:func:`computeBEMTaxial3D` function instead.
 
-    In future, both functions will be totally merged.
+        In future, both functions will be totally merged.
     """
     import scipy.optimize as so
 
@@ -2092,7 +2237,7 @@ def computeBEMTaxial3D(LiftingLine, PolarsInterpolatorDict,
                 AttemptCommandGuess=[[0.,25.],[5.,40.]], CommandType='Pitch',
                 PitchIfTrimCommandIsRPM=0., FailedAsNaN=False):
     """
-    Theory reference document : Mario Heene's Master Thesis.
+    Theory reference document : `Mario Heene's Master Thesis <https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwjb9pWhquDyAhWfQkEAHXJkDKYQFnoECAUQAQ&url=http%3A%2F%2Fkth.diva-portal.org%2Fsmash%2Fget%2Fdiva2%3A559083%2FFULLTEXT01.pdf&usg=AOvVaw3HEbEZVJfHL1tCtLg2AYim>`_.
     Governing equations are (2.38) and (2.39).
 
     Perform a blade-element momentum-theory (BEMT) computation of a propeller
@@ -2102,66 +2247,98 @@ def computeBEMTaxial3D(LiftingLine, PolarsInterpolatorDict,
 
     Updates relevant spanwise quantities on LiftingLine zone.
 
-    INPUTS
+    Parameters
+    ----------
 
-    LiftingLine - (zone) - Lifting-line modeling the blades of the propeller.
-        The LiftingLine is modified.
+        LiftingLine : zone
+            Lifting-line modeling the blades of the propeller.
+            The LiftingLine is modified.
 
-    PolarsInterpolatorDict - (dictionary of functions) - dictionary of
-        interpolator functions of 2D polars, as obtained from
-        LL.buildPolarsInterpolatorDict() function.
+        PolarsInterpolatorDict : dict
+            dictionary of interpolator functions of 2D polars, as obtained from
+            :py:func:`MOLA.LiftingLine.buildPolarsInterpolatorDict` function.
 
-    NBlades - (integer) - number of blades of the propeller
+        NBlades : int
+            number of blades of the propeller
 
-    Velocity - (3-float list) - Velocity component. Must be aligned with
-        rotation axis. HINT: for canonical placement of LiftingLine, use:
-            [0,0,-Value]
+        Velocity : :py:class:`list` of 3 :py:class:`float`
+            Velocity components.
 
-    RPM - (float) - rotational speed of the propeller [rev / minute]
+            .. warning:: in current implementation, **Velocity** *must be*
+                aligned with **RotationAxis**.
 
-    Density - (float) - air density [kg/m3]
+            .. hint:: for canonical placement of LiftingLine, use:
 
-    Temperature - (float) - air temperature [K]
+                >>> Velocity = [0,0,-Value]
 
-    RotationCenter - (list of 3-float) - coordinates of the rotation point [m]
+        RPM :  float
+            rotational speed of the propeller [rev / minute]
 
-    RotationAxis - (list of 3-float) - unitary vector pointing towards the
-        rotation axis (desired thrust direction).
+        Density :  float
+            air density [kg/m3]
 
-    RightHandRuleRotation - (boolean) - if True, propeller rotates around
-        RotationAxis following the right-hand-rule rotation. False otherwise.
+        Temperature :  float
+            air temperature [K]
 
-    model - (string) - currently, only 'Heene' model is available.
+        RotationCenter : :py:class:`list` of 3 :py:class:`float`
+            coordinates of the rotation point [m] in math:`(x,y,z)`
 
-    ListOfEquations - (string) - converter-compatible equations to be applied
-        after each lifting-line's polar interpolation operation.
+        RotationAxis : :py:class:`list` of 3 :py:class:`float`
+            unitary vector pointing towards the rotation axis (which is the
+            desired direction of thrust).
 
-    TipLosses - (string) - the model of tip-losses. Can be one of:
-        'Adkins', 'Glauert' or 'Prandtl'. We recommend 'Adkins'.
+        RightHandRuleRotation : bool
+            if :py:obj:`True`, propeller rotates around **RotationAxis**
+            following the right-hand-rule rotation. :py:obj:`False` otherwise.
 
-    Constraint - (string) - can be 'Thrust', 'Power' or 'Pitch'.
+        model : str
+            .. important:: currently, only ``'Heene'`` model is available.
 
-    ConstraintValue - (float) - value of the constraint to be verified.
+        ListOfEquations : str
+            converter-compatible equations to be applied
+            after each lifting-line's polar interpolation operation.
 
-    ValueTol - (float) - threshold tolerance for determining if Trim condition
-        is satisfied with respect to ConstraintValue.
+        TipLosses : str
+            the model of tip-losses. Can be one of:
+            ``'Adkins'``, ``'Glauert'`` or ``'Prandtl'``.
 
-    AttemptCommandGuess - (list of 2-float lists) - each item of the list
-        establishes the pairs of minimum and maximum boundaries of trim command.
-        Each item is a command guess. In case of failure, the next candidate is
-        tested and so on.
+            .. hint:: we recommend ``'Adkins'``.
 
-    CommandType - (string) - can be 'Pitch' or 'RPM'
+        Constraint : str
+            can be ``'Thrust'``, ``'Power'`` or ``'Pitch'``.
 
-    PitchIfTrimCommandIsRPM - (float) - if CommandType is 'RPM' and
-        Constraint is not 'Pitch', then this argument sets the employed pitch.
+        ConstraintValue : float
+            value of the constraint to be verified *(dimensions are contextual)*
 
-    FailedAsNaN - (boolean) - if True, if trim fails, then returns NaN values
+        ValueTol : float
+            threshold tolerance for determining if Trim condition
+            is satisfied with respect to **ConstraintValue**.
 
-    OUTPUT
+        AttemptCommandGuess : :py:class:`list` of 2-:py:class:`float` lists
+            each item of the list establishes the pairs of minimum and maximum
+            boundaries of trim command.
+            Each item is a command guess. In case of failure, the next candidate is
+            tested and so on.
 
-    DictOfIntegralData - (dictionary) - contains the integral loads of the
-        propeller.
+            .. hint:: use as many different lists of ``[min, max]`` as the number
+                of trials for reaching the requested trimmed condition
+
+        CommandType : str
+            can be ``'Pitch'`` or ``'RPM'``
+
+        PitchIfTrimCommandIsRPM : float
+            if **CommandType** is ``'RPM'`` and **Constraint** is not ``'Pitch'``,
+            then this argument sets the employed pitch.
+
+        FailedAsNaN : bool
+            if :py:obj:`True`, if trim fails, then returns ``NaN`` values as
+            integral loads
+
+    Returns
+    -------
+
+        DictOfIntegralData : dict
+            contains the integral loads of the propeller
     """
     import scipy.optimize as so
 
@@ -2568,31 +2745,52 @@ def computeBEMTaxial3D(LiftingLine, PolarsInterpolatorDict,
 
 def TipLossFactor(NBlades,Velocity,Omega,phi,r,Rmax, kind='Adkins'):
     '''
-    Compute the tip loss factor, F, for use with Blade
-    Element Theory code.
+    Compute the tip loss factor, F, for use with Blade Element Theory code.
 
-    Note: All inputs may be arrays.
+    .. hint:: all input parameters may be arrays of the same length, in this
+        case the returned value is also an array
 
-    INPUTS
+    Parameters
+    ----------
 
-    NBlades - (integer) - Number of Blades
+        NBlades : int
+            Number of Blades
 
-    Velocity - (float) - Advance velocity [m/s]
+        Velocity : float
+            Advance velocity [m/s]
 
-    Omega - (float) -  Rotation velocity [rad / s]
+        Omega : float
+            Rotation velocity [rad / s]
 
-    phi - (float) - Geometric flow angle [rad]
+        phi : float
+            Geometric flow angle [rad]
 
-    r - (float) - section Radius [m]
+        r : float
+            section Radius [m]
 
-    Rmax - (float) - Blade tip radius [m]
+        Rmax : float
+            Blade tip radius [m]
 
-    kind : String. May be one of:
+        kind : str
+            May be one of:
 
-             "Adkins", "Glauert", "Prandtl"
+            * ``"Adkins"``
+                :math:`\\frac{2}{\pi} \\arccos{\left(\exp{-\\frac{(1-\\frac{r}{R}) N_b/2}{\\frac{r}{R}\\tan{\phi}}}\\right)}`
 
-    Output:
-        F : Float. Tip loss factor
+            * ``"Glauert"``
+                :math:`\\frac{2}{\pi} \\arccos{\left(\exp{-\\frac{(1-\\frac{r}{R}) N_b/2}{\\frac{r}{R}\\sin{\phi}}}\\right)}`
+
+            * ``"Prandtl"``
+                :math:`\\frac{2}{\pi} \\arccos{\left(\exp{-(1-\\frac{r}{R}) N_b/2} \sqrt{1 - (\\frac{\Omega r}{V})^2} \\right)}`
+            .. note:: we recommend ``"Adkins"`` formulation, which is more
+                appropriate for highly-loaded propellers, as discussed by
+                `Mark Drela <https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&ved=2ahUKEwiplIKBsODyAhXViVwKHaeAAcMQFnoECAUQAQ&url=http%3A%2F%2Fweb.mit.edu%2Fdrela%2FPublic%2Fweb%2Fqprop%2Fqprop_theory.pdf&usg=AOvVaw2pOfpH6zAeAbDA94_XElRg>`_.
+
+    Returns
+    -------
+
+        F : float
+            Tip loss factor
 
     '''
 
@@ -2623,23 +2821,24 @@ def TipLossFactor(NBlades,Velocity,Omega,phi,r,Rmax, kind='Adkins'):
 
 def computeAxialLoads(LiftingLine=None, VariablesDict=None, ConditionsDict=None):
     '''
-    DISCLAIMER - THIS FUNCTION IS BEING DEPRECATED, PLEASE USE:
-    LL.computeGeneralLoadsOfLiftingLine() instead
 
-    If LiftingLine object is provided, then the arguments
-    VariablesDict and ConditionsDict are IGNORED.
+    .. danger:: THIS FUNCTION IS BEING DEPRECATED, PLEASE USE:
+        :py:func:`MOLA.LiftingLine.computeGeneralLoadsOfLiftingLine` instead
+
+    If **LiftingLine** object is provided, then the arguments
+    **VariablesDict** and **ConditionsDict** are IGNORED.
     In this case, Integral data is also stored in the LiftingLine
-    object in .Loads node.
+    object in ``.Loads`` node.
 
-    LiftingLine object may be omitted if BOTH VariablesDict
-    and ConditionsDict are provided (useful for numerical
+    **LiftingLine** object may be omitted if BOTH **VariablesDict**
+    and **ConditionsDict** are provided (useful for numerical
     performance)
 
-    If VariablesDict is provided, it must contain:
-    ['VelocityMagnitudeLocal','phiRad', 'Span', 'Chord', 'Cl', 'Cd', 'dFx', 'dMx']
+    If **VariablesDict** is provided, it must contain:
+    ``['VelocityMagnitudeLocal','phiRad', 'Span', 'Chord', 'Cl', 'Cd', 'dFx', 'dMx']``
 
-    If ConditionsDict is provided, it must contain:
-    ['Density', 'NBlades', 'RPM']
+    If **ConditionsDict** is provided, it must contain:
+    ``['Density', 'NBlades', 'RPM']``
     '''
 
     import scipy.integrate as sint
@@ -2684,30 +2883,40 @@ def computeAxialLoads(LiftingLine=None, VariablesDict=None, ConditionsDict=None)
 
 def kinematicReynoldsAndMach(LiftingLine,Velocity,RPM,Density=1.225,Temperature=288.):
     '''
-    Given a LiftingLine object and operating conditions,
+    Given a **LiftingLine** object and operating conditions,
     compute the kinematic Reynolds and Mach.
-    This function updates LiftingLine's Reynolds and Mach
-    FlowSolution and returns Reynolds and Mach 1D numpy arrays.
+    This function updates LiftingLine's ``Reynolds`` and ``Mach`` fields located
+    at container ``FlowSolution`` and returns its corresponding 1D numpy arrays.
 
-    INPUTS
+    Parameters
+    ----------
 
-    LiftingLine (PyTree) - a LiftingLine as generated by
-        buildLiftingLine(). Do not need .Polar#Info node.
-        Object is modified with kinematic Reynolds and Mach.
+        LiftingLine : PyTree
+            a lifting-line as generated by :py:func:`buildLiftingLine`.
+            Does not need ``.Polar#Info`` node.
 
-    Velocity (float) - Advance velocity in (m/s)
+            .. note:: zone **LiftingLine** is modified (fields are updated)
 
-    RPM (float) - Rotational speed in rev/minute
+        Velocity : float
+            Advance velocity in [m/s]
 
-    Density (float) - Air density in kg/m3
+        RPM : float
+            Rotational speed in [rev/minute]
 
-    Temperature (float) - Air temperature in Kelvin
+        Density : float
+            Air density in [kg/m3]
 
-    OUTPUTS
+        Temperature : float
+            Air temperature in [Kelvin]
 
-    Reynolds (1d numpy) - copy of Reynolds array
+    Returns
+    -------
 
-    Mach (1d numpy) - copy of Mach array
+        Reynolds : numpy.ndarray
+            1d numpy copy of Reynolds array
+
+        Mach : numpy.ndarray
+            1d numpy copy of Mach array
     '''
 
 
@@ -2731,94 +2940,113 @@ def getPolarOperatingRanges(LiftingLine, Velocity, RPM, Density, Temperature,
         rescale=True, includeQhull=True, showplot=False, saveplot=False):
     '''
     Compute the Reynolds and Mach expected operating ranges
-    of a LiftingLine with .Polar#Info node based on a set of
+    of a **LiftingLine** with ``.Polar#Info`` node based on a set of
     operating conditions. This function is useful for determining
     the Reynolds and Mach that are to be passed to a Polar
-    computation workflow (CFD, XFoil, both...)
+    computation workflow *(CFD, XFoil, both...)*
 
-    INPUTS
+    .. attention:: the number of elements contained in lists **Velocity**,
+        **RPM**, **Density**, **Temperature** and **Labels** must be all the SAME
 
-    LiftingLine (PyTree Zone) - LiftingLine object as built from
-        buildLiftingLine() function.
+    Parameters
+    ----------
 
-    Velocity (list or 1D numpy array) - Set of velocities to
-        consider as operating conditions (m/s)
+        LiftingLine : zone
+            LiftingLine object as built from :py:func:`buildLiftingLine` function.
 
-    RPM (list or 1D numpy array) - Set of rotational speeds to
-        consider as operating conditions (rev/minute)
+        Velocity : :py:class:`list` of :py:class:`float`
+            Set of velocities to consider as operating conditions (m/s)
 
-    Density (list or 1D numpy array) - Set of air densities to
-        consider as operating conditions (kg/m3)
+        RPM : :py:class:`list` of :py:class:`float`
+            Set of rotational speeds to consider as operating conditions (rev/minute)
 
-    Temperature (list or 1D numpy array) - Set of Temperatures to
-        consider as operating conditions (Kelvin)
+        Density : :py:class:`list` of :py:class:`float`
+            Set of air densities to consider as operating conditions (kg/m3)
 
-    Labels (List of strings) - List used to provide a
-        user-defined label to each operating condition.
-        This argument has several purposes:
-        -> It is used to appropriately store each operating
-           condition inside Results Python dictionary. The Labels
-           argument are the keys of such Result dictionary.
-        -> If argument showplot==True, then Labels are also used for
-           providing a legend on the plot figure.
-        If Labels is not provided (an empty list), then it is
-        automatically transformed into a integer range with as
-        many elements as operating conditions.
+        Temperature : :py:class:`list` of :py:class:`float`
+            Set of Temperatures to consider as operating conditions (Kelvin)
 
-    NOTA BENE: len(Velocity)==len(RPM)==len(Density)==
-               len(Temperature)==len(Labels) is mandatory
+        Labels : :py:class:`list` of :py:class:`str`
+            List used to provide a user-defined label to each operating condition.
+            This argument has several purposes:
 
-    OverlapFactor (float) - Factor that controls the polar's
-        overlapping in the spanwise direction. Increasing this
-        value increases the required Reynolds and Mach bounds for
-        each airfoil, but improves the interpolation trust region
-        when using final polar interpolator objects.
-        A value of 0 would yield no-overlap, minimizing the
-        amount of Reynolds and Mach computing points, but
-        may deteriorate the LiftingLine interpolation precision
-        if few polar sections are used and high order
-        interpolation objects are used. Maximum interpolation
-        precision for an interpolator object of order Q is
-        obtained if OverlapFactor = Q. A value of 1 would yield
-        maximum interpolation precision for objects using linear
-        interpolation (RECOMMENDED). A value of 2 would yield
-        maximum interpolation precision for objects using
-        quadratic interpolation, and so on.
+            *   It is used to appropriately store each operating
+                condition inside Results Python dictionary. The Labels
+                argument are the keys of such Result dictionary.
 
-    includeQhull (boolean) - If True, include "qhull" key in
-        Results dictionary, with the Reynolds(Mach) vector
-        establishing the convex hull of the operating envelope
-        of the propeller.
+            *   If argument showplot==True, then Labels are also used for
+                providing a legend on the plot figure.
 
-    showplot (boolean) - If True, then produce a matplotlib
-        figure for easy data assessment.
+            .. note:: if **Labels** is not provided (an empty list), then it is
+                automatically transformed into a integer range with as
+                many elements as operating conditions.
 
-    saveplot (str, boolean, None) - If a string is provided,
-        then saves the figure using saveplot as output filename.
 
-    OUTPUTS -> (ResultsDict, SamplesDict)
+        OverlapFactor : float
+            Factor that controls the polar's
+            overlapping in the spanwise direction. Increasing this
+            value increases the required Reynolds and Mach bounds for
+            each airfoil, but improves the interpolation trust region
+            when using final polar interpolator objects.
+            A value of 0 would yield no-overlap, minimizing the
+            amount of Reynolds and Mach computing points, but
+            may deteriorate the LiftingLine interpolation precision
+            if few polar sections are used and high order
+            interpolation objects are used. Maximum interpolation
+            precision for an interpolator object of order Q is
+            obtained if OverlapFactor = Q. A value of 1 would yield
+            maximum interpolation precision for objects using linear
+            interpolation (RECOMMENDED). A value of 2 would yield
+            maximum interpolation precision for objects using
+            quadratic interpolation, and so on.
 
-    ResultsDict (Python dictionary) - Stores the results of
-        the kinematic computation for each operating condition:
+        includeQhull : bool
+            If :py:obj:`True`, include ``"qhull"`` key in
+            Results dictionary, with the ``Reynolds(Mach)`` vector
+            establishing the convex hull of the operating envelope
+            of the propeller.
 
-          ResultsDict[<label>][<Re or M>]
+        showplot : bool
+            if :py:obj:`True`, then produce a matplotlib
+            figure for easy data assessment.
 
-          <label> (string) is one of the user-provided Labels
-          corresponding to a given operating condition.
+        saveplot : :py:class:`str` or :py:class:`bool` or :py:obj:`None`
+            If a string is provided, then saves the figure using saveplot as
+            output filename.
 
-          <Re or M> (string) is "Reynolds" or "Mach", and
-          provides access to the resulting 1D numpy array along
-          the LiftingLine.
+    Returns
+    -------
 
-    SamplesDict (Python dictionary) - Stores the interpolated
-        space of requested samples, and may be used as
-        input for each airfoil's set of Reynolds and Mach for
-        computing polars. This dictionary is organized as:
+        ResultsDict : dict
+            Stores the results of the kinematic computation for each operating
+            condition:
 
-        SamplesDict[<AirfoilIdentifier>][<Re or M>]
+            >>> ResultsDict['<label>'][<'Reynolds' or 'Mach'>]
 
-        Airfoil identifier is skipped if .Polar#Info node does
-        not exist
+            * ``'<label>'`` : :py:class:`str`
+                shall be repaced by one of the user-provided **Labels**
+                corresponding to a given operating condition.
+
+            * ``<'Reynolds' or 'Mach'>`` : :py:class:`str`
+                shall be ``"Reynolds"`` or ``"Mach"``, and
+                provides access to the resulting 1D numpy array along
+                the **LiftingLine**.
+
+        SamplesDict : dict
+            Stores the interpolated space of requested samples, and may be used
+            as input for each airfoil's set of Reynolds and Mach for
+            computing polars. This dictionary is organized as:
+
+            >>> SamplesDict[<AirfoilIdentifier>][<'Reynolds' or 'Mach'>]
+
+            .. note:: Airfoil identifier is skipped if ``.Polar#Info`` node does
+                not exist
+
+            * ``<'Reynolds' or 'Mach'>`` : :py:class:`str`
+                shall be ``"Reynolds"`` or ``"Mach"``, and
+                provides access to the resulting 1D numpy array of elements on
+                the flight envelope.
+
     '''
 
     # Perform some input verifications
@@ -2989,6 +3217,30 @@ def plotOperatingRanges(ResultsDict=None, SamplesDict=None, PyZonePolars=None,
     '''
     Convenient macro-function used to plot at least one of
     the user-provided arguments.
+
+    Parameters
+    ----------
+
+        ResultsDict : dict
+            first output of :py:func:`getPolarOperatingRanges`
+
+        SamplesDict : dict
+            second output of :py:func:`getPolarOperatingRanges`
+
+        PyZonePolars : list
+            list of zones *PyZonePolar* containing 2D polar data
+
+        saveplot : :py:class:`str` or :py:obj:`None`
+            if a :py:class:`str` is provided, then this function saves
+            PDF files with the corresponding curves
+
+        showplot : bool
+            if :py:obj:`True`, then the function opens a graphical window
+            with the matplotlib figure plot
+
+    .. note:: if **showplot** = :py:obj:`False` and **saveplot** = :py:obj:`None`
+        then this function does not do anything useful
+
     '''
     import matplotlib.pyplot as plt
     from matplotlib.ticker import AutoMinorLocator
@@ -3055,22 +3307,26 @@ def plotOperatingRanges(ResultsDict=None, SamplesDict=None, PyZonePolars=None,
 
 def saveKimFilesFromPUMA(Pb):
     '''
-    Original author: R. Boisard
-    Included to MOLA by M. Balmaseda on 17/08/2021
 
-    WARNING:
-    Only a unique propeller is studied -> The anisotropies are not considered!
-    Convergence is supposed as reached in the last iteration!
-    Propeller must rotates around X axis, such that local blade's incidence
-    can be computed as atan(y,x)
+    **Original author: R. Boisard**
+    **Included to MOLA by M. Balmaseda on 17/08/2021**
 
-    INPUT
+    .. warning:: Only a unique propeller is studied -> The anisotropies are not
+        considered! Convergence is supposed as reached in the last iteration!
+        Propeller must rotate around X axis, such that local blade's incidence
+        can be computed as :math:`atan(y,x)`
 
-    Pb - (problem object of PUMA) - the compatible problem object of PUMA
+    Parameters
+    ----------
 
-    OUTPUT
+        Pb : problem object of PUMA
+            the compatible problem object of PUMA
 
-    None. Files kim.geom and kim.autre are writen
+    Returns
+    -------
+
+        None : None
+            only files kim.geom and kim.autre are writen
     '''
 
     Root=Pb.getPObject(PUMA.Fact.Root)

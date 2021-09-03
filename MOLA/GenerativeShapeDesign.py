@@ -245,7 +245,7 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
             used for discretizing the gap distance at trailing edge (closing).
 
         AvoidAirfoilModification : bool
-            If ``True``, the user-provided airfoils are interpolated, scaled and
+            If :py:obj:`True`, the user-provided airfoils are interpolated, scaled and
             rotated, in order to position each section at its corresponding
             place. This requires that the user-provided airfoils must be placed
             on **XY** plane, with leading edge situated at ``(0,0)`` and
@@ -254,20 +254,20 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
             all airfoils shall yield the same number of points (beware that the
             final wing distribution will use this discretization).
 
-            If ``False``, then the aforementioned constraints are not
+            If :py:obj:`False`, then the aforementioned constraints are not
             compulsory, and spanwise airfoil-modification laws can be provided.
             However, surface construction will take longer, as automatic
             detection of top and bottom sides (and other characteristics) of
             each section is performed.
 
-            .. hint:: using **AvoidAirfoilModification** = ``True`` is faster and
+            .. hint:: using **AvoidAirfoilModification** = :py:obj:`True` is faster and
                 more robust, but one cannot modify airfoils following its
                 properties (like thickness, camber, etc...)
 
         splitAirfoilOptions : dict
             Parameters to be passed to :py:func:`MOLA.Wireframe.splitAirfoil`
             required for airfoil modifications.
-            This is only relevant if **AvoidAirfoilModification** = ``False``.
+            This is only relevant if **AvoidAirfoilModification** = :py:obj:`False`.
             Their values may determine the accuracy of the automatic computation
             of the leading and trailing edges of arbitrary airfoil-like geometry.
 
@@ -278,7 +278,7 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
             ``Airfoil=, Chord=, Twist=, Sweep=, Dihedral=``
 
             Additional argument names are acceptable if the parameter
-            **AvoidAirfoilModification** = ``False`` and they are supported in
+            **AvoidAirfoilModification** = :py:obj:`False` and they are supported in
             :py:func:`MOLA.Wireframe.modifyAirfoil` function, like for example:
 
             ::
@@ -791,7 +791,7 @@ def getSuitableSetOfPointsForTFITri(N1, N2, N3,
             at each call, in order to have best chances of finding a suitable set
 
         tellMeWhatYouDo : bool
-            if ``True``, the function prints relevant information about the
+            if :py:obj:`True`, the function prints relevant information about the
             adaptation of points
 
     Returns
@@ -2977,7 +2977,7 @@ def isClosed(surface, tol=1e-8):
     -------
 
         closed : bool
-            if ``True``, surface topology is closed, ``False`` otherwise.
+            if :py:obj:`True`, surface topology is closed, :py:obj:`False` otherwise.
     '''
     # See ticket #7867
     surfTRI = C.convertArray2Tetra(surface)

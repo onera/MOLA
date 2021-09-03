@@ -8,20 +8,14 @@ Welcome to MOLA's documentation!
 
 This is the main documentation site of MOLA.
 
+Current version is: ``v1.11``
+
 
 .. toctree::
   :maxdepth: 4
   :caption: Contents:
 
-  InternalShortcuts
-  Wireframe
-  GenerativeShapeDesign
-  GenerativeVolumeDesign
-  RotatoryWings
-  Preprocess
-  Coprocess
-  Postprocess
-
+  Modules
 
 Indices and tables
 ==================

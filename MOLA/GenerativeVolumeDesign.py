@@ -506,7 +506,7 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
             includes, for example: ``sx``, ``sy``, ``sz`` (direction of extrusion). These
             will hence be employed for extrusion instead of being calculated.
             The extrusion front surface grid coordinates are directly smoothed.
-            If **extractMesh** is not ``None``, then **extractMeshHardSmoothOptions**
+            If **extractMesh** is not :py:obj:`None`, then **extractMeshHardSmoothOptions**
             dictionary is meaningful. This technique may be useful for allowing for
             smoothing of the extrusion layer front while veryfing imposed
             extrusion directions (it can be seen as a soft overall constraint).
@@ -555,16 +555,16 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
                 the regularity of the extrusion front cells.
 
         closeExtrusionLayer : bool
-            if ``True``, force the extrusion front surface
+            if :py:obj:`True`, force the extrusion front surface
             to be closed. This is necessary in order to perform "O-shaped" extrusion
             around watertight surfaces.
 
         printIters : bool
-            if ``True``, prints to standard output messages
+            if :py:obj:`True`, prints to standard output messages
             during the extrusion process.
 
         plotIters : bool
-            if ``True``, interactively open a CPlot window and
+            if :py:obj:`True`, interactively open a CPlot window and
             show the extrusion front during the extrusion process. This is a
             valuable help for setting the smoothing parameters and growth equation
 
@@ -605,7 +605,7 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
             be composed of the accepted attributes of :py:func:`T.smooth` function.
 
         HardSmoothRescaling : bool
-            if ``True``, performs an auxiliary
+            if :py:obj:`True`, performs an auxiliary
             normalization of the extrusion front for the application of the
             HardSmoothPoints. This may be necessary for big grids, as :py:func:`T.smooth`
             depends on the dimensions of the grid.
@@ -1744,7 +1744,7 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
 
         MatchDir : int
             If procided, it specifies the front-advance index of matching
-            (1=i, 2=j, 3=k) of the **surface**. If not provided (``None``),
+            (1=i, 2=j, 3=k) of the **surface**. If not provided (:py:obj:`None`),
             then the matching direction is automatically computed.
 
             .. note:: only relevant if **kind** == ``'Match'``

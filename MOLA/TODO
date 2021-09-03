@@ -1,3 +1,15 @@
+* Preprocess and eventually Coprocess:
+  add :
+
+  I._adaptZoneNamesForSlash(t)
+  I._correctPyTree(t, level=10) # force CGNS names
+  I._correctPyTree(t, level=2) # force unique name
+  I._correctPyTree(t, level=7) # create familyNames
+
+  in order to mimick corrections done when writing + reading a tree
+
+
+
 * CO.moveCoordsFromEndOfRunToGridCoords : delete .Solver#Output
 
 * investigate iteration number tagging of MemoryUsageOfProc

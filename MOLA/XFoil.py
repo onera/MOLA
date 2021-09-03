@@ -9,13 +9,7 @@ XFoil of M. Drela (https://web.mit.edu/drela/Public/web/xfoil/)
 A local installation of xfoil is required.
 
 File history:
-23/05/2020 - v1.8 - L. Bernardos - Shipped to MOLA v1.8
-19/04/2020 - v1.7 - L. Bernardos - Shipped to MOLA v1.7
-03/04/2020 - v1.6.01 - L. Bernardos - Coherent with MOLA v1.6,
-    added PyZonePolarKind argument in computePolar() and
-    adapted convertXFoilDict2PyZonePolar accordingly
-26/03/2020 - v0.3 - L. Bernardos - added robust mode
-24/03/2020 - v0.2 - L. Bernardos - 1st fully functional version
+
 20/03/2020 - v0.1 - L. Bernardos - Creation
 '''
 
@@ -45,7 +39,7 @@ def scan__(line,OutputType=float, RegExpr=r'[-+]?(?:(?:\d*\.\d+)|(?:\d+\.?))(?:[
     This is an internal function employed for scanning numbers
     contained in plain-text files.
 
-    It is used in XFoil.readBlFile(), for example.
+    It is used in :py:func:`readBlFile`, for example.
     '''
     scanned = re.findall(RegExpr,line)
     return [OutputType(item) for item in scanned]
@@ -59,180 +53,186 @@ def computePolars(airfoilFilename, Reynolds, Mach, AoAs, Ncr=9,
     airfoils filenames for specified set of angles of attack for
     each pair of Reynolds and Mach numbers (optionally also Ncr).
 
-    Hence, the number of Reynolds points must be identical to the
-    number of Mach numbers and optionally Ncr.
+    .. important:: hence, the number of Reynolds points must be identical to the
+        number of Mach numbers and optionally Ncr.
 
-    INPUTS:
+    Parameters
+    ----------
 
-    airfoilFilename (str) - Name of the file containing the
-        airfoil's coordinates in two-column format (x,y).
+        airfoilFilename : str
+            Name of the file containing the
+            airfoil's coordinates in two-column format (x,y) (e.g.
+            ``'OA209.dat'``) or naca  4-digit or 5-digit identifier
+            (e.g. ``naca 4412``)
 
-        example: 'OA209.dat'
+            .. danger:: known bug to be solved avoids usage of airfoil
+                filename. Only naca identifier works in this version.
 
-    Reynolds (list, 1D numpy array)  - Vector containing all the
-        Reynolds number to be computed for the polars. This vector
-        is used with Mach vector (each set of pair elements set a
-        sweep run of angle of attack).
+        Reynolds : list
+            List containing all the Reynolds number to be computed for the
+            polars. This vector is used with Mach vector (each set of pair
+            elements set a sweep run of angle of attack).
 
-        example: [1e6,1.5e6]
-
-    Mach (list, 1D numpy array) - Vector containing all the Mach
-        numbers to be computed for the polars. This vector
-        is used with Reynolds vector (each set of pair elements
-        set a sweep run of angle of attack).
-
-        example: [0.6,0.7]
-
-    AoAs (list, 1D numpy array) - Vector containing all the
-        angles of attack used for computing the polar.
-
-        example: np.linspace(0,15,10)
-
-    Ncr (float) - Value of the total amplification factor used for
-        computing the transition onset of the boundary layer.
-
-        example: 9
-
-    itermax (integer) - Maximum number of iterations for the
-        viscid/inviscid coupling used in XFoil.
-
-        example: 200
-
-    LogStdOutErr (boolean) - Flag to indicate whether to write
-        log standard output and error files or not. Such files
-        are labeled incrementally for each run of XFoil command.
-
-        example: True
-
-    lowMachForced (float) - This value is used establishes
-        the threshold used for incompressible flow computation.
-        This means, for any requested Mach number lower than
-        lowMachForced, the value sent to XFoil is exactly 0,
-        which means that fully incompressible computation is done.
-
-        example: 0.3
-
-    storeFoilVariables (boolean) - Flag to indicate to store the
-        boundary-layer quantities and Cp distributions.
-
-        example: True
-
-    rediscretizeFoil (boolean) - if True, then the points of the
-        input airfoil are relocated following a curvature
-        criterion. This makes use of the function PANE of XFOIL.
-
-    removeTmpXFoilFiles (boolean) - if True, then all files
-        created by the XFoil runs labeled "tmpXFoil_*" in the
-        working directory will be deleted if the Results output
-        dictionary is correctly created.
-
-        example: True
+        Mach : list
+            Vector containing all the Mach
+            numbers to be computed for the polars. This vector
+            is used with Reynolds vector (each set of pair elements
+            set a sweep run of angle of attack).
 
 
-    OUTPUTS:
+        AoAs : list
+            Vector containing all the angles of attack used for computing the polar.
 
-    Results (Python dictionary) - in this Python dictionary, all
-        the results of the XFoil runs are stored. Each variable
-        is accessible through the dictionary's keys and their
-        labels are self-explanatory.
+        Ncr : float
+            Value of the total amplification factor used for
+            computing the transition onset of the boundary layer.
 
-        For example, if user wants to access the results of the
-        lift coefficient, then he/she should use the following
-        command:
+        itermax : int
+            Maximum number of iterations for the
+            viscid/inviscid coupling used in XFoil.
 
-        Results['Cl'].
+        LogStdOutErr : bool
+            Flag to indicate whether to write
+            log standard output and error files or not. Such files
+            are labeled incrementally for each run of XFoil command.
 
-        Use the command Results.keys() to see a full list of
-        available variables.
+        lowMachForced : float
+            This value is used establishes
+            the threshold used for incompressible flow computation.
+            This means, for any requested Mach number lower than
+            lowMachForced, the value sent to XFoil is exactly 0,
+            which means that fully incompressible computation is done.
 
-        ---------------HOW VARIABLES ARE STORED---------------
+        storeFoilVariables : bool
+            Flag to indicate to store the
+            boundary-layer quantities and Cp distributions.
 
-        Polar data variables (such as Cl, Cd, Cm...) are stored
-        as 2D matrices, where i-index (rows) indicates the
-        angle-of-attack and j-index (columns) indicates both
-        Mach and Reynolds numbers.
+        rediscretizeFoil : bool
+            if True, then the points of the
+            input airfoil are relocated following a curvature
+            criterion.
 
-        For example, let us consider a case where user requests
-        the following input arguments:
+            .. note:: this makes use of the function PANE of XFOIL.
 
-        Reynolds = [ 1e5,  2e5, 3e5]
-        Mach     = [ 0.1,  0.5, 0.6]
-        AoAs     = [0, 2, 4, 6, 8, 10]
+        removeTmpXFoilFiles : bool
+            if :py:obj:`True`, then all files
+            created by the XFoil runs labeled ``"tmpXFoil_*"`` in the
+            working directory will be deleted if the Results output
+            dictionary is correctly created.
 
-        then, when user requests Results['Cl'], the expected
-        matrix is organized as a 6x3 2D matrix, as follows:
+    Returns
+    -------
 
-                    |               Cl values
-        ROWS (AoA)  |              (2D matrix)
-        ____________|________________________________________
-             0      |    value        value        value
-                    |
-             2      |    value        value        value
-                    |
-             4      |    value        value        value
-                    |
-             6      |    value        value        value
-                    |
-             8      |    value        value        value
-                    |
-            10      |    value        value        value
-        ---------------------------------------------------
-        COLUMNS     |
-          Reynolds  |     1e5          2e5          3e5
-          and       |--------------------------------------
-          Mach      |     0.1          0.5          0.6
-        ---------------------------------------------------
+        Results : dict
+            in this Python dictionary, all
+            the results of the XFoil runs are stored. Each variable
+            is accessible through the dictionary's keys and their
+            labels are self-explanatory.
 
-        Hence, for accessing the lift-coefficient at AoA=6
-        with Mach=0.6 (and Reynolds = 3e5), then user shall
-        use the command:
+            For example, if user wants to access the results of the
+            lift coefficient, then he/she should use the following
+            command:
+
+            >>> Results['Cl']
+
+            ..tip:: Use the command,
+
+                >>> for k in Results: print(k)
+
+                to see a full list of available variables
+
+    Examples
+    --------
+
+    Polar data variables (such as ``Cl``, ``Cd``, ``Cm``...) are stored
+    as 2D matrices, where i-index (rows) indicates the
+    angle-of-attack and j-index (columns) indicates *both*
+    Mach and Reynolds numbers.
+
+    For example, let us consider a case where user requests
+    the following input arguments:
+
+    >>> Reynolds = [ 1e5,  2e5, 3e5]
+    >>> Mach     = [ 0.1,  0.5, 0.6]
+    >>> AoAs     = [0, 2, 4, 6, 8, 10]
+
+    then, when user requests ``Results['Cl']``, the expected
+    matrix is organized as a :math:`6 \\times 3` matrix, as follows:
+
+    +------------+---------------------+---------------------+----------------------+
+    | rows (AoA) |      Cl values (2D matrix)                                       |
+    +============+=====================+=====================+======================+
+    |     0      |  :py:class:`float`  |  :py:class:`float`  |   :py:class:`float`  |
+    +------------+---------------------+---------------------+----------------------+
+    |     2      |  :py:class:`float`  |  :py:class:`float`  |   :py:class:`float`  |
+    +------------+---------------------+---------------------+----------------------+
+    |     4      |  :py:class:`float`  |  :py:class:`float`  |   :py:class:`float`  |
+    +------------+---------------------+---------------------+----------------------+
+    |     6      |  :py:class:`float`  |  :py:class:`float`  |   :py:class:`float`  |
+    +------------+---------------------+---------------------+----------------------+
+    |     8      |  :py:class:`float`  |  :py:class:`float`  |   :py:class:`float`  |
+    +------------+---------------------+---------------------+----------------------+
+    |     10     |  :py:class:`float`  |  :py:class:`float`  |   :py:class:`float`  |
+    +------------+---------------------+---------------------+----------------------+
+    | Reynolds   |     1e5             |     2e5             |      3e5             |
+    +------------+---------------------+---------------------+----------------------+
+    | Mach       |     0.1             |     0.2             |      0.6             |
+    +------------+---------------------+---------------------+----------------------+
+
+
+    Hence, for accessing the lift-coefficient at AoA=6
+    with Mach=0.6 (and Reynolds = 3e5), then user shall
+    use the command:
+
+    ::
 
         Results['Cl'][3,2] # fourth row (AoA= 6 deg) and
                            # third column (Re=3e5, Mach=.6)
 
+    Airfoil-data variables (such as Cp, theta, Cf...) are
+    stored in a similar fashion as polar-data variables.
+    Instead of storing real numbers in the 2D matrix,
+    vectors are used. This means that such variables are
+    3D matrices of shape (number_AoAs x number_Re x
+    number_Points_of_Airfoil). Using the previous example
+    the structure of Results['Cp'] is the following:
 
-        Airfoil-data variables (such as Cp, theta, Cf...) are
-        stored in a similar fashion as polar-data variables.
-        Instead of storing real numbers in the 2D matrix,
-        vectors are used. This means that such variables are
-        3D matrices of shape (number_AoAs x number_Re x
-        number_Points_of_Airfoil). Using the previous example
-        the structure of Results['Cp'] is the following:
+    +------------+---------------------+---------------------+----------------------+
+    | rows (AoA) |      Cp values (3D matrix)                                       |
+    +============+=====================+=====================+======================+
+    |     0      |  1D numpy.ndarray   |  1D numpy.ndarray   |   1D numpy.ndarray   |
+    +------------+---------------------+---------------------+----------------------+
+    |     2      |  1D numpy.ndarray   |  1D numpy.ndarray   |   1D numpy.ndarray   |
+    +------------+---------------------+---------------------+----------------------+
+    |     4      |  1D numpy.ndarray   |  1D numpy.ndarray   |   1D numpy.ndarray   |
+    +------------+---------------------+---------------------+----------------------+
+    |     6      |  1D numpy.ndarray   |  1D numpy.ndarray   |   1D numpy.ndarray   |
+    +------------+---------------------+---------------------+----------------------+
+    |     8      |  1D numpy.ndarray   |  1D numpy.ndarray   |   1D numpy.ndarray   |
+    +------------+---------------------+---------------------+----------------------+
+    |     10     |  1D numpy.ndarray   |  1D numpy.ndarray   |   1D numpy.ndarray   |
+    +------------+---------------------+---------------------+----------------------+
+    | Reynolds   |     1e5             |     2e5             |      3e5             |
+    +------------+---------------------+---------------------+----------------------+
+    | Mach       |     0.1             |     0.2             |      0.6             |
+    +------------+---------------------+---------------------+----------------------+
 
-                    |               Cp values
-        ROWS (AoA)  |              (3D matrix)
-        ____________|________________________________________
-             0      |    vector       vector       vector
-                    |
-             2      |    vector       vector       vector
-                    |
-             4      |    vector       vector       vector
-                    |
-             6      |    vector       vector       vector
-                    |
-             8      |    vector       vector       vector
-                    |
-            10      |    vector       vector       vector
-        ---------------------------------------------------
-        COLUMNS     |
-          Reynolds  |     1e5          2e5          3e5
-          and       |--------------------------------------
-          Mach      |     0.1          0.5          0.6
-        ---------------------------------------------------
+    Hence, all vectors have the same length. The number
+    of elements of each vector is equal to the number of
+    points of the input airfoil.
 
-        Hence, all vectors have the same length. The number
-        of elements of each vector is equal to the number of
-        points of the input airfoil.
+    Let us consider that user wants to plot the :math:`C_p(x)`
+    distribution of the airfoil for ``AoA=6`` deg and
+    ``Re=3e5`` (and ``Mach=.6``). The following commands could
+    be employed:
 
-        Let us consider the user wants to plot the Cp(x)
-        distribution of the airfoil for AoA=6 deg and
-        Re=3e5 (and Mach=.6). The following commands could
-        be employed:
+    ::
 
         import matplotlib.pyplot as plt
         x  =  Results['x'][3,2,:]
         Cp = Results['Cp'][3,2,:]
         plt.plot(x,Cp); plt.show()
+
 
     '''
 
@@ -553,17 +553,19 @@ def readBlFile(BoundaryLayerFile):
     Each column of the file is read and transformed into a
     numpy 1D vector.
 
-    INPUTS
+    Parameters
+    ----------
 
-    BoundaryLayerFile (string) - The name of the file to be
-        read.
+        BoundaryLayerFile : str
+            The name of the file to be read.
 
-        example: 'MyBLdata.dat'
+    Returns
+    -------
 
-    OUTPUTS
+        OutputDict : dict
+            Python dictionary containing 1D numpy vectors
+            of each variable contained in the input file (column).
 
-    OutputDict (dictionary) - Python dictionary containing 1D numpy vectors
-        of each variable contained in the input file (column).
     '''
 
     with open(BoundaryLayerFile,'r') as f:
@@ -596,21 +598,26 @@ def readBlFile(BoundaryLayerFile):
 
 def convertXFoilDict2File(ResultsDictionary, outputfilename):
     '''
-    This function converts the Python-dictionary [result
-    of the call of function XFoil.computePolars()] into
+    This function converts the Python-dictionary (result
+    of the call of function :py:func:`computePolars` ) into
     a file with a format allowed by Cassiopee's Converter
-    module. HOWEVER, the recommended file extension is CGNS.
+    module.
+
+    .. note:: however, the recommended file extension is CGNS.
 
     Example:
-    XFoil.convertXFoilDict2File(Results, 'MyPolarData.cgns')
 
-    INPUTS
+    >>> XFoil.convertXFoilDict2File(Results, 'MyPolarData.cgns')
 
-    ResultsDictionary (Python Dictionary) - Exactly the
-        result of the function XFoil.computePolars().
+    Parameters
+    ----------
 
-    outputfilename (string) - Filename of the file where
-        the polar data will be saved.
+        ResultsDictionary : dict
+            Exactly the result of the function :py:func:`computePolars`
+
+        outputfilename : str
+            Filename of the file where the polar data will be saved.
+
     '''
 
 
@@ -647,17 +654,20 @@ def convertFile2XFoilDict(filename):
     '''
     This function converts an existing CGNS file containing
     XFoil computation results, into a simple Python-dictionary
-    as produced by XFoil.computePolars() function.
+    as produced by :py:func:`computePolars` function.
 
-    INPUT
+    Parameters
+    ----------
 
-    filename (string) - CGNS file containing polar data.
+        filename : str
+            CGNS file containing polar data.
 
-    OUTPUT
+    Returns
+    -------
 
-    Results (Python dictionary) - The structure is identical
-        to the output of XFoil.computePolars() function (see
-        doc of computePolars() for detailed information)
+        Results : dict
+            The structure is identical to the output of :py:func:`computePolars`
+            function (see doc of :py:func:`computePolars` for detailed information)
     '''
 
     # This function requires some additional dependencies:
@@ -700,40 +710,47 @@ def convertXFoilDict2PyZonePolar(ResultsDictionary, Title, Variables2Store=[],
         ):
     '''
     This function translates the XFoil Python dictionary result
-    of XFoil.computePolars() into a PyZonePolar ready to be used
-    in BEMT codes of PropellerAnalysis.py (or other related
-    interpolating functions).
+    of :py:func:`computePolars` into a **PyZonePolar** ready to be used
+    in MOLA-based codes.
 
-    INPUTS
+    Parameters
+    ----------
 
-    ResultsDictionary (Python dictionary) - The structure is
-        identical         to the output of XFoil.computePolars()
-        function (see doc of computePolars() for detailed
-        information)
+        ResultsDictionary : dict
+            The structure is identical to the output of :py:func:`computePolars`
+            function
 
-    Title (string) - Title to give to the PyZonePolar. This is
-        usually the identifier of the airfoil.
+        Title : str
+            Title to give to the **PyZonePolar**. This is
+            usually the identifier of the airfoil.
 
-    Variables2Store (list of strings) - Specify which variables
-        shall be stored. If Variables2Store is an empty list,
-        then all available data are stored. For minimal
-        BEMT-like storage, one may state: ['Cl','Cd']
+        Variables2Store : :py:class:`list` of :py:class:`str`
+            Specify which variables shall be stored. If
+            **Variables2Store** is an empty list ``[]``,
+            then all available data are stored.
 
-    BigAngleOfAttack(Cl-to-Cm) - (2 element tupple or None)
-        If this variable is None, then default values are given
-        for the requests of aero-coefficient corresponding to
-        big angles of attack (outside polar, typically).
-        Otherwise, this variable may be a 2 element tupple.
-        Each element is a 1D numpy array, containing:
-         -> For the first element (e.g. BigAngleOfAttackCl[0])
-            the values of the angle-of-attack outside range.
-         -> For the second element (e.g. BigAngleOfAttackCl[1])
-            the corresponding aero-coefficient values.
+        BigAngleOfAttackAoA : :py:class:`list` of :py:class:`float`
+            The big angle of attack range used for extrapolations.
+            Must be :math:`\in [-180, 180]` degrees
 
-    OUTPUTS
+        BigAngleOfAttackCl : :py:class:`list` of :py:class:`float`
+            The corresponding values of lift-coefficient to provide at
+            big angles of attack
 
-    PyZonePolar (CGNS zone) - see PropellerAnalysis.py for more
-        information on the structure of PyZonePolar files.
+        BigAngleOfAttackCd : :py:class:`list` of :py:class:`float`
+            The corresponding values of drag-coefficient to provide at
+            big angles of attack
+
+        BigAngleOfAttackCm : :py:class:`list` of :py:class:`float`
+            The corresponding values of pitch-coefficient to provide at
+            big angles of attack
+
+    Returns
+    -------
+
+        PyZonePolar : zone
+            Special zone containing information on 2D polars predictions
+
     '''
 
 
