@@ -91,9 +91,9 @@ def prepareMesh4ElsA(InputMeshes, NProcs=None, ProcPointsLoad=250000):
                 accepted values.
 
             * SplitBlocks : :py:class:`bool`
-                if ``True``, allow for splitting this component in
+                if :py:obj:`True`, allow for splitting this component in
                 order to satisfy the user-provided rules of total number of used
-                processors and block points load during simulation. If ``False``,
+                processors and block points load during simulation. If :py:obj:`False`,
                 the component is protected against splitting.
 
                 .. attention:: split operation results in loss of connectivity information.
@@ -104,14 +104,14 @@ def prepareMesh4ElsA(InputMeshes, NProcs=None, ProcPointsLoad=250000):
             If a positive integer is provided, then the
             distribution of the tree (and eventually the splitting) will be done in
             order to satisfy a total number of processors provided by this value.
-            If not provided (``None``) then the number of procs is automatically
+            If not provided (:py:obj:`None`) then the number of procs is automatically
             determined using as information **ProcPointsLoad** variable.
 
         ProcPointsLoad : int
             this is the desired number of grid points
-            attributed to each processor. If **SplitBlocks** = ``True``, then it is used to
+            attributed to each processor. If **SplitBlocks** = :py:obj:`True`, then it is used to
             split zones that have more points than **ProcPointsLoad**. If
-            **NProcs** = ``None`` , then **ProcPointsLoad** is used to determine
+            **NProcs** = :py:obj:`None` , then **ProcPointsLoad** is used to determine
             the **NProcs** to be used.
 
     Returns
@@ -230,9 +230,9 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
                     seem useful in a body-force context
 
             * RightHandRuleRotation : :py:class:`bool`
-                if ``True``, the propeller rotates
+                if :py:obj:`True`, the propeller rotates
                 around **RotationAxis** vector following the right-hand-rule
-                direction. if ``False``, rotation follows the left-hand-rule.
+                direction. if :py:obj:`False`, rotation follows the left-hand-rule.
 
             * NumberOfAzimutalPoints : :py:class:`int`
                 number of azimutal points used to discretize the bodyforce disk
@@ -290,8 +290,8 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
                     to the documentation for more information on acceptable values
 
         writeOutputFields : bool
-            if ``True``, write initialized fields overriding
-            a possibly existing ``OUTPUT/fields.cgns`` file. If ``False``, no
+            if :py:obj:`True`, write initialized fields overriding
+            a possibly existing ``OUTPUT/fields.cgns`` file. If :py:obj:`False`, no
             ``OUTPUT/fields.cgns`` file is writen, but in this case the user must
             provide a compatible ``OUTPUT/fields.cgns`` file to elsA (for example,
             using a previous computation result).
@@ -758,14 +758,14 @@ def splitAndDistribute(t, InputMeshes, NProcs=None, ProcPointsLoad=2e5):
             If a positive integer is provided, then the
             distribution of the tree (and eventually the splitting) will be done in
             order to satisfy a total number of processors provided by this value.
-            If not provided (``None``) then the number of procs is automatically
+            If not provided (:py:obj:`None`) then the number of procs is automatically
             determined using as information **ProcPointsLoad** variable.
 
         ProcPointsLoad : int
             this is the desired number of grid points
-            attributed to each processor. If **SplitBlocks** = ``True``, then it is used to
+            attributed to each processor. If **SplitBlocks** = :py:obj:`True`, then it is used to
             split zones that have more points than **ProcPointsLoad**. If
-            **NProcs** = ``None`` , then **ProcPointsLoad** is used to determine
+            **NProcs** = :py:obj:`None` , then **ProcPointsLoad** is used to determine
             the **NProcs** to be used.
 
     Returns
@@ -1011,16 +1011,16 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
                     as they use very different masking techniques !
 
             * ``'CreateMaskFromWall'`` : :py:class:`bool`
-                If ``False``, then walls of this component
+                If :py:obj:`False`, then walls of this component
                 will not be used for masking. This shall only be used if user knows
                 a priori that this component's walls are not masking any grid. If
-                this is the case, then user can put this value to ``False`` in order to
+                this is the case, then user can put this value to :py:obj:`False` in order to
                 slightly accelerate the preprocess time.
 
-                .. note:: by default, the value of this key is ``True``.
+                .. note:: by default, the value of this key is :py:obj:`True`.
 
             * ``'OnlyMaskedByWalls'`` : :py:class:`bool`
-                if ``True``, then this overset component
+                if :py:obj:`True`, then this overset component
                 is strongly protected against masking. Only other component's walls
                 are allowed to mask this component.
 
@@ -1036,19 +1036,19 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
             depth of the interpolation region.
 
         optimizeOverlap : bool
-            if ``True``, then applies :py:func:`Connector.PyTree.optimizeOverlap` function.
+            if :py:obj:`True`, then applies :py:func:`Connector.PyTree.optimizeOverlap` function.
 
         prioritiesIfOptimize : list
             literally, the
             priorities argument passed to :py:func:`Connector.PyTree.optimizeOverlap`.
 
-            .. note:: only relevant if **optimizeOverlap** is set to ``True``.
+            .. note:: only relevant if **optimizeOverlap** is set to :py:obj:`True`.
 
         double_wall : bool
-            if ``True``, double walls exist
+            if :py:obj:`True`, double walls exist
 
         saveMaskBodiesTree : bool
-            if ``True``, then saves the file ``masks.cgns``,
+            if :py:obj:`True`, then saves the file ``masks.cgns``,
             allowing the user to analyze if masks have been properly generated.
 
     Returns
@@ -2411,10 +2411,10 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
             timestep for unsteady simulation (in seconds)
 
         useBodyForce : bool
-            ``True`` if bodyforce is employed
+            :py:obj:`True` if bodyforce is employed
 
         useChimera : bool
-            ``True`` if chimera (static) is employed
+            :py:obj:`True` if chimera (static) is employed
 
     Returns
     -------
@@ -2566,11 +2566,11 @@ def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
             ``elsAkeysModel`` and ``elsAkeysNumerics``.
 
         initializeFlow : bool
-            if ``True``, calls :py:func:`newFlowSolutionInit`, which
+            if :py:obj:`True`, calls :py:func:`newFlowSolutionInit`, which
             creates ``FlowSolution#Init`` fields used for initialization of the flow
 
         FULL_CGNS_MODE : bool
-            if ``True``, add elsa keys in ``.Solver#Compute`` CGNS container
+            if :py:obj:`True`, add elsa keys in ``.Solver#Compute`` CGNS container
 
         dim : int
             dimension of the problem (``2`` or ``3``).
@@ -2678,7 +2678,7 @@ def saveMainCGNSwithLinkToOutputFields(t, to, DIRECTORY_OUTPUT='OUTPUT',
             .. important:: it is strongly recommended using ``'FlowSolution#Init'``
 
         writeOutputFields : bool
-            if ``True``, write ``fields.cgns`` file
+            if :py:obj:`True`, write ``fields.cgns`` file
 
     Returns
     -------
@@ -3112,7 +3112,7 @@ def removeEmptyOversetData(t, silent=True):
             .. note:: tree **t** is modified
 
         silent : bool
-            if ``False``, then it prints information on the
+            if :py:obj:`False`, then it prints information on the
             performed operations
 
     '''
@@ -3302,7 +3302,7 @@ def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
     -------
 
         BCType : str
-            the resulting *BCType*. Returns``None`` if **FamilyBCName** is not
+            the resulting *BCType*. Returns:py:obj:`None` if **FamilyBCName** is not
             found
     '''
     FamilyNode = I.getNodeFromName3(t, FamilyBCName)
@@ -3392,7 +3392,7 @@ def hasAnyNearMatch(InputMeshes):
     -------
 
         bool : bool
-            ``True`` if has ``NearMatch`` connectivity. ``False`` otherwise.
+            :py:obj:`True` if has ``NearMatch`` connectivity. :py:obj:`False` otherwise.
     '''
     for meshInfo in InputMeshes:
         try: Connection = meshInfo['Connection']
@@ -3420,7 +3420,7 @@ def hasAnyPeriodicMatch(InputMeshes):
     -------
 
         bool : bool
-            ``True`` if has ``PeriodicMatch`` connectivity. ``False`` otherwise.
+            :py:obj:`True` if has ``PeriodicMatch`` connectivity. :py:obj:`False` otherwise.
     '''
 
     for meshInfo in InputMeshes:
@@ -3449,7 +3449,7 @@ def hasAnyOversetData(InputMeshes):
     -------
 
         bool : bool
-            ``True`` if has overset assembly. ``False`` otherwise.
+            :py:obj:`True` if has overset assembly. :py:obj:`False` otherwise.
     '''
     for meshInfo in InputMeshes:
         try:

@@ -6,22 +6,22 @@ Version: Dev
 
 Contents:
 
-    Coprocess.py
-    _cpmv_.py
+    InternalShortcuts.py
+    Wireframe.py
     GenerativeShapeDesign.py
     GenerativeVolumeDesign.py
-    InternalShortcuts.py
+    RotatoryWings.py
+    Preprocess.py
+    Coprocess.py
+    Postprocess.py
+    WorkflowAirfoil.py
+    _cpmv_.py
     ! Interpolate.py # not fully functional yet
     LiftingLine.py
     ! Pilot.py # deleted
-    Postprocess.py
-    Preprocess.py
     PropellerAnalysis.py
-    RotatoryWings.py
     Visu.py
     ! VortexParticleMethodPrototype.py # to be deprecated
-    Wireframe.py
-    WorkflowAirfoil.py
     XFoil.py
 
 

@@ -114,97 +114,126 @@ def launchBasicStructuredPolars(PREFIX_JOB, AirfoilPath, AER, machine,
     '''
     User-level function designed to launch a structured-type polar of airfoil.
 
-    INPUTS
+    Parameters
+    ----------
 
-    PREFIX_JOB - (string) - an arbitrary prefix for the jobs
+        PREFIX_JOB : str
+            an arbitrary prefix for the jobs
 
-    AirfoilPath - (string) - path where the airfoil coordinates file is
-        located. IT MUST EXIST.
+        AirfoilPath : str
+            path where the airfoil coordinates file is
+            located.
 
-    AER - (string) - full AER code for launching simulations on SATOR
+            .. attention:: the airfoil must exist at provided path
 
-    machine - (string) - name of the machine 'sator', 'spiro', 'eos'...
+        AER : str
+            full AER code for launching simulations on SATOR
 
-    DIRECTORY_WORK - (string) - the working directory at computation server.
-        It may not exist: it will be created.
+        machine : str
+            name of the machine ``'sator'``, ``'spiro'``, ``'eos'``...
 
-    AoARange - (array) - angle-of-attack to consider. Increasing positive values
-        must come first. Then, the decreasing negative values. For example:
-                        [0, 2, 4, 6, 8, 9, 10, -1, -2, -3]
+            .. warning:: only ``'sator'`` has been tested
 
-    MachRange - (array) - mach numbers to consider.
+        DIRECTORY_WORK : str
+            the working directory at computation server.
 
-    ReynoldsOverMach - (float) - Re/M value to consider in order to
-        compute Reynolds number for each case.
+            .. note:: indicated directory may not exist. In this case, it will
+                be created.
 
-    AdditionalCoprocessOptions - (dictionary) - values overriding the default
-        set of CoprocessOptions
+        AoARange : list
+            angle-of-attack to consider. Increasing positive values
+            must come first. Then, the decreasing negative values. For example:
 
-    AdditionalTransitionZones - (dictionary) - values overriding the default
-        set of TransitionZones, which defines the regions for transition
-        criteria behavior :
+            >>> [0, 2, 4, 6, 8, 9, 10, -1, -2, -3]
 
-                TransitionZones = dict(
-                                      TopOrigin = 0.003,
-                                   BottomOrigin = 0.05,
-                          TopLaminarImposedUpTo = 0.01,
-                        TopLaminarIfFailureUpTo = 0.07,
-                        TopTurbulentImposedFrom = 0.95,
-                       BottomLaminarImposedUpTo = 0.10,
-                     BottomLaminarIfFailureUpTo = 0.50,
-                     BottomTurbulentImposedFrom = 0.95,
-                                       )
+        MachRange : list
+            mach numbers to consider
 
-    ImposedWallFields - (list of dictionaries) - used to impose specific
-        fields of intermittency or clim. For example:
-            # ImposedWallFields = [
-            #     dict(fieldname    = 'intermittency_imposed',
-            #          side         = 'top',
-            #          Xref         = TopXtr,
-            #          LengthScale  = TopLengthScale,
-            #          a_boost      = a_boost,
-            #          sa           = sa,
-            #          sb           = sb,
-            #          ),
+        ReynoldsOverMach : float
+            :math:`Re/M` value to consider in order to
+            compute Reynolds number for each case.
 
-            #     dict(fieldname    = 'clim_imposed',
-            #          side         = 'top',
-            #          Xref         = TopXtr+TopLengthScale*sc,
-            #          LengthScale  = 1e-6,
-            #          a_boost      = 1.0,
-            #          sa           = 1e-3,
-            #          sb           = 0.0,
-            #          ),
+        AdditionalCoprocessOptions : dict
+            values overriding the default set of ``CoprocessOptions``
 
-            #     dict(fieldname    = 'intermittency_imposed',
-            #          side         = 'bottom',
-            #          Xref         = BottomXtr,
-            #          LengthScale  = BottomLengthScale,
-            #          a_boost      = a_boost,
-            #          sa           = sa,
-            #          sb           = sb,
-            #          ),
+        AdditionalTransitionZones : dict
+            values overriding the default
+            set of ``TransitionZones``, which defines the regions for transition
+            criteria behavior.
 
-            #     dict(fieldname    = 'clim_imposed',
-            #          side         = 'bottom',
-            #          Xref         = BottomXtr+BottomLengthScale*sc,
-            #          LengthScale  = 1e-6,
-            #          a_boost      = 1.0,
-            #          sa           = 1e-3,
-            #          sb           = 0.0,
-            #          ),
-            # ]
+            ::
 
-    TransitionalModeReynoldsThreshold - (float) - Reynolds number threshold
-        value below which transitional computation is performed. For always
-        making non-transitional computation, set this value to zero.
+                TransitionZones = dict( TopOrigin = 0.003,
+                                        BottomOrigin = 0.05,
+                                        TopLaminarImposedUpTo = 0.01,
+                                        TopLaminarIfFailureUpTo = 0.07,
+                                        TopTurbulentImposedFrom = 0.95,
+                                        BottomLaminarImposedUpTo = 0.10,
+                                        BottomLaminarIfFailureUpTo = 0.50,
+                                        BottomTurbulentImposedFrom = 0.95)
 
-    ExtraElsAParams - (dictionary) - parameters overriding the default values
-        of the attributes sent to prepareMainCGNS() of this module.
+            can be used as template
 
-    OUTPUTS
+        ImposedWallFields : :py:class:`list` of :py:class:`dict`
+            used to impose specific fields of intermittency or clim. For example:
 
-    None. File PolarConfiguration.py iw writen and polar builder job is launched
+            ::
+
+                ImposedWallFields = [
+                     dict(fieldname    = 'intermittency_imposed',
+                          side         = 'top',
+                          Xref         = TopXtr,
+                          LengthScale  = TopLengthScale,
+                          a_boost      = a_boost,
+                          sa           = sa,
+                          sb           = sb,
+                          ),
+
+                     dict(fieldname    = 'clim_imposed',
+                          side         = 'top',
+                          Xref         = TopXtr+TopLengthScale*sc,
+                          LengthScale  = 1e-6,
+                          a_boost      = 1.0,
+                          sa           = 1e-3,
+                          sb           = 0.0,
+                          ),
+
+                     dict(fieldname    = 'intermittency_imposed',
+                          side         = 'bottom',
+                          Xref         = BottomXtr,
+                          LengthScale  = BottomLengthScale,
+                          a_boost      = a_boost,
+                          sa           = sa,
+                          sb           = sb,
+                          ),
+
+                     dict(fieldname    = 'clim_imposed',
+                          side         = 'bottom',
+                          Xref         = BottomXtr+BottomLengthScale*sc,
+                          LengthScale  = 1e-6,
+                          a_boost      = 1.0,
+                          sa           = 1e-3,
+                          sb           = 0.0,
+                          ),
+                    ]
+
+            can be used as template
+
+        TransitionalModeReynoldsThreshold : float
+            Reynolds number threshold
+            value below which transitional computation is performed.
+
+            .. hint:: For always making non-transitional computation, set this value to ``0``
+
+        ExtraElsAParams : dict - parameters overriding the default values
+            of the attributes sent to :py:func:`prepareMainCGNS` of this module.
+
+    Returns
+    -------
+
+        None : None
+            File ``PolarConfiguration.py`` is writen and polar builder job is
+            launched
     '''
 
 
@@ -344,23 +373,31 @@ def buildMesh(AirfoilPath,
     '''
     Builds the mesh around an airfoil
 
-    INPUTS
+    Parameters
+    ----------
 
-    AirfoilPath - (string) - location where airfoil geometry is located
+        AirfoilPath : str
+            location where airfoil geometry is located
 
-    meshParams - (dictionary) - literally, the parameters to pass to
-        GSD.extrudeAirfoil2D() function
+        meshParams : dict
+            literally, the optional parameters to pass to
+            :py:func:`MOLA.GenerativeShapeDesign.extrudeAirfoil2D` function
 
-    save_meshParams - (boolean) - if True, saves the meshParams.py file
+        save_meshParams : bool
+            if :py:obj:`True`, saves the ``meshParams.py`` file
 
-    save_mesh - (boolean) - if True, saves the mesh.cgns file
+        save_mesh : bool
+            if :py:obj:`True`, saves the ``mesh.cgns`` file
 
-    OUTPUTS
+    Returns
+    -------
 
-    t - (PyTree) - resulting mesh tree
+        t : PyTree
+            resulting mesh tree
 
-    meshParamsUpdated - (dictionary) - meshParams with additional parameters
-        resulting from the grid constuction process
+        meshParamsUpdated : :py:class:`dict`
+            **meshParams** with additional parameters
+            resulting from the grid constuction process
     '''
     if AirfoilPath.endswith('.dat') or AirfoilPath.endswith('.txt') or \
         '.' not in AirfoilPath:
@@ -404,64 +441,94 @@ def prepareMainCGNS(t=None, file_mesh='mesh.cgns', meshParams={},
                     FieldsAdditionalExtractions=['ViscosityMolecular',
                         'Viscosity_EddyMolecularRatio','Mach']):
     '''
-    This is mainly a function similar to Preprocess prepareMainCGNS4ElsA
+    This is mainly a function similar to :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to airfoil computations. Its purpose is adapting the CGNS to
     elsA.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree or None) - the grid as produced by buildMesh()
+        t : PyTree
+            the grid as produced by :py:func:`buildMesh`
 
-    file_mesh - (string) - if <t> is not provided, then open the file
-        provided by this attribute
+        file_mesh : str
+            if **t** is not provided (:py:obj:`None`), then open the file
+            provided by this attribute
 
-    meshParams - (dictionary) - provide the mesh parameters dictionray as
-        generated by buildMesh()
+        meshParams : dict
+            provide the mesh parameters dictionary as
+            generated by :py:func:`buildMesh`
 
-    writeOutputFields - (boolean) - write file OUTPUT/fields.cgns
+        writeOutputFields : bool
+            write file ``OUTPUT/fields.cgns``
 
-    Reynolds - (float) - set the Reynolds number conditions for the simulation
+        Reynolds : float
+            set the Reynolds number, :math:`Re_c`  conditions for the simulation
 
-    Mach - (float) - set the actual Mach number conditions for the simulation.
-        It shall not be lower than 0.2.
+        Mach : float
+            set the actual Mach number employed by the simulation.
 
-    MachPolar - (None or float) - if provided, set the virtual Mach number
-        considered in the Polars. It can be lower than 0.2.
+            .. attention:: as elsA is a compressible solver, this value shall
+                **not** be lower than ``0.2``
 
-    AngleOfAttackDeg - (float) - angle of attack in [degree]
+        MachPolar : float
+            if provided, set the *virtual* Mach number
+            considered in the Polars.
 
-    TurbulenceLevel - (float) - turbulence level
+            .. note:: this value **can** be lower than ``0.2``, as the actual
+                Mach number may be limited to 0.2
 
-    TransitionMode - (string or None) - if provided, can be one of:
-        'NonLocalCriteria-LSTT', 'NonLocalCriteria-Step', 'Imposed'
+        AngleOfAttackDeg : float
+            angle of attack in [degree]
 
-    TurbulenceModel - (string) - any turbulence model keyword supported by
-        MOLA Preprocess.
+        TurbulenceLevel : float
+            turbulence level
 
-    InitialIteration - (integer) - initial iteration of computation
+        TransitionMode : str
+            if provided, can be one of:
+            ``'NonLocalCriteria-LSTT'``, ``'NonLocalCriteria-Step'``, ``'Imposed'``
 
-    NumberOfIterations - (integer) - maximum number of iterations
+        TurbulenceModel : str
+            any turbulence model keyword supported by
+            :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
 
-    NumericalScheme - (string) - see PRE.getElsAkeysNumerics() doc
+        InitialIteration : int
+            initial iteration of computation
 
-    TimeMarching - (string) - see PRE.getElsAkeysNumerics() doc
+        NumberOfIterations : int
+            maximum number of iterations
 
-    timestep - (float) - see PRE.getElsAkeysNumerics() doc
+        NumericalScheme : str
+            any value accepted by :py:func:`MOLA.Preprocess.getElsAkeysNumerics`
 
-    CFLParams - (dictionary) - see PRE.getElsAkeysNumerics() doc
+        TimeMarching : str
+            any value accepted by :py:func:`MOLA.Preprocess.getElsAkeysNumerics`
 
-    CoprocessOptions - (dictionary) - see PRE.computeReferenceValues() doc
+        timestep : float
+            the timestep in unsteady simulations
 
-    ImposeWallFields - (list of dicts) - see launchBasicStructuredPolars() doc
+            .. note:: see any value accepted by :py:func:`MOLA.Preprocess.getElsAkeysNumerics` doc
 
-    TransitionZones - (dictionary) - see launchBasicStructuredPolars() doc
+        CFLParams : dict
+            any accepted value by any value accepted by :py:func:`MOLA.Preprocess.getElsAkeysNumerics`
 
-    FieldsAdditionalExtractions - (list of strings) - list of CGNS names for
-        extracting additional flowfield quantities
+        CoprocessOptions : dict
+            any accepted value by :py:func:`MOLA.Preprocess.computeReferenceValues`
 
-    OUTPUT
+        ImposeWallFields : list
+            any accepted value by :py:func:`launchBasicStructuredPolars`
 
-    None. Writes setup.py, main.cgns and eventually OUTPUT/fields.cgns
+        TransitionZones : dict
+            any accepted value by :py:func:`launchBasicStructuredPolars`
+
+        FieldsAdditionalExtractions : :py:class:`list` of :py:class:`str`
+            list of CGNS names for extracting additional flowfield quantities
+
+    Returns
+    -------
+
+        None : None
+            Writes ``setup.py``, ``main.cgns`` and eventually ``OUTPUT/fields.cgns``
     '''
 
     if not t: t = C.convertFile2PyTree(file_mesh)
@@ -536,11 +603,11 @@ def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
         TurbulenceCutoff=1.0, TransitionMode=None, CoprocessOptions={},
         FieldsAdditionalExtractions='ViscosityMolecular Viscosity_EddyMolecularRatio Mach'):
     '''
-    This function is the Airfoil's equivalent of PRE.computeReferenceValues().
+    This function is the Airfoil's equivalent of :py:func:`MOLA.Preprocess.computeReferenceValues` .
     The main difference is that in this case reference values are set through
-    Reynolds and Mach number.
+    **Reynolds** and **Mach** number.
 
-    Please, refer to PRE.computeReferenceValues() doc for more details.
+    Please, refer to :py:func:`MOLA.Preprocess.computeReferenceValues` doc for more details.
     '''
 
     try:
@@ -627,20 +694,23 @@ def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
 
 def setBCDataSetWithNonLocalTransition(t, AirfoilWallFamilyName, ReferenceValues):
     '''
-    This function is used to set BCDataSet CGNS nodes relative to transition
+    This function is used to set ``BCDataSet`` CGNS nodes relative to transition
     (computed or imposed) of an airfoil tree.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree) - as produced by buildMesh(). Tree is modified.
+        t : PyTree
+            as produced by :py:func:`buildMesh`
 
-    AirfoilWallFamilyName - (string) - the family of the airfoil's walls
+            .. note:: tree **t** is modified.
 
-    ReferenceValues - (dictionary) - as set by computeReferenceValues()
+        AirfoilWallFamilyName : str
+            the family name of the airfoil's walls
 
-    OUTPUTS
+        ReferenceValues : dict
+            as produced :py:func:`computeReferenceValues`
 
-    None. <t> is modified
     '''
 
     def findOrigin(SideCurve, OriginXoverC):
@@ -880,24 +950,30 @@ def setBCDataSetWithNonLocalTransition(t, AirfoilWallFamilyName, ReferenceValues
 def computeTransitionCriterion(walls, criterion='in_ahd_gl'):
     '''
     This function calls the transition criterion computation, as a
-    post-process routine. This routine requires <walls> to include
-    boundary-layer post-processed quantities in FlowSolution.
+    post-process routine. This routine requires **walls** to include
+    boundary-layer post-processed quantities in ``FlowSolution``.
 
-    INPUTS
+    Parameters
+    ----------
 
-    walls - (PyTree, base, zone, list of zones) - 1-cell-depth surface defining
-        the wall of an airfoil
+        walls : PyTree, base, zone, list of zones
+            1-cell-depth surface defining the wall of an airfoil
 
-    criterion - (string) - choice of the computed transition criterion.
-        Currently available options:
+        criterion : str
+            choice of the computed transition criterion.
 
-        'in_ahd_gl' -> see computeAHDGleyzes() doc
+            Currently available options:
 
-    OUTPUTS
+            * ``'in_ahd_gl'``
+                employs :py:func:`computeAHDGleyzes`
 
-    TransitionLines - (list of zones) - top and bottom structured curves
-        including the post-processed flowfields issued from criterion
-        computation
+    Returns
+    -------
+
+        TransitionLines : :py:class:`list` of zone
+            top and bottom structured curves
+            including the post-processed flowfields issued from criterion
+            computation
     '''
     TransitionLines = getTransitionLines(walls)
 
@@ -909,28 +985,29 @@ def computeTransitionCriterion(walls, criterion='in_ahd_gl'):
 
 def computeAHDGleyzes(TransitionLines, Hswitch=2.8):
     '''
-    Adds the following fields to provided TransitionLines:
-            {ReynoldsThetaCritical}, {ReynoldsThetaTransition},
-            {TotalAmplificationFactor} and {MeanPohlhausen}
+    Adds the following fields to provided **TransitionLines** :
+    ``ReynoldsThetaCritical``, ``ReynoldsThetaTransition``,
+    ``TotalAmplificationFactor`` and ``MeanPohlhausen``
 
     Requires the following fields to be present at input TransitionLines:
 
-    {ReynoldsTheta} or ({runit} and ({Theta} or {theta11} or {theta11i}))
-    {lambda2}
-    {H} or {hi}
-    {turb_level} (in %)
+    * ``ReynoldsTheta`` or (``runit`` and (``Theta`` or ``theta11`` or ``theta11i``))
+    * ``lambda2``
+    * ``H`` or ``hi``
+    * ``turb_level`` (in %)
 
-    INPUTS
+    Parameters
+    ----------
 
-    TransitionLines - (list of zones) - structured curves as obtained from
-        airfoil walls by function getTransitionLines(walls).
+        TransitionLines : :py:class:`list` of zone
+            structured curves as obtained from airfoil walls by function
+            :py:func:`getTransitionLines`
 
-    Hswitch - (float) - threshold value used to switch from AHD criterion
-        to Gleyzes criterion.
+            .. note:: zones **TransitionLines** are modified
 
-    OUTPUTS
+        Hswitch : float
+            threshold value used to switch from AHD criterion to Gleyzes criterion.
 
-    None - <TransitionLines> are modified
     '''
     import scipy.integrate as si
     MAX, MIN = np.maximum, np.minimum
@@ -994,17 +1071,21 @@ def computeAHDGleyzes(TransitionLines, Hswitch=2.8):
 
 def getReynoldsTheta(TransitionLine):
     '''
-    Add and return {ReynoldsTheta} quantity from a zone containing fields
-    at FlowSolution (nodes):
-    {ReynoldsTheta} or ({runit} and ({Theta} or {theta11} or {theta11i}))
+    Add and return ``ReynoldsTheta`` quantity from a zone containing fields
+    at ``FlowSolution`` (nodes):
+    ``ReynoldsTheta`` or (``runit`` and (``Theta`` or ``theta11`` or ``theta11i``))
 
-    INPUTS
+    Parameters
+    ----------
 
-    TransitionLine - (zone) - zone containing the required fields
+        TransitionLine : zone
+            zone containing the required fields
 
-    OUTPUTS
+    Returns
+    -------
 
-    ReynoldsTheta - (numpy array) - numpy array of ReynoldsTheta
+        ReynoldsTheta : numpy.ndarray
+            numpy array of ReynoldsTheta :math:`Re_\\theta`
     '''
     ReynoldsTheta = I.getNodeFromName(TransitionLine, 'ReynoldsTheta')
     if ReynoldsTheta: return ReynoldsTheta[1]
@@ -1025,22 +1106,26 @@ def getReynoldsTheta(TransitionLine):
 
 def getQuantityFromTransitionLine(TransitionLine, PossibleNames):
     '''
-    Get an arbitrary quantity from nodes FlowSolution container of a
+    Get an arbitrary quantity from nodes ``FlowSolution`` container of a
     zone, named after a set of possible names. If no one is found, then
-    raises an error. If field 's' (dimensional curvilinear-abscissa in this
+    raises an error. If field ``'s'`` (dimensional curvilinear-abscissa in this
     context) is requested, then it is computed.
 
-    INPUTS
+    Parameters
+    ----------
 
-    TransitionLine - (zone) - structured curve with requested fields located
-        at vertex of container FlowSolution
+        TransitionLine : zone
+            structured curve with requested fields located
+            at vertex of container ``FlowSolution``
 
-    PossibleNames - (list of strings) - list of fields requested. First
-        matching item is kept.
+        PossibleNames : :py:class:`list` of :py:class:`str`
+            list of fields requested. First matching item is kept.
 
-    OUTPUTS
+    Returns
+    -------
 
-    quantity - (numpy array) - the detected numpy array
+        quantity : numpy.ndarray
+            the detected numpy array
     '''
     for QuantityName in PossibleNames:
         quantity = I.getNodeFromName(TransitionLine, QuantityName)
@@ -1058,19 +1143,22 @@ def getTransitionLines(walls):
     '''
     Given a 1-cell-depth surface defining the wall of an airfoil, produce two
     curves corresponding to the Top and Bottom sides of the airfoil and
-    adds the dimensional curvilinear-abscissa field {s}
+    adds the dimensional curvilinear-abscissa field ``{s}``
 
-    INPUT
+    Parameters
+    ----------
 
-    walls - (PyTree, base, zone, list of zones) - 1-cell-depth surface
-        defining the wall of an airfoil.
+        walls : PyTree, base, zone, list of zones
+            1-cell-depth surface defining the wall of an airfoil.
 
-    OUTPUT
+    Returns
+    -------
 
-    Top - (zone) - structured curve corresponding to the top side of the airfoil
+        Top : zone
+            structured curve corresponding to the top side of the airfoil
 
-    Bottom - (zone) - structured curve corresponding to the bottom side of the
-        airfoil
+        Bottom : zone
+            structured curve corresponding to the bottom side of the airfoil
     '''
     Top, Bottom = mergeWallsAndSplitAirfoilSides(walls)
     for line in Top, Bottom:
@@ -1084,12 +1172,20 @@ def mergeWallsAndSplitAirfoilSides(t):
     Given a 1-cell-depth surface defining the wall of an airfoil, produce two
     curves corresponding to the Top and Bottom sides of the airfoil.
 
-    OUTPUT
+    Parameters
+    ----------
 
-    Top - (zone) - structured curve corresponding to the top side of the airfoil
+        walls : PyTree, base, zone, list of zones
+            1-cell-depth surface defining the wall of an airfoil.
 
-    Bottom - (zone) - structured curve corresponding to the bottom side of the
-        airfoil
+    Returns
+    -------
+
+        Top : zone
+            structured curve corresponding to the top side of the airfoil
+
+        Bottom : zone
+            structured curve corresponding to the bottom side of the airfoil
     '''
 
     tRef = I.copyRef(t)
@@ -1113,20 +1209,29 @@ def mergeWallsAndSplitAirfoilSides(t):
 
 def getCurrentJobsStatus(machine='sator'):
     '''
-    This function is literally a wrap of command 'squeue -l -u <username>' to be
-    launched to a machine defined by the user.
+    This function is literally a wrap of command
+
+    .. code-block:: console
+
+        squeue -l -u <username>
+
+    to be launched to a machine defined by the user.
     It shows the queue job status in terminal and returns it as a string.
 
-    INPUTS
+    Parameters
+    ----------
 
-    machine - (string) - the machine (possibly remote) where the status command
-        is to be launched
+        machine : str
+            the machine (possibly remote) where the status command is to be launched
 
-    OUTPUTS
+    Returns
+    -------
 
-    Output - (list of strings) - standard output of provided command
+        Output : :py:class:`list` of :py:class:`str`
+            standard output of provided command
 
-    Error - (list of strings) - standard error of provided command
+        Error : :py:class:`list` of :py:class:`str`
+            standard error of provided command
     '''
     HostName = ServerTools.socket.gethostname()
     UserName = ServerTools.getpass.getuser()
@@ -1155,20 +1260,19 @@ def getCurrentJobsStatus(machine='sator'):
 
 def getMeshingParameters():
     '''
-    This function reads the data contained in MeshingParameters.py and
-    converts it into a dictionary meshParams.
+    This function reads the data contained in ``MeshingParameters.py`` and
+    converts it into a dictionary ``meshParams``.
 
-    If the MeshingParameters.py file is non-existent, then the following
+    If the ``MeshingParameters.py`` file is non-existent, then the following
     default dictionary is returned :
-        meshParams = {'References':{'DeltaYPlus':0.5, 'Reynolds':1e6},}
 
-    INPUTS
+    >>> meshParams = {'References':{'DeltaYPlus':0.5, 'Reynolds':1e6},}
 
-    None
+    Returns
+    -------
 
-    OUTPUTS
-
-    meshParams - (dictionary) - to be employed in buildMesh() function
+        meshParams : dict
+            to be employed in :py:func:`buildMesh` function
     '''
 
     meshParams = {'References':{'DeltaYPlus':0.5, 'Reynolds':1e6},}
@@ -1189,47 +1293,66 @@ def getMeshingParameters():
 def savePolarConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,
                            AirfoilPath):
     '''
-    Generate the file PolarConfiguration.py from provided user-data.
+    Generate the file ``PolarConfiguration.py`` from provided user-data.
 
-    INPUTS
+    Parameters
+    ----------
 
-    JobsQueues - (list of dictionaries) - Each dictionary defines the
-        configuration of a CFD run case. It has the following structure:
+        JobsQueues : :py:class:`list` of :py:class:`dict`
+            Each dictionary defines the configuration of a CFD run case.
+            Each dictionary has the following keys:
 
-        {'ID' - (integer) - the unique identification number.
+            * ID : :py:class:`int`
+                the unique identification number of the elsA run
 
-         'CASE_LABEL' - (string) - the unique identification label
+            * CASE_LABEL : :py:class:`str`
+                the unique identification label of the elsA run
 
-         'NewJob' - (boolean) - if True, then this case starts as a new job
-              and employs a uniform initialization of flowfields using
-              ReferenceState  (this is, no restart is produced employing
-              previous ID case)
+            * NewJob : bool
+                if :py:obj:`True`, then this case starts as a new job
+                and employs a uniform initialization of flowfields using
+                ``ReferenceState`` (this is, no restart is produced employing
+                previous ID case)
 
-         'JobName' - (string) - the job name employed by the case.
+            * JobName : :py:class:`str`
+                the job name employed by the case
 
-         'meshParams' - (dictionary) - as provided by getMeshingParameters()
+            * meshParams : :py:class:`dict`
+                as provided by :py:func:`getMeshingParameters`
 
-         'CoprocessOptions' - (dictionary) - attribute to pass to
-             prepareMainCGNS()
+            * CoprocessOptions : :py:class:`dict`
+                attribute to pass to :py:func:`prepareMainCGNS`
 
-         'ImposedWallFields' - (list of dictionaries) - attribute to pass to
-             prepareMainCGNS()
+            * ImposedWallFields : :py:class:`list` of :py:class:`dict`
+                attribute to pass to :py:func:`prepareMainCGNS`
 
-         'TransitionZones' - (dictionary) - attribute to pass to
-             prepareMainCGNS()
+            * TransitionZones : :py:class:`dict`
+                attribute to pass to :py:func:`prepareMainCGNS`
 
-         'elsAParams' - (dictionary) - additional options to pass to
-              prepareMainCGNS()
-        }
+            * elsAParams : :py:class:`dict` - additional options to pass to
+                  :py:func:`prepareMainCGNS`
 
-    AER - (string) - full AER code for launching simulations on SATOR
 
-    machine - (string) - name of the machine 'sator', 'spiro', 'eos'...
+        AER : str
+            full AER code for launching simulations on SATOR
 
-    DIRECTORY_WORK - (string) - the working directory at computation server.
-        It may not exist: it will be created.
+        machine : str
+            name of the machine ``'sator'``, ``'spiro'``, ``'eos'``...
 
-    AirfoilPath - (string) - location where airfoil geometry is located
+            .. warning:: only ``'sator'`` has been fully implemented
+
+        DIRECTORY_WORK : str
+            the working directory at computation server.
+            If it does not exist, then it will be automatically created.
+
+        AirfoilPath : str
+            location where airfoil geometry is located
+
+    Returns
+    -------
+
+        None : None
+            writes file ``PolarConfiguration.py``
     '''
     PolarConfigurationFilename = 'PolarConfiguration.py'
 
@@ -1270,29 +1393,28 @@ def launchPolarConfiguration(
     '''
     Migrates a set of required scripts and launch the polar job script.
 
-    INPUTS
+    Parameters
+    ----------
 
-    preprocessFile - (string) - location of the preprocess.py file required
-        just BEFORE elsA execution
+        preprocessFile : str
+            location of the ``preprocess.py`` file required just *before* elsA execution
 
-    computeFile - (string) - location of the compute.py file required to launch
-        elsA computation
+        computeFile : str
+            location of the ``compute.py`` file required to launch elsA computation
 
-    coprocessFile - (string) - coprocess.py file used DURING elsA computation
+        coprocessFile : str
+            ``coprocess.py`` file used *during* elsA computation
 
-    postprocessFile - (string) - postprocess.py file used AFTER elsA computation
+        postprocessFile : str
+            ``postprocess.py`` file used *after* elsA computation
 
-    MeshAndDispatchFile - (string) - MeshAndDispatch.py file used to produce
-        the required CGNS and setup files as well as the jobs of the polars, and
-        launch them.
+        MeshAndDispatchFile : str
+            ``MeshAndDispatch.py`` file used to produce
+            the required CGNS and setup files as well as the jobs of the polars, and
+            launch them.
 
-    routineFile - (string) - bash file used as template for each computation
-        job execution.
-
-
-    OUTPUTS
-
-    None. Only feedback through terminal messages
+        routineFile : str
+            bash file used as template for each computation job execution.
     '''
 
     NAME_DISPATCHER = 'DISPATCHER'
@@ -1374,23 +1496,24 @@ def launchPolarConfiguration(
 
 def launchDispatcherJob(DIRECTORY_DISPATCHER, JobFilename, machine='sator'):
     '''
-    Launch the dispatcher job (containing call of MeshAndDispatch.py file)
+    Launch the dispatcher job (containing call of`` MeshAndDispatch.py`` file)
 
-    INPUTS
+    Parameters
+    ----------
 
-    DIRECTORY_DISPATCHER - (string) - path where the DISPATCHER directory is
-        located (contains MeshAndDispatch.py and it is the location where
-        meshes are produced)
+        DIRECTORY_DISPATCHER : str
+            path where the ``DISPATCHER`` directory is
+            located (contains ``MeshAndDispatch.py`` and it is the location where
+            meshes are produced)
 
-    JobFilename - (string) - Name of the job that executes MeshAndDispatch.py.
-        In this workflow, it is named 'dispatcherJob.sh'
+        JobFilename : str
+            Name of the job that executes ``MeshAndDispatch.py``.
+            In this workflow, it is named ``dispatcherJob.sh``
 
-    machine - (string) - The name of the employed machine where computations are
-        launched
+        machine : str
+            The name of the employed machine where computations are
+            launched
 
-    OUTPUTS
-
-    None. Only feedback through terminal messages
     '''
     HostName = ServerTools.socket.gethostname()
     UserName = ServerTools.getpass.getuser()
@@ -1421,23 +1544,24 @@ def launchDispatcherJob(DIRECTORY_DISPATCHER, JobFilename, machine='sator'):
 def launchComputationJob(case, config, JobFilename='job.sh',
                          submitReserveJob=False):
     '''
-    This function is designed to be called from MeshAndDispatch.py file
+    This function is designed to be called from ``MeshAndDispatch.py`` file
     It launches the computation job.
 
-    INPUTS
+    Parameters
+    ----------
 
-    case - (dictionary) - JobsQueues item
+        case : dict
+            current item of **JobsQueues** list
 
-    config - (module) - import of PolarConfiguration
+        config : module
+            import of ``PolarConfiguration.py``
 
-    JobFilename - (string) - name of the job file
+        JobFilename : str
+            name of the job file
 
-    submitReserveJob - (boolean) - If True, sends the job twice (one waits
-        in reserve)
+        submitReserveJob : bool
+            If :py:obj:`True`, sends the job twice (one awaits in reserve)
 
-    OUTPUTS
-
-    None. Only feedback through terminal messages
     '''
     HostName = ServerTools.socket.gethostname()
     UserName = ServerTools.getpass.getuser()
@@ -1497,18 +1621,25 @@ def buildJob(case, config, NProc=28):
     '''
     Produce a computation job file.
 
-    INPUTS
+    Parameters
+    ----------
 
-    case - (dictionary) - JobsQueues item
+        case : dict
+            current item of **JobsQueues** list
 
-    config - (module) - import of PolarConfiguration
+        config : module
+            import of ``PolarConfiguration.py``
 
-    NProc - (integer) - number of procs of the job (must be coherent
-        with the main.cgns distribution)
+        NProc : int
+            number of procs of the job
 
-    OUTPUTS
+            .. danger:: must be coherent with the ``main.cgns`` distribution
 
-    Write of file job.sh
+    Returns
+    -------
+
+        None : None
+            Write file ``job.sh``
     '''
     JobFile = 'job.sh'
 
@@ -1593,14 +1724,16 @@ def buildJob(case, config, NProc=28):
 
 def putFilesInComputationDirectory(case):
     '''
-    This function is designed to be called from MeshAndDispatch.py.
+    This function is designed to be called from ``MeshAndDispatch.py``.
 
-    Send required files from DISPATCH directory towards relevant computation
+    Send required files from ``DISPATCH`` directory towards relevant computation
     directory.
 
-    INPUTS
+    Parameters
+    ----------
 
-    case - (dictionary) - JobsQueues item
+        case : dict
+            current item of **JobsQueues** list
     '''
 
     Items2Copy = ('preprocess.py','compute.py','coprocess.py',
@@ -1622,8 +1755,8 @@ def putFilesInComputationDirectory(case):
 
 def getAirfoilCurveFromSurfacesFile(filepath):
     '''
-    Wrap of getAirfoilCurveFromSurfaces() function, but using a filepath
-    (tyically, surfaces.cgns)
+    Wrap of :py:func:`getAirfoilCurveFromSurfaces` function, but using a filepath
+    (tyically, ``surfaces.cgns``) instead using the tree pointer.
     '''
 
     t = C.convertFile2PyTree(filepath)
@@ -1632,15 +1765,19 @@ def getAirfoilCurveFromSurfacesFile(filepath):
 
 def getAirfoilCurveFromSurfaces(t):
     '''
-    Extract the airfoil contour from a surfaces.cgns tree
+    Extract the airfoil contour from a ``surfaces.cgns`` tree
 
-    INPUT
+    Parameters
+    ----------
 
-    t - (PyTree) - tree containing the flowfield
+        t : PyTree
+            tree containing flow fields
 
-    OUTPUT
+    Returns
+    -------
 
-    wall - (zone) - surface of the airfoil's contour, forced to be at z=0
+        wall : zone
+            surface of the airfoil's contour, forced to be at :math:`z=0`
     '''
 
     # missing at some zones TODO: make elsA ticket
@@ -1676,17 +1813,22 @@ def getBoundaryLayerEdgesFromAirfoilCurve(wall,
     Obtain a set of zones representing the boundary-layer characteristic
     thicknesses provided by user.
 
-    INPUTS
+    Parameters
+    ----------
 
-    wall - (zone) - wall surface containing normals fields {nx} {ny} {nz}
+        wall : zone
+            wall surface containing normals fields ``nx`` ``ny`` ``nz``
 
-    Thickness2Plot - (list of strings) - names of the characteristic
-        thicknesses. Each one must be contained in <wall>
+        Thickness2Plot : :py:class:`list` of :py:class:`str`
+            names of the characteristic thicknesses. Each one must be contained
+            in **wall**
 
-    OUTPUTS
+    Returns
+    -------
 
-    surfaces - (list of zones) - the surfaces whose coordinates correspond to
-        the requested characteristic thicknesses
+        surfaces : list
+            the surfaces (structured zones) whose coordinates correspond to the
+            requested characteristic thicknesses
     '''
     z = I.copyRef(wall)
     C.center2Node__(z,'centers:nx',cellNType=0)
@@ -1711,26 +1853,29 @@ def getBoundaryLayerEdgesFromAirfoilCurve(wall,
 def addPressureAndFrictionCoefficientsToAirfoilCurve(wall, setupfilepath=None,
         PressureDynamic=None, PressureStatic=None):
     '''
-    Add {Cp} and {Cf} fields to the airfoil's surface.
+    Add ``Cp`` and ``Cf`` fields to the airfoil's surface.
 
-    NOTE: setupfilepath takes priority over explicitly provided values
+    .. note:: information contained in **setupfilepath** takes priority over
+        explicitly provided values (**PressureDynamic** and **PressureStatic**)
 
-    INPUTS
+    Parameters
+    ----------
 
-    wall - (zone) - as provided by getAirfoilCurveFromSurfaces(). It must
-        contain fields {Pressure} {SkinFrictionX} {SkinFrictionY}
-        {SkinFrictionZ} {nx} {ny} {nz} at FlowSolution#Centers.
+        wall : zone
+            as provided by :py:func:`getAirfoilCurveFromSurfaces` . It must
+            contain fields ``Pressure`` ``SkinFrictionX`` ``SkinFrictionY``
+            ``SkinFrictionZ`` ``nx`` ``ny`` ``nz`` at ``FlowSolution#Centers``.
 
-    setupfilepath - (string) - setup.py file containing case information.
-        (most prioritary)
+            .. note:: zone **wall** is modified
 
-    PressureDynamic - (float or None) - Dynamic pressure for normaization
+        setupfilepath : str
+            ``setup.py`` file containing case information. (Most prioritary)
 
-    PressureStatic - (float or None) - Static pressure for normaization
+        PressureDynamic : float
+            Dynamic pressure for normaization
 
-    OUTPUTS
-
-    None. <wall> is modified
+        PressureStatic : float
+            Static pressure for normaization
 
     '''
 
@@ -1757,19 +1902,23 @@ def addPressureAndFrictionCoefficientsToAirfoilCurve(wall, setupfilepath=None,
 def getPolarConfiguration(DIRECTORY_WORK, useLocalConfig=False):
     '''
     Get a possibly remotely located PolarConfiguration.py file and
-    load it as a module object <config>. Function returns <config>
+    load it as a module object *config*.
 
-    INPUT
+    Parameters
+    ----------
 
-    DIRECTORY_WORK - (string) - directory where PolarConfiguration.py file
-        is located
+        DIRECTORY_WORK : str
+            directory where ``PolarConfiguration.py`` file is located
 
-    useLocalConfig - (boolean) - if True, use the local PolarConfiguration.py
-        file instead of retreiving it from DIRECTORY_WORK
+        useLocalConfig : bool
+            if :py:obj:`True`, use the local ``PolarConfiguration.py``
+            file instead of retreiving it from **DIRECTORY_WORK**
 
-    OUTPUT
+    Returns
+    -------
 
-    config - (module) - PolarConfiguration.py data as a mobule object
+        config : module
+            ``PolarConfiguration.py`` data as a mobule object
     '''
     PolarConfigurationFilename = 'PolarConfiguration.py'
     if not useLocalConfig:
@@ -1785,21 +1934,27 @@ def getPolarConfiguration(DIRECTORY_WORK, useLocalConfig=False):
 def getRangesOfStructuredPolar(config):
     '''
     Compute Polar ranges of AngleOfAttack, Mach and Reynolds following a
-    Struct_AoA_Mach convention using as input the <config>, which can be
-    obtained using getPolarConfiguration() function.
+    Struct_AoA_Mach convention using as input the **config**, which can be
+    obtained using :py:func:`getPolarConfiguration` function.
 
-    INPUTS
+    Parameters
+    ----------
 
-    config - (module) - PolarConfiguration.py data as a mobule object as
-        obtained from getPolarConfiguration()
+        config : module
+            ``PolarConfiguration.py`` data as a mobule object as
+            returned by function :py:func:`getPolarConfiguration`
 
-    OUTPUTS
+    Returns
+    -------
 
-    AoAs - (numpy 1D array) - list of considered angles-of-attack
+        AoAs : numpy.ndarray
+            1D vector of considered angles-of-attack
 
-    Mach - (numpy 1D array) - list of considered Mach numbers
+        Mach : numpy.ndarray
+            1D vector of considered Mach numbers
 
-    Reynolds - (numpy 1D array) - list of considered Reynolds numbers
+        Reynolds : numpy.ndarray
+            1D vector of considered Reynolds numbers
     '''
     AoAs = np.array(sorted(list(set([case['elsAParams']['AngleOfAttackDeg'] for case in config.JobsQueues]))))
 
@@ -1818,20 +1973,25 @@ def getRangesOfStructuredPolar(config):
 
 def getReynoldsFromCaseLabel(config, CASE_LABEL):
     '''
-    Determine the employed Reynolds number of a case identified by
-    a given CASE_LABEL
+    Determine the employed Reynolds number :math:`Re_c` of a case identified by
+    a given **CASE_LABEL**
 
-    INPUTS
+    Parameters
+    ----------
 
-    config - (module) - PolarConfiguration.py data as a mobule object as
-        obtained from getPolarConfiguration()
+        config : module
+            ``PolarConfiguration.py`` data as a mobule object as
+            returned by function :py:func:`getPolarConfiguration`
 
-    CASE_LABEL - (string) - unique identifying label of the requested case.
-        Can be determined by getCaseLabelFromAngleOfAttackAndMach()
+        CASE_LABEL : str
+            unique identifying label of the requested case.
+            Can be determined by :py:func:`getCaseLabelFromAngleOfAttackAndMach`
 
-    OUTPUTS
+    Returns
+    -------
 
-    Reynolds - (float) - the employed Reynolds number
+        Reynolds : float
+            the employed Reynolds number :math:`Re_c`
     '''
     for case in config.JobsQueues:
         if case['CASE_LABEL'] == CASE_LABEL:
@@ -1842,21 +2002,27 @@ def getReynoldsFromCaseLabel(config, CASE_LABEL):
 
 def getCaseLabelFromAngleOfAttackAndMach(config, AoA, Mach):
     '''
-    Get the CASE_LABEL corresponding to the CFD run of from given AoA and Mach
-    returns a string of the CASE_LABEL if found. Otherwise, rise an exception.
+    Get the **CASE_LABEL** corresponding to the CFD run of from given **AoA**
+    and **Mach**.
 
-    INPUTS
+    Parameters
+    ----------
 
-    config - (module) - PolarConfiguration.py data as a mobule object as
-        obtained from getPolarConfiguration()
+        config : module
+            ``PolarConfiguration.py`` data as a mobule object as
+            returned by function :py:func:`getPolarConfiguration`
 
-    AoA - (float) - requested angle of attack
+        AoA : float
+            requested angle of attack
 
-    Mach - (float) - requested (virtual) Mach number
+        Mach : float
+            requested (virtual) Mach number
 
-    OUTPUTS
+    Returns
+    -------
 
-    CASE_LABEL - (string) - unique identifying label of the requested case
+        CASE_LABEL : str
+            unique identifying label of the requested case
     '''
     for case in config.JobsQueues:
         if np.isclose(case['elsAParams']['MachPolar'], Mach) and \
@@ -1871,18 +2037,23 @@ def statusOfCase(config, CASE_LABEL):
     '''
     Get the status of a possibly remote CFD case.
 
-    INPUTS
+    Parameters
+    ----------
 
-    config - (module) - PolarConfiguration.py data as a mobule object as
-        obtained from getPolarConfiguration()
+        config : module
+            ``PolarConfiguration.py`` data as a mobule object as
+            returned by function :py:func:`getPolarConfiguration`
 
-    CASE_LABEL - (string) - unique identifying label of the requested case.
-        Can be determined by getCaseLabelFromAngleOfAttackAndMach()
+        CASE_LABEL : str
+            unique identifying label of the requested case
 
-    OUTPUTS
+    Returns
+    -------
 
-    status - (string) - can be one of:
-            'COMPLETED'  'FAILED'  'TIMEOUT'  'RUNNING'  'PENDING'
+        status : str
+            can be one of:
+            ``'COMPLETED'``  ``'FAILED'``  ``'TIMEOUT'``  ``'RUNNING'``
+            ``'PENDING'``
     '''
     JobTag = '_'.join(CASE_LABEL.split('_')[1:])
     DIRECTORY_CASE = os.path.join(config.DIRECTORY_WORK, JobTag, CASE_LABEL)
@@ -1931,17 +2102,16 @@ def printConfigurationStatus(DIRECTORY_WORK, useLocalConfig=False):
     '''
     Print the current status of a Polars computation.
 
-    INPUTS
+    Parameters
+    ----------
 
-    DIRECTORY_WORK - (string) - directory where PolarConfiguration.py file
-        is located
+        DIRECTORY_WORK : str
+            directory where ``PolarConfiguration.py`` file is located
 
-    useLocalConfig - (boolean) - if True, use the local PolarConfiguration.py
-        file instead of retreiving it from DIRECTORY_WORK
+        useLocalConfig : bool
+            if :py:obj:`True`, use the local ``PolarConfiguration.py``
+            file instead of retreiving it from **DIRECTORY_WORK**
 
-    OUTPUTS
-
-    None. Only feedback through terminal messages
     '''
     config = getPolarConfiguration(DIRECTORY_WORK, useLocalConfig)
     AoA, Mach, Reynolds = getRangesOfStructuredPolar(config)
@@ -1996,36 +2166,43 @@ def buildPolar(DIRECTORY_WORK, PolarName='Polar', useLocalConfig=False,
                         -0.51722, -0.53691,  -0.5463, -0.46468, -0.24998,0],
      ):
     '''
-    Constructs a PyZonePolar (that can be saved to a file Polars.cgns)
-    containing the information of the polars.
+    Constructs a **PyZonePolar** (that can be saved to a file ``Polars.cgns``)
+    containing the information of the polars predictions.
 
-    INPUTS
+    Parameters
+    ----------
 
-    DIRECTORY_WORK - (string) - directory where PolarConfiguration.py file
-        is located
+        DIRECTORY_WORK : str
+            directory where ``PolarConfiguration.py`` file is located
 
-    PolarName - (string) - name to provide to the new PyZonePolar
+        PolarName : str
+            name to provide to the new **PyZonePolar**
 
-    useLocalConfig - (boolean) - if True, use the local PolarConfiguration.py
-        file instead of retreiving it from DIRECTORY_WORK
+        useLocalConfig : bool
+            if :py:obj:`True`, use the local ``PolarConfiguration.py``
+            file instead of retreiving it from **DIRECTORY_WORK**
 
-    BigAngleOfAttackAoA - (lisf of floats) - monotonically increasing
-        range of big angles of attack [-180 deg to +180 deg]
+        BigAngleOfAttackAoA : :py:class:`lisf` of :py:class:`float`
+            monotonically increasing range of big angles of attack
+            :math:`\in [-180, 180]` degrees.
 
-    BigAngleOfAttackCl - (lisf of floats) - corresponding value of lift
-        coefficient for big angles of attack
+        BigAngleOfAttackCl : :py:class:`lisf` of :py:class:`float`
+            corresponding value of lift coefficient for big angles of attack
 
-    BigAngleOfAttackCd - (lisf of floats) - corresponding value of drag
-        coefficient for big angles of attack
+        BigAngleOfAttackCd : :py:class:`lisf` of :py:class:`float`
+            corresponding value of drag coefficient for big angles of attack
 
-    BigAngleOfAttackCm - (lisf of floats) - corresponding value of pitch
-        coefficient for big angles of attack
+        BigAngleOfAttackCm : :py:class:`lisf` of :py:class:`float`
+            corresponding value of pitch coefficient for big angles of attack
 
-    OUTPUTS
+    Returns
+    -------
 
-    PolarsDict - (dictionary) - contains the polars results
+        PolarsDict : :py:class:`dict`
+            contains the polars results
 
-    PyZonePolar - (zone) - special zone containing polars results
+        PyZonePolar : zone
+            special CGNS zone containing polars results
     '''
 
     config = getPolarConfiguration(DIRECTORY_WORK, useLocalConfig)
@@ -2177,25 +2354,34 @@ def buildPolar(DIRECTORY_WORK, PolarName='Polar', useLocalConfig=False,
 
 def getCaseLoads(config, CASE_LABEL):
     '''
-    Repatriate the remote OUTPUT/loads.cgns file and return its contents in a
+    Repatriate the remote ``OUTPUT/loads.cgns`` file and return its contents in a
     form of dictionary like :
+
+    ::
+
             {'CL':float,
              'CD':float,
                 ...    }
 
-    NOTE that we only keep the last iteration of each integral value
+    .. note::  we only keep the last iteration of each integral value contained
+        in ``loads.cgns``
 
-    INPUTS
+    Parameters
+    ----------
 
-    config - (module) - PolarConfiguration.py data as a mobule object as
-        obtained from getPolarConfiguration()
+        config : module
+            ``PolarConfiguration.py`` data as a mobule object as
+            obtained from :py:func:`getPolarConfiguration`
 
-    CASE_LABEL - (string) - unique identifying label of the requested case.
-        Can be determined by getCaseLabelFromAngleOfAttackAndMach()
+        CASE_LABEL : str
+            unique identifying label of the requested case.
+            Can be determined by :py:func:`getCaseLabelFromAngleOfAttackAndMach`
 
-    OUTPUTS
+    Returns
+    -------
 
-    LoadsDict - (dictionary) - containts the airfoil loads
+        LoadsDict : dict
+            containts the airfoil loads
     '''
     FILE_LOADS = 'loads.cgns'
     JobTag = '_'.join(CASE_LABEL.split('_')[1:])
@@ -2223,18 +2409,22 @@ def getCaseLoads(config, CASE_LABEL):
 
 def convertSurfaces2OrientedAirfoilCurveAtVertex(SurfacesTree):
     '''
-    Convert a tree (loaded from e.g. a surfaces.cgns file) containing airfoil
+    Convert a tree (loaded from e.g. a ``surfaces.cgns`` file) containing airfoil
     walls into a merged oriented curve with flow solutions at vertex.
-    The resulting wall can be then employed in fuctions such as
-    getTransitionLines().
+    The resulting wall can be then employed in funtions such as
+    :py:func:`getTransitionLines`
 
-    INPUTS
+    Parameters
+    ----------
 
-    SurfacesTree - (PyTree) - a tree as got from reading surfaces.cgns
+        SurfacesTree : PyTree
+            a tree as got from reading ``surfaces.cgns``
 
-    OUTPUTS
+    Returns
+    -------
 
-    wall - (zone) - curve as a structured zone.
+        wall : zone
+            curve as a structured zone
     '''
 
     wall = getAirfoilCurveFromSurfaces(SurfacesTree)
@@ -2251,25 +2441,28 @@ def convertSurfaces2OrientedAirfoilCurveAtVertex(SurfacesTree):
 def addRelevantWallFieldsFromElsAFieldsAtVertex(wall, PressureDynamic,
                                                 PressureStatic):
     '''
-    Add 'Cp','Cf','ReynoldsTheta' fields to an airfoil's wall
+    Add ``Cp``, ``Cf``, ``ReynoldsTheta`` fields to an airfoil's wall
 
-    See also similar function addPressureAndFrictionCoefficientsToAirfoilCurve()
+    Parameters
+    ----------
 
-    INPUTS
+        wall : zone
+            airfoil curve  containing fields:
+            ``Pressure``,
+            ``SkinFrictionX``, ``SkinFrictionY``, ``SkinFrictionZ``,
+            ``nx``, ``ny``, ``nz``,
+            ``theta11``, ``runit``
 
-    wall - (zone) - airfoil curve  containing fields:
-        'Pressure',
-        'SkinFrictionX', 'SkinFrictionY', 'SkinFrictionZ',
-        'nx','ny','nz',
-        'theta11','runit'
+        PressureDynamic : float
+            dynamic pressure for normalization
 
-    PressureDynamic - (float) - dynamic pressure for normalization
+        PressureStatic : float
+            static pressure for normalization
 
-    PressureStatic - (float) - static pressure for normalization
+    See also
+    --------
+    addPressureAndFrictionCoefficientsToAirfoilCurve
 
-    OUTPUT
-
-    None. <wall> is modified
     '''
 
     Cp, Cf, ReT = J.invokeFields(wall,['Cp','Cf','ReynoldsTheta'])
@@ -2285,27 +2478,35 @@ def addRelevantWallFieldsFromElsAFieldsAtVertex(wall, PressureDynamic,
 
 def getCaseDistributions(config, CASE_LABEL):
     '''
-    Repatriate and process the remote OUTPUT/surface.cgns file and return its
-    contents in a form of dictionary.
+    Repatriate and process the remote ``OUTPUT/surface.cgns`` file and return its
+    contents in a form of a Python dictionary.
 
-    NOTE that we only keep the last iteration of each integral value
+    Parameters
+    ----------
 
-    INPUTS
+        config : module
+            ``PolarConfiguration.py`` data as a mobule object as
+            obtained from :py:func:`getPolarConfiguration`
 
-    config - (module) - PolarConfiguration.py data as a mobule object as
-        obtained from getPolarConfiguration()
+        CASE_LABEL : str
+            unique identifying label of the requested case.
+            Can be determined by :py:func:`getCaseLabelFromAngleOfAttackAndMach`
 
-    CASE_LABEL - (string) - unique identifying label of the requested case.
-        Can be determined by getCaseLabelFromAngleOfAttackAndMach()
+    Returns
+    ------
 
-    OUTPUTS
+        SurfDict : dict
+            contains foilwise distributions like this,
 
-    SurfDict - (dictionary) - contains foilwise distributions like this :
-            {'Cf':1D array,
-             'Cp':1D array,
-             'CoordinateX', 1D array,
-             'CoordinateY', 1D array,
-                ...    }
+            ::
+
+                {'Cf':1D array,
+                 'Cp':1D array,
+                 'CoordinateX', 1D array,
+                 'CoordinateY', 1D array,
+                    ...    }
+
+
     '''
     FILE_SURFACES = 'surfaces.cgns'
     FILE_SETUP = 'setup.py'
@@ -2341,15 +2542,18 @@ def getCaseDistributions(config, CASE_LABEL):
 
 def getCaseFields(config, CASE_LABEL):
     '''
-    Repatriate remote OUTPUT/fields.cgns file.
+    Repatriate remote ``OUTPUT/fields.cgns`` file.
 
-    INPUTS
+    Parameters
+    ----------
 
-    config - (module) - PolarConfiguration.py data as a mobule object as
-        obtained from getPolarConfiguration()
+        config : module
+            ``PolarConfiguration.py`` data as a mobule object as
+            obtained from :py:func:`getPolarConfiguration`
 
-    CASE_LABEL - (string) - unique identifying label of the requested case.
-        Can be determined by getCaseLabelFromAngleOfAttackAndMach()
+        CASE_LABEL : str
+            unique identifying label of the requested case.
+            Can be determined by :py:func:`getCaseLabelFromAngleOfAttackAndMach`
     '''
     FILE_FIELDS = 'fields.cgns'
     JobTag = '_'.join(CASE_LABEL.split('_')[1:])
@@ -2372,27 +2576,40 @@ def compareAgainstXFoil(AirfoilKeyword, config, CASE_LABEL, DistributedLoads,
     '''
     Compare a CFD prediction with a XFOIL prediction through a plot.
 
-    INPUTS
+    Parameters
+    ----------
 
-    AirfoilKeyword - (string) - keyword of airfoil (*.dat file or naca *)
+        AirfoilKeyword : str
+            keyword of airfoil (``*.dat`` file or ``naca XXXX``)
 
-    config - (module) - PolarConfiguration.py data as a mobule object as
-        obtained from getPolarConfiguration()
+        config : module
+            ``PolarConfiguration.py`` data as a mobule object as
+            obtained from :py:func:`getPolarConfiguration`
 
-    CASE_LABEL - (string) - unique identifying label of the requested case.
-        Can be determined by getCaseLabelFromAngleOfAttackAndMach()
+        CASE_LABEL : str
+            unique identifying label of the requested case.
+            Can be determined by :py:func:`getCaseLabelFromAngleOfAttackAndMach`
 
-    DistributedLoads - (dictionary) - as result of getCaseDistributions()
+        DistributedLoads : dict
+            as result of :py:func:`getCaseDistributions`
 
-    XFoilOptions - (dictionary) - literally, parameters to introduce to
-        XFoil.computePolars() function
+        XFoilOptions : dict
+            literally, optional parameters to introduce to
+            :py:func:`MOLA.XFoil.computePolars` function
 
-    Field2Compare - (string) - field to compare between CFD and XFOIL.
-        Possible values: 'Cp' or 'Cf'
+        Field2Compare : str
+            field to compare between CFD and XFOIL.
+            Possible values: ``'Cp'`` or ``'Cf'``
 
-    OUTPUT
+    Returns
+    -------
 
-    None. A matplotlib figure is shown.
+        None : None
+            a matplotlib figure is shown
+
+            .. warning:: if this function is employed in a server without
+                graphic output, this may cause a segmentation fault. Please
+                be sure to enable graphics
     '''
 
     if Field2Compare == 'Cp':
@@ -2446,25 +2663,31 @@ def compareAgainstXFoil(AirfoilKeyword, config, CASE_LABEL, DistributedLoads,
 def correctPolar(t, useBigRangeValuesIf_StdCLisHigherThan=0.0005,
                     Fields2Correct=['Cl','Cd','Cm']):
     '''
-    Given a PyTree containing PyZonePolars, this function replaces
-    integral loads whose lift coefficient standard-deviation {std-CL} are higher
-    than a user-provided threshold with a linear interpolation of
-    BigAngleOfAttack data.
+    Given a PyTree containing **PyZonePolars**, this function replaces
+    integral loads whose lift coefficient standard-deviation ``std-CL``
+    ( :math:`\sigma(c_L)` ) are higher
+    than a user-provided threshold, with a linear interpolation of
+    *BigAngleOfAttack* data.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree) - tree containing PyZonePolars. Tree is modified.
+        t : PyTree
+            tree containing **PyZonePolars**
 
-    useBigRangeValuesIf_StdCLisHigherThan - (float) - standard deviation
-        threhold of lift coefficient {std-CL} from which fields requested by
-        user are to be replaced
+            .. note:: tree **t** is modified
 
-    Fields2Correct - (list of strings) - fields to correct. Any field
-        contained in FlowSolution of input <t> is acceptable.
+        useBigRangeValuesIf_StdCLisHigherThan : float
+            standard deviation
+            threhold of lift coefficient ``std-CL`` ( :math:`\sigma(c_L)` )
+            from which fields requested by user are to be replaced (associated
+            runs are considered poorly converged, so to be replaced by interpolated
+            data)
 
-    OUPUTS
+        Fields2Correct : :py:class:`list` of :py:class:`str`
+            fields to correct. Any field
+            contained in ``FlowSolution`` of input **t** is acceptable.
 
-    None. <t> is modified
     '''
     for zone in I.getZones(t):
         stdCL, AoA = J.getVars(zone, ['std-CL','AngleOfAttack'])

@@ -15,9 +15,10 @@ import os
 import numpy as np
 
 '''
-NOTES:
+USEFUL NOTES:
 
-Command lines for animations :
+Command lines for animations:
+
 
 # By Ronan
 mencoder  mf://@'+str(Imglist)  -mf fps=24  -ovc x264 -x264encopts subq=6:partitions=all:8x8dct:me=umh:frameref=5:bframes=3:b_pyramid=normal:weight_b -o fileout.avi
@@ -32,6 +33,7 @@ os.system('convert   -delay %d   -loop 0 %s  %s'%(delay,FrameWildCard,OutputFile
 # Using ffmpeg
 os.system('ffmpeg -i Frame%06d.png -vf palettegen palette.png -y') # make palette
 os.system('ffmpeg -framerate 25 -i Frame%06d.png -i palette.png -lavfi paletteuse Animation.gif -y') # make animation
+
 '''
 
 
@@ -40,24 +42,33 @@ def xyz2Pixel(points,win,posCam,posEye,dirCam,viewAngle):
     Returns the two-component image-pixel positions of a set of points
     located in the 3D world of CPlot.
 
-    INPUTS
+    Parameters
+    ----------
 
-    points (list of 3-float tuples) - x,y,z coordinates of point in 3D world
+        points : :py:class:`list` of 3 :py:class:`float` :py:class:`tuple`
+            :math:`(x,y,z)` coordinates of points in 3D world
 
-    win (2-int tuple) - Window resolution in pixels
+        win : :py:class:`tuple` of 2 :py:class:`int`
+            Window resolution in pixels
 
-    posCam (3-float tuple) - position of Camera (see CPlot doc)
+        posCam : :py:class:`tuple` of 3 :py:class:`float`
+            position of Camera (see CPlot doc)
 
-    posEye (3-float tuple) - position of eye (see CPlot doc)
+        posEye : :py:class:`tuple` of 3 :py:class:`float`
+            position of eye (see CPlot doc)
 
-    dirCam (3-float tuple) - direction of Camera (see CPlot doc)
+        dirCam : :py:class:`tuple` of 3 :py:class:`float`
+            direction of Camera (see CPlot doc)
 
-    viewAngle (float) - angle of Camera (see CPlot doc)
+        viewAngle : float
+            angle of Camera (see CPlot doc)
 
-    OUTPUTS
+    Returns
+    -------
 
-    width, height - (2-float tuple) - width and height in pixels using
-        the convention of origin located at upper left side of image
+        width, height : :py:class:`tuple` of 2 :py:class:`float`
+            width and height in pixels using the convention of origin located at
+            upper left side of image
 
     '''
 
@@ -130,22 +141,26 @@ def makeAnimation(Frames, WidthPixels=700, FrameWildCard='Frame*', delay=10,
     '''
     Make an animated gif file using a set of previously saved frames.
 
-    INPUTS
-    Frames - (list of strings) - List of paths where frames are located
+    Parameters
+    ----------
 
-    WidthPixels - (int) - Width pixels of final movie (keeping aspect ratio)
+        Frames : :py:class:`list` of :py:class:`str`
+            List of paths where frames are located
 
-    FrameWildCard (string) - Wildcard used for detecting the frame files
+        WidthPixels : int
+            Width pixels of final movie (keeping aspect ratio)
 
-    delay (float) delay between frames
+        FrameWildCard : str
+            Wildcard used for detecting the frame files
 
-    OutputFilename (string) - final file produced by this function
+        delay : float
+            delay between frames
 
-    RemoveFramesAtEnd (boolean) - if True, systematically remove Frames
-        after movie creation
+        OutputFilename : str
+            final file produced by this function
 
-    OUTPUTS
-    None
+        RemoveFramesAtEnd : bool
+            if :py:obj:`True`, systematically remove Frames after movie creation
     '''
     for f in Frames:
         os.system('convert "%s" -resize %dx%d -quality 100 "%s"'%(f,WidthPixels,WidthPixels,f))
