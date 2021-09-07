@@ -1,3 +1,5 @@
+* Coprocess: rm GridCoordinates_t avant moveCoordsFromEndOfRunToGridCoords
+
 * Preprocess and eventually Coprocess:
   add :
 
