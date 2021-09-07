@@ -42,7 +42,8 @@ BodyForceComputeFrequency = CO.getOption('BodyForceComputeFrequency', default=50
 BodyForceInitialIteration = CO.getOption('BodyForceInitialIteration', default=1000)
 
 
-DesiredStatistics=['std-CL', 'std-CD']
+DesiredStatistics = ['std-{}'.format(var) for var in ['MassflowIn', 'MassflowOut',
+    'PressureStagnationRatio', 'TemperatureStagnationRatio', 'EfficiencyIsentropic']]
 
 
 # BEWARE! state 16 => triggers *before* iteration, which means
@@ -125,7 +126,8 @@ if ENTER_COUPLING:
                                      FluxThreshold=MaxConvergedCLStd)
 
     if SAVE_SURFACES:
-        CO.saveSurfaces(toWithSkeleton, loads, tagWithIteration=False, onlyWalls=False)
+        CO.saveSurfaces(toWithSkeleton, loads, DesiredStatistics,
+            tagWithIteration=False, onlyWalls=False)
 
 
     if SAVE_BODYFORCE:
