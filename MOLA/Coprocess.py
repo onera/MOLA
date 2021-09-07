@@ -158,7 +158,7 @@ def saveAll(CouplingTreeWithSkeleton, CouplingTree,
 
     saveDistributedPyTree(CouplingTreeWithSkeleton, FILE_FIELDS)
 
-    saveSurfaces(CouplingTreeWithSkeleton, tagWithIteration=True)
+    saveSurfaces(CouplingTreeWithSkeleton, loads, DesiredStatistics, tagWithIteration=True)
 
     updateAndSaveLoads(CouplingTree, loads, DesiredStatistics,
                        tagWithIteration=True)
@@ -180,15 +180,15 @@ def saveAll(CouplingTreeWithSkeleton, CouplingTree,
 
 
 
-def saveSurfaces(to, loads, DesiredStatistics=None, tagWithIteration=False,
+def saveSurfaces(to, loads, DesiredStatistics, tagWithIteration=False,
                 onlyWalls=True):
     '''
     Save the ``OUTPUT/surfaces.cgns`` file.
 
     Extract:
 
-    *. Boundary Conditions
-    *. IsoSurfaces if the entry PostParameters is present in setup.py, else
+    * Boundary Conditions
+    * IsoSurfaces if the entry PostParameters is present in setup.py, else
        do nothing
 
     For a turbomachinery case, monitor the performance of each row and save the
@@ -200,7 +200,7 @@ def saveSurfaces(to, loads, DesiredStatistics=None, tagWithIteration=False,
         to : PyTree
             Coupling tree as obtained from :py:func:`adaptEndOfRun`
 
-        loads : dict
+        loads : :py:class:`dict`
             Contains integral data in the following form:
 
             >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
@@ -209,11 +209,11 @@ def saveSurfaces(to, loads, DesiredStatistics=None, tagWithIteration=False,
             Here, the user requests the additional statistics to be computed.
             See documentation of function updateAndSaveLoads for more details.
 
-        tagWithIteration : bool
+        tagWithIteration : :py:class:`bool`
             if ``True``, adds a suffix ``_AfterIter<iteration>``
             to the saved filename (creates a copy)
 
-        onlyWalls : bool
+        onlyWalls : :py:class:`bool`
             if ``True``, only BC defined with ``BCWall*`` type are extracted.
             Otherwise, all BC (but not GridConnectivity) are extracted
     '''
@@ -241,10 +241,6 @@ def saveSurfaces(to, loads, DesiredStatistics=None, tagWithIteration=False,
     if tagWithIteration and rank == 0: copyOutputFiles(FILE_SURFACES)
 
     if 'TurboConfiguration' in dir(setup):
-        if DesiredStatistics is None:
-            l = ['MassflowIn', 'MassflowOut', 'PressureStagnationRatio', 'TemperatureStagnationRatio', 'EfficiencyIsentropic']
-            DesiredStatistics  = ['avg-{}'.format(var) for var in l]
-            DesiredStatistics += ['std-{}'.format(var) for var in l]
         monitorTurboPerformance(surfaces, loads, DesiredStatistics,
                                 tagWithIteration=tagWithIteration)
 
@@ -254,14 +250,14 @@ def extractIsoSurfaces(to):
     Extract IsoSurfaces in the PyTree <to>. The parametrization is done with the
     entry PostParameters in setup.py, that must contain keys:
 
-    *. IsoSurfaces: a dictionary whose keys are variable names and values are
+    * ``IsoSurfaces``: a dictionary whose keys are variable names and values are
         lists of associated levels.
-    *. Variables: a list of strings to compute extra variables on the extracted
+    * ``Variables``: a list of strings to compute extra variables on the extracted
         surfaces.
 
-    .. note:: If PostParameters is not present in setup.py, or if both IsoSurfaces
-    and Variables are not present in PostParameters, then the function return an
-    empty PyTree.
+    .. note:: If ``PostParameters`` is not present in ``setup.py``, or if both
+    ``IsoSurfaces`` and ``Variables`` are not present in ``PostParameters``,
+    then the function return an empty PyTree.
 
     Parameters
     ----------
@@ -273,8 +269,8 @@ def extractIsoSurfaces(to):
     -------
 
         surfaces : PyTree
-            PyTree with extracted IsoSurfaces. There is one Base for each, with
-            the following naming convention : ISO_<Variable>_<Value>
+            PyTree with extracted ``IsoSurfaces``. There is one base for each, with
+            the following naming convention : ``ISO_<Variable>_<Value>``
     '''
     surfaces = I.newCGNSTree()
     if not 'PostParameters' in dir(setup):
@@ -303,7 +299,7 @@ def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[],
     Parameters
     ----------
 
-        loads : dict
+        loads : :py:class:`dict`
             Contains integral data in the following form:
 
             >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
@@ -312,7 +308,7 @@ def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[],
             Here, the user requests the additional statistics to be computed.
             See documentation of function updateAndSaveLoads for more details.
 
-        tagWithIteration : bool
+        tagWithIteration : :py:class:`bool`
             if ``True``, adds a suffix ``_AfterIter<iteration>``
             to the saved filename (creates a copy)
 
@@ -325,9 +321,17 @@ def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[],
     gamma = setup.FluidProperties['Gamma']
 
     for row, rowParams in setup.TurboConfiguration['Rows'].items():
+        if (not 'PlaneIn' in rowParams.keys()) and (not 'PlaneOut' in rowParams.keys()):
+            # No post-processing for this row because planes are not given
+            continue
+
         # Read inlet and outlet planes
         planeUpstream   = I.getNodeFromName(surfaces, 'ISO_CoordinateX_{}'.format(rowParams['PlaneIn']))
         planeDownstream = I.getNodeFromName(surfaces, 'ISO_CoordinateX_{}'.format(rowParams['PlaneOut']))
+
+        if planeUpstream is None or planeDownstream is None:
+            # No post-processing for this row because planes have not been extracted
+            continue
 
         # Convert to Tetra arrays for integration
         planeUpstream = C.convertArray2Tetra(planeUpstream)
@@ -639,12 +643,12 @@ def saveLoads(loads, tagWithIteration=False):
     Parameters
     ----------
 
-        loads : dict
+        loads : :py:class:`dict`
             Contains integral data in the following form:
 
             >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
 
-        tagWithIteration : bool
+        tagWithIteration : :py:class:`bool`
             if ``True``, adds a suffix ``_AfterIter<iteration>``
             to the saved filename (creates a copy)
     '''
@@ -1395,7 +1399,7 @@ def boundaryConditions2Surfaces(to, onlyWalls=True):
         to : PyTree
             Coupling tree as obtained from :py:func:`adaptEndOfRun`
 
-        onlyWalls : bool
+        onlyWalls : :py:class:`bool`
             if ``True``, only BC with keyword ``'wall'`` contained in
             their type are extracted. Otherwise, all BC are extracted,
             regardless of their type.
@@ -1437,9 +1441,9 @@ def _renameTooLongZones(to, n=20):
     to be save in a CGNS file (maximum length = 32 characters).
 
     The new name of a zone follows this format:
-    <NewName> = <First <n> characters of old name>_<ID>
-    with <n> an integer and <ID> the lowest integer (starting form 0) such as
-    <NewName> does not already exist in the PyTree.
+    ``<NewName>`` = ``<First <n> characters of old name>_<ID>``
+    with ``<n>`` an integer and ``<ID>`` the lowest integer (starting form 0) such as
+    ``<NewName>`` does not already exist in the PyTree.
 
     Parameters
     ----------
@@ -1449,7 +1453,7 @@ def _renameTooLongZones(to, n=20):
 
             .. note:: tree **to** is modified
 
-        n : integer
+        n : :py:class:`int`
             Number of characters to keep in the old zone name.
     '''
     for zone in I.getZones(to):
@@ -1470,12 +1474,12 @@ def _reshapeBCDatasetNodes(to):
     '''
     Beware: this is a private function, employed by :py:func:`saveSurfaces`
 
-    This function check the shape of DataArray in all BCData_t nodes in a
-    PyTree <to>.
+    This function check the shape of DataArray in all ``BCData_t`` nodes in a
+    PyTree ``<to>``.
     For some unknown reason, the extraction of BCData throught a BCDataSet is
     done sometime in unstructured 1D shape, so it is not consistant with BC
     PointRange. If so, this function reshape the DataArray to the BC shape.
-    Link to Anomaly #6186 (see https://elsa-e.onera.fr/issues/6186)
+    Link to ``Anomaly #6186`` (see <https://elsa-e.onera.fr/issues/6186>`_)
 
     Parameters
     ----------
