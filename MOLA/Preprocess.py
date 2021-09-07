@@ -2535,6 +2535,9 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     addKeys.update(dict(
     multigrid     = 'none',
     t_harten      = 0.01,
+    harten_type   = 2,  # see Development #7765 on https://elsa-e.onera.fr/issues/7765
+                        # Incompability between default value harten_type=1
+                        #   and default value vel_formulation='absolute'
     muratiomax    = 1.e+20,
         ))
 
@@ -2758,7 +2761,7 @@ def addTrigger(t, coprocessFilename='coprocess.py'):
                  file=coprocessFilename)
 
 
-def addExtractions(t, ReferenceValues, elsAkeysModel):
+def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True):
     '''
     Include surfacic and field extraction information to CGNS tree using
     information contained in dictionaries **ReferenceValues** and
@@ -2780,7 +2783,7 @@ def addExtractions(t, ReferenceValues, elsAkeysModel):
 
     '''
     addSurfacicExtractions(t, ReferenceValues, elsAkeysModel)
-    addFieldExtractions(t, ReferenceValues)
+    addFieldExtractions(t, ReferenceValues, extractCoords=extractCoords)
     EP._addGlobalConvergenceHistory(t)
 
 
@@ -2849,7 +2852,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel):
             )
 
 
-def addFieldExtractions(t, ReferenceValues):
+def addFieldExtractions(t, ReferenceValues, extractCoords=False):
     '''
     Include fields extraction information to CGNS tree using
     information contained in dictionary **ReferenceValues**.
@@ -2864,6 +2867,10 @@ def addFieldExtractions(t, ReferenceValues):
 
         ReferenceValues : dict
             dictionary as produced by :py:func:`computeReferenceValues` function
+
+        extractCoords : bool
+            if ``True``, then create a FlowSolution container named
+            FlowSolution#EndOfRun#Coords to perform coordinates extraction.
 
     '''
 
@@ -2880,18 +2887,19 @@ def addFieldExtractions(t, ReferenceValues):
     '''
     I._rmNodesByName(t, 'FlowSolution#EndOfRun')
     for zone in I.getZones(t):
-        EoRnode = I.createNode('FlowSolution#EndOfRun#Coords', 'FlowSolution_t',
-                                parent=zone)
-        GridLocationNode = I.createNode('GridLocation','GridLocation_t',
-                                        value='Vertex', parent=EoRnode)
-        for fieldName in ('CoordinateX', 'CoordinateY', 'CoordinateZ'):
-            I.createNode(fieldName, 'DataArray_t', value=None, parent=EoRnode)
-        J.set(EoRnode, '.Solver#Output',
-              period=1,
-              writingmode=2,
-              writingframe='absolute',
-              force_extract=1,
-               )
+        if extractCoords:
+            EoRnode = I.createNode('FlowSolution#EndOfRun#Coords', 'FlowSolution_t',
+                                    parent=zone)
+            GridLocationNode = I.createNode('GridLocation','GridLocation_t',
+                                            value='Vertex', parent=EoRnode)
+            for fieldName in ('CoordinateX', 'CoordinateY', 'CoordinateZ'):
+                I.createNode(fieldName, 'DataArray_t', value=None, parent=EoRnode)
+            J.set(EoRnode, '.Solver#Output',
+                  period=1,
+                  writingmode=2,
+                  writingframe='absolute',
+                  force_extract=1,
+                   )
 
         EoRnode = I.createNode('FlowSolution#EndOfRun', 'FlowSolution_t',
                                 parent=zone)
