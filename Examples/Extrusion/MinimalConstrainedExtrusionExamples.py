@@ -6,7 +6,7 @@
 In this script, several minimal constrained extrusion examples
 are presented. These examples are "minimal" because they are not
 applied to complex meshes. Rather, simple distributions and surfaces
-are built on-the-fly. 
+are built on-the-fly.
 
 The purpose is to familiarize the user to different kind usages of the
 constrained extrusion functions.
@@ -27,7 +27,7 @@ import Geom.PyTree as D
 import Post.PyTree as P
 
 # Additional Cassiopee-based modules
-# To use them, add to your PYTHONPATH: 
+# To use them, add to your PYTHONPATH:
 # export PYTHONPATH=$PYTHONPATH:/home/lbernard/MOLA/v1.6
 import MOLA.InternalShortcuts as J
 import MOLA.Wireframe as W
@@ -50,16 +50,16 @@ Amplitude, SigmaX, SigmaY = -0.20, 0.10, 0.10 # Controls the gaussian
 z[:] = Amplitude * np.exp(-( x**2/(2*SigmaX**2)+y**2/(2*SigmaY**2)))
 
 # Let "DistributionCurve" be the wall-normal distribution desired
-# by the user. This curve will be used by the extrusion function 
+# by the user. This curve will be used by the extrusion function
 # for determining the number of points and size of the wall-normal
 # cells.
 # For the moment, let us simply do a uniform distribution. For this,
 # we draw a line using "Geom line" function:
 
-MyDistribution = D.line((0,0,0),(0,0,0.25),20) 
+MyDistribution = D.line((0,0,0),(0,0,0.25),20)
 
 # Rename the curve for easy identification
-MyDistribution[0] = 'MyDistribution' 
+MyDistribution[0] = 'MyDistribution'
 
 # The extrusion function requires that the Curve distribution yield
 # specific fields in "FlowSolution" container. These fields are to be
@@ -96,7 +96,7 @@ structure:
  |     during the extrusion process. At the end of the extrusion, this
  |     must correspond to the last layer. User should not bother about
  |     this.
- | 
+ |
  |____ConstraintWireframe (Base):
  |     These are the curves used for driving the constraints provided
  |     by the user. They do not apply to current example, so it is
@@ -113,7 +113,7 @@ structure:
        but additional ones could be used for more complex extrusion.
 
 We can observe that the result of the extrusion yields self-
-intersecting cells. 
+intersecting cells.
 
 In the next example, we are setting "smooth options", in order to
 correct this undesirable effect.
@@ -145,8 +145,8 @@ z[:] = Amplitude * np.exp(-( x**2/(2*SigmaX**2)+y**2/(2*SigmaY**2)))
 
 
 # Again, we build the distribution curve as follows:
-MyDistribution = D.line((0,0,0),(0,0,0.25),20) 
-MyDistribution[0] = 'MyDistribution' 
+MyDistribution = D.line((0,0,0),(0,0,0.25),20)
+MyDistribution[0] = 'MyDistribution'
 nf, gf, nit, git = J.invokeFields(MyDistribution,
     ['normalfactor','growthfactor',
      'normaliters','growthiters']) # all values initialized at 0
@@ -157,7 +157,7 @@ These variables are employed for controlling the smoothing process.
 Let us explain how they work:
 
 * nf (for "normalfactor") and nit (for "normaliters") are used for
-  smoothing the normals of each surface cell. 
+  smoothing the normals of each surface cell.
 
   Increasing the value of "normalfactor" will increase the smoothness
   of the normals. The inconvenience is that this smooth deteriorates
@@ -166,19 +166,19 @@ Let us explain how they work:
   values may be adopted where orthogonality is not that important.
 
   Increasing the value of "normaliters" will increase the smoothness
-  of the normals. The smoothing of the normals are done by using a 
+  of the normals. The smoothing of the normals are done by using a
   series of center2Node and node2Center operation on the normals. So,
   this parameter controls the amount of iterations.
 
 * gf (for "growthfactor") and git (for "growthiters") are used for
   smoothing and controlling the current cell size iteration height
   [Nota Bene: this quantity is named "dH". Each cell will be extruded
-  following the vector defined by: dH*(sx, sy, sz), where 
+  following the vector defined by: dH*(sx, sy, sz), where
   sx, sy and sz are the unit-normals of the cell size].
 
   Increasing the value of "growthiters" will provoke a smoothing of
   the value of "dH" (in the same fashion as "normaliters" provoked
-  the smoothing of the normals). 
+  the smoothing of the normals).
 
   However, the value of "growthfactor" is dependent on the growth
   Equation that governs the extrusion, which is user-defined. So,
@@ -190,18 +190,19 @@ Let us explain how they work:
 Let us impose low normal smoothing near the wall (where orthogonal
 cells are desired) and high normal smoothing further from the wall.
 '''
-nf[:]  = np.linspace(0,500,len(nf)) # Linear law from 0 at wall 
-nit[:] = np.linspace(0,150,len(nf)) # Linear law from 0 at wall 
+nf[:]  = np.linspace(0,500,len(nf)) # Linear law from 0 at wall
+nit[:] = np.linspace(0,150,len(nf)) # Linear law from 0 at wall
 
 # Extrude
 print("Extruding example 2 (constraint-free, 1 distribution) with normals smoothing")
-ExtrusionTree = GVD.extrude(s,[MyDistribution])
+ExtrusionTree = GVD.extrude(s,[MyDistribution], printIters=True,
+                             modeSmooth='smoothField')
 
 '''
-We can observe that the resulting extrusion do not yield 
-self-intersecting cells. However, the result is not entirely 
-satisfactory in the concave part of the mesh. Indeed, cells are 
-skewed, and a singular point appears. 
+We can observe that the resulting extrusion do not yield
+self-intersecting cells. However, the result is not entirely
+satisfactory in the concave part of the mesh. Indeed, cells are
+skewed, and a singular point appears.
 
 This is because not only we need to smooth the normals, but also
 we have to locally extrude with higher cell heights in concave regions.
@@ -210,7 +211,7 @@ The next example will illustrate this.
 
 # Save the result of Example 2
 C.convertPyTree2File(ExtrusionTree,'MinimalConstrainedExtrusionExamples_Example2.cgns')
-
+sys.exit()
 
 
 # ----------------------------------------------------------------- #
@@ -234,8 +235,8 @@ z[:] = Amplitude * np.exp(-( x**2/(2*SigmaX**2)+y**2/(2*SigmaY**2)))
 
 
 # Again, we build the distribution curve as follows:
-MyDistribution = D.line((0,0,0),(0,0,0.25),20) 
-MyDistribution[0] = 'MyDistribution' 
+MyDistribution = D.line((0,0,0),(0,0,0.25),20)
+MyDistribution[0] = 'MyDistribution'
 nf, gf, nit, git = J.invokeFields(MyDistribution,
     ['normalfactor','growthfactor',
      'normaliters','growthiters']) # all values initialized at 0
@@ -245,8 +246,8 @@ As previously done,
 let us impose low normal smoothing near the wall (where orthogonal
 cells are desired) and high normal smoothing further from the wall.
 '''
-nf[:]  = np.linspace(0,500,len(nf)) # Linear law from 0 at wall 
-nit[:] = np.linspace(0,150,len(nf)) # Linear law from 0 at wall 
+nf[:]  = np.linspace(0,500,len(nf)) # Linear law from 0 at wall
+nit[:] = np.linspace(0,150,len(nf)) # Linear law from 0 at wall
 
 '''
 As you may guess, this example consists in setting appropriate values
@@ -261,7 +262,7 @@ growthEquation='nodes:dH={nodes:dH}*%s'%(WeightCoeff)
 '''
             EXPLANATION OF THE USER-DEFINED EQUATION
 
-As one may observe, the growth equation tells the algorithm to 
+As one may observe, the growth equation tells the algorithm to
 weight the local cell extrusion height {nodes:dH} with a coefficient.
 Such user-defined weighting coefficient is the following one:
 
@@ -281,7 +282,7 @@ This can be exploited for weighting the growth rate of each cell.
 The value of "growthfactor" is simply a secondary weighting coefficient
 that controls the slope of the hyperbolic tangent at 1. This means that
 "growthfactor" in this equation controls the stiffness of the change in
-value of dH. This has somehow an opposite effect to the smoothing of 
+value of dH. This has somehow an opposite effect to the smoothing of
 dH via "growthiters".
 '''
 
@@ -321,48 +322,48 @@ Amplitude, SigmaX, SigmaY = -0.20, 0.10, 0.10 # Controls the gaussian
 z[:] = Amplitude * np.exp(-( x**2/(2*SigmaX**2)+y**2/(2*SigmaY**2)))
 
 '''
-In this example, we are building two different distributions, which 
+In this example, we are building two different distributions, which
 are placed in different places. This will produce a non-homogeneous
 extrusion result, as will be seen.
 
 '''
 
 # First distribution of small length, at one corner
-Distribution1 = D.line((0.5,-0.5,0),(0.5,-0.5,0.10),20) 
-Distribution1[0] = 'Distribution1' 
+Distribution1 = D.line((0.5,-0.5,0),(0.5,-0.5,0.10),20)
+Distribution1[0] = 'Distribution1'
 nf, gf, nit, git = J.invokeFields(Distribution1,
     ['normalfactor','growthfactor',
      'normaliters','growthiters'])  # all values initialized at 0
-nf[:]  = np.linspace(0,500,len(nf)) # Set a linear law from 0 at wall 
-nit[:] = np.linspace(0,150,len(nf)) # Set a linear law from 0 at wall 
+nf[:]  = np.linspace(0,500,len(nf)) # Set a linear law from 0 at wall
+nit[:] = np.linspace(0,150,len(nf)) # Set a linear law from 0 at wall
 gf[:]   = np.linspace(0.1,0.2,len(gf))
 git[:]  = np.linspace(10,20,len(git))
 
 
 # Second distribution of bigger length, at opposite corner
-Distribution2 = D.line((-0.5,0.5,0),(-0.5,0.5,0.40),20) 
-Distribution2[0] = 'Distribution2' 
+Distribution2 = D.line((-0.5,0.5,0),(-0.5,0.5,0.40),20)
+Distribution2[0] = 'Distribution2'
 nf, gf, nit, git = J.invokeFields(Distribution2,
     ['normalfactor','growthfactor',
      'normaliters','growthiters'])  # all values initialized at 0
-nf[:]  = np.linspace(0,500,len(nf)) # Set a linear law from 0 at wall 
-nit[:] = np.linspace(0,150,len(nf)) # Set a linear law from 0 at wall 
+nf[:]  = np.linspace(0,500,len(nf)) # Set a linear law from 0 at wall
+nit[:] = np.linspace(0,150,len(nf)) # Set a linear law from 0 at wall
 gf[:]   = np.linspace(0.1,0.2,len(gf))
 git[:]  = np.linspace(10,20,len(git))
 
 # A third distribution, with big length, at center of domain
-Distribution3 = D.line((0,0,Amplitude),(0,0,0.30),20) 
-Distribution3[0] = 'Distribution3' 
+Distribution3 = D.line((0,0,Amplitude),(0,0,0.30),20)
+Distribution3[0] = 'Distribution3'
 nf, gf, nit, git = J.invokeFields(Distribution3,
     ['normalfactor','growthfactor',
      'normaliters','growthiters'])  # all values initialized at 0
-nf[:]  = np.linspace(0,500,len(nf)) # Set a linear law from 0 at wall 
-nit[:] = np.linspace(0,150,len(nf)) # Set a linear law from 0 at wall 
+nf[:]  = np.linspace(0,500,len(nf)) # Set a linear law from 0 at wall
+nit[:] = np.linspace(0,150,len(nf)) # Set a linear law from 0 at wall
 gf[:]   = np.linspace(0.1,0.2,len(gf))
 git[:]  = np.linspace(10,20,len(git))
 
 '''
-NOTA BENE: As you can observe, it is possible to set different sets of 
+NOTA BENE: As you can observe, it is possible to set different sets of
 smoothing values at each provided distribution. This may be useful.
 However, in this example, we always impose the same set of smoothing
 parameters for each distribution.
@@ -394,14 +395,14 @@ Amplitude, SigmaX, SigmaY = -0.20, 0.10, 0.10 # Controls the gaussian
 z[:] = Amplitude * np.exp(-( x**2/(2*SigmaX**2)+y**2/(2*SigmaY**2)))
 
 
-# Again, build a distribution 
-Distribution1 = D.line((0.5,-0.5,0),(0.5,-0.5,0.50),20) 
-Distribution1[0] = 'Distribution1' 
+# Again, build a distribution
+Distribution1 = D.line((0.5,-0.5,0),(0.5,-0.5,0.50),20)
+Distribution1[0] = 'Distribution1'
 nf, gf, nit, git = J.invokeFields(Distribution1,
     ['normalfactor','growthfactor',
      'normaliters','growthiters'])  # all values initialized at 0
-nf[:]  = np.linspace(0,500,len(nf)) # Set a linear law from 0 at wall 
-nit[:] = np.linspace(0,150,len(nf)) # Set a linear law from 0 at wall 
+nf[:]  = np.linspace(0,500,len(nf)) # Set a linear law from 0 at wall
+nit[:] = np.linspace(0,150,len(nf)) # Set a linear law from 0 at wall
 gf[:]   = np.linspace(0.1,0.2,len(gf))
 git[:]  = np.linspace(10,20,len(git))
 
@@ -424,7 +425,7 @@ C._initVars(zExFace,'sy={CoordinateY}')
 C._initVars(zExFace,'sz',0.5)
 
 # (sx,sy,sz) shall be unit vectors, so:
-C._normalize(zExFace,['sx','sy','sz']) 
+C._normalize(zExFace,['sx','sy','sz'])
 
 '''
 Next, we declare the "Constraint object". This is simply a Python
@@ -432,9 +433,9 @@ dictionary with context-dependent pairs of key/values.
 In the case of imposed normal, we set:
 '''
 MyConstraint = dict(
-kind='Imposed', # because we impose the value of normals 
+kind='Imposed', # because we impose the value of normals
 
-curve=zExFace,  # This tells which mesh points are impacted by 
+curve=zExFace,  # This tells which mesh points are impacted by
                 # the constraint (the do not necessarily have to
                 # lie on the boundaries, it can be interior points)
     )
@@ -482,16 +483,16 @@ Amplitude, SigmaX, SigmaY = -0.20, 0.10, 0.10 # Controls the gaussian
 z[:] = Amplitude * np.exp(-( x**2/(2*SigmaX**2)+y**2/(2*SigmaY**2)))
 
 
-# Again, build a distribution 
-Distribution1 = D.line((0.5,-0.5,0),(0.5,-0.5,0.40),20) 
-Distribution1[0] = 'Distribution1' 
+# Again, build a distribution
+Distribution1 = D.line((0.5,-0.5,0),(0.5,-0.5,0.40),20)
+Distribution1[0] = 'Distribution1'
 
 # Set some smoothing parameters, as always:
 nf, gf, nit, git = J.invokeFields(Distribution1,
     ['normalfactor','growthfactor',
      'normaliters','growthiters'])  # all values initialized at 0
-nf[:]  = np.linspace(0,500,len(nf)) # Set a linear law from 0 at wall 
-nit[:] = np.linspace(0,150,len(nf)) # Set a linear law from 0 at wall 
+nf[:]  = np.linspace(0,500,len(nf)) # Set a linear law from 0 at wall
+nit[:] = np.linspace(0,150,len(nf)) # Set a linear law from 0 at wall
 gf[:]   = np.linspace(0.1,0.2,len(gf))
 git[:]  = np.linspace(10,20,len(git))
 
@@ -550,7 +551,7 @@ curve=Bound2,        # Tells which points of the extrude wall surface
 surface=Cylinder,    # Tells which is the surface where points will be
                      # matched during the extrusion process
 
-MatchDir=None, # automatically guess the structured-surface index to 
+MatchDir=None, # automatically guess the structured-surface index to
                # follow
 )
 
@@ -558,7 +559,7 @@ MatchDir=None, # automatically guess the structured-surface index to
 # Extrude
 print("Extruding example 6 - multiple constraints types and boundaries")
 ExtrusionTree = GVD.extrude(s,
-    [Distribution1], 
+    [Distribution1],
 
     # Do not forget to put here all constraints !...
     Constraints=[

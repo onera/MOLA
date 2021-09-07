@@ -823,6 +823,57 @@ def _constrainedSmoothing(tExtru, mode='dualing',
         I._rmNodesByName(z,'FlowSolution#Centers')
         normalizeVector(z, ['sx', 'sy', 'sz'], container='FlowSolution')
 
+    elif mode == 'smoothField':
+
+        sx, sy, sz, dH = J.getVars(z, ['sx','sy','sz','dH'], 'FlowSolution')
+
+        # Perform smoothing of cell height (to deal with concavities)
+        MeanDH = C.getMeanValue(z,'nodes:dH')
+        if growthEquation: C._initVars(z,growthEquation)
+        NewMeanDH = C.getMeanValue(z,'nodes:dH')
+        RatioDH = MeanDH/NewMeanDH
+
+        # This shall be done in order to keep the mean
+        # user-prescribed extrusion height
+        C._initVars(z,'nodes:dH={nodes:dH}*%g'%RatioDH) # TODO Really required?
+
+
+        eps = np.empty_like(dH)
+        eps[:] = 0.01
+        type = 0
+        subniter = 100
+
+        niter = int(C.getMeanValue(z,'growthiters'))
+        for i in range(niter):
+            T._smoothField(z, eps, subniter, type, ['dH'])
+            _keepConstrainedHeight(tExtru)
+
+        # Perform smoothing of normals
+        niter = int(C.getMeanValue(z,'normaliters'))
+        for i in range(niter):
+
+            # TODO: replace with smoothing fuction and/or T._deformNormals()
+            sx, sy, sz, dH = J.getVars(z, ['sx','sy','sz','dH'], 'FlowSolution')
+            NormalsDiffuseFactor = C.getMeanValue(z,'normalfactor')*dH/NewMeanDH
+            BoolRegion = dH > NewMeanDH
+            NormalsDiffuseFactor = NormalsDiffuseFactor[BoolRegion]
+            sx = sx[BoolRegion]
+            sy = sy[BoolRegion]
+            sz = sz[BoolRegion]
+            nsubiter = 50
+            for j in range(nsubiter):
+                T._smoothField(z, eps, subniter, type, ['sx','sy','sz'])
+
+                # sx *= NormalsDiffuseFactor
+                # sy *= NormalsDiffuseFactor
+                # sz *= NormalsDiffuseFactor
+
+            normalizeVector(z, ['sx', 'sy', 'sz'], container='FlowSolution')
+            _extrusionApplyConstraints(tExtru)
+
+        I._rmNodesByName(z,'FlowSolution#Centers')
+        normalizeVector(z, ['sx', 'sy', 'sz'], container='FlowSolution')
+
     return tExtru
 
 
