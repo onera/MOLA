@@ -105,7 +105,8 @@ if ENTER_COUPLING:
                                      FluxThreshold=MaxConvergedCLStd)
 
     if SAVE_SURFACES:
-        CO.saveSurfaces(toWithSkeleton, tagWithIteration=False)
+        CO.saveSurfaces(toWithSkeleton, loads, DesiredStatistics,
+            tagWithIteration=False)
 
 
     if CONVERGED or it >= itmax or ReachedTimeOutMargin:

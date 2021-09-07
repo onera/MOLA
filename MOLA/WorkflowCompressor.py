@@ -6,14 +6,14 @@ WORKFLOW COMPRESSOR
 Collection of functions designed for Workflow Compressor
 
 BEWARE:
-There is no equivalent of Preprocess prepareMesh4ElsA.
-prepareMainCGNS4ElsA takes as an input a CGNS file assuming that the following
+There is no equivalent of Preprocess ``prepareMesh4ElsA``.
+``prepareMainCGNS4ElsA`` takes as an input a CGNS file assuming that the following
 elements are already set:
-    #. connectivities
-    #. boundary conditions
-    #. splitting and distribution
-    #. families
-    #. (optional) parametrization with channel height in a FlowSolution#Height node
+    * connectivities
+    * boundary conditions
+    * splitting and distribution
+    * families
+    * (optional) parametrization with channel height in a ``FlowSolution#Height`` node
 
 File history:
 31/08/2021 - T. Bontemps - Creation
@@ -41,17 +41,35 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, TurboConfiguration={}, PostParameters={},
         BodyForceInputData=[], writeOutputFields=True):
     '''
-    This is mainly a function similar to Preprocess prepareMainCGNS4ElsA
+    This is mainly a function similar to Preprocess :py:func:`prepareMainCGNS4ElsA`
     but adapted to compressor computations. Its purpose is adapting the CGNS to
     elsA.
 
-    INPUTS
+    Parameters
+    ----------
 
-    t - (PyTree or None) - the grid as produced by buildMesh()
+        t : PyTree
+            A grid that already contains:
+                * connectivities
+                * boundary conditions
+                * splitting and distribution
+                * families
+                * (optional) parametrization with channel height in a ``FlowSolution#Height`` node
 
-    OUTPUT
+    Returns
+    -------
 
-    None. Writes setup.py, main.cgns and eventually OUTPUT/fields.cgns
+        files : None
+            A number of files are written:
+
+            * ``main.cgns``
+                main CGNS file to be read directly by elsA
+
+            * ``OUTPUT/fields.cgns``
+                file containing the initial fields (if ``writeOutputFields=True``)
+
+            * ``setup.py``
+                ultra-light file containing all relevant info of the simulation
     '''
 
     def addFieldExtraction(fieldname):
@@ -82,7 +100,7 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
     elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues)
     if BodyForceInputData: NumericalParams['useBodyForce'] = True
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues, **NumericalParams)
-    TurboConfiguration = setTurboConfiguration(TurboConfiguration)
+    TurboConfiguration = setTurboConfiguration(**TurboConfiguration)
     PostParameters = setPostParameters(**PostParameters)
 
     AllSetupDics = dict(FluidProperties=FluidProperties,
@@ -110,11 +128,12 @@ def computeReferenceValues(FluidProperties, Massflow, PressureStagnation,
         Length=1.0, TorqueOrigin=[0., 0., 0.],
         FieldsAdditionalExtractions='ViscosityMolecular Viscosity_EddyMolecularRatio Pressure Temperature PressureStagnation TemperatureStagnation Mach'):
     '''
-    This function is the Compressor's equivalent of PRE.computeReferenceValues().
+    This function is the Compressor's equivalent of :py:func:`PRE.computeReferenceValues()`.
     The main difference is that in this case reference values are set through
-    Massflow, total Pressure Pt, total Temperature Tt and Surface.
+    ``Massflow``, total Pressure ``PressureStagnation``, total Temperature
+    ``TemperatureStagnation`` and ``Surface``.
 
-    Please, refer to PRE.computeReferenceValues() doc for more details.
+    Please, refer to :py:func:`PRE.computeReferenceValues()` doc for more details.
     '''
     # Fluid properties local shortcuts
     Gamma   = FluidProperties['Gamma']
@@ -167,57 +186,71 @@ def computeReferenceValues(FluidProperties, Massflow, PressureStagnation,
     return ReferenceValues
 
 
-def setTurboConfiguration(TurboConfiguration):
+def setTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}):
     '''
-    Construct a dictionary of values concerning the compressor properties.
-    ::
+    Construct a dictionary concerning the compressor properties.
 
-        ShaftRotationSpeed : float
+    Parameters
+    ----------
+
+        ShaftRotationSpeed : py:class:`float`
             Shaft speed in rad/s
-            BEWARE: only for single shaft configuration
 
-        HubRotationSpeed : list of tuples
-        Hub rotation speed. Each tuple (xmin, xmax) corresponds to a CoordinateX
-        interval where the speed at hub wall is ShaftRotationSpeed. It is zero
-        outsides these intervals.
+            .. attention:: only for single shaft configuration
 
-        Rows : dict
+            .. attention:: Pay attention to the sign of **ShaftRotationSpeed**
+
+        HubRotationSpeed : :py:class:list of :py:class:tuple
+            Hub rotation speed. Each tuple (``xmin``, ``xmax``) corresponds to a
+            ``CoordinateX`` interval where the speed at hub wall is
+            ``ShaftRotationSpeed``. It is zero outside these intervals.
+
+        Rows : py:class:`dict`
             This dictionary has one entry for each row domain. The key names
             must be the family names in the CGNS Tree.
             For each family name, the following entries are expected:
 
-                RotationSpeed : float or str
-                Rotation speed in rad/s (watch out for the sign)
-                Set 'auto' to automatically set ShaftRotationSpeed (for a
-                rotor).
+                * RotationSpeed : py:class:`float` or py:class:`str`
+                    Rotation speed in rad/s. Set ``'auto'`` to automatically
+                    set ``ShaftRotationSpeed``.
 
-                NumberOfBlades : int
-                The number of blades in the row
+                    .. attention:: Use **RotationSpeed**=``'auto'`` for rotors
+                    only.
 
-                NumberOfBladesSimulated : int
-                The number of blades in the computational domain. Set to
-                <NumberOfBlades> for a full 360 simulation.
+                    .. attention:: Pay attention to the sign of
+                    **RotationSpeed**
 
-                PlaneIn : float
-                    Position (in CoordinateX) of the inlet plane for this row.
-                    This planes is used for post-processing and convergence
+                * NumberOfBlades : py:class:`int`
+                    The number of blades in the row
+
+                * NumberOfBladesSimulated : py:class:`int`
+                    The number of blades in the computational domain. Set to
+                    ``<NumberOfBlades>`` for a full 360 simulation.
+
+                * PlaneIn : py:class:`float`, optional
+                    Position (in ``CoordinateX``) of the inlet plane for this
+                    row. This plane is used for post-processing and convergence
                     monitoring.
 
-                PlaneOut : float
+                * PlaneOut : py:class:`float`, optional
                     Position of the outlet plane for this row.
 
     Returns
     -------
 
-        TurboConfiguration : dict
+        TurboConfiguration : :py:class:`dict`
             set of compressor properties
     '''
 
-    omega = TurboConfiguration['ShaftRotationSpeed']
+    TurboConfiguration = dict(
+        ShaftRotationSpeed = ShaftRotationSpeed,
+        HubRotationSpeed   = HubRotationSpeed,
+        Rows               = Rows
+        )
     for row, rowParams in TurboConfiguration['Rows'].items():
         for key, value in rowParams.items():
             if key == 'RotationSpeed' and value == 'auto':
-                rowParams[key] = omega
+                rowParams[key] = ShaftRotationSpeed
 
     return TurboConfiguration
 
@@ -228,25 +261,29 @@ def setPostParameters(IsoSurfaces={}, Variables=[]):
     Parameters
     ----------
 
-        IsoSurfaces : dict
+        IsoSurfaces : :py:class:`dict`
             dictionary defining the isoSurfaces to compute. Each key sets a
             variable, and the associated value is a list defining the levels.
-            Example :
+            For example:
+
+            ::
+
                 IsoSurfaces   = dict(
                     CoordinateX   = [-0.2432, 0.0398],
                     ChannelHeight = [0.1, 0.5, 0.9]
                     )
 
-        Variables : list of str
+        Variables : :py:class:`list` of :py:class:`str`, optional
             list of the variable names to compute and add on the isoSurfaces.
-            They are computed by the function computeVariables in Cassiopee
-            Post module and must be among the following entries:
-            'Pressure', 'PressureStagnation', 'TemperatureStagnation', 'Entropy'
+            They are computed by the function :py:func:`computeVariables` in
+            Cassiopee Post module and must be among the following entries:
+            ``'Pressure'``, ``'PressureStagnation'``,
+            ``'TemperatureStagnation'``, ``'Entropy'``
 
     Returns
     -------
 
-        PostParameters : dict
+        PostParameters : :py:class:`dict`
             set of Co(Post)processing options
     '''
     PostParameters = dict(
@@ -257,7 +294,7 @@ def setPostParameters(IsoSurfaces={}, Variables=[]):
 
 def getRotationSpeedOfRows(t):
     '''
-    Get the rotationnal speed of each row in the PyTree <t>
+    Get the rotationnal speed of each row in the PyTree ``<t>``
 
     Parameters
     ----------
@@ -269,7 +306,7 @@ def getRotationSpeedOfRows(t):
     Returns
     -------
 
-        omegaDict : dict
+        omegaDict : :py:class:`dict`
             dictionary with the rotation speed associated to each row family
             name.
     '''
@@ -287,14 +324,15 @@ def getRotationSpeedOfRows(t):
 def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
                      FULL_CGNS_MODE=False, dim=3):
     '''
-    This is mainly a function similar to Preprocess newCGNSfromSetup
+    This is mainly a function similar to Preprocess :py:func:`newCGNSfromSetup`
     but adapted to compressor computations. Its purpose is creating the main
     CGNS tree and writes the ``setup.py`` file.
 
     The only differences with Preprocess newCGNSfromSetup are:
     #. addSolverBC is not applied, in order not to disturb the special
        turbomachinery BCs
-    #. extraction of coordinates in FlowSolution#EndOfRun#Coords is desactivated
+    #. extraction of coordinates in ``FlowSolution#EndOfRun#Coords`` is
+        desactivated
     '''
     t = I.copyRef(t)
 
@@ -319,10 +357,72 @@ def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
     return t
 
 
-def massflowFromMach(Mx, S, Pt=101325.0, Tt=288.25, r=287.04, gamma=1.4):
+def massflowFromMach(Mx, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
+    '''
+    Compute the massflow rate through a section.
+
+    Parameters
+    ----------
+
+        Mx : :py:class:`float`
+            Mach number in the normal direction to the section.
+
+        S : :py:class:`float`
+            Surface of the section.
+
+        Pt : :py:class:`float`
+            Stagnation pressure of the flow.
+
+        Tt : :py:class:`float`
+            Stagnation temperature of the flow.
+
+        r : :py:class:`float`
+            Specific gas constant.
+
+        gamma : :py:class:`float`
+            Ratio of specific heats of the gas.
+
+
+    Returns
+    -------
+
+        massflow : :py:class:`float`
+            Value of massflow through the section.
+    '''
     return S * Pt * (gamma/r/Tt)**0.5 * Mx / (1. + 0.5*(gamma-1.) * Mx**2) ** ((gamma+1) / 2 / (gamma-1))
 
-def machFromMassflow(massflow, S, Pt=101325.0, Tt=288.25, r=287.04, gamma=1.4):
+def machFromMassflow(massflow, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
+    '''
+    Compute the Mach number normal to a section from the massflow rate.
+
+    Parameters
+    ----------
+
+        massflow : :py:class:`float`
+            Massflow rate through the section.
+
+        S : :py:class:`float`
+            Surface of the section.
+
+        Pt : :py:class:`float`
+            Stagnation pressure of the flow.
+
+        Tt : :py:class:`float`
+            Stagnation temperature of the flow.
+
+        r : :py:class:`float`
+            Specific gas constant.
+
+        gamma : :py:class:`float`
+            Ratio of specific heats of the gas.
+
+
+    Returns
+    -------
+
+        Mx : :py:class:`float`
+            Value of the Mach number in the normal direction to the section.
+    '''
     if isinstance(massflow, (list, tuple, np.ndarray)):
         Mx = []
         for i, MF in enumerate(massflow):
