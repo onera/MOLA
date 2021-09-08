@@ -907,7 +907,7 @@ def showStatisticsAndCheckDistribution(tNew, stats, CoresPerNode=28):
 
     NPtsPerProc = {}
     for zone in I.getZones(tNew):
-        Proc = getProc(zone)
+        Proc, = getProc(zone)
         try: NPtsPerProc[Proc] += C.getNPts(zone)
         except KeyError: NPtsPerProc[Proc] = C.getNPts(zone)
 
