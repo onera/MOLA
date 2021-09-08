@@ -901,19 +901,19 @@ def showStatisticsAndCheckDistribution(tNew, stats, CoresPerNode=28):
             number of processors per node.
 
     '''
-    ProcDistributed = D2.getProc(tNew)
+    ProcDistributed = getProc(tNew)
     ResultingNProc = max(ProcDistributed)+1
     Distribution = D2.getProcDict(tNew)
 
     NPtsPerProc = {}
     for zone in I.getZones(tNew):
-        Proc = D2.getProc(zone)
+        Proc = getProc(zone)
         try: NPtsPerProc[Proc] += C.getNPts(zone)
         except KeyError: NPtsPerProc[Proc] = C.getNPts(zone)
 
     NPtsPerNode = {}
     for zone in I.getZones(tNew):
-        Proc = D2.getProc(zone)
+        Proc = getProc(zone)
         Node = (Proc//CoresPerNode)+1
         try: NPtsPerNode[Node] += C.getNPts(zone)
         except KeyError: NPtsPerNode[Node] = C.getNPts(zone)
@@ -2537,7 +2537,7 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     t_harten      = 0.01,
     harten_type   = 2,  # see Development #7765 on https://elsa-e.onera.fr/issues/7765
                         # Incompability between default value harten_type=1
-                        #   and default value vel_formulation='absolute'
+                        # and default value vel_formulation='absolute'
     muratiomax    = 1.e+20,
         ))
 
@@ -2601,7 +2601,7 @@ def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
                              AllSetupDictionaries['elsAkeysModel'],
                              AllSetupDictionaries['elsAkeysNumerics']])
 
-    AllSetupDictionaries['ReferenceValues']['NProc'] = int(max(D2.getProc(t))+1)
+    AllSetupDictionaries['ReferenceValues']['NProc'] = int(max(getProc(t))+1)
     AllSetupDictionaries['ReferenceValues']['CoreNumberPerNode'] = 28
 
     writeSetup(AllSetupDictionaries)
@@ -3467,3 +3467,22 @@ def hasAnyOversetData(InputMeshes):
             continue
 
     return False
+
+
+def getProc(t):
+    '''
+    Wrap of :py:func:`Distributor2.PyTree.getProc` function, such that the
+    returned object is always a 1D numpy.array of :py:class:`int`.
+
+    Parameters
+    ----------
+
+        t : PyTree, base, zone or list of zones
+
+    Returns
+    -------
+
+        ProcArray : 1D numpy.ndarray
+            proc number attributed to each zone of **t**
+    '''
+    return  np.array(D2.getProc(t), order='F', ndmin=1)

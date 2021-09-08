@@ -181,7 +181,7 @@ def saveAll(CouplingTreeWithSkeleton, CouplingTree,
 
 
 def saveSurfaces(to, loads, DesiredStatistics, tagWithIteration=False,
-                onlyWalls=True):
+                 onlyWalls=True):
     '''
     Save the ``OUTPUT/surfaces.cgns`` file.
 
@@ -219,14 +219,11 @@ def saveSurfaces(to, loads, DesiredStatistics, tagWithIteration=False,
     '''
     to = I.renameNode(to, 'FlowSolution#Init', 'FlowSolution#Centers')
     to = I.renameNode(to, 'FlowSolution#Height', 'FlowSolution') # BEWARE if there is already a FlowSolution node
-    _reshapeBCDatasetNodes(to)
-    # Extraction of Boundary Conditions
+    reshapeBCDatasetNodes(to)
     BCs = boundaryConditions2Surfaces(to, onlyWalls=onlyWalls)
-    # Extractions of iso-surfaces
     isosurf = extractIsoSurfaces(to)
-    # Merge of both trees
     surfaces = I.merge([BCs, isosurf])
-    _renameTooLongZones(surfaces)
+    renameTooLongZones(surfaces)
     try:
         Cmpi._setProc(surfaces, rank)
         I._adaptZoneNamesForSlash(surfaces)
@@ -247,17 +244,20 @@ def saveSurfaces(to, loads, DesiredStatistics, tagWithIteration=False,
 
 def extractIsoSurfaces(to):
     '''
-    Extract IsoSurfaces in the PyTree <to>. The parametrization is done with the
+    Extract IsoSurfaces in the PyTree **to**. The parametrization is done with the
     entry PostParameters in setup.py, that must contain keys:
 
-    * ``IsoSurfaces``: a dictionary whose keys are variable names and values are
+    * ``IsoSurfaces``
+        a dictionary whose keys are variable names and values are
         lists of associated levels.
-    * ``Variables``: a list of strings to compute extra variables on the extracted
+
+    * ``Variables``
+        a list of strings to compute extra variables on the extracted
         surfaces.
 
     .. note:: If ``PostParameters`` is not present in ``setup.py``, or if both
-    ``IsoSurfaces`` and ``Variables`` are not present in ``PostParameters``,
-    then the function return an empty PyTree.
+        ``IsoSurfaces`` and ``Variables`` are not present in ``PostParameters``,
+        then the function return an empty PyTree.
 
     Parameters
     ----------
@@ -273,10 +273,11 @@ def extractIsoSurfaces(to):
             the following naming convention : ``ISO_<Variable>_<Value>``
     '''
     surfaces = I.newCGNSTree()
+
     if not 'PostParameters' in dir(setup):
         return surfaces
-    elif not ('IsoSurfaces' in setup.PostParameters.keys()
-                and 'Variables' in setup.PostParameters.keys()):
+    elif not ('IsoSurfaces' in setup.PostParameters \
+                and 'Variables' in setup.PostParameters):
         return surfaces
     # EXTRACT ISO-SURFACES
     pto = Cmpi.convert2PartialTree(to)
@@ -321,11 +322,11 @@ def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[],
     gamma = setup.FluidProperties['Gamma']
 
     for row, rowParams in setup.TurboConfiguration['Rows'].items():
-        if (not 'PlaneIn' in rowParams.keys()) and (not 'PlaneOut' in rowParams.keys()):
+        if (not 'PlaneIn' in rowParams) and (not 'PlaneOut' in rowParams):
             # No post-processing for this row because planes are not given
             continue
 
-        # Read inlet and outlet planes
+        # Read inlet and outlet planes # TODO modify name dependence vs CGNS data
         planeUpstream   = I.getNodeFromName(surfaces, 'ISO_CoordinateX_{}'.format(rowParams['PlaneIn']))
         planeDownstream = I.getNodeFromName(surfaces, 'ISO_CoordinateX_{}'.format(rowParams['PlaneOut']))
 
@@ -333,7 +334,7 @@ def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[],
             # No post-processing for this row because planes have not been extracted
             continue
 
-        # Convert to Tetra arrays for integration
+        # Convert to Tetra arrays for integration # TODO identify bug and notify
         planeUpstream = C.convertArray2Tetra(planeUpstream)
         planeDownstream = C.convertArray2Tetra(planeDownstream)
 
@@ -344,7 +345,7 @@ def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[],
         else:
             # Massflow rate (local to the processor)
             massflowInLocal     = np.array(abs(P.integNorm(planeUpstream, var='MomentumX')[0][0]))
-            # Compute local integrals of Pt and Tt
+            # Compute local integrals of Pt and Tt # TODO verify fields existence
             PtInIntegralLocal   = np.array(massflowWeightedIntegral(planeUpstream, 'PressureStagnation'))
             TtInIntegralLocal   = np.array(massflowWeightedIntegral(planeUpstream, 'TemperatureStagnation'))
 
@@ -1435,11 +1436,11 @@ def boundaryConditions2Surfaces(to, onlyWalls=True):
 
     return BCs
 
-def _renameTooLongZones(to, n=20):
+def renameTooLongZones(to, n=25):
     '''
-    Beware: this is a private function, employed by :py:func:`saveSurfaces`
+    .. warning:: this is a private function, employed by :py:func:`saveSurfaces`
 
-    This function rename zones in a PyTree <to> if their names are too long
+    This function rename zones in a PyTree **to** if their names are too long
     to be save in a CGNS file (maximum length = 32 characters).
 
     The new name of a zone follows this format:
@@ -1455,7 +1456,7 @@ def _renameTooLongZones(to, n=20):
 
             .. note:: tree **to** is modified
 
-        n : :py:class:`int`
+        n : int
             Number of characters to keep in the old zone name.
     '''
     for zone in I.getZones(to):
@@ -1472,14 +1473,14 @@ def _renameTooLongZones(to, n=20):
                 raise ValueError(FAIL+ERRMSG+ENDC)
             I.setName(zone, newName)
 
-def _reshapeBCDatasetNodes(to):
+def reshapeBCDatasetNodes(to):
     '''
-    Beware: this is a private function, employed by :py:func:`saveSurfaces`
+    ..warning:: this is a private function, employed by :py:func:`saveSurfaces`
 
-    This function check the shape of DataArray in all ``BCData_t`` nodes in a
-    PyTree ``<to>``.
+    This function checks the shape of DataArray in all ``BCData_t`` nodes in a
+    PyTree **to**.
     For some unknown reason, the extraction of BCData throught a BCDataSet is
-    done sometime in unstructured 1D shape, so it is not consistant with BC
+    done sometimes in unstructured 1D shape, so it is not consistent with BC
     PointRange. If so, this function reshape the DataArray to the BC shape.
     Link to ``Anomaly #6186`` (see <https://elsa-e.onera.fr/issues/6186>`_)
 
@@ -1492,8 +1493,9 @@ def _reshapeBCDatasetNodes(to):
             .. note:: tree **to** is modified
     '''
     def _getBCShape(bc):
-        PointRange = I.getValue(I.getNodeFromName(bc, 'PointRange'))
-        print('PointRange: {}'.format(PointRange))
+        PointRange_n = I.getNodeFromName(bc, 'PointRange')
+        if not PointRange_n: return
+        PointRange = I.getValue(PointRange_n)
         imin = PointRange[0, 0]
         imax = PointRange[0, 1]
         jmin = PointRange[1, 0]
@@ -1510,13 +1512,14 @@ def _reshapeBCDatasetNodes(to):
 
     for bc in I.getNodesFromType(to, 'BC_t'):
         bc_shape = _getBCShape(bc)
+        if not bc_shape: continue
         for BCData in I.getNodesFromType(bc, 'BCData_t'):
             for node in I.getNodesFromType(BCData, 'DataArray_t'):
                 value = I.getValue(node)
                 if isinstance(value, np.ndarray):
                     if value.shape != bc_shape:
                         I.setValue(node, value.reshape(bc_shape, order='F'))
-    return 0
+
 
 def getOption(OptionName, default=None):
     '''
