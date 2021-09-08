@@ -1,4 +1,10 @@
-* Coprocess: rm GridCoordinates_t avant moveCoordsFromEndOfRunToGridCoords
+* reorganiser saveAll et ***saveSurfaces*** IMPORTANT !!
+
+* revoir Extractions interface (setup.py)
+
+* Coprocess:
+    -> rm GridCoordinates_t avant moveCoordsFromEndOfRunToGridCoords
+    -> moveCoordsFromEndOfRunToGridCoords: voir dependance PRE.addFieldExtractions(extractCoords=False)
 
 * Preprocess and eventually Coprocess:
   add :
