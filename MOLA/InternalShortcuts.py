@@ -4,7 +4,7 @@ MOLA - InternalShortcuts.py
 This module defines some handy shortcuts of the Cassiopee's
 Converter.Internal module.
 
-cazzo di merda
+To complete sphinx doc
 
 First creation:
 27/02/2019 - L. Bernardos
