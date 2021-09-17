@@ -35,6 +35,7 @@ import Transform.PyTree as T
 import Post.PyTree as P
 
 from . import InternalShortcuts as J
+from . import Preprocess as PRE
 
 # ------------------------------------------------------------------ #
 # Following variables should be overridden using compute.py and coprocess.py
@@ -240,6 +241,157 @@ def saveSurfaces(to, loads, DesiredStatistics, tagWithIteration=False,
     if 'TurboConfiguration' in dir(setup):
         monitorTurboPerformance(surfaces, loads, DesiredStatistics,
                                 tagWithIteration=tagWithIteration)
+
+
+def extractSurfaces(OutputTreeWithSkeleton, Extractions):
+
+    def addBase2SurfacesTree(basename):
+        if not zones: return
+        cellDim = I.getZoneDim(zones[0])[-1]
+        base = I.newCGNSBase(basename, cellDim=cellDim, physDim=3, parent=SurfacesTree)
+        I._addChild(base, zones)
+        J.set(base, '.ExtractionInfo', **Extraction)
+        return base
+
+    t = I.renameNode(OutputTreeWithSkeleton, 'FlowSolution#Init', 'FlowSolution#Centers')
+    I._renameNode(t, 'FlowSolution#Height', 'FlowSolution')
+    I._rmNodesByName(t, 'FlowSolution#EndOfRun*')
+    reshapeBCDatasetNodes
+    DictBCNames2Type = C.getFamilyBCNamesDict(t)
+    SurfacesTree = I.newCGNSTree()
+    PartialTree = Cmpi.convert2PartialTree(t)
+
+    for Extraction in Extractions:
+        TypeOfExtraction = Extraction['type']
+
+        if TypeOfExtraction.startswith('AllBC'):
+            BCFilterName = TypeOfExtraction.replace('AllBC','')
+            for BCFamilyName in DictBCNames2Type:
+                BCType = DictBCNames2Type[BCFamilyName]
+                if BCFilterName.lower() in BCType.lower():
+                    zones = C.extractBCOfName(t,'FamilySpecified:'+BCFamilyName)
+                    addBase2SurfacesTree(BCFamilyName)
+
+        elif TypeOfExtraction.startswith('BC'):
+            zones = C.extractBCOfType(t, TypeOfExtraction)
+            try: basename = Extraction['name']
+            except KeyError: basename = TypeOfExtraction
+            addBase2SurfacesTree(basename)
+
+        elif TypeOfExtraction.startswith('FamilySpecified:'):
+            zones = C.extractBCOfName(t, TypeOfExtraction)
+            try: basename = Extraction['name']
+            except KeyError: basename = TypeOfExtraction.replace('FamilySpecified:','')
+            addBase2SurfacesTree(basename)
+
+        elif TypeOfExtraction == 'IsoSurface':
+            zones = P.isoSurfMC(PartialTree, Extraction['field'], Extraction['value'])
+            try: basename = Extraction['name']
+            except KeyError: basename = 'Iso_%s_%g'%(Extraction['field'],Extraction['value'])
+            addBase2SurfacesTree(basename)
+
+        elif TypeOfExtraction == 'Sphere':
+            try: center = Extraction['center']
+            except KeyError: center = 0,0,0
+            Eqn = '({x}-{x0})**2+({y}-{y0})**2+({z}-{z0})**2-{r}**2'.format(
+                x='{CoordinateX}',y='{CoordinateY}',z='{CoordinateZ}',
+                r=Extraction['radius'], x0=center[0],
+                y0=center[1], z0=center[2])
+            C._initVars(PartialTree,'Slice=%s'%Eqn)
+            zones = P.isoSurfMC(PartialTree, 'Slice', 0.0)
+            try: basename = Extraction['name']
+            except KeyError: basename = 'Sphere_%g'%Extraction['radius']
+            addBase2SurfacesTree(basename)
+
+        elif TypeOfExtraction == 'Plane':
+            n = np.array(Extraction['normal'])
+            Pt = np.array(Extraction['point'])
+            PlaneCoefs = n[0],n[1],n[2],-n.dot(Pt)
+            C._initVars(PartialTree,'Slice=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
+            zones = P.isoSurfMC(PartialTree, 'Slice', 0.0)
+            try: basename = Extraction['name']
+            except KeyError: basename = 'Plane'
+            addBase2SurfacesTree(basename)
+
+    Cmpi._convert2PartialTree(SurfacesTree)
+    J.forceZoneDimensionsCoherency(SurfacesTree)
+
+    return SurfacesTree
+
+
+def extractIntegralData(to, loads, Extractions=[],
+                        DesiredStatistics=['std-CL', 'std-CD']):
+    '''
+    Extract integral data from coupling tree **to**, and update **loads** Python
+    dictionary adding statistics requested by the user.
+
+    Parameters
+    ----------
+
+        to : PyTree
+            Coupling tree as obtained from :py:func:`adaptEndOfRun`
+
+        loads : dict
+            Contains integral data in the following form:
+
+            >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
+
+        DesiredStatistics : :py:class:`list` of :py:class:`str`
+            Here, the user requests the additional statistics to be computed.
+            The syntax of each quantity must be as follows:
+
+            ::
+
+                '<preffix>-<integral_quantity_name>'
+
+            `<preffix>` can be ``'avg'`` (for cumulative average) or ``'std'``
+            (for standard deviation). ``<integral_quantity_name>`` can be any
+            quantity contained in loads, including other statistics.
+
+            .. hint:: chaining preffixes is perfectly accepted, like
+                ``'std-std-CL'`` which would compute the cumulative standard
+                deviation of the cumulative standard deviation of the
+                lift coefficient (:math:`\sigma(\sigma(C_L))`)
+
+    '''
+    IntegralDataNodes = I.getNodesFromType2(to, 'IntegralData_t')
+    for IntegralDataNode in IntegralDataNodes:
+        IntegralDataName = getIntegralDataName(IntegralDataNode)
+        _appendIntegralDataNode2Loads(loads, IntegralDataNode)
+        _extendLoadsWithProjectedLoads(loads, IntegralDataName)
+        _extendLoadsWithStatistics(loads, IntegralDataName, DesiredStatistics)
+
+    return loads
+
+
+def save(t, filename):
+    t = I.copyRef(t) if I.isTopTree(t) else C.newPyTree(['Base', J.getZones(t)])
+    I._adaptZoneNamesForSlash(t)
+    Cmpi._setProc(t, Cmpi.rank)
+
+    Skeleton = J.getSkeleton(t)
+    Skeletons = Cmpi.KCOMM.allgather(Skeleton)
+    trees = [s if s else I.newCGNSTree() for s in Skeletons]
+    trees.insert(0,t)
+    tWithSkel = I.merge(trees)
+    for l in 2,3: I._correctPyTree(tWithSkel,l) # unique base and zone names
+
+    Cmpi.barrier()
+    if Cmpi.rank==0:
+        try:
+            if os.path.islink(filename):
+                os.unlink(filename)
+            else:
+                os.remove(filename)
+        except:
+            pass
+    Cmpi.barrier()
+
+    printCo('will save %s ...'%filename,0, color=J.CYAN)
+    Cmpi.convertPyTree2File(tWithSkel, filename, merge=False)
+    printCo('... saved %s'%filename,0, color=J.CYAN)
+    Cmpi.barrier()
+
 
 
 def extractIsoSurfaces(to):
@@ -537,7 +689,7 @@ def updateAndWriteSetup(setup):
     if rank == 0:
         printCo('updating setup.py ...', proc=0, color=GREEN)
         setup.elsAkeysNumerics['inititer'] = CurrentIteration
-        writeSetup(setup)
+        PRE.writeSetupFromModuleObject(setup)
         printCo('updating setup.py ... OK', proc=0, color=GREEN)
     comm.Barrier()
 
@@ -863,6 +1015,8 @@ def _extendLoadsWithProjectedLoads(loads, IntegralDataName):
     IntegralDataName - (string) - Name of the IntegralDataNode (CGNS) provided
         by elsA. It is used as key for loads dictionary.
     '''
+
+
     DragDirection=np.array(setup.ReferenceValues['DragDirection'],dtype=np.float)
     SideDirection=np.array(setup.ReferenceValues['SideDirection'],dtype=np.float)
     LiftDirection=np.array(setup.ReferenceValues['LiftDirection'],dtype=np.float)
@@ -878,12 +1032,15 @@ def _extendLoadsWithProjectedLoads(loads, IntegralDataName):
         TorqueCoef = setup.ReferenceValues['TorqueCoef']
         TorqueOrigin = setup.ReferenceValues['TorqueOrigin']
 
-    FX = loadsSubset['MomentumXFlux']
-    FY = loadsSubset['MomentumYFlux']
-    FZ = loadsSubset['MomentumZFlux']
-    MX = loadsSubset['TorqueX']
-    MY = loadsSubset['TorqueY']
-    MZ = loadsSubset['TorqueZ']
+    try:
+        FX = loadsSubset['MomentumXFlux']
+        FY = loadsSubset['MomentumYFlux']
+        FZ = loadsSubset['MomentumZFlux']
+        MX = loadsSubset['TorqueX']
+        MY = loadsSubset['TorqueY']
+        MZ = loadsSubset['TorqueZ']
+    except KeyError:
+        return # no required fields for computing external aero coefficients
 
     # Pole change
     # TODO make ticket for elsA concerning CGNS parsing of xtorque ytorque ztorque
@@ -1378,16 +1535,16 @@ def moveCoordsFromEndOfRunToGridCoords(to):
 
             .. note:: tree **to** is modified
     '''
-    for EoRnode in I.getNodesFromName3(to, 'FlowSolution#EndOfRun#Coords'):
-        GridLocationNode = I.getNodeFromType1(EoRnode, 'GridLocation_t')
+    I._renameNode(to,'FlowSolution#EndOfRun#Coords','GridCoordinates')
+    for GridCoordsNode in I.getNodesFromName3(to, 'GridCoordinates'):
+        GridLocationNode = I.getNodeFromType1(GridCoordsNode, 'GridLocation_t')
         if I.getValue(GridLocationNode) != 'Vertex':
-            zone = I.getParentOfNode(to, EoRnode)
+            zone = I.getParentOfNode(to, GridCoordsNode)
             ERRMSG = ('Extracted coordinates of zone '
                       '%s must be located in Vertex')%I.getName(zone)
             raise ValueError(FAIL+ERRMSG+ENDC)
         I.rmNode(to, GridLocationNode)
-        I.setName(EoRnode, 'GridCoordinates')
-        I.setType(EoRnode, 'GridCoordinates_t')
+        I.setType(GridCoordsNode, 'GridCoordinates_t')
     Cmpi.barrier()
 
 def boundaryConditions2Surfaces(to, onlyWalls=True):
@@ -1414,8 +1571,8 @@ def boundaryConditions2Surfaces(to, onlyWalls=True):
     '''
     Cmpi.barrier()
     tR = I.renameNode(to, 'FlowSolution#Init', 'FlowSolution#Centers')
-    # TODO make sure that I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
-    # TODO make it multi-container
+    I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
+    # TODO make it multi-container of FlowSolution
     DictBCNames2Type = C.getFamilyBCNamesDict(tR)
 
     BCs = I.newCGNSTree()

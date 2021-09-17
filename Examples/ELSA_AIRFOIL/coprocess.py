@@ -1,5 +1,7 @@
 '''
-coprocess.py template
+coprocess.py template WORKFLOW AIRFOIL
+
+MOLA Dev
 '''
 
 # Control Flags for interactive control using command 'touch <flag>'
@@ -81,7 +83,7 @@ if ENTER_COUPLING:
     toWithSkeleton = I.merge([Skeleton, to])
 
     if SAVE_FIELDS:
-        CO.saveDistributedPyTree(toWithSkeleton, FILE_FIELDS)
+        CO.save(toWithSkeleton,os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
 
 
     if REGISTER_TRANSITION:
@@ -97,7 +99,11 @@ if ENTER_COUPLING:
 
 
     if SAVE_LOADS:
-        CO.updateAndSaveLoads(to, loads, DesiredStatistics, monitorMemory=True)
+        CO.extractIntegralData(to, loads, Extractions=setup.Extractions,
+                                DesiredStatistics=DesiredStatistics)
+        CO.addMemoryUsage2Loads(loads)
+        loadsTree = CO.loadsDict2PyTree(loads)
+        CO.save(loadsTree, os.path.join(DIRECTORY_OUTPUT,FILE_LOADS))
 
         if (it-inititer)>ItersMinEvenIfConverged and not CONVERGED:
             CONVERGED=CO.isConverged(ZoneName=ConvergenceFamilyName,
@@ -105,8 +111,8 @@ if ENTER_COUPLING:
                                      FluxThreshold=MaxConvergedCLStd)
 
     if SAVE_SURFACES:
-        CO.saveSurfaces(toWithSkeleton, loads, DesiredStatistics,
-            tagWithIteration=False)
+        surfs = CO.extractSurfaces(toWithSkeleton, setup.Extractions)
+        CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
 
 
     if CONVERGED or it >= itmax or ReachedTimeOutMargin:
@@ -118,5 +124,6 @@ if ENTER_COUPLING:
             if rank==0:
                 with open('COMPLETED','w') as f: f.write('COMPLETED')
 
-        CO.saveAll(toWithSkeleton, to, loads, DesiredStatistics,
-                   [], [], quit=True)
+        CO.printCo('TERMINATING COMPUTATION', proc=0, color=CO.GREEN)
+        CO.updateAndWriteSetup(setup)
+        elsAxdt.safeInterrupt()
