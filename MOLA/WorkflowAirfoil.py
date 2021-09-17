@@ -424,7 +424,7 @@ def buildMesh(AirfoilPath,
     return t, meshParamsUpdated
 
 
-def prepareMainCGNS(t=None, file_mesh='mesh.cgns', meshParams={},
+def prepareMainCGNS4ElsA(mesh, meshParams={},
                     writeOutputFields=True,
                     Reynolds=1e6, Mach=0.3,
                     MachPolar=None,
@@ -439,7 +439,8 @@ def prepareMainCGNS(t=None, file_mesh='mesh.cgns', meshParams={},
                     CoprocessOptions={},
                     ImposedWallFields=[], TransitionZones={},
                     FieldsAdditionalExtractions=['ViscosityMolecular',
-                        'Viscosity_EddyMolecularRatio','Mach']):
+                        'Viscosity_EddyMolecularRatio','Mach'],
+                    Extractions=[{'type':'AllBCWall'}]):
     '''
     This is mainly a function similar to :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to airfoil computations. Its purpose is adapting the CGNS to
@@ -448,12 +449,11 @@ def prepareMainCGNS(t=None, file_mesh='mesh.cgns', meshParams={},
     Parameters
     ----------
 
-        t : PyTree
-            the grid as produced by :py:func:`buildMesh`
-
-        file_mesh : str
-            if **t** is not provided (:py:obj:`None`), then open the file
-            provided by this attribute
+        mesh : :py:class:`str` or PyTree
+            if the input is a :py:class:`str`, then such string specifies the
+            path to file (usually named ``mesh.cgns``) where the result of
+            function :py:func:`buildMesh` has been writen. Otherwise,
+            **mesh** can directly be the PyTree resulting from :py:func:`buildMesh`
 
         meshParams : dict
             provide the mesh parameters dictionary as
@@ -524,12 +524,22 @@ def prepareMainCGNS(t=None, file_mesh='mesh.cgns', meshParams={},
         FieldsAdditionalExtractions : :py:class:`list` of :py:class:`str`
             list of CGNS names for extracting additional flowfield quantities
 
+        Extractions : :py:class:`list` of :py:class:`dict`
+            .. danger:: **doc this** # TODO
+
     Returns
     -------
 
         None : None
             Writes ``setup.py``, ``main.cgns`` and eventually ``OUTPUT/fields.cgns``
     '''
+
+    if isinstance(mesh,str):
+        t = C.convertFile2PyTree(mesh)
+    elif I.isTopTree(mesh):
+        t = mesh
+    else:
+        raise ValueError('parameter mesh must be either a filename or a PyTree')
 
     if not t: t = C.convertFile2PyTree(file_mesh)
     else: t = I.copyRef(t)
@@ -559,7 +569,7 @@ def prepareMainCGNS(t=None, file_mesh='mesh.cgns', meshParams={},
         TurbulenceModel='Wilcox2006-klim',
         TransitionMode=TransitionMode,
         CoprocessOptions=CoprocessOpts,
-        FieldsAdditionalExtractions=' '.join(FieldsAdditionalExtractions),
+        FieldsAdditionalExtractions=FieldsAdditionalExtractions,
                             )
     ReferenceValues['ImposedWallFields'] = ImposedWallFields
     ReferenceValues['TransitionZones'] = TransitionZones
@@ -582,7 +592,8 @@ def prepareMainCGNS(t=None, file_mesh='mesh.cgns', meshParams={},
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
-                        elsAkeysNumerics=elsAkeysNumerics)
+                        elsAkeysNumerics=elsAkeysNumerics,
+                        Extractions=Extractions)
 
 
     t = PRE.newCGNSfromSetup(t, AllSetupDics, dim=2, initializeFlow=True,

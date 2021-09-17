@@ -2332,7 +2332,7 @@ def is2DCurveClockwiseOriented(curve):
     cx, cy = J.getxy(curve)
     thesum = 0.
     for i in range(len(cx)-1):
-        thesum += (cx[i+1]-cx[i])/(cy[i+1]+cy[i])
+        thesum += (cx[i+1]-cx[i])*(cy[i+1]+cy[i])
 
     isClockwise = True if thesum > 0 else False
 
