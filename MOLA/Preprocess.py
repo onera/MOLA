@@ -127,7 +127,7 @@ def prepareMesh4ElsA(InputMeshes, NProcs=None, ProcPointsLoad=250000):
 
     t = getMeshesAssembled(InputMeshes)
     transform(t, InputMeshes)
-    connectMesh(t, InputMeshes)
+    t = connectMesh(t, InputMeshes)
     setBoundaryConditions(t, InputMeshes)
     t = splitAndDistribute(t, InputMeshes,
                               NProcs=NProcs,
@@ -436,6 +436,16 @@ def transform(t, InputMeshes):
                     .. tip:: use this option to transform a grid built in milimeters
                         into meters
 
+                * 'rotate' : :py:class:`list` of :py:class:`tuple`
+                    List of rotation to apply to the grid component. Each rotation
+                    is defined by 3 elements:
+                        * a 3-tuple corresponding to the center coordinates
+                        * a 3-tuple corresponding to the rotation axis
+                        * a float (or integer) defining the angle of rotation in degrees
+
+                    .. tip:: this option is useful to change the orientation of
+                        a mesh built in Autogrid 5.
+
     '''
     for meshInfo in InputMeshes:
         if 'Transform' not in meshInfo: continue
@@ -445,6 +455,10 @@ def transform(t, InputMeshes):
         if 'scale' in meshInfo['Transform']:
             s = float(meshInfo['Transform']['scale'])
             T._homothety(base,(0,0,0),s)
+
+        if 'rotate' in meshInfo['Transform']:
+            for center, axis, ang in meshInfo['Transform']['rotate']:
+                T._rotate(base, center, axis, ang)
     T._makeDirect(t)
 
 
@@ -482,11 +496,28 @@ def connectMesh(t, InputMeshes):
                     makes a near-match operation using prescribed **tolerance**
                     and **ratio**
 
+                * ``'PeriodicMatch'``
+                    makes a periodic match operation using prescribed **tolerance**
+                    and **angles**
+
             * ``'tolerance'`` : :py:class:`float`
                 employed tolerance for the connection instruction
 
             * ``'ratio'`` : :py:class:`int`
                 employed ratio for connection ``'type':'NearMatch'``
+
+            * ``'angles'`` : :py:class:`list` of :py:class:`float`
+                employed list of angles (in degree) for connection
+                ``'type':'PeriodicMatch'``
+
+    Returns
+    -------
+
+        t : PyTree
+            Modified tree
+
+            .. note:: this returned tree is only needed for ``'PeriodicMatch'``
+                operation.
 
     '''
     for meshInfo in InputMeshes:
@@ -503,9 +534,19 @@ def connectMesh(t, InputMeshes):
                 X.connectNearMatch(t, ratio=ConnectParams['ratio'],
                                       tol=ConnectParams['tolerance'],
                                       dim=baseDim)
+            elif ConnectionType == 'PeriodicMatch':
+                for angle in ConnectParams['angles']:
+                    print('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)))
+                    t = X.connectMatchPeriodic(t,
+                                            rotationCenter=[0.,0.,0.],
+                                            rotationAngle=[angle,0.,0.],
+                                            tol=ConnectParams['tolerance'],
+                                            dim=baseDim,
+                                            unitAngle='Degree')
             else:
                 ERRMSG = 'Connection type %s not implemented'%ConnectionType
                 raise AttributeError(ERRMSG)
+    return t
 
 
 def setBoundaryConditions(t, InputMeshes):
@@ -829,7 +870,7 @@ def splitAndDistribute(t, InputMeshes, NProcs=None, ProcPointsLoad=2e5):
 
         I._correctPyTree(tRef,level=3)
 
-        connectMesh(tRef, InputMeshes)
+        tRef = connectMesh(tRef, InputMeshes)
 
     if NProcs is None:
         NProcs = int(np.round(C.getNPts(tRef) / float(ProcPointsLoad)))-1
