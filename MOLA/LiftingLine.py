@@ -2501,7 +2501,7 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
         # 3rd dimension: slices corresponding to PyZonePolars
         AllValues3D = np.dstack([AllValues[pzn][v] for pzn in PyZonePolarNames])
 
-        _applyInterpolationFunction__(AllValues3D, Variables[v], FoilInterpLaw)
+        _applyInterpolationFunction__(AllValues3D, Variables[v], 'interp1d_linear')
 
 
     return Surf

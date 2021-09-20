@@ -22,11 +22,11 @@ import Post.PyTree as P
 import Distributor2.PyTree as D2
 import Converter.elsAProfile as EP
 import Intersector.PyTree as XOR
+import MOLA
 from . import InternalShortcuts as J
 from . import GenerativeShapeDesign as GSD
 from . import GenerativeVolumeDesign as GVD
 from . import ExtractSurfacesProcessor as ESP
-
 
 def prepareMesh4ElsA(InputMeshes, NProcs=None, ProcPointsLoad=250000):
     '''
@@ -140,8 +140,9 @@ def prepareMesh4ElsA(InputMeshes, NProcs=None, ProcPointsLoad=250000):
     return t
 
 
-def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
-        NumericalParams={}, BodyForceInputData=[], writeOutputFields=True):
+def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
+        NumericalParams={}, Extractions=[{'type':'AllBCWall'}],
+        BodyForceInputData=[], writeOutputFields=True):
     '''
     This macro-function takes as input a preprocessed grid file (as produced
     by function :py:func:`prepareMesh4ElsA` ) and adds all remaining information
@@ -162,9 +163,11 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
     Parameters
     ----------
 
-        FILE_MESH : str
-            path to the ``mesh.cgns`` file where the result of
-            function :py:func:`prepareMesh4ElsA` has been writen.
+        mesh : :py:class:`str` or PyTree
+            if the input is a :py:class:`str`, then such string specifies the
+            path to file (usually named ``mesh.cgns``) where the result of
+            function :py:func:`prepareMesh4ElsA` has been writen. Otherwise,
+            **mesh** can directly be the PyTree resulting from :py:func:`prepareMesh4ElsA`
 
         ReferenceValuesParams : dict
             Python dictionary containing the
@@ -184,6 +187,9 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
             .. note:: internally, this dictionary is passed as *kwargs* as follows:
 
                 >>> PRE.getElsAkeysNumerics(arg, **NumericalParams)
+
+        Extractions : :py:class:`list` of :py:class:`dict`
+            .. danger:: **doc this** # TODO
 
         BodyForceInputData : :py:class:`list` of :py:class:`dict`
             if provided, each item of this list constitutes a body-force modeling component.
@@ -322,7 +328,12 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
             ReferenceValuesParams['FieldsAdditionalExtractions'] = fieldname
 
 
-    t = C.convertFile2PyTree(FILE_MESH)
+    if isinstance(mesh,str):
+        t = C.convertFile2PyTree(mesh)
+    elif I.isTopTree(mesh):
+        t = mesh
+    else:
+        raise ValueError('parameter mesh must be either a filename or a PyTree')
 
     hasBCOverlap = True if C.extractBCOfType(t, 'BCOverlap') else False
 
@@ -330,9 +341,12 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
     if hasBCOverlap: addFieldExtraction('ChimeraCellType')
     if BodyForceInputData: addFieldExtraction('Temperature')
 
+
+
     FluidProperties = computeFluidProperties()
     ReferenceValues = computeReferenceValues(FluidProperties,
                                              **ReferenceValuesParams)
+
     NProc = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
     ReferenceValues['NProc'] = int(NProc)
     ReferenceValuesParams['NProc'] = int(NProc)
@@ -345,7 +359,9 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
-                        elsAkeysNumerics=elsAkeysNumerics)
+                        elsAkeysNumerics=elsAkeysNumerics,
+                        Extractions=Extractions)
+
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
     t = newCGNSfromSetup(t, AllSetupDics, initializeFlow=True,
@@ -1850,7 +1866,8 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         Surface=1.0, Length=1.0, TorqueOrigin=[0,0,0],
         TurbulenceModel='Wilcox2006-klim', Viscosity_EddyMolecularRatio=0.1,
         TurbulenceCutoff=1.0, TransitionMode=None, CoprocessOptions={},
-        FieldsAdditionalExtractions = 'ViscosityMolecular ViscosityEddy Temperature Mach ChimeraCellType'):
+        FieldsAdditionalExtractions = ['ViscosityMolecular','ViscosityEddy',
+                                       'Mach']):
     '''
     Compute ReferenceValues dictionary used for pre/co/postprocessing a CFD
     case. It contains multiple information and is mostly self-explanatory.
@@ -1937,12 +1954,13 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
                 'SecondsMargin4QuitBeforeTimeOut' : 900.,
                 'ConvergenceCriterionFamilyName' : '', # Add familyBCname
 
-        FieldsAdditionalExtractions : str
-            space separated keywords of
+        FieldsAdditionalExtractions : :py:class:`list` of :py:class:`str`
+            elsA or CGNS keywords of fields to be extracted.
             additional fields to be included as extraction.
 
-            .. warning:: interface of this parameter will change in future versions,
-                to become a :py:class:`list` of :py:class:`str`
+            .. note:: primitive conservative variables required for restart are
+                automatically included
+
 
     Returns
     -------
@@ -2030,7 +2048,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
 
     TurbulentSANuTilde = None
 
-    Fields = 'Density MomentumX MomentumY MomentumZ EnergyStagnationDensity'
+    Fields = ['Density','MomentumX','MomentumY','MomentumZ','EnergyStagnationDensity']
     ReferenceState = [
     float(Density),
     float(MomentumX),
@@ -2040,7 +2058,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     ]
 
     if   TurbulenceModel == 'SA':
-        FieldsTurbulence  = 'TurbulentSANuTildeDensity'
+        FieldsTurbulence  = ['TurbulentSANuTildeDensity']
 
         def computeEddyViscosityFromNuTilde(NuTilde):
             '''
@@ -2069,23 +2087,23 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
 
 
     elif TurbulenceModel in ('BSL','BSL-V','SST-2003','SST','SST-V','Wilcox2006-klim'):
-        FieldsTurbulence  = 'TurbulentEnergyKineticDensity TurbulentDissipationRateDensity'
+        FieldsTurbulence  = ['TurbulentEnergyKineticDensity','TurbulentDissipationRateDensity']
         ReferenceStateTurbulence = [float(TurbulentEnergyKineticDensity), float(TurbulentDissipationRateDensity)]
 
     elif TurbulenceModel == 'smith':
-        FieldsTurbulence  = 'TurbulentEnergyKineticDensity TurbulentLengthScaleDensity'
+        FieldsTurbulence  = ['TurbulentEnergyKineticDensity','TurbulentLengthScaleDensity']
         ReferenceStateTurbulence = [float(TurbulentEnergyKineticDensity), float(TurbulentLengthScaleDensity)]
 
     elif TurbulenceModel == 'SST-2003-LM2009':
-        FieldsTurbulence = 'TurbulentEnergyKineticDensity TurbulentDissipationRateDensity'
-        FieldsTurbulence+= ' IntermittencyDensity MomentumThicknessReynoldsDensity'
+        FieldsTurbulence = ['TurbulentEnergyKineticDensity','TurbulentDissipationRateDensity',
+                    'IntermittencyDensity','MomentumThicknessReynoldsDensity']
 
         ReferenceStateTurbulence = [float(TurbulentEnergyKineticDensity), float(TurbulentDissipationRateDensity), float(IntermittencyDensity), float(MomentumThicknessReynoldsDensity),]
 
     elif TurbulenceModel == 'SSG/LRR-RSM-w2012':
-        FieldsTurbulence = 'ReynoldsStressXX ReynoldsStressXY ReynoldsStressXZ'
-        FieldsTurbulence+= ' ReynoldsStressYY ReynoldsStressYZ ReynoldsStressZZ'
-        FieldsTurbulence+= ' ReynoldsStressDissipationScale'
+        FieldsTurbulence = ['ReynoldsStressXX', 'ReynoldsStressXY', 'ReynoldsStressXZ',
+                            'ReynoldsStressYY', 'ReynoldsStressYZ', 'ReynoldsStressZZ',
+                            'ReynoldsStressDissipationScale']
         ReynoldsStressDissipationScale = TurbulentDissipationRateDensity
         ReferenceStateTurbulence = [
         float(ReynoldsStressXX),
@@ -2098,7 +2116,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
 
     else:
         raise AttributeError('Turbulence model %s not implemented in workflow. Must be in: %s'%(TurbulenceModel,str(AvailableTurbulenceModels)))
-    Fields         += ' '+FieldsTurbulence
+    Fields         += FieldsTurbulence
     ReferenceState += ReferenceStateTurbulence
 
     # Update ReferenceValues dictionary
@@ -2910,13 +2928,13 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False):
             dictionary as produced by :py:func:`computeReferenceValues` function
 
         extractCoords : bool
-            if ``True``, then create a FlowSolution container named
-            FlowSolution#EndOfRun#Coords to perform coordinates extraction.
+            if :py:obj:`True`, then create a ``FlowSolution`` container named
+            ``FlowSolution#EndOfRun#Coords`` to perform coordinates extraction.
 
     '''
 
-    Fields2Extract = (ReferenceValues['Fields']+' '+
-                      ReferenceValues['FieldsAdditionalExtractions']).split()
+    Fields2Extract = ReferenceValues['Fields'] + ReferenceValues['FieldsAdditionalExtractions']
+
     '''
     # Do not respect order, see #7764
     EP._addFlowSolutionEoR(t,
@@ -3062,7 +3080,7 @@ def writeSetup(AllSetupDictionaries, setupFilename='setup.py'):
     '''
 
     Lines = ['#!/usr/bin/python\n']
-    Lines = ["'''\nsetup.py file automatically generated in PREPROCESS\n'''\n"]
+    Lines = ["'''\nMOLA %s setup.py file automatically generated in PREPROCESS\n'''\n"%MOLA.__version__]
 
     for SetupDict in AllSetupDictionaries:
         Lines+=[SetupDict+"="+pprint.pformat(AllSetupDictionaries[SetupDict])+"\n"]
@@ -3090,7 +3108,7 @@ def writeSetupFromModuleObject(setup, setupFilename='setup.py'):
 
     '''
     Lines = ['#!/usr/bin/python\n']
-    Lines = ["'''\nsetup.py file automatically generated in PREPROCESS\n'''\n"]
+    Lines = ["'''\nMOLA %s setup.py file automatically generated in PREPROCESS\n'''\n"%MOLA.__version__]
 
     for SetupItem in dir(setup):
         if not SetupItem.startswith('_'):
