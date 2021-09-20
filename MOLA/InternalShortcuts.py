@@ -4,6 +4,8 @@ MOLA - InternalShortcuts.py
 This module defines some handy shortcuts of the Cassiopee's
 Converter.Internal module.
 
+To complete sphinx doc
+
 First creation:
 27/02/2019 - L. Bernardos
 '''
@@ -1808,3 +1810,40 @@ def sortListsUsingSortOrderOfFirstList(*arraysOrLists):
         NewArrays.append( NewArray )
 
     return NewArrays
+
+
+def getSkeleton(t, keepNumpyOfSizeLessThan=7):
+    tR = I.copyRef(t)
+    zones = I.getZones(t)
+    for z in zones:
+        nodes = I.getNodesFromType(z, 'DataArray_t')
+        for n in nodes:
+          if n[1] is None: continue
+          if n[1].size > keepNumpyOfSizeLessThan-1: n[1] = None
+    return tR
+
+
+def forceZoneDimensionsCoherency(t):
+    for zone in I.getZones(t):
+        ZoneType = I.getValue(I.getNodeFromName(zone,'ZoneType'))
+        if ZoneType == 'Structured':
+            x = I.getNodeFromName(zone,'CoordinateX')[1]
+            if x is None: continue
+            dim = len(x.shape)
+            if dim == 1:
+                zone[1] = np.array([x.shape[0],x.shape[0]-1,0],
+                                    dtype=np.int32,order='F')
+            elif dim == 2:
+                zone[1] = np.array([[x.shape[0],x.shape[0]-1,0],
+                                    [x.shape[1],x.shape[1]-1,0]],
+                                    dtype=np.int32,order='F')
+            elif dim == 3:
+                zone[1] = np.array([[x.shape[0],x.shape[0]-1,0],
+                                    [x.shape[1],x.shape[1]-1,0],
+                                    [x.shape[2],x.shape[2]-1,0],],
+                                    dtype=np.int32,order='F')
+
+
+def getZones(t):
+    if t is None: return []
+    else: return I.getZones(t)
