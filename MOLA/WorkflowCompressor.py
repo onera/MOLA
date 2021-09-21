@@ -140,7 +140,7 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
     return t
 
 def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
-        NumericalParams={}, TurboConfiguration={}, PostParameters={},
+        NumericalParams={}, TurboConfiguration={}, Extractions={},
         BodyForceInputData=[], writeOutputFields=True):
     '''
     This is mainly a function similar to Preprocess :py:func:`prepareMainCGNS4ElsA`
@@ -203,7 +203,6 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
     if BodyForceInputData: NumericalParams['useBodyForce'] = True
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues, **NumericalParams)
     TurboConfiguration = setTurboConfiguration(**TurboConfiguration)
-    PostParameters = setPostParameters(**PostParameters)
 
     AllSetupDics = dict(FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
@@ -211,7 +210,7 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
                         TurboConfiguration=TurboConfiguration,
-                        PostParameters=PostParameters)
+                        Extractions=Extractions)
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
     t = newCGNSfromSetup(t, AllSetupDics, initializeFlow=True, FULL_CGNS_MODE=False)
@@ -560,7 +559,7 @@ def computeReferenceValues(FluidProperties, Massflow, PressureStagnation,
         Viscosity_EddyMolecularRatio=0.1, TurbulenceModel='Wilcox2006-klim',
         TurbulenceCutoff=1.0, TransitionMode=None, CoprocessOptions={},
         Length=1.0, TorqueOrigin=[0., 0., 0.],
-        FieldsAdditionalExtractions='ViscosityMolecular Viscosity_EddyMolecularRatio Pressure Temperature PressureStagnation TemperatureStagnation Mach'):
+        FieldsAdditionalExtractions=['ViscosityMolecular', 'Viscosity_EddyMolecularRatio', 'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation', 'Mach']):
     '''
     This function is the Compressor's equivalent of :py:func:`PRE.computeReferenceValues()`.
     The main difference is that in this case reference values are set through
@@ -660,12 +659,12 @@ def setTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}):
                     The number of blades in the computational domain. Set to
                     ``<NumberOfBlades>`` for a full 360 simulation.
 
-                * PlaneIn : py:class:`float`, optional
+                * InletPlane : py:class:`float`, optional
                     Position (in ``CoordinateX``) of the inlet plane for this
                     row. This plane is used for post-processing and convergence
                     monitoring.
 
-                * PlaneOut : py:class:`float`, optional
+                * OutletPlane : py:class:`float`, optional
                     Position of the outlet plane for this row.
 
     Returns
@@ -686,44 +685,6 @@ def setTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}):
                 rowParams[key] = ShaftRotationSpeed
 
     return TurboConfiguration
-
-def setPostParameters(IsoSurfaces={}, Variables=[]):
-    '''
-    Construct a dictionary with the Co(Post)processing options.
-
-    Parameters
-    ----------
-
-        IsoSurfaces : :py:class:`dict`
-            dictionary defining the isoSurfaces to compute. Each key sets a
-            variable, and the associated value is a list defining the levels.
-            For example:
-
-            ::
-
-                IsoSurfaces   = dict(
-                    CoordinateX   = [-0.2432, 0.0398],
-                    ChannelHeight = [0.1, 0.5, 0.9]
-                    )
-
-        Variables : :py:class:`list` of :py:class:`str`, optional
-            list of the variable names to compute and add on the isoSurfaces.
-            They are computed by the function :py:func:`computeVariables` in
-            Cassiopee Post module and must be among the following entries:
-            ``'Pressure'``, ``'PressureStagnation'``,
-            ``'TemperatureStagnation'``, ``'Entropy'``
-
-    Returns
-    -------
-
-        PostParameters : :py:class:`dict`
-            set of Co(Post)processing options
-    '''
-    PostParameters = dict(
-        IsoSurfaces   = IsoSurfaces,
-        Variables     = Variables
-        )
-    return PostParameters
 
 def getRotationSpeedOfRows(t):
     '''
@@ -1074,7 +1035,7 @@ def setBC_inj1_uniform(t, FamilyName, FluidProperties, ReferenceValues):
     '''
 
     # Get turbulent variables names and values
-    turbVars = ReferenceValues['FieldsTurbulence'].split()
+    turbVars = ReferenceValues['FieldsTurbulence']
     turbVars = [var.replace('Density', '') for var in turbVars]
     turbValues = [val/ReferenceValues['Density'] for val in ReferenceValues['ReferenceStateTurbulence']]
     turbDict = dict(zip(turbVars, turbValues))
@@ -1168,7 +1129,7 @@ def setBC_inj1_interpFromFile(t, FamilyName, ReferenceValues, filename, fileform
 
     var2interp = ['PressureStagnation', 'EnthalpyStagnation',
         'VelocityUnitVectorX', 'VelocityUnitVectorY', 'VelocityUnitVectorZ']
-    turbVars = ReferenceValues['FieldsTurbulence'].split()
+    turbVars = ReferenceValues['FieldsTurbulence']
     turbVars = [var.replace('Density', '') for var in turbVars]
     var2interp += turbVars
 
@@ -1182,7 +1143,7 @@ def setBC_inj1_interpFromFile(t, FamilyName, ReferenceValues, filename, fileform
 
     inlet_BC_nodes = C.extractBCOfName(t, 'FamilySpecified:{0}'.format(FamilyName))
     I._adaptZoneNamesForSlash(inlet_BC_nodes)
-    # hook = None
+    # hook = None # TODO: Add a hook 
     for w in inlet_BC_nodes:
         bcLongName = I.getName(w)  # from C.extractBCOfName: <zone>\<bc>
         zname, wname = bcLongName.split('\\')

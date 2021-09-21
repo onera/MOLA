@@ -3042,7 +3042,7 @@ def newFlowSolutionInit(t, ReferenceValues):
     '''
     print('invoking FlowSolution#Init with uniform fields using ReferenceState')
     I._renameNode(t,'FlowSolution#Centers','FlowSolution#Init')
-    FieldsNames = ReferenceValues['Fields'].split(' ')
+    FieldsNames = ReferenceValues['Fields']
     I.__FlowSolutionCenters__ = 'FlowSolution#Init'
     for i in range(len(ReferenceValues['ReferenceState'])):
         FieldName = FieldsNames[i]
@@ -3145,7 +3145,7 @@ def addReferenceState(t, FluidProperties, ReferenceValues):
     # RefState = zip(ReferenceValues['Fields'].split(' '),
     #                ReferenceValues['ReferenceState'])
     RefState = []
-    FieldsNames = ReferenceValues['Fields'].split(' ')
+    FieldsNames = ReferenceValues['Fields']
     for i in range(len(FieldsNames)):
         RefState += [[FieldsNames[i],ReferenceValues['ReferenceState'][i]]]
     for i in ('Reynolds','Mach','Pressure','Temperature'):
