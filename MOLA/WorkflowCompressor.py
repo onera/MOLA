@@ -40,7 +40,7 @@ from . import Preprocess        as PRE
 
 
 def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
-                        duplicationInfos={}, blocksToRename={}):
+                        duplicationInfos={}, blocksToRename={}, SplitBlocks=True):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
     from a CGNS file provided by Autogrid 5.
@@ -96,6 +96,9 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
             Each key corresponds to the name of a zone to modify, and the associated
             value is the new name to give.
 
+        SplitBlocks : bool
+            if :py:obj:`False`, do not split the mesh.
+
     Returns
     -------
 
@@ -120,7 +123,7 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
                     Connection=[dict(type='Match', tolerance=1e-8),
                                 dict(type='PeriodicMatch', tolerance=1e-8, angles=angles)
                                 ],
-                    SplitBlocks=True,
+                    SplitBlocks=SplitBlocks,
                     )]
 
     t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], blocksToRename=blocksToRename)
@@ -139,24 +142,36 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
 
     return t
 
-def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
-        NumericalParams={}, TurboConfiguration={}, Extractions={},
+def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
+        NumericalParams={}, TurboConfiguration={}, Extractions={}, BoundaryConditions={},
         BodyForceInputData=[], writeOutputFields=True):
     '''
     This is mainly a function similar to Preprocess :py:func:`prepareMainCGNS4ElsA`
     but adapted to compressor computations. Its purpose is adapting the CGNS to
-    elsA. Wall boundary conditions are set in this function. Other types of BCs
-    (inflow, outflow, Rotor/stator interfaces) must be set separately.
+    elsA.
 
     Parameters
     ----------
 
-        t : PyTree
-            A grid that already contains:
-                * connectivities
-                * splitting and distribution
-                * families
-                * (optional) parametrization with channel height in a ``FlowSolution#Height`` node
+        mesh : :py:class:`str` or PyTree
+
+        ReferenceValuesParams : dict
+
+        NumericalParams : dict
+
+        TurboConfiguration : dict
+            Dictionary concerning the compressor properties
+            For details, refer to documentation of :py:func:`setTurboConfiguration`
+
+        Extractions : :py:class:`list` of :py:class:`dict`
+
+        BoundaryConditions : :py:class:`list` of :py:class:`dict`
+            List of boundary conditions to set on the given mesh.
+            For details, refer to documentation of :py:func:`setBCs`
+
+        BodyForceInputData : :py:class:`list` of :py:class:`dict`
+
+        writeOutputFields : bool
 
     Returns
     -------
@@ -182,8 +197,12 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
         except:
             ReferenceValuesParams['FieldsAdditionalExtractions'] = fieldname
 
-
-    t = C.convertFile2PyTree(FILE_MESH)
+    if isinstance(mesh,str):
+        t = C.convertFile2PyTree(mesh)
+    elif I.isTopTree(mesh):
+        t = mesh
+    else:
+        raise ValueError('parameter mesh must be either a filename or a PyTree')
 
     hasBCOverlap = True if C.extractBCOfType(t, 'BCOverlap') else False
 
@@ -215,7 +234,9 @@ def prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams={},
 
     t = newCGNSfromSetup(t, AllSetupDics, initializeFlow=True, FULL_CGNS_MODE=False)
     to = PRE.newRestartFieldsFromCGNS(t)
-    setBC_Walls(t, TurboConfiguration)
+    # Beware: setting the BCs here delete the .Solver#Output nodes
+    # TODO: move this function and solve the Seg. Fault bug with .Solver#Output
+    setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties, ReferenceValues)
     PRE.saveMainCGNSwithLinkToOutputFields(t,to,writeOutputFields=writeOutputFields)
 
     print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
@@ -840,6 +861,70 @@ def machFromMassflow(massflow, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
 ################# Boundary Conditions Settings  ################################
 ################################################################################
 
+def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties, ReferenceValues):
+    '''
+    Set all BCs defined in the dictionary **BoundaryConditions**.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            preprocessed tree as performed by :py:func:`prepareMesh4ElsA`
+
+        BoundaryConditions : :py:class:`list` of :py:class:`dict`
+            User-provided list of boundary conditions. Each element is a
+            dictionary with the following keys:
+                * type : elsA BC type
+                * option (optional) : add a specification to type
+                * other keys depending on type. They will be passed as an
+                    unpacked dictionary of arguments to the BC type-specific
+                    function.
+
+        TurboConfiguration : dict
+            as produced by :py:func:`setTurboConfiguration`
+
+        FluidProperties : dict
+            as produced by :py:func:`computeFluidProperties`
+
+        ReferenceValues : dict
+            as produced by :py:func:`computeReferenceValues`
+
+    See also
+    --------
+
+        setBC_Walls, setBC_inj1, setBC_inj1_uniform, setBC_inj1_interpFromFile,
+        setBC_outpres
+    '''
+    print(J.CYAN + 'set BCs at walls' + J.ENDC)
+    setBC_Walls(t, TurboConfiguration)
+
+    for BCparam in BoundaryConditions:
+
+        BCkwargs = {key:BCparam[key] for key in BCparam if key not in ['type', 'option']}
+
+        if BCparam['type'] == 'inj1':
+
+            if 'option' not in BCparam:
+                print(J.CYAN + 'set BC inj1 on ' + BCparam['FamilyName'] + J.ENDC)
+                setBC_inj1_uniform(t, **BCkwargs)
+
+            elif BCparam['option'] == 'uniform':
+                print(J.CYAN + 'set BC inj1 (uniform) on ' + BCparam['FamilyName'] + J.ENDC)
+                setBC_inj1_uniform(t, FluidProperties, ReferenceValues, **BCkwargs)
+
+            elif BCparam['option'] == 'file':
+                print('{}set BC inj1 (from file {}) on {}{}'.format(J.CYAN,
+                    BCparam['filename'], BCparam['FamilyName'], J.ENDC))
+                setBC_inj1_interpFromFile(t, ReferenceValues, **BCkwargs)
+
+        elif BCparam['type'] == 'outpres':
+            print(J.CYAN + 'set BC outpres on ' + BCparam['FamilyName'] + J.ENDC)
+            setBC_outpres(t, **BCkwargs)
+
+        else:
+            raise AttributeError('BC type %s not implemented'%BCparam['type'])
+
+
 def setBC_Walls(t, TurboConfiguration, bladeFamilyNames=['Blade']):
     '''
     Set all the wall boundary conditions in a turbomachinery context, by making
@@ -984,7 +1069,7 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
         J.set(inlet, '.Solver#BC', type='inj1', **ImposedVariables)
 
     else:
-        J.set(inlet, '.Solver#BC', type='inj1')
+        J.set(inlet, '.Solver#BC', type='inj1') #TODO: check if really needed
 
         assert bc is not None
 
@@ -1007,7 +1092,7 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
             gridLocation='FaceCenter', parent=bc)
         J.set(BCDataSet, 'DirichletData', **ImposedVariables)
 
-def setBC_inj1_uniform(t, FamilyName, FluidProperties, ReferenceValues):
+def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName):
     '''
     Set a Boundary Condition ``inj1`` with uniform inflow values. These values
     are them in **ReferenceValues**.
@@ -1018,14 +1103,14 @@ def setBC_inj1_uniform(t, FamilyName, FluidProperties, ReferenceValues):
         t : PyTree
             Tree to modify
 
-        FamilyName : str
-            Name of the family on which the boundary condition will be imposed
-
         FluidProperties : dict
             as obtained from :py:func:`computeFluidProperties`
 
         ReferenceValues : dict
             as obtained from :py:func:`computeReferenceValues`
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
 
     See also
     --------
@@ -1064,7 +1149,7 @@ def setBC_inj1_uniform(t, FamilyName, FluidProperties, ReferenceValues):
 
     setBC_inj1(t, FamilyName, ImposedVariables)
 
-def setBC_inj1_interpFromFile(t, FamilyName, ReferenceValues, filename, fileformat=None):
+def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileformat=None):
     '''
     Set a Boundary Condition ``inj1`` using the field map in the file
     **filename**. It is expected to be a surface with the following variables
@@ -1105,11 +1190,11 @@ def setBC_inj1_interpFromFile(t, FamilyName, ReferenceValues, filename, fileform
         t : PyTree
             Tree to modify
 
-        FamilyName : str
-            Name of the family on which the boundary condition will be imposed
-
         ReferenceValues : dict
             as obtained from :py:func:`computeReferenceValues`
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
 
         filename : str
             name of the input filename
@@ -1143,7 +1228,7 @@ def setBC_inj1_interpFromFile(t, FamilyName, ReferenceValues, filename, fileform
 
     inlet_BC_nodes = C.extractBCOfName(t, 'FamilySpecified:{0}'.format(FamilyName))
     I._adaptZoneNamesForSlash(inlet_BC_nodes)
-    # hook = None # TODO: Add a hook 
+    # hook = None # TODO: Add a hook
     for w in inlet_BC_nodes:
         bcLongName = I.getName(w)  # from C.extractBCOfName: <zone>\<bc>
         zname, wname = bcLongName.split('\\')
