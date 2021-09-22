@@ -245,10 +245,13 @@ def saveSurfaces(to, loads, DesiredStatistics, tagWithIteration=False,
 
 def extractSurfaces(OutputTreeWithSkeleton, Extractions):
 
+    cellDimOutputTree = I.getZoneDim(I.getZones(OutputTreeWithSkeleton)[0])[-1]
+
     def addBase2SurfacesTree(basename):
         if not zones: return
         cellDim = I.getZoneDim(zones[0])[-1]
-        base = I.newCGNSBase(basename, cellDim=cellDim, physDim=3, parent=SurfacesTree)
+        base = I.newCGNSBase(basename, cellDim=cellDimOutputTree-1, physDim=3,
+            parent=SurfacesTree)
         I._addChild(base, zones)
         J.set(base, '.ExtractionInfo', **Extraction)
         return base
