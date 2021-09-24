@@ -76,11 +76,11 @@ if BodyForceInputData and not COMPUTE_BODYFORCE:
                                  not BODYFORCE_INITIATED])
 
 ElapsedTime = timeit.default_timer() - LaunchTime
-reachedTimeOutMargin = CO.hasReachedTimeOutMargin(ElapsedTime, TimeOut,
+ReachedTimeOutMargin = CO.hasReachedTimeOutMargin(ElapsedTime, TimeOut,
                                                             MarginBeforeTimeOut)
 anySignal = any([SAVE_LOADS, SAVE_SURFACES, SAVE_BODYFORCE, COMPUTE_BODYFORCE,
                  SAVE_FIELDS, CONVERGED, it>=itmax])
-ENTER_COUPLING = anySignal or reachedTimeOutMargin
+ENTER_COUPLING = anySignal or ReachedTimeOutMargin
 
 # Desactivate loads Saving
 SAVE_LOADS = False
@@ -92,33 +92,16 @@ if ENTER_COUPLING:
     CO.adaptEndOfRun(toWithSkeleton)
 
 
-    if COMPUTE_BODYFORCE:
-        BODYFORCE_INITIATED = True
-        CO.printCo('COMPUTING BODYFORCE', proc=0, color=CO.MAGE)
-        BodyForceDisks = LL.computePropellerBodyForce(toWithSkeleton,
-                                                      NumberOfSerialRuns,
-                                                      LocalBodyForceInputData)
-
-        CO.addBodyForcePropeller2Loads(loads, BodyForceDisks)
-
-        CO.distributeAndSavePyTree(BodyForceDisks, FILE_BODYFORCESRC,
-                                   tagWithIteration=False)
-        SAVE_BODYFORCE = False
-
-
-        elsAxdt.free('xdt-runtime-tree')
-        del toWithSourceTerms
-        CO.printCo('migrating computed source terms...', proc=0, color=CO.MAGE)
-        toWithSourceTerms = LL.migrateSourceTerms2MainPyTree(BodyForceDisks,
-                                                             toWithSkeleton)
-
-
     if SAVE_FIELDS:
-        CO.saveDistributedPyTree(toWithSkeleton, FILE_FIELDS)
-        Cmpi.barrier()
+        CO.save(toWithSkeleton,os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
+
 
     if SAVE_LOADS:
-        CO.updateAndSaveLoads(to, loads, DesiredStatistics, monitorMemory=True)
+        CO.extractIntegralData(to, loads, Extractions=setup.Extractions,
+                                DesiredStatistics=DesiredStatistics)
+        CO.addMemoryUsage2Loads(loads)
+        loadsTree = CO.loadsDict2PyTree(loads)
+        CO.save(loadsTree, os.path.join(DIRECTORY_OUTPUT,FILE_LOADS))
 
         if (it-inititer)>ItersMinEvenIfConverged and not CONVERGED:
             CONVERGED=CO.isConverged(ZoneName=ConvergenceFamilyName,
@@ -126,24 +109,20 @@ if ENTER_COUPLING:
                                      FluxThreshold=MaxConvergedCLStd)
 
     if SAVE_SURFACES:
-        CO.saveSurfaces(toWithSkeleton, loads, DesiredStatistics,
-            tagWithIteration=False, onlyWalls=False)
+        surfs = CO.extractSurfaces(toWithSkeleton, setup.Extractions)
+        CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
+        CO.monitorTurboPerformance(surfs, loads, DesiredStatistics)
 
 
-    if SAVE_BODYFORCE:
-        CO.distributeAndSavePyTree(BodyForceDisks, FILE_BODYFORCESRC,
-                                   tagWithIteration=False)
+    if CONVERGED or it >= itmax or ReachedTimeOutMargin:
+        if ReachedTimeOutMargin:
+            if rank == 0:
+                with open('NEWJOB_REQUIRED','w') as f: f.write('NEWJOB_REQUIRED')
 
-    if CONVERGED or it >= itmax or reachedTimeOutMargin:
-        if reachedTimeOutMargin:
-            CO.printCo('REACHED MARGIN BEFORE TIMEOUT', proc=0, color=CO.WARN)
+        if it >= itmax or CONVERGED:
+            if rank==0:
+                with open('COMPLETED','w') as f: f.write('COMPLETED')
 
-        CO.saveAll(toWithSkeleton, to, loads, DesiredStatistics,
-                   BodyForceInputData, BodyForceDisks, quit=True)
-
-
-
-if BODYFORCE_INITIATED:
-    Cmpi.barrier()
-    CO.printCo('sending source terms to elsA...', proc=0)
-    elsAxdt.xdt(elsAxdt.PYTHON, ('xdt-runtime-tree', toWithSourceTerms, 1) )
+        CO.printCo('TERMINATING COMPUTATION', proc=0, color=CO.GREEN)
+        CO.updateAndWriteSetup(setup)
+        elsAxdt.safeInterrupt()
