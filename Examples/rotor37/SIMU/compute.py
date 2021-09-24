@@ -135,14 +135,26 @@ if BodyForceInputData:
 
 e.action=elsAxdt.READ_ALL
 
-#e.mode   =elsAxdt.READ_MESH
-#e.mode  |=elsAxdt.READ_CONNECT
-#e.mode  |=elsAxdt.READ_BC
-#e.mode  |=elsAxdt.READ_COMPUTATION
-#e.mode  |=elsAxdt.READ_OUTPUT
-#e.mode  |=elsAxdt.READ_INIT
-#if rank == 0: e.mode|=elsAxdt.READ_TRACE
-#e.mode  |=elsAxdt.CGNS_CHIMERACOEFF
-## e.action =elsAxdt.TRANSLATE
-
 e.compute()
+
+to = elsAxdt.get(elsAxdt.OUTPUT_TREE)
+CO.adaptEndOfRun(to)
+toWithSkeleton = I.merge([Skeleton, to])
+
+# save loads
+CO.extractIntegralData(to, loads, Extractions=[],
+                        DesiredStatistics=DesiredStatistics)
+CO.addMemoryUsage2Loads(loads)
+loadsTree = CO.loadsDict2PyTree(loads)
+CO.save(loadsTree, os.path.join(DIRECTORY_OUTPUT,FILE_LOADS))
+
+# save surfaces
+surfs = CO.extractSurfaces(toWithSkeleton, setup.Extractions)
+CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
+
+# save fields
+tmp_fields = os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS)
+final_fields = tmp_fields.replace('tmp-','')
+CO.save(toWithSkeleton,final_fields)
+elsAxdt.free("xdt-runtime-tree")
+elsAxdt.free("xdt-output-tree")
