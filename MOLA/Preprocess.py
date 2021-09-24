@@ -2516,6 +2516,8 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         addKeys = dict(
         flux               = 'roe',
         limiter            = 'valbada',
+        psiroe             = 0.01,
+        viscous_fluxes     = '5p_cor',
         )
     else:
         raise AttributeError('Numerical scheme shortcut %s not recognized'%NumericalScheme)
