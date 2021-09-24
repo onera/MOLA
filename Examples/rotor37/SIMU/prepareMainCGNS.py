@@ -31,52 +31,55 @@ All this is done in the call to the function PRE.computeReferenceValues
 TurboConfiguration = dict(
     # Shaft speed in rad/s
     # BEWARE: only for single shaft configuration
-    ShaftRotationSpeed = -11000. * np.pi / 30.,
+    ShaftRotationSpeed = -1800.,  # = 17188.7 rpm
 
     # Hub rotation speed
     # List of tuples. Each tuple (xmin, xmax) corresponds to a CoordinateX
     # interval where the speed at hub wall is ShaftRotationSpeed. It is zero
     # outsides these intervals.
-    HubRotationSpeed = [(-999.0, 0.0742685)],
+    HubRotationSpeed = [(-999.0, 999.0)],
 
     # This dictionary has one entry for each row domain.
     # The key names must be the family names in the CGNS Tree.
     Rows = dict(
-        row_1 = dict(
+        R37 = dict(
             # For each row, set here the following parameters:
             # Rotation speed in rad/s (watch out for the sign)
             # Set 'auto' to automatically set ShaftRotationSpeed (for a rotor).
             RotationSpeed = 'auto',
             # The number of blades in the row
-            NumberOfBlades = 16,
+            NumberOfBlades = 36,
             # The number of blades in the computational domain
             # set to <NumberOfBlades> for a full 360 simulation
             NumberOfBladesSimulated = 1,
             # The positions (in CoordinateX) of the inlet and outlet planes for
             # this row. These planes are used for post-processing and convergence
             # monitoring.
-            PlaneIn = -0.2432,
-            PlaneOut = 0.0398
-            )
+            InletPlane = -0.0419,
+            OutletPlane = 0.08
+            ),
         )
     )
+
 
 ReferenceValues = dict(
     # Here we state the flight conditions and reference quantities.
     # These variables are self-explanatory :
-    Massflow              = 36.0,
+    Massflow              = 20.5114,
     TemperatureStagnation = 288.15,
-    PressureStagnation    = 101325.,
-    Surface               = 0.1916608,
-    TurbulenceLevel       = 0.01,
-    Viscosity_EddyMolecularRatio = 50.,
+    PressureStagnation    = 101330.,
+    Surface               = 0.110506,
+    TurbulenceLevel       = 0.03,
+    Viscosity_EddyMolecularRatio = 0.1,
 
     # This macro-key assures coherent turbulence modeling.
     # Most keys follow the NASA convention: https://turbmodels.larc.nasa.gov/
     # Possible values are :
     # 'SA', 'BSL','BSL-V','SST-2003','SST','SST-V','Wilcox2006-klim',
     # 'SST-2003-LM2009', 'SSG/LRR-RSM-w2012'
-    TurbulenceModel='smith',
+    #TurbulenceModel='Wilcox2006-klim',
+    TurbulenceModel='smith', 
+    
 
     # Next dictionary is used for establishing the coprocessing options for the
     # simulation during the trigger call of coprocess.py script:
@@ -84,11 +87,11 @@ ReferenceValues = dict(
 
         # Following key states which BCWall Family Name is used for monitoring
         # convergence using standard deviation of Lift Coefficient.
-        ConvergenceCriterionFamilyName='row_1_Main_Blade',
+        ConvergenceCriterionFamilyName='PERFOS_R37',
 
         # MaxConvergedCLStd establishes the threshold of convergence of
         # standard deviation statistic of Lift Coefficient.
-        MaxConvergedCLStd   = 1e-6,
+        MaxConvergedCLStd   = 1e-4,
 
         # Following key establishes the number of iterations used for computing
         # the statistics of the loads
@@ -100,9 +103,9 @@ ReferenceValues = dict(
 
         # These keys are used to determine the save frequency of the files
         # loads.cgns, surfaces.cgns and fields.cgns
-        UpdateLoadsFrequency      =   1,
-        UpdateSurfacesFrequency   = 10,
-        UpdateFieldsFrequency     = 20,
+        UpdateLoadsFrequency      = 1e20,
+        UpdateSurfacesFrequency   = 20,
+        UpdateFieldsFrequency     = 1000,
 
         # Following key establishes the timeout of the simulation (in seconds)
         # and SecondsMargin4QuitBeforeTimeOut is the margin (in seconds) with
@@ -127,22 +130,48 @@ NumericalParams = dict(
     # following key states the initial iteration. Shall be 1 in general.
     inititer=1,
     # CFL ramp
-    CFLparams=dict(vali=1.,valf=10.,iteri=1,iterf=1000,function_type='linear'),
+    CFLparams=dict(vali=1.,valf=3.,iteri=1,iterf=1000,function_type='linear'),
     # following key states the maximum number of iterations of the iterations.
     # It is recommended to use a VERY HIGH value, as the simulation will stop
     # safely before timeout (see CoprocessOptions)
-    Niter=100000)
+    Niter=1e6)
 
-PostParameters = dict(
-    IsoSurfaces   = dict(
-        CoordinateX   = [-0.2432, 0.0398],
-        ChannelHeight = [0.1, 0.5, 0.9]
-        ),
-    # Variables     = ['Pressure', 'PressureStagnation', 'TemperatureStagnation', 'Entropy',
-    #                  'Radius', 'rovr', 'rovt', 'rowt', 'rowy', 'rowz', 'W', 'V', 'Vm', 'a', 'rvt', 'Machr', 'beta', 'alpha', 'phi']
-    )
 
-WF.prepareMainCGNS4ElsA(FILE_MESH='mesh.cgns', ReferenceValuesParams=ReferenceValues,
+Extractions = [
+    # 
+    dict(type='AllBCwall'),
+    dict(type='BCInflowSubsonic'),
+    dict(type='row_1_OUTFLOW'),
+    dict(type='Sphere', radius=0.5, name='Sphere_example'),
+    dict(type='Plane', name='Plane_example1', point=(0, 0.5, 0), normal=(0.2, 0.8, 0))
+]
+
+for h in [0.1, 0.5, 0.9]:
+    Extractions.append(dict(type='IsoSurface', field='ChannelHeight', value=h))
+
+# Get the positions of inlet and outlet planes for each row
+for row, rowParams in TurboConfiguration['Rows'].items():
+    try:
+       Extractions.append(dict(type='IsoSurface', field='CoordinateX', value=rowParams['InletPlane'], ReferenceRow=row, tag='InletPlane'))
+       Extractions.append(dict(type='IsoSurface', field='CoordinateX', value=rowParams['OutletPlane'], ReferenceRow=row, tag='OutletPlane'))
+    except:
+        pass
+
+pref = 0.5*ReferenceValues['PressureStagnation']
+fluxcoeff = TurboConfiguration['Rows']['R37']['NumberOfBlades']/TurboConfiguration['Rows']['R37']['NumberOfBladesSimulated']
+mref = ReferenceValues['Massflow'] / float(fluxcoeff)
+
+BoundaryConditions = [
+    dict(type='inj1', option='uniform', FamilyName='R37_INFLOW'), 
+    dict(type='outpres', FamilyName='R37_OUTFLOW', pressure=pref),
+    #dict(type='outradeqhyb', FamilyName='R37_OUTFLOW', valve_type=2, valve_ref_pres=pref, valve_ref_mflow=mref, valve_relax=0.1)
+]
+
+####################################################################################
+
+WF.prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams=ReferenceValues,
         NumericalParams=NumericalParams, TurboConfiguration=TurboConfiguration,
-        PostParameters=PostParameters, BodyForceInputData=[],
-        writeOutputFields=True)
+        Extractions=Extractions, BodyForceInputData=[], BoundaryConditions=BoundaryConditions,
+        writeOutputFields=True, bladeFamilyNames=['_R37'])
+
+

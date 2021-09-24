@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH -J subM
-#SBATCH --comment 29589012F  # AER SUBLIME T2.3 TC
+#SBATCH -J IMOTHEP
+#SBATCH --comment 28771019F  # AER IMOTHEP
 #SBATCH -o output.%j.log
 #SBATCH -e error.%j.log
-#SBATCH -t 0-00:10
+#SBATCH -t 0-15:00
 #SBATCH -n 8
 
 # ELSA+CASSIOPEE
