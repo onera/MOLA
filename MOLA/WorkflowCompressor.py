@@ -40,7 +40,7 @@ from . import Preprocess        as PRE
 
 
 def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
-                        duplicationInfos={}, blocksToRename={}, SplitBlocks=True):
+                    duplicationInfos={}, blocksToRename={}, SplitBlocks=True):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
     from a CGNS file provided by Autogrid 5.
@@ -135,7 +135,7 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
                 nDupli=rowParams['NumberOfDuplications'], merge=MergeBlocks)
     if not InputMeshes[0]['SplitBlocks']:
         t = PRE.connectMesh(t, InputMeshes)
-    t = PRE.splitAndDistribute(t, InputMeshes, NProcs=NProcs,
+    t = splitAndDistribute(t, InputMeshes, NProcs=NProcs,
                                 ProcPointsLoad=ProcPointsLoad)
     PRE.adapt2elsA(t, InputMeshes)
     J.checkEmptyBC(t)
@@ -144,7 +144,7 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, TurboConfiguration={}, Extractions={}, BoundaryConditions={},
-        BodyForceInputData=[], writeOutputFields=True):
+        BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade']):
     '''
     This is mainly a function similar to Preprocess :py:func:`prepareMainCGNS4ElsA`
     but adapted to compressor computations. Its purpose is adapting the CGNS to
@@ -236,7 +236,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     to = PRE.newRestartFieldsFromCGNS(t)
     # Beware: setting the BCs here delete the .Solver#Output nodes
     # TODO: move this function and solve the Seg. Fault bug with .Solver#Output
-    setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties, ReferenceValues)
+    setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
+            ReferenceValues, bladeFamilyNames=bladeFamilyNames)
     PRE.saveMainCGNSwithLinkToOutputFields(t,to,writeOutputFields=writeOutputFields)
 
     print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
@@ -575,6 +576,124 @@ def areContiguous(PointRange1, PointRange2):
 
     return -1
 
+def splitAndDistribute(t, InputMeshes, NProcs, ProcPointsLoad):
+    '''
+    Split a PyTree **t** using the desired proc points load **ProcPointsLoad**.
+    Distribute the PyTree **t** using a user-provided **NProcs**. If **NProcs**
+    is not provided, then it is automatically computed.
+
+    Returns a new split and distributed PyTree.
+
+    .. note:: only **InputMeshes** where ``'SplitBlocks':True`` are split.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            assembled tree
+
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            user-provided preprocessing
+            instructions as described in :py:func:`prepareMesh4ElsA` doc
+
+        NProcs : int
+            If a positive integer is provided, then the
+            distribution of the tree (and eventually the splitting) will be done in
+            order to satisfy a total number of processors provided by this value.
+            If not provided (:py:obj:`None`) then the number of procs is automatically
+            determined using as information **ProcPointsLoad** variable.
+
+        ProcPointsLoad : int
+            this is the desired number of grid points
+            attributed to each processor. If **SplitBlocks** = :py:obj:`True`, then it is used to
+            split zones that have more points than **ProcPointsLoad**. If
+            **NProcs** = :py:obj:`None` , then **ProcPointsLoad** is used to determine
+            the **NProcs** to be used.
+
+    Returns
+    -------
+
+        t : PyTree
+            new distributed *(and possibly split)* tree
+
+    '''
+    if InputMeshes[0]['SplitBlocks']:
+        t = T.splitNParts(t, NProcs, dirs=[1,2,3], recoverBC=True)
+        I._correctPyTree(t, level=3)
+        t = PRE.connectMesh(t, InputMeshes)
+    #
+    InputMeshesNoSplit = []
+    for InputMesh in InputMeshes:
+        InputMeshNoSplit = dict()
+        for meshInfo in InputMesh:
+            if meshInfo == 'SplitBlocks':
+                InputMeshNoSplit['SplitBlocks'] = False
+            else:
+                InputMeshNoSplit[meshInfo] = InputMesh[meshInfo]
+        InputMeshesNoSplit.append(InputMeshNoSplit)
+    # Just to distribute zones on procs
+    t = PRE.splitAndDistribute(t, InputMeshesNoSplit, NProcs=NProcs, ProcPointsLoad=ProcPointsLoad)
+    return t
+
+def splitWithPyPart(filename, partN=1, savePpart=False, output=None):
+    '''
+    Split a PyTree with PyPart.
+
+    .. warning:: Contrary to :py:func:`splitAndDistribute`, this function
+        manipulates files as input and output.
+
+    .. warning:: Dependency to ``etc`` module.
+
+    Parameters
+    ----------
+
+        filename : str
+            Name of the CGNS file of the mesh to split
+
+        partN : int
+            Given the number of processors Nprocs used to run this function,
+            the split is done to target a simulation on Nprocs*partN processors.
+
+        savePpart : bool
+            If :py:obj:`True`, save the required information in the CGNS tree to
+            be able to use PyPart function ``'mergeAndSave'`` later.
+
+        output : :py:class:`str` or :py:obj:`None`
+            Name of the new split mesh file. If :py:obj:`None`, the file
+            **filename** will be overwritten.
+
+    Returns
+    -------
+
+        file : None
+            new split tree file, with
+
+    '''
+    import etc.pypart.PyPart     as PPA
+    from mpi4py import MPI
+
+    if not output: output = filename
+
+    # Initilise MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+
+    PyPartBase = PPA.PyPart(filename,
+                            lksearch=['.'],
+                            loadoption='partial',
+                            mpicomm=comm,
+                            LoggingInFile=True,
+                            LoggingFile='PyPart/partTree',
+                            LoggingVerbose=0
+                            )
+    PartTree = PyPartBase.runPyPart(method=2, partN=partN, reorder=[4, 3])
+    # savePpart=True mandatory to merge later with PyPart
+    PyPartBase.finalise(PartTree, method=1, savePpart=savePpart)
+
+    # Save CGNS output with links
+    PyPartBase.save(output, PartTree)
+
 def computeReferenceValues(FluidProperties, Massflow, PressureStagnation,
         TemperatureStagnation, Surface, TurbulenceLevel=0.001,
         Viscosity_EddyMolecularRatio=0.1, TurbulenceModel='Wilcox2006-klim',
@@ -861,7 +980,8 @@ def machFromMassflow(massflow, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
 ################# Boundary Conditions Settings  ################################
 ################################################################################
 
-def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties, ReferenceValues):
+def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
+    ReferenceValues, bladeFamilyNames=['Blade']):
     '''
     Set all BCs defined in the dictionary **BoundaryConditions**.
 
@@ -889,6 +1009,9 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties, Reference
         ReferenceValues : dict
             as produced by :py:func:`computeReferenceValues`
 
+        bladeFamilyNames : :py:class:`list` of :py:class:`str`
+            list of patterns to find families related to blades.
+
     See also
     --------
 
@@ -896,7 +1019,7 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties, Reference
         setBC_outpres
     '''
     print(J.CYAN + 'set BCs at walls' + J.ENDC)
-    setBC_Walls(t, TurboConfiguration)
+    setBC_Walls(t, TurboConfiguration, bladeFamilyNames=bladeFamilyNames)
 
     for BCparam in BoundaryConditions:
 
@@ -960,8 +1083,7 @@ def setBC_Walls(t, TurboConfiguration, bladeFamilyNames=['Blade']):
         omega = np.zeros(x.shape, dtype=float)
         for (x1, x2) in TurboConfiguration['HubRotationSpeed']:
             omega[(x1<=x) & (x<=x2)] = TurboConfiguration['ShaftRotationSpeed']
-        omega = np.asfortranarray(omega)
-        return omega
+        return np.asfortranarray(omega)
 
     # Add info on row movement (.Solver#Motion)
     for row, rowParams in TurboConfiguration['Rows'].items():
@@ -1011,8 +1133,7 @@ def setBC_Walls(t, TurboConfiguration, bladeFamilyNames=['Blade']):
             wnode = I.getNodeFromNameAndType(znode,wname,'BC_t')
             BCDataSet = I.newBCDataSet(name='BCDataSet#Init', value='Null',
                 gridLocation='FaceCenter', parent=wnode)
-            J.set(BCDataSet, 'NeumannData',
-                    omega=omegaHubAtX(xw))
+            J.set(BCDataSet, 'NeumannData', omega=omegaHubAtX(xw))
 
     # SHROUD
     for famNode in I.getNodesFromNameAndType(t, '*SHROUD*', 'Family_t'):
