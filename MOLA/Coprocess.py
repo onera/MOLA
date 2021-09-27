@@ -959,6 +959,37 @@ def loadsDict2PyTree(loads):
 
     return t
 
+def appendDict2Loads(loads, dictToAppend, basename):
+    '''
+    This function add data defined in **dictToAppend** in the base **basename**
+    of **loads**.
+
+    Parameters
+    ----------
+
+        loads : dict
+            Contains integral data in the following form:
+
+            >>> loads[basename]['VariableName'] = np.array
+
+        dictToAppend : dict
+            Contains data to append in **loads**. For each element:
+                * key is the variable name
+                * value is the associated value
+
+        basename : str
+            Name of the base in which values will be appended.
+
+    '''
+    if not base in loads:
+        loads[basename] = dict()
+
+    for var, value in dictToAppend.items():
+        if var in loads[basename]:
+            loads[basename][var] = np.append(subloads[var], value)
+        else:
+            loads[basename][var] = np.array([value])
+
 
 def _appendIntegralDataNode2Loads(loads, IntegralDataNode):
     '''
