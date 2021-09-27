@@ -787,10 +787,10 @@ def setTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}):
                     set ``ShaftRotationSpeed``.
 
                     .. attention:: Use **RotationSpeed**=``'auto'`` for rotors
-                    only.
+                        only.
 
                     .. attention:: Pay attention to the sign of
-                    **RotationSpeed**
+                        **RotationSpeed**
 
                 * NumberOfBlades : py:class:`int`
                     The number of blades in the row
@@ -1043,6 +1043,40 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
         elif BCparam['type'] == 'outpres':
             print(J.CYAN + 'set BC outpres on ' + BCparam['FamilyName'] + J.ENDC)
             setBC_outpres(t, **BCkwargs)
+
+        elif BCparam['type'] == 'outradeq':
+            print(J.CYAN + 'set BC outradeq on ' + BCparam['FamilyName'] + J.ENDC)
+            ETC_setBC_outradeq(t, **BCkwargs)
+
+        elif BCparam['type'] == 'outradeqhyb':
+            print(J.CYAN + 'set BC outradeqhyb on ' + BCparam['FamilyName'] + J.ENDC)
+            ETC_setBC_outradeqhyb(t, **BCkwargs)
+
+        elif BCparam['type'] == 'stage_mxpl':
+            print('{}set BC stage_mxpl between {} and {}{}'.format(J.CYAN,
+                BCparam['left'], BCparam['right'], J.ENDC))
+            ETC_setBC_stage_mxpl(t, **BCkwargs)
+
+        elif BCparam['type'] == 'stage_mxpl_hyb':
+            print('{}set BC stage_mxpl_hyb between {} and {}{}'.format(J.CYAN,
+                BCparam['left'], BCparam['right'], J.ENDC))
+            ETC_setBC_stage_mxpl_hyb(t, **BCkwargs)
+
+        elif BCparam['type'] == 'stage_red':
+            print('{}set BC stage_red between {} and {}{}'.format(J.CYAN,
+                BCparam['left'], BCparam['right'], J.ENDC))
+            if not 'stage_ref_time' in BCkwargs:
+                # Assume a 360 configuration
+                BCkwargs['stage_ref_time'] = 2*np.pi / TurboConfiguration['ShaftRotationSpeed']
+            ETC_setBC_stage_red(t, **BCkwargs)
+
+        elif BCparam['type'] == 'stage_red_hyb':
+            print('{}set BC stage_red_hyb between {} and {}{}'.format(J.CYAN,
+                BCparam['left'], BCparam['right'], J.ENDC))
+            if not 'stage_ref_time' in BCkwargs:
+                # Assume a 360 configuration
+                BCkwargs['stage_ref_time'] = 2*np.pi / TurboConfiguration['ShaftRotationSpeed']
+            ETC_setBC_stage_red_hyb(t, **BCkwargs)
 
         else:
             raise AttributeError('BC type %s not implemented'%BCparam['type'])
@@ -1396,3 +1430,492 @@ def setBC_outpres(t, FamilyName, pressure):
     I._rmNodesByType(outlet, 'FamilyBC_t')
     I.newFamilyBC(value='BCOutflowSubsonic', parent=outlet)
     J.set(outlet, '.Solver#BC', type='outpres', pressure=pressure)
+
+
+################################################################################
+#######  Boundary conditions without ETC dependency  ###########################
+#######         WARNING: VALIDATION REQUIRED        ###########################
+################################################################################
+
+def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
+    valve_ref_mflow, valve_relax=0.1, nbband=100):
+    '''
+    Set an outflow boundary condition of type ``outradeqhyb``.
+
+    .. important:: The hybrid globborder conditions are availble since elsA v5.0.03.
+
+    .. note:: see `elsA Tutorial about valve laws <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/STB-97020/Textes/Boundary/Valve.html>`_
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+        valve_type : int
+            Type of valve law
+
+        valve_ref_pres : float
+            Reference pressure for the valve boundary condition.
+
+        valve_ref_mflow : float
+            Reference massflow for the valve boundary condition.
+
+        valve_relax : float
+            Relaxation coefficient for the valve boundary condition.
+
+            .. warning:: This is a real relaxation coefficient for valve laws 1
+                and 2, but it has the dimension of a pressure for laws 3, 4 and
+                5
+
+        nbband : int
+            Number of points in the radial distribution to compute.
+
+    See also
+    --------
+
+        computeRadialDistribution
+
+    '''
+
+    # Delete previous BC if it exists
+    for bc in C.getFamilyBCs(t, FamilyName):
+        I._rmNodesByName(bc, '.Solver#BC')
+    # Create Family BC
+    family_node = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    I._rmNodesByName(family_node, '.Solver#BC')
+    I.newFamilyBC(value='BCOutflowSubsonic', parent=family_node)
+
+    radDistFile = 'radialDist_{}_{}.plt'.format(FamilyName, nbband)
+    radDist = computeRadialDistribution(t, FamilyName, nbband)
+    C.convertPyTree2File(radDist, radDistFile)
+
+    J.set(family_node, '.Solver#BC',
+            type            = 'outradeqhyb',
+            indpiv          = 1,
+            hray_tolerance  = 1e-12,
+            valve_type      = valve_type,
+            valve_ref_pres  = valve_ref_pres,
+            valve_ref_mflow = valve_ref_mflow,
+            valve_relax     = valve_relax,
+            glob_border_cur = FamilyName,
+            file            = radDistFile,
+            format          = 'bin_tp',
+        )
+
+def setBC_MxPl_hyb(t, left, right, nbband=100):
+    '''
+    Set a hybrid mixing plane condition between families **left** and **right**.
+
+    .. important:: The hybrid globborder conditions are availble since elsA v5.0.03.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            tree to modify
+
+        left : str
+            Name of the first family corresponding to one side of the interface.
+
+        right : str
+            Name of the second family, see **left**
+
+        nbband : int
+            Number of points in the radial distribution to compute.
+
+    See also
+    --------
+
+        setBC_MxPl_hyb_OneSide, computeRadialDistribution
+
+    '''
+
+    setBC_MxPl_hyb_OneSide(t, left, right, nbband)
+    setBC_MxPl_hyb_OneSide(t, right, left, nbband)
+    for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
+        I._rmNodesByType(gc, 'FamilyBC_t')
+
+def setBC_MxPl_hyb_OneSide(t, FamCur, FamOpp, nbband):
+    '''
+    Set a hybrid mixing plane condition for the family **FamCur**.
+
+    .. important:: This function is intended to be called twice by
+        :py:func:`setBC_MxPl_hyb`, once for **FamCur** (with the opposite family
+        **FamOpp**) and once for **FamOpp** (with the opposite family **FamCur**)
+
+    Parameters
+    ----------
+
+        t : PyTree
+            tree to modify
+
+        FamCur : str
+            Name of the first family corresponding to one side of the interface.
+
+        FamOpp : str
+            Name of the second family, on the opposite side of **FamCur**.
+
+        nbband : int
+            Number of points in the radial distribution to compute.
+
+    See also
+    --------
+    setBC_MxPl_hyb, computeRadialDistribution
+    '''
+
+    for bc in C.getFamilyBCs(t, FamCur):
+        bcName = I.getName(bc)
+        PointRange = I.getNodeFromType(bc, 'IndexRange_t')
+        zone = I.getParentFromType(t, bc, 'Zone_t')
+        I.rmNode(t, bc)
+        zgc = I.getNodeFromType(zone, 'ZoneGridConnectivity_t')
+        gc = I.newGridConnectivity(name=bcName, donorName=I.getName(zone),
+                                    ctype='Abutting', parent=zgc)
+        I._addChild(gc, PointRange)
+        I.createChild(gc, 'FamilyName', 'FamilyName_t', value=FamCur)
+
+    radDistFileFamCur = 'radialDist_{}_{}.plt'.format(FamCur, nbband)
+    radDistFamCur = computeRadialDistribution(t, FamCur, nbband)
+    C.convertPyTree2File(radDistFamCur, radDistFileFamCur)
+
+    for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
+        fam = I.getValue(I.getNodeFromType(gc, 'FamilyName_t'))
+        if fam == FamCur:
+            J.set(gc, '.Solver#Property',
+                    globborder      = FamCur,
+                    globborderdonor = FamOpp,
+                    file            = radDistFileFamCur,
+                    type            = 'stage_mxpl_hyb',
+                    mxpl_dirtype    = 'axial',
+                    mxpl_avermean   = 'riemann',
+                    mxpl_avertur    = 'conservative',
+                    mxpl_num        = 'characteristic',
+                    mxpl_ari_sensor = 0.5,
+                    hray_tolerance  = 1e-12,
+                    jtype           = 'nomatch_rad_line',
+                    nomatch_special = 'none',
+                    format          = 'bin_tp'
+                )
+
+def computeRadialDistribution(t, FamilyName, nbband):
+    '''
+    Compute a distribution of radius values according the density of cells for
+    the BCs of family **FamilyName**.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            mesh tree with families
+
+        FamilyName : str
+            Name of the BC family to extract to compute the radial repartition.
+
+        nbband : int
+            Number of values in the returned repartition. It is used to decimate
+            the list of the radii at the center of each cell. For a structured
+            grid, should be ideally the number of cells in the radial direction.
+
+    Returns
+    -------
+
+        zone : PyTree
+            simple tree containing only a one dimension array called 'radius'
+
+    '''
+    bcNodes = C.extractBCOfName(t, 'FamilySpecified:{0}'.format(FamilyName))
+    # Compute radius and put this value at cell centers
+    C._initVars(bcNodes, '{radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
+    bcNodes = C.node2Center(bcNodes, 'radius')
+    I._rmNodesByName(bcNodes, I.__FlowSolutionNodes__)
+    # Put all the radii values in a list
+    radius = []
+    for bc in bcNodes:
+        radius += list(I.getValue(I.getNodeFromName(bc, 'radius')).flatten())
+    # Sort and transform to numpy array
+    step = (len(radius)-1) / float(nbband-1)
+    ind = [int(np.ceil(step*n)) for n in range(nbband)]
+    radius = np.array(sorted(radius))[ind]
+    assert radius.size == nbband
+    # Convert to PyTree
+    zone = I.newZone('Zone1', [[len(radius)],[1],[1]], 'Structured')
+    FS = I.newFlowSolution(parent=zone)
+    I.newDataArray('radius', value=radius, parent=FS)
+
+    return zone
+
+################################################################################
+####################   Boundary conditions with ETC  ###########################
+################################################################################
+
+def ETC_setBC_stage_mxpl(t, left, right, method='globborder_dict'):
+    import etc.transform.__future__  as trf
+
+    if method == 'globborder_dict':
+        t = trf.defineBCStageFromBC(t, left)
+        t = trf.defineBCStageFromBC(t, right)
+        t, stage = trf.newStageMxPlFromFamily(t, left, right)
+
+    elif method == 'poswin':
+        from turbo.poswin import computePosWin
+        def computeGlobborder(tree, win):
+            gbd = computePosWin(tree, win)
+            for path, obj in gbd.items():
+                gbd.pop(path)
+                bc = I.getNodeFromPath(tree, path)
+                gdi, gdj = getGlobDir(tree, bc)
+                gbd['CGNSTree/'+path] = dict(glob_dir_i=gdi, glob_dir_j=gdj,
+                                            i_poswin=obj.i, j_poswin=obj.j)
+            return gbd
+        t = trf.defineBCStageFromBC(t, left)
+        t = trf.defineBCStageFromBC(t, right)
+
+        gbdu = computeGlobborder(t, left)
+        # print("newStageMxPlFromFamily(up): gbdu = {}".format(gbdu))
+        ups = []
+        for bc in C.getFamilyBCs(t, left):
+          bcpath = I.getPath(t, bc)
+          bcu = trf.BCStageMxPlUp(t, bc)
+          globborder = bcu.glob_border(left, opposite=right)
+          globborder.i_poswin   = gbdu[bcpath]['i_poswin']
+          globborder.j_poswin   = gbdu[bcpath]['j_poswin']
+          globborder.glob_dir_i = gbdu[bcpath]['glob_dir_i']
+          globborder.glob_dir_j = gbdu[bcpath]['glob_dir_j']
+          ups.append(bcu)
+
+        # Downstream BCs declaration
+        gbdd = computeGlobborder(t, right)
+        # print("newStageMxPlFromFamily(down): gbdd = {}".format(gbdd))
+        downs = []
+        for bc in C.getFamilyBCs(t, right):
+          bcpath = I.getPath(t, bc)
+          bcd = trf.BCStageMxPlDown(t, bc)
+          globborder = bcd.glob_border(right, opposite=left)
+          globborder.i_poswin   = gbdd[bcpath]['i_poswin']
+          globborder.j_poswin   = gbdd[bcpath]['j_poswin']
+          globborder.glob_dir_i = gbdd[bcpath]['glob_dir_i']
+          globborder.glob_dir_j = gbdd[bcpath]['glob_dir_j']
+          downs.append(bcd)
+
+        # StageMxpl declaration
+        stage = trf.BCStageMxPl(t, up=ups, down=downs)
+    else:
+        raise Exception
+
+    stage.jtype = 'nomatch_rad_line'
+    stage.create()
+
+    for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
+        I._rmNodesByType(gc, 'FamilyBC_t')
+
+def ETC_setBC_stage_mxpl_hyb(t, left, right, nbband=100, c=None):
+    import etc.transform.__future__  as trf
+
+    t = trf.defineBCStageFromBC(t, left)
+    t = trf.defineBCStageFromBC(t, right)
+
+    t, stage = trf.newStageMxPlHybFromFamily(t, left, right)
+    stage.jtype = 'nomatch_rad_line'
+    stage.hray_tolerance = 1e-16
+    for stg in stage.down:
+        filename = "state_radius_{}_{}.plt".format(right, nbband)
+        radius = stg.repartition(mxpl_dirtype='axial', filename=filename, fileformat="bin_tp")
+        radius.compute(t, nbband=nbband, c=c)
+        radius.write()
+    for stg in stage.up:
+        filename = "state_radius_{}_{}.plt".format(left, nbband)
+        radius = stg.repartition(mxpl_dirtype='axial', filename=filename, fileformat="bin_tp")
+        radius.compute(t, nbband=nbband, c=c)
+        radius.write()
+    stage.create()
+
+    for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
+        I._rmNodesByType(gc, 'FamilyBC_t')
+
+def ETC_setBC_stage_red(t, left, right, stage_ref_time):
+    import etc.transform.__future__  as trf
+
+    t = trf.defineBCStageFromBC(t, left)
+    t = trf.defineBCStageFromBC(t, right)
+
+    t, stage = trf.newStageRedFromFamily(t, left, right, stage_ref_time=stage_ref_time)
+    stage.create()
+
+    for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
+        I._rmNodesByType(gc, 'FamilyBC_t')
+
+def ETC_setBC_stage_red_hyb(t, left, right, stage_ref_time, nbband=100, c=None):
+    import etc.transform.__future__  as trf
+
+    t = trf.defineBCStageFromBC(t, left)
+    t = trf.defineBCStageFromBC(t, right)
+
+    t, stage = trf.newStageRedFromFamily(t, left, right, stage_ref_time=stage_ref_time)
+    stage.hray_tolerance = 1e-16
+    for stg in stage.down:
+        filename = "state_radius_{}_{}.plt".format(right, nbband)
+        radius = stg.repartition(mxpl_dirtype='axial', filename=filename, fileformat="bin_tp")
+        radius.compute(t, nbband=nbband, c=c)
+        radius.write()
+    for stg in stage.up:
+        filename = "state_radius_{}_{}.plt".format(left, nbband)
+        radius = stg.repartition(mxpl_dirtype='axial', filename=filename, fileformat="bin_tp")
+        radius.compute(t, nbband=nbband, c=c)
+        radius.write()
+    stage.create()
+
+    for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
+        I._rmNodesByType(gc, 'FamilyBC_t')
+
+def ETC_setBC_outradeq(t, FamilyName, valve_type, valve_ref_pres,
+    valve_ref_mflow, valve_relax=0.1):
+
+    # IMPORT etc module
+    import etc.transform.__future__  as trf
+    from etc.globborder.globborder_dict import globborder_dict
+
+    # Delete previous BC if it exists
+    for bc in C.getFamilyBCs(t, FamilyName):
+        I._rmNodesByName(bc, '.Solver#BC')
+    # Create Family BC
+    family_node = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    I._rmNodesByName(family_node, '.Solver#BC')
+    I.newFamilyBC(value='BCOutflowSubsonic', parent=family_node)
+
+    # Outflow (globborder+outradeq, valve 4)
+    gbd = globborder_dict(t, FamilyName, config="axial")
+    for bcn in  C.getFamilyBCs(t, FamilyName):
+        bcpath = I.getPath(t, bcn)
+        bc = trf.BCOutRadEq(t, bcn)
+        bc.indpiv   = 1
+        # Lois de vannes:
+        # <bc>.valve_law(valve_type, pref, Qref, valve_relax=relax, valve_file=None, valve_file_freq=1) # v4.2.01 pour valve_file*
+        # valvelaws = [(1, 'SlopePsQ'),     # p(it+1) = p(it) + relax*( pref * (Q(it)/Qref) -p(it)) # relax = sans dim. # isoPs/Q
+        #              (2, 'QTarget'),      # p(it+1) = p(it) + relax*pref * (Q(it)/Qref-1)         # relax = sans dim. # debit cible
+        #              (3, 'QLinear'),      # p(it+1) = pref + relax*(Q(it)-Qref)                  # relax = Pascal    # lin en debit
+        #              (4, 'QHyperbolic'),  # p(it+1) = pref + relax*(Q(it)/Qref)**2               # relax = Pascal    # comp. exp.
+        #              (5, 'SlopePiQ')]     # p(it+1) = p(it) + relax*( pref * (Q(it)/Qref) -pi(it)) # relax = sans dim. # isoPi/Q
+        # pour la loi 5, pref = pi de reference
+        valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget', 3: 'QLinear', 4: 'QHyperbolic'}
+        bc.valve_law(valve_law_dict[valve_type], valve_ref_pres, valve_ref_mflow, valve_relax=valve_relax)
+        bc.dirorder = 1
+        globborder = bc.glob_border(current=FamilyName)
+        globborder.i_poswin        = gbd[bcpath]['i_poswin']
+        globborder.j_poswin        = gbd[bcpath]['j_poswin']
+        globborder.glob_dir_i      = gbd[bcpath]['glob_dir_i']
+        globborder.glob_dir_j      = gbd[bcpath]['glob_dir_j']
+        globborder.azi_orientation = gbd[bcpath]['azi_orientation']
+        globborder.h_orientation   = gbd[bcpath]['h_orientation']
+        # Add extraction file
+        bc.create()
+
+def ETC_setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
+    valve_ref_mflow, valve_relax=0.1, nbband=100, c=None):
+
+    # IMPORT etc module
+    import etc.transform.__future__  as trf
+
+    # Delete previous BC if it exists
+    for bc in C.getFamilyBCs(t, FamilyName):
+        I._rmNodesByName(bc, '.Solver#BC')
+    # Create Family BC
+    family_node = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    I._rmNodesByName(family_node, '.Solver#BC')
+    I.newFamilyBC(value='BCOutflowSubsonic', parent=family_node)
+
+    bc = trf.BCOutRadEqHyb(t, I.getNodeFromNameAndType(t, FamilyName, 'Family_t'))
+    bc.glob_border()
+    bc.indpiv   = 1
+    valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget', 3: 'QLinear', 4: 'QHyperbolic'}
+    bc.valve_law(valve_law_dict[valve_type], valve_ref_pres, valve_ref_mflow, valve_relax=valve_relax)
+    bc.dirorder = -1
+    radius_filename = "state_radius_{}_{}.plt".format(FamilyName, nbband)
+    radius = bc.repartition(filename=radius_filename, fileformat="bin_tp")
+    radius.compute(t, nbband=nbband, c=c)
+    radius.write()
+    bc.create()
+
+def getGlobDir(tree, bc):
+    # Remember: glob_dir_i is the opposite of theta, which is positive when it goes from Y to Z
+    # Remember: glob_dir_j is as the radius, which is positive when it goes from hub to shroud
+
+    # Check if the BC is in i, j or k constant: need pointrage of BC
+    ptRi = I.getValue(I.getNodeFromName(bc, 'PointRange'))[0]
+    ptRj = I.getValue(I.getNodeFromName(bc, 'PointRange'))[1]
+    ptRk = I.getValue(I.getNodeFromName(bc, 'PointRange'))[2]
+    x, y, z = J.getxyz(I.getParentFromType(tree, bc, 'Zone_t'))
+    y0 = y[0, 0, 0]
+    z0 = z[0, 0, 0]
+
+    if ptRi[0] == ptRi[1]:
+        dir1 = 2  # j
+        dir2 = 3  # k
+        y1 = y[0,-1, 0]
+        z1 = z[0,-1, 0]
+        y2 = y[0, 0,-1]
+        z2 = y[0, 0,-1]
+
+    elif ptRj[0] == ptRj[1]:
+        dir1 = 1  # i
+        dir2 = 3  # k
+        y1 = y[-1, 0, 0]
+        z1 = z[-1, 0, 0]
+        y2 = y[ 0, 0,-1]
+        z2 = y[ 0, 0,-1]
+
+    elif ptRk[0] == ptRk[1]:
+        dir1 = 1  # i
+        dir2 = 2  # j
+        y1 = y[-1, 0, 0]
+        z1 = z[-1, 0, 0]
+        y2 = y[ 0,-1, 0]
+        z2 = y[ 0,-1, 0]
+
+    rad0 = np.sqrt(y0**2+z0**2)
+    rad1 = np.sqrt(y1**2+z1**2)
+    rad2 = np.sqrt(y2**2+z2**2)
+    tet0 = np.arctan2(z0,y0)
+    tet1 = np.arctan2(z1,y1)
+    tet2 = np.arctan2(z2,y2)
+
+    ang1 = np.arctan2(rad1-rad0, rad1*tet1-rad0*tet0)
+    ang2 = np.arctan2(rad2-rad0, rad2*tet2-rad0*tet0)
+
+    if abs(np.sin(ang2)) < abs(np.sin(ang1)):
+        # dir2 is more vertical than dir1
+        # => globDirJ = +/- dir2
+        if np.cos(ang1) > 0:
+            # dir1 points towards theta>0
+            globDirI = -dir1
+        else:
+            # dir1 points towards thetaw0
+            globDirI = dir1
+        if np.sin(ang2) > 0:
+            # dir2 points towards r>0
+            globDirJ = dir2
+        else:
+            # dir2 points towards r<0
+            globDirJ = -dir2
+    else:
+        # dir1 is more vertical than dir2
+        # => globDirJ = +/- dir1
+        if np.cos(ang2) > 0:
+            # dir2 points towards theta>0
+            globDirI = -dir2
+        else:
+            # dir2 points towards thetaw0
+            globDirI = dir2
+        if np.sin(ang1) > 0:
+            # dir1 points towards r>0
+            globDirJ = dir1
+        else:
+            # dir1 points towards r<0
+            globDirJ = -dir1
+
+    print('  * glob_dir_i = %s\n  * glob_dir_j = %s'%(globDirI, globDirJ))
+    assert globDirI != globDirJ
+    return globDirI, globDirJ
