@@ -1813,13 +1813,18 @@ def sortListsUsingSortOrderOfFirstList(*arraysOrLists):
 
 
 def getSkeleton(t, keepNumpyOfSizeLessThan=7):
+    '''
+    .. danger:: workaround. See ticket `8815 <https://elsa.onera.fr/issues/8815>`_
+    '''
     tR = I.copyRef(t)
     zones = I.getZones(t)
     for z in zones:
         nodes = I.getNodesFromType(z, 'DataArray_t')
         for n in nodes:
-          if n[1] is None: continue
-          if n[1].size > keepNumpyOfSizeLessThan-1: n[1] = None
+          try:
+              if n[1].size > keepNumpyOfSizeLessThan-1: n[1] = None
+          except:
+              pass
     return tR
 
 
@@ -1845,5 +1850,8 @@ def forceZoneDimensionsCoherency(t):
 
 
 def getZones(t):
+    '''
+    .. danger:: workaround. See ticket `8816 <https://elsa.onera.fr/issues/8816>`_
+    '''
     if t is None: return []
     else: return I.getZones(t)

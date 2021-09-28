@@ -225,8 +225,9 @@ def launchBasicStructuredPolars(PREFIX_JOB, AirfoilPath, AER, machine,
 
             .. hint:: For always making non-transitional computation, set this value to ``0``
 
-        ExtraElsAParams : dict - parameters overriding the default values
-            of the attributes sent to :py:func:`prepareMainCGNS` of this module.
+        ExtraElsAParams : dict
+            parameters overriding the default values
+            of the attributes sent to :py:func:`prepareMainCGNS4ElsA` of this module.
 
     Returns
     -------
@@ -2113,6 +2114,7 @@ def printConfigurationStatus(DIRECTORY_WORK, useLocalConfig=False):
     '''
     Print the current status of a Polars computation.
 
+
     Parameters
     ----------
 
@@ -2122,6 +2124,30 @@ def printConfigurationStatus(DIRECTORY_WORK, useLocalConfig=False):
         useLocalConfig : bool
             if :py:obj:`True`, use the local ``PolarConfiguration.py``
             file instead of retreiving it from **DIRECTORY_WORK**
+
+    Returns
+    -------
+
+        None : None
+            prints to standard output the status of the computation matrix.
+            Three possible tags exist:
+
+            * ``PD``
+                which means *pending*. The case run is waiting for previous cases to end.
+
+            * ``GO``
+                the case is *running*.
+
+            * ``OK``
+                the case terminated (but not necessarily converged)
+
+            * ``KO``
+                the case crashed
+
+            * ``TO``
+                the case terminated in time-out. This case is theoretically
+                impossible. If you see status ``TO``, please contact the
+                author of this module.
 
     '''
     config = getPolarConfiguration(DIRECTORY_WORK, useLocalConfig)
