@@ -694,7 +694,6 @@ def updateAndWriteSetup(setup):
     comm.Barrier()
 
 
-
 def invokeLoads():
     '''
     Create **loads** Python dictionary by reading any pre-existing data
@@ -716,7 +715,8 @@ def invokeLoads():
     FullPathLoadsFile = os.path.join(DIRECTORY_OUTPUT, FILE_LOADS)
     ExistingLoadsFile = os.path.exists(FullPathLoadsFile)
     Cmpi.barrier()
-    if ExistingLoadsFile and setup.elsAkeysNumerics['inititer']>1:
+    inititer = setup.elsAkeysNumerics['inititer']
+    if ExistingLoadsFile and inititer>1:
         t = Cmpi.convertFile2SkeletonTree(FullPathLoadsFile)
         t = Cmpi.readZones(t, FullPathLoadsFile, rank=rank)
         Cmpi._convert2PartialTree(t, rank=rank)
@@ -732,6 +732,14 @@ def invokeLoads():
                     Var_n = I.getNodeFromName1(FlowSol_n, VarName)
                     if Var_n:
                         loadsSubset[VarName] = Var_n[1]
+
+            try:
+                iters = np.copy(loadsSubset['IterationNumber'])
+                for VarName in loadsSubset:
+                    loadsSubset[VarName] = loadsSubset[VarName][iters<inititer]
+            except KeyError:
+                pass
+
     Cmpi.barrier()
 
     return loads
@@ -1502,8 +1510,8 @@ def adaptEndOfRun(to):
     * adapt name of masking field (``cellnf`` is renamed as ``cellN``)
     * rename ``FlowSolution#EndOfRun`` as ``FlowSolution#Init``
 
-     Parameters
-     ----------
+    Parameters
+    ----------
 
          to : PyTree
             Coupling tree as obtained from function

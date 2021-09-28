@@ -19,8 +19,8 @@ for case in config.JobsQueues:
                                      save_meshParams=True,
                                      save_mesh=False)
         WF.buildJob(case, config, NProc=meshParams['options']['NProc'])
-    
-    WF.prepareMainCGNS(t=t, meshParams=meshParams,
+
+    WF.prepareMainCGNS4ElsA(t=t, meshParams=meshParams,
                        CoprocessOptions=case['CoprocessOptions'],
                        ImposedWallFields=case['ImposedWallFields'],
                        TransitionZones=case['TransitionZones'],
@@ -30,5 +30,3 @@ for case in config.JobsQueues:
 for case in config.JobsQueues:
     if case['NewJob']:
         WF.launchComputationJob(case, config, submitReserveJob=False)
-
-

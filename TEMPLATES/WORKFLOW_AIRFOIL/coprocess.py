@@ -1,5 +1,7 @@
 '''
-coprocess.py template
+coprocess.py template WORKFLOW AIRFOIL
+
+MOLA Dev
 '''
 
 # Control Flags for interactive control using command 'touch <flag>'
@@ -11,7 +13,7 @@ SAVE_LOADS        = CO.getSignal('SAVE_LOADS')
 REGISTER_TRANSITION = CO.getSignal('REGISTER_TRANSITION')
 
 if CO.getSignal('RELOAD_SETUP'):
-    # BEWARE: in Python v >= 3.4 rather use: importlib.reload(setup) 
+    # BEWARE: in Python v >= 3.4 rather use: importlib.reload(setup)
     if setup and setup.__name__ != "__main__": imp.reload(setup)
     CO.setup = setup
     niter    = setup.elsAkeysNumerics['niter']
@@ -35,13 +37,13 @@ DesiredStatistics=['std-CL', 'std-CD', 'std-Cm']
 
 # BEWARE! state 16 => triggers *before* iteration, which means
 # that variable "it" represents actually the *next* iteration
-it = elsAxdt.iteration() 
+it = elsAxdt.iteration()
 CO.CurrentIteration = it
 CO.printCo('iteration %d'%it, proc=0)
 
 
 
-# ENTER COUPLING CONDITIONS: 
+# ENTER COUPLING CONDITIONS:
 if not CONVERGED and it > ItersMinEvenIfConverged:
     CONVERGED = it >= itmax
     if CONVERGED:
@@ -71,17 +73,17 @@ ElapsedTime = timeit.default_timer() - LaunchTime
 ReachedTimeOutMargin = CO.hasReachedTimeOutMargin(ElapsedTime, TimeOut,
                                                             MarginBeforeTimeOut)
 anySignal = any([SAVE_LOADS, SAVE_SURFACES, SAVE_FIELDS, CONVERGED,
-                 REGISTER_TRANSITION]) 
+                 REGISTER_TRANSITION])
 ENTER_COUPLING = anySignal or ReachedTimeOutMargin
 
 
 if ENTER_COUPLING:
     to = elsAxdt.get(elsAxdt.OUTPUT_TREE)
     CO.adaptEndOfRun(to)
-    toWithSkeleton = I.merge([Skeleton, to]) 
+    toWithSkeleton = I.merge([Skeleton, to])
 
     if SAVE_FIELDS:
-        CO.saveDistributedPyTree(toWithSkeleton, FILE_FIELDS)
+        CO.save(toWithSkeleton,os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
 
 
     if REGISTER_TRANSITION:
@@ -97,7 +99,11 @@ if ENTER_COUPLING:
 
 
     if SAVE_LOADS:
-        CO.updateAndSaveLoads(to, loads, DesiredStatistics, monitorMemory=True)
+        CO.extractIntegralData(to, loads, Extractions=setup.Extractions,
+                                DesiredStatistics=DesiredStatistics)
+        CO.addMemoryUsage2Loads(loads)
+        loadsTree = CO.loadsDict2PyTree(loads)
+        CO.save(loadsTree, os.path.join(DIRECTORY_OUTPUT,FILE_LOADS))
 
         if (it-inititer)>ItersMinEvenIfConverged and not CONVERGED:
             CONVERGED=CO.isConverged(ZoneName=ConvergenceFamilyName,
@@ -105,10 +111,11 @@ if ENTER_COUPLING:
                                      FluxThreshold=MaxConvergedCLStd)
 
     if SAVE_SURFACES:
-        CO.saveSurfaces(toWithSkeleton, tagWithIteration=False)
+        surfs = CO.extractSurfaces(toWithSkeleton, setup.Extractions)
+        CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
 
 
-    if CONVERGED or it >= itmax or ReachedTimeOutMargin: 
+    if CONVERGED or it >= itmax or ReachedTimeOutMargin:
         if ReachedTimeOutMargin:
             if rank == 0:
                 with open('NEWJOB_REQUIRED','w') as f: f.write('NEWJOB_REQUIRED')
@@ -117,5 +124,6 @@ if ENTER_COUPLING:
             if rank==0:
                 with open('COMPLETED','w') as f: f.write('COMPLETED')
 
-        CO.saveAll(toWithSkeleton, to, loads, DesiredStatistics,
-                   [], [], quit=True)
+        CO.printCo('TERMINATING COMPUTATION', proc=0, color=CO.GREEN)
+        CO.updateAndWriteSetup(setup)
+        elsAxdt.safeInterrupt()
