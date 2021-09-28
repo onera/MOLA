@@ -25,6 +25,20 @@ Nvars = len(varnames)
 t = C.convertFile2PyTree(FILE_LOADS)
 zones = I.getNodesFromNameAndType(t, 'PERFOS_*', 'Zone_t')
 
+def shortvarname(varname):
+    if varname == 'MassflowIn':
+        return 'mf in'
+    elif varname == 'MassflowOut':
+        return 'mf out'
+    elif varname == 'PressureStagnationRatio':
+        return 'Pt ratio'
+    elif varname == 'TemperatureStagnationRatio':
+        return 'Tt ratio'
+    elif varname == 'EfficiencyIsentropic':
+        return 'eta'
+    else:
+        return varname
+
 for zone in zones:
 
     row = I.getName(zone).lstrip('PERFOS_')
@@ -35,33 +49,31 @@ for zone in zones:
     if Nvars == 1: axes = [axes]
 
     for varname, ax in zip(varnames, axes):
+        svar = shortvarname(varname)
         v = J.getVars2Dict(zone, ['IterationNumber',
                                   varname,
                                   'avg-'+varname,
                                   'std-'+varname,])
         ax[0].set_title('{} {}'.format(row, varname.rstrip('In')))
 
-        ax[0].plot(v['IterationNumber'], v[varname], label=varname, color='k')
-        ax[0].plot(v['IterationNumber'], v['avg-'+varname],
-                   label='average '+varname, color='k', linestyle='--')
-
-        ax[1].plot(v['IterationNumber'], v['std-'+varname],
-                label='std(%s)'%varname, color='k')
+        ax[0].plot(v['IterationNumber'], v[varname], label=svar, color='k')
+        ax[0].plot(v['IterationNumber'], v['avg-'+varname], label='avg %s'%svar, color='k', linestyle='--')
+        
+        ax[1].plot(v['IterationNumber'], v['std-'+varname], label='std %s'%svar, color='k')
 
         if varname == 'MassflowIn':
             varname = 'MassflowOut'
+            svar = shortvarname(varname)
 
             v = J.getVars2Dict(zone, ['IterationNumber',
                                   varname,
                                   'avg-'+varname,
                                   'std-'+varname,])
 
-            ax[0].plot(v['IterationNumber'], v[varname], label=varname, color='C0')
-            ax[0].plot(v['IterationNumber'], v['avg-'+varname],
-                       label='average '+varname, color='C0', linestyle='--')
+            ax[0].plot(v['IterationNumber'], v[varname], label=svar, color='C0')
+            ax[0].plot(v['IterationNumber'], v['avg-'+varname], label='avg %s'%svar, color='C0', linestyle='--')
 
-            ax[1].plot(v['IterationNumber'], v['std-'+varname],
-                    label='std(%s)'%varname, color='C0')
+            ax[1].plot(v['IterationNumber'], v['std-'+varname], label='std %s'%svar, color='C0')
 
         ax[1].set_yscale('log')
         for a in ax:

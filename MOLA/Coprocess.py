@@ -245,10 +245,13 @@ def saveSurfaces(to, loads, DesiredStatistics, tagWithIteration=False,
 
 def extractSurfaces(OutputTreeWithSkeleton, Extractions):
 
+    cellDimOutputTree = I.getZoneDim(I.getZones(OutputTreeWithSkeleton)[0])[-1]
+
     def addBase2SurfacesTree(basename):
         if not zones: return
         cellDim = I.getZoneDim(zones[0])[-1]
-        base = I.newCGNSBase(basename, cellDim=cellDim, physDim=3, parent=SurfacesTree)
+        base = I.newCGNSBase(basename, cellDim=cellDimOutputTree-1, physDim=3,
+            parent=SurfacesTree)
         I._addChild(base, zones)
         J.set(base, '.ExtractionInfo', **Extraction)
         return base
@@ -256,10 +259,16 @@ def extractSurfaces(OutputTreeWithSkeleton, Extractions):
     t = I.renameNode(OutputTreeWithSkeleton, 'FlowSolution#Init', 'FlowSolution#Centers')
     I._renameNode(t, 'FlowSolution#Height', 'FlowSolution')
     I._rmNodesByName(t, 'FlowSolution#EndOfRun*')
-    reshapeBCDatasetNodes
+    reshapeBCDatasetNodes(t)
     DictBCNames2Type = C.getFamilyBCNamesDict(t)
     SurfacesTree = I.newCGNSTree()
     PartialTree = Cmpi.convert2PartialTree(t)
+
+    # See Anomaly 8784 https://elsa.onera.fr/issues/8784
+    for BCDataSetNode in I.getNodesFromType(PartialTree, 'BCDataSet_t'):
+        for node in I.getNodesFromType(BCDataSetNode, 'DataArray_t'):
+            if I.getValue(node) is None:
+                I.rmNode(BCDataSetNode, node)
 
     for Extraction in Extractions:
         TypeOfExtraction = Extraction['type']
@@ -431,6 +440,13 @@ def extractIsoSurfaces(to):
     elif not ('IsoSurfaces' in setup.PostParameters \
                 and 'Variables' in setup.PostParameters):
         return surfaces
+
+    # See Anomaly 8784 https://elsa.onera.fr/issues/8784
+    for BCDataSetNode in I.getNodesFromType(pto, 'BCDataSet_t'):
+        for node in I.getNodesFromType(BCDataSetNode, 'DataArray_t'):
+            if I.getValue(node) is None:
+                I.rmNode(BCDataSetNode, node)
+
     # EXTRACT ISO-SURFACES
     pto = Cmpi.convert2PartialTree(to)
     for varname, values in setup.PostParameters['IsoSurfaces'].items():
@@ -442,17 +458,32 @@ def extractIsoSurfaces(to):
             I.addChild(base, iso)
     return surfaces
 
-def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[],
-                            tagWithIteration=False):
+def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[]):
     '''
-    This function monitors performance (massflow in/out, total pressure ratio,
-    total temperature ratio, isentropic efficiency) for each row in a compressor
-    simulation.
+    Monitor performance (massflow in/out, total pressure ratio, total
+    temperature ratio, isentropic efficiency) for each row in a compressor
+    simulation. This processing is triggered if at least two bases in the PyTree
+    **surfaces** fill the following requirements:
+
+        #. there is a node ``'.ExtractionInfo'`` of type ``'UserDefinedData_t'``
+        #. it contains a node ``'ReferenceRow'``, whose value is a
+            :py:class:`str` corresponding to a row Family in ``'main.cgns'``.
+        #. it contains a node ``'tag'``, whose value is a :py:class:`str` equal
+            to ``'InletPlane'`` or ``'OutletPlane'``.
+
+    .. note:: For one ``'ReferenceRow'``, the monitor is processed only if both
+        ``'InletPlane'`` and ``'OutletPlane'`` are found.
+
+    .. note:: These bases must contain variables ``'PressureStagnation'`` and
+        ``'TemperatureStagnation'``
 
     Parameters
     ----------
 
-        loads : :py:class:`dict`
+        surfaces : PyTree
+            as produced by :py:func:`extractSurfaces`
+
+        loads : dict
             Contains integral data in the following form:
 
             >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
@@ -460,10 +491,6 @@ def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[],
         DesiredStatistics : :py:class:`list` of :py:class:`str`
             Here, the user requests the additional statistics to be computed.
             See documentation of function updateAndSaveLoads for more details.
-
-        tagWithIteration : :py:class:`bool`
-            if ``True``, adds a suffix ``_AfterIter<iteration>``
-            to the saved filename (creates a copy)
 
     '''
     def massflowWeightedIntegral(t, var):
@@ -474,62 +501,83 @@ def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[],
     gamma = setup.FluidProperties['Gamma']
 
     for row, rowParams in setup.TurboConfiguration['Rows'].items():
-        if (not 'PlaneIn' in rowParams) and (not 'PlaneOut' in rowParams):
-            # No post-processing for this row because planes are not given
-            continue
 
-        # Read inlet and outlet planes # TODO modify name dependence vs CGNS data
-        planeUpstream   = I.getNodeFromName(surfaces, 'ISO_CoordinateX_{}'.format(rowParams['PlaneIn']))
-        planeDownstream = I.getNodeFromName(surfaces, 'ISO_CoordinateX_{}'.format(rowParams['PlaneOut']))
+        planeUpstream   = I.newCGNSTree()
+        planeDownstream = I.newCGNSTree()
 
-        if planeUpstream is None or planeDownstream is None:
-            # No post-processing for this row because planes have not been extracted
-            continue
+        for base in I.getNodesFromType(surfaces, 'CGNSBase_t'):
+            try:
+                ExtractionInfo = I.getNodeFromNameAndType(base, '.ExtractionInfo', 'UserDefinedData_t')
+                ReferenceRow = I.getValue(I.getNodeFromName(ExtractionInfo, 'ReferenceRow'))
+                tag = I.getValue(I.getNodeFromName(ExtractionInfo, 'tag'))
+                if ReferenceRow == row and tag == 'InletPlane':
+                    planeUpstream = base
+                    break
+                elif ReferenceRow == row and tag == 'OutletPlane':
+                    planeDownstream = base
+                    break
+            except:
+                pass
 
         # Convert to Tetra arrays for integration # TODO identify bug and notify
         planeUpstream = C.convertArray2Tetra(planeUpstream)
         planeDownstream = C.convertArray2Tetra(planeDownstream)
 
+        planeUpstreamCheck =  True
+        planeDownstreamCheck = True
+
         if I.getNodesFromType(planeUpstream, 'FlowSolution_t') == []:
-            massflowInLocal    = np.array(0.)
-            PtInIntegralLocal  = np.array(0.)
-            TtInIntegralLocal  = np.array(0.)
+            massflowInLocal    = 0.
+            PtInIntegralLocal  = 0.
+            TtInIntegralLocal  = 0.
         else:
             # Massflow rate (local to the processor)
-            massflowInLocal     = np.array(abs(P.integNorm(planeUpstream, var='MomentumX')[0][0]))
-            # Compute local integrals of Pt and Tt # TODO verify fields existence
-            PtInIntegralLocal   = np.array(massflowWeightedIntegral(planeUpstream, 'PressureStagnation'))
-            TtInIntegralLocal   = np.array(massflowWeightedIntegral(planeUpstream, 'TemperatureStagnation'))
+            massflowInLocal     = abs(P.integNorm(planeUpstream, var='MomentumX')[0][0])
+            # Compute local integrals of Pt and Tt
+            try:
+                PtInIntegralLocal   = massflowWeightedIntegral(planeUpstream, 'PressureStagnation')
+                TtInIntegralLocal   = massflowWeightedIntegral(planeUpstream, 'TemperatureStagnation')
+            except NameError:
+                # Variables cannot be found
+                planeUpstreamCheck = False
 
         if I.getNodesFromType(planeDownstream, 'FlowSolution_t') == []:
-            massflowOutLocal   = np.array(0.)
-            PtOutIntegralLocal = np.array(0.)
-            TtOutIntegralLocal = np.array(0.)
+            massflowOutLocal   = 0.
+            PtOutIntegralLocal = 0.
+            TtOutIntegralLocal = 0.
         else:
-            massflowOutLocal    = np.array(abs(P.integNorm(planeDownstream, var='MomentumX')[0][0]))
-            PtOutIntegralLocal  = np.array(massflowWeightedIntegral(planeDownstream, 'PressureStagnation'))
-            TtOutIntegralLocal  = np.array(massflowWeightedIntegral(planeDownstream, 'TemperatureStagnation'))
+            massflowOutLocal    = abs(P.integNorm(planeDownstream, var='MomentumX')[0][0])
+            try:
+                PtOutIntegralLocal  = massflowWeightedIntegral(planeDownstream, 'PressureStagnation')
+                TtOutIntegralLocal  = massflowWeightedIntegral(planeDownstream, 'TemperatureStagnation')
+            except NameError:
+                planeDownstreamCheck = False
+
+        # Check if the needed variables were extracted
+        Cmpi.barrier()
+        planeUpstreamCheck   = comm.allreduce(planeUpstreamCheck,   op=MPI.LAND) #LAND = Logical AND
+        planeDownstreamCheck = comm.allreduce(planeDownstreamCheck, op=MPI.LAND)
+        massflowIn           = comm.allreduce(massflowInLocal,      op=MPI.SUM)
+        massflowOut          = comm.allreduce(massflowOutLocal,     op=MPI.SUM)
+        Cmpi.barrier()
+
+        if massflowIn == 0 or massflowOut == 0:
+            # The isosurface base is empty for all the processors
+            continue
+
+        if not (planeUpstreamCheck and planeDownstreamCheck):
+            WARNING_MSG = 'Cannot evaluate {} performance: variables PressureStagnation and TemperatureStagnation are not found'.format(row)
+            printCo(WARNING_MSG, proc=0, color=WARN)
+            return
 
         # MPI Reduction to sum quantities on proc 0
-        massflowIn    = np.array(0.)
-        massflowOut   = np.array(0.)
-        PtInIntegral  = np.array(0.)
-        PtOutIntegral = np.array(0.)
-        TtInIntegral  = np.array(0.)
-        TtOutIntegral = np.array(0.)
         Cmpi.barrier()
-        comm.Reduce([massflowInLocal, MPI.DOUBLE],
-            [massflowIn, MPI.DOUBLE], op=MPI.SUM, root=0)
-        comm.Reduce([massflowOutLocal, MPI.DOUBLE],
-            [massflowOut, MPI.DOUBLE], op=MPI.SUM, root=0)
-        comm.Reduce([PtInIntegralLocal, MPI.DOUBLE],
-            [PtInIntegral, MPI.DOUBLE], op=MPI.SUM, root=0)
-        comm.Reduce([PtOutIntegralLocal, MPI.DOUBLE],
-            [PtOutIntegral, MPI.DOUBLE], op=MPI.SUM, root=0)
-        comm.Reduce([TtInIntegralLocal, MPI.DOUBLE],
-            [TtInIntegral, MPI.DOUBLE], op=MPI.SUM, root=0)
-        comm.Reduce([TtOutIntegralLocal, MPI.DOUBLE],
-            [TtOutIntegral, MPI.DOUBLE], op=MPI.SUM, root=0)
+        massflowIn    = comm.reduce(massflowInLocal,    op=MPI.SUM, root=0)
+        massflowOut   = comm.reduce(massflowOutLocal,   op=MPI.SUM, root=0)
+        PtInIntegral  = comm.reduce(PtInIntegralLocal,  op=MPI.SUM, root=0)
+        PtOutIntegral = comm.reduce(PtOutIntegralLocal, op=MPI.SUM, root=0)
+        TtInIntegral  = comm.reduce(TtInIntegralLocal,  op=MPI.SUM, root=0)
+        TtOutIntegral = comm.reduce(TtOutIntegralLocal, op=MPI.SUM, root=0)
         Cmpi.barrier()
 
         if rank == 0:
@@ -564,7 +612,8 @@ def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[],
 
             _extendLoadsWithStatistics(loads, 'PERFOS_{}'.format(row), DesiredStatistics)
 
-    saveLoads(loads, tagWithIteration=tagWithIteration)
+    loadsTree = loadsDict2PyTree(loads)
+    save(loadsTree, os.path.join(DIRECTORY_OUTPUT, FILE_LOADS))
 
 
 def distributeAndSavePyTree(ListOfZones, filename, tagWithIteration=False):
@@ -917,6 +966,37 @@ def loadsDict2PyTree(loads):
     Cmpi.barrier()
 
     return t
+
+def appendDict2Loads(loads, dictToAppend, basename):
+    '''
+    This function add data defined in **dictToAppend** in the base **basename**
+    of **loads**.
+
+    Parameters
+    ----------
+
+        loads : dict
+            Contains integral data in the following form:
+
+            >>> loads[basename]['VariableName'] = np.array
+
+        dictToAppend : dict
+            Contains data to append in **loads**. For each element:
+                * key is the variable name
+                * value is the associated value
+
+        basename : str
+            Name of the base in which values will be appended.
+
+    '''
+    if not base in loads:
+        loads[basename] = dict()
+
+    for var, value in dictToAppend.items():
+        if var in loads[basename]:
+            loads[basename][var] = np.append(subloads[var], value)
+        else:
+            loads[basename][var] = np.array([value])
 
 
 def _appendIntegralDataNode2Loads(loads, IntegralDataNode):
@@ -1543,16 +1623,18 @@ def moveCoordsFromEndOfRunToGridCoords(to):
 
             .. note:: tree **to** is modified
     '''
-    I._renameNode(to,'FlowSolution#EndOfRun#Coords','GridCoordinates')
-    for GridCoordsNode in I.getNodesFromName3(to, 'GridCoordinates'):
-        GridLocationNode = I.getNodeFromType1(GridCoordsNode, 'GridLocation_t')
-        if I.getValue(GridLocationNode) != 'Vertex':
-            zone = I.getParentOfNode(to, GridCoordsNode)
-            ERRMSG = ('Extracted coordinates of zone '
-                      '%s must be located in Vertex')%I.getName(zone)
-            raise ValueError(FAIL+ERRMSG+ENDC)
-        I.rmNode(to, GridLocationNode)
-        I.setType(GridCoordsNode, 'GridCoordinates_t')
+    FScoords = I.getNodeFromName(to, 'FlowSolution#EndOfRun#Coords')
+    if FScoords:
+        I._renameNode(to,'FlowSolution#EndOfRun#Coords','GridCoordinates')
+        for GridCoordsNode in I.getNodesFromName3(to, 'GridCoordinates'):
+            GridLocationNode = I.getNodeFromType1(GridCoordsNode, 'GridLocation_t')
+            if I.getValue(GridLocationNode) != 'Vertex':
+                zone = I.getParentOfNode(to, GridCoordsNode)
+                ERRMSG = ('Extracted coordinates of zone '
+                          '%s must be located in Vertex')%I.getName(zone)
+                raise ValueError(FAIL+ERRMSG+ENDC)
+            I.rmNode(to, GridLocationNode)
+            I.setType(GridCoordsNode, 'GridCoordinates_t')
     Cmpi.barrier()
 
 def boundaryConditions2Surfaces(to, onlyWalls=True):
