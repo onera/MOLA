@@ -1,0 +1,2302 @@
+COPROCESS LOG FILE STARTED AT 24/09/2021 10:36:35
+[0]: iteration 1
+[0]: iteration 2
+[0]: iteration 3
+[0]: iteration 4
+[0]: iteration 5
+[0]: iteration 6
+[0]: iteration 7
+[0]: iteration 8
+[0]: iteration 9
+[0]: iteration 10
+[0]: iteration 11
+[0]: iteration 12
+[0]: iteration 13
+[0]: iteration 14
+[0]: iteration 15
+[0]: iteration 16
+[0]: iteration 17
+[0]: iteration 18
+[0]: iteration 19
+[0]: iteration 20
+[0]: iteration 21
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 22
+[0]: iteration 23
+[0]: iteration 24
+[0]: iteration 25
+[0]: iteration 26
+[0]: iteration 27
+[0]: iteration 28
+[0]: iteration 29
+[0]: iteration 30
+[0]: iteration 31
+[0]: iteration 32
+[0]: iteration 33
+[0]: iteration 34
+[0]: iteration 35
+[0]: iteration 36
+[0]: iteration 37
+[0]: iteration 38
+[0]: iteration 39
+[0]: iteration 40
+[0]: iteration 41
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 42
+[0]: iteration 43
+[0]: iteration 44
+[0]: iteration 45
+[0]: iteration 46
+[0]: iteration 47
+[0]: iteration 48
+[0]: iteration 49
+[0]: iteration 50
+[0]: iteration 51
+[0]: iteration 52
+[0]: iteration 53
+[0]: iteration 54
+[0]: iteration 55
+[0]: iteration 56
+[0]: iteration 57
+[0]: iteration 58
+[0]: iteration 59
+[0]: iteration 60
+[0]: iteration 61
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 62
+[0]: iteration 63
+[0]: iteration 64
+[0]: iteration 65
+[0]: iteration 66
+[0]: iteration 67
+[0]: iteration 68
+[0]: iteration 69
+[0]: iteration 70
+[0]: iteration 71
+[0]: iteration 72
+[0]: iteration 73
+[0]: iteration 74
+[0]: iteration 75
+[0]: iteration 76
+[0]: iteration 77
+[0]: iteration 78
+[0]: iteration 79
+[0]: iteration 80
+[0]: iteration 81
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 82
+[0]: iteration 83
+[0]: iteration 84
+[0]: iteration 85
+[0]: iteration 86
+[0]: iteration 87
+[0]: iteration 88
+[0]: iteration 89
+[0]: iteration 90
+[0]: iteration 91
+[0]: iteration 92
+[0]: iteration 93
+[0]: iteration 94
+[0]: iteration 95
+[0]: iteration 96
+[0]: iteration 97
+[0]: iteration 98
+[0]: iteration 99
+[0]: iteration 100
+[0]: iteration 101
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 102
+[0]: iteration 103
+[0]: iteration 104
+[0]: iteration 105
+[0]: iteration 106
+[0]: iteration 107
+[0]: iteration 108
+[0]: iteration 109
+[0]: iteration 110
+[0]: iteration 111
+[0]: iteration 112
+[0]: iteration 113
+[0]: iteration 114
+[0]: iteration 115
+[0]: iteration 116
+[0]: iteration 117
+[0]: iteration 118
+[0]: iteration 119
+[0]: iteration 120
+[0]: iteration 121
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 122
+[0]: iteration 123
+[0]: iteration 124
+[0]: iteration 125
+[0]: iteration 126
+[0]: iteration 127
+[0]: iteration 128
+[0]: iteration 129
+[0]: iteration 130
+[0]: iteration 131
+[0]: iteration 132
+[0]: iteration 133
+[0]: iteration 134
+[0]: iteration 135
+[0]: iteration 136
+[0]: iteration 137
+[0]: iteration 138
+[0]: iteration 139
+[0]: iteration 140
+[0]: iteration 141
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 142
+[0]: iteration 143
+[0]: iteration 144
+[0]: iteration 145
+[0]: iteration 146
+[0]: iteration 147
+[0]: iteration 148
+[0]: iteration 149
+[0]: iteration 150
+[0]: iteration 151
+[0]: iteration 152
+[0]: iteration 153
+[0]: iteration 154
+[0]: iteration 155
+[0]: iteration 156
+[0]: iteration 157
+[0]: iteration 158
+[0]: iteration 159
+[0]: iteration 160
+[0]: iteration 161
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 162
+[0]: iteration 163
+[0]: iteration 164
+[0]: iteration 165
+[0]: iteration 166
+[0]: iteration 167
+[0]: iteration 168
+[0]: iteration 169
+[0]: iteration 170
+[0]: iteration 171
+[0]: iteration 172
+[0]: iteration 173
+[0]: iteration 174
+[0]: iteration 175
+[0]: iteration 176
+[0]: iteration 177
+[0]: iteration 178
+[0]: iteration 179
+[0]: iteration 180
+[0]: iteration 181
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 182
+[0]: iteration 183
+[0]: iteration 184
+[0]: iteration 185
+[0]: iteration 186
+[0]: iteration 187
+[0]: iteration 188
+[0]: iteration 189
+[0]: iteration 190
+[0]: iteration 191
+[0]: iteration 192
+[0]: iteration 193
+[0]: iteration 194
+[0]: iteration 195
+[0]: iteration 196
+[0]: iteration 197
+[0]: iteration 198
+[0]: iteration 199
+[0]: iteration 200
+[0]: iteration 201
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 202
+[0]: iteration 203
+[0]: iteration 204
+[0]: iteration 205
+[0]: iteration 206
+[0]: iteration 207
+[0]: iteration 208
+[0]: iteration 209
+[0]: iteration 210
+[0]: iteration 211
+[0]: iteration 212
+[0]: iteration 213
+[0]: iteration 214
+[0]: iteration 215
+[0]: iteration 216
+[0]: iteration 217
+[0]: iteration 218
+[0]: iteration 219
+[0]: iteration 220
+[0]: iteration 221
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 222
+[0]: iteration 223
+[0]: iteration 224
+[0]: iteration 225
+[0]: iteration 226
+[0]: iteration 227
+[0]: iteration 228
+[0]: iteration 229
+[0]: iteration 230
+[0]: iteration 231
+[0]: iteration 232
+[0]: iteration 233
+[0]: iteration 234
+[0]: iteration 235
+[0]: iteration 236
+[0]: iteration 237
+[0]: iteration 238
+[0]: iteration 239
+[0]: iteration 240
+[0]: iteration 241
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 242
+[0]: iteration 243
+[0]: iteration 244
+[0]: iteration 245
+[0]: iteration 246
+[0]: iteration 247
+[0]: iteration 248
+[0]: iteration 249
+[0]: iteration 250
+[0]: iteration 251
+[0]: iteration 252
+[0]: iteration 253
+[0]: iteration 254
+[0]: iteration 255
+[0]: iteration 256
+[0]: iteration 257
+[0]: iteration 258
+[0]: iteration 259
+[0]: iteration 260
+[0]: iteration 261
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 262
+[0]: iteration 263
+[0]: iteration 264
+[0]: iteration 265
+[0]: iteration 266
+[0]: iteration 267
+[0]: iteration 268
+[0]: iteration 269
+[0]: iteration 270
+[0]: iteration 271
+[0]: iteration 272
+[0]: iteration 273
+[0]: iteration 274
+[0]: iteration 275
+[0]: iteration 276
+[0]: iteration 277
+[0]: iteration 278
+[0]: iteration 279
+[0]: iteration 280
+[0]: iteration 281
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 282
+[0]: iteration 283
+[0]: iteration 284
+[0]: iteration 285
+[0]: iteration 286
+[0]: iteration 287
+[0]: iteration 288
+[0]: iteration 289
+[0]: iteration 290
+[0]: iteration 291
+[0]: iteration 292
+[0]: iteration 293
+[0]: iteration 294
+[0]: iteration 295
+[0]: iteration 296
+[0]: iteration 297
+[0]: iteration 298
+[0]: iteration 299
+[0]: iteration 300
+[0]: iteration 301
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 302
+[0]: iteration 303
+[0]: iteration 304
+[0]: iteration 305
+[0]: iteration 306
+[0]: iteration 307
+[0]: iteration 308
+[0]: iteration 309
+[0]: iteration 310
+[0]: iteration 311
+[0]: iteration 312
+[0]: iteration 313
+[0]: iteration 314
+[0]: iteration 315
+[0]: iteration 316
+[0]: iteration 317
+[0]: iteration 318
+[0]: iteration 319
+[0]: iteration 320
+[0]: iteration 321
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 322
+[0]: iteration 323
+[0]: iteration 324
+[0]: iteration 325
+[0]: iteration 326
+[0]: iteration 327
+[0]: iteration 328
+[0]: iteration 329
+[0]: iteration 330
+[0]: iteration 331
+[0]: iteration 332
+[0]: iteration 333
+[0]: iteration 334
+[0]: iteration 335
+[0]: iteration 336
+[0]: iteration 337
+[0]: iteration 338
+[0]: iteration 339
+[0]: iteration 340
+[0]: iteration 341
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 342
+[0]: iteration 343
+[0]: iteration 344
+[0]: iteration 345
+[0]: iteration 346
+[0]: iteration 347
+[0]: iteration 348
+[0]: iteration 349
+[0]: iteration 350
+[0]: iteration 351
+[0]: iteration 352
+[0]: iteration 353
+[0]: iteration 354
+[0]: iteration 355
+[0]: iteration 356
+[0]: iteration 357
+[0]: iteration 358
+[0]: iteration 359
+[0]: iteration 360
+[0]: iteration 361
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 362
+[0]: iteration 363
+[0]: iteration 364
+[0]: iteration 365
+[0]: iteration 366
+[0]: iteration 367
+[0]: iteration 368
+[0]: iteration 369
+[0]: iteration 370
+[0]: iteration 371
+[0]: iteration 372
+[0]: iteration 373
+[0]: iteration 374
+[0]: iteration 375
+[0]: iteration 376
+[0]: iteration 377
+[0]: iteration 378
+[0]: iteration 379
+[0]: iteration 380
+[0]: iteration 381
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 382
+[0]: iteration 383
+[0]: iteration 384
+[0]: iteration 385
+[0]: iteration 386
+[0]: iteration 387
+[0]: iteration 388
+[0]: iteration 389
+[0]: iteration 390
+[0]: iteration 391
+[0]: iteration 392
+[0]: iteration 393
+[0]: iteration 394
+[0]: iteration 395
+[0]: iteration 396
+[0]: iteration 397
+[0]: iteration 398
+[0]: iteration 399
+[0]: iteration 400
+[0]: iteration 401
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 402
+[0]: iteration 403
+[0]: iteration 404
+[0]: iteration 405
+[0]: iteration 406
+[0]: iteration 407
+[0]: iteration 408
+[0]: iteration 409
+[0]: iteration 410
+[0]: iteration 411
+[0]: iteration 412
+[0]: iteration 413
+[0]: iteration 414
+[0]: iteration 415
+[0]: iteration 416
+[0]: iteration 417
+[0]: iteration 418
+[0]: iteration 419
+[0]: iteration 420
+[0]: iteration 421
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 422
+[0]: iteration 423
+[0]: iteration 424
+[0]: iteration 425
+[0]: iteration 426
+[0]: iteration 427
+[0]: iteration 428
+[0]: iteration 429
+[0]: iteration 430
+[0]: iteration 431
+[0]: iteration 432
+[0]: iteration 433
+[0]: iteration 434
+[0]: iteration 435
+[0]: iteration 436
+[0]: iteration 437
+[0]: iteration 438
+[0]: iteration 439
+[0]: iteration 440
+[0]: iteration 441
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 442
+[0]: iteration 443
+[0]: iteration 444
+[0]: iteration 445
+[0]: iteration 446
+[0]: iteration 447
+[0]: iteration 448
+[0]: iteration 449
+[0]: iteration 450
+[0]: iteration 451
+[0]: iteration 452
+[0]: iteration 453
+[0]: iteration 454
+[0]: iteration 455
+[0]: iteration 456
+[0]: iteration 457
+[0]: iteration 458
+[0]: iteration 459
+[0]: iteration 460
+[0]: iteration 461
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 462
+[0]: iteration 463
+[0]: iteration 464
+[0]: iteration 465
+[0]: iteration 466
+[0]: iteration 467
+[0]: iteration 468
+[0]: iteration 469
+[0]: iteration 470
+[0]: iteration 471
+[0]: iteration 472
+[0]: iteration 473
+[0]: iteration 474
+[0]: iteration 475
+[0]: iteration 476
+[0]: iteration 477
+[0]: iteration 478
+[0]: iteration 479
+[0]: iteration 480
+[0]: iteration 481
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 482
+[0]: iteration 483
+[0]: iteration 484
+[0]: iteration 485
+[0]: iteration 486
+[0]: iteration 487
+[0]: iteration 488
+[0]: iteration 489
+[0]: iteration 490
+[0]: iteration 491
+[0]: iteration 492
+[0]: iteration 493
+[0]: iteration 494
+[0]: iteration 495
+[0]: iteration 496
+[0]: iteration 497
+[0]: iteration 498
+[0]: iteration 499
+[0]: iteration 500
+[0]: iteration 501
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 502
+[0]: iteration 503
+[0]: iteration 504
+[0]: iteration 505
+[0]: iteration 506
+[0]: iteration 507
+[0]: iteration 508
+[0]: iteration 509
+[0]: iteration 510
+[0]: iteration 511
+[0]: iteration 512
+[0]: iteration 513
+[0]: iteration 514
+[0]: iteration 515
+[0]: iteration 516
+[0]: iteration 517
+[0]: iteration 518
+[0]: iteration 519
+[0]: iteration 520
+[0]: iteration 521
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 522
+[0]: iteration 523
+[0]: iteration 524
+[0]: iteration 525
+[0]: iteration 526
+[0]: iteration 527
+[0]: iteration 528
+[0]: iteration 529
+[0]: iteration 530
+[0]: iteration 531
+[0]: iteration 532
+[0]: iteration 533
+[0]: iteration 534
+[0]: iteration 535
+[0]: iteration 536
+[0]: iteration 537
+[0]: iteration 538
+[0]: iteration 539
+[0]: iteration 540
+[0]: iteration 541
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 542
+[0]: iteration 543
+[0]: iteration 544
+[0]: iteration 545
+[0]: iteration 546
+[0]: iteration 547
+[0]: iteration 548
+[0]: iteration 549
+[0]: iteration 550
+[0]: iteration 551
+[0]: iteration 552
+[0]: iteration 553
+[0]: iteration 554
+[0]: iteration 555
+[0]: iteration 556
+[0]: iteration 557
+[0]: iteration 558
+[0]: iteration 559
+[0]: iteration 560
+[0]: iteration 561
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 562
+[0]: iteration 563
+[0]: iteration 564
+[0]: iteration 565
+[0]: iteration 566
+[0]: iteration 567
+[0]: iteration 568
+[0]: iteration 569
+[0]: iteration 570
+[0]: iteration 571
+[0]: iteration 572
+[0]: iteration 573
+[0]: iteration 574
+[0]: iteration 575
+[0]: iteration 576
+[0]: iteration 577
+[0]: iteration 578
+[0]: iteration 579
+[0]: iteration 580
+[0]: iteration 581
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 582
+[0]: iteration 583
+[0]: iteration 584
+[0]: iteration 585
+[0]: iteration 586
+[0]: iteration 587
+[0]: iteration 588
+[0]: iteration 589
+[0]: iteration 590
+[0]: iteration 591
+[0]: iteration 592
+[0]: iteration 593
+[0]: iteration 594
+[0]: iteration 595
+[0]: iteration 596
+[0]: iteration 597
+[0]: iteration 598
+[0]: iteration 599
+[0]: iteration 600
+[0]: iteration 601
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 602
+[0]: iteration 603
+[0]: iteration 604
+[0]: iteration 605
+[0]: iteration 606
+[0]: iteration 607
+[0]: iteration 608
+[0]: iteration 609
+[0]: iteration 610
+[0]: iteration 611
+[0]: iteration 612
+[0]: iteration 613
+[0]: iteration 614
+[0]: iteration 615
+[0]: iteration 616
+[0]: iteration 617
+[0]: iteration 618
+[0]: iteration 619
+[0]: iteration 620
+[0]: iteration 621
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 622
+[0]: iteration 623
+[0]: iteration 624
+[0]: iteration 625
+[0]: iteration 626
+[0]: iteration 627
+[0]: iteration 628
+[0]: iteration 629
+[0]: iteration 630
+[0]: iteration 631
+[0]: iteration 632
+[0]: iteration 633
+[0]: iteration 634
+[0]: iteration 635
+[0]: iteration 636
+[0]: iteration 637
+[0]: iteration 638
+[0]: iteration 639
+[0]: iteration 640
+[0]: iteration 641
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 642
+[0]: iteration 643
+[0]: iteration 644
+[0]: iteration 645
+[0]: iteration 646
+[0]: iteration 647
+[0]: iteration 648
+[0]: iteration 649
+[0]: iteration 650
+[0]: iteration 651
+[0]: iteration 652
+[0]: iteration 653
+[0]: iteration 654
+[0]: iteration 655
+[0]: iteration 656
+[0]: iteration 657
+[0]: iteration 658
+[0]: iteration 659
+[0]: iteration 660
+[0]: iteration 661
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 662
+[0]: iteration 663
+[0]: iteration 664
+[0]: iteration 665
+[0]: iteration 666
+[0]: iteration 667
+[0]: iteration 668
+[0]: iteration 669
+[0]: iteration 670
+[0]: iteration 671
+[0]: iteration 672
+[0]: iteration 673
+[0]: iteration 674
+[0]: iteration 675
+[0]: iteration 676
+[0]: iteration 677
+[0]: iteration 678
+[0]: iteration 679
+[0]: iteration 680
+[0]: iteration 681
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 682
+[0]: iteration 683
+[0]: iteration 684
+[0]: iteration 685
+[0]: iteration 686
+[0]: iteration 687
+[0]: iteration 688
+[0]: iteration 689
+[0]: iteration 690
+[0]: iteration 691
+[0]: iteration 692
+[0]: iteration 693
+[0]: iteration 694
+[0]: iteration 695
+[0]: iteration 696
+[0]: iteration 697
+[0]: iteration 698
+[0]: iteration 699
+[0]: iteration 700
+[0]: iteration 701
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 702
+[0]: iteration 703
+[0]: iteration 704
+[0]: iteration 705
+[0]: iteration 706
+[0]: iteration 707
+[0]: iteration 708
+[0]: iteration 709
+[0]: iteration 710
+[0]: iteration 711
+[0]: iteration 712
+[0]: iteration 713
+[0]: iteration 714
+[0]: iteration 715
+[0]: iteration 716
+[0]: iteration 717
+[0]: iteration 718
+[0]: iteration 719
+[0]: iteration 720
+[0]: iteration 721
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 722
+[0]: iteration 723
+[0]: iteration 724
+[0]: iteration 725
+[0]: iteration 726
+[0]: iteration 727
+[0]: iteration 728
+[0]: iteration 729
+[0]: iteration 730
+[0]: iteration 731
+[0]: iteration 732
+[0]: iteration 733
+[0]: iteration 734
+[0]: iteration 735
+[0]: iteration 736
+[0]: iteration 737
+[0]: iteration 738
+[0]: iteration 739
+[0]: iteration 740
+[0]: iteration 741
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 742
+[0]: iteration 743
+[0]: iteration 744
+[0]: iteration 745
+[0]: iteration 746
+[0]: iteration 747
+[0]: iteration 748
+[0]: iteration 749
+[0]: iteration 750
+[0]: iteration 751
+[0]: iteration 752
+[0]: iteration 753
+[0]: iteration 754
+[0]: iteration 755
+[0]: iteration 756
+[0]: iteration 757
+[0]: iteration 758
+[0]: iteration 759
+[0]: iteration 760
+[0]: iteration 761
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 762
+[0]: iteration 763
+[0]: iteration 764
+[0]: iteration 765
+[0]: iteration 766
+[0]: iteration 767
+[0]: iteration 768
+[0]: iteration 769
+[0]: iteration 770
+[0]: iteration 771
+[0]: iteration 772
+[0]: iteration 773
+[0]: iteration 774
+[0]: iteration 775
+[0]: iteration 776
+[0]: iteration 777
+[0]: iteration 778
+[0]: iteration 779
+[0]: iteration 780
+[0]: iteration 781
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 782
+[0]: iteration 783
+[0]: iteration 784
+[0]: iteration 785
+[0]: iteration 786
+[0]: iteration 787
+[0]: iteration 788
+[0]: iteration 789
+[0]: iteration 790
+[0]: iteration 791
+[0]: iteration 792
+[0]: iteration 793
+[0]: iteration 794
+[0]: iteration 795
+[0]: iteration 796
+[0]: iteration 797
+[0]: iteration 798
+[0]: iteration 799
+[0]: iteration 800
+[0]: iteration 801
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 802
+[0]: iteration 803
+[0]: iteration 804
+[0]: iteration 805
+[0]: iteration 806
+[0]: iteration 807
+[0]: iteration 808
+[0]: iteration 809
+[0]: iteration 810
+[0]: iteration 811
+[0]: iteration 812
+[0]: iteration 813
+[0]: iteration 814
+[0]: iteration 815
+[0]: iteration 816
+[0]: iteration 817
+[0]: iteration 818
+[0]: iteration 819
+[0]: iteration 820
+[0]: iteration 821
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 822
+[0]: iteration 823
+[0]: iteration 824
+[0]: iteration 825
+[0]: iteration 826
+[0]: iteration 827
+[0]: iteration 828
+[0]: iteration 829
+[0]: iteration 830
+[0]: iteration 831
+[0]: iteration 832
+[0]: iteration 833
+[0]: iteration 834
+[0]: iteration 835
+[0]: iteration 836
+[0]: iteration 837
+[0]: iteration 838
+[0]: iteration 839
+[0]: iteration 840
+[0]: iteration 841
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 842
+[0]: iteration 843
+[0]: iteration 844
+[0]: iteration 845
+[0]: iteration 846
+[0]: iteration 847
+[0]: iteration 848
+[0]: iteration 849
+[0]: iteration 850
+[0]: iteration 851
+[0]: iteration 852
+[0]: iteration 853
+[0]: iteration 854
+[0]: iteration 855
+[0]: iteration 856
+[0]: iteration 857
+[0]: iteration 858
+[0]: iteration 859
+[0]: iteration 860
+[0]: iteration 861
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 862
+[0]: iteration 863
+[0]: iteration 864
+[0]: iteration 865
+[0]: iteration 866
+[0]: iteration 867
+[0]: iteration 868
+[0]: iteration 869
+[0]: iteration 870
+[0]: iteration 871
+[0]: iteration 872
+[0]: iteration 873
+[0]: iteration 874
+[0]: iteration 875
+[0]: iteration 876
+[0]: iteration 877
+[0]: iteration 878
+[0]: iteration 879
+[0]: iteration 880
+[0]: iteration 881
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 882
+[0]: iteration 883
+[0]: iteration 884
+[0]: iteration 885
+[0]: iteration 886
+[0]: iteration 887
+[0]: iteration 888
+[0]: iteration 889
+[0]: iteration 890
+[0]: iteration 891
+[0]: iteration 892
+[0]: iteration 893
+[0]: iteration 894
+[0]: iteration 895
+[0]: iteration 896
+[0]: iteration 897
+[0]: iteration 898
+[0]: iteration 899
+[0]: iteration 900
+[0]: iteration 901
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 902
+[0]: iteration 903
+[0]: iteration 904
+[0]: iteration 905
+[0]: iteration 906
+[0]: iteration 907
+[0]: iteration 908
+[0]: iteration 909
+[0]: iteration 910
+[0]: iteration 911
+[0]: iteration 912
+[0]: iteration 913
+[0]: iteration 914
+[0]: iteration 915
+[0]: iteration 916
+[0]: iteration 917
+[0]: iteration 918
+[0]: iteration 919
+[0]: iteration 920
+[0]: iteration 921
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 922
+[0]: iteration 923
+[0]: iteration 924
+[0]: iteration 925
+[0]: iteration 926
+[0]: iteration 927
+[0]: iteration 928
+[0]: iteration 929
+[0]: iteration 930
+[0]: iteration 931
+[0]: iteration 932
+[0]: iteration 933
+[0]: iteration 934
+[0]: iteration 935
+[0]: iteration 936
+[0]: iteration 937
+[0]: iteration 938
+[0]: iteration 939
+[0]: iteration 940
+[0]: iteration 941
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 942
+[0]: iteration 943
+[0]: iteration 944
+[0]: iteration 945
+[0]: iteration 946
+[0]: iteration 947
+[0]: iteration 948
+[0]: iteration 949
+[0]: iteration 950
+[0]: iteration 951
+[0]: iteration 952
+[0]: iteration 953
+[0]: iteration 954
+[0]: iteration 955
+[0]: iteration 956
+[0]: iteration 957
+[0]: iteration 958
+[0]: iteration 959
+[0]: iteration 960
+[0]: iteration 961
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 962
+[0]: iteration 963
+[0]: iteration 964
+[0]: iteration 965
+[0]: iteration 966
+[0]: iteration 967
+[0]: iteration 968
+[0]: iteration 969
+[0]: iteration 970
+[0]: iteration 971
+[0]: iteration 972
+[0]: iteration 973
+[0]: iteration 974
+[0]: iteration 975
+[0]: iteration 976
+[0]: iteration 977
+[0]: iteration 978
+[0]: iteration 979
+[0]: iteration 980
+[0]: iteration 981
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 982
+[0]: iteration 983
+[0]: iteration 984
+[0]: iteration 985
+[0]: iteration 986
+[0]: iteration 987
+[0]: iteration 988
+[0]: iteration 989
+[0]: iteration 990
+[0]: iteration 991
+[0]: iteration 992
+[0]: iteration 993
+[0]: iteration 994
+[0]: iteration 995
+[0]: iteration 996
+[0]: iteration 997
+[0]: iteration 998
+[0]: iteration 999
+[0]: iteration 1000
+[0]: iteration 1001
+[0]: [96mwill save OUTPUT/tmp-fields.cgns ...[0m
+[0]: [96m... saved OUTPUT/tmp-fields.cgns[0m
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1002
+[0]: iteration 1003
+[0]: iteration 1004
+[0]: iteration 1005
+[0]: iteration 1006
+[0]: iteration 1007
+[0]: iteration 1008
+[0]: iteration 1009
+[0]: iteration 1010
+[0]: iteration 1011
+[0]: iteration 1012
+[0]: iteration 1013
+[0]: iteration 1014
+[0]: iteration 1015
+[0]: iteration 1016
+[0]: iteration 1017
+[0]: iteration 1018
+[0]: iteration 1019
+[0]: iteration 1020
+[0]: iteration 1021
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1022
+[0]: iteration 1023
+[0]: iteration 1024
+[0]: iteration 1025
+[0]: iteration 1026
+[0]: iteration 1027
+[0]: iteration 1028
+[0]: iteration 1029
+[0]: iteration 1030
+[0]: iteration 1031
+[0]: iteration 1032
+[0]: iteration 1033
+[0]: iteration 1034
+[0]: iteration 1035
+[0]: iteration 1036
+[0]: iteration 1037
+[0]: iteration 1038
+[0]: iteration 1039
+[0]: iteration 1040
+[0]: iteration 1041
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1042
+[0]: iteration 1043
+[0]: iteration 1044
+[0]: iteration 1045
+[0]: iteration 1046
+[0]: iteration 1047
+[0]: iteration 1048
+[0]: iteration 1049
+[0]: iteration 1050
+[0]: iteration 1051
+[0]: iteration 1052
+[0]: iteration 1053
+[0]: iteration 1054
+[0]: iteration 1055
+[0]: iteration 1056
+[0]: iteration 1057
+[0]: iteration 1058
+[0]: iteration 1059
+[0]: iteration 1060
+[0]: iteration 1061
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1062
+[0]: iteration 1063
+[0]: iteration 1064
+[0]: iteration 1065
+[0]: iteration 1066
+[0]: iteration 1067
+[0]: iteration 1068
+[0]: iteration 1069
+[0]: iteration 1070
+[0]: iteration 1071
+[0]: iteration 1072
+[0]: iteration 1073
+[0]: iteration 1074
+[0]: iteration 1075
+[0]: iteration 1076
+[0]: iteration 1077
+[0]: iteration 1078
+[0]: iteration 1079
+[0]: iteration 1080
+[0]: iteration 1081
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1082
+[0]: iteration 1083
+[0]: iteration 1084
+[0]: iteration 1085
+[0]: iteration 1086
+[0]: iteration 1087
+[0]: iteration 1088
+[0]: iteration 1089
+[0]: iteration 1090
+[0]: iteration 1091
+[0]: iteration 1092
+[0]: iteration 1093
+[0]: iteration 1094
+[0]: iteration 1095
+[0]: iteration 1096
+[0]: iteration 1097
+[0]: iteration 1098
+[0]: iteration 1099
+[0]: iteration 1100
+[0]: iteration 1101
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1102
+[0]: iteration 1103
+[0]: iteration 1104
+[0]: iteration 1105
+[0]: iteration 1106
+[0]: iteration 1107
+[0]: iteration 1108
+[0]: iteration 1109
+[0]: iteration 1110
+[0]: iteration 1111
+[0]: iteration 1112
+[0]: iteration 1113
+[0]: iteration 1114
+[0]: iteration 1115
+[0]: iteration 1116
+[0]: iteration 1117
+[0]: iteration 1118
+[0]: iteration 1119
+[0]: iteration 1120
+[0]: iteration 1121
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1122
+[0]: iteration 1123
+[0]: iteration 1124
+[0]: iteration 1125
+[0]: iteration 1126
+[0]: iteration 1127
+[0]: iteration 1128
+[0]: iteration 1129
+[0]: iteration 1130
+[0]: iteration 1131
+[0]: iteration 1132
+[0]: iteration 1133
+[0]: iteration 1134
+[0]: iteration 1135
+[0]: iteration 1136
+[0]: iteration 1137
+[0]: iteration 1138
+[0]: iteration 1139
+[0]: iteration 1140
+[0]: iteration 1141
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1142
+[0]: iteration 1143
+[0]: iteration 1144
+[0]: iteration 1145
+[0]: iteration 1146
+[0]: iteration 1147
+[0]: iteration 1148
+[0]: iteration 1149
+[0]: iteration 1150
+[0]: iteration 1151
+[0]: iteration 1152
+[0]: iteration 1153
+[0]: iteration 1154
+[0]: iteration 1155
+[0]: iteration 1156
+[0]: iteration 1157
+[0]: iteration 1158
+[0]: iteration 1159
+[0]: iteration 1160
+[0]: iteration 1161
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1162
+[0]: iteration 1163
+[0]: iteration 1164
+[0]: iteration 1165
+[0]: iteration 1166
+[0]: iteration 1167
+[0]: iteration 1168
+[0]: iteration 1169
+[0]: iteration 1170
+[0]: iteration 1171
+[0]: iteration 1172
+[0]: iteration 1173
+[0]: iteration 1174
+[0]: iteration 1175
+[0]: iteration 1176
+[0]: iteration 1177
+[0]: iteration 1178
+[0]: iteration 1179
+[0]: iteration 1180
+[0]: iteration 1181
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1182
+[0]: iteration 1183
+[0]: iteration 1184
+[0]: iteration 1185
+[0]: iteration 1186
+[0]: iteration 1187
+[0]: iteration 1188
+[0]: iteration 1189
+[0]: iteration 1190
+[0]: iteration 1191
+[0]: iteration 1192
+[0]: iteration 1193
+[0]: iteration 1194
+[0]: iteration 1195
+[0]: iteration 1196
+[0]: iteration 1197
+[0]: iteration 1198
+[0]: iteration 1199
+[0]: iteration 1200
+[0]: iteration 1201
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1202
+[0]: iteration 1203
+[0]: iteration 1204
+[0]: iteration 1205
+[0]: iteration 1206
+[0]: iteration 1207
+[0]: iteration 1208
+[0]: iteration 1209
+[0]: iteration 1210
+[0]: iteration 1211
+[0]: iteration 1212
+[0]: iteration 1213
+[0]: iteration 1214
+[0]: iteration 1215
+[0]: iteration 1216
+[0]: iteration 1217
+[0]: iteration 1218
+[0]: iteration 1219
+[0]: iteration 1220
+[0]: iteration 1221
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1222
+[0]: iteration 1223
+[0]: iteration 1224
+[0]: iteration 1225
+[0]: iteration 1226
+[0]: iteration 1227
+[0]: iteration 1228
+[0]: iteration 1229
+[0]: iteration 1230
+[0]: iteration 1231
+[0]: iteration 1232
+[0]: iteration 1233
+[0]: iteration 1234
+[0]: iteration 1235
+[0]: iteration 1236
+[0]: iteration 1237
+[0]: iteration 1238
+[0]: iteration 1239
+[0]: iteration 1240
+[0]: iteration 1241
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1242
+[0]: iteration 1243
+[0]: iteration 1244
+[0]: iteration 1245
+[0]: iteration 1246
+[0]: iteration 1247
+[0]: iteration 1248
+[0]: iteration 1249
+[0]: iteration 1250
+[0]: iteration 1251
+[0]: iteration 1252
+[0]: iteration 1253
+[0]: iteration 1254
+[0]: iteration 1255
+[0]: iteration 1256
+[0]: iteration 1257
+[0]: iteration 1258
+[0]: iteration 1259
+[0]: iteration 1260
+[0]: iteration 1261
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1262
+[0]: iteration 1263
+[0]: iteration 1264
+[0]: iteration 1265
+[0]: iteration 1266
+[0]: iteration 1267
+[0]: iteration 1268
+[0]: iteration 1269
+[0]: iteration 1270
+[0]: iteration 1271
+[0]: iteration 1272
+[0]: iteration 1273
+[0]: iteration 1274
+[0]: iteration 1275
+[0]: iteration 1276
+[0]: iteration 1277
+[0]: iteration 1278
+[0]: iteration 1279
+[0]: iteration 1280
+[0]: iteration 1281
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1282
+[0]: iteration 1283
+[0]: iteration 1284
+[0]: iteration 1285
+[0]: iteration 1286
+[0]: iteration 1287
+[0]: iteration 1288
+[0]: iteration 1289
+[0]: iteration 1290
+[0]: iteration 1291
+[0]: iteration 1292
+[0]: iteration 1293
+[0]: iteration 1294
+[0]: iteration 1295
+[0]: iteration 1296
+[0]: iteration 1297
+[0]: iteration 1298
+[0]: iteration 1299
+[0]: iteration 1300
+[0]: iteration 1301
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1302
+[0]: iteration 1303
+[0]: iteration 1304
+[0]: iteration 1305
+[0]: iteration 1306
+[0]: iteration 1307
+[0]: iteration 1308
+[0]: iteration 1309
+[0]: iteration 1310
+[0]: iteration 1311
+[0]: iteration 1312
+[0]: iteration 1313
+[0]: iteration 1314
+[0]: iteration 1315
+[0]: iteration 1316
+[0]: iteration 1317
+[0]: iteration 1318
+[0]: iteration 1319
+[0]: iteration 1320
+[0]: iteration 1321
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1322
+[0]: iteration 1323
+[0]: iteration 1324
+[0]: iteration 1325
+[0]: iteration 1326
+[0]: iteration 1327
+[0]: iteration 1328
+[0]: iteration 1329
+[0]: iteration 1330
+[0]: iteration 1331
+[0]: iteration 1332
+[0]: iteration 1333
+[0]: iteration 1334
+[0]: iteration 1335
+[0]: iteration 1336
+[0]: iteration 1337
+[0]: iteration 1338
+[0]: iteration 1339
+[0]: iteration 1340
+[0]: iteration 1341
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1342
+[0]: iteration 1343
+[0]: iteration 1344
+[0]: iteration 1345
+[0]: iteration 1346
+[0]: iteration 1347
+[0]: iteration 1348
+[0]: iteration 1349
+[0]: iteration 1350
+[0]: iteration 1351
+[0]: iteration 1352
+[0]: iteration 1353
+[0]: iteration 1354
+[0]: iteration 1355
+[0]: iteration 1356
+[0]: iteration 1357
+[0]: iteration 1358
+[0]: iteration 1359
+[0]: iteration 1360
+[0]: iteration 1361
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1362
+[0]: iteration 1363
+[0]: iteration 1364
+[0]: iteration 1365
+[0]: iteration 1366
+[0]: iteration 1367
+[0]: iteration 1368
+[0]: iteration 1369
+[0]: iteration 1370
+[0]: iteration 1371
+[0]: iteration 1372
+[0]: iteration 1373
+[0]: iteration 1374
+[0]: iteration 1375
+[0]: iteration 1376
+[0]: iteration 1377
+[0]: iteration 1378
+[0]: iteration 1379
+[0]: iteration 1380
+[0]: iteration 1381
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1382
+[0]: iteration 1383
+[0]: iteration 1384
+[0]: iteration 1385
+[0]: iteration 1386
+[0]: iteration 1387
+[0]: iteration 1388
+[0]: iteration 1389
+[0]: iteration 1390
+[0]: iteration 1391
+[0]: iteration 1392
+[0]: iteration 1393
+[0]: iteration 1394
+[0]: iteration 1395
+[0]: iteration 1396
+[0]: iteration 1397
+[0]: iteration 1398
+[0]: iteration 1399
+[0]: iteration 1400
+[0]: iteration 1401
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1402
+[0]: iteration 1403
+[0]: iteration 1404
+[0]: iteration 1405
+[0]: iteration 1406
+[0]: iteration 1407
+[0]: iteration 1408
+[0]: iteration 1409
+[0]: iteration 1410
+[0]: iteration 1411
+[0]: iteration 1412
+[0]: iteration 1413
+[0]: iteration 1414
+[0]: iteration 1415
+[0]: iteration 1416
+[0]: iteration 1417
+[0]: iteration 1418
+[0]: iteration 1419
+[0]: iteration 1420
+[0]: iteration 1421
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1422
+[0]: iteration 1423
+[0]: iteration 1424
+[0]: iteration 1425
+[0]: iteration 1426
+[0]: iteration 1427
+[0]: iteration 1428
+[0]: iteration 1429
+[0]: iteration 1430
+[0]: iteration 1431
+[0]: iteration 1432
+[0]: iteration 1433
+[0]: iteration 1434
+[0]: iteration 1435
+[0]: iteration 1436
+[0]: iteration 1437
+[0]: iteration 1438
+[0]: iteration 1439
+[0]: iteration 1440
+[0]: iteration 1441
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1442
+[0]: iteration 1443
+[0]: iteration 1444
+[0]: iteration 1445
+[0]: iteration 1446
+[0]: iteration 1447
+[0]: iteration 1448
+[0]: iteration 1449
+[0]: iteration 1450
+[0]: iteration 1451
+[0]: iteration 1452
+[0]: iteration 1453
+[0]: iteration 1454
+[0]: iteration 1455
+[0]: iteration 1456
+[0]: iteration 1457
+[0]: iteration 1458
+[0]: iteration 1459
+[0]: iteration 1460
+[0]: iteration 1461
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1462
+[0]: iteration 1463
+[0]: iteration 1464
+[0]: iteration 1465
+[0]: iteration 1466
+[0]: iteration 1467
+[0]: iteration 1468
+[0]: iteration 1469
+[0]: iteration 1470
+[0]: iteration 1471
+[0]: iteration 1472
+[0]: iteration 1473
+[0]: iteration 1474
+[0]: iteration 1475
+[0]: iteration 1476
+[0]: iteration 1477
+[0]: iteration 1478
+[0]: iteration 1479
+[0]: iteration 1480
+[0]: iteration 1481
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1482
+[0]: iteration 1483
+[0]: iteration 1484
+[0]: iteration 1485
+[0]: iteration 1486
+[0]: iteration 1487
+[0]: iteration 1488
+[0]: iteration 1489
+[0]: iteration 1490
+[0]: iteration 1491
+[0]: iteration 1492
+[0]: iteration 1493
+[0]: iteration 1494
+[0]: iteration 1495
+[0]: iteration 1496
+[0]: iteration 1497
+[0]: iteration 1498
+[0]: iteration 1499
+[0]: iteration 1500
+[0]: iteration 1501
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1502
+[0]: iteration 1503
+[0]: iteration 1504
+[0]: iteration 1505
+[0]: iteration 1506
+[0]: iteration 1507
+[0]: iteration 1508
+[0]: iteration 1509
+[0]: iteration 1510
+[0]: iteration 1511
+[0]: iteration 1512
+[0]: iteration 1513
+[0]: iteration 1514
+[0]: iteration 1515
+[0]: iteration 1516
+[0]: iteration 1517
+[0]: iteration 1518
+[0]: iteration 1519
+[0]: iteration 1520
+[0]: iteration 1521
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1522
+[0]: iteration 1523
+[0]: iteration 1524
+[0]: iteration 1525
+[0]: iteration 1526
+[0]: iteration 1527
+[0]: iteration 1528
+[0]: iteration 1529
+[0]: iteration 1530
+[0]: iteration 1531
+[0]: iteration 1532
+[0]: iteration 1533
+[0]: iteration 1534
+[0]: iteration 1535
+[0]: iteration 1536
+[0]: iteration 1537
+[0]: iteration 1538
+[0]: iteration 1539
+[0]: iteration 1540
+[0]: iteration 1541
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1542
+[0]: iteration 1543
+[0]: iteration 1544
+[0]: iteration 1545
+[0]: iteration 1546
+[0]: iteration 1547
+[0]: iteration 1548
+[0]: iteration 1549
+[0]: iteration 1550
+[0]: iteration 1551
+[0]: iteration 1552
+[0]: iteration 1553
+[0]: iteration 1554
+[0]: iteration 1555
+[0]: iteration 1556
+[0]: iteration 1557
+[0]: iteration 1558
+[0]: iteration 1559
+[0]: iteration 1560
+[0]: iteration 1561
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1562
+[0]: iteration 1563
+[0]: iteration 1564
+[0]: iteration 1565
+[0]: iteration 1566
+[0]: iteration 1567
+[0]: iteration 1568
+[0]: iteration 1569
+[0]: iteration 1570
+[0]: iteration 1571
+[0]: iteration 1572
+[0]: iteration 1573
+[0]: iteration 1574
+[0]: iteration 1575
+[0]: iteration 1576
+[0]: iteration 1577
+[0]: iteration 1578
+[0]: iteration 1579
+[0]: iteration 1580
+[0]: iteration 1581
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1582
+[0]: iteration 1583
+[0]: iteration 1584
+[0]: iteration 1585
+[0]: iteration 1586
+[0]: iteration 1587
+[0]: iteration 1588
+[0]: iteration 1589
+[0]: iteration 1590
+[0]: iteration 1591
+[0]: iteration 1592
+[0]: iteration 1593
+[0]: iteration 1594
+[0]: iteration 1595
+[0]: iteration 1596
+[0]: iteration 1597
+[0]: iteration 1598
+[0]: iteration 1599
+[0]: iteration 1600
+[0]: iteration 1601
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1602
+[0]: iteration 1603
+[0]: iteration 1604
+[0]: iteration 1605
+[0]: iteration 1606
+[0]: iteration 1607
+[0]: iteration 1608
+[0]: iteration 1609
+[0]: iteration 1610
+[0]: iteration 1611
+[0]: iteration 1612
+[0]: iteration 1613
+[0]: iteration 1614
+[0]: iteration 1615
+[0]: iteration 1616
+[0]: iteration 1617
+[0]: iteration 1618
+[0]: iteration 1619
+[0]: iteration 1620
+[0]: iteration 1621
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1622
+[0]: iteration 1623
+[0]: iteration 1624
+[0]: iteration 1625
+[0]: iteration 1626
+[0]: iteration 1627
+[0]: iteration 1628
+[0]: iteration 1629
+[0]: iteration 1630
+[0]: iteration 1631
+[0]: iteration 1632
+[0]: iteration 1633
+[0]: iteration 1634
+[0]: iteration 1635
+[0]: iteration 1636
+[0]: iteration 1637
+[0]: iteration 1638
+[0]: iteration 1639
+[0]: iteration 1640
+[0]: iteration 1641
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1642
+[0]: iteration 1643
+[0]: iteration 1644
+[0]: iteration 1645
+[0]: iteration 1646
+[0]: iteration 1647
+[0]: iteration 1648
+[0]: iteration 1649
+[0]: iteration 1650
+[0]: iteration 1651
+[0]: iteration 1652
+[0]: iteration 1653
+[0]: iteration 1654
+[0]: iteration 1655
+[0]: iteration 1656
+[0]: iteration 1657
+[0]: iteration 1658
+[0]: iteration 1659
+[0]: iteration 1660
+[0]: iteration 1661
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1662
+[0]: iteration 1663
+[0]: iteration 1664
+[0]: iteration 1665
+[0]: iteration 1666
+[0]: iteration 1667
+[0]: iteration 1668
+[0]: iteration 1669
+[0]: iteration 1670
+[0]: iteration 1671
+[0]: iteration 1672
+[0]: iteration 1673
+[0]: iteration 1674
+[0]: iteration 1675
+[0]: iteration 1676
+[0]: iteration 1677
+[0]: iteration 1678
+[0]: iteration 1679
+[0]: iteration 1680
+[0]: iteration 1681
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1682
+[0]: iteration 1683
+[0]: iteration 1684
+[0]: iteration 1685
+[0]: iteration 1686
+[0]: iteration 1687
+[0]: iteration 1688
+[0]: iteration 1689
+[0]: iteration 1690
+[0]: iteration 1691
+[0]: iteration 1692
+[0]: iteration 1693
+[0]: iteration 1694
+[0]: iteration 1695
+[0]: iteration 1696
+[0]: iteration 1697
+[0]: iteration 1698
+[0]: iteration 1699
+[0]: iteration 1700
+[0]: iteration 1701
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1702
+[0]: iteration 1703
+[0]: iteration 1704
+[0]: iteration 1705
+[0]: iteration 1706
+[0]: iteration 1707
+[0]: iteration 1708
+[0]: iteration 1709
+[0]: iteration 1710
+[0]: iteration 1711
+[0]: iteration 1712
+[0]: iteration 1713
+[0]: iteration 1714
+[0]: iteration 1715
+[0]: iteration 1716
+[0]: iteration 1717
+[0]: iteration 1718
+[0]: iteration 1719
+[0]: iteration 1720
+[0]: iteration 1721
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1722
+[0]: iteration 1723
+[0]: iteration 1724
+[0]: iteration 1725
+[0]: iteration 1726
+[0]: iteration 1727
+[0]: iteration 1728
+[0]: iteration 1729
+[0]: iteration 1730
+[0]: iteration 1731
+[0]: iteration 1732
+[0]: iteration 1733
+[0]: iteration 1734
+[0]: iteration 1735
+[0]: iteration 1736
+[0]: iteration 1737
+[0]: iteration 1738
+[0]: iteration 1739
+[0]: iteration 1740
+[0]: iteration 1741
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1742
+[0]: iteration 1743
+[0]: iteration 1744
+[0]: iteration 1745
+[0]: iteration 1746
+[0]: iteration 1747
+[0]: iteration 1748
+[0]: iteration 1749
+[0]: iteration 1750
+[0]: iteration 1751
+[0]: iteration 1752
+[0]: iteration 1753
+[0]: iteration 1754
+[0]: iteration 1755
+[0]: iteration 1756
+[0]: iteration 1757
+[0]: iteration 1758
+[0]: iteration 1759
+[0]: iteration 1760
+[0]: iteration 1761
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1762
+[0]: iteration 1763
+[0]: iteration 1764
+[0]: iteration 1765
+[0]: iteration 1766
+[0]: iteration 1767
+[0]: iteration 1768
+[0]: iteration 1769
+[0]: iteration 1770
+[0]: iteration 1771
+[0]: iteration 1772
+[0]: iteration 1773
+[0]: iteration 1774
+[0]: iteration 1775
+[0]: iteration 1776
+[0]: iteration 1777
+[0]: iteration 1778
+[0]: iteration 1779
+[0]: iteration 1780
+[0]: iteration 1781
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1782
+[0]: iteration 1783
+[0]: iteration 1784
+[0]: iteration 1785
+[0]: iteration 1786
+[0]: iteration 1787
+[0]: iteration 1788
+[0]: iteration 1789
+[0]: iteration 1790
+[0]: iteration 1791
+[0]: iteration 1792
+[0]: iteration 1793
+[0]: iteration 1794
+[0]: iteration 1795
+[0]: iteration 1796
+[0]: iteration 1797
+[0]: iteration 1798
+[0]: iteration 1799
+[0]: iteration 1800
+[0]: iteration 1801
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1802
+[0]: iteration 1803
+[0]: iteration 1804
+[0]: iteration 1805
+[0]: iteration 1806
+[0]: iteration 1807
+[0]: iteration 1808
+[0]: iteration 1809
+[0]: iteration 1810
+[0]: iteration 1811
+[0]: iteration 1812
+[0]: iteration 1813
+[0]: iteration 1814
+[0]: iteration 1815
+[0]: iteration 1816
+[0]: iteration 1817
+[0]: iteration 1818
+[0]: iteration 1819
+[0]: iteration 1820
+[0]: iteration 1821
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1822
+[0]: iteration 1823
+[0]: iteration 1824
+[0]: iteration 1825
+[0]: iteration 1826
+[0]: iteration 1827
+[0]: iteration 1828
+[0]: iteration 1829
+[0]: iteration 1830
+[0]: iteration 1831
+[0]: iteration 1832
+[0]: iteration 1833
+[0]: iteration 1834
+[0]: iteration 1835
+[0]: iteration 1836
+[0]: iteration 1837
+[0]: iteration 1838
+[0]: iteration 1839
+[0]: iteration 1840
+[0]: iteration 1841
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1842
+[0]: iteration 1843
+[0]: iteration 1844
+[0]: iteration 1845
+[0]: iteration 1846
+[0]: iteration 1847
+[0]: iteration 1848
+[0]: iteration 1849
+[0]: iteration 1850
+[0]: iteration 1851
+[0]: iteration 1852
+[0]: iteration 1853
+[0]: iteration 1854
+[0]: iteration 1855
+[0]: iteration 1856
+[0]: iteration 1857
+[0]: iteration 1858
+[0]: iteration 1859
+[0]: iteration 1860
+[0]: iteration 1861
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1862
+[0]: iteration 1863
+[0]: iteration 1864
+[0]: iteration 1865
+[0]: iteration 1866
+[0]: iteration 1867
+[0]: iteration 1868
+[0]: iteration 1869
+[0]: iteration 1870
+[0]: iteration 1871
+[0]: iteration 1872
+[0]: iteration 1873
+[0]: iteration 1874
+[0]: iteration 1875
+[0]: iteration 1876
+[0]: iteration 1877
+[0]: iteration 1878
+[0]: iteration 1879
+[0]: iteration 1880
+[0]: iteration 1881
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1882
+[0]: iteration 1883
+[0]: iteration 1884
+[0]: iteration 1885
+[0]: iteration 1886
+[0]: iteration 1887
+[0]: iteration 1888
+[0]: iteration 1889
+[0]: iteration 1890
+[0]: iteration 1891
+[0]: iteration 1892
+[0]: iteration 1893
+[0]: iteration 1894
+[0]: iteration 1895
+[0]: iteration 1896
+[0]: iteration 1897
+[0]: iteration 1898
+[0]: iteration 1899
+[0]: iteration 1900
+[0]: iteration 1901
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: iteration 1902
+[0]: iteration 1903
+[0]: iteration 1904
+[0]: iteration 1905
+[0]: iteration 1906
+[0]: iteration 1907
+[0]: iteration 1908
+[0]: [96mReceived signal CONVERGED[0m
+[0]: iteration 1909
+[0]: [92mTERMINATING COMPUTATION[0m
+[0]: [92mupdating setup.py ...[0m
+[0]: [92mupdating setup.py ... OK[0m
+[0]: [96mwill save OUTPUT/loads.cgns ...[0m
+[0]: [96m... saved OUTPUT/loads.cgns[0m
+[0]: [96mwill save OUTPUT/surfaces.cgns ...[0m
+[0]: [96m... saved OUTPUT/surfaces.cgns[0m
+[0]: [96mwill save OUTPUT/fields.cgns ...[0m
+[0]: [96m... saved OUTPUT/fields.cgns[0m

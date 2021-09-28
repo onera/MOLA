@@ -24,7 +24,7 @@ ProcPointsLoad = 250000
 
 # in an Overset context, it is useful to define a global variable
 # that indicates the smallest cell size, like this :
-Snear = 2e-2 
+Snear = 2e-2
 
 
 '''
@@ -36,7 +36,7 @@ It is a LIST OF DICTIONARIES !
 Each dictionary corresponds to an OVERSET COMPONENT and will be translated
 to a BASE in the new mesh.cgns output file.
 
-If no OVERSET is present, InputMeshes will be composed of a single (1) 
+If no OVERSET is present, InputMeshes will be composed of a single (1)
 dictionary.
 
 Each dictionary may have, at most, the following keys:
@@ -105,7 +105,7 @@ Connection=[dict(type='Match',
 
 # key "BoundaryConditions" : this is a LIST OF DICTIONARIES. Each dictionary
 # corresponds to a set of instructions for setting a boundary condition.
-# Each dictionary may have at most these keys : 
+# Each dictionary may have at most these keys :
 #
 #   name -> the name you want to give to the BC (no specific naming rules)
 #
@@ -124,7 +124,7 @@ Connection=[dict(type='Match',
 #            to 'special', then this key specifies the location of the BC.
 #            it can be one of :
 #
-#              'fillEmpty' -> will be applied to all undefined boundaries. Use 
+#              'fillEmpty' -> will be applied to all undefined boundaries. Use
 #                         only fillEmpty at LAST POSITION of BoundaryConditions
 #                         list.
 #
@@ -143,14 +143,14 @@ BoundaryConditions= [
 
 # key "OversetOptions" : this is a Dictionary. The possible keys are the
 # following:
-# 
-# OffsetDistanceOfOverlapMask -> distance to apply to the mask surface 
+#
+# OffsetDistanceOfOverlapMask -> distance to apply to the mask surface
 #   constructed from Overlap boundaries in the INWARDS direction.
 #
 # ForbiddenOverlapMaskingThisBase -> LIST OF STRINGS. Each element of the
 #   list is the baseName from which overlap masks are not allowed to mask
 #   this base. This is an optional protection for refined regions.
-# 
+#
 # OnlyMaskedByWalls -> True or False. It is False by default. If True,
 #   this base is only masked by masks constructed from walls of other bases.
 #   This is a VERY STRONG optional protection for refined regions.
@@ -158,7 +158,7 @@ BoundaryConditions= [
 # CreateMaskFromOverlap -> True or False. It is True by default. If True,
 #   create mask using overlap boundary and the corresponding offset distance.
 #
-# MaskOffsetNormalsSmoothIterations -> INTEGER. If greater than 0, applies a 
+# MaskOffsetNormalsSmoothIterations -> INTEGER. If greater than 0, applies a
 #   smoother of normals during the offset masking process. Increasing this
 #   value may help in improving the mask geometry.
 
@@ -168,10 +168,10 @@ OversetOptions=dict(
    ),
 
 # key "SplitBlocks" : True or False. It is False by default. If True, this
-# base zones will be split in order to facilitate proper distribution of 
+# base zones will be split in order to facilitate proper distribution of
 # among processors.
 # WARNING : If base is a background cartesian mesh implementing NearMatch
-# conditions, this key MUST be set to False !! Otherwise it can lead to 
+# conditions, this key MUST be set to False !! Otherwise it can lead to
 # unexpected result.
 SplitBlocks=False,
      ),
@@ -227,7 +227,7 @@ dict(file=os.path.join('.','WTP.cgns'),
 
 
 
-# This is the component of the wing : 
+# This is the component of the wing :
 dict(file=os.path.join('..','WING','wing.cgns'),
      baseName='BaseWing',
      Connection=[dict(type='Match',
@@ -253,7 +253,7 @@ dict(file=os.path.join('..','WING','wing.cgns'),
                           ],
      OversetOptions=dict(
         OffsetDistanceOfOverlapMask=np.sqrt(3)*Snear*4,
-        CreateMaskFromWall = False, # we set it to false because we know in 
+        CreateMaskFromWall = False, # we set it to false because we know in
                                     # advance that wing wall does not intersect
                                     # any other component. This will accelerate
                                     # a bit the preprocessing with identical
@@ -282,7 +282,7 @@ dict(file=os.path.join('..','HTP','HTPExtruded.cgns'),
              familySpecifiedType='BCSymmetryPlane',
              location='special',
              specialLocation='planeXZ'),
-                          ],     
+                          ],
      OversetOptions=dict(
         OffsetDistanceOfOverlapMask=np.sqrt(3)*Snear*3,
         CreateMaskFromWall = False,
@@ -349,7 +349,7 @@ PRE.transform(t, InputMeshes)
 # BEWARE : even if Input Meshes have defined some BC conditions, but not ALL
 # of them, PRE.setBoundaryConditions(t, InputMeshes) can be used to define the
 # remaining BCs to produce a completely defined case.
-PRE.connectMesh(t, InputMeshes)
+t = PRE.connectMesh(t, InputMeshes)
 PRE.setBoundaryConditions(t, InputMeshes)
 
 
@@ -363,7 +363,7 @@ t = PRE.splitAndDistribute(t, InputMeshes,
 
 
 # --------- OPTIONAL :
-# Let us imagine that our case has already defined some BCs that are NOT 
+# Let us imagine that our case has already defined some BCs that are NOT
 # set into families. Here, we would want to group those BCs into families,
 # including possible changes in BC types of such families.
 #
@@ -381,19 +381,19 @@ t = PRE.splitAndDistribute(t, InputMeshes,
 # families.
 
 
-# Sixth, add families to bases, tag zones, and set FamilyBCs. If the 
+# Sixth, add families to bases, tag zones, and set FamilyBCs. If the
 # case has families (which is recommended), then this step is MANDATORY.
 PRE.addFamilies(t, InputMeshes)
 
 # Seventh, if at least one zone has been split, reconnecting mesh has to be done
-PRE.connectMesh(t, InputMeshes)
+t = PRE.connectMesh(t, InputMeshes)
 
 # Eighth, produce Overset data (ONLY static overset currently). This step
 # is MANDATORY only if BCOverlap exist in the case.
 t = PRE.addOversetData(t, InputMeshes, saveMaskBodiesTree=True)
 
 # Ninth, Make adaptations inherent to elsA. This step is already contained
-# in previous step. So if addOversetData is applied, then this line is 
+# in previous step. So if addOversetData is applied, then this line is
 # redundant
 PRE.EP._convert2elsAxdt(t)
 
