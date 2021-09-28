@@ -1,5 +1,7 @@
 '''
-elsA compute.py script for general configuration
+elsA compute.py script for WORKFLOW STANDARD
+
+MOLA Dev
 
 File History:
 23/12/2020 - L. Bernardos
@@ -11,6 +13,7 @@ import os
 import imp
 import numpy as np
 # np.seterr(all='raise')
+import shutil
 import timeit
 LaunchTime = timeit.default_timer()
 from mpi4py import MPI
@@ -37,7 +40,7 @@ FILE_SURFACES    = 'surfaces.cgns'
 FILE_LOADS       = 'loads.cgns'
 FILE_FIELDS      = 'tmp-fields.cgns' # BEWARE of tmp- suffix
 FILE_COLOG       = 'coprocess.log'
-FILE_BODYFORCESRC= 'BodyForceSources.cgns'
+FILE_BODYFORCESRC= 'bodyforce.cgns'
 DIRECTORY_OUTPUT = 'OUTPUT'
 DIRECTORY_LOGS   = 'LOGS'
 
@@ -97,7 +100,7 @@ if not FULL_CGNS_MODE:
         [obj.set(v,dic[v]) for v in dic if not isinstance(dic[v], dict)]
 
     for k in NumDict:
-        if '.Solver#Function' in k: 
+        if '.Solver#Function' in k:
             funDict = NumDict[k]
             funName = funDict['name']
             if funName == 'f_cfl':
@@ -137,3 +140,29 @@ e.action=elsAxdt.READ_ALL
 ## e.action =elsAxdt.TRANSLATE
 
 e.compute()
+
+to = elsAxdt.get(elsAxdt.OUTPUT_TREE)
+CO.adaptEndOfRun(to)
+toWithSkeleton = I.merge([Skeleton, to])
+
+# save loads
+CO.extractIntegralData(to, loads, Extractions=[],
+                        DesiredStatistics=DesiredStatistics)
+CO.addMemoryUsage2Loads(loads)
+loadsTree = CO.loadsDict2PyTree(loads)
+CO.save(loadsTree, os.path.join(DIRECTORY_OUTPUT,FILE_LOADS))
+
+# save surfaces
+surfs = CO.extractSurfaces(toWithSkeleton, setup.Extractions)
+CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
+
+# save fields
+tmp_fields = os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS)
+final_fields = tmp_fields.replace('tmp-','')
+CO.save(toWithSkeleton,final_fields)
+
+# save bodyforce disks
+CO.save(BodyForceDisks,os.path.join(DIRECTORY_OUTPUT,FILE_BODYFORCESRC))
+
+elsAxdt.free("xdt-runtime-tree")
+elsAxdt.free("xdt-output-tree")

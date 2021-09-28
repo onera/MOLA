@@ -1,10 +1,18 @@
 * reorganiser saveAll et ***saveSurfaces*** IMPORTANT !!
 
-* revoir Extractions interface (setup.py)
+* changer interface noms des variables pour extractions de fields ou wall variables
 
-* Coprocess:
-    -> rm GridCoordinates_t avant moveCoordsFromEndOfRunToGridCoords
-    -> moveCoordsFromEndOfRunToGridCoords: voir dependance PRE.addFieldExtractions(extractCoords=False)
+* revoir Extractions interface (setup.py)
+* EXTRACTIONS
+  Include extractions for:
+   -> probes
+   -> slices (from existing variables, including distance to wall!)
+   -> basic shapes (sphere, cube, cylinder)
+
+OK * Coprocess:
+OK     -> rm GridCoordinates_t avant moveCoordsFromEndOfRunToGridCoords
+OK     -> moveCoordsFromEndOfRunToGridCoords: voir dependance PRE.addFieldExtractions(extractCoords=False)
+NO * CO.moveCoordsFromEndOfRunToGridCoords : delete .Solver#Output
 
 * Preprocess and eventually Coprocess:
   add :
@@ -17,17 +25,17 @@
   in order to mimick corrections done when writing + reading a tree
 
 
-
-* CO.moveCoordsFromEndOfRunToGridCoords : delete .Solver#Output
-
 * investigate iteration number tagging of MemoryUsageOfProc
 
-* corriger tag AfterIter (-2 vers -1) (investiguer comment obtenir dernier loads)
+OK * corriger tag AfterIter (-2 vers -1)
+
+* (investiguer comment obtenir dernier loads)
 
 * updateAndSaveLoads : concatener données de multiples IntegralData (différents tags)
-  ignorer appels de fonctions si fields non trouvés (p.ex. MomentumXFlux non extraits)
 
-* DOCUMENTATION (sphinx)
+OK  ignorer appels de fonctions si fields non trouvés (p.ex. MomentumXFlux non extraits)
+
+OK * DOCUMENTATION (sphinx)
 
 * TUTORIALS (sphinx)
 
@@ -36,11 +44,7 @@
 
 * TEMPLATES -> correct versions of prepareMesh and prepareMainCGNS
 
-* EXTRACTIONS
-  Include extractions for:
-   -> probes
-   -> slices (from existing variables, including distance to wall!)
-   -> basic shapes (sphere, cube, cylinder)
+
 
 * PREPROCESS
   -> Include computation of distance to wall

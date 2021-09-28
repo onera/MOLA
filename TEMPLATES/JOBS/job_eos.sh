@@ -28,4 +28,3 @@ export PYTHONPATH=$PYTHONPATH:$MOLA
 
 
 mpirun -np 8 elsA.x -C xdt-runtime-tree -- compute.py 1>stdout.log 2>stderr.log
-mv OUTPUT/tmp-fields.cgns OUTPUT/fields.cgns

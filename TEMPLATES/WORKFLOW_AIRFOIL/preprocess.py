@@ -3,7 +3,7 @@ Preprocess routine used for:
     1 - Create appropriate symbolic links of restart fields
     2 - Updates the timeout of setup.py
 
-19/05/2021 - L. Bernardos 
+19/05/2021 - L. Bernardos
 '''
 
 import sys
@@ -24,7 +24,14 @@ def getDirectoriesNamesOfJob():
 
 HasOutput = os.path.isdir('OUTPUT')
 
-if not HasOutput:
+if not HasOutput and os.path.isdir('OUTPUT_FAILED'):
+
+    os.makedirs('OUTPUT')
+    RestartLink=os.path.join('OUTPUT_FAILED','fields.cgns')
+    os.symlink(RestartLink, os.path.join('OUTPUT','fields.cgns') )
+
+elif not HasOutput:
+
     CurrentCaseName = os.getcwd().split(os.path.sep)[-1]
     CasesNames = getDirectoriesNamesOfJob()
     CurrentCaseIndex = CasesNames.index(CurrentCaseName)

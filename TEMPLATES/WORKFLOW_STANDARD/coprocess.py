@@ -1,5 +1,7 @@
 '''
-coprocess.py template
+coprocess.py template WORKFLOW STANDARD
+
+MOLA Dev
 '''
 
 # Control Flags for interactive control using command 'touch <flag>'
@@ -12,7 +14,7 @@ SAVE_BODYFORCE    = CO.getSignal('SAVE_BODYFORCE')
 COMPUTE_BODYFORCE = CO.getSignal('COMPUTE_BODYFORCE')
 
 if CO.getSignal('RELOAD_SETUP'):
-    # BEWARE: in Python v >= 3.4 rather use: importlib.reload(setup) 
+    # BEWARE: in Python v >= 3.4 rather use: importlib.reload(setup)
     if setup and setup.__name__ != "__main__": imp.reload(setup)
     CO.setup = setup
     niter    = setup.elsAkeysNumerics['niter']
@@ -47,13 +49,13 @@ DesiredStatistics=['std-CL', 'std-CD']
 
 # BEWARE! state 16 => triggers *before* iteration, which means
 # that variable "it" represents actually the *next* iteration
-it = elsAxdt.iteration() 
+it = elsAxdt.iteration()
 CO.CurrentIteration = it
 CO.printCo('iteration %d'%it, proc=0)
 
 
 
-# ENTER COUPLING CONDITIONS: 
+# ENTER COUPLING CONDITIONS:
 
 if not SAVE_FIELDS:
     SAVE_FIELDS = all([(it-inititer)%UpdateFieldsFrequency == 0, it>inititer])
@@ -75,18 +77,18 @@ if BodyForceInputData and not COMPUTE_BODYFORCE:
                                  not BODYFORCE_INITIATED])
 
 ElapsedTime = timeit.default_timer() - LaunchTime
-reachedTimeOutMargin = CO.hasReachedTimeOutMargin(ElapsedTime, TimeOut,
+ReachedTimeOutMargin = CO.hasReachedTimeOutMargin(ElapsedTime, TimeOut,
                                                             MarginBeforeTimeOut)
 anySignal = any([SAVE_LOADS, SAVE_SURFACES, SAVE_BODYFORCE, COMPUTE_BODYFORCE,
-                 SAVE_FIELDS, CONVERGED, it>=itmax]) 
-ENTER_COUPLING = anySignal or reachedTimeOutMargin
+                 SAVE_FIELDS, CONVERGED, it>=itmax])
+ENTER_COUPLING = anySignal or ReachedTimeOutMargin
 
 
 if ENTER_COUPLING:
 
     to = elsAxdt.get(elsAxdt.OUTPUT_TREE)
     CO.adaptEndOfRun(to)
-    toWithSkeleton = I.merge([Skeleton, to]) 
+    toWithSkeleton = I.merge([Skeleton, to])
 
 
     if COMPUTE_BODYFORCE:
@@ -98,24 +100,27 @@ if ENTER_COUPLING:
 
         CO.addBodyForcePropeller2Loads(loads, BodyForceDisks)
 
-        CO.distributeAndSavePyTree(BodyForceDisks, FILE_BODYFORCESRC,
-                                   tagWithIteration=False)
-        SAVE_BODYFORCE = False
 
-        
         elsAxdt.free('xdt-runtime-tree')
         del toWithSourceTerms
         CO.printCo('migrating computed source terms...', proc=0, color=CO.MAGE)
         toWithSourceTerms = LL.migrateSourceTerms2MainPyTree(BodyForceDisks,
                                                              toWithSkeleton)
 
+        CO.save(BodyForceDisks,os.path.join(DIRECTORY_OUTPUT,FILE_BODYFORCESRC))
+        SAVE_BODYFORCE = False
+
 
     if SAVE_FIELDS:
-        CO.saveDistributedPyTree(toWithSkeleton, FILE_FIELDS)
-        Cmpi.barrier()
+        CO.save(toWithSkeleton,os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
+
 
     if SAVE_LOADS:
-        CO.updateAndSaveLoads(to, loads, DesiredStatistics, monitorMemory=True)
+        CO.extractIntegralData(to, loads, Extractions=[],
+                                DesiredStatistics=DesiredStatistics)
+        CO.addMemoryUsage2Loads(loads)
+        loadsTree = CO.loadsDict2PyTree(loads)
+        CO.save(loadsTree, os.path.join(DIRECTORY_OUTPUT,FILE_LOADS))
 
         if (it-inititer)>ItersMinEvenIfConverged and not CONVERGED:
             CONVERGED=CO.isConverged(ZoneName=ConvergenceFamilyName,
@@ -123,19 +128,25 @@ if ENTER_COUPLING:
                                      FluxThreshold=MaxConvergedCLStd)
 
     if SAVE_SURFACES:
-        CO.saveSurfaces(toWithSkeleton, tagWithIteration=False)
+        surfs = CO.extractSurfaces(toWithSkeleton, setup.Extractions)
+        CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
 
 
     if SAVE_BODYFORCE:
-        CO.distributeAndSavePyTree(BodyForceDisks, FILE_BODYFORCESRC,
-                                   tagWithIteration=False)
+        CO.save(BodyForceDisks,os.path.join(DIRECTORY_OUTPUT,FILE_BODYFORCESRC))
 
-    if CONVERGED or it >= itmax or reachedTimeOutMargin: 
-        if reachedTimeOutMargin:
-            CO.printCo('REACHED MARGIN BEFORE TIMEOUT', proc=0, color=CO.WARN)
+    if CONVERGED or it >= itmax or ReachedTimeOutMargin:
+        if ReachedTimeOutMargin:
+            if rank == 0:
+                with open('NEWJOB_REQUIRED','w') as f: f.write('NEWJOB_REQUIRED')
 
-        CO.saveAll(toWithSkeleton, to, loads, DesiredStatistics,
-                   BodyForceInputData, BodyForceDisks, quit=True)
+        if it >= itmax or CONVERGED:
+            if rank==0:
+                with open('COMPLETED','w') as f: f.write('COMPLETED')
+
+        CO.printCo('TERMINATING COMPUTATION', proc=0, color=CO.GREEN)
+        CO.updateAndWriteSetup(setup)
+        elsAxdt.safeInterrupt()
 
 
 

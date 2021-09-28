@@ -1,11 +1,10 @@
 '''
 postprocess routine used for:
     1 - determine if computation was OK or not
-    2 - override fields.cgns with tmp-fields.cgns 
-    3 - save relevant files into LOG directory
+    2 - save relevant files into LOG directory
     4 - switch to robust or fail-safe mode if required
 
-19/05/2021 - L. Bernardos 
+19/05/2021 - L. Bernardos
 '''
 
 import sys
@@ -69,10 +68,11 @@ def removeNumericalSchemeKeys(setup):
                     'ausm_tref','ausm_pref','ausm_mref','limiter','avcoef_k2',
                     'avcoef_k4','avcoef_sigma','filter','cutoff_dens',
                     'cutoff_pres','cutoff_eint','artviscosity','av_mrt')
-    for k in Keys2Remove: setup.elsAkeysNumerics.pop(k, None)    
+    for k in Keys2Remove: setup.elsAkeysNumerics.pop(k, None)
 
 
 def wasPoorlyConverged():
+    setup = imp.load_source('setup', 'setup.py')
     try: stdCLthreshold = setup.ReferenceValues['CoprocessOptions']['MaxConvergedCLStd']
     except: return False
 
@@ -112,7 +112,7 @@ def getNextRobustMode():
     try:
         return RobustModes[i+1]
     except IndexError:
-        return 
+        return
 
 
 def useNextRobustMode():
@@ -140,20 +140,21 @@ def useFailSafeMode():
 
     if getComputationMode() == FailSafeMode['name']: return
 
-    removeNumericalSchemeKeys(setup)    
+    removeNumericalSchemeKeys(setup)
     setup.elsAkeysNumerics.update(FailSafeMode['NumericalKeys'])
     setup.ReferenceValues['ComputationMode'] = FailSafeMode['name']
     PRE.writeSetupFromModuleObject(setup, setupFilename='setup.py')
 
     # allow for restart
-    files2Remove = ('COMPLETED','FAILED')
+    files2Remove = ['COMPLETED','FAILED']
+    files2Remove.extend(glob.glob('bk*'))
+    files2Remove.extend(glob.glob('elsA.x*'))
+    files2Remove.extend(glob.glob('core.*'))
     for f in files2Remove:
-        try: os.remove('COMPLETED')
+        try: os.remove(f)
         except: pass
 
-    # move OUTPUT folder so that new run will restart from previous healthy one
     ServerTools.cpmv('mv','OUTPUT','OUTPUT_FAILED')
-
 
 
 # ---------------------------- SCRIPT STARTS HERE ---------------------------- #
@@ -164,14 +165,6 @@ for failure in ('bk*','elsA.x.*','core.*'):
         with open('FAILED','w') as f: f.write('dump %s files detected'%failure)
         break
 
-
-if fileExists('OUTPUT','tmp-fields.cgns'):
-    shutil.move(os.path.join('OUTPUT','tmp-fields.cgns'),
-                os.path.join('OUTPUT','fields.cgns'))
-
-elif not anyFile('NEWJOB_REQUIRED','FAILED'):
-    with open('FAILED','w') as f:
-        f.write('tmp-fields.cgns missing')
 
 for fn in glob.glob('*.log'):
     FilenameBase = fn[:-4]
@@ -186,7 +179,7 @@ for fn in glob.glob('elsA_MPI*'):
     shutil.move(fn, os.path.join('LOGS', fn))
 
 if fileExists('COMPLETED'):
-    
+
     for fn in glob.glob(os.path.join('LOGS','stdout*')):
         try: os.remove(fn) # because standard output of elsA is excessively big
         except: pass
