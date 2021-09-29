@@ -9,10 +9,13 @@ Preprocess routine used for:
 import sys
 import os
 import glob
+import imp
 
 import MOLA.Preprocess as PRE
 
-import setup
+try: os.remove('setup.pyc')
+except: pass
+setup = imp.load_source('setup', 'setup.py')
 
 def fileExist(*path): return os.path.isfile(os.path.join(*path))
 

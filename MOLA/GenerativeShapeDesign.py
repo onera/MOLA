@@ -2560,6 +2560,9 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
     # them appropriately
     Arcs = W.splitCurves(Arc, lineLE, select=1)
     barycenters = [G.barycenter(arc) for arc in Arcs]
+    print('barycenters')
+    print(barycenters)
+    C.convertPyTree2File(ExtrudedMesh,'test.cgns')
     if barycenters[1][1] > barycenters[0][1]:
         ArcBottom, ArcTop = Arcs
     else:
