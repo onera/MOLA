@@ -43,6 +43,8 @@ DIRECTORY_OUTPUT = 'OUTPUT'
 DIRECTORY_LOGS   = 'LOGS'
 
 # ------------------ IMPORT AND SET CURRENT SETUP DATA ------------------ #
+try: os.remove('setup.pyc')
+except: pass
 setup = imp.load_source('setup', FILE_SETUP)
 
 # Load and appropriately set variables of coprocess module

@@ -3120,6 +3120,9 @@ def writeSetupFromModuleObject(setup, setupFilename='setup.py'):
 
     with open(setupFilename,'w') as f: f.write(AllLines)
 
+    try: os.remove(setupFilename+'c')
+    except: pass
+
 
 
 def addReferenceState(t, FluidProperties, ReferenceValues):
