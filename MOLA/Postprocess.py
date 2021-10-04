@@ -662,3 +662,102 @@ def addPressureIfAbsent(t):
             P._computeVariables(t, ['Pressure'] )
         except:
             pass
+
+#======================= turbomachinery =======================================#
+
+
+def absolute2Relative(t, container=I.__FlowSolutionCenters__,
+                    containerRelative=None, loc='centers'):
+    '''
+    In a turbomachinery context, change the frame of reference of variables in
+    the FlowSolution container **container** from absolute to relative.
+    Families with ``'.Solver#Motion'`` node must be found to use the rotation
+    speed for the change of FoR.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            tree to modify
+
+        container : str
+            Name of the FlowSolution container to change of frame of reference.
+            By default, this is the default container at cell centers of Cassiopee
+
+        containerRelative : str
+            Name of the new FlowSolution container with variables in the
+            relative frame of reference. By default, this is **container** with
+            the suffix ``'#Relative'``
+
+        loc : str
+            location of variables, must be 'centers' or 'nodes'. Used to restore
+            variables with Post.computeVariables from Cassiopee after the change
+            of FoR.
+
+    Returns
+    -------
+
+        t : PyTree
+            modified tree
+
+    '''
+    import etc.transform as trf
+
+    assert loc in ['centers', 'nodes'], 'loc must be centers or nodes'
+    conservatives = ['Density', 'MomentumX', 'MomentumY', 'MomentumZ',
+        'EnergyStagnationDensity']
+    primTurbVars = ['TurbulentEnergyKinetic', 'TurbulentDissipationRate',
+        'TurbulentDissipation', 'TurbulentSANuTilde', 'TurbulentLengthScale']
+    consTurbVars = [var+'Density' for var in primTurbVars]
+    turbVars = primTurbVars + consTurbVars
+    noFoRDependentVariables = ['Pressure', 'Temperature', 'Entropy',
+        'ViscosityMolecular', 'Viscosity_EddyMolecularRatio', 'ChannelHeight']
+    var2keep = conservatives + turbVars + noFoRDependentVariables
+
+    cassiopeeVariables = [
+        'VelocityX', 'VelocityY', 'VelocityZ', 'VelocityMagnitude', 'Pressure',
+        'Temperature', 'Enthalpy', 'Entropy', 'Mach', 'ViscosityMolecular',
+        'PressureStagnation', 'TemperatureStagnation', 'PressureDynamic']
+
+    I._adaptZoneNamesForSlash(t)
+
+    if not containerRelative:
+        containerRelative = container+'#Relative'
+
+    var2compute = []
+
+    for FS in I.getNodesFromNameAndType(t, container, 'FlowSolution_t'):
+        copyOfFS = I.copyTree(FS)
+        I.setName(copyOfFS, containerRelative)
+        varInFS = []
+        # Keep some variables
+        for node in I.getNodesFromType(copyOfFS, 'DataArray_t'):
+            var = I.getName(node)
+            if var not in var2keep:
+                if var not in var2compute and var in cassiopeeVariables:
+                    var2compute.append(var)
+                I.rmNode(copyOfFS, node)
+            else:
+                varInFS.append(var)
+        if not all([(var in varInFS) for var in conservatives]):
+            continue
+        parent, pos = I.getParentOfNode(t, FS)
+        I.addChild(parent, copyOfFS, pos=pos+1)
+
+    for base in I.getNodesFromType(t, 'CGNSBase_t'):
+        # Base per base, else trf.absolute2Relative does not found omega
+        base = trf.absolute2Relative(base, containerRelative, frame='cartesian')
+
+    # restore variables
+    if loc == 'centers':
+        oldContainer = I.__FlowSolutionCenters__
+        I.__FlowSolutionCenters__ = containerRelative
+        P._computeVariables(t, [loc+':'+var for var in var2compute])
+        I.__FlowSolutionCenters__ = oldContainer
+    else:
+        oldContainer = I.__FlowSolutionNodes__
+        I.__FlowSolutionNodes__ = containerRelative
+        P._computeVariables(t, [loc+':'+var for var in var2compute])
+        I.__FlowSolutionNodes__ = oldContainer
+
+    return t

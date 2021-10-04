@@ -232,12 +232,10 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                         Extractions=Extractions)
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
-    t = newCGNSfromSetup(t, AllSetupDics, initializeFlow=True, FULL_CGNS_MODE=False)
-    to = PRE.newRestartFieldsFromCGNS(t)
-    # Beware: setting the BCs here delete the .Solver#Output nodes
-    # TODO: move this function and solve the Seg. Fault bug with .Solver#Output
     setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
             ReferenceValues, bladeFamilyNames=bladeFamilyNames)
+    t = newCGNSfromSetup(t, AllSetupDics, initializeFlow=True, FULL_CGNS_MODE=False)
+    to = PRE.newRestartFieldsFromCGNS(t)
     PRE.saveMainCGNSwithLinkToOutputFields(t,to,writeOutputFields=writeOutputFields)
 
     print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
@@ -697,7 +695,7 @@ def splitWithPyPart(filename, partN=1, savePpart=False, output=None):
 def computeReferenceValues(FluidProperties, Massflow, PressureStagnation,
         TemperatureStagnation, Surface, TurbulenceLevel=0.001,
         Viscosity_EddyMolecularRatio=0.1, TurbulenceModel='Wilcox2006-klim',
-        TurbulenceCutoff=1.0, TransitionMode=None, CoprocessOptions={},
+        TurbulenceCutoff=1e-8, TransitionMode=None, CoprocessOptions={},
         Length=1.0, TorqueOrigin=[0., 0., 0.],
         FieldsAdditionalExtractions=['ViscosityMolecular', 'Viscosity_EddyMolecularRatio', 'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation', 'Mach']):
     '''
@@ -1374,16 +1372,8 @@ def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileform
     var2interp += turbVars
 
     donor_tree = C.convertFile2PyTree(filename, format=fileformat)
-    FSCenters_nodes = I.getNodesFromType(donor_tree, I.__FlowSolutionCenters__)
-    if FSCenters_nodes == []:
-        donor_tree = C.node2Center(donor_tree, I.__FlowSolutionNodes__)
-        I._rmNodesByNameAndType(donor_tree, I.__FlowSolutionNodes__, 'FlowSolution_t')
-        for FS in I.getNodesFromType(donor_tree, 'FlowSolution_t'):
-            I.setName(FS, I.__FlowSolutionCenters__)
-
     inlet_BC_nodes = C.extractBCOfName(t, 'FamilySpecified:{0}'.format(FamilyName))
     I._adaptZoneNamesForSlash(inlet_BC_nodes)
-    # hook = None # TODO: Add a hook
     for w in inlet_BC_nodes:
         bcLongName = I.getName(w)  # from C.extractBCOfName: <zone>\<bc>
         zname, wname = bcLongName.split('\\')
@@ -1394,18 +1384,17 @@ def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileform
         if not donor_BC:
             print('Interpolate Inflow condition on BC {}...'.format(bcLongName))
             I._rmNodesByType(w, 'FlowSolution_t')
-            # if not hook:
-            #     hook = C.createHook(donor_tree, function='extractMesh')
-            donor_BC = P.extractMesh(donor_tree, w) #, hook=[hook])
-            donor_BC = C.node2Center(donor_BC, I.__FlowSolutionNodes__)
-            I._rmNodesByName(donor_BC, I.__FlowSolutionNodes__)
+            donor_BC = P.extractMesh(donor_tree, w, mode='accurate')
 
         ImposedVariables = dict()
         for var in var2interp:
-            ImposedVariables[var] = I.getValue(I.getNodeFromName(donor_BC, var))
+            varNode = I.getNodeFromName(donor_BC, var)
+            if varNode:
+                ImposedVariables[var] = I.getValue(varNode)[::-1, :]
+            else:
+                raise TypeError('variable {} not found in {}'.format(var, filename))
 
         setBC_inj1(t, FamilyName, ImposedVariables, bc=bcnode)
-    # C.freeHook(hook)
 
 def setBC_outpres(t, FamilyName, pressure):
     '''
@@ -1802,7 +1791,7 @@ def ETC_setBC_outradeq(t, FamilyName, valve_type, valve_ref_pres,
         # pour la loi 5, pref = pi de reference
         valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget', 3: 'QLinear', 4: 'QHyperbolic'}
         bc.valve_law(valve_law_dict[valve_type], valve_ref_pres, valve_ref_mflow, valve_relax=valve_relax)
-        bc.dirorder = 1
+        bc.dirorder = -1
         globborder = bc.glob_border(current=FamilyName)
         globborder.i_poswin        = gbd[bcpath]['i_poswin']
         globborder.j_poswin        = gbd[bcpath]['j_poswin']
