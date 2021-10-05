@@ -870,7 +870,8 @@ def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
 
     PRE.addTrigger(t)
     PRE.addExtractions(t, AllSetupDictionaries['ReferenceValues'],
-                      AllSetupDictionaries['elsAkeysModel'], extractCoords=False)
+                          AllSetupDictionaries['elsAkeysModel'],
+                          extractCoords=False)
     PRE.addReferenceState(t, AllSetupDictionaries['FluidProperties'],
                          AllSetupDictionaries['ReferenceValues'])
     PRE.addGoverningEquations(t, dim=dim) # TODO replace dim input by elsAkeysCFD['config'] info
@@ -1214,6 +1215,8 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
         setBC_inj1_uniform, setBC_inj1_interpFromFile
 
     '''
+    checkVariables(ImposedVariables)
+
     inlet = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
     I._rmNodesByType(inlet, 'FamilyBC_t')
     I.newFamilyBC(value='BCInflowSubsonic', parent=inlet)
@@ -1222,9 +1225,8 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
         J.set(inlet, '.Solver#BC', type='inj1', **ImposedVariables)
 
     else:
-        J.set(inlet, '.Solver#BC', type='inj1') #TODO: check if really needed
-
         assert bc is not None
+        J.set(bc, '.Solver#BC', type='inj1')
 
         PointRange = I.getValue(I.getNodeFromType(bc, 'IndexRange_t'))
         bc_shape = PointRange[:, 1] - PointRange[:, 0]
@@ -1244,6 +1246,8 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
         BCDataSet = I.newBCDataSet(name='BCDataSet#Init', value='Null',
             gridLocation='FaceCenter', parent=bc)
         J.set(BCDataSet, 'DirichletData', **ImposedVariables)
+        DirichletData = I.getNodeFromName1(BCDataSet, 'DirichletData')
+        I.setType(DirichletData, 'BCData_t')
 
 def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName):
     '''
@@ -1380,17 +1384,15 @@ def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileform
         znode = I.getNodeFromNameAndType(t, zname, 'Zone_t')
         bcnode = I.getNodeFromNameAndType(znode, wname, 'BC_t')
 
-        donor_BC = I.getNodeFromName(donor_tree, bcLongName)
-        if not donor_BC:
-            print('Interpolate Inflow condition on BC {}...'.format(bcLongName))
-            I._rmNodesByType(w, 'FlowSolution_t')
-            donor_BC = P.extractMesh(donor_tree, w, mode='accurate')
+        print('Interpolate Inflow condition on BC {}...'.format(bcLongName))
+        I._rmNodesByType(w, 'FlowSolution_t')
+        donor_BC = P.extractMesh(donor_tree, w, mode='accurate')
 
         ImposedVariables = dict()
         for var in var2interp:
             varNode = I.getNodeFromName(donor_BC, var)
             if varNode:
-                ImposedVariables[var] = I.getValue(varNode)[::-1, :]
+                ImposedVariables[var] = np.asfortranarray(I.getValue(varNode)[::-1, :])
             else:
                 raise TypeError('variable {} not found in {}'.format(var, filename))
 
@@ -1415,11 +1417,49 @@ def setBC_outpres(t, FamilyName, pressure):
             Value of the static pressure to impose
 
     '''
+    checkVariables(dict(pressure=pressure))
     outlet = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
     I._rmNodesByType(outlet, 'FamilyBC_t')
     I.newFamilyBC(value='BCOutflowSubsonic', parent=outlet)
     J.set(outlet, '.Solver#BC', type='outpres', pressure=pressure)
 
+def checkVariables(ImposedVariables):
+    '''
+    Check that variables in the input dictionary are well defined. Raise a
+    ValueError if not.
+
+    Parameters
+    ----------
+
+        ImposedVariables : dict
+            each key is a variable name. Based on this name, the value (float or
+            numpy.array) is checked.
+            For instance:
+                * Variables such as pressure, temperature or turbulent quantities
+                    must be strictly positive.
+                * Components of a unit vector must be between -1 and 1.
+
+    '''
+    posiviteVars = ['PressureStagnation', 'EnthalpyStagnation',
+        'stagnation_pressure', 'stagnation_temperature', 'Pressure', 'pressure', 'Temperature',
+        'TurbulentEnergyKinetic', 'TurbulentDissipationRate', 'TurbulentDissipation', 'TurbulentLengthScale',
+        'TurbulentSANuTilde']
+    unitVectorComponent = ['VelocityUnitVectorX', 'VelocityUnitVectorY', 'VelocityUnitVectorZ',
+        'txv', 'tyv', 'tzv']
+
+    def positive(value):
+        if isinstance(value, np.ndarray): return np.all(value>0)
+        else: return value>0
+
+    def unitComponent(value):
+        if isinstance(value, np.ndarray): return np.all(np.absolute(value)<=1)
+        else: return abs(value)<=1
+
+    for var, value in ImposedVariables.items():
+        if var in posiviteVars and not positive(value):
+            raise ValueError('{} must be positive, but here it is equal to {}'.format(var, value))
+        elif var in unitVectorComponent and not unitComponent(value):
+            raise ValueError('{} must be between -1 and +1, but here it is equal to {}'.format(var, value))
 
 ################################################################################
 #######  Boundary conditions without ETC dependency  ###########################
