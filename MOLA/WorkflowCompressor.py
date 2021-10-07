@@ -22,6 +22,7 @@ import sys
 import os
 import numpy as np
 import pprint
+import copy
 import scipy.optimize
 
 # BEWARE: in Python v >= 3.4 rather use: importlib.reload(setup)
@@ -37,6 +38,7 @@ import Transform.PyTree    as T
 
 from . import InternalShortcuts as J
 from . import Preprocess        as PRE
+from . import JobManager    as JM
 
 
 def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
@@ -220,6 +222,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     elsAkeysCFD      = PRE.getElsAkeysCFD()
     elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues)
     if BodyForceInputData: NumericalParams['useBodyForce'] = True
+
+    if not 'NumericalScheme' in NumericalParams:
+        NumericalParams['NumericalScheme'] = 'roe'
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues, **NumericalParams)
     TurboConfiguration = setTurboConfiguration(**TurboConfiguration)
 
@@ -695,7 +700,8 @@ def splitWithPyPart(filename, partN=1, savePpart=False, output=None):
 def computeReferenceValues(FluidProperties, Massflow, PressureStagnation,
         TemperatureStagnation, Surface, TurbulenceLevel=0.001,
         Viscosity_EddyMolecularRatio=0.1, TurbulenceModel='Wilcox2006-klim',
-        TurbulenceCutoff=1e-8, TransitionMode=None, CoprocessOptions={},
+        TurbulenceCutoff=1e-8, TransitionMode=None,
+        CoprocessOptions=dict(AveragingIterations=1000),
         Length=1.0, TorqueOrigin=[0., 0., 0.],
         FieldsAdditionalExtractions=['ViscosityMolecular', 'Viscosity_EddyMolecularRatio', 'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation', 'Mach']):
     '''
@@ -871,7 +877,8 @@ def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
     PRE.addTrigger(t)
     PRE.addExtractions(t, AllSetupDictionaries['ReferenceValues'],
                           AllSetupDictionaries['elsAkeysModel'],
-                          extractCoords=False)
+                          extractCoords=False,
+                          FluxExtractions=[])
     PRE.addReferenceState(t, AllSetupDictionaries['FluidProperties'],
                          AllSetupDictionaries['ReferenceValues'])
     PRE.addGoverningEquations(t, dim=dim) # TODO replace dim input by elsAkeysCFD['config'] info
@@ -1948,3 +1955,282 @@ def getGlobDir(tree, bc):
     print('  * glob_dir_i = %s\n  * glob_dir_j = %s'%(globDirI, globDirJ))
     assert globDirI != globDirJ
     return globDirI, globDirJ
+
+
+################################################################################
+
+def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
+                    ThrottleRange, RotationSpeedRange, **kwargs):
+    '''
+    User-level function designed to launch a structured-type polar of airfoil.
+
+    Parameters
+    ----------
+
+        PREFIX_JOB : str
+            an arbitrary prefix for the jobs
+
+        AER : str
+            full AER code for launching simulations on SATOR
+
+        NProc : int
+            Number of processors for each job.
+
+        machine : str
+            name of the machine ``'sator'``, ``'spiro'``, ``'eos'``...
+
+            .. warning:: only ``'sator'`` has been tested
+
+        DIRECTORY_WORK : str
+            the working directory at computation server.
+
+            .. note:: indicated directory may not exist. In this case, it will
+                be created.
+
+        ThrottleRange : list
+            Throttle values to consider (depend on the valve law)
+
+        RotationSpeedRange : list
+            RotationSpeed numbers to consider
+
+        kwargs : dict
+            same arguments than prepareMainCGNS4ElsA
+
+    Returns
+    -------
+
+        None : None
+            File ``JobsConfiguration.py`` is writen and polar builder job is
+            launched
+    '''
+
+
+    ThrottleMatrix, RotationSpeedMatrix  = np.meshgrid(ThrottleRange, RotationSpeedRange)
+
+    Throttle_       = ThrottleMatrix.ravel(order='K')
+    RotationSpeed_  = RotationSpeedMatrix.ravel(order='K')
+    NewJobs         = Throttle_ == ThrottleRange[0]
+
+    JobsQueues = []
+    for i, (Throttle, RotationSpeed, NewJob) in enumerate(zip(Throttle_, RotationSpeed_, NewJobs)):
+
+        print('Assembling run {} Throttle={} RotationSpeed={} | NewJob = {}'.format(
+                i, Throttle, RotationSpeed, NewJob))
+
+        if NewJob:
+            JobName = PREFIX_JOB+'%d'%i
+            writeOutputFields = True
+        else:
+            writeOutputFields = False
+
+        CASE_LABEL = '%06.2f'%abs(Throttle)+'_'+JobName # CAVEAT tol AoA >= 0.01 deg
+        if Throttle < 0: CASE_LABEL = 'M'+CASE_LABEL
+
+        WorkflowParams = copy.deepcopy(kwargs)
+
+        WorkflowParams['TurboConfiguration']['ShaftRotationSpeed'] = RotationSpeed
+
+        for BC in WorkflowParams['BoundaryConditions']:
+            if 'outradeq' in BC['type']:
+                if BC['valve_type'] == 1:
+                    BC['valve_ref_pres'] = Throttle
+                elif BC['valve_type'] == 2:
+                    BC['valve_ref_mflow'] = Throttle
+                elif BC['valve_type'] == 4:
+                    BC['valve_relax'] = Throttle
+                else:
+                    raise Exception('valve_type={} not taken into account yet'.format(BC['valve_type']))
+
+        JobsQueues.append(
+            dict(ID=i, CASE_LABEL=CASE_LABEL, NewJob=NewJob, JobName=JobName, **WorkflowParams)
+            )
+
+    JM.saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,
+                            GeomPath=kwargs['mesh'], NProc=NProc)
+
+
+    def findElementsInCollection(collec, searchKey, elements=[]):
+        '''
+        In the nested collection **collec** (may be a dictionary or a list),
+        find all the values corresponding to the key **searchKey**.
+
+        Parameters
+        ----------
+
+            collec : :py:class:`dict` or :py:class:`list`
+                Nested dictionary or list where **searchKey** is searched
+
+            searchKey : str
+                Key to find in **collec**
+
+            elements : list
+                accumulated list of found values. Works as an accumulator in the
+                recursive function
+
+        Returns
+        -------
+
+            elements : list
+                list of the found values correspondingto **searchKey**
+        '''
+        if isinstance(collec, dict):
+            for key, value in collec.items():
+                if isinstance(value, (dict, list)):
+                    findElementsInCollection(value, searchKey, elements=elements)
+                elif key == searchKey:
+                    elements.append(value)
+        elif isinstance(collec, list):
+            for elem in collec:
+                findElementsInCollection(elem, searchKey, elements=elements)
+        return elements
+
+    otherFiles = findElementsInCollection(kwargs, 'filename')
+    templatesFolder = os.getenv('MOLA') + '/TEMPLATES/WORKFLOW_COMPRESSOR'
+    JM.launchJobsConfiguration(templatesFolder=templatesFolder, otherFiles=otherFiles)
+
+def printConfigurationStatus(DIRECTORY_WORK, useLocalConfig=False):
+    '''
+    Print the current status of a IsoSpeedLines computation.
+
+    Parameters
+    ----------
+
+        DIRECTORY_WORK : str
+            directory where ``JobsConfiguration.py`` file is located
+
+        useLocalConfig : bool
+            if :py:obj:`True`, use the local ``JobsConfiguration.py``
+            file instead of retreiving it from **DIRECTORY_WORK**
+
+    '''
+    config = JM.getJobsConfiguration(DIRECTORY_WORK, useLocalConfig)
+    Throttle = np.array(sorted(list(set([float(case['CASE_LABEL'].split('_')[0]) for case in config.JobsQueues]))))
+    RotationSpeed = np.array(sorted(list(set([case['TurboConfiguration']['ShaftRotationSpeed'] for case in config.JobsQueues]))))
+
+    nThrottle = Throttle.size
+    nRotationSpeed = RotationSpeed.size
+    NcolMax = 79
+    FirstCol = 15
+    Ndigs = int((NcolMax-FirstCol)/nRotationSpeed)
+    ColFmt = r'{:^'+str(Ndigs)+'g}'
+    ColStrFmt = r'{:^'+str(Ndigs)+'s}'
+    TagStrFmt = r'{:>'+str(FirstCol)+'s}'
+    TagFmt = r'{:>'+str(FirstCol-2)+'g} |'
+
+    def getCaseLabel(config, throttle, rotSpeed):
+        for case in config.JobsQueues:
+            if np.isclose(float(case['CASE_LABEL'].split('_')[0]), throttle) and \
+                np.isclose(case['TurboConfiguration']['ShaftRotationSpeed'], rotSpeed):
+
+                return case['CASE_LABEL']
+
+    JobNames = [getCaseLabel(config, Throttle[0], m).split('_')[-1] for m in RotationSpeed]
+    print('')
+    print(TagStrFmt.format('JobName |')+''.join([ColStrFmt.format(j) for j in JobNames]))
+    print(TagStrFmt.format('RotationSpeed |')+''.join([ColFmt.format(r) for r in RotationSpeed]))
+    print(TagStrFmt.format('Throttle |')+''.join(['_' for m in range(NcolMax-FirstCol)]))
+
+    for throttle in Throttle:
+        Line = TagFmt.format(throttle)
+        for rotSpeed in RotationSpeed:
+            CASE_LABEL = getCaseLabel(config, throttle, rotSpeed)
+            status = JM.statusOfCase(config, CASE_LABEL)
+            if status == 'COMPLETED':
+                msg = J.GREEN+ColStrFmt.format('OK')+J.ENDC
+            elif status == 'FAILED':
+                msg = J.FAIL+ColStrFmt.format('KO')+J.ENDC
+            elif status == 'TIMEOUT':
+                msg = J.WARN+ColStrFmt.format('TO')+J.ENDC
+            elif status == 'RUNNING':
+                msg = ColStrFmt.format('GO')
+            else:
+                msg = ColStrFmt.format('PD') # Pending
+            Line += msg
+        print(Line)
+
+def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
+                                        monitoredRow='row_1'):
+    '''
+    Print the current status of a IsoSpeedLines computation and display
+    performance of the monitored row for completed jobs.
+
+    .. attention::
+        This function works only for one value of rotation speed.
+
+    Parameters
+    ----------
+
+        DIRECTORY_WORK : str
+            directory where ``JobsConfiguration.py`` file is located
+
+        useLocalConfig : bool
+            if :py:obj:`True`, use the local ``JobsConfiguration.py``
+            file instead of retreiving it from **DIRECTORY_WORK**
+
+        monitoredRow : str
+            Name of the row whose performance will be displayed
+
+    '''
+    from . import Coprocess as CO
+
+    config = JM.getJobsConfiguration(DIRECTORY_WORK, useLocalConfig)
+    Throttle = np.array(sorted(list(set([float(case['CASE_LABEL'].split('_')[0]) for case in config.JobsQueues]))))
+    RotationSpeed = np.array(sorted(list(set([case['TurboConfiguration']['ShaftRotationSpeed'] for case in config.JobsQueues]))))
+
+    assert RotationSpeed.size == 1
+    nThrottle = Throttle.size
+    nCol = 4
+    NcolMax = 79
+    FirstCol = 15
+    Ndigs = int((NcolMax-FirstCol)/nCol)
+    ColFmt = r'{:^'+str(Ndigs)+'g}'
+    ColStrFmt = r'{:^'+str(Ndigs)+'s}'
+    TagStrFmt = r'{:>'+str(FirstCol)+'s}'
+    TagFmt = r'{:>'+str(FirstCol-2)+'g} |'
+
+    def getCaseLabel(config, throttle, rotSpeed):
+        for case in config.JobsQueues:
+            if np.isclose(float(case['CASE_LABEL'].split('_')[0]), throttle) and \
+                np.isclose(case['TurboConfiguration']['ShaftRotationSpeed'], rotSpeed):
+
+                return case['CASE_LABEL']
+
+    lines = ['']
+
+    JobNames = [getCaseLabel(config, Throttle[0], m).split('_')[-1] for m in RotationSpeed]
+    lines.append(TagStrFmt.format('JobName |')+''.join([ColStrFmt.format(JobNames[0])] + [ColStrFmt.format('') for j in range(nCol-1)]))
+    lines.append(TagStrFmt.format('RotationSpeed |')+''.join([ColFmt.format(RotationSpeed[0])] + [ColStrFmt.format('') for j in range(nCol-1)]))
+    lines.append(TagStrFmt.format(' |')+''.join([ColStrFmt.format(''), ColStrFmt.format('MFR'), ColStrFmt.format('PR'), ColStrFmt.format('ETA')]))
+    lines.append(TagStrFmt.format('Throttle |')+''.join(['_' for m in range(NcolMax-FirstCol)]))
+
+    if not os.path.isdir('OUTPUT'):
+        os.makedirs('OUTPUT')
+
+    for throttle in Throttle:
+        Line = TagFmt.format(throttle)
+        CASE_LABEL = getCaseLabel(config, throttle, RotationSpeed[0])
+        status = JM.statusOfCase(config, CASE_LABEL)
+        if status == 'COMPLETED':
+            msg = J.GREEN+ColStrFmt.format('OK')+J.ENDC
+        elif status == 'FAILED':
+            msg = J.FAIL+ColStrFmt.format('KO')+J.ENDC
+        elif status == 'TIMEOUT':
+            msg = J.WARN+ColStrFmt.format('TO')+J.ENDC
+        elif status == 'RUNNING':
+            msg = ColStrFmt.format('GO')
+        else:
+            msg = ColStrFmt.format('PD') # Pending
+
+        if status == 'COMPLETED':
+            lastloads = JM.getCaseLoads(config, CASE_LABEL,
+                                    basename='PERFOS_{}'.format(monitoredRow))
+            MFR = lastloads['MassflowIn']
+            PR  = lastloads['PressureStagnationRatio']
+            ETA = lastloads['EfficiencyIsentropic']
+            msg += ''.join([ColFmt.format(MFR), ColFmt.format(PR), ColFmt.format(ETA)])
+        else:
+            msg += ''.join([ColStrFmt.format('') for n in range(nCol-1)])
+        Line += msg
+        lines.append(Line)
+
+    for line in lines: print(line)

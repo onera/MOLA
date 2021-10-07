@@ -273,7 +273,7 @@ contain fields <code class="docutils literal notranslate"><span class="pre">Pres
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>case</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – current item of <strong>JobsQueues</strong> list</p></li>
-<li><p><strong>config</strong> (<em>module</em>) – import of <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code></p></li>
+<li><p><strong>config</strong> (<em>module</em>) – import of <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code></p></li>
 <li><p><strong>NProc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – <p>number of procs of the job</p>
 <div class="admonition danger">
 <p class="admonition-title">Danger</p>
@@ -293,12 +293,12 @@ contain fields <code class="docutils literal notranslate"><span class="pre">Pres
 
 <dl class="py function">
 <dt class="sig sig-object py" id="MOLA.WorkflowAirfoil.buildMesh">
-<span class="sig-prename descclassname"><span class="pre">MOLA.WorkflowAirfoil.</span></span><span class="sig-name descname"><span class="pre">buildMesh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">AirfoilPath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meshParams</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'References':</span> <span class="pre">{'DeltaYPlus':</span> <span class="pre">0.5,</span> <span class="pre">'Reynolds':</span> <span class="pre">1000000.0}}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_meshParams</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_mesh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.WorkflowAirfoil.buildMesh" title="Permalink to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">MOLA.WorkflowAirfoil.</span></span><span class="sig-name descname"><span class="pre">buildMesh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">GeomPath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meshParams</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'References':</span> <span class="pre">{'DeltaYPlus':</span> <span class="pre">0.5,</span> <span class="pre">'Reynolds':</span> <span class="pre">1000000.0}}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_meshParams</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_mesh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.WorkflowAirfoil.buildMesh" title="Permalink to this definition">¶</a></dt>
 <dd><p>Builds the mesh around an airfoil</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>AirfoilPath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – location where airfoil geometry is located</p></li>
+<li><p><strong>GeomPath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – location where airfoil geometry is located</p></li>
 <li><p><strong>meshParams</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – literally, the optional parameters to pass to
 <a class="reference internal" href="GenerativeShapeDesign.html#MOLA.GenerativeShapeDesign.extrudeAirfoil2D" title="MOLA.GenerativeShapeDesign.extrudeAirfoil2D"><code class="xref py py-func docutils literal notranslate"><span class="pre">MOLA.GenerativeShapeDesign.extrudeAirfoil2D()</span></code></a> function</p></li>
 <li><p><strong>save_meshParams</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, saves the <code class="docutils literal notranslate"><span class="pre">meshParams.py</span></code> file</p></li>
@@ -324,9 +324,9 @@ containing the information of the polars predictions.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>DIRECTORY_WORK</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – directory where <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code> file is located</p></li>
+<li><p><strong>DIRECTORY_WORK</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – directory where <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code> file is located</p></li>
 <li><p><strong>PolarName</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – name to provide to the new <strong>PyZonePolar</strong></p></li>
-<li><p><strong>useLocalConfig</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, use the local <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code>
+<li><p><strong>useLocalConfig</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, use the local <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code>
 file instead of retreiving it from <strong>DIRECTORY_WORK</strong></p></li>
 <li><p><strong>BigAngleOfAttackAoA</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">lisf</span></code> of <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – monotonically increasing range of big angles of attack
 <span class="math notranslate nohighlight">\(\in [-180, 180]\)</span> degrees.</p></li>
@@ -360,7 +360,7 @@ environment is correctly set for using the Workflow Airfoil</p>
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>AirfoilKeyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – keyword of airfoil (<code class="docutils literal notranslate"><span class="pre">*.dat</span></code> file or <code class="docutils literal notranslate"><span class="pre">naca</span> <span class="pre">XXXX</span></code>)</p></li>
-<li><p><strong>config</strong> (<em>module</em>) – <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code> data as a mobule object as
+<li><p><strong>config</strong> (<em>module</em>) – <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code> data as a mobule object as
 obtained from <a class="reference internal" href="#MOLA.WorkflowAirfoil.getPolarConfiguration" title="MOLA.WorkflowAirfoil.getPolarConfiguration"><code class="xref py py-func docutils literal notranslate"><span class="pre">getPolarConfiguration()</span></code></a></p></li>
 <li><p><strong>CASE_LABEL</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – unique identifying label of the requested case.
 Can be determined by <a class="reference internal" href="#MOLA.WorkflowAirfoil.getCaseLabelFromAngleOfAttackAndMach" title="MOLA.WorkflowAirfoil.getCaseLabelFromAngleOfAttackAndMach"><code class="xref py py-func docutils literal notranslate"><span class="pre">getCaseLabelFromAngleOfAttackAndMach()</span></code></a></p></li>
@@ -562,7 +562,7 @@ contents in a form of a Python dictionary.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>config</strong> (<em>module</em>) – <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code> data as a mobule object as
+<li><p><strong>config</strong> (<em>module</em>) – <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code> data as a mobule object as
 obtained from <a class="reference internal" href="#MOLA.WorkflowAirfoil.getPolarConfiguration" title="MOLA.WorkflowAirfoil.getPolarConfiguration"><code class="xref py py-func docutils literal notranslate"><span class="pre">getPolarConfiguration()</span></code></a></p></li>
 <li><p><strong>CASE_LABEL</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – unique identifying label of the requested case.
 Can be determined by <a class="reference internal" href="#MOLA.WorkflowAirfoil.getCaseLabelFromAngleOfAttackAndMach" title="MOLA.WorkflowAirfoil.getCaseLabelFromAngleOfAttackAndMach"><code class="xref py py-func docutils literal notranslate"><span class="pre">getCaseLabelFromAngleOfAttackAndMach()</span></code></a></p></li>
@@ -592,7 +592,7 @@ Can be determined by <a class="reference internal" href="#MOLA.WorkflowAirfoil.g
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>config</strong> (<em>module</em>) – <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code> data as a mobule object as
+<li><p><strong>config</strong> (<em>module</em>) – <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code> data as a mobule object as
 obtained from <a class="reference internal" href="#MOLA.WorkflowAirfoil.getPolarConfiguration" title="MOLA.WorkflowAirfoil.getPolarConfiguration"><code class="xref py py-func docutils literal notranslate"><span class="pre">getPolarConfiguration()</span></code></a></p></li>
 <li><p><strong>CASE_LABEL</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – unique identifying label of the requested case.
 Can be determined by <a class="reference internal" href="#MOLA.WorkflowAirfoil.getCaseLabelFromAngleOfAttackAndMach" title="MOLA.WorkflowAirfoil.getCaseLabelFromAngleOfAttackAndMach"><code class="xref py py-func docutils literal notranslate"><span class="pre">getCaseLabelFromAngleOfAttackAndMach()</span></code></a></p></li>
@@ -609,7 +609,7 @@ and <strong>Mach</strong>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>config</strong> (<em>module</em>) – <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code> data as a mobule object as
+<li><p><strong>config</strong> (<em>module</em>) – <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code> data as a mobule object as
 returned by function <a class="reference internal" href="#MOLA.WorkflowAirfoil.getPolarConfiguration" title="MOLA.WorkflowAirfoil.getPolarConfiguration"><code class="xref py py-func docutils literal notranslate"><span class="pre">getPolarConfiguration()</span></code></a></p></li>
 <li><p><strong>AoA</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – requested angle of attack</p></li>
 <li><p><strong>Mach</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – requested (virtual) Mach number</p></li>
@@ -642,7 +642,7 @@ in <code class="docutils literal notranslate"><span class="pre">loads.cgns</span
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>config</strong> (<em>module</em>) – <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code> data as a mobule object as
+<li><p><strong>config</strong> (<em>module</em>) – <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code> data as a mobule object as
 obtained from <a class="reference internal" href="#MOLA.WorkflowAirfoil.getPolarConfiguration" title="MOLA.WorkflowAirfoil.getPolarConfiguration"><code class="xref py py-func docutils literal notranslate"><span class="pre">getPolarConfiguration()</span></code></a></p></li>
 <li><p><strong>CASE_LABEL</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – unique identifying label of the requested case.
 Can be determined by <a class="reference internal" href="#MOLA.WorkflowAirfoil.getCaseLabelFromAngleOfAttackAndMach" title="MOLA.WorkflowAirfoil.getCaseLabelFromAngleOfAttackAndMach"><code class="xref py py-func docutils literal notranslate"><span class="pre">getCaseLabelFromAngleOfAttackAndMach()</span></code></a></p></li>
@@ -703,18 +703,18 @@ default dictionary is returned :</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="MOLA.WorkflowAirfoil.getPolarConfiguration">
 <span class="sig-prename descclassname"><span class="pre">MOLA.WorkflowAirfoil.</span></span><span class="sig-name descname"><span class="pre">getPolarConfiguration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">DIRECTORY_WORK</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">useLocalConfig</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.WorkflowAirfoil.getPolarConfiguration" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get a possibly remotely located PolarConfiguration.py file and
+<dd><p>Get a possibly remotely located JobsConfiguration.py file and
 load it as a module object <em>config</em>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>DIRECTORY_WORK</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – directory where <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code> file is located</p></li>
-<li><p><strong>useLocalConfig</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, use the local <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code>
+<li><p><strong>DIRECTORY_WORK</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – directory where <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code> file is located</p></li>
+<li><p><strong>useLocalConfig</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, use the local <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code>
 file instead of retreiving it from <strong>DIRECTORY_WORK</strong></p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>config</strong> – <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code> data as a mobule object</p>
+<dd class="field-even"><p><strong>config</strong> – <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code> data as a mobule object</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>module</p>
@@ -754,7 +754,7 @@ Struct_AoA_Mach convention using as input the <strong>config</strong>, which can
 obtained using <a class="reference internal" href="#MOLA.WorkflowAirfoil.getPolarConfiguration" title="MOLA.WorkflowAirfoil.getPolarConfiguration"><code class="xref py py-func docutils literal notranslate"><span class="pre">getPolarConfiguration()</span></code></a> function.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>config</strong> (<em>module</em>) – <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code> data as a mobule object as
+<dd class="field-odd"><p><strong>config</strong> (<em>module</em>) – <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code> data as a mobule object as
 returned by function <a class="reference internal" href="#MOLA.WorkflowAirfoil.getPolarConfiguration" title="MOLA.WorkflowAirfoil.getPolarConfiguration"><code class="xref py py-func docutils literal notranslate"><span class="pre">getPolarConfiguration()</span></code></a></p>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -776,7 +776,7 @@ a given <strong>CASE_LABEL</strong></p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>config</strong> (<em>module</em>) – <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code> data as a mobule object as
+<li><p><strong>config</strong> (<em>module</em>) – <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code> data as a mobule object as
 returned by function <a class="reference internal" href="#MOLA.WorkflowAirfoil.getPolarConfiguration" title="MOLA.WorkflowAirfoil.getPolarConfiguration"><code class="xref py py-func docutils literal notranslate"><span class="pre">getPolarConfiguration()</span></code></a></p></li>
 <li><p><strong>CASE_LABEL</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – unique identifying label of the requested case.
 Can be determined by <a class="reference internal" href="#MOLA.WorkflowAirfoil.getCaseLabelFromAngleOfAttackAndMach" title="MOLA.WorkflowAirfoil.getCaseLabelFromAngleOfAttackAndMach"><code class="xref py py-func docutils literal notranslate"><span class="pre">getCaseLabelFromAngleOfAttackAndMach()</span></code></a></p></li>
@@ -832,13 +832,13 @@ adds the dimensional curvilinear-abscissa field <code class="docutils literal no
 
 <dl class="py function">
 <dt class="sig sig-object py" id="MOLA.WorkflowAirfoil.launchBasicStructuredPolars">
-<span class="sig-prename descclassname"><span class="pre">MOLA.WorkflowAirfoil.</span></span><span class="sig-name descname"><span class="pre">launchBasicStructuredPolars</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">PREFIX_JOB</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AirfoilPath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AER</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">machine</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">DIRECTORY_WORK</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AoARange</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MachRange</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ReynoldsOverMach</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AdditionalCoprocessOptions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AdditionalTransitionZones</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ImposedWallFields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TransitionalModeReynoldsThreshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ExtraElsAParams</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.WorkflowAirfoil.launchBasicStructuredPolars" title="Permalink to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">MOLA.WorkflowAirfoil.</span></span><span class="sig-name descname"><span class="pre">launchBasicStructuredPolars</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">PREFIX_JOB</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">GeomPath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AER</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">machine</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">DIRECTORY_WORK</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AoARange</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MachRange</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ReynoldsOverMach</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AdditionalCoprocessOptions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AdditionalTransitionZones</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ImposedWallFields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TransitionalModeReynoldsThreshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ExtraElsAParams</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.WorkflowAirfoil.launchBasicStructuredPolars" title="Permalink to this definition">¶</a></dt>
 <dd><p>User-level function designed to launch a structured-type polar of airfoil.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>PREFIX_JOB</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – an arbitrary prefix for the jobs</p></li>
-<li><p><strong>AirfoilPath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>path where the airfoil coordinates file is
+<li><p><strong>GeomPath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <p>path where the airfoil coordinates file is
 located.</p>
 <div class="admonition attention">
 <p class="admonition-title">Attention</p>
@@ -937,7 +937,7 @@ value below which transitional computation is performed.</p>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>None</strong> – File <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code> is writen and polar builder job is
+<dd class="field-even"><p><strong>None</strong> – File <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code> is writen and polar builder job is
 launched</p>
 </dd>
 <dt class="field-odd">Return type</dt>
@@ -949,13 +949,13 @@ launched</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="MOLA.WorkflowAirfoil.launchComputationJob">
 <span class="sig-prename descclassname"><span class="pre">MOLA.WorkflowAirfoil.</span></span><span class="sig-name descname"><span class="pre">launchComputationJob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">case</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">JobFilename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'job.sh'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">submitReserveJob</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.WorkflowAirfoil.launchComputationJob" title="Permalink to this definition">¶</a></dt>
-<dd><p>This function is designed to be called from <code class="docutils literal notranslate"><span class="pre">MeshAndDispatch.py</span></code> file
+<dd><p>This function is designed to be called from <code class="docutils literal notranslate"><span class="pre">Dispatch.py</span></code> file
 It launches the computation job.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>case</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><em>dict</em></a>) – current item of <strong>JobsQueues</strong> list</p></li>
-<li><p><strong>config</strong> (<em>module</em>) – import of <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code></p></li>
+<li><p><strong>config</strong> (<em>module</em>) – import of <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code></p></li>
 <li><p><strong>JobFilename</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – name of the job file</p></li>
 <li><p><strong>submitReserveJob</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – If <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, sends the job twice (one awaits in reserve)</p></li>
 </ul>
@@ -966,14 +966,14 @@ It launches the computation job.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="MOLA.WorkflowAirfoil.launchDispatcherJob">
 <span class="sig-prename descclassname"><span class="pre">MOLA.WorkflowAirfoil.</span></span><span class="sig-name descname"><span class="pre">launchDispatcherJob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">DIRECTORY_DISPATCHER</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">JobFilename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">machine</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'sator'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.WorkflowAirfoil.launchDispatcherJob" title="Permalink to this definition">¶</a></dt>
-<dd><p>Launch the dispatcher job (containing call of`` MeshAndDispatch.py`` file)</p>
+<dd><p>Launch the dispatcher job (containing call of`` Dispatch.py`` file)</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>DIRECTORY_DISPATCHER</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – path where the <code class="docutils literal notranslate"><span class="pre">DISPATCHER</span></code> directory is
-located (contains <code class="docutils literal notranslate"><span class="pre">MeshAndDispatch.py</span></code> and it is the location where
+located (contains <code class="docutils literal notranslate"><span class="pre">Dispatch.py</span></code> and it is the location where
 meshes are produced)</p></li>
-<li><p><strong>JobFilename</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Name of the job that executes <code class="docutils literal notranslate"><span class="pre">MeshAndDispatch.py</span></code>.
+<li><p><strong>JobFilename</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Name of the job that executes <code class="docutils literal notranslate"><span class="pre">Dispatch.py</span></code>.
 In this workflow, it is named <code class="docutils literal notranslate"><span class="pre">dispatcherJob.sh</span></code></p></li>
 <li><p><strong>machine</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – The name of the employed machine where computations are
 launched</p></li>
@@ -983,8 +983,8 @@ launched</p></li>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="MOLA.WorkflowAirfoil.launchPolarConfiguration">
-<span class="sig-prename descclassname"><span class="pre">MOLA.WorkflowAirfoil.</span></span><span class="sig-name descname"><span class="pre">launchPolarConfiguration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">preprocessFile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/home/lbernard/MOLA/Dev/TEMPLATES/WORKFLOW_AIRFOIL/preprocess.py'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">computeFile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/home/lbernard/MOLA/Dev/TEMPLATES/WORKFLOW_AIRFOIL/compute.py'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coprocessFile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/home/lbernard/MOLA/Dev/TEMPLATES/WORKFLOW_AIRFOIL/coprocess.py'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">postprocessFile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/home/lbernard/MOLA/Dev/TEMPLATES/WORKFLOW_AIRFOIL/postprocess.py'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MeshAndDispatchFile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/home/lbernard/MOLA/Dev/TEMPLATES/WORKFLOW_AIRFOIL/MeshAndDispatch.py'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">routineFile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/home/lbernard/MOLA/Dev/TEMPLATES/WORKFLOW_AIRFOIL/routine.sh'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.WorkflowAirfoil.launchPolarConfiguration" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="MOLA.WorkflowAirfoil.launchJobsConfiguration">
+<span class="sig-prename descclassname"><span class="pre">MOLA.WorkflowAirfoil.</span></span><span class="sig-name descname"><span class="pre">launchJobsConfiguration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">preprocessFile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/home/lbernard/MOLA/Dev/TEMPLATES/WORKFLOW_AIRFOIL/preprocess.py'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">computeFile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/home/lbernard/MOLA/Dev/TEMPLATES/WORKFLOW_AIRFOIL/compute.py'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coprocessFile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/home/lbernard/MOLA/Dev/TEMPLATES/WORKFLOW_AIRFOIL/coprocess.py'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">postprocessFile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/home/lbernard/MOLA/Dev/TEMPLATES/WORKFLOW_AIRFOIL/postprocess.py'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MeshAndDispatchFile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/home/lbernard/MOLA/Dev/TEMPLATES/WORKFLOW_AIRFOIL/Dispatch.py'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">routineFile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/home/lbernard/MOLA/Dev/TEMPLATES/WORKFLOW_AIRFOIL/routine.sh'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.WorkflowAirfoil.launchJobsConfiguration" title="Permalink to this definition">¶</a></dt>
 <dd><p>Migrates a set of required scripts and launch the polar job script.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -993,7 +993,7 @@ launched</p></li>
 <li><p><strong>computeFile</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – location of the <code class="docutils literal notranslate"><span class="pre">compute.py</span></code> file required to launch elsA computation</p></li>
 <li><p><strong>coprocessFile</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">coprocess.py</span></code> file used <em>during</em> elsA computation</p></li>
 <li><p><strong>postprocessFile</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">postprocess.py</span></code> file used <em>after</em> elsA computation</p></li>
-<li><p><strong>MeshAndDispatchFile</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">MeshAndDispatch.py</span></code> file used to produce
+<li><p><strong>MeshAndDispatchFile</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">Dispatch.py</span></code> file used to produce
 the required CGNS and setup files as well as the jobs of the polars, and
 launch them.</p></li>
 <li><p><strong>routineFile</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – bash file used as template for each computation job execution.</p></li>
@@ -1091,8 +1091,8 @@ Mach number may be limited to 0.2</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>DIRECTORY_WORK</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – directory where <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code> file is located</p></li>
-<li><p><strong>useLocalConfig</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, use the local <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code>
+<li><p><strong>DIRECTORY_WORK</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – directory where <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code> file is located</p></li>
+<li><p><strong>useLocalConfig</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – if <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, use the local <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code>
 file instead of retreiving it from <strong>DIRECTORY_WORK</strong></p></li>
 </ul>
 </dd>
@@ -1102,7 +1102,7 @@ file instead of retreiving it from <strong>DIRECTORY_WORK</strong></p></li>
 <dl class="py function">
 <dt class="sig sig-object py" id="MOLA.WorkflowAirfoil.putFilesInComputationDirectory">
 <span class="sig-prename descclassname"><span class="pre">MOLA.WorkflowAirfoil.</span></span><span class="sig-name descname"><span class="pre">putFilesInComputationDirectory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">case</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.WorkflowAirfoil.putFilesInComputationDirectory" title="Permalink to this definition">¶</a></dt>
-<dd><p>This function is designed to be called from <code class="docutils literal notranslate"><span class="pre">MeshAndDispatch.py</span></code>.</p>
+<dd><p>This function is designed to be called from <code class="docutils literal notranslate"><span class="pre">Dispatch.py</span></code>.</p>
 <p>Send required files from <code class="docutils literal notranslate"><span class="pre">DISPATCH</span></code> directory towards relevant computation
 directory.</p>
 <dl class="field-list simple">
@@ -1113,9 +1113,9 @@ directory.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="MOLA.WorkflowAirfoil.savePolarConfiguration">
-<span class="sig-prename descclassname"><span class="pre">MOLA.WorkflowAirfoil.</span></span><span class="sig-name descname"><span class="pre">savePolarConfiguration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">JobsQueues</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AER</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">machine</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">DIRECTORY_WORK</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AirfoilPath</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.WorkflowAirfoil.savePolarConfiguration" title="Permalink to this definition">¶</a></dt>
-<dd><p>Generate the file <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code> from provided user-data.</p>
+<dt class="sig sig-object py" id="MOLA.WorkflowAirfoil.saveJobsConfiguration">
+<span class="sig-prename descclassname"><span class="pre">MOLA.WorkflowAirfoil.</span></span><span class="sig-name descname"><span class="pre">saveJobsConfiguration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">JobsQueues</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">AER</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">machine</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">DIRECTORY_WORK</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">GeomPath</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MOLA.WorkflowAirfoil.saveJobsConfiguration" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate the file <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code> from provided user-data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>JobsQueues</strong> – <p>Each dictionary defines the configuration of a CFD run case.
@@ -1173,7 +1173,7 @@ previous ID case)</p>
 </p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>None</strong> – writes file <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code></p>
+<dd class="field-even"><p><strong>None</strong> – writes file <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code></p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)">None</a></p>
@@ -1209,7 +1209,7 @@ previous ID case)</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>config</strong> (<em>module</em>) – <code class="docutils literal notranslate"><span class="pre">PolarConfiguration.py</span></code> data as a mobule object as
+<li><p><strong>config</strong> (<em>module</em>) – <code class="docutils literal notranslate"><span class="pre">JobsConfiguration.py</span></code> data as a mobule object as
 returned by function <a class="reference internal" href="#MOLA.WorkflowAirfoil.getPolarConfiguration" title="MOLA.WorkflowAirfoil.getPolarConfiguration"><code class="xref py py-func docutils literal notranslate"><span class="pre">getPolarConfiguration()</span></code></a></p></li>
 <li><p><strong>CASE_LABEL</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – unique identifying label of the requested case</p></li>
 </ul>

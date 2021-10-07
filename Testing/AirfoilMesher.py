@@ -19,7 +19,7 @@ DeltaYPlus   = 0.8
 
 Dir = '/home/ffalissa/H2T/ETUDES/MOTUS/FLUX_2/POLAIRES/PROFILS/'
 
-AirfoilPath  = Dir+'Airfoil_20.tp' # must be placed in XY plane and best if clockwise
+GeomPath  = Dir+'Airfoil_20.tp' # must be placed in XY plane and best if clockwise
                               # oriented starting from trailing edge or 
                               # selig / lednicer ASCI format
 MeshFilename = 'mesh.cgns'
@@ -63,11 +63,11 @@ TEclosureTolerance= 1.e-6,
 
 
 
-if AirfoilPath.endswith('.dat') or AirfoilPath.endswith('.txt'):
-    airfoilCurve = W.airfoil(AirfoilPath,
+if GeomPath.endswith('.dat') or GeomPath.endswith('.txt'):
+    airfoilCurve = W.airfoil(GeomPath,
                             ClosedTolerance=options['TEclosureTolerance'])
 else:
-    airfoilCurve = C.convertFile2PyTree(AirfoilPath)
+    airfoilCurve = C.convertFile2PyTree(GeomPath)
     airfoilCurve, = I.getZones(airfoilCurve)
 
 t, meshParams = GSD.extrudeAirfoil2D(airfoilCurve,ReynoldsMesh,DeltaYPlus,

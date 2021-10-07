@@ -28,6 +28,13 @@ alias cpmv='python $MOLA/_cpmv_.py'
 # Then in terminal one may tape this:
 cpmv mv /tmp_user/sator/username/sandbox/ /scratchm/username/sandbox/
 
+-------------------------- IMPORTANT --------------------------
+This module must import standard python libraries only !!!
+Otherwise, calling this module in TERMINAL MODE will produce
+an error. Remember that even a usage as a MODULE will lead to
+a usage in TERMINAL MODE because of the function cpmvWrap4MultiServer
+---------------------------------------------------------------
+
 First creation:
 28/07/2020 - L. Bernardos - creation
 '''
@@ -37,8 +44,6 @@ GREEN = '\033[92m'
 WARN  = '\033[93m'
 ENDC  = '\033[0m'
 
-
-
 import sys
 import os
 import time
@@ -47,67 +52,10 @@ import shutil
 import subprocess
 import socket
 import getpass
+import pprint
+import imp
 
 from distutils.dir_util import copy_tree
-
-def repatriate(SourcePath, DestinationPath, removeExistingDestinationPath=True,
-               moveInsteadOfCopy=False, wait4FileFromServerOptions={}):
-    '''
-    Repatriate a file or directory (SourcePath) towards a destination location
-    (DestinationPath) raising an error if after some timeout the repatriated
-    source is not detected in the destination path.
-
-
-    INPUTS
-
-    SourcePath - (string) - path string of the source to be repatriated.
-        May correspond to a directory or a file.
-
-    DestinationPath - (string) - path string of the destination where the source
-        will be repatriated. If it makes reference to an inexistent directory,
-        then all required paths are automatically created in order to
-        satisfy the destination path (if permissions allow for it).
-
-    removeExistingDestinationPath - (boolean) -  Use True for removing any
-        pre-existing item at DestinationPath. This takes more time, but is safer
-        for multiserver communications, as it avoids confusion between the newly
-        copied item and the pre-existing one when evaluating if repatriation is
-        correctly performed. This may be caused due to latency of directory
-        updates between servers when making file operations.
-
-    moveInsteadOfCopy - (boolean) - if True, the repatration operation will
-        remove the original source (move operation, instead of copy).
-
-    wait4FileFromServerOptions - (Python dictionary) - Options to be passed to
-        wait4FileFromServer() function, which by default are:
-                        dict(requestInterval=0.5, timeout=60.)
-        This is used for determine if repatration succeeded
-    '''
-    Defaultwait4FileFromServerOptions = dict(requestInterval=0.5,
-                                             timeout=60.,)
-    Defaultwait4FileFromServerOptions.update(wait4FileFromServerOptions)
-
-
-    if removeExistingDestinationPath:
-        print( 'Removing pre-existing {} ...'.format(DestinationPath) )
-        cpmvWrap4MultiServer('rm', DestinationPath, 'none')
-
-    if moveInsteadOfCopy:
-        print( 'Repatriating {} by MOVE...'.format(SourcePath) )
-        cpmvWrap4MultiServer('mv', SourcePath, DestinationPath)
-    else:
-        print( 'Repatriating {} by COPY...'.format(SourcePath) )
-        cpmvWrap4MultiServer('cp', SourcePath, DestinationPath)
-
-    print( 'Waiting for {} ...'.format(DestinationPath) )
-    gotFile = wait4FileFromServer(DestinationPath,
-                                  **Defaultwait4FileFromServerOptions)
-
-    if not gotFile:
-        MSG = FAIL+"Could not repatriate "+DestinationPath+ENDC
-        raise IOError(MSG)
-    print(GREEN+'ok'+ENDC)
-
 
 def cpmv(mode, In, Out='none'):
     '''
@@ -126,9 +74,13 @@ def cpmv(mode, In, Out='none'):
 
     Out (str) - Output (destination) path (folder or file) or None if mode=='rm'
     '''
-    if In == Out: return
-
     modeLowercase = mode.lower()[:2]
+
+    if In == Out: return
+    if not os.path.exists(In):
+        WMSG = '{} {} impossible: path does not exist'.format(modeLowercase, In)
+        print(WARN + WMSG + ENDC)
+        return
 
     if modeLowercase == 'mv':
         if not os.path.isdir(Out):
@@ -185,7 +137,6 @@ def cpmv(mode, In, Out='none'):
     else:
         raise AttributeError("Mode %s not recognized. Must be 'cp' or 'mv'"%mode)
 
-
 def whichServer(PathElts):
     '''
     Analyze the input path elements in order to determine if
@@ -225,7 +176,6 @@ def whichHost():
         return 'HomeInvisible'
 
     return HostName
-
 
 def _launchSubprocess(Host,CMD):
     '''
@@ -340,7 +290,6 @@ def cpmvWrap4MultiServer(mode,In,Out='none'):
     else:
         raise AttributeError('Mode %s not recognized'%mode)
 
-
 def wait4FileFromServer(filename, requestInterval=0.5, timeout=60.):
     '''
     This function is employed to determine if a file exist on a given path.
@@ -372,7 +321,6 @@ def wait4FileFromServer(filename, requestInterval=0.5, timeout=60.):
     if ElapsedTime >= timeout:
         print(WARN+'Warning: timeout reached.'+ENDC)
         return False
-
 
 
 if __name__ == '__main__':

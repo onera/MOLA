@@ -251,7 +251,7 @@ def save(t, filename):
     Skeletons = Cmpi.KCOMM.allgather(Skeleton)
     trees = [s if s else I.newCGNSTree() for s in Skeletons]
     trees.insert(0,t)
-    
+    tWithSkel = I.merge(trees)
     for l in 2,3: I._correctPyTree(tWithSkel,l) # unique base and zone names
 
     Cmpi.barrier()
