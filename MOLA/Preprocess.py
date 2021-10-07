@@ -1971,9 +1971,9 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
 
 
     DefaultCoprocessOptions = dict(            # Default values
-        UpdateFieldsFrequency  = 2000,
+        UpdateFieldsFrequency   = 2000,
         UpdateLoadsFrequency    = 50,
-        NewSurfacesFrequency    = 500,
+        UpdateSurfacesFrequency = 500,
         AveragingIterations     = 3000,
         MaxConvergedCLStd       = 1e-4,
         ItersMinEvenIfConverged = 1000,
@@ -2844,7 +2844,7 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True, WallEx
 
         WallExtractions : :py:class:`list` of :py:class:`str`
             list of variables to extract at the wall.
-            
+
         FluxExtractions : :py:class:`list` of :py:class:`str`
             list of flux variables to extract at the wall. Their names must
             begin by 'flux_'. They will be automatically integrated on the

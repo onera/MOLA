@@ -24,4 +24,4 @@ export MOLA=/tmp_user/sator/lbernard/MOLA/Dev
 export PYTHONPATH=$PYTHONPATH:$MOLA
 
 cd /tmp_user/sator/lbernard/POLARS/NEWTEST/DISPATCHER
-python MeshAndDispatch.py 1>MeshAndDispatch-out.log 2>MeshAndDispatch-err.log
+python Dispatch.py 1>MeshAndDispatch-out.log 2>MeshAndDispatch-err.log

@@ -29,15 +29,15 @@ if CO.getSignal('RELOAD_SETUP'):
 
 
 
-UpdateFieldsFrequency   = CO.getOption('UpdateFieldsFrequency', default=1e3)
-UpdateLoadsFrequency    = CO.getOption('UpdateLoadsFrequency', default=20)
-UpdateSurfacesFrequency = CO.getOption('UpdateSurfacesFrequency', default=500)
-MarginBeforeTimeOut     = CO.getOption('SecondsMargin4QuitBeforeTimeOut', default=120.)
-TimeOut                 = CO.getOption('TimeOutInSeconds', default=53100.0)
-MaxConvergedCLStd       = CO.getOption('MaxConvergedCLStd', default=1e-5)
-ItersMinEvenIfConverged = CO.getOption('ItersMinEvenIfConverged', default=1e3)
-ConvergenceFamilyName   = CO.getOption('ConvergenceCriterionFamilyName', default='NONE')
-BodyForceSaveFrequency  = CO.getOption('BodyForceSaveFrequency', default=500)
+UpdateFieldsFrequency     = CO.getOption('UpdateFieldsFrequency', default=1e3)
+UpdateLoadsFrequency      = CO.getOption('UpdateLoadsFrequency', default=20)
+UpdateSurfacesFrequency   = CO.getOption('UpdateSurfacesFrequency', default=500)
+MarginBeforeTimeOut       = CO.getOption('SecondsMargin4QuitBeforeTimeOut', default=120.)
+TimeOut                   = CO.getOption('TimeOutInSeconds', default=53100.0)
+MaxConvergedCriterionStd  = CO.getOption('MaxConvergedCriterionStd', default=1e-5)
+ItersMinEvenIfConverged   = CO.getOption('ItersMinEvenIfConverged', default=1e3)
+ConvergenceFamilyName     = CO.getOption('ConvergenceCriterionFamilyName', default='NONE')
+BodyForceSaveFrequency    = CO.getOption('BodyForceSaveFrequency', default=500)
 BodyForceComputeFrequency = CO.getOption('BodyForceComputeFrequency', default=500)
 BodyForceInitialIteration = CO.getOption('BodyForceInitialIteration', default=1000)
 
@@ -51,7 +51,6 @@ DesiredStatistics = ['std-{}'.format(var) for var in ['MassflowIn', 'MassflowOut
 it = elsAxdt.iteration()
 CO.CurrentIteration = it
 CO.printCo('iteration %d'%it, proc=0)
-
 
 
 # ENTER COUPLING CONDITIONS:
@@ -82,19 +81,14 @@ anySignal = any([SAVE_LOADS, SAVE_SURFACES, SAVE_BODYFORCE, COMPUTE_BODYFORCE,
                  SAVE_FIELDS, CONVERGED, it>=itmax])
 ENTER_COUPLING = anySignal or ReachedTimeOutMargin
 
-# Desactivate loads Saving
-SAVE_LOADS = False
-
 if ENTER_COUPLING:
 
     to = elsAxdt.get(elsAxdt.OUTPUT_TREE)
     toWithSkeleton = I.merge([Skeleton, to])
     CO.adaptEndOfRun(toWithSkeleton)
 
-
     if SAVE_FIELDS:
         CO.save(toWithSkeleton,os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
-
 
     if SAVE_LOADS:
         CO.extractIntegralData(to, loads, Extractions=setup.Extractions,
@@ -103,16 +97,15 @@ if ENTER_COUPLING:
         loadsTree = CO.loadsDict2PyTree(loads)
         CO.save(loadsTree, os.path.join(DIRECTORY_OUTPUT,FILE_LOADS))
 
-        if (it-inititer)>ItersMinEvenIfConverged and not CONVERGED:
-            CONVERGED=CO.isConverged(ZoneName=ConvergenceFamilyName,
-                                     FluxName='std-MassflowIn',
-                                     FluxThreshold=MaxConvergedCLStd)
-
     if SAVE_SURFACES:
         surfs = CO.extractSurfaces(toWithSkeleton, setup.Extractions)
         CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
         CO.monitorTurboPerformance(surfs, loads, DesiredStatistics)
 
+        if (it-inititer)>ItersMinEvenIfConverged and not CONVERGED:
+            CONVERGED=CO.isConverged(ZoneName=ConvergenceFamilyName,
+                                     FluxName='std-MassflowIn',
+                                     FluxThreshold=MaxConvergedCriterionStd)
 
     if CONVERGED or it >= itmax or ReachedTimeOutMargin:
         if ReachedTimeOutMargin:
