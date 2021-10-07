@@ -168,9 +168,9 @@ if fileExists('OUTPUT','tmp-fields.cgns'):
     shutil.move(os.path.join('OUTPUT','tmp-fields.cgns'),
                 os.path.join('OUTPUT','fields.cgns'))
 
-elif not anyFile('NEWJOB_REQUIRED','FAILED'):
-    with open('FAILED','w') as f:
-        f.write('tmp-fields.cgns missing')
+# elif not anyFile('NEWJOB_REQUIRED','FAILED'):
+#     with open('FAILED','w') as f:
+#         f.write('tmp-fields.cgns missing')
 
 for fn in glob.glob('*.log'):
     FilenameBase = fn[:-4]
