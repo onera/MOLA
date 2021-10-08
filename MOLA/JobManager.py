@@ -56,6 +56,19 @@ def buildJob(case, config, NProc, jobTemplate):
     JobText = JobText.replace('<NProcs>', str(NProc))
     JobText = JobText.split('mpirun ')[0]
 
+    # Add source to /etc/bashrc
+    if not 'source /etc/bashrc' in JobText:
+        if 'module purge' in JobText:
+            JobText = JobText.replace('module purge', \
+                                      'module purge\nsource /etc/bashrc')
+        else:
+            # Insert line after the last #SBATCH line
+            JobTextSplitBySBATCH = JobText.split('#SBATCH')
+            lastSBATCHline = '#SBATCH' + JobTextSplitBySBATCH[-1].split('\n')[0] + '\n'
+            headerSBATCH = '#SBATCH'.join(JobTextSplitBySBATCH[:-1]) + lastSBATCHline
+            TextAfterheaderSBATCH = '\n'.join(JobTextSplitBySBATCH[-1].split('\n')[1:])
+            JobText = headerSBATCH + '\nsource /etc/bashrc\n' + TextAfterheaderSBATCH
+
     with open(JobFile,'w+') as f:
         f.write(JobText)
         f.write(RoutineText)
