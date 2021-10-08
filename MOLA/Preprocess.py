@@ -3574,3 +3574,31 @@ def getProc(t):
             proc number attributed to each zone of **t**
     '''
     return  np.array(D2.getProc(t), order='F', ndmin=1)
+
+def initializeFlowSolutionFromFile(t, sourceFilename, container='FlowSolution#Init'):
+    '''
+    Initialize the flow solution of **t** from the flow solution in the file
+    **sourceFilename**.
+    Modify the tree **t** in-place.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to initialize
+
+        sourceFilename : str
+            Name of the source file for the interpolation.
+
+        container : str
+            Name of the ``'FlowSolution_t'`` node use for the interpolation.
+            Default is 'FlowSolution#Init'
+
+    '''
+    sourceTree = C.convertFile2PyTree(sourceFilename)
+    OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
+    I.__FlowSolutionCenters__ = container
+    I._rmNodesByType(sourceTree, 'BCDataSet_t')
+    I._rmNodesByNameAndType(sourceTree, '*EndOfRun*', 'FlowSolution_t')
+    P._extractMesh(sourceTree, t, mode='accurate')
+    I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
