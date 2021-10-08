@@ -5,15 +5,6 @@ WORKFLOW COMPRESSOR
 
 Collection of functions designed for Workflow Compressor
 
-BEWARE:
-There is no equivalent of Preprocess ``prepareMesh4ElsA``.
-``prepareMainCGNS4ElsA`` takes as an input a CGNS file assuming that the following
-elements are already set:
-    * connectivities
-    * splitting and distribution
-    * families
-    * (optional) parametrization with channel height in a ``FlowSolution#Height`` node
-
 File history:
 31/08/2021 - T. Bontemps - Creation
 '''
@@ -28,7 +19,6 @@ import scipy.optimize
 # BEWARE: in Python v >= 3.4 rather use: importlib.reload(setup)
 import imp
 
-
 import Converter.PyTree    as C
 import Converter.Internal  as I
 import Distributor2.PyTree as D2
@@ -38,11 +28,12 @@ import Transform.PyTree    as T
 
 from . import InternalShortcuts as J
 from . import Preprocess        as PRE
-from . import JobManager    as JM
+from . import JobManager        as JM
 
 
 def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
-                    duplicationInfos={}, blocksToRename={}, SplitBlocks=True):
+                    duplicationInfos={}, blocksToRename={}, SplitBlocks=True,
+                    scale=1.):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
     from a CGNS file provided by Autogrid 5.
@@ -101,6 +92,9 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
         SplitBlocks : bool
             if :py:obj:`False`, do not split the mesh.
 
+        scale : float
+            Homothety factor to apply on the mesh. Default is 1.
+
     Returns
     -------
 
@@ -119,7 +113,7 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
     InputMeshes = [dict(
                     baseName=I.getName(I.getNodeByType(t, 'CGNSBase_t')),
                     Transform=dict(
-                        scale=1.0,
+                        scale=scale,
                         rotate=[((0,0,0), (0,1,0), 90),((0,0,0), (1,0,0), 90)]
                         ),
                     Connection=[dict(type='Match', tolerance=1e-8),
@@ -129,6 +123,12 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
                     )]
 
     t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], blocksToRename=blocksToRename)
+    # Check that each zone is attached to a family
+    for zone in I.getZones(t):
+        if not I.getNodeFromType1(zone, 'FamilyName_t'):
+            FAILMSG = 'Each zone must be attached to a Family:\n'
+            FAILMSG += 'Zone {} has no node of type FamilyName_t'.format(I.getName(zone))
+            raise Exception(J.FAIL+FAILMSG+J.ENDC)
     PRE.transform(t, InputMeshes)
     for row, rowParams in duplicationInfos.items():
         try: MergeBlocks = rowParams['MergeBlocks']
@@ -146,7 +146,8 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, TurboConfiguration={}, Extractions={}, BoundaryConditions={},
-        BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade']):
+        BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade'],
+        initializeFromCGNS=None):
     '''
     This is mainly a function similar to Preprocess :py:func:`prepareMainCGNS4ElsA`
     but adapted to compressor computations. Its purpose is adapting the CGNS to
@@ -174,6 +175,10 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         BodyForceInputData : :py:class:`list` of :py:class:`dict`
 
         writeOutputFields : bool
+
+        initializeFromCGNS : :py:class:`str` or :py:obj:`None`
+            If not :py:obj:`None`, initialize the flow solution from the given
+            CGNS file
 
     Returns
     -------
@@ -241,6 +246,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             ReferenceValues, bladeFamilyNames=bladeFamilyNames)
     t = newCGNSfromSetup(t, AllSetupDics, initializeFlow=True, FULL_CGNS_MODE=False)
     to = PRE.newRestartFieldsFromCGNS(t)
+    if initializeFromCGNS:
+        PRE.initializeFlowSolutionFromFile(to, initializeFromCGNS)
     PRE.saveMainCGNSwithLinkToOutputFields(t,to,writeOutputFields=writeOutputFields)
 
     print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
@@ -769,46 +776,47 @@ def setTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}):
     Parameters
     ----------
 
-        ShaftRotationSpeed : py:class:`float`
+        ShaftRotationSpeed : :py:class:`float`
             Shaft speed in rad/s
 
             .. attention:: only for single shaft configuration
 
             .. attention:: Pay attention to the sign of **ShaftRotationSpeed**
 
-        HubRotationSpeed : :py:class:list of :py:class:tuple
+        HubRotationSpeed : :py:class:`list` of :py:class:`tuple`
             Hub rotation speed. Each tuple (``xmin``, ``xmax``) corresponds to a
             ``CoordinateX`` interval where the speed at hub wall is
-            ``ShaftRotationSpeed``. It is zero outside these intervals.
+            **ShaftRotationSpeed**. It is zero outside these intervals.
 
-        Rows : py:class:`dict`
+        Rows : :py:class:`dict`
             This dictionary has one entry for each row domain. The key names
             must be the family names in the CGNS Tree.
             For each family name, the following entries are expected:
 
-                * RotationSpeed : py:class:`float` or py:class:`str`
+                * RotationSpeed : :py:class:`float` or :py:class:`str`
                     Rotation speed in rad/s. Set ``'auto'`` to automatically
-                    set ``ShaftRotationSpeed``.
+                    set **ShaftRotationSpeed**.
 
-                    .. attention:: Use **RotationSpeed**=``'auto'`` for rotors
-                        only.
+                    .. attention::
+                        Use **RotationSpeed** = ``'auto'`` for rotors only.
 
-                    .. attention:: Pay attention to the sign of
-                        **RotationSpeed**
+                    .. attention::
+                        Pay attention to the sign of **RotationSpeed**
 
-                * NumberOfBlades : py:class:`int`
+                * NumberOfBlades : :py:class:`int`
                     The number of blades in the row
 
-                * NumberOfBladesSimulated : py:class:`int`
+                * NumberOfBladesSimulated : :py:class:`int`
                     The number of blades in the computational domain. Set to
-                    ``<NumberOfBlades>`` for a full 360 simulation.
+                    **NumberOfBlades** for a full 360 simulation. If not given,
+                    the default value is 1.
 
-                * InletPlane : py:class:`float`, optional
+                * InletPlane : :py:class:`float`, optional
                     Position (in ``CoordinateX``) of the inlet plane for this
                     row. This plane is used for post-processing and convergence
                     monitoring.
 
-                * OutletPlane : py:class:`float`, optional
+                * OutletPlane : :py:class:`float`, optional
                     Position of the outlet plane for this row.
 
     Returns
@@ -827,6 +835,8 @@ def setTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}):
         for key, value in rowParams.items():
             if key == 'RotationSpeed' and value == 'auto':
                 rowParams[key] = ShaftRotationSpeed
+        if not 'NumberOfBladesSimulated' in rowParams:
+            rowParams['NumberOfBladesSimulated'] = 1
 
     return TurboConfiguration
 
@@ -867,10 +877,13 @@ def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
     CGNS tree and writes the ``setup.py`` file.
 
     The only differences with Preprocess newCGNSfromSetup are:
+
     #. addSolverBC is not applied, in order not to disturb the special
        turbomachinery BCs
+
     #. extraction of coordinates in ``FlowSolution#EndOfRun#Coords`` is
-        desactivated
+       desactivated
+
     '''
     t = I.copyRef(t)
 
@@ -1000,11 +1013,14 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
         BoundaryConditions : :py:class:`list` of :py:class:`dict`
             User-provided list of boundary conditions. Each element is a
             dictionary with the following keys:
+
                 * type : elsA BC type
+
                 * option (optional) : add a specification to type
+
                 * other keys depending on type. They will be passed as an
-                    unpacked dictionary of arguments to the BC type-specific
-                    function.
+                  unpacked dictionary of arguments to the BC type-specific
+                  function.
 
         TurboConfiguration : dict
             as produced by :py:func:`setTurboConfiguration`
@@ -1021,8 +1037,9 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
     See also
     --------
 
-        setBC_Walls, setBC_inj1, setBC_inj1_uniform, setBC_inj1_interpFromFile,
-        setBC_outpres
+    setBC_Walls, setBC_farfield,
+    setBC_inj1, setBC_inj1_uniform, setBC_inj1_interpFromFile,
+    setBC_outpres
     '''
     print(J.CYAN + 'set BCs at walls' + J.ENDC)
     setBC_Walls(t, TurboConfiguration, bladeFamilyNames=bladeFamilyNames)
@@ -1031,7 +1048,11 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
 
         BCkwargs = {key:BCparam[key] for key in BCparam if key not in ['type', 'option']}
 
-        if BCparam['type'] == 'inj1':
+        if BCparam['type'] == 'farfield':
+            print(J.CYAN + 'set BC farfield on ' + BCparam['FamilyName'] + J.ENDC)
+            setBC_farfield(t, **BCkwargs)
+
+        elif BCparam['type'] == 'inj1':
 
             if 'option' not in BCparam:
                 print(J.CYAN + 'set BC inj1 on ' + BCparam['FamilyName'] + J.ENDC)
@@ -1092,14 +1113,15 @@ def setBC_Walls(t, TurboConfiguration, bladeFamilyNames=['Blade']):
     '''
     Set all the wall boundary conditions in a turbomachinery context, by making
     the following operations:
+
         * set the rotation speed for all families related to row domains. It is
-            defined in:
+          defined in:
 
             >>> TurboConfiguration['Rows'][rowName]['RotationSpeed'] = float
 
         * set BCs related to each blade.
         * set BCs related to hub. The intervals where the rotation speed is the
-            shaft speed (for rotor platforms) are set in the following form:
+          shaft speed (for rotor platforms) are set in the following form:
 
             >>> TurboConfiguration['HubRotationSpeed'] = [(xmin1, xmax1), ..., (xminN, xmaxN)]
 
@@ -1185,14 +1207,37 @@ def setBC_Walls(t, TurboConfiguration, bladeFamilyNames=['Blade']):
                 axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
                 axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
 
+def setBC_farfield(t, FamilyName):
+    '''
+    Set an farfield boundary condition.
+
+    .. note:: see `elsA Tutorial about farfield condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#farfield/>`_
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+    '''
+    farfield = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    I._rmNodesByType(farfield, 'FamilyBC_t')
+    I.newFamilyBC(value='BCFarfield', parent=farfield)
+
 def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
     '''
     Generic function to impose a Boundary Condition ``inj1``. The following
     functions are more specific:
+
         * :py:func:`setBC_inj1_uniform`
+
         * :py:func:`setBC_inj1_interpFromFile`
 
-    .. note:: see `elsA Tutorial about inj1 condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#inj1/>`_
+    .. note::
+        see `elsA Tutorial about inj1 condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#inj1/>`_
 
     Parameters
     ----------
@@ -1206,20 +1251,22 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
         ImposedVariables : dict
             Dictionary of variables to imposed on the boudary condition. Keys
             are variable names, and values must be:
+
                 * either scalars: in that case they are imposed once for the
-                    family **FamilyName** in the corresponding ``Family_t`` node.
+                  family **FamilyName** in the corresponding ``Family_t`` node.
+
                 * or numpy arrays: in that case they are imposed for the ``BC_t``
-                    node **bc**.
+                  node **bc**.
 
         bc : PyTree
             ``BC_t`` node on which the boundary condition will be imposed. Must
-                be :py:obj:`None` if the condition must be imposed once in the
-                ``Family_t`` node.
+            be :py:obj:`None` if the condition must be imposed once in the
+            ``Family_t`` node.
 
     See also
     --------
 
-        setBC_inj1_uniform, setBC_inj1_interpFromFile
+    setBC_inj1_uniform, setBC_inj1_interpFromFile
 
     '''
     checkVariables(ImposedVariables)
@@ -1279,7 +1326,7 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName):
     See also
     --------
 
-        setBC_inj1, setBC_inj1_interpFromFile
+    setBC_inj1, setBC_inj1_interpFromFile
 
     '''
 
@@ -1372,7 +1419,7 @@ def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileform
     See also
     --------
 
-        setBC_inj1, setBC_inj1_uniform
+    setBC_inj1, setBC_inj1_uniform
 
     '''
 
@@ -1433,17 +1480,19 @@ def setBC_outpres(t, FamilyName, pressure):
 def checkVariables(ImposedVariables):
     '''
     Check that variables in the input dictionary are well defined. Raise a
-    ValueError if not.
+    ``ValueError`` if not.
 
     Parameters
     ----------
 
         ImposedVariables : dict
-            each key is a variable name. Based on this name, the value (float or
+            Each key is a variable name. Based on this name, the value (float or
             numpy.array) is checked.
             For instance:
+
                 * Variables such as pressure, temperature or turbulent quantities
-                    must be strictly positive.
+                  must be strictly positive.
+
                 * Components of a unit vector must be between -1 and 1.
 
     '''
@@ -2003,8 +2052,6 @@ def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
             File ``JobsConfiguration.py`` is writen and polar builder job is
             launched
     '''
-
-
     ThrottleMatrix, RotationSpeedMatrix  = np.meshgrid(ThrottleRange, RotationSpeedRange)
 
     Throttle_       = ThrottleMatrix.ravel(order='K')
@@ -2023,7 +2070,7 @@ def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
         else:
             writeOutputFields = False
 
-        CASE_LABEL = '%06.2f'%abs(Throttle)+'_'+JobName # CAVEAT tol AoA >= 0.01 deg
+        CASE_LABEL = '{:08.2f}_{}'.format(abs(Throttle), JobName)
         if Throttle < 0: CASE_LABEL = 'M'+CASE_LABEL
 
         WorkflowParams = copy.deepcopy(kwargs)
@@ -2032,14 +2079,19 @@ def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
 
         for BC in WorkflowParams['BoundaryConditions']:
             if 'outradeq' in BC['type']:
-                if BC['valve_type'] == 1:
+                if BC['valve_type'] == 0:
+                    BC['prespiv'] = Throttle
+                elif BC['valve_type'] in [1, 5]:
                     BC['valve_ref_pres'] = Throttle
                 elif BC['valve_type'] == 2:
                     BC['valve_ref_mflow'] = Throttle
-                elif BC['valve_type'] == 4:
+                elif BC['valve_type'] in [3, 4]:
                     BC['valve_relax'] = Throttle
                 else:
                     raise Exception('valve_type={} not taken into account yet'.format(BC['valve_type']))
+
+        if 'initializeFromCGNS' in WorkflowParams and i != 0:
+            WorkflowParams.pop('initializeFromCGNS')
 
         JobsQueues.append(
             dict(ID=i, CASE_LABEL=CASE_LABEL, NewJob=NewJob, JobName=JobName, **WorkflowParams)

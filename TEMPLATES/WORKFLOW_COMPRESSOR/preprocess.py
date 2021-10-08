@@ -3,7 +3,7 @@ Preprocess routine used for:
     1 - Create appropriate symbolic links of restart fields
     2 - Updates the timeout of setup.py
 
-19/05/2021 - L. Bernardos 
+19/05/2021 - L. Bernardos
 '''
 
 import sys
