@@ -1,5 +1,5 @@
 #!/bin/bash
 
-git fetch /home/tbontemp/softs/MOLA/Dev/ dev_2.0:ThomasDev
+git fetch /home/tbontemp/softs/MOLA/Dev/ master:ThomasDev
 git merge ThomasDev
 git branch -d ThomasDev

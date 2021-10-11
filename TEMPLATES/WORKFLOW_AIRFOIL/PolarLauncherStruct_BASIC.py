@@ -1,15 +1,15 @@
 import MOLA.WorkflowAirfoil as WF
 
-AER = '31447034F'
-AirfoilPath = '/home/ffalissa/H2T/ETUDES/MOTUS/FLUX_2/POLAIRES/PROFILS/Airfoil_20.tp'
+AER = '28643013F'
+AirfoilPath = 'psu94097.txt'
 
 # To modify for each polar computation set:
-PREFIX_JOB = 'j' # MUST BE UNIQUE
+PREFIX_JOB = 'a' # MUST BE UNIQUE
 DIRECTORY_WORK = '/tmp_user/sator/lbernard/MYPOLAR/' # MUST BE UNIQUE
 
-AoARange    = [0,1,2,4,6,10,12,14,16,-1,-2,-4]
-MachRange  =  [0.5, 0.6]
-ReynoldsOverMach = 600000.0
+AoARange    = [0,1,2,3,4,-1,-2,-3,-4]
+MachRange  =  [0.6,0.7,0.8]
+ReynoldsOverMach = 1e6/0.8
 
 WF.launchBasicStructuredPolars(PREFIX_JOB, AirfoilPath, AER, 'sator',
                           DIRECTORY_WORK, AoARange, MachRange, ReynoldsOverMach)

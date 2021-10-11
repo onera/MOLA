@@ -539,11 +539,11 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
             T._homothety(NewSection, AirfoilProperties['ScalingCenter'],
                                      AirfoilProperties['Chord'])
 
-        # modification produced closing of open airfoil
-        AfterTEgap = W.distance(getBoundary(ModSection,'imax'),
-                                getBoundary(ModSection,'imin'))
-        if AfterTEgap == 0 and PreviousTEgap > 0:
-            ModSection = T.subzone(ModSection, (2,1,1),(-2,-1,-1))
+            # modification produced closing of open airfoil
+            AfterTEgap = W.distance(getBoundary(ModSection,'imax'),
+                                    getBoundary(ModSection,'imin'))
+            if AfterTEgap == 0 and PreviousTEgap > 0:
+                ModSection = T.subzone(ModSection, (2,1,1),(-2,-1,-1))
 
 
         if not W.isCurveClosed(ModSection) and NPtsTrailingEdge>0:
