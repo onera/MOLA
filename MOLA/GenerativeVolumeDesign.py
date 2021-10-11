@@ -35,6 +35,22 @@ from . import InternalShortcuts as J
 from . import Wireframe as W
 from . import GenerativeShapeDesign as GSD
 
+initVarsCostInSeconds = np.array([0.0])
+computeCurvatureTime = np.array([0.0])
+constrainedSmoothing = np.array([0.0])
+GrowthTime = np.array([0.0])
+smoothField = np.array([0.0])
+keepConstrainedHeight = np.array([0.0])
+ApplyConstraintsTime = np.array([0.0])
+TransferDataTime = np.array([0.0])
+StackLayersTime = np.array([0.0])
+ExtrusionPreprocess = np.array([0.0])
+Weighting = np.array([0.0])
+Gathering = np.array([0.0])
+Transformation = np.array([0.0])
+DisplaceLayerTime = np.array([0.0])
+newBaseLayerTime = np.array([0.0])
+
 def extrudeWingOnSupport(Wing, Support, Distributions, Constraints=[],
         SupportMode='intersection', extrapolatePoints=30, InterMinSep=0.1,
         CollarRelativeRootDistance=0.1,
@@ -551,9 +567,6 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
                 the volume (or more precisely, the area) of each cell
                 of the extrusion front.
 
-            * ``{nodes:regularity}``
-                the regularity of the extrusion front cells.
-
         closeExtrusionLayer : bool
             if :py:obj:`True`, force the extrusion front surface
             to be closed. This is necessary in order to perform "O-shaped" extrusion
@@ -618,7 +631,7 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
             information (e.g. the resulting extruded volume, the constraints,
             the curves employed as distributions, etc)
     '''
-
+    toc = tic()
     tExtru = invokeExtrusionPyTree(t)
 
     # Create auxiliary surface that will be used for extrusion
@@ -638,6 +651,9 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
     _transferDistributionData(tExtru,layer=0)
 
     AllLayersBases = [newBaseLayer(tExtru,layer=0)]
+
+    ExtrusionPreprocess[0] = tic() - toc
+
     OptionsIntegerFields = ('niter','type')
     toc = tic()
     for l in range(1,NLayers):
@@ -645,8 +661,10 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
         toc = tic()
         if printIters: print(Message)
 
+        tok = tic()
         _transferDistributionData(tExtru,layer=l)
         _transferExtractMeshData(ExtrudeLayer,extractMesh,extractMeshHardSmoothOptions,layer=l)
+        TransferDataTime[0] += tic() - tok
 
 
         if HardSmoothRescaling:
@@ -661,7 +679,7 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
             Diameter = D.getLength(DiameterLine)
             T._homothety(ExtrudeLayer, (0,0,0), 1./Diameter)
             T._homothety(HardSmoothPoints, (0,0,0), 1./Diameter)
-            C._initVars(HardSmoothPoints,'radius={radius}*%g'%(1./Diameter))
+            wrapInitVars(HardSmoothPoints,'radius={radius}*%g'%(1./Diameter))
 
         for HardSmoothPt in HardSmoothPoints:
             T._projectOrtho(HardSmoothPt, ExtrudeLayer)
@@ -682,17 +700,18 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
         if HardSmoothRescaling:
             T._homothety(ExtrudeLayer, (0,0,0), Diameter)
             T._homothety(HardSmoothPoints, (0,0,0), Diameter)
-            C._initVars(HardSmoothPoints,'radius={radius}*%g'%(Diameter))
+            wrapInitVars(HardSmoothPoints,'radius={radius}*%g'%(Diameter))
 
         if modeSmooth != 'ignore':
             _computeCurvature(tExtru)
         else:
             _extrusionApplyConstraints(tExtru)
 
+
         _constrainedSmoothing(tExtru, mode=modeSmooth, growthEquation=growthEquation)
 
-
         _displaceLayer(tExtru)
+
         AllLayersBases += [newBaseLayer(tExtru,layer=l)]
 
         if plotIters and CPlot:
@@ -706,7 +725,7 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
                     )
             Message = 'Showing layer %d of %d'%(l+1,NLayers)
             CPlot.setState(message=Message)
-            time.sleep(0.1)
+            # time.sleep(0.1)
 
     _stackLayers(tExtru, AllLayersBases) # Stack layers
 
@@ -733,20 +752,21 @@ def _constrainedSmoothing(tExtru, mode='dualing',
     growthEquation - (string) - the user-provided growth equation employing
         variables contained in the extrusion front surface
     '''
+
+    toc = tic()
     ExtLayBase = I.getNodeFromName1(tExtru,'ExtrudeLayerBase')
     z = I.getNodeFromName1(ExtLayBase,'ExtrudeLayer')
 
     if mode == 'dualing':
 
         # Perform smoothing of cell height (to deal with concavities)
-        MeanDH = C.getMeanValue(z,'nodes:dH')
-        if growthEquation: C._initVars(z,growthEquation)
-        NewMeanDH = C.getMeanValue(z,'nodes:dH')
-        RatioDH = MeanDH/NewMeanDH
-
         # This shall be done in order to keep the mean
         # user-prescribed extrusion height
-        C._initVars(z,'nodes:dH={nodes:dH}*%g'%RatioDH) # TODO Really required?
+        MeanDH = C.getMeanValue(z,'nodes:dH')
+        if growthEquation: wrapInitVars(z,growthEquation)
+        NewMeanDH = C.getMeanValue(z,'nodes:dH')
+        RatioDH = MeanDH/NewMeanDH
+        wrapInitVars(z,'nodes:dH={nodes:dH}*%g'%RatioDH) # TODO Really required?
 
         niter = int(C.getMeanValue(z,'growthiters'))
         for i in range(niter):
@@ -825,54 +845,73 @@ def _constrainedSmoothing(tExtru, mode='dualing',
 
     elif mode == 'smoothField':
 
-        sx, sy, sz, dH = J.getVars(z, ['sx','sy','sz','dH'], 'FlowSolution')
+        I._rmNodesByName(z,'FlowSolution#Centers')
+        sx, sy, sz, dH, divs = J.getVars(z, ['sx','sy','sz','dH','divs'], 'FlowSolution')
 
-        # Perform smoothing of cell height (to deal with concavities)
-        MeanDH = C.getMeanValue(z,'nodes:dH')
-        if growthEquation: C._initVars(z,growthEquation)
-        NewMeanDH = C.getMeanValue(z,'nodes:dH')
-        RatioDH = MeanDH/NewMeanDH
-
-        # This shall be done in order to keep the mean
-        # user-prescribed extrusion height
-        C._initVars(z,'nodes:dH={nodes:dH}*%g'%RatioDH) # TODO Really required?
+        toki = tic()
+        # MeanDH = C.getMeanValue(z,'nodes:dH')
+        # if growthEquation: wrapInitVars(z,growthEquation)
+        # NewMeanDH = C.getMeanValue(z,'nodes:dH')
+        # RatioDH = MeanDH/NewMeanDH
+        # wrapInitVars(z,'nodes:dH={nodes:dH}*%g'%RatioDH)
 
 
-        eps = np.empty_like(dH)
-        eps[:] = 0.01
+        MeanDH = np.mean(dH)
+        if growthEquation: wrapInitVars(z,growthEquation)
+        NewMeanDH = np.mean(dH)
+        dH *= MeanDH/NewMeanDH
+
+        GrowthTime[0] += tic() - toki
+
+
+        eps  = divs*(divs<0)/np.min(divs)
+        eps *= 0.9
         type = 0
         subniter = 100
 
         niter = int(C.getMeanValue(z,'growthiters'))
         for i in range(niter):
-            T._smoothField(z, eps, subniter, type, ['dH'])
+            wrapSmoothField(z, 0.9, 20, type, ['dH'])
+
+            toki = tic()
+            # MeanDH = C.getMeanValue(z,'nodes:dH')
+            # if growthEquation: wrapInitVars(z,growthEquation)
+            # NewMeanDH = C.getMeanValue(z,'nodes:dH')
+            # RatioDH = MeanDH/NewMeanDH
+            # wrapInitVars(z,'nodes:dH={nodes:dH}*%g'%RatioDH)
+
+
+            MeanDH = np.mean(dH)
+            if growthEquation: wrapInitVars(z,growthEquation)
+            NewMeanDH = np.mean(dH)
+            dH *= MeanDH/NewMeanDH
+
+            GrowthTime[0] += tic() - toki
+
             _keepConstrainedHeight(tExtru)
 
         # Perform smoothing of normals
         niter = int(C.getMeanValue(z,'normaliters'))
         for i in range(niter):
-
-            # TODO: replace with smoothing fuction and/or T._deformNormals()
-            sx, sy, sz, dH = J.getVars(z, ['sx','sy','sz','dH'], 'FlowSolution')
-            NormalsDiffuseFactor = C.getMeanValue(z,'normalfactor')*dH/NewMeanDH
-            BoolRegion = dH > NewMeanDH
-            NormalsDiffuseFactor = NormalsDiffuseFactor[BoolRegion]
-            sx = sx[BoolRegion]
-            sy = sy[BoolRegion]
-            sz = sz[BoolRegion]
-            nsubiter = 50
-            for j in range(nsubiter):
-                T._smoothField(z, eps, subniter, type, ['sx','sy','sz'])
-
-                # sx *= NormalsDiffuseFactor
-                # sy *= NormalsDiffuseFactor
-                # sz *= NormalsDiffuseFactor
-
+            wrapSmoothField(z, eps, subniter, type, ['sx','sy','sz'])
             normalizeVector(z, ['sx', 'sy', 'sz'], container='FlowSolution')
             _extrusionApplyConstraints(tExtru)
 
-        I._rmNodesByName(z,'FlowSolution#Centers')
+        try:
+            I.getNodeFromName(z,'expansionfactor')[1]
+            ef = '{nodes:expansionfactor}'
+        except:
+            ef = '10'
         normalizeVector(z, ['sx', 'sy', 'sz'], container='FlowSolution')
+        wrapSmoothField(z, 0.9, 200, type, ['gradxvol','gradyvol','gradzvol'])
+        wrapInitVars(z,'nodes:sx={nodes:sx}+%s*{nodes:gradxvol}/sqrt({vol})'%ef)
+        wrapInitVars(z,'nodes:sy={nodes:sy}+%s*{nodes:gradyvol}/sqrt({vol})'%ef)
+        wrapInitVars(z,'nodes:sz={nodes:sz}+%s*{nodes:gradzvol}/sqrt({vol})'%ef)
+        normalizeVector(z, ['sx', 'sy', 'sz'], container='FlowSolution')
+
+
+
+    constrainedSmoothing[0] += tic() - toc
 
     return tExtru
 
@@ -919,6 +958,8 @@ def _extrusionApplyConstraints(tExtru):
 
     tExtru - (PyTree) - the extrusion PyTree
     '''
+
+    toc = tic()
     ExtLayBase = I.getNodeFromName1(tExtru,'ExtrudeLayerBase')
     zE = I.getNodeFromName1(ExtLayBase,'ExtrudeLayer')
     FlowSolExtLay = I.getNodeFromName1(zE,'FlowSolution')
@@ -1156,7 +1197,7 @@ def _extrusionApplyConstraints(tExtru):
             sz[PointListReceiver] = csz
             dH[PointListReceiver] = cdH
 
-
+    ApplyConstraintsTime[0] += tic() - toc
 
 def _keepConstrainedHeight(tExtru):
     '''
@@ -1170,6 +1211,7 @@ def _keepConstrainedHeight(tExtru):
 
     tExtru - (PyTree) - the extrusion PyTree
     '''
+    toc = tic()
     ExtLayBase = I.getNodeFromName1(tExtru,'ExtrudeLayerBase')
     zE = I.getNodeFromName1(ExtLayBase,'ExtrudeLayer')
     FlowSolExtLay = I.getNodeFromName1(zE,'FlowSolution')
@@ -1180,6 +1222,8 @@ def _keepConstrainedHeight(tExtru):
         PointListReceiver = I.getNodeFromName1(ExtrusionDataNode,'PointListReceiver')[1]
         cdH, = J.getVars(constraint,['dH'])
         dH[PointListReceiver] = cdH
+    keepConstrainedHeight[0] += tic() - toc
+
 
 def _transferDistributionData(tExtru,layer=0):
     '''
@@ -1202,10 +1246,12 @@ def _transferDistributionData(tExtru,layer=0):
 
     layer - (integer) - the layer at which the flow fields are extracted.
     '''
+
     DistributionsBase = I.getNodeFromName1(tExtru,'DistributionsBase')
     ExtLayBase = I.getNodeFromName1(tExtru,'ExtrudeLayerBase')
     ExtrudeLayer = I.getNodeFromName1(ExtLayBase,'ExtrudeLayer')
 
+    toc = tic()
     FieldsAndCoords = {'Point':[]}
     for dist in DistributionsBase[2]:
 
@@ -1221,14 +1267,12 @@ def _transferDistributionData(tExtru,layer=0):
         for fn in FieldsNodes:
             try: FieldsAndCoords[fn[0]] += [fn[1][layer]]
             except KeyError: FieldsAndCoords[fn[0]] = [fn[1][layer]]
+    Gathering[0] += tic() - toc
 
 
-    # FieldsNames = FieldsAndCoords.keys()
-    # FieldsNames.remove('Point')
-
+    toc = tic()
     FieldsNames = [fn for fn in FieldsAndCoords]
     FieldsNames.remove('Point')
-
 
     # Tranform Distribution field lists into numpy arrays
     for fn in FieldsNames:
@@ -1237,20 +1281,38 @@ def _transferDistributionData(tExtru,layer=0):
     WeightedFields = J.invokeFields(ExtrudeLayer,FieldsNames,'nodes:')
     NFlds     = len(FieldsNames)
     NDistribs = len(DistributionsBase[2])
+    Transformation[0] += tic() - toc
 
     x,y,z = J.getxyz(ExtrudeLayer)
 
     # TODO: Vectorize from here:
-    for i in range(len(x)):
-        Weights = [np.sqrt((x[i]-p[0])**2 + (y[i]-p[1])**2+(z[i]-p[2])**2) for p in FieldsAndCoords['Point']]
-        Weights = 1./np.array(Weights)
-        TotalWeights = np.sum(Weights)
+    toc = tic()
+    # for i in range(len(x)):
+    #     Weights = [(x[i]-p[0])**2 + (y[i]-p[1])**2+(z[i]-p[2])**2 for p in FieldsAndCoords['Point']]
+    #     Weights = 1./np.array(Weights)
+    #     TotalWeights = np.sum(Weights)
+    #
+    #     # Weighted average of each distribution field
+    #     for j in range(NFlds):
+    #         WeightedFields[j][i] = (Weights).dot(FieldsAndCoords[FieldsNames[j]]) / TotalWeights
+    ###################
+    xd,yd,zd = [], [], []
+    for p in FieldsAndCoords['Point']:
+        xd.append(p[0])
+        yd.append(p[1])
+        zd.append(p[2])
+    xd = np.array(xd)
+    yd = np.array(yd)
+    zd = np.array(zd)
 
-        # Weighted average of each distribution field
+    if len(xd) > 1:
         for j in range(NFlds):
-            WeightedFields[j][i] = (Weights).dot(FieldsAndCoords[FieldsNames[j]]) / TotalWeights
+            WeightedFields[j][:] = scipy.interpolate.Rbf(xd,yd,zd,FieldsAndCoords[FieldsNames[j]])(x,y,z)
+    else:
+        for j in range(NFlds):
+            WeightedFields[j][:] = FieldsAndCoords[FieldsNames[j]]
 
-
+    Weighting[0] += tic() - toc
 
 
 def _transferExtractMeshData(ExtrudeLayer, extractMesh,
@@ -1298,13 +1360,13 @@ def _transferExtractMeshData(ExtrudeLayer, extractMesh,
                                            layer=layer)
 
         FactordH = extractMeshHardSmoothOptions['FactordH']
-        C._initVars(extractMeshLayer,'dx=%g*{nodes:sx}*{nodes:dH}'%FactordH)
-        C._initVars(extractMeshLayer,'dy=%g*{nodes:sy}*{nodes:dH}'%FactordH)
-        C._initVars(extractMeshLayer,'dz=%g*{nodes:sz}*{nodes:dH}'%FactordH)
+        wrapInitVars(extractMeshLayer,'dx=%g*{nodes:sx}*{nodes:dH}'%FactordH)
+        wrapInitVars(extractMeshLayer,'dy=%g*{nodes:sy}*{nodes:dH}'%FactordH)
+        wrapInitVars(extractMeshLayer,'dz=%g*{nodes:sz}*{nodes:dH}'%FactordH)
         UpExtract = T.deform(extractMeshLayer,vector=['dx','dy','dz'])
-        C._initVars(extractMeshLayer,'dx=-%g*{nodes:dx}'%FactordH)
-        C._initVars(extractMeshLayer,'dy=-%g*{nodes:dy}'%FactordH)
-        C._initVars(extractMeshLayer,'dz=-%g*{nodes:dz}'%FactordH)
+        wrapInitVars(extractMeshLayer,'dx=-%g*{nodes:dx}'%FactordH)
+        wrapInitVars(extractMeshLayer,'dy=-%g*{nodes:dy}'%FactordH)
+        wrapInitVars(extractMeshLayer,'dz=-%g*{nodes:dz}'%FactordH)
         DwExtract = T.deform(extractMeshLayer,vector=['dx','dy','dz'])
         extractMeshLayer = G.stack(UpExtract,DwExtract)
 
@@ -1348,6 +1410,8 @@ def newBaseLayer(tExtru,layer=0):
             new base containing the stored surface front
     '''
 
+    toc = tic()
+
     InitSurfBase = I.getNodeFromName1(tExtru,'InitialSurface')
     ExtLayBase   = I.getNodeFromName1(tExtru,'ExtrudeLayerBase')
     ExtrudeLayer = I.getNodeFromName1(ExtLayBase,'ExtrudeLayer')
@@ -1371,6 +1435,8 @@ def newBaseLayer(tExtru,layer=0):
         zone[0] += '_layer%d'%layer
     NewLayerBase[0] += '_layer%d'%layer
 
+    newBaseLayerTime[0] += tic() - toc
+
     return NewLayerBase
 
 
@@ -1387,24 +1453,30 @@ def _displaceLayer(tExtru):
     tExtru - (PyTree) - the extrusion pytree. It is modified in-place
     '''
 
+    toc = tic()
+
     ExtLayBase   = I.getNodeFromName1(tExtru,'ExtrudeLayerBase')
     ExtrudeLayer = I.getNodeFromName1(ExtLayBase,'ExtrudeLayer')
 
-    C._normalize(ExtrudeLayer,['nodes:sx','nodes:sy','nodes:sz'])
-    C._initVars(ExtrudeLayer,'dx={nodes:sx}*{nodes:dH}')
-    C._initVars(ExtrudeLayer,'dy={nodes:sy}*{nodes:dH}')
-    C._initVars(ExtrudeLayer,'dz={nodes:sz}*{nodes:dH}')
-    T._deform(ExtrudeLayer,vector=['dx','dy','dz'])
+    normalizeVector(ExtrudeLayer, ['sx', 'sy', 'sz'], container='FlowSolution')
+
+    sx,sy,sz,dH = J.getVars(ExtrudeLayer,['sx','sy','sz','dH'])
+    x,y,z = J.getxyz(ExtrudeLayer)
+    x += sx*dH
+    y += sy*dH
+    z += sz*dH
 
     ConstWireBase   = I.getNodeFromName1(tExtru,'ConstraintWireframe')
     constraints = I.getNodesFromType1(ConstWireBase,'Zone_t')
     for constraint in constraints:
-        C._initVars(constraint,'dx={sx}*{dH}')
-        C._initVars(constraint,'dy={sy}*{dH}')
-        C._initVars(constraint,'dz={sz}*{dH}')
-        T._deform(constraint,vector=['dx','dy','dz'])
 
+        sx,sy,sz,dH = J.getVars(constraint,['sx','sy','sz','dH'])
+        x,y,z = J.getxyz(constraint)
+        x += sx*dH
+        y += sy*dH
+        z += sz*dH
 
+    DisplaceLayerTime[0] += tic() - toc
 
 def _distanceBetweenSurfaces__(zone1, zone2):
     '''
@@ -1499,7 +1571,7 @@ def _computeCurvature(tExtru):
 
     tExtru - (PyTree) - extrusion PyTree. It is modified in-place.
     '''
-
+    toc = tic()
     ExtLayBase   = I.getNodeFromName1(tExtru,'ExtrudeLayerBase')
     ExtrudeLayer = I.getNodeFromName1(ExtLayBase,'ExtrudeLayer')
 
@@ -1511,37 +1583,39 @@ def _computeCurvature(tExtru):
     else:
         raise TypeError('ExtrudeLayer shall be a surface or a curve, not a volume mesh.')
 
-    # Also compute regularity of cell
-    G._getRegularityMap(ExtrudeLayer)
-    C.center2Node__(ExtrudeLayer,'centers:regularity',cellNType=0)
-
-    # Also compute volume of cell (area in this case)
     G._getVolumeMap(ExtrudeLayer)
-    C.center2Node__(ExtrudeLayer,'centers:vol',cellNType=0)
 
-
-    C.center2Node__(ExtrudeLayer,'centers:sx',cellNType=0)
-    C.center2Node__(ExtrudeLayer,'centers:sy',cellNType=0)
-    C.center2Node__(ExtrudeLayer,'centers:sz',cellNType=0)
-
-
-    C._normalize(ExtrudeLayer,['nodes:sx','nodes:sy','nodes:sz'])
-    C._normalize(ExtrudeLayer,['centers:sx','centers:sy','centers:sz'])
-
+    for fieldname in ['vol','sx','sy','sz']:
+        C.center2Node__(ExtrudeLayer,'centers:'+fieldname,cellNType=0)
+    I.rmNodesFromName(ExtrudeLayer,I.__FlowSolutionCenters__)
+    normalizeVector(ExtrudeLayer,['sx','sy','sz'],container='FlowSolution')
     dH = I.getNodeFromName2(ExtrudeLayer,'dH')[1]
     _extrusionApplyConstraints(tExtru)
 
-    tempExtLayer = P.computeGrad(ExtrudeLayer,'centers:sx')
-    tempExtLayer = P.computeGrad(tempExtLayer,'centers:sy')
-    tempExtLayer = P.computeGrad(tempExtLayer,'centers:sz')
-
-    C._initVars(tempExtLayer,'centers:divs={centers:gradxsx}+{centers:gradysy}+{centers:gradzsz}')
+    tempExtLayer = P.computeGrad(ExtrudeLayer,'sx')
+    tempExtLayer = P.computeGrad(tempExtLayer,'sy')
+    tempExtLayer = P.computeGrad(tempExtLayer,'sz')
+    wrapInitVars(tempExtLayer,'centers:divs={centers:gradxsx}+{centers:gradysy}+{centers:gradzsz}')
     C.center2Node__(tempExtLayer,'centers:divs',cellNType=0)
 
     FlowSolTemp = I.getNodeFromName1(tempExtLayer,'FlowSolution')
-    divs = I.getNodeFromName1(FlowSolTemp,'divs')
+    divs = I.getNodeFromName1(FlowSolTemp,'divs')[1]
     FlowSol = I.getNodeFromName1(ExtrudeLayer,'FlowSolution')
-    I.addChild(FlowSol,divs)
+    I.createUniqueChild(FlowSol, 'divs', 'DataArray_t', value=divs)
+
+    tempExtLayer = P.computeGrad(ExtrudeLayer,'vol')
+    C.center2Node__(tempExtLayer,'centers:gradxvol',cellNType=0)
+    C.center2Node__(tempExtLayer,'centers:gradyvol',cellNType=0)
+    C.center2Node__(tempExtLayer,'centers:gradzvol',cellNType=0)
+    FlowSolTemp = I.getNodeFromName1(tempExtLayer,'FlowSolution')
+    gradxvol = I.getNodeFromName1(FlowSolTemp,'gradxvol')[1]
+    gradyvol = I.getNodeFromName1(FlowSolTemp,'gradyvol')[1]
+    gradzvol = I.getNodeFromName1(FlowSolTemp,'gradzvol')[1]
+    I.createUniqueChild(FlowSol, 'gradxvol', 'DataArray_t', value=gradxvol)
+    I.createUniqueChild(FlowSol, 'gradyvol', 'DataArray_t', value=gradyvol)
+    I.createUniqueChild(FlowSol, 'gradzvol', 'DataArray_t', value=gradzvol)
+
+    computeCurvatureTime[0] += tic() - toc
 
 def _stackLayers(tExtru, AllLayersBases):
     '''
@@ -1558,6 +1632,9 @@ def _stackLayers(tExtru, AllLayersBases):
     AllLayersBases - (list of bases) - list of bases as appended from
         newBaseLayer() function
     '''
+
+
+    toc = tic()
     tB = C.newPyTree(AllLayersBases)
     AllBases = I.getNodesFromType1(tB,'CGNSBase_t')
 
@@ -1590,7 +1667,7 @@ def _stackLayers(tExtru, AllLayersBases):
 
     ExtrudedVolumeBase = I.getNodeFromName1(tExtru,'ExtrudedVolume')
     for s in StackedZones: I.addChild(ExtrudedVolumeBase,s)
-
+    StackLayersTime[0] = tic() - toc
 
 
 def extrudeSurfaceFollowingCurve(surface, curve):
@@ -2536,3 +2613,14 @@ def buildBodyForceRotorMesh(NCellsWidth=30, Width=0.25,
     t = extrudeSurfaceFollowingCurve(tDisc, DrivingCurve)
 
     return t
+
+
+def wrapInitVars(t, eqn):
+    toc = tic()
+    C._initVars(t,eqn)
+    initVarsCostInSeconds[0] += tic()-toc
+
+def wrapSmoothField(z, eps, subniter, type, listvar):
+    toc = tic()
+    T._smoothField(z, eps, subniter, type, listvar)
+    smoothField[0] += tic() - toc
