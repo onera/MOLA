@@ -849,18 +849,10 @@ def _constrainedSmoothing(tExtru, mode='dualing',
         sx, sy, sz, dH, divs = J.getVars(z, ['sx','sy','sz','dH','divs'], 'FlowSolution')
 
         toki = tic()
-        # MeanDH = C.getMeanValue(z,'nodes:dH')
-        # if growthEquation: wrapInitVars(z,growthEquation)
-        # NewMeanDH = C.getMeanValue(z,'nodes:dH')
-        # RatioDH = MeanDH/NewMeanDH
-        # wrapInitVars(z,'nodes:dH={nodes:dH}*%g'%RatioDH)
-
-
         MeanDH = np.mean(dH)
         if growthEquation: wrapInitVars(z,growthEquation)
         NewMeanDH = np.mean(dH)
         dH *= MeanDH/NewMeanDH
-
         GrowthTime[0] += tic() - toki
 
 
@@ -874,13 +866,6 @@ def _constrainedSmoothing(tExtru, mode='dualing',
             wrapSmoothField(z, 0.9, 20, type, ['dH'])
 
             toki = tic()
-            # MeanDH = C.getMeanValue(z,'nodes:dH')
-            # if growthEquation: wrapInitVars(z,growthEquation)
-            # NewMeanDH = C.getMeanValue(z,'nodes:dH')
-            # RatioDH = MeanDH/NewMeanDH
-            # wrapInitVars(z,'nodes:dH={nodes:dH}*%g'%RatioDH)
-
-
             MeanDH = np.mean(dH)
             if growthEquation: wrapInitVars(z,growthEquation)
             NewMeanDH = np.mean(dH)
@@ -908,7 +893,7 @@ def _constrainedSmoothing(tExtru, mode='dualing',
         wrapInitVars(z,'nodes:sy={nodes:sy}+%s*{nodes:gradyvol}/sqrt({vol})'%ef)
         wrapInitVars(z,'nodes:sz={nodes:sz}+%s*{nodes:gradzvol}/sqrt({vol})'%ef)
         normalizeVector(z, ['sx', 'sy', 'sz'], container='FlowSolution')
-
+        _extrusionApplyConstraints(tExtru)
 
 
     constrainedSmoothing[0] += tic() - toc
@@ -962,6 +947,7 @@ def _extrusionApplyConstraints(tExtru):
     toc = tic()
     ExtLayBase = I.getNodeFromName1(tExtru,'ExtrudeLayerBase')
     zE = I.getNodeFromName1(ExtLayBase,'ExtrudeLayer')
+    x,y,z = J.getxyz(zE)
     FlowSolExtLay = I.getNodeFromName1(zE,'FlowSolution')
     sx = I.getNodeFromName1(FlowSolExtLay,'sx')[1]
     sy = I.getNodeFromName1(FlowSolExtLay,'sy')[1]
@@ -971,15 +957,17 @@ def _extrusionApplyConstraints(tExtru):
     ConstraintSurfaces = I.getNodeFromName1(tExtru,'ConstraintSurfaces')
     for constraint in ConstraintWireframe[2]:
         NPts = C.getNPts(constraint)
+        cdH, csx, csy, csz, cdx, cdy, cdz = J.invokeFields(constraint,['dH','sx','sy','sz','dx','dy','dz'])
+        cx, cy, cz = J.getxyz(constraint)
         ExtrusionDataNode = I.getNodeFromName1(constraint,'.ExtrusionData')
         constraintFlowSol = I.getNodeFromName1(constraint,'FlowSolution')
 
         PointListReceiver = I.getNodeFromName1(ExtrusionDataNode,'PointListReceiver')[1]
+        PointListAdjacent = I.getNodeFromName1(ExtrusionDataNode,'PointListAdjacent')[1]
 
         kind = I.getValue(I.getNodeFromName1(ExtrusionDataNode,'kind'))
 
         if kind == 'Imposed':
-            cdH, = J.invokeFields(constraint,['dH'])
             cdH = cdH.ravel(order='F')
             imposedsx = I.getNodeFromName1(constraintFlowSol,'sx')[1]
             imposedsy = I.getNodeFromName1(constraintFlowSol,'sy')[1]
@@ -993,7 +981,6 @@ def _extrusionApplyConstraints(tExtru):
             cdH[:] = dH[PointListReceiver]
 
         elif kind == 'Initial':
-            cdH, csx, csy, csz = J.invokeFields(constraint,['dH','sx','sy','sz'])
             csx[:] = sx[PointListReceiver]
             csy[:] = sy[PointListReceiver]
             csz[:] = sz[PointListReceiver]
@@ -1007,9 +994,6 @@ def _extrusionApplyConstraints(tExtru):
             CopyCurveName = ''.join(CopyCurveName)
             CopyCurve = I.getNodeFromName1(ConstraintWireframe,CopyCurveName)
             ccdH, ccsx, ccsy, ccsz = J.getVars(CopyCurve,['dH','sx','sy','sz'])
-
-            # Get current constraint variables
-            cdH, csx, csy, csz = J.invokeFields(constraint,['dH','sx','sy','sz'])
 
             # Copy the values from the curve to copy
             csx[:] = ccsx
@@ -1025,8 +1009,7 @@ def _extrusionApplyConstraints(tExtru):
 
 
         elif kind == 'Projected':
-            cdH, csx, csy, csz, cdx, cdy, cdz = J.invokeFields(constraint,['dH','sx','sy','sz','dx','dy','dz'])
-            cx, cy, cz = J.getxyz(constraint)
+
 
             ProjSurfaceName = I.getValue(I.getNodeFromName(ExtrusionDataNode,'ProjectionSurfaceName'))
             ProjSurface = I.getNodeFromName1(ConstraintSurfaces,ProjSurfaceName)
@@ -1070,8 +1053,6 @@ def _extrusionApplyConstraints(tExtru):
             elif ProjMode == 'dir':
                 ProjDir = I.getNodeFromName(ExtrusionDataNode,'ProjectionDir')[1]
 
-                # T._projectDir(pt,ProjSurface,(ProjDir[0],ProjDir[1],ProjDir[2]),smooth=0,oriented=0)
-
                 # Import existing values from ExtrudeLayer
                 csx[:]=sx[PointListReceiver]
                 csy[:]=sy[PointListReceiver]
@@ -1105,7 +1086,6 @@ def _extrusionApplyConstraints(tExtru):
 
 
         elif kind == 'Match':
-            cdH, csx, csy, csz, cdx, cdy, cdz = J.invokeFields(constraint,['dH','sx','sy','sz','dx','dy','dz'])
             cx, cy, cz = J.getxyz(constraint)
 
             # Get the Matching surface
@@ -1197,6 +1177,17 @@ def _extrusionApplyConstraints(tExtru):
             sz[PointListReceiver] = csz
             dH[PointListReceiver] = cdH
 
+        cx[:] = x[PointListReceiver]
+        cy[:] = y[PointListReceiver]
+        cz[:] = z[PointListReceiver]
+
+        # apply constraint to adjacent points (does not seem to work well)
+        # for a, r in zip(PointListAdjacent, PointListReceiver):
+        #     sx[a] = sx[r]
+        #     sy[a] = sy[r]
+        #     sz[a] = sz[r]
+        #     dH[a] = dH[r]
+
     ApplyConstraintsTime[0] += tic() - toc
 
 def _keepConstrainedHeight(tExtru):
@@ -1220,6 +1211,8 @@ def _keepConstrainedHeight(tExtru):
     for constraint in ConstraintWireframe[2]:
         ExtrusionDataNode = I.getNodeFromName1(constraint,'.ExtrusionData')
         PointListReceiver = I.getNodeFromName1(ExtrusionDataNode,'PointListReceiver')[1]
+        kind = I.getValue(I.getNodeFromName1(ExtrusionDataNode,'kind'))
+        if kind != 'match': continue
         cdH, = J.getVars(constraint,['dH'])
         dH[PointListReceiver] = cdH
     keepConstrainedHeight[0] += tic() - toc
@@ -2041,6 +2034,21 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
 
     I.createUniqueChild(ExtrusionData,'PointListReceiver','DataArray_t',value=PointListReceiver)
 
+    # get the adjacent points
+    PointsGlobal = PointListReceiver+1
+    GridElts_n = I.getNodeFromName1(ExtrudeLayer,'GridElements')
+    ElementConnectivity = I.getNodeFromName1(GridElts_n,'ElementConnectivity')[1]
+    ReshapedConnectivity = np.reshape(ElementConnectivity, (int(len(ElementConnectivity)/3),3))
+    FirstColumnOfConn = ReshapedConnectivity[:,0]
+    AdjacentPoints = []
+    for pg in PointsGlobal:
+        Slicer = FirstColumnOfConn==pg
+        cand = ReshapedConnectivity[Slicer,1:]
+        for con in ReshapedConnectivity[Slicer,1:].flatten():
+            if con not in AdjacentPoints and con not in PointsGlobal:
+                AdjacentPoints.append(con)
+    AdjacentPoints = np.array(AdjacentPoints,order='F')-1
+    I.createUniqueChild(ExtrusionData,'PointListAdjacent','DataArray_t',value=AdjacentPoints)
 
 
 def _addHardSmoothPoints(tExtru, HardSmoothPoints):

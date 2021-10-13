@@ -1865,7 +1865,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         TurbulenceLevel=0.001,
         Surface=1.0, Length=1.0, TorqueOrigin=[0,0,0],
         TurbulenceModel='Wilcox2006-klim', Viscosity_EddyMolecularRatio=0.1,
-        TurbulenceCutoff=1.0, TransitionMode=None, CoprocessOptions={},
+        TurbulenceCutoff=0.1, TransitionMode=None, CoprocessOptions={},
         FieldsAdditionalExtractions = ['ViscosityMolecular','ViscosityEddy',
                                        'Mach']):
     '''
