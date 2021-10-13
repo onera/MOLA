@@ -2026,7 +2026,7 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
             for iu in range(Nunk): v_Pred[iu] = v[IterationVariables[iu]][i-1]
 
             # correct Guess
-            Guess = v_Pred + v_Corr
+            Guess = v_Pred #+ v_Corr
 
             if ModelIsHeene:
                 # Solve the 2-eqn non-linear system
@@ -2491,7 +2491,7 @@ def computeBEMTaxial3D(LiftingLine, PolarsInterpolatorDict,
             for iu in range(1,Nunk): v_Pred[iu] = v[IterationVariables[iu]][i-1]
 
             # correct Guess
-            Guess = v_Pred #+ v_Corr
+            Guess = v_Pred + v_Corr
 
             if ModelIsHeene:
                 # Solve the 2-eqn non-linear system
@@ -2527,7 +2527,7 @@ def computeBEMTaxial3D(LiftingLine, PolarsInterpolatorDict,
             if DEBUG and MatrixComputationRequired:
                 print('\ndid not succeed at index %d. Using response matrix...'%i)
                 V = np.maximum(5,np.sqrt(Velocity.dot(Velocity)))
-                Nmsh = 101
+                Nmsh = 21
                 via = np.linspace(0,5*V,Nmsh)
                 vit = np.linspace(0, V,Nmsh)
                 RespMatrixf1 = np.zeros((Nmsh, Nmsh))
@@ -2700,7 +2700,7 @@ def TipLossFactor(NBlades,Velocity,Omega,phi,r,Rmax, kind='Adkins'):
 
             * ``"Prandtl"``
                 :math:`\\frac{2}{\pi} \\arccos{\left(\exp{-(1-\\frac{r}{R}) N_b/2} \sqrt{1 - (\\frac{\Omega r}{V})^2} \\right)}`
-            
+
             .. note:: we recommend ``"Adkins"`` formulation, which is more
                 appropriate for highly-loaded propellers, as discussed by
                 `Mark Drela <https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&ved=2ahUKEwiplIKBsODyAhXViVwKHaeAAcMQFnoECAUQAQ&url=http%3A%2F%2Fweb.mit.edu%2Fdrela%2FPublic%2Fweb%2Fqprop%2Fqprop_theory.pdf&usg=AOvVaw2pOfpH6zAeAbDA94_XElRg>`_.
