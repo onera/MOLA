@@ -633,6 +633,7 @@ def _addSetOfNodes(parent, name, ListOfNodes, type1='UserDefinedData_t', type2='
         typeOfNode = type2 if len(e) == 2 else e[2]
         children += [I.createNode(e[0],typeOfNode,value=e[1])]
     node = I.createUniqueChild(parent,name,type1, children=children)
+    I._rmNodesByName1(parent, node[0])
     I.addChild(parent, node)
 
 
