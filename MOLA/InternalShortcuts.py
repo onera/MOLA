@@ -1822,10 +1822,10 @@ def getSkeleton(t, keepNumpyOfSizeLessThan=7):
     for z in zones:
         nodes = I.getNodesFromType(z, 'DataArray_t')
         for n in nodes:
-          try:
-              if n[1].size > keepNumpyOfSizeLessThan-1: n[1] = None
-          except:
-              pass
+            try:
+                if n[1].size > keepNumpyOfSizeLessThan-1: n[1] = None
+            except:
+                pass
     return tR
 
 
@@ -1856,3 +1856,24 @@ def getZones(t):
     '''
     if t is None: return []
     else: return I.getZones(t)
+
+
+def deprecated(v1, v2=None, comment=None):
+    """This is a decorator which can be used to mark functions
+    as deprecated. It will result in a warning being emitted
+    when the function is used."""
+    import functools
+    import warnings
+    def decorator(f):
+        @functools.wraps(f)
+        def decorated(*args, **kwargs):
+            WMSG = '{} deprecated since version {}'.format(f.__name__, v1)
+            if v2:
+                WMSG += ', will be removed in version {}'.format(v2)
+            if comment: WMSG += '\n{}'.format(comment)
+            warnings.simplefilter('always', DeprecationWarning)  # turn off filter
+            warnings.warn(WARN+WMSG+ENDC, category=DeprecationWarning, stacklevel=2)
+            warnings.simplefilter('default', DeprecationWarning)  # reset filter
+            return f(*args, **kwargs)
+        return decorated
+    return decorator

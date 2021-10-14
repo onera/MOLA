@@ -13,7 +13,6 @@ import Converter.PyTree as C
 import Converter.Internal as I
 
 import MOLA.InternalShortcuts as J
-import MOLA._cpmv_ as CPMV
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator, LogLocator, NullFormatter
@@ -23,9 +22,9 @@ FILE_LOADS = '/home/lbernard/PROJETS/OTTAWAN/CFD/loads.cgns'
 FluxName = 'CL'
 FluxNameZone = 'wallWING'
 
-figname = 'loads.pdf' 
+figname = 'loads.pdf'
 
-PropFluxName = 'Thrust' 
+PropFluxName = 'Thrust'
 
 t = C.convertFile2PyTree(FILE_LOADS)
 zones = I.getZones(t)
@@ -49,7 +48,7 @@ def _makeFormatDoubleAxes__(current, other):
         coords = [ax_coord, (x, y)]
         return ('Left: {:<40}    Right: {:<}'
                 .format(*['(%d, %g)'%(x, y) for x,y in coords]))
-    return format_coord        
+    return format_coord
 
 fig, ax1 = plt.subplots(1,1,figsize=(8.,8.),dpi=120, sharex=True)
 ax2 = ax1.twinx()
@@ -57,7 +56,7 @@ ax2 = ax1.twinx()
 # Plot wing
 zone = ZonesDict[FluxNameZone]
 
-v = J.getVars2Dict(zone, ['IterationNumber', 
+v = J.getVars2Dict(zone, ['IterationNumber',
                           FluxName,
                           'avg-'+FluxName,
                           'std-'+FluxName,])
@@ -100,11 +99,11 @@ for ax in [ax1, ax2]:
                             numticks=100)
         ax.yaxis.set_minor_locator(locmin)
         # ax.yaxis.set_minor_formatter(NullFormatter())
-    ax.xaxis.grid(True, which='major') 
+    ax.xaxis.grid(True, which='major')
     if drawMinorGrid:
-        ax.xaxis.grid(True, which='minor',linestyle=':') 
+        ax.xaxis.grid(True, which='minor',linestyle=':')
     else:
-        ax.xaxis.grid(False, which='minor') 
+        ax.xaxis.grid(False, which='minor')
 
 ax2.format_coord = _makeFormatDoubleAxes__(ax2, ax1)
 

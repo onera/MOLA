@@ -15,7 +15,8 @@ Contents:
     Coprocess.py
     Postprocess.py
     WorkflowAirfoil.py
-    _cpmv_.py
+    WorkflowCompressor.py
+    JobManager.py
     ! Interpolate.py # not fully functional yet
     LiftingLine.py
     ! Pilot.py # deleted
@@ -23,6 +24,7 @@ Contents:
     Visu.py
     ! VortexParticleMethodPrototype.py # to be deprecated
     XFoil.py
+    _cpmv_.py
 
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

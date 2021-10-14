@@ -26,6 +26,7 @@ import Converter.Mpi as Cmpi
 
 # ---------------------------- IMPORT MOLA ---------------------------- #
 import MOLA.Coprocess as CO
+import MOLA.Postprocess as POST
 import MOLA.InternalShortcuts as J
 
 # ------------------------------ SETTINGS ------------------------------ #
@@ -150,7 +151,11 @@ CO.save(loadsTree, os.path.join(DIRECTORY_OUTPUT,FILE_LOADS))
 
 # save surfaces
 surfs = CO.extractSurfaces(toWithSkeleton, setup.Extractions)
+CO.monitorTurboPerformance(surfs, loads, DesiredStatistics)
+surfs = POST.absolute2Relative(surfs, container=I.__FlowSolutionNodes__,
+                                loc='nodes')
 CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
+
 
 # save fields
 tmp_fields = os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS)
