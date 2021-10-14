@@ -1,10 +1,11 @@
 import MOLA.WorkflowAirfoil as WF
+import MOLA.JobManager      as JM
 
 PREFIX_JOB = 'j' # MUST BE UNIQUE for each airfoil
 AER = '31447034F'
 machine = 'sator'
 DIRECTORY_WORK = '/tmp_user/sator/lbernard/MYPOLARS/'
-AirfoilPath = '/home/ffalissa/H2T/ETUDES/MOTUS/FLUX_2/POLAIRES/PROFILS/Airfoil_20.tp'
+GeomPath = '/home/ffalissa/H2T/ETUDES/MOTUS/FLUX_2/POLAIRES/PROFILS/Airfoil_20.tp'
 
 
 AoARange    = [0,1,2,4,6,10,12,14,16,-1,-2,-4]
@@ -23,7 +24,7 @@ NewJobs = AoA_ == 0
 
 JobsQueues = []
 for i, (AoA, Reynolds, Mach, NewJob) in enumerate(zip(AoA_, Re_, M_, NewJobs)):
-    
+
     print('Assembling run {} AoA={} Re={} M={} | NewJob = {}'.format(
             i, AoA, Reynolds, Mach, NewJob))
 
@@ -38,7 +39,7 @@ for i, (AoA, Reynolds, Mach, NewJob) in enumerate(zip(AoA_, Re_, M_, NewJobs)):
 
     meshParams = WF.getMeshingParameters()
     meshParams['References'].update({'Reynolds':Reynolds})
-    
+
 
     EffectiveMach = np.maximum(Mach, 0.2)
     TransitionMode = 'NonLocalCriteria' if Reynolds < 3e5 else None
@@ -120,6 +121,6 @@ for i, (AoA, Reynolds, Mach, NewJob) in enumerate(zip(AoA_, Re_, M_, NewJobs)):
         CoprocessOptions=CoprocessOptions, TransitionZones=TransitionZones,
         ImposedWallFields=ImposedWallFields,) )
 
-WF.savePolarConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,AirfoilPath)
+JM.saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,GeomPath)
 
-WF.launchPolarConfiguration()
+JM.launchJobsConfiguration()

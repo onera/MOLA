@@ -5,15 +5,6 @@ WORKFLOW COMPRESSOR
 
 Collection of functions designed for Workflow Compressor
 
-BEWARE:
-There is no equivalent of Preprocess ``prepareMesh4ElsA``.
-``prepareMainCGNS4ElsA`` takes as an input a CGNS file assuming that the following
-elements are already set:
-    * connectivities
-    * splitting and distribution
-    * families
-    * (optional) parametrization with channel height in a ``FlowSolution#Height`` node
-
 File history:
 31/08/2021 - T. Bontemps - Creation
 '''
@@ -22,11 +13,11 @@ import sys
 import os
 import numpy as np
 import pprint
+import copy
 import scipy.optimize
 
 # BEWARE: in Python v >= 3.4 rather use: importlib.reload(setup)
 import imp
-
 
 import Converter.PyTree    as C
 import Converter.Internal  as I
@@ -37,10 +28,12 @@ import Transform.PyTree    as T
 
 from . import InternalShortcuts as J
 from . import Preprocess        as PRE
+from . import JobManager        as JM
 
 
 def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
-                    duplicationInfos={}, blocksToRename={}, SplitBlocks=True):
+                    duplicationInfos={}, blocksToRename={}, SplitBlocks=True,
+                    scale=1.):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
     from a CGNS file provided by Autogrid 5.
@@ -99,6 +92,9 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
         SplitBlocks : bool
             if :py:obj:`False`, do not split the mesh.
 
+        scale : float
+            Homothety factor to apply on the mesh. Default is 1.
+
     Returns
     -------
 
@@ -117,7 +113,7 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
     InputMeshes = [dict(
                     baseName=I.getName(I.getNodeByType(t, 'CGNSBase_t')),
                     Transform=dict(
-                        scale=1.0,
+                        scale=scale,
                         rotate=[((0,0,0), (0,1,0), 90),((0,0,0), (1,0,0), 90)]
                         ),
                     Connection=[dict(type='Match', tolerance=1e-8),
@@ -127,6 +123,12 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
                     )]
 
     t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], blocksToRename=blocksToRename)
+    # Check that each zone is attached to a family
+    for zone in I.getZones(t):
+        if not I.getNodeFromType1(zone, 'FamilyName_t'):
+            FAILMSG = 'Each zone must be attached to a Family:\n'
+            FAILMSG += 'Zone {} has no node of type FamilyName_t'.format(I.getName(zone))
+            raise Exception(J.FAIL+FAILMSG+J.ENDC)
     PRE.transform(t, InputMeshes)
     for row, rowParams in duplicationInfos.items():
         try: MergeBlocks = rowParams['MergeBlocks']
@@ -144,7 +146,8 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, TurboConfiguration={}, Extractions={}, BoundaryConditions={},
-        BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade']):
+        BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade'],
+        initializeFromCGNS=None):
     '''
     This is mainly a function similar to Preprocess :py:func:`prepareMainCGNS4ElsA`
     but adapted to compressor computations. Its purpose is adapting the CGNS to
@@ -172,6 +175,10 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         BodyForceInputData : :py:class:`list` of :py:class:`dict`
 
         writeOutputFields : bool
+
+        initializeFromCGNS : :py:class:`str` or :py:obj:`None`
+            If not :py:obj:`None`, initialize the flow solution from the given
+            CGNS file
 
     Returns
     -------
@@ -220,6 +227,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     elsAkeysCFD      = PRE.getElsAkeysCFD()
     elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues)
     if BodyForceInputData: NumericalParams['useBodyForce'] = True
+
+    if not 'NumericalScheme' in NumericalParams:
+        NumericalParams['NumericalScheme'] = 'roe'
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues, **NumericalParams)
     TurboConfiguration = setTurboConfiguration(**TurboConfiguration)
 
@@ -232,12 +242,12 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                         Extractions=Extractions)
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
-    t = newCGNSfromSetup(t, AllSetupDics, initializeFlow=True, FULL_CGNS_MODE=False)
-    to = PRE.newRestartFieldsFromCGNS(t)
-    # Beware: setting the BCs here delete the .Solver#Output nodes
-    # TODO: move this function and solve the Seg. Fault bug with .Solver#Output
     setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
             ReferenceValues, bladeFamilyNames=bladeFamilyNames)
+    t = newCGNSfromSetup(t, AllSetupDics, initializeFlow=True, FULL_CGNS_MODE=False)
+    to = PRE.newRestartFieldsFromCGNS(t)
+    if initializeFromCGNS:
+        PRE.initializeFlowSolutionFromFile(to, initializeFromCGNS)
     PRE.saveMainCGNSwithLinkToOutputFields(t,to,writeOutputFields=writeOutputFields)
 
     print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
@@ -697,7 +707,8 @@ def splitWithPyPart(filename, partN=1, savePpart=False, output=None):
 def computeReferenceValues(FluidProperties, Massflow, PressureStagnation,
         TemperatureStagnation, Surface, TurbulenceLevel=0.001,
         Viscosity_EddyMolecularRatio=0.1, TurbulenceModel='Wilcox2006-klim',
-        TurbulenceCutoff=1.0, TransitionMode=None, CoprocessOptions={},
+        TurbulenceCutoff=1e-8, TransitionMode=None,
+        CoprocessOptions=dict(AveragingIterations=1000),
         Length=1.0, TorqueOrigin=[0., 0., 0.],
         FieldsAdditionalExtractions=['ViscosityMolecular', 'Viscosity_EddyMolecularRatio', 'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation', 'Mach']):
     '''
@@ -765,46 +776,47 @@ def setTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}):
     Parameters
     ----------
 
-        ShaftRotationSpeed : py:class:`float`
+        ShaftRotationSpeed : :py:class:`float`
             Shaft speed in rad/s
 
             .. attention:: only for single shaft configuration
 
             .. attention:: Pay attention to the sign of **ShaftRotationSpeed**
 
-        HubRotationSpeed : :py:class:list of :py:class:tuple
+        HubRotationSpeed : :py:class:`list` of :py:class:`tuple`
             Hub rotation speed. Each tuple (``xmin``, ``xmax``) corresponds to a
             ``CoordinateX`` interval where the speed at hub wall is
-            ``ShaftRotationSpeed``. It is zero outside these intervals.
+            **ShaftRotationSpeed**. It is zero outside these intervals.
 
-        Rows : py:class:`dict`
+        Rows : :py:class:`dict`
             This dictionary has one entry for each row domain. The key names
             must be the family names in the CGNS Tree.
             For each family name, the following entries are expected:
 
-                * RotationSpeed : py:class:`float` or py:class:`str`
+                * RotationSpeed : :py:class:`float` or :py:class:`str`
                     Rotation speed in rad/s. Set ``'auto'`` to automatically
-                    set ``ShaftRotationSpeed``.
+                    set **ShaftRotationSpeed**.
 
-                    .. attention:: Use **RotationSpeed**=``'auto'`` for rotors
-                        only.
+                    .. attention::
+                        Use **RotationSpeed** = ``'auto'`` for rotors only.
 
-                    .. attention:: Pay attention to the sign of
-                        **RotationSpeed**
+                    .. attention::
+                        Pay attention to the sign of **RotationSpeed**
 
-                * NumberOfBlades : py:class:`int`
+                * NumberOfBlades : :py:class:`int`
                     The number of blades in the row
 
-                * NumberOfBladesSimulated : py:class:`int`
+                * NumberOfBladesSimulated : :py:class:`int`
                     The number of blades in the computational domain. Set to
-                    ``<NumberOfBlades>`` for a full 360 simulation.
+                    **NumberOfBlades** for a full 360 simulation. If not given,
+                    the default value is 1.
 
-                * InletPlane : py:class:`float`, optional
+                * InletPlane : :py:class:`float`, optional
                     Position (in ``CoordinateX``) of the inlet plane for this
                     row. This plane is used for post-processing and convergence
                     monitoring.
 
-                * OutletPlane : py:class:`float`, optional
+                * OutletPlane : :py:class:`float`, optional
                     Position of the outlet plane for this row.
 
     Returns
@@ -823,6 +835,8 @@ def setTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}):
         for key, value in rowParams.items():
             if key == 'RotationSpeed' and value == 'auto':
                 rowParams[key] = ShaftRotationSpeed
+        if not 'NumberOfBladesSimulated' in rowParams:
+            rowParams['NumberOfBladesSimulated'] = 1
 
     return TurboConfiguration
 
@@ -863,16 +877,21 @@ def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
     CGNS tree and writes the ``setup.py`` file.
 
     The only differences with Preprocess newCGNSfromSetup are:
+
     #. addSolverBC is not applied, in order not to disturb the special
        turbomachinery BCs
+
     #. extraction of coordinates in ``FlowSolution#EndOfRun#Coords`` is
-        desactivated
+       desactivated
+
     '''
     t = I.copyRef(t)
 
     PRE.addTrigger(t)
     PRE.addExtractions(t, AllSetupDictionaries['ReferenceValues'],
-                      AllSetupDictionaries['elsAkeysModel'], extractCoords=False)
+                          AllSetupDictionaries['elsAkeysModel'],
+                          extractCoords=False,
+                          FluxExtractions=[])
     PRE.addReferenceState(t, AllSetupDictionaries['FluidProperties'],
                          AllSetupDictionaries['ReferenceValues'])
     PRE.addGoverningEquations(t, dim=dim) # TODO replace dim input by elsAkeysCFD['config'] info
@@ -994,11 +1013,14 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
         BoundaryConditions : :py:class:`list` of :py:class:`dict`
             User-provided list of boundary conditions. Each element is a
             dictionary with the following keys:
+
                 * type : elsA BC type
+
                 * option (optional) : add a specification to type
+
                 * other keys depending on type. They will be passed as an
-                    unpacked dictionary of arguments to the BC type-specific
-                    function.
+                  unpacked dictionary of arguments to the BC type-specific
+                  function.
 
         TurboConfiguration : dict
             as produced by :py:func:`setTurboConfiguration`
@@ -1015,8 +1037,9 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
     See also
     --------
 
-        setBC_Walls, setBC_inj1, setBC_inj1_uniform, setBC_inj1_interpFromFile,
-        setBC_outpres
+    setBC_Walls, setBC_farfield,
+    setBC_inj1, setBC_inj1_uniform, setBC_inj1_interpFromFile,
+    setBC_outpres
     '''
     print(J.CYAN + 'set BCs at walls' + J.ENDC)
     setBC_Walls(t, TurboConfiguration, bladeFamilyNames=bladeFamilyNames)
@@ -1025,7 +1048,11 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
 
         BCkwargs = {key:BCparam[key] for key in BCparam if key not in ['type', 'option']}
 
-        if BCparam['type'] == 'inj1':
+        if BCparam['type'] == 'farfield':
+            print(J.CYAN + 'set BC farfield on ' + BCparam['FamilyName'] + J.ENDC)
+            setBC_farfield(t, **BCkwargs)
+
+        elif BCparam['type'] == 'inj1':
 
             if 'option' not in BCparam:
                 print(J.CYAN + 'set BC inj1 on ' + BCparam['FamilyName'] + J.ENDC)
@@ -1086,14 +1113,15 @@ def setBC_Walls(t, TurboConfiguration, bladeFamilyNames=['Blade']):
     '''
     Set all the wall boundary conditions in a turbomachinery context, by making
     the following operations:
+
         * set the rotation speed for all families related to row domains. It is
-            defined in:
+          defined in:
 
             >>> TurboConfiguration['Rows'][rowName]['RotationSpeed'] = float
 
         * set BCs related to each blade.
         * set BCs related to hub. The intervals where the rotation speed is the
-            shaft speed (for rotor platforms) are set in the following form:
+          shaft speed (for rotor platforms) are set in the following form:
 
             >>> TurboConfiguration['HubRotationSpeed'] = [(xmin1, xmax1), ..., (xminN, xmaxN)]
 
@@ -1179,14 +1207,37 @@ def setBC_Walls(t, TurboConfiguration, bladeFamilyNames=['Blade']):
                 axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
                 axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
 
+def setBC_farfield(t, FamilyName):
+    '''
+    Set an farfield boundary condition.
+
+    .. note:: see `elsA Tutorial about farfield condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#farfield/>`_
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+    '''
+    farfield = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    I._rmNodesByType(farfield, 'FamilyBC_t')
+    I.newFamilyBC(value='BCFarfield', parent=farfield)
+
 def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
     '''
     Generic function to impose a Boundary Condition ``inj1``. The following
     functions are more specific:
+
         * :py:func:`setBC_inj1_uniform`
+
         * :py:func:`setBC_inj1_interpFromFile`
 
-    .. note:: see `elsA Tutorial about inj1 condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#inj1/>`_
+    .. note::
+        see `elsA Tutorial about inj1 condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#inj1/>`_
 
     Parameters
     ----------
@@ -1200,22 +1251,26 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
         ImposedVariables : dict
             Dictionary of variables to imposed on the boudary condition. Keys
             are variable names, and values must be:
+
                 * either scalars: in that case they are imposed once for the
-                    family **FamilyName** in the corresponding ``Family_t`` node.
+                  family **FamilyName** in the corresponding ``Family_t`` node.
+
                 * or numpy arrays: in that case they are imposed for the ``BC_t``
-                    node **bc**.
+                  node **bc**.
 
         bc : PyTree
             ``BC_t`` node on which the boundary condition will be imposed. Must
-                be :py:obj:`None` if the condition must be imposed once in the
-                ``Family_t`` node.
+            be :py:obj:`None` if the condition must be imposed once in the
+            ``Family_t`` node.
 
     See also
     --------
 
-        setBC_inj1_uniform, setBC_inj1_interpFromFile
+    setBC_inj1_uniform, setBC_inj1_interpFromFile
 
     '''
+    checkVariables(ImposedVariables)
+
     inlet = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
     I._rmNodesByType(inlet, 'FamilyBC_t')
     I.newFamilyBC(value='BCInflowSubsonic', parent=inlet)
@@ -1224,9 +1279,8 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
         J.set(inlet, '.Solver#BC', type='inj1', **ImposedVariables)
 
     else:
-        J.set(inlet, '.Solver#BC', type='inj1') #TODO: check if really needed
-
         assert bc is not None
+        J.set(bc, '.Solver#BC', type='inj1')
 
         PointRange = I.getValue(I.getNodeFromType(bc, 'IndexRange_t'))
         bc_shape = PointRange[:, 1] - PointRange[:, 0]
@@ -1246,6 +1300,8 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
         BCDataSet = I.newBCDataSet(name='BCDataSet#Init', value='Null',
             gridLocation='FaceCenter', parent=bc)
         J.set(BCDataSet, 'DirichletData', **ImposedVariables)
+        DirichletData = I.getNodeFromName1(BCDataSet, 'DirichletData')
+        I.setType(DirichletData, 'BCData_t')
 
 def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName):
     '''
@@ -1270,7 +1326,7 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName):
     See also
     --------
 
-        setBC_inj1, setBC_inj1_interpFromFile
+    setBC_inj1, setBC_inj1_interpFromFile
 
     '''
 
@@ -1363,7 +1419,7 @@ def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileform
     See also
     --------
 
-        setBC_inj1, setBC_inj1_uniform
+    setBC_inj1, setBC_inj1_uniform
 
     '''
 
@@ -1374,38 +1430,27 @@ def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileform
     var2interp += turbVars
 
     donor_tree = C.convertFile2PyTree(filename, format=fileformat)
-    FSCenters_nodes = I.getNodesFromType(donor_tree, I.__FlowSolutionCenters__)
-    if FSCenters_nodes == []:
-        donor_tree = C.node2Center(donor_tree, I.__FlowSolutionNodes__)
-        I._rmNodesByNameAndType(donor_tree, I.__FlowSolutionNodes__, 'FlowSolution_t')
-        for FS in I.getNodesFromType(donor_tree, 'FlowSolution_t'):
-            I.setName(FS, I.__FlowSolutionCenters__)
-
     inlet_BC_nodes = C.extractBCOfName(t, 'FamilySpecified:{0}'.format(FamilyName))
     I._adaptZoneNamesForSlash(inlet_BC_nodes)
-    # hook = None # TODO: Add a hook
     for w in inlet_BC_nodes:
         bcLongName = I.getName(w)  # from C.extractBCOfName: <zone>\<bc>
         zname, wname = bcLongName.split('\\')
         znode = I.getNodeFromNameAndType(t, zname, 'Zone_t')
         bcnode = I.getNodeFromNameAndType(znode, wname, 'BC_t')
 
-        donor_BC = I.getNodeFromName(donor_tree, bcLongName)
-        if not donor_BC:
-            print('Interpolate Inflow condition on BC {}...'.format(bcLongName))
-            I._rmNodesByType(w, 'FlowSolution_t')
-            # if not hook:
-            #     hook = C.createHook(donor_tree, function='extractMesh')
-            donor_BC = P.extractMesh(donor_tree, w) #, hook=[hook])
-            donor_BC = C.node2Center(donor_BC, I.__FlowSolutionNodes__)
-            I._rmNodesByName(donor_BC, I.__FlowSolutionNodes__)
+        print('Interpolate Inflow condition on BC {}...'.format(bcLongName))
+        I._rmNodesByType(w, 'FlowSolution_t')
+        donor_BC = P.extractMesh(donor_tree, w, mode='accurate')
 
         ImposedVariables = dict()
         for var in var2interp:
-            ImposedVariables[var] = I.getValue(I.getNodeFromName(donor_BC, var))
+            varNode = I.getNodeFromName(donor_BC, var)
+            if varNode:
+                ImposedVariables[var] = np.asfortranarray(I.getValue(varNode)[::-1, :])
+            else:
+                raise TypeError('variable {} not found in {}'.format(var, filename))
 
         setBC_inj1(t, FamilyName, ImposedVariables, bc=bcnode)
-    # C.freeHook(hook)
 
 def setBC_outpres(t, FamilyName, pressure):
     '''
@@ -1426,11 +1471,51 @@ def setBC_outpres(t, FamilyName, pressure):
             Value of the static pressure to impose
 
     '''
+    checkVariables(dict(pressure=pressure))
     outlet = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
     I._rmNodesByType(outlet, 'FamilyBC_t')
     I.newFamilyBC(value='BCOutflowSubsonic', parent=outlet)
     J.set(outlet, '.Solver#BC', type='outpres', pressure=pressure)
 
+def checkVariables(ImposedVariables):
+    '''
+    Check that variables in the input dictionary are well defined. Raise a
+    ``ValueError`` if not.
+
+    Parameters
+    ----------
+
+        ImposedVariables : dict
+            Each key is a variable name. Based on this name, the value (float or
+            numpy.array) is checked.
+            For instance:
+
+                * Variables such as pressure, temperature or turbulent quantities
+                  must be strictly positive.
+
+                * Components of a unit vector must be between -1 and 1.
+
+    '''
+    posiviteVars = ['PressureStagnation', 'EnthalpyStagnation',
+        'stagnation_pressure', 'stagnation_temperature', 'Pressure', 'pressure', 'Temperature',
+        'TurbulentEnergyKinetic', 'TurbulentDissipationRate', 'TurbulentDissipation', 'TurbulentLengthScale',
+        'TurbulentSANuTilde']
+    unitVectorComponent = ['VelocityUnitVectorX', 'VelocityUnitVectorY', 'VelocityUnitVectorZ',
+        'txv', 'tyv', 'tzv']
+
+    def positive(value):
+        if isinstance(value, np.ndarray): return np.all(value>0)
+        else: return value>0
+
+    def unitComponent(value):
+        if isinstance(value, np.ndarray): return np.all(np.absolute(value)<=1)
+        else: return abs(value)<=1
+
+    for var, value in ImposedVariables.items():
+        if var in posiviteVars and not positive(value):
+            raise ValueError('{} must be positive, but here it is equal to {}'.format(var, value))
+        elif var in unitVectorComponent and not unitComponent(value):
+            raise ValueError('{} must be between -1 and +1, but here it is equal to {}'.format(var, value))
 
 ################################################################################
 #######  Boundary conditions without ETC dependency  ###########################
@@ -1802,7 +1887,7 @@ def ETC_setBC_outradeq(t, FamilyName, valve_type, valve_ref_pres,
         # pour la loi 5, pref = pi de reference
         valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget', 3: 'QLinear', 4: 'QHyperbolic'}
         bc.valve_law(valve_law_dict[valve_type], valve_ref_pres, valve_ref_mflow, valve_relax=valve_relax)
-        bc.dirorder = 1
+        bc.dirorder = -1
         globborder = bc.glob_border(current=FamilyName)
         globborder.i_poswin        = gbd[bcpath]['i_poswin']
         globborder.j_poswin        = gbd[bcpath]['j_poswin']
@@ -1919,3 +2004,285 @@ def getGlobDir(tree, bc):
     print('  * glob_dir_i = %s\n  * glob_dir_j = %s'%(globDirI, globDirJ))
     assert globDirI != globDirJ
     return globDirI, globDirJ
+
+
+################################################################################
+
+def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
+                    ThrottleRange, RotationSpeedRange, **kwargs):
+    '''
+    User-level function designed to launch a structured-type polar of airfoil.
+
+    Parameters
+    ----------
+
+        PREFIX_JOB : str
+            an arbitrary prefix for the jobs
+
+        AER : str
+            full AER code for launching simulations on SATOR
+
+        NProc : int
+            Number of processors for each job.
+
+        machine : str
+            name of the machine ``'sator'``, ``'spiro'``, ``'eos'``...
+
+            .. warning:: only ``'sator'`` has been tested
+
+        DIRECTORY_WORK : str
+            the working directory at computation server.
+
+            .. note:: indicated directory may not exist. In this case, it will
+                be created.
+
+        ThrottleRange : list
+            Throttle values to consider (depend on the valve law)
+
+        RotationSpeedRange : list
+            RotationSpeed numbers to consider
+
+        kwargs : dict
+            same arguments than prepareMainCGNS4ElsA
+
+    Returns
+    -------
+
+        None : None
+            File ``JobsConfiguration.py`` is writen and polar builder job is
+            launched
+    '''
+    ThrottleMatrix, RotationSpeedMatrix  = np.meshgrid(ThrottleRange, RotationSpeedRange)
+
+    Throttle_       = ThrottleMatrix.ravel(order='K')
+    RotationSpeed_  = RotationSpeedMatrix.ravel(order='K')
+    NewJobs         = Throttle_ == ThrottleRange[0]
+
+    JobsQueues = []
+    for i, (Throttle, RotationSpeed, NewJob) in enumerate(zip(Throttle_, RotationSpeed_, NewJobs)):
+
+        print('Assembling run {} Throttle={} RotationSpeed={} | NewJob = {}'.format(
+                i, Throttle, RotationSpeed, NewJob))
+
+        if NewJob:
+            JobName = PREFIX_JOB+'%d'%i
+            writeOutputFields = True
+        else:
+            writeOutputFields = False
+
+        CASE_LABEL = '{:08.2f}_{}'.format(abs(Throttle), JobName)
+        if Throttle < 0: CASE_LABEL = 'M'+CASE_LABEL
+
+        WorkflowParams = copy.deepcopy(kwargs)
+
+        WorkflowParams['TurboConfiguration']['ShaftRotationSpeed'] = RotationSpeed
+
+        for BC in WorkflowParams['BoundaryConditions']:
+            if 'outradeq' in BC['type']:
+                if BC['valve_type'] == 0:
+                    BC['prespiv'] = Throttle
+                elif BC['valve_type'] in [1, 5]:
+                    BC['valve_ref_pres'] = Throttle
+                elif BC['valve_type'] == 2:
+                    BC['valve_ref_mflow'] = Throttle
+                elif BC['valve_type'] in [3, 4]:
+                    BC['valve_relax'] = Throttle
+                else:
+                    raise Exception('valve_type={} not taken into account yet'.format(BC['valve_type']))
+
+        if 'initializeFromCGNS' in WorkflowParams and i != 0:
+            WorkflowParams.pop('initializeFromCGNS')
+
+        JobsQueues.append(
+            dict(ID=i, CASE_LABEL=CASE_LABEL, NewJob=NewJob, JobName=JobName, **WorkflowParams)
+            )
+
+    JM.saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,
+                            GeomPath=kwargs['mesh'], NProc=NProc)
+
+
+    def findElementsInCollection(collec, searchKey, elements=[]):
+        '''
+        In the nested collection **collec** (may be a dictionary or a list),
+        find all the values corresponding to the key **searchKey**.
+
+        Parameters
+        ----------
+
+            collec : :py:class:`dict` or :py:class:`list`
+                Nested dictionary or list where **searchKey** is searched
+
+            searchKey : str
+                Key to find in **collec**
+
+            elements : list
+                accumulated list of found values. Works as an accumulator in the
+                recursive function
+
+        Returns
+        -------
+
+            elements : list
+                list of the found values correspondingto **searchKey**
+        '''
+        if isinstance(collec, dict):
+            for key, value in collec.items():
+                if isinstance(value, (dict, list)):
+                    findElementsInCollection(value, searchKey, elements=elements)
+                elif key == searchKey:
+                    elements.append(value)
+        elif isinstance(collec, list):
+            for elem in collec:
+                findElementsInCollection(elem, searchKey, elements=elements)
+        return elements
+
+    otherFiles = findElementsInCollection(kwargs, 'filename')
+    templatesFolder = os.getenv('MOLA') + '/TEMPLATES/WORKFLOW_COMPRESSOR'
+    JM.launchJobsConfiguration(templatesFolder=templatesFolder, otherFiles=otherFiles)
+
+def printConfigurationStatus(DIRECTORY_WORK, useLocalConfig=False):
+    '''
+    Print the current status of a IsoSpeedLines computation.
+
+    Parameters
+    ----------
+
+        DIRECTORY_WORK : str
+            directory where ``JobsConfiguration.py`` file is located
+
+        useLocalConfig : bool
+            if :py:obj:`True`, use the local ``JobsConfiguration.py``
+            file instead of retreiving it from **DIRECTORY_WORK**
+
+    '''
+    config = JM.getJobsConfiguration(DIRECTORY_WORK, useLocalConfig)
+    Throttle = np.array(sorted(list(set([float(case['CASE_LABEL'].split('_')[0]) for case in config.JobsQueues]))))
+    RotationSpeed = np.array(sorted(list(set([case['TurboConfiguration']['ShaftRotationSpeed'] for case in config.JobsQueues]))))
+
+    nThrottle = Throttle.size
+    nRotationSpeed = RotationSpeed.size
+    NcolMax = 79
+    FirstCol = 15
+    Ndigs = int((NcolMax-FirstCol)/nRotationSpeed)
+    ColFmt = r'{:^'+str(Ndigs)+'g}'
+    ColStrFmt = r'{:^'+str(Ndigs)+'s}'
+    TagStrFmt = r'{:>'+str(FirstCol)+'s}'
+    TagFmt = r'{:>'+str(FirstCol-2)+'g} |'
+
+    def getCaseLabel(config, throttle, rotSpeed):
+        for case in config.JobsQueues:
+            if np.isclose(float(case['CASE_LABEL'].split('_')[0]), throttle) and \
+                np.isclose(case['TurboConfiguration']['ShaftRotationSpeed'], rotSpeed):
+
+                return case['CASE_LABEL']
+
+    JobNames = [getCaseLabel(config, Throttle[0], m).split('_')[-1] for m in RotationSpeed]
+    print('')
+    print(TagStrFmt.format('JobName |')+''.join([ColStrFmt.format(j) for j in JobNames]))
+    print(TagStrFmt.format('RotationSpeed |')+''.join([ColFmt.format(r) for r in RotationSpeed]))
+    print(TagStrFmt.format('Throttle |')+''.join(['_' for m in range(NcolMax-FirstCol)]))
+
+    for throttle in Throttle:
+        Line = TagFmt.format(throttle)
+        for rotSpeed in RotationSpeed:
+            CASE_LABEL = getCaseLabel(config, throttle, rotSpeed)
+            status = JM.statusOfCase(config, CASE_LABEL)
+            if status == 'COMPLETED':
+                msg = J.GREEN+ColStrFmt.format('OK')+J.ENDC
+            elif status == 'FAILED':
+                msg = J.FAIL+ColStrFmt.format('KO')+J.ENDC
+            elif status == 'TIMEOUT':
+                msg = J.WARN+ColStrFmt.format('TO')+J.ENDC
+            elif status == 'RUNNING':
+                msg = ColStrFmt.format('GO')
+            else:
+                msg = ColStrFmt.format('PD') # Pending
+            Line += msg
+        print(Line)
+
+def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
+                                        monitoredRow='row_1'):
+    '''
+    Print the current status of a IsoSpeedLines computation and display
+    performance of the monitored row for completed jobs.
+
+    .. attention::
+        This function works only for one value of rotation speed.
+
+    Parameters
+    ----------
+
+        DIRECTORY_WORK : str
+            directory where ``JobsConfiguration.py`` file is located
+
+        useLocalConfig : bool
+            if :py:obj:`True`, use the local ``JobsConfiguration.py``
+            file instead of retreiving it from **DIRECTORY_WORK**
+
+        monitoredRow : str
+            Name of the row whose performance will be displayed
+
+    '''
+    from . import Coprocess as CO
+
+    config = JM.getJobsConfiguration(DIRECTORY_WORK, useLocalConfig)
+    Throttle = np.array(sorted(list(set([float(case['CASE_LABEL'].split('_')[0]) for case in config.JobsQueues]))))
+    RotationSpeed = np.array(sorted(list(set([case['TurboConfiguration']['ShaftRotationSpeed'] for case in config.JobsQueues]))))
+
+    assert RotationSpeed.size == 1
+    nThrottle = Throttle.size
+    nCol = 4
+    NcolMax = 79
+    FirstCol = 15
+    Ndigs = int((NcolMax-FirstCol)/nCol)
+    ColFmt = r'{:^'+str(Ndigs)+'g}'
+    ColStrFmt = r'{:^'+str(Ndigs)+'s}'
+    TagStrFmt = r'{:>'+str(FirstCol)+'s}'
+    TagFmt = r'{:>'+str(FirstCol-2)+'g} |'
+
+    def getCaseLabel(config, throttle, rotSpeed):
+        for case in config.JobsQueues:
+            if np.isclose(float(case['CASE_LABEL'].split('_')[0]), throttle) and \
+                np.isclose(case['TurboConfiguration']['ShaftRotationSpeed'], rotSpeed):
+
+                return case['CASE_LABEL']
+
+    lines = ['']
+
+    JobNames = [getCaseLabel(config, Throttle[0], m).split('_')[-1] for m in RotationSpeed]
+    lines.append(TagStrFmt.format('JobName |')+''.join([ColStrFmt.format(JobNames[0])] + [ColStrFmt.format('') for j in range(nCol-1)]))
+    lines.append(TagStrFmt.format('RotationSpeed |')+''.join([ColFmt.format(RotationSpeed[0])] + [ColStrFmt.format('') for j in range(nCol-1)]))
+    lines.append(TagStrFmt.format(' |')+''.join([ColStrFmt.format(''), ColStrFmt.format('MFR'), ColStrFmt.format('PR'), ColStrFmt.format('ETA')]))
+    lines.append(TagStrFmt.format('Throttle |')+''.join(['_' for m in range(NcolMax-FirstCol)]))
+
+    if not os.path.isdir('OUTPUT'):
+        os.makedirs('OUTPUT')
+
+    for throttle in Throttle:
+        Line = TagFmt.format(throttle)
+        CASE_LABEL = getCaseLabel(config, throttle, RotationSpeed[0])
+        status = JM.statusOfCase(config, CASE_LABEL)
+        if status == 'COMPLETED':
+            msg = J.GREEN+ColStrFmt.format('OK')+J.ENDC
+        elif status == 'FAILED':
+            msg = J.FAIL+ColStrFmt.format('KO')+J.ENDC
+        elif status == 'TIMEOUT':
+            msg = J.WARN+ColStrFmt.format('TO')+J.ENDC
+        elif status == 'RUNNING':
+            msg = ColStrFmt.format('GO')
+        else:
+            msg = ColStrFmt.format('PD') # Pending
+
+        if status == 'COMPLETED':
+            lastloads = JM.getCaseLoads(config, CASE_LABEL,
+                                    basename='PERFOS_{}'.format(monitoredRow))
+            MFR = lastloads['MassflowIn']
+            PR  = lastloads['PressureStagnationRatio']
+            ETA = lastloads['EfficiencyIsentropic']
+            msg += ''.join([ColFmt.format(MFR), ColFmt.format(PR), ColFmt.format(ETA)])
+        else:
+            msg += ''.join([ColStrFmt.format('') for n in range(nCol-1)])
+        Line += msg
+        lines.append(Line)
+
+    for line in lines: print(line)

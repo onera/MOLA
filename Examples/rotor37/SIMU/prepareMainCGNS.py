@@ -77,9 +77,7 @@ ReferenceValues = dict(
     # Possible values are :
     # 'SA', 'BSL','BSL-V','SST-2003','SST','SST-V','Wilcox2006-klim',
     # 'SST-2003-LM2009', 'SSG/LRR-RSM-w2012'
-    #TurbulenceModel='Wilcox2006-klim',
     TurbulenceModel='smith', 
-    
 
     # Next dictionary is used for establishing the coprocessing options for the
     # simulation during the trigger call of coprocess.py script:
@@ -93,52 +91,24 @@ ReferenceValues = dict(
         # standard deviation statistic of Lift Coefficient.
         MaxConvergedCLStd   = 1e-4,
 
-        # Following key establishes the number of iterations used for computing
-        # the statistics of the loads
-        AveragingIterations = 1000,
-
-        # Following key states the minimum number of iterations to perform
-        # even if the CONVERGED criterion is satisfied
-        ItersMinEvenIfConverged= 1000,
-
         # These keys are used to determine the save frequency of the files
         # loads.cgns, surfaces.cgns and fields.cgns
         UpdateLoadsFrequency      = 1e20,
         UpdateSurfacesFrequency   = 20,
         UpdateFieldsFrequency     = 1000,
-
-        # Following key establishes the timeout of the simulation (in seconds)
-        # and SecondsMargin4QuitBeforeTimeOut is the margin (in seconds) with
-        # respect to the timeout.
-        # elsA will safely stop if
-        # TimeOutInSeconds+SecondsMargin4QuitBeforeTimeOut elapsed time is
-        # reached, even if the total number of iterations is not completed
-        # these proposed values are OK for 15h job (example of SATOR prod job)
-        TimeOutInSeconds       = 53100.0, # 14.75 h * 3600 s/h = 53100 s
-        SecondsMargin4QuitBeforeTimeOut = 900.,
-
         ),
     )
 
 NumericalParams = dict(
-    # following key is the numerical scheme. Choose one of: 'jameson' 'ausm+'
+    # following key is the numerical scheme. Choose one of: 'jameson' 'ausm+' 'roe'
     NumericalScheme='roe',
-    # following key is the time marching procedure. One of: 'steady' 'gear'
-    TimeMarching='steady',
-    # BEWARE: if "gear", then user shall indicate the timestep like this:
-    timestep=0.01, # (only relevant if unsteady simulation)
-    # following key states the initial iteration. Shall be 1 in general.
-    inititer=1,
     # CFL ramp
-    CFLparams=dict(vali=1.,valf=3.,iteri=1,iterf=1000,function_type='linear'),
-    # following key states the maximum number of iterations of the iterations.
-    # It is recommended to use a VERY HIGH value, as the simulation will stop
-    # safely before timeout (see CoprocessOptions)
-    Niter=1e6)
+    CFLparams=dict(vali=1.,valf=3.,iteri=1,iterf=1000,function_type='linear')
+    )
 
 
 Extractions = [
-    # 
+    #
     dict(type='AllBCwall'),
     dict(type='BCInflowSubsonic'),
     dict(type='row_1_OUTFLOW'),
@@ -162,7 +132,7 @@ fluxcoeff = TurboConfiguration['Rows']['R37']['NumberOfBlades']/TurboConfigurati
 mref = ReferenceValues['Massflow'] / float(fluxcoeff)
 
 BoundaryConditions = [
-    dict(type='inj1', option='uniform', FamilyName='R37_INFLOW'), 
+    dict(type='inj1', option='uniform', FamilyName='R37_INFLOW'),
     dict(type='outpres', FamilyName='R37_OUTFLOW', pressure=pref),
     #dict(type='outradeqhyb', FamilyName='R37_OUTFLOW', valve_type=2, valve_ref_pres=pref, valve_ref_mflow=mref, valve_relax=0.1)
 ]
@@ -173,5 +143,3 @@ WF.prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams=ReferenceValues,
         NumericalParams=NumericalParams, TurboConfiguration=TurboConfiguration,
         Extractions=Extractions, BodyForceInputData=[], BoundaryConditions=BoundaryConditions,
         writeOutputFields=True, bladeFamilyNames=['_R37'])
-
-

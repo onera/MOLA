@@ -1971,9 +1971,9 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
 
 
     DefaultCoprocessOptions = dict(            # Default values
-        UpdateFieldsFrequency  = 2000,
+        UpdateFieldsFrequency   = 2000,
         UpdateLoadsFrequency    = 50,
-        NewSurfacesFrequency    = 500,
+        UpdateSurfacesFrequency = 500,
         AveragingIterations     = 3000,
         MaxConvergedCLStd       = 1e-4,
         ItersMinEvenIfConverged = 1000,
@@ -2822,7 +2822,7 @@ def addTrigger(t, coprocessFilename='coprocess.py'):
                  file=coprocessFilename)
 
 
-def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True):
+def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True, WallExtractions=None, FluxExtractions=None):
     '''
     Include surfacic and field extraction information to CGNS tree using
     information contained in dictionaries **ReferenceValues** and
@@ -2842,13 +2842,23 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True):
         elsAkeysModel : dict
             dictionary as produced by :py:func:`getElsAkeysModel` function
 
+        WallExtractions : :py:class:`list` of :py:class:`str`
+            list of variables to extract at the wall.
+
+        FluxExtractions : :py:class:`list` of :py:class:`str`
+            list of flux variables to extract at the wall. Their names must
+            begin by 'flux_'. They will be automatically integrated on the
+            surface family during the simulation to produce nodes of type
+            ``'IntegralData_t'``.
     '''
-    addSurfacicExtractions(t, ReferenceValues, elsAkeysModel)
+    addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
+        WallExtractions=WallExtractions, FluxExtractions=FluxExtractions)
     addFieldExtractions(t, ReferenceValues, extractCoords=extractCoords)
     EP._addGlobalConvergenceHistory(t)
 
 
-def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel):
+def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
+    WallExtractions=None, FluxExtractions=None):
     '''
     Include surfacic extraction information to CGNS tree using
     information contained in dictionaries **ReferenceValues** and
@@ -2867,7 +2877,27 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel):
 
         elsAkeysModel : dict
             dictionary as produced by :py:func:`getElsAkeysModel` function
+
+        WallExtractions : :py:class:`list` of :py:class:`str`
+            list of variables to extract at the wall. If not given, the default
+            extracted variables are:
+            ::
+                >>> WallExtractions = ['normalvector','SkinFrictionX','SkinFrictionY','SkinFrictionZ','psta']
+
+        FluxExtractions : :py:class:`list` of :py:class:`str`
+            list of flux variables to extract at the wall. Their names must
+            begin by 'flux_'. They will be automatically integrated on the
+            surface family during the simulation to produce nodes of type
+            ``'IntegralData_t'``.  If not given, the default extracted variables
+            are:
+            ::
+                >>> FluxExtractions = ['flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
+
     '''
+    if WallExtractions is None:
+        WallExtractions = ['normalvector','SkinFrictionX','SkinFrictionY','SkinFrictionZ','psta']
+    if FluxExtractions is None:
+        FluxExtractions = ['flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
 
     FamilyNodes = I.getNodesFromType2(t, 'Family_t')
     for FamilyNode in FamilyNodes:
@@ -2876,11 +2906,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel):
         if not BCType or not 'BCWall' in BCType: continue
 
         # TODO 'bl_ue' CGNS extraction FAILS in v4.2.01
-        WallVariables = ('normalvector'
-                         ' SkinFrictionX SkinFrictionY SkinFrictionZ'
-                         ' psta'
-                         ' flux_rou flux_rov flux_row'
-                         ' torque_rou torque_rov torque_row')
+        WallVariables = ' '.join(WallExtractions+FluxExtractions)
 
         if 'Inviscid' not in BCType:
             WallVariables += ' bl_quantities_2d yplusmeshsize'
@@ -2893,24 +2919,25 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel):
             elif TransitionMode == 'Imposed':
                 WallVariables += ' intermittency clim'
 
-        print('setting .Solver#Output to FamilyNode '+FamilyNode[0])
-        J.set(FamilyNode, '.Solver#Output',
-            var           = WallVariables,
-            period        = 1,
-            writingmode   = 2,
-            loc           = 'interface',
-            delta_compute = elsAkeysModel['delta_compute'],
-            vortratiolim  = elsAkeysModel['vortratiolim'],
-            shearratiolim = elsAkeysModel['shearratiolim'],
-            pressratiolim = elsAkeysModel['pressratiolim'],
-            fluxcoeff     = 1.0,
-            torquecoeff   = 1.0,
-            pinf          = ReferenceValues['Pressure'],
-            xtorque       = 0.0,
-            ytorque       = 0.0,
-            ztorque       = 0.0,
-            force_extract = 1,
-            )
+        if WallVariables != []:
+            print('setting .Solver#Output to FamilyNode '+FamilyNode[0])
+            J.set(FamilyNode, '.Solver#Output',
+                var           = WallVariables,
+                period        = 1,
+                writingmode   = 2,
+                loc           = 'interface',
+                delta_compute = elsAkeysModel['delta_compute'],
+                vortratiolim  = elsAkeysModel['vortratiolim'],
+                shearratiolim = elsAkeysModel['shearratiolim'],
+                pressratiolim = elsAkeysModel['pressratiolim'],
+                fluxcoeff     = 1.0,
+                torquecoeff   = 1.0,
+                pinf          = ReferenceValues['Pressure'],
+                xtorque       = 0.0,
+                ytorque       = 0.0,
+                ztorque       = 0.0,
+                force_extract = 1,
+                )
 
 
 def addFieldExtractions(t, ReferenceValues, extractCoords=False):
@@ -3553,3 +3580,31 @@ def getProc(t):
             proc number attributed to each zone of **t**
     '''
     return  np.array(D2.getProc(t), order='F', ndmin=1)
+
+def initializeFlowSolutionFromFile(t, sourceFilename, container='FlowSolution#Init'):
+    '''
+    Initialize the flow solution of **t** from the flow solution in the file
+    **sourceFilename**.
+    Modify the tree **t** in-place.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to initialize
+
+        sourceFilename : str
+            Name of the source file for the interpolation.
+
+        container : str
+            Name of the ``'FlowSolution_t'`` node use for the interpolation.
+            Default is 'FlowSolution#Init'
+
+    '''
+    sourceTree = C.convertFile2PyTree(sourceFilename)
+    OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
+    I.__FlowSolutionCenters__ = container
+    I._rmNodesByType(sourceTree, 'BCDataSet_t')
+    I._rmNodesByNameAndType(sourceTree, '*EndOfRun*', 'FlowSolution_t')
+    P._extractMesh(sourceTree, t, mode='accurate')
+    I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
