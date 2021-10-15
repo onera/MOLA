@@ -7,11 +7,9 @@ import Converter.Internal as I
 import MOLA.WorkflowAirfoil as WF
 import MOLA.JobManager  as JM
 
-import PolarConfiguration as config
+import JobsConfiguration as config
 
-Airfoil = config.GeomPath.split(os.path.sep)[-1]
-jobTemplate = '/tmp_user/sator/lbernard/MOLA/Dev/TEMPLATES/WORKFLOW_AIRFOIL/job_{}.sh'.format(config.machine)
-
+Airfoil = config.FILE_GEOMETRY.split(os.path.sep)[-1]
 
 for case in config.JobsQueues:
 
@@ -20,9 +18,9 @@ for case in config.JobsQueues:
                                      meshParams=case['meshParams'],
                                      save_meshParams=True,
                                      save_mesh=False)
-        JM.buildJob(case, config, meshParams['options']['NProc'], jobTemplate)
+        JM.buildJob(case, config, meshParams['options']['NProc'], 'job_{}.sh'.format(config.machine))
 
-    WF.prepareMainCGNS4ElsA(t=t, meshParams=meshParams,
+    WF.prepareMainCGNS4ElsA(t, meshParams=meshParams,
                        CoprocessOptions=case['CoprocessOptions'],
                        ImposedWallFields=case['ImposedWallFields'],
                        TransitionZones=case['TransitionZones'],

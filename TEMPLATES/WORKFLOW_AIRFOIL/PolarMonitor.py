@@ -1,19 +1,17 @@
 import pprint
-import MOLA.WorkflowAirfoil as WF
-import MOLA.JobManager as JM
+import MOLA.WorkflowAirfoil as WA
 
-DIRECTORY_WORK = '/tmp_user/sator/lbernard/MYPOLAR/'
+config = WA.JM.loadJobsConfiguration()
 
-WF.printConfigurationStatus(DIRECTORY_WORK, useLocalConfig=False)
+WA.printConfigurationStatus(config.DIRECTORY_WORK)
 
 AoA = 6.0
 Mach = 0.2
-config = JM.getJobsConfiguration(DIRECTORY_WORK)
-CASE_LABEL = WF.getCaseLabelFromAngleOfAttackAndMach(config, AoA, Mach)
-Reynolds = WF.getReynoldsFromCaseLabel(config, CASE_LABEL)
-IntegralLoads = JM.getCaseLoads(config, CASE_LABEL)
+CASE_LABEL = WA.getCaseLabelFromAngleOfAttackAndMach(config, AoA, Mach)
+Reynolds = WA.getReynoldsFromCaseLabel(config, CASE_LABEL)
+IntegralLoads = WA.JM.getCaseLoads(config, CASE_LABEL)
 print(pprint.pformat(IntegralLoads))
-DistributedLoads = WF.getCaseDistributions(config, CASE_LABEL)
-WF.getCaseFields(config, CASE_LABEL)
+DistributedLoads = WA.getCaseDistributions(config, CASE_LABEL)
+WA.getCaseFields(config, CASE_LABEL)
 #
-# WF.compareAgainstXFoil('naca 4416', config, CASE_LABEL, DistributedLoads)
+# WA.compareAgainstXFoil('naca 4416', config, CASE_LABEL, DistributedLoads)
