@@ -9,13 +9,11 @@ import MOLA.JobManager as JM
 
 import JobsConfiguration as config
 
-jobTemplate = '/tmp_user/sator/tbontemp/MOLA/Dev/TEMPLATES/WORKFLOW_COMPRESSOR/job_{}.sh'.format(config.machine)
-
 for case in config.JobsQueues:
 
     if case['NewJob']:
         t = C.convertFile2PyTree('mesh.cgns')
-        JM.buildJob(case, config, config.NProc, jobTemplate)
+        JM.buildJob(case, config, config.NProc, 'job_{}.sh'.format(config.machine))
 
     WorkflowParams = dict()
     for key, value in case.items():

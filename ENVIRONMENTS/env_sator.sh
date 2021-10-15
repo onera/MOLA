@@ -1,4 +1,5 @@
 #!/bin/bash
+
 module purge all
 
 export http_proxy=proxy:80 https_proxy=proxy:80 ftp_proxy=proxy:80
