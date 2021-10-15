@@ -2397,9 +2397,8 @@ def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge(foil):
     iTE,_ = D.getNearestPointIndex(foil,Pt)
     NPts = len(x)
     RollPts = NPts - iTE
-    if RollPts > 0:
-        fields2interp = J.getVars(foil,C.getVarNames(foil,excludeXYZ=True)[0])
-        fields2roll =  [x, y, z]
+    if RollPts > 0 and RollPts != NPts:
+        fields2roll =  J.getxyz(foil)
         for field in fields2roll:
             field[:] = np.hstack((field[iTE:],field[1:iTE],field[iTE]))
 
