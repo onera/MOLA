@@ -539,11 +539,11 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
             T._homothety(NewSection, AirfoilProperties['ScalingCenter'],
                                      AirfoilProperties['Chord'])
 
-        # modification produced closing of open airfoil
-        AfterTEgap = W.distance(getBoundary(ModSection,'imax'),
-                                getBoundary(ModSection,'imin'))
-        if AfterTEgap == 0 and PreviousTEgap > 0:
-            ModSection = T.subzone(ModSection, (2,1,1),(-2,-1,-1))
+            # modification produced closing of open airfoil
+            AfterTEgap = W.distance(getBoundary(ModSection,'imax'),
+                                    getBoundary(ModSection,'imin'))
+            if AfterTEgap == 0 and PreviousTEgap > 0:
+                ModSection = T.subzone(ModSection, (2,1,1),(-2,-1,-1))
 
 
         if not W.isCurveClosed(ModSection) and NPtsTrailingEdge>0:
@@ -2560,6 +2560,9 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
     # them appropriately
     Arcs = W.splitCurves(Arc, lineLE, select=1)
     barycenters = [G.barycenter(arc) for arc in Arcs]
+    print('barycenters')
+    print(barycenters)
+    C.convertPyTree2File(ExtrudedMesh,'test.cgns')
     if barycenters[1][1] > barycenters[0][1]:
         ArcBottom, ArcTop = Arcs
     else:

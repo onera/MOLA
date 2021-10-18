@@ -27,7 +27,7 @@ from . import InternalShortcuts as J
 from . import Preprocess as PRE
 from . import GenerativeShapeDesign as GSD
 from . import Wireframe as W
-from . import JobManager as ServerTools
+from . import JobManager as JM
 
 def checkDependencies():
     '''
@@ -71,15 +71,15 @@ def checkDependencies():
     print('\nAttempting file/directories operations on SATOR...')
     TestFile = 'testfile.txt'
     with open(TestFile,'w') as f: f.write('test')
-    UserName = ServerTools.getpass.getuser()
+    UserName = JM.getpass.getuser()
     DIRECTORY_TEST = '/tmp_user/sator/%s/MOLAtest/'%UserName
     Source = TestFile
     Destination = os.path.join(DIRECTORY_TEST,TestFile)
-    ServerTools.cpmvWrap4MultiServer('mv', Source, Destination)
-    ServerTools.repatriate(Destination, Source, removeExistingDestinationPath=False)
+    JM.ServerTools.cpmvWrap4MultiServer('mv', Source, Destination)
+    JM.repatriate(Destination, Source, removeExistingDestinationPath=False)
     print(DIRECTORY_TEST)
-    ServerTools.cpmvWrap4MultiServer('rm', DIRECTORY_TEST)
-    ServerTools.cpmvWrap4MultiServer('rm', Source)
+    JM.ServerTools.cpmvWrap4MultiServer('rm', DIRECTORY_TEST)
+    JM.ServerTools.cpmvWrap4MultiServer('rm', Source)
     print('Attempting file/directories operations on SATOR... done')
 
     print('\nChecking XFoil...')
@@ -106,7 +106,7 @@ def checkDependencies():
     print('\nVERIFICATIONS TERMINATED')
 
 
-def launchBasicStructuredPolars(PREFIX_JOB, GeomPath, AER, machine,
+def launchBasicStructuredPolars(PREFIX_JOB, FILE_GEOMETRY, AER, machine,
         DIRECTORY_WORK, AoARange, MachRange, ReynoldsOverMach,
         AdditionalCoprocessOptions={}, AdditionalTransitionZones={},
         ImposedWallFields=[], TransitionalModeReynoldsThreshold=0,
@@ -120,7 +120,7 @@ def launchBasicStructuredPolars(PREFIX_JOB, GeomPath, AER, machine,
         PREFIX_JOB : str
             an arbitrary prefix for the jobs
 
-        GeomPath : str
+        FILE_GEOMETRY : str
             path where the airfoil coordinates file is
             located.
 
@@ -225,8 +225,9 @@ def launchBasicStructuredPolars(PREFIX_JOB, GeomPath, AER, machine,
 
             .. hint:: For always making non-transitional computation, set this value to ``0``
 
-        ExtraElsAParams : dict - parameters overriding the default values
-            of the attributes sent to :py:func:`prepareMainCGNS` of this module.
+        ExtraElsAParams : dict
+            parameters overriding the default values
+            of the attributes sent to :py:func:`prepareMainCGNS4ElsA` of this module.
 
     Returns
     -------
@@ -236,6 +237,16 @@ def launchBasicStructuredPolars(PREFIX_JOB, GeomPath, AER, machine,
             launched
     '''
 
+    # TODO appropriately sort AoARange
+    a = np.atleast_1d(AoARange)
+    a = np.unique(a)
+    aP = a[a>=0]
+    aM = a[a<0]
+    aP = np.sort(aP)
+    aM = np.sort(aM)[::-1]
+    AoARange = np.hstack((aP,aM))
+
+    MachRange = np.unique(MachRange)
 
     AoAMatrix, MachMatrix  = np.meshgrid(AoARange, MachRange)
     ReynoldsMatrix = MachMatrix * ReynoldsOverMach
@@ -360,12 +371,13 @@ def launchBasicStructuredPolars(PREFIX_JOB, GeomPath, AER, machine,
             CoprocessOptions=CoprocessOptions, TransitionZones=TransitionZones,
             ImposedWallFields=ImposedWallFields,) )
 
-    saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,GeomPath)
+    JM.saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,
+                             FILE_GEOMETRY)
 
-    launchJobsConfiguration()
+    JM.launchJobsConfiguration(templatesFolder=JM.MOLA_PATH+'/TEMPLATES/WORKFLOW_AIRFOIL')
 
 
-def buildMesh(GeomPath,
+def buildMesh(FILE_GEOMETRY,
               meshParams={'References':{'Reynolds':1e6,'DeltaYPlus':0.5}},
               save_meshParams=True,
               save_mesh=True):
@@ -375,7 +387,7 @@ def buildMesh(GeomPath,
     Parameters
     ----------
 
-        GeomPath : str
+        FILE_GEOMETRY : str
             location where airfoil geometry is located
 
         meshParams : dict
@@ -398,15 +410,15 @@ def buildMesh(GeomPath,
             **meshParams** with additional parameters
             resulting from the grid constuction process
     '''
-    if GeomPath.endswith('.dat') or GeomPath.endswith('.txt') or \
-        '.' not in GeomPath:
+    if FILE_GEOMETRY.endswith('.dat') or FILE_GEOMETRY.endswith('.txt') or \
+        '.' not in FILE_GEOMETRY:
         try:
             closeTol = meshParams['options']['TEclosureTolerance']
-            airfoilCurve = W.airfoil(GeomPath, ClosedTolerance=closeTol)
+            airfoilCurve = W.airfoil(FILE_GEOMETRY, ClosedTolerance=closeTol)
         except KeyError:
-            airfoilCurve = W.airfoil(GeomPath)
+            airfoilCurve = W.airfoil(FILE_GEOMETRY)
     else:
-        airfoilCurve = C.convertFile2PyTree(GeomPath)
+        airfoilCurve = C.convertFile2PyTree(FILE_GEOMETRY)
         airfoilCurve, = I.getZones(airfoilCurve)
 
 
@@ -1397,14 +1409,14 @@ def getRangesOfStructuredPolar(config):
     '''
     Compute Polar ranges of AngleOfAttack, Mach and Reynolds following a
     Struct_AoA_Mach convention using as input the **config**, which can be
-    obtained using :py:func:`getPolarConfiguration` function.
+    obtained using :py:func:`MOLA.JobManager.getJobsConfiguration` function.
 
     Parameters
     ----------
 
         config : module
             ``JobsConfiguration.py`` data as a mobule object as
-            returned by function :py:func:`getPolarConfiguration`
+            returned by function :py:func:`MOLA.JobManager.getJobsConfiguration`
 
     Returns
     -------
@@ -1443,7 +1455,7 @@ def getReynoldsFromCaseLabel(config, CASE_LABEL):
 
         config : module
             ``JobsConfiguration.py`` data as a mobule object as
-            returned by function :py:func:`getPolarConfiguration`
+            returned by function :py:func:`MOLA.JobManager.getJobsConfiguration`
 
         CASE_LABEL : str
             unique identifying label of the requested case.
@@ -1472,7 +1484,7 @@ def getCaseLabelFromAngleOfAttackAndMach(config, AoA, Mach):
 
         config : module
             ``JobsConfiguration.py`` data as a mobule object as
-            returned by function :py:func:`getPolarConfiguration`
+            returned by function :py:func:`MOLA.JobManager.getJobsConfiguration`
 
         AoA : float
             requested angle of attack
@@ -1495,9 +1507,10 @@ def getCaseLabelFromAngleOfAttackAndMach(config, AoA, Mach):
     raise ValueError('no case found for AoA=%g, M=%g at %s'%(AoA,Mach,config.DIRECTORY_WORK))
 
 
-def printConfigurationStatus(DIRECTORY_WORK, useLocalConfig=False):
+def printConfigurationStatus(DIRECTORY_WORK, useLocalConfig=True):
     '''
     Print the current status of a Polars computation.
+
 
     Parameters
     ----------
@@ -1508,6 +1521,30 @@ def printConfigurationStatus(DIRECTORY_WORK, useLocalConfig=False):
         useLocalConfig : bool
             if :py:obj:`True`, use the local ``JobsConfiguration.py``
             file instead of retreiving it from **DIRECTORY_WORK**
+
+    Returns
+    -------
+
+        None : None
+            prints to standard output the status of the computation matrix.
+            Three possible tags exist:
+
+            * ``PD``
+                which means *pending*. The case run is waiting for previous cases to end.
+
+            * ``GO``
+                the case is *running*.
+
+            * ``OK``
+                the case terminated (but not necessarily converged)
+
+            * ``KO``
+                the case crashed
+
+            * ``TO``
+                the case terminated in time-out. This case is theoretically
+                impossible. If you see status ``TO``, please contact the
+                author of this module.
 
     '''
     config = JM.getJobsConfiguration(DIRECTORY_WORK, useLocalConfig, filename='JobsConfiguration.py')
@@ -1548,7 +1585,7 @@ def printConfigurationStatus(DIRECTORY_WORK, useLocalConfig=False):
         print(Line)
 
 
-def buildPolar(DIRECTORY_WORK, PolarName='Polar', useLocalConfig=False,
+def buildPolar(JobsConfiguration, PolarName='Polar',
      BigAngleOfAttackAoA=[-180, -160, -140, -120, -100, -80, -60, -40,-30,
                            30, 40, 60, 80, 100, 120, 140, 160, 180],
      BigAngleOfAttackCl=[ 0, 0.73921, 1.13253, 0.99593, 0.39332, -0.39332,
@@ -1602,7 +1639,8 @@ def buildPolar(DIRECTORY_WORK, PolarName='Polar', useLocalConfig=False,
             special CGNS zone containing polars results
     '''
 
-    config = JM.getJobsConfiguration(DIRECTORY_WORK, useLocalConfig, filename='JobsConfiguration.py')
+    config = JobsConfiguration
+    DIRECTORY_WORK = config.DIRECTORY_WORK
     AoA, Mach, Reynolds = getRangesOfStructuredPolar(config)
     nM = len(Mach)
     nA = len(AoA)
@@ -1618,6 +1656,7 @@ def buildPolar(DIRECTORY_WORK, PolarName='Polar', useLocalConfig=False,
     PolarsDict = {}
     for i, a in enumerate(AoA):
         for j, m in enumerate(Mach):
+            print(J.MAGE+'\nPROCESSING RUN %d of %d'%(1+j+nM*i, nA*nM)+J.ENDC)
             CASE_LABEL = getCaseLabelFromAngleOfAttackAndMach(config, a, m)
             status = JM.statusOfCase(config, CASE_LABEL)
 
@@ -1827,7 +1866,7 @@ def getCaseDistributions(config, CASE_LABEL):
 
         config : module
             ``JobsConfiguration.py`` data as a mobule object as
-            obtained from :py:func:`getPolarConfiguration`
+            obtained from :py:func:`MOLA.JobManager.getJobsConfiguration`
 
         CASE_LABEL : str
             unique identifying label of the requested case.
@@ -1861,7 +1900,7 @@ def getCaseDistributions(config, CASE_LABEL):
 
     for FILE, Source in zip([FILE_SURFACES, FILE_SETUP],[SourceSurf, SourceSetup]):
         try:
-            ServerTools.repatriate(Source, FILE,
+            JM.repatriate(Source, FILE,
                                     removeExistingDestinationPath=True)
         except:
             print(J.WARN+'could not retrieve %s of case %s'%(FILE,CASE_LABEL)+J.ENDC)
@@ -1890,7 +1929,7 @@ def getCaseFields(config, CASE_LABEL):
 
         config : module
             ``JobsConfiguration.py`` data as a mobule object as
-            obtained from :py:func:`getPolarConfiguration`
+            obtained from :py:func:`MOLA.JobManager.getJobsConfiguration`
 
         CASE_LABEL : str
             unique identifying label of the requested case.
@@ -1904,7 +1943,7 @@ def getCaseFields(config, CASE_LABEL):
 
     for FILE, Source in zip([FILE_FIELDS],[SourceSurf]):
         try:
-            ServerTools.repatriate(Source, FILE,
+            JM.repatriate(Source, FILE,
                                     removeExistingDestinationPath=True)
         except:
             print(J.WARN+'could not retrieve %s of case %s'%(FILE,CASE_LABEL)+J.ENDC)
@@ -1925,7 +1964,7 @@ def compareAgainstXFoil(AirfoilKeyword, config, CASE_LABEL, DistributedLoads,
 
         config : module
             ``JobsConfiguration.py`` data as a mobule object as
-            obtained from :py:func:`getPolarConfiguration`
+            obtained from :py:func:`MOLA.JobManager.getJobsConfiguration`
 
         CASE_LABEL : str
             unique identifying label of the requested case.

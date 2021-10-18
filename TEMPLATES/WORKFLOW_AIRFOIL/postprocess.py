@@ -1,9 +1,8 @@
 '''
 postprocess routine used for:
     1 - determine if computation was OK or not
-    2 - override fields.cgns with tmp-fields.cgns
-    3 - save relevant files into LOG directory
-    4 - switch to robust or fail-safe mode if required
+    2 - save relevant files into LOG directory
+    3 - switch to robust or fail-safe mode if required
 
 19/05/2021 - L. Bernardos
 '''
@@ -72,6 +71,9 @@ def removeNumericalSchemeKeys(setup):
 
 
 def wasPoorlyConverged():
+    try: os.remove('setup.pyc')
+    except: pass
+    setup = imp.load_source('setup', 'setup.py')
     try: stdCLthreshold = setup.ReferenceValues['CoprocessOptions']['MaxConvergedCLStd']
     except: return False
 
@@ -87,6 +89,8 @@ def wasPoorlyConverged():
 
 
 def getComputationMode():
+    try: os.remove('setup.pyc')
+    except: pass
     try: setup = imp.load_source('setup', 'setup.py')
     except: return
 
@@ -115,6 +119,8 @@ def getNextRobustMode():
 
 
 def useNextRobustMode():
+    try: os.remove('setup.pyc')
+    except: pass
 
     try: setup = imp.load_source('setup', 'setup.py')
     except: return
@@ -134,6 +140,9 @@ def useNextRobustMode():
 
 def useFailSafeMode():
 
+    try: os.remove('setup.pyc')
+    except: pass
+
     try: setup = imp.load_source('setup', 'setup.py')
     except: return
 
@@ -145,14 +154,16 @@ def useFailSafeMode():
     PRE.writeSetupFromModuleObject(setup, setupFilename='setup.py')
 
     # allow for restart
-    files2Remove = ('COMPLETED','FAILED')
+    files2Remove = ['COMPLETED','FAILED']
+    files2Remove.extend(glob.glob('bk*'))
+    files2Remove.extend(glob.glob('elsA.x*'))
+    files2Remove.extend(glob.glob('core.*'))
     for f in files2Remove:
-        try: os.remove('COMPLETED')
+        try: os.remove(f)
         except: pass
 
     # move OUTPUT folder so that new run will restart from previous healthy one
     shutil.move('OUTPUT', 'OUTPUT_FAILED')
-
 
 
 # ---------------------------- SCRIPT STARTS HERE ---------------------------- #
@@ -163,14 +174,6 @@ for failure in ('bk*','elsA.x.*','core.*'):
         with open('FAILED','w') as f: f.write('dump %s files detected'%failure)
         break
 
-
-if fileExists('OUTPUT','tmp-fields.cgns'):
-    shutil.move(os.path.join('OUTPUT','tmp-fields.cgns'),
-                os.path.join('OUTPUT','fields.cgns'))
-
-elif not anyFile('NEWJOB_REQUIRED','FAILED'):
-    with open('FAILED','w') as f:
-        f.write('tmp-fields.cgns missing')
 
 for fn in glob.glob('*.log'):
     FilenameBase = fn[:-4]
