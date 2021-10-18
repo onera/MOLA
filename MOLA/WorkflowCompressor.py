@@ -137,8 +137,9 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
                 nDupli=rowParams['NumberOfDuplications'], merge=MergeBlocks)
     if not InputMeshes[0]['SplitBlocks']:
         t = PRE.connectMesh(t, InputMeshes)
-    t = splitAndDistribute(t, InputMeshes, NProcs=NProcs,
-                                ProcPointsLoad=ProcPointsLoad)
+    # t = splitAndDistribute(t, InputMeshes, NProcs=NProcs,
+    #                             ProcPointsLoad=ProcPointsLoad)
+    t = splitWithPyPart(t, partN=1, savePpart=False, output=None)
     PRE.adapt2elsA(t, InputMeshes)
     J.checkEmptyBC(t)
 
@@ -645,7 +646,7 @@ def splitAndDistribute(t, InputMeshes, NProcs, ProcPointsLoad):
     t = PRE.splitAndDistribute(t, InputMeshesNoSplit, NProcs=NProcs, ProcPointsLoad=ProcPointsLoad)
     return t
 
-def splitWithPyPart(filename, partN=1, savePpart=False, output=None):
+def splitWithPyPart(mesh, partN=1, savePpart=False, output=None):
     '''
     Split a PyTree with PyPart.
 
@@ -682,18 +683,24 @@ def splitWithPyPart(filename, partN=1, savePpart=False, output=None):
     import etc.pypart.PyPart     as PPA
     from mpi4py import MPI
 
-    if not output: output = filename
+
+    if not isinstance(mesh, str):
+        C.convertPyTree2File(mesh, 'tmp_mesh.cgns')
+        mesh = 'tmp_mesh.cgns'
+        output = 'PyTree'
+    else:
+        if not output: output = filename
 
     # Initilise MPI
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
 
-    PyPartBase = PPA.PyPart(filename,
+    PyPartBase = PPA.PyPart(mesh,
                             lksearch=['.'],
                             loadoption='partial',
                             mpicomm=comm,
-                            LoggingInFile=True,
+                            LoggingInFile=False,
                             LoggingFile='PyPart/partTree',
                             LoggingVerbose=0
                             )
@@ -701,8 +708,12 @@ def splitWithPyPart(filename, partN=1, savePpart=False, output=None):
     # savePpart=True mandatory to merge later with PyPart
     PyPartBase.finalise(PartTree, method=1, savePpart=savePpart)
 
-    # Save CGNS output with links
-    PyPartBase.save(output, PartTree)
+    if output == 'PyTree':
+        os.system('rm -f %s'%mesh)
+        return PartTree
+    else:
+        # Save CGNS output with links
+        PyPartBase.save(output, PartTree)
 
 def computeReferenceValues(FluidProperties, Massflow, PressureStagnation,
         TemperatureStagnation, Surface, TurbulenceLevel=0.001,
