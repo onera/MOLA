@@ -1547,7 +1547,7 @@ def write4Debug(MSG):
 
 
 #=================== Functions that will be deprecated soon ===================#
-@J.deprecated(1.11, 1.12)
+@J.deprecated(1.12, 1.13)
 def saveAll(CouplingTreeWithSkeleton, CouplingTree,
             loads, DesiredStatistics,
             BodyForceInputData, BodyForceDisks,
@@ -1565,7 +1565,7 @@ def saveAll(CouplingTreeWithSkeleton, CouplingTree,
     .. note:: The method can be used to stop the elsA simulation after saving all data
         by providing the argument **quit** = :py:obj:`True`
 
-    .. deprecated-removed:: 1.12 1.13
+    .. deprecated:: 1.12
 
     Parameters
     ----------
@@ -1629,7 +1629,7 @@ def saveAll(CouplingTreeWithSkeleton, CouplingTree,
         # else: os._exit(0)
         os._exit(0)
 
-@J.deprecated(1.11, 1.12)
+@J.deprecated(1.12, 1.13)
 def saveSurfaces(to, loads, DesiredStatistics, tagWithIteration=False,
                  onlyWalls=True):
     '''
@@ -1644,7 +1644,7 @@ def saveSurfaces(to, loads, DesiredStatistics, tagWithIteration=False,
     For a turbomachinery case, monitor the performance of each row and save the
     results in loads.cgns
 
-    .. deprecated-removed:: 1.12 1.13
+    .. deprecated:: 1.12
 
     Parameters
     ----------
@@ -1693,7 +1693,7 @@ def saveSurfaces(to, loads, DesiredStatistics, tagWithIteration=False,
         monitorTurboPerformance(surfaces, loads, DesiredStatistics,
                                 tagWithIteration=tagWithIteration)
 
-@J.deprecated(1.11, 1.12, 'Use extractSurfaces with Extractions of type IsoSurface instead')
+@J.deprecated(1.12, 1.13, 'Use extractSurfaces with Extractions of type IsoSurface instead')
 def extractIsoSurfaces(to):
     '''
     Extract IsoSurfaces in the PyTree **to**. The parametrization is done with the
@@ -1711,7 +1711,7 @@ def extractIsoSurfaces(to):
         ``IsoSurfaces`` and ``Variables`` are not present in ``PostParameters``,
         then the function return an empty PyTree.
 
-    .. deprecated-removed:: 1.12 1.13
+    .. deprecated:: 1.12
         Use :py:func:`extractSurfaces` with Extractions of type IsoSurface instead
 
     Parameters
@@ -1752,14 +1752,14 @@ def extractIsoSurfaces(to):
             I.addChild(base, iso)
     return surfaces
 
-@J.deprecated(1.11, 1.12, 'Use save instead')
+@J.deprecated(1.12, 1.13, 'Use save instead')
 def distributeAndSavePyTree(ListOfZones, filename, tagWithIteration=False):
     '''
     Given a :py:class:`list` of zone (possibly empty list at some
     ranks), this function assigns a rank number to each zone and then
     saves the provided zones in a single CGNS file.
 
-    .. deprecated-removed:: 1.12 1.13
+    .. deprecated:: 1.12
 
     Parameters
     ----------
@@ -1785,13 +1785,13 @@ def distributeAndSavePyTree(ListOfZones, filename, tagWithIteration=False):
     printCo('%s saved OK'%filename, proc=0, color=GREEN)
     if tagWithIteration and rank == 0: copyOutputFiles(filename)
 
-@J.deprecated(1.11, 1.12, 'Use save instead')
+@J.deprecated(1.12, 1.13, 'Use save instead')
 def saveDistributedPyTree(t, filename, tagWithIteration=False):
     '''
     Given an already distributed PyTree (with coherent *proc* number), save it
     in a single CGNS file.
 
-    .. deprecated-removed:: 1.12 1.13
+    .. deprecated:: 1.12
 
     Parameters
     ----------
@@ -1828,7 +1828,7 @@ def saveDistributedPyTree(t, filename, tagWithIteration=False):
     if tagWithIteration and rank == 0: copyOutputFiles(filename)
     Cmpi.barrier()
 
-@J.deprecated(1.11, 1.12, 'Use save extractIntegralData and save instead')
+@J.deprecated(1.12, 1.13, 'Use save extractIntegralData and save instead')
 def updateAndSaveLoads(to, loads, DesiredStatistics=['std-CL', 'std-CD'],
                        tagWithIteration=False, monitorMemory=False):
     '''
@@ -1836,7 +1836,7 @@ def updateAndSaveLoads(to, loads, DesiredStatistics=['std-CL', 'std-CD'],
     dictionary adding statistics requested by the user.
     Then, write ``OUTPUT/loads.cgns`` file.
 
-    .. deprecated-removed:: 1.12 1.13
+    .. deprecated:: 1.12 
 
     Parameters
     ----------
@@ -1883,7 +1883,7 @@ def updateAndSaveLoads(to, loads, DesiredStatistics=['std-CL', 'std-CD'],
     if monitorMemory: addMemoryUsage2Loads(loads)
     saveLoads(loads, tagWithIteration)
 
-@J.deprecated(1.11, 1.12, 'Use save instead')
+@J.deprecated(1.12, 1.13, 'Use save instead')
 def saveLoads(loads, tagWithIteration=False):
     '''
     Save the ``OUTPUT/loads.cgns`` file.
