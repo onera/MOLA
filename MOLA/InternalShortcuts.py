@@ -633,6 +633,7 @@ def _addSetOfNodes(parent, name, ListOfNodes, type1='UserDefinedData_t', type2='
         typeOfNode = type2 if len(e) == 2 else e[2]
         children += [I.createNode(e[0],typeOfNode,value=e[1])]
     node = I.createUniqueChild(parent,name,type1, children=children)
+    I._rmNodesByName1(parent, node[0])
     I.addChild(parent, node)
 
 
@@ -1813,15 +1814,22 @@ def sortListsUsingSortOrderOfFirstList(*arraysOrLists):
 
 
 def getSkeleton(t, keepNumpyOfSizeLessThan=7):
+    '''
+    .. danger:: workaround. See ticket `8815 <https://elsa.onera.fr/issues/8815>`_
+    '''
     tR = I.copyRef(t)
-    zones = I.getZones(t)
-    for z in zones:
-        nodes = I.getNodesFromType(z, 'DataArray_t')
-        for n in nodes:
-            try:
-                if n[1].size > keepNumpyOfSizeLessThan-1: n[1] = None
-            except:
-                pass
+    nodes = I.getNodesFromType(tR, 'DataArray_t')
+    for n in nodes:
+        try:
+            if n[1].size > keepNumpyOfSizeLessThan-1: n[1] = None
+        except:
+            pass
+    return tR
+
+def getStructure(t):
+    tR = I.copyRef(t)
+    for z in I.getZones(tR):
+        z[2] = []
     return tR
 
 
@@ -1847,6 +1855,9 @@ def forceZoneDimensionsCoherency(t):
 
 
 def getZones(t):
+    '''
+    .. danger:: workaround. See ticket `8816 <https://elsa.onera.fr/issues/8816>`_
+    '''
     if t is None: return []
     else: return I.getZones(t)
 

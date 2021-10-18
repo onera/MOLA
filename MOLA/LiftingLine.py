@@ -2424,7 +2424,7 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
     # Invoke blade surface (with empty FlowSolutions)
     _, Surf, _ = GSD.wing(Span,
                           ChordRelRef = ChordRelRef,
-                          NPtsTrailingEdge = 5,
+                          NPtsTrailingEdge = 0,
                           AvoidAirfoilModification = True,
                           splitAirfoilOptions = splitAirfoilOptions,
                           Chord = ChordDict,
