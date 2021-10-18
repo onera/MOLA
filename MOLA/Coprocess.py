@@ -243,16 +243,39 @@ def save(t, filename):
             Name of the file
     '''
     t = I.copyRef(t) if I.isTopTree(t) else C.newPyTree(['Base', J.getZones(t)])
+    Cmpi._convert2PartialTree(t)
     I._adaptZoneNamesForSlash(t)
-    Cmpi._setProc(t, Cmpi.rank)
+    for z in I.getZones(t):
+        SolverParam = I.getNodeFromName(z,'.Solver#Param')
+        if not SolverParam or not I.getNodeFromName(SolverParam,'proc'):
+            Cmpi._setProc(z, Cmpi.rank)
+    I._rmNodesByName(t,'ID_*')
+    I._rmNodesByType(t,'IntegralData_t')
 
     # FIXME: Bug with a 3D PyTree with IntegralDataNode
-    Skeleton = J.getSkeleton(t)
-    Skeletons = Cmpi.KCOMM.allgather(Skeleton)
-    trees = [s if s else I.newCGNSTree() for s in Skeletons]
-    trees.insert(0,t)
-    tWithSkel = I.merge(trees)
-    for l in 2,3: I._correctPyTree(tWithSkel,l) # unique base and zone names
+    # Skeleton = J.getSkeleton(t,keepNumpyOfSizeLessThan=2)
+    Skeleton = J.getStructure(t)
+
+    UseMerge = False
+
+    try:
+        Skeletons = Cmpi.KCOMM.gather(Skeleton,root=0)
+    except SystemError:
+        UseMerge = True
+        printCo('Cmpi.KCOMM.gather FAILED. Using merge=True', color=J.WARN)
+        UseMerge = comm.bcast(UseMerge,root=Cmpi.rank)
+
+    if not UseMerge:
+        if Cmpi.rank == 0:
+            trees = [s if s else I.newCGNSTree() for s in Skeletons]
+            trees.insert(0,t)
+            tWithSkel = I.merge(trees)
+        else:
+            tWithSkel = t
+        Cmpi.barrier()
+        for l in 2,3: I._correctPyTree(tWithSkel,l) # unique base and zone names
+    else:
+        tWithSkel = t
 
     Cmpi.barrier()
     if Cmpi.rank==0:
@@ -266,7 +289,7 @@ def save(t, filename):
     Cmpi.barrier()
 
     printCo('will save %s ...'%filename,0, color=J.CYAN)
-    Cmpi.convertPyTree2File(tWithSkel, filename, merge=False)
+    Cmpi.convertPyTree2File(t, filename, merge=UseMerge)
     printCo('... saved %s'%filename,0, color=J.CYAN)
     Cmpi.barrier()
 
@@ -655,12 +678,16 @@ def addMemoryUsage2Loads(loads):
                                    UsedMemoryInPercent=np.array([],dtype=float),
                                    UsedMemory=np.array([],dtype=float),)
             LoadsItem = loads[ZoneName]
-        LoadsItem['IterationNumber'] = np.hstack((LoadsItem['IterationNumber'],
-                                                  int(CurrentIteration)))
-        LoadsItem['UsedMemoryInPercent'] = np.hstack((LoadsItem['UsedMemoryInPercent'],
-                                                      float(UsedMemoryPctg)))
-        LoadsItem['UsedMemory'] = np.hstack((LoadsItem['UsedMemory'],
+
+        try:
+            LoadsItem['IterationNumber'] = np.hstack((LoadsItem['IterationNumber'],
+                                                      int(CurrentIteration)))
+            LoadsItem['UsedMemoryInPercent'] = np.hstack((LoadsItem['UsedMemoryInPercent'],
+                                                          float(UsedMemoryPctg)))
+            LoadsItem['UsedMemory'] = np.hstack((LoadsItem['UsedMemory'],
                                              float(UsedMemory)))
+        except KeyError:
+            del loads[ZoneName]
     Cmpi.barrier()
 
 def loadsDict2PyTree(loads):

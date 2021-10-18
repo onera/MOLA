@@ -79,6 +79,7 @@ itmax    = inititer+niter-1 # BEWARE last iteration accessible trigger-state-16
 
 Skeleton = Cmpi.convertFile2SkeletonTree(FILE_CGNS)
 I._rmNodesByName(Skeleton, 'FlowSolution*')
+I._rmNodesByName(Skeleton, 'ID_*')
 
 # ========================== LAUNCH ELSA ========================== #
 
@@ -156,13 +157,15 @@ CO.save(loadsTree, os.path.join(DIRECTORY_OUTPUT,FILE_LOADS))
 surfs = CO.extractSurfaces(toWithSkeleton, setup.Extractions)
 CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
 
-# save fields
-tmp_fields = os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS)
-final_fields = tmp_fields.replace('tmp-','')
-CO.save(toWithSkeleton,final_fields)
-
 # save bodyforce disks
 CO.save(BodyForceDisks,os.path.join(DIRECTORY_OUTPUT,FILE_BODYFORCESRC))
 
+# save fields
+tmp_fields = os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS)
+# final_fields = tmp_fields.replace('tmp-','')
+CO.save(toWithSkeleton,final_fields)
+
+
 elsAxdt.free("xdt-runtime-tree")
 elsAxdt.free("xdt-output-tree")
+CO.printCo('END OF compute.py',0)

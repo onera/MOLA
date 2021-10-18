@@ -89,6 +89,8 @@ if ENTER_COUPLING:
     to = elsAxdt.get(elsAxdt.OUTPUT_TREE)
     CO.adaptEndOfRun(to)
     toWithSkeleton = I.merge([Skeleton, to])
+    I._rmNodesByName(toWithSkeleton, 'ID_*')
+    Cmpi.barrier()
 
 
     if COMPUTE_BODYFORCE:
