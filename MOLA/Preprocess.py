@@ -321,11 +321,9 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
 
     def addFieldExtraction(fieldname):
         try:
-            FieldsExtr = ReferenceValuesParams['FieldsAdditionalExtractions']
-            if fieldname not in FieldsExtr.split():
-                FieldsExtr += ' '+fieldname
+            ReferenceValuesParams['FieldsAdditionalExtractions'].append(fieldname)
         except:
-            ReferenceValuesParams['FieldsAdditionalExtractions'] = fieldname
+            ReferenceValuesParams['FieldsAdditionalExtractions'] = [fieldname]
 
 
     if isinstance(mesh,str):
@@ -352,6 +350,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
     ReferenceValuesParams['NProc'] = int(NProc)
     elsAkeysCFD      = getElsAkeysCFD()
     elsAkeysModel    = getElsAkeysModel(FluidProperties, ReferenceValues)
+    if hasBCOverlap: NumericalParams['useChimera'] = True
     if BodyForceInputData: NumericalParams['useBodyForce'] = True
     elsAkeysNumerics = getElsAkeysNumerics(ReferenceValues, **NumericalParams)
 
@@ -1865,7 +1864,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         TurbulenceLevel=0.001,
         Surface=1.0, Length=1.0, TorqueOrigin=[0,0,0],
         TurbulenceModel='Wilcox2006-klim', Viscosity_EddyMolecularRatio=0.1,
-        TurbulenceCutoff=1.0, TransitionMode=None, CoprocessOptions={},
+        TurbulenceCutoff=0.1, TransitionMode=None, CoprocessOptions={},
         FieldsAdditionalExtractions = ['ViscosityMolecular','ViscosityEddy',
                                        'Mach']):
     '''
@@ -2590,7 +2589,6 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
                        # chm_ovlp_minimize='inactive',
                        # chm_preproc_method='mask_based',
                        # chm_conn_fprefix=DIRECTORY_OVERSET+'/OvstData',
-
                        )
 
     addKeys.update(dict(
@@ -3118,6 +3116,9 @@ def writeSetup(AllSetupDictionaries, setupFilename='setup.py'):
 
     with open(setupFilename,'w') as f: f.write(AllLines)
 
+    try: os.remove(setupFilename+'c')
+    except: pass
+
 
 def writeSetupFromModuleObject(setup, setupFilename='setup.py'):
     '''
@@ -3146,6 +3147,9 @@ def writeSetupFromModuleObject(setup, setupFilename='setup.py'):
     AllLines = '\n'.join(Lines)
 
     with open(setupFilename,'w') as f: f.write(AllLines)
+
+    try: os.remove(setupFilename+'c')
+    except: pass
 
 
 

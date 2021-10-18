@@ -1,5 +1,7 @@
 '''
-elsA compute.py script for airfoil workflow
+elsA compute.py script for WORKFLOW AIRFOIL
+
+MOLA Dev
 
 06/05/2020 - L. Bernardos
 '''
@@ -11,6 +13,7 @@ import imp
 import numpy as np
 import psutil
 import timeit
+import shutil
 LaunchTime = timeit.default_timer()
 from mpi4py import MPI
 comm   = MPI.COMM_WORLD
@@ -82,7 +85,7 @@ from datetime import datetime
 
 if rank == 0:
     DATEANDTIME=datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    with open(FILE_COLOG, 'w') as f: 
+    with open(FILE_COLOG, 'w') as f:
         f.write('COPROCESS LOG FILE STARTED AT %s\n'%DATEANDTIME)
 Cmpi.barrier()
 
@@ -107,7 +110,7 @@ if not FULL_CGNS_MODE:
         [obj.set(v,dic[v]) for v in dic if not isinstance(dic[v], dict)]
 
     for k in NumDict:
-        if '.Solver#Function' in k: 
+        if '.Solver#Function' in k:
             funDict = NumDict[k]
             funName = funDict['name']
             if funName == 'f_cfl':
@@ -124,6 +127,26 @@ e=elsAxdt.XdtCGNS(FILE_CGNS)
 
 
 e.action=elsAxdt.READ_ALL
-
 e.compute()
 
+to = elsAxdt.get(elsAxdt.OUTPUT_TREE)
+CO.adaptEndOfRun(to)
+toWithSkeleton = I.merge([Skeleton, to])
+
+# save loads
+CO.extractIntegralData(to, loads, Extractions=[],
+                        DesiredStatistics=DesiredStatistics)
+CO.addMemoryUsage2Loads(loads)
+loadsTree = CO.loadsDict2PyTree(loads)
+CO.save(loadsTree, os.path.join(DIRECTORY_OUTPUT,FILE_LOADS))
+
+# save surfaces
+surfs = CO.extractSurfaces(toWithSkeleton, setup.Extractions)
+CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
+
+# save fields
+tmp_fields = os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS)
+final_fields = tmp_fields.replace('tmp-','')
+CO.save(toWithSkeleton,final_fields)
+elsAxdt.free("xdt-runtime-tree")
+elsAxdt.free("xdt-output-tree")

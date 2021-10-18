@@ -1,4 +1,5 @@
 #!/bin/bash
+
 module purge all
 
 export http_proxy=proxy:80 https_proxy=proxy:80 ftp_proxy=proxy:80
@@ -9,7 +10,7 @@ export ELSA_MPI_APPEND=FALSE # See ticket 7849
 export FORT_BUFFERED=true
 export MPI_GROUP_MAX=8192
 export MPI_COMM_MAX=8192
-source /tmp_user/sator/elsa/Public/v5.0.02/Dist/bin/sator/source.me
+source /tmp_user/sator/elsa/Public/v5.0.03/Dist/bin/sator/source.me
 
 # PUMA
 export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_r336

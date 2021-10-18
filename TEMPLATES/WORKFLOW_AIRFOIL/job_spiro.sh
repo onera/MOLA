@@ -17,7 +17,7 @@ export FORT_BUFFERED=true
 export MPI_GROUP_MAX=8192
 export MPI_COMM_MAX=8192
 
-export ELSAVERSION=v5.0.01
+export ELSAVERSION=v5.0.03
 export ELSAPROD=spiro_mpi
 export ELSAPATHPUBLIC=/home/elsa/Public/$ELSAVERSION/Dist/bin/$ELSAPROD
 source $ELSAPATHPUBLIC/.env_elsA
@@ -35,4 +35,3 @@ export PYTHONPATH=$PYTHONPATH:$MOLA
 
 
 mpirun -np 24 elsA.x -C xdt-runtime-tree -- compute.py 1>stdout.log 2>stderr.log
-mv OUTPUT/tmp-fields.cgns OUTPUT/fields.cgns

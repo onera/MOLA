@@ -12,7 +12,7 @@ export MPI_GROUP_MAX=8192
 export MPI_COMM_MAX=8192
 
 export ELSAVERSION=v5.0.03
-export ELSAPROD=spiro_mpi
+export ELSAPROD=eos-intel_mpi
 export ELSAPATHPUBLIC=/home/elsa/Public/$ELSAVERSION/Dist/bin/$ELSAPROD
 source $ELSAPATHPUBLIC/.env_elsA
 
@@ -27,5 +27,4 @@ export MOLA=/home/lbernard/MOLA/Dev
 export PYTHONPATH=$PYTHONPATH:$MOLA
 
 
-
-mpirun -np 24 elsA.x -C xdt-runtime-tree -- compute.py 1>stdout.log 2>stderr.log
+mpirun -np 8 elsA.x -C xdt-runtime-tree -- compute.py 1>stdout.log 2>stderr.log

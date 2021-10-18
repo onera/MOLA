@@ -6,88 +6,6 @@ PROPELLER ANALYSIS MODULE
 Collection of routines and functions designed for performing
 rapid Propeller Analysis.
 
-File history:
-23/05/2020 - v1.8 - L. Bernardos - Shipped to MOLA v1.8
-23/05/2020 - v1.7.06 - L. Bernardos - Added variable
-    PitchIfTrimCommandIsRPM to computeBEMT Drela and Adkins.
-    Bug corrected in Drela initialization.
-15/05/2020 - v1.7.05 - L. Bernardos - Improved computePUMA()
-    attributes and computation loop.
-    Adapted and enhanced Adkins BEMT algorithm and interface.
-14/05/2020 - v1.7.04 - L. Bernardos - Included Span
-    Discretization law in computePUMA() arguments. Adapted
-    convertLiftingLine2PUMABladeDef() for non-existing Sweep
-    or Dihedral laws
-13/05/2020 - v1.7.03 - L. Bernardos - Several interventions:
-    - Back to local section Drela's BEMT algorithm
-    - Better handling of OutOfRange values (structured)
-    - Improved blade-tip singularity handling
-    - Command for Trim may now be Pitch or RPM
-04/05/2020 - v1.7.02 - L. Bernardos - Implemented beta-versions
-    of unsteady LiftingLines functions:
-    buildPropeller
-    prepareUnsteadyLiftingLine
-    _setMotionConstantRPM
-    _moveLiftingLines
-    updateFrame
-    _computeLocalVelocity
-    _addPerturbationFields
-    _computeLiftingLine3DLoads
-    _updateLiftingLines
-    _nextTimeStep
-    buildBodyForceElement
-02/05/2020 - v1.7.01 - L. Bernardos - Added .Component#Info node
-    including kind='LiftingLine' child in buildLiftingLine().
-    Solved OutOfRange bug in RbfInterpolator.
-19/04/2020 - v1.7 - L. Bernardos - Shipped to MOLA v1.7
-12/04/2020 - v1.6.12 - L. Bernardos - Improved trim option.
-    replaced buildLiftLine() name by buildLiftingLine()
-11/04/2020 - v1.6.11 - L. Bernardos - Added trim option at
-    Drela algorithm. Added direct design BEMT function.
-    Added LL.resetPitch. Improved designAdkins.
-    Major changes in BEMT interface (buildInterpolators as
-    input; set/get for flight conditions, and so on)
-07/04/2020 - v1.6.10 - L. Bernardos - Added plotOperatingRanges
-    improved getPolarOperatingRanges.
-06/04/2020 - v1.6.09 - L. Bernardos - Merged improved Drela
-    algorithm.
-05/04/2020 - v1.6.08 - L. Bernardos - Added functions
-    kinematicReynoldsAndMach() and getPolarOperatingRanges()
-01/04/2020 - v1.6.07 - L. Bernardos - Replaced DictOfEquations
-    by ListOfEquations strategy
-01/04/2020 - v1.6.06 - L. Bernardos - BUG corrected in
-    DictOfEquations application.
-30/03/2020 - v1.6.05 - L. Bernardos - BUG corrected in span
-    attribute of buildLiftLine(). First functional
-    prototype of postLiftingLine2Surface(). Some private
-    functions included.
-27/03/2020 - v1.6.04 - L. Bernardos - BUG corrected for
-    OutOfRangeValues handling of extractorFromPyZonePolar
-25/03/2020 - v1.6.03 - L. Bernardos - designAdkins() output
-    modified. Returns dictionary instead of Lifting Line.
-    Modified output of BEMT analysis Drela, Adkins and Heene.
-25/03/2020 - v1.6.02 - L. Bernardos - BEMT Pitch is reset
-    at its original position at the end of BEMT computation.
-    Added computeBEMT() macro-function.
-06/02/2020 - v1.6.01 - L. Bernardos - Enhanced user Error handling
-    when calling buildLiftLine()
-27/01/2020 - v1.5.03 - L. Bernardos - Bug fixes on BEMT variables
-    initializations.
-20/01/2020 - v1.5.02 - L. Bernardos - Major modifications in terms
-    of the Sweep and Dihedral representation.
-17/12/2019 - v1.5.01 - L. Bernardos - Support different values
-    of BigAngleOfAttack for each Cl, Cd, Cm values of HOST file.
-    Implementation of Analytical polars for BEMT.
-05/12/2019 - v1.5 - L. Bernardos - Shipped to MOLA v1.5
-13/11/2019 - v1.4.02 - L. Bernardos - General bug corrections
-13/11/2019 - v1.4.01 - L. Bernardos - Bug correction on
-    computePUMA()
-08/11/2019 - v1.4 - L. Bernardos - Shipped to MOLA v1.4
-06/11/2019 - v1.3.01 - L. Bernardos - Module adapted to
-    Python v3.
-30/10/2019 - v1.3 - L. Bernardos - Shipped to MOLA v1.3
-- Untracked modifications (TODO: Track modifications)
-03/10/2019 - v1.2 - L. Bernardos - Shipped to MOLA v1.2
 19/07/2019 - L. Bernardos - Creation
 '''
 
@@ -2108,7 +2026,7 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
             for iu in range(Nunk): v_Pred[iu] = v[IterationVariables[iu]][i-1]
 
             # correct Guess
-            Guess = v_Pred + v_Corr
+            Guess = v_Pred #+ v_Corr
 
             if ModelIsHeene:
                 # Solve the 2-eqn non-linear system
@@ -2573,7 +2491,7 @@ def computeBEMTaxial3D(LiftingLine, PolarsInterpolatorDict,
             for iu in range(1,Nunk): v_Pred[iu] = v[IterationVariables[iu]][i-1]
 
             # correct Guess
-            Guess = v_Pred #+ v_Corr
+            Guess = v_Pred + v_Corr
 
             if ModelIsHeene:
                 # Solve the 2-eqn non-linear system
@@ -2609,7 +2527,7 @@ def computeBEMTaxial3D(LiftingLine, PolarsInterpolatorDict,
             if DEBUG and MatrixComputationRequired:
                 print('\ndid not succeed at index %d. Using response matrix...'%i)
                 V = np.maximum(5,np.sqrt(Velocity.dot(Velocity)))
-                Nmsh = 101
+                Nmsh = 21
                 via = np.linspace(0,5*V,Nmsh)
                 vit = np.linspace(0, V,Nmsh)
                 RespMatrixf1 = np.zeros((Nmsh, Nmsh))
@@ -2782,6 +2700,7 @@ def TipLossFactor(NBlades,Velocity,Omega,phi,r,Rmax, kind='Adkins'):
 
             * ``"Prandtl"``
                 :math:`\\frac{2}{\pi} \\arccos{\left(\exp{-(1-\\frac{r}{R}) N_b/2} \sqrt{1 - (\\frac{\Omega r}{V})^2} \\right)}`
+
             .. note:: we recommend ``"Adkins"`` formulation, which is more
                 appropriate for highly-loaded propellers, as discussed by
                 `Mark Drela <https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&ved=2ahUKEwiplIKBsODyAhXViVwKHaeAAcMQFnoECAUQAQ&url=http%3A%2F%2Fweb.mit.edu%2Fdrela%2FPublic%2Fweb%2Fqprop%2Fqprop_theory.pdf&usg=AOvVaw2pOfpH6zAeAbDA94_XElRg>`_.

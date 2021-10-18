@@ -73,6 +73,42 @@ def extractBoundaryLayer(surf, PressureDynamic=1.0, PressureRef=101325.):
 
     Eqns = []
 
+    # TODO implement this
+    '''
+    # REYNOLDSSTRESS COMPUTATION
+    # mu_t
+    Eqns += [('centers:ViscosityEddy={centers:Viscosity_EddyMolecularRatio}*{centers:ViscosityMolecular}')]
+
+    # div(u)
+    Eqns += [('centers:VelocityDivergence={centers:gradxVelocityX}+'
+                                         '{centers:gradyVelocityY}+'
+                                         '{centers:gradzVelocityZ}')]
+
+    # Sij
+    Eqns += [('centers:BarDeformationXX={centers:gradxVelocityX}-{centers:VelocityDivergence}/3.0')]
+    Eqns += [('centers:BarDeformationYY={centers:gradyVelocityY}-{centers:VelocityDivergence}/3.0')]
+    Eqns += [('centers:BarDeformationZZ={centers:gradzVelocityZ}-{centers:VelocityDivergence}/3.0')]
+    Eqns += [('centers:BarDeformationXY=0.5*({centers:gradyVelocityX}+{centers:gradxVelocityY})')]
+    Eqns += [('centers:BarDeformationXZ=0.5*({centers:gradzVelocityX}+{centers:gradxVelocityZ})')]
+    Eqns += [('centers:BarDeformationYZ=0.5*({centers:gradzVelocityY}+{centers:gradyVelocityZ})')]
+
+    # tau
+    Eqns += [('centers:ReynoldsStressXX=2*{mut}*{SXX}-(2./3.)*{rok}').format(
+        divU=divU,mut=mut,SXX='{centers:BarDeformationXX}',rok='{centers:TurbulentEnergyKineticDensity}')]
+    Eqns += [('centers:ReynoldsStressYY=2*{mut}*{SYY}-(2./3.)*{rok}').format(
+        divU=divU,mut=mut,SYY='{centers:BarDeformationYY}',rok='{centers:TurbulentEnergyKineticDensity}')]
+    Eqns += [('centers:ReynoldsStressZZ=2*{mut}*{SZZ}-(2./3.)*{rok}').format(
+        divU=divU,mut=mut,SZZ='{centers:BarDeformationZZ}',rok='{centers:TurbulentEnergyKineticDensity}')]
+    Eqns += [('centers:ReynoldsStressXY=2*{mut}*{SXY}').format(
+        mut=mut,SXY='{centers:BarDeformationXY}')]
+    Eqns += [('centers:ReynoldsStressXZ=2*{mut}*{SXZ}').format(
+        mut=mut,SXZ='{centers:BarDeformationXZ}')]
+    Eqns += [('centers:ReynoldsStressYZ=2*{mut}*{SYZ}').format(
+        mut=mut,SYZ='{centers:BarDeformationYZ}')]
+    '''
+
+
+
     # div(u)
     Eqns += [('VelocityDivergence={gradxVelocityX}+'
                                  '{gradyVelocityY}+'
@@ -474,7 +510,7 @@ def buildAuxiliarWallNormalSurface(t, wall, MaximumBoundaryLayerDistance=0.5,
             saved tree of an elsA simulation of the 2D flow around an airfoil
 
         wall : PyTree, base, zone, list of zones
-            wall surfaces
+            wall surfaces as got from :func:`getWalls`
 
     Returns
     -------
