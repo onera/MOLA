@@ -27,7 +27,7 @@ CYAN  = '\033[96m'
 ENDC  = '\033[0m'
 
 
-def set(parent,childname,**kwargs):
+def set(parent, childname, type='UserDefinedData_t', **kwargs):
     '''
     Set (or add, if inexistent) a child node containing an arbitrary number
     of nodes.
@@ -57,7 +57,7 @@ def set(parent,childname,**kwargs):
             SubChildren += [[v,kwargs[v]]]
         else:
             children += [[v,kwargs[v]]]
-    _addSetOfNodes(parent,childname,children)
+    _addSetOfNodes(parent,childname,children,type1=type)
     NewNode = I.getNodeFromName1(parent,childname)
     for sc in SubChildren: set(NewNode, sc[0], **sc[1])
 

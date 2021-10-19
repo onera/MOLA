@@ -1207,7 +1207,7 @@ def setBC_Walls(t, TurboConfiguration, bladeFamilyNames=['Blade']):
             wnode = I.getNodeFromNameAndType(znode,wname,'BC_t')
             BCDataSet = I.newBCDataSet(name='BCDataSet#Init', value='Null',
                 gridLocation='FaceCenter', parent=wnode)
-            J.set(BCDataSet, 'NeumannData', omega=omegaHubAtX(xw))
+            J.set(BCDataSet, 'NeumannData', type='BCData_t', omega=omegaHubAtX(xw))
 
     # SHROUD
     for famNode in I.getNodesFromNameAndType(t, '*SHROUD*', 'Family_t'):
@@ -1311,9 +1311,7 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
 
         BCDataSet = I.newBCDataSet(name='BCDataSet#Init', value='Null',
             gridLocation='FaceCenter', parent=bc)
-        J.set(BCDataSet, 'DirichletData', **ImposedVariables)
-        DirichletData = I.getNodeFromName1(BCDataSet, 'DirichletData')
-        I.setType(DirichletData, 'BCData_t')
+        J.set(BCDataSet, 'DirichletData', type='BCData_t', **ImposedVariables)
 
 def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName):
     '''
@@ -2110,7 +2108,7 @@ def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
             )
 
     JM.saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,
-                            GeomPath=kwargs['mesh'], NProc=NProc)
+                            FILE_GEOMETRY=kwargs['mesh'], NProc=NProc)
 
 
     def findElementsInCollection(collec, searchKey, elements=[]):

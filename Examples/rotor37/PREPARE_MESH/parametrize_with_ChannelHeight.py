@@ -155,13 +155,13 @@ if __name__ == '__main__':
     if fromMask:
         print('  COMPUTE HEIGHT FROM MASK  '.center(80, '*'))
         mask = C.convertFile2PyTree(mask_file)
-        t = PARAM.computeHeight_from_mask(t, mask, constraint=5., mode='accurate', fsname=FlowSolutionHeight)
+        t = computeHeight_from_mask(t, mask, constraint=5., mode='accurate', fsname=FlowSolutionHeight)
     else:
         print(' PARAMETRIZATION in Height '.center(10, '*'))
         if not os.path.exists(hlines):
-            PARAM.generateHLinesAxial(t, hlines, nbslice=51, comm=MPI.COMM_WORLD, tol=1e-4)
-            PARAM.plot_hub_and_shroud_lines(hlines)
+            generateHLinesAxial(t, hlines, nbslice=51, comm=MPI.COMM_WORLD, tol=1e-4)
+            plot_hub_and_shroud_lines(hlines)
         I._rmNodesByName(t, FlowSolutionHeight)
-        t = PARAM.computeHeight(t, hlines, writeMask=mask_file, fsname=FlowSolutionHeight) # isInterp is needed for some post-treatments (e.g. radial profiles)
+        t = computeHeight(t, hlines, writeMask=mask_file, fsname=FlowSolutionHeight) # isInterp is needed for some post-treatments (e.g. radial profiles)
 
     C.convertPyTree2File(t, filename_output, links=links)
