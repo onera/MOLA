@@ -137,9 +137,8 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
                 nDupli=rowParams['NumberOfDuplications'], merge=MergeBlocks)
     if not InputMeshes[0]['SplitBlocks']:
         t = PRE.connectMesh(t, InputMeshes)
-    # t = splitAndDistribute(t, InputMeshes, NProcs=NProcs,
-    #                             ProcPointsLoad=ProcPointsLoad)
-    t = splitWithPyPart(t, partN=1, savePpart=False, output=None)
+    t = splitAndDistribute(t, InputMeshes, NProcs=NProcs,
+                                ProcPointsLoad=ProcPointsLoad)
     PRE.adapt2elsA(t, InputMeshes)
     J.checkEmptyBC(t)
 
@@ -718,8 +717,7 @@ def splitWithPyPart(mesh, partN=1, savePpart=False, output=None):
 def computeReferenceValues(FluidProperties, Massflow, PressureStagnation,
         TemperatureStagnation, Surface, TurbulenceLevel=0.001,
         Viscosity_EddyMolecularRatio=0.1, TurbulenceModel='Wilcox2006-klim',
-        TurbulenceCutoff=1e-8, TransitionMode=None,
-        CoprocessOptions=dict(AveragingIterations=1000),
+        TurbulenceCutoff=1e-8, TransitionMode=None, CoprocessOptions={},
         Length=1.0, TorqueOrigin=[0., 0., 0.],
         FieldsAdditionalExtractions=['ViscosityMolecular', 'Viscosity_EddyMolecularRatio', 'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation', 'Mach']):
     '''
@@ -750,6 +748,9 @@ def computeReferenceValues(FluidProperties, Massflow, PressureStagnation,
     Ts  = FluidProperties['SutherlandTemperature']
     S   = FluidProperties['SutherlandConstant']
     ViscosityMolecular = mus * (Temperature/Ts)**1.5 * ((Ts + S)/(Temperature + S))
+
+    if not 'AveragingIterations' in CoprocessOptions:
+        CoprocessOptions['AveragingIterations'] = 1000
 
     ReferenceValues = PRE.computeReferenceValues(FluidProperties,
         Density=Density,
