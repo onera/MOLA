@@ -448,18 +448,22 @@ def transform(t, InputMeshes):
                 * 'scale' : :py:class:`float`
                     Scaling factor to apply to the grid component.
 
-                    .. tip:: use this option to transform a grid built in milimeters
-                        into meters
+                    .. tip:: use this option to transform a grid built in
+                             milimeters into meters
 
                 * 'rotate' : :py:class:`list` of :py:class:`tuple`
                     List of rotation to apply to the grid component. Each rotation
                     is defined by 3 elements:
+
                         * a 3-tuple corresponding to the center coordinates
+
                         * a 3-tuple corresponding to the rotation axis
-                        * a float (or integer) defining the angle of rotation in degrees
+
+                        * a float (or integer) defining the angle of rotation in
+                          degrees
 
                     .. tip:: this option is useful to change the orientation of
-                        a mesh built in Autogrid 5.
+                             a mesh built in Autogrid 5.
 
     '''
     for meshInfo in InputMeshes:
@@ -1949,7 +1953,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
                 'AveragingIterations'    : 3000,
                 'MaxConvergedCLStd'      : 1e-4,
                 'ItersMinEvenIfConverged': 1000,
-                'TimeOutInSeconds'       : 53100.0, # 14.75 h * 3600 s/h = 53100 s
+                'TimeOutInSeconds'       : 54000.0, # = 15 h * 3600 s/h
                 'SecondsMargin4QuitBeforeTimeOut' : 900.,
                 'ConvergenceCriterionFamilyName' : '', # Add familyBCname
 
@@ -2845,7 +2849,7 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True, WallEx
 
         FluxExtractions : :py:class:`list` of :py:class:`str`
             list of flux variables to extract at the wall. Their names must
-            begin by 'flux_'. They will be automatically integrated on the
+            begin by ``'flux_'``. They will be automatically integrated on the
             surface family during the simulation to produce nodes of type
             ``'IntegralData_t'``.
     '''
@@ -2858,9 +2862,8 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True, WallEx
 def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
     WallExtractions=None, FluxExtractions=None):
     '''
-    Include surfacic extraction information to CGNS tree using
-    information contained in dictionaries **ReferenceValues** and
-    **elsAkeysModel**.
+    Include surfacic extraction information to CGNS tree using information
+    contained in dictionaries **ReferenceValues** and **elsAkeysModel**.
 
     Parameters
     ----------
@@ -2879,15 +2882,17 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
         WallExtractions : :py:class:`list` of :py:class:`str`
             list of variables to extract at the wall. If not given, the default
             extracted variables are:
+
             ::
                 >>> WallExtractions = ['normalvector','SkinFrictionX','SkinFrictionY','SkinFrictionZ','psta']
 
         FluxExtractions : :py:class:`list` of :py:class:`str`
             list of flux variables to extract at the wall. Their names must
-            begin by 'flux_'. They will be automatically integrated on the
+            begin by ``'flux_'``. They will be automatically integrated on the
             surface family during the simulation to produce nodes of type
             ``'IntegralData_t'``.  If not given, the default extracted variables
             are:
+
             ::
                 >>> FluxExtractions = ['flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
 

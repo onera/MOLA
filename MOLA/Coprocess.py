@@ -227,7 +227,7 @@ def extractIntegralData(to, loads, Extractions=[],
 
     return loads
 
-def save(t, filename):
+def save_NEW(t, filename, tagWithIteration=False):
     '''
     Generic function to save a PyTree **t** in parallel. Works whatever the
     dimension of the PyTree. Use it to save ``'fields.cgns'``,
@@ -241,6 +241,10 @@ def save(t, filename):
 
         filename : str
             Name of the file
+
+        tagWithIteration : bool
+            if ``True``, adds a suffix ``_AfterIter<iteration>``
+            to the saved filename (creates a copy)
     '''
     t = I.copyRef(t) if I.isTopTree(t) else C.newPyTree(['Base', J.getZones(t)])
     Cmpi._convert2PartialTree(t)
@@ -289,9 +293,59 @@ def save(t, filename):
     Cmpi.barrier()
 
     printCo('will save %s ...'%filename,0, color=J.CYAN)
-    Cmpi.convertPyTree2File(t, filename, merge=UseMerge)
+    Cmpi.convertPyTree2File(t, filename, merge=False) #merge=UseMerge)
     printCo('... saved %s'%filename,0, color=J.CYAN)
     Cmpi.barrier()
+    if tagWithIteration and rank == 0: copyOutputFiles(filename)
+
+def save(t, filename, tagWithIteration=False):
+    '''
+    Generic function to save a PyTree **t** in parallel. Works whatever the
+    dimension of the PyTree. Use it to save ``'fields.cgns'``,
+    ``'surfaces.cgns'`` or ``'loads.cgns'``.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            tree to save
+
+        filename : str
+            Name of the file
+
+        tagWithIteration : bool
+            if ``True``, adds a suffix ``_AfterIter<iteration>``
+            to the saved filename (creates a copy)
+    '''
+    t = I.copyRef(t) if I.isTopTree(t) else C.newPyTree(['Base', J.getZones(t)])
+    I._adaptZoneNamesForSlash(t)
+    Cmpi._setProc(t, Cmpi.rank)
+
+    # FIXME: Bug with a 3D PyTree with IntegralDataNode
+    Skeleton = J.getSkeleton(t)
+    Skeletons = Cmpi.KCOMM.allgather(Skeleton)
+    trees = [s if s else I.newCGNSTree() for s in Skeletons]
+    trees.insert(0,t)
+    tWithSkel = I.merge(trees)
+    Cmpi.barrier()
+    for l in 2,3: I._correctPyTree(tWithSkel,l) # unique base and zone names
+
+    Cmpi.barrier()
+    if Cmpi.rank==0:
+        try:
+            if os.path.islink(filename):
+                os.unlink(filename)
+            else:
+                os.remove(filename)
+        except:
+            pass
+    Cmpi.barrier()
+
+    printCo('will save %s ...'%filename,0, color=J.CYAN)
+    Cmpi.convertPyTree2File(tWithSkel, filename, merge=False)
+    printCo('... saved %s'%filename,0, color=J.CYAN)
+    Cmpi.barrier()
+    if tagWithIteration and rank == 0: copyOutputFiles(filename)
 
 def restoreFamilies(surfaces, skeleton):
     '''
@@ -359,6 +413,8 @@ def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[]):
     .. note:: These bases must contain variables ``'PressureStagnation'`` and
         ``'TemperatureStagnation'``
 
+    .. important:: This function is adapted only to **Workflow Compressor** cases.
+
     Parameters
     ----------
 
@@ -372,7 +428,8 @@ def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[]):
 
         DesiredStatistics : :py:class:`list` of :py:class:`str`
             Here, the user requests the additional statistics to be computed.
-            See documentation of function updateAndSaveLoads for more details.
+            See documentation of function :py:func:`extractIntegralData` for
+            more details.
 
     '''
     # TODO: Fix a Segmentation fault bug when this function is used after
@@ -477,13 +534,19 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
 
         VarAndMeanList : :py:class:`list` of :py:class:`tuple`
             List of 2-tuples. Each tuple associates:
+
                 * a list of variables, that must be found in **surface**
+
                 * a function to perform the weighted integration wished for
-                    variables
+                  variables
+
             For example:
+
             ::
                 >>> VarAndMeanList = [([var1, var2], meanFunction1), ([var3], meanFunction2), ...]
+
             Example of function for a massflow weighted integration:
+
             ::
                 >>> import Converter.PyTree as C
                 >>> import Post.PyTree      as P
@@ -923,17 +986,22 @@ def _extendLoadsWithStatistics(loads, IntegralDataName, DesiredStatistics):
     Add to loads dictionary the relevant statistics requested by the user
     through the DesiredStatistics list of special named strings.
 
-    INPUTS
+    Parameters
+    ----------
 
-    loads - (Python dictionary) - Contains integral data in the following form:
-        np.array = loads['FamilyBCNameOrElementName']['VariableName']
+        loads : dict
+            Contains integral data in the following form:
+            ::
+                >>> np.array = loads['FamilyBCNameOrElementName']['VariableName']
 
-    IntegralDataName - (string) - Name of the IntegralDataNode (CGNS) provided
-        by elsA. It is used as key for loads dictionary.
+        IntegralDataName : str
+            Name of the IntegralDataNode (CGNS) provided by elsA. It is used as
+            key for loads dictionary.
 
-    DesiredStatistics - (List of strings) - Desired statistics to infer from
-        loads dictionary. For more information see documentation of
-        function updateAndSaveLoads()
+        DesiredStatistics : :py:class:`list` of :py:class:`str`
+            Desired statistics to infer from loads dictionary. For more
+            information see documentation of function
+            :py:func:`extractIntegralData`
     '''
 
     AvgIt = setup.ReferenceValues["CoprocessOptions"]["AveragingIterations"]
@@ -1872,7 +1940,7 @@ def updateAndSaveLoads(to, loads, DesiredStatistics=['std-CL', 'std-CD'],
     dictionary adding statistics requested by the user.
     Then, write ``OUTPUT/loads.cgns`` file.
 
-    .. deprecated:: 1.12 
+    .. deprecated:: 1.12
 
     Parameters
     ----------
