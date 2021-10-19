@@ -27,7 +27,7 @@ export PATH=$PATH:/tmp_user/sator/lbernard/.local/bin/
 export PYTHONPATH=/tmp_user/sator/lbernard/.local/lib/python2.7/site-packages/:$PYTHONPATH
 
 # MOLA
-export MOLA=/tmp_user/sator/tbontemp/MOLA/Dev
+export MOLA=/home/tbontemp/MOLA/Dev
 export PYTHONPATH=$PYTHONPATH:$MOLA
 
 mpirun -np $SLURM_NTASKS elsA.x -C xdt-runtime-tree -- compute.py 1>stdout.log 2>stderr.log
