@@ -10,7 +10,6 @@ import sys
 import os
 import imp
 import numpy as np
-# np.seterr(all='raise')
 import timeit
 LaunchTime = timeit.default_timer()
 from mpi4py import MPI
@@ -23,6 +22,9 @@ import Converter.PyTree as C
 import Converter.Internal as I
 import Converter.Filter as Filter
 import Converter.Mpi as Cmpi
+
+# ------------------------- IMPORT  PyPart    ------------------------- #
+import etc.pypart.PyPart     as PPA
 
 # ---------------------------- IMPORT MOLA ---------------------------- #
 import MOLA.Coprocess as CO
@@ -74,11 +76,28 @@ niter    = setup.elsAkeysNumerics['niter']
 inititer = setup.elsAkeysNumerics['inititer']
 itmax    = inititer+niter-1 # BEWARE last iteration accessible trigger-state-16
 
-Skeleton = Cmpi.convertFile2SkeletonTree(FILE_CGNS)
-I._rmNodesByName(Skeleton, 'FlowSolution*')
+
+# ========================== LAUNCH PYPART ========================== #
+PyPartBase = PPA.PyPart(FILE_CGNS,
+                        lksearch=['OUTPUT/', '.'],
+                        loadoption='partial',
+                        mpicomm=MPI.COMM_WORLD,
+                        LoggingInFile=True,
+                        LoggingFile='LOGS/partTree',
+                        LoggingVerbose=0
+                        )
+PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[4, 3])
+PyPartBase.finalise(PartTree, savePpart=True, method=1)
+Distribution = PyPartBase.getDistribution()
+Skeleton = PyPartBase.getPyPartSkeletonTree()
+# Put Distribution into the Skeleton
+for zone in I.getZones(Skeleton):
+    zonePath = I.getPath(Skeleton, zone, pyCGNSLike=True)[1:]
+    Cmpi._setProc(zone, Distribution[zonePath])
+
+t = I.merge([Skeleton, PartTree])
 
 # Add GridCoordinates and Height parametrization for turbomachinery
-PartTree = Cmpi.convertFile2PyTree(FILE_CGNS, proc=rank)
 for zone in I.getZones(PartTree):
     path = I.getPath(PartTree, zone)
     coords = I.getNodeFromName(zone, 'GridCoordinates')
@@ -86,6 +105,14 @@ for zone in I.getZones(PartTree):
     ch = I.getNodeFromName(zone, 'FlowSolution#Height')
     if ch:
         Skeleton = I.append(Skeleton, ch, path)
+
+# Add empty Coordinates for skeleton zones
+# Needed to make Cmpi.convert2PartialTree work
+for zone in I.getZones(Skeleton):
+    GC = I.getNodeFromType(zone, 'GridCoordinates_t')
+    if not GC:
+        J.set(zone, 'GridCoordinates', childType='GridCoordinates_t',
+            CoordinateX=None, CoordinateY=None, CoordinateZ=None)
 
 # ========================== LAUNCH ELSA ========================== #
 
@@ -121,8 +148,8 @@ import elsAxdt
 elsAxdt.trace(0)
 CO.elsAxdt = elsAxdt
 
-e=elsAxdt.XdtCGNS(FILE_CGNS)
-
+e = elsAxdt.XdtCGNS(tree=t, links=[], paths=[])
+e.distribution = Distribution
 
 # ------------------------------- BODYFORCE ------------------------------- #
 toWithSourceTerms = []
@@ -134,8 +161,7 @@ if BodyForceInputData:
     NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NProcs)
 # ------------------------------------------------------------------------- #
 
-e.action=elsAxdt.READ_ALL
-
+e.action = elsAxdt.READ_ALL
 e.compute()
 
 to = elsAxdt.get(elsAxdt.OUTPUT_TREE)
@@ -152,12 +178,16 @@ CO.save(loadsTree, os.path.join(DIRECTORY_OUTPUT,FILE_LOADS))
 # save surfaces
 surfs = CO.extractSurfaces(toWithSkeleton, setup.Extractions)
 CO.monitorTurboPerformance(surfs, loads, DesiredStatistics)
-surfs = POST.absolute2Relative(surfs, loc='nodes')
+# surfs = POST.absolute2Relative(surfs, loc='nodes')
 CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
 
 # save fields
-tmp_fields = os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS)
-final_fields = tmp_fields.replace('tmp-','')
-CO.save(toWithSkeleton,final_fields)
+CO.printCo('will save fields.cgns ...',0, color=J.CYAN)
+PyPartBase.mergeAndSave(I.merge([PartTree, to]), 'fields')
 elsAxdt.free("xdt-runtime-tree")
 elsAxdt.free("xdt-output-tree")
+if rank == 0:
+    t = C.convertFile2PyTree('fields_all.hdf')
+    C.convertPyTree2File(t, os.path.join(DIRECTORY_OUTPUT, 'fields.cgns'))
+    os.system('rm -f fields_*.hdf')
+CO.printCo('... saved fields.cgns',0, color=J.CYAN)
