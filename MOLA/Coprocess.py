@@ -293,7 +293,7 @@ def save_NEW(t, filename, tagWithIteration=False):
     Cmpi.barrier()
 
     printCo('will save %s ...'%filename,0, color=J.CYAN)
-    Cmpi.convertPyTree2File(t, filename, merge=False) #merge=UseMerge)
+    Cmpi.convertPyTree2File(t, filename, merge=UseMerge)
     printCo('... saved %s'%filename,0, color=J.CYAN)
     Cmpi.barrier()
     if tagWithIteration and rank == 0: copyOutputFiles(filename)
@@ -319,7 +319,12 @@ def save(t, filename, tagWithIteration=False):
     '''
     t = I.copyRef(t) if I.isTopTree(t) else C.newPyTree(['Base', J.getZones(t)])
     I._adaptZoneNamesForSlash(t)
-    Cmpi._setProc(t, Cmpi.rank)
+    for z in I.getZones(t):
+        SolverParam = I.getNodeFromName(z,'.Solver#Param')
+        if not SolverParam or not I.getNodeFromName(SolverParam,'proc'):
+            Cmpi._setProc(z, Cmpi.rank)
+    I._rmNodesByName(t,'ID_*')
+    I._rmNodesByType(t,'IntegralData_t')
 
     # FIXME: Bug with a 3D PyTree with IntegralDataNode
     Skeleton = J.getSkeleton(t)
@@ -328,6 +333,7 @@ def save(t, filename, tagWithIteration=False):
     trees.insert(0,t)
     tWithSkel = I.merge(trees)
     Cmpi.barrier()
+    renameTooLongZones(tWithSkel)
     for l in 2,3: I._correctPyTree(tWithSkel,l) # unique base and zone names
 
     Cmpi.barrier()
@@ -432,17 +438,25 @@ def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[]):
             more details.
 
     '''
-    # TODO: Fix a Segmentation fault bug when this function is used after
-    # POST.absolute2Relative (in co -proccessing only)
+    # FIXME: Segmentation fault bug when this function is used after
+    #        POST.absolute2Relative (in co -proccessing only)
     def massflowWeightedIntegral(t, var):
         t = C.initVars(t, 'rou_var={MomentumX}*{%s}'%(var))
         integ  = abs(P.integNorm(t, 'rou_var')[0][0])
+        return integ
+
+    def surfaceWeightedIntegral(t, var):
+        integ  = abs(P.integNorm(t, var)[0][0])
         return integ
 
     for row, rowParams in setup.TurboConfiguration['Rows'].items():
 
         planeUpstream   = I.newCGNSTree()
         planeDownstream = I.newCGNSTree()
+        if rowParams['RotationSpeed'] != 0:
+            IsRotor = True
+        else:
+            IsRotor = False
 
         for base in I.getNodesFromType(surfaces, 'CGNSBase_t'):
             try:
@@ -456,9 +470,16 @@ def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[]):
             except:
                 pass
 
-        VarAndMeanList = [
-            (['PressureStagnation', 'TemperatureStagnation'], massflowWeightedIntegral)
-        ]
+        if IsRotor:
+            VarAndMeanList = [
+                (['PressureStagnation', 'TemperatureStagnation'], massflowWeightedIntegral)
+            ]
+        else:
+            VarAndMeanList = [
+                (['PressureStagnation'], massflowWeightedIntegral),
+                (['Pressure'], surfaceWeightedIntegral)
+            ]
+
         dataUpstream   = integrateVariablesOnPlane(  planeUpstream, VarAndMeanList)
         dataDownstream = integrateVariablesOnPlane(planeDownstream, VarAndMeanList)
 
@@ -467,7 +488,10 @@ def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[]):
 
         if rank == 0:
             fluxcoeff = rowParams['NumberOfBlades'] / rowParams['NumberOfBladesSimulated']
-            perfos = computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
+            if IsRotor:
+                perfos = computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
+            else:
+                perfos = computePerfoStator(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
             appendDict2Loads(loads, perfos, 'PERFOS_{}'.format(row))
             _extendLoadsWithStatistics(loads, 'PERFOS_{}'.format(row), DesiredStatistics)
 
@@ -507,16 +531,16 @@ def computePerfoStator(dataUpstream, dataDownstream, fluxcoeff=1., fluxcoeffOut=
     if not fluxcoeffOut:
         fluxcoeffOut = fluxcoeff
 
-    meanPtIn   =   dataUpstream['PressureStagnation'] /   dataUpstream['Massflow']
-    meanPtOut  = dataDownstream['PressureStagnation'] / dataDownstream['Massflow']
-    meanPdynIn =      dataUpstream['PressureDynamic'] /   dataUpstream['Massflow']
+    meanPtIn  =   dataUpstream['PressureStagnation'] /   dataUpstream['Massflow']
+    meanPtOut = dataDownstream['PressureStagnation'] / dataDownstream['Massflow']
+    meanPsIn  =             dataUpstream['Pressure'] /       dataUpstream['Area']
 
     perfos = dict(
         IterationNumber         = CurrentIteration-1,  # Because extraction before current iteration (next_state=16)
         MassflowIn              = dataUpstream['Massflow']*fluxcoeff,
         MassflowOut             = dataDownstream['Massflow']*fluxcoeffOut,
         PressureStagnationRatio = meanPtOut / meanPtIn,
-        PressureStagnationLoss  = (meanPtOut - meanPtIn) / meanPdynIn
+        PressureStagnationLossCoeff = (meanPtIn - meanPtOut) / (meanPtIn - meanPsIn)
     )
 
     return perfos
@@ -571,10 +595,14 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
     data = dict()
 
     if I.getNodesFromType(surface, 'FlowSolution_t') == []:
+        for var in ['Massflow', 'Area']:
+            data[var] = 0
         for varList, meanFunction in VarAndMeanList:
-            for var in varList + ['Massflow']:
+            for var in varList:
                 data[var] = 0
     else:
+        C._initVars(surface, 'ones=1')
+        data['Area']     = abs(P.integNorm(surface, var='ones')[0][0])
         data['Massflow'] = abs(P.integNorm(surface, var='MomentumX')[0][0])
         try:
             for varList, meanFunction in VarAndMeanList:
@@ -588,8 +616,9 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
     Cmpi.barrier()
     check = comm.allreduce(check, op=MPI.LAND) #LAND = Logical AND
     data['Massflow'] = comm.allreduce(data['Massflow'], op=MPI.SUM)
+    data['Area'] = comm.allreduce(data['Area'], op=MPI.SUM)
     Cmpi.barrier()
-    if not check or data['Massflow']==0: return None
+    if not check or data['Area']==0: return None
 
     # MPI Reduction to sum quantities on proc 0
     Cmpi.barrier()
@@ -597,7 +626,6 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
         for var in varList:
             data[var] = comm.reduce(data[var], op=MPI.SUM, root=0)
     Cmpi.barrier()
-
     return data
 
 def writeSetup(setup):
@@ -1084,17 +1112,19 @@ def isConverged(ZoneName='AIRFOIL', FluxName='std-CL', FluxThreshold=0.001):
     If converged, the signal returns :py:obj:`True` to all ranks and writes a message
     to ``coprocess.log`` file.
 
+    To give several criteria, all the arguments must be lists of the same length.
+
     Parameters
     ----------
 
-        ZoneName : str
+        ZoneName : :py:class:`str` or :py:class:`list`
             Component name (shall exist in **loads** dictionary)
 
-        FluxName : str
+        FluxName : :py:class:`str` or :py:class:`list`
             Name of the load quantity (typically, standard deviation statistic
             of some effort) used for convergence determination.
 
-        FluxThreshold : float
+        FluxThreshold : :py:class:`str` or :py:class:`list`
             if the last element of the flux named **FluxName** is less than the
             user-provided **FluxThreshold**, then the convergence
             criterion is satisfied
@@ -1103,20 +1133,31 @@ def isConverged(ZoneName='AIRFOIL', FluxName='std-CL', FluxThreshold=0.001):
     -------
 
         ConvergedCriterion : bool
-            :py:obj:`True` if the convergence criterion is satisfied
+            :py:obj:`True` if the convergence criteria are satisfied
     '''
     ConvergedCriterion = False
     if rank == 0:
         try:
+            if isinstance(ZoneName, str):
+                assert isinstance(FluxName, str) and isinstance(FluxThreshold, str)
+                ZoneName = [ZoneName]
+                FluxName = [FluxName]
+                FluxThreshold = [FluxThreshold]
+            else:
+                assert len(ZoneName) == len(FluxName) == len(FluxThreshold)
             loadsTree = C.convertFile2PyTree(os.path.join(DIRECTORY_OUTPUT,
                                                            FILE_LOADS))
             loadsZones = I.getZones(loadsTree)
-            zone, = [z for z in loadsZones if z[0] == ZoneName]
-            Flux, = J.getVars(zone, [FluxName])
-            ConvergedCriterion = Flux[-1] < FluxThreshold
+            ConvergedCriteria = []
+            for zoneCur, fluxCur, thresholdCur in zip(ZoneName, FluxName, FluxThreshold):
+                zone, = [z for z in loadsZones if z[0] == zoneCur]
+                Flux, = J.getVars(zone, [fluxCur])
+                ConvergedCriteria.append(Flux[-1] < thresholdCur)
+            ConvergedCriterion = all(ConvergedCriteria)
             if ConvergedCriterion:
-                MSG = 'CONVERGED at iteration {} since {} < {}'.format(
-                        CurrentIteration-1, FluxName, FluxThreshold)
+                MSG = 'CONVERGED at iteration {} since:'.format(CurrentIteration-1)
+                for zoneCur, fluxCur, thresholdCur in zip(ZoneName, FluxName, FluxThreshold):
+                    MSG += '\n  {} < {} on {}'.format(fluxCur, thresholdCur, zoneCur)
                 printCo('*******************************************',color=GREEN)
                 printCo(MSG, color=GREEN)
                 printCo('*******************************************',color=GREEN)
@@ -1733,7 +1774,7 @@ def saveAll(CouplingTreeWithSkeleton, CouplingTree,
         # else: os._exit(0)
         os._exit(0)
 
-@J.deprecated(1.12, 1.13)
+@J.deprecated(1.12, 1.13, 'Use extractSurfaces instead')
 def saveSurfaces(to, loads, DesiredStatistics, tagWithIteration=False,
                  onlyWalls=True):
     '''
