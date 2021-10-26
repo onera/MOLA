@@ -6,6 +6,7 @@ MOLA v1.10 - 04/03/2021 - L. Bernardos
 
 
 import sys
+import copy
 import numpy as np
 
 import Converter.PyTree as C
@@ -19,8 +20,12 @@ from matplotlib.ticker import AutoMinorLocator, LogLocator, NullFormatter
 
 FILE_LOADS = 'OUTPUT/loads.cgns'
 
-varnames = ['MassflowIn', 'PressureStagnationRatio', 'TemperatureStagnationRatio', 'EfficiencyIsentropic']
-Nvars = len(varnames)
+ordering = dict(MassflowIn=0,
+    PressureStagnationRatio=1,
+    TemperatureStagnationRatio=2,
+    EfficiencyIsentropic=3,
+    PressureStagnationLossCoeff=4
+    )
 
 t = C.convertFile2PyTree(FILE_LOADS)
 zones = I.getNodesFromNameAndType(t, 'PERFOS_*', 'Zone_t')
@@ -36,6 +41,8 @@ def shortvarname(varname):
         return 'Tt ratio'
     elif varname == 'EfficiencyIsentropic':
         return 'eta'
+    elif varname == 'PressureStagnationLossCoeff':
+        return 'cPt'
     else:
         return varname
 
@@ -43,6 +50,17 @@ for zone in zones:
 
     row = I.getName(zone).lstrip('PERFOS_')
     figname = 'perfos_{}.pdf'.format(row)
+
+    # Get variables in zone
+    FS = I.getNodeFromType(zone, 'FlowSolution_t')
+    varnames = [I.getName(n) for n in I.getNodesFromType(FS, 'DataArray_t')]
+    varnames.remove('IterationNumber')
+    varnames.remove('MassflowOut')
+    for var in copy.deepcopy(varnames):
+        if 'avg-' in var or 'std-' in var:
+            varnames.remove(var)
+    varnames = sorted(varnames, key=lambda k: ordering[k])
+    Nvars = len(varnames)
 
     fig, axes = plt.subplots(Nvars,2,figsize=(8.,8.),dpi=120, sharex=True)
 
@@ -57,9 +75,12 @@ for zone in zones:
         ax[0].set_title('{} {}'.format(row, varname.rstrip('In')))
 
         ax[0].plot(v['IterationNumber'], v[varname], label=svar, color='k')
-        ax[0].plot(v['IterationNumber'], v['avg-'+varname], label='avg %s'%svar, color='k', linestyle='--')
-        
-        ax[1].plot(v['IterationNumber'], v['std-'+varname], label='std %s'%svar, color='k')
+        if v['avg-'+varname][0] is not None:
+            ax[0].plot(v['IterationNumber'], v['avg-'+varname], \
+                label='avg %s'%svar, color='k', linestyle='--')
+        if v['std-'+varname][0] is not None:
+            ax[1].plot(v['IterationNumber'], v['std-'+varname], \
+                label='std %s'%svar, color='k')
 
         if varname == 'MassflowIn':
             varname = 'MassflowOut'
@@ -71,9 +92,12 @@ for zone in zones:
                                   'std-'+varname,])
 
             ax[0].plot(v['IterationNumber'], v[varname], label=svar, color='C0')
-            ax[0].plot(v['IterationNumber'], v['avg-'+varname], label='avg %s'%svar, color='C0', linestyle='--')
-
-            ax[1].plot(v['IterationNumber'], v['std-'+varname], label='std %s'%svar, color='C0')
+            if v['avg-'+varname][0] is not None:
+                ax[0].plot(v['IterationNumber'], v['avg-'+varname], \
+                    label='avg %s'%svar, color='C0', linestyle='--')
+            if v['std-'+varname][0] is not None:
+                ax[1].plot(v['IterationNumber'], v['std-'+varname], \
+                    label='std %s'%svar, color='C0')
 
         ax[1].set_yscale('log')
         for a in ax:
