@@ -702,8 +702,7 @@ def addPressureIfAbsent(t):
 #======================= turbomachinery =======================================#
 
 
-def absolute2Relative(t, container=I.__FlowSolutionCenters__,
-                    containerRelative=None, loc='centers'):
+def absolute2Relative(t, loc='centers', container=None, containerRelative=None):
     '''
     In a turbomachinery context, change the frame of reference of variables in
     the FlowSolution container **container** from absolute to relative.
@@ -716,19 +715,20 @@ def absolute2Relative(t, container=I.__FlowSolutionCenters__,
         t : PyTree
             tree to modify
 
+        loc : str
+            location of variables, must be 'centers' or 'nodes'. Used to restore
+            variables with Post.computeVariables from Cassiopee after the change
+            of FoR.
+
         container : str
             Name of the FlowSolution container to change of frame of reference.
-            By default, this is the default container at cell centers of Cassiopee
+            By default, this is the default container at cell centers or nodes
+            (depending on **loc**) of Cassiopee
 
         containerRelative : str
             Name of the new FlowSolution container with variables in the
             relative frame of reference. By default, this is **container** with
             the suffix ``'#Relative'``
-
-        loc : str
-            location of variables, must be 'centers' or 'nodes'. Used to restore
-            variables with Post.computeVariables from Cassiopee after the change
-            of FoR.
 
     Returns
     -------
@@ -740,6 +740,10 @@ def absolute2Relative(t, container=I.__FlowSolutionCenters__,
     import etc.transform as trf
 
     assert loc in ['centers', 'nodes'], 'loc must be centers or nodes'
+    if not container:
+        if loc == 'centers': container = I.__FlowSolutionCenters__
+        else: container = I.__FlowSolutionNodes__
+
     conservatives = ['Density', 'MomentumX', 'MomentumY', 'MomentumZ',
         'EnergyStagnationDensity']
     primTurbVars = ['TurbulentEnergyKinetic', 'TurbulentDissipationRate',
