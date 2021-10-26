@@ -3468,10 +3468,10 @@ def adapt2elsA(t, InputMeshes):
         print('adapting NearMatch to elsA...')
         EP._adaptNearMatch(t)
 
-
-    if hasAnyPeriodicMatch(InputMeshes):
-        print('adapting PeriodicMatch to elsA...')
-        EP._adaptPeriodicMatch(t, clean=True)
+    # Optional in the general but incompatible with PyPart
+    # if hasAnyPeriodicMatch(InputMeshes):
+    #     print('adapting PeriodicMatch to elsA...')
+    #     EP._adaptPeriodicMatch(t, clean=True)
 
     if hasAnyOversetData(InputMeshes):
         print('adapting overset data to elsA...')

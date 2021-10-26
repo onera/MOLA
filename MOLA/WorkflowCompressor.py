@@ -90,7 +90,8 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
             value is the new name to give.
 
         SplitBlocks : bool
-            if :py:obj:`False`, do not split the mesh.
+            if :py:obj:`False`, do not split and distribute the mesh (use this
+            option if the simulation will run with PyPart).
 
         scale : float
             Homothety factor to apply on the mesh. Default is 1.
@@ -137,8 +138,9 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
                 nDupli=rowParams['NumberOfDuplications'], merge=MergeBlocks)
     if not InputMeshes[0]['SplitBlocks']:
         t = PRE.connectMesh(t, InputMeshes)
-    t = splitAndDistribute(t, InputMeshes, NProcs=NProcs,
-                                ProcPointsLoad=ProcPointsLoad)
+    else:
+        t = splitAndDistribute(t, InputMeshes, NProcs=NProcs,
+                                    ProcPointsLoad=ProcPointsLoad)
     PRE.adapt2elsA(t, InputMeshes)
     J.checkEmptyBC(t)
 
@@ -221,9 +223,10 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     ReferenceValues = computeReferenceValues(FluidProperties,
                                              **ReferenceValuesParams)
 
-    NProc = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
-    ReferenceValues['NProc'] = int(NProc)
-    ReferenceValuesParams['NProc'] = int(NProc)
+    if I.getNodeFromName(t, 'proc'):
+        NProc = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
+        ReferenceValues['NProc'] = int(NProc)
+        ReferenceValuesParams['NProc'] = int(NProc)
     elsAkeysCFD      = PRE.getElsAkeysCFD()
     elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues)
     if BodyForceInputData: NumericalParams['useBodyForce'] = True
@@ -1207,7 +1210,7 @@ def setBC_Walls(t, TurboConfiguration, bladeFamilyNames=['Blade']):
             wnode = I.getNodeFromNameAndType(znode,wname,'BC_t')
             BCDataSet = I.newBCDataSet(name='BCDataSet#Init', value='Null',
                 gridLocation='FaceCenter', parent=wnode)
-            J.set(BCDataSet, 'NeumannData', type='BCData_t', omega=omegaHubAtX(xw))
+            J.set(BCDataSet, 'NeumannData', childType='BCData_t', omega=omegaHubAtX(xw))
 
     # SHROUD
     for famNode in I.getNodesFromNameAndType(t, '*SHROUD*', 'Family_t'):
@@ -1311,7 +1314,7 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
 
         BCDataSet = I.newBCDataSet(name='BCDataSet#Init', value='Null',
             gridLocation='FaceCenter', parent=bc)
-        J.set(BCDataSet, 'DirichletData', type='BCData_t', **ImposedVariables)
+        J.set(BCDataSet, 'DirichletData', childType='BCData_t', **ImposedVariables)
 
 def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName):
     '''
