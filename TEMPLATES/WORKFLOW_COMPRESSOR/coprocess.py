@@ -28,19 +28,18 @@ if CO.getSignal('RELOAD_SETUP'):
         NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NProcs)
 
 
-
 UpdateFieldsFrequency     = CO.getOption('UpdateFieldsFrequency', default=1e3)
 UpdateLoadsFrequency      = CO.getOption('UpdateLoadsFrequency', default=20)
 UpdateSurfacesFrequency   = CO.getOption('UpdateSurfacesFrequency', default=500)
-MarginBeforeTimeOut       = CO.getOption('SecondsMargin4QuitBeforeTimeOut', default=120.)
-TimeOut                   = CO.getOption('TimeOutInSeconds', default=53100.0)
-MaxConvergedCriterionStd  = CO.getOption('MaxConvergedCriterionStd', default=1e-5)
-ItersMinEvenIfConverged   = CO.getOption('ItersMinEvenIfConverged', default=1e3)
-ConvergenceFamilyName     = CO.getOption('ConvergenceCriterionFamilyName', default='NONE')
 BodyForceSaveFrequency    = CO.getOption('BodyForceSaveFrequency', default=500)
 BodyForceComputeFrequency = CO.getOption('BodyForceComputeFrequency', default=500)
 BodyForceInitialIteration = CO.getOption('BodyForceInitialIteration', default=1000)
-
+MarginBeforeTimeOut       = CO.getOption('SecondsMargin4QuitBeforeTimeOut', default=120.)
+TimeOut                   = CO.getOption('TimeOutInSeconds', default=53100.0)
+ItersMinEvenIfConverged   = CO.getOption('ItersMinEvenIfConverged', default=1e3)
+MaxConvergedCriterionStd  = CO.getOption('MaxConvergedCriterionStd', default=1e-5)
+ConvergenceFamilyName     = CO.getOption('ConvergenceCriterionFamilyName', default='NONE')
+ConvergenceFluxName       = CO.getOption('ConvergenceFluxName', default='std-MassflowIn')
 
 DesiredStatistics = ['std-{}'.format(var) for var in ['MassflowIn', 'MassflowOut',
     'PressureStagnationRatio', 'TemperatureStagnationRatio', 'EfficiencyIsentropic']]
@@ -104,7 +103,7 @@ if ENTER_COUPLING:
 
         if (it-inititer)>ItersMinEvenIfConverged and not CONVERGED:
             CONVERGED=CO.isConverged(ZoneName=ConvergenceFamilyName,
-                                     FluxName='std-MassflowIn',
+                                     FluxName=ConvergenceFluxName,
                                      FluxThreshold=MaxConvergedCriterionStd)
 
     if CONVERGED or it >= itmax or ReachedTimeOutMargin:

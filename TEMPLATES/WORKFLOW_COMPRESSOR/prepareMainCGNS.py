@@ -1,5 +1,5 @@
 '''
-prepareRestart.py template for use with COMPRESSOR WORKFLOW.
+Template for use with COMPRESSOR WORKFLOW.
 
 Produces the case main CGNS file (main.cgns)
 
@@ -78,37 +78,28 @@ ReferenceValues = dict(
     CoprocessOptions=dict(
 
         # Following key states which Base in loads.cgns is used for monitoring
-        # convergence using standard deviation of MassflowIn.
+        # convergence
+        # To monitor convergence, use the three following keys to define a
+        # convergence criterion (or several if these parameters are lists):
+        #     * ConvergenceCriterionFamilyName: states which Base in loads.cgns
+        #       is used for monitoring convergence
+        #     * ConvergenceFluxName: value in loads.cgns to monitor to establish
+        #       convergence
+        #     * MaxConvergedCriterionStd: establishes the threshold of
+        #       convergence of ConvergenceFluxName
         ConvergenceCriterionFamilyName='PERFOS_row_1',
-
-        # MaxConvergedCLStd establishes the threshold of convergence of
-        # standard deviation statistic of Lift Coefficient.
-        MaxConvergedCLStd   = 1e-2,
+        ConvergenceFluxName = 'std-MassflowIn',
+        MaxConvergedCriterionStd   = 1e-2,
 
         # Following key establishes the number of iterations used for computing
         # the statistics of the loads
         AveragingIterations = 1000,
 
-        # Following key states the minimum number of iterations to perform
-        # even if the CONVERGED criterion is satisfied
-        ItersMinEvenIfConverged= 1000,
-
         # These keys are used to determine the save frequency of the files
         # loads.cgns, surfaces.cgns and fields.cgns
         UpdateLoadsFrequency      = 1e20,
-        UpdateSurfacesFrequency   = 5,
+        UpdateSurfacesFrequency   = 50,
         UpdateFieldsFrequency     = 1000,
-
-        # Following key establishes the timeout of the simulation (in seconds)
-        # and SecondsMargin4QuitBeforeTimeOut is the margin (in seconds) with
-        # respect to the timeout.
-        # elsA will safely stop if
-        # TimeOutInSeconds+SecondsMargin4QuitBeforeTimeOut elapsed time is
-        # reached, even if the total number of iterations is not completed
-        # these proposed values are OK for 15h job (example of SATOR prod job)
-        TimeOutInSeconds       = 53100.0, # 14.75 h * 3600 s/h = 53100 s
-        SecondsMargin4QuitBeforeTimeOut = 900.,
-
         ),
     )
 
