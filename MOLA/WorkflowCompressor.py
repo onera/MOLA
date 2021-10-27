@@ -496,6 +496,52 @@ def autoMergeBCs(t, familyNames=[]):
             fam = I.createNode('FamilyName', 'FamilyName_t', Value='Unknown')
         return I.getName(bc), I.getValue(fam), pt
 
+    def areContiguous(PointRange1, PointRange2):
+        '''
+        Check if subZone of the same block defined by PointRange1 and PointRange2
+        are contiguous.
+
+        Parameters
+        ----------
+
+            PointRange1 : PyTree
+                PointRange (PyTree of type ``IndexRange_t``) of a ``BC_t`` node
+
+            PointRange2 : PyTree
+                Same as PointRange2
+
+        Returns
+        -------
+            dimension : int
+                an integer of value -1 if subZones are not contiguous, and of value
+                equal to the direction along which subzone are contiguous else.
+
+        '''
+        assert I.getType(PointRange1) == 'IndexRange_t' \
+            and I.getType(PointRange2) == 'IndexRange_t', \
+            'Arguments are not IndexRange_t'
+
+        pt1 = I.getValue(PointRange1)
+        pt2 = I.getValue(PointRange2)
+        if pt1.shape != pt2.shape:
+            return -1
+        spaceDim = pt1.shape[0]
+        indSpace = 0
+        MatchingDims = []
+        for dim in range(spaceDim):
+            if pt1[dim, 0] == pt2[dim, 0] and pt1[dim, 1] == pt2[dim, 1]:
+                indSpace += 1
+                MatchingDims.append(dim)
+        if indSpace != spaceDim-1 :
+            # matching dimensions should form a hyperspace of original space
+            return -1
+
+        for dim in [d for d in range(spaceDim) if d not in MatchingDims]:
+            if pt1[dim][0] == pt2[dim][1] or pt2[dim][0] == pt1[dim][1]:
+                return dim
+
+        return -1
+
     for block in I.getNodesFromType(t, 'Zone_t'):
         if I.getNodeFromType(block, 'ZoneBC_t'):
             somethingWasMerged = True
@@ -542,52 +588,6 @@ def autoMergeBCs(t, familyNames=[]):
                 del(zoneBcsOut)
 
     return t
-
-def areContiguous(PointRange1, PointRange2):
-    '''
-    Check if subZone of the same block defined by PointRange1 and PointRange2
-    are contiguous.
-
-    Parameters
-    ----------
-
-        PointRange1 : PyTree
-            PointRange (PyTree of type ``IndexRange_t``) of a ``BC_t`` node
-
-        PointRange2 : PyTree
-            Same as PointRange2
-
-    Returns
-    -------
-        dimension : int
-            an integer of value -1 if subZones are not contiguous, and of value
-            equal to the direction along which subzone are contiguous else.
-
-    '''
-    assert I.getType(PointRange1) == 'IndexRange_t' \
-        and I.getType(PointRange2) == 'IndexRange_t', \
-        'Arguments are not IndexRange_t'
-
-    pt1 = I.getValue(PointRange1)
-    pt2 = I.getValue(PointRange2)
-    if pt1.shape != pt2.shape:
-        return -1
-    spaceDim = pt1.shape[0]
-    indSpace = 0
-    MatchingDims = []
-    for dim in range(spaceDim):
-        if pt1[dim, 0] == pt2[dim, 0] and pt1[dim, 1] == pt2[dim, 1]:
-            indSpace += 1
-            MatchingDims.append(dim)
-    if indSpace != spaceDim-1 :
-        # matching dimensions should form a hyperspace of original space
-        return -1
-
-    for dim in [d for d in range(spaceDim) if d not in MatchingDims]:
-        if pt1[dim][0] == pt2[dim][1] or pt2[dim][0] == pt1[dim][1]:
-            return dim
-
-    return -1
 
 def splitAndDistribute(t, InputMeshes, NProcs, ProcPointsLoad):
     '''
@@ -2235,6 +2235,18 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
         monitoredRow : str
             Name of the row whose performance will be displayed
 
+    Returns
+    -------
+
+        MFR : numpy.ndarray
+            Massflow rates for completed simulations
+
+        RPI : numpy.ndarray
+            Total pressure ratio for completed simulations
+
+        ETA : numpy.ndarray
+            Isentropic efficiency for completed simulations
+
     '''
     from . import Coprocess as CO
 
@@ -2265,11 +2277,15 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
     JobNames = [getCaseLabel(config, Throttle[0], m).split('_')[-1] for m in RotationSpeed]
     lines.append(TagStrFmt.format('JobName |')+''.join([ColStrFmt.format(JobNames[0])] + [ColStrFmt.format('') for j in range(nCol-1)]))
     lines.append(TagStrFmt.format('RotationSpeed |')+''.join([ColFmt.format(RotationSpeed[0])] + [ColStrFmt.format('') for j in range(nCol-1)]))
-    lines.append(TagStrFmt.format(' |')+''.join([ColStrFmt.format(''), ColStrFmt.format('MFR'), ColStrFmt.format('PR'), ColStrFmt.format('ETA')]))
+    lines.append(TagStrFmt.format(' |')+''.join([ColStrFmt.format(''), ColStrFmt.format('MFR'), ColStrFmt.format('RPI'), ColStrFmt.format('ETA')]))
     lines.append(TagStrFmt.format('Throttle |')+''.join(['_' for m in range(NcolMax-FirstCol)]))
 
     if not os.path.isdir('OUTPUT'):
         os.makedirs('OUTPUT')
+
+    MFR = []
+    RPI = []
+    ETA = []
 
     for throttle in Throttle:
         Line = TagFmt.format(throttle)
@@ -2289,13 +2305,15 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
         if status == 'COMPLETED':
             lastloads = JM.getCaseLoads(config, CASE_LABEL,
                                     basename='PERFOS_{}'.format(monitoredRow))
-            MFR = lastloads['MassflowIn']
-            PR  = lastloads['PressureStagnationRatio']
-            ETA = lastloads['EfficiencyIsentropic']
-            msg += ''.join([ColFmt.format(MFR), ColFmt.format(PR), ColFmt.format(ETA)])
+            MFR.append(lastloads['MassflowIn'])
+            RPI.append(lastloads['PressureStagnationRatio'])
+            ETA.append(lastloads['EfficiencyIsentropic'])
+            msg += ''.join([ColFmt.format(MFR[-1]), ColFmt.format(RPI[-1]), ColFmt.format(ETA[-1])])
         else:
             msg += ''.join([ColStrFmt.format('') for n in range(nCol-1)])
         Line += msg
         lines.append(Line)
 
     for line in lines: print(line)
+
+    return np.array(MFR), np.array(RPI), np.array(ETA)

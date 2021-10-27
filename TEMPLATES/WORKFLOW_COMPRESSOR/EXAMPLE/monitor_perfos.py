@@ -48,7 +48,7 @@ def shortvarname(varname):
 
 for zone in zones:
 
-    row = I.getName(zone).lstrip('PERFOS_')
+    row = I.getName(zone).replace('PERFOS_', '')
     figname = 'perfos_{}.pdf'.format(row)
 
     # Get variables in zone
