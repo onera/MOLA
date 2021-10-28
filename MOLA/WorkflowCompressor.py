@@ -30,6 +30,13 @@ from . import InternalShortcuts as J
 from . import Preprocess        as PRE
 from . import JobManager        as JM
 
+try:
+    from . import ParametrizeChannelHeight as ParamHeight
+    from . import WorkflowCompressorETC    as ETC
+except ImportError:
+    MSG = 'Fail to import ETC module: Some functions of {} are unavailable'.format(__name__)
+    print(J.WARN + MSG + J.ENDC)
+    ETC = None
 
 def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
                     duplicationInfos={}, blocksToRename={}, SplitBlocks=True,
@@ -256,6 +263,45 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
                                                ReferenceValues['NProc'],J.ENDC))
 
+def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
+    hlines='hub_shroud_lines.plt'):
+    '''
+    Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
+    relies on the ETC module. For axial configurations, *ChannelHeight* is
+    computed as follow:
+
+    .. math::
+
+        h(x) = (r(x) - r_{min}(x)) / (r_{max}(x)-r_{min}(x))
+
+    Parameters
+    ----------
+
+        t : PyTree
+            input mesh tree
+
+        nbslice : int
+            Number of axial positions used to compute the iso-lines in
+            *ChannelHeight*. Change the axial discretization.
+
+        fsname : str
+            Name of the ``FlowSolution_t`` container to stock the variable at
+            nodes *ChannelHeight*.
+
+        hlines : str
+            Name of the intermediate file that contains (x,r) coordinates of hub
+            and shroud lines.
+
+    Returns
+    -------
+
+        t : PyTree
+            modified tree
+
+    '''
+    return ParamHeight.parametrizeChannelHeight(t, nbslice=101,
+        fsname='FlowSolution#Height', hlines='hub_shroud_lines.plt')
+
 def cleanMeshFromAutogrid(t, basename='Base#1', blocksToRename={}):
     '''
     Clean a CGNS mesh from Autogrid 5.
@@ -464,130 +510,10 @@ def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0)):
                     disk_block = I.getNodeFromName(base, I.getName(node))
                     disk_block[0] = '{}_{:02d}'.format(zone_name, i)
                     I.createChild(disk_block, 'FamilyName', 'FamilyName_t', value=rowFamily)
-                autoMergeBCs(tree)
+                PRE.autoMergeBCs(tree)
 
     assert check, 'None of the zones was duplicated. Check the name of row family'
     return tree
-
-def autoMergeBCs(t, familyNames=[]):
-    '''
-    Merge BCs that are contiguous, belong to the same family and are of the same
-    type, for all zones of a PyTree
-
-    Parameters
-    ----------
-
-        t : PyTree
-            input tree
-
-        familyNames : :py:class:`list` of :py:class:`str`
-            restrict the merge operation to the listed family name(s).
-    '''
-    treeFamilies = [I.getName(fam) for fam in I.getNodesFromType(t, 'Family_t')]
-
-    for family in familyNames:
-        if family not in treeFamilies:
-            raise AttributeError('Family '+family+' given by user does not appear in the pyTree')
-
-    def getBCInfo(bc):
-        pt  = I.getNodeFromName(bc, 'PointRange')
-        fam = I.getNodeFromName(bc, 'FamilyName')
-        if not fam:
-            fam = I.createNode('FamilyName', 'FamilyName_t', Value='Unknown')
-        return I.getName(bc), I.getValue(fam), pt
-
-    def areContiguous(PointRange1, PointRange2):
-        '''
-        Check if subZone of the same block defined by PointRange1 and PointRange2
-        are contiguous.
-
-        Parameters
-        ----------
-
-            PointRange1 : PyTree
-                PointRange (PyTree of type ``IndexRange_t``) of a ``BC_t`` node
-
-            PointRange2 : PyTree
-                Same as PointRange2
-
-        Returns
-        -------
-            dimension : int
-                an integer of value -1 if subZones are not contiguous, and of value
-                equal to the direction along which subzone are contiguous else.
-
-        '''
-        assert I.getType(PointRange1) == 'IndexRange_t' \
-            and I.getType(PointRange2) == 'IndexRange_t', \
-            'Arguments are not IndexRange_t'
-
-        pt1 = I.getValue(PointRange1)
-        pt2 = I.getValue(PointRange2)
-        if pt1.shape != pt2.shape:
-            return -1
-        spaceDim = pt1.shape[0]
-        indSpace = 0
-        MatchingDims = []
-        for dim in range(spaceDim):
-            if pt1[dim, 0] == pt2[dim, 0] and pt1[dim, 1] == pt2[dim, 1]:
-                indSpace += 1
-                MatchingDims.append(dim)
-        if indSpace != spaceDim-1 :
-            # matching dimensions should form a hyperspace of original space
-            return -1
-
-        for dim in [d for d in range(spaceDim) if d not in MatchingDims]:
-            if pt1[dim][0] == pt2[dim][1] or pt2[dim][0] == pt1[dim][1]:
-                return dim
-
-        return -1
-
-    for block in I.getNodesFromType(t, 'Zone_t'):
-        if I.getNodeFromType(block, 'ZoneBC_t'):
-            somethingWasMerged = True
-            while somethingWasMerged : # recursively attempts to merge bcs until nothing possible is left
-                somethingWasMerged = False
-                bcs = I.getNodesFromType(block, 'BC_t')
-                zoneBcsOut = I.copyNode(I.getNodeFromType(block, 'ZoneBC_t')) # a duplication of all BCs of current block
-                mergedBcs = []
-                for bc1 in bcs:
-                    bcName1, famName1, pt1 = getBCInfo(bc1)
-                    for bc2 in [b for b in bcs if b is not bc1]:
-                        bcName2, famName2, pt2 = getBCInfo(bc2)
-                        # check if bc1 and bc2 can be merged
-                        mDim = areContiguous(pt1, pt2)
-                        if bc1 not in mergedBcs and bc2 not in mergedBcs \
-                            and mDim>=0 \
-                            and famName1 == famName2 \
-                            and (len(familyNames) == 0 or famName1 in familyNames) :
-                            # does not check inward normal index, necessarily the same if subzones are contiguous
-                            newPt = np.zeros(np.shape(pt1[1]),dtype=np.int32,order='F')
-                            for dim in range(np.shape(pt1[1])[0]):
-                                if dim != mDim :
-                                    newPt[dim,0] = pt1[1][dim, 0]
-                                    newPt[dim,1] = pt1[1][dim, 1]
-                                else :
-                                    newPt[dim,0] = min(pt1[1][dim, 0], pt2[1][dim, 0])
-                                    newPt[dim,1] = max(pt1[1][dim, 1], pt2[1][dim, 1])
-                            # new BC inheritates from the name of first BC
-                            bc = I.createNode(bcName1, 'BC_t', bc1[1])
-                            I.createChild(bc, pt1[0], 'IndexRange_t', value=newPt)
-                            I.createChild(bc, 'FamilyName', 'FamilyName_t', value=famName1)
-                            # TODO : include case with flow solution
-
-                            I._rmNodesByName(zoneBcsOut, bcName1)
-                            I._rmNodesByName(zoneBcsOut, bcName2)
-                            I.addChild(zoneBcsOut, bc)
-                            mergedBcs.append(bc1)
-                            mergedBcs.append(bc2)
-                            somethingWasMerged = True
-                            # print('BCs {} and {} were merged'.format(bcName1, bcName2))
-
-                block = I.rmNodesByType(block,'ZoneBC_t')
-                I.addChild(block,zoneBcsOut)
-                del(zoneBcsOut)
-
-    return t
 
 def splitAndDistribute(t, InputMeshes, NProcs, ProcPointsLoad):
     '''
@@ -1088,21 +1014,21 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
 
         elif BCparam['type'] == 'outradeq':
             print(J.CYAN + 'set BC outradeq on ' + BCparam['FamilyName'] + J.ENDC)
-            ETC_setBC_outradeq(t, **BCkwargs)
+            ETC.setBC_outradeq(t, **BCkwargs)
 
         elif BCparam['type'] == 'outradeqhyb':
             print(J.CYAN + 'set BC outradeqhyb on ' + BCparam['FamilyName'] + J.ENDC)
-            ETC_setBC_outradeqhyb(t, **BCkwargs)
+            ETC.setBC_outradeqhyb(t, **BCkwargs)
 
         elif BCparam['type'] == 'stage_mxpl':
             print('{}set BC stage_mxpl between {} and {}{}'.format(J.CYAN,
                 BCparam['left'], BCparam['right'], J.ENDC))
-            ETC_setBC_stage_mxpl(t, **BCkwargs)
+            ETC.setBC_stage_mxpl(t, **BCkwargs)
 
         elif BCparam['type'] == 'stage_mxpl_hyb':
             print('{}set BC stage_mxpl_hyb between {} and {}{}'.format(J.CYAN,
                 BCparam['left'], BCparam['right'], J.ENDC))
-            ETC_setBC_stage_mxpl_hyb(t, **BCkwargs)
+            ETC.setBC_stage_mxpl_hyb(t, **BCkwargs)
 
         elif BCparam['type'] == 'stage_red':
             print('{}set BC stage_red between {} and {}{}'.format(J.CYAN,
@@ -1110,7 +1036,7 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
             if not 'stage_ref_time' in BCkwargs:
                 # Assume a 360 configuration
                 BCkwargs['stage_ref_time'] = 2*np.pi / TurboConfiguration['ShaftRotationSpeed']
-            ETC_setBC_stage_red(t, **BCkwargs)
+            ETC.setBC_stage_red(t, **BCkwargs)
 
         elif BCparam['type'] == 'stage_red_hyb':
             print('{}set BC stage_red_hyb between {} and {}{}'.format(J.CYAN,
@@ -1118,11 +1044,10 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
             if not 'stage_ref_time' in BCkwargs:
                 # Assume a 360 configuration
                 BCkwargs['stage_ref_time'] = 2*np.pi / TurboConfiguration['ShaftRotationSpeed']
-            ETC_setBC_stage_red_hyb(t, **BCkwargs)
+            ETC.setBC_stage_red_hyb(t, **BCkwargs)
 
         else:
             raise AttributeError('BC type %s not implemented'%BCparam['type'])
-
 
 def setBC_Walls(t, TurboConfiguration, bladeFamilyNames=['Blade']):
     '''
@@ -1532,7 +1457,7 @@ def checkVariables(ImposedVariables):
 
 ################################################################################
 #######  Boundary conditions without ETC dependency  ###########################
-#######         WARNING: VALIDATION REQUIRED        ###########################
+#######         WARNING: VALIDATION REQUIRED         ###########################
 ################################################################################
 
 def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
@@ -1747,278 +1672,7 @@ def computeRadialDistribution(t, FamilyName, nbband):
     return zone
 
 ################################################################################
-####################   Boundary conditions with ETC  ###########################
-################################################################################
-
-def ETC_setBC_stage_mxpl(t, left, right, method='globborder_dict'):
-    import etc.transform.__future__  as trf
-
-    if method == 'globborder_dict':
-        t = trf.defineBCStageFromBC(t, left)
-        t = trf.defineBCStageFromBC(t, right)
-        t, stage = trf.newStageMxPlFromFamily(t, left, right)
-
-    elif method == 'poswin':
-        from turbo.poswin import computePosWin
-        def computeGlobborder(tree, win):
-            gbd = computePosWin(tree, win)
-            for path, obj in gbd.items():
-                gbd.pop(path)
-                bc = I.getNodeFromPath(tree, path)
-                gdi, gdj = getGlobDir(tree, bc)
-                gbd['CGNSTree/'+path] = dict(glob_dir_i=gdi, glob_dir_j=gdj,
-                                            i_poswin=obj.i, j_poswin=obj.j)
-            return gbd
-        t = trf.defineBCStageFromBC(t, left)
-        t = trf.defineBCStageFromBC(t, right)
-
-        gbdu = computeGlobborder(t, left)
-        # print("newStageMxPlFromFamily(up): gbdu = {}".format(gbdu))
-        ups = []
-        for bc in C.getFamilyBCs(t, left):
-          bcpath = I.getPath(t, bc)
-          bcu = trf.BCStageMxPlUp(t, bc)
-          globborder = bcu.glob_border(left, opposite=right)
-          globborder.i_poswin   = gbdu[bcpath]['i_poswin']
-          globborder.j_poswin   = gbdu[bcpath]['j_poswin']
-          globborder.glob_dir_i = gbdu[bcpath]['glob_dir_i']
-          globborder.glob_dir_j = gbdu[bcpath]['glob_dir_j']
-          ups.append(bcu)
-
-        # Downstream BCs declaration
-        gbdd = computeGlobborder(t, right)
-        # print("newStageMxPlFromFamily(down): gbdd = {}".format(gbdd))
-        downs = []
-        for bc in C.getFamilyBCs(t, right):
-          bcpath = I.getPath(t, bc)
-          bcd = trf.BCStageMxPlDown(t, bc)
-          globborder = bcd.glob_border(right, opposite=left)
-          globborder.i_poswin   = gbdd[bcpath]['i_poswin']
-          globborder.j_poswin   = gbdd[bcpath]['j_poswin']
-          globborder.glob_dir_i = gbdd[bcpath]['glob_dir_i']
-          globborder.glob_dir_j = gbdd[bcpath]['glob_dir_j']
-          downs.append(bcd)
-
-        # StageMxpl declaration
-        stage = trf.BCStageMxPl(t, up=ups, down=downs)
-    else:
-        raise Exception
-
-    stage.jtype = 'nomatch_rad_line'
-    stage.create()
-
-    for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
-        I._rmNodesByType(gc, 'FamilyBC_t')
-
-def ETC_setBC_stage_mxpl_hyb(t, left, right, nbband=100, c=None):
-    import etc.transform.__future__  as trf
-
-    t = trf.defineBCStageFromBC(t, left)
-    t = trf.defineBCStageFromBC(t, right)
-
-    t, stage = trf.newStageMxPlHybFromFamily(t, left, right)
-    stage.jtype = 'nomatch_rad_line'
-    stage.hray_tolerance = 1e-16
-    for stg in stage.down:
-        filename = "state_radius_{}_{}.plt".format(right, nbband)
-        radius = stg.repartition(mxpl_dirtype='axial', filename=filename, fileformat="bin_tp")
-        radius.compute(t, nbband=nbband, c=c)
-        radius.write()
-    for stg in stage.up:
-        filename = "state_radius_{}_{}.plt".format(left, nbband)
-        radius = stg.repartition(mxpl_dirtype='axial', filename=filename, fileformat="bin_tp")
-        radius.compute(t, nbband=nbband, c=c)
-        radius.write()
-    stage.create()
-
-    for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
-        I._rmNodesByType(gc, 'FamilyBC_t')
-
-def ETC_setBC_stage_red(t, left, right, stage_ref_time):
-    import etc.transform.__future__  as trf
-
-    t = trf.defineBCStageFromBC(t, left)
-    t = trf.defineBCStageFromBC(t, right)
-
-    t, stage = trf.newStageRedFromFamily(t, left, right, stage_ref_time=stage_ref_time)
-    stage.create()
-
-    for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
-        I._rmNodesByType(gc, 'FamilyBC_t')
-
-def ETC_setBC_stage_red_hyb(t, left, right, stage_ref_time, nbband=100, c=None):
-    import etc.transform.__future__  as trf
-
-    t = trf.defineBCStageFromBC(t, left)
-    t = trf.defineBCStageFromBC(t, right)
-
-    t, stage = trf.newStageRedFromFamily(t, left, right, stage_ref_time=stage_ref_time)
-    stage.hray_tolerance = 1e-16
-    for stg in stage.down:
-        filename = "state_radius_{}_{}.plt".format(right, nbband)
-        radius = stg.repartition(mxpl_dirtype='axial', filename=filename, fileformat="bin_tp")
-        radius.compute(t, nbband=nbband, c=c)
-        radius.write()
-    for stg in stage.up:
-        filename = "state_radius_{}_{}.plt".format(left, nbband)
-        radius = stg.repartition(mxpl_dirtype='axial', filename=filename, fileformat="bin_tp")
-        radius.compute(t, nbband=nbband, c=c)
-        radius.write()
-    stage.create()
-
-    for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
-        I._rmNodesByType(gc, 'FamilyBC_t')
-
-def ETC_setBC_outradeq(t, FamilyName, valve_type, valve_ref_pres,
-    valve_ref_mflow, valve_relax=0.1):
-
-    # IMPORT etc module
-    import etc.transform.__future__  as trf
-    from etc.globborder.globborder_dict import globborder_dict
-
-    # Delete previous BC if it exists
-    for bc in C.getFamilyBCs(t, FamilyName):
-        I._rmNodesByName(bc, '.Solver#BC')
-    # Create Family BC
-    family_node = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
-    I._rmNodesByName(family_node, '.Solver#BC')
-    I.newFamilyBC(value='BCOutflowSubsonic', parent=family_node)
-
-    # Outflow (globborder+outradeq, valve 4)
-    gbd = globborder_dict(t, FamilyName, config="axial")
-    for bcn in  C.getFamilyBCs(t, FamilyName):
-        bcpath = I.getPath(t, bcn)
-        bc = trf.BCOutRadEq(t, bcn)
-        bc.indpiv   = 1
-        # Lois de vannes:
-        # <bc>.valve_law(valve_type, pref, Qref, valve_relax=relax, valve_file=None, valve_file_freq=1) # v4.2.01 pour valve_file*
-        # valvelaws = [(1, 'SlopePsQ'),     # p(it+1) = p(it) + relax*( pref * (Q(it)/Qref) -p(it)) # relax = sans dim. # isoPs/Q
-        #              (2, 'QTarget'),      # p(it+1) = p(it) + relax*pref * (Q(it)/Qref-1)         # relax = sans dim. # debit cible
-        #              (3, 'QLinear'),      # p(it+1) = pref + relax*(Q(it)-Qref)                  # relax = Pascal    # lin en debit
-        #              (4, 'QHyperbolic'),  # p(it+1) = pref + relax*(Q(it)/Qref)**2               # relax = Pascal    # comp. exp.
-        #              (5, 'SlopePiQ')]     # p(it+1) = p(it) + relax*( pref * (Q(it)/Qref) -pi(it)) # relax = sans dim. # isoPi/Q
-        # pour la loi 5, pref = pi de reference
-        valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget', 3: 'QLinear', 4: 'QHyperbolic'}
-        bc.valve_law(valve_law_dict[valve_type], valve_ref_pres, valve_ref_mflow, valve_relax=valve_relax)
-        bc.dirorder = -1
-        globborder = bc.glob_border(current=FamilyName)
-        globborder.i_poswin        = gbd[bcpath]['i_poswin']
-        globborder.j_poswin        = gbd[bcpath]['j_poswin']
-        globborder.glob_dir_i      = gbd[bcpath]['glob_dir_i']
-        globborder.glob_dir_j      = gbd[bcpath]['glob_dir_j']
-        globborder.azi_orientation = gbd[bcpath]['azi_orientation']
-        globborder.h_orientation   = gbd[bcpath]['h_orientation']
-        # Add extraction file
-        bc.create()
-
-def ETC_setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
-    valve_ref_mflow, valve_relax=0.1, nbband=100, c=None):
-
-    # IMPORT etc module
-    import etc.transform.__future__  as trf
-
-    # Delete previous BC if it exists
-    for bc in C.getFamilyBCs(t, FamilyName):
-        I._rmNodesByName(bc, '.Solver#BC')
-    # Create Family BC
-    family_node = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
-    I._rmNodesByName(family_node, '.Solver#BC')
-    I.newFamilyBC(value='BCOutflowSubsonic', parent=family_node)
-
-    bc = trf.BCOutRadEqHyb(t, I.getNodeFromNameAndType(t, FamilyName, 'Family_t'))
-    bc.glob_border()
-    bc.indpiv   = 1
-    valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget', 3: 'QLinear', 4: 'QHyperbolic'}
-    bc.valve_law(valve_law_dict[valve_type], valve_ref_pres, valve_ref_mflow, valve_relax=valve_relax)
-    bc.dirorder = -1
-    radius_filename = "state_radius_{}_{}.plt".format(FamilyName, nbband)
-    radius = bc.repartition(filename=radius_filename, fileformat="bin_tp")
-    radius.compute(t, nbband=nbband, c=c)
-    radius.write()
-    bc.create()
-
-def getGlobDir(tree, bc):
-    # Remember: glob_dir_i is the opposite of theta, which is positive when it goes from Y to Z
-    # Remember: glob_dir_j is as the radius, which is positive when it goes from hub to shroud
-
-    # Check if the BC is in i, j or k constant: need pointrage of BC
-    ptRi = I.getValue(I.getNodeFromName(bc, 'PointRange'))[0]
-    ptRj = I.getValue(I.getNodeFromName(bc, 'PointRange'))[1]
-    ptRk = I.getValue(I.getNodeFromName(bc, 'PointRange'))[2]
-    x, y, z = J.getxyz(I.getParentFromType(tree, bc, 'Zone_t'))
-    y0 = y[0, 0, 0]
-    z0 = z[0, 0, 0]
-
-    if ptRi[0] == ptRi[1]:
-        dir1 = 2  # j
-        dir2 = 3  # k
-        y1 = y[0,-1, 0]
-        z1 = z[0,-1, 0]
-        y2 = y[0, 0,-1]
-        z2 = y[0, 0,-1]
-
-    elif ptRj[0] == ptRj[1]:
-        dir1 = 1  # i
-        dir2 = 3  # k
-        y1 = y[-1, 0, 0]
-        z1 = z[-1, 0, 0]
-        y2 = y[ 0, 0,-1]
-        z2 = y[ 0, 0,-1]
-
-    elif ptRk[0] == ptRk[1]:
-        dir1 = 1  # i
-        dir2 = 2  # j
-        y1 = y[-1, 0, 0]
-        z1 = z[-1, 0, 0]
-        y2 = y[ 0,-1, 0]
-        z2 = y[ 0,-1, 0]
-
-    rad0 = np.sqrt(y0**2+z0**2)
-    rad1 = np.sqrt(y1**2+z1**2)
-    rad2 = np.sqrt(y2**2+z2**2)
-    tet0 = np.arctan2(z0,y0)
-    tet1 = np.arctan2(z1,y1)
-    tet2 = np.arctan2(z2,y2)
-
-    ang1 = np.arctan2(rad1-rad0, rad1*tet1-rad0*tet0)
-    ang2 = np.arctan2(rad2-rad0, rad2*tet2-rad0*tet0)
-
-    if abs(np.sin(ang2)) < abs(np.sin(ang1)):
-        # dir2 is more vertical than dir1
-        # => globDirJ = +/- dir2
-        if np.cos(ang1) > 0:
-            # dir1 points towards theta>0
-            globDirI = -dir1
-        else:
-            # dir1 points towards thetaw0
-            globDirI = dir1
-        if np.sin(ang2) > 0:
-            # dir2 points towards r>0
-            globDirJ = dir2
-        else:
-            # dir2 points towards r<0
-            globDirJ = -dir2
-    else:
-        # dir1 is more vertical than dir2
-        # => globDirJ = +/- dir1
-        if np.cos(ang2) > 0:
-            # dir2 points towards theta>0
-            globDirI = -dir2
-        else:
-            # dir2 points towards thetaw0
-            globDirI = dir2
-        if np.sin(ang1) > 0:
-            # dir1 points towards r>0
-            globDirJ = dir1
-        else:
-            # dir1 points towards r<0
-            globDirJ = -dir1
-
-    print('  * glob_dir_i = %s\n  * glob_dir_j = %s'%(globDirI, globDirJ))
-    assert globDirI != globDirJ
-    return globDirI, globDirJ
-
-
+#############  Multiple jobs submission  #######################################
 ################################################################################
 
 def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,

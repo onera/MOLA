@@ -227,7 +227,7 @@ def extractIntegralData(to, loads, Extractions=[],
 
     return loads
 
-def save_NEW(t, filename, tagWithIteration=False):
+def save(t, filename, tagWithIteration=False):
     '''
     Generic function to save a PyTree **t** in parallel. Works whatever the
     dimension of the PyTree. Use it to save ``'fields.cgns'``,
@@ -277,6 +277,7 @@ def save_NEW(t, filename, tagWithIteration=False):
         else:
             tWithSkel = t
         Cmpi.barrier()
+        renameTooLongZones(tWithSkel)
         for l in 2,3: I._correctPyTree(tWithSkel,l) # unique base and zone names
     else:
         tWithSkel = t
@@ -293,62 +294,7 @@ def save_NEW(t, filename, tagWithIteration=False):
     Cmpi.barrier()
 
     printCo('will save %s ...'%filename,0, color=J.CYAN)
-    Cmpi.convertPyTree2File(t, filename, merge=UseMerge)
-    printCo('... saved %s'%filename,0, color=J.CYAN)
-    Cmpi.barrier()
-    if tagWithIteration and rank == 0: copyOutputFiles(filename)
-
-def save(t, filename, tagWithIteration=False):
-    '''
-    Generic function to save a PyTree **t** in parallel. Works whatever the
-    dimension of the PyTree. Use it to save ``'fields.cgns'``,
-    ``'surfaces.cgns'`` or ``'loads.cgns'``.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            tree to save
-
-        filename : str
-            Name of the file
-
-        tagWithIteration : bool
-            if ``True``, adds a suffix ``_AfterIter<iteration>``
-            to the saved filename (creates a copy)
-    '''
-    t = I.copyRef(t) if I.isTopTree(t) else C.newPyTree(['Base', J.getZones(t)])
-    I._adaptZoneNamesForSlash(t)
-    for z in I.getZones(t):
-        SolverParam = I.getNodeFromName(z,'.Solver#Param')
-        if not SolverParam or not I.getNodeFromName(SolverParam,'proc'):
-            Cmpi._setProc(z, Cmpi.rank)
-    I._rmNodesByName(t,'ID_*')
-    I._rmNodesByType(t,'IntegralData_t')
-
-    # FIXME: Bug with a 3D PyTree with IntegralDataNode
-    Skeleton = J.getSkeleton(t)
-    Skeletons = Cmpi.KCOMM.allgather(Skeleton)
-    trees = [s if s else I.newCGNSTree() for s in Skeletons]
-    trees.insert(0,t)
-    tWithSkel = I.merge(trees)
-    Cmpi.barrier()
-    renameTooLongZones(tWithSkel)
-    for l in 2,3: I._correctPyTree(tWithSkel,l) # unique base and zone names
-
-    Cmpi.barrier()
-    if Cmpi.rank==0:
-        try:
-            if os.path.islink(filename):
-                os.unlink(filename)
-            else:
-                os.remove(filename)
-        except:
-            pass
-    Cmpi.barrier()
-
-    printCo('will save %s ...'%filename,0, color=J.CYAN)
-    Cmpi.convertPyTree2File(tWithSkel, filename, merge=False)
+    Cmpi.convertPyTree2File(tWithSkel, filename, merge=UseMerge)
     printCo('... saved %s'%filename,0, color=J.CYAN)
     Cmpi.barrier()
     if tagWithIteration and rank == 0: copyOutputFiles(filename)
