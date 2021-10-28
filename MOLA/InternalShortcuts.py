@@ -607,6 +607,7 @@ def createZone(Name, Arrays, Vars):
 
     """
     ni,nj,nk=(list(Arrays[0].shape)+[1,1,1])[:3]
+    if ni==0 or nj==0 or nk==0: return
     try:
         ar=np.concatenate([aa.reshape((1,ni*nj*nk),order='F') for aa in Arrays],axis=0)
     except ValueError:
@@ -616,7 +617,9 @@ def createZone(Name, Arrays, Vars):
         ERRMSG += ENDC
         raise ValueError(ERRMSG)
 
-    return I.createZoneNode(Name,array=[','.join(Vars),ar,ni,nj,nk])
+    zone = I.createZoneNode(Name,array=[','.join(Vars),ar,ni,nj,nk])
+
+    return zone
 
 
 def _addSetOfNodes(parent, name, ListOfNodes, type1='UserDefinedData_t', type2='DataArray_t'):
@@ -1827,9 +1830,23 @@ def getSkeleton(t, keepNumpyOfSizeLessThan=7):
     return tR
 
 def getStructure(t):
+    '''
+    Get a PyTree's base structure (children of base nodes are empty)
+
+    Parameters
+    ----------
+
+        t : PyTree
+            tree from which structure is to be extracted
+
+    Returns
+    -------
+        Structure : PyTree
+            reference copy of **t**, with empty bases
+    '''
     tR = I.copyRef(t)
-    for z in I.getZones(tR):
-        z[2] = []
+    for n in I.getBases(tR):
+        n[2] = []
     return tR
 
 
