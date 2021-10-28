@@ -320,6 +320,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
     '''
 
     def addFieldExtraction(fieldname):
+        print('adding %s'%fieldname)
         try:
             ReferenceValuesParams['FieldsAdditionalExtractions'].append(fieldname)
         except:
@@ -333,10 +334,9 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
     else:
         raise ValueError('parameter mesh must be either a filename or a PyTree')
 
-    hasBCOverlap = True if C.extractBCOfType(t, 'BCOverlap') else False
+    useBCOverlap = hasBCOverlap(t)
 
-
-    if hasBCOverlap: addFieldExtraction('ChimeraCellType')
+    if useBCOverlap: addFieldExtraction('ChimeraCellType')
     if BodyForceInputData: addFieldExtraction('Temperature')
 
 
@@ -350,7 +350,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
     ReferenceValuesParams['NProc'] = int(NProc)
     elsAkeysCFD      = getElsAkeysCFD()
     elsAkeysModel    = getElsAkeysModel(FluidProperties, ReferenceValues)
-    if hasBCOverlap: NumericalParams['useChimera'] = True
+    if useBCOverlap: NumericalParams['useChimera'] = True
     if BodyForceInputData: NumericalParams['useBodyForce'] = True
     elsAkeysNumerics = getElsAkeysNumerics(ReferenceValues, **NumericalParams)
 
@@ -1119,9 +1119,6 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
 
     if not hasAnyOversetData(InputMeshes): return t
 
-    DIRECTORY_OVERSET = 'OVERSET'
-
-
     print('building masking bodies...')
     baseName2BodiesDict = getMaskingBodiesAsDict(t, InputMeshes)
 
@@ -1178,13 +1175,13 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
     t = X.maximizeBlankedCells(t, depth=depth)
 
     print('Computing interpolation coefficients...')
+    DIRECTORY_OVERSET = 'OVERSET'
     try: os.makedirs(DIRECTORY_OVERSET)
     except: pass
+    prefixFile = '' # os.path.join(DIRECTORY_OVERSET,'OvstData')
     t = X.setInterpolations(t, loc='cell', sameBase=0, double_wall=double_wall,
                             storage='inverse', solver='elsA', check=True,
-                            nGhostCells=2,
-                            prefixFile=os.path.join(DIRECTORY_OVERSET,
-                                                    'OvstData'),)
+                            nGhostCells=2, prefixFile=prefixFile)
     print('... interpolation coefficients built.')
 
     for diagnosisType in ['orphan', 'extrapolated']:
@@ -3426,6 +3423,31 @@ def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
             break
 
     return BCType
+
+
+def hasBCOverlap(t):
+    '''
+    Determines whether the input tree **t** employs Overlap boundary-conditions
+    or not.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            main CGNS where Overlap BC may exist
+
+    Returns
+    -------
+
+        Result : bool
+            :py:obj:`True` if BC Overlap exist on **t**, :py:obj:`False` otherwise
+    '''
+
+    hasBCOfTypeOverlap = bool(C.extractBCOfType(t, 'BCOverlap'))
+    if hasBCOfTypeOverlap: return True
+    hasSolverOverlap = bool(I.getNodeFromName(t,'.Solver#Overlap'))
+
+    return hasSolverOverlap
 
 
 def groupUserDefinedBCFamiliesByName(t):

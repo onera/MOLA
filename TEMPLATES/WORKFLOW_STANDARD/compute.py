@@ -128,17 +128,9 @@ if BodyForceInputData:
     NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NProcs)
 # ------------------------------------------------------------------------- #
 
-e.action=elsAxdt.READ_ALL
 
-#e.mode   =elsAxdt.READ_MESH
-#e.mode  |=elsAxdt.READ_CONNECT
-#e.mode  |=elsAxdt.READ_BC
-#e.mode  |=elsAxdt.READ_COMPUTATION
-#e.mode  |=elsAxdt.READ_OUTPUT
-#e.mode  |=elsAxdt.READ_INIT
-#if rank == 0: e.mode|=elsAxdt.READ_TRACE
-#e.mode  |=elsAxdt.CGNS_CHIMERACOEFF
-## e.action =elsAxdt.TRANSLATE
+e.action=elsAxdt.READ_ALL
+e.mode |=elsAxdt.CGNS_CHIMERACOEFF
 
 e.compute()
 
@@ -162,10 +154,11 @@ CO.save(BodyForceDisks,os.path.join(DIRECTORY_OUTPUT,FILE_BODYFORCESRC))
 
 # save fields
 tmp_fields = os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS)
-# final_fields = tmp_fields.replace('tmp-','')
-CO.save(toWithSkeleton,final_fields)
-
+CO.save(toWithSkeleton,tmp_fields)
 
 elsAxdt.free("xdt-runtime-tree")
 elsAxdt.free("xdt-output-tree")
+
+CO.moveTemporaryFile(tmp_fields)
+
 CO.printCo('END OF compute.py',0)

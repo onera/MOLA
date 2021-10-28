@@ -149,7 +149,9 @@ def extractSurfaces(OutputTreeWithSkeleton, Extractions):
         elif TypeOfExtraction == 'IsoSurface':
             zones = P.isoSurfMC(PartialTree, Extraction['field'], Extraction['value'])
             try: basename = Extraction['name']
-            except KeyError: basename = 'Iso_%s_%g'%(Extraction['field'],Extraction['value'])
+            except KeyError:
+                FieldName = Extraction['field'].replace('Coordinate','')
+                basename = 'Iso_%s_%g'%(FieldName,Extraction['value'])
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction == 'Sphere':
@@ -252,12 +254,9 @@ def save(t, filename):
     I._rmNodesByName(t,'ID_*')
     I._rmNodesByType(t,'IntegralData_t')
 
-    # FIXME: Bug with a 3D PyTree with IntegralDataNode
-    # Skeleton = J.getSkeleton(t,keepNumpyOfSizeLessThan=2)
     Skeleton = J.getStructure(t)
 
     UseMerge = False
-
     try:
         Skeletons = Cmpi.KCOMM.gather(Skeleton,root=0)
     except SystemError:
@@ -273,6 +272,7 @@ def save(t, filename):
         else:
             tWithSkel = t
         Cmpi.barrier()
+        renameTooLongZones(tWithSkel)
         for l in 2,3: I._correctPyTree(tWithSkel,l) # unique base and zone names
     else:
         tWithSkel = t
@@ -289,9 +289,47 @@ def save(t, filename):
     Cmpi.barrier()
 
     printCo('will save %s ...'%filename,0, color=J.CYAN)
-    Cmpi.convertPyTree2File(t, filename, merge=UseMerge)
+    Cmpi.convertPyTree2File(tWithSkel, filename, merge=UseMerge)
     printCo('... saved %s'%filename,0, color=J.CYAN)
     Cmpi.barrier()
+
+
+def moveTemporaryFile(temporary_file):
+    '''
+    Removes ``tmp-`` characters of given **temporary_file** using a *move*
+    operation.
+
+    Parameters
+    ----------
+
+        temporary_file : str
+            path of the file whose name contains characters ``tmp-``
+
+    '''
+    final_file = temporary_file.replace('tmp-','')
+    if final_file == temporary_file: return
+    if Cmpi.rank == 0:
+        printCo('deleting %s ...'%final_file)
+        try:
+            os.remove(final_file)
+            WillReplace = True
+        except:
+            WillReplace = False
+
+        if WillReplace:
+            printCo('deleting %s ... OK'%final_file,color=GREEN)
+            printCo('moving %s to %s ...'%(temporary_file,final_file))
+            try:
+                shutil.move(temporary_file,final_file)
+                printCo('moving %s to %s ... OK'%(temporary_file,final_file),
+                        color=GREEN)
+            except:
+                printCo('moving %s to %s ... FAILED'%(temporary_file,final_file),
+                        color=FAIL)
+        else:
+            printCo('deleting %s ... FAILED'%final_file,color=FAIL)
+    Cmpi.barrier()
+
 
 def restoreFamilies(surfaces, skeleton):
     '''
@@ -725,7 +763,7 @@ def loadsDict2PyTree(loads):
             Arrays.append(loadsSubset[var])
 
         zone = J.createZone(ZoneName, Arrays, Vars)
-        zones.append(zone)
+        if zone: zones.append(zone)
 
     if zones:
         Cmpi._setProc(zones, rank)

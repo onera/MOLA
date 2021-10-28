@@ -135,6 +135,7 @@ if BodyForceInputData:
 # ------------------------------------------------------------------------- #
 
 e.action=elsAxdt.READ_ALL
+e.mode |=elsAxdt.CGNS_CHIMERACOEFF
 
 e.compute()
 
@@ -151,15 +152,15 @@ CO.save(loadsTree, os.path.join(DIRECTORY_OUTPUT,FILE_LOADS))
 
 # save surfaces
 surfs = CO.extractSurfaces(toWithSkeleton, setup.Extractions)
-CO.monitorTurboPerformance(surfs, loads, DesiredStatistics)
-surfs = POST.absolute2Relative(surfs, container=I.__FlowSolutionNodes__,
-                                loc='nodes')
 CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
-
 
 # save fields
 tmp_fields = os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS)
-final_fields = tmp_fields.replace('tmp-','')
-CO.save(toWithSkeleton,final_fields)
+CO.save(toWithSkeleton,tmp_fields)
+
 elsAxdt.free("xdt-runtime-tree")
 elsAxdt.free("xdt-output-tree")
+
+CO.moveTemporaryFile(tmp_fields)
+
+CO.printCo('END OF compute.py',0)
