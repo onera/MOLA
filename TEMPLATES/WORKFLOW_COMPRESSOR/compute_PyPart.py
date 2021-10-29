@@ -191,3 +191,5 @@ if rank == 0:
     C.convertPyTree2File(t, os.path.join(DIRECTORY_OUTPUT, 'fields.cgns'))
     os.system('rm -f fields_*.hdf')
 CO.printCo('... saved fields.cgns',0, color=J.CYAN)
+
+CO.printCo('END OF compute.py',0)

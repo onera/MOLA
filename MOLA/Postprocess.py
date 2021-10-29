@@ -494,7 +494,7 @@ def getWalls(t):
     return OutputWalls
 
 def buildAuxiliarWallNormalSurface(t, wall, MaximumBoundaryLayerDistance=0.5,
-        MaximumBoundaryLayerPoints=100, BoundaryLayerGrowthRate=1.05,
+        MaximumBoundaryLayerPoints=300, BoundaryLayerGrowthRate=1.05,
         FirstCellHeight=1e-6):
     '''
     Build an auxiliar merged surface from a PyTree of a 2D computation of the
