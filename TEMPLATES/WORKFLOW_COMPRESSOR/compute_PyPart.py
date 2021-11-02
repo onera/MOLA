@@ -90,6 +90,7 @@ PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[4, 3])
 PyPartBase.finalise(PartTree, savePpart=True, method=1)
 Distribution = PyPartBase.getDistribution()
 Skeleton = PyPartBase.getPyPartSkeletonTree()
+CO.PyPartBase = PyPartBase
 # Put Distribution into the Skeleton
 for zone in I.getZones(Skeleton):
     zonePath = I.getPath(Skeleton, zone, pyCGNSLike=True)[1:]
@@ -97,14 +98,21 @@ for zone in I.getZones(Skeleton):
 
 t = I.merge([Skeleton, PartTree])
 
-# Add GridCoordinates and Height parametrization for turbomachinery
 for zone in I.getZones(PartTree):
     path = I.getPath(PartTree, zone)
+    # Add GridCoordinates
     coords = I.getNodeFromName(zone, 'GridCoordinates')
     Skeleton = I.append(Skeleton, coords, path)
+    # Add Height parametrization for turbomachinery
     ch = I.getNodeFromName(zone, 'FlowSolution#Height')
     if ch:
         Skeleton = I.append(Skeleton, ch, path)
+    # Add PyPart special node for the mergeAndSave latter
+    for node in I.getChildren(I.getNodeFromName(zone, ':CGNS#Ppart')):
+        nodePath = I.getPath(PartTree, node)
+        nodeInSkel = I.getNodeFromPath(Skeleton, nodePath)
+        if not nodeInSkel:
+            Skeleton = I.append(Skeleton, node, path+'/:CGNS#Ppart')
 
 # Add empty Coordinates for skeleton zones
 # Needed to make Cmpi.convert2PartialTree work
@@ -169,8 +177,7 @@ CO.adaptEndOfRun(to)
 toWithSkeleton = I.merge([Skeleton, to])
 
 # save loads
-CO.extractIntegralData(to, loads, Extractions=[],
-                        DesiredStatistics=DesiredStatistics)
+CO.extractIntegralData(to, loads)
 CO.addMemoryUsage2Loads(loads)
 loadsTree = CO.loadsDict2PyTree(loads)
 CO.save(loadsTree, os.path.join(DIRECTORY_OUTPUT,FILE_LOADS))
@@ -182,14 +189,12 @@ CO.monitorTurboPerformance(surfs, loads, DesiredStatistics)
 CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
 
 # save fields
-CO.printCo('will save fields.cgns ...',0, color=J.CYAN)
-PyPartBase.mergeAndSave(I.merge([PartTree, to]), 'fields')
+tmp_fields = os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS)
+CO.save(toWithSkeleton, tmp_fields)
+
 elsAxdt.free("xdt-runtime-tree")
 elsAxdt.free("xdt-output-tree")
-if rank == 0:
-    t = C.convertFile2PyTree('fields_all.hdf')
-    C.convertPyTree2File(t, os.path.join(DIRECTORY_OUTPUT, 'fields.cgns'))
-    os.system('rm -f fields_*.hdf')
-CO.printCo('... saved fields.cgns',0, color=J.CYAN)
+
+CO.moveTemporaryFile(tmp_fields)
 
 CO.printCo('END OF compute.py',0)

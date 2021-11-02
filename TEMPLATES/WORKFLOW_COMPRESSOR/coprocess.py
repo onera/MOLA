@@ -39,10 +39,11 @@ TimeOut                   = CO.getOption('TimeOutInSeconds', default=53100.0)
 ItersMinEvenIfConverged   = CO.getOption('ItersMinEvenIfConverged', default=1e3)
 MaxConvergedCriterionStd  = CO.getOption('MaxConvergedCriterionStd', default=1e-5)
 ConvergenceFamilyName     = CO.getOption('ConvergenceCriterionFamilyName', default='NONE')
-ConvergenceFluxName       = CO.getOption('ConvergenceFluxName', default='std-MassflowIn')
+ConvergenceFluxName       = CO.getOption('ConvergenceFluxName', default='std-MassFlowIn')
 
-DesiredStatistics = ['std-{}'.format(var) for var in ['MassflowIn', 'MassflowOut',
-    'PressureStagnationRatio', 'TemperatureStagnationRatio', 'EfficiencyIsentropic']]
+DesiredStatistics = ['std-{}'.format(var) for var in ['MassFlowIn', 'MassFlowOut',
+    'PressureStagnationRatio', 'TemperatureStagnationRatio', 'EfficiencyIsentropic',
+    'PressureStagnationLossCoeff']]
 
 
 # BEWARE! state 16 => triggers *before* iteration, which means
@@ -87,11 +88,10 @@ if ENTER_COUPLING:
     CO.adaptEndOfRun(toWithSkeleton)
 
     if SAVE_FIELDS:
-        CO.save(toWithSkeleton,os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
+        CO.save(toWithSkeleton, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
 
     if SAVE_LOADS:
-        CO.extractIntegralData(to, loads, Extractions=setup.Extractions,
-                                DesiredStatistics=DesiredStatistics)
+        CO.extractIntegralData(to, loads)
         CO.addMemoryUsage2Loads(loads)
         loadsTree = CO.loadsDict2PyTree(loads)
         CO.save(loadsTree, os.path.join(DIRECTORY_OUTPUT,FILE_LOADS))

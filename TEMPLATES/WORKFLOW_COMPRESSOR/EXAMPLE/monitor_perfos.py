@@ -20,7 +20,7 @@ from matplotlib.ticker import AutoMinorLocator, LogLocator, NullFormatter
 
 FILE_LOADS = 'OUTPUT/loads.cgns'
 
-ordering = dict(MassflowIn=0,
+ordering = dict(MassFlowIn=0,
     PressureStagnationRatio=1,
     TemperatureStagnationRatio=2,
     EfficiencyIsentropic=3,
@@ -31,9 +31,9 @@ t = C.convertFile2PyTree(FILE_LOADS)
 zones = I.getNodesFromNameAndType(t, 'PERFOS_*', 'Zone_t')
 
 def shortvarname(varname):
-    if varname == 'MassflowIn':
+    if varname == 'MassFlowIn':
         return 'mf in'
-    elif varname == 'MassflowOut':
+    elif varname == 'MassFlowOut':
         return 'mf out'
     elif varname == 'PressureStagnationRatio':
         return 'Pt ratio'
@@ -55,7 +55,7 @@ for zone in zones:
     FS = I.getNodeFromType(zone, 'FlowSolution_t')
     varnames = [I.getName(n) for n in I.getNodesFromType(FS, 'DataArray_t')]
     varnames.remove('IterationNumber')
-    varnames.remove('MassflowOut')
+    varnames.remove('MassFlowOut')
     for var in copy.deepcopy(varnames):
         if 'avg-' in var or 'std-' in var:
             varnames.remove(var)
@@ -82,8 +82,8 @@ for zone in zones:
             ax[1].plot(v['IterationNumber'], v['std-'+varname], \
                 label='std %s'%svar, color='k')
 
-        if varname == 'MassflowIn':
-            varname = 'MassflowOut'
+        if varname == 'MassFlowIn':
+            varname = 'MassFlowOut'
             svar = shortvarname(varname)
 
             v = J.getVars2Dict(zone, ['IterationNumber',
@@ -133,4 +133,27 @@ for zone in zones:
     print('Saving %s%s%s ...'%(J.CYAN,figname,J.ENDC))
     plt.savefig(figname)
     print(J.GREEN+'ok'+J.ENDC)
+
+ConvergenceHistory = I.getNodeFromName(t, 'GlobalConvergenceHistory')
+if ConvergenceHistory:
+    residuals = dict()
+    FS = I.getNodeFromType(ConvergenceHistory, 'FlowSolution_t')
+    for node in I.getNodesFromType(FS, 'DataArray_t'):
+        residuals[I.getName(node)] = I.getValue(node)
+
+    varList = residuals.keys()
+    varList.remove('IterationNumber')
+    varList.sort()
+    plt.figure()
+    for varname in varList:
+        plt.plot(residuals['IterationNumber'], residuals[varname], label=varname)
+    plt.yscale('log')
+    plt.xlabel('Iterations')
+    plt.ylabel('Residuals')
+    plt.legend(loc='best')
+    plt.grid()
+    print('Saving %s%s%s ...'%(J.CYAN,figname,J.ENDC))
+    plt.savefig("residuals.pdf", dpi=150, bbox_inches='tight')
+    print(J.GREEN+'ok'+J.ENDC)
+
 plt.show()

@@ -9,7 +9,7 @@ MFR, RPI, ETA = WF.printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalCon
 fig, ax1 = plt.subplots()
 
 color = 'teal'
-ax1.set_xlabel('Massflow (kg/s)')
+ax1.set_xlabel('MassFlow (kg/s)')
 ax1.set_ylabel('Total pressure ratio (-)', color=color)
 ax1.plot(MFR, RPI, 'o', color=color)
 ax1.tick_params(axis='y', labelcolor=color)

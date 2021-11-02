@@ -2893,7 +2893,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
 
     '''
     if WallExtractions is None:
-        WallExtractions = ['normalvector','SkinFrictionX','SkinFrictionY','SkinFrictionZ','psta']
+        WallExtractions = ['normalvector', 'frictionvector','psta']
     if FluxExtractions is None:
         FluxExtractions = ['flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
 
@@ -2935,6 +2935,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
                 ytorque       = 0.0,
                 ztorque       = 0.0,
                 force_extract = 1,
+                writingframe  = 'relative'
                 )
 
 

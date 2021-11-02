@@ -1845,7 +1845,7 @@ def getStructure(t):
             reference copy of **t**, with empty bases
     '''
     tR = I.copyRef(t)
-    for n in I.getBases(tR):
+    for n in I.getZones(tR):
         n[2] = []
     return tR
 
