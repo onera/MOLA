@@ -51,7 +51,8 @@ FILE_BODYFORCESRC= 'BodyForceSources.cgns'
 DIRECTORY_OUTPUT = 'OUTPUT'
 setup            = None
 CurrentIteration = 0
-elsAxdt = None
+elsAxdt          = None
+PyPartBase       = None
 # ------------------------------------------------------------------- #
 FAIL  = '\033[91m'
 GREEN = '\033[92m'
@@ -150,7 +151,7 @@ def extractSurfaces(OutputTreeWithSkeleton, Extractions):
             zones = P.isoSurfMC(PartialTree, Extraction['field'], Extraction['value'])
             try: basename = Extraction['name']
             except KeyError:
-                FieldName = Extraction['field'].replace('Coordinate','')
+                FieldName = Extraction['field'].replace('Coordinate','').replace('Radius', 'R').replace('ChannelHeight', 'H')
                 basename = 'Iso_%s_%g'%(FieldName,Extraction['value'])
             addBase2SurfacesTree(basename)
 
@@ -219,6 +220,12 @@ def extractIntegralData(to, loads, Extractions=[],
                 deviation of the cumulative standard deviation of the
                 lift coefficient (:math:`\sigma(\sigma(C_L))`)
 
+    Returns
+    -------
+
+        loads : dict
+            Updated dictionary
+
     '''
     IntegralDataNodes = I.getNodesFromType2(to, 'IntegralData_t')
     for IntegralDataNode in IntegralDataNodes:
@@ -227,6 +234,40 @@ def extractIntegralData(to, loads, Extractions=[],
         _extendLoadsWithProjectedLoads(loads, IntegralDataName)
         _extendLoadsWithStatistics(loads, IntegralDataName, DesiredStatistics)
 
+    extractResiduals(to, loads)
+
+    return loads
+
+def extractResiduals(to, loads):
+    '''
+    Extract residuals from coupling tree **to**, and update **loads** Python
+    dictionary.
+
+    Parameters
+    ----------
+
+        to : PyTree
+            Coupling tree as obtained from :py:func:`adaptEndOfRun`
+
+        loads : dict
+            Contains integral data in the following form:
+
+            >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
+
+    Returns
+    -------
+
+        loads : dict
+            Updated dictionary
+
+    '''
+    ConvergenceHistoryNodes = I.getNodesByType(to, 'ConvergenceHistory_t')
+    for ConvergenceHistory in ConvergenceHistoryNodes:
+        ConvergenceDict = dict()
+        for DataArrayNode in I.getNodesFromType(ConvergenceHistory, 'DataArray_t'):
+            ConvergenceDict[I.getName(DataArrayNode)] = I.getValue(DataArrayNode)
+        appendDict2Loads(loads, ConvergenceDict, I.getName(ConvergenceHistory))
+
     return loads
 
 def save(t, filename, tagWithIteration=False):
@@ -234,6 +275,12 @@ def save(t, filename, tagWithIteration=False):
     Generic function to save a PyTree **t** in parallel. Works whatever the
     dimension of the PyTree. Use it to save ``'fields.cgns'``,
     ``'surfaces.cgns'`` or ``'loads.cgns'``.
+
+    .. important::
+        If the mesh was split with PyPart and if thet function is called to save
+        *FILE_FIELDS*, the tree is automatically merged and saved using PyPart.
+        In that case, the variable **PyPartBase** should be defined (normally,
+        in ``compute.py``)
 
     Parameters
     ----------
@@ -248,6 +295,10 @@ def save(t, filename, tagWithIteration=False):
             if ``True``, adds a suffix ``_AfterIter<iteration>``
             to the saved filename (creates a copy)
     '''
+    if PyPartBase and FILE_FIELDS in filename:
+        saveWithPyPart(t, filename, tagWithIteration=tagWithIteration)
+        return
+
     t = I.copyRef(t) if I.isTopTree(t) else C.newPyTree(['Base', J.getZones(t)])
     Cmpi._convert2PartialTree(t)
     I._adaptZoneNamesForSlash(t)
@@ -298,6 +349,48 @@ def save(t, filename, tagWithIteration=False):
     Cmpi.barrier()
     if tagWithIteration and rank == 0: copyOutputFiles(filename)
 
+def saveWithPyPart(t, filename, tagWithIteration=False):
+    '''
+    Function to save a PyTree **t** with PyPart. The PyTree must have been
+    splitted with PyPart in ``compute.py``. An important point is the presence
+    in every zone of **t** of the special node ``:CGNS#Ppart``.
+
+    Use this function to save ``'fields.cgns'``.
+
+    .. note:: For more details on PyPart, see the dedicated pages on elsA
+        support:
+        `PyPart alone <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/etc_pypart_alone.html>`_
+        and
+        `PyPart with elsA <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/etc_pypart_elsa.html>`_
+
+    Parameters
+    ----------
+
+        t : PyTree
+            tree to save
+
+        filename : str
+            Name of the file
+
+        tagWithIteration : bool
+            if ``True``, adds a suffix ``_AfterIter<iteration>``
+            to the saved filename (creates a copy)
+    '''
+    t = I.copyRef(t)
+    Cmpi._convert2PartialTree(t)
+    I._rmNodesByName(t, '.Solver#Param')
+    I._rmNodesByType(t,'IntegralData_t')
+    Cmpi.barrier()
+    printCo('will save %s ...'%filename,0, color=J.CYAN)
+    PyPartBase.mergeAndSave(t, 'PyPart_fields')
+    Cmpi.barrier()
+    if rank == 0:
+        t = C.convertFile2PyTree('PyPart_fields_all.hdf')
+        C.convertPyTree2File(t, filename)
+        os.system('rm -f PyPart_fields_*.hdf')
+    printCo('... saved %s'%filename,0, color=J.CYAN)
+    Cmpi.barrier()
+    if tagWithIteration and rank == 0: copyOutputFiles(filename)
 
 def moveTemporaryFile(temporary_file):
     '''
@@ -489,10 +582,10 @@ def computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=1., fluxcoeffOut=N
     gamma = setup.FluidProperties['Gamma']
 
     # Compute total quantities ratio between in/out planes
-    meanPtIn  =      dataUpstream['PressureStagnation'] /   dataUpstream['Massflow']
-    meanPtOut =    dataDownstream['PressureStagnation'] / dataDownstream['Massflow']
-    meanTtIn  =   dataUpstream['TemperatureStagnation'] /   dataUpstream['Massflow']
-    meanTtOut = dataDownstream['TemperatureStagnation'] / dataDownstream['Massflow']
+    meanPtIn  =      dataUpstream['PressureStagnation'] /   dataUpstream['MassFlow']
+    meanPtOut =    dataDownstream['PressureStagnation'] / dataDownstream['MassFlow']
+    meanTtIn  =   dataUpstream['TemperatureStagnation'] /   dataUpstream['MassFlow']
+    meanTtOut = dataDownstream['TemperatureStagnation'] / dataDownstream['MassFlow']
     PtRatio = meanPtOut / meanPtIn
     TtRatio = meanTtOut / meanTtIn
     # Compute Isentropic Efficiency
@@ -500,8 +593,8 @@ def computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=1., fluxcoeffOut=N
 
     perfos = dict(
         IterationNumber            = CurrentIteration-1,  # Because extraction before current iteration (next_state=16)
-        MassflowIn                 = dataUpstream['Massflow']*fluxcoeff,
-        MassflowOut                = dataDownstream['Massflow']*fluxcoeffOut,
+        MassFlowIn                 = dataUpstream['MassFlow']*fluxcoeff,
+        MassFlowOut                = dataDownstream['MassFlow']*fluxcoeffOut,
         PressureStagnationRatio    = PtRatio,
         TemperatureStagnationRatio = TtRatio,
         EfficiencyIsentropic       = etaIs
@@ -514,14 +607,14 @@ def computePerfoStator(dataUpstream, dataDownstream, fluxcoeff=1., fluxcoeffOut=
     if not fluxcoeffOut:
         fluxcoeffOut = fluxcoeff
 
-    meanPtIn  =   dataUpstream['PressureStagnation'] /   dataUpstream['Massflow']
-    meanPtOut = dataDownstream['PressureStagnation'] / dataDownstream['Massflow']
+    meanPtIn  =   dataUpstream['PressureStagnation'] /   dataUpstream['MassFlow']
+    meanPtOut = dataDownstream['PressureStagnation'] / dataDownstream['MassFlow']
     meanPsIn  =             dataUpstream['Pressure'] /       dataUpstream['Area']
 
     perfos = dict(
         IterationNumber         = CurrentIteration-1,  # Because extraction before current iteration (next_state=16)
-        MassflowIn              = dataUpstream['Massflow']*fluxcoeff,
-        MassflowOut             = dataDownstream['Massflow']*fluxcoeffOut,
+        MassFlowIn              = dataUpstream['MassFlow']*fluxcoeff,
+        MassFlowOut             = dataDownstream['MassFlow']*fluxcoeffOut,
         PressureStagnationRatio = meanPtOut / meanPtIn,
         PressureStagnationLossCoeff = (meanPtIn - meanPtOut) / (meanPtIn - meanPsIn)
     )
@@ -578,7 +671,7 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
     data = dict()
 
     if I.getNodesFromType(surface, 'FlowSolution_t') == []:
-        for var in ['Massflow', 'Area']:
+        for var in ['MassFlow', 'Area']:
             data[var] = 0
         for varList, meanFunction in VarAndMeanList:
             for var in varList:
@@ -586,7 +679,7 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
     else:
         C._initVars(surface, 'ones=1')
         data['Area']     = abs(P.integNorm(surface, var='ones')[0][0])
-        data['Massflow'] = abs(P.integNorm(surface, var='MomentumX')[0][0])
+        data['MassFlow'] = abs(P.integNorm(surface, var='MomentumX')[0][0])
         try:
             for varList, meanFunction in VarAndMeanList:
                 for var in varList:
@@ -598,7 +691,7 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
     # Check if the needed variables were extracted
     Cmpi.barrier()
     check = comm.allreduce(check, op=MPI.LAND) #LAND = Logical AND
-    data['Massflow'] = comm.allreduce(data['Massflow'], op=MPI.SUM)
+    data['MassFlow'] = comm.allreduce(data['MassFlow'], op=MPI.SUM)
     data['Area'] = comm.allreduce(data['Area'], op=MPI.SUM)
     Cmpi.barrier()
     if not check or data['Area']==0: return None
@@ -839,7 +932,7 @@ def appendDict2Loads(loads, dictToAppend, basename):
         if var in loads[basename]:
             loads[basename][var] = np.append(loads[basename][var], value)
         else:
-            loads[basename][var] = np.array([value])
+            loads[basename][var] = np.array([value], ndmin=1)
 
 
 def _appendIntegralDataNode2Loads(loads, IntegralDataNode):
@@ -1223,10 +1316,12 @@ def copyOutputFiles(*files2copy):
     '''
     for file2copy in files2copy:
         f2cSplit = file2copy.split('.')
-        newFileName = f2cSplit[0]+'_AfterIter%d.'%(CurrentIteration-1)+f2cSplit[1]
+        newFileName = '{name}_AfterIter{it}.{fmt}'.format(
+                        name='.'.join(f2cSplit[:-1]),
+                        it=CurrentIteration-1,
+                        fmt=f2cSplit[-1])
         try:
-            shutil.copy2(os.path.join(DIRECTORY_OUTPUT,file2copy),
-                         os.path.join(DIRECTORY_OUTPUT,newFileName))
+            shutil.copy2(file2copy, newFileName)
         except:
             pass
 
