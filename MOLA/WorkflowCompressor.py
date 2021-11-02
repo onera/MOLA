@@ -257,6 +257,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     t = newCGNSfromSetup(t, AllSetupDics, initializeFlow=True, FULL_CGNS_MODE=False)
     to = PRE.newRestartFieldsFromCGNS(t)
     if initializeFromCGNS:
+        print(J.CYAN + 'Initialize flow field with {}'.format(initializeFromCGNS) + J.ENDC)
         PRE.initializeFlowSolutionFromFile(to, initializeFromCGNS)
     PRE.saveMainCGNSwithLinkToOutputFields(t,to,writeOutputFields=writeOutputFields)
 
@@ -586,8 +587,8 @@ def splitWithPyPart(mesh, partN=1, savePpart=False, output=None):
     Parameters
     ----------
 
-        filename : str
-            Name of the CGNS file of the mesh to split
+        mesh : PyTree or :py:class:`str`
+            PyTree or name of the CGNS file. Corresponds to the mesh to split
 
         partN : int
             Given the number of processors Nprocs used to run this function,
@@ -604,8 +605,9 @@ def splitWithPyPart(mesh, partN=1, savePpart=False, output=None):
     Returns
     -------
 
-        file : None
-            new split tree file, with
+        PartTree : PyTree or :py:obj:`None`
+            Split tree if **mesh** was a PyTree. Returns :py:obj:`None` and
+            write the file **output** if **mesh** was a file name.
 
     '''
     import etc.pypart.PyPart     as PPA
@@ -643,7 +645,7 @@ def splitWithPyPart(mesh, partN=1, savePpart=False, output=None):
         # Save CGNS output with links
         PyPartBase.save(output, PartTree)
 
-def computeReferenceValues(FluidProperties, Massflow, PressureStagnation,
+def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
         TemperatureStagnation, Surface, TurbulenceLevel=0.001,
         Viscosity_EddyMolecularRatio=0.1, TurbulenceModel='Wilcox2006-klim',
         TurbulenceCutoff=1e-8, TransitionMode=None, CoprocessOptions={},
@@ -652,7 +654,7 @@ def computeReferenceValues(FluidProperties, Massflow, PressureStagnation,
     '''
     This function is the Compressor's equivalent of :py:func:`PRE.computeReferenceValues()`.
     The main difference is that in this case reference values are set through
-    ``Massflow``, total Pressure ``PressureStagnation``, total Temperature
+    ``MassFlow``, total Pressure ``PressureStagnation``, total Temperature
     ``TemperatureStagnation`` and ``Surface``.
 
     Please, refer to :py:func:`PRE.computeReferenceValues()` doc for more details.
@@ -664,7 +666,7 @@ def computeReferenceValues(FluidProperties, Massflow, PressureStagnation,
     cp      = FluidProperties['cp']
 
     # Compute variables
-    Mach  = machFromMassflow(Massflow, Surface, Pt=PressureStagnation,
+    Mach  = machFromMassFlow(MassFlow, Surface, Pt=PressureStagnation,
                             Tt=TemperatureStagnation)
     Temperature  = TemperatureStagnation / (1. + 0.5*(Gamma-1.) * Mach**2)
     Pressure  = PressureStagnation / (1. + 0.5*(Gamma-1.) * Mach**2)**(Gamma/(Gamma-1))
@@ -703,7 +705,7 @@ def computeReferenceValues(FluidProperties, Massflow, PressureStagnation,
     addKeys = dict(
         PressureStagnation = PressureStagnation,
         TemperatureStagnation = TemperatureStagnation,
-        Massflow = Massflow,
+        MassFlow = MassFlow,
         )
 
     ReferenceValues.update(addKeys)
@@ -884,7 +886,7 @@ def massflowFromMach(Mx, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
     '''
     return S * Pt * (gamma/r/Tt)**0.5 * Mx / (1. + 0.5*(gamma-1.) * Mx**2) ** ((gamma+1) / 2 / (gamma-1))
 
-def machFromMassflow(massflow, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
+def machFromMassFlow(massflow, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
     '''
     Compute the Mach number normal to a section from the massflow rate.
 
@@ -892,7 +894,7 @@ def machFromMassflow(massflow, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
     ----------
 
         massflow : :py:class:`float`
-            Massflow rate through the section.
+            MassFlow rate through the section.
 
         S : :py:class:`float`
             Surface of the section.
@@ -919,15 +921,15 @@ def machFromMassflow(massflow, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
     if isinstance(massflow, (list, tuple, np.ndarray)):
         Mx = []
         for i, MF in enumerate(massflow):
-            Mx.append(machFromMassflow(MF, S, Pt=Pt, Tt=Tt, r=r, gamma=gamma))
+            Mx.append(machFromMassFlow(MF, S, Pt=Pt, Tt=Tt, r=r, gamma=gamma))
         if isinstance(massflow, np.ndarray):
             Mx = np.array(Mx)
         return Mx
     else:
         # Check that massflow is lower than the chocked massflow
         chocked_massflow = massflowFromMach(1., S, Pt=Pt, Tt=Tt, r=r, gamma=gamma)
-        assert massflow < chocked_massflow, "Massflow ({:6.3f}kg/s) is greater than the chocked massflow ({:6.3f}kg/s)".format(massflow, chocked_massflow)
-        # Massflow as a function of Mach number
+        assert massflow < chocked_massflow, "MassFlow ({:6.3f}kg/s) is greater than the chocked massflow ({:6.3f}kg/s)".format(massflow, chocked_massflow)
+        # MassFlow as a function of Mach number
         f = lambda Mx: massflowFromMach(Mx, S, Pt, Tt, r, gamma)
         # Objective function
         g = lambda Mx: f(Mx) - massflow
@@ -1893,7 +1895,7 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
     -------
 
         MFR : numpy.ndarray
-            Massflow rates for completed simulations
+            MassFlow rates for completed simulations
 
         RPI : numpy.ndarray
             Total pressure ratio for completed simulations
@@ -1959,7 +1961,7 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
         if status == 'COMPLETED':
             lastloads = JM.getCaseLoads(config, CASE_LABEL,
                                     basename='PERFOS_{}'.format(monitoredRow))
-            MFR.append(lastloads['MassflowIn'])
+            MFR.append(lastloads['MassFlowIn'])
             RPI.append(lastloads['PressureStagnationRatio'])
             ETA.append(lastloads['EfficiencyIsentropic'])
             msg += ''.join([ColFmt.format(MFR[-1]), ColFmt.format(RPI[-1]), ColFmt.format(ETA[-1])])

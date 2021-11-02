@@ -64,7 +64,7 @@ TurboConfiguration = dict(
 ReferenceValues = dict(
     # Here we state the flight conditions and reference quantities.
     # These variables are self-explanatory :
-    Massflow              = 20.5114,
+    MassFlow              = 20.5114,
     TemperatureStagnation = 288.15,
     PressureStagnation    = 101330.,
     Surface               = 0.110506,
@@ -127,7 +127,7 @@ for row, rowParams in TurboConfiguration['Rows'].items():
 
 pref = 0.75*ReferenceValues['PressureStagnation']
 fluxcoeff = TurboConfiguration['Rows']['R37']['NumberOfBlades']/TurboConfiguration['Rows']['R37']['NumberOfBladesSimulated']
-mref = ReferenceValues['Massflow'] / float(fluxcoeff)
+mref = ReferenceValues['MassFlow'] / float(fluxcoeff)
 valve_relax = 0.1*ReferenceValues['PressureStagnation']
 
 BoundaryConditions = [

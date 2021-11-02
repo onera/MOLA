@@ -58,7 +58,7 @@ fanRadius = 0.5 * 1.834
 ReferenceValues = dict(
     # Here we state the flight conditions and reference quantities.
     # These variables are self-explanatory :
-    Massflow              = 151.95,
+    MassFlow              = 151.95,
     TemperatureStagnation = 236.81,
     PressureStagnation    = 28536.14,
     Surface               = np.pi * fanRadius**2,
@@ -87,9 +87,9 @@ ReferenceValues = dict(
         #       convergence
         #     * MaxConvergedCriterionStd: establishes the threshold of
         #       convergence of ConvergenceFluxName
-        ConvergenceCriterionFamilyName='PERFOS_row_1',
-        ConvergenceFluxName = 'std-MassflowIn',
-        MaxConvergedCriterionStd   = 1e-2,
+        ConvergenceCriterionFamilyName = ['PERFOS_row_1'],
+        ConvergenceFluxName = ['std-MassFlowIn'],
+        MaxConvergedCriterionStd = [1e-2],
 
         # Following key establishes the number of iterations used for computing
         # the statistics of the loads
@@ -160,9 +160,11 @@ for row, rowParams in TurboConfiguration['Rows'].items():
 # Call the macro function that makes all the modifications needed on the mesh
 # file to generate the input 'main.cgns' for elsA
 # Modification of this function call is NOT recommended.
-WF.prepareMainCGNS4ElsA(mesh=mesh, ReferenceValuesParams=ReferenceValues,
-        NumericalParams=NumericalParams, TurboConfiguration=TurboConfiguration,
-        Extractions=Extractions, BodyForceInputData=[],
-        BoundaryConditions=BoundaryConditions, writeOutputFields=True)
+WF.prepareMainCGNS4ElsA(mesh=mesh,
+        ReferenceValuesParams=ReferenceValues,
+        NumericalParams=NumericalParams,
+        TurboConfiguration=TurboConfiguration,
+        Extractions=Extractions,
+        BoundaryConditions=BoundaryConditions)
 
 print('Elaped time: %g minutes'%((tic()-toc)/60.))
