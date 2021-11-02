@@ -77,7 +77,7 @@ ReferenceValues = dict(
     # simulation during the trigger call of coprocess.py script:
     CoprocessOptions=dict(
 
-        # Following key states which Base in loads.cgns is used for monitoring
+        # Following key states which Base in arrays.cgns is used for monitoring
         # convergence using standard deviation of MassflowIn.
         ConvergenceCriterionFamilyName='PERFOS_row_1',
 
@@ -86,7 +86,7 @@ ReferenceValues = dict(
         MaxConvergedCLStd   = 1e-2,
 
         # Following key establishes the number of iterations used for computing
-        # the statistics of the loads
+        # the statistics of the arrays
         AveragingIterations = 1000,
 
         # Following key states the minimum number of iterations to perform
@@ -94,8 +94,8 @@ ReferenceValues = dict(
         ItersMinEvenIfConverged= 1000,
 
         # These keys are used to determine the save frequency of the files
-        # loads.cgns, surfaces.cgns and fields.cgns
-        UpdateLoadsFrequency      = 1e20,
+        # arrays.cgns, surfaces.cgns and fields.cgns
+        UpdateArraysFrequency      = 1e20,
         UpdateSurfacesFrequency   = 5,
         UpdateFieldsFrequency     = 1000,
 
@@ -126,7 +126,7 @@ NumericalParams = dict(
     # following key states the maximum number of iterations of the iterations.
     # It is recommended to use a VERY HIGH value, as the simulation will stop
     # safely before timeout (see CoprocessOptions)
-    Niter=1e6)
+    niter=1e6)
 
 '''
 List of boundary conditions to set on the given mesh

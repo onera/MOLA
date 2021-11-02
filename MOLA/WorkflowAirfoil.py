@@ -289,7 +289,7 @@ def launchBasicStructuredPolars(PREFIX_JOB, FILE_GEOMETRY, AER, machine,
 
         CoprocessOptions = dict(
             UpdateFieldsFrequency   = 5000,
-            UpdateLoadsFrequency    = 100,
+            UpdateArraysFrequency    = 100,
             NewSurfacesFrequency    = 1000,
             AveragingIterations     = 10000,
             MaxConvergedCLStd       = 1e-6,
@@ -593,7 +593,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                                                TimeMarching=TimeMarching,
                                                timestep=timestep,
                                                inititer=InitialIteration,
-                                               Niter=NumberOfIterations,
+                                               niter=NumberOfIterations,
                                                CFLparams=CFLparams)
 
     if NonLocalTransition:
@@ -642,7 +642,7 @@ def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
 
     DefaultCoprocessOptions = dict(    # Default values for WorkflowAirfoil
         UpdateFieldsFrequency   = 2000,
-        UpdateLoadsFrequency    = 50,
+        UpdateArraysFrequency    = 50,
         NewSurfacesFrequency    = 500,
         AveragingIterations     = 3000,
         MaxConvergedCLStd       = 1e-6,
@@ -656,7 +656,7 @@ def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
 
     # Fluid properties local shortcuts
     Gamma   = FluidProperties['Gamma']
-    RealGas = FluidProperties['RealGas']
+    IdealConstantGas = FluidProperties['IdealConstantGas']
     cv      = FluidProperties['cv']
     cp      = FluidProperties['cp']
 
@@ -688,7 +688,7 @@ def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
     Surface = Length * Depth
 
     ViscosityMolecular = mus * (T/Ts)**1.5 * ((Ts + S)/(T + S))
-    Velocity = Mach * np.sqrt( Gamma * RealGas * Temperature )
+    Velocity = Mach * np.sqrt( Gamma * IdealConstantGas * Temperature )
     Density  = Reynolds * ViscosityMolecular / (Velocity * Length)
 
     ReferenceValues = PRE.computeReferenceValues(FluidProperties,
@@ -1671,17 +1671,17 @@ def buildPolar(JobsConfiguration, PolarName='Polar',
                         PolarsDict[v][i,j,:] = 0.0
 
             try:
-                loads = JM.getCaseLoads(config, CASE_LABEL)
+                arrays = JM.getCaseArrays(config, CASE_LABEL)
             except:
                 for v in PolarsDict:
                     if len(PolarsDict[v].shape) == 2:
                         PolarsDict[v][i,j] = 0.0
                     elif len(PolarsDict[v].shape) == 3:
                         PolarsDict[v][i,j,:] = 0.0
-                    loads = None
+                    arrays = None
 
-            if loads:
-                for v in loads:
+            if arrays:
+                for v in arrays:
                     try:
                         Matrix = PolarsDict[v]
                     except KeyError:
@@ -1690,7 +1690,7 @@ def buildPolar(JobsConfiguration, PolarName='Polar',
                         Matrix[i,:j]  = 0.0
                         Matrix[:i,j]  = 0.0
                         PolarsDict[v] = Matrix
-                    Matrix[i,j] = loads[v]
+                    Matrix[i,j] = arrays[v]
 
 
             try:
@@ -2044,7 +2044,7 @@ def correctPolar(t, useBigRangeValuesIf_StdCLisHigherThan=0.0005,
                     Fields2Correct=['Cl','Cd','Cm']):
     '''
     Given a PyTree containing **PyZonePolars**, this function replaces
-    integral loads whose lift coefficient standard-deviation ``std-CL``
+    integral arrays whose lift coefficient standard-deviation ``std-CL``
     ( :math:`\sigma(c_L)` ) are higher
     than a user-provided threshold, with a linear interpolation of
     *BigAngleOfAttack* data.

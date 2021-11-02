@@ -1,72 +1,66 @@
 # =============================================================================
            ---- MPI RUN ----
 Total Number of computing processors = 8
-Process Pid : 10755 launched on processor of rank : 1
+Process Pid : 1854 launched on processor of rank : 1
 # =============================================================================
 
 
 # =============================================================================
            ---- MPI RUN ----
 Total Number of computing processors = 8
-Process Pid : 10756 launched on processor of rank : 2
+Process Pid : 1855 launched on processor of rank : 2
 # =============================================================================
 
 
 # =============================================================================
            ---- MPI RUN ----
 Total Number of computing processors = 8
-Process Pid : 10758 launched on processor of rank : 4
+Process Pid : 1856 launched on processor of rank : 3
 # =============================================================================
 
 
 # =============================================================================
            ---- MPI RUN ----
 Total Number of computing processors = 8
-Process Pid : 10759 launched on processor of rank : 5
+Process Pid : 1857 launched on processor of rank : 4
 # =============================================================================
 
 
 # =============================================================================
            ---- MPI RUN ----
 Total Number of computing processors = 8
-Process Pid : 10760 launched on processor of rank : 6
+Process Pid : 1858 launched on processor of rank : 5
 # =============================================================================
 
 
 # =============================================================================
            ---- MPI RUN ----
 Total Number of computing processors = 8
-Process Pid : 10761 launched on processor of rank : 7
+Process Pid : 1859 launched on processor of rank : 6
 # =============================================================================
 
 
 # =============================================================================
            ---- MPI RUN ----
 Total Number of computing processors = 8
-Process Pid : 10757 launched on processor of rank : 3
+Process Pid : 1860 launched on processor of rank : 7
 # =============================================================================
 
 
 # =============================================================================
            ---- MPI RUN ----
 Total Number of computing processors = 8
-Process Pid : 10754 launched on processor of rank : 0
+Process Pid : 1853 launched on processor of rank : 0
 # =============================================================================
 
 
-
-elsA interface : Message : starting check for <function instance 'f_cfl'>
-
-elsA interface : Message : starting check for <function instance 'f_cfl'>
-
-elsA interface : Message : starting check for <function instance 'f_cfl'>
-
-elsA interface : Message : starting check for <function instance 'f_cfl'>
-
-elsA interface : Message : starting check for <function instance 'f_cfl'>
-
-elsA interface : Message : starting check for <function instance 'f_cfl'>
-
-elsA interface : Message : starting check for <function instance 'f_cfl'>
-
-elsA interface : Message : starting check for <function instance 'f_cfl'>
+Traceback (most recent call last):
+  File "compute.py", line 77, in <module>
+    Skeleton = Cmpi.convertFile2SkeletonTree(FILE_CGNS)
+  File "/stck/elsa/Public/v5.0.03/Dist/bin/spiro_mpi/lib/python2.7/site-packages/Converter/Mpi4py.py", line 191, in convertFile2SkeletonTree
+    if rank == 0: t = Distributed.convertFile2SkeletonTree(fileName, format, maxFloatSize, maxDepth, None, links)
+  File "/stck/elsa/Public/v5.0.03/Dist/bin/spiro_mpi/lib/python2.7/site-packages/Converter/Distributed.py", line 26, in convertFile2SkeletonTree
+    dataShape=dataShape, links=links)
+  File "/stck/elsa/Public/v5.0.03/Dist/bin/spiro_mpi/lib/python2.7/site-packages/Converter/PyTree.py", line 994, in convertFile2PyTree
+    except: raise IOError("convertFile2PyTree: file %s not found."%fileName)
+IOError: convertFile2PyTree: file main.cgns not found.

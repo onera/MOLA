@@ -37,7 +37,7 @@ FULL_CGNS_MODE   = False
 FILE_SETUP       = 'setup.py'
 FILE_CGNS        = 'main.cgns'
 FILE_SURFACES    = 'surfaces.cgns'
-FILE_LOADS       = 'loads.cgns'
+FILE_ARRAYS       = 'arrays.cgns'
 FILE_FIELDS      = 'tmp-fields.cgns' # BEWARE of tmp- suffix
 FILE_COLOG       = 'coprocess.log'
 FILE_BODYFORCESRC= 'bodyforce.cgns'
@@ -52,7 +52,7 @@ CO.FULL_CGNS_MODE   = FULL_CGNS_MODE
 CO.FILE_SETUP       = FILE_SETUP
 CO.FILE_CGNS        = FILE_CGNS
 CO.FILE_SURFACES    = FILE_SURFACES
-CO.FILE_LOADS       = FILE_LOADS
+CO.FILE_ARRAYS       = FILE_ARRAYS
 CO.FILE_FIELDS      = FILE_FIELDS
 CO.FILE_COLOG       = FILE_COLOG
 CO.FILE_BODYFORCESRC= FILE_BODYFORCESRC
@@ -71,7 +71,7 @@ if rank==0:
 try: BodyForceInputData = setup.BodyForceInputData
 except: BodyForceInputData = None
 CO.invokeCoprocessLogFile()
-loads = CO.invokeLoads()
+arrays = CO.invokeArrays()
 
 niter    = setup.elsAkeysNumerics['niter']
 inititer = setup.elsAkeysNumerics['inititer']
@@ -134,31 +134,27 @@ e.mode |=elsAxdt.CGNS_CHIMERACOEFF
 
 e.compute()
 
-to = elsAxdt.get(elsAxdt.OUTPUT_TREE)
-CO.adaptEndOfRun(to)
-toWithSkeleton = I.merge([Skeleton, to])
+t = CO.extractFields(Skeleton)
 
-# save loads
-CO.extractIntegralData(to, loads, Extractions=[],
-                        DesiredStatistics=DesiredStatistics)
-CO.addMemoryUsage2Loads(loads)
-loadsTree = CO.loadsDict2PyTree(loads)
-CO.save(loadsTree, os.path.join(DIRECTORY_OUTPUT,FILE_LOADS))
+# save arrays
+arraysTree = CO.extractArrays(t, arrays, DesiredStatistics=DesiredStatistics,
+          Extractions=setup.Extractions, addMemoryUsage=True)
+CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))
 
 # save surfaces
-surfs = CO.extractSurfaces(toWithSkeleton, setup.Extractions)
-CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
+surfs = CO.extractSurfaces(t, setup.Extractions)
+CO.save(surfs, os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
 
 # save bodyforce disks
 CO.save(BodyForceDisks,os.path.join(DIRECTORY_OUTPUT,FILE_BODYFORCESRC))
 
 # save fields
-tmp_fields = os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS)
-CO.save(toWithSkeleton,tmp_fields)
+CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
 
 elsAxdt.free("xdt-runtime-tree")
 elsAxdt.free("xdt-output-tree")
 
-CO.moveTemporaryFile(tmp_fields)
+CO.moveTemporaryFile(os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
 
 CO.printCo('END OF compute.py',0)
+CO.moveLogFiles()

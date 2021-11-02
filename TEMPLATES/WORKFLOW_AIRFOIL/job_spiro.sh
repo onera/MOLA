@@ -16,7 +16,7 @@ export ELSA_MPI_APPEND=FALSE # See ticket 7849
 export FORT_BUFFERED=true
 export MPI_GROUP_MAX=8192
 export MPI_COMM_MAX=8192
-
+export ELSA_NOLOG=ON
 export ELSAVERSION=v5.0.03
 export ELSAPROD=spiro_mpi
 export ELSAPATHPUBLIC=/home/elsa/Public/$ELSAVERSION/Dist/bin/$ELSAPROD

@@ -12,6 +12,7 @@ export ELSA_MPI_APPEND=FALSE # See ticket 7849
 export FORT_BUFFERED=true
 export MPI_GROUP_MAX=8192
 export MPI_COMM_MAX=8192
+export ELSA_NOLOG=ON
 source /tmp_user/sator/elsa/Public/v5.0.03/Dist/bin/sator/source.me
 
 # PUMA

@@ -361,7 +361,7 @@ print("Thrust: %g N,  Power: %g W,  Prop. Eff.: %g, | Pitch: %g deg"%(ResultsDic
 '''
 # Please note that LiftingLine object has been modified after
 # BEMT computation. It may be possible to save sectional
-# loads simply making this:
+# arrays simply making this:
 '''
 C.convertPyTree2File(LiftingLine,'MyBladeLL.cgns')
 

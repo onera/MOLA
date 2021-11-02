@@ -43,7 +43,7 @@ ReferenceValues = PRE.computeReferenceValues(FluidProperties,
     Velocity=139.385 * (1.852/3.6), # CAS=120 => 139.385 kts
     AngleOfAttackDeg=0.0,
     Surface=Surface,
-    Length=MeanAeroChord, 
+    Length=MeanAeroChord,
     TorqueOrigin=[4.69554, 0, -0.365],
 
     # These two variables are used for computing the aerodynamic axis.
@@ -54,7 +54,7 @@ ReferenceValues = PRE.computeReferenceValues(FluidProperties,
     # as the pilot would apply left rudder pedal.
     PitchAxis=[0.,1.,0.],
     YawAxis=[0.,0.,1.],
-    
+
     # This macro-key assures coherent turbulence modeling.
     # Most keys follow the NASA convention: https://turbmodels.larc.nasa.gov/
     # Possible values are :
@@ -72,21 +72,21 @@ ReferenceValues = PRE.computeReferenceValues(FluidProperties,
         # convergence using standard deviation of Lift Coefficient.
         ConvergenceCriterionFamilyName='wallWING',
 
-        # MaxConvergedCLStd establishes the threshold of convergence of 
+        # MaxConvergedCLStd establishes the threshold of convergence of
         # standard deviation statistic of Lift Coefficient.
         MaxConvergedCLStd   = 1e-6,
-        
+
         # Following key establishes the number of iterations used for computing
-        # the statistics of the loads
+        # the statistics of the arrays
         AveragingIterations = 1000,
 
         # Following key states the minimum number of iterations to perform
         # even if the CONVERGED criterion is satisfied
         ItersMinEvenIfConverged= 1000,
-        
+
         # These keys are used to determine the save frequency of the files
-        # loads.cgns, surfaces.cgns and fields.cgns
-        UpdateLoadsFrequency      =   50,
+        # arrays.cgns, surfaces.cgns and fields.cgns
+        UpdateArraysFrequency      =   50,
         UpdateSurfacesFrequency   = 1000,
         UpdateFieldsFrequency     = 2000,
 
@@ -94,7 +94,7 @@ ReferenceValues = PRE.computeReferenceValues(FluidProperties,
         # and SecondsMargin4QuitBeforeTimeOut is the margin (in seconds) with
         # respect to the timeout.
         # elsA will safely stop if
-        # TimeOutInSeconds+SecondsMargin4QuitBeforeTimeOut elapsed time is 
+        # TimeOutInSeconds+SecondsMargin4QuitBeforeTimeOut elapsed time is
         # reached, even if the total number of iterations is not completed
         # these proposed values are OK for 15h job (example of SATOR prod job)
         TimeOutInSeconds       = 53100.0, # 14.75 h * 3600 s/h = 53100 s
@@ -131,14 +131,14 @@ elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues,
     # following key states the maximum number of iterations of the iterations.
     # It is recommended to use a VERY HIGH value, as the simulation will stop
     # safely before timeout (see CoprocessOptions)
-    Niter=30000)
+    niter=30000)
 
-t = C.convertFile2PyTree(FILE_MESH)    
+t = C.convertFile2PyTree(FILE_MESH)
 
 
 AllSetupDics = dict(
 FluidProperties=FluidProperties,
-ReferenceValues=ReferenceValues, 
+ReferenceValues=ReferenceValues,
 elsAkeysCFD=elsAkeysCFD,
 elsAkeysModel=elsAkeysModel,
 elsAkeysNumerics=elsAkeysNumerics)

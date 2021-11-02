@@ -92,8 +92,8 @@ ReferenceValues = dict(
         MaxConvergedCLStd   = 1e-4,
 
         # These keys are used to determine the save frequency of the files
-        # loads.cgns, surfaces.cgns and fields.cgns
-        UpdateLoadsFrequency      = 1e20,
+        # arrays.cgns, surfaces.cgns and fields.cgns
+        UpdateArraysFrequency      = 1e20,
         UpdateSurfacesFrequency   = 20,
         UpdateFieldsFrequency     = 1000,
         ),

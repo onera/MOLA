@@ -443,7 +443,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         for f in fieldsCorrVars: f *= weight
 
 
-    # Correction of linear loads broadcasting
+    # Correction of linear arrays broadcasting
     integAxial = P.integ(Stacked, 'fa')[0]
 
     tol = 1e-6
@@ -3346,7 +3346,7 @@ def _computeLiftingLine3DLoads(LiftingLine, Density, RotAxis, RPM):
             'Chord','VelocityMagnitudeLocal','Cl','Cd','phiRad',
             'VelocityX','VelocityY','VelocityZ',
             'GammaX','GammaY','GammaZ','GammaXm1','GammaYm1','GammaZm1')
-    # TODO: Conditionally include 'Cm' and compute torsion loads
+    # TODO: Conditionally include 'Cm' and compute torsion arrays
     v = J.getVars2Dict(LiftingLine,Vars)
 
     # COMPUTE AXIAL AND TANGENTIAL LOADS
@@ -3360,7 +3360,7 @@ def _computeLiftingLine3DLoads(LiftingLine, Density, RotAxis, RPM):
     v['fa'][:] = v['La'] + v['Da']
     v['ft'][:] = v['Lt'] + v['Dt']
 
-    # Project linear loads onto cartesian axes
+    # Project linear arrays onto cartesian axes
     ax, ay, az = RotAxis
     v['fx'][:] = v['fa']*ax - v['ft']*bx
     v['fy'][:] = v['fa']*ay - v['ft']*by
@@ -3392,7 +3392,7 @@ def _computeLiftingLine3DLoads(LiftingLine, Density, RotAxis, RPM):
 
 def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0):
     '''
-    This function is used to compute local and integral loads of a lifting line
+    This function is used to compute local and integral arrays of a lifting line
     with general orientation and shape (including sweep and dihedral).
 
     .. important:: the flow's contribution to the efforts in the tangential
@@ -3493,7 +3493,7 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0):
             .. note::
                 LiftingLine zones contained in **t** are modified
         NBlades : float
-            Multiplication factor of integral loads
+            Multiplication factor of integral arrays
     '''
 
     FrenetFields = ('tx','ty','tz','nx','ny','nz','bx','by','bz',
@@ -3792,9 +3792,9 @@ def _updateLiftingLines(t, PolarsInterpolatorsDict):
     Several operations are performed:
         1 - Apply polars interpolations based on current line's
             AoA, Mach and Reynolds fields.
-        2 - Compute linear-loads along LiftingLine, possibly
-            including 3D vector loads.
-        3 - Compute Integral loads, such as Thrust and Power.
+        2 - Compute linear-arrays along LiftingLine, possibly
+            including 3D vector arrays.
+        3 - Compute Integral arrays, such as Thrust and Power.
     '''
 
     # Get the freestream velocity, Temperature and Density
@@ -4650,7 +4650,7 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
         using PUMA.
 
     This function employs PUMA for making the perturbation and inferring
-    LiftingLine's local section characteristics and blade's integral loads
+    LiftingLine's local section characteristics and blade's integral arrays
 
     Parameters
     ----------

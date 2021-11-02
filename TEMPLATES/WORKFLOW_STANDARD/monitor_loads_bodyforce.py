@@ -1,5 +1,5 @@
 '''
-Template for reading and showing loads.cgns, which includes bodyforce
+Template for reading and showing arrays.cgns, which includes bodyforce
 elements,  using Matplotlib
 
 MOLA v1.10 - 04/03/2021 - L. Bernardos
@@ -17,16 +17,16 @@ import MOLA.InternalShortcuts as J
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator, LogLocator, NullFormatter
 
-FILE_LOADS = '/home/lbernard/PROJETS/OTTAWAN/CFD/loads.cgns'
+FILE_ARRAYS = '/home/lbernard/PROJETS/OTTAWAN/CFD/arrays.cgns'
 
 FluxName = 'CL'
 FluxNameZone = 'wallWING'
 
-figname = 'loads.pdf'
+figname = 'arrays.pdf'
 
 PropFluxName = 'Thrust'
 
-t = C.convertFile2PyTree(FILE_LOADS)
+t = C.convertFile2PyTree(FILE_ARRAYS)
 zones = I.getZones(t)
 ZonesDict = {}
 for z in zones: ZonesDict[z[0]] = z
