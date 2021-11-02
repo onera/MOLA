@@ -721,7 +721,7 @@ def computeReferenceValues(FluidProperties, Massflow, PressureStagnation,
     '''
     # Fluid properties local shortcuts
     Gamma   = FluidProperties['Gamma']
-    RealGas = FluidProperties['RealGas']
+    IdealConstantGas = FluidProperties['IdealConstantGas']
     cv      = FluidProperties['cv']
     cp      = FluidProperties['cp']
 
@@ -730,8 +730,8 @@ def computeReferenceValues(FluidProperties, Massflow, PressureStagnation,
                             Tt=TemperatureStagnation)
     Temperature  = TemperatureStagnation / (1. + 0.5*(Gamma-1.) * Mach**2)
     Pressure  = PressureStagnation / (1. + 0.5*(Gamma-1.) * Mach**2)**(Gamma/(Gamma-1))
-    Density = Pressure / (Temperature * RealGas)
-    SoundSpeed  = np.sqrt(Gamma * RealGas * Temperature)
+    Density = Pressure / (Temperature * IdealConstantGas)
+    SoundSpeed  = np.sqrt(Gamma * IdealConstantGas * Temperature)
     Velocity  = Mach * SoundSpeed
 
     # REFERENCE VALUES COMPUTATION
@@ -1384,13 +1384,16 @@ def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileform
     Field variables will be extrapolated on the BCs attached to the family
     **FamilyName**, except if:
 
-        * the file can be converted in a PyTree
+    *
+        the file can be converted in a PyTree
 
-        * with zone names like: ``<ZONE>\<BC>``, as obtained from function
-            C.extractBCOfName
+    *
+        with zone names like: ``<ZONE>\<BC>``, as obtained from function
+        :py:func:`Converter.PyTree.extractBCOfName`
 
-        * and all zone names and BC names are consistent with the current tree
-            **t**
+    *
+        and all zone names and BC names are consistent with the current tree
+        **t**
 
     In that case, field variables are just read in **filename** and written in
     BCs of **t**.
@@ -2274,11 +2277,11 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
             msg = ColStrFmt.format('PD') # Pending
 
         if status == 'COMPLETED':
-            lastloads = JM.getCaseLoads(config, CASE_LABEL,
+            lastarrays = JM.getCaseArrays(config, CASE_LABEL,
                                     basename='PERFOS_{}'.format(monitoredRow))
-            MFR = lastloads['MassflowIn']
-            PR  = lastloads['PressureStagnationRatio']
-            ETA = lastloads['EfficiencyIsentropic']
+            MFR = lastarrays['MassflowIn']
+            PR  = lastarrays['PressureStagnationRatio']
+            ETA = lastarrays['EfficiencyIsentropic']
             msg += ''.join([ColFmt.format(MFR), ColFmt.format(PR), ColFmt.format(ETA)])
         else:
             msg += ''.join([ColStrFmt.format('') for n in range(nCol-1)])

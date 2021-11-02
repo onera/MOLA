@@ -1,5 +1,5 @@
 '''
-Template for reading and showing the loads.cgns file using Matplotlib
+Template for reading and showing the arrays.cgns file using Matplotlib
 
 MOLA v1.10 - 04/03/2021 - L. Bernardos
 '''
@@ -16,13 +16,13 @@ import MOLA.InternalShortcuts as J
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator, LogLocator, NullFormatter
 
-FILE_LOADS = '/home/lbernard/PROJETS/OTTAWAN/CFD/loads.cgns'
+FILE_ARRAYS = '/home/lbernard/PROJETS/OTTAWAN/CFD/arrays.cgns'
 
 FluxName = 'CL'
 
-figname = 'loads.pdf' 
+figname = 'arrays.pdf' 
 
-t = C.convertFile2PyTree(FILE_LOADS)
+t = C.convertFile2PyTree(FILE_ARRAYS)
 
 zones = I.getZones(t)
 
