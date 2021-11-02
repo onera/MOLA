@@ -77,8 +77,8 @@ def wasPoorlyConverged():
     try: stdCLthreshold = setup.ReferenceValues['CoprocessOptions']['MaxConvergedCLStd']
     except: return False
 
-    LoadsTree = C.convertFile2PyTree(os.path.join('OUTPUT','loads.cgns'))
-    AirfoilZone = [z for z in I.getZones(LoadsTree) if z[0] == 'AIRFOIL'][0]
+    ArraysTree = C.convertFile2PyTree(os.path.join('OUTPUT','arrays.cgns'))
+    AirfoilZone = [z for z in I.getZones(ArraysTree) if z[0] == 'AIRFOIL'][0]
     stdCL, = J.getVars(AirfoilZone,['std-CL'])
 
     if stdCL is None: return False

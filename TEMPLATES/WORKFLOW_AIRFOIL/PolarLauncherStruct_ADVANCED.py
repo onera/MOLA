@@ -46,7 +46,7 @@ for i, (AoA, Reynolds, Mach, NewJob) in enumerate(zip(AoA_, Re_, M_, NewJobs)):
 
     CoprocessOptions = dict(
         UpdateFieldsFrequency   = 2000,
-        UpdateLoadsFrequency    = 50,
+        UpdateArraysFrequency    = 50,
         NewSurfacesFrequency    = 500,
         AveragingIterations     = 3000,
         MaxConvergedCLStd       = 1e-6,

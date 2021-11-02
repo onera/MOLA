@@ -9,9 +9,17 @@ if CO.getSignal('QUIT'): os._exit(0)
 CONVERGED         = CO.getSignal('CONVERGED')
 SAVE_SURFACES     = CO.getSignal('SAVE_SURFACES')
 SAVE_FIELDS       = CO.getSignal('SAVE_FIELDS')
-SAVE_LOADS        = CO.getSignal('SAVE_LOADS')
+SAVE_ARRAYS       = CO.getSignal('SAVE_ARRAYS')
 SAVE_BODYFORCE    = CO.getSignal('SAVE_BODYFORCE')
+SAVE_ALL          = CO.getSignal('SAVE_ALL')
 COMPUTE_BODYFORCE = CO.getSignal('COMPUTE_BODYFORCE')
+
+if SAVE_ALL:
+    SAVE_SURFACES  = True
+    SAVE_FIELDS    = True
+    SAVE_ARRAYS    = True
+    SAVE_BODYFORCE = True
+
 
 if CO.getSignal('RELOAD_SETUP'):
     # BEWARE: in Python v >= 3.4 rather use: importlib.reload(setup)
@@ -32,7 +40,7 @@ if CO.getSignal('RELOAD_SETUP'):
 
 
 UpdateFieldsFrequency   = CO.getOption('UpdateFieldsFrequency', default=1e3)
-UpdateLoadsFrequency    = CO.getOption('UpdateLoadsFrequency', default=20)
+UpdateArraysFrequency    = CO.getOption('UpdateArraysFrequency', default=20)
 UpdateSurfacesFrequency = CO.getOption('UpdateSurfacesFrequency', default=500)
 MarginBeforeTimeOut     = CO.getOption('SecondsMargin4QuitBeforeTimeOut', default=120.)
 TimeOut                 = CO.getOption('TimeOutInSeconds', default=53100.0)
@@ -63,8 +71,8 @@ if not SAVE_FIELDS:
 if not SAVE_SURFACES:
     SAVE_SURFACES = all([(it-inititer)%UpdateSurfacesFrequency == 0, it>inititer])
 
-if not SAVE_LOADS:
-    SAVE_LOADS = all([(it-inititer)%UpdateLoadsFrequency == 0, it>inititer])
+if not SAVE_ARRAYS:
+    SAVE_ARRAYS = all([(it-inititer)%UpdateArraysFrequency == 0, it>inititer])
 
 if not SAVE_BODYFORCE:
     SAVE_BODYFORCE = all([ BodyForceInputData,
@@ -79,50 +87,44 @@ if BodyForceInputData and not COMPUTE_BODYFORCE:
 ElapsedTime = timeit.default_timer() - LaunchTime
 ReachedTimeOutMargin = CO.hasReachedTimeOutMargin(ElapsedTime, TimeOut,
                                                             MarginBeforeTimeOut)
-anySignal = any([SAVE_LOADS, SAVE_SURFACES, SAVE_BODYFORCE, COMPUTE_BODYFORCE,
+anySignal = any([SAVE_ARRAYS, SAVE_SURFACES, SAVE_BODYFORCE, COMPUTE_BODYFORCE,
                  SAVE_FIELDS, CONVERGED, it>=itmax])
 ENTER_COUPLING = anySignal or ReachedTimeOutMargin
 
 
 if ENTER_COUPLING:
 
-    to = elsAxdt.get(elsAxdt.OUTPUT_TREE)
-    CO.adaptEndOfRun(to)
-    toWithSkeleton = I.merge([Skeleton, to])
-    I._rmNodesByName(toWithSkeleton, 'ID_*')
+    t = CO.extractFields(Skeleton)
+    I._rmNodesByName(t, 'ID_*')
     Cmpi.barrier()
 
 
     if COMPUTE_BODYFORCE:
         BODYFORCE_INITIATED = True
         CO.printCo('COMPUTING BODYFORCE', proc=0, color=CO.MAGE)
-        BodyForceDisks = LL.computePropellerBodyForce(toWithSkeleton,
+        BodyForceDisks = LL.computePropellerBodyForce(t,
                                                       NumberOfSerialRuns,
                                                       LocalBodyForceInputData)
 
-        CO.addBodyForcePropeller2Loads(loads, BodyForceDisks)
+        CO.addBodyForcePropeller2Arrays(arrays, BodyForceDisks)
 
 
         elsAxdt.free('xdt-runtime-tree')
         del toWithSourceTerms
         CO.printCo('migrating computed source terms...', proc=0, color=CO.MAGE)
-        toWithSourceTerms = LL.migrateSourceTerms2MainPyTree(BodyForceDisks,
-                                                             toWithSkeleton)
+        toWithSourceTerms = LL.migrateSourceTerms2MainPyTree(BodyForceDisks, t)
 
         CO.save(BodyForceDisks,os.path.join(DIRECTORY_OUTPUT,FILE_BODYFORCESRC))
         SAVE_BODYFORCE = False
 
 
     if SAVE_FIELDS:
-        CO.save(toWithSkeleton,os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
+        CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
 
-
-    if SAVE_LOADS:
-        CO.extractIntegralData(to, loads, Extractions=[],
-                                DesiredStatistics=DesiredStatistics)
-        CO.addMemoryUsage2Loads(loads)
-        loadsTree = CO.loadsDict2PyTree(loads)
-        CO.save(loadsTree, os.path.join(DIRECTORY_OUTPUT,FILE_LOADS))
+    if SAVE_ARRAYS:
+        arraysTree = CO.extractArrays(t, arrays, DesiredStatistics=DesiredStatistics,
+                            Extractions=setup.Extractions, addMemoryUsage=True)
+        CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))
 
         if (it-inititer)>ItersMinEvenIfConverged and not CONVERGED:
             CONVERGED=CO.isConverged(ZoneName=ConvergenceFamilyName,
@@ -130,7 +132,7 @@ if ENTER_COUPLING:
                                      FluxThreshold=MaxConvergedCLStd)
 
     if SAVE_SURFACES:
-        surfs = CO.extractSurfaces(toWithSkeleton, setup.Extractions)
+        surfs = CO.extractSurfaces(t, setup.Extractions)
         CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
 
 
