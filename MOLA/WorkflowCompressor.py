@@ -39,7 +39,7 @@ except ImportError:
     ETC = None
 
 def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
-                    duplicationInfos={}, blocksToRename={}, SplitBlocks=True,
+                    duplicationInfos={}, blocksToRename={}, SplitBlocks=False,
                     scale=1.):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
@@ -234,6 +234,10 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NProc = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
         ReferenceValues['NProc'] = int(NProc)
         ReferenceValuesParams['NProc'] = int(NProc)
+        Splitter = None
+    else:
+        ReferenceValues['NProc'] = 0
+        Splitter = 'PyPart'
     elsAkeysCFD      = PRE.getElsAkeysCFD()
     elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues)
     if BodyForceInputData: NumericalParams['useBodyForce'] = True
@@ -249,7 +253,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
                         TurboConfiguration=TurboConfiguration,
-                        Extractions=Extractions)
+                        Extractions=Extractions,
+                        Splitter=Splitter)
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
     setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
@@ -261,8 +266,12 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         PRE.initializeFlowSolutionFromFile(to, initializeFromCGNS)
     PRE.saveMainCGNSwithLinkToOutputFields(t,to,writeOutputFields=writeOutputFields)
 
-    print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
-                                               ReferenceValues['NProc'],J.ENDC))
+    if not Splitter:
+        print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
+                                                   ReferenceValues['NProc'],J.ENDC))
+    else:
+        print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
+            Splitter + J.ENDC))
 
 def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
     hlines='hub_shroud_lines.plt'):
@@ -574,76 +583,6 @@ def splitAndDistribute(t, InputMeshes, NProcs, ProcPointsLoad):
     # Just to distribute zones on procs
     t = PRE.splitAndDistribute(t, InputMeshesNoSplit, NProcs=NProcs, ProcPointsLoad=ProcPointsLoad)
     return t
-
-def splitWithPyPart(mesh, partN=1, savePpart=False, output=None):
-    '''
-    Split a PyTree with PyPart.
-
-    .. warning:: Contrary to :py:func:`splitAndDistribute`, this function
-        manipulates files as input and output.
-
-    .. warning:: Dependency to ``etc`` module.
-
-    Parameters
-    ----------
-
-        mesh : PyTree or :py:class:`str`
-            PyTree or name of the CGNS file. Corresponds to the mesh to split
-
-        partN : int
-            Given the number of processors Nprocs used to run this function,
-            the split is done to target a simulation on Nprocs*partN processors.
-
-        savePpart : bool
-            If :py:obj:`True`, save the required information in the CGNS tree to
-            be able to use PyPart function ``'mergeAndSave'`` later.
-
-        output : :py:class:`str` or :py:obj:`None`
-            Name of the new split mesh file. If :py:obj:`None`, the file
-            **filename** will be overwritten.
-
-    Returns
-    -------
-
-        PartTree : PyTree or :py:obj:`None`
-            Split tree if **mesh** was a PyTree. Returns :py:obj:`None` and
-            write the file **output** if **mesh** was a file name.
-
-    '''
-    import etc.pypart.PyPart     as PPA
-    from mpi4py import MPI
-
-
-    if not isinstance(mesh, str):
-        C.convertPyTree2File(mesh, 'tmp_mesh.cgns')
-        mesh = 'tmp_mesh.cgns'
-        output = 'PyTree'
-    else:
-        if not output: output = filename
-
-    # Initilise MPI
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
-
-    PyPartBase = PPA.PyPart(mesh,
-                            lksearch=['.'],
-                            loadoption='partial',
-                            mpicomm=comm,
-                            LoggingInFile=False,
-                            LoggingFile='PyPart/partTree',
-                            LoggingVerbose=0
-                            )
-    PartTree = PyPartBase.runPyPart(method=2, partN=partN, reorder=[4, 3])
-    # savePpart=True mandatory to merge later with PyPart
-    PyPartBase.finalise(PartTree, method=1, savePpart=savePpart)
-
-    if output == 'PyTree':
-        os.system('rm -f %s'%mesh)
-        return PartTree
-    else:
-        # Save CGNS output with links
-        PyPartBase.save(output, PartTree)
 
 def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
         TemperatureStagnation, Surface, TurbulenceLevel=0.001,
