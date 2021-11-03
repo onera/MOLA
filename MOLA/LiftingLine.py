@@ -3023,7 +3023,25 @@ def moveLiftingLines(t, TimeStep):
         C._initVars(LiftingLine,'CoordinateYm1={CoordinateY}')
         C._initVars(LiftingLine,'CoordinateZm1={CoordinateZ}')
 
-        T._rotate(LiftingLine, RotationCenter, tuple(RotationAxis), Dpsi)
+        TrailingEdge = getTrailingEdge(LiftingLine)
+        C._initVars(TrailingEdge,'CoordinateXm1={CoordinateX}')
+        C._initVars(TrailingEdge,'CoordinateYm1={CoordinateY}')
+        C._initVars(TrailingEdge,'CoordinateZm1={CoordinateZ}')
+        TExM1, TEyM1, TEzM1 = J.getVars(TrailingEdge,['CoordinateXm1',
+                                'CoordinateYm1', 'CoordinateZm1'])
+
+        T._rotate([LiftingLine,TrailingEdge], RotationCenter,
+                    tuple(RotationAxis), Dpsi)
+
+        TEx, TEy, TEz = J.getxyz(TrailingEdge)
+        v = J.invokeFieldsDict(LiftingLine,['TECoordinateX','TECoordinateY','TECoordinateZ',
+                                            'TECoordinateXm1','TECoordinateYm1','TECoordinateZm1'])
+        v['TECoordinateX'][:] = TEx
+        v['TECoordinateY'][:] = TEy
+        v['TECoordinateZ'][:] = TEz
+        v['TECoordinateXm1'][:] = TExM1
+        v['TECoordinateYm1'][:] = TEyM1
+        v['TECoordinateZm1'][:] = TEzM1
 
         updateLocalFrame(LiftingLine)
 
@@ -4844,6 +4862,8 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
 
     ``s``, ``CoordinateX``, ``CoordinateY``, ``CoordinateZ``,
     ``CoordinateXm1``, ``CoordinateYm1``, ``CoordinateZm1``,
+    ``TECoordinateX``, ``TECoordinateY``, ``TECoordinateZ``,
+    ``TECoordinateXm1``, ``TECoordinateYm1``, ``TECoordinateZm1``,
     ``VelocityKinematicX``, ``VelocityKinematicY``, ``VelocityKinematicZ``,
     ``VelocityKinematicXm1``, ``VelocityKinematicYm1``, ``VelocityKinematicZm1``,
     ``Gamma``, ``Gammam1``, ``SectionArea``,
@@ -4880,6 +4900,12 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
         PtXm1 = []
         PtYm1 = []
         PtZm1 = []
+        TEX = []
+        TEY = []
+        TEZ = []
+        TEXm1 = []
+        TEYm1 = []
+        TEZm1 = []
         VelocityKinematicX = []
         VelocityKinematicY = []
         VelocityKinematicZ = []
@@ -4894,6 +4920,8 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
         tz = []
         v = J.getVars2Dict(LiftingLine,['s',
                                         'CoordinateXm1','CoordinateYm1','CoordinateZm1',
+                                        'TECoordinateX','TECoordinateY','TECoordinateZ',
+                                        'TECoordinateXm1','TECoordinateYm1','TECoordinateZm1',
                                         'VelocityKinematicX','VelocityKinematicY','VelocityKinematicZ',
                                         'VelocityKinematicXm1','VelocityKinematicYm1','VelocityKinematicZm1',
                                         'Gamma','Gammam1','SectionArea',
@@ -4916,6 +4944,20 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
                         v['CoordinateYm1'],Law=IntegralLaw)]
             PtZm1 += [J.interpolate__(AbscissaMiddle, v['s'],
                         v['CoordinateZm1'],Law=IntegralLaw)]
+
+            TEX += [J.interpolate__(AbscissaMiddle, v['s'],
+                        v['TECoordinateX'], Law=IntegralLaw)]
+            TEY += [J.interpolate__(AbscissaMiddle, v['s'],
+                        v['TECoordinateY'],Law=IntegralLaw)]
+            TEZ += [J.interpolate__(AbscissaMiddle, v['s'],
+                        v['TECoordinateZ'],Law=IntegralLaw)]
+
+            TEXm1 += [J.interpolate__(AbscissaMiddle, v['s'],
+                        v['TECoordinateXm1'], Law=IntegralLaw)]
+            TEYm1 += [J.interpolate__(AbscissaMiddle, v['s'],
+                        v['TECoordinateYm1'],Law=IntegralLaw)]
+            TEZm1 += [J.interpolate__(AbscissaMiddle, v['s'],
+                        v['TECoordinateZm1'],Law=IntegralLaw)]
 
             VelocityKinematicX += [J.interpolate__(AbscissaMiddle, v['s'],
                         v['VelocityKinematicX'], Law=IntegralLaw)]
@@ -4948,12 +4990,16 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
 
         Arrays = [np.array(PtX),np.array(PtY),np.array(PtZ),
                   np.array(PtXm1),np.array(PtYm1),np.array(PtZm1),
+                  np.array(TEX),np.array(TEY),np.array(TEZ),
+                  np.array(TEXm1),np.array(TEYm1),np.array(TEZm1),
                   np.array(VelocityKinematicX), np.array(VelocityKinematicY), np.array(VelocityKinematicZ),
                   np.array(VelocityKinematicXm1), np.array(VelocityKinematicYm1), np.array(VelocityKinematicZm1),
                   np.array(Gamma), np.array(Gammam1),np.array(SectionArea),
                   np.array(tx), np.array(ty), np.array(tz)]
         ArraysNames = ['CoordinateX','CoordinateY','CoordinateZ',
                        'CoordinateXm1','CoordinateYm1','CoordinateZm1',
+                       'TECoordinateX','TECoordinateY','TECoordinateZ',
+                       'TECoordinateXm1','TECoordinateYm1','TECoordinateZm1',
                        'VelocityKinematicX','VelocityKinematicY','VelocityKinematicZ',
                        'VelocityKinematicXm1','VelocityKinematicYm1','VelocityKinematicZm1',
                        'Gamma','Gammam1','SectionArea',
