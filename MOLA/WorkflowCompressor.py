@@ -263,7 +263,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     to = PRE.newRestartFieldsFromCGNS(t)
     if initializeFromCGNS:
         print(J.CYAN + 'Initialize flow field with {}'.format(initializeFromCGNS) + J.ENDC)
-        PRE.initializeFlowSolutionFromFile(to, initializeFromCGNS)
+        PRE.initializeFlowSolutionFromFile(t, initializeFromCGNS)
     PRE.saveMainCGNSwithLinkToOutputFields(t,to,writeOutputFields=writeOutputFields)
 
     if not Splitter:
@@ -921,7 +921,7 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
 
     setBC_Walls, setBC_farfield,
     setBC_inj1, setBC_inj1_uniform, setBC_inj1_interpFromFile,
-    setBC_outpres
+    setBC_outpres, setBC_outmfr2
     '''
     print(J.CYAN + 'set BCs at walls' + J.ENDC)
     setBC_Walls(t, TurboConfiguration, bladeFamilyNames=bladeFamilyNames)
@@ -952,6 +952,10 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
         elif BCparam['type'] == 'outpres':
             print(J.CYAN + 'set BC outpres on ' + BCparam['FamilyName'] + J.ENDC)
             setBC_outpres(t, **BCkwargs)
+
+        elif BCparam['type'] == 'outmfr2':
+            print(J.CYAN + 'set BC outmfr2 on ' + BCparam['FamilyName'] + J.ENDC)
+            setBC_outmfr2(t, **BCkwargs)
 
         elif BCparam['type'] == 'outradeq':
             print(J.CYAN + 'set BC outradeq on ' + BCparam['FamilyName'] + J.ENDC)
@@ -1359,6 +1363,38 @@ def setBC_outpres(t, FamilyName, pressure):
     I.newFamilyBC(value='BCOutflowSubsonic', parent=outlet)
     J.set(outlet, '.Solver#BC', type='outpres', pressure=pressure)
 
+def setBC_outmfr2(t, FamilyName, globalmassflow, groupmassflow=1):
+    '''
+    Set an outflow boundary condition of type ``outmfr2``.
+
+    .. note:: see `elsA Tutorial about outmfr2 condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#outmfr2/>`_
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+        globalmassflow : float
+            Total massflow on the family (with the same **groupmassflow**).
+
+        groupmassflow : int
+            Index used to link participating patches to this boundary condition.
+            If several BC ``outmfr2`` are defined, **groupmassflow** has to be
+            incremented for each family.
+
+    '''
+    checkVariables(dict(pressure=globalmassflow))
+    outlet = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    I._rmNodesByType(outlet, 'FamilyBC_t')
+    I.newFamilyBC(value='BCOutflowSubsonic', parent=outlet)
+    J.set(outlet, '.Solver#BC', type='outmfr2', globalmassflow=globalmassflow,
+        groupmassflow=groupmassflow)
+
+
 def checkVariables(ImposedVariables):
     '''
     Check that variables in the input dictionary are well defined. Raise a
@@ -1381,7 +1417,7 @@ def checkVariables(ImposedVariables):
     posiviteVars = ['PressureStagnation', 'EnthalpyStagnation',
         'stagnation_pressure', 'stagnation_temperature', 'Pressure', 'pressure', 'Temperature',
         'TurbulentEnergyKinetic', 'TurbulentDissipationRate', 'TurbulentDissipation', 'TurbulentLengthScale',
-        'TurbulentSANuTilde']
+        'TurbulentSANuTilde', 'globalmassflow']
     unitVectorComponent = ['VelocityUnitVectorX', 'VelocityUnitVectorY', 'VelocityUnitVectorZ',
         'txv', 'tyv', 'tzv']
 
