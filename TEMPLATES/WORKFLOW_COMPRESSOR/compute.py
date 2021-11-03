@@ -54,6 +54,7 @@ CO.FILE_FIELDS      = FILE_FIELDS
 CO.FILE_COLOG       = FILE_COLOG
 CO.FILE_BODYFORCESRC= FILE_BODYFORCESRC
 CO.DIRECTORY_OUTPUT = DIRECTORY_OUTPUT
+CO.DIRECTORY_LOGS   = DIRECTORY_LOGS
 CO.setup            = setup
 
 if rank==0:
@@ -65,6 +66,8 @@ if rank==0:
 # --------------------------- END OF IMPORTS --------------------------- #
 
 # ----------------- DECLARE ADDITIONAL GLOBAL VARIABLES ----------------- #
+try: Splitter = setup.Splitter
+except: Splitter = None
 try: BodyForceInputData = setup.BodyForceInputData
 except: BodyForceInputData = None
 CO.invokeCoprocessLogFile()
@@ -74,18 +77,12 @@ niter    = setup.elsAkeysNumerics['niter']
 inititer = setup.elsAkeysNumerics['inititer']
 itmax    = inititer+niter-1 # BEWARE last iteration accessible trigger-state-16
 
-Skeleton = Cmpi.convertFile2SkeletonTree(FILE_CGNS)
-I._rmNodesByName(Skeleton, 'FlowSolution*')
-
-# Add GridCoordinates and Height parametrization for turbomachinery
-PartTree = Cmpi.convertFile2PyTree(FILE_CGNS, proc=rank)
-for zone in I.getZones(PartTree):
-    path = I.getPath(PartTree, zone)
-    coords = I.getNodeFromName(zone, 'GridCoordinates')
-    Skeleton = I.append(Skeleton, coords, path)
-    ch = I.getNodeFromName(zone, 'FlowSolution#Height')
-    if ch:
-        Skeleton = I.append(Skeleton, ch, path)
+if Splitter == 'PyPart':
+    t, Skeleton, PyPartBase, Distribution = CO.splitWithPyPart()
+    CO.PyPartBase = PyPartBase
+    setup.ReferenceValues['NProc'] = NProcs 
+else:
+    Skeleton = CO.prepareSkeleton()
 
 # ========================== LAUNCH ELSA ========================== #
 
@@ -121,8 +118,11 @@ import elsAxdt
 elsAxdt.trace(0)
 CO.elsAxdt = elsAxdt
 
-e=elsAxdt.XdtCGNS(FILE_CGNS)
-
+if Splitter == 'PyPart':
+    e = elsAxdt.XdtCGNS(tree=t, links=[], paths=[])
+    e.distribution = Distribution
+else:
+    e=elsAxdt.XdtCGNS(FILE_CGNS)
 
 # ------------------------------- BODYFORCE ------------------------------- #
 toWithSourceTerms = []
