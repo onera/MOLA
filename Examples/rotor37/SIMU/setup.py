@@ -2,6 +2,10 @@
 MOLA 1.11 setup.py file automatically generated in PREPROCESS
 '''
 
+Splitter = None
+Splitter = 'PyPart'
+Splitter = 'Maia'
+
 Extractions=[{'type': 'AllBCwall'},
  {'type': 'BCInflowSubsonic'},
  {'type': 'row_1_OUTFLOW'},
@@ -27,7 +31,7 @@ Extractions=[{'type': 'AllBCwall'},
 FluidProperties={'Gamma': 1.4,
  'Prandtl': 0.72,
  'PrandtlTurbulence': 0.9,
- 'RealGas': 287.053,
+ 'IdealConstantGas': 287.053,
  'SutherlandConstant': 110.4,
  'SutherlandTemperature': 288.15,
  'SutherlandViscosity': 1.78938e-05,
@@ -44,7 +48,7 @@ ReferenceValues={'AngleOfAttackDeg': 0.0,
                       'SecondsMargin4QuitBeforeTimeOut': 900.0,
                       'TimeOutInSeconds': 53100.0,
                       'UpdateFieldsFrequency': 1000,
-                      'UpdateLoadsFrequency': 1e+20,
+                      'UpdateArraysFrequency': 1e+20,
                       'UpdateSurfacesFrequency': 20},
  'CoreNumberPerNode': 28,
  'Density': 1.0728044012303874,

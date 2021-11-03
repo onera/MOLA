@@ -1803,7 +1803,7 @@ def removeMatchAndNearMatch(t):
             I.rmNode(t, GridConnectivityNode)
 
 
-def computeFluidProperties(Gamma=1.4, RealGas=287.053, Prandtl=0.72,
+def computeFluidProperties(Gamma=1.4, IdealConstantGas=287.053, Prandtl=0.72,
         PrandtlTurbulence=0.9, SutherlandConstant=110.4,
         SutherlandViscosity=1.78938e-05, SutherlandTemperature=288.15,
         cvAndcp=None):
@@ -1817,7 +1817,7 @@ def computeFluidProperties(Gamma=1.4, RealGas=287.053, Prandtl=0.72,
 
     ::
 
-        RealGas = 287.053
+        IdealConstantGas = 287.053
         Gamma = 1.4
         SutherlandConstant = 110.4
         SutherlandTemperature = 288.15
@@ -1839,14 +1839,14 @@ def computeFluidProperties(Gamma=1.4, RealGas=287.053, Prandtl=0.72,
 
 
     if cvAndcp is None:
-        cv                = RealGas/(Gamma-1.0)
+        cv                = IdealConstantGas/(Gamma-1.0)
         cp                = Gamma * cv
     else:
         cv, cp = cvAndcp
 
     FluidProperties = dict(
     Gamma                 = Gamma,
-    RealGas               = RealGas,
+    IdealConstantGas               = IdealConstantGas,
     cv                    = cv,
     cp                    = cp,
     Prandtl               = Prandtl,
@@ -1945,7 +1945,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
             ::
 
                 'UpdateRestartFrequency' : 1000,
-                'UpdateLoadsFrequency'   : 20,
+                'UpdateArraysFrequency'   : 20,
                 'NewSurfacesFrequency'   : 500,
                 'AveragingIterations'    : 3000,
                 'MaxConvergedCLStd'      : 1e-4,
@@ -1972,7 +1972,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
 
     DefaultCoprocessOptions = dict(            # Default values
         UpdateFieldsFrequency   = 2000,
-        UpdateLoadsFrequency    = 50,
+        UpdateArraysFrequency    = 50,
         UpdateSurfacesFrequency = 500,
         AveragingIterations     = 3000,
         MaxConvergedCLStd       = 1e-4,
@@ -1996,7 +1996,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
 
     # Fluid properties local shortcuts
     Gamma   = FluidProperties['Gamma']
-    RealGas = FluidProperties['RealGas']
+    IdealConstantGas = FluidProperties['IdealConstantGas']
     cv      = FluidProperties['cv']
     cp      = FluidProperties['cp']
 
@@ -2007,9 +2007,9 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     S   = FluidProperties['SutherlandConstant']
 
     ViscosityMolecular = mus * (T/Ts)**1.5 * ((Ts + S)/(T + S))
-    Mach = Velocity / np.sqrt( Gamma * RealGas * Temperature )
+    Mach = Velocity / np.sqrt( Gamma * IdealConstantGas * Temperature )
     Reynolds = Density * Velocity * Length / ViscosityMolecular
-    Pressure = Density * RealGas * Temperature
+    Pressure = Density * IdealConstantGas * Temperature
     PressureDynamic = 0.5 * Density * Velocity **2
     FluxCoef        = 1./(PressureDynamic * Surface)
     TorqueCoef      = 1./(PressureDynamic * Surface*Length)
@@ -2201,7 +2201,7 @@ def getElsAkeysCFD(config='3d'):
     return elsAkeysCFD
 
 
-def getElsAkeysModel(FluidProperties, ReferenceValues):
+def getElsAkeysModel(FluidProperties, ReferenceValues, **kwargs):
     '''
     Produce the elsA model object keys as a Python dictionary.
 
@@ -2435,13 +2435,15 @@ def getElsAkeysModel(FluidProperties, ReferenceValues):
 
     elsAkeysModel.update(addKeys4Model)
 
+    elsAkeysModel.update(kwargs)
+
     return elsAkeysModel
 
 
 def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
-        TimeMarching='steady', inititer=1, Niter=30000,
+        TimeMarching='steady', inititer=1, niter=30000,
         CFLparams=dict(vali=1.,valf=10.,iteri=1,iterf=1000,function_type='linear'),
-        timestep=0.01, useBodyForce=False, useChimera=False):
+        timestep=0.01, useBodyForce=False, useChimera=False, **kwargs):
     '''
     Get the Numerics elsA keys as a Python dictionary.
 
@@ -2460,7 +2462,7 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         inititer : int
             initial iteration
 
-        Niter : int
+        niter : int
             total number of iterations to run
 
         CFLparams : dict
@@ -2528,7 +2530,7 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         addKeys = dict(
         time_algo          = 'steady',
         inititer           = int(inititer),
-        niter              = int(Niter),
+        niter              = int(niter),
         global_timestep    = 'inactive',
         ode                = 'backwardeuler',
         implicit           = 'lussorsca',
@@ -2545,7 +2547,7 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         gear_iteration     = 20,
         timestep           = float(timestep),
         inititer           = int(inititer),
-        niter              = int(Niter),
+        niter              = int(niter),
         ode                = 'backwardeuler',
         residual_type      = 'implicit',
         freqcompres        = 1,
@@ -2558,7 +2560,7 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         timestep           = float(timestep),
         dts_timestep_lim   = 'active',
         inititer           = int(inititer),
-        niter              = int(Niter),
+        niter              = int(niter),
         ode                = 'backwardeuler',
         residual_type      = 'implicit',
         cfl_dts            = 20.,
@@ -2606,6 +2608,7 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     for i in range(len(ReferenceStateTurbulence)):
         addKeys['t_cutvar%d'%(i+1)] = TurbulenceCutoff*ReferenceStateTurbulence[i]
     elsAkeysNumerics.update(addKeys)
+    elsAkeysNumerics.update(kwargs)
 
     return elsAkeysNumerics
 

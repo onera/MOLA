@@ -475,7 +475,7 @@ def select(objs=None):
                 FreeCADGui.Selection.addSelection(obj)
 
 def loadSvgPatterns():
-    "loads the default Draft SVG patterns and custom patters if available"
+    "arrays the default Draft SVG patterns and custom patters if available"
     import importSVG
     from PySide import QtCore
     FreeCAD.svgpatterns = {}

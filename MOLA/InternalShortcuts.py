@@ -606,6 +606,7 @@ def createZone(Name, Arrays, Vars):
 
 
     """
+    if not Vars: return
     ni,nj,nk=(list(Arrays[0].shape)+[1,1,1])[:3]
     if ni==0 or nj==0 or nk==0: return
     try:
@@ -613,7 +614,7 @@ def createZone(Name, Arrays, Vars):
     except ValueError:
         ERRMSG = FAIL+'ERROR - COULD NOT CONCATENATE ARRAYS:\n'
         for i,v in enumerate(Vars):
-            ERRMSG += v+'with shape: '+str(Arrays[i].shape)+'\n'
+            ERRMSG += v+' with shape: '+str(Arrays[i].shape)+'\n'
         ERRMSG += ENDC
         raise ValueError(ERRMSG)
 
