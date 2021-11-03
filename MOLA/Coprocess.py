@@ -151,13 +151,14 @@ def extractArrays(t, arrays, DesiredStatistics=[], Extractions=[],
         addMemoryUsage : bool
             if :py:obj:`True`, register and add the current memory usage
 
-        addMemoryUsage : bool
+        addResiduals : bool
             if :py:obj:`True`, add the residuals information
     '''
 
     extractIntegralData(t, arrays, DesiredStatistics=DesiredStatistics,
                          Extractions=Extractions)
     if addMemoryUsage: addMemoryUsage2Arrays(arrays)
+    if addResiduals: extractResiduals(t, arrays)
     arraysTree = arraysDict2PyTree(arrays)
 
     return arraysTree
@@ -376,8 +377,6 @@ def extractIntegralData(to, arrays, Extractions=[],
         _extendArraysWithProjectedLoads(arrays, IntegralDataName)
         _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics)
 
-    extractResiduals(to, arrays)
-
     return arrays
 
 def extractResiduals(to, arrays):
@@ -407,8 +406,11 @@ def extractResiduals(to, arrays):
     for ConvergenceHistory in ConvergenceHistoryNodes:
         ConvergenceDict = dict()
         for DataArrayNode in I.getNodesFromType(ConvergenceHistory, 'DataArray_t'):
-            ConvergenceDict[I.getName(DataArrayNode)] = I.getValue(DataArrayNode)
-        appendDict2Loads(arrays, ConvergenceDict, I.getName(ConvergenceHistory))
+            DataArrayValue = I.getValue(DataArrayNode)
+            if len(DataArrayValue.shape) == 1:
+                ConvergenceDict[I.getName(DataArrayNode)] = DataArrayValue
+        appendDict2Arrays(arrays, ConvergenceDict, I.getName(ConvergenceHistory))
+        break # we ignore possibly multiple ConvergenceHistory_t nodes
 
     return arrays
 
