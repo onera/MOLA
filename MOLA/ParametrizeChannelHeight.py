@@ -2,7 +2,6 @@
 # Python general packages
 import os
 import sys
-import argparse
 import numpy as np
 # Cassiopee packages
 import Converter.PyTree   as C
@@ -10,13 +9,53 @@ import Converter.Internal as I
 import Post.PyTree        as P
 # ETC packages
 import etc.transform.__future__ as trf
-from etc.elsA        import Keywords, rmDensityFromName
-from etc.toolbox.MPI import MPI, e_log, ZoneDistributed, generateBlock2Proc
-from etc.initialize  import Mask, MaskCrdt, MaskSection, MaskSectionCrdt
-import etc.post      as epost
+from etc.toolbox.MPI import MPI, e_log
+from etc.initialize  import Mask
+import etc.post as epost
+
+def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
+    hlines='hub_shroud_lines.plt'):
+    '''
+    Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
+    relies on the ETC module. 
+
+    Parameters
+    ----------
+
+        t : PyTree
+            input mesh tree
+
+        nbslice : int
+            Number of axial positions used to compute the iso-lines in
+            *ChannelHeight*. Change the axial discretization.
+
+        fsname : str
+            Name of the ``FlowSolution_t`` container to stock the variable at
+            nodes *ChannelHeight*.
+
+        hlines : str
+            Name of the intermediate file that contains (x,r) coordinates of hub
+            and shroud lines.
+
+    Returns
+    -------
+
+        t : PyTree
+            modified tree
+
+    '''
+    print(' PARAMETRIZATION in Height '.center(10, '*'))
+    if not os.path.exists(hlines):
+        generateHLinesAxial(t, hlines, nbslice=nbslice, comm=MPI.COMM_WORLD)
+        try: plot_hub_and_shroud_lines(hlines)
+        except: pass
+    I._rmNodesByName(t, fsname)
+    t = computeHeight(t, hlines, fsname=fsname)
+
+    return t
 
 def generateHLinesAxial(t, filename, nbslice=21, comm=MPI.COMM_WORLD, tol=1e-10, offset=4, hubFirst=False):
-    print e_log("generateHLinesAxial: Generation of Hub&Shroud lines")
+    print(e_log("generateHLinesAxial: Generation of Hub&Shroud lines"))
     t = trf.cartToCyl(t) # CoordinateY=R, CoordinateZ=T
     xmin = C.getMinValue(t,'CoordinateX')
     xmax = C.getMaxValue(t,'CoordinateX')
@@ -42,7 +81,7 @@ def generateHLinesAxial(t, filename, nbslice=21, comm=MPI.COMM_WORLD, tol=1e-10,
         rmax = C.getMaxValue(iso,'CoordinateY')
         rmin = comm.allreduce(rmin, MPI.MIN)
         rmax = comm.allreduce(rmax, MPI.MAX)
-        print e_log("generateHLinesAxial [{}/{}]: @x={}, r_hub={}, r_shroud={}".format(xList.index(x)+1,len(xList),x,rmin,rmax))
+        print(e_log("generateHLinesAxial [{}/{}]: @x={}, r_hub={}, r_shroud={}".format(xList.index(x)+1,len(xList),x,rmin,rmax)))
         rminL.append(rmin)
         rmaxL.append(rmax)
     xList.insert(0,xmin-offset*tol)
@@ -69,7 +108,7 @@ def generateHLinesAxial(t, filename, nbslice=21, comm=MPI.COMM_WORLD, tol=1e-10,
         I.newDataArray('CoordinateY', value=np.asarray(rminL), parent=g)
     if MPI.COMM_WORLD.Get_rank() == 0 : C.convertPyTree2File(n,filename)
     t = trf.cylToCart(t)
-    print e_log("generateHLinesAxial: done")
+    print(e_log("generateHLinesAxial: done"))
     return n
 
 def computeHeight(t,hLines,hFormat='bin_tp',constraint=5.,mode='accurate',isInterp=False,writeMask=None,writeMaskCart=None,writePyTreeCyl=None, fsname=None):
@@ -126,7 +165,7 @@ def plot_hub_and_shroud_lines(filename):
     plt.figure()
     plt.plot(xHub, yHub, '-', label='Hub')
     plt.plot(xShroud, yShroud, '-', label='Shroud')
-    #plt.axis('equal')
+    plt.axis('equal')
     plt.grid()
     plt.xlabel('x (m)')
     plt.ylabel('y (m)')
@@ -138,30 +177,7 @@ def plot_hub_and_shroud_lines(filename):
 
 if __name__ == '__main__':
 
-    filename_input = 'mesh.cgns'
-    filename_output = filename_input  #.replace('.cgns', '_withHeight.cgns')
-
-    hlines   = 'hub_shroud_lines.plt'
-    mask_file = filename_input.replace('.cgns', '_mask.cgns')
-
-    fromMask = False
-
-    FlowSolutionHeight = 'FlowSolution#Height'
-
-
     links = []
-    t = C.convertFile2PyTree(filename_input, links=links)
-
-    if fromMask:
-        print('  COMPUTE HEIGHT FROM MASK  '.center(80, '*'))
-        mask = C.convertFile2PyTree(mask_file)
-        t = PARAM.computeHeight_from_mask(t, mask, constraint=5., mode='accurate', fsname=FlowSolutionHeight)
-    else:
-        print(' PARAMETRIZATION in Height '.center(10, '*'))
-        if not os.path.exists(hlines):
-            PARAM.generateHLinesAxial(t, hlines, nbslice=51, comm=MPI.COMM_WORLD, tol=1e-4)
-            PARAM.plot_hub_and_shroud_lines(hlines)
-        I._rmNodesByName(t, FlowSolutionHeight)
-        t = PARAM.computeHeight(t, hlines, writeMask=mask_file, fsname=FlowSolutionHeight) # isInterp is needed for some post-treatments (e.g. radial profiles)
-
-    C.convertPyTree2File(t, filename_output, links=links)
+    t = C.convertFile2PyTree('mesh.cgns', links=links)
+    parametrizeChannelHeight(t, nbslice=101)
+    C.convertPyTree2File(t, fileOut, links=links)

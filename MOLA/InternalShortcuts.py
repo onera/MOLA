@@ -27,7 +27,7 @@ CYAN  = '\033[96m'
 ENDC  = '\033[0m'
 
 
-def set(parent,childname,**kwargs):
+def set(parent, childname, childType='UserDefinedData_t', **kwargs):
     '''
     Set (or add, if inexistent) a child node containing an arbitrary number
     of nodes.
@@ -57,7 +57,7 @@ def set(parent,childname,**kwargs):
             SubChildren += [[v,kwargs[v]]]
         else:
             children += [[v,kwargs[v]]]
-    _addSetOfNodes(parent,childname,children)
+    _addSetOfNodes(parent,childname,children, type1=childType)
     NewNode = I.getNodeFromName1(parent,childname)
     for sc in SubChildren: set(NewNode, sc[0], **sc[1])
 
@@ -1816,7 +1816,7 @@ def sortListsUsingSortOrderOfFirstList(*arraysOrLists):
     return NewArrays
 
 
-def getSkeleton(t, keepNumpyOfSizeLessThan=7):
+def getSkeleton(t, keepNumpyOfSizeLessThan=20):
     '''
     .. danger:: workaround. See ticket `8815 <https://elsa.onera.fr/issues/8815>`_
     '''
@@ -1845,7 +1845,7 @@ def getStructure(t):
             reference copy of **t**, with empty bases
     '''
     tR = I.copyRef(t)
-    for n in I.getBases(tR):
+    for n in I.getZones(tR):
         n[2] = []
     return tR
 
