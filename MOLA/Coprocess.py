@@ -21,6 +21,7 @@ from scipy.ndimage.filters import uniform_filter1d
 import shutil
 import psutil
 import pprint
+import glob
 from mpi4py import MPI
 comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
@@ -36,6 +37,8 @@ import Post.PyTree as P
 
 from . import InternalShortcuts as J
 from . import Preprocess as PRE
+from . import JobManager as JM
+
 
 # ------------------------------------------------------------------ #
 # Following variables should be overridden using compute.py and coprocess.py
@@ -44,10 +47,10 @@ FULL_CGNS_MODE   = False
 FILE_SETUP       = 'setup.py'
 FILE_CGNS        = 'main.cgns'
 FILE_SURFACES    = 'surfaces.cgns'
-FILE_LOADS       = 'loads.cgns'
+FILE_ARRAYS      = 'arrays.cgns'
 FILE_FIELDS      = 'fields.cgns'
 FILE_COLOG       = 'coprocess.log'
-FILE_BODYFORCESRC= 'BodyForceSources.cgns'
+FILE_BODYFORCESRC= 'bodyforce.cgns'
 DIRECTORY_OUTPUT = 'OUTPUT'
 DIRECTORY_LOGS   = 'LOGS'
 setup            = None
@@ -99,9 +102,148 @@ def printCo(message, proc=None, color=None):
     with open(FILE_COLOG, 'a') as f:
         f.write(preffix+message+'\n')
 
-def extractSurfaces(OutputTreeWithSkeleton, Extractions):
+def extractFields(Skeleton):
+    '''
+    Extract the coupling CGNS PyTree from elsAxdt *OUTPUT_TREE* and make
+    necessary adaptions, including migration of coordinates fields to
+    GridCoordinates_t nodes, renaming of conventional fields names and
+    adding the tree's Skeleton.
 
-    cellDimOutputTree = I.getZoneDim(I.getZones(OutputTreeWithSkeleton)[0])[-1]
+    Parameters
+    ----------
+
+        Skeleton : PyTree
+            Skeleton tree as obtained from :py:func:`Converter.Mpi.convertFile2SkeletonTree`
+
+    Returns
+    -------
+
+        t : PyTree
+            Coupling adapted PyTree
+
+    '''
+    t = elsAxdt.get(elsAxdt.OUTPUT_TREE)
+    adaptEndOfRun(t)
+    t = I.merge([Skeleton, t])
+    return t
+
+def extractArrays(t, arrays, DesiredStatistics=[], Extractions=[],
+                  addMemoryUsage=True, addResiduals=True):
+    '''
+    Extract the arrays (1D data) as a PyTree, including additional
+    optional information requested by optional arguments of the function.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Output PyTree as obtained from :py:func:`extractFields`
+
+        arrays : dict
+            Dictionary of arrays, as created using :py:func:`invokeArrays`
+
+        DesiredStatistics : :py:class:`list` of :py:class:`str`
+            same argument as :py:func:`extractIntegralData`
+
+        Extractions : :py:class:`list` of :py:class:`dict`
+            .. note:: to be implemented
+
+        addMemoryUsage : bool
+            if :py:obj:`True`, register and add the current memory usage
+
+        addResiduals : bool
+            if :py:obj:`True`, add the residuals information
+    '''
+
+    extractIntegralData(t, arrays, DesiredStatistics=DesiredStatistics,
+                         Extractions=Extractions)
+    if addMemoryUsage: addMemoryUsage2Arrays(arrays)
+    if addResiduals: extractResiduals(t, arrays)
+    arraysTree = arraysDict2PyTree(arrays)
+
+    return arraysTree
+
+
+def extractSurfaces(t, Extractions):
+    '''
+    Extracts flowfield data as surfacic (or curvilinear) zones from input
+    fields **t** and requested extraction information provided in **Extractions**.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Output PyTree as obtained from :py:func:`extractFields`
+
+        Extractions : :py:class:`list` of :py:class:`dict`
+            Each element of this list is a dictionary that specifies the kind of
+            requested extraction. Possible keys of the dictionary are:
+
+            * ``type`` : mandatory
+                Can be one of :
+
+                * ``AllBC<type>``
+                    Extract all BC windows corresponding to a given *<type>*,
+                    and stores them in separated CGNSBases using their families'
+                    names.
+
+                * ``BC<type>``
+                    Extract all BC windows corresponding to a given *<type>*,
+                    not necessarily defined by means of a family, and stores
+                    them in a single CGNSBase.
+
+                * ``FamilySpecified:<FamilyName>``
+                    Extract BC windows defined by a family named *<FamilyName>*,
+                    and stores them in a single CGNSBase.
+
+                * ``IsoSurface``
+                    Slice the input flowfields following a given field name and
+                    value
+
+                * ``Sphere``
+                    Slice the input flowfields using a sphere defined using a
+                    center and a radius.
+
+                * ``Plane``
+                    Slice the input flowfields using a plane defined using a
+                    point and a normal direction.
+
+            * ``name`` : :py:class:`str` (optional)
+                If provided, this name replaces the default name of the CGNSBase
+                container of the surfaces
+
+                ..note:: not relevant if ``type`` starts with  ``AllBC``
+
+            * ``field`` : :py:class:`str` (contextual)
+                Name of the field employed for slicing if ``type`` = ``IsoSurface``
+
+            * ``value`` : :py:class:`str` (contextual)
+                Value of the field employed for slicing if ``type`` = ``IsoSurface``
+
+            * ``center`` : :py:class:`list` of 3 :py:class:`float` (optional, contextual)
+                Coordinates of the sphere center employed for slicing if
+                ``type`` = ``Sphere``
+
+            * ``radius`` : :py:class:`float` (contextual)
+                Radius of the sphere employed for slicing if ``type`` = ``Sphere``
+
+            * ``point`` : :py:class:`list` of 3 :py:class:`float` (contextual)
+                Coordinates of the point employed for slicing if
+                ``type`` = ``Plane``
+
+            * ``normal`` : :py:class:`list` of 3 :py:class:`float` (contextual)
+                Normal vector employed for slicing if ``type`` = ``Plane``
+
+    Returns
+    -------
+
+        SurfacesTree : PyTree
+            Tree containing all requested surfaces as a set of zones stored
+            in possibly different CGNSBases
+
+    '''
+
+    cellDimOutputTree = I.getZoneDim(I.getZones(t)[0])[-1]
 
     def addBase2SurfacesTree(basename):
         if not zones: return
@@ -111,7 +253,7 @@ def extractSurfaces(OutputTreeWithSkeleton, Extractions):
         J.set(base, '.ExtractionInfo', **Extraction)
         return base
 
-    t = I.renameNode(OutputTreeWithSkeleton, 'FlowSolution#Init', 'FlowSolution#Centers')
+    t = I.renameNode(t, 'FlowSolution#Init', 'FlowSolution#Centers')
     I._renameNode(t, 'FlowSolution#Height', 'FlowSolution')
     I._rmNodesByName(t, 'FlowSolution#EndOfRun*')
     reshapeBCDatasetNodes(t)
@@ -182,15 +324,15 @@ def extractSurfaces(OutputTreeWithSkeleton, Extractions):
     Cmpi._convert2PartialTree(SurfacesTree)
     J.forceZoneDimensionsCoherency(SurfacesTree)
     Cmpi.barrier()
-    restoreFamilies(SurfacesTree, OutputTreeWithSkeleton)
+    restoreFamilies(SurfacesTree, t)
     Cmpi.barrier()
 
     return SurfacesTree
 
-def extractIntegralData(to, loads, Extractions=[],
+def extractIntegralData(to, arrays, Extractions=[],
                         DesiredStatistics=['std-CL', 'std-CD']):
     '''
-    Extract integral data from coupling tree **to**, and update **loads** Python
+    Extract integral data from coupling tree **to**, and update **arrays** Python
     dictionary adding statistics requested by the user.
 
     Parameters
@@ -199,10 +341,10 @@ def extractIntegralData(to, loads, Extractions=[],
         to : PyTree
             Coupling tree as obtained from :py:func:`adaptEndOfRun`
 
-        loads : dict
+        arrays :dict
             Contains integral data in the following form:
 
-            >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
+            >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
         DesiredStatistics : :py:class:`list` of :py:class:`str`
             Here, the user requests the additional statistics to be computed.
@@ -214,7 +356,7 @@ def extractIntegralData(to, loads, Extractions=[],
 
             `<preffix>` can be ``'avg'`` (for cumulative average) or ``'std'``
             (for standard deviation). ``<integral_quantity_name>`` can be any
-            quantity contained in loads, including other statistics.
+            quantity contained in arrays, including other statistics.
 
             .. hint:: chaining preffixes is perfectly accepted, like
                 ``'std-std-CL'`` which would compute the cumulative standard
@@ -224,24 +366,22 @@ def extractIntegralData(to, loads, Extractions=[],
     Returns
     -------
 
-        loads : dict
+        arrays : dict
             Updated dictionary
 
     '''
     IntegralDataNodes = I.getNodesFromType2(to, 'IntegralData_t')
     for IntegralDataNode in IntegralDataNodes:
         IntegralDataName = getIntegralDataName(IntegralDataNode)
-        _appendIntegralDataNode2Loads(loads, IntegralDataNode)
-        _extendLoadsWithProjectedLoads(loads, IntegralDataName)
-        _extendLoadsWithStatistics(loads, IntegralDataName, DesiredStatistics)
+        _appendIntegralDataNode2Arrays(arrays, IntegralDataNode)
+        _extendArraysWithProjectedLoads(arrays, IntegralDataName)
+        _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics)
 
-    extractResiduals(to, loads)
+    return arrays
 
-    return loads
-
-def extractResiduals(to, loads):
+def extractResiduals(to, arrays):
     '''
-    Extract residuals from coupling tree **to**, and update **loads** Python
+    Extract residuals from coupling tree **to**, and update **arrays** Python
     dictionary.
 
     Parameters
@@ -250,15 +390,15 @@ def extractResiduals(to, loads):
         to : PyTree
             Coupling tree as obtained from :py:func:`adaptEndOfRun`
 
-        loads : dict
+        arrays : dict
             Contains integral data in the following form:
 
-            >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
+            >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
     Returns
     -------
 
-        loads : dict
+        arrays : dict
             Updated dictionary
 
     '''
@@ -266,19 +406,22 @@ def extractResiduals(to, loads):
     for ConvergenceHistory in ConvergenceHistoryNodes:
         ConvergenceDict = dict()
         for DataArrayNode in I.getNodesFromType(ConvergenceHistory, 'DataArray_t'):
-            ConvergenceDict[I.getName(DataArrayNode)] = I.getValue(DataArrayNode)
-        appendDict2Loads(loads, ConvergenceDict, I.getName(ConvergenceHistory))
+            DataArrayValue = I.getValue(DataArrayNode)
+            if len(DataArrayValue.shape) == 1:
+                ConvergenceDict[I.getName(DataArrayNode)] = DataArrayValue
+        appendDict2Arrays(arrays, ConvergenceDict, I.getName(ConvergenceHistory))
+        break # we ignore possibly multiple ConvergenceHistory_t nodes
 
-    return loads
+    return arrays
 
 def save(t, filename, tagWithIteration=False):
     '''
     Generic function to save a PyTree **t** in parallel. Works whatever the
     dimension of the PyTree. Use it to save ``'fields.cgns'``,
-    ``'surfaces.cgns'`` or ``'loads.cgns'``.
+    ``'surfaces.cgns'`` or ``'arrays.cgns'``.
 
     .. important::
-        If the mesh was split with PyPart and if thet function is called to save
+        If the mesh was split with PyPart and if the function is called to save
         *FILE_FIELDS*, the tree is automatically merged and saved using PyPart.
         In that case, the variable **PyPartBase** should be defined (normally,
         in ``compute.py``)
@@ -293,10 +436,10 @@ def save(t, filename, tagWithIteration=False):
             Name of the file
 
         tagWithIteration : bool
-            if ``True``, adds a suffix ``_AfterIter<iteration>``
+            if :py:obj:`True`, adds a suffix ``_AfterIter<iteration>``
             to the saved filename (creates a copy)
     '''
-    if PyPartBase and FILE_FIELDS in filename:
+    if PyPartBase and filename.endswith(FILE_FIELDS):
         saveWithPyPart(t, filename, tagWithIteration=tagWithIteration)
         return
 
@@ -348,7 +491,7 @@ def save(t, filename, tagWithIteration=False):
     Cmpi.convertPyTree2File(tWithSkel, filename, merge=UseMerge)
     printCo('... saved %s'%filename,0, color=J.CYAN)
     Cmpi.barrier()
-    if tagWithIteration and rank == 0: copyOutputFiles(filename)
+    if tagWithIteration and Cmpi.rank == 0: copyOutputFiles(filename)
 
 def saveWithPyPart(t, filename, tagWithIteration=False):
     '''
@@ -374,7 +517,7 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
             Name of the file
 
         tagWithIteration : bool
-            if ``True``, adds a suffix ``_AfterIter<iteration>``
+            if :py:obj:`True`, adds a suffix ``_AfterIter<iteration>``
             to the saved filename (creates a copy)
     '''
     t = I.copyRef(t)
@@ -388,7 +531,9 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
     if rank == 0:
         t = C.convertFile2PyTree('PyPart_fields_all.hdf')
         C.convertPyTree2File(t, filename)
-        os.system('rm -f PyPart_fields_*.hdf')
+        for fn in glob.glob('PyPart_fields_*.hdf'):
+            try: os.remove(fn)
+            except: pass
     printCo('... saved %s'%filename,0, color=J.CYAN)
     Cmpi.barrier()
     if tagWithIteration and rank == 0: copyOutputFiles(filename)
@@ -477,18 +622,23 @@ def restoreFamilies(surfaces, skeleton):
             if I.getName(family) in familiesInBase:
                 I.addChild(base, family)
 
-def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[]):
+def monitorTurboPerformance(surfaces, arrays, DesiredStatistics=[]):
     '''
     Monitor performance (massflow in/out, total pressure ratio, total
     temperature ratio, isentropic efficiency) for each row in a compressor
     simulation. This processing is triggered if at least two bases in the PyTree
     **surfaces** fill the following requirements:
 
-        #. there is a node ``'.ExtractionInfo'`` of type ``'UserDefinedData_t'``
-        #. it contains a node ``'ReferenceRow'``, whose value is a
-            :py:class:`str` corresponding to a row Family in ``'main.cgns'``.
-        #. it contains a node ``'tag'``, whose value is a :py:class:`str` equal
-            to ``'InletPlane'`` or ``'OutletPlane'``.
+    #.
+        there is a node ``'.ExtractionInfo'`` of type ``'UserDefinedData_t'``
+
+    #.
+        it contains a node ``'ReferenceRow'``, whose value is a :py:class:`str`
+        corresponding to a row Family in ``'main.cgns'``.
+
+    #.
+        it contains a node ``'tag'``, whose value is a :py:class:`str` equal
+        to ``'InletPlane'`` or ``'OutletPlane'``.
 
     .. note:: For one ``'ReferenceRow'``, the monitor is processed only if both
         ``'InletPlane'`` and ``'OutletPlane'`` are found.
@@ -504,10 +654,10 @@ def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[]):
         surfaces : PyTree
             as produced by :py:func:`extractSurfaces`
 
-        loads : dict
+        arrays :dict
             Contains integral data in the following form:
 
-            >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
+            >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
         DesiredStatistics : :py:class:`list` of :py:class:`str`
             Here, the user requests the additional statistics to be computed.
@@ -569,11 +719,11 @@ def monitorTurboPerformance(surfaces, loads, DesiredStatistics=[]):
                 perfos = computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
             else:
                 perfos = computePerfoStator(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
-            appendDict2Loads(loads, perfos, 'PERFOS_{}'.format(row))
-            _extendLoadsWithStatistics(loads, 'PERFOS_{}'.format(row), DesiredStatistics)
+            appendDict2Arrays(arrays, perfos, 'PERFOS_{}'.format(row))
+            _extendArraysWithStatistics(arrays, 'PERFOS_{}'.format(row), DesiredStatistics)
 
-    loadsTree = loadsDict2PyTree(loads)
-    save(loadsTree, os.path.join(DIRECTORY_OUTPUT, FILE_LOADS))
+    arraysTree = arraysDict2PyTree(arrays)
+    save(arraysTree, os.path.join(DIRECTORY_OUTPUT, FILE_ARRAYS))
 
 def computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=1., fluxcoeffOut=None):
 
@@ -644,17 +794,20 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
             For example:
 
             ::
-                >>> VarAndMeanList = [([var1, var2], meanFunction1), ([var3], meanFunction2), ...]
+
+                VarAndMeanList = [([var1, var2], meanFunction1),
+                                  ([var3], meanFunction2), ...]
 
             Example of function for a massflow weighted integration:
 
             ::
-                >>> import Converter.PyTree as C
-                >>> import Post.PyTree      as P
-                >>> def massflowWeightedIntegral(t, var):
-                >>>     t = C.initVars(t, 'rou_var={MomentumX}*{%s}'%(var))
-                >>>     integ  = abs(P.integNorm(t, 'rou_var')[0][0])
-                >>>     return integ
+
+                import Converter.PyTree as C
+                import Post.PyTree      as P
+                def massflowWeightedIntegral(t, var):
+                    t = C.initVars(t, 'rou_var={MomentumX}*{%s}'%(var))
+                    integ  = abs(P.integNorm(t, 'rou_var')[0][0])
+                    return integ
 
     Returns
     -------
@@ -757,59 +910,59 @@ def updateAndWriteSetup(setup):
         printCo('updating setup.py ... OK', proc=0, color=GREEN)
     comm.Barrier()
 
-def invokeLoads():
+def invokeArrays():
     '''
-    Create **loads** Python dictionary by reading any pre-existing data
-    contained in ``OUTPUT/loads.cgns``
+    Create **arrays** Python dictionary by reading any pre-existing data
+    contained in ``OUTPUT/arrays.cgns``
 
-    .. note:: an empty dictionary is returned if no ``OUTPUT/loads.cgns`` file
+    .. note:: an empty dictionary is returned if no ``OUTPUT/arrays.cgns`` file
         is found
 
     Returns
     -------
 
-        loads : dict
+        arrays :dict
             Contains integral data in the following form:
 
-            >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
+            >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
     '''
     Cmpi.barrier()
-    loads = dict()
-    FullPathLoadsFile = os.path.join(DIRECTORY_OUTPUT, FILE_LOADS)
-    ExistingLoadsFile = os.path.exists(FullPathLoadsFile)
+    arrays = dict()
+    FullPathArraysFile = os.path.join(DIRECTORY_OUTPUT, FILE_ARRAYS)
+    ExistingArraysFile = os.path.exists(FullPathArraysFile)
     Cmpi.barrier()
     inititer = setup.elsAkeysNumerics['inititer']
-    if ExistingLoadsFile and inititer>1:
-        t = Cmpi.convertFile2SkeletonTree(FullPathLoadsFile)
-        t = Cmpi.readZones(t, FullPathLoadsFile, rank=rank)
+    if ExistingArraysFile and inititer>1:
+        t = Cmpi.convertFile2SkeletonTree(FullPathArraysFile)
+        t = Cmpi.readZones(t, FullPathArraysFile, rank=rank)
         Cmpi._convert2PartialTree(t, rank=rank)
 
         for zone in I.getZones(t):
             ZoneName = I.getName(zone)
             VarNames, = C.getVarNames(zone, excludeXYZ=True)
             FlowSol_n = I.getNodeFromName1(zone, 'FlowSolution')
-            loads[ZoneName] = dict()
-            loadsSubset = loads[ZoneName]
+            arrays[ZoneName] = dict()
+            arraysSubset = arrays[ZoneName]
             if FlowSol_n:
                 for VarName in VarNames:
                     Var_n = I.getNodeFromName1(FlowSol_n, VarName)
                     if Var_n:
-                        loadsSubset[VarName] = Var_n[1]
+                        arraysSubset[VarName] = Var_n[1]
 
             try:
-                iters = np.copy(loadsSubset['IterationNumber'])
-                for VarName in loadsSubset:
-                    loadsSubset[VarName] = loadsSubset[VarName][iters<inititer]
+                iters = np.copy(arraysSubset['IterationNumber'])
+                for VarName in arraysSubset:
+                    arraysSubset[VarName] = arraysSubset[VarName][iters<inititer]
             except KeyError:
                 pass
 
     Cmpi.barrier()
 
-    return loads
+    return arrays
 
-def addMemoryUsage2Loads(loads):
+def addMemoryUsage2Arrays(arrays):
     '''
-    This function adds or updates a component in **loads** for monitoring the
+    This function adds or updates a component in **arrays** for monitoring the
     employed memory. Only nodes are monitored (not every single proc, as this
     would produce redundant information). The number of cores contained in each
     computational node is retreived from the user-specified variable contained
@@ -824,12 +977,12 @@ def addMemoryUsage2Loads(loads):
     Parameters
     ----------
 
-        loads : dict
+        arrays :dict
             Contains integral data in the following form:
 
-            >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
+            >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
-            parameter **loads** is modified
+            parameter **arrays** is modified
     '''
 
     try: CoreNumberPerNode = setup.ReferenceValues['CoreNumberPerNode']
@@ -840,36 +993,36 @@ def addMemoryUsage2Loads(loads):
         UsedMemory = psutil.virtual_memory().used
         UsedMemoryPctg = psutil.virtual_memory().percent
         try:
-            LoadsItem = loads[ZoneName]
+            ArraysItem = arrays[ZoneName]
         except KeyError:
-            loads[ZoneName] = dict(IterationNumber=np.array([],dtype=int),
+            arrays[ZoneName] = dict(IterationNumber=np.array([],dtype=int),
                                    UsedMemoryInPercent=np.array([],dtype=float),
                                    UsedMemory=np.array([],dtype=float),)
-            LoadsItem = loads[ZoneName]
+            ArraysItem = arrays[ZoneName]
 
         try:
-            LoadsItem['IterationNumber'] = np.hstack((LoadsItem['IterationNumber'],
+            ArraysItem['IterationNumber'] = np.hstack((ArraysItem['IterationNumber'],
                                                       int(CurrentIteration)))
-            LoadsItem['UsedMemoryInPercent'] = np.hstack((LoadsItem['UsedMemoryInPercent'],
+            ArraysItem['UsedMemoryInPercent'] = np.hstack((ArraysItem['UsedMemoryInPercent'],
                                                           float(UsedMemoryPctg)))
-            LoadsItem['UsedMemory'] = np.hstack((LoadsItem['UsedMemory'],
+            ArraysItem['UsedMemory'] = np.hstack((ArraysItem['UsedMemory'],
                                              float(UsedMemory)))
         except KeyError:
-            del loads[ZoneName]
+            del arrays[ZoneName]
     Cmpi.barrier()
 
-def loadsDict2PyTree(loads):
+def arraysDict2PyTree(arrays):
     '''
-    This function converts the **loads** Python dictionary to a PyTree (CGNS)
+    This function converts the **arrays** Python dictionary to a PyTree (CGNS)
     structure **t**.
 
     Parameters
     ----------
 
-        loads : dict
+        arrays :dict
             Contains integral data in the following form:
 
-            >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
+            >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
     Returns
     -------
@@ -877,20 +1030,20 @@ def loadsDict2PyTree(loads):
         t : PyTree
             same information as input, but structured in a PyTree CGNS form
 
-    .. warning:: after calling the function, **loads** and **t** do *NOT*
-        share memory, which means that modifications on **loads** will not
+    .. warning:: after calling the function, **arrays** and **t** do *NOT*
+        share memory, which means that modifications on **arrays** will not
         affect **t** and vice-versa
     '''
     zones = []
-    for ZoneName in loads:
-        loadsSubset = loads[ZoneName]
+    for ZoneName in arrays:
+        arraysSubset = arrays[ZoneName]
         Arrays, Vars = [], []
-        OrderedVars = [var for var in loadsSubset]
+        OrderedVars = [var for var in arraysSubset]
 
         OrderedVars.sort()
         for var in OrderedVars:
             Vars.append(var)
-            Arrays.append(loadsSubset[var])
+            Arrays.append(arraysSubset[var])
 
         zone = J.createZone(ZoneName, Arrays, Vars)
         if zone: zones.append(zone)
@@ -904,21 +1057,21 @@ def loadsDict2PyTree(loads):
 
     return t
 
-def appendDict2Loads(loads, dictToAppend, basename):
+def appendDict2Arrays(arrays, dictToAppend, basename):
     '''
     This function add data defined in **dictToAppend** in the base **basename**
-    of **loads**.
+    of **arrays**.
 
     Parameters
     ----------
 
-        loads : dict
+        arrays :dict
             Contains integral data in the following form:
 
-            >>> loads[basename]['VariableName'] = np.array
+            >>> arrays[basename]['VariableName'] = np.array
 
         dictToAppend : dict
-            Contains data to append in **loads**. For each element:
+            Contains data to append in **arrays**. For each element:
                 * key is the variable name
                 * value is the associated value
 
@@ -926,31 +1079,31 @@ def appendDict2Loads(loads, dictToAppend, basename):
             Name of the base in which values will be appended.
 
     '''
-    if not basename in loads:
-        loads[basename] = dict()
+    if not basename in arrays:
+        arrays[basename] = dict()
 
     for var, value in dictToAppend.items():
-        if var in loads[basename]:
-            loads[basename][var] = np.append(loads[basename][var], value)
+        if var in arrays[basename]:
+            arrays[basename][var] = np.append(arrays[basename][var], value)
         else:
-            loads[basename][var] = np.array([value], ndmin=1)
+            arrays[basename][var] = np.array([value],ndmin=1)
 
 
-def _appendIntegralDataNode2Loads(loads, IntegralDataNode):
+def _appendIntegralDataNode2Arrays(arrays, IntegralDataNode):
     '''
     Beware: this is a private function, employed by updateAndSaveLoads()
 
     This function converts the CGNS IntegralDataNode (as provided by elsA)
-    into the Python dictionary structure of loads dictionary, and append it
+    into the Python dictionary structure of arrays dictionary, and append it
     to the latter.
 
     Parameters
     ----------
 
-        loads : dict
+        arrays :dict
             Contains integral data in the following form:
 
-            >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
+            >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
         IntegralDataNode : node
             Contains integral data as provided by elsA
@@ -962,39 +1115,39 @@ def _appendIntegralDataNode2Loads(loads, IntegralDataNode):
     IterationNumber = IntegralData['IterationNumber']
 
     try:
-        loadsSubset = loads[IntegralDataName]
+        arraysSubset = arrays[IntegralDataName]
     except KeyError:
-        loads[IntegralDataName] = dict()
-        loadsSubset = loads[IntegralDataName]
+        arrays[IntegralDataName] = dict()
+        arraysSubset = arrays[IntegralDataName]
 
 
-    try: RegisteredIterations = loadsSubset['IterationNumber']
+    try: RegisteredIterations = arraysSubset['IterationNumber']
     except KeyError: RegisteredIterations = np.array([])
     if len(RegisteredIterations) > 0:
-        PreviousRegisteredLoads = True
+        PreviousRegisteredArrays = True
         eps = 1e-12
         UpdatePortion = IterationNumber > (RegisteredIterations[-1] + eps)
         try: FirstIndex2Update = np.where(UpdatePortion)[0][0]
         except IndexError: return
     else:
-        PreviousRegisteredLoads = False
+        PreviousRegisteredArrays = False
 
     for integralKey in IntegralData:
-        if PreviousRegisteredLoads:
-            PreviousArray = loadsSubset[integralKey]
+        if PreviousRegisteredArrays:
+            PreviousArray = arraysSubset[integralKey]
             AppendArray = IntegralData[integralKey][FirstIndex2Update:]
-            loadsSubset[integralKey] = np.hstack((PreviousArray, AppendArray))
+            arraysSubset[integralKey] = np.hstack((PreviousArray, AppendArray))
         else:
-            loadsSubset[integralKey] = np.array(IntegralData[integralKey],
+            arraysSubset[integralKey] = np.array(IntegralData[integralKey],
                                                order='F', ndmin=1)
 
 
-def _extendLoadsWithProjectedLoads(loads, IntegralDataName):
+def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
     '''
     Beware: this is a private function, employed by :py:func:`updateAndSaveLoads`
 
     This function is employed for adding aerodynamic-relevant coefficients to
-    the loads dictionary. The new quantites are the following :
+    the arrays dictionary. The new quantites are the following :
 
         elsA Extractions  ---->   New projections (aero coefficients)
         -------------------------------------------------------------
@@ -1033,11 +1186,11 @@ def _extendLoadsWithProjectedLoads(loads, IntegralDataName):
 
     INPUTS
 
-    loads - (Python dictionary) - Contains integral data in the following form:
-        np.array = loads['FamilyBCNameOrElementName']['VariableName']
+    arrays - (Python dictionary) - Contains integral data in the following form:
+        np.array = arrays['FamilyBCNameOrElementName']['VariableName']
 
     IntegralDataName - (string) - Name of the IntegralDataNode (CGNS) provided
-        by elsA. It is used as key for loads dictionary.
+        by elsA. It is used as key for arrays dictionary.
     '''
 
 
@@ -1045,7 +1198,7 @@ def _extendLoadsWithProjectedLoads(loads, IntegralDataName):
     SideDirection=np.array(setup.ReferenceValues['SideDirection'],dtype=np.float)
     LiftDirection=np.array(setup.ReferenceValues['LiftDirection'],dtype=np.float)
 
-    loadsSubset = loads[IntegralDataName]
+    arraysSubset = arrays[IntegralDataName]
 
     try:
         FluxCoef = setup.ReferenceValues['IntegralScales'][IntegralDataName]['FluxCoef']
@@ -1057,12 +1210,12 @@ def _extendLoadsWithProjectedLoads(loads, IntegralDataName):
         TorqueOrigin = setup.ReferenceValues['TorqueOrigin']
 
     try:
-        FX = loadsSubset['MomentumXFlux']
-        FY = loadsSubset['MomentumYFlux']
-        FZ = loadsSubset['MomentumZFlux']
-        MX = loadsSubset['TorqueX']
-        MY = loadsSubset['TorqueY']
-        MZ = loadsSubset['TorqueZ']
+        FX = arraysSubset['MomentumXFlux']
+        FY = arraysSubset['MomentumYFlux']
+        FZ = arraysSubset['MomentumZFlux']
+        MX = arraysSubset['TorqueX']
+        MY = arraysSubset['TorqueY']
+        MZ = arraysSubset['TorqueZ']
     except KeyError:
         return # no required fields for computing external aero coefficients
 
@@ -1072,32 +1225,32 @@ def _extendLoadsWithProjectedLoads(loads, IntegralDataName):
     TY = MY-(TorqueOrigin[2]*FX - TorqueOrigin[0]*FZ)
     TZ = MZ-(TorqueOrigin[0]*FY - TorqueOrigin[1]*FX)
 
-    loadsSubset['CL']=FX*LiftDirection[0]+FY*LiftDirection[1]+FZ*LiftDirection[2]
-    loadsSubset['CD']=FX*DragDirection[0]+FY*DragDirection[1]+FZ*DragDirection[2]
-    loadsSubset['CY']=FX*SideDirection[0]+FY*SideDirection[1]+FZ*SideDirection[2]
-    loadsSubset['Cn']=TX*LiftDirection[0]+TY*LiftDirection[1]+TZ*LiftDirection[2]
-    loadsSubset['Cl']=TX*DragDirection[0]+TY*DragDirection[1]+TZ*DragDirection[2]
-    loadsSubset['Cm']=TX*SideDirection[0]+TY*SideDirection[1]+TZ*SideDirection[2]
+    arraysSubset['CL']=FX*LiftDirection[0]+FY*LiftDirection[1]+FZ*LiftDirection[2]
+    arraysSubset['CD']=FX*DragDirection[0]+FY*DragDirection[1]+FZ*DragDirection[2]
+    arraysSubset['CY']=FX*SideDirection[0]+FY*SideDirection[1]+FZ*SideDirection[2]
+    arraysSubset['Cn']=TX*LiftDirection[0]+TY*LiftDirection[1]+TZ*LiftDirection[2]
+    arraysSubset['Cl']=TX*DragDirection[0]+TY*DragDirection[1]+TZ*DragDirection[2]
+    arraysSubset['Cm']=TX*SideDirection[0]+TY*SideDirection[1]+TZ*SideDirection[2]
 
     # Normalize forces and moments
-    for Force in ('CL','CD','CY'):  loadsSubset[Force]  *= FluxCoef
-    for Torque in ('Cn','Cl','Cm'): loadsSubset[Torque] *= TorqueCoef
+    for Force in ('CL','CD','CY'):  arraysSubset[Force]  *= FluxCoef
+    for Torque in ('Cn','Cl','Cm'): arraysSubset[Torque] *= TorqueCoef
 
 
-def _extendLoadsWithStatistics(loads, IntegralDataName, DesiredStatistics):
+def _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics):
     '''
     Beware: this is a private function, employed by updateAndSaveLoads()
 
-    Add to loads dictionary the relevant statistics requested by the user
+    Add to arrays dictionary the relevant statistics requested by the user
     through the DesiredStatistics list of special named strings.
 
     Parameters
     ----------
 
-        loads : dict
+        arrays : dict
             Contains integral data in the following form:
             ::
-                >>> np.array = loads['FamilyBCNameOrElementName']['VariableName']
+                >>> np.array = arrays['FamilyBCNameOrElementName']['VariableName']
 
         IntegralDataName : str
             Name of the IntegralDataNode (CGNS) provided by elsA. It is used as
@@ -1111,8 +1264,8 @@ def _extendLoadsWithStatistics(loads, IntegralDataName, DesiredStatistics):
 
     AvgIt = setup.ReferenceValues["CoprocessOptions"]["AveragingIterations"]
 
-    loadsSubset = loads[IntegralDataName]
-    IterationNumber = loadsSubset['IterationNumber']
+    arraysSubset = arrays[IntegralDataName]
+    IterationNumber = arraysSubset['IterationNumber']
     IterationWindow = len(IterationNumber[IterationNumber>(IterationNumber[-1]-AvgIt)])
     if IterationWindow < 2: return
 
@@ -1122,16 +1275,11 @@ def _extendLoadsWithStatistics(loads, IntegralDataName, DesiredStatistics):
         VarName = '-'.join(KeywordsSplit[1:])
 
         try:
-            InstantaneousArray = loadsSubset[VarName]
+            InstantaneousArray = arraysSubset[VarName]
             InvalidValues = np.logical_not(np.isfinite(InstantaneousArray))
             InstantaneousArray[InvalidValues] = 0.
 
         except KeyError:
-            WARNMSG = ('WARNING: user requested statistic for variable {}, but '
-                       ' this variable was not found in loads.\n'
-                       'Please choose one of: {}').format(VarName,
-                                                    str(loadsSubset.keys()))
-            printCo(WARN+WARNMSG+ENDC, proc=rank)
             return
 
         if StatType.lower() == 'avg':
@@ -1149,7 +1297,7 @@ def _extendLoadsWithStatistics(loads, IntegralDataName, DesiredStatistics):
             InvalidValues = np.logical_not(np.isfinite(AverageArray))
             AverageArray[InvalidValues] = 0.
 
-            loadsSubset['avg-'+VarName] = AverageArray
+            arraysSubset['avg-'+VarName] = AverageArray
 
             FilteredInstantaneousSqrd = uniform_filter1d(InstantaneousArray**2,
                                                       size=IterationWindow)
@@ -1159,13 +1307,13 @@ def _extendLoadsWithStatistics(loads, IntegralDataName, DesiredStatistics):
             FilteredInstantaneousSqrd[FilteredInstantaneousSqrd<0] = 0.
 
             StatisticArray = np.sqrt(np.abs(FilteredInstantaneousSqrd-AverageArray**2))
-        loadsSubset[StatKeyword] = StatisticArray
+        arraysSubset[StatKeyword] = StatisticArray
 
 
 def getIntegralDataName(IntegralDataNode):
     '''
     Transforms the elsA provided **IntegralDataNode** name into a suitable name
-    for further storing it at **loads** dictionary.
+    for further storing it at **arrays** dictionary.
 
     Parameters
     ----------
@@ -1195,7 +1343,7 @@ def isConverged(ZoneName='AIRFOIL', FluxName='std-CL', FluxThreshold=0.001):
     ----------
 
         ZoneName : :py:class:`str` or :py:class:`list`
-            Component name (shall exist in **loads** dictionary)
+            Component name (shall exist in **arrays** dictionary)
 
         FluxName : :py:class:`str` or :py:class:`list`
             Name of the load quantity (typically, standard deviation statistic
@@ -1222,12 +1370,12 @@ def isConverged(ZoneName='AIRFOIL', FluxName='std-CL', FluxThreshold=0.001):
                 FluxThreshold = [FluxThreshold]
             else:
                 assert len(ZoneName) == len(FluxName) == len(FluxThreshold)
-            loadsTree = C.convertFile2PyTree(os.path.join(DIRECTORY_OUTPUT,
-                                                           FILE_LOADS))
-            loadsZones = I.getZones(loadsTree)
+            arraysTree = C.convertFile2PyTree(os.path.join(DIRECTORY_OUTPUT,
+                                                           FILE_ARRAYS))
+            arraysZones = I.getZones(arraysTree)
             ConvergedCriteria = []
             for zoneCur, fluxCur, thresholdCur in zip(ZoneName, FluxName, FluxThreshold):
-                zone, = [z for z in loadsZones if z[0] == zoneCur]
+                zone, = [z for z in arraysZones if z[0] == zoneCur]
                 Flux, = J.getVars(zone, [fluxCur])
                 ConvergedCriteria.append(Flux[-1] < thresholdCur)
             ConvergedCriterion = all(ConvergedCriteria)
@@ -1312,7 +1460,7 @@ def copyOutputFiles(*files2copy):
 
     ::
 
-        copyOutputFiles('surfaces.cgns','loads.cgns')
+        copyOutputFiles('surfaces.cgns','arrays.cgns')
 
     '''
     for file2copy in files2copy:
@@ -1394,27 +1542,27 @@ def computeTransitionOnsets(to):
     return XtrTop, XtrBottom
 
 
-def addLoads(loads, ZoneName, ListOfLoadsNames, NumpyArrays):
+def addArrays(arrays, ZoneName, ListOfArraysNames, NumpyArrays):
     '''
-    This function is an interface for adding new user-defined loads into the
-    **loads** Python dictionary.
+    This function is an interface for adding new user-defined arrays into the
+    **arrays** Python dictionary.
 
     Parameters
     ----------
 
-        loads : dict
+        arrays :dict
             Contains integral data in the following form:
 
-            >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
+            >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
-            parameter **loads** is modified
+            parameter **arrays** is modified
 
         ZoneName : str
-            Name of the existing or new component where new loads are going
+            Name of the existing or new component where new arrays are going
             to be added. (FamilyBC or Component name)
 
-        ListOfLoadsNames : :py:class:`list` of :py:class:`str`
-            Each element of this list is a name of the new loads to be added.
+        ListOfArraysNames : :py:class:`list` of :py:class:`str`
+            Each element of this list is a name of the new arrays to be added.
             For example:
 
             ::
@@ -1422,38 +1570,38 @@ def addLoads(loads, ZoneName, ListOfLoadsNames, NumpyArrays):
                 ['MyFirstLoad', 'AnotherLoad']
 
         NumpyArrays : :py:class:`list` of numpy 1d arrays
-            Values to be added to **loads**
+            Values to be added to **arrays**
 
             .. attention::
                 All arrays provided to **NumpyArrays** *(which belongs to the
                 same component)* must have exactly the same number of elements
     '''
     try:
-        loadsSubset = loads[ZoneName]
+        arraysSubset = arrays[ZoneName]
     except KeyError:
-        loads[ZoneName] = {}
-        loadsSubset = loads[ZoneName]
-        for array, name in zip(NumpyArrays, ListOfLoadsNames):
-            loadsSubset[name] = array
+        arrays[ZoneName] = {}
+        arraysSubset = arrays[ZoneName]
+        for array, name in zip(NumpyArrays, ListOfArraysNames):
+            arraysSubset[name] = array
         return
 
-    for array, name in zip(NumpyArrays, ListOfLoadsNames):
+    for array, name in zip(NumpyArrays, ListOfArraysNames):
         try:
-            ExistingArray = loadsSubset[name]
+            ExistingArray = arraysSubset[name]
         except KeyError:
-            loadsSubset[name] = array
+            arraysSubset[name] = array
             continue
 
-        loadsSubset[name] = np.hstack((ExistingArray, array))
+        arraysSubset[name] = np.hstack((ExistingArray, array))
 
 
-def addBodyForcePropeller2Loads(loads, BodyForceDisks):
+def addBodyForcePropeller2Arrays(arrays, BodyForceDisks):
     '''
     This function is an interface adapted to body-force computations.
     It transfers the integral information of each body-force disk into
-    the **loads** dictionary.
+    the **arrays** dictionary.
 
-    The fields that are appended to **loads** are:
+    The fields that are appended to **arrays** are:
 
     ::
 
@@ -1468,12 +1616,12 @@ def addBodyForcePropeller2Loads(loads, BodyForceDisks):
     Parameters
     ----------
 
-        loads : dict
+        arrays :dict
             Contains integral data in the following form:
 
-            >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
+            >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
-            parameter **loads** is modified
+            parameter **arrays** is modified
 
         BodyForceDisks : :py:class:`list` of zone
             Current bodyforce disks as obtained from
@@ -1488,7 +1636,7 @@ def addBodyForcePropeller2Loads(loads, BodyForceDisks):
             PropLoads = [I.getNodeFromName1(Info_n, ln)[1] for ln in PropLoadsNames]
             PropLoadsNames.append('IterationNumber')
             PropLoads.append(np.array([CurrentIteration]))
-            addLoads(loads, BodyForceDiskName, PropLoadsNames, PropLoads)
+            addArrays(arrays, BodyForceDiskName, PropLoadsNames, PropLoads)
         except:
             pass
     Cmpi.barrier()
@@ -1888,10 +2036,29 @@ def splitWithPyPart(LoggingInFile=False):
 
     return t, Skeleton, PyPartBase, Distribution
 
+def moveLogFiles():
+    if Cmpi.rank == 0:
+        try: os.makedirs(DIRECTORY_LOGS)
+        except: pass
+
+        for fn in glob.glob('*.log'):
+            FilenameBase = fn[:-4]
+            i = 1
+            NewFilename = FilenameBase+'-%d'%i+'.log'
+            while JM.fileExists('LOGS', NewFilename):
+                i += 1
+                NewFilename = FilenameBase+'-%d'%i+'.log'
+
+            shutil.move(fn, os.path.join('LOGS', NewFilename))
+        for fn in glob.glob('elsA_MPI*'):
+            shutil.move(fn, os.path.join('LOGS', fn))
+
+    Cmpi.barrier()
+
 #=================== Functions that will be deprecated soon ===================#
 @J.deprecated(1.12, 1.13)
 def saveAll(CouplingTreeWithSkeleton, CouplingTree,
-            loads, DesiredStatistics,
+            arrays, DesiredStatistics,
             BodyForceInputData, BodyForceDisks,
             quit=False):
     '''
@@ -1900,7 +2067,7 @@ def saveAll(CouplingTreeWithSkeleton, CouplingTree,
     * ``setup.py``
     * ``OUTPUT/fields.cgns``
     * ``OUTPUT/surfaces.cgns``
-    * ``OUTPUT/loads.cgns``
+    * ``OUTPUT/arrays.cgns``
     * ``OUTPUT/BodyForceSources.cgns``
 
 
@@ -1925,13 +2092,13 @@ def saveAll(CouplingTreeWithSkeleton, CouplingTree,
         CouplingTree : PyTree
             This is the partial tree as obtained using :py:func:`adaptEndOfRun`
 
-        loads : dict
+        arrays :dict
             It contains the integral data that will be saved as
-            ``OUTPUT/loads.cgns``. Its structure is:
-            ``loads['FamilyBCNameOrElementName']['VariableName'] = np.array``
+            ``OUTPUT/arrays.cgns``. Its structure is:
+            ``arrays['FamilyBCNameOrElementName']['VariableName'] = np.array``
 
         DesiredStatistics : :py:class:`list` of :py:class:`str`
-            Desired statistics to infer from loads dictionary. For more
+            Desired statistics to infer from arrays dictionary. For more
             information see documentation of function :py:func:`updateAndSaveLoads`
 
         BodyForceInputData : list
@@ -1951,9 +2118,9 @@ def saveAll(CouplingTreeWithSkeleton, CouplingTree,
 
     saveDistributedPyTree(CouplingTreeWithSkeleton, FILE_FIELDS)
 
-    saveSurfaces(CouplingTreeWithSkeleton, loads, DesiredStatistics, tagWithIteration=True)
+    saveSurfaces(CouplingTreeWithSkeleton, arrays, DesiredStatistics, tagWithIteration=True)
 
-    updateAndSaveLoads(CouplingTree, loads, DesiredStatistics,
+    updateAndSaveLoads(CouplingTree, arrays, DesiredStatistics,
                        tagWithIteration=True)
 
     if BodyForceInputData:
@@ -1984,7 +2151,7 @@ def saveSurfaces(to, loads, DesiredStatistics, tagWithIteration=False,
        do nothing
 
     For a turbomachinery case, monitor the performance of each row and save the
-    results in loads.cgns
+    results in arrays.cgns
 
     .. deprecated:: 1.12
 
@@ -1994,10 +2161,10 @@ def saveSurfaces(to, loads, DesiredStatistics, tagWithIteration=False,
         to : PyTree
             Coupling tree as obtained from :py:func:`adaptEndOfRun`
 
-        loads : :py:class:`dict`
+        arrays ::py:class:`dict`
             Contains integral data in the following form:
 
-            >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
+            >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
         DesiredStatistics : :py:class:`list` of :py:class:`str`
             Here, the user requests the additional statistics to be computed.
@@ -2032,7 +2199,7 @@ def saveSurfaces(to, loads, DesiredStatistics, tagWithIteration=False,
     if tagWithIteration and rank == 0: copyOutputFiles(FILE_SURFACES)
 
     if 'TurboConfiguration' in dir(setup):
-        monitorTurboPerformance(surfaces, loads, DesiredStatistics,
+        monitorTurboPerformance(surfaces, arrays, DesiredStatistics,
                                 tagWithIteration=tagWithIteration)
 
 @J.deprecated(1.12, 1.13, 'Use extractSurfaces with Extractions of type IsoSurface instead')
@@ -2174,9 +2341,9 @@ def saveDistributedPyTree(t, filename, tagWithIteration=False):
 def updateAndSaveLoads(to, loads, DesiredStatistics=['std-CL', 'std-CD'],
                        tagWithIteration=False, monitorMemory=False):
     '''
-    Extract integral data from coupling tree **to**, and update **loads** Python
+    Extract integral data from coupling tree **to**, and update **arrays** Python
     dictionary adding statistics requested by the user.
-    Then, write ``OUTPUT/loads.cgns`` file.
+    Then, write ``OUTPUT/arrays.cgns`` file.
 
     .. deprecated:: 1.12
 
@@ -2186,10 +2353,10 @@ def updateAndSaveLoads(to, loads, DesiredStatistics=['std-CL', 'std-CD'],
         to : PyTree
             Coupling tree as obtained from :py:func:`adaptEndOfRun`
 
-        loads : dict
+        arrays :dict
             Contains integral data in the following form:
 
-            >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
+            >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
         DesiredStatistics : :py:class:`list` of :py:class:`str`
             Here, the user requests the additional statistics to be computed.
@@ -2201,7 +2368,7 @@ def updateAndSaveLoads(to, loads, DesiredStatistics=['std-CL', 'std-CD'],
 
             `<preffix>` can be ``'avg'`` (for cumulative average) or ``'std'``
             (for standard deviation). ``<integral_quantity_name>`` can be any
-            quantity contained in loads, including other statistics.
+            quantity contained in arrays, including other statistics.
 
             .. hint:: chaining preffixes is perfectly accepted, like
                 ``'std-std-CL'`` which would compute the cumulative standard
@@ -2213,40 +2380,40 @@ def updateAndSaveLoads(to, loads, DesiredStatistics=['std-CL', 'std-CD'],
             to the saved filename (creates a copy)
 
         monitorMemory : bool
-            if :py:obj:`True`, function :py:func:`addMemoryUsage2Loads` is
-            called, which adds memory usage information into **loads**
+            if :py:obj:`True`, function :py:func:`addMemoryUsage2Arrays` is
+            called, which adds memory usage information into **arrays**
     '''
     IntegralDataNodes = I.getNodesFromType2(to, 'IntegralData_t')
     for IntegralDataNode in IntegralDataNodes:
         IntegralDataName = getIntegralDataName(IntegralDataNode)
-        _appendIntegralDataNode2Loads(loads, IntegralDataNode)
-        _extendLoadsWithProjectedLoads(loads, IntegralDataName)
-        _extendLoadsWithStatistics(loads, IntegralDataName, DesiredStatistics)
-    if monitorMemory: addMemoryUsage2Loads(loads)
-    saveLoads(loads, tagWithIteration)
+        _appendIntegralDataNode2Arrays(arrays, IntegralDataNode)
+        _extendArraysWithProjectedLoads(arrays, IntegralDataName)
+        _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics)
+    if monitorMemory: addMemoryUsage2Arrays(arrays)
+    saveLoads(arrays, tagWithIteration)
 
 @J.deprecated(1.12, 1.13, 'Use save instead')
 def saveLoads(loads, tagWithIteration=False):
     '''
-    Save the ``OUTPUT/loads.cgns`` file.
+    Save the ``OUTPUT/arrays.cgns`` file.
 
     Parameters
     ----------
 
-        loads : :py:class:`dict`
+        arrays ::py:class:`dict`
             Contains integral data in the following form:
 
-            >>> loads['FamilyBCNameOrElementName']['VariableName'] = np.array
+            >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
         tagWithIteration : :py:class:`bool`
             if ``True``, adds a suffix ``_AfterIter<iteration>``
             to the saved filename (creates a copy)
     '''
-    loadsPyTree = loadsDict2PyTree(loads)
+    loadsPyTree = arraysDict2PyTree(arrays)
     printCo(CYAN+'saving loads...'+ENDC, proc=0)
     Cmpi.barrier()
     Cmpi.convertPyTree2File(loadsPyTree,
-                            os.path.join(DIRECTORY_OUTPUT, FILE_LOADS))
+                            os.path.join(DIRECTORY_OUTPUT, FILE_ARRAYS))
     Cmpi.barrier()
     printCo(GREEN+'loads saved OK'+ENDC, proc=0)
-    if tagWithIteration and rank == 0: copyOutputFiles(FILE_LOADS)
+    if tagWithIteration and rank == 0: copyOutputFiles(FILE_ARRAYS)

@@ -440,7 +440,7 @@ def computePUMA(NBlades, Velocity, RPM, Temperature, Density,
     C.convertPyTree2File(t, '%s/WakeAndGeometry.cgns'%PUMADir)
 
 
-    # Extract integral loads
+    # Extract integral arrays
     Thrust = Prop.Loads.Data['Thrust']
     Torque = Prop.Loads.Data['Torque']
     Power  = Prop.Loads.Data['Power']
@@ -1047,7 +1047,7 @@ def designPropellerAdkins(LiftingLine, PolarsInterpolatorDict, NBlades=None,
     -------
 
         DictOfIntegralData : dict
-            dictionary containing LiftingLine loads.
+            dictionary containing LiftingLine arrays.
 
             .. note:: for design result, please refer to input argument
                 **LiftingLine**, which is modified (``Chord`` and ``Twist``
@@ -2085,7 +2085,7 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
 
         TwistDeg[:] = TwistDeg-Pitch # Reset Pitch
 
-        # Compute the loads
+        # Compute the arrays
         DictOfIntegralData = computeAxialLoads(VariablesDict=v, ConditionsDict=FlightVars)
 
         if Constraint != 'Pitch':
@@ -2134,7 +2134,7 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
         J.set(LiftingLine,'.Loads',**DictOfIntegralData)
         return DictOfIntegralData
 
-    # Compute loads
+    # Compute arrays
     DictOfIntegralData = computeAxialLoads(VariablesDict=v, ConditionsDict=FlightVars)
     DictOfIntegralData['Converged'] = success
     DictOfIntegralData['Attempts']  = attempt
@@ -2161,7 +2161,7 @@ def computeBEMTaxial3D(LiftingLine, PolarsInterpolatorDict,
     Perform a blade-element momentum-theory (BEMT) computation of a propeller
     flying in axial flight.
 
-    Returns a dictionary of integral loads.
+    Returns a dictionary of integral arrays.
 
     Updates relevant spanwise quantities on LiftingLine zone.
 
@@ -2250,13 +2250,13 @@ def computeBEMTaxial3D(LiftingLine, PolarsInterpolatorDict,
 
         FailedAsNaN : bool
             if :py:obj:`True`, if trim fails, then returns ``NaN`` values as
-            integral loads
+            integral arrays
 
     Returns
     -------
 
         DictOfIntegralData : dict
-            contains the integral loads of the propeller
+            contains the integral arrays of the propeller
     """
     import scipy.optimize as so
 
@@ -2579,7 +2579,7 @@ def computeBEMTaxial3D(LiftingLine, PolarsInterpolatorDict,
 
         TwistDeg[:] = TwistDeg-Pitch # Reset Pitch
 
-        # Compute the loads
+        # Compute the arrays
         DictOfIntegralData = LL.computeGeneralLoadsOfLiftingLine(LiftingLine,
                                                                 NBlades=NBlades)
 
@@ -2629,7 +2629,7 @@ def computeBEMTaxial3D(LiftingLine, PolarsInterpolatorDict,
         J.set(LiftingLine,'.Loads',**DictOfIntegralData)
         return DictOfIntegralData
 
-    # Compute loads
+    # Compute arrays
     LL._applyPolarOnLiftingLine(LiftingLine, PolarsInterpolatorDict,
                                 InterpFields=['Cl', 'Cd','Cm'])
     [C._initVars(LiftingLine, eq) for eq in ListOfEquations]

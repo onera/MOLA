@@ -1,5 +1,5 @@
 '''
-Template for reading and showing the loads.cgns file using Matplotlib
+Template for reading and showing the arrays.cgns file using Matplotlib
 
 MOLA v1.10 - 04/03/2021 - L. Bernardos
 '''
@@ -18,7 +18,7 @@ import MOLA.InternalShortcuts as J
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator, LogLocator, NullFormatter
 
-FILE_LOADS = 'OUTPUT/loads.cgns'
+FILE_ARRAYS = 'OUTPUT/arrays.cgns'
 
 ordering = dict(MassFlowIn=0,
     PressureStagnationRatio=1,
@@ -27,7 +27,7 @@ ordering = dict(MassFlowIn=0,
     PressureStagnationLossCoeff=4
     )
 
-t = C.convertFile2PyTree(FILE_LOADS)
+t = C.convertFile2PyTree(FILE_ARRAYS)
 zones = I.getNodesFromNameAndType(t, 'PERFOS_*', 'Zone_t')
 
 def shortvarname(varname):

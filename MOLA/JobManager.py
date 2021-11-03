@@ -589,9 +589,9 @@ def getCurrentJobsStatus(machine='sator'):
 
     return Output, Error
 
-def getCaseLoads(config, CASE_LABEL, basename='AIRFOIL'):
+def getCaseArrays(config, CASE_LABEL, basename='AIRFOIL'):
     '''
-    Repatriate the remote ``OUTPUT/loads.cgns`` file and return its contents in a
+    Repatriate the remote ``OUTPUT/arrays.cgns`` file and return its contents in a
     form of dictionary like :
 
     ::
@@ -601,7 +601,7 @@ def getCaseLoads(config, CASE_LABEL, basename='AIRFOIL'):
                 ...    }
 
     .. note::  we only keep the last iteration of each integral value contained
-        in ``loads.cgns``
+        in ``arrays.cgns``
 
     Parameters
     ----------
@@ -615,35 +615,35 @@ def getCaseLoads(config, CASE_LABEL, basename='AIRFOIL'):
             Can be determined by :py:func:`getCaseLabelFromAngleOfAttackAndMach`
 
         basename : str
-            Name of the base to read in ``loads.cgns``
+            Name of the base to read in ``arrays.cgns``
 
     Returns
     -------
 
-        LoadsDict : dict
-            containts the airfoil loads
+        ArraysDict : dict
+            containts the airfoil arrays
     '''
-    FILE_LOADS = 'loads.cgns'
+    FILE_ARRAYS = 'arrays.cgns'
     JobTag = '_'.join(CASE_LABEL.split('_')[1:])
 
     Source = os.path.join(config.DIRECTORY_WORK, JobTag, CASE_LABEL, 'OUTPUT',
-                                                                    FILE_LOADS)
+                                                                    FILE_ARRAYS)
 
     try:
-        repatriate(Source, FILE_LOADS, removeExistingDestinationPath=True)
+        repatriate(Source, FILE_ARRAYS, removeExistingDestinationPath=True)
     except:
-        print(J.WARN+'could not retrieve loads.cgns of case %s'%CASE_LABEL+J.ENDC)
+        print(J.WARN+'could not retrieve arrays.cgns of case %s'%CASE_LABEL+J.ENDC)
         return
 
-    LoadsTree = C.convertFile2PyTree(FILE_LOADS)
-    LoadsZone = I.getNodeFromName2(LoadsTree, basename)
+    ArraysTree = C.convertFile2PyTree(FILE_ARRAYS)
+    ArraysZone = I.getNodeFromName2(ArraysTree, basename)
 
-    LoadsDict = J.getVars2Dict(LoadsZone,
-                               C.getVarNames(LoadsZone,excludeXYZ=True)[0])
+    ArraysDict = J.getVars2Dict(ArraysZone,
+                               C.getVarNames(ArraysZone,excludeXYZ=True)[0])
 
-    for v in LoadsDict: LoadsDict[v] = LoadsDict[v][-1]
+    for v in ArraysDict: ArraysDict[v] = ArraysDict[v][-1]
 
-    return LoadsDict
+    return ArraysDict
 
 def repatriate(SourcePath, DestinationPath, removeExistingDestinationPath=True,
                moveInsteadOfCopy=False, wait4FileFromServerOptions={}):
@@ -702,3 +702,8 @@ def repatriate(SourcePath, DestinationPath, removeExistingDestinationPath=True,
         MSG = J.FAIL+"Could not repatriate "+DestinationPath+J.ENDC
         raise IOError(MSG)
     print(J.GREEN+'ok'+J.ENDC)
+
+
+def fileExists(*path): return os.path.isfile(os.path.join(*path))
+
+def anyFile(*path): return any(glob.glob(os.path.join(*path)))
