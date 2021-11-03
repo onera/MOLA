@@ -49,6 +49,7 @@ FILE_FIELDS      = 'fields.cgns'
 FILE_COLOG       = 'coprocess.log'
 FILE_BODYFORCESRC= 'BodyForceSources.cgns'
 DIRECTORY_OUTPUT = 'OUTPUT'
+DIRECTORY_LOGS   = 'LOGS'
 setup            = None
 CurrentIteration = 0
 elsAxdt          = None
@@ -1768,6 +1769,124 @@ def write4Debug(MSG):
     '''
     with open('LOGS/rank%d.log'%rank,'a') as f: f.write('%s\n'%MSG)
 
+def prepareSkeleton():
+    '''
+    Read the skeleton tree from *FILE_CGNS* and add coordinates in zones loaded
+    on the current processor. Add also ``FlowSolution#Height``nodes if they
+    exist.
+
+    Returns
+    -------
+
+        Skeleton : PyTree
+            Skeleton tree to use in ``coprocess.py``
+
+    '''
+    Skeleton = Cmpi.convertFile2SkeletonTree(FILE_CGNS)
+    I._rmNodesByName(Skeleton, 'FlowSolution*')
+
+    # Add GridCoordinates and Height parametrization for turbomachinery
+    PartTree = Cmpi.convertFile2PyTree(FILE_CGNS, proc=rank)
+    for base in I.getBases(PartTree):
+        basename = I.getName(base)
+        for zone in I.getNodesFromType1(base, 'Zone_t'):
+            path = '{}/{}'.format(basename, I.getName(zone))
+            coords = I.getNodeFromName(zone, 'GridCoordinates')
+            Skeleton = I.append(Skeleton, coords, path)
+            ch = I.getNodeFromName(zone, 'FlowSolution#Height')
+            if ch:
+                Skeleton = I.append(Skeleton, ch, path)
+    return Skeleton
+
+def splitWithPyPart(LoggingInFile=False):
+    '''
+    Use PyPart to split the mesh in ``main.cgns``. This function should be use
+    in ``compute.py`` to prepare the mesh before calling ``elsAxdt.XdtCGNS()``.
+
+    .. note:: For more details on PyPart, see the dedicated pages on elsA
+        support:
+        `PyPart alone <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/etc_pypart_alone.html>`_
+        and
+        `PyPart with elsA <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/etc_pypart_elsa.html>`_
+
+    .. important:: Dependence to ETC module
+
+    Parameters
+    ----------
+
+        LoggingInFile : bool
+            If :py:obj:`True`, write log files in *DIRECTORY_LOGS*.
+
+    Returns
+    -------
+
+        t : PyTree
+            Split tree, merged with the skeleton. It will be the **tree**
+            argument of ``elsAxdt.XdtCGNS()`` in ``compute.py``
+
+        Skeleton : PyTree
+            Skeleton tree to use in ``coprocess.py``
+
+        PyPartBase : PyPart object
+            PyPart objet that is mandatory to use its method mergeAndSave latter
+
+        Distribution : dict
+            Correspondence between zones and processors.
+
+    '''
+
+    import etc.pypart.PyPart     as PPA
+
+    PyPartBase = PPA.PyPart(FILE_CGNS,
+                            lksearch=[DIRECTORY_OUTPUT, '.'],
+                            loadoption='partial',
+                            mpicomm=comm,
+                            LoggingInFile=LoggingInFile,
+                            LoggingFile='{}/partTree'.format(DIRECTORY_LOGS),
+                            LoggingVerbose=0
+                            )
+    PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[4, 3])
+    PyPartBase.finalise(PartTree, savePpart=True, method=1)
+    Skeleton = PyPartBase.getPyPartSkeletonTree()
+    Distribution = PyPartBase.getDistribution()
+
+    # Put Distribution into the Skeleton
+    for zone in I.getZones(Skeleton):
+        zonePath = I.getPath(Skeleton, zone, pyCGNSLike=True)[1:]
+        Cmpi._setProc(zone, Distribution[zonePath])
+
+    t = I.merge([Skeleton, PartTree])
+
+    for base in I.getBases(PartTree):
+        basename = I.getName(base)
+        for zone in I.getNodesFromType1(base, 'Zone_t'):
+            zonename = I.getName(zone)
+            path = '{}/{}'.format(basename, zonename)
+            # Add GridCoordinates
+            coords = I.getNodeFromName(zone, 'GridCoordinates')
+            Skeleton = I.append(Skeleton, coords, path)
+            # Add Height parametrization for turbomachinery
+            ch = I.getNodeFromName(zone, 'FlowSolution#Height')
+            if ch:
+                Skeleton = I.append(Skeleton, ch, path)
+            # Add PyPart special node for the mergeAndSave latter
+            SpecialPyPartNode = I.getNodeFromName(zone, ':CGNS#Ppart')
+            for node in I.getChildren(SpecialPyPartNode):
+                nodename = I.getName(node)
+                nodePath = '{}/{}/:CGNS#Ppart/{}'.format(basename, zonename, nodename)
+                nodeInSkel = I.getNodeFromPath(Skeleton, nodePath)
+                if not nodeInSkel:
+                    Skeleton = I.append(Skeleton, node, path+'/:CGNS#Ppart')
+
+    # Add empty Coordinates for skeleton zones
+    # Needed to make Cmpi.convert2PartialTree work
+    for zone in I.getZones(Skeleton):
+        GC = I.getNodeFromType(zone, 'GridCoordinates_t')
+        if not GC:
+            J.set(zone, 'GridCoordinates', childType='GridCoordinates_t',
+                CoordinateX=None, CoordinateY=None, CoordinateZ=None)
+
+    return t, Skeleton, PyPartBase, Distribution
 
 #=================== Functions that will be deprecated soon ===================#
 @J.deprecated(1.12, 1.13)
