@@ -77,44 +77,28 @@ ReferenceValues = dict(
     # simulation during the trigger call of coprocess.py script:
     CoprocessOptions=dict(
 
-<<<<<<< HEAD:TEMPLATES/WORKFLOW_COMPRESSOR/prepareMainCGNS.py
         # Following key states which Base in arrays.cgns is used for monitoring
-        # convergence using standard deviation of MassflowIn.
-        ConvergenceCriterionFamilyName='PERFOS_row_1',
-
-        # MaxConvergedCLStd establishes the threshold of convergence of
-        # standard deviation statistic of Lift Coefficient.
-        MaxConvergedCLStd   = 1e-2,
-=======
-        # Following key states which Base in loads.cgns is used for monitoring
         # convergence
         # To monitor convergence, use the three following keys to define a
         # convergence criterion (or several if these parameters are lists):
-        #     * ConvergenceCriterionFamilyName: states which Base in loads.cgns
+        #     * ConvergenceCriterionFamilyName: states which Base in arrays.cgns
         #       is used for monitoring convergence
-        #     * ConvergenceFluxName: value in loads.cgns to monitor to establish
+        #     * ConvergenceFluxName: value in arrays.cgns to monitor to establish
         #       convergence
         #     * MaxConvergedCriterionStd: establishes the threshold of
         #       convergence of ConvergenceFluxName
         ConvergenceCriterionFamilyName = ['PERFOS_row_1'],
         ConvergenceFluxName = ['std-MassFlowIn'],
         MaxConvergedCriterionStd = [1e-2],
->>>>>>> tbontemp:TEMPLATES/WORKFLOW_COMPRESSOR/EXAMPLE/prepareMainCGNS.py
 
         # Following key establishes the number of iterations used for computing
         # the statistics of the arrays
         AveragingIterations = 1000,
 
         # These keys are used to determine the save frequency of the files
-<<<<<<< HEAD:TEMPLATES/WORKFLOW_COMPRESSOR/prepareMainCGNS.py
         # arrays.cgns, surfaces.cgns and fields.cgns
         UpdateArraysFrequency      = 1e20,
-        UpdateSurfacesFrequency   = 5,
-=======
-        # loads.cgns, surfaces.cgns and fields.cgns
-        UpdateLoadsFrequency      = 1e20,
         UpdateSurfacesFrequency   = 50,
->>>>>>> tbontemp:TEMPLATES/WORKFLOW_COMPRESSOR/EXAMPLE/prepareMainCGNS.py
         UpdateFieldsFrequency     = 1000,
         ),
     )
