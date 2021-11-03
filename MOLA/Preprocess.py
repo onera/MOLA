@@ -560,8 +560,8 @@ def connectMesh(t, InputMeshes):
                                             rotationCenter=[0.,0.,0.],
                                             rotationAngle=[angle,0.,0.],
                                             tol=ConnectParams['tolerance'],
-                                            dim=baseDim,
-                                            unitAngle='Degree')
+                                            dim=baseDim)
+                    I._rmNodesByName(t,'DimensionalUnits')
             else:
                 ERRMSG = 'Connection type %s not implemented'%ConnectionType
                 raise AttributeError(ERRMSG)
@@ -3633,7 +3633,7 @@ def initializeFlowSolutionFromFile(t, sourceFilename, container='FlowSolution#In
     I.__FlowSolutionCenters__ = container
     I._rmNodesByType(sourceTree, 'BCDataSet_t')
     I._rmNodesByNameAndType(sourceTree, '*EndOfRun*', 'FlowSolution_t')
-    P._extractMesh(sourceTree, t, mode='accurate')
+    P._extractMesh(sourceTree, t, mode='accurate', extrapOrder=0)
     I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
 
 def autoMergeBCs(t, familyNames=[]):
