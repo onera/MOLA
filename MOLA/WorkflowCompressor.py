@@ -263,7 +263,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     to = PRE.newRestartFieldsFromCGNS(t)
     if initializeFromCGNS:
         print(J.CYAN + 'Initialize flow field with {}'.format(initializeFromCGNS) + J.ENDC)
-        PRE.initializeFlowSolutionFromFile(to, initializeFromCGNS)
+        PRE.initializeFlowSolutionFromFile(t, initializeFromCGNS)
     PRE.saveMainCGNSwithLinkToOutputFields(t,to,writeOutputFields=writeOutputFields)
 
     if not Splitter:
