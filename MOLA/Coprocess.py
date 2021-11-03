@@ -1920,7 +1920,7 @@ def write4Debug(MSG):
 def prepareSkeleton():
     '''
     Read the skeleton tree from *FILE_CGNS* and add coordinates in zones loaded
-    on the current processor. Add also ``FlowSolution#Height``nodes if they
+    on the current processor. Add also ``FlowSolution#Height`` nodes if they
     exist.
 
     Returns
