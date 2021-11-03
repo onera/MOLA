@@ -448,18 +448,22 @@ def transform(t, InputMeshes):
                 * 'scale' : :py:class:`float`
                     Scaling factor to apply to the grid component.
 
-                    .. tip:: use this option to transform a grid built in milimeters
-                        into meters
+                    .. tip:: use this option to transform a grid built in
+                             milimeters into meters
 
                 * 'rotate' : :py:class:`list` of :py:class:`tuple`
                     List of rotation to apply to the grid component. Each rotation
                     is defined by 3 elements:
+
                         * a 3-tuple corresponding to the center coordinates
+
                         * a 3-tuple corresponding to the rotation axis
-                        * a float (or integer) defining the angle of rotation in degrees
+
+                        * a float (or integer) defining the angle of rotation in
+                          degrees
 
                     .. tip:: this option is useful to change the orientation of
-                        a mesh built in Autogrid 5.
+                             a mesh built in Autogrid 5.
 
     '''
     for meshInfo in InputMeshes:
@@ -1946,7 +1950,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
                 'AveragingIterations'    : 3000,
                 'MaxConvergedCLStd'      : 1e-4,
                 'ItersMinEvenIfConverged': 1000,
-                'TimeOutInSeconds'       : 53100.0, # 14.75 h * 3600 s/h = 53100 s
+                'TimeOutInSeconds'       : 54000.0, # = 15 h * 3600 s/h
                 'SecondsMargin4QuitBeforeTimeOut' : 900.,
                 'ConvergenceCriterionFamilyName' : '', # Add familyBCname
 
@@ -2845,7 +2849,7 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True, WallEx
 
         FluxExtractions : :py:class:`list` of :py:class:`str`
             list of flux variables to extract at the wall. Their names must
-            begin by 'flux_'. They will be automatically integrated on the
+            begin by ``'flux_'``. They will be automatically integrated on the
             surface family during the simulation to produce nodes of type
             ``'IntegralData_t'``.
     '''
@@ -2858,9 +2862,8 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True, WallEx
 def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
     WallExtractions=None, FluxExtractions=None):
     '''
-    Include surfacic extraction information to CGNS tree using
-    information contained in dictionaries **ReferenceValues** and
-    **elsAkeysModel**.
+    Include surfacic extraction information to CGNS tree using information
+    contained in dictionaries **ReferenceValues** and **elsAkeysModel**.
 
     Parameters
     ----------
@@ -2879,21 +2882,21 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
         WallExtractions : :py:class:`list` of :py:class:`str`
             list of variables to extract at the wall. If not given, the default
             extracted variables are:
-            ::
-                >>> WallExtractions = ['normalvector','SkinFrictionX','SkinFrictionY','SkinFrictionZ','psta']
+
+            >>> WallExtractions = ['normalvector','SkinFrictionX','SkinFrictionY','SkinFrictionZ','psta']
 
         FluxExtractions : :py:class:`list` of :py:class:`str`
             list of flux variables to extract at the wall. Their names must
-            begin by 'flux_'. They will be automatically integrated on the
+            begin by ``'flux_'``. They will be automatically integrated on the
             surface family during the simulation to produce nodes of type
             ``'IntegralData_t'``.  If not given, the default extracted variables
             are:
-            ::
-                >>> FluxExtractions = ['flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
+
+            >>> FluxExtractions = ['flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
 
     '''
     if WallExtractions is None:
-        WallExtractions = ['normalvector','SkinFrictionX','SkinFrictionY','SkinFrictionZ','psta']
+        WallExtractions = ['normalvector', 'frictionvector','psta']
     if FluxExtractions is None:
         FluxExtractions = ['flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
 
@@ -2935,6 +2938,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
                 ytorque       = 0.0,
                 ztorque       = 0.0,
                 force_extract = 1,
+                writingframe  = 'relative'
                 )
 
 
@@ -3488,10 +3492,10 @@ def adapt2elsA(t, InputMeshes):
         print('adapting NearMatch to elsA...')
         EP._adaptNearMatch(t)
 
-
-    if hasAnyPeriodicMatch(InputMeshes):
-        print('adapting PeriodicMatch to elsA...')
-        EP._adaptPeriodicMatch(t, clean=True)
+    # Optional in the general but incompatible with PyPart
+    # if hasAnyPeriodicMatch(InputMeshes):
+    #     print('adapting PeriodicMatch to elsA...')
+    #     EP._adaptPeriodicMatch(t, clean=True)
 
     if hasAnyOversetData(InputMeshes):
         print('adapting overset data to elsA...')
@@ -3631,3 +3635,123 @@ def initializeFlowSolutionFromFile(t, sourceFilename, container='FlowSolution#In
     I._rmNodesByNameAndType(sourceTree, '*EndOfRun*', 'FlowSolution_t')
     P._extractMesh(sourceTree, t, mode='accurate')
     I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
+
+def autoMergeBCs(t, familyNames=[]):
+    '''
+    Merge BCs that are contiguous, belong to the same family and are of the same
+    type, for all zones of a PyTree
+
+    Parameters
+    ----------
+
+        t : PyTree
+            input tree
+
+        familyNames : :py:class:`list` of :py:class:`str`
+            restrict the merge operation to the listed family name(s).
+    '''
+    treeFamilies = [I.getName(fam) for fam in I.getNodesFromType(t, 'Family_t')]
+
+    for family in familyNames:
+        if family not in treeFamilies:
+            raise AttributeError('Family '+family+' given by user does not appear in the pyTree')
+
+    def getBCInfo(bc):
+        pt  = I.getNodeFromName(bc, 'PointRange')
+        fam = I.getNodeFromName(bc, 'FamilyName')
+        if not fam:
+            fam = I.createNode('FamilyName', 'FamilyName_t', Value='Unknown')
+        return I.getName(bc), I.getValue(fam), pt
+
+    def areContiguous(PointRange1, PointRange2):
+        '''
+        Check if subZone of the same block defined by PointRange1 and PointRange2
+        are contiguous.
+
+        Parameters
+        ----------
+
+            PointRange1 : PyTree
+                PointRange (PyTree of type ``IndexRange_t``) of a ``BC_t`` node
+
+            PointRange2 : PyTree
+                Same as PointRange2
+
+        Returns
+        -------
+            dimension : int
+                an integer of value -1 if subZones are not contiguous, and of value
+                equal to the direction along which subzone are contiguous else.
+
+        '''
+        assert I.getType(PointRange1) == 'IndexRange_t' \
+            and I.getType(PointRange2) == 'IndexRange_t', \
+            'Arguments are not IndexRange_t'
+
+        pt1 = I.getValue(PointRange1)
+        pt2 = I.getValue(PointRange2)
+        if pt1.shape != pt2.shape:
+            return -1
+        spaceDim = pt1.shape[0]
+        indSpace = 0
+        MatchingDims = []
+        for dim in range(spaceDim):
+            if pt1[dim, 0] == pt2[dim, 0] and pt1[dim, 1] == pt2[dim, 1]:
+                indSpace += 1
+                MatchingDims.append(dim)
+        if indSpace != spaceDim-1 :
+            # matching dimensions should form a hyperspace of original space
+            return -1
+
+        for dim in [d for d in range(spaceDim) if d not in MatchingDims]:
+            if pt1[dim][0] == pt2[dim][1] or pt2[dim][0] == pt1[dim][1]:
+                return dim
+
+        return -1
+
+    for block in I.getNodesFromType(t, 'Zone_t'):
+        if I.getNodeFromType(block, 'ZoneBC_t'):
+            somethingWasMerged = True
+            while somethingWasMerged : # recursively attempts to merge bcs until nothing possible is left
+                somethingWasMerged = False
+                bcs = I.getNodesFromType(block, 'BC_t')
+                zoneBcsOut = I.copyNode(I.getNodeFromType(block, 'ZoneBC_t')) # a duplication of all BCs of current block
+                mergedBcs = []
+                for bc1 in bcs:
+                    bcName1, famName1, pt1 = getBCInfo(bc1)
+                    for bc2 in [b for b in bcs if b is not bc1]:
+                        bcName2, famName2, pt2 = getBCInfo(bc2)
+                        # check if bc1 and bc2 can be merged
+                        mDim = areContiguous(pt1, pt2)
+                        if bc1 not in mergedBcs and bc2 not in mergedBcs \
+                            and mDim>=0 \
+                            and famName1 == famName2 \
+                            and (len(familyNames) == 0 or famName1 in familyNames) :
+                            # does not check inward normal index, necessarily the same if subzones are contiguous
+                            newPt = np.zeros(np.shape(pt1[1]),dtype=np.int32,order='F')
+                            for dim in range(np.shape(pt1[1])[0]):
+                                if dim != mDim :
+                                    newPt[dim,0] = pt1[1][dim, 0]
+                                    newPt[dim,1] = pt1[1][dim, 1]
+                                else :
+                                    newPt[dim,0] = min(pt1[1][dim, 0], pt2[1][dim, 0])
+                                    newPt[dim,1] = max(pt1[1][dim, 1], pt2[1][dim, 1])
+                            # new BC inheritates from the name of first BC
+                            bc = I.createNode(bcName1, 'BC_t', bc1[1])
+                            I.createChild(bc, pt1[0], 'IndexRange_t', value=newPt)
+                            I.createChild(bc, 'FamilyName', 'FamilyName_t', value=famName1)
+                            # TODO : include case with flow solution
+
+                            I._rmNodesByName(zoneBcsOut, bcName1)
+                            I._rmNodesByName(zoneBcsOut, bcName2)
+                            I.addChild(zoneBcsOut, bc)
+                            mergedBcs.append(bc1)
+                            mergedBcs.append(bc2)
+                            somethingWasMerged = True
+                            # print('BCs {} and {} were merged'.format(bcName1, bcName2))
+
+                block = I.rmNodesByType(block,'ZoneBC_t')
+                I.addChild(block,zoneBcsOut)
+                del(zoneBcsOut)
+
+    return t

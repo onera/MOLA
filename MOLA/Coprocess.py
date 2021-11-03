@@ -52,9 +52,11 @@ FILE_FIELDS      = 'fields.cgns'
 FILE_COLOG       = 'coprocess.log'
 FILE_BODYFORCESRC= 'bodyforce.cgns'
 DIRECTORY_OUTPUT = 'OUTPUT'
+DIRECTORY_LOGS   = 'LOGS'
 setup            = None
 CurrentIteration = 0
-elsAxdt = None
+elsAxdt          = None
+PyPartBase       = None
 # ------------------------------------------------------------------- #
 FAIL  = '\033[91m'
 GREEN = '\033[92m'
@@ -291,7 +293,7 @@ def extractSurfaces(t, Extractions):
             zones = P.isoSurfMC(PartialTree, Extraction['field'], Extraction['value'])
             try: basename = Extraction['name']
             except KeyError:
-                FieldName = Extraction['field'].replace('Coordinate','')
+                FieldName = Extraction['field'].replace('Coordinate','').replace('Radius', 'R').replace('ChannelHeight', 'H')
                 basename = 'Iso_%s_%g'%(FieldName,Extraction['value'])
             addBase2SurfacesTree(basename)
 
@@ -360,6 +362,12 @@ def extractIntegralData(to, arrays, Extractions=[],
                 deviation of the cumulative standard deviation of the
                 lift coefficient (:math:`\sigma(\sigma(C_L))`)
 
+    Returns
+    -------
+
+        arrays : dict
+            Updated dictionary
+
     '''
     IntegralDataNodes = I.getNodesFromType2(to, 'IntegralData_t')
     for IntegralDataNode in IntegralDataNodes:
@@ -368,13 +376,53 @@ def extractIntegralData(to, arrays, Extractions=[],
         _extendArraysWithProjectedLoads(arrays, IntegralDataName)
         _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics)
 
+    extractResiduals(to, arrays)
+
     return arrays
 
-def save(t, filename):
+def extractResiduals(to, arrays):
+    '''
+    Extract residuals from coupling tree **to**, and update **arrays** Python
+    dictionary.
+
+    Parameters
+    ----------
+
+        to : PyTree
+            Coupling tree as obtained from :py:func:`adaptEndOfRun`
+
+        arrays : dict
+            Contains integral data in the following form:
+
+            >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
+
+    Returns
+    -------
+
+        arrays : dict
+            Updated dictionary
+
+    '''
+    ConvergenceHistoryNodes = I.getNodesByType(to, 'ConvergenceHistory_t')
+    for ConvergenceHistory in ConvergenceHistoryNodes:
+        ConvergenceDict = dict()
+        for DataArrayNode in I.getNodesFromType(ConvergenceHistory, 'DataArray_t'):
+            ConvergenceDict[I.getName(DataArrayNode)] = I.getValue(DataArrayNode)
+        appendDict2Loads(arrays, ConvergenceDict, I.getName(ConvergenceHistory))
+
+    return arrays
+
+def save(t, filename, tagWithIteration=False):
     '''
     Generic function to save a PyTree **t** in parallel. Works whatever the
     dimension of the PyTree. Use it to save ``'fields.cgns'``,
     ``'surfaces.cgns'`` or ``'arrays.cgns'``.
+
+    .. important::
+        If the mesh was split with PyPart and if the function is called to save
+        *FILE_FIELDS*, the tree is automatically merged and saved using PyPart.
+        In that case, the variable **PyPartBase** should be defined (normally,
+        in ``compute.py``)
 
     Parameters
     ----------
@@ -384,7 +432,15 @@ def save(t, filename):
 
         filename : str
             Name of the file
+
+        tagWithIteration : bool
+            if :py:obj:`True`, adds a suffix ``_AfterIter<iteration>``
+            to the saved filename (creates a copy)
     '''
+    if PyPartBase and filename.endswith(FILE_FIELDS):
+        saveWithPyPart(t, filename, tagWithIteration=tagWithIteration)
+        return
+
     t = I.copyRef(t) if I.isTopTree(t) else C.newPyTree(['Base', J.getZones(t)])
     Cmpi._convert2PartialTree(t)
     I._adaptZoneNamesForSlash(t)
@@ -433,7 +489,52 @@ def save(t, filename):
     Cmpi.convertPyTree2File(tWithSkel, filename, merge=UseMerge)
     printCo('... saved %s'%filename,0, color=J.CYAN)
     Cmpi.barrier()
+    if tagWithIteration and Cmpi.rank == 0: copyOutputFiles(filename)
 
+def saveWithPyPart(t, filename, tagWithIteration=False):
+    '''
+    Function to save a PyTree **t** with PyPart. The PyTree must have been
+    splitted with PyPart in ``compute.py``. An important point is the presence
+    in every zone of **t** of the special node ``:CGNS#Ppart``.
+
+    Use this function to save ``'fields.cgns'``.
+
+    .. note:: For more details on PyPart, see the dedicated pages on elsA
+        support:
+        `PyPart alone <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/etc_pypart_alone.html>`_
+        and
+        `PyPart with elsA <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/etc_pypart_elsa.html>`_
+
+    Parameters
+    ----------
+
+        t : PyTree
+            tree to save
+
+        filename : str
+            Name of the file
+
+        tagWithIteration : bool
+            if :py:obj:`True`, adds a suffix ``_AfterIter<iteration>``
+            to the saved filename (creates a copy)
+    '''
+    t = I.copyRef(t)
+    Cmpi._convert2PartialTree(t)
+    I._rmNodesByName(t, '.Solver#Param')
+    I._rmNodesByType(t,'IntegralData_t')
+    Cmpi.barrier()
+    printCo('will save %s ...'%filename,0, color=J.CYAN)
+    PyPartBase.mergeAndSave(t, 'PyPart_fields')
+    Cmpi.barrier()
+    if rank == 0:
+        t = C.convertFile2PyTree('PyPart_fields_all.hdf')
+        C.convertPyTree2File(t, filename)
+        for fn in glob.glob('PyPart_fields_*.hdf'):
+            try: os.remove(fn)
+            except: pass
+    printCo('... saved %s'%filename,0, color=J.CYAN)
+    Cmpi.barrier()
+    if tagWithIteration and rank == 0: copyOutputFiles(filename)
 
 def moveTemporaryFile(temporary_file):
     '''
@@ -543,6 +644,8 @@ def monitorTurboPerformance(surfaces, arrays, DesiredStatistics=[]):
     .. note:: These bases must contain variables ``'PressureStagnation'`` and
         ``'TemperatureStagnation'``
 
+    .. important:: This function is adapted only to **Workflow Compressor** cases.
+
     Parameters
     ----------
 
@@ -556,20 +659,29 @@ def monitorTurboPerformance(surfaces, arrays, DesiredStatistics=[]):
 
         DesiredStatistics : :py:class:`list` of :py:class:`str`
             Here, the user requests the additional statistics to be computed.
-            See documentation of function updateAndSaveLoads for more details.
+            See documentation of function :py:func:`extractIntegralData` for
+            more details.
 
     '''
-    # TODO: Fix a Segmentation fault bug when this function is used after
-    # POST.absolute2Relative (in co -proccessing only)
+    # FIXME: Segmentation fault bug when this function is used after
+    #        POST.absolute2Relative (in co -proccessing only)
     def massflowWeightedIntegral(t, var):
         t = C.initVars(t, 'rou_var={MomentumX}*{%s}'%(var))
         integ  = abs(P.integNorm(t, 'rou_var')[0][0])
+        return integ
+
+    def surfaceWeightedIntegral(t, var):
+        integ  = abs(P.integNorm(t, var)[0][0])
         return integ
 
     for row, rowParams in setup.TurboConfiguration['Rows'].items():
 
         planeUpstream   = I.newCGNSTree()
         planeDownstream = I.newCGNSTree()
+        if rowParams['RotationSpeed'] != 0:
+            IsRotor = True
+        else:
+            IsRotor = False
 
         for base in I.getNodesFromType(surfaces, 'CGNSBase_t'):
             try:
@@ -583,9 +695,16 @@ def monitorTurboPerformance(surfaces, arrays, DesiredStatistics=[]):
             except:
                 pass
 
-        VarAndMeanList = [
-            (['PressureStagnation', 'TemperatureStagnation'], massflowWeightedIntegral)
-        ]
+        if IsRotor:
+            VarAndMeanList = [
+                (['PressureStagnation', 'TemperatureStagnation'], massflowWeightedIntegral)
+            ]
+        else:
+            VarAndMeanList = [
+                (['PressureStagnation'], massflowWeightedIntegral),
+                (['Pressure'], surfaceWeightedIntegral)
+            ]
+
         dataUpstream   = integrateVariablesOnPlane(  planeUpstream, VarAndMeanList)
         dataDownstream = integrateVariablesOnPlane(planeDownstream, VarAndMeanList)
 
@@ -594,7 +713,10 @@ def monitorTurboPerformance(surfaces, arrays, DesiredStatistics=[]):
 
         if rank == 0:
             fluxcoeff = rowParams['NumberOfBlades'] / rowParams['NumberOfBladesSimulated']
-            perfos = computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
+            if IsRotor:
+                perfos = computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
+            else:
+                perfos = computePerfoStator(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
             appendDict2Arrays(arrays, perfos, 'PERFOS_{}'.format(row))
             _extendArraysWithStatistics(arrays, 'PERFOS_{}'.format(row), DesiredStatistics)
 
@@ -609,10 +731,10 @@ def computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=1., fluxcoeffOut=N
     gamma = setup.FluidProperties['Gamma']
 
     # Compute total quantities ratio between in/out planes
-    meanPtIn  =      dataUpstream['PressureStagnation'] /   dataUpstream['Massflow']
-    meanPtOut =    dataDownstream['PressureStagnation'] / dataDownstream['Massflow']
-    meanTtIn  =   dataUpstream['TemperatureStagnation'] /   dataUpstream['Massflow']
-    meanTtOut = dataDownstream['TemperatureStagnation'] / dataDownstream['Massflow']
+    meanPtIn  =      dataUpstream['PressureStagnation'] /   dataUpstream['MassFlow']
+    meanPtOut =    dataDownstream['PressureStagnation'] / dataDownstream['MassFlow']
+    meanTtIn  =   dataUpstream['TemperatureStagnation'] /   dataUpstream['MassFlow']
+    meanTtOut = dataDownstream['TemperatureStagnation'] / dataDownstream['MassFlow']
     PtRatio = meanPtOut / meanPtIn
     TtRatio = meanTtOut / meanTtIn
     # Compute Isentropic Efficiency
@@ -620,8 +742,8 @@ def computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=1., fluxcoeffOut=N
 
     perfos = dict(
         IterationNumber            = CurrentIteration-1,  # Because extraction before current iteration (next_state=16)
-        MassflowIn                 = dataUpstream['Massflow']*fluxcoeff,
-        MassflowOut                = dataDownstream['Massflow']*fluxcoeffOut,
+        MassFlowIn                 = dataUpstream['MassFlow']*fluxcoeff,
+        MassFlowOut                = dataDownstream['MassFlow']*fluxcoeffOut,
         PressureStagnationRatio    = PtRatio,
         TemperatureStagnationRatio = TtRatio,
         EfficiencyIsentropic       = etaIs
@@ -634,16 +756,16 @@ def computePerfoStator(dataUpstream, dataDownstream, fluxcoeff=1., fluxcoeffOut=
     if not fluxcoeffOut:
         fluxcoeffOut = fluxcoeff
 
-    meanPtIn   =   dataUpstream['PressureStagnation'] /   dataUpstream['Massflow']
-    meanPtOut  = dataDownstream['PressureStagnation'] / dataDownstream['Massflow']
-    meanPdynIn =      dataUpstream['PressureDynamic'] /   dataUpstream['Massflow']
+    meanPtIn  =   dataUpstream['PressureStagnation'] /   dataUpstream['MassFlow']
+    meanPtOut = dataDownstream['PressureStagnation'] / dataDownstream['MassFlow']
+    meanPsIn  =             dataUpstream['Pressure'] /       dataUpstream['Area']
 
     perfos = dict(
         IterationNumber         = CurrentIteration-1,  # Because extraction before current iteration (next_state=16)
-        MassflowIn              = dataUpstream['Massflow']*fluxcoeff,
-        MassflowOut             = dataDownstream['Massflow']*fluxcoeffOut,
+        MassFlowIn              = dataUpstream['MassFlow']*fluxcoeff,
+        MassFlowOut             = dataDownstream['MassFlow']*fluxcoeffOut,
         PressureStagnationRatio = meanPtOut / meanPtIn,
-        PressureStagnationLoss  = (meanPtOut - meanPtIn) / meanPdynIn
+        PressureStagnationLossCoeff = (meanPtIn - meanPtOut) / (meanPtIn - meanPsIn)
     )
 
     return perfos
@@ -701,11 +823,15 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
     data = dict()
 
     if I.getNodesFromType(surface, 'FlowSolution_t') == []:
+        for var in ['MassFlow', 'Area']:
+            data[var] = 0
         for varList, meanFunction in VarAndMeanList:
-            for var in varList + ['Massflow']:
+            for var in varList:
                 data[var] = 0
     else:
-        data['Massflow'] = abs(P.integNorm(surface, var='MomentumX')[0][0])
+        C._initVars(surface, 'ones=1')
+        data['Area']     = abs(P.integNorm(surface, var='ones')[0][0])
+        data['MassFlow'] = abs(P.integNorm(surface, var='MomentumX')[0][0])
         try:
             for varList, meanFunction in VarAndMeanList:
                 for var in varList:
@@ -717,9 +843,10 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
     # Check if the needed variables were extracted
     Cmpi.barrier()
     check = comm.allreduce(check, op=MPI.LAND) #LAND = Logical AND
-    data['Massflow'] = comm.allreduce(data['Massflow'], op=MPI.SUM)
+    data['MassFlow'] = comm.allreduce(data['MassFlow'], op=MPI.SUM)
+    data['Area'] = comm.allreduce(data['Area'], op=MPI.SUM)
     Cmpi.barrier()
-    if not check or data['Massflow']==0: return None
+    if not check or data['Area']==0: return None
 
     # MPI Reduction to sum quantities on proc 0
     Cmpi.barrier()
@@ -727,7 +854,6 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
         for var in varList:
             data[var] = comm.reduce(data[var], op=MPI.SUM, root=0)
     Cmpi.barrier()
-
     return data
 
 def writeSetup(setup):
@@ -958,7 +1084,7 @@ def appendDict2Arrays(arrays, dictToAppend, basename):
         if var in arrays[basename]:
             arrays[basename][var] = np.append(arrays[basename][var], value)
         else:
-            arrays[basename][var] = np.array([value])
+            arrays[basename][var] = np.array([value],ndmin=1)
 
 
 def _appendIntegralDataNode2Arrays(arrays, IntegralDataNode):
@@ -1116,17 +1242,22 @@ def _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics):
     Add to arrays dictionary the relevant statistics requested by the user
     through the DesiredStatistics list of special named strings.
 
-    INPUTS
+    Parameters
+    ----------
 
-    arrays - (Python dictionary) - Contains integral data in the following form:
-        np.array = arrays['FamilyBCNameOrElementName']['VariableName']
+        arrays : dict
+            Contains integral data in the following form:
+            ::
+                >>> np.array = arrays['FamilyBCNameOrElementName']['VariableName']
 
-    IntegralDataName - (string) - Name of the IntegralDataNode (CGNS) provided
-        by elsA. It is used as key for arrays dictionary.
+        IntegralDataName : str
+            Name of the IntegralDataNode (CGNS) provided by elsA. It is used as
+            key for loads dictionary.
 
-    DesiredStatistics - (List of strings) - Desired statistics to infer from
-        arrays dictionary. For more information see documentation of
-        function updateAndSaveLoads()
+        DesiredStatistics : :py:class:`list` of :py:class:`str`
+            Desired statistics to infer from loads dictionary. For more
+            information see documentation of function
+            :py:func:`extractIntegralData`
     '''
 
     AvgIt = setup.ReferenceValues["CoprocessOptions"]["AveragingIterations"]
@@ -1204,17 +1335,19 @@ def isConverged(ZoneName='AIRFOIL', FluxName='std-CL', FluxThreshold=0.001):
     If converged, the signal returns :py:obj:`True` to all ranks and writes a message
     to ``coprocess.log`` file.
 
+    To give several criteria, all the arguments must be lists of the same length.
+
     Parameters
     ----------
 
-        ZoneName : str
+        ZoneName : :py:class:`str` or :py:class:`list`
             Component name (shall exist in **arrays** dictionary)
 
-        FluxName : str
+        FluxName : :py:class:`str` or :py:class:`list`
             Name of the load quantity (typically, standard deviation statistic
             of some effort) used for convergence determination.
 
-        FluxThreshold : float
+        FluxThreshold : :py:class:`str` or :py:class:`list`
             if the last element of the flux named **FluxName** is less than the
             user-provided **FluxThreshold**, then the convergence
             criterion is satisfied
@@ -1223,20 +1356,31 @@ def isConverged(ZoneName='AIRFOIL', FluxName='std-CL', FluxThreshold=0.001):
     -------
 
         ConvergedCriterion : bool
-            :py:obj:`True` if the convergence criterion is satisfied
+            :py:obj:`True` if the convergence criteria are satisfied
     '''
     ConvergedCriterion = False
     if rank == 0:
         try:
+            if isinstance(ZoneName, str):
+                assert isinstance(FluxName, str) and isinstance(FluxThreshold, str)
+                ZoneName = [ZoneName]
+                FluxName = [FluxName]
+                FluxThreshold = [FluxThreshold]
+            else:
+                assert len(ZoneName) == len(FluxName) == len(FluxThreshold)
             arraysTree = C.convertFile2PyTree(os.path.join(DIRECTORY_OUTPUT,
                                                            FILE_ARRAYS))
             arraysZones = I.getZones(arraysTree)
-            zone, = [z for z in arraysZones if z[0] == ZoneName]
-            Flux, = J.getVars(zone, [FluxName])
-            ConvergedCriterion = Flux[-1] < FluxThreshold
+            ConvergedCriteria = []
+            for zoneCur, fluxCur, thresholdCur in zip(ZoneName, FluxName, FluxThreshold):
+                zone, = [z for z in arraysZones if z[0] == zoneCur]
+                Flux, = J.getVars(zone, [fluxCur])
+                ConvergedCriteria.append(Flux[-1] < thresholdCur)
+            ConvergedCriterion = all(ConvergedCriteria)
             if ConvergedCriterion:
-                MSG = 'CONVERGED at iteration {} since {} < {}'.format(
-                        CurrentIteration-1, FluxName, FluxThreshold)
+                MSG = 'CONVERGED at iteration {} since:'.format(CurrentIteration-1)
+                for zoneCur, fluxCur, thresholdCur in zip(ZoneName, FluxName, FluxThreshold):
+                    MSG += '\n  {} < {} on {}'.format(fluxCur, thresholdCur, zoneCur)
                 printCo('*******************************************',color=GREEN)
                 printCo(MSG, color=GREEN)
                 printCo('*******************************************',color=GREEN)
@@ -1319,10 +1463,12 @@ def copyOutputFiles(*files2copy):
     '''
     for file2copy in files2copy:
         f2cSplit = file2copy.split('.')
-        newFileName = f2cSplit[0]+'_AfterIter%d.'%(CurrentIteration-1)+f2cSplit[1]
+        newFileName = '{name}_AfterIter{it}.{fmt}'.format(
+                        name='.'.join(f2cSplit[:-1]),
+                        it=CurrentIteration-1,
+                        fmt=f2cSplit[-1])
         try:
-            shutil.copy2(os.path.join(DIRECTORY_OUTPUT,file2copy),
-                         os.path.join(DIRECTORY_OUTPUT,newFileName))
+            shutil.copy2(file2copy, newFileName)
         except:
             pass
 
@@ -1769,6 +1915,124 @@ def write4Debug(MSG):
     '''
     with open('LOGS/rank%d.log'%rank,'a') as f: f.write('%s\n'%MSG)
 
+def prepareSkeleton():
+    '''
+    Read the skeleton tree from *FILE_CGNS* and add coordinates in zones loaded
+    on the current processor. Add also ``FlowSolution#Height``nodes if they
+    exist.
+
+    Returns
+    -------
+
+        Skeleton : PyTree
+            Skeleton tree to use in ``coprocess.py``
+
+    '''
+    Skeleton = Cmpi.convertFile2SkeletonTree(FILE_CGNS)
+    I._rmNodesByName(Skeleton, 'FlowSolution*')
+
+    # Add GridCoordinates and Height parametrization for turbomachinery
+    PartTree = Cmpi.convertFile2PyTree(FILE_CGNS, proc=rank)
+    for base in I.getBases(PartTree):
+        basename = I.getName(base)
+        for zone in I.getNodesFromType1(base, 'Zone_t'):
+            path = '{}/{}'.format(basename, I.getName(zone))
+            coords = I.getNodeFromName(zone, 'GridCoordinates')
+            Skeleton = I.append(Skeleton, coords, path)
+            ch = I.getNodeFromName(zone, 'FlowSolution#Height')
+            if ch:
+                Skeleton = I.append(Skeleton, ch, path)
+    return Skeleton
+
+def splitWithPyPart(LoggingInFile=False):
+    '''
+    Use PyPart to split the mesh in ``main.cgns``. This function should be use
+    in ``compute.py`` to prepare the mesh before calling ``elsAxdt.XdtCGNS()``.
+
+    .. note:: For more details on PyPart, see the dedicated pages on elsA
+        support:
+        `PyPart alone <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/etc_pypart_alone.html>`_
+        and
+        `PyPart with elsA <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/etc_pypart_elsa.html>`_
+
+    .. important:: Dependence to ETC module
+
+    Parameters
+    ----------
+
+        LoggingInFile : bool
+            If :py:obj:`True`, write log files in *DIRECTORY_LOGS*.
+
+    Returns
+    -------
+
+        t : PyTree
+            Split tree, merged with the skeleton. It will be the **tree**
+            argument of ``elsAxdt.XdtCGNS()`` in ``compute.py``
+
+        Skeleton : PyTree
+            Skeleton tree to use in ``coprocess.py``
+
+        PyPartBase : PyPart object
+            PyPart objet that is mandatory to use its method mergeAndSave latter
+
+        Distribution : dict
+            Correspondence between zones and processors.
+
+    '''
+
+    import etc.pypart.PyPart     as PPA
+
+    PyPartBase = PPA.PyPart(FILE_CGNS,
+                            lksearch=[DIRECTORY_OUTPUT, '.'],
+                            loadoption='partial',
+                            mpicomm=comm,
+                            LoggingInFile=LoggingInFile,
+                            LoggingFile='{}/partTree'.format(DIRECTORY_LOGS),
+                            LoggingVerbose=0
+                            )
+    PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[4, 3])
+    PyPartBase.finalise(PartTree, savePpart=True, method=1)
+    Skeleton = PyPartBase.getPyPartSkeletonTree()
+    Distribution = PyPartBase.getDistribution()
+
+    # Put Distribution into the Skeleton
+    for zone in I.getZones(Skeleton):
+        zonePath = I.getPath(Skeleton, zone, pyCGNSLike=True)[1:]
+        Cmpi._setProc(zone, Distribution[zonePath])
+
+    t = I.merge([Skeleton, PartTree])
+
+    for base in I.getBases(PartTree):
+        basename = I.getName(base)
+        for zone in I.getNodesFromType1(base, 'Zone_t'):
+            zonename = I.getName(zone)
+            path = '{}/{}'.format(basename, zonename)
+            # Add GridCoordinates
+            coords = I.getNodeFromName(zone, 'GridCoordinates')
+            Skeleton = I.append(Skeleton, coords, path)
+            # Add Height parametrization for turbomachinery
+            ch = I.getNodeFromName(zone, 'FlowSolution#Height')
+            if ch:
+                Skeleton = I.append(Skeleton, ch, path)
+            # Add PyPart special node for the mergeAndSave latter
+            SpecialPyPartNode = I.getNodeFromName(zone, ':CGNS#Ppart')
+            for node in I.getChildren(SpecialPyPartNode):
+                nodename = I.getName(node)
+                nodePath = '{}/{}/:CGNS#Ppart/{}'.format(basename, zonename, nodename)
+                nodeInSkel = I.getNodeFromPath(Skeleton, nodePath)
+                if not nodeInSkel:
+                    Skeleton = I.append(Skeleton, node, path+'/:CGNS#Ppart')
+
+    # Add empty Coordinates for skeleton zones
+    # Needed to make Cmpi.convert2PartialTree work
+    for zone in I.getZones(Skeleton):
+        GC = I.getNodeFromType(zone, 'GridCoordinates_t')
+        if not GC:
+            J.set(zone, 'GridCoordinates', childType='GridCoordinates_t',
+                CoordinateX=None, CoordinateY=None, CoordinateZ=None)
+
+    return t, Skeleton, PyPartBase, Distribution
 
 def moveLogFiles():
     if Cmpi.rank == 0:
@@ -1790,7 +2054,7 @@ def moveLogFiles():
     Cmpi.barrier()
 
 #=================== Functions that will be deprecated soon ===================#
-@J.deprecated(1.11, 1.12)
+@J.deprecated(1.12, 1.13)
 def saveAll(CouplingTreeWithSkeleton, CouplingTree,
             arrays, DesiredStatistics,
             BodyForceInputData, BodyForceDisks,
@@ -1808,7 +2072,7 @@ def saveAll(CouplingTreeWithSkeleton, CouplingTree,
     .. note:: The method can be used to stop the elsA simulation after saving all data
         by providing the argument **quit** = :py:obj:`True`
 
-    .. deprecated-removed:: 1.12 1.13
+    .. deprecated:: 1.12
 
     Parameters
     ----------
@@ -1872,8 +2136,8 @@ def saveAll(CouplingTreeWithSkeleton, CouplingTree,
         # else: os._exit(0)
         os._exit(0)
 
-@J.deprecated(1.11, 1.12)
-def saveSurfaces(to, arrays, DesiredStatistics, tagWithIteration=False,
+@J.deprecated(1.12, 1.13, 'Use extractSurfaces instead')
+def saveSurfaces(to, loads, DesiredStatistics, tagWithIteration=False,
                  onlyWalls=True):
     '''
     Save the ``OUTPUT/surfaces.cgns`` file.
@@ -1887,7 +2151,7 @@ def saveSurfaces(to, arrays, DesiredStatistics, tagWithIteration=False,
     For a turbomachinery case, monitor the performance of each row and save the
     results in arrays.cgns
 
-    .. deprecated-removed:: 1.12 1.13
+    .. deprecated:: 1.12
 
     Parameters
     ----------
@@ -1936,7 +2200,7 @@ def saveSurfaces(to, arrays, DesiredStatistics, tagWithIteration=False,
         monitorTurboPerformance(surfaces, arrays, DesiredStatistics,
                                 tagWithIteration=tagWithIteration)
 
-@J.deprecated(1.11, 1.12, 'Use extractSurfaces with Extractions of type IsoSurface instead')
+@J.deprecated(1.12, 1.13, 'Use extractSurfaces with Extractions of type IsoSurface instead')
 def extractIsoSurfaces(to):
     '''
     Extract IsoSurfaces in the PyTree **to**. The parametrization is done with the
@@ -1954,7 +2218,7 @@ def extractIsoSurfaces(to):
         ``IsoSurfaces`` and ``Variables`` are not present in ``PostParameters``,
         then the function return an empty PyTree.
 
-    .. deprecated-removed:: 1.12 1.13
+    .. deprecated:: 1.12
         Use :py:func:`extractSurfaces` with Extractions of type IsoSurface instead
 
     Parameters
@@ -1995,14 +2259,14 @@ def extractIsoSurfaces(to):
             I.addChild(base, iso)
     return surfaces
 
-@J.deprecated(1.11, 1.12, 'Use save instead')
+@J.deprecated(1.12, 1.13, 'Use save instead')
 def distributeAndSavePyTree(ListOfZones, filename, tagWithIteration=False):
     '''
     Given a :py:class:`list` of zone (possibly empty list at some
     ranks), this function assigns a rank number to each zone and then
     saves the provided zones in a single CGNS file.
 
-    .. deprecated-removed:: 1.12 1.13
+    .. deprecated:: 1.12
 
     Parameters
     ----------
@@ -2028,13 +2292,13 @@ def distributeAndSavePyTree(ListOfZones, filename, tagWithIteration=False):
     printCo('%s saved OK'%filename, proc=0, color=GREEN)
     if tagWithIteration and rank == 0: copyOutputFiles(filename)
 
-@J.deprecated(1.11, 1.12, 'Use save instead')
+@J.deprecated(1.12, 1.13, 'Use save instead')
 def saveDistributedPyTree(t, filename, tagWithIteration=False):
     '''
     Given an already distributed PyTree (with coherent *proc* number), save it
     in a single CGNS file.
 
-    .. deprecated-removed:: 1.12 1.13
+    .. deprecated:: 1.12
 
     Parameters
     ----------
@@ -2071,15 +2335,15 @@ def saveDistributedPyTree(t, filename, tagWithIteration=False):
     if tagWithIteration and rank == 0: copyOutputFiles(filename)
     Cmpi.barrier()
 
-@J.deprecated(1.11, 1.12, 'Use save extractIntegralData and save instead')
-def updateAndSaveLoads(to, arrays, DesiredStatistics=['std-CL', 'std-CD'],
+@J.deprecated(1.12, 1.13, 'Use save extractIntegralData and save instead')
+def updateAndSaveLoads(to, loads, DesiredStatistics=['std-CL', 'std-CD'],
                        tagWithIteration=False, monitorMemory=False):
     '''
     Extract integral data from coupling tree **to**, and update **arrays** Python
     dictionary adding statistics requested by the user.
     Then, write ``OUTPUT/arrays.cgns`` file.
 
-    .. deprecated-removed:: 1.12 1.13
+    .. deprecated:: 1.12
 
     Parameters
     ----------
@@ -2126,8 +2390,8 @@ def updateAndSaveLoads(to, arrays, DesiredStatistics=['std-CL', 'std-CD'],
     if monitorMemory: addMemoryUsage2Arrays(arrays)
     saveLoads(arrays, tagWithIteration)
 
-@J.deprecated(1.11, 1.12, 'Use save instead')
-def saveLoads(arrays, tagWithIteration=False):
+@J.deprecated(1.12, 1.13, 'Use save instead')
+def saveLoads(loads, tagWithIteration=False):
     '''
     Save the ``OUTPUT/arrays.cgns`` file.
 
