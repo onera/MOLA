@@ -2,6 +2,10 @@
 MOLA 1.11 setup.py file automatically generated in PREPROCESS
 '''
 
+Splitter = None
+Splitter = 'PyPart'
+Splitter = 'Maia'
+
 Extractions=[{'type': 'AllBCwall'},
  {'type': 'BCInflowSubsonic'},
  {'type': 'row_1_OUTFLOW'},
