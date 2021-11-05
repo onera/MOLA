@@ -1946,7 +1946,7 @@ def prepareSkeleton():
                 Skeleton = I.append(Skeleton, ch, path)
     return Skeleton
 
-def splitWithPyPart(LoggingInFile=False):
+def splitWithPyPart():
     '''
     Use PyPart to split the mesh in ``main.cgns``. This function should be use
     in ``compute.py`` to prepare the mesh before calling ``elsAxdt.XdtCGNS()``.
@@ -1958,12 +1958,6 @@ def splitWithPyPart(LoggingInFile=False):
         `PyPart with elsA <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/etc_pypart_elsa.html>`_
 
     .. important:: Dependence to ETC module
-
-    Parameters
-    ----------
-
-        LoggingInFile : bool
-            If :py:obj:`True`, write log files in *DIRECTORY_LOGS*.
 
     Returns
     -------
@@ -1989,7 +1983,7 @@ def splitWithPyPart(LoggingInFile=False):
                             lksearch=[DIRECTORY_OUTPUT, '.'],
                             loadoption='partial',
                             mpicomm=comm,
-                            LoggingInFile=LoggingInFile,
+                            LoggingInFile=True,
                             LoggingFile='{}/partTree'.format(DIRECTORY_LOGS),
                             LoggingVerbose=0
                             )
