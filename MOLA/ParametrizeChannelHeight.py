@@ -10,14 +10,13 @@ import Post.PyTree        as P
 # ETC packages
 import etc.transform.__future__ as trf
 from etc.toolbox.MPI import MPI, e_log
-from etc.initialize  import Mask
 import etc.post as epost
 
 def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
     hlines='hub_shroud_lines.plt'):
     '''
     Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
-    relies on the ETC module. 
+    relies on the ETC module.
 
     Parameters
     ----------

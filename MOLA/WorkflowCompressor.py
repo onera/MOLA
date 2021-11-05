@@ -32,7 +32,12 @@ from . import JobManager        as JM
 
 try:
     from . import ParametrizeChannelHeight as ParamHeight
-    from . import WorkflowCompressorETC    as ETC
+except ImportError:
+    MSG = 'Fail to import ParametrizeChannelHeight: function parametrizeChannelHeight is unavailable'.format(__name__)
+    print(J.WARN + MSG + J.ENDC)
+
+try:
+    from . import WorkflowCompressorETC as ETC
 except ImportError:
     MSG = 'Fail to import ETC module: Some functions of {} are unavailable'.format(__name__)
     print(J.WARN + MSG + J.ENDC)
@@ -589,7 +594,7 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
         Viscosity_EddyMolecularRatio=0.1, TurbulenceModel='Wilcox2006-klim',
         TurbulenceCutoff=1e-8, TransitionMode=None, CoprocessOptions={},
         Length=1.0, TorqueOrigin=[0., 0., 0.],
-        FieldsAdditionalExtractions=['ViscosityMolecular', 'Viscosity_EddyMolecularRatio', 'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation', 'Mach']):
+        FieldsAdditionalExtractions=['ViscosityMolecular', 'Viscosity_EddyMolecularRatio', 'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation', 'Mach', 'Entropy']):
     '''
     This function is the Compressor's equivalent of :py:func:`PRE.computeReferenceValues()`.
     The main difference is that in this case reference values are set through
