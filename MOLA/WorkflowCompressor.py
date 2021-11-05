@@ -43,7 +43,7 @@ except ImportError:
     print(J.WARN + MSG + J.ENDC)
     ETC = None
 
-def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
+def prepareMesh4ElsA(mesh, NProcs=None, ProcPointsLoad=250000,
                     duplicationInfos={}, blocksToRename={}, SplitBlocks=False,
                     scale=1.):
     '''
@@ -68,8 +68,8 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
     Parameters
     ----------
 
-        filename : str
-            Name of the CGNS mesh file from Autogrid 5
+        mesh : :py:class:`str` or PyTree
+            Name of the CGNS mesh file from Autogrid 5 or already read PyTree.
 
         NProcs : int
             If a positive integer is provided, then the
@@ -118,7 +118,12 @@ def prepareMesh4ElsA(filename, NProcs=None, ProcPointsLoad=250000,
                 The user shall employ function :py:func:`prepareMainCGNS4ElsA`
                 as next step
     '''
-    t = C.convertFile2PyTree(filename)
+    if isinstance(mesh,str):
+        t = C.convertFile2PyTree(mesh)
+    elif I.isTopTree(mesh):
+        t = mesh
+    else:
+        raise ValueError('parameter mesh must be either a filename or a PyTree')
 
     BladeNumberList = [I.getValue(bn) for bn in I.getNodesFromName(t, 'BladeNumber')]
     angles = list(set([360./float(bn) for bn in BladeNumberList]))
@@ -279,7 +284,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             Splitter + J.ENDC))
 
 def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
-    hlines='hub_shroud_lines.plt'):
+    hlines='hub_shroud_lines.plt', subTree=None):
     '''
     Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
     relies on the ETC module. For axial configurations, *ChannelHeight* is
@@ -307,6 +312,16 @@ def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
             Name of the intermediate file that contains (x,r) coordinates of hub
             and shroud lines.
 
+        subTree : PyTree
+            Part of the main tree **t** used to compute *ChannelHeigth*. For
+            zones in **t** but not in **subTree**, *ChannelHeigth* will be equal
+            to -1. This option is useful to exclude irelevant zones for height
+            computation, for example the domain (if it exists) around the
+            nacelle with the external flow. To extract **subTree* based on a
+            Family, one may use:
+
+            >>> subTree = C.getFamilyZones(t, Family)
+
     Returns
     -------
 
@@ -314,8 +329,27 @@ def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
             modified tree
 
     '''
-    return ParamHeight.parametrizeChannelHeight(t, nbslice=101,
-        fsname='FlowSolution#Height', hlines='hub_shroud_lines.plt')
+    excludeZones = True
+    if not subTree:
+        subTree = t
+        excludeZones = False
+
+    ParamHeight.generateHLinesAxial(subTree, hlines, nbslice=nbslice)
+    try: ParamHeight.plot_hub_and_shroud_lines(hlines)
+    except: pass
+    I._rmNodesByName(t, fsname)
+    t = ParamHeight.computeHeight(t, hlines, fsname=fsname)
+
+    if excludeZones:
+        OLD_FlowSolutionNodes = I.__FlowSolutionNodes__
+        I.__FlowSolutionNodes__ = fsname
+        zonesInSubTree = [I.getName(z) for z in I.getZones(subTree)]
+        for zone in I.getZones(t):
+            if I.getName(zone) not in zonesInSubTree:
+                C._initVars(zone, 'ChannelHeight=-1')
+        I.__FlowSolutionNodes__ = OLD_FlowSolutionNodes
+
+    return t
 
 def cleanMeshFromAutogrid(t, basename='Base#1', blocksToRename={}):
     '''
