@@ -12,47 +12,6 @@ import etc.transform.__future__ as trf
 from etc.toolbox.MPI import MPI, e_log
 import etc.post as epost
 
-def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
-    hlines='hub_shroud_lines.plt'):
-    '''
-    Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
-    relies on the ETC module.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            input mesh tree
-
-        nbslice : int
-            Number of axial positions used to compute the iso-lines in
-            *ChannelHeight*. Change the axial discretization.
-
-        fsname : str
-            Name of the ``FlowSolution_t`` container to stock the variable at
-            nodes *ChannelHeight*.
-
-        hlines : str
-            Name of the intermediate file that contains (x,r) coordinates of hub
-            and shroud lines.
-
-    Returns
-    -------
-
-        t : PyTree
-            modified tree
-
-    '''
-    print(' PARAMETRIZATION in Height '.center(10, '*'))
-    if not os.path.exists(hlines):
-        generateHLinesAxial(t, hlines, nbslice=nbslice, comm=MPI.COMM_WORLD)
-        try: plot_hub_and_shroud_lines(hlines)
-        except: pass
-    I._rmNodesByName(t, fsname)
-    t = computeHeight(t, hlines, fsname=fsname)
-
-    return t
-
 def generateHLinesAxial(t, filename, nbslice=21, comm=MPI.COMM_WORLD, tol=1e-10, offset=4, hubFirst=False):
     print(e_log("generateHLinesAxial: Generation of Hub&Shroud lines"))
     t = trf.cartToCyl(t) # CoordinateY=R, CoordinateZ=T

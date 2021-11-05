@@ -1280,7 +1280,7 @@ def _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics):
             InstantaneousArray[InvalidValues] = 0.
 
         except KeyError:
-            return
+            continue
 
         if StatType.lower() == 'avg':
             StatisticArray = uniform_filter1d(InstantaneousArray,
