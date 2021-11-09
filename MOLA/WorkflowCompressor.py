@@ -1978,9 +1978,9 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
         if status == 'COMPLETED':
             lastarrays = JM.getCaseArrays(config, CASE_LABEL,
                                     basename='PERFOS_{}'.format(monitoredRow))
-            MFR.append(lastloads['MassFlowIn'])
-            RPI.append(lastloads['PressureStagnationRatio'])
-            ETA.append(lastloads['EfficiencyIsentropic'])
+            MFR.append(lastarrays['MassFlowIn'])
+            RPI.append(lastarrays['PressureStagnationRatio'])
+            ETA.append(lastarrays['EfficiencyIsentropic'])
             msg += ''.join([ColFmt.format(MFR[-1]), ColFmt.format(RPI[-1]), ColFmt.format(ETA[-1])])
         else:
             msg += ''.join([ColStrFmt.format('') for n in range(nCol-1)])
