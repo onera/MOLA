@@ -878,7 +878,7 @@ def _constrainedSmoothing(tExtru, mode='dualing',
         # Perform smoothing of normals
         niter = int(C.getMeanValue(z,'normaliters'))
         for i in range(niter):
-            wrapSmoothField(z, eps, subniter, type, ['sx','sy','sz'])
+            wrapSmoothField(z, 0.9, subniter, type, ['sx','sy','sz'])
             normalizeVector(z, ['sx', 'sy', 'sz'], container='FlowSolution')
             _extrusionApplyConstraints(tExtru)
 
@@ -1300,7 +1300,7 @@ def _transferDistributionData(tExtru,layer=0):
 
     if len(xd) > 1:
         for j in range(NFlds):
-            WeightedFields[j][:] = scipy.interpolate.Rbf(xd,yd,zd,FieldsAndCoords[FieldsNames[j]])(x,y,z)
+            WeightedFields[j][:] = scipy.interpolate.Rbf(xd,yd,zd,FieldsAndCoords[FieldsNames[j]],kernel='linear')(x,y,z)
     else:
         for j in range(NFlds):
             WeightedFields[j][:] = FieldsAndCoords[FieldsNames[j]]
