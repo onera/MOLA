@@ -1896,8 +1896,7 @@ def extrapolateSurface(Surface, Boundary, SpineDiscretization, mode='tangent',
     return NewSurface
 
 def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
-                                  Points={},Cells={},options={},
-                                  ExtrusionMethod='GVD'):
+                                  Points={},Cells={},options={}):
     '''
     Build a 2D mesh around a given airfoil geometry.
 
@@ -2047,6 +2046,12 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
                 MappingLaw        = 'cubic',      # Mapping law of the airfoil. For
                                                   # allowable values see doc of:
                                                   # W.discretize() function
+
+                UseOShapeIfTrailingEdgeAngleIsBiggerThan=80., # if the trailing edge
+                                                              # angle is bigger than
+                                                              # this value (in deg)
+                                                              # then use "O" topology
+
 
                 TEclosureTolerance= 3.e-5,        # Euclidean distance (in chord
                                                   # units) used to determine if
@@ -2406,6 +2411,20 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
     BLdistribY = J.gety(BLdistrib)
     NPtsBL = len(BLdistribY)
 
+    if Topology == 'O':
+        FarTop = W.linelaw(
+            P1=(0,BLdistribY[-1],0),
+            P2=(0,BLdistribY[-1]+size['Height'],0),
+            N=pts['Extrusion']-NPtsBL+2,
+            Distribution=dict(
+                kind='tanhTwoSides',
+                FirstCellHeight=abs(BLdistribY[-1]-BLdistribY[-2]),
+                LastCellHeight=cells['Farfield'],))
+        FarTop[0] = 'FarTop'
+        BLdistrib = T.join(BLdistrib, FarTop)
+        BLdistribY = J.gety(BLdistrib)
+        NPtsBL = len(BLdistribY)
+
     # From field 'WallCellHeight', build distribution for extrusion
     Ni = C.getNPts(ExtrusionCurve)
     Lcurve = D.getLength(ExtrusionCurve)
@@ -2463,304 +2482,303 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
         zExtruded[:,0] = zCurve[:]
 
 
-    # Compute Cell Heights (j-direction)
-    CellHeight, = J.invokeFields(ExtrudedMesh, ['CellHeight'])
-    x,y,z = J.getxyz(ExtrudedMesh)
-    for j in range(1,NPtsBL):
-        CellHeight[:,j] =np.sqrt((x[:,j]-x[:,j-1])**2 +
-                                 (y[:,j]-y[:,j-1])**2 +
-                                 (z[:,j]-z[:,j-1])**2)
-    CellHeight[0,:] = CellHeight[1,:]
-    NPtsFarfield = pts['Extrusion']-NPtsBL+2
+        # Compute Cell Heights (j-direction)
+        CellHeight, = J.invokeFields(ExtrudedMesh, ['CellHeight'])
+        x,y,z = J.getxyz(ExtrudedMesh)
+        for j in range(1,NPtsBL):
+            CellHeight[:,j] =np.sqrt((x[:,j]-x[:,j-1])**2 +
+                                     (y[:,j]-y[:,j-1])**2 +
+                                     (z[:,j]-z[:,j-1])**2)
+        CellHeight[0,:] = CellHeight[1,:]
+        NPtsFarfield = pts['Extrusion']-NPtsBL+2
 
-    if not isFoilClosed:
-        # Build Wake zone AFTER Extrusion
-        # because hyper2D produced mismatch (see Ticket #7517)
-        ContourExtrusion = T.subzone(ExtrudedMesh,(1,1,1),(Ni,1,1))
-        SideTop     = T.subzone(ContourExtrusion,(Ni-pts['Wake']+1,1,1),(Ni,1,1))
-        SideBottom  = T.subzone(ContourExtrusion,(1,1,1),(pts['Wake'],1,1))
-        xTop, yTop = J.getxy(SideTop)
-        xBot, yBot = J.getxy(SideBottom)
-        if xTop[-1]-xTop[0] < 0: T._reorder(SideTop,(-1,2,3))
-        if xBot[-1]-xBot[0] < 0: T._reorder(SideBottom,(-1,2,3))
-        xTop, yTop = J.getxy(SideTop)
-        xBot, yBot = J.getxy(SideBottom)
-        if yTop[0] < yBot[0]: SideTop, SideBottom = SideBottom, SideTop
-        xTop, yTop = J.getxy(SideTop)
-        xBot, yBot = J.getxy(SideBottom)
+        if not isFoilClosed:
+            # Build Wake zone AFTER Extrusion
+            # because hyper2D produced mismatch (see Ticket #7517)
+            ContourExtrusion = T.subzone(ExtrudedMesh,(1,1,1),(Ni,1,1))
+            SideTop     = T.subzone(ContourExtrusion,(Ni-pts['Wake']+1,1,1),(Ni,1,1))
+            SideBottom  = T.subzone(ContourExtrusion,(1,1,1),(pts['Wake'],1,1))
+            xTop, yTop = J.getxy(SideTop)
+            xBot, yBot = J.getxy(SideBottom)
+            if xTop[-1]-xTop[0] < 0: T._reorder(SideTop,(-1,2,3))
+            if xBot[-1]-xBot[0] < 0: T._reorder(SideBottom,(-1,2,3))
+            xTop, yTop = J.getxy(SideTop)
+            xBot, yBot = J.getxy(SideBottom)
+            if yTop[0] < yBot[0]: SideTop, SideBottom = SideBottom, SideTop
+            xTop, yTop = J.getxy(SideTop)
+            xBot, yBot = J.getxy(SideBottom)
 
-        SideBottom[0] = 'SideBottom'
-        SideTop[0]    = 'SideTop'
-        wires += [SideBottom, SideTop]
+            SideBottom[0] = 'SideBottom'
+            SideTop[0]    = 'SideTop'
+            wires += [SideBottom, SideTop]
 
+            VerticalLines = []
+            for i in range(pts['Wake']):
+                VerticalLine = W.linelaw(
+                    P1=(xBot[i],yBot[i],0),
+                    P2=(xTop[i],yTop[i],0),
+                    N=NPtsWakeHeight, Distribution=dict(
+                        kind='tanhTwoSides',
+                        FirstCellHeight=CellHeightFieldBottom[i],
+                        LastCellHeight=CellHeightFieldTop[i]))
+                VerticalLines += [VerticalLine]
+            WakeZone = G.stack(VerticalLines,None)
+            WakeZone[0] = 'WakeZone'
+            surfs += [WakeZone]
+
+
+
+        FarBottom = W.linelaw(
+            P1=(size['Wake'],-size['Height'],0),
+            P2=(1,-size['Height'],0),
+            N=pts['Wake'],
+            Distribution=dict(
+                kind='tanhTwoSides',
+                FirstCellHeight=cells['Farfield'],
+                LastCellHeight=cells['Farfield']*cells['FarfieldAspectRatio'],))
+        FarBottom[0] = 'FarBottom'
+
+        FarTop = W.linelaw(
+            P1=(1,+size['Height'],0),
+            P2=(size['Wake'],+size['Height'],0),
+            N=pts['Wake'],
+            Distribution=dict(
+                kind='tanhTwoSides',
+                FirstCellHeight=cells['Farfield']*cells['FarfieldAspectRatio'],
+                LastCellHeight=cells['Farfield'],))
+        FarTop[0] = 'FarTop'
+
+        wires += [FarBottom, FarTop]
+
+        BLedge = T.subzone(ExtrudedMesh,(1,NPtsBL,1),(Ni,NPtsBL,1))
+        BLedge[0] = 'BLedge'
+        BLedgeY = J.gety(BLedge)
+        if BLedgeY[-1] < BLedgeY[0]: T._reorder(BLedge,(-1,2,3))
+
+
+
+
+        BLedgeBottom = T.subzone(BLedge, (1,1,1),(pts['Wake'],1,1))
+        BLedgeTop    = T.subzone(BLedge, (Ni-pts['Wake']+1,1,1),(Ni,1,1))
+        BLedgeFoilBot= T.subzone(BLedge, (pts['Wake'],1,1),(pts['Wake']+NPtsBottom-1,1,1))
+        BLedgeFoilTop= T.subzone(BLedge, (pts['Wake']+NPtsBottom-1,1,1),(Ni-pts['Wake']+1,1,1))
+        BLedgeBottom[0] = 'BLedgeBottom'
+        BLedgeTop[0] = 'BLedgeTop'
+        BLedgeFoilBot[0] = 'BLedgeFoilBot'
+        BLedgeFoilTop[0] = 'BLedgeFoilTop'
+
+        BLortoImin   = T.subzone(ExtrudedMesh,  (1,1,1),  (1,NPtsBL,1))
+        BLortoImax   = T.subzone(ExtrudedMesh, (Ni,1,1), (Ni,NPtsBL,1))
+        BLortoBottom = T.subzone(ExtrudedMesh, (pts['Wake'],1,1),(pts['Wake'],NPtsBL,1))
+        BLortoLE     = T.subzone(ExtrudedMesh, (pts['Wake']+NPtsBottom-1,1,1),(pts['Wake']+NPtsBottom-1,NPtsBL,1))
+        BLortoTop    = T.subzone(ExtrudedMesh, (Ni-pts['Wake']+1,1,1),(Ni-pts['Wake']+1,NPtsBL,1))
+
+        BLortoImin[0]   = 'BLortoImin'
+        BLortoImax[0]   = 'BLortoImax'
+        BLortoBottom[0] = 'BLortoBottom'
+        BLortoLE[0]     = 'BLortoLE'
+        BLortoTop[0]    = 'BLortoTop'
+
+        wires += [BLedgeBottom,BLedgeFoilBot,BLedgeFoilTop,BLedgeTop,
+            BLortoBottom,BLortoLE,BLortoTop, BLortoImin, BLortoImax]
+
+        Arc    = D.circle((1,0,0), size['Height'], tetas=90., tetae=270., N=180*4+1)
+        Arc    = C.convertArray2Tetra(Arc)
+        Arc[0] = 'Arc'
+        # wires += [Arc]
+
+        # Project LE on Arc - makes use of intersector
+        x,y,z            = J.getxyz(BLortoLE)
+        StartPoint       = np.array([x[-1],y[-1],z[-1]])
+        BeforeStartPoint = np.array([x[-2],y[-2],z[-2]])
+        lineLEdir        = StartPoint-BeforeStartPoint
+        lineLEdir       /= np.sqrt(lineLEdir.dot(lineLEdir))
+        EndPoint         = StartPoint + lineLEdir * 2.* size['Height']
+        lineLE           = C.convertArray2Tetra(D.line(StartPoint,EndPoint,2))
+        lineLE[0]        = 'lineLE'
+
+        # COMPUTE ARCS
+        # Reorder split arcs so that they are clockwise and name
+        # them appropriately
+        Arcs = W.splitCurves(Arc, lineLE, select=1)
+        barycenters = [G.barycenter(arc) for arc in Arcs]
+
+        if barycenters[1][1] > barycenters[0][1]:
+            ArcBottom, ArcTop = Arcs
+        else:
+            ArcTop, ArcBottom = Arcs
+        x,y = J.getxy(ArcBottom)
+        if x[0] < x[-1]: T._reorder(ArcBottom,(-1,2,3))
+        x,y = J.getxy(ArcTop)
+        if x[0] > x[-1]: T._reorder(ArcTop,(-1,2,3))
+        ArcTop[0] = 'ArcTop'
+        ArcBottom[0] = 'ArcBottom'
+        CellJoinHeight = cells['Farfield']*cells['FarfieldAspectRatio']
+        LECell         = cells['Farfield']*cells['LEFarfieldAspectRatio']
+        ArcBottom = W.discretize(ArcBottom, N=C.getNPts(BLedgeFoilBot),
+            Distribution=dict(
+                kind='tanhTwoSides',
+                FirstCellHeight=CellJoinHeight,
+                LastCellHeight=LECell))
+        ArcTop = W.discretize(ArcTop, N=C.getNPts(BLedgeFoilTop),
+            Distribution=dict(
+                kind='tanhTwoSides',
+                FirstCellHeight=LECell,
+                LastCellHeight=CellJoinHeight))
+        wires += [ArcBottom, ArcTop]
+
+        # Add Leading-edge farfield propagation line
+        curve1 = BLedgeFoilBot
+        curve2 = ArcBottom
+        xC1, yC1 = J.getxy(curve1)
+        CellHeight, = J.getVars(curve1, ['CellHeight'])
+        xC2, yC2 = J.getxy(curve2)
+        LEfarLine = W.linelaw(
+            P1=(xC1[-1],yC1[-1],0),
+            P2=(xC2[-1],yC2[-1],0),
+            N=NPtsFarfield,
+            Distribution=dict(
+                kind='tanhTwoSides',
+                FirstCellHeight=CellHeight[-1],
+                LastCellHeight=cells['Farfield']))
+        LEfarLine[0] = 'LEfarLine'
+        wires += [LEfarLine]
+
+        # BUILD BOTTOM-WAKE DOMAIN
+        curve1 = BLedgeBottom
+        curve2 = FarBottom
+        xC1, yC1 = J.getxy(curve1)
+        CellHeight, = J.getVars(curve1, ['CellHeight'])
+        xC2, yC2 = J.getxy(curve2)
         VerticalLines = []
         for i in range(pts['Wake']):
             VerticalLine = W.linelaw(
-                P1=(xBot[i],yBot[i],0),
-                P2=(xTop[i],yTop[i],0),
-                N=NPtsWakeHeight, Distribution=dict(
+                P1=(xC1[i],yC1[i],0),
+                P2=(xC2[i],yC2[i],0),
+                N=NPtsFarfield, Distribution=dict(
                     kind='tanhTwoSides',
-                    FirstCellHeight=CellHeightFieldBottom[i],
-                    LastCellHeight=CellHeightFieldTop[i]))
+                    FirstCellHeight=CellHeight[i],
+                    LastCellHeight=cells['Farfield']))
             VerticalLines += [VerticalLine]
-        WakeZone = G.stack(VerticalLines,None)
-        WakeZone[0] = 'WakeZone'
-        surfs += [WakeZone]
+
+        BottomWake = G.stack(VerticalLines,None)
+        BottomWake[0] = 'BottomWake'
+        surfs += [BottomWake]
+
+        LowerRightLine = VerticalLines[0]
+        LowerRightLine[0] = 'LowerRightLine'
+        wires += [LowerRightLine]
+
+        MiddleDownLine = VerticalLines[-1]
+        MiddleDownLine[0] = 'MiddleDownLine'
+        wires += [MiddleDownLine]
 
 
 
-    FarBottom = W.linelaw(
-        P1=(size['Wake'],-size['Height'],0),
-        P2=(1,-size['Height'],0),
-        N=pts['Wake'],
-        Distribution=dict(
-            kind='tanhTwoSides',
-            FirstCellHeight=cells['Farfield'],
-            LastCellHeight=cells['Farfield']*cells['FarfieldAspectRatio'],))
-    FarBottom[0] = 'FarBottom'
+        # BUILD TOP-WAKE DOMAIN
+        curve1 = BLedgeTop
+        curve2 = FarTop
+        xC1, yC1 = J.getxy(curve1)
+        CellHeight, = J.getVars(curve1, ['CellHeight'])
+        xC2, yC2 = J.getxy(curve2)
+        VerticalLines = []
+        for i in range(pts['Wake']):
+            VerticalLine = W.linelaw(
+                P1=(xC1[i],yC1[i],0),
+                P2=(xC2[i],yC2[i],0),
+                N=NPtsFarfield, Distribution=dict(
+                    kind='tanhTwoSides',
+                    FirstCellHeight=CellHeight[i],
+                    LastCellHeight=cells['Farfield']))
+            VerticalLines += [VerticalLine]
+        TopWake = G.stack(VerticalLines,None)
+        TopWake[0] = 'TopWake'
+        surfs += [TopWake]
 
-    FarTop = W.linelaw(
-        P1=(1,+size['Height'],0),
-        P2=(size['Wake'],+size['Height'],0),
-        N=pts['Wake'],
-        Distribution=dict(
-            kind='tanhTwoSides',
-            FirstCellHeight=cells['Farfield']*cells['FarfieldAspectRatio'],
-            LastCellHeight=cells['Farfield'],))
-    FarTop[0] = 'FarTop'
+        MiddleTopLine = VerticalLines[0]
+        MiddleTopLine[0] = 'MiddleTopLine'
+        wires += [MiddleTopLine]
 
-    wires += [FarBottom, FarTop]
-
-    BLedge = T.subzone(ExtrudedMesh,(1,NPtsBL,1),(Ni,NPtsBL,1))
-    BLedge[0] = 'BLedge'
-    BLedgeY = J.gety(BLedge)
-    if BLedgeY[-1] < BLedgeY[0]: T._reorder(BLedge,(-1,2,3))
-
-
-
-
-    BLedgeBottom = T.subzone(BLedge, (1,1,1),(pts['Wake'],1,1))
-    BLedgeTop    = T.subzone(BLedge, (Ni-pts['Wake']+1,1,1),(Ni,1,1))
-    BLedgeFoilBot= T.subzone(BLedge, (pts['Wake'],1,1),(pts['Wake']+NPtsBottom-1,1,1))
-    BLedgeFoilTop= T.subzone(BLedge, (pts['Wake']+NPtsBottom-1,1,1),(Ni-pts['Wake']+1,1,1))
-    BLedgeBottom[0] = 'BLedgeBottom'
-    BLedgeTop[0] = 'BLedgeTop'
-    BLedgeFoilBot[0] = 'BLedgeFoilBot'
-    BLedgeFoilTop[0] = 'BLedgeFoilTop'
-
-    BLortoImin   = T.subzone(ExtrudedMesh,  (1,1,1),  (1,NPtsBL,1))
-    BLortoImax   = T.subzone(ExtrudedMesh, (Ni,1,1), (Ni,NPtsBL,1))
-    BLortoBottom = T.subzone(ExtrudedMesh, (pts['Wake'],1,1),(pts['Wake'],NPtsBL,1))
-    BLortoLE     = T.subzone(ExtrudedMesh, (pts['Wake']+NPtsBottom-1,1,1),(pts['Wake']+NPtsBottom-1,NPtsBL,1))
-    BLortoTop    = T.subzone(ExtrudedMesh, (Ni-pts['Wake']+1,1,1),(Ni-pts['Wake']+1,NPtsBL,1))
-
-    BLortoImin[0]   = 'BLortoImin'
-    BLortoImax[0]   = 'BLortoImax'
-    BLortoBottom[0] = 'BLortoBottom'
-    BLortoLE[0]     = 'BLortoLE'
-    BLortoTop[0]    = 'BLortoTop'
-
-    wires += [BLedgeBottom,BLedgeFoilBot,BLedgeFoilTop,BLedgeTop,
-        BLortoBottom,BLortoLE,BLortoTop, BLortoImin, BLortoImax]
+        UpperRightLine = VerticalLines[-1]
+        UpperRightLine[0] = 'UpperRightLine'
+        wires += [UpperRightLine]
 
 
-    Arc    = D.circle((1,0,0), size['Height'], tetas=90., tetae=270., N=180*4+1)
-    Arc    = C.convertArray2Tetra(Arc)
-    Arc[0] = 'Arc'
-    # wires += [Arc]
+        # BUILD UPSTREAM-BOTTOM DOMAIN
+        UpstreamBottom = G.TFI([MiddleDownLine,LEfarLine,BLedgeFoilBot,ArcBottom])
+        UpstreamBottom[0] = 'UpstreamBottom'
+        surfs += [UpstreamBottom]
 
-    # Project LE on Arc - makes use of intersector
-    x,y,z            = J.getxyz(BLortoLE)
-    StartPoint       = np.array([x[-1],y[-1],z[-1]])
-    BeforeStartPoint = np.array([x[-2],y[-2],z[-2]])
-    lineLEdir        = StartPoint-BeforeStartPoint
-    lineLEdir       /= np.sqrt(lineLEdir.dot(lineLEdir))
-    EndPoint         = StartPoint + lineLEdir * 2.* size['Height']
-    lineLE           = C.convertArray2Tetra(D.line(StartPoint,EndPoint,2))
-    lineLE[0]        = 'lineLE'
+        # BUILD UPSTREAM-TOP DOMAIN
+        UpstreamTop = G.TFI([LEfarLine,MiddleTopLine,BLedgeFoilTop,ArcTop])
+        UpstreamTop[0] = 'UpstreamTop'
+        surfs += [UpstreamTop]
 
-    # COMPUTE ARCS
-    # Reorder split arcs so that they are clockwise and name
-    # them appropriately
-    Arcs = W.splitCurves(Arc, lineLE, select=1)
-    barycenters = [G.barycenter(arc) for arc in Arcs]
-    print('barycenters')
-    print(barycenters)
-    C.convertPyTree2File(ExtrudedMesh,'test.cgns')
-    if barycenters[1][1] > barycenters[0][1]:
-        ArcBottom, ArcTop = Arcs
-    else:
-        ArcTop, ArcBottom = Arcs
-    x,y = J.getxy(ArcBottom)
-    if x[0] < x[-1]: T._reorder(ArcBottom,(-1,2,3))
-    x,y = J.getxy(ArcTop)
-    if x[0] > x[-1]: T._reorder(ArcTop,(-1,2,3))
-    ArcTop[0] = 'ArcTop'
-    ArcBottom[0] = 'ArcBottom'
-    CellJoinHeight = cells['Farfield']*cells['FarfieldAspectRatio']
-    LECell         = cells['Farfield']*cells['LEFarfieldAspectRatio']
-    ArcBottom = W.discretize(ArcBottom, N=C.getNPts(BLedgeFoilBot),
-        Distribution=dict(
-            kind='tanhTwoSides',
-            FirstCellHeight=CellJoinHeight,
-            LastCellHeight=LECell))
-    ArcTop = W.discretize(ArcTop, N=C.getNPts(BLedgeFoilTop),
-        Distribution=dict(
-            kind='tanhTwoSides',
-            FirstCellHeight=LECell,
-            LastCellHeight=CellJoinHeight))
-    wires += [ArcBottom, ArcTop]
+        # --- Mesh is built. Join subparts --- #
 
-    # Add Leading-edge farfield propagation line
-    curve1 = BLedgeFoilBot
-    curve2 = ArcBottom
-    xC1, yC1 = J.getxy(curve1)
-    CellHeight, = J.getVars(curve1, ['CellHeight'])
-    xC2, yC2 = J.getxy(curve2)
-    LEfarLine = W.linelaw(
-        P1=(xC1[-1],yC1[-1],0),
-        P2=(xC2[-1],yC2[-1],0),
-        N=NPtsFarfield,
-        Distribution=dict(
-            kind='tanhTwoSides',
-            FirstCellHeight=CellHeight[-1],
-            LastCellHeight=cells['Farfield']))
-    LEfarLine[0] = 'LEfarLine'
-    wires += [LEfarLine]
+        # Split ExtrudedMesh (boundary-layer) in 4 subparts
+        ExtrudedMeshBottomRear = T.subzone(ExtrudedMesh,(1,1,1),(pts['Wake'],NPtsBL,1))
+        ExtrudedMeshBottomRear[0] = 'ExtrudedMeshBottomRear'
+        surfs += [ExtrudedMeshBottomRear]
 
-    # BUILD BOTTOM-WAKE DOMAIN
-    curve1 = BLedgeBottom
-    curve2 = FarBottom
-    xC1, yC1 = J.getxy(curve1)
-    CellHeight, = J.getVars(curve1, ['CellHeight'])
-    xC2, yC2 = J.getxy(curve2)
-    VerticalLines = []
-    for i in range(pts['Wake']):
-        VerticalLine = W.linelaw(
-            P1=(xC1[i],yC1[i],0),
-            P2=(xC2[i],yC2[i],0),
-            N=NPtsFarfield, Distribution=dict(
-                kind='tanhTwoSides',
-                FirstCellHeight=CellHeight[i],
-                LastCellHeight=cells['Farfield']))
-        VerticalLines += [VerticalLine]
+        ExtrudedMeshBottomFront = T.subzone(ExtrudedMesh,(pts['Wake'],1,1),(pts['Wake']+NPtsBottom-1,NPtsBL,1))
+        ExtrudedMeshBottomFront[0] = 'ExtrudedMeshBottomFront'
+        surfs += [ExtrudedMeshBottomFront]
 
-    BottomWake = G.stack(VerticalLines,None)
-    BottomWake[0] = 'BottomWake'
-    surfs += [BottomWake]
+        ExtrudedMeshTopFront = T.subzone(ExtrudedMesh,(pts['Wake']+NPtsBottom-1,1,1),(pts['Wake']+NPtsBottom-1+NPtsTop,NPtsBL,1))
+        ExtrudedMeshTopFront[0] = 'ExtrudedMeshTopFront'
+        surfs += [ExtrudedMeshTopFront]
 
-    LowerRightLine = VerticalLines[0]
-    LowerRightLine[0] = 'LowerRightLine'
-    wires += [LowerRightLine]
-
-    MiddleDownLine = VerticalLines[-1]
-    MiddleDownLine[0] = 'MiddleDownLine'
-    wires += [MiddleDownLine]
+        ExtrudedMeshTopRear = T.subzone(ExtrudedMesh,(pts['Wake']+NPtsBottom-1+NPtsTop,1,1),(-1,-1,-1))
+        ExtrudedMeshTopRear[0] = 'ExtrudedMeshTopRear'
+        surfs += [ExtrudedMeshTopRear]
 
 
-    # BUILD TOP-WAKE DOMAIN
-    curve1 = BLedgeTop
-    curve2 = FarTop
-    xC1, yC1 = J.getxy(curve1)
-    CellHeight, = J.getVars(curve1, ['CellHeight'])
-    xC2, yC2 = J.getxy(curve2)
-    VerticalLines = []
-    for i in range(pts['Wake']):
-        VerticalLine = W.linelaw(
-            P1=(xC1[i],yC1[i],0),
-            P2=(xC2[i],yC2[i],0),
-            N=NPtsFarfield, Distribution=dict(
-                kind='tanhTwoSides',
-                FirstCellHeight=CellHeight[i],
-                LastCellHeight=cells['Farfield']))
-        VerticalLines += [VerticalLine]
-    TopWake = G.stack(VerticalLines,None)
-    TopWake[0] = 'TopWake'
-    surfs += [TopWake]
+        I._rmNodesByType(surfs,'FlowSolution_t')
+        if isFoilClosed:
+            BottomRear = T.join([ExtrudedMeshBottomRear,BottomWake])
+            BottomRear[0] = 'BottomRear'
+            surfs += [BottomRear]
 
-    MiddleTopLine = VerticalLines[0]
-    MiddleTopLine[0] = 'MiddleTopLine'
-    wires += [MiddleTopLine]
+            BottomFront = T.join([ExtrudedMeshBottomFront,UpstreamBottom])
+            BottomFront[0] = 'BottomFront'
+            surfs += [BottomFront]
 
-    UpperRightLine = VerticalLines[-1]
-    UpperRightLine[0] = 'UpperRightLine'
-    wires += [UpperRightLine]
+            TopFront = T.join([ExtrudedMeshTopFront,UpstreamTop])
+            TopFront[0] = 'TopFront'
+            surfs += [TopFront]
 
+            TopRear = T.join([ExtrudedMeshTopRear,TopWake])
+            TopRear[0] = 'TopRear'
+            surfs += [TopRear]
 
-    # BUILD UPSTREAM-BOTTOM DOMAIN
-    UpstreamBottom = G.TFI([MiddleDownLine,LEfarLine,BLedgeFoilBot,ArcBottom])
-    UpstreamBottom[0] = 'UpstreamBottom'
-    surfs += [UpstreamBottom]
+            grid = T.join([BottomRear, BottomFront, TopFront, TopRear])
+            grid[0] = 'grid'
+            surfs += [grid]
 
-    # BUILD UPSTREAM-TOP DOMAIN
-    UpstreamTop = G.TFI([LEfarLine,MiddleTopLine,BLedgeFoilTop,ArcTop])
-    UpstreamTop[0] = 'UpstreamTop'
-    surfs += [UpstreamTop]
+            zones = [grid]
+        else:
+            Rear = T.join([BottomWake,ExtrudedMeshBottomRear,WakeZone,ExtrudedMeshTopRear,TopWake])
+            Rear[0] = 'Rear'
+            T._reorder(Rear,(2,1,3))
 
-    # --- Mesh is built. Join subparts --- #
+            BottomFront = T.join([ExtrudedMeshBottomFront,UpstreamBottom])
+            BottomFront[0] = 'BottomFront'
+            surfs += [BottomFront]
 
-    # Split ExtrudedMesh (boundary-layer) in 4 subparts
-    ExtrudedMeshBottomRear = T.subzone(ExtrudedMesh,(1,1,1),(pts['Wake'],NPtsBL,1))
-    ExtrudedMeshBottomRear[0] = 'ExtrudedMeshBottomRear'
-    surfs += [ExtrudedMeshBottomRear]
+            TopFront = T.join([ExtrudedMeshTopFront,UpstreamTop])
+            TopFront[0] = 'TopFront'
+            surfs += [TopFront]
 
-    ExtrudedMeshBottomFront = T.subzone(ExtrudedMesh,(pts['Wake'],1,1),(pts['Wake']+NPtsBottom-1,NPtsBL,1))
-    ExtrudedMeshBottomFront[0] = 'ExtrudedMeshBottomFront'
-    surfs += [ExtrudedMeshBottomFront]
+            Front = T.join([BottomFront, TopFront])
+            Front[0] = 'Front'
 
-    ExtrudedMeshTopFront = T.subzone(ExtrudedMesh,(pts['Wake']+NPtsBottom-1,1,1),(pts['Wake']+NPtsBottom-1+NPtsTop,NPtsBL,1))
-    ExtrudedMeshTopFront[0] = 'ExtrudedMeshTopFront'
-    surfs += [ExtrudedMeshTopFront]
+            surfs += [Rear,Front]
 
-    ExtrudedMeshTopRear = T.subzone(ExtrudedMesh,(pts['Wake']+NPtsBottom-1+NPtsTop,1,1),(-1,-1,-1))
-    ExtrudedMeshTopRear[0] = 'ExtrudedMeshTopRear'
-    surfs += [ExtrudedMeshTopRear]
+            zones = [Rear,Front]
 
-
-
-    I._rmNodesByType(surfs,'FlowSolution_t')
-    if isFoilClosed:
-        BottomRear = T.join([ExtrudedMeshBottomRear,BottomWake])
-        BottomRear[0] = 'BottomRear'
-        surfs += [BottomRear]
-
-        BottomFront = T.join([ExtrudedMeshBottomFront,UpstreamBottom])
-        BottomFront[0] = 'BottomFront'
-        surfs += [BottomFront]
-
-        TopFront = T.join([ExtrudedMeshTopFront,UpstreamTop])
-        TopFront[0] = 'TopFront'
-        surfs += [TopFront]
-
-        TopRear = T.join([ExtrudedMeshTopRear,TopWake])
-        TopRear[0] = 'TopRear'
-        surfs += [TopRear]
-
-        grid = T.join([BottomRear, BottomFront, TopFront, TopRear])
-        grid[0] = 'grid'
-        surfs += [grid]
-
-        zones = [grid]
-    else:
-        Rear = T.join([BottomWake,ExtrudedMeshBottomRear,WakeZone,ExtrudedMeshTopRear,TopWake])
-        Rear[0] = 'Rear'
-        T._reorder(Rear,(2,1,3))
-
-        BottomFront = T.join([ExtrudedMeshBottomFront,UpstreamBottom])
-        BottomFront[0] = 'BottomFront'
-        surfs += [BottomFront]
-
-        TopFront = T.join([ExtrudedMeshTopFront,UpstreamTop])
-        TopFront[0] = 'TopFront'
-        surfs += [TopFront]
-
-        Front = T.join([BottomFront, TopFront])
-        Front[0] = 'Front'
-
-        surfs += [Rear,Front]
-
-        zones = [Rear,Front]
-
+    elif Topology == 'O':
+        zones = [ExtrudedMesh]
 
     t = C.newPyTree(['Base',zones])
 
@@ -2768,15 +2786,19 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
     X.connectMatch(t, tol=1.e-10, dim=2)
     base, = I.getBases(t)
 
-    if isFoilClosed:
-        C._addBC2Zone(grid,'BC_imin','FamilySpecified:%s'%opts['FarfieldFamilyName'],'imin')
-        C._addBC2Zone(grid,'BC_imax','FamilySpecified:%s'%opts['FarfieldFamilyName'],'imax')
-        C._addBC2Zone(grid,'BC_jmax','FamilySpecified:%s'%opts['FarfieldFamilyName'],'jmax')
-    else:
-        C._addBC2Zone(Rear,'BC_jmin','FamilySpecified:%s'%opts['FarfieldFamilyName'],'jmin')
-        C._addBC2Zone(Rear,'BC_jmax','FamilySpecified:%s'%opts['FarfieldFamilyName'],'jmax')
-        C._addBC2Zone(Rear,'BC_imax','FamilySpecified:%s'%opts['FarfieldFamilyName'],'imax')
-        C._addBC2Zone(Front,'BC_jmax','FamilySpecified:%s'%opts['FarfieldFamilyName'],'jmax')
+    if Topology == 'C':
+        if isFoilClosed:
+            C._addBC2Zone(grid,'BC_imin','FamilySpecified:%s'%opts['FarfieldFamilyName'],'imin')
+            C._addBC2Zone(grid,'BC_imax','FamilySpecified:%s'%opts['FarfieldFamilyName'],'imax')
+            C._addBC2Zone(grid,'BC_jmax','FamilySpecified:%s'%opts['FarfieldFamilyName'],'jmax')
+        else:
+            C._addBC2Zone(Rear,'BC_jmin','FamilySpecified:%s'%opts['FarfieldFamilyName'],'jmin')
+            C._addBC2Zone(Rear,'BC_jmax','FamilySpecified:%s'%opts['FarfieldFamilyName'],'jmax')
+            C._addBC2Zone(Rear,'BC_imax','FamilySpecified:%s'%opts['FarfieldFamilyName'],'imax')
+            C._addBC2Zone(Front,'BC_jmax','FamilySpecified:%s'%opts['FarfieldFamilyName'],'jmax')
+
+    elif Topology == 'O':
+        C._addBC2Zone(zones[0],'BC_jmax','FamilySpecified:%s'%opts['FarfieldFamilyName'],'jmax')
 
     C._fillEmptyBCWith(t,'airfoil','FamilySpecified:%s'%opts['AirfoilFamilyName'],dim=2)
 
