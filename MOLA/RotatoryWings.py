@@ -124,12 +124,11 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
 
 
         LETFI = G.TFIO(LEBound)
+        GSD.prepareGlue(LETFI,[LEBound])
         LETFI = T.projectDir(LETFI,FineHub,dir=AxeDir)
         T._smooth(LETFI,eps=SmoothingParameters['eps'], niter=SmoothingParameters['niter'], type=SmoothingParameters['type'], fixedConstraints=[LEBound])
-
-        GSD._prepareGlue(LETFI,[LEBound])
-        LETFI = T.projectDir(LETFI,FineHub,dir=AxeDir)
-        GSD._prepareGlue(LETFI,[LEBound])
+        T._projectDir(LETFI,FineHub,dir=AxeDir)
+        GSD.applyGlue(LETFI,[LEBound])
 
         LETFIzones = I.getNodesFromType(LETFI,'Zone_t')
         LESingle, LESingleIndex = J.getNearestZone(LETFIzones, (Px[0],Py[0],Pz[0]))
@@ -147,9 +146,9 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
             TETFI = T.projectDir(TETFI,FineHub,dir=(AxeDir[0],-AxeDir[1],AxeDir[2]))
             SmoothingParameters['fixedConstraints'] = [TEBound]
             T._smooth(TETFI, **SmoothingParameters)
-            GSD._prepareGlue(TETFI,[TEBound])
+            GSD.prepareGlue(TETFI,[TEBound])
             TETFI = T.projectDir(TETFI,FineHub,dir=(AxeDir[0],-AxeDir[1],AxeDir[2]))
-            GSD._prepareGlue(TETFI,[TEBound])
+            GSD.applyGlue(TETFI,[TEBound])
 
             TETFIzones = I.getNodesFromType(TETFI,'Zone_t')
             TESingle, TESingleIndex = J.getNearestZone(TETFIzones, (Px[-1],Py[-1],Pz[-1]))
@@ -192,17 +191,14 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
 
         # Re-discretize connection curves
         ApproxNconn = int(0.5*(SplitLEind+NPsi))
-        TFIisOK, NPsiNew, Nconn1, Nconn2 = GSD.checkTFITriFeasability(NPsi,ApproxNconn,ApproxNconn,choosePriority=['N1,N2=N3'], QtySearch=4, tellMeWhatYouDo=False)
+        NPsiNew, Nconn1, Nconn2 = GSD.getSuitableSetOfPointsForTFITri(NPsi,ApproxNconn,ApproxNconn,choosePriority=['N1,N2=N3'], QtySearch=4, tellMeWhatYouDo=False)
         if NPsiNew != NPsi:
             raise ValueError('Could not find appropriate TFITri values for NPsi=%d. Increase QtySearch or change NPsi.'%NPsi)
         Conn1 = W.discretize(Conn1,Nconn1,
             dict(kind='tanhOneSide',FirstCellHeight=LEjonctCell))
         Conn2 = W.discretize(Conn2,Nconn2,
             dict(kind='tanhOneSide',FirstCellHeight=LEjonctCell))
-        if TFIisOK:
-            LETFI = G.TFITri(LEarc,Conn1,Conn2)
-        else:
-            raise ValueError('Could not find appropriate TFITri discretization.')
+        LETFI = G.TFITri(LEarc,Conn1,Conn2)
         LETFI = I.getNodesFromType(LETFI,'Zone_t')
         Conn1LE = Conn1; Conn1LE[0] = 'Conn1LE'
         Conn2LE = Conn2; Conn2LE[0] = 'Conn2LE'
@@ -244,14 +240,14 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
             Conn1TE = Conn1; Conn1TE[0] = 'Conn1TE'
             Conn2TE = Conn2; Conn2TE[0] = 'Conn2TE'
 
-            GSD._prepareGlue(LETFI,[Conn1LE, Conn2LE, LEarc])
+            GSD.prepareGlue(LETFI,[Conn1LE, Conn2LE, LEarc])
             # T._projectDir(LETFI,FineHub,dir=AxeDir)
             T._projectOrthoSmooth(LETFI,FineHub,niter=3)
-            GSD._applyGlue(LETFI,[Conn1LE, Conn2LE, LEarc])
+            GSD.applyGlue(LETFI,[Conn1LE, Conn2LE, LEarc])
 
-            GSD._prepareGlue(TETFI,[Conn1TE, Conn2TE, TEarc])
+            GSD.prepareGlue(TETFI,[Conn1TE, Conn2TE, TEarc])
             T._projectDir(TETFI,FineHub,dir=(AxeDir[0],-AxeDir[1],AxeDir[2]))
-            GSD._applyGlue(TETFI,[Conn1TE, Conn2TE, TEarc])
+            GSD.applyGlue(TETFI,[Conn1TE, Conn2TE, TEarc])
 
         # Get the profiles
         FirstProfile=GSD.getBoundary(MainBody,'jmin')

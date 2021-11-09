@@ -1677,8 +1677,9 @@ def applyGlue(zones, gluezones):
         z = z.ravel(order='K')
 
         glueDataNode = I.getNodeFromName1(zone,'.glueData')
+        if not glueDataNode: continue
         for gluePoints in glueDataNode[2]:
-            gluezoneName = ''.join(gluePoints[1])
+            gluezoneName = I.getValue(gluePoints)
             gluezone = [gz for gz in gluezones if gz[0]==gluezoneName][0]
             mx,my,mz = J.getxyz(gluezone)
             mx = mx.ravel(order='K')
@@ -1895,7 +1896,8 @@ def extrapolateSurface(Surface, Boundary, SpineDiscretization, mode='tangent',
     return NewSurface
 
 def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
-                                  Points={},Cells={},options={}):
+                                  Points={},Cells={},options={},
+                                  ExtrusionMethod='GVD'):
     '''
     Build a 2D mesh around a given airfoil geometry.
 
@@ -2109,6 +2111,7 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
     LEsearchEpsilon   = 1.e-8,
     MappingLaw        = 'cubic', # requires recent version of scipy
     TEclosureTolerance= 3.e-5,
+    UseOShapeIfTrailingEdgeAngleIsBiggerThan=80.,
     FarfieldFamilyName= 'FARFIELD',
     AirfoilFamilyName = 'AIRFOIL',
     )
@@ -2130,7 +2133,6 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
         DeltaYPlus = References['DeltaYPlus']
     except KeyError:
         raise KeyError('DeltaYPlus not found in meshParams')
-
 
     ReL = Reynolds / Chord
     WallCellHeight = DeltaYPlus/(((0.026/ReL**(1./7.))*(ReL)**2/2.)**0.5)
@@ -2186,6 +2188,8 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
 
     foil = W.polyDiscretize(foilDense, Distributions,MappingLaw=opts['MappingLaw'])
     foil[0] = 'foil'
+
+
     wires += [foil]
 
     s = W.gets(foil)
@@ -2204,179 +2208,194 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
                   np.array([fX[0]-fX[1],fY[0]-fY[1]]) )
     TEdir /= np.sqrt(TEdir.dot(TEdir))
 
-    if TEdistance < opts['TEclosureTolerance']:
-        isFoilClosed = True
-        fX[0] = fX[-1] = 0.5*(fX[0]+fX[-1])
-        fY[0] = fY[-1] = 0.5*(fY[0]+fY[-1])
+    isFoilClosed = True if TEdistance < opts['TEclosureTolerance'] else False
 
-        # Wake guide
-        WakeGuide = D.polyline([
-            (fX[0],fY[0],0.),
-            (fX[0]+TEdir[0]*size['TrailingEdgeTension']*size['Wake'],fY[0]+TEdir[1]*size['TrailingEdgeTension']*size['Wake'],0.),
-            (fX[0]+size['Wake'],fY[0]+TEdir[1]*size['TrailingEdgeTension']*size['Wake'],0.),
-            ],)
-        WakeGuide[0] = 'WakeGuide'
-        wires += [WakeGuide]
-        WakeDense = D.bezier(WakeGuide, N=opts['DenseSamplingNPts'])
-        WakeDense[0] = 'WakeDense'
-        # wires += [WakeDense]
+    TE_top = np.array([fX[-2]-fX[-1],fY[-2]-fY[-1],fZ[-2]-fZ[-1]])
+    TE_bottom = np.array([fX[1]-fX[0],fY[1]-fY[0],fZ[1]-fZ[0]])
+    TE_top_norm = np.sqrt(TE_top.dot(TE_top))
+    TE_bottom_norm = np.sqrt(TE_bottom.dot(TE_bottom))
+    TE_angle = np.rad2deg(np.arccos( TE_top.dot(TE_bottom) / (TE_top_norm*TE_bottom_norm) ))
 
-        # Discretize wake curves
-        WakeTop = W.discretize(WakeDense, N=pts['Wake'],
-            Distribution=dict(
+    Topology = 'O' if TE_angle > opts['UseOShapeIfTrailingEdgeAngleIsBiggerThan'] else 'C'
+
+    if Topology == 'C':
+
+        if isFoilClosed:
+            fX[0] = fX[-1] = 0.5*(fX[0]+fX[-1])
+            fY[0] = fY[-1] = 0.5*(fY[0]+fY[-1])
+
+            # Wake guide
+            WakeGuide = D.polyline([
+                (fX[0],fY[0],0.),
+                (fX[0]+TEdir[0]*size['TrailingEdgeTension']*size['Wake'],fY[0]+TEdir[1]*size['TrailingEdgeTension']*size['Wake'],0.),
+                (fX[0]+size['Wake'],fY[0]+TEdir[1]*size['TrailingEdgeTension']*size['Wake'],0.),
+                ],)
+            WakeGuide[0] = 'WakeGuide'
+            wires += [WakeGuide]
+            WakeDense = D.bezier(WakeGuide, N=opts['DenseSamplingNPts'])
+            WakeDense[0] = 'WakeDense'
+
+            # Discretize wake curves
+            WakeTop = W.discretize(WakeDense, N=pts['Wake'],
+                Distribution=dict(
+                    kind='tanhTwoSides',
+                    FirstCellHeight=cells['TrailingEdge'],
+                    LastCellHeight=cells['Farfield']),
+                MappingLaw=opts['MappingLaw'],
+            )
+            WakeTop[0] = 'WakeTop'
+            WakeBottom = I.copyTree(WakeTop)
+            WakeBottom[0] = 'WakeBottom'
+            T._reorder(WakeBottom, (-1, 2, 3))
+            wires += [WakeTop,WakeBottom]
+
+
+            T._reorder(WakeBottom,(-1,2,3))
+            CellHeightFieldTop,    = J.invokeFields(WakeTop,   ['WallCellHeight'])
+            CellHeightFieldBottom, = J.invokeFields(WakeBottom,['WallCellHeight'])
+            CellHeightFieldFoil,   = J.invokeFields(foil,      ['WallCellHeight'])
+            CellHeightFieldFoil[:] = WallCellHeight
+            sWake = W.gets(WakeTop)
+
+
+            WakeFarfieldCellHeight = cells['WakeFarfieldAspectRatio']*cells['Farfield']
+            for i in range(1,pts['Wake']-1):
+                Hratio = cells['ClosedWakeAbscissaRatio']
+                CellHeight = J.interpolate__(sWake[i],
+                    [0.,cells['ClosedWakeAbscissaCtrl'] , 1.],
+                    [WallCellHeight,
+                     Hratio*WakeFarfieldCellHeight+(1-Hratio)*WallCellHeight,
+                     WakeFarfieldCellHeight],
+                    Law='interp1d_quadratic')
+                CellHeightFieldTop[i]    = CellHeight
+                CellHeightFieldBottom[i] = CellHeight
+            T._reorder(WakeBottom,(-1,2,3))
+
+        else:
+            # Build Two separate trailing edge wake curves
+
+            # Compute trailing edge wake discretization
+            UniformNPtsWake = np.maximum(int(TEdistance/WallCellHeight), 6)
+            NPtsWakeHeight = np.minimum(pts['WakeHeightMaxPoints'],UniformNPtsWake)
+            WakeLeft = W.linelaw(P1=(fX[0], fY[0], 0), P2=(fX[-1], fY[-1], 0), N=NPtsWakeHeight, Distribution=dict(
                 kind='tanhTwoSides',
-                FirstCellHeight=cells['TrailingEdge'],
-                LastCellHeight=cells['Farfield']),
-            MappingLaw=opts['MappingLaw'],
-        )
-        WakeTop[0] = 'WakeTop'
-        WakeBottom = I.copyTree(WakeTop)
-        WakeBottom[0] = 'WakeBottom'
-        T._reorder(WakeBottom, (-1, 2, 3))
-        wires += [WakeTop,WakeBottom]
+                FirstCellHeight=WallCellHeight,
+                LastCellHeight=WallCellHeight))
+            WakeLeft[0] = 'WakeLeft'
+
+            WakeEndPointTop = np.array([fX[-1]+size['Wake'],fY[-1]+TEdir[1]*size['TrailingEdgeTension']*size['Wake']+0.5*NPtsWakeHeight*cells['WakeFarfieldAspectRatio']*cells['Farfield'],0.])
+
+            WakeEndPointBottom = np.array([fX[0]+size['Wake'],fY[0]+TEdir[1]*size['TrailingEdgeTension']*size['Wake']-0.5*NPtsWakeHeight*cells['WakeFarfieldAspectRatio']*cells['Farfield'],0.])
+
+            WakeRight = D.line(WakeEndPointBottom,WakeEndPointTop,NPtsWakeHeight)
+            WakeRight[0] = 'WakeRight'
+            wires += [WakeRight]
+
+            # Wake guide (top side)
+            WakeGuideTop = D.polyline([
+                (fX[-1],fY[-1],0.),
+                (fX[-1]+TEdir[0]*size['TrailingEdgeTension']*size['Wake'],fY[-1]+TEdir[1]*size['TrailingEdgeTension']*size['Wake'],0.),
+                tuple(WakeEndPointTop), # TODO: ask for evolution to allow np.array
+                ],)
+            WakeGuideTop[0] = 'WakeGuideTop'
+            wires += [WakeGuideTop]
+            WakeDenseTop = D.bezier(WakeGuideTop, N=opts['DenseSamplingNPts'])
+            WakeDenseTop[0] = 'WakeDenseTop'
+
+            # Wake guide (bottom side)
+            WakeGuideBottom = D.polyline([
+                (fX[0],fY[0],0.),
+                (fX[0]+TEdir[0]*size['TrailingEdgeTension']*size['Wake'],fY[0]+TEdir[1]*size['TrailingEdgeTension']*size['Wake'],0.),
+                tuple(WakeEndPointBottom), # TODO: ask for evolution to allow np.array
+                ])
+            WakeGuideBottom[0] = 'WakeGuideBottom'
+            wires += [WakeGuideBottom]
+            WakeDenseBottom = D.bezier(WakeGuideBottom, N=opts['DenseSamplingNPts'])
+            WakeDenseBottom[0] = 'WakeDenseBottom'
+
+            # Discretize wake curves
+            WakeTop = W.discretize(WakeDenseTop, N=pts['Wake'],
+                Distribution=dict(
+                    kind='tanhTwoSides',
+                    FirstCellHeight=cells['TrailingEdge'],
+                    LastCellHeight=cells['Farfield']),
+                MappingLaw=opts['MappingLaw'],
+            )
+            WakeTop[0] = 'WakeTop'
+            WakeBottom = W.discretize(WakeDenseBottom, N=pts['Wake'],
+                Distribution=dict(
+                    kind='tanhTwoSides',
+                    FirstCellHeight=cells['TrailingEdge'],
+                    LastCellHeight=cells['Farfield']),
+                MappingLaw=opts['MappingLaw'],
+            )
+            WakeBottom[0] = 'WakeBottom'
+            T._reorder(WakeBottom, (-1, 2, 3))
+            wires += [WakeTop,WakeBottom]
 
 
-        T._reorder(WakeBottom,(-1,2,3))
-        CellHeightFieldTop,    = J.invokeFields(WakeTop,   ['WallCellHeight'])
-        CellHeightFieldBottom, = J.invokeFields(WakeBottom,['WallCellHeight'])
-        CellHeightFieldFoil,   = J.invokeFields(foil,      ['WallCellHeight'])
-        CellHeightFieldFoil[:] = WallCellHeight
-        sWake = W.gets(WakeTop)
+            # # This fails (negative cells)
+            # # TODO: Create Cassiopee ticket ?
+            # WakeTFI = G.TFI([WakeLeft,WakeRight,WakeBottom,WakeTop])
+            # WakeTFI[0] = 'WakeTFI'
+            # surfs += [WakeTFI]
 
 
-        WakeFarfieldCellHeight = cells['WakeFarfieldAspectRatio']*cells['Farfield']
-        for i in range(1,pts['Wake']-1):
-            Hratio = cells['ClosedWakeAbscissaRatio']
-            CellHeight = J.interpolate__(sWake[i],
-                [0.,cells['ClosedWakeAbscissaCtrl'] , 1.],
-                [WallCellHeight,
-                 Hratio*WakeFarfieldCellHeight+(1-Hratio)*WallCellHeight,
-                 WakeFarfieldCellHeight],
-                Law='interp1d_quadratic')
-            CellHeightFieldTop[i]    = CellHeight
-            CellHeightFieldBottom[i] = CellHeight
-        T._reorder(WakeBottom,(-1,2,3))
+            # Compute FirstCellHeights of extrusion contour
+            T._reorder(WakeBottom,(-1,2,3))
+
+            CellHeightFieldTop,    = J.invokeFields(WakeTop,   ['WallCellHeight'])
+            CellHeightFieldBottom, = J.invokeFields(WakeBottom,['WallCellHeight'])
+            CellHeightFieldFoil,   = J.invokeFields(foil,      ['WallCellHeight'])
+
+
+            LengthWakeLeft    = D.getLength(WakeLeft)
+            LengthWakeRight   = D.getLength(WakeRight)
+
+            StartCellHeight,_ = W.getFirstAndLastCellLengths(WakeLeft)
+            LastCellHeight,_  = W.getFirstAndLastCellLengths(WakeRight)
+
+
+            CellHeightFieldTop[0]     = WallCellHeight
+            CellHeightFieldBottom[0]  = WallCellHeight
+            CellHeightFieldTop[-1]    = LastCellHeight
+            CellHeightFieldBottom[-1] = LastCellHeight
+            CellHeightFieldFoil[:] = WallCellHeight
+
+            xTop, yTop, zTop = J.getxyz(WakeTop)
+            xBot, yBot, zBot = J.getxyz(WakeBottom)
+
+            for i in range(1,pts['Wake']-1):
+                CurrentLength = ((xTop[i]-xBot[i])**2+
+                                 (yTop[i]-yBot[i])**2+
+                                 (zTop[i]-zBot[i])**2)**0.5
+
+                CellHeight = np.interp(CurrentLength,
+                    [LengthWakeLeft,LengthWakeRight],
+                    [StartCellHeight,LastCellHeight])
+
+
+                CellHeightFieldTop[i] = CellHeightFieldBottom[i] = CellHeight
+
+        # Build Extrusion curve (boundary-layer)
+        ExtrusionCurve    = T.join([WakeBottom,foil,WakeTop])
+        ExtrusionCurve[0] = 'ExtrusionCurve'
+        sEC = W.gets(ExtrusionCurve)
+        WallCellHeightDist,   = J.getVars(ExtrusionCurve, ['WallCellHeight'])
+
+
+    elif Topology == 'O':
+
+        ExtrusionCurve    = foil
+        ExtrusionCurve[0] = 'ExtrusionCurve'
+        WallCellHeightDist,   = J.invokeFields(ExtrusionCurve, ['WallCellHeight'])
+        sEC = W.gets(ExtrusionCurve)
+        WallCellHeightDist[:] = WallCellHeight
 
     else:
-        # Build Two separate trailing edge wake curves
-        isFoilClosed = False
+        raise ValueError('FATAL')
 
-        # Compute trailing edge wake discretization
-        UniformNPtsWake = np.maximum(int(TEdistance/WallCellHeight), 6)
-        NPtsWakeHeight = np.minimum(pts['WakeHeightMaxPoints'],UniformNPtsWake)
-        WakeLeft = W.linelaw(P1=(fX[0], fY[0], 0), P2=(fX[-1], fY[-1], 0), N=NPtsWakeHeight, Distribution=dict(
-            kind='tanhTwoSides',
-            FirstCellHeight=WallCellHeight,
-            LastCellHeight=WallCellHeight))
-        WakeLeft[0] = 'WakeLeft'
-
-        WakeEndPointTop = np.array([fX[-1]+size['Wake'],fY[-1]+TEdir[1]*size['TrailingEdgeTension']*size['Wake']+0.5*NPtsWakeHeight*cells['WakeFarfieldAspectRatio']*cells['Farfield'],0.])
-
-        WakeEndPointBottom = np.array([fX[0]+size['Wake'],fY[0]+TEdir[1]*size['TrailingEdgeTension']*size['Wake']-0.5*NPtsWakeHeight*cells['WakeFarfieldAspectRatio']*cells['Farfield'],0.])
-
-        WakeRight = D.line(WakeEndPointBottom,WakeEndPointTop,NPtsWakeHeight)
-        WakeRight[0] = 'WakeRight'
-        wires += [WakeRight]
-
-        # Wake guide (top side)
-        WakeGuideTop = D.polyline([
-            (fX[-1],fY[-1],0.),
-            (fX[-1]+TEdir[0]*size['TrailingEdgeTension']*size['Wake'],fY[-1]+TEdir[1]*size['TrailingEdgeTension']*size['Wake'],0.),
-            tuple(WakeEndPointTop), # TODO: ask for evolution to allow np.array
-            ],)
-        WakeGuideTop[0] = 'WakeGuideTop'
-        wires += [WakeGuideTop]
-        WakeDenseTop = D.bezier(WakeGuideTop, N=opts['DenseSamplingNPts'])
-        WakeDenseTop[0] = 'WakeDenseTop'
-
-        # Wake guide (bottom side)
-        WakeGuideBottom = D.polyline([
-            (fX[0],fY[0],0.),
-            (fX[0]+TEdir[0]*size['TrailingEdgeTension']*size['Wake'],fY[0]+TEdir[1]*size['TrailingEdgeTension']*size['Wake'],0.),
-            tuple(WakeEndPointBottom), # TODO: ask for evolution to allow np.array
-            ])
-        WakeGuideBottom[0] = 'WakeGuideBottom'
-        wires += [WakeGuideBottom]
-        WakeDenseBottom = D.bezier(WakeGuideBottom, N=opts['DenseSamplingNPts'])
-        WakeDenseBottom[0] = 'WakeDenseBottom'
-
-        # Discretize wake curves
-        WakeTop = W.discretize(WakeDenseTop, N=pts['Wake'],
-            Distribution=dict(
-                kind='tanhTwoSides',
-                FirstCellHeight=cells['TrailingEdge'],
-                LastCellHeight=cells['Farfield']),
-            MappingLaw=opts['MappingLaw'],
-        )
-        WakeTop[0] = 'WakeTop'
-        WakeBottom = W.discretize(WakeDenseBottom, N=pts['Wake'],
-            Distribution=dict(
-                kind='tanhTwoSides',
-                FirstCellHeight=cells['TrailingEdge'],
-                LastCellHeight=cells['Farfield']),
-            MappingLaw=opts['MappingLaw'],
-        )
-        WakeBottom[0] = 'WakeBottom'
-        T._reorder(WakeBottom, (-1, 2, 3))
-        wires += [WakeTop,WakeBottom]
-
-        '''
-        # This fails (negative cells)
-        # TODO: Create Cassiopee ticket ?
-        WakeTFI = G.TFI([WakeLeft,WakeRight,WakeBottom,WakeTop])
-        WakeTFI[0] = 'WakeTFI'
-        surfs += [WakeTFI]
-        '''
-
-        # Compute FirstCellHeights of extrusion contour
-        T._reorder(WakeBottom,(-1,2,3))
-
-        CellHeightFieldTop,    = J.invokeFields(WakeTop,   ['WallCellHeight'])
-        CellHeightFieldBottom, = J.invokeFields(WakeBottom,['WallCellHeight'])
-        CellHeightFieldFoil,   = J.invokeFields(foil,      ['WallCellHeight'])
-
-
-        LengthWakeLeft    = D.getLength(WakeLeft)
-        LengthWakeRight   = D.getLength(WakeRight)
-
-        StartCellHeight,_ = W.getFirstAndLastCellLengths(WakeLeft)
-        LastCellHeight,_  = W.getFirstAndLastCellLengths(WakeRight)
-
-
-        CellHeightFieldTop[0]     = WallCellHeight
-        CellHeightFieldBottom[0]  = WallCellHeight
-        CellHeightFieldTop[-1]    = LastCellHeight
-        CellHeightFieldBottom[-1] = LastCellHeight
-        CellHeightFieldFoil[:] = WallCellHeight
-
-        xTop, yTop, zTop = J.getxyz(WakeTop)
-        xBot, yBot, zBot = J.getxyz(WakeBottom)
-
-        for i in range(1,pts['Wake']-1):
-            CurrentLength = ((xTop[i]-xBot[i])**2+
-                             (yTop[i]-yBot[i])**2+
-                             (zTop[i]-zBot[i])**2)**0.5
-
-            # Requires recent version of scipy
-            # CellHeight = J.interpolate__(CurrentLength,
-            #     [LengthWakeLeft,LengthWakeRight],
-            #     [StartCellHeight,LastCellHeight],
-            #     Law='interp1d_linear')
-            #
-            CellHeight = np.interp(CurrentLength,
-                [LengthWakeLeft,LengthWakeRight],
-                [StartCellHeight,LastCellHeight])
-
-
-            CellHeightFieldTop[i] = CellHeightFieldBottom[i] = CellHeight
-
-    # Build Extrusion curve (boundary-layer)
-    ExtrusionCurve    = T.join([WakeBottom,foil,WakeTop])
-    ExtrusionCurve[0] = 'ExtrusionCurve'
-    sEC = W.gets(ExtrusionCurve)
-    WallCellHeightDist,   = J.getVars(ExtrusionCurve, ['WallCellHeight'])
     wires += [ExtrusionCurve]
-
 
     # Build distribution law (1D curve, boundary layer)
     BLdistrib = W.linelaw(P1=(0,0,0),P2=(0,size['BoundaryLayerMaxHeight'],0),
@@ -2387,56 +2406,61 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
     BLdistribY = J.gety(BLdistrib)
     NPtsBL = len(BLdistribY)
 
-    # Build FarWakeExtrude distribution law (1D curve)
-    dH = cells['Farfield']*cells['WakeFarfieldAspectRatio']
-    FarWakeDistrib = D.line(
-        (0,0,0),
-        (0,dH*(NPtsBL-1),0),
-        NPtsBL)
-    FarWakeDistribY = J.gety(FarWakeDistrib)
-
-
     # From field 'WallCellHeight', build distribution for extrusion
     Ni = C.getNPts(ExtrusionCurve)
     Lcurve = D.getLength(ExtrusionCurve)
     Distrib4Extrusion = G.cart((0,0,0),(1./(Ni-1),1./(NPtsBL-1),1),(Ni,NPtsBL,1))
     x, y = J.getxy(Distrib4Extrusion)
-    MaxStretch = dH/WallCellHeight
-    MinStretch = 1.0
-    for i in range(Ni):
-        x[i,:] = sEC[i]
-        for j in range(NPtsBL):
-            StretchFactor = np.maximum(WallCellHeightDist[i]/WallCellHeight,1.0)
 
-            # Requires recent version of scipy:
-            # NewY = J.interpolate__(StretchFactor,
-            #     [MinStretch, MaxStretch],
-            #     [BLdistribY[j], FarWakeDistribY[j]])
+    if Topology == 'C':
 
-            # temporarily (TODO: request SATOR update)
-            NewY = np.interp(StretchFactor,
-                [MinStretch, MaxStretch],
-                [BLdistribY[j], FarWakeDistribY[j]])
+        # Build FarWakeExtrude distribution law (1D curve)
+        dH = cells['Farfield']*cells['WakeFarfieldAspectRatio']
+        FarWakeDistrib = D.line(
+            (0,0,0),
+            (0,dH*(NPtsBL-1),0),
+            NPtsBL)
+        FarWakeDistribY = J.gety(FarWakeDistrib)
+        MaxStretch = dH/WallCellHeight
+        MinStretch = 1.0
+        ExtrusionDistributions = []
+        for i in range(Ni):
+            x[i,:] = sEC[i]
 
-            y[i,j] = NewY
-    y[0,:] = y[-1,:] = FarWakeDistribY
+            for j in range(NPtsBL):
+                StretchFactor = np.maximum(WallCellHeightDist[i]/WallCellHeight,1.0)
+
+                NewY = np.interp(StretchFactor,
+                    [MinStretch, MaxStretch],
+                    [BLdistribY[j], FarWakeDistribY[j]])
+
+                y[i,j] = NewY
+        y[0,:] = y[-1,:] = FarWakeDistribY
+
+    elif Topology == 'O':
+        for i in range(Ni):
+            x[i,:] = sEC[i]
+            y[i,:] = BLdistribY
+
     I._rmNodesByType([ExtrusionCurve,Distrib4Extrusion],'FlowSolution_t')
 
-    ExtrudedMesh = G.hyper2D(ExtrusionCurve, Distrib4Extrusion,"C")
+    ExtrudedMesh = G.hyper2D(ExtrusionCurve, Distrib4Extrusion,Topology)
     ExtrudedMesh[0] = 'ExtrudedMesh'
 
-    # Correct hyper2D mismatch (see Ticket #7517)
-    xCurve, yCurve, zCurve = J.getxyz(ExtrusionCurve)
-    xExtruded, yExtruded, zExtruded = J.getxyz(ExtrudedMesh)
-    xExtruded[0,0] = xExtruded[-1,0] = 0.5*(xExtruded[0,1] + xExtruded[-1,1])
-    yExtruded[0,0] = yExtruded[-1,0] = 0.5*(yExtruded[0,1] + yExtruded[-1,1])
-    zExtruded[0,0] = zExtruded[-1,0] = 0.5*(zExtruded[0,1] + zExtruded[-1,1])
-    # xExtruded[1:-1,0] = xCurve[1:-1]
-    # yExtruded[1:-1,0] = yCurve[1:-1]
-    # zExtruded[1:-1,0] = zCurve[1:-1]
-    xExtruded[:,0] = xCurve[:]
-    yExtruded[:,0] = yCurve[:]
-    zExtruded[:,0] = zCurve[:]
+
+    if Topology == 'C':
+        # Correct hyper2D mismatch (see Ticket #7517)
+        xCurve, yCurve, zCurve = J.getxyz(ExtrusionCurve)
+        xExtruded, yExtruded, zExtruded = J.getxyz(ExtrudedMesh)
+        xExtruded[0,0] = xExtruded[-1,0] = 0.5*(xExtruded[0,1] + xExtruded[-1,1])
+        yExtruded[0,0] = yExtruded[-1,0] = 0.5*(yExtruded[0,1] + yExtruded[-1,1])
+        zExtruded[0,0] = zExtruded[-1,0] = 0.5*(zExtruded[0,1] + zExtruded[-1,1])
+        # xExtruded[1:-1,0] = xCurve[1:-1]
+        # yExtruded[1:-1,0] = yCurve[1:-1]
+        # zExtruded[1:-1,0] = zCurve[1:-1]
+        xExtruded[:,0] = xCurve[:]
+        yExtruded[:,0] = yCurve[:]
+        zExtruded[:,0] = zCurve[:]
 
 
     # Compute Cell Heights (j-direction)
