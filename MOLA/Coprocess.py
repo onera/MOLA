@@ -1091,7 +1091,7 @@ def appendDict2Arrays(arrays, dictToAppend, basename):
 
 def _appendIntegralDataNode2Arrays(arrays, IntegralDataNode):
     '''
-    Beware: this is a private function, employed by updateAndSaveLoads()
+    Beware: this is a private function, employed by :py:func:`extractIntegralData`
 
     This function converts the CGNS IntegralDataNode (as provided by elsA)
     into the Python dictionary structure of arrays dictionary, and append it
@@ -1144,7 +1144,7 @@ def _appendIntegralDataNode2Arrays(arrays, IntegralDataNode):
 
 def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
     '''
-    Beware: this is a private function, employed by :py:func:`updateAndSaveLoads`
+    Beware: this is a private function, employed by :py:func:`extractIntegralData`
 
     This function is employed for adding aerodynamic-relevant coefficients to
     the arrays dictionary. The new quantites are the following :
@@ -1239,7 +1239,7 @@ def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
 
 def _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics):
     '''
-    Beware: this is a private function, employed by updateAndSaveLoads()
+    Beware: this is a private function, employed by :py:func:`extractIntegralData`
 
     Add to arrays dictionary the relevant statistics requested by the user
     through the DesiredStatistics list of special named strings.
@@ -1283,32 +1283,125 @@ def _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics):
             continue
 
         if StatType.lower() == 'avg':
-            StatisticArray = uniform_filter1d(InstantaneousArray,
-                                              size=IterationWindow)
-
-            InvalidValues = np.logical_not(np.isfinite(StatisticArray))
-            StatisticArray[InvalidValues] = 0.
+            StatisticArray = sliddingAverage(InstantaneousArray, IterationWindow)
 
         elif StatType.lower() == 'std':
-            AverageArray = uniform_filter1d(InstantaneousArray,
-                                            size=IterationWindow)
+            avg = sliddingAverage(InstantaneousArray, IterationWindow)
+            arraysSubset['avg-'+VarName] = avg
+            StatisticArray = sliddingSTD(InstantaneousArray, IterationWindow, avg=avg)
 
+        elif StatType.lower() == 'rsd':
+            avg = sliddingAverage(InstantaneousArray, IterationWindow)
+            arraysSubset['avg-'+VarName] = avg
+            std = sliddingSTD(InstantaneousArray, IterationWindow, avg=avg)
+            arraysSubset['std-'+VarName] = std
+            StatisticArray = sliddingRSD(InstantaneousArray, IterationWindow,
+                                        avg=avg, std=std)
 
-            InvalidValues = np.logical_not(np.isfinite(AverageArray))
-            AverageArray[InvalidValues] = 0.
-
-            arraysSubset['avg-'+VarName] = AverageArray
-
-            FilteredInstantaneousSqrd = uniform_filter1d(InstantaneousArray**2,
-                                                      size=IterationWindow)
-
-            InvalidValues = np.logical_not(np.isfinite(FilteredInstantaneousSqrd))
-            FilteredInstantaneousSqrd[InvalidValues] = 0.
-            FilteredInstantaneousSqrd[FilteredInstantaneousSqrd<0] = 0.
-
-            StatisticArray = np.sqrt(np.abs(FilteredInstantaneousSqrd-AverageArray**2))
         arraysSubset[StatKeyword] = StatisticArray
 
+def sliddingAverage(array, window):
+    '''
+    Compute the slidding average of the signal
+
+    Parameters
+    ----------
+
+        array : numpy.ndarray
+            input signal
+
+        window : int
+            length of the slidding window
+
+    Returns
+    -------
+
+        average : numpy.ndarray
+            sliding average
+    '''
+    average = uniform_filter1d(array, size=window)
+    InvalidValues = np.logical_not(np.isfinite(average))
+    average[InvalidValues] = 0.
+    return average
+
+def sliddingSTD(array, window, avg=None):
+    '''
+    Compute the slidding standard deviation of the signal
+
+    Parameters
+    ----------
+
+        array : numpy.ndarray
+            input signal
+
+        window : int
+            length of the slidding window
+
+        avg : numpy.ndarray or :py:obj:`None`
+            slidding average of **array** on the same **window**. If
+            :py:obj:`None`, it is computed
+
+    Returns
+    -------
+
+        std : numpy.ndarray
+            sliding standard deviation
+    '''
+    if avg is None:
+        avg = sliddingAverage(array, window)
+
+    AvgSqrd = uniform_filter1d(array**2, size=window)
+
+    InvalidValues = np.logical_not(np.isfinite(AvgSqrd))
+    AvgSqrd[InvalidValues] = 0.
+    AvgSqrd[AvgSqrd<0] = 0.
+
+    std = np.sqrt(np.abs(AvgSqrd - avg**2))
+
+    return std
+
+def sliddingRSD(array, window, avg=None, std=None):
+    '''
+    Compute the relative slidding standard deviation of the signal
+
+    .. math::
+
+        rsd = std / avg
+
+    Parameters
+    ----------
+
+        array : numpy.ndarray
+            input signal
+
+        window : int
+            length of the slidding window
+
+        average : numpy.ndarray or :py:obj:`None`
+            slidding average of **array** on the same **window**. If
+            :py:obj:`None`, it is computed
+
+        std : numpy.ndarray or :py:obj:`None`
+            slidding standard deviation of **array** on the same **window**. If
+            :py:obj:`None`, it is computed
+
+    Returns
+    -------
+
+        rsd : numpy.ndarray
+            sliding relative standard deviation
+    '''
+    if avg is None:
+        avg = sliddingAverage(array, window)
+    if std is None:
+        std = sliddingSTD(array, window, avg)
+
+    rsd = std / avg
+
+    InvalidValues = np.logical_not(np.isfinite(rsd))
+    rsd[InvalidValues] = 0.
+
+    return rsd
 
 def getIntegralDataName(IntegralDataNode):
     '''

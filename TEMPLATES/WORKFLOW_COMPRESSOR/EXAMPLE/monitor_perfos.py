@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator, LogLocator, NullFormatter
 
 FILE_ARRAYS = 'OUTPUT/arrays.cgns'
+stat4conv = 'rsd'
 
 ordering = dict(MassFlowIn=0,
     PressureStagnationRatio=1,
@@ -57,7 +58,7 @@ for zone in zones:
     varnames.remove('IterationNumber')
     varnames.remove('MassFlowOut')
     for var in copy.deepcopy(varnames):
-        if 'avg-' in var or 'std-' in var:
+        if any([pattern in var for pattern in ['avg-', 'std-', 'rsd-']]):
             varnames.remove(var)
     varnames = sorted(varnames, key=lambda k: ordering[k])
     Nvars = len(varnames)
@@ -71,16 +72,16 @@ for zone in zones:
         v = J.getVars2Dict(zone, ['IterationNumber',
                                   varname,
                                   'avg-'+varname,
-                                  'std-'+varname,])
+                                  stat4conv+'-'+varname,])
         ax[0].set_title('{} {}'.format(row, varname.rstrip('In')))
 
         ax[0].plot(v['IterationNumber'], v[varname], label=svar, color='k')
         if v['avg-'+varname][0] is not None:
             ax[0].plot(v['IterationNumber'], v['avg-'+varname], \
                 label='avg %s'%svar, color='k', linestyle='--')
-        if v['std-'+varname][0] is not None:
-            ax[1].plot(v['IterationNumber'], v['std-'+varname], \
-                label='std %s'%svar, color='k')
+        if v[stat4conv+'-'+varname][0] is not None:
+            ax[1].plot(v['IterationNumber'], v[stat4conv+'-'+varname], \
+                label='%s %s'%(stat4conv, svar), color='k')
 
         if varname == 'MassFlowIn':
             varname = 'MassFlowOut'
@@ -89,15 +90,15 @@ for zone in zones:
             v = J.getVars2Dict(zone, ['IterationNumber',
                                   varname,
                                   'avg-'+varname,
-                                  'std-'+varname,])
+                                  stat4conv+'-'+varname,])
 
             ax[0].plot(v['IterationNumber'], v[varname], label=svar, color='C0')
             if v['avg-'+varname][0] is not None:
                 ax[0].plot(v['IterationNumber'], v['avg-'+varname], \
                     label='avg %s'%svar, color='C0', linestyle='--')
-            if v['std-'+varname][0] is not None:
-                ax[1].plot(v['IterationNumber'], v['std-'+varname], \
-                    label='std %s'%svar, color='C0')
+            if v[stat4conv+'-'+varname][0] is not None:
+                ax[1].plot(v['IterationNumber'], v[stat4conv+'-'+varname], \
+                    label='%s %s'%(stat4conv, svar), color='C0')
 
         ax[1].set_yscale('log')
         for a in ax:
@@ -152,8 +153,9 @@ if ConvergenceHistory:
     plt.ylabel('Residuals')
     plt.legend(loc='best')
     plt.grid()
+    figname = "residuals.pdf"
     print('Saving %s%s%s ...'%(J.CYAN,figname,J.ENDC))
-    plt.savefig("residuals.pdf", dpi=150, bbox_inches='tight')
+    plt.savefig(figname, dpi=150, bbox_inches='tight')
     print(J.GREEN+'ok'+J.ENDC)
 
 plt.show()
