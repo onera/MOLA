@@ -26,7 +26,6 @@ import Converter.Mpi as Cmpi
 
 # ---------------------------- IMPORT MOLA ---------------------------- #
 import MOLA.Coprocess as CO
-import MOLA.Postprocess as POST
 import MOLA.InternalShortcuts as J
 
 # ------------------------------ SETTINGS ------------------------------ #
@@ -149,7 +148,6 @@ CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))
 # save surfaces
 surfs = CO.extractSurfaces(t, setup.Extractions)
 CO.monitorTurboPerformance(surfs, arrays, DesiredStatistics)
-# surfs = POST.absolute2Relative(surfs, loc='nodes')
 CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
 
 # save fields

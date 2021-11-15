@@ -554,14 +554,18 @@ def connectMesh(t, InputMeshes):
                                       tol=ConnectParams['tolerance'],
                                       dim=baseDim)
             elif ConnectionType == 'PeriodicMatch':
-                for angle in ConnectParams['angles']:
-                    print('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)))
-                    t = X.connectMatchPeriodic(t,
-                                            rotationCenter=[0.,0.,0.],
-                                            rotationAngle=[angle,0.,0.],
+                try: rotationCenter = ConnectParams['rotationCenter']
+                except: rotationCenter = [0., 0., 0.]
+                try: rotationAngle = ConnectParams['rotationAngle']
+                except: rotationAngle = [0., 0., 0.]
+                try: translation = ConnectParams['translation']
+                except: translation = [0., 0., 0.]
+                t = X.connectMatchPeriodic(t,
+                                            rotationCenter=rotationCenter,
+                                            rotationAngle=rotationAngle,
+                                            translation=translation,
                                             tol=ConnectParams['tolerance'],
                                             dim=baseDim)
-                    I._rmNodesByName(t,'DimensionalUnits')
             else:
                 ERRMSG = 'Connection type %s not implemented'%ConnectionType
                 raise AttributeError(ERRMSG)

@@ -49,7 +49,7 @@ MaxConvergedCriterionStd  = CO.getOption('MaxConvergedCriterionStd', default=1e-
 ConvergenceFamilyName     = CO.getOption('ConvergenceCriterionFamilyName', default='NONE')
 ConvergenceFluxName       = CO.getOption('ConvergenceFluxName', default='std-MassFlowIn')
 
-DesiredStatistics = ['std-{}'.format(var) for var in ['MassFlowIn', 'MassFlowOut',
+DesiredStatistics = ['rsd-{}'.format(var) for var in ['MassFlowIn', 'MassFlowOut',
     'PressureStagnationRatio', 'TemperatureStagnationRatio', 'EfficiencyIsentropic',
     'PressureStagnationLossCoeff']]
 

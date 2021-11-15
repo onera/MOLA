@@ -45,7 +45,7 @@ except ImportError:
 
 def prepareMesh4ElsA(mesh, NProcs=None, ProcPointsLoad=250000,
                     duplicationInfos={}, blocksToRename={}, SplitBlocks=False,
-                    scale=1.):
+                    scale=1., rotation='fromAG5', PeriodicTranslation=None):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
     from a CGNS file provided by Autogrid 5.
@@ -108,6 +108,28 @@ def prepareMesh4ElsA(mesh, NProcs=None, ProcPointsLoad=250000,
         scale : float
             Homothety factor to apply on the mesh. Default is 1.
 
+        rotation : :py:class:'str' or :py:class:`list`
+            List of rotations to apply on the mesh. If **rotation** =
+            ``fromAG5``, then default rotations are applied:
+
+            >>> rotation = [((0,0,0), (0,1,0), 90), ((0,0,0), (1,0,0), 90)]
+
+            Else, **rotation** must be a list of rotation to apply to the grid
+            component. Each rotation is defined by 3 elements:
+
+                * a 3-tuple corresponding to the center coordinates
+
+                * a 3-tuple corresponding to the rotation axis
+
+                * a float (or integer) defining the angle of rotation in
+                  degrees
+
+
+        PeriodicTranslation : :py:obj:'None' or :py:class:`list` of :py:class:`float`
+            If not :py:obj:'None', the configuration is considered to be with
+            a periodicity in the direction **PeriodicTranslation**. This argument
+            has to be used for linear cascade configurations.
+
     Returns
     -------
 
@@ -125,20 +147,37 @@ def prepareMesh4ElsA(mesh, NProcs=None, ProcPointsLoad=250000,
     else:
         raise ValueError('parameter mesh must be either a filename or a PyTree')
 
-    BladeNumberList = [I.getValue(bn) for bn in I.getNodesFromName(t, 'BladeNumber')]
-    angles = list(set([360./float(bn) for bn in BladeNumberList]))
+    if not I.getNodeFromName(t, 'BladeNumber'):
+        angles = []
+    else:
+        BladeNumberList = [I.getValue(bn) for bn in I.getNodesFromName(t, 'BladeNumber')]
+        angles = list(set([360./float(bn) for bn in BladeNumberList]))
+
+    if rotation == 'fromAG5':
+        rotation = [((0,0,0), (0,1,0), 90),((0,0,0), (1,0,0), 90)]
 
     InputMeshes = [dict(
                     baseName=I.getName(I.getNodeByType(t, 'CGNSBase_t')),
-                    Transform=dict(
-                        scale=scale,
-                        rotate=[((0,0,0), (0,1,0), 90),((0,0,0), (1,0,0), 90)]
-                        ),
-                    Connection=[dict(type='Match', tolerance=1e-8),
-                                dict(type='PeriodicMatch', tolerance=1e-8, angles=angles)
-                                ],
+                    Transform=dict(scale=scale, rotate=rotation),
+                    Connection=[],
                     SplitBlocks=SplitBlocks,
                     )]
+    # Set automatic periodic connections
+    InputMesh = InputMeshes[0]
+    if I.getNodeFromName(t, 'BladeNumber'):
+        BladeNumberList = [I.getValue(bn) for bn in I.getNodesFromName(t, 'BladeNumber')]
+        angles = list(set([360./float(bn) for bn in BladeNumberList]))
+        for angle in angles:
+            print('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)))
+            InputMesh['Connection'].append(
+                    dict(type='PeriodicMatch', tolerance=1e-8, rotationAngle=[angle,0.,0.])
+                    )
+    if PeriodicTranslation:
+        print('  translation = {} m'.format(PeriodicTranslation))
+        InputMesh['Connection'].append(
+                dict(type='PeriodicMatch', tolerance=1e-8, translation=PeriodicTranslation)
+                )
+
 
     t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], blocksToRename=blocksToRename)
     # Check that each zone is attached to a family
@@ -482,7 +521,7 @@ def joinFamilies(t, pattern):
         fam_node = I.getNodeFromNameAndType(t, fam, 'Family_t')
         if fam_node is None:
             print('Add family {}'.format(fam))
-            I._newFamily(fam, parent=base)
+            I.newFamily(fam, parent=base)
 
 def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0)):
     '''
@@ -539,7 +578,7 @@ def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0)):
     check = False
     for zone in I.getNodesFromType(tree, 'Zone_t'):
         zone_name = I.getName(zone)
-        zone_family = I.getValue(I.getNodeFromName(zone, 'FamilyName'))
+        zone_family = I.getValue(I.getNodeFromName1(zone, 'FamilyName'))
         if zone_family == rowFamily:
             print('  > zone {}'.format(zone_name))
             check = True
@@ -690,7 +729,8 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
 
     return ReferenceValues
 
-def setTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}):
+def setTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={},
+    PeriodicTranslation=None):
     '''
     Construct a dictionary concerning the compressor properties.
 
@@ -740,55 +780,33 @@ def setTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}):
                 * OutletPlane : :py:class:`float`, optional
                     Position of the outlet plane for this row.
 
+        PeriodicTranslation : :py:obj:'None' or :py:class:`list` of :py:class:`float`
+            If not :py:obj:'None', the configuration is considered to be with
+            a periodicity in the direction **PeriodicTranslation**. This argument
+            has to be used for linear cascade configurations.
+
     Returns
     -------
 
         TurboConfiguration : :py:class:`dict`
             set of compressor properties
     '''
-
-    TurboConfiguration = dict(
-        ShaftRotationSpeed = ShaftRotationSpeed,
-        HubRotationSpeed   = HubRotationSpeed,
-        Rows               = Rows
-        )
-    for row, rowParams in TurboConfiguration['Rows'].items():
-        for key, value in rowParams.items():
-            if key == 'RotationSpeed' and value == 'auto':
-                rowParams[key] = ShaftRotationSpeed
-        if not 'NumberOfBladesSimulated' in rowParams:
-            rowParams['NumberOfBladesSimulated'] = 1
+    if PeriodicTranslation:
+        TurboConfiguration = dict(PeriodicTranslation=PeriodicTranslation)
+    else:
+        TurboConfiguration = dict(
+            ShaftRotationSpeed = ShaftRotationSpeed,
+            HubRotationSpeed   = HubRotationSpeed,
+            Rows               = Rows
+            )
+        for row, rowParams in TurboConfiguration['Rows'].items():
+            for key, value in rowParams.items():
+                if key == 'RotationSpeed' and value == 'auto':
+                    rowParams[key] = ShaftRotationSpeed
+            if not 'NumberOfBladesSimulated' in rowParams:
+                rowParams['NumberOfBladesSimulated'] = 1
 
     return TurboConfiguration
-
-def getRotationSpeedOfRows(t):
-    '''
-    Get the rotationnal speed of each row in the PyTree ``<t>``
-
-    Parameters
-    ----------
-
-        t : PyTree
-            PyTree with declared families (Family_t) for each row with a
-            ``.Solver#Motion`` node.
-
-    Returns
-    -------
-
-        omegaDict : :py:class:`dict`
-            dictionary with the rotation speed associated to each row family
-            name.
-    '''
-    omegaDict = dict()
-    for node in I.getNodesFromName(t, '.Solver#Motion'):
-        rowNode, pos = I.getParentOfNode(t, node)
-        if I.getType(rowNode) != 'Family_t':
-            continue
-        omega = I.getValue(I.getNodeFromName(node, 'omega'))
-        rowName = I.getName(rowNode)
-        omegaDict[rowName] = omega
-
-    return omegaDict
 
 def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
                      FULL_CGNS_MODE=False, dim=3):
@@ -1064,6 +1082,19 @@ def setBC_Walls(t, TurboConfiguration, bladeFamilyNames=['Blade']):
             list of patterns to find families related to blades.
 
     '''
+    if 'PeriodicTranslation' in TurboConfiguration:
+        # For linear cascade configuration: all blocks and wall are motionless
+        hub    = I.getNodesFromNameAndType(t, '*HUB*', 'Family_t')
+        shroud = I.getNodesFromNameAndType(t, '*SHROUD*', 'Family_t')
+        blades = []
+        for blade_family in bladeFamilyNames:
+            for famNode in I.getNodesFromNameAndType(t, '*{}*'.format(blade_family), 'Family_t'):
+                blades.append(famNode)
+        for wallFamily in hub + shroud + blades:
+            I._rmNodesByType(wallFamily, 'FamilyBC_t')
+            I.newFamilyBC(value='BCWallViscous', parent=wallFamily)
+
+        return
 
     def omegaHubAtX(x):
         omega = np.zeros(x.shape, dtype=float)
