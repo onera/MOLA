@@ -2182,7 +2182,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     return ReferenceValues
 
 
-def getElsAkeysCFD(config='3d'):
+def getElsAkeysCFD(config='3d', **kwargs):
     '''
     Create a dictionary of pairs of elsA keyword/values to be employed as
     cfd problem object.
@@ -2193,6 +2193,9 @@ def getElsAkeysCFD(config='3d'):
         config : str
             elsa keyword config (``'2d'`` or ``'3d'``)
 
+        kwargs : dict
+            additional parameters for elsA *cfd* object
+
     Returns
     -------
 
@@ -2202,6 +2205,7 @@ def getElsAkeysCFD(config='3d'):
     elsAkeysCFD      = dict(
         config=config,
         extract_filtering='inactive')
+    elsAkeysCFD.update(kwargs)
     return elsAkeysCFD
 
 
@@ -3759,3 +3763,31 @@ def autoMergeBCs(t, familyNames=[]):
                 del(zoneBcsOut)
 
     return t
+
+def checkFamiliesInZonesAndBC(t):
+    '''
+    Check that each zone and each BC is attached to a family (so there must be
+    a ``FamilyName_t`` node). Raise an exception in case of family missing.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            PyTree to check
+    '''
+    for base in I.getBases(t):
+        if any([pattern in I.getName(base) for pattern in ['Numeca', 'meridional_base', 'tools_base']]):
+            # Base specific to Autogrid
+            continue
+        # Check that each zone is attached to a family
+        for zone in I.getZones(base):
+            if not I.getNodeFromType1(zone, 'FamilyName_t'):
+                FAILMSG = 'Each zone must be attached to a Family:\n'
+                FAILMSG += 'Zone {} has no node of type FamilyName_t'.format(I.getName(zone))
+                raise Exception(J.FAIL+FAILMSG+J.ENDC)
+            # Check that each BC is attached to a family
+            for bc in I.getNodesFromType(zone, 'BC_t'):
+                if not I.getNodeFromType1(bc, 'FamilyName_t'):
+                    FAILMSG = 'Each BC must be attached to a Family:\n'
+                    FAILMSG += 'BC {} in zone {} has no node of type FamilyName_t'.format(I.getName(bc), I.getName(zone))
+                    raise Exception(J.FAIL+FAILMSG+J.ENDC)

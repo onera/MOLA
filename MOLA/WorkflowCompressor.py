@@ -43,7 +43,7 @@ except ImportError:
     print(J.WARN + MSG + J.ENDC)
     ETC = None
 
-def prepareMesh4ElsA(mesh, NProcs=None, ProcPointsLoad=250000,
+def prepareMesh4ElsA(mesh, NProcs=None, ProcPointsLoad=100000,
                     duplicationInfos={}, blocksToRename={}, SplitBlocks=False,
                     scale=1., rotation='fromAG5', PeriodicTranslation=None):
     '''
@@ -148,6 +148,11 @@ def prepareMesh4ElsA(mesh, NProcs=None, ProcPointsLoad=250000,
         raise ValueError('parameter mesh must be either a filename or a PyTree')
 
     if not I.getNodeFromName(t, 'BladeNumber'):
+        if PeriodicTranslation is None:
+            MSG = 'There must be a BladeNumber node for each row Family. '
+            MSG += 'Otherwise, the option PeriodicTranslation must not be None '
+            MSG += 'to indicate a configuration with a periodicity by translation'
+            raise Exception(J.FAIL + MSG + J.ENDC)
         angles = []
     else:
         BladeNumberList = [I.getValue(bn) for bn in I.getNodesFromName(t, 'BladeNumber')]
@@ -178,14 +183,8 @@ def prepareMesh4ElsA(mesh, NProcs=None, ProcPointsLoad=250000,
                 dict(type='PeriodicMatch', tolerance=1e-8, translation=PeriodicTranslation)
                 )
 
-
+    PRE.checkFamiliesInZonesAndBC(t)
     t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], blocksToRename=blocksToRename)
-    # Check that each zone is attached to a family
-    for zone in I.getZones(t):
-        if not I.getNodeFromType1(zone, 'FamilyName_t'):
-            FAILMSG = 'Each zone must be attached to a Family:\n'
-            FAILMSG += 'Zone {} has no node of type FamilyName_t'.format(I.getName(zone))
-            raise Exception(J.FAIL+FAILMSG+J.ENDC)
     PRE.transform(t, InputMeshes)
     for row, rowParams in duplicationInfos.items():
         try: MergeBlocks = rowParams['MergeBlocks']
@@ -222,7 +221,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
         TurboConfiguration : dict
             Dictionary concerning the compressor properties
-            For details, refer to documentation of :py:func:`setTurboConfiguration`
+            For details, refer to documentation of :py:func:`getTurboConfiguration`
 
         Extractions : :py:class:`list` of :py:class:`dict`
 
@@ -287,14 +286,14 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     else:
         ReferenceValues['NProc'] = 0
         Splitter = 'PyPart'
-    elsAkeysCFD      = PRE.getElsAkeysCFD()
+    elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-6)
     elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues)
     if BodyForceInputData: NumericalParams['useBodyForce'] = True
 
     if not 'NumericalScheme' in NumericalParams:
         NumericalParams['NumericalScheme'] = 'roe'
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues, **NumericalParams)
-    TurboConfiguration = setTurboConfiguration(**TurboConfiguration)
+    TurboConfiguration = getTurboConfiguration(**TurboConfiguration)
 
     AllSetupDics = dict(FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
@@ -368,6 +367,7 @@ def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
             modified tree
 
     '''
+    print(J.CYAN + 'Add ChannelHeight in the mesh...' + J.ENDC)
     excludeZones = True
     if not subTree:
         subTree = t
@@ -388,7 +388,22 @@ def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
                 C._initVars(zone, 'ChannelHeight=-1')
         I.__FlowSolutionNodes__ = OLD_FlowSolutionNodes
 
+    print(J.GREEN + 'done.' + J.ENDC)
     return t
+
+def prepareTree(filename, rows, output='raw_mesh.cgns'):
+    t = C.convertFile2PyTree(filename)
+
+    for row, rowParams in rows.items():
+        I._renameNode(t, rowParams['hub'], '{}_HUB'.format(row))
+        I._renameNode(t, rowParams['shroud'],'{}_SHROUD'.format(row))
+        I._renameNode(t, rowParams['blade'],  '{}_Main_Blade'.format(row))
+        if not I.getNodesFromNameAndType2(t, row, 'Family_t'):
+            C._tagWithFamily(t, row, add=True)
+            C._addFamily2Base(t, row)
+            J.set(n, 'Periodicity', BladeNumber=rowParams['BladeNumber'])
+
+    C.convertPyTree2File(t, output)
 
 def cleanMeshFromAutogrid(t, basename='Base#1', blocksToRename={}):
     '''
@@ -729,7 +744,7 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
 
     return ReferenceValues
 
-def setTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={},
+def getTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={},
     PeriodicTranslation=None):
     '''
     Construct a dictionary concerning the compressor properties.
@@ -962,7 +977,7 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
                   function.
 
         TurboConfiguration : dict
-            as produced by :py:func:`setTurboConfiguration`
+            as produced by :py:func:`getTurboConfiguration`
 
         FluidProperties : dict
             as produced by :py:func:`computeFluidProperties`
@@ -1051,7 +1066,10 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
         else:
             raise AttributeError('BC type %s not implemented'%BCparam['type'])
 
-def setBC_Walls(t, TurboConfiguration, bladeFamilyNames=['Blade']):
+def setBC_Walls(t, TurboConfiguration,
+                    bladeFamilyNames=['BLADE', 'AUBE'],
+                    hubFamilyNames=['HUB', 'MOYEU'],
+                    shroudFamilyNames=['SHROUD', 'CARTER']):
     '''
     Set all the wall boundary conditions in a turbomachinery context, by making
     the following operations:
@@ -1076,24 +1094,44 @@ def setBC_Walls(t, TurboConfiguration, bladeFamilyNames=['Blade']):
             Tree to modify
 
         TurboConfiguration : dict
-            as produced :py:func:`setTurboConfiguration`
+            as produced :py:func:`getTurboConfiguration`
 
         bladeFamilyNames : :py:class:`list` of :py:class:`str`
-            list of patterns to find families related to blades.
+            list of patterns to find families related to blades. Not sensible
+            to string case. By default, search patterns 'BLADE' and 'AUBE'.
+
+        hubFamilyNames : :py:class:`list` of :py:class:`str`
+            list of patterns to find families related to hub. Not sensible
+            to string case. By default, search patterns 'HUB' and 'MOYEU'.
+
+        shroudFamilyNames : :py:class:`list` of :py:class:`str`
+            list of patterns to find families related to shroud. Not sensible
+            to string case. By default, search patterns 'SHROUD' and 'CARTER'.
 
     '''
+    def extendListOfFamilies(FamilyNames):
+        '''
+        For each <NAME> in the list **FamilyNames**, add Name, name and NAME.
+        '''
+        ExtendedFamilyNames = copy.deepcopy(FamilyNames)
+        for fam in FamilyNames:
+            newNames = [fam.lower(), fam.upper(), fam.capitalize()]
+            for name in newNames:
+                if name not in ExtendedFamilyNames:
+                    ExtendedFamilyNames.append(name)
+        return ExtendedFamilyNames
+
+    bladeFamilyNames = extendListOfFamilies(bladeFamilyNames)
+    hubFamilyNames = extendListOfFamilies(hubFamilyNames)
+    shroudFamilyNames = extendListOfFamilies(shroudFamilyNames)
+
     if 'PeriodicTranslation' in TurboConfiguration:
         # For linear cascade configuration: all blocks and wall are motionless
-        hub    = I.getNodesFromNameAndType(t, '*HUB*', 'Family_t')
-        shroud = I.getNodesFromNameAndType(t, '*SHROUD*', 'Family_t')
-        blades = []
-        for blade_family in bladeFamilyNames:
-            for famNode in I.getNodesFromNameAndType(t, '*{}*'.format(blade_family), 'Family_t'):
-                blades.append(famNode)
-        for wallFamily in hub + shroud + blades:
-            I._rmNodesByType(wallFamily, 'FamilyBC_t')
-            I.newFamilyBC(value='BCWallViscous', parent=wallFamily)
-
+        wallFamily = []
+        for wallFamily in bladeFamilyNames + hubFamilyNames + shroudFamilyNames:
+            for famNode in I.getNodesFromNameAndType(t, '*{}*'.format(wallFamily), 'Family_t'):
+                I._rmNodesByType(wallFamily, 'FamilyBC_t')
+                I.newFamilyBC(value='BCWallViscous', parent=wallFamily)
         return
 
     def omegaHubAtX(x):
@@ -1131,36 +1169,38 @@ def setBC_Walls(t, TurboConfiguration, bladeFamilyNames=['Blade']):
                     axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
 
     # HUB
-    for famNode in I.getNodesFromNameAndType(t, '*HUB*', 'Family_t'):
-        famName = I.getName(famNode)
-        I.newFamilyBC(value='BCWallViscous', parent=famNode)
-        J.set(famNode, '.Solver#BC',
-                type='walladia',
-                data_frame='user',
-                omega=0.,
-                axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
-                axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
+    for hub_family in hubFamilyNames:
+        for famNode in I.getNodesFromNameAndType(t, '*{}*'.format(hub_family), 'Family_t'):
+            famName = I.getName(famNode)
+            I.newFamilyBC(value='BCWallViscous', parent=famNode)
+            J.set(famNode, '.Solver#BC',
+                    type='walladia',
+                    data_frame='user',
+                    omega=0.,
+                    axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
+                    axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
 
-        wallHubBC = C.extractBCOfName(t, 'FamilySpecified:{0}'.format(famName))
-        wallHubBC = C.node2Center(wallHubBC)
-        for w in wallHubBC:
-            xw = I.getValue(I.getNodeFromName(w,'CoordinateX'))
-            zname, wname = I.getName(w).split(os.sep)
-            znode = I.getNodeFromNameAndType(t,zname,'Zone_t')
-            wnode = I.getNodeFromNameAndType(znode,wname,'BC_t')
-            BCDataSet = I.newBCDataSet(name='BCDataSet#Init', value='Null',
-                gridLocation='FaceCenter', parent=wnode)
-            J.set(BCDataSet, 'NeumannData', childType='BCData_t', omega=omegaHubAtX(xw))
+            wallHubBC = C.extractBCOfName(t, 'FamilySpecified:{0}'.format(famName))
+            wallHubBC = C.node2Center(wallHubBC)
+            for w in wallHubBC:
+                xw = I.getValue(I.getNodeFromName(w,'CoordinateX'))
+                zname, wname = I.getName(w).split(os.sep)
+                znode = I.getNodeFromNameAndType(t,zname,'Zone_t')
+                wnode = I.getNodeFromNameAndType(znode,wname,'BC_t')
+                BCDataSet = I.newBCDataSet(name='BCDataSet#Init', value='Null',
+                    gridLocation='FaceCenter', parent=wnode)
+                J.set(BCDataSet, 'NeumannData', childType='BCData_t', omega=omegaHubAtX(xw))
 
     # SHROUD
-    for famNode in I.getNodesFromNameAndType(t, '*SHROUD*', 'Family_t'):
-        I.newFamilyBC(value='BCWallViscous', parent=famNode)
-        J.set(famNode, '.Solver#BC',
-                type='walladia',
-                data_frame='user',
-                omega=0.,
-                axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
-                axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
+    for shroud_family in shroudFamilyNames:
+        for famNode in I.getNodesFromNameAndType(t, '*{}*'.format(shroud_family), 'Family_t'):
+            I.newFamilyBC(value='BCWallViscous', parent=famNode)
+            J.set(famNode, '.Solver#BC',
+                    type='walladia',
+                    data_frame='user',
+                    omega=0.,
+                    axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
+                    axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
 
 def setBC_farfield(t, FamilyName):
     '''
@@ -1205,7 +1245,7 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
 
         ImposedVariables : dict
             Dictionary of variables to imposed on the boudary condition. Keys
-            are variable names, and values must be:
+            are variable names and values must be:
 
                 * either scalars: in that case they are imposed once for the
                   family **FamilyName** in the corresponding ``Family_t`` node.
