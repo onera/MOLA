@@ -69,7 +69,7 @@ ReferenceValues = dict(
     # Most keys follow the NASA convention: https://turbmodels.larc.nasa.gov/
     # Possible values are :
     # 'SA', 'BSL','BSL-V','SST-2003','SST','SST-V','Wilcox2006-klim',
-    # 'SST-2003-LM2009', 'SSG/LRR-RSM-w2012'
+    # 'SST-2003-LM2009', 'SSG/LRR-RSM-w2012', 'smith'
     TurbulenceModel='Wilcox2006-klim',
 
 

@@ -3,17 +3,17 @@
 import os
 import sys
 import numpy as np
+from mpi4py import MPI
 # Cassiopee packages
 import Converter.PyTree   as C
 import Converter.Internal as I
 import Post.PyTree        as P
 # ETC packages
 import etc.transform.__future__ as trf
-from etc.toolbox.MPI import MPI, e_log
 import etc.post as epost
 
 def generateHLinesAxial(t, filename, nbslice=21, comm=MPI.COMM_WORLD, tol=1e-10, offset=4, hubFirst=False):
-    print(e_log("generateHLinesAxial: Generation of Hub&Shroud lines"))
+    print("generateHLinesAxial: Generation of Hub&Shroud lines")
     t = trf.cartToCyl(t) # CoordinateY=R, CoordinateZ=T
     xmin = C.getMinValue(t,'CoordinateX')
     xmax = C.getMaxValue(t,'CoordinateX')
@@ -26,10 +26,6 @@ def generateHLinesAxial(t, filename, nbslice=21, comm=MPI.COMM_WORLD, tol=1e-10,
     ymax = C.getMaxValue(t,'CoordinateY')
     ymin = comm.allreduce(ymin, MPI.MIN)
     ymax = comm.allreduce(ymax, MPI.MAX)
-    zmin = C.getMinValue(t,'CoordinateZ')
-    zmax = C.getMaxValue(t,'CoordinateZ')
-    zmin = comm.allreduce(zmin, MPI.MIN)
-    zmax = comm.allreduce(zmax, MPI.MAX)
     xList = [xmin + dx*n for n in range(nbslice)]
     rminL = []
     rmaxL = []
@@ -39,7 +35,7 @@ def generateHLinesAxial(t, filename, nbslice=21, comm=MPI.COMM_WORLD, tol=1e-10,
         rmax = C.getMaxValue(iso,'CoordinateY')
         rmin = comm.allreduce(rmin, MPI.MIN)
         rmax = comm.allreduce(rmax, MPI.MAX)
-        print(e_log("generateHLinesAxial [{}/{}]: @x={}, r_hub={}, r_shroud={}".format(xList.index(x)+1,len(xList),x,rmin,rmax)))
+        print("generateHLinesAxial [{}/{}]: @x={}, r_hub={}, r_shroud={}".format(xList.index(x)+1,len(xList),x,rmin,rmax))
         rminL.append(rmin)
         rmaxL.append(rmax)
     xList.insert(0,xmin-offset*tol)
@@ -66,7 +62,7 @@ def generateHLinesAxial(t, filename, nbslice=21, comm=MPI.COMM_WORLD, tol=1e-10,
         I.newDataArray('CoordinateY', value=np.asarray(rminL), parent=g)
     if MPI.COMM_WORLD.Get_rank() == 0 : C.convertPyTree2File(n,filename)
     t = trf.cylToCart(t)
-    print(e_log("generateHLinesAxial: done"))
+    print("generateHLinesAxial: done")
     return n
 
 def computeHeight(t,hLines,hFormat='bin_tp',constraint=5.,mode='accurate',isInterp=False,writeMask=None,writeMaskCart=None,writePyTreeCyl=None, fsname=None):
