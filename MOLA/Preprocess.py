@@ -417,7 +417,7 @@ def getMeshesAssembled(InputMeshes):
         Trees += [C.newPyTree([base])]
 
     t = I.merge(Trees)
-    t = I.correctPyTree(t, level=-3)
+    t = I.correctPyTree(t, level=3)
 
     return t
 

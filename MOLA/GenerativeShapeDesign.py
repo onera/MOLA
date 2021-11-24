@@ -32,7 +32,7 @@ import Intersector.PyTree as XOR
 from . import InternalShortcuts as J
 from . import Wireframe as W
 
-
+verbose = False
 MAX = np.maximum
 MIN = np.minimum
 
@@ -388,6 +388,11 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
     FoilInterpLaw = kwargs[GeomParam]['InterpolationLaw'].lower()
     if FoilInterpLaw == 'interp1d_linear':
         FoilInterpLaw = 'rectbivariatespline_1'
+    elif FoilInterpLaw == 'interp1d_quadratic':
+        FoilInterpLaw = 'rectbivariatespline_2'
+    elif FoilInterpLaw in ['interp1d_cubic', 'pchip', 'akima', 'cubic']:
+        FoilInterpLaw = 'rectbivariatespline_3'
+
     NinterFoils = len(kwargs[GeomParam]['Airfoil'])
     if FoilInterpLaw.startswith('rectbivariatespline'):
         RediscretizedAirfoils = [kwargs[GeomParam]['Airfoil'][0]]
@@ -518,7 +523,7 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
         for GeomParam in AirfoilParameters:
             if GeomParam in kwargs:
                 Params[GeomParam]=DistributionResult[GeomParam][j]
-        print('processing airfoil %d of %d'%(j+1,Ns))
+        if verbose: print('processing airfoil %d of %d'%(j+1,Ns))
 
         Params['ScalingRelativeChord'] = ChordRelRef
 
@@ -919,6 +924,95 @@ def getSuitableSetOfPointsForTFITri(N1, N2, N3,
 
         return N1, N2, N3
 
+def closeWingTipAndRoot(wingsurface, tip_window='jmax', close_root=True,
+        airfoil_top2bottom_NPts=21, sharp_TrailingEdge_TFI_chord_ref=0.1,
+        thick_TrailingEdge_detection_angle=30.,
+        sharp_TrailingEdge_post_smoothing=dict(eps=0.9, niter=500, type=2)):
+
+    wing, = I.getZones(wingsurface)
+
+    root_window = tip_window[0]+'max' if tip_window.endswith('min') else tip_window[0]+'min'
+
+    tipContour = getBoundary(wing, tip_window)
+    rootContour = getBoundary(wing, root_window)
+
+    AirfoilIsOpen = not W.isCurveClosed(tipContour)
+    AirfoilHasSeveralSharpEdges = len(T.splitCurvatureAngle(tipContour,
+                                      thick_TrailingEdge_detection_angle))>1
+
+    if AirfoilIsOpen or AirfoilHasSeveralSharpEdges:
+        AirfoilHasThickTrailingEdgeTopology = True
+    else:
+        AirfoilHasThickTrailingEdgeTopology = False
+
+    if AirfoilHasThickTrailingEdgeTopology:
+
+        if AirfoilIsOpen:
+            TEdetectionAngleThreshold = None
+        else:
+            TEdetectionAngleThreshold = thick_TrailingEdge_detection_angle
+
+        tip = closeAirfoil(tipContour, Topology='ThickTE_simple',
+                            options=dict(NPtsUnion=airfoil_top2bottom_NPts,
+                            TEdetectionAngleThreshold=TEdetectionAngleThreshold))
+        tip, = I.getZones(tip)
+        zones = [wing, tip]
+
+        if close_root:
+            root = closeAirfoil(rootContour, Topology='ThickTE_simple',
+                                options=dict(NPtsUnion=airfoil_top2bottom_NPts,
+                                TEdetectionAngleThreshold=TEdetectionAngleThreshold))
+            root, = I.getZones(root)
+            zones.append(root)
+
+        if AirfoilIsOpen:
+            TrailingEdge_NPts = np.minimum( C.getNPts(getBoundary(tip,'imin')),
+                                            C.getNPts(getBoundary(tip,'jmin')) )
+            x, y, z = J.getxyz(tipContour)
+            TE_JoinLine1 = D.line((x[0],y[0],z[0]), (x[-1],y[-1],z[-1]), TrailingEdge_NPts)
+            x, y, z = J.getxyz(rootContour)
+            TE_JoinLine2 = D.line((x[0],y[0],z[0]), (x[-1],y[-1],z[-1]), TrailingEdge_NPts)
+            TEwndw = 'i' if tip_window.startswith('j') else 'j'
+            Wing_JoinLine1 = getBoundary(wing,TEwndw+'min')
+            Wing_JoinLine2 = getBoundary(wing,TEwndw+'max')
+            TFIwires = [TE_JoinLine1, TE_JoinLine2, Wing_JoinLine1, Wing_JoinLine2]
+            TrailingEdge = G.TFI([TE_JoinLine1, TE_JoinLine2, Wing_JoinLine1, Wing_JoinLine2])
+            TrailingEdge[0] = 'TrailingEdge'
+            zones.append(TrailingEdge)
+
+    else:
+        tip = closeAirfoil(tipContour,Topology='SharpTE_TFITri',
+                options=dict(NPtsUnion=airfoil_top2bottom_NPts,
+                             TFITriAbscissa=sharp_TrailingEdge_TFI_chord_ref))
+        zones = [wing] + tip
+        if close_root:
+            root = closeAirfoil(rootContour, Topology='SharpTE_TFITri',
+                                options=dict(NPtsUnion=airfoil_top2bottom_NPts,
+                                TFITriAbscissa=sharp_TrailingEdge_TFI_chord_ref))
+            zones.extend(root)
+
+    for i,t in enumerate(I.getZones(tip)): t[0]='tip.%d'%i
+    if close_root:
+        for i,r in enumerate(I.getZones(root)): r[0]='root.%d'%i
+
+    if not AirfoilHasThickTrailingEdgeTopology:
+
+        prepareGlue(tip, [tipContour])
+        T._smooth(tip, fixedConstraints=[tipContour],**sharp_TrailingEdge_post_smoothing)
+        applyGlue(tip, [tipContour])
+        I._rmNodesByName(tip,'.glueData')
+
+        if close_root:
+            prepareGlue(root, [rootContour])
+            T._smooth(root, fixedConstraints=[rootContour],**sharp_TrailingEdge_post_smoothing)
+            applyGlue(root, [rootContour])
+            I._rmNodesByName(root,'.glueData')
+
+    silence = J.OutputGrabber()
+    with silence: T._reorderAll(zones)
+
+    return zones
+
 
 def closeAirfoil(Airfoil, Topology='ThickTE_simple', options=dict(NPtsUnion=21,
                             TFITriAbscissa=0.1,TEdetectionAngleThreshold=None)):
@@ -1032,16 +1126,31 @@ def closeAirfoil(Airfoil, Topology='ThickTE_simple', options=dict(NPtsUnion=21,
             TFIFront = G.TFIMono(UnionLine,FrontTFIline)
             TFIFrontJoin = T.join(TFIFront,TFIRearJoin)
             ClosedZones = [TFIFrontJoin, TFIRearSingleElmnt]
-            ClosedZones = T.reorderAll(ClosedZones,1)
+            _reorderAll(ClosedZones,1)
         else:
             raise AttributeError('Could not close airfoil. Change the number of points of the airfoil.')
     elif Topology == 'ThickTE_simple':
-        TEdetectionAngleThreshold = options['TEdetectionAngleThreshold']
+        try:
+            TEdetectionAngleThreshold = options['TEdetectionAngleThreshold']
+        except KeyError:
+            TEdetectionAngleThreshold = None
 
         if TEdetectionAngleThreshold is None:
             NPtsUnion = options['NPtsUnion']
 
+            I._rmNodesByType(Airfoil,'FlowSolution_t')
             Side1, Side2 = SplitCurves = T.splitNParts(Airfoil,2)
+
+            if not W.isCurveClosed(Airfoil):
+                x, y, z = J.getxyz(Airfoil)
+                JoinLine1 = D.line( (x[0], y[0], z[0]),
+                                   ((x[0]+x[-1])/2, (y[0]+y[-1])/2, (z[0]+z[-1])/2),
+                                   int((NPtsUnion-1)/2))
+                JoinLine2 = D.line( (x[-1], y[-1], z[-1]),
+                                   ((x[0]+x[-1])/2, (y[0]+y[-1])/2, (z[0]+z[-1])/2),
+                                   int((NPtsUnion-1)/2))
+                Side1 = T.join(JoinLine1, Side1)
+                Side2 = T.join(Side2, JoinLine2)
 
             Side1[0] = 'Side1'
             Side2[0] = 'Side2'
@@ -1062,9 +1171,9 @@ def closeAirfoil(Airfoil, Topology='ThickTE_simple', options=dict(NPtsUnion=21,
             MainCurve2[0] = 'MainCurve2'
 
             TopSide, BotSide = MainCurve2, MainCurve1
-
             LEcurve = T.join(LEcurve1,LEcurve2)
             TEcurve = T.join(TEcurve1,TEcurve2)
+
 
         else:
             # Split the airfoil in order to extract the TE curve
@@ -1531,6 +1640,7 @@ def getBoundary(zone,window='imin',layer=0):
     else:
         raise AttributeError('Window %s not recognized.'%window)
 
+    Extraction[0] += '.'+window
     return Extraction
 
 def magnetize(zones, magneticzones, tol=1e-10):
@@ -2383,6 +2493,7 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
                 CellHeightFieldTop[i] = CellHeightFieldBottom[i] = CellHeight
 
         # Build Extrusion curve (boundary-layer)
+        C._rmVars([WakeBottom,foil,WakeTop],['s'])
         ExtrusionCurve    = T.join([WakeBottom,foil,WakeTop])
         ExtrusionCurve[0] = 'ExtrusionCurve'
         sEC = W.gets(ExtrusionCurve)
@@ -2776,7 +2887,6 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
             surfs += [Rear,Front]
 
             zones = [Rear,Front]
-
     elif Topology == 'O':
         zones = [ExtrudedMesh]
 
@@ -2818,8 +2928,8 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
 
         # Force check multiply-defined zone names
         t = I.correctPyTree(t,level=3)
-
-        t,stats=D2.distribute(t, opts['NProc'], useCom=0)
+        silence = J.OutputGrabber()
+        with silence: t,stats=D2.distribute(t, opts['NProc'], useCom=0)
 
         # Check if all procs have at least one block assigned
         zones = I.getZones(t)
@@ -3100,3 +3210,8 @@ def filterSurfacesByArea(surfaces, ratio=0.5):
             SmallSurfaces.append(zone)
 
     return LargeSurfaces, SmallSurfaces
+
+def _reorderAll(*args):
+    if verbose: return T._reorderAll(*args)
+    silence = J.OutputGrabber()
+    with silence: T._reorderAll(*args)
