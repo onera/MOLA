@@ -375,6 +375,7 @@ def extractIntegralData(to, arrays, Extractions=[],
         IntegralDataName = getIntegralDataName(IntegralDataNode)
         _appendIntegralDataNode2Arrays(arrays, IntegralDataNode)
         _extendArraysWithProjectedLoads(arrays, IntegralDataName)
+        _normalizeMassFlowInArrays(arrays, IntegralDataName)
         _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics)
 
     return arrays
@@ -714,7 +715,7 @@ def monitorTurboPerformance(surfaces, arrays, DesiredStatistics=[]):
             continue
 
         if rank == 0:
-            fluxcoeff = rowParams['NumberOfBlades'] / rowParams['NumberOfBladesSimulated']
+            fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
             if IsRotor:
                 perfos = computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
             else:
@@ -1141,6 +1142,41 @@ def _appendIntegralDataNode2Arrays(arrays, IntegralDataNode):
             arraysSubset[integralKey] = np.array(IntegralData[integralKey],
                                                order='F', ndmin=1)
 
+def _normalizeMassFlowInArrays(arrays, IntegralDataName):
+    '''
+    Beware: this is a private function, employed by :py:func:`extractIntegralData`
+
+    If:
+
+        * the variable 'convflux_ro' is in **arrays[IntegralDataName]** (massflow
+          extracted by elsA on the Family **IntegralDataName**),
+
+        * and it exists a **FluxCoef** associted to **IntegralDataName** in
+          ** ReferenceValues**, written in:
+
+          >>> setup.ReferenceValues['IntegralScales'][IntegralDataName]['FluxCoef']
+
+    Then the variable 'MassFlow' is added in **arrays[IntegralDataName]** by
+    multiplying 'convflux_ro' by this **FluxCoef**.
+
+    Parameters
+    ----------
+
+        arrays : dict
+            Contains integral data in the following form:
+
+            >>> np.array = arrays['FamilyBCNameOrElementName']['VariableName']
+
+        IntegralDataName : str
+            Name of the IntegralDataNode (CGNS) provided by elsA. It is used as
+            key for arrays dictionary.
+    '''
+    arraysSubset = arrays[IntegralDataName]
+    try:
+        FluxCoef = setup.ReferenceValues['IntegralScales'][IntegralDataName]['FluxCoef']
+        arraysSubset['MassFlow'] = arraysSubset['convflux_ro'] * FluxCoef
+    except:
+        return
 
 def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
     '''
@@ -1184,13 +1220,17 @@ def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
     * ReferenceValues, as indicated previously.                               *
     ***************************************************************************
 
-    INPUTS
+    Parameters
+    ----------
 
-    arrays - (Python dictionary) - Contains integral data in the following form:
-        np.array = arrays['FamilyBCNameOrElementName']['VariableName']
+        arrays : dict
+            Contains integral data in the following form:
 
-    IntegralDataName - (string) - Name of the IntegralDataNode (CGNS) provided
-        by elsA. It is used as key for arrays dictionary.
+            >>> np.array = arrays['FamilyBCNameOrElementName']['VariableName']
+
+        IntegralDataName : str
+            Name of the IntegralDataNode (CGNS) provided by elsA. It is used as
+            key for arrays dictionary.
     '''
 
 

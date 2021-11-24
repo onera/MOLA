@@ -2622,7 +2622,7 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
 
 
 def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
-                     FULL_CGNS_MODE=False, dim=3):
+                     FULL_CGNS_MODE=False,  extractCoords=True, BCExtractions={}):
     '''
     Given a preprocessed grid using :py:func:`prepareMesh4ElsA` and setup information
     dictionaries, this function creates the main CGNS tree and writes the
@@ -2646,8 +2646,20 @@ def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
         FULL_CGNS_MODE : bool
             if :py:obj:`True`, add elsa keys in ``.Solver#Compute`` CGNS container
 
-        dim : int
-            dimension of the problem (``2`` or ``3``).
+        extractCoords : bool
+            if :py:obj:`True`, then create a ``FlowSolution`` container named
+            ``FlowSolution#EndOfRun#Coords`` to perform coordinates extraction.
+
+        BCExtractions : dict
+            dictionary to indicate variables to extract. Each key corresponds to
+            a ``BCType`` or a pattern to search in BCType of each FamilyBC (for
+            instance, *BCInflow* matches *BCInflowSubsonic* and
+            *BCInflowSupersonic*).
+            The value associated to each key is a :py:class:`list` of
+            :py:class:`str` corresponding to variable names to extract (in elsA
+            convention).
+
+            To see default extracted variables, see :py:func:`addSurfacicExtractions`
 
     Returns
     -------
@@ -2658,13 +2670,14 @@ def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
     '''
     t = I.copyRef(t)
 
-    addSolverBC(t)
     addTrigger(t)
     addExtractions(t, AllSetupDictionaries['ReferenceValues'],
-                      AllSetupDictionaries['elsAkeysModel'])
+                      AllSetupDictionaries['elsAkeysModel'],
+                      extractCoords=extractCoords, BCExtractions=BCExtractions)
     addReferenceState(t, AllSetupDictionaries['FluidProperties'],
                          AllSetupDictionaries['ReferenceValues'])
-    addGoverningEquations(t, dim=dim) # TODO replace dim input by elsAkeysCFD['config'] info
+    dim = int(AllSetupDictionaries['elsAkeysCFD']['config'][0])
+    addGoverningEquations(t, dim=dim)
     if initializeFlow:
         newFlowSolutionInit(t, AllSetupDictionaries['ReferenceValues'])
     if FULL_CGNS_MODE:
@@ -2789,22 +2802,6 @@ def saveMainCGNSwithLinkToOutputFields(t, to, DIRECTORY_OUTPUT='OUTPUT',
     C.convertPyTree2File(t, MainCGNSFilename, links=AllCGNSLinks)
 
 
-def addSolverBC(t):
-    '''
-    Increase family integer value to ``.Solver#BC`` at ``FamilyBC_t`` nodes
-
-    Parameters
-    ----------
-
-        t : PyTree
-            the main tree. It is modified.
-    '''
-    FamilyNodes = I.getNodesFromType2(t, 'Family_t')
-    for i, fn in enumerate(FamilyNodes):
-        if I.getNodeFromType(fn, 'FamilyBC_t'):
-            J.set(fn, '.Solver#BC', family=i+1)
-
-
 def addTrigger(t, coprocessFilename='coprocess.py'):
     '''
     Add ``.Solver#Trigger`` node to all zones.
@@ -2832,7 +2829,8 @@ def addTrigger(t, coprocessFilename='coprocess.py'):
                  file=coprocessFilename)
 
 
-def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True, WallExtractions=None, FluxExtractions=None):
+def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
+        BCExtractions={}):
     '''
     Include surfacic and field extraction information to CGNS tree using
     information contained in dictionaries **ReferenceValues** and
@@ -2852,23 +2850,27 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True, WallEx
         elsAkeysModel : dict
             dictionary as produced by :py:func:`getElsAkeysModel` function
 
-        WallExtractions : :py:class:`list` of :py:class:`str`
-            list of variables to extract at the wall.
+        extractCoords : bool
+            if :py:obj:`True`, then create a ``FlowSolution`` container named
+            ``FlowSolution#EndOfRun#Coords`` to perform coordinates extraction.
 
-        FluxExtractions : :py:class:`list` of :py:class:`str`
-            list of flux variables to extract at the wall. Their names must
-            begin by ``'flux_'``. They will be automatically integrated on the
-            surface family during the simulation to produce nodes of type
-            ``'IntegralData_t'``.
+        BCExtractions : dict
+            dictionary to indicate variables to extract. Each key corresponds to
+            a ``BCType`` or a pattern to search in BCType of each FamilyBC (for
+            instance, *BCInflow* matches *BCInflowSubsonic* and
+            *BCInflowSupersonic*).
+            The value associated to each key is a :py:class:`list` of
+            :py:class:`str` corresponding to variable names to extract (in elsA
+            convention).
+
+            To see default extracted variables, see :py:func:`addSurfacicExtractions`
     '''
-    addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
-        WallExtractions=WallExtractions, FluxExtractions=FluxExtractions)
+    addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions=BCExtractions)
     addFieldExtractions(t, ReferenceValues, extractCoords=extractCoords)
     EP._addGlobalConvergenceHistory(t)
 
 
-def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
-    WallExtractions=None, FluxExtractions=None):
+def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     '''
     Include surfacic extraction information to CGNS tree using information
     contained in dictionaries **ReferenceValues** and **elsAkeysModel**.
@@ -2887,67 +2889,92 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
         elsAkeysModel : dict
             dictionary as produced by :py:func:`getElsAkeysModel` function
 
-        WallExtractions : :py:class:`list` of :py:class:`str`
-            list of variables to extract at the wall. If not given, the default
-            extracted variables are:
+        BCExtractions : dict
+            dictionary to indicate variables to extract. Each key corresponds to
+            a ``BCType`` or a pattern to search in BCType of each FamilyBC (for
+            instance, *BCInflow* matches *BCInflowSubsonic* and
+            *BCInflowSupersonic*).
+            The value associated to each key is a :py:class:`list` of
+            :py:class:`str` corresponding to variable names to extract (in elsA
+            convention).
 
-            >>> WallExtractions = ['normalvector','SkinFrictionX','SkinFrictionY','SkinFrictionZ','psta']
+            By default, the following variables are extracted for *BCWall*:
+            ['normalvector', 'frictionvector', 'psta', 'bl_quantities_2d',
+            'yplusmeshsize', 'flux_rou', 'flux_rov', 'flux_row', 'torque_rou',
+            'torque_rov', 'torque_row'].
 
-        FluxExtractions : :py:class:`list` of :py:class:`str`
-            list of flux variables to extract at the wall. Their names must
-            begin by ``'flux_'``. They will be automatically integrated on the
-            surface family during the simulation to produce nodes of type
-            ``'IntegralData_t'``.  If not given, the default extracted variables
-            are:
-
-            >>> FluxExtractions = ['flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
+            These default values are updated with **BCExtractions**.
 
     '''
-    if WallExtractions is None:
-        WallExtractions = ['normalvector', 'frictionvector','psta']
-    if FluxExtractions is None:
-        FluxExtractions = ['flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
+    DefaultBCExtractions = dict(
+        BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize',
+            'flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
+    )
+    DefaultBCExtractions.update(BCExtractions)
+
+    # Default keys to write in the .Solver#Output of the Family node
+    # The node 'var' will be fill later depending on the BCType
+    BCKeys = dict(
+        period        = 1,
+        writingmode   = 2,
+        loc           = 'interface',
+        fluxcoeff     = 1.0,
+        force_extract = 1,
+        writingframe  = 'absolute'
+    )
+
+    # Keys to write in the .Solver#Output for wall Families
+    BCWallKeys = dict()
+    BCWallKeys.update(BCKeys)
+    BCWallKeys.update(dict(
+        delta_compute = elsAkeysModel['delta_compute'],
+        vortratiolim  = elsAkeysModel['vortratiolim'],
+        shearratiolim = elsAkeysModel['shearratiolim'],
+        pressratiolim = elsAkeysModel['pressratiolim'],
+        pinf          = ReferenceValues['Pressure'],
+        torquecoeff   = 1.0,
+        xtorque       = 0.0,
+        ytorque       = 0.0,
+        ztorque       = 0.0,
+        writingframe  = 'relative'
+    ))
 
     FamilyNodes = I.getNodesFromType2(t, 'Family_t')
-    for FamilyNode in FamilyNodes:
-        FamilyName = I.getName( FamilyNode )
-        BCType = getFamilyBCTypeFromFamilyBCName(t, FamilyName)
-        if not BCType or not 'BCWall' in BCType: continue
+    for ExtractBCType, ExtractVariablesList in DefaultBCExtractions.items():
+        for FamilyNode in FamilyNodes:
+            FamilyName = I.getName( FamilyNode )
+            BCType = getFamilyBCTypeFromFamilyBCName(t, FamilyName)
+            if not BCType: continue
 
-        # TODO 'bl_ue' CGNS extraction FAILS in v4.2.01
-        WallVariables = ' '.join(WallExtractions+FluxExtractions)
+            if ExtractBCType in BCType:
+                if 'BCWall' in BCType:
+                    if 'Inviscid' in BCType:
+                        if 'bl_quantities_2d' in ExtractVariablesList:
+                            ExtractVariablesList.remove('bl_quantities_2d')
+                        if 'yplusmeshsize' in ExtractVariablesList:
+                            ExtractVariablesList.remove('yplusmeshsize')
+                    else:
+                        TransitionMode = ReferenceValues['TransitionMode']
 
-        if 'Inviscid' not in BCType:
-            WallVariables += ' bl_quantities_2d yplusmeshsize'
+                        if TransitionMode == 'NonLocalCriteria-LSTT':
+                            extraVariables = ['intermittency', 'clim', 'how', 'origin',
+                                'lambda2', 'turb_level', 'n_tot_ag', 'n_crit_ag',
+                                'r_tcrit_ahd', 'r_theta_t1', 'line_status', 'crit_indicator']
+                            ExtractVariablesList.extend(extraVariables)
 
-            TransitionMode = ReferenceValues['TransitionMode']
+                        elif TransitionMode == 'Imposed':
+                            extraVariables = ['intermittency', 'clim']
+                            ExtractVariablesList.extend(extraVariables)
 
-            if TransitionMode == 'NonLocalCriteria-LSTT':
-                WallVariables += ' intermittency clim how origin lambda2 turb_level n_tot_ag n_crit_ag r_tcrit_ahd r_theta_t1 line_status crit_indicator'
-
-            elif TransitionMode == 'Imposed':
-                WallVariables += ' intermittency clim'
-
-        if WallVariables != []:
-            print('setting .Solver#Output to FamilyNode '+FamilyNode[0])
-            J.set(FamilyNode, '.Solver#Output',
-                var           = WallVariables,
-                period        = 1,
-                writingmode   = 2,
-                loc           = 'interface',
-                delta_compute = elsAkeysModel['delta_compute'],
-                vortratiolim  = elsAkeysModel['vortratiolim'],
-                shearratiolim = elsAkeysModel['shearratiolim'],
-                pressratiolim = elsAkeysModel['pressratiolim'],
-                fluxcoeff     = 1.0,
-                torquecoeff   = 1.0,
-                pinf          = ReferenceValues['Pressure'],
-                xtorque       = 0.0,
-                ytorque       = 0.0,
-                ztorque       = 0.0,
-                force_extract = 1,
-                writingframe  = 'relative'
-                )
+                if ExtractVariablesList != []:
+                    varDict = dict(var=' '.join(ExtractVariablesList))
+                    print('setting .Solver#Output to FamilyNode '+FamilyNode[0])
+                    if 'BCWall' in BCType:
+                        BCWallKeys.update(varDict)
+                        J.set(FamilyNode, '.Solver#Output',**BCWallKeys)
+                    else:
+                        BCKeys.update(varDict)
+                        J.set(FamilyNode, '.Solver#Output',**BCKeys)
 
 
 def addFieldExtractions(t, ReferenceValues, extractCoords=False):

@@ -137,8 +137,13 @@ def setBC_stage_red_hyb(t, left, right, stage_ref_time, nbband=100, c=None):
     for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
         I._rmNodesByType(gc, 'FamilyBC_t')
 
-def setBC_outradeq(t, FamilyName, valve_type, valve_ref_pres,
-    valve_ref_mflow, valve_relax=0.1):
+def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
+    valve_ref_mflow=None, valve_relax=0.1, ReferenceValues=None):
+    
+    if valve_ref_pres is None and ReferenceValues is not None:
+        valve_ref_pres = ReferenceValues['Pressure']
+    if valve_ref_mflow is None and ReferenceValues is not None:
+        valve_ref_mflow = ReferenceValues['MassFlow']
 
     # Delete previous BC if it exists
     for bc in C.getFamilyBCs(t, FamilyName):
@@ -154,6 +159,7 @@ def setBC_outradeq(t, FamilyName, valve_type, valve_ref_pres,
         bcpath = I.getPath(t, bcn)
         bc = trf.BCOutRadEq(t, bcn)
         bc.indpiv   = 1
+        bc.dirorder = -1
         # Lois de vannes:
         # <bc>.valve_law(valve_type, pref, Qref, valve_relax=relax, valve_file=None, valve_file_freq=1) # v4.2.01 pour valve_file*
         # valvelaws = [(1, 'SlopePsQ'),     # p(it+1) = p(it) + relax*( pref * (Q(it)/Qref) -p(it)) # relax = sans dim. # isoPs/Q
@@ -162,9 +168,11 @@ def setBC_outradeq(t, FamilyName, valve_type, valve_ref_pres,
         #              (4, 'QHyperbolic'),  # p(it+1) = pref + relax*(Q(it)/Qref)**2               # relax = Pascal    # comp. exp.
         #              (5, 'SlopePiQ')]     # p(it+1) = p(it) + relax*( pref * (Q(it)/Qref) -pi(it)) # relax = sans dim. # isoPi/Q
         # pour la loi 5, pref = pi de reference
-        valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget', 3: 'QLinear', 4: 'QHyperbolic'}
-        bc.valve_law(valve_law_dict[valve_type], valve_ref_pres, valve_ref_mflow, valve_relax=valve_relax)
-        bc.dirorder = -1
+        if valve_type == 0:
+            bc.prespiv = valve_ref_pres
+        else:
+            valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget', 3: 'QLinear', 4: 'QHyperbolic'}
+            bc.valve_law(valve_law_dict[valve_type], valve_ref_pres, valve_ref_mflow, valve_relax=valve_relax)
         globborder = bc.glob_border(current=FamilyName)
         globborder.i_poswin        = gbd[bcpath]['i_poswin']
         globborder.j_poswin        = gbd[bcpath]['j_poswin']
