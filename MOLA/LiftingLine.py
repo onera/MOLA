@@ -2326,6 +2326,11 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
             argument to be passed to :py:func:`MOLA.GenerativeShapeDesign.wing`
             function defining the optional parameters
 
+        ImposeWingCanonicalPosition : bool
+            if :py:obj:`True`, then the newly generated surface is positioned
+            in the same *canonical* position as the generation of a wing
+            surface using :py:func:`MOLA.GenerativeShapeDesign.wing`
+
     Returns
     -------
 
