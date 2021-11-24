@@ -212,7 +212,8 @@ def extractSurfaces(t, Extractions):
                 If provided, this name replaces the default name of the CGNSBase
                 container of the surfaces
 
-                ..note:: not relevant if ``type`` starts with  ``AllBC``
+                ..note::
+                  not relevant if ``type`` starts with  ``AllBC``
 
             * ``field`` : :py:class:`str` (contextual)
                 Name of the field employed for slicing if ``type`` = ``IsoSurface``
