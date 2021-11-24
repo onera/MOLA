@@ -607,8 +607,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                         Extractions=Extractions)
 
 
-    t = PRE.newCGNSfromSetup(t, AllSetupDics, dim=2, initializeFlow=True,
-                                              FULL_CGNS_MODE=False)
+    t = PRE.newCGNSfromSetup(t, AllSetupDics, initializeFlow=True, FULL_CGNS_MODE=False)
     to = PRE.newRestartFieldsFromCGNS(t)
 
     PRE.saveMainCGNSwithLinkToOutputFields(t, to, writeOutputFields=writeOutputFields)

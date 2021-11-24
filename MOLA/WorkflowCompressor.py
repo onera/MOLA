@@ -43,7 +43,8 @@ except ImportError:
     print(J.WARN + MSG + J.ENDC)
     ETC = None
 
-def prepareMesh4ElsA(mesh, NProcs=None, ProcPointsLoad=100000,
+
+def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None, ProcPointsLoad=100000,
                     duplicationInfos={}, blocksToRename={}, SplitBlocks=False,
                     scale=1., rotation='fromAG5', PeriodicTranslation=None):
     '''
@@ -70,6 +71,9 @@ def prepareMesh4ElsA(mesh, NProcs=None, ProcPointsLoad=100000,
 
         mesh : :py:class:`str` or PyTree
             Name of the CGNS mesh file from Autogrid 5 or already read PyTree.
+
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            User-provided data. See documentation of Preprocess.prepareMesh4ElsA
 
         NProcs : int
             If a positive integer is provided, then the
@@ -147,41 +151,9 @@ def prepareMesh4ElsA(mesh, NProcs=None, ProcPointsLoad=100000,
     else:
         raise ValueError('parameter mesh must be either a filename or a PyTree')
 
-    if not I.getNodeFromName(t, 'BladeNumber'):
-        if PeriodicTranslation is None:
-            MSG = 'There must be a BladeNumber node for each row Family. '
-            MSG += 'Otherwise, the option PeriodicTranslation must not be None '
-            MSG += 'to indicate a configuration with a periodicity by translation'
-            raise Exception(J.FAIL + MSG + J.ENDC)
-        angles = []
-    else:
-        BladeNumberList = [I.getValue(bn) for bn in I.getNodesFromName(t, 'BladeNumber')]
-        angles = list(set([360./float(bn) for bn in BladeNumberList]))
-
-    if rotation == 'fromAG5':
-        rotation = [((0,0,0), (0,1,0), 90),((0,0,0), (1,0,0), 90)]
-
-    InputMeshes = [dict(
-                    baseName=I.getName(I.getNodeByType(t, 'CGNSBase_t')),
-                    Transform=dict(scale=scale, rotate=rotation),
-                    Connection=[],
-                    SplitBlocks=SplitBlocks,
-                    )]
-    # Set automatic periodic connections
-    InputMesh = InputMeshes[0]
-    if I.getNodeFromName(t, 'BladeNumber'):
-        BladeNumberList = [I.getValue(bn) for bn in I.getNodesFromName(t, 'BladeNumber')]
-        angles = list(set([360./float(bn) for bn in BladeNumberList]))
-        for angle in angles:
-            print('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)))
-            InputMesh['Connection'].append(
-                    dict(type='PeriodicMatch', tolerance=1e-8, rotationAngle=[angle,0.,0.])
-                    )
-    if PeriodicTranslation:
-        print('  translation = {} m'.format(PeriodicTranslation))
-        InputMesh['Connection'].append(
-                dict(type='PeriodicMatch', tolerance=1e-8, translation=PeriodicTranslation)
-                )
+    if InputMeshes is None:
+        InputMeshes = generateInputMeshesFromAG5(t, SplitBlocks=SplitBlocks,
+            scale=scale, rotation=rotation, PeriodicTranslation=PeriodicTranslation)
 
     PRE.checkFamiliesInZonesAndBC(t)
     t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], blocksToRename=blocksToRename)
@@ -191,7 +163,7 @@ def prepareMesh4ElsA(mesh, NProcs=None, ProcPointsLoad=100000,
         except: MergeBlocks = True
         duplicate(t, row, rowParams['NumberOfBlades'],
                 nDupli=rowParams['NumberOfDuplications'], merge=MergeBlocks)
-    if not InputMeshes[0]['SplitBlocks']:
+    if not any([InputMesh['SplitBlocks'] for InputMesh in InputMeshes]):
         t = PRE.connectMesh(t, InputMeshes)
     else:
         t = splitAndDistribute(t, InputMeshes, NProcs=NProcs,
@@ -307,7 +279,15 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
             ReferenceValues, bladeFamilyNames=bladeFamilyNames)
-    t = newCGNSfromSetup(t, AllSetupDics, initializeFlow=True, FULL_CGNS_MODE=False)
+    computeFluxCoefByRow(t, AllSetupDics['ReferenceValues'], AllSetupDics['TurboConfiguration'])
+
+    BCExtractions = dict(
+        BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
+        BCInflow = ['convflux_ro'],
+        BCOutflow = ['convflux_ro']
+    )
+    t = PRE.newCGNSfromSetup(t, AllSetupDics, initializeFlow=True,
+        FULL_CGNS_MODE=False, extractCoords=False, BCExtractions=BCExtractions)
     to = PRE.newRestartFieldsFromCGNS(t)
     if initializeFromCGNS:
         print(J.CYAN + 'Initialize flow field with {}'.format(initializeFromCGNS) + J.ENDC)
@@ -391,19 +371,132 @@ def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
     print(J.GREEN + 'done.' + J.ENDC)
     return t
 
-def prepareTree(filename, rows, output='raw_mesh.cgns'):
-    t = C.convertFile2PyTree(filename)
+def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='fromAG5', PeriodicTranslation=None):
+    '''
+    Generate automatically the :py:class:`list` **InputMeshes** with a default
+    parametrization adapted to Autogrid 5 meshes.
 
-    for row, rowParams in rows.items():
-        I._renameNode(t, rowParams['hub'], '{}_HUB'.format(row))
-        I._renameNode(t, rowParams['shroud'],'{}_SHROUD'.format(row))
-        I._renameNode(t, rowParams['blade'],  '{}_Main_Blade'.format(row))
-        if not I.getNodesFromNameAndType2(t, row, 'Family_t'):
-            C._tagWithFamily(t, row, add=True)
-            C._addFamily2Base(t, row)
-            J.set(n, 'Periodicity', BladeNumber=rowParams['BladeNumber'])
+    Parameters
+    ----------
 
-    C.convertPyTree2File(t, output)
+        mesh : :py:class:`str` or PyTree
+            Name of the CGNS mesh file from Autogrid 5 or already read PyTree.
+
+        SplitBlocks : bool
+            if :py:obj:`False`, do not split and distribute the mesh (use this
+            option if the simulation will run with PyPart).
+
+        scale : float
+            Homothety factor to apply on the mesh. Default is 1.
+
+        rotation : :py:class:'str' or :py:class:`list`
+            List of rotations to apply on the mesh. If **rotation** =
+            ``fromAG5``, then default rotations are applied:
+
+            >>> rotation = [((0,0,0), (0,1,0), 90), ((0,0,0), (1,0,0), 90)]
+
+            Else, **rotation** must be a list of rotation to apply to the grid
+            component. Each rotation is defined by 3 elements:
+
+                * a 3-tuple corresponding to the center coordinates
+
+                * a 3-tuple corresponding to the rotation axis
+
+                * a float (or integer) defining the angle of rotation in
+                  degrees
+
+
+        PeriodicTranslation : :py:obj:'None' or :py:class:`list` of :py:class:`float`
+            If not :py:obj:'None', the configuration is considered to be with
+            a periodicity in the direction **PeriodicTranslation**. This argument
+            has to be used for linear cascade configurations.
+
+    Returns
+    -------
+
+        InputMeshes : list
+
+    '''
+
+    if isinstance(mesh,str):
+        t = C.convertFile2PyTree(mesh)
+    elif I.isTopTree(mesh):
+        t = mesh
+    else:
+        raise ValueError('parameter mesh must be either a filename or a PyTree')
+
+    if not I.getNodeFromName(t, 'BladeNumber'):
+        if PeriodicTranslation is None:
+            MSG = 'There must be a BladeNumber node for each row Family. '
+            MSG += 'Otherwise, the option PeriodicTranslation must not be None '
+            MSG += 'to indicate a configuration with a periodicity by translation'
+            raise Exception(J.FAIL + MSG + J.ENDC)
+        angles = []
+    else:
+        BladeNumberList = [I.getValue(bn) for bn in I.getNodesFromName(t, 'BladeNumber')]
+        angles = list(set([360./float(bn) for bn in BladeNumberList]))
+
+    if rotation == 'fromAG5':
+        rotation = [((0,0,0), (0,1,0), 90),((0,0,0), (1,0,0), 90)]
+
+    InputMeshes = [dict(
+                    baseName=I.getName(I.getNodeByType(t, 'CGNSBase_t')),
+                    Transform=dict(scale=scale, rotate=rotation),
+                    Connection=[],
+                    SplitBlocks=SplitBlocks,
+                    )]
+    # Set automatic periodic connections
+    InputMesh = InputMeshes[0]
+    if I.getNodeFromName(t, 'BladeNumber'):
+        BladeNumberList = [I.getValue(bn) for bn in I.getNodesFromName(t, 'BladeNumber')]
+        angles = list(set([360./float(bn) for bn in BladeNumberList]))
+        for angle in angles:
+            print('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)))
+            InputMesh['Connection'].append(
+                    dict(type='PeriodicMatch', tolerance=1e-8, rotationAngle=[angle,0.,0.])
+                    )
+    if PeriodicTranslation:
+        print('  translation = {} m'.format(PeriodicTranslation))
+        InputMesh['Connection'].append(
+                dict(type='PeriodicMatch', tolerance=1e-8, translation=PeriodicTranslation)
+                )
+
+    return InputMeshes
+
+
+def prepareTree(t, rowParams):
+    '''
+    Rename wall families, add row family to each zone and add BladeNumber
+    property to row Family.
+
+    .. attention:: There must be only one row in **t**.
+
+    Parameters
+    ----------
+
+        t : newPyTree
+
+        rowParams : dict
+            Dictionary to rename wall families, add families to rows and add
+            BladeNumber property to rows.
+            Should follow the following form:
+
+            >>> rowParams = dict(
+            >>>     rowName     = <RowFamily>,
+            >>>     blade       = <BladeFamily>,
+            >>>     hub         = <HubFamily>,
+            >>>     shroud      = <ShroudFamily>,
+            >>>     BladeNumber = <Nb>,
+            >>> )
+
+    '''
+    I._renameNode(t, rowParams['hub'], '{}_HUB'.format(row))
+    I._renameNode(t, rowParams['shroud'],'{}_SHROUD'.format(row))
+    I._renameNode(t, rowParams['blade'],  '{}_Main_Blade'.format(row))
+    if not I.getNodesFromNameAndType2(t, rowParams['rowName'], 'Family_t'):
+        C._tagWithFamily(t, rowParams['rowName'], add=True)
+        C._addFamily2Base(t, rowParams['rowName'])
+        J.set(n, 'Periodicity', BladeNumber=rowParams['BladeNumber'])
 
 def cleanMeshFromAutogrid(t, basename='Base#1', blocksToRename={}):
     '''
@@ -744,6 +837,49 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
 
     return ReferenceValues
 
+def computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration):
+    '''
+    Compute the parameter **FluxCoef** for boundary conditions (except wall BC).
+    **FluxCoef** will be used later to normalize the massflow.
+
+    Modify **ReferenceValues** by adding:
+
+    >>> ReferenceValues['IntegralScales'][<FamilyName>]['FluxCoef'] = FluxCoef
+
+    for <FamilyName> in the list of BC families, except families of type 'BCWall*'.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Mesh tree with boudary conditions families, with a BCType.
+
+        ReferenceValues : dict
+            as produced by :py:func:`computeReferenceValues`
+
+        TurboConfiguration : dict
+            as produced by :py:func:`getTurboConfiguration`
+
+    '''
+    for zone in I.getZones(t):
+        FamilyNode = I.getNodeFromType1(zone, 'FamilyName_t')
+        if FamilyNode is None:
+            continue
+        row = I.getValue(FamilyNode)
+        rowParams = TurboConfiguration['Rows'][row]
+        fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+        for bc in I.getNodesFromType2(zone, 'BC_t'):
+            FamilyNameNode = I.getNodeFromType1(bc, 'FamilyName_t')
+            if FamilyNameNode is None:
+                continue
+            FamilyName = I.getValue(FamilyNameNode)
+            BCType = PRE.getFamilyBCTypeFromFamilyBCName(t, FamilyName)
+            if BCType is None or 'BCWall' in BCType:
+                continue
+            if not 'IntegralScales' in ReferenceValues:
+                ReferenceValues['IntegralScales'] = dict()
+            ReferenceValues['IntegralScales'][FamilyName] = dict(FluxCoef=fluxcoeff)
+
 def getTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={},
     PeriodicTranslation=None):
     '''
@@ -823,45 +959,6 @@ def getTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={},
 
     return TurboConfiguration
 
-def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
-                     FULL_CGNS_MODE=False, dim=3):
-    '''
-    This is mainly a function similar to Preprocess :py:func:`newCGNSfromSetup`
-    but adapted to compressor computations. Its purpose is creating the main
-    CGNS tree and writes the ``setup.py`` file.
-
-    The only differences with Preprocess newCGNSfromSetup are:
-
-    #. addSolverBC is not applied, in order not to disturb the special
-       turbomachinery BCs
-
-    #. extraction of coordinates in ``FlowSolution#EndOfRun#Coords`` is
-       desactivated
-
-    '''
-    t = I.copyRef(t)
-
-    PRE.addTrigger(t)
-    PRE.addExtractions(t, AllSetupDictionaries['ReferenceValues'],
-                          AllSetupDictionaries['elsAkeysModel'],
-                          extractCoords=False,
-                          FluxExtractions=[])
-    PRE.addReferenceState(t, AllSetupDictionaries['FluidProperties'],
-                         AllSetupDictionaries['ReferenceValues'])
-    PRE.addGoverningEquations(t, dim=dim) # TODO replace dim input by elsAkeysCFD['config'] info
-    if initializeFlow:
-        PRE.newFlowSolutionInit(t, AllSetupDictionaries['ReferenceValues'])
-    if FULL_CGNS_MODE:
-        PRE.addElsAKeys2CGNS(t, [AllSetupDictionaries['elsAkeysCFD'],
-                             AllSetupDictionaries['elsAkeysModel'],
-                             AllSetupDictionaries['elsAkeysNumerics']])
-
-    AllSetupDictionaries['ReferenceValues']['NProc'] = int(max(D2.getProc(t))+1)
-    AllSetupDictionaries['ReferenceValues']['CoreNumberPerNode'] = 28
-
-    PRE.writeSetup(AllSetupDictionaries)
-
-    return t
 
 def massflowFromMach(Mx, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
     '''
@@ -995,12 +1092,24 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
     setBC_inj1, setBC_inj1_uniform, setBC_inj1_interpFromFile,
     setBC_outpres, setBC_outmfr2
     '''
+    PreferedBoundaryConditions = dict(
+        ReferenceState               = 'farfield',
+        InflowStagnation             = 'inj1',
+        OutflowPressure              = 'outpres',
+        OutflowMassFlow              = 'outmfr2',
+        OutflowRadialEquilibrium     = 'outradeq',
+        MixingPlane                  = 'stage_mxpl',
+        UnsteadyRotorStatorInterface = 'stage_rna',
+    )
+
     print(J.CYAN + 'set BCs at walls' + J.ENDC)
     setBC_Walls(t, TurboConfiguration, bladeFamilyNames=bladeFamilyNames)
 
     for BCparam in BoundaryConditions:
 
         BCkwargs = {key:BCparam[key] for key in BCparam if key not in ['type', 'option']}
+        if BCparam['type'] in PreferedBoundaryConditions:
+            BCparam['type'] = PreferedBoundaryConditions[BCparam['type']]
 
         if BCparam['type'] == 'farfield':
             print(J.CYAN + 'set BC farfield on ' + BCparam['FamilyName'] + J.ENDC)
@@ -1027,10 +1136,12 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
 
         elif BCparam['type'] == 'outmfr2':
             print(J.CYAN + 'set BC outmfr2 on ' + BCparam['FamilyName'] + J.ENDC)
+            BCkwargs['ReferenceValues'] = ReferenceValues
             setBC_outmfr2(t, **BCkwargs)
 
         elif BCparam['type'] == 'outradeq':
             print(J.CYAN + 'set BC outradeq on ' + BCparam['FamilyName'] + J.ENDC)
+            BCkwargs['ReferenceValues'] = ReferenceValues
             ETC.setBC_outradeq(t, **BCkwargs)
 
         elif BCparam['type'] == 'outradeqhyb':
@@ -1262,39 +1373,9 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
     --------
 
     setBC_inj1_uniform, setBC_inj1_interpFromFile
-
     '''
-    checkVariables(ImposedVariables)
-
-    inlet = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
-    I._rmNodesByType(inlet, 'FamilyBC_t')
-    I.newFamilyBC(value='BCInflowSubsonic', parent=inlet)
-
-    if all([np.ndim(v)==0 for v in ImposedVariables.values()]):
-        J.set(inlet, '.Solver#BC', type='inj1', **ImposedVariables)
-
-    else:
-        assert bc is not None
-        J.set(bc, '.Solver#BC', type='inj1')
-
-        PointRange = I.getValue(I.getNodeFromType(bc, 'IndexRange_t'))
-        bc_shape = PointRange[:, 1] - PointRange[:, 0]
-        if bc_shape[0] == 0:
-            bc_shape = (bc_shape[1], bc_shape[2])
-        elif bc_shape[1] == 0:
-            bc_shape = (bc_shape[0], bc_shape[2])
-        elif bc_shape[2] == 0:
-            bc_shape = (bc_shape[0], bc_shape[1])
-        else:
-            raise ValueError('Wrong BC shape {} in {}'.format(bc_shape, I.getPath(t, bc)))
-
-        for var, value in ImposedVariables.items():
-            assert value.shape == bc_shape, \
-                'Wrong shape for variable {}: {} (shape {} for {})'.format(var, value.shape, bc_shape, I.getPath(t, bc))
-
-        BCDataSet = I.newBCDataSet(name='BCDataSet#Init', value='Null',
-            gridLocation='FaceCenter', parent=bc)
-        J.set(BCDataSet, 'DirichletData', childType='BCData_t', **ImposedVariables)
+    setBCwithImposedVariables(t, FamilyName, ImposedVariables,
+        FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc)
 
 def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName):
     '''
@@ -1343,7 +1424,7 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName):
         turbDict.pop(inj_tur2)
 
     ImposedVariables = dict(
-        stagnation_pressure = ReferenceValues['PressureStagnation'],
+        PressureStagnation = ReferenceValues['PressureStagnation'],
         stagnation_enthalpy = FluidProperties['cp'] * ReferenceValues['TemperatureStagnation'],
         txv                 = 1.0,
         tyv                 = 0.0,
@@ -1377,16 +1458,12 @@ def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileform
     Field variables will be extrapolated on the BCs attached to the family
     **FamilyName**, except if:
 
-    *
-        the file can be converted in a PyTree
+    * the file can be converted in a PyTree
 
-    *
-        with zone names like: ``<ZONE>\<BC>``, as obtained from function
-        :py:func:`Converter.PyTree.extractBCOfName`
+    * with zone names like: ``<ZONE>\<BC>``, as obtained from function
+      :py:func:`Converter.PyTree.extractBCOfName`
 
-    *
-        and all zone names and BC names are consistent with the current tree
-        **t**
+    * and all zone names and BC names are consistent with the current tree **t**
 
     In that case, field variables are just read in **filename** and written in
     BCs of **t**.
@@ -1448,11 +1525,13 @@ def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileform
 
         setBC_inj1(t, FamilyName, ImposedVariables, bc=bcnode)
 
-def setBC_outpres(t, FamilyName, pressure):
+def setBC_outpres(t, FamilyName, Pressure, bc=None):
     '''
-    Set an outflow boundary condition of type ``outpres``.
+    Impose a Boundary Condition ``outpres``. The following
+    functions are more specific:
 
-    .. note:: see `elsA Tutorial about outpres condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#outpres/>`_
+    .. note::
+        see `elsA Tutorial about inj1 condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#outpres/>`_
 
     Parameters
     ----------
@@ -1463,17 +1542,36 @@ def setBC_outpres(t, FamilyName, pressure):
         FamilyName : str
             Name of the family on which the boundary condition will be imposed
 
-        pressure : float
-            Value of the static pressure to impose
+        Pressure : :py:class:`float` or :py:class:`numpy.ndarray` or :py:class:`dict`
+            Value of pressure to impose on the boundary conditions. May be:
 
+                * either a scalar: in that case it is imposed once for the
+                  family **FamilyName** in the corresponding ``Family_t`` node.
+
+                * or a numpy array: in that case it is imposed for the ``BC_t``
+                  node **bc**.
+
+            Alternatively, **Pressure** may be a :py:class:`dict` of the form:
+
+            >>> Pressure = dict(Pressure=value)
+
+            In that case, the same requirements that before stands for *value*.
+
+        bc : PyTree
+            ``BC_t`` node on which the boundary condition will be imposed. Must
+            be :py:obj:`None` if the condition must be imposed once in the
+            ``Family_t`` node.
     '''
-    checkVariables(dict(pressure=pressure))
-    outlet = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
-    I._rmNodesByType(outlet, 'FamilyBC_t')
-    I.newFamilyBC(value='BCOutflowSubsonic', parent=outlet)
-    J.set(outlet, '.Solver#BC', type='outpres', pressure=pressure)
+    if isinstance(Pressure, dict):
+        assert 'Pressure' in Pressure or 'pressure' in Pressure
+        assert len(Pressure.keys() == 1)
+        ImposedVariables = Pressure
+    else:
+        ImposedVariables = dict(Pressure=Pressure)
+    setBCwithImposedVariables(t, FamilyName, ImposedVariables,
+        FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc)
 
-def setBC_outmfr2(t, FamilyName, globalmassflow, groupmassflow=1):
+def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues=None):
     '''
     Set an outflow boundary condition of type ``outmfr2``.
 
@@ -1488,22 +1586,114 @@ def setBC_outmfr2(t, FamilyName, globalmassflow, groupmassflow=1):
         FamilyName : str
             Name of the family on which the boundary condition will be imposed
 
-        globalmassflow : float
-            Total massflow on the family (with the same **groupmassflow**).
+        MassFlow : :py:class:`float` or :py:obj:`None`
+            Total massflow on the family (with the same **groupmassflow**). If
+            :py:obj:`None`, the reference massflow in **ReferenceValues** is
+            taken.
 
         groupmassflow : int
             Index used to link participating patches to this boundary condition.
             If several BC ``outmfr2`` are defined, **groupmassflow** has to be
             incremented for each family.
 
-    '''
-    checkVariables(dict(pressure=globalmassflow))
-    outlet = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
-    I._rmNodesByType(outlet, 'FamilyBC_t')
-    I.newFamilyBC(value='BCOutflowSubsonic', parent=outlet)
-    J.set(outlet, '.Solver#BC', type='outmfr2', globalmassflow=globalmassflow,
-        groupmassflow=groupmassflow)
+        ReferenceValues : :py:class:`dict` or :py:obj:`None`
+            dictionary as obtained from :py:func:`computeReferenceValues`. Can
+            be :py:obj:`None` only if **MassFlow** is not :py:obj:`None`.
 
+    '''
+    # checkVariables(dict(pressure=globalmassflow))
+    # outlet = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    # I._rmNodesByType(outlet, 'FamilyBC_t')
+    # I.newFamilyBC(value='BCOutflowSubsonic', parent=outlet)
+    # J.set(outlet, '.Solver#BC', type='outmfr2', globalmassflow=globalmassflow,
+    #     groupmassflow=groupmassflow)
+
+    if MassFlow is None and ReferenceValues is not None:
+        MassFlow = ReferenceValues['MassFlow']
+
+    ImposedVariables = dict(
+        globalmassflow = MassFlow,
+        groupmassflow  = groupmassflow
+    )
+
+    setBCwithImposedVariables(t, FamilyName, ImposedVariables,
+        FamilyBC='BCOutflowSubsonic', BCType='outmfr2', bc=bc)
+
+def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
+    bc=None, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData',
+    gridLocation='FaceCenter'):
+    '''
+    Generic function to impose a Boundary Condition ``inj1``. The following
+    functions are more specific:
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+        ImposedVariables : dict
+            Dictionary of variables to imposed on the boudary condition. Keys
+            are variable names and values must be:
+
+                * either scalars: in that case they are imposed once for the
+                  family **FamilyName** in the corresponding ``Family_t`` node.
+
+                * or numpy arrays: in that case they are imposed for the ``BC_t``
+                  node **bc**.
+
+        bc : PyTree
+            ``BC_t`` node on which the boundary condition will be imposed. Must
+            be :py:obj:`None` if the condition must be imposed once in the
+            ``Family_t`` node.
+
+        BCDataSetName : str
+            Name of the created node of type ``BCDataSet_t``. Default value is
+            'BCDataSet#Init'
+
+        BCDataName : str
+            Name of the created node of type ``BCData_t``. Default value is
+            'DirichletData'
+
+    See also
+    --------
+
+    setBC_inj1, setBC_outpres, setBC_outmfr2
+
+    '''
+    checkVariables(ImposedVariables)
+    FamilyNode = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    I._rmNodesByType(FamilyNode, 'FamilyBC_t')
+    I.newFamilyBC(value=FamilyBC, parent=FamilyNode)
+
+    if all([np.ndim(v)==0 for v in ImposedVariables.values()]):
+        ImposedVariables = translateVariablesFromCGNS2Elsa(ImposedVariables)
+        J.set(FamilyNode, '.Solver#BC', type=BCType, **ImposedVariables)
+    else:
+        assert bc is not None
+        J.set(bc, '.Solver#BC', type=BCType)
+
+        PointRange = I.getValue(I.getNodeFromType(bc, 'IndexRange_t'))
+        bc_shape = PointRange[:, 1] - PointRange[:, 0]
+        if bc_shape[0] == 0:
+            bc_shape = (bc_shape[1], bc_shape[2])
+        elif bc_shape[1] == 0:
+            bc_shape = (bc_shape[0], bc_shape[2])
+        elif bc_shape[2] == 0:
+            bc_shape = (bc_shape[0], bc_shape[1])
+        else:
+            raise ValueError('Wrong BC shape {} in {}'.format(bc_shape, I.getPath(t, bc)))
+
+        for var, value in ImposedVariables.items():
+            assert value.shape == bc_shape, \
+                'Wrong shape for variable {}: {} (shape {} for {})'.format(var, value.shape, bc_shape, I.getPath(t, bc))
+
+        BCDataSet = I.newBCDataSet(name=BCDataSetName, value='Null',
+            gridLocation='FaceCenter', parent=bc)
+        J.set(BCDataSet, BCDataName, childType='BCData_t', **ImposedVariables)
 
 def checkVariables(ImposedVariables):
     '''
@@ -1525,7 +1715,8 @@ def checkVariables(ImposedVariables):
 
     '''
     posiviteVars = ['PressureStagnation', 'EnthalpyStagnation',
-        'stagnation_pressure', 'stagnation_temperature', 'Pressure', 'pressure', 'Temperature',
+        'stagnation_pressure', 'stagnation_enthalpy', 'stagnation_temperature',
+        'Pressure', 'pressure', 'Temperature',
         'TurbulentEnergyKinetic', 'TurbulentDissipationRate', 'TurbulentDissipation', 'TurbulentLengthScale',
         'TurbulentSANuTilde', 'globalmassflow']
     unitVectorComponent = ['VelocityUnitVectorX', 'VelocityUnitVectorY', 'VelocityUnitVectorZ',
@@ -1544,6 +1735,71 @@ def checkVariables(ImposedVariables):
             raise ValueError('{} must be positive, but here it is equal to {}'.format(var, value))
         elif var in unitVectorComponent and not unitComponent(value):
             raise ValueError('{} must be between -1 and +1, but here it is equal to {}'.format(var, value))
+
+def translateVariablesFromCGNS2Elsa(Variables):
+    '''
+    Translate names in **Variables** from CGNS standards to elsA names for
+    boundary conditions.
+
+    Parameters
+    ----------
+
+        Variables : :py:class:`dict` or :py:class:`list` or :py:class:`str`
+            Could be eiter:
+
+                * a :py:class:`dict` with keys corresponding to variables names
+
+                * a :py:class:`list` of variables names
+
+                * a :py:class:`str` as a single variable name
+
+    Returns
+    -------
+
+        NewVariables : :py:class:`dict` or :py:class:`list` or :py:class:`str`
+            Depending on the input type, return the same object with variable
+            names translated to elsA standards.
+
+    '''
+    CGNS2ElsaDict = dict(
+        PressureStagnation       = 'stagnation_pressure',
+        EnthalpyStagnation       = 'stagnation_enthalpy',
+        TemperatureStagnation    = 'stagnation_temperature',
+        Pressure                 = 'pressure',
+        MassFlow                 = 'globalmassflow',
+        TurbulentSANuTilde       = 'inj_tur1',
+        TurbulentEnergyKinetic   = 'inj_tur1',
+        TurbulentDissipationRate = 'inj_tur2',
+        TurbulentDissipation     = 'inj_tur2',
+        TurbulentLengthScale     = 'inj_tur2',
+        VelocityUnitVectorX      = 'txv',
+        VelocityUnitVectorY      = 'tyv',
+        VelocityUnitVectorZ      = 'tzv',
+    )
+
+    elsAVariables = CGNS2ElsaDict.values()
+
+    if isinstance(Variables, dict):
+        NewVariables = dict()
+        for var, value in Variables.items():
+            if var in elsAVariables:
+                NewVariables[var] = value
+            else:
+                NewVariables[CGNS2ElsaDict[var]] = value
+        return NewVariables
+    elif isinstance(Variables, list):
+        NewVariables = []
+        for var in Variables:
+            if var in elsAVariables:
+                NewVariables.append(var)
+            else:
+                NewVariables.append(CGNS2ElsaDict[var])
+        return NewVariables
+    elif isinstance(Variables, str):
+        if Variables in elsAVariables:
+            return CGNS2ElsaDict[var]
+    else:
+        raise TypeError('Variables must be of type dict, list or string')
 
 ################################################################################
 #######  Boundary conditions without ETC dependency  ###########################

@@ -129,8 +129,8 @@ Each element is a dictionary with the following keys:
         function.
 '''
 BoundaryConditions = [
-    dict(type='inj1', option='uniform', FamilyName='row_1_INFLOW'),
-    dict(type='outpres', FamilyName='row_1_OUTFLOW', pressure=0.8*ReferenceValues['PressureStagnation'])
+    dict(type='InflowStagnation', option='uniform', FamilyName='row_1_INFLOW'),
+    dict(type='OutflowPressure', FamilyName='row_1_OUTFLOW', Pressure=0.8*ReferenceValues['PressureStagnation'])
 ]
 
 
