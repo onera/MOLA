@@ -78,8 +78,7 @@ def setBC_stage_mxpl(t, left, right, method='globborder_dict'):
     stage.jtype = 'nomatch_rad_line'
     stage.create()
 
-    for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
-        I._rmNodesByType(gc, 'FamilyBC_t')
+    setRotorStatorFamilyBC(t, left, right)
 
 def setBC_stage_mxpl_hyb(t, left, right, nbband=100, c=None):
 
@@ -101,8 +100,7 @@ def setBC_stage_mxpl_hyb(t, left, right, nbband=100, c=None):
         radius.write()
     stage.create()
 
-    for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
-        I._rmNodesByType(gc, 'FamilyBC_t')
+    setRotorStatorFamilyBC(t, left, right)
 
 def setBC_stage_red(t, left, right, stage_ref_time):
 
@@ -112,8 +110,7 @@ def setBC_stage_red(t, left, right, stage_ref_time):
     t, stage = trf.newStageRedFromFamily(t, left, right, stage_ref_time=stage_ref_time)
     stage.create()
 
-    for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
-        I._rmNodesByType(gc, 'FamilyBC_t')
+    setRotorStatorFamilyBC(t, left, right)
 
 def setBC_stage_red_hyb(t, left, right, stage_ref_time, nbband=100, c=None):
 
@@ -139,7 +136,7 @@ def setBC_stage_red_hyb(t, left, right, stage_ref_time, nbband=100, c=None):
 
 def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
     valve_ref_mflow=None, valve_relax=0.1, ReferenceValues=None):
-    
+
     if valve_ref_pres is None and ReferenceValues is not None:
         valve_ref_pres = ReferenceValues['Pressure']
     if valve_ref_mflow is None and ReferenceValues is not None:
@@ -205,6 +202,14 @@ def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
     radius.compute(t, nbband=nbband, c=c)
     radius.write()
     bc.create()
+
+def setRotorStatorFamilyBC(t, left, right):
+    for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
+        I._rmNodesByType(gc, 'FamilyBC_t')
+    leftFamily = I.getNodeFromNameAndType2(t, left, 'Family_t')
+    I.newFamilyBC(value='BCOutflow', parent=leftFamily)
+    rightFamily = I.getNodeFromNameAndType2(t, right, 'Family_t')
+    I.newFamilyBC(value='BCInflow', parent=leftFamily)
 
 def getGlobDir(tree, bc):
     # Remember: glob_dir_i is the opposite of theta, which is positive when it goes from Y to Z

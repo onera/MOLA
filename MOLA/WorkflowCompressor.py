@@ -1099,7 +1099,7 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
         OutflowMassFlow              = 'outmfr2',
         OutflowRadialEquilibrium     = 'outradeq',
         MixingPlane                  = 'stage_mxpl',
-        UnsteadyRotorStatorInterface = 'stage_rna',
+        UnsteadyRotorStatorInterface = 'stage_red',
     )
 
     print(J.CYAN + 'set BCs at walls' + J.ENDC)
