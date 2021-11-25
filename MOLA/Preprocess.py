@@ -142,6 +142,7 @@ def prepareMesh4ElsA(InputMeshes, NProcs=None, ProcPointsLoad=250000):
 
 def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
         NumericalParams={}, Extractions=[{'type':'AllBCWall'}],
+        Initialization=dict(method='uniform'),
         BodyForceInputData=[], writeOutputFields=True):
     '''
     This macro-function takes as input a preprocessed grid file (as produced
@@ -190,6 +191,28 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
 
         Extractions : :py:class:`list` of :py:class:`dict`
             .. danger:: **doc this** # TODO
+
+        Initialization : dict
+            dictionary defining the type of initialization, using the key
+            **method**. This latter is mandatory and should be one of the
+            following:
+
+            * **method** = None : the Flow Solution is not initialized.
+
+            * **method** = 'uniform' : the Flow Solution is initialized uniformly
+              using the **ReferenceValues**.
+
+            * **method** = 'copy' : the Flow Solution is initialized by copying
+              the FlowSolution container of another file. The file path is set by
+              using the key **file**. The container might be set with the key
+              **container** ('FlowSolution#Init' by default).
+
+            * **method** = 'interpolate' : the Flow Solution is initialized by
+              interpolating the FlowSolution container of another file. The file
+              path is set by using the key **file**. The container might be set
+              with the key **container** ('FlowSolution#Init' by default).
+
+            Default method is 'uniform'.
 
         BodyForceInputData : :py:class:`list` of :py:class:`dict`
             if provided, each item of this list constitutes a body-force modeling component.
@@ -363,7 +386,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
 
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
-    t = newCGNSfromSetup(t, AllSetupDics, initializeFlow=True,
+    t = newCGNSfromSetup(t, AllSetupDics, Initialization=Initialization,
                          FULL_CGNS_MODE=False)
     to = newRestartFieldsFromCGNS(t)
     saveMainCGNSwithLinkToOutputFields(t,to,writeOutputFields=writeOutputFields)
@@ -2621,7 +2644,7 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     return elsAkeysNumerics
 
 
-def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
+def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
                      FULL_CGNS_MODE=False,  extractCoords=True, BCExtractions={}):
     '''
     Given a preprocessed grid using :py:func:`prepareMesh4ElsA` and setup information
@@ -2639,9 +2662,9 @@ def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
             dictionaries: ``ReferenceValues``, ``elsAkeysCFD``,
             ``elsAkeysModel`` and ``elsAkeysNumerics``.
 
-        initializeFlow : bool
-            if :py:obj:`True`, calls :py:func:`newFlowSolutionInit`, which
-            creates ``FlowSolution#Init`` fields used for initialization of the flow
+        Initialization : dict
+            dictionary defining the type of flow initialization. If :py:obj:`None`,
+            no initialization is performed, else it depends on the key 'method'.
 
         FULL_CGNS_MODE : bool
             if :py:obj:`True`, add elsa keys in ``.Solver#Compute`` CGNS container
@@ -2678,8 +2701,25 @@ def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
                          AllSetupDictionaries['ReferenceValues'])
     dim = int(AllSetupDictionaries['elsAkeysCFD']['config'][0])
     addGoverningEquations(t, dim=dim)
-    if initializeFlow:
-        newFlowSolutionInit(t, AllSetupDictionaries['ReferenceValues'])
+    if Initialization:
+        if Initialization['method'] is None:
+            pass
+        elif Initialization['method'] == 'uniform':
+            print(J.CYAN + 'Initialize FlowSolution with uniform reference values' + J.ENDC)
+            initializeFlowSolutionFromReferenceValues(t, AllSetupDictionaries['ReferenceValues'])
+        elif Initialization['method'] == 'interpolate':
+            print(J.CYAN + 'Initialize FlowSolution by interpolation from {}'.format(Initialization['file']) + J.ENDC)
+            if not 'container' in Initialization:
+                Initialization['container'] = 'FlowSolution#Init'
+            initializeFlowSolutionFromFileByInterpolation(t, Initialization['file'], container=Initialization['container'])
+        elif Initialization['method'] == 'copy':
+            print(J.CYAN + 'Initialize FlowSolution by copy of {}'.format(Initialization['file']) + J.ENDC)
+            if not 'container' in Initialization:
+                Initialization['container'] = 'FlowSolution#Init'
+            initializeFlowSolutionFromFileByCopy(t, Initialization['file'], container=Initialization['container'])
+        else:
+            raise Exception(J.FAIL+'The key "method" of the dictionary Initialization is mandatory'+J.ENDC)
+
     if FULL_CGNS_MODE:
         addElsAKeys2CGNS(t, [AllSetupDictionaries['elsAkeysCFD'],
                              AllSetupDictionaries['elsAkeysModel'],
@@ -3087,7 +3127,7 @@ def addElsAKeys2CGNS(t, AllElsAKeys):
     for b in I.getBases(t): J.set(b, '.Solver#Compute', **AllComputeModels)
 
 
-def newFlowSolutionInit(t, ReferenceValues):
+def initializeFlowSolutionFromReferenceValues(t, ReferenceValues):
     '''
     Invoke ``FlowSolution#Init`` fields using information contained in
     ``ReferenceValue['ReferenceState']`` and ``ReferenceValues['Fields']``.
@@ -3128,6 +3168,78 @@ def newFlowSolutionInit(t, ReferenceValues):
     FlowSolInit = I.getNodesFromName(t,'FlowSolution#Init')
     I._rmNodesByName(FlowSolInit, 'ChimeraCellType')
 
+def initializeFlowSolutionFromFileByInterpolation(t, sourceFilename, container='FlowSolution#Init'):
+    '''
+    Initialize the flow solution of **t** from the flow solution in the file
+    **sourceFilename**.
+    Modify the tree **t** in-place.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to initialize
+
+        sourceFilename : str
+            Name of the source file for the interpolation.
+
+        container : str
+            Name of the ``'FlowSolution_t'`` node use for the interpolation.
+            Default is 'FlowSolution#Init'
+
+    '''
+    sourceTree = C.convertFile2PyTree(sourceFilename)
+    OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
+    I.__FlowSolutionCenters__ = container
+    I._rmNodesByType(sourceTree, 'BCDataSet_t')
+    I._rmNodesByNameAndType(sourceTree, '*EndOfRun*', 'FlowSolution_t')
+    P._extractMesh(sourceTree, t, mode='accurate', extrapOrder=0)
+    if container != 'FlowSolution#Init':
+        I.renameNode(t, container, 'FlowSolution#Init')
+    I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
+
+def initializeFlowSolutionFromFileByCopy(t, sourceFilename, container='FlowSolution#Init'):
+    '''
+    Initialize the flow solution of **t** by copying the flow solution in the file
+    **sourceFilename**.
+    Modify the tree **t** in-place.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to initialize
+
+        sourceFilename : str
+            Name of the source file.
+
+        container : str
+            Name of the ``'FlowSolution_t'`` node to copy.
+            Default is 'FlowSolution#Init'
+
+    '''
+    sourceTree = C.convertFile2PyTree(sourceFilename)
+    OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
+    I.__FlowSolutionCenters__ = container
+
+    for base in I.getBases(t):
+        basename = I.getName(base)
+        for zone in I.getNodesFromType1(base, 'Zone_t'):
+            zonename = I.getName(zone)
+            zonepath = '{}/{}'.format(basename, zonename)
+            FSpath = '{}/{}'.format(zonepath, container)
+            FlowSolutionInSourceTree = I.getNodeFromPath(sourceTree, FSpath)
+            if FlowSolutionInSourceTree:
+                I._rmNodesByNameAndType(zone, container, 'FlowSolution_t')
+                I._append(t, FlowSolutionInSourceTree, zonepath)
+            else:
+                ERROR_MSG = 'The node {} is not found in {}'.format(FSpath, sourceFilename)
+                raise Exception(J.FAIL+ERROR_MSG+J.ENDC)
+
+    if container != 'FlowSolution#Init':
+        I.renameNode(t, container, 'FlowSolution#Init')
+
+    I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
 
 def writeSetup(AllSetupDictionaries, setupFilename='setup.py'):
     '''
@@ -3642,34 +3754,6 @@ def getProc(t):
             proc number attributed to each zone of **t**
     '''
     return  np.array(D2.getProc(t), order='F', ndmin=1)
-
-def initializeFlowSolutionFromFile(t, sourceFilename, container='FlowSolution#Init'):
-    '''
-    Initialize the flow solution of **t** from the flow solution in the file
-    **sourceFilename**.
-    Modify the tree **t** in-place.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            Tree to initialize
-
-        sourceFilename : str
-            Name of the source file for the interpolation.
-
-        container : str
-            Name of the ``'FlowSolution_t'`` node use for the interpolation.
-            Default is 'FlowSolution#Init'
-
-    '''
-    sourceTree = C.convertFile2PyTree(sourceFilename)
-    OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
-    I.__FlowSolutionCenters__ = container
-    I._rmNodesByType(sourceTree, 'BCDataSet_t')
-    I._rmNodesByNameAndType(sourceTree, '*EndOfRun*', 'FlowSolution_t')
-    P._extractMesh(sourceTree, t, mode='accurate', extrapOrder=0)
-    I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
 
 def autoMergeBCs(t, familyNames=[]):
     '''
