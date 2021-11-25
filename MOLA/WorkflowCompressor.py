@@ -176,7 +176,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None, ProcPointsLoad=100000,
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, TurboConfiguration={}, Extractions={}, BoundaryConditions={},
         BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade'],
-        initializeFromCGNS=None):
+        Initialization={'method':'uniform'}):
     '''
     This is mainly a function similar to Preprocess :py:func:`prepareMainCGNS4ElsA`
     but adapted to compressor computations. Its purpose is adapting the CGNS to
@@ -205,9 +205,25 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
         writeOutputFields : bool
 
-        initializeFromCGNS : :py:class:`str` or :py:obj:`None`
-            If not :py:obj:`None`, initialize the flow solution from the given
-            CGNS file
+        Initialization : dict
+            dictionary defining the type of initialization, using the key
+            **method**. This latter is mandatory and should be one of the
+            following:
+
+            * **method** = 'uniform' : the Flow Solution is initialized uniformly
+              using the **ReferenceValues**.
+
+            * **method** = 'copy' : the Flow Solution is initialized by copying
+              the FlowSolution container of another file. The file path is set by
+              using the key **file**. The container might be set with the key
+              **container** ('FlowSolution#Init' by default).
+
+            * **method** = 'interpolate' : the Flow Solution is initialized by
+              interpolating the FlowSolution container of another file. The file
+              path is set by using the key **file**. The container might be set
+              with the key **container** ('FlowSolution#Init' by default).
+
+            Default method is 'uniform'.
 
     Returns
     -------
@@ -286,12 +302,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         BCInflow = ['convflux_ro'],
         BCOutflow = ['convflux_ro']
     )
-    t = PRE.newCGNSfromSetup(t, AllSetupDics, initializeFlow=True,
+    t = PRE.newCGNSfromSetup(t, AllSetupDics, Initialization=Initialization,
         FULL_CGNS_MODE=False, extractCoords=False, BCExtractions=BCExtractions)
     to = PRE.newRestartFieldsFromCGNS(t)
-    if initializeFromCGNS:
-        print(J.CYAN + 'Initialize flow field with {}'.format(initializeFromCGNS) + J.ENDC)
-        PRE.initializeFlowSolutionFromFile(t, initializeFromCGNS)
     PRE.saveMainCGNSwithLinkToOutputFields(t,to,writeOutputFields=writeOutputFields)
 
     if not Splitter:
@@ -2103,8 +2116,8 @@ def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
                 else:
                     raise Exception('valve_type={} not taken into account yet'.format(BC['valve_type']))
 
-        if 'initializeFromCGNS' in WorkflowParams and i != 0:
-            WorkflowParams.pop('initializeFromCGNS')
+        if 'Initialization' in WorkflowParams and i != 0:
+            WorkflowParams.pop('Initialization')
 
         JobsQueues.append(
             dict(ID=i, CASE_LABEL=CASE_LABEL, NewJob=NewJob, JobName=JobName, **WorkflowParams)
