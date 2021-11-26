@@ -206,10 +206,11 @@ def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
 def setRotorStatorFamilyBC(t, left, right):
     for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
         I._rmNodesByType(gc, 'FamilyBC_t')
-    leftFamily = I.getNodeFromNameAndType2(t, left, 'Family_t')
+
+    leftFamily = I.getNodeFromNameAndType(t, left, 'Family_t')
+    rightFamily = I.getNodeFromNameAndType(t, right, 'Family_t')
     I.newFamilyBC(value='BCOutflow', parent=leftFamily)
-    rightFamily = I.getNodeFromNameAndType2(t, right, 'Family_t')
-    I.newFamilyBC(value='BCInflow', parent=leftFamily)
+    I.newFamilyBC(value='BCInflow', parent=rightFamily)
 
 def getGlobDir(tree, bc):
     # Remember: glob_dir_i is the opposite of theta, which is positive when it goes from Y to Z
