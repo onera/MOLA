@@ -854,7 +854,8 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
 
 def computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration):
     '''
-    Compute the parameter **FluxCoef** for boundary conditions (except wall BC).
+    Compute the parameter **FluxCoef** for boundary conditions (except wall BC)
+    and rotor/stator intefaces (``GridConnectivity_t`` nodes).
     **FluxCoef** will be used later to normalize the massflow.
 
     Modify **ReferenceValues** by adding:
@@ -883,7 +884,7 @@ def computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration):
         row = I.getValue(FamilyNode)
         rowParams = TurboConfiguration['Rows'][row]
         fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
-        for bc in I.getNodesFromType2(zone, 'BC_t'):
+        for bc in I.getNodesFromType2(zone, 'BC_t')+I.getNodesFromType2(zone, 'GridConnectivity_t'):
             FamilyNameNode = I.getNodeFromType1(bc, 'FamilyName_t')
             if FamilyNameNode is None:
                 continue

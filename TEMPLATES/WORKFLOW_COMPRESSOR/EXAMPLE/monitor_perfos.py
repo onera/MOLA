@@ -75,16 +75,16 @@ for zone in zones:
         v = J.getVars2Dict(zone, ['IterationNumber',
                                   varname,
                                   'avg-'+varname,
-                                  'std-'+varname,])
+                                  'rsd-'+varname,])
         ax[0].set_title('{} {}'.format(row, varname.rstrip('In')))
 
         ax[0].plot(v['IterationNumber'], v[varname], label=svar, color='k')
         if v['avg-'+varname][0] is not None:
             ax[0].plot(v['IterationNumber'], v['avg-'+varname], \
                 label='avg %s'%svar, color='k', linestyle='--')
-        if v['std-'+varname][0] is not None:
-            ax[1].plot(v['IterationNumber'], v['std-'+varname], \
-                label='std %s'%svar, color='k')
+        if v['rsd-'+varname][0] is not None:
+            ax[1].plot(v['IterationNumber'], v['rsd-'+varname], \
+                label='rsd %s'%svar, color='k')
 
         if varname == 'MassFlowIn':
             varname = 'MassFlowOut'
@@ -93,15 +93,15 @@ for zone in zones:
             v = J.getVars2Dict(zone, ['IterationNumber',
                                   varname,
                                   'avg-'+varname,
-                                  'std-'+varname,])
+                                  'rsd-'+varname,])
 
             ax[0].plot(v['IterationNumber'], v[varname], label=svar, color='C0')
             if v['avg-'+varname][0] is not None:
                 ax[0].plot(v['IterationNumber'], v['avg-'+varname], \
                     label='avg %s'%svar, color='C0', linestyle='--')
-            if v['std-'+varname][0] is not None:
-                ax[1].plot(v['IterationNumber'], v['std-'+varname], \
-                    label='std %s'%svar, color='C0')
+            if v['rsd-'+varname][0] is not None:
+                ax[1].plot(v['IterationNumber'], v['rsd-'+varname], \
+                    label='rsd %s'%svar, color='C0')
 
         ax[1].set_yscale('log')
         for a in ax:
