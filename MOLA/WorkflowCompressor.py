@@ -168,6 +168,8 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None, ProcPointsLoad=100000,
     else:
         t = splitAndDistribute(t, InputMeshes, NProcs=NProcs,
                                     ProcPointsLoad=ProcPointsLoad)
+    # WARNING: Names of BC_t nodes must be unique to use PyPart on globborders
+    for l in [2,3,4]: I._correctPyTree(t, level=l)
     PRE.adapt2elsA(t, InputMeshes)
     J.checkEmptyBC(t)
 
@@ -767,7 +769,7 @@ def splitAndDistribute(t, InputMeshes, NProcs, ProcPointsLoad):
     '''
     if InputMeshes[0]['SplitBlocks']:
         t = T.splitNParts(t, NProcs, dirs=[1,2,3], recoverBC=True)
-        I._correctPyTree(t, level=3)
+        for l in [2,3,4]: I._correctPyTree(t, level=l)
         t = PRE.connectMesh(t, InputMeshes)
     #
     InputMeshesNoSplit = []
@@ -2104,15 +2106,20 @@ def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
         WorkflowParams['TurboConfiguration']['ShaftRotationSpeed'] = RotationSpeed
 
         for BC in WorkflowParams['BoundaryConditions']:
-            if 'outradeq' in BC['type']:
+            if any([condition in BC['type'] for condition in ['outradeq', 'OutflowRadialEquilibrium']]):
                 if BC['valve_type'] == 0:
-                    BC['prespiv'] = Throttle
+                    if 'prespiv' in BC: BC['prespiv'] = Throttle
+                    elif 'valve_ref_pres' in BC: BC['valve_ref_pres'] = Throttle
+                    else: raise Exception('valve_ref_pres must be given explicitely')
                 elif BC['valve_type'] in [1, 5]:
-                    BC['valve_ref_pres'] = Throttle
+                    if 'valve_ref_pres' in BC: BC['valve_ref_pres'] = Throttle
+                    else: raise Exception('valve_ref_pres must be given explicitely')
                 elif BC['valve_type'] == 2:
-                    BC['valve_ref_mflow'] = Throttle
+                    if 'valve_ref_mflow' in BC: BC['valve_ref_mflow'] = Throttle
+                    else: raise Exception('valve_ref_mflow must be given explicitely')
                 elif BC['valve_type'] in [3, 4]:
-                    BC['valve_relax'] = Throttle
+                    if 'valve_relax' in BC: BC['valve_relax'] = Throttle
+                    else: raise Exception('valve_relax must be given explicitely')
                 else:
                     raise Exception('valve_type={} not taken into account yet'.format(BC['valve_type']))
 
@@ -2162,7 +2169,7 @@ def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
                 findElementsInCollection(elem, searchKey, elements=elements)
         return elements
 
-    otherFiles = findElementsInCollection(kwargs, 'filename')
+    otherFiles = findElementsInCollection(kwargs, 'file') + findElementsInCollection(kwargs, 'filename')
     templatesFolder = os.getenv('MOLA') + '/TEMPLATES/WORKFLOW_COMPRESSOR'
     JM.launchJobsConfiguration(templatesFolder=templatesFolder, otherFiles=otherFiles)
 
@@ -2232,9 +2239,6 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
     Print the current status of a IsoSpeedLines computation and display
     performance of the monitored row for completed jobs.
 
-    .. attention::
-        This function works only for one value of rotation speed.
-
     Parameters
     ----------
 
@@ -2251,14 +2255,22 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
     Returns
     -------
 
-        MFR : numpy.ndarray
-            MassFlow rates for completed simulations
+        perfo : :py:class:`dict` of :py:class:`list`
+            dictionary with performance of **monitoredRow** for completed
+            simulations. It contains the following keys:
 
-        RPI : numpy.ndarray
-            Total pressure ratio for completed simulations
+            * MassFlow
 
-        ETA : numpy.ndarray
-            Isentropic efficiency for completed simulations
+            * PressureStagnationRatio
+
+            * EfficiencyIsentropic
+
+            * RotationSpeed
+
+            * Throttle
+
+            Each list corresponds to one rotation speed. Each sub-list
+            corresponds to the different operating points on a iso-speed line.
 
     '''
     from . import Coprocess as CO
@@ -2267,7 +2279,6 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
     Throttle = np.array(sorted(list(set([float(case['CASE_LABEL'].split('_')[0]) for case in config.JobsQueues]))))
     RotationSpeed = np.array(sorted(list(set([case['TurboConfiguration']['ShaftRotationSpeed'] for case in config.JobsQueues]))))
 
-    assert RotationSpeed.size == 1
     nThrottle = Throttle.size
     nCol = 4
     NcolMax = 79
@@ -2285,48 +2296,64 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
 
                 return case['CASE_LABEL']
 
+    perfo = dict(
+        MassFlow = [],
+        PressureStagnationRatio = [],
+        EfficiencyIsentropic = [],
+        RotationSpeed = [],
+        Throttle = []
+    )
     lines = ['']
 
-    JobNames = [getCaseLabel(config, Throttle[0], m).split('_')[-1] for m in RotationSpeed]
-    lines.append(TagStrFmt.format('JobName |')+''.join([ColStrFmt.format(JobNames[0])] + [ColStrFmt.format('') for j in range(nCol-1)]))
-    lines.append(TagStrFmt.format('RotationSpeed |')+''.join([ColFmt.format(RotationSpeed[0])] + [ColStrFmt.format('') for j in range(nCol-1)]))
-    lines.append(TagStrFmt.format(' |')+''.join([ColStrFmt.format(''), ColStrFmt.format('MFR'), ColStrFmt.format('RPI'), ColStrFmt.format('ETA')]))
-    lines.append(TagStrFmt.format('Throttle |')+''.join(['_' for m in range(NcolMax-FirstCol)]))
+    JobNames = [getCaseLabel(config, Throttle[0], r).split('_')[-1] for r in RotationSpeed]
+    for idSpeed, rotationSpeed in enumerate(RotationSpeed):
 
-    if not os.path.isdir('OUTPUT'):
-        os.makedirs('OUTPUT')
+        lines.append(TagStrFmt.format('JobName |')+''.join([ColStrFmt.format(JobNames[idSpeed])] + [ColStrFmt.format('') for j in range(nCol-1)]))
+        lines.append(TagStrFmt.format('RotationSpeed |')+''.join([ColFmt.format(rotationSpeed)] + [ColStrFmt.format('') for j in range(nCol-1)]))
+        lines.append(TagStrFmt.format(' |')+''.join([ColStrFmt.format(''), ColStrFmt.format('MFR'), ColStrFmt.format('RPI'), ColStrFmt.format('ETA')]))
+        lines.append(TagStrFmt.format('Throttle |')+''.join(['_' for m in range(NcolMax-FirstCol)]))
+        MFR = []
+        RPI = []
+        ETA = []
+        ROT = []
+        THR = []
 
-    MFR = []
-    RPI = []
-    ETA = []
+        for throttle in Throttle:
+            Line = TagFmt.format(throttle)
+            CASE_LABEL = getCaseLabel(config, throttle, rotationSpeed)
+            status = JM.statusOfCase(config, CASE_LABEL)
+            if status == 'COMPLETED':
+                msg = J.GREEN+ColStrFmt.format('OK')+J.ENDC
+            elif status == 'FAILED':
+                msg = J.FAIL+ColStrFmt.format('KO')+J.ENDC
+            elif status == 'TIMEOUT':
+                msg = J.WARN+ColStrFmt.format('TO')+J.ENDC
+            elif status == 'RUNNING':
+                msg = ColStrFmt.format('GO')
+            else:
+                msg = ColStrFmt.format('PD') # Pending
 
-    for throttle in Throttle:
-        Line = TagFmt.format(throttle)
-        CASE_LABEL = getCaseLabel(config, throttle, RotationSpeed[0])
-        status = JM.statusOfCase(config, CASE_LABEL)
-        if status == 'COMPLETED':
-            msg = J.GREEN+ColStrFmt.format('OK')+J.ENDC
-        elif status == 'FAILED':
-            msg = J.FAIL+ColStrFmt.format('KO')+J.ENDC
-        elif status == 'TIMEOUT':
-            msg = J.WARN+ColStrFmt.format('TO')+J.ENDC
-        elif status == 'RUNNING':
-            msg = ColStrFmt.format('GO')
-        else:
-            msg = ColStrFmt.format('PD') # Pending
+            if status == 'COMPLETED':
+                lastarrays = JM.getCaseArrays(config, CASE_LABEL,
+                                        basename='PERFOS_{}'.format(monitoredRow))
+                MFR.append(lastarrays['MassFlowIn'])
+                RPI.append(lastarrays['PressureStagnationRatio'])
+                ETA.append(lastarrays['EfficiencyIsentropic'])
+                ROT.append(rotationSpeed)
+                THR.append(throttle)
+                msg += ''.join([ColFmt.format(MFR[-1]), ColFmt.format(RPI[-1]), ColFmt.format(ETA[-1])])
+            else:
+                msg += ''.join([ColStrFmt.format('') for n in range(nCol-1)])
+            Line += msg
+            lines.append(Line)
 
-        if status == 'COMPLETED':
-            lastarrays = JM.getCaseArrays(config, CASE_LABEL,
-                                    basename='PERFOS_{}'.format(monitoredRow))
-            MFR.append(lastarrays['MassFlowIn'])
-            RPI.append(lastarrays['PressureStagnationRatio'])
-            ETA.append(lastarrays['EfficiencyIsentropic'])
-            msg += ''.join([ColFmt.format(MFR[-1]), ColFmt.format(RPI[-1]), ColFmt.format(ETA[-1])])
-        else:
-            msg += ''.join([ColStrFmt.format('') for n in range(nCol-1)])
-        Line += msg
-        lines.append(Line)
+        lines.append('')
+        perfo['MassFlow'].append(MFR)
+        perfo['PressureStagnationRatio'].append(RPI)
+        perfo['EfficiencyIsentropic'].append(ETA)
+        perfo['RotationSpeed'].append(ROT)
+        perfo['Throttle'].append(THR)
 
     for line in lines: print(line)
 
-    return np.array(MFR), np.array(RPI), np.array(ETA)
+    return perfo
