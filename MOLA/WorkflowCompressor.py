@@ -295,8 +295,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                         Splitter=Splitter)
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
-    setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
-            ReferenceValues, bladeFamilyNames=bladeFamilyNames)
+    setBCs(t, BoundaryConditions, AllSetupDics['TurboConfiguration'],
+            AllSetupDics['FluidProperties'], AllSetupDics['ReferenceValues'],
+            bladeFamilyNames=bladeFamilyNames)
     computeFluxCoefByRow(t, AllSetupDics['ReferenceValues'], AllSetupDics['TurboConfiguration'])
 
     BCExtractions = dict(
@@ -457,7 +458,7 @@ def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='from
     InputMeshes = [dict(
                     baseName=I.getName(I.getNodeByType(t, 'CGNSBase_t')),
                     Transform=dict(scale=scale, rotate=rotation),
-                    Connection=[],
+                    Connection=[dict(type='Match', tolerance=1e-8)],
                     SplitBlocks=SplitBlocks,
                     )]
     # Set automatic periodic connections
@@ -688,8 +689,8 @@ def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0)):
         axis : tuple
             axis of rotation given as a 3-tuple of integers or floats
     '''
-    # TODO: rotate vectors in FlowSolution nodes. It will allows to use this function
-    # in other situations that currently
+    # TODO: rotate vectors in FlowSolution, BCDataSets, and adapt globborders
+    # It will allows to use this function in other situations that currently
 
     if nDupli is None:
         nDupli = nBlades # for a 360 configuration
@@ -1158,6 +1159,7 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
         elif BCparam['type'] == 'outradeq':
             print(J.CYAN + 'set BC outradeq on ' + BCparam['FamilyName'] + J.ENDC)
             BCkwargs['ReferenceValues'] = ReferenceValues
+            BCkwargs['TurboConfiguration'] = TurboConfiguration
             ETC.setBC_outradeq(t, **BCkwargs)
 
         elif BCparam['type'] == 'outradeqhyb':

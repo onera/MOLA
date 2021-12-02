@@ -135,12 +135,27 @@ def setBC_stage_red_hyb(t, left, right, stage_ref_time, nbband=100, c=None):
         I._rmNodesByType(gc, 'FamilyBC_t')
 
 def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
-    valve_ref_mflow=None, valve_relax=0.1, ReferenceValues=None):
+    valve_ref_mflow=None, valve_relax=0.1, ReferenceValues=None,
+    TurboConfiguration=None):
 
-    if valve_ref_pres is None and ReferenceValues is not None:
-        valve_ref_pres = ReferenceValues['Pressure']
-    if valve_ref_mflow is None and ReferenceValues is not None:
-        valve_ref_mflow = ReferenceValues['MassFlow']
+    if valve_ref_pres is None:
+        try:
+            valve_ref_pres = ReferenceValues['Pressure']
+        except:
+            MSG = 'valve_ref_pres or ReferenceValues must be not None'
+            raise Exception(J.FAIL+MSG+J.ENDC)
+    if valve_ref_mflow is None:
+        try:
+            valve_ref_pres = ReferenceValues['Pressure']
+        except:
+            MSG = 'Either valve_ref_pres or both ReferenceValues and TurboConfiguration must be not None'
+            raise Exception(J.FAIL+MSG+J.ENDC)
+        bc = C.getFamilyBCs(t, FamilyName)[0]
+        zone = I.getParentFromType(t, bc, 'Zone_t')
+        row = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+        rowParams = TurboConfiguration['Rows'][row]
+        fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+        valve_ref_mflow = ReferenceValues['MassFlow'] / fluxcoeff
 
     # Delete previous BC if it exists
     for bc in C.getFamilyBCs(t, FamilyName):
