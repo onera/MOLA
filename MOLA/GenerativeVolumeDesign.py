@@ -36,7 +36,7 @@ from . import Wireframe as W
 from . import GenerativeShapeDesign as GSD
 
 initVarsCostInSeconds = np.array([0.0])
-computeCurvatureTime = np.array([0.0])
+computeExtrusionIndicatorsTime = np.array([0.0])
 constrainedSmoothing = np.array([0.0])
 GrowthTime = np.array([0.0])
 smoothField = np.array([0.0])
@@ -465,8 +465,8 @@ def extrudeWingOnSupport(Wing, Support, Distributions, Constraints=[],
 
 
 def extrude(t, Distributions, Constraints=[], extractMesh=None,
-            ExtrusionAuxiliarCellType='TRI', modeSmooth='dualing',
-            growthEquation='nodes:dH={nodes:dH}*maximum(1.+tanh(-{nodes:growthfactor}*{nodes:divs}),0.5)*maximum(1.+tanh({nodes:growthfactor}*0.01*mean({nodes:vol})/{nodes:vol}),0.5)',
+            ExtrusionAuxiliarCellType='TRI', modeSmooth='smoothField',
+            growthEquation='default',
             closeExtrusionLayer=False,
             printIters=False, plotIters=False,
             extractMeshHardSmoothOptions={'niter':0,
@@ -537,8 +537,13 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
             Sets the normals and cell height smoothing
             technique. Currently, only two options are available:
 
+            * ``'smoothField'``
+                Note that distribution's fields
+                'expansionfactor', 'normaliters' and 'growthiters' are employed in
+                this technique
+
             * ``'dualing'``
-                default behavior. Note that distribution's fields
+                Note that distribution's fields
                 'normalfactor', 'normaliters' and 'growthiters' are employed in
                 this technique
 
@@ -559,13 +564,16 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
             * ``{nodes:growthfactor}``
                 parameter inferred from Distributions list.
 
-            * ``{nodes:divs}``
+            * ``{nodes:convexity}``
                 a measure of the concavity/convexity. It corresponds
                 to the divergence of the normals.
 
             * ``{nodes:vol}``
                 the volume (or more precisely, the area) of each cell
                 of the extrusion front.
+
+            * ``{nodes:stretching}``
+                The stretching of the cells (the laplacian of the volume).
 
         closeExtrusionLayer : bool
             if :py:obj:`True`, force the extrusion front surface
@@ -703,7 +711,7 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
             wrapInitVars(HardSmoothPoints,'radius={radius}*%g'%(Diameter))
 
         if modeSmooth != 'ignore':
-            _computeCurvature(tExtru)
+            _computeExtrusionIndicators(tExtru)
         else:
             _extrusionApplyConstraints(tExtru)
 
@@ -732,7 +740,7 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
     return tExtru
 
 def _constrainedSmoothing(tExtru, mode='dualing',
-                          growthEquation='nodes:dH={nodes:dH}*maximum(1.+tanh(-{nodes:growthfactor}*{nodes:divs}),0.5)*maximum(1.+tanh({nodes:growthfactor}*0.01*mean({nodes:vol})/{nodes:vol}),0.5)'):
+                          growthEquation='default'):
     '''
     This is a private function employed by extrude().
 
@@ -846,52 +854,60 @@ def _constrainedSmoothing(tExtru, mode='dualing',
     elif mode == 'smoothField':
 
         I._rmNodesByName(z,'FlowSolution#Centers')
-        sx, sy, sz, dH, divs = J.getVars(z, ['sx','sy','sz','dH','divs'], 'FlowSolution')
+        sx, sy, sz, dH, convexity = J.getVars(z, ['sx','sy','sz','dH','convexity'], 'FlowSolution')
 
-        toki = tic()
-        MeanDH = np.mean(dH)
-        if growthEquation: wrapInitVars(z,growthEquation)
-        NewMeanDH = np.mean(dH)
-        dH *= MeanDH/NewMeanDH
-        GrowthTime[0] += tic() - toki
-
-
-        eps  = divs*(divs<0)/np.min(divs)
-        eps *= 0.9
         type = 0
-        subniter = 100
-
         niter = int(C.getMeanValue(z,'growthiters'))
+        try:
+            subniter = int(C.getMeanValue(z,'growthsubiters'))
+        except:
+            subniter = 100
+
+        gf, stretch, convexity = J.getVars(z,['growthfactor','stretching','convexity'])
+
+
         for i in range(niter):
-            wrapSmoothField(z, 0.9, 20, type, ['dH'])
 
             toki = tic()
-            MeanDH = np.mean(dH)
-            if growthEquation: wrapInitVars(z,growthEquation)
+
+            MeanDH = np.median(dH)
+            if growthEquation:
+                if growthEquation == 'default':
+                    v = stretch - convexity
+                    dH*=(1+gf*np.tanh((v*(v<0))/(np.abs(np.min(v))/3.0)+(v*(v>0))/(np.max(v)/3.0)))
+                else:
+                    wrapInitVars(z,growthEquation)
+
+            wrapSmoothField(z, 0.9, subniter, type, ['dH'])
             NewMeanDH = np.mean(dH)
             dH *= MeanDH/NewMeanDH
-
             GrowthTime[0] += tic() - toki
 
             _keepConstrainedHeight(tExtru)
 
         # Perform smoothing of normals
         niter = int(C.getMeanValue(z,'normaliters'))
+        try:
+            subniter = int(C.getMeanValue(z,'normalsubiters'))
+        except:
+            subniter = 100
         for i in range(niter):
             wrapSmoothField(z, 0.9, subniter, type, ['sx','sy','sz'])
             normalizeVector(z, ['sx', 'sy', 'sz'], container='FlowSolution')
             _extrusionApplyConstraints(tExtru)
 
         try:
-            I.getNodeFromName(z,'expansionfactor')[1]
-            ef = '{nodes:expansionfactor}'
+            ef = I.getNodeFromName(z,'expansionfactor')[1]
         except:
-            ef = '10'
+            ef = 10.
         normalizeVector(z, ['sx', 'sy', 'sz'], container='FlowSolution')
-        wrapSmoothField(z, 0.9, 200, type, ['gradxvol','gradyvol','gradzvol'])
-        wrapInitVars(z,'nodes:sx={nodes:sx}+%s*{nodes:gradxvol}/sqrt({vol})'%ef)
-        wrapInitVars(z,'nodes:sy={nodes:sy}+%s*{nodes:gradyvol}/sqrt({vol})'%ef)
-        wrapInitVars(z,'nodes:sz={nodes:sz}+%s*{nodes:gradzvol}/sqrt({vol})'%ef)
+        # wrapSmoothField(z, 0.9, 200, type, ['dsx','dsy','dsz'])
+        sx, sy, sz, dsx, dsy, dsz, dH = J.getVars(z,[ 'sx',  'sy',  'sz',
+                                                     'dsx', 'dsy', 'dsz','dH'])
+
+        sx += ef*dsx/dH
+        sy += ef*dsy/dH
+        sz += ef*dsz/dH
         normalizeVector(z, ['sx', 'sy', 'sz'], container='FlowSolution')
         _extrusionApplyConstraints(tExtru)
 
@@ -957,66 +973,79 @@ def _extrusionApplyConstraints(tExtru):
     ConstraintSurfaces = I.getNodeFromName1(tExtru,'ConstraintSurfaces')
     for constraint in ConstraintWireframe[2]:
         NPts = C.getNPts(constraint)
-        cdH, csx, csy, csz, cdx, cdy, cdz = J.invokeFields(constraint,['dH','sx','sy','sz','dx','dy','dz'])
+        silence = J.OutputGrabber()
+        cdH, = J.invokeFields(constraint,['dH']) # not optional: data MUST be translated from ExtrudeLayer to constraint
+        cdH = cdH.ravel(order='F')
+        with silence: cdH, csx, csy, csz, cdx, cdy, cdz = J.getVars(constraint,['dH','sx','sy','sz','dx','dy','dz'])
         cx, cy, cz = J.getxyz(constraint)
         ExtrusionDataNode = I.getNodeFromName1(constraint,'.ExtrusionData')
-        constraintFlowSol = I.getNodeFromName1(constraint,'FlowSolution')
-
         PointListReceiver = I.getNodeFromName1(ExtrusionDataNode,'PointListReceiver')[1]
-        PointListAdjacent = I.getNodeFromName1(ExtrusionDataNode,'PointListAdjacent')[1]
 
         kind = I.getValue(I.getNodeFromName1(ExtrusionDataNode,'kind'))
 
         if kind == 'Imposed':
-            cdH = cdH.ravel(order='F')
-            imposedsx = I.getNodeFromName1(constraintFlowSol,'sx')[1]
-            imposedsy = I.getNodeFromName1(constraintFlowSol,'sy')[1]
-            imposedsz = I.getNodeFromName1(constraintFlowSol,'sz')[1]
-            imposedsx = imposedsx.ravel(order='F')
-            imposedsy = imposedsy.ravel(order='F')
-            imposedsz = imposedsz.ravel(order='F')
-            sx[PointListReceiver] = imposedsx
-            sy[PointListReceiver] = imposedsy
-            sz[PointListReceiver] = imposedsz
+            try: sx[PointListReceiver] = csx.ravel(order='F')
+            except: pass
+            try: sy[PointListReceiver] = csy.ravel(order='F')
+            except: pass
+            try: sz[PointListReceiver] = csz.ravel(order='F')
+            except: pass
+
+            # required for displacing the constraint
             cdH[:] = dH[PointListReceiver]
 
         elif kind == 'Initial':
-            csx[:] = sx[PointListReceiver]
-            csy[:] = sy[PointListReceiver]
-            csz[:] = sz[PointListReceiver]
+            try: csx[:] = sx[PointListReceiver]
+            except: pass
+            try: csy[:] = sy[PointListReceiver]
+            except: pass
+            try: csz[:] = sz[PointListReceiver]
+            except: pass
             cdH[:] = dH[PointListReceiver]
+
             I.createUniqueChild(ExtrusionDataNode,'kind','DataArray_t',value='Imposed')
 
         elif kind == 'Copy':
 
             # Get the curve to copy
-            CopyCurveName = [k.decode("utf-8") for k in I.getNodeFromName(ExtrusionDataNode,'CopyCurveName')[1]]
-            CopyCurveName = ''.join(CopyCurveName)
+            CopyCurveName = I.getValue(I.getNodeFromName(ExtrusionDataNode,'CopyCurveName'))
             CopyCurve = I.getNodeFromName1(ConstraintWireframe,CopyCurveName)
-            ccdH, ccsx, ccsy, ccsz = J.getVars(CopyCurve,['dH','sx','sy','sz'])
+            ccsx, ccsy, ccsz = J.getVars(CopyCurve,['sx','sy','sz'])
 
-            # Copy the values from the curve to copy
-            csx[:] = ccsx
-            csy[:] = ccsy
-            csz[:] = ccsz
-            cdH[:] = ccdH
+            # Copy the values from the curve to copy and export them to ExtrudeLayer
+            try:
+                csx[:] = ccsx
+                sx[PointListReceiver] = csx
+            except:
+                pass
 
-            # Export the values to ExtrudeLayer
-            sx[PointListReceiver] = csx
-            sy[PointListReceiver] = csy
-            sz[PointListReceiver] = csz
-            dH[PointListReceiver] = cdH
+            try:
+                csy[:] = ccsy
+                sy[PointListReceiver] = csy
+            except:
+                pass
+
+            try:
+                csz[:] = ccsz
+                sz[PointListReceiver] = csz
+            except:
+                pass
 
 
         elif kind == 'Projected':
 
-
-            ProjSurfaceName = I.getValue(I.getNodeFromName(ExtrusionDataNode,'ProjectionSurfaceName'))
-            ProjSurface = I.getNodeFromName1(ConstraintSurfaces,ProjSurfaceName)
+            try:
+                ProjSurfaceName = I.getValue(I.getNodeFromName(ExtrusionDataNode,'ProjectionSurfaceName'))
+                ProjSurface = I.getNodeFromName1(ConstraintSurfaces,ProjSurfaceName)
+            except:
+                pass
 
             ProjMode = I.getValue(I.getNodeFromName(ExtrusionDataNode,'ProjectionMode'))
 
+            cdH, csx, csy, csz, cdx, cdy, cdz = J.invokeFields(constraint,['dH','sx','sy','sz','dx','dy','dz'])
+
             if ProjMode == 'ortho':
+
                 # Import existing values from ExtrudeLayer
                 csx[:]=sx[PointListReceiver]
                 csy[:]=sy[PointListReceiver]
@@ -1047,7 +1076,7 @@ def _extrusionApplyConstraints(tExtru):
                 sx[PointListReceiver] = csx
                 sy[PointListReceiver] = csy
                 sz[PointListReceiver] = csz
-                dH[PointListReceiver] = cdH # TODO: further investigate wrapping consequences
+                # dH[PointListReceiver] = cdH # TODO: further investigate wrapping consequences
 
 
             elif ProjMode == 'dir':
@@ -1081,16 +1110,40 @@ def _extrusionApplyConstraints(tExtru):
                 sx[PointListReceiver] = csx
                 sy[PointListReceiver] = csy
                 sz[PointListReceiver] = csz
+
+            elif ProjMode == 'CylinderRadial':
+                a = I.getValue(I.getNodeFromName(ExtrusionDataNode,'ProjectionAxis'))
+                c = I.getValue(I.getNodeFromName(ExtrusionDataNode,'ProjectionCenter'))
+
+                csx = csx.ravel(order='F')
+                csy = csy.ravel(order='F')
+                csz = csz.ravel(order='F')
+
+                # Import existing values from ExtrudeLayer
+                csx[:]=sx[PointListReceiver]
+                csy[:]=sy[PointListReceiver]
+                csz[:]=sz[PointListReceiver]
+                cdH[:]=dH[PointListReceiver] # this will allow constraint curve to adapt
+
+                T._alignVectorFieldWithRadialCylindricProjection(constraint, c, a,
+                                                           ['sx','sy','sz'])
+
+                sx[PointListReceiver] = csx
+                sy[PointListReceiver] = csy
+                sz[PointListReceiver] = csz
+
             else:
                 raise ValueError('Extrusion constraints: Projection mode %s not recognized'%ProjMode)
 
 
         elif kind == 'Match':
+
+            cdH, csx, csy, csz, cdx, cdy, cdz = J.invokeFields(constraint,['dH','sx','sy','sz','dx','dy','dz'])
+
             cx, cy, cz = J.getxyz(constraint)
 
             # Get the Matching surface
-            MatchSurfaceName = [k.decode("utf-8") for k in I.getNodeFromName(ExtrusionDataNode,'MatchSurfaceName')[1]]
-            MatchSurfaceName = ''.join(MatchSurfaceName)
+            MatchSurfaceName = I.getValue(I.getNodeFromName(ExtrusionDataNode,'MatchSurfaceName'))
             MatchSurface = I.getNodeFromName1(ConstraintSurfaces,MatchSurfaceName)
             mx, my, mz = J.getxyz(MatchSurface)
             mShape = mx.shape
@@ -1098,10 +1151,8 @@ def _extrusionApplyConstraints(tExtru):
 
 
             # DETERMINE THE CURRENT AND AIM SLICES
-            # Pts = map(lambda i: (cx[i],cy[i],cz[i]),range(NPts))
             Pts = [(cx[i],cy[i],cz[i]) for i in range(NPts)]
             Res = D.getNearestPointIndex(MatchSurface,Pts)
-            # indicesCurrSurf = map(lambda r: r[0], Res)
             indicesCurrSurf = [r[0] for r in Res]
             ijkCurrSurf = np.unravel_index(indicesCurrSurf,mShape,order='F')
             ijkVStack   = np.vstack(ijkCurrSurf).T
@@ -1546,69 +1597,73 @@ def stackUnstructured(ListOfZones2Stack):
 
 
 
-def _computeCurvature(tExtru):
-    '''
-    This is a private function employed by user-level function extrude()
-
-    Its purpose is adding the field {divs} to the extrusion front surface.
-    The field {divs} stands for the divergence of the normals,
-
-                               d sx     d sy     d sz
-                   div (s) =  ------ + ------ + ------
-                                dx       dy       dz
-
-    This field is a convenient measure for the convexity and concavity of
-    a surface
-
-    INPUTS
-
-    tExtru - (PyTree) - extrusion PyTree. It is modified in-place.
-    '''
+def _computeExtrusionIndicators(tExtru):
     toc = tic()
     ExtLayBase   = I.getNodeFromName1(tExtru,'ExtrudeLayerBase')
     ExtrudeLayer = I.getNodeFromName1(ExtLayBase,'ExtrudeLayer')
 
+    G._getVolumeMap(ExtrudeLayer)
     _,_,_,_,DimExtrudeLayer = I.getZoneDim(ExtrudeLayer)
     if DimExtrudeLayer == 2:
         G._getNormalMap(ExtrudeLayer)
+        G._getMaxLength(ExtrudeLayer)
     elif DimExtrudeLayer == 1:
         W.getCurveNormalMap(ExtrudeLayer)
+        C._initVars(ExtrudeLayer,'centers:MaxLength={centers:vol}')
     else:
         raise TypeError('ExtrudeLayer shall be a surface or a curve, not a volume mesh.')
 
-    G._getVolumeMap(ExtrudeLayer)
-
-    for fieldname in ['vol','sx','sy','sz']:
+    for fieldname in ['vol','sx','sy','sz','MaxLength']:
         C.center2Node__(ExtrudeLayer,'centers:'+fieldname,cellNType=0)
     I.rmNodesFromName(ExtrudeLayer,I.__FlowSolutionCenters__)
     normalizeVector(ExtrudeLayer,['sx','sy','sz'],container='FlowSolution')
-    dH = I.getNodeFromName2(ExtrudeLayer,'dH')[1]
-    _extrusionApplyConstraints(tExtru)
 
-    tempExtLayer = P.computeGrad(ExtrudeLayer,'sx')
+    # TODO why here ?
+    # dH = I.getNodeFromName2(ExtrudeLayer,'dH')[1]
+    # _extrusionApplyConstraints(tExtru)
+
+    tempExtLayer = I.copyRef(ExtrudeLayer)
+
+    # add convexity/concavity indicator "convexity"
+    tempExtLayer = P.computeGrad(tempExtLayer,'sx')
     tempExtLayer = P.computeGrad(tempExtLayer,'sy')
     tempExtLayer = P.computeGrad(tempExtLayer,'sz')
-    wrapInitVars(tempExtLayer,'centers:divs={centers:gradxsx}+{centers:gradysy}+{centers:gradzsz}')
-    C.center2Node__(tempExtLayer,'centers:divs',cellNType=0)
+    wrapInitVars(tempExtLayer,'centers:convexity={centers:gradxsx}+{centers:gradysy}+{centers:gradzsz}')
+    C.center2Node__(tempExtLayer,'centers:convexity',cellNType=0)
+    FlowSolTemp = I.getNodeFromName1(tempExtLayer,I.__FlowSolutionNodes__)
+    convexity = I.getNodeFromName1(FlowSolTemp,'convexity')[1]
+    FlowSol = I.getNodeFromName1(ExtrudeLayer,I.__FlowSolutionNodes__)
+    I.createUniqueChild(FlowSol, 'convexity', 'DataArray_t', value=convexity)
 
-    FlowSolTemp = I.getNodeFromName1(tempExtLayer,'FlowSolution')
-    divs = I.getNodeFromName1(FlowSolTemp,'divs')[1]
-    FlowSol = I.getNodeFromName1(ExtrudeLayer,'FlowSolution')
-    I.createUniqueChild(FlowSol, 'divs', 'DataArray_t', value=divs)
-
+    # add stretching indicator
     tempExtLayer = P.computeGrad(ExtrudeLayer,'vol')
+    tempExtLayer = P.computeGrad(tempExtLayer,'centers:gradxvol')
+    tempExtLayer = P.computeGrad(tempExtLayer,'centers:gradyvol')
+    tempExtLayer = P.computeGrad(tempExtLayer,'centers:gradzvol')
     C.center2Node__(tempExtLayer,'centers:gradxvol',cellNType=0)
     C.center2Node__(tempExtLayer,'centers:gradyvol',cellNType=0)
     C.center2Node__(tempExtLayer,'centers:gradzvol',cellNType=0)
+    C.center2Node__(tempExtLayer,'centers:gradxgradxvol',cellNType=0)
+    C.center2Node__(tempExtLayer,'centers:gradygradyvol',cellNType=0)
+    C.center2Node__(tempExtLayer,'centers:gradzgradzvol',cellNType=0)
     FlowSolTemp = I.getNodeFromName1(tempExtLayer,'FlowSolution')
+    MaxLength = I.getNodeFromName1(FlowSolTemp,'MaxLength')[1]
     gradxvol = I.getNodeFromName1(FlowSolTemp,'gradxvol')[1]
     gradyvol = I.getNodeFromName1(FlowSolTemp,'gradyvol')[1]
     gradzvol = I.getNodeFromName1(FlowSolTemp,'gradzvol')[1]
-    I.createUniqueChild(FlowSol, 'gradxvol', 'DataArray_t', value=gradxvol)
-    I.createUniqueChild(FlowSol, 'gradyvol', 'DataArray_t', value=gradyvol)
-    I.createUniqueChild(FlowSol, 'gradzvol', 'DataArray_t', value=gradzvol)
+    gradxgradxvol = I.getNodeFromName1(FlowSolTemp,'gradxgradxvol')[1]
+    gradygradyvol = I.getNodeFromName1(FlowSolTemp,'gradygradyvol')[1]
+    gradzgradzvol = I.getNodeFromName1(FlowSolTemp,'gradzgradzvol')[1]
+    stretching = gradxgradxvol+gradygradyvol+gradzgradzvol
+    I.createUniqueChild(FlowSol, 'stretching', 'DataArray_t', value=stretching)
+    dsx = gradxvol*MaxLength
+    dsy = gradyvol*MaxLength
+    dsz = gradzvol*MaxLength
+    I.createUniqueChild(FlowSol, 'dsx', 'DataArray_t', value=dsx)
+    I.createUniqueChild(FlowSol, 'dsy', 'DataArray_t', value=dsy)
+    I.createUniqueChild(FlowSol, 'dsz', 'DataArray_t', value=dsz)
 
-    computeCurvatureTime[0] += tic() - toc
+    computeExtrusionIndicatorsTime[0] += tic() - toc
 
 def _stackLayers(tExtru, AllLayersBases):
     '''
@@ -1718,7 +1773,7 @@ def invokeExtrusionPyTree(tSurf):
         tExtru : PyTree
             the extrusion tree employed during the extrusion process
     '''
-    I._rmNodesFromType(tSurf, 'FlowSolution_t')
+    tSurf = I.rmNodesFromType(tSurf, 'FlowSolution_t')
     tExtru = C.newPyTree(['InitialSurface',I.getZones(tSurf),
                      'ExtrudedVolume',     [],
                      'ExtrudeLayerBase',   [],
@@ -1803,7 +1858,8 @@ def _addExtrusionLayerSurface(tExtru, mode='TRI', closeExtrusionLayer=False):
 
 
 def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
-        ProjectionMode='ortho', ProjectionDir=None, MatchDir=None,
+        ProjectionMode='ortho', ProjectionDir=None, ProjectionCenter=None,
+        ProjectionAxis=None, MatchDir=None,
         copyCurve=None):
     '''
     This is a private function called by user-level function :py:func:`extrude`
@@ -1856,12 +1912,27 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
             * ``'dir'``
                 projection mode is directional
 
+            * ``'CylinderRadial'``
+                projection mode is radial using cylinder, hence
+                **ProjectionCenter** and **ProjectionAxis** must be
+                specified
+
             .. note:: only relevant if **kind** == ``'Projected'``
 
         ProjectionDir : :py:class:`tuple` containing 3 :py:class:`float`
             if **ProjectionMode** == ``'dir'``, then this
             attribute indicates the direction of projection, that will remain
             constant throughout the entire extrusion process.
+
+        ProjectionCenter : :py:class:`tuple` containing 3 :py:class:`float`
+            if **ProjectionMode** == ``'CylinderRadial'``, then this
+            attribute indicates the coordinates of the passing point of the
+            cylindrical projection axis
+
+        ProjectionAxis : :py:class:`tuple` containing 3 :py:class:`float`
+            if **ProjectionMode** == ``'CylinderRadial'``, then this
+            attribute indicates the unitary vector pointing towards the
+            cylindrical projection axis
 
         MatchDir : int
             If procided, it specifies the front-advance index of matching
@@ -1884,13 +1955,11 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
     if kind in ('Imposed', 'Initial'):
         if not curve:
             raise AttributeError('Extrusion kind=%s: curve was not provided.'%kind)
-        elif kind == 'Imposed':
-            RequiredFields = ['sx','sy','sz']
-            flds = J.getVars(curve,RequiredFields)
-            for i in range(len(RequiredFields)):
-                if flds[i] is None:
-                    raise AttributeError('Extrusion kind=%s: curve named %s must have a FlowSolution named %s.'%(kind,curve[0],RequiredFields[i]))
-
+        PossibleFields = ['sx','sy','sz']
+        silence = J.OutputGrabber()
+        with silence: flds = J.getVars(curve,PossibleFields)
+        if any([f is None for f in flds]):
+            print(J.WARN+'warning: "%s" constraint shall be triggered invoking at least one of "sx","sy","sz" fields in provided constraint curve'%kind+J.ENDC)
 
         # Add curve to Extrusion PyTree:
         ConstraintWireframeBase = I.getNodeFromNameAndType(tExtru,'ConstraintWireframe','CGNSBase_t')
@@ -1913,8 +1982,8 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
     elif kind == 'Projected':
         if not curve:
             raise AttributeError('Extrusion kind=%s: curve was not provided.'%kind)
-        if not surface:
-            raise AttributeError('Extrusion kind=%s: surface was not provided.'%kind)
+        if not surface and ProjectionMode in ('dir', 'ortho'):
+            raise AttributeError('ProjectionMode=%s : surface was not provided.'%ProjectionMode)
         # Add data to Extrusion PyTree:
         ConstraintWireframeBase = I.getNodeFromNameAndType(tExtru,'ConstraintWireframe','CGNSBase_t')
         # ExistingZonesNames = map(lambda z: z[0],ConstraintWireframeBase[2])
@@ -1932,27 +2001,25 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
 
 
         ConstraintSurfacesBase = I.getNodeFromName1(tExtru,'ConstraintSurfaces')
-        # ExistingZonesNames = map(lambda z: z[0],ConstraintSurfacesBase[2])
-        ExistingZonesNames = [z[0] for z in ConstraintSurfacesBase[2]]
-        if surface[0] in ExistingZonesNames:
-            item = 0
-            NewZoneName = '%s.%d'%(surface[0],item)
-            while NewZoneName in ExistingZonesNames:
-                item+=1
-                NewZoneName = '%s.%d'%(surface[0],item)
-            surface[0] = NewZoneName
-
-        I.addChild(ConstraintSurfacesBase,surface)
+        if surface:
+            ConstraintSurfacesBase[2].append(surface)
+            I._correctPyTree(ConstraintSurfacesBase,level=3)
 
         # Invoke .ExtrusionData Node where attributes are stored
-        ExtrusionData = I.createUniqueChild(curve, '.ExtrusionData', 'UserDefinedData_t',value=None,children=None)
-        I.createUniqueChild(ExtrusionData,'kind','DataArray_t',value=kind)
-        I.createUniqueChild(ExtrusionData,'ProjectionSurfaceName','DataArray_t',value=surface[0])
-        if ProjectionMode == 'dir' and ProjectionDir is not None:
-            I.createUniqueChild(ExtrusionData,'ProjectionMode','DataArray_t',value=ProjectionMode)
-            I.createUniqueChild(ExtrusionData,'ProjectionDir','DataArray_t',value=np.array(ProjectionDir,order='F'))
-        else:
-            I.createUniqueChild(ExtrusionData,'ProjectionMode','DataArray_t',value=ProjectionMode)
+        ExtrusionData = dict(kind=kind, ProjectionMode=ProjectionMode)
+        if ProjectionMode in ('dir','ortho'):
+            ExtrusionData['ProjectionSurfaceName'] = surface[0]
+        elif ProjectionMode == 'CylinderRadial':
+            if ProjectionCenter is None:
+                raise AttributeError('CylinderRadial projection requires "ProjectionCenter" argument')
+            ProjectionCenter = np.array(ProjectionCenter,dtype=np.float)
+            ExtrusionData['ProjectionCenter'] = ProjectionCenter
+            if ProjectionAxis is None:
+                raise AttributeError('CylinderRadial projection requires "ProjectionAxis" argument')
+            ProjectionAxis = np.array(ProjectionAxis,dtype=np.float)
+            ProjectionAxis/= np.sqrt(ProjectionAxis.dot(ProjectionAxis))
+            ExtrusionData['ProjectionAxis'] = ProjectionAxis
+        J.set(curve,'.ExtrusionData',**ExtrusionData)
 
     elif kind == 'Copy':
         if not curve:
@@ -2032,23 +2099,24 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
     if  any(np.diff(PointListReceiver)==0):
         print('WARNING: addExtrusionConstraint(): Multiply defined constraint for single curve "%s"'%curve[0])
 
-    I.createUniqueChild(ExtrusionData,'PointListReceiver','DataArray_t',value=PointListReceiver)
+    ExtrusionDataNode = I.getNodeFromName1(curve,'.ExtrusionData')
+    I.createUniqueChild(ExtrusionDataNode,'PointListReceiver','DataArray_t',value=PointListReceiver)
 
     # get the adjacent points
-    PointsGlobal = PointListReceiver+1
-    GridElts_n = I.getNodeFromName1(ExtrudeLayer,'GridElements')
-    ElementConnectivity = I.getNodeFromName1(GridElts_n,'ElementConnectivity')[1]
-    ReshapedConnectivity = np.reshape(ElementConnectivity, (int(len(ElementConnectivity)/3),3))
-    FirstColumnOfConn = ReshapedConnectivity[:,0]
-    AdjacentPoints = []
-    for pg in PointsGlobal:
-        Slicer = FirstColumnOfConn==pg
-        cand = ReshapedConnectivity[Slicer,1:]
-        for con in ReshapedConnectivity[Slicer,1:].flatten():
-            if con not in AdjacentPoints and con not in PointsGlobal:
-                AdjacentPoints.append(con)
-    AdjacentPoints = np.array(AdjacentPoints,order='F')-1
-    I.createUniqueChild(ExtrusionData,'PointListAdjacent','DataArray_t',value=AdjacentPoints)
+    # PointsGlobal = PointListReceiver+1
+    # GridElts_n = I.getNodeFromName1(ExtrudeLayer,'GridElements')
+    # ElementConnectivity = I.getNodeFromName1(GridElts_n,'ElementConnectivity')[1]
+    # ReshapedConnectivity = np.reshape(ElementConnectivity, (int(len(ElementConnectivity)/3),3))
+    # FirstColumnOfConn = ReshapedConnectivity[:,0]
+    # AdjacentPoints = []
+    # for pg in PointsGlobal:
+    #     Slicer = FirstColumnOfConn==pg
+    #     cand = ReshapedConnectivity[Slicer,1:]
+    #     for con in ReshapedConnectivity[Slicer,1:].flatten():
+    #         if con not in AdjacentPoints and con not in PointsGlobal:
+    #             AdjacentPoints.append(con)
+    # AdjacentPoints = np.array(AdjacentPoints,order='F')-1
+    # I.createUniqueChild(ExtrusionData,'PointListAdjacent','DataArray_t',value=AdjacentPoints)
 
 
 def _addHardSmoothPoints(tExtru, HardSmoothPoints):

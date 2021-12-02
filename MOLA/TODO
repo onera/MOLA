@@ -1,5 +1,8 @@
 * recondition input of PRE.addSurfacicExtractions
 
+* CO.extractArrays -> use IntegralScales (FluxCoeff, TorqueCoeff ?) dependent
+  on field names ?
+
 * use computeGeneralLoadsOfLiftingLine in bodyforce context
 
 * allow user to define PhaseDirection in bodyforce context
