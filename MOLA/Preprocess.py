@@ -2702,6 +2702,9 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
     dim = int(AllSetupDictionaries['elsAkeysCFD']['config'][0])
     addGoverningEquations(t, dim=dim)
     if Initialization:
+        if not 'container' in Initialization:
+            Initialization['container'] = 'FlowSolution#Init'
+
         if Initialization['method'] is None:
             pass
         elif Initialization['method'] == 'uniform':
@@ -2709,13 +2712,9 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
             initializeFlowSolutionFromReferenceValues(t, AllSetupDictionaries['ReferenceValues'])
         elif Initialization['method'] == 'interpolate':
             print(J.CYAN + 'Initialize FlowSolution by interpolation from {}'.format(Initialization['file']) + J.ENDC)
-            if not 'container' in Initialization:
-                Initialization['container'] = 'FlowSolution#Init'
             initializeFlowSolutionFromFileByInterpolation(t, Initialization['file'], container=Initialization['container'])
         elif Initialization['method'] == 'copy':
             print(J.CYAN + 'Initialize FlowSolution by copy of {}'.format(Initialization['file']) + J.ENDC)
-            if not 'container' in Initialization:
-                Initialization['container'] = 'FlowSolution#Init'
             initializeFlowSolutionFromFileByCopy(t, Initialization['file'], container=Initialization['container'])
         else:
             raise Exception(J.FAIL+'The key "method" of the dictionary Initialization is mandatory'+J.ENDC)

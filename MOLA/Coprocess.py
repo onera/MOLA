@@ -2116,9 +2116,9 @@ def splitWithPyPart():
                             lksearch=[DIRECTORY_OUTPUT, '.'],
                             loadoption='partial',
                             mpicomm=comm,
-                            LoggingInFile=True,
+                            LoggingInFile=False,
                             LoggingFile='{}/partTree'.format(DIRECTORY_LOGS),
-                            LoggingVerbose=0
+                            LoggingVerbose=40  # Filter: None=0, DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
                             )
     PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[4, 3])
     PyPartBase.finalise(PartTree, savePpart=True, method=1)
