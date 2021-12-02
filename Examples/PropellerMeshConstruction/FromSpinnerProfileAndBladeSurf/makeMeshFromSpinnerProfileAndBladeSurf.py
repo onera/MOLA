@@ -2,7 +2,7 @@
 ISOLATED PROPELLER PERIODIC CHANNEL WORKFLOW
 for use with MOLA v1.5.
 
-This script assumes that the configuration is a single 
+This script assumes that the configuration is a single
 propeller with no side-slip (only advancing), with rotation
 of the propeller around the (-X) axis, and freestream advance
 velocity towards the  (+X) axis.
@@ -18,10 +18,10 @@ The blade is positioned towards (+Z) axis.
 
 
 General user inputs (see script for specific details):
-    
+
     1. BLADE SURFACE : blade.cgns file. Mesh units shall be meters.
     Blade surface, where main blade surface is single-bloc,
-    with outwards-pointing normal and such that jmax boundary is 
+    with outwards-pointing normal and such that jmax boundary is
     located at the tip.
     The tip shall be closed with additional surfaces.
     The root shall be totally contained INSIDE the spinner.
@@ -113,16 +113,16 @@ if Condition == 'CR_FL100':
     Pressure    = 69681.7
     VitesseKTS = 90.0
     Vitesse=(VitesseKTS*1.852)/3.6  # M/S
-    RPM=2350.0 # Revolutions per minute. 
+    RPM=2350.0 # Revolutions per minute.
     Pitch=11.0 # RELATIVE PITCH CHANGE (degree)
 
-RPM   = -RPM         # Revolutions per minute. 
+RPM   = -RPM         # Revolutions per minute.
 Uinf  = Vitesse      # Propeller advance velocity (m/s)
 Pinf  = Pressure     # Pressure at freestream (Pa)
 Tinf  = Temperature  # Temperature at freestream (K)
 Tuinf = 0.01 * 0.01  # Turbulence intensity at freestream
 ReTinf= 0.1          # Turbulence Reynolds number at freest.
-# ------------------------------------------------------ # 
+# ------------------------------------------------------ #
 
 
 # ------------ GENERAL GEOMETRY INFORMATION ------------ #
@@ -176,7 +176,7 @@ else:
 # surface from a given profile.
 
 
-# ~~~~~~~~~~~~~~~~ BUILD SPINNER SURFACE ~~~~~~~~~~~~~~~~ # 
+# ~~~~~~~~~~~~~~~~ BUILD SPINNER SURFACE ~~~~~~~~~~~~~~~~ #
 
 # For optimum result, the profile shape of the spinner (which
 # is a 3D planar curve) shall be supported on the plane that
@@ -205,7 +205,7 @@ dict(kind='tanhTwoSides', N=100, FirstCellHeight=0.0001,LastCellHeight=SpinnerCe
 dict(kind='tanhTwoSides', N=100, FirstCellHeight=SpinnerCentralCellSize,LastCellHeight=SpinnerCentralCellSize,BreakPoint=1.),]
 
 if BuildSpinnerSurface:
-    print('Building Spinner surface...')    
+    print('Building Spinner surface...')
     # Build spinner surface:
     SpinnerProfile = C.convertFile2PyTree('SpinnerProfile.cgns')
     SpinnerProfile = I.getZones(SpinnerProfile)[0]
@@ -216,7 +216,7 @@ if BuildSpinnerSurface:
     x,y,z = J.getxyz(SpinnerProfile)
     y[0],z[0] = 0., 0.
     DwnLine = D.line((x[-1],y[-1],z[-1]),(x[-1]+DownstramDistance,y[-1],z[-1]),2)
-    DwnLine = W.polyDiscretize(DwnLine, 
+    DwnLine = W.polyDiscretize(DwnLine,
         [dict(kind='tanhTwoSides',N=120,FirstCellHeight=SpinnerCentralCellSize,LastCellHeight=0.05*DownstramDistance,BreakPoint=1.),])
 
     SpinnerProfile = T.join(SpinnerProfile,DwnLine)
@@ -296,7 +296,7 @@ if ExtrudeBlade:
     # TipDistribution extrusion parameters
     nf, gf, nit, git = J.invokeFields(TipDistribution,['normalfactor','growthfactor','normaliters','growthiters'])
 
-    
+
     #----Growth factor and iterations
     gf[:]  = np.linspace(0.1,0.4,len(gf))#0.1
     git[:] = np.linspace(300,200,len(gf))#100
@@ -308,7 +308,17 @@ if ExtrudeBlade:
 
 
 
-    BladeExtruded = GVD.extrudeWingOnSupport(BladeClosed,SpinnerSurf,[RootDistribution, TipDistribution],SupportMode='intersection',extrapolatePoints=NPtsExtrapolateRegion, InterMinSep=0.005,CollarRelativeRootDistance=0.1, extrudeOptions=dict(ExtrusionAuxiliarCellType='TRI', printIters=printIters, plotIters=plotIters, growthEquation=growthEquation))
+    BladeExtruded = GVD.extrudeWingOnSupport(BladeClosed, SpinnerSurf,
+                                              [RootDistribution, TipDistribution],
+                                              SupportMode='intersection',
+                                              extrapolatePoints=NPtsExtrapolateRegion,
+                                              InterMinSep=0.005,
+                                              CollarRelativeRootDistance=0.1,
+                                              extrudeOptions=dict(
+                                                ExtrusionAuxiliarCellType='TRI',
+                                                printIters=printIters,
+                                                plotIters=plotIters,
+                                                growthEquation=growthEquation))
 
     C.convertPyTree2File(BladeExtruded,'BladeExtruded.cgns')
 
@@ -331,12 +341,12 @@ MainBladeExtruded,_  = GSD.getNearestZone(BladeExtrudedZones,(0,0,0))
 #               extrude the spinner, then make a constant
 #               growth ratio expansion.
 
-Strategy = 'Prescribed' 
+Strategy = 'Prescribed'
 
 if Strategy == 'Prescribed':
     # Make a single distribution:
     MaximumAdditionalDomainLength  = 10*Rmax
-    AdditionalPointsAfterBlade     = 150 
+    AdditionalPointsAfterBlade     = 150
     AdditionalGrowthRateAfterBlade = 1.08
     JoinPoint = (0,0,0.95*Rmax)
     #                v<<< This factor is important <<<<<
@@ -344,7 +354,7 @@ if Strategy == 'Prescribed':
     JoinCellLength = 0.0003
 
     Nspan = I.getZoneDim(BladeSurf)[2]
-    
+
     SpanwiseDistributionBlade = W.linelaw(P1=(0,0,Rmin),P2=JoinPoint,N=Nspan+NPtsExtrapolateRegion,
         Distribution=dict(kind='tanhTwoSides',FirstCellHeight=WallCellHeight, LastCellHeight=JoinCellLength))
 
@@ -357,11 +367,11 @@ if Strategy == 'Prescribed':
             growth=AdditionalGrowthRateAfterBlade)
         )
 
-    SpinnerExtrusionDistribution = T.join(SpanwiseDistributionBlade, AdditionalDistribution)    
+    SpinnerExtrusionDistribution = T.join(SpanwiseDistributionBlade, AdditionalDistribution)
 
 
 elif Strategy == 'BladeBased':
-    # Employ the blade spanwise  distribution in order to 
+    # Employ the blade spanwise  distribution in order to
     # construct the spinner normal extrusion distribution.
     MaximumAdditionalDomainLength  = 10*Rmax
     AdditionalPointsAfterBlade     = 80
@@ -384,9 +394,9 @@ elif Strategy == 'BladeBased':
             growth=AdditionalGrowthRateAfterBlade)
         )
 
-    SpinnerExtrusionDistribution = T.join(SpanwiseDistributionBlade, AdditionalDistribution)    
+    SpinnerExtrusionDistribution = T.join(SpanwiseDistributionBlade, AdditionalDistribution)
 
-else: 
+else:
     raise ValueError('Strategy %s not recognized'%Strategy)
 
 
@@ -397,12 +407,12 @@ nf, gf, nit, git = J.invokeFields(SpinnerExtrusionDistribution,['normalfactor','
 
 gf[:]  =np.linspace(0.7,0.0,len(gf))
 git[:] =np.linspace(100,600,len(gf))
-nf[:]  =1000 
-nit[:] =np.linspace(20,150,len(gf)) 
+nf[:]  =1000
+nit[:] =np.linspace(20,150,len(gf))
 
 
 if BuildPeriodicSurfs:
-    print('Extruding Periodic surfaces...')    
+    print('Extruding Periodic surfaces...')
 
     # Extrude the periodic profiles
     growthEquation='nodes:dH={nodes:dH}*maximum(1.+tanh(-0.2*{nodes:divs}),0.9)*(1+{nodes:growthfactor}*tanh(min({nodes:vol})/({nodes:vol})))'
@@ -428,7 +438,7 @@ dict(kind='Match',curve=SecondProfile, surface=SecondPeriodicSurf),
 ]
 
 if ExtrudeSpinner:
-    print('Extruding Spinner...')    
+    print('Extruding Spinner...')
     # Use auxiliar ExtractMesh strategy
     ExtractMesh = D.axisym(FirstPeriodicSurf, (0,0,0),(1,0,0), angle=360./NBlades, Ntheta=NPtsAzimut)
     ExtractMesh[0]='ExtractMesh'
@@ -442,7 +452,7 @@ if ExtrudeSpinner:
 
     # Constraints = []
     SpinnerExtrusionTree = GVD.extrude(SpinnerSurf,[SpinnerExtrusionDistribution],Constraints,
-        extractMesh=ExtractMesh, 
+        extractMesh=ExtractMesh,
         extractMeshHardSmoothOptions=dict(eps=0.1, niter=100, type=2, HardSmoothLayerProtection=70, FactordH=2.),
         modeSmooth='ignore',
         printIters=printIters, plotIters=plotIters)
@@ -468,7 +478,7 @@ def _addSetOfNodes(parent, name, ListOfNodes, type1='UserDefinedData_t', type2='
     '''
     parent : Parent node
     name : name of the node
-    ListOfNodes : First element is the node name, 
+    ListOfNodes : First element is the node name,
     and the second element is its value...
     ... -> [[nodename1, value1],[nodename2, value2],etc...]
     '''
@@ -484,7 +494,7 @@ def _addSetOfNodes(parent, name, ListOfNodes, type1='UserDefinedData_t', type2='
 
 
 if AssembleSplitConnect:
-    print('Assembling, splitting and connecting mesh...')    
+    print('Assembling, splitting and connecting mesh...')
     # Assemble the Tree
     for z in BladeExtrudedZones: z[0] = 'Blade_'+z[0]
     for z in DomainZones: z[0] = 'Bckgnd_'+z[0]
@@ -532,7 +542,7 @@ if AssembleSplitConnect:
     C._tagWithFamily(BladeExtrudedZones, 'BLADE_BLOCK')
 
 
-    # Split and distribute 
+    # Split and distribute
     MeshTotalNPts = 0
     for zone in I.getZones(t): MeshTotalNPts += C.getNPts(zone)
     print ('Mesh total number of points : %g'%MeshTotalNPts)
@@ -573,7 +583,7 @@ if AssembleSplitConnect:
         rotationAngle=[360/float(NBlades),0,0],
         unitAngle='Degree',
         tol=1.e-7,
-        dim=3)    
+        dim=3)
 
     print ('Adapting Periodic Match...')
     EP._adaptPeriodicMatch(t,clean=True)
@@ -591,7 +601,7 @@ else:
 # ======================================================== #
 
 if AddOversetData:
-    print('Performing Overset Assembly...')    
+    print('Performing Overset Assembly...')
 
     DEPTH, DIM = 2, 3
 
@@ -608,7 +618,7 @@ if AddOversetData:
     G._close(BladeClosedTRI)
     BladeClosedTRI = I.getZones(BladeClosedTRI)[0]
     # # Make Spinner Watertight surface
-    # SpinnerBody = D.axisym(PeriodicProfiles[0], (0,0,0),(1,0,0), angle=360., Ntheta=NPtsAzimut*NBlades) 
+    # SpinnerBody = D.axisym(PeriodicProfiles[0], (0,0,0),(1,0,0), angle=360., Ntheta=NPtsAzimut*NBlades)
     # SpinnerBody = C.convertArray2Tetra(SpinnerBody)
     # G._close(SpinnerBody)
     # # Close the Spinner Body if it is open at Trailing Edge
@@ -630,7 +640,7 @@ if AddOversetData:
     # The blanking matrix BM is a numpy array of size nbases x nbodies.
     # BM(i,j)=1 means that ith basis is blanked by jth body.
 
-    #            body 
+    #            body
     #            Blade
     BM = np.array([[0],   # Blade  base
                    [1]])  # Spinner/Background base
@@ -659,7 +669,7 @@ if AddOversetData:
 
 
     print('Computing interpolation coefficients...')
-    t = X.setInterpolations(t, loc='cell', sameBase=0, double_wall=1, 
+    t = X.setInterpolations(t, loc='cell', sameBase=0, double_wall=1,
         # planarTol=10*WallCellHeight,
         )
 
@@ -697,7 +707,7 @@ else:
 
 
 if MotionRefStateExtrct:
-    print('Adding elsA nodes of Motion, RefState and Extractions...')    
+    print('Adding elsA nodes of Motion, RefState and Extractions...')
     # Set Motion and Reference State information
     BaseBlade = I.getNodeFromName1(t,'BaseBlade')
     BaseBackground = I.getNodeFromName1(t,'BaseBackground')
@@ -708,7 +718,7 @@ if MotionRefStateExtrct:
         # Add Motion data
         children = [
         ['motion',1],
-        ['omega',float(RPM*np.pi/30.)], 
+        ['omega',float(RPM*np.pi/30.)],
         ['axis_pnt_x',0.],
         ['axis_pnt_y',0.],
         ['axis_pnt_z',0.],
@@ -734,14 +744,14 @@ if MotionRefStateExtrct:
         elif famname == 'BLADE_ON_SPINNER': children += [['family', 102]]
 
         fam_n = I.getNodeFromName2(t,famname)
-        _addSetOfNodes(fam_n,'.Solver#BC',children)    
+        _addSetOfNodes(fam_n,'.Solver#BC',children)
 
 
     # Add ReferenceState
     Gamma, Rgp = 1.4, 287.058
     Mus, Cs, Ts= 1.711e-5, 110.4, 273.0
 
-    SoundSpeed = (Gamma*Rgp*Tinf)**0.5 
+    SoundSpeed = (Gamma*Rgp*Tinf)**0.5
     Mach = Uinf/ SoundSpeed
     T_tot = Tinf * (1+0.5*(Gamma-1.)*Mach**2)
     Muinf  = Mus*((Tinf/Ts)**0.5)*((1.+Cs/Ts)/(1.+Cs/Tinf))

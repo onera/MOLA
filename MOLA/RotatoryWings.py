@@ -36,10 +36,289 @@ from . import Wireframe as W
 from . import GenerativeShapeDesign as GSD
 from . import GenerativeVolumeDesign as GVD
 
+def addPitchAndAdjustPositionOfBladeSurface(blade,
+                                            root_window='jmin',
+                                            delta_pitch_angle=0.0,
+                                            pitch_center_adjust_relative2chord=0.5,
+                                            pitch_axis=(0,0,-1),
+                                            pitch_center=(0,0,0)):
+    # TODO doc
+
+    pitch_axis = np.array(pitch_axis,dtype=np.float)
+    pitch_axis /= np.sqrt(pitch_axis.dot(pitch_axis))
+
+    root = GSD.getBoundary(blade, root_window)
+    root_camber = W.buildCamber(root)
+    x,y,z = J.getxyz(root_camber)
+    adjust_point = [x[0] + pitch_center_adjust_relative2chord * (x[-1] - x[0]),
+                    y[0] + pitch_center_adjust_relative2chord * (y[-1] - y[0]),
+                    z[0] + pitch_center_adjust_relative2chord * (z[-1] - z[0])]
+    adjust_point = np.array(adjust_point, dtype=np.float)
+    pitch_center = np.array(pitch_center, dtype=np.float)
+
+    center2adjust_point = adjust_point - pitch_center
+    distanceAlongAxis = center2adjust_point.dot(pitch_axis)
+    pointAlongAxis = pitch_center + pitch_axis * distanceAlongAxis
+    translationVector = pointAlongAxis - adjust_point
+
+    T._translate(blade, translationVector)
+    T._rotate(blade, pitch_center, pitch_axis, delta_pitch_angle)
 
 
 
-def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
+def adjustSpinnerAzimutRelativeToBlade(spinner, blade, RotationAxis=(0,1,0),
+                                        RotationCenter=(0,0,0)):
+    # TODO doc
+    spinnerSurfs = [c for c in I.getZones(spinner) if I.getZoneDim(c)[-1] == 2]
+
+    spinnerTRI = C.convertArray2Tetra(spinnerSurfs)
+    spinnerTRI = T.join(spinnerTRI)
+    spinner_contour = P.exteriorFaces(spinnerTRI)
+
+    blade = C.convertArray2Tetra(blade)
+    blade = T.join(blade)
+    blade_root = P.exteriorFaces(blade)
+    blade_root = C.convertBAR2Struct(blade_root)
+    blade_root = W.discretize(blade_root, N=500)
+    root_barycenter = G.barycenter(blade_root)
+
+    n = np.array(list(RotationAxis))
+    Pt = np.array(list(root_barycenter))
+    PlaneCoefs = n[0],n[1],n[2],-n.dot(Pt)
+    C._initVars(spinner_contour,'Slice=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
+    zone = P.isoSurfMC(spinner_contour, 'Slice', 0.0)
+    spinner_pt1, spinner_pt2 = T.splitConnexity(zone)
+
+
+    def residual(angle):
+        pt1, pt2 = T.rotate([spinner_pt1, spinner_pt2], RotationCenter, RotationAxis, angle)
+        distance1 = W.distance(pt1,root_barycenter)
+        distance2 = W.distance(pt2,root_barycenter)
+        # print("angle = %g | dist1 = %g  dist2 = %g   diff = %g"%(angle,distance1, distance2,distance1-distance2))
+        return distance1 - distance2
+
+    solution = J.secant(residual, x0=-10., x1=-20., ftol=1e-6, #bounds=(50.,-50.),
+                        maxiter=20,)
+
+    if not solution['converged']:
+        import pprint
+        print(J.WARN+pprint.pformat(solution)+J.ENDC)
+
+    T._rotate(spinner, RotationCenter, RotationAxis, solution['root'][0])
+
+
+def joinSpinnerCurves(curves, LeadingEdgeNPts=20, TrailingEdgeNPts=20,
+                              SpinnerFrontNPts=100, RearNPts=100,
+                              RootCellLength=0.001,TrailingEdgeCellLength=0.02):
+    '''
+    Join the different spinner curves produced by :py:func:`makeSpinnerCurves`,
+    resulting in a spinner profile that can be used by :py:func:`makeHub`.
+
+    Parameters
+    ----------
+
+        curves : :py:class:`list` of zones
+            result of :py:func:`makeSpinnerCurves`
+
+        LeadingEdgeNPts : int
+            desired number of points used to discretize the leading-edge arc
+
+        TrailingEdgeNPts : int
+            desired number of points used to discretize the trailing-edge arc,
+            if it exists
+
+        SpinnerFrontNPts : int
+            desired number of points used to discretize the spinner's front side
+            curve
+
+        RearNPts : int
+            desired number of points used to discretize the spinner's rear side
+            curve
+
+        RootCellLength : float
+            desired size of the cell used to discretize the spinner's maximum
+            width location, where the blade ought to be positioned
+
+        TrailingEdgeCellLength : float
+            if no trailing edge arc exists, then this value determines the
+            length of the cell size located at the rear extremum
+
+    Returns
+    -------
+
+        Profile : zone
+            spinner profile curve ready to be used in :py:func:`makeHub`
+
+    '''
+
+    ArcFront = W.discretize(curves[0], LeadingEdgeNPts)
+    ArcFront_x, ArcFront_y, ArcFront_z = J.getxyz(ArcFront)
+    ArcJoinCellLength = np.sqrt( (ArcFront_x[1]-ArcFront_x[0])**2+
+                                 (ArcFront_y[1]-ArcFront_y[0])**2+
+                                 (ArcFront_z[1]-ArcFront_z[0])**2)
+
+    SpinnerFront = W.discretize(curves[1],SpinnerFrontNPts,dict(kind='tanhTwoSides',
+                                               FirstCellHeight=ArcJoinCellLength,
+                                               LastCellHeight=RootCellLength))
+
+    NumberOfCurves = len(curves)
+    if NumberOfCurves == 3:
+        Rear = W.discretize(curves[2],RearNPts,dict(kind='tanhTwoSides',
+                                               FirstCellHeight=RootCellLength,
+                                               LastCellHeight=TrailingEdgeCellLength))
+
+        Profile = T.join(ArcFront, SpinnerFront)
+        Profile = T.join(Profile,Rear)
+    elif NumberOfCurves == 4:
+        ArcRear = W.discretize(curves[2], TrailingEdgeNPts)
+        ArcRear_x, ArcRear_y, ArcRear_z = J.getxyz(ArcRear)
+        ArcJoinCellLengthRear = np.sqrt( (ArcRear_x[1]-ArcRear_x[0])**2+
+                                         (ArcRear_y[1]-ArcRear_y[0])**2+
+                                         (ArcRear_z[1]-ArcRear_z[0])**2)
+        Rear = W.discretize(curves[3],RearNPts,dict(kind='tanhTwoSides',
+                                               LastCellHeight=RootCellLength,
+                                               FirstCellHeight=ArcJoinCellLengthRear))
+        Profile = T.join(ArcFront, SpinnerFront)
+        Profile = T.join(Profile,Rear)
+        Profile = T.join(Profile,ArcRear)
+
+    return Profile
+
+def makeSpinnerCurves(LengthFront=0.2, LengthRear=1, Width=0.15,
+                      RelativeArcRadiusFront=0.01, ArcAngleFront=40.,
+                      RelativeTensionArcFront=0.1, RelativeTensionRootFront=0.5,
+                      NPtsArcFront=200, NPtsSpinnerFront=5000,
+                      TopologyRear='arc',
+                      RelativeArcRadiusRear=0.0025, ArcAngleRear=70.,
+                      RelativeTensionArcRear=0.1, RelativeTensionRootRear=0.5,
+                      NPtsArcRear=200, NPtsSpinnerRear=5000):
+    '''
+    Construct the curves of the spinner profile corresponding to the front
+    and rear sides, depending on the chosen topology.
+
+    Most paramaters are equivalent as py:func:`makeFrontSpinnerCurves`, only
+    the words *Front* or *Rear* are added to the parameter name in order to
+    make the difference between the two parts of the spinner.
+
+    .. note:: if **TopologyRear** = ``'arc'``, then the rear part of the spinner
+        is consctructed calling py:func:`makeFrontSpinnerCurves` followed by
+        a mirror operation.
+
+    Parameters
+    ----------
+
+        TopologyRear : str
+            if ``'arc'``, then the same topology as the front is used. If
+            ``'line'``, then the rear of the spinner is built using a single
+            line which extends from the root at the maximum diameter location
+
+    Returns
+    -------
+
+        curves : :py:class:`list` of zones
+            list of curves of the different parts of the spinner. These
+            can be joined using :py:func:`joinSpinnerCurves`
+
+    '''
+
+    front = makeFrontSpinnerCurves(Length=LengthFront , Width=Width,
+                         RelativeArcRadius=RelativeArcRadiusFront, ArcAngle=ArcAngleFront,
+                         RelativeTensionArc=RelativeTensionArcFront, RelativeTensionRoot=RelativeTensionRootFront,
+                         NPtsArc=NPtsArcFront, NPtsSpinner=NPtsSpinnerFront )
+
+    if TopologyRear == 'arc':
+        rear = makeFrontSpinnerCurves(Length=LengthRear, Width=Width,
+                             RelativeArcRadius=RelativeArcRadiusRear, ArcAngle=ArcAngleRear,
+                             RelativeTensionArc=RelativeTensionArcRear, RelativeTensionRoot=RelativeTensionRootRear,
+                             NPtsArc=NPtsArcRear, NPtsSpinner=NPtsSpinnerRear)
+        C._initVars(rear,'CoordinateY=-{CoordinateY}')
+
+    elif TopologyRear == 'line':
+        line = D.line((Width*0.5,0,0),(Width*0.5,-LengthRear,0),NPtsSpinnerRear)
+        line[0] = 'rear'
+        rear = [line]
+    else:
+        raise ValueError("TopologyRear='%s' not supported"%TopologyRear)
+
+    curves = front + rear
+    I._correctPyTree(curves,level=3)
+
+    return curves
+
+def makeFrontSpinnerCurves(Length=1., Width=0.6, RelativeArcRadius=0.01, ArcAngle=40.,
+                           RelativeTensionArc=0.1, RelativeTensionRoot=0.5,
+                           NPtsArc=200, NPtsSpinner=5000):
+    '''
+    Construct the profile curves of the front side of a spinner, which includes
+    an arc in the leading-edge region, and a tangent curve which extends until
+    the root position.
+
+    Parameters
+    ----------
+
+        Length : float
+            Distance (in the rotation axis direction) between the root position
+            (corresponding to the maximum width of the spinner, where the blade
+            ought to be located) and the leading edge of the spinner
+
+        Width : float
+            Maximum diameter of the spinner, which takes place at the root
+            position, where the blade ought to be located.
+
+        RelativeArcRadius : float
+            radius of the leading edge arc normalized with respect to **Length**
+
+        ArcAngle : float
+            angle (in degree) of the leading edge arc
+
+        RelativeTensionArc : float
+            tension (normalized using **Length**) of the tangent point between
+            the leading edge arc and the spinner arc
+
+        RelativeTensionRoot : float
+            tension (normalized using **Length**) of the tangent point at
+            the spinner's maximum width location (blade location)
+
+        NPtsArc : int
+            number of points used to densely discretize the leading-edge arc
+
+        NPtsSpinner : int
+            number of points used to densely discretize the spinner curve
+
+    Returns
+    -------
+
+        Arc : zone
+            structured curve of the leading-edge arc
+
+        SpinnerCurve : zone
+            structured curved of the spinner curve
+
+    '''
+    ArcRadius = RelativeArcRadius * Length
+    ArcCenter = Length - ArcRadius
+
+    Arc = D.circle((0,ArcCenter,0), ArcRadius, 90., 90.-ArcAngle, N=NPtsArc)
+    Arc[0] = 'LeadingEdgeArc'
+    Arc_x, Arc_y = J.getxy(Arc)
+    dir_y = -np.sin(np.deg2rad(ArcAngle))
+    dir_x =  np.cos(np.deg2rad(ArcAngle))
+
+    CtrlPt_1 = (Arc_x[-1]+dir_x*RelativeTensionArc*Length,
+                Arc_y[-1]+dir_y*RelativeTensionArc*Length,0)
+    CtrlPt_3 = (Width*0.5,0,0)
+    CtrlPt_2 = (CtrlPt_3[0], RelativeTensionRoot*Length,0)
+
+    CtrlPts_bezier = D.polyline([(Arc_x[-1],Arc_y[-1],0),
+                                  CtrlPt_1,CtrlPt_2,CtrlPt_3])
+    SpinnerCurve = D.bezier(CtrlPts_bezier,N=NPtsSpinner)
+    SpinnerCurve[0] = 'SpinnerCurve'
+
+    return [Arc, SpinnerCurve]
+
+
+def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0),
+            NumberOfAzimutalPoints=359,
             BladeNumberForPeriodic=None, LeadingEdgeAbscissa=0.05,
             TrailingEdgeAbscissa=0.95, SmoothingParameters={'eps':0.50,
                 'niter':300,'type':2}):
@@ -61,8 +340,8 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
         AxeDir : :py:class:`list` of 3 :py:class:`float`
             unitary vector pointing towards the direction of revolution
 
-        NPsi : int
-            number of points discretizing the hub
+        NumberOfAzimutalPoints : int
+            number of points discretizing the hub in the azimut direction
 
         BladeNumberForPeriodic : int
             If provided, then only an angular
@@ -92,6 +371,7 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
     '''
 
     Px, Py, Pz = J.getxyz(Profile)
+    NPsi = NumberOfAzimutalPoints
     FineHub = D.axisym(Profile, AxeCenter,AxeDir, angle=360., Ntheta=360*3); FineHub[0]='FineHub'
     BigLength=1.0e6
     AxeLine = D.line((AxeCenter[0]+BigLength*AxeDir[0],AxeCenter[1]+BigLength*AxeDir[1],AxeCenter[2]+BigLength*AxeDir[2]),
@@ -105,14 +385,14 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
     if TrailingEdgeAbscissa is not None:
         SplitTEind = np.where(s>TrailingEdgeAbscissa)[0][0]
         TEjonctCell = W.distance((Px[SplitTEind], Py[SplitTEind], Pz[SplitTEind]),
-        (Px[SplitTEind+1], Py[SplitTEind+1], Pz[SplitTEind+1]))
+                                 (Px[SplitTEind+1], Py[SplitTEind+1], Pz[SplitTEind+1]))
     else:
         SplitTEind = len(Px)
 
     RevolutionProfile = T.subzone(Profile,(SplitLEind,1,1),(SplitTEind,1,1)); RevolutionProfile[0] = 'RevolutionProfile'
     PeriodicProfiles = []
     if BladeNumberForPeriodic is None:
-        if NPsi%2==0: raise ValueError('makeHub: NPsi shall be ODD.')
+        if NPsi%2==0: raise ValueError('makeHub: NumberOfAzimutalPoints shall be ODD.')
         MainBody = D.axisym(RevolutionProfile, AxeCenter,AxeDir, angle=360., Ntheta=NPsi); MainBody[0]='MainBody'
         ExtFaces = P.exteriorFacesStructured(MainBody)
         ExtFaces = I.getNodesFromType(ExtFaces,'Zone_t')
@@ -122,14 +402,13 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
 
         tT = C.newPyTree(['bMainBody',MainBody,'bLEBound',LEBound])
 
-
-        LETFI = G.TFIO(LEBound)
+        LETFI = G.TFIO(LEBound) # TODO replace ?
+        GSD.prepareGlue(LETFI,[LEBound])
         LETFI = T.projectDir(LETFI,FineHub,dir=AxeDir)
         T._smooth(LETFI,eps=SmoothingParameters['eps'], niter=SmoothingParameters['niter'], type=SmoothingParameters['type'], fixedConstraints=[LEBound])
-
-        GSD._prepareGlue(LETFI,[LEBound])
-        LETFI = T.projectDir(LETFI,FineHub,dir=AxeDir)
-        GSD._prepareGlue(LETFI,[LEBound])
+        # T._projectDir(LETFI,FineHub,dir=AxeDir)
+        T._projectOrthoSmooth(LETFI,FineHub, niter=3)
+        GSD.applyGlue(LETFI,[LEBound])
 
         LETFIzones = I.getNodesFromType(LETFI,'Zone_t')
         LESingle, LESingleIndex = J.getNearestZone(LETFIzones, (Px[0],Py[0],Pz[0]))
@@ -137,7 +416,7 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
         LEjoin = LETFIzones[LEjoinIndices[0]]
         for i in LEjoinIndices[1:]:
             LEjoin = T.join(LEjoin,LETFIzones[i])
-
+        MainBody[0] = 'hub'
         HubZones = [MainBody, LESingle, LEjoin]
 
         if TrailingEdgeAbscissa is not None:
@@ -147,9 +426,10 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
             TETFI = T.projectDir(TETFI,FineHub,dir=(AxeDir[0],-AxeDir[1],AxeDir[2]))
             SmoothingParameters['fixedConstraints'] = [TEBound]
             T._smooth(TETFI, **SmoothingParameters)
-            GSD._prepareGlue(TETFI,[TEBound])
-            TETFI = T.projectDir(TETFI,FineHub,dir=(AxeDir[0],-AxeDir[1],AxeDir[2]))
-            GSD._prepareGlue(TETFI,[TEBound])
+            GSD.prepareGlue(TETFI,[TEBound])
+            # T._projectDir(TETFI,FineHub,dir=(AxeDir[0],-AxeDir[1],AxeDir[2]))
+            T._projectOrthoSmooth(TETFI,FineHub,niter=3)
+            GSD.applyGlue(TETFI,[TEBound])
 
             TETFIzones = I.getNodesFromType(TETFI,'Zone_t')
             TESingle, TESingleIndex = J.getNearestZone(TETFIzones, (Px[-1],Py[-1],Pz[-1]))
@@ -157,6 +437,7 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
             TEjoin = TETFIzones[TEjoinIndices[0]]
             for i in TEjoinIndices[1:]:
                 TEjoin = T.join(TEjoin,TETFIzones[i])
+            TEjoin[0] = 'hub'
             HubZones += [TESingle, TEjoin]
 
         # Build PyTree
@@ -192,17 +473,14 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
 
         # Re-discretize connection curves
         ApproxNconn = int(0.5*(SplitLEind+NPsi))
-        TFIisOK, NPsiNew, Nconn1, Nconn2 = GSD.checkTFITriFeasability(NPsi,ApproxNconn,ApproxNconn,choosePriority=['N1,N2=N3'], QtySearch=4, tellMeWhatYouDo=False)
+        NPsiNew, Nconn1, Nconn2 = GSD.getSuitableSetOfPointsForTFITri(NPsi,ApproxNconn,ApproxNconn,choosePriority=['N1,N2=N3'], QtySearch=4, tellMeWhatYouDo=False)
         if NPsiNew != NPsi:
             raise ValueError('Could not find appropriate TFITri values for NPsi=%d. Increase QtySearch or change NPsi.'%NPsi)
         Conn1 = W.discretize(Conn1,Nconn1,
             dict(kind='tanhOneSide',FirstCellHeight=LEjonctCell))
         Conn2 = W.discretize(Conn2,Nconn2,
             dict(kind='tanhOneSide',FirstCellHeight=LEjonctCell))
-        if TFIisOK:
-            LETFI = G.TFITri(LEarc,Conn1,Conn2)
-        else:
-            raise ValueError('Could not find appropriate TFITri discretization.')
+        LETFI = G.TFITri(LEarc,Conn1,Conn2)
         LETFI = I.getNodesFromType(LETFI,'Zone_t')
         Conn1LE = Conn1; Conn1LE[0] = 'Conn1LE'
         Conn2LE = Conn2; Conn2LE[0] = 'Conn2LE'
@@ -227,42 +505,42 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
             Conn2X[0],Conn2Y[0],Conn2Z[0]=TEarcX[-1], TEarcY[-1], TEarcZ[-1]
             # Re-discretize connection curves
             ApproxNconn = int(0.5*(len(Px)-SplitTEind+NPsi))
-            TFIisOK, NPsiNew, Nconn1, Nconn2 = GSD.checkTFITriFeasability(NPsi,ApproxNconn,ApproxNconn,choosePriority=['N1,N2=N3'], QtySearch=4, tellMeWhatYouDo=False)
+            NPsiNew, Nconn1, Nconn2 = GSD.getSuitableSetOfPointsForTFITri(NPsi,ApproxNconn,ApproxNconn,choosePriority=['N1,N2=N3'], QtySearch=4, tellMeWhatYouDo=False)
             if NPsiNew != NPsi:
                 raise ValueError('Could not find appropriate TFITri values for NPsi=%d. Increase QtySearch or change NPsi.'%NPsi)
             Conn1 = W.discretize(Conn1,Nconn1,
                 dict(kind='tanhOneSide',FirstCellHeight=TEjonctCell))
             Conn2 = W.discretize(Conn2,Nconn2,
                 dict(kind='tanhOneSide',FirstCellHeight=TEjonctCell))
-            if TFIisOK:
-                TETFI = G.TFITri(TEarc,Conn1,Conn2)
-            else:
-                raise ValueError('Could not find appropriate TFITri discretization.')
+            TETFI = G.TFITri(TEarc,Conn1,Conn2)
             TETFI = I.getNodesFromType(TETFI,'Zone_t')
             tTemp = C.newPyTree(['Base',MainBody,'TETFI',TETFI,'LETFI',LETFI])
 
             Conn1TE = Conn1; Conn1TE[0] = 'Conn1TE'
             Conn2TE = Conn2; Conn2TE[0] = 'Conn2TE'
 
-            GSD._prepareGlue(LETFI,[Conn1LE, Conn2LE, LEarc])
+            GSD.prepareGlue(LETFI,[Conn1LE, Conn2LE, LEarc])
             # T._projectDir(LETFI,FineHub,dir=AxeDir)
             T._projectOrthoSmooth(LETFI,FineHub,niter=3)
-            GSD._applyGlue(LETFI,[Conn1LE, Conn2LE, LEarc])
+            GSD.applyGlue(LETFI,[Conn1LE, Conn2LE, LEarc])
 
-            GSD._prepareGlue(TETFI,[Conn1TE, Conn2TE, TEarc])
-            T._projectDir(TETFI,FineHub,dir=(AxeDir[0],-AxeDir[1],AxeDir[2]))
-            GSD._applyGlue(TETFI,[Conn1TE, Conn2TE, TEarc])
+            GSD.prepareGlue(TETFI,[Conn1TE, Conn2TE, TEarc])
+            # T._projectDir(TETFI,FineHub,dir=(AxeDir[0],-AxeDir[1],AxeDir[2]))
+            T._projectOrthoSmooth(TETFI,FineHub,niter=3)
+            GSD.applyGlue(TETFI,[Conn1TE, Conn2TE, TEarc])
 
         # Get the profiles
         FirstProfile=GSD.getBoundary(MainBody,'jmin')
         FirstProfileZones = [Conn1LE,FirstProfile]
         if TrailingEdgeAbscissa is not None: FirstProfileZones += [Conn1TE]
+        I._rmNodesByType(FirstProfileZones,'FlowSolution_t')
         FirstProfile = T.join(FirstProfileZones)
         FirstProfile[0] = 'FirstProfile'
         SecondProfile=GSD.getBoundary(MainBody,'jmax')
         SecondProfileZones = [Conn2LE,SecondProfile]
         if TrailingEdgeAbscissa is not None:
             SecondProfileZones += [Conn2TE]
+        I._rmNodesByType(SecondProfileZones,'FlowSolution_t')
         SecondProfile = T.join(SecondProfileZones)
         SecondProfile[0] = 'SecondProfile'
         PeriodicProfiles += [FirstProfile,SecondProfile]
@@ -274,6 +552,7 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
         LEjoin = LETFI[LEjoinIndices[0]]
         for i in LEjoinIndices[1:]:
             LEjoin = T.join(LEjoin,LETFI[i])
+        I._rmNodesByType([MainBody,LEjoin],'FlowSolution_t')
         # Join result with Main body
         MainBody = T.join(MainBody,LEjoin)
 
@@ -287,6 +566,7 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
             # Join result with Main body
             MainBody = T.join(MainBody,TEjoin)
 
+        MainBody[0]='hub'
         FinalZones = [LESingle,MainBody]
         ConstraintZones = PeriodicProfiles
         if TrailingEdgeAbscissa is not None: FinalZones += [TESingle]
@@ -322,7 +602,8 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
 
 
 def extrudePeriodicProfiles(PeriodicProfiles,
-        Distributions, Constraints=[], AxeDir=(1,0,0), NBlades=4,
+        Distributions, Constraints=[], AxeDir=(1,0,0), RotationCenter=(0,0,0),
+        NBlades=4,
         extrudeOptions={}, AxisProjectionConstraint=False):
     '''
     This function is used to peform the extrusion of the periodic profiles,
@@ -374,8 +655,7 @@ def extrudePeriodicProfiles(PeriodicProfiles,
     '''
 
     # ~~~~~~~ PERFORM EXTRUSION OF THE FIRST PROFILE ~~~~~~~ #
-    FirstProfile = PeriodicProfiles[0]
-    SecondProfile = PeriodicProfiles[1]
+    FirstProfile, SecondProfile = I.getZones(PeriodicProfiles)[:2]
 
     # Prepare imposed normals Constraints
     FPx, FPy, FPz = J.getxyz(FirstProfile)
@@ -415,9 +695,9 @@ def extrudePeriodicProfiles(PeriodicProfiles,
         sy /= Distance
         sz /= Distance
     else:
-        sx = -AxeDir[0]
-        sy = -AxeDir[1]
-        sz = -AxeDir[2]
+        sx = AxeDir[0]
+        sy = AxeDir[1]
+        sz = AxeDir[2]
 
     C._initVars( LeadingEdge,'sx', -AxeDir[0])
     C._initVars( LeadingEdge,'sy', -AxeDir[1])
@@ -426,12 +706,17 @@ def extrudePeriodicProfiles(PeriodicProfiles,
     C._initVars(TrailingEdge,'sy',  sy)
     C._initVars(TrailingEdge,'sz',  sz)
 
-
-    Constraints += [dict(kind='Imposed',curve=LeadingEdge),
+    Constraints += [dict(kind='Projected',curve=FirstProfile,
+                         ProjectionMode='CylinderRadial',
+                         ProjectionCenter=RotationCenter,
+                         ProjectionAxis=AxeDir),
+                    dict(kind='Imposed',curve=LeadingEdge),
                     dict(kind='Imposed',curve=TrailingEdge)]
 
     if AxisProjectionConstraint:
         FirstProfileAux = I.copyTree(FirstProfile)
+        FirstProfileAux = W.extrapolate(FirstProfileAux,0.01)
+        FirstProfileAux = W.extrapolate(FirstProfileAux,0.01,opposedExtremum=True)
         FirstProfileAux[0] = 'FirstProfileAux'
         AxisSym1=D.axisym(FirstProfileAux,J.getxyz(LeadingEdge),AxeDir,0.1,5)
         AxisSym1[0]='AxisSym1'
@@ -444,60 +729,73 @@ def extrudePeriodicProfiles(PeriodicProfiles,
         G._close(a)
         a = T.reorder(a,(-1,))
         G._getNormalMap(a)
-        C._normalize(a, ['centers:sx','centers:sy','centers:sz'])
+        C.center2Node__(a,'centers:sx',cellNType=0)
+        C.center2Node__(a,'centers:sy',cellNType=0)
+        C.center2Node__(a,'centers:sz',cellNType=0)
+        I._rmNodesByName(a,'FlowSolution#Centers')
+        C._normalize(a, ['sx','sy','sz'])
+        T._smoothField(a, 0.9, 100, 0, ['sx','sy','sz'])
+        C._normalize(a, ['sx','sy','sz'])
 
-        # Smooth normals
-        C._initVars(a,'centers:sxP={centers:sx}')
-        C._initVars(a,'centers:syP={centers:sy}')
-        C._initVars(a,'centers:szP={centers:sz}')
-        C.center2Node__(a,'centers:sxP',cellNType=0)
-        C.center2Node__(a,'centers:syP',cellNType=0)
-        C.center2Node__(a,'centers:szP',cellNType=0)
-        for i in range(1000):
-            C.node2Center__(a,'nodes:sxP')
-            C.node2Center__(a,'nodes:syP')
-            C.node2Center__(a,'nodes:szP')
+        '''
+            # TODO old "dualing" method to be fully removed:
+            C._normalize(a, ['centers:sx','centers:sy','centers:sz'])
+            C._initVars(a,'centers:sxP={centers:sx}')
+            C._initVars(a,'centers:syP={centers:sy}')
+            C._initVars(a,'centers:szP={centers:sz}')
             C.center2Node__(a,'centers:sxP',cellNType=0)
             C.center2Node__(a,'centers:syP',cellNType=0)
             C.center2Node__(a,'centers:szP',cellNType=0)
-            C._initVars(a,'nodes:sx={nodes:sx}+100.*{nodes:sxP}')
-            C._initVars(a,'nodes:sy={nodes:sy}+100.*{nodes:syP}')
-            C._initVars(a,'nodes:sz={nodes:sz}+100.*{nodes:szP}')
-            C._normalize(a,['nodes:sx','nodes:sy','nodes:sz'])
-            C._initVars(a,'nodes:sxP={nodes:sx}')
-            C._initVars(a,'nodes:syP={nodes:sy}')
-            C._initVars(a,'nodes:szP={nodes:sz}')
-        C._initVars(a,'centers:sx={centers:sxP}')
-        C._initVars(a,'centers:sy={centers:syP}')
-        C._initVars(a,'centers:sz={centers:szP}')
-
+            for i in range(1000):
+                C.node2Center__(a,'nodes:sxP')
+                C.node2Center__(a,'nodes:syP')
+                C.node2Center__(a,'nodes:szP')
+                C.center2Node__(a,'centers:sxP',cellNType=0)
+                C.center2Node__(a,'centers:syP',cellNType=0)
+                C.center2Node__(a,'centers:szP',cellNType=0)
+                C._initVars(a,'nodes:sx={nodes:sx}+100.*{nodes:sxP}')
+                C._initVars(a,'nodes:sy={nodes:sy}+100.*{nodes:syP}')
+                C._initVars(a,'nodes:sz={nodes:sz}+100.*{nodes:szP}')
+                C._normalize(a,['nodes:sx','nodes:sy','nodes:sz'])
+                C._initVars(a,'nodes:sxP={nodes:sx}')
+                C._initVars(a,'nodes:syP={nodes:sy}')
+                C._initVars(a,'nodes:szP={nodes:sz}')
+            C._initVars(a,'centers:sx={centers:sxP}')
+            C._initVars(a,'centers:sy={centers:syP}')
+            C._initVars(a,'centers:sz={centers:szP}')
+        '''
 
         FirstProfileAux = P.extractMesh(a,FirstProfileAux)
+        FirstProfileAux = T.subzone(FirstProfileAux,(2,1,1),(C.getNPts(FirstProfileAux)-1,1,1))
+        C._normalize(FirstProfileAux, ['sx','sy','sz'])
+        AuxConstraints =  [dict(kind='Imposed',curve=FirstProfileAux)] + Constraints
 
-        AuxConstraints = Constraints + [dict(kind='Imposed',curve=T.subzone(FirstProfileAux,(2,1,1),(C.getNPts(FirstProfileAux)-1,1,1)))]
-        ProjectionExtrusionDistance = np.array([D.getLength(d) for d in Distributions]).max()*1.5
+        ProjectionExtrusionDistance = np.array([D.getLength(d) for d in Distributions]).max()
 
-        ExtrusionDistr = D.line((0,0,0),(ProjectionExtrusionDistance,0,0),2)
-        C._initVars(ExtrusionDistr,'normalfactor',0.)
-        C._initVars(ExtrusionDistr,'growthfactor',0.)
-        C._initVars(ExtrusionDistr,'normaliters',0)
-        C._initVars(ExtrusionDistr,'growthiters',0)
-
+        # Main
+        ExtrusionDistr = D.line((0,0,0),(ProjectionExtrusionDistance*1.5,0,0),2)
+        J._invokeFields(ExtrusionDistr,['normalfactor','growthfactor','normaliters','growthiters','expansionfactor',])
         ProjectionSurfTree = GVD.extrude(FirstProfileAux,[ExtrusionDistr],AuxConstraints,**extrudeOptions)
         ProjectionSurfAux = I.getZones(I.getNodeFromName1(ProjectionSurfTree,'ExtrudedVolume'))[0]
+
+        # Lower
+        ExtrusionDistr = D.line((0,0,0),(ProjectionExtrusionDistance*1.5,0,0),2)
+        J._invokeFields(ExtrusionDistr,['normalfactor','growthfactor','normaliters','growthiters','expansionfactor',])
+        ProjectionSurfTree = GVD.extrude(FirstProfileAux,[ExtrusionDistr],AuxConstraints,**extrudeOptions)
+        ProjectionSurfAux = I.getZones(I.getNodeFromName1(ProjectionSurfTree,'ExtrudedVolume'))[0]
+
         ProjectionSurfAux[0] = 'ProjectionSurfAux'
-
         Constraints += [dict(kind='Projected',curve=FirstProfile, surface=ProjectionSurfAux)]
-
-
+        C.convertPyTree2File(ProjectionSurfAux,'ProjectionSurfAux.cgns')
 
     # Make extrusion
     PeriodicSurf = GVD.extrude(FirstProfile,Distributions,Constraints,**extrudeOptions)
 
+    ExtrudeLayer = I.getNodeFromName3(PeriodicSurf,'ExtrudeLayer')
 
     FirstPeriodicSurf = I.getNodeFromName2(PeriodicSurf,'ExtrudedVolume')[2][0]
     FirstPeriodicSurf[0] = 'FirstPeriodicSurf'
-    RevolutionAngle = 360./float(NBlades)
+    RevolutionAngle = -360./float(NBlades)
     SecondPeriodicSurf = T.rotate(FirstPeriodicSurf,(0,0,0),AxeDir,RevolutionAngle)
     SecondPeriodicSurf[0] = 'SecondPeriodicSurf'
 
@@ -579,13 +877,14 @@ def makeSimpleSpinner(Height, Width, Length, TensionLeadingEdge=0.05,
     SpinnerUnstr   = D.axisym(SpinnerProfile,(0,0,0),(1,0,0),360.,NptsAzimut)
     SpinnerUnstr = C.convertArray2Hexa(SpinnerUnstr)
     G._close(SpinnerUnstr)
+    SpinnerUnstr[0] = 'spinner'
+    SpinnerProfile[0] = 'profile'
 
 
     return SpinnerProfile, SpinnerUnstr
 
 
-def getFrenetFromRotationAxisAndPhaseDirection(RotationAxis,
-                                               PhaseDirection=(1,0,0)):
+def getFrenetFromRotationAxisAndPhaseDirection(RotationAxis, PhaseDirection):
     '''
     Get the Frenet's frame from a rotation axis and a phase direction.
 
@@ -637,7 +936,7 @@ def getFrenetFromRotationAxisAndPhaseDirection(RotationAxis,
     return FrenetFrame
 
 
-def getEulerAngles4PUMA(RotationAxis, PhaseDirection=(1,0,0)):
+def getEulerAngles4PUMA(RotationAxis, PhaseDirection=(0,1,0)):
     '''
     Given a RotationAxis and a Phase Direction, produce the Euler angles that
     can be provided to PUMA in order to position the propeller.
@@ -662,7 +961,8 @@ def getEulerAngles4PUMA(RotationAxis, PhaseDirection=(1,0,0)):
             transformation angles [degree]
     '''
 
-    FrenetDEST = getFrenetFromRotationAxisAndPhaseDirection(RotationAxis)
+    # TODO propagate PhaseDirection up to BodyForceInputData (user-level)
+    FrenetDEST = getFrenetFromRotationAxisAndPhaseDirection(RotationAxis,PhaseDirection)
 
 
     FrenetPUMA = np.array([[1.,0.,0.],  # Rotation Axis
