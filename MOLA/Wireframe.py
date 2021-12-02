@@ -15,6 +15,7 @@ File history:
 
 # System modules
 import sys
+import os
 import numpy as np
 from copy import deepcopy as cdeep
 from timeit import default_timer as tic
@@ -37,6 +38,8 @@ import Intersector.PyTree as XOR
 
 # Generative modules
 from . import InternalShortcuts as J
+
+linelawVerbose = False
 
 BADVALUE  = -999.
 
@@ -206,8 +209,8 @@ def getTanhDistTwo__(Nx, CellStart, CellEnd):
     if Nx < 6: raise ValueError("getTanhDistTwo__: at least 6 pts are required")
     N = Nx -4
     l = D.line((0,0,0),(1,0,0),N)
-    l = G.enforcePlusX(l,CellStart,(N-2,2))
-    l = G.enforceMoinsX(l,CellEnd,(N-2,2))
+    l = G.enforcePlusX(l,CellStart,(N-2,2),verbose=linelawVerbose)
+    l = G.enforceMoinsX(l,CellEnd,(N-2,2),verbose=linelawVerbose)
     x = I.getNodeFromName(l,'CoordinateX')[1]
     x = J.getx(l)
     return x
@@ -253,7 +256,7 @@ def getTanhDist__(Nx, CellStart,isCellEnd=False):
     if Nx < 4: raise ValueError("getTanhDist__: at least 4 pts are required")
     N = Nx - 2
     l = D.line((0,0,0),(1,0,0),N)
-    l = G.enforcePlusX(l,CellStart,(N-2,2)) if not isCellEnd else G.enforceMoinsX(l,CellStart,(N-2,2))
+    l = G.enforcePlusX(l,CellStart,(N-2,2),verbose=linelawVerbose) if not isCellEnd else G.enforceMoinsX(l,CellStart,(N-2,2),verbose=linelawVerbose)
     x = J.getx(l)
     return x
 
@@ -333,7 +336,7 @@ def getTrigoLinDistribution__(Nx, p):
         return x
 
 
-def linelaw(P1=(0,0,0), P2=(1,0,0), N=100, Distribution = None):
+def linelaw(P1=(0,0,0), P2=(1,0,0), N=100, Distribution = None, verbose=linelawVerbose):
     '''
     Create a line of **N** points between **P1** and **P2** points, following
     a distribution constructed by the instructions contained
@@ -443,7 +446,7 @@ def linelaw(P1=(0,0,0), P2=(1,0,0), N=100, Distribution = None):
             S = getTanhDist__(N,dy,isCellEnd)*Length
             Height = S[1]-S[0] if not isCellEnd else S[-1] - S[-2]
             ErrorHeight = abs(100*(1-Height/(dy*Length)))
-            if ErrorHeight > 1.:
+            if verbose and ErrorHeight > 1.:
                 Msg="""
                 --------
                 Warning: Distribution of kind tanhOneSide resulted in an
@@ -469,7 +472,7 @@ def linelaw(P1=(0,0,0), P2=(1,0,0), N=100, Distribution = None):
             Height1 = S[1]-S[0]; Height2 = S[-1]-S[-2]
             ErrorHeight1 = abs(100*(1-Height1/(dy[0]*Length)))
             ErrorHeight2 = abs(100*(1-Height2/(dy[1]*Length)))
-            if ErrorHeight1 > 1.:
+            if verbose and ErrorHeight1 > 1.:
                 Msg="""
 --------
 Warning: Distribution of kind tanhTwoSides resulted in an
@@ -479,7 +482,7 @@ Try different discretization parameters for better result.
 --------\n"""%(Height1,(dy[0]*Length),ErrorHeight1)
                 print (Msg)
 
-            elif ErrorHeight2 > 1.:
+            elif verbose and ErrorHeight2 > 1.:
                 Msg="--------\n"
                 Msg+='Warning: Distribution %s resulted in an\n'%Distribution['kind']
 
@@ -639,6 +642,7 @@ def airfoil(designation='NACA0012',Ntop=None, Nbot=None, ChordLength=1.,
             xU= Imported[xMin:,0]
             yU = Imported[xMin:,1]
         Airfoil = D.line((0,0,0), (1,0,0), len(xL)+len(xU)-1 )
+        Airfoil[0] = designation.split('.')[0]
         Airfoil_x = J.getx(Airfoil)
         Airfoil_y = J.gety(Airfoil)
         Airfoil_x[:] = np.hstack((xL,xU[1:]))
@@ -816,6 +820,7 @@ def airfoil(designation='NACA0012',Ntop=None, Nbot=None, ChordLength=1.,
     Top_x, Top_y = J.getxy(Top)
     Bottom_x, Bottom_y = J.getxy(Bottom)
     Airfoil = linelaw(N=len(Top_x)+len(Bottom_x)-1)
+    Airfoil[0] = designation.split('.')[0]
     Airfoil_x, Airfoil_y = J.getxy(Airfoil)
     Airfoil_x[:len(Bottom_x)] = Bottom_x
     Airfoil_x[len(Bottom_x):] = Top_x[1:]
