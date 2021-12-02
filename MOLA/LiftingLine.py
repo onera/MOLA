@@ -2260,7 +2260,8 @@ def makeBladeSurfaceFromLiftingLineAndAirfoilsPolars(LiftingLine, AirfoilsPolars
     LiftingLine = remapLiftingLine(LiftingLine, RadialRelativeDiscretization)
     blade = postLiftingLine2Surface(LiftingLine, AirfoilsPolars,
                                        ChordRelRef = airfoil_stacking_point_relative2chord,
-                                       FoilDistribution=FoilDistribution)
+                                       FoilDistribution=FoilDistribution,
+                                       ImposeWingCanonicalPosition=True)
     blade[0] = 'blade'
 
     return blade
@@ -3112,7 +3113,7 @@ def moveLiftingLines(t, TimeStep):
         RightHandRuleRotation = Kinematics['RightHandRuleRotation']
         RPM = Kinematics['RPM']
         Omega = RPM[0] * np.pi / 30.
-        Dpsi = Omega * TimeStep
+        Dpsi = np.rad2deg( Omega * TimeStep )
         if not RightHandRuleRotation: Dpsi *= -1
 
         if Dpsi: T._rotate(LiftingLine, RotationCenter, RotationAxis, Dpsi)
@@ -5036,6 +5037,8 @@ def getTrailingEdge(LiftingLine):
         TrailingEdge : zone
             the curve corresponding to trailing edge
     '''
+    if not checkComponentKind(LiftingLine,'LiftingLine'):
+        raise AttributeError('input must be a LiftingLine')
     TrailingEdge = I.copyTree(LiftingLine)
     txyz, nxyz, bxyz = updateLocalFrame(TrailingEdge)
     x, y, z = J.getxyz(TrailingEdge)
@@ -5075,6 +5078,8 @@ def getLeadingEdge(LiftingLine):
         LeadingEdge : zone
             the curve corresponding to leading edge
     '''
+    if not checkComponentKind(LiftingLine,'LiftingLine'):
+        raise AttributeError('input must be a LiftingLine')
     LeadingEdge = I.copyTree(LiftingLine)
     txyz, nxyz, bxyz = updateLocalFrame(LeadingEdge)
     x, y, z = J.getxyz(LeadingEdge)

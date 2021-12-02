@@ -36,9 +36,39 @@ from . import Wireframe as W
 from . import GenerativeShapeDesign as GSD
 from . import GenerativeVolumeDesign as GVD
 
+def addPitchAndAdjustPositionOfBladeSurface(blade,
+                                            root_window='jmin',
+                                            delta_pitch_angle=0.0,
+                                            pitch_center_adjust_relative2chord=0.5,
+                                            pitch_axis=(0,0,-1),
+                                            pitch_center=(0,0,0)):
+    # TODO doc
+
+    pitch_axis = np.array(pitch_axis,dtype=np.float)
+    pitch_axis /= np.sqrt(pitch_axis.dot(pitch_axis))
+
+    root = GSD.getBoundary(blade, root_window)
+    root_camber = W.buildCamber(root)
+    x,y,z = J.getxyz(root_camber)
+    adjust_point = [x[0] + pitch_center_adjust_relative2chord * (x[-1] - x[0]),
+                    y[0] + pitch_center_adjust_relative2chord * (y[-1] - y[0]),
+                    z[0] + pitch_center_adjust_relative2chord * (z[-1] - z[0])]
+    adjust_point = np.array(adjust_point, dtype=np.float)
+    pitch_center = np.array(pitch_center, dtype=np.float)
+
+    center2adjust_point = adjust_point - pitch_center
+    distanceAlongAxis = center2adjust_point.dot(pitch_axis)
+    pointAlongAxis = pitch_center + pitch_axis * distanceAlongAxis
+    translationVector = pointAlongAxis - adjust_point
+
+    T._translate(blade, translationVector)
+    T._rotate(blade, pitch_center, pitch_axis, delta_pitch_angle)
+
+
+
 def adjustSpinnerAzimutRelativeToBlade(spinner, blade, RotationAxis=(0,1,0),
                                         RotationCenter=(0,0,0)):
-
+    # TODO doc
     spinnerSurfs = [c for c in I.getZones(spinner) if I.getZoneDim(c)[-1] == 2]
 
     spinnerTRI = C.convertArray2Tetra(spinnerSurfs)
@@ -64,7 +94,7 @@ def adjustSpinnerAzimutRelativeToBlade(spinner, blade, RotationAxis=(0,1,0),
         pt1, pt2 = T.rotate([spinner_pt1, spinner_pt2], RotationCenter, RotationAxis, angle)
         distance1 = W.distance(pt1,root_barycenter)
         distance2 = W.distance(pt2,root_barycenter)
-        print("angle = %g | dist1 = %g  dist2 = %g   diff = %g"%(angle,distance1, distance2,distance1-distance2))
+        # print("angle = %g | dist1 = %g  dist2 = %g   diff = %g"%(angle,distance1, distance2,distance1-distance2))
         return distance1 - distance2
 
     solution = J.secant(residual, x0=-10., x1=-20., ftol=1e-6, #bounds=(50.,-50.),
@@ -287,7 +317,8 @@ def makeFrontSpinnerCurves(Length=1., Width=0.6, RelativeArcRadius=0.01, ArcAngl
     return [Arc, SpinnerCurve]
 
 
-def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
+def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0),
+            NumberOfAzimutalPoints=359,
             BladeNumberForPeriodic=None, LeadingEdgeAbscissa=0.05,
             TrailingEdgeAbscissa=0.95, SmoothingParameters={'eps':0.50,
                 'niter':300,'type':2}):
@@ -309,8 +340,8 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
         AxeDir : :py:class:`list` of 3 :py:class:`float`
             unitary vector pointing towards the direction of revolution
 
-        NPsi : int
-            number of points discretizing the hub
+        NumberOfAzimutalPoints : int
+            number of points discretizing the hub in the azimut direction
 
         BladeNumberForPeriodic : int
             If provided, then only an angular
@@ -340,6 +371,7 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
     '''
 
     Px, Py, Pz = J.getxyz(Profile)
+    NPsi = NumberOfAzimutalPoints
     FineHub = D.axisym(Profile, AxeCenter,AxeDir, angle=360., Ntheta=360*3); FineHub[0]='FineHub'
     BigLength=1.0e6
     AxeLine = D.line((AxeCenter[0]+BigLength*AxeDir[0],AxeCenter[1]+BigLength*AxeDir[1],AxeCenter[2]+BigLength*AxeDir[2]),
@@ -360,7 +392,7 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
     RevolutionProfile = T.subzone(Profile,(SplitLEind,1,1),(SplitTEind,1,1)); RevolutionProfile[0] = 'RevolutionProfile'
     PeriodicProfiles = []
     if BladeNumberForPeriodic is None:
-        if NPsi%2==0: raise ValueError('makeHub: NPsi shall be ODD.')
+        if NPsi%2==0: raise ValueError('makeHub: NumberOfAzimutalPoints shall be ODD.')
         MainBody = D.axisym(RevolutionProfile, AxeCenter,AxeDir, angle=360., Ntheta=NPsi); MainBody[0]='MainBody'
         ExtFaces = P.exteriorFacesStructured(MainBody)
         ExtFaces = I.getNodesFromType(ExtFaces,'Zone_t')
@@ -570,7 +602,8 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0), NPsi=359,
 
 
 def extrudePeriodicProfiles(PeriodicProfiles,
-        Distributions, Constraints=[], AxeDir=(1,0,0), NBlades=4,
+        Distributions, Constraints=[], AxeDir=(1,0,0), RotationCenter=(0,0,0),
+        NBlades=4,
         extrudeOptions={}, AxisProjectionConstraint=False):
     '''
     This function is used to peform the extrusion of the periodic profiles,
@@ -622,8 +655,7 @@ def extrudePeriodicProfiles(PeriodicProfiles,
     '''
 
     # ~~~~~~~ PERFORM EXTRUSION OF THE FIRST PROFILE ~~~~~~~ #
-    FirstProfile = PeriodicProfiles[0]
-    SecondProfile = PeriodicProfiles[1]
+    FirstProfile, SecondProfile = I.getZones(PeriodicProfiles)[:2]
 
     # Prepare imposed normals Constraints
     FPx, FPy, FPz = J.getxyz(FirstProfile)
@@ -663,9 +695,9 @@ def extrudePeriodicProfiles(PeriodicProfiles,
         sy /= Distance
         sz /= Distance
     else:
-        sx = -AxeDir[0]
-        sy = -AxeDir[1]
-        sz = -AxeDir[2]
+        sx = AxeDir[0]
+        sy = AxeDir[1]
+        sz = AxeDir[2]
 
     C._initVars( LeadingEdge,'sx', -AxeDir[0])
     C._initVars( LeadingEdge,'sy', -AxeDir[1])
@@ -674,12 +706,17 @@ def extrudePeriodicProfiles(PeriodicProfiles,
     C._initVars(TrailingEdge,'sy',  sy)
     C._initVars(TrailingEdge,'sz',  sz)
 
-
-    Constraints += [dict(kind='Imposed',curve=LeadingEdge),
+    Constraints += [dict(kind='Projected',curve=FirstProfile,
+                         ProjectionMode='CylinderRadial',
+                         ProjectionCenter=RotationCenter,
+                         ProjectionAxis=AxeDir),
+                    dict(kind='Imposed',curve=LeadingEdge),
                     dict(kind='Imposed',curve=TrailingEdge)]
 
     if AxisProjectionConstraint:
         FirstProfileAux = I.copyTree(FirstProfile)
+        FirstProfileAux = W.extrapolate(FirstProfileAux,0.01)
+        FirstProfileAux = W.extrapolate(FirstProfileAux,0.01,opposedExtremum=True)
         FirstProfileAux[0] = 'FirstProfileAux'
         AxisSym1=D.axisym(FirstProfileAux,J.getxyz(LeadingEdge),AxeDir,0.1,5)
         AxisSym1[0]='AxisSym1'
@@ -692,60 +729,73 @@ def extrudePeriodicProfiles(PeriodicProfiles,
         G._close(a)
         a = T.reorder(a,(-1,))
         G._getNormalMap(a)
-        C._normalize(a, ['centers:sx','centers:sy','centers:sz'])
+        C.center2Node__(a,'centers:sx',cellNType=0)
+        C.center2Node__(a,'centers:sy',cellNType=0)
+        C.center2Node__(a,'centers:sz',cellNType=0)
+        I._rmNodesByName(a,'FlowSolution#Centers')
+        C._normalize(a, ['sx','sy','sz'])
+        T._smoothField(a, 0.9, 100, 0, ['sx','sy','sz'])
+        C._normalize(a, ['sx','sy','sz'])
 
-        # Smooth normals
-        C._initVars(a,'centers:sxP={centers:sx}')
-        C._initVars(a,'centers:syP={centers:sy}')
-        C._initVars(a,'centers:szP={centers:sz}')
-        C.center2Node__(a,'centers:sxP',cellNType=0)
-        C.center2Node__(a,'centers:syP',cellNType=0)
-        C.center2Node__(a,'centers:szP',cellNType=0)
-        for i in range(1000):
-            C.node2Center__(a,'nodes:sxP')
-            C.node2Center__(a,'nodes:syP')
-            C.node2Center__(a,'nodes:szP')
+        '''
+            # TODO old "dualing" method to be fully removed:
+            C._normalize(a, ['centers:sx','centers:sy','centers:sz'])
+            C._initVars(a,'centers:sxP={centers:sx}')
+            C._initVars(a,'centers:syP={centers:sy}')
+            C._initVars(a,'centers:szP={centers:sz}')
             C.center2Node__(a,'centers:sxP',cellNType=0)
             C.center2Node__(a,'centers:syP',cellNType=0)
             C.center2Node__(a,'centers:szP',cellNType=0)
-            C._initVars(a,'nodes:sx={nodes:sx}+100.*{nodes:sxP}')
-            C._initVars(a,'nodes:sy={nodes:sy}+100.*{nodes:syP}')
-            C._initVars(a,'nodes:sz={nodes:sz}+100.*{nodes:szP}')
-            C._normalize(a,['nodes:sx','nodes:sy','nodes:sz'])
-            C._initVars(a,'nodes:sxP={nodes:sx}')
-            C._initVars(a,'nodes:syP={nodes:sy}')
-            C._initVars(a,'nodes:szP={nodes:sz}')
-        C._initVars(a,'centers:sx={centers:sxP}')
-        C._initVars(a,'centers:sy={centers:syP}')
-        C._initVars(a,'centers:sz={centers:szP}')
-
+            for i in range(1000):
+                C.node2Center__(a,'nodes:sxP')
+                C.node2Center__(a,'nodes:syP')
+                C.node2Center__(a,'nodes:szP')
+                C.center2Node__(a,'centers:sxP',cellNType=0)
+                C.center2Node__(a,'centers:syP',cellNType=0)
+                C.center2Node__(a,'centers:szP',cellNType=0)
+                C._initVars(a,'nodes:sx={nodes:sx}+100.*{nodes:sxP}')
+                C._initVars(a,'nodes:sy={nodes:sy}+100.*{nodes:syP}')
+                C._initVars(a,'nodes:sz={nodes:sz}+100.*{nodes:szP}')
+                C._normalize(a,['nodes:sx','nodes:sy','nodes:sz'])
+                C._initVars(a,'nodes:sxP={nodes:sx}')
+                C._initVars(a,'nodes:syP={nodes:sy}')
+                C._initVars(a,'nodes:szP={nodes:sz}')
+            C._initVars(a,'centers:sx={centers:sxP}')
+            C._initVars(a,'centers:sy={centers:syP}')
+            C._initVars(a,'centers:sz={centers:szP}')
+        '''
 
         FirstProfileAux = P.extractMesh(a,FirstProfileAux)
+        FirstProfileAux = T.subzone(FirstProfileAux,(2,1,1),(C.getNPts(FirstProfileAux)-1,1,1))
+        C._normalize(FirstProfileAux, ['sx','sy','sz'])
+        AuxConstraints =  [dict(kind='Imposed',curve=FirstProfileAux)] + Constraints
 
-        AuxConstraints = Constraints + [dict(kind='Imposed',curve=T.subzone(FirstProfileAux,(2,1,1),(C.getNPts(FirstProfileAux)-1,1,1)))]
-        ProjectionExtrusionDistance = np.array([D.getLength(d) for d in Distributions]).max()*1.5
+        ProjectionExtrusionDistance = np.array([D.getLength(d) for d in Distributions]).max()
 
-        ExtrusionDistr = D.line((0,0,0),(ProjectionExtrusionDistance,0,0),2)
-        C._initVars(ExtrusionDistr,'normalfactor',0.)
-        C._initVars(ExtrusionDistr,'growthfactor',0.)
-        C._initVars(ExtrusionDistr,'normaliters',0)
-        C._initVars(ExtrusionDistr,'growthiters',0)
-
+        # Main
+        ExtrusionDistr = D.line((0,0,0),(ProjectionExtrusionDistance*1.5,0,0),2)
+        J._invokeFields(ExtrusionDistr,['normalfactor','growthfactor','normaliters','growthiters','expansionfactor',])
         ProjectionSurfTree = GVD.extrude(FirstProfileAux,[ExtrusionDistr],AuxConstraints,**extrudeOptions)
         ProjectionSurfAux = I.getZones(I.getNodeFromName1(ProjectionSurfTree,'ExtrudedVolume'))[0]
+
+        # Lower
+        ExtrusionDistr = D.line((0,0,0),(ProjectionExtrusionDistance*1.5,0,0),2)
+        J._invokeFields(ExtrusionDistr,['normalfactor','growthfactor','normaliters','growthiters','expansionfactor',])
+        ProjectionSurfTree = GVD.extrude(FirstProfileAux,[ExtrusionDistr],AuxConstraints,**extrudeOptions)
+        ProjectionSurfAux = I.getZones(I.getNodeFromName1(ProjectionSurfTree,'ExtrudedVolume'))[0]
+
         ProjectionSurfAux[0] = 'ProjectionSurfAux'
-
         Constraints += [dict(kind='Projected',curve=FirstProfile, surface=ProjectionSurfAux)]
-
-
+        C.convertPyTree2File(ProjectionSurfAux,'ProjectionSurfAux.cgns')
 
     # Make extrusion
     PeriodicSurf = GVD.extrude(FirstProfile,Distributions,Constraints,**extrudeOptions)
 
+    ExtrudeLayer = I.getNodeFromName3(PeriodicSurf,'ExtrudeLayer')
 
     FirstPeriodicSurf = I.getNodeFromName2(PeriodicSurf,'ExtrudedVolume')[2][0]
     FirstPeriodicSurf[0] = 'FirstPeriodicSurf'
-    RevolutionAngle = 360./float(NBlades)
+    RevolutionAngle = -360./float(NBlades)
     SecondPeriodicSurf = T.rotate(FirstPeriodicSurf,(0,0,0),AxeDir,RevolutionAngle)
     SecondPeriodicSurf[0] = 'SecondPeriodicSurf'
 
