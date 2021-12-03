@@ -26,6 +26,7 @@ import Converter.Mpi as Cmpi
 
 # ---------------------------- IMPORT MOLA ---------------------------- #
 import MOLA.Coprocess as CO
+import MOLA.Postprocess as POST
 import MOLA.InternalShortcuts as J
 
 # ------------------------------ SETTINGS ------------------------------ #
@@ -33,7 +34,7 @@ FULL_CGNS_MODE   = False
 FILE_SETUP       = 'setup.py'
 FILE_CGNS        = 'main.cgns'
 FILE_SURFACES    = 'surfaces.cgns'
-FILE_ARRAYS      = 'arrays.cgns'
+FILE_ARRAYS       = 'arrays.cgns'
 FILE_FIELDS      = 'tmp-fields.cgns' # BEWARE of tmp- suffix
 FILE_COLOG       = 'coprocess.log'
 FILE_BODYFORCESRC= 'BodyForceSources.cgns'
@@ -148,6 +149,7 @@ CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))
 # save surfaces
 surfs = CO.extractSurfaces(t, setup.Extractions)
 CO.monitorTurboPerformance(surfs, arrays, DesiredStatistics)
+# surfs = POST.absolute2Relative(surfs, loc='nodes')
 CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
 
 # save fields

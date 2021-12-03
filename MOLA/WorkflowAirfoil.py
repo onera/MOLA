@@ -451,7 +451,8 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                     ImposedWallFields=[], TransitionZones={},
                     FieldsAdditionalExtractions=['ViscosityMolecular',
                         'Viscosity_EddyMolecularRatio','Mach'],
-                    Extractions=[{'type':'AllBCWall'}]):
+                    Extractions=[{'type':'AllBCWall'}],
+                    Initialization={'method':'uniform'}):
     '''
     This is mainly a function similar to :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to airfoil computations. Its purpose is adapting the CGNS to
@@ -538,6 +539,26 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
         Extractions : :py:class:`list` of :py:class:`dict`
             .. danger:: **doc this** # TODO
 
+        Initialization : dict
+            dictionary defining the type of initialization, using the key
+            **method**. This latter is mandatory and should be one of the
+            following:
+
+            * **method** = 'uniform' : the Flow Solution is initialized uniformly
+              using the **ReferenceValues**.
+
+            * **method** = 'copy' : the Flow Solution is initialized by copying
+              the FlowSolution container of another file. The file path is set by
+              using the key **file**. The container might be set with the key
+              **container** ('FlowSolution#Init' by default).
+
+            * **method** = 'interpolate' : the Flow Solution is initialized by
+              interpolating the FlowSolution container of another file. The file
+              path is set by using the key **file**. The container might be set
+              with the key **container** ('FlowSolution#Init' by default).
+
+            Default method is 'uniform'.
+
     Returns
     -------
 
@@ -607,8 +628,8 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                         Extractions=Extractions)
 
 
-    t = PRE.newCGNSfromSetup(t, AllSetupDics, dim=2, initializeFlow=True,
-                                              FULL_CGNS_MODE=False)
+    t = PRE.newCGNSfromSetup(t, AllSetupDics, Initialization=Initialization,
+                            FULL_CGNS_MODE=False)
     to = PRE.newRestartFieldsFromCGNS(t)
 
     PRE.saveMainCGNSwithLinkToOutputFields(t, to, writeOutputFields=writeOutputFields)

@@ -20,10 +20,6 @@ from matplotlib.ticker import AutoMinorLocator, LogLocator, NullFormatter
 
 FILE_ARRAYS = 'OUTPUT/arrays.cgns'
 
-################################################################################
-#########################        Performance       #############################
-################################################################################
-
 ordering = dict(MassFlowIn=0,
     PressureStagnationRatio=1,
     TemperatureStagnationRatio=2,
@@ -61,7 +57,7 @@ for zone in zones:
     varnames.remove('IterationNumber')
     varnames.remove('MassFlowOut')
     for var in copy.deepcopy(varnames):
-        if any([pattern in var for pattern in ['avg-', 'std-', 'rsd-']]):
+        if 'avg-' in var or 'std-' in var:
             varnames.remove(var)
     varnames = sorted(varnames, key=lambda k: ordering[k])
     Nvars = len(varnames)
@@ -75,16 +71,16 @@ for zone in zones:
         v = J.getVars2Dict(zone, ['IterationNumber',
                                   varname,
                                   'avg-'+varname,
-                                  'rsd-'+varname,])
+                                  'std-'+varname,])
         ax[0].set_title('{} {}'.format(row, varname.rstrip('In')))
 
         ax[0].plot(v['IterationNumber'], v[varname], label=svar, color='k')
         if v['avg-'+varname][0] is not None:
             ax[0].plot(v['IterationNumber'], v['avg-'+varname], \
                 label='avg %s'%svar, color='k', linestyle='--')
-        if v['rsd-'+varname][0] is not None:
-            ax[1].plot(v['IterationNumber'], v['rsd-'+varname], \
-                label='rsd %s'%svar, color='k')
+        if v['std-'+varname][0] is not None:
+            ax[1].plot(v['IterationNumber'], v['std-'+varname], \
+                label='std %s'%svar, color='k')
 
         if varname == 'MassFlowIn':
             varname = 'MassFlowOut'
@@ -93,15 +89,15 @@ for zone in zones:
             v = J.getVars2Dict(zone, ['IterationNumber',
                                   varname,
                                   'avg-'+varname,
-                                  'rsd-'+varname,])
+                                  'std-'+varname,])
 
             ax[0].plot(v['IterationNumber'], v[varname], label=svar, color='C0')
             if v['avg-'+varname][0] is not None:
                 ax[0].plot(v['IterationNumber'], v['avg-'+varname], \
                     label='avg %s'%svar, color='C0', linestyle='--')
-            if v['rsd-'+varname][0] is not None:
-                ax[1].plot(v['IterationNumber'], v['rsd-'+varname], \
-                    label='rsd %s'%svar, color='C0')
+            if v['std-'+varname][0] is not None:
+                ax[1].plot(v['IterationNumber'], v['std-'+varname], \
+                    label='std %s'%svar, color='C0')
 
         ax[1].set_yscale('log')
         for a in ax:
@@ -138,58 +134,6 @@ for zone in zones:
     plt.savefig(figname)
     print(J.GREEN+'ok'+J.ENDC)
 
-
-################################################################################
-#########################         Massflow         #############################
-################################################################################
-
-massflows = dict()
-
-for zone in I.getZones(t):
-    massflowNode = I.getNodeFromName(zone, 'MassFlow')
-    if massflowNode is not None:
-        massflow = I.getValue(massflowNode)
-        iterations = I.getValue(I.getNodeFromName(zone, 'IterationNumber'))
-        massflows[I.getName(zone)] = dict(
-            massflow = np.abs(massflow),
-            iterations = iterations
-        )
-
-    else:
-        massflowInNode = I.getNodeFromName(zone, 'MassFlowIn')
-        massflowOutNode = I.getNodeFromName(zone, 'MassFlowOut')
-        if massflowInNode is not None and massflowOutNode is not None:
-            massflowIn = I.getValue(massflowInNode)
-            massflowOut = I.getValue(massflowOutNode)
-            iterations = I.getValue(I.getNodeFromName(zone, 'IterationNumber'))
-            massflows[I.getName(zone)+'_In'] = dict(
-                massflow = np.abs(massflowIn),
-                iterations = iterations
-            )
-            massflows[I.getName(zone)+'_Out'] = dict(
-                massflow = np.abs(massflowOut),
-                iterations = iterations
-            )
-
-if massflows.keys() != []:
-    plt.figure()
-    zones = sorted(massflows.keys())
-    for zone in zones:
-        plt.plot(massflows[zone]['iterations'], massflows[zone]['massflow'], label=zone)
-    plt.xlabel('Iterations')
-    plt.ylabel('MassFlow (kg/s)')
-    plt.legend(loc='best')
-    plt.grid()
-    figname = "massflow.pdf"
-    print('Saving %s%s%s ...'%(J.CYAN,figname,J.ENDC))
-    plt.savefig(figname, dpi=150, bbox_inches='tight')
-    print(J.GREEN+'ok'+J.ENDC)
-
-
-################################################################################
-#########################         Residuals         ############################
-################################################################################
-
 ConvergenceHistory = I.getNodeFromName(t, 'GlobalConvergenceHistory')
 if ConvergenceHistory:
     residuals = dict()
@@ -208,9 +152,8 @@ if ConvergenceHistory:
     plt.ylabel('Residuals')
     plt.legend(loc='best')
     plt.grid()
-    figname = "residuals.pdf"
     print('Saving %s%s%s ...'%(J.CYAN,figname,J.ENDC))
-    plt.savefig(figname, dpi=150, bbox_inches='tight')
+    plt.savefig("residuals.pdf", dpi=150, bbox_inches='tight')
     print(J.GREEN+'ok'+J.ENDC)
 
 plt.show()
