@@ -225,6 +225,11 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         BodyForceInputData : :py:class:`list` of :py:class:`dict`
 
         writeOutputFields : bool
+            if :py:obj:`True`, write initialized fields overriding
+            a possibly existing ``OUTPUT/fields.cgns`` file. If :py:obj:`False`, no
+            ``OUTPUT/fields.cgns`` file is writen, but in this case the user must
+            provide a compatible ``OUTPUT/fields.cgns`` file to elsA (for example,
+            using a previous computation result).
 
         Initialization : dict
             dictionary defining the type of initialization, using the key
