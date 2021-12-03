@@ -188,10 +188,29 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     ----------
 
         mesh : :py:class:`str` or PyTree
+            if the input is a :py:class:`str`, then such string specifies the
+            path to file (usually named ``mesh.cgns``) where the result of
+            function :py:func:`prepareMesh4ElsA` has been writen. Otherwise,
+            **mesh** can directly be the PyTree resulting from :py:func:`prepareMesh4ElsA`
 
         ReferenceValuesParams : dict
+            Python dictionary containing the
+            Reference Values and other relevant data of the specific case to be
+            run using elsA. For information on acceptable values, please
+            see the documentation of function :py:func:`computeReferenceValues`.
+
+            .. note:: internally, this dictionary is passed as *kwargs* as follows:
+
+                >>> PRE.computeReferenceValues(arg, **ReferenceValuesParams)
 
         NumericalParams : dict
+            dictionary containing the numerical
+            settings for elsA. For information on acceptable values, please see
+            the documentation of function :py:func:`getElsAkeysNumerics`
+
+            .. note:: internally, this dictionary is passed as *kwargs* as follows:
+
+                >>> PRE.getElsAkeysNumerics(arg, **NumericalParams)
 
         TurboConfiguration : dict
             Dictionary concerning the compressor properties
