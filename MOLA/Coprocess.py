@@ -376,6 +376,7 @@ def extractIntegralData(to, arrays, Extractions=[],
         IntegralDataName = getIntegralDataName(IntegralDataNode)
         _appendIntegralDataNode2Arrays(arrays, IntegralDataNode)
         _extendArraysWithProjectedLoads(arrays, IntegralDataName)
+        _normalizeMassFlowInArrays(arrays, IntegralDataName)
         _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics)
 
     return arrays
@@ -715,7 +716,7 @@ def monitorTurboPerformance(surfaces, arrays, DesiredStatistics=[]):
             continue
 
         if rank == 0:
-            fluxcoeff = rowParams['NumberOfBlades'] / rowParams['NumberOfBladesSimulated']
+            fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
             if IsRotor:
                 perfos = computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
             else:
@@ -1092,7 +1093,7 @@ def appendDict2Arrays(arrays, dictToAppend, basename):
 
 def _appendIntegralDataNode2Arrays(arrays, IntegralDataNode):
     '''
-    Beware: this is a private function, employed by updateAndSaveLoads()
+    Beware: this is a private function, employed by :py:func:`extractIntegralData`
 
     This function converts the CGNS IntegralDataNode (as provided by elsA)
     into the Python dictionary structure of arrays dictionary, and append it
@@ -1142,10 +1143,45 @@ def _appendIntegralDataNode2Arrays(arrays, IntegralDataNode):
             arraysSubset[integralKey] = np.array(IntegralData[integralKey],
                                                order='F', ndmin=1)
 
+def _normalizeMassFlowInArrays(arrays, IntegralDataName):
+    '''
+    Beware: this is a private function, employed by :py:func:`extractIntegralData`
+
+    If:
+
+        * the variable 'convflux_ro' is in **arrays[IntegralDataName]** (massflow
+          extracted by elsA on the Family **IntegralDataName**),
+
+        * and it exists a **FluxCoef** associted to **IntegralDataName** in
+          ** ReferenceValues**, written in:
+
+          >>> setup.ReferenceValues['IntegralScales'][IntegralDataName]['FluxCoef']
+
+    Then the variable 'MassFlow' is added in **arrays[IntegralDataName]** by
+    multiplying 'convflux_ro' by this **FluxCoef**.
+
+    Parameters
+    ----------
+
+        arrays : dict
+            Contains integral data in the following form:
+
+            >>> np.array = arrays['FamilyBCNameOrElementName']['VariableName']
+
+        IntegralDataName : str
+            Name of the IntegralDataNode (CGNS) provided by elsA. It is used as
+            key for arrays dictionary.
+    '''
+    arraysSubset = arrays[IntegralDataName]
+    try:
+        FluxCoef = setup.ReferenceValues['IntegralScales'][IntegralDataName]['FluxCoef']
+        arraysSubset['MassFlow'] = arraysSubset['convflux_ro'] * FluxCoef
+    except:
+        return
 
 def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
     '''
-    Beware: this is a private function, employed by :py:func:`updateAndSaveLoads`
+    Beware: this is a private function, employed by :py:func:`extractIntegralData`
 
     This function is employed for adding aerodynamic-relevant coefficients to
     the arrays dictionary. The new quantites are the following :
@@ -1185,13 +1221,17 @@ def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
     * ReferenceValues, as indicated previously.                               *
     ***************************************************************************
 
-    INPUTS
+    Parameters
+    ----------
 
-    arrays - (Python dictionary) - Contains integral data in the following form:
-        np.array = arrays['FamilyBCNameOrElementName']['VariableName']
+        arrays : dict
+            Contains integral data in the following form:
 
-    IntegralDataName - (string) - Name of the IntegralDataNode (CGNS) provided
-        by elsA. It is used as key for arrays dictionary.
+            >>> np.array = arrays['FamilyBCNameOrElementName']['VariableName']
+
+        IntegralDataName : str
+            Name of the IntegralDataNode (CGNS) provided by elsA. It is used as
+            key for arrays dictionary.
     '''
 
 
@@ -1240,7 +1280,7 @@ def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
 
 def _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics):
     '''
-    Beware: this is a private function, employed by updateAndSaveLoads()
+    Beware: this is a private function, employed by :py:func:`extractIntegralData`
 
     Add to arrays dictionary the relevant statistics requested by the user
     through the DesiredStatistics list of special named strings.
@@ -1281,35 +1321,128 @@ def _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics):
             InstantaneousArray[InvalidValues] = 0.
 
         except KeyError:
-            return
+            continue
 
         if StatType.lower() == 'avg':
-            StatisticArray = uniform_filter1d(InstantaneousArray,
-                                              size=IterationWindow)
-
-            InvalidValues = np.logical_not(np.isfinite(StatisticArray))
-            StatisticArray[InvalidValues] = 0.
+            StatisticArray = sliddingAverage(InstantaneousArray, IterationWindow)
 
         elif StatType.lower() == 'std':
-            AverageArray = uniform_filter1d(InstantaneousArray,
-                                            size=IterationWindow)
+            avg = sliddingAverage(InstantaneousArray, IterationWindow)
+            arraysSubset['avg-'+VarName] = avg
+            StatisticArray = sliddingSTD(InstantaneousArray, IterationWindow, avg=avg)
 
+        elif StatType.lower() == 'rsd':
+            avg = sliddingAverage(InstantaneousArray, IterationWindow)
+            arraysSubset['avg-'+VarName] = avg
+            std = sliddingSTD(InstantaneousArray, IterationWindow, avg=avg)
+            arraysSubset['std-'+VarName] = std
+            StatisticArray = sliddingRSD(InstantaneousArray, IterationWindow,
+                                        avg=avg, std=std)
 
-            InvalidValues = np.logical_not(np.isfinite(AverageArray))
-            AverageArray[InvalidValues] = 0.
-
-            arraysSubset['avg-'+VarName] = AverageArray
-
-            FilteredInstantaneousSqrd = uniform_filter1d(InstantaneousArray**2,
-                                                      size=IterationWindow)
-
-            InvalidValues = np.logical_not(np.isfinite(FilteredInstantaneousSqrd))
-            FilteredInstantaneousSqrd[InvalidValues] = 0.
-            FilteredInstantaneousSqrd[FilteredInstantaneousSqrd<0] = 0.
-
-            StatisticArray = np.sqrt(np.abs(FilteredInstantaneousSqrd-AverageArray**2))
         arraysSubset[StatKeyword] = StatisticArray
 
+def sliddingAverage(array, window):
+    '''
+    Compute the slidding average of the signal
+
+    Parameters
+    ----------
+
+        array : numpy.ndarray
+            input signal
+
+        window : int
+            length of the slidding window
+
+    Returns
+    -------
+
+        average : numpy.ndarray
+            sliding average
+    '''
+    average = uniform_filter1d(array, size=window)
+    InvalidValues = np.logical_not(np.isfinite(average))
+    average[InvalidValues] = 0.
+    return average
+
+def sliddingSTD(array, window, avg=None):
+    '''
+    Compute the slidding standard deviation of the signal
+
+    Parameters
+    ----------
+
+        array : numpy.ndarray
+            input signal
+
+        window : int
+            length of the slidding window
+
+        avg : numpy.ndarray or :py:obj:`None`
+            slidding average of **array** on the same **window**. If
+            :py:obj:`None`, it is computed
+
+    Returns
+    -------
+
+        std : numpy.ndarray
+            sliding standard deviation
+    '''
+    if avg is None:
+        avg = sliddingAverage(array, window)
+
+    AvgSqrd = uniform_filter1d(array**2, size=window)
+
+    InvalidValues = np.logical_not(np.isfinite(AvgSqrd))
+    AvgSqrd[InvalidValues] = 0.
+    AvgSqrd[AvgSqrd<0] = 0.
+
+    std = np.sqrt(np.abs(AvgSqrd - avg**2))
+
+    return std
+
+def sliddingRSD(array, window, avg=None, std=None):
+    '''
+    Compute the relative slidding standard deviation of the signal
+
+    .. math::
+
+        rsd = std / avg
+
+    Parameters
+    ----------
+
+        array : numpy.ndarray
+            input signal
+
+        window : int
+            length of the slidding window
+
+        average : numpy.ndarray or :py:obj:`None`
+            slidding average of **array** on the same **window**. If
+            :py:obj:`None`, it is computed
+
+        std : numpy.ndarray or :py:obj:`None`
+            slidding standard deviation of **array** on the same **window**. If
+            :py:obj:`None`, it is computed
+
+    Returns
+    -------
+
+        rsd : numpy.ndarray
+            sliding relative standard deviation
+    '''
+    if avg is None:
+        avg = sliddingAverage(array, window)
+    if std is None:
+        std = sliddingSTD(array, window, avg)
+
+    rsd = std / avg
+
+    InvalidValues = np.logical_not(np.isfinite(rsd))
+    rsd[InvalidValues] = 0.
+
+    return rsd
 
 def getIntegralDataName(IntegralDataNode):
     '''
@@ -1947,7 +2080,7 @@ def prepareSkeleton():
                 Skeleton = I.append(Skeleton, ch, path)
     return Skeleton
 
-def splitWithPyPart(LoggingInFile=False):
+def splitWithPyPart():
     '''
     Use PyPart to split the mesh in ``main.cgns``. This function should be use
     in ``compute.py`` to prepare the mesh before calling ``elsAxdt.XdtCGNS()``.
@@ -1959,12 +2092,6 @@ def splitWithPyPart(LoggingInFile=False):
         `PyPart with elsA <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/etc_pypart_elsa.html>`_
 
     .. important:: Dependence to ETC module
-
-    Parameters
-    ----------
-
-        LoggingInFile : bool
-            If :py:obj:`True`, write log files in *DIRECTORY_LOGS*.
 
     Returns
     -------
@@ -1990,9 +2117,9 @@ def splitWithPyPart(LoggingInFile=False):
                             lksearch=[DIRECTORY_OUTPUT, '.'],
                             loadoption='partial',
                             mpicomm=comm,
-                            LoggingInFile=LoggingInFile,
+                            LoggingInFile=False,
                             LoggingFile='{}/partTree'.format(DIRECTORY_LOGS),
-                            LoggingVerbose=0
+                            LoggingVerbose=40  # Filter: None=0, DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
                             )
     PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[4, 3])
     PyPartBase.finalise(PartTree, savePpart=True, method=1)
@@ -2055,366 +2182,3 @@ def moveLogFiles():
             shutil.move(fn, os.path.join('LOGS', fn))
 
     Cmpi.barrier()
-
-#=================== Functions that will be deprecated soon ===================#
-@J.deprecated(1.12, 1.13)
-def saveAll(CouplingTreeWithSkeleton, CouplingTree,
-            arrays, DesiredStatistics,
-            BodyForceInputData, BodyForceDisks,
-            quit=False):
-    '''
-    This method is used to save all relevant data of the simulation, e.g.:
-
-    * ``setup.py``
-    * ``OUTPUT/fields.cgns``
-    * ``OUTPUT/surfaces.cgns``
-    * ``OUTPUT/arrays.cgns``
-    * ``OUTPUT/BodyForceSources.cgns``
-
-
-    .. note:: The method can be used to stop the elsA simulation after saving all data
-        by providing the argument **quit** = :py:obj:`True`
-
-    .. deprecated:: 1.12
-
-    Parameters
-    ----------
-
-        CouplingTreeWithSkeleton : PyTree
-            This is the partial tree as obtained using :py:func:`adaptEndOfRun`,
-            but including also the entire Skeleton.
-
-            .. tip:: **CouplingTreeWithSkeleton** is the result of adding the
-                skeleton to elsA's output tree **CouplingTree** as follows:
-                ::
-
-                    CouplingTreeWithSkeleton = I.merge([Skeleton, CouplingTree])
-
-        CouplingTree : PyTree
-            This is the partial tree as obtained using :py:func:`adaptEndOfRun`
-
-        arrays :dict
-            It contains the integral data that will be saved as
-            ``OUTPUT/arrays.cgns``. Its structure is:
-            ``arrays['FamilyBCNameOrElementName']['VariableName'] = np.array``
-
-        DesiredStatistics : :py:class:`list` of :py:class:`str`
-            Desired statistics to infer from arrays dictionary. For more
-            information see documentation of function :py:func:`updateAndSaveLoads`
-
-        BodyForceInputData : list
-            This object contains the user-provided information contained in
-            **BodyForceInputData** list of ``setup.py`` file
-
-        BodyForceDisks : :py:class:`list` of zone
-            Current bodyforce disks as obtained from function
-            :py:func:`MOLA.LiftingLine.computePropellerBodyForce`
-
-        quit : bool
-            if :py:obj:`True`, force quit the simulation after saving relevant data.
-    '''
-    printCo('SAVING ALL', proc=0, color=GREEN)
-    Cmpi.barrier()
-    updateAndWriteSetup(setup)
-
-    saveDistributedPyTree(CouplingTreeWithSkeleton, FILE_FIELDS)
-
-    saveSurfaces(CouplingTreeWithSkeleton, arrays, DesiredStatistics, tagWithIteration=True)
-
-    updateAndSaveLoads(CouplingTree, arrays, DesiredStatistics,
-                       tagWithIteration=True)
-
-    if BodyForceInputData:
-        distributeAndSavePyTree(BodyForceDisks, FILE_BODYFORCESRC,
-                                tagWithIteration=True)
-
-    Cmpi.barrier()
-    if quit:
-        printCo('QUIT', proc=0, color=FAIL)
-        Cmpi.barrier()
-        elsAxdt.free("xdt-runtime-tree")
-        elsAxdt.free("xdt-output-tree")
-        Cmpi.barrier()
-        # if elsAxdt: elsAxdt.safeInterrupt()
-        # else: os._exit(0)
-        os._exit(0)
-
-@J.deprecated(1.12, 1.13, 'Use extractSurfaces instead')
-def saveSurfaces(to, loads, DesiredStatistics, tagWithIteration=False,
-                 onlyWalls=True):
-    '''
-    Save the ``OUTPUT/surfaces.cgns`` file.
-
-    Extract:
-
-    * Boundary Conditions
-    * IsoSurfaces if the entry PostParameters is present in setup.py, else
-       do nothing
-
-    For a turbomachinery case, monitor the performance of each row and save the
-    results in arrays.cgns
-
-    .. deprecated:: 1.12
-
-    Parameters
-    ----------
-
-        to : PyTree
-            Coupling tree as obtained from :py:func:`adaptEndOfRun`
-
-        arrays ::py:class:`dict`
-            Contains integral data in the following form:
-
-            >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
-
-        DesiredStatistics : :py:class:`list` of :py:class:`str`
-            Here, the user requests the additional statistics to be computed.
-            See documentation of function updateAndSaveLoads for more details.
-
-        tagWithIteration : :py:class:`bool`
-            if ``True``, adds a suffix ``_AfterIter<iteration>``
-            to the saved filename (creates a copy)
-
-        onlyWalls : :py:class:`bool`
-            if ``True``, only BC defined with ``BCWall*`` type are extracted.
-            Otherwise, all BC (but not GridConnectivity) are extracted
-    '''
-    to = I.renameNode(to, 'FlowSolution#Init', 'FlowSolution#Centers')
-    to = I.renameNode(to, 'FlowSolution#Height', 'FlowSolution') # BEWARE if there is already a FlowSolution node
-    reshapeBCDatasetNodes(to)
-    BCs = boundaryConditions2Surfaces(to, onlyWalls=onlyWalls)
-    isosurf = extractIsoSurfaces(to)
-    surfaces = I.merge([BCs, isosurf])
-    renameTooLongZones(surfaces)
-    try:
-        Cmpi._setProc(surfaces, rank)
-        I._adaptZoneNamesForSlash(surfaces)
-    except:
-        pass
-    Cmpi.barrier()
-    printCo('saving surfaces', proc=0, color=CYAN)
-    Cmpi.barrier()
-    Cmpi.convertPyTree2File(surfaces, os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES))
-    printCo('surfaces saved OK', proc=0, color=GREEN)
-    Cmpi.barrier()
-    if tagWithIteration and rank == 0: copyOutputFiles(FILE_SURFACES)
-
-    if 'TurboConfiguration' in dir(setup):
-        monitorTurboPerformance(surfaces, arrays, DesiredStatistics,
-                                tagWithIteration=tagWithIteration)
-
-@J.deprecated(1.12, 1.13, 'Use extractSurfaces with Extractions of type IsoSurface instead')
-def extractIsoSurfaces(to):
-    '''
-    Extract IsoSurfaces in the PyTree **to**. The parametrization is done with the
-    entry PostParameters in setup.py, that must contain keys:
-
-    * ``IsoSurfaces``
-        a dictionary whose keys are variable names and values are
-        lists of associated levels.
-
-    * ``Variables``
-        a list of strings to compute extra variables on the extracted
-        surfaces.
-
-    .. note:: If ``PostParameters`` is not present in ``setup.py``, or if both
-        ``IsoSurfaces`` and ``Variables`` are not present in ``PostParameters``,
-        then the function return an empty PyTree.
-
-    .. deprecated:: 1.12
-        Use :py:func:`extractSurfaces` with Extractions of type IsoSurface instead
-
-    Parameters
-    ----------
-
-        to : PyTree
-            Coupling tree as obtained from :py:func:`adaptEndOfRun`
-
-    Returns
-    -------
-
-        surfaces : PyTree
-            PyTree with extracted ``IsoSurfaces``. There is one base for each, with
-            the following naming convention : ``ISO_<Variable>_<Value>``
-    '''
-    surfaces = I.newCGNSTree()
-
-    if not 'PostParameters' in dir(setup):
-        return surfaces
-    elif not ('IsoSurfaces' in setup.PostParameters \
-                and 'Variables' in setup.PostParameters):
-        return surfaces
-
-    # See Anomaly 8784 https://elsa.onera.fr/issues/8784
-    for BCDataSetNode in I.getNodesFromType(pto, 'BCDataSet_t'):
-        for node in I.getNodesFromType(BCDataSetNode, 'DataArray_t'):
-            if I.getValue(node) is None:
-                I.rmNode(BCDataSetNode, node)
-
-    # EXTRACT ISO-SURFACES
-    pto = Cmpi.convert2PartialTree(to)
-    for varname, values in setup.PostParameters['IsoSurfaces'].items():
-        for value in values:
-            iso = P.isoSurfMC(pto, varname, value)
-            if iso != []:
-                P._computeVariables(iso, setup.PostParameters['Variables'])
-            base = I.newCGNSBase('ISO_{}_{}'.format(varname, value), 2, 3, parent=surfaces)
-            I.addChild(base, iso)
-    return surfaces
-
-@J.deprecated(1.12, 1.13, 'Use save instead')
-def distributeAndSavePyTree(ListOfZones, filename, tagWithIteration=False):
-    '''
-    Given a :py:class:`list` of zone (possibly empty list at some
-    ranks), this function assigns a rank number to each zone and then
-    saves the provided zones in a single CGNS file.
-
-    .. deprecated:: 1.12
-
-    Parameters
-    ----------
-
-        ListOfZones : :py:class:`list` of zone
-            List of CGNS zones to be saved in parallel
-
-        filename : str
-            filename where zones will be writen
-
-            .. attention:: **filename** extension must be ``.cgns``
-
-        tagWithIteration : bool
-            if :py:obj:`True`, adds a suffix ``_AfterIter<iteration>``
-            to the saved filename (creates a copy)
-    '''
-    DetectedZones = I.getZones(ListOfZones)
-    Cmpi._setProc(DetectedZones, rank)
-    I._adaptZoneNamesForSlash(DetectedZones)
-    printCo('saving '+filename, proc=0, color=CYAN)
-    Cmpi.barrier()
-    Cmpi.convertPyTree2File(DetectedZones, os.path.join(DIRECTORY_OUTPUT, filename))
-    printCo('%s saved OK'%filename, proc=0, color=GREEN)
-    if tagWithIteration and rank == 0: copyOutputFiles(filename)
-
-@J.deprecated(1.12, 1.13, 'Use save instead')
-def saveDistributedPyTree(t, filename, tagWithIteration=False):
-    '''
-    Given an already distributed PyTree (with coherent *proc* number), save it
-    in a single CGNS file.
-
-    .. deprecated:: 1.12
-
-    Parameters
-    ----------
-
-        t : PyTree
-            Distributed PyTree
-
-        filename : str
-            Name of the file where data will be writen.
-
-            .. attention:: **filename** extension must be ``.cgns``
-
-        tagWithIteration : bool
-            if :py:obj:`True`, adds a suffix ``_AfterIter<iteration>``
-            to the saved filename (creates a copy)
-    '''
-    printCo('saving '+filename, proc=0, color=CYAN)
-    Cmpi.barrier()
-    FullPath = os.path.join(DIRECTORY_OUTPUT, filename)
-    Cmpi.barrier()
-    if rank==0:
-        try:
-            if os.path.islink(FullPath):
-                os.unlink(FullPath)
-            else:
-                os.remove(FullPath)
-        except:
-            pass
-    Cmpi.barrier()
-    if t is None: t = []
-    Cmpi.convertPyTree2File(t, FullPath)
-    Cmpi.barrier()
-    printCo('%s saved OK'%filename, proc=0, color=GREEN)
-    if tagWithIteration and rank == 0: copyOutputFiles(filename)
-    Cmpi.barrier()
-
-@J.deprecated(1.12, 1.13, 'Use save extractIntegralData and save instead')
-def updateAndSaveLoads(to, loads, DesiredStatistics=['std-CL', 'std-CD'],
-                       tagWithIteration=False, monitorMemory=False):
-    '''
-    Extract integral data from coupling tree **to**, and update **arrays** Python
-    dictionary adding statistics requested by the user.
-    Then, write ``OUTPUT/arrays.cgns`` file.
-
-    .. deprecated:: 1.12
-
-    Parameters
-    ----------
-
-        to : PyTree
-            Coupling tree as obtained from :py:func:`adaptEndOfRun`
-
-        arrays :dict
-            Contains integral data in the following form:
-
-            >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
-
-        DesiredStatistics : :py:class:`list` of :py:class:`str`
-            Here, the user requests the additional statistics to be computed.
-            The syntax of each quantity must be as follows:
-
-            ::
-
-                '<preffix>-<integral_quantity_name>'
-
-            `<preffix>` can be ``'avg'`` (for cumulative average) or ``'std'``
-            (for standard deviation). ``<integral_quantity_name>`` can be any
-            quantity contained in arrays, including other statistics.
-
-            .. hint:: chaining preffixes is perfectly accepted, like
-                ``'std-std-CL'`` which would compute the cumulative standard
-                deviation of the cumulative standard deviation of the
-                lift coefficient (:math:`\sigma(\sigma(C_L))`)
-
-        tagWithIteration : bool
-            if :py:obj:`True`, adds a suffix ``_AfterIter<iteration>``
-            to the saved filename (creates a copy)
-
-        monitorMemory : bool
-            if :py:obj:`True`, function :py:func:`addMemoryUsage2Arrays` is
-            called, which adds memory usage information into **arrays**
-    '''
-    IntegralDataNodes = I.getNodesFromType2(to, 'IntegralData_t')
-    for IntegralDataNode in IntegralDataNodes:
-        IntegralDataName = getIntegralDataName(IntegralDataNode)
-        _appendIntegralDataNode2Arrays(arrays, IntegralDataNode)
-        _extendArraysWithProjectedLoads(arrays, IntegralDataName)
-        _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics)
-    if monitorMemory: addMemoryUsage2Arrays(arrays)
-    saveLoads(arrays, tagWithIteration)
-
-@J.deprecated(1.12, 1.13, 'Use save instead')
-def saveLoads(loads, tagWithIteration=False):
-    '''
-    Save the ``OUTPUT/arrays.cgns`` file.
-
-    Parameters
-    ----------
-
-        arrays ::py:class:`dict`
-            Contains integral data in the following form:
-
-            >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
-
-        tagWithIteration : :py:class:`bool`
-            if ``True``, adds a suffix ``_AfterIter<iteration>``
-            to the saved filename (creates a copy)
-    '''
-    loadsPyTree = arraysDict2PyTree(arrays)
-    printCo(CYAN+'saving loads...'+ENDC, proc=0)
-    Cmpi.barrier()
-    Cmpi.convertPyTree2File(loadsPyTree,
-                            os.path.join(DIRECTORY_OUTPUT, FILE_ARRAYS))
-    Cmpi.barrier()
-    printCo(GREEN+'loads saved OK'+ENDC, proc=0)
-    if tagWithIteration and rank == 0: copyOutputFiles(FILE_ARRAYS)

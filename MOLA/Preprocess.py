@@ -142,6 +142,7 @@ def prepareMesh4ElsA(InputMeshes, NProcs=None, ProcPointsLoad=250000):
 
 def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
         NumericalParams={}, Extractions=[{'type':'AllBCWall'}],
+        Initialization=dict(method='uniform'),
         BodyForceInputData=[], writeOutputFields=True):
     '''
     This macro-function takes as input a preprocessed grid file (as produced
@@ -190,6 +191,28 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
 
         Extractions : :py:class:`list` of :py:class:`dict`
             .. danger:: **doc this** # TODO
+
+        Initialization : dict
+            dictionary defining the type of initialization, using the key
+            **method**. This latter is mandatory and should be one of the
+            following:
+
+            * **method** = None : the Flow Solution is not initialized.
+
+            * **method** = 'uniform' : the Flow Solution is initialized uniformly
+              using the **ReferenceValues**.
+
+            * **method** = 'copy' : the Flow Solution is initialized by copying
+              the FlowSolution container of another file. The file path is set by
+              using the key **file**. The container might be set with the key
+              **container** ('FlowSolution#Init' by default).
+
+            * **method** = 'interpolate' : the Flow Solution is initialized by
+              interpolating the FlowSolution container of another file. The file
+              path is set by using the key **file**. The container might be set
+              with the key **container** ('FlowSolution#Init' by default).
+
+            Default method is 'uniform'.
 
         BodyForceInputData : :py:class:`list` of :py:class:`dict`
             if provided, each item of this list constitutes a body-force modeling component.
@@ -363,7 +386,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
 
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
-    t = newCGNSfromSetup(t, AllSetupDics, initializeFlow=True,
+    t = newCGNSfromSetup(t, AllSetupDics, Initialization=Initialization,
                          FULL_CGNS_MODE=False)
     to = newRestartFieldsFromCGNS(t)
     saveMainCGNSwithLinkToOutputFields(t,to,writeOutputFields=writeOutputFields)
@@ -554,14 +577,18 @@ def connectMesh(t, InputMeshes):
                                       tol=ConnectParams['tolerance'],
                                       dim=baseDim)
             elif ConnectionType == 'PeriodicMatch':
-                for angle in ConnectParams['angles']:
-                    print('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)))
-                    t = X.connectMatchPeriodic(t,
-                                            rotationCenter=[0.,0.,0.],
-                                            rotationAngle=[angle,0.,0.],
+                try: rotationCenter = ConnectParams['rotationCenter']
+                except: rotationCenter = [0., 0., 0.]
+                try: rotationAngle = ConnectParams['rotationAngle']
+                except: rotationAngle = [0., 0., 0.]
+                try: translation = ConnectParams['translation']
+                except: translation = [0., 0., 0.]
+                t = X.connectMatchPeriodic(t,
+                                            rotationCenter=rotationCenter,
+                                            rotationAngle=rotationAngle,
+                                            translation=translation,
                                             tol=ConnectParams['tolerance'],
                                             dim=baseDim)
-                    I._rmNodesByName(t,'DimensionalUnits')
             else:
                 ERRMSG = 'Connection type %s not implemented'%ConnectionType
                 raise AttributeError(ERRMSG)
@@ -2178,7 +2205,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     return ReferenceValues
 
 
-def getElsAkeysCFD(config='3d'):
+def getElsAkeysCFD(config='3d', **kwargs):
     '''
     Create a dictionary of pairs of elsA keyword/values to be employed as
     cfd problem object.
@@ -2189,6 +2216,9 @@ def getElsAkeysCFD(config='3d'):
         config : str
             elsa keyword config (``'2d'`` or ``'3d'``)
 
+        kwargs : dict
+            additional parameters for elsA *cfd* object
+
     Returns
     -------
 
@@ -2198,6 +2228,7 @@ def getElsAkeysCFD(config='3d'):
     elsAkeysCFD      = dict(
         config=config,
         extract_filtering='inactive')
+    elsAkeysCFD.update(kwargs)
     return elsAkeysCFD
 
 
@@ -2613,8 +2644,8 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     return elsAkeysNumerics
 
 
-def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
-                     FULL_CGNS_MODE=False, dim=3):
+def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
+                     FULL_CGNS_MODE=False,  extractCoords=True, BCExtractions={}):
     '''
     Given a preprocessed grid using :py:func:`prepareMesh4ElsA` and setup information
     dictionaries, this function creates the main CGNS tree and writes the
@@ -2631,15 +2662,27 @@ def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
             dictionaries: ``ReferenceValues``, ``elsAkeysCFD``,
             ``elsAkeysModel`` and ``elsAkeysNumerics``.
 
-        initializeFlow : bool
-            if :py:obj:`True`, calls :py:func:`newFlowSolutionInit`, which
-            creates ``FlowSolution#Init`` fields used for initialization of the flow
+        Initialization : dict
+            dictionary defining the type of flow initialization. If :py:obj:`None`,
+            no initialization is performed, else it depends on the key 'method'.
 
         FULL_CGNS_MODE : bool
             if :py:obj:`True`, add elsa keys in ``.Solver#Compute`` CGNS container
 
-        dim : int
-            dimension of the problem (``2`` or ``3``).
+        extractCoords : bool
+            if :py:obj:`True`, then create a ``FlowSolution`` container named
+            ``FlowSolution#EndOfRun#Coords`` to perform coordinates extraction.
+
+        BCExtractions : dict
+            dictionary to indicate variables to extract. Each key corresponds to
+            a ``BCType`` or a pattern to search in BCType of each FamilyBC (for
+            instance, *BCInflow* matches *BCInflowSubsonic* and
+            *BCInflowSupersonic*).
+            The value associated to each key is a :py:class:`list` of
+            :py:class:`str` corresponding to variable names to extract (in elsA
+            convention).
+
+            To see default extracted variables, see :py:func:`addSurfacicExtractions`
 
     Returns
     -------
@@ -2650,15 +2693,32 @@ def newCGNSfromSetup(t, AllSetupDictionaries, initializeFlow=True,
     '''
     t = I.copyRef(t)
 
-    addSolverBC(t)
     addTrigger(t)
     addExtractions(t, AllSetupDictionaries['ReferenceValues'],
-                      AllSetupDictionaries['elsAkeysModel'])
+                      AllSetupDictionaries['elsAkeysModel'],
+                      extractCoords=extractCoords, BCExtractions=BCExtractions)
     addReferenceState(t, AllSetupDictionaries['FluidProperties'],
                          AllSetupDictionaries['ReferenceValues'])
-    addGoverningEquations(t, dim=dim) # TODO replace dim input by elsAkeysCFD['config'] info
-    if initializeFlow:
-        newFlowSolutionInit(t, AllSetupDictionaries['ReferenceValues'])
+    dim = int(AllSetupDictionaries['elsAkeysCFD']['config'][0])
+    addGoverningEquations(t, dim=dim)
+    if Initialization:
+        if not 'container' in Initialization:
+            Initialization['container'] = 'FlowSolution#Init'
+
+        if Initialization['method'] is None:
+            pass
+        elif Initialization['method'] == 'uniform':
+            print(J.CYAN + 'Initialize FlowSolution with uniform reference values' + J.ENDC)
+            initializeFlowSolutionFromReferenceValues(t, AllSetupDictionaries['ReferenceValues'])
+        elif Initialization['method'] == 'interpolate':
+            print(J.CYAN + 'Initialize FlowSolution by interpolation from {}'.format(Initialization['file']) + J.ENDC)
+            initializeFlowSolutionFromFileByInterpolation(t, Initialization['file'], container=Initialization['container'])
+        elif Initialization['method'] == 'copy':
+            print(J.CYAN + 'Initialize FlowSolution by copy of {}'.format(Initialization['file']) + J.ENDC)
+            initializeFlowSolutionFromFileByCopy(t, Initialization['file'], container=Initialization['container'])
+        else:
+            raise Exception(J.FAIL+'The key "method" of the dictionary Initialization is mandatory'+J.ENDC)
+
     if FULL_CGNS_MODE:
         addElsAKeys2CGNS(t, [AllSetupDictionaries['elsAkeysCFD'],
                              AllSetupDictionaries['elsAkeysModel'],
@@ -2781,22 +2841,6 @@ def saveMainCGNSwithLinkToOutputFields(t, to, DIRECTORY_OUTPUT='OUTPUT',
     C.convertPyTree2File(t, MainCGNSFilename, links=AllCGNSLinks)
 
 
-def addSolverBC(t):
-    '''
-    Increase family integer value to ``.Solver#BC`` at ``FamilyBC_t`` nodes
-
-    Parameters
-    ----------
-
-        t : PyTree
-            the main tree. It is modified.
-    '''
-    FamilyNodes = I.getNodesFromType2(t, 'Family_t')
-    for i, fn in enumerate(FamilyNodes):
-        if I.getNodeFromType(fn, 'FamilyBC_t'):
-            J.set(fn, '.Solver#BC', family=i+1)
-
-
 def addTrigger(t, coprocessFilename='coprocess.py'):
     '''
     Add ``.Solver#Trigger`` node to all zones.
@@ -2824,7 +2868,8 @@ def addTrigger(t, coprocessFilename='coprocess.py'):
                  file=coprocessFilename)
 
 
-def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True, WallExtractions=None, FluxExtractions=None):
+def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
+        BCExtractions={}):
     '''
     Include surfacic and field extraction information to CGNS tree using
     information contained in dictionaries **ReferenceValues** and
@@ -2844,23 +2889,27 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True, WallEx
         elsAkeysModel : dict
             dictionary as produced by :py:func:`getElsAkeysModel` function
 
-        WallExtractions : :py:class:`list` of :py:class:`str`
-            list of variables to extract at the wall.
+        extractCoords : bool
+            if :py:obj:`True`, then create a ``FlowSolution`` container named
+            ``FlowSolution#EndOfRun#Coords`` to perform coordinates extraction.
 
-        FluxExtractions : :py:class:`list` of :py:class:`str`
-            list of flux variables to extract at the wall. Their names must
-            begin by ``'flux_'``. They will be automatically integrated on the
-            surface family during the simulation to produce nodes of type
-            ``'IntegralData_t'``.
+        BCExtractions : dict
+            dictionary to indicate variables to extract. Each key corresponds to
+            a ``BCType`` or a pattern to search in BCType of each FamilyBC (for
+            instance, *BCInflow* matches *BCInflowSubsonic* and
+            *BCInflowSupersonic*).
+            The value associated to each key is a :py:class:`list` of
+            :py:class:`str` corresponding to variable names to extract (in elsA
+            convention).
+
+            To see default extracted variables, see :py:func:`addSurfacicExtractions`
     '''
-    addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
-        WallExtractions=WallExtractions, FluxExtractions=FluxExtractions)
+    addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions=BCExtractions)
     addFieldExtractions(t, ReferenceValues, extractCoords=extractCoords)
     EP._addGlobalConvergenceHistory(t)
 
 
-def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
-    WallExtractions=None, FluxExtractions=None):
+def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     '''
     Include surfacic extraction information to CGNS tree using information
     contained in dictionaries **ReferenceValues** and **elsAkeysModel**.
@@ -2879,67 +2928,92 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
         elsAkeysModel : dict
             dictionary as produced by :py:func:`getElsAkeysModel` function
 
-        WallExtractions : :py:class:`list` of :py:class:`str`
-            list of variables to extract at the wall. If not given, the default
-            extracted variables are:
+        BCExtractions : dict
+            dictionary to indicate variables to extract. Each key corresponds to
+            a ``BCType`` or a pattern to search in BCType of each FamilyBC (for
+            instance, *BCInflow* matches *BCInflowSubsonic* and
+            *BCInflowSupersonic*).
+            The value associated to each key is a :py:class:`list` of
+            :py:class:`str` corresponding to variable names to extract (in elsA
+            convention).
 
-            >>> WallExtractions = ['normalvector','SkinFrictionX','SkinFrictionY','SkinFrictionZ','psta']
+            By default, the following variables are extracted for *BCWall*:
+            ['normalvector', 'frictionvector', 'psta', 'bl_quantities_2d',
+            'yplusmeshsize', 'flux_rou', 'flux_rov', 'flux_row', 'torque_rou',
+            'torque_rov', 'torque_row'].
 
-        FluxExtractions : :py:class:`list` of :py:class:`str`
-            list of flux variables to extract at the wall. Their names must
-            begin by ``'flux_'``. They will be automatically integrated on the
-            surface family during the simulation to produce nodes of type
-            ``'IntegralData_t'``.  If not given, the default extracted variables
-            are:
-
-            >>> FluxExtractions = ['flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
+            These default values are updated with **BCExtractions**.
 
     '''
-    if WallExtractions is None:
-        WallExtractions = ['normalvector', 'frictionvector','psta']
-    if FluxExtractions is None:
-        FluxExtractions = ['flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
+    DefaultBCExtractions = dict(
+        BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize',
+            'flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
+    )
+    DefaultBCExtractions.update(BCExtractions)
+
+    # Default keys to write in the .Solver#Output of the Family node
+    # The node 'var' will be fill later depending on the BCType
+    BCKeys = dict(
+        period        = 1,
+        writingmode   = 2,
+        loc           = 'interface',
+        fluxcoeff     = 1.0,
+        force_extract = 1,
+        writingframe  = 'absolute'
+    )
+
+    # Keys to write in the .Solver#Output for wall Families
+    BCWallKeys = dict()
+    BCWallKeys.update(BCKeys)
+    BCWallKeys.update(dict(
+        delta_compute = elsAkeysModel['delta_compute'],
+        vortratiolim  = elsAkeysModel['vortratiolim'],
+        shearratiolim = elsAkeysModel['shearratiolim'],
+        pressratiolim = elsAkeysModel['pressratiolim'],
+        pinf          = ReferenceValues['Pressure'],
+        torquecoeff   = 1.0,
+        xtorque       = 0.0,
+        ytorque       = 0.0,
+        ztorque       = 0.0,
+        writingframe  = 'relative'
+    ))
 
     FamilyNodes = I.getNodesFromType2(t, 'Family_t')
-    for FamilyNode in FamilyNodes:
-        FamilyName = I.getName( FamilyNode )
-        BCType = getFamilyBCTypeFromFamilyBCName(t, FamilyName)
-        if not BCType or not 'BCWall' in BCType: continue
+    for ExtractBCType, ExtractVariablesList in DefaultBCExtractions.items():
+        for FamilyNode in FamilyNodes:
+            FamilyName = I.getName( FamilyNode )
+            BCType = getFamilyBCTypeFromFamilyBCName(t, FamilyName)
+            if not BCType: continue
 
-        # TODO 'bl_ue' CGNS extraction FAILS in v4.2.01
-        WallVariables = ' '.join(WallExtractions+FluxExtractions)
+            if ExtractBCType in BCType:
+                if 'BCWall' in BCType:
+                    if 'Inviscid' in BCType:
+                        if 'bl_quantities_2d' in ExtractVariablesList:
+                            ExtractVariablesList.remove('bl_quantities_2d')
+                        if 'yplusmeshsize' in ExtractVariablesList:
+                            ExtractVariablesList.remove('yplusmeshsize')
+                    else:
+                        TransitionMode = ReferenceValues['TransitionMode']
 
-        if 'Inviscid' not in BCType:
-            WallVariables += ' bl_quantities_2d yplusmeshsize'
+                        if TransitionMode == 'NonLocalCriteria-LSTT':
+                            extraVariables = ['intermittency', 'clim', 'how', 'origin',
+                                'lambda2', 'turb_level', 'n_tot_ag', 'n_crit_ag',
+                                'r_tcrit_ahd', 'r_theta_t1', 'line_status', 'crit_indicator']
+                            ExtractVariablesList.extend(extraVariables)
 
-            TransitionMode = ReferenceValues['TransitionMode']
+                        elif TransitionMode == 'Imposed':
+                            extraVariables = ['intermittency', 'clim']
+                            ExtractVariablesList.extend(extraVariables)
 
-            if TransitionMode == 'NonLocalCriteria-LSTT':
-                WallVariables += ' intermittency clim how origin lambda2 turb_level n_tot_ag n_crit_ag r_tcrit_ahd r_theta_t1 line_status crit_indicator'
-
-            elif TransitionMode == 'Imposed':
-                WallVariables += ' intermittency clim'
-
-        if WallVariables != []:
-            print('setting .Solver#Output to FamilyNode '+FamilyNode[0])
-            J.set(FamilyNode, '.Solver#Output',
-                var           = WallVariables,
-                period        = 1,
-                writingmode   = 2,
-                loc           = 'interface',
-                delta_compute = elsAkeysModel['delta_compute'],
-                vortratiolim  = elsAkeysModel['vortratiolim'],
-                shearratiolim = elsAkeysModel['shearratiolim'],
-                pressratiolim = elsAkeysModel['pressratiolim'],
-                fluxcoeff     = 1.0,
-                torquecoeff   = 1.0,
-                pinf          = ReferenceValues['Pressure'],
-                xtorque       = 0.0,
-                ytorque       = 0.0,
-                ztorque       = 0.0,
-                force_extract = 1,
-                writingframe  = 'relative'
-                )
+                if ExtractVariablesList != []:
+                    varDict = dict(var=' '.join(ExtractVariablesList))
+                    print('setting .Solver#Output to FamilyNode '+FamilyNode[0])
+                    if 'BCWall' in BCType:
+                        BCWallKeys.update(varDict)
+                        J.set(FamilyNode, '.Solver#Output',**BCWallKeys)
+                    else:
+                        BCKeys.update(varDict)
+                        J.set(FamilyNode, '.Solver#Output',**BCKeys)
 
 
 def addFieldExtractions(t, ReferenceValues, extractCoords=False):
@@ -3052,7 +3126,7 @@ def addElsAKeys2CGNS(t, AllElsAKeys):
     for b in I.getBases(t): J.set(b, '.Solver#Compute', **AllComputeModels)
 
 
-def newFlowSolutionInit(t, ReferenceValues):
+def initializeFlowSolutionFromReferenceValues(t, ReferenceValues):
     '''
     Invoke ``FlowSolution#Init`` fields using information contained in
     ``ReferenceValue['ReferenceState']`` and ``ReferenceValues['Fields']``.
@@ -3093,6 +3167,78 @@ def newFlowSolutionInit(t, ReferenceValues):
     FlowSolInit = I.getNodesFromName(t,'FlowSolution#Init')
     I._rmNodesByName(FlowSolInit, 'ChimeraCellType')
 
+def initializeFlowSolutionFromFileByInterpolation(t, sourceFilename, container='FlowSolution#Init'):
+    '''
+    Initialize the flow solution of **t** from the flow solution in the file
+    **sourceFilename**.
+    Modify the tree **t** in-place.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to initialize
+
+        sourceFilename : str
+            Name of the source file for the interpolation.
+
+        container : str
+            Name of the ``'FlowSolution_t'`` node use for the interpolation.
+            Default is 'FlowSolution#Init'
+
+    '''
+    sourceTree = C.convertFile2PyTree(sourceFilename)
+    OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
+    I.__FlowSolutionCenters__ = container
+    I._rmNodesByType(sourceTree, 'BCDataSet_t')
+    I._rmNodesByNameAndType(sourceTree, '*EndOfRun*', 'FlowSolution_t')
+    P._extractMesh(sourceTree, t, mode='accurate', extrapOrder=0)
+    if container != 'FlowSolution#Init':
+        I.renameNode(t, container, 'FlowSolution#Init')
+    I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
+
+def initializeFlowSolutionFromFileByCopy(t, sourceFilename, container='FlowSolution#Init'):
+    '''
+    Initialize the flow solution of **t** by copying the flow solution in the file
+    **sourceFilename**.
+    Modify the tree **t** in-place.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to initialize
+
+        sourceFilename : str
+            Name of the source file.
+
+        container : str
+            Name of the ``'FlowSolution_t'`` node to copy.
+            Default is 'FlowSolution#Init'
+
+    '''
+    sourceTree = C.convertFile2PyTree(sourceFilename)
+    OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
+    I.__FlowSolutionCenters__ = container
+
+    for base in I.getBases(t):
+        basename = I.getName(base)
+        for zone in I.getNodesFromType1(base, 'Zone_t'):
+            zonename = I.getName(zone)
+            zonepath = '{}/{}'.format(basename, zonename)
+            FSpath = '{}/{}'.format(zonepath, container)
+            FlowSolutionInSourceTree = I.getNodeFromPath(sourceTree, FSpath)
+            if FlowSolutionInSourceTree:
+                I._rmNodesByNameAndType(zone, container, 'FlowSolution_t')
+                I._append(t, FlowSolutionInSourceTree, zonepath)
+            else:
+                ERROR_MSG = 'The node {} is not found in {}'.format(FSpath, sourceFilename)
+                raise Exception(J.FAIL+ERROR_MSG+J.ENDC)
+
+    if container != 'FlowSolution#Init':
+        I.renameNode(t, container, 'FlowSolution#Init')
+
+    I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
 
 def writeSetup(AllSetupDictionaries, setupFilename='setup.py'):
     '''
@@ -3608,34 +3754,6 @@ def getProc(t):
     '''
     return  np.array(D2.getProc(t), order='F', ndmin=1)
 
-def initializeFlowSolutionFromFile(t, sourceFilename, container='FlowSolution#Init'):
-    '''
-    Initialize the flow solution of **t** from the flow solution in the file
-    **sourceFilename**.
-    Modify the tree **t** in-place.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            Tree to initialize
-
-        sourceFilename : str
-            Name of the source file for the interpolation.
-
-        container : str
-            Name of the ``'FlowSolution_t'`` node use for the interpolation.
-            Default is 'FlowSolution#Init'
-
-    '''
-    sourceTree = C.convertFile2PyTree(sourceFilename)
-    OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
-    I.__FlowSolutionCenters__ = container
-    I._rmNodesByType(sourceTree, 'BCDataSet_t')
-    I._rmNodesByNameAndType(sourceTree, '*EndOfRun*', 'FlowSolution_t')
-    P._extractMesh(sourceTree, t, mode='accurate', extrapOrder=0)
-    I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
-
 def autoMergeBCs(t, familyNames=[]):
     '''
     Merge BCs that are contiguous, belong to the same family and are of the same
@@ -3755,3 +3873,31 @@ def autoMergeBCs(t, familyNames=[]):
                 del(zoneBcsOut)
 
     return t
+
+def checkFamiliesInZonesAndBC(t):
+    '''
+    Check that each zone and each BC is attached to a family (so there must be
+    a ``FamilyName_t`` node). Raise an exception in case of family missing.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            PyTree to check
+    '''
+    for base in I.getBases(t):
+        if any([pattern in I.getName(base) for pattern in ['Numeca', 'meridional_base', 'tools_base']]):
+            # Base specific to Autogrid
+            continue
+        # Check that each zone is attached to a family
+        for zone in I.getZones(base):
+            if not I.getNodeFromType1(zone, 'FamilyName_t'):
+                FAILMSG = 'Each zone must be attached to a Family:\n'
+                FAILMSG += 'Zone {} has no node of type FamilyName_t'.format(I.getName(zone))
+                raise Exception(J.FAIL+FAILMSG+J.ENDC)
+            # Check that each BC is attached to a family
+            for bc in I.getNodesFromType(zone, 'BC_t'):
+                if not I.getNodeFromType1(bc, 'FamilyName_t'):
+                    FAILMSG = 'Each BC must be attached to a Family:\n'
+                    FAILMSG += 'BC {} in zone {} has no node of type FamilyName_t'.format(I.getName(bc), I.getName(zone))
+                    raise Exception(J.FAIL+FAILMSG+J.ENDC)
