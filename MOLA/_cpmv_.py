@@ -172,8 +172,8 @@ def whichHost():
     for name in PossibleMachineNamesInHostName:
         if name in HostName: return name
     UserName = getpass.getuser()
-    if not os.path.exists(os.path.join(os.path.sep,'home',UserName)):
-        return 'HomeInvisible'
+    if not os.path.exists(os.path.join(os.path.sep,'stck',UserName)):
+        return 'StckInvisible'
 
     return HostName
 
@@ -248,9 +248,9 @@ def cpmvWrap4MultiServer(mode,In,Out='none'):
         usernameIn = getpass.getuser()
         HostServer = whichHost()
 
-        if HostServer == 'HomeInvisible':
-            if PathInElts[0] == 'home' or PathOutElts[0] == 'home':
-                print('WARNING: Requested %s\ntowards %s\nalthough HOME connection is impossible'%(In,Out))
+        if HostServer == 'StckInvisible':
+            if PathInElts[0] == 'stck' or PathOutElts[0] == 'stck':
+                print('WARNING: Requested %s\ntowards %s\nalthough stck connection is impossible'%(In,Out))
             cpmv(mode,In,Out)
         elif InAtServer == OutAtServer == HostServer:
             cpmv(mode,In,Out)
@@ -260,7 +260,7 @@ def cpmvWrap4MultiServer(mode,In,Out='none'):
             cpmv(mode,In,Out)
         elif all([InAtServer,OutAtServer]):
             # Need to use a temporary auxiliar folder on local
-            AuxiliaryDir = os.path.join(os.path.sep,'home',usernameIn,'.tmpFolder4cpmv')
+            AuxiliaryDir = os.path.join(os.path.sep,'stck',usernameIn,'.tmpFolder4cpmv')
             OutAuxiliary = os.path.join(AuxiliaryDir,PathInElts[-1])
 
             if   InAtServer == 'spiro': Host = usernameIn+'@'+'spiro-daaa'
