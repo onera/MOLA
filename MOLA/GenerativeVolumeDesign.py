@@ -865,25 +865,25 @@ def _constrainedSmoothing(tExtru, mode='dualing',
 
         gf, stretch, convexity = J.getVars(z,['growthfactor','stretching','convexity'])
 
+        if subniter:
+            for i in range(niter):
 
-        for i in range(niter):
+                toki = tic()
 
-            toki = tic()
+                MeanDH = np.median(dH)
+                if growthEquation:
+                    if growthEquation == 'default':
+                        v = stretch - convexity
+                        dH*=(1+gf*np.tanh((v*(v<0))/(np.abs(np.min(v))/3.0)+(v*(v>0))/(np.max(v)/3.0)))
+                    else:
+                        wrapInitVars(z,growthEquation)
 
-            MeanDH = np.median(dH)
-            if growthEquation:
-                if growthEquation == 'default':
-                    v = stretch - convexity
-                    dH*=(1+gf*np.tanh((v*(v<0))/(np.abs(np.min(v))/3.0)+(v*(v>0))/(np.max(v)/3.0)))
-                else:
-                    wrapInitVars(z,growthEquation)
+                wrapSmoothField(z, 0.9, subniter, type, ['dH'])
+                NewMeanDH = np.mean(dH)
+                dH *= MeanDH/NewMeanDH
+                GrowthTime[0] += tic() - toki
 
-            wrapSmoothField(z, 0.9, subniter, type, ['dH'])
-            NewMeanDH = np.mean(dH)
-            dH *= MeanDH/NewMeanDH
-            GrowthTime[0] += tic() - toki
-
-            _keepConstrainedHeight(tExtru)
+                _keepConstrainedHeight(tExtru)
 
         # Perform smoothing of normals
         niter = int(C.getMeanValue(z,'normaliters'))
@@ -891,10 +891,12 @@ def _constrainedSmoothing(tExtru, mode='dualing',
             subniter = int(C.getMeanValue(z,'normalsubiters'))
         except:
             subniter = 100
-        for i in range(niter):
-            wrapSmoothField(z, 0.9, subniter, type, ['sx','sy','sz'])
-            normalizeVector(z, ['sx', 'sy', 'sz'], container='FlowSolution')
-            _extrusionApplyConstraints(tExtru)
+
+        if subniter:
+            for i in range(niter):
+                wrapSmoothField(z, 0.9, subniter, type, ['sx','sy','sz'])
+                normalizeVector(z, ['sx', 'sy', 'sz'], container='FlowSolution')
+                _extrusionApplyConstraints(tExtru)
 
         try:
             ef = I.getNodeFromName(z,'expansionfactor')[1]
@@ -1007,30 +1009,49 @@ def _extrusionApplyConstraints(tExtru):
 
         elif kind == 'Copy':
 
-            # Get the curve to copy
-            CopyCurveName = I.getValue(I.getNodeFromName(ExtrusionDataNode,'CopyCurveName'))
-            CopyCurve = I.getNodeFromName1(ConstraintWireframe,CopyCurveName)
-            ccsx, ccsy, ccsz = J.getVars(CopyCurve,['sx','sy','sz'])
+            cdH, csx, csy, csz = J.invokeFields(constraint,['dH','sx','sy','sz'])
+            PointListDonor = I.getNodeFromName(ExtrusionDataNode,'PointListDonor')[1]
+            PointListReceiver = I.getNodeFromName(ExtrusionDataNode,'PointListReceiver')[1]
 
-            # Copy the values from the curve to copy and export them to ExtrudeLayer
-            try:
-                csx[:] = ccsx
-                sx[PointListReceiver] = csx
-            except:
-                pass
+            sx[PointListReceiver] = csx[:] = rsx[PointListDonor]
+            sy[PointListReceiver] = csy[:] = rsy[PointListDonor]
+            sz[PointListReceiver] = csz[:] = rsz[PointListDonor]
+            dH[PointListReceiver] = cdH[:] = dH[PointListDonor]
 
-            try:
-                csy[:] = ccsy
-                sy[PointListReceiver] = csy
-            except:
-                pass
+        elif kind == 'CopyAndRotate':
 
-            try:
-                csz[:] = ccsz
-                sz[PointListReceiver] = csz
-            except:
-                pass
+            cdH, csx, csy, csz = J.invokeFields(constraint,['dH','sx','sy','sz'])
+            pointsToCopyZoneName = I.getValue(I.getNodeFromName(ExtrusionDataNode,'pointsToCopyZoneName'))
+            pointsToCopy = I.getNodeFromName1(ConstraintWireframe,pointsToCopyZoneName)
+            PointListDonor = I.getNodeFromName(ExtrusionDataNode,'PointListDonor')[1]
+            PointListReceiver = I.getNodeFromName(ExtrusionDataNode,'PointListReceiver')[1]
+            RotationCenter = I.getNodeFromName(ExtrusionDataNode,'RotationCenter')[1]
+            RotationAxis = I.getNodeFromName(ExtrusionDataNode,'RotationAxis')[1]
+            RotationAngle = I.getNodeFromName(ExtrusionDataNode,'RotationAngle')[1]
 
+            # Validated approach :
+            ExtrudeLayerRotated = T.rotate(zE, RotationCenter,
+                                           RotationAxis,float(RotationAngle),
+                                           vectors=[['sx','sy','sz']])
+            rsx, rsy, rsz = J.getVars(ExtrudeLayerRotated,['sx','sy','sz'])
+            sx[PointListReceiver] = csx[:] = rsx[PointListDonor]
+            sy[PointListReceiver] = csy[:] = rsy[PointListDonor]
+            sz[PointListReceiver] = csz[:] = rsz[PointListDonor]
+            dH[PointListReceiver] = cdH[:] = dH[PointListDonor]
+
+            # # alternative approach optimized being tested :
+            # rsx, rsy, rsz, rdH = J.invokeFields(pointsToCopy,['sx','sy','sz','dH'])
+            # rsx[:] = sx[PointListDonor]
+            # rsy[:] = sy[PointListDonor]
+            # rsz[:] = sz[PointListDonor]
+            # rdH[:] = sz[PointListDonor]
+            # pointsToCopyRotated = I.copyRef(pointsToCopy)
+            # T._rotate(pointsToCopyRotated, RotationCenter, RotationAxis,
+            #           float(RotationAngle), vectors=[['sx','sy','sz']])
+            # sx[PointListReceiver] = csx[:] = rsx[:]
+            # sy[PointListReceiver] = csy[:] = rsy[:]
+            # sz[PointListReceiver] = csz[:] = rsz[:]
+            # dH[PointListReceiver] = cdH[:] = dH[PointListDonor]
 
         elif kind == 'Projected':
 
@@ -1231,13 +1252,6 @@ def _extrusionApplyConstraints(tExtru):
         cx[:] = x[PointListReceiver]
         cy[:] = y[PointListReceiver]
         cz[:] = z[PointListReceiver]
-
-        # apply constraint to adjacent points (does not seem to work well)
-        # for a, r in zip(PointListAdjacent, PointListReceiver):
-        #     sx[a] = sx[r]
-        #     sy[a] = sy[r]
-        #     sz[a] = sz[r]
-        #     dH[a] = dH[r]
 
     ApplyConstraintsTime[0] += tic() - toc
 
@@ -1860,7 +1874,7 @@ def _addExtrusionLayerSurface(tExtru, mode='TRI', closeExtrusionLayer=False):
 def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
         ProjectionMode='ortho', ProjectionDir=None, ProjectionCenter=None,
         ProjectionAxis=None, MatchDir=None,
-        copyCurve=None):
+        pointsToCopy=None, RotationAxis=None, RotationAngle=None, RotationCenter=None):
     '''
     This is a private function called by user-level function :py:func:`extrude`
 
@@ -1891,6 +1905,11 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
             * ``'Copy'``
                 Copy the fields at points near to **curve** using fields defined
                 at **copyCurve**
+
+            * ``'CopyAndRotate'``
+                Copy the fields at points near to **curve** using fields defined
+                at **copyCurve** and apply a rotation of the normals using
+                **RotationAxis**, **RotationCenter** and **RotationAngle**
 
             * ``'Match'``
                 Exactly follow a neighbor point set.
@@ -1941,11 +1960,25 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
 
             .. note:: only relevant if **kind** == ``'Match'``
 
-        copyCurve : zone
-            curve where fields to be copied towards extrusion front
-            corresponding points are defined.
+        pointsToCopy : zone
+            set the points used to extract fields from the extrusion front (normals and
+            height) and used to be replicated elsewhere using constraint
+            **kind** == ``'Copy'`` or **kind** == ``'CopyAndRotate'``
 
-            .. note:: only relevant if **kind** == ``'Copy'``
+        RotationAxis : :py:class:`list` or :py:class:`tuple` or numpy array of 3 :py:class:`float`
+            rotation axis used for the transformation of the extrusion normals
+
+            .. note:: only relevant if **kind** == ``'CopyAndRotate'``
+
+        RotationCenter : :py:class:`list` or :py:class:`tuple` or numpy array of 3 :py:class:`float`
+            center of rotation used for the transformation of the extrusion normals
+
+            .. note:: only relevant if **kind** == ``'CopyAndRotate'``
+
+        RotationAngle : :py:class:`list` or :py:class:`tuple` or numpy array of 3 :py:class:`float`
+            angle of rotation used for the transformation of the extrusion normals
+
+            .. note:: only relevant if **kind** == ``'CopyAndRotate'``
 
     '''
 
@@ -1963,7 +1996,6 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
 
         # Add curve to Extrusion PyTree:
         ConstraintWireframeBase = I.getNodeFromNameAndType(tExtru,'ConstraintWireframe','CGNSBase_t')
-        # ExistingZonesNames = map(lambda z: z[0],ConstraintWireframeBase[2])
         ExistingZonesNames = [z[0] for z in ConstraintWireframeBase[2]]
         if curve[0] in ExistingZonesNames:
             item = 0
@@ -1986,7 +2018,6 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
             raise AttributeError('ProjectionMode=%s : surface was not provided.'%ProjectionMode)
         # Add data to Extrusion PyTree:
         ConstraintWireframeBase = I.getNodeFromNameAndType(tExtru,'ConstraintWireframe','CGNSBase_t')
-        # ExistingZonesNames = map(lambda z: z[0],ConstraintWireframeBase[2])
         ExistingZonesNames = [z[0] for z in ConstraintWireframeBase[2]]
         if curve[0] in ExistingZonesNames:
             item = 0
@@ -2023,13 +2054,12 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
 
     elif kind == 'Copy':
         if not curve:
-            raise AttributeError('Extrusion kind=%s: curve was not provided.'%kind)
-        if not copyCurve:
-            raise AttributeError('Extrusion kind=%s: copyCurve was not provided.'%kind)
-        # Add data to Extrusion PyTree:
+            raise AttributeError('constraint kind=%s: curve was not provided.'%kind)
+        if not pointsToCopy:
+            raise AttributeError('constraint kind=%s: pointsToCopy was not provided.'%kind)
+
         ConstraintWireframeBase = I.getNodeFromName1(tExtru,'ConstraintWireframe')
-        # ExistingZonesNames = map(lambda z: z[0],ConstraintWireframeBase[2])
-        ExistingZonesNames = [z[0] for z in ConstraintSurfacesBase[2]]
+        ExistingZonesNames = [z[0] for z in ConstraintWireframeBase[2]]
 
         if curve[0] in ExistingZonesNames:
             item = 0
@@ -2041,11 +2071,76 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
 
         I.addChild(ConstraintWireframeBase,curve)
 
+        NewZoneName = pointsToCopy[0]
+        if NewZoneName in ExistingZonesNames:
+            item = 0
+            NewZoneName = '%s.%d'%(pointsToCopy[0],item)
+            while NewZoneName in ExistingZonesNames:
+                item+=1
+                NewZoneName = '%s.%d'%(pointsToCopy[0],item)
+        pointsToCopy[0] = NewZoneName
+        ExistingZonesNames.append(NewZoneName)
+        # I.addChild(ConstraintWireframeBase,pointsToCopy)
 
-        # Invoke .ExtrusionData Node where attributes are stored
-        ExtrusionData = I.createUniqueChild(curve, '.ExtrusionData', 'UserDefinedData_t',value=None,children=None)
-        I.createUniqueChild(ExtrusionData,'kind','DataArray_t',value=kind)
-        I.createUniqueChild(ExtrusionData,'CopyCurveName','DataArray_t',value=copyCurve[0])
+        J.set(curve,'.ExtrusionData', kind=kind, pointsToCopyZoneName=pointsToCopy[0])
+
+        J.set(pointsToCopy,'.ExtrusionData', kind='None', PointListReceiver=PointListDonor)
+
+    elif kind == 'CopyAndRotate':
+        if not curve:
+            raise AttributeError('Extrusion kind=%s: curve was not provided.'%kind)
+        if not pointsToCopy:
+            raise AttributeError('Extrusion kind=%s: pointsToCopy was not provided.'%kind)
+        if not RotationCenter:
+            raise AttributeError('constraint kind=%s: RotationCenter was not provided.'%kind)
+        if not RotationAxis:
+            raise AttributeError('constraint kind=%s: RotationAxis was not provided.'%kind)
+        if not RotationAngle:
+            raise AttributeError('constraint kind=%s: RotationAngle was not provided.'%kind)
+
+        ConstraintWireframeBase = I.getNodeFromName1(tExtru,'ConstraintWireframe')
+        ExistingZonesNames = [z[0] for z in ConstraintWireframeBase[2]]
+
+        NewZoneName = curve[0]
+        if NewZoneName in ExistingZonesNames:
+            item = 0
+            NewZoneName = '%s.%d'%(curve[0],item)
+            while NewZoneName in ExistingZonesNames:
+                item+=1
+                NewZoneName = '%s.%d'%(curve[0],item)
+        curve[0] = NewZoneName
+        ExistingZonesNames.append(NewZoneName)
+        I.addChild(ConstraintWireframeBase,curve)
+
+        # curve is the DESTINATION, pointsToCopy is the SOURCE
+        xC, yC, zC = J.getxyz(pointsToCopy)
+        xC = np.ravel(xC, order='F')
+        yC = np.ravel(yC, order='F')
+        zC = np.ravel(zC, order='F')
+        CurveNPts = len(xC)
+        Indices = [J.getNearestPointIndex(ExtrudeLayer,(xC[i],yC[i],zC[i]))[0] for i in range(CurveNPts)]
+        PointListDonor = np.array(Indices, dtype=np.int64,order='F')
+        if  any(np.diff(PointListDonor)==0):
+            print('WARNING: addExtrusionConstraint(): Multiply defined constraint for single curve "%s"'%pointsToCopy[0])
+
+
+        NewZoneName = pointsToCopy[0]
+        if NewZoneName in ExistingZonesNames:
+            item = 0
+            NewZoneName = '%s.%d'%(pointsToCopy[0],item)
+            while NewZoneName in ExistingZonesNames:
+                item+=1
+                NewZoneName = '%s.%d'%(pointsToCopy[0],item)
+        pointsToCopy[0] = NewZoneName
+        ExistingZonesNames.append(NewZoneName)
+        # I.addChild(ConstraintWireframeBase,pointsToCopy)
+
+        J.set(curve,'.ExtrusionData', kind=kind, pointsToCopyZoneName=pointsToCopy[0],
+                    RotationCenter=RotationCenter, RotationAxis=RotationAxis,
+                    RotationAngle=RotationAngle, PointListDonor=PointListDonor)
+
+        J.set(pointsToCopy,'.ExtrusionData', kind='None', PointListReceiver=PointListDonor)
+
 
     elif kind == 'Match':
         if not curve:
@@ -2088,7 +2183,6 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
         if MatchDir is not None: I.createUniqueChild(ExtrusionData,'MatchDir','DataArray_t',value=MatchDir)
 
     # Set connection of curve with ExtrudeLayer
-    # Indices = map(lambda i: J.getNearestPointIndex(ExtrudeLayer,(xC[i],yC[i],zC[i]))[0] ,range(CurveNPts))
     xC, yC, zC = J.getxyz(curve)
     xC = np.ravel(xC, order='F')
     yC = np.ravel(yC, order='F')
@@ -2102,21 +2196,6 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
     ExtrusionDataNode = I.getNodeFromName1(curve,'.ExtrusionData')
     I.createUniqueChild(ExtrusionDataNode,'PointListReceiver','DataArray_t',value=PointListReceiver)
 
-    # get the adjacent points
-    # PointsGlobal = PointListReceiver+1
-    # GridElts_n = I.getNodeFromName1(ExtrudeLayer,'GridElements')
-    # ElementConnectivity = I.getNodeFromName1(GridElts_n,'ElementConnectivity')[1]
-    # ReshapedConnectivity = np.reshape(ElementConnectivity, (int(len(ElementConnectivity)/3),3))
-    # FirstColumnOfConn = ReshapedConnectivity[:,0]
-    # AdjacentPoints = []
-    # for pg in PointsGlobal:
-    #     Slicer = FirstColumnOfConn==pg
-    #     cand = ReshapedConnectivity[Slicer,1:]
-    #     for con in ReshapedConnectivity[Slicer,1:].flatten():
-    #         if con not in AdjacentPoints and con not in PointsGlobal:
-    #             AdjacentPoints.append(con)
-    # AdjacentPoints = np.array(AdjacentPoints,order='F')-1
-    # I.createUniqueChild(ExtrusionData,'PointListAdjacent','DataArray_t',value=AdjacentPoints)
 
 
 def _addHardSmoothPoints(tExtru, HardSmoothPoints):

@@ -514,7 +514,7 @@ def computePUMA(NBlades, Velocity, RPM, Temperature, Density,
 
 def computeQprop(QpropFile, Velocity, Pitch, RPM=None, Thrust=None, Power=None,
         Temperature = 288., Density=1.225,
-        QpropExecutable="/home/lbernard/Outils/Qprop/bin/qprop"):
+        QpropExecutable="/stck/lbernard/Outils/Qprop/bin/qprop"):
     """
     Launch Qprop computation based on provided QpropFile,
     (see :py:func:`buildQpropFile` function to know how to generate
@@ -599,7 +599,7 @@ def computeQprop(QpropFile, Velocity, Pitch, RPM=None, Thrust=None, Power=None,
     Omega = RPM*np.pi/30.
     Torque = Power / Omega
 
-    result = subprocess.check_output("%s %s /home/lbernard/Outils/Qprop/runs/nomotorfile %g %g 0 %g %g %g"%(QpropExecutable,QpropFile, Velocity, RPM, Pitch, Thrust, Torque), shell=True)
+    result = subprocess.check_output("%s %s /stck/lbernard/Outils/Qprop/runs/nomotorfile %g %g 0 %g %g %g"%(QpropExecutable,QpropFile, Velocity, RPM, Pitch, Thrust, Torque), shell=True)
 
     return result
 

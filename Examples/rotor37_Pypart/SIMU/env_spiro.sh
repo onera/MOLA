@@ -13,12 +13,12 @@ export MPI_COMM_MAX=8192
 
 export ELSAVERSION=v5.0.02
 export ELSAPROD=spiro_mpi
-export ELSAPATHPUBLIC=/home/elsa/Public/$ELSAVERSION/Dist/bin/$ELSAPROD
+export ELSAPATHPUBLIC=/stck/elsa/Public/$ELSAVERSION/Dist/bin/$ELSAPROD
 source $ELSAPATHPUBLIC/.env_elsA
 
-export PYTHONPATH=/home/lbernard/.local/lib/python2.7/site-packages/:$PYTHONPATH
+export PYTHONPATH=/stck/lbernard/.local/lib/python2.7/site-packages/:$PYTHONPATH
 export PATH=$PATH:/opt/tools/texlive/2016/bin/x86_64-linux/
 
 # MOLA
-export MOLA=/home/tbontemp/softs/MOLA/Dev
+export MOLA=/stck/tbontemp/softs/MOLA/Dev
 export PYTHONPATH=$PYTHONPATH:$MOLA

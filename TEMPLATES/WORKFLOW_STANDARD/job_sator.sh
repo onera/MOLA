@@ -21,7 +21,7 @@ export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
 export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
 export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
-# export PYTHONPATH=/home/lbernard/.local/lib/python2.7/site-packages/:$PYTHONPATH
+# export PYTHONPATH=/stck/lbernard/.local/lib/python2.7/site-packages/:$PYTHONPATH
 
 # NUMPY SCIPY
 export PATH=$PATH:/tmp_user/sator/lbernard/.local/bin/

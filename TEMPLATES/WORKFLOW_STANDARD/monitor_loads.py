@@ -16,7 +16,7 @@ import MOLA.InternalShortcuts as J
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator, LogLocator, NullFormatter
 
-FILE_ARRAYS = '/home/lbernard/PROJETS/OTTAWAN/CFD/arrays.cgns'
+FILE_ARRAYS = '/stck/lbernard/PROJETS/OTTAWAN/CFD/arrays.cgns'
 
 FluxName = 'CL'
 

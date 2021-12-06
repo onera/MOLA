@@ -88,6 +88,59 @@ def distance(P1,P2):
     return Res
 
 
+def distanceOfPointToLine(Point, LineVector, LinePassingPoint):
+    '''
+    Compute the Euclidean minimum distance between a point in space and a line
+    that passes through a point.
+
+    Parameters
+    ----------
+
+        Point : zone or :py:class:`list` or :py:class:`tuple` or numpy array
+            Includes first point coordinates.
+
+        LineVector : :py:class:`list` or :py:class:`tuple` or numpy array
+            Includes line direction vector.
+
+        LinePassingPoint : :py:class:`list` or :py:class:`tuple` or numpy array
+            Includes the line passing point coordinates.
+
+    Returns
+    -------
+
+        distance : float
+            minimum euclidean distance between the provided point and line
+    '''
+
+    if isPyTreePoint(Point):
+        x,y,z = J.getxyz(Point)
+        p = np.array([x[0],y[0],z[0]],dtype=np.float)
+    else:
+        p = np.array([Point[0],
+                      Point[1],
+                      Point[2]],dtype=np.float)
+
+    if isPyTreePoint(LinePassingPoint):
+        x,y,z = J.getxyz(LinePassingPoint)
+        c = np.array([x[0],y[0],z[0]],dtype=np.float)
+    else:
+        c = np.array([LinePassingPoint[0],
+                      LinePassingPoint[1],
+                      LinePassingPoint[2]],dtype=np.float)
+
+    l = np.array([LineVector[0],
+                  LineVector[1],
+                  LineVector[2]],dtype=np.float)
+    l /= np.sqrt(l.dot(l))
+
+    cp = p - c
+    q = c + l*cp.dot(l)
+    qp = p - q
+    distance = np.sqrt(qp.dot(qp))
+    
+    return distance
+
+
 def angle2D(P1,P2):
     '''
     Compute planar angle between the :math:`x`-axis and the direction
