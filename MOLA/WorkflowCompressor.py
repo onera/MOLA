@@ -213,18 +213,23 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                 >>> PRE.getElsAkeysNumerics(arg, **NumericalParams)
 
         TurboConfiguration : dict
-            Dictionary concerning the compressor properties
+            Dictionary concerning the compressor properties.
             For details, refer to documentation of :py:func:`getTurboConfiguration`
 
         Extractions : :py:class:`list` of :py:class:`dict`
 
         BoundaryConditions : :py:class:`list` of :py:class:`dict`
             List of boundary conditions to set on the given mesh.
-            For details, refer to documentation of :py:func:`setBCs`
+            For details, refer to documentation of :py:func:`setBoundaryConditions`
 
         BodyForceInputData : :py:class:`list` of :py:class:`dict`
 
         writeOutputFields : bool
+            if :py:obj:`True`, write initialized fields overriding
+            a possibly existing ``OUTPUT/fields.cgns`` file. If :py:obj:`False`, no
+            ``OUTPUT/fields.cgns`` file is writen, but in this case the user must
+            provide a compatible ``OUTPUT/fields.cgns`` file to elsA (for example,
+            using a previous computation result).
 
         Initialization : dict
             dictionary defining the type of initialization, using the key
@@ -284,6 +289,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     if BodyForceInputData: PRE.addFieldExtraction('Temperature')
 
     FluidProperties = PRE.computeFluidProperties()
+    if not 'Surface' in ReferenceValuesParams:
+        ReferenceValuesParams['Surface'] = getReferenceSurface(t, BoundaryConditions, TurboConfiguration)
     ReferenceValues = computeReferenceValues(FluidProperties,
                                              **ReferenceValuesParams)
 
@@ -304,6 +311,12 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues, **NumericalParams)
     TurboConfiguration = getTurboConfiguration(**TurboConfiguration)
 
+    setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
+                            FluidProperties, ReferenceValues,
+                            bladeFamilyNames=bladeFamilyNames)
+
+    computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
+
     AllSetupDics = dict(FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
@@ -313,11 +326,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                         Extractions=Extractions,
                         Splitter=Splitter)
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
-
-    setBCs(t, BoundaryConditions, AllSetupDics['TurboConfiguration'],
-            AllSetupDics['FluidProperties'], AllSetupDics['ReferenceValues'],
-            bladeFamilyNames=bladeFamilyNames)
-    computeFluxCoefByRow(t, AllSetupDics['ReferenceValues'], AllSetupDics['TurboConfiguration'])
 
     BCExtractions = dict(
         BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
@@ -827,7 +835,8 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
 
     # Compute variables
     Mach  = machFromMassFlow(MassFlow, Surface, Pt=PressureStagnation,
-                            Tt=TemperatureStagnation)
+                            Tt=TemperatureStagnation, r=IdealConstantGas,
+                            gamma=Gamma)
     Temperature  = TemperatureStagnation / (1. + 0.5*(Gamma-1.) * Mach**2)
     Pressure  = PressureStagnation / (1. + 0.5*(Gamma-1.) * Mach**2)**(Gamma/(Gamma-1))
     Density = Pressure / (Temperature * IdealConstantGas)
@@ -995,6 +1004,55 @@ def getTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={},
 
     return TurboConfiguration
 
+def getReferenceSurface(t, BoundaryConditions, TurboConfiguration):
+    '''
+    Compute the reference surface (**Surface** parameter in **ReferenceValues**
+    :py:class:`dict`) from the inflow family.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Input tree
+
+        BoundaryConditions : list
+            Boundary conditions to set on the given mesh,
+            as given to :py:func:`prepareMainCGNS4ElsA`.
+
+        TurboConfiguration : dict
+            Compressor properties, as given to :py:func:`prepareMainCGNS4ElsA`.
+
+    Returns
+    -------
+
+        Surface : float
+            Reference surface
+    '''
+    # Get inflow BCs
+    InflowBCs = [bc for bc in BoundaryConditions \
+        if bc['type'] == 'InflowStagnation' or bc['type'].startswith('inj')]
+    # Check unicity
+    if len(InflowBCs) != 1:
+        MSG = 'Please provide a reference surface as "Surface" in '
+        MSG += 'ReferenceValues or provide a unique inflow BC in BoundaryConditions'
+        raise Exception(J.FAIL + MSG + J.ENDC)
+    # Compute surface of the inflow BC
+    InflowFamily = InflowBCs[0]['FamilyName']
+    zones = C.extractBCOfName(t, 'FamilySpecified:'+InflowFamily)
+    SurfaceTree = C.convertArray2Tetra(zones)
+    SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
+    Surface = abs(P.integNorm(SurfaceTree, var='ones')[0][0])
+    # Compute normalization coefficient
+    zoneName = I.getName(zones[0]).split('/')[0]
+    zone = I.getNodeFromName2(t, zoneName)
+    row = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+    rowParams = TurboConfiguration['Rows'][row]
+    fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+    # Compute reference surface
+    Surface *= fluxcoeff
+    print('Reference surface = {} m^2 (computed from family {})'.format(Surface, InflowFamily))
+
+    return Surface
 
 def massflowFromMach(Mx, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
     '''
@@ -1086,8 +1144,8 @@ def machFromMassFlow(massflow, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
 ################# Boundary Conditions Settings  ################################
 ################################################################################
 
-def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
-    ReferenceValues, bladeFamilyNames=['Blade']):
+def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
+    FluidProperties, ReferenceValues, bladeFamilyNames=['Blade']):
     '''
     Set all BCs defined in the dictionary **BoundaryConditions**.
 
@@ -1101,9 +1159,22 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
             User-provided list of boundary conditions. Each element is a
             dictionary with the following keys:
 
-                * type : elsA BC type
+                * type :
+                  BC type among the following:
+                    - ReferenceState
+                    - InflowStagnation
+                    - OutflowPressure
+                    - OutflowMassFlow
+                    - OutflowRadialEquilibrium
+                    - MixingPlane
+                    - UnsteadyRotorStatorInterface
 
-                * option (optional) : add a specification to type
+                  elsA names are also available (``farfield``, ``inj1``,
+                  ``outpres``, ``outmfr2``, ``outradeq``, ``stage_mxpl``,
+                  ``stage_red``)
+
+                * option (optional) : add a specification for type
+                  InflowStagnation (could be 'uniform' or 'file')
 
                 * other keys depending on type. They will be passed as an
                   unpacked dictionary of arguments to the BC type-specific
@@ -1126,7 +1197,8 @@ def setBCs(t, BoundaryConditions, TurboConfiguration, FluidProperties,
 
     setBC_Walls, setBC_farfield,
     setBC_inj1, setBC_inj1_uniform, setBC_inj1_interpFromFile,
-    setBC_outpres, setBC_outmfr2
+    setBC_outpres, setBC_outmfr2,
+    setBCwithImposedVariables
     '''
     PreferedBoundaryConditions = dict(
         ReferenceState               = 'farfield',
@@ -1638,13 +1710,6 @@ def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues
             be :py:obj:`None` only if **MassFlow** is not :py:obj:`None`.
 
     '''
-    # checkVariables(dict(pressure=globalmassflow))
-    # outlet = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
-    # I._rmNodesByType(outlet, 'FamilyBC_t')
-    # I.newFamilyBC(value='BCOutflowSubsonic', parent=outlet)
-    # J.set(outlet, '.Solver#BC', type='outmfr2', globalmassflow=globalmassflow,
-    #     groupmassflow=groupmassflow)
-
     if MassFlow is None and ReferenceValues is not None:
         MassFlow = ReferenceValues['MassFlow']
 
@@ -2192,6 +2257,11 @@ def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
         return elements
 
     otherFiles = findElementsInCollection(kwargs, 'file') + findElementsInCollection(kwargs, 'filename')
+    for filename in otherFiles:
+        if filename.startswith('/') or filename.startswith('../') \
+            or len(filename.split('/'))>1:
+            MSG = 'Input files must be inside the submission repository (not the case for {})'.format(filename)
+            raise Exception(J.FAIL + MSG + J.ENDC)
     templatesFolder = os.getenv('MOLA') + '/TEMPLATES/WORKFLOW_COMPRESSOR'
     JM.launchJobsConfiguration(templatesFolder=templatesFolder, otherFiles=otherFiles)
 

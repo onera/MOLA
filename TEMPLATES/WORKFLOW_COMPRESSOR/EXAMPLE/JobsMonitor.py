@@ -27,7 +27,7 @@ ax1.tick_params(axis='y', labelcolor=color)
 # Isentropic efficiency
 color = 'firebrick'
 ax2 = ax1.twinx()
-ax2.set_ylabel('Isentropic efficiency (%)', color=color)
+ax2.set_ylabel('Isentropic efficiency (-)', color=color)
 for i, speed in enumerate(perfo['RotationSpeed']):
     if speed == []: continue
     else: speed = speed[0]
@@ -35,7 +35,6 @@ for i, speed in enumerate(perfo['RotationSpeed']):
         color=color, label=None, **linestyles[i])
 ax2.tick_params(axis='y', labelcolor=color)
 ax2.set_ylim(top=1)
-ax2.yaxis.set_major_formatter(mtick.PercentFormatter())
 
 fig.legend()
 
