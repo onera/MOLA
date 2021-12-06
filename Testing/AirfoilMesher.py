@@ -7,7 +7,7 @@ L. Bernardos - 09/02/2021
 import Converter.PyTree as C
 import Converter.Internal as I
 
-# export PYTHONPATH=$PYTHONPATH:/home/lbernard/MOLA/v1.9
+# export PYTHONPATH=$PYTHONPATH:/stck/lbernard/MOLA/v1.9
 import MOLA.Wireframe as W
 import MOLA.GenerativeShapeDesign as GSD
 
@@ -17,7 +17,7 @@ Chord        = 1.0
 ReynoldsMesh = 350000.0
 DeltaYPlus   = 0.8
 
-Dir = '/home/ffalissa/H2T/ETUDES/MOTUS/FLUX_2/POLAIRES/PROFILS/'
+Dir = '/stck/ffalissa/H2T/ETUDES/MOTUS/FLUX_2/POLAIRES/PROFILS/'
 
 GeomPath  = Dir+'Airfoil_20.tp' # must be placed in XY plane and best if clockwise
                               # oriented starting from trailing edge or 
