@@ -1,4 +1,4 @@
-#export PYTHONPATH=$PYTHONPATH:/home/lbernard/MOLA/v1.9/
+#export PYTHONPATH=$PYTHONPATH:/stck/lbernard/MOLA/v1.9/
 
 import os
 import MOLA.XFoil as XFoil

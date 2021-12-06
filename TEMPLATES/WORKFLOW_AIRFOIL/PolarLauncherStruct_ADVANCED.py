@@ -5,7 +5,7 @@ PREFIX_JOB = 'j' # MUST BE UNIQUE for each airfoil
 AER = '31447034F'
 machine = 'sator'
 DIRECTORY_WORK = '/tmp_user/sator/lbernard/MYPOLARS/'
-GeomPath = '/home/ffalissa/H2T/ETUDES/MOTUS/FLUX_2/POLAIRES/PROFILS/Airfoil_20.tp'
+GeomPath = '/stck/ffalissa/H2T/ETUDES/MOTUS/FLUX_2/POLAIRES/PROFILS/Airfoil_20.tp'
 
 
 AoARange    = [0,1,2,4,6,10,12,14,16,-1,-2,-4]

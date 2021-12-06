@@ -13,11 +13,11 @@ export MPI_COMM_MAX=8192
 export ELSA_NOLOG=ON
 export ELSAVERSION=v5.0.03
 export ELSAPROD=spiro_mpi
-export ELSAPATHPUBLIC=/home/elsa/Public/$ELSAVERSION/Dist/bin/$ELSAPROD
+export ELSAPATHPUBLIC=/stck/elsa/Public/$ELSAVERSION/Dist/bin/$ELSAPROD
 source $ELSAPATHPUBLIC/.env_elsA
 
 # MOLA
-export MOLA=/home/tbontemp/softs/MOLA/Dev
+export MOLA=/stck/tbontemp/softs/MOLA/Dev
 export PYTHONPATH=$PYTHONPATH:$MOLA
 
 

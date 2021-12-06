@@ -22,7 +22,7 @@ import copy
 import timeit
 import numpy as np
 
-XFOIL_EXEC = '/home/lbernard/TOOLS/XFOIL/visio/xfoil' # to be adapted for each machine
+XFOIL_EXEC = '/stck/lbernard/TOOLS/XFOIL/visio/xfoil' # to be adapted for each machine
 
 # Global variables
 PolarVariables = ['AoA','Cl', 'Cd', 'Cdp', 'Cm', 'Top_Xtr', 'Bot_Xtr']
