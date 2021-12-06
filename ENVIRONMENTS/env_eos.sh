@@ -13,18 +13,18 @@ export MPI_COMM_MAX=8192
 
 export ELSAVERSION=v5.0.03
 export ELSAPROD=eos-intel_mpi
-export ELSAPATHPUBLIC=/home/elsa/Public/$ELSAVERSION/Dist/bin/$ELSAPROD
+export ELSAPATHPUBLIC=/stck/elsa/Public/$ELSAVERSION/Dist/bin/$ELSAPROD
 source $ELSAPATHPUBLIC/.env_elsA
 
 export PATH=$PATH:/opt/tools/texlive/2016/bin/x86_64-linux/:/opt/tools/texlive/2016/texmf-dist/
-export PYTHONPATH=/home/lbernard/.local/lib/python2.7/site-packages/:$PYTHONPATH
+export PYTHONPATH=/stck/lbernard/.local/lib/python2.7/site-packages/:$PYTHONPATH
 
 # PUMA
-export PumaRootDir=/home/rboisard/bin/local/x86_64z/Puma_r336_spiro
+export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_r336_spiro
 export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
 export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
 export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
 # MOLA
-export MOLA=/home/lbernard/MOLA/Dev
+export MOLA=/stck/lbernard/MOLA/Dev
 export PYTHONPATH=$PYTHONPATH:$MOLA

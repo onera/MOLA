@@ -24,7 +24,7 @@ from . import __version__
 from . import InternalShortcuts as J
 from . import _cpmv_            as ServerTools
 
-MOLA_PATH = os.getenv('MOLA','/home/lbernard/MOLA/%s'%__version__)
+MOLA_PATH = os.getenv('MOLA','/stck/lbernard/MOLA/%s'%__version__)
 
 def buildJob(case, config, NProc, jobTemplate):
     '''

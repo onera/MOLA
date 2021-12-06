@@ -28,7 +28,7 @@ import Post.PyTree as P
 
 # Additional Cassiopee-based modules
 # To use them, add to your PYTHONPATH:
-# export PYTHONPATH=$PYTHONPATH:/home/lbernard/MOLA/v1.6
+# export PYTHONPATH=$PYTHONPATH:/stck/lbernard/MOLA/v1.6
 import MOLA.InternalShortcuts as J
 import MOLA.Wireframe as W
 import MOLA.GenerativeVolumeDesign as GVD

@@ -19,17 +19,17 @@ export MPI_COMM_MAX=8192
 export ELSA_NOLOG=ON
 export ELSAVERSION=v5.0.03
 export ELSAPROD=spiro_mpi
-export ELSAPATHPUBLIC=/home/elsa/Public/$ELSAVERSION/Dist/bin/$ELSAPROD
+export ELSAPATHPUBLIC=/stck/elsa/Public/$ELSAVERSION/Dist/bin/$ELSAPROD
 source $ELSAPATHPUBLIC/.env_elsA
 
 # PUMA
-export PumaRootDir=/home/rboisard/bin/local/x86_64z/Puma_r336_spiro
+export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_r336_spiro
 export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
 export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
 export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
 # MOLA
-export MOLA=/home/lbernard/MOLA/Dev
+export MOLA=/stck/lbernard/MOLA/Dev
 export PYTHONPATH=$PYTHONPATH:$MOLA
 
 

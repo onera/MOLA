@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# Need to source /home/jmarty/TOOLS/turbo/mySource_dev_etc_py2.me
+# Need to source /stck/jmarty/TOOLS/turbo/mySource_dev_etc_py2.me
 
 # Python general packages
 import os
