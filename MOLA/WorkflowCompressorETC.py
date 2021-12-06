@@ -144,18 +144,17 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
         except:
             MSG = 'valve_ref_pres or ReferenceValues must be not None'
             raise Exception(J.FAIL+MSG+J.ENDC)
-    if valve_ref_mflow is None:
+    if valve_type != 0 and valve_ref_mflow is None:
         try:
-            valve_ref_pres = ReferenceValues['Pressure']
+            bc = C.getFamilyBCs(t, FamilyName)[0]
+            zone = I.getParentFromType(t, bc, 'Zone_t')
+            row = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+            rowParams = TurboConfiguration['Rows'][row]
+            fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+            valve_ref_mflow = ReferenceValues['MassFlow'] / fluxcoeff
         except:
-            MSG = 'Either valve_ref_pres or both ReferenceValues and TurboConfiguration must be not None'
+            MSG = 'Either valve_ref_mflow or both ReferenceValues and TurboConfiguration must be not None'
             raise Exception(J.FAIL+MSG+J.ENDC)
-        bc = C.getFamilyBCs(t, FamilyName)[0]
-        zone = I.getParentFromType(t, bc, 'Zone_t')
-        row = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
-        rowParams = TurboConfiguration['Rows'][row]
-        fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
-        valve_ref_mflow = ReferenceValues['MassFlow'] / fluxcoeff
 
     # Delete previous BC if it exists
     for bc in C.getFamilyBCs(t, FamilyName):
@@ -172,14 +171,14 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
         bc = trf.BCOutRadEq(t, bcn)
         bc.indpiv   = 1
         bc.dirorder = -1
-        # Lois de vannes:
+        # Valve laws:
         # <bc>.valve_law(valve_type, pref, Qref, valve_relax=relax, valve_file=None, valve_file_freq=1) # v4.2.01 pour valve_file*
         # valvelaws = [(1, 'SlopePsQ'),     # p(it+1) = p(it) + relax*( pref * (Q(it)/Qref) -p(it)) # relax = sans dim. # isoPs/Q
         #              (2, 'QTarget'),      # p(it+1) = p(it) + relax*pref * (Q(it)/Qref-1)         # relax = sans dim. # debit cible
         #              (3, 'QLinear'),      # p(it+1) = pref + relax*(Q(it)-Qref)                  # relax = Pascal    # lin en debit
         #              (4, 'QHyperbolic'),  # p(it+1) = pref + relax*(Q(it)/Qref)**2               # relax = Pascal    # comp. exp.
         #              (5, 'SlopePiQ')]     # p(it+1) = p(it) + relax*( pref * (Q(it)/Qref) -pi(it)) # relax = sans dim. # isoPi/Q
-        # pour la loi 5, pref = pi de reference
+        # for law 5, pref = reference total pressure
         if valve_type == 0:
             bc.prespiv = valve_ref_pres
         else:
@@ -192,7 +191,6 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
         globborder.glob_dir_j      = gbd[bcpath]['glob_dir_j']
         globborder.azi_orientation = gbd[bcpath]['azi_orientation']
         globborder.h_orientation   = gbd[bcpath]['h_orientation']
-        # Add extraction file
         bc.create()
 
 def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
