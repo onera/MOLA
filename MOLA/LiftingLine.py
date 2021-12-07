@@ -28,14 +28,6 @@ NProcs = comm.Get_size()
 import Converter.Mpi as Cmpi
 import Post.Mpi as Pmpi
 
-try:
-    old_stdout = sys.stdout
-    f = open(os.devnull,'w')
-    sys.stdout = f
-    import PUMA
-    sys.stdout = old_stdout
-except: pass
-
 import Converter.PyTree as C
 import Converter.Internal as I
 import Transform.PyTree as T
@@ -49,6 +41,15 @@ from . import Wireframe as W
 from . import GenerativeShapeDesign as GSD
 from . import GenerativeVolumeDesign as GVD
 from . import __version__
+
+
+try:
+    silence = J.OutputGrabber()
+    with silence:
+        import PUMA
+except:
+    pass
+
 
 # Global constants
 # -> Fluid constants
@@ -5028,34 +5029,38 @@ def getTrailingEdge(LiftingLine):
     Parameters
     ----------
 
-        LiftingLine : zone
+        LiftingLine : PyTree, Base, zone or :py:class:`list` of zones
             the lifting-line (situated at :math:`c/4`)
 
     Returns
     -------
 
-        TrailingEdge : zone
-            the curve corresponding to trailing edge
+        TrailingEdgeLines : :py:class:`list` of zones
+            the curves corresponding to trailing edge
     '''
-    if not checkComponentKind(LiftingLine,'LiftingLine'):
-        raise AttributeError('input must be a LiftingLine')
-    TrailingEdge = I.copyTree(LiftingLine)
-    txyz, nxyz, bxyz = updateLocalFrame(TrailingEdge)
-    x, y, z = J.getxyz(TrailingEdge)
-    Chord, Twist = J.getVars(TrailingEdge, ['Chord', 'Twist'])
-    TwistInRadians = np.deg2rad(Twist)
-    Distance2TrailingEdge = 0.75 * Chord
-    TangentialDistance =   Distance2TrailingEdge * np.cos( TwistInRadians )
-    AxialDistance      = - Distance2TrailingEdge * np.sin( TwistInRadians )
-    DisplacementVector = TangentialDistance * bxyz + AxialDistance * nxyz
-    x += DisplacementVector[0,:]
-    y += DisplacementVector[1,:]
-    z += DisplacementVector[2,:]
+    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
+    TrailingEdgeLines = []
+    for LiftingLine in LiftingLines:
+        if not checkComponentKind(LiftingLine,'LiftingLine'):
+            raise AttributeError('input must be a LiftingLine')
+        TrailingEdge = I.copyTree(LiftingLine)
+        txyz, nxyz, bxyz = updateLocalFrame(TrailingEdge)
+        x, y, z = J.getxyz(TrailingEdge)
+        Chord, Twist = J.getVars(TrailingEdge, ['Chord', 'Twist'])
+        TwistInRadians = np.deg2rad(Twist)
+        Distance2TrailingEdge = 0.75 * Chord
+        TangentialDistance =   Distance2TrailingEdge * np.cos( TwistInRadians )
+        AxialDistance      = - Distance2TrailingEdge * np.sin( TwistInRadians )
+        DisplacementVector = TangentialDistance * bxyz + AxialDistance * nxyz
+        x += DisplacementVector[0,:]
+        y += DisplacementVector[1,:]
+        z += DisplacementVector[2,:]
 
-    updateLocalFrame(TrailingEdge)
-    computeKinematicVelocity(TrailingEdge)
+        updateLocalFrame(TrailingEdge)
+        computeKinematicVelocity(TrailingEdge)
+        TrailingEdgeLines.append(TrailingEdge)
 
-    return TrailingEdge
+    return TrailingEdgeLines
 
 def getLeadingEdge(LiftingLine):
     '''
@@ -5069,34 +5074,38 @@ def getLeadingEdge(LiftingLine):
     Parameters
     ----------
 
-        LiftingLine : zone
+        LiftingLine : PyTree, Base, zone or :py:class:`list` of zones
             the lifting-line (situated at :math:`c/4`)
 
     Returns
     -------
 
-        LeadingEdge : zone
-            the curve corresponding to leading edge
+        LeadingEdgeLines : :py:class:`list` of zones
+            the curves corresponding to leading edge
     '''
-    if not checkComponentKind(LiftingLine,'LiftingLine'):
-        raise AttributeError('input must be a LiftingLine')
-    LeadingEdge = I.copyTree(LiftingLine)
-    txyz, nxyz, bxyz = updateLocalFrame(LeadingEdge)
-    x, y, z = J.getxyz(LeadingEdge)
-    Chord, Twist = J.getVars(LeadingEdge, ['Chord', 'Twist'])
-    TwistInRadians = np.deg2rad(Twist)
-    Distance2LeadingEdge = 0.25 * Chord
-    TangentialDistance = - Distance2LeadingEdge * np.cos( TwistInRadians )
-    AxialDistance      = + Distance2LeadingEdge * np.sin( TwistInRadians )
-    DisplacementVector = TangentialDistance * bxyz + AxialDistance * nxyz
-    x += DisplacementVector[0,:]
-    y += DisplacementVector[1,:]
-    z += DisplacementVector[2,:]
+    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
+    LeadingEdgeLines = []
+    for LiftingLine in LiftingLines:
+        if not checkComponentKind(LiftingLine,'LiftingLine'):
+            raise AttributeError('input must be a LiftingLine')
+        LeadingEdge = I.copyTree(LiftingLine)
+        txyz, nxyz, bxyz = updateLocalFrame(LeadingEdge)
+        x, y, z = J.getxyz(LeadingEdge)
+        Chord, Twist = J.getVars(LeadingEdge, ['Chord', 'Twist'])
+        TwistInRadians = np.deg2rad(Twist)
+        Distance2LeadingEdge = 0.25 * Chord
+        TangentialDistance = - Distance2LeadingEdge * np.cos( TwistInRadians )
+        AxialDistance      = + Distance2LeadingEdge * np.sin( TwistInRadians )
+        DisplacementVector = TangentialDistance * bxyz + AxialDistance * nxyz
+        x += DisplacementVector[0,:]
+        y += DisplacementVector[1,:]
+        z += DisplacementVector[2,:]
 
-    updateLocalFrame(LeadingEdge)
-    computeKinematicVelocity(LeadingEdge)
+        updateLocalFrame(LeadingEdge)
+        computeKinematicVelocity(LeadingEdge)
+        LeadingEdgeLines.append(LeadingEdge)
 
-    return LeadingEdge
+    return LeadingEdgeLines
 
 def getAirfoilsNodeOfLiftingLine(LiftingLine):
     LiftingLine, = I.getZones(LiftingLine)

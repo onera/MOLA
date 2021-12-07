@@ -19,19 +19,17 @@ import itertools
 import Converter.PyTree as C
 import Converter.Internal as I
 
-try:
-    old_stdout = sys.stdout
-    f = open(os.devnull,'w')
-    sys.stdout = f
-    import PUMA
-    import PUMA.Fact
-    sys.stdout = old_stdout
-except:
-    pass
-
 from . import InternalShortcuts as J
 from . import Wireframe as W
 from . import LiftingLine as LL
+
+try:
+    silence = J.OutputGrabber()
+    with silence:
+        import PUMA
+        import PUMA.Fact
+except:
+    pass
 
 # Global constants
 # -> Fluid constants
