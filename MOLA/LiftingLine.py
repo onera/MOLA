@@ -4,6 +4,8 @@ MOLA - LiftingLine.py
 This module proposes a set of functions for use with LiftingLine-based methods
 including Airfoil Polars data management.
 
+Test modification MOLA-VPM
+
 First creation:
 24/11/2019 - L. Bernardos
 '''
