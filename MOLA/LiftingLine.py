@@ -5032,15 +5032,16 @@ def getTrailingEdge(t):
     Parameters
     ----------
 
-        LiftingLine : PyTree, Base, zone or :py:class:`list` of zones
+        t : PyTree, Base, zone or :py:class:`list` of zones
             the lifting-line (situated at :math:`c/4`)
 
     Returns
     -------
 
-        TrailingEdgeLines : :py:class:`list` of zones
-            the curves corresponding to trailing edge
+        TrailingEdgeLines : base 
+            ``CGNSBase_t`` of zones  corresponding to trailing edge
     '''
+
     LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
     TrailingEdgeLines = []
     for LiftingLine in LiftingLines:
@@ -5071,7 +5072,7 @@ def getTrailingEdge(t):
 
     return TrailingEdgeBase
 
-def getLeadingEdge(LiftingLine):
+def getLeadingEdge(t):
     '''
     construct the curve corresponding to the LeadingEdge from a LiftingLine,
     conserving all original fields and data.
@@ -5083,14 +5084,14 @@ def getLeadingEdge(LiftingLine):
     Parameters
     ----------
 
-        LiftingLine : PyTree, Base, zone or :py:class:`list` of zones
+        t : PyTree, Base, zone or :py:class:`list` of zones
             the lifting-line (situated at :math:`c/4`)
 
     Returns
     -------
 
-        LeadingEdgeLines : :py:class:`list` of zones
-            the curves corresponding to leading edge
+        LeadingEdgeLines : base 
+            ``CGNSBase_t`` of zones  corresponding to leading edge
     '''
     LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
     LeadingEdgeLines = []
@@ -5114,7 +5115,13 @@ def getLeadingEdge(LiftingLine):
         computeKinematicVelocity(LeadingEdge)
         LeadingEdgeLines.append(LeadingEdge)
 
-    return LeadingEdgeLines
+    LeadingEdgeBase = I.newCGNSBase('LeadingEdge',cellDim=1,physDim=3)
+    LeadingEdgeBase[2] = LeadingEdgeLines # Add Blades
+
+    # Sets component general information
+    J.set(LeadingEdgeBase,'.Component#Info',kind='LeadingEdge')
+
+    return LeadingEdgeBase
 
 def getAirfoilsNodeOfLiftingLine(LiftingLine):
     LiftingLine, = I.getZones(LiftingLine)
