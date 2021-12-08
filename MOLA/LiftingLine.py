@@ -4968,6 +4968,7 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
     FieldsNames2Extract = [
                     'CoordinateX','CoordinateY','CoordinateZ',
                     'VelocityKinematicX','VelocityKinematicY','VelocityKinematicZ',
+                    'VelocityInducedX','VelocityInducedY','VelocityInducedZ',
                     'Gamma', 'SectionArea'
                     ]
     centers = 0.5 * (AbscissaSegments[1:]+AbscissaSegments[:-1])
@@ -5019,7 +5020,7 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
 
     return AllSourceZones
 
-def getTrailingEdge(LiftingLine):
+def getTrailingEdge(t):
     '''
     construct the curve corresponding to the TrailingEdge from a LiftingLine,
     conserving all original fields and data.
@@ -5062,7 +5063,13 @@ def getTrailingEdge(LiftingLine):
         computeKinematicVelocity(TrailingEdge)
         TrailingEdgeLines.append(TrailingEdge)
 
-    return TrailingEdgeLines
+    TrailingEdgeBase = I.newCGNSBase('TrailingEdge',cellDim=1,physDim=3)
+    TrailingEdgeBase[2] = TrailingEdgeLines # Add Blades
+
+    # Sets component general information
+    J.set(TrailingEdgeBase,'.Component#Info',kind='TrailingEdge')
+
+    return TrailingEdgeBase
 
 def getLeadingEdge(LiftingLine):
     '''
