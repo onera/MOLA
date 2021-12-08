@@ -4968,6 +4968,7 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
     FieldsNames2Extract = [
                     'CoordinateX','CoordinateY','CoordinateZ',
                     'VelocityKinematicX','VelocityKinematicY','VelocityKinematicZ',
+                    'VelocityInducedX','VelocityInducedY','VelocityInducedZ',
                     'Gamma', 'SectionArea'
                     ]
     centers = 0.5 * (AbscissaSegments[1:]+AbscissaSegments[:-1])
@@ -5019,7 +5020,7 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
 
     return AllSourceZones
 
-def getTrailingEdge(LiftingLine):
+def getTrailingEdge(t):
     '''
     construct the curve corresponding to the TrailingEdge from a LiftingLine,
     conserving all original fields and data.
@@ -5031,15 +5032,16 @@ def getTrailingEdge(LiftingLine):
     Parameters
     ----------
 
-        LiftingLine : PyTree, Base, zone or :py:class:`list` of zones
+        t : PyTree, Base, zone or :py:class:`list` of zones
             the lifting-line (situated at :math:`c/4`)
 
     Returns
     -------
 
-        TrailingEdgeLines : :py:class:`list` of zones
-            the curves corresponding to trailing edge
+        TrailingEdgeLines : base 
+            ``CGNSBase_t`` of zones  corresponding to trailing edge
     '''
+
     LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
     TrailingEdgeLines = []
     for LiftingLine in LiftingLines:
@@ -5062,9 +5064,15 @@ def getTrailingEdge(LiftingLine):
         computeKinematicVelocity(TrailingEdge)
         TrailingEdgeLines.append(TrailingEdge)
 
-    return TrailingEdgeLines
+    TrailingEdgeBase = I.newCGNSBase('TrailingEdge',cellDim=1,physDim=3)
+    TrailingEdgeBase[2] = TrailingEdgeLines # Add Blades
 
-def getLeadingEdge(LiftingLine):
+    # Sets component general information
+    J.set(TrailingEdgeBase,'.Component#Info',kind='TrailingEdge')
+
+    return TrailingEdgeBase
+
+def getLeadingEdge(t):
     '''
     construct the curve corresponding to the LeadingEdge from a LiftingLine,
     conserving all original fields and data.
@@ -5076,14 +5084,14 @@ def getLeadingEdge(LiftingLine):
     Parameters
     ----------
 
-        LiftingLine : PyTree, Base, zone or :py:class:`list` of zones
+        t : PyTree, Base, zone or :py:class:`list` of zones
             the lifting-line (situated at :math:`c/4`)
 
     Returns
     -------
 
-        LeadingEdgeLines : :py:class:`list` of zones
-            the curves corresponding to leading edge
+        LeadingEdgeLines : base 
+            ``CGNSBase_t`` of zones  corresponding to leading edge
     '''
     LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
     LeadingEdgeLines = []
@@ -5107,7 +5115,13 @@ def getLeadingEdge(LiftingLine):
         computeKinematicVelocity(LeadingEdge)
         LeadingEdgeLines.append(LeadingEdge)
 
-    return LeadingEdgeLines
+    LeadingEdgeBase = I.newCGNSBase('LeadingEdge',cellDim=1,physDim=3)
+    LeadingEdgeBase[2] = LeadingEdgeLines # Add Blades
+
+    # Sets component general information
+    J.set(LeadingEdgeBase,'.Component#Info',kind='LeadingEdge')
+
+    return LeadingEdgeBase
 
 def getAirfoilsNodeOfLiftingLine(LiftingLine):
     LiftingLine, = I.getZones(LiftingLine)
