@@ -630,9 +630,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
 
     t = PRE.newCGNSfromSetup(t, AllSetupDics, Initialization=Initialization,
                             FULL_CGNS_MODE=False)
-    to = PRE.newRestartFieldsFromCGNS(t)
-
-    PRE.saveMainCGNSwithLinkToOutputFields(t, to, writeOutputFields=writeOutputFields)
+    PRE.saveMainCGNSwithLinkToOutputFields(t, writeOutputFields=writeOutputFields)
 
     print(J.CYAN+'REMEMBER : configuration shall be run using %d procs'%ReferenceValues['NProc']+J.ENDC)
 

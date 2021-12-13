@@ -388,8 +388,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
 
     t = newCGNSfromSetup(t, AllSetupDics, Initialization=Initialization,
                          FULL_CGNS_MODE=False)
-    to = newRestartFieldsFromCGNS(t)
-    saveMainCGNSwithLinkToOutputFields(t,to,writeOutputFields=writeOutputFields)
+    saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
 
     print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
@@ -2719,6 +2718,11 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
         else:
             raise Exception(J.FAIL+'The key "method" of the dictionary Initialization is mandatory'+J.ENDC)
 
+    for zone in I.getZones(t):
+        if not I.getNodeFromName1(zone, 'FlowSolution#Init'):
+            MSG = 'FlowSolution#Init is missing in zone {}'.format(I.getName(zone))
+            raise ValueError(J.FAIL + MSG + J.ENDC)
+
     if FULL_CGNS_MODE:
         addElsAKeys2CGNS(t, [AllSetupDictionaries['elsAkeysCFD'],
                              AllSetupDictionaries['elsAkeysModel'],
@@ -2731,33 +2735,8 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
 
     return t
 
-def newRestartFieldsFromCGNS(t):
-    '''
-    .. warning:: this function interface will change
-    '''
-    print('invoking EndOfRun from restart')
-    to = I.copyRef(t)
-    for zone in I.getZones(to):
-        FlowSolutionInit = I.getNodeFromName1(zone, 'FlowSolution#Init')
-        if not FlowSolutionInit:
-            I.printTree(zone, color=True)
-            raise ValueError(zone[0])
 
-        '''
-        FlowSolutionCenters = I.getNodeFromName1(zone, 'FlowSolution#Centers')
-
-        if FlowSolutionCenters:
-            I._rmNodesByType(FlowSolutionInit, 'GridLocation_t')
-            FlowSolutionCenters[2].extend(FlowSolutionInit[2])
-            I.rmNode(zone, FlowSolutionInit)
-        else:
-            I._renameNode(zone, 'FlowSolution#Init', 'FlowSolution#Centers')
-        '''
-
-    return to
-
-
-def saveMainCGNSwithLinkToOutputFields(t, to, DIRECTORY_OUTPUT='OUTPUT',
+def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
                                MainCGNSFilename='main.cgns',
                                FieldsFilename='fields.cgns',
                                MainCGNS_FlowSolutionName='FlowSolution#Init',
@@ -2772,11 +2751,6 @@ def saveMainCGNSwithLinkToOutputFields(t, to, DIRECTORY_OUTPUT='OUTPUT',
 
         t : PyTree
             fully preprocessed PyTree
-
-        to : PyTree
-            reference copy of t
-
-            .. warning:: this input will be removed in future as it is useless
 
         DIRECTORY_OUTPUT : str
             folder containing the file ``fields.cgns``

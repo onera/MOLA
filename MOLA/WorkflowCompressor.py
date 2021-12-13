@@ -334,8 +334,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     )
     t = PRE.newCGNSfromSetup(t, AllSetupDics, Initialization=Initialization,
         FULL_CGNS_MODE=False, extractCoords=False, BCExtractions=BCExtractions)
-    to = PRE.newRestartFieldsFromCGNS(t)
-    PRE.saveMainCGNSwithLinkToOutputFields(t,to,writeOutputFields=writeOutputFields)
+    PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
     if not Splitter:
         print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
