@@ -22,6 +22,7 @@ import shutil
 import psutil
 import pprint
 import glob
+import copy
 from mpi4py import MPI
 comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
@@ -251,7 +252,7 @@ def extractSurfaces(t, Extractions):
         base = I.newCGNSBase(basename, cellDim=cellDimOutputTree-1, physDim=3,
             parent=SurfacesTree)
         I._addChild(base, zones)
-        J.set(base, '.ExtractionInfo', **Extraction)
+        J.set(base, '.ExtractionInfo', **ExtractionInfo)
         return base
 
     t = I.renameNode(t, 'FlowSolution#Init', 'FlowSolution#Centers')
@@ -270,6 +271,7 @@ def extractSurfaces(t, Extractions):
 
     for Extraction in Extractions:
         TypeOfExtraction = Extraction['type']
+        ExtractionInfo = copy.deepcopy(Extraction)
 
         if TypeOfExtraction.startswith('AllBC'):
             BCFilterName = TypeOfExtraction.replace('AllBC','')
@@ -277,18 +279,24 @@ def extractSurfaces(t, Extractions):
                 BCType = DictBCNames2Type[BCFamilyName]
                 if BCFilterName.lower() in BCType.lower():
                     zones = C.extractBCOfName(t,'FamilySpecified:'+BCFamilyName)
+                    ExtractionInfo['type'] = 'BC'
+                    ExtractionInfo['BCType'] = BCType
                     addBase2SurfacesTree(BCFamilyName)
 
         elif TypeOfExtraction.startswith('BC'):
             zones = C.extractBCOfType(t, TypeOfExtraction)
             try: basename = Extraction['name']
             except KeyError: basename = TypeOfExtraction
+            ExtractionInfo['type'] = 'BC'
+            ExtractionInfo['BCType'] = TypeOfExtraction
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction.startswith('FamilySpecified:'):
             zones = C.extractBCOfName(t, TypeOfExtraction)
             try: basename = Extraction['name']
             except KeyError: basename = TypeOfExtraction.replace('FamilySpecified:','')
+            ExtractionInfo['type'] = 'BC'
+            ExtractionInfo['BCType'] = TypeOfExtraction
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction == 'IsoSurface':
