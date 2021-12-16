@@ -2701,27 +2701,7 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
     dim = int(AllSetupDictionaries['elsAkeysCFD']['config'][0])
     addGoverningEquations(t, dim=dim)
     if Initialization:
-        if not 'container' in Initialization:
-            Initialization['container'] = 'FlowSolution#Init'
-
-        if Initialization['method'] is None:
-            pass
-        elif Initialization['method'] == 'uniform':
-            print(J.CYAN + 'Initialize FlowSolution with uniform reference values' + J.ENDC)
-            initializeFlowSolutionFromReferenceValues(t, AllSetupDictionaries['ReferenceValues'])
-        elif Initialization['method'] == 'interpolate':
-            print(J.CYAN + 'Initialize FlowSolution by interpolation from {}'.format(Initialization['file']) + J.ENDC)
-            initializeFlowSolutionFromFileByInterpolation(t, Initialization['file'], container=Initialization['container'])
-        elif Initialization['method'] == 'copy':
-            print(J.CYAN + 'Initialize FlowSolution by copy of {}'.format(Initialization['file']) + J.ENDC)
-            initializeFlowSolutionFromFileByCopy(t, Initialization['file'], container=Initialization['container'])
-        else:
-            raise Exception(J.FAIL+'The key "method" of the dictionary Initialization is mandatory'+J.ENDC)
-
-    for zone in I.getZones(t):
-        if not I.getNodeFromName1(zone, 'FlowSolution#Init'):
-            MSG = 'FlowSolution#Init is missing in zone {}'.format(I.getName(zone))
-            raise ValueError(J.FAIL + MSG + J.ENDC)
+        initializeFlowSolution(t, Initialization, AllSetupDictionaries['ReferenceValues'])
 
     if FULL_CGNS_MODE:
         addElsAKeys2CGNS(t, [AllSetupDictionaries['elsAkeysCFD'],
@@ -3099,6 +3079,63 @@ def addElsAKeys2CGNS(t, AllElsAKeys):
     for ElsAKeys in AllElsAKeys: AllComputeModels.update(ElsAKeys)
     for b in I.getBases(t): J.set(b, '.Solver#Compute', **AllComputeModels)
 
+def initializeFlowSolution(t, Initialization, ReferenceValues):
+    '''
+    Initialize the flow solution in tree **t**.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            preprocessed tree as performed by :py:func:`prepareMesh4ElsA`
+
+        Initialization : dict
+            dictionary defining the type of initialization, using the key
+            **method**. This latter is mandatory and should be one of the
+            following:
+
+            * **method** = None : the Flow Solution is not initialized.
+
+            * **method** = 'uniform' : the Flow Solution is initialized uniformly
+              using the **ReferenceValues**.
+
+            * **method** = 'copy' : the Flow Solution is initialized by copying
+              the FlowSolution container of another file. The file path is set by
+              using the key **file**. The container might be set with the key
+              **container** ('FlowSolution#Init' by default).
+
+            * **method** = 'interpolate' : the Flow Solution is initialized by
+              interpolating the FlowSolution container of another file. The file
+              path is set by using the key **file**. The container might be set
+              with the key **container** ('FlowSolution#Init' by default).
+
+            Default method is 'uniform'.
+
+        ReferenceValues : dict
+            dictionary as got from :py:func:`computeReferenceValues`
+
+    '''
+    if not 'container' in Initialization:
+        Initialization['container'] = 'FlowSolution#Init'
+
+    if Initialization['method'] is None:
+        pass
+    elif Initialization['method'] == 'uniform':
+        print(J.CYAN + 'Initialize FlowSolution with uniform reference values' + J.ENDC)
+        initializeFlowSolutionFromReferenceValues(t, ReferenceValues)
+    elif Initialization['method'] == 'interpolate':
+        print(J.CYAN + 'Initialize FlowSolution by interpolation from {}'.format(Initialization['file']) + J.ENDC)
+        initializeFlowSolutionFromFileByInterpolation(t, Initialization['file'], container=Initialization['container'])
+    elif Initialization['method'] == 'copy':
+        print(J.CYAN + 'Initialize FlowSolution by copy of {}'.format(Initialization['file']) + J.ENDC)
+        initializeFlowSolutionFromFileByCopy(t, Initialization['file'], container=Initialization['container'])
+    else:
+        raise Exception(J.FAIL+'The key "method" of the dictionary Initialization is mandatory'+J.ENDC)
+
+    for zone in I.getZones(t):
+        if not I.getNodeFromName1(zone, 'FlowSolution#Init'):
+            MSG = 'FlowSolution#Init is missing in zone {}'.format(I.getName(zone))
+            raise ValueError(J.FAIL + MSG + J.ENDC)
 
 def initializeFlowSolutionFromReferenceValues(t, ReferenceValues):
     '''
