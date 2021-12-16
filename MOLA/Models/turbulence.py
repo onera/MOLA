@@ -8,7 +8,8 @@ Description : Submodule that defines some often-used turbulence models
 History :
 Date       | version | git rev. | Comment
 ___________|_________|__________|_______________________________________#
-2021.12.14 | v3.0.00 |          | Translation with integration into MOLA
+2021.12.16 | v4.0.00 |          | Removal of the building function in favor of a global parser for the module. See .parse
+2021.12.14 | v3.0.00 | ea8e5b3  | Translation with integration into MOLA
 2021.09.09 | v2.1.00 |          | Addition of the Smith (1994) :math:`k-l` model
 2021.09.01 | v1.3.00 |          | Simplification in the typography of operations by providing
            |         |          | the list of necessary arguments for a given computation instead
@@ -48,7 +49,7 @@ class turbulence(thermodynamics):
     super(turbulence, self).__init__()
     self.kappa_Von_Karman = 0.41
 
-    # Threshold for some operations (iterative)
+    # Threshold for some operations
     self.computation_threshold=1.e-16
     self.iterative_threshold=1.e-12
     self.iterations_max_number=50
@@ -74,30 +75,29 @@ class turbulence(thermodynamics):
 
 class Boussinesq_1877(turbulence):
   """
-  Modèle introduisant les variables propres à l'hypothèse de viscosité de
-  turbulence de Joseph Boussinesq, et les opérations associées
+  Model which computes with the Boussinsesq eddy-viscosity hypothesis
   """
   def __init__(self):
     super(Boussinesq_1877,self).__init__()
-    self.facteur_norme_matricielle=2. # Pour récupérer la norme de Frobenius, utiliser facteur_norme_matricielle=1.
+    self.facteur_norme_matricielle=2.
     self.supplyOperations(
       dict(
         Viscosity_EddyMolecularRatio=[
           {
-            'noms_arguments':['ViscosityEddy','ViscosityMolecular'],
-            'fonction':self.Viscosity_EddyMolecularRatio_from_ViscosityEddy_ViscosityMolecular,
+            'arguments':['ViscosityEddy','ViscosityMolecular'],
+            'operation':self.Viscosity_EddyMolecularRatio_from_ViscosityEddy_ViscosityMolecular,
           },
         ],
         ViscosityEddy=[
           {
-            'noms_arguments':['Viscosity_EddyMolecularRatio','ViscosityMolecular'],
-            'fonction':self.ViscosityEddy_from_Viscosity_EddyMolecularRatio_ViscosityMolecular,
+            'arguments':['Viscosity_EddyMolecularRatio','ViscosityMolecular'],
+            'operation':self.ViscosityEddy_from_Viscosity_EddyMolecularRatio_ViscosityMolecular,
           },
         ],
         ViscosityMolecular=[
           {
-            'noms_arguments':['Viscosity_EddyMolecularRatio','ViscosityEddy'],
-            'fonction':self.ViscosityMolecular_from_Viscosity_EddyMolecularRatio_ViscosityEddy,
+            'arguments':['Viscosity_EddyMolecularRatio','ViscosityEddy'],
+            'operation':self.ViscosityMolecular_from_Viscosity_EddyMolecularRatio_ViscosityEddy,
           },
         ],
       )
@@ -136,7 +136,7 @@ class Boussinesq_1877(turbulence):
 
 class Spalart_Allmaras_1992(Boussinesq_1877):
   """
-  Modèle de Spalart-Allmaras (1992) à une équation de transport
+  Spalart-Allmaras model with 1 transport equation (1992)
   doi:10.2514/6.1992-439
   """
   def __init__(self,cb1=0.1355,cb2=0.622,sig=2./3.,cv1=7.1,cw2=.3,cw3=2.):
@@ -153,46 +153,46 @@ class Spalart_Allmaras_1992(Boussinesq_1877):
       dict(
         Density=[
           {
-            'noms_arguments':['TurbulentSANuTildeDensity','TurbulentSANuTilde'],
-            'fonction':self.Density_from_conservative_primitive,
+            'arguments':['TurbulentSANuTildeDensity','TurbulentSANuTilde'],
+            'operation':self.Density_from_conservative_primitive,
           },
         ],
         chi=[
           {
-            'noms_arguments':['TurbulentSANuTildeDensity','ViscosityMolecular'],
-            'fonction':self.chi_from_TurbulentSANuTildeDensity_ViscosityMolecular,
+            'arguments':['TurbulentSANuTildeDensity','ViscosityMolecular'],
+            'operation':self.chi_from_TurbulentSANuTildeDensity_ViscosityMolecular,
           },
           {
-            'noms_arguments':['Viscosity_EddyMolecularRatio'],
-            'fonction':self.chi_from_Viscosity_EddyMolecularRatio,
+            'arguments':['Viscosity_EddyMolecularRatio'],
+            'operation':self.chi_from_Viscosity_EddyMolecularRatio,
           },
         ],
         fv1=[
           {
-            'noms_arguments':['chi'],
-            'fonction':self.fv1_from_chi,
+            'arguments':['chi'],
+            'operation':self.fv1_from_chi,
           },
         ],
         TurbulentSANuTilde=[
           {
-            'noms_arguments':['TurbulentSANuTildeDensity','Density'],
-            'fonction':self.primitive_from_conservative_Density,
+            'arguments':['TurbulentSANuTildeDensity','Density'],
+            'operation':self.primitive_from_conservative_Density,
           },
         ],
         TurbulentSANuTildeDensity=[
           {
-            'noms_arguments':['Density','TurbulentSANuTilde'],
-            'fonction':self.conservative_from_Density_primitive,
+            'arguments':['Density','TurbulentSANuTilde'],
+            'operation':self.conservative_from_Density_primitive,
           },
           {
-            'noms_arguments':['chi','ViscosityMolecular'],
-            'fonction':self.TurbulentSANuTildeDensity_from_chi_ViscosityMolecular,
+            'arguments':['chi','ViscosityMolecular'],
+            'operation':self.TurbulentSANuTildeDensity_from_chi_ViscosityMolecular,
           },
         ],
         Viscosity_EddyMolecularRatio=[
           {
-            'noms_arguments':['chi'],
-            'fonction':self.Viscosity_EddyMolecularRatio_from_chi,
+            'arguments':['chi'],
+            'operation':self.Viscosity_EddyMolecularRatio_from_chi,
           },
         ],
       )
@@ -203,7 +203,6 @@ class Spalart_Allmaras_1992(Boussinesq_1877):
 
   def dfv1dchi_from_chi(self,chi):
     return 3.*np.power(chi,2)*(1.-np.power(chi,3)/(np.power(self.cv1,3)+np.power(chi,3)))/(np.power(self.cv1,3)+np.power(chi,3))
-
 
   def dViscosity_EddyMolecularRatiodchi_from_chi(self,chi):
     return chi*self.dfv1dchi_from_chi(chi=chi)+self.fv1_from_chi(chi)
@@ -276,14 +275,14 @@ class Deck_2012(Spalart_Allmaras_1992):
       dict(
         logInternalLayersSensor=[
           {
-            'noms_arguments':['Density','gradMagnitude_Velocity','TurbulentDistance','TurbulentSANuTilde','ViscosityMolecular'],
-            'fonction':self.logInternalLayersSensor_from_Density_gradMagnitude_Velocity_TurbulentDistance_TurbulentSANuTilde_ViscosityMolecular,
+            'arguments':['Density','gradMagnitude_Velocity','TurbulentDistance','TurbulentSANuTilde','ViscosityMolecular'],
+            'operation':self.logInternalLayersSensor_from_Density_gradMagnitude_Velocity_TurbulentDistance_TurbulentSANuTilde_ViscosityMolecular,
           },
         ],
         logInternalLayersShieldFunction=[
           {
-            'noms_arguments':['logInternalLayersSensor'],
-            'fonction':self.logInternalLayersShieldFunction_from_logInternalLayersSensor,
+            'arguments':['logInternalLayersSensor'],
+            'operation':self.logInternalLayersShieldFunction_from_logInternalLayersSensor,
           },
         ],
       )
@@ -332,56 +331,56 @@ class Deck_Renard_2020(Deck_2012):
       dict(
         separationSensor=[
           {
-            'noms_arguments':['gradCoordinateN_VorticityMagnitude','gradMagnitude_Velocity','TurbulentSANuTilde'],
-            'fonction':self.separationSensor_from_gradCoordinateN_VorticityMagnitude_gradMagnitude_Velocity_TurbulentSANuTilde,
+            'arguments':['gradCoordinateN_VorticityMagnitude','gradMagnitude_Velocity','TurbulentSANuTilde'],
+            'operation':self.separationSensor_from_gradCoordinateN_VorticityMagnitude_gradMagnitude_Velocity_TurbulentSANuTilde,
           },
         ],
         shieldInhibitionFunction=[
           {
-            'noms_arguments':['separationSensor'],
-            'fonction':self.shieldInhibitionFunction_from_separationSensor,
+            'arguments':['separationSensor'],
+            'operation':self.shieldInhibitionFunction_from_separationSensor,
           },
         ],
         shieldInhibitionFunctionLim=[
           {
-            'noms_arguments':['gradMagnitude_Velocity','shieldInhibitionFunction','VorticityMagnitude'],
-            'fonction':self.shieldInhibitionFunctionLim_from_gradMagnitude_Velocity_shieldInhibitionFunction_VorticityMagnitude,
+            'arguments':['gradMagnitude_Velocity','shieldInhibitionFunction','VorticityMagnitude'],
+            'operation':self.shieldInhibitionFunctionLim_from_gradMagnitude_Velocity_shieldInhibitionFunction_VorticityMagnitude,
           },
         ],
         shieldAlpha=[
           {
-            'noms_arguments':['separationSensor'],
-            'fonction':self.shieldAlpha_from_separationSensor,
+            'arguments':['separationSensor'],
+            'operation':self.shieldAlpha_from_separationSensor,
           },
         ],
         wakeLayerSensor=[
           {
-            'noms_arguments':['gradCoordinateN_TurbulentSANuTilde','gradMagnitude_Velocity','TurbulentDistance'],
-            'fonction':self.wakeLayerSensor_from_gradCoordinateN_TurbulentSANuTilde_gradMagnitude_Velocity_TurbulentDistance,
+            'arguments':['gradCoordinateN_TurbulentSANuTilde','gradMagnitude_Velocity','TurbulentDistance'],
+            'operation':self.wakeLayerSensor_from_gradCoordinateN_TurbulentSANuTilde_gradMagnitude_Velocity_TurbulentDistance,
           },
         ],
         wakeLayerShieldFunction=[
           {
-            'noms_arguments':['wakeLayerSensor'],
-            'fonction':self.wakeLayerShieldFunction_from_wakeLayerSensor,
+            'arguments':['wakeLayerSensor'],
+            'operation':self.wakeLayerShieldFunction_from_wakeLayerSensor,
           },
         ],
         wakeLayerStrongShieldFunction=[
           {
-            'noms_arguments':['logInternalLayersSensor','wakeLayerShieldFunction'],
-            'fonction':self.wakeLayerStrongShieldFunction_from_logInternalLayersSensor_wakeLayerShieldFunction,
+            'arguments':['logInternalLayersSensor','wakeLayerShieldFunction'],
+            'operation':self.wakeLayerStrongShieldFunction_from_logInternalLayersSensor_wakeLayerShieldFunction,
           },
         ],
         shieldFunction=[
           {
-            'noms_arguments':['logInternalLayersShieldFunction','shieldInhibitionFunctionLim','wakeLayerShieldFunction'],
-            'fonction':self.shieldFunction_from_logInternalLayersShieldFunction_shieldInhibitionFunctionLim_wakeLayerShieldFunction,
+            'arguments':['logInternalLayersShieldFunction','shieldInhibitionFunctionLim','wakeLayerShieldFunction'],
+            'operation':self.shieldFunction_from_logInternalLayersShieldFunction_shieldInhibitionFunctionLim_wakeLayerShieldFunction,
           },
         ],
         strongShieldFunction=[
           {
-            'noms_arguments':['logInternalLayersShieldFunction','shieldInhibitionFunctionLim','wakeLayerStrongShieldFunction'],
-            'fonction':self.strongShieldFunction_from_logInternalLayersShieldFunction_shieldInhibitionFunctionLim_wakeLayerStrongShieldFunction,
+            'arguments':['logInternalLayersShieldFunction','shieldInhibitionFunctionLim','wakeLayerStrongShieldFunction'],
+            'operation':self.strongShieldFunction_from_logInternalLayersShieldFunction_shieldInhibitionFunctionLim_wakeLayerStrongShieldFunction,
           },
         ],
       )
@@ -389,31 +388,30 @@ class Deck_Renard_2020(Deck_2012):
 
   def separationSensor_from_gradCoordinateN_VorticityMagnitude_gradMagnitude_Velocity_TurbulentSANuTilde(self,gradCoordinateN_VorticityMagnitude,gradMagnitude_Velocity,TurbulentSANuTilde):
     """
-    Calcule les valeurs du senseur de décollement G_Omega en fonction de nutilde, de la norme matricielle
-    de Frobenius du gradient de vitesse et de la composante normale à la paroi du gradient de vorticité
+    Computes the value of the separation sensor :math:`mathcal{G}_\Omega` from :math:`\tilde{\nu}`, the matrix norm of the velocity gradient tensor
+    and the wall-normal vorticity gradient.
     """
     separationSensor = np.sqrt(facteur_norme_matricielle)*gradCoordinateN_VorticityMagnitude*np.sqrt(TurbulentSANuTilde/np.power(gradMagnitude_Velocity,3))
     return separationSensor
 
   def shieldAlpha_from_separationSensor(self,separationSensor):
     """
-    Calcule les valeurs de la variable alpha entrant dans le calcul de la fonction d'inhibition de protection
-    en fonction des valeurs du senseur de décollement G_Omega
+    Computes the values of :math:`\alpha` which enters the computation of the inhibition function using :math:`mathcal{G}_\Omega`.
+    For the sake of readbility, this function is not accessible through an operator object, only through direct call.
     """
     shieldAlpha = 7.-6./self.C4*separationSensor
     return shieldAlpha
 
   def shieldFunction_from_logInternalLayersShieldFunction_shieldInhibitionFunctionLim_wakeLayerShieldFunction(self,logInternalLayersShieldFunction,shieldInhibitionFunctionLim,wakeLayerShieldFunction):
     """
-    Calcule la fonction de protection sans le renforcement introduit par le paramètre beta de la sous-couche intermédiaire entre fd et fP2.
+    Computes the shielding function without the strengthening induced by the :math:`beta` factor
     """
     shieldFunction = logInternalLayersShieldFunction * (1.-shieldInhibitionFunctionLim*(1.-wakeLayerShieldFunction))
     return shieldFunction
 
   def shieldInhibitionFunction_from_separationSensor(self,separationSensor):
     """
-    Calcule les valeurs de la fonction d'inhibition de protection fR (non limitée)
-    en fonction des valeurs du senseur de décollement G_Omega
+    Computes the values of the unlimited inhibition function :math:`f_R` from the separation sensor :math:`mathcal{G}_\Omega`
     """
     shieldAlpha = self.shieldAlpha_from_separationSensor(separationSensor)
     shieldInhibitionFunction = (separationSensor<=self.C4)\
@@ -425,9 +423,7 @@ class Deck_Renard_2020(Deck_2012):
 
   def shieldInhibitionFunctionLim_from_gradMagnitude_Velocity_shieldInhibitionFunction_VorticityMagnitude(self,gradMagnitude_Velocity,shieldInhibitionFunction,VorticityMagnitude):
     """
-    Calcule les valeurs de la fonction d'inhibition de protection fR_lim
-    en fonction des valeurs du senseur de décollement G_Omega, de la vorticité
-    et de la norme de Frobenius du gradient de vitesse
+    Computes the values of the inhibition function :math:`f_R` from the separation sensor :math:`mathcal{G}_\Omega`, limited with regard to vorticity
     """
     shieldInhibitionFunctionLim = (np.sqrt(facteur_norme_matricielle)*VorticityMagnitude< self.zeta*gradMagnitude_Velocity)\
                                 + (np.sqrt(facteur_norme_matricielle)*VorticityMagnitude>=self.zeta*gradMagnitude_Velocity)\
@@ -437,30 +433,31 @@ class Deck_Renard_2020(Deck_2012):
 
   def strongShieldFunction_from_logInternalLayersShieldFunction_shieldInhibitionFunctionLim_wakeLayerStrongShieldFunction(self,logInternalLayersShieldFunction,shieldInhibitionFunctionLim,wakeLayerStrongShieldFunction):
     """
-    Calcule la fonction de protection en incluant le renforcement introduit par le paramètre beta de la sous-couche intermédiaire entre fd et fP2.
+    Computes the shielding function with the application of the :math:`beta` factor which strengthens protection in the middle f the boundary layer
+    in the case of strong adverse pressure gradients
     """
     strongShieldFunction = logInternalLayersShieldFunction * (1.-shieldInhibitionFunctionLim*(1.-wakeLayerStrongShieldFunction))
     return strongShieldFunction
 
   def wakeLayerSensor_from_gradCoordinateN_TurbulentSANuTilde_gradMagnitude_Velocity_TurbulentDistance(self,gradCoordinateN_TurbulentSANuTilde,gradMagnitude_Velocity,TurbulentDistance):
     """
-    Calcule les valeurs du senseur de la sous-couche externe de sillage de la couche limite G_nutilde en fonction
-    de la distance paroi, du gradient de nutilde dans la direction normale à la paroi et de la norme de Frobenius
-    du tenseur gradient de vitesse.
+    Computes the values of the sensor for the external region of the boundary layer
     """
     wakeLayerSensor = self.C3*np.fmax(0.,-gradCoordinateN_TurbulentSANuTilde)/gradMagnitude_Velocity/TurbulentDistance/self.kappa_Von_Karman
     return wakeLayerSensor
 
   def wakeLayerShieldFunction_from_wakeLayerSensor(self,wakeLayerSensor):
     """
-    Calcule la fonction de protection pour la frontière de couche limite, f_d(G_nutilde)
+    Computes thye subshielding function :math:`f_d\left(\mathcal{G}_{\tilde{\nu}}\left)` which covers the wake layer of the boundary layer
+    using the external region sensor :math:`\mathcal{G}_{\tilde{\nu}}`
     """
     wakeLayerShieldFunction = self.logInternalLayersShieldFunction_from_logInternalLayersSensor(wakeLayerSensor)
     return wakeLayerShieldFunction
 
   def wakeLayerStrongShieldFunction_from_logInternalLayersSensor_wakeLayerShieldFunction(self,logInternalLayersSensor,wakeLayerShieldFunction):
     """
-    Calcule la fonction de protection de renforcement complète f_{P,2}, incluant la couverture de la zone de transition log-sillage
+    Computes the full reinforcing shielding function compared to the 2012 version of the model :mathcal:`f_{P,2}`, including the strengthening of the shielding
+    in the transition region between log layer and wake layer.
     """
     wakeLayerStrongShieldFunction = wakeLayerShieldFunction*self.logInternalLayersShieldFunction_from_logInternalLayersSensor(self.beta*logInternalLayersSensor)/np.fmax(self.logInternalLayersShieldFunction_from_logInternalLayersSensor(logInternalLayersSensor),1./self.computation_threshold)
     return wakeLayerStrongShieldFunction
@@ -486,7 +483,7 @@ class Deck_Renard_2020(Deck_2012):
 
 class Kolmogorov_1942(Boussinesq_1877):
   """
-  Modèle k-omega de Kolmogorov (1942)
+  Model by Kolmogorov (1942), first :match:`k-\omega` model.
   """
   def __init__(self):
     super(Kolmogorov_1942,self).__init__()
@@ -494,50 +491,50 @@ class Kolmogorov_1942(Boussinesq_1877):
       dict(
         Density=[
           {
-            'noms_arguments':['TurbulentEnergyKineticDensity','TurbulentEnergyKinetic'],
-            'fonction':self.Density_from_conservative_primitive,
+            'arguments':['TurbulentEnergyKineticDensity','TurbulentEnergyKinetic'],
+            'operation':self.Density_from_conservative_primitive,
           },
           {
-            'noms_arguments':['TurbulentDissipationRateDensity','TurbulentDissipationRate'],
-            'fonction':self.Density_from_conservative_primitive,
+            'arguments':['TurbulentDissipationRateDensity','TurbulentDissipationRate'],
+            'operation':self.Density_from_conservative_primitive,
           },
         ],
         TurbulentEnergyKinetic=[
           {
-            'noms_arguments':['TurbulentEnergyKineticDensity','Density'],
-            'fonction':self.primitive_from_conservative_Density,
+            'arguments':['TurbulentEnergyKineticDensity','Density'],
+            'operation':self.primitive_from_conservative_Density,
           },
           {
-            'noms_arguments':['TurbulenceIntensity','VelocityMagnitude'],
-            'fonction':self.TurbulentEnergyKinetic_from_TurbulenceIntensity_velocityModulus,
+            'arguments':['TurbulenceIntensity','VelocityMagnitude'],
+            'operation':self.TurbulentEnergyKinetic_from_TurbulenceIntensity_velocityModulus,
           },
         ],
         TurbulentEnergyKineticDensity=[
           {
-            'noms_arguments':['Density','TurbulentEnergyKinetic'],
-            'fonction':self.conservative_from_Density_primitive,
+            'arguments':['Density','TurbulentEnergyKinetic'],
+            'operation':self.conservative_from_Density_primitive,
           },
         ],
         TurbulentDissipationRate=[
           {
-            'noms_arguments':['Density','TurbulentDissipationRateDensity'],
-            'fonction':self.conservative_from_Density_primitive,
+            'arguments':['Density','TurbulentDissipationRateDensity'],
+            'operation':self.conservative_from_Density_primitive,
           },
           {
-            'noms_arguments':['Density','TurbulentEnergyKinetic','ViscosityEddy'],
-            'fonction':self.TurbulentDissipationRate_from_Density_TurbulentEnergyKinetic_ViscosityEddy,
+            'arguments':['Density','TurbulentEnergyKinetic','ViscosityEddy'],
+            'operation':self.TurbulentDissipationRate_from_Density_TurbulentEnergyKinetic_ViscosityEddy,
           },
         ],
         TurbulentDissipationRateDensity=[
           {
-            'noms_arguments':['Density','TurbulentDissipationRate'],
-            'fonction':self.conservative_from_Density_primitive,
+            'arguments':['Density','TurbulentDissipationRate'],
+            'operation':self.conservative_from_Density_primitive,
           },
         ],
         ViscosityEddy=[
           {
-            'noms_arguments':['Density','TurbulentEnergyKinetic','TurbulentDissipationRate'],
-            'fonction':self.ViscosityEddy_from_Density_TurbulentEnergyKinetic_TurbulentDissipationRate,
+            'arguments':['Density','TurbulentEnergyKinetic','TurbulentDissipationRate'],
+            'operation':self.ViscosityEddy_from_Density_TurbulentEnergyKinetic_TurbulentDissipationRate,
           },
         ],
       )
@@ -574,53 +571,61 @@ class Kolmogorov_1942(Boussinesq_1877):
 
 
 class Menter_Langtry_2009(Kolmogorov_1942):
-  def __init__(self,version='Langtry_2006'):
+  """
+  Transition model by Menter, Langtry et al. (2006,2009,2015).
+  doi:10.1115/1.2184352
+  doi:10.2514/1.42362
+  doi:10.2514/6.2015-2474
+  """
+  def __init__(self,version='Menter_2006'):
     super(Menter_Langtry_2009,self).__init__()
     self.version=version
     self.supplyOperations(
       dict(
         Density=[
           {
-            'noms_arguments':['IntermittencyDensity','Intermittency'],
-            'fonction':self.Density_from_conservative_primitive,
+            'arguments':['IntermittencyDensity','Intermittency'],
+            'operation':self.Density_from_conservative_primitive,
           },
           {
-            'noms_arguments':['MomentumThicknessReynoldsDensity','MomentumThicknessReynolds'],
-            'fonction':self.Density_from_conservative_primitive,
+            'arguments':['MomentumThicknessReynoldsDensity','MomentumThicknessReynolds'],
+            'operation':self.Density_from_conservative_primitive,
           },
         ],
         Intermittency=[
           {
-            'noms_arguments':['IntermittencyDensity','Density'],
-            'fonction':self.primitive_from_conservative_Density,
+            'arguments':['IntermittencyDensity','Density'],
+            'operation':self.primitive_from_conservative_Density,
           },
         ],
         IntermittencyDensity=[
           {
-            'noms_arguments':['Density','Intermittency'],
-            'fonction':self.conservative_from_Density_primitive,
+            'arguments':['Density','Intermittency'],
+            'operation':self.conservative_from_Density_primitive,
           },
         ],
         MomentumThicknessReynolds=[
           {
-            'noms_arguments':['MomentumThicknessReynoldsDensity','Density'],
-            'fonction':self.primitive_from_conservative_Density,
+            'arguments':['MomentumThicknessReynoldsDensity','Density'],
+            'operation':self.primitive_from_conservative_Density,
           },
+        ],
+        momentumThicknessReynoldsT=[
           {
-            'noms_arguments':['TurbulenceIntensity'],
-            'fonction':self.MomentumThicknessReynolds_from_TurbulenceIntensity,
+            'arguments':['TurbulenceIntensity'],
+            'operation':self.momentumThicknessReynoldsT_from_TurbulenceIntensity,
           },
         ],
         MomentumThicknessReynoldsDensity=[
           {
-            'noms_arguments':['Density','MomentumThicknessReynolds'],
-            'fonction':self.conservative_from_Density_primitive,
+            'arguments':['Density','MomentumThicknessReynolds'],
+            'operation':self.conservative_from_Density_primitive,
           },
         ],
         vorticityReynolds=[
           {
-            'noms_arguments':['Density','TurbulentDistance','ViscosityMolecular','VorticityMagnitude'],
-            'fonction':self.vorticityReynolds_from_Density_TurbulentDistance_ViscosityMolecular_VorticityMagnitude,
+            'arguments':['Density','TurbulentDistance','ViscosityMolecular','VorticityMagnitude'],
+            'operation':self.vorticityReynolds_from_Density_TurbulentDistance_ViscosityMolecular_VorticityMagnitude,
           },
         ],
       )
@@ -644,12 +649,14 @@ class Menter_Langtry_2009(Kolmogorov_1942):
   def MomentumThicknessReynoldsDensity_from_Density_MomentumThicknessReynolds(self,Density,MomentumThicknessReynolds):
     return self.conservative_from_Density_primitive(Density=Density, primitive=MomentumThicknessReynolds)
 
-  def MomentumThicknessReynolds_from_TurbulenceIntensity(self,TurbulenceIntensity):
+  def momentumThicknessReynoldsT_from_TurbulenceIntensity(self,TurbulenceIntensity):
     """
-    Calcul de Re_{theta,t} dans le modèle de Menter-Langtry, où il ne dépend que du taux de turbulence. Pour le moment, c'est la seule option disponible.
+    Computes the correlated value of :math:`Re_{\theta,t}`. For the time being, only one version is available, that of Menter et al. (2006).
+    Future work can be dedicated to the introduction of the Mayle (1991) and Abu-Ghannam & Shaw (1980) correlations, among others,
+    as well as introducing the effects of the pressure gradient, which for the moment, is assumed null.
     """
     MomentumThicknessReynolds=None
-    if self.version=='Langtry_2006':
+    if self.version=='Menter_2006':
       MomentumThicknessReynolds = (TurbulenceIntensity<1.3)\
                                   * (1173.51-589.428*TurbulenceIntensity + 0.2196/np.power(TurbulenceIntensity,2))\
                                 + (TurbulenceIntensity>=1.3)\
@@ -680,6 +687,9 @@ class Menter_Langtry_2009(Kolmogorov_1942):
 
 
 class Smith_1994(Boussinesq_1877):
+  """
+  :math:`k-l` model of Smith (1994). Please forget it and forgive me for commiting it once more to memory. MB
+  """
   def __init__(self,B1=18.,E2=1.2,c1=25.5,c2=2.):
     super(Smith_1994,self).__init__()
     self.B1=B1
@@ -691,96 +701,96 @@ class Smith_1994(Boussinesq_1877):
       dict(
         chi=[
           {
-            'noms_arguments':['Density','TurbulentEnergyKinetic','TurbulentLengthScale','ViscosityMolecular'],
-            'fonction':self.chi_from_Density_TurbulentKineticEnergy_TurbulentLengthScale_ViscosityMolecular,
+            'arguments':['Density','TurbulentEnergyKinetic','TurbulentLengthScale','ViscosityMolecular'],
+            'operation':self.chi_from_Density_TurbulentKineticEnergy_TurbulentLengthScale_ViscosityMolecular,
           },
           {
-            'noms_arguments':['Density','TurbulentDistance','TurbulentEnergyKinetic','ViscosityMolecular','Viscosity_EddyMolecularRatio'],
-            'fonction':self.chi_from_Density_TurbulentDistance_TurbulentEnergyKinetic_ViscosityMolecular_Viscosity_EddyMolecularRatio,
+            'arguments':['Density','TurbulentDistance','TurbulentEnergyKinetic','ViscosityMolecular','Viscosity_EddyMolecularRatio'],
+            'operation':self.chi_from_Density_TurbulentDistance_TurbulentEnergyKinetic_ViscosityMolecular_Viscosity_EddyMolecularRatio,
           },
         ],
         Density=[
           {
-            'noms_arguments':['TurbulentEnergyKineticDensity','TurbulentEnergyKinetic'],
-            'fonction':self.Density_from_conservative_primitive,
+            'arguments':['TurbulentEnergyKineticDensity','TurbulentEnergyKinetic'],
+            'operation':self.Density_from_conservative_primitive,
           },
           {
-            'noms_arguments':['TurbulentLengthScaleDensity','TurbulentLengthScaleRate'],
-            'fonction':self.Density_from_conservative_primitive,
+            'arguments':['TurbulentLengthScaleDensity','TurbulentLengthScaleRate'],
+            'operation':self.Density_from_conservative_primitive,
           },
         ],
         df1dTurbulentLengthScale=[
           {
-            'noms_arguments':['TurbulentDistance','TurbulentLengthScale'],
-            'fonction':self.df1dTurbulentLengthScale_from_TurbulentDistance_TurbulentLengthScale,
+            'arguments':['TurbulentDistance','TurbulentLengthScale'],
+            'operation':self.df1dTurbulentLengthScale_from_TurbulentDistance_TurbulentLengthScale,
           },
         ],
         dfmudchi=[
           {
-            'noms_arguments':['chi','Density','TurbulentDistance','TurbulentEnergyKinetic','TurbulentLengthScale','ViscosityMolecular'],
-            'fonction':self.dfmudchi_from_chi_Density_TurbulentDistance_TurbulentEnergyKinetic_TurbulentLengthScale_ViscosityMolecular,
+            'arguments':['chi','Density','TurbulentDistance','TurbulentEnergyKinetic','TurbulentLengthScale','ViscosityMolecular'],
+            'operation':self.dfmudchi_from_chi_Density_TurbulentDistance_TurbulentEnergyKinetic_TurbulentLengthScale_ViscosityMolecular,
           },
         ],
         dTurbulentLengthScaledchi=[
           {
-            'noms_arguments':['Density','chi','TurbulentEnergyKinetic','ViscosityMolecular'],
-            'fonction':self.dTurbulentLengthScaledchi_from_Density_chi_TurbulentEnergyKinetic_ViscosityMolecular,
+            'arguments':['Density','chi','TurbulentEnergyKinetic','ViscosityMolecular'],
+            'operation':self.dTurbulentLengthScaledchi_from_Density_chi_TurbulentEnergyKinetic_ViscosityMolecular,
           },
         ],
         dViscosity_EddyMolecularRatiodchi=[
           {
-            'noms_arguments':['chi','fmu','dfmudchi'],
-            'fonction':self.dViscosity_EddyMolecularRatiodchi_from_chi_fmu_dfmudchi,
+            'arguments':['chi','fmu','dfmudchi'],
+            'operation':self.dViscosity_EddyMolecularRatiodchi_from_chi_fmu_dfmudchi,
           },
         ],
         f1=[
           {
-            'noms_arguments':['TurbulentDistance','TurbulentLengthScale'],
-            'fonction':self.f1_from_TurbulentDistance_TurbulentLengthScale,
+            'arguments':['TurbulentDistance','TurbulentLengthScale'],
+            'operation':self.f1_from_TurbulentDistance_TurbulentLengthScale,
           },
         ],
         fmu=[
           {
-            'noms_arguments':['chi','f1'],
-            'fonction':self.fmu_from_chi_f1,
+            'arguments':['chi','f1'],
+            'operation':self.fmu_from_chi_f1,
           },
         ],
         TurbulentEnergyKinetic=[
           {
-            'noms_arguments':['TurbulentEnergyKineticDensity','Density'],
-            'fonction':self.primitive_from_conservative_Density,
+            'arguments':['TurbulentEnergyKineticDensity','Density'],
+            'operation':self.primitive_from_conservative_Density,
           },
           {
-            'noms_arguments':['TurbulenceIntensity','VelocityMagnitude'],
-            'fonction':self.TurbulentEnergyKinetic_from_TurbulenceIntensity_velocityModulus,
+            'arguments':['TurbulenceIntensity','VelocityMagnitude'],
+            'operation':self.TurbulentEnergyKinetic_from_TurbulenceIntensity_velocityModulus,
           },
         ],
         TurbulentEnergyKineticDensity=[
           {
-            'noms_arguments':['Density','TurbulentEnergyKinetic'],
-            'fonction':self.conservative_from_Density_primitive,
+            'arguments':['Density','TurbulentEnergyKinetic'],
+            'operation':self.conservative_from_Density_primitive,
           },
         ],
         TurbulentLengthScale=[
           {
-            'noms_arguments':['TurbulentLengthScaleDensity','Density'],
-            'fonction':self.primitive_from_conservative_Density,
+            'arguments':['TurbulentLengthScaleDensity','Density'],
+            'operation':self.primitive_from_conservative_Density,
           },
           {
-            'noms_arguments':['Density','chi','TurbulentEnergyKinetic','ViscosityMolecular'],
-            'fonction':self.TurbulentLengthScale_from_Density_chi_TurbulentEnergyKinetic_ViscosityMolecular,
+            'arguments':['Density','chi','TurbulentEnergyKinetic','ViscosityMolecular'],
+            'operation':self.TurbulentLengthScale_from_Density_chi_TurbulentEnergyKinetic_ViscosityMolecular,
           },
         ],
         TurbulentLengthScaleDensity=[
           {
-            'noms_arguments':['Density','TurbulentLengthScale'],
-            'fonction':self.conservative_from_Density_primitive,
+            'arguments':['Density','TurbulentLengthScale'],
+            'operation':self.conservative_from_Density_primitive,
           },
         ],
         Viscosity_EddyMolecularRatio=[
           {
-            'noms_arguments':['chi','fmu'],
-            'fonction':self.Viscosity_EddyMolecularRatio_from_chi_fmu,
+            'arguments':['chi','fmu'],
+            'operation':self.Viscosity_EddyMolecularRatio_from_chi_fmu,
           },
         ],
       )
@@ -888,39 +898,4 @@ class Smith_1994(Boussinesq_1877):
 
 
 
-
-
-
-
-#======================================================================#
-# Interpréteur de clés pour la                                         #
-# création de modèles prédéfinis                                       #
-#======================================================================#
-
-existing_models={
-  'Boussinesq_1877'       : Boussinesq_1877,
-  'Spalart-Allmaras_1992' : Spalart_Allmaras_1992,
-  'Deck-Renard_2020'      : Deck_Renard_2020,
-  'Menter_1994'           : Kolmogorov_1942,
-  'Menter_1994_BSL'       : Kolmogorov_1942,
-  'Menter_1994_SST'       : Kolmogorov_1942,
-  'Wilcox_1988'           : Kolmogorov_1942,
-  'Kok_2005'              : Kolmogorov_1942,
-  'Wilcox_2006'           : Kolmogorov_1942,
-  'Menter-Langtry_2006'   : Menter_Langtry_2009,
-  'Menter-Langtry_2009'   : Menter_Langtry_2009,
-  'Menter-Langtry_2015'   : Menter_Langtry_2009,
-  'Smith_1994'            : Smith_1994,
-}
-
-
-def build_models(cles):
-  modeles=[]
-  for cle in cles:
-    modeles.append(existing_models[cle]())
-  return modeles
-
-
-
-
-#__________Fin de fichier turbulence.py________________________________#
+#__________End of file turbulence.py___________________________________#

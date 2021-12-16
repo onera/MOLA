@@ -8,6 +8,8 @@ Description : Submodule for the automatic computation of models-related variable
 History :
 Date       | version | git rev. | Comment
 ___________|_________|__________|_______________________________________#
+2021.12.16 | v2.0.01 |          | Modification to not perform the same computation twice
+2021.12.11 | v2.0.00 | ea8e5b3  | Translation for MOLA
 2021.09.01 | v2.0.00 |          | Architecture correction sparing an initial code analysis,
            |         |          | and algorithm correction for cases when several models able
            |         |          | to compute the same variable are passed to the operator
@@ -27,14 +29,23 @@ import Converter.Internal as I
 
 debug_operators=False
 
-verbose=[0]
+verbose={0:0}
 
 
-def set_verbose(v):
-  verbose[0]=v
+def set_verbose(level,scale=0):
+  """
+  Sets the verbosity level. Messages are only printed to stdout if the verbosity level is greater than
+  the verbosity need of the printv function.
+
+  Argument
+  --------
+    scale : string or int, category of the messages whose verbose level must be set
+    level : int, verbosity level henceforth
+  """
+  verbose[scale]=level
 
 
-def printv(string,v=0,error=False):
+def printv(string,v=0,s=0,error=False):
   """
   Prints the character string <string> if the verbosity level allows it,
   or, if <error> is True, to standard error.
@@ -42,12 +53,13 @@ def printv(string,v=0,error=False):
   Arguments
   ---------
     string : string, to be printed. Do not forget to end lines with  if you do not want your stdout to be messy :)
-    v     : int, verbosity level beyond which string must be printed
-    error : bool, if True, print to stderr, whether the verbosity level allows it or not
+    v      : int, verbosity level beyond which string must be printed
+    s      : scale, category of messages you want printed
+    error  : bool, if True, print to stderr, whether the verbosity level allows it or not
 
   """
   if not error:
-    if v<=verbose[0]:
+    if v<=verbose[s]:
       sys.stdout.write(string)
       sys.stdout.flush()
   else:
@@ -110,6 +122,7 @@ class operator(object):
 
     self.initializeOperationsTree()
     self.data=dict()
+    self.computed_variables=list()
 
   def append_error(self,error_string):
     self.errors='{0}{1}'.format(self.errors,error_string)
@@ -135,20 +148,45 @@ class operator(object):
       get_data
     """
 
+    def _get_node_model(node):
+      return node[1][0]
+
+    def _get_node_operation_index(node):
+      return node[1][1]
+
+    def _get_node_data(node):
+      return node[1][3]
+
+    def _set_all_same_nodes_data(node,data):
+      for other_same_node in I.getNodesFromNameAndType(self.operations_tree,node[0],'UserDefinedData_t'):
+        other_same_node[1].append(data)
+
     def _compute(node):
       arguments=dict()
+      result=None
       if not node[2]:
-        return self.get_data(node[0])
+        result=self.get_data(node[0])
+        _set_all_same_nodes_data(node, result)
       else:
-        variable_name=node[0]
-        i_model=node[1][0]
-        i_operation=node[1][1]
-        for child_node in node[2]:
-          necessary_variable_name=child_node[0]
-          arguments.update({necessary_variable_name:_compute(child_node)})
-        result=self.models[i_model].carryOutOperation(variable_name, i_operation, arguments)
-        printv('{0} = {1}\n'.format(node[0],result),v=4)
-        return result
+        if not node[0] in self.computed_variables:
+          variable_name=node[0]
+          i_model=_get_node_model(node)
+          i_operation=_get_node_operation_index(node)
+          for child_node in node[2]:
+            necessary_variable_name=child_node[0]
+            _compute(child_node)
+            arguments.update({necessary_variable_name:_get_node_data(child_node)})
+
+          result=self.models[i_model].carryOutOperation(variable_name, i_operation, arguments)
+          printv('{0} = {1}\n'.format(node[0],result),v=9)
+          _set_all_same_nodes_data(node, result)
+        else:
+          result=_get_node_data(node)
+
+      self.computed_variables.append(node[0])
+      # Empty node children : their values can be memory-consuming and are no longer useful
+      node[2]=list()
+
 
     self.initializeOperationsTree()
     if self.is_available(variable_name):
@@ -163,7 +201,9 @@ class operator(object):
       printTreeV(self.operations_tree,v=2)
       base=I.getBases(self.operations_tree)[0]
       variable_node=I.getChildren(base)[0]
-      self.set_data(variable_name,_compute(variable_node))
+      self.initializeComputedVariables()
+      _compute(variable_node)
+      self.set_data(variable_name,_get_node_data(variable_node))
 
   def eraseAllData(self):
     """
@@ -181,6 +221,7 @@ class operator(object):
       variable_name : string, name of the data to erase
     """
     self.data.pop(variable_name)
+
 
   def get_data(self,variable_name):
     """
@@ -246,45 +287,57 @@ class operator(object):
         self.append_error(error_string)
       variable_node[1].append(computability)
 
+    def _get_node_computability(node):
+      return node[1][2]
+
     def _is_computable(variable_node):
       printTreeV(self.operations_tree,v=6)
       path_variable_node=I.getPath(self.operations_tree,variable_node)
       parent_nodes_names=path_variable_node.split('/')
+      all_same_nodes=I.getNodesFromNameAndType(self.operations_tree,variable_node[0],'UserDefinedData_t')
       if variable_node[0] in parent_nodes_names[:-1]:
         # Si la variable demandée doit servir à se calculer elle-même, l'opération courante n'est pas réalisable
         _define_computabilityInTree(variable_node, False, "La variable {0} est déjà dans la chaîne de calcul et ne peut pas servir à se calculer elle-même.\n", v=4)
       else:
-        # Sinon, on boucle sur les modèles connus et les opérations associées pour déterminer la suite de l'tree de calcul
-        operation_exists=False
-        for i_model in range(self.n_models):
-          variable_node[1][0]=i_model
-          variable_node[1][1]=0
-          model=self.models[i_model]
-          operations_properties=model.get_operations_properties(variable_node[0])
-          if operations_properties:
-            operation_exists=True
-            while variable_node[1][1]<len(operations_properties):
-              local_computability=True
-              for subvariable_name in operations_properties[variable_node[1][1]]:
-                subvariable_node=I.newUserDefinedData(name=subvariable_name,parent=variable_node)
-
-                subvariable_node[1]=[0,0]
-                if not self.is_available(subvariable_name):
-                  _is_computable(subvariable_node)
-                  local_computability*=subvariable_node[1][2]
-
-                if not local_computability:
-                  # Mise à jour de l'arbre-fils
-                  variable_node[1][1]+=1
-                  variable_node[2]=[]
-                  break
-              if local_computability:
-                _define_computabilityInTree(variable_node, True)
-                return
-                
-        if not operation_exists:
-          _define_computabilityInTree(variable_node, False, "La variable demandée par la chaîne de calcul {0} ne peut être calculée, parce qu'aucune opération définie ne permet son obtention.\n".format(variable_node[0]),v=1)
+        if len(all_same_nodes)>1:
+          # On a déjà essayé de trouver un chemin de calcul pour cette variable, inutile de recommencer, il suffit de copier le résultat précédent
+          variable_node[:]=all_same_nodes[0][:]
+          # variable_node[2]=all_same_nodes[0][2]
           return
+        else:
+          # Sinon, on boucle sur les modèles connus et les opérations associées pour déterminer la suite de l'tree de calcul
+          operation_exists=False
+          for i_model in range(self.n_models):
+            variable_node[1][0]=i_model
+            variable_node[1][1]=0
+            model=self.models[i_model]
+            operations_properties=model.get_operations_properties(variable_node[0])
+            if operations_properties:
+              operation_exists=True
+              while variable_node[1][1]<len(operations_properties):
+                local_computability=True
+                for subvariable_name in operations_properties[variable_node[1][1]]:
+                  subvariable_node=I.newUserDefinedData(name=subvariable_name,parent=variable_node)
+
+                  subvariable_node[1]=[0,0]
+                  if not self.is_available(subvariable_name):
+                    _is_computable(subvariable_node)
+                    local_computability*=subvariable_node[1][2]
+                  else:
+                    _define_computabilityInTree(subvariable_node, True)
+
+                  if not local_computability:
+                    # Mise à jour de l'arbre-fils
+                    variable_node[1][1]+=1
+                    variable_node[2]=[]
+                    break
+                if local_computability:
+                  _define_computabilityInTree(variable_node, True)
+                  return
+                
+          if not operation_exists:
+            _define_computabilityInTree(variable_node, False, "La variable demandée par la chaîne de calcul {0} ne peut être calculée, parce qu'aucune opération définie ne permet son obtention.\n".format(variable_node[0]),v=1)
+            return
           
         _define_computabilityInTree(variable_node, False, "Aucune chaîne de calcul ne permet de calculer la variable {0}, bien que des opérations pour le faire existent. Les données ou les opérations disponibles sont insuffisantes.\n".format(variable_node[0]))
         return
@@ -352,6 +405,9 @@ class operator(object):
     """
     self.operations_tree=C.newPyTree(['Base'])
 
+  def initializeComputedVariables(self):
+    self.computed_variables=list()
+
 
 
 
@@ -394,7 +450,7 @@ class PyTree_operator(operator):
     """
     super(PyTree_operator,self).__init__(models)
     self.data_localization='CellCenter'
-    self.FS_courant=None
+    self.current_containers=None
 
   def compute(self,variable_name,replace=False):
     """
@@ -411,18 +467,16 @@ class PyTree_operator(operator):
     --------
       get_data
     """
-    FlowSolution_nodes_name=self.get_FlowSolution_nodes_name()
+    # FlowSolution_nodes_name=self.get_FlowSolution_nodes_name()
     for zone in I.getNodesFromType(self.tree,'Zone_t'):
-      self.zone_courante=zone
-      for FS in I.getNodesFromNameAndType(self.zone_courante,FlowSolution_nodes_name,'FlowSolution_t'):
-        self.FS_courant=FS
-        super(PyTree_operator, self).compute(variable_name,replace=replace)
+      self.set_currentContainers(zone)
+      super(PyTree_operator, self).compute(variable_name,replace=replace)
 
   def eraseAllData(self):
     """
     Erases all the available data from the current FlowSolutionNode.
     """
-    self.FS_courant[2]=list()
+    self.current_containers[2]=list()
 
   def eraseData(self,variable_name):
     """
@@ -432,7 +486,7 @@ class PyTree_operator(operator):
     ---------
       variable_name : string, name of the data to erase
     """
-    I._rmNodesByNameAndType(self.FS_courant,variable_name,'DataArray_t')
+    I._rmNodesByNameAndType(self.current_containers,variable_name,'DataArray_t')
 
   def get_tree(self):
     """
@@ -456,25 +510,25 @@ class PyTree_operator(operator):
     -------
       value         : np.ndarray, value found in the DataArray_t node named after <variable_name>
     """
-    return I.getNodeFromNameAndType(self.FS_courant,variable_name,'DataArray_t')[1]
+    return I.getNodeFromNameAndType(self.current_containers,variable_name,'DataArray_t')[1]
 
-  def get_FlowSolution_nodes_name(self):
-    """
-    Returns the FlowSolution nodes names that must be considered for any computation using the current working tree.
-    Computations at cell centers and node can be performed by calling the set_dataLocalization method and modifying
-    the corresponding variables of the Cassiopee Converter.Internal module.
-    Returns
-    -------
-      FlowSolution_nodes_names : string, name of the FlowSolution containers to use for the computations with this PyTree_operator
-    """
-    if self.data_localization=='CellCenter':
-      FlowSolution_nodes_name=I.__FlowSolutionCenters__
-    elif self.data_localization=='Vertex':
-      FlowSolution_nodes_name=I.__FlowSolutionNodes__
-    else:
-      FlowSolution_nodes_name=None
-      raise Exception("Le type de données fourni n'est pas valide. Les données peuvent seulement être définies aux centres cellules 'CellCenter' où aux noeuds du maillage 'Vertex'")
-    return FlowSolution_nodes_name
+  # def get_FlowSolution_nodes_name(self):
+  #   """
+  #   Returns the FlowSolution nodes names that must be considered for any computation using the current working tree.
+  #   Computations at cell centers and node can be performed by calling the set_dataLocalization method and modifying
+  #   the corresponding variables of the Cassiopee Converter.Internal module.
+  #   Returns
+  #   -------
+  #     FlowSolution_nodes_names : string, name of the FlowSolution containers to use for the computations with this PyTree_operator
+  #   """
+  #   if self.data_localization=='CellCenter':
+  #     FlowSolution_nodes_name=I.__FlowSolutionCenters__
+  #   elif self.data_localization=='Vertex':
+  #     FlowSolution_nodes_name=I.__FlowSolutionNodes__
+  #   else:
+  #     FlowSolution_nodes_name=None
+  #     raise Exception("Le type de données fourni n'est pas valide. Les données peuvent seulement être définies aux centres cellules 'CellCenter' où aux noeuds du maillage 'Vertex'")
+  #   return FlowSolution_nodes_name
 
   def renameVariable(self,initial_name,new_name):
     """
@@ -498,6 +552,16 @@ class PyTree_operator(operator):
     """
     self.tree=tree
 
+  def set_currentContainers(self,zone):
+    if self.data_localization=='CellCenter':
+      self.current_containers=[I.getNodeFromNameAndType(zone,I.__FlowSolutionCenters__,'FlowSolution_t')]
+    elif self.data_localization=='Vertex':
+      self.current_containers=[
+        I.getNodeFromNameAndType(zone,I.__FlowSolutionNodes__,'FlowSolution_t'),
+        I.getNodeFromNameAndType(zone,I.__GridCoordinates__,'GridCoordinates_t')
+      ]
+    self.main_container=self.current_containers[0]
+
   def set_data(self,variable_name,value):
     """
     Defines the value associated to the name <variable_name> as being <value> in the current FlowSolution node.
@@ -508,11 +572,11 @@ class PyTree_operator(operator):
       variable_name : string, name of the variable to define
       value         : float or np.ndarray, value to assign
     """
-    noeuds_variable=I.getNodesFromNameAndType(self.FS_courant,variable_name,'DataArray_t')
+    noeuds_variable=I.getNodesFromNameAndType(self.current_containers,variable_name,'DataArray_t')
     if noeuds_variable:
       printv("Attention : les données associées à la variable {0} existent déjà sur la zone {1}, elles vont être remplacées.".format(variable_name,self.zone_courante[0]))
-      I._rmNodesByNameAndType(self.FS_courant,variable_name,'DataArray_t')
-    I.newDataArray(name=variable_name,value=value,parent=self.FS_courant)
+      I._rmNodesByNameAndType(self.current_containers,variable_name,'DataArray_t')
+    I.newDataArray(name=variable_name,value=value,parent=self.main_container)
 
   def set_dataLocalization(self,data_localization):
     """
@@ -523,27 +587,29 @@ class PyTree_operator(operator):
       data_localization : string, new data localization where the computations must be performed.
                           Only the values 'Vertex' and 'CellCenter' are valid.
     """
+    if not self.data_localization in ['CellCenter','Vertex']:
+      raise Exception("Le type de données fourni n'est pas valide. Les données peuvent seulement être définies aux centres cellules 'CellCenter' où aux noeuds du maillage 'Vertex' (comprenant les coordonnées)")
     self.data_localization=data_localization
 
-  def set_FlowSolution_nodes_name(self,FlowSolution_nodes_name):
-    """
-    Modifies the names of the FlowSolution containers on which this PyTree_operator object acts.
-    .. Warning : this method modifies the values of attributes Converter.Internal.__FlowSolutionCenters__
-    and Converter.Internal.__FlowSolutionNodes__, depending on the current data localization.
+  # def set_FlowSolution_nodes_name(self,FlowSolution_nodes_name):
+  #   """
+  #   Modifies the names of the FlowSolution containers on which this PyTree_operator object acts.
+  #   .. Warning : this method modifies the values of attributes Converter.Internal.__FlowSolutionCenters__
+  #   and Converter.Internal.__FlowSolutionNodes__, depending on the current data localization.
 
-    Argument
-    --------
-      FlowSolution_nodes_name : string, new name of the containers in which to look to carry out computations
+  #   Argument
+  #   --------
+  #     FlowSolution_nodes_name : string, new name of the containers in which to look to carry out computations
 
-    See also
-    --------
-      set_dataLocalization
+  #   See also
+  #   --------
+  #     set_dataLocalization
 
-    """
-    if self.data_localization=='CellCenter':
-      I.__FlowSolutionCenters__=FlowSolution_nodes_name
-    elif self.data_localization=='Vertex':
-      I.__FlowSolutionNodes__=FlowSolution_nodes_name
+  #   """
+  #   if self.data_localization=='CellCenter':
+  #     I.__FlowSolutionCenters__=FlowSolution_nodes_name
+  #   elif self.data_localization=='Vertex':
+  #     I.__FlowSolutionNodes__=FlowSolution_nodes_name
 
   def is_available(self,variable_name):
     """
@@ -557,7 +623,7 @@ class PyTree_operator(operator):
     -------
       availability  : bool, whether there exists a DataArray_t node with the name <variable_name>.
     """
-    variable_nodes=I.getNodesFromNameAndType(self.FS_courant,variable_name,'DataArray_t')
+    variable_nodes=I.getNodesFromNameAndType(self.current_containers,variable_name,'DataArray_t')
     availability=True
     if not variable_nodes:
       availability=False

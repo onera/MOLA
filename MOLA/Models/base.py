@@ -6,7 +6,8 @@ Description : Submodule that defines the core methods and architecture of a mode
 History :
 Date       | version | git rev. | Comment
 ___________|_________|__________|_______________________________________#
-2021.12.14 | v2.0.00 |          | Translation with integration into MOLA
+2021.12.16 | v2.1.00 |          | Possibility to introduce external operations in the computing chain
+2021.12.14 | v2.0.00 | ea8e5b3  | Translation with integration into MOLA
 2021.09.01 | v1.2.00 |          | Simplification in the typography of operations by providing
            |         |          | the list of necessary arguments for a given computation instead
            |         |          | of performing a code analysis of the arguments names. More subtle and suple :) 
@@ -39,14 +40,23 @@ import sys
 
 
 
-verbose=[0]
+verbose={0:0}
 
 
-def set_verbose(v):
-  verbose[0]=v
+def set_verbose(level,scale=0):
+  """
+  Sets the verbosity level. Messages are only printed to stdout if the verbosity level is greater than
+  the verbosity need of the printv function.
+
+  Argument
+  --------
+    scale : string or int, category of the messages whose verbose level must be set
+    level : int, verbosity level henceforth
+  """
+  verbose[scale]=level
 
 
-def printv(string,v=0,error=False):
+def printv(string,v=0,s=0,error=False):
   """
   Prints the character string <string> if the verbosity level allows it,
   or, if <error> is True, to standard error.
@@ -54,12 +64,13 @@ def printv(string,v=0,error=False):
   Arguments
   ---------
     string : string, to be printed. Do not forget to end lines with  if you do not want your stdout to be messy :)
-    v     : int, verbosity level beyond which string must be printed
-    error : bool, if True, print to stderr, whether the verbosity level allows it or not
+    v      : int, verbosity level beyond which string must be printed
+    s      : scale, category of messages you want printed
+    error  : bool, if True, print to stderr, whether the verbosity level allows it or not
 
   """
   if not error:
-    if v<=verbose[0]:
+    if v<=verbose[s]:
       sys.stdout.write(string)
       sys.stdout.flush()
   else:
@@ -88,12 +99,12 @@ class model(object):
 
   Note
   ----
-  A model can be used on its own to access specific operations, but any future development must allow use through
-  an operator object.
+    A model can be used on its own to access specific operations, but any future development must allow use through
+    an operator object.
 
   See also
   --------
-  .operators.operator
+    .operators.operator
 
   """
   
@@ -117,7 +128,7 @@ class model(object):
     operations_properties=[]
     if variable_name in self.operations.keys():
       for operation in self.operations[variable_name]:
-        operations_properties.append(operation['noms_arguments'])
+        operations_properties.append(operation['arguments'])
     return operations_properties
 
   def carryOutOperation(self,variable_name,numero_operation,arguments):
@@ -135,15 +146,18 @@ class model(object):
     -------
       value : float or np.ndarray, value associated with <variable_name> after the computation
     """
-    noms_arguments_reels=ip.getargspec(self.operations[variable_name][numero_operation]['fonction'])[0][1:]
-    arguments_reels=dict()
-    for numero_variable in range(len(self.operations[variable_name][numero_operation]['noms_arguments'])):
-      arguments_reels.update(
+    real_arguments_names=ip.getargspec(self.operations[variable_name][numero_operation]['operation'])[0] #[1:]
+    if real_arguments_names[0]=='self':
+      real_arguments_names.pop(0)
+
+    real_arguments=dict()
+    for numero_variable in range(len(self.operations[variable_name][numero_operation]['arguments'])):
+      real_arguments.update(
         {
-          noms_arguments_reels[numero_variable]:arguments[self.operations[variable_name][numero_operation]['noms_arguments'][numero_variable]]
+          real_arguments_names[numero_variable]:arguments[self.operations[variable_name][numero_operation]['arguments'][numero_variable]]
         }
       )
-    return self.operations[variable_name][numero_operation]['fonction'](**arguments_reels)
+    return self.operations[variable_name][numero_operation]['operation'](**real_arguments)
 
   def supplyOperations(self,operations):
     """
@@ -168,6 +182,33 @@ class model(object):
       else:
         for operation in operations[variable_name]:
           self.operations[variable_name].insert(0,operation)
+
+  def supplyExternalOperations(self,variable_name,arguments,operation):
+    """
+    Adds an external operation to the already available ones.
+
+    Argument
+    --------
+      variable_name : string, variable that can be computed using the provided <operation>
+      arguments     : list(string), name of the arguments necessary for the computation of <variable_name>
+      operation     : func, operation to add that allows the computation of <variable_name> using the arguments named <arguments>
+    """
+    if not variable_name in self.operations.keys():
+      self.operations.update(
+        {
+          variable_name:[
+            dict(
+              arguments=arguments,
+              operation=operation,
+            )
+          ]
+        }
+      )
+    else:
+      self.operations[variable_name].insert(0,dict(
+        arguments=arguments,
+        operation=operation,
+      ))
 
 
   #__________Universal useful functions________________________________#

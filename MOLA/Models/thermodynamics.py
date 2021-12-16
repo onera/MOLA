@@ -5,13 +5,11 @@ Author : Michel Bouchard
 Contact : michel.bouchard@onera.fr, michel-j.bouchard@intradef.gouv.fr
 Name : Models.thermodynamics.py
 Description : Submodule that defines some often-used thermodynamics models.
-              For the moment, the models are not independent. For instance, the user cannot
-              have a perfect gaz that does not follow Sutherland's law.
-              A parser is on its way to correct this and build lower level models.
 History :
 Date       | version | git rev. | Comment
 ___________|_________|__________|_______________________________________#
-2021.12.14 | v2.0.00 |          | Translation with integration into MOLA
+2021.12.16 | v2.1.00 |          | Energy-, Enthalpy- and Entropy- operations added
+2021.12.14 | v2.0.00 | ea8e5b3  | Translation with integration into MOLA
 2021.09.01 | v1.2.00 |          | Simplification in the typography of operations by providing
            |         |          | the list of necessary arguments for a given computation instead
            |         |          | of performing a code analysis of the arguments names. More subtle and suple :) 
@@ -201,174 +199,202 @@ class continuous_medium(thermodynamics):
       dict(
         Density=[
           {
-            'noms_arguments':['LengthScale','Reynolds','VelocityMagnitude','ViscosityMolecular'],
-            'fonction':self.Density_from_LengthScale_Reynolds_VelocityMagnitude_ViscosityMolecular,
+            'arguments':['LengthScale','Reynolds','VelocityMagnitude','ViscosityMolecular'],
+            'operation':self.Density_from_LengthScale_Reynolds_VelocityMagnitude_ViscosityMolecular,
           },
           {
-            'noms_arguments':['MomentumX','VelocityX'],
-            'fonction':self.Density_from_conservative_primitive,
+            'arguments':['MomentumX','VelocityX'],
+            'operation':self.Density_from_conservative_primitive,
           },
           {
-            'noms_arguments':['MomentumY','VelocityY'],
-            'fonction':self.Density_from_conservative_primitive,
+            'arguments':['MomentumY','VelocityY'],
+            'operation':self.Density_from_conservative_primitive,
           },
           {
-            'noms_arguments':['MomentumZ','VelocityZ'],
-            'fonction':self.Density_from_conservative_primitive,
+            'arguments':['MomentumZ','VelocityZ'],
+            'operation':self.Density_from_conservative_primitive,
           },
           {
-            'noms_arguments':['EnergyStagnationDensity','EnergyStagnation'],
-            'fonction':self.Density_from_conservative_primitive,
+            'arguments':['EnergyStagnationDensity','EnergyStagnation'],
+            'operation':self.Density_from_conservative_primitive,
+          },
+        ],
+        Energy=[
+          {
+            'arguments':['Density','Enthalpy','Pressure'],
+            'operation':self.Energy_from_Density_Enthalpy_Pressure,
+          },
+          {
+            'arguments':['EnergyStagnation','VelocityMagnitude'],
+            'operation':self.Energy_from_EnergyStagnation_VelocityMagnitude,
+          },
+        ],
+        Enthalpy=[
+          {
+            'arguments':['Energy', 'Pressure'],
+            'operation':self.Enthalpy_from_Density_Energy_Pressure,
+          },
+          {
+            'arguments':['EnthalpyStagnation', 'VelocityMagnitude'],
+            'operation':self.Enthalpy_from_EnthalpyStagnation_VelocityMagnitude,
           },
         ],
         EnergyStagnation=[
           {
-            'noms_arguments':['EnergyStagnationDensity','Density'],
-            'fonction':self.primitive_from_conservative_Density,
+            'arguments':['EnergyStagnationDensity','Density'],
+            'operation':self.primitive_from_conservative_Density,
           }
         ],
         EnergyStagnationDensity=[
           {
-            'noms_arguments':['Density','EnergyStagnation'],
-            'fonction':self.conservative_from_Density_primitive,
+            'arguments':['Density','EnergyStagnation'],
+            'operation':self.conservative_from_Density_primitive,
           },
         ],
         gradMagnitude_Velocity=[
           {
-            'noms_arguments':['gradCoordinateX_VelocityX','gradCoordinateY_VelocityX','gradCoordinateZ_VelocityX',
-                              'gradCoordinateX_VelocityY','gradCoordinateY_VelocityY','gradCoordinateZ_VelocityY',
-                              'gradCoordinateX_VelocityZ','gradCoordinateY_VelocityZ','gradCoordinateZ_VelocityZ'],
-            'fonction':self.matrixNorm_from_components,
+            'arguments':['gradCoordinateX_VelocityX','gradCoordinateY_VelocityX','gradCoordinateZ_VelocityX',
+                         'gradCoordinateX_VelocityY','gradCoordinateY_VelocityY','gradCoordinateZ_VelocityY',
+                         'gradCoordinateX_VelocityZ','gradCoordinateY_VelocityZ','gradCoordinateZ_VelocityZ'],
+            'operation':self.matrixNorm_from_components,
           },
         ],
         Mach=[
           {
-            'noms_arguments':['VelocityMagnitude','VelocitySound'],
-            'fonction':self.Mach_from_VelocityMagnitude_VelocitySound,
+            'arguments':['VelocityMagnitude','VelocitySound'],
+            'operation':self.Mach_from_VelocityMagnitude_VelocitySound,
           },
         ],
         MomentumX=[
           {
-            'noms_arguments':['Density','VelocityX'],
-            'fonction':self.conservative_from_Density_primitive,
+            'arguments':['Density','VelocityX'],
+            'operation':self.conservative_from_Density_primitive,
           },
         ],
         MomentumY=[
           {
-            'noms_arguments':['Density','VelocityY'],
-            'fonction':self.conservative_from_Density_primitive,
+            'arguments':['Density','VelocityY'],
+            'operation':self.conservative_from_Density_primitive,
           },
         ],
         MomentumZ=[
           {
-            'noms_arguments':['Density','VelocityZ'],
-            'fonction':self.conservative_from_Density_primitive,
+            'arguments':['Density','VelocityZ'],
+            'operation':self.conservative_from_Density_primitive,
           },
         ],
         Reynolds=[
           {
-            'noms_arguments':['Density','LengthScale','VelocityMagnitude','ViscosityMolecular'],
-            'fonction':self.Reynolds_from_Density_LengthScale_VelocityMagnitude_ViscosityMolecular,
+            'arguments':['Density','LengthScale','VelocityMagnitude','ViscosityMolecular'],
+            'operation':self.Reynolds_from_Density_LengthScale_VelocityMagnitude_ViscosityMolecular,
           },
         ],
         strainRateMagnitude=[
           {
-            'noms_arguments':['strainRateXX','strainRateXY','strainRateXZ','strainRateYY','strainRateYZ','strainRateZZ'],
-            'fonction':self.strainRateMagnitude_from_strainRateComponents,
+            'arguments':['strainRateXX','strainRateXY','strainRateXZ','strainRateYY','strainRateYZ','strainRateZZ'],
+            'operation':self.strainRateMagnitude_from_strainRateComponents,
           },
         ],
         strainRateXX=[
           {
-            'noms_arguments':['gradCoordinateX_VelocityX'],
-            'fonction':self.strainRateXX_from_gradCoordinateX_VelocityX,
+            'arguments':['gradCoordinateX_VelocityX'],
+            'operation':self.strainRateXX_from_gradCoordinateX_VelocityX,
           },
         ],
         strainRateXY=[
           {
-            'noms_arguments':['gradCoordinateX_VelocityY','gradCoordinateY_VelocityX'],
-            'fonction':self.strainRateXY_from_gradCoordinateX_VelocityY_gradCoordinateY_VelocityX,
+            'arguments':['gradCoordinateX_VelocityY','gradCoordinateY_VelocityX'],
+            'operation':self.strainRateXY_from_gradCoordinateX_VelocityY_gradCoordinateY_VelocityX,
           },
         ],
         strainRateXZ=[
           {
-            'noms_arguments':['gradCoordinateX_VelocityZ','gradCoordinateZ_VelocityX'],
-            'fonction':self.strainRateXZ_from_gradCoordinateX_VelocityZ_gradCoordinateZ_VelocityX,
+            'arguments':['gradCoordinateX_VelocityZ','gradCoordinateZ_VelocityX'],
+            'operation':self.strainRateXZ_from_gradCoordinateX_VelocityZ_gradCoordinateZ_VelocityX,
           },
         ],
         strainRateYY=[
           {
-            'noms_arguments':['gradCoordinateY_VelocityY'],
-            'fonction':self.strainRateYY_from_gradCoordinateY_VelocityY,
+            'arguments':['gradCoordinateY_VelocityY'],
+            'operation':self.strainRateYY_from_gradCoordinateY_VelocityY,
           },
         ],
         strainRateYZ=[
           {
-            'noms_arguments':['gradCoordinateY_VelocityZ','gradCoordinateZ_VelocityY'],
-            'fonction':self.strainRateYZ_from_gradCoordinateY_VelocityZ_gradCoordinateZ_VelocityY,
+            'arguments':['gradCoordinateY_VelocityZ','gradCoordinateZ_VelocityY'],
+            'operation':self.strainRateYZ_from_gradCoordinateY_VelocityZ_gradCoordinateZ_VelocityY,
           },
         ],
         strainRateZZ=[
           {
-            'noms_arguments':['gradCoordinateZ_VelocityZ'],
-            'fonction':self.strainRateZZ_from_gradCoordinateZ_VelocityZ,
+            'arguments':['gradCoordinateZ_VelocityZ'],
+            'operation':self.strainRateZZ_from_gradCoordinateZ_VelocityZ,
           },
         ],
         VelocityMagnitude=[
           {
-            'noms_arguments':['Mach','VelocitySound'],
-            'fonction':self.VelocityMagnitude_from_Mach_VelocitySound,
+            'arguments':['Mach','VelocitySound'],
+            'operation':self.VelocityMagnitude_from_Mach_VelocitySound,
           },
           {
-            'noms_arguments':['VelocityX','VelocityY','VelocityZ'],
-            'fonction':self.norm_from_component,
+            'arguments':['VelocityX','VelocityY','VelocityZ'],
+            'operation':self.norm_from_component,
           },
         ],
         VelocitySound=[
           {
-            'noms_arguments':['Mach','VelocityMagnitude',],
-            'fonction':self.VelocitySound_from_Mach_VelocityMagnitude,
+            'arguments':['Mach','VelocityMagnitude',],
+            'operation':self.VelocitySound_from_Mach_VelocityMagnitude,
           },
         ],
         VelocityX=[
           {
-            'noms_arguments':['MomentumX','Density',],
-            'fonction':self.primitive_from_conservative_Density,
+            'arguments':['MomentumX','Density',],
+            'operation':self.primitive_from_conservative_Density,
           },
         ],
         VelocityY=[
           {
-            'noms_arguments':['MomentumY','Density'],
-            'fonction':self.primitive_from_conservative_Density,
+            'arguments':['MomentumY','Density'],
+            'operation':self.primitive_from_conservative_Density,
           },
         ],
         VelocityZ=[
           {
-            'noms_arguments':['MomentumZ','Density'],
-            'fonction':self.primitive_from_conservative_Density,
+            'arguments':['MomentumZ','Density'],
+            'operation':self.primitive_from_conservative_Density,
           },
         ],
         VorticityMagnitude=[
           {
-            'noms_arguments':['VorticityX','VorticityY','VorticityZ'],
-            'fonction':self.VorticityMagnitude_from_vorticityComponents,
+            'arguments':['VorticityX','VorticityY','VorticityZ'],
+            'operation':self.VorticityMagnitude_from_vorticityComponents,
+          },
+          {
+            'arguments':['Energy', 'EnergyStagnation'],
+            'operation':self.VelocityMagnitude_from_Energy_EnergyStagnation,
+          },
+          {
+            'arguments':['Enthalpy','EnthalpyStagnation'],
+            'operation':self.VelocityMagnitude_from_Enthalpy_EnthalpyStagnation,
           },
         ],
         VorticityX=[
           {
-            'noms_arguments':['gradCoordinateY_VelocityZ','gradCoordinateZ_VelocityY'],
-            'fonction':self.VorticityX_from_gradCoordinateY_VelocityZ_gradCoordinateZ_VelocityY,
+            'arguments':['gradCoordinateY_VelocityZ','gradCoordinateZ_VelocityY'],
+            'operation':self.VorticityX_from_gradCoordinateY_VelocityZ_gradCoordinateZ_VelocityY,
           },
         ],
         VorticityY=[
           {
-            'noms_arguments':['gradCoordinateZ_VelocityX','gradCoordinateX_VelocityZ'],
-            'fonction':self.VorticityY_from_gradCoordinateZ_VelocityX_gradCoordinateX_VelocityZ,
+            'arguments':['gradCoordinateZ_VelocityX','gradCoordinateX_VelocityZ'],
+            'operation':self.VorticityY_from_gradCoordinateZ_VelocityX_gradCoordinateX_VelocityZ,
           },
         ],
         VorticityZ=[
           {
-            'noms_arguments':['gradCoordinateX_VelocityY','gradCoordinateY_VelocityX'],
-            'fonction':self.VorticityZ_from_gradCoordinateX_VelocityY_gradCoordinateY_VelocityX,
+            'arguments':['gradCoordinateX_VelocityY','gradCoordinateY_VelocityX'],
+            'operation':self.VorticityZ_from_gradCoordinateX_VelocityY_gradCoordinateY_VelocityX,
           },
         ],
       )
@@ -378,14 +404,38 @@ class continuous_medium(thermodynamics):
     Density = Reynolds/VelocityMagnitude/LengthScale*ViscosityMolecular
     return Density
 
+  def Energy_from_EnergyStagnation_VelocityMagnitude(self,EnergyStagnation,VelocityMagnitude):
+    Energy=EnergyStagnation-.5*np.power(VelocityMagnitude,2)
+    return Energy
+
+  def Energy_from_Density_Enthalpy_Pressure(self,Density,Enthalpy,Pressure):
+    Energy=Enthalpy-Pressure/Density
+    return Energy
+
+  def EnergyStagnation_from_Energy_VelocityMagnitude(self,Energy,VelocityMagnitude):
+    EnergyStagnation=Energy+.5*np.power(VelocityMagnitude,2)
+    return EnergyStagnation
+
+  def Enthalpy_from_Density_Energy_Pressure(Density,Energy,Pressure):
+    Enthalpy=Energy+Pressure/Density
+    return Enthalpy
+
+  def Enthalpy_from_EnthalpyStagnation_VelocityMagnitude(self,EnthalpyStagnation,VelocityMagnitude):
+    Enthalpy=EnthalpyStagnation-.5*np.power(VelocityMagnitude,2)
+    return Enthalpy
+
+  def EnthalpyStagnation_from_Enthalpy_VelocityMagnitude(self,Enthalpy,VelocityMagnitude):
+    EnthalpyStagnation=Enthalpy+.5*np.power(VelocityMagnitude,2)
+    return EnthalpyStagnation
+
   def Mach_from_VelocityMagnitude_VelocitySound(self,VelocityMagnitude,VelocitySound):
     Mach = VelocityMagnitude/VelocitySound
     return Mach
 
   def strainRateMagnitude_from_strainRateComponents(self,strainRateXX,strainRateXY,strainRateXZ,strainRateYY,strainRateYZ,strainRateZZ):
     return self.matrixNorm_from_components(strainRateXX, strainRateXY, strainRateXZ,
-                                                  strainRateXY, strainRateYY, strainRateYZ,
-                                                  strainRateXZ, strainRateYZ, strainRateZZ)
+                                           strainRateXY, strainRateYY, strainRateYZ,
+                                           strainRateXZ, strainRateYZ, strainRateZZ)
 
   def strainRateXX_from_gradCoordinateX_VelocityX(self,gradCoordinateX_VelocityX):
     return gradCoordinateX_VelocityX
@@ -412,6 +462,14 @@ class continuous_medium(thermodynamics):
     Reynolds = Density*VelocityMagnitude*LengthScale/ViscosityMolecular
     return Reynolds
 
+  def VelocityMagnitude_from_Energy_EnergyStagnation(self,Energy,EnergyStagnation):
+    VelocityMagnitude=np.sqrt(2.*(EnergyStagnation-Energy))
+    return VelocityMagnitude
+
+  def VelocityMagnitude_from_Enthalpy_EnthalpyStagnation(self,Enthalpy,EnthalpyStagnation):
+    VelocityMagnitude=np.sqrt(2.*(EnthalpyStagnation-Enthalpy))
+    return VelocityMagnitude
+
   def VelocityMagnitude_from_Mach_VelocitySound(self,Mach,VelocitySound):
     VelocityMagnitude = Mach*VelocitySound
     return VelocityMagnitude
@@ -421,10 +479,10 @@ class continuous_medium(thermodynamics):
     return VelocitySound
 
   def VorticityMagnitude_from_vorticityComponents(self,VorticityX,VorticityY,VorticityZ):
-    composanteNulle=np.zeros_like(VorticityX,dtype=np.float64)
-    return self.matrixNorm_from_components(composanteNulle, VorticityZ     , VorticityY     ,
-                                                  VorticityZ     , composanteNulle, VorticityX     ,
-                                                  VorticityY     , VorticityX     , composanteNulle)
+    null_component=np.zeros_like(VorticityX,dtype=np.float64)
+    return self.matrixNorm_from_components(null_component, VorticityZ    , VorticityY    ,
+                                           VorticityZ    , null_component, VorticityX    ,
+                                           VorticityY    , VorticityX    , null_component)
 
   def VorticityX_from_gradCoordinateY_VelocityZ_gradCoordinateZ_VelocityY(self,gradCoordinateY_VelocityZ,gradCoordinateZ_VelocityY):
     VorticityX = 1./2.*(gradCoordinateZ_VelocityY-gradCoordinateY_VelocityZ)
@@ -478,8 +536,8 @@ class Sutherland_1893(continuous_medium):
       dict(
         ViscosityMolecular=[
           {
-            'noms_arguments':['Temperature'],
-            'fonction':self.ViscosityMolecular_from_Temperature,
+            'arguments':['Temperature'],
+            'operation':self.ViscosityMolecular_from_Temperature,
           },
         ],
       )
@@ -533,7 +591,7 @@ class Sutherland_1893(continuous_medium):
 
 
 
-class perfect_gaz(Sutherland_1893):
+class perfect_gaz(continuous_medium):
   """
   Describes the perfect gaz model and associated variables and operations.
 
@@ -544,55 +602,53 @@ class perfect_gaz(Sutherland_1893):
     Reduced perfect gaz constant :math:`[J.kg-1.K-1]`
     Molar mass :math:`[kg.mol-1]`
   """
-  def __init__(self,r_perfect_gaz=287.058,Cs_Sutherland=[1.716e-5,273.15,110.4]):
-    super(perfect_gaz, self).__init__(Cs_Sutherland=Cs_Sutherland)
+  def __init__(self,r_perfect_gaz=287.058):
+    super(perfect_gaz, self).__init__()
     self.r_perfect_gaz   = r_perfect_gaz             
     self.R_perfect_gazes = self.k_Boltzmann*self.N_Avogadro 
-
-    super(perfect_gaz,self).__init__(Cs_Sutherland)
 
     self.supplyOperations(
       dict(
         Density=[
           {
-            'noms_arguments':['Pressure','Temperature'],
-            'fonction':self.Density_from_Pressure_Temperature,
+            'arguments':['Pressure','Temperature'],
+            'operation':self.Density_from_Pressure_Temperature,
           },
         ],
         DensityStagnation=[
           {
-            'noms_arguments':['PressureStagnation','TemperatureStagnation'],
-            'fonction':self.Density_from_Pressure_Temperature,
+            'arguments':['PressureStagnation','TemperatureStagnation'],
+            'operation':self.Density_from_Pressure_Temperature,
           },
         ],
         Pressure=[
           {
-            'noms_arguments':['Density','Temperature'],
-            'fonction':self.Pressure_from_Density_Temperature,
+            'arguments':['Density','Temperature'],
+            'operation':self.Pressure_from_Density_Temperature,
           },
         ],
         PressureStagnation=[
           {
-            'noms_arguments':['DensityStagnation','TemperatureStagnation'],
-            'fonction':self.Pressure_from_Density_Temperature,
+            'arguments':['DensityStagnation','TemperatureStagnation'],
+            'operation':self.Pressure_from_Density_Temperature,
           },
         ],
         Temperature=[
           {
-            'noms_arguments':['Density','Pressure'],
-            'fonction':self.Temperature_from_Density_Pressure,
+            'arguments':['Density','Pressure'],
+            'operation':self.Temperature_from_Density_Pressure,
           },
         ],
         TemperatureStagnation=[
           {
-            'noms_arguments':['DensityStagnation','PressureStagnation'],
-            'fonction':self.Temperature_from_Density_Pressure,
+            'arguments':['DensityStagnation','PressureStagnation'],
+            'operation':self.Temperature_from_Density_Pressure,
           },
         ],
       )
     )
 
-  def get_r(self):
+  def get_r_perfect_gaz(self):
     """
     Returns
     -------
@@ -622,7 +678,6 @@ class perfect_gaz(Sutherland_1893):
 
 
 
-  
 
 
 
@@ -630,24 +685,115 @@ class perfect_gaz(Sutherland_1893):
 
 
 
-
-
-
-
-
-
-
-
-
-class polytropic_pg(perfect_gaz):
+class polytropic_perfect_gaz(perfect_gaz):
   """
   A clarifier : Quelle est l'influence de gamma_Laplace ? En écoulement isentropique on a la loi de Laplace,
   mais un gaz parfait polytropique (i.e. calorifiquement parfait) vérifie déjà Cp/Cv=gamma_Laplace, non ?
   En fait, un gaz parfait polytropique n'est pas forcément calorifiquement parfait. A corriger.
-  En attendant, utiliser la classe isentropic_ppg pour un gaz parfait, calorifiquement parfait, polytropique, en écoulement isentropique.
+  En attendant, utiliser la classe isentropic_polytropic_perfect_gaz pour un gaz parfait, calorifiquement parfait, polytropique, en écoulement isentropique.
   """
-  def __init__(self,r_perfect_gaz=287.058,Cs_Sutherland=[1.716e-5,273.15,110.4]):
-    super(polytropic_pg, self).__init__(r_perfect_gaz,Cs_Sutherland)
+  def __init__(self,r_perfect_gaz=287.058,gamma_Laplace=1.4):
+    super(polytropic_perfect_gaz, self).__init__(r_perfect_gaz=r_perfect_gaz)
+    self.gamma_Laplace=gamma_Laplace
+
+    self.Temperature_ref_Entropy=273.15
+    self.Density_ref_Entropy=1.
+    self.Pressure_ref_Entropy=self.Pressure_from_Density_Temperature(Density=self.Density_ref_Entropy, Temperature=self.Temperature_ref_Entropy)
+
+    self.supplyOperations(
+      dict(
+        Energy=[
+          {
+            'arguments':['Temperature'],
+            'operation':self.Energy_from_Temperature,
+          },
+        ],
+        Enthalpy=[
+          {
+            'arguments':['Temperature'],
+            'operation':self.Enthalpy_from_Temperature,
+          },
+        ],
+        Entropy=[
+          {
+            'arguments':['Density', 'Temperature'],
+            'operation':self.Entropy_from_Density_Temperature,
+          },
+        ],
+        Temperature=[
+          {
+            'arguments':['Energy'],
+            'operation':self.Temperature_from_Energy,
+          },
+          {
+            'arguments':['Enthalpy'],
+            'operation':self.Temperature_from_Enthalpy,
+          },
+        ],
+        TemperatureStagnation=[
+          {
+            'arguments':['EnergyStagnation'],
+            'operation':self.TemperatureStagnation_from_EnergyStagnation,
+          },
+          {
+            'arguments':['EnthalpyStagnation'],
+            'operation':self.TemperatureStagnation_from_EnthalpyStagnation,
+          },
+        ],
+      )
+    )
+
+  def get_Cv(self):
+    """
+    Returns
+    -------
+      Cp : float, heat coefficient at constant volume of the current gaz
+    """
+    return self.r_perfect_gaz/(self.gamma_Laplace-1.)
+
+  def get_Cp(self):
+    """
+    Returns
+    -------
+      Cp : float, heat coefficient at constant pressure of the current gaz
+    """
+    return self.gamma_Laplace*self.r_perfect_gaz/(self.gamma_Laplace-1.)
+
+  def get_gamma_Laplace(self):
+    """
+    Returns
+    -------
+      :math:`\gamma` : float, heat coefficients ratio and Laplace exponent of the current gaz
+    """
+    return self.gamma_Laplace
+
+  def Energy_from_Temperature(self,Temperature):
+    Energy=self.r_perfect_gaz/(self.gamma_Laplace-1.)*Temperature
+    return Energy
+
+  def Enthalpy_from_Temperature(self,Temperature):
+    Enthalpy=self.gamma_Laplace*self.r_perfect_gaz/(self.gamma_Laplace-1.)*Temperature
+    return Enthalpy
+
+  def Entropy_from_Density_Temperature(self,Density,Temperature):
+    Entropy=self.r_perfect_gaz/(self.gamma_Laplace-1.)*np.log(Temperature/self.Temperature_ref_Entropy)-self.r_perfect_gaz*np.log(Density/self.Density_ref_Entropy)
+    return Entropy
+
+  def Temperature_from_Energy(self,Energy):
+    Temperature=(self.gamma_Laplace-1.)/self.r_perfect_gaz*Energy
+    return Temperature
+
+  def Temperature_from_Enthalpy(self,Energy):
+    Temperature=(self.gamma_Laplace-1.)/self.gamma_Laplace/self.r_perfect_gaz*Enthalpy
+    return Temperature
+
+  def TemperatureStagnation_from_EnergyStagnation(self,EnergyStagnation):
+    TemperatureStagnation=(self.gamma_Laplace-1.)/self.r_perfect_gaz*EnergyStagnation
+    return TemperatureStagnation
+
+  def TemperatureStagnation_from_EnthalpyStagnation(self,EnthalpyStagnation):
+    TemperatureStagnation=(self.gamma_Laplace-1.)/self.gamma_Laplace/self.r_perfect_gaz*EnthalpyStagnation
+    return TemperatureStagnation
 
 
 
@@ -660,15 +806,7 @@ class polytropic_pg(perfect_gaz):
 
 
 
-
-
-
-
-
-
-
-
-class isentropic_ppg(polytropic_pg):
+class isentropic_polytropic_perfect_gaz(polytropic_perfect_gaz):
   """
   Describes a perfect gaz with constant :math:`\frac{C_p}{C_v}=\gamma_Laplace`,
   which happens to follow a polytropic behavior when an isentropic flow is considered.
@@ -683,100 +821,83 @@ class isentropic_ppg(polytropic_pg):
     The flow considered with this model is always isentropic. A future development should
     introduce an intermediary class which describes the fllow obtained when that assumption fails.
   """
-  def __init__(self,gamma_Laplace=1.4,r_perfect_gaz=287.058,Cs_Sutherland=[1.716e-5,273.15,110.4]):
-    super(isentropic_ppg, self).__init__(r_perfect_gaz,Cs_Sutherland)
-    self.gamma_Laplace = gamma_Laplace
+  def __init__(self,gamma_Laplace=1.4,r_perfect_gaz=287.058):
+    super(isentropic_polytropic_perfect_gaz, self).__init__(r_perfect_gaz=r_perfect_gaz,gamma_Laplace=gamma_Laplace)
       
     self.supplyOperations(
       dict(
         DensityStagnation=[
           {
-            'noms_arguments':['Density','Mach'],
-            'fonction':self.DensityStagnation_from_Density_Mach,
+            'arguments':['Density','Mach'],
+            'operation':self.DensityStagnation_from_Density_Mach,
           },
         ],
         EnergyStagnation=[
           {
-            'noms_arguments':['Density','Pressure','VelocityMagnitude'],
-            'fonction':self.EnergyStagnation_from_Density_Pressure_VelocityMagnitude,
+            'arguments':['Density','Pressure','VelocityMagnitude'],
+            'operation':self.EnergyStagnation_from_Density_Pressure_VelocityMagnitude,
           },
           # {
-          #   'noms_arguments':['TemperatureStagnation'],
-          #   'fonction':self.EnergyStagnation_from_TemperatureStagnation,
+          #   'arguments':['TemperatureStagnation'],
+          #   'operation':self.EnergyStagnation_from_TemperatureStagnation,
           # },
         ],
         EnthalpyStagnation=[
           {
-            'noms_arguments':['TemperatureStagnation'],
-            'fonction':self.EnthalpyStagnation_from_TemperatureStagnation,
+            'arguments':['TemperatureStagnation'],
+            'operation':self.EnthalpyStagnation_from_TemperatureStagnation,
           },
         ],
         Mach=[
           {
-            'noms_arguments':['Pressure','PressureStagnation'],
-            'fonction':self.Mach_from_Pressure_PressureStagnation,
+            'arguments':['Pressure','PressureStagnation'],
+            'operation':self.Mach_from_Pressure_PressureStagnation,
           },
         ],
         Pressure=[
           {
-            'noms_arguments':['Mach','PressureStagnation'],
-            'fonction':self.Pressure_from_Mach_PressureStagnation,
+            'arguments':['Mach','PressureStagnation'],
+            'operation':self.Pressure_from_Mach_PressureStagnation,
           },
         ],
         PressureStagnation=[
           {
-            'noms_arguments':['Mach','Pressure'],
-            'fonction':self.PressureStagnation_from_Mach_Pressure,
+            'arguments':['Mach','Pressure'],
+            'operation':self.PressureStagnation_from_Mach_Pressure,
           },
         ],
         Temperature=[
           {
-            'noms_arguments':['Mach','TemperatureStagnation'],
-            'fonction':self.Temperature_from_Mach_TemperatureStagnation,
+            'arguments':['Mach','TemperatureStagnation'],
+            'operation':self.Temperature_from_Mach_TemperatureStagnation,
           },
           {
-            'noms_arguments':['VelocitySound'],
-            'fonction':self.Temperature_from_VelocitySound,
+            'arguments':['VelocitySound'],
+            'operation':self.Temperature_from_VelocitySound,
           },
         ],
         TemperatureStagnation=[
           # {
-          #   'noms_arguments':['EnergyStagnation'],
-          #   'fonction':self.TemperatureStagnation_from_EnergyStagnation,
+          #   'arguments':['EnergyStagnation'],
+          #   'operation':self.TemperatureStagnation_from_EnergyStagnation,
           # },
           {
-            'noms_arguments':['Mach','Temperature'],
-            'fonction':self.TemperatureStagnation_from_Mach_Temperature,
+            'arguments':['Mach','Temperature'],
+            'operation':self.TemperatureStagnation_from_Mach_Temperature,
           },
         ],
         VelocitySound=[
           {
-            'noms_arguments':['Density','Pressure'],
-            'fonction':self.VelocitySound_from_Density_Pressure,
+            'arguments':['Density','Pressure'],
+            'operation':self.VelocitySound_from_Density_Pressure,
           },
           {
-            'noms_arguments':['Temperature'],
-            'fonction':self.VelocitySound_from_Temperature,
+            'arguments':['Temperature'],
+            'operation':self.VelocitySound_from_Temperature,
           },
         ],
       )
     )
-
-  def get_Cv(self):
-    """
-    Returns
-    -------
-      Cp : float, heat coefficient at constant volume of the current gaz
-    """
-    return self.r_perfect_gaz/(self.gamma_Laplace-1.)
-
-  def get_gamma_Laplace(self):
-    """
-    Returns
-    -------
-      :math:`\gamma` : float, heat coefficients ratio and Laplace exponent of the current gaz
-    """
-    return self.gamma_Laplace
 
   def EnergyStagnation_from_Density_Pressure_VelocityMagnitude(self,Density,Pressure,VelocityMagnitude):
     EnergyStagnation = (Pressure/((self.gamma_Laplace-1.)*Density)+0.5*np.power(VelocityMagnitude,2))
@@ -813,14 +934,6 @@ class isentropic_ppg(polytropic_pg):
   def Temperature_from_VelocitySound(self,VelocitySound):
     Temperature = 1./self.gamma_Laplace/self.r_perfect_gaz*np.power(VelocitySound,2)
     return Temperature
-
-  # def TemperatureStagnation_from_EnergyStagnation(self,EnergyStagnation):
-  #   """
-  #   Etant données la masse volumique, la pression statique et la vitesse du gaz parfait, calcule son énergie interne
-  #   pas sûr de ça
-  #   """
-  #   TemperatureStagnation = (self.gamma_Laplace-1)/self.r_perfect_gaz*EnergyStagnation
-  #   return TemperatureStagnation
 
   def TemperatureStagnation_from_Mach_Temperature(self,Mach,Temperature):
     TemperatureStagnation = Temperature * (1.+0.5*(self.gamma_Laplace-1.)*np.power(Mach,2))
