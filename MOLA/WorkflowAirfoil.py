@@ -675,7 +675,7 @@ def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
 
     # Fluid properties local shortcuts
     Gamma   = FluidProperties['Gamma']
-    IdealConstantGas = FluidProperties['IdealConstantGas']
+    IdealGasConstant = FluidProperties['IdealGasConstant']
     cv      = FluidProperties['cv']
     cp      = FluidProperties['cp']
 
@@ -707,7 +707,7 @@ def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
     Surface = Length * Depth
 
     ViscosityMolecular = mus * (T/Ts)**1.5 * ((Ts + S)/(T + S))
-    Velocity = Mach * np.sqrt( Gamma * IdealConstantGas * Temperature )
+    Velocity = Mach * np.sqrt( Gamma * IdealGasConstant * Temperature )
     Density  = Reynolds * ViscosityMolecular / (Velocity * Length)
 
     ReferenceValues = PRE.computeReferenceValues(FluidProperties,

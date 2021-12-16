@@ -1155,7 +1155,7 @@ def _normalizeMassFlowInArrays(arrays, IntegralDataName):
         * and it exists a **FluxCoef** associted to **IntegralDataName** in
           ** ReferenceValues**, written in:
 
-          >>> setup.ReferenceValues['IntegralScales'][IntegralDataName]['FluxCoef']
+          >>> setup.ReferenceValues['NormalizationCoefficient'][IntegralDataName]['FluxCoef']
 
     Then the variable 'MassFlow' is added in **arrays[IntegralDataName]** by
     multiplying 'convflux_ro' by this **FluxCoef**.
@@ -1174,7 +1174,7 @@ def _normalizeMassFlowInArrays(arrays, IntegralDataName):
     '''
     arraysSubset = arrays[IntegralDataName]
     try:
-        FluxCoef = setup.ReferenceValues['IntegralScales'][IntegralDataName]['FluxCoef']
+        FluxCoef = setup.ReferenceValues['NormalizationCoefficient'][IntegralDataName]['FluxCoef']
         arraysSubset['MassFlow'] = arraysSubset['convflux_ro'] * FluxCoef
     except:
         return
@@ -1199,7 +1199,7 @@ def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
     The aerodynamic coefficients are dimensionless. They are computed using
     the scales and origins 'FluxCoef', 'TorqueCoef' and 'TorqueOrigin' contained
     in the setup.py dictionary,
-                ReferenceValues['IntegralScales'][<IntegralDataName>]
+                ReferenceValues['NormalizationCoefficient'][<IntegralDataName>]
 
     where <IntegralDataName> is the name of the component.
     If they are not provided, then global scaling factors are taken from
@@ -1242,9 +1242,9 @@ def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
     arraysSubset = arrays[IntegralDataName]
 
     try:
-        FluxCoef = setup.ReferenceValues['IntegralScales'][IntegralDataName]['FluxCoef']
-        TorqueCoef = setup.ReferenceValues['IntegralScales'][IntegralDataName]['TorqueCoef']
-        TorqueOrigin = setup.ReferenceValues['IntegralScales'][IntegralDataName]['TorqueOrigin']
+        FluxCoef = setup.ReferenceValues['NormalizationCoefficient'][IntegralDataName]['FluxCoef']
+        TorqueCoef = setup.ReferenceValues['NormalizationCoefficient'][IntegralDataName]['TorqueCoef']
+        TorqueOrigin = setup.ReferenceValues['NormalizationCoefficient'][IntegralDataName]['TorqueOrigin']
     except:
         FluxCoef = setup.ReferenceValues['FluxCoef']
         TorqueCoef = setup.ReferenceValues['TorqueCoef']
