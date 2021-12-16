@@ -1829,7 +1829,7 @@ def removeMatchAndNearMatch(t):
             I.rmNode(t, GridConnectivityNode)
 
 
-def computeFluidProperties(Gamma=1.4, IdealConstantGas=287.053, Prandtl=0.72,
+def computeFluidProperties(Gamma=1.4, IdealGasConstant=287.053, Prandtl=0.72,
         PrandtlTurbulence=0.9, SutherlandConstant=110.4,
         SutherlandViscosity=1.78938e-05, SutherlandTemperature=288.15,
         cvAndcp=None):
@@ -1843,7 +1843,7 @@ def computeFluidProperties(Gamma=1.4, IdealConstantGas=287.053, Prandtl=0.72,
 
     ::
 
-        IdealConstantGas = 287.053
+        IdealGasConstant = 287.053
         Gamma = 1.4
         SutherlandConstant = 110.4
         SutherlandTemperature = 288.15
@@ -1865,14 +1865,14 @@ def computeFluidProperties(Gamma=1.4, IdealConstantGas=287.053, Prandtl=0.72,
 
 
     if cvAndcp is None:
-        cv                = IdealConstantGas/(Gamma-1.0)
+        cv                = IdealGasConstant/(Gamma-1.0)
         cp                = Gamma * cv
     else:
         cv, cp = cvAndcp
 
     FluidProperties = dict(
     Gamma                 = Gamma,
-    IdealConstantGas               = IdealConstantGas,
+    IdealGasConstant               = IdealGasConstant,
     cv                    = cv,
     cp                    = cp,
     Prandtl               = Prandtl,
@@ -2022,7 +2022,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
 
     # Fluid properties local shortcuts
     Gamma   = FluidProperties['Gamma']
-    IdealConstantGas = FluidProperties['IdealConstantGas']
+    IdealGasConstant = FluidProperties['IdealGasConstant']
     cv      = FluidProperties['cv']
     cp      = FluidProperties['cp']
 
@@ -2033,9 +2033,9 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     S   = FluidProperties['SutherlandConstant']
 
     ViscosityMolecular = mus * (T/Ts)**1.5 * ((Ts + S)/(T + S))
-    Mach = Velocity / np.sqrt( Gamma * IdealConstantGas * Temperature )
+    Mach = Velocity / np.sqrt( Gamma * IdealGasConstant * Temperature )
     Reynolds = Density * Velocity * Length / ViscosityMolecular
-    Pressure = Density * IdealConstantGas * Temperature
+    Pressure = Density * IdealGasConstant * Temperature
     PressureDynamic = 0.5 * Density * Velocity **2
     FluxCoef        = 1./(PressureDynamic * Surface)
     TorqueCoef      = 1./(PressureDynamic * Surface*Length)

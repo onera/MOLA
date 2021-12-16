@@ -959,18 +959,18 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
     '''
     # Fluid properties local shortcuts
     Gamma   = FluidProperties['Gamma']
-    IdealConstantGas = FluidProperties['IdealConstantGas']
+    IdealGasConstant = FluidProperties['IdealGasConstant']
     cv      = FluidProperties['cv']
     cp      = FluidProperties['cp']
 
     # Compute variables
     Mach  = machFromMassFlow(MassFlow, Surface, Pt=PressureStagnation,
-                            Tt=TemperatureStagnation, r=IdealConstantGas,
+                            Tt=TemperatureStagnation, r=IdealGasConstant,
                             gamma=Gamma)
     Temperature  = TemperatureStagnation / (1. + 0.5*(Gamma-1.) * Mach**2)
     Pressure  = PressureStagnation / (1. + 0.5*(Gamma-1.) * Mach**2)**(Gamma/(Gamma-1))
-    Density = Pressure / (Temperature * IdealConstantGas)
-    SoundSpeed  = np.sqrt(Gamma * IdealConstantGas * Temperature)
+    Density = Pressure / (Temperature * IdealGasConstant)
+    SoundSpeed  = np.sqrt(Gamma * IdealGasConstant * Temperature)
     Velocity  = Mach * SoundSpeed
 
     # REFERENCE VALUES COMPUTATION
@@ -1019,7 +1019,7 @@ def computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration):
 
     Modify **ReferenceValues** by adding:
 
-    >>> ReferenceValues['IntegralScales'][<FamilyName>]['FluxCoef'] = FluxCoef
+    >>> ReferenceValues['NormalizationCoefficient'][<FamilyName>]['FluxCoef'] = FluxCoef
 
     for <FamilyName> in the list of BC families, except families of type 'BCWall*'.
 
@@ -1051,9 +1051,9 @@ def computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration):
             BCType = PRE.getFamilyBCTypeFromFamilyBCName(t, FamilyName)
             if BCType is None or 'BCWall' in BCType:
                 continue
-            if not 'IntegralScales' in ReferenceValues:
-                ReferenceValues['IntegralScales'] = dict()
-            ReferenceValues['IntegralScales'][FamilyName] = dict(FluxCoef=fluxcoeff)
+            if not 'NormalizationCoefficient' in ReferenceValues:
+                ReferenceValues['NormalizationCoefficient'] = dict()
+            ReferenceValues['NormalizationCoefficient'][FamilyName] = dict(FluxCoef=fluxcoeff)
 
 def getTurboConfiguration(t, ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={},
     PeriodicTranslation=None):

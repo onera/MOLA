@@ -35,7 +35,7 @@ I.__FlowSolutionNodes__   = 'FlowSolution'
 
 import setup
 Gamma = setup.FluidProperties['Gamma']
-Rgaz = setup.FluidProperties['IdealConstantGas']
+Rgaz = setup.FluidProperties['IdealGasConstant']
 PressureStagnationRef = setup.ReferenceValues['PressureStagnation']
 TemperatureStagnationRef = setup.ReferenceValues['TemperatureStagnation']
 TurbulenceModel = setup.ReferenceValues['TurbulenceModel']
