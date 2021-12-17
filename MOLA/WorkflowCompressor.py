@@ -396,7 +396,7 @@ def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
             zones in **t** but not in **subTree**, *ChannelHeigth* will be equal
             to -1. This option is useful to exclude irelevant zones for height
             computation, for example the domain (if it exists) around the
-            nacelle with the external flow. To extract **subTree* based on a
+            nacelle with the external flow. To extract **subTree** based on a
             Family, one may use:
 
             >>> subTree = C.getFamilyZones(t, Family)
@@ -1300,13 +1300,20 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
                 * type :
                   BC type among the following:
-                    - ReferenceState
-                    - InflowStagnation
-                    - OutflowPressure
-                    - OutflowMassFlow
-                    - OutflowRadialEquilibrium
-                    - MixingPlane
-                    - UnsteadyRotorStatorInterface
+
+                  * ReferenceState
+
+                  * InflowStagnation
+
+                  * OutflowPressure
+
+                  * OutflowMassFlow
+
+                  * OutflowRadialEquilibrium
+
+                  * MixingPlane
+                  
+                  * UnsteadyRotorStatorInterface
 
                   elsA names are also available (``farfield``, ``inj1``,
                   ``outpres``, ``outmfr2``, ``outradeq``, ``stage_mxpl``,
@@ -1779,7 +1786,7 @@ def setBC_outpres(t, FamilyName, Pressure, bc=None):
     functions are more specific:
 
     .. note::
-        see `elsA Tutorial about inj1 condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#outpres/>`_
+        see `elsA Tutorial about outpres condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#outpres/>`_
 
     Parameters
     ----------

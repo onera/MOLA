@@ -547,9 +547,24 @@ def connectMesh(t, InputMeshes):
             * ``'ratio'`` : :py:class:`int`
                 employed ratio for connection ``'type':'NearMatch'``
 
-            * ``'angles'`` : :py:class:`list` of :py:class:`float`
-                employed list of angles (in degree) for connection
-                ``'type':'PeriodicMatch'``
+            * ``'rotationCenter'`` : :py:class:`list` of :py:class:`float`
+                center of rotation if **type** = ``'PeriodicMatch'``.
+                As passed to function *connectMatchPeriodic* of module
+                ``Connector.PyTree`` in Cassiopee.
+                The default value is [0., 0., 0.]
+
+            * ``'rotationAngle'`` : :py:class:`list` of :py:class:`float`
+                rotation angles for the three axes, in degrees.
+                Relevant only for **type** = ``'PeriodicMatch'``.
+                As passed to function *connectMatchPeriodic* of module
+                ``Connector.PyTree`` in Cassiopee.
+                The default value is [0., 0., 0.]
+
+            * ``'translation'`` : :py:class:`list` of :py:class:`float`
+                Vector of translation if for **type** = ``'PeriodicMatch'``.
+                As passed to function *connectMatchPeriodic* of module
+                ``Connector.PyTree`` in Cassiopee.
+                The default value is [0., 0., 0.]
 
     Returns
     -------
