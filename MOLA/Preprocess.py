@@ -2520,6 +2520,8 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     CFLparams['name'] = 'f_cfl'
     for v in ('vali', 'valf'): CFLparams[v] = float(CFLparams[v])
     for v in ('iteri', 'iterf'): CFLparams[v] = int(CFLparams[v])
+
+    elsAkeysNumerics.update(dict(viscous_fluxes='5p_cor'))
     if NumericalScheme == 'jameson':
         addKeys = dict(
         flux               = 'jameson',
@@ -2549,57 +2551,46 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         flux               = 'roe',
         limiter            = 'valbada',
         psiroe             = 0.01,
-        viscous_fluxes     = '5p_cor',
         )
     else:
         raise AttributeError('Numerical scheme shortcut %s not recognized'%NumericalScheme)
     elsAkeysNumerics.update(addKeys)
 
-
-    if TimeMarching == 'steady':
-        addKeys = dict(
-        time_algo          = 'steady',
+    addKeys = dict(
         inititer           = int(inititer),
         niter              = int(niter),
-        global_timestep    = 'inactive',
         ode                = 'backwardeuler',
         implicit           = 'lussorsca',
         ssorcycle          = 4,
-        timestep_div       = 'divided',
-        cfl_fct            = CFLparams['name'],
         freqcompres        = 1,
-        residual_type      = 'explimpl',
-        )
+    )
+    if TimeMarching == 'steady':
+        addKeys.update(dict(
+            time_algo          = 'steady',
+            global_timestep    = 'inactive',
+            timestep_div       = 'divided',
+            cfl_fct            = CFLparams['name'],
+            residual_type      = 'explimpl',
+        ))
         addKeys['.Solver#Function'] = CFLparams
-    elif TimeMarching == 'gear':
-        addKeys = dict(
-        time_algo          = 'gear',
-        gear_iteration     = 20,
-        timestep           = float(timestep),
-        inititer           = int(inititer),
-        niter              = int(niter),
-        ode                = 'backwardeuler',
-        residual_type      = 'implicit',
-        freqcompres        = 1,
-        restoreach_cons    = 1e-2,
-        viscous_fluxes     = '5p_cor',
-            )
-    elif TimeMarching == 'DualTimeStep':
-        addKeys = dict(
-        time_algo          = 'dts',
-        timestep           = float(timestep),
-        dts_timestep_lim   = 'active',
-        inititer           = int(inititer),
-        niter              = int(niter),
-        ode                = 'backwardeuler',
-        residual_type      = 'implicit',
-        cfl_dts            = 20.,
-        freqcompres        = 1,
-        viscous_fluxes     = '5p_cor',
-            )
-
     else:
-        raise AttributeError('TimeMarching scheme shortcut %s not recognized'%TimeMarching)
+        addKeys.update(dict(
+            timestep           = float(timestep),
+            restoreach_cons    = 1e-2,
+        ))
+        if TimeMarching == 'gear':
+            addKeys.update(dict(
+                time_algo          = 'gear',
+                gear_iteration     = 20,
+            ))
+        elif TimeMarching == 'DualTimeStep':
+            addKeys.update(dict(
+                time_algo          = 'dts',
+                dts_timestep_lim   = 'active',
+                cfl_dts            = 20.,
+            ))
+        else:
+            raise AttributeError('TimeMarching scheme shortcut %s not recognized'%TimeMarching)
     elsAkeysNumerics.update(addKeys)
 
     if useBodyForce:
