@@ -105,19 +105,14 @@ ReferenceValues = dict(
 
 NumericalParams = dict(
     # following key is the numerical scheme. Choose one of: 'jameson' 'ausm+' 'roe'
-    NumericalScheme='roe',
-    # following key is the time marching procedure. One of: 'steady' 'gear'
-    TimeMarching='steady',
-    # BEWARE: if "gear", then user shall indicate the timestep like this:
-    timestep=0.01, # (only relevant if unsteady simulation)
-    # following key states the initial iteration. Shall be 1 in general.
-    inititer=1,
+    # NumericalScheme='roe',
     # CFL ramp
-    CFLparams=dict(vali=1.,valf=10.,iteri=1,iterf=300,function_type='linear'),
+    #CFLparams=dict(vali=1.,valf=10.,iteri=1,iterf=300,function_type='linear'),
     # following key states the maximum number of iterations of the iterations.
     # It is recommended to use a VERY HIGH value, as the simulation will stop
     # safely before timeout (see CoprocessOptions)
-    niter=1e6)
+    niter=10000
+    )
 
 '''
 List of boundary conditions to set on the given mesh

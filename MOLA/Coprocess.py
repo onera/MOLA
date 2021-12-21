@@ -22,6 +22,7 @@ import shutil
 import psutil
 import pprint
 import glob
+import copy
 from mpi4py import MPI
 comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
@@ -251,7 +252,7 @@ def extractSurfaces(t, Extractions):
         base = I.newCGNSBase(basename, cellDim=cellDimOutputTree-1, physDim=3,
             parent=SurfacesTree)
         I._addChild(base, zones)
-        J.set(base, '.ExtractionInfo', **Extraction)
+        J.set(base, '.ExtractionInfo', **ExtractionInfo)
         return base
 
     t = I.renameNode(t, 'FlowSolution#Init', 'FlowSolution#Centers')
@@ -270,6 +271,7 @@ def extractSurfaces(t, Extractions):
 
     for Extraction in Extractions:
         TypeOfExtraction = Extraction['type']
+        ExtractionInfo = copy.deepcopy(Extraction)
 
         if TypeOfExtraction.startswith('AllBC'):
             BCFilterName = TypeOfExtraction.replace('AllBC','')
@@ -277,18 +279,24 @@ def extractSurfaces(t, Extractions):
                 BCType = DictBCNames2Type[BCFamilyName]
                 if BCFilterName.lower() in BCType.lower():
                     zones = C.extractBCOfName(t,'FamilySpecified:'+BCFamilyName)
+                    ExtractionInfo['type'] = 'BC'
+                    ExtractionInfo['BCType'] = BCType
                     addBase2SurfacesTree(BCFamilyName)
 
         elif TypeOfExtraction.startswith('BC'):
             zones = C.extractBCOfType(t, TypeOfExtraction)
             try: basename = Extraction['name']
             except KeyError: basename = TypeOfExtraction
+            ExtractionInfo['type'] = 'BC'
+            ExtractionInfo['BCType'] = TypeOfExtraction
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction.startswith('FamilySpecified:'):
             zones = C.extractBCOfName(t, TypeOfExtraction)
             try: basename = Extraction['name']
             except KeyError: basename = TypeOfExtraction.replace('FamilySpecified:','')
+            ExtractionInfo['type'] = 'BC'
+            ExtractionInfo['BCType'] = TypeOfExtraction
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction == 'IsoSurface':
@@ -1155,7 +1163,7 @@ def _normalizeMassFlowInArrays(arrays, IntegralDataName):
         * and it exists a **FluxCoef** associted to **IntegralDataName** in
           ** ReferenceValues**, written in:
 
-          >>> setup.ReferenceValues['IntegralScales'][IntegralDataName]['FluxCoef']
+          >>> setup.ReferenceValues['NormalizationCoefficient'][IntegralDataName]['FluxCoef']
 
     Then the variable 'MassFlow' is added in **arrays[IntegralDataName]** by
     multiplying 'convflux_ro' by this **FluxCoef**.
@@ -1174,7 +1182,7 @@ def _normalizeMassFlowInArrays(arrays, IntegralDataName):
     '''
     arraysSubset = arrays[IntegralDataName]
     try:
-        FluxCoef = setup.ReferenceValues['IntegralScales'][IntegralDataName]['FluxCoef']
+        FluxCoef = setup.ReferenceValues['NormalizationCoefficient'][IntegralDataName]['FluxCoef']
         arraysSubset['MassFlow'] = arraysSubset['convflux_ro'] * FluxCoef
     except:
         return
@@ -1199,7 +1207,7 @@ def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
     The aerodynamic coefficients are dimensionless. They are computed using
     the scales and origins 'FluxCoef', 'TorqueCoef' and 'TorqueOrigin' contained
     in the setup.py dictionary,
-                ReferenceValues['IntegralScales'][<IntegralDataName>]
+                ReferenceValues['NormalizationCoefficient'][<IntegralDataName>]
 
     where <IntegralDataName> is the name of the component.
     If they are not provided, then global scaling factors are taken from
@@ -1242,9 +1250,9 @@ def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
     arraysSubset = arrays[IntegralDataName]
 
     try:
-        FluxCoef = setup.ReferenceValues['IntegralScales'][IntegralDataName]['FluxCoef']
-        TorqueCoef = setup.ReferenceValues['IntegralScales'][IntegralDataName]['TorqueCoef']
-        TorqueOrigin = setup.ReferenceValues['IntegralScales'][IntegralDataName]['TorqueOrigin']
+        FluxCoef = setup.ReferenceValues['NormalizationCoefficient'][IntegralDataName]['FluxCoef']
+        TorqueCoef = setup.ReferenceValues['NormalizationCoefficient'][IntegralDataName]['TorqueCoef']
+        TorqueOrigin = setup.ReferenceValues['NormalizationCoefficient'][IntegralDataName]['TorqueOrigin']
     except:
         FluxCoef = setup.ReferenceValues['FluxCoef']
         TorqueCoef = setup.ReferenceValues['TorqueCoef']
