@@ -18,7 +18,7 @@ Extractions=[{'type': 'AllBCwall'},
   'value': 0.08}]
 
 FluidProperties={'Gamma': 1.4,
- 'IdealConstantGas': 287.053,
+ 'IdealGasConstant': 287.053,
  'Prandtl': 0.72,
  'PrandtlTurbulence': 0.9,
  'SutherlandConstant': 110.4,
