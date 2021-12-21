@@ -3,7 +3,7 @@
 
 * recondition input of PRE.addSurfacicExtractions
 
-* CO.extractArrays -> use IntegralScales (FluxCoeff, TorqueCoeff ?) dependent
+* CO.extractArrays -> use NormalizationCoefficient (FluxCoeff, TorqueCoeff ?) dependent
   on field names ?
 
 * use computeGeneralLoadsOfLiftingLine in bodyforce context

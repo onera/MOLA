@@ -5,7 +5,7 @@ setup.py file automatically generated in COPROCESS
 FluidProperties={'Gamma': 1.4,
  'Prandtl': 0.72,
  'PrandtlTurbulence': 0.9,
- 'IdealConstantGas': 287.053,
+ 'IdealGasConstant': 287.053,
  'SutherlandConstant': 110.4,
  'SutherlandTemperature': 288.15,
  'SutherlandViscosity': 1.78938e-05,
