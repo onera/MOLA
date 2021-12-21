@@ -16,7 +16,7 @@ export ELSAPROD=eos-intel_mpi
 export ELSAPATHPUBLIC=/stck/elsa/Public/$ELSAVERSION/Dist/bin/$ELSAPROD
 source $ELSAPATHPUBLIC/.env_elsA
 
-export PATH=$PATH:/opt/tools/texlive/2016/bin/x86_64-linux/:/opt/tools/texlive/2016/texmf-dist/
+module load texlive/2016 # for matplotlib LaTeX render with STIX font
 export PYTHONPATH=/stck/lbernard/.local/lib/python2.7/site-packages/:$PYTHONPATH
 
 # PUMA

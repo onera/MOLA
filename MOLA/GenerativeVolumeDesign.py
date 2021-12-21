@@ -322,7 +322,7 @@ def extrudeWingOnSupport(Wing, Support, Distributions, Constraints=[],
         # directed projections for all sections between the
         # split point and the root of the wing.
 
-        _,Ni,Nj,Nk,_ = I.getZoneDim(MainWing)
+        _,Ni,Nj,Nk,_ = I.getZoneDim(WingCollarWall)
 
         RootSection = T.subzone(MainWing,(1,1,1),(Ni,1,1))
         Projections, Distances = [], []
@@ -372,7 +372,6 @@ def extrudeWingOnSupport(Wing, Support, Distributions, Constraints=[],
 
 
         # Retrieve all collar sections
-        # Secs = map(lambda j: T.subzone(WingCollarWall,(1,j+1,1),(Ni,j+1,1)), range(jroot-1,jsplit+1))
         Secs = [T.subzone(WingCollarWall,(1,j+1,1),(Ni,j+1,1)) for j in range(jroot-1,jsplit+1)]
 
 
@@ -473,7 +472,8 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
                                           'HardSmoothLayerProtection':100,
                                           'FactordH':2.,
                                           'window':'jmin'},
-            HardSmoothPoints=[], HardSmoothRescaling=False):
+            HardSmoothPoints=[], HardSmoothRescaling=False,
+            starting_message=''):
     '''
     Make a hyperbolic extrusion of a surface following its normal direction.
     **Constraints** to be satisfied through extrusion can be provided by the user.
@@ -664,8 +664,11 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
 
     OptionsIntegerFields = ('niter','type')
     toc = tic()
+    nbOfDigits = int(np.ceil(np.log10(NLayers+1)))
+    LastLayer = ('{:0%d}'%3).format(NLayers)
     for l in range(1,NLayers):
-        Message = 'Extruding layer %d of %d. Last layer Elapsed Time: %g s'%(l+1,NLayers,tic()-toc)
+        currentLayer = ('{:0%d}'%3).format(l+1)
+        Message = starting_message+' %s/%s | cost: %0.5f s'%(currentLayer,LastLayer,tic()-toc)
         toc = tic()
         if printIters: print(Message)
 
@@ -852,10 +855,10 @@ def _constrainedSmoothing(tExtru, mode='dualing',
         normalizeVector(z, ['sx', 'sy', 'sz'], container='FlowSolution')
 
     elif mode == 'smoothField':
+        _extrusionApplyConstraints(tExtru)
 
         I._rmNodesByName(z,'FlowSolution#Centers')
         sx, sy, sz, dH, convexity = J.getVars(z, ['sx','sy','sz','dH','convexity'], 'FlowSolution')
-
         type = 0
         niter = int(C.getMeanValue(z,'growthiters'))
         try:
@@ -1010,9 +1013,12 @@ def _extrusionApplyConstraints(tExtru):
         elif kind == 'Copy':
 
             cdH, csx, csy, csz = J.invokeFields(constraint,['dH','sx','sy','sz'])
+            pointsToCopyZoneName = I.getValue(I.getNodeFromName(ExtrusionDataNode,'pointsToCopyZoneName'))
+            pointsToCopy = I.getNodeFromName1(ConstraintWireframe,pointsToCopyZoneName)
             PointListDonor = I.getNodeFromName(ExtrusionDataNode,'PointListDonor')[1]
             PointListReceiver = I.getNodeFromName(ExtrusionDataNode,'PointListReceiver')[1]
 
+            rsx, rsy, rsz = J.getVars(zE,['sx','sy','sz'])
             sx[PointListReceiver] = csx[:] = rsx[PointListDonor]
             sy[PointListReceiver] = csy[:] = rsy[PointListDonor]
             sz[PointListReceiver] = csz[:] = rsz[PointListDonor]
@@ -1038,20 +1044,6 @@ def _extrusionApplyConstraints(tExtru):
             sy[PointListReceiver] = csy[:] = rsy[PointListDonor]
             sz[PointListReceiver] = csz[:] = rsz[PointListDonor]
             dH[PointListReceiver] = cdH[:] = dH[PointListDonor]
-
-            # # alternative approach optimized being tested :
-            # rsx, rsy, rsz, rdH = J.invokeFields(pointsToCopy,['sx','sy','sz','dH'])
-            # rsx[:] = sx[PointListDonor]
-            # rsy[:] = sy[PointListDonor]
-            # rsz[:] = sz[PointListDonor]
-            # rdH[:] = sz[PointListDonor]
-            # pointsToCopyRotated = I.copyRef(pointsToCopy)
-            # T._rotate(pointsToCopyRotated, RotationCenter, RotationAxis,
-            #           float(RotationAngle), vectors=[['sx','sy','sz']])
-            # sx[PointListReceiver] = csx[:] = rsx[:]
-            # sy[PointListReceiver] = csy[:] = rsy[:]
-            # sz[PointListReceiver] = csz[:] = rsz[:]
-            # dH[PointListReceiver] = cdH[:] = dH[PointListDonor]
 
         elif kind == 'Projected':
 
@@ -1211,6 +1203,7 @@ def _extrusionApplyConstraints(tExtru):
                 # Changes the sign (look orientation) of MatchDir
                 # if the first element belonging to the slice
                 # is not the first slice of the surface
+
                 if ijkVStack[0][MatchDir-1] > 0: MatchDir *= -1
 
                 # Store MatchDir
@@ -1231,8 +1224,16 @@ def _extrusionApplyConstraints(tExtru):
             mzr = mz.ravel(order='F')
 
             multi_index = ijkVStack+AimIndexVec
-            # ravel_index = np.array(map(lambda mi: np.ravel_multi_index(mi,mShape,order='F'), multi_index))
-            ravel_index = np.array([np.ravel_multi_index(mi,mShape,order='F') for mi in multi_index])
+            try:
+                ravel_index = np.array([np.ravel_multi_index(mi,mShape,order='F') for mi in multi_index])
+            except:
+                print(mShape)
+                print(ijkVStack)
+                print('MatchDir')
+                print(MatchDir)
+                print(AimIndexVec)
+                C.convertPyTree2File([constraint,MatchSurface],'match.cgns')
+                sys.exit()
 
             Dx = mxr[ravel_index] - cx[:]
             Dy = myr[ravel_index] - cy[:]
@@ -1365,7 +1366,7 @@ def _transferDistributionData(tExtru,layer=0):
 
     if len(xd) > 1:
         for j in range(NFlds):
-            WeightedFields[j][:] = scipy.interpolate.Rbf(xd,yd,zd,FieldsAndCoords[FieldsNames[j]],kernel='linear')(x,y,z)
+            WeightedFields[j][:] = scipy.interpolate.Rbf(xd,yd,zd,FieldsAndCoords[FieldsNames[j]],kernel='multiquadric')(x,y,z)
     else:
         for j in range(NFlds):
             WeightedFields[j][:] = FieldsAndCoords[FieldsNames[j]]
@@ -1629,12 +1630,12 @@ def _computeExtrusionIndicators(tExtru):
 
     for fieldname in ['vol','sx','sy','sz','MaxLength']:
         C.center2Node__(ExtrudeLayer,'centers:'+fieldname,cellNType=0)
-    I.rmNodesFromName(ExtrudeLayer,I.__FlowSolutionCenters__)
+    I._rmNodesFromName(ExtrudeLayer,I.__FlowSolutionCenters__)
     normalizeVector(ExtrudeLayer,['sx','sy','sz'],container='FlowSolution')
 
     # TODO why here ?
     # dH = I.getNodeFromName2(ExtrudeLayer,'dH')[1]
-    # _extrusionApplyConstraints(tExtru)
+    _extrusionApplyConstraints(tExtru)
 
     tempExtLayer = I.copyRef(ExtrudeLayer)
 
@@ -1676,6 +1677,8 @@ def _computeExtrusionIndicators(tExtru):
     I.createUniqueChild(FlowSol, 'dsx', 'DataArray_t', value=dsx)
     I.createUniqueChild(FlowSol, 'dsy', 'DataArray_t', value=dsy)
     I.createUniqueChild(FlowSol, 'dsz', 'DataArray_t', value=dsz)
+
+
 
     computeExtrusionIndicatorsTime[0] += tic() - toc
 
@@ -1985,6 +1988,9 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
 
     ExtrudeLayer = I.getNodeFromNameAndType(tExtru,'ExtrudeLayer','Zone_t')
 
+    if curve is not None: curve = I.copyTree(curve)
+    if pointsToCopy is not None: pointsToCopy = I.copyTree(pointsToCopy)
+
     if kind in ('Imposed', 'Initial'):
         if not curve:
             raise AttributeError('Extrusion kind=%s: curve was not provided.'%kind)
@@ -2061,28 +2067,48 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
         ConstraintWireframeBase = I.getNodeFromName1(tExtru,'ConstraintWireframe')
         ExistingZonesNames = [z[0] for z in ConstraintWireframeBase[2]]
 
-        if curve[0] in ExistingZonesNames:
+        NewZoneName = curve[0]
+        # print('curve proposal : %s'%NewZoneName)
+        # print('curve existing : %s'%str(ExistingZonesNames))
+        if NewZoneName in ExistingZonesNames:
             item = 0
             NewZoneName = '%s.%d'%(curve[0],item)
             while NewZoneName in ExistingZonesNames:
                 item+=1
                 NewZoneName = '%s.%d'%(curve[0],item)
-            curve[0] = NewZoneName
-
+        curve[0] = NewZoneName
+        ExistingZonesNames.append(NewZoneName)
+        # print('curve corrected proposal : %s'%NewZoneName)
         I.addChild(ConstraintWireframeBase,curve)
 
-        NewZoneName = pointsToCopy[0]
-        if NewZoneName in ExistingZonesNames:
-            item = 0
-            NewZoneName = '%s.%d'%(pointsToCopy[0],item)
-            while NewZoneName in ExistingZonesNames:
-                item+=1
-                NewZoneName = '%s.%d'%(pointsToCopy[0],item)
-        pointsToCopy[0] = NewZoneName
-        ExistingZonesNames.append(NewZoneName)
-        # I.addChild(ConstraintWireframeBase,pointsToCopy)
+        # curve is the DESTINATION, pointsToCopy is the SOURCE
+        xC, yC, zC = J.getxyz(pointsToCopy)
+        xC = np.ravel(xC, order='F')
+        yC = np.ravel(yC, order='F')
+        zC = np.ravel(zC, order='F')
+        CurveNPts = len(xC)
+        Indices = [J.getNearestPointIndex(ExtrudeLayer,(xC[i],yC[i],zC[i]))[0] for i in range(CurveNPts)]
+        PointListDonor = np.array(Indices, dtype=np.int64,order='F')
+        if  any(np.diff(PointListDonor)==0):
+            print('WARNING: addExtrusionConstraint(): Multiply defined constraint for single curve "%s"'%pointsToCopy[0])
 
-        J.set(curve,'.ExtrusionData', kind=kind, pointsToCopyZoneName=pointsToCopy[0])
+
+        NewZoneName = pointsToCopy[0]
+        # if NewZoneName.endswith('.pt')
+        # print('point proposal : %s'%NewZoneName)
+        # print('point existing : %s'%str(ExistingZonesNames))
+        # if NewZoneName in ExistingZonesNames:
+        #     item = 0
+        #     NewZoneName = '%s.%d'%(pointsToCopy[0],item)
+        #     while NewZoneName in ExistingZonesNames:
+        #         item+=1
+        #         NewZoneName = '%s.%d'%(pointsToCopy[0],item)
+        # pointsToCopy[0] = NewZoneName
+        # ExistingZonesNames.append(NewZoneName)
+        # print('point corrected proposal : %s'%NewZoneName)
+
+        J.set(curve,'.ExtrusionData', kind=kind, pointsToCopyZoneName=pointsToCopy[0],
+                                      PointListDonor=PointListDonor)
 
         J.set(pointsToCopy,'.ExtrusionData', kind='None', PointListReceiver=PointListDonor)
 
@@ -2133,7 +2159,6 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
                 NewZoneName = '%s.%d'%(pointsToCopy[0],item)
         pointsToCopy[0] = NewZoneName
         ExistingZonesNames.append(NewZoneName)
-        # I.addChild(ConstraintWireframeBase,pointsToCopy)
 
         J.set(curve,'.ExtrusionData', kind=kind, pointsToCopyZoneName=pointsToCopy[0],
                     RotationCenter=RotationCenter, RotationAxis=RotationAxis,
@@ -2779,3 +2804,219 @@ def wrapSmoothField(z, eps, subniter, type, listvar):
     toc = tic()
     T._smoothField(z, eps, subniter, type, listvar)
     smoothField[0] += tic() - toc
+
+def newExtrusionDistribution(maximum_length,
+                             maximum_number_of_points=200,
+                             distribution_law='ratio',
+                             first_cell_height=1e-6,
+                             last_cell_height=1e-3,
+                             ratio_growth=1.05,
+                             smoothing_start_at_layer=80,
+                             smoothing_normals_iterations=1,
+                             smoothing_normals_subiterations=[5,200,'distance'],
+                             smoothing_growth_iterations=2,
+                             smoothing_growth_subiterations=120,
+                             smoothing_growth_coefficient=[0,0.03,'distance'],
+                             smoothing_expansion_factor=0.1,
+                             start_point=(0,0,0), direction=(1,0,0)):
+    '''
+    Create a distribution curve suitable for use as input of
+    :py:func:`extrude`.
+
+    Parameters
+    ----------
+
+        maximum_length : float
+            used to set the maximum authorized length of the extrusion
+
+        maximum_number_of_points : float
+            used to set the maximum authorized number of points in normal
+            direction of the extrusion
+
+        distribution_law : str
+            same as **kind** parameter of :py:func:`~MOLA.Wireframe.linelaw`
+
+        first_cell_height : float
+            same as **FirstCellHeight** parameter of :py:func:`~MOLA.Wireframe.linelaw`
+
+        last_cell_height : float
+            same as **LastCellHeight** parameter of :py:func:`~MOLA.Wireframe.linelaw`
+
+        ratio_growth : float
+            same as **growth** parameter of :py:func:`~MOLA.Wireframe.linelaw`
+
+        smoothing_start_at_layer : int
+            starting layer from which smoothing is applyied. Use values higher
+            than zero in order to avoid smoothing on initial layers, where
+            boundary-layer is likely to be found
+
+        smoothing_normals_iterations : :py:class:`int` or 3-element :py:class:`list` [:py:class:`int`, :py:class:`int`, :py:class:`str`]
+            outer number of iterations employed for smoothing the normals.
+            Extrusion constraints are applyied between outer iteration calls.
+
+            .. note:: high number of outer iterations produces more robust results
+              and can propagate constraint information towards the neighbor
+              regions, but it significantly increases CPU cost.
+
+            .. hint:: you can establish varying values of this parameter by
+              using a 3-element list: [**start_value**, **end_value**, **law**].
+              Where **law** is a :py:class:`str` and can be:
+
+              * ``'distance'``
+                the parameter goes from **start_value** to **end_value** as linear
+                function of the extrusion distance
+
+              * ``'index'``
+                the parameter goes from **start_value** to **end_value** as linear
+                function of the extrusion index (or layer) number
+
+        smoothing_normals_subiterations : :py:class:`int` or 3-element :py:class:`list` [:py:class:`int`, :py:class:`int`, :py:class:`str`]
+            inner number of iterations employed for smoothing the normals.
+            Extrusion constraints are **not** applied between inner iteration calls.
+            Note that this parameter also accepts varying values.
+
+            .. note:: high number of inner iterations produces more robust results
+              with very little increase in CPU cost, but constaint information
+              remains unchanged. Beware that using high normals iteration values
+              can significantly degrade the orthogonal quality near the walls.
+
+            .. hint:: this parameter also accepts varying values:
+              [**start_value**, **end_value**, ``'distance'`` or ``'index'``]
+
+        smoothing_growth_iterations : :py:class:`int` or 3-element :py:class:`list` [:py:class:`int`, :py:class:`int`, :py:class:`str`]
+            outer number of iterations employed for smoothing the extrusion
+            height. Extrusion constraints are applyied between outer iteration calls.
+            Note that this parameter also accepts varying values.
+
+            .. note:: high number of outer iterations produces more stable results
+              but reduces the ability to handle concavities, as less cell-height
+              difference exist. This may produce self-intersecting cells.
+              Too-low values can produce instabilities during the extrusion
+              process, leading to extrusion geometrical crash.
+              High values significantly increases CPU cost.
+
+        smoothing_growth_subiterations : :py:class:`int` or 3-element :py:class:`list` [:py:class:`int`, :py:class:`int`, :py:class:`str`]
+            inner number of iterations employed for smoothing the extrusion
+            height. Extrusion constraints are **not** applyied between inner iteration calls.
+            Note that this parameter also accepts varying values.
+
+            .. note:: high number of inner iterations produces more stable results
+              but reduces the ability to handle concavities, as less cell-height
+              difference exist. This may produce self-intersecting cells.
+              Too-low values can produce instabilities during the extrusion
+              process, leading to extrusion geometrical crash.
+              Increasing this value has little effect on CPU cost.
+
+        smoothing_growth_coefficient : :py:class:`float` or 3-element :py:class:`list` [:py:class:`float`, :py:class:`float`, :py:class:`str`]
+            relative cell extrusion height difference that would exist between
+            the biggest extrusion height and the mean one, and the lowest extrusion
+            height and the mean one, if no smoothing of cell height is done.
+            Note that this parameter also accepts varying values.
+
+            .. note:: use slightly positive values in order to handle
+              concavities and to improve cell regularity. This parameter has no
+              impact on CPU cost
+
+            .. danger:: high values of this parameter can lead to instabilities
+              and geometrical crash
+
+            .. tip:: start setting this parameter to **0**, and then progressively
+              increase it while checking the stability and quality of the mesh
+
+            .. important:: increasing the values of **smoothing_growth_iterations**
+              or **smoothing_growth_subiterations** usually requires to increase
+              the value of **smoothing_growth_coefficient**, since the smoothing
+              iterations has the side-effect of reducing the effective growth
+              coefficient value
+
+        smoothing_expansion_factor : :py:class:`float` or 3-element :py:class:`list` [:py:class:`float`, :py:class:`float`, :py:class:`str`]
+            expansion factor coefficient used to deviate the normals from the
+            refined regions towards the coarse regions of the mesh, enhancing
+            in this way the regularity.
+            Note that this parameter also accepts varying values.
+
+            .. note:: use slightly positive values in order to improve the
+              cell regularity. This parameter has no impact on CPU cost
+
+            .. danger:: high values of this parameter can lead to instabilities
+              and geometrical crash
+
+            .. tip:: start setting this parameter to **0**, and then progressively
+              increase it while checking the stability and quality of the mesh
+
+        start_point : 3-:py:class:`float` :py:class:`list` or numpy array
+            coordinates :math:`(x,y,z)` of the point where the distribution
+            starts
+
+            .. note:: only relevant if more than one distribution is used
+              during the extrusion
+
+        direction : 3-:py:class:`float` :py:class:`list` or numpy array
+            unitary vector pointing towards the local extrusion direction
+
+            .. note:: only relevant if more than one distribution is used
+              during the extrusion
+
+    Returns
+    -------
+        distribution : zone
+            structured curve ready to be employed in :py:func:`extrude`
+
+    '''
+
+
+    x,y,z=start_point
+    nx,ny,nz = direction
+    L = maximum_length
+
+    distribution = W.linelaw(P1=start_point,
+                             P2=(x+L*nx, y+L*ny, z+L*nz),
+                             N=maximum_number_of_points,
+                             Distribution=dict(
+                                 kind=distribution_law,
+                                 growth=ratio_growth,
+                                 FirstCellHeight=first_cell_height,
+                                 LastCellHeight=last_cell_height))
+
+    _setExtrusionSmoothingParameters(distribution,
+                                    smoothing_start_at_layer,
+                                    smoothing_normals_iterations,
+                                    smoothing_normals_subiterations,
+                                    smoothing_growth_iterations,
+                                    smoothing_growth_subiterations,
+                                    smoothing_growth_coefficient,
+                                    smoothing_expansion_factor)
+
+    return distribution
+
+def _setExtrusionSmoothingParameters(curve,
+        smoothing_start_at_layer=80,
+        smoothing_normals_iterations=1,
+        smoothing_normals_subiterations=[5,200,'distance'],
+        smoothing_growth_iterations=2,
+        smoothing_growth_subiterations=120,
+        smoothing_growth_coefficient=[0,0.03,'distance'],
+        smoothing_expansion_factor=0.1):
+
+    smoothing_parameters = ['normaliters', 'normalsubiters', 'growthiters',
+                            'growthsubiters', 'growthfactor','expansionfactor']
+    smoothing_inputs = [smoothing_normals_iterations, smoothing_normals_subiterations,
+        smoothing_growth_iterations, smoothing_growth_subiterations,
+        smoothing_growth_coefficient, smoothing_expansion_factor]
+
+    params = J.invokeFields(curve,smoothing_parameters)
+    s = W.gets(curve)
+    bl = smoothing_start_at_layer
+
+    for p, i in zip(params, smoothing_inputs):
+        if isinstance(i,list):
+            mode = i[2].lower()
+            if mode == 'distance':
+                p[bl:] = np.interp(s, np.linspace(0,      1,len(s)),
+                                      np.linspace(i[0],i[1],len(s)))[bl:]
+            elif mode == 'index':
+                p[bl:] = np.linspace(i[0],i[1],len(s[bl:]))
+            else:
+                raise ValueError('unrecognized ditribution mode "%s"'%mode)
+        else:
+            p[bl:] = i

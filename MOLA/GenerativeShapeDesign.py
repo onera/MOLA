@@ -925,9 +925,48 @@ def getSuitableSetOfPointsForTFITri(N1, N2, N3,
         return N1, N2, N3
 
 def closeWingTipAndRoot(wingsurface, tip_window='jmax', close_root=True,
-        airfoil_top2bottom_NPts=21, sharp_TrailingEdge_TFI_chord_ref=0.1,
+        airfoil_top2bottom_NPts=21, sharp_TrailingEdge_TFI_chord_ref=0.01,
         thick_TrailingEdge_detection_angle=30.,
         sharp_TrailingEdge_post_smoothing=dict(eps=0.9, niter=500, type=2)):
+    '''
+    closes the wing tip (and possibly root) of a wing-like surface
+
+    Parameters
+    ----------
+
+        wingsurface : zone
+            a structured wing-like surface. Trailing-edge can be open or closed.
+
+        tip_window : str
+            indicates the window where the tip boundary is found.
+            Can be one of: ``'imin'``, ``'imax'``, ``'jmin'`` or ``'jmax'``.
+
+        close_root : bool
+            if :py:obj:`True`, then the root section is closed too
+
+        airfoil_top2bottom_NPts : int
+            number of points used to close the boundaries, in top-to-bottom
+            direction. It must be *odd*.
+
+        sharp_TrailingEdge_TFI_chord_ref : float
+            relative chord reference (starting from trailing up to leading-edge)
+            used for placing the TFI diamond if a sharp topology is required
+
+        thick_TrailingEdge_detection_angle : float
+            threshold angle (in degrees) used as detection technique for
+            identifying the trailing-edge, when a thick-trailing edge topology
+            is required
+
+        sharp_TrailingEdge_post_smoothing : dict
+            dictionary of additional parameters to be passed to :py:func:`Transform.smooth`
+            for smoothing when sharp trailing edge topology is required
+
+    Returns
+    -------
+
+        wing : list of zone
+            list of surfaces composing the wing and its tip (and eventually root)
+    '''
 
     wing, = I.getZones(wingsurface)
 
@@ -1437,7 +1476,8 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
         v /= np.sqrt(v.dot(v))
         return v
 
-    Blade = convertSurfaces2SingleTriangular(BladeSurface)
+    # Blade = convertSurfaces2SingleTriangular(BladeSurface)
+    Blade = BladeSurface
 
     NumberOfSections = len(RelativeSpanDistribution)
 
@@ -1461,13 +1501,8 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
     BladeLineFields = J.invokeFieldsDict(BladeLine, Fields2StoreInLine)
     BladeLineX, BladeLineY, BladeLineZ = J.getxyz(BladeLine)
 
-    BladeFields = J.invokeFieldsDict(Blade, ['Span'])
-    BladeX, BladeY, BladeZ = J.getxyz(Blade)
-
-    BladeFields['Span'][:] =((BladeX-RotationCenterX) * BladeDirectionX +
-                             (BladeY-RotationCenterY) * BladeDirectionY +
-                             (BladeZ-RotationCenterZ) * BladeDirectionZ)
-    MaximumSpan = np.max(BladeFields['Span'])
+    W.addDistanceRespectToLine(Blade, RotationCenter, RotationAxis, 'Span')
+    MaximumSpan = C.getMaxValue(Blade,'Span')
 
     Sections = []
     Cambers  = []
@@ -1477,17 +1512,19 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
         Span = MaximumSpan * RelativeSpanDistribution[i]
         print('scanning section %d at Span=%g...'%(i+1,Span))
 
-
         SliceResult = P.isoSurfMC(Blade,'Span',value=Span)
         if not SliceResult:
             print('No blade found at Span=%g. Skipping section.'%Span)
             continue
-        Slice, = SliceResult
+        Structs = []
+        for s in SliceResult:
+            s = C.convertBAR2Struct(s)
+            Structs.append(T.oneovern(s,(2,1,1)))
+        Slice = T.join(Structs)
 
         AirfoilCurve = C.convertBAR2Struct(Slice)
         I.setName(AirfoilCurve, 'Section-rR%0.3f'%RelativeSpanDistribution[i])
         Sections += [AirfoilCurve]
-
         AirfoilProperties, CamberLine = W.getAirfoilPropertiesAndCamber(
                                         AirfoilCurve,
                                         buildCamberOptions=buildCamberOptions,

@@ -43,6 +43,8 @@ linelawVerbose = False
 
 BADVALUE  = -999.
 
+
+
 def distance(P1,P2):
     '''
     Compute the Euclidean distance between two points.
@@ -137,7 +139,7 @@ def distanceOfPointToLine(Point, LineVector, LinePassingPoint):
     q = c + l*cp.dot(l)
     qp = p - q
     distance = np.sqrt(qp.dot(qp))
-    
+
     return distance
 
 
@@ -2520,14 +2522,18 @@ def getCurveNormalMap(curve):
         # The curve is BAR type
         GridElts = I.getNodeFromName1(curve,'GridElements')
         EltConn  = I.getNodeFromName1(GridElts,'ElementConnectivity')[1]
-        if EltConn[0] == EltConn[-1]:
-            # BAR is closed
-            fT[0,:] = 0.5*((cxyz[1,:]-cxyz[0,:])+(cxyz[-1,:]-cxyz[-2,:]))
-            fT[-1,:] = (cxyz[-1,:]-cxyz[-2,:])
-        else:
-            # BAR is open. That's always good news ;-)
-            fT[0,:] = (cxyz[1,:]-cxyz[0,:])
-            fT[-1,:] = (cxyz[-1,:]-cxyz[-2,:])
+        try:
+            if EltConn[0] == EltConn[-1]:
+                # BAR is closed
+                fT[0,:] = 0.5*((cxyz[1,:]-cxyz[0,:])+(cxyz[-1,:]-cxyz[-2,:]))
+                fT[-1,:] = (cxyz[-1,:]-cxyz[-2,:])
+            else:
+                # BAR is open. That's always good news ;-)
+                fT[0,:] = (cxyz[1,:]-cxyz[0,:])
+                fT[-1,:] = (cxyz[-1,:]-cxyz[-2,:])
+        except:
+            C.convertPyTree2File(curve,'debug.cgns')
+            sys.exit()
     else:
         # Curve is Structured, and necessarily open
         fT[0,:] = (cxyz[1,:]-cxyz[0,:])
@@ -3119,9 +3125,11 @@ def computeChordwiseAndThickwiseIndicators(AirfoilCurve):
     OBB = G.BB(AirfoilCurveForOBB, method='OBB')
 
     Barycenter = G.barycenter(OBB)
+    Barycenter = np.array(Barycenter)
 
     DecreasingDirections = getDecreasingDirections(OBB)
-
+    x,y,z = J.getxyz(AirfoilCurve)
+    xyz = np.vstack((x,y,z)).T
     def _invokeIndicator(Direction, Name):
 
         ApproximateLength = ( Direction.dot(Direction) ) ** 0.5
@@ -3130,23 +3138,14 @@ def computeChordwiseAndThickwiseIndicators(AirfoilCurve):
 
         #       ( x - B ) dot u
         #         -   -       -
-        Eqn = ('({x}-{Bx})*{ux} +'
-               '({y}-{By})*{uy} +'
-               '({z}-{Bz})*{uz}'
-               ).format(
-               x='{CoordinateX}',
-               y='{CoordinateY}',
-               z='{CoordinateZ}',
-               Bx=Barycenter[0],
-               By=Barycenter[1],
-               Bz=Barycenter[2],
-               ux=Direction[0],
-               uy=Direction[1],
-               uz=Direction[2],
-               )
-        C._initVars(AirfoilCurve,Name+'='+Eqn)
-        Indicator, = J.getVars(AirfoilCurve, [Name])
+        Indicator, = J.invokeFields(AirfoilCurve, [Name])
+        Indicator[:] = (xyz-Barycenter).dot(Direction)
         Indicator /= Indicator.max()
+        Indicator -= Indicator.min()
+        Indicator /= Indicator.max()
+        Indicator *= 2
+        Indicator -= 1
+
 
         return ApproximateLength
 
@@ -3260,10 +3259,16 @@ def findLeadingOrTrailingEdge(AirfoilCurve, ChordwiseRegion='> +0.5',
     '''
 
     Chord, Thickness = getApproximateChordAndThickness(AirfoilCurve)
-
+    ci, ti = J.getVars(AirfoilCurve,['ChordwiseIndicator','ThickwiseIndicator'])
     SelectedRegion = P.selectCells(AirfoilCurve,'{ChordwiseIndicator}'+
                                                   ChordwiseRegion)
-
+    x = J.getx(SelectedRegion)
+    if len(x) == 0:
+        ci, = J.getVars(AirfoilCurve,['ChordwiseIndicator'])
+        ERRMSG = ('requested chordwise region (%s) was outside the '
+                  'available boundaries (%g,%g).'
+                  'Please decrase the value of EdgeSearchPortion.')%(ChordwiseRegion,ci.min(),ci.max())
+        raise ValueError(ERRMSG)
     SelectedRegion = C.convertBAR2Struct( SelectedRegion )
 
     # TODO: Investigate this in detail:
@@ -3282,10 +3287,7 @@ def findLeadingOrTrailingEdge(AirfoilCurve, ChordwiseRegion='> +0.5',
 
     CandidateRegion = P.selectCells( SelectedRegion,
                                     '{radius} < %g'%CandidateMaxRadius )
-
-
     CandidateCurves = T.splitManifold(CandidateRegion)
-
     AbscissaCandidates = []
     for cc in CandidateCurves:
 
@@ -3302,7 +3304,6 @@ def findLeadingOrTrailingEdge(AirfoilCurve, ChordwiseRegion='> +0.5',
 
     LeadingOrTrailingEdge, = P.isoSurfMC( SelectedRegion, 's',
                                          value=AbscissaEdge )
-
     NPtsResult = C.getNPts( LeadingOrTrailingEdge )
 
     if NPtsResult  == 1:
@@ -3526,16 +3527,12 @@ def splitAirfoil(AirfoilCurve, FirstEdgeSearchPortion = 0.50,
                                tol=MergePointsTolerance )
     CurvilinearAbscissa = gets( AirfoilCurve )
     NPtsAirfoil = len( CurvilinearAbscissa )
-
     LE, LErmin = findLeadingOrTrailingEdge( AirfoilCurve,
                                ChordwiseRegion='> %g'%FirstEdgeSearchPortion,
                                ToleranceRelativeRadius=RelativeRadiusTolerance)
-
     TE, TErmin = findLeadingOrTrailingEdge( AirfoilCurve,
                                ChordwiseRegion='< %g'%SecondEdgeSearchPortion,
                                ToleranceRelativeRadius=RelativeRadiusTolerance)
-
-
 
 
     if TErmin > LErmin:
@@ -4553,3 +4550,83 @@ def convertDatFile2PyTreeZone(filename, name='foil', skiprows=1):
     I.setName(curve,name)
 
     return curve
+
+
+def trimCurveAlongDirection(curve, direction, cut_point_1, cut_point_2):
+    '''
+    Trim a curve along a direction using two cut points (resulting curve is
+    placed between the cut points, along the requested direction).
+
+    Parameters
+    ----------
+
+        curve : zone
+            the curve to be trimmed
+
+        direction : :py:class:`list` or numpy array of 3-:py:class:`float`
+            unitary vector of the direction used to trim
+
+        cut_point_1 : :py:class:`list` or numpy array of 3-:py:class:`float`
+            coordinates of the first point defining the trim location along
+            **direction**
+
+        cut_point_2 : :py:class:`list` or numpy array of 3-:py:class:`float`
+            coordinates of the second point defining the trim location along
+            **direction**
+
+    Returns
+    -------
+
+        trimmed_curve : zone
+            trimmed structured curve
+    '''
+    curve = I.copyRef(curve)
+    x,y,z = J.getxyz(curve)
+    FieldToSlice, = J.invokeFields(curve,['FieldToSlice'])
+    x = x.ravel(order='F')
+    y = y.ravel(order='F')
+    z = z.ravel(order='F')
+    xyz = np.vstack((x,y,z)).T
+    distance1 = ( xyz - cut_point_1 ).dot(-direction )
+    distance2 = ( xyz - cut_point_2 ).dot( direction )
+    PointsToKeep = (distance1>0)*(distance2>0)
+    FieldToSlice[PointsToKeep] = 1
+    trimmed_element = P.selectCells(curve,'{FieldToSlice}>0.1')
+    number_of_subparts = len(I.getZones(T.splitConnexity(trimmed_element)))
+    if number_of_subparts != 1:
+        C.convertPyTree2File(curve,'debug.cgns')
+        raise ValueError('could not trim along direction, since multiple subparts were obtained.')
+    trimmed_curve = C.convertBAR2Struct(trimmed_element)
+    return trimmed_curve
+
+def intersection(curves):
+    '''
+    Computes the intersecting points of a set of curves, including
+    possibly self-intersecting points.
+
+    Parameters
+    ----------
+
+        curves : py:class:`list` of zone
+            list of structured curves from which intersections are being computed
+
+    Returns
+    ----------
+
+        points : py:class:`list` of zone
+            list of points (each point is a zone) of the intersections.
+    '''
+
+    concatenated = concatenate(curves)
+    InitialNPts = C.getNPts(concatenated)
+    bar = C.convertArray2Tetra(concatenated)
+    conformed = XOR.conformUnstr(bar, left_or_right=0, itermax=1, tol=1e-5)
+    x,y,z = J.getxyz(conformed)
+    FinalNPts = len(x)
+    IntersectingPoints = []
+    for i in range(InitialNPts,FinalNPts):
+        IntersectingPoints.append( D.point((x[i],y[i],z[i])) )
+
+    C.convertPyTree2File([bar,conformed],'debug.cgns')
+
+    return IntersectingPoints
