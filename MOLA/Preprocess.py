@@ -388,8 +388,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
 
     t = newCGNSfromSetup(t, AllSetupDics, Initialization=Initialization,
                          FULL_CGNS_MODE=False)
-    to = newRestartFieldsFromCGNS(t)
-    saveMainCGNSwithLinkToOutputFields(t,to,writeOutputFields=writeOutputFields)
+    saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
 
     print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
@@ -548,9 +547,24 @@ def connectMesh(t, InputMeshes):
             * ``'ratio'`` : :py:class:`int`
                 employed ratio for connection ``'type':'NearMatch'``
 
-            * ``'angles'`` : :py:class:`list` of :py:class:`float`
-                employed list of angles (in degree) for connection
-                ``'type':'PeriodicMatch'``
+            * ``'rotationCenter'`` : :py:class:`list` of :py:class:`float`
+                center of rotation if **type** = ``'PeriodicMatch'``.
+                As passed to function *connectMatchPeriodic* of module
+                ``Connector.PyTree`` in Cassiopee.
+                The default value is [0., 0., 0.]
+
+            * ``'rotationAngle'`` : :py:class:`list` of :py:class:`float`
+                rotation angles for the three axes, in degrees.
+                Relevant only for **type** = ``'PeriodicMatch'``.
+                As passed to function *connectMatchPeriodic* of module
+                ``Connector.PyTree`` in Cassiopee.
+                The default value is [0., 0., 0.]
+
+            * ``'translation'`` : :py:class:`list` of :py:class:`float`
+                Vector of translation if for **type** = ``'PeriodicMatch'``.
+                As passed to function *connectMatchPeriodic* of module
+                ``Connector.PyTree`` in Cassiopee.
+                The default value is [0., 0., 0.]
 
     Returns
     -------
@@ -1830,7 +1844,7 @@ def removeMatchAndNearMatch(t):
             I.rmNode(t, GridConnectivityNode)
 
 
-def computeFluidProperties(Gamma=1.4, IdealConstantGas=287.053, Prandtl=0.72,
+def computeFluidProperties(Gamma=1.4, IdealGasConstant=287.053, Prandtl=0.72,
         PrandtlTurbulence=0.9, SutherlandConstant=110.4,
         SutherlandViscosity=1.78938e-05, SutherlandTemperature=288.15,
         cvAndcp=None):
@@ -1844,7 +1858,7 @@ def computeFluidProperties(Gamma=1.4, IdealConstantGas=287.053, Prandtl=0.72,
 
     ::
 
-        IdealConstantGas = 287.053
+        IdealGasConstant = 287.053
         Gamma = 1.4
         SutherlandConstant = 110.4
         SutherlandTemperature = 288.15
@@ -1866,14 +1880,14 @@ def computeFluidProperties(Gamma=1.4, IdealConstantGas=287.053, Prandtl=0.72,
 
 
     if cvAndcp is None:
-        cv                = IdealConstantGas/(Gamma-1.0)
+        cv                = IdealGasConstant/(Gamma-1.0)
         cp                = Gamma * cv
     else:
         cv, cp = cvAndcp
 
     FluidProperties = dict(
     Gamma                 = Gamma,
-    IdealConstantGas               = IdealConstantGas,
+    IdealGasConstant               = IdealGasConstant,
     cv                    = cv,
     cp                    = cp,
     Prandtl               = Prandtl,
@@ -2023,7 +2037,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
 
     # Fluid properties local shortcuts
     Gamma   = FluidProperties['Gamma']
-    IdealConstantGas = FluidProperties['IdealConstantGas']
+    IdealGasConstant = FluidProperties['IdealGasConstant']
     cv      = FluidProperties['cv']
     cp      = FluidProperties['cp']
 
@@ -2034,9 +2048,9 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     S   = FluidProperties['SutherlandConstant']
 
     ViscosityMolecular = mus * (T/Ts)**1.5 * ((Ts + S)/(T + S))
-    Mach = Velocity / np.sqrt( Gamma * IdealConstantGas * Temperature )
+    Mach = Velocity / np.sqrt( Gamma * IdealGasConstant * Temperature )
     Reynolds = Density * Velocity * Length / ViscosityMolecular
-    Pressure = Density * IdealConstantGas * Temperature
+    Pressure = Density * IdealGasConstant * Temperature
     PressureDynamic = 0.5 * Density * Velocity **2
     FluxCoef        = 1./(PressureDynamic * Surface)
     TorqueCoef      = 1./(PressureDynamic * Surface*Length)
@@ -2521,6 +2535,8 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     CFLparams['name'] = 'f_cfl'
     for v in ('vali', 'valf'): CFLparams[v] = float(CFLparams[v])
     for v in ('iteri', 'iterf'): CFLparams[v] = int(CFLparams[v])
+
+    elsAkeysNumerics.update(dict(viscous_fluxes='5p_cor'))
     if NumericalScheme == 'jameson':
         addKeys = dict(
         flux               = 'jameson',
@@ -2550,57 +2566,46 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         flux               = 'roe',
         limiter            = 'valbada',
         psiroe             = 0.01,
-        viscous_fluxes     = '5p_cor',
         )
     else:
         raise AttributeError('Numerical scheme shortcut %s not recognized'%NumericalScheme)
     elsAkeysNumerics.update(addKeys)
 
-
-    if TimeMarching == 'steady':
-        addKeys = dict(
-        time_algo          = 'steady',
+    addKeys = dict(
         inititer           = int(inititer),
         niter              = int(niter),
-        global_timestep    = 'inactive',
         ode                = 'backwardeuler',
         implicit           = 'lussorsca',
         ssorcycle          = 4,
-        timestep_div       = 'divided',
-        cfl_fct            = CFLparams['name'],
         freqcompres        = 1,
-        residual_type      = 'explimpl',
-        )
+    )
+    if TimeMarching == 'steady':
+        addKeys.update(dict(
+            time_algo          = 'steady',
+            global_timestep    = 'inactive',
+            timestep_div       = 'divided',
+            cfl_fct            = CFLparams['name'],
+            residual_type      = 'explimpl',
+        ))
         addKeys['.Solver#Function'] = CFLparams
-    elif TimeMarching == 'gear':
-        addKeys = dict(
-        time_algo          = 'gear',
-        gear_iteration     = 20,
-        timestep           = float(timestep),
-        inititer           = int(inititer),
-        niter              = int(niter),
-        ode                = 'backwardeuler',
-        residual_type      = 'implicit',
-        freqcompres        = 1,
-        restoreach_cons    = 1e-2,
-        viscous_fluxes     = '5p_cor',
-            )
-    elif TimeMarching == 'DualTimeStep':
-        addKeys = dict(
-        time_algo          = 'dts',
-        timestep           = float(timestep),
-        dts_timestep_lim   = 'active',
-        inititer           = int(inititer),
-        niter              = int(niter),
-        ode                = 'backwardeuler',
-        residual_type      = 'implicit',
-        cfl_dts            = 20.,
-        freqcompres        = 1,
-        viscous_fluxes     = '5p_cor',
-            )
-
     else:
-        raise AttributeError('TimeMarching scheme shortcut %s not recognized'%TimeMarching)
+        addKeys.update(dict(
+            timestep           = float(timestep),
+            restoreach_cons    = 1e-2,
+        ))
+        if TimeMarching == 'gear':
+            addKeys.update(dict(
+                time_algo          = 'gear',
+                gear_iteration     = 20,
+            ))
+        elif TimeMarching == 'DualTimeStep':
+            addKeys.update(dict(
+                time_algo          = 'dts',
+                dts_timestep_lim   = 'active',
+                cfl_dts            = 20.,
+            ))
+        else:
+            raise AttributeError('TimeMarching scheme shortcut %s not recognized'%TimeMarching)
     elsAkeysNumerics.update(addKeys)
 
     if useBodyForce:
@@ -2702,22 +2707,7 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
     dim = int(AllSetupDictionaries['elsAkeysCFD']['config'][0])
     addGoverningEquations(t, dim=dim)
     if Initialization:
-        if not 'container' in Initialization:
-            Initialization['container'] = 'FlowSolution#Init'
-
-        if Initialization['method'] is None:
-            pass
-        elif Initialization['method'] == 'uniform':
-            print(J.CYAN + 'Initialize FlowSolution with uniform reference values' + J.ENDC)
-            initializeFlowSolutionFromReferenceValues(t, AllSetupDictionaries['ReferenceValues'])
-        elif Initialization['method'] == 'interpolate':
-            print(J.CYAN + 'Initialize FlowSolution by interpolation from {}'.format(Initialization['file']) + J.ENDC)
-            initializeFlowSolutionFromFileByInterpolation(t, Initialization['file'], container=Initialization['container'])
-        elif Initialization['method'] == 'copy':
-            print(J.CYAN + 'Initialize FlowSolution by copy of {}'.format(Initialization['file']) + J.ENDC)
-            initializeFlowSolutionFromFileByCopy(t, Initialization['file'], container=Initialization['container'])
-        else:
-            raise Exception(J.FAIL+'The key "method" of the dictionary Initialization is mandatory'+J.ENDC)
+        initializeFlowSolution(t, Initialization, AllSetupDictionaries['ReferenceValues'])
 
     if FULL_CGNS_MODE:
         addElsAKeys2CGNS(t, [AllSetupDictionaries['elsAkeysCFD'],
@@ -2731,33 +2721,8 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
 
     return t
 
-def newRestartFieldsFromCGNS(t):
-    '''
-    .. warning:: this function interface will change
-    '''
-    print('invoking EndOfRun from restart')
-    to = I.copyRef(t)
-    for zone in I.getZones(to):
-        FlowSolutionInit = I.getNodeFromName1(zone, 'FlowSolution#Init')
-        if not FlowSolutionInit:
-            I.printTree(zone, color=True)
-            raise ValueError(zone[0])
 
-        '''
-        FlowSolutionCenters = I.getNodeFromName1(zone, 'FlowSolution#Centers')
-
-        if FlowSolutionCenters:
-            I._rmNodesByType(FlowSolutionInit, 'GridLocation_t')
-            FlowSolutionCenters[2].extend(FlowSolutionInit[2])
-            I.rmNode(zone, FlowSolutionInit)
-        else:
-            I._renameNode(zone, 'FlowSolution#Init', 'FlowSolution#Centers')
-        '''
-
-    return to
-
-
-def saveMainCGNSwithLinkToOutputFields(t, to, DIRECTORY_OUTPUT='OUTPUT',
+def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
                                MainCGNSFilename='main.cgns',
                                FieldsFilename='fields.cgns',
                                MainCGNS_FlowSolutionName='FlowSolution#Init',
@@ -2772,11 +2737,6 @@ def saveMainCGNSwithLinkToOutputFields(t, to, DIRECTORY_OUTPUT='OUTPUT',
 
         t : PyTree
             fully preprocessed PyTree
-
-        to : PyTree
-            reference copy of t
-
-            .. warning:: this input will be removed in future as it is useless
 
         DIRECTORY_OUTPUT : str
             folder containing the file ``fields.cgns``
@@ -3125,6 +3085,63 @@ def addElsAKeys2CGNS(t, AllElsAKeys):
     for ElsAKeys in AllElsAKeys: AllComputeModels.update(ElsAKeys)
     for b in I.getBases(t): J.set(b, '.Solver#Compute', **AllComputeModels)
 
+def initializeFlowSolution(t, Initialization, ReferenceValues):
+    '''
+    Initialize the flow solution in tree **t**.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            preprocessed tree as performed by :py:func:`prepareMesh4ElsA`
+
+        Initialization : dict
+            dictionary defining the type of initialization, using the key
+            **method**. This latter is mandatory and should be one of the
+            following:
+
+            * **method** = None : the Flow Solution is not initialized.
+
+            * **method** = 'uniform' : the Flow Solution is initialized uniformly
+              using the **ReferenceValues**.
+
+            * **method** = 'copy' : the Flow Solution is initialized by copying
+              the FlowSolution container of another file. The file path is set by
+              using the key **file**. The container might be set with the key
+              **container** ('FlowSolution#Init' by default).
+
+            * **method** = 'interpolate' : the Flow Solution is initialized by
+              interpolating the FlowSolution container of another file. The file
+              path is set by using the key **file**. The container might be set
+              with the key **container** ('FlowSolution#Init' by default).
+
+            Default method is 'uniform'.
+
+        ReferenceValues : dict
+            dictionary as got from :py:func:`computeReferenceValues`
+
+    '''
+    if not 'container' in Initialization:
+        Initialization['container'] = 'FlowSolution#Init'
+
+    if Initialization['method'] is None:
+        pass
+    elif Initialization['method'] == 'uniform':
+        print(J.CYAN + 'Initialize FlowSolution with uniform reference values' + J.ENDC)
+        initializeFlowSolutionFromReferenceValues(t, ReferenceValues)
+    elif Initialization['method'] == 'interpolate':
+        print(J.CYAN + 'Initialize FlowSolution by interpolation from {}'.format(Initialization['file']) + J.ENDC)
+        initializeFlowSolutionFromFileByInterpolation(t, Initialization['file'], container=Initialization['container'])
+    elif Initialization['method'] == 'copy':
+        print(J.CYAN + 'Initialize FlowSolution by copy of {}'.format(Initialization['file']) + J.ENDC)
+        initializeFlowSolutionFromFileByCopy(t, Initialization['file'], container=Initialization['container'])
+    else:
+        raise Exception(J.FAIL+'The key "method" of the dictionary Initialization is mandatory'+J.ENDC)
+
+    for zone in I.getZones(t):
+        if not I.getNodeFromName1(zone, 'FlowSolution#Init'):
+            MSG = 'FlowSolution#Init is missing in zone {}'.format(I.getName(zone))
+            raise ValueError(J.FAIL + MSG + J.ENDC)
 
 def initializeFlowSolutionFromReferenceValues(t, ReferenceValues):
     '''

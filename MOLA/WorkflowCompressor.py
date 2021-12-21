@@ -25,6 +25,7 @@ import Distributor2.PyTree as D2
 import Post.PyTree         as P
 import Generator.PyTree    as G
 import Transform.PyTree    as T
+import Connector.PyTree    as X
 
 from . import InternalShortcuts as J
 from . import Preprocess        as PRE
@@ -160,7 +161,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None, ProcPointsLoad=100000,
     PRE.transform(t, InputMeshes)
     for row, rowParams in duplicationInfos.items():
         try: MergeBlocks = rowParams['MergeBlocks']
-        except: MergeBlocks = True
+        except: MergeBlocks = False
         duplicate(t, row, rowParams['NumberOfBlades'],
                 nDupli=rowParams['NumberOfDuplications'], merge=MergeBlocks)
     if not any([InputMesh['SplitBlocks'] for InputMesh in InputMeshes]):
@@ -288,6 +289,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     if hasBCOverlap: PRE.addFieldExtraction('ChimeraCellType')
     if BodyForceInputData: PRE.addFieldExtraction('Temperature')
 
+    TurboConfiguration = getTurboConfiguration(t, **TurboConfiguration)
     FluidProperties = PRE.computeFluidProperties()
     if not 'Surface' in ReferenceValuesParams:
         ReferenceValuesParams['Surface'] = getReferenceSurface(t, BoundaryConditions, TurboConfiguration)
@@ -309,7 +311,13 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     if not 'NumericalScheme' in NumericalParams:
         NumericalParams['NumericalScheme'] = 'roe'
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues, **NumericalParams)
-    TurboConfiguration = getTurboConfiguration(**TurboConfiguration)
+
+    PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
+
+    if not 'PeriodicTranslation' in TurboConfiguration and \
+        any([rowParams['NumberOfBladesSimulated'] > rowParams['NumberOfBladesInInitialMesh'] \
+            for rowParams in TurboConfiguration['Rows'].values()]):
+        t = duplicateFlowSolution(t, TurboConfiguration)
 
     setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                             FluidProperties, ReferenceValues,
@@ -332,10 +340,20 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         BCInflow = ['convflux_ro'],
         BCOutflow = ['convflux_ro']
     )
-    t = PRE.newCGNSfromSetup(t, AllSetupDics, Initialization=Initialization,
-        FULL_CGNS_MODE=False, extractCoords=False, BCExtractions=BCExtractions)
-    to = PRE.newRestartFieldsFromCGNS(t)
-    PRE.saveMainCGNSwithLinkToOutputFields(t,to,writeOutputFields=writeOutputFields)
+
+    PRE.addTrigger(t)
+    PRE.addExtractions(t, AllSetupDics['ReferenceValues'],
+                      AllSetupDics['elsAkeysModel'],
+                      extractCoords=False, BCExtractions=BCExtractions)
+    PRE.addReferenceState(t, AllSetupDics['FluidProperties'],
+                         AllSetupDics['ReferenceValues'])
+    dim = int(AllSetupDics['elsAkeysCFD']['config'][0])
+    PRE.addGoverningEquations(t, dim=dim)
+    AllSetupDics['ReferenceValues']['NProc'] = int(max(PRE.getProc(t))+1)
+    AllSetupDics['ReferenceValues']['CoreNumberPerNode'] = 28
+    PRE.writeSetup(AllSetupDics)
+
+    PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
     if not Splitter:
         print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
@@ -378,7 +396,7 @@ def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
             zones in **t** but not in **subTree**, *ChannelHeigth* will be equal
             to -1. This option is useful to exclude irelevant zones for height
             computation, for example the domain (if it exists) around the
-            nacelle with the external flow. To extract **subTree* based on a
+            nacelle with the external flow. To extract **subTree** based on a
             Family, one may use:
 
             >>> subTree = C.getFamilyZones(t, Family)
@@ -475,9 +493,6 @@ def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='from
             MSG += 'to indicate a configuration with a periodicity by translation'
             raise Exception(J.FAIL + MSG + J.ENDC)
         angles = []
-    else:
-        BladeNumberList = [I.getValue(bn) for bn in I.getNodesFromName(t, 'BladeNumber')]
-        angles = list(set([360./float(bn) for bn in BladeNumberList]))
 
     if rotation == 'fromAG5':
         rotation = [((0,0,0), (0,1,0), 90),((0,0,0), (1,0,0), 90)]
@@ -505,7 +520,6 @@ def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='from
                 )
 
     return InputMeshes
-
 
 def prepareTree(t, rowParams):
     '''
@@ -674,7 +688,8 @@ def joinFamilies(t, pattern):
             print('Add family {}'.format(fam))
             I.newFamily(fam, parent=base)
 
-def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0)):
+def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0),
+    container='FlowSolution#Init', vectors2rotate=[['VelocityX','VelocityY','VelocityZ'],['MomentumX','MomentumY','MomentumZ']]):
     '''
     Duplicate **nDupli** times the domain attached to the family **rowFamily**
     around the axis of rotation.
@@ -718,6 +733,8 @@ def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0)):
     '''
     # TODO: rotate vectors in FlowSolution, BCDataSets, and adapt globborders
     # It will allows to use this function in other situations that currently
+    OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
+    I.__FlowSolutionCenters__ = container
 
     if nDupli is None:
         nDupli = nBlades # for a 360 configuration
@@ -727,6 +744,11 @@ def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0)):
         print('Duplicate {} on {} blades ({} blades in row)'.format(rowFamily, nDupli, nBlades))
     base = I.getNodeFromType(tree, 'CGNSBase_t')
     check = False
+
+    vectors = []
+    for vec in vectors2rotate:
+        vectors.append(vec)
+        vectors.append(['centers:'+v for v in vec])
     for zone in I.getNodesFromType(tree, 'Zone_t'):
         zone_name = I.getName(zone)
         zone_family = I.getValue(I.getNodeFromName1(zone, 'FamilyName'))
@@ -736,7 +758,7 @@ def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0)):
             zones2merge = [zone]
             for n in range(nDupli-1):
                 ang = 360./nBlades*(n+1)
-                rot = T.rotate(I.copyNode(zone),(0.,0.,0.), axis, ang)
+                rot = T.rotate(I.copyNode(zone),(0.,0.,0.), axis, ang, vectors=vectors)
                 I.setName(rot, "{}_{}".format(zone_name, n+2))
                 I._addChild(base, rot)
                 zones2merge.append(rot)
@@ -751,8 +773,116 @@ def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0)):
                     I.createChild(disk_block, 'FamilyName', 'FamilyName_t', value=rowFamily)
                 PRE.autoMergeBCs(tree)
 
+    I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
     assert check, 'None of the zones was duplicated. Check the name of row family'
-    return tree
+
+def duplicateFlowSolution(t, TurboConfiguration):
+    '''
+    Duplicated the input PyTree **t**, already initialized.
+    This function perform the following operations:
+
+    #. Duplicate the mesh
+
+    #. Initialize the different blade sectors by rotating the ``FlowSolution#Init``
+       node available in the original sector(s)
+
+    #. Update connectivities and periodic boundary conditions
+
+    .. warning:: This function does not rotate vectors in BCDataSet nodes.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            input tree already initialized, but before setting boundary conditions
+
+        TurboConfiguration : dict
+            dictionary as provided by :py:func:`getTurboConfiguration`
+
+    Returns
+    -------
+
+        t : PyTree
+            tree after duplication
+    '''
+    # Remove connectivities and periodic BCs
+    I._rmNodesByType(t, 'GridConnectivity1to1_t')
+
+    angles4ConnectMatchPeriodic = []
+    for row, rowParams in TurboConfiguration['Rows'].items():
+        # TODO: detect the number of blades initially in the domain
+        # For now, it is supposed to be one
+        nBlades = rowParams['NumberOfBlades']
+        nDupli = rowParams['NumberOfBladesSimulated']
+        nMesh = rowParams['NumberOfBladesInInitialMesh']
+        if nDupli > nMesh:
+            duplicate(t, row, nBlades, nDupli=nDupli, axis=(1,0,0))
+
+        angle = 360. / nBlades * nDupli
+        if not np.isclose(angle, 360.):
+            angles4ConnectMatchPeriodic.append(angle)
+
+    # Connectivities
+    X.connectMatch(t, tol=1e-8)
+    for angle in angles4ConnectMatchPeriodic:
+        # Not full 360 simulation: periodic BC must be restored
+        t = X.connectMatchPeriodic(t, rotationAngle=[angle, 0., 0.], tol=1e-8)
+
+    # WARNING: Names of BC_t nodes must be unique to use PyPart on globborders
+    for l in [2,3,4]: I._correctPyTree(t, level=l)
+
+    return t
+
+def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
+    '''
+    Compute the number of blades for the row **FamilyName** in the mesh **t**.
+
+    .. warning:: This function needs to calculate the surface of the slice in X
+                 at Xmin + 5% (Xmax - Xmin). If this surface is crossed by a
+                 solid (e.g. a blade) or by the inlet boundary, the function
+                 will compute a wrong value of the number of blades inside the
+                 mesh.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            mesh tree
+
+        FamilyName : str
+            Name of the row, identified by a ``FamilyName``.
+
+        NumberOfBlades : int
+            Number of blades of the row **FamilyName** on 360 degrees.
+
+    Returns
+    -------
+
+        Nb : int
+            Number of blades in **t** for row **FamilyName**
+
+    '''
+    # Extract zones in family
+    zonesInFamily = C.getFamilyZones(t, FamilyName)
+    # Slice in x direction at middle range
+    xmin = C.getMinValue(zonesInFamily, 'CoordinateX')
+    xmax = C.getMaxValue(zonesInFamily, 'CoordinateX')
+    sliceX = P.isoSurfMC(zonesInFamily, 'CoordinateX', value=xmin+0.05*(xmax-xmin))
+    # Compute Radius
+    C._initVars(sliceX, '{Radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
+    Rmin = C.getMinValue(sliceX, 'Radius')
+    Rmax = C.getMaxValue(sliceX, 'Radius')
+    # Compute surface
+    SurfaceTree = C.convertArray2Tetra(sliceX)
+    SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
+    Surface = abs(P.integNorm(SurfaceTree, var='ones')[0][0])
+    # Compute deltaTheta
+    deltaTheta = 2* Surface / (Rmax**2 - Rmin**2)
+    # Compute number of blades in the mesh
+    Nb = NumberOfBlades * deltaTheta / (2*np.pi)
+    Nb = int(np.round(Nb))
+    print('Number of blades in initial mesh for {}: {}'.format(FamilyName, Nb))
+    return Nb
 
 def splitAndDistribute(t, InputMeshes, NProcs, ProcPointsLoad):
     '''
@@ -829,18 +959,18 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
     '''
     # Fluid properties local shortcuts
     Gamma   = FluidProperties['Gamma']
-    IdealConstantGas = FluidProperties['IdealConstantGas']
+    IdealGasConstant = FluidProperties['IdealGasConstant']
     cv      = FluidProperties['cv']
     cp      = FluidProperties['cp']
 
     # Compute variables
     Mach  = machFromMassFlow(MassFlow, Surface, Pt=PressureStagnation,
-                            Tt=TemperatureStagnation, r=IdealConstantGas,
+                            Tt=TemperatureStagnation, r=IdealGasConstant,
                             gamma=Gamma)
     Temperature  = TemperatureStagnation / (1. + 0.5*(Gamma-1.) * Mach**2)
     Pressure  = PressureStagnation / (1. + 0.5*(Gamma-1.) * Mach**2)**(Gamma/(Gamma-1))
-    Density = Pressure / (Temperature * IdealConstantGas)
-    SoundSpeed  = np.sqrt(Gamma * IdealConstantGas * Temperature)
+    Density = Pressure / (Temperature * IdealGasConstant)
+    SoundSpeed  = np.sqrt(Gamma * IdealGasConstant * Temperature)
     Velocity  = Mach * SoundSpeed
 
     # REFERENCE VALUES COMPUTATION
@@ -889,7 +1019,7 @@ def computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration):
 
     Modify **ReferenceValues** by adding:
 
-    >>> ReferenceValues['IntegralScales'][<FamilyName>]['FluxCoef'] = FluxCoef
+    >>> ReferenceValues['NormalizationCoefficient'][<FamilyName>]['FluxCoef'] = FluxCoef
 
     for <FamilyName> in the list of BC families, except families of type 'BCWall*'.
 
@@ -921,17 +1051,20 @@ def computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration):
             BCType = PRE.getFamilyBCTypeFromFamilyBCName(t, FamilyName)
             if BCType is None or 'BCWall' in BCType:
                 continue
-            if not 'IntegralScales' in ReferenceValues:
-                ReferenceValues['IntegralScales'] = dict()
-            ReferenceValues['IntegralScales'][FamilyName] = dict(FluxCoef=fluxcoeff)
+            if not 'NormalizationCoefficient' in ReferenceValues:
+                ReferenceValues['NormalizationCoefficient'] = dict()
+            ReferenceValues['NormalizationCoefficient'][FamilyName] = dict(FluxCoef=fluxcoeff)
 
-def getTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={},
+def getTurboConfiguration(t, ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={},
     PeriodicTranslation=None):
     '''
     Construct a dictionary concerning the compressor properties.
 
     Parameters
     ----------
+
+        t : PyTree
+            input tree
 
         ShaftRotationSpeed : :py:class:`float`
             Shaft speed in rad/s
@@ -964,9 +1097,14 @@ def getTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={},
                     The number of blades in the row
 
                 * NumberOfBladesSimulated : :py:class:`int`
-                    The number of blades in the computational domain. Set to
-                    **NumberOfBlades** for a full 360 simulation. If not given,
-                    the default value is 1.
+                    The wanted number of blades in the computational domain at
+                    the end of the set up process. Set to **NumberOfBlades** for
+                    a full 360 simulation.
+                    If not given, the default value is 1.
+
+                * NumberOfBladesInInitialMesh : :py:class:`int`
+                    The number of blades in the provided mesh ``mesh.cgns``.
+                    If not given, it is computed automatically.
 
                 * InletPlane : :py:class:`float`, optional
                     Position (in ``CoordinateX``) of the inlet plane for this
@@ -1001,7 +1139,8 @@ def getTurboConfiguration(ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={},
                     rowParams[key] = ShaftRotationSpeed
             if not 'NumberOfBladesSimulated' in rowParams:
                 rowParams['NumberOfBladesSimulated'] = 1
-
+            if not 'NumberOfBladesInInitialMesh' in rowParams:
+                rowParams['NumberOfBladesInInitialMesh'] = getNumberOfBladesInMeshFromFamily(t, row, rowParams['NumberOfBlades'])
     return TurboConfiguration
 
 def getReferenceSurface(t, BoundaryConditions, TurboConfiguration):
@@ -1047,7 +1186,7 @@ def getReferenceSurface(t, BoundaryConditions, TurboConfiguration):
     zone = I.getNodeFromName2(t, zoneName)
     row = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
     rowParams = TurboConfiguration['Rows'][row]
-    fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+    fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesInInitialMesh'])
     # Compute reference surface
     Surface *= fluxcoeff
     print('Reference surface = {} m^2 (computed from family {})'.format(Surface, InflowFamily))
@@ -1161,13 +1300,20 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
                 * type :
                   BC type among the following:
-                    - ReferenceState
-                    - InflowStagnation
-                    - OutflowPressure
-                    - OutflowMassFlow
-                    - OutflowRadialEquilibrium
-                    - MixingPlane
-                    - UnsteadyRotorStatorInterface
+
+                  * ReferenceState
+
+                  * InflowStagnation
+
+                  * OutflowPressure
+
+                  * OutflowMassFlow
+
+                  * OutflowRadialEquilibrium
+
+                  * MixingPlane
+                  
+                  * UnsteadyRotorStatorInterface
 
                   elsA names are also available (``farfield``, ``inj1``,
                   ``outpres``, ``outmfr2``, ``outradeq``, ``stage_mxpl``,
@@ -1640,7 +1786,7 @@ def setBC_outpres(t, FamilyName, Pressure, bc=None):
     functions are more specific:
 
     .. note::
-        see `elsA Tutorial about inj1 condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#outpres/>`_
+        see `elsA Tutorial about outpres condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#outpres/>`_
 
     Parameters
     ----------
