@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# Auteur : Michel Bouchard
+# Contact : michel.bouchard@onera.fr
+# Titre : job
+# Description : Fichier de passage de non régression pour les modules python perso
+# Histoire :
+# Date       | ver. | rev. git | Commentaire
+#____________|______|__________|_______________________________________#
+# 2021.09.02 | v1.0 |          | Création
+#            |      |          |
+#
+
+export PYTHONPATH=/home/mbouchar/02_Outils/10_MOLA/mola/MOLA
+# export PYTHONPATH=/home/mbouchar/02_Outils/07_Python/Perso
+
+# Cassiopée
+export CASSIOPEE=/stck/benoit/Cassiopee
+. /stck/benoit/Cassiopee/Envs/sh_Cassiopee_local
+
+
+
+python test_Modeles.py
