@@ -2243,7 +2243,13 @@ def makeBladeSurfaceFromLiftingLineAndAirfoilsPolars(LiftingLine, AirfoilsPolars
         airfoil_stacking_point_relative2chord=0.25,
         ):
 
+    if isinstance(LiftingLine, str):
+        LiftingLine = C.convertFile2PyTree(LiftingLine)
+    if isinstance(AirfoilsPolars, str):
+        AirfoilsPolars = C.convertFile2PyTree(AirfoilsPolars)
+
     LiftingLine, = I.getZones(LiftingLine)
+    AirfoilsPolars, = I.getZones(AirfoilsPolars)
     Span, = J.getVars(LiftingLine, ['Span'])
     RadialRelativeDiscretization = dict( N=blade_radial_NPts, kind='tanhTwoSides',
                                  FirstCellHeight=blade_root_cellwidth/Span.max(),
@@ -5038,7 +5044,7 @@ def getTrailingEdge(t):
     Returns
     -------
 
-        TrailingEdgeLines : base 
+        TrailingEdgeLines : base
             ``CGNSBase_t`` of zones  corresponding to trailing edge
     '''
 
@@ -5090,7 +5096,7 @@ def getLeadingEdge(t):
     Returns
     -------
 
-        LeadingEdgeLines : base 
+        LeadingEdgeLines : base
             ``CGNSBase_t`` of zones  corresponding to leading edge
     '''
     LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]

@@ -645,6 +645,7 @@ def _addSetOfNodes(parent, name, ListOfNodes, type1='UserDefinedData_t', type2='
     for e in ListOfNodes:
         typeOfNode = type2 if len(e) == 2 else e[2]
         children += [I.createNode(e[0],typeOfNode,value=e[1])]
+
     node = I.createUniqueChild(parent,name,type1, children=children)
     I._rmNodesByName1(parent, node[0])
     I.addChild(parent, node)
@@ -1992,3 +1993,46 @@ class OutputGrabber(object):
             if not char or self.escape_char in char:
                 break
             self.capturedtext += char
+
+def selectZonesExceptThatWithHighestNumberOfPoints(ListOfZones):
+    '''
+    return a list of zones excluding the zone yielding the highest number
+    of points
+
+    Parameters
+    ----------
+
+        ListOfZones : PyTree, base, :py:class:`list` of zone
+            Container of zones from which the selection will be applied
+
+    Returns
+    -------
+
+        Zones : :py:class:`list` of zone
+            as the input, but excluding the zone with highest number of points
+    '''
+    zones = I.getZones(ListOfZones)
+    ListOfNPts = [C.getNPts(z) for z in zones]
+    IndexOfZoneWithMaximumNPts = np.argmax(ListOfNPts)
+    return [z for i, z in enumerate(zones) if i != IndexOfZoneWithMaximumNPts]
+
+def selectZoneWithHighestNumberOfPoints(ListOfZones):
+    '''
+    return the zone with highest number of points
+
+    Parameters
+    ----------
+
+        ListOfZones : PyTree, base, :py:class:`list` of zone
+            Container of zones from which the selection will be applied
+
+    Returns
+    -------
+
+        zone : zone
+            the zone with highest number of points
+    '''
+    zones = I.getZones(ListOfZones)
+    ListOfNPts = [C.getNPts(z) for z in zones]
+    IndexOfZoneWithMaximumNPts = np.argmax(ListOfNPts)
+    return zones[IndexOfZoneWithMaximumNPts]

@@ -36,18 +36,397 @@ from . import Wireframe as W
 from . import GenerativeShapeDesign as GSD
 from . import GenerativeVolumeDesign as GVD
 
+def extrudeBladeSupportedOnSpinner(blade_surface, spinner_profile, rotation_center,
+        rotation_axis, wall_cell_height=2e-6, root_to_transition_distance=0.1,
+        root_to_transition_number_of_points=100,
+        maximum_number_of_points_in_normal_direction=200, distribution_law='ratio',
+        distribution_growth_rate=1.05, last_extrusion_cell_height=1e-3,
+        maximum_extrusion_distance_at_spinner=4e-2,
+        smoothing_start_at_layer=80,
+        smoothing_normals_iterations=1,
+        smoothing_normals_subiterations=[5,200,'distance'],
+        smoothing_growth_iterations=2,
+        smoothing_growth_subiterations=120,
+        smoothing_growth_coefficient=[0,0.03,'distance'],
+        smoothing_expansion_factor=0.1,
+        expand_distribution_radially=False,
+        ):
+    '''
+    Produce the volume mesh of a blade supported onto the surface of a spinner
+    defined by its revolution profile.
+
+    Parameters
+    ----------
+
+        blade_surface : PyTree, base, zone, list of zones
+            the surface of the blade. See the following important note:
+
+            .. important:: **blade_surface** must respect the following
+                requirements:
+
+                * the main blade surface defining the contour around the airfoil
+                  must be composed of a unique surface zone
+
+                * the main blade surface defining the contour around the airfoil
+                  must be the zone with highest number of points (shall yield
+                  more points than surfaces defining e.g. the tip surface)
+
+                * the blade surface index ordering must be such that the
+                  root section is situated at ``'jmin'`` window (and therefore
+                  the tip must be situated at ``'jmax'`` window)
+
+                * the blade surface must *completely* intersect the spinner
+
+                * all surfaces must have a :math:`(i,j)` ordering such that
+                  the normals point towards the exterior of the blade
+
+        spinner_profile : zone
+            the structured curve of the spinner profile. It must be structured
+            and oriented from leading-edge towards trailing-edge.
+
+        rotation_center : 3-:py:class:`float` :py:class:`list` or numpy array
+            indicates the rotation center :math:`(x,y,z)` coordinates of the
+            blade and spinner
+
+        rotation_axis : 3-:py:class:`float` :py:class:`list` or numpy array
+            indicates the rotation axis unitary direction vector
+
+        wall_cell_height : float
+            the cell height to verify in wall-adjacent cells
+
+        root_to_transition_distance : float
+            radial distance between the spinner wall and the blade location
+            up to where the radial boundary-layer is defined.
+
+        root_to_transition_number_of_points : int
+            number of points being used to discretize the radial boundary-layer
+            located between the spinner wall and the user-specified blade location
+            (**root_to_transition_distance**).
+
+        maximum_number_of_points_in_normal_direction : int
+            indicates the maximum authorized number of points used for
+            the normal extrusion of the blade, as defined by
+            **maximum_number_of_points** parameter of function
+            :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        distribution_law : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        distribution_growth_rate : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        last_extrusion_cell_height : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        maximum_extrusion_distance_at_spinner : float
+            indicates the maximum authorized extrusion distance used for
+            the normal extrusion of the blade at the spinner (root), as defined by
+            **maximum_length** parameter of function
+            :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        smoothing_start_at_layer : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        smoothing_normals_iterations : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        smoothing_normals_subiterations : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        smoothing_growth_iterations : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        smoothing_growth_subiterations : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        smoothing_growth_coefficient : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        smoothing_expansion_factor : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        expand_distribution_radially : bool
+            not implemented yet
+
+    Returns
+    -------
+
+        blade_extruded : base
+            CGNS Base containing the volume grid of the blade
+
+    '''
+
+    rotation_axis = np.array(rotation_axis, dtype=np.float, order='F')
+    rotation_center = np.array(rotation_center, dtype=np.float, order='F')
+
+    inds = _getRootAndTransitionIndices(blade_surface, spinner_profile, rotation_center,
+                                    rotation_axis, root_to_transition_distance)
+    root_section_index, transition_section_index = inds
+
+    intersection_bar, spinner_surface = _computeIntersectionContourBetweenBladeAndSpinner(
+            blade_surface, rotation_center, rotation_axis, spinner_profile,
+            maximum_extrusion_distance_at_spinner, transition_section_index)
+
+
+
+    supported_profile = _convertIntersectionContour2Structured(blade_surface,
+                            spinner_surface, root_section_index, intersection_bar)
+
+
+    Distributions = _computeBladeDistributions(blade_surface, rotation_axis,
+            supported_profile, transition_section_index, distribution_law,
+            maximum_extrusion_distance_at_spinner, maximum_number_of_points_in_normal_direction,
+            wall_cell_height, last_extrusion_cell_height,
+            distribution_growth_rate, smoothing_start_at_layer,
+            smoothing_normals_iterations, smoothing_normals_subiterations,
+            smoothing_growth_iterations, smoothing_growth_subiterations,
+            smoothing_growth_coefficient, smoothing_expansion_factor, expand_distribution_radially)
+
+
+    supported_match = _extrudeBladeRootOnSpinner(blade_surface, spinner_surface,
+                        root_section_index, Distributions[0], supported_profile)
+
+    blade_root2trans_extrusion = _extrudeBladeFromTransition(blade_surface, root_section_index,
+                                                                  Distributions)
+
+    ExtrusionResult = _buildAndJoinCollarGrid(blade_surface, blade_root2trans_extrusion, transition_section_index,
+            root_section_index, supported_profile, supported_match, wall_cell_height,
+            root_to_transition_number_of_points, CollarLaw='interp1d_cubic')
+
+    base, = I.getBases(C.newPyTree(['BLADE',ExtrusionResult]))
+
+    return base
+
+def extrudeSpinner(Spinner, periodic_curves, rotation_center, rotation_axis,
+        blade_number, maximum_length, blade_distribution,
+        maximum_number_of_points_in_normal_direction=500, distribution_law='ratio',
+        distribution_growth_rate=1.05, last_cell_height=1.,
+        smoothing_start_at_layer=80, smoothing_normals_iterations=1,
+        smoothing_normals_subiterations=5, smoothing_growth_iterations=2,
+        smoothing_growth_subiterations=120,smoothing_expansion_factor=0.1,
+        smoothing_growth_coefficient=[0,0.03,'distance'],
+        nb_of_constrained_neighbors=3):
+    '''
+    extrude a spinner surface verifying periodic connectivity.
+
+    Parameters
+    ----------
+
+        Spinner : PyTree, base, zone or list of zone
+            The surface of the spinner to be extruded. All surfaces must yield
+            :math:`(i,j)` ordering such that the normals point toward the
+            exterior.
+
+            .. important:: the spinner surface must be composed of only an angular sector.
+                If you wish to extrude a watertight 360 spinner, then you should
+                use directly :py:func:`MOLA.GenerativeVolumeDesign.extrude`
+
+        periodic_curves : PyTree, base or list of zone
+            container of curves defining the periodic profiles and possibly the
+            rear-end trailing-edge boundary of the spinner
+
+        rotation_center : 3-:py:class:`float` :py:class:`list` or numpy array
+            indicates the rotation center :math:`(x,y,z)` coordinates of the
+            blade and spinner
+
+        rotation_axis : 3-:py:class:`float` :py:class:`list` or numpy array
+            indicates the rotation axis unitary direction vector
+
+        blade_number : int
+            number of blades being considered by the spinner.
+
+            .. important:: it must be coherent with the provided spinner
+                angular sector
+
+        maximum_length : same as same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        blade_distribution : zone
+            structured curve yielding the radial absolute distribution of the
+            blade, used for the first region of extrusion of the spinner.
+
+        maximum_number_of_points_in_normal_direction : int
+            indicates the maximum authorized number of points used for
+            the normal extrusion of the blade, as defined by
+            **maximum_number_of_points** parameter of function
+            :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        distribution_law : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        distribution_growth_rate : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        last_extrusion_cell_height : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        maximum_extrusion_distance_at_spinner : float
+            indicates the maximum authorized extrusion distance used for
+            the normal extrusion of the blade at the spinner (root), as defined by
+            **maximum_length** parameter of function
+            :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        smoothing_start_at_layer : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        smoothing_normals_iterations : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        smoothing_normals_subiterations : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        smoothing_growth_iterations : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        smoothing_growth_subiterations : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        smoothing_growth_coefficient : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        smoothing_expansion_factor : same as :py:func:`MOLA.GenerativeVolumeDesign.newExtrusionDistribution`
+
+        nb_of_constrained_neighbors : int
+            the number of contours around surfaces patches whose normals are
+            constrained
+
+    Returns
+    -------
+
+        spinner_extruded : base
+            CGNS Base containing the volume grid of the spinner
+    '''
+
+
+    distribution_near_blade = I.copyTree(blade_distribution)
+    W.addDistanceRespectToLine(distribution_near_blade,rotation_center, rotation_axis,
+                                FieldNameToAdd='Span')
+    x,y,z = J.getxyz(distribution_near_blade)
+    NPts_distribution_blade = len(x)
+    Span, = J.getVars(distribution_near_blade,['Span'])
+    y[:] = z[:] = 0
+    x[0] = 0
+    for i in range(1,NPts_distribution_blade):
+        x[i] = x[i-1] + Span[i] - Span[i-1]
+
+    if maximum_number_of_points_in_normal_direction > NPts_distribution_blade:
+        distribution_farfield = W.linelaw(P1=(x[-1],0.,0.),
+                                 P2=(maximum_length-x[-1],0.,0.),
+                                 N=maximum_number_of_points_in_normal_direction-NPts_distribution_blade,
+                                 Distribution=dict(
+                                     kind=distribution_law,
+                                     growth=distribution_growth_rate,
+                                     FirstCellHeight=x[-1]-x[-2],
+                                     LastCellHeight=last_cell_height))
+        I._rmNodesByType([distribution_near_blade, distribution_farfield],'FlowSolution_t')
+        total_distribution = T.join(distribution_near_blade, distribution_farfield)
+    else:
+        total_distribution = distribution_near_blade
+
+    GVD._setExtrusionSmoothingParameters(total_distribution,
+                                        smoothing_start_at_layer,
+                                        smoothing_normals_iterations,
+                                        smoothing_normals_subiterations,
+                                        smoothing_growth_iterations,
+                                        smoothing_growth_subiterations,
+                                        smoothing_growth_coefficient,
+                                        smoothing_expansion_factor)
+
+    if maximum_number_of_points_in_normal_direction < NPts_distribution_blade:
+        total_distribution = T.subzone(total_distribution,(1,1,1),
+                            (maximum_number_of_points_in_normal_direction,1,1))
+
+
+    Constraints = []
+    for z in I.getZones(Spinner):
+        for n in range(nb_of_constrained_neighbors+1):
+            for w, l in zip(['imin','imax','jmin','jmax'],[n,-n,n,-n]):
+                Constraints.append(dict(kind='Projected',
+                                        curve=GSD.getBoundary(z,w,l),
+                                        ProjectionMode='CylinderRadial',
+                                        ProjectionCenter=rotation_center,
+                                        ProjectionAxis=rotation_axis))
+
+
+    PeriodicCurves = I.getZones(periodic_curves)
+
+    LeadingEdgePoint = GSD.getBoundary(PeriodicCurves[0],'imin')
+    LeadingEdgePoint[0] = 'LeadingEdgePoint'
+    TrailingEdgePoint = GSD.getBoundary(PeriodicCurves[0],'imax')
+    TrailingEdgePoint[0] = 'TrailingEdgePoint'
+
+    if W.distanceOfPointToLine(LeadingEdgePoint,rotation_axis,rotation_center) < 1e-8:
+        sx, sy, sz = J.invokeFields(LeadingEdgePoint,['sx','sy','sz'])
+        sx[:] = rotation_axis[0]
+        sy[:] = rotation_axis[1]
+        sz[:] = rotation_axis[2]
+
+        Constraints.append(dict(kind='Imposed', curve=LeadingEdgePoint))
+
+    if W.distanceOfPointToLine(TrailingEdgePoint,rotation_axis,rotation_center) < 1e-8:
+        sx, sy, sz = J.invokeFields(TrailingEdgePoint,['sx','sy','sz'])
+        sx[:] = -rotation_axis[0]
+        sy[:] = -rotation_axis[1]
+        sz[:] = -rotation_axis[2]
+
+        Constraints.append(dict(kind='Imposed', curve=TrailingEdgePoint))
+    else:
+        sx, sy, sz = J.invokeFields(PeriodicCurves[2],['sx','sy','sz'])
+        Constraints.append(dict(kind='Initial', curve=PeriodicCurves[2]))
+
+
+
+
+    Constraints.extend([
+    dict(kind='CopyAndRotate',curve=PeriodicCurves[1], pointsToCopy=PeriodicCurves[0],
+         RotationCenter=rotation_center,
+         RotationAxis=rotation_axis,
+         RotationAngle=360./float(blade_number),),
+    ])
+
+    SpinnerExtrusionTree = GVD.extrude(Spinner,[total_distribution],Constraints,
+                                       starting_message=J.WARN+'spinner'+J.ENDC,
+                                       printIters=True)
+    spinner_extruded = I.getZones(I.getNodeFromName3(SpinnerExtrusionTree,'ExtrudedVolume'))
+    for z in I.getZones(spinner_extruded): z[0] = 'spinner'
+    I._correctPyTree(spinner_extruded,level=3)
+
+    base, = I.getBases(C.newPyTree(['SPINNER',spinner_extruded]))
+
+    return base
+
+
+
+
 def addPitchAndAdjustPositionOfBladeSurface(blade,
                                             root_window='jmin',
                                             delta_pitch_angle=0.0,
                                             pitch_center_adjust_relative2chord=0.5,
                                             pitch_axis=(0,0,-1),
                                             pitch_center=(0,0,0)):
-    # TODO doc
+    '''
+    Adjust the position of a blade surface and apply a rotation for setting
+    a relative pitch angle.
+
+    Parameters
+    ----------
+
+        blade : PyTree, base, zone or list of zone
+            must contain the blade structured surface (zone with highest number
+            of points)
+
+            .. note:: **blade** is modified
+
+        root_window : str
+            indicates the window where root is situated, must be one of:
+            ``'imin'``, ``'imax'``, ``'jmin'``, ``'jmax'``
+
+        delta_pitch_angle : float
+            the angle (in degrees) to apply to the blade
+
+        pitch_center_adjust_relative2chord : float
+            chordwise relative position (at root) used for readjusting the
+            location of the blade in order to align the blade along **pitch_axis**
+            passing through point **pitch_center**
+
+        pitch_axis : 3-:py:class:`float` :py:class:`list` or numpy array
+            unitary vector pointing towards the rotation axis of the pitch
+            command
+
+        pitch_center : 3-:py:class:`float` :py:class:`list` or numpy array
+            coordinates :math:`(x,y,z)` of the point where **pitch_axis** passes
+
+    Returns
+    -------
+        None : None
+            **blade** is modified
+    '''
 
     pitch_axis = np.array(pitch_axis,dtype=np.float)
     pitch_axis /= np.sqrt(pitch_axis.dot(pitch_axis))
 
-    root = GSD.getBoundary(blade, root_window)
+    blade_main_surface = J.selectZoneWithHighestNumberOfPoints(blade)
+    root = GSD.getBoundary(blade_main_surface, root_window)
     root_camber = W.buildCamber(root)
     x,y,z = J.getxyz(root_camber)
     adjust_point = [x[0] + pitch_center_adjust_relative2chord * (x[-1] - x[0]),
@@ -68,7 +447,35 @@ def addPitchAndAdjustPositionOfBladeSurface(blade,
 
 def adjustSpinnerAzimutRelativeToBlade(spinner, blade, RotationAxis=(0,1,0),
                                         RotationCenter=(0,0,0)):
-    # TODO doc
+    '''
+    Rotate the spinner such that the blade is located approximately at the
+    middle of the spinner surface
+
+    Parameters
+    ----------
+
+        spinner : PyTree, base, zone, list of zone
+            container with spinner surfaces
+
+            .. note:: spinner surfaces are modified
+
+        blade : PyTree, base, zone, list of zone
+            contains the blade wall surface. It must be open at root.
+
+        RotationAxis : 3-:py:class:`float` :py:class:`list` or numpy array
+            indicates the rotation axis unitary direction vector
+
+        RotationCenter : 3-:py:class:`float` :py:class:`list` or numpy array
+            indicates the rotation center :math:`(x,y,z)` coordinates of the
+            blade and spinner
+
+    Returns
+    -------
+        None : None
+            **spinner** is modified
+
+    '''
+
     spinnerSurfs = [c for c in I.getZones(spinner) if I.getZoneDim(c)[-1] == 2]
 
     spinnerTRI = C.convertArray2Tetra(spinnerSurfs)
@@ -407,7 +814,7 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0),
         LETFI = T.projectDir(LETFI,FineHub,dir=AxeDir)
         T._smooth(LETFI,eps=SmoothingParameters['eps'], niter=SmoothingParameters['niter'], type=SmoothingParameters['type'], fixedConstraints=[LEBound])
         # T._projectDir(LETFI,FineHub,dir=AxeDir)
-        T._projectOrthoSmooth(LETFI,FineHub, niter=3)
+        T._projectOrthoSmooth(LETFI,FineHub, niter=SmoothingParameters['niter'])
         GSD.applyGlue(LETFI,[LEBound])
 
         LETFIzones = I.getNodesFromType(LETFI,'Zone_t')
@@ -428,7 +835,7 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0),
             T._smooth(TETFI, **SmoothingParameters)
             GSD.prepareGlue(TETFI,[TEBound])
             # T._projectDir(TETFI,FineHub,dir=(AxeDir[0],-AxeDir[1],AxeDir[2]))
-            T._projectOrthoSmooth(TETFI,FineHub,niter=3)
+            T._projectOrthoSmooth(TETFI,FineHub,niter=SmoothingParameters['niter'])
             GSD.applyGlue(TETFI,[TEBound])
 
             TETFIzones = I.getNodesFromType(TETFI,'Zone_t')
@@ -448,10 +855,12 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0),
         BladeNumberForPeriodic = float(BladeNumberForPeriodic)
         RevolutionAngle = 360./BladeNumberForPeriodic
         T._rotate(RevolutionProfile,AxeCenter,AxeDir,-0.5*RevolutionAngle)
-
         MainBody = D.axisym(RevolutionProfile, AxeCenter,AxeDir, angle=RevolutionAngle, Ntheta=NPsi);
         MainBody[0]='MainBody'
 
+        ProfileFineHub = W.discretize(Profile,N=10000)
+        ProfileFineHub = T.rotate(Profile,AxeCenter,AxeDir,-0.5*RevolutionAngle)
+        FineHub = D.axisym(ProfileFineHub, AxeCenter,AxeDir, angle=RevolutionAngle, Ntheta=NPsi*30); FineHub[0]='FineHub'
 
         # Close Leading Edge
         LEarc = T.subzone(MainBody,(1,1,1),(1,NPsi,1)); LEarc[0]='LEarc'
@@ -577,6 +986,12 @@ def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0),
         SmoothingParameters['fixedConstraints'] = ConstraintZones
         T._smooth(t, **SmoothingParameters)
         T._projectOrtho(t,FineHub)
+
+        SmoothingParameters['fixedConstraints'] = [P.exteriorFaces(LESingle)]
+        SmoothingParameters['niter'] = 50
+        T._smooth(LESingle, **SmoothingParameters)
+        T._projectOrtho(LESingle,FineHub)
+
 
         # Determine if reordering is necessary in order to
         # guarantee an outwards-pointing normal for each zone
@@ -979,3 +1394,364 @@ def getEulerAngles4PUMA(RotationAxis, PhaseDirection=(0,1,0)):
     EulerAngles = Rotator.as_euler('XYZ', degrees=True)
 
     return EulerAngles
+
+def extractNearestSectionIndexAtRadius(blade_surface, requested_radius,
+        rotation_axis, rotation_center, search_index='jmin',
+        strictlyPositive=False):
+    _,Ni,Nj,Nk,_ = I.getZoneDim(blade_surface)
+    previous_margin = 1e10
+    for j in range(Nj):
+        Section = GSD.getBoundary(blade_surface,search_index,j)
+        barycenter = G.barycenter(Section)
+        radius = W.distanceOfPointToLine(barycenter, rotation_axis,
+                                         rotation_center)
+        margin = radius-requested_radius
+        if margin>0: break
+        previous_margin = margin
+
+    if strictlyPositive:
+        section_index = j
+    else:
+        if abs(margin) > abs(previous_margin):
+            section_index = j
+        else:
+            section_index = j-1
+
+    if section_index <= 0:
+        raise ValueError('it seems that blade does not intersects the spinner sufficiently')
+
+    return section_index
+
+def _getRootAndTransitionIndices(blade_surface, spinner_profile, rotation_center,
+                                rotation_axis, root_to_transition_distance):
+    spinner_profile = I.copyRef(spinner_profile)
+    W.addDistanceRespectToLine(spinner_profile, rotation_center, rotation_axis,
+                               FieldNameToAdd='radius')
+    approximate_root_radius = C.getMaxValue(spinner_profile,'radius')
+
+    blade_main_surface = J.selectZoneWithHighestNumberOfPoints(blade_surface)
+
+    root_section_index = extractNearestSectionIndexAtRadius(blade_main_surface,
+                            approximate_root_radius, rotation_axis, rotation_center,
+                            strictlyPositive=True)
+    transition_section_index = extractNearestSectionIndexAtRadius(blade_main_surface,
+                            approximate_root_radius+root_to_transition_distance,
+                            rotation_axis, rotation_center,
+                            strictlyPositive=False)
+
+    _,Ni,Nj,Nk,_ = I.getZoneDim(blade_main_surface)
+    if root_section_index >= transition_section_index:
+        ERROR_MESSAGE = ('detected transition section index ({}) is too close '
+          'to detected approximate root index ({}). Try increasing '
+          '"root_to_transition_distance" value.').format(transition_section_index,
+                                                         root_section_index)
+        raise ValueError(ERROR_MESSAGE)
+    elif transition_section_index == Nj-1:
+        raise ValueError('transition section is located at tip. Try decreasing "root_to_transition_distance" value')
+
+    return root_section_index, transition_section_index
+
+
+def _computeIntersectionContourBetweenBladeAndSpinner(blade_surface,
+        rotation_center, rotation_axis, spinner_profile,
+        maximum_extrusion_distance_at_spinner, transition_section_index,
+        geometry_npts_azimut=361):
+
+    blade_main_surface = J.selectZoneWithHighestNumberOfPoints(blade_surface)
+    _,Ni,Nj,Nk,_ = I.getZoneDim(blade_main_surface)
+    trimmed_blade_root = T.subzone(blade_main_surface,(1,1,1),
+                                                (Ni,transition_section_index,1))
+    trimmed_blade_root_closed = GSD.buildWatertightBodyFromSurfaces([trimmed_blade_root])
+
+    blade_barycenter = np.array(list(G.barycenter(trimmed_blade_root)))
+    cut_point_1 = blade_barycenter + 3 * rotation_axis * maximum_extrusion_distance_at_spinner
+    cut_point_2 = blade_barycenter - 3 * rotation_axis * maximum_extrusion_distance_at_spinner
+    trimmed_spinner_profile = W.trimCurveAlongDirection(spinner_profile,
+                                                        rotation_axis,
+                                                        cut_point_1,
+                                                        cut_point_2)
+
+    nb_azimut_pts = geometry_npts_azimut if geometry_npts_azimut%2==0 else geometry_npts_azimut + 1
+    spinner_surface = D.axisym(trimmed_spinner_profile, rotation_center,
+                               rotation_axis, angle=360., Ntheta=nb_azimut_pts)
+    spinner_surface_closed = GSD.buildWatertightBodyFromSurfaces([spinner_surface])
+    intersection_bar = XOR.intersection(spinner_surface_closed, trimmed_blade_root_closed)
+    intersection_bar = C.convertBAR2Struct(intersection_bar)
+    T._projectOrtho(intersection_bar,trimmed_blade_root)
+
+    return intersection_bar, spinner_surface
+
+
+def _convertIntersectionContour2Structured(blade_surface, spinner_surface,
+                                    root_section_index, intersection_contour):
+    blade_main_surface = J.selectZoneWithHighestNumberOfPoints(blade_surface)
+    _,Ni,Nj,Nk,_ = I.getZoneDim(blade_main_surface)
+    supported_profile = GSD.getBoundary(blade_main_surface,'jmin',root_section_index-1)
+    supported_profile[0] = 'supported_profile'
+    x,y,z = J.getxyz(supported_profile)
+
+    CassiopeeVersionIsGreaterThan3dot3 = int(C.__version__.split('.')[1]) > 3
+    useApproximate=False
+    if CassiopeeVersionIsGreaterThan3dot3:
+        for i in range(Ni):
+            spanwise_curve = GSD.getBoundary(blade_main_surface,'imin',i)
+            spanwise_curve = C.convertArray2Tetra(spanwise_curve)
+            intersection_contour = C.convertArray2Tetra(intersection_contour)
+            # see #9599
+            try:
+                IntersectingPoint = XOR.intersection(spanwise_curve, intersection_contour,
+                                                 tol=1e-6)
+            except:
+                print(J.WARN+'XOR.intersection failed at point i=%d\nWill use APPROXIMATE METHOD'%i+J.ENDC)
+                useApproximate=True
+                break
+            xPt, yPt, zPt = J.getxyz(IntersectingPoint)
+            x[i] = xPt[0]
+            y[i] = yPt[0]
+            z[i] = zPt[0]
+        T._projectOrtho(supported_profile,spinner_surface)
+    else:
+        useApproximate=True
+
+    if useApproximate:
+        supported_profile = GSD.getBoundary(blade_main_surface,'jmin',root_section_index-1)
+        supported_profile[0] = 'supported_profile'
+        x,y,z = J.getxyz(supported_profile)
+
+        Projections, Distances = [], []
+        Section = GSD.getBoundary(blade_main_surface,'jmin',root_section_index)
+        dx, dy, dz = J.invokeFields(supported_profile,['dx','dy','dz'])
+        Sx, Sy, Sz = J.getxyz(Section)
+        dx[:] = x-Sx
+        dy[:] = y-Sy
+        dz[:] = z-Sz
+
+        T._projectAllDirs(supported_profile,spinner_surface,vect=['dx','dy','dz'],oriented=0)
+        I._rmNodesByType(supported_profile,'FlowSolution_t')
+
+    return supported_profile
+
+def _computeTransitionDistanceAndCellWidth(blade_surface, supported_profile,
+                                           transition_section_index):
+    blade_main_surface = J.selectZoneWithHighestNumberOfPoints(blade_surface)
+    x3,y3,z3=J.getxyz(supported_profile)
+    transition_section = GSD.getBoundary(blade_main_surface,'jmin',
+                                         layer=transition_section_index)
+    x1,y1,z1=J.getxyz(transition_section)
+    transition_previous_section = GSD.getBoundary(blade_main_surface,'jmin',
+                                         layer=transition_section_index-1)
+    x2,y2,z2=J.getxyz(transition_previous_section)
+    transition_cell_width = np.sqrt((x1[0]-x2[0])**2+(y1[0]-y2[0])**2+(z1[0]-z2[0])**2)
+    transition_distance = np.sqrt((x1[0]-x3[0])**2+(y1[0]-y3[0])**2+(z1[0]-z3[0])**2)
+
+    return transition_distance, transition_cell_width
+
+def _computeBladeDistributions(blade_surface, rotation_axis,
+        supported_profile, transition_section_index, distribution_law,
+        maximum_extrusion_distance_at_spinner, maximum_number_of_points_in_normal_direction,
+        wall_cell_height, last_extrusion_cell_height,
+        distribution_growth_rate, smoothing_start_at_layer,
+        smoothing_normals_iterations, smoothing_normals_subiterations,
+        smoothing_growth_iterations, smoothing_growth_subiterations,
+        smoothing_growth_coefficient, smoothing_expansion_factor,
+        expand_distribution_radially):
+
+    blade_main_surface = J.selectZoneWithHighestNumberOfPoints(blade_surface)
+    x3,y3,z3=J.getxyz(supported_profile)
+    transition_section = GSD.getBoundary(blade_main_surface,'jmin',
+                                         layer=transition_section_index)
+    x1,y1,z1=J.getxyz(transition_section)
+    transition_previous_section = GSD.getBoundary(blade_main_surface,'jmin',
+                                         layer=transition_section_index-1)
+    x2,y2,z2=J.getxyz(transition_previous_section)
+    transition_cell_width = np.sqrt((x1[0]-x2[0])**2+(y1[0]-y2[0])**2+(z1[0]-z2[0])**2)
+    transition_distance = np.sqrt((x1[0]-x3[0])**2+(y1[0]-y3[0])**2+(z1[0]-z3[0])**2)
+
+    BladeExtrusionDistribution = GVD.newExtrusionDistribution(maximum_extrusion_distance_at_spinner,
+         maximum_number_of_points=maximum_number_of_points_in_normal_direction,
+         distribution_law=distribution_law,
+         first_cell_height=wall_cell_height,
+         last_cell_height=last_extrusion_cell_height,
+         ratio_growth=distribution_growth_rate,
+         smoothing_start_at_layer=smoothing_start_at_layer,
+         smoothing_normals_iterations=smoothing_normals_iterations,
+         smoothing_normals_subiterations=smoothing_normals_subiterations,
+         smoothing_growth_iterations=smoothing_growth_iterations,
+         smoothing_growth_subiterations=smoothing_growth_subiterations,
+         smoothing_growth_coefficient=smoothing_growth_coefficient,
+         smoothing_expansion_factor=smoothing_expansion_factor,
+         start_point=(x3[0], y3[0], z3[0]), direction=-rotation_axis)
+
+    Distributions = [BladeExtrusionDistribution]
+
+    if expand_distribution_radially:
+        raise ValueError('expand_distribution_radially=True to be implemented')
+        if distribution_law == 'ratio':
+            raise ValueError('cannot expand radially if distribution_law=="ratio", please switch to "tanh"')
+        tip_section = GSD.getBoundary(blade_main_surface,'jmax')
+        x4, y4, z4 = J.getxyz(tip_section)
+        radius_root = W.distanceOfPointToLine((x3[0],y3[0],z3[0]), rotation_axis, rotation_center)
+        radius_tip = W.distanceOfPointToLine((x4[0],y4[0],z4[0]), rotation_axis, rotation_center)
+        extrusion_distance_tip = radius_tip*maximum_extrusion_distance_at_spinner/radius_root
+        TipExtrusionDistribution = GVD.newExtrusionDistribution(extrusion_distance_tip,
+             maximum_number_of_points=maximum_number_of_points_in_normal_direction,
+             distribution_law=kind,
+             first_cell_height=wall_cell_height,
+             last_cell_height=last_extrusion_cell_height,
+             ratio_growth=distribution_growth_rate,
+             smoothing_start_at_layer=smoothing_start_at_layer,
+             smoothing_normals_iterations=smoothing_normals_iterations,
+             smoothing_normals_subiterations=smoothing_normals_subiterations,
+             smoothing_growth_iterations=smoothing_growth_iterations,
+             smoothing_growth_subiterations=smoothing_growth_subiterations,
+             smoothing_growth_coefficient=smoothing_growth_coefficient,
+             smoothing_expansion_factor=smoothing_expansion_factor,
+             start_point=(x4[0], y4[0], z4[0]), direction=-rotation_axis)
+        Distributions.append(TipExtrusionDistribution)
+
+    return Distributions
+
+
+def _extrudeBladeRootOnSpinner(blade_surface, spinner_surface, root_section_index,
+                              Distribution, supported_profile):
+    blade_main_surface = J.selectZoneWithHighestNumberOfPoints(blade_surface)
+    Constraints = [dict(kind='Projected',ProjectionMode='ortho',
+                        curve=supported_profile, surface=spinner_surface)]
+
+    trimmed_blade_no_intersect = T.subzone(blade_main_surface,
+                                          (1,root_section_index+1,1), (-1,-1,-1))
+
+    supported_profile_bar = C.convertArray2Tetra(supported_profile)
+    G._close(supported_profile_bar)
+
+    support_match_extrusion = GVD.extrude(supported_profile_bar, [Distribution],
+                                    Constraints,  printIters=True,
+                                    starting_message=J.CYAN+'root support'+J.ENDC)
+    supported_match = I.getNodeFromName3(support_match_extrusion,'ExtrudedVolume')
+    supported_match, = I.getZones(supported_match)
+
+    return supported_match
+
+
+def _extrudeBladeFromTransition(blade_surface, root_section_index, Distributions):
+    blade_main_surface = J.selectZoneWithHighestNumberOfPoints(blade_surface)
+    trimmed_blade_no_intersect = T.subzone(blade_main_surface,
+                                          (1,root_section_index+1,1), (-1,-1,-1))
+    copy_profile = GSD.getBoundary(trimmed_blade_no_intersect,'jmin',1)
+    copy_profile[0]='copy_profile'
+    J._invokeFields(copy_profile,['sx','sy','sz','dH'])
+    pts2copy = GSD.getBoundary(trimmed_blade_no_intersect,'jmin',2)
+    J._invokeFields(pts2copy,['sx','sy','sz','dH'])
+    pts2copy[0]='pts2copy'
+
+    copy_profile2 = GSD.getBoundary(trimmed_blade_no_intersect,'jmin',0)
+    copy_profile2[0]='copy_profile2'
+    J._invokeFields(copy_profile2,['sx','sy','sz','dH'])
+    pts2copy2 = GSD.getBoundary(trimmed_blade_no_intersect,'jmin',2)
+    J._invokeFields(pts2copy2,['sx','sy','sz','dH'])
+    pts2copy2[0]='pts2copy2'
+
+    Constraints = [dict(kind='Copy', curve=copy_profile, pointsToCopy=pts2copy),
+                   dict(kind='Copy', curve=copy_profile2, pointsToCopy=pts2copy2)]
+
+    new_blade_surface_with_tip = [trimmed_blade_no_intersect]
+    new_blade_surface_with_tip.extend(J.selectZonesExceptThatWithHighestNumberOfPoints(blade_surface))
+
+    blade_root2trans_extrusion = GVD.extrude(new_blade_surface_with_tip,
+                                             Distributions,
+                                             Constraints, printIters=True,
+                                             starting_message=J.GREEN+'blade'+J.ENDC,
+                                             closeExtrusionLayer=True)
+
+    return blade_root2trans_extrusion
+
+
+def _buildAndJoinCollarGrid(blade_surface, blade_root2trans_extrusion, transition_section_index,
+        root_section_index, supported_profile, supported_match, wall_cell_height,
+        root_to_transition_number_of_points, CollarLaw='interp1d_cubic'):
+
+    transition_distance, transition_cell_width = _computeTransitionDistanceAndCellWidth(blade_surface,
+                                        supported_profile, transition_section_index)
+    blade_main_surface = J.selectZoneWithHighestNumberOfPoints(blade_surface)
+    _,Ni,Nj,Nk,_ = I.getZoneDim(blade_main_surface)
+
+    extruded_blade_with_tip = I.getNodeFromName1(blade_root2trans_extrusion,'ExtrudedVolume')
+    extruded_blade_main = J.selectZoneWithHighestNumberOfPoints(extruded_blade_with_tip)
+
+    extruded_blade_root2trans = T.subzone(extruded_blade_main, (1,1,1),
+                        (Ni,transition_section_index-root_section_index+1,-1))
+    extruded_blade_trans2tip = T.subzone(extruded_blade_main,
+                            (1,transition_section_index-root_section_index+1,1),
+                            (-1,-1,-1))
+    _,Ni2,Nj2,Nk2,_=I.getZoneDim(extruded_blade_root2trans)
+
+    transition_sections = [supported_match]
+    transition_sections.extend([T.subzone(extruded_blade_root2trans,(1,j+1,1),(Ni2,j+1,Nk2)) for j in range(Nj2)])
+    transition_distribution = J.getDistributionFromHeterogeneousInput__(W.linelaw(
+                                   P2=(transition_distance,0,0), N=root_to_transition_number_of_points,
+                                   Distribution=dict(kind='tanhTwoSides',
+                                   FirstCellHeight=wall_cell_height,
+                                   LastCellHeight=transition_cell_width)))[1]
+    extruded_transition = GVD.multiSections(transition_sections, transition_distribution,
+                        InterpolationData={'InterpolationLaw':CollarLaw})[0]
+    T._reorder(extruded_transition,(1,3,2))
+    # extruded_blade = T.join(extruded_transition,extruded_blade_trans2tip) # bug #9653
+    extruded_transition = T.subzone(extruded_transition,(1,1,1),(-1,-2,-1)) # use this strategy instead
+    x1,y1,z1 = J.getxyz(extruded_transition)
+    x2,y2,z2 = J.getxyz(extruded_blade_trans2tip)
+    x = np.concatenate((x1,x2),axis=1)
+    y = np.concatenate((y1,y2),axis=1)
+    z = np.concatenate((z1,z2),axis=1)
+    allzones = [J.createZone('blade',[x,y,z],['x','y','z'])]
+
+    allzones.extend(J.selectZonesExceptThatWithHighestNumberOfPoints(extruded_blade_with_tip))
+
+    return allzones
+
+def makeBladeAndSpinnerTreeForChecking(blade_extruded, spinner_extruded,
+                                        rotation_center, rotation_axis):
+    '''
+    make a light CGNS tree of the spinner and blade extrusion result
+    for visualization and checking purposes
+
+    Parameters
+    ----------
+
+        blade_extruded : base
+            as returned by :py:func:`extrudeBladeSupportedOnSpinner`
+
+        spinner_extruded : base
+            as returned by :py:func:`extrudeSpinner`
+
+        rotation_center : 3-:py:class:`float` :py:class:`list` or numpy array
+            indicates the rotation center :math:`(x,y,z)` coordinates of the
+            blade and spinner
+
+        rotation_axis : 3-:py:class:`float` :py:class:`list` or numpy array
+            indicates the rotation axis unitary direction vector
+
+    Returns
+    -------
+
+        t : PyTree
+            visualization PyTree composed of external faces and middle slices
+    '''
+    t = C.newPyTree(['Blade', P.exteriorFacesStructured(blade_extruded),
+                     'Spinner', P.exteriorFacesStructured(spinner_extruded)])
+    pt1 = np.array(list(G.barycenter(blade_extruded)),dtype=np.float)
+    c = np.array(rotation_center,dtype=np.float)
+    a = np.array(rotation_axis,dtype=np.float)
+    pt2 = c + a*(pt1-c).dot(a)
+    pt3 = c
+    n = np.cross(pt1-pt2,pt3-pt2)
+    n/=np.sqrt(n.dot(n))
+    Pt = pt2
+    PlaneCoefs = n[0],n[1],n[2],-n.dot(Pt)
+    tAux = C.newPyTree(['BLADE',J.getZones(blade_extruded),
+                        'SPINNER',J.getZones(spinner_extruded),])
+    C._initVars(tAux,'Slice=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
+    slicezones = P.isoSurfMC(tAux, 'Slice', 0.0)
+    t2 = C.newPyTree(['SLICE',slicezones])
+    t = I.merge([t,t2])
+
+    return t
