@@ -2715,7 +2715,6 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
                              AllSetupDictionaries['elsAkeysNumerics']])
 
     AllSetupDictionaries['ReferenceValues']['NProc'] = int(max(getProc(t))+1)
-    AllSetupDictionaries['ReferenceValues']['CoreNumberPerNode'] = 28
 
     writeSetup(AllSetupDictionaries)
 

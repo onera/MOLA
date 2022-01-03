@@ -350,7 +350,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     dim = int(AllSetupDics['elsAkeysCFD']['config'][0])
     PRE.addGoverningEquations(t, dim=dim)
     AllSetupDics['ReferenceValues']['NProc'] = int(max(PRE.getProc(t))+1)
-    AllSetupDics['ReferenceValues']['CoreNumberPerNode'] = 28
     PRE.writeSetup(AllSetupDics)
 
     PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
@@ -689,7 +688,8 @@ def joinFamilies(t, pattern):
             I.newFamily(fam, parent=base)
 
 def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0),
-    container='FlowSolution#Init', vectors2rotate=[['VelocityX','VelocityY','VelocityZ'],['MomentumX','MomentumY','MomentumZ']]):
+    verbose=1, container='FlowSolution#Init',
+    vectors2rotate=[['VelocityX','VelocityY','VelocityZ'],['MomentumX','MomentumY','MomentumZ']]):
     '''
     Duplicate **nDupli** times the domain attached to the family **rowFamily**
     around the axis of rotation.
@@ -730,30 +730,59 @@ def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0),
 
         axis : tuple
             axis of rotation given as a 3-tuple of integers or floats
+
+        verbose : int
+            level of verbosity:
+
+                * 0: no print
+
+                * 1: print the number of duplications for row **rowFamily** and
+                  the total number of blades.
+
+                * 2: print also the name of all duplicated zones
+
+        container : str
+            Name of the FlowSolution container to rotate. Default is 'FlowSolution#Init'
+
+        vectors2rotate : :py:class:`list` of :py:class:`list` of :py:class:`str`
+            list of vectors to rotate. Each vector is a list of three strings,
+            corresponding to each components.
+            The default value is:
+
+            >>> vectors2rotate=[['VelocityX','VelocityY','VelocityZ'],['MomentumX','MomentumY','MomentumZ']]
+
+            .. note:: Rotation of vectors is done with Cassiopee function
+                      Transform.rotate. However, it is not useful to put the
+                      prefix 'centers:'. It will be added automatically in the
+                      function.
+
     '''
-    # TODO: rotate vectors in FlowSolution, BCDataSets, and adapt globborders
-    # It will allows to use this function in other situations that currently
     OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
     I.__FlowSolutionCenters__ = container
 
     if nDupli is None:
         nDupli = nBlades # for a 360 configuration
     if nDupli == nBlades:
-        print('Duplicate {} over 360 degrees ({} blades in row)'.format(rowFamily, nBlades))
+        if verbose>0: print('Duplicate {} over 360 degrees ({} blades in row)'.format(rowFamily, nBlades))
     else:
-        print('Duplicate {} on {} blades ({} blades in row)'.format(rowFamily, nDupli, nBlades))
-    base = I.getNodeFromType(tree, 'CGNSBase_t')
-    check = False
+        if verbose>0: print('Duplicate {} on {} blades ({} blades in row)'.format(rowFamily, nDupli, nBlades))
 
+    if I.getType(tree) == 'CGNSBase_t':
+        base = tree
+    else:
+        base = I.getNodeFromType(tree, 'CGNSBase_t')
+
+    check = False
     vectors = []
     for vec in vectors2rotate:
         vectors.append(vec)
         vectors.append(['centers:'+v for v in vec])
-    for zone in I.getNodesFromType(tree, 'Zone_t'):
+
+    for zone in I.getZones(base):
         zone_name = I.getName(zone)
         zone_family = I.getValue(I.getNodeFromName1(zone, 'FamilyName'))
         if zone_family == rowFamily:
-            print('  > zone {}'.format(zone_name))
+            if verbose>1: print('  > zone {}'.format(zone_name))
             check = True
             zones2merge = [zone]
             for n in range(nDupli-1):
@@ -810,8 +839,6 @@ def duplicateFlowSolution(t, TurboConfiguration):
 
     angles4ConnectMatchPeriodic = []
     for row, rowParams in TurboConfiguration['Rows'].items():
-        # TODO: detect the number of blades initially in the domain
-        # For now, it is supposed to be one
         nBlades = rowParams['NumberOfBlades']
         nDupli = rowParams['NumberOfBladesSimulated']
         nMesh = rowParams['NumberOfBladesInInitialMesh']
@@ -1284,7 +1311,7 @@ def machFromMassFlow(massflow, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
 ################################################################################
 
 def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
-    FluidProperties, ReferenceValues, bladeFamilyNames=['Blade']):
+    FluidProperties, ReferenceValues, bladeFamilyNames=['BLADE','AUBE']):
     '''
     Set all BCs defined in the dictionary **BoundaryConditions**.
 
@@ -1312,7 +1339,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                   * OutflowRadialEquilibrium
 
                   * MixingPlane
-                  
+
                   * UnsteadyRotorStatorInterface
 
                   elsA names are also available (``farfield``, ``inj1``,
@@ -1373,7 +1400,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
             if 'option' not in BCparam:
                 print(J.CYAN + 'set BC inj1 on ' + BCparam['FamilyName'] + J.ENDC)
-                setBC_inj1_uniform(t, **BCkwargs)
+                setBC_inj1(t, **BCkwargs)
 
             elif BCparam['option'] == 'uniform':
                 print(J.CYAN + 'set BC inj1 (uniform) on ' + BCparam['FamilyName'] + J.ENDC)
@@ -1842,9 +1869,14 @@ def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues
             Name of the family on which the boundary condition will be imposed
 
         MassFlow : :py:class:`float` or :py:obj:`None`
-            Total massflow on the family (with the same **groupmassflow**). If
-            :py:obj:`None`, the reference massflow in **ReferenceValues** is
-            taken.
+            Total massflow on the family (with the same **groupmassflow**).
+            If :py:obj:`None`, the reference massflow in **ReferenceValues**
+            divided by the appropriate fluxcoeff is taken.
+
+            .. attention::
+                It has to be the massflow through the simulated section only,
+                not on the full 360 degrees configuration (except if the full
+                circonference is simulated).
 
         groupmassflow : int
             Index used to link participating patches to this boundary condition.
@@ -1857,12 +1889,14 @@ def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues
 
     '''
     if MassFlow is None and ReferenceValues is not None:
-        MassFlow = ReferenceValues['MassFlow']
+        bc = C.getFamilyBCs(t, FamilyName)[0]
+        zone = I.getParentFromType(t, bc, 'Zone_t')
+        row = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+        rowParams = TurboConfiguration['Rows'][row]
+        fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+        MassFlow = ReferenceValues['MassFlow'] / fluxcoeff
 
-    ImposedVariables = dict(
-        globalmassflow = MassFlow,
-        groupmassflow  = groupmassflow
-    )
+    ImposedVariables = dict(globalmassflow=MassFlow, groupmassflow=groupmassflow)
 
     setBCwithImposedVariables(t, FamilyName, ImposedVariables,
         FamilyBC='BCOutflowSubsonic', BCType='outmfr2', bc=bc)
