@@ -975,12 +975,8 @@ def addMemoryUsage2Arrays(arrays):
     This function adds or updates a component in **arrays** for monitoring the
     employed memory. Only nodes are monitored (not every single proc, as this
     would produce redundant information). The number of cores contained in each
-    computational node is retreived from the user-specified variable contained
-    in ``setup``:
-
-    ::
-
-        setup.ReferenceValues['CoreNumberPerNode']
+    computational node is retreived from the environment variable
+    ``SLURM_CPUS_ON_NODE``.
 
     If this information does not exist, a value of ``28`` is taken by default.
 
@@ -994,9 +990,7 @@ def addMemoryUsage2Arrays(arrays):
 
             parameter **arrays** is modified
     '''
-
-    try: CoreNumberPerNode = setup.ReferenceValues['CoreNumberPerNode']
-    except: CoreNumberPerNode = 28
+    CoreNumberPerNode = int(os.getenv('SLURM_CPUS_ON_NODE', 28))
 
     if rank%CoreNumberPerNode == 0:
         ZoneName = 'MemoryUsageOfProc%d'%rank
