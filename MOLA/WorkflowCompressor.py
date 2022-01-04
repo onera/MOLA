@@ -57,15 +57,19 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None, ProcPointsLoad=100000,
     #. load and clean the mesh from Autogrid 5
     #. apply transformations
     #. apply connectivity
-    #. split the mesh
-    #. distribute the mesh
+    #. duplicate the mesh in rotation (if needed)
+    #. split the mesh (only if PyPart is not used)
+    #. distribute the mesh (only if PyPart is not used)
     #. make final elsA-specific adaptations of CGNS data
 
-    .. warning:: The following assumptions on the input mesh are made:
+    .. warning::
+        The following assumptions on the input mesh are made:
+
         * it does not need any scaling
+
         * the shaft axis is the Z-axis, pointing downstream (convention in
-        Autgrid 5). The mesh will be rotated to follow the elsA convention, thus
-        the shaft axis will be the X-axis, pointing downstream.
+          Autgrid 5). The mesh will be rotated to follow the elsA convention,
+          thus the shaft axis will be the X-axis, pointing downstream.
 
     Parameters
     ----------
@@ -181,7 +185,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade'],
         Initialization={'method':'uniform'}):
     '''
-    This is mainly a function similar to Preprocess :py:func:`prepareMainCGNS4ElsA`
+    This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to compressor computations. Its purpose is adapting the CGNS to
     elsA.
 
@@ -192,36 +196,38 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             if the input is a :py:class:`str`, then such string specifies the
             path to file (usually named ``mesh.cgns``) where the result of
             function :py:func:`prepareMesh4ElsA` has been writen. Otherwise,
-            **mesh** can directly be the PyTree resulting from :py:func:`prepareMesh4ElsA`
+            **mesh** can directly be the PyTree resulting from :func:`prepareMesh4ElsA`
 
         ReferenceValuesParams : dict
             Python dictionary containing the
             Reference Values and other relevant data of the specific case to be
             run using elsA. For information on acceptable values, please
-            see the documentation of function :py:func:`computeReferenceValues`.
+            see the documentation of function :func:`computeReferenceValues`.
 
             .. note:: internally, this dictionary is passed as *kwargs* as follows:
 
-                >>> PRE.computeReferenceValues(arg, **ReferenceValuesParams)
+                >>> MOLA.Preprocess.computeReferenceValues(arg, **ReferenceValuesParams)
 
         NumericalParams : dict
             dictionary containing the numerical
             settings for elsA. For information on acceptable values, please see
-            the documentation of function :py:func:`getElsAkeysNumerics`
+            the documentation of function :func:`MOLA.Preprocess.getElsAkeysNumerics`
 
             .. note:: internally, this dictionary is passed as *kwargs* as follows:
 
-                >>> PRE.getElsAkeysNumerics(arg, **NumericalParams)
+                >>> MOLA.Preprocess.getElsAkeysNumerics(arg, **NumericalParams)
 
         TurboConfiguration : dict
             Dictionary concerning the compressor properties.
-            For details, refer to documentation of :py:func:`getTurboConfiguration`
+            For details, refer to documentation of :func:`getTurboConfiguration`
 
         Extractions : :py:class:`list` of :py:class:`dict`
+            List of extractions to perform during the simulation. See
+            documentation of :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
 
         BoundaryConditions : :py:class:`list` of :py:class:`dict`
             List of boundary conditions to set on the given mesh.
-            For details, refer to documentation of :py:func:`setBoundaryConditions`
+            For details, refer to documentation of :func:`setBoundaryConditions`
 
         BodyForceInputData : :py:class:`list` of :py:class:`dict`
 
@@ -234,23 +240,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
         Initialization : dict
             dictionary defining the type of initialization, using the key
-            **method**. This latter is mandatory and should be one of the
-            following:
-
-            * **method** = 'uniform' : the Flow Solution is initialized uniformly
-              using the **ReferenceValues**.
-
-            * **method** = 'copy' : the Flow Solution is initialized by copying
-              the FlowSolution container of another file. The file path is set by
-              using the key **file**. The container might be set with the key
-              **container** ('FlowSolution#Init' by default).
-
-            * **method** = 'interpolate' : the Flow Solution is initialized by
-              interpolating the FlowSolution container of another file. The file
-              path is set by using the key **file**. The container might be set
-              with the key **container** ('FlowSolution#Init' by default).
-
-            Default method is 'uniform'.
+            **method**. See documentation of :func:`MOLA.Preprocess.initializeFlowSolution`
 
     Returns
     -------
@@ -537,13 +527,15 @@ def prepareTree(t, rowParams):
             BladeNumber property to rows.
             Should follow the following form:
 
-            >>> rowParams = dict(
-            >>>     rowName     = <RowFamily>,
-            >>>     blade       = <BladeFamily>,
-            >>>     hub         = <HubFamily>,
-            >>>     shroud      = <ShroudFamily>,
-            >>>     BladeNumber = <Nb>,
-            >>> )
+            .. code-block:: python
+
+                rowParams = dict(
+                    rowName     = <RowFamily>,
+                    blade       = <BladeFamily>,
+                    hub         = <HubFamily>,
+                    shroud      = <ShroudFamily>,
+                    BladeNumber = <Nb>,
+                )
 
     '''
     I._renameNode(t, rowParams['hub'], '{}_HUB'.format(row))
@@ -1315,6 +1307,11 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     '''
     Set all BCs defined in the dictionary **BoundaryConditions**.
 
+    .. important::
+
+        Wall BCs are defined automatically given the dictionary **TurboConfiguration**
+
+
     Parameters
     ----------
 
@@ -1372,6 +1369,120 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     setBC_inj1, setBC_inj1_uniform, setBC_inj1_interpFromFile,
     setBC_outpres, setBC_outmfr2,
     setBCwithImposedVariables
+
+    Examples
+    --------
+
+    The following list defines classical boundary conditions for a compressor
+    stage:
+
+    .. code-block:: python
+
+        BoundaryConditions = [
+            dict(type='InflowStagnation', option='uniform', FamilyName='row_1_INFLOW'),
+            dict(type='OutflowRadialEquilibrium', FamilyName='row_2_OUTFLOW', valve_type=4, valve_ref_pres=0.75*Pt, valve_relax=0.3*Pt),
+            dict(type='MixingPlane', left='Rotor_stator_10_left', right='Rotor_stator_10_right')
+        ]
+
+    Each type of boundary conditions currently available in MOLA is detailed below.
+
+    **Wall boundary conditions**
+
+    These BCs are automatically defined based on the rotation speeds in the
+    :py:class:`dict` **TurboConfiguration**. There is a strong requirement on the
+    names of families defining walls:
+
+    * for the shroud: all family names must contain the pattern 'SHROUD' or 'CARTER'
+      (in lower, upper or capitalized case)
+
+    * for the hub: all family names must contain the pattern 'HUB' or 'MOYEU'
+      (in lower, upper or capitalized case)
+
+    * for the blades: all family names must contain the pattern 'BLADE' or 'AUBE'
+      (in lower, upper or capitalized case). If names differ from that ones, it
+      is still possible to give a list of patterns that are enought to find all
+      blades (adding 'BLADE' or 'AUBE' if necessary). It is done with the
+      argument **bladeFamilyNames** of :py:func:`prepareMainCGNS4ElsA`. For
+      instance, if the blade family is named 'R37_R37' as in the rotor 37 example,
+      this argument should be:
+
+      >>> bladeFamilyNames = ['_R37']
+
+      Indeed, 'R37' will be detected in other non related families. That also
+      shows that it is not a very appropriate naming by the way...
+
+
+    **Inflow boundary conditions**
+
+    For the example, it is assumed that there is only one inflow family called
+    'row_1_INFLOW'. The following types can be used as elements of the
+    :py:class:`list` **BoundaryConditions**:
+
+    >>> dict(type='ReferenceState', FamilyName='row_1_INFLOW')
+
+    It defines a farfield condition based on the **ReferenceValues**
+    :py:class:`dict`.
+
+    >>> dict(type='InflowStagnation', option='uniform', FamilyName='row_1_INFLOW')
+
+    It defines a uniform inflow condition imposing stagnation quantities ('inj1' in
+    *elsA*) based on the **ReferenceValues**  and **FluidProperties**
+    :py:class:`dict`.
+
+    >>> dict(type='InflowStagnation', option='file', FamilyName='row_1_INFLOW', filename='inflow.cgns')
+
+    It defines an inflow condition imposing stagnation quantities ('inj1' in
+    *elsA*) interpolating a 2D map written in the given file.
+
+
+    **Outflow boundary conditions**
+
+    For the example, it is assumed that there is only one outflow family called
+    'row_2_OUTFLOW'. The following types can be used as elements of the
+    :py:class:`list` **BoundaryConditions**:
+
+    >>> dict(type='OutflowPressure', FamilyName='row_2_OUTFLOW', Pressure=20e3)
+
+    It defines an outflow condition imposing a uniform static pressure ('outpres' in
+    *elsA*).
+
+    >>> dict(type='OutflowMassflow', FamilyName='row_2_OUTFLOW', Massflow=5.)
+
+    It defines an outflow condition imposing the massflow ('outmfr2' in *elsA*).
+    Be careful, **Massflow** should be the massflow through the given family BC
+    *in the simulated domain* (not the 360 degrees configuration, except if it
+    is simulated).
+    If **Massflow** is not given, the massflow given in the **ReferenceValues**
+    is automatically taken and normalized by the appropriate section.
+
+    >>> dict(type='OutflowRadialEquilibrium', FamilyName='row_2_OUTFLOW', valve_type=4, valve_ref_pres=0.75*Pt, valve_ref_mflow=5., valve_relax=0.3*Pt)
+
+    It defines an outflow condition imposing a radial equilibrium ('outradeq' in
+    *elsA*). The arguments have the same names that *emsA* keys. Valve law types
+    from 1 to 5 are available. The radial equilibrium witout a valve law (with
+    **valve_type** = 0, which is the default value) is also available. To be
+    consistant with the condition 'OutflowPressure', the argument
+    **valve_ref_pres** may also be named **Pressure**.
+
+
+    **Interstage boundary conditions**
+
+    For the example, it is assumed that there is only one interstage with both
+    families 'Rotor_stator_10_left' and 'Rotor_stator_10_right'. The following
+    types can be used as elements of the :py:class:`list` **BoundaryConditions**:
+
+    >>> dict(type='MixingPlane', left='Rotor_stator_10_left', right='Rotor_stator_10_right')
+
+    It defines a mixing plane ('stage_mxpl' in *elsA*).
+
+    >>> dict(type='UnsteadyRotorStatorInterface', left='Rotor_stator_10_left', right='Rotor_stator_10_right', stage_ref_time=1e-5)
+
+    It defines an unsteady interpolating interface (RNA interface, 'stage_red'
+    in *elsA*). If **stage_ref_time** is not provided, it is automatically
+    computed assuming a 360 degrees rotor/stator interface:
+
+    >>> stage_ref_time = 2*np.pi / abs(TurboConfiguration['ShaftRotationSpeed'])
+
     '''
     PreferedBoundaryConditions = dict(
         ReferenceState               = 'farfield',
@@ -1445,7 +1556,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                 BCparam['left'], BCparam['right'], J.ENDC))
             if not 'stage_ref_time' in BCkwargs:
                 # Assume a 360 configuration
-                BCkwargs['stage_ref_time'] = 2*np.pi / TurboConfiguration['ShaftRotationSpeed']
+                BCkwargs['stage_ref_time'] = 2*np.pi / abs(TurboConfiguration['ShaftRotationSpeed'])
             ETC.setBC_stage_red(t, **BCkwargs)
 
         elif BCparam['type'] == 'stage_red_hyb':
@@ -2306,7 +2417,7 @@ def computeRadialDistribution(t, FamilyName, nbband):
 def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
                     ThrottleRange, RotationSpeedRange, **kwargs):
     '''
-    User-level function designed to launch a structured-type polar of airfoil.
+    User-level function designed to launch iso-speed lines.
 
     Parameters
     ----------
@@ -2338,7 +2449,11 @@ def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
             RotationSpeed numbers to consider
 
         kwargs : dict
-            same arguments than prepareMainCGNS4ElsA
+            same arguments than prepareMainCGNS4ElsA, except that 'mesh' may be
+            a :py:class:`list`. In that case, the list must have the same length
+            that **RotationSpeedRange**, and each element corresponds to the
+            mesh used for each rotation speed. It may be useful to make the
+            geometry vary with the rotation speed (updating shape, tip gaps, etc).
 
     Returns
     -------
@@ -2393,13 +2508,15 @@ def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
         if 'Initialization' in WorkflowParams and i != 0:
             WorkflowParams.pop('Initialization')
 
+        if isinstance(WorkflowParams['mesh'], list):
+            speedIndex = RotationSpeedRange.index(RotationSpeed)
+            WorkflowParams['mesh'] = WorkflowParams['mesh'][speedIndex]
+
         JobsQueues.append(
             dict(ID=i, CASE_LABEL=CASE_LABEL, NewJob=NewJob, JobName=JobName, **WorkflowParams)
             )
 
-    JM.saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,
-                            FILE_GEOMETRY=kwargs['mesh'], NProc=NProc)
-
+    JM.saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK, NProc=NProc)
 
     def findElementsInCollection(collec, searchKey, elements=[]):
         '''
@@ -2437,6 +2554,10 @@ def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
         return elements
 
     otherFiles = findElementsInCollection(kwargs, 'file') + findElementsInCollection(kwargs, 'filename')
+    if isinstance(kwargs['mesh'], list):
+        otherFiles.extend(kwargs['mesh'])
+    else:
+        otherFiles.append(kwargs['mesh'])
     for filename in otherFiles:
         if filename.startswith('/') or filename.startswith('../') \
             or len(filename.split('/'))>1:
