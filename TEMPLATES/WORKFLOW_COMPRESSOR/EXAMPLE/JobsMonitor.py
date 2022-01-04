@@ -33,11 +33,18 @@ for i, speed in enumerate(perfo['RotationSpeed']):
     else: speed = speed[0]
     ax2.plot(perfo['MassFlow'][i], perfo['EfficiencyIsentropic'][i],
         color=color, label=None, **linestyles[i])
+    ax2.plot([], [], color='k', label='{:.0f}rpm'.format(speed/np.pi*30), **linestyles[i])
 ax2.tick_params(axis='y', labelcolor=color)
 ax2.set_ylim(top=1)
 
-fig.legend()
+Nspeeds = len(perfo['RotationSpeed'])
+if Nspeeds > 1:
+    if Nspeeds < 5:
+        ax2.legend(loc='lower center', bbox_to_anchor= (0.5, 1.1), ncol=Nspeeds,
+                borderaxespad=0, frameon=False)
+    else:
+        ax2.legend(loc='center left', bbox_to_anchor=(1.1, 0.5))
 
 fig.tight_layout()
-plt.savefig('isoSpeedLines.pdf', dpi=150)
+plt.savefig('isoSpeedLines.png', dpi=300)
 plt.show()
