@@ -33,11 +33,9 @@ UpdateArraysFrequency    = CO.getOption('UpdateArraysFrequency', default=20)
 UpdateSurfacesFrequency = CO.getOption('UpdateSurfacesFrequency', default=500)
 MarginBeforeTimeOut     = CO.getOption('SecondsMargin4QuitBeforeTimeOut', default=120.)
 TimeOut                 = CO.getOption('TimeOutInSeconds', default=53100.0)
-MaxConvergedCLStd       = CO.getOption('MaxConvergedCLStd', default=1e-5)
 ItersMinEvenIfConverged = CO.getOption('ItersMinEvenIfConverged', default=1e3)
-ConvergenceFamilyName   = CO.getOption('ConvergenceCriterionFamilyName', default='NONE')
+ConvergenceCriteria       = CO.getOption('ConvergenceCriteria', default=[])
 RegisterTransitionFrequency = CO.getOption('RegisterTransitionFrequency', default=10)
-
 
 DesiredStatistics=['std-CL', 'std-CD', 'std-Cm']
 
@@ -109,9 +107,7 @@ if ENTER_COUPLING:
         CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))
 
         if (it-inititer)>ItersMinEvenIfConverged and not CONVERGED:
-            CONVERGED=CO.isConverged(ZoneName=ConvergenceFamilyName,
-                                     FluxName='std-CL',
-                                     FluxThreshold=MaxConvergedCLStd)
+            CONVERGED = CO.isConverged(ConvergenceCriteria)
 
     if SAVE_SURFACES:
         surfs = CO.extractSurfaces(t, setup.Extractions)

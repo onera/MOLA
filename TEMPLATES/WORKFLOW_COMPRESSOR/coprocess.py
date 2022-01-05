@@ -45,9 +45,7 @@ BodyForceInitialIteration = CO.getOption('BodyForceInitialIteration', default=10
 MarginBeforeTimeOut       = CO.getOption('SecondsMargin4QuitBeforeTimeOut', default=120.)
 TimeOut                   = CO.getOption('TimeOutInSeconds', default=53100.0)
 ItersMinEvenIfConverged   = CO.getOption('ItersMinEvenIfConverged', default=1e3)
-MaxConvergedCriterionStd  = CO.getOption('MaxConvergedCriterionStd', default=1e-5)
-ConvergenceFamilyName     = CO.getOption('ConvergenceCriterionFamilyName', default='NONE')
-ConvergenceFluxName       = CO.getOption('ConvergenceFluxName', default='std-MassFlowIn')
+ConvergenceCriteria       = CO.getOption('ConvergenceCriteria', default=[])
 
 DesiredStatistics = ['rsd-{}'.format(var) for var in ['MassFlowIn', 'MassFlowOut',
     'PressureStagnationRatio', 'TemperatureStagnationRatio', 'EfficiencyIsentropic',
@@ -107,9 +105,7 @@ if ENTER_COUPLING:
         CO.monitorTurboPerformance(surfs, arrays, DesiredStatistics)
 
         if (it-inititer)>ItersMinEvenIfConverged and not CONVERGED:
-            CONVERGED=CO.isConverged(ZoneName=ConvergenceFamilyName,
-                                     FluxName=ConvergenceFluxName,
-                                     FluxThreshold=MaxConvergedCriterionStd)
+            CONVERGED = CO.isConverged(ConvergenceCriteria)
 
     if CONVERGED or it >= itmax or ReachedTimeOutMargin:
         if ReachedTimeOutMargin:

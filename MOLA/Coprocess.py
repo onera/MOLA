@@ -1466,70 +1466,88 @@ def getIntegralDataName(IntegralDataNode):
     return I.getName(IntegralDataNode).split('-')[0]
 
 
-def isConverged(ZoneName='AIRFOIL', FluxName='std-CL', FluxThreshold=0.001):
+def isConverged(ConvergenceCriteria):
     '''
-    This method is used to determine if a given load is converged by looking
-    at its standard deviation and comparing it to a user-provided threshold.
-    If converged, the signal returns :py:obj:`True` to all ranks and writes a message
-    to ``coprocess.log`` file.
-
-    To give several criteria, all the arguments must be lists of the same length.
+    This method is used to determine if the current simulation is converged by
+    looking at user-provided convergence criteria.
+    If converged, the signal returns :py:obj:`True` to all ranks and writes a
+    message to ``coprocess.log`` file.
 
     Parameters
     ----------
 
-        ZoneName : :py:class:`str` or :py:class:`list`
-            Component name (shall exist in **arrays** dictionary)
+        ConvergenceCriteria : :py:class:`list` of :py:class:`dict`
+            Each :py:class:`dict` corresponds to a criterion. Its has the
+            following keys:
 
-        FluxName : :py:class:`str` or :py:class:`list`
-            Name of the load quantity (typically, standard deviation statistic
-            of some effort) used for convergence determination.
+            * ``Family``: Name of the zone to monitor (shall exist in
+              ``arrays.cgns``)
 
-        FluxThreshold : :py:class:`str` or :py:class:`list`
-            if the last element of the flux named **FluxName** is less than the
-            user-provided **FluxThreshold**, then the convergence
-            criterion is satisfied
+            * ``Variable``: Name of the variable to monitor on ``Family``
+
+            * ``Threshold``: Value of the threshold to consider. The current
+              criterion is satisfied if the value of the last element of
+              ``Variable`` on ``Family`` in ``arrays.cgns`` is lower than
+              ``Threshold``.
+
+            * ``Condition`` (optinal, 'Necessary' by default): logical
+              requirement for the current criterion. To verify convergence,
+              criteria tagged 'Necessary' must all be satisfied simultaneously
+              and at least one criterion tagged 'Sufficient' must be satisfied.
+              For instance, if CN1 and CN2 are 'Necessary' and CS1 and CS2 are
+              'Sufficient', convergence is reached when:
+              (CN1 AND CN2) AND (CS1 OR CS2)
 
     Returns
     -------
 
-        ConvergedCriterion : bool
+        CONVERGED : bool
             :py:obj:`True` if the convergence criteria are satisfied
     '''
-    ConvergedCriterion = False
+    CONVERGED = False
     if rank == 0:
+        # Default value of Condition = 'Necessary'
+        for criterion in ConvergenceCriteria:
+            if 'Condition' not in criterion:
+                criterion['Condition'] = 'Necessary'
         try:
-            if isinstance(ZoneName, str):
-                assert isinstance(FluxName, str) and isinstance(FluxThreshold, str)
-                ZoneName = [ZoneName]
-                FluxName = [FluxName]
-                FluxThreshold = [FluxThreshold]
-            else:
-                assert len(ZoneName) == len(FluxName) == len(FluxThreshold)
-            arraysTree = C.convertFile2PyTree(os.path.join(DIRECTORY_OUTPUT,
-                                                           FILE_ARRAYS))
+            arraysTree = C.convertFile2PyTree(os.path.join(DIRECTORY_OUTPUT, FILE_ARRAYS))
             arraysZones = I.getZones(arraysTree)
-            ConvergedCriteria = []
-            for zoneCur, fluxCur, thresholdCur in zip(ZoneName, FluxName, FluxThreshold):
-                zone, = [z for z in arraysZones if z[0] == zoneCur]
-                Flux, = J.getVars(zone, [fluxCur])
-                ConvergedCriteria.append(Flux[-1] < thresholdCur)
-            ConvergedCriterion = all(ConvergedCriteria)
-            if ConvergedCriterion:
+            AllNecessaryCriteria = True
+            OneSufficientCriterion = False
+            for criterion in ConvergenceCriteria:
+                if OneSufficientCriterion and criterion['Condition'] == 'Sufficient':
+                    continue
+                zone, = [z for z in arraysZones if z[0] == criterion['Family']]
+                Flux, = J.getVars(zone, [criterion['Variable']])
+                IsSatisfied = Flux[-1] < criterion['Threshold']
+                if criterion['Condition'] == 'Necessary' and not IsSatisfied:
+                    AllNecessaryCriteria = False
+                    break
+                elif criterion['Condition'] == 'Sufficient' and IsSatisfied:
+                    OneSufficientCriterion = criterion['Variable']
+
+            CONVERGED = OneSufficientCriterion and AllNecessaryCriteria
+            if CONVERGED:
                 MSG = 'CONVERGED at iteration {} since:'.format(CurrentIteration-1)
-                for zoneCur, fluxCur, thresholdCur in zip(ZoneName, FluxName, FluxThreshold):
-                    MSG += '\n  {} < {} on {}'.format(fluxCur, thresholdCur, zoneCur)
+                for criterion in ConvergenceCriteria:
+                    if criterion['Condition'] == 'Necessary' \
+                        or criterion['Variable'] == OneSufficientCriterion:
+                        MSG += '\n  {} < {} on {} ({})'.format(criterion['Variable'],
+                                                               criterion['Threshold'],
+                                                               criterion['Family'],
+                                                               criterion['Condition'])
                 printCo('*******************************************',color=GREEN)
                 printCo(MSG, color=GREEN)
                 printCo('*******************************************',color=GREEN)
 
         except:
-            ConvergedCriterion = False
+            CONVERGED = False
 
     comm.Barrier()
-    ConvergedCriterion = comm.bcast(ConvergedCriterion,root=0)
+    CONVERGED = comm.bcast(CONVERGED,root=0)
 
-    return ConvergedCriterion
+    return CONVERGED
 
 
 def hasReachedTimeOutMargin(ElapsedTime, TimeOut, MarginBeforeTimeOut):

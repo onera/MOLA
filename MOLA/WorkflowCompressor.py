@@ -315,6 +315,15 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
+    # Get the positions of inlet and outlet planes for each row
+    # and add them to Extractions
+    for row, rowParams in TurboConfiguration['Rows'].items():
+        if 'InletPlane' in rowParams and 'OutletPlane' in rowParams:
+            Extractions.append(dict(type='IsoSurface', field='CoordinateX', \
+                value=rowParams['InletPlane'], ReferenceRow=row, tag='InletPlane'))
+            Extractions.append(dict(type='IsoSurface', field='CoordinateX', \
+                value=rowParams['OutletPlane'], ReferenceRow=row, tag='OutletPlane'))
+
     AllSetupDics = dict(FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
