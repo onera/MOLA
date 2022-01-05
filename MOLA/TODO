@@ -1,33 +1,13 @@
-* migrate all todos to GitLab
-* another modif
+Wishlist v1.13 :
 
-* recondition input of PRE.addSurfacicExtractions
-
-* CO.extractArrays -> use NormalizationCoefficient (FluxCoeff, TorqueCoeff ?) dependent
-  on field names ?
-
-* use computeGeneralLoadsOfLiftingLine in bodyforce context
-
-* allow user to define PhaseDirection in bodyforce context
-
-* EXTRACTIONS
-  Include extractions for:
-   -> slices (from existing variables, including distance to wall!)
-   -> basic shapes (sphere, cube, cylinder)
-
-
-* Preprocess and eventually Coprocess:
-  add :
-
-  I._adaptZoneNamesForSlash(t)
-  I._correctPyTree(t, level=10) # force CGNS names
-  I._correctPyTree(t, level=2) # force unique name
-  I._correctPyTree(t, level=7) # create familyNames
-
-  in order to mimick corrections done when writing + reading a tree
-
-
-* investigate iteration number tagging of MemoryUsageOfProc
+* dépendances externes des librairies Python livrées avec MOLA
+* fichier unique d'environment
+* passage progressif à Python3 (spiro, sator, sator-new)
+* job.sh + env.sh
+* améliorations méthode bodyforce (issue #1)
+* ajout Examples, Testing .gitignore
+* créer fichier CHANGELOG.md
+* ConvergenceCriteria [dict(Family=, Variable=, Threshold=, Condition='Necessary')]
 
 * PREPROCESS
   -> Include computation of distance to wall
