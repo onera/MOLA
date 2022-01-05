@@ -17,4 +17,5 @@ __pycache__
 *.html
 *elsA_MPI_Pid*
 *DOCUMENTATION*
+Examples
 ExternalPythonPackages
