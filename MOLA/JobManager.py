@@ -233,8 +233,9 @@ def launchJobsConfiguration(
         Files2Copy.append(config.FILE_GEOMETRY)
 
     for filename in [preprocessFile, computeFile, coprocessFile, \
-        postprocessFile, DispatchFile, routineFile, jobTemplate]:
+        postprocessFile, DispatchFile, routineFile]:
         Files2Copy.append(os.path.join(templatesFolder, filename))
+    Files2Copy.append(jobTemplate)
 
     for filename in otherFiles:
         Files2Copy.append(filename)
