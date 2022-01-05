@@ -164,7 +164,7 @@ def saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,
 
 def launchJobsConfiguration(
         templatesFolder=MOLA_PATH+'/TEMPLATES/WORKFLOW_AIRFOIL',
-        jobTemplate='job_sator.sh',
+        jobTemplate=MOLA_PATH+'/TEMPLATES/job_template.sh',
         DispatchFile='dispatch.py',
         routineFile='routine.sh',
 
