@@ -12,7 +12,6 @@ import JobsConfiguration as config
 for case in config.JobsQueues:
 
     if case['NewJob']:
-        t = C.convertFile2PyTree('mesh.cgns')
         JM.buildJob(case, config, config.NProc, 'job_{}.sh'.format(config.machine))
 
     WorkflowParams = dict()

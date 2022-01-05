@@ -68,13 +68,20 @@ ReferenceValues = PRE.computeReferenceValues(FluidProperties,
     # simulation during the trigger call of coprocess.py script:
     CoprocessOptions=dict(
 
-        # Following key states which BCWall Family Name is used for monitoring
-        # convergence using standard deviation of Lift Coefficient.
-        ConvergenceCriterionFamilyName='wallWING',
-
-        # MaxConvergedCLStd establishes the threshold of convergence of
-        # standard deviation statistic of Lift Coefficient.
-        MaxConvergedCLStd   = 1e-6,
+        # To monitor convergence, use the following list to define the
+        # convergence criteria. Each element is a dictionary corresponding to
+        # a criterion, with the following keys:
+        #     * Family: states which Base in arrays.cgns is used for monitoring convergence
+        #     * Variable: value in arrays.cgns to monitor to establish convergence
+        #     * Threshold: establishes the threshold of convergence
+        #     * Condition (optional): see documentation if needed
+        ConvergenceCriteria = [
+            dict(
+                Family    = 'wallWING',
+                Variable  = 'std-CL',
+                Threshold = 1e-6,
+            )
+        ],
 
         # Following key establishes the number of iterations used for computing
         # the statistics of the arrays
@@ -82,11 +89,11 @@ ReferenceValues = PRE.computeReferenceValues(FluidProperties,
 
         # Following key states the minimum number of iterations to perform
         # even if the CONVERGED criterion is satisfied
-        ItersMinEvenIfConverged= 1000,
+        ItersMinEvenIfConverged = 1000,
 
         # These keys are used to determine the save frequency of the files
         # arrays.cgns, surfaces.cgns and fields.cgns
-        UpdateArraysFrequency      =   50,
+        UpdateArraysFrequency     =   50,
         UpdateSurfacesFrequency   = 1000,
         UpdateFieldsFrequency     = 2000,
 

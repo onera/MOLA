@@ -158,7 +158,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
     #. add extraction nodes
     #. add reference state nodes
     #. add governing equations nodes
-    #. initialize flowfields (uniformly)
+    #. initialize flowfields
     #. create links between ``FlowSolution#Init`` and ``OUTPUT/fields.cgns``
 
     Parameters
@@ -190,29 +190,13 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
                 >>> PRE.getElsAkeysNumerics(arg, **NumericalParams)
 
         Extractions : :py:class:`list` of :py:class:`dict`
-            .. danger:: **doc this** # TODO
+            List of extractions to perform during the simulation. For now, only
+            surfacic extractions may be asked. See documentation of :func:`MOLA.Coprocess.extractSurfaces` for further details on the
+            available types of extractions.
 
         Initialization : dict
             dictionary defining the type of initialization, using the key
-            **method**. This latter is mandatory and should be one of the
-            following:
-
-            * **method** = None : the Flow Solution is not initialized.
-
-            * **method** = 'uniform' : the Flow Solution is initialized uniformly
-              using the **ReferenceValues**.
-
-            * **method** = 'copy' : the Flow Solution is initialized by copying
-              the FlowSolution container of another file. The file path is set by
-              using the key **file**. The container might be set with the key
-              **container** ('FlowSolution#Init' by default).
-
-            * **method** = 'interpolate' : the Flow Solution is initialized by
-              interpolating the FlowSolution container of another file. The file
-              path is set by using the key **file**. The container might be set
-              with the key **container** ('FlowSolution#Init' by default).
-
-            Default method is 'uniform'.
+            **method**. See documentation of :func:`initializeFlowSolution`
 
         BodyForceInputData : :py:class:`list` of :py:class:`dict`
             if provided, each item of this list constitutes a body-force modeling component.

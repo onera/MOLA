@@ -46,7 +46,7 @@ existing_models={
   'Smith_1994'            : Mtu.Smith_1994,
 }
 
-predefined_parameters:{
+predefined_parameters={
   'isentropic_air':{
     'Sutherland_1983':dict(
       Cs_Sutherland=[1.716e-5,273.15,110.4],

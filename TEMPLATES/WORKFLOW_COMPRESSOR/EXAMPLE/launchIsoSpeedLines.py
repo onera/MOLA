@@ -5,26 +5,18 @@ to launch multiple jobs
 MOLA 1.11 - 26/10/2021 - T. Bontemps - creation
 '''
 
-
 import sys, os
 import numpy as np
-from timeit import default_timer as tic
 
 import Converter.PyTree as C
 import Converter.Internal as I
 
 import MOLA.WorkflowCompressor as WF
 
-toc = tic() # auxiliary variable used to log the script execution time
-
 FILE_MESH = 'mesh.cgns' # name of the input CGNS. It shall be mesh.cgns
 
 '''
 It is NOT RECOMENDED to modify the order of the following function calls.
-
-The first step is determining the reference values of the configuration
-including the flight conditions, modeling parameters, and coprocess options.
-All this is done in the call to the function PRE.computeReferenceValues
 '''
 
 TurboConfiguration = dict(
@@ -36,7 +28,7 @@ TurboConfiguration = dict(
     # List of tuples. Each tuple (xmin, xmax) corresponds to a CoordinateX
     # interval where the speed at hub wall is ShaftRotationSpeed. It is zero
     # outsides these intervals.
-    HubRotationSpeed = [(-999.0, 999.0)],
+    HubRotationSpeed = [(-999.0, 999.0)], # Here the whole hub is rotating (no stator part)
 
     # This dictionary has one entry for each row domain.
     # The key names must be the family names in the CGNS Tree.
@@ -50,7 +42,8 @@ TurboConfiguration = dict(
             NumberOfBlades = 36,
             # The number of blades in the computational domain
             # set to <NumberOfBlades> for a full 360 simulation
-            NumberOfBladesSimulated = 1,
+            # The default value is 1
+            # NumberOfBladesSimulated = 1,
             # The positions (in CoordinateX) of the inlet and outlet planes for
             # this row. These planes are used for post-processing and convergence
             # monitoring.
@@ -60,14 +53,14 @@ TurboConfiguration = dict(
         )
     )
 
-
 ReferenceValues = dict(
-    # Here we state the flight conditions and reference quantities.
+    # Here we state the operating conditions and reference quantities.
+    # They are used for the initialization and boundary conditions (depending on
+    # user-provided parameters)
     # These variables are self-explanatory :
-    MassFlow              = 20.5114,
+    MassFlow              = 20.5114,  # for the 360 degrees section, even it is simulated entirely
     TemperatureStagnation = 288.15,
     PressureStagnation    = 101330.,
-    Surface               = 0.110506,
     TurbulenceLevel       = 0.03,
     Viscosity_EddyMolecularRatio = 0.1,
 
@@ -78,52 +71,54 @@ ReferenceValues = dict(
     # 'SST-2003-LM2009', 'SSG/LRR-RSM-w2012'
     TurbulenceModel='smith',
 
-
     # Next dictionary is used for establishing the coprocessing options for the
     # simulation during the trigger call of coprocess.py script:
     CoprocessOptions=dict(
-
-        # Following key states which BCWall Family Name is used for monitoring
-        # convergence using standard deviation of Lift Coefficient.
-        ConvergenceCriterionFamilyName='PERFOS_R37',
-
-        # MaxConvergedCLStd establishes the threshold of convergence of
-        # standard deviation statistic of Lift Coefficient.
-        MaxConvergedCLStd   = 1e-2,
-
-        # Following key establishes the number of iterations used for computing
-        # the statistics of the loads
-        AveragingIterations = 1000,
-
-        # Following key states the minimum number of iterations to perform
-        # even if the CONVERGED criterion is satisfied
-        ItersMinEvenIfConverged= 1000,
+        # To monitor convergence, use the following list to define the
+        # convergence criteria. Each element is a dictionary corresponding to
+        # a criterion, with the following keys:
+        #     * Family: states which Base in arrays.cgns is used for monitoring convergence
+        #     * Variable: value in arrays.cgns to monitor to establish convergence
+        #     * Threshold: establishes the threshold of convergence
+        #     * Condition (optional): see documentation if needed
+        ConvergenceCriteria = [
+            dict(
+                Family    = 'PERFOS_R37',
+                Variable  = 'rsd-MassFlowIn',
+                Threshold = 1e-2,
+            ),
+            dict(
+                Family    = 'PERFOS_R37',
+                Variable  = 'rsd-PressureStagnationRatio',
+                Threshold = 1e-2,
+            ),
+            dict(
+                Family    = 'PERFOS_R37',
+                Variable  = 'rsd-EfficiencyIsentropic',
+                Threshold = 1e-2,
+                Condition = 'Sufficient',
+            ),
+        ],
 
         # These keys are used to determine the save frequency of the files
         # loads.cgns, surfaces.cgns and fields.cgns
-        UpdateLoadsFrequency      = 1e20,
-        UpdateSurfacesFrequency   = 20,
+        UpdateArraysFrequency     = 30,
+        UpdateSurfacesFrequency   = 30,
         UpdateFieldsFrequency     = 1000,
-
         ),
     )
 
+NumericalParams = dict(
+    # Maximimum number of iterations. Normally, the simulation should end when
+    # convergence criteria are satisfied or the time limit is reached.
+    niter = 10000,
+    # CFL ramp
+    CFLparams=dict(vali=1.,valf=3.,iteri=1,iterf=1000,function_type='linear')
+    )
 
-Extractions = [
-    #
-    dict(type='AllBCwall'),
-]
-
+Extractions = [dict(type='AllBCwall')]
 for h in [0.1, 0.5, 0.9]:
     Extractions.append(dict(type='IsoSurface', field='ChannelHeight', value=h))
-
-# Get the positions of inlet and outlet planes for each row
-for row, rowParams in TurboConfiguration['Rows'].items():
-    try:
-       Extractions.append(dict(type='IsoSurface', field='CoordinateX', value=rowParams['InletPlane'], ReferenceRow=row, tag='InletPlane'))
-       Extractions.append(dict(type='IsoSurface', field='CoordinateX', value=rowParams['OutletPlane'], ReferenceRow=row, tag='OutletPlane'))
-    except:
-        pass
 
 pref = 0.75*ReferenceValues['PressureStagnation']
 fluxcoeff = TurboConfiguration['Rows']['R37']['NumberOfBlades']/TurboConfiguration['Rows']['R37']['NumberOfBladesSimulated']
@@ -131,10 +126,13 @@ mref = ReferenceValues['MassFlow'] / float(fluxcoeff)
 valve_relax = 0.1*ReferenceValues['PressureStagnation']
 
 BoundaryConditions = [
-    dict(type='inj1', option='uniform', FamilyName='R37_INFLOW'),
-    #dict(type='outpres', FamilyName='R37_OUTFLOW', pressure=pref),
-    dict(type='outradeq', FamilyName='R37_OUTFLOW', valve_type=4, valve_ref_pres=pref, valve_ref_mflow=mref, valve_relax=valve_relax)
+    dict(type='InflowStagnation', option='uniform', FamilyName='R37_INFLOW'),
+    dict(type='OutflowRadialEquilibrium', FamilyName='R37_OUTFLOW', valve_type=4, valve_ref_pres=pref, valve_ref_mflow=mref, valve_relax=valve_relax)
 ]
+
+Initialization = dict(
+    method = 'uniform',
+    )
 
 ####################################################################################
 PREFIX_JOB = 'run'
@@ -152,4 +150,4 @@ WF.launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
         TurboConfiguration=TurboConfiguration,
         Extractions=Extractions,
         BoundaryConditions=BoundaryConditions,
-        bladeFamilyNames=['_R37'])
+        Initialization=Initialization)

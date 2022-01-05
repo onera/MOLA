@@ -30,20 +30,10 @@ def setBC_stage_mxpl(t, left, right, method='globborder_dict'):
         t, stage = trf.newStageMxPlFromFamily(t, left, right)
 
     elif method == 'poswin':
-        from turbo.poswin import computePosWin
-        def computeGlobborder(tree, win):
-            gbd = computePosWin(tree, win)
-            for path, obj in gbd.items():
-                gbd.pop(path)
-                bc = I.getNodeFromPath(tree, path)
-                gdi, gdj = getGlobDir(tree, bc)
-                gbd['CGNSTree/'+path] = dict(glob_dir_i=gdi, glob_dir_j=gdj,
-                                            i_poswin=obj.i, j_poswin=obj.j)
-            return gbd
         t = trf.defineBCStageFromBC(t, left)
         t = trf.defineBCStageFromBC(t, right)
 
-        gbdu = computeGlobborder(t, left)
+        gbdu = computeGlobborderPoswin(t, left)
         # print("newStageMxPlFromFamily(up): gbdu = {}".format(gbdu))
         ups = []
         for bc in C.getFamilyBCs(t, left):
@@ -57,7 +47,7 @@ def setBC_stage_mxpl(t, left, right, method='globborder_dict'):
           ups.append(bcu)
 
         # Downstream BCs declaration
-        gbdd = computeGlobborder(t, right)
+        gbdd = computeGlobborderPoswin(t, right)
         # print("newStageMxPlFromFamily(down): gbdd = {}".format(gbdd))
         downs = []
         for bc in C.getFamilyBCs(t, right):
@@ -136,7 +126,7 @@ def setBC_stage_red_hyb(t, left, right, stage_ref_time, nbband=100, c=None):
 
 def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
     valve_ref_mflow=None, valve_relax=0.1, ReferenceValues=None,
-    TurboConfiguration=None):
+    TurboConfiguration=None, method='globborder_dict'):
 
     if valve_ref_pres is None:
         try:
@@ -165,7 +155,12 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
     I.newFamilyBC(value='BCOutflowSubsonic', parent=family_node)
 
     # Outflow (globborder+outradeq, valve 4)
-    gbd = globborder_dict(t, FamilyName, config="axial")
+    if method == 'globborder_dict':
+        gbd = globborder_dict(t, FamilyName, config="axial")
+    elif method == 'poswin':
+        gbd = computeGlobborderPoswin(t, FamilyName)
+    else:
+        raise Exception
     for bcn in  C.getFamilyBCs(t, FamilyName):
         bcpath = I.getPath(t, bcn)
         bc = trf.BCOutRadEq(t, bcn)
@@ -224,6 +219,18 @@ def setRotorStatorFamilyBC(t, left, right):
     rightFamily = I.getNodeFromNameAndType(t, right, 'Family_t')
     I.newFamilyBC(value='BCOutflow', parent=leftFamily)
     I.newFamilyBC(value='BCInflow', parent=rightFamily)
+
+def computeGlobborderPoswin(tree, win):
+    from turbo.poswin import computePosWin
+    gbd = computePosWin(tree, win)
+    for path, obj in gbd.items():
+        gbd.pop(path)
+        bc = I.getNodeFromPath(tree, path)
+        gdi, gdj = getGlobDir(tree, bc)
+        gbd['CGNSTree/'+path] = dict(glob_dir_i=gdi, glob_dir_j=gdj,
+                                    i_poswin=obj.i, j_poswin=obj.j,
+                                    azi_orientation=gdi, h_orientation=gdj)
+    return gbd
 
 def getGlobDir(tree, bc):
     # Remember: glob_dir_i is the opposite of theta, which is positive when it goes from Y to Z
