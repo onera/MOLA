@@ -1506,15 +1506,17 @@ def isConverged(ConvergenceCriteria):
     '''
     CONVERGED = False
     if rank == 0:
+        AllNecessaryCriteria = True
+        OneSufficientCriterion = True
         # Default value of Condition = 'Necessary'
         for criterion in ConvergenceCriteria:
             if 'Condition' not in criterion:
                 criterion['Condition'] = 'Necessary'
+            elif criterion['Condition'] == 'Sufficient':
+                OneSufficientCriterion = False
         try:
             arraysTree = C.convertFile2PyTree(os.path.join(DIRECTORY_OUTPUT, FILE_ARRAYS))
             arraysZones = I.getZones(arraysTree)
-            AllNecessaryCriteria = True
-            OneSufficientCriterion = False
             for criterion in ConvergenceCriteria:
                 if OneSufficientCriterion and criterion['Condition'] == 'Sufficient':
                     continue

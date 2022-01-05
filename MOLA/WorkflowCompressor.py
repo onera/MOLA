@@ -1411,15 +1411,8 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
       (in lower, upper or capitalized case). If names differ from that ones, it
       is still possible to give a list of patterns that are enought to find all
       blades (adding 'BLADE' or 'AUBE' if necessary). It is done with the
-      argument **bladeFamilyNames** of :py:func:`prepareMainCGNS4ElsA`. For
-      instance, if the blade family is named 'R37_R37' as in the rotor 37 example,
-      this argument should be:
-
-      >>> bladeFamilyNames = ['_R37']
-
-      Indeed, 'R37' will be detected in other non related families. That also
-      shows that it is not a very appropriate naming by the way...
-
+      argument **bladeFamilyNames** of :py:func:`prepareMainCGNS4ElsA`.
+      
 
     **Inflow boundary conditions**
 
