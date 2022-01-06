@@ -372,8 +372,8 @@ def remoteFileExists(absolute_file_path, remote_machine='sator'):
     ssh = subprocess.Popen(CMD, shell=True, stdout=subprocess.PIPE,
                            stderr=subprocess.PIPE)
     ssh.wait()
-    Output = ssh.stdout.readlines()
-    Error = ssh.stderr.readlines()
+    Output = ServerTools.readStdout(ssh)
+    Error = ServerTools.readStderr(ssh)
     if len(Error) >0: return False
     return bool(int(Output[0]))
 
@@ -419,8 +419,8 @@ def launchComputationJob(case, config, JobFilename='job.sh',
                            stderr=subprocess.PIPE, cwd=cwd)
 
     ssh.wait()
-    Output = ssh.stdout.readlines()
-    Error = ssh.stderr.readlines()
+    Output = ServerTools.readStdout(ssh)
+    Error = ServerTools.readStderr(ssh)
 
     for o in Output: print(o)
     for e in Error: print(e)
@@ -438,8 +438,8 @@ def launchComputationJob(case, config, JobFilename='job.sh',
                                stderr=subprocess.PIPE, cwd=cwd)
 
         ssh.wait()
-        Output = ssh.stdout.readlines()
-        Error = ssh.stderr.readlines()
+        Output = ServerTools.readStdout(ssh)
+        Error = ServerTools.readStderr(ssh)
 
         for o in Output: print(o)
         for e in Error: print(e)
@@ -481,8 +481,8 @@ def launchDispatcherJob(DIRECTORY_DISPATCHER, JobFilename, machine='sator'):
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     ssh.wait()
-    Output = ssh.stdout.readlines()
-    Error = ssh.stderr.readlines()
+    Output = ServerTools.readStdout(ssh)
+    Error = ServerTools.readStderr(ssh)
 
     for o in Output: print(o)
     for e in Error: print(e)
@@ -594,9 +594,9 @@ def statusOfCase(config, CASE_LABEL):
     ssh = subprocess.Popen(CMD, shell=True, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE, env=os.environ.copy())
     ssh.wait()
-    Output = ssh.stdout.readlines()
+    Output = ServerTools.readStdout(ssh)
     Output = [o.replace('\n','') for o in Output]
-    Error = ssh.stderr.readlines()
+    Error = ServerTools.readStderr(ssh)
 
     if len(Error) > 0: raise ValueError('\n'.join(Error))
 
@@ -655,8 +655,8 @@ def getCurrentJobsStatus(machine='sator'):
     ssh = subprocess.Popen(CMD, shell=True, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE, env=os.environ.copy())
     ssh.wait()
-    Output = ssh.stdout.readlines()
-    Error = ssh.stderr.readlines()
+    Output = ServerTools.readStdout(ssh)
+    Error = ServerTools.readStderr(ssh)
 
     return Output, Error
 
