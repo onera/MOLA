@@ -133,8 +133,9 @@ if BodyForceInputData:
     NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NProcs)
 # ------------------------------------------------------------------------- #
 
-e.action=elsAxdt.READ_ALL
-e.mode |=elsAxdt.CGNS_CHIMERACOEFF
+e.action=elsAxdt.COMPUTE
+e.mode=elsAxdt.READ_ALL
+# e.mode |=elsAxdt.CGNS_CHIMERACOEFF
 
 e.compute()
 

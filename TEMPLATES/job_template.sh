@@ -5,11 +5,13 @@
 #SBATCH -e error.%j.log
 #SBATCH -t 0-15:00
 #SBATCH -n <NProcs>
-#SBATCH --qos=c1_test_giga    # relevant for spiro (max time 6h)
+
+# NOTE : if job is used in SPIRO, then flag --qos (e.g. c1_test_giga)
+#        must also be provided
 
 
 ###############################################################################
-# -------------- THESE LINES MUST TO BE ADAPTED BY DEVELOPERS --------------- #
+# -------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ------------------ #
 if [ -f "/tmp_user/sator/lbernard/MOLA/Dev/ENVIRONMENTS/env.sh" ]; then
     source /tmp_user/sator/lbernard/MOLA/Dev/ENVIRONMENTS/env.sh
 else

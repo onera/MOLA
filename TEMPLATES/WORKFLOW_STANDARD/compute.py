@@ -129,7 +129,8 @@ if BodyForceInputData:
 # ------------------------------------------------------------------------- #
 
 
-e.action=elsAxdt.READ_ALL
+e.action=elsAxdt.COMPUTE
+e.mode=elsAxdt.READ_ALL
 e.mode |=elsAxdt.CGNS_CHIMERACOEFF
 
 e.compute()

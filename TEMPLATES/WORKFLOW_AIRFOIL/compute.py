@@ -126,8 +126,9 @@ CO.elsAxdt = elsAxdt
 e=elsAxdt.XdtCGNS(FILE_CGNS)
 
 
-e.action=elsAxdt.READ_ALL
-e.mode |=elsAxdt.CGNS_CHIMERACOEFF
+e.action=elsAxdt.COMPUTE
+e.mode=elsAxdt.READ_ALL
+# e.mode |=elsAxdt.CGNS_CHIMERACOEFF
 
 e.compute()
 
