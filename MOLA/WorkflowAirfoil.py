@@ -270,9 +270,17 @@ def launchBasicStructuredPolars(PREFIX_JOB, FILE_GEOMETRY, AER, machine,
 
         meshParams = getMeshingParameters()
         meshParams['References'].update({'Reynolds':Reynolds})
+        if machine == 'sator':
+            meshParams['options'].update({'Nproc':28})
+        elif machine == 'sator-new':
+            meshParams['options'].update({'Nproc':48})
+        elif machine == 'spiro':
+            meshParams['options'].update({'Nproc':24})
+        elif machine in ['ld', 'eos']:
+            meshParams['options'].update({'Nproc':8})
 
 
-        EffectiveMach = np.maximum(Mach, 0.2)
+        EffectiveMach = np.maximum(Mach, 0.2) # TODO externalize this threshold
 
         if ImposedWallFields:
             TransitionMode = 'Imposed'
