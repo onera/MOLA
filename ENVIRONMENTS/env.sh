@@ -1,11 +1,11 @@
 #! /bin/sh
 module purge all
-
+unset PYTHONPATH
 
 ###############################################################################
 # -------------- THESE LINES MUST TO BE ADAPTED BY DEVELOPERS --------------- #
 export MOLA=/stck/lbernard/MOLA/Dev
-export TREELAB=/tmp_user/sator/lbernard/TreeLab/dev
+export TREELAB=/stck/lbernard/TreeLab/dev
 export EXTPYLIB=$MOLA/ExternalPythonPackages
 export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
 export TREELABSATOR=/tmp_user/sator/lbernard/TreeLab/dev
@@ -45,8 +45,8 @@ MAC0=$(echo $KC | grep 'spiro'); if [ "$MAC0" != "" ]; then export MAC="spiro"; 
 
 
 if [ "$MAC" = "spiro" ]; then
-    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro_mpi/.env_elsA
-    export PYTHONPATH=$EXTPYLIB/lib/python2.7/site-packages/:$PYTHONPATH
+    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro3_mpi/.env_elsA
+    export PYTHONPATH=$EXTPYLIB/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIB/bin:$PATH
 
 elif [ "$MAC" = "visio" ]; then
@@ -61,21 +61,18 @@ elif [ "$MAC" = "ld" ]; then
     export PATH=$EXTPYLIB/bin:$PATH
 
 elif [ "$MAC" = "sator" ]; then
-    source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator/.env_elsA
+    source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator3/.env_elsA
     export MOLA=$MOLASATOR
     export TREELAB=$TREELABSATOR
-    export PYTHONPATH=$EXTPYLIBSATOR/lib/python2.7/site-packages/:$PYTHONPATH
+    export PYTHONPATH=$EXTPYLIBSATOR/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIBSATOR/bin:$PATH
 
 elif [ "$MAC" = "sator-new" ]; then
-    echo -e "\033[91mERROR: sator-new NOT INCLUDED IN MOLA ENVIRONMENT YET\033[0m"
-    exit 0
-
-    # source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new/.env_elsA
-    # export MOLA=$MOLASATOR
-    # export TREELAB=$TREELABSATOR
-    # export PYTHONPATH=$EXTPYLIBSATOR/lib/python3.7/site-packages/:$PYTHONPATH
-    # export PATH=$EXTPYLIBSATOR/bin:$PATH
+    source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new/.env_elsA
+    export MOLA=$MOLASATOR
+    export TREELAB=$TREELABSATOR
+    export PYTHONPATH=$EXTPYLIBSATOR/lib/python3.7/site-packages/:$PYTHONPATH
+    export PATH=$EXTPYLIBSATOR/bin:$PATH
 
 else
     echo -e "\033[91mERROR: MACHINE $KC NOT INCLUDED IN MOLA ENVIRONMENT\033[0m"

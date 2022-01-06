@@ -16,9 +16,6 @@ import pprint
 import copy
 import scipy.optimize
 
-# BEWARE: in Python v >= 3.4 rather use: importlib.reload(setup)
-import imp
-
 import Converter.PyTree    as C
 import Converter.Internal  as I
 import Distributor2.PyTree as D2

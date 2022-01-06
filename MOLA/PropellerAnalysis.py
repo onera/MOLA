@@ -176,7 +176,6 @@ def computePUMA(NBlades, Velocity, RPM, Temperature, Density,
 
         SectionalLoadsLL : PUMA object
     '''
-    import imp
     import Generator.PyTree as G
     import Transform.PyTree as T
     import Geom.PyTree as D
@@ -193,7 +192,7 @@ def computePUMA(NBlades, Velocity, RPM, Temperature, Density,
     if StopDeltaTtol is None: StopDeltaTtol = -1.0
 
     # Blade Geometry
-    BladeGeom = imp.load_source('Geom',GeomBladeFile)
+    BladeGeom = J.load_source('Geom',GeomBladeFile)
     BladeDef = BladeGeom.GetBladeDef()
     Rmax = np.array(BladeDef['Span']).max()
     Rmin = np.array(BladeDef['Span']).min()

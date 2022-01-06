@@ -14,7 +14,7 @@ import subprocess
 import socket
 import getpass
 import pprint
-import imp
+import shutil
 
 import Converter.PyTree         as C
 import Converter.Internal       as I
@@ -214,10 +214,7 @@ def launchJobsConfiguration(
     NAME_DISPATCHER = 'DISPATCHER'
 
 
-    # BEWARE: in Python v >= 3.4 rather use: importlib.reload(config)
-    config = imp.load_source('config', 'JobsConfiguration.py')
-    # if config and config.__name__ != "__main__": imp.reload(config)
-    # import PolarConfiguration as config # cannot be updated in same script
+    config = J.load_source('config', 'JobsConfiguration.py')
 
 
     print(J.WARN+config.DIRECTORY_WORK+J.ENDC)
@@ -478,14 +475,12 @@ def getJobsConfiguration(DIRECTORY_WORK, useLocalConfig=False,
         Source = os.path.join(DIRECTORY_WORK,'DISPATCHER',filename)
         repatriate(Source, filename, removeExistingDestinationPath=True)
 
-    config = imp.load_source('config', filename)
+    config = J.load_source('config', filename)
 
     return config
 
 def loadJobsConfiguration():
-    try: os.remove('JobsConfiguration.pyc')
-    except: pass
-    config = imp.load_source('config', 'JobsConfiguration.py')
+    config = J.load_source('config', 'JobsConfiguration.py')
     return config
 
 

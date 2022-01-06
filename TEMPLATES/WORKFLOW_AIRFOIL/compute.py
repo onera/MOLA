@@ -9,7 +9,6 @@ MOLA Dev
 # ----------------------- IMPORT SYSTEM MODULES ----------------------- #
 import sys
 import os
-import imp
 import numpy as np
 import psutil
 import timeit
@@ -44,7 +43,7 @@ DIRECTORY_OUTPUT = 'OUTPUT'
 DIRECTORY_LOGS   = 'LOGS'
 
 # ------------------ IMPORT AND SET CURRENT SETUP DATA ------------------ #
-setup = imp.load_source('setup', FILE_SETUP)
+setup = J.load_source('setup',FILE_SETUP)
 
 # Load and appropriately set variables of coprocess module
 CO.FULL_CGNS_MODE   = FULL_CGNS_MODE
@@ -126,8 +125,9 @@ CO.elsAxdt = elsAxdt
 e=elsAxdt.XdtCGNS(FILE_CGNS)
 
 
-e.action=elsAxdt.READ_ALL
-e.mode |=elsAxdt.CGNS_CHIMERACOEFF
+e.action=elsAxdt.COMPUTE
+e.mode=elsAxdt.READ_ALL
+# e.mode |=elsAxdt.CGNS_CHIMERACOEFF
 
 e.compute()
 

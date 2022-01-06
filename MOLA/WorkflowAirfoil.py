@@ -14,10 +14,6 @@ import os
 import numpy as np
 import pprint
 
-# BEWARE: in Python v >= 3.4 rather use: importlib.reload(setup)
-import imp
-
-
 import Converter.PyTree as C
 import Converter.Internal as I
 import Geom.PyTree as D
@@ -1405,7 +1401,7 @@ def addPressureAndFrictionCoefficientsToAirfoilCurve(wall, setupfilepath=None,
     '''
 
     if setupfilepath:
-        setup = imp.load_source('setup', setupfilepath)
+        setup = J.load_source('setup', setupfilepath)
         PressureDynamic = setup.ReferenceValues['PressureDynamic']
         PressureStatic = setup.ReferenceValues['Pressure']
 
@@ -1925,7 +1921,7 @@ def getCaseDistributions(config, CASE_LABEL):
             print(J.WARN+'could not retrieve %s of case %s'%(FILE,CASE_LABEL)+J.ENDC)
             return
 
-    setup = imp.load_source('setup', FILE_SETUP)
+    setup = J.load_source('setup', FILE_SETUP)
     SurfsTree = C.convertFile2PyTree( FILE_SURFACES )
     foil = convertSurfaces2OrientedAirfoilCurveAtVertex(SurfsTree)
     addRelevantWallFieldsFromElsAFieldsAtVertex(foil,
