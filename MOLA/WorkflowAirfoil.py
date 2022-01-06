@@ -285,14 +285,16 @@ def launchBasicStructuredPolars(PREFIX_JOB, FILE_GEOMETRY, AER, machine,
 
         CoprocessOptions = dict(
             UpdateFieldsFrequency   = 5000,
-            UpdateArraysFrequency    = 100,
-            NewSurfacesFrequency    = 1000,
+            UpdateArraysFrequency   = 100,
+            UpdateSurfacesFrequency = 1000,
             AveragingIterations     = 10000,
-            MaxConvergedCLStd       = 1e-6,
             ItersMinEvenIfConverged = 3000,
             TimeOutInSeconds        = 54000.0, # 15 h * 3600 s/h = 53100 s
             InitialTimeOutInSeconds = 54000.0,
             SecondsMargin4QuitBeforeTimeOut = 900.,
+            ConvergenceCriteria = [dict(Family='AIRFOIL',
+                                        Variable='std-CL',
+                                        Threshold=1e-6)]
                                 )
         CoprocessOptions.update(AdditionalCoprocessOptions)
 
@@ -587,7 +589,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
         FieldsAdditionalExtractions.append('intermittency')
 
 
-    CoprocessOpts = dict(ConvergenceCriterionFamilyName=AirfoilWallFamilyName)
+    CoprocessOpts = dict()
     CoprocessOpts.update(CoprocessOptions)
 
     ReferenceValues = computeReferenceValues(Reynolds, Mach, meshParams,

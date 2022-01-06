@@ -1544,6 +1544,7 @@ def isConverged(ConvergenceCriteria):
                 printCo('*******************************************',color=GREEN)
 
         except:
+            printCo("isConverged failed ",color=FAIL)
             CONVERGED = False
 
     comm.Barrier()
