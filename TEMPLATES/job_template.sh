@@ -12,10 +12,10 @@
 
 ###############################################################################
 # -------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ------------------ #
-if [ -f "/tmp_user/sator/lbernard/MOLA/Dev/ENVIRONMENTS/env.sh" ]; then
-    source /tmp_user/sator/lbernard/MOLA/Dev/ENVIRONMENTS/env.sh
+if [ -f "/tmp_user/sator/lbernard/MOLA/Dev/env_MOLA.sh" ]; then
+    source /tmp_user/sator/lbernard/MOLA/Dev/env_MOLA.sh
 else
-    source /stck/lbernard/MOLA/Dev/ENVIRONMENTS/env.sh
+    source /stck/lbernard/MOLA/Dev/env_MOLA.sh
 fi
 ###############################################################################
 
@@ -29,7 +29,11 @@ else
 fi
 
 if [ -n "$SLURM_NTASKS" ] ; then
-    export NPROCMPI=$SLURM_NTASKS
+    if [ $SLURM_NTASKS == 1 ] ; then
+        export NPROCMPI=$OMP_NUM_THREADS
+    else
+        export NPROCMPI=$SLURM_NTASKS
+    fi
 else
     export NPROCMPI=$(nproc)
 fi

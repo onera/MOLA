@@ -28,12 +28,12 @@ if CO.getSignal('RELOAD_SETUP'):
 
 
 UpdateFieldsFrequency   = CO.getOption('UpdateFieldsFrequency', default=1e3)
-UpdateArraysFrequency    = CO.getOption('UpdateArraysFrequency', default=20)
+UpdateArraysFrequency   = CO.getOption('UpdateArraysFrequency', default=20)
 UpdateSurfacesFrequency = CO.getOption('UpdateSurfacesFrequency', default=500)
 MarginBeforeTimeOut     = CO.getOption('SecondsMargin4QuitBeforeTimeOut', default=120.)
 TimeOut                 = CO.getOption('TimeOutInSeconds', default=53100.0)
 ItersMinEvenIfConverged = CO.getOption('ItersMinEvenIfConverged', default=1e3)
-ConvergenceCriteria       = CO.getOption('ConvergenceCriteria', default=[])
+ConvergenceCriteria     = CO.getOption('ConvergenceCriteria', default=[])
 RegisterTransitionFrequency = CO.getOption('RegisterTransitionFrequency', default=10)
 
 DesiredStatistics=['std-CL', 'std-CD', 'std-Cm']
