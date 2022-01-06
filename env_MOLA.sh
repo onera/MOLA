@@ -1,5 +1,6 @@
 #! /bin/sh
-module purge all
+source /etc/bashrc
+module purge
 unset PYTHONPATH
 
 ###############################################################################
@@ -43,27 +44,33 @@ MAC0=$(echo $KC | grep 'dumbo'); if [ "$MAC0" != "" ]; then export MAC="visio"; 
 MAC0=$(echo $KC | grep 'ganesh'); if [ "$MAC0" != "" ]; then export MAC="visio"; fi
 MAC0=$(echo $KC | grep 'spiro'); if [ "$MAC0" != "" ]; then export MAC="spiro"; fi
 
+
 if { [ "$MAC" = "sator" ] && [ -n "$SLURM_CPUS_ON_NODE" ]; } ; then
-    if [ $SLURM_CPUS_ON_NODE == 48] ; then
+    if [ $(nproc) == 48 ] ; then
         export MAC="sator-new"
     fi
 fi
+
 
 if [ "$MAC" = "spiro" ]; then
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro3_mpi/.env_elsA
     export PYTHONPATH=$EXTPYLIB/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIB/bin:$PATH
+    module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
 elif [ "$MAC" = "visio" ]; then
     export ELSAVERSION=v5.0.03 # TODO adapt this once #9666 fixed
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/centos6_mpi/.env_elsA
     export PYTHONPATH=$EXTPYLIB/lib/python2.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIB/bin:$PATH
+    module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
 elif [ "$MAC" = "ld" ]; then
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel_mpi/.env_elsA
     export PYTHONPATH=$EXTPYLIB/lib/python2.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIB/bin:$PATH
+    module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+
 
 elif [ "$MAC" = "sator" ]; then
     source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator3/.env_elsA
@@ -85,8 +92,8 @@ else
 fi
 
 module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
-alias python='python3'
 alias treelab='python3 $TREELAB/GUI/treelab.py '
+alias python='python3'
 export PYTHONPATH=$MOLA:$TREELAB:$PYTHONPATH
 
 echo "using MOLA environment for $MAC"
