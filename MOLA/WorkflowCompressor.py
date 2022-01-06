@@ -16,9 +16,6 @@ import pprint
 import copy
 import scipy.optimize
 
-# BEWARE: in Python v >= 3.4 rather use: importlib.reload(setup)
-import imp
-
 import Converter.PyTree    as C
 import Converter.Internal  as I
 import Distributor2.PyTree as D2
@@ -1412,7 +1409,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
       is still possible to give a list of patterns that are enought to find all
       blades (adding 'BLADE' or 'AUBE' if necessary). It is done with the
       argument **bladeFamilyNames** of :py:func:`prepareMainCGNS4ElsA`.
-      
+
 
     **Inflow boundary conditions**
 

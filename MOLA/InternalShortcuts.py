@@ -12,6 +12,7 @@ First creation:
 
 # System modules
 import sys
+usingPython2 = sys.version_info[0] == 2
 import os
 import threading
 import time
@@ -2036,3 +2037,71 @@ def selectZoneWithHighestNumberOfPoints(ListOfZones):
     ListOfNPts = [C.getNPts(z) for z in zones]
     IndexOfZoneWithMaximumNPts = np.argmax(ListOfNPts)
     return zones[IndexOfZoneWithMaximumNPts]
+
+def load_source(ModuleName, filename, safe=True):
+    '''
+    Load a python file as a module guaranteeing intercompatibility between
+    different Python versions
+
+    Parameters
+    ----------
+
+        ModuleName : str
+            name to be provided to the new module
+
+        filename : str
+            full or relative path of the file containing the source (moudule)
+            to be loaded
+
+        safe : bool
+            if :py:obj:`True`, then cached files of previously loaded versions
+            are explicitely removed
+
+    Returns
+    -------
+
+        module : module
+            the loaded module
+    '''
+    if safe:
+        current_path_file = filename.split(os.path.sep)[-1]
+        for fn in [filename, current_path_file]:
+            try: os.remove(fn+'c')
+            except: pass
+        try: shutil.rmtree('__pycache__')
+        except: pass
+
+    if sys.version_info[0] == 3 and sys.version_info[1] >= 5:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(ModuleName, filename)
+        LoadedModule = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(LoadedModule)
+    elif sys.version_info[0] == 3 and sys.version_info[1] < 5:
+        from importlib.machinery import SourceFileLoader
+        LoadedModule = SourceFileLoader(ModuleName, filename).load_module()
+    elif sys.version_info[0] == 2:
+        import imp
+        LoadedModule = imp.load_source(ModuleName, filename)
+    else:
+        raise ValueError("Not supporting Python version "+sys.version)
+    return LoadedModule
+
+def reload_source(module):
+    '''
+    Reload a python module guaranteeing intercompatibility between
+    different Python versions
+
+    Parameters
+    ----------
+
+        module : module
+            pointer towards the previously loaded module
+    '''
+    if sys.version_info[0] == 3:
+        import importlib
+        importlib.reload(module)
+    elif sys.version_info[0] == 2:
+        import imp
+        imp.reload(module)
+    else:
+        raise ValueError("Not supporting Python version "+sys.version)

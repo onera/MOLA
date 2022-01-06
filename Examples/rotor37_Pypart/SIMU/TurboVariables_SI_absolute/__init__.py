@@ -1,1 +1,0 @@
- Local module for initvars 

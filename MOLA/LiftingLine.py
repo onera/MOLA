@@ -14,7 +14,6 @@ import sys
 import os
 import re
 import copy
-import imp
 from timeit import default_timer as tic
 import numpy as np
 import scipy.interpolate as si
@@ -4825,7 +4824,7 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
 
     PUMADir = DIRECTORY_PUMA
 
-    BladeGeom = imp.load_source('Geom', os.path.join(PUMADir,'GeomBlade.py'))
+    BladeGeom = J.load_source('Geom', os.path.join(PUMADir,'GeomBlade.py'))
     BladeDef = BladeGeom.GetBladeDef()
 
     Pb = PUMA.Problem('Propeller')

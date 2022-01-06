@@ -8,7 +8,6 @@ File History:
 # ----------------------- IMPORT SYSTEM MODULES ----------------------- #
 import sys
 import os
-import imp
 import numpy as np
 # np.seterr(all='raise')
 import timeit
@@ -41,7 +40,7 @@ DIRECTORY_OUTPUT = 'OUTPUT'
 DIRECTORY_LOGS   = 'LOGS'
 
 # ------------------ IMPORT AND SET CURRENT SETUP DATA ------------------ #
-setup = imp.load_source('setup', FILE_SETUP)
+setup = J.load_source('setup',FILE_SETUP)
 
 # Load and appropriately set variables of coprocess module
 CO.FULL_CGNS_MODE   = FULL_CGNS_MODE

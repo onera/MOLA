@@ -20,8 +20,7 @@ if SAVE_ALL:
 
 
 if CO.getSignal('RELOAD_SETUP'):
-    # BEWARE: in Python v >= 3.4 rather use: importlib.reload(setup)
-    if setup and setup.__name__ != "__main__": imp.reload(setup)
+    if setup and setup.__name__ != "__main__": J.reload_source(setup)
     CO.setup = setup
     niter    = setup.elsAkeysNumerics['niter']
     inititer = setup.elsAkeysNumerics['inititer']

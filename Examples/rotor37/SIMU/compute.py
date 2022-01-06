@@ -1,1 +1,0 @@
-../../../TEMPLATES/WORKFLOW_COMPRESSOR/compute.py

@@ -11,7 +11,6 @@ import sys
 import os
 import glob
 import shutil
-import imp
 import numpy as np
 
 import Converter.PyTree as C
@@ -71,9 +70,7 @@ def removeNumericalSchemeKeys(setup):
 
 
 def wasPoorlyConverged():
-    try: os.remove('setup.pyc')
-    except: pass
-    setup = imp.load_source('setup', 'setup.py')
+    setup = J.load_source('setup', 'setup.py')
     try: stdCLthreshold = setup.ReferenceValues['CoprocessOptions']['MaxConvergedCLStd']
     except: return False
 
@@ -89,9 +86,7 @@ def wasPoorlyConverged():
 
 
 def getComputationMode():
-    try: os.remove('setup.pyc')
-    except: pass
-    try: setup = imp.load_source('setup', 'setup.py')
+    try: setup = J.load_source('setup', 'setup.py')
     except: return
 
     try:
@@ -119,10 +114,7 @@ def getNextRobustMode():
 
 
 def useNextRobustMode():
-    try: os.remove('setup.pyc')
-    except: pass
-
-    try: setup = imp.load_source('setup', 'setup.py')
+    try: setup = J.load_source('setup', 'setup.py')
     except: return
 
     RobustMode = getNextRobustMode()
@@ -140,10 +132,7 @@ def useNextRobustMode():
 
 def useFailSafeMode():
 
-    try: os.remove('setup.pyc')
-    except: pass
-
-    try: setup = imp.load_source('setup', 'setup.py')
+    try: setup = J.load_source('setup', 'setup.py')
     except: return
 
     if getComputationMode() == FailSafeMode['name']: return
