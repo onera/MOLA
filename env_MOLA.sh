@@ -3,7 +3,7 @@ module purge all
 unset PYTHONPATH
 
 ###############################################################################
-# -------------- THESE LINES MUST TO BE ADAPTED BY DEVELOPERS --------------- #
+# ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
 export MOLA=/stck/lbernard/MOLA/Dev
 export TREELAB=/stck/lbernard/TreeLab/dev
 export EXTPYLIB=$MOLA/ExternalPythonPackages
@@ -43,6 +43,11 @@ MAC0=$(echo $KC | grep 'dumbo'); if [ "$MAC0" != "" ]; then export MAC="visio"; 
 MAC0=$(echo $KC | grep 'ganesh'); if [ "$MAC0" != "" ]; then export MAC="visio"; fi
 MAC0=$(echo $KC | grep 'spiro'); if [ "$MAC0" != "" ]; then export MAC="spiro"; fi
 
+if { [ "$MAC" = "sator" ] && [ -n "$SLURM_CPUS_ON_NODE" ]; } ; then
+    if [ $SLURM_CPUS_ON_NODE == 48] ; then
+        export MAC="sator-new"
+    fi
+fi
 
 if [ "$MAC" = "spiro" ]; then
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro3_mpi/.env_elsA
@@ -83,3 +88,5 @@ module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 alias python='python3'
 alias treelab='python3 $TREELAB/GUI/treelab.py '
 export PYTHONPATH=$MOLA:$TREELAB:$PYTHONPATH
+
+echo "using MOLA environment for $MAC"
