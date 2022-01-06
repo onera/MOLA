@@ -264,8 +264,13 @@ def getTanhDistTwo__(Nx, CellStart, CellEnd):
     if Nx < 6: raise ValueError("getTanhDistTwo__: at least 6 pts are required")
     N = Nx -4
     l = D.line((0,0,0),(1,0,0),N)
-    l = G.enforcePlusX(l,CellStart,(N-2,2),verbose=linelawVerbose)
-    l = G.enforceMoinsX(l,CellEnd,(N-2,2),verbose=linelawVerbose)
+    if float(C.__version__.split('.')[-1]) > 3:
+        l = G.enforcePlusX(l,CellStart,(N-2,2),verbose=linelawVerbose)
+        l = G.enforceMoinsX(l,CellEnd,(N-2,2),verbose=linelawVerbose)
+    else:
+        l = G.enforcePlusX(l,CellStart,(N-2,2))
+        l = G.enforceMoinsX(l,CellEnd,(N-2,2))
+
     x = I.getNodeFromName(l,'CoordinateX')[1]
     x = J.getx(l)
     return x
@@ -311,7 +316,11 @@ def getTanhDist__(Nx, CellStart,isCellEnd=False):
     if Nx < 4: raise ValueError("getTanhDist__: at least 4 pts are required")
     N = Nx - 2
     l = D.line((0,0,0),(1,0,0),N)
-    l = G.enforcePlusX(l,CellStart,(N-2,2),verbose=linelawVerbose) if not isCellEnd else G.enforceMoinsX(l,CellStart,(N-2,2),verbose=linelawVerbose)
+    if float(C.__version__.split('.')[-1]) > 3:
+        l = G.enforcePlusX(l,CellStart,(N-2,2),verbose=linelawVerbose) if not isCellEnd else G.enforceMoinsX(l,CellStart,(N-2,2),verbose=linelawVerbose)
+    else:
+        l = G.enforcePlusX(l,CellStart,(N-2,2)) if not isCellEnd else G.enforceMoinsX(l,CellStart,(N-2,2))
+
     x = J.getx(l)
     return x
 
