@@ -30,7 +30,6 @@ def checkDependencies():
     Make a series of functional tests in order to determine if the user
     environment is correctly set for using the Workflow Airfoil
     '''
-
     JM.checkDependencies()
 
     print('\nChecking XFoil...')

@@ -43,17 +43,17 @@ def checkDependencies():
         ReqVerList = [int(v) for v in ReqVerList]
 
         for used, required in zip(VerList,ReqVerList):
-            if used < required:
+            if used > required:
+                print(J.GREEN+'%s version OK'%module.__name__+J.ENDC)
+                return True
+
+            elif used < required:
                 print(J.WARN+'WARNING: using outdated version of %s'%module.__name__+J.ENDC)
                 print(J.WARN+'Please upgrade, for example, try:')
                 print(J.WARN+'pip install --user --upgrade %s'%module.__name__+J.ENDC)
                 return False
-        print(J.GREEN+'%s version OK'%module.__name__+J.ENDC)
-
-        return True
 
 
-    import numpy as np
     checkModuleVersion(np, '1.16.6')
 
     import scipy
