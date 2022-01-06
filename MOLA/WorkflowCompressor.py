@@ -56,7 +56,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None, ProcPointsLoad=100000,
 
     #. load and clean the mesh from Autogrid 5
     #. apply transformations
-    #. apply connectivity
+    #. add grid connectivities
     #. duplicate the mesh in rotation (if needed)
     #. split the mesh (only if PyPart is not used)
     #. distribute the mesh (only if PyPart is not used)
@@ -1412,7 +1412,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
       is still possible to give a list of patterns that are enought to find all
       blades (adding 'BLADE' or 'AUBE' if necessary). It is done with the
       argument **bladeFamilyNames** of :py:func:`prepareMainCGNS4ElsA`.
-      
+
 
     **Inflow boundary conditions**
 

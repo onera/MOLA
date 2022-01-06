@@ -12,7 +12,7 @@ import JobsConfiguration as config
 for case in config.JobsQueues:
 
     if case['NewJob']:
-        JM.buildJob(case, config, config.NProc, 'job_{}.sh'.format(config.machine))
+        JM.buildJob(case, config, config.NProc, 'job_template.sh')
 
     WorkflowParams = dict()
     for key, value in case.items():

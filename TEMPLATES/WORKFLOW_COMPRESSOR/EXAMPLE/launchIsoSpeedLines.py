@@ -85,18 +85,12 @@ ReferenceValues = dict(
             dict(
                 Family    = 'PERFOS_R37',
                 Variable  = 'rsd-MassFlowIn',
-                Threshold = 1e-2,
+                Threshold = 1e-4,
             ),
             dict(
                 Family    = 'PERFOS_R37',
-                Variable  = 'rsd-PressureStagnationRatio',
-                Threshold = 1e-2,
-            ),
-            dict(
-                Family    = 'PERFOS_R37',
-                Variable  = 'rsd-EfficiencyIsentropic',
-                Threshold = 1e-2,
-                Condition = 'Sufficient',
+                Variable  = 'rsd-MassFlowOut',
+                Threshold = 1e-4,
             ),
         ],
 
@@ -113,21 +107,16 @@ NumericalParams = dict(
     # convergence criteria are satisfied or the time limit is reached.
     niter = 10000,
     # CFL ramp
-    CFLparams=dict(vali=1.,valf=3.,iteri=1,iterf=1000,function_type='linear')
+    CFLparams=dict(vali=1.,valf=5.,iteri=1,iterf=1000,function_type='linear')
     )
 
-Extractions = [dict(type='AllBCwall')]
-for h in [0.1, 0.5, 0.9]:
-    Extractions.append(dict(type='IsoSurface', field='ChannelHeight', value=h))
+Extractions = [dict(type='IsoSurface', field='ChannelHeight', value=0.9)]
 
-pref = 0.75*ReferenceValues['PressureStagnation']
-fluxcoeff = TurboConfiguration['Rows']['R37']['NumberOfBlades']/TurboConfiguration['Rows']['R37']['NumberOfBladesSimulated']
-mref = ReferenceValues['MassFlow'] / float(fluxcoeff)
-valve_relax = 0.1*ReferenceValues['PressureStagnation']
+Pt = ReferenceValues['PressureStagnation']
 
 BoundaryConditions = [
     dict(type='InflowStagnation', option='uniform', FamilyName='R37_INFLOW'),
-    dict(type='OutflowRadialEquilibrium', FamilyName='R37_OUTFLOW', valve_type=4, valve_ref_pres=pref, valve_ref_mflow=mref, valve_relax=valve_relax)
+    dict(type='OutflowRadialEquilibrium', FamilyName='R37_OUTFLOW', valve_type=4, valve_ref_pres=0.75*Pt, valve_relax=0.1*Pt)
 ]
 
 Initialization = dict(
@@ -139,9 +128,9 @@ PREFIX_JOB = 'run'
 AER = '28771019F'
 machine = 'sator'
 DIRECTORY_WORK = '/tmp_user/sator/tbontemp/rafale_rotor37/'
-ThrottleRange = [van*ReferenceValues['PressureStagnation'] for van in [0.2, 0.4, 0.6, 0.8, 1.0, 1.2]]
+ThrottleRange = [van*Pt for van in [0.2, 0.4, 0.6, 0.8, 1.0, 1.2]]
 RotationSpeedRange = [-1800.]
-NProc = 8
+NProc = 28
 
 WF.launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
         ThrottleRange, RotationSpeedRange,
