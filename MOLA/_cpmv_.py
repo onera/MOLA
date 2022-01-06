@@ -203,8 +203,8 @@ def _launchSubprocess(Host,CMD):
     if len(Error)>0:
         WillRaise = False
         for e in Error:
-            if 'warning:' in e:
-                if not 'bind:' in e:
+            if b'warning:' in e:
+                if not b'bind:' in e:
                     print(WARN+str(e)+ENDC)
             else:
                 WillRaise = True

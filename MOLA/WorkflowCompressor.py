@@ -33,6 +33,7 @@ try:
 except ImportError:
     MSG = 'Fail to import ParametrizeChannelHeight: function parametrizeChannelHeight is unavailable'.format(__name__)
     print(J.WARN + MSG + J.ENDC)
+    ParamHeight = None
 
 try:
     from . import WorkflowCompressorETC as ETC
@@ -40,6 +41,30 @@ except ImportError:
     MSG = 'Fail to import ETC module: Some functions of {} are unavailable'.format(__name__)
     print(J.WARN + MSG + J.ENDC)
     ETC = None
+
+
+def checkDependencies():
+    '''
+    Make a series of functional tests in order to determine if the user
+    environment is correctly set for using the Workflow Compressor
+    '''
+    JM.checkDependencies()
+
+    print('Checking ETC...')
+    if ETC is None:
+        MSG = 'Fail to import ETC module: Some functions of {} are unavailable'.format(__name__)
+        print(J.FAIL + MSG + J.ENDC)
+    else:
+        print(J.GREEN+'ETC module is available'+J.ENDC)
+
+    print('Checking MOLA.ParametrizeChannelHeight...')
+    if ParamHeight is None:
+        MSG = 'Fail to import MOLA.ParametrizeChannelHeight module: Some functions of {} are unavailable'.format(__name__)
+        print(J.FAIL + MSG + J.ENDC)
+    else:
+        print(J.GREEN+'MOLA.ParametrizeChannelHeight module is available'+J.ENDC)
+
+    print('\nVERIFICATIONS TERMINATED')
 
 
 def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None, ProcPointsLoad=100000,

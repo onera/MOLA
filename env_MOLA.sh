@@ -80,5 +80,6 @@ else
 fi
 
 module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
-alias treelab='python3 $TREELAB/GUI/treelab.py '
-export PYTHONPATH=$PYTHONPATH:$MOLA:$TREELAB
+alias python='python3'
+alias treelab='python3 $TREELAB/GUI/treelab.py'
+export PYTHONPATH=$MOLA:$TREELAB:$PYTHONPATH
