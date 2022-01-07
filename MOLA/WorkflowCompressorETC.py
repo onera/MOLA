@@ -21,7 +21,7 @@ from . import InternalShortcuts as J
 from etc.globborder.globborder_dict import globborder_dict
 import etc.transform.__future__  as trf
 
-
+@J.redirectStdout2Null
 def setBC_stage_mxpl(t, left, right, method='globborder_dict'):
 
     if method == 'globborder_dict':
@@ -70,6 +70,7 @@ def setBC_stage_mxpl(t, left, right, method='globborder_dict'):
 
     setRotorStatorFamilyBC(t, left, right)
 
+@J.redirectStdout2Null
 def setBC_stage_mxpl_hyb(t, left, right, nbband=100, c=None):
 
     t = trf.defineBCStageFromBC(t, left)
@@ -92,6 +93,7 @@ def setBC_stage_mxpl_hyb(t, left, right, nbband=100, c=None):
 
     setRotorStatorFamilyBC(t, left, right)
 
+@J.redirectStdout2Null
 def setBC_stage_red(t, left, right, stage_ref_time):
 
     t = trf.defineBCStageFromBC(t, left)
@@ -102,6 +104,7 @@ def setBC_stage_red(t, left, right, stage_ref_time):
 
     setRotorStatorFamilyBC(t, left, right)
 
+@J.redirectStdout2Null
 def setBC_stage_red_hyb(t, left, right, stage_ref_time, nbband=100, c=None):
 
     t = trf.defineBCStageFromBC(t, left)
@@ -124,6 +127,7 @@ def setBC_stage_red_hyb(t, left, right, stage_ref_time, nbband=100, c=None):
     for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
         I._rmNodesByType(gc, 'FamilyBC_t')
 
+@J.redirectStdout2Null
 def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
     valve_ref_mflow=None, valve_relax=0.1, ReferenceValues=None,
     TurboConfiguration=None, method='globborder_dict'):
@@ -188,6 +192,7 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
         globborder.h_orientation   = gbd[bcpath]['h_orientation']
         bc.create()
 
+@J.redirectStdout2Null
 def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
     valve_ref_mflow, valve_relax=0.1, nbband=100, c=None):
 

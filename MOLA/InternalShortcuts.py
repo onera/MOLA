@@ -1917,7 +1917,18 @@ def deprecated(v1, v2=None, comment=None):
         return decorated
     return decorator
 
-
+def redirectStdout2Null(func):
+    '''
+    This is a decorator to redirect standard output to /dev/null.
+    '''
+    def wrap(*args, **kwargs):
+        with open(os.devnull, 'w') as devnull:
+            old_stdout = sys.stdout
+            sys.stdout = devnull
+            res = func(*args, **kwargs)
+            sys.stdout = old_stdout
+        return res
+    return wrap
 
 class OutputGrabber(object):
     """
