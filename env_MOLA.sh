@@ -91,7 +91,6 @@ else
     exit 0
 fi
 
-module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 alias treelab='python3 $TREELAB/GUI/treelab.py '
 alias python='python3'
 export PYTHONPATH=$MOLA:$TREELAB:$PYTHONPATH
