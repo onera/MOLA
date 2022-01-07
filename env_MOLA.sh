@@ -59,6 +59,11 @@ if [ "$MAC" = "spiro" ]; then
     export PATH=$EXTPYLIB/bin:$PATH
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
+    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_r337_spiro3
+    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
+    export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
+    export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+
 elif [ "$MAC" = "visio" ]; then
     export ELSAVERSION=v5.0.03 # TODO adapt this once #9666 fixed
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/centos6_mpi/.env_elsA
@@ -66,11 +71,22 @@ elif [ "$MAC" = "visio" ]; then
     export PATH=$EXTPYLIB/bin:$PATH
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
+    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_r337_centos6
+    export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
+    export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
+    export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+
+
 elif [ "$MAC" = "ld" ]; then
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel_mpi/.env_elsA
     export PYTHONPATH=$EXTPYLIB/lib/python2.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIB/bin:$PATH
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+
+    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_r337_eos
+    export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
+    export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
+    export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
 
 elif [ "$MAC" = "sator" ]; then
@@ -80,12 +96,22 @@ elif [ "$MAC" = "sator" ]; then
     export PYTHONPATH=$EXTPYLIBSATOR/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIBSATOR/bin:$PATH
 
+    export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_r337_sator3
+    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
+    export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
+    export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+
 elif [ "$MAC" = "sator-new" ]; then
-    source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new/.env_elsA
+    source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA
     export MOLA=$MOLASATOR
     export TREELAB=$TREELABSATOR
     export PYTHONPATH=$EXTPYLIBSATOR/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIBSATOR/bin:$PATH
+
+    export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_r337_satornew
+    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
+    export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
+    export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
 else
     echo -e "\033[91mERROR: MACHINE $KC NOT INCLUDED IN MOLA ENVIRONMENT\033[0m"
