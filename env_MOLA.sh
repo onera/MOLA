@@ -2,6 +2,7 @@
 source /etc/bashrc
 module purge
 unset PYTHONPATH
+shopt -s expand_aliases
 
 ###############################################################################
 # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #

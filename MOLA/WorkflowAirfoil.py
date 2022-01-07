@@ -207,14 +207,15 @@ def launchBasicStructuredPolars(PREFIX_JOB, FILE_GEOMETRY, AER, machine,
 
         meshParams = getMeshingParameters()
         meshParams['References'].update({'Reynolds':Reynolds})
+        if 'options' not in machine: meshParams['options'] = {}
         if machine == 'sator':
-            meshParams['options'].update({'Nproc':28})
+            meshParams['options']['Nproc']=28
         elif machine == 'sator-new':
-            meshParams['options'].update({'Nproc':48})
+            meshParams['options']['Nproc']=48
         elif machine == 'spiro':
-            meshParams['options'].update({'Nproc':24})
+            meshParams['options']['Nproc']=24
         elif machine in ['ld', 'eos']:
-            meshParams['options'].update({'Nproc':8})
+            meshParams['options']['Nproc']=8
 
 
         EffectiveMach = np.maximum(Mach, 0.2) # TODO externalize this threshold

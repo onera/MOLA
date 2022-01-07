@@ -10,6 +10,7 @@ import sys
 import os
 import glob
 
+import MOLA.InternalShortcuts as J
 import MOLA.Preprocess as PRE
 
 setup = J.load_source('setup', 'setup.py')

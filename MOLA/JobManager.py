@@ -208,7 +208,7 @@ def saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,
 
     if not DIRECTORY_WORK.endswith('/'): raise ValueError('DIRECTORY_WORK must end with "/"')
 
-    AllowedMachines = ('spiro', 'sator','local','eos','ld')
+    AllowedMachines = ('spiro', 'sator','sator-new','local','eos','ld')
     if machine not in AllowedMachines:
         raise ValueError('Machine %s not supported. Must be one of: %s'%(machine,str(AllowedMachines)))
 
@@ -316,7 +316,7 @@ def launchJobsConfiguration(
         # repatriate(Source, Destination, removeExistingDestinationPath=True)
         ServerTools.cpmvWrap4MultiServer('cp', Source, Destination)
 
-    ComputeServers = ('sator', 'spiro')
+    ComputeServers = ('sator', 'sator-new', 'spiro')
     if config.machine not in ComputeServers:
         print('Machine "%s" not in %s: assuming that local subprocess launch of elsA is possible.'%(config.machine, str(ComputeServers)))
         # launch local mesher-dispatcher job by subprocess - no sbatch no wait ssh
