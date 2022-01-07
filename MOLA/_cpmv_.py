@@ -196,15 +196,13 @@ def _launchSubprocess(Host,CMD):
         env=os.environ.copy(),
         )
     ssh.wait()
-    Error = ssh.stderr.readlines()
-    Output = ssh.stdout.readlines()
+    Error = readStderr(ssh)
+    Output = readStdout(ssh)
     if len(Output)>0:
         for o in Output: print(o)
     if len(Error)>0:
         WillRaise = False
         for e in Error:
-            if isinstance(e, bytes):
-                e = e.decode('utf-8')
             if 'warning:' in e:
                 if not 'bind:' in e:
                     print(WARN+str(e)+ENDC)
@@ -214,6 +212,60 @@ def _launchSubprocess(Host,CMD):
 
         if WillRaise:
             raise IOError(Error[-1])
+
+def readStderr(ssh):
+    '''
+    Read the standard error from the object **ssh* obtained from
+    subprocess.Popen
+
+    Parameters
+    ----------
+
+        ssh : object
+            returned by subprocess.Popen
+
+    Returns
+    -------
+
+        Error : :py:class:`list` of :py:class:`str`
+            error lines
+
+    See also
+    --------
+    readStdout
+    '''
+    Error = ssh.stderr.readlines()
+    for i, e in enumerate(Error):
+        if isinstance(e, bytes):
+            Error[i] = e.decode('utf-8')
+    return Error
+
+def readStdout(ssh):
+    '''
+    Read the standard output from the object **ssh* obtained from
+    subprocess.Popen
+
+    Parameters
+    ----------
+
+        ssh : object
+            returned by subprocess.Popen
+
+    Returns
+    -------
+
+        Output : :py:class:`list` of :py:class:`str`
+            output lines
+
+    See also
+    --------
+    readStderr
+    '''
+    Output = ssh.stdout.readlines()
+    for i, o in enumerate(Output):
+        if isinstance(o, bytes):
+            Output[i] = o.decode('utf-8')
+    return Output
 
 def cpmvWrap4MultiServer(mode,In,Out='none'):
     '''

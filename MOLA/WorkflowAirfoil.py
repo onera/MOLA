@@ -30,75 +30,12 @@ def checkDependencies():
     Make a series of functional tests in order to determine if the user
     environment is correctly set for using the Workflow Airfoil
     '''
-    def checkModuleVersion(module, MinimumRequired):
-        print('Checking %s...'%module.__name__)
-        print('used version: '+module.__version__)
-        print('minimum required: '+MinimumRequired)
-        VerList = module.__version__.split('.')
-        VerList = [int(v) for v in VerList]
-
-        ReqVerList = MinimumRequired.split('.')
-        ReqVerList = [int(v) for v in ReqVerList]
-
-        for used, required in zip(VerList,ReqVerList):
-            if used > required:
-                print(J.GREEN+'%s version OK'%module.__name__+J.ENDC)
-                return True
-
-            elif used < required:
-                print(J.WARN+'WARNING: using outdated version of %s'%module.__name__+J.ENDC)
-                print(J.WARN+'Please upgrade, for example, try:')
-                print(J.WARN+'pip install --user --upgrade %s'%module.__name__+J.ENDC)
-                return False
-
-
-    checkModuleVersion(np, '1.16.6')
-
-    import scipy
-    checkModuleVersion(scipy, '1.2.3')
-
-    print('\nChecking interpolations...')
-    AbscissaRequest = np.array([1.0,2.0,3.0])
-    AbscissaData = np.array([1.0,2.0,3.0,4.0,5.0])
-    ValuesData = AbscissaData**2
-    for Law in ('interp1d_linear', 'interp1d_quadratic','cubic','pchip','akima'):
-        J.interpolate__(AbscissaRequest, AbscissaData, ValuesData, Law=Law)
-    print(J.GREEN+'interpolation OK'+J.ENDC)
-
-    print('\nAttempting file/directories operations on SATOR...')
-    TestFile = 'testfile.txt'
-    with open(TestFile,'w') as f: f.write('test')
-    UserName = JM.getpass.getuser()
-    DIRECTORY_TEST = '/tmp_user/sator/%s/MOLAtest/'%UserName
-    Source = TestFile
-    Destination = os.path.join(DIRECTORY_TEST,TestFile)
-    JM.ServerTools.cpmvWrap4MultiServer('mv', Source, Destination)
-    JM.repatriate(Destination, Source, removeExistingDestinationPath=False)
-    print(DIRECTORY_TEST)
-    JM.ServerTools.cpmvWrap4MultiServer('rm', DIRECTORY_TEST)
-    JM.ServerTools.cpmvWrap4MultiServer('rm', Source)
-    print('Attempting file/directories operations on SATOR... done')
+    JM.checkDependencies()
 
     print('\nChecking XFoil...')
     from . import XFoil
     XFoilResults = XFoil.computePolars('naca 0012', [1e6], [0.1], [3.0], )
     print(J.GREEN+'XFoil OK'+J.ENDC)
-
-    import matplotlib
-    checkModuleVersion(matplotlib, '2.2.5')
-    print('producing figure...')
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots(dpi=150)
-    ax.plot(XFoilResults['x'].flatten(), XFoilResults['Cp'].flatten(),color='C0')
-    ax.invert_yaxis()
-    ax.set_xlabel('x/c')
-    ax.set_ylabel('$C_p$')
-    ax.set_title('XFoil')
-    plt.tight_layout()
-    print('saving figure...')
-    plt.savefig('test-figure.pdf')
-    print('showing figure... (close figure to continue)')
-    plt.show()
 
     print('\nVERIFICATIONS TERMINATED')
 
