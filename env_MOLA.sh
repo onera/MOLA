@@ -118,8 +118,11 @@ else
     exit 0
 fi
 
-alias treelab='python3 $TREELAB/GUI/treelab.py '
-alias python='python3'
+if [[ "$PYTHONPATH" == *"python3"* ]]; then
+    alias python='python3'
+fi
+
+alias treelab='python $TREELAB/GUI/treelab.py '
 export PYTHONPATH=$MOLA:$TREELAB:$PYTHONPATH
 
 echo "using MOLA environment for $MAC"
