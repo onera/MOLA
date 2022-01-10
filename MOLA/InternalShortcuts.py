@@ -104,7 +104,9 @@ def get(parent, childname):
     if child_n is not None:
         for n in child_n[2]:
             if n[1] is not None:
-                if n[1].dtype == '|S1':
+                if isinstance(n[1], float) or isinstance(n[1], int):
+                    Dict[n[0]] = n[1]
+                elif n[1].dtype == '|S1':
                     Dict[n[0]] = I.getValue(n) # Cannot further modify
                 else:
                     Dict[n[0]] = n[1] # Can further modify
