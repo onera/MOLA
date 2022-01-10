@@ -228,20 +228,21 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
 
     # Get some relevant data from Propeller
-    Kin_n = I.getNodeFromName(Propeller,'.Kinematics')
+    LLs = I.getZones(Propeller)
+    LLnameInitial = LLs[0]
+    NBlades = len(LLs)
+    Kin_n = I.getNodeFromName(LLnameInitial,'.Kinematics')
     RotAxis = I.getValue(I.getNodeFromName1(Kin_n,'RotationAxis'))
     RotCenter = I.getValue(I.getNodeFromName1(Kin_n,'RotationCenter'))
     RightHandRuleRotation = I.getValue(I.getNodeFromName1(Kin_n,'RightHandRuleRotation'))
     RPM_n = I.getNodeFromName1(Kin_n,'RPM')
     RPM_n[1] = RPM
-    LLs = I.getZones(Propeller)
-    LLnameInitial = LLs[0]
-    NBlades = len(LLs)
 
     Comp_n = I.getNodeFromName1(Propeller,'.Component#Info')
 
     # Get the freestream conditions
-    Cond_n = I.getNodeFromName1(Propeller,'.Conditions')
+    Cond_n = I.getNodeFromName1(LLnameInitial,'.Conditions')
+
 
     if not Cond_n:
         write4Debug('.Conditions not found in propeller')
@@ -272,17 +273,10 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     I.createUniqueChild(bLL,'.Conditions','UserDefinedData_t',children=Cond_n[2])
     I.createUniqueChild(bLL,'.Component#Info','UserDefinedData_t',children=Comp_n[2])
 
-    # Compute the omega vector
-    omega = RPM*np.pi/30. * RotAxis
-    if not RightHandRuleRotation: omega *= -1
+    setRPM(tLL, RPM_n[1]) # useless, since done later ?
+    computeKinematicVelocity(tLL) # useless, since done later ?
 
-    # Compute the kinematic velocity
-    C._initVars(tLL,'SolidVelocityX=-%0.12g*({CoordinateY}-%0.12g)+%0.12g*({CoordinateZ}-%0.12g)'%(omega[2],RotCenter[1],omega[1],RotCenter[2]))
-    C._initVars(tLL,'SolidVelocityY=+%0.12g*({CoordinateX}-%0.12g)-%0.12g*({CoordinateZ}-%0.12g)'%(omega[2],RotCenter[0],omega[0],RotCenter[2]))
-    C._initVars(tLL,'SolidVelocityZ=-%0.12g*({CoordinateX}-%0.12g)+%0.12g*({CoordinateY}-%0.12g)'%(omega[2],RotCenter[0],omega[0],RotCenter[1]))
-
-    # Eventually add the perturbation fields
-    PerturbationDisk = addPerturbationFields(tLL,PerturbationFields)
+    PerturbationDisk = addPerturbationFields(tLL, PerturbationFields)
 
 
     # MOLA LiftingLine solver :
@@ -299,15 +293,14 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         elif CommandType == 'RPM':
             C._initVars(tLL,'Twist={Twist}+%0.12g'%Pitch)
 
-            omega = cmd*np.pi/30. * RotAxis
-            if not RightHandRuleRotation: omega *= -1
-            C._initVars(tLL,'SolidVelocityX=-%0.12g*({CoordinateY}-%0.12g)+%0.12g*({CoordinateZ}-%0.12g)'%(omega[2],RotCenter[1],omega[1],RotCenter[2]))
-            C._initVars(tLL,'SolidVelocityY=+%0.12g*({CoordinateX}-%0.12g)-%0.12g*({CoordinateZ}-%0.12g)'%(omega[2],RotCenter[0],omega[0],RotCenter[2]))
-            C._initVars(tLL,'SolidVelocityZ=-%0.12g*({CoordinateX}-%0.12g)+%0.12g*({CoordinateY}-%0.12g)'%(omega[2],RotCenter[0],omega[0],RotCenter[1]))
             RPM_n[1] = cmd
 
-        _computeLocalVelocity(tLL)
-        _updateLiftingLines(tLL, PolarsInterpolatorsDict)
+        setRPM(tLL, RPM_n[1])
+        [updateLocalFrame(ll) for ll in I.getZones(tLL)]
+        computeKinematicVelocity(tLL)
+        assembleAndProjectVelocities(tLL)
+        _applyPolarOnLiftingLine(tLL,PolarsInterpolatorsDict)
+        computeGeneralLoadsOfLiftingLine(tLL)
 
         if CommandType == 'Pitch':
             C._initVars(tLL,'Twist={Twist}-%0.12g'%cmd)
@@ -420,6 +413,8 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
     LLs = I.getZones(tLL)
     BodyForceSurface = G.stack(LLs) # Stack LLs to surf
+    I._correctPyTree(LLs, level=3)
+    C.convertPyTree2File(LLs,'LLs.cgns')
 
     Stacked = stackBodyForceComponent(BodyForceSurface, RotAxis, **StackOptions)
 
@@ -446,7 +441,11 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     weightNode = I.getNodeFromName2(Stacked, 'weight')
     if weightNode:
         weight = I.getValue(weightNode)
-        for f in fieldsCorrVars: f *= weight
+        try:
+            for f in fieldsCorrVars: f *= weight
+        except TypeError as e:
+            C.convertPyTree2File(Stacked,'testStacked.cgns')
+            raise TypeError(e)
 
 
     # Correction of linear arrays broadcasting
@@ -461,7 +460,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
     for f in fieldsCorrVars: f *= CorrFactor
 
-    integAxial = P.integ(Stacked, 'fa')[0]
+    integAxial = P.integ(Stacked, 'fa')[0] # useless ?
 
 
     # # Compute actual BodyForce Power
@@ -472,6 +471,11 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     # AxisPower = RPM_n[1]*(np.pi/30.)*AxisTorque
 
     # Store general info of BodyForce zone
+
+    # TODO: add azimutal loads from LLs as a vector (.AzimutalLoads)
+    # TODO: add azimutal statistics (.AzimutalAveragedLoads)
+    # TODO: separate RPM and Pitch from Loads (set kinematics?)
+    # TODO: investigate negative Power
 
     J.set(Stacked,'.Info',Thrust=AvrgThrust, Power=AvrgPower,
                           Pitch=Pitch, RPM=RPM)
@@ -1952,7 +1956,11 @@ def _applyPolarOnLiftingLine(LiftingLine, PolarsInterpolatorDict,
                 DictOfVars['Reynolds'])
 
             for i in range(NVars):
-                VarArrays[InterpFields[i]] += [ListOfVals[i]]
+                try:
+                    VarArrays[InterpFields[i]] += [ListOfVals[i]]
+                except IndexError as e:
+                    C.convertPyTree2File(LiftingLine,'testLL.cgns')
+                    raise IndexError(e)
 
         for IntField in InterpFields:
             VarArrays[IntField] = np.vstack(VarArrays[IntField])
@@ -2779,6 +2787,21 @@ def plotStructPyZonePolars(PyZonePolars, addiationalQuantities=[],
             plt.close('all')
 
 
+def setRPM(LiftingLines, newRPM):
+    for LiftingLine in I.getZones(LiftingLines):
+        if not checkComponentKind(LiftingLine,'LiftingLine'): continue
+        Kin_n = I.getNodeFromName1(LiftingLine,'.Kinematics')
+        if Kin_n:
+            RPM = I.getNodeFromName1(Kin_n,'RPM')
+
+            if RPM:
+                RPM[1] = newRPM
+            else:
+                I.createNode('RPM','DataArray_t',
+                             value=np.array([newRPM],dtype=np.float), parent=Kin_n)
+        else:
+            J.set(LiftingLine,'.Kinematics',RPM=newRPM)
+
 
 def setKinematicsUsingConstantRotationAndTranslation(LiftingLines, RotationCenter=[0,0,0],
                                   RotationAxis=[1,0,0], RPM=2500.0,
@@ -2932,7 +2955,7 @@ def computeKinematicVelocity(t):
         RotationAxis = Kinematics['RotationAxis']
         RPM = Kinematics['RPM']
         Dir = 1 if Kinematics['RightHandRuleRotation'] else -1
-        Omega = RPM[0]*np.pi/30.
+        Omega = RPM*np.pi/30.
         x,y,z = J.getxyz(LiftingLine)
         ExistingFieldNames = C.getVarNames(LiftingLine,excludeXYZ=True)[0]
         v = dict()
@@ -3120,8 +3143,10 @@ def moveLiftingLines(t, TimeStep):
         RotationAxis = Kinematics['RotationAxis']
         RightHandRuleRotation = Kinematics['RightHandRuleRotation']
         RPM = Kinematics['RPM']
-        Omega = RPM[0] * np.pi / 30.
+        Omega = RPM * np.pi / 30.
         Dpsi = np.rad2deg( Omega * TimeStep )
+        try: Dpsi = Dpsi[0]
+        except: pass
         if not RightHandRuleRotation: Dpsi *= -1
 
         if Dpsi: T._rotate(LiftingLine, RotationCenter, RotationAxis, Dpsi)
@@ -3201,7 +3226,7 @@ def updateLocalFrame(LiftingLine):
         rvec = np.array([x[i] - RotationCenter[0],
                          y[i] - RotationCenter[1],
                          z[i] - RotationCenter[2]],dtype=np.float)
-        TangentialDirection = Dir*np.cross(rvec,RotationAxis)
+        TangentialDirection = Dir*np.cross(RotationAxis,rvec)
         TangentialDirection /= np.sqrt(TangentialDirection.dot(TangentialDirection))
         tanx[i] = TangentialDirection[0]
         tany[i] = TangentialDirection[1]
@@ -3369,6 +3394,7 @@ def addPerturbationFields(t, PerturbationFields=None):
                                                 'MomentumZ',
                                                 ])
 
+
         PositiveDensity = ro > 1e-3
         iVx[PositiveDensity] = rou[PositiveDensity]/ro[PositiveDensity]
         iVy[PositiveDensity] = rov[PositiveDensity]/ro[PositiveDensity]
@@ -3380,6 +3406,7 @@ def addPerturbationFields(t, PerturbationFields=None):
 
 
         migratePerturbationsFromAuxiliarDisc2LiftingLines(AuxiliarDisc, t)
+        # TODO: update .Conditions Temperature and Density for each LL
 
         return AuxiliarDisc
 
@@ -3702,7 +3729,15 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0):
         v['mx'][:] = dir * FluxM * v['tx']
         v['my'][:] = dir * FluxM * v['ty']
         v['mz'][:] = dir * FluxM * v['tz']
-
+        print(LiftingLine[0])
+        f = np.array([v['fx'][11],v['fy'][11],v['fz'][11]])
+        r = np.array([rx[11],ry[11],rz[11]])
+        print(f)
+        print(r)
+        print('r x f')
+        print(np.cross(r,f))
+        toto = ry*v['fz'] - rz*v['fy']
+        # print(toto)
         v['m0x'][:] = v['mx'] + ry*v['fz'] - rz*v['fy']
         v['m0y'][:] = v['my'] + rz*v['fx'] - rx*v['fz']
         v['m0z'][:] = v['mz'] + rx*v['fy'] - ry*v['fx']
@@ -3726,9 +3761,9 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0):
         FY = sint.simps(v['fy'], DimensionalAbscissa)
         FZ = sint.simps(v['fz'], DimensionalAbscissa)
 
-        MX = sint.simps(v['m0x']*RotationAxis[0], DimensionalAbscissa)
-        MY = sint.simps(v['m0y']*RotationAxis[1], DimensionalAbscissa)
-        MZ = sint.simps(v['m0z']*RotationAxis[2], DimensionalAbscissa)
+        MX = sint.simps(v['m0x'], DimensionalAbscissa)
+        MY = sint.simps(v['m0y'], DimensionalAbscissa)
+        MZ = sint.simps(v['m0z'], DimensionalAbscissa)
 
         # # Integrate tangential moment <ft>*Span to get Power
         # Torque = sint.simps(v['ft']*v['Span'],DimensionalAbscissa) # equivalent
@@ -3752,7 +3787,7 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0):
             try:
                 TotalIntegralData[LoadName] += AllIntegralData[LiftingLineLoad][LoadName]
             except KeyError:
-                TotalIntegralData[LoadName] = AllIntegralData[LiftingLineLoad][LoadName]
+                TotalIntegralData[LoadName] = np.copy(AllIntegralData[LiftingLineLoad][LoadName])
 
     AllIntegralData['Total'] = TotalIntegralData
 
@@ -3884,7 +3919,7 @@ def _computeLocalVelocity(t):
 
 
 
-def _updateLiftingLines(t, PolarsInterpolatorsDict):
+def _updateLiftingLines(t, PolarsInterpolatorsDict, NBlades):
     '''
     Private function used in BODYFORCE method, to be deprecated.
 
@@ -3916,14 +3951,12 @@ def _updateLiftingLines(t, PolarsInterpolatorsDict):
         direct    = I.getNodeFromName1(Kin_n,'RightHandRuleRotation')[1]
         RPM       = I.getNodeFromName1(Kin_n,'RPM')[1]
 
-        # Loop over LiftingLines
         for LiftingLine in I.getZones(b):
-            # Ignore zones that are not LiftingLines
             isLL = checkComponentKind(LiftingLine,kind='LiftingLine')
             if not isLL: continue
 
             _applyPolarOnLiftingLine(LiftingLine,PolarsInterpolatorsDict)
-            _computeLiftingLine3DLoads(LiftingLine, Density,RotAxis,RPM)
+            computeGeneralLoadsOfLiftingLine(LiftingLine, NBlades=NBlades)
 
 
 
@@ -4442,8 +4475,7 @@ def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
 
         PyZonePolars = C.convertFile2PyTree(FILE_Polars)
         PyZonePolars = I.getZones(PyZonePolars)
-        PolarsInterpolatorsDict = buildPolarsInterpolatorDict(PyZonePolars,
-                                                             InterpFields=['Cl', 'Cd'])
+        PolarsInterpolatorsDict = buildPolarsInterpolatorDict(PyZonePolars)
 
         Rotor['PolarsInterpolatorsDict'] = PolarsInterpolatorsDict
 
@@ -4453,10 +4485,11 @@ def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
         GuidePoint = getItemOrRaiseWarning('GuidePoint')
         RightHandRuleRotation = getItemOrRaiseWarning('RightHandRuleRotation')
 
-        setKinematicsUsingConstantRotationAndTranslation(LiftingLine,RotationCenter=RotationCenter,
-                                  RotationAxis=RotationAxis,
-                                  RPM=0.0,
-                                  RightHandRuleRotation=RightHandRuleRotation)
+        setKinematicsUsingConstantRotationAndTranslation(LiftingLine,
+                                      RotationCenter=RotationCenter,
+                                      RotationAxis=RotationAxis,
+                                      RPM=0.0,
+                                      RightHandRuleRotation=RightHandRuleRotation)
 
         RequiredVariables = NumberOfBlades,RotationCenter,RotationAxis, \
                             GuidePoint
@@ -4465,7 +4498,12 @@ def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
             continue
 
         Propeller = buildPropeller(LiftingLine, NBlades=NumberOfBlades)
-        prepareUnsteadyLiftingLine(Propeller)
+        setConditions(Propeller)
+        MandatoryFields = ('Density', 'MomentumX', 'MomentumY', 'MomentumZ',
+                            'EnergyStagnationDensity', 'Temperature',
+                            'AoA', 'Mach', 'Reynolds',
+                    'VelocityInducedX', 'VelocityInducedY', 'VelocityInducedZ')
+        [C._initVars(Propeller, f, 0.) for f in MandatoryFields]
 
         Propeller[0] = RotorName
         Rotor['Propeller'] = Propeller

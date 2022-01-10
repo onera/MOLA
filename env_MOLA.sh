@@ -54,14 +54,14 @@ fi
 
 
 if [ "$MAC" = "spiro" ]; then
-    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro3_mpi/.env_elsA
-    export PYTHONPATH=$EXTPYLIB/lib/python3.7/site-packages/:$PYTHONPATH
+    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro_mpi/.env_elsA
+    export PYTHONPATH=$EXTPYLIB/lib/python2.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIB/bin:$PATH
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
-    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_r337_spiro3
-    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
-    export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
+    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_r337_spiro
+    export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
+    export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
 elif [ "$MAC" = "visio" ]; then
@@ -101,6 +101,9 @@ elif [ "$MAC" = "sator" ]; then
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
+    alias treelab='python3 $TREELAB/GUI/treelab.py '
+    alias python='python3'
+
 elif [ "$MAC" = "sator-new" ]; then
     source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA
     export MOLA=$MOLASATOR
@@ -113,13 +116,14 @@ elif [ "$MAC" = "sator-new" ]; then
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
+    alias treelab='python3 $TREELAB/GUI/treelab.py '
+    alias python='python3'
+
 else
     echo -e "\033[91mERROR: MACHINE $KC NOT INCLUDED IN MOLA ENVIRONMENT\033[0m"
     exit 0
 fi
 
-alias treelab='python3 $TREELAB/GUI/treelab.py '
-alias python='python3'
 export PYTHONPATH=$MOLA:$TREELAB:$PYTHONPATH
 
 echo "using MOLA environment for $MAC"
