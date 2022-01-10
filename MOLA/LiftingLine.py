@@ -3729,15 +3729,8 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0):
         v['mx'][:] = dir * FluxM * v['tx']
         v['my'][:] = dir * FluxM * v['ty']
         v['mz'][:] = dir * FluxM * v['tz']
-        print(LiftingLine[0])
         f = np.array([v['fx'][11],v['fy'][11],v['fz'][11]])
         r = np.array([rx[11],ry[11],rz[11]])
-        print(f)
-        print(r)
-        print('r x f')
-        print(np.cross(r,f))
-        toto = ry*v['fz'] - rz*v['fy']
-        # print(toto)
         v['m0x'][:] = v['mx'] + ry*v['fz'] - rz*v['fy']
         v['m0y'][:] = v['my'] + rz*v['fx'] - rx*v['fz']
         v['m0z'][:] = v['mz'] + rx*v['fy'] - ry*v['fx']
