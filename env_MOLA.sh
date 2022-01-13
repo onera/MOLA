@@ -79,19 +79,21 @@ elif [ "$MAC" = "visio" ]; then
 
 
 elif [ "$MAC" = "ld" ]; then
-    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel_mpi/.env_elsA
-    export PYTHONPATH=$EXTPYLIB/lib/python2.7/site-packages/:$PYTHONPATH
-    export PATH=$EXTPYLIB/bin:$PATH
+    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
+    # export PYTHONPATH=$EXTPYLIB/lib/python2.7/site-packages/:$PYTHONPATH
+    # export PATH=$EXTPYLIB/bin:$PATH
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
-    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_r337_eos
-    export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
-    export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
-    export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+    # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_r337_eos
+    # export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
+    # export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
+    # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
+    alias treelab='python3 $TREELAB/GUI/treelab.py '
+    alias python='python3'
 
 elif [ "$MAC" = "sator" ]; then
-    source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator2/.env_elsA
+    source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator/.env_elsA
     export MOLA=$MOLASATOR
     export TREELAB=$TREELABSATOR
     export PYTHONPATH=$EXTPYLIBSATOR/lib/python2.7/site-packages/:$PYTHONPATH
@@ -102,8 +104,8 @@ elif [ "$MAC" = "sator" ]; then
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
-    alias treelab='python3 $TREELAB/GUI/treelab.py '
-    alias python='python3'
+    # alias treelab='python3 $TREELAB/GUI/treelab.py '
+    # alias python='python3'
 
 elif [ "$MAC" = "sator-new" ]; then
     source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA
@@ -112,10 +114,11 @@ elif [ "$MAC" = "sator-new" ]; then
     export PYTHONPATH=$EXTPYLIBSATOR/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIBSATOR/bin:$PATH
 
-    export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_r337_satornew
-    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
-    export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
-    export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+    # incompatible with intel21
+    # export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_r337_satornew
+    # export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
+    # export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
+    # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
     alias treelab='python3 $TREELAB/GUI/treelab.py '
     alias python='python3'

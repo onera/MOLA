@@ -4639,3 +4639,25 @@ def intersection(curves):
     C.convertPyTree2File([bar,conformed],'debug.cgns')
 
     return IntersectingPoints
+
+def writeAirfoilInSeligFormat(airfoil, filename='foil.dat'):
+    '''
+    write an airfoil curve into a  .dat *(or .txt)* SELIG file format
+
+    Parameters
+    ----------
+
+        airfoil : zone
+            a curve of the airfoil to be written
+
+        filename : str
+            the name of the file to produce
+    '''
+    foil = I.copyRef(airfoil)
+    putAirfoilClockwiseOrientedAndStartingFromTrailingEdge(foil)
+    T._reorder(foil,(-1,2,3))
+    X, Y = J.getxy(foil)
+    with open(filename,'w') as f:
+        f.write(foil[0]+'\n')
+        for x, y in zip(X,Y):
+            f.write(' %0.6f   %0.6f\n'%(x,y))

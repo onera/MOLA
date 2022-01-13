@@ -59,14 +59,13 @@ def computePolars(airfoilFilename, Reynolds, Mach, AoAs, Ncr=9,
     Parameters
     ----------
 
-        airfoilFilename : str
+        airfoilFilename : :py:class:`str` or zone
             Name of the file containing the
             airfoil's coordinates in two-column format (x,y) (e.g.
             ``'OA209.dat'``) or naca  4-digit or 5-digit identifier
-            (e.g. ``naca 4412``)
-
-            .. danger:: known bug to be solved avoids usage of airfoil
-                filename. Only naca identifier works in this version.
+            (e.g. ``naca 4412``) or a ``.cgns``, ``.tp``, ``.plt`` zone
+            readable by Cassiopee or a CGNS zone containing the airfoil
+            coordinates
 
         Reynolds : list
             List containing all the Reynolds number to be computed for the
@@ -236,7 +235,6 @@ def computePolars(airfoilFilename, Reynolds, Mach, AoAs, Ncr=9,
 
     '''
 
-
     # Make input coherency verifications
     nRe  = len(Reynolds)
     nM   = len(Mach)
@@ -250,6 +248,20 @@ def computePolars(airfoilFilename, Reynolds, Mach, AoAs, Ncr=9,
             raise AttributeError('For PyZonePolarKind=%s, number of elements of Reynolds (%d), Mach (%d) and angle-of-attack (%d) must ALL be equal.'%(PyZonePolarKind,nRe,nM,nAoA))
         PyZonePolarKind = 'Unstr_AoA_Mach_Reynolds'
 
+    if isinstance(airfoilFilename, list):
+        import Converter.Internal as I
+        from . import Wireframe as W
+        foilZone, = I.getZones(airfoilFilename)
+        W.writeAirfoilInSeligFormat(foilZone,'tmpfoil.dat')
+        airfoilFilename = 'tmpfoil.dat'
+    elif any(airfoilFilename.endswith(ext) for ext in ['.cgns', '.plt', '.tp']):
+        import Converter.PyTree as C
+        import Converter.Internal as I
+        import Transform.PyTree as T
+        from . import Wireframe as W
+        foilZone, = I.getZones(C.convertFile2PyTree(airfoilFilename))
+        W.writeAirfoilInSeligFormat(foilZone,'tmpfoil.dat')
+        airfoilFilename = 'tmpfoil.dat'
 
     # Prepare containers where XFoil results will be stored in
     Results = dict(PyZonePolarKind=PyZonePolarKind)
@@ -306,7 +318,12 @@ def computePolars(airfoilFilename, Reynolds, Mach, AoAs, Ncr=9,
         f = open(stdin_fn,'w')
 
         #  Read airfoil
-        f.write(airfoilFilename+'\n')
+        if airfoilFilename.startswith('naca '):
+            f.write(airfoilFilename+'\n')
+        elif airfoilFilename.startswith('NACA') and '.' not in airfoilFilename:
+            f.write(airfoilFilename.replace('NACA','naca ')+'\n')
+        else:
+            f.write('LOAD '+airfoilFilename+'\n')
 
         # Eventually rediscretize airfoil based on curvature
         # keeping the total number of total points
