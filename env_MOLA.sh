@@ -65,6 +65,9 @@ if [ "$MAC" = "spiro" ]; then
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
+    alias treelab='python3 $TREELAB/GUI/treelab.py '
+    alias python='python3'
+
 elif [ "$MAC" = "visio" ]; then
     export ELSAVERSION=v5.0.03 # TODO adapt this once #9666 fixed
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/centos6_mpi/.env_elsA
@@ -76,7 +79,6 @@ elif [ "$MAC" = "visio" ]; then
     export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
-
 
 elif [ "$MAC" = "ld" ]; then
     export ELSAVERSION=v5.0.03 # TODO adapt this once #9671 fixed
@@ -90,7 +92,6 @@ elif [ "$MAC" = "ld" ]; then
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
-
 elif [ "$MAC" = "sator" ]; then
     source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator2/.env_elsA
     export MOLA=$MOLASATOR
@@ -102,9 +103,6 @@ elif [ "$MAC" = "sator" ]; then
     export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
-
-    alias treelab='python3 $TREELAB/GUI/treelab.py '
-    alias python='python3'
 
 elif [ "$MAC" = "sator-new" ]; then
     source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA
