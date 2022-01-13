@@ -4,6 +4,8 @@ coprocess.py template WORKFLOW STANDARD
 MOLA Dev
 '''
 
+
+
 # Control Flags for interactive control using command 'touch <flag>'
 if CO.getSignal('QUIT'): os._exit(0)
 CONVERGED         = CO.getSignal('CONVERGED')
@@ -58,8 +60,6 @@ it = elsAxdt.iteration()
 CO.CurrentIteration = it
 CO.printCo('iteration %d'%it, proc=0)
 
-
-
 # ENTER COUPLING CONDITIONS:
 
 if not SAVE_FIELDS:
@@ -95,7 +95,6 @@ if ENTER_COUPLING:
     I._rmNodesByName(t, 'ID_*')
     Cmpi.barrier()
 
-
     if COMPUTE_BODYFORCE:
         BODYFORCE_INITIATED = True
         CO.printCo('COMPUTING BODYFORCE', proc=0, color=CO.MAGE)
@@ -105,12 +104,10 @@ if ENTER_COUPLING:
 
         CO.addBodyForcePropeller2Arrays(arrays, BodyForceDisks)
 
-
         elsAxdt.free('xdt-runtime-tree')
         del toWithSourceTerms
         CO.printCo('migrating computed source terms...', proc=0, color=CO.MAGE)
         toWithSourceTerms = LL.migrateSourceTerms2MainPyTree(BodyForceDisks, t)
-
         CO.save(BodyForceDisks,os.path.join(DIRECTORY_OUTPUT,FILE_BODYFORCESRC))
         SAVE_BODYFORCE = False
 

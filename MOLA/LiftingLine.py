@@ -43,6 +43,7 @@ from . import GenerativeShapeDesign as GSD
 from . import GenerativeVolumeDesign as GVD
 from . import __version__
 
+from .Coprocess import printCo
 
 try:
     silence = J.OutputGrabber()
@@ -63,9 +64,6 @@ WARN  = '\033[93m'
 MAGE  = '\033[95m'
 CYAN  = '\033[96m'
 ENDC  = '\033[0m'
-
-WRNMSG = FAIL+'ATTENTION! TRAVAUX EN COURS !!'+ENDC
-# print(WRNMSG)
 
 
 def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
@@ -259,8 +257,8 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     # Initialize the set of LiftingLines used to further
     # sample the BodyForce element
     AllItersLLs = []
-    Dpsi = 360./float(NPtsAzimut)
-    for it in range(NPtsAzimut+1):
+    Dpsi = 360./float(NPtsAzimut-1)
+    for it in range(NPtsAzimut):
         LiftingLine = I.copyTree(LLs[0])
         LiftingLine[0] = 'Blade_it%d'%(it)
         T._rotate(LiftingLine,tuple(RotCenter),tuple(RotAxis),it*Dpsi)
@@ -277,6 +275,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     computeKinematicVelocity(tLL) # useless, since done later ?
 
     PerturbationDisk = addPerturbationFields(tLL, PerturbationFields)
+    Cmpi.barrier()
 
 
     # MOLA LiftingLine solver :
@@ -413,8 +412,6 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
     LLs = I.getZones(tLL)
     BodyForceSurface = G.stack(LLs) # Stack LLs to surf
-    I._correctPyTree(LLs, level=3)
-    C.convertPyTree2File(LLs,'LLs.cgns')
 
     Stacked = stackBodyForceComponent(BodyForceSurface, RotAxis, **StackOptions)
 
@@ -472,17 +469,33 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
     # Store general info of BodyForce zone
 
-    # TODO: add azimutal loads from LLs as a vector (.AzimutalLoads)
-    # TODO: add azimutal statistics (.AzimutalAveragedLoads)
-    # TODO: separate RPM and Pitch from Loads (set kinematics?)
-    # TODO: investigate negative Power
+    if not usePUMA:
+        AzimutalLoads = dict()
+        for ll in LLs:
+            LL_loads = J.get(ll,'.Loads')
+            for l in LL_loads:
+                try: AzimutalLoads[l].append( LL_loads[l] )
+                except KeyError: AzimutalLoads[l] = [ LL_loads[l] ]
 
-    J.set(Stacked,'.Info',Thrust=AvrgThrust, Power=AvrgPower,
-                          Pitch=Pitch, RPM=RPM)
+        for l in AzimutalLoads:
+            AzimutalLoads[l] = np.array(AzimutalLoads[l])
+
+
+        for elt in Propeller, Stacked:
+            J.set(elt,'.AzimutalLoads', **AzimutalLoads)
+
+        AzimutallyAveragedLoads = dict()
+        for l in AzimutalLoads:
+            AzimutallyAveragedLoads[l] =  np.mean( AzimutalLoads[l] ) * NBlades
+    else:
+        AzimutallyAveragedLoads = dict(Thrust=AvrgThrust, Power=AvrgPower)
+
+    for elt in Propeller, Stacked:
+        J.set(elt,'.AzimutalAveragedLoads', **AzimutallyAveragedLoads)
+        J.set(elt,'.Commands', Pitch=Pitch, RPM=RPM)
+
     I.createUniqueChild(Stacked,'.Kinematics','UserDefinedData_t',
                                  children=Kin_n[2])
-    J.set(Propeller,'.Info',Thrust=AvrgThrust, Power=AvrgPower,
-                            Pitch=Pitch, RPM=RPM)
 
     computeSourceTerms(Stacked, SourceTermScale=SourceTermScale)
 
@@ -755,6 +768,7 @@ def migrateSourceTerms2MainPyTree(donor, receiver):
     I.__FlowSolutionCenters__ = 'FlowSolution#SourceTerm'
 
     Cmpi.barrier()
+    # need to make try/except (see Cassiopee #7754)
     try:
         tRec = Pmpi.extractMesh(donor, tRec, mode='accurate',
                                 extrapOrder=0, constraint=0.)
@@ -2649,6 +2663,7 @@ def addAccurateSectionArea2LiftingLine(LiftingLine, PyZonePolars):
     NbOfSections = x.shape[1]
     for isec in range(NbOfSections):
         Section = GSD.getBoundary(Surf, 'jmin', layer=isec)
+        Section = W.closeCurve(Section,NPts4closingGap=3, tol=1e-10)
         SectSurf = G.T3mesher2D(Section, triangulateOnly=1)
         G._getVolumeMap(SectSurf)
         PatchesAreas, = J.getVars(SectSurf, ['vol'],
@@ -3374,9 +3389,41 @@ def addPerturbationFields(t, PerturbationFields=None):
 
 
         I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
+
+        # I._adaptZoneNamesForSlash(tPert)
+        # I._correctPyTree(tPert, level=10) # force CGNS names
+        # I._correctPyTree(tPert, level=2) # force unique name
+        # I._correctPyTree(tPert, level=7) # create familyNames
+        # C.convertPyTree2File(tPert,'donorKO_rank%02d.cgns'%rank)
+        # Cmpi.barrier()
+        # from .Coprocess import save
+        # save(tPert,'donor.cgns')
+        # Cmpi.barrier()
+        # save(tAux,'receiver.cgns')
+        # Cmpi.barrier()
+        # I.printTree(tPert,file='donorKO_rank%d_py%d.txt'%(rank,sys.version_info[0]))
+        # Cmpi.barrier()
+        # tPert = Cmpi.convertFile2SkeletonTree('donor.cgns')
+        # tPert = Cmpi.readZones(tPert, 'donor.cgns', rank=rank)
+        # Cmpi.barrier()
+        # for z in I.getZones(tPert):
+        #     proc = I.getValue(I.getNodeFromName(z,'proc'))
+        #     if rank != proc:
+        #         I._rmNodesByName(z,'FlowSolution#Centers')
+        # Cmpi.barrier()
+        # I.printTree(tPert,file='donorOK_rank%d_py%d.txt'%(rank,sys.version_info[0]))
+        # Cmpi.barrier()
+        # exit()
+        # # C.convertPyTree2File(tPert,'donorAfterSaveAndLoad_rank%d.cgns'%rank)
+        # # tAux = Cmpi.convertFile2SkeletonTree('receiver.cgns')
+        # # tAux = Cmpi.readZones(tAux, 'receiver.cgns', rank=rank)
+
         Cmpi.barrier()
+        # need to make try/except (see Cassiopee #7754)
         try: tAux = Pmpi.extractMesh(tPert, tAux, constraint=0.)
         except: tAux = None
+        Cmpi.barrier()
+
 
         if not tAux: return
 
@@ -3384,7 +3431,7 @@ def addPerturbationFields(t, PerturbationFields=None):
         C._initVars(AuxiliarDisc,'VelocityInducedX={MomentumX}')
         C._initVars(AuxiliarDisc,'VelocityInducedY={MomentumY}')
         C._initVars(AuxiliarDisc,'VelocityInducedZ={MomentumZ}')
-        iVx, iVy, iVz, ro, rou, rov, row = J.getVars(AuxiliarDisc,
+        iVx, iVy, iVz, ro, rou, rov, row, Temp = J.getVars(AuxiliarDisc,
                                                ['VelocityInducedX',
                                                 'VelocityInducedY',
                                                 'VelocityInducedZ',
@@ -3392,6 +3439,7 @@ def addPerturbationFields(t, PerturbationFields=None):
                                                 'MomentumX',
                                                 'MomentumY',
                                                 'MomentumZ',
+                                                'Temperature',
                                                 ])
 
 
@@ -3406,7 +3454,6 @@ def addPerturbationFields(t, PerturbationFields=None):
 
 
         migratePerturbationsFromAuxiliarDisc2LiftingLines(AuxiliarDisc, t)
-        # TODO: update .Conditions Temperature and Density for each LL
 
         return AuxiliarDisc
 
@@ -3461,6 +3508,15 @@ def migratePerturbationsFromAuxiliarDisc2LiftingLines(AuxiliarDisc, LiftingLines
         fieldsLL = J.getVars(LLs[j], PerturbationFields)
         for fieldLL, fieldDisc in zip(fieldsLL, fieldsDisc):
             fieldLL[:] = fieldDisc[1:-1,j]
+
+        Conds = J.get(LLs[j],'.Conditions')
+        if Conds:
+            AverageFieldNames = ['Temperature', 'Density']
+            v = J.getVars2Dict(LLs[j], AverageFieldNames)
+            for fn in AverageFieldNames:
+                Conds[fn][:] = np.mean(v[fn])
+
+
 
 
 def _computeLiftingLine3DLoads(LiftingLine, Density, RotAxis, RPM):
@@ -3754,13 +3810,13 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0):
         FY = sint.simps(v['fy'], DimensionalAbscissa)
         FZ = sint.simps(v['fz'], DimensionalAbscissa)
 
-        MX = sint.simps(v['m0x'], DimensionalAbscissa)
-        MY = sint.simps(v['m0y'], DimensionalAbscissa)
-        MZ = sint.simps(v['m0z'], DimensionalAbscissa)
+        MX = -sint.simps(v['m0x'], DimensionalAbscissa)
+        MY = -sint.simps(v['m0y'], DimensionalAbscissa)
+        MZ = -sint.simps(v['m0z'], DimensionalAbscissa)
 
         # # Integrate tangential moment <ft>*Span to get Power
         # Torque = sint.simps(v['ft']*v['Span'],DimensionalAbscissa) # equivalent
-        Torque = -MX*RotationAxis[0]-MY*RotationAxis[1]-MZ*RotationAxis[2]
+        Torque = MX*RotationAxis[0]+MY*RotationAxis[1]+MZ*RotationAxis[2]
         Power  = (RPM*np.pi/30.)*Torque
         # Store computed integral Loads
         IntegralData = J.set(LiftingLine,'.Loads',

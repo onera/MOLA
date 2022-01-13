@@ -126,6 +126,7 @@ def extractFields(Skeleton):
     t = elsAxdt.get(elsAxdt.OUTPUT_TREE)
     adaptEndOfRun(t)
     t = I.merge([Skeleton, t])
+
     return t
 
 def extractArrays(t, arrays, DesiredStatistics=[], Extractions=[],
@@ -1787,15 +1788,20 @@ def addBodyForcePropeller2Arrays(arrays, BodyForceDisks):
     Cmpi.barrier()
     for BodyForceDisk in BodyForceDisks:
         BodyForceDiskName = I.getName( BodyForceDisk )
-        Info_n = I.getNodeFromName3(BodyForceDisk, '.Info')
-        try:
-            PropLoadsNames = ['Thrust','RPM','Power','Pitch']
-            PropLoads = [I.getNodeFromName1(Info_n, ln)[1] for ln in PropLoadsNames]
-            PropLoadsNames.append('IterationNumber')
-            PropLoads.append(np.array([CurrentIteration]))
-            addArrays(arrays, BodyForceDiskName, PropLoadsNames, PropLoads)
-        except:
-            pass
+        Loads = J.get(BodyForceDisk, '.AzimutalAveragedLoads')
+        if Loads:
+            LoadsNames = [k for k in Loads]
+            LoadsArrays = [np.array([Loads[k]]) for k in Loads]
+            Commands = J.get(BodyForceDisk, '.Commands')
+            if Commands:
+                CommandsNames = [k for k in Commands]
+                CommandsArrays = [np.array([Commands[k]]) for k in Commands]
+                LoadsNames.extend(CommandsNames)
+                LoadsArrays.extend(CommandsArrays)
+
+            LoadsNames.append('IterationNumber')
+            LoadsArrays.append(np.array([CurrentIteration]))
+            addArrays(arrays, BodyForceDiskName, LoadsNames, LoadsArrays)
     Cmpi.barrier()
 
 

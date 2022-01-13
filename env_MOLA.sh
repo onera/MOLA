@@ -24,6 +24,7 @@ export MPI_GROUP_MAX=8192
 export MPI_COMM_MAX=8192
 export ELSAVERSION=v5.0.04
 export ELSA_NOLOG=ON
+export PYTHONUNBUFFERED=true # ticket 9685
 
 # Detection machine
 KC=`uname -n`
@@ -54,14 +55,14 @@ fi
 
 
 if [ "$MAC" = "spiro" ]; then
-    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro_mpi/.env_elsA
-    export PYTHONPATH=$EXTPYLIB/lib/python2.7/site-packages/:$PYTHONPATH
+    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro3_mpi/.env_elsA
+    export PYTHONPATH=$EXTPYLIB/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIB/bin:$PATH
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
     export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_r337_spiro
-    export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
-    export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
+    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
+    export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
 elif [ "$MAC" = "visio" ]; then
@@ -90,15 +91,15 @@ elif [ "$MAC" = "ld" ]; then
 
 
 elif [ "$MAC" = "sator" ]; then
-    source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator3/.env_elsA
+    source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator2/.env_elsA
     export MOLA=$MOLASATOR
     export TREELAB=$TREELABSATOR
-    export PYTHONPATH=$EXTPYLIBSATOR/lib/python3.7/site-packages/:$PYTHONPATH
+    export PYTHONPATH=$EXTPYLIBSATOR/lib/python2.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIBSATOR/bin:$PATH
 
     export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_r337_sator3
-    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
-    export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
+    export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
+    export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
     alias treelab='python3 $TREELAB/GUI/treelab.py '
