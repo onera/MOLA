@@ -43,6 +43,7 @@ TurboConfiguration = dict(
             # The number of blades in the computational domain
             # set to <NumberOfBlades> for a full 360 simulation
             # The default value is 1
+            # If the value is >1, the mesh will be duplicated if it is not already
             # NumberOfBladesSimulated = 1,
             # The positions (in CoordinateX) of the inlet and outlet planes for
             # this row. These planes are used for post-processing and convergence
