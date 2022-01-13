@@ -113,7 +113,7 @@ if ENTER_COUPLING:
                 with open('NEWJOB_REQUIRED','w') as f: f.write('NEWJOB_REQUIRED')
 
         if it >= itmax or CONVERGED:
-            if it >= itmax
+            if it >= itmax:
                 CO.printCo('REACHED itmax = %d'%itmax, proc=0, color=J.GREEN)
             if rank==0:
                 with open('COMPLETED','w') as f: f.write('COMPLETED')

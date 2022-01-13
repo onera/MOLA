@@ -3083,22 +3083,22 @@ def initializeFlowSolution(t, Initialization, ReferenceValues):
             **method**. This latter is mandatory and should be one of the
             following:
 
-            * **method** = None : the Flow Solution is not initialized.
+            * **method** = :py:obj:`None` : the Flow Solution is not initialized.
 
-            * **method** = 'uniform' : the Flow Solution is initialized uniformly
+            * **method** = ``'uniform'`` : the Flow Solution is initialized uniformly
               using the **ReferenceValues**.
 
-            * **method** = 'copy' : the Flow Solution is initialized by copying
+            * **method** = ``'copy'`` : the Flow Solution is initialized by copying
               the FlowSolution container of another file. The file path is set by
               using the key **file**. The container might be set with the key
-              **container** ('FlowSolution#Init' by default).
+              **container** (``'FlowSolution#Init'`` by default).
 
-            * **method** = 'interpolate' : the Flow Solution is initialized by
+            * **method** = ``'interpolate'`` : the Flow Solution is initialized by
               interpolating the FlowSolution container of another file. The file
               path is set by using the key **file**. The container might be set
-              with the key **container** ('FlowSolution#Init' by default).
+              with the key **container** (``'FlowSolution#Init'`` by default).
 
-            Default method is 'uniform'.
+            Default method is ``'uniform'``.
 
         ReferenceValues : dict
             dictionary as got from :py:func:`computeReferenceValues`
