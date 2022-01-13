@@ -95,7 +95,7 @@ ReferenceValues = dict(
         ],
 
         # These keys are used to determine the save frequency of the files
-        # loads.cgns, surfaces.cgns and fields.cgns
+        # arrays.cgns, surfaces.cgns and fields.cgns
         UpdateArraysFrequency     = 30,
         UpdateSurfacesFrequency   = 30,
         UpdateFieldsFrequency     = 1000,

@@ -2567,9 +2567,9 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         addKeys.update(dict(
             time_algo          = 'steady',
             global_timestep    = 'inactive',
-            timestep_div       = 'divided',
+            timestep_div       = 'divided',  # timestep divided by 2 at the boundaries ; should not be used in unsteady simulations
             cfl_fct            = CFLparams['name'],
-            residual_type      = 'explimpl',
+            residual_type      = 'explicit_novolum',
         ))
         addKeys['.Solver#Function'] = CFLparams
     else:

@@ -108,10 +108,13 @@ if ENTER_COUPLING:
 
     if CONVERGED or it >= itmax or ReachedTimeOutMargin:
         if ReachedTimeOutMargin:
+            CO.printCo('REACHED TIMEOUT', proc=0, color=J.WARN)
             if rank == 0:
                 with open('NEWJOB_REQUIRED','w') as f: f.write('NEWJOB_REQUIRED')
 
         if it >= itmax or CONVERGED:
+            if it >= itmax
+                CO.printCo('REACHED itmax = %d'%itmax, proc=0, color=J.GREEN)
             if rank==0:
                 with open('COMPLETED','w') as f: f.write('COMPLETED')
 

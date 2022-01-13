@@ -340,11 +340,20 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     # Get the positions of inlet and outlet planes for each row
     # and add them to Extractions
     for row, rowParams in TurboConfiguration['Rows'].items():
-        if 'InletPlane' in rowParams and 'OutletPlane' in rowParams:
-            Extractions.append(dict(type='IsoSurface', field='CoordinateX', \
-                value=rowParams['InletPlane'], ReferenceRow=row, tag='InletPlane'))
-            Extractions.append(dict(type='IsoSurface', field='CoordinateX', \
-                value=rowParams['OutletPlane'], ReferenceRow=row, tag='OutletPlane'))
+        for plane in ['InletPlane', 'OutletPlane']:
+            if plane in rowParams:
+                planeAlreadyInExtractions = False
+                for extraction in Extractions:
+                    if extraction['type'] == 'IsoSurface' \
+                        and extraction['field'] == 'CoordinateX' \
+                        and np.isclose(extraction['value'], rowParams[plane]):
+                        planeAlreadyInExtractions = True
+                        extraction.update(dict(ReferenceRow=row, tag=plane))
+                        break
+                if not planeAlreadyInExtractions:
+                    Extractions.append(dict(type='IsoSurface', field='CoordinateX', \
+                        value=rowParams[plane], ReferenceRow=row, tag=plane))
+
 
     AllSetupDics = dict(FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
@@ -1936,7 +1945,7 @@ def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileform
         for var in var2interp:
             varNode = I.getNodeFromName(donor_BC, var)
             if varNode:
-                ImposedVariables[var] = np.asfortranarray(I.getValue(varNode)[::-1, :])
+                ImposedVariables[var] = np.asfortranarray(I.getValue(varNode))
             else:
                 raise TypeError('variable {} not found in {}'.format(var, filename))
 

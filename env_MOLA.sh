@@ -78,6 +78,7 @@ elif [ "$MAC" = "visio" ]; then
 
 
 elif [ "$MAC" = "ld" ]; then
+    export ELSAVERSION=v5.0.03 # TODO adapt this once #9671 fixed
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel_mpi/.env_elsA
     export PYTHONPATH=$EXTPYLIB/lib/python2.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIB/bin:$PATH

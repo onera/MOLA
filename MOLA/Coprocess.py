@@ -1504,6 +1504,9 @@ def isConverged(ConvergenceCriteria):
         CONVERGED : bool
             :py:obj:`True` if the convergence criteria are satisfied
     '''
+    if not ConvergenceCriteria:
+        return False
+
     CONVERGED = False
     if rank == 0:
         AllNecessaryCriteria = True
@@ -1545,7 +1548,6 @@ def isConverged(ConvergenceCriteria):
 
         except:
             printCo("isConverged failed ",color=FAIL)
-            CONVERGED = False
 
     comm.Barrier()
     CONVERGED = comm.bcast(CONVERGED,root=0)

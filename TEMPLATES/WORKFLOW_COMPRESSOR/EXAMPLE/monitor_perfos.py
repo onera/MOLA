@@ -197,7 +197,7 @@ if ConvergenceHistory:
     for node in I.getNodesFromType(FS, 'DataArray_t'):
         residuals[I.getName(node)] = I.getValue(node)
 
-    varList = residuals.keys()
+    varList = list(residuals)
     varList.remove('IterationNumber')
     varList.sort()
     plt.figure()
