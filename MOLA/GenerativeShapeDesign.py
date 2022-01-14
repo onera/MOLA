@@ -978,15 +978,18 @@ def closeWingTipAndRoot(wingsurface, tip_window='jmax', close_root=True,
     AirfoilIsOpen = not W.isCurveClosed(tipContour)
     AirfoilHasSeveralSharpEdges = len(T.splitCurvatureAngle(tipContour,
                                       thick_TrailingEdge_detection_angle))>1
-
-    if AirfoilIsOpen or AirfoilHasSeveralSharpEdges:
+    first = T.subzone(tipContour,(1,1,1),(5,1,1))
+    second = T.subzone(tipContour,(-5,-1,-1),(-1,-1,-1))
+    TE_neighborhood = T.join(first,second)
+    AirfoilHasRoundTrailingEdge = not len(T.splitCurvatureAngle(TE_neighborhood,
+                                      thick_TrailingEdge_detection_angle))>1
+    if AirfoilIsOpen or AirfoilHasSeveralSharpEdges or AirfoilHasRoundTrailingEdge:
         AirfoilHasThickTrailingEdgeTopology = True
     else:
         AirfoilHasThickTrailingEdgeTopology = False
 
     if AirfoilHasThickTrailingEdgeTopology:
-
-        if AirfoilIsOpen:
+        if AirfoilIsOpen or AirfoilHasRoundTrailingEdge:
             TEdetectionAngleThreshold = None
         else:
             TEdetectionAngleThreshold = thick_TrailingEdge_detection_angle
