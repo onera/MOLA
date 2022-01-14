@@ -63,22 +63,22 @@ CO.printCo('iteration %d'%it, proc=0)
 # ENTER COUPLING CONDITIONS:
 
 if not SAVE_FIELDS:
-    SAVE_FIELDS = all([(it-inititer)%UpdateFieldsFrequency == 0, it>inititer])
+    SAVE_FIELDS = all([it%UpdateFieldsFrequency == 0, it>inititer])
 
 if not SAVE_SURFACES:
-    SAVE_SURFACES = all([(it-inititer)%UpdateSurfacesFrequency == 0, it>inititer])
+    SAVE_SURFACES = all([it%UpdateSurfacesFrequency == 0, it>inititer])
 
 if not SAVE_ARRAYS:
-    SAVE_ARRAYS = all([(it-inititer)%UpdateArraysFrequency == 0, it>inititer])
+    SAVE_ARRAYS = all([it%UpdateArraysFrequency == 0, it>inititer])
 
 if not SAVE_BODYFORCE:
     SAVE_BODYFORCE = all([ BodyForceInputData,
-                          (it - inititer) % BodyForceSaveFrequency == 0,
+                          it % BodyForceSaveFrequency == 0,
                           it>inititer])
 
 if BodyForceInputData and not COMPUTE_BODYFORCE:
     if it >= BodyForceInitialIteration:
-        COMPUTE_BODYFORCE = any([(it-inititer)%BodyForceComputeFrequency == 0,
+        COMPUTE_BODYFORCE = any([it%BodyForceComputeFrequency == 0,
                                  not BODYFORCE_INITIATED])
 
 ElapsedTime = timeit.default_timer() - LaunchTime

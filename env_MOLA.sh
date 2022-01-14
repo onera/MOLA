@@ -12,6 +12,7 @@ export EXTPYLIB=$MOLA/ExternalPythonPackages
 export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
 export TREELABSATOR=/tmp_user/sator/lbernard/TreeLab/dev
 export EXTPYLIBSATOR=$MOLASATOR/ExternalPythonPackages
+export PUMAVERSION=r337
 ###############################################################################
 
 
@@ -60,10 +61,15 @@ if [ "$MAC" = "spiro" ]; then
     export PATH=$EXTPYLIB/bin:$PATH
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
-    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_r337_spiro
+    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro3
     export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
+    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+
+    alias treelab='python3 $TREELAB/GUI/treelab.py '
+    alias python='python3'
+
 
 elif [ "$MAC" = "visio" ]; then
     export ELSAVERSION=v5.0.03 # TODO adapt this once #9666 fixed
@@ -72,8 +78,9 @@ elif [ "$MAC" = "visio" ]; then
     export PATH=$EXTPYLIB/bin:$PATH
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
-    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_r337_centos6
+    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_centos6
     export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
+    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
@@ -83,11 +90,6 @@ elif [ "$MAC" = "ld" ]; then
     # export PYTHONPATH=$EXTPYLIB/lib/python2.7/site-packages/:$PYTHONPATH
     # export PATH=$EXTPYLIB/bin:$PATH
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
-
-    # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_r337_eos
-    # export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
-    # export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
-    # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
     alias treelab='python3 $TREELAB/GUI/treelab.py '
     alias python='python3'
@@ -99,13 +101,11 @@ elif [ "$MAC" = "sator" ]; then
     export PYTHONPATH=$EXTPYLIBSATOR/lib/python2.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIBSATOR/bin:$PATH
 
-    export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_r337_sator3
+    export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_${PUMAVERSION}_sator3
     export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
+    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
-
-    # alias treelab='python3 $TREELAB/GUI/treelab.py '
-    # alias python='python3'
 
 elif [ "$MAC" = "sator-new" ]; then
     source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA
@@ -114,11 +114,12 @@ elif [ "$MAC" = "sator-new" ]; then
     export PYTHONPATH=$EXTPYLIBSATOR/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIBSATOR/bin:$PATH
 
-    # incompatible with intel21
-    # export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_r337_satornew
-    # export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
-    # export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
-    # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+    # incompatible with intel21 ?
+    export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_${PUMAVERSION}_satornew
+    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
+    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH
+    export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
+    export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
     alias treelab='python3 $TREELAB/GUI/treelab.py '
     alias python='python3'
@@ -130,4 +131,22 @@ fi
 
 export PYTHONPATH=$MOLA:$TREELAB:$PYTHONPATH
 
-echo "using MOLA environment for $MAC"
+alias mola_version="python -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
+
+mola_version
+
+if [ -n "$SLURM_NTASKS" ] ; then
+    if [ $SLURM_NTASKS == 1 ] ; then
+        if [ -n "$SLURM_CPUS_PER_TASK" ] ; then
+            export NPROCMPI=$SLURM_CPUS_PER_TASK
+        elif [ -n "$SLURM_CPUS_ON_NODE" ] ; then
+            export NPROCMPI=$SLURM_CPUS_ON_NODE
+        else
+            export NPROCMPI=$(nproc)
+        fi
+    else
+        export NPROCMPI=$SLURM_NTASKS
+    fi
+else
+    export NPROCMPI=$(nproc)
+fi

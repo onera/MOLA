@@ -268,8 +268,10 @@ def getTanhDistTwo__(Nx, CellStart, CellEnd):
         l = G.enforcePlusX(l,CellStart,(N-2,2),verbose=linelawVerbose)
         l = G.enforceMoinsX(l,CellEnd,(N-2,2),verbose=linelawVerbose)
     else:
-        l = G.enforcePlusX(l,CellStart,(N-2,2))
-        l = G.enforceMoinsX(l,CellEnd,(N-2,2))
+        silence = J.OutputGrabber()
+        with silence:
+            l = G.enforcePlusX(l,CellStart,(N-2,2))
+            l = G.enforceMoinsX(l,CellEnd,(N-2,2))
 
     x = I.getNodeFromName(l,'CoordinateX')[1]
     x = J.getx(l)
@@ -319,7 +321,9 @@ def getTanhDist__(Nx, CellStart,isCellEnd=False):
     if float(C.__version__.split('.')[-1]) > 3:
         l = G.enforcePlusX(l,CellStart,(N-2,2),verbose=linelawVerbose) if not isCellEnd else G.enforceMoinsX(l,CellStart,(N-2,2),verbose=linelawVerbose)
     else:
-        l = G.enforcePlusX(l,CellStart,(N-2,2)) if not isCellEnd else G.enforceMoinsX(l,CellStart,(N-2,2))
+        silence = J.OutputGrabber()
+        with silence:
+            l = G.enforcePlusX(l,CellStart,(N-2,2)) if not isCellEnd else G.enforceMoinsX(l,CellStart,(N-2,2))
 
     x = J.getx(l)
     return x

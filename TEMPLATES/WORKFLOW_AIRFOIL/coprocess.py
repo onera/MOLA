@@ -54,13 +54,13 @@ if not CONVERGED and it > ItersMinEvenIfConverged:
         CO.printCo('REACHED itmax = %d'%itmax, proc=0, color=J.GREEN)
 
 if not SAVE_FIELDS:
-    SAVE_FIELDS = all([(it-inititer)%UpdateFieldsFrequency == 0, it>inititer])
+    SAVE_FIELDS = all([it%UpdateFieldsFrequency == 0, it>inititer])
 
 if not SAVE_SURFACES:
-    SAVE_SURFACES = all([(it-inititer)%UpdateSurfacesFrequency == 0, it>inititer])
+    SAVE_SURFACES = all([it%UpdateSurfacesFrequency == 0, it>inititer])
 
 if not SAVE_ARRAYS:
-    SAVE_ARRAYS = all([(it-inititer)%UpdateArraysFrequency == 0, it>inititer])
+    SAVE_ARRAYS = all([it%UpdateArraysFrequency == 0, it>inititer])
 
 if not REGISTER_TRANSITION:
     try:
@@ -68,7 +68,7 @@ if not REGISTER_TRANSITION:
     except:
         useNonLocalCriteriaTransitionMode = False
 
-    REGISTER_TRANSITION = all([(it-inititer)%RegisterTransitionFrequency == 0,
+    REGISTER_TRANSITION = all([it%RegisterTransitionFrequency == 0,
                                 it>inititer,
                                 useNonLocalCriteriaTransitionMode])
 
