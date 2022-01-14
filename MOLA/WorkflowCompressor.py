@@ -305,8 +305,15 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     FluidProperties = PRE.computeFluidProperties()
     if not 'Surface' in ReferenceValuesParams:
         ReferenceValuesParams['Surface'] = getReferenceSurface(t, BoundaryConditions, TurboConfiguration)
-    ReferenceValues = computeReferenceValues(FluidProperties,
-                                             **ReferenceValuesParams)
+
+    if 'PeriodicTranslation' in TurboConfiguration:
+        MainDirection = np.array([1,0,0]) # Strong assumption here
+        YawAxis = np.array(TurboConfiguration['PeriodicTranslation'])
+        YawAxis /= np.sqrt(np.sum(YawAxis**2))
+        PitchAxis = np.cross(YawAxis, MainDirection)
+        ReferenceValuesParams.update(dict(PitchAxis=PitchAxis, YawAxis=YawAxis))
+
+    ReferenceValues = computeReferenceValues(FluidProperties, **ReferenceValuesParams)
 
     if I.getNodeFromName(t, 'proc'):
         NProc = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
@@ -337,23 +344,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
-    # Get the positions of inlet and outlet planes for each row
-    # and add them to Extractions
-    for row, rowParams in TurboConfiguration['Rows'].items():
-        for plane in ['InletPlane', 'OutletPlane']:
-            if plane in rowParams:
-                planeAlreadyInExtractions = False
-                for extraction in Extractions:
-                    if extraction['type'] == 'IsoSurface' \
-                        and extraction['field'] == 'CoordinateX' \
-                        and np.isclose(extraction['value'], rowParams[plane]):
-                        planeAlreadyInExtractions = True
-                        extraction.update(dict(ReferenceRow=row, tag=plane))
-                        break
-                if not planeAlreadyInExtractions:
-                    Extractions.append(dict(type='IsoSurface', field='CoordinateX', \
-                        value=rowParams[plane], ReferenceRow=row, tag=plane))
-
+    if not 'PeriodicTranslation' in TurboConfiguration:
+        addMonitoredRowsInExtractions(Extractions, TurboConfiguration)
 
     AllSetupDics = dict(FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
@@ -1007,7 +999,10 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
         Viscosity_EddyMolecularRatio=0.1, TurbulenceModel='Wilcox2006-klim',
         TurbulenceCutoff=1e-8, TransitionMode=None, CoprocessOptions={},
         Length=1.0, TorqueOrigin=[0., 0., 0.],
-        FieldsAdditionalExtractions=['ViscosityMolecular', 'Viscosity_EddyMolecularRatio', 'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation', 'Mach', 'Entropy']):
+        FieldsAdditionalExtractions=['ViscosityMolecular', 'Viscosity_EddyMolecularRatio', 'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation', 'Mach', 'Entropy'],
+        AngleOfAttackDeg=0.,
+        YawAxis=[0.,0.,1.],
+        PitchAxis=[0.,1.,0.]):
     '''
     This function is the Compressor's equivalent of :py:func:`PRE.computeReferenceValues()`.
     The main difference is that in this case reference values are set through
@@ -1045,10 +1040,10 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
         Density=Density,
         Velocity=Velocity,
         Temperature=Temperature,
-        AngleOfAttackDeg = 0.0,
+        AngleOfAttackDeg=AngleOfAttackDeg,
         AngleOfSlipDeg = 0.0,
-        YawAxis = [0.,0.,1.],
-        PitchAxis = [0.,1.,0.],
+        YawAxis=YawAxis,
+        PitchAxis=PitchAxis,
         TurbulenceLevel=TurbulenceLevel,
         Surface=Surface,
         Length=Length,
@@ -1099,9 +1094,12 @@ def computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration):
         FamilyNode = I.getNodeFromType1(zone, 'FamilyName_t')
         if FamilyNode is None:
             continue
-        row = I.getValue(FamilyNode)
-        rowParams = TurboConfiguration['Rows'][row]
-        fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+        if 'PeriodicTranslation' in TurboConfiguration:
+            fluxcoeff = 1.
+        else:
+            row = I.getValue(FamilyNode)
+            rowParams = TurboConfiguration['Rows'][row]
+            fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
         for bc in I.getNodesFromType2(zone, 'BC_t')+I.getNodesFromType2(zone, 'GridConnectivity_t'):
             FamilyNameNode = I.getNodeFromType1(bc, 'FamilyName_t')
             if FamilyNameNode is None:
@@ -1240,17 +1238,51 @@ def getReferenceSurface(t, BoundaryConditions, TurboConfiguration):
     SurfaceTree = C.convertArray2Tetra(zones)
     SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
     Surface = abs(P.integNorm(SurfaceTree, var='ones')[0][0])
-    # Compute normalization coefficient
-    zoneName = I.getName(zones[0]).split('/')[0]
-    zone = I.getNodeFromName2(t, zoneName)
-    row = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
-    rowParams = TurboConfiguration['Rows'][row]
-    fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesInInitialMesh'])
-    # Compute reference surface
-    Surface *= fluxcoeff
+    if 'PeriodicTranslation' not in TurboConfiguration:
+        # Compute normalization coefficient
+        zoneName = I.getName(zones[0]).split('/')[0]
+        zone = I.getNodeFromName2(t, zoneName)
+        row = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+        rowParams = TurboConfiguration['Rows'][row]
+        fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesInInitialMesh'])
+        # Compute reference surface
+        Surface *= fluxcoeff
     print('Reference surface = {} m^2 (computed from family {})'.format(Surface, InflowFamily))
 
     return Surface
+
+def addMonitoredRowsInExtractions(Extractions, TurboConfiguration):
+    '''
+    Get the positions of inlet and outlet planes for each row (identified by
+    keys **InletPlane** and **OutletPlane** in the row sub-dictionary of
+    **TurboConfiguration**) and add them to **Extractions**.
+
+    Parameters
+    ----------
+
+        Extractions : list
+            List of extractions, each of them being a dictionary.
+
+        TurboConfiguration : dict
+            Compressor properties, as given to :py:func:`prepareMainCGNS4ElsA`.
+
+    '''
+    # Get the positions of inlet and outlet planes for each row
+    # and add them to Extractions
+    for row, rowParams in TurboConfiguration['Rows'].items():
+        for plane in ['InletPlane', 'OutletPlane']:
+            if plane in rowParams:
+                planeAlreadyInExtractions = False
+                for extraction in Extractions:
+                    if extraction['type'] == 'IsoSurface' \
+                        and extraction['field'] == 'CoordinateX' \
+                        and np.isclose(extraction['value'], rowParams[plane]):
+                        planeAlreadyInExtractions = True
+                        extraction.update(dict(ReferenceRow=row, tag=plane))
+                        break
+                if not planeAlreadyInExtractions:
+                    Extractions.append(dict(type='IsoSurface', field='CoordinateX', \
+                        value=rowParams[plane], ReferenceRow=row, tag=plane))
 
 def massflowFromMach(Mx, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
     '''
@@ -1667,8 +1699,8 @@ def setBC_Walls(t, TurboConfiguration,
         wallFamily = []
         for wallFamily in bladeFamilyNames + hubFamilyNames + shroudFamilyNames:
             for famNode in I.getNodesFromNameAndType(t, '*{}*'.format(wallFamily), 'Family_t'):
-                I._rmNodesByType(wallFamily, 'FamilyBC_t')
-                I.newFamilyBC(value='BCWallViscous', parent=wallFamily)
+                I._rmNodesByType(famNode, 'FamilyBC_t')
+                I.newFamilyBC(value='BCWallViscous', parent=famNode)
         return
 
     def omegaHubAtX(x):
@@ -1850,11 +1882,11 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName):
         turbDict.pop(inj_tur2)
 
     ImposedVariables = dict(
-        PressureStagnation = ReferenceValues['PressureStagnation'],
+        PressureStagnation  = ReferenceValues['PressureStagnation'],
         stagnation_enthalpy = FluidProperties['cp'] * ReferenceValues['TemperatureStagnation'],
-        txv                 = 1.0,
-        tyv                 = 0.0,
-        tzv                 = 0.0,
+        txv                 = ReferenceValues['DragDirection'][0],
+        tyv                 = ReferenceValues['DragDirection'][1],
+        tzv                 = ReferenceValues['DragDirection'][2],
         **turbDict
         )
 

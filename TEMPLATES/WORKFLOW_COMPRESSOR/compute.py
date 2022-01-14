@@ -9,7 +9,6 @@ File History:
 import sys
 import os
 import numpy as np
-# np.seterr(all='raise')
 import timeit
 LaunchTime = timeit.default_timer()
 from mpi4py import MPI
