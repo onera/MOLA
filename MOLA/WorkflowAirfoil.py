@@ -25,6 +25,8 @@ from . import GenerativeShapeDesign as GSD
 from . import Wireframe as W
 from . import JobManager as JM
 
+CONVERGENCE_THRESHOLD = 1e-4
+
 def checkDependencies():
     '''
     Make a series of functional tests in order to determine if the user
@@ -241,7 +243,7 @@ def launchBasicStructuredPolars(PREFIX_JOB, FILE_GEOMETRY, AER, machine,
             SecondsMargin4QuitBeforeTimeOut = 900.,
             ConvergenceCriteria = [dict(Family='AIRFOIL',
                                         Variable='std-CL',
-                                        Threshold=1e-6)]
+                                        Threshold=CONVERGENCE_THRESHOLD)]
                                 )
         CoprocessOptions.update(AdditionalCoprocessOptions)
 
@@ -392,7 +394,9 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                     TimeMarching='steady', timestep=0.01,
                     CFLparams=dict(vali=1.,valf=10.,iteri=1,
                                            iterf=1000,function_type='linear'),
-                    CoprocessOptions={},
+                    CoprocessOptions={'ConvergenceCriteria': [dict(Family='AIRFOIL',
+                                                Variable='std-CL',
+                                                Threshold=CONVERGENCE_THRESHOLD)]},
                     ImposedWallFields=[], TransitionZones={},
                     FieldsAdditionalExtractions=['ViscosityMolecular',
                         'Viscosity_EddyMolecularRatio','Mach'],
@@ -606,14 +610,13 @@ def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
 
     DefaultCoprocessOptions = dict(    # Default values for WorkflowAirfoil
         UpdateFieldsFrequency   = 2000,
-        UpdateArraysFrequency    = 50,
+        UpdateArraysFrequency    =100,
         NewSurfacesFrequency    = 500,
         AveragingIterations     = 3000,
         MaxConvergedCLStd       = 1e-6,
         ItersMinEvenIfConverged = 3000,
         TimeOutInSeconds        = 54000.0, # 15 h * 3600 s/h = 53100 s
         SecondsMargin4QuitBeforeTimeOut = 900.,
-        ConvergenceCriterionFamilyName = 'AIRFOIL', # familyBCname
     )
     DefaultCoprocessOptions.update(CoprocessOptions) # User-provided values
 

@@ -1973,11 +1973,10 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
                 'UpdateArraysFrequency'   : 20,
                 'NewSurfacesFrequency'   : 500,
                 'AveragingIterations'    : 3000,
-                'MaxConvergedCLStd'      : 1e-4,
+                'ConvergenceCriteria'    : [],
                 'ItersMinEvenIfConverged': 1000,
                 'TimeOutInSeconds'       : 54000.0, # = 15 h * 3600 s/h
                 'SecondsMargin4QuitBeforeTimeOut' : 900.,
-                'ConvergenceCriterionFamilyName' : '', # Add familyBCname
 
         FieldsAdditionalExtractions : :py:class:`list` of :py:class:`str`
             elsA or CGNS keywords of fields to be extracted.
@@ -2000,11 +1999,10 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         UpdateArraysFrequency    = 50,
         UpdateSurfacesFrequency = 500,
         AveragingIterations     = 3000,
-        MaxConvergedCLStd       = 1e-4,
         ItersMinEvenIfConverged = 1000,
         TimeOutInSeconds        = 54000.0, # 15 h * 3600 s/h = 53100 s
         SecondsMargin4QuitBeforeTimeOut = 900.,
-        ConvergenceCriterionFamilyName = '', # Add familyBCname
+        ConvergenceCriteria = [],
     )
     DefaultCoprocessOptions.update(CoprocessOptions) # User-provided values
 
