@@ -268,8 +268,10 @@ def getTanhDistTwo__(Nx, CellStart, CellEnd):
         l = G.enforcePlusX(l,CellStart,(N-2,2),verbose=linelawVerbose)
         l = G.enforceMoinsX(l,CellEnd,(N-2,2),verbose=linelawVerbose)
     else:
-        l = G.enforcePlusX(l,CellStart,(N-2,2))
-        l = G.enforceMoinsX(l,CellEnd,(N-2,2))
+        silence = J.OutputGrabber()
+        with silence:
+            l = G.enforcePlusX(l,CellStart,(N-2,2))
+            l = G.enforceMoinsX(l,CellEnd,(N-2,2))
 
     x = I.getNodeFromName(l,'CoordinateX')[1]
     x = J.getx(l)
@@ -319,7 +321,9 @@ def getTanhDist__(Nx, CellStart,isCellEnd=False):
     if float(C.__version__.split('.')[-1]) > 3:
         l = G.enforcePlusX(l,CellStart,(N-2,2),verbose=linelawVerbose) if not isCellEnd else G.enforceMoinsX(l,CellStart,(N-2,2),verbose=linelawVerbose)
     else:
-        l = G.enforcePlusX(l,CellStart,(N-2,2)) if not isCellEnd else G.enforceMoinsX(l,CellStart,(N-2,2))
+        silence = J.OutputGrabber()
+        with silence:
+            l = G.enforcePlusX(l,CellStart,(N-2,2)) if not isCellEnd else G.enforceMoinsX(l,CellStart,(N-2,2))
 
     x = J.getx(l)
     return x
@@ -4639,3 +4643,25 @@ def intersection(curves):
     C.convertPyTree2File([bar,conformed],'debug.cgns')
 
     return IntersectingPoints
+
+def writeAirfoilInSeligFormat(airfoil, filename='foil.dat'):
+    '''
+    write an airfoil curve into a  .dat *(or .txt)* SELIG file format
+
+    Parameters
+    ----------
+
+        airfoil : zone
+            a curve of the airfoil to be written
+
+        filename : str
+            the name of the file to produce
+    '''
+    foil = I.copyRef(airfoil)
+    putAirfoilClockwiseOrientedAndStartingFromTrailingEdge(foil)
+    T._reorder(foil,(-1,2,3))
+    X, Y = J.getxy(foil)
+    with open(filename,'w') as f:
+        f.write(foil[0]+'\n')
+        for x, y in zip(X,Y):
+            f.write(' %0.6f   %0.6f\n'%(x,y))

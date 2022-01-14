@@ -737,8 +737,11 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
             Message = 'Showing layer %d of %d'%(l+1,NLayers)
             CPlot.setState(message=Message)
             # time.sleep(0.1)
-
+    if printIters:
+        print('stacking layers...')
     _stackLayers(tExtru, AllLayersBases) # Stack layers
+    if printIters:
+        print('stacking layers... OK')
 
     return tExtru
 

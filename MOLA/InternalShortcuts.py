@@ -16,12 +16,14 @@ usingPython2 = sys.version_info[0] == 2
 import os
 import threading
 import time
+import glob
 import numpy as np
 from itertools import product
 from timeit import default_timer as tic
 
 import Converter.PyTree as C
 import Converter.Internal as I
+from . import __version__
 
 FAIL  = '\033[91m'
 GREEN = '\033[92m'
@@ -2132,3 +2134,112 @@ def reload_source(module):
         imp.reload(module)
     else:
         raise ValueError("Not supporting Python version "+sys.version)
+
+
+def printEnvironment():
+
+    def getMajorMinorMicro(version_string):
+        version_string = version_string.replace('v','')
+        MajorMinorMicro = version_string.split('.')
+        try:
+            Major, Minor, Micro = MajorMinorMicro
+        except ValueError:
+            Major, Minor = MajorMinorMicro
+            Micro = '0'
+        return int(Major), int(Minor), int(Micro)
+
+    def gatherMOLAversions():
+        MOLA_PATH = os.getenv('MOLA','UNKNOWN')
+        if MOLA_PATH == 'UNKNOWN':
+            print(FAIL+'ERROR: MOLA ENVIRONMENT VARIABLE DOES NOT EXIST')
+            return
+
+        ALL_MOLAS_DIR = os.path.sep+os.path.join(*MOLA_PATH.split(os.path.sep)[:-1])+os.path.sep
+        ALL_MOLAS_VER = [v.replace(ALL_MOLAS_DIR,'') for v in glob.glob(os.path.join(ALL_MOLAS_DIR,'*'))]
+        v = {}
+        for ver in ALL_MOLAS_VER:
+            if not ver.startswith('v'): continue
+            M, m, n = getMajorMinorMicro(ver)
+            if M not in v:
+                v.update({M:{m:[n]}})
+            elif m not in v[M]:
+                v[M][m] = [n]
+            else:
+                v[M][m].append(n)
+
+        return v
+
+    def mostUpToDateVersion(AllVersions):
+        Major = max(list(AllVersions))
+        Minor = max(list(AllVersions[Major]))
+        Micro = max(list(AllVersions[Major][Minor]))
+        return 'v'+'.'.join([str(Major),str(Minor),str(Micro)])
+
+    def mostUpToDateMicroVersion(AllVersions, Major, Minor):
+        return max(AllVersions[Major][Minor])
+
+    def fullStringOfMostUpToDateMicroVersion(AllVersions, Major, Minor):
+        Micro = mostUpToDateMicroVersion(AllVersions, Major, Minor)
+        return 'v'+'.'.join([str(Major),str(Minor),str(Micro)])
+
+    def microVersionIsUpToDate(AllVersions, Major, Minor, Micro):
+        mostUpToDateMicro = mostUpToDateMicroVersion(AllVersions, Major, Minor)
+        return mostUpToDateMicro == Micro
+
+    def usingMostUpToDateVersion(AllVersions, Major, Minor, Micro):
+        latestVersion = mostUpToDateVersion(AllVersions)
+        usedVersion =  'v'+'.'.join([str(Major),str(Minor),str(Micro)])
+        return usedVersion == latestVersion
+
+    machine = os.getenv('MAC', 'UNKNOWN')
+    vELSA = os.getenv('ELSAVERSION', 'UNAVAILABLE')
+    totoV = __version__
+    if totoV == 'Dev':
+        vMOLA = WARN + totoV + ENDC
+    else:
+        vMOLA = totoV
+
+
+    if vELSA == 'UNAVAILABLE': vELSA = FAIL + vELSA + ENDC
+
+    vPUMA = os.getenv('PUMAVERSION', 'UNAVAILABLE')
+    if vPUMA == 'UNAVAILABLE':
+        vPUMA = FAIL + vPUMA + ENDC
+    else:
+        try:
+            silence = OutputGrabber()
+            with silence:
+                import PUMA
+        except:
+            vPUMA = FAIL + 'UNAVAILABLE' + ENDC
+
+    try:
+        import Converter.PyTree as C
+        vCASSIOPEE = C.__version__
+    except:
+        vCASSIOPEE = FAIL + 'UNAVAILABLE' + ENDC
+
+    try:
+        import TreeLab
+        vTREELAB = TreeLab.__version__
+    except:
+        vTREELAB = FAIL + 'UNAVAILABLE' + ENDC
+
+    print('\nMOLA version '+vMOLA+' at '+machine)
+    print(' --> Python '+sys.version.split(' ')[0])
+    print(' --> elsA '+vELSA)
+    print(' --> Cassiopee '+vCASSIOPEE)
+    print(' --> PUMA '+vPUMA)
+    print(' --> TreeLab '+vTREELAB)
+
+    if totoV == 'Dev':
+        print(WARN+'WARNING: you are using an UNSTABLE version of MOLA.\nConsider using a stable version.'+ENDC)
+    else:
+        Major, Minor, Micro = getMajorMinorMicro(totoV)
+        AllVersions = gatherMOLAversions()
+        if not microVersionIsUpToDate(AllVersions, Major, Minor, Micro):
+            print(WARN+'WARNING: a most updated micro version exist: '+fullStringOfMostUpToDateMicroVersion(AllVersions, Major, Minor)+ENDC)
+        if not usingMostUpToDateVersion(AllVersions,Major, Minor, Micro):
+            print('INFO: a most updated version exist: '+mostUpToDateVersion(AllVersions)+ENDC)
+        else:
+            print(GREEN+'You are using the latest version of MOLA'+ENDC)

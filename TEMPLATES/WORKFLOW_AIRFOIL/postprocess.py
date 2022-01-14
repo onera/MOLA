@@ -20,34 +20,6 @@ import MOLA.Preprocess as PRE
 import MOLA.InternalShortcuts as J
 
 
-RobustModes = [
-dict(name='robust-0',
-     NumericalKeys=dict(
-        flux         = 'jameson',
-        avcoef_k2    = 0.5,
-        avcoef_k4    = 0.016,
-        avcoef_sigma = 1.0,
-        filter       = 'incr_new+prolong',
-        cutoff_dens  = 0.005,
-        cutoff_pres  = 0.005,
-        cutoff_eint  = 0.005,
-        artviscosity = 'dismrt',
-        av_mrt       = 0.3,)),
-
-dict(name='robust-1',
-     NumericalKeys=dict(
-        flux         = 'jameson',
-        avcoef_k2    = 1.0,
-        avcoef_k4    = 0.032,
-        avcoef_sigma = 1.0,
-        filter       = 'incr_new+prolong',
-        cutoff_dens  = 0.005,
-        cutoff_pres  = 0.005,
-        cutoff_eint  = 0.005,
-        artviscosity = 'dismrt',
-        av_mrt       = 0.3,)),
-]
-
 FailSafeMode = dict(
     name='fail-safe',
     NumericalKeys=dict(
@@ -93,42 +65,6 @@ def getComputationMode():
         return setup.ReferenceValues['ComputationMode']
     except:
         return 'accurate'
-
-
-def getNextRobustMode():
-    ComputationMode = getComputationMode()
-
-    if ComputationMode == 'fail-safe': return
-
-    if ComputationMode == 'accurate':
-        return RobustModes[0]
-
-    for i, rm in enumerate(RobustModes):
-        if rm['name'] == ComputationMode:
-            break
-
-    try:
-        return RobustModes[i+1]
-    except IndexError:
-        return
-
-
-def useNextRobustMode():
-    try: setup = J.load_source('setup', 'setup.py')
-    except: return
-
-    RobustMode = getNextRobustMode()
-    if not RobustMode: return
-
-    removeNumericalSchemeKeys(setup)
-    setup.elsAkeysNumerics.update(RobustMode['NumericalKeys'])
-    setup.ReferenceValues['ComputationMode'] = RobustMode['name']
-    PRE.writeSetupFromModuleObject(setup, setupFilename='setup.py')
-
-    # allow for restart
-    try: os.remove('COMPLETED')
-    except: pass
-
 
 def useFailSafeMode():
 
@@ -181,8 +117,6 @@ if fileExists('COMPLETED'):
     for fn in glob.glob(os.path.join('LOGS','stdout*')):
         try: os.remove(fn) # because standard output of elsA is excessively big
         except: pass
-
-    if wasPoorlyConverged(): useNextRobustMode()
 
 elif fileExists('FAILED'):
     useFailSafeMode()

@@ -978,15 +978,18 @@ def closeWingTipAndRoot(wingsurface, tip_window='jmax', close_root=True,
     AirfoilIsOpen = not W.isCurveClosed(tipContour)
     AirfoilHasSeveralSharpEdges = len(T.splitCurvatureAngle(tipContour,
                                       thick_TrailingEdge_detection_angle))>1
-
-    if AirfoilIsOpen or AirfoilHasSeveralSharpEdges:
+    first = T.subzone(tipContour,(1,1,1),(5,1,1))
+    second = T.subzone(tipContour,(-5,-1,-1),(-1,-1,-1))
+    TE_neighborhood = T.join(first,second)
+    AirfoilHasRoundTrailingEdge = not len(T.splitCurvatureAngle(TE_neighborhood,
+                                      thick_TrailingEdge_detection_angle))>1
+    if AirfoilIsOpen or AirfoilHasSeveralSharpEdges or AirfoilHasRoundTrailingEdge:
         AirfoilHasThickTrailingEdgeTopology = True
     else:
         AirfoilHasThickTrailingEdgeTopology = False
 
     if AirfoilHasThickTrailingEdgeTopology:
-
-        if AirfoilIsOpen:
+        if AirfoilIsOpen or AirfoilHasRoundTrailingEdge:
             TEdetectionAngleThreshold = None
         else:
             TEdetectionAngleThreshold = thick_TrailingEdge_detection_angle
@@ -2313,12 +2316,16 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
     Distributions = []
     PreviousJoinCell = cells['TrailingEdge']
     for distr in pts['Bottom']:
+        try: joincell = distr['JoinCellLength']
+        except: joincell = None
         Distr = dict(kind='tanhTwoSides',N=distr['NPts'],
                      FirstCellHeight=PreviousJoinCell,
-                     LastCellHeight=distr['JoinCellLength'],
+                     LastCellHeight=joincell,
                      )
-        if distr['BreakPoint(x)'] is not None:
-            Distr['BreakPoint'] = min(W.getAbscissaAtStation(foilDense, distr['BreakPoint(x)'], coordinate='x'))
+        try: bkpt = distr['BreakPoint(x)']
+        except: bkpt = None
+        if bkpt is not None:
+            Distr['BreakPoint'] = min(W.getAbscissaAtStation(foilDense,bkpt, coordinate='x'))
         PreviousJoinCell = Distr['LastCellHeight']
         Distributions += [Distr]
     Distributions[-1]['LastCellHeight'] = cells['LeadingEdge']
@@ -2326,12 +2333,16 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
 
     PreviousJoinCell = cells['LeadingEdge']
     for distr in pts['Top']:
+        try: joincell = distr['JoinCellLength']
+        except: joincell = None
         Distr = dict(kind='tanhTwoSides',N=distr['NPts'],
                      FirstCellHeight=PreviousJoinCell,
-                     LastCellHeight=distr['JoinCellLength'],
+                     LastCellHeight=joincell,
                      )
-        if distr['BreakPoint(x)'] is not None:
-            Distr['BreakPoint'] = max(W.getAbscissaAtStation(foilDense, distr['BreakPoint(x)'], coordinate='x'))
+        try: bkpt = distr['BreakPoint(x)']
+        except: bkpt = None
+        if bkpt is not None:
+            Distr['BreakPoint'] = max(W.getAbscissaAtStation(foilDense, bkpt, coordinate='x'))
         PreviousJoinCell = Distr['LastCellHeight']
         Distributions += [Distr]
     Distributions[-1]['LastCellHeight'] = cells['TrailingEdge']
