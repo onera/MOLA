@@ -640,16 +640,13 @@ def monitorTurboPerformance(surfaces, arrays, DesiredStatistics=[], tagWithItera
     simulation. This processing is triggered if at least two bases in the PyTree
     **surfaces** fill the following requirements:
 
-    #.
-        there is a node ``'.ExtractionInfo'`` of type ``'UserDefinedData_t'``
+    #. there is a node ``'.ExtractionInfo'`` of type ``'UserDefinedData_t'``
 
-    #.
-        it contains a node ``'ReferenceRow'``, whose value is a :py:class:`str`
-        corresponding to a row Family in ``'main.cgns'``.
+    #. it contains a node ``'ReferenceRow'``, whose value is a :py:class:`str`
+       corresponding to a row Family in ``'main.cgns'``.
 
-    #.
-        it contains a node ``'tag'``, whose value is a :py:class:`str` equal
-        to ``'InletPlane'`` or ``'OutletPlane'``.
+    #. it contains a node ``'tag'``, whose value is a :py:class:`str` equal
+       to ``'InletPlane'`` or ``'OutletPlane'``.
 
     .. note:: For one ``'ReferenceRow'``, the monitor is processed only if both
         ``'InletPlane'`` and ``'OutletPlane'`` are found.
@@ -691,7 +688,9 @@ def monitorTurboPerformance(surfaces, arrays, DesiredStatistics=[], tagWithItera
 
         planeUpstream   = I.newCGNSTree()
         planeDownstream = I.newCGNSTree()
-        if rowParams['RotationSpeed'] != 0:
+        if not 'RotationSpeed' in rowParams:
+            continue
+        elif rowParams['RotationSpeed'] != 0:
             IsRotor = True
         else:
             IsRotor = False
