@@ -633,7 +633,7 @@ def restoreFamilies(surfaces, skeleton):
             if I.getName(family) in familiesInBase:
                 I.addChild(base, family)
 
-def monitorTurboPerformance(surfaces, arrays, DesiredStatistics=[]):
+def monitorTurboPerformance(surfaces, arrays, DesiredStatistics=[], tagWithIteration=False):
     '''
     Monitor performance (massflow in/out, total pressure ratio, total
     temperature ratio, isentropic efficiency) for each row in a compressor
@@ -734,7 +734,7 @@ def monitorTurboPerformance(surfaces, arrays, DesiredStatistics=[]):
             _extendArraysWithStatistics(arrays, 'PERFOS_{}'.format(row), DesiredStatistics)
 
     arraysTree = arraysDict2PyTree(arrays)
-    save(arraysTree, os.path.join(DIRECTORY_OUTPUT, FILE_ARRAYS))
+    save(arraysTree, os.path.join(DIRECTORY_OUTPUT, FILE_ARRAYS), tagWithIteration=tagWithIteration)
 
 def computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=1., fluxcoeffOut=None):
 
@@ -1505,6 +1505,9 @@ def isConverged(ConvergenceCriteria):
         CONVERGED : bool
             :py:obj:`True` if the convergence criteria are satisfied
     '''
+    if not ConvergenceCriteria:
+        return False
+
     CONVERGED = False
     if rank == 0:
         AllNecessaryCriteria = True
@@ -1546,7 +1549,6 @@ def isConverged(ConvergenceCriteria):
 
         except:
             printCo("isConverged failed ",color=FAIL)
-            CONVERGED = False
 
     comm.Barrier()
     CONVERGED = comm.bcast(CONVERGED,root=0)

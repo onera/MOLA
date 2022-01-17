@@ -53,7 +53,7 @@ def checkDependencies():
                 print(J.WARN+'pip install --user --upgrade %s'%module.__name__+J.ENDC)
                 return False
 
-
+    import numpy as np
     checkModuleVersion(np, '1.16.6')
 
     import scipy

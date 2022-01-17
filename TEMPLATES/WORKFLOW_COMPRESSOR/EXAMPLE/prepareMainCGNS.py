@@ -15,10 +15,6 @@ import MOLA.WorkflowCompressor as WF
 
 FILE_MESH = 'mesh.cgns' # name of the input CGNS. It shall be mesh.cgns
 
-'''
-It is NOT RECOMENDED to modify the order of the following function calls.
-'''
-
 TurboConfiguration = dict(
     # Shaft speed in rad/s
     # BEWARE: only for single shaft configuration
@@ -43,6 +39,7 @@ TurboConfiguration = dict(
             # The number of blades in the computational domain
             # set to <NumberOfBlades> for a full 360 simulation
             # The default value is 1
+            # If the value is >1, the mesh will be duplicated if it is not already
             # NumberOfBladesSimulated = 1,
             # The positions (in CoordinateX) of the inlet and outlet planes for
             # this row. These planes are used for post-processing and convergence
@@ -68,7 +65,7 @@ ReferenceValues = dict(
     # Most keys follow the NASA convention: https://turbmodels.larc.nasa.gov/
     # Possible values are :
     # 'SA', 'BSL','BSL-V','SST-2003','SST','SST-V','Wilcox2006-klim',
-    # 'SST-2003-LM2009', 'SSG/LRR-RSM-w2012'
+    # 'SST-2003-LM2009', 'SSG/LRR-RSM-w2012', 'smith'
     TurbulenceModel='smith',
 
     # Next dictionary is used for establishing the coprocessing options for the
@@ -101,7 +98,7 @@ ReferenceValues = dict(
         ],
 
         # These keys are used to determine the save frequency of the files
-        # loads.cgns, surfaces.cgns and fields.cgns
+        # arrays.cgns, surfaces.cgns and fields.cgns
         UpdateArraysFrequency     = 30,
         UpdateSurfacesFrequency   = 30,
         UpdateFieldsFrequency     = 1000,
@@ -116,10 +113,6 @@ NumericalParams = dict(
     CFLparams=dict(vali=1.,valf=3.,iteri=1,iterf=1000,function_type='linear')
     )
 
-Extractions = [dict(type='AllBCwall')]
-for h in [0.1, 0.5, 0.9]:
-    Extractions.append(dict(type='IsoSurface', field='ChannelHeight', value=h))
-
 BoundaryConditions = [
     dict(type='InflowStagnation', option='uniform', FamilyName='R37_INFLOW'),
     dict(type='OutflowPressure', FamilyName='R37_OUTFLOW', Pressure=0.5*ReferenceValues['PressureStagnation']),
@@ -130,6 +123,10 @@ BoundaryConditions = [
 Initialization = dict(
     method = 'uniform',
     )
+
+Extractions = [dict(type='AllBCwall')]
+for h in [0.1, 0.5, 0.9]:
+    Extractions.append(dict(type='IsoSurface', field='ChannelHeight', value=h))
 
 ####################################################################################
 

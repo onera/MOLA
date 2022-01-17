@@ -1921,7 +1921,31 @@ def deprecated(v1, v2=None, comment=None):
         return decorated
     return decorator
 
+def mute_stdout(func):
+    '''
+    This is a decorator to redirect standard output to /dev/null.
+    '''
+    def wrap(*args, **kwargs):
+        with open(os.devnull, 'w') as devnull:
+            old_stdout = sys.stdout
+            sys.stdout = devnull
+            res = func(*args, **kwargs)
+            sys.stdout = old_stdout
+        return res
+    return wrap
 
+def mute_stderr(func):
+    '''
+    This is a decorator to redirect standard error to /dev/null.
+    '''
+    def wrap(*args, **kwargs):
+        with open(os.devnull, 'w') as devnull:
+            old_stderr = sys.stderr
+            sys.stderr = devnull
+            res = func(*args, **kwargs)
+            sys.stderr = old_stderr
+        return res
+    return wrap
 
 class OutputGrabber(object):
     """
@@ -2079,6 +2103,7 @@ def load_source(ModuleName, filename, safe=True):
         import importlib.util
         spec = importlib.util.spec_from_file_location(ModuleName, filename)
         LoadedModule = importlib.util.module_from_spec(spec)
+        sys.modules[ModuleName] = LoadedModule
         spec.loader.exec_module(LoadedModule)
     elif sys.version_info[0] == 3 and sys.version_info[1] < 5:
         from importlib.machinery import SourceFileLoader

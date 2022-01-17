@@ -12,6 +12,9 @@ import Post.PyTree        as P
 import etc.transform.__future__ as trf
 import etc.post as epost
 
+from . import InternalShortcuts as J
+
+@J.mute_stdout
 def generateHLinesAxial(t, filename, nbslice=21, comm=MPI.COMM_WORLD, tol=1e-10, offset=4, hubFirst=False):
     print("generateHLinesAxial: Generation of Hub&Shroud lines")
     t = trf.cartToCyl(t) # CoordinateY=R, CoordinateZ=T
@@ -65,9 +68,10 @@ def generateHLinesAxial(t, filename, nbslice=21, comm=MPI.COMM_WORLD, tol=1e-10,
     print("generateHLinesAxial: done")
     return n
 
+@J.mute_stdout
 def computeHeight(t,hLines,hFormat='bin_tp',constraint=5.,mode='accurate',isInterp=False,writeMask=None,writeMaskCart=None,writePyTreeCyl=None, fsname=None):
     t = trf.cartToCyl(t)
-    m = epost.createChannelMesh(t, hLines, format=hFormat)
+    m = epost.createChannelMesh(t, hLines, format=hFormat) # This function is very verbose
     m = epost.computeChannelHeight(m, fsname=I.__FlowSolutionNodes__)
     if isInterp: m = C.initVars(m, '{isInterp}=1.0')
     t = P.extractMesh(m,t,constraint=constraint,mode=mode)
@@ -81,6 +85,7 @@ def computeHeight(t,hLines,hFormat='bin_tp',constraint=5.,mode='accurate',isInte
     t = trf.cylToCart(t)
     return t
 
+@J.mute_stdout
 def computeHeight_from_mask(t, mask, constraint=5., mode='accurate', fsname=None):
     t = trf.cartToCyl(t)
     t = P.extractMesh(mask,t,constraint=constraint,mode=mode)
