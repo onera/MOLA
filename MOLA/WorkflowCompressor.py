@@ -1183,7 +1183,10 @@ def getTurboConfiguration(t, ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}
             set of compressor properties
     '''
     if PeriodicTranslation:
-        TurboConfiguration = dict(PeriodicTranslation=PeriodicTranslation)
+        TurboConfiguration = dict(
+            PeriodicTranslation = PeriodicTranslation,
+            Rows                = Rows
+            )
     else:
         TurboConfiguration = dict(
             ShaftRotationSpeed = ShaftRotationSpeed,
@@ -1411,9 +1414,13 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
                   * UnsteadyRotorStatorInterface
 
+                  * WallInviscid
+
+                  * SymmetryPlane
+
                   elsA names are also available (``farfield``, ``inj1``,
                   ``outpres``, ``outmfr2``, ``outradeq``, ``stage_mxpl``,
-                  ``stage_red``)
+                  ``stage_red``, ``walladia``, ``sym``)
 
                 * option (optional) : add a specification for type
                   InflowStagnation (could be 'uniform' or 'file')
@@ -1437,7 +1444,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     See also
     --------
 
-    setBC_Walls, setBC_farfield,
+    setBC_Walls, setBC_walladia, setBC_sym, setBC_farfield,
     setBC_inj1, setBC_inj1_uniform, setBC_inj1_interpFromFile,
     setBC_outpres, setBC_outmfr2,
     setBCwithImposedVariables
@@ -1475,6 +1482,17 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
       is still possible to give a list of patterns that are enought to find all
       blades (adding 'BLADE' or 'AUBE' if necessary). It is done with the
       argument **bladeFamilyNames** of :py:func:`prepareMainCGNS4ElsA`.
+
+    If needed, these boundary conditions may be overwritten to impose other kinds
+    of conditions. For instance, the following :py:class:`dict` may be used as
+    an element of the :py:class:`list` **BoundaryConditions** to change the
+    family 'SHROUD' into an inviscid wall:
+
+    >>> dict(type='WallInviscid', FamilyName='SHROUD')
+
+    The following py:class:`dict` change the family 'SHROUD' into a symmetry plane:
+
+    >>> dict(type='SymmetryPlane', FamilyName='SHROUD')
 
 
     **Inflow boundary conditions**
@@ -1557,6 +1575,8 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
         OutflowRadialEquilibrium     = 'outradeq',
         MixingPlane                  = 'stage_mxpl',
         UnsteadyRotorStatorInterface = 'stage_red',
+        WallInviscid                 = 'walladia',
+        SymmetryPlane                = 'sym',
     )
 
     print(J.CYAN + 'set BCs at walls' + J.ENDC)
@@ -1631,6 +1651,14 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                 # Assume a 360 configuration
                 BCkwargs['stage_ref_time'] = 2*np.pi / TurboConfiguration['ShaftRotationSpeed']
             ETC.setBC_stage_red_hyb(t, **BCkwargs)
+
+        elif BCparam['type'] == 'sym':
+            print(J.CYAN + 'set BC sym on ' + BCparam['FamilyName'] + J.ENDC)
+            setBC_sym(t, **BCkwargs)
+
+        elif BCparam['type'] == 'walladia':
+            print(J.CYAN + 'set BC walladia on ' + BCparam['FamilyName'] + J.ENDC)
+            setBC_wallslip(t, **BCkwargs)
 
         else:
             raise AttributeError('BC type %s not implemented'%BCparam['type'])
@@ -1771,9 +1799,49 @@ def setBC_Walls(t, TurboConfiguration,
                     axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
                     axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
 
+def setBC_wallslip(t, FamilyName):
+    '''
+    Set an inviscid wall boundary condition.
+
+    .. note:: see `elsA Tutorial about wall conditions <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#wall-conditions/>`_
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+    '''
+    wall = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    I._rmNodesByType(wall, 'FamilyBC_t')
+    I.newFamilyBC(value='BCWallInviscid', parent=wall)
+
+def setBC_sym(t, FamilyName):
+    '''
+    Set a symmetry boundary condition.
+
+    .. note:: see `elsA Tutorial about symmetry condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#symmetry/>`_
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+    '''
+    symmetry = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    I._rmNodesByType(symmetry, 'FamilyBC_t')
+    I.newFamilyBC(value='BCSymmetryPlane', parent=symmetry)
+
 def setBC_farfield(t, FamilyName):
     '''
-    Set an farfield boundary condition.
+    Set a farfield boundary condition.
 
     .. note:: see `elsA Tutorial about farfield condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#farfield/>`_
 
