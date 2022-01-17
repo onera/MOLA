@@ -2470,7 +2470,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, **kwargs):
 def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         TimeMarching='steady', inititer=1, niter=30000,
         CFLparams=dict(vali=1.,valf=10.,iteri=1,iterf=1000,function_type='linear'),
-        timestep=0.01, useBodyForce=False, useChimera=False, **kwargs):
+        itime=0., timestep=0.01, useBodyForce=False, useChimera=False, **kwargs):
     '''
     Get the Numerics elsA keys as a Python dictionary.
 
@@ -2494,6 +2494,9 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
 
         CFLparams : dict
             indicates the CFL function to be employed
+
+        itime : float
+            initial time
 
         timestep : float
             timestep for unsteady simulation (in seconds)
@@ -2573,6 +2576,7 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     else:
         addKeys.update(dict(
             timestep           = float(timestep),
+            itime              = float(itime),
             restoreach_cons    = 1e-2,
         ))
         if TimeMarching == 'gear':

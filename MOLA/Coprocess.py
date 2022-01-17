@@ -916,6 +916,8 @@ def updateAndWriteSetup(setup):
     if rank == 0:
         printCo('updating setup.py ...', proc=0, color=GREEN)
         setup.elsAkeysNumerics['inititer'] = CurrentIteration
+        if 'itime' in setup.elsAkeysNumerics:
+            setup.elsAkeysNumerics['itime'] = CurrentIteration * setup.elsAkeysNumerics['timestep']
         PRE.writeSetupFromModuleObject(setup)
         printCo('updating setup.py ... OK', proc=0, color=GREEN)
     comm.Barrier()
