@@ -667,7 +667,7 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
     nbOfDigits = int(np.ceil(np.log10(NLayers+1)))
     LastLayer = ('{:0%d}'%3).format(NLayers)
     for l in range(1,NLayers):
-        currentLayer = ('{:0%d}'%3).format(l+1)
+        currentLayer = ('{:0%d}'%nbOfDigits).format(l+1)
         Message = starting_message+' %s/%s | cost: %0.5f s'%(currentLayer,LastLayer,tic()-toc)
         toc = tic()
         if printIters: print(Message)

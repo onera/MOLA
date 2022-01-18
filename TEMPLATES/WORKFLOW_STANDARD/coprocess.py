@@ -51,7 +51,7 @@ BodyForceInitialIteration = CO.getOption('BodyForceInitialIteration', default=10
 ItersMinEvenIfConverged = CO.getOption('ItersMinEvenIfConverged', default=1e3)
 ConvergenceCriteria       = CO.getOption('ConvergenceCriteria', default=[])
 
-DesiredStatistics=['std-CL', 'std-CD']
+DesiredStatistics=['std-CL', 'std-CD', 'std-Thrust', 'std-Power']
 
 
 # BEWARE! state 16 => triggers *before* iteration, which means
@@ -97,15 +97,17 @@ if ENTER_COUPLING:
 
     if COMPUTE_BODYFORCE:
         BODYFORCE_INITIATED = True
+        Cmpi.barrier()
         CO.printCo('COMPUTING BODYFORCE', proc=0, color=CO.MAGE)
         BodyForceDisks = LL.computePropellerBodyForce(t,
                                                       NumberOfSerialRuns,
                                                       LocalBodyForceInputData)
-
         CO.addBodyForcePropeller2Arrays(arrays, BodyForceDisks)
+
 
         elsAxdt.free('xdt-runtime-tree')
         del toWithSourceTerms
+        Cmpi.barrier()
         CO.printCo('migrating computed source terms...', proc=0, color=CO.MAGE)
         toWithSourceTerms = LL.migrateSourceTerms2MainPyTree(BodyForceDisks, t)
         CO.save(BodyForceDisks,os.path.join(DIRECTORY_OUTPUT,FILE_BODYFORCESRC))

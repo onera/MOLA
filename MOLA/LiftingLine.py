@@ -43,7 +43,7 @@ from . import GenerativeShapeDesign as GSD
 from . import GenerativeVolumeDesign as GVD
 from . import __version__
 
-from .Coprocess import printCo
+from .Coprocess import printCo, save
 
 try:
     silence = J.OutputGrabber()
@@ -185,7 +185,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         if not PerturbationFields:
             raise ValueError('Must provide Propeller or PerturbationFields')
         addPerturbationFields([], PerturbationFields=PerturbationFields)
-        return []
+        return [] # BEWARE: CANNOT USE BARRIERS IN THIS FUNCTION FROM THIS LINE
 
     usePUMA = LiftingLineSolver == 'PUMA'
 
@@ -275,7 +275,6 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     computeKinematicVelocity(tLL) # useless, since done later ?
 
     PerturbationDisk = addPerturbationFields(tLL, PerturbationFields)
-    Cmpi.barrier()
 
 
     # MOLA LiftingLine solver :
@@ -761,14 +760,17 @@ def migrateSourceTerms2MainPyTree(donor, receiver):
     I._rmNodesByName(donor, '.Info')
     I._rmNodesByName(donor, '.Kinematics')
 
+    Cmpi.barrier()
+
     tRec = I.copyRef(receiver)
 
     I._rmNodesByType(tRec, 'FlowSolution_t')
 
     I.__FlowSolutionCenters__ = 'FlowSolution#SourceTerm'
 
-    Cmpi.barrier()
+
     # need to make try/except (see Cassiopee #7754)
+    Cmpi.barrier()
     try:
         tRec = Pmpi.extractMesh(donor, tRec, mode='accurate',
                                 extrapOrder=0, constraint=0.)
@@ -3417,6 +3419,7 @@ def addPerturbationFields(t, PerturbationFields=None):
         # # C.convertPyTree2File(tPert,'donorAfterSaveAndLoad_rank%d.cgns'%rank)
         # # tAux = Cmpi.convertFile2SkeletonTree('receiver.cgns')
         # # tAux = Cmpi.readZones(tAux, 'receiver.cgns', rank=rank)
+
 
         Cmpi.barrier()
         # need to make try/except (see Cassiopee #7754)

@@ -27,7 +27,7 @@ from mpi4py import MPI
 comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
 NProcs = comm.Get_size()
-
+nbOfDigitsOfNProcs = int(np.ceil(np.log10(NProcs+1)))
 
 import Converter.PyTree as C
 import Converter.Internal as I
@@ -97,7 +97,7 @@ def printCo(message, proc=None, color=None):
             For example, red output is obtained like this: ``color='\\033[91m'``
     '''
     if proc is not None and rank != proc: return
-    preffix = '[%d]: '%rank
+    preffix = ('[{:0%d}]: '%nbOfDigitsOfNProcs).format(rank)
     if color:
         message = color+message+ENDC
     with open(FILE_COLOG, 'a') as f:
@@ -1526,7 +1526,12 @@ def isConverged(ConvergenceCriteria):
                     continue
                 zone, = [z for z in arraysZones if z[0] == criterion['Family']]
                 Flux, = J.getVars(zone, [criterion['Variable']])
-                IsSatisfied = Flux[-1] < criterion['Threshold']
+                if Flux is None and criterion['Condition'] == 'Necessary':
+                    printCo('WARNING: requested convergence variable %s not found in %s'%(criterion['Variable'],criterion['Family']),color=WARN)
+                    AllNecessaryCriteria = False
+                    continue
+                criterion['FoundValue'] = Flux[-1]
+                IsSatisfied = criterion['FoundValue'] < criterion['Threshold']
                 if criterion['Condition'] == 'Necessary' and not IsSatisfied:
                     AllNecessaryCriteria = False
                     break
@@ -1539,7 +1544,8 @@ def isConverged(ConvergenceCriteria):
                 for criterion in ConvergenceCriteria:
                     if criterion['Condition'] == 'Necessary' \
                         or criterion['Variable'] == OneSufficientCriterion:
-                        MSG += '\n  {} < {} on {} ({})'.format(criterion['Variable'],
+                        MSG += '\n  {}={} < {} on {} ({})'.format(criterion['Variable'],
+                                                               criterion['FoundValue'],
                                                                criterion['Threshold'],
                                                                criterion['Family'],
                                                                criterion['Condition'])
@@ -1547,10 +1553,11 @@ def isConverged(ConvergenceCriteria):
                 printCo(MSG, color=GREEN)
                 printCo('*******************************************',color=GREEN)
 
-        except:
-            printCo("isConverged failed ",color=FAIL)
+        except BaseException as e:
+            printCo("isConverged failed: {}".format(e),color=FAIL)
 
-    comm.Barrier()
+
+    Cmpi.barrier()
     CONVERGED = comm.bcast(CONVERGED,root=0)
 
     return CONVERGED
