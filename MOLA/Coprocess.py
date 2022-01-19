@@ -157,10 +157,10 @@ def extractArrays(t, arrays, DesiredStatistics=[], Extractions=[],
             if :py:obj:`True`, add the residuals information
     '''
 
+    if addResiduals: extractResiduals(t, arrays)
+    if addMemoryUsage: addMemoryUsage2Arrays(arrays)
     extractIntegralData(t, arrays, DesiredStatistics=DesiredStatistics,
                          Extractions=Extractions)
-    if addMemoryUsage: addMemoryUsage2Arrays(arrays)
-    if addResiduals: extractResiduals(t, arrays)
     arraysTree = arraysDict2PyTree(arrays)
 
     return arraysTree
@@ -356,6 +356,8 @@ def extractIntegralData(to, arrays, Extractions=[],
 
             >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
+            ..note:: **arrays** is modified in-place
+
         DesiredStatistics : :py:class:`list` of :py:class:`str`
             Here, the user requests the additional statistics to be computed.
             The syntax of each quantity must be as follows:
@@ -373,12 +375,6 @@ def extractIntegralData(to, arrays, Extractions=[],
                 deviation of the cumulative standard deviation of the
                 lift coefficient (:math:`\sigma(\sigma(C_L))`)
 
-    Returns
-    -------
-
-        arrays : dict
-            Updated dictionary
-
     '''
     IntegralDataNodes = I.getNodesFromType2(to, 'IntegralData_t')
     for IntegralDataNode in IntegralDataNodes:
@@ -386,9 +382,10 @@ def extractIntegralData(to, arrays, Extractions=[],
         _appendIntegralDataNode2Arrays(arrays, IntegralDataNode)
         _extendArraysWithProjectedLoads(arrays, IntegralDataName)
         _normalizeMassFlowInArrays(arrays, IntegralDataName)
+    for IntegralDataName in arrays:
         _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics)
+    Cmpi.barrier()
 
-    return arrays
 
 def extractResiduals(to, arrays):
     '''
@@ -406,11 +403,7 @@ def extractResiduals(to, arrays):
 
             >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
-    Returns
-    -------
-
-        arrays : dict
-            Updated dictionary
+            ..note:: **arrays** is modified in-place
 
     '''
     ConvergenceHistoryNodes = I.getNodesByType(to, 'ConvergenceHistory_t')
@@ -418,12 +411,12 @@ def extractResiduals(to, arrays):
         ConvergenceDict = dict()
         for DataArrayNode in I.getNodesFromType(ConvergenceHistory, 'DataArray_t'):
             DataArrayValue = I.getValue(DataArrayNode)
+            if isinstance(DataArrayValue, int) or isinstance(DataArrayValue, float):
+                DataArrayValue = np.array([DataArrayValue],dtype=type(DataArrayValue))
             if len(DataArrayValue.shape) == 1:
                 ConvergenceDict[I.getName(DataArrayNode)] = DataArrayValue
         appendDict2Arrays(arrays, ConvergenceDict, I.getName(ConvergenceHistory))
         break # we ignore possibly multiple ConvergenceHistory_t nodes
-
-    return arrays
 
 def save(t, filename, tagWithIteration=False):
     '''
@@ -1309,7 +1302,10 @@ def _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics):
     AvgIt = setup.ReferenceValues["CoprocessOptions"]["AveragingIterations"]
 
     arraysSubset = arrays[IntegralDataName]
-    IterationNumber = arraysSubset['IterationNumber']
+    try:
+        IterationNumber = arraysSubset['IterationNumber']
+    except BaseException as e:
+        return # this is the case for GlobalConvergenceHistory at present
     IterationWindow = len(IterationNumber[IterationNumber>(IterationNumber[-1]-AvgIt)])
     if IterationWindow < 2: return
 
@@ -1317,13 +1313,13 @@ def _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics):
         KeywordsSplit = StatKeyword.split('-')
         StatType = KeywordsSplit[0]
         VarName = '-'.join(KeywordsSplit[1:])
+        if VarName not in arraysSubset: continue
 
         try:
             InstantaneousArray = arraysSubset[VarName]
             InvalidValues = np.logical_not(np.isfinite(InstantaneousArray))
             InstantaneousArray[InvalidValues] = 0.
-
-        except KeyError:
+        except:
             continue
 
         if StatType.lower() == 'avg':

@@ -571,7 +571,7 @@ def connectMesh(t, InputMeshes):
             if ConnectionType == 'Match':
                 X.connectMatch(base, tol=ConnectParams['tolerance'], dim=baseDim)
             elif ConnectionType == 'NearMatch':
-                X.connectNearMatch(t, ratio=ConnectParams['ratio'],
+                X.connectNearMatch(base, ratio=ConnectParams['ratio'],
                                       tol=ConnectParams['tolerance'],
                                       dim=baseDim)
             elif ConnectionType == 'PeriodicMatch':

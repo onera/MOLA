@@ -127,7 +127,7 @@ export PYTHONPATH=$MOLA:$TREELAB:$PYTHONPATH
 
 alias mola_version="python -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
 
-alias mola_jobsqueue_sator="python -c 'import MOLA.JobManager as JM;JM.getCurrentJobsStatus(machine='sator')'"
+alias mola_jobsqueue_sator="python -c 'import MOLA.JobManager as JM;JM.getCurrentJobsStatus()'"
 
 mola_version
 
