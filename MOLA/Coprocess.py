@@ -416,8 +416,7 @@ def extractResiduals(to, arrays):
     ConvergenceHistoryNodes = I.getNodesByType(to, 'ConvergenceHistory_t')
     for ConvergenceHistory in ConvergenceHistoryNodes:
         ConvergenceDict = dict()
-        for DataArrayNode in I.getNodesFromType(ConvergenceHistory, 'DataArray_t'):
-            DataArrayValue = I.getValue(DataArrayNode)
+        for DataArrayNode in I.getNodesFromType1(ConvergenceHistory, 'DataArray_t'):
             if len(DataArrayValue.shape) == 1:
                 ConvergenceDict[I.getName(DataArrayNode)] = DataArrayValue
         appendDict2Arrays(arrays, ConvergenceDict, I.getName(ConvergenceHistory))

@@ -1400,7 +1400,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                 * type :
                   BC type among the following:
 
-                  * ReferenceState
+                  * Farfield
 
                   * InflowStagnation
 
@@ -1418,7 +1418,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
                   * SymmetryPlane
 
-                  elsA names are also available (``farfield``, ``inj1``,
+                  elsA names are also available (``nref``, ``inj1``,
                   ``outpres``, ``outmfr2``, ``outradeq``, ``stage_mxpl``,
                   ``stage_red``, ``walladia``, ``sym``)
 
@@ -1444,7 +1444,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     See also
     --------
 
-    setBC_Walls, setBC_walladia, setBC_sym, setBC_farfield,
+    setBC_Walls, setBC_walladia, setBC_sym, setBC_nref,
     setBC_inj1, setBC_inj1_uniform, setBC_inj1_interpFromFile,
     setBC_outpres, setBC_outmfr2,
     setBCwithImposedVariables
@@ -1501,9 +1501,9 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     'row_1_INFLOW'. The following types can be used as elements of the
     :py:class:`list` **BoundaryConditions**:
 
-    >>> dict(type='ReferenceState', FamilyName='row_1_INFLOW')
+    >>> dict(type='Farfield', FamilyName='row_1_INFLOW')
 
-    It defines a farfield condition based on the **ReferenceValues**
+    It defines a 'nref' condition based on the **ReferenceValues**
     :py:class:`dict`.
 
     >>> dict(type='InflowStagnation', option='uniform', FamilyName='row_1_INFLOW')
@@ -1568,7 +1568,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
     '''
     PreferedBoundaryConditions = dict(
-        ReferenceState               = 'farfield',
+        Farfield                     = 'nref',
         InflowStagnation             = 'inj1',
         OutflowPressure              = 'outpres',
         OutflowMassFlow              = 'outmfr2',
@@ -1588,9 +1588,9 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
         if BCparam['type'] in PreferedBoundaryConditions:
             BCparam['type'] = PreferedBoundaryConditions[BCparam['type']]
 
-        if BCparam['type'] == 'farfield':
-            print(J.CYAN + 'set BC farfield on ' + BCparam['FamilyName'] + J.ENDC)
-            setBC_farfield(t, **BCkwargs)
+        if BCparam['type'] == 'nref':
+            print(J.CYAN + 'set BC nref on ' + BCparam['FamilyName'] + J.ENDC)
+            setBC_nref(t, **BCkwargs)
 
         elif BCparam['type'] == 'inj1':
 
@@ -1839,11 +1839,9 @@ def setBC_sym(t, FamilyName):
     I._rmNodesByType(symmetry, 'FamilyBC_t')
     I.newFamilyBC(value='BCSymmetryPlane', parent=symmetry)
 
-def setBC_farfield(t, FamilyName):
+def setBC_nref(t, FamilyName):
     '''
-    Set a farfield boundary condition.
-
-    .. note:: see `elsA Tutorial about farfield condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#farfield/>`_
+    Set a nref boundary condition.
 
     Parameters
     ----------
