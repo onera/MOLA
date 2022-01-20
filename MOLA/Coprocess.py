@@ -416,13 +416,15 @@ def extractResiduals(to, arrays):
     ConvergenceHistoryNodes = I.getNodesByType(to, 'ConvergenceHistory_t')
     for ConvergenceHistory in ConvergenceHistoryNodes:
         ConvergenceDict = dict()
-        for DataArrayNode in I.getNodesFromType1(ConvergenceHistory, 'DataArray_t'):
+        for DataArrayNode in I.getNodesFromType(ConvergenceHistory, 'DataArray_t'):
+            DataArrayValue = I.getValue(DataArrayNode)
+            if isinstance(DataArrayValue, int) or isinstance(DataArrayValue, float):
+                DataArrayValue = np.array([DataArrayValue],dtype=type(DataArrayValue))
             if len(DataArrayValue.shape) == 1:
                 ConvergenceDict[I.getName(DataArrayNode)] = DataArrayValue
         appendDict2Arrays(arrays, ConvergenceDict, I.getName(ConvergenceHistory))
         break # we ignore possibly multiple ConvergenceHistory_t nodes
 
-    return arrays
 
 def save(t, filename, tagWithIteration=False):
     '''
