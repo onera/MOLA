@@ -1,11 +1,4 @@
-'''
-Template for reading and showing the arrays.cgns file using Matplotlib
-
-MOLA v1.10 - 04/03/2021 - L. Bernardos
-'''
-
-
-import sys
+import os
 import numpy as np
 
 import Converter.PyTree as C
@@ -16,11 +9,11 @@ import MOLA.InternalShortcuts as J
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator, LogLocator, NullFormatter
 
-FILE_ARRAYS = '/stck/lbernard/PROJETS/OTTAWAN/CFD/arrays.cgns'
+FILE_ARRAYS = os.path.join('OUTPUT','arrays.cgns')
 
 FluxName = 'CL'
 
-figname = 'arrays.pdf' 
+figname = 'arrays.svg'
 
 t = C.convertFile2PyTree(FILE_ARRAYS)
 
@@ -34,10 +27,10 @@ NbOfZones = len(zones)
 
 fig, axes = plt.subplots(NbOfZones,2,figsize=(8.,8.),dpi=120, sharex=True)
 
-if NbOfZones == 1: axes = [axes] 
+if NbOfZones == 1: axes = [axes]
 
 for zone, ax in zip(zones, axes):
-    v = J.getVars2Dict(zone, ['IterationNumber', 
+    v = J.getVars2Dict(zone, ['IterationNumber',
                               FluxName,
                               'avg-'+FluxName,
                               'std-'+FluxName,])
@@ -74,11 +67,11 @@ for ax in FlatListAxes:
                             numticks=100)
         ax.yaxis.set_minor_locator(locmin)
         # ax.yaxis.set_minor_formatter(NullFormatter())
-    ax.xaxis.grid(True, which='major') 
+    ax.xaxis.grid(True, which='major')
     if drawMinorGrid:
-        ax.xaxis.grid(True, which='minor',linestyle=':') 
+        ax.xaxis.grid(True, which='minor',linestyle=':')
     else:
-        ax.xaxis.grid(False, which='minor') 
+        ax.xaxis.grid(False, which='minor')
 
 plt.tight_layout()
 print('Saving %s%s%s ...'%(J.CYAN,figname,J.ENDC))

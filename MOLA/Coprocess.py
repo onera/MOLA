@@ -27,7 +27,7 @@ from mpi4py import MPI
 comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
 NProcs = comm.Get_size()
-
+nbOfDigitsOfNProcs = int(np.ceil(np.log10(NProcs+1)))
 
 import Converter.PyTree as C
 import Converter.Internal as I
@@ -97,7 +97,7 @@ def printCo(message, proc=None, color=None):
             For example, red output is obtained like this: ``color='\\033[91m'``
     '''
     if proc is not None and rank != proc: return
-    preffix = '[%d]: '%rank
+    preffix = ('[{:0%d}]: '%nbOfDigitsOfNProcs).format(rank)
     if color:
         message = color+message+ENDC
     with open(FILE_COLOG, 'a') as f:
@@ -157,10 +157,10 @@ def extractArrays(t, arrays, DesiredStatistics=[], Extractions=[],
             if :py:obj:`True`, add the residuals information
     '''
 
+    if addResiduals: extractResiduals(t, arrays)
+    if addMemoryUsage: addMemoryUsage2Arrays(arrays)
     extractIntegralData(t, arrays, DesiredStatistics=DesiredStatistics,
                          Extractions=Extractions)
-    if addMemoryUsage: addMemoryUsage2Arrays(arrays)
-    if addResiduals: extractResiduals(t, arrays)
     arraysTree = arraysDict2PyTree(arrays)
 
     return arraysTree
@@ -356,6 +356,8 @@ def extractIntegralData(to, arrays, Extractions=[],
 
             >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
+            ..note:: **arrays** is modified in-place
+
         DesiredStatistics : :py:class:`list` of :py:class:`str`
             Here, the user requests the additional statistics to be computed.
             The syntax of each quantity must be as follows:
@@ -373,12 +375,6 @@ def extractIntegralData(to, arrays, Extractions=[],
                 deviation of the cumulative standard deviation of the
                 lift coefficient (:math:`\sigma(\sigma(C_L))`)
 
-    Returns
-    -------
-
-        arrays : dict
-            Updated dictionary
-
     '''
     IntegralDataNodes = I.getNodesFromType2(to, 'IntegralData_t')
     for IntegralDataNode in IntegralDataNodes:
@@ -386,9 +382,9 @@ def extractIntegralData(to, arrays, Extractions=[],
         _appendIntegralDataNode2Arrays(arrays, IntegralDataNode)
         _extendArraysWithProjectedLoads(arrays, IntegralDataName)
         _normalizeMassFlowInArrays(arrays, IntegralDataName)
+    for IntegralDataName in arrays:
         _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics)
-
-    return arrays
+    Cmpi.barrier()
 
 def extractResiduals(to, arrays):
     '''
@@ -406,11 +402,7 @@ def extractResiduals(to, arrays):
 
             >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
-    Returns
-    -------
-
-        arrays : dict
-            Updated dictionary
+            ..note:: **arrays** is modified in-place
 
     '''
     ConvergenceHistoryNodes = I.getNodesByType(to, 'ConvergenceHistory_t')
@@ -424,7 +416,6 @@ def extractResiduals(to, arrays):
                 ConvergenceDict[I.getName(DataArrayNode)] = DataArrayValue
         appendDict2Arrays(arrays, ConvergenceDict, I.getName(ConvergenceHistory))
         break # we ignore possibly multiple ConvergenceHistory_t nodes
-
 
 def save(t, filename, tagWithIteration=False):
     '''
@@ -1311,7 +1302,10 @@ def _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics):
     AvgIt = setup.ReferenceValues["CoprocessOptions"]["AveragingIterations"]
 
     arraysSubset = arrays[IntegralDataName]
-    IterationNumber = arraysSubset['IterationNumber']
+    try:
+        IterationNumber = arraysSubset['IterationNumber']
+    except BaseException as e:
+        return # this is the case for GlobalConvergenceHistory at present
     IterationWindow = len(IterationNumber[IterationNumber>(IterationNumber[-1]-AvgIt)])
     if IterationWindow < 2: return
 
@@ -1319,13 +1313,13 @@ def _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics):
         KeywordsSplit = StatKeyword.split('-')
         StatType = KeywordsSplit[0]
         VarName = '-'.join(KeywordsSplit[1:])
+        if VarName not in arraysSubset: continue
 
         try:
             InstantaneousArray = arraysSubset[VarName]
             InvalidValues = np.logical_not(np.isfinite(InstantaneousArray))
             InstantaneousArray[InvalidValues] = 0.
-
-        except KeyError:
+        except:
             continue
 
         if StatType.lower() == 'avg':
@@ -1528,7 +1522,12 @@ def isConverged(ConvergenceCriteria):
                     continue
                 zone, = [z for z in arraysZones if z[0] == criterion['Family']]
                 Flux, = J.getVars(zone, [criterion['Variable']])
-                IsSatisfied = Flux[-1] < criterion['Threshold']
+                if Flux is None and criterion['Condition'] == 'Necessary':
+                    printCo('WARNING: requested convergence variable %s not found in %s'%(criterion['Variable'],criterion['Family']),color=WARN)
+                    AllNecessaryCriteria = False
+                    continue
+                criterion['FoundValue'] = Flux[-1]
+                IsSatisfied = criterion['FoundValue'] < criterion['Threshold']
                 if criterion['Condition'] == 'Necessary' and not IsSatisfied:
                     AllNecessaryCriteria = False
                     break
@@ -1541,7 +1540,8 @@ def isConverged(ConvergenceCriteria):
                 for criterion in ConvergenceCriteria:
                     if criterion['Condition'] == 'Necessary' \
                         or criterion['Variable'] == OneSufficientCriterion:
-                        MSG += '\n  {} < {} on {} ({})'.format(criterion['Variable'],
+                        MSG += '\n  {}={} < {} on {} ({})'.format(criterion['Variable'],
+                                                               criterion['FoundValue'],
                                                                criterion['Threshold'],
                                                                criterion['Family'],
                                                                criterion['Condition'])
@@ -1549,10 +1549,11 @@ def isConverged(ConvergenceCriteria):
                 printCo(MSG, color=GREEN)
                 printCo('*******************************************',color=GREEN)
 
-        except:
-            printCo("isConverged failed ",color=FAIL)
+        except BaseException as e:
+            printCo("isConverged failed: {}".format(e),color=FAIL)
 
-    comm.Barrier()
+
+    Cmpi.barrier()
     CONVERGED = comm.bcast(CONVERGED,root=0)
 
     return CONVERGED

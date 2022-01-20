@@ -651,12 +651,12 @@ def getCurrentJobsStatus(machine='sator'):
             Host = UserName+"@"+machine
             CMD = 'ssh %s %s'%(Host,CMD)
 
-    print(CMD)
     ssh = subprocess.Popen(CMD, shell=True, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE, env=os.environ.copy())
     ssh.wait()
     Output = ServerTools.readStdout(ssh)
     Error = ServerTools.readStderr(ssh)
+    for o in Output: print(o)
 
     return Output, Error
 
