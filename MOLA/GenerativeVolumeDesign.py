@@ -464,7 +464,7 @@ def extrudeWingOnSupport(Wing, Support, Distributions, Constraints=[],
 
 
 def extrude(t, Distributions, Constraints=[], extractMesh=None,
-            ExtrusionAuxiliarCellType='TRI', modeSmooth='smoothField',
+            ExtrusionAuxiliarCellType='QUAD', modeSmooth='smoothField',
             growthEquation='default',
             closeExtrusionLayer=False,
             printIters=False, plotIters=False,
@@ -3076,8 +3076,8 @@ def trimCartesianGridAtOrigin(t, trim_plane='XZ', reverse=False,
         if coord is None:
             raise ValueError('coordinate %s not found'%trim_direction[trim_plane])
 
-        hasNegative = np.any(coord[1]<0)
-        hasPositive = np.any(coord[1]>0)
+        hasNegative = np.any(coord[1]<-1e-6)
+        hasPositive = np.any(coord[1]>+1e-6)
 
         if reverse:
 
