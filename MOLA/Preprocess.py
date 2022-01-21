@@ -3116,10 +3116,10 @@ def initializeFlowSolution(t, Initialization, ReferenceValues):
         initializeFlowSolutionFromReferenceValues(t, ReferenceValues)
     elif Initialization['method'] == 'interpolate':
         print(J.CYAN + 'Initialize FlowSolution by interpolation from {}'.format(Initialization['file']) + J.ENDC)
-        initializeFlowSolutionFromFileByInterpolation(t, Initialization['file'], container=Initialization['container'])
+        initializeFlowSolutionFromFileByInterpolation(t, ReferenceValues, Initialization['file'], container=Initialization['container'])
     elif Initialization['method'] == 'copy':
         print(J.CYAN + 'Initialize FlowSolution by copy of {}'.format(Initialization['file']) + J.ENDC)
-        initializeFlowSolutionFromFileByCopy(t, Initialization['file'], container=Initialization['container'])
+        initializeFlowSolutionFromFileByCopy(t, ReferenceValues, Initialization['file'], container=Initialization['container'])
     else:
         raise Exception(J.FAIL+'The key "method" of the dictionary Initialization is mandatory'+J.ENDC)
 
@@ -3169,7 +3169,7 @@ def initializeFlowSolutionFromReferenceValues(t, ReferenceValues):
     FlowSolInit = I.getNodesFromName(t,'FlowSolution#Init')
     I._rmNodesByName(FlowSolInit, 'ChimeraCellType')
 
-def initializeFlowSolutionFromFileByInterpolation(t, sourceFilename, container='FlowSolution#Init'):
+def initializeFlowSolutionFromFileByInterpolation(t, ReferenceValues, sourceFilename, container='FlowSolution#Init'):
     '''
     Initialize the flow solution of **t** from the flow solution in the file
     **sourceFilename**.
@@ -3180,6 +3180,9 @@ def initializeFlowSolutionFromFileByInterpolation(t, sourceFilename, container='
 
         t : PyTree
             Tree to initialize
+
+        ReferenceValues : dict
+            as produced by :py:func:`computeReferenceValues`
 
         sourceFilename : str
             Name of the source file for the interpolation.
@@ -3192,6 +3195,8 @@ def initializeFlowSolutionFromFileByInterpolation(t, sourceFilename, container='
     sourceTree = C.convertFile2PyTree(sourceFilename)
     OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
     I.__FlowSolutionCenters__ = container
+    sourceTree = C.extractVars(sourceTree, ['centers:{}'.format(var) for var in ReferenceValues['Fields']])
+
     I._rmNodesByType(sourceTree, 'BCDataSet_t')
     I._rmNodesByNameAndType(sourceTree, '*EndOfRun*', 'FlowSolution_t')
     P._extractMesh(sourceTree, t, mode='accurate', extrapOrder=0)
@@ -3199,7 +3204,7 @@ def initializeFlowSolutionFromFileByInterpolation(t, sourceFilename, container='
         I.renameNode(t, container, 'FlowSolution#Init')
     I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
 
-def initializeFlowSolutionFromFileByCopy(t, sourceFilename, container='FlowSolution#Init'):
+def initializeFlowSolutionFromFileByCopy(t, ReferenceValues, sourceFilename, container='FlowSolution#Init'):
     '''
     Initialize the flow solution of **t** by copying the flow solution in the file
     **sourceFilename**.
@@ -3210,6 +3215,9 @@ def initializeFlowSolutionFromFileByCopy(t, sourceFilename, container='FlowSolut
 
         t : PyTree
             Tree to initialize
+
+        ReferenceValues : dict
+            as produced by :py:func:`computeReferenceValues`
 
         sourceFilename : str
             Name of the source file.
@@ -3222,6 +3230,9 @@ def initializeFlowSolutionFromFileByCopy(t, sourceFilename, container='FlowSolut
     sourceTree = C.convertFile2PyTree(sourceFilename)
     OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
     I.__FlowSolutionCenters__ = container
+    varNames = ReferenceValues['Fields'] + ['TurbulentDistance', 'TurbulentDistanceIndex']
+
+    sourceTree = C.extractVars(sourceTree, ['centers:{}'.format(var) for var in varNames])
 
     for base in I.getBases(t):
         basename = I.getName(base)
