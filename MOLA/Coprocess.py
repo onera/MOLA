@@ -1745,17 +1745,17 @@ def addArrays(arrays, ZoneName, ListOfArraysNames, NumpyArrays):
         arrays[ZoneName] = {}
         arraysSubset = arrays[ZoneName]
         for array, name in zip(NumpyArrays, ListOfArraysNames):
-            arraysSubset[name] = array
+            arraysSubset[name] = array.flatten()
         return
 
     for array, name in zip(NumpyArrays, ListOfArraysNames):
         try:
             ExistingArray = arraysSubset[name]
         except KeyError:
-            arraysSubset[name] = array
+            arraysSubset[name] = array.flatten()
             continue
 
-        arraysSubset[name] = np.hstack((ExistingArray, array))
+        arraysSubset[name] = np.hstack((ExistingArray.flatten(), array.flatten()))
 
 
 def addBodyForcePropeller2Arrays(arrays, BodyForceDisks):

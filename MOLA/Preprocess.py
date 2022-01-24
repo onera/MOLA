@@ -919,7 +919,7 @@ def splitAndDistribute(t, InputMeshes, NProcs=None, ProcPointsLoad=2e5):
     if NProcs is None:
         NProcs = int(np.round(C.getNPts(tRef) / float(ProcPointsLoad)))-1
     print('distributing through %d procs...'%NProcs)
-    # NOTE see BUG ticket #8244 . Need algorithm='fast'
+    # NOTE see Cassiopee BUG ticket #8244 . Need algorithm='fast'
     tRef, stats = D2.distribute(tRef, NProcs, algorithm='fast', useCom='all')
 
     D2.printProcStats(tRef)
@@ -1217,6 +1217,7 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
         tAux = X.chimeraInfo(t, type=diagnosisType)
         CriticalPoints = X.extractChimeraInfo(tAux, type=diagnosisType)
         if CriticalPoints:
+            CriticalPoints = C.newPyTree([diagnosisType, I.getZones(CriticalPoints)])
             C.convertPyTree2File(CriticalPoints, diagnosisType+'.cgns')
 
     t = X.cellN2OversetHoles(t)
