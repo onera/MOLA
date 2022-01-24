@@ -129,7 +129,7 @@ def extractFields(Skeleton):
 
     return t
 
-def extractArrays(t, arrays, DesiredStatistics=[], Extractions=[],
+def extractArrays(t, arrays, RequestedStatistics=[], Extractions=[],
                   addMemoryUsage=True, addResiduals=True):
     '''
     Extract the arrays (1D data) as a PyTree, including additional
@@ -144,7 +144,7 @@ def extractArrays(t, arrays, DesiredStatistics=[], Extractions=[],
         arrays : dict
             Dictionary of arrays, as created using :py:func:`invokeArrays`
 
-        DesiredStatistics : :py:class:`list` of :py:class:`str`
+        RequestedStatistics : :py:class:`list` of :py:class:`str`
             same argument as :py:func:`extractIntegralData`
 
         Extractions : :py:class:`list` of :py:class:`dict`
@@ -159,7 +159,7 @@ def extractArrays(t, arrays, DesiredStatistics=[], Extractions=[],
 
     if addResiduals: extractResiduals(t, arrays)
     if addMemoryUsage: addMemoryUsage2Arrays(arrays)
-    extractIntegralData(t, arrays, DesiredStatistics=DesiredStatistics,
+    extractIntegralData(t, arrays, RequestedStatistics=RequestedStatistics,
                          Extractions=Extractions)
     arraysTree = arraysDict2PyTree(arrays)
 
@@ -340,7 +340,7 @@ def extractSurfaces(t, Extractions):
     return SurfacesTree
 
 def extractIntegralData(to, arrays, Extractions=[],
-                        DesiredStatistics=['std-CL', 'std-CD']):
+                        RequestedStatistics=['std-CL', 'std-CD']):
     '''
     Extract integral data from coupling tree **to**, and update **arrays** Python
     dictionary adding statistics requested by the user.
@@ -358,7 +358,7 @@ def extractIntegralData(to, arrays, Extractions=[],
 
             ..note:: **arrays** is modified in-place
 
-        DesiredStatistics : :py:class:`list` of :py:class:`str`
+        RequestedStatistics : :py:class:`list` of :py:class:`str`
             Here, the user requests the additional statistics to be computed.
             The syntax of each quantity must be as follows:
 
@@ -383,7 +383,7 @@ def extractIntegralData(to, arrays, Extractions=[],
         _extendArraysWithProjectedLoads(arrays, IntegralDataName)
         _normalizeMassFlowInArrays(arrays, IntegralDataName)
     for IntegralDataName in arrays:
-        _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics)
+        _extendArraysWithStatistics(arrays, IntegralDataName, RequestedStatistics)
     Cmpi.barrier()
 
 
@@ -626,7 +626,7 @@ def restoreFamilies(surfaces, skeleton):
             if I.getName(family) in familiesInBase:
                 I.addChild(base, family)
 
-def monitorTurboPerformance(surfaces, arrays, DesiredStatistics=[], tagWithIteration=False):
+def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[], tagWithIteration=False):
     '''
     Monitor performance (massflow in/out, total pressure ratio, total
     temperature ratio, isentropic efficiency) for each row in a compressor
@@ -663,7 +663,7 @@ def monitorTurboPerformance(surfaces, arrays, DesiredStatistics=[], tagWithItera
 
             >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
-        DesiredStatistics : :py:class:`list` of :py:class:`str`
+        RequestedStatistics : :py:class:`list` of :py:class:`str`
             Here, the user requests the additional statistics to be computed.
             See documentation of function :py:func:`extractIntegralData` for
             more details.
@@ -724,7 +724,7 @@ def monitorTurboPerformance(surfaces, arrays, DesiredStatistics=[], tagWithItera
             else:
                 perfos = computePerfoStator(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
             appendDict2Arrays(arrays, perfos, 'PERFOS_{}'.format(row))
-            _extendArraysWithStatistics(arrays, 'PERFOS_{}'.format(row), DesiredStatistics)
+            _extendArraysWithStatistics(arrays, 'PERFOS_{}'.format(row), RequestedStatistics)
 
     arraysTree = arraysDict2PyTree(arrays)
     save(arraysTree, os.path.join(DIRECTORY_OUTPUT, FILE_ARRAYS), tagWithIteration=tagWithIteration)
@@ -1274,12 +1274,12 @@ def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
     for Torque in ('Cn','Cl','Cm'): arraysSubset[Torque] *= TorqueCoef
 
 
-def _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics):
+def _extendArraysWithStatistics(arrays, IntegralDataName, RequestedStatistics):
     '''
     Beware: this is a private function, employed by :py:func:`extractIntegralData`
 
     Add to arrays dictionary the relevant statistics requested by the user
-    through the DesiredStatistics list of special named strings.
+    through the RequestedStatistics list of special named strings.
 
     Parameters
     ----------
@@ -1293,7 +1293,7 @@ def _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics):
             Name of the IntegralDataNode (CGNS) provided by elsA. It is used as
             key for loads dictionary.
 
-        DesiredStatistics : :py:class:`list` of :py:class:`str`
+        RequestedStatistics : :py:class:`list` of :py:class:`str`
             Desired statistics to infer from loads dictionary. For more
             information see documentation of function
             :py:func:`extractIntegralData`
@@ -1309,7 +1309,7 @@ def _extendArraysWithStatistics(arrays, IntegralDataName, DesiredStatistics):
     IterationWindow = len(IterationNumber[IterationNumber>(IterationNumber[-1]-AvgIt)])
     if IterationWindow < 2: return
 
-    for StatKeyword in DesiredStatistics:
+    for StatKeyword in RequestedStatistics:
         KeywordsSplit = StatKeyword.split('-')
         StatType = KeywordsSplit[0]
         VarName = '-'.join(KeywordsSplit[1:])

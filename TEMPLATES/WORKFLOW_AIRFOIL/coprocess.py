@@ -35,8 +35,8 @@ TimeOut                 = CO.getOption('TimeOutInSeconds', default=53100.0)
 ItersMinEvenIfConverged = CO.getOption('ItersMinEvenIfConverged', default=1e3)
 ConvergenceCriteria     = CO.getOption('ConvergenceCriteria', default=[])
 RegisterTransitionFrequency = CO.getOption('RegisterTransitionFrequency', default=10)
+RequestedStatistics       = CO.getOption('RequestedStatistics', default=[])
 
-DesiredStatistics=['std-CL', 'std-CD', 'std-Cm']
 
 
 # BEWARE! state 16 => triggers *before* iteration, which means
@@ -101,7 +101,7 @@ if ENTER_COUPLING:
 
 
     if SAVE_ARRAYS:
-        arraysTree = CO.extractArrays(t, arrays, DesiredStatistics=DesiredStatistics,
+        arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,
                   Extractions=setup.Extractions, addMemoryUsage=True)
         CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))
 
