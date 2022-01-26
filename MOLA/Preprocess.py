@@ -691,7 +691,26 @@ def setBoundaryConditions(t, InputMeshes):
         FillEmptyBC = False
         for zone in I.getZones(base):
             for BCinfo in meshInfo['BoundaryConditions']:
-                location = BCinfo['location']
+                if 'type' not in BCinfo:
+                        MSGERR = ('Boundary-Condition setup error at base {}:\n'
+                            'Mandatory key "type" is missing').format(
+                                meshInfo['baseName'])
+                        raise ValueError(J.FAIL+MSGERR+J.ENDC)
+
+                try:
+                    location = BCinfo['location']
+                except:
+                    if not BCinfo['type'].startswith('FamilySpecified:'):
+                        MSGERR = ('Boundary-Condition setup error at base {}:\n'
+                            'Key "location" is missing, which is only supported for\n'
+                            'BCFamilies already present in the input mesh. However, in that\n'
+                            'case it is expected that the user-provided BC component type\n'
+                            'must start with the term "FamilySpecified:", which is\n'
+                            'not verified, because user provided type: {}').format(
+                                meshInfo['baseName'], BCinfo['type'])
+                        raise ValueError(J.FAIL+MSGERR+J.ENDC)
+                    continue
+
                 if location == 'special':
                     SpecialLocation = BCinfo['specialLocation']
 
