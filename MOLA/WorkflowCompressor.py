@@ -1287,6 +1287,19 @@ def addMonitoredRowsInExtractions(Extractions, TurboConfiguration):
                     Extractions.append(dict(type='IsoSurface', field='CoordinateX', \
                         value=rowParams[plane], ReferenceRow=row, tag=plane))
 
+def computeDistance2Walls(t, WallFamilies=[], verbose=True, wallFilename=None):
+    '''
+    Identical to :func:`MOLA.Preprocess.computeDistance2Walls`, except that the
+    list **WallFamilies** is automatically filled with with the following
+    patterns:
+    'WALL', 'HUB', 'SHROUD', 'BLADE', 'MOYEU', 'CARTER', 'AUBE'.
+    Names are not case-sensitive (automatic conversion to lower, uper and
+    capitalized cases). Others patterns might be added with the argument
+    **WallFamilies**.
+    '''
+    WallFamilies += ['WALL', 'HUB', 'SHROUD', 'BLADE', 'MOYEU', 'CARTER', 'AUBE']
+    PRE.computeDistance2Walls(t, WallFamilies=WallFamilies, verbose=verbose, wallFilename=wallFilename)
+
 def massflowFromMach(Mx, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
     '''
     Compute the massflow rate through a section.
