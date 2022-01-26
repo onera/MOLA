@@ -98,7 +98,7 @@ if ENTER_COUPLING:
     if SAVE_SURFACES:
         surfs = CO.extractSurfaces(t, setup.Extractions)
         CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
-        CO.monitorTurboPerformance(surfs, arrays, DesiredStatistics)
+        CO.monitorTurboPerformance(surfs, arrays, RequestedStatistics)
 
         if (it-inititer)>ItersMinEvenIfConverged and not CONVERGED:
             CONVERGED = CO.isConverged(ConvergenceCriteria)

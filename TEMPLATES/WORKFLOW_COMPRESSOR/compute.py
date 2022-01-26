@@ -146,7 +146,7 @@ CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))
 
 # save surfaces
 surfs = CO.extractSurfaces(t, setup.Extractions)
-CO.monitorTurboPerformance(surfs, arrays, DesiredStatistics)
+CO.monitorTurboPerformance(surfs, arrays, RequestedStatistics)
 CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
 
 # save fields
