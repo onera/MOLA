@@ -2220,6 +2220,12 @@ def printEnvironment():
         vCASSIOPEE = FAIL + 'UNAVAILABLE' + ENDC
 
     try:
+        import etc
+        vETC = etc.version
+    except:
+        vETC = FAIL + 'UNAVAILABLE' + ENDC
+
+    try:
         import TreeLab
         vTREELAB = TreeLab.__version__
     except:
@@ -2229,6 +2235,7 @@ def printEnvironment():
     print(' --> Python '+sys.version.split(' ')[0])
     print(' --> elsA '+vELSA)
     print(' --> Cassiopee '+vCASSIOPEE)
+    print(' --> ETC '+vETC)
     print(' --> PUMA '+vPUMA)
     print(' --> TreeLab '+vTREELAB)
 

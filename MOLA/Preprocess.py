@@ -22,6 +22,7 @@ import Post.PyTree as P
 import Distributor2.PyTree as D2
 import Converter.elsAProfile as EP
 import Intersector.PyTree as XOR
+import Dist2Walls.PyTree as DTW
 import MOLA
 from . import InternalShortcuts as J
 from . import GenerativeShapeDesign as GSD
@@ -1892,8 +1893,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         Surface=1.0, Length=1.0, TorqueOrigin=[0,0,0],
         TurbulenceModel='Wilcox2006-klim', Viscosity_EddyMolecularRatio=0.1,
         TurbulenceCutoff=0.1, TransitionMode=None, CoprocessOptions={},
-        FieldsAdditionalExtractions = ['ViscosityMolecular','ViscosityEddy',
-                                       'Mach']):
+        FieldsAdditionalExtractions=['ViscosityMolecular','ViscosityEddy','Mach']):
     '''
     Compute ReferenceValues dictionary used for pre/co/postprocessing a CFD
     case. It contains multiple information and is mostly self-explanatory.
@@ -2486,7 +2486,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, **kwargs):
 def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         TimeMarching='steady', inititer=1, niter=30000,
         CFLparams=dict(vali=1.,valf=10.,iteri=1,iterf=1000,function_type='linear'),
-        timestep=0.01, useBodyForce=False, useChimera=False, **kwargs):
+        itime=0., timestep=0.01, useBodyForce=False, useChimera=False, **kwargs):
     '''
     Get the Numerics elsA keys as a Python dictionary.
 
@@ -2510,6 +2510,9 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
 
         CFLparams : dict
             indicates the CFL function to be employed
+
+        itime : float
+            initial time
 
         timestep : float
             timestep for unsteady simulation (in seconds)
@@ -2589,6 +2592,7 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     else:
         addKeys.update(dict(
             timestep           = float(timestep),
+            itime              = float(itime),
             restoreach_cons    = 1e-2,
         ))
         if TimeMarching == 'gear':
@@ -3128,10 +3132,15 @@ def initializeFlowSolution(t, Initialization, ReferenceValues):
         initializeFlowSolutionFromReferenceValues(t, ReferenceValues)
     elif Initialization['method'] == 'interpolate':
         print(J.CYAN + 'Initialize FlowSolution by interpolation from {}'.format(Initialization['file']) + J.ENDC)
-        initializeFlowSolutionFromFileByInterpolation(t, Initialization['file'], container=Initialization['container'])
+        initializeFlowSolutionFromFileByInterpolation(t, ReferenceValues,
+            Initialization['file'], container=Initialization['container'])
     elif Initialization['method'] == 'copy':
         print(J.CYAN + 'Initialize FlowSolution by copy of {}'.format(Initialization['file']) + J.ENDC)
-        initializeFlowSolutionFromFileByCopy(t, Initialization['file'], container=Initialization['container'])
+        if not 'keepTurbulentDistance' in Initialization:
+            Initialization['keepTurbulentDistance'] = False
+        initializeFlowSolutionFromFileByCopy(t, ReferenceValues, Initialization['file'],
+            container=Initialization['container'],
+            keepTurbulentDistance=Initialization['keepTurbulentDistance'])
     else:
         raise Exception(J.FAIL+'The key "method" of the dictionary Initialization is mandatory'+J.ENDC)
 
@@ -3181,7 +3190,7 @@ def initializeFlowSolutionFromReferenceValues(t, ReferenceValues):
     FlowSolInit = I.getNodesFromName(t,'FlowSolution#Init')
     I._rmNodesByName(FlowSolInit, 'ChimeraCellType')
 
-def initializeFlowSolutionFromFileByInterpolation(t, sourceFilename, container='FlowSolution#Init'):
+def initializeFlowSolutionFromFileByInterpolation(t, ReferenceValues, sourceFilename, container='FlowSolution#Init'):
     '''
     Initialize the flow solution of **t** from the flow solution in the file
     **sourceFilename**.
@@ -3192,6 +3201,9 @@ def initializeFlowSolutionFromFileByInterpolation(t, sourceFilename, container='
 
         t : PyTree
             Tree to initialize
+
+        ReferenceValues : dict
+            as produced by :py:func:`computeReferenceValues`
 
         sourceFilename : str
             Name of the source file for the interpolation.
@@ -3204,6 +3216,8 @@ def initializeFlowSolutionFromFileByInterpolation(t, sourceFilename, container='
     sourceTree = C.convertFile2PyTree(sourceFilename)
     OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
     I.__FlowSolutionCenters__ = container
+    sourceTree = C.extractVars(sourceTree, ['centers:{}'.format(var) for var in ReferenceValues['Fields']])
+
     I._rmNodesByType(sourceTree, 'BCDataSet_t')
     I._rmNodesByNameAndType(sourceTree, '*EndOfRun*', 'FlowSolution_t')
     P._extractMesh(sourceTree, t, mode='accurate', extrapOrder=0)
@@ -3211,7 +3225,8 @@ def initializeFlowSolutionFromFileByInterpolation(t, sourceFilename, container='
         I.renameNode(t, container, 'FlowSolution#Init')
     I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
 
-def initializeFlowSolutionFromFileByCopy(t, sourceFilename, container='FlowSolution#Init'):
+def initializeFlowSolutionFromFileByCopy(t, ReferenceValues, sourceFilename,
+        container='FlowSolution#Init', keepTurbulentDistance=False):
     '''
     Initialize the flow solution of **t** by copying the flow solution in the file
     **sourceFilename**.
@@ -3223,6 +3238,9 @@ def initializeFlowSolutionFromFileByCopy(t, sourceFilename, container='FlowSolut
         t : PyTree
             Tree to initialize
 
+        ReferenceValues : dict
+            as produced by :py:func:`computeReferenceValues`
+
         sourceFilename : str
             Name of the source file.
 
@@ -3230,10 +3248,25 @@ def initializeFlowSolutionFromFileByCopy(t, sourceFilename, container='FlowSolut
             Name of the ``'FlowSolution_t'`` node to copy.
             Default is 'FlowSolution#Init'
 
+        keepTurbulentDistance : bool
+            if :py:obj:`True`, copy also fields ``'TurbulentDistance'`` and
+            ``'TurbulentDistanceIndex'``.
+
+            .. danger::
+                The restarted simulation must be submitted with the same
+                CPU distribution that the previous one ! It is due to the field
+                ``'TurbulentDistanceIndex'`` that indicates the index of the
+                nearest wall, and this index varies with the distribution.
+
     '''
     sourceTree = C.convertFile2PyTree(sourceFilename)
     OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
     I.__FlowSolutionCenters__ = container
+    varNames = ReferenceValues['Fields']
+    if keepTurbulentDistance:
+        varNames += ['TurbulentDistance', 'TurbulentDistanceIndex']
+
+    sourceTree = C.extractVars(sourceTree, ['centers:{}'.format(var) for var in varNames])
 
     for base in I.getBases(t):
         basename = I.getName(base)
@@ -3915,3 +3948,76 @@ def checkFamiliesInZonesAndBC(t):
                     FAILMSG = 'Each BC must be attached to a Family:\n'
                     FAILMSG += 'BC {} in zone {} has no node of type FamilyName_t'.format(I.getName(bc), I.getName(zone))
                     raise Exception(J.FAIL+FAILMSG+J.ENDC)
+
+def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
+    '''
+    Compute the distance to the walls and add nodes ``'TurbulentDistance'`` and
+    ``'TurbulentDistanceIndex'`` into ``'FlowSolution#Centers'``. This function
+    works in-place and returns None. Boundary conditions must have a ``BCType``,
+    that may be FamilySpecified or not.
+
+    Walls are identified as boundary conditions of type ``'BCWall*'``. They also
+    might be searched by pattern in their ``BCType`` with **WallFamilies**.
+
+    .. important::
+        Be careful when using this function on a partial mesh with periodicity
+        conditions. If this kind of BC is not equidistant to the walls, the
+        computed ``'TurbulentDistance'`` will be wrong !
+
+    Parameters
+    ----------
+
+        t : PyTree
+            input mesh tree
+
+        WallFamilies : list
+            List of patterns to search in family names to identify wall surfaces.
+            Names are not case-sensitive (automatic conversion to lower, uper and
+            capitalized cases).
+
+        verbose : bool
+            if :py:obj:`True`, print families recognized as walls.
+
+        wallFilename : :py:class:`str` or :py:obj:`None`
+            if not :py:obj:`None`, write the wall surfaces in the file named
+            **wallFilename**.
+
+    '''
+    def extendListOfFamilies(FamilyNames):
+        '''
+        For each <NAME> in the list **FamilyNames**, add Name, name and NAME.
+        '''
+        ExtendedFamilyNames = copy.deepcopy(FamilyNames)
+        for fam in FamilyNames:
+            newNames = [fam.lower(), fam.upper(), fam.capitalize()]
+            for name in newNames:
+                if name not in ExtendedFamilyNames:
+                    ExtendedFamilyNames.append(name)
+        return ExtendedFamilyNames
+
+    WallFamilies = extendListOfFamilies(WallFamilies)
+
+    print('Compute distance to walls...')
+
+    BCs, BCNames, BCTypes = C.getBCs(t)
+    walls = []
+    wallBCTypes = set()
+    for BC, BCType in zip(BCs, BCTypes):
+        FamilyBCType = getFamilyBCTypeFromFamilyBCName(t, BCType)
+        if FamilyBCType is not None and 'BCWall' in FamilyBCType:
+            wallBCTypes.add(FamilyBCType)
+            walls.append(BC)
+        elif any([pattern in BCType for pattern in WallFamilies]):
+            wallBCTypes.add(BCType)
+            walls.append(BC)
+    if verbose:
+        print('List of BCTypes recognized as walls:')
+        for BCType in wallBCTypes:
+            print('  {}'.format(BCType))
+    walls = T.merge(walls)
+
+    if wallFilename:
+        C.convertPyTree2File(walls, wallFilename)
+
+    DTW._distance2Walls(t, walls)
+    EP._addTurbulentDistanceIndex(t)

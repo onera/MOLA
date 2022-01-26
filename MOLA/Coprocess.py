@@ -386,7 +386,6 @@ def extractIntegralData(to, arrays, Extractions=[],
         _extendArraysWithStatistics(arrays, IntegralDataName, RequestedStatistics)
     Cmpi.barrier()
 
-
 def extractResiduals(to, arrays):
     '''
     Extract residuals from coupling tree **to**, and update **arrays** Python
@@ -633,16 +632,13 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[], tagWithIte
     simulation. This processing is triggered if at least two bases in the PyTree
     **surfaces** fill the following requirements:
 
-    #.
-        there is a node ``'.ExtractionInfo'`` of type ``'UserDefinedData_t'``
+    #. there is a node ``'.ExtractionInfo'`` of type ``'UserDefinedData_t'``
 
-    #.
-        it contains a node ``'ReferenceRow'``, whose value is a :py:class:`str`
-        corresponding to a row Family in ``'main.cgns'``.
+    #. it contains a node ``'ReferenceRow'``, whose value is a :py:class:`str`
+       corresponding to a row Family in ``'main.cgns'``.
 
-    #.
-        it contains a node ``'tag'``, whose value is a :py:class:`str` equal
-        to ``'InletPlane'`` or ``'OutletPlane'``.
+    #. it contains a node ``'tag'``, whose value is a :py:class:`str` equal
+       to ``'InletPlane'`` or ``'OutletPlane'``.
 
     .. note:: For one ``'ReferenceRow'``, the monitor is processed only if both
         ``'InletPlane'`` and ``'OutletPlane'`` are found.
@@ -684,7 +680,9 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[], tagWithIte
 
         planeUpstream   = I.newCGNSTree()
         planeDownstream = I.newCGNSTree()
-        if rowParams['RotationSpeed'] != 0:
+        if not 'RotationSpeed' in rowParams:
+            continue
+        elif rowParams['RotationSpeed'] != 0:
             IsRotor = True
         else:
             IsRotor = False
@@ -910,6 +908,8 @@ def updateAndWriteSetup(setup):
     if rank == 0:
         printCo('updating setup.py ...', proc=0, color=GREEN)
         setup.elsAkeysNumerics['inititer'] = CurrentIteration
+        if 'itime' in setup.elsAkeysNumerics:
+            setup.elsAkeysNumerics['itime'] = CurrentIteration * setup.elsAkeysNumerics['timestep']
         PRE.writeSetupFromModuleObject(setup)
         printCo('updating setup.py ... OK', proc=0, color=GREEN)
     comm.Barrier()
