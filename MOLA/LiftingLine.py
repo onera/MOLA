@@ -3175,6 +3175,43 @@ def moveLiftingLines(t, TimeStep):
         updateLocalFrame(LiftingLine)
         computeKinematicVelocity(LiftingLine)
 
+def moveObject(t, TimeStep):
+    '''
+    Move the lifting lines following their ``.Kinematics`` law.
+
+    It also updates the local frame quantities of the lifting lines and
+    updates the kinematic velocity.
+
+    Parameters
+    ----------
+
+        t : PyTree, base, list of zones, zone
+            container with LiftingLines.
+
+            .. note:: Lifting-lines contained in **t** are modified.
+
+        TimeStep : float
+            time step for the movement of the lifting-lines in [s]
+    '''
+    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
+    for LiftingLine in LiftingLines:
+        Kinematics = J.get(LiftingLine,'.Kinematics')
+        VelocityTranslation = Kinematics['VelocityTranslation']
+        RotationCenter = Kinematics['RotationCenter']
+        RotationAxis = Kinematics['RotationAxis']
+        RightHandRuleRotation = Kinematics['RightHandRuleRotation']
+        RPM = Kinematics['RPM']
+        Omega = RPM * np.pi / 30.
+        Dpsi = np.rad2deg( Omega * TimeStep )
+        try: Dpsi = Dpsi[0]
+        except: pass
+        if not RightHandRuleRotation: Dpsi *= -1
+
+        if Dpsi: T._rotate(LiftingLine, RotationCenter, RotationAxis, Dpsi)
+
+        if VelocityTranslation.any():
+            T._translate(LiftingLine, TimeStep*VelocityTranslation)
+            RotationCenter += TimeStep*VelocityTranslation
 
 def updateLocalFrame(LiftingLine):
     '''

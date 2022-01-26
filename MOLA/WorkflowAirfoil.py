@@ -90,7 +90,24 @@ def launchBasicStructuredPolars(PREFIX_JOB, FILE_GEOMETRY, AER, machine,
             compute Reynolds number for each case.
 
         AdditionalCoprocessOptions : dict
-            values overriding the default set of ``CoprocessOptions``
+            values overriding the default set of ``CoprocessOptions``, which
+            is:
+
+            ::
+
+                dict(UpdateFieldsFrequency   = 5000,
+                     UpdateArraysFrequency   = 100,
+                     UpdateSurfacesFrequency = 1000,
+                     AveragingIterations     = 10000,
+                     ItersMinEvenIfConverged = 3000,
+                     TimeOutInSeconds        = 54000.0, # 15 h * 3600 s/h = 53100 s
+                     InitialTimeOutInSeconds = 54000.0,
+                     SecondsMargin4QuitBeforeTimeOut = 300.,
+                     RequestedStatistics=['std-CL','std-CD','std-Cm'],
+                     ConvergenceCriteria = [dict(Family='AIRFOIL',
+                                                 Variable='std-CL',
+                                                 Threshold=CONVERGENCE_THRESHOLD)])
+
 
         AdditionalTransitionZones : dict
             values overriding the default
@@ -232,19 +249,18 @@ def launchBasicStructuredPolars(PREFIX_JOB, FILE_GEOMETRY, AER, machine,
             TransitionMode = None
 
 
-        CoprocessOptions = dict(
-            UpdateFieldsFrequency   = 5000,
-            UpdateArraysFrequency   = 100,
-            UpdateSurfacesFrequency = 1000,
-            AveragingIterations     = 10000,
-            ItersMinEvenIfConverged = 3000,
-            TimeOutInSeconds        = 54000.0, # 15 h * 3600 s/h = 53100 s
-            InitialTimeOutInSeconds = 54000.0,
-            SecondsMargin4QuitBeforeTimeOut = 900.,
-            ConvergenceCriteria = [dict(Family='AIRFOIL',
-                                        Variable='std-CL',
-                                        Threshold=CONVERGENCE_THRESHOLD)]
-                                )
+        CoprocessOptions = dict(UpdateFieldsFrequency   = 5000,
+                                UpdateArraysFrequency   = 100,
+                                UpdateSurfacesFrequency = 1000,
+                                AveragingIterations     = 10000,
+                                ItersMinEvenIfConverged = 3000,
+                                TimeOutInSeconds        = 54000.0, # 15 h * 3600 s/h = 53100 s
+                                InitialTimeOutInSeconds = 54000.0,
+                                SecondsMargin4QuitBeforeTimeOut = 300.,
+                                RequestedStatistics=['std-CL','std-CD','std-Cm'],
+                                ConvergenceCriteria = [dict(Family='AIRFOIL',
+                                                            Variable='std-CL',
+                                                            Threshold=CONVERGENCE_THRESHOLD)])
         CoprocessOptions.update(AdditionalCoprocessOptions)
 
         TransitionZones = dict(
@@ -590,7 +606,7 @@ def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
         TurbulenceLevel=0.001,
         TurbulenceModel='Wilcox2006-klim', Viscosity_EddyMolecularRatio=0.1,
         TurbulenceCutoff=1.0, TransitionMode=None, CoprocessOptions={},
-        FieldsAdditionalExtractions='ViscosityMolecular Viscosity_EddyMolecularRatio Mach'):
+        FieldsAdditionalExtractions=[]):
     '''
     This function is the Airfoil's equivalent of :py:func:`MOLA.Preprocess.computeReferenceValues` .
     The main difference is that in this case reference values are set through

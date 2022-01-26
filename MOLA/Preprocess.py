@@ -920,7 +920,7 @@ def splitAndDistribute(t, InputMeshes, NProcs=None, ProcPointsLoad=2e5):
     if NProcs is None:
         NProcs = int(np.round(C.getNPts(tRef) / float(ProcPointsLoad)))-1
     print('distributing through %d procs...'%NProcs)
-    # NOTE see BUG ticket #8244 . Need algorithm='fast'
+    # NOTE see Cassiopee BUG ticket #8244 . Need algorithm='fast'
     tRef, stats = D2.distribute(tRef, NProcs, algorithm='fast', useCom='all')
 
     D2.printProcStats(tRef)
@@ -1218,6 +1218,7 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
         tAux = X.chimeraInfo(t, type=diagnosisType)
         CriticalPoints = X.extractChimeraInfo(tAux, type=diagnosisType)
         if CriticalPoints:
+            CriticalPoints = C.newPyTree([diagnosisType, I.getZones(CriticalPoints)])
             C.convertPyTree2File(CriticalPoints, diagnosisType+'.cgns')
 
     t = X.cellN2OversetHoles(t)
@@ -1969,14 +1970,18 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
 
             ::
 
-                'UpdateRestartFrequency' : 1000,
-                'UpdateArraysFrequency'   : 20,
-                'NewSurfacesFrequency'   : 500,
-                'AveragingIterations'    : 3000,
-                'ConvergenceCriteria'    : [],
-                'ItersMinEvenIfConverged': 1000,
-                'TimeOutInSeconds'       : 54000.0, # = 15 h * 3600 s/h
-                'SecondsMargin4QuitBeforeTimeOut' : 900.,
+                RequestedStatistics=[],
+                UpdateFieldsFrequency   = 2000,
+                UpdateArraysFrequency    = 50,
+                UpdateSurfacesFrequency = 500,
+                AveragingIterations     = 3000,
+                ItersMinEvenIfConverged = 1000,
+                TimeOutInSeconds        = 54000.0, # 15 h * 3600 s/h = 53100 s
+                SecondsMargin4QuitBeforeTimeOut = 900.,
+                BodyForceInitialIteration = 1,
+                BodyForceComputeFrequency = 50,
+                BodyForceSaveFrequency    = 100,
+                ConvergenceCriteria = [],
 
         FieldsAdditionalExtractions : :py:class:`list` of :py:class:`str`
             elsA or CGNS keywords of fields to be extracted.
@@ -1995,6 +2000,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
 
 
     DefaultCoprocessOptions = dict(            # Default values
+        RequestedStatistics=[],
         UpdateFieldsFrequency   = 2000,
         UpdateArraysFrequency    = 50,
         UpdateSurfacesFrequency = 500,
@@ -2002,9 +2008,19 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         ItersMinEvenIfConverged = 1000,
         TimeOutInSeconds        = 54000.0, # 15 h * 3600 s/h = 53100 s
         SecondsMargin4QuitBeforeTimeOut = 900.,
+        BodyForceInitialIteration = 1,
+        BodyForceComputeFrequency = 50,
+        BodyForceSaveFrequency    = 100,
         ConvergenceCriteria = [],
     )
     DefaultCoprocessOptions.update(CoprocessOptions) # User-provided values
+
+    RequestedStatistics = DefaultCoprocessOptions['RequestedStatistics']
+    for criterion in DefaultCoprocessOptions['ConvergenceCriteria']:
+        VariableName = criterion['Variable']
+        if VariableName not in RequestedStatistics:
+            if any([VariableName.startswith(i) for i in ['std-','rsd-','avg-']]):
+                RequestedStatistics.append( VariableName )
 
     ReferenceValues = dict(
     CoprocessOptions   = DefaultCoprocessOptions,

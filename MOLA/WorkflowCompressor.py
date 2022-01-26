@@ -1036,6 +1036,18 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
     if not 'AveragingIterations' in CoprocessOptions:
         CoprocessOptions['AveragingIterations'] = 1000
 
+    TurboStatistics = ['rsd-{}'.format(var) for var in ['MassFlowIn', 'MassFlowOut',
+        'PressureStagnationRatio', 'TemperatureStagnationRatio', 'EfficiencyIsentropic',
+        'PressureStagnationLossCoeff']]
+    try:
+        RequestedStatistics = CoprocessOptions['RequestedStatistics']
+        for stat in TurboStatistics:
+            if stat not in CoprocessOptions:
+                RequestedStatistics.append( stat )
+    except KeyError:
+        RequestedStatistics = TurboStatistics
+
+
     ReferenceValues = PRE.computeReferenceValues(FluidProperties,
         Density=Density,
         Velocity=Velocity,

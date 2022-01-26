@@ -137,7 +137,7 @@ e.compute()
 t = CO.extractFields(Skeleton)
 
 # save arrays
-arraysTree = CO.extractArrays(t, arrays, DesiredStatistics=DesiredStatistics,
+arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,
           Extractions=setup.Extractions, addMemoryUsage=True)
 CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))
 

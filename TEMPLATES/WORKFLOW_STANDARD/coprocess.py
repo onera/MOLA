@@ -50,8 +50,7 @@ BodyForceComputeFrequency = CO.getOption('BodyForceComputeFrequency', default=50
 BodyForceInitialIteration = CO.getOption('BodyForceInitialIteration', default=1000)
 ItersMinEvenIfConverged = CO.getOption('ItersMinEvenIfConverged', default=1e3)
 ConvergenceCriteria       = CO.getOption('ConvergenceCriteria', default=[])
-
-DesiredStatistics=['std-CL', 'std-CD', 'std-Thrust', 'std-Power']
+RequestedStatistics       = CO.getOption('RequestedStatistics', default=[])
 
 
 # BEWARE! state 16 => triggers *before* iteration, which means
@@ -118,7 +117,7 @@ if ENTER_COUPLING:
         CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
 
     if SAVE_ARRAYS:
-        arraysTree = CO.extractArrays(t, arrays, DesiredStatistics=DesiredStatistics,
+        arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,
                             Extractions=setup.Extractions, addMemoryUsage=True)
         CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))
 
