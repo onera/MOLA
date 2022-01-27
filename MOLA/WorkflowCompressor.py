@@ -124,7 +124,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None, ProcPointsLoad=100000,
                 * NumberOfBlades: number of blades in the row (in reality)
 
                 * NumberOfDuplications: number of duplications to make of the
-                    input row domain.
+                  input row domain.
 
                 * MergeBlocks: boolean, if True the duplicated blocks are merged.
 
@@ -773,7 +773,8 @@ def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0),
             corresponding to each components.
             The default value is:
 
-            >>> vectors2rotate=[['VelocityX','VelocityY','VelocityZ'],['MomentumX','MomentumY','MomentumZ']]
+            >>> vectors2rotate = [['VelocityX','VelocityY','VelocityZ'],
+            >>>                   ['MomentumX','MomentumY','MomentumZ']]
 
             .. note:: Rotation of vectors is done with Cassiopee function
                       Transform.rotate. However, it is not useful to put the
@@ -1439,13 +1440,15 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
                   * UnsteadyRotorStatorInterface
 
+                  * WallViscous
+
                   * WallInviscid
 
                   * SymmetryPlane
 
                   elsA names are also available (``nref``, ``inj1``,
                   ``outpres``, ``outmfr2``, ``outradeq``, ``stage_mxpl``,
-                  ``stage_red``, ``walladia``, ``sym``)
+                  ``stage_red``, ``walladia``, ``wallslip``, ``sym``)
 
                 * option (optional) : add a specification for type
                   InflowStagnation (could be 'uniform' or 'file')
@@ -1472,6 +1475,9 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     setBC_Walls, setBC_walladia, setBC_sym, setBC_nref,
     setBC_inj1, setBC_inj1_uniform, setBC_inj1_interpFromFile,
     setBC_outpres, setBC_outmfr2,
+    setBC_outradeq, setBC_outradeqhyb,
+    setBC_stage_mxpl, setBC_stage_mxpl_hyb,
+    setBC_stage_red, setBC_stage_red_hyb,
     setBCwithImposedVariables
 
     Examples
@@ -1566,8 +1572,8 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     >>> dict(type='OutflowRadialEquilibrium', FamilyName='row_2_OUTFLOW', valve_type=4, valve_ref_pres=0.75*Pt, valve_ref_mflow=5., valve_relax=0.3*Pt)
 
     It defines an outflow condition imposing a radial equilibrium ('outradeq' in
-    *elsA*). The arguments have the same names that *emsA* keys. Valve law types
-    from 1 to 5 are available. The radial equilibrium witout a valve law (with
+    *elsA*). The arguments have the same names that *elsA* keys. Valve law types
+    from 1 to 5 are available. The radial equilibrium without a valve law (with
     **valve_type** = 0, which is the default value) is also available. To be
     consistant with the condition 'OutflowPressure', the argument
     **valve_ref_pres** may also be named **Pressure**.
@@ -1600,7 +1606,8 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
         OutflowRadialEquilibrium     = 'outradeq',
         MixingPlane                  = 'stage_mxpl',
         UnsteadyRotorStatorInterface = 'stage_red',
-        WallInviscid                 = 'walladia',
+        WallViscous                  = 'walladia',
+        WallInviscid                 = 'wallslip',
         SymmetryPlane                = 'sym',
     )
 
@@ -1645,21 +1652,21 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
             print(J.CYAN + 'set BC outradeq on ' + BCparam['FamilyName'] + J.ENDC)
             BCkwargs['ReferenceValues'] = ReferenceValues
             BCkwargs['TurboConfiguration'] = TurboConfiguration
-            ETC.setBC_outradeq(t, **BCkwargs)
+            setBC_outradeq(t, **BCkwargs)
 
         elif BCparam['type'] == 'outradeqhyb':
             print(J.CYAN + 'set BC outradeqhyb on ' + BCparam['FamilyName'] + J.ENDC)
-            ETC.setBC_outradeqhyb(t, **BCkwargs)
+            setBC_outradeqhyb(t, **BCkwargs)
 
         elif BCparam['type'] == 'stage_mxpl':
             print('{}set BC stage_mxpl between {} and {}{}'.format(J.CYAN,
                 BCparam['left'], BCparam['right'], J.ENDC))
-            ETC.setBC_stage_mxpl(t, **BCkwargs)
+            setBC_stage_mxpl(t, **BCkwargs)
 
         elif BCparam['type'] == 'stage_mxpl_hyb':
             print('{}set BC stage_mxpl_hyb between {} and {}{}'.format(J.CYAN,
                 BCparam['left'], BCparam['right'], J.ENDC))
-            ETC.setBC_stage_mxpl_hyb(t, **BCkwargs)
+            setBC_stage_mxpl_hyb(t, **BCkwargs)
 
         elif BCparam['type'] == 'stage_red':
             print('{}set BC stage_red between {} and {}{}'.format(J.CYAN,
@@ -1667,15 +1674,15 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
             if not 'stage_ref_time' in BCkwargs:
                 # Assume a 360 configuration
                 BCkwargs['stage_ref_time'] = 2*np.pi / abs(TurboConfiguration['ShaftRotationSpeed'])
-            ETC.setBC_stage_red(t, **BCkwargs)
+            setBC_stage_red(t, **BCkwargs)
 
         elif BCparam['type'] == 'stage_red_hyb':
             print('{}set BC stage_red_hyb between {} and {}{}'.format(J.CYAN,
                 BCparam['left'], BCparam['right'], J.ENDC))
             if not 'stage_ref_time' in BCkwargs:
                 # Assume a 360 configuration
-                BCkwargs['stage_ref_time'] = 2*np.pi / TurboConfiguration['ShaftRotationSpeed']
-            ETC.setBC_stage_red_hyb(t, **BCkwargs)
+                BCkwargs['stage_ref_time'] = 2*np.pi / abs(TurboConfiguration['ShaftRotationSpeed'])
+            setBC_stage_red_hyb(t, **BCkwargs)
 
         elif BCparam['type'] == 'sym':
             print(J.CYAN + 'set BC sym on ' + BCparam['FamilyName'] + J.ENDC)
@@ -1683,6 +1690,10 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
         elif BCparam['type'] == 'walladia':
             print(J.CYAN + 'set BC walladia on ' + BCparam['FamilyName'] + J.ENDC)
+            setBC_walladia(t, **BCkwargs)
+
+        elif BCparam['type'] == 'wallslip':
+            print(J.CYAN + 'set BC wallslip on ' + BCparam['FamilyName'] + J.ENDC)
             setBC_wallslip(t, **BCkwargs)
 
         else:
@@ -1823,6 +1834,26 @@ def setBC_Walls(t, TurboConfiguration,
                     omega=0.,
                     axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
                     axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
+
+def setBC_walladia(t, FamilyName):
+    '''
+    Set a viscous wall boundary condition.
+
+    .. note:: see `elsA Tutorial about wall conditions <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#wall-conditions/>`_
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+    '''
+    wall = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    I._rmNodesByType(wall, 'FamilyBC_t')
+    I.newFamilyBC(value='BCWallViscous', parent=wall)
 
 def setBC_wallslip(t, FamilyName):
     '''
@@ -2350,19 +2381,128 @@ def translateVariablesFromCGNS2Elsa(Variables):
     else:
         raise TypeError('Variables must be of type dict, list or string')
 
-################################################################################
-#######  Boundary conditions without ETC dependency  ###########################
-#######         WARNING: VALIDATION REQUIRED         ###########################
-################################################################################
 
-def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
-    valve_ref_mflow, valve_relax=0.1, nbband=100):
+
+def setBC_stage_mxpl(t, left, right, method='globborder_dict'):
     '''
-    Set an outflow boundary condition of type ``outradeqhyb``.
+    Set a mixing plane condition between families **left** and **right**.
 
-    .. important:: The hybrid globborder conditions are availble since elsA v5.0.03.
+    .. important : This function has a dependency to the ETC module.
 
-    .. note:: see `elsA Tutorial about valve laws <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/STB-97020/Textes/Boundary/Valve.html>`_
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        left : str
+            Name of the family on the left side.
+
+        right : str
+            Name of the family on the right side.
+
+        method : optional, str
+            Method used to compute the globborder. The default value is
+            ``'globborder_dict'``, it corresponds to the ETC topological
+            algorithm.
+            Another possible value is ``'poswin'`` to use the geometrical
+            algorithm in *turbo* (in this case, *turbo* environment must be
+            sourced).
+    '''
+
+    ETC.setBC_stage_mxpl(t, left, right, method=method)
+
+def setBC_stage_mxpl_hyb(t, left, right, nbband=100, c=None):
+    '''
+    Set a hybrid mixing plane condition between families **left** and **right**.
+
+    .. important : This function has a dependency to the ETC module.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        left : str
+            Name of the family on the left side.
+
+        right : str
+            Name of the family on the right side.
+
+        nbband : int
+            Number of points in the radial distribution to compute.
+
+        c : float
+            Parameter for the distribution of radial points.
+
+    '''
+
+    ETC.setBC_stage_mxpl_hyb(t, left, right, nbband=nbband, c=c)
+
+def setBC_stage_red(t, left, right, stage_ref_time):
+    '''
+    Set a RNA condition between families **left** and **right**.
+
+    .. important : This function has a dependency to the ETC module.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        left : str
+            Name of the family on the left side.
+
+        right : str
+            Name of the family on the right side.
+
+        stage_ref_time : float
+            Reference period on the simulated azimuthal extension.
+    '''
+
+    ETC.setBC_stage_red(t, left, right, stage_ref_time)
+
+def setBC_stage_red_hyb(t, left, right, stage_ref_time, nbband=100, c=None):
+    '''
+    Set a hybrid RNA condition between families **left** and **right**.
+
+    .. important : This function has a dependency to the ETC module.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        left : str
+            Name of the family on the left side.
+
+        right : str
+            Name of the family on the right side.
+
+        stage_ref_time : float
+            Reference period on the simulated azimuthal extension.
+
+        nbband : int
+            Number of points in the radial distribution to compute.
+
+        c : float
+            Parameter for the distribution of radial points.
+
+    '''
+
+    ETC.setBC_stage_red_hyb(t, left, right, stage_ref_time, nbband=nbband, c=c)
+
+def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
+    valve_ref_mflow=None, valve_relax=0.1, ReferenceValues=None,
+    TurboConfiguration=None, method='globborder_dict'):
+    '''
+    Set an outflow boundary condition of type ``outradeq``.
+    The pivot index is 1 and cannot be changed.
+
+    .. important : This function has a dependency to the ETC module.
 
     Parameters
     ----------
@@ -2374,197 +2514,322 @@ def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
             Name of the family on which the boundary condition will be imposed
 
         valve_type : int
-            Type of valve law
+            Valve law type. See `elsA documentation about valve laws <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/STB-97020/Textes/Boundary/Valve.html>`_.
+            If 0, not valve law is used. In that case, **valve_ref_pres** corresponds
+            to the prescribed static pressure at the pivot index, and **valve_ref_mflow**
+            and *valve_relax** are not used.
 
-        valve_ref_pres : float
-            Reference pressure for the valve boundary condition.
+        valve_ref_pres : :py:class:`float` or :py:obj:`None`
+            Reference static pressure at the pivot index.
+            If :py:obj:`None`, the value ``ReferenceValues['Pressure']`` is taken.
 
-        valve_ref_mflow : float
-            Reference massflow for the valve boundary condition.
+        valve_ref_mflow : :py:class:`float` or :py:obj:`None`
+            Reference mass flow rate.
+            If :py:obj:`None`, the value ``ReferenceValues['MassFlow']`` is taken
+            and normalized using information in **TurboConfiguration** to get
+            the corresponding mass flow rate on the section of **FamilyName**
+            actually simulated.
 
         valve_relax : float
-            Relaxation coefficient for the valve boundary condition.
+            'Relaxation' parameter of the valve law. The default value is 0.1.
+            Be careful:
 
-            .. warning:: This is a real relaxation coefficient for valve laws 1
-                and 2, but it has the dimension of a pressure for laws 3, 4 and
-                5
+            * for laws 1, 2 and 5, it is a real Relaxation coefficient without
+              dimension.
 
-        nbband : int
-            Number of points in the radial distribution to compute.
+            * for law 3, it is a value homogeneous with a pressure divided
+              by a mass flow.
 
-    See also
-    --------
+            * for law 4, it is a value homogeneous with a pressure.
 
-        computeRadialDistribution
+        ReferenceValues : :py:class:`dict` or :py:obj:`None`
+            as produced by :py:func:`computeReferenceValues`
+
+        TurboConfiguration : :py:class:`dict` or :py:obj:`None`
+            as produced by :py:func:`getTurboConfiguration`
+
+        method : optional, str
+            Method used to compute the globborder. The default value is
+            ``'globborder_dict'``, it corresponds to the ETC topological
+            algorithm.
+            Another possible value is ``'poswin'`` to use the geometrical
+            algorithm in *turbo* (in this case, *turbo* environment must be
+            sourced).
 
     '''
 
-    # Delete previous BC if it exists
-    for bc in C.getFamilyBCs(t, FamilyName):
-        I._rmNodesByName(bc, '.Solver#BC')
-    # Create Family BC
-    family_node = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
-    I._rmNodesByName(family_node, '.Solver#BC')
-    I.newFamilyBC(value='BCOutflowSubsonic', parent=family_node)
+    ETC.setBC_outradeq(t, FamilyName, valve_type=valve_type, valve_ref_pres=valve_ref_pres,
+        valve_ref_mflow=valve_ref_mflow, valve_relax=valve_relax, ReferenceValues=ReferenceValues,
+        TurboConfiguration=TurboConfiguration, method=method)
 
-    radDistFile = 'radialDist_{}_{}.plt'.format(FamilyName, nbband)
-    radDist = computeRadialDistribution(t, FamilyName, nbband)
-    C.convertPyTree2File(radDist, radDistFile)
-
-    J.set(family_node, '.Solver#BC',
-            type            = 'outradeqhyb',
-            indpiv          = 1,
-            hray_tolerance  = 1e-12,
-            valve_type      = valve_type,
-            valve_ref_pres  = valve_ref_pres,
-            valve_ref_mflow = valve_ref_mflow,
-            valve_relax     = valve_relax,
-            glob_border_cur = FamilyName,
-            file            = radDistFile,
-            format          = 'bin_tp',
-        )
-
-def setBC_MxPl_hyb(t, left, right, nbband=100):
+def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
+    valve_ref_mflow, valve_relax=0.1, nbband=100, c=None):
     '''
-    Set a hybrid mixing plane condition between families **left** and **right**.
+    Set an outflow boundary condition of type ``outradeqhyb``.
+    The pivot index is 1 and cannot be changed.
 
-    .. important:: The hybrid globborder conditions are availble since elsA v5.0.03.
+    .. important : This function has a dependency to the ETC module.
 
     Parameters
     ----------
 
         t : PyTree
-            tree to modify
-
-        left : str
-            Name of the first family corresponding to one side of the interface.
-
-        right : str
-            Name of the second family, see **left**
-
-        nbband : int
-            Number of points in the radial distribution to compute.
-
-    See also
-    --------
-
-        setBC_MxPl_hyb_OneSide, computeRadialDistribution
-
-    '''
-
-    setBC_MxPl_hyb_OneSide(t, left, right, nbband)
-    setBC_MxPl_hyb_OneSide(t, right, left, nbband)
-    for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
-        I._rmNodesByType(gc, 'FamilyBC_t')
-
-def setBC_MxPl_hyb_OneSide(t, FamCur, FamOpp, nbband):
-    '''
-    Set a hybrid mixing plane condition for the family **FamCur**.
-
-    .. important:: This function is intended to be called twice by
-        :py:func:`setBC_MxPl_hyb`, once for **FamCur** (with the opposite family
-        **FamOpp**) and once for **FamOpp** (with the opposite family **FamCur**)
-
-    Parameters
-    ----------
-
-        t : PyTree
-            tree to modify
-
-        FamCur : str
-            Name of the first family corresponding to one side of the interface.
-
-        FamOpp : str
-            Name of the second family, on the opposite side of **FamCur**.
-
-        nbband : int
-            Number of points in the radial distribution to compute.
-
-    See also
-    --------
-    setBC_MxPl_hyb, computeRadialDistribution
-    '''
-
-    for bc in C.getFamilyBCs(t, FamCur):
-        bcName = I.getName(bc)
-        PointRange = I.getNodeFromType(bc, 'IndexRange_t')
-        zone = I.getParentFromType(t, bc, 'Zone_t')
-        I.rmNode(t, bc)
-        zgc = I.getNodeFromType(zone, 'ZoneGridConnectivity_t')
-        gc = I.newGridConnectivity(name=bcName, donorName=I.getName(zone),
-                                    ctype='Abutting', parent=zgc)
-        I._addChild(gc, PointRange)
-        I.createChild(gc, 'FamilyName', 'FamilyName_t', value=FamCur)
-
-    radDistFileFamCur = 'radialDist_{}_{}.plt'.format(FamCur, nbband)
-    radDistFamCur = computeRadialDistribution(t, FamCur, nbband)
-    C.convertPyTree2File(radDistFamCur, radDistFileFamCur)
-
-    for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
-        fam = I.getValue(I.getNodeFromType(gc, 'FamilyName_t'))
-        if fam == FamCur:
-            J.set(gc, '.Solver#Property',
-                    globborder      = FamCur,
-                    globborderdonor = FamOpp,
-                    file            = radDistFileFamCur,
-                    type            = 'stage_mxpl_hyb',
-                    mxpl_dirtype    = 'axial',
-                    mxpl_avermean   = 'riemann',
-                    mxpl_avertur    = 'conservative',
-                    mxpl_num        = 'characteristic',
-                    mxpl_ari_sensor = 0.5,
-                    hray_tolerance  = 1e-12,
-                    jtype           = 'nomatch_rad_line',
-                    nomatch_special = 'none',
-                    format          = 'bin_tp'
-                )
-
-def computeRadialDistribution(t, FamilyName, nbband):
-    '''
-    Compute a distribution of radius values according the density of cells for
-    the BCs of family **FamilyName**.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            mesh tree with families
+            Tree to modify
 
         FamilyName : str
-            Name of the BC family to extract to compute the radial repartition.
+            Name of the family on which the boundary condition will be imposed
+
+        valve_type : int
+            Valve law type. See `elsA documentation about valve laws <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/STB-97020/Textes/Boundary/Valve.html>`_.
+            If 0, not valve law is used. In that case, **valve_ref_pres** corresponds
+            to the prescribed static pressure at the pivot index, and **valve_ref_mflow**
+            and *valve_relax** are not used.
+
+        valve_ref_pres : float
+            Reference static pressure at the pivot index.
+
+        valve_ref_mflow : float
+            Reference mass flow rate.
+
+        valve_relax : float
+            'Relaxation' parameter of the valve law. The default value is 0.1.
+            Be careful:
+
+            * for laws 1, 2 and 5, it is a real Relaxation coefficient without
+              dimension.
+
+            * for law 3, it is a value homogeneous with a pressure divided
+              by a mass flow.
+
+            * for law 4, it is a value homogeneous with a pressure.
 
         nbband : int
-            Number of values in the returned repartition. It is used to decimate
-            the list of the radii at the center of each cell. For a structured
-            grid, should be ideally the number of cells in the radial direction.
+            Number of points in the radial distribution to compute.
 
-    Returns
-    -------
-
-        zone : PyTree
-            simple tree containing only a one dimension array called 'radius'
+        c : float
+            Parameter for the distribution of radial points.
 
     '''
-    bcNodes = C.extractBCOfName(t, 'FamilySpecified:{0}'.format(FamilyName))
-    # Compute radius and put this value at cell centers
-    C._initVars(bcNodes, '{radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
-    bcNodes = C.node2Center(bcNodes, 'radius')
-    I._rmNodesByName(bcNodes, I.__FlowSolutionNodes__)
-    # Put all the radii values in a list
-    radius = []
-    for bc in bcNodes:
-        radius += list(I.getValue(I.getNodeFromName(bc, 'radius')).flatten())
-    # Sort and transform to numpy array
-    step = (len(radius)-1) / float(nbband-1)
-    ind = [int(np.ceil(step*n)) for n in range(nbband)]
-    radius = np.array(sorted(radius))[ind]
-    assert radius.size == nbband
-    # Convert to PyTree
-    zone = I.newZone('Zone1', [[len(radius)],[1],[1]], 'Structured')
-    FS = I.newFlowSolution(parent=zone)
-    I.newDataArray('radius', value=radius, parent=FS)
 
-    return zone
+    ETC.setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
+        valve_ref_mflow, valve_relax=valve_relax, nbband=nbband, c=c)
+
+
+################################################################################
+#######  Boundary conditions without ETC dependency  ###########################
+#######         WARNING: VALIDATION REQUIRED         ###########################
+################################################################################
+
+# def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
+#     valve_ref_mflow, valve_relax=0.1, nbband=100):
+#     '''
+#     Set an outflow boundary condition of type ``outradeqhyb``.
+#
+#     .. important:: The hybrid globborder conditions are availble since elsA v5.0.03.
+#
+#     .. note:: see `elsA Tutorial about valve laws <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/STB-97020/Textes/Boundary/Valve.html>`_
+#
+#     Parameters
+#     ----------
+#
+#         t : PyTree
+#             Tree to modify
+#
+#         FamilyName : str
+#             Name of the family on which the boundary condition will be imposed
+#
+#         valve_type : int
+#             Type of valve law
+#
+#         valve_ref_pres : float
+#             Reference pressure for the valve boundary condition.
+#
+#         valve_ref_mflow : float
+#             Reference massflow for the valve boundary condition.
+#
+#         valve_relax : float
+#             Relaxation coefficient for the valve boundary condition.
+#
+#             .. warning:: This is a real relaxation coefficient for valve laws 1
+#                 and 2, but it has the dimension of a pressure for laws 3, 4 and
+#                 5
+#
+#         nbband : int
+#             Number of points in the radial distribution to compute.
+#
+#     See also
+#     --------
+#
+#         computeRadialDistribution
+#
+#     '''
+#
+#     # Delete previous BC if it exists
+#     for bc in C.getFamilyBCs(t, FamilyName):
+#         I._rmNodesByName(bc, '.Solver#BC')
+#     # Create Family BC
+#     family_node = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+#     I._rmNodesByName(family_node, '.Solver#BC')
+#     I.newFamilyBC(value='BCOutflowSubsonic', parent=family_node)
+#
+#     radDistFile = 'radialDist_{}_{}.plt'.format(FamilyName, nbband)
+#     radDist = computeRadialDistribution(t, FamilyName, nbband)
+#     C.convertPyTree2File(radDist, radDistFile)
+#
+#     J.set(family_node, '.Solver#BC',
+#             type            = 'outradeqhyb',
+#             indpiv          = 1,
+#             hray_tolerance  = 1e-12,
+#             valve_type      = valve_type,
+#             valve_ref_pres  = valve_ref_pres,
+#             valve_ref_mflow = valve_ref_mflow,
+#             valve_relax     = valve_relax,
+#             glob_border_cur = FamilyName,
+#             file            = radDistFile,
+#             format          = 'bin_tp',
+#         )
+#
+# def setBC_MxPl_hyb(t, left, right, nbband=100):
+#     '''
+#     Set a hybrid mixing plane condition between families **left** and **right**.
+#
+#     .. important:: The hybrid globborder conditions are availble since elsA v5.0.03.
+#
+#     Parameters
+#     ----------
+#
+#         t : PyTree
+#             tree to modify
+#
+#         left : str
+#             Name of the first family corresponding to one side of the interface.
+#
+#         right : str
+#             Name of the second family, see **left**
+#
+#         nbband : int
+#             Number of points in the radial distribution to compute.
+#
+#     See also
+#     --------
+#
+#         setBC_MxPl_hyb_OneSide, computeRadialDistribution
+#
+#     '''
+#
+#     setBC_MxPl_hyb_OneSide(t, left, right, nbband)
+#     setBC_MxPl_hyb_OneSide(t, right, left, nbband)
+#     for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
+#         I._rmNodesByType(gc, 'FamilyBC_t')
+#
+# def setBC_MxPl_hyb_OneSide(t, FamCur, FamOpp, nbband):
+#     '''
+#     Set a hybrid mixing plane condition for the family **FamCur**.
+#
+#     .. important:: This function is intended to be called twice by
+#         :py:func:`setBC_MxPl_hyb`, once for **FamCur** (with the opposite family
+#         **FamOpp**) and once for **FamOpp** (with the opposite family **FamCur**)
+#
+#     Parameters
+#     ----------
+#
+#         t : PyTree
+#             tree to modify
+#
+#         FamCur : str
+#             Name of the first family corresponding to one side of the interface.
+#
+#         FamOpp : str
+#             Name of the second family, on the opposite side of **FamCur**.
+#
+#         nbband : int
+#             Number of points in the radial distribution to compute.
+#
+#     See also
+#     --------
+#     setBC_MxPl_hyb, computeRadialDistribution
+#     '''
+#
+#     for bc in C.getFamilyBCs(t, FamCur):
+#         bcName = I.getName(bc)
+#         PointRange = I.getNodeFromType(bc, 'IndexRange_t')
+#         zone = I.getParentFromType(t, bc, 'Zone_t')
+#         I.rmNode(t, bc)
+#         zgc = I.getNodeFromType(zone, 'ZoneGridConnectivity_t')
+#         gc = I.newGridConnectivity(name=bcName, donorName=I.getName(zone),
+#                                     ctype='Abutting', parent=zgc)
+#         I._addChild(gc, PointRange)
+#         I.createChild(gc, 'FamilyName', 'FamilyName_t', value=FamCur)
+#
+#     radDistFileFamCur = 'radialDist_{}_{}.plt'.format(FamCur, nbband)
+#     radDistFamCur = computeRadialDistribution(t, FamCur, nbband)
+#     C.convertPyTree2File(radDistFamCur, radDistFileFamCur)
+#
+#     for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
+#         fam = I.getValue(I.getNodeFromType(gc, 'FamilyName_t'))
+#         if fam == FamCur:
+#             J.set(gc, '.Solver#Property',
+#                     globborder      = FamCur,
+#                     globborderdonor = FamOpp,
+#                     file            = radDistFileFamCur,
+#                     type            = 'stage_mxpl_hyb',
+#                     mxpl_dirtype    = 'axial',
+#                     mxpl_avermean   = 'riemann',
+#                     mxpl_avertur    = 'conservative',
+#                     mxpl_num        = 'characteristic',
+#                     mxpl_ari_sensor = 0.5,
+#                     hray_tolerance  = 1e-12,
+#                     jtype           = 'nomatch_rad_line',
+#                     nomatch_special = 'none',
+#                     format          = 'bin_tp'
+#                 )
+#
+# def computeRadialDistribution(t, FamilyName, nbband):
+#     '''
+#     Compute a distribution of radius values according the density of cells for
+#     the BCs of family **FamilyName**.
+#
+#     Parameters
+#     ----------
+#
+#         t : PyTree
+#             mesh tree with families
+#
+#         FamilyName : str
+#             Name of the BC family to extract to compute the radial repartition.
+#
+#         nbband : int
+#             Number of values in the returned repartition. It is used to decimate
+#             the list of the radii at the center of each cell. For a structured
+#             grid, should be ideally the number of cells in the radial direction.
+#
+#     Returns
+#     -------
+#
+#         zone : PyTree
+#             simple tree containing only a one dimension array called 'radius'
+#
+#     '''
+#     bcNodes = C.extractBCOfName(t, 'FamilySpecified:{0}'.format(FamilyName))
+#     # Compute radius and put this value at cell centers
+#     C._initVars(bcNodes, '{radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
+#     bcNodes = C.node2Center(bcNodes, 'radius')
+#     I._rmNodesByName(bcNodes, I.__FlowSolutionNodes__)
+#     # Put all the radii values in a list
+#     radius = []
+#     for bc in bcNodes:
+#         radius += list(I.getValue(I.getNodeFromName(bc, 'radius')).flatten())
+#     # Sort and transform to numpy array
+#     step = (len(radius)-1) / float(nbband-1)
+#     ind = [int(np.ceil(step*n)) for n in range(nbband)]
+#     radius = np.array(sorted(radius))[ind]
+#     assert radius.size == nbband
+#     # Convert to PyTree
+#     zone = I.newZone('Zone1', [[len(radius)],[1],[1]], 'Structured')
+#     FS = I.newFlowSolution(parent=zone)
+#     I.newDataArray('radius', value=radius, parent=FS)
+#
+#     return zone
 
 ################################################################################
 #############  Multiple jobs submission  #######################################
