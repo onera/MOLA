@@ -2517,7 +2517,7 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
             Valve law type. See `elsA documentation about valve laws <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/STB-97020/Textes/Boundary/Valve.html>`_.
             If 0, not valve law is used. In that case, **valve_ref_pres** corresponds
             to the prescribed static pressure at the pivot index, and **valve_ref_mflow**
-            and *valve_relax** are not used.
+            and **valve_relax** are not used.
 
         valve_ref_pres : :py:class:`float` or :py:obj:`None`
             Reference static pressure at the pivot index.
@@ -2581,9 +2581,7 @@ def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
 
         valve_type : int
             Valve law type. See `elsA documentation about valve laws <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/STB-97020/Textes/Boundary/Valve.html>`_.
-            If 0, not valve law is used. In that case, **valve_ref_pres** corresponds
-            to the prescribed static pressure at the pivot index, and **valve_ref_mflow**
-            and *valve_relax** are not used.
+            Cannot be 0.
 
         valve_ref_pres : float
             Reference static pressure at the pivot index.

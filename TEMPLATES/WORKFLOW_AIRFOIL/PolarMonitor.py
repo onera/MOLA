@@ -14,4 +14,4 @@ print(pprint.pformat(IntegralLoads))
 DistributedLoads = WA.getCaseDistributions(config, CASE_LABEL)
 WA.getCaseFields(config, CASE_LABEL)
 #
-# WA.compareAgainstXFoil('naca 4416', config, CASE_LABEL, DistributedLoads)
+WA.compareAgainstXFoil(config.FILE_GEOMETRY, config, CASE_LABEL, DistributedLoads)

@@ -2005,8 +2005,10 @@ def compareAgainstXFoil(AirfoilKeyword, config, CASE_LABEL, DistributedLoads,
 
 
     fig, ax = plt.subplots(1,1,dpi=150)
-    ax.plot(DistributedLoads['CoordinateX'],DistributedLoads[Field2Compare], label='CFD')
-    ax.plot(XFoilResults['x'].flatten(), XFoilResults[Field2Compare].flatten(), label='XFoil')
+    ax.plot(XFoilResults['x'].flatten(), XFoilResults[Field2Compare].flatten(),
+        linestyle='None', marker='o',mfc='None',color='k', label='XFoil')
+    ax.plot(DistributedLoads['CoordinateX'],DistributedLoads[Field2Compare],
+            color='red', label='CFD')
     if invert_yaxis: ax.invert_yaxis()
     ax.set_ylabel(ylabel)
     ax.set_xlabel('$x/c$')
@@ -2018,7 +2020,7 @@ def compareAgainstXFoil(AirfoilKeyword, config, CASE_LABEL, DistributedLoads,
     ax.xaxis.grid(True, which='minor',linestyle=':')
     ax.yaxis.grid(True, which='major')
     ax.yaxis.grid(True, which='minor',linestyle=':')
-    ax.legend(loc='upper left')
+    ax.legend(loc='best')
     plt.tight_layout()
     plt.show()
 
