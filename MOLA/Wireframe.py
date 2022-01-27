@@ -4658,8 +4658,7 @@ def writeAirfoilInSeligFormat(airfoil, filename='foil.dat'):
             the name of the file to produce
     '''
     foil = I.copyRef(airfoil)
-    putAirfoilClockwiseOrientedAndStartingFromTrailingEdge(foil)
-    T._reorder(foil,(-1,2,3))
+    if is2DCurveClockwiseOriented(foil): T._reorder(foil,(-1,2,3))
     X, Y = J.getxy(foil)
     with open(filename,'w') as f:
         f.write(foil[0]+'\n')

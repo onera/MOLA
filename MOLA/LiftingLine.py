@@ -2677,12 +2677,12 @@ def addAccurateSectionArea2LiftingLine(LiftingLine, PyZonePolars):
 
 
 def plotStructPyZonePolars(PyZonePolars, addiationalQuantities=[],
-        filesuffix=''):
+        filesuffix='', fileformat='svg'):
     '''
     Convenient matplotlib function employed for plotting 2D airfoil's polar
     characteristics.
 
-    It produces a set of figures in PDF format.
+    It produces a set of figures in requested format.
 
     Parameters
     ----------
@@ -2697,7 +2697,17 @@ def plotStructPyZonePolars(PyZonePolars, addiationalQuantities=[],
             ``FlowSolution`` container.
 
         filesuffix : str
-            suffix to append to new PDF files produced by the function
+            suffix to append to new figure files produced by the function
+
+        fileformat : str
+            requested file format, that must be compatible with matplotlib. Some
+            examples are: ``'svg'``, ``'pdf'``, ``'png'``
+
+    Returns
+    -------
+
+        None : None
+            A series of files (figures and legends) are written
     '''
 
     import matplotlib.pyplot as plt
@@ -2758,14 +2768,14 @@ def plotStructPyZonePolars(PyZonePolars, addiationalQuantities=[],
 
         plt.sca(ax1)
         plt.tight_layout()
-        filename = 'PolarsCL_%s%s.pdf'%(FoilID,filesuffix)
+        filename = 'PolarsCL_%s%s.%s'%(FoilID,filesuffix,fileformat)
         print('Saving %s ...'%filename)
         plt.savefig(filename)
         print('ok')
 
         plt.sca(ax2)
         plt.tight_layout()
-        filename = 'PolarsEff_%s%s.pdf'%(FoilID,filesuffix)
+        filename = 'PolarsEff_%s%s.%s'%(FoilID,filesuffix,fileformat)
         print('Saving %s ...'%filename)
         plt.savefig(filename)
         print('ok')
@@ -2773,7 +2783,7 @@ def plotStructPyZonePolars(PyZonePolars, addiationalQuantities=[],
         plt.sca(ax3)
         ax3.legend(loc='upper left', ncol=4, bbox_to_anchor=(0.00, 1.00),bbox_transform=fig3.transFigure, title=FoilID, frameon=False)
         plt.axis('off')
-        filename = 'PolarsLegend_%s%s.pdf'%(FoilID,filesuffix)
+        filename = 'PolarsLegend_%s%s.%s'%(FoilID,filesuffix,fileformat)
         print('Saving %s ...'%filename)
         plt.savefig(filename)
         print('ok')
@@ -2797,7 +2807,7 @@ def plotStructPyZonePolars(PyZonePolars, addiationalQuantities=[],
             ax1.set_title(FoilID)
 
             plt.tight_layout()
-            filename = 'Polars%s_%s%s.pdf'%(addQty,FoilID,filesuffix)
+            filename = 'Polars%s_%s%s.%s'%(addQty,FoilID,filesuffix,fileformat)
             print('Saving %s ...'%filename)
             plt.savefig(filename)
             print('ok')
