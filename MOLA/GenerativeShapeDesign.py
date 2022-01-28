@@ -2202,7 +2202,6 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
                                                               # this value (in deg)
                                                               # then use "O" topology
 
-
                 TEclosureTolerance= 3.e-5,        # Euclidean distance (in chord
                                                   # units) used to determine if
                                                   # provided airfoils is open or
@@ -2210,6 +2209,7 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
                                                   # determine if additional wake
                                                   # zone has to be built or not
                     )
+
 
     Returns
     -------
