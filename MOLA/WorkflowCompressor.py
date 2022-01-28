@@ -1046,7 +1046,7 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
             if stat not in CoprocessOptions:
                 RequestedStatistics.append( stat )
     except KeyError:
-        RequestedStatistics = TurboStatistics
+        CoprocessOptions['RequestedStatistics'] = TurboStatistics
 
 
     ReferenceValues = PRE.computeReferenceValues(FluidProperties,

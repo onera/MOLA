@@ -12,10 +12,10 @@
 
 ###############################################################################
 # -------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ------------------ #
-if [ -f "/tmp_user/sator/lbernard/MOLA/Dev/env_MOLA.sh" ]; then
-    source /tmp_user/sator/lbernard/MOLA/Dev/env_MOLA.sh
+if [ -f "/tmp_user/sator/lbernard/MOLA/v1.13/env_MOLA.sh" ]; then
+    source /tmp_user/sator/lbernard/MOLA/v1.13/env_MOLA.sh
 else
-    source /stck/lbernard/MOLA/Dev/env_MOLA.sh
+    source /stck/lbernard/MOLA/v1.13/env_MOLA.sh
 fi
 ###############################################################################
 
