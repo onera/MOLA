@@ -1,21 +1,7 @@
 #!/bin/bash/python
 #Encoding:UTF8
 """
-Author : Michel Bouchard
-Contact : michel.bouchard@onera.fr, michel-j.bouchard@intradef.gouv.fr
-Name : Models.operators.py
 Description : Submodule for the automatic computation of models-related variables
-History :
-Date       | version | git rev. | Comment
-___________|_________|__________|_______________________________________#
-2021.12.16 | v2.0.01 |          | Modification to not perform the same computation twice
-2021.12.11 | v2.0.00 | ea8e5b3  | Translation for MOLA
-2021.09.01 | v2.0.00 |          | Architecture correction sparing an initial code analysis,
-           |         |          | and algorithm correction for cases when several models able
-           |         |          | to compute the same variable are passed to the operator
-2021.06.01 | v1.0.00 |          | Creation
-           |         |          |
-
 """
 #__________Generic modules_____________________________________________#
 import sys
@@ -34,28 +20,41 @@ verbose={0:0}
 
 def set_verbose(level,scale=0):
   """
-  Sets the verbosity level. Messages are only printed to stdout if the verbosity level is greater than
-  the verbosity need of the printv function.
+  Sets the verbosity level. Messages are only printed to stdout if the verbosity
+  level is greater than the verbosity need of the printv function.
 
-  Argument
-  --------
-    scale : string or int, category of the messages whose verbose level must be set
-    level : int, verbosity level henceforth
+  Parameters
+  ----------
+
+    scale : :py:class:`str` or :py:class:`int`
+      category of the messages whose verbose level must be set
+
+    level : int
+      verbosity level henceforth
   """
   verbose[scale]=level
 
 
 def printv(string,v=0,s=0,error=False):
   """
-  Prints the character string <string> if the verbosity level allows it,
-  or, if <error> is True, to standard error.
+  Prints the character string **string** if the verbosity level allows it,
+  or, if **error** is :py:obj:`True`, to standard error.
 
-  Arguments
-  ---------
-    string : string, to be printed. Do not forget to end lines with  if you do not want your stdout to be messy :)
-    v      : int, verbosity level beyond which string must be printed
-    s      : scale, category of messages you want printed
-    error  : bool, if True, print to stderr, whether the verbosity level allows it or not
+  Parameters
+  ----------
+
+    string : str
+      to be printed. Do not forget to end lines with if you do not want your
+      stdout to be messy
+
+    v : int
+      verbosity level beyond which string must be printed
+
+    s : scale
+      category of messages you want printed
+
+    error : bool
+      if :py:obj:`True`, print to stderr, whether the verbosity level allows it or not
 
   """
   if not error:
@@ -71,11 +70,13 @@ def printTreeV(tree,v=0):
   """
   Prints a Python tree if the verbose level allows it.
 
-  Arguments
-  ---------
-    tree : Python tree
-    v    : verbosity level beyond which tree must be printed
+  Parameters
+  ----------
 
+    tree : PyTree
+
+    v : int
+      verbosity level beyond which tree must be printed
   """
   if v<=verbose[0]:
     I.printTree(tree)
@@ -98,9 +99,7 @@ class operator(object):
   """
   Class of objects that automatically performs operations using given models and a dataset.
 
-  See also
-  --------
-    operator.__init__
+
   """
   def __init__(self,models): #,adimensionnement=False):
     """
@@ -108,12 +107,10 @@ class operator(object):
 
     Parameters
     ----------
-      models : list(.base.model), :py:class:`list` of model objects that the operator must use to perform the computations.
-               any object in this list must inherit from .base.model.
+      models : list
+        :py:class:`list` of model objects that the operator must use to perform
+        the computations. Any object in this list must inherit from :py:class:`MOLA.Models.base.model`
 
-    Returns
-    -------
-      self : operator object which can compute variables using models
     """
     self.models=models
     self.n_models=len(self.models)
@@ -130,22 +127,26 @@ class operator(object):
 
   def compute(self,variable_name,replace=False):
     """
-    Computes the value of the variable asked for by name <variable_name> if the models available allow it.
-    In case of a conflict with an existing variable in the dataset, replaces it if <replace> is True,
-    and does nothing otherwise.
+    Computes the value of the variable asked for by name **variable_name** if the
+    models available allow it.
+
+    In case of a conflict with an existing variable in the dataset, replaces it
+    if **replace** is :py:obj:`True`, and does nothing otherwise.
     The chain of operations to perform is automatically determined using available models.
     In order to compute currently inaccessible variables, more models can be supplied using addModels,
     or more functions to one of the available models, using model.supplyFunctions.
 
-    Arguments
-    ---------
-      variable_name : string, name of the variable to be computed (must lead to at least
-                      one available operation of at least one available model).
-      replace       : bool, what to do if the variable already exists in the working dataset
+    Parameters
+    ----------
 
-    See also
-    --------
-      get_data
+      variable_name : str
+        name of the variable to be computed (must lead to at least
+        one available operation of at least one available model)
+
+      replace : bool
+        what to do if the variable already exists in the working dataset
+
+    .. seealso:: get_data
     """
 
     def _get_node_model(node):
@@ -216,24 +217,29 @@ class operator(object):
     Erases the data given by name <variable_name> from the available data
     from which the current operator can compute other variables.
 
-    Arguments
-    ---------
-      variable_name : string, name of the data to erase
+    Parameters
+    ----------
+      variable_name : str
+        name of the data to erase
     """
     self.data.pop(variable_name)
 
 
   def get_data(self,variable_name):
     """
-    Returns the value associated to the name <variable_name> in the current dataset.
+    Returns the value associated to the name **variable_name** in the current dataset.
 
-    Arguments
-    ---------
-      variable_name : string, name of the variable to get
+    Parameters
+    ----------
 
-    Return
-    ------
-      value         : float of np.ndarray, value associated to <variable_name>
+      variable_name : str
+        name of the variable to get
+
+    Returns
+    -------
+
+      value : :py:class:`float` of :py:class:`np.ndarray`
+        value associated to **variable_name**
     """
     if not variable_name in self.data.keys():
       raise Exception("Attention : aucune donnée ne correspond au nom de variable demandé. Fin du processus.")
@@ -243,14 +249,15 @@ class operator(object):
     """
     Returns the values associated to one or several names.
 
-    Arguments
-    ---------
-      variables_names : list(string), names of the variables to get
+    Parameters
+    ----------
+      variables_names : :py:class:`list` of :py:class:`str`
+        names of the variables to get
 
-    Return
-    ------
-      values          : dictionary of floats of np.ndarrays, values associated to <variables_names>,
-                        indexed on <variables_names>
+    Returns
+    -------
+      values : dict
+        values associated to **variables_names**, indexed on **variables_names**
     """
     dataset=dict()
     for variable_name in variables_names:
@@ -260,8 +267,8 @@ class operator(object):
 
   def is_computable(self,variable_name):
     """
-    Checks whether a variable asked for by name <variable_name> is computable using the operations
-    available to the current operator through its models.
+    Checks whether a variable asked for by name **variable_name** is computable
+    using the operations available to the current operator through its models.
 
     This method builds the operations tree self.operations_tree (yes, truly), which contains
     the paths through several operations that the compute method should use to obtain the result.
@@ -272,14 +279,16 @@ class operator(object):
     consumption of this module, it would be interesting to commit the result of a computation
     to memory if it must be reused, instead of recomputing.
 
-    Arguments
-    ---------
-      variable_name : string, name of the variable whose computability is checked
+    Parameters
+    ----------
+      variable_name : str
+        name of the variable whose computability is checked
 
     Returns
     -------
-      is_computable : bool, whether an operations tree can lead to the variable asked for or not.
-                      more importantly, the method builds the internal attribute self.operations_tree (see above).
+      is_computable : bool
+        whether an operations tree can lead to the variable asked for or not.
+        more importantly, the method builds the internal attribute self.operations_tree (see above).
     """
 
     def _define_computabilityInTree(variable_node,computability,error_string='', v=0):
@@ -334,14 +343,14 @@ class operator(object):
                 if local_computability:
                   _define_computabilityInTree(variable_node, True)
                   return
-                
+
           if not operation_exists:
             _define_computabilityInTree(variable_node, False, "La variable demandée par la chaîne de calcul {0} ne peut être calculée, parce qu'aucune opération définie ne permet son obtention.\n".format(variable_node[0]),v=1)
             return
-          
+
         _define_computabilityInTree(variable_node, False, "Aucune chaîne de calcul ne permet de calculer la variable {0}, bien que des opérations pour le faire existent. Les données ou les opérations disponibles sont insuffisantes.\n".format(variable_node[0]))
         return
-        
+
     # Initialisation de récursivité de _is_computable
     self.errors=''
     base=I.getBases(self.operations_tree)[0]
@@ -359,13 +368,17 @@ class operator(object):
     """
     Checks whether any data exists in the current dataset under the name <variable_name>.
 
-    Argument
-    --------
-      variable_name : string, name of the variable to check
+    Parameters
+    ----------
+
+      variable_name : str
+        name of the variable to check
 
     Returns
     -------
-      availability  : bool, whether there exists a valueassociated to the name <variable_name>.
+
+      availability : bool
+        whether there exists a valueassociated to the name **variable_name**
     """
     availability=False
     if variable_name in self.data.keys():
@@ -374,23 +387,30 @@ class operator(object):
 
   def set_data(self,variable_name,value):
     """
-    Defines the value associated to the name <variable_name> as being <value>.
+    Defines the value associated to the name **variable_name** as being **value**
 
-    Argument
-    --------
-      variable_name : string, name of the variable to define
-      value         : float or np.ndarray, value to assign
+    Parameters
+    ----------
+
+      variable_name : str
+        name of the variable to define
+
+      value : :py:class:`float` or :py:class:`np.ndarray`
+        value to assign
     """
     self.data.update({variable_name:value})
 
   def set_dataset(self,dataset):
     """
     Defines the values associated to several variables names.
-    Argument
-    --------
-      dataset : dict, named values to add to the current dataset.
-    Note
-    ----
+
+    Parameters
+    ----------
+
+      dataset : dict
+        named values to add to the current dataset.
+
+    .. note::
       The dataset passed through this method is supplied to the current dataset, but it does not replace it :
       if a value is newly defined, the new value will thereafter be taken into account,
       but all old valued that are not newly defined will remain.
@@ -406,6 +426,9 @@ class operator(object):
     self.operations_tree=C.newPyTree(['Base'])
 
   def initializeComputedVariables(self):
+    '''
+    as name indicates
+    '''
     self.computed_variables=list()
 
 
@@ -457,8 +480,8 @@ class PyTree_operator(operator):
     Computes the value of the variable asked for by name <variable_name> in any zone of the working tree if possible.
     Calls the compute method inherited from the operator class.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
       variable_name : string, name of the variable to be computed (must lead to at least
                       one available operation of at least one available model).
       replace       : bool, what to do if the variable already exists in the working dataset
@@ -482,8 +505,8 @@ class PyTree_operator(operator):
     """
     Erases the data given by name <variable_name> from the current FlowSolution node.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
       variable_name : string, name of the data to erase
     """
     I._rmNodesByNameAndType(self.current_containers,variable_name,'DataArray_t')
@@ -502,13 +525,17 @@ class PyTree_operator(operator):
     """
     Returns the data registered in the current FlowSolution node under the name <variable_name>.
 
-    Argument
-    --------
-      variable_name : string, name of the variable node which value is returned
+    Parameter
+    ---------
+
+      variable_name : str
+        name of the variable node which value is returned
 
     Returns
     -------
-      value         : np.ndarray, value found in the DataArray_t node named after <variable_name>
+
+      value : np.ndarray
+        value found in the DataArray_t node named after <variable_name>
     """
     return I.getNodeFromNameAndType(self.current_containers,variable_name,'DataArray_t')[1]
 
@@ -534,8 +561,8 @@ class PyTree_operator(operator):
     """
     Rename a variable given by name <initial_name> into <new_name>.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
       initial_name : string, current name of the variable to rename
       new_name     : string, name of the variable after the call of this method
     """
@@ -546,9 +573,11 @@ class PyTree_operator(operator):
     """
     Sets the working tree.
 
-    Argument
-    --------
-      tree : PyTree, tree on which this PyTree_operator will perform henceforth
+    Parameters
+    ----------
+
+      tree : PyTree
+        tree on which this PyTree_operator will perform henceforth
     """
     self.tree=tree
 
@@ -564,13 +593,19 @@ class PyTree_operator(operator):
 
   def set_data(self,variable_name,value):
     """
-    Defines the value associated to the name <variable_name> as being <value> in the current FlowSolution node.
-    .. No check is performed on the dimension of the array given.
+    Defines the value associated to the name **variable_name** as being **value**
+    in the current FlowSolution node.
 
-    Argument
-    --------
-      variable_name : string, name of the variable to define
-      value         : float or np.ndarray, value to assign
+    .. attention:: No check is performed on the dimension of the array given.
+
+    Parameters
+    ----------
+
+      variable_name : str
+        name of the variable to define
+
+      value : :py:class:`float` or :py:class:`np.ndarray`
+        value to assign
     """
     noeuds_variable=I.getNodesFromNameAndType(self.current_containers,variable_name,'DataArray_t')
     if noeuds_variable:
@@ -580,48 +615,36 @@ class PyTree_operator(operator):
 
   def set_dataLocalization(self,data_localization):
     """
-    Defines which data with which to carry out future computations using this PyTree_operator object, nodes or centers.
+    Defines which data with which to carry out future computations using this
+    PyTree_operator object, nodes or centers.
 
-    Argument
-    --------
-      data_localization : string, new data localization where the computations must be performed.
-                          Only the values 'Vertex' and 'CellCenter' are valid.
+    Parameters
+    ----------
+
+      data_localization : str
+        new data localization where the computations must be performed.
+        Only the values ``'Vertex'`` and ``'CellCenter'`` are valid.
     """
     if not self.data_localization in ['CellCenter','Vertex']:
       raise Exception("Le type de données fourni n'est pas valide. Les données peuvent seulement être définies aux centres cellules 'CellCenter' où aux noeuds du maillage 'Vertex' (comprenant les coordonnées)")
     self.data_localization=data_localization
 
-  # def set_FlowSolution_nodes_name(self,FlowSolution_nodes_name):
-  #   """
-  #   Modifies the names of the FlowSolution containers on which this PyTree_operator object acts.
-  #   .. Warning : this method modifies the values of attributes Converter.Internal.__FlowSolutionCenters__
-  #   and Converter.Internal.__FlowSolutionNodes__, depending on the current data localization.
-
-  #   Argument
-  #   --------
-  #     FlowSolution_nodes_name : string, new name of the containers in which to look to carry out computations
-
-  #   See also
-  #   --------
-  #     set_dataLocalization
-
-  #   """
-  #   if self.data_localization=='CellCenter':
-  #     I.__FlowSolutionCenters__=FlowSolution_nodes_name
-  #   elif self.data_localization=='Vertex':
-  #     I.__FlowSolutionNodes__=FlowSolution_nodes_name
 
   def is_available(self,variable_name):
     """
-    Checks whether any data exists in the current FlowSolution node under the name <variable_name>.
+    Checks whether any data exists in the current FlowSolution node under the name **variable_name**.
 
-    Argument
-    --------
-      variable_name : string, name of the variable to check
+    Parameters
+    ----------
+
+      variable_name : str
+        name of the variable to check
 
     Returns
     -------
-      availability  : bool, whether there exists a DataArray_t node with the name <variable_name>.
+
+      availability  : bool
+        whether there exists a DataArray_t node with the name **variable_name**
     """
     variable_nodes=I.getNodesFromNameAndType(self.current_containers,variable_name,'DataArray_t')
     availability=True
