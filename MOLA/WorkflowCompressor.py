@@ -1005,12 +1005,12 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
         YawAxis=[0.,0.,1.],
         PitchAxis=[0.,1.,0.]):
     '''
-    This function is the Compressor's equivalent of :py:func:`PRE.computeReferenceValues()`.
+    This function is the Compressor's equivalent of :func:`MOLA.Preprocess.computeReferenceValues`.
     The main difference is that in this case reference values are set through
     ``MassFlow``, total Pressure ``PressureStagnation``, total Temperature
     ``TemperatureStagnation`` and ``Surface``.
 
-    Please, refer to :py:func:`PRE.computeReferenceValues()` doc for more details.
+    Please, refer to :func:`MOLA.Preprocess.computeReferenceValues` doc for more details.
     '''
     # Fluid properties local shortcuts
     Gamma   = FluidProperties['Gamma']
@@ -1046,7 +1046,7 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
             if stat not in CoprocessOptions:
                 RequestedStatistics.append( stat )
     except KeyError:
-        RequestedStatistics = TurboStatistics
+        CoprocessOptions['RequestedStatistics'] = TurboStatistics
 
 
     ReferenceValues = PRE.computeReferenceValues(FluidProperties,
@@ -1472,7 +1472,8 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     See also
     --------
 
-    setBC_Walls, setBC_walladia, setBC_sym, setBC_nref,
+    setBC_Walls, setBC_walladia, setBC_wallslip, setBC_sym,
+    setBC_nref,
     setBC_inj1, setBC_inj1_uniform, setBC_inj1_interpFromFile,
     setBC_outpres, setBC_outmfr2,
     setBC_outradeq, setBC_outradeqhyb,
