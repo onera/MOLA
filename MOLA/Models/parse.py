@@ -1,15 +1,7 @@
 #!/bin/bash/python
 #Encoding:UTF8
 """
-Author : Michel Bouchard
-Contact : michel.bouchard@onera.fr, michel-j.bouchard@intradef.gouv.fr
-Name : Models.parse.py
-Description : Submodule that contains a register of all predefined available models and their parameters
-History :
-Date       | version | git rev. | Comment
-___________|_________|__________|_______________________________________#
-2021.12.14 | v1.0.00 |          | Creation for MOLA
-           |         | ea8e5b3  |
+Submodule that contains a register of all predefined available models and their parameters
 
 """
 debug_parse=False
@@ -70,14 +62,19 @@ def build_model(model_type,model_parameters=dict()):
   """
   Builds a referenced model with given parameters
 
-  Arguments
-  ---------
-    model_type : string, reference of the model in the <existing_models>
-    model_parameters : dict(), parameters to be passed to the model constructor
+  Parameters
+  ----------
+
+    model_type : str
+      reference of the model in the attribute **existing_models**
+
+    model_parameters : dict
+      parameters to be passed to the model constructor
 
   Returns
   -------
-    model : .base.model object created from given type and parameters
+    model : :py:obj:`MOLA.Models.base.model`
+      instance created from given type and parameters
   """
   return existing_models[model_type](**model_parameters)
 
@@ -85,13 +82,17 @@ def build_predefinedModels(macromodel_name):
   """
   Builds a referenced list of models with predefined parameters
 
-  Arguments
-  ---------
-    macromodel_name : string, reference of the macromodel in the <predefined_macromodels> dictionary
+  Parameters
+  ----------
+
+    macromodel_name : str
+        reference of the macromodel in the **predefined_macromodels** dict
 
   Returns
   -------
-    model: list(.base.model) created from predefined types and parameters
+
+    model: list
+      created from predefined types and parameters
   """
   models=list()
   predefined_macromodel=predefined_macromodels.get(macromodel_name)
@@ -102,15 +103,20 @@ def build_predefinedModels(macromodel_name):
 
 def build_models(models_descp=dict()):
   """
-  Builds several models according to the keys and values of the <models_descp> dictionary.
+  Builds several models according to the keys and values of the **models_descp**
+  :py:class:`dict`.
 
-  Argument
-  --------
-    models_descp : dict(string=<parameter>), dictionary of the models to build.
+  Parameters
+  ----------
+
+    models_descp : dict
+      dictionary of the models to build.
 
   Returns
   -------
-    models : list(.base.model), list of the created models using the parameters in <models_descp>.
+
+    models : list
+      list of the created models using the parameters in **models_descp**
   """
   models=list()
   for (model_type,model_parameters) in models_descp.items():
