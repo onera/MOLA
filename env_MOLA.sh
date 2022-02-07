@@ -16,7 +16,8 @@ export PUMAVERSION=r337
 ###############################################################################
 
 
-export http_proxy=proxy:80 https_proxy=proxy:80 ftp_proxy=proxy:80
+export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
+export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net
 
 export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # See ticket 7849
