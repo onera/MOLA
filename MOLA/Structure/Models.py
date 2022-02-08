@@ -33,9 +33,9 @@ import Converter.Internal as I
 import Converter.PyTree as C
 import MOLA.InternalShortcuts as J
 
-import StructuralShortCuts as SJ
-import ModalAnalysis       as MA
-import NonlinearForcesModels as NFM
+import MOLA.Structure.ShortCuts as SJ
+import MOLA.Structure.ModalAnalysis   as MA
+import MOLA.Structure.NonlinearForcesModels as NFM
 
 
 

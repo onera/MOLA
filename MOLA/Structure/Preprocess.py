@@ -10,8 +10,8 @@ First creation:
 
 # System modules
 import os
-import StructuralShortCuts as SJ
-import StructuralAnalysis as SA
+import MOLA.Structure.ShortCuts as SJ
+import MOLA.Structure.Analysis as SA
 import MOLA.InternalShortcuts as J
 import MOLA.LiftingLine  as LL
 import Converter.PyTree as C

@@ -21,8 +21,8 @@ import Converter.PyTree as C
 import Converter.Internal as I
 import MOLA.InternalShortcuts as J
 import MOLA.PropellerAnalysis as PA
-import StructuralShortCuts as SJ
-import NonlinearForcesModels as NFM
+import MOLA.Structure.ShortCuts as SJ
+import MOLA.Structure.NonlinearForcesModels as NFM
 
 FAIL  = '\033[91m'
 GREEN = '\033[92m' 

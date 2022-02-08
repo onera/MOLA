@@ -33,8 +33,8 @@ import Converter.Internal as I
 import Converter.PyTree as C
 import MOLA.InternalShortcuts as J
 
-import StructuralShortCuts as SJ
-import StructuralModels as SM
+import MOLA.Structure.ShortCuts as SJ
+import MOLA.Structure.Models as SM
 
 
 
