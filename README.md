@@ -26,7 +26,7 @@ cd /stck/%USER/MOLA
 git clone git@gitlab.onera.net:numerics/mola.git
 ```
 
-Make sure that you have correctly set your public ssh Key onto your profile's preferences of ONERA GitLab.
+Make *sure* that you have correctly set your public ssh Key onto your profile's preferences of ONERA GitLab.
 
 3. replace the newly created directory `mola` by `Dev`:
 
