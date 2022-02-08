@@ -6,12 +6,12 @@ shopt -s expand_aliases
 
 ###############################################################################
 # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
-export MOLA=/stck/lbernard/MOLA/Dev
-export TREELAB=/stck/lbernard/TreeLab/dev
-export EXTPYLIB=$MOLA/ExternalPythonPackages
-export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
+export MOLA=/stck/mbalmase/MOLA/Dev
+export TREELAB=/stck/mbalmase/TreeLab/dev
+export EXTPYLIB=/stck/lbernard/MOLA/Dev/ExternalPythonPackages
+export MOLASATOR=/tmp_user/sator/mbalmase/MOLA/Dev
 export TREELABSATOR=/tmp_user/sator/lbernard/TreeLab/dev
-export EXTPYLIBSATOR=$MOLASATOR/ExternalPythonPackages
+export EXTPYLIBSATOR=/tmp_user/sator/lbernard/MOLA/Dev/ExternalPythonPackages
 export PUMAVERSION=r337
 ###############################################################################
 
