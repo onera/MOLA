@@ -28,9 +28,10 @@ import numpy as np
 # MOLA modules
 import Converter.Internal as I
 import Converter.PyTree as C
-import MOLA.InternalShortcuts as J
 
-import MOLA.Structure.ShortCuts as SJ
+from .. import InternalShortcuts as J
+
+from . import ShortCuts as SJ
 
 
 

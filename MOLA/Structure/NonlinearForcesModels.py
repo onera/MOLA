@@ -31,10 +31,11 @@ from scipy.sparse import csr_matrix
 # MOLA modules
 import Converter.Internal as I
 import Converter.PyTree as C
-import MOLA.InternalShortcuts as J
 
-import MOLA.Structure.ShortCuts as SJ
-import MOLA.Structure.Models as SM
+from .. import InternalShortcuts as J
+
+from . import ShortCuts as SJ
+from . import Models as SM
 
 
 

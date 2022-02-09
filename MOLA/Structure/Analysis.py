@@ -19,10 +19,13 @@ from numpy.linalg import norm
 
 import Converter.PyTree as C
 import Converter.Internal as I
-import MOLA.InternalShortcuts as J
-import MOLA.PropellerAnalysis as PA
-import MOLA.Structure.ShortCuts as SJ
-import MOLA.Structure.NonlinearForcesModels as NFM
+
+from .. import InternalShortcuts as J
+from .. import PropellerAnalysis as PA
+
+from . import ShortCuts as SJ
+from . import ModalAnalysis   as MA
+from . import NonlinearForcesModels as NFM
 
 FAIL  = '\033[91m'
 GREEN = '\033[92m' 
@@ -268,6 +271,7 @@ def StaticSolver_Newton_Raphson(t, RPM, ForceIntensityC):
     V = SJ.GetReducedBaseFromCGNS(t, RPM)  # Base de reduction PHI
 
     nq       = DictStructParam['ROMProperties']['NModes'][0]
+
     nitermax = DictSimulaParam['IntegrationProperties']['NumberOfMaxIterations'][0]
     nincr    = DictSimulaParam['IntegrationProperties']['StaticSteps'][0]
     try:
@@ -287,9 +291,9 @@ def StaticSolver_Newton_Raphson(t, RPM, ForceIntensityC):
 
     # Initialisation des vecteurs de sauvegarde:
     print(nincr, nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0])
-    q_Save   = np.zeros((nq, nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0])) 
-    Fnl_Save = np.zeros((nq, nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0])) 
-    Fext     = np.zeros((nq, nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0])) 
+    q_Save   = np.zeros((nq, int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+    Fnl_Save = np.zeros((nq, int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+    Fext     = np.zeros((nq, int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
    
     it2 =-1
     for incr in range(1,nincr+1):

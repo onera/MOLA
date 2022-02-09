@@ -8,14 +8,6 @@ First creation:
 31/05/2021 - M. Balmaseda
 '''
 
-# System modules
-import os
-import MOLA.Structure.ShortCuts as SJ
-import MOLA.Structure.Analysis as SA
-import MOLA.InternalShortcuts as J
-import MOLA.LiftingLine  as LL
-import Converter.PyTree as C
-import Converter.Internal as I
 
 FAIL  = '\033[91m'
 GREEN = '\033[92m' 
@@ -23,6 +15,18 @@ WARN  = '\033[93m'
 MAGE  = '\033[95m'
 CYAN  = '\033[96m'
 ENDC  = '\033[0m'
+
+# System modules
+import os
+from . import Analysis as SA
+from . import ShortCuts as SJ
+
+from .. import InternalShortcuts as J
+from .. import LiftingLine  as LL
+
+import Converter.PyTree as C
+import Converter.Internal as I
+
 
 
 def PreprocessCGNS4StructuralParameters(t, DictMaterialProperties, DictROMProperties, DictRotatingParameters):

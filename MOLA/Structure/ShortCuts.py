@@ -24,9 +24,11 @@ from scipy.sparse import csr_matrix, find, issparse
 # MOLA and Cassiopee
 import Converter.Internal as I
 import Converter.PyTree as C
-import MOLA.InternalShortcuts as J
-import MOLA.Wireframe as W
-import MOLA.LiftingLine as LL
+
+from .. import InternalShortcuts as J
+from .. import Wireframe as W
+from .. import LiftingLine  as LL
+
 try:
     #Code Aster:
     from code_aster.Cata.Commands import *
@@ -428,7 +430,9 @@ def SaveSolution2PythonDict(Solution, ForceCoeff, RPM, PHI, q_qp_qpp, fnl_q, fex
     Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['fext_q'] = fext_q
 
     NameOfFullVariables = ['Displacement', 'Velocity', 'Acceleration']
-    for key, it in zip(Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff].keys(), range(len(q_qp_qpp)+1)):
+    NameOfKeys = list(Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff].keys())
+    
+    for key, it in zip(NameOfKeys, range(len(q_qp_qpp)+1)):
         if 'fnl' not in key:
             Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff][NameOfFullVariables[it]] = VectFromROMtoFULL(PHI, Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff][key])
         else:
@@ -857,7 +861,7 @@ def Solution2RotatoryFrame(t, Solution):
             UsVect = getUsVectorFromCGNS(t, RPM)
             UsVectFull = VectorXYZ2FullDimension(t, UsVect)
         except:
-            print(WARN+'Us vector nor present in the tree within a Zone_t'+ENDC)
+            print(WARN+'Us vector not present in the tree within a Zone_t'+ENDC)
             UsVectFull = getVectorFromCGNS(t, 'Us', RPM)
 
 
@@ -1012,21 +1016,22 @@ def ComputeSolutionCGNS(t, Solution):
     J.set(tSol, '.Solution', **Solution)
     
     try:
-        Calc = range(len(Solution[list(Solution.keys())[0]][list(Solution[list(Solution.keys())[0]].keys())[0]]['Displacement'][0,:]))
+        MaxIt = range(len(Solution[list(Solution.keys())[0]][list(Solution[list(Solution.keys())[0]].keys())[0]]['Displacement'][0,:]))
         Matrice = True
     except:
-        Calc = range(len(Solution[list(Solution.keys())[0]][list(Solution[list(Solution.keys())[0]].keys())[0]]['Displacement'][:]))
+        MaxIt = range(len(Solution[list(Solution.keys())[0]][list(Solution[list(Solution.keys())[0]].keys())[0]]['Displacement'][:]))
         Matrice = False
 
-    MaxIt = range(len(Solution[list(Solution.keys())[0]][list(Solution[list(Solution.keys())[0]].keys())[0]]))
+    #MaxIt = range(calc)
         
     for Iteration in MaxIt:
         NewBase = I.newCGNSBase()
         NewBase[0] = 'Iteration%s'%Iteration
         
+
         for RPMKey in Solution.keys():
             for FcoeffKey in Solution[RPMKey].keys():
-    
+                
                 ZoneName = 'It%s_'%Iteration + RPMKey +'_'+ FcoeffKey
                 
                 if Matrice:

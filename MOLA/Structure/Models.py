@@ -31,11 +31,12 @@ from scipy.sparse import csr_matrix
 # MOLA modules
 import Converter.Internal as I
 import Converter.PyTree as C
-import MOLA.InternalShortcuts as J
 
-import MOLA.Structure.ShortCuts as SJ
-import MOLA.Structure.ModalAnalysis   as MA
-import MOLA.Structure.NonlinearForcesModels as NFM
+from .. import InternalShortcuts as J
+
+from . import ShortCuts as SJ
+from . import ModalAnalysis   as MA
+from . import NonlinearForcesModels as NFM
 
 
 
@@ -124,7 +125,7 @@ def ModifySolidCGNS2Mesh(t):
         #I.createNode('ElementConnectivity', ntype='DataArray_t', value=conect.flatten(), parent=ge_n)
         #I.createNode('ElementType', ntype='ElementType_t', value='HEXA_8', parent=ge_n)
                  
-        print(zoneUns)
+        #print(zoneUns)
         
     else:
         # Convert the structured mesh into Hexa and erase the structured BCFamilies:    
@@ -145,6 +146,52 @@ def ModifySolidCGNS2Mesh(t):
     
 
     return t
+
+def AffectMaterialFromMaterialDictionary(MaterialDict, Mesh):
+    '''Affect several Materials defined in MaterialDict to the corresponding meshes'''
+
+    l_affe = []
+    for LocMatName in MaterialDict.keys():
+        if MaterialDict[LocMatName]['Mesh'] == 'All':
+            ap = _F(TOUT = 'OUI', MATER = MaterialDict[LocMatName]['Properties'])
+            
+        else:
+            ap = _F(GROUP_MA = MaterialDict[LocMatName]['Mesh'] , MATER = MaterialDict[LocMatName]['Properties'])
+        l_affe.append(ap)
+         
+        print(GREEN+'Affecting %s to %s mesh groups.'%(LocMatName, MaterialDict[LocMatName]['Mesh'])+ENDC)
+
+    CHMAT=AFFE_MATERIAU(MAILLAGE=Mesh,
+                        AFFE= l_affe,);
+    return CHMAT
+
+def DefineMaterials(t, Mesh):
+
+    DictStructParam = J.get(t, '.StructuralParameters')
+
+    MaterialDict = {}
+
+
+    for LocMat in DictStructParam['MaterialProperties']['Materials'].keys():
+        MaterialDict[LocMat] = {}
+        MAT = DEFI_MATERIAU(ELAS=_F(E= DictStructParam['MaterialProperties']['Materials'][LocMat]['E'],
+                                    NU=DictStructParam['MaterialProperties']['Materials'][LocMat]['PoissonRatio'],
+                                    RHO=DictStructParam['MaterialProperties']['Materials'][LocMat]['Rho'],
+                                    AMOR_ALPHA = DictStructParam['MaterialProperties']['Materials'][LocMat]['XiAlpha'],
+                                    AMOR_BETA =  4*np.pi*DictStructParam['MaterialProperties']['Materials'][LocMat]['Freq4Dumping']*DictStructParam['MaterialProperties']['Materials'][LocMat]['XiBeta'],
+                                    ),);
+        
+        MaterialDict[LocMat]['Properties'] = MAT
+
+        MaterialDict[LocMat]['Mesh'] = DictStructParam['MaterialProperties']['Materials'][LocMat]['MeshGroup']
+
+        DETRUIRE(CONCEPT = _F(NOM = MAT))
+
+    
+
+    CHMAT = AffectMaterialFromMaterialDictionary(MaterialDict, Mesh)
+
+    return CHMAT
 
 def BuildFEmodel(t):
     '''Reads the mesh, creates the FE model in aster and computes the FOM matrices for the studied case.
@@ -168,21 +215,27 @@ def BuildFEmodel(t):
                                MODELISATION='3D',),
                        )
 
-    # Define the material:
+    # Define the materials and affect them to their meshes:
 
-    DictStructParam = J.get(t, '.StructuralParameters')
-
-    MAT=DEFI_MATERIAU(ELAS=_F(E= DictStructParam['MaterialProperties']['E'],
-                              NU=DictStructParam['MaterialProperties']['PoissonRatio'],
-                              RHO=DictStructParam['MaterialProperties']['Rho'],
-                              AMOR_ALPHA = DictStructParam['MaterialProperties']['XiAlpha'],
-                              AMOR_BETA =  4*np.pi*DictStructParam['MaterialProperties']['Freq4Dumping']*DictStructParam['MaterialProperties']['XiBeta'],
-                              ),);
+    CHMAT = DefineMaterials(t, MAIL)
 
 
-    CHMAT=AFFE_MATERIAU(MAILLAGE=MAIL,
-                        AFFE=_F(TOUT='OUI',
-                                MATER=MAT,),);
+
+#    ListDictCaracteristics = [dict(Section = 'CERCLE', CARA= (), VALE = (), GROUP_MA = '' ), 
+#                              dict()
+#                              ]
+#
+#    cara = AFFE_CARA_ELEM(POUTRE= (
+#                                   _F(SECTION=’CERCLE’,CARA=(’R’,’EP’),VALE=(0.1,0.02),GROUP_MA=(’M1’,’M5’)),
+#                                   _F(SECTION=’CERCLE’,CARA=(’R’,’EP’),VALE=(0.2,0.05),GROUP_MA= ’M3’),
+#                                   _F(SECTION=’CERCLE’,CARA=(’R’,’EP’),VALE=(0.09,0.01),GROUP_MA= ’M6’),
+#                                   _F(SECTION=’CERCLE’,CARA=(’R1’,’R2’),VALE=(0.1,0.2),GROUP_MA=(’M2’,’M4’)),
+#                                   _F(SECTION=’CERCLE’,CARA=(’EP1’,’EP2’),VALE=(0.02,0.05),GROUP_MA=(’M2’,’M4’)
+#                                  ),
+#                                   ),
+#                                  )
+#
+
 
 
     
