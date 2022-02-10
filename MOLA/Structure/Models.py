@@ -170,28 +170,34 @@ def DefineMaterials(t, Mesh):
     DictStructParam = J.get(t, '.StructuralParameters')
 
     MaterialDict = {}
-
-
-    for LocMat in DictStructParam['MaterialProperties']['Materials'].keys():
+    Ms = []
+    M = [None]
+    print(M, len(DictStructParam['MaterialProperties']['Materials'].keys()))
+    for LocMat, it in zip(DictStructParam['MaterialProperties']['Materials'].keys(), range(len(DictStructParam['MaterialProperties']['Materials'].keys()))):
         MaterialDict[LocMat] = {}
-        MAT = DEFI_MATERIAU(ELAS=_F(E= DictStructParam['MaterialProperties']['Materials'][LocMat]['E'],
+        M.append([None])
+
+        M[it] = DEFI_MATERIAU(ELAS=_F(E= DictStructParam['MaterialProperties']['Materials'][LocMat]['E'],
                                     NU=DictStructParam['MaterialProperties']['Materials'][LocMat]['PoissonRatio'],
                                     RHO=DictStructParam['MaterialProperties']['Materials'][LocMat]['Rho'],
                                     AMOR_ALPHA = DictStructParam['MaterialProperties']['Materials'][LocMat]['XiAlpha'],
                                     AMOR_BETA =  4*np.pi*DictStructParam['MaterialProperties']['Materials'][LocMat]['Freq4Dumping']*DictStructParam['MaterialProperties']['Materials'][LocMat]['XiBeta'],
                                     ),);
         
-        MaterialDict[LocMat]['Properties'] = MAT
+        Ms.append(M[it])
+        MaterialDict[LocMat]['Properties'] = M[it]
 
         MaterialDict[LocMat]['Mesh'] = DictStructParam['MaterialProperties']['Materials'][LocMat]['MeshGroup']
 
-        DETRUIRE(CONCEPT = _F(NOM = MAT))
+        #DETRUIRE(CONCEPT = _F(NOM = MAT))
 
     
 
     CHMAT = AffectMaterialFromMaterialDictionary(MaterialDict, Mesh)
 
-    return CHMAT
+    print(CHMAT)
+
+    return CHMAT, Ms
 
 def BuildFEmodel(t):
     '''Reads the mesh, creates the FE model in aster and computes the FOM matrices for the studied case.
@@ -217,7 +223,7 @@ def BuildFEmodel(t):
 
     # Define the materials and affect them to their meshes:
 
-    CHMAT = DefineMaterials(t, MAIL)
+    CHMAT, MAT = DefineMaterials(t, MAIL)
 
 
 
@@ -250,7 +256,7 @@ def BuildFEmodel(t):
                      MAT= MAT, 
                      CHMAT = CHMAT)
 
-
+    
     return t, AsterObjs
 
 ################################################################
