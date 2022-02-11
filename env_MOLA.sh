@@ -86,7 +86,7 @@ elif [ "$MAC" = "ld" ]; then
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
-    alias treelab='python3 $TREELAB/GUI/treelab.py '
+    alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
     alias python='python3'
 
 elif [ "$MAC" = "sator" ]; then
@@ -116,7 +116,7 @@ elif [ "$MAC" = "sator-new" ]; then
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
-    alias treelab='python3 $TREELAB/GUI/treelab.py '
+    alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
     alias python='python3'
 
 else

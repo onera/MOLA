@@ -3,7 +3,7 @@ For documentation, examples, major changes, please consult the [documentation si
 Information for users
 =====================
 
-Please use one of the latests **stable versions** of MOLA : `/stck/lbernard/MOLA/v1.13/env_MOLA.sh` 
+Please use one of the latests **stable versions** of MOLA : `/stck/lbernard/MOLA/v1.13/env_MOLA.sh`
 
 
 Information for developers
@@ -16,8 +16,8 @@ Getting the sources
 1. create a local directory named `MOLA` and go into it:
 
 ```bash
-mkdir /stck/%USER/MOLA
-cd /stck/%USER/MOLA
+mkdir /stck/$USER/MOLA
+cd /stck/$USER/MOLA
 ```
 
 2. clone the sources from GitLab:
@@ -82,9 +82,9 @@ rsync -var /stck/$USER/MOLA/Dev /tmp_user/sator/$USER/MOLA/
 
 4. Create *preferrably light* new examples using `EXAMPLES` arborescence
 
-5. Before asking for the integration of your new developments into the `master` branch of MOLA, please 
+5. Before asking for the integration of your new developments into the `master` branch of MOLA, please
    relaunch the cases contained in `EXAMPLES` *(specially LIGHT ones)* in order to verify that nothing
-   is broken. 
+   is broken.
 
 6. After `commit` + `push`, request a merge towards `master` branch using GitLab's web interface.
    You will be automatically notified by e-mail once MOLA's maintainer has integrated your contribution.
@@ -96,7 +96,3 @@ git pull origin master
 ```
 
 This is specially recommended once your development has been merged by MOLA's maintainer, or after major bug fixes.
-
-
-
-
