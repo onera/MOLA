@@ -387,12 +387,7 @@ def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
     hlines='hub_shroud_lines.plt', subTree=None):
     '''
     Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
-    relies on the ETC module. For axial configurations, *ChannelHeight* is
-    computed as follow:
-
-    .. math::
-
-        h(x) = (r(x) - r_{min}(x)) / (r_{max}(x)-r_{min}(x))
+    relies on the ETC module.
 
     Parameters
     ----------
@@ -439,7 +434,7 @@ def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
     try: ParamHeight.plot_hub_and_shroud_lines(hlines)
     except: pass
     I._rmNodesByName(t, fsname)
-    t = ParamHeight.computeHeight(t, hlines, fsname=fsname)
+    t = ParamHeight.computeHeight(t, hlines, fsname=fsname, writeMask='mask.cgns')
 
     if excludeZones:
         OLD_FlowSolutionNodes = I.__FlowSolutionNodes__
@@ -450,6 +445,84 @@ def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
                 C._initVars(zone, 'ChannelHeight=-1')
         I.__FlowSolutionNodes__ = OLD_FlowSolutionNodes
 
+    print(J.GREEN + 'done.' + J.ENDC)
+    return t
+
+def parametrizeChannelHeight_future(t, nbslice=101, tol=1e-10, offset=1e-10,
+                                elines='shroud_hub_lines.plt'):
+    '''
+    Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
+    relies on the turbo module.
+
+    .. important::
+
+        Dependency to *turbo* module. See file:///stck/jmarty/TOOLS/turbo/doc/html/index.html
+
+    Parameters
+    ----------
+
+        t : PyTree
+            input mesh tree
+
+        nbslice : int
+            Number of axial positions used to compute the iso-lines in
+            *ChannelHeight*. Change the axial discretization.
+
+        tol : float
+            Tolerance to offset the min (+tol) / max (-tol) value for CoordinateX
+
+        offset : float
+            Offset value to add an articifial point (not based on real geometry)
+            to be sure that the mesh is fully included. 'tol' and 'offset' must
+            be consistent.
+
+        elines : str
+            Name of the intermediate file that contains (x,r) coordinates of hub
+            and shroud lines.
+
+    Returns
+    -------
+
+        t : PyTree
+            modified tree
+
+    '''
+    import turbo.height as TH
+
+    print(J.CYAN + 'Add ChannelHeight in the mesh...' + J.ENDC)
+    OLD_FlowSolutionNodes = I.__FlowSolutionNodes__
+    I.__FlowSolutionNodes__ = 'FlowSolution#Height'
+
+    silence = J.OutputGrabber()
+    with silence:
+        # - Generation of hub/shroud lines (axial configuration only)
+        endlinesTree = TH.generateHLinesAxial(t, elines, nbslice=nbslice, tol=tol, offset=offset)
+
+        try:
+            import matplotlib.pyplot as plt
+            # Get geometry
+            xHub, yHub = J.getxy(I.getNodeFromName(endlinesTree, 'Hub'))
+            xShroud, yShroud = J.getxy(I.getNodeFromName(endlinesTree, 'Shroud'))
+            # Plot
+            plt.figure()
+            plt.plot(xHub, yHub, '-', label='Hub')
+            plt.plot(xShroud, yShroud, '-', label='Shroud')
+            plt.axis('equal')
+            plt.grid()
+            plt.xlabel('x (m)')
+            plt.ylabel('y (m)')
+            Rmax = np.amax(yShroud)
+            plt.ylim(-0.05*Rmax, 1.05*Rmax)
+            plt.savefig(elines.replace('.plt', '.png'), dpi=150, bbox_inches='tight')
+        except:
+            pass
+
+        # - Generation of the mask file
+        m = TH.generateMaskWithChannelHeight(t, elines, 'bin_tp')
+        # - Generation of the ChannelHeight field
+        t = TH.computeHeightFromMask(t, m, writeMask='mask.cgns', writeMaskCart ='maskCart.cgns')
+
+    I.__FlowSolutionNodes__ = OLD_FlowSolutionNodes
     print(J.GREEN + 'done.' + J.ENDC)
     return t
 
