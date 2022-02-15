@@ -3058,6 +3058,47 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False):
               force_extract=1,
                )
 
+def addAverageFieldExtractions(t, ReferenceValues, firstIterationForAverage=1):
+    '''
+    Include time averaged fields extraction information to CGNS tree using
+    information contained in dictionary **ReferenceValues**.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            prepared grid as produced by :py:func:`prepareMesh4ElsA` function.
+
+            .. note:: tree **t** is modified
+
+        ReferenceValues : dict
+            dictionary as produced by :py:func:`computeReferenceValues` function
+
+        firstIterationForAverage : int
+            Iteration to start the computation of time average. All the following iterations
+            will be taken into account to compute the average.
+
+    '''
+
+    Fields2Extract = ReferenceValues['Fields'] + ReferenceValues['FieldsAdditionalExtractions']
+
+    for zone in I.getZones(t):
+
+        EoRnode = I.createNode('FlowSolution#EndOfRun#Average', 'FlowSolution_t',
+                                parent=zone)
+        GridLocationNode = I.createNode('GridLocation','GridLocation_t',
+                                        value='CellCenter', parent=EoRnode)
+        for fieldName in Fields2Extract:
+            I.createNode(fieldName, 'DataArray_t', value=None, parent=EoRnode)
+        J.set(EoRnode, '.Solver#Output',
+              period=1,
+              writingmode=2,
+              writingframe='absolute',
+              force_extract=1,
+              average='time',
+              period_init=firstIterationForAverage,  #First iteration to consider to compute time average
+               )
+
 
 def addGoverningEquations(t, dim=3):
     '''

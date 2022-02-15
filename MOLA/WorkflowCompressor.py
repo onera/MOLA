@@ -367,6 +367,11 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     PRE.addExtractions(t, AllSetupDics['ReferenceValues'],
                       AllSetupDics['elsAkeysModel'],
                       extractCoords=False, BCExtractions=BCExtractions)
+
+    if elsAkeysNumerics['time_algo'] != 'steady':
+        PRE.addAverageFieldExtractions(t, AllSetupDics['ReferenceValues'],
+            AllSetupDics['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
+
     PRE.addReferenceState(t, AllSetupDics['FluidProperties'],
                          AllSetupDics['ReferenceValues'])
     dim = int(AllSetupDics['elsAkeysCFD']['config'][0])
