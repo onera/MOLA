@@ -1581,7 +1581,7 @@ def buildPolar(JobsConfiguration, PolarName='Polar',
      BigAngleOfAttackCm=[0, 0.24998, 0.46468,  0.5463, 0.53691,  0.51722,
                         0.49436,  0.40043,  0.31161,-0.31161,-0.40043,-0.49436,
                         -0.51722, -0.53691,  -0.5463, -0.46468, -0.24998,0],
-     ):
+     FILE_ARRAYS='arrays.cgns'):
     '''
     Constructs a **PyZonePolar** (that can be saved to a file ``Polars.cgns``)
     containing the information of the polars predictions.
@@ -1654,7 +1654,7 @@ def buildPolar(JobsConfiguration, PolarName='Polar',
                         PolarsDict[v][i,j,:] = 0.0
 
             try:
-                arrays = JM.getCaseArrays(config, CASE_LABEL)
+                arrays = JM.getCaseArrays(config, CASE_LABEL, FILE_ARRAYS=FILE_ARRAYS)
             except:
                 for v in PolarsDict:
                     if len(PolarsDict[v].shape) == 2:

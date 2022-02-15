@@ -1486,6 +1486,8 @@ def splitCurves(c1,c2,select=0,tol=1e-6):
 
     return Accepted
 
+
+
 def isSubzone(subzone,zone,tol=1.e-10):
     '''
     Check if a block is *totally* contained in another block.
@@ -2436,48 +2438,71 @@ def isAirfoilClockwiseOriented(curve):
     return isClockwise
 
 
-def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge(foil):
+def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge( airfoil, tol=1e-5,
+                                                    trailing_edge_margin=1e-4):
     '''
     This function transforms the input airfoil into clockwise-oriented and
     starting from trailing edge.
 
+    .. attention:: airfoil must be placed on :math:`XY` plane
+
     Parameters
     ----------
 
-        foil : zone
+        airfoil : zone
             structured curve of the airfoil
 
-            .. note:: **foil** is modified
+            .. note:: **airfoil** is modified
+
+        tol : float
+            geometrical tolerance used to determine if multiple points exist
+
+        trailing_edge_margin : float
+            small geomatrical tolerance used to determine the region of research
+            of the trailing edge
 
     '''
-    OriginalAirfoil = I.copyTree(foil)
 
-    if not is2DCurveClockwiseOriented(foil): T._reorder(foil,(-1,2,3))
+    x, y = J.getxy( airfoil )
+    fields = J.getVars(airfoil,
+                C.getVarNames(airfoil, excludeXYZ=True, loc='nodes')[0])
 
-    x,y,z = J.getxyz(foil)
+    if not is2DCurveClockwiseOriented( airfoil ):
+        T._reorder( airfoil, (-1,2,3))
+    TrailingEdge = P.selectCells(airfoil, '{CoordinateX} > %0.13f'%(x.max()-trailing_edge_margin),
+                                        strict=1)
+    TrailingEdge = C.convertBAR2Struct( TrailingEdge )
+    xTE, yTE = J.getxy( TrailingEdge )
 
-    XChord = x.max()-x.min()
-    foilAux = C.initVars(foil,'ChordwiseIndicator=({CoordinateX}-%g)/%g'%(x.min(),XChord))
-    SelectedRegion = P.selectCells(foilAux,'{ChordwiseIndicator}>0.9')
-    SelectedRegion = C.convertBAR2Struct( SelectedRegion )
-    SmoothParts = T.splitCurvatureAngle(SelectedRegion, 45.0 )
-    YMax = [C.getMaxValue(sp,'CoordinateY') for sp in SmoothParts]
-    YMax, SmoothParts = J.sortListsUsingSortOrderOfFirstList(YMax, SmoothParts)
-    LowerPart = SmoothParts[0]
-    xLP,yLP,zLP = J.getxyz(LowerPart)
-    iMaxYLP = np.argmax(yLP)
-    Pt = (xLP[iMaxYLP],yLP[iMaxYLP],zLP[iMaxYLP])
-    iTE,_ = D.getNearestPointIndex(foil,Pt)
-    NPts = len(x)
-    RollPts = NPts - iTE
-    if RollPts > 0 and RollPts != NPts:
-        fields2roll =  J.getxyz(foil)
-        for field in fields2roll:
-            field[:] = np.hstack((field[iTE:],field[1:iTE],field[iTE]))
+    index_edge_TE = np.argmin( yTE )
+    TE_xyz = (xTE[index_edge_TE], yTE[index_edge_TE], 0.)
 
-    gets(foil)
+    roll_index, sqrd_distance = D.getNearestPointIndex(airfoil, TE_xyz)
+    x, y = J.getxy( airfoil )
+    fields = J.getVars(airfoil,
+                C.getVarNames(airfoil, excludeXYZ=True, loc='nodes')[0])
+    x[:] = np.roll(x, -roll_index)
+    y[:] = np.roll(y, -roll_index)
+    for field in fields:
+        field[:] = np.roll(field, -roll_index)
 
-    J.migrateFields(OriginalAirfoil, foil, keepMigrationDataForReuse=False)
+    # remove multiple point
+    for i in range(len(x)):
+        ni, sqrd_distance = D.getNearestPointIndex(airfoil, TE_xyz)
+        if i == ni: continue
+        distance = np.sqrt( (x[i]-x[ni])**2 + (y[i]-y[ni])**2)
+        if distance <= tol:
+            break
+
+    if distance < tol:
+        x[i:-1] = x[i+1:]
+        y[i:-1] = y[i+1:]
+        x[-1] = x[0]
+        y[-1] = y[0]
+        for field in fields:
+            field[i:-1] = field[i+1:]
+            field[-1] = field[0]
+    gets(airfoil)
 
 
 def setTrailingEdge(Airfoil):
@@ -4604,13 +4629,82 @@ def trimCurveAlongDirection(curve, direction, cut_point_1, cut_point_2):
     distance2 = ( xyz - cut_point_2 ).dot( direction )
     PointsToKeep = (distance1>0)*(distance2>0)
     FieldToSlice[PointsToKeep] = 1
-    trimmed_element = P.selectCells(curve,'{FieldToSlice}>0.1')
+    C.convertPyTree2File(curve,'debug.cgns')
+    trimmed_element = P.selectCells(curve,'{FieldToSlice}>0.1',strict=1)
     number_of_subparts = len(I.getZones(T.splitConnexity(trimmed_element)))
     if number_of_subparts != 1:
         C.convertPyTree2File(curve,'debug.cgns')
         raise ValueError('could not trim along direction, since multiple subparts were obtained.')
+
     trimmed_curve = C.convertBAR2Struct(trimmed_element)
+
+    # add first point
+    n = direction
+    Pt = cut_point_1
+    PlaneCoefs = n[0],n[1],n[2],-n.dot(Pt)
+    C._initVars(curve,'Slice=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
+    zones = P.isoSurfMC(curve, 'Slice', 0.0)
+    pt1 = I.getZones(zones)[0]
+    x,y,z = J.getxyz(pt1)
+    pt1 = D.point((x[0],y[0],z[0]))
+
+    # add second point
+    n = direction
+    Pt = cut_point_2
+    PlaneCoefs = n[0],n[1],n[2],-n.dot(Pt)
+    C._initVars(curve,'Slice=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
+    zones = P.isoSurfMC(curve, 'Slice', 0.0)
+    pt2 = I.getZones(zones)[0]
+    x,y,z = J.getxyz(pt2)
+    pt2 = D.point((x[0],y[0],z[0]))
+
+    I._rmNodesByType(trimmed_curve,'FlowSolution_t')
+    print(pt1)
+    trimmed_curve = concatenate([pt1,trimmed_curve,pt2])
+
+
     return trimmed_curve
+
+
+def getNearestIntersectingPoint(zone1, zone2):
+    '''
+    Return the coordinates of a point belonging to **zone2** such that
+    its distance is minimum with respect to any point of **zone1**
+
+    .. note:: this is an 0th-order method
+
+    Parameters
+    ----------
+
+        zone1 : zone
+            points where distance are computed
+
+        zone2 : zone
+            points from which minimum distance is selected
+
+    Returns
+    -------
+
+        point : 3-:py:class:`float` numpy.array
+            coordinates of the nearest intersecting point belonging to **zone2**
+    '''
+    xN,yN,zN = J.getxyz(zone1)
+    x = np.ravel(xN,order='K')
+    y = np.ravel(yN,order='K')
+    z = np.ravel(zN,order='K')
+
+    AllPoints = [(x[i], y[i], z[i]) for i in range(len(x))]
+    res = D.getNearestPointIndex(zone2, AllPoints)
+    xT, yT, zT = J.getxyz(zone2)
+    x2 = np.ravel(xT,order='K')
+    y2 = np.ravel(yT,order='K')
+    z2 = np.ravel(zT,order='K')
+    nearest_indices = [res[i][0] for i in range(len(res))]
+    squared_distances = [res[i][1] for i in range(len(res))]
+    nearest_index = nearest_indices[ np.argmin(squared_distances) ]
+
+    return np.array([x2[nearest_index], y2[nearest_index], z2[nearest_index]])
+
 
 def intersection(curves):
     '''
@@ -4640,7 +4734,6 @@ def intersection(curves):
     for i in range(InitialNPts,FinalNPts):
         IntersectingPoints.append( D.point((x[i],y[i],z[i])) )
 
-    C.convertPyTree2File([bar,conformed],'debug.cgns')
 
     return IntersectingPoints
 
