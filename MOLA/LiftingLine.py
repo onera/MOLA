@@ -2487,7 +2487,7 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
                                        Distribution=FoilDistribution)
             Mapping = D.getDistribution(NewRootFoil)
 
-        elif isinstance(FoilDistribution,list):
+        elif isinstance(FoilDistribution,list) and isinstance(FoilDistribution[0],dict):
             NewRootFoil = W.polyDiscretize(RootFoil, FoilDistribution)
             Mapping = D.getDistribution(NewRootFoil)
 
