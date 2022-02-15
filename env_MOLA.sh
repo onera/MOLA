@@ -16,7 +16,8 @@ export PUMAVERSION=r337
 ###############################################################################
 
 
-export http_proxy=proxy:80 https_proxy=proxy:80 ftp_proxy=proxy:80
+export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
+export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net
 
 export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # See ticket 7849
@@ -85,7 +86,7 @@ elif [ "$MAC" = "ld" ]; then
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
-    alias treelab='python3 $TREELAB/GUI/treelab.py '
+    alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
     alias python='python3'
 
 elif [ "$MAC" = "sator" ]; then
@@ -115,7 +116,7 @@ elif [ "$MAC" = "sator-new" ]; then
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
-    alias treelab='python3 $TREELAB/GUI/treelab.py '
+    alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
     alias python='python3'
 
 else

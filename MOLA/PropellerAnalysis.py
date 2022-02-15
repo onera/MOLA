@@ -1263,7 +1263,7 @@ def designPropellerAdkins(LiftingLine, PolarsInterpolatorDict, NBlades=None,
         L2Residual = np.sqrt(Residual.dot(Residual))
         L2Variation = L2Prev-L2Residual
         L2Prev = L2Residual
-        print ('it=%d | Thrust=%g, Power=%g, PropulsiveEfficiency=%g | L2 res = %g'%(it,Thrust,Power,PropulsiveEfficiency, L2Residual))
+        if DEBUG: print ('it=%d | Thrust=%g, Power=%g, PropulsiveEfficiency=%g | L2 res = %g'%(it,Thrust,Power,PropulsiveEfficiency, L2Residual))
         zeta1 = Residual+zeta0
         RelaxFactor = 0.
         zeta0 = (1.0-RelaxFactor)*zeta1+RelaxFactor*zeta0

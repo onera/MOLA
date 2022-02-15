@@ -535,7 +535,7 @@ def linelaw(P1=(0,0,0), P2=(1,0,0), N=100, Distribution = None, verbose=linelawV
             dy = [0.,0.]
             dy[0] = Distribution['FirstCellHeight']/Length
             dy[1] = Distribution['LastCellHeight']/Length
-            Dir = np.array([P2[0]-P1[0],P2[1]-P1[1],P2[2]-P1[2]])/Length
+            Dir = np.array([P2[0]-P1[0],P2[1]-P1[1],P2[2]-P1[2]],dtype=float)/Length
             S = getTanhDistTwo__(N,dy[0],dy[1])*Length
             Height1 = S[1]-S[0]; Height2 = S[-1]-S[-2]
             ErrorHeight1 = abs(100*(1-Height1/(dy[0]*Length)))

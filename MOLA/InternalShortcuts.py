@@ -40,19 +40,25 @@ def set(parent, childname, childType='UserDefinedData_t', **kwargs):
 
     Return the pointers of the new CGNS nodes as a python dictionary get()
 
-    Args:
-        parent (node):
+    Parameters
+    ----------
+
+        parent : node
             root node where children will be added
-        childname (str):
+
+        childname : str
             name of the new child node.
+
         **kwargs
             Each pair *name* = **value** will be a node of
             type `DataArray_t`_ added as child to the node named *childname*.
             If **value** is a python dictionary, then their contents are added
             recursively following the same logic
 
-    Returns:
-        pointers - (dict):
+    Returns
+    -------
+
+        pointers : dict
             literally, result of :py:func:`get` once all nodes have been
             added
     '''
@@ -127,10 +133,13 @@ def getVars(zone, VariablesName, Container='FlowSolution'):
 
     Parameters
     ----------
+
         zone : zone
             The CGNS zone from which numpy arrays are being retreived
+
         VariablesName : :py:class:`list` of :py:class:`str`
             List of the field names to be retreived
+            
         Container : str
             The name of the node to look for the requested variable
             (e.g. ``'FlowSolution'``). Container should be at 1 depth level
