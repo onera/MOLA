@@ -3179,7 +3179,8 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
         loc           = 'interface',
         fluxcoeff     = 1.0,
         force_extract = 1,
-        writingframe  = 'absolute'
+        writingframe  = 'absolute',
+        # geomdepdom = 2 # TODO test this: https://elsa.onera.fr/issues/8127#note-26
     )
 
     # Keys to write in the .Solver#Output for wall Families
