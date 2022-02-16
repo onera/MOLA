@@ -2678,7 +2678,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, **kwargs):
         # LSTT specific parameters (see ticket #6501)
         trans_crit_order       = 'first_order',
         trans_crit_extrap      = 'active',
-        intermit_region        = 'LSTT', # TODO: Not read in fullCGNS -> make ticket
+        intermit_region        = 'LSTT', # TODO: Not read in fullCGNS -> https://elsa.onera.fr/issues/8145
         intermittency_form     = 'LSTT19',
         trans_h_crit_ahdgl     = 2.8,
         ahd_n_extract          = 'active',
@@ -3156,13 +3156,19 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
             'yplusmeshsize', 'flux_rou', 'flux_rov', 'flux_row', 'torque_rou',
             'torque_rov', 'torque_row'].
 
+            .. danger:: currently, ``bl_ue`` cannot be extracted: https://elsa.onera.fr/issues/10360
+
             These default values are updated with **BCExtractions**.
 
     '''
+
+
     DefaultBCExtractions = dict(
         BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize',
+            # 'bl_ue', # BUG for bl_ue extraction https://elsa.onera.fr/issues/10360
             'flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
     )
+    # TODO notify bug for torque_origin in CGNS mode
     DefaultBCExtractions.update(BCExtractions)
 
     # Default keys to write in the .Solver#Output of the Family node

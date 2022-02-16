@@ -1757,227 +1757,6 @@ def extrapolate(curve, ExtrapDistance, mode='tangent', opposedExtremum=False):
 
     return ExtrapolatedCurve
 
-def findLeadingEdgeAndSplit(Airfoil, LeadingEdgeCmin=0.5):
-    '''
-    .. danger:: **THIS FUNCTION IS BEING DEPRECATED. MUST BE REPLACED BY**
-     :py:func:`findLeadingOrTrailingEdge`
-
-    find the leading edge point and split the airfoil.
-
-    This function supposes that airfoil is normalized (chordwise direction
-    is on X-axis).
-
-    Parameters
-    ----------
-
-        Airfoil : zone
-            airfoil positioned through x-axis chordwise
-
-        LeadingEdgeCmin : float
-            relative value of X-coordinate (over chord) where to search leading edge
-
-    Returns
-    -------
-
-        iLE : int
-            nearest point index corresponding to leading edge
-
-        Top : zone
-            top side curve of the airfoil
-
-        Bottom : zone
-            bottom side curve of the airfoil
-    '''
-
-
-    FoilX, FoilY = J.getxy(Airfoil)
-    D._getCurvatureRadius(Airfoil)
-    Chord = FoilX.max()-FoilX.min()
-    rad, = J.getVars(Airfoil,['radius'])
-
-    # Find Leading Edge Method 1
-    # LEignoreInterval = (FoilX - FoilX.min())/Chord > LeadingEdgeCmin
-    # rad[LEignoreInterval] = 1e6 # Very Big value (will be bypassed)
-    # iLE = np.argmin(rad)
-
-    # Find Leading Edge Method 2
-    LEinterval = (FoilX - FoilX.min())/Chord < LeadingEdgeCmin
-    MinRad = np.min(rad[LEinterval]) # Minimum Radius (many points may be close to this)
-    MaxRad = np.max(rad[LEinterval])
-
-    # Look for LE candidates
-    tol = 1e-12 # as percentage of (MaxRad-MinRad) distance
-    LECandidates = rad[LEinterval] <= MinRad + tol*(MaxRad-MinRad)
-
-    # AvrgPoint is the LECandidates average
-    AvrgPoint = (np.mean(FoilX[LEinterval][LECandidates]), np.mean(FoilY[LEinterval][LECandidates]), 0.)
-    # AvrgPointPyTree = D.point(AvrgPoint)
-    # T._projectOrtho(AvrgPointPyTree,Airfoil)
-    iLE, _ = J.getNearestPointIndex(Airfoil, AvrgPoint)
-
-    # Split Top and Bottom sides
-    Bottom = T.subzone(Airfoil,(iLE+1,1,1),(-1,-1,-1))
-    Top    = T.subzone(Airfoil,(1,1,1),(iLE+1,1,1))
-
-    return iLE, Top, Bottom
-
-def findTrailingEdgeAndSplit(Airfoil):
-    '''
-    .. danger:: **THIS FUNCTION IS BEING DEPRECATED. MUST BE REPLACED BY**
-     :py:func:`findLeadingOrTrailingEdge`
-
-    find the trailing edge point and split the airfoil.
-
-    This function supposes that airfoil is normalized (chordwise direction
-    is on X-axis).
-
-    Parameters
-    ----------
-
-        Airfoil : zone
-            airfoil positioned through x-axis chordwise
-
-    Returns
-    -------
-
-        iTE : int
-            nearest point index corresponding to trailing edge
-
-        Top : zone
-            top side curve of the airfoil
-
-        Bottom :
-            bottom side curve of the airfoil
-    '''
-    isClockwise = is2DCurveClockwiseOriented(Airfoil)
-
-    if not isClockwise: T._reorder(Airfoil,(-1,2,3))
-
-    # Find Trailing Edge
-    AirfoilX, AirfoilY = J.getxy(Airfoil)
-    iTE = np.argmax(AirfoilX)
-
-    # Split Top and Bottom sides
-    if iTE > 0:
-        Bottom = T.subzone(Airfoil,(iTE+1,1,1),(-1,-1,-1))
-        Top    = T.subzone(Airfoil,(2,1,1),(iTE+1,1,1))
-    else:
-        iLE = np.argmin(AirfoilX)
-        Bottom = T.subzone(Airfoil,(1,1,1),(iLE,1,1))
-        Top    = T.subzone(Airfoil,(iLE,1,1),(len(AirfoilX),1,1))
-
-    return iTE, Top, Bottom
-
-
-def getChord(Airfoil):
-    '''
-    .. danger:: THIS FUNCTION IS BEING DEPRECATED AND MUST BE REPLACED
-
-    Literally, compute the airfoils chord as max(x) - min(x)
-    '''
-
-    FoilX, FoilY = J.getxy(Airfoil)
-    Chord = FoilX.max()-FoilX.min()
-    return Chord
-
-def getCamber(Airfoil, CamberDistribution=None, LeadingEdgeCmin=0.5,
-                       camberMinSearchPoint=0.01):
-    '''
-    .. danger:: THIS FUNCTION IS BEING DEPRECATED AND MUST BE REPLACED
-        BY :py:func:`buildCamber`
-    '''
-
-    WRNMSG = ('WARNING: getCamber() will be deprecated.\n'
-              'Please use buildCamber() instead.')
-    print(WRNMSG)
-
-    iLE, Top, Bottom = findLeadingEdgeAndSplit(Airfoil,LeadingEdgeCmin)
-    # Top    = discretize(Top,N=100)    # Densify Top Side
-    # Bottom = discretize(Bottom,N=100) # Densify Bottom Side
-    T._reorder(Bottom,(-1,2,3))
-    # Compute accurate chord
-    Chord = np.maximum(getChord(Top),getChord(Bottom))
-    TopX, TopY       = J.getxy(Top)
-    BottomX, BottomY = J.getxy(Bottom)
-
-    TopTan = D.getTangent(Top)
-    TopTanX, TopTanY = J.getxy(TopTan)
-
-    Zones = [Top, Bottom]
-
-
-
-    def gapFromTangency__(R,i,TopX,TopY,TopTanX,TopTanY,Bottom):
-        Center   = (TopX[i]+TopTanY[i]*R,TopY[i]-TopTanX[i]*R,0)
-        CenterP  = D.point((TopX[i]+TopTanY[i]*R,TopY[i]-TopTanX[i]*R,0))
-
-        T._projectOrtho(CenterP,Bottom)
-        projX = I.getNodeFromName(CenterP, 'CoordinateX')[1][0]
-        projY = I.getNodeFromName(CenterP, 'CoordinateY')[1][0]
-        Distance = np.sqrt((Center[0]-projX)**2+(Center[1]-projY)**2) - R
-
-        return Distance
-
-
-    # ------------> THIS CODE MAY BE OPTIMIZED <-------------
-    Centers = []
-    Radius  = []
-    # Circles = []
-    iMinSearchIndex = np.where(((TopX - TopX.min())/Chord >= camberMinSearchPoint))[0][0]
-    for i in range(iMinSearchIndex,len(TopX)-1):
-        Ropt, Distance, Converged = _rootScalar__(gapFromTangency__,
-            np.linspace(0.001,0.1,3),
-            args=(i,TopX,TopY,TopTanX,TopTanY,Bottom),
-            xmin=0.001,xmax=0.5,
-            maxstep=0.5,maxiter=100,tol=1.e-8)
-
-        if Converged:
-            Center   = (TopX[i]+TopTanY[i]*Ropt,TopY[i]-TopTanX[i]*Ropt,0)
-            # Circle   = D.circle(Center, Ropt,N=360*2)
-            Centers += [Center]
-            Radius  += [Ropt]
-
-            # Circles += [Circle]
-    # <------------------------------------------------------>
-
-
-
-
-    # Join the Leading and Trailing Edge
-    LeadingEdge = ((TopX[-1]+BottomX[-1])*0.5,(TopY[-1]+BottomY[-1])*0.5,0)
-    TrailingEdge = ((TopX[0]+BottomX[0])*0.5,(TopY[0]+BottomY[0])*0.5,0)
-    CamberLine = D.polyline([LeadingEdge]+Centers[::-1]+[TrailingEdge])
-
-    # Re-discretize CamberLine
-    if CamberDistribution is None:
-        CamberDistribution = dict(N=51,
-                            kind='tanhOneSide',
-                            FirstCellHeight=0.0001*Chord,
-                            BreakPoint=1.)
-        CamberDistribution = dict(N=200,
-                            kind='trigonometric',
-                            parameter=2,
-                            BreakPoint=1.)
-    elif 'BreakPoint' not in CamberDistribution:
-        CamberDistribution['BreakPoint'] = 1.
-
-
-    CamberLine = polyDiscretize(CamberLine,[CamberDistribution])
-
-    # Store distance
-    TopTri = C.convertArray2Tetra(G.stack([Top,T.translate(Top,(0,0,1))]))
-    BottomTri = C.convertArray2Tetra(G.stack([Bottom,T.translate(Bottom,(0,0,1))]))
-
-    TangentCamber = D.getTangent(CamberLine)
-    tX, tY, tZ = J.getxyz(TangentCamber)
-    e, = J.invokeFields(CamberLine,['RelativeThickness'])
-    Distances2Top    = distancesCurve2SurfDirectional(CamberLine,TopTri,tY,-tX,tX*0)
-    Distances2Bottom = distancesCurve2SurfDirectional(CamberLine,BottomTri,tY,-tX,tX*0)
-    e[:] = Distances2Top+Distances2Bottom # Does not look like; but this is an average ;-)
-    e[-1] = np.sqrt((TopX[-1]-BottomX[-1])**2 + (TopY[-1]-BottomY[-1])**2) / Chord
-
-
-    return CamberLine
 
 def distancesCurve2SurfDirectional(Curve,Surface,DirX,DirY,DirZ):
     '''
@@ -2453,42 +2232,37 @@ def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge( airfoil, tol=1e-5,
             structured curve of the airfoil
 
             .. note:: **airfoil** is modified
-
-        tol : float
-            geometrical tolerance used to determine if multiple points exist
-
-        trailing_edge_margin : float
-            small geomatrical tolerance used to determine the region of research
-            of the trailing edge
-
     '''
 
+    LE,_ = findLeadingOrTrailingEdge( airfoil, ChordwiseRegion='> 0.99')
+    TE,_ = findLeadingOrTrailingEdge( airfoil, ChordwiseRegion='< -0.99')
+
+    if C.getMaxValue(LE,"CoordinateX") > C.getMaxValue(TE,"CoordinateX"):
+        LE, TE = TE, LE
+    I._rmNodesByType(TE,'FlowSolution_t')
+    x, y, z = J.getxyz(TE)
+    TE_xyz = ( x[0], y[0], z[0] )
+
     x, y = J.getxy( airfoil )
-    fields = J.getVars(airfoil,
-                C.getVarNames(airfoil, excludeXYZ=True, loc='nodes')[0])
+    FieldNames = C.getVarNames(airfoil, excludeXYZ=True, loc='nodes')[0]
+    fields = J.getVars( airfoil, FieldNames )
 
     if not is2DCurveClockwiseOriented( airfoil ):
         T._reorder( airfoil, (-1,2,3))
-    TrailingEdge = P.selectCells(airfoil, '{CoordinateX} > %0.13f'%(x.max()-trailing_edge_margin),
-                                        strict=1)
-    TrailingEdge = C.convertBAR2Struct( TrailingEdge )
-    xTE, yTE = J.getxy( TrailingEdge )
-
-    index_edge_TE = np.argmin( yTE )
-    TE_xyz = (xTE[index_edge_TE], yTE[index_edge_TE], 0.)
 
     roll_index, sqrd_distance = D.getNearestPointIndex(airfoil, TE_xyz)
     x, y = J.getxy( airfoil )
-    fields = J.getVars(airfoil,
-                C.getVarNames(airfoil, excludeXYZ=True, loc='nodes')[0])
+    mult_point = (x[roll_index]*1., y[roll_index]*1., 0.)
+    fields = J.getVars( airfoil, FieldNames )
     x[:] = np.roll(x, -roll_index)
     y[:] = np.roll(y, -roll_index)
     for field in fields:
         field[:] = np.roll(field, -roll_index)
 
     # remove multiple point
+    tol = 1e-10
     for i in range(len(x)):
-        ni, sqrd_distance = D.getNearestPointIndex(airfoil, TE_xyz)
+        ni, sqrd_distance = D.getNearestPointIndex(airfoil, (x[i],y[i],0))
         if i == ni: continue
         distance = np.sqrt( (x[i]-x[ni])**2 + (y[i]-y[ni])**2)
         if distance <= tol:
@@ -2502,18 +2276,19 @@ def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge( airfoil, tol=1e-5,
         for field in fields:
             field[i:-1] = field[i+1:]
             field[-1] = field[0]
-    gets(airfoil)
+
+    # add curvilinear abscissa starting & ending at VIRTUAL TrailingEdge
+    airfoil_with_TE = T.subzone( airfoil, (2,1,1), (-2,-1,-1) )
+    I._rmNodesByType( airfoil_with_TE, 'FlowSolution_t' )
+    airfoil_with_TE = concatenate( [TE, airfoil_with_TE, TE] )
+    gets( airfoil_with_TE )
+
+    J.migrateFields( airfoil_with_TE, airfoil, keepMigrationDataForReuse=False )
+    s, = J.getVars(airfoil, ['s'])
+    s[0] = 0
+    s[-1] = 1
 
 
-def setTrailingEdge(Airfoil):
-    '''
-    .. warning:: THIS FUNCTION IS BEING DEPRECATED
-    '''
-    _, Top, Bottom = findTrailingEdgeAndSplit(Airfoil)
-
-    foil = concatenate([Bottom, Top])
-
-    return foil
 
 
 def getCurveNormalMap(curve):
@@ -3300,6 +3075,8 @@ def findLeadingOrTrailingEdge(AirfoilCurve, ChordwiseRegion='> +0.5',
     ci, ti = J.getVars(AirfoilCurve,['ChordwiseIndicator','ThickwiseIndicator'])
     SelectedRegion = P.selectCells(AirfoilCurve,'{ChordwiseIndicator}'+
                                                   ChordwiseRegion)
+
+
     x = J.getx(SelectedRegion)
     if len(x) == 0:
         ci, = J.getVars(AirfoilCurve,['ChordwiseIndicator'])
@@ -3309,15 +3086,22 @@ def findLeadingOrTrailingEdge(AirfoilCurve, ChordwiseRegion='> +0.5',
         raise ValueError(ERRMSG)
     SelectedRegion = C.convertBAR2Struct( SelectedRegion )
 
-    # TODO: Investigate this in detail:
-    # SelectedRegion = G.map(SelectedRegion,
-    #                        D.line((0,0,0),(1,0,0),C.getNPts(SelectedRegion)))
+    # rediscretize the selected region
+    region_npts = 101
+    delta_s = D.getLength( SelectedRegion ) / float( region_npts )
+    SmoothParts = T.splitCurvatureAngle( SelectedRegion, 30.)
+    NewSmoothParts = []
+    for sp in SmoothParts:
+        Length_subpart = D.getLength( sp )
+        npts_subpart = int(Length_subpart / delta_s)
+        new_subpart = discretize(sp, N=np.maximum(npts_subpart,3))
+        NewSmoothParts.append( new_subpart )
+    SelectedRegion = T.join( NewSmoothParts )
 
     D._getCurvatureRadius( SelectedRegion )
-
-    x, y, z =  J.getxyz( SelectedRegion )
-    gets( SelectedRegion )
+    aux_s = gets( SelectedRegion )
     radius, = J.getVars( SelectedRegion, ['radius'] )
+    x, y, z =  J.getxyz( SelectedRegion )
 
     rmin = radius.min()
 
