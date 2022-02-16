@@ -54,7 +54,15 @@ def ModifySolidCGNS2Mesh(t):
     mm.FromAster('MAIL')
     
     DictStructParam['MeshProperties']['NNodes'] = len(list(mm.correspondance_noeuds))
-    DictStructParam['MeshProperties']['Nddl'] = int(3*DictStructParam['MeshProperties']['NNodes'])
+
+
+
+
+    print(WARN+'Only one type of mesh element! or with same number of ddl'+ENDC)
+
+    DictStructParam['MeshProperties']['Nddl'] = int(DictStructParam['MeshProperties']['ddlElem']*DictStructParam['MeshProperties']['NNodes'])
+    
+
     DictStructParam['MeshProperties']['NodesFamilies'] = {}
     for Family in mm.gno.keys():
 
@@ -67,7 +75,16 @@ def ModifySolidCGNS2Mesh(t):
         Conectivity = mm.co
         Conectivity = [val + 1 for val in Conectivity]
         Coordinates = mm.cn
+        
+        if len(Coordinates[0,:]) == 2:
 
+
+            Coordinates = np.append(Coordinates, np.zeros((len(Coordinates[:,0]),1)), axis = 1)
+
+
+        
+
+        # Be careful with hybrid meshes with more than 1 element!
 
         # Create the unstructured zone
         NPts = len(Coordinates)
@@ -79,9 +96,14 @@ def ModifySolidCGNS2Mesh(t):
             
             if len(ConectValue) == 8:
                 NElts += 1
+                NValues = 8
+
+            if len(ConectValue) == 2:
+                NElts += 1
+                NValues = 2
 
         
-        conect = np.zeros((NElts, 8), dtype=int)
+        conect = np.zeros((NElts, NValues), dtype=int)
         
         li1 = -1
         for ConectValue in Conectivity:
@@ -91,9 +113,12 @@ def ModifySolidCGNS2Mesh(t):
                 li1 += 1
                 conect[li1,:] = np.squeeze(np.asarray(ConectValue))
 
-        print(np.shape(conect))
-        print(np.shape(conect.flatten()))
-        print(conect.flatten())
+
+            if len(ConectValue) == 2:
+                
+                li1 += 1
+                conect[li1,:] = np.squeeze(np.asarray(ConectValue))
+
         
     #####################
         
@@ -147,6 +172,45 @@ def ModifySolidCGNS2Mesh(t):
 
     return t
 
+
+
+def DefineFEMModels(t, Mesh):
+    '''Affect several Materials defined in MaterialDict to the corresponding meshes'''
+    
+    DictStructParam = J.get(t, '.StructuralParameters')
+
+    ModelDict = DictStructParam['MeshProperties']['Models']
+
+    l_affe = []
+    for LocModelName in ModelDict.keys():
+        if ModelDict[LocModelName]['MeshGroup'] == 'All':
+            ap = _F(TOUT = 'OUI', PHENOMENE = ModelDict[LocModelName]['Phenomene'], MODELISATION = ModelDict[LocModelName]['Modelling'])
+            
+        else:
+            ap = _F(PHENOMENE = ModelDict[LocModelName]['Phenomene'], MODELISATION = ModelDict[LocModelName]['Modelling'], GROUP_MA = ModelDict[LocModelName]['MeshGroup'])
+        l_affe.append(ap)
+         
+        print(GREEN+'Affecting %s model to %s mesh groups.'%(LocModelName, ModelDict[LocModelName]['MeshGroup'])+ENDC)
+
+#MODELE=AFFE_MODELE(MAILLAGE=MAIL,
+    #                   AFFE=_F(TOUT='OUI',
+    #                           PHENOMENE='MECANIQUE',
+    #                           MODELISATION='3D',),
+    #                   )
+#MODELE=AFFE_MODELE(MAILLAGE=MAIL,
+    #                   AFFE=_F(TOUT='OUI',
+    #                           PHENOMENE='MECANIQUE',
+    #                           MODELISATION='3D',),
+    #                   )
+
+
+    MODELE = AFFE_MODELE(MAILLAGE = Mesh, 
+                         AFFE = l_affe)
+
+
+    return MODELE
+
+
 def AffectMaterialFromMaterialDictionary(MaterialDict, Mesh):
     '''Affect several Materials defined in MaterialDict to the corresponding meshes'''
 
@@ -159,11 +223,12 @@ def AffectMaterialFromMaterialDictionary(MaterialDict, Mesh):
             ap = _F(GROUP_MA = MaterialDict[LocMatName]['Mesh'] , MATER = MaterialDict[LocMatName]['Properties'])
         l_affe.append(ap)
          
-        print(GREEN+'Affecting %s to %s mesh groups.'%(LocMatName, MaterialDict[LocMatName]['Mesh'])+ENDC)
+        print(GREEN+'Affecting %s material to %s mesh groups.'%(LocMatName, MaterialDict[LocMatName]['Mesh'])+ENDC)
 
     CHMAT=AFFE_MATERIAU(MAILLAGE=Mesh,
                         AFFE= l_affe,);
     return CHMAT
+
 
 def DefineMaterials(t, Mesh):
 
@@ -172,7 +237,7 @@ def DefineMaterials(t, Mesh):
     MaterialDict = {}
     Ms = []
     M = [None]
-    print(M, len(DictStructParam['MaterialProperties']['Materials'].keys()))
+    
     for LocMat, it in zip(DictStructParam['MaterialProperties']['Materials'].keys(), range(len(DictStructParam['MaterialProperties']['Materials'].keys()))):
         MaterialDict[LocMat] = {}
         M.append([None])
@@ -195,9 +260,59 @@ def DefineMaterials(t, Mesh):
 
     CHMAT = AffectMaterialFromMaterialDictionary(MaterialDict, Mesh)
 
-    print(CHMAT)
-
     return CHMAT, Ms
+
+def DefineElementalCaracteristics(t, Mesh, Model):
+
+    DictStructParam = J.get(t, '.StructuralParameters')
+
+
+    DictCaracteristics = DictStructParam['MeshProperties']['Caracteristics']
+
+
+    affe_cara = []
+
+    affe_Poutre = []
+    affe_Bar = []
+    affe_Discret = []
+
+    for caraKey in DictCaracteristics.keys():
+
+        if DictCaracteristics[caraKey]['KeyWord'] == 'POUTRE':
+            affe_Poutre.append(_F(SECTION = DictCaracteristics[caraKey]['SectionType'], 
+                                  VARI_SECT = DictCaracteristics[caraKey]['SectionVariation'], 
+                                  CARA = DictCaracteristics[caraKey]['Properties'],
+                                  VALE = DictCaracteristics[caraKey]['PropValues'],
+                                  GROUP_MA = DictCaracteristics[caraKey]['MeshGroup']
+                                  ))
+
+            print(GREEN+'Affecting %s caracteristics to %s mesh groups.'%(caraKey, DictCaracteristics[caraKey]['MeshGroup'])+ENDC)
+
+        if DictCaracteristics[caraKey]['KeyWord'] == 'BARRE':
+            affe_Bar = None
+            pass
+    
+        if DictCaracteristics[caraKey]['KeyWord'] == 'DISCRET':
+            affe_Discret.append(_F(SYME = DictCaracteristics[caraKey]['SectionSymetry'], 
+                                   CARA = DictCaracteristics[caraKey]['Properties'],
+                                   VALE = DictCaracteristics[caraKey]['PropValues'],
+                                   GROUP_MA = DictCaracteristics[caraKey]['MeshGroup']
+                                   ))
+
+            print(GREEN+'Affecting %s caracteristics to %s mesh groups.'%(caraKey, DictCaracteristics[caraKey]['MeshGroup'])+ENDC)
+
+
+
+
+    CARELEM = AFFE_CARA_ELEM(MODELE = Model, 
+                             BARRE = affe_Bar,
+                             POUTRE = affe_Poutre,
+                             DISCRET = affe_Discret)
+
+
+    #CARELEM = None
+
+    return CARELEM
 
 def BuildFEmodel(t):
     '''Reads the mesh, creates the FE model in aster and computes the FOM matrices for the studied case.
@@ -215,17 +330,22 @@ def BuildFEmodel(t):
 
     # Affect the mecanical model to all the mesh:
 
-    MODELE=AFFE_MODELE(MAILLAGE=MAIL,
-                       AFFE=_F(TOUT='OUI',
-                               PHENOMENE='MECANIQUE',
-                               MODELISATION='3D',),
-                       )
+
+    MODELE = DefineFEMModels(t, MAIL)
+
+    #MODELE=AFFE_MODELE(MAILLAGE=MAIL,
+    #                   AFFE=_F(TOUT='OUI',
+    #                           PHENOMENE='MECANIQUE',
+    #                           MODELISATION='3D',),
+    #                   )
 
     # Define the materials and affect them to their meshes:
 
     CHMAT, MAT = DefineMaterials(t, MAIL)
 
+    # Define the elemental characteristics if needed:
 
+    CARELEM = DefineElementalCaracteristics(t, MAIL, MODELE)
 
 #    ListDictCaracteristics = [dict(Section = 'CERCLE', CARA= (), VALE = (), GROUP_MA = '' ), 
 #                              dict()
@@ -254,7 +374,8 @@ def BuildFEmodel(t):
     AsterObjs = dict(MAIL = MAIL, 
                      MODELE = MODELE, 
                      MAT= MAT, 
-                     CHMAT = CHMAT)
+                     CHMAT = CHMAT,
+                     CARELEM = CARELEM)
 
     
     return t, AsterObjs
@@ -274,78 +395,157 @@ def AsseMatricesFOM(Type_asse, **kwargs):
                    NOM_CHAM = 'SIEF_ELGA',
                    INST = 1.0)
 
-    RIGI1 = CO('RIGI1')
-    MASS1 = CO('MASS1')
-    C1 = CO('C1')
-    KASOU = CO('KASOU')
-    KGEO = CO('KGEO')
-    FE1 = CO('FE')
-    NUME = CO('NUME')
+    #RIGI1 = CO('RIGI1')
+    #MASS1 = CO('MASS1')
+    #C1 = CO('C1')
+    #KASOU = CO('KASOU')
+    #KGEO = CO('KGEO')
+    #FE1 = CO('FE')
+    #NUME = CO('NUME')
 
-    ASSEMBLAGE(MODELE = kwargs['MODELE'],
-           CHAM_MATER = kwargs['CHMAT'],
-           CHARGE = kwargs['Cfd'],       
-           NUME_DDL = NUME,
-           MATR_ASSE = (_F(MATRICE=RIGI1,
-                           OPTION='RIGI_MECA',),
-                        _F(MATRICE=MASS1,    
-                           OPTION='MASS_MECA',),   
-                        _F(MATRICE = KGEO,              
-                           OPTION = 'RIGI_GEOM',
-                           SIEF_ELGA = sig_g),
-                        _F(MATRICE=KASOU,
-                           OPTION='RIGI_ROTA',),
-                        _F(MATRICE = C1,
-                           OPTION = 'AMOR_MECA'),
-                         ),
-           VECT_ASSE =(_F(VECTEUR = FE1,
-                          OPTION = 'CHAR_MECA', 
-                          ),
-                      ),
-           INFO = 2
-           )
-      
-    # Loading coefficients:
+    try:
+        RIGI1 = CO('RIGI1')
+        MASS1 = CO('MASS1')
+        C1 = CO('C1')
+        KASOU = CO('KASOU')
+        KGEO = CO('KGEO')
+        FE1 = CO('FE')
+        NUME = CO('NUME')
         
-    if Type_asse == 'All':
-        C_g = 1.0
-        C_c = 1.0
-    elif Type_asse == 'Kec':
-        C_g = 0.0
-        C_c = 1.0
-    elif Type_asse == 'Keg':
-        C_g = 1.0
-        C_c = 0.0
+        ASSEMBLAGE(MODELE = kwargs['MODELE'],
+               CHAM_MATER = kwargs['CHMAT'],
+               CARA_ELEM  = kwargs['CARELEM'],
+               CHARGE = kwargs['Cfd'],       
+               NUME_DDL = NUME,
+               MATR_ASSE = (_F(MATRICE=RIGI1,
+                               OPTION='RIGI_MECA',),
+                            _F(MATRICE=MASS1,    
+                               OPTION='MASS_MECA',),   
+                            _F(MATRICE = KGEO,              
+                               OPTION = 'RIGI_GEOM',
+                               SIEF_ELGA = sig_g),
+                            _F(MATRICE=KASOU,
+                               OPTION='RIGI_ROTA',),
+                            _F(MATRICE = C1,
+                               OPTION = 'AMOR_MECA'),
+                             ),
+               VECT_ASSE =(_F(VECTEUR = FE1,
+                              OPTION = 'CHAR_MECA', 
+                              ),
+                          ),
+               INFO = 2
+               )
       
-    # Assembly of matrix:
-                   
-    Komeg2 = COMB_MATR_ASSE( COMB_R = (_F( MATR_ASSE = RIGI1,
-                                           COEF_R = 1.),
-                                       _F(MATR_ASSE = KGEO, 
-                                          COEF_R = C_g),
-                                       _F(MATR_ASSE = KASOU, 
-                                          COEF_R = C_c),),)
-
-    #AsterObjs =  dict(**kwargs , **dict(Komeg2 = Komeg2, MASS1 = MASS1, NUME = NUME))
-    AsterObjs =  SJ.merge_dicts(kwargs , dict(Komeg2 = Komeg2, MASS1 = MASS1, NUME = NUME))
-
-    Ke, P_Lagr = SJ.ExtrMatrixFromAster2Python(RIGI1, ComputeLagrange = True)
-    
-    Kg,_ = SJ.ExtrMatrixFromAster2Python(KGEO, ii = P_Lagr)
-    Kc,_ = SJ.ExtrMatrixFromAster2Python(KASOU, ii = P_Lagr)
-    Komeg,_ = SJ.ExtrMatrixFromAster2Python(Komeg2, ii = P_Lagr)
-    C,_ = SJ.ExtrMatrixFromAster2Python(C1, ii = P_Lagr)
-    M,_ = SJ.ExtrMatrixFromAster2Python(MASS1, ii = P_Lagr)
-
-    Fe = SJ.ExtrVectorFromAster2Python(FE1, P_Lagr)
-
-
-    DETRUIRE (CONCEPT = _F (NOM = (sig_g, RIGI1, KGEO, KASOU, C1, FE1),
+        # Loading coefficients:
+            
+        if Type_asse == 'All':
+            C_g = 1.0
+            C_c = 1.0
+        elif Type_asse == 'Kec':
+            C_g = 0.0
+            C_c = 1.0
+        elif Type_asse == 'Keg':
+            C_g = 1.0
+            C_c = 0.0
+          
+        # Assembly of matrix:
+                       
+        Komeg2 = COMB_MATR_ASSE( COMB_R = (_F( MATR_ASSE = RIGI1,
+                                               COEF_R = 1.),
+                                           _F(MATR_ASSE = KGEO, 
+                                              COEF_R = C_g),
+                                           _F(MATR_ASSE = KASOU, 
+                                              COEF_R = C_c),),)
+    except:
+        print(FAIL+'WARNING! The matrix Kc was not computed! Only valid if Omega = 0 rpm'+ENDC)
+        
+        DETRUIRE (CONCEPT = _F (NOM = (RIGI1,MASS1, KGEO, KASOU, C1, FE1, NUME),
                             ), 
               INFO = 1,
               )
 
-    return Ke, Kg, Kc, Komeg, C, M, Fe, P_Lagr, AsterObjs
+        RIGI1 = CO('RIGI1')
+        MASS1 = CO('MASS1')
+        C1 = CO('C1')
+        KASOU = None
+        KGEO = CO('KGEO')
+        FE1 = CO('FE')
+        NUME = CO('NUME')
+
+        ASSEMBLAGE(MODELE = kwargs['MODELE'],
+               CHAM_MATER = kwargs['CHMAT'],
+               CARA_ELEM  = kwargs['CARELEM'],
+               CHARGE = kwargs['Cfd'],       
+               NUME_DDL = NUME,
+               MATR_ASSE = (_F(MATRICE=RIGI1,
+                               OPTION='RIGI_MECA',),
+                            _F(MATRICE=MASS1,    
+                               OPTION='MASS_MECA',),   
+                            _F(MATRICE = KGEO,              
+                               OPTION = 'RIGI_GEOM',
+                               SIEF_ELGA = sig_g),
+                            _F(MATRICE = C1,
+                               OPTION = 'AMOR_MECA'),
+                             ),
+               VECT_ASSE =(_F(VECTEUR = FE1,
+                              OPTION = 'CHAR_MECA', 
+                              ),
+                          ),
+               INFO = 2
+               )
+      
+        # Loading coefficients:
+            
+        if Type_asse == 'All':
+            C_g = 1.0
+            C_c = 1.0
+        elif Type_asse == 'Kec':
+            C_g = 0.0
+            C_c = 1.0
+        elif Type_asse == 'Keg':
+            C_g = 1.0
+            C_c = 0.0
+          
+        # Assembly of matrix:
+                       
+        Komeg2 = COMB_MATR_ASSE( COMB_R = (_F( MATR_ASSE = RIGI1,
+                                               COEF_R = 1.),
+                                           _F(MATR_ASSE = KGEO, 
+                                              COEF_R = C_g),
+                                           ),)
+        
+
+    DictMatrices = {}
+    DictVectors = {}
+    #AsterObjs =  dict(**kwargs , **dict(Komeg2 = Komeg2, MASS1 = MASS1, NUME = NUME))
+    AsterObjs =  SJ.merge_dicts(kwargs , dict(Komeg2 = Komeg2, MASS1 = MASS1, NUME = NUME))
+
+    DictMatrices['Ke'], P_Lagr = SJ.ExtrMatrixFromAster2Python(RIGI1, ComputeLagrange = True)
+    
+    DictMatrices['Kg'],_ = SJ.ExtrMatrixFromAster2Python(KGEO, ii = P_Lagr)
+    if KASOU is not None:
+        DictMatrices['Kc'],_ = SJ.ExtrMatrixFromAster2Python(KASOU, ii = P_Lagr)
+        
+    DictMatrices['Komeg'],_ = SJ.ExtrMatrixFromAster2Python(Komeg2, ii = P_Lagr)
+    DictMatrices['C'],_ = SJ.ExtrMatrixFromAster2Python(C1, ii = P_Lagr)
+    DictMatrices['M'],_ = SJ.ExtrMatrixFromAster2Python(MASS1, ii = P_Lagr)
+
+    DictVectors['Fei'] = SJ.ExtrVectorFromAster2Python(FE1, P_Lagr)
+
+    if KASOU  is not None:
+        DETRUIRE (CONCEPT = _F (NOM = (sig_g, RIGI1, KGEO, KASOU, C1, FE1),
+                            ), 
+              INFO = 1,
+              )
+    else:
+        DETRUIRE (CONCEPT = _F (NOM = (sig_g, RIGI1, KGEO, C1, FE1),
+                            ), 
+              INFO = 1,
+              )
+
+    #return Ke, Kg, Kc, Komeg, C, M, Fe, P_Lagr, AsterObjs
+    return DictMatrices, DictVectors, P_Lagr, AsterObjs
+
 
 
 
@@ -374,10 +574,7 @@ def ComputeMatricesFOM(t, RPM, **kwargs):
                          ROTATION = _F(VITESSE = np.pi * RPM/30., 
                                        AXE = DictStructParam['RotatingProperties']['AxeRotation'], 
                                        CENTRE = DictStructParam['RotatingProperties']['RotationCenter'],),
-                         DDL_IMPO=(_F(GROUP_NO='Node_Encastrement',
-                                      DX=0.0,
-                                      DY=0.0,
-                                      DZ=0.0,),
+                         DDL_IMPO=(SJ.AffectImpoDDLByGroupType(t)
                                        ),
                                 )
 
@@ -398,6 +595,7 @@ def ComputeMatricesFOM(t, RPM, **kwargs):
           
     SOLU = STAT_NON_LINE(MODELE = kwargs['MODELE'],
                          CHAM_MATER = kwargs['CHMAT'],
+                         CARA_ELEM = kwargs['CARELEM'], 
                          EXCIT =( _F(CHARGE = Cfd,
                                      FONC_MULT=RAMPE,),), 
                          COMPORTEMENT = _F(RELATION = 'ELAS',
@@ -418,56 +616,89 @@ def ComputeMatricesFOM(t, RPM, **kwargs):
     AsterObjs = SJ.merge_dicts(kwargs, dict(Cfd= Cfd, SOLU = SOLU[0], RAMPE = RAMPE, L_INST = L_INST))
 
 
-    Ke, Kg, Kc, Komeg, C, M, Fei, PointsLagrange, AsterObjs = AsseMatricesFOM('All', **AsterObjs)
+    #Ke, Kg, Kc, Komeg, C, M, Fei, PointsLagrange, AsterObjs = AsseMatricesFOM('All', **AsterObjs)
+    DictMatrices, DictVectors, PointsLagrange, AsterObjs = AsseMatricesFOM('All', **AsterObjs)
     
     DictStructParam['MeshProperties']['NodesFamilies']['LagrangeNodes'] = PointsLagrange
     J.set(t, '.StructuralParameters', **DictStructParam)
 
-    t = SJ.AddFOMVars2Tree(t, RPM, Vars = [Ke, Kg, Kc, Komeg, C, M],
-                                   VarsName = ['Ke', 'Kg', 'Kc', 'Komeg', 'C', 'M'],
+    for NameMV in DictMatrices.keys(): #Ke, Kg, Kc, Komeg, C, M, Fei
+        #print(DictMatrices[NameMV])
+        t = SJ.AddFOMVars2Tree(t, RPM, Vars = [DictMatrices[NameMV]], # Kg, Kc, Komeg, C, M],
+                                   VarsName = [NameMV], #, 'Kg', 'Kc', 'Komeg', 'C', 'M'],
                                    Type = '.AssembledMatrices',
                                    )
 
-    t = SJ.AddFOMVars2Tree(t, RPM, Vars = [Fei],
+    t = SJ.AddFOMVars2Tree(t, RPM, Vars = [DictVectors['Fei']],
                                    VarsName = ['Fei'],
                                    Type = '.AssembledVectors',
                                    )
 
-    AsterObjs = SJ.merge_dicts(AsterObjs, dict(Fei= Fei))
+    AsterObjs = SJ.merge_dicts(AsterObjs, dict(Fei= DictVectors['Fei']))
 
     return t, AsterObjs
 
 def ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, **kwargs):
-    
-    tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
-                                         NOM_CHAM='DEPL',
-                                         NOM_CMP= ('DX','DY','DZ'),
-                                         INST = 1.0,
-                                         TOUT = 'OUI',),
-                               TYPE_TABLE='TABLE',
-                               TITRE='Table_Depl_R',
-                               )
-                    
-    # Tableau complet des deplacements, coordonnees modales,... :
-    
-    depl_sta = tstaT.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ']
+    DictStructParam = J.get(t, '.StructuralParameters')
 
-    UsZone, UsField = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= depl_sta,
-                                                         ZoneName = 'U_sta'+str(np.round(RPM)), 
-                                                         FieldNames = ['Usx', 'Usy', 'Usz'],
-                                                         Depl = True)
+    if DictStructParam['MeshProperties']['ddlElem'][0] == 3:
+
+        tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
+                                             NOM_CHAM='DEPL',
+                                             NOM_CMP= ('DX','DY','DZ'),
+                                             INST = 1.0,
+                                             TOUT = 'OUI',),
+                                   TYPE_TABLE='TABLE',
+                                   TITRE='Table_Depl_R',
+                                   )
+                        
+        # Tableau complet des deplacements, coordonnees modales,... :
+        
+        depl_sta = tstaT.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ']
     
-    J._invokeFields(UsZone, ['upx', 'upy', 'upz', 'ux', 'uy', 'uz'])
-    upx, upy, upz = J.getVars(UsZone, ['upx', 'upy', 'upz'])
-    upx[:], upy[:], upz[:] = UsField[0], UsField[1], UsField[2] 
+        UsZone, UsField = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= depl_sta,
+                                                             ZoneName = 'U_sta'+str(np.round(RPM)), 
+                                                             FieldNames = ['Usx', 'Usy', 'Usz'],
+                                                             Depl = True)
+        
+        J._invokeFields(UsZone, ['upx', 'upy', 'upz', 'ux', 'uy', 'uz'])
+        upx, upy, upz = J.getVars(UsZone, ['upx', 'upy', 'upz'])
+        upx[:], upy[:], upz[:] = UsField[0], UsField[1], UsField[2] 
+
+    elif DictStructParam['MeshProperties']['ddlElem'][0] == 6:
+        tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
+                                             NOM_CHAM='DEPL',
+                                             NOM_CMP= ('DX','DY','DZ', 'DRX', 'DRY', 'DRZ'),
+                                             INST = 1.0,
+                                             TOUT = 'OUI',),
+                                   TYPE_TABLE='TABLE',
+                                   TITRE='Table_Depl_R',
+                                   )
+                        
+        # Tableau complet des deplacements, coordonnees modales,... :
+        
+        depl_sta = tstaT.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ','DRX', 'DRY', 'DRZ']
+
+        UsZone, UsField = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= depl_sta,
+                                                             ZoneName = 'U_sta'+str(np.round(RPM)), 
+                                                             FieldNames = ['Usx', 'Usy', 'Usz', 'Usthetax', 'Usthetay', 'Usthetaz'],
+                                                             Depl = True)
+        
+        J._invokeFields(UsZone, ['upx', 'upy', 'upz', 'ux', 'uy', 'uz', 'upthetax', 'upthetay', 'upthetaz'])
+        upx, upy, upz, upthetax, upthetay, upthetaz  = J.getVars(UsZone, ['upx', 'upy', 'upz', 'upthetax', 'upthetay', 'upthetaz'])
+        upx[:], upy[:], upz[:],upthetax[:], upthetay[:], upthetaz[:] = UsField[0], UsField[1], UsField[2], UsField[3], UsField[4], UsField[5] 
+
+
+
+
 
     # Compute the Us vector and add it to the .AssembledVectors node:
     DictStructParam = J.get(t, '.StructuralParameters')
     
     VectUpOmegaFe = np.zeros((DictStructParam['MeshProperties']['Nddl'][0]))
-    VectUpOmegaFe[::3] = upx
-    VectUpOmegaFe[1::3] = upy
-    VectUpOmegaFe[2::3] = upz
+    VectUpOmegaFe[::DictStructParam['MeshProperties']['ddlElem'][0]] = upx
+    VectUpOmegaFe[1::DictStructParam['MeshProperties']['ddlElem'][0]] = upy
+    VectUpOmegaFe[2::DictStructParam['MeshProperties']['ddlElem'][0]] = upz
 
     DETRUIRE (CONCEPT = _F (NOM = (tstaT),
                             ), 
@@ -477,36 +708,78 @@ def ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, **kwargs):
     return VectUpOmegaFe
 
 def ExtrUGStatRot(t, RPM, **kwargs):
-    
-    tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
-                                         NOM_CHAM='DEPL',
-                                         NOM_CMP= ('DX','DY','DZ'),
-                                         INST = 1.0,
-                                         TOUT = 'OUI',),
-                               TYPE_TABLE='TABLE',
-                               TITRE='Table_Depl_R',
-                               )
-                    
-    # Tableau complet des deplacements, coordonnees modales,... :
-    
-    depl_sta = tstaT.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ']
 
-    UsZone, UsField = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= depl_sta,
-                                                         ZoneName = 'U_sta'+str(np.round(RPM)), 
-                                                         FieldNames = ['Usx', 'Usy', 'Usz'],
-                                                         Depl = True)
-    
-    J._invokeFields(UsZone, ['upx', 'upy', 'upz', 'ux', 'uy', 'uz'])
-    upx, upy, upz = J.getVars(UsZone, ['upx', 'upy', 'upz'])
-    upx[:], upy[:], upz[:] = UsField[0], UsField[1], UsField[2] 
-
-    # Compute the Us vector and add it to the .AssembledVectors node:
     DictStructParam = J.get(t, '.StructuralParameters')
+
+    if DictStructParam['MeshProperties']['ddlElem'][0] == 3:
     
-    VectUsOmega = np.zeros((DictStructParam['MeshProperties']['Nddl'][0]))
-    VectUsOmega[::3] = upx
-    VectUsOmega[1::3] = upy
-    VectUsOmega[2::3] = upz
+        tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
+                                             NOM_CHAM='DEPL',
+                                             NOM_CMP= ('DX','DY','DZ'),
+                                             INST = 1.0,
+                                             TOUT = 'OUI',),
+                                   TYPE_TABLE='TABLE',
+                                   TITRE='Table_Depl_R',
+                                   )
+                        
+        # Tableau complet des deplacements, coordonnees modales,... :
+        
+        depl_sta = tstaT.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ']
+
+        UsZone, UsField = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= depl_sta,
+                                                             ZoneName = 'U_sta'+str(np.round(RPM)), 
+                                                             FieldNames = ['Usx', 'Usy', 'Usz'],
+                                                             Depl = True)
+        
+        J._invokeFields(UsZone, ['upx', 'upy', 'upz', 'ux', 'uy', 'uz'])
+        upx, upy, upz = J.getVars(UsZone, ['upx', 'upy', 'upz'])
+        upx[:], upy[:], upz[:], = UsField[0], UsField[1], UsField[2] 
+
+            # Compute the Us vector and add it to the .AssembledVectors node:
+        DictStructParam = J.get(t, '.StructuralParameters')
+        
+        VectUsOmega = np.zeros((DictStructParam['MeshProperties']['Nddl'][0]))
+        VectUsOmega[::DictStructParam['MeshProperties']['ddlElem'][0]] = upx
+        VectUsOmega[1::DictStructParam['MeshProperties']['ddlElem'][0]] = upy
+        VectUsOmega[2::DictStructParam['MeshProperties']['ddlElem'][0]] = upz
+
+    elif DictStructParam['MeshProperties']['ddlElem'][0] == 6:
+
+        tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
+                                             NOM_CHAM='DEPL',
+                                             NOM_CMP= ('DX','DY','DZ', 'DRX', 'DRY', 'DRZ'),
+                                             INST = 1.0,
+                                             TOUT = 'OUI',),
+                                   TYPE_TABLE='TABLE',
+                                   TITRE='Table_Depl_R',
+                                   )
+                        
+        # Tableau complet des deplacements, coordonnees modales,... :
+        
+        depl_sta = tstaT.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ','DRX', 'DRY', 'DRZ']
+
+        UsZone, UsField = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= depl_sta,
+                                                             ZoneName = 'U_sta'+str(np.round(RPM)), 
+                                                             FieldNames = ['Usx', 'Usy', 'Usz', 'Usthetax', 'Usthetay', 'Usthetaz'],
+                                                             Depl = True)
+        
+        J._invokeFields(UsZone, ['upx', 'upy', 'upz', 'ux', 'uy', 'uz', 'upthetax', 'upthetay', 'upthetaz'])
+        upx, upy, upz, upthetax, upthetay, upthetaz  = J.getVars(UsZone, ['upx', 'upy', 'upz', 'upthetax', 'upthetay', 'upthetaz'])
+        upx[:], upy[:], upz[:],upthetax[:], upthetay[:], upthetaz[:] = UsField[0], UsField[1], UsField[2], UsField[3], UsField[4], UsField[5] 
+
+        # Compute the Us vector and add it to the .AssembledVectors node:
+        DictStructParam = J.get(t, '.StructuralParameters')
+        
+        VectUsOmega = np.zeros((DictStructParam['MeshProperties']['Nddl'][0]))
+        VectUsOmega[::DictStructParam['MeshProperties']['ddlElem'][0]] = upx
+        VectUsOmega[1::DictStructParam['MeshProperties']['ddlElem'][0]] = upy
+        VectUsOmega[2::DictStructParam['MeshProperties']['ddlElem'][0]] = upz
+        VectUsOmega[3::DictStructParam['MeshProperties']['ddlElem'][0]] = upthetax
+        VectUsOmega[4::DictStructParam['MeshProperties']['ddlElem'][0]] = upthetay
+        VectUsOmega[5::DictStructParam['MeshProperties']['ddlElem'][0]] = upthetaz
+
+
+
 
     t = SJ.AddFOMVars2Tree(t, RPM, Vars = [VectUsOmega],
                                    VarsName = ['Us'],
@@ -554,11 +827,11 @@ def ExtrUGStatRot(t, RPM, **kwargs):
                                      FieldNames = ['Gusx', 'Gusy', 'Gusz'], 
                                      Depl = False,
                                      DefByField = UsField)   
-
+    
     FeiZone,_ = SJ.CreateNewSolutionFromNdArray(t, 
-                                     FieldDataArray = [kwargs['Fei'][::3],kwargs['Fei'][1::3],kwargs['Fei'][2::3]],
+                                     FieldDataArray = [kwargs['Fei'][::DictStructParam['MeshProperties']['ddlElem'][0]],kwargs['Fei'][1::DictStructParam['MeshProperties']['ddlElem'][0]],kwargs['Fei'][2::DictStructParam['MeshProperties']['ddlElem'][0]], kwargs['Fei'][3::DictStructParam['MeshProperties']['ddlElem'][0]],kwargs['Fei'][4::DictStructParam['MeshProperties']['ddlElem'][0]],kwargs['Fei'][5::DictStructParam['MeshProperties']['ddlElem'][0]]],
                                      ZoneName = 'Fei'+str(np.round(RPM)),
-                                     FieldNames = ['FeiX', 'FeiY', 'FeiZ'], 
+                                     FieldNames = ['FeiX', 'FeiY', 'FeiZ', 'FeithetaX', 'FeithetaY', 'FeithetaZ'], 
                                      Depl = False,
                                      DefByField = UsField) 
 
@@ -651,14 +924,14 @@ def BuildROMMatrices(tFOM, tROM, RPM):
 
     DictAssembledMatrices = J.get(tFOM, '.AssembledMatrices')
     
-    PHI = SJ.GetReducedBaseFromCGNS(tFOM, RPM)
+    PHI =SJ.GetReducedBaseFromCGNS(tFOM, RPM) #    DictAssembledMatrices['PHI'] 
     PHIt = PHI.transpose()
 
     MatrRed = J.get(tROM, '.AssembledMatrices')
     MatrRed[str(np.round(RPM,2))+'RPM'] = {}
     MatrRed[str(np.round(RPM,2))+'RPM']['PHI'] = PHI
     for MatrixName in DictAssembledMatrices[str(np.round(RPM))+'RPM'].keys():
-        
+        print(MatrixName)
         SFOMMatr, _ = SJ.LoadSMatrixFromCGNS(tFOM, RPM, MatrixName)
         MatrRed[str(np.round(RPM,2))+'RPM'][MatrixName] = PHIt.dot(SFOMMatr.dot(PHI))
     

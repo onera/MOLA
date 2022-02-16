@@ -41,41 +41,76 @@ def Freq_Phi(t, RPM, MODE):
     DictStructParam = J.get(t, '.StructuralParameters')
 
     freq = MODE.LIST_VARI_ACCES()['FREQ']
+    freq = freq[:DictStructParam['ROMProperties']['NModes'][0]]
     
-    tabmod_T = CREA_TABLE(RESU=_F(RESULTAT= MODE,
-                          NOM_CHAM='DEPL',
-                          NOM_CMP= ('DX','DY','DZ'),
-                          TOUT='OUI',),
-                          TYPE_TABLE='TABLE',
-                          TITRE='Table_Modes',);
+    if DictStructParam['MeshProperties']['ddlElem'][0] == 3:
+        tabmod_T = CREA_TABLE(RESU=_F(RESULTAT= MODE,
+                              NOM_CHAM='DEPL',
+                              NOM_CMP= ('DX','DY','DZ'),
+                              TOUT='OUI',),
+                              TYPE_TABLE='TABLE',
+                              TITRE='Table_Modes',);
+    
+        # Tableau complet des modes, coordonnees modales,... :
+        
+        depl_mod = tabmod_T.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ']
+         
+        # Liste des valeurs de la table:
+        depl_list = []
+        depl_list_Names = ['ModeX', 'ModeY', 'ModeZ']
+        depl_list.append(depl_mod.values()['DX'][:])        
+        depl_list.append(depl_mod.values()['DY'][:])
+        depl_list.append(depl_mod.values()['DZ'][:])
 
-    # Tableau complet des modes, coordonnees modales,... :
+        #dep_md_X = depl_mod.values()['DX'][:]  
+        #dep_md_Y = depl_mod.values()['DY'][:]
+        #dep_md_Z = depl_mod.values()['DZ'][:]
+
+    elif DictStructParam['MeshProperties']['ddlElem'][0] == 6:
+
+        tabmod_T = CREA_TABLE(RESU=_F(RESULTAT= MODE,
+                              NOM_CHAM='DEPL',
+                              NOM_CMP= ('DX','DY','DZ','DRX','DRY','DRZ'),
+                              TOUT='OUI',),
+                              TYPE_TABLE='TABLE',
+                              TITRE='Table_Modes',);
     
-    depl_mod = tabmod_T.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ']
-     
-    # Liste des valeurs de la table:
-    
-    dep_md_X = depl_mod.values()['DX'][:]  
-    dep_md_Y = depl_mod.values()['DY'][:]
-    dep_md_Z = depl_mod.values()['DZ'][:]
+        # Tableau complet des modes, coordonnees modales,... :
+        
+        depl_mod = tabmod_T.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ','DRX','DRY','DRZ']
+         
+        # Liste des valeurs de la table:
+        depl_list = []
+        depl_list.append(depl_mod.values()['DX'][:])
+        depl_list.append(depl_mod.values()['DY'][:])
+        depl_list.append(depl_mod.values()['DZ'][:])
+        depl_list.append(depl_mod.values()['DRX'][:])
+        depl_list.append(depl_mod.values()['DRY'][:])
+        depl_list.append(depl_mod.values()['DRZ'][:])
+        depl_list_Names = ['ModeX', 'ModeY', 'ModeZ','ModeThetaX','ModeThetaY','ModeThetaZ']
 
     # Create a matrix with the base and save it into the .AssembledMatrices node:
-    #PHI = SJ.BuildMatrixFromCoordinatesXYZ(DictStructParam, CoordinateX, CoordinateY, CoordinateZ)
     
-
-
+    
+    t, PHI = SJ.BuildMatrixFromComponents(t, 'PHI', depl_list)
+    
     # Extract the nodes coordinates:
     NodeZones = []
     for NMode in range(DictStructParam['ROMProperties']['NModes'][0]):
-        
-        CoordX = dep_md_X[NMode * DictStructParam['MeshProperties']['NNodes'][0]:(NMode + 1) * DictStructParam['MeshProperties']['NNodes'][0]]
-        CoordY = dep_md_Y[NMode * DictStructParam['MeshProperties']['NNodes'][0]:(NMode + 1) * DictStructParam['MeshProperties']['NNodes'][0]]
-        CoordZ = dep_md_Z[NMode * DictStructParam['MeshProperties']['NNodes'][0]:(NMode + 1) * DictStructParam['MeshProperties']['NNodes'][0]]
+
+        Coord_list = []
+        for pos in range(len(depl_list)):
+
+            Coord_list.append(PHI[pos::len(depl_list), NMode])
+
+        #CoordX = dep_md_X[NMode * DictStructParam['MeshProperties']['NNodes'][0]:(NMode + 1) * DictStructParam['MeshProperties']['NNodes'][0]]
+        #CoordY = dep_md_Y[NMode * DictStructParam['MeshProperties']['NNodes'][0]:(NMode + 1) * DictStructParam['MeshProperties']['NNodes'][0]]
+        #CoordZ = dep_md_Z[NMode * DictStructParam['MeshProperties']['NNodes'][0]:(NMode + 1) * DictStructParam['MeshProperties']['NNodes'][0]]
         
         NewZone,_ = SJ.CreateNewSolutionFromNdArray(t, 
-                                       FieldDataArray= [CoordX, CoordY , CoordZ], 
+                                       FieldDataArray= Coord_list, 
                                        ZoneName = str(np.round(RPM, 2))+'Mode'+str(NMode), 
-                                       FieldNames = ['ModeX', 'ModeY', 'ModeZ'], 
+                                       FieldNames = depl_list_Names, 
                                        Depl = True)
 
         I.createChild(NewZone, 'Freq', 'DataArray_t', freq[NMode])
@@ -96,15 +131,30 @@ def Freq_Phi(t, RPM, MODE):
 def CalcLNM(t, RPM, **kwargs):
 
     DictStructParam = J.get(t, '.StructuralParameters')
+    
+    if not DictStructParam['ROMProperties']['RigidMotion']:
+        
+        MODESR = CALC_MODES(MATR_RIGI = kwargs['Komeg2'],
+                            MATR_MASS = kwargs['MASS1'],
+                            OPTION = 'PLUS_PETITE',
+                            CALC_FREQ = _F(NMAX_FREQ = DictStructParam['ROMProperties']['NModes'],),
+                            VERI_MODE = _F(SEUIL = 1.E-3, STOP_ERREUR = 'NON'),
+                            )
+    elif DictStructParam['ROMProperties']['RigidMotion']:
+        
+        MODESR = CALC_MODES(MATR_RIGI = kwargs['Komeg2'],
+                            MATR_MASS = kwargs['MASS1'],
+                            OPTION = 'BANDE',
+                            CALC_FREQ = _F(FREQ = (-1,250.),),
+                            VERI_MODE = _F(SEUIL = 1.E-3, STOP_ERREUR = 'NON'),
+                            #SOLVEUR_MODAL = _F(METHODE = 'TRI_DIAG',
+                            #                   MODE_RIGIDE = 'OUI',),
+                          )
 
-    MODESR = CALC_MODES(MATR_RIGI = kwargs['Komeg2'],
-                        MATR_MASS = kwargs['MASS1'],
-                        OPTION = 'PLUS_PETITE',
-                        CALC_FREQ = _F(NMAX_FREQ = DictStructParam['ROMProperties']['NModes'],),
-                        VERI_MODE = _F(SEUIL = 1.E-3, STOP_ERREUR = 'NON'),
-                        )
+
+    #MODESR = CALC_MODES(affe_modes)
     MODE   = NORM_MODE(MODE = MODESR, 
-                       NORME = 'TRAN',)
+                       NORME = 'TRAN_ROTA',)
 
     t = Freq_Phi(t, RPM, MODE)
     

@@ -69,11 +69,15 @@ def CreateNewSolutionFromNdArray(t, FieldDataArray = [], ZoneName=[],
         YCoord[:] = YCoord + DefByField[1]
         ZCoord[:] = ZCoord + DefByField[2]
 
-    Varx, Vary, Varz = J.invokeFields(NewZone, FieldNames)
+    Vars = J.invokeFields(NewZone, FieldNames)
 
-    Varx[:], Vary[:],Varz[:], =  FieldCoordX, FieldCoordY, FieldCoordZ
+    for Var, pos in zip(Vars, range(len(FieldNames))):
+        
+        Var[:] =  FieldDataArray[pos]
 
-    return NewZone, [Varx, Vary, Varz]
+    #Varx[:], Vary[:],Varz[:] =  FieldCoordX, FieldCoordY, FieldCoordZ
+
+    return NewZone, Vars #[Varx, Vary, Varz]
 
 def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
                                     FieldNames = ['Ux', 'Uy', 'Uz'],
@@ -88,9 +92,15 @@ def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
 
     XCoord, YCoord, ZCoord = J.getxyz(NewZone)
 
-    FieldCoordX = np.array(FieldDataTable.values()['DX'][:])
-    FieldCoordY = np.array(FieldDataTable.values()['DY'][:])
-    FieldCoordZ = np.array(FieldDataTable.values()['DZ'][:])
+    FieldData = []
+    for Data in FieldDataTable.values().keys():
+        if Data != 'NOEUD':
+            
+            FieldData.append(np.array(FieldDataTable.values()[Data][:]))
+
+    FieldCoordX = FieldData[0]  #np.array(FieldDataTable.values()['DX'][:])
+    FieldCoordY = FieldData[1]  #np.array(FieldDataTable.values()['DY'][:])
+    FieldCoordZ = FieldData[2]  #np.array(FieldDataTable.values()['DZ'][:])
 
     if Depl:
         XCoord[:] = XCoord + FieldCoordX
@@ -102,11 +112,13 @@ def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
         YCoord[:] = YCoord + DefByField[1]
         ZCoord[:] = ZCoord + DefByField[2]
 
-    Varx, Vary, Varz = J.invokeFields(NewZone, FieldNames)
+    Vars = J.invokeFields(NewZone, FieldNames)
 
-    Varx[:], Vary[:],Varz[:], =  FieldCoordX, FieldCoordY, FieldCoordZ
+    for Var, pos in zip(Vars, range(len(FieldNames))):
+        
+        Var[:] =  FieldData[pos]
 
-    return NewZone, [Varx, Vary, Varz]
+    return NewZone, Vars #[Varx, Vary, Varz]
 
 
 def getNameSufix(t):
@@ -153,14 +165,17 @@ def AddFOMVars2Tree(t, RPM, Vars = [], VarsName = [], Type = '.AssembledMatrices
 
     DictVars = J.get(t, Type)
 
+    #try:
+    if str(np.round(RPM,2))+'RPM' not in DictVars.keys():
+        DictVars[str(np.round(RPM,2))+'RPM'] = {} 
+    
 
-    try:
-        for Var, VarName in zip(Vars, VarsName):
+    for Var, VarName in zip(Vars, VarsName):
+        if VarName in DictVars.keys():
             DictVars[str(np.round(RPM,2))+'RPM'][VarName] = Var
-    except:
-        DictVars[str(np.round(RPM,2))+'RPM'] = {}
-        for Var, VarName in zip(Vars, VarsName):
-
+    #except:
+        else:    
+            #for Var, VarName in zip(Vars, VarsName):
             if issparse(Var):
                 DictVars[str(np.round(RPM,2))+'RPM'][VarName] = {}
                 DictVars[str(np.round(RPM,2))+'RPM'][VarName]['rows'], DictVars[str(np.round(RPM,2))+'RPM'][VarName]['cols'], DictVars[str(np.round(RPM,2))+'RPM'][VarName]['data'] = find(Var)
@@ -316,6 +331,19 @@ def ExtrMatrixFromAster2Python(MATRICE, **kwargs):
 
     return MatricePy, ii
 
+def AffectImpoDDLByGroupType(t):
+    """Affect les ddl de blocage en fonction du type de famille predefinie (encastrement, rotule batement...)"""
+    affe_impo = []
+    DictStructParam = J.get(t, '.StructuralParameters')
+    
+    for gno in DictStructParam['MeshProperties']['NodesFamilies']:
+        if gno == 'Node_Encastrement':
+            affe_impo.append(_F(GROUP_NO = gno, DX = 0.0, DY = 0.0, DZ = 0.0))
+
+        if gno  == 'Node_Batement':
+            affe_impo.append(_F(GROUP_NO = gno, DX = 0.0, DY = 0.0, DZ = 0.0, DRX = 0.0, DRY = 0.0))
+    
+    return affe_impo
 
 def ExtrVectorFromAster2Python(VECTEUR, PointsLagrange):
 
@@ -333,6 +361,25 @@ def DestroyAsterObjects(AsterObjectsDictionnary, DetrVars = []):
 
             DETRUIRE(CONCEPT = _F(NOM = AsterObjectsDictionnary[AsName]))
 
+def BuildMatrixFromComponents(t, Name, Components):
+
+        DictAssMatrix = J.get(t, '.AssembledMatrices')
+        DictStructParam = J.get(t, '.StructuralParameters')
+
+        Matrix = np.zeros((DictStructParam['MeshProperties']['Nddl'][0], DictStructParam['ROMProperties']['NModes'][0])) 
+
+        JumpElem = len(Components)
+
+        for NMode in range(DictStructParam['ROMProperties']['NModes'][0]):
+
+            for Comp, pos in zip(Components, range(len(Components))):
+                Matrix[pos::len(Components), NMode] = Comp[NMode * DictStructParam['MeshProperties']['NNodes'][0]:(NMode + 1) * DictStructParam['MeshProperties']['NNodes'][0]]
+
+        DictAssMatrix[Name] = Matrix
+
+        J.set(t, '.AssembledMatrices', **DictAssMatrix)
+        
+        return t, Matrix
 
 def SetSparseMatrixFromCGNS(t, RPM, MatrixName, Type = '.AssembledMatrices'):
     
@@ -346,7 +393,7 @@ def SetSparseMatrixFromCGNS(t, RPM, MatrixName, Type = '.AssembledMatrices'):
     rows = DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['rows']
     cols = DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['cols']
 
-    DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['Matrice'] = csr_matrix((data, (rows, cols)), shape = (3*NNodes,3*NNodes))
+    DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['Matrice'] = csr_matrix((data, (rows, cols)), shape = (DictStructParam['MeshProperties']['Nddl'][0],DictStructParam['MeshProperties']['Nddl'][0]))
 
     J.set(t, Type, **DictAssembledMatrices)
 
@@ -375,17 +422,21 @@ def GetReducedBaseFromCGNS(t, RPM):
 
     DictStructParam = J.get(t, '.StructuralParameters')
 
-    NNodes = DictStructParam['MeshProperties']['NNodes'][0]
     NModes = DictStructParam['ROMProperties']['NModes'][0]
 
-
-    PHI = np.zeros((3*NNodes, NModes))
+    PHI = np.zeros((DictStructParam['MeshProperties']['Nddl'][0], NModes))
 
     for Mode in range(NModes):
 
         ModeZone = I.getNodeFromName(t, str(np.round(RPM,2))+'Mode'+str(Mode))
         
-        PHI[::3, Mode], PHI[1::3, Mode], PHI[2::3, Mode] = J.getVars(ModeZone,['ModeX', 'ModeY', 'ModeZ'])
+        VectVars = ['ModeX', 'ModeY', 'ModeZ', 'ModeThetaX', 'ModeThetaY', 'ModeThetaZ']
+
+        for dofElem in range(DictStructParam['MeshProperties']['ddlElem'][0]): 
+
+            PHI[dofElem::DictStructParam['MeshProperties']['ddlElem'][0], Mode] = J.getVars(ModeZone, [VectVars[dofElem]])[0]
+
+        #PHI[::3, Mode], PHI[1::3, Mode], PHI[2::3, Mode] = J.getVars(ModeZone,['ModeX', 'ModeY', 'ModeZ'])
 
     return PHI
 
@@ -1013,6 +1064,8 @@ def ComputeLoadingFromTimeOrIncrement(t, RPM, TimeIncr):
 
 def ComputeSolutionCGNS(t, Solution):
     tSol = I.copyTree(t)
+    DictStructParam = J.get(t, '.StructuralParameters')
+
     J.set(tSol, '.Solution', **Solution)
     
     try:
@@ -1035,13 +1088,13 @@ def ComputeSolutionCGNS(t, Solution):
                 ZoneName = 'It%s_'%Iteration + RPMKey +'_'+ FcoeffKey
                 
                 if Matrice:
-                    NewZone, _ = CreateNewSolutionFromNdArray(t, FieldDataArray = [Solution[RPMKey][FcoeffKey]['UpDisplacement'][::3,Iteration], Solution[RPMKey][FcoeffKey]['UpDisplacement'][1::3,Iteration], Solution[RPMKey][FcoeffKey]['UpDisplacement'][2::3,Iteration]],
+                    NewZone, _ = CreateNewSolutionFromNdArray(t, FieldDataArray = [Solution[RPMKey][FcoeffKey]['UpDisplacement'][::DictStructParam['MeshProperties']['ddlElem'][0],Iteration], Solution[RPMKey][FcoeffKey]['UpDisplacement'][1::DictStructParam['MeshProperties']['ddlElem'][0],Iteration], Solution[RPMKey][FcoeffKey]['UpDisplacement'][2::DictStructParam['MeshProperties']['ddlElem'][0],Iteration]],
                                         ZoneName=ZoneName,
                                         FieldNames = ['Upx', 'Upy', 'Upz'],
                                         Depl = True,
                                         DefByField = None)
                 else:
-                    NewZone, _ = CreateNewSolutionFromNdArray(t, FieldDataArray = [Solution[RPMKey][FcoeffKey]['UpDisplacement'][::3], Solution[RPMKey][FcoeffKey]['UpDisplacement'][1::3], Solution[RPMKey][FcoeffKey]['UpDisplacement'][2::3]],
+                    NewZone, _ = CreateNewSolutionFromNdArray(t, FieldDataArray = [Solution[RPMKey][FcoeffKey]['UpDisplacement'][::DictStructParam['MeshProperties']['ddlElem'][0]], Solution[RPMKey][FcoeffKey]['UpDisplacement'][1::DictStructParam['MeshProperties']['ddlElem'][0]], Solution[RPMKey][FcoeffKey]['UpDisplacement'][2::DictStructParam['MeshProperties']['ddlElem'][0]]],
                                         ZoneName=ZoneName,
                                         FieldNames = ['Upx', 'Upy', 'Upz'],
                                         Depl = True,
@@ -1059,15 +1112,15 @@ def ComputeSolutionCGNS(t, Solution):
                 if Matrice:
                     for Sol, loc in zip(SolNames, range(LenVars)):
         
-                        Vars[3*loc][:]    = Solution[RPMKey][FcoeffKey][SolNames[loc]][::3,Iteration]
-                        Vars[3*loc +1][:] = Solution[RPMKey][FcoeffKey][SolNames[loc]][1::3,Iteration]
-                        Vars[3*loc +2][:] = Solution[RPMKey][FcoeffKey][SolNames[loc]][2::3,Iteration]
+                        Vars[DictStructParam['MeshProperties']['ddlElem'][0]*loc][:]    = Solution[RPMKey][FcoeffKey][SolNames[loc]][::DictStructParam['MeshProperties']['ddlElem'][0],Iteration]
+                        Vars[DictStructParam['MeshProperties']['ddlElem'][0]*loc +1][:] = Solution[RPMKey][FcoeffKey][SolNames[loc]][1::DictStructParam['MeshProperties']['ddlElem'][0],Iteration]
+                        Vars[DictStructParam['MeshProperties']['ddlElem'][0]*loc +2][:] = Solution[RPMKey][FcoeffKey][SolNames[loc]][2::DictStructParam['MeshProperties']['ddlElem'][0],Iteration]
                 else:
                     for Sol, loc in zip(SolNames, range(LenVars)):
         
-                        Vars[3*loc][:]    = Solution[RPMKey][FcoeffKey][SolNames[loc]][::3]
-                        Vars[3*loc +1][:] = Solution[RPMKey][FcoeffKey][SolNames[loc]][1::3]
-                        Vars[3*loc +2][:] = Solution[RPMKey][FcoeffKey][SolNames[loc]][2::3]
+                        Vars[DictStructParam['MeshProperties']['ddlElem'][0]*loc][:]    = Solution[RPMKey][FcoeffKey][SolNames[loc]][::DictStructParam['MeshProperties']['ddlElem'][0]]
+                        Vars[DictStructParam['MeshProperties']['ddlElem'][0]*loc +1][:] = Solution[RPMKey][FcoeffKey][SolNames[loc]][1::DictStructParam['MeshProperties']['ddlElem'][0]]
+                        Vars[DictStructParam['MeshProperties']['ddlElem'][0]*loc +2][:] = Solution[RPMKey][FcoeffKey][SolNames[loc]][2::DictStructParam['MeshProperties']['ddlElem'][0]]
                     
                 I._addChild(NewBase, NewZone)
     
