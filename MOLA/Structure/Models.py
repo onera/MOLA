@@ -72,68 +72,170 @@ def ModifySolidCGNS2Mesh(t):
 
  ######################  A ADAPTER POUR D'AUTRES FEM
     if I.getNodeByName(t, 'stack') == None:
-        Conectivity = mm.co
-        Conectivity = [val + 1 for val in Conectivity]
-        Coordinates = mm.cn
+        #Conectivity = mm.co
+        #Conectivity = [val + 1 for val in Conectivity]
+        #Coordinates = mm.cn
         
-        if len(Coordinates[0,:]) == 2:
-
-
-            Coordinates = np.append(Coordinates, np.zeros((len(Coordinates[:,0]),1)), axis = 1)
-
+        
 
         
+        DictElements = {}
+        DictElements['GroupOfElements'] = {}
+
+        Base = I.newCGNSBase('SOLID', parent=t)
+
+        def CGNSElementType(NameAster):
+
+            if NameAster == 'POI1':
+                NameCGNS = 'NODE'
+                NodeElem = 1
+
+            elif NameAster == 'SEG2':
+                NameCGNS = 'BAR_2'
+                NodeElem = 2
+
+
+            return NameCGNS, NodeElem
+
+        def ExtractConnectivity(mm, DictElements, ElemType):
+            
+            Conectivity = mm.co
+            Conectivity = [val + 1 for val in Conectivity]
+
+            _, NodeElem = CGNSElementType(ElemType)
+
+            ConnectMatrix = np.zeros((len(DictElements['GroupOfElements'][ElemType]['ListOfElem']), NodeElem))
+            for Element, pos in zip(DictElements['GroupOfElements'][ElemType]['ListOfElem'], range(len(DictElements['GroupOfElements'][ElemType]['ListOfElem']))):
+                elementPosition = int(Element[1:]) - 1
+
+                ConnectMatrix[pos, :] = np.squeeze(np.asarray(Conectivity[elementPosition]))
+
+            return ConnectMatrix
+
+        def ExtractCoordinates(mm, DictElements, ElemType):
+            
+            Coordinates = mm.cn
+            if len(Coordinates[0,:]) == 2:
+                Coordinates = np.append(Coordinates, np.zeros((len(Coordinates[:,0]),1)), axis = 1)
+            
+            ValidNodes = []
+            for Element, pos in zip(DictElements['GroupOfElements'][ElemType]['ListOfElem'], range(len(DictElements['GroupOfElements'][ElemType]['ListOfElem']))):
+                elementPosition = int(Element[1:]) - 1
+                for Node in mm.co[elementPosition]:
+                    if Node not in ValidNodes:
+                        ValidNodes.append(Node)
+            
+            return np.array(Coordinates[ValidNodes]), ValidNodes
+
+        def CreateUnstructuredZone4ElemenType(Base, ElementName, CGNSType, NPts, NElts, CoordinatesE, ConectE):
+
+            #zoneUns = I.createNode('InitialMesh_'+ElementName,ntype='Zone_t',value=np.array([[NPts, NElts,0]],dtype=np.int32,order='F'), parent= Base)
+            #print(NPts, NElts)
+            zoneUns = I.newZone(name = 'InitialMesh_'+ElementName, zsize = [[NPts, NElts, 0]]  , ztype = 'Unstructured', parent= Base)
+            zt_n = I.createNode('ZoneType', ntype='ZoneType_t',parent=zoneUns)
+            I.setValue(zt_n,'Unstructured')
+    
+    
+            g = I.newGridCoordinates(parent = zoneUns)
+            I.newDataArray('CoordinateX', value=np.array(CoordinatesE[:,0],dtype=np.float32,order='F'), parent=g)
+            I.newDataArray('CoordinateY', value=np.array(CoordinatesE[:,1],dtype=np.float32,order='F'), parent=g)
+            I.newDataArray('CoordinateZ', value=np.array(CoordinatesE[:,2],dtype=np.float32,order='F'), parent=g)
+            #I.printTree(g)
+
+            
+            aa = I.newElements(name='Elements', etype=CGNSType, econnectivity=np.array(ConectE.flatten(),dtype=np.int32,order='F'), erange = np.array([1,NElts]), eboundary=0, parent =zoneUns)
+            #I.printTree(Base)
+            return Base
+        
+        for element in range(len(mm.tm)):
+            
+            DictElements['E%s'%(element+1)] = {}
+
+            DictElements['E%s'%(element+1)]['AsterType'] = mm.nom[mm.tm[element]]
+            DictElements['E%s'%(element+1)]['CGNSType'],_ = CGNSElementType(DictElements['E%s'%(element+1)]['AsterType'])
+            #print(DictElements)
+            try:
+                DictElements['GroupOfElements'][DictElements['E%s'%(element+1)]['AsterType']]['ListOfElem'].append('E%s'%(element + 1))  
+            
+            except:
+                DictElements['GroupOfElements'][DictElements['E%s'%(element+1)]['AsterType']] = {}
+                DictElements['GroupOfElements'][DictElements['E%s'%(element+1)]['AsterType']]['ListOfElem'] = ['E%s'%(element + 1)]
+                DictElements['GroupOfElements'][DictElements['E%s'%(element+1)]['AsterType']]['CGNSType'] = DictElements['E%s'%(element+1)]['CGNSType']                
+
+            DictElements['NbOfElementType'] = len(DictElements['GroupOfElements'].keys())
+
+        
+        for ElemName in DictElements['GroupOfElements'].keys():
+            #if ElemName != 'POI1':
+                CoordinatesE, NodesElemType  = ExtractCoordinates(mm, DictElements, ElemName)
+                DictElements['GroupOfElements'][ElemName]['Coordinates'] = CoordinatesE 
+                DictElements['GroupOfElements'][ElemName]['NodesPosition'] = NodesElemType
+                DictElements['GroupOfElements'][ElemName]['Nodes'] = np.array(NodesElemType) + 1
+                
+                ConectivityE  = ExtractConnectivity(mm, DictElements, ElemName)
+                DictElements['GroupOfElements'][ElemName]['Connectivity'] = ConectivityE 
+                
+                #print(DictElements['GroupOfElements'])
+                Base = CreateUnstructuredZone4ElemenType(Base, ElemName, DictElements['GroupOfElements']['%s'%ElemName]['CGNSType'], len(CoordinatesE), len(DictElements['GroupOfElements'][ElemName]['ListOfElem']), CoordinatesE, ConectivityE)
+                #print(DictElements['GroupOfElements'][ElemName])
+
+        DictStructParam['MeshProperties']['DictElements'] = DictElements
+        J.set(t, '.StructuralParameters', **DictStructParam)
+        #C.convertPyTree2File(t, '/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.cgns', 'bin_adf')
+        #C.convertPyTree2File(t, '/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.tp', 'bin_tp')
+                
+
 
         # Be careful with hybrid meshes with more than 1 element!
 
         # Create the unstructured zone
-        NPts = len(Coordinates)
-
-        
-        # 'HEXA': Elements 
-        NElts = 0
-        for ConectValue in Conectivity:
-            
-            if len(ConectValue) == 8:
-                NElts += 1
-                NValues = 8
-
-            if len(ConectValue) == 2:
-                NElts += 1
-                NValues = 2
-
-        
-        conect = np.zeros((NElts, NValues), dtype=int)
-        
-        li1 = -1
-        for ConectValue in Conectivity:
-            
-            if len(ConectValue) == 8:
-                
-                li1 += 1
-                conect[li1,:] = np.squeeze(np.asarray(ConectValue))
-
-
-            if len(ConectValue) == 2:
-                
-                li1 += 1
-                conect[li1,:] = np.squeeze(np.asarray(ConectValue))
-
-        
-    #####################
-        
-        Base = I.newCGNSBase('SOLID', parent=t)
-        zoneUns = I.createNode('InitialMesh',ntype='Zone_t',value=np.array([[NPts, NElts,0]],dtype=np.int32,order='F'), parent= Base)
-        zt_n = I.createNode('ZoneType', ntype='ZoneType_t',parent=zoneUns)
-        I.setValue(zt_n,'Unstructured')
-
-
-        g = I.newGridCoordinates(parent = zoneUns)
-        I.newDataArray('CoordinateX', value=Coordinates[:,0], parent=g)
-        I.newDataArray('CoordinateY', value=Coordinates[:,1], parent=g)
-        I.newDataArray('CoordinateZ', value=Coordinates[:,2], parent=g)
-
-        aa = I.newElements(name='Elements', etype='HEXA_8', econnectivity=conect.flatten(), erange = np.array([1,NElts]), eboundary=0, parent =zoneUns)
+#        NPts = len(Coordinates)
+#
+#        
+#        # 'HEXA': Elements 
+#        NElts = 0
+#        for ConectValue in Conectivity:
+#            
+#            if len(ConectValue) == 8:
+#                NElts += 1
+#                NValues = 8
+#
+#            if len(ConectValue) == 2:
+#                NElts += 1
+#                NValues = 2
+#
+#        
+#        conect = np.zeros((NElts, NValues), dtype=int)
+#        
+#        li1 = -1
+#        for ConectValue in Conectivity:
+#            
+#            if len(ConectValue) == 8:
+#                
+#                li1 += 1
+#                conect[li1,:] = np.squeeze(np.asarray(ConectValue))
+#
+#
+#            if len(ConectValue) == 2:
+#                
+#                li1 += 1
+#                conect[li1,:] = np.squeeze(np.asarray(ConectValue))
+#
+#        
+#    #####################
+#        
+#        Base = I.newCGNSBase('SOLID', parent=t)
+#        zoneUns = I.createNode('InitialMesh',ntype='Zone_t',value=np.array([[NPts, NElts,0]],dtype=np.int32,order='F'), parent= Base)
+#        zt_n = I.createNode('ZoneType', ntype='ZoneType_t',parent=zoneUns)
+#        I.setValue(zt_n,'Unstructured')
+#
+#
+#        g = I.newGridCoordinates(parent = zoneUns)
+#        I.newDataArray('CoordinateX', value=Coordinates[:,0], parent=g)
+#        I.newDataArray('CoordinateY', value=Coordinates[:,1], parent=g)
+#        I.newDataArray('CoordinateZ', value=Coordinates[:,2], parent=g)
+#
+#        aa = I.newElements(name='Elements', etype='HEXA_8', econnectivity=conect.flatten(), erange = np.array([1,NElts]), eboundary=0, parent =zoneUns)
 
 
         # Add grid coordinates
@@ -710,6 +812,9 @@ def ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, **kwargs):
 def ExtrUGStatRot(t, RPM, **kwargs):
 
     DictStructParam = J.get(t, '.StructuralParameters')
+    C.convertPyTree2File(t, '/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.cgns', 'bin_adf')
+    C.convertPyTree2File(t, '/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.tp', 'bin_tp')
+                
 
     if DictStructParam['MeshProperties']['ddlElem'][0] == 3:
     
@@ -763,10 +868,14 @@ def ExtrUGStatRot(t, RPM, **kwargs):
                                                              FieldNames = ['Usx', 'Usy', 'Usz', 'Usthetax', 'Usthetay', 'Usthetaz'],
                                                              Depl = True)
         
-        J._invokeFields(UsZone, ['upx', 'upy', 'upz', 'ux', 'uy', 'uz', 'upthetax', 'upthetay', 'upthetaz'])
-        upx, upy, upz, upthetax, upthetay, upthetaz  = J.getVars(UsZone, ['upx', 'upy', 'upz', 'upthetax', 'upthetay', 'upthetaz'])
-        upx[:], upy[:], upz[:],upthetax[:], upthetay[:], upthetaz[:] = UsField[0], UsField[1], UsField[2], UsField[3], UsField[4], UsField[5] 
-
+        for Zone in UsZone:
+            print(Zone[0])
+            NodePosition = J.getVars(Zone, ['NodesPosition'])
+            print(NodePosition)
+            J._invokeFields(Zone, ['upx', 'upy', 'upz', 'ux', 'uy', 'uz', 'upthetax', 'upthetay', 'upthetaz'])
+            upx, upy, upz, upthetax, upthetay, upthetaz  = J.getVars(Zone, ['upx', 'upy', 'upz', 'upthetax', 'upthetay', 'upthetaz'])
+            upx[:], upy[:], upz[:],upthetax[:], upthetay[:], upthetaz[:] = UsField[0][NodePosition], UsField[1][NodePosition], UsField[2][NodePosition], UsField[3][NodePosition], UsField[4][NodePosition], UsField[5][NodePosition] 
+             
         # Compute the Us vector and add it to the .AssembledVectors node:
         DictStructParam = J.get(t, '.StructuralParameters')
         

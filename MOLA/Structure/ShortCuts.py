@@ -84,41 +84,52 @@ def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
                                     Depl = True,
                                     DefByField = None):
 
-    InitMesh = I.getNodesFromNameAndType(t, 'InitialMesh', 'Zone_t')[0]
+    DictStructParam = J.get(t, '.StructuralParameters')
 
-    NewZone = I.copyTree(InitMesh)
-    NewZone[0] = ZoneName
-
-
-    XCoord, YCoord, ZCoord = J.getxyz(NewZone)
-
-    FieldData = []
-    for Data in FieldDataTable.values().keys():
-        if Data != 'NOEUD':
-            
-            FieldData.append(np.array(FieldDataTable.values()[Data][:]))
-
-    FieldCoordX = FieldData[0]  #np.array(FieldDataTable.values()['DX'][:])
-    FieldCoordY = FieldData[1]  #np.array(FieldDataTable.values()['DY'][:])
-    FieldCoordZ = FieldData[2]  #np.array(FieldDataTable.values()['DZ'][:])
-
-    if Depl:
-        XCoord[:] = XCoord + FieldCoordX
-        YCoord[:] = YCoord + FieldCoordY
-        ZCoord[:] = ZCoord + FieldCoordZ
-
-    if (not Depl) and (DefByField is not None):
-        XCoord[:] = XCoord + DefByField[0]
-        YCoord[:] = YCoord + DefByField[1]
-        ZCoord[:] = ZCoord + DefByField[2]
-
-    Vars = J.invokeFields(NewZone, FieldNames)
-
-    for Var, pos in zip(Vars, range(len(FieldNames))):
+    InitMesh = I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t')
+    NewZones = []
+    for InitMesh in I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t'):
         
-        Var[:] =  FieldData[pos]
+        NewZone = I.copyTree(InitMesh)
+        Type_Element = InitMesh[0][12:]
+        NewZone[0] = ZoneName + '_'+Type_Element
+        J._invokeFields(NewZone, ['NodesPosition'])
+        Position = J.getVars(NewZone, ['NodesPosition'])
+        Position[:] = DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']
+        print(DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element])
+        print(Position)
 
-    return NewZone, Vars #[Varx, Vary, Varz]
+        XCoord, YCoord, ZCoord = J.getxyz(NewZone)
+    
+        FieldData = []
+        for Data in FieldDataTable.values().keys():
+            if Data != 'NOEUD':
+                
+                FieldData.append(np.array(FieldDataTable.values()[Data][:]))
+    
+        FieldCoordX = FieldData[0][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]  #np.array(FieldDataTable.values()['DX'][:])
+        FieldCoordY = FieldData[1][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]  #np.array(FieldDataTable.values()['DY'][:])
+        FieldCoordZ = FieldData[2][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]  #np.array(FieldDataTable.values()['DZ'][:])
+    
+        if Depl:
+            XCoord[:] = XCoord + FieldCoordX
+            YCoord[:] = YCoord + FieldCoordY
+            ZCoord[:] = ZCoord + FieldCoordZ
+    
+        if (not Depl) and (DefByField is not None):
+            XCoord[:] = XCoord + DefByField[0]
+            YCoord[:] = YCoord + DefByField[1]
+            ZCoord[:] = ZCoord + DefByField[2]
+    
+        Vars = J.invokeFields(NewZone, FieldNames)
+    
+        for Var, pos in zip(Vars, range(len(FieldNames))):
+            
+            Var[:] =  FieldData[pos][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]
+
+        NewZones.append(NewZone)
+
+    return NewZones, Vars #[Varx, Vary, Varz]
 
 
 def getNameSufix(t):
