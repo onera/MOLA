@@ -44,6 +44,35 @@ from . import NonlinearForcesModels as NFM
 # Mesh handeling Scripts:
 #########################
 
+
+def IsMeshInModels(t, MeshName):
+
+    DictStructParam = J.get(t, '.StructuralParameters')
+    IsInModel = False
+    for MeshFamKey in  DictStructParam['MeshProperties']['MeshFamilies'].keys():
+        #print(DictStructParam['MeshProperties']['MeshFamilies'])
+        #print(MeshFamKey)
+        #print(int(MeshName[1:]))
+        #print(DictStructParam['MeshProperties']['MeshFamilies'][MeshFamKey]['Element'])
+        if int(MeshName[1:]) in DictStructParam['MeshProperties']['MeshFamilies'][MeshFamKey]['Element']:
+            IsInModel = True
+    return IsInModel
+
+
+def IsMeshInCaracteristics(t, MeshName):
+
+    DictStructParam = J.get(t, '.StructuralParameters')
+    IsInCara = False
+    Caraddl  = None
+    for MeshFamKey in  DictStructParam['MeshProperties']['MeshFamilies'].keys():
+        if DictStructParam['MeshProperties']['Caracteristics'] is not None:
+            for CaraKey in DictStructParam['MeshProperties']['Caracteristics'].keys():
+                if MeshFamKey ==  DictStructParam['MeshProperties']['Caracteristics'][CaraKey]['MeshGroup']:
+                    if MeshName in DictStructParam['MeshProperties']['MeshFamilies'][MeshFamKey]['Element']:
+                        IsInCara = True
+                        Caraddl = DictStructParam['MeshProperties']['Caracteristics'][CaraKey]['ddlName'].split(' ')
+    return IsInCara, Caraddl
+
 def ModifySolidCGNS2Mesh(t):
     '''Read the structured SOLID node and adapt it to an unstructured Mesh node'''
 
@@ -60,13 +89,59 @@ def ModifySolidCGNS2Mesh(t):
 
     print(WARN+'Only one type of mesh element! or with same number of ddl'+ENDC)
 
-    DictStructParam['MeshProperties']['Nddl'] = int(DictStructParam['MeshProperties']['ddlElem']*DictStructParam['MeshProperties']['NNodes'])
+    #DictStructParam['MeshProperties']['Nddl'] = int(DictStructParam['MeshProperties']['ddlElem']*DictStructParam['MeshProperties']['NNodes'])
     
 
     DictStructParam['MeshProperties']['NodesFamilies'] = {}
     for Family in mm.gno.keys():
 
       DictStructParam['MeshProperties']['NodesFamilies'][Family] = mm.gno[Family]
+
+    DictStructParam['MeshProperties']['MeshFamilies'] = {}
+    if mm.gma:    
+        for NameFamily in mm.gma.keys():
+    
+            DictStructParam['MeshProperties']['MeshFamilies'][NameFamily] = {}
+            DictStructParam['MeshProperties']['MeshFamilies'][NameFamily]['Element'] = np.array([x + 1 for x in mm.gma[NameFamily]])
+    else:
+        print(WARN + 'The mesh does not have any associated MeshFamilies, we consider All the elements are the same. Create automatic groups depending on the mesh elements (HEXA8, SEG2...).'+ENDC)
+        #print(mm.correspondance_mailles)
+
+        for element in range(len(mm.tm)):
+            ElType = mm.nom[mm.tm[element]]
+            #print(ElType)
+            try:
+                DictStructParam['MeshProperties']['MeshFamilies'][ElType]['Element'].append(int(mm.correspondance_mailles[element][1:]))
+            except:
+                DictStructParam['MeshProperties']['MeshFamilies'][ElType] = {}
+                DictStructParam['MeshProperties']['MeshFamilies'][ElType]['Element'] = [int(mm.correspondance_mailles[element][1:])]    
+            
+            
+#    for ModelName in DictStructParam['MeshProperties']['Models'].keys():
+#        
+#        for MeshFamilyName in DictStructParam['MeshProperties']['MeshFamilies'].keys():
+#
+#            DictStructParam['MeshProperties']['MeshFamilies'][MeshFamilyName]['ddl'] =[]
+#            if MeshFamilyName == DictStructParam['MeshProperties']['Models'][ModelName]['MeshGroup']:
+#                for pos in DictStructParam['MeshProperties']['MeshFamilies'][MeshFamilyName]['ElementPosition']:
+#                    
+#                    DictStructParam['MeshProperties']['MeshFamilies'][MeshFamilyName]['ddl'].append(pos * DictStructParam['MeshProperties']['Models'][ModelName]['ddlElem'])
+#                    DictStructParam['MeshProperties']['MeshFamilies'][MeshFamilyName]['ddl'].append(pos * DictStructParam['MeshProperties']['Models'][ModelName]['ddlElem'])
+#                    DictStructParam['MeshProperties']['MeshFamilies'][MeshFamilyName]['ddl'].append(pos * DictStructParam['MeshProperties']['Models'][ModelName]['ddlElem'])
+
+#    print(DictStructParam['MeshProperties']['MeshFamilies'])
+
+
+    
+#    for Family in mm.gno.keys():
+#
+#      DictStructParam['MeshProperties']['MeshGroup'][Family] = mm.gno[Family]
+    #print(dir(mm))
+    #print(mm.indice_noeuds)
+    #print(mm.dime_maillage)
+    #print(mm.ndim)
+    
+    #print(mm.correspondance_mailles)
 
     J.set(t, '.StructuralParameters', **DictStructParam)
 
@@ -85,7 +160,7 @@ def ModifySolidCGNS2Mesh(t):
         Base = I.newCGNSBase('SOLID', parent=t)
 
         def CGNSElementType(NameAster):
-
+            
             if NameAster == 'POI1':
                 NameCGNS = 'NODE'
                 NodeElem = 1
@@ -94,8 +169,35 @@ def ModifySolidCGNS2Mesh(t):
                 NameCGNS = 'BAR_2'
                 NodeElem = 2
 
+            elif NameAster == 'QUAD4':
+                NameCGNS = 'QUAD_4'
+                NodeElem = 4
+
+            elif NameAster == 'HEXA8':
+                NameCGNS = 'HEXA_8'
+                NodeElem = 8
 
             return NameCGNS, NodeElem
+
+#        def TranslateConnectivity2CGNS(Conectivity, NameAster):
+
+#            if NameAster == 'HEXA8':
+#
+#                for i in range(int(numpy.size(mm.co)/8)):
+            #print i  , '/' , numpy.size(mm.co[i][:]), n_nodes, numpy.size(mm.co)/8 
+            #if numpy.size(mm.co[i][:]) == 8:
+            #    nelem = nelem + 1
+            #    conect = numpy.zeros((nelem, 8))
+
+
+
+
+                #var = numpy.zeros((nelem, 4))
+                #var[:,:] = conect[:,-4:]
+                #conect[:,-4:] = conect[:,12:16]
+                #conect[:,12:16] = var
+#
+            #return Conectivity
 
         def ExtractConnectivity(mm, DictElements, ElemType):
             
@@ -105,10 +207,30 @@ def ModifySolidCGNS2Mesh(t):
             _, NodeElem = CGNSElementType(ElemType)
 
             ConnectMatrix = np.zeros((len(DictElements['GroupOfElements'][ElemType]['ListOfElem']), NodeElem))
+            #for Element, pos in zip(DictElements['GroupOfElements'][ElemType]['ListOfElem'], range(len(DictElements['GroupOfElements'][ElemType]['ListOfElem']))):
+            #    print(Element, pos)
+            #    elementPosition = Element - 1
+            #    #print(DictElements['GroupOfElements'][ElemType]['ListOfElem'])
+            #    #print(len(Conectivity[elementPosition][:]))
+            #    
+            #    ConnectMatrix[pos, :] = Conectivity[elementPosition]
+            #    ConnectMatrix = ConnectMatrix.astype(int)
             for Element, pos in zip(DictElements['GroupOfElements'][ElemType]['ListOfElem'], range(len(DictElements['GroupOfElements'][ElemType]['ListOfElem']))):
-                elementPosition = int(Element[1:]) - 1
+                #print('Element %s'%Element)
+                
+                ConnectMatrix[pos,:] = DictElements['M%s'%Element]['AsterConectivity']
+                ConnectMatrix = ConnectMatrix.astype(int)
+                #print(ConnectMatrix[pos,:])
 
-                ConnectMatrix[pos, :] = np.squeeze(np.asarray(Conectivity[elementPosition]))
+            
+            #if ElemType == 'HEXA8':
+                #print(GREEN+'Adapting the order of conectivity for %s elements'%ElemType+ENDC)
+                #ConnectMatrix = ConnectMatrix[:, [1, 2, 3, 0, 5, 6, 7, 4]]
+                #ConnectMatrix = ConnectMatrix[:, [0, 3,4, 2, 6, 4, 5, 7]]
+                
+                
+                
+            #ConnectMatrix = TranslateConnectivity2CGNS(ConnectMatrix, ElemType)
 
             return ConnectMatrix
 
@@ -120,71 +242,157 @@ def ModifySolidCGNS2Mesh(t):
             
             ValidNodes = []
             for Element, pos in zip(DictElements['GroupOfElements'][ElemType]['ListOfElem'], range(len(DictElements['GroupOfElements'][ElemType]['ListOfElem']))):
-                elementPosition = int(Element[1:]) - 1
+                elementPosition = Element - 1
+                
                 for Node in mm.co[elementPosition]:
                     if Node not in ValidNodes:
                         ValidNodes.append(Node)
-            
-            return np.array(Coordinates[ValidNodes]), ValidNodes
+                    #print(Node)
+            #print(mm.cn)
+            #print(ValidNodes)
+            #print(Coordinates[ValidNodes])
+            return np.array(Coordinates[np.sort(ValidNodes)]), ValidNodes
 
-        def CreateUnstructuredZone4ElemenType(Base, ElementName, CGNSType, NPts, NElts, CoordinatesE, ConectE):
+        def CreateUnstructuredZone4ElemenType(Base, DictElements, NElts):
 
             #zoneUns = I.createNode('InitialMesh_'+ElementName,ntype='Zone_t',value=np.array([[NPts, NElts,0]],dtype=np.int32,order='F'), parent= Base)
             #print(NPts, NElts)
-            zoneUns = I.newZone(name = 'InitialMesh_'+ElementName, zsize = [[NPts, NElts, 0]]  , ztype = 'Unstructured', parent= Base)
+            zoneUns = I.newZone(name = 'InitialMesh', zsize = [[len(mm.cn[:,0]), NElts, 0]]  , ztype = 'Unstructured', parent= Base)
             zt_n = I.createNode('ZoneType', ntype='ZoneType_t',parent=zoneUns)
             I.setValue(zt_n,'Unstructured')
     
     
             g = I.newGridCoordinates(parent = zoneUns)
-            I.newDataArray('CoordinateX', value=np.array(CoordinatesE[:,0],dtype=np.float32,order='F'), parent=g)
-            I.newDataArray('CoordinateY', value=np.array(CoordinatesE[:,1],dtype=np.float32,order='F'), parent=g)
-            I.newDataArray('CoordinateZ', value=np.array(CoordinatesE[:,2],dtype=np.float32,order='F'), parent=g)
+            I.newDataArray('CoordinateX', value = np.array(mm.cn[:,0],dtype=np.float32,order='F'), parent=g) #np.array(CoordinatesE[:,0],dtype=np.float32,order='F'), parent=g) #CoordinatesE[:,0], parent = g)    #
+            I.newDataArray('CoordinateY', value = np.array(mm.cn[:,1],dtype=np.float32,order='F'), parent=g) #np.array(CoordinatesE[:,1],dtype=np.float32,order='F'), parent=g) #CoordinatesE[:,1], parent = g)    #
+            I.newDataArray('CoordinateZ', value = np.array(mm.cn[:,2],dtype=np.float32,order='F'), parent=g) #np.array(CoordinatesE[:,2],dtype=np.float32,order='F'), parent=g) #CoordinatesE[:,2], parent = g)    #
             #I.printTree(g)
 
-            
-            aa = I.newElements(name='Elements', etype=CGNSType, econnectivity=np.array(ConectE.flatten(),dtype=np.int32,order='F'), erange = np.array([1,NElts]), eboundary=0, parent =zoneUns)
-            #I.printTree(Base)
-            return Base
-        
-        for element in range(len(mm.tm)):
-            
-            DictElements['E%s'%(element+1)] = {}
+            #print(ConectE)
 
-            DictElements['E%s'%(element+1)]['AsterType'] = mm.nom[mm.tm[element]]
-            DictElements['E%s'%(element+1)]['CGNSType'],_ = CGNSElementType(DictElements['E%s'%(element+1)]['AsterType'])
-            #print(DictElements)
-            try:
-                DictElements['GroupOfElements'][DictElements['E%s'%(element+1)]['AsterType']]['ListOfElem'].append('E%s'%(element + 1))  
+            NEltsMin = 1
+                       
+            for ElemName in DictElements['GroupOfElements'].keys():
             
-            except:
-                DictElements['GroupOfElements'][DictElements['E%s'%(element+1)]['AsterType']] = {}
-                DictElements['GroupOfElements'][DictElements['E%s'%(element+1)]['AsterType']]['ListOfElem'] = ['E%s'%(element + 1)]
-                DictElements['GroupOfElements'][DictElements['E%s'%(element+1)]['AsterType']]['CGNSType'] = DictElements['E%s'%(element+1)]['CGNSType']                
-
-            DictElements['NbOfElementType'] = len(DictElements['GroupOfElements'].keys())
-
-        
-        for ElemName in DictElements['GroupOfElements'].keys():
-            #if ElemName != 'POI1':
                 CoordinatesE, NodesElemType  = ExtractCoordinates(mm, DictElements, ElemName)
+                #print(CoordinatesE == mm.cn)
                 DictElements['GroupOfElements'][ElemName]['Coordinates'] = CoordinatesE 
                 DictElements['GroupOfElements'][ElemName]['NodesPosition'] = NodesElemType
                 DictElements['GroupOfElements'][ElemName]['Nodes'] = np.array(NodesElemType) + 1
-                
+                NEltsMax = NEltsMin + len(DictElements['GroupOfElements'][ElemName]['ListOfElem'])    
                 ConectivityE  = ExtractConnectivity(mm, DictElements, ElemName)
+                #print(ConectivityE)
                 DictElements['GroupOfElements'][ElemName]['Connectivity'] = ConectivityE 
                 
-                #print(DictElements['GroupOfElements'])
-                Base = CreateUnstructuredZone4ElemenType(Base, ElemName, DictElements['GroupOfElements']['%s'%ElemName]['CGNSType'], len(CoordinatesE), len(DictElements['GroupOfElements'][ElemName]['ListOfElem']), CoordinatesE, ConectivityE)
+            #    
+                #print(ElemName)
+                #print(DictElements['GroupOfElements'].keys())
+                #print(DictElements['GroupOfElements'][ElemName]['CGNSType'])
+                aa = I.newElements(name=ElemName, etype=DictElements['GroupOfElements'][ElemName]['CGNSType'], econnectivity= np.array(ConectivityE.flatten(),dtype=np.int32,order='F'), erange = np.array([NEltsMin,NEltsMax]), eboundary=0, parent =zoneUns)#np.array(ConectE,dtype=np.int32,order='F'), erange = np.array([1,NElts]), eboundary=0, parent =zoneUns)
+                NEltsMin = NEltsMax + 1
+            #I.printTree(Base)
+            
+
+
+
+            return Base
+        
+        
+        #print(mm.tm)
+        #print(mm.nom)
+        Nelem = 0
+        for element in range(len(mm.tm)):
+
+            #print(mm.nom[mm.tm[element]])
+            
+            if IsMeshInModels(t, mm.correspondance_mailles[element]):
+                Nelem += 1
+                ElemName = mm.correspondance_mailles[element].split(' ')[0]
+                #print('OutLoop', ElemName)
+                DictElements[ElemName] = {}   
+                DictElements[ElemName]['AsterType'] = mm.nom[mm.tm[element]]
+                #print('Computing...%s'%DictElements[mm.correspondance_mailles[element]]['AsterType'])
+                DictElements[ElemName]['CGNSType'],_ = CGNSElementType(DictElements[ElemName]['AsterType'])
+                DictElements[ElemName]['AsterConectivity'] = mm.co[element] + 1
+
+
+                #print(DictElements)
+                try:
+                    DictElements['GroupOfElements'][DictElements[ElemName]['AsterType']]['ListOfElem'].append(int(mm.correspondance_mailles[element][1:]))
+                
+                except:
+                    DictElements['GroupOfElements'][DictElements[ElemName]['AsterType']] = {}
+                    DictElements['GroupOfElements'][DictElements[ElemName]['AsterType']]['ListOfElem'] = [int(mm.correspondance_mailles[element][1:])]
+                    DictElements['GroupOfElements'][DictElements[ElemName]['AsterType']]['CGNSType'] = DictElements[ElemName]['CGNSType']                
+
+                DictElements['NbOfElementType'] = len(DictElements['GroupOfElements'].keys())
+
+        
+        #for ElemName in DictElements['GroupOfElements'].keys():
+            ##if ElemName != 'POI1':
+            #    CoordinatesE, NodesElemType  = ExtractCoordinates(mm, DictElements, ElemName)
+            #    #print(CoordinatesE == mm.cn)
+            #    DictElements['GroupOfElements'][ElemName]['Coordinates'] = CoordinatesE 
+            #    DictElements['GroupOfElements'][ElemName]['NodesPosition'] = NodesElemType
+            #    DictElements['GroupOfElements'][ElemName]['Nodes'] = np.array(NodesElemType) + 1
+            #    
+            #    ConectivityE  = ExtractConnectivity(mm, DictElements, ElemName)
+            #    #print(ConectivityE)
+            #    DictElements['GroupOfElements'][ElemName]['Connectivity'] = ConectivityE 
+            #    
+            #    #print(DictElements['GroupOfElements'])
+        Base = CreateUnstructuredZone4ElemenType(Base, DictElements, Nelem)
                 #print(DictElements['GroupOfElements'][ElemName])
 
         DictStructParam['MeshProperties']['DictElements'] = DictElements
         J.set(t, '.StructuralParameters', **DictStructParam)
-        #C.convertPyTree2File(t, '/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.cgns', 'bin_adf')
-        #C.convertPyTree2File(t, '/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.tp', 'bin_tp')
-                
+        
+        existingelement = []
 
+        #print(DictElements['GroupOfElements'].keys())
+        #for elem in DictElements['GroupOfElements'].keys():
+        #    
+        #    print(elem, len(DictElements['GroupOfElements'][elem]['Nodes']))
+#
+#
+#
+#        #    for node in DictElements['GroupOfElements'][elem]['Nodes']: 
+#        #        if node not in existingelement:
+#        #            existingelement.append(node)
+        #            print(node)
+
+
+        #ddl = {}
+        #ddl_vector = []
+        #ddltot = 0
+        #for maille, pos in zip(mm.correspondance_mailles, range(len(mm.correspondance_mailles))):
+#
+#        #    nomMaille = mm.nom[mm.tm[pos]]
+#
+#        #    for familleMesh in DictStructParam['MeshProperties']['MeshFamilies'].keys():
+#        #        
+#        #        for element in DictStructParam['MeshProperties']['MeshFamilies'][familleMesh]['Element']:
+#        #            #print(str(maille), str('M%s'%element), str(nomMaille))
+#        #            #print('M%s'%element == str(maille))
+#        #            if int(element) == int(maille[1:]):
+#
+#        #                for ModelName in DictStructParam['MeshProperties']['Models'].keys():
+#        #                    
+#        #                    if DictStructParam['MeshProperties']['Models'][ModelName]['MeshGroup'] == familleMesh:
+#        #                        ddl_vector 
+#        #                        ddltot += DictStructParam['MeshProperties']['Models'][ModelName]['ddlElem']
+#        #                        print(familleMesh, 'M%s'%element, maille, nomMaille, ddltot, familleMesh)            
+#
+#
+#        #                
+#        #                #print(maille,, nomMaille)
+        #                
+
+        #print(DictStructParam['MeshProperties']['MeshFamilies'].keys())
+      
+
+        # Compute the number of ddl:
+        
 
         # Be careful with hybrid meshes with more than 1 element!
 
@@ -267,11 +475,14 @@ def ModifySolidCGNS2Mesh(t):
     #I.addChild(t, Node)
     
 
-    t = I.merge([t, C.newPyTree(['StaticRotatorySolution', [], 'ModalBases', []])])
+    #t = I.merge([t, C.newPyTree(['StaticRotatorySolution', [], 'ModalBases', []])])
     #InitZone = I.getNodesFromNameAndType(t, 'InitialMesh', 'Zone_t')[0]
     #J._invokeFields(InitZone,['upx', 'upy', 'upz'])
+    #C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.cgns', 'bin_adf')
+    #C.convertPyTree2File(t,'/scratchm/mbalmase/Spiro/3_Update4MOLA/CouplingWF_NewMOLA/Test1.cgns', 'bin_adf')
+    #C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.tp', 'bin_tp')
+    #C.convertPyTree2File(t,'/scratchm/mbalmase/Spiro/3_Update4MOLA/CouplingWF_NewMOLA/Test1.tp', 'bin_tp')
     
-
     return t
 
 
@@ -377,40 +588,43 @@ def DefineElementalCaracteristics(t, Mesh, Model):
     affe_Poutre = []
     affe_Bar = []
     affe_Discret = []
-
-    for caraKey in DictCaracteristics.keys():
-
-        if DictCaracteristics[caraKey]['KeyWord'] == 'POUTRE':
-            affe_Poutre.append(_F(SECTION = DictCaracteristics[caraKey]['SectionType'], 
-                                  VARI_SECT = DictCaracteristics[caraKey]['SectionVariation'], 
-                                  CARA = DictCaracteristics[caraKey]['Properties'],
-                                  VALE = DictCaracteristics[caraKey]['PropValues'],
-                                  GROUP_MA = DictCaracteristics[caraKey]['MeshGroup']
-                                  ))
-
-            print(GREEN+'Affecting %s caracteristics to %s mesh groups.'%(caraKey, DictCaracteristics[caraKey]['MeshGroup'])+ENDC)
-
-        if DictCaracteristics[caraKey]['KeyWord'] == 'BARRE':
-            affe_Bar = None
-            pass
+    #print(DictCaracteristics)
+    if DictCaracteristics is not None:
+        for caraKey in DictCaracteristics.keys():
     
-        if DictCaracteristics[caraKey]['KeyWord'] == 'DISCRET':
-            affe_Discret.append(_F(SYME = DictCaracteristics[caraKey]['SectionSymetry'], 
-                                   CARA = DictCaracteristics[caraKey]['Properties'],
-                                   VALE = DictCaracteristics[caraKey]['PropValues'],
-                                   GROUP_MA = DictCaracteristics[caraKey]['MeshGroup']
-                                   ))
-
-            print(GREEN+'Affecting %s caracteristics to %s mesh groups.'%(caraKey, DictCaracteristics[caraKey]['MeshGroup'])+ENDC)
-
-
-
-
-    CARELEM = AFFE_CARA_ELEM(MODELE = Model, 
-                             BARRE = affe_Bar,
-                             POUTRE = affe_Poutre,
-                             DISCRET = affe_Discret)
-
+            if DictCaracteristics[caraKey]['KeyWord'] == 'POUTRE':
+                affe_Poutre.append(_F(SECTION = DictCaracteristics[caraKey]['SectionType'], 
+                                      VARI_SECT = DictCaracteristics[caraKey]['SectionVariation'], 
+                                      CARA = DictCaracteristics[caraKey]['Properties'],
+                                      VALE = DictCaracteristics[caraKey]['PropValues'],
+                                      GROUP_MA = DictCaracteristics[caraKey]['MeshGroup']
+                                      ))
+    
+                print(GREEN+'Affecting %s caracteristics to %s mesh groups.'%(caraKey, DictCaracteristics[caraKey]['MeshGroup'])+ENDC)
+    
+            if DictCaracteristics[caraKey]['KeyWord'] == 'BARRE':
+                affe_Bar = None
+                pass
+        
+            if DictCaracteristics[caraKey]['KeyWord'] == 'DISCRET':
+                affe_Discret.append(_F(SYME = DictCaracteristics[caraKey]['SectionSymetry'], 
+                                       CARA = DictCaracteristics[caraKey]['Properties'],
+                                       VALE = DictCaracteristics[caraKey]['PropValues'],
+                                       GROUP_MA = DictCaracteristics[caraKey]['MeshGroup']
+                                       ))
+    
+                print(GREEN+'Affecting %s caracteristics to %s mesh groups.'%(caraKey, DictCaracteristics[caraKey]['MeshGroup'])+ENDC)
+    
+    
+    
+    
+        CARELEM = AFFE_CARA_ELEM(MODELE = Model, 
+                                 BARRE = affe_Bar,
+                                 POUTRE = affe_Poutre,
+                                 DISCRET = affe_Discret)
+    else:
+        print(WARN+'Warning! No caracteristics are affected to the Mesh %s'%Mesh)
+        CARELEM = None
 
     #CARELEM = None
 
@@ -721,6 +935,7 @@ def ComputeMatricesFOM(t, RPM, **kwargs):
     #Ke, Kg, Kc, Komeg, C, M, Fei, PointsLagrange, AsterObjs = AsseMatricesFOM('All', **AsterObjs)
     DictMatrices, DictVectors, PointsLagrange, AsterObjs = AsseMatricesFOM('All', **AsterObjs)
     
+    DictStructParam['MeshProperties']['Nddl'] = np.shape(DictMatrices['Ke'][:,0])[0]
     DictStructParam['MeshProperties']['NodesFamilies']['LagrangeNodes'] = PointsLagrange
     J.set(t, '.StructuralParameters', **DictStructParam)
 
@@ -809,47 +1024,136 @@ def ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, **kwargs):
 
     return VectUpOmegaFe
 
+
+#def ComputeDDLVector(SOLU):
+
+
+
+#    return ddl, DictDDL
+
+def ComputeTotalDDLFromAsterTable(t, Table):
+    DictStructParam = J.get(t, '.StructuralParameters')
+            
+    depl_sta = Table.EXTR_TABLE()['NOEUD', 'DX', 'DY','DZ','DRX', 'DRY','DRZ'].values()
+    if depl_sta == {}:
+        depl_sta = Table.EXTR_TABLE()['NOEUD', 'DX', 'DY','DZ'].values()
+        print(WARN+'No rotation dof  (DRX, DRY, DRZ) in the model. Computing only with displacements (DX, DY, DZ).'+ENDC)
+    
+    ddl_tot = 0
+    
+    for NodeKey, pos in zip(depl_sta['NOEUD'], range(len(depl_sta['NOEUD']))):
+        
+        for Var in depl_sta.keys():
+            if Var not in ['NOEUD']:
+                
+                if depl_sta[Var][pos] != None:
+                    ddl_tot += 1
+        
+    return ddl_tot, t
+
+def ComputeTransformationLists(t, Table):
+                # Tool lists to compute from XYZ to ddl vectors. 
+
+    DictStructParam = J.get(t, '.StructuralParameters')
+
+    depl_sta = Table.EXTR_TABLE()['NOEUD', 'DX', 'DY','DZ','DRX', 'DRY','DRZ'].values()
+    if depl_sta == {}:
+        depl_sta = Table.EXTR_TABLE()['NOEUD', 'DX', 'DY','DZ'].values()
+        print(WARN+'No rotation dof  (DRX, DRY, DRZ) in the model. Computing only with displacements (DX, DY, DZ).'+ENDC)
+                
+
+    n_ddl = 0
+    l_ddl = []
+    l_var = []
+    l_SplitArray2Vars = []
+    for NodeKey, pos in zip(depl_sta['NOEUD'], range(len(depl_sta['NOEUD']))):
+        l_var = []
+        l_SplitArray2Vars.append(n_ddl)
+        for Var in depl_sta.keys():
+            if Var not in ['NOEUD']:
+                if depl_sta[Var][pos] != None:
+                    n_ddl += 1  
+                    l_var.append(Var)            
+                    
+        l_ddl.append(np.array(l_var))
+    DictStructParam['MeshProperties']['Transformations'] = {}                                          
+    DictStructParam['MeshProperties']['Transformations']['FOM2XYZ'] = l_SplitArray2Vars
+    DictStructParam['MeshProperties']['Transformations']['VectDDL'] = np.array(np.concatenate(l_ddl))
+    DictStructParam['MeshProperties']['Transformations']['DDLNodes'] = np.split(np.array(np.concatenate(l_ddl)), l_SplitArray2Vars)
+    J.set(t, '.StructuralParameters', **DictStructParam)
+    return t
+
+def ComputeDDLandTransfMatrixFromAsterTable(t, Table):
+
+            
+    t = ComputeTransformationLists(t, Table)
+    ddl, t = ComputeTotalDDLFromAsterTable(t, Table)
+
+    return t
+
+def VectFromAsterTable2Full(t, Table):
+
+    depl_sta = Table.EXTR_TABLE()['NOEUD', 'DX', 'DY','DZ','DRX', 'DRY','DRZ'].values()
+    if depl_sta == {}:
+        depl_sta = Table.EXTR_TABLE()['NOEUD', 'DX', 'DY','DZ'].values()
+        print(WARN+'No rotation dof  (DRX, DRY, DRZ) in the model. Computing only with displacements (DX, DY, DZ).'+ENDC)
+    n_ddl = 0
+    l_ddl = []
+    l_SplitArray2Vars = []
+    for NodeKey, pos in zip(depl_sta['NOEUD'], range(len(depl_sta['NOEUD']))):
+        l_var = []
+        l_SplitArray2Vars.append(n_ddl)
+        for Var in depl_sta.keys():
+            if Var not in ['NOEUD']:
+                
+                if depl_sta[Var][pos] != None:
+                    n_ddl += 1  
+                    l_var.append(depl_sta[Var][pos])            
+                    
+        l_ddl.append(np.array(l_var))
+        
+    
+    
+    #print(n_ddl)
+    #print(l_SplitArray2Vars)
+    #print(np.split(np.array(np.concatenate(l_ddl)), l_SplitArray2Vars))
+    #print(np.array(np.concatenate(l_ddl)))
+    return np.array(np.concatenate(l_ddl)), t
+
+def ListXYZFromVectFull(t, VectFull):
+
+    DictStructParam = J.get(t, '.StructuralParameters')
+    #print(DictStructParam['MeshProperties']['Transformations']['FOM2XYZ'])
+    VectXYZ = np.split(np.array(np.concatenate(VectFull)), DictStructParam['MeshProperties']['Transformations']['FOM2XYZ'])
+    VectDDLNodes = np.split(DictStructParam['MeshProperties']['Transformations']['VectDDL'], DictStructParam['MeshProperties']['Transformations']['FOM2XYZ'])
+    
+    #print(VectDDLNodes)
+    DictXYZ = {}
+    for Node in range(len(VectDDLNodes)):
+        for Component, pos in zip(VectDDLNodes[Node],range(len(VectDDLNodes[Node]))):
+
+            try:
+                DictXYZ[Component].append(VectXYZ[Node][pos])
+            except:
+                DictXYZ[Component] = [VectXYZ[Node][pos]]
+
+        for key in DictXYZ:
+            #print(key, len(DictXYZ[key]))
+            if len(DictXYZ[key]) < Node+1:
+                DictXYZ[key].append(None)
+
+    ListeXYZ = []
+    for key in DictXYZ.keys():
+        ListeXYZ.append(np.array(DictXYZ[key]))
+
+    return ListeXYZ
+
+
 def ExtrUGStatRot(t, RPM, **kwargs):
 
     DictStructParam = J.get(t, '.StructuralParameters')
-    C.convertPyTree2File(t, '/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.cgns', 'bin_adf')
-    C.convertPyTree2File(t, '/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.tp', 'bin_tp')
                 
-
-    if DictStructParam['MeshProperties']['ddlElem'][0] == 3:
-    
-        tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
-                                             NOM_CHAM='DEPL',
-                                             NOM_CMP= ('DX','DY','DZ'),
-                                             INST = 1.0,
-                                             TOUT = 'OUI',),
-                                   TYPE_TABLE='TABLE',
-                                   TITRE='Table_Depl_R',
-                                   )
-                        
-        # Tableau complet des deplacements, coordonnees modales,... :
-        
-        depl_sta = tstaT.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ']
-
-        UsZone, UsField = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= depl_sta,
-                                                             ZoneName = 'U_sta'+str(np.round(RPM)), 
-                                                             FieldNames = ['Usx', 'Usy', 'Usz'],
-                                                             Depl = True)
-        
-        J._invokeFields(UsZone, ['upx', 'upy', 'upz', 'ux', 'uy', 'uz'])
-        upx, upy, upz = J.getVars(UsZone, ['upx', 'upy', 'upz'])
-        upx[:], upy[:], upz[:], = UsField[0], UsField[1], UsField[2] 
-
-            # Compute the Us vector and add it to the .AssembledVectors node:
-        DictStructParam = J.get(t, '.StructuralParameters')
-        
-        VectUsOmega = np.zeros((DictStructParam['MeshProperties']['Nddl'][0]))
-        VectUsOmega[::DictStructParam['MeshProperties']['ddlElem'][0]] = upx
-        VectUsOmega[1::DictStructParam['MeshProperties']['ddlElem'][0]] = upy
-        VectUsOmega[2::DictStructParam['MeshProperties']['ddlElem'][0]] = upz
-
-    elif DictStructParam['MeshProperties']['ddlElem'][0] == 6:
-
+    try:
         tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
                                              NOM_CHAM='DEPL',
                                              NOM_CMP= ('DX','DY','DZ', 'DRX', 'DRY', 'DRZ'),
@@ -858,43 +1162,136 @@ def ExtrUGStatRot(t, RPM, **kwargs):
                                    TYPE_TABLE='TABLE',
                                    TITRE='Table_Depl_R',
                                    )
-                        
-        # Tableau complet des deplacements, coordonnees modales,... :
+    except:
+        tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
+                                             NOM_CHAM='DEPL',
+                                             NOM_CMP= ('DX','DY','DZ'),
+                                             INST = 1.0,
+                                             TOUT = 'OUI',),
+                                   TYPE_TABLE='TABLE',
+                                   TITRE='Table_Depl_R',
+                                   )
+        print(WARN+'No rotation dof  (DRX, DRY, DRZ) in the model. Computing only with displacements (DX, DY, DZ).'+ENDC)
         
-        depl_sta = tstaT.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ','DRX', 'DRY', 'DRZ']
 
-        UsZone, UsField = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= depl_sta,
-                                                             ZoneName = 'U_sta'+str(np.round(RPM)), 
-                                                             FieldNames = ['Usx', 'Usy', 'Usz', 'Usthetax', 'Usthetay', 'Usthetaz'],
-                                                             Depl = True)
-        
-        for Zone in UsZone:
-            print(Zone[0])
-            NodePosition = J.getVars(Zone, ['NodesPosition'])
-            print(NodePosition)
-            J._invokeFields(Zone, ['upx', 'upy', 'upz', 'ux', 'uy', 'uz', 'upthetax', 'upthetay', 'upthetaz'])
-            upx, upy, upz, upthetax, upthetay, upthetaz  = J.getVars(Zone, ['upx', 'upy', 'upz', 'upthetax', 'upthetay', 'upthetaz'])
-            upx[:], upy[:], upz[:],upthetax[:], upthetay[:], upthetaz[:] = UsField[0][NodePosition], UsField[1][NodePosition], UsField[2][NodePosition], UsField[3][NodePosition], UsField[4][NodePosition], UsField[5][NodePosition] 
-             
-        # Compute the Us vector and add it to the .AssembledVectors node:
-        DictStructParam = J.get(t, '.StructuralParameters')
-        
-        VectUsOmega = np.zeros((DictStructParam['MeshProperties']['Nddl'][0]))
-        VectUsOmega[::DictStructParam['MeshProperties']['ddlElem'][0]] = upx
-        VectUsOmega[1::DictStructParam['MeshProperties']['ddlElem'][0]] = upy
-        VectUsOmega[2::DictStructParam['MeshProperties']['ddlElem'][0]] = upz
-        VectUsOmega[3::DictStructParam['MeshProperties']['ddlElem'][0]] = upthetax
-        VectUsOmega[4::DictStructParam['MeshProperties']['ddlElem'][0]] = upthetay
-        VectUsOmega[5::DictStructParam['MeshProperties']['ddlElem'][0]] = upthetaz
-
-
-
-
+    t = ComputeDDLandTransfMatrixFromAsterTable(t, tstaT)
+    
+    UsZones = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= tstaT,
+                                                   ZoneName = 'Us_'+str(np.round(RPM)), 
+                                                   FieldName = 'Us',
+                                                   Depl = True)
+    
+    
+    VectUsOmega = VectFromAsterTable2Full(t, tstaT)
+    
     t = SJ.AddFOMVars2Tree(t, RPM, Vars = [VectUsOmega],
                                    VarsName = ['Us'],
                                    Type = '.AssembledVectors',
                                    )
- 
+    try:
+        I.addChild(I.getNodeFromName(t, 'StaticRotatorySolution'), UsZones)
+    except:
+        t = I.merge([t, C.newPyTree(['StaticRotatorySolution', UsZones])])
+    
+    C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/toto.cgns', 'bin_adf')
+    C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/toto.tp', 'bin_tp')
+        
+    #upx[:], upy[:], upz[:], = UsField[0], UsField[1], UsField[2] 
+
+    #upx, upy, upz, upthetax, upthetay, upthetaz  = J.getVars(Zone, ['upx', 'upy', 'upz', 'upthetax', 'upthetay', 'upthetaz'])
+    #upx[:], upy[:], upz[:],upthetax[:], upthetay[:], upthetaz[:] = UsField[0][NodePosition], UsField[1][NodePosition], UsField[2][NodePosition], UsField[3][NodePosition], UsField[4][NodePosition], UsField[5][NodePosition] 
+           
+
+    #VectFromAsterTable2Full(t, Table)
+
+#VectUsOmega
+
+    #if DictStructParam['MeshProperties']['ddlElem'][0] == 3:
+#    
+#
+#        tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
+#                                             NOM_CHAM='DEPL',
+#                                             NOM_CMP= ('DX','DY','DZ'),
+#                                             INST = 1.0,
+#                                             TOUT = 'OUI',),
+#                                   TYPE_TABLE='TABLE',
+#                                   TITRE='Table_Depl_R',
+#                                   )
+#                        
+#        # Tableau complet des deplacements, coordonnees modales,... :
+#        
+#        depl_sta = tstaT.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ']
+#
+#        UsZone, UsField = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= depl_sta,
+#                                                             ZoneName = 'U_sta'+str(np.round(RPM)), 
+#                                                             FieldNames = ['Usx', 'Usy', 'Usz'],
+#                                                             Depl = True)
+#        
+#        J._invokeFields(UsZone, ['upx', 'upy', 'upz', 'ux', 'uy', 'uz'])
+#        upx, upy, upz = J.getVars(UsZone, ['upx', 'upy', 'upz'])
+#        upx[:], upy[:], upz[:], = UsField[0], UsField[1], UsField[2] 
+#
+##            # Compute the Us vector and add it to the .AssembledVectors node:
+##        DictStructParam = J.get(t, '.StructuralParameters')
+##        
+##        VectUsOmega = np.zeros((DictStructParam['MeshProperties']['Nddl'][0]))
+##        VectUsOmega[::DictStructParam['MeshProperties']['ddlElem'][0]] = upx
+##        VectUsOmega[1::DictStructParam['MeshProperties']['ddlElem'][0]] = upy
+##        VectUsOmega[2::DictStructParam['MeshProperties']['ddlElem'][0]] = upz
+#
+#    elif DictStructParam['MeshProperties']['ddlElem'][0] == 6:
+#        
+#        VarExtr = ('DX','DY','DZ', 'DRX', 'DRY', 'DRZ')
+#
+#        tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
+#                                             NOM_CHAM='DEPL',
+#                                             NOM_CMP= VarExtr,
+#                                             INST = 1.0,
+#                                             TOUT = 'OUI',),
+#                                   TYPE_TABLE='TABLE',
+#                                   TITRE='Table_Depl_R',
+#                                   )
+#                        
+        # Tableau complet des deplacements, coordonnees modales,... :
+
+
+        
+        
+        
+
+
+
+
+
+            
+
+            
+
+        
+#        UsZone, UsField = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= depl_sta,
+#                                                             ZoneName = 'U_sta'+str(np.round(RPM)), 
+#                                                             FieldNames = ['Usx', 'Usy', 'Usz', 'Usthetax', 'Usthetay', 'Usthetaz'],
+#                                                             Depl = True)
+#        
+#        for Zone in UsZone:
+#            print(Zone[0])
+#            NodePosition = J.getVars(Zone, ['NodesPosition'])
+#            print(NodePosition)
+#            J._invokeFields(Zone, ['upx', 'upy', 'upz', 'ux', 'uy', 'uz', 'upthetax', 'upthetay', 'upthetaz'])
+#            upx, upy, upz, upthetax, upthetay, upthetaz  = J.getVars(Zone, ['upx', 'upy', 'upz', 'upthetax', 'upthetay', 'upthetaz'])
+#            upx[:], upy[:], upz[:],upthetax[:], upthetay[:], upthetaz[:] = UsField[0][NodePosition], UsField[1][NodePosition], UsField[2][NodePosition], UsField[3][NodePosition], UsField[4][NodePosition], UsField[5][NodePosition] 
+#             
+#        # Compute the Us vector and add it to the .AssembledVectors node:
+#        DictStructParam = J.get(t, '.StructuralParameters')
+#        
+#        VectUsOmega = np.zeros((DictStructParam['MeshProperties']['Nddl'][0]))
+#        VectUsOmega[::DictStructParam['MeshProperties']['ddlElem'][0]] = upx
+#        VectUsOmega[1::DictStructParam['MeshProperties']['ddlElem'][0]] = upy
+#        VectUsOmega[2::DictStructParam['MeshProperties']['ddlElem'][0]] = upz
+#        VectUsOmega[3::DictStructParam['MeshProperties']['ddlElem'][0]] = upthetax
+#        VectUsOmega[4::DictStructParam['MeshProperties']['ddlElem'][0]] = upthetay
+#        VectUsOmega[5::DictStructParam['MeshProperties']['ddlElem'][0]] = upthetaz
+#
 
 
     F_noda = CALC_CHAMP(MODELE = kwargs['MODELE'],
@@ -917,7 +1314,9 @@ def ExtrUGStatRot(t, RPM, **kwargs):
     #                                 DefByField = UsField)
     # Long way: 
     # CREA_TABLE --> EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ'] --> SJ.CreateNewSolutionFromAsterTable
-    tstaT2 = CREA_TABLE(RESU = _F(RESULTAT = F_noda,
+    
+    try:
+        tstaT2 = CREA_TABLE(RESU = _F(RESULTAT = F_noda,
                                      NOM_CHAM = 'FORC_NODA',
                                      NOM_CMP = ('DX','DY','DZ'),
                                      TOUT='OUI',
@@ -925,29 +1324,37 @@ def ExtrUGStatRot(t, RPM, **kwargs):
                            TYPE_TABLE = 'TABLE',
                            TITRE = 'Table_Force_N',
                            )
-        
+    except:
+        tstaT2 = CREA_TABLE(RESU = _F(RESULTAT = F_noda,
+                                     NOM_CHAM = 'FORC_NODA',
+                                     NOM_CMP = ('DX','DY','DZ'),
+                                     TOUT='OUI',
+                                     ),
+                           TYPE_TABLE = 'TABLE',
+                           TITRE = 'Table_Force_N',
+                           )  
+
     # Table des forces nodales:
         
-    ForceNodeTable = tstaT2.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ']
-
-    GusZone,_ = SJ.CreateNewSolutionFromAsterTable(t, 
-                                     FieldDataTable = ForceNodeTable,
-                                     ZoneName = 'G_sta'+str(np.round(RPM)),
-                                     FieldNames = ['Gusx', 'Gusy', 'Gusz'], 
+    GusZones = SJ.CreateNewSolutionFromAsterTable(t, 
+                                     FieldDataTable = tstaT2,
+                                     ZoneName = 'Gus_'+str(np.round(RPM)),
+                                     FieldName = 'Gus', 
                                      Depl = False,
-                                     DefByField = UsField)   
+                                     DefByField = 'Us_'+str(np.round(RPM)))   
     
-    FeiZone,_ = SJ.CreateNewSolutionFromNdArray(t, 
-                                     FieldDataArray = [kwargs['Fei'][::DictStructParam['MeshProperties']['ddlElem'][0]],kwargs['Fei'][1::DictStructParam['MeshProperties']['ddlElem'][0]],kwargs['Fei'][2::DictStructParam['MeshProperties']['ddlElem'][0]], kwargs['Fei'][3::DictStructParam['MeshProperties']['ddlElem'][0]],kwargs['Fei'][4::DictStructParam['MeshProperties']['ddlElem'][0]],kwargs['Fei'][5::DictStructParam['MeshProperties']['ddlElem'][0]]],
-                                     ZoneName = 'Fei'+str(np.round(RPM)),
-                                     FieldNames = ['FeiX', 'FeiY', 'FeiZ', 'FeithetaX', 'FeithetaY', 'FeithetaZ'], 
+    FeiZones = SJ.CreateNewSolutionFromNdArray(t, 
+                                     FieldDataArray = [kwargs['Fei']],
+                                     ZoneName = 'Fei_'+str(np.round(RPM)),
+                                     FieldName = 'Fei', 
                                      Depl = False,
-                                     DefByField = UsField) 
+                                     DefByField = 'Us_'+str(np.round(RPM))) 
 
 
-    I.addChild(I.getNodeFromName(t, 'StaticRotatorySolution'), [UsZone, GusZone, FeiZone])
+    I.addChild(I.getNodeFromName(t, 'StaticRotatorySolution'), [GusZones, FeiZones])
 
     
+
     DETRUIRE (CONCEPT = _F (NOM = (tstaT, F_noda, tstaT2),
                             ), 
               INFO = 1,
@@ -967,8 +1374,16 @@ def BuildFOM(t, **kwargs):
     for RPM in DictStructParam['RotatingProperties']['RPMs']:
     
         t, AsterObjs = ComputeMatricesFOM(t, RPM, **kwargs['AsterObjs'])
-
+        C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Mesh.cgns', 'bin_adf')
+        C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Mesh.tp', 'bin_tp')
+        
         t = ExtrUGStatRot(t, RPM, **AsterObjs)
+
+        C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Mesh_Rotation.cgns', 'bin_adf')
+        C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Mesh_Rotation.tp', 'bin_tp')
+        #C.convertPyTree2File(t,'/scratchm/mbalmase/Spiro/3_Update4MOLA/CouplingWF_NewMOLA/Test1.cgns', 'bin_adf')
+        #C.convertPyTree2File(t,'/scratchm/mbalmase/Spiro/3_Update4MOLA/CouplingWF_NewMOLA/Test1.tp', 'bin_tp')
+
         
         t = MA.CalcLNM(t, RPM, **AsterObjs)
 
@@ -1040,7 +1455,7 @@ def BuildROMMatrices(tFOM, tROM, RPM):
     MatrRed[str(np.round(RPM,2))+'RPM'] = {}
     MatrRed[str(np.round(RPM,2))+'RPM']['PHI'] = PHI
     for MatrixName in DictAssembledMatrices[str(np.round(RPM))+'RPM'].keys():
-        print(MatrixName)
+        #print(MatrixName)
         SFOMMatr, _ = SJ.LoadSMatrixFromCGNS(tFOM, RPM, MatrixName)
         MatrRed[str(np.round(RPM,2))+'RPM'][MatrixName] = PHIt.dot(SFOMMatr.dot(PHI))
     

@@ -28,6 +28,7 @@ import Converter.PyTree as C
 from .. import InternalShortcuts as J
 from .. import Wireframe as W
 from .. import LiftingLine  as LL
+from .  import Models as SM 
 
 try:
     #Code Aster:
@@ -42,48 +43,22 @@ def merge_dicts(a, b):
     m.update(b)
     return m
 
+def FieldVarsName4Zone(t,FieldName, Type_Element):
+    DictStructParam = J.get(t, '.StructuralParameters')
+    ddlName =['x', 'y', 'z'] 
+    IsInCara, Caraddl = SM.IsMeshInCaracteristics(t, DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['ListOfElem'][0])
+    if IsInCara and (FieldName != 'Gus'):
+        ddlName = Caraddl
+    FieldVarsName = [FieldName + x for x in ddlName]
+    print(FieldVarsName)
+    return FieldVarsName
+
 def CreateNewSolutionFromNdArray(t, FieldDataArray = [], ZoneName=[],
-                                    FieldNames = ['Ux', 'Uy', 'Uz'],
+                                    FieldName = 'U',
                                     Depl = True,
                                     DefByField = None):
-
-
-    InitMesh = I.getNodesFromNameAndType(t, 'InitialMesh', 'Zone_t')[0]
-
-    NewZone = I.copyTree(InitMesh)
-    NewZone[0] = ZoneName
-
-    XCoord, YCoord, ZCoord = J.getxyz(NewZone)
-
-    FieldCoordX = np.array(FieldDataArray[0])
-    FieldCoordY = np.array(FieldDataArray[1])
-    FieldCoordZ = np.array(FieldDataArray[2])
-
-    if Depl:
-        XCoord[:] = XCoord + FieldCoordX
-        YCoord[:] = YCoord + FieldCoordY
-        ZCoord[:] = ZCoord + FieldCoordZ
-
-    if (not Depl) and (DefByField is not None):
-        XCoord[:] = XCoord + DefByField[0]
-        YCoord[:] = YCoord + DefByField[1]
-        ZCoord[:] = ZCoord + DefByField[2]
-
-    Vars = J.invokeFields(NewZone, FieldNames)
-
-    for Var, pos in zip(Vars, range(len(FieldNames))):
-        
-        Var[:] =  FieldDataArray[pos]
-
-    #Varx[:], Vary[:],Varz[:] =  FieldCoordX, FieldCoordY, FieldCoordZ
-
-    return NewZone, Vars #[Varx, Vary, Varz]
-
-def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
-                                    FieldNames = ['Ux', 'Uy', 'Uz'],
-                                    Depl = True,
-                                    DefByField = None):
-
+    
+    
     DictStructParam = J.get(t, '.StructuralParameters')
 
     InitMesh = I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t')
@@ -96,8 +71,76 @@ def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
         J._invokeFields(NewZone, ['NodesPosition'])
         Position = J.getVars(NewZone, ['NodesPosition'])
         Position[:] = DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']
-        print(DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element])
-        print(Position)
+        
+
+        XCoord, YCoord, ZCoord = J.getxyz(NewZone)
+
+        FieldDataArray = SM.ListXYZFromVectFull(t, FieldDataArray)
+
+        print(FieldDataArray)
+        print(len(FieldDataArray[0]))
+        
+
+
+        FieldCoordX = np.array(FieldDataArray[0][Position])
+        FieldCoordY = np.array(FieldDataArray[1][Position])
+        FieldCoordZ = np.array(FieldDataArray[2][Position])
+    
+        if Depl:
+            XCoord[:] = XCoord + FieldCoordX
+            YCoord[:] = YCoord + FieldCoordY
+            ZCoord[:] = ZCoord + FieldCoordZ
+    
+        if (not Depl) and (DefByField is not None):
+
+            NodeZone = I.getNodeByName(t, '%s_%s'%(DefByField, Type_Element))
+            
+            VarNames = FieldVarsName4Zone(t,DefByField.split('_')[0], Type_Element)
+            Vars = J.getVars(NodeZone, VarNames)
+
+            XCoord[:] = XCoord + Vars[0]
+            YCoord[:] = YCoord + Vars[1]
+            ZCoord[:] = ZCoord + Vars[2]
+
+
+    
+        FieldVarsName = FieldVarsName4Zone(t, FieldName, Type_Element)
+        Vars = J.invokeFields(NewZone, FieldVarsName)
+        for Var, pos in zip(Vars, range(len(Vars))):   
+
+            Var[:] = FieldDataArray[pos][Position]
+
+        NewZones.append(NewZone)
+    
+    return NewZones 
+
+
+
+def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
+                                    FieldName = 'U',
+                                    Depl = True,
+                                    DefByField = None):
+
+    depl_sta = FieldDataTable.EXTR_TABLE()['NOEUD', 'DX', 'DY','DZ','DRX', 'DRY','DRZ']
+    if depl_sta['NOEUD'].values() == {}:
+        depl_sta = FieldDataTable.EXTR_TABLE()['NOEUD', 'DX', 'DY','DZ']
+        print(WARN+'No rotation dof  (DRX, DRY, DRZ) in the model. Computing only with displacements (DX, DY, DZ).'+ENDC)
+    FieldDataTable = depl_sta
+    print(depl_sta)
+    DictStructParam = J.get(t, '.StructuralParameters')
+
+    InitMesh = I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t')
+    NewZones = []
+    for InitMesh in I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t'):
+        
+        NewZone = I.copyTree(InitMesh)
+        Type_Element = InitMesh[0][12:]
+        NewZone[0] = ZoneName + '_'+Type_Element
+        J._invokeFields(NewZone, ['NodesPosition'])
+        Position = J.getVars(NewZone, ['NodesPosition'])
+        print(DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition'])
+        Position[:] = DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']
+        
 
         XCoord, YCoord, ZCoord = J.getxyz(NewZone)
     
@@ -117,19 +160,36 @@ def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
             ZCoord[:] = ZCoord + FieldCoordZ
     
         if (not Depl) and (DefByField is not None):
-            XCoord[:] = XCoord + DefByField[0]
-            YCoord[:] = YCoord + DefByField[1]
-            ZCoord[:] = ZCoord + DefByField[2]
-    
-        Vars = J.invokeFields(NewZone, FieldNames)
-    
-        for Var, pos in zip(Vars, range(len(FieldNames))):
-            
-            Var[:] =  FieldData[pos][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]
 
+            NodeZone = I.getNodeByName(t, '%s_%s'%(DefByField, Type_Element))
+            
+            VarNames = FieldVarsName4Zone(t,DefByField.split('_')[0], Type_Element)
+            Vars = J.getVars(NodeZone, VarNames)
+
+            XCoord[:] = XCoord + Vars[0]
+            YCoord[:] = YCoord + Vars[1]
+            ZCoord[:] = ZCoord + Vars[2]
+    
+
+    
+        FieldVarsName = FieldVarsName4Zone(t, FieldName, Type_Element)
+        
+        Vars = J.invokeFields(NewZone, FieldVarsName)
+        print(len(Vars))
+        for Var, pos in zip(Vars, range(len(Vars))):            
+            Var[:] = FieldData[pos][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]
+
+        if FieldVarsName == 'Us':
+            FieldVarsName = FieldVarsName4Zone(t, 'Up', Type_Element)
+            
+            Vars2 = J.invokeFields(NewZone, FieldVarsName)
+            for Var2, pos in zip(Vars2, range(len(Vars2))):            
+                Var2[:] = FieldData[pos][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]
+
+        
         NewZones.append(NewZone)
 
-    return NewZones, Vars #[Varx, Vary, Varz]
+    return NewZones 
 
 
 def getNameSufix(t):
@@ -351,8 +411,8 @@ def AffectImpoDDLByGroupType(t):
         if gno == 'Node_Encastrement':
             affe_impo.append(_F(GROUP_NO = gno, DX = 0.0, DY = 0.0, DZ = 0.0))
 
-        if gno  == 'Node_Batement':
-            affe_impo.append(_F(GROUP_NO = gno, DX = 0.0, DY = 0.0, DZ = 0.0, DRX = 0.0, DRY = 0.0))
+        if gno  == 'Rotule_Batement':
+            affe_impo.append(_F(GROUP_NO = gno, DX = 0.0, DY = 0.0, DZ = 0.0, DRX = 0.0, DRZ = 0.0))
     
     return affe_impo
 
