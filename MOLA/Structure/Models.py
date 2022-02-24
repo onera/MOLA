@@ -164,20 +164,24 @@ def ModifySolidCGNS2Mesh(t):
             if NameAster == 'POI1':
                 NameCGNS = 'NODE'
                 NodeElem = 1
+                CellDim = 2
 
             elif NameAster == 'SEG2':
                 NameCGNS = 'BAR_2'
                 NodeElem = 2
+                CellDim = 2
 
             elif NameAster == 'QUAD4':
                 NameCGNS = 'QUAD_4'
                 NodeElem = 4
+                CellDim = 2
 
             elif NameAster == 'HEXA8':
                 NameCGNS = 'HEXA_8'
                 NodeElem = 8
+                CellDim = 3
 
-            return NameCGNS, NodeElem
+            return NameCGNS, NodeElem, CellDim
 
 #        def TranslateConnectivity2CGNS(Conectivity, NameAster):
 
@@ -204,7 +208,7 @@ def ModifySolidCGNS2Mesh(t):
             Conectivity = mm.co
             Conectivity = [val + 1 for val in Conectivity]
 
-            _, NodeElem = CGNSElementType(ElemType)
+            _, NodeElem,_ = CGNSElementType(ElemType)
 
             ConnectMatrix = np.zeros((len(DictElements['GroupOfElements'][ElemType]['ListOfElem']), NodeElem))
             #for Element, pos in zip(DictElements['GroupOfElements'][ElemType]['ListOfElem'], range(len(DictElements['GroupOfElements'][ElemType]['ListOfElem']))):
@@ -215,11 +219,33 @@ def ModifySolidCGNS2Mesh(t):
             #    
             #    ConnectMatrix[pos, :] = Conectivity[elementPosition]
             #    ConnectMatrix = ConnectMatrix.astype(int)
-            for Element, pos in zip(DictElements['GroupOfElements'][ElemType]['ListOfElem'], range(len(DictElements['GroupOfElements'][ElemType]['ListOfElem']))):
-                #print('Element %s'%Element)
+            if ElemType == 'POI1':
+                ListPos =  range(len(DictElements['GroupOfElements'][ElemType]['ListOfElem']))
+                ListElement = DictElements['GroupOfElements'][ElemType]['ListOfElem']
+                SortedElNodes = np.sort(DictElements['GroupOfElements'][ElemType]['Nodes'])
+
+                for Element, pos in zip(DictElements['GroupOfElements'][ElemType]['ListOfElem'], range(len(DictElements['GroupOfElements'][ElemType]['ListOfElem']))):
+                    
+                    #print(list(SortedElNodes).index(Conectivity[pos]))
+                    ConnectMatrix[pos, :] = list(SortedElNodes).index(Conectivity[pos])+1
+                    ConnectMatrix = ConnectMatrix.astype(int)
                 
-                ConnectMatrix[pos,:] = DictElements['M%s'%Element]['AsterConectivity']
-                ConnectMatrix = ConnectMatrix.astype(int)
+                    #ConnectMatrix[pos,:] = DictElements['M%s'%Element]['AsterConectivity']
+                    #ConnectMatrix = ConnectMatrix.astype(int)
+
+                #print(DictElements['GroupOfElements'][ElemType]['Coordinates'])
+                #print(ListPos)
+                #print(ListElement)
+                #XXX
+                #print(ElNodes)
+                #print(np.sort(ElNodes))
+
+            else:
+                for Element, pos in zip(DictElements['GroupOfElements'][ElemType]['ListOfElem'], range(len(DictElements['GroupOfElements'][ElemType]['ListOfElem']))):
+                    #print('Element %s'%Element)
+                    
+                    ConnectMatrix[pos,:] = DictElements['M%s'%Element]['AsterConectivity']
+                    ConnectMatrix = ConnectMatrix.astype(int)
                 #print(ConnectMatrix[pos,:])
 
             
@@ -253,43 +279,56 @@ def ModifySolidCGNS2Mesh(t):
             #print(Coordinates[ValidNodes])
             return np.array(Coordinates[np.sort(ValidNodes)]), ValidNodes
 
-        def CreateUnstructuredZone4ElemenType(Base, DictElements, NElts):
+        def DefineDimVectorFromElementName(DictElements,ElemName):
+            if DictElements['GroupOfElements'][ElemName]['CellDimension'] == 2:
+                DimVector = [[len(DictElements['GroupOfElements'][ElemName]['Coordinates'][:, 0]), len(DictElements['GroupOfElements'][ElemName]['Conectivity'][:,0])]]
+            elif DictElements['GroupOfElements'][ElemName]['CellDimension'] == 3:
+                DimVector = [[len(DictElements['GroupOfElements'][ElemName]['Coordinates'][:, 0]), len(DictElements['GroupOfElements'][ElemName]['Conectivity'][:,0]), 0]]
+            return DimVector
+
+        def CreateUnstructuredZone4ElemenType(Base, DictElements, ElemName):
 
             #zoneUns = I.createNode('InitialMesh_'+ElementName,ntype='Zone_t',value=np.array([[NPts, NElts,0]],dtype=np.int32,order='F'), parent= Base)
             #print(NPts, NElts)
-            zoneUns = I.newZone(name = 'InitialMesh', zsize = [[len(mm.cn[:,0]), NElts, 0]]  , ztype = 'Unstructured', parent= Base)
+            DimVector = DefineDimVectorFromElementName(DictElements, ElemName)
+              
+            zoneUns = I.newZone(name = 'InitialMesh_'+ElemName, zsize = DimVector  , ztype = 'Unstructured', parent= Base)
             zt_n = I.createNode('ZoneType', ntype='ZoneType_t',parent=zoneUns)
             I.setValue(zt_n,'Unstructured')
     
     
             g = I.newGridCoordinates(parent = zoneUns)
-            I.newDataArray('CoordinateX', value = np.array(mm.cn[:,0],dtype=np.float32,order='F'), parent=g) #np.array(CoordinatesE[:,0],dtype=np.float32,order='F'), parent=g) #CoordinatesE[:,0], parent = g)    #
-            I.newDataArray('CoordinateY', value = np.array(mm.cn[:,1],dtype=np.float32,order='F'), parent=g) #np.array(CoordinatesE[:,1],dtype=np.float32,order='F'), parent=g) #CoordinatesE[:,1], parent = g)    #
-            I.newDataArray('CoordinateZ', value = np.array(mm.cn[:,2],dtype=np.float32,order='F'), parent=g) #np.array(CoordinatesE[:,2],dtype=np.float32,order='F'), parent=g) #CoordinatesE[:,2], parent = g)    #
+            I.newDataArray('CoordinateX', value = np.array(DictElements['GroupOfElements'][ElemName]['Coordinates'][:, 0],dtype = np.float32, order = 'F'), parent = g)  #np.array(mm.cn[:,0],dtype=np.float32,order='F'), parent=g) #np.array(CoordinatesE[:,0],dtype=np.float32,order='F'), parent=g) #CoordinatesE[:,0], parent = g)    #
+            I.newDataArray('CoordinateY', value = np.array(DictElements['GroupOfElements'][ElemName]['Coordinates'][:, 1],dtype = np.float32, order = 'F'), parent = g)  #np.array(mm.cn[:,1],dtype=np.float32,order='F'), parent=g) #np.array(CoordinatesE[:,1],dtype=np.float32,order='F'), parent=g) #CoordinatesE[:,1], parent = g)    #
+            I.newDataArray('CoordinateZ', value = np.array(DictElements['GroupOfElements'][ElemName]['Coordinates'][:, 2],dtype = np.float32, order = 'F'), parent = g)  #np.array(mm.cn[:,2],dtype=np.float32,order='F'), parent=g) #np.array(CoordinatesE[:,2],dtype=np.float32,order='F'), parent=g) #CoordinatesE[:,2], parent = g)    #
             #I.printTree(g)
 
+            #if ElemName != 'POI1':
+            print(DictElements['GroupOfElements'][ElemName]['CGNSType'].split('_')[0])
+            aa = I.newElements(name=ElemName, etype=DictElements['GroupOfElements'][ElemName]['CGNSType'].split('_')[0], econnectivity= np.array(DictElements['GroupOfElements'][ElemName]['Conectivity'].flatten(),dtype=np.int32,order='F'), erange = np.array([1,len(DictElements['GroupOfElements'][ElemName]['Conectivity'][:,0])]), eboundary=0, parent =zoneUns) #np.array(ConectE,dtype=np.int32,order='F'), erange = np.array([1,NElts]), eboundary=0, parent =zoneUns)
+            I.createNode('ElementType', ntype='ElementType_t', value=DictElements['GroupOfElements'][ElemName]['CGNSType'], parent=aa)
             #print(ConectE)
 
-            NEltsMin = 1
+            #NEltsMin = 1
                        
-            for ElemName in DictElements['GroupOfElements'].keys():
-            
-                CoordinatesE, NodesElemType  = ExtractCoordinates(mm, DictElements, ElemName)
-                #print(CoordinatesE == mm.cn)
-                DictElements['GroupOfElements'][ElemName]['Coordinates'] = CoordinatesE 
-                DictElements['GroupOfElements'][ElemName]['NodesPosition'] = NodesElemType
-                DictElements['GroupOfElements'][ElemName]['Nodes'] = np.array(NodesElemType) + 1
-                NEltsMax = NEltsMin + len(DictElements['GroupOfElements'][ElemName]['ListOfElem'])    
-                ConectivityE  = ExtractConnectivity(mm, DictElements, ElemName)
-                #print(ConectivityE)
-                DictElements['GroupOfElements'][ElemName]['Connectivity'] = ConectivityE 
-                
+            #for ElemName in DictElements['GroupOfElements'].keys():
+            #
+            #    CoordinatesE, NodesElemType  = ExtractCoordinates(mm, DictElements, ElemName)
+            #    #print(CoordinatesE == mm.cn)
+            #    DictElements['GroupOfElements'][ElemName]['Coordinates'] = CoordinatesE 
+            #    DictElements['GroupOfElements'][ElemName]['NodesPosition'] = NodesElemType
+            #    DictElements['GroupOfElements'][ElemName]['Nodes'] = np.array(NodesElemType) + 1
+            #    NEltsMax = NEltsMin + len(DictElements['GroupOfElements'][ElemName]['ListOfElem'])    
+            #    ConectivityE  = ExtractConnectivity(mm, DictElements, ElemName)
+            #    #print(ConectivityE)
+            #    DictElements['GroupOfElements'][ElemName]['Connectivity'] = ConectivityE 
             #    
-                #print(ElemName)
-                #print(DictElements['GroupOfElements'].keys())
-                #print(DictElements['GroupOfElements'][ElemName]['CGNSType'])
-                aa = I.newElements(name=ElemName, etype=DictElements['GroupOfElements'][ElemName]['CGNSType'], econnectivity= np.array(ConectivityE.flatten(),dtype=np.int32,order='F'), erange = np.array([NEltsMin,NEltsMax]), eboundary=0, parent =zoneUns)#np.array(ConectE,dtype=np.int32,order='F'), erange = np.array([1,NElts]), eboundary=0, parent =zoneUns)
-                NEltsMin = NEltsMax + 1
+            ##    
+            #    #print(ElemName)
+            #    #print(DictElements['GroupOfElements'].keys())
+            #    #print(DictElements['GroupOfElements'][ElemName]['CGNSType'])
+            #    aa = I.newElements(name=ElemName, etype=DictElements['GroupOfElements'][ElemName]['CGNSType'], econnectivity= np.array(ConectivityE.flatten(),dtype=np.int32,order='F'), erange = np.array([NEltsMin,NEltsMax]), eboundary=0, parent =zoneUns)#np.array(ConectE,dtype=np.int32,order='F'), erange = np.array([1,NElts]), eboundary=0, parent =zoneUns)
+            #    NEltsMin = NEltsMax + 1
             #I.printTree(Base)
             
 
@@ -312,7 +351,7 @@ def ModifySolidCGNS2Mesh(t):
                 DictElements[ElemName] = {}   
                 DictElements[ElemName]['AsterType'] = mm.nom[mm.tm[element]]
                 #print('Computing...%s'%DictElements[mm.correspondance_mailles[element]]['AsterType'])
-                DictElements[ElemName]['CGNSType'],_ = CGNSElementType(DictElements[ElemName]['AsterType'])
+                DictElements[ElemName]['CGNSType'],_, CellDim = CGNSElementType(DictElements[ElemName]['AsterType'])
                 DictElements[ElemName]['AsterConectivity'] = mm.co[element] + 1
 
 
@@ -324,24 +363,27 @@ def ModifySolidCGNS2Mesh(t):
                     DictElements['GroupOfElements'][DictElements[ElemName]['AsterType']] = {}
                     DictElements['GroupOfElements'][DictElements[ElemName]['AsterType']]['ListOfElem'] = [int(mm.correspondance_mailles[element][1:])]
                     DictElements['GroupOfElements'][DictElements[ElemName]['AsterType']]['CGNSType'] = DictElements[ElemName]['CGNSType']                
+                    DictElements['GroupOfElements'][DictElements[ElemName]['AsterType']]['CellDimension'] = CellDim
+
 
                 DictElements['NbOfElementType'] = len(DictElements['GroupOfElements'].keys())
 
         
-        #for ElemName in DictElements['GroupOfElements'].keys():
+        for ElemName in DictElements['GroupOfElements'].keys():
             ##if ElemName != 'POI1':
-            #    CoordinatesE, NodesElemType  = ExtractCoordinates(mm, DictElements, ElemName)
-            #    #print(CoordinatesE == mm.cn)
-            #    DictElements['GroupOfElements'][ElemName]['Coordinates'] = CoordinatesE 
-            #    DictElements['GroupOfElements'][ElemName]['NodesPosition'] = NodesElemType
-            #    DictElements['GroupOfElements'][ElemName]['Nodes'] = np.array(NodesElemType) + 1
-            #    
-            #    ConectivityE  = ExtractConnectivity(mm, DictElements, ElemName)
-            #    #print(ConectivityE)
-            #    DictElements['GroupOfElements'][ElemName]['Connectivity'] = ConectivityE 
-            #    
-            #    #print(DictElements['GroupOfElements'])
-        Base = CreateUnstructuredZone4ElemenType(Base, DictElements, Nelem)
+                CoordinatesE, NodesElemType  = ExtractCoordinates(mm, DictElements, ElemName)
+                #print(CoordinatesE == mm.cn)
+                DictElements['GroupOfElements'][ElemName]['Coordinates'] = CoordinatesE 
+                DictElements['GroupOfElements'][ElemName]['NodesPosition'] = NodesElemType
+                DictElements['GroupOfElements'][ElemName]['Nodes'] = np.array(NodesElemType) + 1
+                
+                ConectivityE  = ExtractConnectivity(mm, DictElements, ElemName)
+                #print(ConectivityE)
+                DictElements['GroupOfElements'][ElemName]['Conectivity'] = ConectivityE 
+                Base = CreateUnstructuredZone4ElemenType(Base, DictElements, ElemName)
+                
+                #print(DictElements['GroupOfElements'])
+        #Base = CreateUnstructuredZone4ElemenType(Base, DictElements, Nelem)
                 #print(DictElements['GroupOfElements'][ElemName])
 
         DictStructParam['MeshProperties']['DictElements'] = DictElements
@@ -478,9 +520,9 @@ def ModifySolidCGNS2Mesh(t):
     #t = I.merge([t, C.newPyTree(['StaticRotatorySolution', [], 'ModalBases', []])])
     #InitZone = I.getNodesFromNameAndType(t, 'InitialMesh', 'Zone_t')[0]
     #J._invokeFields(InitZone,['upx', 'upy', 'upz'])
-    #C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.cgns', 'bin_adf')
+    C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.cgns', 'bin_adf')
     #C.convertPyTree2File(t,'/scratchm/mbalmase/Spiro/3_Update4MOLA/CouplingWF_NewMOLA/Test1.cgns', 'bin_adf')
-    #C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.tp', 'bin_tp')
+    C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.tp', 'bin_tp')
     #C.convertPyTree2File(t,'/scratchm/mbalmase/Spiro/3_Update4MOLA/CouplingWF_NewMOLA/Test1.tp', 'bin_tp')
     
     return t

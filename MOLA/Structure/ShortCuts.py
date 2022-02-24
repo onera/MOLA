@@ -30,13 +30,13 @@ from .. import Wireframe as W
 from .. import LiftingLine  as LL
 from .  import Models as SM 
 
+
 try:
     #Code Aster:
     from code_aster.Cata.Commands import *
     from code_aster.Cata.Syntax import _F, CO
 except:
     print(WARN + 'Code_Aster modules are not loaded!!' + ENDC)
-
 
 def merge_dicts(a, b):
     m = a.copy()
@@ -57,8 +57,8 @@ def CreateNewSolutionFromNdArray(t, FieldDataArray = [], ZoneName=[],
                                     FieldName = 'U',
                                     Depl = True,
                                     DefByField = None):
-    
-    
+
+
     DictStructParam = J.get(t, '.StructuralParameters')
 
     InitMesh = I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t')
@@ -71,7 +71,7 @@ def CreateNewSolutionFromNdArray(t, FieldDataArray = [], ZoneName=[],
         J._invokeFields(NewZone, ['NodesPosition'])
         Position = J.getVars(NewZone, ['NodesPosition'])
         Position[:] = DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']
-        
+
 
         XCoord, YCoord, ZCoord = J.getxyz(NewZone)
 
@@ -79,7 +79,6 @@ def CreateNewSolutionFromNdArray(t, FieldDataArray = [], ZoneName=[],
 
         print(FieldDataArray)
         print(len(FieldDataArray[0]))
-        
 
 
         FieldCoordX = np.array(FieldDataArray[0][Position])
@@ -103,7 +102,6 @@ def CreateNewSolutionFromNdArray(t, FieldDataArray = [], ZoneName=[],
             ZCoord[:] = ZCoord + Vars[2]
 
 
-    
         FieldVarsName = FieldVarsName4Zone(t, FieldName, Type_Element)
         Vars = J.invokeFields(NewZone, FieldVarsName)
         for Var, pos in zip(Vars, range(len(Vars))):   
@@ -113,7 +111,6 @@ def CreateNewSolutionFromNdArray(t, FieldDataArray = [], ZoneName=[],
         NewZones.append(NewZone)
     
     return NewZones 
-
 
 
 def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
@@ -127,9 +124,12 @@ def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
         print(WARN+'No rotation dof  (DRX, DRY, DRZ) in the model. Computing only with displacements (DX, DY, DZ).'+ENDC)
     FieldDataTable = depl_sta
     print(depl_sta)
+
     DictStructParam = J.get(t, '.StructuralParameters')
 
     InitMesh = I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t')
+    
+    
     NewZones = []
     for InitMesh in I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t'):
         
@@ -138,9 +138,9 @@ def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
         NewZone[0] = ZoneName + '_'+Type_Element
         J._invokeFields(NewZone, ['NodesPosition'])
         Position = J.getVars(NewZone, ['NodesPosition'])
-        print(DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition'])
         Position[:] = DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']
-        
+        #print(DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element])
+        #print(Position)
 
         XCoord, YCoord, ZCoord = J.getxyz(NewZone)
     
@@ -160,7 +160,6 @@ def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
             ZCoord[:] = ZCoord + FieldCoordZ
     
         if (not Depl) and (DefByField is not None):
-
             NodeZone = I.getNodeByName(t, '%s_%s'%(DefByField, Type_Element))
             
             VarNames = FieldVarsName4Zone(t,DefByField.split('_')[0], Type_Element)
@@ -169,7 +168,6 @@ def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
             XCoord[:] = XCoord + Vars[0]
             YCoord[:] = YCoord + Vars[1]
             ZCoord[:] = ZCoord + Vars[2]
-    
 
     
         FieldVarsName = FieldVarsName4Zone(t, FieldName, Type_Element)
@@ -181,12 +179,10 @@ def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
 
         if FieldVarsName == 'Us':
             FieldVarsName = FieldVarsName4Zone(t, 'Up', Type_Element)
-            
             Vars2 = J.invokeFields(NewZone, FieldVarsName)
             for Var2, pos in zip(Vars2, range(len(Vars2))):            
                 Var2[:] = FieldData[pos][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]
 
-        
         NewZones.append(NewZone)
 
     return NewZones 
