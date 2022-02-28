@@ -99,7 +99,7 @@ class thermodynamics(model):
     primitive = conservative/Density
     return primitive
 
-  def norm_from_component(self,componentX,componentY,componentZ):
+  def norm_from_components(self,componentX,componentY,componentZ):
     """
     Computes the Frobenius norm of a vector from its components in a three-dimensional space
 
@@ -363,7 +363,7 @@ class continuous_medium(thermodynamics):
           },
           {
             'arguments':['VelocityX','VelocityY','VelocityZ'],
-            'operation':self.norm_from_component,
+            'operation':self.norm_from_components,
           },
         ],
         VelocitySound=[
@@ -940,7 +940,7 @@ class polytropic_perfect_gaz(perfect_gaz):
     """
     as name indicates
     """
-    Temperature=(self.gamma_Laplace-1.)/self.gamma_Laplace/self.r_perfect_gaz*Enthalpy
+    Temperature=(self.gamma_Laplace-1.)/self.gamma_Laplace/self.r_perfect_gaz*Energy
     return Temperature
 
   def TemperatureStagnation_from_EnergyStagnation(self,EnergyStagnation):
