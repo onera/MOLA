@@ -69,11 +69,11 @@ def Freq_Phi(t, RPM, MODE):
         ModZone = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= tabmod_T,
                                                            ZoneName = 'Mode%s_'%Mode+str(np.round(RPM)), 
                                                            FieldName = 'Mode',
-                                                           Depl = True)
+                                                           )
         
         I.createChild(ModZone, 'Freq', 'DataArray_t', freq[Mode])
 
-        PHImatrix[:,Mode],_ = SM.VectFromAsterTable2Full(t, tabmod_T)
+        PHImatrix[:,Mode] = SM.VectFromAsterTable2Full(tabmod_T)
 
         DETRUIRE (CONCEPT = _F (NOM = (tabmod_T),
                             ), 
@@ -88,14 +88,14 @@ def Freq_Phi(t, RPM, MODE):
           I._addChild(I.getNodeFromName(t, 'ModalBases'), ModZone)
         except:
           t = I.merge([t, C.newPyTree(['ModalBases', []])])
-          #I._addChild(I.getNodeFromName(t, 'ModalBases'), ModZone)
+          I._addChild(I.getNodeFromName(t, 'ModalBases'), ModZone)
           
     
     t = SJ.AddFOMVars2Tree(t, RPM, Vars = [PHImatrix], VarsName = ['PHI'], Type = '.AssembledMatrices')
 
 
     C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.cgns', 'bin_adf')
-    C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.tp', 'bin_tp')
+    #C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.tp', 'bin_tp')
 
 #    print(len(ModZones))
 #    XX

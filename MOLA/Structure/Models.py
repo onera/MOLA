@@ -1045,7 +1045,7 @@ def ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, **kwargs):
         depl_sta = tstaT.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ']
     
         UsZone, UsField = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= depl_sta,
-                                                             ZoneName = 'U_sta'+str(np.round(RPM)), 
+                                                             ZoneName = 'U_sta'+str(np.round(RPM,2)), 
                                                              FieldNames = ['Usx', 'Usy', 'Usz'],
                                                              Depl = True)
         
@@ -1068,7 +1068,7 @@ def ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, **kwargs):
         depl_sta = tstaT.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ','DRX', 'DRY', 'DRZ']
 
         UsZone, UsField = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= depl_sta,
-                                                             ZoneName = 'U_sta'+str(np.round(RPM)), 
+                                                             ZoneName = 'U_sta'+str(np.round(RPM,2)), 
                                                              FieldNames = ['Usx', 'Usy', 'Usz', 'Usthetax', 'Usthetay', 'Usthetaz'],
                                                              Depl = True)
         
@@ -1247,15 +1247,14 @@ def ExtrUGStatRot(t, RPM, **kwargs):
 
     t = ComputeDDLandTransfMatrixFromAsterTable(t, tstaT)
     
-    UsZones = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= tstaT,
-                                                   ZoneName = 'Us_'+str(np.round(RPM)), 
+    UsZones = SJ.CreateNewSolutionFromAsterTable(t,FieldDataTable= tstaT,
+                                                   ZoneName = str(np.round(RPM,2))+'RPM', 
                                                    FieldName = 'Us',
-                                                   Depl = True)
+                                                   )
     
     
     VectUsOmega = VectFromAsterTable2Full(tstaT)
-    print(type(VectUsOmega))
-    print(VectUsOmega)
+    
     t = SJ.AddFOMVars2Tree(t, RPM, Vars = [VectUsOmega],
                                    VarsName = ['Us'],
                                    Type = '.AssembledVectors',
@@ -1410,17 +1409,13 @@ def ExtrUGStatRot(t, RPM, **kwargs):
         
     GusZones = SJ.CreateNewSolutionFromAsterTable(t, 
                                      FieldDataTable = tstaT2,
-                                     ZoneName = 'Gus_'+str(np.round(RPM)),
-                                     FieldName = 'Gus', 
-                                     Depl = False,
-                                     DefByField = 'Us_'+str(np.round(RPM)))   
+                                     ZoneName = str(np.round(RPM,2))+'RPM',
+                                     FieldName = 'Gus')   
     
     FeiZones = SJ.CreateNewSolutionFromNdArray(t, 
                                      FieldDataArray = [kwargs['Fei']],
-                                     ZoneName = 'Fei_'+str(np.round(RPM)),
-                                     FieldName = 'Fei', 
-                                     Depl = False,
-                                     DefByField = 'Us_'+str(np.round(RPM))) 
+                                     ZoneName = str(np.round(RPM,2))+'RPM',
+                                     FieldName = 'Fei') 
 
 
     I.addChild(I.getNodeFromName(t, 'StaticRotatorySolution'), GusZones)
@@ -1452,7 +1447,7 @@ def BuildFOM(t, **kwargs):
         t = ExtrUGStatRot(t, RPM, **AsterObjs)
 
         C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Mesh_Rotation.cgns', 'bin_adf')
-        C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Mesh_Rotation.tp', 'bin_tp')
+        #C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Mesh_Rotation.tp', 'bin_tp')
         #C.convertPyTree2File(t,'/scratchm/mbalmase/Spiro/3_Update4MOLA/CouplingWF_NewMOLA/Test1.cgns', 'bin_adf')
         #C.convertPyTree2File(t,'/scratchm/mbalmase/Spiro/3_Update4MOLA/CouplingWF_NewMOLA/Test1.tp', 'bin_tp')
 
@@ -1526,10 +1521,10 @@ def BuildROMMatrices(tFOM, tROM, RPM):
     MatrRed = J.get(tROM, '.AssembledMatrices')
     MatrRed[str(np.round(RPM,2))+'RPM'] = {}
     MatrRed[str(np.round(RPM,2))+'RPM']['PHI'] = PHI
-    for MatrixName in DictAssembledMatrices[str(np.round(RPM))+'RPM'].keys():
-        #print(MatrixName)
-        SFOMMatr, _ = SJ.LoadSMatrixFromCGNS(tFOM, RPM, MatrixName)
-        MatrRed[str(np.round(RPM,2))+'RPM'][MatrixName] = PHIt.dot(SFOMMatr.dot(PHI))
+    for MatrixName in DictAssembledMatrices[str(np.round(RPM,2))+'RPM'].keys():
+        if MatrixName != 'PHI':#print(MatrixName)
+            SFOMMatr, _ = SJ.LoadSMatrixFromCGNS(tFOM, RPM, MatrixName)
+            MatrRed[str(np.round(RPM,2))+'RPM'][MatrixName] = PHIt.dot(SFOMMatr.dot(PHI))
     
     J.set(tROM, '.AssembledMatrices', **MatrRed)
 

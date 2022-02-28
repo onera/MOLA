@@ -50,54 +50,50 @@ def FieldVarsName4Zone(t,FieldName, Type_Element):
     if IsInCara and (FieldName != 'Gus'):
         ddlName = Caraddl
     FieldVarsName = [FieldName + x for x in ddlName]
-    print(FieldVarsName)
+    
     return FieldVarsName
 
 def CreateNewSolutionFromNdArray(t, FieldDataArray = [], ZoneName=[],
-                                    FieldName = 'U',
-                                    Depl = True,
-                                    DefByField = None):
+                                    FieldName = 'U'
+                                    ):
 
 
     DictStructParam = J.get(t, '.StructuralParameters')
 
     InitMesh = I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t')
     NewZones = []
+
+    FieldDataArray = SM.ListXYZFromVectFull(t, FieldDataArray)
+
     for InitMesh in I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t'):
         
-        NewZone = I.copyTree(InitMesh)
         Type_Element = InitMesh[0][12:]
-        NewZone[0] = ZoneName + '_'+Type_Element
-        #J._invokeFields(NewZone, ['NodesPosition'])
+        NewZoneName = ZoneName + '_'+Type_Element
+        NewZone = I.getNodeFromNameAndType(t, NewZoneName, 'Zone_t')
+
         Position = J.getVars(NewZone, ['NodesPosition'])
         Position[:] = DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']
-
-
-        XCoord, YCoord, ZCoord = J.getxyz(NewZone)
-
-        FieldDataArray = SM.ListXYZFromVectFull(t, FieldDataArray)
-
         
-        FieldCoordX = np.array(FieldDataArray[0][Position])
-        FieldCoordY = np.array(FieldDataArray[1][Position])
-        FieldCoordZ = np.array(FieldDataArray[2][Position])
+
+        if NewZone is None:
+
+            NewZone = I.copyTree(InitMesh)
+            NewZone[0] = NewZoneName 
+            #J._invokeFields(NewZone, ['NodesPosition'])
+            
+            XCoord, YCoord, ZCoord = J.getxyz(NewZone)
     
-        if Depl:
+    
+            
+            FieldCoordX = np.array(FieldDataArray[0][Position])
+            FieldCoordY = np.array(FieldDataArray[1][Position])
+            FieldCoordZ = np.array(FieldDataArray[2][Position])
+        
+            print(FieldCoordX)
+
             XCoord[:] = XCoord + FieldCoordX
             YCoord[:] = YCoord + FieldCoordY
             ZCoord[:] = ZCoord + FieldCoordZ
-    
-        if (not Depl) and (DefByField is not None):
-
-            NodeZone = I.getNodeByName(t, '%s_%s'%(DefByField, Type_Element))
-            
-            VarNames = FieldVarsName4Zone(t,DefByField.split('_')[0], Type_Element)
-            Vars = J.getVars(NodeZone, VarNames)
-
-            XCoord[:] = XCoord + Vars[0]
-            YCoord[:] = YCoord + Vars[1]
-            ZCoord[:] = ZCoord + Vars[2]
-
 
         FieldVarsName = FieldVarsName4Zone(t, FieldName, Type_Element)
         Vars = J.invokeFields(NewZone, FieldVarsName)
@@ -122,55 +118,53 @@ def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
     FieldDataTable = depl_sta
     #print(depl_sta)
     #FieldDataTable[FieldDataTable == None] = [np.nan] 
-    print(FieldDataTable)
+    #print(FieldDataTable)
     DictStructParam = J.get(t, '.StructuralParameters')
 
-    InitMesh = I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t')
-    
-    
+    FieldData = []
+    for Data in FieldDataTable.values().keys():
+       if Data != 'NOEUD':
+           
+           FieldData.append(np.array(FieldDataTable.values()[Data][:]))
+
+     
     NewZones = []
     for InitMesh in I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t'):
         
-        NewZone = I.copyTree(InitMesh)
         Type_Element = InitMesh[0][12:]
-        NewZone[0] = ZoneName + '_'+Type_Element
-        #J._invokeFields(NewZone, ['NodesPosition'])
-        #Position = J.getVars(NewZone, ['NodesPosition'])
-        #Position[:] = DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']
-        #print(DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element])
-        #print(Position)
+        NewZoneName = ZoneName + '_'+Type_Element
 
-        XCoord, YCoord, ZCoord = J.getxyz(NewZone)
+        NewZone = I.getNodeFromNameAndType(t,NewZoneName, 'Zone_t')
+        
+        
+
+        if NewZone is None:    
+            NewZone = I.copyTree(InitMesh)
+            NewZone[0] = NewZoneName
+            
+        
+            #J._invokeFields(NewZone, ['NodesPosition'])
+            #Position = J.getVars(NewZone, ['NodesPosition'])
+            #Position[:] = DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']
+            #print(DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element])
+            #print(Position)
     
-        FieldData = []
-        for Data in FieldDataTable.values().keys():
-            if Data != 'NOEUD':
-                
-                FieldData.append(np.array(FieldDataTable.values()[Data][:]))
-    
-        FieldCoordX = FieldData[0][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]  #np.array(FieldDataTable.values()['DX'][:])
-        FieldCoordY = FieldData[1][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]  #np.array(FieldDataTable.values()['DY'][:])
-        FieldCoordZ = FieldData[2][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]  #np.array(FieldDataTable.values()['DZ'][:])
-    
-        if Depl:
+            XCoord, YCoord, ZCoord = J.getxyz(NewZone)
+        
+                    
+            FieldCoordX = FieldData[0][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]  #np.array(FieldDataTable.values()['DX'][:])
+            FieldCoordY = FieldData[1][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]  #np.array(FieldDataTable.values()['DY'][:])
+            FieldCoordZ = FieldData[2][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]  #np.array(FieldDataTable.values()['DZ'][:])
+        
+            
             XCoord[:] = XCoord + FieldCoordX
             YCoord[:] = YCoord + FieldCoordY
             ZCoord[:] = ZCoord + FieldCoordZ
-    
-        if (not Depl) and (DefByField is not None):
-            NodeZone = I.getNodeByName(t, '%s_%s'%(DefByField, Type_Element))
-            
-            VarNames = FieldVarsName4Zone(t,DefByField.split('_')[0], Type_Element)
-            Vars = J.getVars(NodeZone, VarNames)
-
-            XCoord[:] = XCoord + Vars[0]
-            YCoord[:] = YCoord + Vars[1]
-            ZCoord[:] = ZCoord + Vars[2]
 
     
         FieldVarsName = FieldVarsName4Zone(t, FieldName, Type_Element)
-        
         Vars = J.invokeFields(NewZone, FieldVarsName)
+        
         for Var, pos in zip(Vars, range(len(Vars))):
             Var[:] = FieldData[pos][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]
 
@@ -250,7 +244,7 @@ def AddFOMVars2Tree(t, RPM, Vars = [], VarsName = [], Type = '.AssembledMatrices
 
     J.set(t, Type, **DictVars
           )
-    
+
     return t
 
 
@@ -484,24 +478,26 @@ def LoadSMatrixFromCGNS(t, RPM, MatrixName, Type = '.AssembledMatrices' ):
 
 def GetReducedBaseFromCGNS(t, RPM):
 
-    DictStructParam = J.get(t, '.StructuralParameters')
+#    DictStructParam = J.get(t, '.StructuralParameters')
 
-    NModes = DictStructParam['ROMProperties']['NModes'][0]
+#    NModes = DictStructParam['ROMProperties']['NModes'][0]
 
-    PHI = np.zeros((DictStructParam['MeshProperties']['Nddl'][0], NModes))
-
-    for Mode in range(NModes):
-
-        ModeZone = I.getNodeFromName(t, str(np.round(RPM,2))+'Mode'+str(Mode))
-        
-        VectVars = ['ModeX', 'ModeY', 'ModeZ', 'ModeThetaX', 'ModeThetaY', 'ModeThetaZ']
-
-        for dofElem in range(DictStructParam['MeshProperties']['ddlElem'][0]): 
-
-            PHI[dofElem::DictStructParam['MeshProperties']['ddlElem'][0], Mode] = J.getVars(ModeZone, [VectVars[dofElem]])[0]
-
-        #PHI[::3, Mode], PHI[1::3, Mode], PHI[2::3, Mode] = J.getVars(ModeZone,['ModeX', 'ModeY', 'ModeZ'])
-
+#    PHI = np.zeros((DictStructParam['MeshProperties']['Nddl'][0], NModes))
+    
+#    for Mode in range(NModes):
+#
+#        ModeZone = I.getNodeFromName(t, str(np.round(RPM,2))+'Mode'+str(Mode))
+#        
+#        VectVars = ['ModeX', 'ModeY', 'ModeZ', 'ModeThetaX', 'ModeThetaY', 'ModeThetaZ']
+#
+#        for dofElem in range(DictStructParam['MeshProperties']['ddlElem'][0]): 
+#
+#            PHI[dofElem::DictStructParam['MeshProperties']['ddlElem'][0], Mode] = J.getVars(ModeZone, [VectVars[dofElem]])[0]
+#
+#        #PHI[::3, Mode], PHI[1::3, Mode], PHI[2::3, Mode] = J.getVars(ModeZone,['ModeX', 'ModeY', 'ModeZ'])
+    DictAssMatr = J.get(t, '.AssembledMatrices')
+    PHI = DictAssMatr['%sRPM'%np.round(RPM,2)]['PHI']
+    
     return PHI
 
 def VectFromROMtoFULL(PHI, qVect):
