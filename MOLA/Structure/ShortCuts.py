@@ -68,7 +68,7 @@ def CreateNewSolutionFromNdArray(t, FieldDataArray = [], ZoneName=[],
         NewZone = I.copyTree(InitMesh)
         Type_Element = InitMesh[0][12:]
         NewZone[0] = ZoneName + '_'+Type_Element
-        J._invokeFields(NewZone, ['NodesPosition'])
+        #J._invokeFields(NewZone, ['NodesPosition'])
         Position = J.getVars(NewZone, ['NodesPosition'])
         Position[:] = DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']
 
@@ -77,10 +77,7 @@ def CreateNewSolutionFromNdArray(t, FieldDataArray = [], ZoneName=[],
 
         FieldDataArray = SM.ListXYZFromVectFull(t, FieldDataArray)
 
-        print(FieldDataArray)
-        print(len(FieldDataArray[0]))
-
-
+        
         FieldCoordX = np.array(FieldDataArray[0][Position])
         FieldCoordY = np.array(FieldDataArray[1][Position])
         FieldCoordZ = np.array(FieldDataArray[2][Position])
@@ -123,8 +120,9 @@ def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
         depl_sta = FieldDataTable.EXTR_TABLE()['NOEUD', 'DX', 'DY','DZ']
         print(WARN+'No rotation dof  (DRX, DRY, DRZ) in the model. Computing only with displacements (DX, DY, DZ).'+ENDC)
     FieldDataTable = depl_sta
-    print(depl_sta)
-
+    #print(depl_sta)
+    #FieldDataTable[FieldDataTable == None] = [np.nan] 
+    print(FieldDataTable)
     DictStructParam = J.get(t, '.StructuralParameters')
 
     InitMesh = I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t')
@@ -136,9 +134,9 @@ def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
         NewZone = I.copyTree(InitMesh)
         Type_Element = InitMesh[0][12:]
         NewZone[0] = ZoneName + '_'+Type_Element
-        J._invokeFields(NewZone, ['NodesPosition'])
-        Position = J.getVars(NewZone, ['NodesPosition'])
-        Position[:] = DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']
+        #J._invokeFields(NewZone, ['NodesPosition'])
+        #Position = J.getVars(NewZone, ['NodesPosition'])
+        #Position[:] = DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']
         #print(DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element])
         #print(Position)
 
@@ -173,11 +171,10 @@ def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
         FieldVarsName = FieldVarsName4Zone(t, FieldName, Type_Element)
         
         Vars = J.invokeFields(NewZone, FieldVarsName)
-        print(len(Vars))
-        for Var, pos in zip(Vars, range(len(Vars))):            
+        for Var, pos in zip(Vars, range(len(Vars))):
             Var[:] = FieldData[pos][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]
 
-        if FieldVarsName == 'Us':
+        if FieldName == 'Us':
             FieldVarsName = FieldVarsName4Zone(t, 'Up', Type_Element)
             Vars2 = J.invokeFields(NewZone, FieldVarsName)
             for Var2, pos in zip(Vars2, range(len(Vars2))):            
@@ -236,7 +233,6 @@ def AddFOMVars2Tree(t, RPM, Vars = [], VarsName = [], Type = '.AssembledMatrices
     if str(np.round(RPM,2))+'RPM' not in DictVars.keys():
         DictVars[str(np.round(RPM,2))+'RPM'] = {} 
     
-
     for Var, VarName in zip(Vars, VarsName):
         if VarName in DictVars.keys():
             DictVars[str(np.round(RPM,2))+'RPM'][VarName] = Var
@@ -247,13 +243,14 @@ def AddFOMVars2Tree(t, RPM, Vars = [], VarsName = [], Type = '.AssembledMatrices
                 DictVars[str(np.round(RPM,2))+'RPM'][VarName] = {}
                 DictVars[str(np.round(RPM,2))+'RPM'][VarName]['rows'], DictVars[str(np.round(RPM,2))+'RPM'][VarName]['cols'], DictVars[str(np.round(RPM,2))+'RPM'][VarName]['data'] = find(Var)
                 DictVars[str(np.round(RPM,2))+'RPM'][VarName]['Matrice'] = None
+                
             else:
                 DictVars[str(np.round(RPM,2))+'RPM'][VarName] = Var
-
+                
 
     J.set(t, Type, **DictVars
           )
-
+    
     return t
 
 
@@ -409,7 +406,7 @@ def AffectImpoDDLByGroupType(t):
 
         if gno  == 'Rotule_Batement':
             affe_impo.append(_F(GROUP_NO = gno, DX = 0.0, DY = 0.0, DZ = 0.0, DRX = 0.0, DRZ = 0.0))
-    
+        
     return affe_impo
 
 def ExtrVectorFromAster2Python(VECTEUR, PointsLagrange):

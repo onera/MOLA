@@ -80,12 +80,17 @@ def Freq_Phi(t, RPM, MODE):
               INFO = 1,
               )
     
+         
         
         #ModZones.append(ModZone)
 
+        try:
+          I._addChild(I.getNodeFromName(t, 'ModalBases'), ModZone)
+        except:
+          t = I.merge([t, C.newPyTree(['ModalBases', []])])
+          #I._addChild(I.getNodeFromName(t, 'ModalBases'), ModZone)
+          
     
-        I.addChild(I.getNodeFromName(t, 'ModalBases'), ModZone)
-
     t = SJ.AddFOMVars2Tree(t, RPM, Vars = [PHImatrix], VarsName = ['PHI'], Type = '.AssembledMatrices')
 
 
