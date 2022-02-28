@@ -205,7 +205,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None, ProcPointsLoad=100000,
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, TurboConfiguration={}, Extractions={}, BoundaryConditions={},
         BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade'],
-        Initialization={'method':'uniform'}):
+        Initialization={'method':'uniform'}, FULL_CGNS_MODE=False):
     '''
     This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to compressor computations. Its purpose is adapting the CGNS to
@@ -263,6 +263,10 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         Initialization : dict
             dictionary defining the type of initialization, using the key
             **method**. See documentation of :func:`MOLA.Preprocess.initializeFlowSolution`
+
+        FULL_CGNS_MODE : bool
+            if :py:obj:`True`, put all elsA keys in a node ``.Solver#Compute``
+            to run in full CGNS mode.
 
     Returns
     -------
@@ -378,6 +382,11 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     PRE.addGoverningEquations(t, dim=dim)
     AllSetupDics['ReferenceValues']['NProc'] = int(max(PRE.getProc(t))+1)
     PRE.writeSetup(AllSetupDics)
+
+    if FULL_CGNS_MODE:
+        PRE.addElsAKeys2CGNS(t, [AllSetupDics['elsAkeysCFD'],
+                                 AllSetupDics['elsAkeysModel'],
+                                 AllSetupDics['elsAkeysNumerics']])
 
     PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
@@ -1520,13 +1529,16 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
                   * WallViscous
 
+                  * WallViscousIsothermal
+
                   * WallInviscid
 
                   * SymmetryPlane
 
                   elsA names are also available (``nref``, ``inj1``,
                   ``outpres``, ``outmfr2``, ``outradeq``, ``stage_mxpl``,
-                  ``stage_red``, ``walladia``, ``wallslip``, ``sym``)
+                  ``stage_red``, ``walladia``, ``wallisoth``, ``wallslip``,
+                  ``sym``)
 
                 * option (optional) : add a specification for type
                   InflowStagnation (could be 'uniform' or 'file')
@@ -1550,7 +1562,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     See also
     --------
 
-    setBC_Walls, setBC_walladia, setBC_wallslip, setBC_sym,
+    setBC_Walls, setBC_walladia, setBC_wallisoth, setBC_wallslip, setBC_sym,
     setBC_nref,
     setBC_inj1, setBC_inj1_uniform, setBC_inj1_interpFromFile,
     setBC_outpres, setBC_outmfr2,
@@ -1686,6 +1698,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
         MixingPlane                  = 'stage_mxpl',
         UnsteadyRotorStatorInterface = 'stage_red',
         WallViscous                  = 'walladia',
+        WallViscousIsothermal        = 'wallisoth',
         WallInviscid                 = 'wallslip',
         SymmetryPlane                = 'sym',
     )
@@ -1774,6 +1787,10 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
         elif BCparam['type'] == 'wallslip':
             print(J.CYAN + 'set BC wallslip on ' + BCparam['FamilyName'] + J.ENDC)
             setBC_wallslip(t, **BCkwargs)
+
+        elif BCparam['type'] == 'wallisoth':
+            print(J.CYAN + 'set BC wallisoth on ' + BCparam['FamilyName'] + J.ENDC)
+            setBC_wallisoth(t, **BCkwargs)
 
         else:
             raise AttributeError('BC type %s not implemented'%BCparam['type'])
@@ -1953,6 +1970,51 @@ def setBC_wallslip(t, FamilyName):
     wall = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
     I._rmNodesByType(wall, 'FamilyBC_t')
     I.newFamilyBC(value='BCWallInviscid', parent=wall)
+
+def setBC_wallisoth(t, FamilyName, Temperature, bc=None):
+    '''
+    Set an isothermal wall boundary condition.
+
+    .. note:: see `elsA Tutorial about wall conditions <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#wall-conditions/>`_
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+        Temperature : :py:class:`float` or :py:class:`numpy.ndarray` or :py:class:`dict`
+            Value of temperature to impose on the boundary condition. May be:
+
+                * either a scalar: in that case it is imposed once for the
+                  family **FamilyName** in the corresponding ``Family_t`` node.
+
+                * or a numpy array: in that case it is imposed for the ``BC_t``
+                  node **bc**.
+
+            Alternatively, **Temperature** may be a :py:class:`dict` of the form:
+
+            >>> Temperature = dict(wall_temp=value)
+
+            In that case, the same requirements that before stands for *value*.
+
+        bc : PyTree
+            ``BC_t`` node on which the boundary condition will be imposed. Must
+            be :py:obj:`None` if the condition must be imposed once in the
+            ``Family_t`` node.
+
+    '''
+    if isinstance(Temperature, dict):
+        assert 'wall_temp' in Temperature
+        assert len(Temperature.keys() == 1)
+        ImposedVariables = Temperature
+    else:
+        ImposedVariables = dict(wall_temp=Temperature)
+    setBCwithImposedVariables(t, FamilyName, ImposedVariables,
+        FamilyBC='BCWallViscousIsothermal', BCType='wallisoth', bc=bc)
 
 def setBC_sym(t, FamilyName):
     '''
@@ -2186,8 +2248,7 @@ def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileform
 
 def setBC_outpres(t, FamilyName, Pressure, bc=None):
     '''
-    Impose a Boundary Condition ``outpres``. The following
-    functions are more specific:
+    Impose a Boundary Condition ``outpres``.
 
     .. note::
         see `elsA Tutorial about outpres condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#outpres/>`_
@@ -2375,7 +2436,7 @@ def checkVariables(ImposedVariables):
     '''
     posiviteVars = ['PressureStagnation', 'EnthalpyStagnation',
         'stagnation_pressure', 'stagnation_enthalpy', 'stagnation_temperature',
-        'Pressure', 'pressure', 'Temperature',
+        'Pressure', 'pressure', 'Temperature', 'wall_temp',
         'TurbulentEnergyKinetic', 'TurbulentDissipationRate', 'TurbulentDissipation', 'TurbulentLengthScale',
         'TurbulentSANuTilde', 'globalmassflow']
     unitVectorComponent = ['VelocityUnitVectorX', 'VelocityUnitVectorY', 'VelocityUnitVectorZ',
@@ -2443,8 +2504,10 @@ def translateVariablesFromCGNS2Elsa(Variables):
         for var, value in Variables.items():
             if var in elsAVariables:
                 NewVariables[var] = value
-            else:
+            elif var in CGNS2ElsaDict:
                 NewVariables[CGNS2ElsaDict[var]] = value
+            else:
+                NewVariables[var] = value
         return NewVariables
     elif isinstance(Variables, list):
         NewVariables = []
