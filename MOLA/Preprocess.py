@@ -3201,6 +3201,14 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
 
             if ExtractBCType in BCType:
                 if 'BCWall' in BCType:
+
+                    for zone in I.getZones(t):
+                        if I.getZoneType(zone) == 2: # unstructured zone
+                            # Remove extraction of bl_quantities, see https://elsa-e.onera.fr/issues/6479
+                            if 'bl_quantities_2d' in ExtractVariablesList:
+                                ExtractVariablesList.remove('bl_quantities_2d')
+                            break
+
                     if 'Inviscid' in BCType:
                         if 'bl_quantities_2d' in ExtractVariablesList:
                             ExtractVariablesList.remove('bl_quantities_2d')
