@@ -4501,19 +4501,21 @@ def mergeUnstructuredMeshByFamily(t, tol=1e-6):
             Merged unstructured tree
 
     '''
-    # FIXME BC recovering is wrong when there is a rotor-stator interface,
-    #       because both domains in contact recover both sides of the interface
     for base in I.getBases(t):
-        (BCs, BCNames, BCTypes) = C.getBCs(base)
 
         for family in I.getNodesFromType(base, 'Family_t'):
             if I.getNodeFromType(family, 'FamilyBC_t'):
                 continue
 
             familyName = I.getName(family)
-
             zones =  C.getFamilyZones(base, familyName)
             if len(zones) < 2: continue # no merge needed
+
+            # Save BCs information
+            # IMPORTANT: Saving and recovering BCs must be done by zones family
+            # to avoid to recover both sides of a rotor-stator interface on each
+            # adjacent zone
+            (BCs, BCNames, BCTypes) = C.getBCs(zones)
 
             # Merge zones in family
             mergedZone = T.join(zones)
@@ -4522,8 +4524,10 @@ def mergeUnstructuredMeshByFamily(t, tol=1e-6):
             I.addChild(base, mergedZone)
             for zone in zones: I.rmNode(base, zone)
 
-        for zone in I.getZones(base):
-            C._recoverBCs(zone, (BCs, BCNames, BCTypes), tol=tol)
+            # Recover BCs
+            for zone in C.getFamilyZones(base, familyName):
+                C._recoverBCs(zone, (BCs, BCNames, BCTypes), tol=tol)
+
     autoMergeBCsUnstructured(t)
 
     return t
