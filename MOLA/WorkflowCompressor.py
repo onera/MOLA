@@ -178,6 +178,8 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None, ProcPointsLoad=100000,
     else:
         raise ValueError('parameter mesh must be either a filename or a PyTree')
 
+    I._fixNGon(t) # Needed for an unstructured mesh
+
     if InputMeshes is None:
         InputMeshes = generateInputMeshesFromAG5(t, SplitBlocks=SplitBlocks,
             scale=scale, rotation=rotation, PeriodicTranslation=PeriodicTranslation)
@@ -190,6 +192,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None, ProcPointsLoad=100000,
         except: MergeBlocks = False
         duplicate(t, row, rowParams['NumberOfBlades'],
                 nDupli=rowParams['NumberOfDuplications'], merge=MergeBlocks)
+
     if not any([InputMesh['SplitBlocks'] for InputMesh in InputMeshes]):
         t = PRE.connectMesh(t, InputMeshes)
     else:
@@ -302,8 +305,10 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     hasBCOverlap = True if C.extractBCOfType(t, 'BCOverlap') else False
 
 
-    if hasBCOverlap: PRE.addFieldExtraction('ChimeraCellType')
-    if BodyForceInputData: PRE.addFieldExtraction('Temperature')
+    if hasBCOverlap: addFieldExtraction('ChimeraCellType')
+    if BodyForceInputData: addFieldExtraction('Temperature')
+
+    IsUnstructured = PRE.hasAnyUnstructuredZones(t)
 
     TurboConfiguration = getTurboConfiguration(t, **TurboConfiguration)
     FluidProperties = PRE.computeFluidProperties()
@@ -327,13 +332,14 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     else:
         ReferenceValues['NProc'] = 0
         Splitter = 'PyPart'
-    elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-6)
-    elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues)
-    if BodyForceInputData: NumericalParams['useBodyForce'] = True
 
+    elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-6, unstructured=IsUnstructured)
+    elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=IsUnstructured)
+    if BodyForceInputData: NumericalParams['useBodyForce'] = True
     if not 'NumericalScheme' in NumericalParams:
         NumericalParams['NumericalScheme'] = 'roe'
-    elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues, **NumericalParams)
+    elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues,
+                            unstructured=IsUnstructured, **NumericalParams)
 
     PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
 
@@ -364,7 +370,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     BCExtractions = dict(
         BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
         BCInflow = ['convflux_ro'],
-        BCOutflow = ['convflux_ro']
+        BCOutflow = ['convflux_ro'],
+        BCWallViscousIsothermal = ['normalvector', 'frictionvector','psta',
+                'bl_quantities_2d', 'yplusmeshsize', 'tsta', 'normalheatflux'],
     )
 
     PRE.addTrigger(t)
@@ -797,6 +805,12 @@ def joinFamilies(t, pattern):
         if fam_node is None:
             print('Add family {}'.format(fam))
             I.newFamily(fam, parent=base)
+
+def convert2Unstructured(t, merge=True, tol=1e-6):
+    '''
+    Same that :func:`MOLA.Preprocess.convert2Unstructured`
+    '''
+    return PRE.convert2Unstructured(t, merge, tol)
 
 def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0),
     verbose=1, container='FlowSolution#Init',

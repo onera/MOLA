@@ -118,6 +118,7 @@ def prepareMesh4ElsA(InputMeshes, **splitOptions):
     '''
 
     t = getMeshesAssembled(InputMeshes)
+    I._fixNGon(t) # Needed for an unstructured mesh
     transform(t, InputMeshes)
     t = connectMesh(t, InputMeshes)
     setBoundaryConditions(t, InputMeshes)
@@ -336,7 +337,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
     if useBCOverlap: addFieldExtraction('ChimeraCellType')
     if BodyForceInputData: addFieldExtraction('Temperature')
 
-
+    IsUnstructured = hasAnyUnstructuredZones(t)
 
     FluidProperties = computeFluidProperties()
     ReferenceValues = computeReferenceValues(FluidProperties,
@@ -345,11 +346,11 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
     NProc = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
     ReferenceValues['NProc'] = int(NProc)
     ReferenceValuesParams['NProc'] = int(NProc)
-    elsAkeysCFD      = getElsAkeysCFD()
-    elsAkeysModel    = getElsAkeysModel(FluidProperties, ReferenceValues)
+    elsAkeysCFD      = getElsAkeysCFD(unstructured=IsUnstructured)
+    elsAkeysModel    = getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=IsUnstructured)
     if useBCOverlap: NumericalParams['useChimera'] = True
     if BodyForceInputData: NumericalParams['useBodyForce'] = True
-    elsAkeysNumerics = getElsAkeysNumerics(ReferenceValues, **NumericalParams)
+    elsAkeysNumerics = getElsAkeysNumerics(ReferenceValues, unstructured=IsUnstructured, **NumericalParams)
 
     AllSetupDics = dict(FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
@@ -2470,7 +2471,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     return ReferenceValues
 
 
-def getElsAkeysCFD(config='3d', **kwargs):
+def getElsAkeysCFD(config='3d', unstructured=False, **kwargs):
     '''
     Create a dictionary of pairs of elsA keyword/values to be employed as
     cfd problem object.
@@ -2480,6 +2481,9 @@ def getElsAkeysCFD(config='3d', **kwargs):
 
         config : str
             elsa keyword config (``'2d'`` or ``'3d'``)
+
+        unstructured : bool
+            if :py:obj:`True`, add keys adapted for unstructured mesh.
 
         kwargs : dict
             additional parameters for elsA *cfd* object
@@ -2493,11 +2497,17 @@ def getElsAkeysCFD(config='3d', **kwargs):
     elsAkeysCFD      = dict(
         config=config,
         extract_filtering='inactive')
+
+    if unstructured:
+        elsAkeysCFD.update(dict(
+            metrics_as_unstruct='active',
+            metrics_type='barycenter'))
+
     elsAkeysCFD.update(kwargs)
     return elsAkeysCFD
 
 
-def getElsAkeysModel(FluidProperties, ReferenceValues, **kwargs):
+def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwargs):
     '''
     Produce the elsA model object keys as a Python dictionary.
 
@@ -2509,6 +2519,12 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, **kwargs):
 
         ReferenceValues : dict
             as obtained from :py:func:`computeReferenceValues`
+
+        unstructured : bool
+            if :py:obj:`True`, add keys adapted for unstructured mesh
+
+        kwargs : dict
+            additional parameters for elsA *model* object
 
     Returns
     -------
@@ -2531,7 +2547,6 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, **kwargs):
     suth_const       = FluidProperties['SutherlandConstant'],
     suth_muref       = FluidProperties['SutherlandViscosity'],
     suth_tref        = FluidProperties['SutherlandTemperature'],
-    walldistcompute  = 'mininterf_ortho',
 
     # Boundary-layer computation parameters
     vortratiolim    = 1e-3,
@@ -2540,6 +2555,11 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, **kwargs):
     linearratiolim  = 1e-3,
     delta_compute   = 'first_order_bl',
     )
+
+    if unstructured:
+        elsAkeysModel['walldistcompute'] = 'mininterf'
+    else:
+        elsAkeysModel['walldistcompute'] = 'mininterf_ortho'
 
     if TurbulenceModel == 'SA':
         addKeys4Model = dict(
@@ -2739,7 +2759,8 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, **kwargs):
 def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         TimeMarching='steady', inititer=1, niter=30000,
         CFLparams=dict(vali=1.,valf=10.,iteri=1,iterf=1000,function_type='linear'),
-        itime=0., timestep=0.01, useBodyForce=False, useChimera=False, **kwargs):
+        itime=0., timestep=0.01, useBodyForce=False, useChimera=False,
+        unstructured=False, **kwargs):
     '''
     Get the Numerics elsA keys as a Python dictionary.
 
@@ -2775,6 +2796,12 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
 
         useChimera : bool
             :py:obj:`True` if chimera (static) is employed
+
+        unstructured : bool
+            if :py:obj:`True`, add keys adapted for unstructured mesh
+
+        kwargs : dict
+            additional parameters for elsA *numerics* object
 
     Returns
     -------
@@ -2899,6 +2926,18 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     for i in range(len(ReferenceStateTurbulence)):
         addKeys['t_cutvar%d'%(i+1)] = TurbulenceCutoff*ReferenceStateTurbulence[i]
     elsAkeysNumerics.update(addKeys)
+
+    if unstructured:
+        elsAkeysNumerics.update(dict(
+            implconvectname = 'vleer', # only available for unstructured mesh, see https://elsa-e.onera.fr/issues/6492
+            viscous_fluxes = '5p_cor2', # adapted to unstructured mesh
+            # Different default parameters for turb_order
+            # see http://elsa.onera.fr/restricted/MU_MT_tuto/latest/MU-98057/Textes/Attribute/numerics.html?highlight=turb_limiter#note-turborderusntruct
+            # see issue https://elsa-e.onera.fr/issues/7785
+            turb_order = 2,
+            turb_limiter = 'minmod',
+        ))
+
     elsAkeysNumerics.update(kwargs)
 
     return elsAkeysNumerics
@@ -4000,6 +4039,7 @@ def adapt2elsA(t, InputMeshes):
         EP._prefixDnrInSubRegions(t)
         removeEmptyOversetData(t, silent=False)
 
+    I._createElsaHybrid(t, method=1)
 
 def hasAnyNearMatch(InputMeshes):
     '''
@@ -4084,6 +4124,30 @@ def hasAnyOversetData(InputMeshes):
 
     return False
 
+def hasAnyUnstructuredZones(t):
+    '''
+    Determine if at least one zone in **t** is unstructured.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            input tree to test
+
+    Returns
+    -------
+
+        bool : bool
+            :py:obj:`True` if at least one zone in **t** is unstructured,
+            :py:obj:`False` otherwise.
+    '''
+    # Test if there are unstructured zones in mesh
+    IsUnstructured = False
+    for zone in I.getZones(t):
+        if I.getZoneType(zone) == 2: # unstructured zone
+            IsUnstructured = True
+            break
+    return IsUnstructured
 
 def getProc(t):
     '''
@@ -4103,7 +4167,28 @@ def getProc(t):
     '''
     return  np.array(D2.getProc(t), order='F', ndmin=1)
 
-def autoMergeBCs(t, familyNames=[]):
+def autoMergeBCs(t, familyNames=None):
+    '''
+    Merge BCs that belong to the same family for all zones of a PyTree.
+    This fonction work for either structured or unstructured mesh.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            input tree (structured or unstructured)
+
+        familyNames : :py:class:`list` of :py:obj:`None`
+            restrict the merge operation to the listed family name(s). If
+            :py:obj:`None`, merge zones for all BC families.
+    '''
+    for zone in I.getZones(t):
+        if I.getZoneType(zone) == 1: # structured zone
+            autoMergeBCsStructured(zone, familyNames)
+        elif I.getZoneType(zone) == 2: # unstructured zone
+            autoMergeBCsUnstructured(zone, familyNames)
+
+def autoMergeBCsStructured(t, familyNames=None):
     '''
     Merge BCs that are contiguous, belong to the same family and are of the same
     type, for all zones of a PyTree
@@ -4114,14 +4199,11 @@ def autoMergeBCs(t, familyNames=[]):
         t : PyTree
             input tree
 
-        familyNames : :py:class:`list` of :py:class:`str`
-            restrict the merge operation to the listed family name(s).
+        familyNames : :py:class:`list` of :py:obj:`None`
+            restrict the merge operation to the listed family name(s). If
+            :py:obj:`None`, merge zones for all BC families.
     '''
-    treeFamilies = [I.getName(fam) for fam in I.getNodesFromType(t, 'Family_t')]
-
-    for family in familyNames:
-        if family not in treeFamilies:
-            raise AttributeError('Family '+family+' given by user does not appear in the pyTree')
+    if familyNames is None: familyNames = J.getBCFamilies(t)
 
     def getBCInfo(bc):
         pt  = I.getNodeFromName(bc, 'PointRange')
@@ -4193,7 +4275,7 @@ def autoMergeBCs(t, familyNames=[]):
                         if bc1 not in mergedBcs and bc2 not in mergedBcs \
                             and mDim>=0 \
                             and famName1 == famName2 \
-                            and (len(familyNames) == 0 or famName1 in familyNames) :
+                            and famName1 in familyNames :
                             # does not check inward normal index, necessarily the same if subzones are contiguous
                             newPt = np.zeros(np.shape(pt1[1]),dtype=np.int32,order='F')
                             for dim in range(np.shape(pt1[1])[0]):
@@ -4221,7 +4303,37 @@ def autoMergeBCs(t, familyNames=[]):
                 I.addChild(block,zoneBcsOut)
                 del(zoneBcsOut)
 
-    return t
+def autoMergeBCsUnstructured(t, familyNames=None):
+    '''
+    Merge BCs that belong to the same family for all zones of a PyTree
+
+    Parameters
+    ----------
+
+        t : PyTree
+            input tree
+
+        familyNames : :py:class:`list` of :py:obj:`None`
+            restrict the merge operation to the listed family name(s). If
+            :py:obj:`None`, merge zones for all BC families.
+    '''
+    if familyNames is None: familyNames = J.getBCFamilies(t)
+
+    for zone in I.getZones(t):
+        for familyName in familyNames:
+            BCs = C.getFamilyBCs(zone, familyName)
+            if len(BCs) < 2:
+                # Either no BC or just one BC, so no merge operation required
+                continue
+            ptlList = [I.getValue(I.getNodeFromType(BC, 'IndexArray_t')) for BC in BCs]
+            newBC = I.copyTree(BCs[0])
+            PointList = I.getNodeFromType(newBC, 'IndexArray_t')
+            newPointListValue = np.concatenate(ptlList, axis=1)
+            I.setValue(PointList, newPointListValue)
+            zoneBC = I.getNodeFromType1(zone, 'ZoneBC_t')
+            for BC in BCs: I.rmNode(zoneBC, BC)
+            I.addChild(zoneBC, newBC)
+
 
 def checkFamiliesInZonesAndBC(t):
     '''
@@ -4323,3 +4435,88 @@ def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
 
     DTW._distance2Walls(t, walls)
     EP._addTurbulentDistanceIndex(t)
+
+
+def convert2Unstructured(t, merge=True, tol=1e-6):
+    '''
+    Convert to unstructured mesh and merge zones by Family. Recover all BCs and
+    all zones and BC Families.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            input tree
+
+        merge : bool
+            if :py:obj:`True`, merge zones by Family, and recover all BCs and
+            all Families (zones and BC). Else, no merge is performed.
+
+        tol : float
+            Tolerance to recover BCs.
+
+    Returns
+    -------
+
+        t : PyTree
+            unstructured tree
+
+    '''
+    print('Convert to unstructured mesh')
+    # Important : Delete Autogrid5 bases, otherwise the function is much more longer to run
+    I._rmNodesByName(t, 'Numeca*')
+    I._rmNodesByName(t, 'meridional_base')
+    I._rmNodesByName(t, 'tools_base')
+
+    t = C.convertArray2NGon(t, recoverBC=1)
+    if merge:
+        t = mergeUnstructuredMeshByFamily(t, tol=tol)
+
+    return t
+
+def mergeUnstructuredMeshByFamily(t, tol=1e-6):
+    '''
+    Merge zones by Family. Recover all BCs and all zones and BC Families.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Unstructured tree
+
+        tol : float
+            Tolerance to recover BCs.
+
+    Returns
+    -------
+
+        t : PyTree
+            Merged unstructured tree
+
+    '''
+    # FIXME BC recovering is wrong when there is a rotor-stator interface,
+    #       because both domains in contact recover both sides of the interface
+    for base in I.getBases(t):
+        (BCs, BCNames, BCTypes) = C.getBCs(base)
+
+        for family in I.getNodesFromType(base, 'Family_t'):
+            if I.getNodeFromType(family, 'FamilyBC_t'):
+                continue
+
+            familyName = I.getName(family)
+
+            zones =  C.getFamilyZones(base, familyName)
+            if len(zones) < 2: continue # no merge needed
+
+            # Merge zones in family
+            mergedZone = T.join(zones)
+            I.setName(mergedZone, '{}_zone'.format(familyName))
+            C._tagWithFamily(mergedZone, familyName)
+            I.addChild(base, mergedZone)
+            for zone in zones: I.rmNode(base, zone)
+
+        for zone in I.getZones(base):
+            C._recoverBCs(zone, (BCs, BCNames, BCTypes), tol=tol)
+    autoMergeBCsUnstructured(t)
+
+    return t
