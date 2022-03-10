@@ -83,8 +83,16 @@ elif [ "$MAC" = "visio" ]; then
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
 elif [ "$MAC" = "ld" ]; then
-    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
-    module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+    EL8=`uname -r|grep el8`
+    if [ "$EL8" ]; then
+        echo 'loading MOLA environment for CentOS 8'
+        source /stck/elsa/Public/${ELSAVERSION}dev/Dist/bin/local-os8/.env_elsA
+        module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+    else
+        echo 'loading MOLA environment for CentOS 7'
+        source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
+        module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+    fi
 
     alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
     alias python='python3'

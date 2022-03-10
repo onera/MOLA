@@ -1833,7 +1833,7 @@ def addRelevantWallFieldsFromElsAFieldsAtVertex(wall, PressureDynamic,
         'SkinFrictionX', 'SkinFrictionY', 'SkinFrictionZ', 'nx','ny','nz',
         'theta11','runit'])
 
-    Cf[:] = (ny*fx - nx*fy)/(np.sqrt( ny*ny + nx*nx + nz*nz )*PressureDynamic)
+    Cf[:] = (ny*fx - nx*fy)/(np.sqrt( nx*nx + ny*ny + nz*nz )*PressureDynamic)
     Cf[ny<0] *= -1
     Cp[:] = ( P - PressureStatic ) / PressureDynamic
     ReT[:] = runit * theta
@@ -1895,8 +1895,7 @@ def getCaseDistributions(config, CASE_LABEL):
     addRelevantWallFieldsFromElsAFieldsAtVertex(foil,
                                        setup.ReferenceValues['PressureDynamic'],
                                        setup.ReferenceValues['Pressure'],)
-    SurfDict = J.getVars2Dict(foil,
-                               C.getVarNames(foil,excludeXYZ=True)[0])
+    SurfDict = J.getVars2Dict(foil, C.getVarNames(foil,excludeXYZ=True)[0])
     x,y,z = J.getxyz(foil)
     SurfDict.update( dict(CoordinateX=x, CoordinateY=y, CoordinateZ=z) )
 

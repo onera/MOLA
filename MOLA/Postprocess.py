@@ -13,6 +13,7 @@ import time
 import timeit
 import shutil
 import imp
+import copy
 import numpy as np
 from itertools import product
 
@@ -29,130 +30,62 @@ import Converter.elsAProfile as eP
 from . import InternalShortcuts as J
 from . import Wireframe as W
 from . import GenerativeShapeDesign as GSD
+from . import GenerativeVolumeDesign as GVD
 
-def extractBoundaryLayer(surf, PressureDynamic=1.0, PressureRef=101325.):
+def extractBoundaryLayer(t):
     '''
-    Given a surface (of 1-cell-depth in k-index, with j-increasing index being
-    normal to the wall --typical of airfoil type--) make the required
-    postprocessing for computing relevant wall quantities as well as
-    boundary-layer edges.
+    Produce a set of surfaces including relevant boundary-layer quantities from
+    a 3D fields tree using conservative fields (for example, a result of
+    ``OUTPUT/fields.cgns``).
+
+    This function produces a set of surfaces (similar to ``OUTPUT/surfaces.cgns``)
 
     Parameters
     ----------
 
-        surf : zone
-            surface containing flowfields around the airfoil, as result
-            of function :py:func:`buildAuxiliarWallNormalSurface`
+        t : PyTree
+            tree containing at least conservative flowfields and *BCWall*
+            conditions. For exemple, it can be the tree contained in
+            ``OUTPUT/fields.cgns``.
 
-        PressureDynamic : float
-            Dynamic Pressure in [Pa] used for computation
-            of skin-friction and pressure coefficients.
-
-        PressureRef : float
-            Reference Pressure in [Pa] used for computation
-            of pressure coefficient (typically, freestream static pressure).
+            .. important::
+                conservative flowfields must be contained at containers named
+                ``FlowSolution#Centers`` or ``FlowSolution#Init`` located at
+                *CellCenter*. The following fields must be present: ``Density``,
+                ``MomentumX``, ``MomentumY``, ``MomentumZ``, ``ViscosityMolecular``
 
     Returns
     -------
 
-        WallCurve : PyTree
-            identical to output of function :py:func:`postProcessWallsFromElsaExtraction`
-
+        surfaces : PyTree
+            tree containing surfaces with fields contained in ``FlowSolution#Centers``
+            located at CellCenter (interfaces). Added fields are:
+            ``DistanceToWall``, ``delta``, ``delta1``, ``theta11``, ``runit``
+            ``VelocityTangential``, ``VelocityTransversal``,
+            ``VelocityEdgeX``, ``VelocityEdgeY``, ``VelocityEdgeZ``,
+            ``SkinFrictionX``, ``SkinFrictionY``, ``SkinFrictionZ``
     '''
 
-    _, Ni, Nj, Nk, dim = I.getZoneDim(surf)
+    aux_grid = _buildAuxiliarWallExtrusion(t, MaximumBoundaryLayerDistance=0.5,
+                MaximumBoundaryLayerPoints=300, BoundaryLayerGrowthRate=1.05,
+                FirstCellHeight=1e-6)
 
-    if dim == 2:
-        WallCurve = T.subzone(surf,(1,1,1),(Ni,1,1))
-    else:
-        WallCurve = T.subzone(surf,(1,1,1),(Ni,Nj,1))
+    # TODO optionnally keep existing quantities by renaming strategy
+    C._rmVars(aux_grid, ['delta','delta1','theta11','runit',
+                         'SkinFrictionX','SkinFrictionY','SkinFrictionZ'])
 
-    Lambda = '(-2./3. * {ViscosityMolecular})'
-    mu = '{ViscosityMolecular}'
-    divU = '{VelocityDivergence}'
+    _computeBoundaryLayerQuantities(aux_grid, VORTRATIOLIM=1e-3)
+    _computeSkinFriction(aux_grid)
+    _subzoneAuxiliarWallExtrusion(aux_grid)
 
-    Eqns = []
+    for z in I.getZones(aux_grid):
+        AllFieldsNames, = C.getVarNames(z, excludeXYZ=True)
+        for fn in AllFieldsNames:
+            C.node2Center__(z, fn)
+    I._rmNodesByName(aux_grid, 'FlowSolution')
+    C._normalize(aux_grid,['centers:nx','centers:ny','centers:nz'])
 
-    # TODO implement this
-    '''
-    # REYNOLDSSTRESS COMPUTATION
-    # mu_t
-    Eqns += [('centers:ViscosityEddy={centers:Viscosity_EddyMolecularRatio}*{centers:ViscosityMolecular}')]
-
-    # div(u)
-    Eqns += [('centers:VelocityDivergence={centers:gradxVelocityX}+'
-                                         '{centers:gradyVelocityY}+'
-                                         '{centers:gradzVelocityZ}')]
-
-    # Sij
-    Eqns += [('centers:BarDeformationXX={centers:gradxVelocityX}-{centers:VelocityDivergence}/3.0')]
-    Eqns += [('centers:BarDeformationYY={centers:gradyVelocityY}-{centers:VelocityDivergence}/3.0')]
-    Eqns += [('centers:BarDeformationZZ={centers:gradzVelocityZ}-{centers:VelocityDivergence}/3.0')]
-    Eqns += [('centers:BarDeformationXY=0.5*({centers:gradyVelocityX}+{centers:gradxVelocityY})')]
-    Eqns += [('centers:BarDeformationXZ=0.5*({centers:gradzVelocityX}+{centers:gradxVelocityZ})')]
-    Eqns += [('centers:BarDeformationYZ=0.5*({centers:gradzVelocityY}+{centers:gradyVelocityZ})')]
-
-    # tau
-    Eqns += [('centers:ReynoldsStressXX=2*{mut}*{SXX}-(2./3.)*{rok}').format(
-        divU=divU,mut=mut,SXX='{centers:BarDeformationXX}',rok='{centers:TurbulentEnergyKineticDensity}')]
-    Eqns += [('centers:ReynoldsStressYY=2*{mut}*{SYY}-(2./3.)*{rok}').format(
-        divU=divU,mut=mut,SYY='{centers:BarDeformationYY}',rok='{centers:TurbulentEnergyKineticDensity}')]
-    Eqns += [('centers:ReynoldsStressZZ=2*{mut}*{SZZ}-(2./3.)*{rok}').format(
-        divU=divU,mut=mut,SZZ='{centers:BarDeformationZZ}',rok='{centers:TurbulentEnergyKineticDensity}')]
-    Eqns += [('centers:ReynoldsStressXY=2*{mut}*{SXY}').format(
-        mut=mut,SXY='{centers:BarDeformationXY}')]
-    Eqns += [('centers:ReynoldsStressXZ=2*{mut}*{SXZ}').format(
-        mut=mut,SXZ='{centers:BarDeformationXZ}')]
-    Eqns += [('centers:ReynoldsStressYZ=2*{mut}*{SYZ}').format(
-        mut=mut,SYZ='{centers:BarDeformationYZ}')]
-    '''
-
-
-
-    # div(u)
-    Eqns += [('VelocityDivergence={gradxVelocityX}+'
-                                 '{gradyVelocityY}+'
-                                 '{gradzVelocityZ}')]
-
-    # Sij
-    Eqns += [('DeformationXX={gradxVelocityX}')]
-    Eqns += [('DeformationYY={gradyVelocityY}')]
-    Eqns += [('DeformationZZ={gradzVelocityZ}')]
-    Eqns += [('DeformationXY=0.5*({gradyVelocityX}+{gradxVelocityY})')]
-    Eqns += [('DeformationXZ=0.5*({gradzVelocityX}+{gradxVelocityZ})')]
-    Eqns += [('DeformationYZ=0.5*({gradzVelocityY}+{gradyVelocityZ})')]
-
-    # tau
-    Eqns += [('ShearStressXX={Lambda}*{divU}+2*{mu}*{SXX}').format(
-        Lambda=Lambda,divU=divU,mu=mu,SXX='{DeformationXX}')]
-    Eqns += [('ShearStressYY={Lambda}*{divU}+2*{mu}*{SYY}').format(
-        Lambda=Lambda,divU=divU,mu=mu,SYY='{DeformationYY}')]
-    Eqns += [('ShearStressZZ={Lambda}*{divU}+2*{mu}*{SZZ}').format(
-        Lambda=Lambda,divU=divU,mu=mu,SZZ='{DeformationZZ}')]
-    Eqns += [('ShearStressXY=2*{mu}*{SXY}').format(
-        mu=mu,SXY='{DeformationXY}')]
-    Eqns += [('ShearStressXZ=2*{mu}*{SXZ}').format(
-        mu=mu,SXZ='{DeformationXZ}')]
-    Eqns += [('ShearStressYZ=2*{mu}*{SYZ}').format(
-        mu=mu,SYZ='{DeformationYZ}')]
-
-    Eqns += [('SkinFrictionX={ShearStressXX}*{nx}+'
-                            '{ShearStressXY}*{ny}+'
-                            '{ShearStressXZ}*{nz}')]
-    Eqns += [('SkinFrictionY={ShearStressXY}*{nx}+'
-                            '{ShearStressYY}*{ny}+'
-                            '{ShearStressYZ}*{nz}')]
-    Eqns += [('SkinFrictionZ={ShearStressXZ}*{nx}+'
-                            '{ShearStressYZ}*{ny}+'
-                            '{ShearStressZZ}*{nz}')]
-
-    for Eqn in Eqns: C._initVars(WallCurve, Eqn)
-
-    WallCurve = postProcessWallsFromElsaExtraction(WallCurve,
-                                                   PressureDynamic=PressureDynamic,
-                                                   PressureRef=PressureRef)
-
-    return WallCurve
+    return aux_grid
 
 
 def postProcessWallsFromElsaExtraction(t, PressureDynamic=1., PressureRef=1.):
@@ -292,9 +225,9 @@ def addNewWallVariablesFromElsaQuantities(t, PressureDynamic=1., PressureRef=1.)
         v['cf'][:] /= (NormalsNorm*PressureDynamic)
         if 'bottom' in I.getName(zone).lower(): v['cf'] *= -1
 
-def addBoundaryLayerEdges(t):
+def getBoundaryLayerEdges(t):
     '''
-    Add to **t** new zones representing the boundary-layer edges if **t**
+    Produce new zones representing the boundary-layer edges if **t**
     contains the normal fields ``nx``, ``ny``, ``nz`` and at least one of:
     ``delta``, ``delta1``, ``delta11``
 
@@ -307,7 +240,14 @@ def addBoundaryLayerEdges(t):
 
             .. note:: the input **t** is modified : a new base including the
                 zones of the boundary-layer thicknesses is appended to the tree
+
+    Returns
+    -------
+
+        t : PyTree
+            Tree containing the new boundary-layer characteristic edges
     '''
+
 
     t2 = C.normalize(t, ['nx','ny','nz'])
 
@@ -330,271 +270,425 @@ def addBoundaryLayerEdges(t):
 
         Trees.append(t3)
 
-    if Trees:
-        tM = I.merge(Trees)
-        NewZones = I.getZones(tM)
-        tNew = C.newPyTree(['BoundaryLayerEdges', NewZones])
-        NewBase, = I.getBases(tNew)
-        I.addChild(t,NewBase)
+    # TODO separate characteristic boundary per bases
+    tM = I.merge(Trees)
+    NewZones = I.getZones(tM)
+    tNew = C.newPyTree(['BoundaryLayerEdges', NewZones])
 
-def postProcessBoundaryLayer(surf, VORTRATIOLIM=1e-3):
+    return tNew
+
+
+def _computeBoundaryLayerQuantities(t, VORTRATIOLIM=1e-3):
     '''
-    Compute the boundary-layer of a structured 2D flowfield (typically around an
-    airfoil) where the i-minimum window corresponds to the wall and j-increasing
-    corresponds to wall-normal direction.
-
-
-    New added fields include:
-
-    ``TurbulentDistance``, ``delta``, ``delta1``, ``theta11``, ``runit``
-     ``VelocityTangential``, ``VelocityTransversal``
-     ``VelocityEdgeX``, ``VelocityEdgeY``, ``VelocityEdgeZ``
-
-    Parameters
-    ----------
-
-        surf : zone
-            as result of function :py:func:`buildAuxiliarWallNormalSurface`.
-
-            .. note:: **surf** is modified *(new fields are added)*
-
-        VORTRATIOLIM : float
-            threshold for determining the boundary-layer edge
-            with respect to the maximum value of field ``RotationScale`` starting
-            from the wall.
-
+    TODO doc
     '''
-    NewFields = ['TurbulentDistance', 'delta', 'delta1', 'theta11', 'runit',
+    NewFields = ['DistanceToWall', 'delta', 'delta1', 'theta11', 'runit',
                  'VelocityTangential', 'VelocityTransversal',
                  'VelocityEdgeX', 'VelocityEdgeY', 'VelocityEdgeZ']
-    J._invokeFields(surf,NewFields)
-    AllFieldsNames, = C.getVarNames(surf, excludeXYZ=True)
-    v = J.getVars2Dict(surf, AllFieldsNames)
-    x, y, z = J.getxyz(surf)
 
-    NumberOfStations, NumberOfBoundaryLayerPoints = I.getZoneDim(surf)[1:3]
-    for station in range(NumberOfStations):
+    for zone in I.getZones(t):
+        J._invokeFields(zone,NewFields)
+        AllFieldsNames, = C.getVarNames(zone, excludeXYZ=True)
+        v = J.getVars2Dict(zone, AllFieldsNames)
+        x, y, z = J.getxyz(zone)
 
-        eta = v['TurbulentDistance'][station,:]
-        VelocityTangential = v['VelocityTangential'][station,:]
-        VelocityTransversal = v['VelocityTransversal'][station,:]
-        VelocityX = v['VelocityX'][station,:]
-        VelocityY = v['VelocityY'][station,:]
-        VelocityZ = v['VelocityZ'][station,:]
-        RotationScale = v['RotationScale'][station,:]
-        RotationScaleMax = RotationScale.max()
+        Ni, Nj, NumberOfBoundaryLayerPoints = I.getZoneDim(zone)[1:4]
+        for i,j in product(range(Ni), range(Nj)):
 
-        BoundaryLayerRegion, = np.where(RotationScale>VORTRATIOLIM*RotationScaleMax)
+            eta = v['DistanceToWall'][i,j,:]
+            VelocityTangential = v['VelocityTangential'][i,j,:]
+            VelocityTransversal = v['VelocityTransversal'][i,j,:]
+            VelocityX = v['VelocityX'][i,j,:]
+            VelocityY = v['VelocityY'][i,j,:]
+            VelocityZ = v['VelocityZ'][i,j,:]
+            RotationScale = v['RotationScale'][i,j,:]
+            RotationScaleMax = RotationScale.max()
 
-        if len(BoundaryLayerRegion) == 0:
-            BoundaryLayerEdgeIndex = NumberOfBoundaryLayerPoints-1
-        else:
-            BoundaryLayerEdgeIndex = BoundaryLayerRegion[-1]
+            BoundaryLayerRegion, = np.where(RotationScale>VORTRATIOLIM*RotationScaleMax)
 
-        # zero-th order boundary layer edge search
-        v['VelocityEdgeX'][station,:] = VelocityX[BoundaryLayerEdgeIndex]
-        v['VelocityEdgeY'][station,:] = VelocityY[BoundaryLayerEdgeIndex]
-        v['VelocityEdgeZ'][station,:] = VelocityZ[BoundaryLayerEdgeIndex]
+            if len(BoundaryLayerRegion) == 0:
+                BoundaryLayerEdgeIndex = NumberOfBoundaryLayerPoints-1
+            else:
+                BoundaryLayerEdgeIndex = BoundaryLayerRegion[-1]
 
-        VelocityEdgeVector = np.array([v['VelocityEdgeX'][station,0],
-                                       v['VelocityEdgeY'][station,0],
-                                       v['VelocityEdgeZ'][station,0]])
+            # zero-th order boundary layer edge search
+            v['VelocityEdgeX'][i,j,:] = VelocityX[BoundaryLayerEdgeIndex]
+            v['VelocityEdgeY'][i,j,:] = VelocityY[BoundaryLayerEdgeIndex]
+            v['VelocityEdgeZ'][i,j,:] = VelocityZ[BoundaryLayerEdgeIndex]
 
-        NormalVector = np.array([v['nx'][station,0],
-                                 v['ny'][station,0],
-                                 v['nz'][station,0]])
-        NormalVector/= np.sqrt(NormalVector.dot(NormalVector))
+            VelocityEdgeVector = np.array([v['VelocityEdgeX'][i,j,0],
+                                           v['VelocityEdgeY'][i,j,0],
+                                           v['VelocityEdgeZ'][i,j,0]])
 
-        BinormalVector = np.cross(VelocityEdgeVector, NormalVector)
-        BinormalVector/= np.sqrt(BinormalVector.dot(BinormalVector))
+            NormalVector = np.array([v['nx'][i,j,0],
+                                     v['ny'][i,j,0],
+                                     v['nz'][i,j,0]])
+            NormalVector/= np.sqrt(NormalVector.dot(NormalVector))
 
-        TangentVector = np.cross(NormalVector, BinormalVector)
-        TangentVector/= np.sqrt(TangentVector.dot(TangentVector))
+            BinormalVector = np.cross(VelocityEdgeVector, NormalVector)
+            BinormalVector/= np.sqrt(BinormalVector.dot(BinormalVector))
 
-
-        VelocityTangential[:] =(VelocityX*TangentVector[0] +
-                                VelocityY*TangentVector[1] +
-                                VelocityZ*TangentVector[2])
-
-        VelocityTransversal[:] =(VelocityX*BinormalVector[0] +
-                                 VelocityY*BinormalVector[1] +
-                                 VelocityZ*BinormalVector[2])
-
-        eta[:] =((x[station,:]-x[station,0])*NormalVector[0] +
-                 (y[station,:]-y[station,0])*NormalVector[1] +
-                 (z[station,:]-z[station,0])*NormalVector[2])
-
-        v['delta'][station,:] = eta[BoundaryLayerEdgeIndex]
-
-        Ue = VelocityTangential[BoundaryLayerEdgeIndex]
-        Ut = VelocityTangential[:BoundaryLayerEdgeIndex]
-
-        IntegrandDelta1 = np.maximum(0, 1. - (Ut/Ue) )
-        IntegrandTheta = np.maximum(0, (Ut/Ue)*(1. - (Ut/Ue)) )
-
-        v['delta1'][station,:] = np.trapz(IntegrandDelta1,
-                                          eta[:BoundaryLayerEdgeIndex])
-
-        v['theta11'][station,:] = np.trapz(IntegrandTheta,
-                                           eta[:BoundaryLayerEdgeIndex])
+            TangentVector = np.cross(NormalVector, BinormalVector)
+            TangentVector/= np.sqrt(TangentVector.dot(TangentVector))
 
 
-        v['runit'][station,:] = (v['Density'][station,BoundaryLayerEdgeIndex]*Ue/
-                            v['ViscosityMolecular'][station,BoundaryLayerEdgeIndex])
+            VelocityTangential[:] =(VelocityX*TangentVector[0] +
+                                    VelocityY*TangentVector[1] +
+                                    VelocityZ*TangentVector[2])
 
+            VelocityTransversal[:] =(VelocityX*BinormalVector[0] +
+                                     VelocityY*BinormalVector[1] +
+                                     VelocityZ*BinormalVector[2])
 
-def getWalls(t):
+            eta[:] =((x[i,j,:]-x[i,j,0])*NormalVector[0] +
+                     (y[i,j,:]-y[i,j,0])*NormalVector[1] +
+                     (z[i,j,:]-z[i,j,0])*NormalVector[2])
+
+            v['delta'][i,j,:] = eta[BoundaryLayerEdgeIndex]
+
+            Ue = VelocityTangential[BoundaryLayerEdgeIndex]
+            Ut = VelocityTangential[:BoundaryLayerEdgeIndex]
+
+            IntegrandDelta1 = np.maximum(0, 1. - (Ut/Ue) )
+            IntegrandTheta = np.maximum(0, (Ut/Ue)*(1. - (Ut/Ue)) )
+
+            v['delta1'][i,j,:] = np.trapz(IntegrandDelta1,
+                                              eta[:BoundaryLayerEdgeIndex])
+
+            v['theta11'][i,j,:] = np.trapz(IntegrandTheta,
+                                               eta[:BoundaryLayerEdgeIndex])
+
+            v['runit'][i,j,:] = (v['Density'][i,j,BoundaryLayerEdgeIndex]*Ue/
+                                v['ViscosityMolecular'][i,j,BoundaryLayerEdgeIndex])
+
+def _computeSkinFriction(t):
     '''
-    Get the walls from PyTree as a list of zones (surfaces)
-
-    Parameters
-    ----------
-
-        t : PyTree
-            tree containing *BCWall* type
-
-    Returns
-    -------
-
-        OutputWalls : :py:class:`list` of zone
-            list of surfaces corresponding to the walls
+    TODO doc
     '''
-    walls = C.extractBCOfType(t,'BCWall',reorder=True)
-    I._rmNodesByType(walls,'FlowSolution_t')
-    walls = T.merge(walls)
 
-    if getMeshDimensionFromTree(t) == 2:
-        C._initVars(walls,'CoordinateZ', 0.)
-        T._addkplane(walls, N=1)
+    Lambda = '(-2./3. * {ViscosityMolecular})'
+    mu = '{ViscosityMolecular}'
+    divU = '{VelocityDivergence}'
 
-        C._initVars(t, 'CoordinateZ', 0.)
-        T._addkplane(t, N=1)
-        T._translate(t, (0,0,-0.5))
+    Eqns = []
 
-    G._getNormalMap(walls)
-    P._renameVars(walls,['centers:sx','centers:sy','centers:sz'],
-                        ['centers:nx','centers:ny','centers:nz'])
+    # TODO implement this
+    '''
+    # REYNOLDSSTRESS COMPUTATION
+    # mu_t
+    Eqns += [('centers:ViscosityEddy={centers:Viscosity_EddyMolecularRatio}*{centers:ViscosityMolecular}')]
 
-    OutputWalls = []
-    for wall in walls:
-        wall = mergeWallsAndSplitAirfoilSides(wall)
-        for cfn in ['nx','ny','nz']: C.center2Node__(wall,'centers:'+cfn,0)
-        I._rmNodesByName(wall, I.__FlowSolutionCenters__)
-        C._normalize(wall,['nx','ny','nz'])
+    # div(u)
+    Eqns += [('centers:VelocityDivergence={centers:gradxVelocityX}+'
+                                         '{centers:gradyVelocityY}+'
+                                         '{centers:gradzVelocityZ}')]
 
-        wall,= T.merge(wall)
-        putNormalsPointingOutwards(wall)
-        if W.is2DCurveClockwiseOriented(wall): T._reorder(wall,(-1,2,3))
+    # Sij
+    Eqns += [('centers:BarDeformationXX={centers:gradxVelocityX}-{centers:VelocityDivergence}/3.0')]
+    Eqns += [('centers:BarDeformationYY={centers:gradyVelocityY}-{centers:VelocityDivergence}/3.0')]
+    Eqns += [('centers:BarDeformationZZ={centers:gradzVelocityZ}-{centers:VelocityDivergence}/3.0')]
+    Eqns += [('centers:BarDeformationXY=0.5*({centers:gradyVelocityX}+{centers:gradxVelocityY})')]
+    Eqns += [('centers:BarDeformationXZ=0.5*({centers:gradzVelocityX}+{centers:gradxVelocityZ})')]
+    Eqns += [('centers:BarDeformationYZ=0.5*({centers:gradzVelocityY}+{centers:gradyVelocityZ})')]
 
-        OutputWalls += [wall]
+    # tau
+    Eqns += [('centers:ReynoldsStressXX=2*{mut}*{SXX}-(2./3.)*{rok}').format(
+        divU=divU,mut=mut,SXX='{centers:BarDeformationXX}',rok='{centers:TurbulentEnergyKineticDensity}')]
+    Eqns += [('centers:ReynoldsStressYY=2*{mut}*{SYY}-(2./3.)*{rok}').format(
+        divU=divU,mut=mut,SYY='{centers:BarDeformationYY}',rok='{centers:TurbulentEnergyKineticDensity}')]
+    Eqns += [('centers:ReynoldsStressZZ=2*{mut}*{SZZ}-(2./3.)*{rok}').format(
+        divU=divU,mut=mut,SZZ='{centers:BarDeformationZZ}',rok='{centers:TurbulentEnergyKineticDensity}')]
+    Eqns += [('centers:ReynoldsStressXY=2*{mut}*{SXY}').format(
+        mut=mut,SXY='{centers:BarDeformationXY}')]
+    Eqns += [('centers:ReynoldsStressXZ=2*{mut}*{SXZ}').format(
+        mut=mut,SXZ='{centers:BarDeformationXZ}')]
+    Eqns += [('centers:ReynoldsStressYZ=2*{mut}*{SYZ}').format(
+        mut=mut,SYZ='{centers:BarDeformationYZ}')]
+    '''
 
-    OutputWalls = I.correctPyTree(OutputWalls, level=2)
-    OutputWalls = I.correctPyTree(OutputWalls, level=3)
 
-    return OutputWalls
 
-def buildAuxiliarWallNormalSurface(t, wall, MaximumBoundaryLayerDistance=0.5,
+    # div(u)
+    Eqns += [('VelocityDivergence={gradxVelocityX}+'
+                                 '{gradyVelocityY}+'
+                                 '{gradzVelocityZ}')]
+
+    # Sij
+    Eqns += [('DeformationXX={gradxVelocityX}')]
+    Eqns += [('DeformationYY={gradyVelocityY}')]
+    Eqns += [('DeformationZZ={gradzVelocityZ}')]
+    Eqns += [('DeformationXY=0.5*({gradyVelocityX}+{gradxVelocityY})')]
+    Eqns += [('DeformationXZ=0.5*({gradzVelocityX}+{gradxVelocityZ})')]
+    Eqns += [('DeformationYZ=0.5*({gradzVelocityY}+{gradyVelocityZ})')]
+
+    # tau
+    Eqns += [('ShearStressXX={Lambda}*{divU}+2*{mu}*{SXX}').format(
+        Lambda=Lambda,divU=divU,mu=mu,SXX='{DeformationXX}')]
+    Eqns += [('ShearStressYY={Lambda}*{divU}+2*{mu}*{SYY}').format(
+        Lambda=Lambda,divU=divU,mu=mu,SYY='{DeformationYY}')]
+    Eqns += [('ShearStressZZ={Lambda}*{divU}+2*{mu}*{SZZ}').format(
+        Lambda=Lambda,divU=divU,mu=mu,SZZ='{DeformationZZ}')]
+    Eqns += [('ShearStressXY=2*{mu}*{SXY}').format(
+        mu=mu,SXY='{DeformationXY}')]
+    Eqns += [('ShearStressXZ=2*{mu}*{SXZ}').format(
+        mu=mu,SXZ='{DeformationXZ}')]
+    Eqns += [('ShearStressYZ=2*{mu}*{SYZ}').format(
+        mu=mu,SYZ='{DeformationYZ}')]
+
+    Eqns += [('SkinFrictionX={ShearStressXX}*{nx}+'
+                            '{ShearStressXY}*{ny}+'
+                            '{ShearStressXZ}*{nz}')]
+    Eqns += [('SkinFrictionY={ShearStressXY}*{nx}+'
+                            '{ShearStressYY}*{ny}+'
+                            '{ShearStressYZ}*{nz}')]
+    Eqns += [('SkinFrictionZ={ShearStressXZ}*{nx}+'
+                            '{ShearStressYZ}*{ny}+'
+                            '{ShearStressZZ}*{nz}')]
+
+    for Eqn in Eqns: C._initVars(t, Eqn)
+
+
+def _subzoneAuxiliarWallExtrusion(t):
+    '''
+    TODO doc
+    '''
+    for zone in I.getZones(t):
+        wall = GSD.getBoundary(zone,'kmin')
+        zone[1] = wall[1]
+        I._rmNodesByType(zone,'GridCoordinates_t')
+        I._rmNodesByType(zone,'FlowSolution_t')
+        NodesToMigrate = I.getNodesFromType(wall,'GridCoordinates_t')
+        NodesToMigrate.extend(I.getNodesFromType(wall,'FlowSolution_t'))
+        zone[2].extend(NodesToMigrate)
+
+
+def _extractWalls(t):
+    '''
+    (WIP: PROOF OF CONCEPT)
+    TODO refactorize with Coprocess extractSurfaces
+    '''
+    t = I.copyRef(t)
+    cellDimOutputTree = I.getZoneDim(I.getZones(t)[0])[-1]
+
+    from .Coprocess import reshapeBCDatasetNodes, restoreFamilies
+
+
+    def addBase2SurfacesTree(basename):
+        if not zones: return
+        base = I.newCGNSBase(basename, cellDim=cellDimOutputTree-1, physDim=3,
+            parent=SurfacesTree)
+        I._addChild(base, zones)
+        J.set(base, '.ExtractionInfo', **ExtractionInfo)
+        return base
+
+    t = I.renameNode(t, 'FlowSolution#Init', 'FlowSolution#Centers') # or merge?
+    I._renameNode(t, 'FlowSolution#Height', 'FlowSolution')
+    I._rmNodesByName(t, 'FlowSolution#EndOfRun*')
+    reshapeBCDatasetNodes(t)
+    DictBCNames2Type = C.getFamilyBCNamesDict(t)
+    SurfacesTree = I.newCGNSTree()
+
+    # See Anomaly 8784 https://elsa.onera.fr/issues/8784
+    for BCDataSetNode in I.getNodesFromType(t, 'BCDataSet_t'):
+        for node in I.getNodesFromType(BCDataSetNode, 'DataArray_t'):
+            if I.getValue(node) is None:
+                I.rmNode(BCDataSetNode, node)
+
+    Extraction=dict(type='AllBCWall')
+    TypeOfExtraction = Extraction['type']
+    ExtractionInfo = copy.deepcopy(Extraction)
+    BCFilterName = TypeOfExtraction.replace('AllBC','')
+    for BCFamilyName in DictBCNames2Type:
+        BCType = DictBCNames2Type[BCFamilyName]
+        if BCFilterName.lower() in BCType.lower():
+            zones = C.extractBCOfName(t,'FamilySpecified:'+BCFamilyName)
+            ExtractionInfo['type'] = 'BC'
+            ExtractionInfo['BCType'] = BCType
+            addBase2SurfacesTree(BCFamilyName)
+
+    J.forceZoneDimensionsCoherency(SurfacesTree)
+    restoreFamilies(SurfacesTree, t)
+
+    return SurfacesTree
+
+
+def _buildAuxiliarWallExtrusion(t, MaximumBoundaryLayerDistance=0.5,
         MaximumBoundaryLayerPoints=300, BoundaryLayerGrowthRate=1.05,
-        FirstCellHeight=1e-6):
+        FirstCellHeight=1e-6, container='FlowSolution#Init'):
     '''
-    Build an auxiliar merged surface from a PyTree of a 2D computation of the
-    flow around an Airfoil from elsA.
-
-    .. note:: this auxiliar surface is required for performing post-processing
-        operations.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            saved tree of an elsA simulation of the 2D flow around an airfoil
-
-        wall : PyTree, base, zone, list of zones
-            wall surfaces as got from :func:`getWalls`
-
-    Returns
-    -------
-
-        surf : zone
-            auxiliar surface including scales based on velocity
-            gradients, required for further boundary-layer type of post-processing
+    TODO doc
     '''
 
-    xMax = C.getMaxValue(wall,'CoordinateX')
-    xMin = C.getMinValue(wall,'CoordinateX')
-    Chord = xMax - xMin
+    tR = I.copyRef(t)
 
-    BoundaryLayerDistribution = W.linelaw(
-        P1=(0,0,0),
-        P2=(MaximumBoundaryLayerDistance*Chord,0,0),
-        N=MaximumBoundaryLayerPoints,
-        Distribution=dict(
-            kind='ratio',
-            growth=BoundaryLayerGrowthRate,
-            FirstCellHeight=FirstCellHeight*Chord
-            ))
+    BoundaryLayerDistribution = GVD.newExtrusionDistribution(
+                             MaximumBoundaryLayerDistance,
+                             maximum_number_of_points=MaximumBoundaryLayerPoints,
+                             distribution_law='ratio',
+                             first_cell_height=FirstCellHeight,
+                             ratio_growth=BoundaryLayerGrowthRate,
+                             smoothing_normals_iterations=0,
+                             smoothing_growth_iterations=0,
+                             smoothing_expansion_factor=0.)
 
-    surf = G.addNormalLayers(wall,BoundaryLayerDistribution,check=1,niter=0)
-    surf[0] = 'BoundaryLayerSurface'
+    if container != 'FlowSolution':
+        I._rmNodesByName(tR, 'FlowSolution')
+        zone = I.getNodeFromType3(tR, 'Zone_t')
+        FlowSolution_n = I.getNodeFromName1(zone, container)
+        GridLocation_n = I.getNodeFromName(FlowSolution_n, 'GridLocation')
+        if not GridLocation_n:
+            field = FlowSolution_n[2][0][1]
+            x = J.getx(zone)
+            if field.shape[0] != x.shape[0]:
+                ContainerIsCellCentered = True
+            else:
+                ContainerIsCellCentered = False
+        else:
+            GridLocation = I.getValue(GridLocation_n)
+            if GridLocation != 'Vertex':
+                ContainerIsCellCentered = True
+            else:
+                ContainerIsCellCentered = False
 
-    P._extractMesh(t, surf, order=2, extrapOrder=1,
-                   mode='accurate', constraint=40., tol=1.e-10)
 
-    AllFieldsNames, = C.getVarNames(surf, excludeXYZ=True)
-    CentersFieldsNames = [fn for fn in AllFieldsNames if 'centers:' in fn]
-    for cfn in CentersFieldsNames: C.center2Node__(surf,cfn,cellNType=0)
+    if ContainerIsCellCentered:
+        I.__FlowSolutionCenters__ = container
 
-    MoX, MoY, MoZ = J.getVars(surf, ['MomentumX', 'MomentumY', 'MomentumZ'])
-    if len(MoX.shape) == 2:
-        MoX[:,0] = 0.
-        MoY[:,0] = 0.
-        MoZ[:,0] = 0.
+        for zone in I.getZones(tR):
+            AllFieldsNames, = C.getVarNames(zone, excludeXYZ=True)
+            CentersFieldsNames = [fn for fn in AllFieldsNames if 'centers:' in fn]
+            x = J.getx(zone)
+
+            for cfn in CentersFieldsNames:
+                # TODO - Caution! do not produce dim 3 ! Cassiopee bug #8131
+                C.center2Node__(zone, cfn, cellNType=0)
+
+                # therefore, workaround is required:
+                FlowSol_node = I.getNodeFromName(zone, I.__FlowSolutionNodes__)
+                field_node = I.getNodeFromName(FlowSol_node, cfn.replace('centers:',''))
+                if not np.all(field_node[1].shape == x.shape ):
+                    array = np.broadcast_to( field_node[1], x.shape )
+                    field_node[1] = np.asfortranarray( array )
+
+
     else:
-        MoX[:,:,0] = 0.
-        MoY[:,:,0] = 0.
-        MoZ[:,:,0] = 0.
-
-    for v in ('X','Y','Z'):
-        C._initVars(surf, 'Velocity%s={Momentum%s}/{Density}'%(v,v))
-        surf = P.computeGrad(surf,'Velocity%s'%v)
+        I.renameNode(tR, container, 'FlowSolution')
 
 
+    AllFlowSolutionNodes = I.getNodesFromType(tR, 'FlowSolution_t')
+    for FlowSolutionNode in AllFlowSolutionNodes:
+        if FlowSolutionNode[0] != 'FlowSolution':
+            I.rmNode(tR, FlowSolutionNode)
 
-    GradientsNames = dict()
-    for v, V in product(['x','y','z'],['X','Y','Z']):
-        KeyName =  'vag' + v              + V.lower()
-        Value   = 'grad' + v + 'Velocity' + V
-        GradientsNames[KeyName] = '{'+Value+'}'
 
-    # sqrt( 2 * Omega_ij * Omega_ij )
-    Eqn = (
-    '  sqrt(  ( {vagzy} - {vagyz} )**2 '
-    '       + ( {vagxz} - {vagzx} )**2 '
-    '       + ( {vagyx} - {vagxy} )**2 )'
-    ).format(**GradientsNames)
-    C._initVars(surf,'centers:RotationScale='+Eqn)
 
-    '''
-    # BEWARE! RotationScale seems to be a more appropriate scalar for
-    # determining boundary-layer edge !
-    # sqrt( 2 * barS_ij * barS_ij )
-    Eqn = (
-    '  sqrt( 2 * ( {vagxx}**2 + {vagyy}**2 + {vagzz}**2 )  '
-    '          + ( {vagxy} + {vagyx})**2 '
-    '          + ( {vagxz} + {vagzx})**2 '
-    '          + ( {vagyz} + {vagzy})**2 '
-    '          - (2./3.) * ({vagxx} + {vagyy} + {vagzz})**2'
-    '       )'
-    ).format(**GradientsNames)
-    C._initVars(surf,'centers:DeformationScale='+Eqn)
-    '''
 
-    AllFieldsNames, = C.getVarNames(surf, excludeXYZ=True)
-    CentersFieldsNames = [fn for fn in AllFieldsNames if 'centers:' in fn]
-    for cfn in CentersFieldsNames: C.center2Node__(surf,cfn,cellNType=0)
-    I._rmNodesByName(surf,I.__FlowSolutionCenters__)
+    walls_tree = _extractWalls(t)
+    I._rmNodesByType( walls_tree , 'FlowSolution_t')
 
-    return surf
+    for wall in I.getZones(walls_tree):
+
+        G._getNormalMap(wall)
+
+        extrusion = GVD.extrude(wall, [BoundaryLayerDistribution])
+        aux_grid, = I.getZones(I.getNodeFromName2(extrusion,'ExtrudedVolume'))
+        aux_grid[0] = wall[0]
+        P._renameVars(wall, ['centers:sx','centers:sy','centers:sz'],
+                            ['centers:nx','centers:ny','centers:nz'])
+
+        for n in ['nx','ny','nz']:
+            x = J.getx(wall)
+            # TODO - Caution! do not produce dim 2 ! Cassiopee bug #8131
+            C.center2Node__(wall, 'centers:'+n, cellNType=0)
+            # therefore, workaround is required:
+            FlowSol_node = I.getNodeFromName(wall, I.__FlowSolutionNodes__)
+            field_node = I.getNodeFromName(FlowSol_node, n.replace('centers:',''))
+            if not np.all(field_node[1].shape == x.shape ):
+                array = np.broadcast_to( field_node[1], x.shape )
+                field_node[1] = np.asfortranarray( array )
+
+
+        I._rmNodesByName(wall,I.__FlowSolutionCenters__)
+        C._normalize(wall, ['nx','ny','nz'])
+        J.migrateFields(wall, aux_grid,
+                         keepMigrationDataForReuse=False, # TODO why cannot write if False ?
+                         )
+
+        P._extractMesh(tR, aux_grid, order=2, extrapOrder=1,
+                       mode='accurate', constraint=40., tol=1.e-10)
+
+        I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
+
+        C._initVars(wall, 'MomentumX', 0.)
+        C._initVars(wall, 'MomentumY', 0.)
+        C._initVars(wall, 'MomentumZ', 0.)
+
+        _fitFields(wall, aux_grid, ['Momentum'+i for i in ['X','Y','Z']])
+
+        for v in ('X','Y','Z'):
+            C._initVars(aux_grid, 'Velocity%s={Momentum%s}/{Density}'%(v,v))
+
+        for v in ('X','Y','Z'): aux_grid = P.computeGrad(aux_grid,'Velocity%s'%v)
+
+        AllFieldsNames, = C.getVarNames(aux_grid, excludeXYZ=True)
+        CentersFieldsNames = [fn for fn in AllFieldsNames if 'centers:' in fn]
+
+        x = J.getx(aux_grid)
+        for cfn in CentersFieldsNames:
+            # TODO BEWARE do not produce dim 3 ! ticket Cassiopee #8131
+            C.center2Node__(aux_grid,cfn,cellNType=0)
+
+            # workaround:
+            FlowSol_node = I.getNodeFromName(aux_grid,I.__FlowSolutionNodes__)
+            field_node = I.getNodeFromName(FlowSol_node, cfn.replace('centers:',''))
+            if not np.all(field_node[1].shape == x.shape ):
+                array = np.broadcast_to( field_node[1], x.shape )
+                field_node[1] = np.asfortranarray( array )
+
+        I._rmNodesByName(aux_grid,I.__FlowSolutionCenters__)
+
+
+
+        GradientsNames = dict()
+        for v, V in product(['x','y','z'],['X','Y','Z']):
+            KeyName =  'vag' + v              + V.lower()
+            Value   = 'grad' + v + 'Velocity' + V
+            GradientsNames[KeyName] = '{'+Value+'}'
+
+        # sqrt( 2 * Omega_ij * Omega_ij )
+        Eqn = (
+        '  sqrt(  ( {vagzy} - {vagyz} )**2 '
+        '       + ( {vagxz} - {vagzx} )**2 '
+        '       + ( {vagyx} - {vagxy} )**2 )'
+        ).format(**GradientsNames)
+        C._initVars(aux_grid,'RotationScale='+Eqn)
+
+        '''
+        # BEWARE! RotationScale seems to be a more appropriate scalar for
+        # determining boundary-layer edge !
+        # sqrt( 2 * barS_ij * barS_ij )
+        Eqn = (
+        '  sqrt( 2 * ( {vagxx}**2 + {vagyy}**2 + {vagzz}**2 )  '
+        '          + ( {vagxy} + {vagyx})**2 '
+        '          + ( {vagxz} + {vagzx})**2 '
+        '          + ( {vagyz} + {vagzy})**2 '
+        '          - (2./3.) * ({vagxx} + {vagyy} + {vagzz})**2'
+        '       )'
+        ).format(**GradientsNames)
+        C._initVars(aux_grid,'DeformationScale='+Eqn)
+        '''
+
+
+        wall[1] = aux_grid[1]
+        I._rmNodesByType(wall,'GridCoordinates_t')
+        I._rmNodesByType(wall,'FlowSolution_t')
+        NodesToMigrate = I.getNodesFromType(aux_grid,'GridCoordinates_t')
+        NodesToMigrate.extend(I.getNodesFromType(aux_grid,'FlowSolution_t'))
+        wall[2].extend(NodesToMigrate)
+
+    C.convertPyTree2File(aux_grid,'test.cgns');exit()
+
+    return walls_tree
 
 def getMeshDimensionFromTree(t):
     '''
@@ -801,3 +895,28 @@ def absolute2Relative(t, loc='centers', container=None, containerRelative=None):
         I.__FlowSolutionNodes__ = oldContainer
 
     return t
+
+
+def _fitFields(donor, receiver, fields_names_to_fit=[]):
+    '''
+    TODO doc
+    '''
+    donor_zones = I.getZones( donor )
+    receiver_zones = I.getZones( receiver )
+    number_of_donor_zones = len( donor_zones )
+
+    for receiver_zone in receiver_zones:
+        hook = C.createHook( receiver_zone, function='nodes')
+        nodes, dist = C.nearestNodes( hook, donor_zones )
+        if number_of_donor_zones == 1:
+            nodes = [nodes]
+            dist = [dist]
+        fields_receiver = J.getVars( receiver_zone, fields_names_to_fit )
+        fields_receiver = [f.ravel(order='F') for f in fields_receiver]
+
+        for di, donor_zone in enumerate( donor_zones ):
+            receiver_indexes = nodes[di] - 1
+            fields_donor = J.getVars( donor_zone, fields_names_to_fit )
+            fields_donor = [f.ravel(order='F') for f in fields_donor]
+            for fr, fd in zip(fields_receiver, fields_donor):
+                fr[ receiver_indexes ] = fd

@@ -139,7 +139,7 @@ def getVars(zone, VariablesName, Container='FlowSolution'):
 
         VariablesName : :py:class:`list` of :py:class:`str`
             List of the field names to be retreived
-            
+
         Container : str
             The name of the node to look for the requested variable
             (e.g. ``'FlowSolution'``). Container should be at 1 depth level
@@ -2258,4 +2258,4 @@ def printEnvironment():
         if not usingMostUpToDateVersion(AllVersions,Major, Minor, Micro):
             print('INFO: a most updated version exist: '+mostUpToDateVersion(AllVersions)+ENDC)
         else:
-            print(GREEN+'You are using the latest version of MOLA'+ENDC)
+            print(GREEN+'You are using the latest version of MOLA'+ENDC)            

@@ -3166,6 +3166,8 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     DefaultBCExtractions = dict(
         BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize',
             # 'bl_ue', # BUG for bl_ue extraction https://elsa.onera.fr/issues/10360
+            # TODO test:
+            # /tmp_user/sator/gbegou/elsAdev/BSL_v5.0.04/tckt10360_blextract/Dist/bin/sator/source.me
             'flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
     )
     # TODO notify bug for torque_origin in CGNS mode
