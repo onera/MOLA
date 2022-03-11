@@ -1926,7 +1926,7 @@ def _applyPolarOnLiftingLine(LiftingLine, PolarsInterpolatorDict,
     Parameters
     ----------
 
-        LiftingLine : dict
+        LiftingLine : zone
             LiftingLine curve with ``AoA``, ``Mach``, ``Reynolds``
             fields defining the local flow characteristics. New interpolated fields
             will be added into ``FlowSolution`` container.
@@ -1955,7 +1955,7 @@ def _applyPolarOnLiftingLine(LiftingLine, PolarsInterpolatorDict,
 
         # Get Airfoils data
         PolarInfo= getAirfoilsNodeOfLiftingLine(LiftingLine)
-        Abscissa= I.getNodeFromName1(PolarInfo,'Abscissa')[1]
+        Abscissa = I.getNodeFromName1(PolarInfo,'Abscissa')[1]
         NodeStr = I.getValue(I.getNodeFromName1(PolarInfo,'PyZonePolarNames'))
         PyZonePolarNames = NodeStr.split(' ')
         InterpolationLaw = I.getValue(I.getNodeFromName1(PolarInfo,'InterpolationLaw'))
@@ -4562,7 +4562,8 @@ def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
 
         LiftingLine = C.convertFile2PyTree(FILE_LiftingLine)
         LiftingLine, = I.getZones(LiftingLine)
-        J.set(LiftingLine,'.Component#Info', kind='LiftingLine')
+        if not I.getNodeFromName1(LiftingLine,'.Component#Info'):
+            J.set(LiftingLine,'.Component#Info', kind='LiftingLine') # related to MOLA #48
 
         LiftingLine[0] = 'LL.%s.r%d'%(RotorName,rank)
         Rotor['LiftingLine'] = LiftingLine
