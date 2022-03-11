@@ -32,7 +32,9 @@ from . import Wireframe as W
 from . import GenerativeShapeDesign as GSD
 from . import GenerativeVolumeDesign as GVD
 
-def extractBoundaryLayer(t):
+def extractBoundaryLayer(t, rotation_scale_edge_threshold=0.003,
+        boundary_layer_maximum_height=0.5, auxiliar_grid_maximum_nb_points=300,
+        auxiliar_grid_first_cell_height=1e-6, auxiliar_grid_growth_rate=1.05):
     '''
     Produce a set of surfaces including relevant boundary-layer quantities from
     a 3D fields tree using conservative fields (for example, a result of
@@ -52,30 +54,63 @@ def extractBoundaryLayer(t):
                 conservative flowfields must be contained at containers named
                 ``FlowSolution#Centers`` or ``FlowSolution#Init`` located at
                 *CellCenter*. The following fields must be present: ``Density``,
-                ``MomentumX``, ``MomentumY``, ``MomentumZ``, ``ViscosityMolecular``
+                ``MomentumX``, ``MomentumY``, ``MomentumZ``, ``ViscosityMolecular``.
+                Field ``Pressure`` shall also be present. Otherwise, an attempt
+                is done of computing this quantity if required conservative fields
+                and ReferenceState exist in **t**
+
+        rotation_scale_edge_threshold : float
+            value used to find the boundary-layer edge location based on the
+            rotation scale. Higher values lead to thinner boundary-layer height,
+            and lower values lead to thicker boundary-layer height.
+
+        boundary_layer_maximum_height : float
+            maximum height of boundary-layer thickness (in mesh length units).
+
+        auxiliar_grid_maximum_nb_points : int
+            maximum number of points in the wall-normal direction used to
+            build the auxiliar grid employed for the boundary-layer postprocess
+
+        auxiliar_grid_first_cell_height : float
+            height of the wall-adjacent cell used in the auxiliar grid employed
+            for the boundary-layer postprocess. Should be lower than the actual
+            wall cell height of **t**. Dimension is mesh length units.
+
+        auxiliar_grid_growth_rate : float
+            growth factor of the cell heights in the wall-normal direction used
+            for the construction of the auxiliar grid employed for the
+            boundary-layer postprocess
+
 
     Returns
     -------
 
         surfaces : PyTree
             tree containing surfaces with fields contained in ``FlowSolution#Centers``
-            located at CellCenter (interfaces). Added fields are:
+            located at CellCenter (interfaces). Most relevant added fields are:
             ``DistanceToWall``, ``delta``, ``delta1``, ``theta11``, ``runit``
             ``VelocityTangential``, ``VelocityTransversal``,
             ``VelocityEdgeX``, ``VelocityEdgeY``, ``VelocityEdgeZ``,
-            ``SkinFrictionX``, ``SkinFrictionY``, ``SkinFrictionZ``
+            ``SkinFrictionX``, ``SkinFrictionY``, ``SkinFrictionZ``, ``Pressure``
     '''
 
-    aux_grid = _buildAuxiliarWallExtrusion(t, MaximumBoundaryLayerDistance=0.5,
-                MaximumBoundaryLayerPoints=300, BoundaryLayerGrowthRate=1.05,
-                FirstCellHeight=1e-6)
+    aux_grid = _buildAuxiliarWallExtrusion(t,
+                    MaximumBoundaryLayerDistance=boundary_layer_maximum_height,
+                    MaximumBoundaryLayerPoints=auxiliar_grid_maximum_nb_points,
+                    BoundaryLayerGrowthRate=auxiliar_grid_growth_rate,
+                    FirstCellHeight=auxiliar_grid_first_cell_height)
 
     # TODO optionnally keep existing quantities by renaming strategy
     C._rmVars(aux_grid, ['delta','delta1','theta11','runit',
                          'SkinFrictionX','SkinFrictionY','SkinFrictionZ'])
 
-    _computeBoundaryLayerQuantities(aux_grid, VORTRATIOLIM=1e-3)
+    _computeBoundaryLayerQuantities(aux_grid,
+                                    VORTRATIOLIM=rotation_scale_edge_threshold)
     _computeSkinFriction(aux_grid)
+
+    if 'Pressure' not in C.getVarNames(aux_grid, excludeXYZ=True)[0]:
+        P._computeVariables(aux_grid, ['Pressure'] )
+
     _subzoneAuxiliarWallExtrusion(aux_grid)
 
     for z in I.getZones(aux_grid):
@@ -87,50 +122,6 @@ def extractBoundaryLayer(t):
 
     return aux_grid
 
-
-def postProcessWallsFromElsaExtraction(t, PressureDynamic=1., PressureRef=1.):
-    '''
-    Create a PyTree with TopSide and BottomSide airfoil zones and
-    boundary-layer edges zones.
-
-    TopSide and BottomSide zones yield additional post-processed variables.
-
-
-    Parameters
-    ----------
-
-        t : PyTree, base, zone, list of zones
-            CGNS tree containing a 1-cell
-            depth wall surface.
-
-            .. attention:: It **must** contain the required fields by function
-                :py:func:`addNewWallVariablesFromElsaQuantities`
-
-        PressureDynamic : float
-            Dynamic Pressure in [Pa] used for computation
-            of skin-friction and pressure coefficients.
-
-        PressureRef : float
-            Reference Pressure in [Pa] used for computation
-            of pressure coefficient (typically, freestream static pressure)
-
-    Returns
-    -------
-
-        t : PyTree
-            Airfoil split in top and bottom sides including postprocessed
-            fields. It also includes zones corresponding to boundary-layer edges
-    '''
-
-    t = mergeWallsAndSplitAirfoilSides(t)
-
-    addNewWallVariablesFromElsaQuantities(t,
-                                          PressureDynamic=PressureDynamic,
-                                          PressureRef=PressureRef)
-
-    addBoundaryLayerEdges(t)
-
-    return t
 
 def mergeWallsAndSplitAirfoilSides(t):
     '''
@@ -167,63 +158,6 @@ def mergeWallsAndSplitAirfoilSides(t):
 
     return tOut
 
-def addNewWallVariablesFromElsaQuantities(t, PressureDynamic=1., PressureRef=1.):
-    '''
-    Given a wall in pytree **t** and some reference values, produce additional
-    variables:  `cf`, `Cp` and `ReynoldsTheta` of an AIRFOIL.
-
-    As the sign of ``cf`` depends on the side of the airfoil, if special keyword
-    ``'bottomside'`` is contained in a zone name of **t**, the sign is considered as
-    *negative* in i-increasing direction, otherwise it is considered *positive*.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            CGNS tree containing the two sides of the airfoil, as
-            produced by :py:func:`mergeWallsAndSplitAirfoilSides`.
-            New fields are added to the tree.
-
-            .. note:: tree **t** is modified
-
-        PressureDynamic : float
-            Dynamic Pressure in [Pa] used for computation
-            of skin-friction and pressure coefficients.
-
-        PressureRef : float
-            Reference Pressure in [Pa] used for computation
-            of pressure coefficient (typically, freestream static pressure).
-    '''
-
-    CompulsoryFields = ('nx', 'ny', 'nz', 'Pressure', 'runit', 'theta11',
-                        'SkinFrictionX', 'SkinFrictionY')
-    for CompulsoryField in CompulsoryFields:
-        if C.isNamePresent(t, CompulsoryField) != 1:
-            I.printTree(t, color=True)
-            ERRMSG = (
-                'Field {} is missing on input data.\n'
-                'Please check elsA extractions provided the following '
-                'mandatory fields:\n{}'
-                ).format(CompulsoryField, str(CompulsoryFields))
-            raise AttributeError(FAIL+ERRMSG+ENDC)
-
-    NewFields = ['ReynoldsTheta', 'Cp', 'cf']
-
-    for zone in I.getZones(t):
-        J._invokeFields(zone,NewFields)
-        AllFieldsNames, = C.getVarNames(zone, excludeXYZ=True)
-        v = J.getVars2Dict(zone, AllFieldsNames)
-
-        nx, ny, nz = v['nx'], v['ny'], v['nz']
-        NormalsNorm = np.sqrt( nx**2 + ny**2 + nz**2 )
-
-        v['Cp'][:] = ( v['Pressure'] - PressureRef ) / PressureDynamic
-
-        v['ReynoldsTheta'][:] = v['runit'] * v['theta11']
-
-        v['cf'][:]  = ny*v['SkinFrictionX'] - nx*v['SkinFrictionY']
-        v['cf'][:] /= (NormalsNorm*PressureDynamic)
-        if 'bottom' in I.getName(zone).lower(): v['cf'] *= -1
 
 def getBoundaryLayerEdges(t):
     '''
@@ -531,6 +465,8 @@ def _buildAuxiliarWallExtrusion(t, MaximumBoundaryLayerDistance=0.5,
                              smoothing_growth_iterations=0,
                              smoothing_expansion_factor=0.)
 
+    # grid needs to be located at Vertex, see: Cassiopee #10404
+
     if container != 'FlowSolution':
         I._rmNodesByName(tR, 'FlowSolution')
         zone = I.getNodeFromType3(tR, 'Zone_t')
@@ -586,6 +522,15 @@ def _buildAuxiliarWallExtrusion(t, MaximumBoundaryLayerDistance=0.5,
     walls_tree = _extractWalls(t)
     I._rmNodesByType( walls_tree , 'FlowSolution_t')
 
+    # workaround: see Cassiopee #10404
+    C._initVars(walls_tree, 'MomentumX', 0.)
+    C._initVars(walls_tree, 'MomentumY', 0.)
+    C._initVars(walls_tree, 'MomentumZ', 0.)
+    _fitFields(walls_tree, tR, ['Momentum'+i for i in ['X','Y','Z']])
+
+
+    aux_grids = []
+
     for wall in I.getZones(walls_tree):
 
         G._getNormalMap(wall)
@@ -619,11 +564,12 @@ def _buildAuxiliarWallExtrusion(t, MaximumBoundaryLayerDistance=0.5,
 
         I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
 
+        # workaround: see Cassiopee #10404
         C._initVars(wall, 'MomentumX', 0.)
         C._initVars(wall, 'MomentumY', 0.)
         C._initVars(wall, 'MomentumZ', 0.)
-
         _fitFields(wall, aux_grid, ['Momentum'+i for i in ['X','Y','Z']])
+
 
         for v in ('X','Y','Z'):
             C._initVars(aux_grid, 'Velocity%s={Momentum%s}/{Density}'%(v,v))
@@ -646,7 +592,6 @@ def _buildAuxiliarWallExtrusion(t, MaximumBoundaryLayerDistance=0.5,
                 field_node[1] = np.asfortranarray( array )
 
         I._rmNodesByName(aux_grid,I.__FlowSolutionCenters__)
-
 
 
         GradientsNames = dict()
@@ -686,7 +631,7 @@ def _buildAuxiliarWallExtrusion(t, MaximumBoundaryLayerDistance=0.5,
         NodesToMigrate.extend(I.getNodesFromType(aux_grid,'FlowSolution_t'))
         wall[2].extend(NodesToMigrate)
 
-    C.convertPyTree2File(aux_grid,'test.cgns');exit()
+        aux_grids.append(aux_grid)
 
     return walls_tree
 
@@ -897,7 +842,7 @@ def absolute2Relative(t, loc='centers', container=None, containerRelative=None):
     return t
 
 
-def _fitFields(donor, receiver, fields_names_to_fit=[]):
+def _fitFields(donor, receiver, fields_names_to_fit=[], tol=1e-6):
     '''
     TODO doc
     '''
@@ -906,17 +851,21 @@ def _fitFields(donor, receiver, fields_names_to_fit=[]):
     number_of_donor_zones = len( donor_zones )
 
     for receiver_zone in receiver_zones:
-        hook = C.createHook( receiver_zone, function='nodes')
-        nodes, dist = C.nearestNodes( hook, donor_zones )
-        if number_of_donor_zones == 1:
-            nodes = [nodes]
-            dist = [dist]
         fields_receiver = J.getVars( receiver_zone, fields_names_to_fit )
         fields_receiver = [f.ravel(order='F') for f in fields_receiver]
 
+        hook = C.createHook( receiver_zone, function='nodes')
+        res = C.nearestNodes( hook, donor_zones )
+
+        if number_of_donor_zones == 1: res = [res]
+
         for di, donor_zone in enumerate( donor_zones ):
-            receiver_indexes = nodes[di] - 1
+            nodes, dist = res[di]
+            close_enough_points = dist<tol
+            nodes = nodes[dist<tol]
+            if len(nodes) == 0: continue
+            receiver_indexes = nodes - 1
             fields_donor = J.getVars( donor_zone, fields_names_to_fit )
             fields_donor = [f.ravel(order='F') for f in fields_donor]
             for fr, fd in zip(fields_receiver, fields_donor):
-                fr[ receiver_indexes ] = fd
+                fr[ receiver_indexes ] = fd[ close_enough_points ]
