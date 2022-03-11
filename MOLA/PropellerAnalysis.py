@@ -292,7 +292,15 @@ def computePUMA(NBlades, Velocity, RPM, Temperature, Density,
                 Width  = 0.9*Rmin
                 Length = 3*Height
                 SpinnerProfile,_ = RW.makeSimpleSpinner(Height, Width, Length, NptsTop=20, NptsBottom=30)
-                SpinnerZones,_ = RW.makeHub(SpinnerProfile,AxeCenter=(0,0,0),AxeDir=(1,0,0),NPsi=91,BladeNumberForPeriodic=None,LeadingEdgeAbscissa=0.25,TrailingEdgeAbscissa=0.75,SmoothingParameters={'eps':0.50,'niter':300,'type':2},SplitLEind=None,SplitTEind=None)
+                SpinnerZones,_ = RW.makeHub(SpinnerProfile,
+                                                AxeCenter=(0,0,0),
+                                                AxeDir=(1,0,0),
+                                                NumberOfAzimutalPoints=91,
+                                                BladeNumberForPeriodic=None,
+                                                LeadingEdgeAbscissa=0.25,
+                                                TrailingEdgeAbscissa=0.75,
+                                                SmoothingParameters={'eps':0.50,'niter':300,'type':2})
+
                 tAux = C.newPyTree(['Base',I.getZones(SpinnerZones)])
                 I._rmNodesByType(tAux,'FlowSolution_t')
                 SpinnerUnstr = C.convertArray2Hexa(tAux)
