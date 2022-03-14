@@ -3888,7 +3888,7 @@ def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
             the resulting *BCType*. Returns:py:obj:`None` if **FamilyBCName** is not
             found
     '''
-    FamilyNode = I.getNodeFromName3(t, FamilyBCName)
+    FamilyNode = I.getNodeFromNameAndType(t, FamilyBCName, 'Family_t')
     if not FamilyNode: return
 
     FamilyBCNode = I.getNodeFromName1(FamilyNode, 'FamilyBC')
