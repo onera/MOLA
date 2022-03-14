@@ -70,7 +70,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     RPM=None, Pitch=None, CommandType=None,
     Constraint='Pitch', ConstraintValue=None, ValueTol=1.0,
     AttemptCommandGuess=[],
-    PerturbationFields=None, ZonesNameSuffixTag='',
+    PerturbationFields=None,
     LiftingLineSolver='MOLA', StackOptions={}, WeightEqns=[],
     SourceTermScale=1.0):
     '''
@@ -135,9 +135,6 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
                 ``'VelocityInducedZ'``
 
             These values typically comes from CFD.
-
-        ZonesNameSuffixTag : str
-            suffix to append to the newly bodyforce component name
 
         LiftingLineSolver : str
             The Lifting Line solver technique: ``'MOLA'`` or ``'PUMA'``
@@ -416,7 +413,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
     # TODO: Check for uniqueness of RotorNames in getLocalBodyForceInputData
     RotorName = Propeller[0]
-    Stacked[0] = '%s.p%d'%(RotorName,rank)+ZonesNameSuffixTag
+    Stacked[0] = RotorName
 
     addThickwiseCoordinate2BodyForceDisk(Stacked, RotAxis)
 
@@ -4717,8 +4714,7 @@ def computePropellerBodyForce(to, NumberOfSerialRuns, LocalBodyForceInputData):
             buildBodyForceDiskOptions = {}
 
 
-        BodyForceOptions = dict(PerturbationFields=to,
-                                ZonesNameSuffixTag='s%d'%iBF)
+        BodyForceOptions = dict(PerturbationFields=to)
         BodyForceOptions.update(buildBodyForceDiskOptions)
 
         BFdisk = buildBodyForceDisk(Propeller,
