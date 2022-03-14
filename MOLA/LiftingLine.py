@@ -3187,21 +3187,20 @@ def moveLiftingLines(t, TimeStep):
 
 def moveObject(t, TimeStep):
     '''
-    Move the lifting lines following their ``.Kinematics`` law.
+    Move the Zones lines following their ``.Kinematics`` law.
 
-    It also updates the local frame quantities of the lifting lines and
+    It also updates the local frame quantities of the zones and
     updates the kinematic velocity.
 
     Parameters
     ----------
 
         t : PyTree, base, list of zones, zone
-            container with LiftingLines.
 
-            .. note:: Lifting-lines contained in **t** are modified.
+            .. note:: Zones contained in **t** are modified.
 
         TimeStep : float
-            time step for the movement of the lifting-lines in [s]
+            time step for the movement of the object in [s]
     '''
     LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
     for LiftingLine in LiftingLines:
