@@ -2140,7 +2140,8 @@ def computeFluidProperties(Gamma=1.4, IdealGasConstant=287.053, Prandtl=0.72,
 
 
 def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
-        Velocity=0.0, AngleOfAttackDeg=0.0, AngleOfSlipDeg=0.0,
+        Velocity=0.0, VelocityUsedForScalingAndTurbulence=None,
+        AngleOfAttackDeg=0.0, AngleOfSlipDeg=0.0,
         YawAxis=[0.,0.,1.], PitchAxis=[0.,-1.,0.],
         TurbulenceLevel=0.001,
         Surface=1.0, Length=1.0, TorqueOrigin=[0,0,0],
@@ -2171,6 +2172,16 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
 
         Velocity : float
             farfield true-air-speed magnitude in [m/s]
+
+        VelocityUsedForScalingAndTurbulence : :py:class:`float` or :py:obj:`None`
+            velocity magnitude in [m/s] employed for the computation of
+            Reynolds, Mach, PressureDynamic and turbulence quantities. By default,
+            this value is :py:obj:`None`, which means that **Velocity** is used.
+
+            .. note::
+                if ``Velocity=0``, you *must* provide a non-zero value
+                of **VelocityUsedForScalingAndTurbulence** in order to compute
+                the characteristic quantities of the simulation
 
         AngleOfAttackDeg : float
             .. note:: see :py:func:`getFlowDirections`
@@ -2268,6 +2279,19 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     )
     DefaultCoprocessOptions.update(CoprocessOptions) # User-provided values
 
+    FreestreamIsTooLow = np.abs(Velocity) < 1e-5
+    if FreestreamIsTooLow and VelocityUsedForScalingAndTurbulence is None:
+        ERRMSG = 'Velocity is too low (%g). '%Velocity
+        ERRMSG+= 'You must provide a non-zero value for VelocityUsedForScalingAndTurbulence'
+        raise ValueError(J.FAIL+ERRMSG+J.ENDC)
+
+    if VelocityUsedForScalingAndTurbulence is not None:
+        if VelocityUsedForScalingAndTurbulence <= 0:
+            ERRMSG = 'VelocityUsedForScalingAndTurbulence must be positive'
+            raise ValueError(J.FAIL+ERRMSG+J.ENDC)
+    else:
+        VelocityUsedForScalingAndTurbulence = np.abs( Velocity )
+
     RequestedStatistics = DefaultCoprocessOptions['RequestedStatistics']
     for criterion in DefaultCoprocessOptions['ConvergenceCriteria']:
         VariableName = criterion['Variable']
@@ -2299,10 +2323,10 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     S   = FluidProperties['SutherlandConstant']
 
     ViscosityMolecular = mus * (T/Ts)**1.5 * ((Ts + S)/(T + S))
-    Mach = Velocity / np.sqrt( Gamma * IdealGasConstant * Temperature )
-    Reynolds = Density * Velocity * Length / ViscosityMolecular
+    Mach = VelocityUsedForScalingAndTurbulence /np.sqrt( Gamma * IdealGasConstant * Temperature )
+    Reynolds = Density * VelocityUsedForScalingAndTurbulence * Length / ViscosityMolecular
     Pressure = Density * IdealGasConstant * Temperature
-    PressureDynamic = 0.5 * Density * Velocity **2
+    PressureDynamic = 0.5 * Density * VelocityUsedForScalingAndTurbulence **2
     FluxCoef        = 1./(PressureDynamic * Surface)
     TorqueCoef      = 1./(PressureDynamic * Surface*Length)
 
@@ -2312,10 +2336,10 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     MomentumX =  Density * Velocity * DragDirection[0]
     MomentumY =  Density * Velocity * DragDirection[1]
     MomentumZ =  Density * Velocity * DragDirection[2]
-    EnergyStagnationDensity = Density * (cv * Temperature + 0.5 * Velocity **2)
+    EnergyStagnationDensity = Density * ( cv * Temperature + 0.5 * Velocity **2)
 
     # -> for k-omega models
-    TurbulentEnergyKineticDensity = Density * 1.5* TurbulenceLevel**2 * Velocity**2
+    TurbulentEnergyKineticDensity = Density*1.5*(TurbulenceLevel**2)*(VelocityUsedForScalingAndTurbulence**2)
     TurbulentDissipationRateDensity = Density * TurbulentEnergyKineticDensity / (Viscosity_EddyMolecularRatio * ViscosityMolecular)
 
     # -> for Smith k-l model
