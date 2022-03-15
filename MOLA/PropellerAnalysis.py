@@ -1954,8 +1954,8 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
         # Both circulations shall be equal (Eqn.32)
         Residual = GammaMom - GammaBE
 
-        if i==0:
-            print('Cl=%g , AoA=%g, Mach=%g | %sphi=%g%s | Va=%g , Vt=%g'%(Cl[i],AoADeg[i],Mach[i],J.GREEN,np.rad2deg(phi),J.ENDC,v['VelocityAxial'][i],v['VelocityTangential'][i]))
+        # if i==0:
+        #     print('Cl=%g , AoA=%g, Mach=%g | %sphi=%g%s | Va=%g , Vt=%g'%(Cl[i],AoADeg[i],Mach[i],J.GREEN,np.rad2deg(phi),J.ENDC,v['VelocityAxial'][i],v['VelocityTangential'][i]))
 
         return Residual
 
