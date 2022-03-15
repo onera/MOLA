@@ -1884,8 +1884,8 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
 
         LL._applyPolarOnLiftingLine(LiftingLine,PolarsInterpolatorDict,
                                     InterpFields=['Cl', 'Cd'])
-        if i==0:
-            print('Cl=%g , AoA=%g, Mach=%g | Va=%g , Vt=%g'%(Cl[i],AoADeg[i],Mach[i],v['VelocityAxial'][i],v['VelocityTangential'][i]))
+        # if i==0:
+        #     print('Cl=%g , AoA=%g, Mach=%g | Va=%g , Vt=%g'%(Cl[i],AoADeg[i],Mach[i],v['VelocityAxial'][i],v['VelocityTangential'][i]))
         [C._initVars(LiftingLine, eq) for eq in ListOfEquations]
 
 
