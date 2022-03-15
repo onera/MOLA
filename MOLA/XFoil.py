@@ -484,8 +484,13 @@ def computePolars(airfoilFilename, Reynolds, Mach, AoAs, Ncr=9,
 
                         if storeFoilVariables:
                             CpFilename = stdin_fn.replace('stdin','Cp_Re%g_M%g_AoA%g'%(ReVec[icomp-1],MVec[icomp-1],data[jAoA,0]))
-                            dataCp = np.loadtxt(CpFilename, comments='#', unpack=True)
-                            Results['Cp'] += [dataCp[1]]
+                            try:
+                                dataCp = np.loadtxt(CpFilename, comments='#', unpack=True)
+                            except ValueError:
+                                with open(CpFilename,'r') as f:
+                                    while f.readline()[:1]!="#":
+                                        pass
+                                    dataCp = np.loadtxt(f, comments='#', unpack=True)                            Results['Cp'] += [dataCp[1]]
                             foilNPts = len(dataCp[1])
 
                             BlFilename = stdin_fn.replace('stdin','Bl_Re%g_M%g_AoA%g'%(ReVec[icomp-1],MVec[icomp-1],data[jAoA,0]))
