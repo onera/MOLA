@@ -1926,10 +1926,7 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
         v['VelocityInducedAxial'][i] = va = Wa - Ua
         v['VelocityInducedTangential'][i] = vt = Ut - Wt
         phiDeg = np.rad2deg(phi)
-        if np.abs(phiDeg) < np.abs(TwistDeg[i]):
-            AoADeg[i] = TwistDeg[i] - phiDeg
-        else:
-            AoADeg[i] = -(np.abs(phiDeg)-np(TwistDeg[i]))
+        AoADeg[i] = TwistDeg[i] - phiDeg
 
         v['VelocityMagnitudeLocal'][i] = W = np.sqrt(Wa**2 + Wt**2)
         Reynolds[i] = Density[0] * W * Chord[i] / Mu
