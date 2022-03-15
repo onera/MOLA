@@ -1884,6 +1884,8 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
 
         LL._applyPolarOnLiftingLine(LiftingLine,PolarsInterpolatorDict,
                                     InterpFields=['Cl', 'Cd'])
+        if i==0:
+            print('Cl=%g , AoA=%g, Mach=%g | Va=%g , Vt=%g'%(Cl[i],AoADeg[i],Mach[i],v['VelocityAxial'][i],v['VelocityTangential'][i]))
         [C._initVars(LiftingLine, eq) for eq in ListOfEquations]
 
 
@@ -1896,6 +1898,7 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
         f2 = 0.5*sigma[i]*W**2*Cx - 2*(VxP+x[0])*x[1]*F
 
         Residual = [f1, f2]
+
 
         return Residual
 
@@ -1918,10 +1921,16 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
         U = np.sqrt(Ua**2+Ut**2)
         v['VelocityAxial'][i] = Wa = 0.5 * (Ua + U * np.sin(psi))
         v['VelocityTangential'][i] = Wt = 0.5 * (Ut + U * np.cos(psi))
-        v['phiRad'][i] = phi = np.arctan(Wa/Wt) # (useful to store)
+        # v['phiRad'][i] = phi = np.arctan(Wa/Wt) # (useful to store)
+        v['phiRad'][i] = phi = np.arctan2(Wa,Wt) # (useful to store)
         v['VelocityInducedAxial'][i] = va = Wa - Ua
         v['VelocityInducedTangential'][i] = vt = Ut - Wt
-        AoADeg[i] = TwistDeg[i] - np.rad2deg(phi)
+        phiDeg = np.rad2deg(phi)
+        if np.abs(phiDeg) < np.abs(TwistDeg[i]):
+            AoADeg[i] = TwistDeg[i] - phiDeg
+        else:
+            AoADeg[i] = -(np.abs(phiDeg)-np(TwistDeg[i]))
+
         v['VelocityMagnitudeLocal'][i] = W = np.sqrt(Wa**2 + Wt**2)
         Reynolds[i] = Density[0] * W * Chord[i] / Mu
         Mach[i] = W / SoundSpeed
@@ -1947,6 +1956,9 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
 
         # Both circulations shall be equal (Eqn.32)
         Residual = GammaMom - GammaBE
+
+        if i==0:
+            print('Cl=%g , AoA=%g, Mach=%g | %sphi=%g%s | Va=%g , Vt=%g'%(Cl[i],AoADeg[i],Mach[i],J.GREEN,np.rad2deg(phi),J.ENDC,v['VelocityAxial'][i],v['VelocityTangential'][i]))
 
         return Residual
 

@@ -829,7 +829,7 @@ def addFamilies(t, InputMeshes, tagZonesWithBaseName=True):
 
 
 
-def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=44,
+def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                        minimum_number_of_nodes=1,
                        maximum_allowed_nodes=20,
                        maximum_number_of_points_per_node=7e6,
