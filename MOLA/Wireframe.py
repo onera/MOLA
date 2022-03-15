@@ -4409,11 +4409,10 @@ def trimCurveAlongDirection(curve, direction, cut_point_1, cut_point_2):
     y = y.ravel(order='F')
     z = z.ravel(order='F')
     xyz = np.vstack((x,y,z)).T
-    distance1 = ( xyz - cut_point_1 ).dot(-direction )
+    distance1 = ( xyz - cut_point_1 ).dot( direction )
     distance2 = ( xyz - cut_point_2 ).dot( direction )
-    PointsToKeep = (distance1>0)*(distance2>0)
+    PointsToKeep = distance1 * distance2 < 0
     FieldToSlice[PointsToKeep] = 1
-    C.convertPyTree2File(curve,'debug.cgns')
     trimmed_element = P.selectCells(curve,'{FieldToSlice}>0.1',strict=1)
     number_of_subparts = len(I.getZones(T.splitConnexity(trimmed_element)))
     if number_of_subparts != 1:
@@ -4421,6 +4420,7 @@ def trimCurveAlongDirection(curve, direction, cut_point_1, cut_point_2):
         raise ValueError('could not trim along direction, since multiple subparts were obtained.')
 
     trimmed_curve = C.convertBAR2Struct(trimmed_element)
+    I._rmNodesByType(trimmed_curve,'FlowSolution_t')
 
     # add first point
     n = direction
@@ -4428,9 +4428,11 @@ def trimCurveAlongDirection(curve, direction, cut_point_1, cut_point_2):
     PlaneCoefs = n[0],n[1],n[2],-n.dot(Pt)
     C._initVars(curve,'Slice=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
     zones = P.isoSurfMC(curve, 'Slice', 0.0)
-    pt1 = I.getZones(zones)[0]
-    x,y,z = J.getxyz(pt1)
-    pt1 = D.point((x[0],y[0],z[0]))
+    if len(zones) > 0:
+        pt1 = I.getZones(zones)[0]
+        x,y,z = J.getxyz(pt1)
+        pt1 = D.point((x[0],y[0],z[0]))
+        trimmed_curve = concatenate([pt1,trimmed_curve])
 
     # add second point
     n = direction
@@ -4438,14 +4440,11 @@ def trimCurveAlongDirection(curve, direction, cut_point_1, cut_point_2):
     PlaneCoefs = n[0],n[1],n[2],-n.dot(Pt)
     C._initVars(curve,'Slice=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
     zones = P.isoSurfMC(curve, 'Slice', 0.0)
-    pt2 = I.getZones(zones)[0]
-    x,y,z = J.getxyz(pt2)
-    pt2 = D.point((x[0],y[0],z[0]))
-
-    I._rmNodesByType(trimmed_curve,'FlowSolution_t')
-    print(pt1)
-    trimmed_curve = concatenate([pt1,trimmed_curve,pt2])
-
+    if len(zones) > 0:
+        pt2 = I.getZones(zones)[0]
+        x,y,z = J.getxyz(pt2)
+        pt2 = D.point((x[0],y[0],z[0]))
+        trimmed_curve = concatenate([trimmed_curve,pt2])
 
     return trimmed_curve
 

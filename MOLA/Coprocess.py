@@ -279,13 +279,13 @@ def extractSurfaces(t, Extractions):
             for BCFamilyName in DictBCNames2Type:
                 BCType = DictBCNames2Type[BCFamilyName]
                 if BCFilterName.lower() in BCType.lower():
-                    zones = C.extractBCOfName(t,'FamilySpecified:'+BCFamilyName)
+                    zones = C.extractBCOfName(t,'FamilySpecified:'+BCFamilyName, extrapFlow=False)
                     ExtractionInfo['type'] = 'BC'
                     ExtractionInfo['BCType'] = BCType
                     addBase2SurfacesTree(BCFamilyName)
 
         elif TypeOfExtraction.startswith('BC'):
-            zones = C.extractBCOfType(t, TypeOfExtraction)
+            zones = C.extractBCOfType(t, TypeOfExtraction, extrapFlow=False)
             try: basename = Extraction['name']
             except KeyError: basename = TypeOfExtraction
             ExtractionInfo['type'] = 'BC'
@@ -293,7 +293,7 @@ def extractSurfaces(t, Extractions):
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction.startswith('FamilySpecified:'):
-            zones = C.extractBCOfName(t, TypeOfExtraction)
+            zones = C.extractBCOfName(t, TypeOfExtraction, extrapFlow=False)
             try: basename = Extraction['name']
             except KeyError: basename = TypeOfExtraction.replace('FamilySpecified:','')
             ExtractionInfo['type'] = 'BC'
