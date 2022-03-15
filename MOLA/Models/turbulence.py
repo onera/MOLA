@@ -70,7 +70,7 @@ class Boussinesq_1877(turbulence):
   """
   def __init__(self):
     super(Boussinesq_1877,self).__init__()
-    self.facteur_norme_matricielle=2.
+    self.factor_matrix_norm=2.
     self.supplyOperations(
       dict(
         Viscosity_EddyMolecularRatio=[
@@ -427,7 +427,7 @@ class Deck_Renard_2020(Deck_2012):
     Computes the value of the separation sensor :math:`{G}_\Omega` from :math:`\\tilde{\\nu}`, the matrix norm of the velocity gradient tensor
     and the wall-normal vorticity gradient.
     """
-    separationSensor = np.sqrt(facteur_norme_matricielle)*gradCoordinateN_VorticityMagnitude*np.sqrt(TurbulentSANuTilde/np.power(gradMagnitude_Velocity,3))
+    separationSensor = gradCoordinateN_VorticityMagnitude*np.sqrt(TurbulentSANuTilde/np.power(gradMagnitude_Velocity,3))
     return separationSensor
 
   def shieldAlpha_from_separationSensor(self,separationSensor):
@@ -461,8 +461,8 @@ class Deck_Renard_2020(Deck_2012):
     """
     Computes the values of the inhibition function :math:`f_R` from the separation sensor :math:`{G}_\Omega`, limited with regard to vorticity
     """
-    shieldInhibitionFunctionLim = (np.sqrt(facteur_norme_matricielle)*VorticityMagnitude< self.zeta*gradMagnitude_Velocity)\
-                                + (np.sqrt(facteur_norme_matricielle)*VorticityMagnitude>=self.zeta*gradMagnitude_Velocity)\
+    shieldInhibitionFunctionLim = (np.sqrt(self.factor_matrix_norm)*VorticityMagnitude< self.zeta*gradMagnitude_Velocity)\
+                                + (np.sqrt(self.factor_matrix_norm)*VorticityMagnitude>=self.zeta*gradMagnitude_Velocity)\
                                   * shieldInhibitionFunction
     return shieldInhibitionFunctionLim
 
