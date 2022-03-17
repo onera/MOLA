@@ -42,7 +42,7 @@ def Freq_Phi(t, RPM, MODE):
     DictStructParam = J.get(t, '.StructuralParameters')
 
     freq = MODE.LIST_VARI_ACCES()['FREQ']
-    freq = freq[:DictStructParam['ROMProperties']['NModes'][0]]
+    freq = np.array(freq[:DictStructParam['ROMProperties']['NModes'][0]])
 
     PHImatrix = np.zeros((DictStructParam['MeshProperties']['Nddl'][0],DictStructParam['ROMProperties']['NModes'][0]))
     
@@ -67,11 +67,9 @@ def Freq_Phi(t, RPM, MODE):
             print(WARN+'No rotation dof  (DRX, DRY, DRZ) in the model. Computing only with displacements (DX, DY, DZ).'+ENDC)
           
         ModZone = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= tabmod_T,
-                                                           ZoneName = 'Mode%s_'%Mode+str(np.round(RPM)), 
-                                                           FieldName = 'Mode',
-                                                           )
-        
-        I.createChild(ModZone, 'Freq', 'DataArray_t', freq[Mode])
+                                                        ZoneName = 'Mode%s_'%Mode+str(np.round(RPM)), 
+                                                        FieldName = 'Mode',
+                                                        )
 
         PHImatrix[:,Mode] = SM.VectFromAsterTable2Full(tabmod_T)
 
@@ -88,8 +86,11 @@ def Freq_Phi(t, RPM, MODE):
           I._addChild(I.getNodeFromName(t, 'ModalBases'), ModZone)
         except:
           t = I.merge([t, C.newPyTree(['ModalBases', []])])
+          I._addChild(I.getNodeFromName(t, 'ModalBases'), I.createNode('Freq', 'DataArray_t', value = freq))
           I._addChild(I.getNodeFromName(t, 'ModalBases'), ModZone)
           
+
+  
     
     t = SJ.AddFOMVars2Tree(t, RPM, Vars = [PHImatrix], VarsName = ['PHI'], Type = '.AssembledMatrices')
 

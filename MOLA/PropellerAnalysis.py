@@ -382,6 +382,7 @@ def computePUMA(NBlades, Velocity, RPM, Temperature, Density,
     if saveKimFiles: saveKimFilesFromPUMA(Pb)
 
     PitchValue = ConstraintValue if not MakeTrim else ao['InitialPitch']
+
     Prop.Cmds.set('Pitch',PitchValue)
     Thrust = Prop.Loads.Data['Thrust']
 

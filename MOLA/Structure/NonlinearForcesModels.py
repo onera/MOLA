@@ -37,71 +37,72 @@ from .. import InternalShortcuts as J
 from . import ShortCuts as SJ
 from . import Models as SM
 
+#
+#  --> Moved to Models.py
+#
+#def ComputeStaticU4GivenLoading(t, RPM, LoadVector, **kwargs):
+#    
+#
+#    DictStructParam = J.get(t, '.StructuralParameters')
+#    DictSimulaParam = J.get(t, '.SimulationParameters')
+#
+#    ListeLoading = SJ.TranslateNumpyLoadingVector2AsterList(t, LoadVector)
+#    
+#
+#    RAMPE = DEFI_FONCTION(NOM_PARA = 'INST',
+#                          VALE = (0.0,0.0,1.0,1.0),
+#                          PROL_DROITE = 'CONSTANT',
+#                          PROL_GAUCHE = 'CONSTANT',
+#                          INTERPOL = 'LIN'
+#                          );
+#
+#
+#    Cfd = AFFE_CHAR_MECA(MODELE = kwargs['MODELE'],
+#                         ROTATION = _F(VITESSE = RPM, 
+#                                       AXE = DictStructParam['RotatingProperties']['AxeRotation'] , 
+#                                       CENTRE = DictStructParam['RotatingProperties']['RotationCenter'],),
+#                         DDL_IMPO = _F(GROUP_NO='Node_Encastrement',
+#                                           DX=0.0,
+#                                           DY=0.0,
+#                                           DZ=0.0,),
+#                         FORCE_NODALE =  ListeLoading,
+#                         );
+#
+#
+#    L_INST = DEFI_LIST_REEL(DEBUT = 0.0,
+#                            INTERVALLE = (_F(JUSQU_A = 1.0,
+#                                             NOMBRE = DictSimulaParam['IntegrationProperties']['StaticSteps'][0],),
+#                                           ),
+#                            );
+#
+#
+#    SOLU = STAT_NON_LINE(MODELE = kwargs['MODELE'],
+#                         CHAM_MATER = kwargs['CHMAT'],
+#                         EXCIT =( _F( CHARGE = Cfd,
+#                                      FONC_MULT=RAMPE,),), 
+#                         COMPORTEMENT = _F(RELATION = 'ELAS',
+#                                           DEFORMATION =DictStructParam['MaterialProperties']['TyDef'], 
+#                                           TOUT = 'OUI',
+#                                          ),
+#                         CONVERGENCE=_F(RESI_GLOB_MAXI=2e-6,
+#                                        RESI_GLOB_RELA=1e-4,
+#                                        ITER_GLOB_MAXI=1000,
+#                                        ARRET = 'OUI',),
+#                         INCREMENT = _F( LIST_INST = L_INST,
+#                                        ),
+#                         INFO = 1,               
+#                        ),
+#
+#
+#
+#    UpFromOmegaAndFe = SM.ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, **dict(SOLU = SOLU))
+#
+#    SJ.DestroyAsterObjects(dict(**dict(Cfd = Cfd, SOLU= SOLU, RAMPE = RAMPE, L_INST = L_INST)),  
+#                           DetrVars = ['Cfd', 'SOLU', 'RAMPE', 'L_INST',
+#                                      ])
 
-
-def ComputeStaticU4GivenLoading(t, RPM, LoadVector, **kwargs):
     
-
-    DictStructParam = J.get(t, '.StructuralParameters')
-    DictSimulaParam = J.get(t, '.SimulationParameters')
-
-    ListeLoading = SJ.TranslateNumpyLoadingVector2AsterList(t, LoadVector)
-    
-
-    RAMPE = DEFI_FONCTION(NOM_PARA = 'INST',
-                          VALE = (0.0,0.0,1.0,1.0),
-                          PROL_DROITE = 'CONSTANT',
-                          PROL_GAUCHE = 'CONSTANT',
-                          INTERPOL = 'LIN'
-                          );
-
-
-    Cfd = AFFE_CHAR_MECA(MODELE = kwargs['MODELE'],
-                         ROTATION = _F(VITESSE = RPM, 
-                                       AXE = DictStructParam['RotatingProperties']['AxeRotation'] , 
-                                       CENTRE = DictStructParam['RotatingProperties']['RotationCenter'],),
-                         DDL_IMPO = _F(GROUP_NO='Node_Encastrement',
-                                           DX=0.0,
-                                           DY=0.0,
-                                           DZ=0.0,),
-                         FORCE_NODALE =  ListeLoading,
-                         );
-
-
-    L_INST = DEFI_LIST_REEL(DEBUT = 0.0,
-                            INTERVALLE = (_F(JUSQU_A = 1.0,
-                                             NOMBRE = DictSimulaParam['IntegrationProperties']['StaticSteps'][0],),
-                                           ),
-                            );
-
-
-    SOLU = STAT_NON_LINE(MODELE = kwargs['MODELE'],
-                         CHAM_MATER = kwargs['CHMAT'],
-                         EXCIT =( _F( CHARGE = Cfd,
-                                      FONC_MULT=RAMPE,),), 
-                         COMPORTEMENT = _F(RELATION = 'ELAS',
-                                           DEFORMATION =DictStructParam['MaterialProperties']['TyDef'], 
-                                           TOUT = 'OUI',
-                                          ),
-                         CONVERGENCE=_F(RESI_GLOB_MAXI=2e-6,
-                                        RESI_GLOB_RELA=1e-4,
-                                        ITER_GLOB_MAXI=1000,
-                                        ARRET = 'OUI',),
-                         INCREMENT = _F( LIST_INST = L_INST,
-                                        ),
-                         INFO = 1,               
-                        ),
-
-
-
-    UpFromOmegaAndFe = SM.ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, **dict(SOLU = SOLU))
-
-    SJ.DestroyAsterObjects(dict(**dict(Cfd = Cfd, SOLU= SOLU, RAMPE = RAMPE, L_INST = L_INST)),  
-                           DetrVars = ['Cfd', 'SOLU', 'RAMPE', 'L_INST',
-                                      ])
-
-    
-    return  UpFromOmegaAndFe
+#    return  UpFromOmegaAndFe
 
 def ComputeMatrULambda4ICE(t, RPM, **kwargs):
 
@@ -130,11 +131,11 @@ def ComputeMatrULambda4ICE(t, RPM, **kwargs):
             f1 = np.dot(PHI[: , i],  lambda_vect[i])
             f2 = -1. * f1 
             
-            MatrUpLambda[:, count] = ComputeStaticU4GivenLoading(t, RPM, f1, **kwargs)
+            MatrUpLambda[:, count],_ = SM.ComputeStaticU4GivenLoading(t, RPM, f1, **kwargs)
             MatrFLambda[:, count] = f1
             count += 1
             print(FAIL + 'Counter: %s/%s'%(count+1, lenQ) +ENDC)
-            MatrUpLambda[:, count] = ComputeStaticU4GivenLoading(t, RPM, f2, **kwargs)
+            MatrUpLambda[:, count],_ = SM.ComputeStaticU4GivenLoading(t, RPM, f2, **kwargs)
             MatrFLambda[:, count] = f2
          
          # Combinaison de deux modes   
@@ -147,15 +148,15 @@ def ComputeMatrULambda4ICE(t, RPM, **kwargs):
                 f4 = -1 *(PHI[:,i] * lambda_vect[i]) - PHI[: , j] * lambda_vect[j]
                 f5 = PHI[:,i] * lambda_vect[i] - PHI[: , j] * lambda_vect[j]
  
-                MatrUpLambda[:, count] = ComputeStaticU4GivenLoading(t, RPM, f3, **kwargs)
+                MatrUpLambda[:, count],_ = SM.ComputeStaticU4GivenLoading(t, RPM, f3, **kwargs)
                 MatrFLambda[:, count] = f3
                 count += 1
                 print(FAIL + 'Counter: %s/%s'%(count+1, lenQ) +ENDC)
-                MatrUpLambda[:, count] = ComputeStaticU4GivenLoading(t, RPM, f4, **kwargs)
+                MatrUpLambda[:, count],_ = SM.ComputeStaticU4GivenLoading(t, RPM, f4, **kwargs)
                 MatrFLambda[:, count] = f4
                 count += 1
                 print(FAIL + 'Counter: %s/%s'%(count+1, lenQ) +ENDC)
-                MatrUpLambda[:, count] = ComputeStaticU4GivenLoading(t, RPM, f5, **kwargs)
+                MatrUpLambda[:, count],_ = SM.ComputeStaticU4GivenLoading(t, RPM, f5, **kwargs)
                 MatrFLambda[:, count] = f5
              
                        
@@ -169,7 +170,7 @@ def ComputeMatrULambda4ICE(t, RPM, **kwargs):
                     print(FAIL + 'Counter: %s/%s'%(count+1, lenQ) +ENDC)
                     f6 = PHI[:,i] * lambda_vect[i] + PHI[: , j] * lambda_vect[j] + PHI[: , k] * lambda_vect[k]   
                     MatrFLambda[:, count] = f6              
-                    MatrUpLambda[:, count] = ComputeStaticU4GivenLoading(t, RPM, f6, **kwargs)
+                    MatrUpLambda[:, count],_ = SM.ComputeStaticU4GivenLoading(t, RPM, f6, **kwargs)
         
 
         # Compute rotating matrix to substract from MatrUpLambda:
@@ -425,7 +426,7 @@ def CalcFnl_IC(Beta,Gamma,qvect):
     return fnl_IC
         
 
-def CalcKnl_IC_kl(Beta,Gamma,qvect,k,l):
+def OldCalcKnl_IC_kl(Beta,Gamma,qvect,k,l):
     ''' Function computing the term of the line k and the column l of the matrix derivative of the projected IC non-linear forces,
     qvect is the column vector of the generalised coordinates 
         Note: 
@@ -487,6 +488,48 @@ def CalcKnl_IC_kl(Beta,Gamma,qvect,k,l):
     Knl_IC_kl = Knl_IC_kl + 3*Gamma[k,l,l,l]*q[l]**2
 
     return Knl_IC_kl
+
+def CalcKnl_IC_kl(Beta,Gamma,qvect,k,l):
+    ''' Function computing the term of the line k and the column l of the matrix derivative of the projected IC non-linear forces,
+    qvect is the column vector of the generalised coordinates '''
+
+    Knl2_IC_kl = 0
+    Knl3_IC_kl = 0
+    nq = np.shape(qvect)[0]
+
+    q =  qvect.ravel()
+
+    # derivatives of the quadratic terms ========================
+    for i in range(nq):
+        if i < l:
+            Knl2_IC_kl += Beta[k,i,l]*q[i]
+        elif i == l :
+            Knl2_IC_kl += 2.*Beta[k,l,l]*q[l]
+        else:  # i > l
+            Knl2_IC_kl += Beta[k,l,i]*q[i]
+    
+    # derivatives of the cubic terms ============================
+    for i in range(nq):
+        for j in range(nq):
+            if j < l:
+                Knl3_IC_kl += Gamma[k,i,j,l]*q[i]*q[j]
+            elif j == l:
+                if i < l:
+                    Knl3_IC_kl += 2.*Gamma[k,i,l,l]*q[i]*q[j]
+                elif i == l:
+                    Knl3_IC_kl += 3.*Gamma[k,l,l,l]*q[i]*q[j]
+            else:  # j > l
+                if i < l:
+                    Knl3_IC_kl += Gamma[k,i,l,j]*q[i]*q[j]
+                elif i == l:
+                    Knl3_IC_kl += 2.*Gamma[k,l,l,j]*q[i]*q[j]
+                else: # i > l
+                    Knl3_IC_kl += Gamma[k,l,i,j]*q[i]*q[j]
+
+    Knl_kl = Knl2_IC_kl + Knl3_IC_kl
+
+    return Knl_kl
+
 
 
 def CalcKNLproj_IC(Beta,Gamma,q):

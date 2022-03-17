@@ -64,38 +64,41 @@ def CreateNewSolutionFromNdArray(t, FieldDataArray = [], ZoneName=[],
     NewZones = []
 
     FieldDataArray = SM.ListXYZFromVectFull(t, FieldDataArray)
-
+    
     for InitMesh in I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t'):
         
         Type_Element = InitMesh[0][12:]
         NewZoneName = ZoneName + '_'+Type_Element
         NewZone = I.getNodeFromNameAndType(t, NewZoneName, 'Zone_t')
 
-        Position = J.getVars(NewZone, ['NodesPosition'])
-        Position[:] = DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']
         
 
-        if NewZone is None:
-
+        if (NewZone is None):
+            
             NewZone = I.copyTree(InitMesh)
             NewZone[0] = NewZoneName 
             #J._invokeFields(NewZone, ['NodesPosition'])
-            
+
+        Position = J.getVars(NewZone, ['NodesPosition'])
+        Position[:] = DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']
+
+
+        if  'U' in FieldName:
             XCoord, YCoord, ZCoord = J.getxyz(NewZone)
-    
-    
             
             FieldCoordX = np.array(FieldDataArray[0][Position])
             FieldCoordY = np.array(FieldDataArray[1][Position])
             FieldCoordZ = np.array(FieldDataArray[2][Position])
-        
-            print(FieldCoordX)
-
+            
+            #print(FieldDataArray)
             XCoord[:] = XCoord + FieldCoordX
             YCoord[:] = YCoord + FieldCoordY
             ZCoord[:] = ZCoord + FieldCoordZ
 
+        
+
         FieldVarsName = FieldVarsName4Zone(t, FieldName, Type_Element)
+        #print(FieldVarsName)
         Vars = J.invokeFields(NewZone, FieldVarsName)
         for Var, pos in zip(Vars, range(len(Vars))):   
 
@@ -133,7 +136,7 @@ def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
         
         Type_Element = InitMesh[0][12:]
         NewZoneName = ZoneName + '_'+Type_Element
-
+       
         NewZone = I.getNodeFromNameAndType(t,NewZoneName, 'Zone_t')
         
         
@@ -168,16 +171,26 @@ def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
         for Var, pos in zip(Vars, range(len(Vars))):
             Var[:] = FieldData[pos][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]
 
-        if FieldName == 'Us':
-            FieldVarsName = FieldVarsName4Zone(t, 'Up', Type_Element)
-            Vars2 = J.invokeFields(NewZone, FieldVarsName)
-            for Var2, pos in zip(Vars2, range(len(Vars2))):            
-                Var2[:] = FieldData[pos][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]
+        #if FieldName == 'Us':
+        #    FieldVarsName = FieldVarsName4Zone(t, 'Up', Type_Element)
+        #    Vars2 = J.invokeFields(NewZone, FieldVarsName)
+        #    for Var2, pos in zip(Vars2, range(len(Vars2))):            
+        #        Var2[:] = FieldData[pos][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]
 
         NewZones.append(NewZone)
 
     return NewZones 
 
+def BuildDDLVector(DictStructParam):
+        DDLNames = DictStructParam['MeshProperties']['Transformations']['VectDDLNames'].split('.')
+
+        DDLNum  = DictStructParam['MeshProperties']['Transformations']['VectDDLNum']
+        VectDDLNodes = []
+        for pos in DDLNum:
+            VectDDLNodes.append('%s'%DDLNames[pos])  
+        VectDDLNodes = np.split(VectDDLNodes, DictStructParam['MeshProperties']['Transformations']['FOM2XYZ'][1:])
+        
+        return VectDDLNodes
 
 def getNameSufix(t):
     DictStructParam = J.get(t, '.StructuralParameters')
@@ -188,13 +201,21 @@ def getNameSufix(t):
 
     return sufix
 
-def SaveModel(t, MName):
+def SaveModel(t, MName, Modes = False, StatRotation = False, fmt = 'cgns'):
 
     #FOMName += getNameSufix(t)
+    if not Modes:
+        I._rmNodesByName(t,'ModalBases')
+    
+    if not StatRotation:
+        I._rmNodesByName(t,'StaticRotatorySolution')
 
-    C.convertPyTree2File(t, MName + '.cgns', 'bin_adf')
-    #C.convertPyTree2File(t, MName + '.tp')
-
+    if fmt == 'cgns':
+        C.convertPyTree2File(t, MName + '.cgns', 'bin_adf')
+        #C.convertPyTree2File(t, MName + '.tp')
+    elif fmt == 'tp':
+        C.convertPyTree2File(t, MName + '.tp', 'bin_tp')
+        
     return t
 
 
@@ -206,9 +227,9 @@ def getVectorFromCGNS(t, VectorName, RPM):
     DictVector = J.get(t, '.AssembledVectors')
     return DictVector[str(np.round(RPM,2))+'RPM'][VectorName]
 
-def getUsVectorFromCGNS(t, RPM):
-    VectNode = I.getNodeByName(t, 'U_sta%s'%np.round(RPM,2))
-    return J.getVars(VectNode, ['Usx', 'Usy', 'Usz'])
+#def getUsVectorFromCGNS(t, RPM):
+#    VectNode = I.getNodeByName(t, 'U_sta%s'%np.round(RPM,2))
+#    return J.getVars(VectNode, ['Usx', 'Usy', 'Usz'])
 
 #def getPHIBaseFromCGNS(t, MatrixName, RPM): #TODO!!!
     #DictMatrices = J.get(t, '.AssembledMatrices')
@@ -390,7 +411,7 @@ def ExtrMatrixFromAster2Python(MATRICE, **kwargs):
     return MatricePy, ii
 
 def AffectImpoDDLByGroupType(t):
-    """Affect les ddl de blocage en fonction du type de famille predefinie (encastrement, rotule batement...)"""
+    """Affect les ddl de blocage en fonction du type de famille predefinie (encastrement, rotule battement...)"""
     affe_impo = []
     DictStructParam = J.get(t, '.StructuralParameters')
     
@@ -398,7 +419,7 @@ def AffectImpoDDLByGroupType(t):
         if gno == 'Node_Encastrement':
             affe_impo.append(_F(GROUP_NO = gno, DX = 0.0, DY = 0.0, DZ = 0.0))
 
-        if gno  == 'Rotule_Batement':
+        if (gno  == 'Rotule_Battement') or (gno  == 'Rotule_Batement'):
             affe_impo.append(_F(GROUP_NO = gno, DX = 0.0, DY = 0.0, DZ = 0.0, DRX = 0.0, DRZ = 0.0))
         
     return affe_impo
@@ -414,9 +435,8 @@ def DestroyAsterObjects(AsterObjectsDictionnary, DetrVars = []):
     '''Function to erase the aster objects from the memory Jeveux'''
 
     for AsName in AsterObjectsDictionnary.keys():
-
-        if AsName in DetrVars:
-
+        if (AsName in DetrVars) and (AsterObjectsDictionnary[AsName] is not None):
+            print(FAIL+'Destroying %s...'%AsName+ENDC)
             DETRUIRE(CONCEPT = _F(NOM = AsterObjectsDictionnary[AsName]))
 
 def BuildMatrixFromComponents(t, Name, Components):
@@ -990,12 +1010,12 @@ def SolutionFromRotatoryFrame(t, Solution):
 
         RPM = float(RPMKey[:-3])
         
-        try:
-            UsVect = getUsVectorFromCGNS(t, RPM)
-            UsVectFull = VectorXYZ2FullDimension(t, UsVect)
-        except:
-            print(WARN+'Us vector nor present in the tree within a Zone_t'+ENDC)
-            UsVectFull = getVectorFromCGNS(t, 'Us', RPM)
+        #try:
+        #    UsVect = getUsVectorFromCGNS(t, RPM)
+        #    UsVectFull = VectorXYZ2FullDimension(t, UsVect)
+        #except:
+        #    print(WARN+'Us vector not present in the tree within a Zone_t'+ENDC)
+        UsVectFull = getVectorFromCGNS(t, 'Us', RPM)
 
        
         for FcoeffKey in Solution[RPMKey].keys():
@@ -1018,7 +1038,11 @@ def TranslateNumpyLoadingVector2AsterList(t, LoadVector):
     
     DictStructParam = J.get(t, '.StructuralParameters')
     
-    n_enc =  DictStructParam['MeshProperties']['NodesFamilies']['Node_Encastrement']
+    try:
+        n_enc =  DictStructParam['MeshProperties']['NodesFamilies']['Node_Encastrement']
+    except: 
+        print(WARN+'Node_Encastrement not found!'+ENDC)
+        n_enc = []
 
     l_prepa = [] 
     for n in range(DictStructParam['MeshProperties']['NNodes'][0]):
@@ -1101,10 +1125,10 @@ def BuildExterForcesShapeVectorAndLoadingTypeVector(t, FOM = False):
         if not FOM:
             PHI = GetReducedBaseFromCGNS(t, RPMValue)
     
-            DictOfLoading['ShapeFunctionProj'][str(int(RPMValue))+'RPM'] = (PHI.T).dot(DictOfLoading['ShapeFunction'])
+            DictOfLoading['ShapeFunctionProj'][str(np.round(RPMValue,2))+'RPM'] = (PHI.T).dot(DictOfLoading['ShapeFunction'])
     
         else:
-            DictOfLoading['ShapeFunctionProj'][str(int(RPMValue))+'RPM'] = DictOfLoading['ShapeFunction']
+            DictOfLoading['ShapeFunctionProj'][str(np.round(RPMValue,2))+'RPM'] = DictOfLoading['ShapeFunction']
             
     DictSimulaParam['LoadingProperties']['ExternalForcesVector'] = dict(**DictOfLoading)
 
@@ -1116,8 +1140,8 @@ def BuildExterForcesShapeVectorAndLoadingTypeVector(t, FOM = False):
 def ComputeLoadingFromTimeOrIncrement(t, RPM, TimeIncr):
 
     DictSimulaParam = J.get(t, '.SimulationParameters')
-    LoadingVector = DictSimulaParam['LoadingProperties']['ExternalForcesVector']['TimeFuntionVector'][TimeIncr] * DictSimulaParam['LoadingProperties']['ExternalForcesVector']['ShapeFunctionProj'][str(int(RPM))+'RPM'] * DictSimulaParam['LoadingProperties']['ExternalForcesVector']['Fmax']
-
+    LoadingVector = DictSimulaParam['LoadingProperties']['ExternalForcesVector']['TimeFuntionVector'][TimeIncr] * DictSimulaParam['LoadingProperties']['ExternalForcesVector']['ShapeFunctionProj'][str(np.round(RPM,2))+'RPM'] * DictSimulaParam['LoadingProperties']['ExternalForcesVector']['Fmax']
+    
     return LoadingVector
 
 
@@ -1129,61 +1153,85 @@ def ComputeSolutionCGNS(t, Solution):
     J.set(tSol, '.Solution', **Solution)
     
     try:
-        MaxIt = range(len(Solution[list(Solution.keys())[0]][list(Solution[list(Solution.keys())[0]].keys())[0]]['Displacement'][0,:]))
+        MaxIt = range(np.shape(Solution[list(Solution.keys())[0]][list(Solution[list(Solution.keys())[0]].keys())[0]]['Displacement'])[1])
         Matrice = True
     except:
-        MaxIt = range(len(Solution[list(Solution.keys())[0]][list(Solution[list(Solution.keys())[0]].keys())[0]]['Displacement'][:]))
+        MaxIt = range(1)
         Matrice = False
 
-    #MaxIt = range(calc)
-        
+
     for Iteration in MaxIt:
         NewBase = I.newCGNSBase()
-        NewBase[0] = 'Iteration%s'%Iteration
+        NewBase[0] = 'Iteration%s'%(Iteration+1)
         
-
         for RPMKey in Solution.keys():
-            for FcoeffKey in Solution[RPMKey].keys():
+            for FcoeffKey, pos in zip(Solution[RPMKey].keys(), range(len(Solution[RPMKey].keys()))):
                 
-                ZoneName = 'It%s_'%Iteration + RPMKey +'_'+ FcoeffKey
-                
-                if Matrice:
-                    NewZone, _ = CreateNewSolutionFromNdArray(t, FieldDataArray = [Solution[RPMKey][FcoeffKey]['UpDisplacement'][::DictStructParam['MeshProperties']['ddlElem'][0],Iteration], Solution[RPMKey][FcoeffKey]['UpDisplacement'][1::DictStructParam['MeshProperties']['ddlElem'][0],Iteration], Solution[RPMKey][FcoeffKey]['UpDisplacement'][2::DictStructParam['MeshProperties']['ddlElem'][0],Iteration]],
-                                        ZoneName=ZoneName,
-                                        FieldNames = ['Upx', 'Upy', 'Upz'],
-                                        Depl = True,
-                                        DefByField = None)
-                else:
-                    NewZone, _ = CreateNewSolutionFromNdArray(t, FieldDataArray = [Solution[RPMKey][FcoeffKey]['UpDisplacement'][::DictStructParam['MeshProperties']['ddlElem'][0]], Solution[RPMKey][FcoeffKey]['UpDisplacement'][1::DictStructParam['MeshProperties']['ddlElem'][0]], Solution[RPMKey][FcoeffKey]['UpDisplacement'][2::DictStructParam['MeshProperties']['ddlElem'][0]]],
-                                        ZoneName=ZoneName,
-                                        FieldNames = ['Upx', 'Upy', 'Upz'],
-                                        Depl = True,
-                                        DefByField = None)
-
-                VarNames = ['Ux', 'Uy', 'Uz', 'fnlX','fnlY','fnlZ', 'fextX','fextY','fextZ', 'Vx', 'Vy', 'Vz', 'Ax', 'Ay', 'Az']
-                SolNames = ['Displacement', 'fnlFull', 'fextFull', 'Velocity', 'Acceleration']
-                Vars = J.invokeFields(NewZone, VarNames)
-                
-                if len(Solution[RPMKey][FcoeffKey].keys()) > 7:
-                    LenVars = len(SolNames)
-                else:
-                    LenVars = len(SolNames) - 2
+                ZoneName = RPMKey +'_'+ FcoeffKey
                 
                 if Matrice:
-                    for Sol, loc in zip(SolNames, range(LenVars)):
-        
-                        Vars[DictStructParam['MeshProperties']['ddlElem'][0]*loc][:]    = Solution[RPMKey][FcoeffKey][SolNames[loc]][::DictStructParam['MeshProperties']['ddlElem'][0],Iteration]
-                        Vars[DictStructParam['MeshProperties']['ddlElem'][0]*loc +1][:] = Solution[RPMKey][FcoeffKey][SolNames[loc]][1::DictStructParam['MeshProperties']['ddlElem'][0],Iteration]
-                        Vars[DictStructParam['MeshProperties']['ddlElem'][0]*loc +2][:] = Solution[RPMKey][FcoeffKey][SolNames[loc]][2::DictStructParam['MeshProperties']['ddlElem'][0],Iteration]
-                else:
-                    for Sol, loc in zip(SolNames, range(LenVars)):
-        
-                        Vars[DictStructParam['MeshProperties']['ddlElem'][0]*loc][:]    = Solution[RPMKey][FcoeffKey][SolNames[loc]][::DictStructParam['MeshProperties']['ddlElem'][0]]
-                        Vars[DictStructParam['MeshProperties']['ddlElem'][0]*loc +1][:] = Solution[RPMKey][FcoeffKey][SolNames[loc]][1::DictStructParam['MeshProperties']['ddlElem'][0]]
-                        Vars[DictStructParam['MeshProperties']['ddlElem'][0]*loc +2][:] = Solution[RPMKey][FcoeffKey][SolNames[loc]][2::DictStructParam['MeshProperties']['ddlElem'][0]]
                     
-                I._addChild(NewBase, NewZone)
+                    NewZones = CreateNewSolutionFromNdArray(t, FieldDataArray = [Solution[RPMKey][FcoeffKey]['UpDisplacement'][:,Iteration]],
+                                        ZoneName=ZoneName,
+                                        FieldName = 'Up',
+                                        )
+                                        
+                else:
+                    NewZones = CreateNewSolutionFromNdArray(t, FieldDataArray = [Solution[RPMKey][FcoeffKey]['UpDisplacement']],
+                                        ZoneName=ZoneName,
+                                        FieldName = 'Up'
+                                        )
+
+                VarNames = ['Up','U','fnl','fext', 'V', 'A']
+                SolNames = ['UpDisplacement','Displacement', 'fnlFull', 'fextFull', 'Velocity', 'Acceleration']
+                
+                for NewZone in NewZones:
+                    for SolName, VarN in zip(SolNames, VarNames):
+
+                        Type_Element = NewZone[0].split('_')[-1] 
+                        try:
+                            try:  
+                                ListXYZ = SM.ListXYZFromVectFull(t, [Solution[RPMKey][FcoeffKey][SolName][:,Iteration]])
+                            except:
+                                ListXYZ = SM.ListXYZFromVectFull(t, [Solution[RPMKey][FcoeffKey][SolName]])
+                            FieldVarsName = FieldVarsName4Zone(t, VarN, Type_Element)
+                            Vars = J.invokeFields(NewZone, FieldVarsName)
+
+                            for Var, pos in zip(Vars, range(len(Vars))):
+                                Var[:] = ListXYZ[pos][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]
+
+                        except:
+                            print(WARN+'%s not found in SolutionDict...'%SolName +ENDC )
+                            
+                        
+                        
+
+
+
+#                Zones = []
+#                for NewZone in NewZones:
+#                #print(NewZone)
+#                    
+#                    Vars = J.invokeFields(NewZone, VarNames)
+#                
+#                    if len(Solution[RPMKey][FcoeffKey].keys()) > 7:
+#                        LenVars = len(SolNames)
+#                    else:
+#                        LenVars = len(SolNames) - 2
+#
+#                    if Matrice:
+#                        for Sol, loc in zip(SolNames, range(LenVars)):
+#                        
+#                            Vars[loc] = Solution[RPMKey][FcoeffKey][SolNames[loc]][:,Iteration]
+#                            
+#                    else:
+#                        for Sol, loc in zip(SolNames, range(LenVars)):
+#                        
+#                            Vars[loc] = Solution[RPMKey][FcoeffKey][SolNames[loc]]
+#                            
+#
+                    I._addChild(NewBase, NewZone)
     
-        I._addChild(tSol, NewBase)
+                I._addChild(tSol, NewBase)
     
     return tSol 

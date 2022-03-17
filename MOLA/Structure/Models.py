@@ -410,7 +410,8 @@ def ModifySolidCGNS2Mesh(t):
                 #print(ConectivityE)
                 DictElements['GroupOfElements'][ElemName]['Conectivity'] = ConectivityE 
                 Base = CreateUnstructuredZone4ElemenType(Base, DictElements, ElemName)
-                
+        
+
                 #print(DictElements['GroupOfElements'])
         #Base = CreateUnstructuredZone4ElemenType(Base, DictElements, Nelem)
                 #print(DictElements['GroupOfElements'][ElemName])
@@ -554,6 +555,9 @@ def ModifySolidCGNS2Mesh(t):
     #C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.tp', 'bin_tp')
     #C.convertPyTree2File(t,'/scratchm/mbalmase/Spiro/3_Update4MOLA/CouplingWF_NewMOLA/Test1.tp', 'bin_tp')
     
+
+
+
     return t
 
 
@@ -643,7 +647,9 @@ def DefineMaterials(t, Mesh):
     
 
     CHMAT = AffectMaterialFromMaterialDictionary(MaterialDict, Mesh)
-
+    
+       
+        
     return CHMAT, Ms
 
 def DefineElementalCaracteristics(t, Mesh, Model):
@@ -662,11 +668,12 @@ def DefineElementalCaracteristics(t, Mesh, Model):
     #print(DictCaracteristics)
     if DictCaracteristics is not None:
         for caraKey in DictCaracteristics.keys():
-    
+            
             if DictCaracteristics[caraKey]['KeyWord'] == 'POUTRE':
+                
                 affe_Poutre.append(_F(SECTION = DictCaracteristics[caraKey]['SectionType'], 
                                       VARI_SECT = DictCaracteristics[caraKey]['SectionVariation'], 
-                                      CARA = DictCaracteristics[caraKey]['Properties'],
+                                      CARA = DictCaracteristics[caraKey]['Properties'].split(' '),
                                       VALE = DictCaracteristics[caraKey]['PropValues'],
                                       GROUP_MA = DictCaracteristics[caraKey]['MeshGroup']
                                       ))
@@ -716,8 +723,7 @@ def BuildFEmodel(t):
                          FORMAT = 'MED')
 
     # Affect the mecanical model to all the mesh:
-
-
+    
     MODELE = DefineFEMModels(t, MAIL)
 
     #MODELE=AFFE_MODELE(MAILLAGE=MAIL,
@@ -858,7 +864,7 @@ def AsseMatricesFOM(Type_asse, **kwargs):
         KGEO = CO('KGEO')
         FE1 = CO('FE')
         NUME = CO('NUME')
-
+        
         ASSEMBLAGE(MODELE = kwargs['MODELE'],
                CHAM_MATER = kwargs['CHMAT'],
                CARA_ELEM  = kwargs['CARELEM'],
@@ -933,7 +939,30 @@ def AsseMatricesFOM(Type_asse, **kwargs):
     #return Ke, Kg, Kc, Komeg, C, M, Fe, P_Lagr, AsterObjs
     return DictMatrices, DictVectors, P_Lagr, AsterObjs
 
+def DefineBehaviourLaws(t):
+    '''Affect several BehaviourLaws defined in ModelsDict to the corresponding meshes'''
+    
+    DictStructParam = J.get(t, '.StructuralParameters')
 
+    ModelDict = DictStructParam['MeshProperties']['Models']
+
+    l_Behaviour = []
+    for LocModelName in ModelDict.keys():
+
+        if ModelDict[LocModelName]['Strains'] == 'Green':
+            Ty_Def = 'PETIT'
+        elif ModelDict[LocModelName]['Strains'] == 'Green-Lagrange':
+            Ty_Def = 'GROT_GDEP'
+
+        if ModelDict[LocModelName]['MeshGroup'] == 'All':
+            ap = _F(TOUT = 'OUI', RELATION = ModelDict[LocModelName]['BehaviourLaw'], DEFORMATION = Ty_Def)           
+        else:
+            ap = _F(RELATION = ModelDict[LocModelName]['BehaviourLaw'], DEFORMATION = Ty_Def , GROUP_MA = ModelDict[LocModelName]['MeshGroup'])
+        l_Behaviour.append(ap)
+         
+        print(GREEN+'Affecting %s behaviour to %s mesh groups.'%(LocModelName, ModelDict[LocModelName]['MeshGroup'])+ENDC)
+
+    return l_Behaviour
 
 
 def ComputeMatricesFOM(t, RPM, **kwargs): 
@@ -945,12 +974,12 @@ def ComputeMatricesFOM(t, RPM, **kwargs):
     DictStructParam = J.get(t, '.StructuralParameters')
     DictSimulaParam = J.get(t, '.SimulationParameters')
 
-    if DictStructParam['MaterialProperties']['BehaviourLaw'] == 'Green':
-        DictStructParam['MaterialProperties']['TyDef'] = 'PETIT'
-        sufix = '_L'
-    elif DictStructParam['MaterialProperties']['BehaviourLaw'] == 'Green-Lagrange':
-        DictStructParam['MaterialProperties']['TyDef'] = 'GROT_GDEP'
-        sufix = '_NL'
+    #if DictStructParam['MaterialProperties']['BehaviourLaw'] == 'Green':
+    #    DictStructParam['MaterialProperties']['TyDef'] = 'PETIT'
+    #    sufix = '_L'
+    #elif DictStructParam['MaterialProperties']['BehaviourLaw'] == 'Green-Lagrange':
+    #    DictStructParam['MaterialProperties']['TyDef'] = 'GROT_GDEP'
+    #    sufix = '_NL'
 
     J.set(t, '.StructuralParameters', **DictStructParam)
 
@@ -985,10 +1014,7 @@ def ComputeMatricesFOM(t, RPM, **kwargs):
                          CARA_ELEM = kwargs['CARELEM'], 
                          EXCIT =( _F(CHARGE = Cfd,
                                      FONC_MULT=RAMPE,),), 
-                         COMPORTEMENT = _F(RELATION = 'ELAS',
-                                         DEFORMATION = DictStructParam['MaterialProperties']['TyDef'], 
-                                         TOUT = 'OUI',
-                                        ),
+                         COMPORTEMENT = DefineBehaviourLaws(t),
                          CONVERGENCE=_F(RESI_GLOB_MAXI=2e-6,
                                         RESI_GLOB_RELA=1e-4,
                                         ITER_GLOB_MAXI=1000,
@@ -1029,31 +1055,7 @@ def ComputeMatricesFOM(t, RPM, **kwargs):
 def ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, **kwargs):
     DictStructParam = J.get(t, '.StructuralParameters')
 
-    if DictStructParam['MeshProperties']['ddlElem'][0] == 3:
-
-        tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
-                                             NOM_CHAM='DEPL',
-                                             NOM_CMP= ('DX','DY','DZ'),
-                                             INST = 1.0,
-                                             TOUT = 'OUI',),
-                                   TYPE_TABLE='TABLE',
-                                   TITRE='Table_Depl_R',
-                                   )
-                        
-        # Tableau complet des deplacements, coordonnees modales,... :
-        
-        depl_sta = tstaT.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ']
-    
-        UsZone, UsField = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= depl_sta,
-                                                             ZoneName = 'U_sta'+str(np.round(RPM,2)), 
-                                                             FieldNames = ['Usx', 'Usy', 'Usz'],
-                                                             Depl = True)
-        
-        J._invokeFields(UsZone, ['upx', 'upy', 'upz', 'ux', 'uy', 'uz'])
-        upx, upy, upz = J.getVars(UsZone, ['upx', 'upy', 'upz'])
-        upx[:], upy[:], upz[:] = UsField[0], UsField[1], UsField[2] 
-
-    elif DictStructParam['MeshProperties']['ddlElem'][0] == 6:
+    try:
         tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
                                              NOM_CHAM='DEPL',
                                              NOM_CMP= ('DX','DY','DZ', 'DRX', 'DRY', 'DRZ'),
@@ -1062,31 +1064,77 @@ def ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, **kwargs):
                                    TYPE_TABLE='TABLE',
                                    TITRE='Table_Depl_R',
                                    )
-                        
-        # Tableau complet des deplacements, coordonnees modales,... :
+    except:
+        tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
+                                             NOM_CHAM='DEPL',
+                                             NOM_CMP= ('DX','DY','DZ'),
+                                             INST = 1.0,
+                                             TOUT = 'OUI',),
+                                   TYPE_TABLE='TABLE',
+                                   TITRE='Table_Depl_R',
+                                   )
+        print(WARN+'No rotation dof  (DRX, DRY, DRZ) in the model. Computing only with displacements (DX, DY, DZ).'+ENDC)
         
-        depl_sta = tstaT.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ','DRX', 'DRY', 'DRZ']
-
-        UsZone, UsField = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= depl_sta,
-                                                             ZoneName = 'U_sta'+str(np.round(RPM,2)), 
-                                                             FieldNames = ['Usx', 'Usy', 'Usz', 'Usthetax', 'Usthetay', 'Usthetaz'],
-                                                             Depl = True)
-        
-        J._invokeFields(UsZone, ['upx', 'upy', 'upz', 'ux', 'uy', 'uz', 'upthetax', 'upthetay', 'upthetaz'])
-        upx, upy, upz, upthetax, upthetay, upthetaz  = J.getVars(UsZone, ['upx', 'upy', 'upz', 'upthetax', 'upthetay', 'upthetaz'])
-        upx[:], upy[:], upz[:],upthetax[:], upthetay[:], upthetaz[:] = UsField[0], UsField[1], UsField[2], UsField[3], UsField[4], UsField[5] 
-
-
-
-
-
-    # Compute the Us vector and add it to the .AssembledVectors node:
-    DictStructParam = J.get(t, '.StructuralParameters')
-    
-    VectUpOmegaFe = np.zeros((DictStructParam['MeshProperties']['Nddl'][0]))
-    VectUpOmegaFe[::DictStructParam['MeshProperties']['ddlElem'][0]] = upx
-    VectUpOmegaFe[1::DictStructParam['MeshProperties']['ddlElem'][0]] = upy
-    VectUpOmegaFe[2::DictStructParam['MeshProperties']['ddlElem'][0]] = upz
+    VectUpOmegaFe = VectFromAsterTable2Full(tstaT)
+    print(VectUpOmegaFe[0])
+    # if DictStructParam['MeshProperties']['ddlElem'][0] == 3:
+# 
+        # tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
+                                            #  NOM_CHAM='DEPL',
+                                            #  NOM_CMP= ('DX','DY','DZ'),
+                                            #  INST = 1.0,
+                                            #  TOUT = 'OUI',),
+                                #    TYPE_TABLE='TABLE',
+                                #    TITRE='Table_Depl_R',
+                                #    )
+                        # 
+#        Tableau complet des deplacements, coordonnees modales,... :
+        # 
+        # depl_sta = tstaT.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ']
+    # 
+        # UsZone, UsField = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= depl_sta,
+                                                            #  ZoneName = 'U_sta'+str(np.round(RPM,2)), 
+                                                            #  FieldNames = ['Usx', 'Usy', 'Usz'],
+                                                            #  Depl = True)
+        # 
+        # J._invokeFields(UsZone, ['upx', 'upy', 'upz', 'ux', 'uy', 'uz'])
+        # upx, upy, upz = J.getVars(UsZone, ['upx', 'upy', 'upz'])
+        # upx[:], upy[:], upz[:] = UsField[0], UsField[1], UsField[2] 
+# 
+    # elif DictStructParam['MeshProperties']['ddlElem'][0] == 6:
+        # tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
+                                            #  NOM_CHAM='DEPL',
+                                            #  NOM_CMP= ('DX','DY','DZ', 'DRX', 'DRY', 'DRZ'),
+                                            #  INST = 1.0,
+                                            #  TOUT = 'OUI',),
+                                #    TYPE_TABLE='TABLE',
+                                #    TITRE='Table_Depl_R',
+                                #    )
+                        # 
+#        Tableau complet des deplacements, coordonnees modales,... :
+        # 
+        # depl_sta = tstaT.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ','DRX', 'DRY', 'DRZ']
+# 
+        # UsZone, UsField = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= depl_sta,
+                                                            #  ZoneName = 'U_sta'+str(np.round(RPM,2)), 
+                                                            #  FieldNames = ['Usx', 'Usy', 'Usz', 'Usthetax', 'Usthetay', 'Usthetaz'],
+                                                            #  Depl = True)
+        # 
+        # J._invokeFields(UsZone, ['upx', 'upy', 'upz', 'ux', 'uy', 'uz', 'upthetax', 'upthetay', 'upthetaz'])
+        # upx, upy, upz, upthetax, upthetay, upthetaz  = J.getVars(UsZone, ['upx', 'upy', 'upz', 'upthetax', 'upthetay', 'upthetaz'])
+        # upx[:], upy[:], upz[:],upthetax[:], upthetay[:], upthetaz[:] = UsField[0], UsField[1], UsField[2], UsField[3], UsField[4], UsField[5] 
+# 
+# 
+# 
+# 
+# 
+#    Compute the Us vector and add it to the .AssembledVectors node:
+    # DictStructParam = J.get(t, '.StructuralParameters')
+    # 
+    # VectUpOmegaFe = np.zeros((DictStructParam['MeshProperties']['Nddl'][0]))
+    # VectUpOmegaFe[::DictStructParam['MeshProperties']['ddlElem'][0]] = upx
+    # VectUpOmegaFe[1::DictStructParam['MeshProperties']['ddlElem'][0]] = upy
+    # VectUpOmegaFe[2::DictStructParam['MeshProperties']['ddlElem'][0]] = upz
 
     DETRUIRE (CONCEPT = _F (NOM = (tstaT),
                             ), 
@@ -1149,6 +1197,23 @@ def ComputeTransformationLists(t, Table):
         l_ddl.append(np.array(l_var))
     DictStructParam['MeshProperties']['Transformations'] = {}                                          
     DictStructParam['MeshProperties']['Transformations']['FOM2XYZ'] = l_SplitArray2Vars
+
+    def CalcVectDDL(ArrayStr):
+
+        VectNames = []
+        DDLNum = []
+
+        for comp in ArrayStr:
+            if comp not in VectNames:
+                VectNames.append(comp)
+
+            DDLNum.append(VectNames.index(comp))
+
+        VectNames = '.'.join(VectNames)
+        
+        return DDLNum, VectNames
+
+    DictStructParam['MeshProperties']['Transformations']['VectDDLNum'],DictStructParam['MeshProperties']['Transformations']['VectDDLNames'] = CalcVectDDL(np.array(np.concatenate(l_ddl)))
     DictStructParam['MeshProperties']['Transformations']['VectDDL'] = np.array(np.concatenate(l_ddl))
     DictStructParam['MeshProperties']['Transformations']['DDLNodes'] = np.split(np.array(np.concatenate(l_ddl)), l_SplitArray2Vars)
     J.set(t, '.StructuralParameters', **DictStructParam)
@@ -1168,6 +1233,7 @@ def VectFromAsterTable2Full(Table):
     if depl_sta == {}:
         depl_sta = Table.EXTR_TABLE()['NOEUD', 'DX', 'DY','DZ'].values()
         print(WARN+'No rotation dof  (DRX, DRY, DRZ) in the model. Computing only with displacements (DX, DY, DZ).'+ENDC)
+    
     n_ddl = 0
     l_ddl = []
     l_SplitArray2Vars = []
@@ -1183,22 +1249,19 @@ def VectFromAsterTable2Full(Table):
                     
         l_ddl.append(np.array(l_var))
         
-    
-    
-    #print(n_ddl)
-    #print(l_SplitArray2Vars)
-    #print(np.split(np.array(np.concatenate(l_ddl)), l_SplitArray2Vars))
-    #print(np.array(np.concatenate(l_ddl)))
     return np.array(np.concatenate(l_ddl))
 
 def ListXYZFromVectFull(t, VectFull):
 
     DictStructParam = J.get(t, '.StructuralParameters')
-    #print(DictStructParam['MeshProperties']['Transformations']['FOM2XYZ'])
-    VectXYZ = np.split(np.array(np.concatenate(VectFull)), DictStructParam['MeshProperties']['Transformations']['FOM2XYZ'])
-    VectDDLNodes = np.split(DictStructParam['MeshProperties']['Transformations']['VectDDL'], DictStructParam['MeshProperties']['Transformations']['FOM2XYZ'])
+    #print(DictStructParam['MeshProperties']['Transformations']['FOM2XYZ'][1:])
     
-    #print(VectDDLNodes)
+    
+    VectXYZ = np.split(np.array(np.concatenate(VectFull)), DictStructParam['MeshProperties']['Transformations']['FOM2XYZ'][1:])
+
+    VectDDLNodes = SJ.BuildDDLVector(DictStructParam)
+
+    #print(VectXYZ)
     DictXYZ = {}
     for Node in range(len(VectDDLNodes)):
         for Component, pos in zip(VectDDLNodes[Node],range(len(VectDDLNodes[Node]))):
@@ -1212,13 +1275,57 @@ def ListXYZFromVectFull(t, VectFull):
             #print(key, len(DictXYZ[key]))
             if len(DictXYZ[key]) < Node+1:
                 DictXYZ[key].append(None)
-
     ListeXYZ = []
     for key in DictXYZ.keys():
         ListeXYZ.append(np.array(DictXYZ[key]))
-
+    
     return ListeXYZ
 
+def GetAsterTableOfStaticNodalForces(**kwargs):
+    
+       
+    F_noda = CALC_CHAMP(MODELE = kwargs['MODELE'],
+                        CHAM_MATER =kwargs['CHMAT'],
+                        CARA_ELEM = kwargs['CARELEM'],
+                        INST = 1.0,
+                        RESULTAT = kwargs['SOLU'],
+                        FORCE = 'FORC_NODA'
+                        );
+        
+    # Short Way: Unvalid for some reason...
+    #GusZone,_ = SJ.CreateNewSolutionFromNdArray(t, 
+    #                                 FieldDataArray= [np.array(F_nodaX),
+    #                                                  np.array(F_nodaY),
+    #                                                  np.array(F_nodaZ)],
+    #                                 ZoneName = 'G_sta'+str(np.round(RPM)),
+    #                                 FieldNames = ['Gusx', 'Gusy', 'Gusz'], 
+    #                                 Depl = False,
+    #                                 DefByField = UsField)
+    # Long way: 
+    # CREA_TABLE --> EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ'] --> SJ.CreateNewSolutionFromAsterTable
+    
+    try:
+        tstaT2 = CREA_TABLE(RESU = _F(RESULTAT = F_noda,
+                                    NOM_CHAM = 'FORC_NODA',
+                                    NOM_CMP = ('DX','DY','DZ', 'DRX', 'DRY', 'DRZ'),
+                                    TOUT='OUI',
+                                    ),
+                        TYPE_TABLE = 'TABLE',
+                        TITRE = 'Table_Force_N',
+                        )
+    except:
+        tstaT2 = CREA_TABLE(RESU = _F(RESULTAT = F_noda,
+                                    NOM_CHAM = 'FORC_NODA',
+                                    NOM_CMP = ('DX','DY','DZ'),
+                                    TOUT='OUI',
+                                    ),
+                        TYPE_TABLE = 'TABLE',
+                        TITRE = 'Table_Force_N',
+                        )
+        print(WARN + 'Only Fx, Fy and Fz are present'+ENDC)
+    DETRUIRE(CONCEPT = _F(NOM = (F_noda)))
+
+    return tstaT2
 
 def ExtrUGStatRot(t, RPM, **kwargs):
 
@@ -1248,7 +1355,7 @@ def ExtrUGStatRot(t, RPM, **kwargs):
     t = ComputeDDLandTransfMatrixFromAsterTable(t, tstaT)
     
     UsZones = SJ.CreateNewSolutionFromAsterTable(t,FieldDataTable= tstaT,
-                                                   ZoneName = str(np.round(RPM,2))+'RPM', 
+                                                   ZoneName = '%sRPM'%np.round(RPM,2), 
                                                    FieldName = 'Us',
                                                    )
     
@@ -1364,47 +1471,8 @@ def ExtrUGStatRot(t, RPM, **kwargs):
 #        VectUsOmega[5::DictStructParam['MeshProperties']['ddlElem'][0]] = upthetaz
 #
 
-
-    F_noda = CALC_CHAMP(MODELE = kwargs['MODELE'],
-                        CHAM_MATER =kwargs['CHMAT'],
-                        INST = 1.0,
-                        RESULTAT = kwargs['SOLU'],
-                        FORCE = 'FORC_NODA'
-                        );
     
-
-
-    # Short Way: Unvalid for some reason...
-    #GusZone,_ = SJ.CreateNewSolutionFromNdArray(t, 
-    #                                 FieldDataArray= [np.array(F_nodaX),
-    #                                                  np.array(F_nodaY),
-    #                                                  np.array(F_nodaZ)],
-    #                                 ZoneName = 'G_sta'+str(np.round(RPM)),
-    #                                 FieldNames = ['Gusx', 'Gusy', 'Gusz'], 
-    #                                 Depl = False,
-    #                                 DefByField = UsField)
-    # Long way: 
-    # CREA_TABLE --> EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ'] --> SJ.CreateNewSolutionFromAsterTable
-    
-    try:
-        tstaT2 = CREA_TABLE(RESU = _F(RESULTAT = F_noda,
-                                     NOM_CHAM = 'FORC_NODA',
-                                     NOM_CMP = ('DX','DY','DZ'),
-                                     TOUT='OUI',
-                                     ),
-                           TYPE_TABLE = 'TABLE',
-                           TITRE = 'Table_Force_N',
-                           )
-    except:
-        tstaT2 = CREA_TABLE(RESU = _F(RESULTAT = F_noda,
-                                     NOM_CHAM = 'FORC_NODA',
-                                     NOM_CMP = ('DX','DY','DZ'),
-                                     TOUT='OUI',
-                                     ),
-                           TYPE_TABLE = 'TABLE',
-                           TITRE = 'Table_Force_N',
-                           )  
-
+    tstaT2 = GetAsterTableOfStaticNodalForces(**kwargs)
     # Table des forces nodales:
         
     GusZones = SJ.CreateNewSolutionFromAsterTable(t, 
@@ -1422,7 +1490,7 @@ def ExtrUGStatRot(t, RPM, **kwargs):
     I.addChild(I.getNodeFromName(t, 'StaticRotatorySolution'), FeiZones)
     
 
-    DETRUIRE (CONCEPT = _F (NOM = (tstaT, F_noda, tstaT2),
+    DETRUIRE (CONCEPT = _F (NOM = (tstaT, tstaT2),
                             ), 
               INFO = 1,
               )
@@ -1479,7 +1547,7 @@ def COMPUTE_FOMmodel(t, FOMName):
     
     t = BuildFOM(t, **SJ.merge_dicts(dict(AsterObjs = AsterObjs), dict(FOMName = FOMName)))
 
-
+    
     return t
     
 
@@ -1583,40 +1651,28 @@ def COMPUTE_ROMmodel(tFOM, ROMName):
 
 
 
-def ComputeStaFullFnl(t, **kwargs):
-
-    F_noda = CALC_CHAMP(MODELE = kwargs['MODELE'],
-                    CHAM_MATER =kwargs['CHMAT'],
-                    INST = 1.0,
-                    RESULTAT = kwargs['SOLU'],
-                    FORCE = 'FORC_NODA'
-                    );
-
-    tstaT2 = CREA_TABLE(RESU = _F(RESULTAT = F_noda,
-                                 NOM_CHAM = 'FORC_NODA',
-                                 NOM_CMP = ('DX','DY','DZ'),
-                                 TOUT='OUI',
-                                 ),
-                       TYPE_TABLE = 'TABLE',
-                       TITRE = 'Table_Force_N',
-                       )
-
-    ForceNodeTable = tstaT2.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ']
+def ComputeStaFullNodalF(t, **kwargs):
     
-    FieldCoordX = np.array(ForceNodeTable.values()['DX'][:])
-    FieldCoordY = np.array(ForceNodeTable.values()['DY'][:])
-    FieldCoordZ = np.array(ForceNodeTable.values()['DZ'][:])
-    
-    DictStructParam = J.get(t, '.StructuralParameters')
-        
-    VectFnl = np.zeros((DictStructParam['MeshProperties']['Nddl'][0]))
-    VectFnl[::3] = FieldCoordX
-    VectFnl[1::3] = FieldCoordY
-    VectFnl[2::3] = FieldCoordZ
+    tstaT2 = GetAsterTableOfStaticNodalForces(**kwargs)
 
-    DETRUIRE(CONCEPT = _F(NOM = (F_noda,tstaT2)))
+    VectNodalF = VectFromAsterTable2Full(tstaT2)
 
-    return VectFnl
+#    ForceNodeTable = tstaT2.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ']
+#    
+#    FieldCoordX = np.array(ForceNodeTable.values()['DX'][:])
+#    FieldCoordY = np.array(ForceNodeTable.values()['DY'][:])
+#    FieldCoordZ = np.array(ForceNodeTable.values()['DZ'][:])
+#    
+#    DictStructParam = J.get(t, '.StructuralParameters')
+#        
+#    VectFnl = np.zeros((DictStructParam['MeshProperties']['Nddl'][0]))
+#    VectFnl[::3] = FieldCoordX
+#    VectFnl[1::3] = FieldCoordY
+#    VectFnl[2::3] = FieldCoordZ
+
+    DETRUIRE(CONCEPT = _F(NOM = (tstaT2)))
+
+    return VectNodalF
     
     
 def ComputeStaticU4GivenLoading(t, RPM, LoadVector, **kwargs):
@@ -1637,13 +1693,10 @@ def ComputeStaticU4GivenLoading(t, RPM, LoadVector, **kwargs):
 
 
     Cfd = AFFE_CHAR_MECA(MODELE = kwargs['MODELE'],
-                         ROTATION = _F(VITESSE = RPM, 
+                         ROTATION = _F(VITESSE = np.pi * RPM/30., 
                                        AXE = DictStructParam['RotatingProperties']['AxeRotation'] , 
                                        CENTRE = DictStructParam['RotatingProperties']['RotationCenter'],),
-                         DDL_IMPO = _F(GROUP_NO='Node_Encastrement',
-                                           DX=0.0,
-                                           DY=0.0,
-                                           DZ=0.0,),
+                         DDL_IMPO=SJ.AffectImpoDDLByGroupType(t),
                          FORCE_NODALE =  ListeLoading,
                          );
 
@@ -1657,12 +1710,10 @@ def ComputeStaticU4GivenLoading(t, RPM, LoadVector, **kwargs):
 
     SOLU = STAT_NON_LINE(MODELE = kwargs['MODELE'],
                          CHAM_MATER = kwargs['CHMAT'],
+                         CARA_ELEM  = kwargs['CARELEM'],
                          EXCIT =( _F( CHARGE = Cfd,
                                       FONC_MULT=RAMPE,),), 
-                         COMPORTEMENT = _F(RELATION = 'ELAS',
-                                           DEFORMATION =DictStructParam['MaterialProperties']['TyDef'], 
-                                           TOUT = 'OUI',
-                                          ),
+                         COMPORTEMENT = DefineBehaviourLaws(t),
                          CONVERGENCE=_F(RESI_GLOB_MAXI=2e-6,
                                         RESI_GLOB_RELA=1e-4,
                                         ITER_GLOB_MAXI=1000,
@@ -1672,16 +1723,16 @@ def ComputeStaticU4GivenLoading(t, RPM, LoadVector, **kwargs):
                          INFO = 1,               
                         ),
 
-    AsterObjs = SJ.merge_dicts(kwargs, dict(Cfd= Cfd, SOLU = SOLU[0], RAMPE = RAMPE, L_INST = L_INST))
+    AsterObjs = SJ.merge_dicts(kwargs, dict(Cfd= Cfd, SOLU = SOLU, RAMPE = RAMPE, L_INST = L_INST))
 
 
     UpFromOmegaAndFe = ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, **dict(SOLU = SOLU))
     
-    GusFromOmegaAnfFe = ComputeStaFullFnl(t, **AsterObjs)
+    GusFromOmegaAnfFe = ComputeStaFullNodalF(t, **AsterObjs)
     
-
+    
     SJ.DestroyAsterObjects(dict(**dict(Cfd = Cfd, SOLU= SOLU, RAMPE = RAMPE, L_INST = L_INST)),  
                            DetrVars = ['Cfd', 'SOLU', 'RAMPE', 'L_INST',
                                       ])
-
+    
     return  UpFromOmegaAndFe, GusFromOmegaAnfFe

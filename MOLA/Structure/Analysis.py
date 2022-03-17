@@ -291,16 +291,26 @@ def StaticSolver_Newton_Raphson(t, RPM, ForceIntensityC):
 
     # Initialisation des vecteurs de sauvegarde:
     print(nincr, nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0])
-    q_Save   = np.zeros((nq, int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
-    Fnl_Save = np.zeros((nq, int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
-    Fext     = np.zeros((nq, int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
-   
+    if int(DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]) == 0:
+        q_Save   = np.zeros((nq, 1)) 
+        Fnl_Save = np.zeros((nq, 1)) 
+        Fext_Save     = np.zeros((nq, 1)) 
+    else:
+        if not nincr%int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]):
+            q_Save   = np.zeros((nq, int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+            Fnl_Save = np.zeros((nq, int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+            Fext_Save     = np.zeros((nq, int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+        else:
+            q_Save   = np.zeros((nq, 1+int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+            Fnl_Save = np.zeros((nq, 1+int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+            Fext_Save     = np.zeros((nq, 1+int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+    
     it2 =-1
     for incr in range(1,nincr+1):
         
             
         Fextproj[:,0] = ForceIntensityC * SJ.ComputeLoadingFromTimeOrIncrement(t, RPM, incr-1)
-    
+        
         Resi = np.dot(Kproj,q) + NFM.fnl_Proj(t, q, Aij, Bijm) - Fextproj
         niter=0
     
@@ -329,18 +339,17 @@ def StaticSolver_Newton_Raphson(t, RPM, ForceIntensityC):
         
         # Save the data in the matrices:
        
-        if not incr%DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]:
+        if ((not incr%DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]) or (incr == nincr)) or ((incr == nincr) and ((int(DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]) == 0))):
             print(GREEN + 'Nb iterations = %s, for increment: %s, residual =  %0.4f'%(niter, incr, norm(Resi,2))+ENDC)
             print(CYAN + 'Saving q and Fnl...'+ENDC)
         
             it2 += 1
-
+            print(q)
             q_Save[:, it2] = q.ravel()
             Fnl_Save[:, it2] = Fnlproj.ravel()
-            Fext[:, it2] = Fextproj.ravel()
+            Fext_Save[:, it2] = Fextproj.ravel()
         
-        
-    return q_Save, Fnl_Save, Fext 
+    return q_Save, Fnl_Save, Fext_Save 
 
 def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
     "Function returning the reduced static non-linear solution using the IC non-linear function"
