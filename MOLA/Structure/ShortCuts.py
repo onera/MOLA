@@ -201,13 +201,13 @@ def getNameSufix(t):
 
     return sufix
 
-def SaveModel(t, MName, Modes = False, StatRotation = False, fmt = 'cgns'):
+def SaveModel(t, MName, Modes = False, StaticRotatorySolution = False, fmt = 'cgns'):
 
     #FOMName += getNameSufix(t)
     if not Modes:
         I._rmNodesByName(t,'ModalBases')
     
-    if not StatRotation:
+    if not StaticRotatorySolution:
         I._rmNodesByName(t,'StaticRotatorySolution')
 
     if fmt == 'cgns':
@@ -1235,3 +1235,30 @@ def ComputeSolutionCGNS(t, Solution):
                 I._addChild(tSol, NewBase)
     
     return tSol 
+
+def ComputeTimeVector(t):
+
+    DictSimulaParam = J.get(t, '.SimulationParameters')
+
+    if DictSimulaParam['IntegrationProperties']['SolverType'] == 'Static':
+        print(GREEN + 'Computing the time increments for the static snalysis...'+ENDC)
+
+        L_rota = list(np.linspace(-2., 0., DictSimulaParam['IntegrationProperties']['Steps4CentrifugalForce'][0]))[:-1]
+        L_calc = list(np.linspace( 0., 1., DictSimulaParam['IntegrationProperties']['StaticSteps'][0]))
+        
+        TimeList = L_rota + L_calc
+    
+    elif DictSimulaParam['IntegrationProperties']['SolverType'] == 'Dynamic':
+    
+        pass
+
+    else:
+        print(FAIL+'Unknown SolverType!'+ENDC)
+
+    DictSimulaParam['LoadingProperties']['Time'] = TimeList
+
+    J.set(t, '.SimulationParameters', **DictSimulaParam)
+
+    return t, TimeList
+
+         

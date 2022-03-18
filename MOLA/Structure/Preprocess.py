@@ -29,25 +29,25 @@ import Converter.Internal as I
 
 
 
-def PreprocessCGNS4StructuralParameters(t, DictMaterialProperties, DictROMProperties, DictRotatingParameters, DictMeshProperties):
+def PreprocessCGNS4StructuralParameters(t, DictMaterialProperties, DictROMProperties, DictMeshProperties):
     ''' Sets the structural parameters Node from the input dictionaries'''
 
     # Set the Structural Parameters node:
     
     J.set(t,'.StructuralParameters', **dict(MaterialProperties = DictMaterialProperties, 
                                             ROMProperties = DictROMProperties, 
-                                            RotatingProperties = DictRotatingParameters,
                                             MeshProperties = DictMeshProperties,
                                             )
           )
 
-def PreprocessCGNS4SimulationParameters(t, DictLoadingProperties, DictIntegrationProperties):
+def PreprocessCGNS4SimulationParameters(t, DictLoadingProperties, DictIntegrationProperties, DictRotatingParameters):
     ''' Sets the structural parameters Node from the input dictionaries'''
 
     # Set the Structural Parameters node:
     
     J.set(t,'.SimulationParameters', **dict(LoadingProperties = DictLoadingProperties, 
                                             IntegrationProperties = DictIntegrationProperties, 
+                                            RotatingProperties = DictRotatingParameters,
                                             )
           )
 

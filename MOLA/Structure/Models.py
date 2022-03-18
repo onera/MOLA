@@ -140,9 +140,11 @@ def ModifySolidCGNS2Mesh(t):
     #print(mm.indice_noeuds)
     #print(mm.dime_maillage)
     #print(mm.ndim)
+    #print(mm.nom)
+    #print(mm.tm)
     
     #print(mm.correspondance_mailles)
-
+    
     J.set(t, '.StructuralParameters', **DictStructParam)
 
  ######################  A ADAPTER POUR D'AUTRES FEM
@@ -160,7 +162,7 @@ def ModifySolidCGNS2Mesh(t):
         Base = I.newCGNSBase('SOLID', parent=t)
 
         def CGNSElementType(NameAster):
-            
+            print('NameASter%s'%NameAster)
             if NameAster == 'POI1':
                 NameCGNS = 'NODE'
                 NodeElem = 1
@@ -170,10 +172,20 @@ def ModifySolidCGNS2Mesh(t):
                 NameCGNS = 'BAR_2'
                 NodeElem = 2
                 CellDim = 2
+            
+            elif NameAster == 'SEG3':
+                NameCGNS = 'BAR_3'
+                NodeElem = 3
+                CellDim = 1
 
             elif NameAster == 'QUAD4':
                 NameCGNS = 'QUAD_4'
                 NodeElem = 4
+                CellDim = 2
+            
+            elif NameAster == 'QUAD8':
+                NameCGNS = 'QUAD_8'
+                NodeElem = 8
                 CellDim = 2
 
             elif NameAster == 'HEXA8':
@@ -181,6 +193,11 @@ def ModifySolidCGNS2Mesh(t):
                 NodeElem = 8
                 CellDim = 3
 
+            elif NameAster == 'HEXA20':
+                NameCGNS = 'HEXA_20'
+                NodeElem = 20
+                CellDim = 3
+                
             return NameCGNS, NodeElem, CellDim
 
 #        def TranslateConnectivity2CGNS(Conectivity, NameAster):
@@ -219,36 +236,54 @@ def ModifySolidCGNS2Mesh(t):
             #    
             #    ConnectMatrix[pos, :] = Conectivity[elementPosition]
             #    ConnectMatrix = ConnectMatrix.astype(int)
-            if ElemType == 'POI1':
-                ListPos =  range(len(DictElements['GroupOfElements'][ElemType]['ListOfElem']))
-                ListElement = DictElements['GroupOfElements'][ElemType]['ListOfElem']
-                SortedElNodes = np.sort(DictElements['GroupOfElements'][ElemType]['Nodes'])
+            for Element, pos in zip(DictElements['GroupOfElements'][ElemType]['ListOfElem'], range(len(DictElements['GroupOfElements'][ElemType]['ListOfElem']))):
+                if ElemType == 'POI1':
+                    ListPos =  range(len(DictElements['GroupOfElements'][ElemType]['ListOfElem']))
+                    ListElement = DictElements['GroupOfElements'][ElemType]['ListOfElem']
+                    SortedElNodes = np.sort(DictElements['GroupOfElements'][ElemType]['Nodes'])
 
-                for Element, pos in zip(DictElements['GroupOfElements'][ElemType]['ListOfElem'], range(len(DictElements['GroupOfElements'][ElemType]['ListOfElem']))):
-                    
+
                     #print(list(SortedElNodes).index(Conectivity[pos]))
                     ConnectMatrix[pos, :] = list(SortedElNodes).index(Conectivity[pos])+1
                     ConnectMatrix = ConnectMatrix.astype(int)
-                
+
                     #ConnectMatrix[pos,:] = DictElements['M%s'%Element]['AsterConectivity']
                     #ConnectMatrix = ConnectMatrix.astype(int)
 
-                #print(DictElements['GroupOfElements'][ElemType]['Coordinates'])
-                #print(ListPos)
-                #print(ListElement)
-                #XXX
-                #print(ElNodes)
-                #print(np.sort(ElNodes))
-
-            else:
-                for Element, pos in zip(DictElements['GroupOfElements'][ElemType]['ListOfElem'], range(len(DictElements['GroupOfElements'][ElemType]['ListOfElem']))):
-                    #print('Element %s'%Element)
+                    #print(DictElements['GroupOfElements'][ElemType]['Coordinates'])
+                    #print(ListPos)
+                    #print(ListElement)
+                    #XXX
+                    #print(ElNodes)
+                    #print(np.sort(ElNodes))
+                    ConnectMatrix[pos,:] = DictElements['M%s'%Element]['AsterConectivity']
                     
+                else:
+                    #print('Element %s'%Element)
+
                     ConnectMatrix[pos,:] = DictElements['M%s'%Element]['AsterConectivity']
                     ConnectMatrix = ConnectMatrix.astype(int)
-                #print(ConnectMatrix[pos,:])
+                    #print(ConnectMatrix[pos,:])
 
-            
+            print(ConnectMatrix[0,:])
+            #XXX
+            if ElemType == 'HEXA20':
+                print(GREEN+'Adapting the order of conectivity for %s elements'%ElemType+ENDC)
+                #SwiftList[:,17:19] = [int(x - 1) for x in  [3, 4, 1, 2, 7, 8, 5, 6, 11, 12, 9, 10, 15, 16, 13, 14,19,20,17,18] ] 
+                ConnectMatrix[:,[15,18]] = ConnectMatrix[:, [18,15]]
+                ConnectMatrix[:,[-1,12]] = ConnectMatrix[:, [12,-1]]
+                ConnectMatrix[:,[14,17]] = ConnectMatrix[:, [17,14]]
+                ConnectMatrix[:,[13,16]] = ConnectMatrix[:, [16,13]]
+                
+
+                #var = np.zeros((len(DictElements['GroupOfElements'][ElemType]['ListOfElem']), 4))
+                #var[:,:] = ConnectMatrix[:,-4:]
+                #ConnectMatrix[:,-4:] = ConnectMatrix[:,12:16]
+                #ConnectMatrix[:,] = var
+                    #
+
+                
+                
             #if ElemType == 'HEXA8':
                 #print(GREEN+'Adapting the order of conectivity for %s elements'%ElemType+ENDC)
                 #ConnectMatrix = ConnectMatrix[:, [1, 2, 3, 0, 5, 6, 7, 4]]
@@ -288,12 +323,30 @@ def ModifySolidCGNS2Mesh(t):
                 DimVector = [[len(DictElements['GroupOfElements'][ElemName]['Coordinates'][:, 0]), len(DictElements['GroupOfElements'][ElemName]['Conectivity'][:,0]), 0]]
             return DimVector
 
+        def newElements(name='Elements', etype='UserDefined',
+                        econnectivity=None,
+                        erange=None, eboundary=0, parent=None):
+            """Create a new Elements node."""
+            if isinstance(etype, int): etp = etype
+            else: etp, nnodes = I.eltName2EltNo(etype)
+            print('parent: %s'%parent)
+            print(etp)
+            print(etype)
+            
+            if parent is None:
+                node = I.createNode(name, 'Elements_t', value=[etp,eboundary])
+            else: node = I.createUniqueChild(parent, name, 'Elements_t',
+                                           value=[etp,eboundary])
+            I.newDataArray('ElementConnectivity', econnectivity, parent=node)
+            #if erange is None: erange = numpy.ones(2, dtype=numpy.int32)
+            I.newPointRange('ElementRange', erange, parent=node)
+            return node
+
         def CreateUnstructuredZone4ElemenType(Base, DictElements, ElemName):
             if True: #ElemName != 'SEG2': 
               #zoneUns = I.createNode('InitialMesh_'+ElementName,ntype='Zone_t',value=np.array([[NPts, NElts,0]],dtype=np.int32,order='F'), parent= Base)
                 #print(NPts, NElts)
                 DimVector = DefineDimVectorFromElementName(DictElements, ElemName)
-                print(DimVector)
                   
                 zoneUns = I.newZone(name = 'InitialMesh_'+ElemName, zsize = DimVector  , ztype = 'Unstructured', parent= Base)
                 zt_n = I.createNode('ZoneType', ntype='ZoneType_t',parent=zoneUns)
@@ -317,15 +370,28 @@ def ModifySolidCGNS2Mesh(t):
                     print(DictElements['GroupOfElements'][ElemName]['Conectivity'].tolist())
                     print(len(DictElements['GroupOfElements'][ElemName]['Conectivity']))
                     
-                    I.newElements(name=ElemName, etype=DictElements['GroupOfElements'][ElemName]['CGNSType'].split('_')[0], econnectivity= DictElements['GroupOfElements'][ElemName]['Conectivity'][:71,:].tolist(), erange = np.array([100,202]), eboundary=0, parent =zoneUns)
+                    I.newElements(name=ElemName, etype=DictElements['GroupOfElements'][ElemName]['CGNSType'].split('_')[0], econnectivity= DictElements['GroupOfElements'][ElemName]['Conectivity'][:71,:].tolist(), erange = np.array([100,202]), eboundary=0)
                     
                     #I.createNode('ElementType', ntype='ElementType_t', value=DictElements['GroupOfElements'][ElemName]['CGNSType'], parent=aa)
                    
                 else: # ElemName == 'HEXA8':
-                    aa = I.newElements(name=ElemName, etype=DictElements['GroupOfElements'][ElemName]['CGNSType'].split('_')[0], econnectivity= np.array(DictElements['GroupOfElements'][ElemName]['Conectivity'].flatten(),dtype=np.int32,order='F'), erange = np.array([1,len(DictElements['GroupOfElements'][ElemName]['Conectivity'][:,0])]), eboundary=0, parent =zoneUns) #np.array(ConectE,dtype=np.int32,order='F'), erange = np.array([1,NElts]), eboundary=0, parent =zoneUns)
+                    print('toto%s'%DictElements['GroupOfElements'][ElemName]['CGNSType'])
+                    print(DimVector)
+                    print(ElemName)
+                    print(DictElements['GroupOfElements'][ElemName]['Conectivity'].flatten()[:20])
+                    
+                    aa = newElements(name=ElemName, etype=DictElements['GroupOfElements'][ElemName]['CGNSType'], econnectivity=np.array(DictElements['GroupOfElements'][ElemName]['Conectivity'].flatten(),dtype = np.int32, order = 'F'), erange = [1,DimVector[0][1]], parent =zoneUns)
                      #I.createNode('ElementType', ntype='ElementType_t', value=DictElements['GroupOfElements'][ElemName]['CGNSType'], parent=aa)
-            
-
+                
+                    #if ElemName == 'HEXA20':
+                    #   
+            #I.printTree(aa)
+            #I.printTree(zoneUns)
+            #I.addChild(zoneUns, aa)
+#           
+            #C.convertPyTree2File(zoneUns,'/visu/mbalmase/Recherche/9_NewCouplingTheo/Test1.tp', 'fmt_tp')
+            C.convertPyTree2File(zoneUns,'/visu/mbalmase/Recherche/9_NewCouplingTheo/Test1.cgns', 'bin_adf')
+            #FFF
 #            if ElemName == 'POI1':
 #
 #                zoneUns = C.convertArray2Node(zoneUns)
@@ -382,8 +448,7 @@ def ModifySolidCGNS2Mesh(t):
                 #print('Computing...%s'%DictElements[mm.correspondance_mailles[element]]['AsterType'])
                 DictElements[ElemName]['CGNSType'],_, CellDim = CGNSElementType(DictElements[ElemName]['AsterType'])
                 DictElements[ElemName]['AsterConectivity'] = mm.co[element] + 1
-
-
+                
                 #print(DictElements)
                 try:
                     DictElements['GroupOfElements'][DictElements[ElemName]['AsterType']]['ListOfElem'].append(int(mm.correspondance_mailles[element][1:]))
@@ -391,6 +456,7 @@ def ModifySolidCGNS2Mesh(t):
                 except:
                     DictElements['GroupOfElements'][DictElements[ElemName]['AsterType']] = {}
                     DictElements['GroupOfElements'][DictElements[ElemName]['AsterType']]['ListOfElem'] = [int(mm.correspondance_mailles[element][1:])]
+                    print(FAIL+'eltype: %s'%DictElements[ElemName]['CGNSType']+ENDC)
                     DictElements['GroupOfElements'][DictElements[ElemName]['AsterType']]['CGNSType'] = DictElements[ElemName]['CGNSType']                
                     DictElements['GroupOfElements'][DictElements[ElemName]['AsterType']]['CellDimension'] = CellDim
 
@@ -408,7 +474,10 @@ def ModifySolidCGNS2Mesh(t):
                 
                 ConectivityE  = ExtractConnectivity(mm, DictElements, ElemName)
                 #print(ConectivityE)
+                print(ConectivityE[0,:])
+                
                 DictElements['GroupOfElements'][ElemName]['Conectivity'] = ConectivityE 
+                
                 Base = CreateUnstructuredZone4ElemenType(Base, DictElements, ElemName)
         
 
@@ -553,8 +622,10 @@ def ModifySolidCGNS2Mesh(t):
     #C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.cgns', 'bin_adf')
     #C.convertPyTree2File(t,'/scratchm/mbalmase/Spiro/3_Update4MOLA/CouplingWF_NewMOLA/Test1.cgns', 'bin_adf')
     #C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Test1.tp', 'bin_tp')
-    #C.convertPyTree2File(t,'/scratchm/mbalmase/Spiro/3_Update4MOLA/CouplingWF_NewMOLA/Test1.tp', 'bin_tp')
-    
+    #I.printTree(t)
+    #C.convertPyTree2File(t,'/visu/mbalmase/Recherche/9_NewCouplingTheo/Test1.tp', 'fmt_tp')
+    #C.convertPyTree2File(t,'/visu/mbalmase/Recherche/9_NewCouplingTheo/Test1.cgns', 'bin_adf')
+    #XXX
 
 
 
@@ -626,21 +697,21 @@ def DefineMaterials(t, Mesh):
     Ms = []
     M = [None]
     
-    for LocMat, it in zip(DictStructParam['MaterialProperties']['Materials'].keys(), range(len(DictStructParam['MaterialProperties']['Materials'].keys()))):
+    for LocMat, it in zip(DictStructParam['MaterialProperties'].keys(), range(len(DictStructParam['MaterialProperties'].keys()))):
         MaterialDict[LocMat] = {}
         M.append([None])
 
-        M[it] = DEFI_MATERIAU(ELAS=_F(E= DictStructParam['MaterialProperties']['Materials'][LocMat]['E'],
-                                    NU=DictStructParam['MaterialProperties']['Materials'][LocMat]['PoissonRatio'],
-                                    RHO=DictStructParam['MaterialProperties']['Materials'][LocMat]['Rho'],
-                                    AMOR_ALPHA = DictStructParam['MaterialProperties']['Materials'][LocMat]['XiAlpha'],
-                                    AMOR_BETA =  4*np.pi*DictStructParam['MaterialProperties']['Materials'][LocMat]['Freq4Dumping']*DictStructParam['MaterialProperties']['Materials'][LocMat]['XiBeta'],
+        M[it] = DEFI_MATERIAU(ELAS=_F(E= DictStructParam['MaterialProperties'][LocMat]['E'],
+                                    NU=DictStructParam['MaterialProperties'][LocMat]['PoissonRatio'],
+                                    RHO=DictStructParam['MaterialProperties'][LocMat]['Rho'],
+                                    AMOR_ALPHA = DictStructParam['MaterialProperties'][LocMat]['XiAlpha'],
+                                    AMOR_BETA =  4*np.pi*DictStructParam['MaterialProperties'][LocMat]['Freq4Dumping']*DictStructParam['MaterialProperties'][LocMat]['XiBeta'],
                                     ),);
         
         Ms.append(M[it])
         MaterialDict[LocMat]['Properties'] = M[it]
 
-        MaterialDict[LocMat]['Mesh'] = DictStructParam['MaterialProperties']['Materials'][LocMat]['MeshGroup']
+        MaterialDict[LocMat]['Mesh'] = DictStructParam['MaterialProperties'][LocMat]['MeshGroup']
 
         #DETRUIRE(CONCEPT = _F(NOM = MAT))
 
@@ -988,8 +1059,8 @@ def ComputeMatricesFOM(t, RPM, **kwargs):
     
     Cfd = AFFE_CHAR_MECA(MODELE = kwargs['MODELE'],
                          ROTATION = _F(VITESSE = np.pi * RPM/30., 
-                                       AXE = DictStructParam['RotatingProperties']['AxeRotation'], 
-                                       CENTRE = DictStructParam['RotatingProperties']['RotationCenter'],),
+                                       AXE = DictSimulaParam['RotatingProperties']['AxeRotation'], 
+                                       CENTRE = DictSimulaParam['RotatingProperties']['RotationCenter'],),
                          DDL_IMPO=(SJ.AffectImpoDDLByGroupType(t)
                                        ),
                                 )
@@ -1005,7 +1076,7 @@ def ComputeMatricesFOM(t, RPM, **kwargs):
     
     L_INST = DEFI_LIST_REEL(DEBUT = 0.0,
                             INTERVALLE = (_F(JUSQU_A = 1.0,
-                                             NOMBRE = DictSimulaParam['IntegrationProperties']['StaticSteps'],),
+                                             NOMBRE = DictSimulaParam['IntegrationProperties']['Steps4CentrifugalForce'],),
                                           ),
                                   );
           
@@ -1076,7 +1147,7 @@ def ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, **kwargs):
         print(WARN+'No rotation dof  (DRX, DRY, DRZ) in the model. Computing only with displacements (DX, DY, DZ).'+ENDC)
         
     VectUpOmegaFe = VectFromAsterTable2Full(tstaT)
-    print(VectUpOmegaFe[0])
+    
     # if DictStructParam['MeshProperties']['ddlElem'][0] == 3:
 # 
         # tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
@@ -1506,7 +1577,7 @@ def BuildFOM(t, **kwargs):
     DictSimulaParam = J.get(t, '.SimulationParameters')
     
     ModesBase = I.createNode('ModalBases', 'CGNSBase_t')
-    for RPM in DictStructParam['RotatingProperties']['RPMs']:
+    for RPM in DictSimulaParam['RotatingProperties']['RPMs']:
     
         t, AsterObjs = ComputeMatricesFOM(t, RPM, **kwargs['AsterObjs'])
         C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Mesh.cgns', 'bin_adf')
@@ -1535,7 +1606,7 @@ def BuildFOM(t, **kwargs):
         
         
         
-    SJ.SaveModel(t, kwargs['FOMName'])
+    SJ.SaveModel(t, kwargs['FOMName'], Modes = True, StaticRotatorySolution = True)
 
     return t
 
@@ -1626,13 +1697,13 @@ def copyAssembledVectors(tFOM, tROM, RPM):
 
 def COMPUTE_ROMmodel(tFOM, ROMName):
 
-    DictStructParam = J.get(tFOM, '.StructuralParameters')
-
+    #DictStructParam = J.get(tFOM, '.StructuralParameters')
+    DictSimulaParam = J.get(tFOM, '.SimulationParameters')
 
     tROM = CreateNewROMTreeWithParametersAndBases(tFOM)
     I._addChild(tROM, I.getNodeByName(tFOM, 'SOLID'))
    
-    for RPM in DictStructParam['RotatingProperties']['RPMs']:
+    for RPM in DictSimulaParam['RotatingProperties']['RPMs']:
         
         tROM = BuildROMMatrices(tFOM, tROM, RPM)
 
@@ -1683,6 +1754,12 @@ def ComputeStaticU4GivenLoading(t, RPM, LoadVector, **kwargs):
 
     ListeLoading = SJ.TranslateNumpyLoadingVector2AsterList(t, LoadVector)
     
+    RAMPE_r = DEFI_FONCTION(NOM_PARA = 'INST',
+                            VALE = (-2.,0.,0.,1.),
+                            PROL_DROITE = 'CONSTANT',
+                            PROL_GAUCHE = 'CONSTANT',
+                            INTERPOL = 'LIN'
+                            );
 
     RAMPE = DEFI_FONCTION(NOM_PARA = 'INST',
                           VALE = (0.0,0.0,1.0,1.0),
@@ -1692,27 +1769,29 @@ def ComputeStaticU4GivenLoading(t, RPM, LoadVector, **kwargs):
                           );
 
 
-    Cfd = AFFE_CHAR_MECA(MODELE = kwargs['MODELE'],
-                         ROTATION = _F(VITESSE = np.pi * RPM/30., 
-                                       AXE = DictStructParam['RotatingProperties']['AxeRotation'] , 
-                                       CENTRE = DictStructParam['RotatingProperties']['RotationCenter'],),
+    F_ext = AFFE_CHAR_MECA(MODELE = kwargs['MODELE'],
                          DDL_IMPO=SJ.AffectImpoDDLByGroupType(t),
                          FORCE_NODALE =  ListeLoading,
                          );
 
+    F_rota = AFFE_CHAR_MECA(MODELE = kwargs['MODELE'], 
+                            ROTATION = _F(VITESSE = np.pi * RPM/30., 
+                                       AXE = DictSimulaParam['RotatingProperties']['AxeRotation'] , 
+                                       CENTRE = DictSimulaParam['RotatingProperties']['RotationCenter'],),
+                           )
 
-    L_INST = DEFI_LIST_REEL(DEBUT = 0.0,
-                            INTERVALLE = (_F(JUSQU_A = 1.0,
-                                             NOMBRE = DictSimulaParam['IntegrationProperties']['StaticSteps'][0],),
-                                           ),
+    L_INST = DEFI_LIST_REEL(VALE = SJ.ComputeTimeVector(t)[1]
                             );
 
 
     SOLU = STAT_NON_LINE(MODELE = kwargs['MODELE'],
                          CHAM_MATER = kwargs['CHMAT'],
                          CARA_ELEM  = kwargs['CARELEM'],
-                         EXCIT =( _F( CHARGE = Cfd,
-                                      FONC_MULT=RAMPE,),), 
+                         EXCIT =( _F(CHARGE = F_ext,
+                                     FONC_MULT=RAMPE,),
+                                  _F(CHARGE = F_rota,
+                                     FONC_MULT = RAMPE_r),
+                                ), 
                          COMPORTEMENT = DefineBehaviourLaws(t),
                          CONVERGENCE=_F(RESI_GLOB_MAXI=2e-6,
                                         RESI_GLOB_RELA=1e-4,
@@ -1723,7 +1802,7 @@ def ComputeStaticU4GivenLoading(t, RPM, LoadVector, **kwargs):
                          INFO = 1,               
                         ),
 
-    AsterObjs = SJ.merge_dicts(kwargs, dict(Cfd= Cfd, SOLU = SOLU, RAMPE = RAMPE, L_INST = L_INST))
+    AsterObjs = SJ.merge_dicts(kwargs, dict(SOLU = SOLU, RAMPE = RAMPE, L_INST = L_INST))
 
 
     UpFromOmegaAndFe = ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, **dict(SOLU = SOLU))
@@ -1731,8 +1810,9 @@ def ComputeStaticU4GivenLoading(t, RPM, LoadVector, **kwargs):
     GusFromOmegaAnfFe = ComputeStaFullNodalF(t, **AsterObjs)
     
     
-    SJ.DestroyAsterObjects(dict(**dict(Cfd = Cfd, SOLU= SOLU, RAMPE = RAMPE, L_INST = L_INST)),  
-                           DetrVars = ['Cfd', 'SOLU', 'RAMPE', 'L_INST',
+    SJ.DestroyAsterObjects(dict(**dict(RAMPE_r = RAMPE_r, F_rota = F_rota, F_ext = F_ext, SOLU= SOLU, RAMPE = RAMPE, L_INST = L_INST)),  
+                           DetrVars = ['RAMPE_r', 'F_rota','F_ext', 'SOLU', 'RAMPE', 'L_INST',
                                       ])
+    
     
     return  UpFromOmegaAndFe, GusFromOmegaAnfFe
