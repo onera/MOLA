@@ -483,11 +483,11 @@ def computePUMA(NBlades, Velocity, RPM, Temperature, Density,
             if ExtractVolume == "cartesian2D":
                 Ni,Nj,Nk  = 400, 1, 200
                 Lx,Ly,Lr  = 6*Rmax, 3*Rmax, 3*Rmax
-                Flowfield = G.cart((-(Lx-4.*Rmin),-1.5*Rmax*0,-1.5*Rmax),(Lx/(Ni-1),1.,Lr/(Nk-1)),(Ni,Nj,Nk))
+                Flowfield = G.cart((-(Lx-4.*Rmin),0,-1.5*Rmax),(Lx/(Ni-1),1.,Lr/(Nk-1)),(Ni,Nj,Nk))
             elif ExtractVolume == "cartesian3D":
                 Ni,Nj,Nk  = 400, 200, 200
                 Lx,Ly,Lr  = 6*Rmax, 3*Rmax, 3*Rmax
-                Flowfield = G.cart((-(Lx-4.*Rmin),-1.5*Rmax*-1.5*Rmax,-1.5*Rmax),(Lx/(Ni-1),Ly/(Nk-1),Lr/(Nk-1)),(Ni,Nj,Nk))
+                Flowfield = G.cart((-(Lx-4.*Rmin),-1.5*Rmax,-1.5*Rmax),(Lx/(Ni-1),Ly/(Nk-1),Lr/(Nk-1)),(Ni,Nj,Nk))
 
             elif ExtractVolume == "cylinder":
 
@@ -499,7 +499,7 @@ def computePUMA(NBlades, Velocity, RPM, Temperature, Density,
 
                 Flowfield = G.cylinder2((0,0,0),0.5*Rmin,1.5*Rmax,180.,-180.,Lx,DistrR, DistrTh,DistrX)
                 T._rotate(Flowfield,(0,0,0),(0,1,0),90.)
-                T._translate(Flowfield,(-Lx,0,0))
+                T._translate(Flowfield,(-(Lx-4.*Rmin),0,0))
 
             else:
                 raise AttributeError("Kind of ExtractVolume (%s) not recognized"%ExtractVolume)
