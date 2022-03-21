@@ -1850,18 +1850,6 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
 
         Omega = RPM[0]*np.pi/30.
 
-
-        # MISTAKE on ALPHA notation:
-        # phi, alphaRad = solveAlphaPhiCoupling(Velocity[0],x[0],x[1],Omega,r[i],
-        #                         np.deg2rad(TwistDeg[i]), tol=1.e-8, maxiter=100)
-        # v['phiRad'][i] = phi
-        # AoADeg[i] = np.rad2deg(alphaRad)
-        # v['VelocityAxial'][i] = Velocity[0]*np.cos(alphaRad)+x[0]
-        # v['VelocityTangential'][i] = Omega*r[i]-Velocity[0]*np.sin(alphaRad)-x[0]
-        # # Eqn. 2.7
-        # VxP = v['VelocityAxial'][i]-v['VelocityInducedAxial'][i]
-
-        # Correction Luis 26/04/2021
         v['VelocityAxial'][i] = Velocity[0]+x[0]
         v['VelocityTangential'][i] = Omega*r[i]-x[1]
         VxP = Velocity[0]
@@ -1945,7 +1933,7 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
 
         # Total circulation from Momentum theory
         # (Eqn.31)
-        GammaMom = vt * (4*np.pi*r[i]/NBlades[0])*F*np.sqrt(1+ (4*lambda_w*Rmax/(np.pi*NBlades[0]*r[i]))**2)
+        GammaMom = np.sign(Wa) * vt * (4*np.pi*r[i]/NBlades[0])*F*np.sqrt(1+ (4*lambda_w*Rmax/(np.pi*NBlades[0]*r[i]))**2)
 
         # Total circulation from Blade Element theory
         # (Eqn.16)
@@ -1953,9 +1941,6 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
 
         # Both circulations shall be equal (Eqn.32)
         Residual = GammaMom - GammaBE
-
-        # if i==0:
-        #     print('Cl=%g , AoA=%g, Mach=%g | %sphi=%g%s | Va=%g , Vt=%g'%(Cl[i],AoADeg[i],Mach[i],J.GREEN,np.rad2deg(phi),J.ENDC,v['VelocityAxial'][i],v['VelocityTangential'][i]))
 
         return Residual
 
