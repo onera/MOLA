@@ -67,7 +67,7 @@ def checkDependencies():
     print('\nVERIFICATIONS TERMINATED')
 
 
-def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None, ProcPointsLoad=100000,
+def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
                     duplicationInfos={}, blocksToRename={}, SplitBlocks=False,
                     scale=1., rotation='fromAG5', PeriodicTranslation=None):
     '''
@@ -102,19 +102,8 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None, ProcPointsLoad=100000,
         InputMeshes : :py:class:`list` of :py:class:`dict`
             User-provided data. See documentation of Preprocess.prepareMesh4ElsA
 
-        NProcs : int
-            If a positive integer is provided, then the
-            distribution of the tree (and eventually the splitting) will be done in
-            order to satisfy a total number of processors provided by this value.
-            If not provided (:py:obj:`None`) then the number of procs is automatically
-            determined using as information **ProcPointsLoad** variable.
-
-        ProcPointsLoad : int
-            this is the desired number of grid points
-            attributed to each processor. If **SplitBlocks** = :py:obj:`True`, then it is used to
-            split zones that have more points than **ProcPointsLoad**. If
-            **NProcs** = :py:obj:`None` , then **ProcPointsLoad** is used to determine
-            the **NProcs** to be used.
+        splitOptions : dict
+            All optional parameters passed to function :py:func:`MOLA.Preprocess.splitAndDistribute`
 
         duplicationInfos : dict
             User-provided data related to domain duplication.
@@ -1811,7 +1800,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
 def setBC_Walls(t, TurboConfiguration,
                     bladeFamilyNames=['BLADE', 'AUBE'],
-                    hubFamilyNames=['HUB', 'MOYEU'],
+                    hubFamilyNames=['HUB', 'SPINNER', 'MOYEU'],
                     shroudFamilyNames=['SHROUD', 'CARTER']):
     '''
     Set all the wall boundary conditions in a turbomachinery context, by making
@@ -1896,6 +1885,7 @@ def setBC_Walls(t, TurboConfiguration,
     for blade_family in bladeFamilyNames:
         for famNode in I.getNodesFromNameAndType(t, '*{}*'.format(blade_family), 'Family_t'):
             famName = I.getName(famNode)
+            if famName.endswith('Zones'): continue
             row_omega = None
             for row, rowParams in TurboConfiguration['Rows'].items():
                 if row in famName:

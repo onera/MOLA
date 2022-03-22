@@ -3802,10 +3802,11 @@ def removeEmptyOversetData(t, silent=True):
                         'FaceListDonorExtC',
                         )
 
+    print('cleaning empty chimera nodes...')
     OPL_ns = I.getNodesFromName(t,'OrphanPointList')
     for opl in OPL_ns:
         ID_node, _ = I.getParentOfNode(t, opl)
-        print(J.WARN+'removing %s'%opl[0]+J.ENDC)
+        # print(J.WARN+'removing %s'%opl[0]+J.ENDC)
         I.rmNode(t,opl)
 
     for zone in I.getZones(t):
@@ -3814,9 +3815,9 @@ def removeEmptyOversetData(t, silent=True):
             for OversetNode in OversetNodes:
                 OversetValue = OversetNode[1]
                 if OversetValue is None or len(OversetValue)==0:
-                    if not silent:
-                        STR = J.WARN, zone[0], OversetNode[0], J.ENDC
-                        print('%szone %s removing empty overset %s node%s'%STR)
+                    # if not silent:
+                    #     STR = J.WARN, zone[0], OversetNode[0], J.ENDC
+                    #     print('%szone %s removing empty overset %s node%s'%STR)
                     I.rmNode(t, OversetNode)
 
 
@@ -4057,7 +4058,8 @@ def adapt2elsA(t, InputMeshes):
         print('adapting NearMatch to elsA...')
         EP._adaptNearMatch(t)
 
-    # Optional in the general but incompatible with PyPart
+    # TODO remove this, as it is not required by elsA anymore
+    # # Optional in the general but incompatible with PyPart
     # if hasAnyPeriodicMatch(InputMeshes):
     #     print('adapting PeriodicMatch to elsA...')
     #     EP._adaptPeriodicMatch(t, clean=True)
