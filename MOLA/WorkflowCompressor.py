@@ -263,6 +263,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             provide a compatible ``OUTPUT/fields.cgns`` file to elsA (for example,
             using a previous computation result).
 
+        bladeFamilyNames : :py:class:`list` of :py:class:`str`
+            list of patterns to find families related to blades.
+
         Initialization : dict
             dictionary defining the type of initialization, using the key
             **method**. See documentation of :func:`MOLA.Preprocess.initializeFlowSolution`
