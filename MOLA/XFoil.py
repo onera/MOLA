@@ -25,8 +25,8 @@ import numpy as np
 XFOIL_EXEC = '/stck/lbernard/TOOLS/XFOIL/visio/xfoil' # to be adapted for each machine
 
 # Global variables
-PolarVariables = ['AoA','Cl', 'Cd', 'Cdp', 'Cm', 'Top_Xtr', 'Bot_Xtr']
-FoilVariables = ['Cp', 's', 'x', 'y', 'Ue_over_Vinf', 'delta1', 'theta', 'Cf', 'H', 'Hstar','P','m','K']
+PolarVariables = ['AoA', 'Cl', 'Cd', 'Cdp', 'Cm', 'Top_Xtr', 'Bot_Xtr']
+FoilVariables = ['Cp', 's', 'x', 'y', 'Ue_over_Vinf', 'delta1', 'theta', 'Cf', 'H', 'Hstar', 'P', 'm', 'K']
 translateDistributionVariable = {
     'Ue/Vinf':'Ue_over_Vinf',
     'Dstar'  :'delta1',
@@ -394,10 +394,13 @@ def computePolars(airfoilFilename, Reynolds, Mach, AoAs, Ncr=9,
             stderr = stdout = open(os.devnull, 'wb')
 
         # Launch XFoil
-        stdin  = open(stdin_fn,'r')
+        stdin = open(stdin_fn, 'r')
         proc = subprocess.call([''],
             executable=XFOIL_EXEC,
             stdin=stdin,stdout=stdout,stderr=stderr)
+        stdin.close()
+        stdout.close()
+        stderr.close()
 
         # Read polar
         AllRunFailed = True
@@ -484,7 +487,13 @@ def computePolars(airfoilFilename, Reynolds, Mach, AoAs, Ncr=9,
 
                         if storeFoilVariables:
                             CpFilename = stdin_fn.replace('stdin','Cp_Re%g_M%g_AoA%g'%(ReVec[icomp-1],MVec[icomp-1],data[jAoA,0]))
-                            dataCp = np.loadtxt(CpFilename, comments='#', unpack=True)
+                            try:
+                                dataCp = np.loadtxt(CpFilename, comments='#', unpack=True)
+                            except ValueError:
+                                with open(CpFilename,'r') as f:
+                                    while f.readline()[:1]!="#":
+                                        pass
+                                    dataCp = np.loadtxt(f, comments='#', unpack=True)
                             Results['Cp'] += [dataCp[1]]
                             foilNPts = len(dataCp[1])
 
@@ -545,7 +554,8 @@ def computePolars(airfoilFilename, Reynolds, Mach, AoAs, Ncr=9,
             Results[var] = np.array(Results[var],dtype=np.float64, order='F')
         if storeFoilVariables:
             for fvar in FoilVariables:
-                Results[fvar] = np.vstack(Results[fvar])
+                if Results[fvar]:
+                    Results[fvar] = np.vstack(Results[fvar])
 
     if removeTmpXFoilFiles:
         fileList = glob.glob('./tmpXfoil*')
