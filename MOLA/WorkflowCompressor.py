@@ -1201,8 +1201,13 @@ def computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration):
             fluxcoeff = 1.
         else:
             row = I.getValue(FamilyNode)
-            rowParams = TurboConfiguration['Rows'][row]
-            fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+            try:
+                rowParams = TurboConfiguration['Rows'][row]
+                fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+            except KeyError:
+                # since a FamilyNode does not necessarily belong to a row
+                fluxcoeff = 1.
+
         for bc in I.getNodesFromType2(zone, 'BC_t')+I.getNodesFromType2(zone, 'GridConnectivity_t'):
             FamilyNameNode = I.getNodeFromType1(bc, 'FamilyName_t')
             if FamilyNameNode is None:
@@ -1885,7 +1890,7 @@ def setBC_Walls(t, TurboConfiguration,
     for blade_family in bladeFamilyNames:
         for famNode in I.getNodesFromNameAndType(t, '*{}*'.format(blade_family), 'Family_t'):
             famName = I.getName(famNode)
-            if famName.endswith('Zones'): continue
+            if famName.startswith('F_OV_') or famName.endswith('Zones'): continue
             row_omega = None
             for row, rowParams in TurboConfiguration['Rows'].items():
                 if row in famName:
@@ -1905,6 +1910,7 @@ def setBC_Walls(t, TurboConfiguration,
     for hub_family in hubFamilyNames:
         for famNode in I.getNodesFromNameAndType(t, '*{}*'.format(hub_family), 'Family_t'):
             famName = I.getName(famNode)
+            if famName.startswith('F_OV_') or famName.endswith('Zones'): continue
             I.newFamilyBC(value='BCWallViscous', parent=famNode)
             J.set(famNode, '.Solver#BC',
                     type='walladia',
@@ -1927,6 +1933,8 @@ def setBC_Walls(t, TurboConfiguration,
     # SHROUD
     for shroud_family in shroudFamilyNames:
         for famNode in I.getNodesFromNameAndType(t, '*{}*'.format(shroud_family), 'Family_t'):
+            famName = I.getName(famNode)
+            if famName.startswith('F_OV_') or famName.endswith('Zones'): continue
             I.newFamilyBC(value='BCWallViscous', parent=famNode)
             J.set(famNode, '.Solver#BC',
                     type='walladia',

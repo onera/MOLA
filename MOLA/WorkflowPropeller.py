@@ -166,7 +166,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     WC.setBoundaryConditions(t, {}, TurboConfiguration,
                             FluidProperties, ReferenceValues)
 
-    # WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration) # TODO bug with BLADEZones
+    WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration) 
 
     AllSetupDics = dict(FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
