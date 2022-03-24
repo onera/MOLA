@@ -31,7 +31,7 @@ from . import ExtractSurfacesProcessor as ESP
 
 DEBUG = False
 
-def prepareMesh4ElsA(InputMeshes, **splitOptions):
+def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
     from user-provided instructions in form of a list of python dictionaries.
@@ -106,6 +106,9 @@ def prepareMesh4ElsA(InputMeshes, **splitOptions):
         splitOptions : dict
             All optional parameters passed to function :py:func:`splitAndDistribute`
 
+        globalOversetOptions : dict
+            All optional parameters passed to function :py:func:`addOversetData`
+
     Returns
     -------
 
@@ -124,7 +127,7 @@ def prepareMesh4ElsA(InputMeshes, **splitOptions):
     setBoundaryConditions(t, InputMeshes)
     t = splitAndDistribute(t, InputMeshes, **splitOptions)
     addFamilies(t, InputMeshes)
-    t = addOversetData(t, InputMeshes, saveMaskBodiesTree=True)
+    t = addOversetData(t, InputMeshes, **globalOversetOptions)
     adapt2elsA(t, InputMeshes)
     J.checkEmptyBC(t)
 
@@ -1287,7 +1290,7 @@ def showStatisticsAndCheckDistribution(tNew, CoresPerNode=28):
 
 def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
                    prioritiesIfOptimize=[], double_wall=0,
-                   saveMaskBodiesTree=False):
+                   saveMaskBodiesTree=True):
     '''
     This function performs all required preprocessing operations for a STATIC
     overlapping configuration. This includes masks production, setting
@@ -1374,14 +1377,9 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
         depth : int
             depth of the interpolation region.
 
-        optimizeOverlap : bool
-            if :py:obj:`True`, then applies :py:func:`Connector.PyTree.optimizeOverlap` function.
-
         prioritiesIfOptimize : list
             literally, the
             priorities argument passed to :py:func:`Connector.PyTree.optimizeOverlap`.
-
-            .. note:: only relevant if **optimizeOverlap** is set to :py:obj:`True`.
 
         double_wall : bool
             if :py:obj:`True`, double walls exist
@@ -1448,7 +1446,7 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
     print('setting hole interpolated points...')
     t = X.setHoleInterpolatedPoints(t, depth=depth)
 
-    if optimizeOverlap:
+    if prioritiesIfOptimize:
         print('Optimizing overlap...')
         t = X.optimizeOverlap(t, double_wall=double_wall,
                               priorities=prioritiesIfOptimize)
@@ -2928,8 +2926,9 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
                        chm_orphan_treatment= 'neighbourgsmean',
                        chm_impl_interp='none',
                        chm_interp_depth=2,
-                       chm_interpcoef_frozen='active', # TODO: make conditional if provided Motion
+                       chm_interpcoef_frozen='active', # TODO: make conditional
                        chm_conn_io='read', # NOTE ticket 8259
+
                        # # Overset by external files: (should not be used)
                        # chm_ovlp_minimize='inactive',
                        # chm_preproc_method='mask_based',

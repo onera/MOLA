@@ -1880,29 +1880,42 @@ def setBC_Walls(t, TurboConfiguration,
     # Add info on row movement (.Solver#Motion)
     for row, rowParams in TurboConfiguration['Rows'].items():
         famNode = I.getNodeFromNameAndType(t, row, 'Family_t')
+        print('setting .Solver#Motion at family %s'%row)
         J.set(famNode, '.Solver#Motion',
                 motion='mobile',
                 omega=rowParams['RotationSpeed'],
                 axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
                 axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
 
+    def getAssociatedZoneFamilyNameWithFamilyNameBC(zone, FamilyNameBC):
+        ZoneBC = I.getNodeFromType1(zone,'ZoneBC_t')
+        FamiliesNames = I.getNodesFromType2(ZoneBC,'FamilyName_t')
+        for FamilyName_n in FamiliesNames:
+            if I.getValue(FamilyName_n) == FamilyNameBC:
+                return I.getValue(I.getNodeFromType1(zone,'FamilyName_t'))
+
     # BLADES
+    zones = I.getZones(t)
+    families = I.getNodesFromType2(t,'Family_t')
     for blade_family in bladeFamilyNames:
         for famNode in I.getNodesFromNameAndType(t, '*{}*'.format(blade_family), 'Family_t'):
             famName = I.getName(famNode)
             if famName.startswith('F_OV_') or famName.endswith('Zones'): continue
-            row_omega = None
-            for row, rowParams in TurboConfiguration['Rows'].items():
-                if row in famName:
-                    row_omega = rowParams['RotationSpeed']
-                    break
-            assert row_omega is not None, 'Cannot determine associated row for family {}. '.format(famName)
+            for z in zones:
+                ZoneFamilyName = getAssociatedZoneFamilyNameWithFamilyNameBC(z, famName)
+                if ZoneFamilyName: break
+
+            assert ZoneFamilyName is not None, 'Cannot determine associated row for family {}. '.format(famName)
+
+            family_with_bcwall, = [f for f in families if f[0]==ZoneFamilyName]
+
+            solver_motion_data = J.get(family_with_bcwall,'.Solver#Motion')
 
             I.newFamilyBC(value='BCWallViscous', parent=famNode)
             J.set(famNode, '.Solver#BC',
                     type='walladia',
                     data_frame='user',
-                    omega=row_omega,
+                    omega=solver_motion_data['omega'],
                     axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
                     axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
 
@@ -1919,6 +1932,7 @@ def setBC_Walls(t, TurboConfiguration,
                     axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
                     axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
 
+            # TODO request initVars of BCDataSet
             wallHubBC = C.extractBCOfName(t, 'FamilySpecified:{0}'.format(famName))
             wallHubBC = C.node2Center(wallHubBC)
             for w in wallHubBC:

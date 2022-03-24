@@ -26,11 +26,17 @@ from . import Preprocess        as PRE
 from . import JobManager        as JM
 from . import WorkflowCompressor as WC
 
-def prepareMesh4ElsA(InputMeshes, **splitOptions):
+def prepareMesh4ElsA(InputMeshes, *args):
     '''
     Exactly like :py:func:`MOLA.Preprocess.prepareMesh4ElsA`
     '''
-    return PRE.prepareMesh4ElsA(InputMeshes, **splitOptions)
+    return PRE.prepareMesh4ElsA(InputMeshes, *args)
+
+def cleanMeshFromAutogrid(t, **kwargs):
+    '''
+    Exactly like :py:func:`MOLA.Preprocess.cleanMeshFromAutogrid`
+    '''
+    return WC.cleanMeshFromAutogrid(t, **kwargs)
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, RPM=0., Extractions={},
@@ -130,11 +136,15 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     IsUnstructured = PRE.hasAnyUnstructuredZones(t)
 
-    TurboConfiguration = WC.getTurboConfiguration(t, ShaftRotationSpeed=Dir*RPM,
+    omega = -Dir * RPM * np.pi / 30.
+    RowTurboConfDict = {}
+    for b in I.getBases(t):
+        RowTurboConfDict[b[0]+'Zones'] = {'RotationSpeed':omega,
+                                          'NumberOfBlades':nb_blades,
+                                          'NumberOfBladesInInitialMesh':nb_blades}
+    TurboConfiguration = WC.getTurboConfiguration(t, ShaftRotationSpeed=omega,
                                 HubRotationSpeed=[(-1e6,+1e6)],
-                                Rows=dict(BLADE=dict(RotationSpeed='auto',
-                                                     NumberOfBlades=nb_blades,
-                                                     NumberOfBladesInInitialMesh=nb_blades)))
+                                Rows=RowTurboConfDict)
     FluidProperties = PRE.computeFluidProperties()
     if not 'Surface' in ReferenceValuesParams:
         ReferenceValuesParams['Surface'] = 1.0
@@ -166,7 +176,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     WC.setBoundaryConditions(t, {}, TurboConfiguration,
                             FluidProperties, ReferenceValues)
 
-    WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration) 
+    WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
     AllSetupDics = dict(FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
@@ -220,6 +230,7 @@ def getPropellerKinematic(t):
 
     try:
         Dir = int(I.getValue(I.getNodeFromName(mesh_params,'RightHandRuleRotation')))
+        Dir = +1 if Dir else -1
     except:
         ERRMSG = 'could not find .MeshingParameters/RightHandRuleRotation in tree'
         raise ValueError(J.FAIL+ERRMSG+J.ENDC)

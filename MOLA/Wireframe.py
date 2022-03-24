@@ -4540,3 +4540,61 @@ def writeAirfoilInSeligFormat(airfoil, filename='foil.dat'):
         f.write(foil[0]+'\n')
         for x, y in zip(X,Y):
             f.write(' %0.6f   %0.6f\n'%(x,y))
+
+
+def tangentExtremum(curve, opposite_extremum=False):
+    '''
+    get the unitary vector direction (tangent) at the extremum of a structured
+    curve
+
+    Parameters
+    ----------
+
+        curve : zone
+            structured curve
+
+        opposite_extremum : bool
+            if :py:obj:`False`, compute the tangent at first index :math:`(i=0)`.
+            If :py:obj:`True`, compute the tangent at last index :math:`(i=-1)`.
+
+    Returns
+    -------
+
+        v : numpy.array of 3 float
+            unitary vector of the direction of the extremum following index
+            direction
+    '''
+    x,y,z = J.getxyz(curve)
+    if opposite_extremum:
+        v = np.array([x[-1]-x[-2], y[-1]-y[-2], z[-1]-z[-2]])
+    else:
+        v = np.array([x[1]-x[0], y[1]-y[0], z[1]-z[0]])
+    v /= np.sqrt(v.dot(v))
+    return v
+
+def extremum(curve, opposite_extremum=False):
+    '''
+    get the coordinates of the extremum point of a curve
+
+    Parameters
+    ----------
+
+        curve : zone
+            structured curve
+
+        opposite_extremum : bool
+            if :py:obj:`False`, get the extremum at first index :math:`(i=0)`.
+            If :py:obj:`True`, get the extremum at last index :math:`(i=-1)`.
+
+    Returns
+    -------
+
+        pt : numpy.array of 3 float
+            coordinates :math:`(x,y,z)`
+    '''
+    x,y,z = J.getxyz(curve)
+    if opposite_extremum:
+        return np.array([x[-1], y[-1], z[-1]])
+    else:
+        return np.array([x[0], y[0], z[0]])
+    
