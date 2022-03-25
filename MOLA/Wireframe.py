@@ -3190,7 +3190,12 @@ def closeStructCurve(AirfoilCurve, tol=1e-10):
                          ( z[-1] - z[0] )**2   ) ** 0.5
 
     if ExtremumDistance > tol:
-        AirfoilCurve = G.addPointInDistribution(AirfoilCurve, len(x))
+
+        # TODO notify bug Cassiopee: addPointInDistribution modifies geometry !
+        # AirfoilCurve = G.addPointInDistribution(AirfoilCurve, len(x))
+        # WORKAROUND:
+        new_pt = D.point(extremum(AirfoilCurve,True))
+        AirfoilCurve = concatenate([AirfoilCurve,new_pt])
 
         x, y, z = J.getxyz(AirfoilCurve)
 
@@ -4597,4 +4602,315 @@ def extremum(curve, opposite_extremum=False):
         return np.array([x[-1], y[-1], z[-1]])
     else:
         return np.array([x[0], y[0], z[0]])
-    
+
+
+def reorderCurvesSequentially(curves):
+    '''
+    reorder the indexing of a set of structured curves so that they yield a
+    coherent ordering for a sequential geometrical concatenation.
+
+    Parameters
+    ----------
+
+        curves : :py:class:`list` of zones
+            list of structured curves to be reordered
+
+            .. warning::
+                **curves** must contain at least 2 items
+
+            .. important::
+                the ordering of the curves is determined by the existing ordering
+                of the first provided curve (first item of **curves**)
+
+    Returns
+    -------
+
+        reordered_curves : :py:class:`list` of zones
+            like the input, but the curves ordering is adapted if required
+    '''
+    ordered_curves = [ curves[0] ]
+    not_ordered_curves = list(curves[1:])
+
+    must_reverse = [True, False, False, True]
+
+    while not_ordered_curves:
+
+        last_ordered_curve = ordered_curves[-1]
+
+        start0 = extremum(last_ordered_curve)
+        end0 = extremum(last_ordered_curve,True)
+
+        distances = []
+        nearest_extrema = []
+
+        for not_ordered_curve in not_ordered_curves:
+            start = extremum(not_ordered_curve)
+            end = extremum(not_ordered_curve, True)
+            extrema_dist = np.array([distance(start0, start),
+                                     distance(start0, end),
+                                     distance(end0, start),
+                                     distance(end0, end)])
+            nearest_extrema += [ np.argmin( extrema_dist ) ]
+            distances += [ extrema_dist[nearest_extrema[-1]] ]
+
+        nearest_curve_index = np.argmin( distances )
+        nearest_curve = not_ordered_curves[ nearest_curve_index ]
+
+        if must_reverse[ nearest_extrema[nearest_curve_index] ]:
+            T._reorder(nearest_curve,(-1,2,3))
+
+        ordered_curves += [nearest_curve]
+
+        del not_ordered_curves[ nearest_curve_index ]
+
+    return ordered_curves
+
+def sortCurvesSequentially(curves):
+    '''
+    sort a list of structured curves so that the order of the new list
+    minimizes the distance between the ending and the starting points of each
+    curve. This is useful for concatenation.
+
+    Parameters
+    ----------
+
+        curves : :py:class:`list` of zones
+            list of structured curves to be sorted
+
+            .. warning::
+                **curves** must contain at least 2 items
+
+            .. important::
+                the sorting of the curves starts from the first provided curve
+                (first item of **curves**)
+
+    Returns
+    -------
+
+        sorted_curves : :py:class:`list` of zones
+            like the input, but the curves order in the list is adapted if required
+    '''
+    sorted_curves = [ curves[0] ]
+    not_sorted_curves = list(curves[1:])
+
+    while not_sorted_curves:
+
+        last_sorted_curve = sorted_curves[-1]
+
+        end0 = extremum(last_sorted_curve,True)
+
+        distances = []
+        for not_sorted_curve in not_sorted_curves:
+            start = extremum(not_sorted_curve)
+            distances += [distance(end0, start)]
+
+        nearest_curve_index = np.argmin( distances )
+        nearest_curve = not_sorted_curves[ nearest_curve_index ]
+
+        sorted_curves += [nearest_curve]
+
+        del not_sorted_curves[ nearest_curve_index ]
+
+    return sorted_curves
+
+
+def reorderAndSortCurvesSequentially(curves):
+    '''
+    Literally, combines :py:func:`reorderCurvesSequentially` and
+    :py:func:`sortCurvesSequentially`
+    '''
+    return sortCurvesSequentially(reorderCurvesSequentially(curves))
+
+
+def splitInnerContourFromOutterBoundariesTopology(boundaries, inner_contour):
+    '''
+    From a closed boundary formed by 4 structured curves, conveniently splits
+    another structured curve such that each boundary has a corresponding
+    inner contour subpart with equal number of segments. This is useful as an
+    intermediate step for H-shape meshing topologies.
+
+    Parameters
+    ----------
+
+        boundaries : :py:class:`list` of 4 zones
+            List of 4 structured curves defining the outter boundaries.
+
+            .. warning::
+                total number of segments of **boundaries** and **inner_contour**
+                must be identical
+
+        inner_contour : zone
+            structured curve to be split
+
+    Return
+    ------
+
+        adapted_boundaries : :py:class:`list` of 4 zones
+            like **boundaries** but sequentially reordered and sorted
+
+        inner_contour_split : :py:class:`list` of 4 zones
+            **inner_contour** split in 4 parts with identical number of
+            segments between each subpart and the boundaries, yielding same
+            index ordering and position in list
+    '''
+    if len(boundaries) != 4:
+        raise ValueError(J.FAIL+'boundaries must be composed of 4 curves'+J.ENDC)
+
+    inner_contour_NPts = C.getNPts(inner_contour)
+    N_segments_inner = inner_contour_NPts - 1
+    N_segments_boundary = 0
+    for b in boundaries:
+        N_segments_boundary += C.getNPts(b)-1
+
+    if N_segments_boundary != N_segments_inner:
+        raise ValueError(J.FAIL+'total number of segments of boundaries (%d) must be the same as inner_contour (%d)'%(N_segments_boundary,N_segments_inner)+J.ENDC)
+
+
+    boundaries = reorderAndSortCurvesSequentially(boundaries)
+    I._correctPyTree(boundaries, level=3)
+    corners = [extremum(b) for b in boundaries]
+    directions = [tangentExtremum(b) for b in boundaries]
+
+    inner_contour = I.copyTree(inner_contour)
+    index, sqrddist = D.getNearestPointIndex(inner_contour,tuple(corners[0]))
+    xi, yi, zi = J.getxyz(inner_contour)
+    if index == 0: u=np.array([xi[1]-xi[0],yi[1]-yi[0],zi[1]-zi[0]])
+    else: u=np.array([xi[index]-xi[index-1],yi[index]-yi[index-1],zi[index]-zi[index-1]])
+    u /= np.sqrt(u.dot(u))
+    v = directions[0]
+    if u.dot(v) < 0: T._reorder(inner_contour,(-1,2,3))
+
+    inner_contour_NPts = C.getNPts(inner_contour)
+    all_distances = []
+    first_points = []
+    all_aux_inner_contour = []
+    all_list_index_j = []
+    test_all_first_bnd = []
+    for i, corner in enumerate(corners):
+        index, sqrddist = D.getNearestPointIndex(inner_contour,tuple(corner))
+
+        if (index > 0) and (index < inner_contour_NPts-2):
+            split_subpart_A = T.subzone(inner_contour,(1,1,1),(index+1,1,1))
+            split_subpart_B = T.subzone(inner_contour,(index+2,1,1),(-1,-1,-1))
+
+            split_subparts = reorderCurvesSequentially([split_subpart_B, split_subpart_A])
+            xs,ys,zs = J.getxyz(split_subparts[0])
+            xs[0]+=1
+            ys[0]+=1
+            zs[0]+=1
+            try:
+                aux_inner_contour = T.join(split_subparts[0],split_subparts[1])
+            except:
+                print(J.FAIL,index,J.ENDC)
+                C.convertPyTree2File(split_subparts,'debug.cgns');exit()
+
+            xs,ys,zs = J.getxyz(aux_inner_contour)
+            xs[0]-=1
+            ys[0]-=1
+            zs[0]-=1
+        else:
+            aux_inner_contour = I.copyTree(inner_contour)
+
+        aux_inner_contour = closeStructCurve(aux_inner_contour)
+
+        aux_inner_contour[0]="aux_inner_contour.%d"%i
+        all_aux_inner_contour.append( aux_inner_contour )
+
+        x,y,z = J.getxyz(aux_inner_contour)
+
+        distances = np.zeros(4)
+        index_j = 0
+        list_index_j = []
+
+        for j in range(4):
+
+            bnd_index = i+j
+            if bnd_index > 3: bnd_index -= 4
+
+
+            if j>0: index_j += C.getNPts(boundaries[bnd_index-1]) - 1
+
+            consequence_point = np.array([x[index_j],y[index_j],z[index_j]])
+            distances[bnd_index] = distance(corners[bnd_index], consequence_point)
+
+            if bnd_index == 0:
+                first_points += [consequence_point]
+                # test_bnd = I.copyTree(aux_inner_contour)
+                # test_all_first_bnd += [ test_bnd ]
+                # print(J.WARN,index_j,consequence_point,J.ENDC)
+                # if consequence_point[0]>0.5:
+                #     print('i=%d'%i)
+                #     print(corners[i])
+                #     pt = D.point(tuple(consequence_point))
+                #     C.convertPyTree2File([pt,aux_inner_contour],'pt_cnt.cgns')
+
+            list_index_j.append(index_j)
+        all_list_index_j += [list_index_j]
+        all_distances += [distances]
+
+    sum_all_distances = np.sum(all_distances,axis=0)
+    mean_point = np.mean(np.vstack(tuple(first_points)),axis=0)
+    ###########################################################################
+    # TO FACTORIZE
+    index, sqrddist = D.getNearestPointIndex(inner_contour, tuple(mean_point))
+
+    if (index > 0) and (index < inner_contour_NPts-2):
+        split_subpart_A = T.subzone(inner_contour,(1,1,1),(index+1,1,1))
+        split_subpart_B = T.subzone(inner_contour,(index+2,1,1),(-1,-1,-1))
+
+        split_subparts = reorderCurvesSequentially([split_subpart_B, split_subpart_A])
+        xs,ys,zs = J.getxyz(split_subparts[0])
+        xs[0]+=1
+        ys[0]+=1
+        zs[0]+=1
+        aux_inner_contour = T.join(split_subparts[0],split_subparts[1])
+        xs,ys,zs = J.getxyz(aux_inner_contour)
+        xs[0]-=1
+        ys[0]-=1
+        zs[0]-=1
+    else:
+        aux_inner_contour = I.copyTree(inner_contour)
+
+    aux_inner_contour = closeStructCurve(aux_inner_contour)
+
+    aux_inner_contour[0]="aux_inner_contour.%d"%i
+
+    x,y,z = J.getxyz(aux_inner_contour)
+
+    distances = np.zeros(4)
+    index_j = 0
+    list_j = []
+    i = 0
+    for j in range(4):
+
+        bnd_index = i+j
+        if bnd_index > 3: bnd_index -= 4
+
+        if j>0: index_j += C.getNPts(boundaries[bnd_index-1]) - 1
+
+        consequence_point = np.array([x[index_j],y[index_j],z[index_j]])
+        distances[bnd_index] = distance(corners[bnd_index], consequence_point)
+
+        if bnd_index == 3: first_points += [consequence_point]
+        list_j.append(index_j)
+
+    ###########################################################################
+
+    # all_distances = np.vstack(tuple(all_distances))
+    # sum_all_distances = np.sum(all_distances,axis=0)
+    #
+    # arg_min_dist = np.argmin(sum_all_distances)
+    # aux_inner_contour = all_aux_inner_contour[arg_min_dist]
+
+    # list_j = all_list_index_j[arg_min_dist]
+
+    inner_contour_split = []
+    for i in range(3):
+        inner_contour_split += [T.subzone(aux_inner_contour,(list_j[i]+1,1,1),(list_j[i+1]+1,1,1))]
+    inner_contour_split += [T.subzone(aux_inner_contour,(list_j[3]+1,1,1),(-1,-1,-1))]
+
+    # inner_contour_split = inner_contour_split[-arg_min_dist:] +  inner_contour_split[:-arg_min_dist]
+    for inner, bnd in zip(inner_contour_split, boundaries):
+        inner[0] = bnd[0] + '.inner'
+
+    return boundaries, inner_contour_split
