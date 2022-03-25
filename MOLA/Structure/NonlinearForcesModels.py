@@ -553,7 +553,7 @@ def CalcKNLproj_IC(Beta,Gamma,q):
 
 
 def fnl_Proj(t, q, Aij, Bijm):
-
+    
     DictStructParam = J.get(t, '.StructuralParameters') 
     
     ROMForceType = DictStructParam['ROMProperties']['ROMForceType']

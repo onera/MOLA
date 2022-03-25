@@ -287,27 +287,25 @@ def StaticSolver_Newton_Raphson(t, RPM, ForceIntensityC):
     # Initialisation des vecteurs du calcul:
     q = np.zeros((nq,1))
     Fextproj = np.zeros((nq,1))
-    #Fnlproj_IC = np.zeros((nq,1))
+    Fnlproj = np.zeros((nq,1))
 
     # Initialisation des vecteurs de sauvegarde:
-    print(nincr, nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0])
     if int(DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]) == 0:
         q_Save   = np.zeros((nq, 1)) 
         Fnl_Save = np.zeros((nq, 1)) 
         Fext_Save     = np.zeros((nq, 1)) 
     else:
-        if not nincr%int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]):
-            q_Save   = np.zeros((nq, int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
-            Fnl_Save = np.zeros((nq, int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
-            Fext_Save     = np.zeros((nq, int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+        if int((nincr - 1)%DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]) == 0 :
+            q_Save   = np.zeros((nq, 1 + int((nincr-1)//DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+            Fnl_Save = np.zeros((nq, 1 + int((nincr-1)//DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+            Fext_Save     = np.zeros((nq, 1+ int((nincr-1)//DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
         else:
-            q_Save   = np.zeros((nq, 1+int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
-            Fnl_Save = np.zeros((nq, 1+int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
-            Fext_Save     = np.zeros((nq, 1+int(nincr/DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
-    
+            q_Save   = np.zeros((nq, 2+int((nincr-1)//DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+            Fnl_Save = np.zeros((nq, 2+int((nincr-1)//DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+            Fext_Save     = np.zeros((nq, 2+int((nincr-1)//DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+            
     it2 =-1
     for incr in range(1,nincr+1):
-        
             
         Fextproj[:,0] = ForceIntensityC * SJ.ComputeLoadingFromTimeOrIncrement(t, RPM, incr-1)
         
@@ -338,17 +336,21 @@ def StaticSolver_Newton_Raphson(t, RPM, ForceIntensityC):
             
         
         # Save the data in the matrices:
-       
-        if ((not incr%DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]) or (incr == nincr)) or ((incr == nincr) and ((int(DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]) == 0))):
-            print(GREEN + 'Nb iterations = %s, for increment: %s, residual =  %0.4f'%(niter, incr, norm(Resi,2))+ENDC)
-            print(CYAN + 'Saving q and Fnl...'+ENDC)
-        
+        if DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0] == 0: 
+            if incr == nincr: 
+                it2 += 1
+                q_Save[:, it2] = q.ravel()
+                Fnl_Save[:, it2] = Fnlproj.ravel()
+                Fext_Save[:, it2] = Fextproj.ravel()
+                
+        elif (not (incr-1)%DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]) or (incr == nincr):
+            
             it2 += 1
-            print(q)
             q_Save[:, it2] = q.ravel()
             Fnl_Save[:, it2] = Fnlproj.ravel()
             Fext_Save[:, it2] = Fextproj.ravel()
-        
+             
+    
     return q_Save, Fnl_Save, Fext_Save 
 
 def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
@@ -361,7 +363,7 @@ def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
     # Get the needed variables from the cgns tree:
 
     V = SJ.GetReducedBaseFromCGNS(t, RPM)  # Base de reduction PHI
-
+    
     nq       = DictStructParam['ROMProperties']['NModes'][0]
     nitermax = DictSimulaParam['IntegrationProperties']['NumberOfMaxIterations'][0]
     nincr    = DictSimulaParam['IntegrationProperties']['StaticSteps'][0]
@@ -376,7 +378,6 @@ def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
     Kproj = SJ.getMatrixFromCGNS(t, 'Komeg', RPM)
     
 
-
     # Initialisation des vecteurs du calcul:
     q = np.zeros((nq,1))
     Fextproj = np.zeros((nq,1))
@@ -388,10 +389,10 @@ def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
     Fext     = np.zeros((nq,)) 
             
     Fextproj[:,0] = (V.T).dot(fext)
-    
+
     Resi = np.dot(Kproj,q) + NFM.fnl_Proj(t, q, Aij, Bijm) - Fextproj
     niter=0
-
+    
     while np.linalg.norm(Resi,2) > DictSimulaParam['IntegrationProperties']['EpsConvergenceCriteria'][0]:
     
         niter=niter+1
@@ -457,7 +458,6 @@ def SolveStatic(t, RPM, ForceCoeff=1.):
 
 def SolveROM(tROM, InputRPM = None, InputForceCoeff = None): 
 
-
     DictSimulaParam = J.get(tROM, '.SimulationParameters')
     DictStructParam = J.get(tROM, '.StructuralParameters')
 
@@ -467,7 +467,7 @@ def SolveROM(tROM, InputRPM = None, InputForceCoeff = None):
     Solution = {}
 
     if InputRPM == None: 
-        InputRPM = DictStructParam['RotatingProperties']['RPMs']
+        InputRPM = DictSimulaParam['RotatingProperties']['RPMs']
         InputForceCoeff = DictSimulaParam['LoadingProperties']['ForceIntensityCoeff']
 
 

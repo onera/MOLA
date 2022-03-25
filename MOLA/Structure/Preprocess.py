@@ -67,6 +67,7 @@ def InitialLiftinfLine(t):
 
     print(GREEN+'Evaluate the initial LL'+ENDC)
     DictAerodynamicProperties = J.get(t, '.AerodynamicProperties')
+    DictSimulationParameters  = J.get(t, '.SimulationParameters')
 
     # Now we have everything ready for construction of the 
     # LiftingLine object:
@@ -74,8 +75,9 @@ def InitialLiftinfLine(t):
     DictAerodynamicProperties['BladeParameters']['BladeDiscretization']['P1'] = SJ.totuple(DictAerodynamicProperties['BladeParameters']['BladeDiscretization']['P1'])
     DictAerodynamicProperties['BladeParameters']['BladeDiscretization']['P2'] = SJ.totuple(DictAerodynamicProperties['BladeParameters']['BladeDiscretization']['P2'])
     
+    DictAerodynamicProperties['BladeParameters']['PolarsDict']['PyZonePolarNames'] = DictAerodynamicProperties['BladeParameters']['PolarsDict']['PyZonePolarNames'].split(' ') 
     LiftingLine = LL.buildLiftingLine(DictAerodynamicProperties['BladeParameters']['BladeDiscretization'],
-                                      Polars=DictAerodynamicProperties['BladeParameters']['PolarsDict'],
+                                      Airfoils=DictAerodynamicProperties['BladeParameters']['PolarsDict'],
                                       Chord =DictAerodynamicProperties['BladeParameters']['ChordDict'],
                                       Twist =DictAerodynamicProperties['BladeParameters']['TwistDict'],
                                       Dihedral=DictAerodynamicProperties['BladeParameters']['DihedralDict'],
@@ -86,10 +88,13 @@ def InitialLiftinfLine(t):
     # give it a name, like this:
     LiftingLine[0] = 'LiftingLine'
     #LL.resetPitch(LiftingLine, ZeroPitchRelativeSpan=0.75)
+    print(DictAerodynamicProperties['BladeParameters']['Polars']['PolarsType'][0] == 'cgns')
+    print(DictAerodynamicProperties['BladeParameters']['Polars']['PolarsType'][0])
+
     if DictAerodynamicProperties['BladeParameters']['Polars']['PolarsType'] == 'HOST':
         PyZonePolars = [LL.convertHOSTPolarFile2PyZonePolar(os.getcwd()+'/InputData/'+fn) for fn in DictAerodynamicProperties['BladeParameters']['Polars']['filenames']]
-    elif DictAerodynamicProperties['BladeParameters']['Polars']['PolarsType'][0] == 'cgns':
-        PyZonePolars = C.convertFile2PyTree(os.getcwd()+'/InputData/POLARS/'+DictAerodynamicProperties['BladeParameters']['Polars']['filenames'][0])
+    elif DictAerodynamicProperties['BladeParameters']['Polars']['PolarsType'] == 'cgns':
+        PyZonePolars = C.convertFile2PyTree(os.getcwd()+'/InputData/POLARS/'+DictAerodynamicProperties['BladeParameters']['Polars']['filenames'])
         PyZonePolars = I.getZones(PyZonePolars)
     else:
         print(FAIL +'ERROR: PyZonePolars not defined!')
@@ -103,7 +108,14 @@ def InitialLiftinfLine(t):
     for fn in ['AoA','phiRad','Cl','Cd','Cm','VelocityMagnitudeLocal']:
         C._initVars(LiftingLine,fn,0.)
     LL.setConditions(LiftingLine)
-    LL.setKinematicsUsingConstantRPM(LiftingLine)
+    #LL.setKinematicsUsingConstantRPM(LiftingLine)
+
+    LL.setKinematicsUsingConstantRotationAndTranslation(LiftingLine,
+                                      RotationCenter=DictSimulationParameters['RotatingProperties']['RotationCenter'],
+                                      RotationAxis=DictSimulationParameters['RotatingProperties']['AxeRotation'],
+                                      RPM=0.0,
+                                      RightHandRuleRotation=DictSimulationParameters['RotatingProperties']['RightHandRuleRotation'])
+
     LL.computeGeneralLoadsOfLiftingLine(LiftingLine)
 
     I.addChild(t, LiftingLine)

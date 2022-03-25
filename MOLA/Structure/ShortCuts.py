@@ -603,21 +603,42 @@ def LETEvector2FullDim(t, fLE, fTE):
 
 def GetCoordsOfTEandLE(t, RPM = None):
 
-
-    InitZone = I.getNodesFromNameAndType(t, 'InitialMesh', 'Zone_t')[0]
-    XCoords, YCoords, ZCoords = J.getxyz(InitZone)
-    
-
-    if RPM is not None:
-        UsZone = I.getNodesFromNameAndType(t, 'U_sta'+str(np.round(RPM,2)), 'Zone_t')[0]
-        upx, upy, upz = J.getVars(UsZone,['upx', 'upy', 'upz'])
-        XCoords += upx
-        YCoords += upy
-        ZCoords += upz
-
     DictStructParam = J.get(t, '.StructuralParameters')
     NLE = DictStructParam['MeshProperties']['NodesFamilies']['LeadingEdge']
     NTE = DictStructParam['MeshProperties']['NodesFamilies']['TrailingEdge']
+    
+    for InitMesh in I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t'):
+
+        Type_Element = InitMesh[0][12:]
+        NewZoneName = ZoneName + '_'+Type_Element
+        NewZone = I.getNodeFromNameAndType(t, NewZoneName, 'Zone_t')
+
+        XCoords, YCoords, ZCoords = J.getxyz(InitZone)
+
+        if RPM is not None:
+            Us = getVectorFromCGNS(t, 'Us', RPM)
+
+
+            Usx, Usy, Usz = ListXYZFromVectFull(t, Us)
+            XCoords += usx
+            YCoords += usy
+            ZCoords += usz
+
+
+
+
+#    InitZone = I.getNodesFromNameAndType(t, 'InitialMesh', 'Zone_t')[0]
+#    XCoords, YCoords, ZCoords = J.getxyz(InitZone)
+#    
+#
+#    if RPM is not None:
+#        UsZone = I.getNodesFromNameAndType(t, 'U_sta'+str(np.round(RPM,2)), 'Zone_t')[0]
+#        upx, upy, upz = J.getVars(UsZone,['upx', 'upy', 'upz'])
+#        XCoords += upx
+#        YCoords += upy
+#        ZCoords += upz
+
+    
 
     # Leading EdgeCoords:
     XCoordsLE, YCoordsLE, ZCoordsLE =  XCoords[NLE], YCoords[NLE], ZCoords[NLE]
@@ -667,7 +688,7 @@ def GetCoordsOfTEandLEWithFOMu(t, RPM = None, u = None):
     NTE = DictStructParam['MeshProperties']['NodesFamilies']['TrailingEdge']
 
     # Get the mesh coordinates:
-    InitZone = I.getNodesFromNameAndType(t, 'InitialMesh', 'Zone_t')[0]
+    InitZone = I.getNodesFromNameAndType(t, 'InitialMesh_HEXA8', 'Zone_t')[0]
     XCoords, YCoords, ZCoords = J.getxyz(InitZone)
 
     us = getVectorFromCGNS(t, 'Us', RPM)
@@ -841,11 +862,11 @@ def updateLLKinematics(t, RPM):
 
     LiftingLine = I.getNodeFromName(t, 'LiftingLine')
 
-    DictStructParam = J.get(t, '.StructuralParameters')
+    DictSimulaParam = J.get(t, '.SimulationParameters')
 
-    LL.setKinematicsUsingConstantRPM(LiftingLine, RotationCenter=DictStructParam['RotatingProperties']['RotationCenter'],
-                                  RotationAxis=DictStructParam['RotatingProperties']['AxeRotation'], RPM=RPM,
-                                  RightHandRuleRotation=DictStructParam['RotatingProperties']['RightHandRuleRotation'])
+    LL.setKinematicsUsingConstantRotationAndTranslation(LiftingLine, RotationCenter=DictSimulaParam['RotatingProperties']['RotationCenter'],
+                                  RotationAxis=DictSimulaParam['RotatingProperties']['AxeRotation'], RPM=RPM,
+                                  RightHandRuleRotation=DictSimulaParam['RotatingProperties']['RightHandRuleRotation'])
 
     I._addChild(t, LiftingLine)
 
@@ -948,38 +969,38 @@ def totuple(a):
 
 
 
-def locVector2FullDimension(t, Vector, NodeNumber):
+#def locVector2FullDimension(t, Vector, NodeNumber):
+#
+#    DictStructParam = J.get(t, '.StructuralParameters')
+#    NNodes = DictStructParam['MeshProperties']['NNodes'][0]
+#    
+#    # Initialize the vector:
+#
+#    FullVector = np.zeros((3*NNodes, ))
+#    
+#    FullVector[3*NodeNumber] = Vector[0]
+#    FullVector[3*NodeNumber+1] = Vector[1]
+#    FullVector[3*NodeNumber+2] = Vector[2]
+#
+#    return FullVector
 
-    DictStructParam = J.get(t, '.StructuralParameters')
-    NNodes = DictStructParam['MeshProperties']['NNodes'][0]
-    
-    # Initialize the vector:
 
-    FullVector = np.zeros((3*NNodes, ))
-    
-    FullVector[3*NodeNumber] = Vector[0]
-    FullVector[3*NodeNumber+1] = Vector[1]
-    FullVector[3*NodeNumber+2] = Vector[2]
-
-    return FullVector
-
-
-
-def VectorXYZ2FullDimension(t, Vector):
-    '''Vector = [[CoordX], [CoordY], [CoordZ]]'''
-
-    DictStructParam = J.get(t, '.StructuralParameters')
-    NNodes = DictStructParam['MeshProperties']['NNodes'][0]
-    
-    # Initialize the vector:
-
-    FullVector = np.zeros((3*NNodes, ))
-    
-    FullVector[0::3] = Vector[0]
-    FullVector[1::3] = Vector[1]
-    FullVector[2::3] = Vector[2]
-
-    return FullVector
+#
+#def VectorXYZ2FullDimension(t, Vector):
+#    '''Vector = [[CoordX], [CoordY], [CoordZ]]'''
+#
+#    DictStructParam = J.get(t, '.StructuralParameters')
+#    NNodes = DictStructParam['MeshProperties']['NNodes'][0]
+#    
+#    # Initialize the vector:
+#
+#    FullVector = np.zeros((3*NNodes, ))
+#    
+#    FullVector[0::3] = Vector[0]
+#    FullVector[1::3] = Vector[1]
+#    FullVector[2::3] = Vector[2]
+#
+#    return FullVector
 
 
 def Solution2RotatoryFrame(t, Solution):
@@ -1121,7 +1142,7 @@ def BuildExterForcesShapeVectorAndLoadingTypeVector(t, FOM = False):
     DictOfLoading['TimeFuntionVector'] = ComputeLoadingType(t)
     DictOfLoading['Fmax'], DictOfLoading['ShapeFunction'] = ComputeShapeVectorAndMaxForce(t)
     DictOfLoading['ShapeFunctionProj'] = {}    
-    for RPMValue in  DictStructParam['RotatingProperties']['RPMs']:
+    for RPMValue in  DictSimulaParam['RotatingProperties']['RPMs']:
         if not FOM:
             PHI = GetReducedBaseFromCGNS(t, RPMValue)
     
@@ -1149,35 +1170,59 @@ def ComputeLoadingFromTimeOrIncrement(t, RPM, TimeIncr):
 def ComputeSolutionCGNS(t, Solution):
     tSol = I.copyTree(t)
     DictStructParam = J.get(t, '.StructuralParameters')
-
+    SimulaParam = J.get(t, '.SimulationParameters')
+    
     J.set(tSol, '.Solution', **Solution)
     
     try:
-        MaxIt = range(np.shape(Solution[list(Solution.keys())[0]][list(Solution[list(Solution.keys())[0]].keys())[0]]['Displacement'])[1])
-        Matrice = True
+        MaxIt = np.shape(Solution[list(Solution.keys())[0]][list(Solution[list(Solution.keys())[0]].keys())[0]]['Displacement'])[1]
+        print(MaxIt)
+        if MaxIt > 1:
+            Matrice = True
+        else:
+            Matrice = False
     except:
         MaxIt = range(1)
         Matrice = False
-
-
-    for Iteration in MaxIt:
+    print(Matrice)
+    
+    time = ComputeTimeVector(t)[1]
+    for Iteration in range(MaxIt):
         NewBase = I.newCGNSBase()
-        NewBase[0] = 'Iteration%s'%(Iteration+1)
-        
+        if not Matrice:
+            if SimulaParam['IntegrationProperties']['SolverType'] == 'Static':
+                NewBase[0] = 'Iteration%s'%(SimulaParam['IntegrationProperties']['StaticSteps'][0])
+                
+            elif SimulaParam['IntegrationProperties']['SolverType'] == 'Dynamic':
+                NewBase[0] = 'Iteration%s'%(SimulaParam['LoadingProperties']['TimeProperties']['NItera'][0])
+            
+        else:
+            if SimulaParam['IntegrationProperties']['SolverType'] == 'Static':
+                locIt =  Iteration * SimulaParam['IntegrationProperties']['SaveEveryNIt'][0] +1
+                
+                if locIt  > SimulaParam['IntegrationProperties']['StaticSteps'][0]:
+                    locIt = SimulaParam['IntegrationProperties']['StaticSteps'][0]
+                
+                NewBase[0] = 'Iteration%s'%(locIt )
+            elif SimulaParam['IntegrationProperties']['SolverType'] == 'Dynamic':
+                locIt =  SimulaParam['IntegrationProperties']['Steps4CentrifugalForce'][0]-1 + Iteration * SimulaParam['IntegrationProperties']['SaveEveryNIt'][0]
+                if locIt > SimulaParam['LoadingProperties']['TimeProperties']['NItera'][0]:
+                    locIt = SimulaParam['LoadingProperties']['TimeProperties']['NItera'][0] - 1
+                NewBase[0] = 'Iteration%s_%ss'%(locIt - (SimulaParam['LoadingProperties']['TimeProperties']['NItera'][0] - 1)+ 1, time[locIt])
+                
         for RPMKey in Solution.keys():
             for FcoeffKey, pos in zip(Solution[RPMKey].keys(), range(len(Solution[RPMKey].keys()))):
                 
                 ZoneName = RPMKey +'_'+ FcoeffKey
                 
                 if Matrice:
-                    
                     NewZones = CreateNewSolutionFromNdArray(t, FieldDataArray = [Solution[RPMKey][FcoeffKey]['UpDisplacement'][:,Iteration]],
                                         ZoneName=ZoneName,
                                         FieldName = 'Up',
                                         )
                                         
                 else:
-                    NewZones = CreateNewSolutionFromNdArray(t, FieldDataArray = [Solution[RPMKey][FcoeffKey]['UpDisplacement']],
+                    NewZones = CreateNewSolutionFromNdArray(t, FieldDataArray = Solution[RPMKey][FcoeffKey]['UpDisplacement'],
                                         ZoneName=ZoneName,
                                         FieldName = 'Up'
                                         )
