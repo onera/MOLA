@@ -34,7 +34,7 @@ MAGE  = '\033[95m'
 CYAN  = '\033[96m'
 ENDC  = '\033[0m'
 
-
+#### AERODYNAMICS:
 def Macro_BEMT(t, PolarsInterpFuns, RPM):
 
     print (CYAN+'Launching 3D BEMT computation...'+ENDC)
@@ -92,7 +92,10 @@ def Compute_IntFnl(t):
     return Fnl
 
 
-def SolveTimeIntegration(t, RPM):
+
+
+#STRUCTURE:
+def DynamicSolver_Li2020(t, RPM, fext):
     '''MacroFunction of Time Integration Methods
 
         Implemented methods:
@@ -259,7 +262,15 @@ def SolveTimeIntegration(t, RPM):
 
 
 
-def StaticSolver_Newton_Raphson(t, RPM, ForceIntensityC):
+
+
+
+
+
+
+#        Static Solvers:
+
+def StaticSolver_Newton_Raphson(t, RPM, ForceCoeff):
     "Function returning the reduced static non-linear solution using the IC non-linear function"
 
     DictStructParam = J.get(t, '.StructuralParameters')
@@ -307,7 +318,7 @@ def StaticSolver_Newton_Raphson(t, RPM, ForceIntensityC):
     it2 =-1
     for incr in range(1,nincr+1):
             
-        Fextproj[:,0] = ForceIntensityC * SJ.ComputeLoadingFromTimeOrIncrement(t, RPM, incr-1)
+        Fextproj[:,0] = ForceCoeff * SJ.ComputeLoadingFromTimeOrIncrement(t, RPM, incr-1)
         
         Resi = np.dot(Kproj,q) + NFM.fnl_Proj(t, q, Aij, Bijm) - Fextproj
         niter=0
@@ -423,6 +434,161 @@ def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
     return q, Fnlproj, Fextproj 
 
 
+def DynamicSolver_HHTalpha(t, RPM, ForceCoeff):
+
+    
+
+    DictStructParam = J.get(t, '.StructuralParameters')
+    DictInternalForcesCoefficients = J.get(t, '.InternalForcesCoefficients')
+    DictSimulaParam = J.get(t, '.SimulationParameters')
+    
+    # Define and get the time vector:
+    time = SJ.ComputeTimeVector(t)[1][DictSimulaParam['IntegrationProperties']['Steps4CentrifugalForce'][0]-1:]
+    nincr = len(time)
+    dt = DictSimulaParam['LoadingProperties']['TimeProperties']['dt'][0]
+    time_Save = []
+    
+    # Get the needed variables from the cgns tree:
+
+    V = SJ.GetReducedBaseFromCGNS(t, RPM)  # Base de reduction PHI
+
+    nq       = DictStructParam['ROMProperties']['NModes'][0]
+
+    nitermax = DictSimulaParam['IntegrationProperties']['NumberOfMaxIterations'][0]
+    
+    try:
+        Aij      = DictInternalForcesCoefficients[str(int(RPM))+'RPM']['Aij']
+        Bijm     = DictInternalForcesCoefficients[str(int(RPM))+'RPM']['Bijm']
+    except:
+        Aij, Bijm = 0, 0 
+
+        print(WARN + 'Warning!! Aij and Bijm not readed!'+ENDC)
+
+    Kproj = SJ.getMatrixFromCGNS(t, 'Komeg', RPM)
+    Cproj = SJ.getMatrixFromCGNS(t, 'C', RPM)
+    Mproj = SJ.getMatrixFromCGNS(t, 'M', RPM)
+    
+    # Initialisation des vecteurs du calcul:
+    q = np.zeros((nq,1))
+    qp = np.zeros((nq,1))
+    qpp = np.zeros((nq,1))
+
+    q_m1 = np.zeros((nq,1))
+    qp_m1 = np.zeros((nq,1))
+    qpp_m1 = np.zeros((nq,1))
+    
+    Fextproj = np.zeros((nq,1))
+    Fnlproj = np.zeros((nq,1))
+
+    Fextproj_m1 = np.zeros((nq,1))
+    Fnlproj_m1 = np.zeros((nq,1))
+
+    # Initialisation des vecteurs de sauvegarde:
+    if int(DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]) == 0:
+        q_Save   = np.zeros((nq, 1))
+        qp_Save   = np.zeros((nq, 1))
+        qpp_Save   = np.zeros((nq, 1)) 
+        Fnl_Save = np.zeros((nq, 1)) 
+        Fext_Save     = np.zeros((nq, 1)) 
+    else:
+        if int((nincr - 1)%DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]) == 0 :
+            q_Save   = np.zeros((nq, 1 + int((nincr-1)//DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+            qp_Save   = np.zeros((nq, 1 + int((nincr-1)//DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+            qpp_Save   = np.zeros((nq, 1 + int((nincr-1)//DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+            Fnl_Save = np.zeros((nq, 1 + int((nincr-1)//DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+            Fext_Save     = np.zeros((nq, 1+ int((nincr-1)//DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+        else:
+            q_Save   = np.zeros((nq, 2+int((nincr-1)//DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+            qp_Save   = np.zeros((nq, 2+int((nincr-1)//DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+            qpp_Save   = np.zeros((nq, 2+int((nincr-1)//DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+            Fnl_Save = np.zeros((nq, 2+int((nincr-1)//DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+            Fext_Save     = np.zeros((nq, 2+int((nincr-1)//DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]))) 
+
+    # HHT-alpha method parameters:
+    alpha = DictSimulaParam['IntegrationProperties']['IntegrationMethod']['Parameters']['Alpha'][0]
+
+    beta = 0.25 * (1+alpha)**2
+    gamma = 0.5 * (1+2*alpha)
+
+    it2 =-1
+    for incr in range(1,nincr+1):
+            
+        Fextproj[:,0] = ForceCoeff * SJ.ComputeLoadingFromTimeOrIncrement(t, RPM, incr-1)
+        
+        CsteTerm_previous = Cproj.dot(qp_m1) + Kproj.dot(q_m1) + Fnlproj_m1 - Fextproj_m1
+
+        # Initial prediction:
+
+        q = q + dt*qp + 0.5*(1-2*beta)*(dt**2)*qpp
+        qp = qp + (1-gamma)*dt*qpp
+        qpp = np.zeros((nq,1))
+
+        Fnlproj = NFM.fnl_Proj(t, q, Aij, Bijm)
+       
+        Resi = Mproj.dot(qpp) + (1. - alpha)*(Cproj.dot(qp) + Kproj.dot(q) + Fnlproj - Fextproj) + alpha*CsteTerm_previous
+
+        niter=0
+    
+        while np.linalg.norm(Resi,2) > DictSimulaParam['IntegrationProperties']['EpsConvergenceCriteria'][0]:
+        
+            niter=niter+1
+            
+            if niter>=nitermax:
+                print(FAIL+'Too much N.L. iterations for increment number %s'%str(incr)+ENDC)
+                break
+
+            #Compute tangent stiffness matrix
+            
+            Ktanproj = Kproj + NFM.Knl_Jacobian_Proj(t, q, Aij, Bijm)
+            Ctanproj = Cproj
+            
+            # Compute the Jacobian:
+
+            Jacobian = (1./(beta*dt**2))*Mproj   + (1. - alpha)*(gamma/(beta*dt))*Ctanproj + (1. - alpha)*Ktanproj 
+            
+            # Solve displacement increment
+            
+            dq = -np.linalg.solve(Jacobian,Resi)
+            q = q + dq
+            qp = qp + (gamma/(beta*dt))*dq
+            qpp = qpp + (1./(beta*dt**2))*dq
+            
+            #Compute internal forces vector
+            Fnlproj = NFM.fnl_Proj(t, q, Aij, Bijm)
+
+           
+            #compute residual
+            Resi = Mproj.dot(qpp) + (1. - alpha)*(Cproj.dot(qp) + Kproj.dot(q) + Fnlproj - Fextproj) + alpha*CsteTerm_previous
+
+        q_m1 = q
+        qp_m1 = qp
+        qpp_m1 = qpp
+        Fextproj_m1 = Fextproj
+        Fnlproj_m1 = Fnlproj
+        
+        # Save the data in the matrices:
+        if DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0] == 0: 
+            if incr == nincr: 
+                it2 += 1
+                q_Save[:, it2] = q.ravel()
+                qp_Save[:, it2] = qp.ravel()
+                qpp_Save[:, it2] = qpp.ravel()
+                
+                Fnl_Save[:, it2] = Fnlproj.ravel()
+                Fext_Save[:, it2] = Fextproj.ravel()
+                time_Save.append(time[incr-1]) 
+
+        elif (not (incr-1)%DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]) or (incr == nincr):
+            
+            it2 += 1
+            q_Save[:, it2] = q.ravel()
+            qp_Save[:, it2] = qp.ravel()
+            qpp_Save[:, it2] = qpp.ravel()
+            Fnl_Save[:, it2] = Fnlproj.ravel()
+            Fext_Save[:, it2] = Fextproj.ravel()
+            time_Save.append(time[incr-1]) 
+            
+    return q_Save, qp_Save, qpp_Save, Fnlproj, Fextproj, np.array(time_Save)
 
 
 def SolveStatic(t, RPM, ForceCoeff=1.):
@@ -436,11 +602,11 @@ def SolveStatic(t, RPM, ForceCoeff=1.):
     DictSimulaParam = J.get(t, '.SimulationParameters')
 
     
-    if DictSimulaParam['IntegrationProperties']['IntegrationMethod'] == 'Newton_Raphson':
+    if DictSimulaParam['IntegrationProperties']['IntegrationMethod']['MethodName'] == 'Newton_Raphson':
         
         q, fnl_q , Fext_q =  StaticSolver_Newton_Raphson(t, RPM, ForceCoeff)
 
-    if DictSimulaParam['IntegrationProperties']['IntegrationMethod'] == 'AEL':
+    if DictSimulaParam['IntegrationProperties']['IntegrationMethod']['MethodName'] == 'AEL':
         if DictSimulaParam['IntegrationProperties']['TypeAEL'] == 'Static_Newton1':
             # NewtonRhapson with one iteration:
             q, fnl_q , Fext_q =  StaticSolver_Newton_Raphson1IncrFext(t, RPM, ForceCoeff)
@@ -456,12 +622,43 @@ def SolveStatic(t, RPM, ForceCoeff=1.):
 
 
 
+def SolveDynamic(t, RPM, ForceCoeff=1.):
+    '''MacroFunction of Time marching Integration Methods
+
+        Implemented methods:
+
+               - ''
+               - ''
+    '''
+    DictSimulaParam = J.get(t, '.SimulationParameters')
+
+    
+    if DictSimulaParam['IntegrationProperties']['IntegrationMethod']['MethodName'] == 'HHT-Alpha':
+        
+        q,qp,qpp, fnl_q , Fext_q, time =  DynamicSolver_HHTalpha(t, RPM, ForceCoeff)
+
+    if DictSimulaParam['IntegrationProperties']['IntegrationMethod']['MethodName'] == 'Li2020':
+        pass
+    
+
+
+    # Manque save to Tree
+
+
+    return [q, qp, qpp], fnl_q, Fext_q, time
+
+
+
+
+
+
+
+
 def SolveROM(tROM, InputRPM = None, InputForceCoeff = None): 
 
     DictSimulaParam = J.get(tROM, '.SimulationParameters')
     DictStructParam = J.get(tROM, '.StructuralParameters')
 
-    TypeOfLoading = DictSimulaParam['LoadingProperties']['LoadingType']
     TypeOfSolver  = DictSimulaParam['IntegrationProperties']['SolverType']
  
     Solution = {}
@@ -470,7 +667,7 @@ def SolveROM(tROM, InputRPM = None, InputForceCoeff = None):
         InputRPM = DictSimulaParam['RotatingProperties']['RPMs']
         InputForceCoeff = DictSimulaParam['LoadingProperties']['ForceIntensityCoeff']
 
-
+    
     for RPM in InputRPM:
         Solution['%sRPM'%np.round(RPM,2)] = {}
         PHI = SJ.GetReducedBaseFromCGNS(tROM, RPM)
@@ -479,17 +676,16 @@ def SolveROM(tROM, InputRPM = None, InputForceCoeff = None):
             Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff] = {}
 
             if TypeOfSolver == 'Static':
-        
                 q_qp_qpp, fnl_q, fext_q  = SolveStatic(tROM, RPM, ForceCoeff)
-                
+                time = None
             
             elif TypeOfSolver == 'Dynamic':
-                pass
-
- 
-        
+                q_qp_qpp, fnl_q, fext_q, time  = SolveDynamic(tROM, RPM, ForceCoeff)
+                
+                
+            
             # Save the reduced q_qp_qpp:
-            Solution = SJ.SaveSolution2PythonDict(Solution, ForceCoeff, RPM, PHI, q_qp_qpp, fnl_q, fext_q)
+            Solution = SJ.SaveSolution2PythonDict(Solution, ForceCoeff, RPM, PHI, q_qp_qpp, fnl_q, fext_q, time)
 
     return Solution
                 

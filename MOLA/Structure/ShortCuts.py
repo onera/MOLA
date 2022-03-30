@@ -546,10 +546,10 @@ def PseudoInverseWithModes(t, RPM, Matrice):
     return (np.linalg.inv((PHI.T).dot(PHI)).dot(PHI.T)).dot(Matrice)
 
 
-def SaveSolution2PythonDict(Solution, ForceCoeff, RPM, PHI, q_qp_qpp, fnl_q, fext_q ):
+def SaveSolution2PythonDict(Solution, ForceCoeff, RPM, PHI, q_qp_qpp, fnl_q, fext_q, time = None ):
     '''Prends une solution dynamique ou statique et la garde sur un dictionnaire 
     apres avoir calcule les grandeurs dans le FOM'''
-
+    
     if len(q_qp_qpp) == 1:
         Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['q'] = q_qp_qpp[0] 
     else:
@@ -562,14 +562,16 @@ def SaveSolution2PythonDict(Solution, ForceCoeff, RPM, PHI, q_qp_qpp, fnl_q, fex
 
     NameOfFullVariables = ['Displacement', 'Velocity', 'Acceleration']
     NameOfKeys = list(Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff].keys())
-    
+   
     for key, it in zip(NameOfKeys, range(len(q_qp_qpp)+1)):
         if 'fnl' not in key:
             Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff][NameOfFullVariables[it]] = VectFromROMtoFULL(PHI, Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff][key])
         else:
             Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['fnlFull'] = PseudoInverseWithMatrix(PHI.T).dot(fnl_q)
             Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['fextFull'] = PseudoInverseWithMatrix(PHI.T).dot(fext_q)
-    
+            if time is not None:
+                Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['TimeSave'] = time
+
     return Solution
 
 
@@ -1076,13 +1078,13 @@ def TranslateNumpyLoadingVector2AsterList(t, LoadVector):
 
 
 
-def ComputeLoadingType(t):
+def ComputeTimeLoadingVector(t):
 
     DictSimulaParam = J.get(t, '.SimulationParameters')
-      
-    TypeOfLoading = DictSimulaParam['LoadingProperties']['LoadingType']
+    print(DictSimulaParam['LoadingProperties']['LoadingType'])  
+    TypeOfLoading = DictSimulaParam['LoadingProperties']['LoadingType']['Name']
     TypeOfSolver  = DictSimulaParam['IntegrationProperties']['SolverType']
-    
+    print(TypeOfLoading)
 
     if TypeOfSolver == 'Static':
 
@@ -1090,25 +1092,28 @@ def ComputeLoadingType(t):
     
     elif TypeOfSolver == 'Dynamic':
 
-        NincrIter = DictSimulaParam['LoadingProperties']['TimeProperties']['NItera'][0]
+        pass #NincrIter = DictSimulaParam['LoadingProperties']['TimeProperties']['NItera'][0]
 
-
+    time = ComputeTimeVector(t)[1][DictSimulaParam['IntegrationProperties']['Steps4CentrifugalForce'][0]-1:]
     # Compute the form of the f(t) function with max value 1.
 
     if TypeOfLoading == 'Ramp':
         
-        LoadingTypeVector = np.linspace(0,1,NincrIter)
+        LoadingTimeVector = np.linspace(0,1,NincrIter)
 
     elif TypeOfLoading == 'Sinusoidal':
         # Sinusoidal loading
-        pass
+        print(type(time))
+        print(DictSimulaParam['LoadingProperties']['LoadingType']['Properties']['Frequency'][0])
+        LoadingTimeVector = np.sin(2*np.pi*DictSimulaParam['LoadingProperties']['LoadingType']['Properties']['Frequency'][0]*np.array(time))
+
 
     elif TypeOfLoading == 'Aeroelastic':
 
         pass
 
 
-    return LoadingTypeVector      
+    return LoadingTimeVector      
 
 def ComputeShapeVectorAndMaxForce(t, LoadingVectorLocation = 'FromFile'):
 
@@ -1139,7 +1144,8 @@ def BuildExterForcesShapeVectorAndLoadingTypeVector(t, FOM = False):
     DictSimulaParam = J.get(t, '.SimulationParameters')
 
     DictOfLoading = {}
-    DictOfLoading['TimeFuntionVector'] = ComputeLoadingType(t)
+    DictOfLoading['Time'] = ComputeTimeVector(t)[1][DictSimulaParam['IntegrationProperties']['Steps4CentrifugalForce'][0]-1:]
+    DictOfLoading['TimeFuntionVector'] = ComputeTimeLoadingVector(t)
     DictOfLoading['Fmax'], DictOfLoading['ShapeFunction'] = ComputeShapeVectorAndMaxForce(t)
     DictOfLoading['ShapeFunctionProj'] = {}    
     for RPMValue in  DictSimulaParam['RotatingProperties']['RPMs']:
@@ -1184,9 +1190,9 @@ def ComputeSolutionCGNS(t, Solution):
     except:
         MaxIt = range(1)
         Matrice = False
-    print(Matrice)
     
-    time = ComputeTimeVector(t)[1]
+    time = ComputeTimeVector(t)[1][SimulaParam['IntegrationProperties']['Steps4CentrifugalForce'][0]-1:]
+    NItera = len(time)
     for Iteration in range(MaxIt):
         NewBase = I.newCGNSBase()
         if not Matrice:
@@ -1194,7 +1200,7 @@ def ComputeSolutionCGNS(t, Solution):
                 NewBase[0] = 'Iteration%s'%(SimulaParam['IntegrationProperties']['StaticSteps'][0])
                 
             elif SimulaParam['IntegrationProperties']['SolverType'] == 'Dynamic':
-                NewBase[0] = 'Iteration%s'%(SimulaParam['LoadingProperties']['TimeProperties']['NItera'][0])
+                NewBase[0] = 'Iteration%s'%(NItera)
             
         else:
             if SimulaParam['IntegrationProperties']['SolverType'] == 'Static':
@@ -1206,9 +1212,10 @@ def ComputeSolutionCGNS(t, Solution):
                 NewBase[0] = 'Iteration%s'%(locIt )
             elif SimulaParam['IntegrationProperties']['SolverType'] == 'Dynamic':
                 locIt =  SimulaParam['IntegrationProperties']['Steps4CentrifugalForce'][0]-1 + Iteration * SimulaParam['IntegrationProperties']['SaveEveryNIt'][0]
-                if locIt > SimulaParam['LoadingProperties']['TimeProperties']['NItera'][0]:
-                    locIt = SimulaParam['LoadingProperties']['TimeProperties']['NItera'][0] - 1
-                NewBase[0] = 'Iteration%s_%ss'%(locIt - (SimulaParam['LoadingProperties']['TimeProperties']['NItera'][0] - 1)+ 1, time[locIt])
+                
+                if locIt >  NItera:
+                    locIt = NItera - 1
+                NewBase[0] = 'Iteration%s_%ss'%(locIt, np.round(time[locIt-1],4))
                 
         for RPMKey in Solution.keys():
             for FcoeffKey, pos in zip(Solution[RPMKey].keys(), range(len(Solution[RPMKey].keys()))):
@@ -1285,17 +1292,19 @@ def ComputeTimeVector(t):
 
     DictSimulaParam = J.get(t, '.SimulationParameters')
 
+    L_rota = list(np.linspace(-2., 0., DictSimulaParam['IntegrationProperties']['Steps4CentrifugalForce'][0]))[:-1]
+        
     if DictSimulaParam['IntegrationProperties']['SolverType'] == 'Static':
         print(GREEN + 'Computing the time increments for the static snalysis...'+ENDC)
 
-        L_rota = list(np.linspace(-2., 0., DictSimulaParam['IntegrationProperties']['Steps4CentrifugalForce'][0]))[:-1]
         L_calc = list(np.linspace( 0., 1., DictSimulaParam['IntegrationProperties']['StaticSteps'][0]))
         
         TimeList = L_rota + L_calc
     
     elif DictSimulaParam['IntegrationProperties']['SolverType'] == 'Dynamic':
     
-        pass
+        L_calc = list(np.arange( 0., DictSimulaParam['LoadingProperties']['TimeProperties']['Time_max'][0], DictSimulaParam['LoadingProperties']['TimeProperties']['dt'][0]))
+        TimeList = L_rota + L_calc
 
     else:
         print(FAIL+'Unknown SolverType!'+ENDC)
