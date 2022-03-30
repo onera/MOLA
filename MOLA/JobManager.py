@@ -660,7 +660,7 @@ def getCurrentJobsStatus(machine='sator'):
 
     return Output, Error
 
-def getCaseArrays(config, CASE_LABEL, basename='AIRFOIL'):
+def getCaseArrays(config, CASE_LABEL, basename='AIRFOIL', FILE_ARRAYS='arrays.cgns'):
     '''
     Repatriate the remote ``OUTPUT/arrays.cgns`` file and return its contents in a
     form of dictionary like :
@@ -694,7 +694,7 @@ def getCaseArrays(config, CASE_LABEL, basename='AIRFOIL'):
         ArraysDict : dict
             containts the airfoil arrays
     '''
-    FILE_ARRAYS = 'arrays.cgns'
+
     JobTag = '_'.join(CASE_LABEL.split('_')[1:])
 
     Source = os.path.join(config.DIRECTORY_WORK, JobTag, CASE_LABEL, 'OUTPUT',

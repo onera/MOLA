@@ -49,34 +49,34 @@ def set_verbose(level,scale=0):
 
 
 def printv(string,v=0,s=0,error=False):
-    """
-    Prints the character string **string** if the verbosity level allows it,
-    or, if **error** is :py:obj:`True`, to standard error.
+  """
+  Prints the character string **string** if the verbosity level allows it,
+  or, if **error** is :py:obj:`True`, to standard error.
 
-    Parameters
-    ----------
+  Parameters
+  ----------
 
-      string : str
-        to be printed. Do not forget to end lines with if you do not want your
-        stdout to be messy
+    string : str
+      to be printed. Do not forget to end lines with if you do not want your
+      stdout to be messy
 
-      v : int
-        verbosity level beyond which string must be printed
+    v : int
+      verbosity level beyond which string must be printed
 
-      s : scale
-        category of messages you want printed
+    s : scale
+      category of messages you want printed
 
-      error : bool
-        if :py:obj:`True`, print to stderr, whether the verbosity level allows it or not
+    error : bool
+      if :py:obj:`True`, print to stderr, whether the verbosity level allows it or not
 
-    """
-    if not error:
-      if v<=verbose[s]:
-          sys.stdout.write(string)
-          sys.stdout.flush()
-    else:
-      sys.stderr.write(string)
-      sys.stderr.flush()
+  """
+  if not error:
+    if v<=verbose[s]:
+        sys.stdout.write(string)
+        sys.stdout.flush()
+  else:
+    sys.stderr.write(string)
+    sys.stderr.flush()
 
 
 
@@ -166,10 +166,10 @@ class model(object):
       real_arguments_names.pop(0)
 
     real_arguments=dict()
-    for numero_variable in range(len(self.operations[variable_name][number_operation]['arguments'])):
+    for variable_number in range(len(self.operations[variable_name][number_operation]['arguments'])):
       real_arguments.update(
         {
-          real_arguments_names[numero_variable]:arguments[self.operations[variable_name][number_operation]['arguments'][numero_variable]]
+          real_arguments_names[variable_number]:arguments[self.operations[variable_name][number_operation]['arguments'][variable_number]]
         }
       )
     return self.operations[variable_name][number_operation]['operation'](**real_arguments)

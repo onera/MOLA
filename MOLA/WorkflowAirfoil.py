@@ -1339,55 +1339,6 @@ def getBoundaryLayerEdgesFromAirfoilCurve(wall,
     return NewZones2add
 
 
-def addPressureAndFrictionCoefficientsToAirfoilCurve(wall, setupfilepath=None,
-        PressureDynamic=None, PressureStatic=None):
-    '''
-    Add ``Cp`` and ``Cf`` fields to the airfoil's surface.
-
-    .. note:: information contained in **setupfilepath** takes priority over
-        explicitly provided values (**PressureDynamic** and **PressureStatic**)
-
-    Parameters
-    ----------
-
-        wall : zone
-            as provided by :py:func:`getAirfoilCurveFromSurfaces` . It must
-            contain fields ``Pressure`` ``SkinFrictionX`` ``SkinFrictionY``
-            ``SkinFrictionZ`` ``nx`` ``ny`` ``nz`` at ``FlowSolution#Centers``.
-
-            .. note:: zone **wall** is modified
-
-        setupfilepath : str
-            ``setup.py`` file containing case information. (Most prioritary)
-
-        PressureDynamic : float
-            Dynamic pressure for normaization
-
-        PressureStatic : float
-            Static pressure for normaization
-
-    '''
-
-    if setupfilepath:
-        setup = J.load_source('setup', setupfilepath)
-        PressureDynamic = setup.ReferenceValues['PressureDynamic']
-        PressureStatic = setup.ReferenceValues['Pressure']
-
-    else:
-        if not all([PressureDynamic, PressureStatic]):
-            raise ValueError('Must provide either setup.py or needed reference values')
-
-    Cp, Cf = J.invokeFields(wall,['Cp','Cf'], locationTag='centers:')
-    P, fx, fy, fz, nx, ny, nz = J.getVars(wall,['Pressure','SkinFrictionX',
-        'SkinFrictionY', 'SkinFrictionZ','nx','ny','nz'],
-        Container='FlowSolution#Centers')
-
-
-    Cf[:] = (ny*fx - nx*fy)/(np.sqrt( ny*ny + nx*nx + nz*nz )*PressureDynamic)
-    Cf[ny<0] *= -1
-    Cp[:] = ( P - PressureStatic ) / PressureDynamic
-
-
 def getRangesOfStructuredPolar(config):
     '''
     Compute Polar ranges of AngleOfAttack, Mach and Reynolds following a
@@ -1581,7 +1532,7 @@ def buildPolar(JobsConfiguration, PolarName='Polar',
      BigAngleOfAttackCm=[0, 0.24998, 0.46468,  0.5463, 0.53691,  0.51722,
                         0.49436,  0.40043,  0.31161,-0.31161,-0.40043,-0.49436,
                         -0.51722, -0.53691,  -0.5463, -0.46468, -0.24998,0],
-     ):
+     FILE_ARRAYS='arrays.cgns'):
     '''
     Constructs a **PyZonePolar** (that can be saved to a file ``Polars.cgns``)
     containing the information of the polars predictions.
@@ -1654,7 +1605,7 @@ def buildPolar(JobsConfiguration, PolarName='Polar',
                         PolarsDict[v][i,j,:] = 0.0
 
             try:
-                arrays = JM.getCaseArrays(config, CASE_LABEL)
+                arrays = JM.getCaseArrays(config, CASE_LABEL, FILE_ARRAYS=FILE_ARRAYS)
             except:
                 for v in PolarsDict:
                     if len(PolarsDict[v].shape) == 2:
@@ -1822,10 +1773,6 @@ def addRelevantWallFieldsFromElsAFieldsAtVertex(wall, PressureDynamic,
         PressureStatic : float
             static pressure for normalization
 
-    See also
-    --------
-    addPressureAndFrictionCoefficientsToAirfoilCurve
-
     '''
 
     Cp, Cf, ReT = J.invokeFields(wall,['Cp','Cf','ReynoldsTheta'])
@@ -1833,7 +1780,7 @@ def addRelevantWallFieldsFromElsAFieldsAtVertex(wall, PressureDynamic,
         'SkinFrictionX', 'SkinFrictionY', 'SkinFrictionZ', 'nx','ny','nz',
         'theta11','runit'])
 
-    Cf[:] = (ny*fx - nx*fy)/(np.sqrt( ny*ny + nx*nx + nz*nz )*PressureDynamic)
+    Cf[:] = (ny*fx - nx*fy)/(np.sqrt( nx*nx + ny*ny + nz*nz )*PressureDynamic)
     Cf[ny<0] *= -1
     Cp[:] = ( P - PressureStatic ) / PressureDynamic
     ReT[:] = runit * theta
@@ -1895,8 +1842,7 @@ def getCaseDistributions(config, CASE_LABEL):
     addRelevantWallFieldsFromElsAFieldsAtVertex(foil,
                                        setup.ReferenceValues['PressureDynamic'],
                                        setup.ReferenceValues['Pressure'],)
-    SurfDict = J.getVars2Dict(foil,
-                               C.getVarNames(foil,excludeXYZ=True)[0])
+    SurfDict = J.getVars2Dict(foil, C.getVarNames(foil,excludeXYZ=True)[0])
     x,y,z = J.getxyz(foil)
     SurfDict.update( dict(CoordinateX=x, CoordinateY=y, CoordinateZ=z) )
 

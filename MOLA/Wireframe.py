@@ -1486,6 +1486,8 @@ def splitCurves(c1,c2,select=0,tol=1e-6):
 
     return Accepted
 
+
+
 def isSubzone(subzone,zone,tol=1.e-10):
     '''
     Check if a block is *totally* contained in another block.
@@ -1755,227 +1757,6 @@ def extrapolate(curve, ExtrapDistance, mode='tangent', opposedExtremum=False):
 
     return ExtrapolatedCurve
 
-def findLeadingEdgeAndSplit(Airfoil, LeadingEdgeCmin=0.5):
-    '''
-    .. danger:: **THIS FUNCTION IS BEING DEPRECATED. MUST BE REPLACED BY**
-     :py:func:`findLeadingOrTrailingEdge`
-
-    find the leading edge point and split the airfoil.
-
-    This function supposes that airfoil is normalized (chordwise direction
-    is on X-axis).
-
-    Parameters
-    ----------
-
-        Airfoil : zone
-            airfoil positioned through x-axis chordwise
-
-        LeadingEdgeCmin : float
-            relative value of X-coordinate (over chord) where to search leading edge
-
-    Returns
-    -------
-
-        iLE : int
-            nearest point index corresponding to leading edge
-
-        Top : zone
-            top side curve of the airfoil
-
-        Bottom : zone
-            bottom side curve of the airfoil
-    '''
-
-
-    FoilX, FoilY = J.getxy(Airfoil)
-    D._getCurvatureRadius(Airfoil)
-    Chord = FoilX.max()-FoilX.min()
-    rad, = J.getVars(Airfoil,['radius'])
-
-    # Find Leading Edge Method 1
-    # LEignoreInterval = (FoilX - FoilX.min())/Chord > LeadingEdgeCmin
-    # rad[LEignoreInterval] = 1e6 # Very Big value (will be bypassed)
-    # iLE = np.argmin(rad)
-
-    # Find Leading Edge Method 2
-    LEinterval = (FoilX - FoilX.min())/Chord < LeadingEdgeCmin
-    MinRad = np.min(rad[LEinterval]) # Minimum Radius (many points may be close to this)
-    MaxRad = np.max(rad[LEinterval])
-
-    # Look for LE candidates
-    tol = 1e-12 # as percentage of (MaxRad-MinRad) distance
-    LECandidates = rad[LEinterval] <= MinRad + tol*(MaxRad-MinRad)
-
-    # AvrgPoint is the LECandidates average
-    AvrgPoint = (np.mean(FoilX[LEinterval][LECandidates]), np.mean(FoilY[LEinterval][LECandidates]), 0.)
-    # AvrgPointPyTree = D.point(AvrgPoint)
-    # T._projectOrtho(AvrgPointPyTree,Airfoil)
-    iLE, _ = J.getNearestPointIndex(Airfoil, AvrgPoint)
-
-    # Split Top and Bottom sides
-    Bottom = T.subzone(Airfoil,(iLE+1,1,1),(-1,-1,-1))
-    Top    = T.subzone(Airfoil,(1,1,1),(iLE+1,1,1))
-
-    return iLE, Top, Bottom
-
-def findTrailingEdgeAndSplit(Airfoil):
-    '''
-    .. danger:: **THIS FUNCTION IS BEING DEPRECATED. MUST BE REPLACED BY**
-     :py:func:`findLeadingOrTrailingEdge`
-
-    find the trailing edge point and split the airfoil.
-
-    This function supposes that airfoil is normalized (chordwise direction
-    is on X-axis).
-
-    Parameters
-    ----------
-
-        Airfoil : zone
-            airfoil positioned through x-axis chordwise
-
-    Returns
-    -------
-
-        iTE : int
-            nearest point index corresponding to trailing edge
-
-        Top : zone
-            top side curve of the airfoil
-
-        Bottom :
-            bottom side curve of the airfoil
-    '''
-    isClockwise = is2DCurveClockwiseOriented(Airfoil)
-
-    if not isClockwise: T._reorder(Airfoil,(-1,2,3))
-
-    # Find Trailing Edge
-    AirfoilX, AirfoilY = J.getxy(Airfoil)
-    iTE = np.argmax(AirfoilX)
-
-    # Split Top and Bottom sides
-    if iTE > 0:
-        Bottom = T.subzone(Airfoil,(iTE+1,1,1),(-1,-1,-1))
-        Top    = T.subzone(Airfoil,(2,1,1),(iTE+1,1,1))
-    else:
-        iLE = np.argmin(AirfoilX)
-        Bottom = T.subzone(Airfoil,(1,1,1),(iLE,1,1))
-        Top    = T.subzone(Airfoil,(iLE,1,1),(len(AirfoilX),1,1))
-
-    return iTE, Top, Bottom
-
-
-def getChord(Airfoil):
-    '''
-    .. danger:: THIS FUNCTION IS BEING DEPRECATED AND MUST BE REPLACED
-
-    Literally, compute the airfoils chord as max(x) - min(x)
-    '''
-
-    FoilX, FoilY = J.getxy(Airfoil)
-    Chord = FoilX.max()-FoilX.min()
-    return Chord
-
-def getCamber(Airfoil, CamberDistribution=None, LeadingEdgeCmin=0.5,
-                       camberMinSearchPoint=0.01):
-    '''
-    .. danger:: THIS FUNCTION IS BEING DEPRECATED AND MUST BE REPLACED
-        BY :py:func:`buildCamber`
-    '''
-
-    WRNMSG = ('WARNING: getCamber() will be deprecated.\n'
-              'Please use buildCamber() instead.')
-    print(WRNMSG)
-
-    iLE, Top, Bottom = findLeadingEdgeAndSplit(Airfoil,LeadingEdgeCmin)
-    # Top    = discretize(Top,N=100)    # Densify Top Side
-    # Bottom = discretize(Bottom,N=100) # Densify Bottom Side
-    T._reorder(Bottom,(-1,2,3))
-    # Compute accurate chord
-    Chord = np.maximum(getChord(Top),getChord(Bottom))
-    TopX, TopY       = J.getxy(Top)
-    BottomX, BottomY = J.getxy(Bottom)
-
-    TopTan = D.getTangent(Top)
-    TopTanX, TopTanY = J.getxy(TopTan)
-
-    Zones = [Top, Bottom]
-
-
-
-    def gapFromTangency__(R,i,TopX,TopY,TopTanX,TopTanY,Bottom):
-        Center   = (TopX[i]+TopTanY[i]*R,TopY[i]-TopTanX[i]*R,0)
-        CenterP  = D.point((TopX[i]+TopTanY[i]*R,TopY[i]-TopTanX[i]*R,0))
-
-        T._projectOrtho(CenterP,Bottom)
-        projX = I.getNodeFromName(CenterP, 'CoordinateX')[1][0]
-        projY = I.getNodeFromName(CenterP, 'CoordinateY')[1][0]
-        Distance = np.sqrt((Center[0]-projX)**2+(Center[1]-projY)**2) - R
-
-        return Distance
-
-
-    # ------------> THIS CODE MAY BE OPTIMIZED <-------------
-    Centers = []
-    Radius  = []
-    # Circles = []
-    iMinSearchIndex = np.where(((TopX - TopX.min())/Chord >= camberMinSearchPoint))[0][0]
-    for i in range(iMinSearchIndex,len(TopX)-1):
-        Ropt, Distance, Converged = _rootScalar__(gapFromTangency__,
-            np.linspace(0.001,0.1,3),
-            args=(i,TopX,TopY,TopTanX,TopTanY,Bottom),
-            xmin=0.001,xmax=0.5,
-            maxstep=0.5,maxiter=100,tol=1.e-8)
-
-        if Converged:
-            Center   = (TopX[i]+TopTanY[i]*Ropt,TopY[i]-TopTanX[i]*Ropt,0)
-            # Circle   = D.circle(Center, Ropt,N=360*2)
-            Centers += [Center]
-            Radius  += [Ropt]
-
-            # Circles += [Circle]
-    # <------------------------------------------------------>
-
-
-
-
-    # Join the Leading and Trailing Edge
-    LeadingEdge = ((TopX[-1]+BottomX[-1])*0.5,(TopY[-1]+BottomY[-1])*0.5,0)
-    TrailingEdge = ((TopX[0]+BottomX[0])*0.5,(TopY[0]+BottomY[0])*0.5,0)
-    CamberLine = D.polyline([LeadingEdge]+Centers[::-1]+[TrailingEdge])
-
-    # Re-discretize CamberLine
-    if CamberDistribution is None:
-        CamberDistribution = dict(N=51,
-                            kind='tanhOneSide',
-                            FirstCellHeight=0.0001*Chord,
-                            BreakPoint=1.)
-        CamberDistribution = dict(N=200,
-                            kind='trigonometric',
-                            parameter=2,
-                            BreakPoint=1.)
-    elif 'BreakPoint' not in CamberDistribution:
-        CamberDistribution['BreakPoint'] = 1.
-
-
-    CamberLine = polyDiscretize(CamberLine,[CamberDistribution])
-
-    # Store distance
-    TopTri = C.convertArray2Tetra(G.stack([Top,T.translate(Top,(0,0,1))]))
-    BottomTri = C.convertArray2Tetra(G.stack([Bottom,T.translate(Bottom,(0,0,1))]))
-
-    TangentCamber = D.getTangent(CamberLine)
-    tX, tY, tZ = J.getxyz(TangentCamber)
-    e, = J.invokeFields(CamberLine,['RelativeThickness'])
-    Distances2Top    = distancesCurve2SurfDirectional(CamberLine,TopTri,tY,-tX,tX*0)
-    Distances2Bottom = distancesCurve2SurfDirectional(CamberLine,BottomTri,tY,-tX,tX*0)
-    e[:] = Distances2Top+Distances2Bottom # Does not look like; but this is an average ;-)
-    e[-1] = np.sqrt((TopX[-1]-BottomX[-1])**2 + (TopY[-1]-BottomY[-1])**2) / Chord
-
-
-    return CamberLine
 
 def distancesCurve2SurfDirectional(Curve,Surface,DirX,DirY,DirZ):
     '''
@@ -2436,59 +2217,78 @@ def isAirfoilClockwiseOriented(curve):
     return isClockwise
 
 
-def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge(foil):
+def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge( airfoil, tol=1e-5,
+                                                    trailing_edge_margin=1e-4):
     '''
     This function transforms the input airfoil into clockwise-oriented and
     starting from trailing edge.
 
+    .. attention:: airfoil must be placed on :math:`XY` plane
+
     Parameters
     ----------
 
-        foil : zone
+        airfoil : zone
             structured curve of the airfoil
 
-            .. note:: **foil** is modified
-
+            .. note:: **airfoil** is modified
     '''
-    OriginalAirfoil = I.copyTree(foil)
 
-    if not is2DCurveClockwiseOriented(foil): T._reorder(foil,(-1,2,3))
+    LE,_ = findLeadingOrTrailingEdge( airfoil, ChordwiseRegion='> 0.99')
+    TE,_ = findLeadingOrTrailingEdge( airfoil, ChordwiseRegion='< -0.99')
 
-    x,y,z = J.getxyz(foil)
+    if C.getMaxValue(LE,"CoordinateX") > C.getMaxValue(TE,"CoordinateX"):
+        LE, TE = TE, LE
+    I._rmNodesByType(TE,'FlowSolution_t')
+    x, y, z = J.getxyz(TE)
+    TE_xyz = ( x[0], y[0], z[0] )
 
-    XChord = x.max()-x.min()
-    foilAux = C.initVars(foil,'ChordwiseIndicator=({CoordinateX}-%g)/%g'%(x.min(),XChord))
-    SelectedRegion = P.selectCells(foilAux,'{ChordwiseIndicator}>0.9')
-    SelectedRegion = C.convertBAR2Struct( SelectedRegion )
-    SmoothParts = T.splitCurvatureAngle(SelectedRegion, 45.0 )
-    YMax = [C.getMaxValue(sp,'CoordinateY') for sp in SmoothParts]
-    YMax, SmoothParts = J.sortListsUsingSortOrderOfFirstList(YMax, SmoothParts)
-    LowerPart = SmoothParts[0]
-    xLP,yLP,zLP = J.getxyz(LowerPart)
-    iMaxYLP = np.argmax(yLP)
-    Pt = (xLP[iMaxYLP],yLP[iMaxYLP],zLP[iMaxYLP])
-    iTE,_ = D.getNearestPointIndex(foil,Pt)
-    NPts = len(x)
-    RollPts = NPts - iTE
-    if RollPts > 0 and RollPts != NPts:
-        fields2roll =  J.getxyz(foil)
-        for field in fields2roll:
-            field[:] = np.hstack((field[iTE:],field[1:iTE],field[iTE]))
+    x, y = J.getxy( airfoil )
+    FieldNames = C.getVarNames(airfoil, excludeXYZ=True, loc='nodes')[0]
+    fields = J.getVars( airfoil, FieldNames )
 
-    gets(foil)
+    if not is2DCurveClockwiseOriented( airfoil ):
+        T._reorder( airfoil, (-1,2,3))
 
-    J.migrateFields(OriginalAirfoil, foil, keepMigrationDataForReuse=False)
+    roll_index, sqrd_distance = D.getNearestPointIndex(airfoil, TE_xyz)
+    x, y = J.getxy( airfoil )
+    mult_point = (x[roll_index]*1., y[roll_index]*1., 0.)
+    fields = J.getVars( airfoil, FieldNames )
+    x[:] = np.roll(x, -roll_index)
+    y[:] = np.roll(y, -roll_index)
+    for field in fields:
+        field[:] = np.roll(field, -roll_index)
+
+    # remove multiple point
+    tol = 1e-10
+    for i in range(len(x)):
+        ni, sqrd_distance = D.getNearestPointIndex(airfoil, (x[i],y[i],0))
+        if i == ni: continue
+        distance = np.sqrt( (x[i]-x[ni])**2 + (y[i]-y[ni])**2)
+        if distance <= tol:
+            break
+
+    if distance < tol:
+        x[i:-1] = x[i+1:]
+        y[i:-1] = y[i+1:]
+        x[-1] = x[0]
+        y[-1] = y[0]
+        for field in fields:
+            field[i:-1] = field[i+1:]
+            field[-1] = field[0]
+
+    # add curvilinear abscissa starting & ending at VIRTUAL TrailingEdge
+    airfoil_with_TE = T.subzone( airfoil, (2,1,1), (-2,-1,-1) )
+    I._rmNodesByType( airfoil_with_TE, 'FlowSolution_t' )
+    airfoil_with_TE = concatenate( [TE, airfoil_with_TE, TE] )
+    gets( airfoil_with_TE )
+
+    J.migrateFields( airfoil_with_TE, airfoil, keepMigrationDataForReuse=False )
+    s, = J.getVars(airfoil, ['s'])
+    s[0] = 0
+    s[-1] = 1
 
 
-def setTrailingEdge(Airfoil):
-    '''
-    .. warning:: THIS FUNCTION IS BEING DEPRECATED
-    '''
-    _, Top, Bottom = findTrailingEdgeAndSplit(Airfoil)
-
-    foil = concatenate([Bottom, Top])
-
-    return foil
 
 
 def getCurveNormalMap(curve):
@@ -3275,6 +3075,8 @@ def findLeadingOrTrailingEdge(AirfoilCurve, ChordwiseRegion='> +0.5',
     ci, ti = J.getVars(AirfoilCurve,['ChordwiseIndicator','ThickwiseIndicator'])
     SelectedRegion = P.selectCells(AirfoilCurve,'{ChordwiseIndicator}'+
                                                   ChordwiseRegion)
+
+
     x = J.getx(SelectedRegion)
     if len(x) == 0:
         ci, = J.getVars(AirfoilCurve,['ChordwiseIndicator'])
@@ -3284,15 +3086,22 @@ def findLeadingOrTrailingEdge(AirfoilCurve, ChordwiseRegion='> +0.5',
         raise ValueError(ERRMSG)
     SelectedRegion = C.convertBAR2Struct( SelectedRegion )
 
-    # TODO: Investigate this in detail:
-    # SelectedRegion = G.map(SelectedRegion,
-    #                        D.line((0,0,0),(1,0,0),C.getNPts(SelectedRegion)))
+    # rediscretize the selected region
+    region_npts = 101
+    delta_s = D.getLength( SelectedRegion ) / float( region_npts )
+    SmoothParts = T.splitCurvatureAngle( SelectedRegion, 30.)
+    NewSmoothParts = []
+    for sp in SmoothParts:
+        Length_subpart = D.getLength( sp )
+        npts_subpart = int(Length_subpart / delta_s)
+        new_subpart = discretize(sp, N=np.maximum(npts_subpart,3))
+        NewSmoothParts.append( new_subpart )
+    SelectedRegion = T.join( NewSmoothParts )
 
     D._getCurvatureRadius( SelectedRegion )
-
-    x, y, z =  J.getxyz( SelectedRegion )
-    gets( SelectedRegion )
+    aux_s = gets( SelectedRegion )
     radius, = J.getVars( SelectedRegion, ['radius'] )
+    x, y, z =  J.getxyz( SelectedRegion )
 
     rmin = radius.min()
 
@@ -3381,7 +3190,12 @@ def closeStructCurve(AirfoilCurve, tol=1e-10):
                          ( z[-1] - z[0] )**2   ) ** 0.5
 
     if ExtremumDistance > tol:
-        AirfoilCurve = G.addPointInDistribution(AirfoilCurve, len(x))
+
+        # TODO notify bug Cassiopee: addPointInDistribution modifies geometry !
+        # AirfoilCurve = G.addPointInDistribution(AirfoilCurve, len(x))
+        # WORKAROUND:
+        new_pt = D.point(extremum(AirfoilCurve,True))
+        AirfoilCurve = concatenate([AirfoilCurve,new_pt])
 
         x, y, z = J.getxyz(AirfoilCurve)
 
@@ -4600,17 +4414,85 @@ def trimCurveAlongDirection(curve, direction, cut_point_1, cut_point_2):
     y = y.ravel(order='F')
     z = z.ravel(order='F')
     xyz = np.vstack((x,y,z)).T
-    distance1 = ( xyz - cut_point_1 ).dot(-direction )
+    distance1 = ( xyz - cut_point_1 ).dot( direction )
     distance2 = ( xyz - cut_point_2 ).dot( direction )
-    PointsToKeep = (distance1>0)*(distance2>0)
+    PointsToKeep = distance1 * distance2 < 0
     FieldToSlice[PointsToKeep] = 1
-    trimmed_element = P.selectCells(curve,'{FieldToSlice}>0.1')
+    trimmed_element = P.selectCells(curve,'{FieldToSlice}>0.1',strict=1)
     number_of_subparts = len(I.getZones(T.splitConnexity(trimmed_element)))
     if number_of_subparts != 1:
         C.convertPyTree2File(curve,'debug.cgns')
         raise ValueError('could not trim along direction, since multiple subparts were obtained.')
+
     trimmed_curve = C.convertBAR2Struct(trimmed_element)
+    I._rmNodesByType(trimmed_curve,'FlowSolution_t')
+
+    # add first point
+    n = direction
+    Pt = cut_point_1
+    PlaneCoefs = n[0],n[1],n[2],-n.dot(Pt)
+    C._initVars(curve,'Slice=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
+    zones = P.isoSurfMC(curve, 'Slice', 0.0)
+    if len(zones) > 0:
+        pt1 = I.getZones(zones)[0]
+        x,y,z = J.getxyz(pt1)
+        pt1 = D.point((x[0],y[0],z[0]))
+        trimmed_curve = concatenate([pt1,trimmed_curve])
+
+    # add second point
+    n = direction
+    Pt = cut_point_2
+    PlaneCoefs = n[0],n[1],n[2],-n.dot(Pt)
+    C._initVars(curve,'Slice=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
+    zones = P.isoSurfMC(curve, 'Slice', 0.0)
+    if len(zones) > 0:
+        pt2 = I.getZones(zones)[0]
+        x,y,z = J.getxyz(pt2)
+        pt2 = D.point((x[0],y[0],z[0]))
+        trimmed_curve = concatenate([trimmed_curve,pt2])
+
     return trimmed_curve
+
+
+def getNearestIntersectingPoint(zone1, zone2):
+    '''
+    Return the coordinates of a point belonging to **zone2** such that
+    its distance is minimum with respect to any point of **zone1**
+
+    .. note:: this is an 0th-order method
+
+    Parameters
+    ----------
+
+        zone1 : zone
+            points where distance are computed
+
+        zone2 : zone
+            points from which minimum distance is selected
+
+    Returns
+    -------
+
+        point : 3-:py:class:`float` numpy.array
+            coordinates of the nearest intersecting point belonging to **zone2**
+    '''
+    xN,yN,zN = J.getxyz(zone1)
+    x = np.ravel(xN,order='K')
+    y = np.ravel(yN,order='K')
+    z = np.ravel(zN,order='K')
+
+    AllPoints = [(x[i], y[i], z[i]) for i in range(len(x))]
+    res = D.getNearestPointIndex(zone2, AllPoints)
+    xT, yT, zT = J.getxyz(zone2)
+    x2 = np.ravel(xT,order='K')
+    y2 = np.ravel(yT,order='K')
+    z2 = np.ravel(zT,order='K')
+    nearest_indices = [res[i][0] for i in range(len(res))]
+    squared_distances = [res[i][1] for i in range(len(res))]
+    nearest_index = nearest_indices[ np.argmin(squared_distances) ]
+
+    return np.array([x2[nearest_index], y2[nearest_index], z2[nearest_index]])
+
 
 def intersection(curves):
     '''
@@ -4640,7 +4522,6 @@ def intersection(curves):
     for i in range(InitialNPts,FinalNPts):
         IntersectingPoints.append( D.point((x[i],y[i],z[i])) )
 
-    C.convertPyTree2File([bar,conformed],'debug.cgns')
 
     return IntersectingPoints
 
@@ -4664,3 +4545,372 @@ def writeAirfoilInSeligFormat(airfoil, filename='foil.dat'):
         f.write(foil[0]+'\n')
         for x, y in zip(X,Y):
             f.write(' %0.6f   %0.6f\n'%(x,y))
+
+
+def tangentExtremum(curve, opposite_extremum=False):
+    '''
+    get the unitary vector direction (tangent) at the extremum of a structured
+    curve
+
+    Parameters
+    ----------
+
+        curve : zone
+            structured curve
+
+        opposite_extremum : bool
+            if :py:obj:`False`, compute the tangent at first index :math:`(i=0)`.
+            If :py:obj:`True`, compute the tangent at last index :math:`(i=-1)`.
+
+    Returns
+    -------
+
+        v : numpy.array of 3 float
+            unitary vector of the direction of the extremum following index
+            direction
+    '''
+    x,y,z = J.getxyz(curve)
+    if opposite_extremum:
+        v = np.array([x[-1]-x[-2], y[-1]-y[-2], z[-1]-z[-2]])
+    else:
+        v = np.array([x[1]-x[0], y[1]-y[0], z[1]-z[0]])
+    v /= np.sqrt(v.dot(v))
+    return v
+
+def extremum(curve, opposite_extremum=False):
+    '''
+    get the coordinates of the extremum point of a curve
+
+    Parameters
+    ----------
+
+        curve : zone
+            structured curve
+
+        opposite_extremum : bool
+            if :py:obj:`False`, get the extremum at first index :math:`(i=0)`.
+            If :py:obj:`True`, get the extremum at last index :math:`(i=-1)`.
+
+    Returns
+    -------
+
+        pt : numpy.array of 3 float
+            coordinates :math:`(x,y,z)`
+    '''
+    x,y,z = J.getxyz(curve)
+    if opposite_extremum:
+        return np.array([x[-1], y[-1], z[-1]])
+    else:
+        return np.array([x[0], y[0], z[0]])
+
+
+def reorderCurvesSequentially(curves):
+    '''
+    reorder the indexing of a set of structured curves so that they yield a
+    coherent ordering for a sequential geometrical concatenation.
+
+    Parameters
+    ----------
+
+        curves : :py:class:`list` of zones
+            list of structured curves to be reordered
+
+            .. warning::
+                **curves** must contain at least 2 items
+
+            .. important::
+                the ordering of the curves is determined by the existing ordering
+                of the first provided curve (first item of **curves**)
+
+    Returns
+    -------
+
+        reordered_curves : :py:class:`list` of zones
+            like the input, but the curves ordering is adapted if required
+    '''
+    ordered_curves = [ curves[0] ]
+    not_ordered_curves = list(curves[1:])
+
+    must_reverse = [True, False, False, True]
+
+    while not_ordered_curves:
+
+        last_ordered_curve = ordered_curves[-1]
+
+        start0 = extremum(last_ordered_curve)
+        end0 = extremum(last_ordered_curve,True)
+
+        distances = []
+        nearest_extrema = []
+
+        for not_ordered_curve in not_ordered_curves:
+            start = extremum(not_ordered_curve)
+            end = extremum(not_ordered_curve, True)
+            extrema_dist = np.array([distance(start0, start),
+                                     distance(start0, end),
+                                     distance(end0, start),
+                                     distance(end0, end)])
+            nearest_extrema += [ np.argmin( extrema_dist ) ]
+            distances += [ extrema_dist[nearest_extrema[-1]] ]
+
+        nearest_curve_index = np.argmin( distances )
+        nearest_curve = not_ordered_curves[ nearest_curve_index ]
+
+        if must_reverse[ nearest_extrema[nearest_curve_index] ]:
+            T._reorder(nearest_curve,(-1,2,3))
+
+        ordered_curves += [nearest_curve]
+
+        del not_ordered_curves[ nearest_curve_index ]
+
+    return ordered_curves
+
+def sortCurvesSequentially(curves):
+    '''
+    sort a list of structured curves so that the order of the new list
+    minimizes the distance between the ending and the starting points of each
+    curve. This is useful for concatenation.
+
+    Parameters
+    ----------
+
+        curves : :py:class:`list` of zones
+            list of structured curves to be sorted
+
+            .. warning::
+                **curves** must contain at least 2 items
+
+            .. important::
+                the sorting of the curves starts from the first provided curve
+                (first item of **curves**)
+
+    Returns
+    -------
+
+        sorted_curves : :py:class:`list` of zones
+            like the input, but the curves order in the list is adapted if required
+    '''
+    sorted_curves = [ curves[0] ]
+    not_sorted_curves = list(curves[1:])
+
+    while not_sorted_curves:
+
+        last_sorted_curve = sorted_curves[-1]
+
+        end0 = extremum(last_sorted_curve,True)
+
+        distances = []
+        for not_sorted_curve in not_sorted_curves:
+            start = extremum(not_sorted_curve)
+            distances += [distance(end0, start)]
+
+        nearest_curve_index = np.argmin( distances )
+        nearest_curve = not_sorted_curves[ nearest_curve_index ]
+
+        sorted_curves += [nearest_curve]
+
+        del not_sorted_curves[ nearest_curve_index ]
+
+    return sorted_curves
+
+
+def reorderAndSortCurvesSequentially(curves):
+    '''
+    Literally, combines :py:func:`reorderCurvesSequentially` and
+    :py:func:`sortCurvesSequentially`
+    '''
+    return sortCurvesSequentially(reorderCurvesSequentially(curves))
+
+
+def splitInnerContourFromOutterBoundariesTopology(boundaries, inner_contour):
+    '''
+    From a closed boundary formed by 4 structured curves, conveniently splits
+    another structured curve such that each boundary has a corresponding
+    inner contour subpart with equal number of segments. This is useful as an
+    intermediate step for H-shape meshing topologies.
+
+    Parameters
+    ----------
+
+        boundaries : :py:class:`list` of 4 zones
+            List of 4 structured curves defining the outter boundaries.
+
+            .. warning::
+                total number of segments of **boundaries** and **inner_contour**
+                must be identical
+
+        inner_contour : zone
+            structured curve to be split
+
+    Return
+    ------
+
+        adapted_boundaries : :py:class:`list` of 4 zones
+            like **boundaries** but sequentially reordered and sorted
+
+        inner_contour_split : :py:class:`list` of 4 zones
+            **inner_contour** split in 4 parts with identical number of
+            segments between each subpart and the boundaries, yielding same
+            index ordering and position in list
+    '''
+    if len(boundaries) != 4:
+        raise ValueError(J.FAIL+'boundaries must be composed of 4 curves'+J.ENDC)
+
+    inner_contour_NPts = C.getNPts(inner_contour)
+    N_segments_inner = inner_contour_NPts - 1
+    N_segments_boundary = 0
+    for b in boundaries:
+        N_segments_boundary += C.getNPts(b)-1
+
+    if N_segments_boundary != N_segments_inner:
+        raise ValueError(J.FAIL+'total number of segments of boundaries (%d) must be the same as inner_contour (%d)'%(N_segments_boundary,N_segments_inner)+J.ENDC)
+
+
+    boundaries = reorderAndSortCurvesSequentially(boundaries)
+    I._correctPyTree(boundaries, level=3)
+    corners = [extremum(b) for b in boundaries]
+    directions = [tangentExtremum(b) for b in boundaries]
+
+    inner_contour = I.copyTree(inner_contour)
+    index, sqrddist = D.getNearestPointIndex(inner_contour,tuple(corners[0]))
+    xi, yi, zi = J.getxyz(inner_contour)
+    if index == 0: u=np.array([xi[1]-xi[0],yi[1]-yi[0],zi[1]-zi[0]])
+    else: u=np.array([xi[index]-xi[index-1],yi[index]-yi[index-1],zi[index]-zi[index-1]])
+    u /= np.sqrt(u.dot(u))
+    v = directions[0]
+    if u.dot(v) < 0: T._reorder(inner_contour,(-1,2,3))
+
+    inner_contour_NPts = C.getNPts(inner_contour)
+    all_distances = []
+    first_points = []
+    all_aux_inner_contour = []
+    all_list_index_j = []
+    test_all_first_bnd = []
+    for i, corner in enumerate(corners):
+        index, sqrddist = D.getNearestPointIndex(inner_contour,tuple(corner))
+
+        if (index > 0) and (index < inner_contour_NPts-2):
+            split_subpart_A = T.subzone(inner_contour,(1,1,1),(index+1,1,1))
+            split_subpart_B = T.subzone(inner_contour,(index+2,1,1),(-1,-1,-1))
+
+            split_subparts = reorderCurvesSequentially([split_subpart_B, split_subpart_A])
+            xs,ys,zs = J.getxyz(split_subparts[0])
+            xs[0]+=1
+            ys[0]+=1
+            zs[0]+=1
+            try:
+                aux_inner_contour = T.join(split_subparts[0],split_subparts[1])
+            except:
+                print(J.FAIL,index,J.ENDC)
+                C.convertPyTree2File(split_subparts,'debug.cgns');exit()
+
+            xs,ys,zs = J.getxyz(aux_inner_contour)
+            xs[0]-=1
+            ys[0]-=1
+            zs[0]-=1
+        else:
+            aux_inner_contour = I.copyTree(inner_contour)
+
+        aux_inner_contour = closeStructCurve(aux_inner_contour)
+
+        aux_inner_contour[0]="aux_inner_contour.%d"%i
+        all_aux_inner_contour.append( aux_inner_contour )
+
+        x,y,z = J.getxyz(aux_inner_contour)
+
+        distances = np.zeros(4)
+        index_j = 0
+        list_index_j = []
+
+        for j in range(4):
+
+            bnd_index = i+j
+            if bnd_index > 3: bnd_index -= 4
+
+
+            if j>0: index_j += C.getNPts(boundaries[bnd_index-1]) - 1
+
+            consequence_point = np.array([x[index_j],y[index_j],z[index_j]])
+            distances[bnd_index] = distance(corners[bnd_index], consequence_point)
+
+            if bnd_index == 0:
+                first_points += [consequence_point]
+                # test_bnd = I.copyTree(aux_inner_contour)
+                # test_all_first_bnd += [ test_bnd ]
+                # print(J.WARN,index_j,consequence_point,J.ENDC)
+                # if consequence_point[0]>0.5:
+                #     print('i=%d'%i)
+                #     print(corners[i])
+                #     pt = D.point(tuple(consequence_point))
+                #     C.convertPyTree2File([pt,aux_inner_contour],'pt_cnt.cgns')
+
+            list_index_j.append(index_j)
+        all_list_index_j += [list_index_j]
+        all_distances += [distances]
+
+    sum_all_distances = np.sum(all_distances,axis=0)
+    mean_point = np.mean(np.vstack(tuple(first_points)),axis=0)
+    ###########################################################################
+    # TO FACTORIZE
+    index, sqrddist = D.getNearestPointIndex(inner_contour, tuple(mean_point))
+
+    if (index > 0) and (index < inner_contour_NPts-2):
+        split_subpart_A = T.subzone(inner_contour,(1,1,1),(index+1,1,1))
+        split_subpart_B = T.subzone(inner_contour,(index+2,1,1),(-1,-1,-1))
+
+        split_subparts = reorderCurvesSequentially([split_subpart_B, split_subpart_A])
+        xs,ys,zs = J.getxyz(split_subparts[0])
+        xs[0]+=1
+        ys[0]+=1
+        zs[0]+=1
+        aux_inner_contour = T.join(split_subparts[0],split_subparts[1])
+        xs,ys,zs = J.getxyz(aux_inner_contour)
+        xs[0]-=1
+        ys[0]-=1
+        zs[0]-=1
+    else:
+        aux_inner_contour = I.copyTree(inner_contour)
+
+    aux_inner_contour = closeStructCurve(aux_inner_contour)
+
+    aux_inner_contour[0]="aux_inner_contour.%d"%i
+
+    x,y,z = J.getxyz(aux_inner_contour)
+
+    distances = np.zeros(4)
+    index_j = 0
+    list_j = []
+    i = 0
+    for j in range(4):
+
+        bnd_index = i+j
+        if bnd_index > 3: bnd_index -= 4
+
+        if j>0: index_j += C.getNPts(boundaries[bnd_index-1]) - 1
+
+        consequence_point = np.array([x[index_j],y[index_j],z[index_j]])
+        distances[bnd_index] = distance(corners[bnd_index], consequence_point)
+
+        if bnd_index == 3: first_points += [consequence_point]
+        list_j.append(index_j)
+
+    ###########################################################################
+
+    # all_distances = np.vstack(tuple(all_distances))
+    # sum_all_distances = np.sum(all_distances,axis=0)
+    #
+    # arg_min_dist = np.argmin(sum_all_distances)
+    # aux_inner_contour = all_aux_inner_contour[arg_min_dist]
+
+    # list_j = all_list_index_j[arg_min_dist]
+
+    inner_contour_split = []
+    for i in range(3):
+        inner_contour_split += [T.subzone(aux_inner_contour,(list_j[i]+1,1,1),(list_j[i+1]+1,1,1))]
+    inner_contour_split += [T.subzone(aux_inner_contour,(list_j[3]+1,1,1),(-1,-1,-1))]
+
+    # inner_contour_split = inner_contour_split[-arg_min_dist:] +  inner_contour_split[:-arg_min_dist]
+    for inner, bnd in zip(inner_contour_split, boundaries):
+        inner[0] = bnd[0] + '.inner'
+
+    return boundaries, inner_contour_split

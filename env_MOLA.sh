@@ -31,8 +31,8 @@ export PYTHONUNBUFFERED=true # ticket 9685
 # Detection machine
 KC=`uname -n`
 MAC0=$(echo $KC | grep 'n'); if [ "$MAC0" != "" ]; then export MAC="sator"; fi
-MAC0=$(echo $KC | grep 'sator1'); if [ "$MAC0" != "" ]; then export MAC="sator"; fi
-MAC0=$(echo $KC | grep 'sator2'); if [ "$MAC0" != "" ]; then export MAC="sator"; fi
+MAC0=$(echo $KC | grep 'sator1'); if [ "$MAC0" != "" ]; then export MAC="sator-new"; fi
+MAC0=$(echo $KC | grep 'sator2'); if [ "$MAC0" != "" ]; then export MAC="sator-new"; fi
 MAC0=$(echo $KC | grep 'sator3'); if [ "$MAC0" != "" ]; then export MAC="sator"; fi
 MAC0=$(echo $KC | grep 'sator4'); if [ "$MAC0" != "" ]; then export MAC="sator"; fi
 MAC0=$(echo $KC | grep 'sator5'); if [ "$MAC0" != "" ]; then export MAC="sator-new"; fi
@@ -83,10 +83,18 @@ elif [ "$MAC" = "visio" ]; then
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
 elif [ "$MAC" = "ld" ]; then
-    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
-    module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+    EL8=`uname -r|grep el8`
+    if [ "$EL8" ]; then
+        echo 'loading MOLA environment for CentOS 8'
+        source /stck/elsa/Public/${ELSAVERSION}dev/Dist/bin/local-os8/.env_elsA
+        module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+    else
+        echo 'loading MOLA environment for CentOS 7'
+        source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
+        module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+    fi
 
-    alias treelab='python3 $TREELAB/GUI/treelab.py '
+    alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
     alias python='python3'
 
 elif [ "$MAC" = "sator" ]; then
@@ -116,7 +124,7 @@ elif [ "$MAC" = "sator-new" ]; then
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
-    alias treelab='python3 $TREELAB/GUI/treelab.py '
+    alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
     alias python='python3'
 
 else

@@ -1,7 +1,7 @@
 #!/bin/bash/python
 #Encoding:UTF8
 """
-Description : Submodule for the automatic computation of models-related variables
+Submodule for the automatic computation of models-related variables
 """
 #__________Generic modules_____________________________________________#
 import sys
@@ -538,24 +538,6 @@ class PyTree_operator(operator):
         value found in the DataArray_t node named after <variable_name>
     """
     return I.getNodeFromNameAndType(self.current_containers,variable_name,'DataArray_t')[1]
-
-  # def get_FlowSolution_nodes_name(self):
-  #   """
-  #   Returns the FlowSolution nodes names that must be considered for any computation using the current working tree.
-  #   Computations at cell centers and node can be performed by calling the set_dataLocalization method and modifying
-  #   the corresponding variables of the Cassiopee Converter.Internal module.
-  #   Returns
-  #   -------
-  #     FlowSolution_nodes_names : string, name of the FlowSolution containers to use for the computations with this PyTree_operator
-  #   """
-  #   if self.data_localization=='CellCenter':
-  #     FlowSolution_nodes_name=I.__FlowSolutionCenters__
-  #   elif self.data_localization=='Vertex':
-  #     FlowSolution_nodes_name=I.__FlowSolutionNodes__
-  #   else:
-  #     FlowSolution_nodes_name=None
-  #     raise Exception("Le type de données fourni n'est pas valide. Les données peuvent seulement être définies aux centres cellules 'CellCenter' où aux noeuds du maillage 'Vertex'")
-  #   return FlowSolution_nodes_name
 
   def renameVariable(self,initial_name,new_name):
     """

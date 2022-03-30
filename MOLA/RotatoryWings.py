@@ -1390,7 +1390,11 @@ def getEulerAngles4PUMA(RotationAxis, PhaseDirection=(0,1,0)):
 
     RotationMatrix = FrenetDEST.T.dot(npla.inv(FrenetPUMA.T))
 
-    Rotator = ScipyRotation.from_dcm(RotationMatrix)
+    try:
+        Rotator = ScipyRotation.from_matrix(RotationMatrix) # new scipy
+    except AttributeError:
+        Rotator = ScipyRotation.from_dcm(RotationMatrix) # old scipy
+
     EulerAngles = Rotator.as_euler('XYZ', degrees=True)
 
     return EulerAngles

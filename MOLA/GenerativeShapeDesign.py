@@ -978,11 +978,16 @@ def closeWingTipAndRoot(wingsurface, tip_window='jmax', close_root=True,
     AirfoilIsOpen = not W.isCurveClosed(tipContour)
     AirfoilHasSeveralSharpEdges = len(T.splitCurvatureAngle(tipContour,
                                       thick_TrailingEdge_detection_angle))>1
-    first = T.subzone(tipContour,(1,1,1),(5,1,1))
-    second = T.subzone(tipContour,(-5,-1,-1),(-1,-1,-1))
-    TE_neighborhood = T.join(first,second)
-    AirfoilHasRoundTrailingEdge = not len(T.splitCurvatureAngle(TE_neighborhood,
-                                      thick_TrailingEdge_detection_angle))>1
+
+    if not AirfoilIsOpen:
+        first = T.subzone(tipContour,(1,1,1),(5,1,1))
+        second = T.subzone(tipContour,(-5,-1,-1),(-1,-1,-1))
+        TE_neighborhood = T.join(first,second)
+        AirfoilHasRoundTrailingEdge = not len(T.splitCurvatureAngle(TE_neighborhood,
+                                          thick_TrailingEdge_detection_angle))>1
+    else:
+        AirfoilHasRoundTrailingEdge = False
+
     if AirfoilIsOpen or AirfoilHasSeveralSharpEdges or AirfoilHasRoundTrailingEdge:
         AirfoilHasThickTrailingEdgeTopology = True
     else:
@@ -3263,3 +3268,54 @@ def _reorderAll(*args):
     if verbose: return T._reorderAll(*args)
     silence = J.OutputGrabber()
     with silence: T._reorderAll(*args)
+
+
+def makeHgrid(boundaries, inner_contour, inner_cell_size,
+              outter_cell_size, number_of_points_union,
+              inner_normal_tension=0.5, projection_support=None,
+              inner_normal_surface=None):
+
+    outter_boundaries, inner_boundaries = W.splitInnerContourFromOutterBoundariesTopology(boundaries, inner_contour)
+
+    if len(outter_boundaries) != len(inner_boundaries):
+        raise ValueError(J.FAIL+'number of curves in outter_boundaries must be the same as inner_boundaries'+J.ENDC)
+
+    if not inner_normal_surface:
+        closed_inner_contour = I.copyTree(inner_boundaries[0])
+        for in_bnd in inner_boundaries[1:]:
+            closed_inner_contour = T.join(closed_inner_contour, in_bnd)
+        I._rmNodesByType(closed_inner_contour, 'FlowSolution_t')
+        W.getCurveNormalMap(closed_inner_contour)
+        I._rmNodesByName(closed_inner_contour, I.__FlowSolutionCenters__)
+        J.migrateFields(closed_inner_contour, inner_boundaries)
+    else:
+        raise ValueError('must implement computation of sx, sy, sz at inner_boundaries')
+
+    union_curves = []
+    for out_bnd, in_bnd in zip(outter_boundaries, inner_boundaries):
+        sx, sy, sz = J.getVars(in_bnd, ['sx', 'sy', 'sz'])
+        start_pt = W.extremum(in_bnd)
+        end_pt = W.extremum(out_bnd)
+        start_to_end = W.distance(start_pt, end_pt)
+        bezier_ctrl_pt = start_pt+inner_normal_tension*start_to_end*np.array([sx[0],sy[0],sz[0]])
+        bezier_pts = D.polyline([tuple(start_pt), tuple(bezier_ctrl_pt), tuple(end_pt)])
+        fine_bezier = D.bezier(bezier_pts,N=5000)
+        union_curves+=[W.discretize(fine_bezier,N=number_of_points_union,
+                            Distribution={'kind':'tanhTwoSides',
+                                          'FirstCellHeight':inner_cell_size,
+                                          'LastCellHeight':outter_cell_size})]
+
+    TFI_surfs = []
+    i = -1
+    for out_bnd, in_bnd in zip(outter_boundaries, inner_boundaries):
+        i+=1
+        next_i = 0 if i+1 == len(inner_boundaries) else i+1
+        imin = union_curves[i]
+        imax = union_curves[next_i]
+        jmin = in_bnd
+        jmax = out_bnd
+        TFI_surf = G.TFI([imin,imax,jmin,jmax])
+        TFI_surf[0] = in_bnd[0].replace('.inner','') + '.TFI'
+        TFI_surfs += [TFI_surf]
+
+    return TFI_surfs

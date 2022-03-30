@@ -292,7 +292,15 @@ def computePUMA(NBlades, Velocity, RPM, Temperature, Density,
                 Width  = 0.9*Rmin
                 Length = 3*Height
                 SpinnerProfile,_ = RW.makeSimpleSpinner(Height, Width, Length, NptsTop=20, NptsBottom=30)
-                SpinnerZones,_ = RW.makeHub(SpinnerProfile,AxeCenter=(0,0,0),AxeDir=(1,0,0),NPsi=91,BladeNumberForPeriodic=None,LeadingEdgeAbscissa=0.25,TrailingEdgeAbscissa=0.75,SmoothingParameters={'eps':0.50,'niter':300,'type':2},SplitLEind=None,SplitTEind=None)
+                SpinnerZones,_ = RW.makeHub(SpinnerProfile,
+                                                AxeCenter=(0,0,0),
+                                                AxeDir=(1,0,0),
+                                                NumberOfAzimutalPoints=91,
+                                                BladeNumberForPeriodic=None,
+                                                LeadingEdgeAbscissa=0.25,
+                                                TrailingEdgeAbscissa=0.75,
+                                                SmoothingParameters={'eps':0.50,'niter':300,'type':2})
+
                 tAux = C.newPyTree(['Base',I.getZones(SpinnerZones)])
                 I._rmNodesByType(tAux,'FlowSolution_t')
                 SpinnerUnstr = C.convertArray2Hexa(tAux)
@@ -476,11 +484,11 @@ def computePUMA(NBlades, Velocity, RPM, Temperature, Density,
             if ExtractVolume == "cartesian2D":
                 Ni,Nj,Nk  = 400, 1, 200
                 Lx,Ly,Lr  = 6*Rmax, 3*Rmax, 3*Rmax
-                Flowfield = G.cart((-(Lx-4.*Rmin),-1.5*Rmax*0,-1.5*Rmax),(Lx/(Ni-1),1.,Lr/(Nk-1)),(Ni,Nj,Nk))
+                Flowfield = G.cart((-(Lx-4.*Rmin),0,-1.5*Rmax),(Lx/(Ni-1),1.,Lr/(Nk-1)),(Ni,Nj,Nk))
             elif ExtractVolume == "cartesian3D":
                 Ni,Nj,Nk  = 400, 200, 200
                 Lx,Ly,Lr  = 6*Rmax, 3*Rmax, 3*Rmax
-                Flowfield = G.cart((-(Lx-4.*Rmin),-1.5*Rmax*-1.5*Rmax,-1.5*Rmax),(Lx/(Ni-1),Ly/(Nk-1),Lr/(Nk-1)),(Ni,Nj,Nk))
+                Flowfield = G.cart((-(Lx-4.*Rmin),-1.5*Rmax,-1.5*Rmax),(Lx/(Ni-1),Ly/(Nk-1),Lr/(Nk-1)),(Ni,Nj,Nk))
 
             elif ExtractVolume == "cylinder":
 
@@ -492,7 +500,7 @@ def computePUMA(NBlades, Velocity, RPM, Temperature, Density,
 
                 Flowfield = G.cylinder2((0,0,0),0.5*Rmin,1.5*Rmax,180.,-180.,Lx,DistrR, DistrTh,DistrX)
                 T._rotate(Flowfield,(0,0,0),(0,1,0),90.)
-                T._translate(Flowfield,(-Lx,0,0))
+                T._translate(Flowfield,(-(Lx-4.*Rmin),0,0))
 
             else:
                 raise AttributeError("Kind of ExtractVolume (%s) not recognized"%ExtractVolume)
@@ -1843,18 +1851,6 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
 
         Omega = RPM[0]*np.pi/30.
 
-
-        # MISTAKE on ALPHA notation:
-        # phi, alphaRad = solveAlphaPhiCoupling(Velocity[0],x[0],x[1],Omega,r[i],
-        #                         np.deg2rad(TwistDeg[i]), tol=1.e-8, maxiter=100)
-        # v['phiRad'][i] = phi
-        # AoADeg[i] = np.rad2deg(alphaRad)
-        # v['VelocityAxial'][i] = Velocity[0]*np.cos(alphaRad)+x[0]
-        # v['VelocityTangential'][i] = Omega*r[i]-Velocity[0]*np.sin(alphaRad)-x[0]
-        # # Eqn. 2.7
-        # VxP = v['VelocityAxial'][i]-v['VelocityInducedAxial'][i]
-
-        # Correction Luis 26/04/2021
         v['VelocityAxial'][i] = Velocity[0]+x[0]
         v['VelocityTangential'][i] = Omega*r[i]-x[1]
         VxP = Velocity[0]
@@ -1877,6 +1873,8 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
 
         LL._applyPolarOnLiftingLine(LiftingLine,PolarsInterpolatorDict,
                                     InterpFields=['Cl', 'Cd'])
+        # if i==0:
+        #     print('Cl=%g , AoA=%g, Mach=%g | Va=%g , Vt=%g'%(Cl[i],AoADeg[i],Mach[i],v['VelocityAxial'][i],v['VelocityTangential'][i]))
         [C._initVars(LiftingLine, eq) for eq in ListOfEquations]
 
 
@@ -1889,6 +1887,7 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
         f2 = 0.5*sigma[i]*W**2*Cx - 2*(VxP+x[0])*x[1]*F
 
         Residual = [f1, f2]
+
 
         return Residual
 
@@ -1911,10 +1910,13 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
         U = np.sqrt(Ua**2+Ut**2)
         v['VelocityAxial'][i] = Wa = 0.5 * (Ua + U * np.sin(psi))
         v['VelocityTangential'][i] = Wt = 0.5 * (Ut + U * np.cos(psi))
-        v['phiRad'][i] = phi = np.arctan(Wa/Wt) # (useful to store)
+        # v['phiRad'][i] = phi = np.arctan(Wa/Wt) # (useful to store)
+        v['phiRad'][i] = phi = np.arctan2(Wa,Wt) # (useful to store)
         v['VelocityInducedAxial'][i] = va = Wa - Ua
         v['VelocityInducedTangential'][i] = vt = Ut - Wt
-        AoADeg[i] = TwistDeg[i] - np.rad2deg(phi)
+        phiDeg = np.rad2deg(phi)
+        AoADeg[i] = TwistDeg[i] - phiDeg
+
         v['VelocityMagnitudeLocal'][i] = W = np.sqrt(Wa**2 + Wt**2)
         Reynolds[i] = Density[0] * W * Chord[i] / Mu
         Mach[i] = W / SoundSpeed
@@ -1932,7 +1934,7 @@ def computeBEMT(LiftingLine, PolarsInterpolatorDict, model='Adkins',
 
         # Total circulation from Momentum theory
         # (Eqn.31)
-        GammaMom = vt * (4*np.pi*r[i]/NBlades[0])*F*np.sqrt(1+ (4*lambda_w*Rmax/(np.pi*NBlades[0]*r[i]))**2)
+        GammaMom = np.sign(Wa) * vt * (4*np.pi*r[i]/NBlades[0])*F*np.sqrt(1+ (4*lambda_w*Rmax/(np.pi*NBlades[0]*r[i]))**2)
 
         # Total circulation from Blade Element theory
         # (Eqn.16)
