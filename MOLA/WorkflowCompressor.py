@@ -67,7 +67,7 @@ def checkDependencies():
     print('\nVERIFICATIONS TERMINATED')
 
 
-def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None, ProcPointsLoad=100000,
+def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None,
                     duplicationInfos={}, blocksToRename={}, SplitBlocks=False,
                     scale=1., rotation='fromAG5', PeriodicTranslation=None):
     '''
@@ -102,19 +102,12 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None, ProcPointsLoad=100000,
         InputMeshes : :py:class:`list` of :py:class:`dict`
             User-provided data. See documentation of Preprocess.prepareMesh4ElsA
 
-        NProcs : int
+        NProcs : :py:class:`int` or ``'auto'``
             If a positive integer is provided, then the
             distribution of the tree (and eventually the splitting) will be done in
             order to satisfy a total number of processors provided by this value.
-            If not provided (:py:obj:`None`) then the number of procs is automatically
-            determined using as information **ProcPointsLoad** variable.
-
-        ProcPointsLoad : int
-            this is the desired number of grid points
-            attributed to each processor. If **SplitBlocks** = :py:obj:`True`, then it is used to
-            split zones that have more points than **ProcPointsLoad**. If
-            **NProcs** = :py:obj:`None` , then **ProcPointsLoad** is used to determine
-            the **NProcs** to be used.
+            If ``'auto'``, the distribution is computed automatically to
+            optimize load balancing (see :func:`MOLA.Preprocess.splitAndDistribute`).
 
         duplicationInfos : dict
             User-provided data related to domain duplication.
@@ -196,8 +189,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None, ProcPointsLoad=100000,
     if not any([InputMesh['SplitBlocks'] for InputMesh in InputMeshes]):
         t = PRE.connectMesh(t, InputMeshes)
     else:
-        t = splitAndDistribute(t, InputMeshes, NProcs=NProcs,
-                                    ProcPointsLoad=ProcPointsLoad)
+        t = splitAndDistribute(t, InputMeshes, NProcs=NProcs)
     # WARNING: Names of BC_t nodes must be unique to use PyPart on globborders
     for l in [2,3,4]: I._correctPyTree(t, level=l)
     PRE.adapt2elsA(t, InputMeshes)
@@ -375,7 +367,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         BCInflow = ['convflux_ro'],
         BCOutflow = ['convflux_ro'],
         BCWallViscousIsothermal = ['normalvector', 'frictionvector','psta',
-                'bl_quantities_2d', 'yplusmeshsize', 'tsta', 'normalheatflux'],
+                'bl_quantities_2d', 'yplusmeshsize', 'tsta', 'normalheatflux', 'hpar'],
     )
 
     PRE.addTrigger(t)
@@ -1040,11 +1032,10 @@ def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
     print('Number of blades in initial mesh for {}: {}'.format(FamilyName, Nb))
     return Nb
 
-def splitAndDistribute(t, InputMeshes, NProcs, ProcPointsLoad):
+def splitAndDistribute(t, InputMeshes, NProcs='auto'):
     '''
-    Split a PyTree **t** using the desired proc points load **ProcPointsLoad**.
-    Distribute the PyTree **t** using a user-provided **NProcs**. If **NProcs**
-    is not provided, then it is automatically computed.
+    Split and distribute a PyTree **t** using a user-provided **NProcs**.
+    If **NProcs** is not provided, then it is automatically computed.
 
     Returns a new split and distributed PyTree.
 
@@ -1057,22 +1048,15 @@ def splitAndDistribute(t, InputMeshes, NProcs, ProcPointsLoad):
             assembled tree
 
         InputMeshes : :py:class:`list` of :py:class:`dict`
-            user-provided preprocessing
-            instructions as described in :py:func:`prepareMesh4ElsA` doc
+            user-provided preprocessing instructions as described in
+            :py:func:`prepareMesh4ElsA` doc
 
-        NProcs : int
+        NProcs : :py:class:`int` or ``'auto'``
             If a positive integer is provided, then the
             distribution of the tree (and eventually the splitting) will be done in
             order to satisfy a total number of processors provided by this value.
-            If not provided (:py:obj:`None`) then the number of procs is automatically
-            determined using as information **ProcPointsLoad** variable.
-
-        ProcPointsLoad : int
-            this is the desired number of grid points
-            attributed to each processor. If **SplitBlocks** = :py:obj:`True`, then it is used to
-            split zones that have more points than **ProcPointsLoad**. If
-            **NProcs** = :py:obj:`None` , then **ProcPointsLoad** is used to determine
-            the **NProcs** to be used.
+            If ``'auto'``, the distribution is computed automatically to
+            optimize load balancing (see :func:`MOLA.Preprocess.splitAndDistribute`).
 
     Returns
     -------
@@ -1081,22 +1065,26 @@ def splitAndDistribute(t, InputMeshes, NProcs, ProcPointsLoad):
             new distributed *(and possibly split)* tree
 
     '''
-    if InputMeshes[0]['SplitBlocks']:
-        t = T.splitNParts(t, NProcs, dirs=[1,2,3], recoverBC=True)
-        for l in [2,3,4]: I._correctPyTree(t, level=l)
-        t = PRE.connectMesh(t, InputMeshes)
-    #
-    InputMeshesNoSplit = []
-    for InputMesh in InputMeshes:
-        InputMeshNoSplit = dict()
-        for meshInfo in InputMesh:
-            if meshInfo == 'SplitBlocks':
-                InputMeshNoSplit['SplitBlocks'] = False
-            else:
-                InputMeshNoSplit[meshInfo] = InputMesh[meshInfo]
-        InputMeshesNoSplit.append(InputMeshNoSplit)
-    # Just to distribute zones on procs
-    t = PRE.splitAndDistribute(t, InputMeshesNoSplit, NProcs=NProcs, ProcPointsLoad=ProcPointsLoad)
+    if NProcs == 'auto':
+        t = PRE.splitAndDistribute(t, InputMeshes, mode='auto')
+    else:
+        if InputMeshes[0]['SplitBlocks']:
+            t = T.splitNParts(t, NProcs, dirs=[1,2,3], recoverBC=True)
+            for l in [2,3,4]: I._correctPyTree(t, level=l)
+            t = PRE.connectMesh(t, InputMeshes)
+        #
+        InputMeshesNoSplit = []
+        for InputMesh in InputMeshes:
+            InputMeshNoSplit = dict()
+            for meshInfo in InputMesh:
+                if meshInfo == 'SplitBlocks':
+                    InputMeshNoSplit['SplitBlocks'] = False
+                else:
+                    InputMeshNoSplit[meshInfo] = InputMesh[meshInfo]
+            InputMeshesNoSplit.append(InputMeshNoSplit)
+        # Just to distribute zones on procs
+        t = PRE.splitAndDistribute(t, InputMeshesNoSplit, mode='imposed', NProcs=NProcs)
+
     return t
 
 def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,

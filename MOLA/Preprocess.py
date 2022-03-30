@@ -2910,6 +2910,10 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
                 dts_timestep_lim   = 'active',
                 cfl_dts            = 20.,
             ))
+        elif TimeMarching == 'UnsteadyFirstOrder':
+            addKeys.update(dict(
+                time_algo          = 'unsteady',
+            ))
         else:
             raise AttributeError('TimeMarching scheme shortcut %s not recognized'%TimeMarching)
     elsAkeysNumerics.update(addKeys)
