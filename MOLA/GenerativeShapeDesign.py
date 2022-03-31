@@ -16,6 +16,8 @@ import sys
 from copy import deepcopy as cdeep
 import numpy as np
 import pprint
+from timeit import default_timer as Tok
+
 
 # Cassiopee
 import Converter.PyTree as C
@@ -3057,6 +3059,7 @@ def convertSurfaces2SingleTriangular(t):
             a single surface (TRI) connecting all provided surfaces
     '''
     tri = C.convertArray2Tetra(t)
+    I._rmNodesByType(tri, 'FlowSolution_t') # required by join
     tri = T.join(tri)
     tri,= I.getZones(tri)
 
@@ -3270,52 +3273,192 @@ def _reorderAll(*args):
     with silence: T._reorderAll(*args)
 
 
-def makeHgrid(boundaries, inner_contour, inner_cell_size,
-              outter_cell_size, number_of_points_union,
-              inner_normal_tension=0.5, projection_support=None,
-              inner_normal_surface=None):
+def makeH(boundaries, inner_contour, inner_cell_size=0.1,
+          outter_cell_size=0.1, number_of_points_union=21,
+          inner_normal_tension=0.5, outter_normal_tension=0.5,
+          projection_support=None, global_projection_relaxation=0.,
+          local_projection_relaxation_abscissa=0.):
+    '''
+    Build an H-mesh surface from four structured curves as exterior boundary and
+    an single structure curve as interior contour.
+
+    Parameters
+    ----------
+
+        boundaries : :py:class:`list` of zone
+            Four (4) structured curves. They are the external boundaries that
+            the H-grid must verify.
+
+        inner_contour : zone
+            A single (1) structured curve. This is the inside contour that the
+            H-grid must verify.
+
+            .. warning::
+                The total number of segments of **boundaries** must be equal
+                to the total number of segments of **inner_contour**
+
+        inner_cell_size : float
+            Size of the **inner_contour** -adjacent cell
+
+        outter_cell_size : float
+            Size of the **boundaries** -adjacent cell
+
+        number_of_points_union : int
+            Number of points in the boundary-normal direction
+
+        inner_normal_tension : float
+            Specific tension (relative to the distance between **inner_contour**
+            and **boundaries**) of the **inner_contour** -adjacent cell normal
+            direction.
+
+            .. note::
+                higher values may improve the orthogonality of the mesh
+                in the neighborhood of the inside contour, but this can
+                deteriorate the mesh quality further away.
+
+        outter_normal_tension : float
+            Specific tension (relative to the distance between **inner_contour**
+            and **boundaries**) of the **boundaries** -adjacent cell normal
+            direction.
+
+            .. note::
+                higher values may improve the orthogonality of the mesh
+                in the neighborhood of the boundaries contour, but this can
+                deteriorate the mesh quality further away.
+
+        projection_support : zone or :py:obj:`None`
+            if provided (not :py:obj:`None`), this is a surface of projection
+            of the support for the H-grid construction. For example, this may
+            be the surface of a hub, spinner or fuselage.
+
+            .. warning::
+                if **projection_support** is provided, the user must guarantee
+                that both **boundaries** and **inner_contour** are already
+                projected onto **projection_support** before calling this
+                function
+
+    Returns
+    -------
+
+        surfaces : :py:class:`list` of zone
+            list of four (4) structured surfaces that constitute the H-grid.
+    '''
 
     outter_boundaries, inner_boundaries = W.splitInnerContourFromOutterBoundariesTopology(boundaries, inner_contour)
 
     if len(outter_boundaries) != len(inner_boundaries):
         raise ValueError(J.FAIL+'number of curves in outter_boundaries must be the same as inner_boundaries'+J.ENDC)
 
-    if not inner_normal_surface:
-        closed_inner_contour = I.copyTree(inner_boundaries[0])
-        for in_bnd in inner_boundaries[1:]:
-            closed_inner_contour = T.join(closed_inner_contour, in_bnd)
-        I._rmNodesByType(closed_inner_contour, 'FlowSolution_t')
-        W.getCurveNormalMap(closed_inner_contour)
-        I._rmNodesByName(closed_inner_contour, I.__FlowSolutionCenters__)
-        J.migrateFields(closed_inner_contour, inner_boundaries)
+    if allHaveNormals( inner_contour ):
+        J.migrateFields(inner_contour, inner_boundaries)
     else:
-        raise ValueError('must implement computation of sx, sy, sz at inner_boundaries')
+        W.addNormals(inner_boundaries, projection_support)
 
-    union_curves = []
+    if allHaveNormals( boundaries ):
+        J.migrateFields(boundaries, outter_boundaries)
+    else:
+        W.computeBarycenterDirectionalField(outter_boundaries, projection_support)
+
+
+    def applyRelaxation(original, projected):
+
+        if global_projection_relaxation == 1:
+            return I.copyRef(original)
+
+        relaxed = I.copyTree( original )
+        s = W.gets( relaxed )
+        x, y, z = J.getxyz( relaxed )
+        xo, yo, zo = J.getxyz( original )
+        xp, yp, zp = J.getxyz( projected )
+        OPx = xp-xo
+        OPy = yp-yo
+        OPz = zp-zo
+
+        d = np.sqrt( OPx**2 + OPy**2 + OPz**2 )
+        not_matching = d > 1e-10
+        v = np.vstack((OPx, OPy, OPz))
+        v[:,not_matching] /= d[not_matching]
+        if local_projection_relaxation_abscissa == 0:
+            local_relax = 1.
+        else:
+            local_relax = np.minimum(np.maximum(s/local_projection_relaxation_abscissa,0), 1.)
+        relaxation = d*local_relax*(1-global_projection_relaxation)
+        x[:] = xo + v[0,:] * relaxation
+        y[:] = yo + v[1,:] * relaxation
+        z[:] = zo + v[2,:] * relaxation
+
+        I._rmNodesByType(relaxed,'FlowSolution_t')
+
+        return relaxed
+
+    MinDistances = []
     for out_bnd, in_bnd in zip(outter_boundaries, inner_boundaries):
-        sx, sy, sz = J.getVars(in_bnd, ['sx', 'sy', 'sz'])
-        start_pt = W.extremum(in_bnd)
-        end_pt = W.extremum(out_bnd)
-        start_to_end = W.distance(start_pt, end_pt)
-        bezier_ctrl_pt = start_pt+inner_normal_tension*start_to_end*np.array([sx[0],sy[0],sz[0]])
-        bezier_pts = D.polyline([tuple(start_pt), tuple(bezier_ctrl_pt), tuple(end_pt)])
-        fine_bezier = D.bezier(bezier_pts,N=5000)
-        union_curves+=[W.discretize(fine_bezier,N=number_of_points_union,
-                            Distribution={'kind':'tanhTwoSides',
-                                          'FirstCellHeight':inner_cell_size,
-                                          'LastCellHeight':outter_cell_size})]
+        MinDistances += [W.pointwiseDistances(in_bnd, out_bnd)[0]]
+    MinDistance = np.min( MinDistances )
+
 
     TFI_surfs = []
-    i = -1
     for out_bnd, in_bnd in zip(outter_boundaries, inner_boundaries):
-        i+=1
-        next_i = 0 if i+1 == len(inner_boundaries) else i+1
-        imin = union_curves[i]
-        imax = union_curves[next_i]
-        jmin = in_bnd
-        jmax = out_bnd
-        TFI_surf = G.TFI([imin,imax,jmin,jmax])
+        sx, sy, sz = J.getVars(in_bnd, ['sx', 'sy', 'sz'])
+        sx_o, sy_o, sz_o = J.getVars(out_bnd, ['sx', 'sy', 'sz'])
+        union_curves = []
+        for i in range(len(sx)):
+            start_pt = W.point(in_bnd,i)
+            start_normal = np.array([sx[i],sy[i],sz[i]])
+            end_pt = W.point(out_bnd,i)
+            end_normal = np.array([sx_o[i],sy_o[i],sz_o[i]])
+            start_to_end = W.distance(start_pt, end_pt)
+            bezier_start_tension_pt = start_pt+inner_normal_tension*MinDistance*start_normal
+            bezier_end_tension_pt = end_pt+outter_normal_tension*start_to_end*end_normal
+            bezier_pts = D.polyline([tuple(start_pt),
+                                     tuple(bezier_start_tension_pt),
+                                     tuple(bezier_end_tension_pt),
+                                     tuple(end_pt)])
+
+            if projection_support:
+                bezier_pts_proj = T.projectOrtho(bezier_pts, projection_support)
+
+            fine_bezier = D.bezier(bezier_pts,N=500)
+
+            if projection_support:
+                fine_bezier_proj = T.projectOrtho(fine_bezier, projection_support)
+                fine_bezier = applyRelaxation(fine_bezier, fine_bezier_proj)
+
+            union_curve = W.discretize(fine_bezier, N=number_of_points_union,
+                                Distribution={'kind':'tanhTwoSides',
+                                              'FirstCellHeight':inner_cell_size,
+                                              'LastCellHeight':outter_cell_size})
+
+            if projection_support:
+                union_curve_proj = T.projectOrtho(union_curve, projection_support)
+                union_curve = applyRelaxation(union_curve, union_curve_proj)
+                xu, yu, zu = J.getxyz( union_curve )
+                xu[0] = start_pt[0]
+                yu[0] = start_pt[1]
+                zu[0] = start_pt[2]
+                xu[-1] = end_pt[0]
+                yu[-1] = end_pt[1]
+                zu[-1] = end_pt[2]
+
+            union_curves += [ union_curve ]
+
+        TFI_surf = G.stack(union_curves)
         TFI_surf[0] = in_bnd[0].replace('.inner','') + '.TFI'
-        TFI_surfs += [TFI_surf]
+        TFI_surfs += [ TFI_surf ]
 
     return TFI_surfs
+
+
+def allHaveNormals(t):
+    has_normals = True
+    for z in I.getZones(t):
+        FlowSol = I.getNodeFromName(z, I.__FlowSolutionNodes__)
+        if FlowSol is None: return False
+        sx = I.getNodeFromName1(FlowSol, 'sx')
+        sy = I.getNodeFromName1(FlowSol, 'sy')
+        sz = I.getNodeFromName1(FlowSol, 'sz')
+        has_normals = True
+        for i in sx, sy, sz:
+            if i is None:
+                return False
+    return has_normals

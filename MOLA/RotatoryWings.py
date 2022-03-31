@@ -14,6 +14,7 @@ File history:
 # System modules
 import sys
 import os
+from timeit import default_timer as Tok
 import numpy as np
 import numpy.linalg as npla
 from scipy.spatial.transform import Rotation as ScipyRotation
@@ -36,7 +37,7 @@ from . import Wireframe as W
 from . import GenerativeShapeDesign as GSD
 from . import GenerativeVolumeDesign as GVD
 
-def extrudeBladeSupportedOnSpinner(blade_surface, spinner_profile, rotation_center,
+def extrudeBladeSupportedOnSpinner(blade_surface, spinner, rotation_center,
         rotation_axis, wall_cell_height=2e-6, root_to_transition_distance=0.1,
         root_to_transition_number_of_points=100,
         maximum_number_of_points_in_normal_direction=200, distribution_law='ratio',
@@ -80,9 +81,8 @@ def extrudeBladeSupportedOnSpinner(blade_surface, spinner_profile, rotation_cent
                 * all surfaces must have a :math:`(i,j)` ordering such that
                   the normals point towards the exterior of the blade
 
-        spinner_profile : zone
-            the structured curve of the spinner profile. It must be structured
-            and oriented from leading-edge towards trailing-edge.
+        spinner : PyTree, base, zone or list of zone
+            the structured curve of the spinner surface
 
         rotation_center : 3-:py:class:`float` :py:class:`list` or numpy array
             indicates the rotation center :math:`(x,y,z)` coordinates of the
@@ -149,13 +149,13 @@ def extrudeBladeSupportedOnSpinner(blade_surface, spinner_profile, rotation_cent
     rotation_axis = np.array(rotation_axis, dtype=np.float, order='F')
     rotation_center = np.array(rotation_center, dtype=np.float, order='F')
 
-    inds = _getRootAndTransitionIndices(blade_surface, spinner_profile, rotation_center,
+    inds = _getRootAndTransitionIndices(blade_surface, spinner, rotation_center,
                                     rotation_axis, root_to_transition_distance)
     root_section_index, transition_section_index = inds
 
     intersection_bar, spinner_surface = _computeIntersectionContourBetweenBladeAndSpinner(
-            blade_surface, rotation_center, rotation_axis, spinner_profile,
-            maximum_extrusion_distance_at_spinner, transition_section_index)
+            blade_surface, rotation_center, rotation_axis, spinner,
+            transition_section_index)
 
 
 
@@ -171,7 +171,6 @@ def extrudeBladeSupportedOnSpinner(blade_surface, spinner_profile, rotation_cent
             smoothing_normals_iterations, smoothing_normals_subiterations,
             smoothing_growth_iterations, smoothing_growth_subiterations,
             smoothing_growth_coefficient, smoothing_expansion_factor, expand_distribution_radially)
-
 
     supported_match = _extrudeBladeRootOnSpinner(blade_surface, spinner_surface,
                         root_section_index, Distributions[0], supported_profile)
@@ -649,6 +648,7 @@ def makeSpinnerCurves(LengthFront=0.2, LengthRear=1, Width=0.15,
 
     curves = front + rear
     I._correctPyTree(curves,level=3)
+    curves = W.reorderAndSortCurvesSequentially(curves)
 
     return curves
 
@@ -1426,12 +1426,12 @@ def extractNearestSectionIndexAtRadius(blade_surface, requested_radius,
 
     return section_index
 
-def _getRootAndTransitionIndices(blade_surface, spinner_profile, rotation_center,
+def _getRootAndTransitionIndices(blade_surface, spinner, rotation_center,
                                 rotation_axis, root_to_transition_distance):
-    spinner_profile = I.copyRef(spinner_profile)
-    W.addDistanceRespectToLine(spinner_profile, rotation_center, rotation_axis,
+    spinner_profile = I.copyRef(spinner)
+    W.addDistanceRespectToLine(spinner, rotation_center, rotation_axis,
                                FieldNameToAdd='radius')
-    approximate_root_radius = C.getMaxValue(spinner_profile,'radius')
+    approximate_root_radius = C.getMaxValue(spinner,'radius')
 
     blade_main_surface = J.selectZoneWithHighestNumberOfPoints(blade_surface)
 
@@ -1457,28 +1457,43 @@ def _getRootAndTransitionIndices(blade_surface, spinner_profile, rotation_center
 
 
 def _computeIntersectionContourBetweenBladeAndSpinner(blade_surface,
-        rotation_center, rotation_axis, spinner_profile,
-        maximum_extrusion_distance_at_spinner, transition_section_index,
-        geometry_npts_azimut=361):
+        rotation_center, rotation_axis, spinner,
+        transition_section_index, geometry_npts_azimut=361):
 
-    blade_main_surface = J.selectZoneWithHighestNumberOfPoints(blade_surface)
+    blade_main_surface = J.selectZoneWithHighestNumberOfPoints( blade_surface )
     _,Ni,Nj,Nk,_ = I.getZoneDim(blade_main_surface)
     trimmed_blade_root = T.subzone(blade_main_surface,(1,1,1),
                                                 (Ni,transition_section_index,1))
     trimmed_blade_root_closed = GSD.buildWatertightBodyFromSurfaces([trimmed_blade_root])
 
-    blade_barycenter = np.array(list(G.barycenter(trimmed_blade_root)))
-    cut_point_1 = blade_barycenter + 3 * rotation_axis * maximum_extrusion_distance_at_spinner
-    cut_point_2 = blade_barycenter - 3 * rotation_axis * maximum_extrusion_distance_at_spinner
-    trimmed_spinner_profile = W.trimCurveAlongDirection(spinner_profile,
-                                                        rotation_axis,
-                                                        cut_point_1,
-                                                        cut_point_2)
+    ref_root = T.subzone(blade_main_surface,(1,1,1),(Ni,2,1))
+    bbox = np.array(G.bbox(ref_root))
+    bbox = np.reshape(bbox,(2,3))
+    bbox_diag_vector = np.diff(bbox,axis=0).flatten()
+    bbox_diag = np.sqrt(bbox_diag_vector.dot(bbox_diag_vector))
+    # BEING REPLACED
+    # blade_barycenter = np.array(list(G.barycenter(trimmed_blade_root)))
+    # cut_point_1 = blade_barycenter + rotation_axis * bbox_diag
+    # cut_point_2 = blade_barycenter - rotation_axis * bbox_diag
+    # trimmed_spinner_profile = W.trimCurveAlongDirection(spinner_profile,
+    #                                                     rotation_axis,
+    #                                                     cut_point_1,
+    #                                                     cut_point_2)
+    #
+    # nb_azimut_pts = geometry_npts_azimut if geometry_npts_azimut%2==0 else geometry_npts_azimut + 1
+    # spinner_surface = D.axisym(trimmed_spinner_profile, rotation_center,
+    #                            rotation_axis, angle=360., Ntheta=nb_azimut_pts)
 
-    nb_azimut_pts = geometry_npts_azimut if geometry_npts_azimut%2==0 else geometry_npts_azimut + 1
-    spinner_surface = D.axisym(trimmed_spinner_profile, rotation_center,
-                               rotation_axis, angle=360., Ntheta=nb_azimut_pts)
-    spinner_surface_closed = GSD.buildWatertightBodyFromSurfaces([spinner_surface])
+    spinner_surface = _splitSpinnerHgrid(spinner, blade_surface, rotation_axis, rotation_center,
+                                        spinner_axial_indexing='i')
+    contour = P.exteriorFacesStructured(spinner_surface)
+    spinner_closed_contours = [spinner_surface]
+    for c in contour:
+        c_proj = I.copyTree(c)
+        W.projectOnAxis(c_proj, rotation_axis, rotation_center)
+        spinner_closed_contours += [G.stack([c,c_proj])]
+
+    spinner_surface_closed = GSD.buildWatertightBodyFromSurfaces(spinner_closed_contours)
     intersection_bar = XOR.intersection(spinner_surface_closed, trimmed_blade_root_closed)
     intersection_bar = C.convertBAR2Struct(intersection_bar)
     T._projectOrtho(intersection_bar,trimmed_blade_root)
@@ -1621,7 +1636,7 @@ def _extrudeBladeRootOnSpinner(blade_surface, spinner_surface, root_section_inde
     blade_main_surface = J.selectZoneWithHighestNumberOfPoints(blade_surface)
     Constraints = [dict(kind='Projected',ProjectionMode='ortho',
                         curve=supported_profile, surface=spinner_surface)]
-
+    C.convertPyTree2File(spinner_surface,'spinner_surface.cgns')
     trimmed_blade_no_intersect = T.subzone(blade_main_surface,
                                           (1,root_section_index+1,1), (-1,-1,-1))
 
@@ -1759,3 +1774,215 @@ def makeBladeAndSpinnerTreeForChecking(blade_extruded, spinner_extruded,
     t = I.merge([t,t2])
 
     return t
+
+
+def buildMatchMesh(spinner, blade, rotation_axis, rotation_center,
+                   Hgrid_point_number=21):
+
+    # NOTE implement so that blade can be a surface (2D) or a volume (3D)
+    spinner_split = _splitSpinnerHgrid(spinner, blade, rotation_axis, rotation_center)
+    external_surfaces = _buildExternalSurfacesHgrid(blade, spinner_split, rotation_axis,
+                                            rotation_center)
+    _buildHgridAroundBlade(external_surfaces, blade, rotation_center, rotation_axis,
+                           Hgrid_point_number)
+
+
+
+
+
+def _splitSpinnerHgrid(spinner, blade, rotation_axis, rotation_center,
+                       spinner_axial_indexing='i'):
+    blade_main_surface = J.selectZoneWithHighestNumberOfPoints( blade )
+    spinner_main_surface = J.selectZoneWithHighestNumberOfPoints( spinner )
+    spinner_azimut_indexing = 'j' if spinner_axial_indexing == 'i' else 'i'
+    spinner_profile = GSD.getBoundary(spinner_main_surface,
+                                      spinner_azimut_indexing+'min')
+
+    N_segs_azimut = C.getNCells( GSD.getBoundary( spinner_main_surface, spinner_axial_indexing+'min' ) )
+    N_segs_foil = I.getZoneDim( blade_main_surface )[1] - 1
+    N_segs_axial = int(N_segs_foil/2 - N_segs_azimut)
+
+    blade_root = GSD.getBoundary( blade_main_surface, 'jmin')
+    bary = G.barycenter( blade_root )
+    bary_index,_ = D.getNearestPointIndex( spinner_profile, tuple(bary) )
+
+    if N_segs_axial % 2 == 0:
+        cut_indices = [int(bary_index-N_segs_axial/2), int(bary_index+N_segs_axial/2)]
+    else:
+        N_segs_axial -= 1
+        cut_indices = [int(bary_index-N_segs_axial/2 +1), int(bary_index+N_segs_axial/2)]
+
+
+    _,Ni,Nj,_,_ = I.getZoneDim( spinner_main_surface )
+    if spinner_axial_indexing == 'i':
+        split = T.subzone(spinner_main_surface, (cut_indices[0]+1,1,1),
+                                                (cut_indices[1]+1,Nj,1))
+    else:
+        split = T.subzone(spinner_main_surface, (1 ,cut_indices[0]+1,1),
+                                                (Ni,cut_indices[1]+1,1))
+
+    return split
+
+
+def _getSpineFromBlade( blade ):
+    blade_main_surface = J.selectZoneWithHighestNumberOfPoints( blade )
+    dim = I.getZoneDim( blade_main_surface )[-1]
+    if dim == 3:
+        external = GSD.getBoundary( blade_main_surface, 'kmax')
+        spine = GSD.getBoundary( external, 'imin')
+    else:
+        spine = GSD.getBoundary( blade_main_surface, 'imin')
+
+    return spine
+
+
+def _buildExternalSurfacesHgrid(blade, spinner_split, rotation_axis, rotation_center,
+                                ):
+    c = np.array(rotation_center,dtype=np.float)
+    a = np.array(rotation_axis,dtype=np.float)
+    spine = _getSpineFromBlade( blade )
+    distribution = D.getDistribution( spine )
+
+    W.addDistanceRespectToLine( spine , c, a, 'span')
+    Length = C.getMaxValue( spine, 'span' ) - C.getMinValue( spine, 'span' )
+
+    bary = D.point(G.barycenter(spinner_split))
+    W.projectOnAxis(bary, rotation_axis, rotation_center)
+    bary = W.point(bary)
+
+    spinner_contours = P.exteriorFacesStructured( spinner_split )
+    external_surfaces = []
+    for contour in spinner_contours:
+        lines = []
+        x, y, z = J.getxyz( contour )
+        for i in range( len(x) ):
+            OX = np.array([ x[i], y[i], z[i] ])
+            CX = OX - c
+            OP = c  + a * CX.dot( a )
+            PX = OX - OP
+            PX_v = PX / np.sqrt( PX.dot( PX ) )
+            OL = OX + PX_v * Length + 1*a*(bary-OP)
+
+            line = D.line( tuple(OX), tuple(OL), 2)
+            line = G.map( line, distribution )
+            lines += [ line ]
+        stack = G.stack(lines)
+        external_surfaces += [ stack ]
+    I._correctPyTree( external_surfaces, level=3 )
+    C.convertPyTree2File( external_surfaces, 'external.cgns');exit()
+
+    return external_surfaces
+
+
+def _buildSupportFromBoundaries(boundaries, rotation_center, rotation_axis):
+    c = np.array(rotation_center,dtype=np.float)
+    a = np.array(rotation_axis,dtype=np.float)
+    boundaries = W.reorderAndSortCurvesSequentially( boundaries )
+    alignment = [ a.dot( W.tangentExtremum( b ) ) for b in boundaries ]
+    best_aligned = np.argmax( alignment )
+    best_aligned_boundary = boundaries[ best_aligned ]
+    azimut_boundary = boundaries[ best_aligned - 1 ]
+    azimut_boundary = T.reorder(azimut_boundary, (-1,2,3))
+    tangent_start = W.tangentExtremum( azimut_boundary )
+    tangent_end = W.tangentExtremum(azimut_boundary, opposite_extremum=True)
+    sector_angle = np.rad2deg(np.arccos( tangent_start.dot( tangent_end ) ))
+    if sector_angle < 0: sector_angle += 180
+    sector_angle = 360 / float(int(np.round(360/sector_angle)))
+    proj_pt = W.point(azimut_boundary, as_pytree_point=True)
+    W.projectOnAxis(proj_pt, a, c)
+    start_to_proj = W.point(proj_pt) - W.point(azimut_boundary)
+    rotation_sign = np.sign( a.dot ( np.cross(tangent_start,start_to_proj)))
+    support = D.axisym(best_aligned_boundary,tuple(c),tuple(rotation_sign*a),
+                       sector_angle, C.getNPts(azimut_boundary))
+    support[0] = 'support'
+    outter_cell_size = W.distance(W.point(azimut_boundary),W.point(azimut_boundary,1))
+    return support, outter_cell_size
+
+def _getInnerContour(blade,index,increasing_span_indexing='jmin'):
+    blade_main_surface = J.selectZoneWithHighestNumberOfPoints(blade)
+    slice = GSD.getBoundary(blade_main_surface, increasing_span_indexing, index)
+    dim = I.getZoneDim( slice )[-1]
+    if dim == 2:
+        exterior = GSD.getBoundary(slice,'jmax')
+        neighbor = GSD.getBoundary(slice,'jmax',-1)
+        inner_cell_size = W.pointwiseDistances(exterior, neighbor)[2]
+        W.pointwiseVectors(exterior, neighbor, reverse=True)
+        # normals = W.getVisualizationNormals(exterior, length=inner_cell_size)
+        return exterior, inner_cell_size
+    return slice, None
+
+
+
+def _buildHgridAroundBlade(external_surfaces, blade, rotation_center,
+                           rotation_axis, Hgrid_point_number):
+    spine = _getSpineFromBlade( blade )
+    wall_cell_height = W.distance( W.point( spine ), W.point( spine, 1 ) )
+    s = W.gets( spine )
+    span_pts = len(s)
+
+    Tik = Tok()
+    nbOfDigits = int(np.ceil(np.log10(span_pts+1)))
+    LastLayer = ('{:0%d}'%nbOfDigits).format(span_pts)
+    All_surfs = []
+    project_up_to = 40
+    ramp_until = 100
+    # for i in range( span_pts ):
+    for i in range( span_pts-2, span_pts ):
+        currentLayer = ('{:0%d}'%nbOfDigits).format(i+1)
+        Message = J.MAGE+'H-grid'+J.ENDC+' %s/%s | cost: %0.5f s'%(currentLayer,LastLayer,Tok()-Tik)
+        print(Message)
+        Tik = Tok()
+
+        boundaries = [ GSD.getBoundary(e, 'imin', i) for e in external_surfaces ]
+        support, outter_cell_size = _buildSupportFromBoundaries(boundaries,
+                                                rotation_center, rotation_axis)
+        W.computeBarycenterDirectionalField(boundaries, support)
+        W.projectNormals(boundaries, support, normal_projection_length=1e-4)
+        inner_contour, inner_cell_size = _getInnerContour(blade,i)
+        W.projectNormals(inner_contour, support, normal_projection_length=1e-4)
+        if inner_cell_size is None: inner_cell_size = wall_cell_height
+
+        if i < project_up_to:
+            projection_support = support
+            relax = 0 # follows projection
+        elif i < ramp_until:
+            projection_support = support
+            relax = np.minimum(1,np.interp(i,[project_up_to, ramp_until],[0,1]))
+        else:
+            projection_support = None
+            relax = 1
+
+        local_relax_s = 0.2
+        relax = 0
+        projection_support = support
+
+        surfs = GSD.makeH(boundaries, inner_contour,
+                          inner_cell_size=inner_cell_size,
+                          outter_cell_size=outter_cell_size,
+                          number_of_points_union=Hgrid_point_number,
+                          inner_normal_tension=0.3, outter_normal_tension=0.3,
+                          projection_support=projection_support,
+                          global_projection_relaxation=relax,
+                          local_projection_relaxation_abscissa=local_relax_s,)
+        All_surfs += [ surfs ]
+
+    first, second, third, fourth = [], [], [], []
+    for surfs in All_surfs:
+        first +=  [ surfs[0] ]
+        second += [ surfs[1] ]
+        third +=  [ surfs[2] ]
+        fourth += [ surfs[3] ]
+    first_grid  = G.stack(first)
+    first_grid[0] = first[0][0]
+    second_grid = G.stack(second)
+    second_grid[0] = second[0][0]
+    third_grid  = G.stack(third)
+    third_grid[0] = third[0][0]
+    fourth_grid = G.stack(fourth)
+
+    fourth_grid[0] = fourth[0][0]
+    grids = [first_grid, second_grid, third_grid, fourth_grid]
+    T._reorder(grids, (-2,3,1))
+
+    I._correctPyTree(grids, level=3)
+    C.convertPyTree2File(grids,'test.cgns');exit()
