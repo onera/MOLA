@@ -79,7 +79,7 @@ if Splitter == 'PyPart':
     CO.PyPartBase = PyPartBase
     setup.ReferenceValues['NProc'] = NProcs
 else:
-    Skeleton = CO.prepareSkeleton()
+    Skeleton = CO.loadSkeleton()
 
 # ========================== LAUNCH ELSA ========================== #
 

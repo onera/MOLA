@@ -1515,6 +1515,9 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
             User-provided list of boundary conditions. Each element is a
             dictionary with the following keys:
 
+                * FamilyName :
+                    Name of the family on which the boundary condition will be imposed
+
                 * type :
                   BC type among the following:
 
@@ -1540,10 +1543,11 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
                   * SymmetryPlane
 
-                  elsA names are also available (``nref``, ``inj1``,
-                  ``outpres``, ``outmfr2``, ``outradeq``, ``stage_mxpl``,
-                  ``stage_red``, ``walladia``, ``wallisoth``, ``wallslip``,
-                  ``sym``)
+                  .. note::
+                    elsA names are also available (``nref``, ``inj1``,
+                    ``outpres``, ``outmfr2``, ``outradeq``, ``stage_mxpl``,
+                    ``stage_red``, ``walladia``, ``wallisoth``, ``wallslip``,
+                    ``sym``)
 
                 * option (optional) : add a specification for type
                   InflowStagnation (could be 'uniform' or 'file')

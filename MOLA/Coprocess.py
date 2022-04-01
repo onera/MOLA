@@ -279,13 +279,13 @@ def extractSurfaces(t, Extractions):
             for BCFamilyName in DictBCNames2Type:
                 BCType = DictBCNames2Type[BCFamilyName]
                 if BCFilterName.lower() in BCType.lower():
-                    zones = C.extractBCOfName(t,'FamilySpecified:'+BCFamilyName, extrapFlow=False)
+                    zones = C.extractBCOfName(PartialTree,'FamilySpecified:'+BCFamilyName, extrapFlow=False)
                     ExtractionInfo['type'] = 'BC'
                     ExtractionInfo['BCType'] = BCType
                     addBase2SurfacesTree(BCFamilyName)
 
         elif TypeOfExtraction.startswith('BC'):
-            zones = C.extractBCOfType(t, TypeOfExtraction, extrapFlow=False)
+            zones = C.extractBCOfType(PartialTree, TypeOfExtraction, extrapFlow=False)
             try: basename = Extraction['name']
             except KeyError: basename = TypeOfExtraction
             ExtractionInfo['type'] = 'BC'
@@ -293,7 +293,7 @@ def extractSurfaces(t, Extractions):
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction.startswith('FamilySpecified:'):
-            zones = C.extractBCOfName(t, TypeOfExtraction, extrapFlow=False)
+            zones = C.extractBCOfName(PartialTree, TypeOfExtraction, extrapFlow=False)
             try: basename = Extraction['name']
             except KeyError: basename = TypeOfExtraction.replace('FamilySpecified:','')
             ExtractionInfo['type'] = 'BC'
@@ -2085,33 +2085,95 @@ def write4Debug(MSG):
     '''
     with open('LOGS/rank%d.log'%rank,'a') as f: f.write('%s\n'%MSG)
 
-def prepareSkeleton():
+def loadSkeleton(Skeleton=None, PartTree=None):
     '''
-    Read the skeleton tree from *FILE_CGNS* and add coordinates in zones loaded
-    on the current processor. Add also ``FlowSolution#Height`` nodes if they
-    exist.
+    Load the skeleton tree (if not given) and add nodes that are required for
+    coprocessing.
+
+    Parameters
+    ----------
+
+        Skeleton : PyTree or :py:obj:`None`
+            Skeleton tree, got from ``Cmpi.convertFile2SkeletonTree`` with
+            Cassiopee or ``PyPartBase.getPyPartSkeletonTree`` with PyPart.
+            If :py:obj:`None`, load the Skeleton tree with
+            ``Cmpi.convertFile2SkeletonTree(FILE_CGNS)``.
+
+        PartTree : PyTree or :py:obj:`None`
+            Partial tree, got from ``Cmpi.convertFile2PyTree(..., proc=rank)``
+            with Cassiopee or ``PyPartBase.runPyPart`` with PyPart.
+            If :py:obj:`None`, only the needed nodes are read with
+            ``Converter.Filter``.
 
     Returns
     -------
 
         Skeleton : PyTree
-            Skeleton tree to use in ``coprocess.py``
-
+            Skeleton Tree with additional information, required for Coprocess
+            functions.
     '''
-    Skeleton = Cmpi.convertFile2SkeletonTree(FILE_CGNS)
-    I._rmNodesByName(Skeleton, 'FlowSolution*')
+    addCoordinates = True
+    if not Skeleton: Skeleton = Cmpi.convertFile2SkeletonTree(FILE_CGNS)
 
-    # Add GridCoordinates and Height parametrization for turbomachinery
-    PartTree = Cmpi.convertFile2PyTree(FILE_CGNS, proc=rank)
-    for base in I.getBases(PartTree):
+    FScoords = I.getNodeFromName1(Skeleton, 'FlowSolution#EndOfRun#Coords')
+    if FScoords: addCoordinates = False
+
+    I._rmNodesByName(Skeleton, 'FlowSolution*')
+    I._rmNodesByName(Skeleton, 'ID_*')
+
+    if PartTree:
+        # Needed nodes are read from PartTree
+        def readNodesFromPaths(path):
+            split_path = path.split('/')
+            path_begining = '/'.join(split_path[:-1])
+            name = split_path[-1]
+            parent = I.getNodeFromPath(PartTree, path_begining)
+            return I.getNodesFromName(parent, name)
+
+        FScoords = I.getNodeFromName1(PartTree, 'FlowSolution#EndOfRun#Coords')
+        if FScoords: addCoordinates = False
+    else:
+        # Needed nodes are read from FILE_CGNS with Converter.Filter
+        def readNodesFromPaths(path):
+            return Filter.readNodesFromPaths(FILE_CGNS, [path])
+
+
+    def replaceNodeByName(parent, parentPath, name):
+        oldNode = I.getNodeFromName1(parent, name)
+        newNode = readNodesFromPaths('{}/{}'.format(parentPath, name))
+        I._rmNode(parent, oldNode)
+        I._addChild(parent, newNode)
+
+    for base in I.getBases(Skeleton):
         basename = I.getName(base)
         for zone in I.getNodesFromType1(base, 'Zone_t'):
-            path = '{}/{}'.format(basename, I.getName(zone))
-            coords = I.getNodeFromName(zone, 'GridCoordinates')
-            Skeleton = I.append(Skeleton, coords, path)
-            ch = I.getNodeFromName(zone, 'FlowSolution#Height')
-            if ch:
-                Skeleton = I.append(Skeleton, ch, path)
+            # Only for local zones on proc
+            proc = I.getValue(I.getNodeFromName(zone, 'proc'))
+            if proc != rank: continue
+
+            zonePath = '{}/{}'.format(basename, I.getName(zone))
+
+            # Coordinates
+            if addCoordinates: replaceNodeByName(zone, zonePath, 'GridCoordinates')
+
+            replaceNodeByName(zone, zonePath, 'FlowSolution#Height')
+
+            replaceNodeByName(zone, zonePath, ':CGNS#Ppart')
+
+            # For unstructured mesh
+            if I.getZoneType(zone) == 2: # unstructured zone
+                replaceNodeByName(zone, zonePath, ':elsA#Hybrid')
+                # TODO: Add other types of Elements_t nodes if needed
+                replaceNodeByName(zone, zonePath, 'NGonElements')
+                replaceNodeByName(zone, zonePath, 'NFaceElements')
+                # PointList in BCs and GridConnectivities
+                for BC in I.getNodesFromType2(zone, 'BC_t'):
+                    BCpath = '{}/ZoneBC/{}'.format(zonePath, I.getName(BC))
+                    replaceNodeByName(BC, BCpath, 'PointList')
+                for GC in I.getNodesFromType2(zone, 'GridConnectivity_t'):
+                    GCpath = '{}/ZoneGridConnectivity/{}'.format(zonePath, I.getName(GC))
+                    replaceNodeByName(GC, GCpath, 'PointList')
+
     return Skeleton
 
 def splitWithPyPart():
@@ -2167,34 +2229,22 @@ def splitWithPyPart():
 
     t = I.merge([Skeleton, PartTree])
 
-    for base in I.getBases(PartTree):
-        basename = I.getName(base)
-        for zone in I.getNodesFromType1(base, 'Zone_t'):
-            zonename = I.getName(zone)
-            path = '{}/{}'.format(basename, zonename)
-            # Add GridCoordinates
-            coords = I.getNodeFromName(zone, 'GridCoordinates')
-            Skeleton = I.append(Skeleton, coords, path)
-            # Add Height parametrization for turbomachinery
-            ch = I.getNodeFromName(zone, 'FlowSolution#Height')
-            if ch:
-                Skeleton = I.append(Skeleton, ch, path)
-            # Add PyPart special node for the mergeAndSave latter
-            SpecialPyPartNode = I.getNodeFromName(zone, ':CGNS#Ppart')
-            for node in I.getChildren(SpecialPyPartNode):
-                nodename = I.getName(node)
-                nodePath = '{}/{}/:CGNS#Ppart/{}'.format(basename, zonename, nodename)
-                nodeInSkel = I.getNodeFromPath(Skeleton, nodePath)
-                if not nodeInSkel:
-                    Skeleton = I.append(Skeleton, node, path+'/:CGNS#Ppart')
-
+    Skeleton = loadSkeleton(Skeleton, PartTree)
     # Add empty Coordinates for skeleton zones
     # Needed to make Cmpi.convert2PartialTree work
     for zone in I.getZones(Skeleton):
-        GC = I.getNodeFromType(zone, 'GridCoordinates_t')
+        GC = I.getNodeFromType1(zone, 'GridCoordinates_t')
         if not GC:
             J.set(zone, 'GridCoordinates', childType='GridCoordinates_t',
                 CoordinateX=None, CoordinateY=None, CoordinateZ=None)
+        elif I.getZoneType(zone) == 2:
+            # For unstructured zone, correct the node NFaceElements/ElementConnectivity
+            # Problem with PyPart: see issue https://elsa-e.onera.fr/issues/9002
+            # C._convertArray2NGon(zone)
+            NFaceElements = I.getNodeFromName(zone, 'NFaceElements')
+            if NFaceElements:
+                node = I.getNodeFromName(NFaceElements, 'ElementConnectivity')
+                I.setValue(node, np.abs(I.getValue(node)))
 
     return t, Skeleton, PyPartBase, Distribution
 
