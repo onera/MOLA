@@ -67,8 +67,8 @@ def checkDependencies():
     print('\nVERIFICATIONS TERMINATED')
 
 
-def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None,
-                    duplicationInfos={}, blocksToRename={}, SplitBlocks=False,
+def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
+                    duplicationInfos={}, blocksToRename={},
                     scale=1., rotation='fromAG5', PeriodicTranslation=None):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
@@ -102,12 +102,18 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None,
         InputMeshes : :py:class:`list` of :py:class:`dict`
             User-provided data. See documentation of Preprocess.prepareMesh4ElsA
 
-        NProcs : :py:class:`int` or ``'auto'``
-            If a positive integer is provided, then the
-            distribution of the tree (and eventually the splitting) will be done in
-            order to satisfy a total number of processors provided by this value.
-            If ``'auto'``, the distribution is computed automatically to
-            optimize load balancing (see :func:`MOLA.Preprocess.splitAndDistribute`).
+        splitOptions : dict
+            All optional parameters passed to function
+            :py:func:`MOLA.Preprocess.splitAndDistribute`
+
+            .. important::
+                If **splitOptions** is an empty :py:class:`dict` (default value),
+                no split nor distribution are done. This behavior required to
+                use PyPart in the simulation.
+                If you want to split the mesh with default parameters, you have
+                to specify one of them. For instance, use:
+
+                >> splitOptions=dict(mode='auto')
 
         duplicationInfos : dict
             User-provided data related to domain duplication.
@@ -124,10 +130,6 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None,
         blocksToRename : dict
             Each key corresponds to the name of a zone to modify, and the associated
             value is the new name to give.
-
-        SplitBlocks : bool
-            if :py:obj:`False`, do not split and distribute the mesh (use this
-            option if the simulation will run with PyPart).
 
         scale : float
             Homothety factor to apply on the mesh. Default is 1.
@@ -174,6 +176,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None,
     I._fixNGon(t) # Needed for an unstructured mesh
 
     if InputMeshes is None:
+        SplitBlocks = True if splitOptions else False
         InputMeshes = generateInputMeshesFromAG5(t, SplitBlocks=SplitBlocks,
             scale=scale, rotation=rotation, PeriodicTranslation=PeriodicTranslation)
 
@@ -189,7 +192,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, NProcs=None,
     if not any([InputMesh['SplitBlocks'] for InputMesh in InputMeshes]):
         t = PRE.connectMesh(t, InputMeshes)
     else:
-        t = splitAndDistribute(t, InputMeshes, NProcs=NProcs)
+        t = PRE.splitAndDistribute(t, InputMeshes, **splitOptions)
     # WARNING: Names of BC_t nodes must be unique to use PyPart on globborders
     for l in [2,3,4]: I._correctPyTree(t, level=l)
     PRE.adapt2elsA(t, InputMeshes)
@@ -1031,61 +1034,6 @@ def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
     Nb = int(np.round(Nb))
     print('Number of blades in initial mesh for {}: {}'.format(FamilyName, Nb))
     return Nb
-
-def splitAndDistribute(t, InputMeshes, NProcs='auto'):
-    '''
-    Split and distribute a PyTree **t** using a user-provided **NProcs**.
-    If **NProcs** is not provided, then it is automatically computed.
-
-    Returns a new split and distributed PyTree.
-
-    .. note:: only **InputMeshes** where ``'SplitBlocks':True`` are split.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            assembled tree
-
-        InputMeshes : :py:class:`list` of :py:class:`dict`
-            user-provided preprocessing instructions as described in
-            :py:func:`prepareMesh4ElsA` doc
-
-        NProcs : :py:class:`int` or ``'auto'``
-            If a positive integer is provided, then the
-            distribution of the tree (and eventually the splitting) will be done in
-            order to satisfy a total number of processors provided by this value.
-            If ``'auto'``, the distribution is computed automatically to
-            optimize load balancing (see :func:`MOLA.Preprocess.splitAndDistribute`).
-
-    Returns
-    -------
-
-        t : PyTree
-            new distributed *(and possibly split)* tree
-
-    '''
-    if NProcs == 'auto':
-        t = PRE.splitAndDistribute(t, InputMeshes, mode='auto')
-    else:
-        if InputMeshes[0]['SplitBlocks']:
-            t = T.splitNParts(t, NProcs, dirs=[1,2,3], recoverBC=True)
-            for l in [2,3,4]: I._correctPyTree(t, level=l)
-            t = PRE.connectMesh(t, InputMeshes)
-        #
-        InputMeshesNoSplit = []
-        for InputMesh in InputMeshes:
-            InputMeshNoSplit = dict()
-            for meshInfo in InputMesh:
-                if meshInfo == 'SplitBlocks':
-                    InputMeshNoSplit['SplitBlocks'] = False
-                else:
-                    InputMeshNoSplit[meshInfo] = InputMesh[meshInfo]
-            InputMeshesNoSplit.append(InputMeshNoSplit)
-        # Just to distribute zones on procs
-        t = PRE.splitAndDistribute(t, InputMeshesNoSplit, mode='imposed', NProcs=NProcs)
-
-    return t
 
 def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
         TemperatureStagnation, Surface, TurbulenceLevel=0.001,
