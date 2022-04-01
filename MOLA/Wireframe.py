@@ -1130,11 +1130,22 @@ def polyDiscretize(curve, Distributions, MappingLaw='Generator.map'):
     s0 = 0.
     Segments = []
     Ntot = 0
-
     prevLength_segment = 0.
+    all_s1 = []
     for d in Distributions:
-        N = d['N']
-        s1 = d['BreakPoint']
+        N = int( d['N'] )
+        if 'BreakPoint' in d:
+            s1 = d['BreakPoint']
+        elif 'BreakPoint(x)' in d:
+            s1 = getAbscissaAtStation(curve, d['BreakPoint(x)'], coordinate='x')[0]
+        elif 'BreakPoint(y)' in d:
+            s1 = getAbscissaAtStation(curve, d['BreakPoint(y)'], coordinate='y')[0]
+        elif 'BreakPoint(z)' in d:
+            s1 = getAbscissaAtStation(curve, d['BreakPoint(z)'], coordinate='z')[0]
+        else:
+            raise ValueError(J.FAIL+'you must define a BreakPoint'+J.ENDC)
+
+        all_s1 += [ s1 ]
         Lenght_segment = L*(s1-s0)
         Segment_Distri = linelaw(P1=(prevLength_segment,0,0),
             P2=(Lenght_segment+prevLength_segment,0,0), N=N, Distribution=d)
@@ -1142,6 +1153,10 @@ def polyDiscretize(curve, Distributions, MappingLaw='Generator.map'):
         s0 = s1
         Ntot += N
         prevLength_segment += Lenght_segment
+
+    if not np.all( np.diff( all_s1 ) >= 0 ):
+        ERMS = 'abcissas are not monotonically increasing: %s. Check your breakpoints.'%str(all_s1)
+        raise ValueError(J.FAIL+ERMS+J.ENDC)
 
     SegmentsQty = len(Segments)
     if SegmentsQty>1: Ntot -= SegmentsQty-1
@@ -1152,7 +1167,10 @@ def polyDiscretize(curve, Distributions, MappingLaw='Generator.map'):
 
 
     if MappingLaw == 'Generator.map':
-        return G.map(curve,D.getDistribution(joined))
+        try:
+            return G.map(curve,D.getDistribution(joined))
+        except:
+            C.convertPyTree2File(Segments,'debug.cgns');exit()
     else:
         s        = gets(curve)
         sMap     = gets(joined)
@@ -1251,8 +1269,6 @@ def getAbscissaAtStation(curve, station, coordinate='x'):
 
     >>> Abscissas = W.getAbscissaAtStation(MyAirfoil, station=0.1)
     '''
-
-
     curve = D.getCurvilinearAbscissa(curve)
     if   coordinate.lower() == 'x':
         n  = np.array([1.0,0.0,0.0])
@@ -1270,6 +1286,7 @@ def getAbscissaAtStation(curve, station, coordinate='x'):
     # plane equation used for slice (c1,c2,c3,c4)
     PlaneCoefs = n[0],n[1],n[2],-n.dot(Pt)
     C._initVars(curve,'SliceVar=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
+
     Slice = P.isoSurfMC(curve,'SliceVar',value=0.0)[0]
     s, = J.getVars(Slice,['s'])
 
@@ -2289,8 +2306,6 @@ def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge( airfoil, tol=1e-5,
     s[-1] = 1
 
 
-
-
 def getCurveNormalMap(curve):
     '''
     Equivalent of :py:func:`Generator.PyTree._getNormalMap`, but for use with
@@ -2307,7 +2322,6 @@ def getCurveNormalMap(curve):
             PyTree curve. Possibly a BAR.
 
             .. note:: **curve** is modified
-
 
     Returns
     -------
@@ -2376,6 +2390,7 @@ def getCurveNormalMap(curve):
     MeanNormal = np.mean(normal,axis=0)
     MeanTangent = np.mean(fT,axis=0)
     MeanBinormal = binormal
+
     return MeanNormal, MeanTangent, MeanBinormal
 
 def distances(zone1, zone2):
@@ -2429,6 +2444,105 @@ def distances(zone1, zone2):
     MaximumDistance = np.sqrt(np.max(Distances))
 
     return AverageDistance, MinimumDistance, MaximumDistance
+
+def pointwiseDistances(curve1, curve2):
+    '''
+    compute the pointwise (using same point index) distances between two curves
+    of exact same number of points
+
+    Parameters
+    ----------
+
+        curve1 : zone
+            zone with same points as **curve2** and equvalent indexing
+
+        curve2 : zone
+            zone with same points as **curve1** and equvalent indexing
+
+    Returns
+    -------
+
+        MinimumDistance : float
+            minimum distance between points of same indexing
+
+        MaximumDistance : float
+            maximum distance between points of same indexing
+
+        AverageDistance : float
+            average distance between points of same indexing
+    '''
+    x1, y1, z1 = J.getxyz( curve1 )
+    x2, y2, z2 = J.getxyz( curve2 )
+
+    x1 = np.ravel(x1, order='K')
+    y1 = np.ravel(y1, order='K')
+    z1 = np.ravel(z1, order='K')
+    x2 = np.ravel(x2, order='K')
+    y2 = np.ravel(y2, order='K')
+    z2 = np.ravel(z2, order='K')
+
+    NPts = len(x1)
+    if NPts != len(x2):
+        raise ValueError(J.FAIL+'zones must have same number of points'+J.ENDC)
+
+    d = np.sqrt([(x2[i]-x1[i])**2 + (y2[i]-y1[i])**2 + (z2[i]-z1[i])**2 for i in range(NPts)])
+
+    return np.min(d), np.max(d), np.mean(d)
+
+def pointwiseVectors(curve1, curve2, normalize=True, reverse=False):
+    '''
+    compute the pointwise (using same point index) vectors between two curves
+    of exact same number of points
+
+    Parameters
+    ----------
+
+        curve1 : zone
+            zone with same points as **curve2** and equvalent indexing
+
+            .. note::
+                **curve1** is modified, with new ``{sx}``, ``{sy}``, ``{sz}``
+
+        curve2 : zone
+            zone with same points as **curve1** and equvalent indexing
+
+    Returns
+    -------
+
+        MinimumDistance : float
+            minimum distance between points of same indexing
+
+        MaximumDistance : float
+            maximum distance between points of same indexing
+
+        AverageDistance : float
+            average distance between points of same indexing
+    '''
+    sx, sy, sz = J.invokeFields( curve1 , ['sx', 'sy', 'sz'] )
+    x1, y1, z1 = J.getxyz( curve1 )
+    x2, y2, z2 = J.getxyz( curve2 )
+
+    x1 = np.ravel(x1, order='K')
+    y1 = np.ravel(y1, order='K')
+    z1 = np.ravel(z1, order='K')
+    x2 = np.ravel(x2, order='K')
+    y2 = np.ravel(y2, order='K')
+    z2 = np.ravel(z2, order='K')
+    sx = np.ravel(sx, order='K')
+    sy = np.ravel(sy, order='K')
+    sz = np.ravel(sz, order='K')
+
+    NPts = len(x1)
+    if NPts != len(x2):
+        raise ValueError(J.FAIL+'zones must have same number of points'+J.ENDC)
+
+    sign = -1 if reverse else 1
+
+    sx[:] = sign * ( x2-x1 )
+    sy[:] = sign * ( y2-y1 )
+    sz[:] = sign * ( z2-z1 )
+
+    if normalize: C._normalize(curve1, ['sx', 'sy', 'sz'])
 
 
 def reOrientateAndOpenAirfoil(zoneFoil,maxTrailingEdgeThickness=0.01):
@@ -3190,7 +3304,12 @@ def closeStructCurve(AirfoilCurve, tol=1e-10):
                          ( z[-1] - z[0] )**2   ) ** 0.5
 
     if ExtremumDistance > tol:
-        AirfoilCurve = G.addPointInDistribution(AirfoilCurve, len(x))
+
+        # TODO notify bug Cassiopee: addPointInDistribution modifies geometry !
+        # AirfoilCurve = G.addPointInDistribution(AirfoilCurve, len(x))
+        # WORKAROUND:
+        new_pt = D.point(extremum(AirfoilCurve,True))
+        AirfoilCurve = concatenate([AirfoilCurve,new_pt])
 
         x, y, z = J.getxyz(AirfoilCurve)
 
@@ -4540,3 +4659,597 @@ def writeAirfoilInSeligFormat(airfoil, filename='foil.dat'):
         f.write(foil[0]+'\n')
         for x, y in zip(X,Y):
             f.write(' %0.6f   %0.6f\n'%(x,y))
+
+
+def tangentExtremum(curve, opposite_extremum=False):
+    '''
+    get the unitary vector direction (tangent) at the extremum of a structured
+    curve
+
+    Parameters
+    ----------
+
+        curve : zone
+            structured curve
+
+        opposite_extremum : bool
+            if :py:obj:`False`, compute the tangent at first index :math:`(i=0)`.
+            If :py:obj:`True`, compute the tangent at last index :math:`(i=-1)`.
+
+    Returns
+    -------
+
+        v : numpy.array of 3 float
+            unitary vector of the direction of the extremum following index
+            direction
+    '''
+    x,y,z = J.getxyz(curve)
+    if opposite_extremum:
+        v = np.array([x[-1]-x[-2], y[-1]-y[-2], z[-1]-z[-2]])
+    else:
+        v = np.array([x[1]-x[0], y[1]-y[0], z[1]-z[0]])
+    v /= np.sqrt(v.dot(v))
+    return v
+
+def extremum(curve, opposite_extremum=False):
+    '''
+    get the coordinates of the extremum point of a curve
+
+    Parameters
+    ----------
+
+        curve : zone
+            structured curve
+
+        opposite_extremum : bool
+            if :py:obj:`False`, get the extremum at first index :math:`(i=0)`.
+            If :py:obj:`True`, get the extremum at last index :math:`(i=-1)`.
+
+    Returns
+    -------
+
+        pt : numpy.array of 3 float
+            coordinates :math:`(x,y,z)`
+    '''
+    if opposite_extremum:
+        return point(curve,-1)
+    else:
+        return point(curve)
+
+
+def reorderCurvesSequentially(curves):
+    '''
+    reorder the indexing of a set of structured curves so that they yield a
+    coherent ordering for a sequential geometrical concatenation.
+
+    Parameters
+    ----------
+
+        curves : :py:class:`list` of zones
+            list of structured curves to be reordered
+
+            .. warning::
+                **curves** must contain at least 2 items
+
+            .. important::
+                the ordering of the curves is determined by the existing ordering
+                of the first provided curve (first item of **curves**)
+
+    Returns
+    -------
+
+        reordered_curves : :py:class:`list` of zones
+            like the input, but the curves ordering is adapted if required
+    '''
+    ordered_curves = [ curves[0] ]
+    not_ordered_curves = list(curves[1:])
+
+    must_reverse = [True, False, False, True]
+
+    while not_ordered_curves:
+
+        last_ordered_curve = ordered_curves[-1]
+
+        start0 = extremum(last_ordered_curve)
+        end0 = extremum(last_ordered_curve,True)
+
+        distances = []
+        nearest_extrema = []
+
+        for not_ordered_curve in not_ordered_curves:
+            start = extremum(not_ordered_curve)
+            end = extremum(not_ordered_curve, True)
+            extrema_dist = np.array([distance(start0, start),
+                                     distance(start0, end),
+                                     distance(end0, start),
+                                     distance(end0, end)])
+            nearest_extrema += [ np.argmin( extrema_dist ) ]
+            distances += [ extrema_dist[nearest_extrema[-1]] ]
+
+        nearest_curve_index = np.argmin( distances )
+        nearest_curve = not_ordered_curves[ nearest_curve_index ]
+
+        if must_reverse[ nearest_extrema[nearest_curve_index] ]:
+            T._reorder(nearest_curve,(-1,2,3))
+
+        ordered_curves += [nearest_curve]
+
+        del not_ordered_curves[ nearest_curve_index ]
+
+    return ordered_curves
+
+def sortCurvesSequentially(curves):
+    '''
+    sort a list of structured curves so that the order of the new list
+    minimizes the distance between the ending and the starting points of each
+    curve. This is useful for concatenation.
+
+    Parameters
+    ----------
+
+        curves : :py:class:`list` of zones
+            list of structured curves to be sorted
+
+            .. warning::
+                **curves** must contain at least 2 items
+
+            .. important::
+                the sorting of the curves starts from the first provided curve
+                (first item of **curves**)
+
+    Returns
+    -------
+
+        sorted_curves : :py:class:`list` of zones
+            like the input, but the curves order in the list is adapted if required
+    '''
+    sorted_curves = [ curves[0] ]
+    not_sorted_curves = list(curves[1:])
+
+    while not_sorted_curves:
+
+        last_sorted_curve = sorted_curves[-1]
+
+        end0 = extremum(last_sorted_curve,True)
+
+        distances = []
+        for not_sorted_curve in not_sorted_curves:
+            start = extremum(not_sorted_curve)
+            distances += [distance(end0, start)]
+
+        nearest_curve_index = np.argmin( distances )
+        nearest_curve = not_sorted_curves[ nearest_curve_index ]
+
+        sorted_curves += [nearest_curve]
+
+        del not_sorted_curves[ nearest_curve_index ]
+
+    return sorted_curves
+
+
+def reorderAndSortCurvesSequentially(curves):
+    '''
+    Literally, combines :py:func:`reorderCurvesSequentially` and
+    :py:func:`sortCurvesSequentially`
+    '''
+    return sortCurvesSequentially(reorderCurvesSequentially(curves))
+
+
+def splitInnerContourFromOutterBoundariesTopology(boundaries, inner_contour):
+    '''
+    From a closed boundary formed by 4 structured curves, conveniently splits
+    another structured curve such that each boundary has a corresponding
+    inner contour subpart with equal number of segments. This is useful as an
+    intermediate step for H-shape meshing topologies.
+
+    Parameters
+    ----------
+
+        boundaries : :py:class:`list` of 4 zones
+            List of 4 structured curves defining the outter boundaries.
+
+            .. warning::
+                total number of segments of **boundaries** and **inner_contour**
+                must be identical
+
+        inner_contour : zone
+            structured curve to be split
+
+    Return
+    ------
+
+        adapted_boundaries : :py:class:`list` of 4 zones
+            like **boundaries** but sequentially reordered and sorted
+
+        inner_contour_split : :py:class:`list` of 4 zones
+            **inner_contour** split in 4 parts with identical number of
+            segments between each subpart and the boundaries, yielding same
+            index ordering and position in list
+    '''
+    if len(boundaries) != 4:
+        raise ValueError(J.FAIL+'boundaries must be composed of 4 curves'+J.ENDC)
+
+    inner_contour_NPts = C.getNPts(inner_contour)
+    N_segments_inner = inner_contour_NPts - 1
+    N_segments_boundary = 0
+    for b in boundaries:
+        N_segments_boundary += C.getNPts(b)-1
+
+    if N_segments_boundary != N_segments_inner:
+        raise ValueError(J.FAIL+'total number of segments of boundaries (%d) must be the same as inner_contour (%d)'%(N_segments_boundary,N_segments_inner)+J.ENDC)
+
+    boundaries = I.copyRef(boundaries)
+    inner_contour = I.copyRef(inner_contour)
+    I._rmNodesByType(boundaries+[inner_contour],'FlowSolution_t')
+
+    boundaries = reorderAndSortCurvesSequentially(boundaries)
+    I._correctPyTree(boundaries, level=3)
+    corners = [extremum(b) for b in boundaries]
+    directionsStart = [tangentExtremum(b) for b in boundaries]
+    directionsEnd = [tangentExtremum(b,False) for b in [boundaries[-1]]+boundaries[1:]]
+
+    inner_contour = I.copyTree(inner_contour)
+    index, sqrddist = D.getNearestPointIndex(inner_contour,tuple(corners[0]))
+    xi, yi, zi = J.getxyz(inner_contour)
+    if index == 0: u=np.array([xi[1]-xi[0],yi[1]-yi[0],zi[1]-zi[0]])
+    else: u=np.array([xi[index]-xi[index-1],yi[index]-yi[index-1],zi[index]-zi[index-1]])
+    u /= np.sqrt(u.dot(u))
+    v = 0.5 * ( directionsStart[0] + directionsEnd[0])
+    if u.dot(v) < 0: T._reorder(inner_contour,(-1,2,3))
+
+    inner_contour_NPts = C.getNPts(inner_contour)
+    all_distances = []
+    first_points = []
+    all_aux_inner_contour = []
+    all_list_index_j = []
+    test_all_first_bnd = []
+    for i, corner in enumerate(corners):
+        index, sqrddist = D.getNearestPointIndex(inner_contour,tuple(corner))
+
+        if (index > 0) and (index < inner_contour_NPts-2):
+            split_subpart_A = T.subzone(inner_contour,(1,1,1),(index+1,1,1))
+            split_subpart_B = T.subzone(inner_contour,(index+2,1,1),(-1,-1,-1))
+
+            split_subparts = reorderCurvesSequentially([split_subpart_B, split_subpart_A])
+            xs,ys,zs = J.getxyz(split_subparts[0])
+            xs[0]+=1
+            ys[0]+=1
+            zs[0]+=1
+            try:
+                aux_inner_contour = T.join(split_subparts[0],split_subparts[1])
+            except:
+                print(J.FAIL,index,J.ENDC)
+                C.convertPyTree2File(split_subparts,'debug.cgns');exit()
+
+            xs,ys,zs = J.getxyz(aux_inner_contour)
+            xs[0]-=1
+            ys[0]-=1
+            zs[0]-=1
+        else:
+            aux_inner_contour = I.copyTree(inner_contour)
+
+        aux_inner_contour = closeStructCurve(aux_inner_contour)
+
+        aux_inner_contour[0]="aux_inner_contour.%d"%i
+        all_aux_inner_contour.append( aux_inner_contour )
+
+        x,y,z = J.getxyz(aux_inner_contour)
+
+        distances = np.zeros(4)
+        index_j = 0
+        list_index_j = []
+
+        for j in range(4):
+
+            bnd_index = i+j
+            if bnd_index > 3: bnd_index -= 4
+
+
+            if j>0: index_j += C.getNPts(boundaries[bnd_index-1]) - 1
+
+            consequence_point = np.array([x[index_j],y[index_j],z[index_j]])
+            distances[bnd_index] = distance(corners[bnd_index], consequence_point)
+
+            if bnd_index == 0:
+                first_points += [consequence_point]
+                # test_bnd = I.copyTree(aux_inner_contour)
+                # test_all_first_bnd += [ test_bnd ]
+                # print(J.WARN,index_j,consequence_point,J.ENDC)
+                # if consequence_point[0]>0.5:
+                #     print('i=%d'%i)
+                #     print(corners[i])
+                #     pt = D.point(tuple(consequence_point))
+                #     C.convertPyTree2File([pt,aux_inner_contour],'pt_cnt.cgns')
+
+            list_index_j.append(index_j)
+        all_list_index_j += [list_index_j]
+        all_distances += [distances]
+
+    sum_all_distances = np.sum(all_distances,axis=0)
+    mean_point = np.mean(np.vstack(tuple(first_points)),axis=0)
+    ###########################################################################
+    # TO FACTORIZE
+    index, sqrddist = D.getNearestPointIndex(inner_contour, tuple(mean_point))
+
+    if (index > 0) and (index < inner_contour_NPts-2):
+        split_subpart_A = T.subzone(inner_contour,(1,1,1),(index+1,1,1))
+        split_subpart_B = T.subzone(inner_contour,(index+2,1,1),(-1,-1,-1))
+
+        split_subparts = reorderCurvesSequentially([split_subpart_B, split_subpart_A])
+        xs,ys,zs = J.getxyz(split_subparts[0])
+        xs[0]+=1
+        ys[0]+=1
+        zs[0]+=1
+        aux_inner_contour = T.join(split_subparts[0],split_subparts[1])
+        xs,ys,zs = J.getxyz(aux_inner_contour)
+        xs[0]-=1
+        ys[0]-=1
+        zs[0]-=1
+    else:
+        aux_inner_contour = I.copyTree(inner_contour)
+
+    aux_inner_contour = closeStructCurve(aux_inner_contour)
+
+    aux_inner_contour[0]="aux_inner_contour.%d"%i
+
+    x,y,z = J.getxyz(aux_inner_contour)
+
+    distances = np.zeros(4)
+    index_j = 0
+    list_j = []
+    i = 0
+    for j in range(4):
+
+        bnd_index = i+j
+        if bnd_index > 3: bnd_index -= 4
+
+        if j>0: index_j += C.getNPts(boundaries[bnd_index-1]) - 1
+
+        consequence_point = np.array([x[index_j],y[index_j],z[index_j]])
+        distances[bnd_index] = distance(corners[bnd_index], consequence_point)
+
+        if bnd_index == 3: first_points += [consequence_point]
+        list_j.append(index_j)
+
+    ###########################################################################
+
+    # all_distances = np.vstack(tuple(all_distances))
+    # sum_all_distances = np.sum(all_distances,axis=0)
+    #
+    # arg_min_dist = np.argmin(sum_all_distances)
+    # aux_inner_contour = all_aux_inner_contour[arg_min_dist]
+
+    # list_j = all_list_index_j[arg_min_dist]
+
+    inner_contour_split = []
+    for i in range(3):
+        inner_contour_split += [T.subzone(aux_inner_contour,(list_j[i]+1,1,1),(list_j[i+1]+1,1,1))]
+    inner_contour_split += [T.subzone(aux_inner_contour,(list_j[3]+1,1,1),(-1,-1,-1))]
+
+    # inner_contour_split = inner_contour_split[-arg_min_dist:] +  inner_contour_split[:-arg_min_dist]
+    for inner, bnd in zip(inner_contour_split, boundaries):
+        inner[0] = bnd[0] + '.inner'
+
+    return boundaries, inner_contour_split
+
+
+def point(curve, index=0, as_pytree_point=False):
+    '''
+    extract a point from a curve at requested index
+
+    Parameters
+    ----------
+
+        curve : zone
+            structured curve
+
+        index : int
+            index at which the point is to be extracted from curve.
+
+            .. hint::
+                **index** can be negative just like Python indexing. Hence,
+                ``index=-1`` can be used to extract the last point of **curve**
+
+        as_pytree_point : bool
+            if :py:obj:`True`, the returned type is a PyTree point zone.
+            Otherwise, a 3-float numpy array is returned
+
+    Returns
+    -------
+
+        point : numpy.array or zone
+            extracted point of **curve** at requested **index** of type following
+            the value of **as_pytree_point**
+    '''
+    x, y, z = J.getxyz( curve )
+    try:
+        pt = np.array([ x[index], y[index], z[index] ])
+    except IndexError:
+        ERRMSG='cannot extract point at index %d from curve %s with %d pts'%(index,curve[0],len(x))
+        raise IndexError(J.FAIL+ERRMSG+J.ENDC)
+    if as_pytree_point: return D.point(tuple(pt))
+    return pt
+
+
+def projectNormals(t, support, smoothing_iterations=0,
+                   normal_projection_length=1e-3):
+    '''
+    project the normals vector ``{sx}``, ``{sy}`` and ``{sz}`` onto a support
+    surface, optionally with smoothing iterations.
+
+    Parameters
+    ----------
+
+        t : tree, base, zone list of zone
+            structured zones with normals fields ``{sx}``, ``{sy}`` and ``{sz}``
+            located at ``FlowSolution`` vertex.
+
+            .. note::
+                **curve** is modified
+
+        support : tree, base, zone, list of zone
+            surface of support for the normals
+
+        smoothing_iterations : int
+            number of iterations for smoothing the normals
+
+        normal_projection_length : float
+            Length used to compute the normals projection following the normal
+            direction. Low values lead to more precise local match between the
+            normal projection and the support surface, but extremely low values
+            may lead to numerical innacuracies due to division by small values.
+
+            .. hint::
+                use a value slightly lower than the length of the smallest edge
+                size of the cells of **support** surface
+
+
+    Returns
+    -------
+
+        None : None
+
+    '''
+
+    for curve in I.getZones( t ):
+        sx, sy, sz = J.getVars( curve, ['sx','sy','sz'] )
+
+        curve_proj = I.copyTree( curve )
+        I._rmNodesByType(curve_proj,'FlowSolution_t')
+        if support: T._projectOrtho( curve_proj, support )
+        xp, yp, zp = J.getxyz( curve_proj )
+
+        curve_offset = I.copyTree( curve_proj )
+        xo, yo, zo = J.getxyz( curve_offset )
+
+        xo += sx * normal_projection_length
+        yo += sy * normal_projection_length
+        zo += sz * normal_projection_length
+        if support:
+            T._projectOrtho( curve_offset, support )
+            xo, yo, zo = J.getxyz( curve_offset )
+
+        sx[:] = xo - xp
+        sy[:] = yo - yp
+        sz[:] = zo - zp
+
+        C._normalize( curve, ['sx', 'sy', 'sz'])
+
+        if smoothing_iterations:
+            T._smoothField( curve, 0.9, smoothing_iterations, 0, ['sx','sy','sz'])
+            C._normalize( curve, ['sx', 'sy', 'sz'])
+
+            xo, yo, zo = J.getxyz( curve_offset )
+            xo[:] = xp + sx * normal_projection_length
+            yo[:] = yp + sy * normal_projection_length
+            zo[:] = zp + sz * normal_projection_length
+            if support:
+                T._projectOrtho( curve_offset, support )
+                xo, yo, zo = J.getxyz( curve_offset )
+
+            sx[:] = xo - xp
+            sy[:] = yo - yp
+            sz[:] = zo - zp
+            C._normalize( curve, ['sx', 'sy', 'sz'])
+
+
+def reverseNormals(curves):
+    '''
+    reverse direction of normals
+
+    Parameters
+    ----------
+
+        curves : list of zone
+            list of curves containing fields ``{sx}``, ``{sy}``, ``{sz}``
+            located at Vertex in container *FlowSolution*
+    '''
+    for c in I.getZones(curves):
+        sx, sy, sz = J.getVars(c, ['sx', 'sy', 'sz'])
+        sx *= -1
+        sy *= -1
+        sz *= -1
+
+
+def addNormals(curves, support=None, smoothing_iterations=0,
+               normal_projection_length=1e-3, reverse_normals=False):
+    '''
+    add normal vector to a set of structured curves using the mean oscullatory
+    plane of them all and optionally projecting them onto a support surface.
+
+    Parameters
+    ----------
+
+        curves : list of zone
+            list of structured curves where normals fields is going to be
+            added
+
+            .. note::
+                **curves** are modified (fields are added)
+
+        support : tree, base, zone, list of zone or :py:obj:`None`
+            see :py:func:`projectNormals`
+
+        smoothing_iterations : int
+            see :py:func:`projectNormals`
+
+        normal_projection_length : float
+            see :py:func:`projectNormals`
+
+        reverse_normals : bool
+            if :py:obj:`True`, then reverses the normals of **curves**
+    '''
+    curves = I.getZones(curves)
+    closed_contour = concatenate( curves )
+    I._rmNodesByType(closed_contour, 'FlowSolution_t')
+    getCurveNormalMap(closed_contour)
+    I._rmNodesByName(closed_contour, I.__FlowSolutionCenters__)
+    J.migrateFields(closed_contour, curves)
+    if reverse_normals: reverseNormals( curves )
+    for c in curves:
+        projectNormals(c, support, smoothing_iterations=smoothing_iterations,
+                           normal_projection_length=normal_projection_length)
+
+def getVisualizationNormals(t, length=1.):
+    lines = []
+    for zone in I.getZones(t):
+        x,y,z = J.getxyz(zone)
+        sx, sy, sz = J.getVars(zone,['sx','sy','sz'])
+        for i in range(len(x)):
+            lines += [D.line((x[i],y[i],z[i]),
+                     (x[i]+length*sx[i],y[i]+length*sy[i],z[i]+length*sz[i]), 2)]
+    I._correctPyTree(lines,level=3)
+    return lines
+
+
+def computeBarycenterDirectionalField(t, support=None, reverse=False,
+                                      projectNormalsOptions={}):
+    B = np.array( G.barycenter( t ) )
+    if support:
+        Bpt = D.point(tuple(B))
+        T._projectOrtho(Bpt, support)
+        B = point(Bpt)
+
+    for curve in I.getZones(t):
+        sx, sy, sz = J.invokeFields( curve, ['sx', 'sy', 'sz'] )
+        x, y, z = J.getxyz( curve )
+        sign = -1 if reverse else 1
+        sx[:] = sign * (B[0] - x)
+        sy[:] = sign * (B[1] - y)
+        sz[:] = sign * (B[2] - z)
+        C._normalize( curve, ['sx', 'sy', 'sz'] )
+        if support: projectNormals(curve, support, **projectNormalsOptions)
+
+def projectOnAxis(t, rotation_axis, rotation_center):
+    a = np.array(rotation_axis, dtype=float)
+    c = np.array(rotation_center, dtype=float)
+    a /= a.dot(a)
+
+    for zone in I.getZones(t):
+        x, y, z = J.getxyz( zone )
+        for i in range(len(x)):
+            CX = np.array([x[i]-c[0], y[i]-c[1], z[i]-c[2]])
+            P = c + a * CX.dot(a)
+            x[i] = P[0]
+            y[i] = P[1]
+            z[i] = P[2]

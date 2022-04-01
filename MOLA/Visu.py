@@ -23,6 +23,10 @@ Command lines for animations:
 # By Ronan
 mencoder  mf://@'+str(Imglist)  -mf fps=24  -ovc x264 -x264encopts subq=6:partitions=all:8x8dct:me=umh:frameref=5:bframes=3:b_pyramid=normal:weight_b -o fileout.avi
 
+# By Rocco
+mencoder mf://FRAMES/FrameIsoY*.png -mf w=800:h=600:fps=10:type=png -ovc lavc -lavcopts vcodec=mpeg4:mbd=2:trell -oac copy -o animIsoY.avi
+
+
 # Resize frames
 for f in Frames:
     os.system('convert "%s" -resize %dx%d -quality 100 "%s"'%(f,WidthPixels,WidthPixels,f))

@@ -583,7 +583,7 @@ def stackBodyForceComponent(Component, RotationAxis, StackStrategy='constant',
         TrailingEdgeDisplacement = - (1.-StackRelativeChord) * ExtrusionDistance
 
     else:
-        raise AttributeError('StackStrategy %s not recognized')
+        raise AttributeError('StackStrategy %s not recognized'%str(StackStrategy))
 
     xLE += LeadingEdgeDisplacement * RotationAxis[0]
     yLE += LeadingEdgeDisplacement * RotationAxis[1]
