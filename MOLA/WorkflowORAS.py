@@ -3,8 +3,7 @@ MOLA - WorkflowORAS.py
 
 WORKFLOW PROPELLER
 
-Collection of functions designed for CFD simulations of propellers in axial
-flight conditions
+Collection of functions designed for CFD simulations of Open Rotor And Stator (ORAS)
 
 File history:
 01/04/2022 - M. Balmaseda - Creation
@@ -40,11 +39,12 @@ def cleanMeshFromAutogrid(t, **kwargs):
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, RPM=0., Extractions={},
-        writeOutputFields=True, Initialization={'method':'uniform'},
+        writeOutputFields=True, Initialization={'method':'uniform'}, TurboConfiguration = {},
+        BoundaryConditions = [],bladeFamilyNames =['Blade'],
         FULL_CGNS_MODE=False):
     '''
     This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
-    but adapted to propeller mono-chanel computations. Its purpose is adapting
+    but adapted to ORAS mono-chanel computations. Its purpose is adapting
     the CGNS to elsA.
 
     Parameters
@@ -128,23 +128,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     else:
         raise ValueError('parameter mesh must be either a filename or a PyTree')
 
-    nb_blades, Dir = getPropellerKinematic(t)
-
-    hasBCOverlap = True if C.extractBCOfType(t, 'BCOverlap') else False
-
-    if hasBCOverlap: addFieldExtraction('ChimeraCellType')
-
-    IsUnstructured = PRE.hasAnyUnstructuredZones(t)
-
-    omega = -Dir * RPM * np.pi / 30.
-    RowTurboConfDict = {}
-    for b in I.getBases(t):
-        RowTurboConfDict[b[0]+'Zones'] = {'RotationSpeed':omega,
-                                          'NumberOfBlades':nb_blades,
-                                          'NumberOfBladesInInitialMesh':nb_blades}
-    TurboConfiguration = WC.getTurboConfiguration(t, ShaftRotationSpeed=omega,
-                                HubRotationSpeed=[(-1e6,+1e6)],
-                                Rows=RowTurboConfDict)
     FluidProperties = PRE.computeFluidProperties()
     if not 'Surface' in ReferenceValuesParams:
         ReferenceValuesParams['Surface'] = 1.0
@@ -155,7 +138,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     ReferenceValuesParams.update(dict(PitchAxis=PitchAxis, YawAxis=YawAxis))
 
     ReferenceValues = PRE.computeReferenceValues(FluidProperties, **ReferenceValuesParams)
-    ReferenceValues['RPM'] = RPM
+    
 
     if I.getNodeFromName(t, 'proc'):
         NProc = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
@@ -166,16 +149,24 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         ReferenceValues['NProc'] = 0
         Splitter = 'PyPart'
 
-    elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-6, unstructured=IsUnstructured)
-    elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=IsUnstructured)
-    elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues,
-                            unstructured=IsUnstructured, **NumericalParams)
+    elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-6)
+    elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues)
+    elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues, **NumericalParams)
 
     PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
 
-    WC.setBoundaryConditions(t, {}, TurboConfiguration,
-                            FluidProperties, ReferenceValues)
+    WC.setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
+                            FluidProperties, ReferenceValuesbladeFamilyNames=bladeFamilyNames)
 
+    
+    
+    
+    
+    
+    
+    
+    
+    
     WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
     AllSetupDics = dict(FluidProperties=FluidProperties,
@@ -216,23 +207,3 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
             Splitter + J.ENDC))
 
-
-def getPropellerKinematic(t):
-    mesh_params = I.getNodeFromName(t,'.MeshingParameters')
-    if mesh_params is None:
-        raise ValueError(J.FAIL+'node .MeshingParameters not found in tree'+J.ENDC)
-
-    try:
-        nb_blades = int(I.getValue(I.getNodeFromName(mesh_params,'blade_number')))
-    except:
-        ERRMSG = 'could not find .MeshingParameters/blade_number in tree'
-        raise ValueError(J.FAIL+ERRMSG+J.ENDC)
-
-    try:
-        Dir = int(I.getValue(I.getNodeFromName(mesh_params,'RightHandRuleRotation')))
-        Dir = +1 if Dir else -1
-    except:
-        ERRMSG = 'could not find .MeshingParameters/RightHandRuleRotation in tree'
-        raise ValueError(J.FAIL+ERRMSG+J.ENDC)
-
-    return nb_blades, Dir
