@@ -3218,8 +3218,9 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
             convention).
 
             By default, the following variables are extracted for *BCWall*:
-            ['normalvector', 'frictionvector', 'psta', 'bl_quantities_2d',
-            'yplusmeshsize', 'flux_rou', 'flux_rov', 'flux_row', 'torque_rou',
+            ['normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz',
+            'psta', 'bl_quantities_2d', 'yplusmeshsize',
+            'flux_rou', 'flux_rov', 'flux_row', 'torque_rou',
             'torque_rov', 'torque_row'].
 
             .. danger:: currently, ``bl_ue`` cannot be extracted: https://elsa.onera.fr/issues/10360
@@ -3230,7 +3231,8 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
 
 
     DefaultBCExtractions = dict(
-        BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize',
+        BCWall = ['normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz',
+            'psta', 'bl_quantities_2d', 'yplusmeshsize',
             # 'bl_ue', # TODO BUG for bl_ue extraction https://elsa.onera.fr/issues/10360
             'flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
     )
@@ -3273,6 +3275,10 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
             if not BCType: continue
 
             if ExtractBCType in BCType:
+                if ExtractBCType != BCType and BCType in DefaultBCExtractions:
+                    # There is a more specific ExtractBCType
+                    continue
+
                 if 'BCWall' in BCType:
 
                     for zone in I.getZones(t):

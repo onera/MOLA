@@ -460,7 +460,7 @@ def save(t, filename, tagWithIteration=False):
 
     UseMerge = False
     try:
-        Skeletons = Cmpi.KCOMM.gather(Skeleton,root=0)
+        Skeletons = comm.gather(Skeleton,root=0)
     except SystemError:
         UseMerge = True
         printCo('Cmpi.KCOMM.gather FAILED. Using merge=True', color=J.WARN)

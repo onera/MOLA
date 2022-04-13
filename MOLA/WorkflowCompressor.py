@@ -366,11 +366,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
     BCExtractions = dict(
-        BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
+        BCWall = ['normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz','psta', 'bl_quantities_2d', 'yplusmeshsize'],
         BCInflow = ['convflux_ro'],
         BCOutflow = ['convflux_ro'],
-        BCWallViscousIsothermal = ['normalvector', 'frictionvector','psta',
-                'bl_quantities_2d', 'yplusmeshsize', 'tsta', 'normalheatflux', 'hpar'],
     )
 
     PRE.addTrigger(t)
@@ -2313,6 +2311,8 @@ def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues
         rowParams = TurboConfiguration['Rows'][row]
         fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
         MassFlow = ReferenceValues['MassFlow'] / fluxcoeff
+    else:
+        bc = None
 
     ImposedVariables = dict(globalmassflow=MassFlow, groupmassflow=groupmassflow)
 
