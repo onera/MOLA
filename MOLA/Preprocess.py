@@ -2597,7 +2597,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 20.,
         k_prod_compute = 'from_sij',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'SST-2003':
@@ -2608,7 +2608,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 10.,
         k_prod_compute = 'from_sij',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'SST-V2003':
@@ -2619,7 +2619,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 10.,
         k_prod_compute = 'from_vorticity',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'SST':
@@ -2630,7 +2630,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 20.,
         k_prod_compute = 'from_sij',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'SST-V':
@@ -2641,7 +2641,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 20.,
         k_prod_compute = 'from_vorticity',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'BSL':
@@ -2651,7 +2651,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 20.,
         k_prod_compute = 'from_sij',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'BSL-V':
@@ -2661,7 +2661,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 20.,
         k_prod_compute = 'from_vorticity',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'smith':
@@ -2678,7 +2678,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 10.,
         k_prod_compute = 'from_sij',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
         trans_mod      = 'menter',
             )
 
@@ -2690,7 +2690,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 10.,
         k_prod_compute = 'from_sij',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
         trans_mod      = 'menter',
             )
 
