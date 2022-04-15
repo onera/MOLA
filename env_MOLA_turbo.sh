@@ -71,6 +71,8 @@ if [ "$MAC" = "spiro" ]; then
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
+    # turbo
+    export PYTHONPATH=/home/jmarty/TOOLS/turbo/install/v1.1/env_elsA_${ELSAVERSION}/spiro_mpi/lib/python2.7/site-packages/:$PYTHONPATH
 
 elif [ "$MAC" = "visio" ]; then
     export ELSAVERSION=v5.0.03 # TODO adapt this once #9666 fixed
@@ -85,6 +87,9 @@ elif [ "$MAC" = "visio" ]; then
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
+    # turbo
+    export PYTHONPATH=/home/jmarty/TOOLS/turbo/install/v1.1/env_elsA_${ELSAVERSION}/centos6_mpi/lib/python2.7/site-packages/:$PYTHONPATH
+
 elif [ "$MAC" = "ld" ]; then
     EL8=`uname -r|grep el8`
     if [ "$EL8" ]; then
@@ -95,6 +100,8 @@ elif [ "$MAC" = "ld" ]; then
         echo 'loading MOLA environment for CentOS 7'
         source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
         module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+        # turbo
+        export PYTHONPATH=/home/jmarty/TOOLS/turbo/install/v1.1/env_elsA_${ELSAVERSION}/eos-intel3_mpi/lib/python3.6/site-packages/:$PYTHONPATH
     fi
 
     alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
@@ -112,6 +119,9 @@ elif [ "$MAC" = "sator" ]; then
     export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages/PUMA:$PYTHONPATH
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+
+    # turbo
+    export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/v1.1/env_elsA_${ELSAVERSION}/sator/lib/python2.7/site-packages/:$PYTHONPATH
 
 elif [ "$MAC" = "sator-new" ]; then
     source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA

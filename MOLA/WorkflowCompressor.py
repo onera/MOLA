@@ -627,6 +627,7 @@ def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='from
             InputMesh['Connection'].append(
                     dict(type='PeriodicMatch', tolerance=1e-8, rotationAngle=[angle,0.,0.])
                     )
+            
     if PeriodicTranslation:
         print('  translation = {} m'.format(PeriodicTranslation))
         InputMesh['Connection'].append(
@@ -738,13 +739,14 @@ def cleanMeshFromAutogrid(t, basename='Base#1', blocksToRename={}):
     # Clean Joins & Periodic Joins
     I._rmNodesByType(t, 'ZoneGridConnectivity_t')
     periodicFamilyNames = [I.getName(fam) for fam in I.getNodesFromType(t, "Family_t")
-        if 'PER' in I.getName(fam)]
+        if 'PER' in I.getName(fam) or 'CON' in I.getName(fam) or 'SOLID' in I.getName(fam)]
     for fname in periodicFamilyNames:
         # print('|- delete PeriodicBC family of name {}'.format(name))
         C._rmBCOfType(t, 'FamilySpecified:%s'%fname)
         fbc = I.getNodeFromName2(t, fname)
         I.rmNode(t, fbc)
-
+        print(fname)
+    
     # Clean RS interfaces
     I._rmNodesByType(t,'InterfaceType')
     I._rmNodesByType(t,'DonorFamily')
@@ -978,7 +980,7 @@ def duplicateFlowSolution(t, TurboConfiguration):
     for angle in angles4ConnectMatchPeriodic:
         # Not full 360 simulation: periodic BC must be restored
         t = X.connectMatchPeriodic(t, rotationAngle=[angle, 0., 0.], tol=1e-8)
-
+        print('Restoring conectivity, angle: %s'%angle)
     # WARNING: Names of BC_t nodes must be unique to use PyPart on globborders
     for l in [2,3,4]: I._correctPyTree(t, level=l)
 

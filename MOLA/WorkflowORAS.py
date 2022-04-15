@@ -38,7 +38,7 @@ def cleanMeshFromAutogrid(t, **kwargs):
     return WC.cleanMeshFromAutogrid(t, **kwargs)
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
-        NumericalParams={}, RPM=0., Extractions={},
+        NumericalParams={}, Extractions={},
         writeOutputFields=True, Initialization={'method':'uniform'}, TurboConfiguration = {},
         BoundaryConditions = [],bladeFamilyNames =['Blade'],
         FULL_CGNS_MODE=False):
@@ -149,14 +149,14 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         ReferenceValues['NProc'] = 0
         Splitter = 'PyPart'
 
-    elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-6)
+    elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-4)
     elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues)
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues, **NumericalParams)
 
     PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
 
     WC.setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
-                            FluidProperties, ReferenceValuesbladeFamilyNames=bladeFamilyNames)
+                            FluidProperties,ReferenceValues, bladeFamilyNames=bladeFamilyNames)
 
     
     

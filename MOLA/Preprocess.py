@@ -119,7 +119,7 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
                 The user shall employ function :py:func:`prepareMainCGNS4ElsA`
                 as next step
     '''
-
+    
     t = getMeshesAssembled(InputMeshes)
     I._fixNGon(t) # Needed for an unstructured mesh
     transform(t, InputMeshes)
@@ -581,6 +581,7 @@ def connectMesh(t, InputMeshes):
                                             translation=translation,
                                             tol=ConnectParams['tolerance'],
                                             dim=baseDim)
+                print(rotationAngle)
             else:
                 ERRMSG = 'Connection type %s not implemented'%ConnectionType
                 raise AttributeError(ERRMSG)
@@ -677,6 +678,7 @@ def setBoundaryConditions(t, InputMeshes):
 
     '''
     print('setting boundary conditions...')
+    XX
     for meshInfo in InputMeshes:
         if 'BoundaryConditions' not in meshInfo: continue
         print('setting BC at base '+meshInfo['baseName'])
@@ -837,7 +839,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                        maximum_allowed_nodes=20,
                        maximum_number_of_points_per_node=7e6,
                        only_consider_full_node_nproc=True,
-                       NProcs=None):
+                       NProcs=None, SplitDirections = [1,2,3]):
     '''
     Distribute a PyTree **t**, with optional splitting.
 
@@ -995,7 +997,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
     elif mode == 'imposed':
 
         tRef = _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
-                                 maximum_number_of_points_per_node, raise_error=True)[0]
+                                 maximum_number_of_points_per_node, raise_error=True, SplitDirections = SplitDirections)[0]
 
         I._correctPyTree(tRef,level=3)
         tRef = connectMesh(tRef, InputMeshes)
@@ -1006,7 +1008,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
     return tRef
 
 def _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
-                         maximum_number_of_points_per_node, raise_error=False):
+                         maximum_number_of_points_per_node, raise_error=False, SplitDirections = [1,2,3]):
 
     if DEBUG: print('attempting distribution for NProcs= %d ...'%NProcs)
 
@@ -1031,7 +1033,7 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
 
         removeMatchAndNearMatch(tToSplit)
 
-        tToSplit = T.splitSize(tToSplit, 0, type=0, R=remainingNProcs, minPtsPerDir=3)
+        tToSplit = T.splitSize(tToSplit, 0, dirs = SplitDirections, type=0, R=remainingNProcs, minPtsPerDir=3)
 
         for splitbase in I.getBases(tToSplit):
             basename = splitbase[0]
