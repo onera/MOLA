@@ -1258,7 +1258,16 @@ def ComputeTransformationLists(t, Table):
 
     DictStructParam['MeshProperties']['Transformations']['VectDDLNum'],DictStructParam['MeshProperties']['Transformations']['VectDDLNames'] = CalcVectDDL(np.array(np.concatenate(l_ddl)))
     DictStructParam['MeshProperties']['Transformations']['VectDDL'] = np.array(np.concatenate(l_ddl))
-    DictStructParam['MeshProperties']['Transformations']['DDLNodes'] = np.split(np.array(np.concatenate(l_ddl)), l_SplitArray2Vars)
+    DictStructParam['MeshProperties']['Transformations']['DDLNodes'] = np.split(np.array(np.concatenate(l_ddl)), l_SplitArray2Vars[1:])
+    
+    ddl2Node = []
+    for Node, posNode in zip(DictStructParam['MeshProperties']['Transformations']['DDLNodes'], range(DictStructParam['MeshProperties']['NNodes'][0])):
+        for comp in Node:
+            ddl2Node.append(posNode + 1)
+            
+            
+    DictStructParam['MeshProperties']['Transformations']['DDL2Node'] = ddl2Node
+    
     J.set(t, '.StructuralParameters', **DictStructParam)
     return t
 
@@ -1323,6 +1332,11 @@ def ListXYZFromVectFull(t, VectFull):
         ListeXYZ.append(np.array(DictXYZ[key]))
     
     return ListeXYZ
+
+
+
+
+
 
 def GetAsterTableOfStaticNodalForces(**kwargs):
     
@@ -1414,8 +1428,8 @@ def ExtrUGStatRot(t, RPM, **kwargs):
     except:
         t = I.merge([t, C.newPyTree(['StaticRotatorySolution', UsZones])])
     
-    C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/toto.cgns', 'bin_adf')
-    C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/toto.tp', 'bin_tp')
+    #C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/toto.cgns', 'bin_adf')
+    #C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/toto.tp', 'bin_tp')
         
     #upx[:], upy[:], upz[:], = UsField[0], UsField[1], UsField[2] 
 
@@ -1547,37 +1561,50 @@ def BuildFOM(t, **kwargs):
 
     DictStructParam = J.get(t, '.StructuralParameters')
     DictSimulaParam = J.get(t, '.SimulationParameters')
+   
+    SolverType0 = DictSimulaParam['IntegrationProperties']['SolverType']
+    DictSimulaParam['IntegrationProperties']['SolverType'] = 'Static'
+    J.set(t,'.SimulationParameters', **dict(DictSimulaParam))
+    DictSimulaParam = J.get(t, '.SimulationParameters')
     
     ModesBase = I.createNode('ModalBases', 'CGNSBase_t')
     for RPM in DictSimulaParam['RotatingProperties']['RPMs']:
     
         t, AsterObjs = ComputeMatricesFOM(t, RPM, **kwargs['AsterObjs'])
-        C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Mesh.cgns', 'bin_adf')
-        C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Mesh.tp', 'bin_tp')
+        #C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Mesh.cgns', 'bin_adf')
+        #C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Mesh.tp', 'bin_tp')
         
         t = ExtrUGStatRot(t, RPM, **AsterObjs)
 
-        C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Mesh_Rotation.cgns', 'bin_adf')
+        #C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Mesh_Rotation.cgns', 'bin_adf')
         #C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Mesh_Rotation.tp', 'bin_tp')
         #C.convertPyTree2File(t,'/scratchm/mbalmase/Spiro/3_Update4MOLA/CouplingWF_NewMOLA/Test1.cgns', 'bin_adf')
         #C.convertPyTree2File(t,'/scratchm/mbalmase/Spiro/3_Update4MOLA/CouplingWF_NewMOLA/Test1.tp', 'bin_tp')
-
+        DictSimulaParam = J.get(t, '.SimulationParameters')
+        
         
         t = MA.CalcLNM(t, RPM, **AsterObjs)
+        #C.convertPyTree2File(t,'/visu/mbalmase/Projets/VOLVER/0_FreeModalAnalysis/Mesh_Rotation_LNM.cgns', 'bin_adf')
+        DictSimulaParam = J.get(t, '.SimulationParameters')
+        
 
         SJ.DestroyAsterObjects(AsterObjs, 
                                DetrVars = ['Cfd', 'SOLU', 'RAMPE', 'L_INST',
                                            'Komeg2', 'MASS1', 'NUME'])
 
         # Compute the Aij and Bijm Coefficients for the nonlinear forces:
-     
+        
         if DictStructParam['ROMProperties']['ROMForceType'] != 'Linear':
             t = NFM.ComputeNLCoefficients(t, RPM, **AsterObjs)
 
         
         
         
-        
+    DictSimulaParam['IntegrationProperties']['SolverType'] = SolverType0
+    print(DictSimulaParam['IntegrationProperties']['SolverType'])
+    
+    J.set(t,'.SimulationParameters', **dict(DictSimulaParam))
+       
     SJ.SaveModel(t, kwargs['FOMName'], Modes = True, StaticRotatorySolution = True)
 
     return t
@@ -1755,7 +1782,7 @@ def ComputeStaticU4GivenLoading(t, RPM, LoadVector, **kwargs):
     L_INST = DEFI_LIST_REEL(VALE = SJ.ComputeTimeVector(t)[1]
                             );
 
-
+    
     SOLU = STAT_NON_LINE(MODELE = kwargs['MODELE'],
                          CHAM_MATER = kwargs['CHMAT'],
                          CARA_ELEM  = kwargs['CARELEM'],
@@ -1773,9 +1800,9 @@ def ComputeStaticU4GivenLoading(t, RPM, LoadVector, **kwargs):
                                         ),
                          INFO = 1,               
                         ),
-
+    
     AsterObjs = SJ.merge_dicts(kwargs, dict(SOLU = SOLU, RAMPE = RAMPE, L_INST = L_INST))
-
+    
 
     UpFromOmegaAndFe = ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, **dict(SOLU = SOLU))
     

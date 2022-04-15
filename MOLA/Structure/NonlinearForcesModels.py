@@ -28,6 +28,8 @@ except:
 # System modules
 import numpy as np
 from scipy.sparse import csr_matrix
+from itertools import combinations_with_replacement
+
 # MOLA modules
 import Converter.Internal as I
 import Converter.PyTree as C
@@ -108,7 +110,7 @@ def ComputeMatrULambda4ICE(t, RPM, **kwargs):
 
     DictStructParam = J.get(t, '.StructuralParameters')
     DictAsseVectors = J.get(t, '.AssembledVectors')
-
+    
     lambda_vect = DictStructParam['ROMProperties']['lambda_vect']
 # If ICE generation as STEP logic:
     if DictStructParam['ROMProperties']['ICELoadingType'] == 'STEPType':
@@ -134,6 +136,7 @@ def ComputeMatrULambda4ICE(t, RPM, **kwargs):
             MatrUpLambda[:, count],_ = SM.ComputeStaticU4GivenLoading(t, RPM, f1, **kwargs)
             MatrFLambda[:, count] = f1
             count += 1
+
             print(FAIL + 'Counter: %s/%s'%(count+1, lenQ) +ENDC)
             MatrUpLambda[:, count],_ = SM.ComputeStaticU4GivenLoading(t, RPM, f2, **kwargs)
             MatrFLambda[:, count] = f2
@@ -339,21 +342,88 @@ def ComputeAijAndBijmCoefficients(t, RPM, FnlLambdaMatrix, PinvMatrQLambda):
 
     return Aij, Bijm
 
+def combination_to_product(q, listcomb):
+    ''' from the LINE vector qvect of generalised coordinates, and the list of combinations listcomb,
+    returns the product of the generalised coordinates according to the indexes of the elements of listcomb in a numpy array LINE
+    ex for combinations of 2: [(0,0), (0,1) , (1,1)] --> [q0*q0, q0*q1, q1*q1] '''
+
+    lencomb = len(listcomb)
+    Qvect = np.zeros(lencomb)
+    nbelemcomb = len(listcomb[0]) # to get the number of elements of the combinations
+    for i in range(lencomb):
+        temp = 1
+        comb = listcomb[i]
+        for j in range(nbelemcomb):
+            print(q)
+            print(comb)
+            temp = temp*q[comb[j]]
+        Qvect[i] = temp
+
+    return Qvect
+
+def QuadraticCombinationMatrix(q_Save):
+
+    nf = np.shape(q_Save)[0]
+    nL = np.shape(q_Save)[1]
+
+    indexes = [i for i in range(nf)]
+    comb2 = combinations_with_replacement(indexes, 2) # as the list [1,2,3] is given in growing order, the combinations will be in ordered (ex (1,2) and not (2,1) )
+    listcomb2 = list(comb2)
+
+    QuadraticComMatrix = np.zeros((len(listcomb2),nL))
+    for i in range(nL):
+        qf = q_Save[:,i].reshape((nf,1))
+        
+        QuadraticComMatrix[:,i] = combination_to_product(qf, listcomb2).reshape((len(listcomb2),))
+        
+    return QuadraticComMatrix
+
+
+def ComputeExpansionBase(MatrULambda, MatrQLambda, PHI):
+    """Calcul de la ExpansionBase pour la reconstruction ICE
+    nf: Nombre des modes
+    MatrULambda: Matrice avec les solutions u des calculs statiques
+    """
+    nf = np.shape(PHI)[1]
+    nL = np.shape(MatrQLambda)[1]
+
+    # construction de la matrice des produits des coordonnees generalisees
+    indexes = [i for i in range(nf)]
+    comb2 = combinations_with_replacement(indexes, 2) # as the list [1,2,3] is given in growing order, the combinations will be in ordered (ex (1,2) and not (2,1) )
+
+    listcomb2 = list(comb2)
+    
+    Q_quad = np.zeros((nL, len(listcomb2)))
+    for i in range(nL):
+        qivect = MatrQLambda[:,i]  # line
+        vect2 = combination_to_product(qivect, listcomb2)
+        
+        Q_quad[i,:] = vect2
+
+    eta_s_mat = np.transpose(Q_quad) # matrix whose columns are quadratic combinations of the generalised coordinates
+    PseudoInv_eta = np.linalg.pinv(eta_s_mat)
+
+    # membrane modes rebuilt
+    return  (MatrULambda - np.dot(PHI,MatrQLambda)).dot(PseudoInv_eta) 
+
 
 def ComputeULambda4ICE(t, RPM, **kwargs):
 
     DictStructParam = J.get(t, '.StructuralParameters')
-    DictSimulaParam = J.get(t, '.StructuralParameters')
-
-       
+    DictSimulaParam = J.get(t, '.SimulationParameters')
+    
     # Calcul de tous les cas statiques avec les forces imposees:
     MatrULambda, MatrFLambda = ComputeMatrULambda4ICE(t, RPM, **kwargs)
-
+    
     # Compute the pseudo inverse of MatrULambda with respect to PHI:
     MatrQLambda = SJ.PseudoInverseWithModes(t, RPM, MatrULambda)
     
     # Compute the pseudo inverse of MatrQlambda to solve the unknowns coefficient:
     PinvMatrQLambda = ComputeQMatrix4ICE(DictStructParam['ROMProperties']['NModes'][0], MatrQLambda)
+
+    # Expansion, compute the ExpansionBase:
+     
+    ExpansionBase = ComputeExpansionBase(MatrULambda,MatrQLambda, SJ.GetReducedBaseFromCGNS(t, RPM))
 
     # Compute the nonlinear forces matrice: 
 
@@ -362,17 +432,16 @@ def ComputeULambda4ICE(t, RPM, **kwargs):
     # Compute the Aij^k and the Bijm^k: 
     
     Aij, Bijm = ComputeAijAndBijmCoefficients(t, RPM, FnlLambdaMatrix, PinvMatrQLambda)
-
+    
     DictOfCoefficients = J.get(t,'.InternalForcesCoefficients')
-    DictOfCoefficients[str(int(RPM))+'RPM'] = dict(Type = 'ICE',
+    DictOfCoefficients['%sRPM'%np.round(RPM,2)] = dict(Type = 'ICE',
                                                    Aij  = Aij,
-                                                   Bijm = Bijm)
+                                                   Bijm = Bijm, 
+                                                   ExpansionBase = ExpansionBase)
 
 
 
-    J.set(t,'.InternalForcesCoefficients', **dict(DictOfCoefficients)
-                                            )
-         
+    J.set(t,'.InternalForcesCoefficients', **dict(DictOfCoefficients))
 
     return t
 
@@ -381,8 +450,9 @@ def ComputeULambda4ICE(t, RPM, **kwargs):
 def ComputeNLCoefficients(t, RPM, **kwargs):
     
     DictStructParam = J.get(t, '.StructuralParameters')
+    
     # ICE method:
-    if DictStructParam['ROMProperties']['ROMForceType'] == 'ICE':
+    if (DictStructParam['ROMProperties']['ROMForceType'] == 'IC') or (DictStructParam['ROMProperties']['ROMForceType'] == 'ICE'):
         t = ComputeULambda4ICE(t, RPM, **kwargs) 
         
     return t    
@@ -426,68 +496,6 @@ def CalcFnl_IC(Beta,Gamma,qvect):
     return fnl_IC
         
 
-def OldCalcKnl_IC_kl(Beta,Gamma,qvect,k,l):
-    ''' Function computing the term of the line k and the column l of the matrix derivative of the projected IC non-linear forces,
-    qvect is the column vector of the generalised coordinates 
-        Note: 
-               Beta = Aij
-               Gamma = Bijm'''
-
-    Knl_IC_kl = 0
-    #nq = np.shape(qvect)[0]
-
-    q =  qvect.ravel()
-    nq = len(q)
-
-    # derivatives of the quadratic terms ========================
-
-    # of the terms in ql*qi (l in first position)
-    if l < nq - 1:
-        for j in range(l+1,nq): # until nq-1 included
-            Knl_IC_kl = Knl_IC_kl + Beta[k,l,j]*q[j]
-    
-    # of the terms in qj*ql (l in second position)
-    if l > 0:
-        for i in range(0,l):  # until l-1 included
-            Knl_IC_kl = Knl_IC_kl + Beta[k,i,l]*q[i]
-    
-    # of the terms in ql**2
-    Knl_IC_kl = Knl_IC_kl + 2*Beta[k,l,l]*q[l]
-
-    # derivatives of the cubic terms ===========================
-
-    # of the terms ql*qj*qm (l < j < m)
-    if l < nq - 2: 
-        for j in range(l+1,nq-1): # until nq - 2 included
-            for m in range(j+1,nq): # until nq - 1 included
-                Knl_IC_kl = Knl_IC_kl + Gamma[k,l,j,m]*q[j]*q[m]
-    
-    # of the terms qi*ql*qm (i < l < m)
-    if (l > 0) and (l < nq - 1):
-        for i in range(0,l): # until l-1 included
-            for m in range(l+1,nq): # until nq - 1 included
-                Knl_IC_kl = Knl_IC_kl + Gamma[k,i,l,m]*q[i]*q[m]
-    
-    # of the terms qi*qj*ql (i < j < l)
-    if l > 1:
-        for i in range(0,l-1): # until l-2 included
-            for j in range(i+1,l): # until l-1 included
-                Knl_IC_kl = Knl_IC_kl + Gamma[k,i,j,l]*q[i]*q[j]
-    
-    # of the doublets (ql**2)*qm
-    if l < nq - 1:
-        for m in range(l+1,nq): # until nq-1 included
-            Knl_IC_kl = Knl_IC_kl + 2*Gamma[k,l,l,m]*q[m]*q[l]
-    
-    # of the doublets qi*(ql**2)
-    if l > 0:
-        for i in range(0,l): # until l-1 included
-            Knl_IC_kl = Knl_IC_kl + 2*Gamma[k,i,l,l]*q[i]*q[l]
-    
-    # of the triplets ql**3
-    Knl_IC_kl = Knl_IC_kl + 3*Gamma[k,l,l,l]*q[l]**2
-
-    return Knl_IC_kl
 
 def CalcKnl_IC_kl(Beta,Gamma,qvect,k,l):
     ''' Function computing the term of the line k and the column l of the matrix derivative of the projected IC non-linear forces,
@@ -563,7 +571,7 @@ def fnl_Proj(t, q, Aij, Bijm):
 
        fnl_Proj = np.zeros((len(q),1)) 
 
-    elif ROMForceType == 'ICE':
+    elif (ROMForceType == 'IC') or (ROMForceType == 'ICE'):
 
        fnl_Proj = CalcFnl_IC(Aij,Bijm,q)   
 
@@ -580,7 +588,7 @@ def Knl_Jacobian_Proj(t, q, Aij, Bijm):
 
        Knl_Jacob_Proj = np.zeros((len(q),len(q))) 
 
-    elif ROMForceType == 'ICE':
+    elif (ROMForceType == 'IC') or (ROMForceType == 'ICE') :
 
        Knl_Jacob_Proj = CalcKNLproj_IC(Aij,Bijm,q)
 

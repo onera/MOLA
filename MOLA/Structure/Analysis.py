@@ -282,12 +282,14 @@ def StaticSolver_Newton_Raphson(t, RPM, ForceCoeff):
     V = SJ.GetReducedBaseFromCGNS(t, RPM)  # Base de reduction PHI
 
     nq       = DictStructParam['ROMProperties']['NModes'][0]
+    time = SJ.ComputeTimeVector(t)[1][DictSimulaParam['IntegrationProperties']['Steps4CentrifugalForce'][0]-1:]
+    time_Save = []
 
     nitermax = DictSimulaParam['IntegrationProperties']['NumberOfMaxIterations'][0]
     nincr    = DictSimulaParam['IntegrationProperties']['StaticSteps'][0]
     try:
-        Aij      = DictInternalForcesCoefficients[str(int(RPM))+'RPM']['Aij']
-        Bijm     = DictInternalForcesCoefficients[str(int(RPM))+'RPM']['Bijm']
+        Aij      = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['Aij']
+        Bijm     = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['Bijm']
     except:
         Aij, Bijm = 0, 0 
 
@@ -353,6 +355,7 @@ def StaticSolver_Newton_Raphson(t, RPM, ForceCoeff):
                 q_Save[:, it2] = q.ravel()
                 Fnl_Save[:, it2] = Fnlproj.ravel()
                 Fext_Save[:, it2] = Fextproj.ravel()
+                time_Save.append(time[incr-1])
                 
         elif (not (incr-1)%DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]) or (incr == nincr):
             
@@ -360,9 +363,10 @@ def StaticSolver_Newton_Raphson(t, RPM, ForceCoeff):
             q_Save[:, it2] = q.ravel()
             Fnl_Save[:, it2] = Fnlproj.ravel()
             Fext_Save[:, it2] = Fextproj.ravel()
+            time_Save.append(time[incr-1])
              
     
-    return q_Save, Fnl_Save, Fext_Save 
+    return q_Save, Fnl_Save, Fext_Save, np.array(time_Save)
 
 def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
     "Function returning the reduced static non-linear solution using the IC non-linear function"
@@ -379,8 +383,8 @@ def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
     nitermax = DictSimulaParam['IntegrationProperties']['NumberOfMaxIterations'][0]
     nincr    = DictSimulaParam['IntegrationProperties']['StaticSteps'][0]
     try:
-        Aij      = DictInternalForcesCoefficients[str(int(RPM))+'RPM']['Aij']
-        Bijm     = DictInternalForcesCoefficients[str(int(RPM))+'RPM']['Bijm']
+        Aij      = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['Aij']
+        Bijm     = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['Bijm']
     except:
         Aij, Bijm = 0, 0 
 
@@ -457,8 +461,8 @@ def DynamicSolver_HHTalpha(t, RPM, ForceCoeff):
     nitermax = DictSimulaParam['IntegrationProperties']['NumberOfMaxIterations'][0]
     
     try:
-        Aij      = DictInternalForcesCoefficients[str(int(RPM))+'RPM']['Aij']
-        Bijm     = DictInternalForcesCoefficients[str(int(RPM))+'RPM']['Bijm']
+        Aij      = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['Aij']
+        Bijm     = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['Bijm']
     except:
         Aij, Bijm = 0, 0 
 
@@ -588,7 +592,7 @@ def DynamicSolver_HHTalpha(t, RPM, ForceCoeff):
             Fext_Save[:, it2] = Fextproj.ravel()
             time_Save.append(time[incr-1]) 
             
-    return q_Save, qp_Save, qpp_Save, Fnlproj, Fextproj, np.array(time_Save)
+    return q_Save, qp_Save, qpp_Save, Fnlproj, Fext_Save, np.array(time_Save)
 
 
 def SolveStatic(t, RPM, ForceCoeff=1.):
@@ -596,29 +600,29 @@ def SolveStatic(t, RPM, ForceCoeff=1.):
 
         Implemented methods:
 
-               - 'Newton-Raphson
+               - 'Newton_Raphson
                - 'FixPoint'
     '''
     DictSimulaParam = J.get(t, '.SimulationParameters')
 
-    
     if DictSimulaParam['IntegrationProperties']['IntegrationMethod']['MethodName'] == 'Newton_Raphson':
         
-        q, fnl_q , Fext_q =  StaticSolver_Newton_Raphson(t, RPM, ForceCoeff)
-
+        q, fnl_q , Fext_q, time =  StaticSolver_Newton_Raphson(t, RPM, ForceCoeff)
+        
     if DictSimulaParam['IntegrationProperties']['IntegrationMethod']['MethodName'] == 'AEL':
-        if DictSimulaParam['IntegrationProperties']['TypeAEL'] == 'Static_Newton1':
+        if DictSimulaParam['IntegrationProperties']['IntegrationMethod']['TypeAEL'] == 'Static_Newton1':
             # NewtonRhapson with one iteration:
             q, fnl_q , Fext_q =  StaticSolver_Newton_Raphson1IncrFext(t, RPM, ForceCoeff)
-
-        if DictSimulaParam['IntegrationProperties']['TypeAEL'] == 'FOM':
+            time = None
+            
+        if DictSimulaParam['IntegrationProperties']['IntegrationMethod']['TypeAEL'] == 'FOM':
             pass # ComputeStaticU4GivenLoading(t, RPM, LoadVector, **kwargs)
-
+            
 
     # Manque save to Tree
 
 
-    return [q], fnl_q, Fext_q
+    return [q], fnl_q, Fext_q, time
 
 
 
@@ -641,7 +645,6 @@ def SolveDynamic(t, RPM, ForceCoeff=1.):
         pass
     
 
-
     # Manque save to Tree
 
 
@@ -658,6 +661,7 @@ def SolveROM(tROM, InputRPM = None, InputForceCoeff = None):
 
     DictSimulaParam = J.get(tROM, '.SimulationParameters')
     DictStructParam = J.get(tROM, '.StructuralParameters')
+    DictInternalForcesCoefficients = J.get(tROM, '.InternalForcesCoefficients')
 
     TypeOfSolver  = DictSimulaParam['IntegrationProperties']['SolverType']
  
@@ -669,6 +673,12 @@ def SolveROM(tROM, InputRPM = None, InputForceCoeff = None):
 
     
     for RPM in InputRPM:
+
+        try:
+            ExpansionBase = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['ExpansionBase']
+        except:
+            ExpansionBase = None
+        
         Solution['%sRPM'%np.round(RPM,2)] = {}
         PHI = SJ.GetReducedBaseFromCGNS(tROM, RPM)
 
@@ -676,8 +686,8 @@ def SolveROM(tROM, InputRPM = None, InputForceCoeff = None):
             Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff] = {}
 
             if TypeOfSolver == 'Static':
-                q_qp_qpp, fnl_q, fext_q  = SolveStatic(tROM, RPM, ForceCoeff)
-                time = None
+                q_qp_qpp, fnl_q, fext_q, time  = SolveStatic(tROM, RPM, ForceCoeff)
+                
             
             elif TypeOfSolver == 'Dynamic':
                 q_qp_qpp, fnl_q, fext_q, time  = SolveDynamic(tROM, RPM, ForceCoeff)
@@ -685,7 +695,8 @@ def SolveROM(tROM, InputRPM = None, InputForceCoeff = None):
                 
             
             # Save the reduced q_qp_qpp:
-            Solution = SJ.SaveSolution2PythonDict(Solution, ForceCoeff, RPM, PHI, q_qp_qpp, fnl_q, fext_q, time)
+
+            Solution = SJ.SaveSolution2PythonDict(Solution, ForceCoeff, RPM, PHI, q_qp_qpp, fnl_q, fext_q, DictSimulaParam['LoadingProperties']['ExternalForcesVector'] , time, DictStructParam['ROMProperties']['ROMForceType'] == 'ICE',ExpansionBase )
 
     return Solution
                 

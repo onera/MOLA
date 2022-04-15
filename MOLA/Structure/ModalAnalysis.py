@@ -86,8 +86,9 @@ def Freq_Phi(t, RPM, MODE):
           I._addChild(I.getNodeFromName(t, 'ModalBases'), ModZone)
         except:
           t = I.merge([t, C.newPyTree(['ModalBases', []])])
-          I._addChild(I.getNodeFromName(t, 'ModalBases'), I.createNode('Freq', 'DataArray_t', value = freq))
           I._addChild(I.getNodeFromName(t, 'ModalBases'), ModZone)
+        I._addChild(I.getNodeFromName(t, 'ModalBases'), I.createNode('Freq_%sRPM'%np.round(RPM,2), 'DataArray_t', value = freq))
+          
           
 
   

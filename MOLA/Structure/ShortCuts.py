@@ -21,6 +21,7 @@ ENDC  = '\033[0m'
 import numpy as np
 import vg
 from scipy.sparse import csr_matrix, find, issparse
+from itertools import combinations_with_replacement
 # MOLA and Cassiopee
 import Converter.Internal as I
 import Converter.PyTree as C
@@ -29,6 +30,7 @@ from .. import InternalShortcuts as J
 from .. import Wireframe as W
 from .. import LiftingLine  as LL
 from .  import Models as SM 
+from .  import NonlinearForcesModels as NFM
 
 
 try:
@@ -546,7 +548,7 @@ def PseudoInverseWithModes(t, RPM, Matrice):
     return (np.linalg.inv((PHI.T).dot(PHI)).dot(PHI.T)).dot(Matrice)
 
 
-def SaveSolution2PythonDict(Solution, ForceCoeff, RPM, PHI, q_qp_qpp, fnl_q, fext_q, time = None ):
+def SaveSolution2PythonDict(Solution, ForceCoeff, RPM, PHI, q_qp_qpp, fnl_q, fext_q, DictOfLoading=None, time = None, ICE = False, ExpansionBase = None ):
     '''Prends une solution dynamique ou statique et la garde sur un dictionnaire 
     apres avoir calcule les grandeurs dans le FOM'''
     
@@ -565,13 +567,31 @@ def SaveSolution2PythonDict(Solution, ForceCoeff, RPM, PHI, q_qp_qpp, fnl_q, fex
    
     for key, it in zip(NameOfKeys, range(len(q_qp_qpp)+1)):
         if 'fnl' not in key:
-            Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff][NameOfFullVariables[it]] = VectFromROMtoFULL(PHI, Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff][key])
+            
+            if 'q' == key:
+                if ICE:
+                    
+                    Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff][NameOfFullVariables[it]] = VectFromROMtoFULL(PHI, Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff][key]) + ExpansionBase.dot(NFM.QuadraticCombinationMatrix(Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff][key])) 
+        
+                else:
+                    Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff][NameOfFullVariables[it]] = VectFromROMtoFULL(PHI, Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff][key])
+        
+            else:
+
+                Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff][NameOfFullVariables[it]] = VectFromROMtoFULL(PHI, Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff][key])
+        
         else:
             Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['fnlFull'] = PseudoInverseWithMatrix(PHI.T).dot(fnl_q)
-            Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['fextFull'] = PseudoInverseWithMatrix(PHI.T).dot(fext_q)
+    
             if time is not None:
                 Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['TimeSave'] = time
-
+            
+                if DictOfLoading is not None:
+                    Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['fextFull'] = np.zeros(np.shape(Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['Displacement']))
+                    for timeSave, posSave in zip(time, range(len(time))):
+                        index = np.where(np.isclose(DictOfLoading['Time'], timeSave))    
+                        Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['fextFull'][:,posSave] = DictOfLoading['Fmax'] * DictOfLoading['TimeFuntionVector'][index] * DictOfLoading['ShapeFunction'] 
+            
     return Solution
 
 
@@ -586,6 +606,8 @@ def ExtForcesFromBEMT(t):
     return fVect
 
 def LETEvector2FullDim(t, fLE, fTE):
+
+    print(WARN+'LETEVector2FullDim() only valid for 3ddl/node elements'+ENDC)
 
     DictStructParam = J.get(t, '.StructuralParameters')
     NLE = DictStructParam['MeshProperties']['NodesFamilies']['LeadingEdge']
@@ -1156,7 +1178,7 @@ def BuildExterForcesShapeVectorAndLoadingTypeVector(t, FOM = False):
     
         else:
             DictOfLoading['ShapeFunctionProj'][str(np.round(RPMValue,2))+'RPM'] = DictOfLoading['ShapeFunction']
-            
+
     DictSimulaParam['LoadingProperties']['ExternalForcesVector'] = dict(**DictOfLoading)
 
     J.set(t,'.SimulationParameters', **dict(DictSimulaParam)
@@ -1188,7 +1210,7 @@ def ComputeSolutionCGNS(t, Solution):
         else:
             Matrice = False
     except:
-        MaxIt = range(1)
+        MaxIt = 1
         Matrice = False
     
     time = ComputeTimeVector(t)[1][SimulaParam['IntegrationProperties']['Steps4CentrifugalForce'][0]-1:]
@@ -1229,7 +1251,7 @@ def ComputeSolutionCGNS(t, Solution):
                                         )
                                         
                 else:
-                    NewZones = CreateNewSolutionFromNdArray(t, FieldDataArray = Solution[RPMKey][FcoeffKey]['UpDisplacement'],
+                    NewZones = CreateNewSolutionFromNdArray(t, FieldDataArray = [Solution[RPMKey][FcoeffKey]['UpDisplacement']],
                                         ZoneName=ZoneName,
                                         FieldName = 'Up'
                                         )
@@ -1295,7 +1317,7 @@ def ComputeTimeVector(t):
     L_rota = list(np.linspace(-2., 0., DictSimulaParam['IntegrationProperties']['Steps4CentrifugalForce'][0]))[:-1]
         
     if DictSimulaParam['IntegrationProperties']['SolverType'] == 'Static':
-        print(GREEN + 'Computing the time increments for the static snalysis...'+ENDC)
+        print(GREEN + 'Computing the time increments for the static analysis...'+ENDC)
 
         L_calc = list(np.linspace( 0., 1., DictSimulaParam['IntegrationProperties']['StaticSteps'][0]))
         
@@ -1314,5 +1336,22 @@ def ComputeTimeVector(t):
     J.set(t, '.SimulationParameters', **DictSimulaParam)
 
     return t, TimeList
+
+
+def ListXYZ2VectFull(t, ListeXYZ):
+
+    DictStructParam = J.get(t, '.StructuralParameters')
+    #print(DictStructParam['MeshProperties']['Transformations']['FOM2XYZ'][1:])
+
+    # Initialize the vector:
+    Nddl = DictStructParam['MeshProperties']['Nddl'][0]
+    VectFull = []
+
+    for ddlPos in range(Nddl):
+        NodePos = DictStructParam['MeshProperties']['Transformations']['DDL2Node'][ddlPos] - 1
+                
+        VectFull.append(ListeXYZ[DictStructParam['MeshProperties']['Transformations']['VectDDLNum'][ddlPos]][NodePos])
+    
+    return np.array(VectFull)
 
          
