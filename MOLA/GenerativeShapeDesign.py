@@ -1511,7 +1511,8 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
     BladeLineFields = J.invokeFieldsDict(BladeLine, Fields2StoreInLine)
     BladeLineX, BladeLineY, BladeLineZ = J.getxyz(BladeLine)
 
-    W.addDistanceRespectToLine(Blade, RotationCenter, RotationAxis, 'Span')
+    Eqn = W.computePlaneEquation(RotationCenter, BladeDirection)
+    C._initVars(Blade, 'Span='+Eqn)
     MaximumSpan = C.getMaxValue(Blade,'Span')
 
     Sections = []
@@ -1722,7 +1723,6 @@ def magnetize(zones, magneticzones, tol=1e-10):
 
             NPtsMagZone = len(mx)
             PointsArray = np.arange(NPtsMagZone)
-            # Points = map(lambda i: (mx[i],my[i],mz[i]) , range(NPtsMagZone))
             Points = [(mx[i],my[i],mz[i]) for i in range(NPtsMagZone)]
 
 
@@ -1779,14 +1779,9 @@ def prepareGlue(zones,gluezones,tol=1e-10):
 
             NPtsMagZone = len(mx)
             PointsArray = np.arange(NPtsMagZone)
-            # Points = map(lambda i: (mx[i],my[i],mz[i]) , range(NPtsMagZone))
             Points = [(mx[i],my[i],mz[i]) for i in range(NPtsMagZone)]
 
             Ind_Dist = D.getNearestPointIndex(zone,Points)
-
-            # IndCand  = np.array(map(lambda i: i[0], Ind_Dist),order='F')
-            # DistCand = np.sqrt(np.array(map(lambda i: i[1], Ind_Dist),order='F'))
-
             IndCand  = np.array([i[0] for i in Ind_Dist],order='F')
             DistCand = np.sqrt(np.array([i[1] for i in Ind_Dist],order='F'))
 
@@ -1895,15 +1890,17 @@ def surfacesIntersection(surface1, surface2):
             unstructured curve BAR of the intersection
     '''
 
+    t = C.newPyTree(['Base',[surface1, surface2]])
+
+    I._rmNodesByType(t,'FlowSolution_t')
+
     # Make surfaces mono-block unstructured
-    Surf1TRI = C.convertArray2Tetra(surface1)
-    Surf1TRI = T.join(I.getZones(surface1))
-    Surf2TRI = C.convertArray2Tetra(surface2)
-    Surf2TRI = T.join(I.getZones(surface2))
+    t = C.convertArray2Tetra(t)
+    t = T.join(t)
 
     import Intersector.PyTree as XOR
 
-    conformed = XOR.conformUnstr(Surf1TRI, Surf2TRI, left_or_right=2, itermax=1)
+    conformed = XOR.conformUnstr(t, tol=0., left_or_right=2, itermax=1)
     Manifold  = T.splitManifold(conformed)
     zonesManifold = I.getNodesFromType(Manifold,'Zone_t')
     intersection = None
@@ -3277,7 +3274,7 @@ def makeH(boundaries, inner_contour, inner_cell_size=0.1,
           outter_cell_size=0.1, number_of_points_union=21,
           inner_normal_tension=0.5, outter_normal_tension=0.5,
           projection_support=None, global_projection_relaxation=0.,
-          local_projection_relaxation_abscissa=0.):
+          local_projection_relaxation_length=0.,forced_split_index=None):
     '''
     Build an H-mesh surface from four structured curves as exterior boundary and
     an single structure curve as interior contour.
@@ -3343,8 +3340,8 @@ def makeH(boundaries, inner_contour, inner_cell_size=0.1,
         surfaces : :py:class:`list` of zone
             list of four (4) structured surfaces that constitute the H-grid.
     '''
-
-    outter_boundaries, inner_boundaries = W.splitInnerContourFromOutterBoundariesTopology(boundaries, inner_contour)
+    outter_boundaries, inner_boundaries,_ = W.splitInnerContourFromOutterBoundariesTopology(
+                                boundaries, inner_contour,forced_split_index)
 
     if len(outter_boundaries) != len(inner_boundaries):
         raise ValueError(J.FAIL+'number of curves in outter_boundaries must be the same as inner_boundaries'+J.ENDC)
@@ -3364,9 +3361,10 @@ def makeH(boundaries, inner_contour, inner_cell_size=0.1,
 
         if global_projection_relaxation == 1:
             return I.copyRef(original)
-
+        lr = local_projection_relaxation_length
         relaxed = I.copyTree( original )
         s = W.gets( relaxed )
+        L = D.getLength( relaxed )
         x, y, z = J.getxyz( relaxed )
         xo, yo, zo = J.getxyz( original )
         xp, yp, zp = J.getxyz( projected )
@@ -3378,10 +3376,8 @@ def makeH(boundaries, inner_contour, inner_cell_size=0.1,
         not_matching = d > 1e-10
         v = np.vstack((OPx, OPy, OPz))
         v[:,not_matching] /= d[not_matching]
-        if local_projection_relaxation_abscissa == 0:
-            local_relax = 1.
-        else:
-            local_relax = np.minimum(np.maximum(s/local_projection_relaxation_abscissa,0), 1.)
+        local_relax = np.interp(s,[0,lr/L],[0,1])
+        # local_relax[local_relax<1] = np.sqrt(local_relax[local_relax<1])
         relaxation = d*local_relax*(1-global_projection_relaxation)
         x[:] = xo + v[0,:] * relaxation
         y[:] = yo + v[1,:] * relaxation
@@ -3462,3 +3458,70 @@ def allHaveNormals(t):
             if i is None:
                 return False
     return has_normals
+
+def _alignNormalsWithRadialCylindricProjection(t, rotation_center, rotation_axis):
+    alignmentTol=1.0-1.e-10
+    c = np.array(rotation_center,dtype=np.float)
+    a = np.array(rotation_axis,dtype=np.float)
+    q = c + a
+    qc = c - q
+    for zone in I.getZones(t):
+        x,y,z = J.getxyz(zone)
+        sx,sy,sz = J.getVars(zone,['sx','sy','sz'])
+        x = x.ravel(order='F')
+        y = y.ravel(order='F')
+        z = z.ravel(order='F')
+        sx = sx.ravel(order='F')
+        sy = sy.ravel(order='F')
+        sz = sz.ravel(order='F')
+        for i in range( len(x) ):
+            p = np.array([x[i],y[i],z[i]],dtype=float)
+            v = np.array([sx[i],sy[i],sz[i]],dtype=float)
+            v_norm = np.sqrt(v.dot(v))
+            qp = p - q
+            qp /= np.sqrt(qp.dot(qp))
+            alignment = np.abs(qp.dot(a))
+            if alignment >= alignmentTol: continue
+            n = np.cross(qc,qp)
+            b = np.cross(n,v)
+            t = np.cross(b,n)
+            t /= np.sqrt(t.dot(t))
+            t *= v_norm
+            sx[i] = t[0]
+            sy[i] = t[1]
+            sz[i] = t[2]
+
+
+def _hasMatchingFace(contour_struct, faces):
+    for f in faces:
+        for c in contour_struct:
+            if C.getNPts(c) != C.getNPts(f): continue
+            if W.isSubzone(f, c): return True
+    return False
+
+def selectConnectingSurface(surfaces, candidates, mode='first'):
+    contours = [P.exteriorFacesStructured(s) for s in surfaces]
+
+    returned_surfaces = []
+    for candidate in candidates:
+        exterior_faces = P.exteriorFacesStructured( candidate )
+        for contour in contours:
+            match = True
+            if not _hasMatchingFace(contour, exterior_faces):
+                match = False
+                break
+        if match:
+            if mode == 'first':
+                return candidate
+            elif mode == 'all':
+                returned_surfaces += [ candidate ]
+            else:
+                raise ValueError('mode %s not recognized'%mode)
+
+    if not returned_surfaces:
+        t = C.newPyTree(['SURFACES',surfaces,
+                         'CANDIDATES',candidates])
+        C.convertPyTree2File(t,'debug.cgns')
+        raise ValueError('no matching surfaces. Check debug.cgns.')
+
+    return returned_surfaces
