@@ -350,10 +350,12 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
     ReferenceValues['NProc'] = int(NProc)
     ReferenceValuesParams['NProc'] = int(NProc)
     elsAkeysCFD      = getElsAkeysCFD(unstructured=IsUnstructured)
-    elsAkeysModel    = getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=IsUnstructured)
+    elsAkeysModel    = getElsAkeysModel(FluidProperties, ReferenceValues,
+                                        unstructured=IsUnstructured)
     if useBCOverlap: NumericalParams['useChimera'] = True
     if BodyForceInputData: NumericalParams['useBodyForce'] = True
-    elsAkeysNumerics = getElsAkeysNumerics(ReferenceValues, unstructured=IsUnstructured, **NumericalParams)
+    elsAkeysNumerics = getElsAkeysNumerics(ReferenceValues,
+                                unstructured=IsUnstructured, **NumericalParams)
 
     AllSetupDics = dict(FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
