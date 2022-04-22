@@ -25,6 +25,39 @@ from . import InternalShortcuts as J
 from . import Preprocess        as PRE
 from . import WorkflowCompressor as WC
 
+def checkDependencies():
+    '''
+    Make a series of functional tests in order to determine if the user
+    environment is correctly set for using the Workflow Aerothermal Coupling
+    '''
+    from . import JobManager as JM
+    JM.checkDependencies()
+
+    print('Checking ETC...')
+    if WC.ETC is None:
+        MSG = 'Fail to import ETC module: Some functions of {} are unavailable'.format(__name__)
+        print(J.FAIL + MSG + J.ENDC)
+    else:
+        print(J.GREEN+'ETC module is available'+J.ENDC)
+
+    print('Checking MOLA.ParametrizeChannelHeight...')
+    if  WC.ParamHeight is None:
+        MSG = 'Fail to import MOLA.ParametrizeChannelHeight module: Some functions of {} are unavailable'.format(__name__)
+        print(J.FAIL + MSG + J.ENDC)
+    else:
+        print(J.GREEN+'MOLA.ParametrizeChannelHeight module is available'+J.ENDC)
+
+    print('Checking CWIPI...')
+    try:
+        import CWIPI.CGNS as C2
+        print(J.GREEN+'CWIPI.CGNS module is available'+J.ENDC)
+    except ImportError:
+        MSG = 'Fail to import CWIPI.CGNS module: Some functions of {} are unavailable'.format(__name__)
+        print(J.FAIL + MSG + J.ENDC)
+
+    print('\nVERIFICATIONS TERMINATED')
+
+
 def prepareMesh4ElsA(mesh, kwargs):
     '''
     Exactly like :py:func:`MOLA.WorkflowCompressor.prepareMesh4ElsA`

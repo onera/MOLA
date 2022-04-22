@@ -1296,7 +1296,7 @@ def getReferenceSurface(t, BoundaryConditions, TurboConfiguration):
     zones = C.extractBCOfName(t, 'FamilySpecified:'+InflowFamily)
     SurfaceTree = C.convertArray2Tetra(zones)
     SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
-    Surface = abs(P.integNorm(SurfaceTree, var='ones')[0][0])
+    Surface = P.integ(SurfaceTree, var='ones')[0]
     if 'PeriodicTranslation' not in TurboConfiguration:
         # Compute normalization coefficient
         zoneName = I.getName(zones[0]).split('/')[0]
@@ -1476,6 +1476,8 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
                   * InflowStagnation
 
+                  * InflowMassFlow
+
                   * OutflowPressure
 
                   * OutflowMassFlow
@@ -1495,9 +1497,10 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                   * SymmetryPlane
 
                   .. note::
-                    elsA names are also available (``nref``, ``inj1``,
-                    ``outpres``, ``outmfr2``, ``outradeq``, ``stage_mxpl``,
-                    ``stage_red``, ``walladia``, ``wallisoth``, ``wallslip``,
+                    elsA names are also available (``nref``, ``inj1``, ``injfmr1``,
+                    ``outpres``, ``outmfr2``, ``outradeq``,
+                    ``stage_mxpl``, ``stage_red``,
+                    ``walladia``, ``wallisoth``, ``wallslip``,
                     ``sym``)
 
                 * option (optional) : add a specification for type
@@ -1592,13 +1595,22 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
     It defines a uniform inflow condition imposing stagnation quantities ('inj1' in
     *elsA*) based on the **ReferenceValues**  and **FluidProperties**
-    :py:class:`dict`.
+    :py:class:`dict`. To impose values not based on **ReferenceValues**, additional
+    optional parameters may be given (see the dedicated documentation for the function).
 
     >>> dict(type='InflowStagnation', option='file', FamilyName='row_1_INFLOW', filename='inflow.cgns')
 
     It defines an inflow condition imposing stagnation quantities ('inj1' in
     *elsA*) interpolating a 2D map written in the given file.
 
+    >>> dict(type='InflowMassFlow', FamilyName='row_1_INFLOW', MassFlow=)
+
+    It defines a uniform inflow condition imposing the massflow ('inj1mfr1' in
+    *elsA*) based on the **ReferenceValues**  and **FluidProperties**
+    :py:class:`dict`. To impose values not based on **ReferenceValues**, additional
+    optional parameters may be given (see the dedicated documentation for the function).
+    In particular, either the massflow (``MassFlow``) or the surfacic massflow
+    (``SurfacicMassFlow``) may be specified.
 
     **Outflow boundary conditions**
 
@@ -1652,6 +1664,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     PreferedBoundaryConditions = dict(
         Farfield                     = 'nref',
         InflowStagnation             = 'inj1',
+        InflowMassFlow               = 'injmfr1',
         OutflowPressure              = 'outpres',
         OutflowMassFlow              = 'outmfr2',
         OutflowRadialEquilibrium     = 'outradeq',
@@ -1679,17 +1692,27 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
         elif BCparam['type'] == 'inj1':
 
             if 'option' not in BCparam:
-                print(J.CYAN + 'set BC inj1 on ' + BCparam['FamilyName'] + J.ENDC)
-                setBC_inj1(t, **BCkwargs)
+                if 'bc' in BCkwargs:
+                    BCparam['option'] = 'bc'
+                else:
+                    BCparam['option'] = 'uniform'
 
-            elif BCparam['option'] == 'uniform':
+            if BCparam['option'] == 'uniform':
                 print(J.CYAN + 'set BC inj1 (uniform) on ' + BCparam['FamilyName'] + J.ENDC)
                 setBC_inj1_uniform(t, FluidProperties, ReferenceValues, **BCkwargs)
 
             elif BCparam['option'] == 'file':
-                print('{}set BC inj1 (from file {}) on {}{}'.format(J.CYAN,
+                print('set BC inj1 (from file {}) on {}'.format(J.CYAN,
                     BCparam['filename'], BCparam['FamilyName'], J.ENDC))
                 setBC_inj1_interpFromFile(t, ReferenceValues, **BCkwargs)
+
+            elif BCparam['option'] == 'bc':
+                print('set BC inj1 on {}'.format(J.CYAN, BCparam['FamilyName'], J.ENDC))
+                setBC_inj1(t, ReferenceValues, **BCkwargs)
+
+        elif BCparam['type'] == 'injmfr1':
+            print(J.CYAN + 'set BC injmfr1 on ' + BCparam['FamilyName'] + J.ENDC)
+            setBC_injmfr1(t, FluidProperties, ReferenceValues, **BCkwargs)
 
         elif BCparam['type'] == 'outpres':
             print(J.CYAN + 'set BC outpres on ' + BCparam['FamilyName'] + J.ENDC)
@@ -2076,7 +2099,7 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
     setBCwithImposedVariables(t, FamilyName, ImposedVariables,
         FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc)
 
-def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName):
+def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     '''
     Set a Boundary Condition ``inj1`` with uniform inflow values. These values
     are them in **ReferenceValues**.
@@ -2096,12 +2119,24 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName):
         FamilyName : str
             Name of the family on which the boundary condition will be imposed
 
+        kwargs : dict
+            Optional parameters, taken from **ReferenceValues** if not given:
+            PressureStagnation, TemperatureStagnation, EnthalpyStagnation,
+            VelocityUnitVectorX, VelocityUnitVectorY, VelocityUnitVectorZ
+
     See also
     --------
 
-    setBC_inj1, setBC_inj1_interpFromFile
+    setBC_inj1, setBC_inj1_interpFromFile, setBC_injmfr1
 
     '''
+
+    PressureStagnation    = kwargs.get('PressureStagnation', ReferenceValues['PressureStagnation'])
+    TemperatureStagnation = kwargs.get('TemperatureStagnation', ReferenceValues['TemperatureStagnation'])
+    EnthalpyStagnation    = kwargs.get('EnthalpyStagnation', FluidProperties['cp'] * TemperatureStagnation)
+    VelocityUnitVectorX   = kwargs.get('VelocityUnitVectorX', ReferenceValues['DragDirection'][0])
+    VelocityUnitVectorY   = kwargs.get('VelocityUnitVectorY', ReferenceValues['DragDirection'][1])
+    VelocityUnitVectorZ   = kwargs.get('VelocityUnitVectorZ', ReferenceValues['DragDirection'][2])
 
     # Get turbulent variables names and values
     turbVars = ReferenceValues['FieldsTurbulence']
@@ -2123,11 +2158,11 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName):
         turbDict.pop(inj_tur2)
 
     ImposedVariables = dict(
-        PressureStagnation  = ReferenceValues['PressureStagnation'],
-        stagnation_enthalpy = FluidProperties['cp'] * ReferenceValues['TemperatureStagnation'],
-        txv                 = ReferenceValues['DragDirection'][0],
-        tyv                 = ReferenceValues['DragDirection'][1],
-        tzv                 = ReferenceValues['DragDirection'][2],
+        stagnation_pressure = PressureStagnation,
+        stagnation_enthalpy = EnthalpyStagnation,
+        txv                 = VelocityUnitVectorX,
+        tyv                 = VelocityUnitVectorY,
+        tzv                 = VelocityUnitVectorZ,
         **turbDict
         )
 
@@ -2223,6 +2258,97 @@ def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileform
                 raise TypeError('variable {} not found in {}'.format(var, filename))
 
         setBC_inj1(t, FamilyName, ImposedVariables, bc=bcnode)
+
+def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
+    '''
+    Set a Boundary Condition ``injmfr1`` with uniform inflow values. These values
+    are them in **ReferenceValues**.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        FluidProperties : dict
+            as obtained from :py:func:`computeFluidProperties`
+
+        ReferenceValues : dict
+            as obtained from :py:func:`computeReferenceValues`
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+        kwargs : dict
+            Optional parameters, taken from **ReferenceValues** if not given:
+            MassFlow, SurfacicMassFlow, Surface, TemperatureStagnation, EnthalpyStagnation,
+            VelocityUnitVectorX, VelocityUnitVectorY, VelocityUnitVectorZ,
+            TurbulenceLevel, Viscosity_EddyMolecularRatio
+
+    See also
+    --------
+
+    setBC_inj1, setBC_inj1_interpFromFile
+
+    '''
+    Surface = kwargs.get('Surface', None)
+    if not Surface:
+        # Compute surface of the inflow BC
+        zones = C.extractBCOfName(t, 'FamilySpecified:'+FamilyName)
+        SurfaceTree = C.convertArray2Tetra(zones)
+        SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
+        Surface = P.integ(SurfaceTree, var='ones')[0]
+
+    MassFlow              = kwargs.get('MassFlow', ReferenceValues['MassFlow'])
+    SurfacicMassFlow      = kwargs.get('SurfacicMassFlow', MassFlow / Surface)
+    TemperatureStagnation = kwargs.get('TemperatureStagnation', ReferenceValues['TemperatureStagnation'])
+    EnthalpyStagnation    = kwargs.get('EnthalpyStagnation', FluidProperties['cp'] * TemperatureStagnation)
+    VelocityUnitVectorX   = kwargs.get('VelocityUnitVectorX', ReferenceValues['DragDirection'][0])
+    VelocityUnitVectorY   = kwargs.get('VelocityUnitVectorY', ReferenceValues['DragDirection'][1])
+    VelocityUnitVectorZ   = kwargs.get('VelocityUnitVectorZ', ReferenceValues['DragDirection'][2])
+
+    TurbulenceLevel = kwargs.get('TurbulenceLevel', None)
+    Viscosity_EddyMolecularRatio = kwargs.get('Viscosity_EddyMolecularRatio', None)
+    if TurbulenceLevel and Viscosity_EddyMolecularRatio:
+        ReferenceValuesForTurbulence = computeReferenceValues(FluidProperties,
+                MassFlow, ReferenceValues['PressureStagnation'],
+                TemperatureStagnation, Surface,
+                TurbulenceLevel=TurbulenceLevel,
+                Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio,
+                TurbulenceModel=ReferenceValues['TurbulenceModel'])
+    else:
+        ReferenceValuesForTurbulence = ReferenceValues
+
+    # Get turbulent variables names and values
+    turbVars = ReferenceValues['FieldsTurbulence']
+    turbVars = [var.replace('Density', '') for var in turbVars]
+    turbValues = [val/ReferenceValues['Density'] for val in ReferenceValues['ReferenceStateTurbulence']]
+    turbDict = dict(zip(turbVars, turbValues))
+
+    # Convert names to inj_tur1 and (if needed) inj_tur2
+    if 'TurbulentSANuTilde' in turbDict:
+        turbDict = dict(inj_tur1=turbDict['TurbulentSANuTilde'])
+    else:
+        turbDict['inj_tur1'] = turbDict['TurbulentEnergyKinetic']
+        turbDict.pop('TurbulentEnergyKinetic')
+        inj_tur2 = [var for var in turbDict if var != 'inj_tur1']
+        assert len(inj_tur2) == 1, \
+            'Turbulent models with more than 2 equations are not supported yet'
+        inj_tur2 = inj_tur2[0]
+        turbDict['inj_tur2'] = turbDict[inj_tur2]
+        turbDict.pop(inj_tur2)
+
+    ImposedVariables = dict(
+        surf_massflow       = SurfacicMassFlow,
+        stagnation_enthalpy = EnthalpyStagnation,
+        txv                 = VelocityUnitVectorX,
+        tyv                 = VelocityUnitVectorY,
+        tzv                 = VelocityUnitVectorZ,
+        **turbDict
+        )
+
+    setBCwithImposedVariables(t, FamilyName, ImposedVariables,
+        FamilyBC='BCInflowSubsonic', BCType='injmfr1')
 
 def setBC_outpres(t, FamilyName, Pressure, bc=None):
     '''
@@ -2418,7 +2544,7 @@ def checkVariables(ImposedVariables):
         'stagnation_pressure', 'stagnation_enthalpy', 'stagnation_temperature',
         'Pressure', 'pressure', 'Temperature', 'wall_temp',
         'TurbulentEnergyKinetic', 'TurbulentDissipationRate', 'TurbulentDissipation', 'TurbulentLengthScale',
-        'TurbulentSANuTilde', 'globalmassflow']
+        'TurbulentSANuTilde', 'globalmassflow', 'MassFlow', 'surf_massflow']
     unitVectorComponent = ['VelocityUnitVectorX', 'VelocityUnitVectorY', 'VelocityUnitVectorZ',
         'txv', 'tyv', 'tzv']
 
