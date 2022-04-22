@@ -68,7 +68,7 @@ def checkDependencies():
 
 
 def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
-                    duplicationInfos={}, blocksToRename={}, SplitBlocks=False,
+                    duplicationInfos={}, blocksToRename={},
                     scale=1., rotation='fromAG5', PeriodicTranslation=None):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
@@ -103,7 +103,17 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
             User-provided data. See documentation of Preprocess.prepareMesh4ElsA
 
         splitOptions : dict
-            All optional parameters passed to function :py:func:`MOLA.Preprocess.splitAndDistribute`
+            All optional parameters passed to function
+            :py:func:`MOLA.Preprocess.splitAndDistribute`
+
+            .. important::
+                If **splitOptions** is an empty :py:class:`dict` (default value),
+                no split nor distribution are done. This behavior required to
+                use PyPart in the simulation.
+                If you want to split the mesh with default parameters, you have
+                to specify one of them. For instance, use:
+
+                >> splitOptions=dict(mode='auto')
 
         duplicationInfos : dict
             User-provided data related to domain duplication.
@@ -120,10 +130,6 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
         blocksToRename : dict
             Each key corresponds to the name of a zone to modify, and the associated
             value is the new name to give.
-
-        SplitBlocks : bool
-            if :py:obj:`False`, do not split and distribute the mesh (use this
-            option if the simulation will run with PyPart).
 
         scale : float
             Homothety factor to apply on the mesh. Default is 1.
@@ -170,6 +176,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
     I._fixNGon(t) # Needed for an unstructured mesh
 
     if InputMeshes is None:
+        SplitBlocks = True if splitOptions else False
         InputMeshes = generateInputMeshesFromAG5(t, SplitBlocks=SplitBlocks,
             scale=scale, rotation=rotation, PeriodicTranslation=PeriodicTranslation)
 
@@ -185,8 +192,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
     if not any([InputMesh['SplitBlocks'] for InputMesh in InputMeshes]):
         t = PRE.connectMesh(t, InputMeshes)
     else:
-        t = splitAndDistribute(t, InputMeshes, NProcs=NProcs,
-                                    ProcPointsLoad=ProcPointsLoad)
+        t = PRE.splitAndDistribute(t, InputMeshes, **splitOptions)
     # WARNING: Names of BC_t nodes must be unique to use PyPart on globborders
     for l in [2,3,4]: I._correctPyTree(t, level=l)
     PRE.adapt2elsA(t, InputMeshes)
@@ -251,6 +257,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             ``OUTPUT/fields.cgns`` file is writen, but in this case the user must
             provide a compatible ``OUTPUT/fields.cgns`` file to elsA (for example,
             using a previous computation result).
+
+        bladeFamilyNames : :py:class:`list` of :py:class:`str`
+            list of patterns to find families related to blades.
 
         Initialization : dict
             dictionary defining the type of initialization, using the key
@@ -357,11 +366,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
     BCExtractions = dict(
-        BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
+        BCWall = ['normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz','psta', 'bl_quantities_2d', 'yplusmeshsize'],
         BCInflow = ['convflux_ro'],
         BCOutflow = ['convflux_ro'],
-        BCWallViscousIsothermal = ['normalvector', 'frictionvector','psta',
-                'bl_quantities_2d', 'yplusmeshsize', 'tsta', 'normalheatflux'],
     )
 
     PRE.addTrigger(t)
@@ -1026,65 +1033,6 @@ def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
     print('Number of blades in initial mesh for {}: {}'.format(FamilyName, Nb))
     return Nb
 
-def splitAndDistribute(t, InputMeshes, NProcs, ProcPointsLoad):
-    '''
-    Split a PyTree **t** using the desired proc points load **ProcPointsLoad**.
-    Distribute the PyTree **t** using a user-provided **NProcs**. If **NProcs**
-    is not provided, then it is automatically computed.
-
-    Returns a new split and distributed PyTree.
-
-    .. note:: only **InputMeshes** where ``'SplitBlocks':True`` are split.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            assembled tree
-
-        InputMeshes : :py:class:`list` of :py:class:`dict`
-            user-provided preprocessing
-            instructions as described in :py:func:`prepareMesh4ElsA` doc
-
-        NProcs : int
-            If a positive integer is provided, then the
-            distribution of the tree (and eventually the splitting) will be done in
-            order to satisfy a total number of processors provided by this value.
-            If not provided (:py:obj:`None`) then the number of procs is automatically
-            determined using as information **ProcPointsLoad** variable.
-
-        ProcPointsLoad : int
-            this is the desired number of grid points
-            attributed to each processor. If **SplitBlocks** = :py:obj:`True`, then it is used to
-            split zones that have more points than **ProcPointsLoad**. If
-            **NProcs** = :py:obj:`None` , then **ProcPointsLoad** is used to determine
-            the **NProcs** to be used.
-
-    Returns
-    -------
-
-        t : PyTree
-            new distributed *(and possibly split)* tree
-
-    '''
-    if InputMeshes[0]['SplitBlocks']:
-        t = T.splitNParts(t, NProcs, dirs=[1,2,3], recoverBC=True)
-        for l in [2,3,4]: I._correctPyTree(t, level=l)
-        t = PRE.connectMesh(t, InputMeshes)
-    #
-    InputMeshesNoSplit = []
-    for InputMesh in InputMeshes:
-        InputMeshNoSplit = dict()
-        for meshInfo in InputMesh:
-            if meshInfo == 'SplitBlocks':
-                InputMeshNoSplit['SplitBlocks'] = False
-            else:
-                InputMeshNoSplit[meshInfo] = InputMesh[meshInfo]
-        InputMeshesNoSplit.append(InputMeshNoSplit)
-    # Just to distribute zones on procs
-    t = PRE.splitAndDistribute(t, InputMeshesNoSplit, NProcs=NProcs, ProcPointsLoad=ProcPointsLoad)
-    return t
-
 def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
         TemperatureStagnation, Surface, TurbulenceLevel=0.001,
         Viscosity_EddyMolecularRatio=0.1, TurbulenceModel='Wilcox2006-klim',
@@ -1518,6 +1466,9 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
             User-provided list of boundary conditions. Each element is a
             dictionary with the following keys:
 
+                * FamilyName :
+                    Name of the family on which the boundary condition will be imposed
+
                 * type :
                   BC type among the following:
 
@@ -1543,10 +1494,11 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
                   * SymmetryPlane
 
-                  elsA names are also available (``nref``, ``inj1``,
-                  ``outpres``, ``outmfr2``, ``outradeq``, ``stage_mxpl``,
-                  ``stage_red``, ``walladia``, ``wallisoth``, ``wallslip``,
-                  ``sym``)
+                  .. note::
+                    elsA names are also available (``nref``, ``inj1``,
+                    ``outpres``, ``outmfr2``, ``outradeq``, ``stage_mxpl``,
+                    ``stage_red``, ``walladia``, ``wallisoth``, ``wallslip``,
+                    ``sym``)
 
                 * option (optional) : add a specification for type
                   InflowStagnation (could be 'uniform' or 'file')
@@ -2359,6 +2311,8 @@ def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues
         rowParams = TurboConfiguration['Rows'][row]
         fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
         MassFlow = ReferenceValues['MassFlow'] / fluxcoeff
+    else:
+        bc = None
 
     ImposedVariables = dict(globalmassflow=MassFlow, groupmassflow=groupmassflow)
 

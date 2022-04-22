@@ -69,7 +69,7 @@ def prepareMesh4ElsA(mesh='mesh.cgns', splitAndDistributeOptions={'maximum_allow
 
 def cleanMeshFromAutogrid(t, **kwargs):
     '''
-    Exactly like :py:func:`MOLA.Preprocess.cleanMeshFromAutogrid`
+    Exactly like :py:func:`MOLA.WorkflowCompressor.cleanMeshFromAutogrid`
     '''
     return WC.cleanMeshFromAutogrid(t, **kwargs)
 

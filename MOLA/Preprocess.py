@@ -2599,7 +2599,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 20.,
         k_prod_compute = 'from_sij',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'SST-2003':
@@ -2610,7 +2610,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 10.,
         k_prod_compute = 'from_sij',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'SST-V2003':
@@ -2621,7 +2621,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 10.,
         k_prod_compute = 'from_vorticity',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'SST':
@@ -2632,7 +2632,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 20.,
         k_prod_compute = 'from_sij',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'SST-V':
@@ -2643,7 +2643,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 20.,
         k_prod_compute = 'from_vorticity',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'BSL':
@@ -2653,7 +2653,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 20.,
         k_prod_compute = 'from_sij',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'BSL-V':
@@ -2663,7 +2663,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 20.,
         k_prod_compute = 'from_vorticity',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'smith':
@@ -2680,7 +2680,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 10.,
         k_prod_compute = 'from_sij',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
         trans_mod      = 'menter',
             )
 
@@ -2692,7 +2692,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 10.,
         k_prod_compute = 'from_sij',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
         trans_mod      = 'menter',
             )
 
@@ -2909,6 +2909,10 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
                 time_algo          = 'dts',
                 dts_timestep_lim   = 'active',
                 cfl_dts            = 20.,
+            ))
+        elif TimeMarching == 'UnsteadyFirstOrder':
+            addKeys.update(dict(
+                time_algo          = 'unsteady',
             ))
         else:
             raise AttributeError('TimeMarching scheme shortcut %s not recognized'%TimeMarching)
@@ -3216,8 +3220,9 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
             convention).
 
             By default, the following variables are extracted for *BCWall*:
-            ['normalvector', 'frictionvector', 'psta', 'bl_quantities_2d',
-            'yplusmeshsize', 'flux_rou', 'flux_rov', 'flux_row', 'torque_rou',
+            ['normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz',
+            'psta', 'bl_quantities_2d', 'yplusmeshsize',
+            'flux_rou', 'flux_rov', 'flux_row', 'torque_rou',
             'torque_rov', 'torque_row'].
 
             .. danger:: currently, ``bl_ue`` cannot be extracted: https://elsa.onera.fr/issues/10360
@@ -3228,7 +3233,8 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
 
 
     DefaultBCExtractions = dict(
-        BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize',
+        BCWall = ['normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz',
+            'psta', 'bl_quantities_2d', 'yplusmeshsize',
             # 'bl_ue', # TODO BUG for bl_ue extraction https://elsa.onera.fr/issues/10360
             'flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
     )
@@ -3271,6 +3277,10 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
             if not BCType: continue
 
             if ExtractBCType in BCType:
+                if ExtractBCType != BCType and BCType in DefaultBCExtractions:
+                    # There is a more specific ExtractBCType
+                    continue
+
                 if 'BCWall' in BCType:
 
                     for zone in I.getZones(t):
