@@ -1095,14 +1095,15 @@ def ComputeMatricesFOM(t, RPM, **kwargs):
 
     return t, AsterObjs
 
-def ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, **kwargs):
+def ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, Instants = [1.0], **kwargs):
     DictStructParam = J.get(t, '.StructuralParameters')
 
+    LIST = DEFI_LIST_REEL(VALE = Instants)
     try:
         tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
                                              NOM_CHAM='DEPL',
                                              NOM_CMP= ('DX','DY','DZ', 'DRX', 'DRY', 'DRZ'),
-                                             INST = 1.0,
+                                             LIST_INST = LIST,
                                              TOUT = 'OUI',),
                                    TYPE_TABLE='TABLE',
                                    TITRE='Table_Depl_R',
@@ -1111,14 +1112,14 @@ def ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, **kwargs):
         tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
                                              NOM_CHAM='DEPL',
                                              NOM_CMP= ('DX','DY','DZ'),
-                                             INST = 1.0,
+                                             LIST_INST = LIST,
                                              TOUT = 'OUI',),
                                    TYPE_TABLE='TABLE',
                                    TITRE='Table_Depl_R',
                                    )
         print(WARN+'No rotation dof  (DRX, DRY, DRZ) in the model. Computing only with displacements (DX, DY, DZ).'+ENDC)
         
-    VectUpOmegaFe = VectFromAsterTable2Full(tstaT)
+    VectUpOmegaFe = VectFromAsterTable2Full(t, tstaT)
     
     # if DictStructParam['MeshProperties']['ddlElem'][0] == 3:
 # 
@@ -1179,7 +1180,7 @@ def ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, **kwargs):
     # VectUpOmegaFe[1::DictStructParam['MeshProperties']['ddlElem'][0]] = upy
     # VectUpOmegaFe[2::DictStructParam['MeshProperties']['ddlElem'][0]] = upz
 
-    DETRUIRE (CONCEPT = _F (NOM = (tstaT),
+    DETRUIRE (CONCEPT = _F (NOM = (tstaT, LIST),
                             ), 
               INFO = 1,
               )
@@ -1279,17 +1280,20 @@ def ComputeDDLandTransfMatrixFromAsterTable(t, Table):
 
     return t
 
-def VectFromAsterTable2Full(Table):
+def VectFromAsterTable2Full(t, Table):
 
     depl_sta = Table.EXTR_TABLE()['NOEUD', 'DX', 'DY','DZ','DRX', 'DRY','DRZ'].values()
     if depl_sta == {}:
         depl_sta = Table.EXTR_TABLE()['NOEUD', 'DX', 'DY','DZ'].values()
         print(WARN+'No rotation dof  (DRX, DRY, DRZ) in the model. Computing only with displacements (DX, DY, DZ).'+ENDC)
     
+    DictStructParam = J.get(t,'.StructuralParameters')
+    NNodes = DictStructParam['MeshProperties']['NNodes'][0]
+
     n_ddl = 0
     l_ddl = []
     l_SplitArray2Vars = []
-    for NodeKey, pos in zip(depl_sta['NOEUD'], range(len(depl_sta['NOEUD']))):
+    for NodeKey, pos in zip(depl_sta['NOEUD'], range(NNodes)):
         l_var = []
         l_SplitArray2Vars.append(n_ddl)
         for Var in depl_sta.keys():
@@ -1297,11 +1301,16 @@ def VectFromAsterTable2Full(Table):
                 
                 if depl_sta[Var][pos] != None:
                     n_ddl += 1  
-                    l_var.append(depl_sta[Var][pos])            
-                    
-        l_ddl.append(np.array(l_var))
-        
-    return np.array(np.concatenate(l_ddl))
+                    l_var.append(depl_sta[Var][pos::NNodes])            
+
+        l_ddl.append(l_var)
+    
+    ConcatenatedArray = np.array(np.concatenate(l_ddl, axis = 0))
+    if np.shape(ConcatenatedArray)[1] == 1:
+        ConcatenatedArray = np.array(np.concatenate(l_ddl))
+        ConcatenatedArray = ConcatenatedArray[:,0]
+
+    return ConcatenatedArray
 
 def ListXYZFromVectFull(t, VectFull):
 
@@ -1338,13 +1347,13 @@ def ListXYZFromVectFull(t, VectFull):
 
 
 
-def GetAsterTableOfStaticNodalForces(**kwargs):
+def GetAsterTableOfStaticNodalForces(InstantsExtr = [1.0], **kwargs):
     
-       
+    LIST = DEFI_LIST_REEL(VALE = InstantsExtr)
     F_noda = CALC_CHAMP(MODELE = kwargs['MODELE'],
                         CHAM_MATER =kwargs['CHMAT'],
                         CARA_ELEM = kwargs['CARELEM'],
-                        INST = 1.0,
+                        LIST_INST = LIST,
                         RESULTAT = kwargs['SOLU'],
                         FORCE = 'FORC_NODA'
                         );
@@ -1380,7 +1389,7 @@ def GetAsterTableOfStaticNodalForces(**kwargs):
                         TITRE = 'Table_Force_N',
                         )
         print(WARN + 'Only Fx, Fy and Fz are present'+ENDC)
-    DETRUIRE(CONCEPT = _F(NOM = (F_noda)))
+    DETRUIRE(CONCEPT = _F(NOM = (F_noda, LIST)))
 
     return tstaT2
 
@@ -1417,7 +1426,7 @@ def ExtrUGStatRot(t, RPM, **kwargs):
                                                    )
     
     
-    VectUsOmega = VectFromAsterTable2Full(tstaT)
+    VectUsOmega = VectFromAsterTable2Full(t, tstaT)
     
     t = SJ.AddFOMVars2Tree(t, RPM, Vars = [VectUsOmega],
                                    VarsName = ['Us'],
@@ -1725,7 +1734,7 @@ def ComputeStaFullNodalF(t, **kwargs):
     
     tstaT2 = GetAsterTableOfStaticNodalForces(**kwargs)
 
-    VectNodalF = VectFromAsterTable2Full(tstaT2)
+    VectNodalF = VectFromAsterTable2Full(t, tstaT2)
 
 #    ForceNodeTable = tstaT2.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ']
 #    
@@ -1743,7 +1752,29 @@ def ComputeStaFullNodalF(t, **kwargs):
     DETRUIRE(CONCEPT = _F(NOM = (tstaT2)))
 
     return VectNodalF
+
+def ComputeFullNodalF(t, **kwargs):
     
+    tstaT2 = GetAsterTableOfStaticNodalForces(InstantsExtr = kwargs['Instants'],**kwargs)
+
+    VectNodalF = VectFromAsterTable2Full(t, tstaT2)
+
+#    ForceNodeTable = tstaT2.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ']
+#    
+#    FieldCoordX = np.array(ForceNodeTable.values()['DX'][:])
+#    FieldCoordY = np.array(ForceNodeTable.values()['DY'][:])
+#    FieldCoordZ = np.array(ForceNodeTable.values()['DZ'][:])
+#    
+#    DictStructParam = J.get(t, '.StructuralParameters')
+#        
+#    VectFnl = np.zeros((DictStructParam['MeshProperties']['Nddl'][0]))
+#    VectFnl[::3] = FieldCoordX
+#    VectFnl[1::3] = FieldCoordY
+#    VectFnl[2::3] = FieldCoordZ
+
+    DETRUIRE(CONCEPT = _F(NOM = (tstaT2)))
+
+    return VectNodalF
     
 def ComputeStaticU4GivenLoading(t, RPM, LoadVector, **kwargs):
         
@@ -1811,6 +1842,95 @@ def ComputeStaticU4GivenLoading(t, RPM, LoadVector, **kwargs):
     
     SJ.DestroyAsterObjects(dict(**dict(RAMPE_r = RAMPE_r, F_rota = F_rota, F_ext = F_ext, SOLU= SOLU, RAMPE = RAMPE, L_INST = L_INST)),  
                            DetrVars = ['RAMPE_r', 'F_rota','F_ext', 'SOLU', 'RAMPE', 'L_INST',
+                                      ])
+    
+    
+    return  UpFromOmegaAndFe, GusFromOmegaAnfFe
+
+
+def ComputeDynamic4GivenForceCoeffAndRPM(t, RPM, ForceCoeff, **kwargs):
+        
+
+    DictStructParam = J.get(t, '.StructuralParameters')
+    DictSimulaParam = J.get(t, '.SimulationParameters')
+
+    LoadingVector = ForceCoeff * DictSimulaParam['LoadingProperties']['ExternalForcesVector']['ShapeFunctionProj'][str(np.round(RPM,2))+'RPM'] * DictSimulaParam['LoadingProperties']['ExternalForcesVector']['Fmax']
+
+    ListeLoading = SJ.TranslateNumpyLoadingVector2AsterList(t, LoadingVector)
+    
+    RAMPE_r = DEFI_FONCTION(NOM_PARA = 'INST',
+                            VALE = (-2.,0.,0.,1.),
+                            PROL_DROITE = 'CONSTANT',
+                            PROL_GAUCHE = 'CONSTANT',
+                            INTERPOL = 'LIN'
+                            );
+
+    
+    
+    timeCalcul = SJ.ComputeTimeVector(t)[1][DictSimulaParam['IntegrationProperties']['Steps4CentrifugalForce'][0]-1:]
+    TimeFunction = DictSimulaParam['LoadingProperties']['ExternalForcesVector']['TimeFuntionVector']
+    ValeAsterFunction = np.zeros((2*len(TimeFunction),))
+    ValeAsterFunction[::2]  = timeCalcul
+    ValeAsterFunction[1::2] = TimeFunction
+    
+    TFUNCEXT = DEFI_FONCTION(NOM_PARA = 'INST',
+                             VALE = ValeAsterFunction,
+                             PROL_DROITE = 'CONSTANT',
+                             PROL_GAUCHE = 'CONSTANT',
+                             INTERPOL = 'LIN'
+                             );
+
+
+    F_ext = AFFE_CHAR_MECA(MODELE = kwargs['MODELE'],
+                           DDL_IMPO=SJ.AffectImpoDDLByGroupType(t),
+                           FORCE_NODALE =  ListeLoading,
+                           );
+
+    F_rota = AFFE_CHAR_MECA(MODELE = kwargs['MODELE'], 
+                            ROTATION = _F(VITESSE = np.pi * RPM/30., 
+                            AXE = DictSimulaParam['RotatingProperties']['AxeRotation'] , 
+                            CENTRE = DictSimulaParam['RotatingProperties']['RotationCenter'],),
+                           );
+    
+    L_INST = DEFI_LIST_REEL(VALE = SJ.ComputeTimeVector(t)[1]
+                            );
+
+    SOLU = DYNA_NON_LINE(MODELE = kwargs['MODELE'],
+                         CHAM_MATER = kwargs['CHMAT'],
+                         CARA_ELEM  = kwargs['CARELEM'],
+                         EXCIT =( _F(CHARGE = F_ext,
+                                     FONC_MULT=TFUNCEXT,),
+                                  _F(CHARGE = F_rota,
+                                     FONC_MULT = RAMPE_r),
+                                ), 
+                         COMPORTEMENT = DefineBehaviourLaws(t),
+                         CONVERGENCE=_F(RESI_GLOB_MAXI=DictSimulaParam['IntegrationProperties']['EpsConvergenceCriteria'][0],
+                                        RESI_GLOB_RELA=1e-4,
+                                        ITER_GLOB_MAXI=DictSimulaParam['IntegrationProperties']['NumberOfMaxIterations'][0],
+                                        ARRET = 'OUI',),
+                         INCREMENT = _F( LIST_INST = L_INST,
+                                        ),
+                         AMOR_RAYL_RIGI = 'ELASTIQUE',            
+                         SCHEMA_TEMPS = _F(SCHEMA = 'HHT',
+                                           FORMULATION ='DEPLACEMENT',
+                                           ALPHA = -1.*float(DictSimulaParam['IntegrationProperties']['IntegrationMethod']['Parameters']['Alpha']), 
+                                           MODI_EQUI = 'OUI'),
+                         INFO = 1,               
+                        ),
+    
+    AsterObjs = SJ.merge_dicts(kwargs, dict(SOLU = SOLU, RAMPE = TFUNCEXT, L_INST = L_INST, Instants = timeCalcul))
+    
+    
+    UpFromOmegaAndFe = ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, Instants = timeCalcul, **dict(SOLU = SOLU))
+    
+    GusFromOmegaAnfFe = ComputeFullNodalF(t, **AsterObjs)
+    
+    # Keep the solution of the instants of interest:
+    
+
+    
+    SJ.DestroyAsterObjects(dict(**dict(RAMPE_r = RAMPE_r, F_rota = F_rota, F_ext = F_ext, SOLU= SOLU, RAMPE = TFUNCEXT, L_INST = L_INST)),  
+                           DetrVars = ['RAMPE_r', 'F_rota','F_ext', 'SOLU', 'TFUNCEXT', 'L_INST',
                                       ])
     
     

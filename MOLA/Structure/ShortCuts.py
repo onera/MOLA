@@ -1103,10 +1103,9 @@ def TranslateNumpyLoadingVector2AsterList(t, LoadVector):
 def ComputeTimeLoadingVector(t):
 
     DictSimulaParam = J.get(t, '.SimulationParameters')
-    print(DictSimulaParam['LoadingProperties']['LoadingType'])  
     TypeOfLoading = DictSimulaParam['LoadingProperties']['LoadingType']['Name']
     TypeOfSolver  = DictSimulaParam['IntegrationProperties']['SolverType']
-    print(TypeOfLoading)
+    
 
     if TypeOfSolver == 'Static':
 
@@ -1125,8 +1124,6 @@ def ComputeTimeLoadingVector(t):
 
     elif TypeOfLoading == 'Sinusoidal':
         # Sinusoidal loading
-        print(type(time))
-        print(DictSimulaParam['LoadingProperties']['LoadingType']['Properties']['Frequency'][0])
         LoadingTimeVector = np.sin(2*np.pi*DictSimulaParam['LoadingProperties']['LoadingType']['Properties']['Frequency'][0]*np.array(time))
 
 
@@ -1137,12 +1134,14 @@ def ComputeTimeLoadingVector(t):
 
     return LoadingTimeVector      
 
-def ComputeShapeVectorAndMaxForce(t, LoadingVectorLocation = 'FromFile'):
+def ComputeShapeVectorAndMaxForce(t, LoadingVectorLocation = 'FromFile', VectFext = []):
 
     if LoadingVectorLocation == 'FromFile':
         FullLoadingVector = C.convertFile2PyTree('InputData/Loading/FullLoadingVector.cgns','bin_adf')
-    
-    DictFullLoadingVector = J.get(FullLoadingVector, '.LoadingVector')
+        DictFullLoadingVector = J.get(FullLoadingVector, '.LoadingVector')
+    else:
+        DictFullLoadingVector = {}
+        DictFullLoadingVector['LoadingVector'] = VectFext
 
     Fmax = np.max(abs(DictFullLoadingVector['LoadingVector']))
     ShapeFunction = DictFullLoadingVector['LoadingVector']/Fmax
@@ -1150,7 +1149,7 @@ def ComputeShapeVectorAndMaxForce(t, LoadingVectorLocation = 'FromFile'):
     return Fmax, ShapeFunction
 
 
-def BuildExterForcesShapeVectorAndLoadingTypeVector(t, FOM = False):
+def BuildExterForcesShapeVectorAndLoadingTypeVector(t, FOM = False, FromFile = 'FromFile', VectFext = False):
     '''Building the components for the loading vector:
           fe = f(t)*PHI.T*Psi*Fmax*alphaF
 
@@ -1168,7 +1167,7 @@ def BuildExterForcesShapeVectorAndLoadingTypeVector(t, FOM = False):
     DictOfLoading = {}
     DictOfLoading['Time'] = ComputeTimeVector(t)[1][DictSimulaParam['IntegrationProperties']['Steps4CentrifugalForce'][0]-1:]
     DictOfLoading['TimeFuntionVector'] = ComputeTimeLoadingVector(t)
-    DictOfLoading['Fmax'], DictOfLoading['ShapeFunction'] = ComputeShapeVectorAndMaxForce(t)
+    DictOfLoading['Fmax'], DictOfLoading['ShapeFunction'] = ComputeShapeVectorAndMaxForce(t, FromFile, VectFext)
     DictOfLoading['ShapeFunctionProj'] = {}    
     for RPMValue in  DictSimulaParam['RotatingProperties']['RPMs']:
         if not FOM:
@@ -1178,7 +1177,7 @@ def BuildExterForcesShapeVectorAndLoadingTypeVector(t, FOM = False):
     
         else:
             DictOfLoading['ShapeFunctionProj'][str(np.round(RPMValue,2))+'RPM'] = DictOfLoading['ShapeFunction']
-
+            
     DictSimulaParam['LoadingProperties']['ExternalForcesVector'] = dict(**DictOfLoading)
 
     J.set(t,'.SimulationParameters', **dict(DictSimulaParam)
@@ -1233,7 +1232,7 @@ def ComputeSolutionCGNS(t, Solution):
                 
                 NewBase[0] = 'Iteration%s'%(locIt )
             elif SimulaParam['IntegrationProperties']['SolverType'] == 'Dynamic':
-                locIt =  SimulaParam['IntegrationProperties']['Steps4CentrifugalForce'][0]-1 + Iteration * SimulaParam['IntegrationProperties']['SaveEveryNIt'][0]
+                locIt =  1 + Iteration * SimulaParam['IntegrationProperties']['SaveEveryNIt'][0]
                 
                 if locIt >  NItera:
                     locIt = NItera - 1
