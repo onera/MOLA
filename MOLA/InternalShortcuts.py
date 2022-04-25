@@ -1359,7 +1359,7 @@ def writePythonFile(filename,DictOfVariables,writemode='w'):
                     f.write(Variable+'='+PrettyVariable+'\n\n\n')
 
 
-def migrateFields(Donor, Receiver, keepMigrationDataForReuse=True,
+def migrateFields(Donor, Receiver, keepMigrationDataForReuse=False,
                  forceAddMigrationData=False):
     '''
     Migrate all fields contained in ``FlowSolution_t`` type nodes of **Donor**
@@ -1414,8 +1414,8 @@ def migrateFields(Donor, Receiver, keepMigrationDataForReuse=True,
 
                 for DonorZone in DonorZones:
                     addMigrationDataAtReceiver(DonorZone,
-                                                 ReceiverZone,
-                                                 MigrationNode)
+                                               ReceiverZone,
+                                               MigrationNode)
 
                 updateMasks(ReceiverZone)
 
@@ -1481,6 +1481,9 @@ def migrateFields(Donor, Receiver, keepMigrationDataForReuse=True,
         for DonorMigrationNode in DonorMigrationNodes:
             DonorName = I.getName(DonorMigrationNode)
             DonorZone = getZoneFromListByName(DonorZones, DonorName)
+            if not DonorZone:
+                C.convertPyTree2File(ReceiverZone,'debug.cgns')
+                raise ValueError('could not find DonorZone %s. Check debug.cgns.'%DonorName)
             FlowSolutions = I.getNodesFromType1(DonorZone, 'FlowSolution_t')
 
             for FlowSolution in FlowSolutions:

@@ -76,9 +76,7 @@ niter    = setup.elsAkeysNumerics['niter']
 inititer = setup.elsAkeysNumerics['inititer']
 itmax    = inititer+niter-1 # BEWARE last iteration accessible trigger-state-16
 
-Skeleton = Cmpi.convertFile2SkeletonTree(FILE_CGNS)
-I._rmNodesByName(Skeleton, 'FlowSolution*')
-I._rmNodesByName(Skeleton, 'ID_*')
+Skeleton = CO.loadSkeleton()
 
 # ========================== LAUNCH ELSA ========================== #
 

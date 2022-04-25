@@ -1,4 +1,4 @@
-For documentation, examples, major changes, please consult the [documentation site](https://gitlab.onera.net/numerics/mola/-/wikis/Documentation-link)
+For documentation, examples, major changes, please consult the [documentation site](https://gitlab.onera.net/numerics/mola/-/wikis/home)
 
 Information for users
 =====================
