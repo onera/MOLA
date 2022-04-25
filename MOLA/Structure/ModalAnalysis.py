@@ -71,7 +71,7 @@ def Freq_Phi(t, RPM, MODE):
                                                         FieldName = 'Mode',
                                                         )
 
-        PHImatrix[:,Mode] = SM.VectFromAsterTable2Full(tabmod_T)
+        PHImatrix[:,Mode] = SM.VectFromAsterTable2Full(t, tabmod_T)
 
         DETRUIRE (CONCEPT = _F (NOM = (tabmod_T),
                             ), 

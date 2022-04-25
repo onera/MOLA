@@ -18,14 +18,306 @@ ENDC  = '\033[0m'
 
 # System modules
 import os
+import numpy as np
+import pprint
+
+#import pickle
+
 from . import Analysis as SA
 from . import ShortCuts as SJ
 
 from .. import InternalShortcuts as J
 from .. import LiftingLine  as LL
+from .. import Wireframe as W
+from .. import GenerativeShapeDesign as GSD
 
 import Converter.PyTree as C
 import Converter.Internal as I
+import Generator.PyTree as G
+import Transform.PyTree as T
+
+
+def buildBladeCGNS(GeoId,ParametersDict,path):
+   
+    '''
+    Create the geometry files (.tp and .cngs) associated to the input 
+    blade geometry that is given as a parameter
+
+    Parameters
+    ----------
+
+        GeoId : 4 digits long str 
+            must contain 4 digits (identifiers) used to indicate the Chord law, Pitch law, Twist law, Sweep law
+            
+           
+        ParametersDict : nested dict
+            Contains the blade geometrical data
+
+            .. important:: **ParametersDict** must be composed of:
+
+                * Pitch0 : float
+                
+                * Rmin : float
+
+                * Rmax: float
+
+                * NPts: int
+
+                * NPtsSpanwise : int
+
+                * ChordDict : dict
+                
+                * TwistDict : dict
+                
+                * DihedralDict : dict
+
+                * SweepDict : dict
+
+
+        path : str
+            general woking directory
+
+
+
+    Returns
+    -------
+        None : None
+            **CGNS** file is saved
+     '''
+   
+      
+    #Getting every dictionary
+    Pitch0=ParametersDict['Pitch0']
+    Rmin=ParametersDict['Rmin']
+    Rmax=ParametersDict['Rmax']
+    NPts=ParametersDict['NPts']
+    NPtsSpanwise=ParametersDict['NPtsSpanwise']
+    ChordDict=ParametersDict['GeomLaws']['ChordDict']
+    TwistDict=ParametersDict['GeomLaws']['TwistDict']
+    DihedralDict=ParametersDict['GeomLaws']['DihedralDict']
+    SweepDict=ParametersDict['GeomLaws']['SweepDict']
+
+    #Composing the blade name (unique for a given geometry)
+    BladeName = 'Blade_'+str(int(Rmin*100))+'cm_'+str(int(Rmax*100))+\
+    'cm_pitch'+str(int(Pitch0))+'_ChLaw'+ GeoId[0]+\
+    '_PLaw'+GeoId[1]+'_TLaw'+GeoId[2]+'_SLaw'+GeoId[3]
+
+    
+
+    ############################# Begin of main program ###########################################
+
+    #Profile section
+    #NACA4412 = W.airfoil('NACA4412', ClosedTolerance=0)
+    NACA4416 = W.airfoil('NACA4416', ClosedTolerance=0)
+
+    T._oneovern(NACA4416, (4,1,1))
+
+
+    AirfoilsDict = dict(RelativeSpan     = [  0.2,     1.000],
+                        Airfoil          = [NACA4416,  NACA4416],
+                        InterpolationLaw = 'interp1d_linear',)
+
+
+    # MUST BE ODD !!!NPtsSpanwise
+    BladeDiscretization = np.linspace(Rmin,Rmax,NPtsSpanwise)
+    NPtsTrailingEdge = ParametersDict['NPtsTrailingEdge'] # MUST BE ODD !!!
+    IndexEdge = int((NPtsTrailingEdge+1)/2)
+    Sections, WingWall,_=GSD.wing(BladeDiscretization,ChordRelRef=0.25,
+                                NPtsTrailingEdge=NPtsTrailingEdge,
+                                Airfoil=AirfoilsDict,
+                                Chord=ChordDict,
+                                Twist=TwistDict,
+                                Dihedral=DihedralDict,
+                                Sweep=SweepDict,)
+
+    ClosedSections = []
+    for s in Sections:
+        ClosedSections.extend( GSD.closeAirfoil(s,Topology='ThickTE_simple',
+            options=dict(NPtsUnion=NPtsTrailingEdge,
+                        TFITriAbscissa=0.1,
+                        TEdetectionAngleThreshold=30.)) )
+
+    WingSolidStructured = G.stack(ClosedSections,None) # Structured
+    _,Ni,Nj,Nk,_=I.getZoneDim(WingSolidStructured)
+
+
+
+    # Spanwise towards X positive:
+
+    WingSolidStructured = T.rotate(WingSolidStructured, (0.,0.,0.),(0.,1.,0.),-90.)
+    WingSolidStructured = T.rotate(WingSolidStructured, (0.,0.,0.),(1.,0.,0.),90.)
+
+
+    C._addBC2Zone(WingSolidStructured,
+                'Node_Encastrement',
+                'FamilySpecified:Noeud_Encastrement',
+                'kmin')
+
+
+    C._addBC2Zone(WingSolidStructured,
+                'LeadingEdge',
+                'FamilySpecified:LeadingEdge',
+                wrange=[IndexEdge,IndexEdge,Nj,Nj,1,Nk])
+
+    C._addBC2Zone(WingSolidStructured,
+                'TrailingEdge',
+                'FamilySpecified:TrailingEdge',
+                wrange=[IndexEdge,IndexEdge,1,1,1,Nk])
+
+    #C._fillEmptyBCWith(WingSolidStructured,
+    #                   'External_Forces',
+    #                   'FamilySpecified:External_Forces')
+
+    # Creating saving folder
+    if not os.path.exists(path + '/InputData/Geometry/BladeCGNS'):
+     os.makedirs(path + '/InputData/Geometry/BladeCGNS')
+    os.chdir(path+'/InputData/Geometry/BladeCGNS')
+
+    t = C.newPyTree(['SOLID',WingSolidStructured])
+    C.convertPyTree2File(t,'%s.cgns'%BladeName,'bin_adf')
+    C.convertPyTree2File(t,'%s.tp'%BladeName)
+
+
+
+def BladeDictBuilder(GeoId,ParametersDict,path):
+    
+    '''
+    Create a dictionary associated to the input blade geometry
+    that is given as a parameter
+    """
+
+
+    Parameters
+    ----------
+
+        GeoId : 4 digits long str 
+            must contain 4 digits (identifiers) used to indicate the Chord law, Pitch law, Twist law, Sweep law
+            
+           
+        ParametersDict : nested dict
+            Contains the blade geometrical data
+
+            .. important:: **ParametersDict** must be composed of:
+
+                * Pitch0 : float
+                
+                * Rmin : float
+
+                * Rmax: float
+
+                * NPts: int
+
+                * NPtsSpanwise : int
+
+                * ChordDict : dict
+                
+                * TwistDict : dict
+                
+                * DihedralDict : dict
+
+                * SweepDict : dict
+
+                * PolarsType: str
+
+                * filesname: array of str
+
+
+        path : str
+            general woking directory
+
+
+
+    Returns
+    -------
+        None : None
+            **Dict** is saved
+     '''
+    
+    
+    #Getting every dictionary
+    Pitch0=ParametersDict['Pitch0']
+    Rmin=ParametersDict['Rmin']
+    Rmax=ParametersDict['Rmax']
+    NPts=ParametersDict['NPts']
+    NPtsSpanwise=ParametersDict['NPtsSpanwise']
+    ChordDict=ParametersDict['GeomLaws']['ChordDict']
+    TwistDict=ParametersDict['GeomLaws']['TwistDict']
+    DihedralDict=ParametersDict['GeomLaws']['DihedralDict']
+    SweepDict=ParametersDict['GeomLaws']['SweepDict']
+
+    #Composing the blade name (unique for a given geometry)
+    BladeName = 'Blade_'+str(int(Rmin*100))+'cm_'+str(int(Rmax*100))+\
+    'cm_pitch'+str(int(Pitch0))+'_ChLaw'+ GeoId[0]+\
+    '_PLaw'+GeoId[1]+'_TLaw'+GeoId[2]+'_SLaw'+GeoId[3]
+
+
+    ############################# Begin of main program ###########################################
+
+    AirfoilName = 'NACA4416'
+    AIRFOIL = W.airfoil('NACA4416', ClosedTolerance=0)
+    AirfoilsDict = dict(RelativeSpan     = [  Rmin/Rmax,     1.000],
+                        Airfoil          = [AIRFOIL,  AIRFOIL],
+                        InterpolationLaw = 'interp1d_linear',)
+
+    PolarsDict = dict(RelativeSpan     = [  Rmin/Rmax,  1.000],
+                    PyZonePolarNames = [AirfoilName,AirfoilName],
+                    InterpolationLaw = 'interp1d_linear',)
+
+    RootSegmentLength = 0.0500 * Rmax
+    TipSegmentLength  = 0.0016 * Rmax
+
+    # We list the HOST files in absolute path:
+    PolarsType = ParametersDict['Polars']['PolarsType'] # 'cgns', # HOST/cgns
+    filenames = ParametersDict['Polars']['filenames'] #['PolarsCorrected.cgns',
+    #'POLARS/HOST_Profil_OH312', 
+    #'POLARS/HOST_Profil_OH310',
+    #'POLARS/HOST_Profil_OH309',
+    #]
+
+    #Dictionary composing
+    DictBladeParameters = dict(ChordDict = ChordDict,     
+                            TwistDict = TwistDict,       
+                            DihedralDict = DihedralDict,  
+                            PolarsDict = PolarsDict,  
+                            SweepDict = SweepDict,   
+                            
+                            NBlades=ParametersDict['NBlades'], 
+                            Constraint='Pitch', 
+                            ConstraintValue=0.0,
+                            Rmin = Rmin,
+                            Rmax = Rmax,
+                            NPts = NPts,   
+                            BladeDiscretization = dict(P1=[Rmin,0,0],P2=[Rmax,0,0],
+                                                    N=NPts, kind='tanhTwoSides',
+                                                    FirstCellHeight=RootSegmentLength,
+                                                    LastCellHeight=TipSegmentLength),
+                            Polars = dict(PolarsType = PolarsType,
+                                            filenames = filenames),
+                            Pitch0 = Pitch0,
+                            )
+
+ 
+    if not os.path.exists(path + '/InputData/Geometry/BladeDicts'):
+        os.makedirs(path + '/InputData/Geometry/BladeDicts')
+    #os.chdir(path+'/InputData/Geometry/BladeDicts')
+
+
+    Lines = ['#!/usr/bin/python\n']
+    Lines = ['from numpy import array\n']
+    Lines+= ['DictBladeParameters = '+pprint.pformat(DictBladeParameters)+"\n"]
+
+    AllLines = '\n'.join(Lines)
+
+
+    with open(path + '/InputData/Geometry/BladeDicts/%s.py'%BladeName, "w") as a_file:
+        #pickle.dump(DictBladeParameters, a_file)
+        a_file.write(AllLines)
+        a_file.close()
+
+    
+    
+
+    print('Writing ./InputData/Geometry/BladeDicts/%s.py'%BladeName)
 
 
 
