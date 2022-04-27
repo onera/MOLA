@@ -730,306 +730,161 @@ def makeFrontSpinnerCurves(Length=1., Width=0.6, RelativeArcRadius=0.01, ArcAngl
     return [Arc, SpinnerCurve]
 
 
-def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0),
-            NumberOfAzimutalPoints=359,
-            BladeNumberForPeriodic=None, LeadingEdgeAbscissa=0.05,
-            TrailingEdgeAbscissa=0.95, SmoothingParameters={'eps':0.50,
-                'niter':300,'type':2}):
-    '''
-    This user-level function constructs a hub (Propeller's spinner) geometry
-    from a user-provided profile (a curve).
+def makeHub(profile, blade_number, number_of_points_azimut=31,
+                profile_axis=[0,1,0]):
 
-    Parameters
-    ----------
+    if number_of_points_azimut%2 == 0:
+        raise ValueError(J.FAIL+'number_of_points_azimut must be odd'+J.ENDC)
 
-        Profile : zone
-            curve defining the hub's generator line. It does not
-            need to be coplanar. BEWARE ! indexing of curve must be oriented from
-            leading edge towards trailing edge
+    if blade_number<2:
+        raise ValueError(J.FAIL+'blade_number must be greater than 1'+J.ENDC)
 
-        AxeCenter : :py:class:`list` of 3 :py:class:`float`
-            coordinates of the axis center for the revolution operation [m]
-
-        AxeDir : :py:class:`list` of 3 :py:class:`float`
-            unitary vector pointing towards the direction of revolution
-
-        NumberOfAzimutalPoints : int
-            number of points discretizing the hub in the azimut direction
-
-        BladeNumberForPeriodic : int
-            If provided, then only an angular
-            portion of the hub is constructed, corresponding to the blade number
-            specified by this argument.
-
-        LeadingEdgeAbscissa : float
-            dimensionless abscissa indicating the point
-            at which leading edge is "cut" in order to perform the diamond join
-
-        TrailingEdgeAbscissa : float
-            dimensionless abscissa indicating the point
-            at which trailing edge is "cut" in order to perform the diamond join
-
-        SmoothingParameters : dict
-            literally, the parameters passed to :py:func:`Transform.PyTree.smooth`
-            function
-
-    Returns
-    -------
-
-        t : PyTree
-            surface of the hub
-
-        PeriodicProfiles : :py:class:`list`
-            curves (structured zones) defining the periodic profiles boundaries
-    '''
-
-    Px, Py, Pz = J.getxyz(Profile)
-    NPsi = NumberOfAzimutalPoints
-    FineHub = D.axisym(Profile, AxeCenter,AxeDir, angle=360., Ntheta=360*3); FineHub[0]='FineHub'
-    BigLength=1.0e6
-    AxeLine = D.line((AxeCenter[0]+BigLength*AxeDir[0],AxeCenter[1]+BigLength*AxeDir[1],AxeCenter[2]+BigLength*AxeDir[2]),
-        (AxeCenter[0]-BigLength*AxeDir[0],AxeCenter[1]-BigLength*AxeDir[1],AxeCenter[2]-BigLength*AxeDir[2]),2)
-    s = W.gets(Profile)
-
-    SplitLEind = np.where(s>LeadingEdgeAbscissa)[0][0]
-    LEjonctCell = W.distance((Px[SplitLEind], Py[SplitLEind], Pz[SplitLEind]),
-        (Px[SplitLEind+1], Py[SplitLEind+1], Pz[SplitLEind+1]))
-
-    if TrailingEdgeAbscissa is not None:
-        SplitTEind = np.where(s>TrailingEdgeAbscissa)[0][0]
-        TEjonctCell = W.distance((Px[SplitTEind], Py[SplitTEind], Pz[SplitTEind]),
-                                 (Px[SplitTEind+1], Py[SplitTEind+1], Pz[SplitTEind+1]))
-    else:
-        SplitTEind = len(Px)
-
-    RevolutionProfile = T.subzone(Profile,(SplitLEind,1,1),(SplitTEind,1,1)); RevolutionProfile[0] = 'RevolutionProfile'
-    PeriodicProfiles = []
-    if BladeNumberForPeriodic is None:
-        if NPsi%2==0: raise ValueError('makeHub: NumberOfAzimutalPoints shall be ODD.')
-        MainBody = D.axisym(RevolutionProfile, AxeCenter,AxeDir, angle=360., Ntheta=NPsi); MainBody[0]='MainBody'
-        ExtFaces = P.exteriorFacesStructured(MainBody)
-        ExtFaces = I.getNodesFromType(ExtFaces,'Zone_t')
-
-        # Close Leading Edge
-        LEBound, _ = J.getNearestZone(ExtFaces, (Px[0],Py[0],Pz[0]));  LEBound[0]='LEBound'
-
-        tT = C.newPyTree(['bMainBody',MainBody,'bLEBound',LEBound])
-
-        LETFI = G.TFIO(LEBound) # TODO replace ?
-        GSD.prepareGlue(LETFI,[LEBound])
-        LETFI = T.projectDir(LETFI,FineHub,dir=AxeDir)
-        T._smooth(LETFI,eps=SmoothingParameters['eps'], niter=SmoothingParameters['niter'],
-                type=SmoothingParameters['type'], fixedConstraints=[LEBound])
-        # T._projectDir(LETFI,FineHub,dir=AxeDir)
-        T._projectOrthoSmooth(LETFI,FineHub, niter=SmoothingParameters['niter'])
-        GSD.applyGlue(LETFI,[LEBound])
-
-        LETFIzones = I.getNodesFromType(LETFI,'Zone_t')
-        LESingle, LESingleIndex = J.getNearestZone(LETFIzones, (Px[0],Py[0],Pz[0]))
-        LESingle[0] = 'front.bulb'
-        LEjoinIndices = [i for i in range(len(LETFIzones)) if i != LESingleIndex]
-        LEjoin = LETFIzones[LEjoinIndices[0]]
-        for i in LEjoinIndices[1:]:
-            LEjoin = T.join(LEjoin,LETFIzones[i])
-        MainBody[0] = 'hub'
-        HubZones = [MainBody, LESingle, LEjoin]
+    center = np.array([0,0,0],dtype=np.float)
+    axis = np.array(profile_axis,dtype=np.float)
+    tol = 1e-8
 
 
-        if TrailingEdgeAbscissa is not None:
-            # Close Trailing Edge
-            TEBound, _ = J.getNearestZone(ExtFaces, (Px[-1],Py[-1],Pz[-1])); TEBound[0]='TEBound'
-            TETFI = G.TFIO(TEBound)
-            TETFI = T.projectDir(TETFI,FineHub,dir=(AxeDir[0],-AxeDir[1],AxeDir[2]))
-            SmoothingParameters['fixedConstraints'] = [TEBound]
-            T._smooth(TETFI, **SmoothingParameters)
-            GSD.prepareGlue(TETFI,[TEBound])
-            # T._projectDir(TETFI,FineHub,dir=(AxeDir[0],-AxeDir[1],AxeDir[2]))
-            T._projectOrthoSmooth(TETFI,FineHub,niter=SmoothingParameters['niter'])
-            GSD.applyGlue(TETFI,[TEBound])
+    if W.distanceOfPointToLine(W.point(profile),axis,center) > tol:
+        pt = W.point(profile)
+        print(pt)
+        print(_distance2Axis(pt))
+        C.convertPyTree2File(profile,'debug.cgns')
+        MSG='Leading-edge of spinner profile does not lie on rotation axis. Check debug.cgns'
+        raise ValueError(J.FAIL+MSG+J.ENDC)
 
-            TETFIzones = I.getNodesFromType(TETFI,'Zone_t')
-            TESingle, TESingleIndex = J.getNearestZone(TETFIzones, (Px[-1],Py[-1],Pz[-1]))
-            TESingle[0] = 'rear.bulb'
-            TEjoinIndices = [i for i in range(len(TETFIzones)) if i != TESingleIndex]
-            TEjoin = TETFIzones[TEjoinIndices[0]]
-            for i in TEjoinIndices[1:]:
-                TEjoin = T.join(TEjoin,TETFIzones[i])
-            TEjoin[0] = 'hub'
-            HubZones += [TESingle, TEjoin]
-
-        # Build PyTree
-        t = C.newPyTree(['Hub',HubZones])
+    REAR_CLOSED = True if W.distanceOfPointToLine(W.point(profile,-1),axis,center) < tol else False
 
 
-    else:
-        BladeNumberForPeriodic = float(BladeNumberForPeriodic)
-        RevolutionAngle = 360./BladeNumberForPeriodic
-        T._rotate(RevolutionProfile,AxeCenter,AxeDir,-0.5*RevolutionAngle)
-        MainBody = D.axisym(RevolutionProfile, AxeCenter,AxeDir, angle=RevolutionAngle, Ntheta=NPsi);
-        MainBody[0]='MainBody'
 
-        ProfileFineHub = W.discretize(Profile,N=10000)
-        ProfileFineHub = T.rotate(Profile,AxeCenter,AxeDir,-0.5*RevolutionAngle)
-        FineHub = D.axisym(ProfileFineHub, AxeCenter,AxeDir, angle=RevolutionAngle, Ntheta=NPsi*30); FineHub[0]='FineHub'
+    def makeBulb(profile, axis, center, number_of_points_azimut, reverse=False):
 
-        # Close Leading Edge
-        LEarc = T.subzone(MainBody,(1,1,1),(1,NPsi,1)); LEarc[0]='LEarc'
-        LEarcX, LEarcY, LEarcZ = J.getxyz(LEarc)
-        LEptInAxe = T.projectOrtho(D.point((LEarcX[0], LEarcY[0], LEarcZ[0])),AxeLine)
-        LEptInAxeList = J.getxyz(LEptInAxe)
+        azimut_central_index = int((number_of_points_azimut - 1) / 2)
+        bulb_npts = azimut_central_index + 1
 
 
-        Conn1 = D.line((LEarcX[0], LEarcY[0], LEarcZ[0]),
-                       LEptInAxeList, 200)
-        Conn1 = T.projectDir(Conn1,FineHub,dir=[-AxeDir[0],AxeDir[1],AxeDir[2]])
-        Conn1X,Conn1Y,Conn1Z = J.getxyz(Conn1)
-        Conn1X[0],Conn1Y[0],Conn1Z[0]=LEarcX[0], LEarcY[0], LEarcZ[0]
-        Conn2 = D.line((LEarcX[-1], LEarcY[-1], LEarcZ[-1]),
-                       LEptInAxeList, 200)
-        Conn2 = T.projectDir(Conn2,FineHub,dir=[-AxeDir[0],AxeDir[1],AxeDir[2]])
-        Conn2X,Conn2Y,Conn2Z = J.getxyz(Conn2)
-        Conn2X[0],Conn2Y[0],Conn2Z[0]=LEarcX[-1], LEarcY[-1], LEarcZ[-1]
+        support = D.axisym(profile,center,axis, 360./float(blade_number), number_of_points_azimut)
 
-        # Re-discretize connection curves
-        ApproxNconn = int(0.5*(SplitLEind+NPsi))
-        NPsiNew, Nconn1, Nconn2 = GSD.getSuitableSetOfPointsForTFITri(NPsi,ApproxNconn,ApproxNconn,choosePriority=['N1,N2=N3'], QtySearch=4, tellMeWhatYouDo=False)
-        if NPsiNew != NPsi:
-            raise ValueError('Could not find appropriate TFITri values for NPsi=%d. Increase QtySearch or change NPsi.'%NPsi)
-        Conn1 = W.discretize(Conn1,Nconn1,
-            dict(kind='tanhOneSide',FirstCellHeight=LEjonctCell))
-        Conn2 = W.discretize(Conn2,Nconn2,
-            dict(kind='tanhOneSide',FirstCellHeight=LEjonctCell))
-        LETFI = G.TFITri(LEarc,Conn1,Conn2)
-        LETFI = I.getNodesFromType(LETFI,'Zone_t')
-        Conn1LE = Conn1; Conn1LE[0] = 'Conn1LE'
-        Conn2LE = Conn2; Conn2LE[0] = 'Conn2LE'
-
-
-        if TrailingEdgeAbscissa is not None:
-            # Close Trailing Edge
-            MainBodyX = J.getx(MainBody)
-            TEarc = T.subzone(MainBody,(len(MainBodyX),1,1),(len(MainBodyX),NPsi,1)); TEarc[0]='TEarc'
-            TEarcX, TEarcY, TEarcZ = J.getxyz(TEarc)
-            TEptInAxe = T.projectOrtho(D.point((TEarcX[0], TEarcY[0], TEarcZ[0])),AxeLine)
-            TEptInAxeList = J.getxyz(TEptInAxe)
-
-            Conn1 = D.line((TEarcX[0], TEarcY[0], TEarcZ[0]),
-                           TEptInAxeList, 200)
-            Conn1 = T.projectDir(Conn1,FineHub,dir=AxeDir)
-            Conn1X,Conn1Y,Conn1Z = J.getxyz(Conn1)
-            Conn1X[0],Conn1Y[0],Conn1Z[0]=TEarcX[0], TEarcY[0], TEarcZ[0]
-            Conn2 = D.line((TEarcX[-1], TEarcY[-1], TEarcZ[-1]),
-                           TEptInAxeList, 200)
-            Conn2 = T.projectDir(Conn2,FineHub,dir=AxeDir)
-            Conn2X,Conn2Y,Conn2Z = J.getxyz(Conn2)
-            Conn2X[0],Conn2Y[0],Conn2Z[0]=TEarcX[-1], TEarcY[-1], TEarcZ[-1]
-            # Re-discretize connection curves
-            ApproxNconn = int(0.5*(len(Px)-SplitTEind+NPsi))
-            NPsiNew, Nconn1, Nconn2 = GSD.getSuitableSetOfPointsForTFITri(NPsi,ApproxNconn,ApproxNconn,choosePriority=['N1,N2=N3'], QtySearch=4, tellMeWhatYouDo=False)
-            if NPsiNew != NPsi:
-                raise ValueError('Could not find appropriate TFITri values for NPsi=%d. Increase QtySearch or change NPsi.'%NPsi)
-            Conn1 = W.discretize(Conn1,Nconn1,
-                dict(kind='tanhOneSide',FirstCellHeight=TEjonctCell))
-            Conn2 = W.discretize(Conn2,Nconn2,
-                dict(kind='tanhOneSide',FirstCellHeight=TEjonctCell))
-            TETFI = G.TFITri(TEarc,Conn1,Conn2)
-            TETFI = I.getNodesFromType(TETFI,'Zone_t')
-            tTemp = C.newPyTree(['Base',MainBody,'TETFI',TETFI,'LETFI',LETFI])
-
-            Conn1TE = Conn1; Conn1TE[0] = 'Conn1TE'
-            Conn2TE = Conn2; Conn2TE[0] = 'Conn2TE'
-
-            GSD.prepareGlue(LETFI,[Conn1LE, Conn2LE, LEarc])
-            # T._projectDir(LETFI,FineHub,dir=AxeDir)
-            T._projectOrthoSmooth(LETFI,FineHub,niter=3)
-            GSD.applyGlue(LETFI,[Conn1LE, Conn2LE, LEarc])
-
-            GSD.prepareGlue(TETFI,[Conn1TE, Conn2TE, TEarc])
-            # T._projectDir(TETFI,FineHub,dir=(AxeDir[0],-AxeDir[1],AxeDir[2]))
-            T._projectOrthoSmooth(TETFI,FineHub,niter=3)
-            GSD.applyGlue(TETFI,[Conn1TE, Conn2TE, TEarc])
-
-
-        # Get the profiles
-        FirstProfile=GSD.getBoundary(MainBody,'jmin')
-        FirstProfileZones = [Conn1LE,FirstProfile]
-        if TrailingEdgeAbscissa is not None: FirstProfileZones += [Conn1TE]
-        I._rmNodesByType(FirstProfileZones,'FlowSolution_t')
-        FirstProfile = T.join(FirstProfileZones)
-        FirstProfile[0] = 'FirstProfile'
-        SecondProfile=GSD.getBoundary(MainBody,'jmax')
-        SecondProfileZones = [Conn2LE,SecondProfile]
-        if TrailingEdgeAbscissa is not None:
-            SecondProfileZones += [Conn2TE]
-        I._rmNodesByType(SecondProfileZones,'FlowSolution_t')
-        SecondProfile = T.join(SecondProfileZones)
-        SecondProfile[0] = 'SecondProfile'
-        PeriodicProfiles += [FirstProfile,SecondProfile]
-
-        # REDUCE THE NUMBER OF ZONES BY JOINING
-        # Join Leading Edge Elements
-        LESingle, LESingleIndex = J.getNearestZone(LETFI, (Px[0],Py[0],Pz[0]))
-        LESingle[0] = 'front.bulb'
-        LEjoinIndices = [i for i in range(len(LETFI)) if i != LESingleIndex]
-        LEjoin = LETFI[LEjoinIndices[0]]
-        for i in LEjoinIndices[1:]:
-            LEjoin = T.join(LEjoin,LETFI[i])
-        I._rmNodesByType([MainBody,LEjoin],'FlowSolution_t')
-        # Join result with Main body
-        MainBody = T.join(LEjoin,MainBody)
-
-        if TrailingEdgeAbscissa is not None:
-            # Join Trailing Edge Elements
-            TESingle, TESingleIndex = J.getNearestZone(TETFI, (Px[-1],Py[-1],Pz[-1]))
-            TESingle[0] = 'rear.bulb'
-            TEjoinIndices = [i for i in range(len(TETFI)) if i != TESingleIndex]
-            TEjoin = TETFI[TEjoinIndices[0]]
-            for i in TEjoinIndices[1:]:
-                TEjoin = T.join(TEjoin,TETFI[i])
-            # Join result with Main body
-            MainBody = T.join(MainBody,TEjoin)
-
-        MainBody[0]='hub'
-        FinalZones = [LESingle,MainBody]
-        ConstraintZones = PeriodicProfiles
-        if TrailingEdgeAbscissa is not None: FinalZones += [TESingle]
+        if reverse:
+            d = -1
+            support = T.reorder(support,(-1,2,3))
+            profile = W.reverse(profile)
         else:
-            ConstraintZones += [GSD.getBoundary(MainBody,window='imax',layer=0)]
-        t = C.newPyTree(['Hub',FinalZones])
+            d = 1
 
-        SmoothingParameters['fixedConstraints'] = ConstraintZones
-        T._smooth(t, **SmoothingParameters)
-        T._projectOrtho(t,FineHub)
-
-        SmoothingParameters['fixedConstraints'] = [P.exteriorFaces(LESingle)]
-        SmoothingParameters['niter'] = 50
-        T._smooth(LESingle, **SmoothingParameters)
-        T._projectOrtho(LESingle,FineHub)
+        azimut_central_index = int((number_of_points_azimut - 1) / 2)
+        mid_profile = GSD.getBoundary(support,'jmin',azimut_central_index)
+        mid_profile[0] = 'mid_profile'
 
 
-        # Determine if reordering is necessary in order to
-        # guarantee an outwards-pointing normal for each zone
-        G._getNormalMap(t)
-        # Compute Revolution profile normal direction (outwards)
-        rpX, rpY, rpZ = J.getxyz(RevolutionProfile)
-        sizeRevProf = len(rpX)
-        MidPt = (rpX[int(sizeRevProf/2)], rpY[int(sizeRevProf/2)], rpZ[int(sizeRevProf/2)])
-        ptInAxe = T.projectOrtho(D.point(MidPt),AxeLine)
-        ptAxe = J.getxyz(ptInAxe)
-        OutwardsDir = (MidPt[0]-ptAxe[0], MidPt[1]-ptAxe[1], MidPt[2]-ptAxe[2])
+        bulb_profile,_ = W.splitAt(profile, bulb_npts-1)
 
-        for z in I.getNodesFromType(t,'Zone_t'):
-            sx=C.getMeanValue(z,'centers:sx')
-            sy=C.getMeanValue(z,'centers:sy')
-            sz=C.getMeanValue(z,'centers:sz')
-            ndotProp = sx*OutwardsDir[0]+sy*OutwardsDir[1]+sz*OutwardsDir[2]
-            mustReorder = True if ndotProp < 0 else False
+        cut_at = [bulb_npts-1, 2*np.sqrt(2)*D.getLength(bulb_profile)]
 
-            if mustReorder: T._reorder(z,(-1,2,3))
+        profile_split = W.splitAt(profile, cut_at, 'length')
 
-    J.set(t,'.MeshingParameters',blade_number=3)
+        front_end_region = C.getNPts(profile_split[:2])-2
 
-    return t, PeriodicProfiles
+        azm_front = GSD.getBoundary(support,'imin',front_end_region)
+        azm_front_0, azm_front_1 = T.splitNParts(azm_front,2)
+
+
+        mid_profile_split = W.splitAt(mid_profile, [np.sqrt(2)*D.getLength(bulb_profile),
+                                            front_end_region],'length')
+        mid_profile_split[1] = W.discretize(mid_profile_split[1],
+            N=C.getNPts(profile_split[1]),
+            Distribution=dict( kind='tanhTwoSides',
+            FirstCellHeight=W.segment(mid_profile_split[1]),
+            LastCellHeight=W.segment(mid_profile_split[1],-1)))
+
+
+
+        support_front = T.subzone(support,(C.getNPts(profile_split[0])-1,1,1),
+                       (C.getNPts(mid_profile_split[0])+1,azimut_central_index+1,1))
+
+
+
+        bulb_union_0 = D.line(tuple(W.point(profile_split[0],-1)),
+                              tuple(W.point(mid_profile_split[0],-1)),
+                              azimut_central_index+1)
+        T._projectOrtho(bulb_union_0, support_front)
+        bulb_union_0 = W.discretize(bulb_union_0,Distribution=dict(kind='tanhTwoSides',
+            FirstCellHeight=W.segment(profile_split[0],-1),
+            LastCellHeight=W.segment(mid_profile_split[0],-1)))
+        T._projectOrtho(bulb_union_0, support_front)
+
+
+
+
+        profile_splitB=[]
+        for p in profile_split:
+            profile_splitB.append(T.rotate(p,tuple(center),tuple(axis),
+                                      360./float(blade_number)))
+
+        I._correctPyTree(profile_split+profile_splitB,level=3)
+
+        T._rotate(support_front,tuple(center),tuple(axis),
+                                  180./float(blade_number))
+
+
+        bulb_union_1 = D.line(tuple(W.point(mid_profile_split[0],-1)),
+                              tuple(W.point(profile_splitB[0],-1)),
+                              azimut_central_index+1)
+        T._projectOrtho(bulb_union_1, support_front)
+        bulb_union_1 = W.discretize(bulb_union_1,Distribution=dict(kind='tanhTwoSides',
+            FirstCellHeight=W.segment(mid_profile_split[0],-1),
+            LastCellHeight=W.segment(profile_splitB[0],-1)))
+        T._projectOrtho(bulb_union_1, support_front)
+
+        front_bulb = G.TFI([W.reverse(profile_split[0]), bulb_union_1,
+                            bulb_union_0, profile_splitB[0]])
+        front_bulb[0] = 'bulb'
+        if reverse: T._reorder(front_bulb,(-1,2,3))
+
+
+        front_0 = G.TFI([bulb_union_0, azm_front_0,profile_split[1], mid_profile_split[1]])
+        front_1 = G.TFI([bulb_union_1, azm_front_1,mid_profile_split[1],profile_splitB[1]])
+        front_join = T.join(front_0, front_1)
+        front_join[0] = 'join'
+        T._reorder(front_join,(2,1,3))
+        if reverse: T._reorder(front_join,(-1,2,3))
+
+
+        support_front = T.subzone(support,(1,1,1),
+                       (C.getNPts(profile_split[:2]),2*azimut_central_index+1,1))
+
+        surfs2proj = [front_bulb,front_join]
+        fixed = P.exteriorFaces(surfs2proj)+[mid_profile_split[1]]
+        GSD.prepareGlue(surfs2proj, fixed)
+
+        # mirror point used for ray-projectio
+        OP = W.point(mid_profile_split[0],-1)
+        CM = (OP-center).dot(axis) * axis
+        OM = center + CM
+        MP = OP - OM
+        MPp = - MP
+        OPp = OM + MPp
+        T._projectRay(surfs2proj, support_front, OPp)
+        GSD.applyGlue(surfs2proj, fixed)
+        NPts_close = C.getNPts(profile_split[:2])
+        hub = T.subzone(support,(NPts_close-1,1,1), (-1,-1,-1))
+        hub[0] = 'hub'
+
+        return front_bulb, front_join, hub
+
+    front_bulb, front_join, hub = makeBulb(profile, axis, center, number_of_points_azimut)
+    front_bulb[0] = 'front.'+front_bulb[0]
+    hub = T.join(front_join,hub)
+    zones = [front_bulb, hub]
+    if REAR_CLOSED:
+        rear_bulb, rear_join, _ = makeBulb(profile, axis, center, number_of_points_azimut, True)
+        rear_bulb[0] = 'rear.'+rear_bulb[0]
+        Ni = I.getZoneDim(rear_join)[1] + int((number_of_points_azimut-1)/2)
+        hub = T.subzone(hub,(1,1,1),(-Ni,-1,-1))
+        hub = T.join(hub,rear_join)
+        zones = [front_bulb, hub, rear_bulb]
+    hub[0] = 'hub'
+
+    return zones
 
 
 def extrudePeriodicProfiles(PeriodicProfiles,
@@ -1951,13 +1806,11 @@ def _buildExternalSurfacesHgrid(blade, spinner_split, rotation_axis,
 
     W.addDistanceRespectToLine( spine , c, a, 'span')
     Length = C.getMaxValue( spine, 'span' ) - C.getMinValue( spine, 'span' )
-    # Length = D.getLength(spine)
 
     bary = D.point(G.barycenter(spinner_split))
     W.projectOnAxis(bary, rotation_axis, rotation_center)
     bary = W.point(bary)
 
-    # spinner_contours = P.exteriorFacesStructured( spinner_split )
     front = GSD.getBoundary(spinner_split,'imin')
     front[0] = 'front'
     rear = GSD.getBoundary(spinner_split,'imax')
@@ -2410,7 +2263,6 @@ def _buildHubWallAdjacentSector(surface, spinner, bulb, blade_number,
 
 
 
-
     ext_union_azm_0 = makeSharpPseudoNormalUnion(line_0,spinner_union_1,
                                     C.getNPts(spinner_bulb_side_0),0.5)
     ext_union_azm_0[0] = 'ext_union_azm_0'
@@ -2426,7 +2278,6 @@ def _buildHubWallAdjacentSector(surface, spinner, bulb, blade_number,
     ext_union_azm_1 = W.discretize(ext_union_azm_1, C.getNPts(ext_union_azm_1),
                                    Distribution_edge)
     T._projectOrtho(ext_union_azm_1,proj_support)
-
 
 
 
@@ -2859,6 +2710,10 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
     support, profile_rev = _buildFarfieldSupport(profile, blade_number,
                           npts_azimut, distance, rotation_center, rotation_axis)
 
+    _,Ni,Nj,_,_=I.getZoneDim(support)
+    support_central = T.subzone(support, (C.getNPts(profile[:2])-1,1,1),
+                                         (C.getNPts(profile[:3])-1,Nj,1) )
+
     profile_sideB = T.rotate(profile,tuple(c),tuple(a),360./float(blade_number))
 
     profile_rev_sectors = []
@@ -2869,6 +2724,30 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
         subpart[0]=p[0]+'.far'
         profile_rev_sectors += [ subpart ]
         first_index = last_index
+
+    # rediscretization of profile_rev_sectors
+    profile_rev_sectors[0] = W.discretize(profile_rev_sectors[0],
+                                            N=C.getNPts(profile_rev_sectors[0]))
+    profile_rev_sectors[2] = W.discretize(profile_rev_sectors[2],
+                                            N=C.getNPts(profile_rev_sectors[2]))
+    first_cell = W.segment(profile_rev_sectors[0],-1)
+    second_cell = W.segment(profile_rev_sectors[2])
+    third_cell = W.segment(profile_rev_sectors[3],-1)
+    if HAS_REAR_BULB:
+        profile_rev_sectors[-1] = W.discretize(profile_rev_sectors[-1],
+                                            N=C.getNPts(profile_rev_sectors[-1]))
+        third_cell = W.segment(profile_rev_sectors[-1])
+    profile_rev_sectors[1] = W.discretize(profile_rev_sectors[1],
+            N=C.getNPts(profile_rev_sectors[1]), Distribution=dict(
+            kind='tanhTwoSides',
+            FirstCellHeight=first_cell,
+            LastCellHeight=second_cell))
+    profile_rev_sectors[3] = W.discretize(profile_rev_sectors[3],
+            N=C.getNPts(profile_rev_sectors[3]), Distribution=dict(
+            kind='tanhTwoSides',
+            FirstCellHeight=second_cell,
+            LastCellHeight=third_cell))
+
 
     profile_rev_sectors_sideB = T.rotate(profile_rev_sectors,tuple(c),tuple(a),
                                          360./float(blade_number))
@@ -2884,14 +2763,18 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
                                                LastCellHeight=cell_height)
 
 
+
     s = W.gets(support_half_edge)
     s *= D.getLength(support_half_edge)
     L_diag = D.getLength(profile_rev_sectors[0]) * np.sqrt(2)
     diag_cut_index = np.argmin( np.abs(s - L_diag) )
     far_union_1 = T.subzone(support_half_edge,(diag_cut_index,1,1),
       (C.getNPts(profile_rev_sectors[0])+C.getNPts(profile_rev_sectors[1])-1,1,1))
+    FirstCell = W.segment(profile_rev_sectors[1])
+    LastCell = W.segment(profile_rev_sectors[1],-1)
     far_union_1 = W.discretize(far_union_1,N=C.getNPts(profile_rev_sectors[1]),
-                                                 Distribution=Distribution_edge)
+        Distribution=dict(kind='tanhTwoSides',
+                          FirstCellHeight=FirstCell,LastCellHeight=LastCell))
     far_union_1[0] = 'far_union_1'
 
     # azimutal
@@ -2947,7 +2830,6 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
                                     Distribution=Distribution_edge)
     far_bulb_union_1[0] = 'far_bulb_union_1'
     T._projectOrtho(far_bulb_union_1, support)
-
     front_tfi_0 = G.TFI([profile_rev_sectors[1],far_union_1,
                          far_bulb_union_0, H_azm_0])
     front_tfi_0[0]='front_tfi_0'
@@ -2971,7 +2853,9 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
         far_union_2 = T.subzone(reversed_support_half_edge,(diag_cut_index,1,1),
           (C.getNPts(profile_rev_sectors[-1])+C.getNPts(profile_rev_sectors[-2])-1,1,1))
         far_union_2 = W.discretize(far_union_2,N=C.getNPts(profile_rev_sectors[-2]),
-                                                     Distribution=Distribution_edge)
+            Distribution=dict(kind='tanhTwoSides',
+                LastCellHeight=W.segment(profile_rev_sectors[-2]),
+                FirstCellHeight=W.segment(profile_rev_sectors[-2],-1)))
         far_union_2[0] = 'far_union_2'
 
 
@@ -3008,7 +2892,17 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
                                         Distribution=Distribution_edge)
         far_rear_bulb_union_1[0] = 'far_rear_bulb_union_1'
         T._projectOrtho(far_rear_bulb_union_1, support)
+
         far_rear_bulb_union = T.join(far_rear_bulb_union_0,far_rear_bulb_union_1)
+
+
+        main_rear_tfi_0 = G.TFI([profile_rev_sectors[3], far_union_2,
+                                   H_azm_low_0,far_rear_bulb_union_0])
+        main_rear_tfi_1 = G.TFI([far_union_2,profile_rev_sectors_sideB[3],
+                               H_azm_low_1,far_rear_bulb_union_1])
+        main_rear_tfi = T.join(main_rear_tfi_0, main_rear_tfi_1)
+        main_rear_tfi[0] = 'main_rear_tfi'
+
     else:
         cut_i = np.sum([C.getNPts(profile_rev_sectors[i]) for i in range(4)])-3
         # in practice this should be replaced by 'imax' instead of using cut_i
@@ -3088,42 +2982,83 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
                        T.join(H_azm_low_0, H_azm_low_1),profile_rev_sectors[2]]
     I._rmNodesByType(TFI_H_group_bnd,'FlowSolution_t')
     TFI_H_group_bnd = W.reorderAndSortCurvesSequentially(TFI_H_group_bnd)
-    pairs = [[TFI_H_group_bnd[0],TFI_H_group_bnd[2]],
-             [TFI_H_group_bnd[1],TFI_H_group_bnd[3]]]
-    for c1, c2 in pairs:
-        sx1,sy1,sz1 = J.invokeFields(c1,['sx','sy','sz'])
-        sx2,sy2,sz2 = J.invokeFields(c2,['sx','sy','sz'])
-        x1,y1,z1 = J.getxyz(c1)
-        x2,y2,z2 = J.getxyz(c2)
-        sx1[:] = x2-x1
-        sy1[:] = y2-y1
-        sz1[:] = z2-z1
-        sx2[:] = -sx1
-        sy2[:] = -sy1
-        sz2[:] = -sz1
-        C._normalize(c1,['sx','sy','sz'])
-        C._normalize(c2,['sx','sy','sz'])
     proj_dir = np.cross(pseudo_blade, a)
     proj_dir = np.cross(a, proj_dir)
-    W.projectNormals(TFI_H_group_bnd, support, projection_direction=proj_dir)
+
+
+    portion_length = D.getLength(TFI_H_group_bnd[1]) * 0.75 # TODO parameter here or make it smart
+    focus = W.splitAt(TFI_H_group_bnd[0],[portion_length,
+                        D.getLength(TFI_H_group_bnd[0])-portion_length],'length')[1]
+    focus = W.discretize(focus,N=C.getNPts(TFI_H_group_bnd[0]))
+    T._translate(focus,tuple(0.5*(W.point(TFI_H_group_bnd[2],-1)-W.point(TFI_H_group_bnd[0]))))
+    T._projectOrtho(focus,support_central)
+
+    xf, yf, zf = J.getxyz( focus )
+    curve = TFI_H_group_bnd[0]
+    sx, sy, sz = J.invokeFields(curve,['sx','sy','sz'])
+    x, y, z = J.getxyz( curve )
+    sx[:] = xf - x
+    sy[:] = yf - y
+    sz[:] = zf - z
+
+    curve = TFI_H_group_bnd[1]
+    sx, sy, sz = J.invokeFields(curve,['sx','sy','sz'])
+    x, y, z = J.getxyz( curve )
+    sx[:] = xf[-1] - x
+    sy[:] = yf[-1] - y
+    sz[:] = zf[-1] - z
+
+    curve = TFI_H_group_bnd[2]
+    sx, sy, sz = J.invokeFields(curve,['sx','sy','sz'])
+    x, y, z = J.getxyz( curve )
+    sx[:] = xf[::-1] - x
+    sy[:] = yf[::-1] - y
+    sz[:] = zf[::-1] - z
+
+    curve = TFI_H_group_bnd[3]
+    sx, sy, sz = J.invokeFields(curve,['sx','sy','sz'])
+    x, y, z = J.getxyz( curve )
+    sx[:] = xf[0] - x
+    sy[:] = yf[0] - y
+    sz[:] = zf[0] - z
+
+
+    C._normalize(TFI_H_group_bnd,['sx','sy','sz'])
+    C._normalize(TFI_H_group_bnd,['sx','sy','sz'])
+    W.projectNormals(TFI_H_group_bnd, support_central, projection_direction=proj_dir)
+
+
 
     print('fill farfield H with bezier...')
     topo_cell = W.meanSegmentLength(TFI_H_group_topo)
+    i = 0
     TFI2_bnd_blends = []
     for c1, c2 in zip(TFI_H_group_topo,TFI_H_group_bnd):
+        i+=1
         TFI2_bnd_blend = W.fillWithBezier(c1, c2, H_grid_interior_points,
-                        tension1=normal_tension*central_width, tension2=0., # TODO parameter ?
+                        tension1=normal_tension*central_width, tension2=0.15, # TODO parameter ?
                         tension1_is_absolute=True,
+                        tension2_is_absolute=False,
                         length1 = topo_cell, length2=cell_height,
-                        support=support, projection_direction=proj_dir)
-        TFI2_bnd_blend[0] = c1[0]+'.blend'
+                        support=support_central,
+                        projection_direction=proj_dir
+                        )
+        TFI2_bnd_blend[0] = 'bl.%d.blend'%i
         TFI2_bnd_blends += [ TFI2_bnd_blend ]
     print('fill farfield H with bezier... ok')
 
     print('smoothing farfield H...')
-    T._smooth(TFI2_bnd_blends,eps=0.5,niter=200,type=0,projConstraints=[support],
-        fixedConstraints=TFI_H_group_topo+TFI_H_group_bnd)
+    fixedZones = TFI_H_group_topo+TFI_H_group_bnd
+    fixedZones.extend( [ GSD.getBoundary(z,'imin',1) for z in TFI2_bnd_blends ] )
+    fixedZones.extend( [ GSD.getBoundary(z,'imin',2) for z in TFI2_bnd_blends ] )
+    GSD.prepareGlue(TFI2_bnd_blends,fixedZones)
+    for i in range( 5 ):
+        T._smooth(TFI2_bnd_blends,eps=0.8,niter=200,type=2,
+            fixedConstraints=fixedZones)
+        T._projectRay(TFI2_bnd_blends,support_central, [0,0,0])
+    GSD.applyGlue(TFI2_bnd_blends,fixedZones)
     print('smoothing farfield H... ok')
+
 
     profile_rev_sectors = W.reorderAndSortCurvesSequentially(profile_rev_sectors)
     for p in profile+profile_rev_sectors: W.addNormals(p)
@@ -3146,7 +3081,7 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
             sz[-1] = -a[2]
 
 
-    join_cell_length = W.distance(W.point(profile[0]),W.point(profile[0],1))
+    join_cell_length = W.segment(profile[0])
     union_curves = []
     i = -1
     for c1, c2 in zip(profile,profile_rev_sectors):
@@ -3221,16 +3156,6 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
     TFI2_spinner_rear_lowedge = GSD.getBoundary(TFI2_spinner_rear,'jmax')
     TFI2_spinner_rear_lowedge[0] = 'TFI2_spinner_rear_lowedge'
 
-
-    # # strategy A
-    # rear_near_low_0=GSD.getBoundary(TFI2_spinners[2],'jmin')
-    # rear_near_low_0[0] = 'rear_near_low_0'
-    # rear_near_low_1=GSD.getBoundary(TFI2_spinners[3],'jmin')
-    # rear_near_low_1[0] = 'rear_near_low_1'
-    # rear_near_low = T.join(rear_near_low_0,rear_near_low_1)
-    # rear_near_low[0] = 'rear_near_low'
-
-    # strategy B
     rear_near_low = GSD.getBoundary(TFI2_spinner_rear,'jmin')
     rear_near_low[0] = 'rear_near_low'
     rear_near_low_0,rear_near_low_1=T.splitNParts(rear_near_low,2,dirs=[1])
@@ -3272,6 +3197,12 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
             curve_H_far_sideA = GSD.getBoundary(tfi2_H_sideA,'jmin')
             curve_H_far_sideA[0] = 'curve_H_far_sideA'
             break
+    try:
+        FOUR = len(curve_H_far_sideA)
+    except:
+        C.convertPyTree2File(TFI2_bnd_blends+[profile_rev_sectors[2]],'debug.cgns')
+        raise ValueError('could not retrieve curve_H_far_sideA')
+
     for s in sector_bnds:
         if W.isSubzone(profile[2],s):
             tfi2_H_sideA_spinner = s
@@ -3340,9 +3271,10 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
     tfi_H4 = G.TFI([curve_H_near_rear, curve_H_far_rear, c1,c2])
     tfi_H4[0] = 'tfi_H4'
 
-    main_rear_tfi = G.TFI([profile_rev_sectors[3],profile_rev_sectors_sideB[3],
-                           H_azm_low,far_rear_bulb_union])
-    main_rear_tfi[0] = 'main_rear_tfi'
+    if not HAS_REAR_BULB:
+        main_rear_tfi = G.TFI([profile_rev_sectors[3],profile_rev_sectors_sideB[3],
+                               H_azm_low,far_rear_bulb_union])
+        main_rear_tfi[0] = 'main_rear_tfi'
 
     c1, c2 = W.getConnectingCurves(TFI2_spinner_rear_lowedge, candidates_to_connect)
     tfi_rear_top = G.TFI([TFI2_spinner_rear_lowedge, H_azm_low, c1,c2])
