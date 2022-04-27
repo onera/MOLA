@@ -237,6 +237,10 @@ def extractSurfaces(t, Extractions):
             * ``normal`` : :py:class:`list` of 3 :py:class:`float` (contextual)
                 Normal vector employed for slicing if ``type`` = ``Plane``
 
+            * ``family`` : :py:class:`list` of 3 :py:class:`float` (contextual)
+                Name of a zone Family. The extraction is performed only in zones
+                with this ``FamilyName``.
+
     Returns
     -------
 
@@ -273,19 +277,29 @@ def extractSurfaces(t, Extractions):
     for Extraction in Extractions:
         TypeOfExtraction = Extraction['type']
         ExtractionInfo = copy.deepcopy(Extraction)
+        if 'family' in Extraction:
+            Tree4Extraction = I.copyTree(PartialTree)
+            for base in I.getBases(Tree4Extraction):
+                I._rmNodesByType1(base, 'Zone_t')
+                basePartialTree = I.getNodeFromName1(PartialTree, I.getName(base))
+                zones2keep = C.getFamilyZones(basePartialTree, Extraction['family'])
+                for zone in zones2keep:
+                    I._addChild(base, zone)
+        else:
+            Tree4Extraction = PartialTree
 
         if TypeOfExtraction.startswith('AllBC'):
             BCFilterName = TypeOfExtraction.replace('AllBC','')
             for BCFamilyName in DictBCNames2Type:
                 BCType = DictBCNames2Type[BCFamilyName]
                 if BCFilterName.lower() in BCType.lower():
-                    zones = C.extractBCOfName(PartialTree,'FamilySpecified:'+BCFamilyName, extrapFlow=False)
+                    zones = C.extractBCOfName(Tree4Extraction,'FamilySpecified:'+BCFamilyName, extrapFlow=False)
                     ExtractionInfo['type'] = 'BC'
                     ExtractionInfo['BCType'] = BCType
                     addBase2SurfacesTree(BCFamilyName)
 
         elif TypeOfExtraction.startswith('BC'):
-            zones = C.extractBCOfType(PartialTree, TypeOfExtraction, extrapFlow=False)
+            zones = C.extractBCOfType(Tree4Extraction, TypeOfExtraction, extrapFlow=False)
             try: basename = Extraction['name']
             except KeyError: basename = TypeOfExtraction
             ExtractionInfo['type'] = 'BC'
@@ -293,7 +307,7 @@ def extractSurfaces(t, Extractions):
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction.startswith('FamilySpecified:'):
-            zones = C.extractBCOfName(PartialTree, TypeOfExtraction, extrapFlow=False)
+            zones = C.extractBCOfName(Tree4Extraction, TypeOfExtraction, extrapFlow=False)
             try: basename = Extraction['name']
             except KeyError: basename = TypeOfExtraction.replace('FamilySpecified:','')
             ExtractionInfo['type'] = 'BC'
@@ -301,7 +315,9 @@ def extractSurfaces(t, Extractions):
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction == 'IsoSurface':
-            zones = P.isoSurfMC(PartialTree, Extraction['field'], Extraction['value'])
+            if Extraction['field'] in ['Radius', 'radius', 'CoordinateR']:
+                C._initVars(Tree4Extraction, '{}=({{CoordinateY}}**2+{{CoordinateZ}}**2)**0.5'.format(Extraction['field']))
+            zones = P.isoSurfMC(Tree4Extraction, Extraction['field'], Extraction['value'])
             try: basename = Extraction['name']
             except KeyError:
                 FieldName = Extraction['field'].replace('Coordinate','').replace('Radius', 'R').replace('ChannelHeight', 'H')
@@ -315,8 +331,8 @@ def extractSurfaces(t, Extractions):
                 x='{CoordinateX}',y='{CoordinateY}',z='{CoordinateZ}',
                 r=Extraction['radius'], x0=center[0],
                 y0=center[1], z0=center[2])
-            C._initVars(PartialTree,'Slice=%s'%Eqn)
-            zones = P.isoSurfMC(PartialTree, 'Slice', 0.0)
+            C._initVars(Tree4Extraction,'Slice=%s'%Eqn)
+            zones = P.isoSurfMC(Tree4Extraction, 'Slice', 0.0)
             try: basename = Extraction['name']
             except KeyError: basename = 'Sphere_%g'%Extraction['radius']
             addBase2SurfacesTree(basename)
@@ -325,8 +341,8 @@ def extractSurfaces(t, Extractions):
             n = np.array(Extraction['normal'])
             Pt = np.array(Extraction['point'])
             PlaneCoefs = n[0],n[1],n[2],-n.dot(Pt)
-            C._initVars(PartialTree,'Slice=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
-            zones = P.isoSurfMC(PartialTree, 'Slice', 0.0)
+            C._initVars(Tree4Extraction,'Slice=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
+            zones = P.isoSurfMC(Tree4Extraction, 'Slice', 0.0)
             try: basename = Extraction['name']
             except KeyError: basename = 'Plane'
             addBase2SurfacesTree(basename)
@@ -669,11 +685,15 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[], tagWithIte
     #        POST.absolute2Relative (in co -proccessing only)
     def massflowWeightedIntegral(t, var):
         t = C.initVars(t, 'rou_var={MomentumX}*{%s}'%(var))
-        integ  = abs(P.integNorm(t, 'rou_var')[0][0])
+        C._initVars(t, 'rov_var={MomentumY}*{%s}'%(var))
+        C._initVars(t, 'row_var={MomentumZ}*{%s}'%(var))
+        integ  = abs(P.integNorm(t, 'rou_var')[0][0]) \
+               + abs(P.integNorm(t, 'rov_var')[0][1]) \
+               + abs(P.integNorm(t, 'row_var')[0][2])
         return integ
 
     def surfaceWeightedIntegral(t, var):
-        integ  = abs(P.integNorm(t, var)[0][0])
+        integ  = P.integ(t, var)[0]
         return integ
 
     for row, rowParams in setup.TurboConfiguration['Rows'].items():
@@ -835,7 +855,9 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
     else:
         C._initVars(surface, 'ones=1')
         data['Area']     = abs(P.integNorm(surface, var='ones')[0][0])
-        data['MassFlow'] = abs(P.integNorm(surface, var='MomentumX')[0][0])
+        data['MassFlow'] = abs(P.integNorm(surface, var='MomentumX')[0][0]) \
+                         + abs(P.integNorm(surface, var='MomentumY')[0][1]) \
+                         + abs(P.integNorm(surface, var='MomentumZ')[0][2])
         try:
             for varList, meanFunction in VarAndMeanList:
                 for var in varList:
@@ -1436,7 +1458,7 @@ def sliddingRSD(array, window, avg=None, std=None):
     if std is None:
         std = sliddingSTD(array, window, avg)
 
-    rsd = std / avg
+    rsd = std / np.abs(avg)
 
     InvalidValues = np.logical_not(np.isfinite(rsd))
     rsd[InvalidValues] = 0.

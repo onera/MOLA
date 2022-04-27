@@ -3603,6 +3603,7 @@ def initializeFlowSolutionFromFileByInterpolation(t, ReferenceValues, sourceFile
     I._rmNodesByNameAndType(sourceTree, '*EndOfRun*', 'FlowSolution_t')
     P._extractMesh(sourceTree, t, mode='accurate', extrapOrder=0)
     if container != 'FlowSolution#Init':
+        I._rmNodesByName(t, 'FlowSolution#Init')
         I.renameNode(t, container, 'FlowSolution#Init')
     I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
 
