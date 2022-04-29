@@ -257,7 +257,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                                  AllSetupDics['elsAkeysModel'],
                                  AllSetupDics['elsAkeysNumerics']])
 
-    addExchangeSurfaces(t, AllSetupDics['ReferenceValues']['CoprocessOptions']['CoupledSurfaces'], couplingScript='CouplingScript.py')
+    addExchangeSurfaces(t, AllSetupDics['ReferenceValues']['CoprocessOptions']['CoupledSurfaces'])
     renameElementsNodesInElsAHybrid(t)
 
     PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
@@ -270,7 +270,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             Splitter + J.ENDC))
 
 
-def addExchangeSurfaces(t, coupledSurfaces, couplingScript='CouplingScript.py'):
+def addExchangeSurfaces(t, coupledSurfaces, couplingScript='coprocess.py'):
     '''
     Modify in-place **t** to prepare surfaces coupled with CWIPI.
 
@@ -307,6 +307,7 @@ def addExchangeSurfaces(t, coupledSurfaces, couplingScript='CouplingScript.py'):
             I.createChild(BC, 'SurfaceName', 'AdditionalFamilyName_t', value=surfaceName)
 
         Family = I.getNodeFromName1(base, famBCTrigger)
+        # This Trigger node is mandatory for pyC2, even the zone is already tagged with a trigger node
         J.set(Family, '.Solver#Trigger', next_iteration=1, next_state=19, file=couplingScript)
 
 
@@ -441,13 +442,12 @@ def initializeCWIPIConnections(t, Distribution, CouplingSurfaces, tol=0.01):
     fwk.trace('init elsA connection')
 
     pyC2Connections = dict()
-    i = 0
     for surface, CouplingSurface in CouplingSurfaces.items():
         if CouplingSurface['ExchangeSurface']:
             if not 'tolerance' in CouplingSurface:
                 CouplingSurface['tolerance'] = tol
             pyC2Connections[surface] = C2.Connection(fwk,
-                                            'raccord{}'.format(i),
+                                            surface,
                                             'Zebulon',
                                             t,
                                             CouplingSurface['ParentBase'],
@@ -458,18 +458,18 @@ def initializeCWIPIConnections(t, Distribution, CouplingSurfaces, tol=0.01):
                                             tolerance=CouplingSurface['tolerance'],
                                             debug=1
                                             )
-            i += 1
+
     fwk.trace('end init elsA connection')
     return fwk, pyC2Connections
 
-def rampFunction(x1, x2, y1, y2):
+def rampFunction(iteri, iterf, vali, valf):
     '''
-    Create a ramp function, going from **y1** to **y2** between **x1** to **x2**.
+    Create a ramp function, going from **vali** to **valf** between **iteri** to **iterf**.
 
     Parameters
     ----------
 
-        x1, x2, y1, y2 : float
+        iteri, iterf, vali, valf : float
 
     Returns
     -------
@@ -479,16 +479,17 @@ def rampFunction(x1, x2, y1, y2):
 
             >> f(x)
     '''
-    slope = (y2-y1) / (x2-x1)
-    if y1 == y2:
-        f = lambda x: y1*np.ones(np.shape(x))
-    elif y1 < y2:
-        f = lambda x: np.maximum(y1, np.minimum(y2, slope*(x-x1)+y1))
+    iteri, iterf, vali, valf
+    slope = (valf-vali) / (iterf-iteri)
+    if vali == valf:
+        f = lambda x: vali*np.ones(np.shape(x))
+    elif vali < valf:
+        f = lambda x: np.maximum(vali, np.minimum(valf, slope*(x-iteri)+vali))
     else:
-        f = lambda x: np.minimum(y1, np.maximum(y2, slope*(x-x1)+y1))
+        f = lambda x: np.minimum(vali, np.maximum(valf, slope*(x-iteri)+vali))
     return f
 
-def computeOptimalAlpha(FluidData, dt, problem='DR'):
+def computeOptimalAlpha(FluidData, dt, problem='DirichletRobin'):
     '''
     Compute the optimal value of the coupling coefficient alpha.
 
@@ -516,9 +517,9 @@ def computeOptimalAlpha(FluidData, dt, problem='DR'):
             Timestep between 2 coupling exchanges (CWIPI calls)
 
         problem : str
-            Type of problem to solve. Default value is 'DR', corresponding to
-            a Dirichlet condition on the fluid side, and a Robin condition on
-            the solid side.
+            Type of problem to solve. Default value is 'DirichletRobin',
+            corresponding to a Dirichlet condition on the fluid side,
+            and a Robin condition on the solid side.
 
     Returns
     -------
@@ -527,7 +528,7 @@ def computeOptimalAlpha(FluidData, dt, problem='DR'):
             Optimal coupling coefficient in Robin condition
     '''
 
-    if problem == 'DR':
+    if problem == 'DirichletRobin':
         alphaopt = computeOptimalAlphaDirichletRobin(FluidData, dt)
     else:
         raise ValueError('method is unknown')
@@ -564,7 +565,6 @@ def computeOptimalAlphaDirichletRobin(FluidData, dt):
         alphaopt : float
             Optimal coupling coefficient in Robin condition
     '''
-
     Kf        = 2. * FluidData['thrm_cndy_lam'] / FluidData['hpar']
     FluidDiffusivity = FluidData['thrm_cndy_lam'] / FluidData['Density'] / FluidData['cp']
     Df        = FluidDiffusivity * dt / (FluidData['hpar']**2)
@@ -639,38 +639,3 @@ def computeLocalTimestep(FluidData, setup, CFL=None):
     dt_fluid = np.minimum(dt_diff, dt_conv)
 
     return dt_fluid
-
-
-def getNumberOfNodesInBC(BCNode):
-    '''
-    Get the number of nodes on a BC patch. Works for structured and
-    unstructured meshes.
-
-    Parameters
-    ----------
-
-        BCNode : PyTree
-            Node of type ``'BC_t'``
-
-    Results
-    -------
-
-        size : int
-            Number of nodes on **BCNode**
-    '''
-    BCIndexNode = I.getNodeFromType(BCNode, 'IndexArray_t') # May be PointRange if structured or PointList if unstructured
-    dim = I.getValue(BCIndexNode)
-    if I.getName(BCIndexNode) == 'PointRange':
-        # Structured zone
-        i = dim[0][1] - dim[0][0]
-        j = dim[1][1] - dim[1][0]
-        k = dim[2][1] - dim[2][0]
-        if i == 0: size = (j+1)*(k+1)
-        if j == 0: size = (i+1)*(k+1)
-        if k == 0: size = (i+1)*(j+1)
-    elif I.getName(BCIndexNode) == 'PointList':
-        # Unstructured zone
-        size = dim.size
-    else:
-        raise ValueError
-    return size

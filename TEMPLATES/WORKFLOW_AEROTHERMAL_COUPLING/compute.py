@@ -70,8 +70,6 @@ from elsA.CGNS import core
 # ----------------- DECLARE ADDITIONAL GLOBAL VARIABLES ----------------- #
 try: Splitter = setup.Splitter
 except: Splitter = None
-try: BodyForceInputData = setup.BodyForceInputData
-except: BodyForceInputData = None
 
 ################################################################################
 # GET GLOBAL AND LOCAL MPI COMMUNICATORS
@@ -85,8 +83,8 @@ LocalNProcs = CommElsA.Get_size()
 
 CO.comm = CommElsA
 CO.elsAxdt = elsAxdt
-CO.invokeCoprocessLogFile()
 CO.Cmpi.setCommunicator(CO.comm)
+CO.invokeCoprocessLogFile()
 arrays = CO.invokeArrays()
 
 niter    = setup.elsAkeysNumerics['niter']
@@ -96,7 +94,6 @@ itmax    = inititer+niter-1 # BEWARE last iteration accessible trigger-state-16
 ################################################################################
 # READ THE MESH
 ################################################################################
-
 if Splitter == 'PyPart':
     t, Skeleton, PyPartBase, Distribution = CO.splitWithPyPart()
     CO.PyPartBase = PyPartBase
@@ -110,14 +107,8 @@ if Splitter == 'PyPart':
     I._renameNode(t, 'InternalElts', 'InternalQuads')
     I._renameNode(t, 'ExternalElts', 'ExternalQuads')
 
-    for i, famBCTrigger in enumerate(setup.ReferenceValues['CoprocessOptions']['CoupledSurfaces']):
-        surfaceName = 'ExchangeSurface{}'.format(i)
-        for BC in C.getFamilyBCs(t, famBCTrigger):
-            I.createChild(BC, 'SurfaceName', 'AdditionalFamilyName_t', value=surfaceName)
-
 else:
-    t = C.convertFile2PyTree('main.cgns')
-    Distribution = {'Base/fluid': 0}
+    t = Cmpi.convertFile2PyTree('main.cgns')
     Skeleton = CO.loadSkeleton()
 
 ################################################################################
@@ -125,11 +116,6 @@ else:
 ################################################################################
 
 CouplingSurfaces = WAT.locateCouplingSurfaces(t)
-
-CommElsA.Barrier()
-print('>> {}: {}'.format(LocalRank, CouplingSurfaces))
-CommElsA.Barrier()
-
 fwk, pyC2Connections = WAT.initializeCWIPIConnections(t, Distribution, CouplingSurfaces)
 
 ################################################################################
@@ -138,8 +124,7 @@ fwk, pyC2Connections = WAT.initializeCWIPIConnections(t, Distribution, CouplingS
 
 # elsA interface initialized with Cwipicommunicator
 __e = core.elsA()
-# __e.initialize(sys.argv, fwk.local_communicator, pyC2Connections[surface].located)
-__e.initialize(sys.argv, CommElsA) #, pyC2Connections[0].located)
+__e.initialize(sys.argv, CommElsA)
 __e.distribution = Distribution # distribution on local communicator
 __e.parse([t, [], []])
 __e.compute()
@@ -161,8 +146,8 @@ CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
 
 elsAxdt.free("xdt-runtime-tree")
 elsAxdt.free("xdt-output-tree")
-fwk.trace('leave elsA')
-del fwk
+# fwk.trace('leave elsA')
+# del fwk
 
 CO.moveTemporaryFile(os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
 
