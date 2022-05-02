@@ -76,24 +76,26 @@ if ENTER_COUPLING:
     if SAVE_FIELDS:
         CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
 
-    if SAVE_ARRAYS:
-        arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,
-                  Extractions=setup.Extractions, addMemoryUsage=True)
-        CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))
-
     if SAVE_SURFACES:
         surfs = CO.extractSurfaces(t, setup.Extractions)
         CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
-        CO.monitorTurboPerformance(surfs, arrays, RequestedStatistics)
+        arraysTree = CO.monitorTurboPerformance(surfs, arrays, RequestedStatistics)
+        SAVE_ARRAYS = True
 
         if (it-inititer)>ItersMinEvenIfConverged and not CONVERGED:
             CONVERGED = CO.isConverged(ConvergenceCriteria)
 
     if CWIPY_COUPLING:
-        CWIPIdata = CO.cwipiCoupling(Skeleton, pyC2Connections)
-        arraysTree = CO.appendCWIPIDict2Arrays(arrays, CWIPIdata, RequestedStatistics)
-        CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT, FILE_ARRAYS))
+        toWithUpdatedBC, CWIPIdata = WAT.cwipiCoupling(t, pyC2Connections, setup, it)
+        arraysTree = WAT.appendCWIPIDict2Arrays(arrays, CWIPIdata, it, RequestedStatistics)
+        SAVE_ARRAYS = True
+        CO.printCo('updating BCs in elsA...', proc=0)
+        elsAxdt.xdt(elsAxdt.PYTHON,(elsAxdt.RUNTIME_TREE, toWithUpdatedBC, 1))
 
+    if SAVE_ARRAYS:
+        arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,
+                  Extractions=setup.Extractions, addMemoryUsage=True)
+        CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))
 
     if CONVERGED or it >= itmax or ReachedTimeOutMargin:
         if ReachedTimeOutMargin:

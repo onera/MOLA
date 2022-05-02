@@ -155,6 +155,12 @@ def extractArrays(t, arrays, RequestedStatistics=[], Extractions=[],
 
         addResiduals : bool
             if :py:obj:`True`, add the residuals information
+
+    Returns
+    -------
+
+        arraysTree : PyTree
+            PyTree equivalent of the input :py:class:`dict` **arrays**
     '''
 
     if addResiduals: extractResiduals(t, arrays)
@@ -674,6 +680,12 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[], tagWithIte
             See documentation of function :py:func:`extractIntegralData` for
             more details.
 
+    Returns
+    -------
+
+        arraysTree : PyTree
+            PyTree equivalent of the :py:class:`dict` ``arrays``
+
     '''
     # FIXME: Segmentation fault bug when this function is used after
     #        POST.absolute2Relative (in co -proccessing only)
@@ -739,7 +751,7 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[], tagWithIte
             _extendArraysWithStatistics(arrays, 'PERFOS_{}'.format(row), RequestedStatistics)
 
     arraysTree = arraysDict2PyTree(arrays)
-    save(arraysTree, os.path.join(DIRECTORY_OUTPUT, FILE_ARRAYS), tagWithIteration=tagWithIteration)
+    return arraysTree
 
 def computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=1., fluxcoeffOut=None):
 
@@ -2304,165 +2316,3 @@ def moveLogFiles():
             shutil.move(fn, os.path.join('LOGS', fn))
 
     Cmpi.barrier()
-
-
-def cwipiCoupling(Skeleton, pyC2Connections):
-    '''
-    Perform the CWIPI coupling with Zset to update coupled boundary conditions.
-
-    .. important::
-        For the moment, the problem is solved with a Dirichlet-Robin set-up.
-
-    Parameters
-    ----------
-
-        Skeleton : PyTree
-            Skeleton tree as obtained from :py:func:`Converter.Mpi.convertFile2SkeletonTree`
-
-        pyC2Connections : dict
-            dictionary with all the CWIPI Connection objects. Each key
-            is the name of a coupling surface. As returned by
-            :py:func:`MOLA.WorkflowAerothermalCoupling.initializeCWIPIConnections`
-
-    returns
-    -------
-
-        CWIPIdata : dict
-            Data exchanged with CWIPI. The structure of this :py:class:`dict` is
-            the following:
-
-            >>> CWIPIdata[COM][CoupledSurface][VariableName] = np.array
-
-            where 'COM' is ``SEND`` or ``RECV``, 'CoupledSurface' is the
-            family name of the coupled BC surface, and 'VariableName' is the
-            name of the exchanged quantity.
-
-    '''
-    from . import WorkflowAerothermalCoupling as WAT
-
-    SentVariables     = ['NormalHeatFlux', 'Temperature']
-    ReceivedVariables = ['Temperature']
-    VariablesForAlpha = ['Density', 'thrm_cndy_lam', 'hpar', 'ViscosityMolecular', 'Viscosity_EddyMolecularRatio']
-    AllNeededVariables = SentVariables + VariablesForAlpha
-
-    stepForCwipiCommunication = setup.ReferenceValues['CoprocessOptions']['UpdateCWIPICouplingFrequency']
-    if 'timestep' in setup.elsAkeysNumerics:
-        timestep = setup.elsAkeysNumerics['timestep']
-        dtCoupling = timestep * stepForCwipiCommunication
-    MultiplicativeRampForAlpha = setup.ReferenceValues['CoprocessOptions'].get('MultiplicativeRampForAlpha', None)
-
-    CWIPIdata = dict(SEND={}, RECV={})
-    for CPLsurf in pyC2Connections:
-        CWIPIdata['SEND'][CPLsurf] = dict()
-        CWIPIdata['RECV'][CPLsurf] = dict()
-
-    outputTree  = elsAxdt.get(elsAxdt.OUTPUT_TREE)
-    elsAxdt.free(elsAxdt.OUTPUT_TREE)
-    outputTree = I.merge([outputTree, Skeleton])
-
-    for CPLsurf, cplConnection in pyC2Connections.items():
-        printCo('CWIPI coupling on {}'.format(CPLsurf), 0, color=MAGE)
-        #___________________________________________________________________________
-        # Get all needed data at coupled BCs
-        #___________________________________________________________________________
-        BCnodes = C.getFamilyBCs(outputTree, CPLsurf)
-        if len(BCnodes) == 0:
-            continue
-        elif len(BCnodes) > 1:
-            raise Exception('Could be only one coupled BC per Family on each processor')
-        else:
-            BCnode = BCnodes[0]
-
-        BCDataSet = dict()
-        for var in AllNeededVariables:
-            varNode = I.getNodeFromName(BCnode, var)
-            if varNode:
-                BCDataSet[var] = I.getValue(varNode).flatten()
-
-        #___________________________________________________________________________
-        # SEND DATA
-        #___________________________________________________________________________
-        for var in SentVariables:
-            CWIPIdata['SEND'][CPLsurf][var] = BCDataSet[var]
-            print('Sending {}...'.format(var))
-            print('shape {}'.format(BCDataSet[var].shape))
-            cplConnection.publish(CWIPIdata['SEND'][CPLsurf][var], iteration=CurrentIteration, stride=1, tag=100)
-            print("Send {} with mean value = {}".format(var, np.mean(CWIPIdata['SEND'][CPLsurf][var])))
-
-        #___________________________________________________________________________
-        # Compute alpha_opt
-        #___________________________________________________________________________
-        BCDataSet['cp'] = setup.FluidProperties['cp']
-
-        if 'timestep' not in setup.elsAkeysNumerics:
-            localTimestep = WAT.computeLocalTimestep(BCDataSet, setup)
-            dtCoupling = localTimestep * stepForCwipiCommunication
-
-        alphaOpt = WAT.computeOptimalAlpha(BCDataSet, dtCoupling)
-        if MultiplicativeRampForAlpha:
-            alphaOpt *= WAT.rampFunction(**MultiplicativeRampForAlpha)(CurrentIteration)
-        CWIPIdata['SEND'][CPLsurf]['alpha'] = alphaOpt
-        print('Sending {}...'.format('alpha'))
-        cplConnection.publish(alphaOpt, iteration=CurrentIteration, stride=1, tag=100)
-        print("Send {} with mean value = {}".format('alpha', np.mean(alphaOpt)))
-    #___________________________________________________________________________
-    # RECEIVE DATA
-    #___________________________________________________________________________
-    for CPLsurf, cplConnection in pyC2Connections.items():
-        print('Receiving...')
-        remote_data = cplConnection.retrieve(iteration=CurrentIteration, stride=len(ReceivedVariables), tag=100)
-        i1 = 0
-        dataLength = remote_data.size / len(ReceivedVariables)
-        for var in ReceivedVariables:
-            CWIPIdata['RECV'][CPLsurf][var] = remote_data[i1:i1+dataLength]
-            print("Receive {} with mean value = {}".format(var, np.mean(CWIPIdata['RECV'][CPLsurf][var])))
-            i1 += dataLength
-
-    #___________________________________________________________________________
-    # UPDATE BCs IN ELSA TREE
-    #___________________________________________________________________________
-    for CPLsurf, cplConnection in pyC2Connections.items():
-        BCnodes = C.getFamilyBCs(outputTree, CPLsurf)
-        if len(BCnodes) == 0:
-            continue
-        elif len(BCnodes) > 1:
-            raise Exception('Could be only one coupled BC per Family on each processor')
-        else:
-            BCnode = BCnodes[0]
-            for var in ReceivedVariables:
-                varNode = I.getNodeFromName(BCnode, var)
-                if varNode:
-                    newDataOnBC = CWIPIdata['RECV'][CPLsurf][var].reshape(I.getValue(varNode).shape)
-                    I.setValue(varNode, newDataOnBC)
-
-    #___________________________________________________________________________
-    # UPDATE RUNTIME TREE
-    #___________________________________________________________________________
-    I._rmNodesByType(outputTree, 'FlowSolution_t')
-    Cmpi.barrier()
-    printCo('updating BCs in elsA...', proc=0)
-    elsAxdt.xdt(elsAxdt.PYTHON,(elsAxdt.RUNTIME_TREE, outputTree, 1))
-
-    return CWIPIdata
-
-def appendCWIPIDict2Arrays(arrays, CWIPIdata, RequestedStatistics=[]):
-    for CPLsurf in CWIPIdata['SEND']:
-        SENDdata2Arrays = dict(
-            IterationNumber = CurrentIteration, #-1,  # Because extraction before current iteration (next_state=16)
-            TemperatureMax  = np.amax(CWIPIdata['SEND'][CPLsurf]['Temperature']),
-            HeatFluxAbsMax  = np.amax(np.abs(CWIPIdata['SEND'][CPLsurf]['NormalHeatFlux'])),
-            AlphaMin        = np.amin(CWIPIdata['SEND'][CPLsurf]['alpha'])
-        )
-        RECVdata2Arrays = dict(
-            IterationNumber = CurrentIteration, #-1,  # Because extraction before current iteration (next_state=16)
-            TemperatureMax  = np.amax(CWIPIdata['RECV'][CPLsurf]['Temperature']),
-        )
-
-        appendDict2Arrays(arrays, SENDdata2Arrays, 'SEND_{}'.format(CPLsurf))
-        appendDict2Arrays(arrays, RECVdata2Arrays, 'RECV_{}'.format(CPLsurf))
-
-        _extendArraysWithStatistics(arrays, 'SEND_{}'.format(CPLsurf), RequestedStatistics)
-        _extendArraysWithStatistics(arrays, 'RECV_{}'.format(CPLsurf), RequestedStatistics)
-
-    arraysTree = arraysDict2PyTree(arrays)
-    return arraysTree

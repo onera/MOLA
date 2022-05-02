@@ -462,6 +462,11 @@ def initializeCWIPIConnections(t, Distribution, CouplingSurfaces, tol=0.01):
     fwk.trace('end init elsA connection')
     return fwk, pyC2Connections
 
+
+################################################################################
+# Functions for coprocess (coupling with CWIPI)
+################################################################################
+
 def rampFunction(iteri, iterf, vali, valf):
     '''
     Create a ramp function, going from **vali** to **valf** between **iteri** to **iterf**.
@@ -639,3 +644,164 @@ def computeLocalTimestep(FluidData, setup, CFL=None):
     dt_fluid = np.minimum(dt_diff, dt_conv)
 
     return dt_fluid
+
+def cwipiCoupling(to, pyC2Connections, setup, CurrentIteration):
+    '''
+    Perform the CWIPI coupling with Zset to update coupled boundary conditions.
+
+    .. important::
+        For the moment, the problem is solved with a Dirichlet-Robin set-up.
+
+    Parameters
+    ----------
+
+        to : PyTree
+            Coupling tree as obtained from :py:func:`adaptEndOfRun`
+
+        pyC2Connections : dict
+            dictionary with all the CWIPI Connection objects. Each key
+            is the name of a coupling surface. As returned by
+            :py:func:`MOLA.WorkflowAerothermalCoupling.initializeCWIPIConnections`
+
+        setup : module
+            Python module object as obtained from command
+
+            >>> import setup
+
+        CurrentIteration : int
+            Current iteration in the simulation
+
+    returns
+    -------
+
+        CWIPIdata : dict
+            Data exchanged with CWIPI. The structure of this :py:class:`dict` is
+            the following:
+
+            >>> CWIPIdata[COM][CoupledSurface][VariableName] = np.array
+
+            where 'COM' is ``SEND`` or ``RECV``, 'CoupledSurface' is the
+            family name of the coupled BC surface, and 'VariableName' is the
+            name of the exchanged quantity.
+
+    '''
+    import Coprocess as CO
+
+    SentVariables     = ['NormalHeatFlux', 'Temperature']
+    ReceivedVariables = ['Temperature']
+    VariablesForAlpha = ['Density', 'thrm_cndy_lam', 'hpar', 'ViscosityMolecular', 'Viscosity_EddyMolecularRatio']
+    AllNeededVariables = SentVariables + VariablesForAlpha
+
+    stepForCwipiCommunication = setup.ReferenceValues['CoprocessOptions']['UpdateCWIPICouplingFrequency']
+    if 'timestep' in setup.elsAkeysNumerics:
+        timestep = setup.elsAkeysNumerics['timestep']
+        dtCoupling = timestep * stepForCwipiCommunication
+    MultiplicativeRampForAlpha = setup.ReferenceValues['CoprocessOptions'].get('MultiplicativeRampForAlpha', None)
+
+    CWIPIdata = dict(SEND={}, RECV={})
+    for CPLsurf in pyC2Connections:
+        CWIPIdata['SEND'][CPLsurf] = dict()
+        CWIPIdata['RECV'][CPLsurf] = dict()
+
+    for CPLsurf, cplConnection in pyC2Connections.items():
+        CO.printCo('CWIPI coupling on {}'.format(CPLsurf), 0, color=CO.MAGE)
+        #___________________________________________________________________________
+        # Get all needed data at coupled BCs
+        #___________________________________________________________________________
+        BCnodes = C.getFamilyBCs(to, CPLsurf)
+        if len(BCnodes) == 0:
+            continue
+        elif len(BCnodes) > 1:
+            raise Exception('Could be only one coupled BC per Family on each processor')
+        else:
+            BCnode = BCnodes[0]
+
+        BCDataSet = dict()
+        for var in AllNeededVariables:
+            varNode = I.getNodeFromName(BCnode, var)
+            if varNode:
+                BCDataSet[var] = I.getValue(varNode).flatten()
+
+        #___________________________________________________________________________
+        # SEND DATA
+        #___________________________________________________________________________
+        for var in SentVariables:
+            CWIPIdata['SEND'][CPLsurf][var] = BCDataSet[var]
+            print('Sending {}...'.format(var))
+            print('shape {}'.format(BCDataSet[var].shape))
+            cplConnection.publish(CWIPIdata['SEND'][CPLsurf][var], iteration=CurrentIteration, stride=1, tag=100)
+            print("Send {} with mean value = {}".format(var, np.mean(CWIPIdata['SEND'][CPLsurf][var])))
+
+        #___________________________________________________________________________
+        # Compute alpha_opt
+        #___________________________________________________________________________
+        BCDataSet['cp'] = setup.FluidProperties['cp']
+
+        if 'timestep' not in setup.elsAkeysNumerics:
+            localTimestep = computeLocalTimestep(BCDataSet, setup)
+            dtCoupling = localTimestep * stepForCwipiCommunication
+
+        alphaOpt = computeOptimalAlpha(BCDataSet, dtCoupling)
+        if MultiplicativeRampForAlpha:
+            alphaOpt *= rampFunction(**MultiplicativeRampForAlpha)(CurrentIteration)
+        CWIPIdata['SEND'][CPLsurf]['alpha'] = alphaOpt
+        print('Sending {}...'.format('alpha'))
+        cplConnection.publish(alphaOpt, iteration=CurrentIteration, stride=1, tag=100)
+        print("Send {} with mean value = {}".format('alpha', np.mean(alphaOpt)))
+    #___________________________________________________________________________
+    # RECEIVE DATA
+    #___________________________________________________________________________
+    for CPLsurf, cplConnection in pyC2Connections.items():
+        print('Receiving...')
+        remote_data = cplConnection.retrieve(iteration=CurrentIteration, stride=len(ReceivedVariables), tag=100)
+        i1 = 0
+        dataLength = remote_data.size / len(ReceivedVariables)
+        for var in ReceivedVariables:
+            CWIPIdata['RECV'][CPLsurf][var] = remote_data[i1:i1+dataLength]
+            print("Receive {} with mean value = {}".format(var, np.mean(CWIPIdata['RECV'][CPLsurf][var])))
+            i1 += dataLength
+
+    #___________________________________________________________________________
+    # UPDATE BCs IN ELSA TREE
+    #___________________________________________________________________________
+    for CPLsurf, cplConnection in pyC2Connections.items():
+        BCnode = C.getFamilyBCs(to, CPLsurf)[0] # The test of the lenght of the
+                                                # list (=1) has already been done
+                                                # before in this function
+        for var in ReceivedVariables:
+            varNode = I.getNodeFromName(BCnode, var)
+            if varNode:
+                newDataOnBC = CWIPIdata['RECV'][CPLsurf][var].reshape(I.getValue(varNode).shape)
+                I.setValue(varNode, newDataOnBC)
+
+    #___________________________________________________________________________
+    # UPDATE RUNTIME TREE
+    #___________________________________________________________________________
+    I._rmNodesByType(to, 'FlowSolution_t')
+    CO.Cmpi.barrier()
+
+    return to, CWIPIdata
+
+def appendCWIPIDict2Arrays(arrays, CWIPIdata, CurrentIteration, RequestedStatistics=[]):
+    import Coprocess as CO
+
+    for CPLsurf in CWIPIdata['SEND']:
+        SENDdata2Arrays = dict(
+            IterationNumber = CurrentIteration, #-1,  # Because extraction before current iteration (next_state=16)
+            TemperatureMax  = np.amax(CWIPIdata['SEND'][CPLsurf]['Temperature']),
+            HeatFluxAbsMax  = np.amax(np.abs(CWIPIdata['SEND'][CPLsurf]['NormalHeatFlux'])),
+            AlphaMin        = np.amin(CWIPIdata['SEND'][CPLsurf]['alpha'])
+        )
+        RECVdata2Arrays = dict(
+            IterationNumber = CurrentIteration, #-1,  # Because extraction before current iteration (next_state=16)
+            TemperatureMax  = np.amax(CWIPIdata['RECV'][CPLsurf]['Temperature']),
+        )
+
+        CO.appendDict2Arrays(arrays, SENDdata2Arrays, 'SEND_{}'.format(CPLsurf))
+        CO.appendDict2Arrays(arrays, RECVdata2Arrays, 'RECV_{}'.format(CPLsurf))
+
+        CO._extendArraysWithStatistics(arrays, 'SEND_{}'.format(CPLsurf), RequestedStatistics)
+        CO._extendArraysWithStatistics(arrays, 'RECV_{}'.format(CPLsurf), RequestedStatistics)
+
+    arraysTree = CO.arraysDict2PyTree(arrays)
+    return arraysTree
