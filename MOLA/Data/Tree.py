@@ -4,7 +4,7 @@ Implements class **Tree**, which inherits from :py:class:`Node`
 21/12/2021 - L. Bernardos - first creation
 '''
 
-import numpy as np
+from .Core import np, RED,GREEN,WARN,PINK,CYAN,ENDC,CGM
 from .Node import Node
 from .Base import Base
 from .Zone import Zone
@@ -18,7 +18,8 @@ class Tree(Node):
             self.addChildren( input.children() )
         else:
             super().__init__(Name='CGNSTree',Type='CGNSTree_t')
-            self.merge( input[2] )
+            if input:
+                self.merge( input[2] )
 
         if not self.get('CGNSLibraryVersion', Depth=1):
             ver=Node(Name='CGNSLibraryVersion',
@@ -79,10 +80,19 @@ class Tree(Node):
                 zone.setName(newName)
 
 
-    def merge(self, *elements):
-        if isinstance(elements[0],str):
-            if isinstance(elements[3], str) and len(elements)==4:
-                elements = [Node(elements)]
+    def merge(self, elements):
+
+        if not isinstance(elements, list):
+            AttributeError(RED+'elements must be a list or a Node'+ENDC)
+
+        if isinstance(elements, Node):
+            elements = [ elements ]
+        else:
+            try:
+                if isinstance(elements[3], str):
+                    elements = [ Node(elements) ]
+            except IndexError:
+                pass
 
         for t in elements:
             if isinstance(t, Tree):
@@ -99,8 +109,70 @@ class Tree(Node):
             elif isinstance(t, Node):
                 self.addChild(t, override_brother_by_name=False)
             elif isinstance(t, list):
-                self.merge( *t )
+                self.merge( t )
 
         self.findAndRemoveNodes(Name='CGNSLibraryVersion.*', Depth=1)
         self.setUniqueBaseNames()
         self.setUniqueZoneNames()
+
+
+    def newFields(self, FieldNames, Container='FlowSolution',
+                  GridLocation='auto', dtype=np.float, return_type='dict',
+                  ravel=False):
+
+        arrays = []
+        zoneNames = []
+        for zone in self.zones():
+            zoneNames.append( zone.name() )
+            arrays.append( zone.newFields(FieldNames, Container=Container, 
+                GridLocation=GridLocation,dtype=dtype, return_type=return_type,
+                ravel=False))
+
+        if return_type == 'list':
+            return arrays 
+        else:
+            v = dict()
+            for name, array in zip(zoneNames, arrays):
+                v[ name ] = array
+            return v
+
+    def getFields(self, FieldNames, Container='FlowSolution',
+                  BehaviorIfNotFound='create', dtype=np.float, return_type='dict',
+                  ravel=False):
+
+        arrays = []
+        zoneNames = []
+        for zone in self.zones():
+            zoneNames.append( zone.name() )
+            arrays.append( zone.newFields(FieldNames, Container=Container, 
+                BehaviorIfNotFound=BehaviorIfNotFound,dtype=dtype,
+                return_type=return_type,ravel=False))
+
+        if return_type == 'list':
+            return arrays 
+        else:
+            v = dict()
+            for name, array in zip(zoneNames, arrays):
+                v[ name ] = array
+            return v
+
+    def getAllFields(self,include_coordinates=True, return_type='dict',ravel=False):
+
+        arrays = []
+        zoneNames = []
+        for zone in self.zones():
+            zoneNames.append( zone.name() )
+            arrays.append( zone.getAllFields(
+                include_coordinates=include_coordinates,
+                return_type=return_type,ravel=ravel) )
+
+        if return_type == 'list':
+            return arrays 
+        else:
+            v = dict()
+            for name, array in zip(zoneNames, arrays):
+                v[ name ] = array
+            return v
+
+    def useEquation(self, *args, **kwargs):
+        for zone in self.zones(): zone.useEquation(*args, **kwargs)

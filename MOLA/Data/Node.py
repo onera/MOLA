@@ -7,14 +7,9 @@ Other classes inheriting from **Node** are: :py:class:`Tree`,
 21/12/2021 - L. Bernardos - first creation
 '''
 
-import sys
-MIN_PYTHON = (3,6,2)
-if sys.version_info < MIN_PYTHON:
-    raise SystemError("Python %s or later is required.\n"%'.'.join([str(i) for i in MIN_PYTHON]))
-import numpy as np
 from fnmatch import fnmatch
+from .Core import np, RED,GREEN,WARN,PINK,CYAN,ENDC,CGM
 
-import CGNS.MAP
 
 class Node(list):
     """docstring for Node."""
@@ -75,7 +70,7 @@ class Node(list):
         node_to_save = self if isinstance(self, Tree) else Tree( self )
         links = node_to_save.getLinks()
         if verbose: print('saving %s ...'%filename)
-        CGNS.MAP.save(filename, node_to_save, links=links)
+        CGM.save(filename, node_to_save, links=links)
         if verbose: print('saving %s ... ok'%filename)
 
 
@@ -137,8 +132,18 @@ class Node(list):
         if isinstance(value,np.ndarray):
             if not value.flags['F_CONTIGUOUS']:
                 print('WARNING: numpy array being set to node %s is not order="F"'%self.name())
-        elif isinstance(value,list) and isinstance(value[0],str):
-            value = np.array(' '.join(value),dtype='c',order='F').ravel()
+        elif isinstance(value,list) or isinstance(value,tuple):
+            if isinstance(value[0],str):
+                value = np.array(' '.join(value),dtype='c',order='F').ravel()
+            elif isinstance(value[0],float):
+                value = np.array(value,dtype=float,order='F')
+            elif isinstance(value[0],int):
+                value = np.array(value,dtype=int,order='F')
+            else:
+                MSG = ('could not make a numpy array from an object of type {} '
+                       'with first element of type {}').format(type(value),
+                                                               type(value[0]))
+                raise TypeError(RED+MSG+ENDC)
         elif isinstance(value, int):
             value = np.array([value],dtype=np.int,order='F')
         elif isinstance(value, float):
@@ -148,7 +153,8 @@ class Node(list):
         elif value is None:
             value = None
         else:
-            raise TypeError('type of value %s not recognized'%type(value))
+            MSG = 'type of value %s not recognized'%type(value)
+            raise TypeError(RED+MSG+ENDC)
 
         self[1] = value
 
@@ -464,10 +470,48 @@ class Node(list):
         self.setValue( updated_node.value() )
 
     def saveThisNodeOnly(self, filename ):
-        flags = CGNS.MAP.S2P_UPDATE
+        flags = CGM.S2P_UPDATE
         t = self.getTopParent()
         path = self.path().replace('CGNSTree','')
-        CGNS.MAP.save( filename, t, update={path:self}, flags=flags)
+        CGM.save( filename, t, update={path:self}, flags=flags)
+
+    def setParameters(self, ContainerName, ContainerType='UserDefinedData_t', 
+                      ParameterType='DataArray_t', **parameters):
+
+        Container = self.get( Name=ContainerName, Depth=1 )
+        if not Container:
+            Container = Node(Parent=self, Name=ContainerName, Type=ContainerType)
+        for parameterName in parameters:
+            parameterValue = parameters[parameterName]
+            if isinstance(parameterValue, dict):
+                Container.setParameters(parameterName,
+                    ContainerType=ContainerType,
+                    ParameterType=ParameterType,**parameterValue)
+            else:
+                paramNode = Container.get( Name=parameterName )
+                if paramNode:
+                    paramNode.setValue( parameterValue )
+                    paramNode.setType( ParameterType )
+                else:
+                    Node(Parent=Container,Name=parameterName,
+                         Value=parameterValue,Type=ParameterType)
+
+        return self.getParameters( ContainerName )
+
+    def getParameters(self, ContainerName):
+        Container = self.get( Name=ContainerName, Depth=1 )
+        Params = dict()
+        if Container is None:
+            raise ValueError('node %s not found in %s'%(ContainerName,self.path()))
+
+        for param in Container.children():
+            if param.children():
+                Params[param.name()] = Container.getParameters(param.name())
+            else:
+                Params[param.name()] = param.value()
+
+        return Params
+
 
 
 def _compareValue(node, Value):

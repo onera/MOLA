@@ -5,23 +5,12 @@ Please use the following convention when importing:
 
 .. code::
 
-    import MOLA.Data as D
+    import MOLA.Data as M
 
 21/12/2021 - L. Bernardos - first creation
 '''
 
-RED  = '\033[91m'
-GREEN = '\033[92m'
-WARN  = '\033[93m'
-PINK  = '\033[95m'
-CYAN  = '\033[96m'
-ENDC  = '\033[0m'
-
-try:
-    import CGNS.MAP
-    import CGNS.PAT.cgnsutils as CGU
-except:
-    raise ImportError(RED+'could not import CGNS.MAP, try installing it:\npip3 install --user h5py pycgns'+ENDC)
+from .Core import np,RED,GREEN,WARN,PINK,CYAN,ENDC,CGM 
 
 from .Node import Node
 from .Zone import Zone
@@ -30,7 +19,7 @@ from .Tree import Tree
 from . import Mesh
 
 def load(filename):
-    t, links, paths = CGNS.MAP.load(filename)
+    t, links, paths = CGM.load(filename)
     for p in paths:
         raise IOError('file %s : could not read node %s'%(filename,str(p)))
     t = Tree(t)
@@ -45,7 +34,7 @@ def readNode(filename, path):
         path_map = path.replace('CGNSTree','')
     else:
         path_map = path
-    t, l, p = CGNS.MAP.load( filename, subtree=path_map )
+    t, l, p = CGM.load( filename, subtree=path_map )
     t = Node(t)
     node = t.getAtPath( path )
     if node is None:
@@ -63,19 +52,53 @@ def save(data, *args, **kwargs):
 
     t.save(*args, **kwargs)
 
-def merge( data ):
-    if isinstance(data, dict):
-        t = Tree( **data )
+def merge(*data1, **data2 ):
+    if isinstance(data1, dict):
+        t1 = Tree( **data1 )
     else:
-        t = Tree( )
-        t.merge( *data )
+        t1 = Tree( )
+        t1.merge( data1 )
 
-    return t
+    if isinstance(data2, dict):
+        t2 = Tree( **data2 )
+    else:
+        t2 = Tree( )
+        t2.merge( data2 )
+
+    t1.merge(t2)
+
+    return t1
 
 def getZones( data ):
-    t = merge( *data )
+    t = merge( data ) # TODO avoid merge
     return t.zones()
 
 def getBases( data ):
-    t = merge( *data )
+    t = merge( data ) # TODO avoid merge
     return t.bases()
+
+def getStructure(t):
+    '''
+    Get a :py:class:`Tree` base structure (children of base nodes are empty)
+
+    Parameters
+    ----------
+
+        t : Tree
+            tree from which structure is to be extracted
+
+    Returns
+    -------
+        Structure : Tree
+            reference copy of **t**, with empty zones
+    '''
+    Structure = t.copy()
+    for zone in Structure.zones():
+        zone[2] = []
+    return Structure
+
+def useEquation(data, *args, **kwargs):
+    t = merge( data ) # TODO avoid merge
+    for zone in t.zones(): zone.useEquation(*args, **kwargs)
+
+    return t
