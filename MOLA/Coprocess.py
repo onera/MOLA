@@ -396,8 +396,9 @@ def extractIntegralData(to, arrays, Extractions=[],
     for IntegralDataNode in IntegralDataNodes:
         IntegralDataName = getIntegralDataName(IntegralDataNode)
         _appendIntegralDataNode2Arrays(arrays, IntegralDataNode)
-        _extendArraysWithProjectedLoads(arrays, IntegralDataName)
-        _normalizeMassFlowInArrays(arrays, IntegralDataName)
+        _extendArraysWithWorkflowQuantities(arrays, IntegralDataName)
+        _extendArraysWithProjectedLoads(arrays, IntegralDataName) # TODO replace in _extendArraysWithWorkflowQuantities
+        _normalizeMassFlowInArrays(arrays, IntegralDataName) # TODO replace in _extendArraysWithWorkflowQuantities
     for IntegralDataName in arrays:
         _extendArraysWithStatistics(arrays, IntegralDataName, RequestedStatistics)
     Cmpi.barrier()
@@ -476,24 +477,17 @@ def save(t, filename, tagWithIteration=False):
 
     UseMerge = False
     try:
-        Skeletons = comm.gather(Skeleton,root=0)
+        trees = comm.allgather( Skeleton )
+        trees.insert( 0, t )
+        tWithSkel = I.merge( trees )
+        renameTooLongZones(tWithSkel)
+        for l in 2,3: I._correctPyTree(tWithSkel,l) # unique base and zone names
     except SystemError:
         UseMerge = True
         printCo('Cmpi.KCOMM.gather FAILED. Using merge=True', color=J.WARN)
         UseMerge = comm.bcast(UseMerge,root=Cmpi.rank)
-
-    if not UseMerge:
-        if Cmpi.rank == 0:
-            trees = [s if s else I.newCGNSTree() for s in Skeletons]
-            trees.insert(0,t)
-            tWithSkel = I.merge(trees)
-        else:
-            tWithSkel = t
-        Cmpi.barrier()
-        renameTooLongZones(tWithSkel)
-        for l in 2,3: I._correctPyTree(tWithSkel,l) # unique base and zone names
-    else:
         tWithSkel = t
+
 
     Cmpi.barrier()
     if Cmpi.rank==0:
@@ -1294,6 +1288,15 @@ def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
     # Normalize forces and moments
     for Force in ('CL','CD','CY'):  arraysSubset[Force]  *= FluxCoef
     for Torque in ('Cn','Cl','Cm'): arraysSubset[Torque] *= TorqueCoef
+
+def _extendArraysWithWorkflowQuantities(arrays, IntegralDataName):
+    try: Workflow = setup.ReferenceValues['Workflow']
+    except KeyError: return
+
+    if Workflow == 'Propeller':
+        from . import WorkflowPropeller as WP
+        WP._extendArraysWithPropellerQuantities(arrays, IntegralDataName, setup)
+
 
 
 def _extendArraysWithStatistics(arrays, IntegralDataName, RequestedStatistics):
@@ -2362,15 +2365,6 @@ def cwipiCoupling(Skeleton, pyC2Connections):
         #___________________________________________________________________________
         # Get all needed data at coupled BCs
         #___________________________________________________________________________
-        # BCDataSet = dict(zip(AllNeededVariables, [[]]*len(AllNeededVariables)))
-        # for BCnode in C.getFamilyBCs(outputTree, CPLsurf):
-        #     for var in AllNeededVariables:
-        #         varNode = I.getNodeFromName(BCnode, var)
-        #         if varNode:
-        #             BCDataSet[var] = BCDataSet[var] + list(I.getValue(varNode).flatten())
-        # for var in AllNeededVariables:
-        #     BCDataSet[var] = np.array(BCDataSet[var])
-
         BCnodes = C.getFamilyBCs(outputTree, CPLsurf)
         if len(BCnodes) == 0:
             continue

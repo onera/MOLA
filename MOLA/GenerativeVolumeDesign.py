@@ -1719,16 +1719,18 @@ def _stackLayers(tExtru, AllLayersBases):
 
         if TypeZone == 'Structured':
             if Nj == Nk == 1:
-                StackedZones += [GSD.stackSections(ListOfZones2Stack)]
+                stacked = GSD.stackSections(ListOfZones2Stack)
             else:
-                StackedZones += [G.stack(ListOfZones2Stack,None)]
+                stacked = G.stack(ListOfZones2Stack,None)
 
         else:
             if DimZone==2:
-                StackedZones += [stackUnstructured(ListOfZones2Stack)]
+                stacked = stackUnstructured(ListOfZones2Stack)
             else:
                 ListOfZones2Stack = [C.convertBAR2Struct(z2stk) for z2stk in  ListOfZones2Stack]
-                StackedZones += [G.stack(ListOfZones2Stack,None)]
+                stacked = G.stack(ListOfZones2Stack,None)
+        stacked[0] = ListOfZones2Stack[0][0]
+        StackedZones += [stacked]
 
         # release memory
         [I.rmNode(tB, I.getNodesFromType1(l,'Zone_t')[0]) for l in AllBases]
@@ -2381,13 +2383,9 @@ def multiSections(ProvidedSections, SpineDiscretization,InterpolationData={'Inte
             raise AttributeError(ErrMsg)
     elif isinstance(SpineDiscretization, list): # It is a list
         if isinstance(SpineDiscretization[0], dict):
-            # try:
-                SpineCurve  = W.polyDiscretize(SpineCurve, SpineDiscretization)
-                s  = W.gets(SpineCurve)
-                Ns = len(s)
-            # except:
-            #     ErrMsg = 'multiSections(): SpineDiscretization argument is a list of dictionnaries.\nI thought each element was a Discretization Dictionnary compatible with W.polyDiscretize(), but it was not.\nCheck your SpineDiscretization argument.\n'
-            #     raise AttributeError(ErrMsg)
+            SpineCurve  = W.polyDiscretize(SpineCurve, SpineDiscretization)
+            s  = W.gets(SpineCurve)
+            Ns = len(s)
         else:
             try:
                 s = np.array(SpineDiscretization,dtype=np.float64)
@@ -2412,8 +2410,7 @@ def multiSections(ProvidedSections, SpineDiscretization,InterpolationData={'Inte
 
     NPtsI,NPtsJ = J.getx(ProvidedSections[0]).shape
 
-    # Sections = map(lambda s: G.cart((0,0,0),(1,1,1),(NPtsI,NPtsJ,1)),range(Ns)) # Invoke all sections
-    Sections = [G.cart((0,0,0),(1,1,1),(NPtsI,NPtsJ,1)) for s in range(Ns)] # Invoke all sections
+    Sections = [G.cart((0,0,0),(1,1,1),(NPtsI,NPtsJ,1)) for k in range(Ns)] # Invoke all sections
 
     NinterFoils = len(ProvidedSections)
     InterpXmatrix = np.zeros((NinterFoils,NPtsI,NPtsJ),dtype=np.float64,order='F')
