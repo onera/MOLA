@@ -2609,11 +2609,11 @@ def translateVariablesFromCGNS2Elsa(Variables):
         NewVariables = dict()
         for var, value in Variables.items():
             if var in elsAVariables:
-                NewVariables[var] = value
+                NewVariables[var] = float(value)
             elif var in CGNS2ElsaDict:
-                NewVariables[CGNS2ElsaDict[var]] = value
+                NewVariables[CGNS2ElsaDict[var]] = float(value)
             else:
-                NewVariables[var] = value
+                NewVariables[var] = float(value)
         return NewVariables
     elif isinstance(Variables, list):
         NewVariables = []
