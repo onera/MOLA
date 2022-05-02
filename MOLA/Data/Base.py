@@ -4,7 +4,7 @@ Implements class **Base**, which inherits from :py:class:`Node`
 21/12/2021 - L. Bernardos - first creation
 '''
 
-import numpy as np
+from .Core import np, RED,GREEN,WARN,PINK,CYAN,ENDC,CGM
 from .Node import Node
 from .Zone import Zone
 
@@ -39,3 +39,64 @@ class Base(Node):
 
     def setPhysicalDimension(self, PhysicalDimension):
         self.value()[0] = PhysicalDimension
+
+    def newFields(self, FieldNames, Container='FlowSolution',
+                  GridLocation='auto', dtype=np.float, return_type='dict',
+                  ravel=False):
+
+        arrays = []
+        zoneNames = []
+        for zone in self.zones():
+            zoneNames.append( zone.name() )
+            arrays.append( zone.newFields(FieldNames, Container=Container, 
+                GridLocation=GridLocation,dtype=dtype, return_type=return_type,
+                ravel=False))
+
+        if return_type == 'list':
+            return arrays 
+        else:
+            v = dict()
+            for name, array in zip(zoneNames, arrays):
+                v[ name ] = array
+            return v
+
+    def getFields(self, FieldNames, Container='FlowSolution',
+                  BehaviorIfNotFound='create', dtype=np.float, return_type='dict',
+                  ravel=False):
+
+        arrays = []
+        zoneNames = []
+        for zone in self.zones():
+            zoneNames.append( zone.name() )
+            arrays.append( zone.newFields(FieldNames, Container=Container, 
+                BehaviorIfNotFound=BehaviorIfNotFound,dtype=dtype,
+                return_type=return_type,ravel=False))
+
+        if return_type == 'list':
+            return arrays 
+        else:
+            v = dict()
+            for name, array in zip(zoneNames, arrays):
+                v[ name ] = array
+            return v
+
+    def getAllFields(self,include_coordinates=True, return_type='dict',ravel=False):
+
+        arrays = []
+        zoneNames = []
+        for zone in self.zones():
+            zoneNames.append( zone.name() )
+            arrays.append( zone.getAllFields(
+                include_coordinates=include_coordinates,
+                return_type=return_type,ravel=ravel) )
+
+        if return_type == 'list':
+            return arrays 
+        else:
+            v = dict()
+            for name, array in zip(zoneNames, arrays):
+                v[ name ] = array
+            return v
+
+    def useEquation(self, *args, **kwargs):
+        for zone in self.zones(): zone.useEquation(*args, **kwargs)
