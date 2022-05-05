@@ -274,12 +274,6 @@ def extractSurfaces(t, Extractions):
     SurfacesTree = I.newCGNSTree()
     PartialTree = Cmpi.convert2PartialTree(t)
 
-    # See Anomaly 8784 https://elsa.onera.fr/issues/8784
-    for BCDataSetNode in I.getNodesFromType(PartialTree, 'BCDataSet_t'):
-        for node in I.getNodesFromType(BCDataSetNode, 'DataArray_t'):
-            if I.getValue(node) is None:
-                I.rmNode(BCDataSetNode, node)
-
     for Extraction in Extractions:
         TypeOfExtraction = Extraction['type']
         ExtractionInfo = copy.deepcopy(Extraction)
