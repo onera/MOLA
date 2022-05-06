@@ -453,9 +453,6 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
     for f in fieldsCorrVars: f *= CorrFactor
 
-    integAxial = P.integ(Stacked, 'fa')[0] # useless ?
-
-
     # # Compute actual BodyForce Power
     # CAVEAT ! not working for volume mesh
     # integMoment = P.integMoment(Stacked,center=(0,0,0),vector=['fx','fy','fz'])
@@ -3452,35 +3449,6 @@ def addPerturbationFields(t, PerturbationFields=None):
 
         I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
 
-        # I._adaptZoneNamesForSlash(tPert)
-        # I._correctPyTree(tPert, level=10) # force CGNS names
-        # I._correctPyTree(tPert, level=2) # force unique name
-        # I._correctPyTree(tPert, level=7) # create familyNames
-        # C.convertPyTree2File(tPert,'donorKO_rank%02d.cgns'%rank)
-        # Cmpi.barrier()
-        # from .Coprocess import save
-        # save(tPert,'donor.cgns')
-        # Cmpi.barrier()
-        # save(tAux,'receiver.cgns')
-        # Cmpi.barrier()
-        # I.printTree(tPert,file='donorKO_rank%d_py%d.txt'%(rank,sys.version_info[0]))
-        # Cmpi.barrier()
-        # tPert = Cmpi.convertFile2SkeletonTree('donor.cgns')
-        # tPert = Cmpi.readZones(tPert, 'donor.cgns', rank=rank)
-        # Cmpi.barrier()
-        # for z in I.getZones(tPert):
-        #     proc = I.getValue(I.getNodeFromName(z,'proc'))
-        #     if rank != proc:
-        #         I._rmNodesByName(z,'FlowSolution#Centers')
-        # Cmpi.barrier()
-        # I.printTree(tPert,file='donorOK_rank%d_py%d.txt'%(rank,sys.version_info[0]))
-        # Cmpi.barrier()
-        # exit()
-        # # C.convertPyTree2File(tPert,'donorAfterSaveAndLoad_rank%d.cgns'%rank)
-        # # tAux = Cmpi.convertFile2SkeletonTree('receiver.cgns')
-        # # tAux = Cmpi.readZones(tAux, 'receiver.cgns', rank=rank)
-
-
         Cmpi.barrier()
         # need to make try/except (see Cassiopee #7754)
         try: tAux = Pmpi.extractMesh(tPert, tAux, constraint=0.)
@@ -3488,7 +3456,7 @@ def addPerturbationFields(t, PerturbationFields=None):
         Cmpi.barrier()
 
 
-        if not tAux: return
+        if not tAux: return # BEWARE cannot use barriers from this point
 
         AuxiliarDisc = I.getZones(tAux)[0]
         C._initVars(AuxiliarDisc,'VelocityInducedX={MomentumX}')

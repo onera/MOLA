@@ -172,7 +172,7 @@ class Node(list):
 
     def addChild(self, child, override_brother_by_name=True,
                  position='last'):
-        brothersNames = [c[0] for c in self[2]]
+        brothersNames = [ c[0] for c in self[2] ]
         childname = child[0]
 
         if childname in brothersNames:
@@ -188,14 +188,18 @@ class Node(list):
 
         if child[3] == 'Zone_t':
             from .Zone import Zone
-            child = Zone(child, Parent = self, position=position)
+            childTmp = Zone( child )
+            if childTmp.isStructured() and childTmp.dim() == 1:
+                from .Mesh.Curves import Curve
+                child = Curve( child, Parent=self, position=position )
+            else:
+                child = Zone( child, Parent=self, position=position )
 
         elif child[3] == 'CGNSBase_t':
             from .Base import Base
-            child = Base(child, Parent = self, position=position)
-
+            child = Base( child, Parent=self, position=position )
         else:
-            child = Node(child, Parent = self, position=position)
+            child = Node( child, Parent=self, position=position )
 
         child.Parent = self
         child.Path = self.Path+'/'+child.name()
@@ -255,17 +259,12 @@ class Node(list):
 
     def get(self, Name=None, Value=None, Type=None, Depth=100):
         if Depth < 1: return
-        try:
-            if not Type.endswith('_t'):
-                Type += '_t'
-        except:
-            pass
+        if Type is not None and not Type.endswith('_t'): Type += '_t'
         for child in self.children():
             NameMatch = fnmatch(child.name(), Name) if Name is not None else True
             TypeMatch = fnmatch(child.type(), Type) if Type is not None else True
             ValueMatch = _compareValue(child, Value) if Value is not None else True
-
-            if all([NameMatch, ValueMatch, TypeMatch]):
+            if NameMatch == ValueMatch == TypeMatch == True:
                 found_node = child
             else:
                 found_node = child.get(Name, Value, Type, Depth-1)
@@ -284,11 +283,7 @@ class Node(list):
             child._group(Name,Value,Type,Depth-1,Found)
 
     def group(self, Name=None, Value=None, Type=None, Depth=100):
-        try:
-            if not Type.endswith('_t'):
-                Type += '_t'
-        except:
-            pass
+        if Type is not None and not Type.endswith('_t'): Type += '_t'
         Found = []
         self._group(Name, Value, Type, Depth, Found)
         return Found
@@ -328,7 +323,11 @@ class Node(list):
             else:
                 if child[3] == 'Zone_t':
                     from .Zone import Zone
-                    children[i] = Zone(child, Parent = self)
+                    child = Zone(child)
+                    if child.isStructured() and child.dim() == 1:
+                        from .Mesh.Curves import Curve
+                        child = Curve(child)
+                    children[i] = child
 
                 elif child[3] == 'CGNSBase_t':
                     from .Base import Base
@@ -381,15 +380,13 @@ class Node(list):
         for n in nodes: n.remove()
 
     def copy(self, deep=False):
-        node = self._copy(deep, None)
-        return Node(node)
-
-    def _copy(self, deep, parent):
         ValueIsNumpy = isinstance(self[1], np.ndarray)
         ValueCopy = self[1].copy(order='K') if deep and ValueIsNumpy else self[1]
-        CopiedNode = [self[0], ValueCopy, [], self[3]]
-        if parent is not None: parent[2].append(CopiedNode)
-        for child in self[2]: child._copy(deep, CopiedNode)
+        CopiedNode = self.__class__()
+        CopiedNode.setName( self[0] )
+        CopiedNode.setValue( ValueCopy )
+        CopiedNode.setType( self[3] )
+        for child in self[2]: CopiedNode.addChild( child.copy(deep) )
 
         return CopiedNode
 
@@ -475,7 +472,7 @@ class Node(list):
         path = self.path().replace('CGNSTree','')
         CGM.save( filename, t, update={path:self}, flags=flags)
 
-    def setParameters(self, ContainerName, ContainerType='UserDefinedData_t', 
+    def setParameters(self, ContainerName, ContainerType='UserDefinedData_t',
                       ParameterType='DataArray_t', **parameters):
 
         Container = self.get( Name=ContainerName, Depth=1 )
@@ -511,6 +508,11 @@ class Node(list):
                 Params[param.name()] = param.value()
 
         return Params
+
+    def childOfName(self, Name):
+        for n in self.children():
+            if n.name() == Name:
+                return n
 
 
 

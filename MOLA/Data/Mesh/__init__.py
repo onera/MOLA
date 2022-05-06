@@ -6,3 +6,4 @@ Main subpackage for mesh operations
 
 from .Curves.Point import Point
 from .Curves.Line import Line
+from .Curves import Curve

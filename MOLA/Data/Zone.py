@@ -48,14 +48,13 @@ class Zone(Node):
         return np.prod(self.value(), axis=0)[1]
 
     def newFields(self, FieldNames, Container='FlowSolution',
-                  GridLocation='auto', dtype=np.float, return_type='list',
+                  GridLocation='guess', dtype=np.float, return_type='list',
                   ravel=False):
 
-        if GridLocation == 'auto':
-            try: GridLocation = AutoGridLocation[ Container ]
-            except KeyError: GridLocation = 'Vertex'
+        if GridLocation == 'guess':
+            GridLocation = AutoGridLocation[ Container ]
 
-        FlowSolution = self.get(Container)
+        FlowSolution = self.get(Container,Depth=1)
         if not FlowSolution:
             FlowSolution = Node(Parent=self, Name=Container, Type='FlowSolution_t',
                 Children=[Node(Name='GridLocation', Type='GridLocation_t',
@@ -70,8 +69,8 @@ class Zone(Node):
 
         if isinstance(FieldNames,str): FieldNames = [ FieldNames ]
 
-        shape = self.value()
         arrays = []
+        shape = self.value()
         if GridLocation == 'Vertex':
             for name in FieldNames:
                 array = np.zeros(shape[:,0], dtype=dtype, order='F')
@@ -96,15 +95,16 @@ class Zone(Node):
                 v[key] = array
             return v
         else:
-            AttributeError('return_type=%s not supported'%return_type)            
+            AttributeError('return_type=%s not supported'%return_type)
 
-    def getFields(self, FieldNames, Container='FlowSolution',
+    def fields(self, FieldNames, Container='FlowSolution',
              BehaviorIfNotFound='create', dtype=np.float, return_type='list',
              ravel=False):
         if isinstance(FieldNames,str): FieldNames = [ FieldNames ]
 
-        FlowSolution = self.get(Name=Container)
-        if not FlowSolution:
+        FlowSolution = self.childOfName( Container )
+
+        if FlowSolution is None:
             if BehaviorIfNotFound == 'raise':
                 raise ValueError('container %s not found in %s'%(Container,self.name()))
             elif BehaviorIfNotFound == 'create':
@@ -117,9 +117,8 @@ class Zone(Node):
 
         arrays = []
         for FieldName in FieldNames:
-            try:
-                array = FlowSolution.get( Name=FieldName ).value(ravel=ravel)
-            except:
+            FieldNode = FlowSolution.childOfName( FieldName )
+            if FieldNode is None:
                 if BehaviorIfNotFound == 'create':
                     array = self.newFields(FieldName,Container=Container,
                                            dtype=dtype, ravel=ravel)
@@ -128,7 +127,11 @@ class Zone(Node):
                 elif BehaviorIfNotFound == 'pass':
                     array = None
 
+            else:
+                array = FieldNode.value(ravel)
+
             arrays += [ array ]
+
 
         if return_type == 'list':
             if len(arrays) == 1: return array
@@ -141,51 +144,67 @@ class Zone(Node):
         else:
             AttributeError('return_type=%s not supported'%return_type)
 
-    def getXYZ(self, Container='GridCoordinates', return_type='list',ravel=False):
-        return self.getFields(['CoordinateX','CoordinateY','CoordinateZ'],
-                                Container=Container, BehaviorIfNotFound='raise',
-                                ravel=ravel)
+    def field(self, FieldName, **kwargs):
+        if not isinstance(FieldName, str):
+            raise AttributeError('FieldName must be of %s'%type(''))
+        return self.fields( [FieldName], **kwargs )
 
-    def getXY(self, Container='GridCoordinates', return_type='list',ravel=False):
-        return self.getFields(['CoordinateX','CoordinateY'],
-                                Container=Container, BehaviorIfNotFound='raise',
-                                ravel=ravel)
+    def xyz(self, Container='GridCoordinates', return_type='list',ravel=False):
+        GC = self.get(Name='GridCoordinates', Depth=1)
+        x = GC.get( Name='CoordinateX', Depth=1).value(ravel)
+        y = GC.get( Name='CoordinateY', Depth=1).value(ravel)
+        z = GC.get( Name='CoordinateZ', Depth=1).value(ravel)
+        if return_type == 'list': return [x, y, z]
+        else: return dict(CoordinateX=x, CoordinateY=y, CoordinateZ=z)
 
-    def getXZ(self, Container='GridCoordinates', return_type='list',ravel=False):
-        return self.getFields(['CoordinateX','CoordinateZ'],
-                                Container=Container, BehaviorIfNotFound='raise',
-                                ravel=ravel)
+    def xy(self, Container='GridCoordinates', return_type='list',ravel=False):
+        GC = self.get(Name='GridCoordinates', Depth=1)
+        x = GC.get( Name='CoordinateX', Depth=1).value(ravel)
+        y = GC.get( Name='CoordinateY', Depth=1).value(ravel)
+        if return_type == 'list': return [x, y]
+        else: return dict(CoordinateX=x, CoordinateY=y)
 
-    def getYZ(self, Container='GridCoordinates', return_type='list',ravel=False):
-        return self.getFields(['CoordinateY','CoordinateZ'],
-                                Container=Container, BehaviorIfNotFound='raise',
-                                ravel=ravel)
+    def xz(self, Container='GridCoordinates', return_type='list',ravel=False):
+        GC = self.get(Name='GridCoordinates', Depth=1)
+        x = GC.get( Name='CoordinateX', Depth=1).value(ravel)
+        z = GC.get( Name='CoordinateZ', Depth=1).value(ravel)
+        if return_type == 'list': return [x, z]
+        else: return dict(CoordinateX=x, CoordinateZ=z)
 
-    def getX(self, Container='GridCoordinates', return_type='list',ravel=False):
-        return self.getFields('CoordinateX',
-                                Container=Container, BehaviorIfNotFound='raise',
-                                ravel=ravel)
+    def yz(self, Container='GridCoordinates', return_type='list',ravel=False):
+        GC = self.get(Name='GridCoordinates', Depth=1)
+        y = GC.get( Name='CoordinateY', Depth=1).value(ravel)
+        z = GC.get( Name='CoordinateZ', Depth=1).value(ravel)
+        if return_type == 'list': return [y, z]
+        else: return dict(CoordinateY=y, CoordinateZ=z)
 
-    def getY(self, Container='GridCoordinates', return_type='list',ravel=False):
-        return self.getFields('CoordinateY',
-                                Container=Container, BehaviorIfNotFound='raise',
-                                ravel=ravel)
+    def x(self, Container='GridCoordinates', return_type='list',ravel=False):
+        GC = self.get(Name='GridCoordinates', Depth=1)
+        x = GC.get( Name='CoordinateX', Depth=1).value(ravel)
+        if return_type == 'list': return x
+        else: return dict(CoordinateX=x)
 
-    def getZ(self, Container='GridCoordinates', return_type='list',ravel=False):
-        return self.getFields('CoordinateZ',
-                                Container=Container, BehaviorIfNotFound='raise',
-                                ravel=ravel)
+    def y(self, Container='GridCoordinates', return_type='list',ravel=False):
+        GC = self.get(Name='GridCoordinates', Depth=1)
+        y = GC.get( Name='CoordinateY', Depth=1).value(ravel)
+        if return_type == 'list': return y
+        else: return dict(CoordinateY=y)
 
-    def getAllFields(self, include_coordinates=True, return_type='dict',
-                           ravel=False):
+    def z(self, Container='GridCoordinates', return_type='list',ravel=False):
+        GC = self.get(Name='GridCoordinates', Depth=1)
+        z = GC.get( Name='CoordinateZ', Depth=1).value(ravel)
+        if return_type == 'list': return z
+        else: return dict(CoordinateZ=z)
 
-        arrays = self.getXYZ(ravel=ravel)
+    def allFields(self,include_coordinates=True,return_type='dict',ravel=False):
+
+        arrays = self.xyz(ravel=ravel)
         FieldsNames = ['CoordinateX','CoordinateY','CoordinateZ']
         for FlowSolution in self.group(Type='FlowSolution_t',Depth=1):
             for child in FlowSolution.children():
                 if child.type() != 'DataArray_t': continue
                 FieldsNames += [ FlowSolution.name()+'/'+child.name() ]
-                arrays += [ child.value(ravel=ravel) ]        
+                arrays += [ child.value(ravel=ravel) ]
 
         if return_type == 'dict':
             v = dict()
@@ -217,15 +236,15 @@ class Zone(Node):
         RegExpr = "\{[^}]*\}"
         eqnVarsWithDelimiters = re.findall( RegExpr, equation )
         adaptedEqnVars = []
-        
-        v = self.getAllFields(ravel=ravel)
+
+        v = self.allFields(ravel=ravel)
 
         adaptedEqnVars, AllContainers = [], []
         for i, eqnVarWithDelimiters in enumerate(eqnVarsWithDelimiters):
             eqnVar = eqnVarWithDelimiters[1:-1]
             if eqnVar in ['CoordinateX','CoordinateY','CoordinateZ']:
                 AllContainers.append( 'GridCoordinates' )
-                adaptedEqnVars.append( "v['%s']"%eqnVar)       
+                adaptedEqnVars.append( "v['%s']"%eqnVar)
 
             elif len(eqnVar) == 1 and eqnVar.lower() in ['x','y','z']:
                 AllContainers.append( 'GridCoordinates' )
@@ -243,23 +262,21 @@ class Zone(Node):
                 eqnContainerAndName = eqnContainer+'/'+eqnVarName
                 if eqnContainerAndName not in v:
                     if i ==0:
-                        field = self.getFields(eqnVarName, Container=eqnContainer,
+                        field = self.fields(eqnVarName, Container=eqnContainer,
                                     ravel=ravel, return_type='list')
                     else:
                         raise ValueError('unexpected')
 
                     v[eqnContainerAndName] = field
-                AllContainers.append( eqnContainer )                
+                AllContainers.append( eqnContainer )
                 adaptedEqnVars.append( "v['%s']"%eqnContainerAndName )
         FirstMemberLocation = self.inferLocation(AllContainers[0])
         SecondMemberLocations = [self.inferLocation(c) for c in AllContainers[1:]]
+        mixedLocations = False
         for i, SecondMemberLocation in enumerate(SecondMemberLocations):
             if FirstMemberLocation != SecondMemberLocation:
-                MSG = ('not implemented mix of locations {} and {}'
-                       ' required by {} and {}').format(FirstMemberLocation,
-                         SecondMemberLocation,eqnVarsWithDelimiters[0],
-                         eqnVarsWithDelimiters[i+1])
-                raise ValueError(RED+MSG+ENDC)
+                mixedLocations = True
+                break
 
 
         adaptedEqnVars[0] += '[:]'
@@ -268,5 +285,13 @@ class Zone(Node):
         for keyword, adapted in zip(eqnVarsWithDelimiters, adaptedEqnVars):
             adaptedEquation = adaptedEquation.replace(keyword, adapted)
 
-        exec(adaptedEquation,globals(),{'v':v,'np':np})
+        try:
+            exec(adaptedEquation,globals(),{'v':v,'np':np})
+        except BaseException as e:
+            print(RED+'ERROR : could not apply equation:\n'+adaptedEquation+ENDC)
+            if mixedLocations:
+                print(RED+'This may be due to mixing values located in both Vertex and CellCenter'+ENDC)
+            raise e
 
+    def hasFields(self):
+        return bool( self.get( Type='FlowSolution_t', Depth=1 ) )

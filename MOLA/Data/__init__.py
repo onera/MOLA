@@ -10,13 +10,14 @@ Please use the following convention when importing:
 21/12/2021 - L. Bernardos - first creation
 '''
 
-from .Core import np,RED,GREEN,WARN,PINK,CYAN,ENDC,CGM 
+from .Core import np,RED,GREEN,WARN,PINK,CYAN,ENDC,CGM, toc
 
 from .Node import Node
 from .Zone import Zone
 from .Base import Base
 from .Tree import Tree
 from . import Mesh
+from .LiftingLine import LiftingLine
 
 def load(filename):
     t, links, paths = CGM.load(filename)
