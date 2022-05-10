@@ -396,7 +396,7 @@ def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
     # Initialisation des vecteurs du calcul:
     q = np.zeros((nq,1))
     Fextproj = np.zeros((nq,1))
-    #Fnlproj_IC = np.zeros((nq,1))
+    Fnlproj = np.zeros((nq,1))
 
     # Initialisation des vecteurs de sauvegarde:
     q_Save   = np.zeros((nq,)) 
