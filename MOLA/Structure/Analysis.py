@@ -27,12 +27,14 @@ from . import ShortCuts as SJ
 from . import ModalAnalysis   as MA
 from . import NonlinearForcesModels as NFM
 
+
 FAIL  = '\033[91m'
 GREEN = '\033[92m' 
 WARN  = '\033[93m'
 MAGE  = '\033[95m'
 CYAN  = '\033[96m'
 ENDC  = '\033[0m'
+
 
 #### AERODYNAMICS:
 def Macro_BEMT(t, PolarsInterpFuns, RPM):
@@ -63,10 +65,9 @@ def Macro_BEMT(t, PolarsInterpFuns, RPM):
     print(WARN + '3D BEMT computation COMPLETED'+ENDC)
 
     I._addChild(t, LiftingLine)
+ 
 
-    return ResultsDict, t
-
-
+    return ResultsDict, t 
 
 def ComputeExternalForce(t):
 
@@ -293,7 +294,7 @@ def StaticSolver_Newton_Raphson(t, RPM, ForceCoeff):
     except:
         Aij, Bijm = 0, 0 
 
-        print(WARN + 'Warning!! Aij and Bijm not readed!'+ENDC)
+        print(WARN + 'Warning!! Aij and Bijm not read!'+ENDC)
 
     Kproj = SJ.getMatrixFromCGNS(t, 'Komeg', RPM)
     
@@ -377,7 +378,7 @@ def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
     
     # Get the needed variables from the cgns tree:
 
-    V = SJ.GetReducedBaseFromCGNS(t, RPM)  # Base de reduction PHI
+    V = SJ.GetReducedBaseFromCGNS(t, RPM)  # Base de reduction PHI (if parametric model, we give PHIAug o U)
     
     nq       = DictStructParam['ROMProperties']['NModes'][0]
     nitermax = DictSimulaParam['IntegrationProperties']['NumberOfMaxIterations'][0]
@@ -388,7 +389,7 @@ def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
     except:
         Aij, Bijm = 0, 0 
 
-        print(WARN + 'Warning!! Aij and Bijm not readed!'+ENDC)
+        print(WARN + 'Warning!! Aij and Bijm not read!'+ENDC)
 
     Kproj = SJ.getMatrixFromCGNS(t, 'Komeg', RPM)
     
@@ -397,7 +398,6 @@ def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
     q = np.zeros((nq,1))
     Fextproj = np.zeros((nq,1))
     Fnlproj = np.zeros((nq,1))
-
     # Initialisation des vecteurs de sauvegarde:
     q_Save   = np.zeros((nq,)) 
     Fnl_Save = np.zeros((nq,)) 
@@ -418,7 +418,7 @@ def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
         #Compute tangent stiffness matrix
         
         Ktanproj = Kproj + NFM.Knl_Jacobian_Proj(t, q, Aij, Bijm)
-        # Solve displacement increment
+        # Solve displacement increment (linear matrix equation)
         dq = -np.linalg.solve(Ktanproj,Resi)
         q = q + dq
         
@@ -466,7 +466,7 @@ def DynamicSolver_HHTalpha(t, RPM, ForceCoeff):
     except:
         Aij, Bijm = 0, 0 
 
-        print(WARN + 'Warning!! Aij and Bijm not readed!'+ENDC)
+        print(WARN + 'Warning!! Aij and Bijm not read!'+ENDC)
 
     Kproj = SJ.getMatrixFromCGNS(t, 'Komeg', RPM)
     Cproj = SJ.getMatrixFromCGNS(t, 'C', RPM)

@@ -37,7 +37,7 @@ import Generator.PyTree as G
 import Transform.PyTree as T
 
 
-def buildBladeCGNS(GeoId,ParametersDict,path):
+def buildBladeCGNS(BladeName,ParametersDict,path):
    
     '''
     Create the geometry files (.tp and .cngs) associated to the input 
@@ -46,8 +46,8 @@ def buildBladeCGNS(GeoId,ParametersDict,path):
     Parameters
     ----------
 
-        GeoId : 4 digits long str 
-            must contain 4 digits (identifiers) used to indicate the Chord law, Pitch law, Twist law, Sweep law
+        BladeNumber: str
+            To identify a specific blade
             
            
         ParametersDict : nested dict
@@ -92,18 +92,12 @@ def buildBladeCGNS(GeoId,ParametersDict,path):
     Rmax=ParametersDict['Rmax']
     NPts=ParametersDict['NPts']
     NPtsSpanwise=ParametersDict['NPtsSpanwise']
-    ChordDict=ParametersDict['GeomLaws']['ChordDict']
-    TwistDict=ParametersDict['GeomLaws']['TwistDict']
-    DihedralDict=ParametersDict['GeomLaws']['DihedralDict']
-    SweepDict=ParametersDict['GeomLaws']['SweepDict']
-
-    #Composing the blade name (unique for a given geometry)
-    BladeName = 'Blade_'+str(int(Rmin*100))+'cm_'+str(int(Rmax*100))+\
-    'cm_pitch'+str(int(Pitch0))+'_ChLaw'+ GeoId[0]+\
-    '_PLaw'+GeoId[1]+'_TLaw'+GeoId[2]+'_SLaw'+GeoId[3]
+    ChordDict=ParametersDict['ChordDict']
+    TwistDict=ParametersDict['TwistDict']
+    DihedralDict=ParametersDict['DihedralDict']
+    SweepDict=ParametersDict['SweepDict']
 
     
-
     ############################# Begin of main program ###########################################
 
     #Profile section
@@ -248,7 +242,7 @@ def BladeDictBuilder(GeoId,ParametersDict,path):
     #Composing the blade name (unique for a given geometry)
     BladeName = 'Blade_'+str(int(Rmin*100))+'cm_'+str(int(Rmax*100))+\
     'cm_pitch'+str(int(Pitch0))+'_ChLaw'+ GeoId[0]+\
-    '_PLaw'+GeoId[1]+'_TLaw'+GeoId[2]+'_SLaw'+GeoId[3]
+    '_PLaw'+GeoId[1]+'_TLaw'+GeoId[2]+'_SLaw'+GeoId[3]+'_NPts'+str(int(NPts))
 
 
     ############################# Begin of main program ###########################################
