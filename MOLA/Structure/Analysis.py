@@ -569,7 +569,6 @@ def DynamicSolver_HHTalpha(t, RPM, ForceCoeff):
         qpp_m1 = qpp
         Fextproj_m1 = Fextproj
         Fnlproj_m1 = Fnlproj
-        
         # Save the data in the matrices:
         if DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0] == 0: 
             if incr == nincr: 
@@ -591,7 +590,7 @@ def DynamicSolver_HHTalpha(t, RPM, ForceCoeff):
             Fnl_Save[:, it2] = Fnlproj.ravel()
             Fext_Save[:, it2] = Fextproj.ravel()
             time_Save.append(time[incr-1]) 
-            
+                
     return q_Save, qp_Save, qpp_Save, Fnlproj, Fext_Save, np.array(time_Save)
 
 
@@ -636,7 +635,6 @@ def SolveDynamic(t, RPM, ForceCoeff=1.):
     '''
     DictSimulaParam = J.get(t, '.SimulationParameters')
 
-    
     if DictSimulaParam['IntegrationProperties']['IntegrationMethod']['MethodName'] == 'HHT-Alpha':
         
         q,qp,qpp, fnl_q , Fext_q, time =  DynamicSolver_HHTalpha(t, RPM, ForceCoeff)
@@ -670,8 +668,7 @@ def SolveROM(tROM, InputRPM = None, InputForceCoeff = None):
     if InputRPM == None: 
         InputRPM = DictSimulaParam['RotatingProperties']['RPMs']
         InputForceCoeff = DictSimulaParam['LoadingProperties']['ForceIntensityCoeff']
-
-    
+        
     for RPM in InputRPM:
 
         try:

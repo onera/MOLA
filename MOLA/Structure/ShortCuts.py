@@ -647,7 +647,8 @@ def SaveSolution2PythonDict(Solution, ForceCoeff, RPM, PHI, q_qp_qpp, fnl_q, fex
                 if DictOfLoading is not None:
                     Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['fextFull'] = np.zeros(np.shape(Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['Displacement']))
                     for timeSave, posSave in zip(time, range(len(time))):
-                        index = np.where(np.isclose(DictOfLoading['Time'], timeSave))    
+                        index = np.where(np.isclose(DictOfLoading['Time'], timeSave))   
+                        #index = [DictOfLoading['Time'].index(x) for x in timeSave] 
                         Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['fextFull'][:,posSave] = DictOfLoading['Fmax'] * DictOfLoading['TimeFuntionVector'][index] * DictOfLoading['ShapeFunction'] 
             
     return Solution
