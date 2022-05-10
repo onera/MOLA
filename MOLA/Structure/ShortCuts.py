@@ -267,7 +267,7 @@ def AddFOMVars2Tree(t, RPM, Vars = [], VarsName = [], Type = '.AssembledMatrices
     '''
 
     DictVars = J.get(t, Type)
-    if RPM==0: #Parametric model
+    if RPM == 'Parametric': #Parametric model
         print('Save parametric model')
         for Var, VarName in zip(Vars, VarsName):
             #for Var, VarName in zip(Vars, VarsName): #OVER-WRITTING
@@ -528,11 +528,11 @@ def GetSparseMatrixFromCGNS(t, RPM, MatrixName, Type = '.AssembledMatrices'):
 
     DictAssembledMatrices = J.get(t, Type)
     try:
-        got=DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['Matrice'][0]
+        SparseMatrix = DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['Matrice'][0]
     except:
-        got=DictAssembledMatrices['Parametric'][MatrixName]['Matrice'][0]
+        SparseMatrix = DictAssembledMatrices['Parametric'][MatrixName]['Matrice'][0]
 
-    return got
+    return SparseMatrix 
 
 
 def LoadSMatrixFromCGNS(t, RPM, MatrixName, Type = '.AssembledMatrices' ):
