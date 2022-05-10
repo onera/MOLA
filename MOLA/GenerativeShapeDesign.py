@@ -1769,9 +1769,9 @@ def prepareGlue(zones,gluezones,tol=1e-10):
             specify the location where the zones will be glued.
 
     '''
-    for zone in zones:
+    for zone in I.getZones(zones):
         glueElements = -1
-        for magzone in gluezones:
+        for magzone in I.getZones(gluezones):
             mx,my,mz = J.getxyz(magzone)
             mx = mx.ravel(order='K')
             my = my.ravel(order='K')
@@ -1822,7 +1822,7 @@ def applyGlue(zones, gluezones):
             specify the location where the zones will be glued.
     """
 
-    for zone in zones:
+    for zone in I.getZones(zones):
         x,y,z = J.getxyz(zone)
         x = x.ravel(order='K')
         y = y.ravel(order='K')
@@ -1832,7 +1832,7 @@ def applyGlue(zones, gluezones):
         if not glueDataNode: continue
         for gluePoints in glueDataNode[2]:
             gluezoneName = I.getValue(gluePoints)
-            gluezone = [gz for gz in gluezones if gz[0]==gluezoneName][0]
+            gluezone = [gz for gz in I.getZones(gluezones) if gz[0]==gluezoneName][0]
             mx,my,mz = J.getxyz(gluezone)
             mx = mx.ravel(order='K')
             my = my.ravel(order='K')
@@ -1894,13 +1894,12 @@ def surfacesIntersection(surface1, surface2):
 
     I._rmNodesByType(t,'FlowSolution_t')
 
-    # Make surfaces mono-block unstructured
-    t = C.convertArray2Tetra(t)
-    t = T.join(t)
+    Surf1TRI = C.convertArray2Tetra(surface1)
+    Surf1TRI = T.join(I.getZones(Surf1TRI))
+    Surf2TRI = C.convertArray2Tetra(surface2)
+    Surf2TRI = T.join(I.getZones(Surf2TRI))
 
-    import Intersector.PyTree as XOR
-
-    conformed = XOR.conformUnstr(t, tol=0., left_or_right=2, itermax=1)
+    conformed = XOR.conformUnstr(Surf1TRI, Surf2TRI, left_or_right=2, itermax=1)
     Manifold  = T.splitManifold(conformed)
     zonesManifold = I.getNodesFromType(Manifold,'Zone_t')
     intersection = None

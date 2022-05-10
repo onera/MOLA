@@ -52,7 +52,9 @@ def extractSurfacesByOffsetCellsFromBCFamilyName(t, BCFamilyName='MyBC',
     if NCellsOffset > 0:
         BCsurfaces = extractSurfacesByOffsetCellsFromBCFamilyName(t,
                                                                 BCFamilyName, 0)
-        if not BCsurfaces: return []
+        if not BCsurfaces:
+            print('warning: no BCsurfaces for '+BCFamilyName)
+            return []
         hook, indir = C.createGlobalHook(BCsurfaces,function='nodes',indir=1)
         OffsetSurfaces = trimExteriorFaces(OffsetSurfaces, NCellsOffset, hook)
     OffsetSurfaces = T.merge(OffsetSurfaces)
@@ -68,11 +70,15 @@ def getZonesAndWindowsOfBCNames(t, BCNames):
         if not ZoneBC: continue
         for BC in I.getChildren(ZoneBC):
             if BC[0] in BCNames:
+                print('found %s'%BC[0])
                 if ZoneName not in ZoneName2ZoneAndWindows:
                     ZoneName2ZoneAndWindows[ZoneName] = {'zone':zone,
                                                          'windows':[]}
                 PointRange = I.getNodeFromName(BC,'PointRange')[1]
                 ZoneName2ZoneAndWindows[ZoneName]['windows'] += [PointRange]
+
+    if not ZoneName2ZoneAndWindows:
+        raise ValueError('could not find requested BC windows')
 
     return ZoneName2ZoneAndWindows
 
