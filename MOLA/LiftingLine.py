@@ -832,13 +832,15 @@ def buildPropeller(LiftingLine, NBlades=2, InitialAzimutDirection=[0,1,0],
     InitialAzimutDirection = np.array(InitialAzimutDirection, order='F', dtype=np.float)
     InitialAzimutDirection/= np.sqrt(InitialAzimutDirection.dot(InitialAzimutDirection))
 
+
     RotAxis, RotCenter,Dir=getRotationAxisCenterAndDirFromKinematics(LiftingLine)
 
     # Force RotAxis to be unitary
     RotAxis /= np.sqrt(RotAxis.dot(RotAxis))
 
     misalignment = np.sqrt(InitialAzimutDirection.dot(RotAxis))
-    while misalignment < 1e-6:
+
+    while misalignment > 1e-6:
         InitialAzimutDirection[0] += 0.1
         InitialAzimutDirection[1] += 0.2
         InitialAzimutDirection[2] += 0.3
@@ -849,7 +851,6 @@ def buildPropeller(LiftingLine, NBlades=2, InitialAzimutDirection=[0,1,0],
     GuidePoint = RotCenter+InitialAzimutDirection
     GuidePoint -= RotAxis*(RotAxis.dot(GuidePoint-RotCenter))
     InitialAzimutDirection = GuidePoint - RotCenter
-
 
     # Invoke blades
     LLs = []

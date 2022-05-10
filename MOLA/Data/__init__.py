@@ -17,7 +17,6 @@ from .Zone import Zone
 from .Base import Base
 from .Tree import Tree
 from . import Mesh
-from .LiftingLine import LiftingLine
 
 def load(filename):
     t, links, paths = CGM.load(filename)
