@@ -253,12 +253,13 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
     # Initialize the set of LiftingLines used to further
     # sample the BodyForce element
+    RotAxis, RotCenter, Dir = getRotationAxisCenterAndDirFromKinematics(LLs[0])
     AllItersLLs = []
     Dpsi = 360./float(NPtsAzimut-1)
     for it in range(NPtsAzimut):
-        LiftingLine = I.copyTree(LLs[0])
+        LiftingLine = I.copyTree( LLs[0] )
         LiftingLine[0] = 'Blade_it%d'%(it)
-        T._rotate(LiftingLine,tuple(RotCenter),tuple(RotAxis),it*Dpsi)
+        T._rotate(LiftingLine,tuple(RotCenter),tuple(RotAxis),it*Dir*Dpsi)
         AllItersLLs += [LiftingLine]
 
     # Put all LLs in a PyTree/Base structure
@@ -350,6 +351,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         else:
             singleShotMOLA__(Pitch)
             C._initVars(tLL,'Twist={Twist}+%0.12g'%Pitch)
+
 
     elif Constraint in ('Power','Thrust'):
         singleShotFcn = singleShotPUMA__ if usePUMA else singleShotMOLA__
@@ -3782,12 +3784,12 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0):
         v['Dn'][:] =-Drag*np.sin(v['phiRad'])
         v['Db'][:] = Drag*np.cos(v['phiRad'])
 
-        v['Lx'][:] = v['Ln']*v['nx'] + v['Lb']*v['bx']
-        v['Ly'][:] = v['Ln']*v['ny'] + v['Lb']*v['by']
-        v['Lz'][:] = v['Ln']*v['nz'] + v['Lb']*v['bz']
-        v['Dx'][:] = v['Dn']*v['nx'] + v['Db']*v['bx']
-        v['Dy'][:] = v['Dn']*v['ny'] + v['Db']*v['by']
-        v['Dz'][:] = v['Dn']*v['nz'] + v['Db']*v['bz']
+        v['Lx'][:] = v['Ln']*v['nx'] + dir*v['Lb']*v['bx']
+        v['Ly'][:] = v['Ln']*v['ny'] + dir*v['Lb']*v['by']
+        v['Lz'][:] = v['Ln']*v['nz'] + dir*v['Lb']*v['bz']
+        v['Dx'][:] = v['Dn']*v['nx'] + dir*v['Db']*v['bx']
+        v['Dy'][:] = v['Dn']*v['ny'] + dir*v['Db']*v['by']
+        v['Dz'][:] = v['Dn']*v['nz'] + dir*v['Db']*v['bz']
 
         v['La'][:] = v['Lx']*RotationAxis[0] + \
                      v['Ly']*RotationAxis[1] + \
