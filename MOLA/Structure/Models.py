@@ -1095,13 +1095,13 @@ def ComputeMatricesFOM(t, RPM, **kwargs):
 
     return t, AsterObjs
 
-def ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, Instants = [1.0], **kwargs):
+def ExtrFromAsterSOLUwithOmegaFe(t, RPM, Instants = [1.0],ChampName = 'DEPL', **kwargs):
     DictStructParam = J.get(t, '.StructuralParameters')
 
     LIST = DEFI_LIST_REEL(VALE = Instants)
     try:
         tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
-                                             NOM_CHAM='DEPL',
+                                             NOM_CHAM= ChampName,
                                              NOM_CMP= ('DX','DY','DZ', 'DRX', 'DRY', 'DRZ'),
                                              LIST_INST = LIST,
                                              TOUT = 'OUI',),
@@ -1110,7 +1110,40 @@ def ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, Instants = [1.0], **kwargs):
                                    )
     except:
         tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
-                                             NOM_CHAM='DEPL',
+                                             NOM_CHAM= ChampName,
+                                             NOM_CMP= ('DX','DY','DZ'),
+                                             LIST_INST = LIST,
+                                             TOUT = 'OUI',),
+                                   TYPE_TABLE='TABLE',
+                                   TITRE='Table_Depl_R',
+                                   )
+        print(WARN+'No rotation dof  (DRX, DRY, DRZ) in the model. Computing only with displacements (DX, DY, DZ).'+ENDC)
+        
+    VectUpOmegaFe = VectFromAsterTable2Full(t, tstaT)
+
+    DETRUIRE (CONCEPT = _F (NOM = (tstaT, LIST),
+                            ), 
+              INFO = 1,
+              )
+
+    return VectUpOmegaFe
+
+def ExtrVelocityFromAsterSOLUwithOmegaFe(t, RPM, Instants = [1.0], **kwargs):
+    DictStructParam = J.get(t, '.StructuralParameters')
+
+    LIST = DEFI_LIST_REEL(VALE = Instants)
+    try:
+        tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
+                                             NOM_CHAM='VITE',
+                                             NOM_CMP= ('DX','DY','DZ', 'DRX', 'DRY', 'DRZ'),
+                                             LIST_INST = LIST,
+                                             TOUT = 'OUI',),
+                                   TYPE_TABLE='TABLE',
+                                   TITRE='Table_Depl_R',
+                                   )
+    except:
+        tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
+                                             NOM_CHAM='VITE',
                                              NOM_CMP= ('DX','DY','DZ'),
                                              LIST_INST = LIST,
                                              TOUT = 'OUI',),
@@ -1121,72 +1154,12 @@ def ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, Instants = [1.0], **kwargs):
         
     VectUpOmegaFe = VectFromAsterTable2Full(t, tstaT)
     
-    # if DictStructParam['MeshProperties']['ddlElem'][0] == 3:
-# 
-        # tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
-                                            #  NOM_CHAM='DEPL',
-                                            #  NOM_CMP= ('DX','DY','DZ'),
-                                            #  INST = 1.0,
-                                            #  TOUT = 'OUI',),
-                                #    TYPE_TABLE='TABLE',
-                                #    TITRE='Table_Depl_R',
-                                #    )
-                        # 
-#        Tableau complet des deplacements, coordonnees modales,... :
-        # 
-        # depl_sta = tstaT.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ']
-    # 
-        # UsZone, UsField = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= depl_sta,
-                                                            #  ZoneName = 'U_sta'+str(np.round(RPM,2)), 
-                                                            #  FieldNames = ['Usx', 'Usy', 'Usz'],
-                                                            #  Depl = True)
-        # 
-        # J._invokeFields(UsZone, ['upx', 'upy', 'upz', 'ux', 'uy', 'uz'])
-        # upx, upy, upz = J.getVars(UsZone, ['upx', 'upy', 'upz'])
-        # upx[:], upy[:], upz[:] = UsField[0], UsField[1], UsField[2] 
-# 
-    # elif DictStructParam['MeshProperties']['ddlElem'][0] == 6:
-        # tstaT = CREA_TABLE(RESU = _F(RESULTAT= kwargs['SOLU'],
-                                            #  NOM_CHAM='DEPL',
-                                            #  NOM_CMP= ('DX','DY','DZ', 'DRX', 'DRY', 'DRZ'),
-                                            #  INST = 1.0,
-                                            #  TOUT = 'OUI',),
-                                #    TYPE_TABLE='TABLE',
-                                #    TITRE='Table_Depl_R',
-                                #    )
-                        # 
-#        Tableau complet des deplacements, coordonnees modales,... :
-        # 
-        # depl_sta = tstaT.EXTR_TABLE()['NOEUD', 'DX', 'DY', 'DZ','DRX', 'DRY', 'DRZ']
-# 
-        # UsZone, UsField = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= depl_sta,
-                                                            #  ZoneName = 'U_sta'+str(np.round(RPM,2)), 
-                                                            #  FieldNames = ['Usx', 'Usy', 'Usz', 'Usthetax', 'Usthetay', 'Usthetaz'],
-                                                            #  Depl = True)
-        # 
-        # J._invokeFields(UsZone, ['upx', 'upy', 'upz', 'ux', 'uy', 'uz', 'upthetax', 'upthetay', 'upthetaz'])
-        # upx, upy, upz, upthetax, upthetay, upthetaz  = J.getVars(UsZone, ['upx', 'upy', 'upz', 'upthetax', 'upthetay', 'upthetaz'])
-        # upx[:], upy[:], upz[:],upthetax[:], upthetay[:], upthetaz[:] = UsField[0], UsField[1], UsField[2], UsField[3], UsField[4], UsField[5] 
-# 
-# 
-# 
-# 
-# 
-#    Compute the Us vector and add it to the .AssembledVectors node:
-    # DictStructParam = J.get(t, '.StructuralParameters')
-    # 
-    # VectUpOmegaFe = np.zeros((DictStructParam['MeshProperties']['Nddl'][0]))
-    # VectUpOmegaFe[::DictStructParam['MeshProperties']['ddlElem'][0]] = upx
-    # VectUpOmegaFe[1::DictStructParam['MeshProperties']['ddlElem'][0]] = upy
-    # VectUpOmegaFe[2::DictStructParam['MeshProperties']['ddlElem'][0]] = upz
-
     DETRUIRE (CONCEPT = _F (NOM = (tstaT, LIST),
                             ), 
               INFO = 1,
               )
 
     return VectUpOmegaFe
-
 
 #def ComputeDDLVector(SOLU):
 
@@ -1835,7 +1808,7 @@ def ComputeStaticU4GivenLoading(t, RPM, LoadVector, **kwargs):
     AsterObjs = SJ.merge_dicts(kwargs, dict(SOLU = SOLU, RAMPE = RAMPE, L_INST = L_INST))
     
 
-    UpFromOmegaAndFe = ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, **dict(SOLU = SOLU))
+    UpFromOmegaAndFe = ExtrFromAsterSOLUwithOmegaFe(t, RPM, **dict(SOLU = SOLU))
     
     GusFromOmegaAnfFe = ComputeStaFullNodalF(t, **AsterObjs)
     
@@ -1917,21 +1890,29 @@ def ComputeDynamic4GivenForceCoeffAndRPM(t, RPM, ForceCoeff, **kwargs):
                                            MODI_EQUI = 'OUI'),
                          INFO = 1,               
                         ),
+    TimeSave = timeCalcul[::DictSimulaParam['IntegrationProperties']['SaveEveryNIt'][0]]
+    if TimeSave[-1] != timeCalcul[-1]:
+        TimeSave.append(timeCalcul[-1])
+
+    AsterObjs = SJ.merge_dicts(kwargs, dict(SOLU = SOLU, RAMPE = TFUNCEXT, L_INST = L_INST, Instants = TimeSave))
     
-    AsterObjs = SJ.merge_dicts(kwargs, dict(SOLU = SOLU, RAMPE = TFUNCEXT, L_INST = L_INST, Instants = timeCalcul))
+
     
+
+    UpFromOmegaAndFe = ExtrFromAsterSOLUwithOmegaFe(t, RPM,**AsterObjs)
     
-    UpFromOmegaAndFe = ExtrUpFromAsterSOLUwithOmegaFe(t, RPM, Instants = timeCalcul, **dict(SOLU = SOLU))
+    VelocityFromOmegaAndFe = ExtrFromAsterSOLUwithOmegaFe(t, RPM,ChampName = 'VITE', **AsterObjs)
     
+    AccelerationFromOmegaAndFe = ExtrFromAsterSOLUwithOmegaFe(t, RPM,ChampName = 'ACCE',**AsterObjs)
+    
+
     GusFromOmegaAnfFe = ComputeFullNodalF(t, **AsterObjs)
     
     # Keep the solution of the instants of interest:
-    
-
     
     SJ.DestroyAsterObjects(dict(**dict(RAMPE_r = RAMPE_r, F_rota = F_rota, F_ext = F_ext, SOLU= SOLU, RAMPE = TFUNCEXT, L_INST = L_INST)),  
                            DetrVars = ['RAMPE_r', 'F_rota','F_ext', 'SOLU', 'TFUNCEXT', 'L_INST',
                                       ])
     
     
-    return  UpFromOmegaAndFe, GusFromOmegaAnfFe
+    return  UpFromOmegaAndFe,VelocityFromOmegaAndFe,AccelerationFromOmegaAndFe,  GusFromOmegaAnfFe
