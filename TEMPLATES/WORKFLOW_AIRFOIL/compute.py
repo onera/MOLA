@@ -76,8 +76,7 @@ niter    = setup.elsAkeysNumerics['niter']
 inititer = setup.elsAkeysNumerics['inititer']
 itmax    = inititer+niter-1 # BEWARE last iteration accessible trigger-state-16
 
-Skeleton = Cmpi.convertFile2SkeletonTree(FILE_CGNS)
-I._rmNodesByName(Skeleton, 'FlowSolution*')
+Skeleton = CO.loadSkeleton()
 
 # ---- functions ---- #
 from datetime import datetime

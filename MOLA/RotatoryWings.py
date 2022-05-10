@@ -14,6 +14,7 @@ File history:
 # System modules
 import sys
 import os
+from timeit import default_timer as Tok
 import numpy as np
 import numpy.linalg as npla
 from scipy.spatial.transform import Rotation as ScipyRotation
@@ -36,7 +37,7 @@ from . import Wireframe as W
 from . import GenerativeShapeDesign as GSD
 from . import GenerativeVolumeDesign as GVD
 
-def extrudeBladeSupportedOnSpinner(blade_surface, spinner_profile, rotation_center,
+def extrudeBladeSupportedOnSpinner(blade_surface, spinner, rotation_center,
         rotation_axis, wall_cell_height=2e-6, root_to_transition_distance=0.1,
         root_to_transition_number_of_points=100,
         maximum_number_of_points_in_normal_direction=200, distribution_law='ratio',
@@ -50,6 +51,7 @@ def extrudeBladeSupportedOnSpinner(blade_surface, spinner_profile, rotation_cent
         smoothing_growth_coefficient=[0,0.03,'distance'],
         smoothing_expansion_factor=0.1,
         expand_distribution_radially=False,
+        intersection_method='conformize',
         ):
     '''
     Produce the volume mesh of a blade supported onto the surface of a spinner
@@ -80,9 +82,8 @@ def extrudeBladeSupportedOnSpinner(blade_surface, spinner_profile, rotation_cent
                 * all surfaces must have a :math:`(i,j)` ordering such that
                   the normals point towards the exterior of the blade
 
-        spinner_profile : zone
-            the structured curve of the spinner profile. It must be structured
-            and oriented from leading-edge towards trailing-edge.
+        spinner : PyTree, base, zone or list of zone
+            the structured curve of the spinner surface
 
         rotation_center : 3-:py:class:`float` :py:class:`list` or numpy array
             indicates the rotation center :math:`(x,y,z)` coordinates of the
@@ -149,13 +150,13 @@ def extrudeBladeSupportedOnSpinner(blade_surface, spinner_profile, rotation_cent
     rotation_axis = np.array(rotation_axis, dtype=np.float, order='F')
     rotation_center = np.array(rotation_center, dtype=np.float, order='F')
 
-    inds = _getRootAndTransitionIndices(blade_surface, spinner_profile, rotation_center,
+    inds = _getRootAndTransitionIndices(blade_surface, spinner, rotation_center,
                                     rotation_axis, root_to_transition_distance)
     root_section_index, transition_section_index = inds
 
     intersection_bar, spinner_surface = _computeIntersectionContourBetweenBladeAndSpinner(
-            blade_surface, rotation_center, rotation_axis, spinner_profile,
-            maximum_extrusion_distance_at_spinner, transition_section_index)
+            blade_surface, rotation_center, rotation_axis, spinner,
+            transition_section_index,method=intersection_method)
 
 
 
@@ -172,7 +173,6 @@ def extrudeBladeSupportedOnSpinner(blade_surface, spinner_profile, rotation_cent
             smoothing_growth_iterations, smoothing_growth_subiterations,
             smoothing_growth_coefficient, smoothing_expansion_factor, expand_distribution_radially)
 
-
     supported_match = _extrudeBladeRootOnSpinner(blade_surface, spinner_surface,
                         root_section_index, Distributions[0], supported_profile)
 
@@ -184,6 +184,11 @@ def extrudeBladeSupportedOnSpinner(blade_surface, spinner_profile, rotation_cent
             root_to_transition_number_of_points, CollarLaw='interp1d_cubic')
 
     base, = I.getBases(C.newPyTree(['BLADE',ExtrusionResult]))
+    for zone in I.getZones(base):
+        C._addBC2Zone(zone,'blade_wall','FamilySpecified:BLADE', 'kmin')
+    blade = J.selectZoneWithHighestNumberOfPoints(I.getZones(base))
+    C._addBC2Zone(blade,'spinner_wall','FamilySpecified:SPINNER', 'jmin')
+
 
     return base
 
@@ -649,6 +654,7 @@ def makeSpinnerCurves(LengthFront=0.2, LengthRear=1, Width=0.15,
 
     curves = front + rear
     I._correctPyTree(curves,level=3)
+    curves = W.reorderAndSortCurvesSequentially(curves)
 
     return curves
 
@@ -724,296 +730,161 @@ def makeFrontSpinnerCurves(Length=1., Width=0.6, RelativeArcRadius=0.01, ArcAngl
     return [Arc, SpinnerCurve]
 
 
-def makeHub(Profile, AxeCenter=(0,0,0), AxeDir=(1,0,0),
-            NumberOfAzimutalPoints=359,
-            BladeNumberForPeriodic=None, LeadingEdgeAbscissa=0.05,
-            TrailingEdgeAbscissa=0.95, SmoothingParameters={'eps':0.50,
-                'niter':300,'type':2}):
-    '''
-    This user-level function constructs a hub (Propeller's spinner) geometry
-    from a user-provided profile (a curve).
+def makeHub(profile, blade_number, number_of_points_azimut=31,
+                profile_axis=[0,1,0]):
 
-    Parameters
-    ----------
+    if number_of_points_azimut%2 == 0:
+        raise ValueError(J.FAIL+'number_of_points_azimut must be odd'+J.ENDC)
 
-        Profile : zone
-            curve defining the hub's generator line. It does not
-            need to be coplanar. BEWARE ! indexing of curve must be oriented from
-            leading edge towards trailing edge
+    if blade_number<2:
+        raise ValueError(J.FAIL+'blade_number must be greater than 1'+J.ENDC)
 
-        AxeCenter : :py:class:`list` of 3 :py:class:`float`
-            coordinates of the axis center for the revolution operation [m]
-
-        AxeDir : :py:class:`list` of 3 :py:class:`float`
-            unitary vector pointing towards the direction of revolution
-
-        NumberOfAzimutalPoints : int
-            number of points discretizing the hub in the azimut direction
-
-        BladeNumberForPeriodic : int
-            If provided, then only an angular
-            portion of the hub is constructed, corresponding to the blade number
-            specified by this argument.
-
-        LeadingEdgeAbscissa : float
-            dimensionless abscissa indicating the point
-            at which leading edge is "cut" in order to perform the diamond join
-
-        TrailingEdgeAbscissa : float
-            dimensionless abscissa indicating the point
-            at which trailing edge is "cut" in order to perform the diamond join
-
-        SmoothingParameters : dict
-            literally, the parameters passed to :py:func:`Transform.PyTree.smooth`
-            function
-
-    Returns
-    -------
-
-        t : PyTree
-            surface of the hub
-
-        PeriodicProfiles : :py:class:`list`
-            curves (structured zones) defining the periodic profiles boundaries
-    '''
-
-    Px, Py, Pz = J.getxyz(Profile)
-    NPsi = NumberOfAzimutalPoints
-    FineHub = D.axisym(Profile, AxeCenter,AxeDir, angle=360., Ntheta=360*3); FineHub[0]='FineHub'
-    BigLength=1.0e6
-    AxeLine = D.line((AxeCenter[0]+BigLength*AxeDir[0],AxeCenter[1]+BigLength*AxeDir[1],AxeCenter[2]+BigLength*AxeDir[2]),
-        (AxeCenter[0]-BigLength*AxeDir[0],AxeCenter[1]-BigLength*AxeDir[1],AxeCenter[2]-BigLength*AxeDir[2]),2)
-    s = W.gets(Profile)
-
-    SplitLEind = np.where(s>LeadingEdgeAbscissa)[0][0]
-    LEjonctCell = W.distance((Px[SplitLEind], Py[SplitLEind], Pz[SplitLEind]),
-        (Px[SplitLEind+1], Py[SplitLEind+1], Pz[SplitLEind+1]))
-
-    if TrailingEdgeAbscissa is not None:
-        SplitTEind = np.where(s>TrailingEdgeAbscissa)[0][0]
-        TEjonctCell = W.distance((Px[SplitTEind], Py[SplitTEind], Pz[SplitTEind]),
-                                 (Px[SplitTEind+1], Py[SplitTEind+1], Pz[SplitTEind+1]))
-    else:
-        SplitTEind = len(Px)
-
-    RevolutionProfile = T.subzone(Profile,(SplitLEind,1,1),(SplitTEind,1,1)); RevolutionProfile[0] = 'RevolutionProfile'
-    PeriodicProfiles = []
-    if BladeNumberForPeriodic is None:
-        if NPsi%2==0: raise ValueError('makeHub: NumberOfAzimutalPoints shall be ODD.')
-        MainBody = D.axisym(RevolutionProfile, AxeCenter,AxeDir, angle=360., Ntheta=NPsi); MainBody[0]='MainBody'
-        ExtFaces = P.exteriorFacesStructured(MainBody)
-        ExtFaces = I.getNodesFromType(ExtFaces,'Zone_t')
-
-        # Close Leading Edge
-        LEBound, _ = J.getNearestZone(ExtFaces, (Px[0],Py[0],Pz[0]));  LEBound[0]='LEBound'
-
-        tT = C.newPyTree(['bMainBody',MainBody,'bLEBound',LEBound])
-
-        LETFI = G.TFIO(LEBound) # TODO replace ?
-        GSD.prepareGlue(LETFI,[LEBound])
-        LETFI = T.projectDir(LETFI,FineHub,dir=AxeDir)
-        T._smooth(LETFI,eps=SmoothingParameters['eps'], niter=SmoothingParameters['niter'], type=SmoothingParameters['type'], fixedConstraints=[LEBound])
-        # T._projectDir(LETFI,FineHub,dir=AxeDir)
-        T._projectOrthoSmooth(LETFI,FineHub, niter=SmoothingParameters['niter'])
-        GSD.applyGlue(LETFI,[LEBound])
-
-        LETFIzones = I.getNodesFromType(LETFI,'Zone_t')
-        LESingle, LESingleIndex = J.getNearestZone(LETFIzones, (Px[0],Py[0],Pz[0]))
-        LEjoinIndices = [i for i in range(len(LETFIzones)) if i != LESingleIndex]
-        LEjoin = LETFIzones[LEjoinIndices[0]]
-        for i in LEjoinIndices[1:]:
-            LEjoin = T.join(LEjoin,LETFIzones[i])
-        MainBody[0] = 'hub'
-        HubZones = [MainBody, LESingle, LEjoin]
-
-        if TrailingEdgeAbscissa is not None:
-            # Close Trailing Edge
-            TEBound, _ = J.getNearestZone(ExtFaces, (Px[-1],Py[-1],Pz[-1])); TEBound[0]='TEBound'
-            TETFI = G.TFIO(TEBound)
-            TETFI = T.projectDir(TETFI,FineHub,dir=(AxeDir[0],-AxeDir[1],AxeDir[2]))
-            SmoothingParameters['fixedConstraints'] = [TEBound]
-            T._smooth(TETFI, **SmoothingParameters)
-            GSD.prepareGlue(TETFI,[TEBound])
-            # T._projectDir(TETFI,FineHub,dir=(AxeDir[0],-AxeDir[1],AxeDir[2]))
-            T._projectOrthoSmooth(TETFI,FineHub,niter=SmoothingParameters['niter'])
-            GSD.applyGlue(TETFI,[TEBound])
-
-            TETFIzones = I.getNodesFromType(TETFI,'Zone_t')
-            TESingle, TESingleIndex = J.getNearestZone(TETFIzones, (Px[-1],Py[-1],Pz[-1]))
-            TEjoinIndices = [i for i in range(len(TETFIzones)) if i != TESingleIndex]
-            TEjoin = TETFIzones[TEjoinIndices[0]]
-            for i in TEjoinIndices[1:]:
-                TEjoin = T.join(TEjoin,TETFIzones[i])
-            TEjoin[0] = 'hub'
-            HubZones += [TESingle, TEjoin]
-
-        # Build PyTree
-        t = C.newPyTree(['Hub',HubZones])
+    center = np.array([0,0,0],dtype=np.float)
+    axis = np.array(profile_axis,dtype=np.float)
+    tol = 1e-8
 
 
-    else:
-        BladeNumberForPeriodic = float(BladeNumberForPeriodic)
-        RevolutionAngle = 360./BladeNumberForPeriodic
-        T._rotate(RevolutionProfile,AxeCenter,AxeDir,-0.5*RevolutionAngle)
-        MainBody = D.axisym(RevolutionProfile, AxeCenter,AxeDir, angle=RevolutionAngle, Ntheta=NPsi);
-        MainBody[0]='MainBody'
+    if W.distanceOfPointToLine(W.point(profile),axis,center) > tol:
+        pt = W.point(profile)
+        print(pt)
+        print(_distance2Axis(pt))
+        C.convertPyTree2File(profile,'debug.cgns')
+        MSG='Leading-edge of spinner profile does not lie on rotation axis. Check debug.cgns'
+        raise ValueError(J.FAIL+MSG+J.ENDC)
 
-        ProfileFineHub = W.discretize(Profile,N=10000)
-        ProfileFineHub = T.rotate(Profile,AxeCenter,AxeDir,-0.5*RevolutionAngle)
-        FineHub = D.axisym(ProfileFineHub, AxeCenter,AxeDir, angle=RevolutionAngle, Ntheta=NPsi*30); FineHub[0]='FineHub'
-
-        # Close Leading Edge
-        LEarc = T.subzone(MainBody,(1,1,1),(1,NPsi,1)); LEarc[0]='LEarc'
-        LEarcX, LEarcY, LEarcZ = J.getxyz(LEarc)
-        LEptInAxe = T.projectOrtho(D.point((LEarcX[0], LEarcY[0], LEarcZ[0])),AxeLine)
-        LEptInAxeList = J.getxyz(LEptInAxe)
+    REAR_CLOSED = True if W.distanceOfPointToLine(W.point(profile,-1),axis,center) < tol else False
 
 
-        Conn1 = D.line((LEarcX[0], LEarcY[0], LEarcZ[0]),
-                       LEptInAxeList, 200)
-        Conn1 = T.projectDir(Conn1,FineHub,dir=[-AxeDir[0],AxeDir[1],AxeDir[2]])
-        Conn1X,Conn1Y,Conn1Z = J.getxyz(Conn1)
-        Conn1X[0],Conn1Y[0],Conn1Z[0]=LEarcX[0], LEarcY[0], LEarcZ[0]
-        Conn2 = D.line((LEarcX[-1], LEarcY[-1], LEarcZ[-1]),
-                       LEptInAxeList, 200)
-        Conn2 = T.projectDir(Conn2,FineHub,dir=[-AxeDir[0],AxeDir[1],AxeDir[2]])
-        Conn2X,Conn2Y,Conn2Z = J.getxyz(Conn2)
-        Conn2X[0],Conn2Y[0],Conn2Z[0]=LEarcX[-1], LEarcY[-1], LEarcZ[-1]
 
-        # Re-discretize connection curves
-        ApproxNconn = int(0.5*(SplitLEind+NPsi))
-        NPsiNew, Nconn1, Nconn2 = GSD.getSuitableSetOfPointsForTFITri(NPsi,ApproxNconn,ApproxNconn,choosePriority=['N1,N2=N3'], QtySearch=4, tellMeWhatYouDo=False)
-        if NPsiNew != NPsi:
-            raise ValueError('Could not find appropriate TFITri values for NPsi=%d. Increase QtySearch or change NPsi.'%NPsi)
-        Conn1 = W.discretize(Conn1,Nconn1,
-            dict(kind='tanhOneSide',FirstCellHeight=LEjonctCell))
-        Conn2 = W.discretize(Conn2,Nconn2,
-            dict(kind='tanhOneSide',FirstCellHeight=LEjonctCell))
-        LETFI = G.TFITri(LEarc,Conn1,Conn2)
-        LETFI = I.getNodesFromType(LETFI,'Zone_t')
-        Conn1LE = Conn1; Conn1LE[0] = 'Conn1LE'
-        Conn2LE = Conn2; Conn2LE[0] = 'Conn2LE'
+    def makeBulb(profile, axis, center, number_of_points_azimut, reverse=False):
 
-        if TrailingEdgeAbscissa is not None:
-            # Close Trailing Edge
-            MainBodyX = J.getx(MainBody)
-            TEarc = T.subzone(MainBody,(len(MainBodyX),1,1),(len(MainBodyX),NPsi,1)); TEarc[0]='TEarc'
-            TEarcX, TEarcY, TEarcZ = J.getxyz(TEarc)
-            TEptInAxe = T.projectOrtho(D.point((TEarcX[0], TEarcY[0], TEarcZ[0])),AxeLine)
-            TEptInAxeList = J.getxyz(TEptInAxe)
+        azimut_central_index = int((number_of_points_azimut - 1) / 2)
+        bulb_npts = azimut_central_index + 1
 
-            Conn1 = D.line((TEarcX[0], TEarcY[0], TEarcZ[0]),
-                           TEptInAxeList, 200)
-            Conn1 = T.projectDir(Conn1,FineHub,dir=AxeDir)
-            Conn1X,Conn1Y,Conn1Z = J.getxyz(Conn1)
-            Conn1X[0],Conn1Y[0],Conn1Z[0]=TEarcX[0], TEarcY[0], TEarcZ[0]
-            Conn2 = D.line((TEarcX[-1], TEarcY[-1], TEarcZ[-1]),
-                           TEptInAxeList, 200)
-            Conn2 = T.projectDir(Conn2,FineHub,dir=AxeDir)
-            Conn2X,Conn2Y,Conn2Z = J.getxyz(Conn2)
-            Conn2X[0],Conn2Y[0],Conn2Z[0]=TEarcX[-1], TEarcY[-1], TEarcZ[-1]
-            # Re-discretize connection curves
-            ApproxNconn = int(0.5*(len(Px)-SplitTEind+NPsi))
-            NPsiNew, Nconn1, Nconn2 = GSD.getSuitableSetOfPointsForTFITri(NPsi,ApproxNconn,ApproxNconn,choosePriority=['N1,N2=N3'], QtySearch=4, tellMeWhatYouDo=False)
-            if NPsiNew != NPsi:
-                raise ValueError('Could not find appropriate TFITri values for NPsi=%d. Increase QtySearch or change NPsi.'%NPsi)
-            Conn1 = W.discretize(Conn1,Nconn1,
-                dict(kind='tanhOneSide',FirstCellHeight=TEjonctCell))
-            Conn2 = W.discretize(Conn2,Nconn2,
-                dict(kind='tanhOneSide',FirstCellHeight=TEjonctCell))
-            TETFI = G.TFITri(TEarc,Conn1,Conn2)
-            TETFI = I.getNodesFromType(TETFI,'Zone_t')
-            tTemp = C.newPyTree(['Base',MainBody,'TETFI',TETFI,'LETFI',LETFI])
 
-            Conn1TE = Conn1; Conn1TE[0] = 'Conn1TE'
-            Conn2TE = Conn2; Conn2TE[0] = 'Conn2TE'
+        support = D.axisym(profile,center,axis, 360./float(blade_number), number_of_points_azimut)
 
-            GSD.prepareGlue(LETFI,[Conn1LE, Conn2LE, LEarc])
-            # T._projectDir(LETFI,FineHub,dir=AxeDir)
-            T._projectOrthoSmooth(LETFI,FineHub,niter=3)
-            GSD.applyGlue(LETFI,[Conn1LE, Conn2LE, LEarc])
-
-            GSD.prepareGlue(TETFI,[Conn1TE, Conn2TE, TEarc])
-            # T._projectDir(TETFI,FineHub,dir=(AxeDir[0],-AxeDir[1],AxeDir[2]))
-            T._projectOrthoSmooth(TETFI,FineHub,niter=3)
-            GSD.applyGlue(TETFI,[Conn1TE, Conn2TE, TEarc])
-
-        # Get the profiles
-        FirstProfile=GSD.getBoundary(MainBody,'jmin')
-        FirstProfileZones = [Conn1LE,FirstProfile]
-        if TrailingEdgeAbscissa is not None: FirstProfileZones += [Conn1TE]
-        I._rmNodesByType(FirstProfileZones,'FlowSolution_t')
-        FirstProfile = T.join(FirstProfileZones)
-        FirstProfile[0] = 'FirstProfile'
-        SecondProfile=GSD.getBoundary(MainBody,'jmax')
-        SecondProfileZones = [Conn2LE,SecondProfile]
-        if TrailingEdgeAbscissa is not None:
-            SecondProfileZones += [Conn2TE]
-        I._rmNodesByType(SecondProfileZones,'FlowSolution_t')
-        SecondProfile = T.join(SecondProfileZones)
-        SecondProfile[0] = 'SecondProfile'
-        PeriodicProfiles += [FirstProfile,SecondProfile]
-
-        # REDUCE THE NUMBER OF ZONES BY JOINING
-        # Join Leading Edge Elements
-        LESingle, LESingleIndex = J.getNearestZone(LETFI, (Px[0],Py[0],Pz[0]))
-        LEjoinIndices = [i for i in range(len(LETFI)) if i != LESingleIndex]
-        LEjoin = LETFI[LEjoinIndices[0]]
-        for i in LEjoinIndices[1:]:
-            LEjoin = T.join(LEjoin,LETFI[i])
-        I._rmNodesByType([MainBody,LEjoin],'FlowSolution_t')
-        # Join result with Main body
-        MainBody = T.join(MainBody,LEjoin)
-
-        if TrailingEdgeAbscissa is not None:
-            # Join Trailing Edge Elements
-            TESingle, TESingleIndex = J.getNearestZone(TETFI, (Px[-1],Py[-1],Pz[-1]))
-            TEjoinIndices = [i for i in range(len(TETFI)) if i != TESingleIndex]
-            TEjoin = TETFI[TEjoinIndices[0]]
-            for i in TEjoinIndices[1:]:
-                TEjoin = T.join(TEjoin,TETFI[i])
-            # Join result with Main body
-            MainBody = T.join(MainBody,TEjoin)
-
-        MainBody[0]='hub'
-        FinalZones = [LESingle,MainBody]
-        ConstraintZones = PeriodicProfiles
-        if TrailingEdgeAbscissa is not None: FinalZones += [TESingle]
+        if reverse:
+            d = -1
+            support = T.reorder(support,(-1,2,3))
+            profile = W.reverse(profile)
         else:
-            ConstraintZones += [GSD.getBoundary(MainBody,window='imin',layer=0)]
-        t = C.newPyTree(['Hub',FinalZones])
+            d = 1
 
-        SmoothingParameters['fixedConstraints'] = ConstraintZones
-        T._smooth(t, **SmoothingParameters)
-        T._projectOrtho(t,FineHub)
-
-        SmoothingParameters['fixedConstraints'] = [P.exteriorFaces(LESingle)]
-        SmoothingParameters['niter'] = 50
-        T._smooth(LESingle, **SmoothingParameters)
-        T._projectOrtho(LESingle,FineHub)
+        azimut_central_index = int((number_of_points_azimut - 1) / 2)
+        mid_profile = GSD.getBoundary(support,'jmin',azimut_central_index)
+        mid_profile[0] = 'mid_profile'
 
 
-        # Determine if reordering is necessary in order to
-        # guarantee an outwards-pointing normal for each zone
-        G._getNormalMap(t)
-        # Compute Revolution profile normal direction (outwards)
-        rpX, rpY, rpZ = J.getxyz(RevolutionProfile)
-        sizeRevProf = len(rpX)
-        MidPt = (rpX[int(sizeRevProf/2)], rpY[int(sizeRevProf/2)], rpZ[int(sizeRevProf/2)])
-        ptInAxe = T.projectOrtho(D.point(MidPt),AxeLine)
-        ptAxe = J.getxyz(ptInAxe)
-        OutwardsDir = (MidPt[0]-ptAxe[0], MidPt[1]-ptAxe[1], MidPt[2]-ptAxe[2])
+        bulb_profile,_ = W.splitAt(profile, bulb_npts-1)
 
-        for z in I.getNodesFromType(t,'Zone_t'):
-            sx=C.getMeanValue(z,'centers:sx')
-            sy=C.getMeanValue(z,'centers:sy')
-            sz=C.getMeanValue(z,'centers:sz')
-            ndotProp = sx*OutwardsDir[0]+sy*OutwardsDir[1]+sz*OutwardsDir[2]
-            mustReorder = True if ndotProp < 0 else False
+        cut_at = [bulb_npts-1, 2*np.sqrt(2)*D.getLength(bulb_profile)]
 
-            if mustReorder: T._reorder(z,(-1,2,3))
+        profile_split = W.splitAt(profile, cut_at, 'length')
 
-    return t, PeriodicProfiles
+        front_end_region = C.getNPts(profile_split[:2])-2
+
+        azm_front = GSD.getBoundary(support,'imin',front_end_region)
+        azm_front_0, azm_front_1 = T.splitNParts(azm_front,2)
+
+
+        mid_profile_split = W.splitAt(mid_profile, [np.sqrt(2)*D.getLength(bulb_profile),
+                                            front_end_region],'length')
+        mid_profile_split[1] = W.discretize(mid_profile_split[1],
+            N=C.getNPts(profile_split[1]),
+            Distribution=dict( kind='tanhTwoSides',
+            FirstCellHeight=W.segment(mid_profile_split[1]),
+            LastCellHeight=W.segment(mid_profile_split[1],-1)))
+
+
+
+        support_front = T.subzone(support,(C.getNPts(profile_split[0])-1,1,1),
+                       (C.getNPts(mid_profile_split[0])+1,azimut_central_index+1,1))
+
+
+
+        bulb_union_0 = D.line(tuple(W.point(profile_split[0],-1)),
+                              tuple(W.point(mid_profile_split[0],-1)),
+                              azimut_central_index+1)
+        T._projectOrtho(bulb_union_0, support_front)
+        bulb_union_0 = W.discretize(bulb_union_0,Distribution=dict(kind='tanhTwoSides',
+            FirstCellHeight=W.segment(profile_split[0],-1),
+            LastCellHeight=W.segment(mid_profile_split[0],-1)))
+        T._projectOrtho(bulb_union_0, support_front)
+
+
+
+
+        profile_splitB=[]
+        for p in profile_split:
+            profile_splitB.append(T.rotate(p,tuple(center),tuple(axis),
+                                      360./float(blade_number)))
+
+        I._correctPyTree(profile_split+profile_splitB,level=3)
+
+        T._rotate(support_front,tuple(center),tuple(axis),
+                                  180./float(blade_number))
+
+
+        bulb_union_1 = D.line(tuple(W.point(mid_profile_split[0],-1)),
+                              tuple(W.point(profile_splitB[0],-1)),
+                              azimut_central_index+1)
+        T._projectOrtho(bulb_union_1, support_front)
+        bulb_union_1 = W.discretize(bulb_union_1,Distribution=dict(kind='tanhTwoSides',
+            FirstCellHeight=W.segment(mid_profile_split[0],-1),
+            LastCellHeight=W.segment(profile_splitB[0],-1)))
+        T._projectOrtho(bulb_union_1, support_front)
+
+        front_bulb = G.TFI([W.reverse(profile_split[0]), bulb_union_1,
+                            bulb_union_0, profile_splitB[0]])
+        front_bulb[0] = 'bulb'
+        if reverse: T._reorder(front_bulb,(-1,2,3))
+
+
+        front_0 = G.TFI([bulb_union_0, azm_front_0,profile_split[1], mid_profile_split[1]])
+        front_1 = G.TFI([bulb_union_1, azm_front_1,mid_profile_split[1],profile_splitB[1]])
+        front_join = T.join(front_0, front_1)
+        front_join[0] = 'join'
+        T._reorder(front_join,(2,1,3))
+        if reverse: T._reorder(front_join,(-1,2,3))
+
+
+        support_front = T.subzone(support,(1,1,1),
+                       (C.getNPts(profile_split[:2]),2*azimut_central_index+1,1))
+
+        surfs2proj = [front_bulb,front_join]
+        fixed = P.exteriorFaces(surfs2proj)+[mid_profile_split[1]]
+        GSD.prepareGlue(surfs2proj, fixed)
+
+        # mirror point used for ray-projectio
+        OP = W.point(mid_profile_split[0],-1)
+        CM = (OP-center).dot(axis) * axis
+        OM = center + CM
+        MP = OP - OM
+        MPp = - MP
+        OPp = OM + MPp
+        T._projectRay(surfs2proj, support_front, OPp)
+        GSD.applyGlue(surfs2proj, fixed)
+        NPts_close = C.getNPts(profile_split[:2])
+        hub = T.subzone(support,(NPts_close-1,1,1), (-1,-1,-1))
+        hub[0] = 'hub'
+
+        return front_bulb, front_join, hub
+
+    front_bulb, front_join, hub = makeBulb(profile, axis, center, number_of_points_azimut)
+    front_bulb[0] = 'front.'+front_bulb[0]
+    hub = T.join(front_join,hub)
+    zones = [front_bulb, hub]
+    if REAR_CLOSED:
+        rear_bulb, rear_join, _ = makeBulb(profile, axis, center, number_of_points_azimut, True)
+        rear_bulb[0] = 'rear.'+rear_bulb[0]
+        Ni = I.getZoneDim(rear_join)[1] + int((number_of_points_azimut-1)/2)
+        hub = T.subzone(hub,(1,1,1),(-Ni,-1,-1))
+        hub = T.join(hub,rear_join)
+        zones = [front_bulb, hub, rear_bulb]
+    hub[0] = 'hub'
+
+    return zones
 
 
 def extrudePeriodicProfiles(PeriodicProfiles,
@@ -1426,12 +1297,12 @@ def extractNearestSectionIndexAtRadius(blade_surface, requested_radius,
 
     return section_index
 
-def _getRootAndTransitionIndices(blade_surface, spinner_profile, rotation_center,
+def _getRootAndTransitionIndices(blade_surface, spinner, rotation_center,
                                 rotation_axis, root_to_transition_distance):
-    spinner_profile = I.copyRef(spinner_profile)
-    W.addDistanceRespectToLine(spinner_profile, rotation_center, rotation_axis,
+    spinner_profile = I.copyRef(spinner)
+    W.addDistanceRespectToLine(spinner, rotation_center, rotation_axis,
                                FieldNameToAdd='radius')
-    approximate_root_radius = C.getMaxValue(spinner_profile,'radius')
+    approximate_root_radius = C.getMaxValue(spinner,'radius')
 
     blade_main_surface = J.selectZoneWithHighestNumberOfPoints(blade_surface)
 
@@ -1457,29 +1328,56 @@ def _getRootAndTransitionIndices(blade_surface, spinner_profile, rotation_center
 
 
 def _computeIntersectionContourBetweenBladeAndSpinner(blade_surface,
-        rotation_center, rotation_axis, spinner_profile,
-        maximum_extrusion_distance_at_spinner, transition_section_index,
-        geometry_npts_azimut=361):
+        rotation_center, rotation_axis, spinner,
+        transition_section_index, geometry_npts_azimut=361,
+        method='conformize'):
 
-    blade_main_surface = J.selectZoneWithHighestNumberOfPoints(blade_surface)
+    blade_main_surface = J.selectZoneWithHighestNumberOfPoints( blade_surface )
     _,Ni,Nj,Nk,_ = I.getZoneDim(blade_main_surface)
     trimmed_blade_root = T.subzone(blade_main_surface,(1,1,1),
                                                 (Ni,transition_section_index,1))
-    trimmed_blade_root_closed = GSD.buildWatertightBodyFromSurfaces([trimmed_blade_root])
+    spinner_surface = _splitSpinnerHgrid(spinner, blade_surface, rotation_axis, rotation_center,
+                                        spinner_axial_indexing='i')[1]
 
-    blade_barycenter = np.array(list(G.barycenter(trimmed_blade_root)))
-    cut_point_1 = blade_barycenter + 3 * rotation_axis * maximum_extrusion_distance_at_spinner
-    cut_point_2 = blade_barycenter - 3 * rotation_axis * maximum_extrusion_distance_at_spinner
-    trimmed_spinner_profile = W.trimCurveAlongDirection(spinner_profile,
-                                                        rotation_axis,
-                                                        cut_point_1,
-                                                        cut_point_2)
+    if method=='intersection':
+        trimmed_blade_root_closed = GSD.buildWatertightBodyFromSurfaces([trimmed_blade_root])
 
-    nb_azimut_pts = geometry_npts_azimut if geometry_npts_azimut%2==0 else geometry_npts_azimut + 1
-    spinner_surface = D.axisym(trimmed_spinner_profile, rotation_center,
-                               rotation_axis, angle=360., Ntheta=nb_azimut_pts)
-    spinner_surface_closed = GSD.buildWatertightBodyFromSurfaces([spinner_surface])
-    intersection_bar = XOR.intersection(spinner_surface_closed, trimmed_blade_root_closed)
+        ref_root = T.subzone(blade_main_surface,(1,1,1),(Ni,2,1))
+        bbox = np.array(G.bbox(ref_root))
+        bbox = np.reshape(bbox,(2,3))
+        bbox_diag_vector = np.diff(bbox,axis=0).flatten()
+        bbox_diag = np.sqrt(bbox_diag_vector.dot(bbox_diag_vector))
+
+        contour = P.exteriorFacesStructured(spinner_surface)
+        spinner_closed_contours = [spinner_surface]
+        for c in contour:
+            c_proj = I.copyTree(c)
+            W.projectOnAxis(c_proj, rotation_axis, rotation_center)
+            spinner_closed_contours += [G.stack([c,c_proj])]
+
+        spinner_surface_closed = GSD.buildWatertightBodyFromSurfaces(spinner_closed_contours)
+        try:
+            # WARNING https://elsa.onera.fr/issues/10482
+            intersection_bar = XOR.intersection(spinner_surface_closed, trimmed_blade_root_closed)
+        except:
+            C.convertPyTree2File([spinner_surface_closed, trimmed_blade_root_closed],'debug.cgns')
+            MSG = ('could not compute blade-spinner intersection.\n '
+                   'BEWARE of https://elsa.onera.fr/issues/10482\n '
+                   'CHECK debug.cgns (elements MUST BE intersecting)\n '
+                   'Employed method was "%s". Please try "%s" ')%(method,'conformize')
+            raise ValueError(J.FAIL+MSG+J.ENDC)
+
+    elif method=='conformize':
+        try:
+            intersection_bar = GSD.surfacesIntersection(trimmed_blade_root, spinner_surface)
+        except:
+            C.convertPyTree2File([trimmed_blade_root, spinner_surface],'debug.cgns')
+            MSG = ('could not compute blade-spinner intersection.\n '
+                   'BEWARE of https://elsa.onera.fr/issues/10482\n '
+                   'CHECK debug.cgns (elements MUST BE intersecting)\n '
+                   'Employed method was "%s". Please try "%s" ')%(method,'intersection')
+            raise ValueError(J.FAIL+MSG+J.ENDC)
+
     intersection_bar = C.convertBAR2Struct(intersection_bar)
     T._projectOrtho(intersection_bar,trimmed_blade_root)
 
@@ -1621,7 +1519,6 @@ def _extrudeBladeRootOnSpinner(blade_surface, spinner_surface, root_section_inde
     blade_main_surface = J.selectZoneWithHighestNumberOfPoints(blade_surface)
     Constraints = [dict(kind='Projected',ProjectionMode='ortho',
                         curve=supported_profile, surface=spinner_surface)]
-
     trimmed_blade_no_intersect = T.subzone(blade_main_surface,
                                           (1,root_section_index+1,1), (-1,-1,-1))
 
@@ -1696,6 +1593,7 @@ def _buildAndJoinCollarGrid(blade_surface, blade_root2trans_extrusion, transitio
                                    Distribution=dict(kind='tanhTwoSides',
                                    FirstCellHeight=wall_cell_height,
                                    LastCellHeight=transition_cell_width)))[1]
+
     extruded_transition = GVD.multiSections(transition_sections, transition_distribution,
                         InterpolationData={'InterpolationLaw':CollarLaw})[0]
     T._reorder(extruded_transition,(1,3,2))
@@ -1759,3 +1657,1726 @@ def makeBladeAndSpinnerTreeForChecking(blade_extruded, spinner_extruded,
     t = I.merge([t,t2])
 
     return t
+
+
+def buildMatchMesh(spinner, blade, blade_number, rotation_axis=[-1,0,0],
+                   rotation_center=[0,0,0], H_grid_interior_points=61,
+                   relax_relative_length=0.5, distance=10., number_of_points=200,
+                   farfield_cell_height=1., tip_axial_scaling_at_farfield=0.5,
+                   normal_tension=0.05, DIRECTORY_CHECKME='CHECK_ME'):
+
+    # NOTE implement so that blade can be a surface (2D) or a volume (3D)
+    spinner_front, spinner_middle, spinner_rear = _splitSpinnerHgrid(spinner,
+                                          blade, rotation_axis, rotation_center)
+    external_surfaces, npts_azimut, \
+    central_first_cell, central_last_cell = _buildExternalSurfacesHgrid(
+                        blade, spinner_middle, rotation_axis, rotation_center)
+
+    try: bulb_front, = [z for z in I.getZones(spinner) if z[0]=='front.bulb']
+    except: bulb_front = None
+    try: bulb_rear, = [z for z in I.getZones(spinner) if z[0]=='rear.bulb']
+    except: bulb_rear = None
+    front_surface, = [ z for z in external_surfaces if z[0] == 'front.surf' ]
+    rear_surface, = [ z for z in external_surfaces if z[0] == 'rear.surf' ]
+
+    wires_front, surfs_front, grids_front = _buildHubWallAdjacentSector(
+                            front_surface, spinner_front,
+                            bulb_front, blade_number, rotation_center,
+                            rotation_axis, central_first_cell, central_last_cell,
+                            'front')
+
+    C.convertPyTree2File(wires_front+ surfs_front,
+                         os.path.join(DIRECTORY_CHECKME,'6_front_near_topo.cgns'))
+
+    if bulb_rear:
+        wires_rear, surfs_rear, grids_rear = _buildHubWallAdjacentSector(
+                                rear_surface, spinner_rear,
+                                bulb_rear, blade_number, rotation_center,
+                                rotation_axis, central_first_cell,
+                                central_last_cell,'rear')
+    else:
+        wires_rear, surfs_rear, grids_rear = _buildHubWallAdjacentSectorWithoutBulb(
+                                rear_surface, spinner_rear, blade_number, rotation_center,
+                                rotation_axis, central_last_cell)
+    C.convertPyTree2File(wires_rear+ surfs_rear,
+                         os.path.join(DIRECTORY_CHECKME,'7_rear_near_topo.cgns'))
+
+
+    Hgrids = _buildHgridAroundBlade(external_surfaces, blade, rotation_center,
+                   rotation_axis, H_grid_interior_points, relax_relative_length)
+
+    profile = _extractWallAdjacentSectorFullProfile(wires_front, wires_rear,
+                                                        external_surfaces)
+
+
+    C.convertPyTree2File(P.exteriorFacesStructured(Hgrids),
+                         os.path.join(DIRECTORY_CHECKME,'8_Hgrid_faces.cgns'))
+
+
+    sector_bnds = _gatherSectorBoundaries(Hgrids, blade, surfs_rear, surfs_front)
+
+    fargrids, farfaces = _buildFarfieldSector(blade, sector_bnds, profile,
+                         blade_number, npts_azimut, H_grid_interior_points,
+                         rotation_center, rotation_axis,
+                         distance=distance, number_of_points=number_of_points,
+                         farfield_cell_height=farfield_cell_height,
+                         tip_axial_scaling_at_farfield=tip_axial_scaling_at_farfield,
+                         normal_tension=normal_tension)
+
+    C.convertPyTree2File(farfaces,
+                         os.path.join(DIRECTORY_CHECKME,'9_farfaces.cgns'))
+
+    t = C.newPyTree(['Base',grids_front+Hgrids+grids_rear+fargrids+I.getZones(blade)])
+    base, = I.getBases(t)
+    J.set(base,'.MeshingParameters',blade_number=blade_number,
+               RightHandRuleRotation=True, # TODO CAVEAT
+               rotation_axis=rotation_axis, rotation_center=rotation_center)
+
+    C.convertPyTree2File(P.exteriorFacesStructured(t),
+                     os.path.join(DIRECTORY_CHECKME,'10_final_grid_faces.cgns'))
+
+
+    return t
+
+
+def _splitSpinnerHgrid(spinner, blade, rotation_axis, rotation_center,
+                       spinner_axial_indexing='i'):
+    blade_main_surface = J.selectZoneWithHighestNumberOfPoints( blade )
+    spinner_main_surface = J.selectZoneWithHighestNumberOfPoints( spinner )
+    spinner_azimut_indexing = 'j' if spinner_axial_indexing == 'i' else 'i'
+    spinner_profile = GSD.getBoundary(spinner_main_surface,
+                                      spinner_azimut_indexing+'min')
+
+    N_segs_azimut = C.getNCells( GSD.getBoundary( spinner_main_surface, spinner_axial_indexing+'min' ) )
+    N_segs_foil = I.getZoneDim( blade_main_surface )[1] - 1
+    N_segs_axial = int(N_segs_foil/2 - N_segs_azimut)
+
+    blade_root = GSD.getBoundary( blade_main_surface, 'jmin')
+    bary = G.barycenter( blade_root )
+    bary_index,_ = D.getNearestPointIndex( spinner_profile, tuple(bary) )
+
+    if N_segs_axial % 2 == 0:
+        cut_indices = [int(bary_index-N_segs_axial/2), int(bary_index+N_segs_axial/2)]
+    else:
+        N_segs_axial -= 1
+        cut_indices = [int(bary_index-N_segs_axial/2 +1), int(bary_index+N_segs_axial/2)]
+
+
+    _,Ni,Nj,_,_ = I.getZoneDim( spinner_main_surface )
+    if spinner_axial_indexing == 'i':
+        front = T.subzone(spinner_main_surface, (1,1,1),
+                                                (cut_indices[0]+1,Nj,1))
+        middle = T.subzone(spinner_main_surface, (cut_indices[0]+1,1,1),
+                                                (cut_indices[1]+1,Nj,1))
+        rear = T.subzone(spinner_main_surface, (cut_indices[1]+1,1,1),
+                                                (Ni,Nj,1))
+
+    else:
+        front = T.subzone(spinner_main_surface, (1 ,1,1),
+                                                (Ni,cut_indices[0]+1,1))
+        middle = T.subzone(spinner_main_surface, (1 ,cut_indices[0]+1,1),
+                                                (Ni,cut_indices[1]+1,1))
+        rear = T.subzone(spinner_main_surface, (1 ,cut_indices[1]+1,1),
+                                                (Ni,Nj,1))
+    front[0] = 'hub.front'
+    middle[0] = 'hub.middle'
+    rear[0] = 'hub.rear'
+
+    return front, middle, rear
+
+
+def _getSpineFromBlade( blade ):
+    blade_main_surface = J.selectZoneWithHighestNumberOfPoints( blade )
+    dim = I.getZoneDim( blade_main_surface )[-1]
+    if dim == 3:
+        external = GSD.getBoundary( blade_main_surface, 'kmax')
+        spine = GSD.getBoundary( external, 'imin')
+    else:
+        spine = GSD.getBoundary( blade_main_surface, 'imin')
+
+    return spine
+
+
+def _buildExternalSurfacesHgrid(blade, spinner_split, rotation_axis,
+                                rotation_center, spreading=2.):
+    c = np.array(rotation_center,dtype=np.float)
+    a = np.array(rotation_axis,dtype=np.float)
+    spine = _getSpineFromBlade( blade )
+    distribution = D.getDistribution( spine )
+
+    W.addDistanceRespectToLine( spine , c, a, 'span')
+    Length = C.getMaxValue( spine, 'span' ) - C.getMinValue( spine, 'span' )
+
+    bary = D.point(G.barycenter(spinner_split))
+    W.projectOnAxis(bary, rotation_axis, rotation_center)
+    bary = W.point(bary)
+
+    front = GSD.getBoundary(spinner_split,'imin')
+    front[0] = 'front'
+    rear = GSD.getBoundary(spinner_split,'imax')
+    rear[0] = 'rear'
+    sideA = GSD.getBoundary(spinner_split,'jmin')
+    sideA[0] = 'sideA'
+    sideB = GSD.getBoundary(spinner_split,'jmax')
+    sideB[0] = 'sideB'
+    spinner_contours = [ front, rear, sideA, sideB ]
+
+    external_surfaces = []
+    for contour in spinner_contours:
+        lines = []
+        x, y, z = J.getxyz( contour )
+        for i in range( len(x) ):
+            OX = np.array([ x[i], y[i], z[i] ])
+            CX = OX - c
+            OP = c  + a * CX.dot( a )
+            PX = OX - OP
+            PX_v = PX / np.sqrt( PX.dot( PX ) )
+            OL = OX + PX_v * Length - spreading*a*(OP-bary)
+
+            line = D.line( tuple(OX), tuple(OL), 2)
+            line = G.map( line, distribution )
+            lines += [ line ]
+
+        stack = G.stack(lines)
+        stack[0] = contour[0]+'.surf'
+        external_surfaces += [ stack ]
+
+    for surf in external_surfaces:
+        if surf[0].startswith('sideA'):
+            edge = GSD.getBoundary(surf,'imax')
+            central_first_cell = W.distance(W.point(edge),W.point(edge,1))
+            central_last_cell = W.distance(W.point(edge,-2),W.point(edge,-1))
+
+    npts_azimut = C.getNPts(front)
+
+    return external_surfaces, npts_azimut, central_first_cell, central_last_cell
+
+
+def _buildSupportFromBoundaries(boundaries, rotation_center, rotation_axis):
+    c = np.array(rotation_center,dtype=np.float)
+    a = np.array(rotation_axis,dtype=np.float)
+    boundaries = W.reorderAndSortCurvesSequentially( boundaries )
+    alignment = [ a.dot( W.tangentExtremum( b ) ) for b in boundaries ]
+    best_aligned = np.argmax( alignment )
+    best_aligned_boundary = boundaries[ best_aligned ]
+    azimut_boundary = boundaries[ best_aligned - 1 ]
+    azimut_boundary = T.reorder(azimut_boundary, (-1,2,3))
+    tangent_start = W.tangentExtremum( azimut_boundary )
+    tangent_end = W.tangentExtremum(azimut_boundary, opposite_extremum=True)
+    sector_angle = np.rad2deg(np.arccos( tangent_start.dot( tangent_end ) ))
+    if sector_angle < 0: sector_angle += 180
+    sector_angle = 360 / float(int(np.round(360/sector_angle)))
+    proj_pt = W.point(azimut_boundary, as_pytree_point=True)
+    W.projectOnAxis(proj_pt, a, c)
+    start_to_proj = W.point(proj_pt) - W.point(azimut_boundary)
+    rotation_sign = np.sign( a.dot ( np.cross(tangent_start,start_to_proj)))
+    support = D.axisym(best_aligned_boundary,tuple(c),tuple(rotation_sign*a),
+                       sector_angle, C.getNPts(azimut_boundary))
+    support[0] = 'support'
+    outter_cell_size = W.distance(W.point(azimut_boundary),W.point(azimut_boundary,1))
+    return support, outter_cell_size
+
+def _getInnerContour(blade,index,increasing_span_indexing='jmin'):
+    blade_main_surface = J.selectZoneWithHighestNumberOfPoints(blade)
+    slice = GSD.getBoundary(blade_main_surface, increasing_span_indexing, index)
+    dim = I.getZoneDim( slice )[-1]
+    if dim == 2:
+        exterior = GSD.getBoundary(slice,'jmax')
+        neighbor = GSD.getBoundary(slice,'jmax',-1)
+        inner_cell_size = W.pointwiseDistances(exterior, neighbor)[2]
+        W.pointwiseVectors(exterior, neighbor, reverse=True)
+        # normals = W.getVisualizationNormals(exterior, length=inner_cell_size)
+        return exterior, inner_cell_size
+    return slice, None
+
+
+
+def _buildHgridAroundBlade(external_surfaces, blade, rotation_center,
+                           rotation_axis, H_grid_interior_points, relax_relative_length):
+    spine = _getSpineFromBlade( blade )
+    wall_cell_height = W.distance( W.point( spine ), W.point( spine, 1 ) )
+    W.addDistanceRespectToLine(spine, rotation_center, rotation_axis, 'span')
+    span, = J.getVars(spine, ['span'])
+    MinSpan = np.min( span )
+    MaxSpan = np.max( span )
+    s = W.gets( spine )
+    span_pts = len(s)
+
+    Tik = Tok()
+    nbOfDigits = int(np.ceil(np.log10(span_pts+1)))
+    LastLayer = ('{:0%d}'%nbOfDigits).format(span_pts)
+    All_surfs = []
+
+    bnds_to_stack = []
+    walls_to_stack = []
+    bnds_stack = []
+    walls_stack = []
+    blks_stack = []
+
+    all_ref_index = []
+
+    for i in range( span_pts ):
+
+        boundaries = [ GSD.getBoundary(e, 'imin', i) for e in external_surfaces ]
+        inner_contour, inner_cell_size = _getInnerContour(blade,i)
+        bnds_split, inner_split, ref_index = W.splitInnerContourFromOutterBoundariesTopology(
+                                                    boundaries, inner_contour)
+        all_ref_index += [ ref_index ]
+
+    ref_index = int(np.median(all_ref_index))
+
+
+    for i in range( span_pts ):
+
+        boundaries = [ GSD.getBoundary(e, 'imin', i) for e in external_surfaces ]
+        inner_contour, inner_cell_size = _getInnerContour(blade,i)
+        bnds_split, inner_split,_ = W.splitInnerContourFromOutterBoundariesTopology(
+                                                    boundaries, inner_contour,ref_index)
+
+        if i>0 and i<span_pts-1:
+            for j in range( len(bnds_split) ):
+                bnds_to_stack[j] += [bnds_split[j]]
+                walls_to_stack[j] += [inner_split[j]]
+            continue
+
+        elif i==0:
+            for j in range( len(bnds_split) ):
+                bnds_to_stack += [[]]
+                walls_to_stack += [[]]
+                bnds_stack += [[]]
+                walls_stack += [[]]
+                blks_stack += [[]]
+
+            for j in range( len(bnds_split) ):
+                bnds_to_stack[j] = [bnds_split[j]]
+                walls_to_stack[j] = [inner_split[j]]
+
+        else:
+
+            for j in range( len(bnds_split) ):
+                bnds_to_stack[j] += [bnds_split[j]]
+                bnds_stack[j] += [G.stack(bnds_to_stack[j])]
+                walls_to_stack[j] += [inner_split[j]]
+                walls_stack[j] += [G.stack(walls_to_stack[j])]
+                bnds_to_stack[j] = [bnds_to_stack[j][-1]]
+                walls_to_stack[j] = [walls_to_stack[j][-1]]
+
+        currentLayer = ('{:0%d}'%nbOfDigits).format(i+1)
+        Message = J.MAGE+'H-grid'+J.ENDC+' %s/%s | cost: %0.5f s'%(currentLayer,LastLayer,Tok()-Tik)
+        print(Message)
+        Tik = Tok()
+
+        all_ref_index += [ ref_index ]
+
+        support, outter_cell_size = _buildSupportFromBoundaries(boundaries,
+                                                rotation_center, rotation_axis)
+        W.computeBarycenterDirectionalField(boundaries, support)
+        W.projectNormals(boundaries, support, normal_projection_length=1e-4)
+        W.projectNormals(inner_contour, support, normal_projection_length=1e-4)
+        if inner_cell_size is None: inner_cell_size = wall_cell_height
+
+        min_distance = W.pointwiseDistances(bnds_split, inner_split)[0]
+        local_relax_length = relax_relative_length * min_distance if i>0 else 0
+
+        surfs = GSD.makeH(boundaries, inner_contour,
+                          inner_cell_size=inner_cell_size,
+                          outter_cell_size=outter_cell_size,
+                          number_of_points_union=H_grid_interior_points,
+                          inner_normal_tension=0.3, outter_normal_tension=0.3,
+                          projection_support=support,
+                          global_projection_relaxation=0,
+                          local_projection_relaxation_length=local_relax_length,
+                          forced_split_index=ref_index)
+        T._reorder(surfs, (2,1,3))
+        All_surfs += [ surfs ]
+
+    # zones = [s[0] for s in All_surfs]
+    # I._correctPyTree(zones,level=3)
+    # C.convertPyTree2File(zones,'test.cgns');exit()
+
+    Tik = Tok()
+    nb_stacks = len(All_surfs)
+    nb_dgs = int(np.ceil(np.log10(nb_stacks)))
+    LastLayer = ('{:0%d}'%nb_dgs).format(nb_stacks-1)
+    for i in range( nb_stacks - 1):
+        surfs = All_surfs[i]
+        next_surfs = All_surfs[i+1]
+        currentLayer = ('{:0%d}'%nb_dgs).format(i+1)
+        Message = J.CYAN+'TFI...'+J.ENDC+' %s/%s | cost: %0.5f s'%(currentLayer,LastLayer,Tok()-Tik)
+        print(Message)
+        Tik = Tok()
+
+        for j in range( len(bnds_split) ):
+            wall_curve = GSD.getBoundary(walls_stack[j][i],'imin')
+            bnd_curve = GSD.getBoundary(bnds_stack[j][i],'imin')
+            surfs_curve = GSD.getBoundary(surfs[j],'imin')
+            next_surfs_curve = GSD.getBoundary(next_surfs[j],'imin')
+            curves = [wall_curve,bnd_curve,surfs_curve,next_surfs_curve]
+            imin_surf = G.TFI( curves )
+
+
+            wall_curve = GSD.getBoundary(walls_stack[j][i],'imax')
+            bnd_curve = GSD.getBoundary(bnds_stack[j][i],'imax')
+            surfs_curve = GSD.getBoundary(surfs[j],'imax')
+            next_surfs_curve = GSD.getBoundary(next_surfs[j],'imax')
+            curves = [wall_curve,bnd_curve,surfs_curve,next_surfs_curve]
+            imax_surf = G.TFI( curves )
+
+            blk = G.TFI([imin_surf, imax_surf,
+                        walls_stack[j][i], bnds_stack[j][i],
+                        surfs[j], next_surfs[j] ])
+
+            blks_stack[j] += [blk]
+
+
+    print('joining...')
+    grids = []
+    for j in range( len(bnds_split) ):
+        blk = blks_stack[j][0]
+        for blk2 in blks_stack[j][1:]:
+            blk = T.join(blk,blk2)
+        blk[0] = blks_stack[j][0][0]
+        grids += [ blk ]
+    print('joining... ok')
+
+    for grid in grids:
+        C._addBC2Zone(grid,'spinner_wall','FamilySpecified:SPINNER', 'kmin')
+
+    return grids
+
+
+def _buildHubWallAdjacentSector(surface, spinner, bulb, blade_number,
+        rotation_center, rotation_axis,central_first_cell, central_last_cell,
+        topo):
+
+    central_cell = central_first_cell if topo =='front' else central_last_cell
+
+    def getBinormal(curve, opposite=False):
+        t = W.tangentExtremum(curve,True)
+        n = np.cross(t,a)
+        b = np.cross(t,n)
+        b /= np.sqrt(b.dot(b))
+        if opposite: b*=-1
+        return b
+
+    def getPseudoNormal(curve, opposite=False):
+        t = W.tangentExtremum(curve,True)
+        n = np.cross(a,t)
+        n /= np.sqrt(n.dot(n))
+        if opposite: n*=-1
+        return n
+
+
+    def makeBinormalUnion(curve1, curve2, NPts, tension=0.4, reverse=False):
+        ext1 = W.extremum(curve1, True)
+        ext2 = W.extremum(curve2, True)
+        s1 = getBinormal(curve1, reverse)
+        s2 = getBinormal(curve2, not reverse)
+        d = W.distance(ext1,ext2)
+        poly = D.polyline([tuple(ext1), tuple(ext1+d*tension*s1),
+                           tuple(ext2+d*tension*s2), tuple(ext2)])
+        union = D.bezier(poly,N=NPts)
+        union = W.discretize(union,N=NPts, Distribution=dict(kind='tanhTwoSides',
+            FirstCellHeight=last_cell_height, LastCellHeight=central_cell))
+        return union
+
+    def makeSemiBinormalUnion(curve1, curve2, NPts, tension=0.4, reverse=False):
+        ext1 = W.extremum(curve1, True)
+        ext2 = W.extremum(curve2, True)
+        s1 = getBinormal(curve1, not reverse)
+        d = W.distance(ext1,ext2)
+        poly = D.polyline([tuple(ext1), tuple(ext1+d*tension*s1), tuple(ext2)])
+        union = D.bezier(poly,N=NPts)
+        union = W.discretize(union,N=NPts, Distribution=Distribution_edge)
+        return union
+
+    def makePseudoNormalUnion(curve1, curve2, NPts, tension=0.4):
+        ext1 = W.extremum(curve1, True)
+        ext2 = W.extremum(curve2, True)
+        s1 = getPseudoNormal(curve1)
+        s2 = getPseudoNormal(curve2,True)
+        d = W.distance(ext1,ext2)
+        poly = D.polyline([tuple(ext1), tuple(ext1+d*tension*s1),
+                           tuple(ext2+d*tension*s2), tuple(ext2)])
+        union = D.bezier(poly,N=NPts)
+        union = W.discretize(union,N=NPts, Distribution=Distribution_edge)
+        return union
+
+    def makeSharpPseudoNormalUnion(curve1, curve2, NPts, tension=0.4, reverse_normal=False):
+        ext1 = W.extremum(curve1, True)
+        ext2 = W.extremum(curve2, True)
+        s1 = getPseudoNormal(curve1, reverse_normal)
+        d = W.distance(ext1,ext2)
+        v = ext1 - ext2
+        v /= np.sqrt( v.dot(v) )
+        poly = D.polyline([tuple(ext1), tuple(ext1+d*tension*s1),
+                           # tuple(ext2+d*tension*v),
+                           tuple(ext2)])
+        union = D.bezier(poly,N=NPts)
+        union = W.discretize(union,N=NPts, Distribution=Distribution_edge)
+        return union
+
+
+    c = np.array(rotation_center,dtype=np.float)
+    a = np.array(rotation_axis,dtype=np.float)
+
+    surface_dist = GSD.getBoundary(surface,'jmin')
+    wall_cell_height = W.distance(W.point(surface_dist),W.point(surface_dist,1))
+    Length = D.getLength(surface_dist)
+
+    ext_surf_edge  = GSD.getBoundary(surface,'imax')
+    ext_surf_edge[0] = 'ext_surf_edge'
+
+    surf_edge = GSD.getBoundary(surface,'jmin')
+    surf_edge[0] = 'surf_edge'
+
+
+    last_cell_height = W.distance(W.point(ext_surf_edge),W.point(ext_surf_edge,1))
+
+    Distribution_wall=dict(kind='tanhTwoSides', FirstCellHeight=wall_cell_height,
+                                               LastCellHeight=last_cell_height)
+    Distribution_edge=dict(kind='tanhTwoSides', FirstCellHeight=last_cell_height,
+                                               LastCellHeight=last_cell_height)
+
+    NPts_surface_dist = C.getNPts(surface_dist)
+    spinner = I.copyRef( spinner )
+    G._getNormalMap(spinner)
+    C.center2Node__(spinner,'centers:sx',cellNType=0)
+    C.center2Node__(spinner,'centers:sy',cellNType=0)
+    C.center2Node__(spinner,'centers:sz',cellNType=0)
+    I._rmNodesByName(spinner,I.__FlowSolutionCenters__)
+    C._normalize(spinner,['sx','sy','sz'])
+    if topo == 'front':  spinner_edge = GSD.getBoundary(spinner,'imin')
+    elif topo == 'rear': spinner_edge = GSD.getBoundary(spinner,'imax')
+
+    # bulb
+    bulb = I.copyRef(bulb)
+    W.addDistanceRespectToLine(bulb, c, a, FieldNameToAdd='Distance2Line')
+    d,= J.getVars(bulb,['Distance2Line'])
+    x, y, z = J.getxyz(bulb)
+    d = d.ravel(order='F')
+    x = x.ravel(order='F')
+    y = y.ravel(order='F')
+    z = z.ravel(order='F')
+
+    i = np.argmin(d)
+    p = np.array([x[i],y[i],z[i]],dtype=float)
+    cp = p-c
+    P1 = p + np.sign( cp.dot(a) ) * a * Length
+    axis_line = W.linelaw(tuple(p),tuple(P1), NPts_surface_dist, Distribution_wall)
+    axis_line[0] = 'axis_line'
+
+
+
+    if topo == 'front':
+        bulb_side_0 = GSD.getBoundary(bulb,'imin')
+        bulb_side_0[0] = 'bulb_side_0'
+        bulb_side_1 = GSD.getBoundary(bulb,'jmax')
+        bulb_side_1[0] = 'bulb_side_1'
+        spinner_bulb_side_0 = GSD.getBoundary(bulb,'imax')
+        spinner_bulb_side_0[0] = 'spinner_bulb_side_0'
+        spinner_bulb_side_1 = GSD.getBoundary(bulb,'jmin')
+        spinner_bulb_side_1[0] = 'spinner_bulb_side_1'
+
+    elif topo == 'rear':
+        bulb_side_0 = GSD.getBoundary(bulb,'imax')
+        bulb_side_0[0] = 'bulb_side_0'
+        bulb_side_1 = GSD.getBoundary(bulb,'jmax')
+        bulb_side_1[0] = 'bulb_side_1'
+        spinner_bulb_side_0 = GSD.getBoundary(bulb,'imin')
+        spinner_bulb_side_0[0] = 'spinner_bulb_side_0'
+        spinner_bulb_side_1 = GSD.getBoundary(bulb,'jmin')
+        spinner_bulb_side_1[0] = 'spinner_bulb_side_1'
+
+
+
+
+    GSD._alignNormalsWithRadialCylindricProjection(spinner_edge, c, a)
+    x,y,z = J.getxyz(spinner_edge)
+    spinner_edge_NPts = len(x)
+    sx,sy,sz = J.getVars(spinner_edge,['sx','sy','sz'])
+    middle_index = int((spinner_edge_NPts-1)/2)
+    pt = np.array([x[0],y[0],z[0]],dtype=float)
+    n  = np.array([sx[0],sy[0],sz[0]],dtype=float)
+    P0 = pt
+    P1 = pt + n * Length
+    line_0 = W.linelaw(tuple(P0),tuple(P1), NPts_surface_dist, Distribution_wall)
+    line_0[0] = 'line_0'
+
+    reverse = True if topo == 'rear' else False
+    bulb_union_0 = makeSemiBinormalUnion(line_0, axis_line,
+                                             C.getNPts(bulb_side_0), reverse=reverse)
+    bulb_union_0[0] = 'bulb_union_0'
+
+
+    surf_edge_half = GSD.getBoundary(surface,'jmin',middle_index)
+    surf_edge_half[0] = 'surf_edge_half'
+    surf_edge_1 = GSD.getBoundary(surface,'jmax')
+    surf_edge_1[0] = 'surf_edge_1'
+    spinner_wall_edge_0 = GSD.getBoundary(spinner,'jmin')
+    spinner_wall_edge_0[0] = 'spinner_wall_edge_0'
+    spinner_wall_edge_half = GSD.getBoundary(spinner,'jmin',middle_index)
+    spinner_wall_edge_half[0] = 'spinner_wall_edge_half'
+    spinner_wall_edge_1 = GSD.getBoundary(spinner,'jmax')
+    spinner_wall_edge_1[0] = 'spinner_wall_edge_1'
+    tension = 0.4 if topo == 'front' else 0.25 # TODO make parameter
+    spinner_union_0 = makeBinormalUnion(line_0, surf_edge, C.getNPts(spinner_wall_edge_0),
+                                        tension=tension, reverse=reverse)
+    spinner_union_0[0] = 'spinner_union_0'
+
+
+    profile = T.join(spinner_union_0, bulb_union_0)
+    profile[0] = 'profile'
+    proj_support = D.axisym(profile,tuple(c),tuple(a),
+            angle=360./float(blade_number), Ntheta=C.getNPts(ext_surf_edge))
+    proj_support[0] = 'proj_support'
+    G._getNormalMap(proj_support)
+    C.center2Node__(proj_support,'centers:sx',cellNType=0)
+    C.center2Node__(proj_support,'centers:sy',cellNType=0)
+    C.center2Node__(proj_support,'centers:sz',cellNType=0)
+    I._rmNodesByName(proj_support,I.__FlowSolutionCenters__)
+    C._normalize(proj_support,['sx','sy','sz'])
+
+
+
+    bulb_union_2, spinner_union_2, line_2 = T.rotate([bulb_union_0,
+        spinner_union_0, line_0], tuple(c),tuple(a),360./float(blade_number))
+    line_2[0] = 'line_2'
+    bulb_union_2[0] = 'bulb_union_2'
+    spinner_union_2[0] = 'spinner_union_2'
+
+
+
+    proj_half = GSD.getBoundary(proj_support,'jmin',middle_index)
+    proj_half[0] = 'proj_half'
+    T._reorder(proj_half,(-1,2,3))
+    s = W.gets(proj_half)
+    s *= D.getLength(proj_half)
+    L_diag = D.getLength(bulb_union_0) * np.sqrt(2)
+    diag_cut_index = np.argmin( np.abs(s - L_diag) )
+    spinner_union_1 = T.subzone(proj_half,(diag_cut_index,1,1),(-1,-1,-1))
+    spinner_union_1 = W.discretize(spinner_union_1, C.getNPts(spinner_wall_edge_half),
+                                   dict(kind='tanhTwoSides', FirstCellHeight=last_cell_height,
+                                            LastCellHeight=central_cell))
+    spinner_union_1[0] = 'spinner_union_1'
+    T._reorder(spinner_union_1,(-1,2,3))
+
+
+
+    ext_union_azm_0 = makeSharpPseudoNormalUnion(line_0,spinner_union_1,
+                                    C.getNPts(spinner_bulb_side_0),0.5)
+    ext_union_azm_0[0] = 'ext_union_azm_0'
+    T._projectOrtho(ext_union_azm_0,proj_support)
+    ext_union_azm_0 = W.discretize(ext_union_azm_0, C.getNPts(ext_union_azm_0),
+                                   Distribution_edge)
+    T._projectOrtho(ext_union_azm_0,proj_support)
+
+    ext_union_azm_1 = makeSharpPseudoNormalUnion(line_2,spinner_union_1,
+                                    C.getNPts(spinner_bulb_side_1),0.5,True)
+    ext_union_azm_1[0] = 'ext_union_azm_1'
+    T._projectOrtho(ext_union_azm_1,proj_support)
+    ext_union_azm_1 = W.discretize(ext_union_azm_1, C.getNPts(ext_union_azm_1),
+                                   Distribution_edge)
+    T._projectOrtho(ext_union_azm_1,proj_support)
+
+
+
+    x,y,z = J.getxyz(spinner_edge)
+    spinner_edge_NPts = len(x)
+    sx,sy,sz = J.getVars(spinner_edge,['sx','sy','sz'])
+    i = middle_index
+    P0 = np.array([x[i],y[i],z[i]],dtype=float)
+    n  = np.array([sx[i],sy[i],sz[i]],dtype=float)
+    ext2 = W.extremum(spinner_union_1,True)
+    n_ext = np.array( P.extractPoint(proj_support, tuple(ext2)),dtype=float)
+    if topo == 'rear': n_ext *= -1
+    d = W.distance(P0, ext2)
+    tension = 0.2 # TODO make parameter
+    poly = D.polyline([tuple(P0), tuple(P0+tension*d*n),
+                       tuple(ext2+tension*d*n_ext), tuple(ext2)])
+    P1 = P0 + n * Length
+    line_1 = D.bezier(poly,N=C.getNPts(line_0))
+    line_1 = W.discretize(line_1,N=C.getNPts(line_0), Distribution=Distribution_wall)
+    line_1[0] = 'line_1'
+
+
+    wires = [ line_0, axis_line, bulb_union_0, surf_edge,
+              spinner_wall_edge_0, spinner_wall_edge_1,
+              spinner_bulb_side_0, spinner_bulb_side_1,
+              spinner_union_0, bulb_union_2, line_2, spinner_union_2,
+              spinner_union_1, ext_union_azm_0, ext_union_azm_1,
+              surf_edge_1, bulb_side_0, bulb_side_1, line_1,
+              spinner_wall_edge_half, surf_edge_half ]
+
+    # existing surfaces:
+    _,Ni,Nj,_,_=I.getZoneDim(spinner)
+    spinner_wall_0 = T.subzone(spinner,(1,1,1),(Ni,middle_index+1,1))
+    spinner_wall_0[0] = 'spinner_wall_0'
+    spinner_wall_1 = T.subzone(spinner,(1,middle_index+1,1),(Ni,Nj,1))
+    spinner_wall_1[0] = 'spinner_wall_1'
+
+    _,Ni,Nj,_,_=I.getZoneDim(surface)
+    surface_inter_0 = T.subzone(surface,(1,1,1),(Ni,middle_index+1,1))
+    surface_inter_0[0] = 'surface_inter_0'
+    surface_inter_1 = T.subzone(surface,(1,middle_index+1,1),(Ni,Nj,1))
+    surface_inter_1[0] = 'surface_inter_1'
+
+    ext_edge_surface_inter_0 = GSD.getBoundary(surface_inter_0,'imax')
+    ext_edge_surface_inter_0[0] = 'ext_edge_surface_inter_0'
+    ext_edge_surface_inter_1 = GSD.getBoundary(surface_inter_1,'imax')
+    ext_edge_surface_inter_1[0] = 'ext_edge_surface_inter_1'
+    wires.extend([ext_edge_surface_inter_0,ext_edge_surface_inter_1])
+
+    # NEW SURFACES
+
+    # correct extremum
+    x,y,z = J.getxyz(spinner_union_1)
+    ext = W.extremum(surf_edge_half,True)
+    x[0] = ext[0]
+    y[0] = ext[1]
+    z[0] = ext[2]
+
+    TFI2_inter = G.TFI([surf_edge_half, line_1,
+                        spinner_wall_edge_half, spinner_union_1])
+    TFI2_inter[0] = 'TFI2_inter'
+
+    T._reorder(spinner_union_0,(-1,2,3))
+    TFI2_inter_side_1 = G.TFI([surf_edge, line_0,
+                               spinner_wall_edge_0, spinner_union_0])
+    TFI2_inter_side_1[0] = 'TFI2_inter_side_1'
+
+    TFI2_inter_side_2 = T.rotate(TFI2_inter_side_1,tuple(c),tuple(a),
+                                 360./float(blade_number))
+    TFI2_inter_side_2[0] = 'TFI2_inter_side_2'
+
+    TFI2_inter_join_1 = G.TFI([line_0, axis_line,
+                               bulb_side_0, bulb_union_0])
+    TFI2_inter_join_1[0] = 'TFI2_inter_join_1'
+    TFI2_inter_join_2 = T.rotate(TFI2_inter_join_1,tuple(c),tuple(a),
+                                 360./float(blade_number))
+    TFI2_inter_join_2[0] = 'TFI2_inter_join_2'
+
+    TFI2_bulb_0 = G.TFI([line_0, line_1,
+                         spinner_bulb_side_1, ext_union_azm_0])
+    TFI2_bulb_0[0] = 'TFI2_bulb_0'
+
+    TFI2_bulb_1 = G.TFI([line_1, line_2,
+                         spinner_bulb_side_0, ext_union_azm_1])
+    TFI2_bulb_1[0] = 'TFI2_bulb_1'
+
+    TFI2_bulb = G.TFI([bulb_union_0, ext_union_azm_1,
+                       bulb_union_2, ext_union_azm_0])
+    TFI2_bulb[0] = 'TFI2_bulb'
+
+    TFI2_spinner_1 = G.TFI([spinner_union_0, spinner_union_1,
+                            ext_union_azm_0, ext_edge_surface_inter_0])
+    TFI2_spinner_1[0] = 'TFI2_spinner_1'
+
+    TFI2_spinner_2 = G.TFI([spinner_union_1, spinner_union_2,
+                            ext_union_azm_1, ext_edge_surface_inter_1])
+    TFI2_spinner_2[0] = 'TFI2_spinner_2'
+
+    # project exterior faces on revolution support surface
+    proj_surfs = [TFI2_bulb, TFI2_spinner_1, TFI2_spinner_2]
+    fixed_bnds = [P.exteriorFaces(surf) for surf in proj_surfs ]
+    GSD.prepareGlue(proj_surfs, fixed_bnds)
+    T._projectOrtho(proj_surfs, proj_support)
+    GSD.applyGlue(proj_surfs, fixed_bnds)
+
+
+    surfs = [ bulb, spinner_wall_0, spinner_wall_1,
+              surface_inter_0, surface_inter_1, TFI2_inter,
+              TFI2_inter_side_1, TFI2_inter_side_2,
+              TFI2_inter_join_1, TFI2_inter_join_2,
+              TFI2_bulb_0, TFI2_bulb_1, TFI2_bulb,
+              TFI2_spinner_1, TFI2_spinner_2]
+
+    # VOLUME GRIDS
+    print('making near-blade 3D TFI at %s...'%topo)
+    TFI3_bulb = G.TFI([TFI2_inter_join_1, TFI2_bulb_1,
+                       TFI2_bulb_0, TFI2_inter_join_2,
+                       bulb, TFI2_bulb ])
+
+    TFI3_spinner_1 = G.TFI([TFI2_bulb_0, surface_inter_0,
+                            TFI2_inter_side_1, TFI2_inter,
+                            spinner_wall_0, TFI2_spinner_1,])
+
+    TFI3_spinner_2 = G.TFI([TFI2_bulb_1, surface_inter_1,
+                            TFI2_inter, TFI2_inter_side_2,
+                            spinner_wall_1, TFI2_spinner_2])
+    TFI3_spinner = T.join(TFI3_spinner_1,TFI3_spinner_2)
+    if topo == 'rear': T._reorder([TFI3_bulb, TFI3_spinner],(2,1,3))
+
+    TFI3_bulb[0] = 'TFI3_bulb.'+topo
+    TFI3_spinner_1[0] = 'TFI3_spinner_1'
+    TFI3_spinner_2[0] = 'TFI3_spinner_2'
+    TFI3_spinner[0] = 'TFI3_spinner.'+topo
+    print('making near-blade 3D TFI at %s... ok'%topo)
+
+    C._addBC2Zone(TFI3_bulb,'spinner_wall','FamilySpecified:SPINNER', 'kmin')
+    C._addBC2Zone(TFI3_spinner,'spinner_wall','FamilySpecified:SPINNER', 'kmin')
+
+    grids = [TFI3_bulb, TFI3_spinner]
+
+    return wires, surfs, grids
+
+def _buildHubWallAdjacentSectorWithoutBulb(surface, spinner, blade_number,
+                            rotation_center, rotation_axis,central_last_cell):
+
+    c = np.array(rotation_center,dtype=np.float)
+    a = np.array(rotation_axis,dtype=np.float)
+
+    surface_dist = GSD.getBoundary(surface,'jmin')
+    surface_dist[0] =  'surface_dist'
+    wall_cell_height = W.distance(W.point(surface_dist),W.point(surface_dist,1))
+    Length = D.getLength(surface_dist)
+
+    ext_surf_edge  = GSD.getBoundary(surface,'imax')
+    ext_surf_edge[0] = 'ext_surf_edge'
+
+    spinner_axial_edge = GSD.getBoundary(spinner,'jmin')
+    spinner_axial_edge[0] = 'spinner_axial_edge'
+
+    last_cell_height = W.distance(W.point(ext_surf_edge),W.point(ext_surf_edge,1))
+
+    Distribution_wall=dict(kind='tanhTwoSides', FirstCellHeight=wall_cell_height,
+                                               LastCellHeight=last_cell_height)
+    Distribution_edge=dict(kind='tanhTwoSides', FirstCellHeight=last_cell_height,
+                                               LastCellHeight=last_cell_height)
+
+    NPts_surface_dist = C.getNPts(surface_dist)
+    spinner = I.copyRef( spinner )
+    G._getNormalMap(spinner)
+    C.center2Node__(spinner,'centers:sx',cellNType=0)
+    C.center2Node__(spinner,'centers:sy',cellNType=0)
+    C.center2Node__(spinner,'centers:sz',cellNType=0)
+    I._rmNodesByName(spinner,I.__FlowSolutionCenters__)
+    C._normalize(spinner,['sx','sy','sz'])
+    spinner_edge = GSD.getBoundary(spinner,'imax')
+    spinner_edge[0] = 'spinner_edge'
+    GSD._alignNormalsWithRadialCylindricProjection(spinner_edge, c, a)
+
+    x,y,z = J.getxyz( spinner_edge )
+    sx, sy, sz = J.getVars( spinner_edge, ['sx', 'sy', 'sz'] )
+
+    rear_edge = W.linelaw(P1=(x[0], y[0], z[0]),
+        P2=(x[0]+Length*sx[0], y[0]+Length*sy[0], z[0]+Length*sz[0]),
+        N=C.getNPts(surface_dist))
+    rear_edge = W.discretize(rear_edge,C.getNPts(surface_dist),W.copyDistribution(surface_dist))
+    rear_edge[0] = 'rear_edge'
+
+    ext_surf_edge_segment = W.distance(W.point(ext_surf_edge),W.point(ext_surf_edge,1))
+    TE_segment = W.distance(W.point(spinner_axial_edge,-1),W.point(spinner_axial_edge,-2))
+
+    spinner_union_0 = W.linelaw(P1=W.point(rear_edge,-1),P2=W.point(ext_surf_edge),
+                           N=C.getNPts(spinner_axial_edge),
+                           Distribution=dict(kind='tanhTwoSides',
+                                            FirstCellHeight=TE_segment,
+                                            LastCellHeight=central_last_cell))
+    spinner_union_0[0] = 'spinner_union_0'
+
+    TFI2_inter_side_1 = G.TFI([ surface_dist, rear_edge,
+                                spinner_axial_edge, spinner_union_0])
+    TFI2_inter_side_1[0] = 'TFI2_inter_side_1'
+    TFI2_inter_side_2,rear_edge_2,spinner_union_1 = T.rotate([TFI2_inter_side_1,
+            rear_edge,spinner_union_0],tuple(c),tuple(a),360./float(blade_number))
+    TFI2_inter_side_2[0] = 'TFI2_inter_side_2'
+    rear_edge_2[0] = 'rear_edge_2'
+    spinner_union_1[0] = 'spinner_union_1'
+
+    dir1 = np.cross(a, W.tangentExtremum(rear_edge,True))
+    dir2 = np.cross(a, W.tangentExtremum(rear_edge_2,True))
+    pt1 = W.point(rear_edge,-1)
+    pt2 = W.point(rear_edge_2,-1)
+    d = W.distance(pt1, pt2)
+    TE_azm = W.discretize(D.bezier(D.polyline([
+                    tuple(pt1), tuple(pt1 + 0.5*d*dir1),
+                    tuple(pt2 - 0.5*d*dir2), tuple(pt2),
+                    ]), N=500), N=C.getNPts(ext_surf_edge),
+                    Distribution=W.copyDistribution(ext_surf_edge))
+    TE_azm[0] = 'TE_azm'
+
+    T._reorder([spinner_union_0, spinner_union_1],(-1,2,3))
+    TFI2_spinner = G.TFI([spinner_union_0, spinner_union_1,
+                          ext_surf_edge, TE_azm])
+    TFI2_spinner[0] = 'TFI2_spinner'
+
+    TFI2_spinner_1, TFI2_spinner_2 = T.splitNParts(TFI2_spinner,2,dirs=[1])
+    TFI2_spinner_1[0] = 'TFI2_spinner_1'
+    TFI2_spinner_2[0] = 'TFI2_spinner_2'
+    TFI2_TE = G.TFI([rear_edge, rear_edge_2, TE_azm, spinner_edge])
+    TFI2_TE[0] = 'TFI2_TE'
+
+    wires = [spinner_edge,ext_surf_edge,rear_edge, rear_edge_2, surface_dist,
+            spinner_axial_edge,spinner_union_0,spinner_union_1]
+
+    surfs = [spinner,surface, TFI2_inter_side_1, TFI2_inter_side_2, TE_azm,
+            TFI2_spinner_1,TFI2_spinner_2, TFI2_TE]
+
+    print('making open near-blade 3D TFI at rear...')
+    TFI3_spinner = G.TFI([TFI2_TE, surface,
+                          TFI2_inter_side_2, TFI2_inter_side_1,
+                          spinner, TFI2_spinner])
+    TFI3_spinner[0] = 'TFI3_spinner'
+    print('making open near-blade 3D TFI at rear... ok')
+    C._addBC2Zone(TFI3_spinner,'spinner_wall','FamilySpecified:SPINNER', 'kmin')
+    grids = [ TFI3_spinner ]
+
+    return wires, surfs, grids
+
+
+
+def _gatherSectorBoundaries(Hgrids, blade, surfs_rear, surfs_front):
+    selected_names = ['TFI2_spinner_1','TFI2_spinner_2','TFI2_bulb']
+    surfaces = [GSD.getBoundary(z,'kmax') for z in Hgrids]
+    surfs_rear = T.reorder(surfs_rear,(1,-2,3))
+    surfaces.extend([s for s in surfs_front+surfs_rear if s[0] in selected_names])
+    surfaces.extend([GSD.getBoundary(z,'kmax') for z in I.getZones(blade) if z[0].startswith('tip')])
+    I._correctPyTree(surfaces,level=3)
+    uns = C.convertArray2Hexa(surfaces)
+    uns = T.merge(uns)
+    G._getNormalMap(uns)
+    for s in I.getZones(uns):
+        C.center2Node__(s,'centers:sx',cellNType=0)
+        C.center2Node__(s,'centers:sy',cellNType=0)
+        C.center2Node__(s,'centers:sz',cellNType=0)
+    I._rmNodesByName(uns,'FlowSolution#Centers')
+    C._normalize(uns, ['sx','sy','sz'])
+    T._smoothField(uns, 0.9, 100, 0, ['sx','sy','sz']) # TODO externalize param?
+    C._normalize(uns, ['sx','sy','sz'])
+    J.migrateFields(uns, surfaces)
+
+    return surfaces
+
+
+def _extractWallAdjacentSectorFullProfile(wires_front, wires_rear, external_surfaces):
+    profile_curves =      [c for c in wires_front if c[0]=='bulb_union_0']
+    profile_curves.extend([c for c in wires_front if c[0]=='spinner_union_0'])
+    profile_curves.extend([GSD.getBoundary(s,'imax') for s in external_surfaces if s[0]=='sideA.surf'])
+    profile_curves.extend([c for c in wires_rear  if c[0]=='spinner_union_0'])
+    profile_curves.extend([c for c in wires_rear  if c[0]=='bulb_union_0'])
+    I._correctPyTree(profile_curves,level=3)
+    return profile_curves
+
+
+def _buildFarfieldSupport(profile, blade_number, npts_azimut, distance,
+                               rotation_center=[0,0,0], rotation_axis=[-1,0,0]):
+    c = np.array(rotation_center,dtype=np.float)
+    a = np.array(rotation_axis,dtype=np.float)
+
+    T._reorder(profile[0],(-1,2,3))
+    profile = W.reorderCurvesSequentially(profile)
+    profile_joined = profile[0]
+    for p in profile[1:]: profile_joined = T.join(profile_joined,p)
+    profile_joined[0] = 'profile_joined'
+
+    original_distribution = W.copyDistribution(profile_joined)
+
+    profile_farfield = I.copyTree(profile_joined)
+    profile_farfield[0] = 'profile_farfield'
+    W.addNormals(profile_farfield)
+    GSD._alignNormalsWithRadialCylindricProjection(profile_farfield, c, a)
+
+    x,y,z = J.getxyz(profile_farfield)
+    sx,sy,sz = J.getVars(profile_farfield,['sx','sy','sz'])
+    if W.distanceOfPointToLine(W.extremum(profile_farfield),a,c) < 1e-10:
+        sx[0], sy[0], sz[0] = a
+    if W.distanceOfPointToLine(W.extremum(profile_farfield,True),a,c) < 1e-10:
+        sx[-1], sy[-1], sz[-1] = -a
+    x += distance * sx
+    y += distance * sy
+    z += distance * sz
+
+    split_points = []
+    cumul = 0
+    for p in profile[:-1]:
+        cumul += C.getNPts(p) - 1
+        split_points += [ tuple(W.point(profile_farfield, cumul)) ]
+
+
+    def getTangent(curve):
+        x,y,z = J.getxyz(curve)
+        dx = np.diff(x)
+        dy = np.diff(y)
+        dz = np.diff(z)
+        norm = np.sqrt(dx*dx + dy*dy + dz*dz)
+        tx = np.hstack((0.,dx/norm))
+        ty = np.hstack((0.,dy/norm))
+        tz = np.hstack((0.,dz/norm))
+        return tx, ty, tz
+
+    profile_rev = I.copyTree(profile_farfield)
+    profile_rev[0] = 'profile_rev'
+    all_valid = False
+    print('optimizing farfield revolution profile...')
+    while not all_valid:
+        x,y,z = J.getxyz(profile_rev)
+        tx, ty, tz = getTangent(profile_rev)
+        tjx, tjy, tjz = getTangent(profile_joined)
+        scalar = tx * tjx + ty * tjy + tz * tjz
+        valid = scalar > 0
+        for i in range(1,len(valid)):
+            if not valid[i] and valid[i-1] and i>0:
+                valid[i-1] = False
+        valid[0] = True
+        valid[-1] = True
+        all_valid = np.all(valid)
+        x = x[valid]
+        y = y[valid]
+        z = z[valid]
+
+        profile_rev = J.createZone('profile_rev',[x,y,z],['x','y','z'])
+        profile_rev = W.discretize(profile_rev,N=C.getNPts(profile_joined))
+    print('optimizing farfield revolution profile... ok')
+
+    subprofiles = []
+    indices = [r[0] for r in D.getNearestPointIndex(profile_rev, split_points)]
+    subprofile = T.subzone(profile_rev,(1,1,1),(indices[0]+1,1,1))
+    subprofile = W.discretize(subprofile,N=C.getNPts(profile[0]),Distribution=
+                              W.copyDistribution(profile[0]))
+    subprofiles += [ subprofile ]
+    for i in range(1,len(indices)):
+        subprofile = T.subzone(profile_rev,(indices[i-1]+1,1,1),(indices[i]+1,1,1))
+        subprofile = W.discretize(subprofile,N=C.getNPts(profile[i]),Distribution=
+                                  W.copyDistribution(profile[i]))
+        subprofiles += [ subprofile ]
+    subprofile = T.subzone(profile_rev,(indices[i]+1,1,1),(-1,-1,-1))
+    subprofile = W.discretize(subprofile,N=C.getNPts(profile[-1]),Distribution=
+                              W.copyDistribution(profile[-1]))
+    subprofiles += [ subprofile ]
+
+    profile_rev = subprofiles[0]
+    for sp in subprofiles[1:]: profile_rev = T.join(profile_rev,sp)
+
+    proj_support = D.axisym(profile_rev,tuple(c),tuple(a),
+            angle=360./float(blade_number), Ntheta=npts_azimut)
+    proj_support[0] = 'proj_support'
+
+    return proj_support, profile_rev
+
+def _extractBladeTipTopology(sector_bnds, rotation_axis):
+    a = np.array(rotation_axis,dtype=np.float)
+
+
+    tip_curves = [GSD.getBoundary(s,'jmin') for s in sector_bnds if s[0].startswith('tfi')]
+
+    # compute mean oscullatory plane (binormal)
+    contours = W.reorderAndSortCurvesSequentially(tip_curves)
+    for s in sector_bnds:
+        if s[0].startswith('tip'):
+            tip_curves.extend(P.exteriorFacesStructured(s))
+    contour = contours[0]
+    for c in contours[1:]: contour = T.join(contour,c)
+    cx, cy, cz = J.getxyz(contour)
+    NPts = len(cx)
+    cxyz = np.vstack((cx, cy, cz)).T
+    fT = np.zeros((NPts,3),order='F')
+    fT[1:-1,:] = 0.5*(np.diff(cxyz[:-1,:],axis=0)+np.diff(cxyz[1:,:],axis=0))
+    fT[0,:] = (cxyz[1,:]-cxyz[0,:])
+    fT[-1,:] = (cxyz[-1,:]-cxyz[-2,:])
+    fT /= np.sqrt(np.sum(fT*fT, axis=1)).reshape((NPts,1),order='F')
+    binormal = np.mean(np.cross(fT[1:],fT[:-1]),axis=0) # pseudo-blade
+    binormal /= (binormal[0]**2+binormal[1]**2+binormal[2]**2)**0.5
+    normal = np.cross(a,binormal)
+    normal /= np.sqrt(normal.dot(normal))
+    tangent = np.cross(binormal,normal) # psuedo-axial
+
+    bary = np.array(G.barycenter(contour))
+    frenet = (tuple(binormal), tuple(tangent), tuple(normal))
+
+    return tip_curves, bary, frenet
+
+def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
+                         H_grid_interior_points,
+                         rotation_center=[0,0,0], rotation_axis=[-1,0,0],
+                         distance=10., number_of_points=200,
+                         farfield_cell_height=1.,
+                         tip_axial_scaling_at_farfield = 0.5,
+                         normal_tension=0.05):
+
+    c = np.array(rotation_center,dtype=np.float)
+    a = np.array(rotation_axis,dtype=np.float)
+
+    if len(profile) == 5:
+        HAS_REAR_BULB = True
+    elif len(profile) == 4:
+        HAS_REAR_BULB = False
+    else:
+        C.convertPyTree2File(profile,'debug.cgns')
+        raise ValueError('unsuported profile topology. Check debug.cgns')
+
+    spine = _getSpineFromBlade( blade )
+    tip_cell_length = W.distance(W.point(spine,-1),W.point(spine,-2))
+    support, profile_rev = _buildFarfieldSupport(profile, blade_number,
+                          npts_azimut, distance, rotation_center, rotation_axis)
+
+    _,Ni,Nj,_,_=I.getZoneDim(support)
+    support_central = T.subzone(support, (C.getNPts(profile[:2])-1,1,1),
+                                         (C.getNPts(profile[:3])-1,Nj,1) )
+
+    profile_sideB = T.rotate(profile,tuple(c),tuple(a),360./float(blade_number))
+
+    profile_rev_sectors = []
+    first_index = 1
+    for p in profile:
+        last_index = first_index + C.getNPts(p) - 1
+        subpart = T.subzone(profile_rev,(first_index,1,1),(last_index,1,1))
+        subpart[0]=p[0]+'.far'
+        profile_rev_sectors += [ subpart ]
+        first_index = last_index
+
+    # rediscretization of profile_rev_sectors
+    profile_rev_sectors[0] = W.discretize(profile_rev_sectors[0],
+                                            N=C.getNPts(profile_rev_sectors[0]))
+    profile_rev_sectors[2] = W.discretize(profile_rev_sectors[2],
+                                            N=C.getNPts(profile_rev_sectors[2]))
+    first_cell = W.segment(profile_rev_sectors[0],-1)
+    second_cell = W.segment(profile_rev_sectors[2])
+    third_cell = W.segment(profile_rev_sectors[3],-1)
+    if HAS_REAR_BULB:
+        profile_rev_sectors[-1] = W.discretize(profile_rev_sectors[-1],
+                                            N=C.getNPts(profile_rev_sectors[-1]))
+        third_cell = W.segment(profile_rev_sectors[-1])
+    profile_rev_sectors[1] = W.discretize(profile_rev_sectors[1],
+            N=C.getNPts(profile_rev_sectors[1]), Distribution=dict(
+            kind='tanhTwoSides',
+            FirstCellHeight=first_cell,
+            LastCellHeight=second_cell))
+    profile_rev_sectors[3] = W.discretize(profile_rev_sectors[3],
+            N=C.getNPts(profile_rev_sectors[3]), Distribution=dict(
+            kind='tanhTwoSides',
+            FirstCellHeight=second_cell,
+            LastCellHeight=third_cell))
+
+
+    profile_rev_sectors_sideB = T.rotate(profile_rev_sectors,tuple(c),tuple(a),
+                                         360./float(blade_number))
+    for p in profile_rev_sectors_sideB: p[0] += '.B'
+
+    middle_index = int((npts_azimut-1)/2)
+    support_half_edge = GSD.getBoundary(support,'jmin',middle_index)
+    support_half_edge[0] = 'support_half_edge'
+
+    cell_height = W.distance(W.point(profile_rev_sectors[0]),
+                             W.point(profile_rev_sectors[0],1))
+    Distribution_edge=dict(kind='tanhTwoSides', FirstCellHeight=cell_height,
+                                               LastCellHeight=cell_height)
+
+
+
+    s = W.gets(support_half_edge)
+    s *= D.getLength(support_half_edge)
+    L_diag = D.getLength(profile_rev_sectors[0]) * np.sqrt(2)
+    diag_cut_index = np.argmin( np.abs(s - L_diag) )
+    far_union_1 = T.subzone(support_half_edge,(diag_cut_index,1,1),
+      (C.getNPts(profile_rev_sectors[0])+C.getNPts(profile_rev_sectors[1])-1,1,1))
+    FirstCell = W.segment(profile_rev_sectors[1])
+    LastCell = W.segment(profile_rev_sectors[1],-1)
+    far_union_1 = W.discretize(far_union_1,N=C.getNPts(profile_rev_sectors[1]),
+        Distribution=dict(kind='tanhTwoSides',
+                          FirstCellHeight=FirstCell,LastCellHeight=LastCell))
+    far_union_1[0] = 'far_union_1'
+
+    # azimutal
+    to_split = GSD.getBoundary(support,'imin',
+        C.getNPts(profile_rev_sectors[0])-1+C.getNPts(profile_rev_sectors[1])-1)
+    H_azm_0 = T.subzone(to_split, (1,1,1),(middle_index+1,1,1))
+    H_azm_0[0] = 'H_azm_0'
+    H_azm_1 = T.subzone(to_split, (middle_index+1,1,1),(-1,-1,-1))
+    H_azm_1[0] = 'H_azm_1'
+
+    to_split = GSD.getBoundary(support,'imin',
+        C.getNPts(profile_rev_sectors[0])-1 + \
+        C.getNPts(profile_rev_sectors[1])-1 +
+        C.getNPts(profile_rev_sectors[2])-1)
+    H_azm_low_0 = T.subzone(to_split, (1,1,1),(middle_index+1,1,1))
+    H_azm_low_0[0] = 'H_azm_low_0'
+    H_azm_low_1 = T.subzone(to_split, (middle_index+1,1,1),(-1,-1,-1))
+    H_azm_low_1[0] = 'H_azm_low_1'
+    H_azm_low = T.join(H_azm_low_0,H_azm_low_1)
+    H_azm_low[0] = 'H_azm_low'
+
+
+    # union of bulb with projection on support
+    # first side
+    ext_1 = W.extremum(profile_rev_sectors[0],True)
+    ext_2 = W.extremum(far_union_1)
+    t = W.tangentExtremum(profile_rev_sectors[0],True)
+    v_az = np.cross(a,t)
+    v_az /= np.sqrt(v_az.dot(v_az))
+    d = W.distance(ext_1, ext_2)
+    tension = 0.6
+    poly = D.polyline([tuple(ext_1), tuple(ext_1+d*tension*v_az),tuple(ext_2)])
+    T._projectOrtho(poly, support)
+    bezier = D.bezier(poly,N=C.getNPts(profile_rev_sectors[0]))
+    T._projectOrtho(bezier, support)
+    far_bulb_union_0 = W.discretize(bezier,N=C.getNPts(bezier),
+                                    Distribution=Distribution_edge)
+    far_bulb_union_0[0] = 'far_bulb_union_0'
+    T._projectOrtho(far_bulb_union_0, support)
+    # second side
+    ext_1 = W.extremum(profile_rev_sectors_sideB[0],True)
+    ext_2 = W.extremum(far_union_1)
+    t = W.tangentExtremum(profile_rev_sectors_sideB[0],True)
+    v_az = -np.cross(a,t)
+    v_az /= np.sqrt(v_az.dot(v_az))
+    d = W.distance(ext_1, ext_2)
+    tension = 0.6
+    poly = D.polyline([tuple(ext_1), tuple(ext_1+d*tension*v_az),tuple(ext_2)])
+    T._projectOrtho(poly, support)
+    bezier = D.bezier(poly,N=C.getNPts(profile_rev_sectors[0]))
+    T._projectOrtho(bezier, support)
+    far_bulb_union_1 = W.discretize(bezier,N=C.getNPts(bezier),
+                                    Distribution=Distribution_edge)
+    far_bulb_union_1[0] = 'far_bulb_union_1'
+    T._projectOrtho(far_bulb_union_1, support)
+    front_tfi_0 = G.TFI([profile_rev_sectors[1],far_union_1,
+                         far_bulb_union_0, H_azm_0])
+    front_tfi_0[0]='front_tfi_0'
+    front_tfi_1 = G.TFI([far_union_1, profile_rev_sectors_sideB[1],
+                         far_bulb_union_1, H_azm_1])
+    front_tfi_1[0]='front_tfi_1'
+    main_front_tfi = T.join(front_tfi_0,front_tfi_1)
+    main_front_tfi[0] = 'main_front_tfi'
+    far_bulb_tfi = G.TFI([profile_rev_sectors[0],far_bulb_union_1,
+                          profile_rev_sectors_sideB[0],far_bulb_union_0])
+    far_bulb_tfi[0] = 'far_bulb_tfi'
+
+
+
+    if HAS_REAR_BULB:
+        reversed_support_half_edge = T.reorder(support_half_edge,(-1,2,3))
+        s = W.gets(reversed_support_half_edge)
+        s *= D.getLength(reversed_support_half_edge)
+        L_diag = D.getLength(profile_rev_sectors[-1]) * np.sqrt(2)
+        diag_cut_index = np.argmin( np.abs(s - L_diag) )
+        far_union_2 = T.subzone(reversed_support_half_edge,(diag_cut_index,1,1),
+          (C.getNPts(profile_rev_sectors[-1])+C.getNPts(profile_rev_sectors[-2])-1,1,1))
+        far_union_2 = W.discretize(far_union_2,N=C.getNPts(profile_rev_sectors[-2]),
+            Distribution=dict(kind='tanhTwoSides',
+                LastCellHeight=W.segment(profile_rev_sectors[-2]),
+                FirstCellHeight=W.segment(profile_rev_sectors[-2],-1)))
+        far_union_2[0] = 'far_union_2'
+
+
+        # REAR union of bulb with projection on support
+        # first side
+        ext_1 = W.extremum(profile_rev_sectors[-1])
+        ext_2 = W.extremum(far_union_2)
+        t = W.tangentExtremum(profile_rev_sectors[-1])
+        v_az = np.cross(a,t)
+        v_az /= np.sqrt(v_az.dot(v_az))
+        d = W.distance(ext_1, ext_2)
+        tension = 0.6
+        poly = D.polyline([tuple(ext_1), tuple(ext_1+d*tension*v_az),tuple(ext_2)])
+        T._projectOrtho(poly, support)
+        bezier = D.bezier(poly,N=C.getNPts(profile_rev_sectors[0]))
+        T._projectOrtho(bezier, support)
+        far_rear_bulb_union_0 = W.discretize(bezier,N=C.getNPts(bezier),
+                                        Distribution=Distribution_edge)
+        far_rear_bulb_union_0[0] = 'far_rear_bulb_union_0'
+        T._projectOrtho(far_rear_bulb_union_0, support)
+        # second side
+        ext_1 = W.extremum(profile_rev_sectors_sideB[-1])
+        ext_2 = W.extremum(far_union_2)
+        t = W.tangentExtremum(profile_rev_sectors_sideB[-1])
+        v_az = -np.cross(a,t)
+        v_az /= np.sqrt(v_az.dot(v_az))
+        d = W.distance(ext_1, ext_2)
+        tension = 0.6
+        poly = D.polyline([tuple(ext_1), tuple(ext_1+d*tension*v_az),tuple(ext_2)])
+        T._projectOrtho(poly, support)
+        bezier = D.bezier(poly,N=C.getNPts(profile_rev_sectors[0]))
+        T._projectOrtho(bezier, support)
+        far_rear_bulb_union_1 = W.discretize(bezier,N=C.getNPts(bezier),
+                                        Distribution=Distribution_edge)
+        far_rear_bulb_union_1[0] = 'far_rear_bulb_union_1'
+        T._projectOrtho(far_rear_bulb_union_1, support)
+
+        far_rear_bulb_union = T.join(far_rear_bulb_union_0,far_rear_bulb_union_1)
+
+
+        main_rear_tfi_0 = G.TFI([profile_rev_sectors[3], far_union_2,
+                                   H_azm_low_0,far_rear_bulb_union_0])
+        main_rear_tfi_1 = G.TFI([far_union_2,profile_rev_sectors_sideB[3],
+                               H_azm_low_1,far_rear_bulb_union_1])
+        main_rear_tfi = T.join(main_rear_tfi_0, main_rear_tfi_1)
+        main_rear_tfi[0] = 'main_rear_tfi'
+
+    else:
+        cut_i = np.sum([C.getNPts(profile_rev_sectors[i]) for i in range(4)])-3
+        # in practice this should be replaced by 'imax' instead of using cut_i
+        far_rear_bulb_union = GSD.getBoundary(support,'imin',cut_i-1)
+
+
+    central_index_i = C.getNPts(profile_rev_sectors[0]) + \
+        C.getNPts(profile_rev_sectors[1])+int((C.getNPts(profile_rev_sectors[2])-1)/2) -2
+
+    xs, ys, zs = J.getxyz(support)
+    pseudo_axial = np.array([
+        xs[central_index_i-1,middle_index]-xs[central_index_i,middle_index],
+        ys[central_index_i-1,middle_index]-ys[central_index_i,middle_index],
+        zs[central_index_i-1,middle_index]-zs[central_index_i,middle_index]])
+    pseudo_axial /= np.sqrt(pseudo_axial.dot(pseudo_axial))
+    pseudo_front = np.array([
+        xs[central_index_i,middle_index+1]-xs[central_index_i,middle_index],
+        ys[central_index_i,middle_index+1]-ys[central_index_i,middle_index],
+        zs[central_index_i,middle_index+1]-zs[central_index_i,middle_index]])
+    pseudo_front /= np.sqrt(pseudo_front.dot(pseudo_front))
+    pseudo_blade = np.cross(pseudo_front,pseudo_axial)
+    pseudo_blade /= np.sqrt(pseudo_blade.dot(pseudo_blade))
+    frenet_topo = (pseudo_blade, pseudo_axial, pseudo_front)
+    topo_center = np.array([xs[central_index_i,middle_index],
+                   ys[central_index_i,middle_index],
+                   zs[central_index_i,middle_index]])
+
+    tip_curves, bary, frenet = _extractBladeTipTopology(sector_bnds, rotation_axis)
+    t_tip_curves = C.newPyTree(['Base',tip_curves])
+    tip_curves_topo = I.getZones(I.copyTree(t_tip_curves))
+    T._rotate(tip_curves_topo, bary, frenet, frenet_topo)
+    T._translate(tip_curves_topo, topo_center-bary)
+
+    central_width = W.distance(W.point(profile_rev_sectors[2],0),
+                               W.point(profile_rev_sectors[2],-1))
+    charact_length = W.getCharacteristicLength(tip_curves_topo)
+    factor = tip_axial_scaling_at_farfield*central_width/charact_length
+    T._homothety(tip_curves_topo, topo_center, factor)
+    T._projectOrtho(tip_curves_topo, support)
+
+    I._rmNodesByType(tip_curves_topo,'FlowSolution_t')
+    [C._initVars(tip_curves_topo,'s'+i,0) for i in ('x','y','z')]
+    J.migrateFields(support,tip_curves_topo)
+    C._normalize(tip_curves_topo,['sx','sy','sz'])
+
+    for crv in tip_curves:
+        sx,sy,sz = J.getVars(crv,['sx','sy','sz'])
+        sx[:]=frenet[0][0]
+        sy[:]=frenet[0][1]
+        sz[:]=frenet[0][2]
+
+    GSD._alignNormalsWithRadialCylindricProjection(tip_curves,rotation_center,rotation_axis)
+
+    TFI2_blends = []
+    for c1, c2 in zip(tip_curves,tip_curves_topo):
+        TFI2_blend = W.fillWithBezier(c1, c2, number_of_points,
+                        tension1=normal_tension, tension2=0., # TODO parameter ?
+                        length1=tip_cell_length, length2=farfield_cell_height)
+        TFI2_blend[0] = c1[0]+'.blend'
+        TFI2_blends += [ TFI2_blend ]
+
+
+    all_topos = []
+    for i in range(10):
+        topos = [cr for cr in tip_curves_topo if cr[0].startswith('tip.%d'%i)]
+        if not topos: break
+        topos = W.reorderAndSortCurvesSequentially(topos)
+        all_topos += [ topos ]
+
+    All_TFI2_far = [G.TFI([cr[0],cr[2],cr[1],cr[3]]) for cr in all_topos]
+
+    TFI_H_group_topo = [cr for cr in tip_curves_topo if cr[0].startswith('tfi')]
+    I._rmNodesByType(TFI_H_group_topo,'FlowSolution_t')
+    W.addNormals(TFI_H_group_topo)
+
+    TFI_H_group_bnd = [T.join(H_azm_0, H_azm_1), profile_rev_sectors_sideB[2],
+                       T.join(H_azm_low_0, H_azm_low_1),profile_rev_sectors[2]]
+    I._rmNodesByType(TFI_H_group_bnd,'FlowSolution_t')
+    TFI_H_group_bnd = W.reorderAndSortCurvesSequentially(TFI_H_group_bnd)
+    proj_dir = np.cross(pseudo_blade, a)
+    proj_dir = np.cross(a, proj_dir)
+
+
+    portion_length = D.getLength(TFI_H_group_bnd[1]) * 0.75 # TODO parameter here or make it smart
+    focus = W.splitAt(TFI_H_group_bnd[0],[portion_length,
+                        D.getLength(TFI_H_group_bnd[0])-portion_length],'length')[1]
+    focus = W.discretize(focus,N=C.getNPts(TFI_H_group_bnd[0]))
+    T._translate(focus,tuple(0.5*(W.point(TFI_H_group_bnd[2],-1)-W.point(TFI_H_group_bnd[0]))))
+    T._projectOrtho(focus,support_central)
+
+    xf, yf, zf = J.getxyz( focus )
+    curve = TFI_H_group_bnd[0]
+    sx, sy, sz = J.invokeFields(curve,['sx','sy','sz'])
+    x, y, z = J.getxyz( curve )
+    sx[:] = xf - x
+    sy[:] = yf - y
+    sz[:] = zf - z
+
+    curve = TFI_H_group_bnd[1]
+    sx, sy, sz = J.invokeFields(curve,['sx','sy','sz'])
+    x, y, z = J.getxyz( curve )
+    sx[:] = xf[-1] - x
+    sy[:] = yf[-1] - y
+    sz[:] = zf[-1] - z
+
+    curve = TFI_H_group_bnd[2]
+    sx, sy, sz = J.invokeFields(curve,['sx','sy','sz'])
+    x, y, z = J.getxyz( curve )
+    sx[:] = xf[::-1] - x
+    sy[:] = yf[::-1] - y
+    sz[:] = zf[::-1] - z
+
+    curve = TFI_H_group_bnd[3]
+    sx, sy, sz = J.invokeFields(curve,['sx','sy','sz'])
+    x, y, z = J.getxyz( curve )
+    sx[:] = xf[0] - x
+    sy[:] = yf[0] - y
+    sz[:] = zf[0] - z
+
+
+    C._normalize(TFI_H_group_bnd,['sx','sy','sz'])
+    C._normalize(TFI_H_group_bnd,['sx','sy','sz'])
+    W.projectNormals(TFI_H_group_bnd, support_central, projection_direction=proj_dir)
+
+
+
+    print('fill farfield H with bezier...')
+    topo_cell = W.meanSegmentLength(TFI_H_group_topo)
+    i = 0
+    TFI2_bnd_blends = []
+    for c1, c2 in zip(TFI_H_group_topo,TFI_H_group_bnd):
+        i+=1
+        TFI2_bnd_blend = W.fillWithBezier(c1, c2, H_grid_interior_points,
+                        tension1=normal_tension*central_width, tension2=0.15, # TODO parameter ?
+                        tension1_is_absolute=True,
+                        tension2_is_absolute=False,
+                        length1 = topo_cell, length2=cell_height,
+                        support=support_central,
+                        projection_direction=proj_dir
+                        )
+        TFI2_bnd_blend[0] = 'bl.%d.blend'%i
+        TFI2_bnd_blends += [ TFI2_bnd_blend ]
+    print('fill farfield H with bezier... ok')
+
+    print('smoothing farfield H...')
+    fixedZones = TFI_H_group_topo+TFI_H_group_bnd
+    fixedZones.extend( [ GSD.getBoundary(z,'imin',1) for z in TFI2_bnd_blends ] )
+    fixedZones.extend( [ GSD.getBoundary(z,'imin',2) for z in TFI2_bnd_blends ] )
+    GSD.prepareGlue(TFI2_bnd_blends,fixedZones)
+    for i in range( 5 ):
+        T._smooth(TFI2_bnd_blends,eps=0.8,niter=200,type=2,
+            fixedConstraints=fixedZones)
+        T._projectRay(TFI2_bnd_blends,support_central, [0,0,0])
+    GSD.applyGlue(TFI2_bnd_blends,fixedZones)
+    print('smoothing farfield H... ok')
+
+
+    profile_rev_sectors = W.reorderAndSortCurvesSequentially(profile_rev_sectors)
+    for p in profile+profile_rev_sectors: W.addNormals(p)
+
+    GSD._alignNormalsWithRadialCylindricProjection(profile+profile_rev_sectors,
+                                                rotation_center, rotation_axis)
+
+    for p in [profile[0], profile_rev_sectors[0]]:
+        if W.distanceOfPointToLine(W.point(p,0),a,c) < 1e-8:
+            sx,sy,sz = J.getVars(p,['sx','sy','sz'])
+            sx[0] = a[0]
+            sy[0] = a[1]
+            sz[0] = a[2]
+
+    for p in [profile[-1], profile_rev_sectors[-1]]:
+        if W.distanceOfPointToLine(W.point(p,-1),a,c) < 1e-8:
+            sx,sy,sz = J.getVars(p,['sx','sy','sz'])
+            sx[-1] = -a[0]
+            sy[-1] = -a[1]
+            sz[-1] = -a[2]
+
+
+    join_cell_length = W.segment(profile[0])
+    union_curves = []
+    i = -1
+    for c1, c2 in zip(profile,profile_rev_sectors):
+        i+=1
+        length1 = tip_cell_length if i in (2,3) else join_cell_length
+        union_curve = W.fillWithBezier(c1,c2,number_of_points, length1=length1,
+                    length2=farfield_cell_height,tension2=0.,tension1=normal_tension,
+                    only_at_indices=[0])
+        union_curves += [ union_curve ]
+    union_curve = W.fillWithBezier(c1,c2,number_of_points, length1=length1,
+                length2=farfield_cell_height, only_at_indices=[-1],tension2=0.,
+                tension1=normal_tension,)
+    union_curves += [ union_curve ]
+
+    tfi_unions = []
+    i = -1
+    for c1, c2 in zip(profile,profile_rev_sectors):
+        i+=1
+        tfi_unions += [ G.TFI([c1,c2,union_curves[i],union_curves[i+1]]) ]
+
+    tfi_unions_sideB = T.rotate(tfi_unions,c,a,360./float(blade_number))
+    for cr in tfi_unions_sideB:
+        cr[0]+='.B'
+
+
+    TFI2_bulbs = [s for s in sector_bnds if s[0].startswith('TFI2_bulb')]
+    TFI2_bulb_front = TFI2_bulbs[0]
+    TFI2_bulb_front_inner_0 = GSD.getBoundary(TFI2_bulb_front,'jmin')
+    TFI2_bulb_front_inner_0[0] = 'TFI2_bulb_front_inner_0'
+    TFI2_bulb_front_inner_1 = GSD.getBoundary(TFI2_bulb_front,'imax')
+    TFI2_bulb_front_inner_1[0] = 'TFI2_bulb_front_inner_1'
+
+    J._invokeFields(far_bulb_union_0,['sx','sy','sz'])
+
+    inner_union_bulb_front = W.fillWithBezier(TFI2_bulb_front_inner_0,
+        far_bulb_union_0,number_of_points, length1=join_cell_length,
+        length2=farfield_cell_height, only_at_indices=[-1])
+    inner_union_bulb_front[0] = 'inner_union_bulb_front'
+
+    inner_union_bulb_front_sideA = GSD.getBoundary(tfi_unions[0],'jmax')
+    inner_union_bulb_front_sideA[0] = 'inner_union_bulb_front_sideA'
+    inner_union_bulb_front_sideB = GSD.getBoundary(tfi_unions_sideB[0],'jmax')
+    inner_union_bulb_front_sideB[0] = 'inner_union_bulb_front_sideB'
+    tfi_inner_bulb_front_sideA = G.TFI([
+        inner_union_bulb_front_sideA,inner_union_bulb_front,
+        TFI2_bulb_front_inner_0,far_bulb_union_0])
+    tfi_inner_bulb_front_sideA[0] = 'tfi_inner_bulb_front_sideA'
+    tfi_inner_bulb_front_sideB = G.TFI([
+        inner_union_bulb_front,inner_union_bulb_front_sideB,
+        TFI2_bulb_front_inner_1,far_bulb_union_1])
+    tfi_inner_bulb_front_sideB[0] = 'tfi_inner_bulb_front_sideB'
+
+
+    inner_union_main_front_sideA = GSD.getBoundary(tfi_unions[1],'jmax')
+    inner_union_main_front_sideA[0] = 'inner_union_main_front_sideA'
+    inner_union_main_front_sideB = GSD.getBoundary(tfi_unions_sideB[1],'jmax')
+    inner_union_main_front_sideB[0] = 'inner_union_main_front_sideB'
+    H_azm_front = T.join(H_azm_0, H_azm_1)
+    H_azm_front[0] = 'H_azm_front'
+
+    TFI2_spinners = [s for s in sector_bnds if s[0].startswith('TFI2_spinner')]
+    TFI2_spinner_join = T.join(*TFI2_spinners[:2])
+    TFI2_spinner_join[0] = 'TFI2_spinner_join'
+    TFI2_spinner_join_lowedge = GSD.getBoundary(TFI2_spinner_join,'jmin')
+    TFI2_spinner_join_lowedge[0] = 'TFI2_spinner_join_lowedge'
+    TFI2_bulb_join = T.join(tfi_inner_bulb_front_sideA,tfi_inner_bulb_front_sideB)
+    TFI2_bulb_join[0] = 'TFI2_bulb_join'
+
+    # rear
+    TFI2_spinner_rear = T.join(*TFI2_spinners[2:])
+    TFI2_spinner_rear[0] = 'TFI2_spinner_rear'
+    TFI2_spinner_rear_lowedge = GSD.getBoundary(TFI2_spinner_rear,'jmax')
+    TFI2_spinner_rear_lowedge[0] = 'TFI2_spinner_rear_lowedge'
+
+    rear_near_low = GSD.getBoundary(TFI2_spinner_rear,'jmin')
+    rear_near_low[0] = 'rear_near_low'
+    rear_near_low_0,rear_near_low_1=T.splitNParts(rear_near_low,2,dirs=[1])
+    rear_near_low_0[0] = 'rear_near_low_0'
+    rear_near_low_1[0] = 'rear_near_low_1'
+
+
+    I._rmNodesByType([far_bulb_union_0, far_bulb_union_1],'FlowSolution_t')
+    join_bulb = T.join(far_bulb_union_0, far_bulb_union_1)
+    join_bulb[0] = 'join_bulb'
+
+    tfi_front_top = T.join(tfi_inner_bulb_front_sideA,tfi_inner_bulb_front_sideB)
+    tfi_front_top[0] = 'tfi_front_top'
+    tfi_front_bot = G.TFI([inner_union_main_front_sideA,inner_union_main_front_sideB,
+                        TFI2_spinner_join_lowedge,H_azm_front])
+    tfi_front_bot[0] = 'tfi_front_bot'
+
+    # 1 of 4
+    for s in TFI2_bnd_blends:
+        if W.isSubzone(H_azm_front, s):
+            tfi2_H_front = s
+            tfi2_H_front[0] = 'tfi2_H_front'
+            curve_H_far_top = GSD.getBoundary(tfi2_H_front,'jmin')
+            curve_H_far_top[0] = 'curve_H_far_top'
+            break
+    for s in sector_bnds:
+        if W.isSubzone(TFI2_spinner_join_lowedge,s):
+            tfi2_H_front_spinner = s
+            tfi2_H_front_spinner[0] = 'tfi2_H_front_spinner'
+            curve_H_near_top = GSD.getBoundary(tfi2_H_front_spinner,'imin')
+            curve_H_near_top[0] = 'curve_H_near_top'
+            break
+
+    # 2 of 4
+    for s in TFI2_bnd_blends:
+        if W.isSubzone(profile_rev_sectors[2], s):
+            tfi2_H_sideA = s
+            tfi2_H_sideA[0] = 'tfi2_H_sideA'
+            curve_H_far_sideA = GSD.getBoundary(tfi2_H_sideA,'jmin')
+            curve_H_far_sideA[0] = 'curve_H_far_sideA'
+            break
+    try:
+        FOUR = len(curve_H_far_sideA)
+    except:
+        C.convertPyTree2File(TFI2_bnd_blends+[profile_rev_sectors[2]],'debug.cgns')
+        raise ValueError('could not retrieve curve_H_far_sideA')
+
+    for s in sector_bnds:
+        if W.isSubzone(profile[2],s):
+            tfi2_H_sideA_spinner = s
+            tfi2_H_sideA_spinner[0] = 'tfi2_H_sideA_spinner'
+            curve_H_near_sideA = GSD.getBoundary(tfi2_H_sideA_spinner,'imin')
+            curve_H_near_sideA[0] = 'curve_H_near_sideA'
+            break
+
+    # 3 of 4
+    for s in TFI2_bnd_blends:
+        if W.isSubzone(profile_rev_sectors_sideB[2], s):
+            tfi2_H_sideB = s
+            tfi2_H_sideB[0] = 'tfi2_H_sideB'
+            curve_H_far_sideB = GSD.getBoundary(tfi2_H_sideB,'jmin')
+            curve_H_far_sideB[0] = 'curve_H_far_sideB'
+            break
+    for s in sector_bnds:
+        if W.isSubzone(profile_sideB[2],s):
+            tfi2_H_sideB_spinner = s
+            tfi2_H_sideB_spinner[0] = 'tfi2_H_sideB_spinner'
+            curve_H_near_sideB = GSD.getBoundary(tfi2_H_sideB_spinner,'imin')
+            curve_H_near_sideB[0] = 'curve_H_near_sideB'
+            break
+
+    all_blend_unions = [GSD.getBoundary(s,'jmin') for s in TFI2_blends]
+
+    # 4 of 4
+    for s in TFI2_bnd_blends:
+        if W.isSubzone(H_azm_low, s):
+            tfi2_H_rear = s
+            tfi2_H_rear[0] = 'tfi2_H_rear'
+            curve_H_far_rear = GSD.getBoundary(tfi2_H_rear,'jmin')
+            curve_H_far_rear[0] = 'curve_H_far_rear'
+            break
+
+    for s in sector_bnds:
+        if W.isSubzone(TFI2_spinner_rear_lowedge,s):
+            tfi2_H_rear_spinner = s
+            tfi2_H_rear_spinner[0] = 'tfi2_H_rear_spinner'
+            curve_H_near_rear = GSD.getBoundary(tfi2_H_rear_spinner,'imin')
+            curve_H_near_rear[0] = 'curve_H_near_rear'
+            break
+
+    all_blend_unions = []
+    for i,s in enumerate(TFI2_blends):
+        crv = GSD.getBoundary(s,'jmin')
+        crv[0] = 'blend.%d'%i
+        all_blend_unions += [ crv ]
+
+    sides_curves = [GSD.getBoundary(s,'jmax') for s in tfi_unions+tfi_unions_sideB]
+    candidates_to_connect = sides_curves + all_blend_unions
+
+    c1, c2 = W.getConnectingCurves(curve_H_near_top, candidates_to_connect)
+    tfi_H1 = G.TFI([curve_H_near_top, curve_H_far_top, c1,c2])
+    tfi_H1[0] = 'tfi_H1'
+
+    c1, c2 = W.getConnectingCurves(curve_H_near_sideA, candidates_to_connect)
+    tfi_H2 = G.TFI([curve_H_near_sideA, curve_H_far_sideA, c1,c2])
+    tfi_H2[0] = 'tfi_H2'
+
+    c1, c2 = W.getConnectingCurves(curve_H_near_sideB, candidates_to_connect)
+    tfi_H3 = G.TFI([curve_H_near_sideB, curve_H_far_sideB, c1,c2])
+    tfi_H3[0] = 'tfi_H3'
+
+    c1, c2 = W.getConnectingCurves(curve_H_near_rear, candidates_to_connect)
+    tfi_H4 = G.TFI([curve_H_near_rear, curve_H_far_rear, c1,c2])
+    tfi_H4[0] = 'tfi_H4'
+
+    if not HAS_REAR_BULB:
+        main_rear_tfi = G.TFI([profile_rev_sectors[3],profile_rev_sectors_sideB[3],
+                               H_azm_low,far_rear_bulb_union])
+        main_rear_tfi[0] = 'main_rear_tfi'
+
+    c1, c2 = W.getConnectingCurves(TFI2_spinner_rear_lowedge, candidates_to_connect)
+    tfi_rear_top = G.TFI([TFI2_spinner_rear_lowedge, H_azm_low, c1,c2])
+    tfi_rear_top[0] = 'tfi_rear_top'
+
+    c1, c2 = W.getConnectingCurves(rear_near_low, candidates_to_connect)
+    tfi_rear_low = G.TFI([rear_near_low, far_rear_bulb_union, c1,c2])
+    tfi_rear_low[0] = 'tfi_rear_low'
+
+    FACES_BULB_FRONT = [tfi_unions[0],tfi_inner_bulb_front_sideB,
+                        tfi_inner_bulb_front_sideA,tfi_unions_sideB[0],
+                        TFI2_bulb_front, far_bulb_tfi]
+
+    FACES_MAIN_FRONT = [tfi_front_top,tfi_front_bot,
+                        tfi_unions[1],tfi_unions_sideB[1],
+                        TFI2_spinner_join,main_front_tfi]
+
+
+    lower_side = GSD.selectConnectingSurface([tfi_H1,tfi_H3],TFI2_blends)
+    inner_side = GSD.selectConnectingSurface([tfi_H1,tfi_H3],sector_bnds)
+
+    FACES_H_FRONT = [tfi_H1,tfi_H3,
+                     tfi_front_bot, lower_side,
+                     inner_side,tfi2_H_front]
+
+    right_side = GSD.selectConnectingSurface([tfi_H3,tfi_H4],TFI2_blends)
+    left_side = GSD.selectConnectingSurface([tfi_H3,tfi_H4],tfi_unions_sideB)
+    ant_side = GSD.selectConnectingSurface([tfi_H3,tfi_H4],sector_bnds)
+    post_side = GSD.selectConnectingSurface([tfi_H3,tfi_H4],TFI2_bnd_blends)
+
+    FACES_H_sideA = [tfi_H3,tfi_H4,
+                     right_side, left_side,
+                     ant_side,post_side]
+
+    right = GSD.selectConnectingSurface([tfi_H1,tfi_H2],TFI2_blends)
+    left = GSD.selectConnectingSurface([tfi_H1,tfi_H2],tfi_unions)
+    ant = GSD.selectConnectingSurface([tfi_H1,tfi_H2],sector_bnds)
+    post = GSD.selectConnectingSurface([tfi_H1,tfi_H2],TFI2_bnd_blends)
+
+    FACES_H_sideB = [tfi_H1,tfi_H2,
+                      right,  left,
+                          ant,post]
+
+
+    top = GSD.selectConnectingSurface([tfi_H2,tfi_H4],TFI2_blends)
+    bot = tfi_rear_top
+    ant = GSD.selectConnectingSurface([tfi_H2,tfi_H4],sector_bnds)
+    post = GSD.selectConnectingSurface([tfi_H2,tfi_H4],TFI2_bnd_blends)
+
+    FACES_H_REAR = [tfi_H2,tfi_H4,
+                    top, bot,
+                    ant,post]
+
+    left = tfi_unions[3]
+    right = tfi_unions_sideB[3]
+    top = tfi_rear_top
+    bottom = tfi_rear_low
+    ant = TFI2_spinner_rear
+    post = main_rear_tfi
+
+    FACES_MAIN_REAR = [left,right,top,bottom,ant,post]
+
+    GROUP_TFI_CENTRAL = []
+    for post in All_TFI2_far:
+        neighbors = GSD.selectConnectingSurface([post], TFI2_blends, mode='all')
+        ant = GSD.selectConnectingSurface(neighbors, sector_bnds, mode='first')
+        GROUP_TFI_CENTRAL += [ neighbors+[ant,post] ]
+
+    if HAS_REAR_BULB:
+        rear_bulb_far = G.TFI([profile_rev_sectors[-1],far_rear_bulb_union_1,
+                              profile_rev_sectors_sideB[-1],far_rear_bulb_union_0])
+        rear_bulb_far[0] = 'rear_bulb_far'
+        left = tfi_unions[-1]
+        top, right = T.splitNParts(tfi_rear_low,2,dirs=[2])
+        bottom = tfi_unions_sideB[-1]
+        ant = GSD.selectConnectingSurface([left,right],sector_bnds)
+        post = rear_bulb_far
+
+        FACES_BULB_REAR = [left,right,top,bottom,ant,post]
+
+    BaseZonesList = ['bulb_front',FACES_BULB_FRONT,
+                     'main_front',FACES_MAIN_FRONT,
+                     'h_front',FACES_H_FRONT,
+                     'h_sidea',FACES_H_sideA,
+                     'h_sideb',FACES_H_sideB,
+                     'h_rear',FACES_H_REAR,
+                     'main_rear',FACES_MAIN_REAR]
+
+    if HAS_REAR_BULB: BaseZonesList.extend(['bulb_rear',FACES_BULB_REAR])
+
+    for i, zones in enumerate(GROUP_TFI_CENTRAL):
+        BaseZonesList.extend(['tip_%d'%i, zones])
+
+    farfield_faces = C.newPyTree(BaseZonesList)
+
+    grids = []
+    print('making farfield 3D TFI...')
+    for base in I.getBases(farfield_faces):
+        tfi3D = G.TFI(I.getZones(base))
+        tfi3D[0] = base[0]
+        grids += [ tfi3D ]
+    print('making farfield 3D TFI... ok')
+    T._makeDirect(grids)
+
+    return grids, farfield_faces
