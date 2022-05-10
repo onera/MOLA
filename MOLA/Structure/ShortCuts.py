@@ -223,11 +223,33 @@ def SaveModel(t, MName, Modes = False, StaticRotatorySolution = False, fmt = 'cg
 
 def getMatrixFromCGNS(t, MatrixName, RPM):
     DictMatrices = J.get(t, '.AssembledMatrices')
-    return DictMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]
+    try:
+        ReturnMatrix = DictMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]
+    except:
+        print(WARN+'Computing Matrix for parametric condition...'+ENDC)
+        if MatrixName == 'Komeg':
+            k0 = DictMatrices['Parametric']['K0FOMFD']
+            k1 = DictMatrices['Parametric']['K1FOMFD']
+            k2 = DictMatrices['Parametric']['K2FOMFD']
+            DictSimulaParam = J.get(t, '.SimulationParameters')
+            RPMs = DictSimulaParam['RotatingProperties']['RPMs']
+            ReturnMatrix=k0+k1*(RPM-RPMs[0])+0.5*k2*((RPM-RPMs[0])**2)     #EQ from Kurstak
+            
+        else: 
+            ReturnMatrix = DictMatrices['Parametric'][MatrixName]
+    return ReturnMatrix
 
 def getVectorFromCGNS(t, VectorName, RPM):
     DictVector = J.get(t, '.AssembledVectors')
+    #try:
+    #    ReturnParameter=DictVector[str(np.round(RPM,2))+'RPM'][VectorName]
+    #except: #Parametric case: This nodes are not on the ROM tree for random RPMs (just the 3 basic ones)
+    #    DictVector[str(np.round(RPM,2))+'RPM']['Us']=??
+    #    DictVector[str(np.round(RPM,2))+'RPM']['Fei']=??
     return DictVector[str(np.round(RPM,2))+'RPM'][VectorName]
+
+
+
 
 #def getUsVectorFromCGNS(t, RPM):
 #    VectNode = I.getNodeByName(t, 'U_sta%s'%np.round(RPM,2))
@@ -245,28 +267,44 @@ def AddFOMVars2Tree(t, RPM, Vars = [], VarsName = [], Type = '.AssembledMatrices
     '''
 
     DictVars = J.get(t, Type)
-
-    #try:
-    if str(np.round(RPM,2))+'RPM' not in DictVars.keys():
-        DictVars[str(np.round(RPM,2))+'RPM'] = {} 
-    
-    for Var, VarName in zip(Vars, VarsName):
-        if VarName in DictVars.keys():
-            DictVars[str(np.round(RPM,2))+'RPM'][VarName] = Var
-    #except:
-        else:    
-            #for Var, VarName in zip(Vars, VarsName):
+    if RPM==0: #Parametric model
+        print('Save parametric model')
+        for Var, VarName in zip(Vars, VarsName):
+            #for Var, VarName in zip(Vars, VarsName): #OVER-WRITTING
             if issparse(Var):
-                DictVars[str(np.round(RPM,2))+'RPM'][VarName] = {}
-                DictVars[str(np.round(RPM,2))+'RPM'][VarName]['rows'], DictVars[str(np.round(RPM,2))+'RPM'][VarName]['cols'], DictVars[str(np.round(RPM,2))+'RPM'][VarName]['data'] = find(Var)
-                DictVars[str(np.round(RPM,2))+'RPM'][VarName]['Matrice'] = None
+                print(str(VarName)+' is sparse')
+                DictVars['Parametric'][VarName] = {}
+                #DictVars['Parametric'][VarName]['rows']=None
+                print(str(VarName)+'is read')
+                DictVars['Parametric'][VarName]['rows'], DictVars['Parametric'][VarName]['cols'], DictVars['Parametric'][VarName]['data'] = find(Var)
+                DictVars['Parametric'][VarName]['Matrice'] = None
                 
+                    
             else:
+                print(str(VarName)+' is not sparse')
+                DictVars['Parametric'][VarName] = Var
+    
+    else:
+        #try:
+        if str(np.round(RPM,2))+'RPM' not in DictVars.keys():
+            DictVars[str(np.round(RPM,2))+'RPM'] = {} 
+        
+        for Var, VarName in zip(Vars, VarsName):
+            if VarName in DictVars.keys():
                 DictVars[str(np.round(RPM,2))+'RPM'][VarName] = Var
-                
+        #except:
+            else:    
+                #for Var, VarName in zip(Vars, VarsName):
+                if issparse(Var):
+                    DictVars[str(np.round(RPM,2))+'RPM'][VarName] = {}
+                    DictVars[str(np.round(RPM,2))+'RPM'][VarName]['rows'], DictVars[str(np.round(RPM,2))+'RPM'][VarName]['cols'], DictVars[str(np.round(RPM,2))+'RPM'][VarName]['data'] = find(Var)
+                    DictVars[str(np.round(RPM,2))+'RPM'][VarName]['Matrice'] = None
+                    
+                else:
+                    DictVars[str(np.round(RPM,2))+'RPM'][VarName] = Var
+                    
 
-    J.set(t, Type, **DictVars
-          )
+    J.set(t, Type, **DictVars)
 
     return t
 
@@ -468,12 +506,19 @@ def SetSparseMatrixFromCGNS(t, RPM, MatrixName, Type = '.AssembledMatrices'):
 
     NNodes = DictStructParam['MeshProperties']['NNodes'][0]
 
-
-    data = DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['data']
-    rows = DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['rows']
-    cols = DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['cols']
-
-    DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['Matrice'] = csr_matrix((data, (rows, cols)), shape = (DictStructParam['MeshProperties']['Nddl'][0],DictStructParam['MeshProperties']['Nddl'][0]))
+    try:
+        data = DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['data']
+        rows = DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['rows']
+        cols = DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['cols']
+    
+        DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['Matrice'] = csr_matrix((data, (rows, cols)), shape = (DictStructParam['MeshProperties']['Nddl'][0],DictStructParam['MeshProperties']['Nddl'][0]))
+    except:
+        print('set parametric')
+        data = DictAssembledMatrices['Parametric'][MatrixName]['data']
+        rows = DictAssembledMatrices['Parametric'][MatrixName]['rows']
+        cols = DictAssembledMatrices['Parametric'][MatrixName]['cols']
+    
+        DictAssembledMatrices['Parametric'][MatrixName]['Matrice'] = csr_matrix((data, (rows, cols)), shape = (DictStructParam['MeshProperties']['Nddl'][0],DictStructParam['MeshProperties']['Nddl'][0]))
 
     J.set(t, Type, **DictAssembledMatrices)
 
@@ -482,17 +527,26 @@ def SetSparseMatrixFromCGNS(t, RPM, MatrixName, Type = '.AssembledMatrices'):
 def GetSparseMatrixFromCGNS(t, RPM, MatrixName, Type = '.AssembledMatrices'):
 
     DictAssembledMatrices = J.get(t, Type)
+    try:
+        got=DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['Matrice'][0]
+    except:
+        got=DictAssembledMatrices['Parametric'][MatrixName]['Matrice'][0]
 
-    return DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['Matrice'][0]
+    return got
 
 
 def LoadSMatrixFromCGNS(t, RPM, MatrixName, Type = '.AssembledMatrices' ):
 
     DictAssembledMatrices = J.get(t, Type)
 
-    if DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['Matrice'] == None:
-        t = SetSparseMatrixFromCGNS(t, RPM, MatrixName, Type)
-
+    try:
+        if DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['Matrice'] == None:
+            t = SetSparseMatrixFromCGNS(t, RPM, MatrixName, Type)
+    except:
+        print('load parametric')
+        if DictAssembledMatrices['Parametric'][MatrixName]['Matrice'] == None:
+            t = SetSparseMatrixFromCGNS(t, RPM, MatrixName, Type)
+        
     SMatrice = GetSparseMatrixFromCGNS(t, RPM, MatrixName, Type)
 
     return SMatrice, t
@@ -518,7 +572,11 @@ def GetReducedBaseFromCGNS(t, RPM):
 #
 #        #PHI[::3, Mode], PHI[1::3, Mode], PHI[2::3, Mode] = J.getVars(ModeZone,['ModeX', 'ModeY', 'ModeZ'])
     DictAssMatr = J.get(t, '.AssembledMatrices')
-    PHI = DictAssMatr['%sRPM'%np.round(RPM,2)]['PHI']
+    try:
+        PHI = DictAssMatr['%sRPM'%np.round(RPM,2)]['PHI']
+    except: 
+        print(WARN+'Loading parametric basis'+ENDC)
+        PHI = DictAssMatr['Parametric']['PHI']
     
     return PHI
 

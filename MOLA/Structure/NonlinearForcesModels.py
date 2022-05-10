@@ -503,7 +503,7 @@ def CalcKnl_IC_kl(Beta,Gamma,qvect,k,l):
 
     Knl2_IC_kl = 0
     Knl3_IC_kl = 0
-    nq = np.shape(qvect)[0]
+    nq = np.shape(qvect)[0] #like len(qvect)
 
     q =  qvect.ravel()
 

@@ -2448,8 +2448,8 @@ def computeBEMTaxial3D(LiftingLine, PolarsInterpolatorDict,
 
         # Non-linear functions f1, f2, to solve (Eqns 2.38-2.39)
         #
-        f1 = 0.5*sigma[i]*W**2*Cy - 2*Vax*via*F
-        f2 = 0.5*sigma[i]*W**2*Cx - 2*Vax*vit*F
+        f1 = 0.5*sigma[i]*(W**2)*Cy - 2*Vax*via*F
+        f2 = 0.5*sigma[i]*(W**2)*Cx - 2*Vax*vit*F
 
         Residual = [f1, f2]
 
@@ -2553,7 +2553,7 @@ def computeBEMTaxial3D(LiftingLine, PolarsInterpolatorDict,
                 OptAoA = AoAMatrix[iOpt, jOpt]
 
                 root = via[iOpt], vit[jOpt]
-                print('Minimum Resiudal = %g at AoA= %g deg'%(MinRes, OptAoA))
+                print('Minimum Residudal = %g at AoA= %g deg'%(MinRes, OptAoA))
                 print('With induced velocities axial %g and tangential %g'%root)
                 #
                 # MSG = FAIL+'Section %d/%d failed (Re=%g, M=%g)'%(i+1,NPts,Reynolds[i],Mach[i])+ENDC

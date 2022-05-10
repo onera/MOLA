@@ -26,6 +26,8 @@ from .. import PropellerAnalysis as PA
 from . import ShortCuts as SJ
 from . import ModalAnalysis   as MA
 from . import NonlinearForcesModels as NFM
+import matplotlib.pyplot as plt
+import time
 
 FAIL  = '\033[91m'
 GREEN = '\033[92m' 
@@ -34,8 +36,9 @@ MAGE  = '\033[95m'
 CYAN  = '\033[96m'
 ENDC  = '\033[0m'
 
+
 #### AERODYNAMICS:
-def Macro_BEMT(t, PolarsInterpFuns, RPM):
+def Macro_BEMT(t, PolarsInterpFuns, RPM, Iter):
 
     print (CYAN+'Launching 3D BEMT computation...'+ENDC)
 
@@ -63,10 +66,58 @@ def Macro_BEMT(t, PolarsInterpFuns, RPM):
     print(WARN + '3D BEMT computation COMPLETED'+ENDC)
 
     I._addChild(t, LiftingLine)
+   
+    #Plot some interesting results
+    v = {}
+    try:
+        v = J.getVars2Dict(LiftingLine,['VelocityMagnitudeLocal','Mach', 'Span', 'AoA' , 'Chord', 'Cl', 'Cd', 'dFx', 'dMx','VelocityAxial'])
 
-    return ResultsDict, t
+        # this is the call to matplotlib that allows dynamic plotting
+        plt.figure(1)
+        plt.axis([0, max(v['Span'])*1.1 ,0 ,1.5])
+        plt.plot(v['Span'],v['Mach'])
+        plt.pause(0.05)
+        plt.xlabel('Span position [m]')
+        plt.ylabel('Mach [-]')
+        plt.title('Mach along the span (Iter : %s)'%Iter)
 
 
+        plt.figure(2)
+        plt.axis([0, max(v['Span'])*1.1 ,-10,10 ])
+        plt.plot(v['Span'],v['AoA'])
+        plt.pause(0.05)
+        plt.xlabel('Span position [m]')
+        plt.ylabel('Angle of attack [deg]')
+        plt.title('AoA along the span (Iter : %s)'%Iter)
+
+        plt.figure(3)
+        nu=1.48e-5
+        Re=np.multiply(v['VelocityMagnitudeLocal'],v['Chord'])/nu
+        plt.axis([0, max(v['Span'])*1.1 ,0,5e6 ])
+        plt.plot(v['Span'],Re)
+        plt.pause(0.05)
+        plt.xlabel('Span position [m]')
+        plt.ylabel('Re [-]')
+        plt.title('Local Reynolds number along the span (Iter : %s)'%Iter)
+
+        plt.figure(4)
+        plt.axis([0, max(v['Span'])*1.1 ,0,100])
+        plt.plot(v['Span'],v['VelocityAxial'])
+        plt.pause(0.05)
+        plt.xlabel('Span position [m]')
+        plt.ylabel('Axial velocity [m/s]')
+        plt.title('Axial velocity along the span (Iter : %s)'%Iter)
+
+        #WARNINGS
+        if max(abs(AoA))>10: #Parametizar al correspodiente maximo de los datos
+            print(WARN+'N readible '+ENDC)
+    except:
+        #v = {} # If not, in the last iteration, the dict v is removed, and it's not desired
+        print(WARN+'NO readible '+ENDC)
+
+    return ResultsDict, t , v 
+
+    plt.show()
 
 def ComputeExternalForce(t):
 
@@ -293,7 +344,7 @@ def StaticSolver_Newton_Raphson(t, RPM, ForceCoeff):
     except:
         Aij, Bijm = 0, 0 
 
-        print(WARN + 'Warning!! Aij and Bijm not readed!'+ENDC)
+        print(WARN + 'Warning!! Aij and Bijm not read!'+ENDC)
 
     Kproj = SJ.getMatrixFromCGNS(t, 'Komeg', RPM)
     
@@ -377,9 +428,10 @@ def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
     
     # Get the needed variables from the cgns tree:
 
-    V = SJ.GetReducedBaseFromCGNS(t, RPM)  # Base de reduction PHI
+    V = SJ.GetReducedBaseFromCGNS(t, RPM)  # Base de reduction PHI (if parametric model, we give PHIAug o U)
     
-    nq       = DictStructParam['ROMProperties']['NModes'][0]
+    #nq       = DictStructParam['ROMProperties']['NModes'][0]
+    nq=len(V[0]) #To take into account the case of parametic ROM
     nitermax = DictSimulaParam['IntegrationProperties']['NumberOfMaxIterations'][0]
     nincr    = DictSimulaParam['IntegrationProperties']['StaticSteps'][0]
     try:
@@ -388,7 +440,7 @@ def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
     except:
         Aij, Bijm = 0, 0 
 
-        print(WARN + 'Warning!! Aij and Bijm not readed!'+ENDC)
+        print(WARN + 'Warning!! Aij and Bijm not read!'+ENDC)
 
     Kproj = SJ.getMatrixFromCGNS(t, 'Komeg', RPM)
     
@@ -397,7 +449,7 @@ def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
     q = np.zeros((nq,1))
     Fextproj = np.zeros((nq,1))
     #Fnlproj_IC = np.zeros((nq,1))
-
+    Fnlproj = np.zeros((nq,1))
     # Initialisation des vecteurs de sauvegarde:
     q_Save   = np.zeros((nq,)) 
     Fnl_Save = np.zeros((nq,)) 
@@ -418,7 +470,7 @@ def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
         #Compute tangent stiffness matrix
         
         Ktanproj = Kproj + NFM.Knl_Jacobian_Proj(t, q, Aij, Bijm)
-        # Solve displacement increment
+        # Solve displacement increment (linear matrix equation)
         dq = -np.linalg.solve(Ktanproj,Resi)
         q = q + dq
         
@@ -466,7 +518,7 @@ def DynamicSolver_HHTalpha(t, RPM, ForceCoeff):
     except:
         Aij, Bijm = 0, 0 
 
-        print(WARN + 'Warning!! Aij and Bijm not readed!'+ENDC)
+        print(WARN + 'Warning!! Aij and Bijm not read!'+ENDC)
 
     Kproj = SJ.getMatrixFromCGNS(t, 'Komeg', RPM)
     Cproj = SJ.getMatrixFromCGNS(t, 'C', RPM)
