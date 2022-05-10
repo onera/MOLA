@@ -3851,7 +3851,7 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0):
         # # Integrate tangential moment <ft>*Span to get Power
         # Torque = sint.simps(v['ft']*v['Span'],DimensionalAbscissa) # equivalent
         Torque = MX*RotationAxis[0]+MY*RotationAxis[1]+MZ*RotationAxis[2]
-        Power  = (RPM*np.pi/30.)*Torque
+        Power  = dir*(RPM*np.pi/30.)*Torque
         # Store computed integral Loads
         IntegralData = J.set(LiftingLine,'.Loads',
                       Thrust=NBlades*Thrust,Power=NBlades*Power,
