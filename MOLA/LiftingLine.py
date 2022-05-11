@@ -978,11 +978,20 @@ def buildLiftingLine(Span, **kwargs):
     for GeomParam in LLDict:
         if GeomParam not in SpecialTreatment:
             InterpLaws[GeomParam+'_law']=kwargs[GeomParam]['InterpolationLaw']
-            LLDict[GeomParam][:] = J.interpolate__(RelSpan,
-                                            kwargs[GeomParam]['RelativeSpan'],
-                                            kwargs[GeomParam][GeomParam],
-                                            InterpLaws[GeomParam+'_law'],
-                                            **kwargs[GeomParam])
+            if 'RelativeSpan' in kwargs[GeomParam]:
+                LLDict[GeomParam][:] = J.interpolate__(RelSpan,
+                                                kwargs[GeomParam]['RelativeSpan'],
+                                                kwargs[GeomParam][GeomParam],
+                                                InterpLaws[GeomParam+'_law'],
+                                                **kwargs[GeomParam])
+            elif 'Abscissa' in kwargs[GeomParam]:
+                LLDict[GeomParam][:] = J.interpolate__(s,
+                                                kwargs[GeomParam]['Abscissa'],
+                                                kwargs[GeomParam][GeomParam],
+                                                InterpLaws[GeomParam+'_law'],
+                                                **kwargs[GeomParam])
+            else:
+                raise AttributeError("Attribute %s (dict) must contain 'RelativeSpan' or 'Abscissa' key"%GeomParam)
 
     # Apply geometrical distribution
     LLx[:] = Span
