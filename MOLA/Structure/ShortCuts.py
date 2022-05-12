@@ -228,11 +228,18 @@ def getMatrixFromCGNS(t, MatrixName, RPM):
     except:
         print(WARN+'Computing Matrix for parametric condition...'+ENDC)
         if MatrixName == 'Komeg':
-            k0 = DictMatrices['Parametric']['K0FOMFD']
-            k1 = DictMatrices['Parametric']['K1FOMFD']
-            k2 = DictMatrices['Parametric']['K2FOMFD']
+            if type(DictMatrices['Parametric']['K0Parametric']) != type(dict()):
+                k0 = DictMatrices['Parametric']['K0Parametric']
+                k1 = DictMatrices['Parametric']['K1Parametric']
+                k2 = DictMatrices['Parametric']['K2Parametric']
+            else:
+                k0,_ = LoadSMatrixFromCGNS(t, RPM, 'K0Parametric')
+                k1,_ = LoadSMatrixFromCGNS(t, RPM, 'K1Parametric')
+                k2,_ = LoadSMatrixFromCGNS(t, RPM, 'K2Parametric')
+            
             DictSimulaParam = J.get(t, '.SimulationParameters')
             RPMs = DictSimulaParam['RotatingProperties']['RPMs']
+            
             ReturnMatrix=k0+k1*(RPM-RPMs[0])+0.5*k2*((RPM-RPMs[0])**2)     #EQ from Kurstak
             
         else: 
