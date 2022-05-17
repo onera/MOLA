@@ -2852,9 +2852,16 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         cutoff_dens        = 0.005,
         cutoff_pres        = 0.005,
         cutoff_eint        = 0.005,
-        artviscosity       = 'dismrt',
-        av_mrt             = 0.3,
         )
+        if not unstructured:
+            addKeys.update(dict(
+                artviscosity       = 'dismrt',
+                av_mrt             = 0.3,
+            ))
+        else:
+            # Martinelli correction not available for unstructured grids
+            addKeys['artviscosity'] = 'dissca'
+
     elif NumericalScheme == 'ausm+':
         addKeys = dict(
         flux               = 'ausmplus_pmiles',
