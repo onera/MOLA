@@ -1058,6 +1058,8 @@ def checkComponentKind(component, kind='LiftingLine'):
 
     return kind == kindC
 
+def getLiftingLines(t):
+    return [c for c in I.getZones(t) if checkComponentKind(c, kind='LiftingLine')]
 
 def buildPolarsInterpolatorDict(PyZonePolars, InterpFields=['Cl', 'Cd','Cm'],
         Nrequest=None):
@@ -2344,9 +2346,13 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
             Result of a BEMT computation (or PUMA result
             adapted to CGNS following the same convention).
 
-        PyZonePolars : :py:func:`list` of :py:func:`zone`
+        PyZonePolars : :py:func:`list` of :py:func:`zone` or :py:class:`str`
             Enhanced **PyZonePolars** for each airfoil, containing also foilwise
-            distributions fields (``Cp``, ``theta``, ``delta1``...)
+            distributions fields (``Cp``, ``theta``, ``delta1``...).
+
+            .. note::
+              if input type is a :py:class:`str`, then **PyZonePolars** is
+              interpreted as a CGNS file name containing the airfoil polars data
 
         Variables : :py:class:`list` of :py:class:`str`
             The variables to be built on the newly created surface.
@@ -2483,6 +2489,8 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
     # If FoilDistribution is None, then use the first airfoil
     # as driving FoilDistribution
 
+    if isinstance(PyZonePolars, str):
+        PyZonePolars = I.getZones(C.convertFile2PyTree(PyZonePolars))
     PyZonePolars = I.getZones(PyZonePolars)
     AirfoilsGeom = []
     for pzn in PyZonePolarNames:
@@ -2547,8 +2555,9 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
                    Airfoil=AirfoilsGeom,
                    InterpolationLaw=FoilInterpLaw)
 
+
     # Invoke blade surface (with empty FlowSolutions)
-    _, Surf, _ = GSD.wing(Span,
+    _, Surf, distrWing = GSD.wing(Span,
                           ChordRelRef = ChordRelRef,
                           NPtsTrailingEdge = 0,
                           AvoidAirfoilModification = True,
@@ -2561,26 +2570,41 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
 
     Kinematics = J.get(LiftingLine,'.Kinematics')
     if Kinematics and not ImposeWingCanonicalPosition:
-        FrenetWing = ((1, 0, 0),  # tangential
-                      (0, 1, 0),  # axial
-                      (0, 0,-1))  # radial
+        sign = +1 if Kinematics['RightHandRuleRotation'] else -1
+        xS = distrWing['SpineX']
+        yS = distrWing['SpineY']
+        zS = distrWing['SpineZ']
+        CanonicalAxial = np.array([0.,1.,0.])
+        CanonicalSpanwise = np.array([xS[1]-xS[0], yS[1]-yS[0], zS[1]-zS[0]])
+        CanonicalSpanwise /= np.linalg.norm(CanonicalSpanwise)
+        CanonicalTangential = sign * np.cross(CanonicalSpanwise, CanonicalAxial)
+        CanonicalTangential /= np.linalg.norm(CanonicalSpanwise)
+        CanonicalNormal = np.cross(CanonicalTangential, CanonicalSpanwise)
+        CanonicalNormal /= np.linalg.norm(CanonicalNormal)
+
+
+        FrenetWing = (CanonicalSpanwise,
+                      CanonicalTangential,
+                      CanonicalNormal)
 
         RotationCenter = Kinematics['RotationCenter']
         BladeAxial = Kinematics['RotationAxis']
-        sign = +1 if Kinematics['RightHandRuleRotation'] else -1
         x,y,z = J.getxyz(LiftingLine)
-        BladeRadial = np.array([x[0]-RotationCenter[0],
-                                y[0]-RotationCenter[1],
-                                z[0]-RotationCenter[2]])
-        BladeRadial /= np.sqrt(BladeRadial.dot(BladeRadial))
-        BladeTangential = sign * np.cross(BladeRadial,BladeAxial)
 
-        FrenetLiftingLine = (BladeTangential,
-                             BladeAxial,
-                             BladeRadial)
+        CurrentSpanwise = np.array([x[1]-x[0], y[1]-y[0], z[1]-z[0]])
+        CurrentSpanwise /= np.linalg.norm(CurrentSpanwise)
+        CurrentTangential = sign * np.cross(CurrentSpanwise, BladeAxial)
+        CurrentTangential /= np.linalg.norm(CurrentSpanwise)
+        CurrentNormal = np.cross(CurrentTangential, CurrentSpanwise)
+        CurrentNormal /= np.linalg.norm(CurrentNormal)
 
+        FrenetLiftingLine = (CurrentSpanwise,
+                             CurrentTangential,
+                             CurrentNormal)
+
+        T._translate(Surf,(-xS[0],-yS[0],-zS[0]))
         T._rotate(Surf, (0,0,0), FrenetWing, FrenetLiftingLine)
-        T._translate(Surf,-RotationCenter)
+        T._translate(Surf,(x[0],y[0],z[0]))
 
 
     if len(Variables) == 0: return Surf
@@ -3134,14 +3158,14 @@ def assembleAndProjectVelocities(t):
         v['VelocityX'][:] = VelocityInduced[0,:] + VelocityFreestream[0]
         v['VelocityY'][:] = VelocityInduced[1,:] + VelocityFreestream[1]
         v['VelocityZ'][:] = VelocityInduced[2,:] + VelocityFreestream[2]
-        v['VelocityAxial'][:] = Vax = ( VelocityRelative.T @ -RotationAxis ).T
-        v['VelocityTangential'][:] = Vtan = np.diag(VelocityRelative.T @ TangentialDirection)
+        v['VelocityAxial'][:] = Vax = ( VelocityRelative.T.dot(-RotationAxis) ).T
+        v['VelocityTangential'][:] = Vtan = np.diag(VelocityRelative.T.dot( TangentialDirection))
         # note the absence of radial velocity contribution to 2D flow
         V2D = np.vstack((Vax * RotationAxis[0] + Vtan * TangentialDirection[0,:],
                          Vax * RotationAxis[1] + Vtan * TangentialDirection[1,:],
                          Vax * RotationAxis[2] + Vtan * TangentialDirection[2,:]))
-        v['VelocityNormal2D'][:] = V2Dn = np.diag( V2D.T @ nxyz )
-        v['VelocityTangential2D'][:] = V2Dt = dir * np.diag( V2D.T @ bxyz )
+        v['VelocityNormal2D'][:] = V2Dn = np.diag( V2D.T.dot( nxyz) )
+        v['VelocityTangential2D'][:] = V2Dt = dir * np.diag( V2D.T.dot( bxyz) )
         v['phiRad'][:] = phi = np.arctan2( V2Dn, V2Dt )
         v['AoA'][:] = v['Twist'] - np.rad2deg(phi)
         v['VelocityMagnitudeLocal'][:] = W = np.sqrt( V2Dn**2 + V2Dt**2 )
@@ -3295,7 +3319,16 @@ def updateLocalFrame(LiftingLine):
     rvec = (xyz.T - RotationCenter).T
     TangentialDirection = Dir * np.cross(RotationAxis, rvec, axisb=0).T
     tan_norm = np.atleast_1d(norm(TangentialDirection, axis=0))
-    tan_norm[tan_norm==0] = 1
+    pointAlignedWithRotationAxis = np.where(tan_norm==0)[0]
+    if pointAlignedWithRotationAxis:
+        if len(pointAlignedWithRotationAxis) > 1:
+            raise ValueError('several points are aligned with rotation axis')
+        if pointAlignedWithRotationAxis > 0:
+            TangentialDirection[:,pointAlignedWithRotationAxis] = TangentialDirection[:,pointAlignedWithRotationAxis-1]
+            tan_norm[pointAlignedWithRotationAxis] = tan_norm[pointAlignedWithRotationAxis-1]
+        else:
+            TangentialDirection[:,pointAlignedWithRotationAxis] = TangentialDirection[:,pointAlignedWithRotationAxis+1]
+            tan_norm[pointAlignedWithRotationAxis] = tan_norm[pointAlignedWithRotationAxis+1]
     TangentialDirection /= tan_norm
     tanx[:] = TangentialDirection[0,:]
     tany[:] = TangentialDirection[1,:]
@@ -3327,7 +3360,7 @@ def updateLocalFrame(LiftingLine):
     ny[:] = nxyz[1,:]
     nz[:] = nxyz[2,:]
 
-    # return txyz, nxyz, bxyz
+    return txyz, nxyz, bxyz
 
 
 
@@ -3818,16 +3851,12 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0):
         Flowing = abs(w)>0
         FluxKJ[Flowing] /= w[Flowing]
         FluxKJ[~Flowing] = 0.
-        # if np.allclose(v['VelocityMagnitudeLocal'],0.):
-        #     FluxKJ = 0.
-        # else:
-        #     FluxKJ = Lift/(Density*v['VelocityMagnitudeLocal'])
         v['GammaX'][:] = dir * FluxKJ * v['tx']
         v['GammaY'][:] = dir * FluxKJ * v['ty']
         v['GammaZ'][:] = dir * FluxKJ * v['tz']
         v['Gamma'][:] = FluxKJ
         # ------------------------- INTEGRAL LOADS ------------------------- #
-        length = norm(np.sum(np.diff(xyz,axis=1),axis=1)) # faster than D.getLength
+        length = norm(np.sum(np.abs(np.diff(xyz,axis=1)),axis=1)) # faster than D.getLength
         DimensionalAbscissa = length * v['s']
 
         # Integrate linear axial force <fa> to get Thrust
@@ -5060,7 +5089,11 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
 
 
 def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
-                                            IntegralLaw='interp1d_quadratic'):
+                                            IntegralLaw='linear',
+                                            addGhostSourceAtRoot=True,
+                                            addGhostSourceAtTip=True,
+                                            GammaZeroAtRoot=True,
+                                            GammaZeroAtTip=True):
     '''
     Build a set of zones composed of particles with fields:
 
@@ -5090,6 +5123,14 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
     '''
 
     AbscissaSegments = np.array(AbscissaSegments, dtype=np.float)
+    if addGhostSourceAtRoot:
+        AbscissaSegments = np.hstack((-(AbscissaSegments[1]-AbscissaSegments[0]*2),
+                                        AbscissaSegments))
+    if addGhostSourceAtTip:
+        AbscissaSegments = np.hstack((AbscissaSegments,
+                                   2*AbscissaSegments[-1]-AbscissaSegments[-2]))
+
+
     FieldsNames2Extract = [
                     'CoordinateX','CoordinateY','CoordinateZ',
                     'VelocityKinematicX','VelocityKinematicY','VelocityKinematicZ',
@@ -5123,6 +5164,14 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
                 sourcefields[fieldname] = np.interp(AbscissaSegments,
                                                     v['s'],
                                                     v[fieldname])
+                if addGhostSourceAtRoot:
+                    sourcefields[fieldname][0] = 2*sourcefields[fieldname][0]-\
+                                                   sourcefields[fieldname][2]
+
+                if addGhostSourceAtTip:
+                    sourcefields[fieldname][-1] =2*sourcefields[fieldname][-1]-\
+                                                   sourcefields[fieldname][-3]
+
 
         elif IntegralLaw == 'pchip':
             for fieldname in FieldsNames2Extract:
@@ -5136,6 +5185,9 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
 
         else:
             raise AttributeError('IntegralLaw "%s" not supported'%IntegralLaw)
+
+        if GammaZeroAtRoot: sourcefields['Gamma'][0] = 0.
+        if GammaZeroAtTip: sourcefields['Gamma'][-1] = 0.
 
         Arrays = [sourcefields[fn] for fn in FieldsNames2Extract]
         ArraysNames = FieldsNames2Extract

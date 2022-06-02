@@ -1292,7 +1292,7 @@ def showStatisticsAndCheckDistribution(tNew, CoresPerNode=28):
 
 def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
                    prioritiesIfOptimize=[], double_wall=0,
-                   saveMaskBodiesTree=True):
+                   saveMaskBodiesTree=True, overset_in_CGNS=True):
     '''
     This function performs all required preprocessing operations for a STATIC
     overlapping configuration. This includes masks production, setting
@@ -1458,10 +1458,17 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
     t = X.maximizeBlankedCells(t, depth=depth)
 
     print('Computing interpolation coefficients...')
-    DIRECTORY_OVERSET = 'OVERSET'
-    try: os.makedirs(DIRECTORY_OVERSET)
-    except: pass
-    prefixFile = '' # os.path.join(DIRECTORY_OVERSET,'OvstData')
+
+    if overset_in_CGNS:
+        prefixFile = ''
+    else:
+        DIRECTORY_OVERSET = 'OVERSET'
+        try: os.makedirs(DIRECTORY_OVERSET)
+        except: pass
+        prefixFile = os.path.join(DIRECTORY_OVERSET,'overset')
+
+
+    prefixFile = '' if overset_in_CGNS else
     t = X.setInterpolations(t, loc='cell', sameBase=0, double_wall=double_wall,
                             storage='inverse', solver='elsA', check=True,
                             nGhostCells=2, prefixFile=prefixFile)
@@ -1475,6 +1482,7 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
             C.convertPyTree2File(CriticalPoints, diagnosisType+'.cgns')
 
     t = X.cellN2OversetHoles(t)
+    if not overset_in_CGNS: I._rmNodesByName(t,'ID_*')
 
     return t
 
@@ -2934,12 +2942,14 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
                        chm_interp_depth=2,
                        chm_interpcoef_frozen='active', # TODO: make conditional
                        chm_conn_io='read', # NOTE ticket 8259
-
-                       # # Overset by external files: (should not be used)
-                       # chm_ovlp_minimize='inactive',
-                       # chm_preproc_method='mask_based',
-                       # chm_conn_fprefix=DIRECTORY_OVERSET+'/OvstData',
                        )
+        if os.path.exists('OVERSET'):
+            addKeys.update(dict(
+                        # Overset by external files
+                        chm_ovlp_minimize='inactive',
+                        chm_preproc_method='mask_based',
+                        chm_conn_fprefix=DIRECTORY_OVERSET+'/overset'))
+
 
     addKeys.update(dict(
     multigrid     = 'none',

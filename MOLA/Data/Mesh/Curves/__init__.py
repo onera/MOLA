@@ -52,11 +52,8 @@ class Curve(Zone):
         return np.sqrt( dx*dx + dy*dy + dz*dz )
 
     def length(self):
-        x,y,z = self.xyz()
-        dx = np.diff(x)
-        dy = np.diff(y)
-        dz = np.diff(z)
-        return np.sum(np.sqrt(dx**2 + dy**2 + dz**2))
+        xyz = np.vstack( self.xyz() )
+        return np.linalg.norm(np.sum(np.abs(np.diff(xyz,axis=1)),axis=1))
 
     def tangent(self, index=0, reverse=False):
         x,y,z = self.xyz()

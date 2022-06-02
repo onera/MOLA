@@ -2270,3 +2270,14 @@ def moveLogFiles():
             shutil.move(fn, os.path.join('LOGS', fn))
 
     Cmpi.barrier()
+
+def createSymbolicLink(src, dst):
+    if Cmpi.rank == 0:
+        try:
+            if os.path.islink(dst):
+                os.unlink(dst)
+            else:
+                os.remove(dst)
+        except:
+            pass
+        os.symlink(src, dst)
