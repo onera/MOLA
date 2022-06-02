@@ -1467,8 +1467,6 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
         except: pass
         prefixFile = os.path.join(DIRECTORY_OVERSET,'overset')
 
-
-    prefixFile = '' if overset_in_CGNS else
     t = X.setInterpolations(t, loc='cell', sameBase=0, double_wall=double_wall,
                             storage='inverse', solver='elsA', check=True,
                             nGhostCells=2, prefixFile=prefixFile)
