@@ -86,7 +86,7 @@ elif [ "$MAC" = "ld" ]; then
     EL8=`uname -r|grep el8`
     if [ "$EL8" ]; then
         echo 'loading MOLA environment for CentOS 8'
-        source /stck/elsa/Public/${ELSAVERSION}dev/Dist/bin/local-os8/.env_elsA
+        source /stck/elsa/Public/${ELSAVERSION}dev/Dist/bin/local-os8_mpi/.env_elsA
         module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
     else
         echo 'loading MOLA environment for CentOS 7'

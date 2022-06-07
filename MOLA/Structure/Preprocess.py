@@ -37,7 +37,7 @@ import Generator.PyTree as G
 import Transform.PyTree as T
 
 
-def buildBladeCGNS(BladeName,ParametersDict,path):
+def buildBladeCGNS(BladeName,ParametersDict):
    
     '''
     Create the geometry files (.tp and .cngs) associated to the input 
@@ -72,10 +72,6 @@ def buildBladeCGNS(BladeName,ParametersDict,path):
                 * DihedralDict : dict
 
                 * SweepDict : dict
-
-
-        path : str
-            general woking directory
 
 
 
@@ -162,16 +158,7 @@ def buildBladeCGNS(BladeName,ParametersDict,path):
     #                   'External_Forces',
     #                   'FamilySpecified:External_Forces')
 
-    # Creating saving folder
-    if not os.path.exists(path + '/InputData/Geometry/BladeCGNS'):
-     os.makedirs(path + '/InputData/Geometry/BladeCGNS')
-    os.chdir(path+'/InputData/Geometry/BladeCGNS')
-
-    t = C.newPyTree(['SOLID',WingSolidStructured])
-    C.convertPyTree2File(t,'%s.cgns'%BladeName,'bin_adf')
-    C.convertPyTree2File(t,'%s.tp'%BladeName)
-
-
+    return t
 
 def BladeDictBuilder(GeoId,ParametersDict,path):
     
