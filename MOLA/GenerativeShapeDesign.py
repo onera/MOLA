@@ -384,6 +384,8 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
     # Sections = map(lambda s: D.line((0,0,0),(1,0,0),NPts),range(Ns)) # Invoke all sections
 
     Sections = [D.line((0,0,0),(1,0,0),NPts) for isec in range(Ns)] # Invoke all sections
+    Spine = D.line((0,0,0),(1,0,0),Ns)
+    SpineX, SpineY, SpineZ = J.getxyz(Spine)
 
     # Make the interpolation matrices based upon the PROVIDED sections
     GeomParam = 'Airfoil'
@@ -531,7 +533,7 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
 
         if AvoidAirfoilModification:
             ModSection = I.copyTree(CurrentSection)
-            T._translate(ModSection,(-0.25,0,0))
+            T._translate(ModSection,(-ChordRelRef,0,0))
             T._homothety(ModSection,(0,0,0), Params['Chord'])
             AirfoilProperties = dict(Chord=Params['Chord'],
                                      ScalingCenter = np.array([0.,0.,0.]))
@@ -582,38 +584,50 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
 
     # STEP 5: Apply the Sweep using a Translation along tangent.
     #         This is an optional step.
-    if 'Sweep' in kwargs:
-        GeomParam = 'Sweep'
-        DistributionResult[GeomParam] = J.interpolate__(RelWingSpan,
-                                            kwargs[GeomParam]['RelativeSpan'],
-                                            kwargs[GeomParam][GeomParam],
-                                            Law=kwargs[GeomParam]['InterpolationLaw'])
+    GeomParam = 'Sweep'
+    if not GeomParam in kwargs:
+        kwargs[GeomParam] = {}
+        kwargs[GeomParam]['RelativeSpan'] = [0,1]
+        kwargs[GeomParam][GeomParam] = [0,0]
+        kwargs[GeomParam]['InterpolationLaw'] = 'interp1d_linear'
 
-        for j in range(Ns):
-            Section = Sections[j]
-            # In absolute value:
-            SweepDispl= DistributionResult['Sweep'][j]
-            # In degrees:
-            # SweepDispl= s[j] * np.tan( DistributionResult['Sweep'][j] * np.pi / 180.)
-            T._translate(Section,(SweepDispl,0,0))
+    DistributionResult[GeomParam] = J.interpolate__(RelWingSpan,
+                                        kwargs[GeomParam]['RelativeSpan'],
+                                        kwargs[GeomParam][GeomParam],
+                                        Law=kwargs[GeomParam]['InterpolationLaw'])
+
+    for j in range(Ns):
+        Section = Sections[j]
+        # In absolute value:
+        SweepDispl= DistributionResult['Sweep'][j]
+        # In degrees:
+        # SweepDispl= s[j] * np.tan( DistributionResult['Sweep'][j] * np.pi / 180.)
+        T._translate(Section,(SweepDispl,0,0))
+        SpineX[j] = SweepDispl
 
     # STEP 6: Apply the Dihedral using a Translation along
     #         tangent. This is an optional step.
-    if 'Dihedral' in kwargs:
-        GeomParam = 'Dihedral'
-        # DistributionResult[GeomParam] = applyInterpolationFunction__(GeomParam,kwargs)
-        DistributionResult[GeomParam] = J.interpolate__(RelWingSpan,
-                                            kwargs[GeomParam]['RelativeSpan'],
-                                            kwargs[GeomParam][GeomParam],
-                                            Law=kwargs[GeomParam]['InterpolationLaw'])
+    GeomParam = 'Dihedral'
+    if not GeomParam in kwargs:
+        kwargs[GeomParam] = {}
+        kwargs[GeomParam]['RelativeSpan'] = [0,1]
+        kwargs[GeomParam][GeomParam] = [0,0]
+        kwargs[GeomParam]['InterpolationLaw'] = 'interp1d_linear'
 
-        for j in range(Ns):
-            Section       = Sections[j]
-            # In absolute value:
-            DihedralDispl = DistributionResult['Dihedral'][j]
-            # In Degrees:
-            # DihedralDispl = s[j] * np.tan( DistributionResult['Dihedral'][j] * np.pi / 180.)
-            T._translate(Section,(0,DihedralDispl,0))
+
+    DistributionResult[GeomParam] = J.interpolate__(RelWingSpan,
+                                        kwargs[GeomParam]['RelativeSpan'],
+                                        kwargs[GeomParam][GeomParam],
+                                        Law=kwargs[GeomParam]['InterpolationLaw'])
+
+    for j in range(Ns):
+        Section       = Sections[j]
+        # In absolute value:
+        DihedralDispl = DistributionResult['Dihedral'][j]
+        # In Degrees:
+        # DihedralDispl = s[j] * np.tan( DistributionResult['Dihedral'][j] * np.pi / 180.)
+        T._translate(Section,(0,DihedralDispl,0))
+        SpineY[j] = DihedralDispl
 
 
     # STEP 7: Put sections along span. This is a mandatory step.
@@ -621,6 +635,11 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
         Section = Sections[j]
         SecZ = J.getz(Section)
         SecZ[:] = -WingSpan[j]
+        SpineZ[j] = -WingSpan[j]
+
+    DistributionResult['SpineX'] = SpineX
+    DistributionResult['SpineY'] = SpineY
+    DistributionResult['SpineZ'] = SpineZ
 
     Wing = stackSections(Sections) # TODO replace with G.stack
     Wing[0] = 'wing'

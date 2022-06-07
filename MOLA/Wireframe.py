@@ -5383,3 +5383,7 @@ def tune(curve, point, index=0):
     x[index] = point[0]
     y[index] = point[1]
     z[index] = point[2]
+
+def getLength(curve):
+    xyz = np.vstack( J.getxyz(curve) )
+    return np.linalg.norm(np.sum(np.abs(np.diff(xyz,axis=1)),axis=1))

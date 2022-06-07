@@ -128,7 +128,7 @@ if BodyForceInputData:
 
 e.action=elsAxdt.COMPUTE
 e.mode=elsAxdt.READ_ALL
-e.mode |=elsAxdt.CGNS_CHIMERACOEFF
+if not os.path.exists('OVERSET'): e.mode |= elsAxdt.CGNS_CHIMERACOEFF
 
 e.compute()
 
