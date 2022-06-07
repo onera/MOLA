@@ -937,7 +937,11 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                                          maximum_allowed_nodes*cores_per_node+1,
                                          cores_per_node)))
         else:
-            NProcCandidates = np.array(list(range(cores_per_node*minimum_number_of_nodes,
+            if minimum_number_of_nodes == maximum_allowed_nodes == 1:
+                startNProc = 1
+            else:
+                startNProc = cores_per_node*minimum_number_of_nodes
+            NProcCandidates = np.array(list(range(startNProc,
                                        maximum_allowed_nodes*cores_per_node+1)))
 
         EstimatedAverageNodeLoad = TotalNPts / (NProcCandidates / cores_per_node)
@@ -1033,7 +1037,9 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
 
         removeMatchAndNearMatch(tToSplit)
 
-        tToSplit = T.splitSize(tToSplit, 0, type=0, R=remainingNProcs, minPtsPerDir=3)
+        tToSplit = T.splitSize(tToSplit, 0, type=0, R=remainingNProcs, minPtsPerDir=5,
+            # dirs=[1,2],
+            )
 
         for splitbase in I.getBases(tToSplit):
             basename = splitbase[0]
