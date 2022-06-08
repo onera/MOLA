@@ -1299,7 +1299,7 @@ def showStatisticsAndCheckDistribution(tNew, CoresPerNode=28):
 def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
                    prioritiesIfOptimize=[], double_wall=0,
                    saveMaskBodiesTree=True,
-                   overset_in_CGNS=True # TODO https://elsa.onera.fr/issues/10542
+                   overset_in_CGNS=False # see elsA #10545
                    ):
     '''
     This function performs all required preprocessing operations for a STATIC
@@ -1492,7 +1492,6 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
 
     if not overset_in_CGNS:
         I._rmNodesByName(t,'ID_*')
-        I._rmNodesByName(t,'OversetHoles')
 
     return t
 
@@ -2956,8 +2955,9 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         if os.path.exists('OVERSET'):
             addKeys.update(dict(
                         # Overset by external files
-                        chm_conn_io='none', # NOTE ticket 8259
+                        chm_impl_interp='none',
                         chm_ovlp_minimize='inactive',
+                        chm_ovlp_thickness=2
                         chm_preproc_method='mask_based',
                         chm_conn_fprefix=DIRECTORY_OVERSET+'/overset'))
 
