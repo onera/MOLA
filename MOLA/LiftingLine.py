@@ -2869,12 +2869,14 @@ def setRPM(LiftingLines, newRPM):
             RPM = I.getNodeFromName1(Kin_n,'RPM')
 
             if RPM:
-                RPM[1][:] = newRPM
+                RPMvalue = np.atleast_1d(RPM[1])
+                RPMvalue[:] = newRPM
             else:
                 I.createNode('RPM','DataArray_t',
-                             value=np.array([newRPM],dtype=np.float), parent=Kin_n)
+                             value=np.atleast_1d(np.array(newRPM,dtype=np.float)),
+                             parent=Kin_n)
         else:
-            J.set(LiftingLine,'.Kinematics',RPM=newRPM)
+            J.set(LiftingLine,'.Kinematics',RPM=np.atleast_1d(np.array(newRPM,dtype=np.float)))
 
 
 def setKinematicsUsingConstantRotationAndTranslation(LiftingLines, RotationCenter=[0,0,0],
@@ -2921,7 +2923,7 @@ def setKinematicsUsingConstantRotationAndTranslation(LiftingLines, RotationCente
         J.set(LiftingLine,'.Kinematics',
                 RotationCenter=np.array(RotationCenter,dtype=np.float),
                 RotationAxis=np.array(RotationAxis,dtype=np.float),
-                RPM=float(RPM),
+                RPM=np.atleast_1d(np.array(RPM,dtype=np.float)),
                 RightHandRuleRotation=RightHandRuleRotation,
                 VelocityTranslation=np.array(VelocityTranslation,dtype=np.float),)
 

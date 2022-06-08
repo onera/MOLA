@@ -71,7 +71,7 @@ def set(parent, childname, childType='UserDefinedData_t', **kwargs):
             if isinstance(kwargs[v][0], str):
                 value = ' '.join(kwargs[v])
             else:
-                value = kwargs[v]
+                value = np.atleast_1d(kwargs[v])
             children += [[v,value]]
         else:
             children += [[v,kwargs[v]]]
