@@ -3235,8 +3235,8 @@ def moveObject(t, TimeStep):
         TimeStep : float
             time step for the movement of the lifting-lines in [s]
     '''
-    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
-    for LiftingLine in LiftingLines:
+
+    for LiftingLine in I.getZones(t):
         Kinematics = J.get(LiftingLine,'.Kinematics')
         VelocityTranslation = Kinematics['VelocityTranslation']
         RotationCenter = Kinematics['RotationCenter']
