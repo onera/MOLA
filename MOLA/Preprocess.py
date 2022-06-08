@@ -2957,7 +2957,7 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
                         # Overset by external files
                         chm_impl_interp='none',
                         chm_ovlp_minimize='inactive',
-                        chm_ovlp_thickness=2
+                        chm_ovlp_thickness=2,
                         chm_preproc_method='mask_based',
                         chm_conn_fprefix=DIRECTORY_OVERSET+'/overset'))
 
