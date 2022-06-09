@@ -68,7 +68,7 @@ def checkDependencies():
 
 
 def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
-                    duplicationInfos={}, blocksToRename={},
+                    duplicationInfos={}, zonesToRename={},
                     scale=1., rotation='fromAG5', PeriodicTranslation=None):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
@@ -127,7 +127,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
 
                 * MergeBlocks: boolean, if True the duplicated blocks are merged.
 
-        blocksToRename : dict
+        zonesToRename : dict
             Each key corresponds to the name of a zone to modify, and the associated
             value is the new name to give.
 
@@ -181,7 +181,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
             scale=scale, rotation=rotation, PeriodicTranslation=PeriodicTranslation)
 
     PRE.checkFamiliesInZonesAndBC(t)
-    t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], blocksToRename=blocksToRename)
+    t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], zonesToRename=zonesToRename)
     PRE.transform(t, InputMeshes)
     for row, rowParams in duplicationInfos.items():
         try: MergeBlocks = rowParams['MergeBlocks']
@@ -339,7 +339,10 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues,
                             unstructured=IsUnstructured, **NumericalParams)
 
-    PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
+    if Initialization['method'] == 'turbo':
+        t = initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboConfiguration)
+    else:
+        PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
 
     if not 'PeriodicTranslation' in TurboConfiguration and \
         any([rowParams['NumberOfBladesSimulated'] > rowParams['NumberOfBladesInInitialMesh'] \
@@ -633,43 +636,7 @@ def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='from
 
     return InputMeshes
 
-def prepareTree(t, rowParams):
-    '''
-    Rename wall families, add row family to each zone and add BladeNumber
-    property to row Family.
-
-    .. attention:: There must be only one row in **t**.
-
-    Parameters
-    ----------
-
-        t : newPyTree
-
-        rowParams : dict
-            Dictionary to rename wall families, add families to rows and add
-            BladeNumber property to rows.
-            Should follow the following form:
-
-            .. code-block:: python
-
-                rowParams = dict(
-                    rowName     = <RowFamily>,
-                    blade       = <BladeFamily>,
-                    hub         = <HubFamily>,
-                    shroud      = <ShroudFamily>,
-                    BladeNumber = <Nb>,
-                )
-
-    '''
-    I._renameNode(t, rowParams['hub'], '{}_HUB'.format(row))
-    I._renameNode(t, rowParams['shroud'],'{}_SHROUD'.format(row))
-    I._renameNode(t, rowParams['blade'],  '{}_Main_Blade'.format(row))
-    if not I.getNodesFromNameAndType2(t, rowParams['rowName'], 'Family_t'):
-        C._tagWithFamily(t, rowParams['rowName'], add=True)
-        C._addFamily2Base(t, rowParams['rowName'])
-        J.set(n, 'Periodicity', BladeNumber=rowParams['BladeNumber'])
-
-def cleanMeshFromAutogrid(t, basename='Base#1', blocksToRename={}):
+def cleanMeshFromAutogrid(t, basename='Base#1', zonesToRename={}):
     '''
     Clean a CGNS mesh from Autogrid 5.
     The sequence of operations performed are the following:
@@ -690,7 +657,7 @@ def cleanMeshFromAutogrid(t, basename='Base#1', blocksToRename={}):
         basename: str
             Name of the base. Will replace the default AG5 name.
 
-        blocksToRename : dict
+        zonesToRename : dict
             Each key corresponds to the name of a zone to modify, and the associated
             value is the new name to give.
 
@@ -722,11 +689,11 @@ def cleanMeshFromAutogrid(t, basename='Base#1', blocksToRename={}):
     # - Rename Zones
     for zone in I.getNodesFromType(t, 'Zone_t'):
         name = I.getName(zone)
-        for block in blocksToRename:
-            if block in name:
-                newName = name.replace(block, blocksToRename[block])
-                print("Zone {} is renamed: {}".format(name,newName))
-                I._renameNode(tree, name, newName)
+        if name in zonesToRename:
+            newName = zonesToRename[name]
+            print("Zone {} is renamed: {}".format(name,newName))
+            I._renameNode(t, name, newName)
+            continue
         # Delete some usual patterns in AG5
         new_name = name
         for pattern in ['_flux_1', '_flux_2', '_flux_3', '_Main_Blade']:
@@ -1702,7 +1669,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                 setBC_inj1_uniform(t, FluidProperties, ReferenceValues, **BCkwargs)
 
             elif BCparam['option'] == 'file':
-                print('set BC inj1 (from file {}) on {}'.format(J.CYAN,
+                print('{}set BC inj1 (from file {}) on {}{}'.format(J.CYAN,
                     BCparam['filename'], BCparam['FamilyName'], J.ENDC))
                 setBC_inj1_interpFromFile(t, ReferenceValues, **BCkwargs)
 
@@ -1721,6 +1688,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
         elif BCparam['type'] == 'outmfr2':
             print(J.CYAN + 'set BC outmfr2 on ' + BCparam['FamilyName'] + J.ENDC)
             BCkwargs['ReferenceValues'] = ReferenceValues
+            BCkwargs['TurboConfiguration'] = TurboConfiguration
             setBC_outmfr2(t, **BCkwargs)
 
         elif BCparam['type'] == 'outradeq':
@@ -2395,7 +2363,7 @@ def setBC_outpres(t, FamilyName, Pressure, bc=None):
     setBCwithImposedVariables(t, FamilyName, ImposedVariables,
         FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc)
 
-def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues=None):
+def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues=None, TurboConfiguration=None):
     '''
     Set an outflow boundary condition of type ``outmfr2``.
 
@@ -2429,8 +2397,12 @@ def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues
             dictionary as obtained from :py:func:`computeReferenceValues`. Can
             be :py:obj:`None` only if **MassFlow** is not :py:obj:`None`.
 
+        TurboConfiguration : :py:class:`dict` or :py:obj:`None`
+            dictionary as obtained from :py:func:`getTurboConfiguration`. Can
+            be :py:obj:`None` only if **MassFlow** is not :py:obj:`None`.
+
     '''
-    if MassFlow is None and ReferenceValues is not None:
+    if MassFlow is None:
         bc = C.getFamilyBCs(t, FamilyName)[0]
         zone = I.getParentFromType(t, bc, 'Zone_t')
         row = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
@@ -2625,7 +2597,7 @@ def translateVariablesFromCGNS2Elsa(Variables):
         return NewVariables
     elif isinstance(Variables, str):
         if Variables in elsAVariables:
-            return CGNS2ElsaDict[var]
+            return CGNS2ElsaDict[Variables]
     else:
         raise TypeError('Variables must be of type dict, list or string')
 
@@ -3417,3 +3389,112 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
     for line in lines: print(line)
 
     return perfo
+
+
+def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboConfiguration, mask=None):
+    '''
+    Initialize the flow solution of **t** with the module ``turbo``.
+    The initial flow is computed analytically in the 2D-throughflow plane
+    based on:
+
+    * radial equilibrium in the radial direction.
+
+    * Euler theorem between rows in the axial direction.
+
+    The values **FlowAngleAtRoot** and **FlowAngleAtTip** (relative angles 'beta')
+    must be provided for each row in **TurboConfiguration**.
+
+    .. note::
+        See also documentation of the related function in ``turbo`` module
+        `<file:///stck/jmarty/TOOLS/turbo/doc/html/initial.html>`_
+
+    .. important::
+        Dependency to ``turbo``
+
+    .. danger::
+        Works only in Python3, considering that dictionaries conserve order.
+        Rows in TurboConfiguration must be list in the downstream order.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to initialize
+
+        FluidProperties : dict
+            as produced by :py:func:`computeFluidProperties`
+
+        ReferenceValues : dict
+            as produced by :py:func:`computeReferenceValues`
+
+        TurboConfiguration : dict
+
+        mask : PyTree
+
+    Returns
+    -------
+
+        t : PyTree
+            Modified PyTree
+    '''
+    import turbo.initial as TI
+
+    if not mask:
+        mask = C.convertFile2PyTree('mask.cgns')
+
+    class RefState(object):
+        def __init__(self):
+          self.Gamma = FluidProperties['Gamma']
+          self.Rgaz  = FluidProperties['IdealGasConstant']
+          self.Pio   = ReferenceValues['PressureStagnation']
+          self.Tio   = ReferenceValues['TemperatureStagnation']
+          self.roio  = self.Pio / self.Tio / self.Rgaz
+          self.aio   = (self.Gamma * self.Rgaz * self.Tio)**0.5
+          self.Lref  = 1.
+
+    # Get turbulent variables names and values
+    turbDict = dict(zip(ReferenceValues['FieldsTurbulence'],  ReferenceValues['ReferenceStateTurbulence']))
+
+    planes_data = []
+
+    row, rowParams = list(TurboConfiguration['Rows'].items())[0]
+    xIn = rowParams['InletPlane']
+    alpha = ReferenceValues['AngleOfAttackDeg']
+    planes_data.append(
+        dict(
+            omega = 0.,
+            beta = [alpha, alpha],
+            Pt = 1.,
+            Tt = 1.,
+            massflow = ReferenceValues['MassFlow'],
+            plane_points = [[xIn,-999.],[xIn,999.]],
+            plane_name = '{}_InletPlane'.format(row)
+        )
+    )
+
+    for row, rowParams in TurboConfiguration['Rows'].items():
+        xOut = rowParams['OutletPlane']
+        omega = rowParams['RotationSpeed']
+        beta1 = rowParams['FlowAngleAtRoot']
+        beta2 = rowParams['FlowAngleAtTip']
+        Csir = 1. if omega == 0 else 0.95  # Total pressure loss is null for a rotor, 5% for a stator
+        planes_data.append(
+            dict(
+                omega = rowParams['RotationSpeed'],
+                beta = [beta1, beta2],
+                Csir = Csir,
+                plane_points = [[xOut,-999.],[xOut,999.]],
+                plane_name = '{}_OutletPlane'.format(row)
+                )
+        )
+
+    # > Initialization
+    t = TI.initialize(t, mask, RefState(), planes_data,
+              nbslice=10,
+              constant_data=turbDict,
+              turbvarsname=turbDict.keys(),
+              velocity='absolute',
+              useSI=True,
+              keepTmpVars=False
+              )
+    return t

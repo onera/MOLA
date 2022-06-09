@@ -11,6 +11,7 @@ import os
 import pprint
 import numpy as np
 from itertools import product
+import copy
 
 import Converter.PyTree as C
 import Converter.Internal as I
@@ -3653,7 +3654,7 @@ def initializeFlowSolutionFromFileByCopy(t, ReferenceValues, sourceFilename,
     sourceTree = C.convertFile2PyTree(sourceFilename)
     OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
     I.__FlowSolutionCenters__ = container
-    varNames = ReferenceValues['Fields']
+    varNames = copy.deepcopy(ReferenceValues['Fields'])
     if keepTurbulentDistance:
         varNames += ['TurbulentDistance', 'TurbulentDistanceIndex']
 
