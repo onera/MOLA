@@ -837,7 +837,7 @@ def addFamilies(t, InputMeshes, tagZonesWithBaseName=True):
 def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                        minimum_number_of_nodes=1,
                        maximum_allowed_nodes=20,
-                       maximum_number_of_points_per_node=7e6,
+                       maximum_number_of_points_per_node=1e9,
                        only_consider_full_node_nproc=True,
                        NProcs=None):
     '''
@@ -951,11 +951,18 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
             raise ValueError(('maximum_number_of_points_per_node is too likely to be exceeded.\n'
                               'Try increasing maximum_allowed_nodes and/or maximum_number_of_points_per_node'))
 
+        Title = '    NProcs        NZones    %-imbalance  mean_pts/proc  '
+        Ncol = len(Title)
+        print('\n'+Title)
+        print('-'*Ncol)
+        Ndigs = int(Ncol/4)
+        ColFmt = r'{:^'+str(Ndigs)+'g}'
+
         AllNZones = []
         AllVarMax = []
         AllAvgPts = []
         AllMaxPtsPerNode = []
-        for NProcs in NProcCandidates:
+        for i, NProcs in enumerate(NProcCandidates):
             _, NZones, varMax, meanPtsPerProc, MaxPtsPerNode = _splitAndDistributeUsingNProcs(t,
                 InputMeshes, NProcs, cores_per_node, maximum_number_of_points_per_node,
                 raise_error=False)
@@ -964,20 +971,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
             AllAvgPts.append( meanPtsPerProc )
             AllMaxPtsPerNode.append( MaxPtsPerNode )
 
-        BestOption = np.argmin( AllVarMax )
-
-        Title = '    NProcs        NZones    %-imbalance  mean_pts/proc  '
-        Ncol = len(Title)
-        print('\n'+Title)
-        print('-'*Ncol)
-        Ndigs = int(Ncol/4)
-        ColFmt = r'{:^'+str(Ndigs)+'g}'
-
-        for i, NProcs in enumerate(NProcCandidates):
-            if i == BestOption and AllNZones[i] > 0:
-                start = J.GREEN
-                end = '  <== BEST'+J.ENDC
-            elif AllNZones[i] == 0:
+            if AllNZones[i] == 0:
                 start = J.FAIL
                 end = '  <== EXCEEDED nb. pts. per node with %d'%AllMaxPtsPerNode[i]+J.ENDC
             else:
@@ -991,6 +985,19 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                 Line += ColFmt.format(AllAvgPts[i]) + end
 
             print(Line)
+
+        BestOption = np.argmin( AllVarMax )
+
+        for i, NProcs in enumerate(NProcCandidates):
+            if i == BestOption and AllNZones[i] > 0:
+                start = J.GREEN
+                end = '  <== BEST'+J.ENDC
+                Line = start + ColFmt.format(NProcs)
+                Line += ColFmt.format(AllNZones[i])
+                Line += ColFmt.format(AllVarMax[i] * 100)
+                Line += ColFmt.format(AllAvgPts[i]) + end
+                print(Line)
+                break
 
         tRef = _splitAndDistributeUsingNProcs(t, InputMeshes, NProcCandidates[BestOption],
                 cores_per_node, maximum_number_of_points_per_node, raise_error=True)[0]
@@ -1081,7 +1088,7 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
     behavior = 'raise' if raise_error else 'silent'
 
     if hasAnyEmptyProc(tRef, NProcs, behavior=behavior):
-        return tRef, 0, 1, 9e10, 9e10
+        return tRef, 0, 1, np.inf, np.inf
 
     HighestLoad = getNbOfPointsOfHighestLoadedNode(tRef, maximum_number_of_points_per_node,
                                                      cores_per_node)
@@ -1090,7 +1097,7 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
         if raise_error:
             raise ValueError('exceeded maximum_number_of_points_per_node (%d>%d)'%(HighestLoad,
                                                 maximum_number_of_points_per_node))
-        return tRef, 0, 1, 9e10, HighestLoad
+        return tRef, 0, 1, np.inf, HighestLoad
 
     return tRef, NZones, stats['varMax'], stats['meanPtsPerProc'], HighestLoad
 
