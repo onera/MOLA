@@ -116,9 +116,13 @@ class Node(list):
 
     def children(self): return self[2]
 
+    def hasChildren(self): return bool(self.children())
+
     def brothers(self, include_myself=True):
         if include_myself: return self.Parent.children()
         return [c for c in self.Parent.children() if c is not self]
+
+    def hasBrothers(self): return bool(self.brothers())
 
     def type(self): return self[3]
 
@@ -138,14 +142,14 @@ class Node(list):
             elif isinstance(value[0],float):
                 value = np.array(value,dtype=float,order='F')
             elif isinstance(value[0],int):
-                value = np.array(value,dtype=int,order='F')
+                value = np.array(value,dtype=np.int32,order='F')
             else:
                 MSG = ('could not make a numpy array from an object of type {} '
                        'with first element of type {}').format(type(value),
                                                                type(value[0]))
                 raise TypeError(RED+MSG+ENDC)
-        elif isinstance(value, int):
-            value = np.array([value],dtype=np.int,order='F')
+        elif isinstance(value, int) or isinstance(value, bool):
+            value = np.array([value],dtype=np.int32,order='F')
         elif isinstance(value, float):
             value = np.array([value],dtype=np.float,order='F')
         elif isinstance(value, str):
@@ -156,7 +160,7 @@ class Node(list):
             MSG = 'type of value %s not recognized'%type(value)
             raise TypeError(RED+MSG+ENDC)
 
-        self[1] = value
+        self[1] = np.atleast_1d(value)
 
     def setType(self, newType):
         try:
@@ -186,24 +190,15 @@ class Node(list):
                     newchildname = childname+'.%d'%i
                 child[0] = newchildname
 
-        if child[3] == 'Zone_t':
-            from .Zone import Zone
-            childTmp = Zone( child )
-            if childTmp.isStructured() and childTmp.dim() == 1:
-                from .Mesh.Curves import Curve
-                child = Curve( child, Parent=self, position=position )
-            else:
-                child = Zone( child, Parent=self, position=position )
-
-        elif child[3] == 'CGNSBase_t':
-            from .Base import Base
-            child = Base( child, Parent=self, position=position )
-        else:
-            child = Node( child, Parent=self, position=position )
-
+        child = castNode( child )
         child.Parent = self
-        child.Path = self.Path+'/'+child.name()
-        self._updateSelfAndChildrenPaths()
+        child.Path = self.Path + '/' + child[0]
+        if position == 'last':
+            self[2].append(child)
+        elif isinstance(position,int):
+            self[2].insert(position, child)
+        child._updateSelfAndChildrenPaths()
+
 
     def addChildren(self, children, override_brother_by_name=True):
         if isinstance(children, Node):
@@ -315,26 +310,10 @@ class Node(list):
             self.Path = self[0]
         children = self[2]
         for i in range(len(children)):
-            child = children[i]
-            if isinstance(child, Node):
-                child.Parent = self
-                child.Path = self.Path + '/' + child[0]
-                child._updateSelfAndChildrenPaths()
-            else:
-                if child[3] == 'Zone_t':
-                    from .Zone import Zone
-                    child = Zone(child)
-                    if child.isStructured() and child.dim() == 1:
-                        from .Mesh.Curves import Curve
-                        child = Curve(child)
-                    children[i] = child
-
-                elif child[3] == 'CGNSBase_t':
-                    from .Base import Base
-                    children[i] = Base(child, Parent = self)
-
-                else:
-                    children[i] = Node(child, Parent = self)
+            child = castNode( children[i] )
+            child.Parent = self
+            child.Path = self.Path + '/' + child[0]
+            child._updateSelfAndChildrenPaths()
 
     def _updateAllPaths(self):
         t = self.getTopParent()
@@ -509,11 +488,10 @@ class Node(list):
 
         return Params
 
-    def childOfName(self, Name):
+    def childNamed(self, Name):
         for n in self.children():
-            if n.name() == Name:
+            if n[0] == Name:
                 return n
-
 
 
 def _compareValue(node, Value):
@@ -528,3 +506,44 @@ def _compareValue(node, Value):
             areclose = False
         return areclose
     return False
+
+
+def castNode( NodeOrNodelikeList ):
+
+    if not isinstance(NodeOrNodelikeList, Node):
+        node = Node(NodeOrNodelikeList)
+    else:
+        node = NodeOrNodelikeList
+
+    for i, n in enumerate(node[2]):
+        node[2][i] = castNode(n)
+
+    if node[3] == 'Zone_t':
+        from .Zone import Zone
+        if not isinstance(node, Zone):
+            node = Zone(node)
+        try: Kind = node.childNamed('.Component#Info').childNamed('kind').value()
+        except: Kind = None
+        if Kind is None:
+            if node.isStructured() and node.dim() == 1:
+                from .Mesh.Curves import Curve
+                if not isinstance(node, Curve):
+                    node = Curve(node)
+        elif Kind == 'LiftingLine':
+            from .LiftingLine import LiftingLine
+            if not isinstance(node, LiftingLine):
+                node = LiftingLine(node)
+        else:
+            raise IOError('kind of zone "%s" not implemented'%Kind)
+
+    elif node[3] == 'CGNSBase_t':
+        from .Base import Base
+        if not isinstance(node, Base):
+            node = Base(node)
+
+    elif node[3] == 'CGNSTree_t':
+        from .Tree import Tree
+        if not isinstance(node, Tree):
+            node = Base(node)
+
+    return node

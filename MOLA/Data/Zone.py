@@ -21,7 +21,7 @@ class Zone(Node):
             self.setValue(np.array([[2,1,0]],dtype=np.int,order='F'))
 
 
-        if not self.get('ZoneType', Depth=1):
+        if not self.childNamed('ZoneType'):
             Node(Name='ZoneType',Value='Structured',Type='ZoneType_t',Parent=self)
 
         if self.name() == 'Node': self.setName( 'Zone' )
@@ -102,7 +102,7 @@ class Zone(Node):
              ravel=False):
         if isinstance(FieldNames,str): FieldNames = [ FieldNames ]
 
-        FlowSolution = self.childOfName( Container )
+        FlowSolution = self.childNamed( Container )
 
         if FlowSolution is None:
             if BehaviorIfNotFound == 'raise':
@@ -117,7 +117,7 @@ class Zone(Node):
 
         arrays = []
         for FieldName in FieldNames:
-            FieldNode = FlowSolution.childOfName( FieldName )
+            FieldNode = FlowSolution.childNamed( FieldName )
             if FieldNode is None:
                 if BehaviorIfNotFound == 'create':
                     array = self.newFields(FieldName,Container=Container,
@@ -230,7 +230,6 @@ class Zone(Node):
             if FieldSize == zone.numberOfPoints(): return 'Vertex'
             elif FieldSize == zone.numberOfCells(): return 'CellCenter'
             else: raise ValueError('could not determine location of '+FlowSolution.path())
-
 
     def useEquation(self, equation, Container='FlowSolution', ravel=False):
         RegExpr = "\{[^}]*\}"

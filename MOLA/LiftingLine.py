@@ -1403,116 +1403,6 @@ def interpolatorFromPyZonePolar(PyZonePolar, interpOptions=None,
 
         return ListOfValues
 
-    def interpolationFunctionBKP(AoA, Mach, Reynolds):
-
-
-        if isinstance(AoA,list): AoA = np.array(AoA,dtype=np.float64, order='F')
-        if isinstance(Mach,list): Mach = np.array(Mach,dtype=np.float64, order='F')
-        if isinstance(Reynolds,list): Reynolds = np.array(Reynolds,dtype=np.float64, order='F')
-
-
-        if all(np.isnan(Reynolds)):
-            raise ValueError('all-NaN Found in Reynolds')
-        elif any(np.isnan(Reynolds)): Reynolds[np.isnan(Reynolds)] = 0
-
-        if all(np.isnan(Mach)): raise ValueError('all-NaN Found in Mach')
-        elif any(np.isnan(Mach)): Mach[np.isnan(Mach)] = 0
-
-        # Bound Mach
-        Mach = np.minimum(np.maximum(Mach,MachRange.min()),MachRange.max())
-
-        Npts = len(AoA)
-
-        AoARangeMax = AoARange.max()
-        AoARangeMin = AoARange.min()
-        OutOfMax = AoA > AoARangeMax
-        OutOfMin = AoA < AoARangeMin
-        AnyOutOfMax = np.any(OutOfMax)
-        AnyOutOfMin = np.any(OutOfMin)
-        InRange = np.logical_not(OutOfMax + OutOfMin)
-        AnyInRange = np.any(InRange)
-
-
-        # Interpolate in-range AoA values
-        Values = {}
-        for IntField in InterpFields:
-            Values[IntField] = np.zeros(Npts,dtype=np.float64,order='F') # Invoke Field
-            if DataRank[IntField] == 2:
-                if AnyInRange:
-                    Values[IntField][InRange] = tableInterpFuns[IntField](AoA[InRange], Mach[InRange],grid=False)
-            else:
-                # DataRank[IntField] == 3
-                FoilValues = []
-                for tableIntFun in tableInterpFuns[IntField]:
-                    FoilValues += [[tableIntFun(AoA[ir], Mach[ir], grid=False)[0][0] for ir in range(Npts)]]
-
-                Values[IntField] = np.array(FoilValues,dtype=np.float64,order='F')
-
-        # Luis: This is costly. TODO : improve
-        if AnyOutOfMax or AnyOutOfMin:
-            for IntField in InterpFields:
-                if IntField in OutOfRangeValues:
-                    if AnyOutOfMax:
-                        outIND = polarOutMarange[IntField]
-                        # Create the AoA vector
-                        AoAVec = np.hstack((AoARangeMax,BigAoARange[IntField][outIND]))
-                        Ncalls = np.count_nonzero(OutOfMax)
-                        for i in range(Ncalls):
-                            BoundValue = tableInterpFuns[IntField](AoARangeMax, Mach[OutOfMax][i])[0][0]
-                            # Create the values vector
-                            ValsVec = np.hstack((BoundValue,OutOfRangeValues[IntField][outIND]))
-                            # Assign current Out Range value
-                            Values[IntField][OutOfMax][i] = np.interp(AoA[OutOfMax][i], AoAVec,ValsVec)
-
-
-
-                    if AnyOutOfMin:
-                        outIND = polarOutMinRange[IntField]
-                        # Create the AoA vector
-                        AoAVec = np.hstack((BigAoARange[IntField][outIND],AoARangeMin))
-                        Ncalls = np.count_nonzero(OutOfMin)
-                        for i in range(Ncalls):
-                            BoundValue = tableInterpFuns[IntField](AoARangeMin, Mach[OutOfMin][i])[0][0]
-                            # Create the values vector
-                            ValsVec = np.hstack((OutOfRangeValues[IntField][outIND],BoundValue))
-                            # Assign current Out Range value
-
-                            Values[IntField][OutOfMin][i] = np.interp(AoA[OutOfMin][i], AoAVec,ValsVec)
-
-        '''
-        if AnyOutOfMax or AnyOutOfMin:
-            for IntField in InterpFields:
-                if IntField in OutOfRangeValues:
-                    if AnyOutOfMax:
-                        outIND = polarOutMarange[IntField]
-                        # Create the AoA vector
-                        AoAVec = np.hstack((AoARangeMax,BigAoARange[IntField][outIND]))
-                        Ncalls = np.count_nonzero(OutOfMax)
-                        for i in range(Ncalls):
-                            BoundValue = tableInterpFuns[IntField](AoARangeMax, Mach[OutOfMax][i])[0][0]
-                            # Create the values vector
-                            ValsVec = np.hstack((BoundValue,OutOfRangeValues[IntField][outIND]))
-                            # Assign current Out Range value
-                            Values[IntField][OutOfMax][i] = np.interp(AoA[OutOfMax][i], AoAVec,ValsVec)
-
-                    if AnyOutOfMin:
-                        outIND = polarOutMinRange[IntField]
-                        # Create the AoA vector
-                        AoAVec = np.hstack((BigAoARange[IntField][outIND],AoARangeMin))
-                        Ncalls = np.count_nonzero(OutOfMin)
-                        for i in range(Ncalls):
-                            BoundValue = tableInterpFuns[IntField](AoARangeMin, Mach[OutOfMin][i])[0][0]
-                            # Create the values vector
-                            ValsVec = np.hstack((OutOfRangeValues[IntField][outIND],BoundValue))
-                            # Assign current Out Range value
-                            Values[IntField][OutOfMin][i] = np.interp(AoA[OutOfMin][i], AoAVec,ValsVec)
-        '''
-
-        ListOfValues = [Values[IntField] for IntField in InterpFields]
-
-
-        return ListOfValues
-
     return interpolationFunction
 
 def extractorFromPyZonePolar(PyZonePolar, Nrequest,
@@ -2958,7 +2848,8 @@ def setConditions(LiftingLines, VelocityFreestream=[0,0,0], Density=1.225,
     for LiftingLine in I.getZones( LiftingLines ):
         J.set(LiftingLine,'.Conditions',
               VelocityFreestream=np.array(VelocityFreestream,dtype=float),
-                       Density=float(Density), Temperature=float(Temperature))
+              Density=np.atleast_1d(float(Density)),
+              Temperature=np.atleast_1d(float(Temperature)))
 
 
 

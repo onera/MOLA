@@ -18,6 +18,17 @@ from .Base import Base
 from .Tree import Tree
 from . import Mesh
 
+CoordinatesShortcuts = dict(CoordinateX='CoordinateX',
+                            CoordinateY='CoordinateY',
+                            CoordinateZ='CoordinateZ',
+                            x='CoordinateX',
+                            y='CoordinateY',
+                            z='CoordinateZ',
+                            X='CoordinateX',
+                            Y='CoordinateY',
+                            Z='CoordinateZ',)
+
+
 def load(filename):
     t, links, paths = CGM.load(filename)
     for p in paths:
@@ -97,8 +108,42 @@ def getStructure(t):
         zone[2] = []
     return Structure
 
+
 def useEquation(data, *args, **kwargs):
     t = merge( data ) # TODO avoid merge
     for zone in t.zones(): zone.useEquation(*args, **kwargs)
 
     return t
+
+
+def newZoneFromArrays(Name, ArraysNames, Arrays):
+
+    CoordinatesNames = list(CoordinatesShortcuts)
+    numpyarray = np.array(Arrays[0])
+    dimensions = []
+    for d in range(len(numpyarray.shape)):
+        dimensions += [[numpyarray.shape[d], numpyarray.shape[d]-1, 0]]
+    zone = Zone(Name=Name, Value=np.array(dimensions,dtype=np.int32,order='F'))
+
+    Coordinates = Node(Name='GridCoordinates', Type='GridCoordinates_t')
+    Fields = Node(Name='FlowSolution', Type='FlowSolution_t')
+
+    for name, array in zip(ArraysNames, Arrays):
+        numpyarray = np.array(array,order='F')
+        if name in CoordinatesNames:
+            Node(Name=CoordinatesShortcuts[name], Value=numpyarray,
+                 Type='DataArray_t', Parent=Coordinates)
+        else:
+            Node(Name=name, Value=numpyarray, Type='DataArray_t', Parent=Fields)
+
+    if Coordinates.hasChildren(): zone.addChild( Coordinates )
+    if Fields.hasChildren: zone.addChild( Fields )
+
+    return zone
+
+def newZoneFromDict(Name, DictWithArrays):
+    ArraysNames, Arrays = [], []
+    for k in DictWithArrays:
+        ArraysNames += [k]
+        Arrays += [DictWithArrays[k]]
+    return newZoneFromDict(Name, DictWithArrays)
