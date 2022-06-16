@@ -355,8 +355,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
-    if not 'PeriodicTranslation' in TurboConfiguration:
-        addMonitoredRowsInExtractions(Extractions, TurboConfiguration)
+    addMonitoredRowsInExtractions(Extractions, TurboConfiguration)
 
     AllSetupDics = dict(FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,

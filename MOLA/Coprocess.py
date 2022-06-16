@@ -700,7 +700,9 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[], tagWithIte
 
         planeUpstream   = I.newCGNSTree()
         planeDownstream = I.newCGNSTree()
-        if not 'RotationSpeed' in rowParams:
+        if 'PeriodicTranslation' in setup.TurboConfiguration:
+            IsRotor = False  # Linear cascade
+        elif not 'RotationSpeed' in rowParams:
             continue
         elif rowParams['RotationSpeed'] != 0:
             IsRotor = True
@@ -736,7 +738,10 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[], tagWithIte
             continue
 
         if rank == 0:
-            fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+            if 'PeriodicTranslation' in setup.TurboConfiguration:
+                fluxcoeff = 1.
+            else:
+                fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
             if IsRotor:
                 perfos = computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
             else:
@@ -2248,7 +2253,10 @@ def splitWithPyPart():
                             LoggingFile='{}/partTree'.format(DIRECTORY_LOGS),
                             LoggingVerbose=40  # Filter: None=0, DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
                             )
-    PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[4, 3])
+    # reorder=[6, 2] is recommended by CLEF, mostly for unstructured mesh
+    # with modernized elsA. It is also mandatory to use lussorscawf on
+    # unstructured mesh.
+    PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[6, 2])
     PyPartBase.finalise(PartTree, savePpart=True, method=1)
     Skeleton = PyPartBase.getPyPartSkeletonTree()
     Distribution = PyPartBase.getDistribution()
