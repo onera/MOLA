@@ -101,6 +101,15 @@ class Curve(Zone):
         return s
 
     def discretize(self, **kwargs):
+        '''
+        tanh and bitanh ref:
+
+        NASA Contractor Report 3313
+        On One-Dimensional Streatching Functions for Finite-Difference Calculations
+        Marcel Vinokur, University of Santa Clara, California
+        October 1980
+        CR-3313
+        '''
         try:
             kind = kwargs['kind']
         except KeyError:

@@ -9,6 +9,8 @@ from ..Node import Node
 from ..Zone import Zone
 from ... import __version__
 from . import Polars
+import scipy.integrate as sint
+import scipy.optimize as so
 
 class LiftingLine(Curve):
     """docstring for LiftingLine"""
@@ -85,8 +87,41 @@ class LiftingLine(Curve):
             ERRMSG = 'did not recognize first argument SpanMin %s'%type(SpanMin)
             raise TypeError(RED+ERRMSG+ENDC)
 
+        self.constructAttributes()
+
+    def constructAttributes(self):
         AirfoilPolarsFilenames = self.get('AirfoilPolarsFilenames').value()
         self.setAirfoilPolarInterpolator(AirfoilPolarsFilenames)
+        Kinematics = self.childNamed('Kinematics')
+        if Kinematics:
+            self.RPM = np.atleast_1d(Kinematics.childNamed('RPM').value())
+            self.Pitch = np.atleast_1d(Kinematics.childNamed('Pitch').value())
+            self.RotationCenter = np.atleast_1d(Kinematics.childNamed('RotationCenter').value())
+            self.RotationAxis = np.atleast_1d(Kinematics.childNamed('RotationAxis').value())
+            self.VelocityTranslation = np.atleast_1d(Kinematics.childNamed('VelocityTranslation').value())
+            self.RightHandRuleRotation = np.atleast_1d(Kinematics.childNamed('RightHandRuleRotation').value())
+
+        else:
+            self.RPM = np.array([0.],dtype=np.float)
+            self.Pitch = np.array([0.],dtype=np.float)
+            self.RotationCenter = np.array([0.,0.,0.],dtype=np.float)
+            self.RotationAxis = np.array([0.,0.,0.],dtype=np.float)
+            self.VelocityTranslation = np.array([0.,0.,0.],dtype=np.float)
+            self.RightHandRuleRotation = np.array([1.],dtype=np.int32)
+            self.setKinematicsUsingConstantRotationAndTranslation()
+
+
+    def copy(self, deep=False):
+        ValueIsNumpy = isinstance(self[1], np.ndarray)
+        ValueCopy = self[1].copy(order='K') if deep and ValueIsNumpy else self[1]
+        CopiedNode = self.__class__()
+        CopiedNode.setName( self[0] )
+        CopiedNode.setValue( ValueCopy )
+        CopiedNode.setType( self[3] )
+        for child in self[2]: CopiedNode.addChild( child.copy(deep) )
+        CopiedNode.constructAttributes()
+
+        return CopiedNode
 
     def setAirfoilPolarInterpolator(self, FilenamesOrPolarInterpoltorDict,
                              InterpFields=Polars.DEFAULT_INTERPOLATORS_FIELDS):
@@ -130,24 +165,24 @@ class LiftingLine(Curve):
             DictOfVars[IntField][:] = np.diag(Res)
 
     def getRotationAxisCenterAndDirFromKinematics(self):
-        Kinematics_n = self.childNamed('.Kinematics')
+        Kinematics_n = self.childNamed('Kinematics')
         if not Kinematics_n:
-            raise ValueError('missing ".Kinematics" node')
+            raise ValueError('missing "Kinematics" node')
 
 
         RotationAxis_n = Kinematics_n.childNamed('RotationAxis')
         if not RotationAxis_n:
-            raise ValueError('missing "RotationAxis" node in ".Kinematics"')
+            raise ValueError('missing "RotationAxis" node in "Kinematics"')
         RotationAxis = RotationAxis_n.value()
 
         RotationCenter_n = Kinematics_n.childNamed('RotationCenter')
         if not RotationCenter_n:
-            raise ValueError('missing "RotationCenter" node in ".Kinematics"')
+            raise ValueError('missing "RotationCenter" node in "Kinematics"')
         RotationCenter = RotationCenter_n.value()
 
         Dir_n = Kinematics_n.childNamed('RightHandRuleRotation')
         if not Dir_n:
-            raise ValueError('missing "RightHandRuleRotation" node in ".Kinematics"')
+            raise ValueError('missing "RightHandRuleRotation" node in "Kinematics"')
         Dir = 1 if Dir_n.value() else -1
 
         return RotationAxis, RotationCenter, Dir
@@ -212,13 +247,13 @@ class LiftingLine(Curve):
         return txyz, nxyz, bxyz
 
     def setKinematicsUsingConstantRotationAndTranslation(self,
-            RotationCenter=[0,0,0], RotationAxis=[0,0,1], RPM=2500.0,
+            RotationCenter=[0,0,0], RotationAxis=[0,0,1], RPM=0.0, Pitch=0.,
             RightHandRuleRotation=True, VelocityTranslation=[0,0,0]):
         '''
-        This function is a convenient wrap used for setting the ``.Kinematics``
+        This function is a convenient wrap used for setting the ``Kinematics``
         node of **LiftingLine** object.
 
-        .. note:: information contained in ``.Kinematics`` node
+        .. note:: information contained in ``Kinematics`` node
             is used by :py:func:`moveLiftingLines` and :py:func:`computeKinematicVelocity`
             functions.
 
@@ -226,7 +261,7 @@ class LiftingLine(Curve):
         ----------
 
             LiftingLines : PyTree, base, zone or list of zones
-                Container with Lifting lines where ``.Kinematics`` node is to be set
+                Container with Lifting lines where ``Kinematics`` node is to be set
 
                 .. note:: zones contained in **LiftingLines** are modified
 
@@ -250,20 +285,28 @@ class LiftingLine(Curve):
 
         '''
 
-        self.setParameters('.Kinematics',
-                RotationCenter=np.array(RotationCenter,dtype=np.float),
-                RotationAxis=np.array(RotationAxis,dtype=np.float),
-                RPM=np.atleast_1d(np.array(RPM,dtype=np.float)),
-                RightHandRuleRotation=np.atleast_1d(np.array(RightHandRuleRotation,dtype=np.int32)),
-                VelocityTranslation=np.array(VelocityTranslation,dtype=np.float),)
+
+        self.setRPM(RPM)
+        self.setPitch(Pitch)
+        self.setRotationCenter(RotationCenter)
+        self.setRotationAxis(RotationAxis)
+        self.setRightHandRuleRotation(RightHandRuleRotation)
+        self.setVelocityTranslation(VelocityTranslation)
+        self.setParameters('Kinematics',
+                            RotationCenter=self.RotationCenter,
+                            RotationAxis=self.RotationAxis,
+                            RPM=self.RPM,
+                            Pitch=self.Pitch,
+                            RightHandRuleRotation=self.RightHandRuleRotation,
+                            VelocityTranslation=self.VelocityTranslation,)
 
     def setConditions(self, VelocityFreestream=[0,0,0], Density=1.225,
                       Temperature=288.15):
         '''
-        This function is a convenient wrap used for setting the ``.Conditions``
+        This function is a convenient wrap used for setting the ``Conditions``
         node of **LiftingLine** object.
 
-        .. note:: information contained in ``.Conditions`` node
+        .. note:: information contained in ``Conditions`` node
             is used for computation of Reynolds and Mach number, as well as other
             required input of methods such that Vortex Particle Method.
 
@@ -271,7 +314,7 @@ class LiftingLine(Curve):
         ----------
 
             LiftingLines : PyTree, base, zone or list of zones
-                Container with Lifting lines where ``.Conditions`` node is to be set
+                Container with Lifting lines where ``Conditions`` node is to be set
 
                 .. note:: zones contained in **LiftingLines** are modified
 
@@ -284,7 +327,7 @@ class LiftingLine(Curve):
             Temperature : float
                 air temperature in [K]
         '''
-        self.setParameters('.Conditions',
+        self.setParameters('Conditions',
                   VelocityFreestream=np.array(VelocityFreestream,dtype=float),
                   Density=np.atleast_1d(float(Density)),
                   Temperature=np.atleast_1d(float(Temperature)))
@@ -349,6 +392,8 @@ class LiftingLine(Curve):
                               'VelocityInducedX',
                               'VelocityInducedY',
                               'VelocityInducedZ',
+                              'VelocityInducedAxial',
+                              'VelocityInducedTangential',
                               'VelocityX',
                               'VelocityY',
                               'VelocityZ',
@@ -364,7 +409,7 @@ class LiftingLine(Curve):
                               'tanx','tany','tanz',
                               ]
 
-        Conditions = self.getParameters('.Conditions')
+        Conditions = self.getParameters('Conditions')
         Temperature = Conditions['Temperature']
         Density = Conditions['Density']
         VelocityFreestream = Conditions['VelocityFreestream']
@@ -374,36 +419,39 @@ class LiftingLine(Curve):
         self.updateFrame()
         NPts = self.numberOfPoints()
 
-        v = self.fields(RequiredFieldNames, return_type='dict')
-        VelocityKinematic = np.vstack([v['VelocityKinematic'+i] for i in 'XYZ'])
-        VelocityInduced = np.vstack([v['VelocityInduced'+i] for i in 'XYZ'])
-        TangentialDirection = np.vstack([v['tan'+i] for i in 'xyz'])
-        nxyz = np.vstack([v['n'+i] for i in 'xyz'])
-        bxyz = np.vstack([v['b'+i] for i in 'xyz'])
+        f = self.fields(RequiredFieldNames, return_type='dict')
+        VelocityKinematic = np.vstack([f['VelocityKinematic'+i] for i in 'XYZ'])
+        VelocityInduced = np.vstack([f['VelocityInduced'+i] for i in 'XYZ'])
+        TangentialDirection = np.vstack([f['tan'+i] for i in 'xyz'])
+        nxyz = np.vstack([f['n'+i] for i in 'xyz'])
+        bxyz = np.vstack([f['b'+i] for i in 'xyz'])
         VelocityRelative = (VelocityInduced.T + VelocityFreestream - VelocityKinematic.T).T
-        v['VelocityX'][:] = VelocityInduced[0,:] + VelocityFreestream[0]
-        v['VelocityY'][:] = VelocityInduced[1,:] + VelocityFreestream[1]
-        v['VelocityZ'][:] = VelocityInduced[2,:] + VelocityFreestream[2]
-        v['VelocityAxial'][:] = Vax = ( VelocityRelative.T.dot(-RotationAxis) ).T
-        v['VelocityTangential'][:] = Vtan = np.diag(VelocityRelative.T.dot( TangentialDirection))
+        f['VelocityX'][:] = VelocityInduced[0,:] + VelocityFreestream[0]
+        f['VelocityY'][:] = VelocityInduced[1,:] + VelocityFreestream[1]
+        f['VelocityZ'][:] = VelocityInduced[2,:] + VelocityFreestream[2]
+        f['VelocityAxial'][:] = Vax = ( VelocityRelative.T.dot(-RotationAxis) ).T
+        f['VelocityTangential'][:] = Vtan = np.diag(VelocityRelative.T.dot( TangentialDirection))
+        f['VelocityInducedAxial'][:] = ( VelocityInduced.T.dot(-RotationAxis) ).T
+        f['VelocityInducedTangential'][:] = np.diag(VelocityInduced.T.dot( TangentialDirection))
+
         # note the absence of radial velocity contribution to 2D flow
         V2D = np.vstack((Vax * RotationAxis[0] + Vtan * TangentialDirection[0,:],
                          Vax * RotationAxis[1] + Vtan * TangentialDirection[1,:],
                          Vax * RotationAxis[2] + Vtan * TangentialDirection[2,:]))
-        v['VelocityNormal2D'][:] = V2Dn = np.diag( V2D.T.dot( nxyz) )
-        v['VelocityTangential2D'][:] = V2Dt = dir * np.diag( V2D.T.dot( bxyz) )
-        v['phiRad'][:] = phi = np.arctan2( V2Dn, V2Dt )
-        v['AoA'][:] = v['Twist'] - np.rad2deg(phi)
-        v['VelocityMagnitudeLocal'][:] = W = np.sqrt( V2Dn**2 + V2Dt**2 )
+        f['VelocityNormal2D'][:] = V2Dn = np.diag( V2D.T.dot( nxyz) )
+        f['VelocityTangential2D'][:] = V2Dt = dir * np.diag( V2D.T.dot( bxyz) )
+        f['phiRad'][:] = phi = np.arctan2( V2Dn, V2Dt )
+        f['AoA'][:] = (f['Twist'] + self.Pitch) - np.rad2deg(phi)
+        f['VelocityMagnitudeLocal'][:] = W = np.sqrt( V2Dn**2 + V2Dt**2 )
         # note the absence of radial velocity contribution to Mach and Reynolds
-        v['Mach'][:] = W / SoundSpeed
-        v['Reynolds'][:] = Density[0] * W * v['Chord'] / Mu
+        f['Mach'][:] = W / SoundSpeed
+        f['Reynolds'][:] = Density[0] * W * f['Chord'] / Mu
 
     def computeKinematicVelocity(self):
         '''
         Compute or update ``VelocityKinematicX``, ``VelocityKinematicY`` and
         ``VelocityKinematicZ`` fields of LiftingLines provided to function using
-        information contained in ``.Kinematics`` node attached to each LiftingLine.
+        information contained in ``Kinematics`` node attached to each LiftingLine.
 
         Parameters
         ----------
@@ -418,27 +466,457 @@ class LiftingLine(Curve):
                               'VelocityKinematicY',
                               'VelocityKinematicZ',]
 
-        Kinematics = self.getParameters('.Kinematics')
+        Kinematics = self.getParameters('Kinematics')
         VelocityTranslation = Kinematics['VelocityTranslation']
         RotationCenter = Kinematics['RotationCenter']
         RotationAxis = Kinematics['RotationAxis']
         RPM = Kinematics['RPM']
         Dir = 1 if Kinematics['RightHandRuleRotation'] else -1
         Omega = RPM*np.pi/30.
+        xyz = np.vstack( self.xyz() )
+        rvec = xyz - np.atleast_2d(RotationCenter).T
+        f = self.fields(RequiredFieldNames, return_type='dict')
+        OmegaVector = Dir * Omega * RotationAxis
+        VelocityTranslationT = np.atleast_2d(VelocityTranslation).T
+        VelocityKinematic = VelocityTranslationT + np.cross(OmegaVector, rvec,
+                                                       axisa=0, axisb=0,axisc=0)
+
+        f['VelocityKinematicX'][:] = VelocityKinematic[0,:]
+        f['VelocityKinematicY'][:] = VelocityKinematic[1,:]
+        f['VelocityKinematicZ'][:] = VelocityKinematic[2,:]
+
+    def computeLoads(self, NumberOfBlades=1.):
+        '''
+        This function is used to compute local and integral arrays of a lifting line
+        with general orientation and shape (including sweep and dihedral).
+
+        .. important:: the flow's contribution to the efforts in the tangential
+            direction of the lifting-line is neglected. This means that radial
+            contribution on rotors is neglected.
+
+        Parameters
+        ----------
+
+            t : PyTree, base, zone, list of zones
+                container with Lifting Line zones.
+                Each LiftingLine must contain the minimum required fields:
+
+                * ``phiRad``
+                    Local angle of the flow in radians
+
+                * ``Cl`` ``Cd`` ``Cm``
+                    Local aerodynamic coefficients of the lifting line sections
+
+                * ``Chord``
+                    Local chord of the sections
+
+                * ``VelocityMagnitudeLocal``
+                    velocity magnitude employed for computing the fluxes, moments
+                    and local bound circulation.
+
+                * ``s``
+                    curvilinear abscissa
+
+                * ``Span``
+                    local span, which is the cylindric distance from **RotationAxis**
+                    (information contained in ``.Kinematics`` node) to each section
+
+                Required Frenet fields (if absent, they will be computed):
+
+                .. see also:: :py:func:`updateLocalFrame`
+
+                * ``tx`` ``ty`` ``tz``
+                    unitary vector pointing towards the local abscissa direction of
+                    the lifting line curve.
+
+                * ``bx`` ``by`` ``bz``
+                    unitary vector normal to the local lifting line curve
+                    and contained in the rotation plane of the blade.
+
+                * ``nx`` ``ny`` ``nz``
+                    unitary vector normal to the local lifting line curve
+                    forming a right-hand-rule frame with the aforementioned vectors
+
+                * ``tanx`` ``tany`` ``tanz``
+                    unitary vector of the section's local direction
+                    tangent to the rotation plane and perpendicular to the rotation
+                    axis. This is employed for computing torque and power.
+
+                New fields are created as a result of this function call:
+
+                * ``fx`` ``fy`` ``fz``
+                    local linear forces at each lifting line's section
+                    in [N/m]. Each component :math:`(x,y,z)` corresponds to absolute
+                    coordinate frame (same as ``GridCoordinates``)
+
+                * ``fa`` ``ft``
+                    local linear forces projected onto axial and tangential
+                    directions. ``fa`` contributes to Thrust. ``ft`` contributes to Torque.
+                    They have dimensions of [N/m]
+
+                * ``fn`` ``fb``
+                    local linear forces projected onto 2D frame defined by
+                    ``nx`` ``ny`` ``nz`` direction and ``bx`` ``by`` ``bz`` direction, respectively.
+                    They have dimensions of [N/m]
+
+                * ``mx`` ``my`` ``mz``
+                    local linear moments in :math:`(x,y,z)` frame. Dimensions are [N]
+                    The moments are applied on 1/4 chord (at LiftingLine's nodes)
+
+                * ``m0x`` ``m0y`` ``m0z``
+                    local linear moments in :math:`(x,y,z)` frame applied at
+                    rotation center of the blade. Dimensions are [N]
+
+                * ``Lx`` ``Ly`` ``Lz`` ``La`` ``Lt`` ``Ln`` ``Lb``
+                    Respectively linear Lift contribution following
+                    the directions :math:`(x,y,z)` axial, tangential normal and
+                    binormal. [N/m]
+
+                * ``Dx`` ``Dy`` ``Dz`` ``Da`` ``Dt`` ``Dn`` ``Db``
+                    linear Drag contribution following
+                    the directions :math:`(x,y,z)` axial, tangential normal and
+                    binormal. [N/m]
+
+                * ``Gamma``
+                    circulation magnitude of the blade section following the
+                    Kutta-Joukowski theorem
+
+                * ``GammaX`` ``GammaY`` ``GammaZ``
+                    circulation vector of the blade section following the
+                    Kutta-Joukowski theorem
+
+                .. note::
+                    LiftingLine zones contained in **t** are modified
+            NumberOfBlades : float
+                Multiplication factor of integral arrays
+        '''
+
+        FrenetFields = ['tx','ty','tz','nx','ny','nz','bx','by','bz',
+            'tanx','tany','tanz']
+        MinimumRequiredFields = ['phiRad','Cl','Cd','Cm','Chord',
+            'VelocityMagnitudeLocal','s','Span']
+        NewFields = ['fx','fy','fz', 'fa','ft','fn','fb',
+            'mx','my','mz',
+            'm0x','m0y','m0z',
+            'Lx','Ly','Lz','La','Lt','Ln','Lb',
+            'Dx','Dy','Dz','Da','Dt','Dn','Db',
+            'Gamma',
+            'GammaX','GammaY','GammaZ']
+
+        RotationAxis, TorqueOrigin, dir = self.getRotationAxisCenterAndDirFromKinematics()
+
+        Kinematics = self.getParameters('Kinematics')
+        TorqueOrigin = RotationCenter = Kinematics['RotationCenter']
+        RotationAxis = Kinematics['RotationAxis']
+        RightHandRuleRotation = Kinematics['RightHandRuleRotation']
+        RPM = self.RPM
+        Conditions = self.getParameters('Conditions')
+        Temperature = Conditions['Temperature']
+        Density = Conditions['Density']
+        VelocityFreestream = Conditions['VelocityFreestream']
+
+        f = self.fields(FrenetFields+MinimumRequiredFields+NewFields,return_type={})
         x,y,z = self.xyz()
-        v = self.fields(RequiredFieldNames, return_type='dict')
-        NPts = len(x)
-        # TODO vectorize this
-        for i in range(NPts):
-            rvec = np.array([x[i] - RotationCenter[0],
-                             y[i] - RotationCenter[1],
-                             z[i] - RotationCenter[2]],dtype=np.float)
+        xyz = np.vstack((x,y,z))
+        rx = x - TorqueOrigin[0]
+        ry = y - TorqueOrigin[1]
+        rz = z - TorqueOrigin[2]
 
-            VelocityKinematic = np.cross( Dir * Omega * RotationAxis, rvec) + VelocityTranslation
 
-            v['VelocityKinematicX'][i] = VelocityKinematic[0]
-            v['VelocityKinematicY'][i] = VelocityKinematic[1]
-            v['VelocityKinematicZ'][i] = VelocityKinematic[2]
+        # ----------------------- COMPUTE LINEAR FORCES ----------------------- #
+        FluxC = 0.5*Density*f['VelocityMagnitudeLocal']**2*f['Chord']
+        Lift = FluxC*f['Cl']
+        Drag = FluxC*f['Cd']
+
+        f['Ln'][:] = Lift*np.cos(f['phiRad'])
+        f['Lb'][:] = Lift*np.sin(f['phiRad'])
+
+        f['Dn'][:] =-Drag*np.sin(f['phiRad'])
+        f['Db'][:] = Drag*np.cos(f['phiRad'])
+
+        f['Lx'][:] = f['Ln']*f['nx'] + dir*f['Lb']*f['bx']
+        f['Ly'][:] = f['Ln']*f['ny'] + dir*f['Lb']*f['by']
+        f['Lz'][:] = f['Ln']*f['nz'] + dir*f['Lb']*f['bz']
+        f['Dx'][:] = f['Dn']*f['nx'] + dir*f['Db']*f['bx']
+        f['Dy'][:] = f['Dn']*f['ny'] + dir*f['Db']*f['by']
+        f['Dz'][:] = f['Dn']*f['nz'] + dir*f['Db']*f['bz']
+
+        f['La'][:] = f['Lx']*RotationAxis[0] + \
+                     f['Ly']*RotationAxis[1] + \
+                     f['Lz']*RotationAxis[2]
+
+        f['Da'][:] = f['Dx']*RotationAxis[0] + \
+                     f['Dy']*RotationAxis[1] + \
+                     f['Dz']*RotationAxis[2]
+
+        f['Lt'][:] = f['Lx']*f['tanx'] + \
+                     f['Ly']*f['tany'] + \
+                     f['Lz']*f['tanz']
+
+        f['Dt'][:] = f['Dx']*f['tanx'] + \
+                     f['Dy']*f['tany'] + \
+                     f['Dz']*f['tanz']
+
+        f['fa'][:] = f['La'] + f['Da']
+        f['ft'][:] = f['Lt'] + f['Dt']
+
+        f['fx'][:] = f['Lx'] + f['Dx']
+        f['fy'][:] = f['Ly'] + f['Dy']
+        f['fz'][:] = f['Lz'] + f['Dz']
+
+        # ----------------------- COMPUTE LINEAR TORQUE ----------------------- #
+        FluxM = FluxC*f['Chord']*f['Cm']
+        f['mx'][:] = dir * FluxM * f['tx']
+        f['my'][:] = dir * FluxM * f['ty']
+        f['mz'][:] = dir * FluxM * f['tz']
+        f['m0x'][:] = f['mx'] + ry*f['fz'] - rz*f['fy']
+        f['m0y'][:] = f['my'] + rz*f['fx'] - rx*f['fz']
+        f['m0z'][:] = f['mz'] + rx*f['fy'] - ry*f['fx']
+
+        # Compute linear bound circulation using Kutta-Joukowski
+        # theorem:  Lift = Density * ( Velocity x Gamma )
+        w = f['VelocityMagnitudeLocal']
+        FluxKJ = Lift/Density
+        Flowing = abs(w)>0
+        FluxKJ[Flowing] /= w[Flowing]
+        FluxKJ[~Flowing] = 0.
+        f['GammaX'][:] = dir * FluxKJ * f['tx']
+        f['GammaY'][:] = dir * FluxKJ * f['ty']
+        f['GammaZ'][:] = dir * FluxKJ * f['tz']
+        f['Gamma'][:] = FluxKJ
+        # ------------------------- INTEGRAL LOADS ------------------------- #
+        DimensionalAbscissa = self.length() * self.abscissa()
+
+        # Integrate linear axial force <fa> to get Thrust
+        FA = Thrust = sint.simps(f['fa'], DimensionalAbscissa)
+        FT =          sint.simps(f['ft'], DimensionalAbscissa)
+        FX =          sint.simps(f['fx'], DimensionalAbscissa)
+        FY =          sint.simps(f['fy'], DimensionalAbscissa)
+        FZ =          sint.simps(f['fz'], DimensionalAbscissa)
+        MX =          -sint.simps(f['m0x'], DimensionalAbscissa)
+        MY =          -sint.simps(f['m0y'], DimensionalAbscissa)
+        MZ =          -sint.simps(f['m0z'], DimensionalAbscissa)
+
+        # # Integrate tangential moment <ft>*Span to get Power
+        # Torque = sint.simps(f['ft']*f['Span'],DimensionalAbscissa) # equivalent
+        Torque = MX*RotationAxis[0]+MY*RotationAxis[1]+MZ*RotationAxis[2]
+        Power  = dir*(RPM*np.pi/30.)*Torque
+
+
+        # Store computed integral Loads
+        IntegralData = self.setParameters('.Loads',
+                                          Thrust=NumberOfBlades*Thrust,
+                                          Power=NumberOfBlades*Power,
+                                          Torque=NumberOfBlades*Torque,
+                                          ForceTangential=NumberOfBlades*FT,
+                                          ForceX=NumberOfBlades*FX,
+                                          ForceY=NumberOfBlades*FY,
+                                          ForceZ=NumberOfBlades*FZ,
+                                          TorqueX=NumberOfBlades*MX,
+                                          TorqueY=NumberOfBlades*MY,
+                                          TorqueZ=NumberOfBlades*MZ)
+
+        return IntegralData
+
+    def setRotationAxis(self, newRotationAxis):
+        self.RotationAxis[:] = newRotationAxis
+
+    def setRotationCenter(self, newRotationCenter):
+        self.RotationCenter[:] = newRotationCenter
+
+    def setVelocityTranslation(self, newVelocityTranslation):
+        self.VelocityTranslation[:] = newVelocityTranslation
+
+    def setRPM(self, newRPM): self.RPM[0] = newRPM
+
+    def setPitch(self, newPitch): self.Pitch[0] = newPitch
+
+    def setRightHandRuleRotation(self, newRightHandRuleRotation):
+        self.RightHandRuleRotation[0] = newRightHandRuleRotation
+
+    def computeTipLossFactor(self, NumberOfBlades, model='Adkins'):
+        r, phi = self.fields(['Span','phiRad'])
+        Rmax = r.max()
+        xi = r/Rmax
+        # phiEff avoids possible overflow (division by zero)
+        f_max = 100.0
+        a = (NumberOfBlades/2.)*(1-xi)
+        phi_min = np.arctan(a/(xi*f_max))
+        phiEff = np.maximum(np.abs(phi),np.maximum(phi_min,1e-4))
+        if model == 'Adkins':
+            # This version is also used by M. Drela
+            f = a/(xi*np.tan(phiEff))
+            f = np.maximum(f,0)
+            F = (2./np.pi)*np.arccos(np.minimum(np.exp(-f),1))
+
+        elif model == 'Glauert':
+            f = a/(xi * np.sin(phiEff))
+            F = (2./np.pi)*np.arccos(np.minimum(np.exp(-f),1))
+
+        elif model == 'Prandtl':
+            Omega = self.RPM * np.pi / 30.
+            VelocityFreestream = self.childNamed('Conditions').childNamed(
+                'VelocityFreestream').value()
+            Velocity = np.linalg.norm(-VelocityFreestream.dot(self.RotationAxis))
+            f = a*np.sqrt(1-(Omega*r/Velocity)**2)
+            F = (2./np.pi)*np.arccos(np.minimum(np.exp(-f),1))
+        else:
+            raise ValueError('TipLosses=%s not recognized.'%kind)
+
+        return F
+
+    def setOptimumAngleOfAttack(self,
+            Aim='Cl', AimValue=0.5, AoASearchBounds=(-2,6),
+            SpecificSections=None):
+        """
+        Update ``AoA`` field with the optimum angle of attack based on a given
+        **Aim**, using the provided **PolarsInterpolatorDict** as well as the existing
+        ``Reynolds`` and ``Mach`` number values contained in ``FlowSolution`` container.
+
+        Parameters
+        ----------
+
+            LiftingLine : zone
+                the lifting line where ``AoA`` field will be updated
+
+                .. note:: zone **LiftingLine** is modified
+
+            PolarsInterpolatorDict : dict
+                dictionary of
+                interpolator functions of 2D polars, as obtained from
+                :py:func:`buildPolarsInterpolatorDict` function.
+
+            Aim : str
+                can be one of:
+
+                * ``'Cl'``
+                    aims a requested ``Cl`` (:math:`c_l`) value (provided by argument
+                    **AimValue**) throughout the entire lifting line
+
+                * ``'minCd'``
+                    aims the minimum ``Cd`` value, :math:`\min (c_d)`
+
+                * ``'maxClCd'``
+                    aims the maximum ``Cl/Cd`` value, :math:`\max (c_l / c_d)`
+
+            AimValue : float
+                Specifies the aimed value for corresponding relevant
+                Aim types.
+
+                .. note:: currently, only relevant for **Aim** = ``'Cl'``
+
+            AoASearchBounds : :py:class:`tuple` of 2 :py:class:`float`
+                Since there may exist multiple angle-of-attack (*AoA*) values
+                verifying the requested conditions, this argument constraints the
+                research interval of angle-of-attack of valid candidates.
+
+            SpecificSections : :py:class:`list` of :py:class:`int`
+                If specified (not :py:obj:`None`), only the
+                indices corresponding to the user-provided sections are updated.
+
+            ListOfEquations : :py:class:`list` of :py:class:`str`
+                list of equations compatible with
+                the syntax allowed in :py:func:`Converter.PyTree.initVars`
+                (``FlowSolution`` located at vertex), in order to tune or correct
+                the aerodynamic coefficients.
+        """
+
+
+        AoA, Cl, Cd, Mach, Reynolds = self.fields(['AoA','Cl','Cd','Mach', 'Reynolds'])
+
+        if SpecificSections is None: SpecificSections = range(len(AoA))
+
+        if Aim == 'Cl':
+            for i in SpecificSections:
+                def searchAoA(x,i):
+                    AoA[i] = x
+                    self.computeSectionalCoefficients()
+                    Residual = Cl[i]-AimValue
+                    return Residual
+
+                sol=so.root_scalar(searchAoA, bracket=AoASearchBounds, x0=AoA[i],
+                        args=(i),  method='toms748')
+
+                if sol.converged:
+                    searchAoA(sol.root,i)
+                else:
+                    print(WARN+"Not found optimum AoA at section %d"%i)
+                    print(sol)
+                    print(ENDC)
+                    continue
+        elif Aim == 'maxClCd':
+            for i in SpecificSections:
+                def searchAoA(x,i):
+                    AoA[i] = x
+                    self.computeSectionalCoefficients()
+                    MinimizeThis = -Cl[i]/Cd[i]
+                    return MinimizeThis
+
+                sol=so.minimize_scalar(searchAoA, bracket=[0,2], args=(i),
+                            method='Golden', options=dict(xtol=0.01))
+
+
+                if not sol.success:
+                    print(WARN+"Not found optimum AoA at section %d"%i)
+                    print(sol)
+                    print(ENDC)
+                    continue
+        elif Aim == 'minCd':
+            for i in SpecificSections:
+                def searchAoA(x,i):
+                    AoA[i] = x
+                    self.computeSectionalCoefficients()
+                    MinimizeThis = Cd[i]
+                    return MinimizeThis
+
+                sol=so.minimize_scalar(searchAoA, bracket=AoASearchBounds,
+                            args=(i),  method='Golden', options=dict(xtol=0.01))
+
+                if not sol.success:
+                    print(WARN+"Not found optimum AoA at section %d"%i)
+                    print(sol)
+                    print(ENDC)
+                    continue
+
+    def resetTwist(self, ZeroPitchRelativeSpan=0.75, modifyLiftingLine=True):
+        '''
+        Given an existing LiftingLine object, reset the pitch taking
+        as reference the value in attribute **ZeroPitchRelativeSpan**,
+        which modifies in-place the **LiftingLine** object (update of ``Twist``
+        field) applying a *DeltaTwist* value such that the resulting Twist
+        yields ``0`` degrees at **ZeroPitchRelativeSpan**.
+        The value of *DeltaTwist* is returned by the function.
+
+        Parameters
+        ----------
+
+            LiftingLine : zone
+                the lifting line zone
+
+                .. note:: zone **LiftingLine** is modified if **modifyLiftingLine**
+                    = :py:obj:`True`
+
+            ZeroPitchRelativeSpan : float
+                the relative span location where zero twist must be placed.
+
+            modifyLiftingLine : bool
+                if :py:obj:`True`, modify the ``Twist`` field of the
+                **LiftingLine** accordingly.
+
+        Returns
+        -------
+
+            DeltaTwist : float
+                Value required to be added to ``Twist`` field in order
+                to verify :math:`Twist=0` at the location requested by **ZeroPitchRelativeSpan**
+        '''
+        r, Twist = self.fields(['Span','Twist'])
+        DeltaTwist = interpolate(np.array([ZeroPitchRelativeSpan]), r/r.max(), Twist)
+        if modifyLiftingLine: Twist -= DeltaTwist
+        self.setPitch(DeltaTwist)
+
+        return DeltaTwist
+
 
 
 def computeViscosityMolecular(Temperature):

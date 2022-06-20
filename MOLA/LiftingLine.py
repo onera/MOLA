@@ -2933,6 +2933,7 @@ def computeKinematicVelocity(t):
                 v[fieldname] = J.invokeFields(LiftingLine,[fieldname])[0]
 
         NPts = len(x)
+        # TODO vectorize this
         for i in range(NPts):
             rvec = np.array([x[i] - RotationCenter[0],
                              y[i] - RotationCenter[1],
@@ -3750,7 +3751,7 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0):
         v['Gamma'][:] = FluxKJ
         # ------------------------- INTEGRAL LOADS ------------------------- #
         length = norm(np.sum(np.abs(np.diff(xyz,axis=1)),axis=1)) # faster than D.getLength
-        DimensionalAbscissa = length * v['s']
+        DimensionalAbscissa = length * v['s'] # TODO check if v['s'] is updated!
 
         # Integrate linear axial force <fa> to get Thrust
         FA = Thrust = sint.simps(v['fa'], DimensionalAbscissa)

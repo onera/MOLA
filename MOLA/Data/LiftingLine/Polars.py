@@ -474,16 +474,16 @@ def _buildUntructuredInterpolator(PyZonePolar, InterpFields=DEFAULT_INTERPOLATOR
     DataRank   = {}
     DataShape  = {}
     for IntField in InterpFields:
-        # TODO continue here
-        Data[IntField] = I.getNodeFromName(PyZonePolar,IntField)[1]
+        Data[IntField] = PyZonePolar.childNamed(IntField).value()
         DataShape[IntField]  = Data[IntField].shape
         DataRank[IntField] = len(DataShape[IntField])
 
+    # TODO continue here
     # Get polar independent variables (AoA, Mach, Reynolds)
-    PolarRangeNode = I.getNodeFromName1(PyZonePolar,'.Polar#Range')
-    AoARange = I.getNodeFromName1(PolarRangeNode,'AngleOfAttack')[1]
-    MachRange = I.getNodeFromName1(PolarRangeNode,'Mach')[1]
-    ReRange = I.getNodeFromName1(PolarRangeNode,'Reynolds')[1]
+    PolarRangeNode = PyZonePolar.childNamed('.Polar#Range')
+    AoARange = PolarRangeNode.childNamed('AngleOfAttack').value()
+    MachRange = PolarRangeNode.childNamed('Mach').value()
+    ReRange = PolarRangeNode.childNamed('Reynolds').value()
 
     # Compute bounding box of independent variables
     AoAMin,  AoAMax =  AoARange.min(),  AoARange.max()
@@ -492,11 +492,11 @@ def _buildUntructuredInterpolator(PyZonePolar, InterpFields=DEFAULT_INTERPOLATOR
 
     # Compute ranges of big angle-of-attack
     BigAoARange = {}
-    OutOfRangeValues_ParentNode = I.getNodeFromName(PyZonePolar,'.Polar#OutOfRangeValues')
+    OutOfRangeValues_ParentNode = PyZonePolar.get('.Polar#OutOfRangeValues')
     for IntField in InterpFields:
-        BigAoARangeVar_n = I.getNodeFromName(PyZonePolar,'BigAngleOfAttack%s'%IntField)
+        BigAoARangeVar_n = PyZonePolar.get('BigAngleOfAttack%s'%IntField)
         if BigAoARangeVar_n is None:
-            BigAoARangeVar_n = I.getNodeFromName(PyZonePolar,'BigAngleOfAttackCl')
+            BigAoARangeVar_n = PyZonePolar.get('BigAngleOfAttackCl')
         BigAoARange[IntField] = BigAoARangeVar_n[1]
 
     # Compute Delaunay triangulation of independent variables
@@ -534,7 +534,7 @@ def _buildUntructuredInterpolator(PyZonePolar, InterpFields=DEFAULT_INTERPOLATOR
                 smooth=1, # TODO: control through PyTree node
                 )
             outQhullFun[IntField] = si.NearestNDInterpolator(points,Data[IntField])
-            outBBRangeValues_n = I.getNodeFromName(OutOfRangeValues_ParentNode,'BigAngleOfAttack%s'%IntField)
+            outBBRangeValues_n = OutOfRangeValues_ParentNode.get('BigAngleOfAttack%s'%IntField)
             if outBBRangeValues_n is not None:
                 MaxAoAIndices = BigAoARange[IntField]>0
                 outMaxAoAFun[IntField] = si.interp1d( BigAoARange[IntField][MaxAoAIndices], outBBRangeValues_n[1][MaxAoAIndices], assume_sorted=True, copy=False,fill_value='extrapolate')
@@ -550,7 +550,7 @@ def _buildUntructuredInterpolator(PyZonePolar, InterpFields=DEFAULT_INTERPOLATOR
             outQhullFun[IntField] = []
             outBBFun[IntField]    = []
 
-            outBBRangeValues_n = I.getNodeFromName(OutOfRangeValues_ParentNode,'BigAngleOfAttack%s'%IntField)
+            outBBRangeValues_n = OutOfRangeValues_ParentNode.get('BigAngleOfAttack%s'%IntField)
             for k in range(DataShape[IntField][1]):
                 inQhullFun[IntField] += [si.Rbf(0.1*AoARange, MachRange,1e-6*ReRange, Data[IntField][:,k], function='multiquadric',
                 smooth=0, # TODO: control through PyTree node
