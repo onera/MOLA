@@ -32,7 +32,7 @@ for f in Frames:
     os.system('convert "%s" -resize %dx%d -quality 100 "%s"'%(f,WidthPixels,WidthPixels,f))
 
 # Make animation
-os.system('convert   -delay %d   -loop 0 %s  %s'%(delay,FrameWildCard,OutputFilename))
+convert -delay 50 -loop 0 frame* animation.gif
 
 # Using ffmpeg
 os.system('ffmpeg -i Frame%06d.png -vf palettegen palette.png -y') # make palette

@@ -838,7 +838,7 @@ def addFamilies(t, InputMeshes, tagZonesWithBaseName=True):
 def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                        minimum_number_of_nodes=1,
                        maximum_allowed_nodes=20,
-                       maximum_number_of_points_per_node=7e6,
+                       maximum_number_of_points_per_node=1e9,
                        only_consider_full_node_nproc=True,
                        NProcs=None):
     '''
@@ -938,7 +938,11 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                                          maximum_allowed_nodes*cores_per_node+1,
                                          cores_per_node)))
         else:
-            NProcCandidates = np.array(list(range(cores_per_node*minimum_number_of_nodes,
+            if minimum_number_of_nodes == maximum_allowed_nodes == 1:
+                startNProc = 1
+            else:
+                startNProc = cores_per_node*minimum_number_of_nodes
+            NProcCandidates = np.array(list(range(startNProc,
                                        maximum_allowed_nodes*cores_per_node+1)))
 
         EstimatedAverageNodeLoad = TotalNPts / (NProcCandidates / cores_per_node)
@@ -948,11 +952,18 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
             raise ValueError(('maximum_number_of_points_per_node is too likely to be exceeded.\n'
                               'Try increasing maximum_allowed_nodes and/or maximum_number_of_points_per_node'))
 
+        Title = '    NProcs        NZones    %-imbalance  mean_pts/proc  '
+        Ncol = len(Title)
+        print('\n'+Title)
+        print('-'*Ncol)
+        Ndigs = int(Ncol/4)
+        ColFmt = r'{:^'+str(Ndigs)+'g}'
+
         AllNZones = []
         AllVarMax = []
         AllAvgPts = []
         AllMaxPtsPerNode = []
-        for NProcs in NProcCandidates:
+        for i, NProcs in enumerate(NProcCandidates):
             _, NZones, varMax, meanPtsPerProc, MaxPtsPerNode = _splitAndDistributeUsingNProcs(t,
                 InputMeshes, NProcs, cores_per_node, maximum_number_of_points_per_node,
                 raise_error=False)
@@ -961,20 +972,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
             AllAvgPts.append( meanPtsPerProc )
             AllMaxPtsPerNode.append( MaxPtsPerNode )
 
-        BestOption = np.argmin( AllVarMax )
-
-        Title = '    NProcs        NZones    %-imbalance  mean_pts/proc  '
-        Ncol = len(Title)
-        print('\n'+Title)
-        print('-'*Ncol)
-        Ndigs = int(Ncol/4)
-        ColFmt = r'{:^'+str(Ndigs)+'g}'
-
-        for i, NProcs in enumerate(NProcCandidates):
-            if i == BestOption and AllNZones[i] > 0:
-                start = J.GREEN
-                end = '  <== BEST'+J.ENDC
-            elif AllNZones[i] == 0:
+            if AllNZones[i] == 0:
                 start = J.FAIL
                 end = '  <== EXCEEDED nb. pts. per node with %d'%AllMaxPtsPerNode[i]+J.ENDC
             else:
@@ -988,6 +986,19 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                 Line += ColFmt.format(AllAvgPts[i]) + end
 
             print(Line)
+
+        BestOption = np.argmin( AllVarMax )
+
+        for i, NProcs in enumerate(NProcCandidates):
+            if i == BestOption and AllNZones[i] > 0:
+                start = J.GREEN
+                end = '  <== BEST'+J.ENDC
+                Line = start + ColFmt.format(NProcs)
+                Line += ColFmt.format(AllNZones[i])
+                Line += ColFmt.format(AllVarMax[i] * 100)
+                Line += ColFmt.format(AllAvgPts[i]) + end
+                print(Line)
+                break
 
         tRef = _splitAndDistributeUsingNProcs(t, InputMeshes, NProcCandidates[BestOption],
                 cores_per_node, maximum_number_of_points_per_node, raise_error=True)[0]
@@ -1034,7 +1045,9 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
 
         removeMatchAndNearMatch(tToSplit)
 
-        tToSplit = T.splitSize(tToSplit, 0, type=0, R=remainingNProcs, minPtsPerDir=3)
+        tToSplit = T.splitSize(tToSplit, 0, type=0, R=remainingNProcs, minPtsPerDir=5,
+            # dirs=[1,2],
+            )
 
         for splitbase in I.getBases(tToSplit):
             basename = splitbase[0]
@@ -1076,7 +1089,7 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
     behavior = 'raise' if raise_error else 'silent'
 
     if hasAnyEmptyProc(tRef, NProcs, behavior=behavior):
-        return tRef, 0, 1, 9e10, 9e10
+        return tRef, 0, 1, np.inf, np.inf
 
     HighestLoad = getNbOfPointsOfHighestLoadedNode(tRef, maximum_number_of_points_per_node,
                                                      cores_per_node)
@@ -1085,7 +1098,7 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
         if raise_error:
             raise ValueError('exceeded maximum_number_of_points_per_node (%d>%d)'%(HighestLoad,
                                                 maximum_number_of_points_per_node))
-        return tRef, 0, 1, 9e10, HighestLoad
+        return tRef, 0, 1, np.inf, HighestLoad
 
     return tRef, NZones, stats['varMax'], stats['meanPtsPerProc'], HighestLoad
 
@@ -1293,7 +1306,9 @@ def showStatisticsAndCheckDistribution(tNew, CoresPerNode=28):
 
 def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
                    prioritiesIfOptimize=[], double_wall=0,
-                   saveMaskBodiesTree=True):
+                   saveMaskBodiesTree=True,
+                   overset_in_CGNS=False # see elsA #10545
+                   ):
     '''
     This function performs all required preprocessing operations for a STATIC
     overlapping configuration. This includes masks production, setting
@@ -1459,10 +1474,17 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
     t = X.maximizeBlankedCells(t, depth=depth)
 
     print('Computing interpolation coefficients...')
-    DIRECTORY_OVERSET = 'OVERSET'
-    try: os.makedirs(DIRECTORY_OVERSET)
-    except: pass
-    prefixFile = '' # os.path.join(DIRECTORY_OVERSET,'OvstData')
+
+    if overset_in_CGNS:
+        prefixFile = ''
+    else:
+        DIRECTORY_OVERSET = 'OVERSET'
+        try: os.makedirs(DIRECTORY_OVERSET)
+        except: pass
+        prefixFile = os.path.join(DIRECTORY_OVERSET,'overset')
+
+    t = X.cellN2OversetHoles(t)
+
     t = X.setInterpolations(t, loc='cell', sameBase=0, double_wall=double_wall,
                             storage='inverse', solver='elsA', check=True,
                             nGhostCells=2, prefixFile=prefixFile)
@@ -1475,7 +1497,9 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
             CriticalPoints = C.newPyTree([diagnosisType, I.getZones(CriticalPoints)])
             C.convertPyTree2File(CriticalPoints, diagnosisType+'.cgns')
 
-    t = X.cellN2OversetHoles(t)
+
+    if not overset_in_CGNS:
+        I._rmNodesByName(t,'ID_*')
 
     return t
 
@@ -2942,12 +2966,16 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
                        chm_interp_depth=2,
                        chm_interpcoef_frozen='active', # TODO: make conditional
                        chm_conn_io='read', # NOTE ticket 8259
-
-                       # # Overset by external files: (should not be used)
-                       # chm_ovlp_minimize='inactive',
-                       # chm_preproc_method='mask_based',
-                       # chm_conn_fprefix=DIRECTORY_OVERSET+'/OvstData',
                        )
+        if os.path.exists('OVERSET'):
+            addKeys.update(dict(
+                        # Overset by external files
+                        chm_impl_interp='none',
+                        chm_ovlp_minimize='inactive',
+                        chm_ovlp_thickness=2,
+                        chm_preproc_method='mask_based',
+                        chm_conn_fprefix=DIRECTORY_OVERSET+'/overset'))
+
 
     addKeys.update(dict(
     multigrid     = 'none',

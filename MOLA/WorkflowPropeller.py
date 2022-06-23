@@ -75,6 +75,7 @@ def cleanMeshFromAutogrid(t, **kwargs):
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         RPM=0., AxialVelocity=0., ReferenceTurbulenceSetAtRelativeSpan=0.75,
+        SpinnerRotationInterval=(-1e6,+1e6),
         ReferenceValuesParams=dict(
             FieldsAdditionalExtractions=['q_criterion'],
             CoprocessOptions=dict(
@@ -230,7 +231,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
                                           'NumberOfBlades':nb_blades,
                                           'NumberOfBladesInInitialMesh':nb_blades}
     TurboConfiguration = WC.getTurboConfiguration(t, ShaftRotationSpeed=omega,
-                                HubRotationSpeed=[(-1e6,+1e6)],
+                                HubRotationSpeed=[SpinnerRotationInterval],
                                 Rows=RowTurboConfDict)
     FluidProperties = PRE.computeFluidProperties()
     if not 'Surface' in ReferenceValuesParams:
@@ -308,7 +309,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
             Splitter + J.ENDC))
 
-
 def getPropellerKinematic(t):
     mesh_params = I.getNodeFromName(t,'.MeshingParameters')
     if mesh_params is None:
@@ -329,12 +329,10 @@ def getPropellerKinematic(t):
 
     return nb_blades, Dir
 
-
 def maximumSpan(t):
     zones = C.extractBCOfName(t,'FamilySpecified:BLADE')
     W.addDistanceRespectToLine(zones, [0,0,0],[-1,0,0],FieldNameToAdd='span')
     return C.getMaxValue(zones,'span')
-
 
 def _extendArraysWithPropellerQuantities(arrays, IntegralDataName, setup):
     arraysSubset = arrays[IntegralDataName]
