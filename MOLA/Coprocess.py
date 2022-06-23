@@ -2318,3 +2318,110 @@ def moveLogFiles():
             shutil.move(fn, os.path.join('LOGS', fn))
 
     Cmpi.barrier()
+
+
+#_______________________________________________________________________________
+# PROBES MANAGEMENT
+#_______________________________________________________________________________
+
+def appendProbes2Arrays_extractMesh(t, arrays, Probes, order=2):
+    '''
+    Parameter
+    ---------
+
+        t : PyTree
+
+        arrays : dict
+
+        Probes :
+            :py:class:`dict` of the form:
+
+            >>> Probes = dict( probeName1=(x1,y1,z1), ... )
+
+        order : int
+            order of interpolation
+    '''
+    import Geom.PyTree as D
+    import Post.Mpi as Pmpi
+
+    t = Cmpi.convert2PartialTree(t)
+    I._renameNode(t, 'FlowSolution#Init', 'FlowSolution#Centers')
+    I._rmNodesByName(t, I.__FlowSolutionNodes__)
+
+    probesTree = I.newCGNSTree()
+    probesBase = I.newCGNSBase('PROBES', parent=probesTree, cellDim=0)
+    for probeName, location in Probes.items():
+        probe = D.point(location)
+        I.setName(probe, probeName)
+        I._addChild(probesBase, probe)
+
+    P._extractMesh(t, probesTree, mode='accurate', order=order, constraint=0, extrapOrder=0)  # use a hook ? or Pmpi ?
+
+    # Delete empty probes
+    for zone in I.getZones(probesTree):
+        Density = I.getNodeFromName(zone, 'Density')
+        if not Density or I.getValue(Density) == 0:
+            # Probe is not in this zone
+            I._rmNode(probesTree, zone)
+    Cmpi._setProc(probesTree, rank)
+
+    I._rmNodesByType(probesTree, 'Elements_t')
+    I._renameNode(probesTree, 'FlowSolution#Centers', 'FlowSolution')
+
+    probesTree = Cmpi.allgatherTree(probesTree)
+
+    for probeZone in I.getZones(probesTree):
+        ProbesDict = dict( IterationNumber = CurrentIteration-1 )
+        GC = I.getNodeByName1(probeZone, 'GridCoordinates')
+        FS = I.getNodeByName1(probeZone, I.__FlowSolutionCenters__)
+        if not FS: continue
+        for data in I.getNodesByType(GC, 'DataArray_t') + I.getNodesByType(FS, 'DataArray_t'):
+            ProbesDict[I.getName(data)] = I.getValue(data)
+        appendDict2Arrays(arrays, ProbesDict, I.getName(probeZone))
+
+    return probesTree
+
+
+def appendProbes2Arrays(t, arrays, Probes):
+    '''
+    Parameter
+    ---------
+
+        t : PyTree
+
+        arrays : dict
+
+        Probes :
+            :py:class:`dict` of the form:
+
+            >>> Probes = dict(  )
+    '''
+    for Probe in Probes:
+        ProbesDict = dict( IterationNumber = CurrentIteration-1 )
+        zone = I.getNodeFromName2(t, Probe['zone'])
+        variables = Probe['variables']
+        for var in variables:
+            ProbesDict[var] = C.getValue(zone , 'centers:{}'.format(var), Probe['element'])
+
+        if 'name' not in Probe:
+            x, y, z = Probe['location']
+            Probe['name'] = 'Probe_{:.3g}_{:.3g}_{:.3g}'.format(x, y, z)
+        appendDict2Arrays(arrays, ProbesDict, Probe['name'])
+
+def searchZoneAndIndexForProbes(t, Probes, tol=1e-2):
+    for Probe in Probes:
+
+        # Search the nearest points in all zones
+        nearestElement = None
+        minDistance = 1e20
+        for zone in I.getZones(t):
+            element, distance = DP.getNearestPointIndex(zone, Probe['location'])
+            if distance < minDistance:
+                nearestElement = element
+                probeZone = I.getName(zone)
+
+        if minDistance > tol:
+            print('This probe is too far of one ')
+
+        Probe['zone'] = probeZone
+        Probe['element'] = nearestElement
