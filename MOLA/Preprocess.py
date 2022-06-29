@@ -8,6 +8,7 @@ It implements a collection of routines for preprocessing of CFD simulations
 
 import sys
 import os
+import shutil
 import pprint
 import numpy as np
 from itertools import product
@@ -4605,3 +4606,81 @@ def mergeUnstructuredMeshByFamily(t, tol=1e-6):
     autoMergeBCsUnstructured(t)
 
     return t
+
+
+def copyTemplateFilesForWorkflow(Workflow, otherWorkflowFiles=[], otherFiles=[],
+        JobName=None, AER=None, TimeLimit='0-15:00', NProcs=None):
+    '''
+    Copy templates files ('job_template.sh', 'compute.py', 'coprocess.py') and
+    others on demand in the current directory.
+
+    Parameters
+    ----------
+
+        Workflow : str
+            Name of the Workflow
+
+        otherWorkflowFiles : list
+            Paths of others files to copy, relative to the workflow templates
+            directory.
+
+        otherFiles : list
+            Absolute paths of others files to copy.
+
+        JobName : :py:class:`str` or py:obj:`None`
+            Name of the job
+
+        AER : :py:class:`str` or py:obj:`None`
+            AER number
+
+        TimeLimit : :py:class:`str` or py:obj:`None`
+            Time limit for the job. The default value is '0-15:00' (15h).
+
+        NProcs : :py:class:`str` or py:obj:`None`
+            Number of processors
+
+    '''
+    from . import __version__
+
+    WORKFLOW_FOLDER = 'WORKFLOW_{}'.format(Workflow.upper())
+
+    MOLA_PATH = os.getenv('MOLA','/stck/lbernard/MOLA/%s'%__version__)
+    templatesFolder = os.path.join(MOLA_PATH, 'TEMPLATES')
+
+    files2copy = [
+        os.path.join(templatesFolder, 'job_template.sh'),
+        os.path.join(templatesFolder, WORKFLOW_FOLDER, 'compute.py'),
+        os.path.join(templatesFolder, WORKFLOW_FOLDER, 'coprocess.py'),
+        ]
+
+    for filename in otherWorkflowFiles:
+        files2copy.append(os.path.join(templatesFolder, WORKFLOW_FOLDER, filename))
+
+    for filename in otherFiles:
+        files2copy.append(filename)
+
+    for sourcePath in files2copy:
+        filename = sourcePath.split(os.path.sep)[-1]
+        if os.path.samefile(sourcePath, filename):
+            continue
+        os.remove(filename)
+        shutil.copy(sourcePath, filename)
+        print("Template file {} copied successfully.".format(filename))
+
+
+    if any([JobName, AER, TimeLimit not in ['0-15:00', '15:00'], NProcs]):
+        jobTemplate = 'job_template.sh'
+        with open(jobTemplate, 'r') as f:
+            JobText = f.read()
+
+        if JobName:
+            JobText = JobText.replace('<JobName>', JobName)
+        if AER:
+            JobText = JobText.replace('<AERnumber>', str(AER))
+        if TimeLimit:
+            JobText = JobText.replace('#SBATCH -t 0-15:00', '#SBATCH -t {}'.format(TimeLimit))
+        if NProcs:
+            JobText = JobText.replace('<NProcs>', str(NProcs))
+
+        with open(jobTemplate, 'w') as f:
+            f.write(JobText)

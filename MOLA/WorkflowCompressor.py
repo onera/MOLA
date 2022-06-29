@@ -203,7 +203,9 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, TurboConfiguration={}, Extractions={}, BoundaryConditions={},
         BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade'],
-        Initialization={'method':'uniform'}, FULL_CGNS_MODE=False):
+        Initialization={'method':'uniform'}, FULL_CGNS_MODE=False,
+        COPY_TEMPLATES=True,
+        JobName=None, AER=None, TimeLimit='0-15:00', NProcs=None):
     '''
     This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to compressor computations. Its purpose is adapting the CGNS to
@@ -269,6 +271,25 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             if :py:obj:`True`, put all elsA keys in a node ``.Solver#Compute``
             to run in full CGNS mode.
 
+        COPY_TEMPLATES : bool
+            If :py:obj:`True` (default value), copy templates files in the
+            current directory.
+
+        JobName : :py:class:`str` or :py:obj:`None`
+            If not :py:obj:`None`, replace the job name in the template job file
+            ``job_template.sh``.
+
+        AER : :py:class:`str` or :py:obj:`None`
+            If not :py:obj:`None`, replace the AER nmber in the template job file
+            ``job_template.sh``.
+
+        TimeLimit : str
+            Time limit for the job. The default value is '0-15:00' (15h).
+
+        NProcs : :py:class:`int` or :py:obj:`None`
+            If not :py:obj:`None`, replace the number of processors in the
+            template job file ``job_template.sh``.
+
     Returns
     -------
 
@@ -321,6 +342,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         ReferenceValuesParams.update(dict(PitchAxis=PitchAxis, YawAxis=YawAxis))
 
     ReferenceValues = computeReferenceValues(FluidProperties, **ReferenceValuesParams)
+    ReferenceValues['Workflow'] = 'Compressor'
 
     if I.getNodeFromName(t, 'proc'):
         NProc = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
@@ -328,7 +350,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         ReferenceValuesParams['NProc'] = int(NProc)
         Splitter = None
     else:
-        ReferenceValues['NProc'] = 0
+        ReferenceValues['NProc'] = NProcs if NProcs else 0
         Splitter = 'PyPart'
 
     elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-6, unstructured=IsUnstructured)
@@ -402,6 +424,11 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     else:
         print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
             Splitter + J.ENDC))
+
+    if COPY_TEMPLATES:
+        PRE.copyTemplateFilesForWorkflow(AllSetupDics['ReferenceValues']['Workflow'],
+                otherWorkflowFiles=['EXAMPLE/monitor_perfos.py'],
+                JobName=JobName, AER=AER, TimeLimit=TimeLimit, NProcs=NProcs)
 
 def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
     hlines='hub_shroud_lines.plt', subTree=None):
