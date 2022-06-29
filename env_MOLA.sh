@@ -19,12 +19,13 @@ export PUMAVERSION=r337
 export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
 export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net
 
+export ELSAVERSION=v5.1.01
+export ELSA_VERBOSE_LEVEL=0
 export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # See ticket 7849
 export FORT_BUFFERED=true
 export MPI_GROUP_MAX=8192
 export MPI_COMM_MAX=8192
-export ELSAVERSION=v5.0.04
 export ELSA_NOLOG=ON
 export PYTHONUNBUFFERED=true # ticket 9685
 
@@ -57,20 +58,20 @@ fi
 
 
 if [ "$MAC" = "spiro" ]; then
-    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro_mpi/.env_elsA
-    export PYTHONPATH=$EXTPYLIB/lib/python2.7/site-packages/:$PYTHONPATH
+    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro3_mpi/.env_elsA
+    export PYTHONPATH=$EXTPYLIB/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIB/bin:$PATH
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
-    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro
-    export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
-    export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages/PUMA:$PYTHONPATH
-    export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
+    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro3
+    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
+    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH
+    export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
 
 elif [ "$MAC" = "visio" ]; then
-    export ELSAVERSION=v5.0.03 # TODO adapt this once #9666 fixed
+    export ELSAVERSION=v5.0.03 # TODO adapt this once #9666 #10587 fixed
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/centos6_mpi/.env_elsA
     export PYTHONPATH=$EXTPYLIB/lib/python2.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIB/bin:$PATH
@@ -86,7 +87,7 @@ elif [ "$MAC" = "ld" ]; then
     EL8=`uname -r|grep el8`
     if [ "$EL8" ]; then
         echo 'loading MOLA environment for CentOS 8'
-        source /stck/elsa/Public/${ELSAVERSION}dev/Dist/bin/local-os8_mpi/.env_elsA
+        source /stck/elsa/Public/v5.0.04dev/Dist/bin/local-os8_mpi/.env_elsA # TODO adapt this once #10587 fixed
         module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
     else
         echo 'loading MOLA environment for CentOS 7'
@@ -98,7 +99,7 @@ elif [ "$MAC" = "ld" ]; then
     alias python='python3'
 
 elif [ "$MAC" = "sator" ]; then
-    source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator/.env_elsA
+    source /tmp_user/sator/elsa/Public/v5.0.04/Dist/bin/sator/.env_elsA # TODO adapt this once #10587 fixed
     export MOLA=$MOLASATOR
     export TREELAB=$TREELABSATOR
     export PYTHONPATH=$EXTPYLIBSATOR/lib/python2.7/site-packages/:$PYTHONPATH
