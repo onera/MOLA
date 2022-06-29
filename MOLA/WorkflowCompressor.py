@@ -205,7 +205,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade'],
         Initialization={'method':'uniform'}, FULL_CGNS_MODE=False,
         COPY_TEMPLATES=True,
-        JobName=None, AER=None, TimeLimit='0-15:00', NProcs=None):
+        JobName=None, AER=None, TimeLimit='0-15:00', NumberOfProcessors=None):
     '''
     This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to compressor computations. Its purpose is adapting the CGNS to
@@ -286,7 +286,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         TimeLimit : str
             Time limit for the job. The default value is '0-15:00' (15h).
 
-        NProcs : :py:class:`int` or :py:obj:`None`
+        NumberOfProcessors : :py:class:`int` or :py:obj:`None`
             If not :py:obj:`None`, replace the number of processors in the
             template job file ``job_template.sh``.
 
@@ -345,12 +345,12 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     ReferenceValues['Workflow'] = 'Compressor'
 
     if I.getNodeFromName(t, 'proc'):
-        NProc = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
-        ReferenceValues['NProc'] = int(NProc)
-        ReferenceValuesParams['NProc'] = int(NProc)
+        NumberOfProcessors = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
+        ReferenceValues['NumberOfProcessors'] = int(NumberOfProcessors)
+        ReferenceValuesParams['NumberOfProcessors'] = int(NumberOfProcessors)
         Splitter = None
     else:
-        ReferenceValues['NProc'] = NProcs if NProcs else 0
+        ReferenceValues['NumberOfProcessors'] = NumberOfProcessors if NumberOfProcessors else 0
         Splitter = 'PyPart'
 
     elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-6, unstructured=IsUnstructured)
@@ -408,7 +408,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                          AllSetupDics['ReferenceValues'])
     dim = int(AllSetupDics['elsAkeysCFD']['config'][0])
     PRE.addGoverningEquations(t, dim=dim)
-    AllSetupDics['ReferenceValues']['NProc'] = int(max(PRE.getProc(t))+1)
+    AllSetupDics['ReferenceValues']['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
     PRE.writeSetup(AllSetupDics)
 
     if FULL_CGNS_MODE:
@@ -420,7 +420,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     if not Splitter:
         print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
-                                                   ReferenceValues['NProc'],J.ENDC))
+                                                   ReferenceValues['NumberOfProcessors'],J.ENDC))
     else:
         print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
             Splitter + J.ENDC))
@@ -428,7 +428,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     if COPY_TEMPLATES:
         PRE.copyTemplateFilesForWorkflow(AllSetupDics['ReferenceValues']['Workflow'],
                 otherWorkflowFiles=['EXAMPLE/monitor_perfos.py'],
-                JobName=JobName, AER=AER, TimeLimit=TimeLimit, NProcs=NProcs)
+                JobName=JobName, AER=AER, TimeLimit=TimeLimit, NumberOfProcessors=NumberOfProcessors)
 
 def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
     hlines='hub_shroud_lines.plt', subTree=None):
@@ -3079,7 +3079,7 @@ def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
 #############  Multiple jobs submission  #######################################
 ################################################################################
 
-def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
+def launchIsoSpeedLines(PREFIX_JOB, AER, NumberOfProcessors, machine, DIRECTORY_WORK,
                     ThrottleRange, RotationSpeedRange, **kwargs):
     '''
     User-level function designed to launch iso-speed lines.
@@ -3093,7 +3093,7 @@ def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
         AER : str
             full AER code for launching simulations on SATOR
 
-        NProc : int
+        NumberOfProcessors : int
             Number of processors for each job.
 
         machine : str
@@ -3181,7 +3181,7 @@ def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
             dict(ID=i, CASE_LABEL=CASE_LABEL, NewJob=NewJob, JobName=JobName, **WorkflowParams)
             )
 
-    JM.saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK, NProc=NProc)
+    JM.saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK, NumberOfProcessors=NumberOfProcessors)
 
     def findElementsInCollection(collec, searchKey, elements=[]):
         '''

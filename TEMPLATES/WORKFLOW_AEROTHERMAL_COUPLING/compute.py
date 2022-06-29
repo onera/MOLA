@@ -14,7 +14,7 @@ LaunchTime = timeit.default_timer()
 from mpi4py import MPI
 comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
-NProcs = comm.Get_size()
+NumberOfProcessors = comm.Get_size()
 
 # ------------------------- IMPORT  CASSIOPEE ------------------------- #
 import Converter.PyTree as C
@@ -76,7 +76,7 @@ except: Splitter = None
 ################################################################################
 
 NBPROC_main_Zebulon = int(os.getenv('NBPROC_main_Zebulon', None))
-newGroup = comm.group.Incl(range(NProcs-NBPROC_main_Zebulon))
+newGroup = comm.group.Incl(range(NumberOfProcessors-NBPROC_main_Zebulon))
 CommElsA = comm.Create_group(newGroup)
 LocalRank = CommElsA.Get_rank()
 LocalNProcs = CommElsA.Get_size()
@@ -97,7 +97,7 @@ itmax    = inititer+niter-1 # BEWARE last iteration accessible trigger-state-16
 if Splitter == 'PyPart':
     t, Skeleton, PyPartBase, Distribution = CO.splitWithPyPart()
     CO.PyPartBase = PyPartBase
-    setup.ReferenceValues['NProc'] = LocalNProcs
+    setup.ReferenceValues['NumberOfProcessors'] = LocalNProcs
 
     # Pypart loses AdditionalFamilyName_t nodes in BCs, and also changes
     # .elsA#Hybrid nodes

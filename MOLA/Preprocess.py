@@ -205,7 +205,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
                 sets the processor at which the bodyforce component
                 is associated for Lifting-Line operations.
 
-                .. note:: **proc** must be :math:`\in (0, \mathrm{NProc}-1)`
+                .. note:: **proc** must be :math:`\in (0, \mathrm{NumberOfProcessors}-1)`
 
             * FILE_LiftingLine : :py:class:`str`
                 path to the LiftingLine CGNS file to
@@ -348,9 +348,9 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
     ReferenceValues = computeReferenceValues(FluidProperties,
                                              **ReferenceValuesParams)
 
-    NProc = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
-    ReferenceValues['NProc'] = int(NProc)
-    ReferenceValuesParams['NProc'] = int(NProc)
+    NumberOfProcessors = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
+    ReferenceValues['NumberOfProcessors'] = int(NumberOfProcessors)
+    ReferenceValuesParams['NumberOfProcessors'] = int(NumberOfProcessors)
     elsAkeysCFD      = getElsAkeysCFD(unstructured=IsUnstructured)
     elsAkeysModel    = getElsAkeysModel(FluidProperties, ReferenceValues,
                                         unstructured=IsUnstructured)
@@ -374,7 +374,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
 
 
     print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
-                                               ReferenceValues['NProc'],J.ENDC))
+                                               ReferenceValues['NumberOfProcessors'],J.ENDC))
 
 
 
@@ -841,7 +841,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                        maximum_allowed_nodes=20,
                        maximum_number_of_points_per_node=1e9,
                        only_consider_full_node_nproc=True,
-                       NProcs=None):
+                       NumberOfProcessors=None):
     '''
     Distribute a PyTree **t**, with optional splitting.
 
@@ -867,12 +867,12 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                 the constraints given by **maximum_allowed_nodes** and
                 **maximum_number_of_points_per_node**
 
-                .. note:: **NProcs** is ignored if **mode** = ``'auto'``, as it
+                .. note:: **NumberOfProcessors** is ignored if **mode** = ``'auto'``, as it
                     is automatically computed by the function. The resulting
-                    **NProcs** is a multiple of **cores_per_node**
+                    **NumberOfProcessors** is a multiple of **cores_per_node**
 
             * ``'imposed'``
-                the number of processors is imposed using parameter **NProcs**.
+                the number of processors is imposed using parameter **NumberOfProcessors**.
 
                 .. note:: **cores_per_node** and **maximum_allowed_nodes**
                     parameters are ignored.
@@ -884,7 +884,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
 
         minimum_number_of_nodes : int
             Establishes the minimum number of nodes for the automatic research of
-            **NProcs**.
+            **NumberOfProcessors**.
 
             .. note:: only relevant if **mode** = ``'auto'``
 
@@ -911,7 +911,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
 
             .. note:: only relevant if **mode** = ``'auto'``
 
-        NProcs : int
+        NumberOfProcessors : int
             number of processors to be imposed when **mode** = ``'imposed'``
 
             .. attention:: if **mode** = ``'auto'``, this parameter is ignored
@@ -927,8 +927,8 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
 
     TotalNPts = C.getNPts(t)
 
-    if NProcs is not None and NProcs > 0 and mode =='auto':
-        print(J.WARN+'User requested NProcs=%d, switching to mode=="imposed"'%NProcs+J.ENDC)
+    if NumberOfProcessors is not None and NumberOfProcessors > 0 and mode =='auto':
+        print(J.WARN+'User requested NumberOfProcessors=%d, switching to mode=="imposed"'%NumberOfProcessors+J.ENDC)
         mode = 'imposed'
 
 
@@ -953,7 +953,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
             raise ValueError(('maximum_number_of_points_per_node is too likely to be exceeded.\n'
                               'Try increasing maximum_allowed_nodes and/or maximum_number_of_points_per_node'))
 
-        Title = '    NProcs        NZones    %-imbalance  mean_pts/proc  '
+        Title = '    NumberOfProcessors        NZones    %-imbalance  mean_pts/proc  '
         Ncol = len(Title)
         print('\n'+Title)
         print('-'*Ncol)
@@ -964,9 +964,9 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
         AllVarMax = []
         AllAvgPts = []
         AllMaxPtsPerNode = []
-        for i, NProcs in enumerate(NProcCandidates):
+        for i, NumberOfProcessors in enumerate(NProcCandidates):
             _, NZones, varMax, meanPtsPerProc, MaxPtsPerNode = _splitAndDistributeUsingNProcs(t,
-                InputMeshes, NProcs, cores_per_node, maximum_number_of_points_per_node,
+                InputMeshes, NumberOfProcessors, cores_per_node, maximum_number_of_points_per_node,
                 raise_error=False)
             AllNZones.append( NZones )
             AllVarMax.append( varMax )
@@ -978,7 +978,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                 end = '  <== EXCEEDED nb. pts. per node with %d'%AllMaxPtsPerNode[i]+J.ENDC
             else:
                 start = end = ''
-            Line = start + ColFmt.format(NProcs)
+            Line = start + ColFmt.format(NumberOfProcessors)
             if AllNZones[i] == 0:
                 Line += end
             else:
@@ -990,11 +990,11 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
 
         BestOption = np.argmin( AllVarMax )
 
-        for i, NProcs in enumerate(NProcCandidates):
+        for i, NumberOfProcessors in enumerate(NProcCandidates):
             if i == BestOption and AllNZones[i] > 0:
                 start = J.GREEN
                 end = '  <== BEST'+J.ENDC
-                Line = start + ColFmt.format(NProcs)
+                Line = start + ColFmt.format(NumberOfProcessors)
                 Line += ColFmt.format(AllNZones[i])
                 Line += ColFmt.format(AllVarMax[i] * 100)
                 Line += ColFmt.format(AllAvgPts[i]) + end
@@ -1009,7 +1009,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
 
     elif mode == 'imposed':
 
-        tRef = _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
+        tRef = _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per_node,
                                  maximum_number_of_points_per_node, raise_error=True)[0]
 
         I._correctPyTree(tRef,level=3)
@@ -1020,17 +1020,17 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
 
     return tRef
 
-def _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
+def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per_node,
                          maximum_number_of_points_per_node, raise_error=False):
 
-    if DEBUG: print('attempting distribution for NProcs= %d ...'%NProcs)
+    if DEBUG: print('attempting distribution for NumberOfProcessors= %d ...'%NumberOfProcessors)
 
     tRef = I.copyRef(t)
     TotalNPts = C.getNPts(tRef)
-    ProcPointsLoad = TotalNPts / NProcs
+    ProcPointsLoad = TotalNPts / NumberOfProcessors
     basesToSplit, basesBackground = getBasesBasedOnSplitPolicy(tRef, InputMeshes)
 
-    remainingNProcs = NProcs * 1
+    remainingNProcs = NumberOfProcessors * 1
     baseName2NProc = dict()
 
     for base in basesBackground:
@@ -1060,24 +1060,24 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
         tRef = I.merge([tRef,tToSplit])
 
         NZones = len( I.getZones( tRef ) )
-        if NProcs > NZones:
+        if NumberOfProcessors > NZones:
             if raise_error:
                 MSG = ('Requested number of procs ({}) is higher than the final number of zones ({}).\n'
                        'You may try the following:\n'
                        ' - Reduce the number of procs\n'
-                       ' - increase the number of grid points').format( NProcs, NZones)
+                       ' - increase the number of grid points').format( NumberOfProcessors, NZones)
                 raise ValueError(J.FAIL+MSG+J.ENDC)
             else:
                 return tRef, 0, 1, 9e10, 9e10
 
     NZones = len( I.getZones( tRef ) )
-    if NProcs > NZones:
+    if NumberOfProcessors > NZones:
         if raise_error:
             MSG = ('Requested number of procs ({}) is higher than the final number of zones ({}).\n'
                    'You may try the following:\n'
                    ' - set SplitBlocks=True to more grid components\n'
                    ' - Reduce the number of procs\n'
-                   ' - increase the number of grid points').format( NProcs, NZones)
+                   ' - increase the number of grid points').format( NumberOfProcessors, NZones)
             raise ValueError(J.FAIL+MSG+J.ENDC)
         else:
             return tRef, 0, 1, 9e10, 9e10
@@ -1085,11 +1085,11 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
     # NOTE see Cassiopee BUG #8244 -> need algorithm='fast'
     silence = J.OutputGrabber()
     with silence:
-        tRef, stats = D2.distribute(tRef, NProcs, algorithm='fast', useCom='all')
+        tRef, stats = D2.distribute(tRef, NumberOfProcessors, algorithm='fast', useCom='all')
 
     behavior = 'raise' if raise_error else 'silent'
 
-    if hasAnyEmptyProc(tRef, NProcs, behavior=behavior):
+    if hasAnyEmptyProc(tRef, NumberOfProcessors, behavior=behavior):
         return tRef, 0, 1, np.inf, np.inf
 
     HighestLoad = getNbOfPointsOfHighestLoadedNode(tRef, maximum_number_of_points_per_node,
@@ -1132,7 +1132,7 @@ def _isMaximumNbOfPtsPerNodeExceeded(t, maximum_number_of_points_per_node, cores
 
 
 
-def hasAnyEmptyProc(t, NProcs, behavior='raise', debug_filename=''):
+def hasAnyEmptyProc(t, NumberOfProcessors, behavior='raise', debug_filename=''):
     '''
     Check the proc distribution of a tree and raise an error (or print message)
     if there are any empty proc.
@@ -1143,7 +1143,7 @@ def hasAnyEmptyProc(t, NProcs, behavior='raise', debug_filename=''):
         t : PyTree
             tree with node ``.Solver#Param/proc``
 
-        NProcs : int
+        NumberOfProcessors : int
             initially requested number of processors for distribution
 
         behavior : str
@@ -1170,7 +1170,7 @@ def hasAnyEmptyProc(t, NProcs, behavior='raise', debug_filename=''):
             :py:obj:`True` if any processor has no attributed zones
     '''
     Proc2Zones = dict()
-    UnaffectedProcs = list(range(NProcs))
+    UnaffectedProcs = list(range(NumberOfProcessors))
 
     for z in I.getZones(t):
         proc = int(D2.getProc(z))
@@ -3074,7 +3074,7 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
                              AllSetupDictionaries['elsAkeysModel'],
                              AllSetupDictionaries['elsAkeysNumerics']])
 
-    AllSetupDictionaries['ReferenceValues']['NProc'] = int(max(getProc(t))+1)
+    AllSetupDictionaries['ReferenceValues']['NumberOfProcessors'] = int(max(getProc(t))+1)
 
     writeSetup(AllSetupDictionaries)
 
@@ -4609,7 +4609,7 @@ def mergeUnstructuredMeshByFamily(t, tol=1e-6):
 
 
 def copyTemplateFilesForWorkflow(Workflow, otherWorkflowFiles=[], otherFiles=[],
-        JobName=None, AER=None, TimeLimit='0-15:00', NProcs=None):
+        JobName=None, AER=None, TimeLimit='0-15:00', NumberOfProcessors=None):
     '''
     Copy templates files ('job_template.sh', 'compute.py', 'coprocess.py') and
     others on demand in the current directory.
@@ -4636,7 +4636,7 @@ def copyTemplateFilesForWorkflow(Workflow, otherWorkflowFiles=[], otherFiles=[],
         TimeLimit : :py:class:`str` or py:obj:`None`
             Time limit for the job. The default value is '0-15:00' (15h).
 
-        NProcs : :py:class:`str` or py:obj:`None`
+        NumberOfProcessors : :py:class:`str` or py:obj:`None`
             Number of processors
 
     '''
@@ -4668,7 +4668,7 @@ def copyTemplateFilesForWorkflow(Workflow, otherWorkflowFiles=[], otherFiles=[],
         print("Template file {} copied successfully.".format(filename))
 
 
-    if any([JobName, AER, TimeLimit not in ['0-15:00', '15:00'], NProcs]):
+    if any([JobName, AER, TimeLimit not in ['0-15:00', '15:00'], NumberOfProcessors]):
         jobTemplate = 'job_template.sh'
         with open(jobTemplate, 'r') as f:
             JobText = f.read()
@@ -4679,8 +4679,8 @@ def copyTemplateFilesForWorkflow(Workflow, otherWorkflowFiles=[], otherFiles=[],
             JobText = JobText.replace('<AERnumber>', str(AER))
         if TimeLimit:
             JobText = JobText.replace('#SBATCH -t 0-15:00', '#SBATCH -t {}'.format(TimeLimit))
-        if NProcs:
-            JobText = JobText.replace('<NProcs>', str(NProcs))
+        if NumberOfProcessors:
+            JobText = JobText.replace('<NumberOfProcessors>', str(NumberOfProcessors))
 
         with open(jobTemplate, 'w') as f:
             f.write(JobText)

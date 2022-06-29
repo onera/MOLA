@@ -26,8 +26,8 @@ import copy
 from mpi4py import MPI
 comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
-NProcs = comm.Get_size()
-nbOfDigitsOfNProcs = int(np.ceil(np.log10(NProcs+1)))
+NumberOfProcessors = comm.Get_size()
+nbOfDigitsOfNProcs = int(np.ceil(np.log10(NumberOfProcessors+1)))
 
 import Converter.PyTree as C
 import Converter.Internal as I

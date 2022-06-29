@@ -18,7 +18,7 @@ LaunchTime = timeit.default_timer()
 from mpi4py import MPI
 comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
-NProcs = comm.Get_size()
+NumberOfProcessors = comm.Get_size()
 
 # ------------------------- IMPORT  CASSIOPEE ------------------------- #
 import Converter.PyTree as C
@@ -122,7 +122,7 @@ BODYFORCE_INITIATED = False
 if BodyForceInputData:
     LocalBodyForceInputData = LL.getLocalBodyForceInputData(BodyForceInputData)
     LL.invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData)
-    NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NProcs)
+    NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NumberOfProcessors)
 # ------------------------------------------------------------------------- #
 
 

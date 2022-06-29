@@ -126,9 +126,9 @@ machine = 'sator'
 DIRECTORY_WORK = '/tmp_user/sator/tbontemp/rafale_rotor37/'
 ThrottleRange = [van*Pt for van in [0.2, 0.4, 0.6, 0.8, 1.0, 1.2]]
 RotationSpeedRange = [-1800.]
-NProc = 28
+NumberOfProcessors = 28
 
-WF.launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
+WF.launchIsoSpeedLines(PREFIX_JOB, AER, NumberOfProcessors, machine, DIRECTORY_WORK,
         ThrottleRange, RotationSpeedRange,
         mesh='mesh.cgns',
         ReferenceValuesParams=ReferenceValues,

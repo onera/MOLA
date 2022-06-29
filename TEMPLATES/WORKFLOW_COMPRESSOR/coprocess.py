@@ -32,7 +32,7 @@ if CO.getSignal('RELOAD_SETUP'):
     if BodyForceInputData:
         LocalBodyForceInputData = LL.getLocalBodyForceInputData(BodyForceInputData)
         LL.invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData)
-        NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NProcs)
+        NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NumberOfProcessors)
 
 
 UpdateFieldsFrequency     = CO.getOption('UpdateFieldsFrequency', default=1e3)
