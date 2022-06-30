@@ -4831,6 +4831,7 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
     Temperature = C.getMeanValue(perturbationField,'Temperature')
 
     tPF = I.copyRef(perturbationField)
+
     Fields2Keep = ['VelocityInducedX', 'VelocityInducedY', 'VelocityInducedZ']
     Fields2Remove = []
     for field in I.getNodeFromName(tPF,'FlowSolution')[2]:
@@ -4851,6 +4852,9 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
     for v in [Vx, Vy, Vz]:
         isNotFinite = np.logical_not(np.isfinite(v))
         v[isNotFinite] = 0.
+
+    if not RightHandRuleRotation: #MODIF debug counter
+        tPF=T.reorder(tPF, (1,-2,3)) #MODIF debug counter
 
     TrailingEdge = T.translate(tPF,(-RotationAxis[0],
                                     -RotationAxis[1],
@@ -4891,6 +4895,8 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
         'Phi':EulerAngles[0],
         'Theta':EulerAngles[1],
         'Psi':EulerAngles[2]})
+    print('EulerAngles:')
+    print(EulerAngles)
     ModelSupport.Cmds.set('Motion',{'VelocityX':0.,'VelocityY':0.,'VelocityZ':0.})
 
     Direct = 1 if RightHandRuleRotation else -1
@@ -4902,7 +4908,7 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
     NBlades = 1
     Prop.add_Blades(NBlades, Aerodynamics=dict(Definition=BladeDef,
                                                IndVeloModel=Wake,
-                                               NbSections=25,
+                                               NbSections=50, #MODIF to match LifitngLine.cgns discretization. Ref is 25
                                                Options=dict(
                                                     Interpolate='linear',
                                                     Correction3D='Mach_Wind',
@@ -4919,8 +4925,9 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
     Num.set('NbSubIterations',1)
 
     Pb.set('PerturbationField',VolumePerturbation)
+    Prop.Cmds.set('Pitch',Pitch) #MODIF
     Pb.initialize()
-    Prop.Cmds.set('Pitch',Pitch)
+    # Prop.Cmds.set('Pitch',Pitch) #MODIF
 
     Niters = NumberOfAzimutalPoints
     LLs = []
@@ -4946,7 +4953,8 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
                    'MomentumZ',
                    'EnergyStagnationDensity']
         v = J.invokeFieldsDict(LLgeom, NewVars)
-
+        print ("euler angles")
+        print((EulerAngles[0],EulerAngles[1],EulerAngles[2]))
         updateFrame(LLgeom, RotationAxis, RightHandRuleRotation)
         FxMBS,FzMBS,VYLL=J.getVars(LLgeom,['Fx_Rotor_MBS_Prop',
                                            'Fz_Rotor_MBS_Prop',
