@@ -26,6 +26,6 @@ class Line(Curve):
                          Node(Name='CoordinateY', Value=Y, Type='DataArray_t'),
                          Node(Name='CoordinateZ', Value=Z, Type='DataArray_t')])
 
-        self.setValue(np.array([[N,N-1,0]],dtype=np.int,order='F'))
+        self.setValue(np.array([[N,N-1,0]],dtype=np.int32,order='F'))
 
         if distribution: self.discretize(**distribution)

@@ -71,7 +71,7 @@ def set(parent, childname, childType='UserDefinedData_t', **kwargs):
             if isinstance(kwargs[v][0], str):
                 value = ' '.join(kwargs[v])
             else:
-                value = kwargs[v]
+                value = np.atleast_1d(kwargs[v])
             children += [[v,value]]
         else:
             children += [[v,kwargs[v]]]
@@ -113,11 +113,11 @@ def get(parent, childname):
         for n in child_n[2]:
             if n[1] is not None:
                 if isinstance(n[1], float) or isinstance(n[1], int):
-                    Dict[n[0]] = n[1]
+                    Dict[n[0]] = np.atleast_1d(n[1])
                 elif n[1].dtype == '|S1':
                     Dict[n[0]] = I.getValue(n) # Cannot further modify
                 else:
-                    Dict[n[0]] = n[1] # Can further modify
+                    Dict[n[0]] = np.atleast_1d(n[1]) # Can further modify
             elif n[2]:
                 Dict[n[0]] = get(child_n, n[0])
             else:
