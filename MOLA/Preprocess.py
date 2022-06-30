@@ -1054,10 +1054,10 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
                     for NPts, dir in zip(dims, ['i', 'j', 'k']):
                         if NPts < 5:
                             if NPts < 3:
-                                MSG = J.FAIL+'ERROR: zone %s has %d pts in %s direction'(zone[0],NPts,dir)+J.ENDC
+                                MSG = J.FAIL+'ERROR: zone %s has %d pts in %s direction'%(zone[0],NPts,dir)+J.ENDC
                                 HasDegeneratedZones = True
                             else:
-                                MSG = J.WARN+'WARNING: zone %s has %d pts in %s direction'(zone[0],NPts,dir)+J.ENDC
+                                MSG = J.WARN+'WARNING: zone %s has %d pts in %s direction'%(zone[0],NPts,dir)+J.ENDC
                             print(MSG)
 
         if HasDegeneratedZones:
