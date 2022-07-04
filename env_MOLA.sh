@@ -13,7 +13,7 @@ export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
 export TREELABSATOR=/tmp_user/sator/lbernard/TreeLab/dev
 export EXTPYLIBSATOR=$MOLASATOR/ExternalPythonPackages
 export PUMAVERSION=r337
-##############################################################################
+###############################################################################
 
 
 export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
@@ -59,6 +59,7 @@ fi
 
 if [ "$MAC" = "spiro" ]; then
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro3_mpi/.env_elsA
+    module switch impi/19 impi/19.0.5
     export PYTHONPATH=$EXTPYLIB/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIB/bin:$PATH
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
@@ -68,6 +69,10 @@ if [ "$MAC" = "spiro" ]; then
     export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+
+    alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
+    alias python='python3'
+    source ~/.bashrc
 
 
 elif [ "$MAC" = "visio" ]; then

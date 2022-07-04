@@ -3246,7 +3246,8 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
 
 
     DefaultBCExtractions = dict(
-        BCWall = ['normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz',
+        BCWall = [
+            'normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz',
             'psta', 'bl_quantities_2d', 'yplusmeshsize',
             # 'bl_ue', # TODO BUG for bl_ue extraction https://elsa.onera.fr/issues/10360
             'flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
