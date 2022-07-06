@@ -602,9 +602,9 @@ def optimalDesignByThrustAndFixedPitch(number_of_blades=2, Rmin=0.1, Rmax=1.0,
     print('Temperature = %g'%Temperature)
     print('Density = %g'%Density)
     print(ENDC+'\n')
-
+    SpanTotal = Rmax-Rmin
     LL = LiftingLine(SpanMin=Rmin, SpanMax=Rmax, N=50,
-             SpanwiseDistribution=dict(kind='bitanh',first=0.05, last=0.0016),
+             SpanwiseDistribution=dict(kind='bitanh',first=0.05*SpanTotal, last=0.0016*SpanTotal),
              GeometricalLaws=dict(
                 Chord=dict(RelativeSpan=[0, 1],
                            Chord=[0.1, 0.1],

@@ -20,7 +20,7 @@ export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_pr
 export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net
 
 export ELSAVERSION=v5.1.01
-export ELSA_VERBOSE_LEVEL=0
+export ELSA_VERBOSE_LEVEL=0 # see ticket #9689
 export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # See ticket 7849
 export FORT_BUFFERED=true
@@ -59,7 +59,6 @@ fi
 
 if [ "$MAC" = "spiro" ]; then
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro3_mpi/.env_elsA
-    module switch impi/19 impi/19.0.5
     export PYTHONPATH=$EXTPYLIB/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIB/bin:$PATH
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font

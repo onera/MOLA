@@ -3249,7 +3249,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
         BCWall = [
             'normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz',
             'psta', 'bl_quantities_2d', 'yplusmeshsize',
-            # 'bl_ue', # TODO BUG for bl_ue extraction https://elsa.onera.fr/issues/10360
+            'bl_ue', # see #10360
             'flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
     )
     # TODO notify bug for torque_origin in CGNS mode
@@ -3264,7 +3264,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
         fluxcoeff     = 1.0,
         force_extract = 1,
         writingframe  = 'absolute',
-        # geomdepdom = 2 # TODO test this: https://elsa.onera.fr/issues/8127#note-26
+        geomdepdom = 2 # see #8127#note-26
     )
 
     # Keys to write in the .Solver#Output for wall Families
