@@ -1065,8 +1065,8 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
     S   = FluidProperties['SutherlandConstant']
     ViscosityMolecular = mus * (Temperature/Ts)**1.5 * ((Ts + S)/(Temperature + S))
 
-    if not 'AveragingIterations' in CoprocessOptions:
-        CoprocessOptions['AveragingIterations'] = 1000
+    # if not 'AveragingIterations' in CoprocessOptions:
+    #     CoprocessOptions['AveragingIterations'] = 1000
 
     TurboStatistics = ['rsd-{}'.format(var) for var in ['MassFlowIn', 'MassFlowOut',
         'PressureStagnationRatio', 'TemperatureStagnationRatio', 'EfficiencyIsentropic',
@@ -3177,6 +3177,7 @@ def launchIsoSpeedLines(PREFIX_JOB, AER, NumberOfProcessors, machine, DIRECTORY_
             speedIndex = RotationSpeedRange.index(RotationSpeed)
             WorkflowParams['mesh'] = WorkflowParams['mesh'][speedIndex]
 
+        WorkflowParams['COPY_TEMPLATES'] = False
         JobsQueues.append(
             dict(ID=i, CASE_LABEL=CASE_LABEL, NewJob=NewJob, JobName=JobName, **WorkflowParams)
             )

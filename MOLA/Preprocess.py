@@ -4642,7 +4642,7 @@ def copyTemplateFilesForWorkflow(Workflow, otherWorkflowFiles=[], otherFiles=[],
     '''
     from . import __version__
 
-    WORKFLOW_FOLDER = 'WORKFLOW_{}'.format(Workflow.upper())
+    WORKFLOW_FOLDER = 'WORKFLOW_' + ''.join(['_'+ s.upper() if s.isupper() else s.upper() for s in Workflow]).lstrip('_')
 
     MOLA_PATH = os.getenv('MOLA','/stck/lbernard/MOLA/%s'%__version__)
     templatesFolder = os.path.join(MOLA_PATH, 'TEMPLATES')
@@ -4661,9 +4661,8 @@ def copyTemplateFilesForWorkflow(Workflow, otherWorkflowFiles=[], otherFiles=[],
 
     for sourcePath in files2copy:
         filename = sourcePath.split(os.path.sep)[-1]
-        if os.path.samefile(sourcePath, filename):
-            continue
-        os.remove(filename)
+        if os.path.isfile(filename):
+            os.remove(filename)
         shutil.copy(sourcePath, filename)
         print("Template file {} copied successfully.".format(filename))
 
