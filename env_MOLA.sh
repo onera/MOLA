@@ -51,7 +51,7 @@ MAC0=$(echo $KC | grep 'spiro'); if [ "$MAC0" != "" ]; then export MAC="spiro"; 
 
 
 if { [ "$MAC" = "sator" ] && [ -n "$SLURM_CPUS_ON_NODE" ]; } ; then
-    if [ $(nproc) == 48 ] ; then
+    if [ $(nproc) == 48 ] || [ $(nproc) == 44 ] ; then
         export MAC="sator-new"
     fi
 fi

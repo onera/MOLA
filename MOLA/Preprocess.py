@@ -2868,6 +2868,8 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         cutoff_eint        = 0.005,
         artviscosity       = 'dismrt',
         av_mrt             = 0.3,
+        # av_border          = 'dif0null', # default elsA is 'dif0null', but JCB, JM, LC use 'current'
+        # av_formul          = 'new',  # default elsA is 'new', but JCB, JM, LC use 'current'
         )
     elif NumericalScheme == 'ausm+':
         addKeys = dict(
