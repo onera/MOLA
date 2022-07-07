@@ -3236,11 +3236,9 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
 
             By default, the following variables are extracted for *BCWall*:
             ['normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz',
-            'psta', 'bl_quantities_2d', 'yplusmeshsize',
+            'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue',
             'flux_rou', 'flux_rov', 'flux_row', 'torque_rou',
             'torque_rov', 'torque_row'].
-
-            .. danger:: currently, ``bl_ue`` cannot be extracted: https://elsa.onera.fr/issues/10360
 
             These default values are updated with **BCExtractions**.
 
