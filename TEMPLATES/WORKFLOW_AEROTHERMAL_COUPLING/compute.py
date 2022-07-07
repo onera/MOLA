@@ -88,6 +88,9 @@ CO.invokeCoprocessLogFile()
 arrays = CO.invokeArrays()
 
 niter    = setup.elsAkeysNumerics['niter']
+if niter == 0:
+    CO.printCo('niter = 0: Please update this value and run the simulation again', proc=0, color=J.WARN)
+    exit()
 inititer = setup.elsAkeysNumerics['inititer']
 itmax    = inititer+niter-1 # BEWARE last iteration accessible trigger-state-16
 

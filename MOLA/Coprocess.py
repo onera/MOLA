@@ -934,6 +934,7 @@ def updateAndWriteSetup(setup):
     '''
     if rank == 0:
         printCo('updating setup.py ...', proc=0, color=GREEN)
+        setup.elsAkeysNumerics['niter'] -= CurrentIteration - setup.elsAkeysNumerics['inititer'] + 1
         setup.elsAkeysNumerics['inititer'] = CurrentIteration
         if 'itime' in setup.elsAkeysNumerics:
             setup.elsAkeysNumerics['itime'] = CurrentIteration * setup.elsAkeysNumerics['timestep']
@@ -2176,7 +2177,6 @@ def loadSkeleton(Skeleton=None, PartTree=None):
 
     def replaceNodeByName(parent, parentPath, name):
         oldNode = I.getNodeFromName1(parent, name)
-        if not oldNode: return
         newNode = readNodesFromPaths('{}/{}'.format(parentPath, name))
         I._rmNode(parent, oldNode)
         I._addChild(parent, newNode)
