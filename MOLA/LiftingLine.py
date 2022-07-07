@@ -5118,7 +5118,7 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
     NumberOfLiftingLines = len(LiftingLines)
     NumberOfAbscissaSegments = 0
     for AbscissaSegmentSubList in AbscissaSegments:
-        if not isinstance(AbscissaSegmentSubList, list):
+        if not (isinstance(AbscissaSegmentSubList, list) or isinstance(AbscissaSegmentSubList, np.ndarray)):
             NewAbscissaSegments = [AbscissaSegments for _ in range(NumberOfLiftingLines)]
             AbscissaSegments = NewAbscissaSegments
             NumberOfAbscissaSegments = len(AbscissaSegments)
@@ -5142,13 +5142,13 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
         except KeyError:
             GhostParticleAtTip = True
         try:
-            GhostZeroAtRoot = bool(VPM_Parameters['GhostZeroAtRoot'])
+            GammaZeroAtRoot = bool(VPM_Parameters['GammaZeroAtRoot'])
         except KeyError:
-            GhostZeroAtRoot = True
+            GammaZeroAtRoot = True
         try:
-            GhostZeroAtTip = bool(VPM_Parameters['GhostZeroAtTip'])
+            GammaZeroAtTip = bool(VPM_Parameters['GammaZeroAtTip'])
         except KeyError:
-            GhostZeroAtTip = True
+            GammaZeroAtTip = True
 
         if GhostParticleAtRoot:
             AbscissaSegment = np.append(2.*AbscissaSegment[0] - AbscissaSegment[1],
