@@ -5072,7 +5072,7 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
     return tLL, AvrgThrust, AvrgPower
 
 
-def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments,
+def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
                                             IntegralLaw='linear'):
     '''
     Build a set of zones composed of particles with fields:
@@ -5087,9 +5087,11 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments,
         t : PyTree, base, zone, list of zones
             container with lifting-line zones
 
-        AbscissaSegments : :py:class:`tuple`, :py:class:`list` or 1D numpy array
+        AbscissaSegments : :py:class:`list` or :py:class:`list` of :py:class:`list`s
             it defines the segments that discretizes the lifting line.
-            It must be :math:`\in [0,1]`
+            It must be :math:`\in [0,1]`. If several lists are provided (list of
+            lists) then each discretization correspond to each LiftingLine found
+            on **t**
 
         IntegralLaw : str
             interpolation law for the interpolation of data contained in the
