@@ -602,9 +602,9 @@ def optimalDesignByThrustAndFixedPitch(number_of_blades=2, Rmin=0.1, Rmax=1.0,
     print('Temperature = %g'%Temperature)
     print('Density = %g'%Density)
     print(ENDC+'\n')
-
+    SpanTotal = Rmax-Rmin
     LL = LiftingLine(SpanMin=Rmin, SpanMax=Rmax, N=50,
-             SpanwiseDistribution=dict(kind='bitanh',first=0.05, last=0.0016),
+             SpanwiseDistribution=dict(kind='bitanh',first=0.05*SpanTotal, last=0.0016*SpanTotal),
              GeometricalLaws=dict(
                 Chord=dict(RelativeSpan=[0, 1],
                            Chord=[0.1, 0.1],
@@ -648,7 +648,8 @@ def optimalDesignByThrustAndFixedPitch(number_of_blades=2, Rmin=0.1, Rmax=1.0,
             RPM=RPM, Temperature=Temperature, Density=Density,
             Constraint='Thrust',ConstraintValue=NominalRequiredThrust)
 
-        r, AoA, Chord = LL.fields(['Span','AoA','Chord'])
+        r, AoA, Chord, Twist = LL.fields(['Span','AoA','Chord','Twist'])
+
         Chord[:] = np.minimum(ChordMax,Chord)
         AoA_Step2a, Chord_Step2a = AoA*1., Chord*1.  # (produce copies)
         AoA_Root = np.mean(0.75*AoA[:int(len(AoA)/4)])
@@ -665,6 +666,11 @@ def optimalDesignByThrustAndFixedPitch(number_of_blades=2, Rmin=0.1, Rmax=1.0,
             NumberOfBlades=number_of_blades, AxialVelocity=VelocityAxial,
             RPM=RPM, Temperature=Temperature, Density=Density,
             Constraint='Thrust',ConstraintValue=NominalRequiredThrust)
+        Chord[:] = np.minimum(ChordMax,Chord)
+        print('design Chord')
+        print(Chord)
+        print('design Twist')
+        print(Twist + LL.Pitch)
 
         print('analysis...')
         NominalDict = compute(LL, model='Drela',
@@ -740,7 +746,11 @@ def optimalDesignByThrustAndFixedPitch(number_of_blades=2, Rmin=0.1, Rmax=1.0,
         return None, outputs
 
     else:
-        best_design_index = np.argmax(maximum_powers)
+        print('NOMINAL POWERS')
+        print(nominal_powers)
+        print('MAX POWERS')
+        print(maximum_powers)
+        best_design_index = np.argmin(nominal_powers)
         maximum_power = maximum_powers[best_design_index]
         maximum_rpm = maximum_rpms[best_design_index]
         nominal_rpm = nominal_rpms[best_design_index]

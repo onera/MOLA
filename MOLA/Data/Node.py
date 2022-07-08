@@ -73,7 +73,6 @@ class Node(list):
         CGM.save(filename, node_to_save, links=links)
         if verbose: print('saving %s ... ok'%filename)
 
-
     def name(self): return self[0]
 
     def printName(self): print(self.name())
