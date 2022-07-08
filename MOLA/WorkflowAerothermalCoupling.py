@@ -67,9 +67,7 @@ def prepareMesh4ElsA(mesh, kwargs):
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, TurboConfiguration={}, Extractions={}, BoundaryConditions={},
         BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade'],
-        Initialization={'method':'uniform'}, FULL_CGNS_MODE=True,
-        COPY_TEMPLATES=True,
-        JobName=None, AER=None, TimeLimit='0-15:00', NumberOfProcessors=None):
+        Initialization={'method':'uniform'}, FULL_CGNS_MODE=True):
     '''
     This is mainly a function similar to :func:`MOLA.WorkflowCompressor.prepareMainCGNS4ElsA`
     but adapted to aerothermal simulations with CWIPI coupling.
@@ -133,25 +131,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         FULL_CGNS_MODE : bool
             if :py:obj:`True`, put all elsA keys in a node ``.Solver#Compute``
             to run in full CGNS mode.
-
-        COPY_TEMPLATES : bool
-            If :py:obj:`True` (default value), copy templates files in the
-            current directory.
-
-        JobName : :py:class:`str` or :py:obj:`None`
-            If not :py:obj:`None`, replace the job name in the template job file
-            ``job_template.sh``.
-
-        AER : :py:class:`str` or :py:obj:`None`
-            If not :py:obj:`None`, replace the AER nmber in the template job file
-            ``job_template.sh``.
-
-        TimeLimit : str
-            Time limit for the job. The default value is '0-15:00' (15h).
-
-        NumberOfProcessors : :py:class:`int` or :py:obj:`None`
-            If not :py:obj:`None`, replace the number of processors in the
-            template job file ``job_template.sh``.
 
     Returns
     -------
@@ -290,11 +269,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     else:
         print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
             Splitter + J.ENDC))
-
-    if COPY_TEMPLATES:
-        PRE.copyTemplateFilesForWorkflow(AllSetupDics['ReferenceValues']['Workflow'],
-                otherWorkflowFiles=['EXAMPLE/monitor_perfos.py'],
-                JobName=JobName, AER=AER, TimeLimit=TimeLimit, NumberOfProcessors=NumberOfProcessors)
 
 
 def addExchangeSurfaces(t, coupledSurfaces, couplingScript='coprocess.py'):
