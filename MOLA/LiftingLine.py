@@ -1403,116 +1403,6 @@ def interpolatorFromPyZonePolar(PyZonePolar, interpOptions=None,
 
         return ListOfValues
 
-    def interpolationFunctionBKP(AoA, Mach, Reynolds):
-
-
-        if isinstance(AoA,list): AoA = np.array(AoA,dtype=np.float64, order='F')
-        if isinstance(Mach,list): Mach = np.array(Mach,dtype=np.float64, order='F')
-        if isinstance(Reynolds,list): Reynolds = np.array(Reynolds,dtype=np.float64, order='F')
-
-
-        if all(np.isnan(Reynolds)):
-            raise ValueError('all-NaN Found in Reynolds')
-        elif any(np.isnan(Reynolds)): Reynolds[np.isnan(Reynolds)] = 0
-
-        if all(np.isnan(Mach)): raise ValueError('all-NaN Found in Mach')
-        elif any(np.isnan(Mach)): Mach[np.isnan(Mach)] = 0
-
-        # Bound Mach
-        Mach = np.minimum(np.maximum(Mach,MachRange.min()),MachRange.max())
-
-        Npts = len(AoA)
-
-        AoARangeMax = AoARange.max()
-        AoARangeMin = AoARange.min()
-        OutOfMax = AoA > AoARangeMax
-        OutOfMin = AoA < AoARangeMin
-        AnyOutOfMax = np.any(OutOfMax)
-        AnyOutOfMin = np.any(OutOfMin)
-        InRange = np.logical_not(OutOfMax + OutOfMin)
-        AnyInRange = np.any(InRange)
-
-
-        # Interpolate in-range AoA values
-        Values = {}
-        for IntField in InterpFields:
-            Values[IntField] = np.zeros(Npts,dtype=np.float64,order='F') # Invoke Field
-            if DataRank[IntField] == 2:
-                if AnyInRange:
-                    Values[IntField][InRange] = tableInterpFuns[IntField](AoA[InRange], Mach[InRange],grid=False)
-            else:
-                # DataRank[IntField] == 3
-                FoilValues = []
-                for tableIntFun in tableInterpFuns[IntField]:
-                    FoilValues += [[tableIntFun(AoA[ir], Mach[ir], grid=False)[0][0] for ir in range(Npts)]]
-
-                Values[IntField] = np.array(FoilValues,dtype=np.float64,order='F')
-
-        # Luis: This is costly. TODO : improve
-        if AnyOutOfMax or AnyOutOfMin:
-            for IntField in InterpFields:
-                if IntField in OutOfRangeValues:
-                    if AnyOutOfMax:
-                        outIND = polarOutMarange[IntField]
-                        # Create the AoA vector
-                        AoAVec = np.hstack((AoARangeMax,BigAoARange[IntField][outIND]))
-                        Ncalls = np.count_nonzero(OutOfMax)
-                        for i in range(Ncalls):
-                            BoundValue = tableInterpFuns[IntField](AoARangeMax, Mach[OutOfMax][i])[0][0]
-                            # Create the values vector
-                            ValsVec = np.hstack((BoundValue,OutOfRangeValues[IntField][outIND]))
-                            # Assign current Out Range value
-                            Values[IntField][OutOfMax][i] = np.interp(AoA[OutOfMax][i], AoAVec,ValsVec)
-
-
-
-                    if AnyOutOfMin:
-                        outIND = polarOutMinRange[IntField]
-                        # Create the AoA vector
-                        AoAVec = np.hstack((BigAoARange[IntField][outIND],AoARangeMin))
-                        Ncalls = np.count_nonzero(OutOfMin)
-                        for i in range(Ncalls):
-                            BoundValue = tableInterpFuns[IntField](AoARangeMin, Mach[OutOfMin][i])[0][0]
-                            # Create the values vector
-                            ValsVec = np.hstack((OutOfRangeValues[IntField][outIND],BoundValue))
-                            # Assign current Out Range value
-
-                            Values[IntField][OutOfMin][i] = np.interp(AoA[OutOfMin][i], AoAVec,ValsVec)
-
-        '''
-        if AnyOutOfMax or AnyOutOfMin:
-            for IntField in InterpFields:
-                if IntField in OutOfRangeValues:
-                    if AnyOutOfMax:
-                        outIND = polarOutMarange[IntField]
-                        # Create the AoA vector
-                        AoAVec = np.hstack((AoARangeMax,BigAoARange[IntField][outIND]))
-                        Ncalls = np.count_nonzero(OutOfMax)
-                        for i in range(Ncalls):
-                            BoundValue = tableInterpFuns[IntField](AoARangeMax, Mach[OutOfMax][i])[0][0]
-                            # Create the values vector
-                            ValsVec = np.hstack((BoundValue,OutOfRangeValues[IntField][outIND]))
-                            # Assign current Out Range value
-                            Values[IntField][OutOfMax][i] = np.interp(AoA[OutOfMax][i], AoAVec,ValsVec)
-
-                    if AnyOutOfMin:
-                        outIND = polarOutMinRange[IntField]
-                        # Create the AoA vector
-                        AoAVec = np.hstack((BigAoARange[IntField][outIND],AoARangeMin))
-                        Ncalls = np.count_nonzero(OutOfMin)
-                        for i in range(Ncalls):
-                            BoundValue = tableInterpFuns[IntField](AoARangeMin, Mach[OutOfMin][i])[0][0]
-                            # Create the values vector
-                            ValsVec = np.hstack((OutOfRangeValues[IntField][outIND],BoundValue))
-                            # Assign current Out Range value
-                            Values[IntField][OutOfMin][i] = np.interp(AoA[OutOfMin][i], AoAVec,ValsVec)
-        '''
-
-        ListOfValues = [Values[IntField] for IntField in InterpFields]
-
-
-        return ListOfValues
-
     return interpolationFunction
 
 def extractorFromPyZonePolar(PyZonePolar, Nrequest,
@@ -2878,14 +2768,95 @@ def setRPM(LiftingLines, newRPM):
         else:
             J.set(LiftingLine,'.Kinematics',RPM=np.atleast_1d(np.array(newRPM,dtype=np.float)))
 
+def setVPMParameters(LiftingLines, GammaZeroAtRoot = True, GammaZeroAtTip = True, GhostParticleAtRoot = True,
+                  GhostParticleAtTip = True, IntegralLaw='linear',
+                  ParticleDistribution = dict(kind = 'uniform', Symmetrical=False)):
+    '''
+    This function is a convenient wrap used for setting the ``.VPM#Parameters`` and the
+    ``.VPM#Parameters`` nodes of **LiftingLine** object.
+
+    .. note:: information contained in ``.VPM#Parameters`` is used by
+        :py:func:`buildVortexParticleSourcesOnLiftingLine`
+
+    Parameters
+    ----------
+
+        GammaZeroAtRoot : bool
+            if :py:obj:`True`, the circulation at the root of the Lifting Line is
+            set to zero in :py:func:`buildVortexParticleSourcesOnLiftingLine`.
+            :py:obj:`False` the root is clamped otherwise.
+
+        GammaZeroAtTip : bool
+            if :py:obj:`True`, the circulation at the tip of the Lifting Line is
+            set to zero in :py:func:`buildVortexParticleSourcesOnLiftingLine`.
+            :py:obj:`False` the tip is clamped otherwise.
+
+        GhostParticleAtRoot : bool
+            if :py:obj:`True`, a particle is generated before the root to extend
+            the Lifting Line.
+            :py:obj:`False` no particle are generated before the root otherwise.
+
+        GhostParticleAtTip : bool
+            if :py:obj:`True`, a particle is generated after the tip to extend
+            the Lifting Line.
+            :py:obj:`False` no particle are generated after the tip otherwise.
+
+        IntegralLaw : str
+            interpolation law for the interpolation of data contained in the
+            lifting line
+
+        ParticleDistribution : dict
+            Python dictionary specifying distribution instructions.
+            Default value produces a uniform distribution of particles
+            provided by a linear interpolation.
+            Accepted keys are:
+
+            * kind : :py:class:`str`
+                Can be one of:
+
+                * ``'uniform'``
+                    Makes an uniform spacing.
+
+                * ``'tanhOneSide'``
+                    Specifies the ratio of the first segment.
+
+                * ``'tanhTwoSides'``
+                    Specifies the ratio of the first and last segment.
+
+                * ``'ratio'``
+                    Employs a geometrical-growth type of law
+
+            * FirstSegmentRatio : :py:class:`float`
+                Specifies the ratio of the first segment regarding the VPM resolution
+                .. note:: only relevant if **kind** is ``'tanhOneSide'`` ,
+                    ``'tanhTwoSides'`` or ``'ratio'``
+
+            * LastSegmentRatio : :py:class:`float`
+                Specifies the ratio of the last segment regarding the VPM resolution
+                .. note:: only relevant if **kind** is ``'tanhOneSide'`` or
+                    ``'tanhTwoSides'``
+
+            * growthRatio : :py:class:`float`
+                geometrical growth rate ratio regarding the VPM resolution
+                .. note:: only relevant if **kind** is ``'ratio'``
+
+            * Symmetrical : bool
+                if :py:obj:`True`, the particle distribution becomes symmetrical.
+                :py:obj:`False` otherwise.
+    '''
+
+    for LiftingLine in I.getZones(LiftingLines):
+        J.set(LiftingLine, '.VPM#Parameters',
+                GammaZeroAtRoot = GammaZeroAtRoot, GammaZeroAtTip = GammaZeroAtTip,
+                GhostParticleAtRoot = GhostParticleAtRoot, GhostParticleAtTip = GhostParticleAtTip,
+                IntegralLaw='linear', ParticleDistribution = ParticleDistribution)
+
 
 def setKinematicsUsingConstantRotationAndTranslation(LiftingLines, RotationCenter=[0,0,0],
-                                  RotationAxis=[1,0,0], RPM=2500.0,
-                                  RightHandRuleRotation=True,
+                                  RotationAxis=[1,0,0], RPM=2500.0, RightHandRuleRotation=True,
                                   VelocityTranslation=[0,0,0]):
     '''
-    This function is a convenient wrap used for setting the ``.Kinematics``
-    node of **LiftingLine** object.
+    This function is a convenient wrap used for setting the ``.Kinematics`` node of **LiftingLine** object.
 
     .. note:: information contained in ``.Kinematics`` node
         is used by :py:func:`moveLiftingLines` and :py:func:`computeKinematicVelocity`
@@ -2927,7 +2898,6 @@ def setKinematicsUsingConstantRotationAndTranslation(LiftingLines, RotationCente
                 RightHandRuleRotation=RightHandRuleRotation,
                 VelocityTranslation=np.array(VelocityTranslation,dtype=np.float),)
 
-
 def setConditions(LiftingLines, VelocityFreestream=[0,0,0], Density=1.225,
                   Temperature=288.15):
     '''
@@ -2954,11 +2924,14 @@ def setConditions(LiftingLines, VelocityFreestream=[0,0,0], Density=1.225,
 
         Temperature : float
             air temperature in [K]
+
     '''
+
     for LiftingLine in I.getZones( LiftingLines ):
         J.set(LiftingLine,'.Conditions',
               VelocityFreestream=np.array(VelocityFreestream,dtype=float),
-                       Density=float(Density), Temperature=float(Temperature))
+              Density=np.atleast_1d(float(Density)),
+              Temperature=np.atleast_1d(float(Temperature)))
 
 
 
@@ -3042,6 +3015,7 @@ def computeKinematicVelocity(t):
                 v[fieldname] = J.invokeFields(LiftingLine,[fieldname])[0]
 
         NPts = len(x)
+        # TODO vectorize this
         for i in range(NPts):
             rvec = np.array([x[i] - RotationCenter[0],
                              y[i] - RotationCenter[1],
@@ -3235,8 +3209,8 @@ def moveObject(t, TimeStep):
         TimeStep : float
             time step for the movement of the lifting-lines in [s]
     '''
-    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
-    for LiftingLine in LiftingLines:
+
+    for LiftingLine in I.getZones(t):
         Kinematics = J.get(LiftingLine,'.Kinematics')
         VelocityTranslation = Kinematics['VelocityTranslation']
         RotationCenter = Kinematics['RotationCenter']
@@ -3859,7 +3833,7 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0):
         v['Gamma'][:] = FluxKJ
         # ------------------------- INTEGRAL LOADS ------------------------- #
         length = norm(np.sum(np.abs(np.diff(xyz,axis=1)),axis=1)) # faster than D.getLength
-        DimensionalAbscissa = length * v['s']
+        DimensionalAbscissa = length * v['s'] # TODO check if v['s'] is updated!
 
         # Integrate linear axial force <fa> to get Thrust
         FA = Thrust = sint.simps(v['fa'], DimensionalAbscissa)
@@ -4939,6 +4913,7 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
     Temperature = C.getMeanValue(perturbationField,'Temperature')
 
     tPF = I.copyRef(perturbationField)
+
     Fields2Keep = ['VelocityInducedX', 'VelocityInducedY', 'VelocityInducedZ']
     Fields2Remove = []
     for field in I.getNodeFromName(tPF,'FlowSolution')[2]:
@@ -4959,6 +4934,9 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
     for v in [Vx, Vy, Vz]:
         isNotFinite = np.logical_not(np.isfinite(v))
         v[isNotFinite] = 0.
+
+    if not RightHandRuleRotation: #MODIF debug counter
+        tPF=T.reorder(tPF, (1,-2,3)) #MODIF debug counter
 
     TrailingEdge = T.translate(tPF,(-RotationAxis[0],
                                     -RotationAxis[1],
@@ -4999,6 +4977,8 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
         'Phi':EulerAngles[0],
         'Theta':EulerAngles[1],
         'Psi':EulerAngles[2]})
+    print('EulerAngles:')
+    print(EulerAngles)
     ModelSupport.Cmds.set('Motion',{'VelocityX':0.,'VelocityY':0.,'VelocityZ':0.})
 
     Direct = 1 if RightHandRuleRotation else -1
@@ -5010,7 +4990,7 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
     NBlades = 1
     Prop.add_Blades(NBlades, Aerodynamics=dict(Definition=BladeDef,
                                                IndVeloModel=Wake,
-                                               NbSections=25,
+                                               NbSections=50, #MODIF to match LifitngLine.cgns discretization. Ref is 25
                                                Options=dict(
                                                     Interpolate='linear',
                                                     Correction3D='Mach_Wind',
@@ -5027,8 +5007,9 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
     Num.set('NbSubIterations',1)
 
     Pb.set('PerturbationField',VolumePerturbation)
+    Prop.Cmds.set('Pitch',Pitch) #MODIF
     Pb.initialize()
-    Prop.Cmds.set('Pitch',Pitch)
+    # Prop.Cmds.set('Pitch',Pitch) #MODIF
 
     Niters = NumberOfAzimutalPoints
     LLs = []
@@ -5054,7 +5035,8 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
                    'MomentumZ',
                    'EnergyStagnationDensity']
         v = J.invokeFieldsDict(LLgeom, NewVars)
-
+        print ("euler angles")
+        print((EulerAngles[0],EulerAngles[1],EulerAngles[2]))
         updateFrame(LLgeom, RotationAxis, RightHandRuleRotation)
         FxMBS,FzMBS,VYLL=J.getVars(LLgeom,['Fx_Rotor_MBS_Prop',
                                            'Fz_Rotor_MBS_Prop',
@@ -5090,12 +5072,8 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
     return tLL, AvrgThrust, AvrgPower
 
 
-def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
-                                            IntegralLaw='linear',
-                                            addGhostSourceAtRoot=True,
-                                            addGhostSourceAtTip=True,
-                                            GammaZeroAtRoot=True,
-                                            GammaZeroAtTip=True):
+def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
+                                            IntegralLaw='linear'):
     '''
     Build a set of zones composed of particles with fields:
 
@@ -5109,9 +5087,11 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
         t : PyTree, base, zone, list of zones
             container with lifting-line zones
 
-        AbscissaSegments : :py:class:`tuple`, :py:class:`list` or 1D numpy array
+        AbscissaSegments : :py:class:`list` or :py:class:`list` of :py:class:`list`s
             it defines the segments that discretizes the lifting line.
-            It must be :math:`\in [0,1]`
+            It must be :math:`\in [0,1]`. If several lists are provided (list of
+            lists) then each discretization correspond to each LiftingLine found
+            on **t**
 
         IntegralLaw : str
             interpolation law for the interpolation of data contained in the
@@ -5124,13 +5104,6 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
             list of zones composed of particles element type (*NODE*)
     '''
 
-    AbscissaSegments = np.array(AbscissaSegments, dtype=np.float)
-    if addGhostSourceAtRoot:
-        AbscissaSegments = np.hstack((-(AbscissaSegments[1]-AbscissaSegments[0]*2),
-                                        AbscissaSegments))
-    if addGhostSourceAtTip:
-        AbscissaSegments = np.hstack((AbscissaSegments,
-                                   2*AbscissaSegments[-1]-AbscissaSegments[-2]))
 
 
     FieldsNames2Extract = [
@@ -5139,10 +5112,51 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
                     'VelocityInducedX','VelocityInducedY','VelocityInducedZ',
                     'Gamma', #'SectionArea'
                     ]
-    centers = 0.5 * (AbscissaSegments[1:]+AbscissaSegments[:-1])
     AllSourceZones = []
+
     LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
-    for LiftingLine in LiftingLines:
+    NumberOfLiftingLines = len(LiftingLines)
+    NumberOfAbscissaSegments = 0
+    for AbscissaSegmentSubList in AbscissaSegments:
+        if not (isinstance(AbscissaSegmentSubList, list) or isinstance(AbscissaSegmentSubList, np.ndarray)):
+            NewAbscissaSegments = [AbscissaSegments for _ in range(NumberOfLiftingLines)]
+            AbscissaSegments = NewAbscissaSegments
+            NumberOfAbscissaSegments = len(AbscissaSegments)
+            break
+        NumberOfAbscissaSegments += 1
+    if NumberOfAbscissaSegments != NumberOfLiftingLines:
+        MSG = ('abscissa segments sublists number ({}) must be equal to the'
+              ' total number of lifting lines contained in "t" ({})').format(
+                NumberOfAbscissaSegments, NumberOfLiftingLines)
+        raise AttributeError(FAIL+MSG+ENDC)
+
+
+    for LiftingLine, AbscissaSegment in zip(LiftingLines, AbscissaSegments):
+        VPM_Parameters = J.get(LiftingLine,'.VPM#Parameters')
+        try:
+            GhostParticleAtRoot = bool(VPM_Parameters['GhostParticleAtRoot'])
+        except KeyError:
+            GhostParticleAtRoot = True
+        try:
+            GhostParticleAtTip = bool(VPM_Parameters['GhostParticleAtTip'])
+        except KeyError:
+            GhostParticleAtTip = True
+        try:
+            GammaZeroAtRoot = bool(VPM_Parameters['GammaZeroAtRoot'])
+        except KeyError:
+            GammaZeroAtRoot = True
+        try:
+            GammaZeroAtTip = bool(VPM_Parameters['GammaZeroAtTip'])
+        except KeyError:
+            GammaZeroAtTip = True
+
+        if GhostParticleAtRoot:
+            AbscissaSegment = np.append(2.*AbscissaSegment[0] - AbscissaSegment[1],
+                                        AbscissaSegment)
+        if GhostParticleAtTip:
+            AbscissaSegment = np.append(AbscissaSegment ,
+                                    2*AbscissaSegment[-1] - AbscissaSegment[-2])
+        AbscissaSegment = np.array(AbscissaSegment, dtype=np.float)
 
         v = J.getVars2Dict(LiftingLine,['s']+FieldsNames2Extract[3:])
         x,y,z = J.getxyz(LiftingLine)
@@ -5159,18 +5173,18 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
                                            bounds_error=False,
                                            fill_value='extrapolate',
                                            assume_sorted=True, copy=False)
-                sourcefields[fieldname] = interpolator(AbscissaSegments)
+                sourcefields[fieldname] = interpolator(AbscissaSegment)
 
         elif IntegralLaw == 'linear':
             for fieldname in FieldsNames2Extract:
-                sourcefields[fieldname] = np.interp(AbscissaSegments,
+                sourcefields[fieldname] = np.interp(AbscissaSegment,
                                                     v['s'],
                                                     v[fieldname])
-                if addGhostSourceAtRoot:
+                if GhostParticleAtRoot:
                     sourcefields[fieldname][0] = 2*sourcefields[fieldname][0]-\
                                                    sourcefields[fieldname][2]
 
-                if addGhostSourceAtTip:
+                if GhostParticleAtTip:
                     sourcefields[fieldname][-1] =2*sourcefields[fieldname][-1]-\
                                                    sourcefields[fieldname][-3]
 
@@ -5179,11 +5193,11 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
             for fieldname in FieldsNames2Extract:
                 interpolator = si.PchipInterpolator(v['s'], v[fieldname],
                                                     extrapolate=True)
-                sourcefields[fieldname] = interpolator(AbscissaSegments)
+                sourcefields[fieldname] = interpolator(AbscissaSegment)
 
         elif IntegralLaw == 'akima':
                 interpolator = si.PchipInterpolator(v['s'], v[fieldname])
-                sourcefields[fieldname] = interpolator(AbscissaSegments,extrapolate=True)
+                sourcefields[fieldname] = interpolator(AbscissaSegment,extrapolate=True)
 
         else:
             raise AttributeError('IntegralLaw "%s" not supported'%IntegralLaw)
@@ -5195,7 +5209,6 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.0],
         ArraysNames = FieldsNames2Extract
 
         Sources = J.createZone(LiftingLine[0]+'.Sources',Arrays, ArraysNames)
-        # TODO include .Kinematics and .Conditions ?
         Sources = C.convertArray2Node(Sources)
         AllSourceZones.append(Sources)
 

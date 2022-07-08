@@ -127,7 +127,15 @@ if BodyForceInputData:
 
 
 e.action=elsAxdt.COMPUTE
-e.mode=elsAxdt.READ_ALL
+e.mode = elsAxdt.READ_MESH
+e.mode |= elsAxdt.READ_CONNECT
+e.mode |= elsAxdt.READ_BC
+e.mode |= elsAxdt.READ_BC_INIT
+e.mode |= elsAxdt.READ_INIT
+e.mode |= elsAxdt.READ_FLOW
+e.mode |= elsAxdt.READ_COMPUTATION
+e.mode |= elsAxdt.READ_OUTPUT
+e.mode |= elsAxdt.READ_TRACE
 if not os.path.exists('OVERSET'): e.mode |= elsAxdt.CGNS_CHIMERACOEFF
 
 e.compute()

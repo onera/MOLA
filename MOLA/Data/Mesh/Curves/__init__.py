@@ -26,7 +26,6 @@ class Curve(Zone):
             MSG = 'return_type=%s not supported'%return_type
             raise AttributeError(RED+MSG+ENDC)
 
-
     def start(self, return_type='numpy'):
         return self.point(0,return_type)
 
@@ -102,6 +101,15 @@ class Curve(Zone):
         return s
 
     def discretize(self, **kwargs):
+        '''
+        tanh and bitanh ref:
+
+        NASA Contractor Report 3313
+        On One-Dimensional Streatching Functions for Finite-Difference Calculations
+        Marcel Vinokur, University of Santa Clara, California
+        October 1980
+        CR-3313
+        '''
         try:
             kind = kwargs['kind']
         except KeyError:
@@ -119,10 +127,10 @@ class Curve(Zone):
         try: N = kwargs['N']
         except KeyError: N = self.numberOfPoints()
 
-        GC = self.childOfName( 'GridCoordinates' )
-        x_node = GC.childOfName( 'CoordinateX' )
-        y_node = GC.childOfName( 'CoordinateY' )
-        z_node = GC.childOfName( 'CoordinateZ' )
+        GC = self.childNamed( 'GridCoordinates' )
+        x_node = GC.childNamed( 'CoordinateX' )
+        y_node = GC.childNamed( 'CoordinateY' )
+        z_node = GC.childNamed( 'CoordinateZ' )
         x = x_node.value()
         y = y_node.value()
         z = z_node.value()
