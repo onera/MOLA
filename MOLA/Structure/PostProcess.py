@@ -17,11 +17,13 @@ ENDC  = '\033[0m'
 
 import os, sys
 import numpy as np
+import scipy
 
 import Converter.PyTree as C
 import Converter.Internal as I 
 
-import MOLA.InternalShortcuts as J
+from .. import InternalShortcuts as J
+from .  import ShortCuts as SJ
 
 import matplotlib.pyplot as plt
 import time
@@ -110,3 +112,48 @@ def PlotAerodynamicParametersFromBEMT(LiftingLine, Iter = None, Blade = None):
     plt.show()
 
             
+
+
+
+
+def PlotCampbellDiagramWithParametricModel(t, RPMs, NModes = 10):
+
+
+    DictModes = {}
+
+
+
+    M = SJ.getMatrixFromCGNS(t, 'M', 'Parametric')
+
+    for Mode in range(NModes):
+        
+        DictModes['Mode%s'%(Mode+1)] = []
+        
+
+
+    for RPM in RPMs:
+
+        K = SJ.getMatrixFromCGNS(t, 'Komeg', RPM)
+    
+        w = np.sort(np.real(np.sqrt(scipy.linalg.eig(K, b=M)[0])/(2.*np.pi)))
+        
+        for Mode in range(NModes):
+    
+
+            DictModes['Mode%s'%(Mode+1)].append(w[Mode])
+            
+
+
+
+    plt.figure()
+
+    for Mode in range(NModes):
+        plt.plot(RPMs, DictModes['Mode%s'%(Mode+1)], label = 'Mode%s'%(Mode+1))
+
+    plt.grid()
+    plt.legend()
+    plt.ylabel('Freq (Hz)')
+    plt.xlabel('Rotating Velocity (RPM)')
+    plt.show()
+
+
