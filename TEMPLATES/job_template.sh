@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH -J temp
-#SBATCH --comment 32877010F # only relevant for sator
+#SBATCH -J <JobName>
+#SBATCH --comment <AERnumber> # only relevant for sator
 #SBATCH -o output.%j.log
 #SBATCH -e error.%j.log
 #SBATCH -t 0-15:00
-#SBATCH -n 28
+#SBATCH -n <NumberOfProcessors>
 
 # NOTE : if job is used in SPIRO, then flag --qos (e.g. c1_test_giga)
 #        must also be provided

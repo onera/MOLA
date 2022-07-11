@@ -228,13 +228,13 @@ def launchBasicStructuredPolars(PREFIX_JOB, FILE_GEOMETRY, AER, machine,
         meshParams['References'].update({'Reynolds':Reynolds})
         if 'options' not in machine: meshParams['options'] = {}
         if machine == 'sator':
-            meshParams['options']['Nproc']=28
+            meshParams['options']['NumberOfProcessors']=28
         elif machine == 'sator-new':
-            meshParams['options']['Nproc']=48
+            meshParams['options']['NumberOfProcessors']=48
         elif machine == 'spiro':
-            meshParams['options']['Nproc']=24
+            meshParams['options']['NumberOfProcessors']=24
         elif machine in ['ld', 'eos']:
-            meshParams['options']['Nproc']=8
+            meshParams['options']['NumberOfProcessors']=8
 
 
         EffectiveMach = np.maximum(Mach, 0.2) # TODO externalize this threshold
@@ -597,7 +597,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                             FULL_CGNS_MODE=False)
     PRE.saveMainCGNSwithLinkToOutputFields(t, writeOutputFields=writeOutputFields)
 
-    print(J.CYAN+'REMEMBER : configuration shall be run using %d procs'%ReferenceValues['NProc']+J.ENDC)
+    print(J.CYAN+'REMEMBER : configuration shall be run using %d procs'%ReferenceValues['NumberOfProcessors']+J.ENDC)
 
 
 def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,

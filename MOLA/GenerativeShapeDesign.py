@@ -2202,7 +2202,7 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
             ::
 
                 options = dict(
-                NProc=28,                        # Number of blocs for split
+                NumberOfProcessors=28,                        # Number of blocs for split
 
                 DenseSamplingNPts = 5000,         # Number of points for sampling
                                                   # geometrical entities during
@@ -2282,7 +2282,7 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
     cells.update(Cells) # User-provided values
 
     opts = dict(  # Default values
-    NProc=28,
+    NumberOfProcessors=28,
     DenseSamplingNPts = 5000,
     LEsearchAbscissas = [0.35, 0.65],
     LEsearchEpsilon   = 1.e-8,
@@ -2987,11 +2987,11 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
 
 
     # Splitting and distribution
-    if opts['NProc'] > 1:
+    if opts['NumberOfProcessors'] > 1:
         I._rmNodesByType(t,'ZoneGridConnectivity_t')
 
         # Perform Splitting and distribution
-        t = T.splitNParts(t, opts['NProc'], multigrid=0, dirs=[1,2], recoverBC=True)
+        t = T.splitNParts(t, opts['NumberOfProcessors'], multigrid=0, dirs=[1,2], recoverBC=True)
 
         # Re-Connect the resulting blocks
         t = X.connectMatch(t, dim=2, tol=1e-10)
@@ -2999,7 +2999,7 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
         # Force check multiply-defined zone names
         t = I.correctPyTree(t,level=3)
         silence = J.OutputGrabber()
-        with silence: t,stats=D2.distribute(t, opts['NProc'], useCom=0)
+        with silence: t,stats=D2.distribute(t, opts['NumberOfProcessors'], useCom=0)
 
         # Check if all procs have at least one block assigned
         zones = I.getZones(t)

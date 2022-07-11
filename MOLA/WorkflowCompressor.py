@@ -68,7 +68,7 @@ def checkDependencies():
 
 
 def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
-                    duplicationInfos={}, blocksToRename={},
+                    duplicationInfos={}, zonesToRename={},
                     scale=1., rotation='fromAG5', PeriodicTranslation=None):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
@@ -127,7 +127,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
 
                 * MergeBlocks: boolean, if True the duplicated blocks are merged.
 
-        blocksToRename : dict
+        zonesToRename : dict
             Each key corresponds to the name of a zone to modify, and the associated
             value is the new name to give.
 
@@ -181,7 +181,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
             scale=scale, rotation=rotation, PeriodicTranslation=PeriodicTranslation)
 
     PRE.checkFamiliesInZonesAndBC(t)
-    t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], blocksToRename=blocksToRename)
+    t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], zonesToRename=zonesToRename)
     PRE.transform(t, InputMeshes)
     for row, rowParams in duplicationInfos.items():
         try: MergeBlocks = rowParams['MergeBlocks']
@@ -321,14 +321,15 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         ReferenceValuesParams.update(dict(PitchAxis=PitchAxis, YawAxis=YawAxis))
 
     ReferenceValues = computeReferenceValues(FluidProperties, **ReferenceValuesParams)
+    ReferenceValues['Workflow'] = 'Compressor'
 
     if I.getNodeFromName(t, 'proc'):
-        NProc = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
-        ReferenceValues['NProc'] = int(NProc)
-        ReferenceValuesParams['NProc'] = int(NProc)
+        NumberOfProcessors = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
+        ReferenceValues['NumberOfProcessors'] = int(NumberOfProcessors)
+        ReferenceValuesParams['NumberOfProcessors'] = int(NumberOfProcessors)
         Splitter = None
     else:
-        ReferenceValues['NProc'] = 0
+        ReferenceValues['NumberOfProcessors'] = 0
         Splitter = 'PyPart'
 
     elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-6, unstructured=IsUnstructured)
@@ -339,7 +340,10 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues,
                             unstructured=IsUnstructured, **NumericalParams)
 
-    PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
+    if Initialization['method'] == 'turbo':
+        t = initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboConfiguration)
+    else:
+        PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
 
     if not 'PeriodicTranslation' in TurboConfiguration and \
         any([rowParams['NumberOfBladesSimulated'] > rowParams['NumberOfBladesInInitialMesh'] \
@@ -352,8 +356,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
-    if not 'PeriodicTranslation' in TurboConfiguration:
-        addMonitoredRowsInExtractions(Extractions, TurboConfiguration)
+    addMonitoredRowsInExtractions(Extractions, TurboConfiguration)
 
     AllSetupDics = dict(FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
@@ -384,7 +387,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                          AllSetupDics['ReferenceValues'])
     dim = int(AllSetupDics['elsAkeysCFD']['config'][0])
     PRE.addGoverningEquations(t, dim=dim)
-    AllSetupDics['ReferenceValues']['NProc'] = int(max(PRE.getProc(t))+1)
+    AllSetupDics['ReferenceValues']['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
     PRE.writeSetup(AllSetupDics)
 
     if FULL_CGNS_MODE:
@@ -396,10 +399,11 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     if not Splitter:
         print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
-                                                   ReferenceValues['NProc'],J.ENDC))
+                                                   ReferenceValues['NumberOfProcessors'],J.ENDC))
     else:
         print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
             Splitter + J.ENDC))
+
 
 def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
     hlines='hub_shroud_lines.plt', subTree=None):
@@ -633,43 +637,7 @@ def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='from
 
     return InputMeshes
 
-def prepareTree(t, rowParams):
-    '''
-    Rename wall families, add row family to each zone and add BladeNumber
-    property to row Family.
-
-    .. attention:: There must be only one row in **t**.
-
-    Parameters
-    ----------
-
-        t : newPyTree
-
-        rowParams : dict
-            Dictionary to rename wall families, add families to rows and add
-            BladeNumber property to rows.
-            Should follow the following form:
-
-            .. code-block:: python
-
-                rowParams = dict(
-                    rowName     = <RowFamily>,
-                    blade       = <BladeFamily>,
-                    hub         = <HubFamily>,
-                    shroud      = <ShroudFamily>,
-                    BladeNumber = <Nb>,
-                )
-
-    '''
-    I._renameNode(t, rowParams['hub'], '{}_HUB'.format(row))
-    I._renameNode(t, rowParams['shroud'],'{}_SHROUD'.format(row))
-    I._renameNode(t, rowParams['blade'],  '{}_Main_Blade'.format(row))
-    if not I.getNodesFromNameAndType2(t, rowParams['rowName'], 'Family_t'):
-        C._tagWithFamily(t, rowParams['rowName'], add=True)
-        C._addFamily2Base(t, rowParams['rowName'])
-        J.set(n, 'Periodicity', BladeNumber=rowParams['BladeNumber'])
-
-def cleanMeshFromAutogrid(t, basename='Base#1', blocksToRename={}):
+def cleanMeshFromAutogrid(t, basename='Base#1', zonesToRename={}):
     '''
     Clean a CGNS mesh from Autogrid 5.
     The sequence of operations performed are the following:
@@ -690,7 +658,7 @@ def cleanMeshFromAutogrid(t, basename='Base#1', blocksToRename={}):
         basename: str
             Name of the base. Will replace the default AG5 name.
 
-        blocksToRename : dict
+        zonesToRename : dict
             Each key corresponds to the name of a zone to modify, and the associated
             value is the new name to give.
 
@@ -722,11 +690,11 @@ def cleanMeshFromAutogrid(t, basename='Base#1', blocksToRename={}):
     # - Rename Zones
     for zone in I.getNodesFromType(t, 'Zone_t'):
         name = I.getName(zone)
-        for block in blocksToRename:
-            if block in name:
-                newName = name.replace(block, blocksToRename[block])
-                print("Zone {} is renamed: {}".format(name,newName))
-                I._renameNode(tree, name, newName)
+        if name in zonesToRename:
+            newName = zonesToRename[name]
+            print("Zone {} is renamed: {}".format(name,newName))
+            I._renameNode(t, name, newName)
+            continue
         # Delete some usual patterns in AG5
         new_name = name
         for pattern in ['_flux_1', '_flux_2', '_flux_3', '_Main_Blade']:
@@ -1072,8 +1040,8 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
     S   = FluidProperties['SutherlandConstant']
     ViscosityMolecular = mus * (Temperature/Ts)**1.5 * ((Ts + S)/(Temperature + S))
 
-    if not 'AveragingIterations' in CoprocessOptions:
-        CoprocessOptions['AveragingIterations'] = 1000
+    # if not 'AveragingIterations' in CoprocessOptions:
+    #     CoprocessOptions['AveragingIterations'] = 1000
 
     TurboStatistics = ['rsd-{}'.format(var) for var in ['MassFlowIn', 'MassFlowOut',
         'PressureStagnationRatio', 'TemperatureStagnationRatio', 'EfficiencyIsentropic',
@@ -1296,7 +1264,7 @@ def getReferenceSurface(t, BoundaryConditions, TurboConfiguration):
     zones = C.extractBCOfName(t, 'FamilySpecified:'+InflowFamily)
     SurfaceTree = C.convertArray2Tetra(zones)
     SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
-    Surface = abs(P.integNorm(SurfaceTree, var='ones')[0][0])
+    Surface = P.integ(SurfaceTree, var='ones')[0]
     if 'PeriodicTranslation' not in TurboConfiguration:
         # Compute normalization coefficient
         zoneName = I.getName(zones[0]).split('/')[0]
@@ -1476,6 +1444,8 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
                   * InflowStagnation
 
+                  * InflowMassFlow
+
                   * OutflowPressure
 
                   * OutflowMassFlow
@@ -1495,9 +1465,10 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                   * SymmetryPlane
 
                   .. note::
-                    elsA names are also available (``nref``, ``inj1``,
-                    ``outpres``, ``outmfr2``, ``outradeq``, ``stage_mxpl``,
-                    ``stage_red``, ``walladia``, ``wallisoth``, ``wallslip``,
+                    elsA names are also available (``nref``, ``inj1``, ``injfmr1``,
+                    ``outpres``, ``outmfr2``, ``outradeq``,
+                    ``stage_mxpl``, ``stage_red``,
+                    ``walladia``, ``wallisoth``, ``wallslip``,
                     ``sym``)
 
                 * option (optional) : add a specification for type
@@ -1592,13 +1563,22 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
     It defines a uniform inflow condition imposing stagnation quantities ('inj1' in
     *elsA*) based on the **ReferenceValues**  and **FluidProperties**
-    :py:class:`dict`.
+    :py:class:`dict`. To impose values not based on **ReferenceValues**, additional
+    optional parameters may be given (see the dedicated documentation for the function).
 
     >>> dict(type='InflowStagnation', option='file', FamilyName='row_1_INFLOW', filename='inflow.cgns')
 
     It defines an inflow condition imposing stagnation quantities ('inj1' in
     *elsA*) interpolating a 2D map written in the given file.
 
+    >>> dict(type='InflowMassFlow', FamilyName='row_1_INFLOW', MassFlow=)
+
+    It defines a uniform inflow condition imposing the massflow ('inj1mfr1' in
+    *elsA*) based on the **ReferenceValues**  and **FluidProperties**
+    :py:class:`dict`. To impose values not based on **ReferenceValues**, additional
+    optional parameters may be given (see the dedicated documentation for the function).
+    In particular, either the massflow (``MassFlow``) or the surfacic massflow
+    (``SurfacicMassFlow``) may be specified.
 
     **Outflow boundary conditions**
 
@@ -1652,6 +1632,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     PreferedBoundaryConditions = dict(
         Farfield                     = 'nref',
         InflowStagnation             = 'inj1',
+        InflowMassFlow               = 'injmfr1',
         OutflowPressure              = 'outpres',
         OutflowMassFlow              = 'outmfr2',
         OutflowRadialEquilibrium     = 'outradeq',
@@ -1679,10 +1660,12 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
         elif BCparam['type'] == 'inj1':
 
             if 'option' not in BCparam:
-                print(J.CYAN + 'set BC inj1 on ' + BCparam['FamilyName'] + J.ENDC)
-                setBC_inj1(t, **BCkwargs)
+                if 'bc' in BCkwargs:
+                    BCparam['option'] = 'bc'
+                else:
+                    BCparam['option'] = 'uniform'
 
-            elif BCparam['option'] == 'uniform':
+            if BCparam['option'] == 'uniform':
                 print(J.CYAN + 'set BC inj1 (uniform) on ' + BCparam['FamilyName'] + J.ENDC)
                 setBC_inj1_uniform(t, FluidProperties, ReferenceValues, **BCkwargs)
 
@@ -1691,6 +1674,14 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                     BCparam['filename'], BCparam['FamilyName'], J.ENDC))
                 setBC_inj1_interpFromFile(t, ReferenceValues, **BCkwargs)
 
+            elif BCparam['option'] == 'bc':
+                print('set BC inj1 on {}'.format(J.CYAN, BCparam['FamilyName'], J.ENDC))
+                setBC_inj1(t, ReferenceValues, **BCkwargs)
+
+        elif BCparam['type'] == 'injmfr1':
+            print(J.CYAN + 'set BC injmfr1 on ' + BCparam['FamilyName'] + J.ENDC)
+            setBC_injmfr1(t, FluidProperties, ReferenceValues, **BCkwargs)
+
         elif BCparam['type'] == 'outpres':
             print(J.CYAN + 'set BC outpres on ' + BCparam['FamilyName'] + J.ENDC)
             setBC_outpres(t, **BCkwargs)
@@ -1698,6 +1689,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
         elif BCparam['type'] == 'outmfr2':
             print(J.CYAN + 'set BC outmfr2 on ' + BCparam['FamilyName'] + J.ENDC)
             BCkwargs['ReferenceValues'] = ReferenceValues
+            BCkwargs['TurboConfiguration'] = TurboConfiguration
             setBC_outmfr2(t, **BCkwargs)
 
         elif BCparam['type'] == 'outradeq':
@@ -2076,7 +2068,7 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
     setBCwithImposedVariables(t, FamilyName, ImposedVariables,
         FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc)
 
-def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName):
+def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     '''
     Set a Boundary Condition ``inj1`` with uniform inflow values. These values
     are them in **ReferenceValues**.
@@ -2096,12 +2088,24 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName):
         FamilyName : str
             Name of the family on which the boundary condition will be imposed
 
+        kwargs : dict
+            Optional parameters, taken from **ReferenceValues** if not given:
+            PressureStagnation, TemperatureStagnation, EnthalpyStagnation,
+            VelocityUnitVectorX, VelocityUnitVectorY, VelocityUnitVectorZ
+
     See also
     --------
 
-    setBC_inj1, setBC_inj1_interpFromFile
+    setBC_inj1, setBC_inj1_interpFromFile, setBC_injmfr1
 
     '''
+
+    PressureStagnation    = kwargs.get('PressureStagnation', ReferenceValues['PressureStagnation'])
+    TemperatureStagnation = kwargs.get('TemperatureStagnation', ReferenceValues['TemperatureStagnation'])
+    EnthalpyStagnation    = kwargs.get('EnthalpyStagnation', FluidProperties['cp'] * TemperatureStagnation)
+    VelocityUnitVectorX   = kwargs.get('VelocityUnitVectorX', ReferenceValues['DragDirection'][0])
+    VelocityUnitVectorY   = kwargs.get('VelocityUnitVectorY', ReferenceValues['DragDirection'][1])
+    VelocityUnitVectorZ   = kwargs.get('VelocityUnitVectorZ', ReferenceValues['DragDirection'][2])
 
     # Get turbulent variables names and values
     turbVars = ReferenceValues['FieldsTurbulence']
@@ -2123,11 +2127,11 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName):
         turbDict.pop(inj_tur2)
 
     ImposedVariables = dict(
-        PressureStagnation  = ReferenceValues['PressureStagnation'],
-        stagnation_enthalpy = FluidProperties['cp'] * ReferenceValues['TemperatureStagnation'],
-        txv                 = ReferenceValues['DragDirection'][0],
-        tyv                 = ReferenceValues['DragDirection'][1],
-        tzv                 = ReferenceValues['DragDirection'][2],
+        stagnation_pressure = PressureStagnation,
+        stagnation_enthalpy = EnthalpyStagnation,
+        txv                 = VelocityUnitVectorX,
+        tyv                 = VelocityUnitVectorY,
+        tzv                 = VelocityUnitVectorZ,
         **turbDict
         )
 
@@ -2224,6 +2228,97 @@ def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileform
 
         setBC_inj1(t, FamilyName, ImposedVariables, bc=bcnode)
 
+def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
+    '''
+    Set a Boundary Condition ``injmfr1`` with uniform inflow values. These values
+    are them in **ReferenceValues**.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        FluidProperties : dict
+            as obtained from :py:func:`computeFluidProperties`
+
+        ReferenceValues : dict
+            as obtained from :py:func:`computeReferenceValues`
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+        kwargs : dict
+            Optional parameters, taken from **ReferenceValues** if not given:
+            MassFlow, SurfacicMassFlow, Surface, TemperatureStagnation, EnthalpyStagnation,
+            VelocityUnitVectorX, VelocityUnitVectorY, VelocityUnitVectorZ,
+            TurbulenceLevel, Viscosity_EddyMolecularRatio
+
+    See also
+    --------
+
+    setBC_inj1, setBC_inj1_interpFromFile
+
+    '''
+    Surface = kwargs.get('Surface', None)
+    if not Surface:
+        # Compute surface of the inflow BC
+        zones = C.extractBCOfName(t, 'FamilySpecified:'+FamilyName)
+        SurfaceTree = C.convertArray2Tetra(zones)
+        SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
+        Surface = P.integ(SurfaceTree, var='ones')[0]
+
+    MassFlow              = kwargs.get('MassFlow', ReferenceValues['MassFlow'])
+    SurfacicMassFlow      = kwargs.get('SurfacicMassFlow', MassFlow / Surface)
+    TemperatureStagnation = kwargs.get('TemperatureStagnation', ReferenceValues['TemperatureStagnation'])
+    EnthalpyStagnation    = kwargs.get('EnthalpyStagnation', FluidProperties['cp'] * TemperatureStagnation)
+    VelocityUnitVectorX   = kwargs.get('VelocityUnitVectorX', ReferenceValues['DragDirection'][0])
+    VelocityUnitVectorY   = kwargs.get('VelocityUnitVectorY', ReferenceValues['DragDirection'][1])
+    VelocityUnitVectorZ   = kwargs.get('VelocityUnitVectorZ', ReferenceValues['DragDirection'][2])
+
+    TurbulenceLevel = kwargs.get('TurbulenceLevel', None)
+    Viscosity_EddyMolecularRatio = kwargs.get('Viscosity_EddyMolecularRatio', None)
+    if TurbulenceLevel and Viscosity_EddyMolecularRatio:
+        ReferenceValuesForTurbulence = computeReferenceValues(FluidProperties,
+                MassFlow, ReferenceValues['PressureStagnation'],
+                TemperatureStagnation, Surface,
+                TurbulenceLevel=TurbulenceLevel,
+                Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio,
+                TurbulenceModel=ReferenceValues['TurbulenceModel'])
+    else:
+        ReferenceValuesForTurbulence = ReferenceValues
+
+    # Get turbulent variables names and values
+    turbVars = ReferenceValues['FieldsTurbulence']
+    turbVars = [var.replace('Density', '') for var in turbVars]
+    turbValues = [val/ReferenceValues['Density'] for val in ReferenceValues['ReferenceStateTurbulence']]
+    turbDict = dict(zip(turbVars, turbValues))
+
+    # Convert names to inj_tur1 and (if needed) inj_tur2
+    if 'TurbulentSANuTilde' in turbDict:
+        turbDict = dict(inj_tur1=turbDict['TurbulentSANuTilde'])
+    else:
+        turbDict['inj_tur1'] = turbDict['TurbulentEnergyKinetic']
+        turbDict.pop('TurbulentEnergyKinetic')
+        inj_tur2 = [var for var in turbDict if var != 'inj_tur1']
+        assert len(inj_tur2) == 1, \
+            'Turbulent models with more than 2 equations are not supported yet'
+        inj_tur2 = inj_tur2[0]
+        turbDict['inj_tur2'] = turbDict[inj_tur2]
+        turbDict.pop(inj_tur2)
+
+    ImposedVariables = dict(
+        surf_massflow       = SurfacicMassFlow,
+        stagnation_enthalpy = EnthalpyStagnation,
+        txv                 = VelocityUnitVectorX,
+        tyv                 = VelocityUnitVectorY,
+        tzv                 = VelocityUnitVectorZ,
+        **turbDict
+        )
+
+    setBCwithImposedVariables(t, FamilyName, ImposedVariables,
+        FamilyBC='BCInflowSubsonic', BCType='injmfr1')
+
 def setBC_outpres(t, FamilyName, Pressure, bc=None):
     '''
     Impose a Boundary Condition ``outpres``.
@@ -2269,7 +2364,7 @@ def setBC_outpres(t, FamilyName, Pressure, bc=None):
     setBCwithImposedVariables(t, FamilyName, ImposedVariables,
         FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc)
 
-def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues=None):
+def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues=None, TurboConfiguration=None):
     '''
     Set an outflow boundary condition of type ``outmfr2``.
 
@@ -2303,8 +2398,12 @@ def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues
             dictionary as obtained from :py:func:`computeReferenceValues`. Can
             be :py:obj:`None` only if **MassFlow** is not :py:obj:`None`.
 
+        TurboConfiguration : :py:class:`dict` or :py:obj:`None`
+            dictionary as obtained from :py:func:`getTurboConfiguration`. Can
+            be :py:obj:`None` only if **MassFlow** is not :py:obj:`None`.
+
     '''
-    if MassFlow is None and ReferenceValues is not None:
+    if MassFlow is None:
         bc = C.getFamilyBCs(t, FamilyName)[0]
         zone = I.getParentFromType(t, bc, 'Zone_t')
         row = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
@@ -2418,7 +2517,7 @@ def checkVariables(ImposedVariables):
         'stagnation_pressure', 'stagnation_enthalpy', 'stagnation_temperature',
         'Pressure', 'pressure', 'Temperature', 'wall_temp',
         'TurbulentEnergyKinetic', 'TurbulentDissipationRate', 'TurbulentDissipation', 'TurbulentLengthScale',
-        'TurbulentSANuTilde', 'globalmassflow']
+        'TurbulentSANuTilde', 'globalmassflow', 'MassFlow', 'surf_massflow']
     unitVectorComponent = ['VelocityUnitVectorX', 'VelocityUnitVectorY', 'VelocityUnitVectorZ',
         'txv', 'tyv', 'tzv']
 
@@ -2483,11 +2582,11 @@ def translateVariablesFromCGNS2Elsa(Variables):
         NewVariables = dict()
         for var, value in Variables.items():
             if var in elsAVariables:
-                NewVariables[var] = value
+                NewVariables[var] = float(value)
             elif var in CGNS2ElsaDict:
-                NewVariables[CGNS2ElsaDict[var]] = value
+                NewVariables[CGNS2ElsaDict[var]] = float(value)
             else:
-                NewVariables[var] = value
+                NewVariables[var] = float(value)
         return NewVariables
     elif isinstance(Variables, list):
         NewVariables = []
@@ -2499,7 +2598,7 @@ def translateVariablesFromCGNS2Elsa(Variables):
         return NewVariables
     elif isinstance(Variables, str):
         if Variables in elsAVariables:
-            return CGNS2ElsaDict[var]
+            return CGNS2ElsaDict[Variables]
     else:
         raise TypeError('Variables must be of type dict, list or string')
 
@@ -2955,7 +3054,7 @@ def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
 #############  Multiple jobs submission  #######################################
 ################################################################################
 
-def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
+def launchIsoSpeedLines(PREFIX_JOB, AER, NumberOfProcessors, machine, DIRECTORY_WORK,
                     ThrottleRange, RotationSpeedRange, **kwargs):
     '''
     User-level function designed to launch iso-speed lines.
@@ -2969,7 +3068,7 @@ def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
         AER : str
             full AER code for launching simulations on SATOR
 
-        NProc : int
+        NumberOfProcessors : int
             Number of processors for each job.
 
         machine : str
@@ -3057,7 +3156,7 @@ def launchIsoSpeedLines(PREFIX_JOB, AER, NProc, machine, DIRECTORY_WORK,
             dict(ID=i, CASE_LABEL=CASE_LABEL, NewJob=NewJob, JobName=JobName, **WorkflowParams)
             )
 
-    JM.saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK, NProc=NProc)
+    JM.saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK, NumberOfProcessors=NumberOfProcessors)
 
     def findElementsInCollection(collec, searchKey, elements=[]):
         '''
@@ -3291,3 +3390,112 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
     for line in lines: print(line)
 
     return perfo
+
+
+def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboConfiguration, mask=None):
+    '''
+    Initialize the flow solution of **t** with the module ``turbo``.
+    The initial flow is computed analytically in the 2D-throughflow plane
+    based on:
+
+    * radial equilibrium in the radial direction.
+
+    * Euler theorem between rows in the axial direction.
+
+    The values **FlowAngleAtRoot** and **FlowAngleAtTip** (relative angles 'beta')
+    must be provided for each row in **TurboConfiguration**.
+
+    .. note::
+        See also documentation of the related function in ``turbo`` module
+        `<file:///stck/jmarty/TOOLS/turbo/doc/html/initial.html>`_
+
+    .. important::
+        Dependency to ``turbo``
+
+    .. danger::
+        Works only in Python3, considering that dictionaries conserve order.
+        Rows in TurboConfiguration must be list in the downstream order.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to initialize
+
+        FluidProperties : dict
+            as produced by :py:func:`computeFluidProperties`
+
+        ReferenceValues : dict
+            as produced by :py:func:`computeReferenceValues`
+
+        TurboConfiguration : dict
+
+        mask : PyTree
+
+    Returns
+    -------
+
+        t : PyTree
+            Modified PyTree
+    '''
+    import turbo.initial as TI
+
+    if not mask:
+        mask = C.convertFile2PyTree('mask.cgns')
+
+    class RefState(object):
+        def __init__(self):
+          self.Gamma = FluidProperties['Gamma']
+          self.Rgaz  = FluidProperties['IdealGasConstant']
+          self.Pio   = ReferenceValues['PressureStagnation']
+          self.Tio   = ReferenceValues['TemperatureStagnation']
+          self.roio  = self.Pio / self.Tio / self.Rgaz
+          self.aio   = (self.Gamma * self.Rgaz * self.Tio)**0.5
+          self.Lref  = 1.
+
+    # Get turbulent variables names and values
+    turbDict = dict(zip(ReferenceValues['FieldsTurbulence'],  ReferenceValues['ReferenceStateTurbulence']))
+
+    planes_data = []
+
+    row, rowParams = list(TurboConfiguration['Rows'].items())[0]
+    xIn = rowParams['InletPlane']
+    alpha = ReferenceValues['AngleOfAttackDeg']
+    planes_data.append(
+        dict(
+            omega = 0.,
+            beta = [alpha, alpha],
+            Pt = 1.,
+            Tt = 1.,
+            massflow = ReferenceValues['MassFlow'],
+            plane_points = [[xIn,-999.],[xIn,999.]],
+            plane_name = '{}_InletPlane'.format(row)
+        )
+    )
+
+    for row, rowParams in TurboConfiguration['Rows'].items():
+        xOut = rowParams['OutletPlane']
+        omega = rowParams['RotationSpeed']
+        beta1 = rowParams['FlowAngleAtRoot']
+        beta2 = rowParams['FlowAngleAtTip']
+        Csir = 1. if omega == 0 else 0.95  # Total pressure loss is null for a rotor, 5% for a stator
+        planes_data.append(
+            dict(
+                omega = rowParams['RotationSpeed'],
+                beta = [beta1, beta2],
+                Csir = Csir,
+                plane_points = [[xOut,-999.],[xOut,999.]],
+                plane_name = '{}_OutletPlane'.format(row)
+                )
+        )
+
+    # > Initialization
+    t = TI.initialize(t, mask, RefState(), planes_data,
+              nbslice=10,
+              constant_data=turbDict,
+              turbvarsname=turbDict.keys(),
+              velocity='absolute',
+              useSI=True,
+              keepTmpVars=False
+              )
+    return t

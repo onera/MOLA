@@ -18,7 +18,7 @@ for case in config.JobsQueues:
                                      meshParams=case['meshParams'],
                                      save_meshParams=True,
                                      save_mesh=False)
-        JM.buildJob(case, config, meshParams['options']['NProc'], 'job_template.sh')
+        JM.buildJob(case, config, meshParams['options']['NumberOfProcessors'], 'job_template.sh')
 
     WF.prepareMainCGNS4ElsA(t, meshParams=meshParams,
                        CoprocessOptions=case['CoprocessOptions'],

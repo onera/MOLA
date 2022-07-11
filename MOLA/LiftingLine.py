@@ -26,7 +26,7 @@ import scipy.integrate as sint
 from mpi4py import MPI
 comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
-NProcs = comm.Get_size()
+NumberOfProcessors = comm.Get_size()
 import Converter.Mpi as Cmpi
 import Post.Mpi as Pmpi
 
@@ -4607,7 +4607,7 @@ def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
                             OutputFileNamePreffix='HOST_')
 
 
-def getNumberOfSerialRuns(BodyForceInputData, NProcs):
+def getNumberOfSerialRuns(BodyForceInputData, NumberOfProcessors):
     '''
     Determine the number of serial runs employed given the employed number
     of procs and the **BodyForceInputData**.
@@ -4619,7 +4619,7 @@ def getNumberOfSerialRuns(BodyForceInputData, NProcs):
             list of data as established in ``setup.py`` (see
             :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`)
 
-        NProcs : int
+        NumberOfProcessors : int
             total number of procs employed
 
     Returns
@@ -4628,7 +4628,7 @@ def getNumberOfSerialRuns(BodyForceInputData, NProcs):
         NumberOfSerialRuns : int
             Required number of serial runs
     '''
-    NRunsPerProc = np.zeros(NProcs, dtype=np.int)
+    NRunsPerProc = np.zeros(NumberOfProcessors, dtype=np.int)
     for inputData in BodyForceInputData:
         NRunsPerProc[inputData['proc']] += 1
     NumberOfSerialRuns = np.max(NRunsPerProc)

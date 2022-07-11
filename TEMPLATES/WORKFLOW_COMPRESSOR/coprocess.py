@@ -32,7 +32,7 @@ if CO.getSignal('RELOAD_SETUP'):
     if BodyForceInputData:
         LocalBodyForceInputData = LL.getLocalBodyForceInputData(BodyForceInputData)
         LL.invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData)
-        NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NProcs)
+        NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NumberOfProcessors)
 
 
 UpdateFieldsFrequency     = CO.getOption('UpdateFieldsFrequency', default=1e3)
@@ -90,18 +90,19 @@ if ENTER_COUPLING:
     if SAVE_FIELDS:
         CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
 
+    if SAVE_SURFACES:
+        surfs = CO.extractSurfaces(t, setup.Extractions)
+        CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
+        arraysTree = CO.monitorTurboPerformance(surfs, arrays, RequestedStatistics)
+        SAVE_ARRAYS = True
+
+        if (it-inititer)>ItersMinEvenIfConverged and not CONVERGED:
+            CONVERGED = CO.isConverged(ConvergenceCriteria)
+
     if SAVE_ARRAYS:
         arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,
                   Extractions=setup.Extractions, addMemoryUsage=True)
         CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))
-
-    if SAVE_SURFACES:
-        surfs = CO.extractSurfaces(t, setup.Extractions)
-        CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
-        CO.monitorTurboPerformance(surfs, arrays, RequestedStatistics)
-
-        if (it-inititer)>ItersMinEvenIfConverged and not CONVERGED:
-            CONVERGED = CO.isConverged(ConvergenceCriteria)
 
     if CONVERGED or it >= itmax or ReachedTimeOutMargin:
         if ReachedTimeOutMargin:

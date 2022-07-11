@@ -25,6 +25,39 @@ from . import InternalShortcuts as J
 from . import Preprocess        as PRE
 from . import WorkflowCompressor as WC
 
+def checkDependencies():
+    '''
+    Make a series of functional tests in order to determine if the user
+    environment is correctly set for using the Workflow Aerothermal Coupling
+    '''
+    from . import JobManager as JM
+    JM.checkDependencies()
+
+    print('Checking ETC...')
+    if WC.ETC is None:
+        MSG = 'Fail to import ETC module: Some functions of {} are unavailable'.format(__name__)
+        print(J.FAIL + MSG + J.ENDC)
+    else:
+        print(J.GREEN+'ETC module is available'+J.ENDC)
+
+    print('Checking MOLA.ParametrizeChannelHeight...')
+    if  WC.ParamHeight is None:
+        MSG = 'Fail to import MOLA.ParametrizeChannelHeight module: Some functions of {} are unavailable'.format(__name__)
+        print(J.FAIL + MSG + J.ENDC)
+    else:
+        print(J.GREEN+'MOLA.ParametrizeChannelHeight module is available'+J.ENDC)
+
+    print('Checking CWIPI...')
+    try:
+        import CWIPI.CGNS as C2
+        print(J.GREEN+'CWIPI.CGNS module is available'+J.ENDC)
+    except ImportError:
+        MSG = 'Fail to import CWIPI.CGNS module: Some functions of {} are unavailable'.format(__name__)
+        print(J.FAIL + MSG + J.ENDC)
+
+    print('\nVERIFICATIONS TERMINATED')
+
+
 def prepareMesh4ElsA(mesh, kwargs):
     '''
     Exactly like :py:func:`MOLA.WorkflowCompressor.prepareMesh4ElsA`
@@ -151,14 +184,15 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         ReferenceValuesParams.update(dict(PitchAxis=PitchAxis, YawAxis=YawAxis))
 
     ReferenceValues = WC.computeReferenceValues(FluidProperties, **ReferenceValuesParams)
+    ReferenceValues['Workflow'] = 'AerothermalCoupling'
 
     if I.getNodeFromName(t, 'proc'):
-        NProc = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
-        ReferenceValues['NProc'] = int(NProc)
-        ReferenceValuesParams['NProc'] = int(NProc)
+        NumberOfProcessors = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
+        ReferenceValues['NumberOfProcessors'] = int(NumberOfProcessors)
+        ReferenceValuesParams['NumberOfProcessors'] = int(NumberOfProcessors)
         Splitter = None
     else:
-        ReferenceValues['NProc'] = 0
+        ReferenceValues['NumberOfProcessors'] = 0
         Splitter = 'PyPart'
 
     elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-6, unstructured=IsUnstructured)
@@ -216,7 +250,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                          AllSetupDics['ReferenceValues'])
     dim = int(AllSetupDics['elsAkeysCFD']['config'][0])
     PRE.addGoverningEquations(t, dim=dim)
-    AllSetupDics['ReferenceValues']['NProc'] = int(max(PRE.getProc(t))+1)
+    AllSetupDics['ReferenceValues']['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
     PRE.writeSetup(AllSetupDics)
 
     if FULL_CGNS_MODE:
@@ -224,20 +258,20 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                                  AllSetupDics['elsAkeysModel'],
                                  AllSetupDics['elsAkeysNumerics']])
 
-    addExchangeSurfaces(t, AllSetupDics['ReferenceValues']['CoprocessOptions']['CoupledSurfaces'], couplingScript='CouplingScript.py')
+    addExchangeSurfaces(t, AllSetupDics['ReferenceValues']['CoprocessOptions']['CoupledSurfaces'])
     renameElementsNodesInElsAHybrid(t)
 
     PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
     if not Splitter:
         print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
-                                                   ReferenceValues['NProc'],J.ENDC))
+                                                   ReferenceValues['NumberOfProcessors'],J.ENDC))
     else:
         print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
             Splitter + J.ENDC))
 
 
-def addExchangeSurfaces(t, coupledSurfaces, couplingScript='CouplingScript.py'):
+def addExchangeSurfaces(t, coupledSurfaces, couplingScript='coprocess.py'):
     '''
     Modify in-place **t** to prepare surfaces coupled with CWIPI.
 
@@ -274,6 +308,7 @@ def addExchangeSurfaces(t, coupledSurfaces, couplingScript='CouplingScript.py'):
             I.createChild(BC, 'SurfaceName', 'AdditionalFamilyName_t', value=surfaceName)
 
         Family = I.getNodeFromName1(base, famBCTrigger)
+        # This Trigger node is mandatory for pyC2, even the zone is already tagged with a trigger node
         J.set(Family, '.Solver#Trigger', next_iteration=1, next_state=19, file=couplingScript)
 
 
@@ -408,13 +443,12 @@ def initializeCWIPIConnections(t, Distribution, CouplingSurfaces, tol=0.01):
     fwk.trace('init elsA connection')
 
     pyC2Connections = dict()
-    i = 0
     for surface, CouplingSurface in CouplingSurfaces.items():
         if CouplingSurface['ExchangeSurface']:
             if not 'tolerance' in CouplingSurface:
                 CouplingSurface['tolerance'] = tol
             pyC2Connections[surface] = C2.Connection(fwk,
-                                            'raccord{}'.format(i),
+                                            surface,
                                             'Zebulon',
                                             t,
                                             CouplingSurface['ParentBase'],
@@ -425,18 +459,23 @@ def initializeCWIPIConnections(t, Distribution, CouplingSurfaces, tol=0.01):
                                             tolerance=CouplingSurface['tolerance'],
                                             debug=1
                                             )
-            i += 1
+
     fwk.trace('end init elsA connection')
     return fwk, pyC2Connections
 
-def rampFunction(x1, x2, y1, y2):
+
+################################################################################
+# Functions for coprocess (coupling with CWIPI)
+################################################################################
+
+def rampFunction(iteri, iterf, vali, valf):
     '''
-    Create a ramp function, going from **y1** to **y2** between **x1** to **x2**.
+    Create a ramp function, going from **vali** to **valf** between **iteri** to **iterf**.
 
     Parameters
     ----------
 
-        x1, x2, y1, y2 : float
+        iteri, iterf, vali, valf : float
 
     Returns
     -------
@@ -446,16 +485,17 @@ def rampFunction(x1, x2, y1, y2):
 
             >> f(x)
     '''
-    slope = (y2-y1) / (x2-x1)
-    if y1 == y2:
-        f = lambda x: y1*np.ones(np.shape(x))
-    elif y1 < y2:
-        f = lambda x: np.maximum(y1, np.minimum(y2, slope*(x-x1)+y1))
+    iteri, iterf, vali, valf
+    slope = (valf-vali) / (iterf-iteri)
+    if vali == valf:
+        f = lambda x: vali*np.ones(np.shape(x))
+    elif vali < valf:
+        f = lambda x: np.maximum(vali, np.minimum(valf, slope*(x-iteri)+vali))
     else:
-        f = lambda x: np.minimum(y1, np.maximum(y2, slope*(x-x1)+y1))
+        f = lambda x: np.minimum(vali, np.maximum(valf, slope*(x-iteri)+vali))
     return f
 
-def computeOptimalAlpha(FluidData, dt, problem='DR'):
+def computeOptimalAlpha(FluidData, dt, problem='DirichletRobin'):
     '''
     Compute the optimal value of the coupling coefficient alpha.
 
@@ -483,9 +523,9 @@ def computeOptimalAlpha(FluidData, dt, problem='DR'):
             Timestep between 2 coupling exchanges (CWIPI calls)
 
         problem : str
-            Type of problem to solve. Default value is 'DR', corresponding to
-            a Dirichlet condition on the fluid side, and a Robin condition on
-            the solid side.
+            Type of problem to solve. Default value is 'DirichletRobin',
+            corresponding to a Dirichlet condition on the fluid side,
+            and a Robin condition on the solid side.
 
     Returns
     -------
@@ -494,7 +534,7 @@ def computeOptimalAlpha(FluidData, dt, problem='DR'):
             Optimal coupling coefficient in Robin condition
     '''
 
-    if problem == 'DR':
+    if problem == 'DirichletRobin':
         alphaopt = computeOptimalAlphaDirichletRobin(FluidData, dt)
     else:
         raise ValueError('method is unknown')
@@ -531,7 +571,6 @@ def computeOptimalAlphaDirichletRobin(FluidData, dt):
         alphaopt : float
             Optimal coupling coefficient in Robin condition
     '''
-
     Kf        = 2. * FluidData['thrm_cndy_lam'] / FluidData['hpar']
     FluidDiffusivity = FluidData['thrm_cndy_lam'] / FluidData['Density'] / FluidData['cp']
     Df        = FluidDiffusivity * dt / (FluidData['hpar']**2)
@@ -607,37 +646,163 @@ def computeLocalTimestep(FluidData, setup, CFL=None):
 
     return dt_fluid
 
-
-def getNumberOfNodesInBC(BCNode):
+def cwipiCoupling(to, pyC2Connections, setup, CurrentIteration):
     '''
-    Get the number of nodes on a BC patch. Works for structured and
-    unstructured meshes.
+    Perform the CWIPI coupling with Zset to update coupled boundary conditions.
+
+    .. important::
+        For the moment, the problem is solved with a Dirichlet-Robin set-up.
 
     Parameters
     ----------
 
-        BCNode : PyTree
-            Node of type ``'BC_t'``
+        to : PyTree
+            Coupling tree as obtained from :py:func:`adaptEndOfRun`
 
-    Results
+        pyC2Connections : dict
+            dictionary with all the CWIPI Connection objects. Each key
+            is the name of a coupling surface. As returned by
+            :py:func:`MOLA.WorkflowAerothermalCoupling.initializeCWIPIConnections`
+
+        setup : module
+            Python module object as obtained from command
+
+            >>> import setup
+
+        CurrentIteration : int
+            Current iteration in the simulation
+
+    returns
     -------
 
-        size : int
-            Number of nodes on **BCNode**
+        CWIPIdata : dict
+            Data exchanged with CWIPI. The structure of this :py:class:`dict` is
+            the following:
+
+            >>> CWIPIdata[COM][CoupledSurface][VariableName] = np.array
+
+            where 'COM' is ``SEND`` or ``RECV``, 'CoupledSurface' is the
+            family name of the coupled BC surface, and 'VariableName' is the
+            name of the exchanged quantity.
+
     '''
-    BCIndexNode = I.getNodeFromType(BCNode, 'IndexArray_t') # May be PointRange if structured or PointList if unstructured
-    dim = I.getValue(BCIndexNode)
-    if I.getName(BCIndexNode) == 'PointRange':
-        # Structured zone
-        i = dim[0][1] - dim[0][0]
-        j = dim[1][1] - dim[1][0]
-        k = dim[2][1] - dim[2][0]
-        if i == 0: size = (j+1)*(k+1)
-        if j == 0: size = (i+1)*(k+1)
-        if k == 0: size = (i+1)*(j+1)
-    elif I.getName(BCIndexNode) == 'PointList':
-        # Unstructured zone
-        size = dim.size
-    else:
-        raise ValueError
-    return size
+    import Coprocess as CO
+
+    SentVariables     = ['NormalHeatFlux', 'Temperature']
+    ReceivedVariables = ['Temperature']
+    VariablesForAlpha = ['Density', 'thrm_cndy_lam', 'hpar', 'ViscosityMolecular', 'Viscosity_EddyMolecularRatio']
+    AllNeededVariables = SentVariables + VariablesForAlpha
+
+    stepForCwipiCommunication = setup.ReferenceValues['CoprocessOptions']['UpdateCWIPICouplingFrequency']
+    if 'timestep' in setup.elsAkeysNumerics:
+        timestep = setup.elsAkeysNumerics['timestep']
+        dtCoupling = timestep * stepForCwipiCommunication
+    MultiplicativeRampForAlpha = setup.ReferenceValues['CoprocessOptions'].get('MultiplicativeRampForAlpha', None)
+
+    CWIPIdata = dict(SEND={}, RECV={})
+    for CPLsurf in pyC2Connections:
+        CWIPIdata['SEND'][CPLsurf] = dict()
+        CWIPIdata['RECV'][CPLsurf] = dict()
+
+    for CPLsurf, cplConnection in pyC2Connections.items():
+        CO.printCo('CWIPI coupling on {}'.format(CPLsurf), 0, color=CO.MAGE)
+        #___________________________________________________________________________
+        # Get all needed data at coupled BCs
+        #___________________________________________________________________________
+        BCnodes = C.getFamilyBCs(to, CPLsurf)
+        if len(BCnodes) == 0:
+            continue
+        elif len(BCnodes) > 1:
+            raise Exception('Could be only one coupled BC per Family on each processor')
+        else:
+            BCnode = BCnodes[0]
+
+        BCDataSet = dict()
+        for var in AllNeededVariables:
+            varNode = I.getNodeFromName(BCnode, var)
+            if varNode:
+                BCDataSet[var] = I.getValue(varNode).flatten()
+
+        #___________________________________________________________________________
+        # SEND DATA
+        #___________________________________________________________________________
+        for var in SentVariables:
+            CWIPIdata['SEND'][CPLsurf][var] = BCDataSet[var]
+            print('Sending {}...'.format(var))
+            print('shape {}'.format(BCDataSet[var].shape))
+            cplConnection.publish(CWIPIdata['SEND'][CPLsurf][var], iteration=CurrentIteration, stride=1, tag=100)
+            print("Send {} with mean value = {}".format(var, np.mean(CWIPIdata['SEND'][CPLsurf][var])))
+
+        #___________________________________________________________________________
+        # Compute alpha_opt
+        #___________________________________________________________________________
+        BCDataSet['cp'] = setup.FluidProperties['cp']
+
+        if 'timestep' not in setup.elsAkeysNumerics:
+            localTimestep = computeLocalTimestep(BCDataSet, setup)
+            dtCoupling = localTimestep * stepForCwipiCommunication
+
+        alphaOpt = computeOptimalAlpha(BCDataSet, dtCoupling)
+        if MultiplicativeRampForAlpha:
+            alphaOpt *= rampFunction(**MultiplicativeRampForAlpha)(CurrentIteration)
+        CWIPIdata['SEND'][CPLsurf]['alpha'] = alphaOpt
+        print('Sending {}...'.format('alpha'))
+        cplConnection.publish(alphaOpt, iteration=CurrentIteration, stride=1, tag=100)
+        print("Send {} with mean value = {}".format('alpha', np.mean(alphaOpt)))
+    #___________________________________________________________________________
+    # RECEIVE DATA
+    #___________________________________________________________________________
+    for CPLsurf, cplConnection in pyC2Connections.items():
+        print('Receiving...')
+        remote_data = cplConnection.retrieve(iteration=CurrentIteration, stride=len(ReceivedVariables), tag=100)
+        i1 = 0
+        dataLength = remote_data.size / len(ReceivedVariables)
+        for var in ReceivedVariables:
+            CWIPIdata['RECV'][CPLsurf][var] = remote_data[i1:i1+dataLength]
+            print("Receive {} with mean value = {}".format(var, np.mean(CWIPIdata['RECV'][CPLsurf][var])))
+            i1 += dataLength
+
+    #___________________________________________________________________________
+    # UPDATE BCs IN ELSA TREE
+    #___________________________________________________________________________
+    for CPLsurf, cplConnection in pyC2Connections.items():
+        BCnode = C.getFamilyBCs(to, CPLsurf)[0] # The test of the lenght of the
+                                                # list (=1) has already been done
+                                                # before in this function
+        for var in ReceivedVariables:
+            varNode = I.getNodeFromName(BCnode, var)
+            if varNode:
+                newDataOnBC = CWIPIdata['RECV'][CPLsurf][var].reshape(I.getValue(varNode).shape)
+                I.setValue(varNode, newDataOnBC)
+
+    #___________________________________________________________________________
+    # UPDATE RUNTIME TREE
+    #___________________________________________________________________________
+    I._rmNodesByType(to, 'FlowSolution_t')
+    CO.Cmpi.barrier()
+
+    return to, CWIPIdata
+
+def appendCWIPIDict2Arrays(arrays, CWIPIdata, CurrentIteration, RequestedStatistics=[]):
+    import Coprocess as CO
+
+    for CPLsurf in CWIPIdata['SEND']:
+        SENDdata2Arrays = dict(
+            IterationNumber = CurrentIteration, #-1,  # Because extraction before current iteration (next_state=16)
+            TemperatureMax  = np.amax(CWIPIdata['SEND'][CPLsurf]['Temperature']),
+            HeatFluxAbsMax  = np.amax(np.abs(CWIPIdata['SEND'][CPLsurf]['NormalHeatFlux'])),
+            AlphaMin        = np.amin(CWIPIdata['SEND'][CPLsurf]['alpha'])
+        )
+        RECVdata2Arrays = dict(
+            IterationNumber = CurrentIteration, #-1,  # Because extraction before current iteration (next_state=16)
+            TemperatureMax  = np.amax(CWIPIdata['RECV'][CPLsurf]['Temperature']),
+        )
+
+        CO.appendDict2Arrays(arrays, SENDdata2Arrays, 'SEND_{}'.format(CPLsurf))
+        CO.appendDict2Arrays(arrays, RECVdata2Arrays, 'RECV_{}'.format(CPLsurf))
+
+        CO._extendArraysWithStatistics(arrays, 'SEND_{}'.format(CPLsurf), RequestedStatistics)
+        CO._extendArraysWithStatistics(arrays, 'RECV_{}'.format(CPLsurf), RequestedStatistics)
+
+    arraysTree = CO.arraysDict2PyTree(arrays)
+    return arraysTree

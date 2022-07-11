@@ -170,6 +170,7 @@ def whichHost():
     PossibleMachineNamesInHostName = ('sator','spiro','visio','celeste')
     for name in PossibleMachineNamesInHostName:
         if name in HostName: return name
+        if HostName.startswith('n'): return 'sator'
     UserName = getpass.getuser()
     if not os.path.exists(os.path.join(os.path.sep,'stck',UserName)):
         return 'StckInvisible'
