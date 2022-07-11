@@ -9,7 +9,7 @@ shopt -s expand_aliases
 export MOLA=/stck/mbalmase/MOLA/WFORASDev
 export TREELAB=/stck/lbernard/TreeLab/dev
 export EXTPYLIB=$MOLA/ExternalPythonPackages
-export MOLASATOR=/tmp_user/sator/mbalmase/MOLA/WFORASDev
+export MOLASATOR=/tmp_user/sator/mbalmase/soft/MOLA/WFORASDev
 export TREELABSATOR=/tmp_user/sator/lbernard/TreeLab/dev
 export EXTPYLIBSATOR=$MOLASATOR/ExternalPythonPackages
 export PUMAVERSION=r337
