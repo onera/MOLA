@@ -2235,7 +2235,7 @@ def printEnvironment():
 
     # Vortex Particle Method
     try:
-        from VortexParticleMethod import VortexParticleMethod as VPM
+        import VortexParticleMethod as VPM
         vVPM = VPM.__version__
     except:
         vVPM = FAIL + 'UNAVAILABLE' + ENDC
