@@ -75,9 +75,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
                 >>> MOLA.Preprocess.getElsAkeysNumerics(arg, **NumericalParams)
 
-        RPM : float
-            revolutions per minute of the blade
-
         Extractions : :py:class:`list` of :py:class:`dict`
             List of extractions to perform during the simulation. See
             documentation of :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
@@ -89,9 +86,22 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             provide a compatible ``OUTPUT/fields.cgns`` file to elsA (for example,
             using a previous computation result).
 
+
         Initialization : dict
             dictionary defining the type of initialization, using the key
             **method**. See documentation of :func:`MOLA.Preprocess.initializeFlowSolution`
+
+
+        TurboConfiguration : dict
+            Dictionary concerning the compressor properties.
+            For details, refer to documentation of :func:`getTurboConfiguration`
+
+        BoundaryConditions : :py:class:`list` of :py:class:`dict`
+            List of boundary conditions to set on the given mesh.
+            For details, refer to documentation of :func:`setBoundaryConditions`
+
+		bladeFamilyNames : :py:class:`list` of :py:class:`str`
+            list of patterns to find families related to blades.
 
         FULL_CGNS_MODE : bool
             if :py:obj:`True`, put all elsA keys in a node ``.Solver#Compute``
@@ -159,13 +169,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                             FluidProperties,ReferenceValues, bladeFamilyNames=bladeFamilyNames)
 
     
-    
-    
-    
-    
-    
-    
-    
+     
     
     WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
