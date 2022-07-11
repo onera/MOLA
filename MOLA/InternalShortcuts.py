@@ -2210,10 +2210,46 @@ def printEnvironment():
         vMOLA = WARN + totoV + ENDC
     else:
         vMOLA = totoV
+    print('\nMOLA version '+vMOLA+' at '+machine)
+    print(' --> Python '+sys.version.split(' ')[0])
 
-
+    # elsA
     if vELSA == 'UNAVAILABLE': vELSA = FAIL + vELSA + ENDC
+    print(' --> elsA '+vELSA)
 
+    # elsA tools chain
+    try:
+        import etc
+        vETC = etc.version
+    except:
+        vETC = FAIL + 'UNAVAILABLE' + ENDC
+    print(' --> ETC '+vETC)
+
+    # Cassiopee
+    try:
+        import Converter.PyTree as C
+        vCASSIOPEE = C.__version__
+    except:
+        vCASSIOPEE = FAIL + 'UNAVAILABLE' + ENDC
+    print(' --> Cassiopee '+vCASSIOPEE)
+
+    # Vortex Particle Method
+    try:
+        from VortexParticleMethod import VortexParticleMethod as VPM
+        vVPM = VPM.__version__
+    except:
+        vVPM = FAIL + 'UNAVAILABLE' + ENDC
+    print(' --> VPM '+vVPM)
+
+    # TreeLab
+    try:
+        import TreeLab
+        vTREELAB = TreeLab.__version__
+    except:
+        vTREELAB = FAIL + 'UNAVAILABLE' + ENDC
+    print(' --> TreeLab '+vTREELAB)
+
+    # PUMA
     vPUMA = os.getenv('PUMAVERSION', 'UNAVAILABLE')
     if vPUMA == 'UNAVAILABLE':
         vPUMA = FAIL + vPUMA + ENDC
@@ -2224,32 +2260,8 @@ def printEnvironment():
                 import PUMA
         except:
             vPUMA = FAIL + 'UNAVAILABLE' + ENDC
-
-    try:
-        import Converter.PyTree as C
-        vCASSIOPEE = C.__version__
-    except:
-        vCASSIOPEE = FAIL + 'UNAVAILABLE' + ENDC
-
-    try:
-        import etc
-        vETC = etc.version
-    except:
-        vETC = FAIL + 'UNAVAILABLE' + ENDC
-
-    try:
-        import TreeLab
-        vTREELAB = TreeLab.__version__
-    except:
-        vTREELAB = FAIL + 'UNAVAILABLE' + ENDC
-
-    print('\nMOLA version '+vMOLA+' at '+machine)
-    print(' --> Python '+sys.version.split(' ')[0])
-    print(' --> elsA '+vELSA)
-    print(' --> Cassiopee '+vCASSIOPEE)
-    print(' --> ETC '+vETC)
     print(' --> PUMA '+vPUMA)
-    print(' --> TreeLab '+vTREELAB)
+
 
     if totoV == 'Dev':
         print(WARN+'WARNING: you are using an UNSTABLE version of MOLA.\nConsider using a stable version.'+ENDC)
