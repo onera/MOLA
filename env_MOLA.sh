@@ -51,12 +51,34 @@ MAC0=$(echo $KC | grep 'ganesh'); if [ "$MAC0" != "" ]; then export MAC="visio";
 MAC0=$(echo $KC | grep 'spiro'); if [ "$MAC0" != "" ]; then export MAC="spiro"; fi
 
 
-if [ "$MAC" = "sator" ] ; then
-    if [ $(nproc) == 48 ] || [ $(nproc) == 44 ] ; then
-        export MAC="sator-new"
+if [ -n "$SLURM_NTASKS" ] ; then
+    if [ $SLURM_NTASKS == 1 ] ; then
+        if [ -n "$SLURM_CPUS_PER_TASK" ] ; then
+            export NPROCMPI=$SLURM_CPUS_PER_TASK
+        elif [ -n "$SLURM_CPUS_ON_NODE" ] ; then
+            export NPROCMPI=$SLURM_CPUS_ON_NODE
+        else
+            export NPROCMPI=$(nproc)
+        fi
+    else
+        export NPROCMPI=$SLURM_NTASKS
     fi
+else
+    export NPROCMPI=$(nproc)
 fi
 
+
+
+if [ "$MAC" = "sator" ] ; then
+    echo nproc is $NPROCMPI
+    if [ $NPROCMPI == 48 ] || [ $NPROCMPI == 44 ] ; then
+        echo switching to sator-new
+        export MAC="sator-new"
+    fi
+
+fi
+
+echo Machine is $MAC
 
 if [ "$MAC" = "spiro" ]; then
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro3_mpi/.env_elsA
@@ -202,19 +224,3 @@ alias mola_version="python -c 'import MOLA.InternalShortcuts as J;J.printEnviron
 alias mola_jobsqueue_sator="python -c 'import MOLA.JobManager as JM;JM.getCurrentJobsStatus()'"
 
 mola_version
-
-if [ -n "$SLURM_NTASKS" ] ; then
-    if [ $SLURM_NTASKS == 1 ] ; then
-        if [ -n "$SLURM_CPUS_PER_TASK" ] ; then
-            export NPROCMPI=$SLURM_CPUS_PER_TASK
-        elif [ -n "$SLURM_CPUS_ON_NODE" ] ; then
-            export NPROCMPI=$SLURM_CPUS_ON_NODE
-        else
-            export NPROCMPI=$(nproc)
-        fi
-    else
-        export NPROCMPI=$SLURM_NTASKS
-    fi
-else
-    export NPROCMPI=$(nproc)
-fi

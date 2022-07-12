@@ -2305,3 +2305,51 @@ def getBCFamilies(t):
             if I.getNodeFromType(fam, 'FamilyBC_t'):
                 familyNames.append(I.getName(fam))
     return familyNames
+
+def createSymbolicLink(src, dst):
+    try:
+        if os.path.islink(dst):
+            os.unlink(dst)
+        else:
+            os.remove(dst)
+    except:
+        pass
+    os.symlink(src, dst)
+
+def getSignal(filename):
+    '''
+    Get a signal using an temporary auxiliar file technique.
+
+    If the intermediary file exists (signal received) then it is removed, and
+    the function returns :py:obj:`True`. Otherwise, it returns
+    :py:obj:`False`.
+
+    This function is employed for controling a simulation in a simple manner,
+    for example using UNIX command ``touch``:
+
+    .. code-block:: bash
+
+        touch filename
+
+    at the same directory where :py:func:`getSignal` is called.
+
+    Parameters
+    ----------
+
+        filename : str
+            the name of the file (the signal keyword)
+
+    Returns
+    -------
+
+        isOrder : bool
+            :py:obj:`True` if the signal is received, otherwise :py:obj:`False`
+    '''
+    isOrder = False
+    try:
+        os.remove(filename)
+        isOrder = True
+        print(CYAN+"Received signal %s"%filename+ENDC)
+    except:
+        pass
+    return isOrder
