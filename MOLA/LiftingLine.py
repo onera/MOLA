@@ -2828,21 +2828,32 @@ def setVPMParameters(LiftingLines, GammaZeroAtRoot = True, GammaZeroAtTip = True
 
             * FirstSegmentRatio : :py:class:`float`
                 Specifies the ratio of the first segment regarding the VPM resolution
-                .. note:: only relevant if **kind** is ``'tanhOneSide'`` ,
+
+                .. note::
+                    only relevant if **kind** is ``'tanhOneSide'`` ,
                     ``'tanhTwoSides'`` or ``'ratio'``
 
             * LastSegmentRatio : :py:class:`float`
                 Specifies the ratio of the last segment regarding the VPM resolution
-                .. note:: only relevant if **kind** is ``'tanhOneSide'`` or
+
+                .. note::
+                    only relevant if **kind** is ``'tanhOneSide'`` or
                     ``'tanhTwoSides'``
 
             * growthRatio : :py:class:`float`
                 geometrical growth rate ratio regarding the VPM resolution
-                .. note:: only relevant if **kind** is ``'ratio'``
+
+                .. note::
+                    only relevant if **kind** is ``'ratio'``
 
             * Symmetrical : bool
                 if :py:obj:`True`, the particle distribution becomes symmetrical.
                 :py:obj:`False` otherwise.
+
+    Returns
+    -------
+
+        None : None
     '''
 
     for LiftingLine in I.getZones(LiftingLines):
@@ -5087,7 +5098,7 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
         t : PyTree, base, zone, list of zones
             container with lifting-line zones
 
-        AbscissaSegments : :py:class:`list` or :py:class:`list` of :py:class:`list`s
+        AbscissaSegments : :py:class:`list` or :py:class:`list` of :py:class:`list`
             it defines the segments that discretizes the lifting line.
             It must be :math:`\in [0,1]`. If several lists are provided (list of
             lists) then each discretization correspond to each LiftingLine found

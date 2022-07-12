@@ -893,10 +893,10 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
             does not satisfy this condition.
 
         only_consider_full_node_nproc : bool
-            if :py:bool:`True` and **mode** = ``'auto'``, then the number of
+            if :py:obj:`True` and **mode** = ``'auto'``, then the number of
             processors considered for the optimum search distribution is a
             multiple of **cores_per_node**, in order to employ each node at its
-            full capacity. If :py:bool:`False`, then any processor number from
+            full capacity. If :py:obj:`False`, then any processor number from
             **cores_per_node** up to **cores_per_node** :math:`\\times` **maximum_allowed_nodes**
             is explored
 
