@@ -23,7 +23,7 @@ from timeit import default_timer as tic
 
 import Converter.PyTree as C
 import Converter.Internal as I
-from . import __version__
+from . import __version__, __MOLA_PATH__
 
 FAIL  = '\033[91m'
 GREEN = '\033[92m'
@@ -2161,12 +2161,7 @@ def printEnvironment():
         return int(Major), int(Minor), int(Micro)
 
     def gatherMOLAversions():
-        MOLA_PATH = os.getenv('MOLA','UNKNOWN')
-        if MOLA_PATH == 'UNKNOWN':
-            print(FAIL+'ERROR: MOLA ENVIRONMENT VARIABLE DOES NOT EXIST')
-            return
-
-        ALL_MOLAS_DIR = os.path.sep+os.path.join(*MOLA_PATH.split(os.path.sep)[:-1])+os.path.sep
+        ALL_MOLAS_DIR = os.path.sep+os.path.join(*__MOLA_PATH__.split(os.path.sep)[:-1])+os.path.sep
         ALL_MOLAS_VER = [v.replace(ALL_MOLAS_DIR,'') for v in glob.glob(os.path.join(ALL_MOLAS_DIR,'*'))]
         v = {}
         for ver in ALL_MOLAS_VER:
