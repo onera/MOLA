@@ -151,8 +151,32 @@ elif [ "$MAC" = "ld" ]; then
     EL8=`uname -r|grep el8`
     if [ "$EL8" ]; then
         echo 'loading MOLA environment for CentOS 8'
-        source /stck/elsa/Public/v5.0.04dev/Dist/bin/local-os8_mpi/.env_elsA # TODO adapt this once #10587 fixed
+        export ELSAVERSION=UNAVAILABLE # TODO adapt this once #10587 fixed
+        # source /stck/elsa/Public/v5.0.04dev/Dist/bin/local-os8_mpi/.env_elsA # TODO adapt this once #10587 fixed
         module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+
+        module unload intel/19.0.5
+        module unload impi/19.0.5
+        #module load oce/7.5.0-gnu831
+        module load occt/7.6.1-gnu831
+        module load python/3.6.1-gnu831
+        # Set next two lines only if python is not python
+        export PYTHONEXE=python3
+        export PYTHONVR=3.6
+        alias python=python3
+        module load intel/21.2.0
+        #module load impi/21.2.0
+        module load hdf5/1.8.17-intel2120
+
+        # VPM
+        export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/${MAC}8
+        export PATH=$VPMPATH:$PATH
+        export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
+        export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
+        export LD_LIBRARY_PATH=/stck/benoit/opencascade/lib:$LD_LIBRARY_PATH
+        export PYTHONPATH=$VPMPATH:$PYTHONPATH
+        export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
+
     else
         echo 'loading MOLA environment for CentOS 7'
         source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
