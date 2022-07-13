@@ -19,7 +19,7 @@ toc = tic() # auxiliary variable used to log the script execution time
 
 
 # these variables are used for splitting purposes
-NProcs = None # if None, then it is automatically determined
+NumberOfProcessors = None # if None, then it is automatically determined
 ProcPointsLoad = 250000
 
 # in an Overset context, it is useful to define a global variable
@@ -357,7 +357,7 @@ PRE.setBoundaryConditions(t, InputMeshes)
 # distribution is mandatory. If you only want to distribute and NOT SPLIT,
 # then set the key SplitBlocks=False to the dictionaries of InputMeshes.
 t = PRE.splitAndDistribute(t, InputMeshes,
-                           NProcs=NProcs,
+                           NumberOfProcessors=NumberOfProcessors,
                            ProcPointsLoad=ProcPointsLoad)
 
 

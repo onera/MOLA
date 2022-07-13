@@ -384,6 +384,8 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
     # Sections = map(lambda s: D.line((0,0,0),(1,0,0),NPts),range(Ns)) # Invoke all sections
 
     Sections = [D.line((0,0,0),(1,0,0),NPts) for isec in range(Ns)] # Invoke all sections
+    Spine = D.line((0,0,0),(1,0,0),Ns)
+    SpineX, SpineY, SpineZ = J.getxyz(Spine)
 
     # Make the interpolation matrices based upon the PROVIDED sections
     GeomParam = 'Airfoil'
@@ -531,7 +533,7 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
 
         if AvoidAirfoilModification:
             ModSection = I.copyTree(CurrentSection)
-            T._translate(ModSection,(-0.25,0,0))
+            T._translate(ModSection,(-ChordRelRef,0,0))
             T._homothety(ModSection,(0,0,0), Params['Chord'])
             AirfoilProperties = dict(Chord=Params['Chord'],
                                      ScalingCenter = np.array([0.,0.,0.]))
@@ -582,38 +584,50 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
 
     # STEP 5: Apply the Sweep using a Translation along tangent.
     #         This is an optional step.
-    if 'Sweep' in kwargs:
-        GeomParam = 'Sweep'
-        DistributionResult[GeomParam] = J.interpolate__(RelWingSpan,
-                                            kwargs[GeomParam]['RelativeSpan'],
-                                            kwargs[GeomParam][GeomParam],
-                                            Law=kwargs[GeomParam]['InterpolationLaw'])
+    GeomParam = 'Sweep'
+    if not GeomParam in kwargs:
+        kwargs[GeomParam] = {}
+        kwargs[GeomParam]['RelativeSpan'] = [0,1]
+        kwargs[GeomParam][GeomParam] = [0,0]
+        kwargs[GeomParam]['InterpolationLaw'] = 'interp1d_linear'
 
-        for j in range(Ns):
-            Section = Sections[j]
-            # In absolute value:
-            SweepDispl= DistributionResult['Sweep'][j]
-            # In degrees:
-            # SweepDispl= s[j] * np.tan( DistributionResult['Sweep'][j] * np.pi / 180.)
-            T._translate(Section,(SweepDispl,0,0))
+    DistributionResult[GeomParam] = J.interpolate__(RelWingSpan,
+                                        kwargs[GeomParam]['RelativeSpan'],
+                                        kwargs[GeomParam][GeomParam],
+                                        Law=kwargs[GeomParam]['InterpolationLaw'])
+
+    for j in range(Ns):
+        Section = Sections[j]
+        # In absolute value:
+        SweepDispl= DistributionResult['Sweep'][j]
+        # In degrees:
+        # SweepDispl= s[j] * np.tan( DistributionResult['Sweep'][j] * np.pi / 180.)
+        T._translate(Section,(SweepDispl,0,0))
+        SpineX[j] = SweepDispl
 
     # STEP 6: Apply the Dihedral using a Translation along
     #         tangent. This is an optional step.
-    if 'Dihedral' in kwargs:
-        GeomParam = 'Dihedral'
-        # DistributionResult[GeomParam] = applyInterpolationFunction__(GeomParam,kwargs)
-        DistributionResult[GeomParam] = J.interpolate__(RelWingSpan,
-                                            kwargs[GeomParam]['RelativeSpan'],
-                                            kwargs[GeomParam][GeomParam],
-                                            Law=kwargs[GeomParam]['InterpolationLaw'])
+    GeomParam = 'Dihedral'
+    if not GeomParam in kwargs:
+        kwargs[GeomParam] = {}
+        kwargs[GeomParam]['RelativeSpan'] = [0,1]
+        kwargs[GeomParam][GeomParam] = [0,0]
+        kwargs[GeomParam]['InterpolationLaw'] = 'interp1d_linear'
 
-        for j in range(Ns):
-            Section       = Sections[j]
-            # In absolute value:
-            DihedralDispl = DistributionResult['Dihedral'][j]
-            # In Degrees:
-            # DihedralDispl = s[j] * np.tan( DistributionResult['Dihedral'][j] * np.pi / 180.)
-            T._translate(Section,(0,DihedralDispl,0))
+
+    DistributionResult[GeomParam] = J.interpolate__(RelWingSpan,
+                                        kwargs[GeomParam]['RelativeSpan'],
+                                        kwargs[GeomParam][GeomParam],
+                                        Law=kwargs[GeomParam]['InterpolationLaw'])
+
+    for j in range(Ns):
+        Section       = Sections[j]
+        # In absolute value:
+        DihedralDispl = DistributionResult['Dihedral'][j]
+        # In Degrees:
+        # DihedralDispl = s[j] * np.tan( DistributionResult['Dihedral'][j] * np.pi / 180.)
+        T._translate(Section,(0,DihedralDispl,0))
+        SpineY[j] = DihedralDispl
 
 
     # STEP 7: Put sections along span. This is a mandatory step.
@@ -621,6 +635,11 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
         Section = Sections[j]
         SecZ = J.getz(Section)
         SecZ[:] = -WingSpan[j]
+        SpineZ[j] = -WingSpan[j]
+
+    DistributionResult['SpineX'] = SpineX
+    DistributionResult['SpineY'] = SpineY
+    DistributionResult['SpineZ'] = SpineZ
 
     Wing = stackSections(Sections) # TODO replace with G.stack
     Wing[0] = 'wing'
@@ -1511,7 +1530,8 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
     BladeLineFields = J.invokeFieldsDict(BladeLine, Fields2StoreInLine)
     BladeLineX, BladeLineY, BladeLineZ = J.getxyz(BladeLine)
 
-    W.addDistanceRespectToLine(Blade, RotationCenter, RotationAxis, 'Span')
+    Eqn = W.computePlaneEquation(RotationCenter, BladeDirection)
+    C._initVars(Blade, 'Span='+Eqn)
     MaximumSpan = C.getMaxValue(Blade,'Span')
 
     Sections = []
@@ -1722,7 +1742,6 @@ def magnetize(zones, magneticzones, tol=1e-10):
 
             NPtsMagZone = len(mx)
             PointsArray = np.arange(NPtsMagZone)
-            # Points = map(lambda i: (mx[i],my[i],mz[i]) , range(NPtsMagZone))
             Points = [(mx[i],my[i],mz[i]) for i in range(NPtsMagZone)]
 
 
@@ -1769,9 +1788,9 @@ def prepareGlue(zones,gluezones,tol=1e-10):
             specify the location where the zones will be glued.
 
     '''
-    for zone in zones:
+    for zone in I.getZones(zones):
         glueElements = -1
-        for magzone in gluezones:
+        for magzone in I.getZones(gluezones):
             mx,my,mz = J.getxyz(magzone)
             mx = mx.ravel(order='K')
             my = my.ravel(order='K')
@@ -1779,14 +1798,9 @@ def prepareGlue(zones,gluezones,tol=1e-10):
 
             NPtsMagZone = len(mx)
             PointsArray = np.arange(NPtsMagZone)
-            # Points = map(lambda i: (mx[i],my[i],mz[i]) , range(NPtsMagZone))
             Points = [(mx[i],my[i],mz[i]) for i in range(NPtsMagZone)]
 
             Ind_Dist = D.getNearestPointIndex(zone,Points)
-
-            # IndCand  = np.array(map(lambda i: i[0], Ind_Dist),order='F')
-            # DistCand = np.sqrt(np.array(map(lambda i: i[1], Ind_Dist),order='F'))
-
             IndCand  = np.array([i[0] for i in Ind_Dist],order='F')
             DistCand = np.sqrt(np.array([i[1] for i in Ind_Dist],order='F'))
 
@@ -1827,7 +1841,7 @@ def applyGlue(zones, gluezones):
             specify the location where the zones will be glued.
     """
 
-    for zone in zones:
+    for zone in I.getZones(zones):
         x,y,z = J.getxyz(zone)
         x = x.ravel(order='K')
         y = y.ravel(order='K')
@@ -1837,7 +1851,7 @@ def applyGlue(zones, gluezones):
         if not glueDataNode: continue
         for gluePoints in glueDataNode[2]:
             gluezoneName = I.getValue(gluePoints)
-            gluezone = [gz for gz in gluezones if gz[0]==gluezoneName][0]
+            gluezone = [gz for gz in I.getZones(gluezones) if gz[0]==gluezoneName][0]
             mx,my,mz = J.getxyz(gluezone)
             mx = mx.ravel(order='K')
             my = my.ravel(order='K')
@@ -1895,13 +1909,14 @@ def surfacesIntersection(surface1, surface2):
             unstructured curve BAR of the intersection
     '''
 
-    # Make surfaces mono-block unstructured
-    Surf1TRI = C.convertArray2Tetra(surface1)
-    Surf1TRI = T.join(I.getZones(surface1))
-    Surf2TRI = C.convertArray2Tetra(surface2)
-    Surf2TRI = T.join(I.getZones(surface2))
+    t = C.newPyTree(['Base',[surface1, surface2]])
 
-    import Intersector.PyTree as XOR
+    I._rmNodesByType(t,'FlowSolution_t')
+
+    Surf1TRI = C.convertArray2Tetra(surface1)
+    Surf1TRI = T.join(I.getZones(Surf1TRI))
+    Surf2TRI = C.convertArray2Tetra(surface2)
+    Surf2TRI = T.join(I.getZones(Surf2TRI))
 
     conformed = XOR.conformUnstr(Surf1TRI, Surf2TRI, left_or_right=2, itermax=1)
     Manifold  = T.splitManifold(conformed)
@@ -2187,7 +2202,7 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
             ::
 
                 options = dict(
-                NProc=28,                        # Number of blocs for split
+                NumberOfProcessors=28,                        # Number of blocs for split
 
                 DenseSamplingNPts = 5000,         # Number of points for sampling
                                                   # geometrical entities during
@@ -2267,7 +2282,7 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
     cells.update(Cells) # User-provided values
 
     opts = dict(  # Default values
-    NProc=28,
+    NumberOfProcessors=28,
     DenseSamplingNPts = 5000,
     LEsearchAbscissas = [0.35, 0.65],
     LEsearchEpsilon   = 1.e-8,
@@ -2972,11 +2987,11 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
 
 
     # Splitting and distribution
-    if opts['NProc'] > 1:
+    if opts['NumberOfProcessors'] > 1:
         I._rmNodesByType(t,'ZoneGridConnectivity_t')
 
         # Perform Splitting and distribution
-        t = T.splitNParts(t, opts['NProc'], multigrid=0, dirs=[1,2], recoverBC=True)
+        t = T.splitNParts(t, opts['NumberOfProcessors'], multigrid=0, dirs=[1,2], recoverBC=True)
 
         # Re-Connect the resulting blocks
         t = X.connectMatch(t, dim=2, tol=1e-10)
@@ -2984,7 +2999,7 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
         # Force check multiply-defined zone names
         t = I.correctPyTree(t,level=3)
         silence = J.OutputGrabber()
-        with silence: t,stats=D2.distribute(t, opts['NProc'], useCom=0)
+        with silence: t,stats=D2.distribute(t, opts['NumberOfProcessors'], useCom=0)
 
         # Check if all procs have at least one block assigned
         zones = I.getZones(t)
@@ -3277,7 +3292,7 @@ def makeH(boundaries, inner_contour, inner_cell_size=0.1,
           outter_cell_size=0.1, number_of_points_union=21,
           inner_normal_tension=0.5, outter_normal_tension=0.5,
           projection_support=None, global_projection_relaxation=0.,
-          local_projection_relaxation_abscissa=0.):
+          local_projection_relaxation_length=0.,forced_split_index=None):
     '''
     Build an H-mesh surface from four structured curves as exterior boundary and
     an single structure curve as interior contour.
@@ -3343,8 +3358,8 @@ def makeH(boundaries, inner_contour, inner_cell_size=0.1,
         surfaces : :py:class:`list` of zone
             list of four (4) structured surfaces that constitute the H-grid.
     '''
-
-    outter_boundaries, inner_boundaries = W.splitInnerContourFromOutterBoundariesTopology(boundaries, inner_contour)
+    outter_boundaries, inner_boundaries,_ = W.splitInnerContourFromOutterBoundariesTopology(
+                                boundaries, inner_contour,forced_split_index)
 
     if len(outter_boundaries) != len(inner_boundaries):
         raise ValueError(J.FAIL+'number of curves in outter_boundaries must be the same as inner_boundaries'+J.ENDC)
@@ -3364,9 +3379,10 @@ def makeH(boundaries, inner_contour, inner_cell_size=0.1,
 
         if global_projection_relaxation == 1:
             return I.copyRef(original)
-
+        lr = local_projection_relaxation_length
         relaxed = I.copyTree( original )
         s = W.gets( relaxed )
+        L = D.getLength( relaxed )
         x, y, z = J.getxyz( relaxed )
         xo, yo, zo = J.getxyz( original )
         xp, yp, zp = J.getxyz( projected )
@@ -3378,10 +3394,8 @@ def makeH(boundaries, inner_contour, inner_cell_size=0.1,
         not_matching = d > 1e-10
         v = np.vstack((OPx, OPy, OPz))
         v[:,not_matching] /= d[not_matching]
-        if local_projection_relaxation_abscissa == 0:
-            local_relax = 1.
-        else:
-            local_relax = np.minimum(np.maximum(s/local_projection_relaxation_abscissa,0), 1.)
+        local_relax = np.interp(s,[0,lr/L],[0,1])
+        # local_relax[local_relax<1] = np.sqrt(local_relax[local_relax<1])
         relaxation = d*local_relax*(1-global_projection_relaxation)
         x[:] = xo + v[0,:] * relaxation
         y[:] = yo + v[1,:] * relaxation
@@ -3462,3 +3476,70 @@ def allHaveNormals(t):
             if i is None:
                 return False
     return has_normals
+
+def _alignNormalsWithRadialCylindricProjection(t, rotation_center, rotation_axis):
+    alignmentTol=1.0-1.e-10
+    c = np.array(rotation_center,dtype=np.float)
+    a = np.array(rotation_axis,dtype=np.float)
+    q = c + a
+    qc = c - q
+    for zone in I.getZones(t):
+        x,y,z = J.getxyz(zone)
+        sx,sy,sz = J.getVars(zone,['sx','sy','sz'])
+        x = x.ravel(order='F')
+        y = y.ravel(order='F')
+        z = z.ravel(order='F')
+        sx = sx.ravel(order='F')
+        sy = sy.ravel(order='F')
+        sz = sz.ravel(order='F')
+        for i in range( len(x) ):
+            p = np.array([x[i],y[i],z[i]],dtype=float)
+            v = np.array([sx[i],sy[i],sz[i]],dtype=float)
+            v_norm = np.sqrt(v.dot(v))
+            qp = p - q
+            qp /= np.sqrt(qp.dot(qp))
+            alignment = np.abs(qp.dot(a))
+            if alignment >= alignmentTol: continue
+            n = np.cross(qc,qp)
+            b = np.cross(n,v)
+            t = np.cross(b,n)
+            t /= np.sqrt(t.dot(t))
+            t *= v_norm
+            sx[i] = t[0]
+            sy[i] = t[1]
+            sz[i] = t[2]
+
+
+def _hasMatchingFace(contour_struct, faces):
+    for f in faces:
+        for c in contour_struct:
+            if C.getNPts(c) != C.getNPts(f): continue
+            if W.isSubzone(f, c): return True
+    return False
+
+def selectConnectingSurface(surfaces, candidates, mode='first'):
+    contours = [P.exteriorFacesStructured(s) for s in surfaces]
+
+    returned_surfaces = []
+    for candidate in candidates:
+        exterior_faces = P.exteriorFacesStructured( candidate )
+        for contour in contours:
+            match = True
+            if not _hasMatchingFace(contour, exterior_faces):
+                match = False
+                break
+        if match:
+            if mode == 'first':
+                return candidate
+            elif mode == 'all':
+                returned_surfaces += [ candidate ]
+            else:
+                raise ValueError('mode %s not recognized'%mode)
+
+    if not returned_surfaces:
+        t = C.newPyTree(['SURFACES',surfaces,
+                         'CANDIDATES',candidates])
+        C.convertPyTree2File(t,'debug.cgns')
+        raise ValueError('no matching surfaces. Check debug.cgns.')
+
+    return returned_surfaces

@@ -6,28 +6,28 @@ shopt -s expand_aliases
 
 ###############################################################################
 # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
-export MOLA=/stck/mbalmase/MOLA/WFORASDev
+export MOLA=/stck/lbernard/MOLA/Dev
 export TREELAB=/stck/lbernard/TreeLab/dev
 export EXTPYLIB=$MOLA/ExternalPythonPackages
-export MOLASATOR=/tmp_user/sator/mbalmase/soft/MOLA/WFORASDev
+export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
 export TREELABSATOR=/tmp_user/sator/lbernard/TreeLab/dev
 export EXTPYLIBSATOR=$MOLASATOR/ExternalPythonPackages
 export PUMAVERSION=r337
 # Turbo, be careful, only valid for eos:
 #export PYTHONPATH=/home/jmarty/TOOLS/turbo/install/v1.1/env_elsA_v5.0.02/eos-intel_mpi/lib/python2.7/site-packages/:$PYTHONPATH
-
 ###############################################################################
 
 
 export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
 export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net
 
+export ELSAVERSION=v5.1.01
+export ELSA_VERBOSE_LEVEL=0 # see ticket #9689
 export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # See ticket 7849
 export FORT_BUFFERED=true
 export MPI_GROUP_MAX=8192
 export MPI_COMM_MAX=8192
-export ELSAVERSION=v5.0.04
 export ELSA_NOLOG=ON
 export PYTHONUNBUFFERED=true # ticket 9685
 
@@ -53,27 +53,31 @@ MAC0=$(echo $KC | grep 'spiro'); if [ "$MAC0" != "" ]; then export MAC="spiro"; 
 
 
 if { [ "$MAC" = "sator" ] && [ -n "$SLURM_CPUS_ON_NODE" ]; } ; then
-    if [ $(nproc) == 48 ] ; then
+    if [ $(nproc) == 48 ] || [ $(nproc) == 44 ] ; then
         export MAC="sator-new"
     fi
 fi
 
 
 if [ "$MAC" = "spiro" ]; then
-    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro_mpi/.env_elsA
-    export PYTHONPATH=$EXTPYLIB/lib/python2.7/site-packages/:$PYTHONPATH
+    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro3_mpi/.env_elsA
+    export PYTHONPATH=$EXTPYLIB/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIB/bin:$PATH
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
-    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro
-    export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
-    export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages/PUMA:$PYTHONPATH
-    export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
+    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro3
+    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
+    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH
+    export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+
+    alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
+    alias python='python3'
+    source ~/.bashrc
 
 
 elif [ "$MAC" = "visio" ]; then
-    export ELSAVERSION=v5.0.03 # TODO adapt this once #9666 fixed
+    export ELSAVERSION=v5.0.03 # TODO adapt this once #9666 #10587 fixed
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/centos6_mpi/.env_elsA
     export PYTHONPATH=$EXTPYLIB/lib/python2.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIB/bin:$PATH
@@ -89,7 +93,7 @@ elif [ "$MAC" = "ld" ]; then
     EL8=`uname -r|grep el8`
     if [ "$EL8" ]; then
         echo 'loading MOLA environment for CentOS 8'
-        source /stck/elsa/Public/${ELSAVERSION}dev/Dist/bin/local-os8/.env_elsA
+        source /stck/elsa/Public/v5.0.04dev/Dist/bin/local-os8_mpi/.env_elsA # TODO adapt this once #10587 fixed
         module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
     else
         echo 'loading MOLA environment for CentOS 7'
@@ -101,7 +105,7 @@ elif [ "$MAC" = "ld" ]; then
     alias python='python3'
 
 elif [ "$MAC" = "sator" ]; then
-    source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator/.env_elsA
+    source /tmp_user/sator/elsa/Public/v5.0.04/Dist/bin/sator/.env_elsA # TODO adapt this once #10587 fixed
     export MOLA=$MOLASATOR
     export TREELAB=$TREELABSATOR
     export PYTHONPATH=$EXTPYLIBSATOR/lib/python2.7/site-packages/:$PYTHONPATH

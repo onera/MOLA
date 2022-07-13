@@ -8,9 +8,11 @@ It implements a collection of routines for preprocessing of CFD simulations
 
 import sys
 import os
+import shutil
 import pprint
 import numpy as np
 from itertools import product
+import copy
 
 import Converter.PyTree as C
 import Converter.Internal as I
@@ -119,7 +121,7 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
                 The user shall employ function :py:func:`prepareMainCGNS4ElsA`
                 as next step
     '''
-    
+
     t = getMeshesAssembled(InputMeshes)
     I._fixNGon(t) # Needed for an unstructured mesh
     transform(t, InputMeshes)
@@ -132,7 +134,6 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
     J.checkEmptyBC(t)
 
     return t
-
 
 def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
         NumericalParams={}, Extractions=[{'type':'AllBCWall'}],
@@ -203,7 +204,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
                 sets the processor at which the bodyforce component
                 is associated for Lifting-Line operations.
 
-                .. note:: **proc** must be :math:`\in (0, \mathrm{NProc}-1)`
+                .. note:: **proc** must be :math:`\in (0, \mathrm{NumberOfProcessors}-1)`
 
             * FILE_LiftingLine : :py:class:`str`
                 path to the LiftingLine CGNS file to
@@ -346,14 +347,16 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
     ReferenceValues = computeReferenceValues(FluidProperties,
                                              **ReferenceValuesParams)
 
-    NProc = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
-    ReferenceValues['NProc'] = int(NProc)
-    ReferenceValuesParams['NProc'] = int(NProc)
+    NumberOfProcessors = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
+    ReferenceValues['NumberOfProcessors'] = int(NumberOfProcessors)
+    ReferenceValuesParams['NumberOfProcessors'] = int(NumberOfProcessors)
     elsAkeysCFD      = getElsAkeysCFD(unstructured=IsUnstructured)
-    elsAkeysModel    = getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=IsUnstructured)
+    elsAkeysModel    = getElsAkeysModel(FluidProperties, ReferenceValues,
+                                        unstructured=IsUnstructured)
     if useBCOverlap: NumericalParams['useChimera'] = True
     if BodyForceInputData: NumericalParams['useBodyForce'] = True
-    elsAkeysNumerics = getElsAkeysNumerics(ReferenceValues, unstructured=IsUnstructured, **NumericalParams)
+    elsAkeysNumerics = getElsAkeysNumerics(ReferenceValues,
+                                unstructured=IsUnstructured, **NumericalParams)
 
     AllSetupDics = dict(FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
@@ -370,9 +373,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
 
 
     print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
-                                               ReferenceValues['NProc'],J.ENDC))
-
-
+                                               ReferenceValues['NumberOfProcessors'],J.ENDC))
 
 def getMeshesAssembled(InputMeshes):
     '''
@@ -420,7 +421,6 @@ def getMeshesAssembled(InputMeshes):
     t = I.correctPyTree(t, level=3)
 
     return t
-
 
 def transform(t, InputMeshes):
     '''
@@ -479,7 +479,6 @@ def transform(t, InputMeshes):
             for center, axis, ang in meshInfo['Transform']['rotate']:
                 T._rotate(base, center, axis, ang)
     T._makeDirect(t)
-
 
 def connectMesh(t, InputMeshes):
     '''
@@ -587,7 +586,6 @@ def connectMesh(t, InputMeshes):
                 raise AttributeError(ERRMSG)
     return t
 
-
 def setBoundaryConditions(t, InputMeshes):
     '''
     This function is used for setting the boundary-conditions (including
@@ -678,7 +676,10 @@ def setBoundaryConditions(t, InputMeshes):
 
     '''
     print('setting boundary conditions...')
+<<<<<<< HEAD
     
+=======
+>>>>>>> 54ca0e898acb252391e8bfe373f5f20d2a56410b
     for meshInfo in InputMeshes:
         if 'BoundaryConditions' not in meshInfo: continue
         print('setting BC at base '+meshInfo['baseName'])
@@ -733,7 +734,6 @@ def setBoundaryConditions(t, InputMeshes):
             baseDim = I.getValue(base)[-1]
             C._fillEmptyBCWith(base,FillEmptyBC['name'],BCinfo['type'],dim=baseDim)
 
-
 def getWindowTagsAtPlane(zone, planeTag='planeXZ', tolerance=1e-8):
     '''
     Returns the windows keywords of a structured zone that entirely lies (within
@@ -786,7 +786,6 @@ def getWindowTagsAtPlane(zone, planeTag='planeXZ', tolerance=1e-8):
 
     return WindowTagsAtPlane
 
-
 def addFamilies(t, InputMeshes, tagZonesWithBaseName=True):
     '''
     This function is used to set all required CGNS nodes involving families of
@@ -832,14 +831,12 @@ def addFamilies(t, InputMeshes, tagZonesWithBaseName=True):
 
     groupUserDefinedBCFamiliesByName(t)
 
-
-
 def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                        minimum_number_of_nodes=1,
                        maximum_allowed_nodes=20,
-                       maximum_number_of_points_per_node=7e6,
+                       maximum_number_of_points_per_node=1e9,
                        only_consider_full_node_nproc=True,
-                       NProcs=None, SplitDirections = [1,2,3]):
+                       NumberOfProcessors=None):
     '''
     Distribute a PyTree **t**, with optional splitting.
 
@@ -865,12 +862,12 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                 the constraints given by **maximum_allowed_nodes** and
                 **maximum_number_of_points_per_node**
 
-                .. note:: **NProcs** is ignored if **mode** = ``'auto'``, as it
+                .. note:: **NumberOfProcessors** is ignored if **mode** = ``'auto'``, as it
                     is automatically computed by the function. The resulting
-                    **NProcs** is a multiple of **cores_per_node**
+                    **NumberOfProcessors** is a multiple of **cores_per_node**
 
             * ``'imposed'``
-                the number of processors is imposed using parameter **NProcs**.
+                the number of processors is imposed using parameter **NumberOfProcessors**.
 
                 .. note:: **cores_per_node** and **maximum_allowed_nodes**
                     parameters are ignored.
@@ -882,7 +879,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
 
         minimum_number_of_nodes : int
             Establishes the minimum number of nodes for the automatic research of
-            **NProcs**.
+            **NumberOfProcessors**.
 
             .. note:: only relevant if **mode** = ``'auto'``
 
@@ -900,16 +897,16 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
             does not satisfy this condition.
 
         only_consider_full_node_nproc : bool
-            if :py:bool:`True` and **mode** = ``'auto'``, then the number of
+            if :py:obj:`True` and **mode** = ``'auto'``, then the number of
             processors considered for the optimum search distribution is a
             multiple of **cores_per_node**, in order to employ each node at its
-            full capacity. If :py:bool:`False`, then any processor number from
+            full capacity. If :py:obj:`False`, then any processor number from
             **cores_per_node** up to **cores_per_node** :math:`\\times` **maximum_allowed_nodes**
             is explored
 
             .. note:: only relevant if **mode** = ``'auto'``
 
-        NProcs : int
+        NumberOfProcessors : int
             number of processors to be imposed when **mode** = ``'imposed'``
 
             .. attention:: if **mode** = ``'auto'``, this parameter is ignored
@@ -925,8 +922,8 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
 
     TotalNPts = C.getNPts(t)
 
-    if NProcs is not None and NProcs > 0 and mode =='auto':
-        print(J.WARN+'User requested NProcs=%d, switching to mode=="imposed"'%NProcs+J.ENDC)
+    if NumberOfProcessors is not None and NumberOfProcessors > 0 and mode =='auto':
+        print(J.WARN+'User requested NumberOfProcessors=%d, switching to mode=="imposed"'%NumberOfProcessors+J.ENDC)
         mode = 'imposed'
 
 
@@ -937,7 +934,11 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                                          maximum_allowed_nodes*cores_per_node+1,
                                          cores_per_node)))
         else:
-            NProcCandidates = np.array(list(range(cores_per_node*minimum_number_of_nodes,
+            if minimum_number_of_nodes == maximum_allowed_nodes == 1:
+                startNProc = 1
+            else:
+                startNProc = cores_per_node*minimum_number_of_nodes
+            NProcCandidates = np.array(list(range(startNProc,
                                        maximum_allowed_nodes*cores_per_node+1)))
 
         EstimatedAverageNodeLoad = TotalNPts / (NProcCandidates / cores_per_node)
@@ -947,38 +948,32 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
             raise ValueError(('maximum_number_of_points_per_node is too likely to be exceeded.\n'
                               'Try increasing maximum_allowed_nodes and/or maximum_number_of_points_per_node'))
 
-        AllNZones = []
-        AllVarMax = []
-        AllAvgPts = []
-        AllMaxPtsPerNode = []
-        for NProcs in NProcCandidates:
-            _, NZones, varMax, meanPtsPerProc, MaxPtsPerNode = _splitAndDistributeUsingNProcs(t,
-                InputMeshes, NProcs, cores_per_node, maximum_number_of_points_per_node,
-                raise_error=False)
-            AllNZones.append( NZones )
-            AllVarMax.append( varMax )
-            AllAvgPts.append( meanPtsPerProc )
-            AllMaxPtsPerNode.append( MaxPtsPerNode )
-
-        BestOption = np.argmin( AllVarMax )
-
-        Title = '    NProcs        NZones    %-imbalance  mean_pts/proc  '
+        Title = '    NumberOfProcessors        NZones    %-imbalance  mean_pts/proc  '
         Ncol = len(Title)
         print('\n'+Title)
         print('-'*Ncol)
         Ndigs = int(Ncol/4)
         ColFmt = r'{:^'+str(Ndigs)+'g}'
 
-        for i, NProcs in enumerate(NProcCandidates):
-            if i == BestOption and AllNZones[i] > 0:
-                start = J.GREEN
-                end = '  <== BEST'+J.ENDC
-            elif AllNZones[i] == 0:
+        AllNZones = []
+        AllVarMax = []
+        AllAvgPts = []
+        AllMaxPtsPerNode = []
+        for i, NumberOfProcessors in enumerate(NProcCandidates):
+            _, NZones, varMax, meanPtsPerProc, MaxPtsPerNode = _splitAndDistributeUsingNProcs(t,
+                InputMeshes, NumberOfProcessors, cores_per_node, maximum_number_of_points_per_node,
+                raise_error=False)
+            AllNZones.append( NZones )
+            AllVarMax.append( varMax )
+            AllAvgPts.append( meanPtsPerProc )
+            AllMaxPtsPerNode.append( MaxPtsPerNode )
+
+            if AllNZones[i] == 0:
                 start = J.FAIL
                 end = '  <== EXCEEDED nb. pts. per node with %d'%AllMaxPtsPerNode[i]+J.ENDC
             else:
                 start = end = ''
-            Line = start + ColFmt.format(NProcs)
+            Line = start + ColFmt.format(NumberOfProcessors)
             if AllNZones[i] == 0:
                 Line += end
             else:
@@ -988,6 +983,19 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
 
             print(Line)
 
+        BestOption = np.argmin( AllVarMax )
+
+        for i, NumberOfProcessors in enumerate(NProcCandidates):
+            if i == BestOption and AllNZones[i] > 0:
+                start = J.GREEN
+                end = '  <== BEST'+J.ENDC
+                Line = start + ColFmt.format(NumberOfProcessors)
+                Line += ColFmt.format(AllNZones[i])
+                Line += ColFmt.format(AllVarMax[i] * 100)
+                Line += ColFmt.format(AllAvgPts[i]) + end
+                print(Line)
+                break
+
         tRef = _splitAndDistributeUsingNProcs(t, InputMeshes, NProcCandidates[BestOption],
                 cores_per_node, maximum_number_of_points_per_node, raise_error=True)[0]
 
@@ -996,8 +1004,8 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
 
     elif mode == 'imposed':
 
-        tRef = _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
-                                 maximum_number_of_points_per_node, raise_error=True, SplitDirections = SplitDirections)[0]
+        tRef = _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per_node,
+                                 maximum_number_of_points_per_node, raise_error=True)[0]
 
         I._correctPyTree(tRef,level=3)
         tRef = connectMesh(tRef, InputMeshes)
@@ -1007,17 +1015,17 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
 
     return tRef
 
-def _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
-                         maximum_number_of_points_per_node, raise_error=False, SplitDirections = [1,2,3]):
+def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per_node,
+                         maximum_number_of_points_per_node, raise_error=False):
 
-    if DEBUG: print('attempting distribution for NProcs= %d ...'%NProcs)
+    if DEBUG: print('attempting distribution for NumberOfProcessors= %d ...'%NumberOfProcessors)
 
     tRef = I.copyRef(t)
     TotalNPts = C.getNPts(tRef)
-    ProcPointsLoad = TotalNPts / NProcs
+    ProcPointsLoad = TotalNPts / NumberOfProcessors
     basesToSplit, basesBackground = getBasesBasedOnSplitPolicy(tRef, InputMeshes)
 
-    remainingNProcs = NProcs * 1
+    remainingNProcs = NumberOfProcessors * 1
     baseName2NProc = dict()
 
     for base in basesBackground:
@@ -1032,37 +1040,64 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
         tToSplit = I.merge([C.newPyTree([b[0],I.getZones(b)]) for b in basesToSplit])
 
         removeMatchAndNearMatch(tToSplit)
+        tSplit = T.splitSize(tToSplit, 0, type=0, R=remainingNProcs,
+                             minPtsPerDir=5)
+        NbOfZonesAfterSplit = len(I.getZones(tSplit))
+        HasDegeneratedZones = False
+        if NbOfZonesAfterSplit < remainingNProcs:
+            MSG = 'WARNING: nb of zones after split (%d) is less than expected procs (%d)'%(NbOfZonesAfterSplit, remainingNProcs)
+            MSG += '\nattempting T.splitNParts()...'
+            print(J.WARN+MSG+J.ENDC)
+            tSplit = T.splitNParts(tToSplit, remainingNProcs)
+            splitZones = I.getZones(tSplit)
+            if len(splitZones) < remainingNProcs:
+                MSG = ('could not split sufficiently. Try manually splitting '
+                       'mesh and set SplitBlocks=False')
+                raise ValueError(J.FAIL+MSG+J.ENDC)
+            for zone in splitZones:
+                zoneDims = I.getZoneDim(zone)
+                if zoneDims[0] == 'Structured':
+                    dims = zoneDims[1:-1]
+                    for NPts, dir in zip(dims, ['i', 'j', 'k']):
+                        if NPts < 5:
+                            if NPts < 3:
+                                MSG = J.FAIL+'ERROR: zone %s has %d pts in %s direction'%(zone[0],NPts,dir)+J.ENDC
+                                HasDegeneratedZones = True
+                            else:
+                                MSG = J.WARN+'WARNING: zone %s has %d pts in %s direction'%(zone[0],NPts,dir)+J.ENDC
+                            print(MSG)
 
-        tToSplit = T.splitSize(tToSplit, 0, dirs = SplitDirections, type=0, R=remainingNProcs, minPtsPerDir=3)
+        if HasDegeneratedZones:
+            raise ValueError(J.FAIL+'grid has degenerated zones. See previous print error messages'+J.ENDC)
 
-        for splitbase in I.getBases(tToSplit):
+        for splitbase in I.getBases(tSplit):
             basename = splitbase[0]
             base = I.getNodeFromName2(tRef, basename)
             if not base: raise ValueError('unexpected !')
             I._rmNodesByType(base, 'Zone_t')
             base[2].extend( I.getZones(splitbase) )
 
-        tRef = I.merge([tRef,tToSplit])
+        tRef = I.merge([tRef,tSplit])
 
         NZones = len( I.getZones( tRef ) )
-        if NProcs > NZones:
+        if NumberOfProcessors > NZones:
             if raise_error:
                 MSG = ('Requested number of procs ({}) is higher than the final number of zones ({}).\n'
                        'You may try the following:\n'
                        ' - Reduce the number of procs\n'
-                       ' - increase the number of grid points').format( NProcs, NZones)
+                       ' - increase the number of grid points').format( NumberOfProcessors, NZones)
                 raise ValueError(J.FAIL+MSG+J.ENDC)
             else:
                 return tRef, 0, 1, 9e10, 9e10
 
     NZones = len( I.getZones( tRef ) )
-    if NProcs > NZones:
+    if NumberOfProcessors > NZones:
         if raise_error:
             MSG = ('Requested number of procs ({}) is higher than the final number of zones ({}).\n'
                    'You may try the following:\n'
                    ' - set SplitBlocks=True to more grid components\n'
                    ' - Reduce the number of procs\n'
-                   ' - increase the number of grid points').format( NProcs, NZones)
+                   ' - increase the number of grid points').format( NumberOfProcessors, NZones)
             raise ValueError(J.FAIL+MSG+J.ENDC)
         else:
             return tRef, 0, 1, 9e10, 9e10
@@ -1070,12 +1105,12 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
     # NOTE see Cassiopee BUG #8244 -> need algorithm='fast'
     silence = J.OutputGrabber()
     with silence:
-        tRef, stats = D2.distribute(tRef, NProcs, algorithm='fast', useCom='all')
+        tRef, stats = D2.distribute(tRef, NumberOfProcessors, algorithm='fast', useCom='all')
 
     behavior = 'raise' if raise_error else 'silent'
 
-    if hasAnyEmptyProc(tRef, NProcs, behavior=behavior):
-        return tRef, 0, 1, 9e10, 9e10
+    if hasAnyEmptyProc(tRef, NumberOfProcessors, behavior=behavior):
+        return tRef, 0, 1, np.inf, np.inf
 
     HighestLoad = getNbOfPointsOfHighestLoadedNode(tRef, maximum_number_of_points_per_node,
                                                      cores_per_node)
@@ -1084,7 +1119,7 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NProcs, cores_per_node,
         if raise_error:
             raise ValueError('exceeded maximum_number_of_points_per_node (%d>%d)'%(HighestLoad,
                                                 maximum_number_of_points_per_node))
-        return tRef, 0, 1, 9e10, HighestLoad
+        return tRef, 0, 1, np.inf, HighestLoad
 
     return tRef, NZones, stats['varMax'], stats['meanPtsPerProc'], HighestLoad
 
@@ -1115,9 +1150,7 @@ def _isMaximumNbOfPtsPerNodeExceeded(t, maximum_number_of_points_per_node, cores
         if NPtsPerNode[node] > maximum_number_of_points_per_node: return True
     return False
 
-
-
-def hasAnyEmptyProc(t, NProcs, behavior='raise', debug_filename=''):
+def hasAnyEmptyProc(t, NumberOfProcessors, behavior='raise', debug_filename=''):
     '''
     Check the proc distribution of a tree and raise an error (or print message)
     if there are any empty proc.
@@ -1128,7 +1161,7 @@ def hasAnyEmptyProc(t, NProcs, behavior='raise', debug_filename=''):
         t : PyTree
             tree with node ``.Solver#Param/proc``
 
-        NProcs : int
+        NumberOfProcessors : int
             initially requested number of processors for distribution
 
         behavior : str
@@ -1155,7 +1188,7 @@ def hasAnyEmptyProc(t, NProcs, behavior='raise', debug_filename=''):
             :py:obj:`True` if any processor has no attributed zones
     '''
     Proc2Zones = dict()
-    UnaffectedProcs = list(range(NProcs))
+    UnaffectedProcs = list(range(NumberOfProcessors))
 
     for z in I.getZones(t):
         proc = int(D2.getProc(z))
@@ -1188,11 +1221,6 @@ def hasAnyEmptyProc(t, NProcs, behavior='raise', debug_filename=''):
         hasAnyEmptyProc = False
 
     return hasAnyEmptyProc
-
-
-
-
-
 
 def getBasesBasedOnSplitPolicy(t,InputMeshes):
     '''
@@ -1232,7 +1260,6 @@ def getBasesBasedOnSplitPolicy(t,InputMeshes):
             basesNotToSplit += [base]
 
     return basesToSplit, basesNotToSplit
-
 
 def showStatisticsAndCheckDistribution(tNew, CoresPerNode=28):
     '''
@@ -1289,10 +1316,11 @@ def showStatisticsAndCheckDistribution(tNew, CoresPerNode=28):
         if p not in ProcDistributed:
             raise ValueError('Bad proc distribution! rank %d is empty'%p)
 
-
 def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
                    prioritiesIfOptimize=[], double_wall=0,
-                   saveMaskBodiesTree=True):
+                   saveMaskBodiesTree=True,
+                   overset_in_CGNS=False # see elsA #10545
+                   ):
     '''
     This function performs all required preprocessing operations for a STATIC
     overlapping configuration. This includes masks production, setting
@@ -1458,10 +1486,17 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
     t = X.maximizeBlankedCells(t, depth=depth)
 
     print('Computing interpolation coefficients...')
-    DIRECTORY_OVERSET = 'OVERSET'
-    try: os.makedirs(DIRECTORY_OVERSET)
-    except: pass
-    prefixFile = '' # os.path.join(DIRECTORY_OVERSET,'OvstData')
+
+    if overset_in_CGNS:
+        prefixFile = ''
+    else:
+        DIRECTORY_OVERSET = 'OVERSET'
+        try: os.makedirs(DIRECTORY_OVERSET)
+        except: pass
+        prefixFile = os.path.join(DIRECTORY_OVERSET,'overset')
+
+    t = X.cellN2OversetHoles(t)
+
     t = X.setInterpolations(t, loc='cell', sameBase=0, double_wall=double_wall,
                             storage='inverse', solver='elsA', check=True,
                             nGhostCells=2, prefixFile=prefixFile)
@@ -1474,10 +1509,11 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
             CriticalPoints = C.newPyTree([diagnosisType, I.getZones(CriticalPoints)])
             C.convertPyTree2File(CriticalPoints, diagnosisType+'.cgns')
 
-    t = X.cellN2OversetHoles(t)
+
+    if not overset_in_CGNS:
+        I._rmNodesByName(t,'ID_*')
 
     return t
-
 
 def getBlankingMatrix(bodies, InputMeshes):
     '''
@@ -1558,7 +1594,6 @@ def getBlankingMatrix(bodies, InputMeshes):
     print(BlankingMatrix)
 
     return BlankingMatrix
-
 
 def getMaskingBodiesAsDict(t, InputMeshes):
     '''
@@ -1661,7 +1696,6 @@ def getMaskingBodiesAsDict(t, InputMeshes):
         else: print('no overlap found at %s'%basename)
     return baseName2BodiesDict
 
-
 def getWalls(t, SuffixTag=None):
     '''
     Get closed watertight surfaces from walls (defined using ``BCWall*``)
@@ -1689,7 +1723,6 @@ def getWalls(t, SuffixTag=None):
                                              imposeNormalsOrientation='inwards',
                                              SuffixTag=SuffixTag)
     return walls
-
 
 def getOverlapMaskByExtrusion(t, SuffixTag=None, OffsetDistanceOfOverlapMask=0.,
                               MatchTolerance=1e-8,
@@ -1770,7 +1803,6 @@ def getOverlapMaskByExtrusion(t, SuffixTag=None, OffsetDistanceOfOverlapMask=0.,
 
     return mask
 
-
 def getOverlapMaskByCellsOffset(base, SuffixTag=None, NCellsOffset=2,
                                    MatchTolerance=1e-8):
     '''
@@ -1821,8 +1853,6 @@ def getOverlapMaskByCellsOffset(base, SuffixTag=None, NCellsOffset=2,
 
     return mask
 
-
-
 def applyOffset2ClosedMask(mask, offset, niter=None):
     '''
     .. warning:: this is a **private-level** function.
@@ -1865,7 +1895,6 @@ def applyOffset2ClosedMask(mask, offset, niter=None):
     NewClosedMask = removeSingularitiesOnMask(mask)
 
     return NewClosedMask
-
 
 def applyOffset2OpenMask(mask, offset, support, niter=None):
     '''
@@ -1924,7 +1953,6 @@ def applyOffset2OpenMask(mask, offset, support, niter=None):
 
     return NewClosedMask
 
-
 def removeSingularitiesOnMask(mask):
     '''
     Remove geometrical singularities that may have arised after the negative
@@ -1977,7 +2005,6 @@ def removeSingularitiesOnMask(mask):
     NewClosedMask = buildWatertightBodyFromSurfaces(LargeSurfaces)
 
     return NewClosedMask
-
 
 def buildWatertightBodyFromSurfaces(walls, imposeNormalsOrientation='inwards'):
     '''
@@ -2067,7 +2094,6 @@ def buildWatertightBodiesFromSurfaces(walls, imposeNormalsOrientation='inwards',
 
     return bodies
 
-
 def removeMatchAndNearMatch(t):
     '''
     Remove ``GridConnectivity1to1_t`` and ``Abbuting`` type of connectivity.
@@ -2082,7 +2108,6 @@ def removeMatchAndNearMatch(t):
     for GridConnectivityNode in I.getNodesFromType(t, 'GridConnectivity_t'):
         if I.getNodesFromValue(GridConnectivityNode, 'Abbuting'):
             I.rmNode(t, GridConnectivityNode)
-
 
 def computeFluidProperties(Gamma=1.4, IdealGasConstant=287.053, Prandtl=0.72,
         PrandtlTurbulence=0.9, SutherlandConstant=110.4,
@@ -2138,7 +2163,6 @@ def computeFluidProperties(Gamma=1.4, IdealGasConstant=287.053, Prandtl=0.72,
     )
 
     return FluidProperties
-
 
 def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         Velocity=0.0, VelocityUsedForScalingAndTurbulence=None,
@@ -2494,7 +2518,6 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
 
     return ReferenceValues
 
-
 def getElsAkeysCFD(config='3d', unstructured=False, **kwargs):
     '''
     Create a dictionary of pairs of elsA keyword/values to be employed as
@@ -2529,7 +2552,6 @@ def getElsAkeysCFD(config='3d', unstructured=False, **kwargs):
 
     elsAkeysCFD.update(kwargs)
     return elsAkeysCFD
-
 
 def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwargs):
     '''
@@ -2599,7 +2621,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 20.,
         k_prod_compute = 'from_sij',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'SST-2003':
@@ -2610,7 +2632,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 10.,
         k_prod_compute = 'from_sij',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'SST-V2003':
@@ -2621,7 +2643,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 10.,
         k_prod_compute = 'from_vorticity',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'SST':
@@ -2632,7 +2654,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 20.,
         k_prod_compute = 'from_sij',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'SST-V':
@@ -2643,7 +2665,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 20.,
         k_prod_compute = 'from_vorticity',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'BSL':
@@ -2653,7 +2675,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 20.,
         k_prod_compute = 'from_sij',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'BSL-V':
@@ -2663,7 +2685,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 20.,
         k_prod_compute = 'from_vorticity',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
             )
 
     elif TurbulenceModel == 'smith':
@@ -2680,7 +2702,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 10.,
         k_prod_compute = 'from_sij',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
         trans_mod      = 'menter',
             )
 
@@ -2692,7 +2714,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_limiter = 10.,
         k_prod_compute = 'from_sij',
         zhenglim       = 'inactive',
-        omega_prolong  = 'infinit_extrap',
+        omega_prolong  = 'linear_extrap',
         trans_mod      = 'menter',
             )
 
@@ -2779,7 +2801,6 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
 
     return elsAkeysModel
 
-
 def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         TimeMarching='steady', inititer=1, niter=30000,
         CFLparams=dict(vali=1.,valf=10.,iteri=1,iterf=1000,function_type='linear'),
@@ -2854,7 +2875,18 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         cutoff_eint        = 0.005,
         artviscosity       = 'dismrt',
         av_mrt             = 0.3,
+        # av_border          = 'dif0null', # default elsA is 'dif0null', but JCB, JM, LC use 'current'
+        # av_formul          = 'new',  # default elsA is 'new', but JCB, JM, LC use 'current'
         )
+        if not unstructured:
+            addKeys.update(dict(
+                artviscosity       = 'dismrt',
+                av_mrt             = 0.3,
+            ))
+        else:
+            # Martinelli correction not available for unstructured grids
+            addKeys['artviscosity'] = 'dissca'
+
     elif NumericalScheme == 'ausm+':
         addKeys = dict(
         flux               = 'ausmplus_pmiles',
@@ -2934,12 +2966,16 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
                        chm_interp_depth=2,
                        chm_interpcoef_frozen='active', # TODO: make conditional
                        chm_conn_io='read', # NOTE ticket 8259
-
-                       # # Overset by external files: (should not be used)
-                       # chm_ovlp_minimize='inactive',
-                       # chm_preproc_method='mask_based',
-                       # chm_conn_fprefix=DIRECTORY_OVERSET+'/OvstData',
                        )
+        if os.path.exists('OVERSET'):
+            addKeys.update(dict(
+                        # Overset by external files
+                        chm_impl_interp='none',
+                        chm_ovlp_minimize='inactive',
+                        chm_ovlp_thickness=2,
+                        chm_preproc_method='mask_based',
+                        chm_conn_fprefix=DIRECTORY_OVERSET+'/overset'))
+
 
     addKeys.update(dict(
     multigrid     = 'none',
@@ -2970,7 +3006,6 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     elsAkeysNumerics.update(kwargs)
 
     return elsAkeysNumerics
-
 
 def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
                      FULL_CGNS_MODE=False,  extractCoords=True, BCExtractions={}):
@@ -3037,12 +3072,11 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
                              AllSetupDictionaries['elsAkeysModel'],
                              AllSetupDictionaries['elsAkeysNumerics']])
 
-    AllSetupDictionaries['ReferenceValues']['NProc'] = int(max(getProc(t))+1)
+    AllSetupDictionaries['ReferenceValues']['NumberOfProcessors'] = int(max(getProc(t))+1)
 
     writeSetup(AllSetupDictionaries)
 
     return t
-
 
 def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
                                MainCGNSFilename='main.cgns',
@@ -3122,7 +3156,6 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
         C.convertPyTree2File(to, os.path.join(DIRECTORY_OUTPUT, FieldsFilename))
     C.convertPyTree2File(t, MainCGNSFilename, links=AllCGNSLinks)
 
-
 def addTrigger(t, coprocessFilename='coprocess.py'):
     '''
     Add ``.Solver#Trigger`` node to all zones.
@@ -3148,7 +3181,6 @@ def addTrigger(t, coprocessFilename='coprocess.py'):
                  next_state=16,
                  next_iteration=1,
                  file=coprocessFilename)
-
 
 def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
         BCExtractions={}):
@@ -3190,7 +3222,6 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
     addFieldExtractions(t, ReferenceValues, extractCoords=extractCoords)
     EP._addGlobalConvergenceHistory(t)
 
-
 def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     '''
     Include surfacic extraction information to CGNS tree using information
@@ -3220,11 +3251,10 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
             convention).
 
             By default, the following variables are extracted for *BCWall*:
-            ['normalvector', 'frictionvector', 'psta', 'bl_quantities_2d',
-            'yplusmeshsize', 'flux_rou', 'flux_rov', 'flux_row', 'torque_rou',
+            ['normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz',
+            'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue',
+            'flux_rou', 'flux_rov', 'flux_row', 'torque_rou',
             'torque_rov', 'torque_row'].
-
-            .. danger:: currently, ``bl_ue`` cannot be extracted: https://elsa.onera.fr/issues/10360
 
             These default values are updated with **BCExtractions**.
 
@@ -3232,8 +3262,10 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
 
 
     DefaultBCExtractions = dict(
-        BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize',
-            # 'bl_ue', # TODO BUG for bl_ue extraction https://elsa.onera.fr/issues/10360
+        BCWall = [
+            'normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz',
+            'psta', 'bl_quantities_2d', 'yplusmeshsize',
+            'bl_ue', # see #10360
             'flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
     )
     # TODO notify bug for torque_origin in CGNS mode
@@ -3248,7 +3280,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
         fluxcoeff     = 1.0,
         force_extract = 1,
         writingframe  = 'absolute',
-        # geomdepdom = 2 # TODO test this: https://elsa.onera.fr/issues/8127#note-26
+        geomdepdom = 2 # see #8127#note-26
     )
 
     # Keys to write in the .Solver#Output for wall Families
@@ -3275,6 +3307,10 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
             if not BCType: continue
 
             if ExtractBCType in BCType:
+                if ExtractBCType != BCType and BCType in DefaultBCExtractions:
+                    # There is a more specific ExtractBCType
+                    continue
+
                 if 'BCWall' in BCType:
 
                     for zone in I.getZones(t):
@@ -3311,7 +3347,6 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
                     else:
                         BCKeys.update(varDict)
                         J.set(FamilyNode, '.Solver#Output',**BCKeys)
-
 
 def addFieldExtractions(t, ReferenceValues, extractCoords=False):
     '''
@@ -3416,7 +3451,6 @@ def addAverageFieldExtractions(t, ReferenceValues, firstIterationForAverage=1):
               period_init=firstIterationForAverage,  #First iteration to consider to compute time average
                )
 
-
 def addGoverningEquations(t, dim=3):
     '''
     Add the nodes corresponding to `newFlowEquationSet_t`
@@ -3440,7 +3474,6 @@ def addGoverningEquations(t, dim=3):
         I.newGoverningEquations(value='NSTurbulent',parent=FES_n)
         I.createNode('EquationDimension', 'EquationDimension_t',
                       value=dim, parent=FES_n)
-
 
 def addElsAKeys2CGNS(t, AllElsAKeys):
     '''
@@ -3599,6 +3632,7 @@ def initializeFlowSolutionFromFileByInterpolation(t, ReferenceValues, sourceFile
     I._rmNodesByNameAndType(sourceTree, '*EndOfRun*', 'FlowSolution_t')
     P._extractMesh(sourceTree, t, mode='accurate', extrapOrder=0)
     if container != 'FlowSolution#Init':
+        I._rmNodesByName(t, 'FlowSolution#Init')
         I.renameNode(t, container, 'FlowSolution#Init')
     I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
 
@@ -3639,7 +3673,7 @@ def initializeFlowSolutionFromFileByCopy(t, ReferenceValues, sourceFilename,
     sourceTree = C.convertFile2PyTree(sourceFilename)
     OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
     I.__FlowSolutionCenters__ = container
-    varNames = ReferenceValues['Fields']
+    varNames = copy.deepcopy(ReferenceValues['Fields'])
     if keepTurbulentDistance:
         varNames += ['TurbulentDistance', 'TurbulentDistanceIndex']
 
@@ -3693,7 +3727,6 @@ def writeSetup(AllSetupDictionaries, setupFilename='setup.py'):
     try: os.remove(setupFilename+'c')
     except: pass
 
-
 def writeSetupFromModuleObject(setup, setupFilename='setup.py'):
     '''
     Write ``setup.py`` file using "setup" module object as got from an import
@@ -3724,8 +3757,6 @@ def writeSetupFromModuleObject(setup, setupFilename='setup.py'):
 
     try: os.remove(setupFilename+'c')
     except: pass
-
-
 
 def addReferenceState(t, FluidProperties, ReferenceValues):
     '''
@@ -3770,7 +3801,6 @@ def addReferenceState(t, FluidProperties, ReferenceValues):
          RefState,
          type1='ReferenceState_t',
          type2='DataArray_t')
-
 
 def removeEmptyOversetData(t, silent=True):
     '''
@@ -3824,7 +3854,6 @@ def removeEmptyOversetData(t, silent=True):
                     #     STR = J.WARN, zone[0], OversetNode[0], J.ENDC
                     #     print('%szone %s removing empty overset %s node%s'%STR)
                     I.rmNode(t, OversetNode)
-
 
 def getFlowDirections(AngleOfAttackDeg, AngleOfSlipDeg, YawAxis, PitchAxis):
     '''
@@ -3931,7 +3960,6 @@ def getFlowDirections(AngleOfAttackDeg, AngleOfSlipDeg, YawAxis, PitchAxis):
 
     return DragDirection, SideDirection, LiftDirection
 
-
 def getMeshInfoFromBaseName(baseName, InputMeshes):
     '''
     .. note:: this is a private-level function.
@@ -3958,7 +3986,6 @@ def getMeshInfoFromBaseName(baseName, InputMeshes):
     for meshInfo in InputMeshes:
         if meshInfo['baseName'] == baseName:
             return meshInfo
-
 
 def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
     '''
@@ -4002,7 +4029,6 @@ def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
 
     return BCType
 
-
 def hasBCOverlap(t):
     '''
     Determines whether the input tree **t** employs Overlap boundary-conditions
@@ -4027,7 +4053,6 @@ def hasBCOverlap(t):
 
     return hasSolverOverlap
 
-
 def groupUserDefinedBCFamiliesByName(t):
     '''
     It is an extension of ``Converter.PyTree.groupBCByBCType``.
@@ -4050,7 +4075,6 @@ def groupUserDefinedBCFamiliesByName(t):
                 BCType = getFamilyBCTypeFromFamilyBCName(b, FamilyName)
                 if BCType == 'BCOverlap': continue
                 I._groupBCByBCType(b, btype=BCType, name=FamilyName)
-
 
 def adapt2elsA(t, InputMeshes):
     '''
@@ -4106,7 +4130,6 @@ def hasAnyNearMatch(InputMeshes):
 
     return False
 
-
 def hasAnyPeriodicMatch(InputMeshes):
     '''
     Determine if at least one item in **InputMeshes** has a connectivity of
@@ -4134,7 +4157,6 @@ def hasAnyPeriodicMatch(InputMeshes):
             if isPeriodicMatch: return True
 
     return False
-
 
 def hasAnyOversetData(InputMeshes):
     '''
@@ -4372,7 +4394,6 @@ def autoMergeBCsUnstructured(t, familyNames=None):
             for BC in BCs: I.rmNode(zoneBC, BC)
             I.addChild(zoneBC, newBC)
 
-
 def checkFamiliesInZonesAndBC(t):
     '''
     Check that each zone and each BC is attached to a family (so there must be
@@ -4473,7 +4494,6 @@ def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
 
     DTW._distance2Walls(t, walls)
     EP._addTurbulentDistanceIndex(t)
-
 
 def convert2Unstructured(t, merge=True, tol=1e-6):
     '''

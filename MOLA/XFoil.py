@@ -484,6 +484,7 @@ def computePolars(airfoilFilename, Reynolds, Mach, AoAs, Ncr=9,
 
                         for ivar in range(len(PolarVariables)):
                             Results[PolarVariables[ivar]] += [data[jAoA,ivar]]
+                            
 
                         if storeFoilVariables:
                             CpFilename = stdin_fn.replace('stdin','Cp_Re%g_M%g_AoA%g'%(ReVec[icomp-1],MVec[icomp-1],data[jAoA,0]))

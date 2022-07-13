@@ -98,7 +98,7 @@ def checkDependencies():
     plt.show()
 
 
-def buildJob(case, config, NProc, jobTemplate):
+def buildJob(case, config, NumberOfProcessors, jobTemplate):
     '''
     Produce a computation job file.
 
@@ -111,7 +111,7 @@ def buildJob(case, config, NProc, jobTemplate):
         config : module
             import of ``JobsConfiguration.py``
 
-        NProc : int
+        NumberOfProcessors : int
             number of procs of the job
 
             .. danger:: must be coherent with the ``main.cgns`` distribution
@@ -129,7 +129,7 @@ def buildJob(case, config, NProc, jobTemplate):
 
     JobText = JobText.replace('<JobName>', case['JobName'])
     JobText = JobText.replace('<AERnumber>', config.AER)
-    JobText = JobText.replace('<NProcs>', str(NProc))
+    JobText = JobText.replace('<NumberOfProcessors>', str(NumberOfProcessors))
     JobText = JobText.split('mpirun ')[0]
 
     # Add source to /etc/bashrc
@@ -153,7 +153,7 @@ def buildJob(case, config, NProc, jobTemplate):
     os.chmod(JobFile, 0o777)
 
 def saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,
-                           FILE_GEOMETRY=None, NProc=None):
+                           FILE_GEOMETRY=None, NumberOfProcessors=None):
     '''
     Generate the file ``JobsConfiguration.py`` from provided user-data.
 
@@ -195,7 +195,7 @@ def saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,
         FILE_GEOMETRY : :py:class:`str` or :py:obj:`None`
             location where geometry is located. Not written if :py:obj:`None`
 
-        NProc : int
+        NumberOfProcessors : int
             Number of processors
 
     Returns
@@ -216,8 +216,8 @@ def saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,
     Lines+=['DIRECTORY_WORK="'+DIRECTORY_WORK+'"\n']
     if FILE_GEOMETRY:
         Lines+=['FILE_GEOMETRY="'+FILE_GEOMETRY+'"\n']
-    if NProc:
-        Lines+=['NProc="'+str(NProc)+'"\n']
+    if NumberOfProcessors:
+        Lines+=['NumberOfProcessors="'+str(NumberOfProcessors)+'"\n']
     Lines+=['machine="'+machine+'"\n']
     Lines+=['AER="'+AER+'"\n\n']
     Lines+=['JobsQueues='+pprint.pformat(JobsQueues)+'\n']
@@ -342,7 +342,7 @@ def launchJobsConfiguration(
         JobText = JobText.replace('<JobName>', 'dispatcher')
         JobText = JobText.replace('<AERnumber>', config.AER)
         JobText = JobText.replace('#SBATCH -t 0-15:00', '#SBATCH -t 0-0:30')
-        JobText = JobText.replace('<NProcs>', '1')
+        JobText = JobText.replace('<NumberOfProcessors>', '1')
         JobText = JobText.split('mpirun ')[0]
 
         with open(JobFile,'w+') as f:

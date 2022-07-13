@@ -10,7 +10,6 @@ SAVE_FIELDS       = CO.getSignal('SAVE_FIELDS')
 SAVE_ARRAYS       = CO.getSignal('SAVE_ARRAYS')
 SAVE_BODYFORCE    = CO.getSignal('SAVE_BODYFORCE')
 SAVE_ALL          = CO.getSignal('SAVE_ALL')
-COMPUTE_BODYFORCE = CO.getSignal('COMPUTE_BODYFORCE')
 
 if SAVE_ALL:
     SAVE_SURFACES  = True
@@ -26,18 +25,11 @@ if CO.getSignal('RELOAD_SETUP'):
     inititer = setup.elsAkeysNumerics['inititer']
     itmax    = inititer+niter-1 # BEWARE last iteration accessible trigger-state-16
 
-    try: BodyForceInputData = setup.BodyForceInputData
-    except: BodyForceInputData = None
-
-    if BodyForceInputData:
-        LocalBodyForceInputData = LL.getLocalBodyForceInputData(BodyForceInputData)
-        LL.invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData)
-        NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NumberOfProcessors)
-
 
 UpdateFieldsFrequency     = CO.getOption('UpdateFieldsFrequency', default=1e3)
 UpdateArraysFrequency     = CO.getOption('UpdateArraysFrequency', default=20)
 UpdateSurfacesFrequency   = CO.getOption('UpdateSurfacesFrequency', default=500)
+UpdateCWIPICouplingFrequency = CO.getOption('UpdateCWIPICouplingFrequency', default=None)
 BodyForceSaveFrequency    = CO.getOption('BodyForceSaveFrequency', default=500)
 BodyForceComputeFrequency = CO.getOption('BodyForceComputeFrequency', default=500)
 BodyForceInitialIteration = CO.getOption('BodyForceInitialIteration', default=1000)
@@ -66,21 +58,15 @@ if not SAVE_SURFACES:
 if not SAVE_ARRAYS:
     SAVE_ARRAYS = all([it%UpdateArraysFrequency == 0, it>inititer])
 
-if not SAVE_BODYFORCE:
-    SAVE_BODYFORCE = all([ BodyForceInputData,
-                          it  % BodyForceSaveFrequency == 0,
-                          it>inititer])
-
-if BodyForceInputData and not COMPUTE_BODYFORCE:
-    if it >= BodyForceInitialIteration:
-        COMPUTE_BODYFORCE = any([it%BodyForceComputeFrequency == 0,
-                                 not BODYFORCE_INITIATED])
+CWIPY_COUPLING = all([UpdateCWIPICouplingFrequency,
+                      it%UpdateCWIPICouplingFrequency == 0,
+                      it>inititer])
 
 ElapsedTime = timeit.default_timer() - LaunchTime
 ReachedTimeOutMargin = CO.hasReachedTimeOutMargin(ElapsedTime, TimeOut,
                                                             MarginBeforeTimeOut)
-anySignal = any([SAVE_ARRAYS, SAVE_SURFACES, SAVE_BODYFORCE, COMPUTE_BODYFORCE,
-                 SAVE_FIELDS, CONVERGED, it>=itmax])
+anySignal = any([SAVE_ARRAYS, SAVE_SURFACES, SAVE_FIELDS, CWIPY_COUPLING,
+                CONVERGED, it>=itmax])
 ENTER_COUPLING = anySignal or ReachedTimeOutMargin
 
 if ENTER_COUPLING:
@@ -98,6 +84,13 @@ if ENTER_COUPLING:
 
         if (it-inititer)>ItersMinEvenIfConverged and not CONVERGED:
             CONVERGED = CO.isConverged(ConvergenceCriteria)
+
+    if CWIPY_COUPLING:
+        toWithUpdatedBC, CWIPIdata = WAT.cwipiCoupling(t, pyC2Connections, setup, it)
+        arraysTree = WAT.appendCWIPIDict2Arrays(arrays, CWIPIdata, it, RequestedStatistics)
+        SAVE_ARRAYS = True
+        CO.printCo('updating BCs in elsA...', proc=0)
+        elsAxdt.xdt(elsAxdt.PYTHON,(elsAxdt.RUNTIME_TREE, toWithUpdatedBC, 1))
 
     if SAVE_ARRAYS:
         arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,

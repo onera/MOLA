@@ -954,7 +954,6 @@ def discretize(curve, N=None, Distribution=None, MappingLaw='Generator.map'):
         curve_Distri = linelaw(P2=(curve_Length,0,0), N=N,
                         Distribution=Distribution)
 
-
     if MappingLaw == 'Generator.map':
         return G.map(curve,D.getDistribution(curve_Distri))
     else:
@@ -1521,7 +1520,7 @@ def isSubzone(subzone,zone,tol=1.e-10):
             zone where **subzone** may be contained
 
         tol : float
-            tolerance squared distance used for determining result of function
+            tolerance distance used for determining result of function
 
     Returns
     -------
@@ -1544,7 +1543,7 @@ def isSubzone(subzone,zone,tol=1.e-10):
     # TODO optimize this
     Res = D.getNearestPointIndex(zone,SubzonePoints)
     sqdist = np.array([i[1] for i in Res])
-    if np.any(sqdist>tol): return False
+    if np.any(sqdist>np.sqrt(tol)): return False
 
     return True
 
@@ -1821,114 +1820,6 @@ def projectCurve2SurfDirectional(Curve,Surface,DirX,DirY,DirZ,oriented=False):
 
     return ProjectedCurve
 
-
-def getCamberOptim(Airfoil,CamberDistribution=None,LeadingEdgeCmin=0.5,method='hybr',options=None):
-    '''
-    .. danger:: THIS FUNCTION IS BEING DEPRECATED AND MUST BE REPLACED
-        BY :py:func:`buildCamber`
-    '''
-
-    WRNMSG = ('WARNING: getCamberOptim() will be deprecated.\n'
-              'Please use buildCamber() instead.')
-    print(WRNMSG)
-
-    # Find Leading Edge based on curvature
-    iLE, Top, Bottom = findLeadingEdgeAndSplit(Airfoil,LeadingEdgeCmin)
-    # Top    = discretize(Top,N=100)    # Densify Top Side
-    # Bottom = discretize(Bottom,N=100) # Densify Bottom Side
-    T._reorder(Top,(-1,2,3))
-    Chord = np.maximum(getChord(Top),getChord(Bottom))
-    TopX, TopY       = J.getxy(Top)
-    BottomX, BottomY = J.getxy(Bottom)
-
-    TopTri = C.convertArray2Tetra(G.stack([Top,T.translate(Top,(0,0,1))]))
-    BottomTri = C.convertArray2Tetra(G.stack([Bottom,T.translate(Bottom,(0,0,1))]))
-
-    # TODO: Externalize these parameters
-    CamberLineLengthLE = 0.02
-    CamberLineInitNPts = 20 # A high value of this may slow-down computation
-
-
-    TopApprox    = discretize(Top,CamberLineInitNPts)
-    BottomApprox = discretize(Bottom,CamberLineInitNPts)
-    TopApproxX, TopApproxY = J.getxy(TopApprox)
-    BotApproxX, BotApproxY = J.getxy(BottomApprox)
-    PointsApprox = []
-    for i in range(0,len(TopApproxX)):
-        Pt1 = (0.5*(TopApproxX[i]+BotApproxX[i]),0.5*(TopApproxY[i]+BotApproxY[i]),0)
-        PointsApprox += [D.point(Pt1)]
-    # CamberLineInit = D.polyline(map(lambda p: J.getxyz(p) ,PointsApprox))
-    CamberLineInit = D.polyline([J.getxyz(p) for p in PointsApprox])
-
-    # Re-discretize CamberLineInit
-    CamberInitDistribution = dict(N=CamberLineInitNPts,
-                            # kind='tanhOneSide',
-                            # FirstCellHeight=CamberLineLengthLE*Chord,
-                            BreakPoint=1.)
-    CamberLineInit = polyDiscretize(CamberLineInit,[CamberInitDistribution])
-
-
-    CamberInitX, CamberInitY = J.getxy(CamberLineInit)
-    CamberLine = I.copyTree(CamberLineInit)
-    CamberX, CamberY = J.getxy(CamberLine)
-
-    def _updateDistancesDeltas__():
-        TangentCamber = D.getTangent(CamberLine)
-        # tX, tY, tZ = J.getxyz(TangentCamber)
-        tX = I.getNodeFromName2(TangentCamber,'CoordinateX')[1]
-        tY = I.getNodeFromName2(TangentCamber,'CoordinateY')[1]
-        tZ = I.getNodeFromName2(TangentCamber,'CoordinateZ')[1]
-
-        Distances2Top    = distancesCurve2SurfDirectional(CamberLine,TopTri,tY,-tX,tX*0)
-        Distances2Bottom = distancesCurve2SurfDirectional(CamberLine,BottomTri,tY,-tX,tX*0)
-
-        DistancesDeltas  = Distances2Top-Distances2Bottom
-        return DistancesDeltas[1:-1]
-
-    def _modifyCamberLine__(DeltaYvector):
-        CamberY[1:-1] = CamberInitY[1:-1] + DeltaYvector
-        DistancesDeltas = _updateDistancesDeltas__()
-        return DistancesDeltas
-
-    TangentCamber = D.getTangent(CamberLine)
-    tX, tY, tZ = J.getxyz(TangentCamber)
-    Distances2Top    = distancesCurve2SurfDirectional(CamberLine,TopTri,tY,-tX,tX*0)
-
-    DeltaYvector0 = Distances2Top[1:-1]*0.1
-
-    sol = scipy.optimize.root(_modifyCamberLine__,DeltaYvector0,method=method,options=options)
-    # print (sol)
-    if not sol.success:
-        print ("Warning: CamberLine search did not converge. Check if output is satisfactory.")
-
-
-    # Re-discretize CamberLine
-    if CamberDistribution is None:
-        CamberDistribution = dict(N=51,
-                            kind='tanhOneSide',
-                            FirstCellHeight=0.0001*Chord,
-                            BreakPoint=1.)
-        CamberDistribution = dict(N=200,
-                            kind='trigonometric',
-                            parameter=2,
-                            BreakPoint=1.)
-    elif 'BreakPoint' not in CamberDistribution:
-        CamberDistribution['BreakPoint'] = 1.
-
-
-    CamberLine = polyDiscretize(CamberLine,[CamberDistribution])
-
-    # Store distance
-    TangentCamber = D.getTangent(CamberLine)
-    tX, tY, tZ = J.getxyz(TangentCamber)
-    e, = J.invokeFields(CamberLine,['RelativeThickness'])
-    Distances2Top    = distancesCurve2SurfDirectional(CamberLine,TopTri,tY,-tX,tX*0)
-    Distances2Bottom = distancesCurve2SurfDirectional(CamberLine,BottomTri,tY,-tX,tX*0)
-    e[:] = Distances2Top+Distances2Bottom # Does not look like; but this is an average ;-)
-    e[-1] = np.sqrt((TopX[-1]-BottomX[-1])**2 + (TopY[-1]-BottomY[-1])**2) / Chord
-
-
-    return CamberLine
 
 def buildAirfoilFromCamberLine(CamberLine, NormalDirection=None,
                                TopDistribution=None, BottomDistribution=None):
@@ -2445,19 +2336,19 @@ def distances(zone1, zone2):
 
     return AverageDistance, MinimumDistance, MaximumDistance
 
-def pointwiseDistances(curve1, curve2):
+def pointwiseDistances(first_curves, second_curves):
     '''
-    compute the pointwise (using same point index) distances between two curves
-    of exact same number of points
+    compute the pointwise (using same point index) distances between two set of
+    curves of exact same number of points
 
     Parameters
     ----------
 
-        curve1 : zone
-            zone with same points as **curve2** and equvalent indexing
+        first_curves : tree, base, zone, list of zone
+            set of zones with exact same total point number as **second_curves**
 
-        curve2 : zone
-            zone with same points as **curve1** and equvalent indexing
+        second_curves : tree, base, zone, list of zone
+            set of zones with exact same total point number as **first_curves**
 
     Returns
     -------
@@ -2471,6 +2362,12 @@ def pointwiseDistances(curve1, curve2):
         AverageDistance : float
             average distance between points of same indexing
     '''
+    curves1 = I.copyRef( I.getZones( first_curves ) )
+    curves2 = I.copyRef( I.getZones( second_curves ) )
+    I._rmNodesByType(curves1+curves2, 'FlowSolution_t')
+    curve1 = concatenate( curves1 )
+    curve2 = concatenate( curves2 )
+
     x1, y1, z1 = J.getxyz( curve1 )
     x2, y2, z2 = J.getxyz( curve2 )
 
@@ -2483,7 +2380,7 @@ def pointwiseDistances(curve1, curve2):
 
     NPts = len(x1)
     if NPts != len(x2):
-        raise ValueError(J.FAIL+'zones must have same number of points'+J.ENDC)
+        raise ValueError(J.FAIL+'both arguments must have same number of points'+J.ENDC)
 
     d = np.sqrt([(x2[i]-x1[i])**2 + (y2[i]-y1[i])**2 + (z2[i]-z1[i])**2 for i in range(NPts)])
 
@@ -4835,18 +4732,19 @@ def reorderAndSortCurvesSequentially(curves):
     return sortCurvesSequentially(reorderCurvesSequentially(curves))
 
 
-def splitInnerContourFromOutterBoundariesTopology(boundaries, inner_contour):
+def splitInnerContourFromOutterBoundariesTopology(boundaries, inner_contour,
+        forced_split_index=None):
     '''
-    From a closed boundary formed by 4 structured curves, conveniently splits
-    another structured curve such that each boundary has a corresponding
+    From a closed boundary formed by a set of structured curves, conveniently
+    splits another structured curve such that each boundary has a corresponding
     inner contour subpart with equal number of segments. This is useful as an
     intermediate step for H-shape meshing topologies.
 
     Parameters
     ----------
 
-        boundaries : :py:class:`list` of 4 zones
-            List of 4 structured curves defining the outter boundaries.
+        boundaries : :py:class:`list` of zones
+            List of structured curves defining the outter boundaries.
 
             .. warning::
                 total number of segments of **boundaries** and **inner_contour**
@@ -4854,6 +4752,9 @@ def splitInnerContourFromOutterBoundariesTopology(boundaries, inner_contour):
 
         inner_contour : zone
             structured curve to be split
+
+        forced_split_index : int
+            forces split of **inner_contour** at given index
 
     Return
     ------
@@ -4865,9 +4766,11 @@ def splitInnerContourFromOutterBoundariesTopology(boundaries, inner_contour):
             **inner_contour** split in 4 parts with identical number of
             segments between each subpart and the boundaries, yielding same
             index ordering and position in list
+
+        reference_split_index : int
+            first index used for splitting
     '''
-    if len(boundaries) != 4:
-        raise ValueError(J.FAIL+'boundaries must be composed of 4 curves'+J.ENDC)
+    N_bnds = len(boundaries)
 
     inner_contour_NPts = C.getNPts(inner_contour)
     N_segments_inner = inner_contour_NPts - 1
@@ -4878,6 +4781,31 @@ def splitInnerContourFromOutterBoundariesTopology(boundaries, inner_contour):
     if N_segments_boundary != N_segments_inner:
         raise ValueError(J.FAIL+'total number of segments of boundaries (%d) must be the same as inner_contour (%d)'%(N_segments_boundary,N_segments_inner)+J.ENDC)
 
+    def _getSplitIndicesAndDistances(i_corner):
+        if (index > 0) and (index < inner_contour_NPts-2):
+            partA = T.subzone(inner_contour,(1,1,1),(index+1,1,1))
+            partB = T.subzone(inner_contour,(index+2,1,1),(-1,-1,-1))
+            aux_inner_contour = joinSequentially([partB, partA],reorder=True,sort=True)
+        else:
+            aux_inner_contour = I.copyTree(inner_contour)
+
+        aux_inner_contour = closeStructCurve(aux_inner_contour)
+        x,y,z = J.getxyz(aux_inner_contour)
+        distances = np.zeros(N_bnds,dtype=float)
+        split_indices = np.zeros(N_bnds,dtype=int)
+        split_index = 0
+
+        for j in range(N_bnds):
+            bnd_index = i_corner+j
+            if bnd_index > N_bnds-1: bnd_index -= N_bnds
+            if j>0: split_index += C.getNPts(boundaries[bnd_index-1]) - 1
+            consequence_point = np.array([x[split_index],y[split_index],z[split_index]])
+            distances[bnd_index] = distance(corners[bnd_index], consequence_point)
+            split_indices[bnd_index] = split_index
+            if bnd_index == 0: first_consequence_point = consequence_point
+
+        return split_indices, distances, first_consequence_point, aux_inner_contour
+
     boundaries = I.copyRef(boundaries)
     inner_contour = I.copyRef(inner_contour)
     I._rmNodesByType(boundaries+[inner_contour],'FlowSolution_t')
@@ -4885,8 +4813,6 @@ def splitInnerContourFromOutterBoundariesTopology(boundaries, inner_contour):
     boundaries = reorderAndSortCurvesSequentially(boundaries)
     I._correctPyTree(boundaries, level=3)
     corners = [extremum(b) for b in boundaries]
-    directionsStart = [tangentExtremum(b) for b in boundaries]
-    directionsEnd = [tangentExtremum(b,False) for b in [boundaries[-1]]+boundaries[1:]]
 
     inner_contour = I.copyTree(inner_contour)
     index, sqrddist = D.getNearestPointIndex(inner_contour,tuple(corners[0]))
@@ -4894,143 +4820,39 @@ def splitInnerContourFromOutterBoundariesTopology(boundaries, inner_contour):
     if index == 0: u=np.array([xi[1]-xi[0],yi[1]-yi[0],zi[1]-zi[0]])
     else: u=np.array([xi[index]-xi[index-1],yi[index]-yi[index-1],zi[index]-zi[index-1]])
     u /= np.sqrt(u.dot(u))
-    v = 0.5 * ( directionsStart[0] + directionsEnd[0])
+    v = 0.5 * ( tangentExtremum(boundaries[0]) + tangentExtremum(boundaries[0],False))
     if u.dot(v) < 0: T._reorder(inner_contour,(-1,2,3))
 
-    inner_contour_NPts = C.getNPts(inner_contour)
-    all_distances = []
-    first_points = []
-    all_aux_inner_contour = []
-    all_list_index_j = []
-    test_all_first_bnd = []
-    for i, corner in enumerate(corners):
-        index, sqrddist = D.getNearestPointIndex(inner_contour,tuple(corner))
+    if forced_split_index is None:
+        inner_contour_NPts = C.getNPts(inner_contour)
+        all_distances = []
+        first_points = []
+        for i_corner, corner in enumerate(corners):
+            index, sqrddist = D.getNearestPointIndex(inner_contour,tuple(corner))
+            _, distances, first_point, _ = _getSplitIndicesAndDistances(i_corner)
+            all_distances += [ distances ]
+            first_points += [ first_point ]
+        sum_all_distances = np.sum(all_distances, axis=0)
+        mean_point = np.mean(np.vstack(tuple(first_points)), axis=0)
 
-        if (index > 0) and (index < inner_contour_NPts-2):
-            split_subpart_A = T.subzone(inner_contour,(1,1,1),(index+1,1,1))
-            split_subpart_B = T.subzone(inner_contour,(index+2,1,1),(-1,-1,-1))
-
-            split_subparts = reorderCurvesSequentially([split_subpart_B, split_subpart_A])
-            xs,ys,zs = J.getxyz(split_subparts[0])
-            xs[0]+=1
-            ys[0]+=1
-            zs[0]+=1
-            try:
-                aux_inner_contour = T.join(split_subparts[0],split_subparts[1])
-            except:
-                print(J.FAIL,index,J.ENDC)
-                C.convertPyTree2File(split_subparts,'debug.cgns');exit()
-
-            xs,ys,zs = J.getxyz(aux_inner_contour)
-            xs[0]-=1
-            ys[0]-=1
-            zs[0]-=1
-        else:
-            aux_inner_contour = I.copyTree(inner_contour)
-
-        aux_inner_contour = closeStructCurve(aux_inner_contour)
-
-        aux_inner_contour[0]="aux_inner_contour.%d"%i
-        all_aux_inner_contour.append( aux_inner_contour )
-
-        x,y,z = J.getxyz(aux_inner_contour)
-
-        distances = np.zeros(4)
-        index_j = 0
-        list_index_j = []
-
-        for j in range(4):
-
-            bnd_index = i+j
-            if bnd_index > 3: bnd_index -= 4
-
-
-            if j>0: index_j += C.getNPts(boundaries[bnd_index-1]) - 1
-
-            consequence_point = np.array([x[index_j],y[index_j],z[index_j]])
-            distances[bnd_index] = distance(corners[bnd_index], consequence_point)
-
-            if bnd_index == 0:
-                first_points += [consequence_point]
-                # test_bnd = I.copyTree(aux_inner_contour)
-                # test_all_first_bnd += [ test_bnd ]
-                # print(J.WARN,index_j,consequence_point,J.ENDC)
-                # if consequence_point[0]>0.5:
-                #     print('i=%d'%i)
-                #     print(corners[i])
-                #     pt = D.point(tuple(consequence_point))
-                #     C.convertPyTree2File([pt,aux_inner_contour],'pt_cnt.cgns')
-
-            list_index_j.append(index_j)
-        all_list_index_j += [list_index_j]
-        all_distances += [distances]
-
-    sum_all_distances = np.sum(all_distances,axis=0)
-    mean_point = np.mean(np.vstack(tuple(first_points)),axis=0)
-    ###########################################################################
-    # TO FACTORIZE
-    index, sqrddist = D.getNearestPointIndex(inner_contour, tuple(mean_point))
-
-    if (index > 0) and (index < inner_contour_NPts-2):
-        split_subpart_A = T.subzone(inner_contour,(1,1,1),(index+1,1,1))
-        split_subpart_B = T.subzone(inner_contour,(index+2,1,1),(-1,-1,-1))
-
-        split_subparts = reorderCurvesSequentially([split_subpart_B, split_subpart_A])
-        xs,ys,zs = J.getxyz(split_subparts[0])
-        xs[0]+=1
-        ys[0]+=1
-        zs[0]+=1
-        aux_inner_contour = T.join(split_subparts[0],split_subparts[1])
-        xs,ys,zs = J.getxyz(aux_inner_contour)
-        xs[0]-=1
-        ys[0]-=1
-        zs[0]-=1
+        index = D.getNearestPointIndex(inner_contour, tuple(mean_point))[0]
     else:
-        aux_inner_contour = I.copyTree(inner_contour)
+        index = forced_split_index
+    reference_split_index = index
 
-    aux_inner_contour = closeStructCurve(aux_inner_contour)
-
-    aux_inner_contour[0]="aux_inner_contour.%d"%i
-
-    x,y,z = J.getxyz(aux_inner_contour)
-
-    distances = np.zeros(4)
-    index_j = 0
-    list_j = []
-    i = 0
-    for j in range(4):
-
-        bnd_index = i+j
-        if bnd_index > 3: bnd_index -= 4
-
-        if j>0: index_j += C.getNPts(boundaries[bnd_index-1]) - 1
-
-        consequence_point = np.array([x[index_j],y[index_j],z[index_j]])
-        distances[bnd_index] = distance(corners[bnd_index], consequence_point)
-
-        if bnd_index == 3: first_points += [consequence_point]
-        list_j.append(index_j)
-
-    ###########################################################################
-
-    # all_distances = np.vstack(tuple(all_distances))
-    # sum_all_distances = np.sum(all_distances,axis=0)
-    #
-    # arg_min_dist = np.argmin(sum_all_distances)
-    # aux_inner_contour = all_aux_inner_contour[arg_min_dist]
-
-    # list_j = all_list_index_j[arg_min_dist]
+    split_indices, _,_, aux_inner_contour = _getSplitIndicesAndDistances(0)
 
     inner_contour_split = []
-    for i in range(3):
-        inner_contour_split += [T.subzone(aux_inner_contour,(list_j[i]+1,1,1),(list_j[i+1]+1,1,1))]
-    inner_contour_split += [T.subzone(aux_inner_contour,(list_j[3]+1,1,1),(-1,-1,-1))]
+    for i in range(N_bnds-1):
+        inner_contour_split += [ T.subzone(aux_inner_contour,
+                        (split_indices[i]+1,1,1),(split_indices[i+1]+1,1,1)) ]
+    inner_contour_split += [ T.subzone(aux_inner_contour,
+                                       (split_indices[i+1]+1,1,1), (-1,-1,-1)) ]
 
-    # inner_contour_split = inner_contour_split[-arg_min_dist:] +  inner_contour_split[:-arg_min_dist]
     for inner, bnd in zip(inner_contour_split, boundaries):
         inner[0] = bnd[0] + '.inner'
 
-    return boundaries, inner_contour_split
+    return boundaries, inner_contour_split, reference_split_index
 
 
 def point(curve, index=0, as_pytree_point=False):
@@ -5062,6 +4884,9 @@ def point(curve, index=0, as_pytree_point=False):
             the value of **as_pytree_point**
     '''
     x, y, z = J.getxyz( curve )
+    x = np.ravel(x,order='K')
+    y = np.ravel(y,order='K')
+    z = np.ravel(z,order='K')
     try:
         pt = np.array([ x[index], y[index], z[index] ])
     except IndexError:
@@ -5072,7 +4897,7 @@ def point(curve, index=0, as_pytree_point=False):
 
 
 def projectNormals(t, support, smoothing_iterations=0,
-                   normal_projection_length=1e-3):
+                   normal_projection_length=1e-3, projection_direction=None):
     '''
     project the normals vector ``{sx}``, ``{sy}`` and ``{sz}`` onto a support
     surface, optionally with smoothing iterations.
@@ -5116,7 +4941,11 @@ def projectNormals(t, support, smoothing_iterations=0,
 
         curve_proj = I.copyTree( curve )
         I._rmNodesByType(curve_proj,'FlowSolution_t')
-        if support: T._projectOrtho( curve_proj, support )
+        if support:
+            if projection_direction is not None:
+                T._projectDir( curve_proj, support, projection_direction, oriented=1)
+            else:
+                T._projectOrtho( curve_proj, support )
         xp, yp, zp = J.getxyz( curve_proj )
 
         curve_offset = I.copyTree( curve_proj )
@@ -5126,7 +4955,12 @@ def projectNormals(t, support, smoothing_iterations=0,
         yo += sy * normal_projection_length
         zo += sz * normal_projection_length
         if support:
-            T._projectOrtho( curve_offset, support )
+            if projection_direction is not None:
+                T._projectDir( curve_offset, support, projection_direction, oriented=1)
+            else:
+                T._projectOrtho( curve_offset, support )
+
+
             xo, yo, zo = J.getxyz( curve_offset )
 
         sx[:] = xo - xp
@@ -5134,24 +4968,6 @@ def projectNormals(t, support, smoothing_iterations=0,
         sz[:] = zo - zp
 
         C._normalize( curve, ['sx', 'sy', 'sz'])
-
-        if smoothing_iterations:
-            T._smoothField( curve, 0.9, smoothing_iterations, 0, ['sx','sy','sz'])
-            C._normalize( curve, ['sx', 'sy', 'sz'])
-
-            xo, yo, zo = J.getxyz( curve_offset )
-            xo[:] = xp + sx * normal_projection_length
-            yo[:] = yp + sy * normal_projection_length
-            zo[:] = zp + sz * normal_projection_length
-            if support:
-                T._projectOrtho( curve_offset, support )
-                xo, yo, zo = J.getxyz( curve_offset )
-
-            sx[:] = xo - xp
-            sy[:] = yo - yp
-            sz[:] = zo - zp
-            C._normalize( curve, ['sx', 'sy', 'sz'])
-
 
 def reverseNormals(curves):
     '''
@@ -5204,7 +5020,7 @@ def addNormals(curves, support=None, smoothing_iterations=0,
     I._rmNodesByType(closed_contour, 'FlowSolution_t')
     getCurveNormalMap(closed_contour)
     I._rmNodesByName(closed_contour, I.__FlowSolutionCenters__)
-    J.migrateFields(closed_contour, curves)
+    J.migrateFields(closed_contour, curves, False)
     if reverse_normals: reverseNormals( curves )
     for c in curves:
         projectNormals(c, support, smoothing_iterations=smoothing_iterations,
@@ -5215,6 +5031,13 @@ def getVisualizationNormals(t, length=1.):
     for zone in I.getZones(t):
         x,y,z = J.getxyz(zone)
         sx, sy, sz = J.getVars(zone,['sx','sy','sz'])
+        x = x.ravel(order='K')
+        y = y.ravel(order='K')
+        z = z.ravel(order='K')
+        sx = sx.ravel(order='K')
+        sy = sy.ravel(order='K')
+        sz = sz.ravel(order='K')
+
         for i in range(len(x)):
             lines += [D.line((x[i],y[i],z[i]),
                      (x[i]+length*sx[i],y[i]+length*sy[i],z[i]+length*sz[i]), 2)]
@@ -5225,6 +5048,24 @@ def getVisualizationNormals(t, length=1.):
 def computeBarycenterDirectionalField(t, support=None, reverse=False,
                                       projectNormalsOptions={}):
     B = np.array( G.barycenter( t ) )
+    if support:
+        Bpt = D.point(tuple(B))
+        T._projectOrtho(Bpt, support)
+        B = point(Bpt)
+
+    for curve in I.getZones(t):
+        sx, sy, sz = J.invokeFields( curve, ['sx', 'sy', 'sz'] )
+        x, y, z = J.getxyz( curve )
+        sign = -1 if reverse else 1
+        sx[:] = sign * (B[0] - x)
+        sy[:] = sign * (B[1] - y)
+        sz[:] = sign * (B[2] - z)
+        C._normalize( curve, ['sx', 'sy', 'sz'] )
+        if support: projectNormals(curve, support, **projectNormalsOptions)
+
+def computeDirectionalField(t, Point, support=None, reverse=False,
+                                      projectNormalsOptions={}):
+    B = np.array( Point )
     if support:
         Bpt = D.point(tuple(B))
         T._projectOrtho(Bpt, support)
@@ -5253,3 +5094,296 @@ def projectOnAxis(t, rotation_axis, rotation_center):
             x[i] = P[0]
             y[i] = P[1]
             z[i] = P[2]
+
+def getCharacteristicLength(t):
+    uns = C.convertArray2Tetra(t)
+    uns = T.merge(uns)
+    uns, = I.getZones(uns)
+    BB = G.BB(uns,'OBB')
+    L = distance(point(BB,0),point(BB,-1))
+    return L
+
+
+
+def buildBezierAtCurvesExtrema(curve1, curve2, number_of_points, tension1=0.5,
+                              tension2=0.5, length1=None, length2=None,
+                              support=None):
+
+    x1, y1, z1 = J.getxyz( curve1 )
+    sx1, sy1, sz1 = J.getVars( curve1, ['sx','sy','sz'])
+    x2, y2, z2 = J.getxyz( curve2 )
+    sx2, sy2, sz2 = J.getVars( curve2, ['sx','sy','sz'])
+
+    # points
+    start_1 = np.array([x1[0],y1[0],z1[0]],dtype=float)
+    start_2 = np.array([x2[0],y2[0],z2[0]],dtype=float)
+    end_1 = np.array([x1[-1],y1[-1],z1[-1]],dtype=float)
+    end_2 = np.array([x2[-1],y2[-1],z2[-1]],dtype=float)
+
+
+    # directions
+    start_v1 = np.array([sx1[0],sy1[0],sz1[0]],dtype=float)
+    start_v2 = np.array([sx2[0],sy2[0],sz2[0]],dtype=float)
+    end_v1 = np.array([sx1[-1],sy1[-1],sz1[-1]],dtype=float)
+    end_v2 = np.array([sx2[-1],sy2[-1],sz2[-1]],dtype=float)
+
+    TotalLength_start = distance(start_1, start_2)
+    TotalLength_end = distance(end_1, end_2)
+
+    # first curve generation
+    poly_start = D.polyline([tuple(start_1),
+                        tuple(start_1 + tension1*TotalLength_start*start_v1),
+                        tuple(start_2 - tension2*TotalLength_start*start_v2),
+                        tuple(start_2)])
+    if support: T._projectOrtho(poly_start, support)
+    bezier_start = D.bezier(poly_start,N=500)
+    if support: T._projectOrtho(bezier_start, support)
+    first_curve = discretize(bezier_start,N=number_of_points,
+        Distribution=dict(kind='tanhTwoSides',
+            FirstCellHeight=length1,LastCellHeight=length2))
+    if support: T._projectOrtho(first_curve, support)
+
+    # second curve generation
+    poly_end = D.polyline([tuple(end_1),
+                        tuple(end_1 + tension1*TotalLength_end*end_v1),
+                        tuple(end_2 - tension2*TotalLength_end*end_v2),
+                        tuple(end_2)])
+    if support: T._projectOrtho(poly_end, support)
+    bezier_end = D.bezier(poly_end,N=500)
+    if support: T._projectOrtho(bezier_end, support)
+    second_curve = discretize(bezier_end,N=number_of_points,
+        Distribution=dict(kind='tanhTwoSides',
+            FirstCellHeight=length1,LastCellHeight=length2))
+    if support: T._projectOrtho(second_curve, support)
+
+    return first_curve, second_curve
+
+def fillWithBezier(curve1, curve2, number_of_points, tension1=0.5, tension2=0.5,
+          tension1_is_absolute=False, tension2_is_absolute=False,
+          length1=None, length2=None, support=None, projection_direction=None,
+          projection_point=None,
+          only_at_indices=[]):
+
+    x1, y1, z1 = J.getxyz( curve1 )
+    sx1, sy1, sz1 = J.getVars( curve1, ['sx','sy','sz'])
+    x2, y2, z2 = J.getxyz( curve2 )
+    sx2, sy2, sz2 = J.getVars( curve2, ['sx','sy','sz'])
+
+    if len(x1) != len(x2): raise ValueError('curves must have same nb of points')
+
+    if not length1: length1 = meanSegmentLength(curve1)
+    if not length2: length2 = meanSegmentLength(curve2)
+
+    fill_curves = []
+    indices = only_at_indices if len(only_at_indices)>0 else range(len(x1))
+
+    for i in indices:
+        pt1 = np.array([x1[i],y1[i],z1[i]],dtype=float)
+        pt2 = np.array([x2[i],y2[i],z2[i]],dtype=float)
+        if sx1 is None:
+            v1 = 0.
+        else:
+            v1 = np.array([sx1[i],sy1[i],sz1[i]],dtype=float)
+        if sx2 is None:
+            v2 = 0.
+        else:
+            v2 = np.array([sx2[i],sy2[i],sz2[i]],dtype=float)
+
+        TotalLength = distance(pt1, pt2)
+        polypoints = [tuple(pt1)]
+
+        if tension1 > 0:
+            if tension1_is_absolute:
+                TotalLength1 = 1.
+            else:
+                TotalLength1 = TotalLength
+            polypoints += [tuple(pt1 + tension1*TotalLength1*v1)]
+
+        if tension2 > 0:
+            if tension2_is_absolute:
+                TotalLength2 = 1.
+            else:
+                TotalLength2 = TotalLength
+            polypoints += [tuple(pt2 + tension2*TotalLength2*v2)]
+        polypoints += [tuple(pt2)]
+
+        poly = D.polyline(polypoints)
+        poly[0] = 'poly'
+        if support:
+            if projection_direction is not None:
+                T._projectDir( poly, support, projection_direction, oriented=0)
+            elif projection_point is not None:
+                T._projectRay( poly, support, projection_point)
+            else:
+                T._projectOrtho( poly, support )
+        tune(poly,pt1,0)
+        tune(poly,pt2,-1)
+
+        bezier = D.bezier(poly,N=100)
+        bezier[0] = 'bezier'
+        if support:
+            if projection_direction is not None:
+                T._projectDir( bezier, support, projection_direction, oriented=0)
+            elif projection_point is not None:
+                T._projectRay( bezier, support, projection_point)
+            else:
+                T._projectOrtho( bezier, support )
+        tune(bezier,pt1,0)
+        tune(bezier,pt2,-1)
+
+        fill_curve = discretize(bezier,N=number_of_points,
+                                    Distribution=dict(kind='tanhTwoSides',
+                                                      FirstCellHeight=length1,
+                                                      LastCellHeight=length2))
+        fill_curve[0] = 'fill_curve'
+        # if i == 2:
+        #     for p in polypoints:
+        #         print(p)
+        #     C.convertPyTree2File([fill_curve, bezier, poly, curve1, curve2,
+        #         support, D.point(pt1), D.point(pt2)],'test.cgns');exit()
+        fill_curves += [ fill_curve ]
+
+    if len(indices) > 1:
+        fill_surface = G.stack(fill_curves)
+        return fill_surface
+    else:
+        return fill_curves[0]
+
+
+def meanSegmentLength(t):
+    mean_segment_length = 0.
+    for curve in I.getZones(t):
+        x, y, z = J.getxyz(curve)
+        dx = np.diff(x)
+        dy = np.diff(y)
+        dz = np.diff(z)
+        mean_segment_length += np.mean(np.sqrt(dx*dx+dy*dy+dz*dz))
+    return mean_segment_length/float(len(curve))
+
+def getConnectingCurves(curve,candidates):
+    start = point(curve,0)
+    end = point(curve,-1)
+    all_distances_to_start = []
+    all_distances_to_end = []
+    for c in candidates:
+        cand_start = point(c,0)
+        cand_end = point(c,-1)
+        all_distances_to_start += [ distance(cand_start, start) ]
+        all_distances_to_start += [ distance(  cand_end, start) ]
+        all_distances_to_end   += [ distance(cand_start,   end) ]
+        all_distances_to_end   += [ distance(  cand_end,   end) ]
+    arg_start = np.argmin(all_distances_to_start)
+    arg_end   = np.argmin(all_distances_to_end)
+    connected_at_start = candidates[int(arg_start/2)]
+    connected_at_end = candidates[int(arg_end/2)]
+    return connected_at_start, connected_at_end
+
+
+def joinSequentially(curves, reorder=False, sort=False):
+    '''
+    Given a set of curves, joins them sequentially, hence solving the
+    indexing ambiguity of closed-contours
+
+    Parameters
+    ----------
+
+        curves : :py:class:`list` of zone
+            list of structured curves to be joined
+
+            .. note:: curves must be joinable
+
+        reorder : bool
+            if :py:obj:`True`, then applies :py:func:`reorderCurvesSequentially`
+            before joining
+
+        sort : bool
+            if :py:obj:`True`, then applies :py:func:`sortCurvesSequentially`
+            before joining
+
+    Returns
+    -------
+
+        joined_curve : zone
+            structured curve (join result of **curves**)
+    '''
+    if reorder: curves = reorderCurvesSequentially(curves)
+    if sort: curves = sortCurvesSequentially(curves)
+
+    joined_curve = curves[0]
+    for curve in curves[1:]:
+        x,y,z = J.getxyz(joined_curve)
+        x[0] += 999
+        y[0] += 999
+        z[0] += 999
+
+        joined_curve = T.join(joined_curve, curve)
+        x,y,z = J.getxyz(joined_curve)
+        x[0] -= 999
+        y[0] -= 999
+        z[0] -= 999
+
+    return joined_curve
+
+def segment(curve,index=0):
+    x,y,z = J.getxyz(curve)
+    if index>=0:
+        dx = x[index+1]-x[index]
+        dy = y[index+1]-y[index]
+        dz = z[index+1]-z[index]
+    else:
+        dx = x[index-1]-x[index]
+        dy = y[index-1]-y[index]
+        dz = z[index-1]-z[index]
+    return np.sqrt( dx*dx + dy*dy + dz*dz )
+
+def splitAt(curve, indices_or_values, field='s'):
+    import scipy.interpolate
+    curve, = I.getZones(curve)
+    NPts = C.getNPts(curve)
+    pts_arange = np.arange(NPts)
+    if not isinstance(indices_or_values, list):
+        indices_or_values = [ indices_or_values ]
+    parts = []
+    last_i = 0
+    for i in indices_or_values:
+        if isinstance(i, float):
+            if field in ['s','length']:
+                try:
+                    s = I.getNodeFromName(curve, 's')[1]
+                except:
+                    curve = I.copyRef(curve)
+                    s = gets(curve)
+                if field == 'length':
+                    L = D.getLength(curve)
+                else:
+                    L=1.
+            else:
+                try:
+                    s = I.getNodeFromName(curve, field)[1]
+                    L = 1.
+                except:
+                    raise ValueError(J.FAIL+'could not find field %s'%field+J.ENDC)
+            interp= scipy.interpolate.interp1d(s*L,pts_arange,kind='nearest',
+                                                assume_sorted=False, copy=False)
+            i = int(interp(i))
+
+        if i < 0: i += NPts - 1
+        parts += [ T.subzone( curve, (last_i+1,1,1), (i+1,1,1) ) ]
+        last_i = i
+    parts += [ T.subzone( curve, (i+1,1,1), (-1,-1,-1) ) ]
+
+    return parts
+
+def reverse(curve, in_place=False):
+    if in_place: return T._reorder(curve,(-1,2,3))
+    else: return T.reorder(curve,(-1,2,3))
+
+def tune(curve, point, index=0):
+    x,y,z = J.getxyz(curve)
+    x[index] = point[0]
+    y[index] = point[1]
+    z[index] = point[2]
+
+def getLength(curve):
+    xyz = np.vstack( J.getxyz(curve) )
+    return np.linalg.norm(np.sum(np.abs(np.diff(xyz,axis=1)),axis=1))

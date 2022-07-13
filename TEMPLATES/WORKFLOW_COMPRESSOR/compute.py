@@ -14,7 +14,7 @@ LaunchTime = timeit.default_timer()
 from mpi4py import MPI
 comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
-NProcs = comm.Get_size()
+NumberOfProcessors = comm.Get_size()
 
 # ------------------------- IMPORT  CASSIOPEE ------------------------- #
 import Converter.PyTree as C
@@ -71,13 +71,16 @@ CO.invokeCoprocessLogFile()
 arrays = CO.invokeArrays()
 
 niter    = setup.elsAkeysNumerics['niter']
+if niter == 0:
+    CO.printCo('niter = 0: Please update this value and run the simulation again', proc=0, color=J.WARN)
+    exit()
 inititer = setup.elsAkeysNumerics['inititer']
 itmax    = inititer+niter-1 # BEWARE last iteration accessible trigger-state-16
 
 if Splitter == 'PyPart':
     t, Skeleton, PyPartBase, Distribution = CO.splitWithPyPart()
     CO.PyPartBase = PyPartBase
-    setup.ReferenceValues['NProc'] = NProcs
+    setup.ReferenceValues['NumberOfProcessors'] = NumberOfProcessors
 else:
     Skeleton = CO.loadSkeleton()
 
@@ -128,7 +131,7 @@ BODYFORCE_INITIATED = False
 if BodyForceInputData:
     LocalBodyForceInputData = LL.getLocalBodyForceInputData(BodyForceInputData)
     LL.invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData)
-    NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NProcs)
+    NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NumberOfProcessors)
 # ------------------------------------------------------------------------- #
 
 e.action=elsAxdt.COMPUTE
