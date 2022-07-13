@@ -13,8 +13,6 @@ export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
 export TREELABSATOR=/tmp_user/sator/lbernard/TreeLab/dev
 export EXTPYLIBSATOR=$MOLASATOR/ExternalPythonPackages
 export PUMAVERSION=r337
-# Turbo, be careful, only valid for eos:
-#export PYTHONPATH=/home/jmarty/TOOLS/turbo/install/v1.1/env_elsA_v5.0.02/eos-intel_mpi/lib/python2.7/site-packages/:$PYTHONPATH
 ###############################################################################
 
 
