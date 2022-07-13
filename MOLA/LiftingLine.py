@@ -3603,7 +3603,8 @@ def _computeLiftingLine3DLoads(LiftingLine, Density, RotAxis, RPM):
     J.set(LiftingLine,'.Loads',Thrust=Thrust,Power=Power,Torque=Torque)
 
 
-def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0):
+def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
+        UnsteadyDataIndependentAbscissa='IterationNumber'):
     '''
     This function is used to compute local and integral arrays of a lifting line
     with general orientation and shape (including sweep and dihedral).
@@ -3848,12 +3849,40 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0):
 
 
         # Store computed integral Loads
-        IntegralData = J.set(LiftingLine,'.Loads',
-                      Thrust=NBlades*Thrust,Power=NBlades*Power,
-                      Torque=NBlades*Torque,
-                      ForceTangential=NBlades*FT,
-                      ForceX=NBlades*FX, ForceY=NBlades*FY, ForceZ=NBlades*FZ,
-                      TorqueX=NBlades*MX, TorqueY=NBlades*MY, TorqueZ=NBlades*MZ)
+        Loads = dict(Thrust=NBlades*Thrust,Power=NBlades*Power,
+                     Torque=NBlades*Torque, ForceTangential=NBlades*FT,
+                     ForceX=NBlades*FX, ForceY=NBlades*FY, ForceZ=NBlades*FZ,
+                     TorqueX=NBlades*MX, TorqueY=NBlades*MY, TorqueZ=NBlades*MZ)
+
+        IntegralData = J.set(LiftingLine,'.Loads', **Loads)
+
+        if UnsteadyData:
+            IntegralData.update(UnsteadyData)
+            try:
+                IndependentAbscissa = UnsteadyData[UnsteadyDataIndependentAbscissa]
+            except KeyError:
+                raise KeyError(FAIL+'UnsteadyData dict must contain key "%s"'%UnsteadyDataIndependentAbscissa+ENDC)
+
+            UnsteadyLoads = J.get(LiftingLine,'.UnsteadyLoads')
+
+            if UnsteadyLoads:
+                try:
+                    PreviousIndependentAbscissa = UnsteadyLoads[UnsteadyDataIndependentAbscissa]
+                except KeyError:
+                    raise KeyError(FAIL+'UnsteadyLoads must contain"%s"'%UnsteadyDataIndependentAbscissa+ENDC)
+                AppendFrom = PreviousIndependentAbscissa > (IndependentAbscissa + 1e-12)
+                try: FirstIndex2Update = np.where(AppendFrom)[0][0]
+                except IndexError: FirstIndex2Update = len(PreviousIndependentAbscissa)
+                for k in IntegralData:
+                    PreviousArray = UnsteadyLoads[k][:FirstIndex2Update]
+                    AppendArray = IntegralData[k]
+                    UnsteadyLoads[k] = np.hstack((PreviousArray, AppendArray))
+
+            else:
+                UnsteadyLoads.update(IntegralData)
+                UnsteadyLoads.update(UnsteadyData)
+
+            UnsteadyLoads = J.set(LiftingLine,'.UnsteadyLoads',**UnsteadyLoads)
 
         if NumberOfLiftingLines == 1:  return IntegralData
 
