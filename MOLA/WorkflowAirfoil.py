@@ -19,6 +19,7 @@ import Converter.Internal as I
 import Geom.PyTree as D
 import Transform.PyTree as T
 
+import MOLA
 from . import InternalShortcuts as J
 from . import Preprocess as PRE
 from . import GenerativeShapeDesign as GSD
@@ -337,7 +338,7 @@ def launchBasicStructuredPolars(PREFIX_JOB, FILE_GEOMETRY, AER, machine,
     JM.saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,
                              FILE_GEOMETRY)
 
-    JM.launchJobsConfiguration(templatesFolder=JM.MOLA_PATH+'/TEMPLATES/WORKFLOW_AIRFOIL')
+    JM.launchJobsConfiguration(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_AIRFOIL')
 
 
 def buildMesh(FILE_GEOMETRY,

@@ -24,6 +24,7 @@ import Generator.PyTree    as G
 import Transform.PyTree    as T
 import Connector.PyTree    as X
 
+import MOLA
 from . import InternalShortcuts as J
 from . import Preprocess        as PRE
 from . import JobManager        as JM
@@ -3209,11 +3210,7 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
             or len(filename.split('/'))>1:
             MSG = 'Input files must be inside the submission repository (not the case for {})'.format(filename)
             raise Exception(J.FAIL + MSG + J.ENDC)
-
-    templatesFolder = os.getenv('MOLA') + '/TEMPLATES/WORKFLOW_COMPRESSOR'
-    JM.launchJobsConfiguration_future(templatesFolder=templatesFolder, otherFiles=otherFiles)
-
-
+    JM.launchJobsConfiguration_future(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_COMPRESSOR', otherFiles=otherFiles)
 
 def printConfigurationStatus(DIRECTORY_WORK, useLocalConfig=False):
     '''

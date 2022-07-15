@@ -887,39 +887,6 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
     Cmpi.barrier()
     return data
 
-def writeSetup(setup):
-    '''
-    Write the ``setup.py`` file using as input the setup module object.
-
-    .. warning:: This function will be replaced by :py:func:`MOLA.Preprocess.writeSetup`
-        and :py:func:`MOLA.Preprocess.writeSetupFromModuleObject` functions
-
-    Parameters
-    ---------
-
-        setup : module
-            Python module object as obtained from command
-
-            >>> import setup
-    '''
-
-    Lines  = ['"""\n%s file automatically generated in COPROCESS\n"""\n'%FILE_SETUP]
-
-    Lines += ["FluidProperties=" +pprint.pformat(setup.FluidProperties)+"\n"]
-    Lines += ["ReferenceValues=" +pprint.pformat(setup.ReferenceValues)+"\n"]
-    Lines += ["elsAkeysCFD="     +pprint.pformat(setup.elsAkeysCFD)+"\n"]
-    Lines += ["elsAkeysModel="   +pprint.pformat(setup.elsAkeysModel)+"\n"]
-    Lines += ["elsAkeysNumerics="+pprint.pformat(setup.elsAkeysNumerics)+"\n"]
-
-    try:
-        Lines += ["BodyForceInputData="+pprint.pformat(setup.BodyForceInputData)+"\n"]
-    except:
-        pass
-
-    AllLines = '\n'.join(Lines)
-
-    with open(FILE_SETUP,'w') as f: f.write(AllLines)
-
 def updateAndWriteSetup(setup):
     '''
     This function is used for adapting ``setup.py`` information for a new run.
