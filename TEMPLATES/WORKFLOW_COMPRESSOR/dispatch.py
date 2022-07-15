@@ -36,6 +36,7 @@ for case in config.JobsQueues:
     # os.chdir(os.path.join(config.DIRECTORY_WORK, case['JobName'], case['CASE_LABEL']))
 
     # JM.putFilesInComputationDirectory(case)
+    os.chdir(DIRECTORY_DISPATCHER)
 
 for case in config.JobsQueues:
     if case['NewJob']:

@@ -358,8 +358,8 @@ def saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,
     print('\nwritten file '+J.GREEN+JobsConfigurationFilename+J.ENDC+'\n')
 
 def launchJobsConfiguration_future(
-        templatesFolder=MOLA_PATH+'/TEMPLATES/WORKFLOW_AIRFOIL',
-        jobTemplate=MOLA_PATH+'/TEMPLATES/job_template.sh',
+        templatesFolder=__MOLA_PATH__+'/TEMPLATES/WORKFLOW_AIRFOIL',
+        jobTemplate=__MOLA_PATH__+'/TEMPLATES/job_template.sh',
         DispatchFile='dispatch.py',
         routineFile='routine.sh',
         otherFiles=[]):
@@ -451,7 +451,7 @@ def launchJobsConfiguration_future(
         with open(JobFile,'w+') as f:
             f.write(JobText)
             f.write('cd '+DIRECTORY_DISPATCHER+'\n')
-            f.write('python dispatch.py 1>Dispatch-out.log 2>Dispatch-err.log\n')
+            f.write('mpirun python3 dispatch.py 1>Dispatch-out.log 2>Dispatch-err.log\n')
 
         os.chmod(JobFile, 0o777)
         ServerTools.cpmvWrap4MultiServer('cp',JobFile,
@@ -1039,7 +1039,7 @@ def getTemplates(Workflow, otherWorkflowFiles=[], otherFiles=[],
 
     '''
     WORKFLOW_FOLDER = 'WORKFLOW_' + ''.join(['_'+ s.upper() if s.isupper() else s.upper() for s in Workflow]).lstrip('_')
-    templatesFolder = os.path.join(MOLA_PATH, 'TEMPLATES')
+    templatesFolder = os.path.join(__MOLA_PATH__, 'TEMPLATES')
 
     files2copy = [
         os.path.join(templatesFolder, 'job_template.sh'),
