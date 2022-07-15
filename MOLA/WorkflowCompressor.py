@@ -472,7 +472,7 @@ def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
     return t
 
 def parametrizeChannelHeight_future(t, nbslice=101, tol=1e-10, offset=1e-10,
-                                elines='shroud_hub_lines.plt'):
+                                elines='shroud_hub_lines.plt', lin_axis=None):
     '''
     Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
     relies on the turbo module.
@@ -503,6 +503,13 @@ def parametrizeChannelHeight_future(t, nbslice=101, tol=1e-10, offset=1e-10,
             Name of the intermediate file that contains (x,r) coordinates of hub
             and shroud lines.
 
+        lin_axis : :py:obj:`None` or :py:class:`str`
+            Axis for linear configuration.
+            If :py:obj:`None`, the configuration is annular (default case), else
+            the configuration is linear.
+            ‘XY’ means that X-axis = streamwise direction and Y-axis = spanwise
+            direction.(see turbo documentation)
+
     Returns
     -------
 
@@ -518,32 +525,33 @@ def parametrizeChannelHeight_future(t, nbslice=101, tol=1e-10, offset=1e-10,
 
     silence = J.OutputGrabber()
     with silence:
-        # - Generation of hub/shroud lines (axial configuration only)
-        endlinesTree = TH.generateHLinesAxial(t, elines, nbslice=nbslice, tol=tol, offset=offset)
+        if not lin_axis:
+            # - Generation of hub/shroud lines (axial configuration only)
+            endlinesTree = TH.generateHLinesAxial(t, elines, nbslice=nbslice, tol=tol, offset=offset)
 
-        try:
-            import matplotlib.pyplot as plt
-            # Get geometry
-            xHub, yHub = J.getxy(I.getNodeFromName(endlinesTree, 'Hub'))
-            xShroud, yShroud = J.getxy(I.getNodeFromName(endlinesTree, 'Shroud'))
-            # Plot
-            plt.figure()
-            plt.plot(xHub, yHub, '-', label='Hub')
-            plt.plot(xShroud, yShroud, '-', label='Shroud')
-            plt.axis('equal')
-            plt.grid()
-            plt.xlabel('x (m)')
-            plt.ylabel('y (m)')
-            Rmax = np.amax(yShroud)
-            plt.ylim(-0.05*Rmax, 1.05*Rmax)
-            plt.savefig(elines.replace('.plt', '.png'), dpi=150, bbox_inches='tight')
-        except:
-            pass
+            try:
+                import matplotlib.pyplot as plt
+                # Get geometry
+                xHub, yHub = J.getxy(I.getNodeFromName(endlinesTree, 'Hub'))
+                xShroud, yShroud = J.getxy(I.getNodeFromName(endlinesTree, 'Shroud'))
+                # Plot
+                plt.figure()
+                plt.plot(xHub, yHub, '-', label='Hub')
+                plt.plot(xShroud, yShroud, '-', label='Shroud')
+                plt.axis('equal')
+                plt.grid()
+                plt.xlabel('x (m)')
+                plt.ylabel('y (m)')
+                plt.savefig(elines.replace('.plt', '.png'), dpi=150, bbox_inches='tight')
+            except:
+                pass
 
-        # - Generation of the mask file
-        m = TH.generateMaskWithChannelHeight(t, elines, 'bin_tp')
+            # - Generation of the mask file
+            m = TH.generateMaskWithChannelHeight(t, elines, 'bin_tp')
+        else:
+            m = TH.generateMaskWithChannelHeightLinear(t, lin_axis=lin_axis)
         # - Generation of the ChannelHeight field
-        t = TH.computeHeightFromMask(t, m, writeMask='mask.cgns', writeMaskCart ='maskCart.cgns')
+        t = TH.computeHeightFromMask(t, m, writeMask='mask.cgns')
 
     I.__FlowSolutionNodes__ = OLD_FlowSolutionNodes
     print(J.GREEN + 'done.' + J.ENDC)
