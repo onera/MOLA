@@ -577,7 +577,7 @@ def launchJobsConfiguration(
         with open(JobFile,'w+') as f:
             f.write(JobText)
             f.write('cd '+DIRECTORY_DISPATCHER+'\n')
-            f.write('python dispatch.py 1>Dispatch-out.log 2>Dispatch-err.log\n')
+            f.write('mpirun -np 1 python3 dispatch.py 1>Dispatch-out.log 2>Dispatch-err.log\n')
 
         os.chmod(JobFile, 0o777)
         ServerTools.cpmvWrap4MultiServer('cp',JobFile,
