@@ -20,11 +20,9 @@ import Converter.PyTree         as C
 import Converter.Internal       as I
 
 
-from . import __version__
+from . import __version__, __MOLA_PATH__
 from . import InternalShortcuts as J
 from . import _cpmv_            as ServerTools
-
-MOLA_PATH = os.getenv('MOLA','/stck/lbernard/MOLA/%s'%__version__)
 
 def checkDependencies():
     '''
@@ -235,8 +233,8 @@ def saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,
     print('\nwritten file '+J.GREEN+JobsConfigurationFilename+J.ENDC+'\n')
 
 def launchJobsConfiguration(
-        templatesFolder=MOLA_PATH+'/TEMPLATES/WORKFLOW_AIRFOIL',
-        jobTemplate=MOLA_PATH+'/TEMPLATES/job_template.sh',
+        templatesFolder=__MOLA_PATH__+'/TEMPLATES/WORKFLOW_AIRFOIL',
+        jobTemplate=__MOLA_PATH__+'/TEMPLATES/job_template.sh',
         DispatchFile='dispatch.py',
         routineFile='routine.sh',
 
@@ -348,7 +346,7 @@ def launchJobsConfiguration(
         with open(JobFile,'w+') as f:
             f.write(JobText)
             f.write('cd '+DIRECTORY_DISPATCHER+'\n')
-            f.write('python dispatch.py 1>Dispatch-out.log 2>Dispatch-err.log\n')
+            f.write('mpirun -np 1 python3 dispatch.py 1>Dispatch-out.log 2>Dispatch-err.log\n')
 
         os.chmod(JobFile, 0o777)
         ServerTools.cpmvWrap4MultiServer('cp',JobFile,

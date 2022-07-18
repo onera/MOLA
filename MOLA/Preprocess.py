@@ -3709,15 +3709,15 @@ def writeSetup(AllSetupDictionaries, setupFilename='setup.py'):
 
     '''
 
-    Lines = ['#!/usr/bin/python\n']
-    Lines = ["'''\nMOLA %s setup.py file automatically generated in PREPROCESS\n'''\n"%MOLA.__version__]
+    Lines = '#!/usr/bin/python\n'
+    Lines+= "'''\nMOLA %s setup.py file automatically generated in PREPROCESS\n"%MOLA.__version__
+    Lines+= "Path to MOLA: %s\n"%MOLA.__MOLA_PATH__
+    Lines+= "Commit SHA: %s\n'''\n\n"%MOLA.__SHA__
 
     for SetupDict in AllSetupDictionaries:
-        Lines+=[SetupDict+"="+pprint.pformat(AllSetupDictionaries[SetupDict])+"\n"]
+        Lines+=SetupDict+"="+pprint.pformat(AllSetupDictionaries[SetupDict])+"\n\n"
 
-    AllLines = '\n'.join(Lines)
-
-    with open(setupFilename,'w') as f: f.write(AllLines)
+    with open(setupFilename,'w') as f: f.write(Lines)
 
     try: os.remove(setupFilename+'c')
     except: pass
@@ -3739,16 +3739,16 @@ def writeSetupFromModuleObject(setup, setupFilename='setup.py'):
             name of the new setup file to write
 
     '''
-    Lines = ['#!/usr/bin/python\n']
-    Lines = ["'''\nMOLA %s setup.py file automatically generated in PREPROCESS\n'''\n"%MOLA.__version__]
+    Lines = '#!/usr/bin/python\n'
+    Lines+= "'''\nMOLA %s setup.py file automatically generated in PREPROCESS\n"%MOLA.__version__
+    Lines+= "Path to MOLA: %s\n"%MOLA.__MOLA_PATH__
+    Lines+= "Commit SHA: %s\n'''\n\n"%MOLA.__SHA__
 
     for SetupItem in dir(setup):
         if not SetupItem.startswith('_'):
-            Lines+=[SetupItem+"="+pprint.pformat(getattr(setup, SetupItem))+"\n"]
+            Lines+=SetupItem+"="+pprint.pformat(getattr(setup, SetupItem))+"\n\n"
 
-    AllLines = '\n'.join(Lines)
-
-    with open(setupFilename,'w') as f: f.write(AllLines)
+    with open(setupFilename,'w') as f: f.write(Lines)
 
     try: os.remove(setupFilename+'c')
     except: pass
