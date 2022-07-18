@@ -3246,7 +3246,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
             convention).
 
             By default, the following variables are extracted for *BCWall*:
-            ['normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz',
+            ['normalvector', 'frictionvector',
             'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue',
             'flux_rou', 'flux_rov', 'flux_row', 'torque_rou',
             'torque_rov', 'torque_row'].
@@ -3258,7 +3258,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
 
     DefaultBCExtractions = dict(
         BCWall = [
-            'normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz',
+            'normalvector', 'frictionvector',
             'psta', 'bl_quantities_2d', 'yplusmeshsize',
             'bl_ue', # see #10360
             'flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']

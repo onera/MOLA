@@ -230,7 +230,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
     BCExtractions = dict(
-        BCWall = ['normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz','psta', 'bl_quantities_2d', 'yplusmeshsize'],
+        BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
         BCInflow = ['convflux_ro'],
         BCOutflow = ['convflux_ro'],
         )
