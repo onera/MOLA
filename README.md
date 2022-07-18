@@ -34,7 +34,49 @@ Make *sure* that you have correctly set your public ssh Key onto your profile's 
 mv mola Dev
 ```
 
-4. replace `lbernard` username by **yours** on files `env_MOLA.sh` and `TEMPLATES/job_template.sh`
+4. Replace paths directing to ``lbernard`` by **yours** on files `env_MOLA.sh` and `TEMPLATES/job_template.sh`
+   (except the paths `EXTPYLIB` and `EXTPYLIBSATOR`).
+
+You may adapt this script to simplify this operation (just replace `myMOLA` and `myMOLASATOR`):
+
+```bash
+#!/usr/bin/sh
+# Execute this script once when getting MOLA sources to adapt the files
+# env_MOLA.sh and job_template.sh to your paths
+
+# Do not commit these files !
+# Before pushing your local branch to the GitLab, use the following command
+# to get back these files in their original state :
+#   git checkout env_MOLA.sh && git checkout TEMPLATES/job_template.sh && chmod a+r env_MOLA.sh TEMPLATES/job_template.sh
+# You amy create an alias for this command in your .bash_aliases
+
+# Custom paths for my dev version - TO MODIFY
+export myMOLA='/stck/tbontemp/softs/MOLA/Dev'
+export myMOLASATOR='/tmp_user/sator/tbontemp/MOLA/Dev'
+
+# To be able to use your dev version on sator computation nodes, you must first
+# to copy your dev done on /stck on /tmp_user/sator
+# You may use the following command :
+#   rsync -rav $myMOLA $myMOLASATOR
+
+
+################################################################################
+# DO NOT MODIFY THE LINES BELOW
+
+# MOLA paths of for the master version
+MOLA='/stck/lbernard/MOLA/Dev'
+MOLASATOR='/tmp_user/sator/lbernard/MOLA/Dev'
+
+# Modify paths to my custom MOLA dev version
+sed -i $myMOLA/env_MOLA.sh -e "s|MOLA=$MOLA|MOLA=$myMOLA|"
+sed -i $myMOLA/env_MOLA.sh -e "s|MOLASATOR=$MOLASATOR|MOLASATOR=$myMOLASATOR|"
+# Restore paths to exterior Python libraries for MOLA
+sed -i $myMOLA/env_MOLA.sh -e "s|EXTPYLIB=\$MOLA|EXTPYLIB=$MOLA|"
+sed -i $myMOLA/env_MOLA.sh -e "s|EXTPYLIBSATOR=\$MOLASATOR|EXTPYLIBSATOR=$MOLASATOR|"
+# Modify paths to my custom MOLA dev version in the job template
+sed -i $myMOLA/TEMPLATES/job_template.sh -e "s|$MOLA|$myMOLA|"
+sed -i $myMOLA/TEMPLATES/job_template.sh -e "s|$MOLASATOR|$myMOLASATOR|"
+```
 
 5. Copy MOLA directory on your `sator` space:
 
@@ -65,18 +107,26 @@ git checkout $USER-mydevname
 2. make your developments, and regularly update your sources onto GitLab:
 
 Associate a commit short message to your major modifications:
-```
+```bash
 git commit -m "this is a commit message"
 ```
 
-Update your sources towards GitLab:
+**Important**: Do not commit the files `env_MOLA.sh` and `TEMPLATES/job_template.sh`.
+Before pushing your local branch to the GitLab, use the following command
+to get back these files in their original state:
+```bash
+git checkout env_MOLA.sh && git checkout TEMPLATES/job_template.sh && chmod a+r env_MOLA.sh TEMPLATES/job_template.sh
 ```
+You may create an alias for this command in your ``.bash_aliases``.
+
+Update your sources towards GitLab:
+```bash
 git push origin $USER-mydevname
 ```
 
 3. For each development, update your **sator** sources using:
 
-```
+```bash
 rsync -var /stck/$USER/MOLA/Dev /tmp_user/sator/$USER/MOLA/
 ```
 
