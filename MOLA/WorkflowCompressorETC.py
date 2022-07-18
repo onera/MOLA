@@ -21,13 +21,12 @@ from . import InternalShortcuts as J
 from etc.globborder.globborder_dict import globborder_dict
 import etc.transform.__future__  as trf
 
-#@J.mute_stdout
+@J.mute_stdout
 def setBC_stage_mxpl(t, left, right, method='globborder_dict'):
 
     if method == 'globborder_dict':
         t = trf.defineBCStageFromBC(t, left)
-        t = trf.defineBCStageFromBC(t, right)     
-
+        t = trf.defineBCStageFromBC(t, right)
         t, stage = trf.newStageMxPlFromFamily(t, left, right)
 
     elif method == 'poswin':

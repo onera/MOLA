@@ -2772,10 +2772,11 @@ def setVPMParameters(LiftingLines, GammaZeroAtRoot = True, GammaZeroAtTip = True
                   GhostParticleAtTip = True, IntegralLaw='linear',
                   ParticleDistribution = dict(kind = 'uniform', Symmetrical=False)):
     '''
-    This function is a convenient wrap used for setting the ``.VPM#Parameters`` and the
-    ``.VPM#Parameters`` nodes of **LiftingLine** object.
+    This function is a convenient wrap used for setting the ``.VPM#Parameters``
+    and the ``.VPM#Parameters`` nodes of **LiftingLine** object.
 
-    .. note:: information contained in ``.VPM#Parameters`` is used by
+    .. note::
+        information contained in ``.VPM#Parameters`` is used by
         :py:func:`buildVortexParticleSourcesOnLiftingLine`
 
     Parameters
@@ -2784,22 +2785,22 @@ def setVPMParameters(LiftingLines, GammaZeroAtRoot = True, GammaZeroAtTip = True
         GammaZeroAtRoot : bool
             if :py:obj:`True`, the circulation at the root of the Lifting Line is
             set to zero in :py:func:`buildVortexParticleSourcesOnLiftingLine`.
-            :py:obj:`False` the root is clamped otherwise.
+            If :py:obj:`False` the root is clamped otherwise.
 
         GammaZeroAtTip : bool
             if :py:obj:`True`, the circulation at the tip of the Lifting Line is
             set to zero in :py:func:`buildVortexParticleSourcesOnLiftingLine`.
-            :py:obj:`False` the tip is clamped otherwise.
+            If :py:obj:`False` the tip is clamped otherwise.
 
         GhostParticleAtRoot : bool
             if :py:obj:`True`, a particle is generated before the root to extend
             the Lifting Line.
-            :py:obj:`False` no particle are generated before the root otherwise.
+            If :py:obj:`False` no particle are generated before the root otherwise.
 
         GhostParticleAtTip : bool
             if :py:obj:`True`, a particle is generated after the tip to extend
             the Lifting Line.
-            :py:obj:`False` no particle are generated after the tip otherwise.
+            If :py:obj:`False` no particle are generated after the tip otherwise.
 
         IntegralLaw : str
             interpolation law for the interpolation of data contained in the
@@ -2830,8 +2831,8 @@ def setVPMParameters(LiftingLines, GammaZeroAtRoot = True, GammaZeroAtTip = True
                 Specifies the ratio of the first segment regarding the VPM resolution
 
                 .. note::
-                    only relevant if **kind** is ``'tanhOneSide'`` ,
-                    ``'tanhTwoSides'`` or ``'ratio'``
+                    only relevant if **kind** is ``'tanhOneSide'`` , ``'tanhTwoSides'``
+                    or ``'ratio'``
 
             * LastSegmentRatio : :py:class:`float`
                 Specifies the ratio of the last segment regarding the VPM resolution
@@ -2842,18 +2843,13 @@ def setVPMParameters(LiftingLines, GammaZeroAtRoot = True, GammaZeroAtTip = True
 
             * growthRatio : :py:class:`float`
                 geometrical growth rate ratio regarding the VPM resolution
-
+                
                 .. note::
                     only relevant if **kind** is ``'ratio'``
 
             * Symmetrical : bool
                 if :py:obj:`True`, the particle distribution becomes symmetrical.
                 :py:obj:`False` otherwise.
-
-    Returns
-    -------
-
-        None : None
     '''
 
     for LiftingLine in I.getZones(LiftingLines):
@@ -5088,8 +5084,8 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
     '''
     Build a set of zones composed of particles with fields:
 
-    ``CoordinateX``,``CoordinateY``,``CoordinateZ``,
-    ``VelocityKinematicX``,``VelocityKinematicY``,``VelocityKinematicZ``,
+    ``CoordinateX``, ``CoordinateY``, ``CoordinateZ``,
+    ``VelocityKinematicX``, ``VelocityKinematicY``, ``VelocityKinematicZ``,
     ``Gamma``, ``SectionArea``
 
     Parameters

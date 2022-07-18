@@ -580,7 +580,6 @@ def connectMesh(t, InputMeshes):
                                             translation=translation,
                                             tol=ConnectParams['tolerance'],
                                             dim=baseDim)
-                print(rotationAngle)
             else:
                 ERRMSG = 'Connection type %s not implemented'%ConnectionType
                 raise AttributeError(ERRMSG)
