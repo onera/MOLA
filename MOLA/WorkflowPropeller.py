@@ -75,7 +75,6 @@ def cleanMeshFromAutogrid(t, **kwargs):
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         RPM=0., AxialVelocity=0., ReferenceTurbulenceSetAtRelativeSpan=0.75,
-        SpinnerRotationInterval=(-1e6,+1e6),
         ReferenceValuesParams=dict(
             FieldsAdditionalExtractions=['q_criterion'],
             CoprocessOptions=dict(
@@ -230,6 +229,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         RowTurboConfDict[b[0]+'Zones'] = {'RotationSpeed':omega,
                                           'NumberOfBlades':nb_blades,
                                           'NumberOfBladesInInitialMesh':nb_blades}
+    SpinnerRotationInterval=(-1e6,+1e6)
     TurboConfiguration = WC.getTurboConfiguration(t, ShaftRotationSpeed=omega,
                                 HubRotationSpeed=[SpinnerRotationInterval],
                                 Rows=RowTurboConfDict)
