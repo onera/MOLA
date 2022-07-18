@@ -2290,14 +2290,7 @@ def moveLogFiles():
 
 def createSymbolicLink(src, dst):
     if Cmpi.rank == 0:
-        try:
-            if os.path.islink(dst):
-                os.unlink(dst)
-            else:
-                os.remove(dst)
-        except:
-            pass
-        os.symlink(src, dst)
+        J.createSymbolicLink(src, dst)
 
 #_______________________________________________________________________________
 # PROBES MANAGEMENT

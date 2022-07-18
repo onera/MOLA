@@ -22,13 +22,6 @@ import scipy.optimize as so
 from scipy.spatial import Delaunay
 import scipy.integrate as sint
 
-# BEWARE of ticket #8035
-from mpi4py import MPI
-comm   = MPI.COMM_WORLD
-rank   = comm.Get_rank()
-NumberOfProcessors = comm.Get_size()
-import Converter.Mpi as Cmpi
-import Post.Mpi as Pmpi
 
 import Converter.PyTree as C
 import Converter.Internal as I
@@ -44,7 +37,7 @@ from . import GenerativeShapeDesign as GSD
 from . import GenerativeVolumeDesign as GVD
 from . import __version__
 
-from .Coprocess import printCo, save
+
 
 try:
     silence = J.OutputGrabber()
@@ -176,7 +169,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
                 **BodyForceElement** can be used to inject source terms into a
                 CFD solver.
     '''
-
+    import Converter.Mpi as Cmpi
     Cmpi.barrier()
 
     if not Propeller:
@@ -746,10 +739,12 @@ def migrateSourceTerms2MainPyTree(donor, receiver):
             .. note:: if no receiver is present at a given rank, then an empty list is
                 returned
     '''
+    import Converter.Mpi as Cmpi
+    import Post.Mpi as Pmpi
     Cmpi.barrier()
     BodyForceDisks = I.getZones(donor)
     BodyForceDisksTree = C.newPyTree(['BODYFORCE', BodyForceDisks])
-    Cmpi._setProc(BodyForceDisksTree, rank)
+    Cmpi._setProc(BodyForceDisksTree, Cmpi.rank)
     I._adaptZoneNamesForSlash(BodyForceDisksTree)
 
     donor = I.copyRef(BodyForceDisksTree)
@@ -2843,7 +2838,7 @@ def setVPMParameters(LiftingLines, GammaZeroAtRoot = True, GammaZeroAtTip = True
 
             * growthRatio : :py:class:`float`
                 geometrical growth rate ratio regarding the VPM resolution
-                
+
                 .. note::
                     only relevant if **kind** is ``'ratio'``
 
@@ -3421,7 +3416,8 @@ def addPerturbationFields(t, PerturbationFields=None):
                 fields: ``Density`` , ``MomentumX``, ``MomentumY``, ``MomentumZ``
 
     '''
-
+    import Converter.Mpi as Cmpi
+    import Post.Mpi as Pmpi
     Cmpi.barrier()
 
     if PerturbationFields:
@@ -3614,7 +3610,8 @@ def _computeLiftingLine3DLoads(LiftingLine, Density, RotAxis, RPM):
     J.set(LiftingLine,'.Loads',Thrust=Thrust,Power=Power,Torque=Torque)
 
 
-def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0):
+def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
+        UnsteadyDataIndependentAbscissa='IterationNumber'):
     '''
     This function is used to compute local and integral arrays of a lifting line
     with general orientation and shape (including sweep and dihedral).
@@ -3859,12 +3856,40 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0):
 
 
         # Store computed integral Loads
-        IntegralData = J.set(LiftingLine,'.Loads',
-                      Thrust=NBlades*Thrust,Power=NBlades*Power,
-                      Torque=NBlades*Torque,
-                      ForceTangential=NBlades*FT,
-                      ForceX=NBlades*FX, ForceY=NBlades*FY, ForceZ=NBlades*FZ,
-                      TorqueX=NBlades*MX, TorqueY=NBlades*MY, TorqueZ=NBlades*MZ)
+        Loads = dict(Thrust=NBlades*Thrust,Power=NBlades*Power,
+                     Torque=NBlades*Torque, ForceTangential=NBlades*FT,
+                     ForceX=NBlades*FX, ForceY=NBlades*FY, ForceZ=NBlades*FZ,
+                     TorqueX=NBlades*MX, TorqueY=NBlades*MY, TorqueZ=NBlades*MZ)
+
+        IntegralData = J.set(LiftingLine,'.Loads', **Loads)
+
+        if UnsteadyData:
+            IntegralData.update(UnsteadyData)
+            try:
+                IndependentAbscissa = UnsteadyData[UnsteadyDataIndependentAbscissa]
+            except KeyError:
+                raise KeyError(FAIL+'UnsteadyData dict must contain key "%s"'%UnsteadyDataIndependentAbscissa+ENDC)
+
+            UnsteadyLoads = J.get(LiftingLine,'.UnsteadyLoads')
+
+            if UnsteadyLoads:
+                try:
+                    PreviousIndependentAbscissa = UnsteadyLoads[UnsteadyDataIndependentAbscissa]
+                except KeyError:
+                    raise KeyError(FAIL+'UnsteadyLoads must contain"%s"'%UnsteadyDataIndependentAbscissa+ENDC)
+                AppendFrom = PreviousIndependentAbscissa > (IndependentAbscissa + 1e-12)
+                try: FirstIndex2Update = np.where(AppendFrom)[0][0]
+                except IndexError: FirstIndex2Update = len(PreviousIndependentAbscissa)
+                for k in IntegralData:
+                    PreviousArray = UnsteadyLoads[k][:FirstIndex2Update]
+                    AppendArray = IntegralData[k]
+                    UnsteadyLoads[k] = np.hstack((PreviousArray, AppendArray))
+
+            else:
+                UnsteadyLoads.update(IntegralData)
+                UnsteadyLoads.update(UnsteadyData)
+
+            UnsteadyLoads = J.set(LiftingLine,'.UnsteadyLoads',**UnsteadyLoads)
 
         if NumberOfLiftingLines == 1:  return IntegralData
 
@@ -4506,7 +4531,7 @@ def getLocalBodyForceInputData(BodyForceInputData):
         try: proc = CopiedRotor['proc']
         except KeyError: proc = -1
 
-        if proc == rank: LocalBodyForceInputData.append(CopiedRotor)
+        if proc == Cmpi.rank: LocalBodyForceInputData.append(CopiedRotor)
 
     return LocalBodyForceInputData
 
@@ -4525,7 +4550,8 @@ def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
         LocalBodyForceInputData : list
             as obtained from the function :py:func:`getLocalBodyForceInputData`
     '''
-
+    import Converter.Mpi as Cmpi
+    from .Coprocess import printCo
     def getItemOrRaiseWarning(itemName):
         try:
             item = Rotor[itemName]
@@ -4533,7 +4559,7 @@ def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
             try: name = Rotor['name']
             except KeyError: name = '<UndefinedName>'
             MSG = 'WARNING: {} of rotor {} not found at proc {}'.format(
-                            itemName,  name,  rank)
+                            itemName,  name,  Cmpi.rank)
             printCo(MSG)
 
             item = None
@@ -4555,7 +4581,7 @@ def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
         if not I.getNodeFromName1(LiftingLine,'.Component#Info'):
             J.set(LiftingLine,'.Component#Info', kind='LiftingLine') # related to MOLA #48
 
-        LiftingLine[0] = 'LL.%s.r%d'%(RotorName,rank)
+        LiftingLine[0] = 'LL.%s.r%d'%(RotorName,Cmpi.rank)
         Rotor['LiftingLine'] = LiftingLine
 
 
@@ -4708,7 +4734,8 @@ def computePropellerBodyForce(to, NumberOfSerialRuns, LocalBodyForceInputData):
     return BodyForceDisks
 
 def write4Debug(MSG):
-    with open('LOGS/rank%d.log'%rank,'a') as f: f.write('%s\n'%MSG)
+    import Converter.Mpi as Cmpi
+    with open('LOGS/rank%d.log'%Cmpi.rank,'a') as f: f.write('%s\n'%MSG)
 
 
 def prepareComputeDirectoryPUMA(FILE_LiftingLine, FILE_Polars,
