@@ -68,14 +68,13 @@ else
 fi
 
 
+EL8=`uname -r|grep el8`
 
 if [ "$MAC" = "sator" ] ; then
-    echo nproc is $NPROCMPI
-    if [ $NPROCMPI == 48 ] || [ $NPROCMPI == 44 ] ; then
+    if [ "$EL8" ]; then
         echo switching to sator-new
         export MAC="sator-new"
     fi
-
 fi
 
 echo Machine is $MAC
@@ -148,7 +147,6 @@ elif [ "$MAC" = "visio" ]; then
 
 
 elif [ "$MAC" = "ld" ]; then
-    EL8=`uname -r|grep el8`
     if [ "$EL8" ]; then
         echo 'loading MOLA environment for CentOS 8'
         export ELSAVERSION=UNAVAILABLE # TODO adapt this once #10587 fixed
