@@ -603,21 +603,21 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
-                        Extractions=Extractions)
+                        Extractions=Extractions,
+                        JobInformation=JobInformation)
 
 
     t = PRE.newCGNSfromSetup(t, AllSetupDics, Initialization=Initialization,
                             FULL_CGNS_MODE=False)
     PRE.saveMainCGNSwithLinkToOutputFields(t, writeOutputFields=writeOutputFields)
 
-    print(J.CYAN+'REMEMBER : configuration shall be run using %d procs'%ReferenceValues['NumberOfProcessors']+J.ENDC)
+    print(J.CYAN+'REMEMBER : configuration shall be run using %d procs'%JobInformation['NumberOfProcessors']+J.ENDC)
 
     if 'NumberOfProcessors' not in JobInformation:
         JobInformation['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
 
     if COPY_TEMPLATES:
-        JM.getTemplates(AllSetupDics['ReferenceValues']['Workflow'],
-                otherWorkflowFiles=['monitor_loads.py'],
+        JM.getTemplates('Airfoil', otherWorkflowFiles=['monitor_loads.py'],
                 JobInformation=JobInformation)
 
 

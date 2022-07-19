@@ -332,14 +332,12 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         ReferenceValuesParams.update(dict(PitchAxis=PitchAxis, YawAxis=YawAxis))
 
     ReferenceValues = computeReferenceValues(FluidProperties, **ReferenceValuesParams)
-    ReferenceValues['Workflow'] = 'Compressor'
 
     if I.getNodeFromName(t, 'proc'):
         JobInformation['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
-        ReferenceValues['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
         Splitter = None
     else:
-        ReferenceValues['NumberOfProcessors'] = 0
+        JobInformation['NumberOfProcessors'] = 'free'
         Splitter = 'PyPart'
 
     elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-6, unstructured=IsUnstructured)
@@ -368,6 +366,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     addMonitoredRowsInExtractions(Extractions, TurboConfiguration)
 
+    ReferenceValues['Workflow'] = 'Compressor'
     AllSetupDics = dict(FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
@@ -409,14 +408,13 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     if not Splitter:
         print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
-                                                   ReferenceValues['NumberOfProcessors'],J.ENDC))
+                                                   JobInformation['NumberOfProcessors'],J.ENDC))
     else:
         print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
             Splitter + J.ENDC))
 
     if COPY_TEMPLATES:
-        JM.getTemplates(AllSetupDics['ReferenceValues']['Workflow'],
-                otherWorkflowFiles=['EXAMPLE/monitor_perfos.py'],
+        JM.getTemplates('Compressor', otherWorkflowFiles=['EXAMPLE/monitor_perfos.py'],
                 JobInformation=JobInformation)
 
 def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',

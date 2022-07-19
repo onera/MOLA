@@ -138,7 +138,8 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
 def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
         NumericalParams={}, Extractions=[{'type':'AllBCWall'}],
         Initialization=dict(method='uniform'),
-        BodyForceInputData=[], writeOutputFields=True):
+        BodyForceInputData=[], writeOutputFields=True,
+        JobInformation={}, COPY_TEMPLATES=True):
     '''
     This macro-function takes as input a preprocessed grid file (as produced
     by function :py:func:`prepareMesh4ElsA` ) and adds all remaining information
@@ -347,7 +348,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
     ReferenceValues = computeReferenceValues(FluidProperties,
                                              **ReferenceValuesParams)
 
-    ReferenceValues['NumberOfProcessors'] = int(max(getProc(t))+1)
+    JobInformation['NumberOfProcessors'] = int(max(getProc(t))+1)
     elsAkeysCFD      = getElsAkeysCFD(unstructured=IsUnstructured)
     elsAkeysModel    = getElsAkeysModel(FluidProperties, ReferenceValues,
                                         unstructured=IsUnstructured)
@@ -356,12 +357,14 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
     elsAkeysNumerics = getElsAkeysNumerics(ReferenceValues,
                                 unstructured=IsUnstructured, **NumericalParams)
 
+    ReferenceValues['Workflow'] = 'Standard'
     AllSetupDics = dict(FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
-                        Extractions=Extractions)
+                        Extractions=Extractions,
+                        JobInformation=JobInformation)
 
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
@@ -371,7 +374,9 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
 
 
     print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
-                                               ReferenceValues['NumberOfProcessors'],J.ENDC))
+                                               JobInformation['NumberOfProcessors'],J.ENDC))
+
+    if COPY_TEMPLATES: JM.getTemplates('Standard', JobInformation=JobInformation)
 
 def getMeshesAssembled(InputMeshes):
     '''
