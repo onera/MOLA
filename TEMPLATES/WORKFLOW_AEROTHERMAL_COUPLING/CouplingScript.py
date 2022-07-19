@@ -28,6 +28,7 @@ if e_state in [2, 16] and iteration % stepForCwipiCommunication == 0 and iterati
     outputTree = I.merge([outputTree, t])
 
     for CPLsurf, cplList in pyC2Connections.items():
+        CO.printCo('CWIPI coupling on {}'.format(CPLsurf), 0, color=CO.MAGE)
         #___________________________________________________________________________
         # Get all needed data at coupled BCs
         #___________________________________________________________________________
@@ -69,9 +70,8 @@ if e_state in [2, 16] and iteration % stepForCwipiCommunication == 0 and iterati
             dtCoupling = localTimestep * stepForCwipiCommunication
 
         alphaOpt = WAT.computeOptimalAlpha(BCDataSet, dtCoupling)
-        print('alphaOpt = {}'.format(np.mean(alphaOpt)))
         alphaOpt *= WAT.rampFunction(100, 100+10*stepForCwipiCommunication, 1e5, 10.)(iteration)
-        print('  after ramp --> {}'.format(np.mean(alphaOpt)))
+        print('alphaOpt = {}'.format(np.mean(alphaOpt)))
         r = cplList.publish2(alphaOpt, iteration=iteration, stride=1, tag=100)
         cplList.wait_issend(r)
 

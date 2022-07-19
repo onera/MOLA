@@ -128,8 +128,6 @@ def plot_hub_and_shroud_lines(filename):
     plt.grid()
     plt.xlabel('x (m)')
     plt.ylabel('y (m)')
-    Rmax = np.amax(yShroud)
-    plt.ylim(-0.05*Rmax, 1.05*Rmax)
     # Save
     plt.savefig(filename.replace('.plt', '.png'), dpi=150, bbox_inches='tight')
     return 0

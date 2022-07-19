@@ -27,10 +27,31 @@ from . import Preprocess        as PRE
 from . import JobManager        as JM
 from . import WorkflowCompressor as WC
 
-def prepareMesh4ElsA(mesh='mesh.cgns', splitAndDistributeOptions={'maximum_allowed_nodes':3},
+def prepareMesh4ElsA(mesh='mesh.cgns', splitOptions={'maximum_allowed_nodes':3},
                      match_tolerance=1e-7, periodic_match_tolerance=1e-7):
     '''
-    Exactly like :py:func:`MOLA.Preprocess.prepareMesh4ElsA`
+    An adaptation of  :py:func:`MOLA.Preprocess.prepareMesh4ElsA`.
+
+    Parameters
+    ----------
+
+        mesh : :py:class:`str` or tree
+            Mesh issued from automatic mesh generation, including BC families.
+
+        splitOptions : dict
+            Exactly the keyword arguments of :py:func:`~MOLA.Preprocess.splitAndDistribute`
+
+        match_tolerance : float
+            small tolerance for consctructing the match connectivity.
+
+        periodic_match_tolerance : float
+            small tolerance for consctructing the periodic match connectivity
+
+    Returns
+    -------
+
+        t : tree
+            resulting preprocessed tree, that can be sent to :py:func:`prepareMainCGNS4ElsA`
     '''
     if isinstance(mesh,str):
         t = C.convertFile2PyTree(mesh)
@@ -65,7 +86,7 @@ def prepareMesh4ElsA(mesh='mesh.cgns', splitAndDistributeOptions={'maximum_allow
 
 
 
-    return PRE.prepareMesh4ElsA(InputMeshes, splitAndDistributeOptions)
+    return PRE.prepareMesh4ElsA(InputMeshes, splitOptions)
 
 def cleanMeshFromAutogrid(t, **kwargs):
     '''
@@ -75,7 +96,6 @@ def cleanMeshFromAutogrid(t, **kwargs):
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         RPM=0., AxialVelocity=0., ReferenceTurbulenceSetAtRelativeSpan=0.75,
-        SpinnerRotationInterval=(-1e6,+1e6),
         ReferenceValuesParams=dict(
             FieldsAdditionalExtractions=['q_criterion'],
             CoprocessOptions=dict(
@@ -92,7 +112,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         Extractions=[dict(type='AllBCWall'),
                      dict(type='IsoSurface',field='CoordinateX',value=1.0),
                      dict(type='IsoSurface',field='CoordinateX',value=2.0),
-                     dict(type='IsoSurface',field='q_criterion',value=10.0)],
+                     dict(type='IsoSurface',field='q_criterion',value=20.0)],
         writeOutputFields=True,
         Initialization={'method':'uniform'},
         FULL_CGNS_MODE=False):
@@ -230,6 +250,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         RowTurboConfDict[b[0]+'Zones'] = {'RotationSpeed':omega,
                                           'NumberOfBlades':nb_blades,
                                           'NumberOfBladesInInitialMesh':nb_blades}
+    SpinnerRotationInterval=(-1e6,+1e6)
     TurboConfiguration = WC.getTurboConfiguration(t, ShaftRotationSpeed=omega,
                                 HubRotationSpeed=[SpinnerRotationInterval],
                                 Rows=RowTurboConfDict)
@@ -251,12 +272,12 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
     ReferenceValues['MaximumSpan'] = span
 
     if I.getNodeFromName(t, 'proc'):
-        NProc = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
-        ReferenceValues['NProc'] = int(NProc)
-        ReferenceValuesParams['NProc'] = int(NProc)
+        NumberOfProcessors = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
+        ReferenceValues['NumberOfProcessors'] = int(NumberOfProcessors)
+        ReferenceValuesParams['NumberOfProcessors'] = int(NumberOfProcessors)
         Splitter = None
     else:
-        ReferenceValues['NProc'] = 0
+        ReferenceValues['NumberOfProcessors'] = 0
         Splitter = 'PyPart'
 
     elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-6, unstructured=IsUnstructured)
@@ -292,7 +313,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
                          AllSetupDics['ReferenceValues'])
     dim = int(AllSetupDics['elsAkeysCFD']['config'][0])
     PRE.addGoverningEquations(t, dim=dim)
-    AllSetupDics['ReferenceValues']['NProc'] = int(max(PRE.getProc(t))+1)
+    AllSetupDics['ReferenceValues']['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
     PRE.writeSetup(AllSetupDics)
 
     if FULL_CGNS_MODE:
@@ -304,7 +325,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
 
     if not Splitter:
         print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
-                                                   ReferenceValues['NProc'],J.ENDC))
+                                                   ReferenceValues['NumberOfProcessors'],J.ENDC))
     else:
         print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
             Splitter + J.ENDC))

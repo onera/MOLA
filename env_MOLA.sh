@@ -12,6 +12,7 @@ export EXTPYLIB=$MOLA/ExternalPythonPackages
 export MOLASATOR=/tmp_user/sator/mbalmase/soft/MOLA/Dev
 export TREELABSATOR=/tmp_user/sator/lbernard/TreeLab/dev
 export EXTPYLIBSATOR=$MOLASATOR/ExternalPythonPackages
+export VPMVERSION=v0.1
 export PUMAVERSION=r337
 ###############################################################################
 
@@ -50,12 +51,33 @@ MAC0=$(echo $KC | grep 'ganesh'); if [ "$MAC0" != "" ]; then export MAC="visio";
 MAC0=$(echo $KC | grep 'spiro'); if [ "$MAC0" != "" ]; then export MAC="spiro"; fi
 
 
-if { [ "$MAC" = "sator" ] && [ -n "$SLURM_CPUS_ON_NODE" ]; } ; then
-    if [ $(nproc) == 48 ] || [ $(nproc) == 44 ] ; then
+if [ -n "$SLURM_NTASKS" ] ; then
+    if [ $SLURM_NTASKS == 1 ] ; then
+        if [ -n "$SLURM_CPUS_PER_TASK" ] ; then
+            export NPROCMPI=$SLURM_CPUS_PER_TASK
+        elif [ -n "$SLURM_CPUS_ON_NODE" ] ; then
+            export NPROCMPI=$SLURM_CPUS_ON_NODE
+        else
+            export NPROCMPI=$(nproc)
+        fi
+    else
+        export NPROCMPI=$SLURM_NTASKS
+    fi
+else
+    export NPROCMPI=$(nproc)
+fi
+
+
+EL8=`uname -r|grep el8`
+
+if [ "$MAC" = "sator" ] ; then
+    if [ "$EL8" ]; then
+        echo switching to sator-new
         export MAC="sator-new"
     fi
 fi
 
+echo Machine is $MAC
 
 if [ "$MAC" = "spiro" ]; then
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro3_mpi/.env_elsA
@@ -63,11 +85,21 @@ if [ "$MAC" = "spiro" ]; then
     export PATH=$EXTPYLIB/bin:$PATH
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
+    # PUMA
     export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro3
-    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
-    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH
-    export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
+    export PYTHONPATH=$PumaRootDir/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
+    export PYTHONPATH=$PumaRootDir/lib/python${PYTHONVR}/site-packages/PUMA:$PYTHONPATH
+    export LD_LIBRARY_PATH=$PumaRootDir/lib/python${PYTHONVR}:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+
+    # VPM
+    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/$MAC
+    export PATH=$VPMPATH:$PATH
+    export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/opencascade/lib:/opt/tools/hdf5-1.10.5-intel-19-impi-19/lib
+    export PYTHONPATH=$VPMPATH:$PYTHONPATH
+    export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
     alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
     alias python='python3'
@@ -75,28 +107,88 @@ if [ "$MAC" = "spiro" ]; then
 
 
 elif [ "$MAC" = "visio" ]; then
-    export ELSAVERSION=v5.0.03 # TODO adapt this once #9666 #10587 fixed
-    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/centos6_mpi/.env_elsA
-    export PYTHONPATH=$EXTPYLIB/lib/python2.7/site-packages/:$PYTHONPATH
-    export PATH=$EXTPYLIB/bin:$PATH
-    module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+    export ELSAVERSION=UNAVAILABLE # TODO adapt this once #10587 fixed
+    # source /stck/elsa/Public/$ELSAVERSION/Dist/bin/centos6_mpi/.env_elsA
+    # export PYTHONPATH=$EXTPYLIB/lib/python2.7/site-packages/:$PYTHONPATH
+    # export PATH=$EXTPYLIB/bin:$PATH
 
-    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_centos6
-    export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
-    export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages/PUMA:$PYTHONPATH
-    export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
-    export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+    . /etc/profile.d/modules-dri.sh
+    module load subversion/1.7.6
+    module load python/3.6.1
+    export PYTHONVR=3.6
+    module unload $(module -t list 2>&1 | grep -i intel)
+    module load gcc/4.8.1
+    module load intel/17.0.4
+    module load impi/17
+    module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+    export OMP_NUM_THREADS=16
+    alias python=python3
+    export PYTHONEXE=python3
+
+
+    # CAVEAT -> PUMA is installed in python v2 only in visio
+    # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_centos6
+    # export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
+    # export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages/PUMA:$PYTHONPATH
+    # export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
+    # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+
+    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/$MAC
+    export PATH=$PATH:$VPMPATH
+    # export PATH=/stck/lbernard/.local/bin:$PATH
+    export PATH=$VPMPATH:$PATH
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/opencascade2/lib:/usr/local/hdf5-intel-1.8.8/lib:/usr/local/gtk+3/lib
+    export PYTHONPATH=$VPMPATH:$PYTHONPATH
+    export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
+
+    alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
+    alias python='python3'
+
 
 elif [ "$MAC" = "ld" ]; then
-    EL8=`uname -r|grep el8`
     if [ "$EL8" ]; then
         echo 'loading MOLA environment for CentOS 8'
-        source /stck/elsa/Public/v5.0.04dev/Dist/bin/local-os8_mpi/.env_elsA # TODO adapt this once #10587 fixed
+        export ELSAVERSION=UNAVAILABLE # TODO adapt this once #10587 fixed
+        # source /stck/elsa/Public/v5.0.04dev/Dist/bin/local-os8_mpi/.env_elsA # TODO adapt this once #10587 fixed
         module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+
+        module unload intel/19.0.5
+        module unload impi/19.0.5
+        #module load oce/7.5.0-gnu831
+        module load occt/7.6.1-gnu831
+        module load python/3.6.1-gnu831
+        # Set next two lines only if python is not python
+        export PYTHONEXE=python3
+        export PYTHONVR=3.6
+        alias python=python3
+        module load intel/21.2.0
+        #module load impi/21.2.0
+        module load hdf5/1.8.17-intel2120
+
+        # VPM
+        export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/${MAC}8
+        export PATH=$VPMPATH:$PATH
+        export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
+        export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
+        export LD_LIBRARY_PATH=/stck/benoit/opencascade/lib:$LD_LIBRARY_PATH
+        export PYTHONPATH=$VPMPATH:$PYTHONPATH
+        export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
+
     else
         echo 'loading MOLA environment for CentOS 7'
         source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
         module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+
+        # VPM
+        export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/$MAC
+        export PATH=$VPMPATH:$PATH
+        export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
+        export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
+        export LD_LIBRARY_PATH=/stck/benoit/opencascade/lib:/opt/tools/hdf5-1.10.5-intel-19-impi-19/lib:$LD_LIBRARY_PATH
+        export PYTHONPATH=$VPMPATH:$PYTHONPATH
+        export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
+
     fi
 
     alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
@@ -129,6 +221,16 @@ elif [ "$MAC" = "sator-new" ]; then
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
+    # VPM
+    export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/$MAC
+    export PATH=$VPMPATH:$PATH
+    export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=$VPMPATH:$LD_LIBRARY_PATH
+    # export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp_user/sator/lbernard/lib
+    export PYTHONPATH=$VPMPATH:$PYTHONPATH
+    export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
+
+
     alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
     alias python='python3'
 
@@ -144,19 +246,3 @@ alias mola_version="python -c 'import MOLA.InternalShortcuts as J;J.printEnviron
 alias mola_jobsqueue_sator="python -c 'import MOLA.JobManager as JM;JM.getCurrentJobsStatus()'"
 
 mola_version
-
-if [ -n "$SLURM_NTASKS" ] ; then
-    if [ $SLURM_NTASKS == 1 ] ; then
-        if [ -n "$SLURM_CPUS_PER_TASK" ] ; then
-            export NPROCMPI=$SLURM_CPUS_PER_TASK
-        elif [ -n "$SLURM_CPUS_ON_NODE" ] ; then
-            export NPROCMPI=$SLURM_CPUS_ON_NODE
-        else
-            export NPROCMPI=$(nproc)
-        fi
-    else
-        export NPROCMPI=$SLURM_NTASKS
-    fi
-else
-    export NPROCMPI=$(nproc)
-fi

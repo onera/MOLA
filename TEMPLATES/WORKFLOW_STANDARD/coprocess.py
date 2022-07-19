@@ -36,7 +36,7 @@ if CO.getSignal('RELOAD_SETUP'):
     if BodyForceInputData:
         LocalBodyForceInputData = LL.getLocalBodyForceInputData(BodyForceInputData)
         LL.invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData)
-        NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NProcs)
+        NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NumberOfProcessors)
 
 
 

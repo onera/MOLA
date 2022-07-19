@@ -26,8 +26,8 @@ import copy
 from mpi4py import MPI
 comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
-NProcs = comm.Get_size()
-nbOfDigitsOfNProcs = int(np.ceil(np.log10(NProcs+1)))
+NumberOfProcessors = comm.Get_size()
+nbOfDigitsOfNProcs = int(np.ceil(np.log10(NumberOfProcessors+1)))
 
 import Converter.PyTree as C
 import Converter.Internal as I
@@ -155,6 +155,12 @@ def extractArrays(t, arrays, RequestedStatistics=[], Extractions=[],
 
         addResiduals : bool
             if :py:obj:`True`, add the residuals information
+
+    Returns
+    -------
+
+        arraysTree : PyTree
+            PyTree equivalent of the input :py:class:`dict` **arrays**
     '''
 
     if addResiduals: extractResiduals(t, arrays)
@@ -237,6 +243,10 @@ def extractSurfaces(t, Extractions):
             * ``normal`` : :py:class:`list` of 3 :py:class:`float` (contextual)
                 Normal vector employed for slicing if ``type`` = ``Plane``
 
+            * ``family`` : :py:class:`list` of 3 :py:class:`float` (contextual)
+                Name of a zone Family. The extraction is performed only in zones
+                with this ``FamilyName``.
+
     Returns
     -------
 
@@ -260,32 +270,37 @@ def extractSurfaces(t, Extractions):
     I._renameNode(t, 'FlowSolution#Height', 'FlowSolution')
     I._rmNodesByName(t, 'FlowSolution#EndOfRun*')
     reshapeBCDatasetNodes(t)
+    I._rmNodesByName(t, 'BCDataSet#Init') # see MOLA #75 and Cassiopee #10641
     DictBCNames2Type = C.getFamilyBCNamesDict(t)
     SurfacesTree = I.newCGNSTree()
     PartialTree = Cmpi.convert2PartialTree(t)
 
-    # See Anomaly 8784 https://elsa.onera.fr/issues/8784
-    for BCDataSetNode in I.getNodesFromType(PartialTree, 'BCDataSet_t'):
-        for node in I.getNodesFromType(BCDataSetNode, 'DataArray_t'):
-            if I.getValue(node) is None:
-                I.rmNode(BCDataSetNode, node)
-
     for Extraction in Extractions:
         TypeOfExtraction = Extraction['type']
         ExtractionInfo = copy.deepcopy(Extraction)
+        if 'family' in Extraction:
+            Tree4Extraction = I.copyTree(PartialTree)
+            for base in I.getBases(Tree4Extraction):
+                I._rmNodesByType1(base, 'Zone_t')
+                basePartialTree = I.getNodeFromName1(PartialTree, I.getName(base))
+                zones2keep = C.getFamilyZones(basePartialTree, Extraction['family'])
+                for zone in zones2keep:
+                    I._addChild(base, zone)
+        else:
+            Tree4Extraction = PartialTree
 
         if TypeOfExtraction.startswith('AllBC'):
             BCFilterName = TypeOfExtraction.replace('AllBC','')
             for BCFamilyName in DictBCNames2Type:
                 BCType = DictBCNames2Type[BCFamilyName]
                 if BCFilterName.lower() in BCType.lower():
-                    zones = C.extractBCOfName(PartialTree,'FamilySpecified:'+BCFamilyName, extrapFlow=False)
+                    zones = C.extractBCOfName(Tree4Extraction,'FamilySpecified:'+BCFamilyName, extrapFlow=False)
                     ExtractionInfo['type'] = 'BC'
                     ExtractionInfo['BCType'] = BCType
                     addBase2SurfacesTree(BCFamilyName)
 
         elif TypeOfExtraction.startswith('BC'):
-            zones = C.extractBCOfType(PartialTree, TypeOfExtraction, extrapFlow=False)
+            zones = C.extractBCOfType(Tree4Extraction, TypeOfExtraction, extrapFlow=False)
             try: basename = Extraction['name']
             except KeyError: basename = TypeOfExtraction
             ExtractionInfo['type'] = 'BC'
@@ -293,7 +308,7 @@ def extractSurfaces(t, Extractions):
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction.startswith('FamilySpecified:'):
-            zones = C.extractBCOfName(PartialTree, TypeOfExtraction, extrapFlow=False)
+            zones = C.extractBCOfName(Tree4Extraction, TypeOfExtraction, extrapFlow=False)
             try: basename = Extraction['name']
             except KeyError: basename = TypeOfExtraction.replace('FamilySpecified:','')
             ExtractionInfo['type'] = 'BC'
@@ -301,7 +316,9 @@ def extractSurfaces(t, Extractions):
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction == 'IsoSurface':
-            zones = P.isoSurfMC(PartialTree, Extraction['field'], Extraction['value'])
+            if Extraction['field'] in ['Radius', 'radius', 'CoordinateR']:
+                C._initVars(Tree4Extraction, '{}=({{CoordinateY}}**2+{{CoordinateZ}}**2)**0.5'.format(Extraction['field']))
+            zones = P.isoSurfMC(Tree4Extraction, Extraction['field'], Extraction['value'])
             try: basename = Extraction['name']
             except KeyError:
                 FieldName = Extraction['field'].replace('Coordinate','').replace('Radius', 'R').replace('ChannelHeight', 'H')
@@ -315,8 +332,8 @@ def extractSurfaces(t, Extractions):
                 x='{CoordinateX}',y='{CoordinateY}',z='{CoordinateZ}',
                 r=Extraction['radius'], x0=center[0],
                 y0=center[1], z0=center[2])
-            C._initVars(PartialTree,'Slice=%s'%Eqn)
-            zones = P.isoSurfMC(PartialTree, 'Slice', 0.0)
+            C._initVars(Tree4Extraction,'Slice=%s'%Eqn)
+            zones = P.isoSurfMC(Tree4Extraction, 'Slice', 0.0)
             try: basename = Extraction['name']
             except KeyError: basename = 'Sphere_%g'%Extraction['radius']
             addBase2SurfacesTree(basename)
@@ -325,8 +342,8 @@ def extractSurfaces(t, Extractions):
             n = np.array(Extraction['normal'])
             Pt = np.array(Extraction['point'])
             PlaneCoefs = n[0],n[1],n[2],-n.dot(Pt)
-            C._initVars(PartialTree,'Slice=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
-            zones = P.isoSurfMC(PartialTree, 'Slice', 0.0)
+            C._initVars(Tree4Extraction,'Slice=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
+            zones = P.isoSurfMC(Tree4Extraction, 'Slice', 0.0)
             try: basename = Extraction['name']
             except KeyError: basename = 'Plane'
             addBase2SurfacesTree(basename)
@@ -658,23 +675,35 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[], tagWithIte
             See documentation of function :py:func:`extractIntegralData` for
             more details.
 
+    Returns
+    -------
+
+        arraysTree : PyTree
+            PyTree equivalent of the :py:class:`dict` ``arrays``
+
     '''
     # FIXME: Segmentation fault bug when this function is used after
     #        POST.absolute2Relative (in co -proccessing only)
     def massflowWeightedIntegral(t, var):
         t = C.initVars(t, 'rou_var={MomentumX}*{%s}'%(var))
-        integ  = abs(P.integNorm(t, 'rou_var')[0][0])
+        C._initVars(t, 'rov_var={MomentumY}*{%s}'%(var))
+        C._initVars(t, 'row_var={MomentumZ}*{%s}'%(var))
+        integ  = abs(P.integNorm(t, 'rou_var')[0][0]) \
+               + abs(P.integNorm(t, 'rov_var')[0][1]) \
+               + abs(P.integNorm(t, 'row_var')[0][2])
         return integ
 
     def surfaceWeightedIntegral(t, var):
-        integ  = abs(P.integNorm(t, var)[0][0])
+        integ  = P.integ(t, var)[0]
         return integ
 
     for row, rowParams in setup.TurboConfiguration['Rows'].items():
 
         planeUpstream   = I.newCGNSTree()
         planeDownstream = I.newCGNSTree()
-        if not 'RotationSpeed' in rowParams:
+        if 'PeriodicTranslation' in setup.TurboConfiguration:
+            IsRotor = False  # Linear cascade
+        elif not 'RotationSpeed' in rowParams:
             continue
         elif rowParams['RotationSpeed'] != 0:
             IsRotor = True
@@ -710,7 +739,10 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[], tagWithIte
             continue
 
         if rank == 0:
-            fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+            if 'PeriodicTranslation' in setup.TurboConfiguration:
+                fluxcoeff = 1.
+            else:
+                fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
             if IsRotor:
                 perfos = computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
             else:
@@ -719,7 +751,7 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[], tagWithIte
             _extendArraysWithStatistics(arrays, 'PERFOS_{}'.format(row), RequestedStatistics)
 
     arraysTree = arraysDict2PyTree(arrays)
-    save(arraysTree, os.path.join(DIRECTORY_OUTPUT, FILE_ARRAYS), tagWithIteration=tagWithIteration)
+    return arraysTree
 
 def computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=1., fluxcoeffOut=None):
 
@@ -829,7 +861,9 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
     else:
         C._initVars(surface, 'ones=1')
         data['Area']     = abs(P.integNorm(surface, var='ones')[0][0])
-        data['MassFlow'] = abs(P.integNorm(surface, var='MomentumX')[0][0])
+        data['MassFlow'] = abs(P.integNorm(surface, var='MomentumX')[0][0]) \
+                         + abs(P.integNorm(surface, var='MomentumY')[0][1]) \
+                         + abs(P.integNorm(surface, var='MomentumZ')[0][2])
         try:
             for varList, meanFunction in VarAndMeanList:
                 for var in varList:
@@ -854,39 +888,6 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
     Cmpi.barrier()
     return data
 
-def writeSetup(setup):
-    '''
-    Write the ``setup.py`` file using as input the setup module object.
-
-    .. warning:: This function will be replaced by :py:func:`MOLA.Preprocess.writeSetup`
-        and :py:func:`MOLA.Preprocess.writeSetupFromModuleObject` functions
-
-    Parameters
-    ---------
-
-        setup : module
-            Python module object as obtained from command
-
-            >>> import setup
-    '''
-
-    Lines  = ['"""\n%s file automatically generated in COPROCESS\n"""\n'%FILE_SETUP]
-
-    Lines += ["FluidProperties=" +pprint.pformat(setup.FluidProperties)+"\n"]
-    Lines += ["ReferenceValues=" +pprint.pformat(setup.ReferenceValues)+"\n"]
-    Lines += ["elsAkeysCFD="     +pprint.pformat(setup.elsAkeysCFD)+"\n"]
-    Lines += ["elsAkeysModel="   +pprint.pformat(setup.elsAkeysModel)+"\n"]
-    Lines += ["elsAkeysNumerics="+pprint.pformat(setup.elsAkeysNumerics)+"\n"]
-
-    try:
-        Lines += ["BodyForceInputData="+pprint.pformat(setup.BodyForceInputData)+"\n"]
-    except:
-        pass
-
-    AllLines = '\n'.join(Lines)
-
-    with open(FILE_SETUP,'w') as f: f.write(AllLines)
-
 def updateAndWriteSetup(setup):
     '''
     This function is used for adapting ``setup.py`` information for a new run.
@@ -901,6 +902,7 @@ def updateAndWriteSetup(setup):
     '''
     if rank == 0:
         printCo('updating setup.py ...', proc=0, color=GREEN)
+        setup.elsAkeysNumerics['niter'] -= CurrentIteration - setup.elsAkeysNumerics['inititer'] + 1
         setup.elsAkeysNumerics['inititer'] = CurrentIteration
         if 'itime' in setup.elsAkeysNumerics:
             setup.elsAkeysNumerics['itime'] = CurrentIteration * setup.elsAkeysNumerics['timestep']
@@ -1439,7 +1441,7 @@ def sliddingRSD(array, window, avg=None, std=None):
     if std is None:
         std = sliddingSTD(array, window, avg)
 
-    rsd = std / avg
+    rsd = std / np.abs(avg)
 
     InvalidValues = np.logical_not(np.isfinite(rsd))
     rsd[InvalidValues] = 0.
@@ -2179,6 +2181,7 @@ def loadSkeleton(Skeleton=None, PartTree=None):
                     replaceNodeByName(GC, GCpath, 'PointList')
 
     return Skeleton
+
 def splitWithPyPart():
     '''
     Use PyPart to split the mesh in ``main.cgns``. This function should be use
@@ -2220,7 +2223,10 @@ def splitWithPyPart():
                             LoggingFile='{}/partTree'.format(DIRECTORY_LOGS),
                             LoggingVerbose=40  # Filter: None=0, DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
                             )
-    PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[4, 3])
+    # reorder=[6, 2] is recommended by CLEF, mostly for unstructured mesh
+    # with modernized elsA. It is also mandatory to use lussorscawf on
+    # unstructured mesh.
+    PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[6, 2])
     PyPartBase.finalise(PartTree, savePpart=True, method=1)
     Skeleton = PyPartBase.getPyPartSkeletonTree()
     Distribution = PyPartBase.getDistribution()
@@ -2249,6 +2255,18 @@ def splitWithPyPart():
                 node = I.getNodeFromName(NFaceElements, 'ElementConnectivity')
                 I.setValue(node, np.abs(I.getValue(node)))
 
+    if 'CoupledSurfaces' in setup.ReferenceValues['CoprocessOptions']:
+        # This part is linked to the WorkflowAerothermalCoupling
+        # For unstructured zones, AdditionnalFamilyName nodes are lost
+        # See Anomaly #10494 on elsA support
+        # We need to restore them
+        for i, famBCTrigger in enumerate(setup.ReferenceValues['CoprocessOptions']['CoupledSurfaces']):
+            surfaceName = 'ExchangeSurface{}'.format(i)
+            for zone in I.getZones(t):
+                if I.getZoneType(zone) == 2:
+                    for BC in C.getFamilyBCs(t, famBCTrigger):
+                        I.createChild(BC, 'SurfaceName', 'AdditionalFamilyName_t', value=surfaceName)
+
 
     return t, Skeleton, PyPartBase, Distribution
 
@@ -2273,11 +2291,110 @@ def moveLogFiles():
 
 def createSymbolicLink(src, dst):
     if Cmpi.rank == 0:
-        try:
-            if os.path.islink(dst):
-                os.unlink(dst)
-            else:
-                os.remove(dst)
-        except:
-            pass
-        os.symlink(src, dst)
+        J.createSymbolicLink(src, dst)
+
+#_______________________________________________________________________________
+# PROBES MANAGEMENT
+#_______________________________________________________________________________
+
+def appendProbes2Arrays_extractMesh(t, arrays, Probes, order=2):
+    '''
+    Parameter
+    ---------
+
+        t : PyTree
+
+        arrays : dict
+
+        Probes :
+            :py:class:`dict` of the form:
+
+            >>> Probes = dict( probeName1=(x1,y1,z1), ... )
+
+        order : int
+            order of interpolation
+    '''
+    import Geom.PyTree as D
+    import Post.Mpi as Pmpi
+
+    t = Cmpi.convert2PartialTree(t)
+    I._renameNode(t, 'FlowSolution#Init', 'FlowSolution#Centers')
+    I._rmNodesByName(t, I.__FlowSolutionNodes__)
+
+    probesTree = I.newCGNSTree()
+    probesBase = I.newCGNSBase('PROBES', parent=probesTree, cellDim=0)
+    for probeName, location in Probes.items():
+        probe = D.point(location)
+        I.setName(probe, probeName)
+        I._addChild(probesBase, probe)
+
+    P._extractMesh(t, probesTree, mode='accurate', order=order, constraint=0, extrapOrder=0)  # use a hook ? or Pmpi ?
+
+    # Delete empty probes
+    for zone in I.getZones(probesTree):
+        Density = I.getNodeFromName(zone, 'Density')
+        if not Density or I.getValue(Density) == 0:
+            # Probe is not in this zone
+            I._rmNode(probesTree, zone)
+    Cmpi._setProc(probesTree, rank)
+
+    I._rmNodesByType(probesTree, 'Elements_t')
+    I._renameNode(probesTree, 'FlowSolution#Centers', 'FlowSolution')
+
+    probesTree = Cmpi.allgatherTree(probesTree)
+
+    for probeZone in I.getZones(probesTree):
+        ProbesDict = dict( IterationNumber = CurrentIteration-1 )
+        GC = I.getNodeByName1(probeZone, 'GridCoordinates')
+        FS = I.getNodeByName1(probeZone, I.__FlowSolutionCenters__)
+        if not FS: continue
+        for data in I.getNodesByType(GC, 'DataArray_t') + I.getNodesByType(FS, 'DataArray_t'):
+            ProbesDict[I.getName(data)] = I.getValue(data)
+        appendDict2Arrays(arrays, ProbesDict, I.getName(probeZone))
+
+    return probesTree
+
+
+def appendProbes2Arrays(t, arrays, Probes):
+    '''
+    Parameter
+    ---------
+
+        t : PyTree
+
+        arrays : dict
+
+        Probes :
+            :py:class:`dict` of the form:
+
+            >>> Probes = dict(  )
+    '''
+    for Probe in Probes:
+        ProbesDict = dict( IterationNumber = CurrentIteration-1 )
+        zone = I.getNodeFromName2(t, Probe['zone'])
+        variables = Probe['variables']
+        for var in variables:
+            ProbesDict[var] = C.getValue(zone , 'centers:{}'.format(var), Probe['element'])
+
+        if 'name' not in Probe:
+            x, y, z = Probe['location']
+            Probe['name'] = 'Probe_{:.3g}_{:.3g}_{:.3g}'.format(x, y, z)
+        appendDict2Arrays(arrays, ProbesDict, Probe['name'])
+
+def searchZoneAndIndexForProbes(t, Probes, tol=1e-2):
+    for Probe in Probes:
+
+        # Search the nearest points in all zones
+        nearestElement = None
+        minDistance = 1e20
+        for zone in I.getZones(t):
+            element, distance = DP.getNearestPointIndex(zone, Probe['location'])
+            if distance < minDistance:
+                nearestElement = element
+                probeZone = I.getName(zone)
+
+        if minDistance > tol:
+            print('This probe is too far of one ')
+
+        Probe['zone'] = probeZone
+        Probe['element'] = nearestElement
