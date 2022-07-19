@@ -675,10 +675,7 @@ def setBoundaryConditions(t, InputMeshes):
 
     '''
     print('setting boundary conditions...')
-<<<<<<< HEAD
     
-=======
->>>>>>> 54ca0e898acb252391e8bfe373f5f20d2a56410b
     for meshInfo in InputMeshes:
         if 'BoundaryConditions' not in meshInfo: continue
         print('setting BC at base '+meshInfo['baseName'])
