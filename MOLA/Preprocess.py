@@ -2990,12 +2990,7 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     if unstructured:
         elsAkeysNumerics.update(dict(
             implconvectname = 'vleer', # only available for unstructured mesh, see https://elsa-e.onera.fr/issues/6492
-            viscous_fluxes = '5p_cor2', # adapted to unstructured mesh
-            # Different default parameters for turb_order
-            # see http://elsa.onera.fr/restricted/MU_MT_tuto/latest/MU-98057/Textes/Attribute/numerics.html?highlight=turb_limiter#note-turborderusntruct
-            # see issue https://elsa-e.onera.fr/issues/7785
-            turb_order = 2,
-            turb_limiter = 'minmod',
+            viscous_fluxes  = '5p_cor2', # adapted to unstructured mesh
         ))
 
     elsAkeysNumerics.update(kwargs)
