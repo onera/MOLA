@@ -3159,7 +3159,7 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
             dict(ID=i, CASE_LABEL=CASE_LABEL, NewJob=NewJob, JobName=JobName, **WorkflowParams)
             )
 
-    JM.saveJobsConfiguration_future(JobsQueues, machine, DIRECTORY_WORK)
+    JM.saveJobsConfiguration(JobsQueues, machine, DIRECTORY_WORK)
 
     def findElementsInCollection(collec, searchKey, elements=[]):
         '''
@@ -3207,7 +3207,7 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
             MSG = 'Input files must be inside the submission repository (not the case for {})'.format(filename)
             raise Exception(J.FAIL + MSG + J.ENDC)
 
-    JM.launchJobsConfiguration_future(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_COMPRESSOR', otherFiles=otherFiles)
+    JM.launchJobsConfiguration(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_COMPRESSOR', otherFiles=otherFiles)
 
 def printConfigurationStatus(DIRECTORY_WORK, useLocalConfig=False):
     '''

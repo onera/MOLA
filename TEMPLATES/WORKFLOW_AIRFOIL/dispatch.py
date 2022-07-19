@@ -19,7 +19,7 @@ for case in config.JobsQueues:
                                      meshParams=case['meshParams'],
                                      save_meshParams=True,
                                      save_mesh=False)
-        JM.buildJob_future(case, config)
+        JM.buildJob(case, config)
 
     caseDir = os.path.join(config.DIRECTORY_WORK, case['JobName'], case['CASE_LABEL'])
     os.makedirs(caseDir, exist_ok=True)

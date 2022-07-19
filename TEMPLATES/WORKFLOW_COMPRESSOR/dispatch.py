@@ -14,7 +14,7 @@ DIRECTORY_DISPATCHER = os.path.join(config.DIRECTORY_WORK, 'DISPATCHER')
 for case in config.JobsQueues:
 
     if case['NewJob']:
-        JM.buildJob_future(case, config)
+        JM.buildJob(case, config)
 
     WorkflowParams = dict()
     for key, value in case.items():

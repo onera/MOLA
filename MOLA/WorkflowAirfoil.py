@@ -336,9 +336,9 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
             CoprocessOptions=CoprocessOptions, TransitionZones=TransitionZones,
             ImposedWallFields=ImposedWallFields, JobInformation=JobInformation) )
 
-    JM.saveJobsConfiguration_future(JobsQueues, machine, DIRECTORY_WORK, FILE_GEOMETRY)
+    JM.saveJobsConfiguration(JobsQueues, machine, DIRECTORY_WORK, FILE_GEOMETRY)
 
-    JM.launchJobsConfiguration_future(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_AIRFOIL')
+    JM.launchJobsConfiguration(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_AIRFOIL')
 
 
 def buildMesh(FILE_GEOMETRY,
