@@ -30,10 +30,8 @@ import Converter.Internal as I
 import Converter.PyTree as C
 
 from .. import InternalShortcuts as J
-
 from . import ShortCuts as SJ
 from . import Models as SM
-
 
 
 
@@ -67,7 +65,7 @@ def Freq_Phi(t, RPM, MODE):
             print(WARN+'No rotation dof  (DRX, DRY, DRZ) in the model. Computing only with displacements (DX, DY, DZ).'+ENDC)
           
         ModZone = SJ.CreateNewSolutionFromAsterTable(t, FieldDataTable= tabmod_T,
-                                                        ZoneName = 'Mode%s_'%Mode+str(np.round(RPM)), 
+                                                        ZoneName = 'Mode%s_'%Mode+str(np.round(int(RPM))), 
                                                         FieldName = 'Mode',
                                                         )
 
@@ -87,7 +85,7 @@ def Freq_Phi(t, RPM, MODE):
         except:
           t = I.merge([t, C.newPyTree(['ModalBases', []])])
           I._addChild(I.getNodeFromName(t, 'ModalBases'), ModZone)
-        I._addChild(I.getNodeFromName(t, 'ModalBases'), I.createNode('Freq_%sRPM'%np.round(RPM,2), 'DataArray_t', value = freq))
+        I._addChild(I.getNodeFromName(t, 'ModalBases'), I.createNode('Freq_%sRPM'%np.round(int(RPM),2), 'DataArray_t', value = freq))
           
           
 

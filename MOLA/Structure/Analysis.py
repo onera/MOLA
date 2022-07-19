@@ -1,18 +1,19 @@
-'''StructuralAnalysis.py
+'''
+MOLA - StructuralAnalysis.py
 
-   Structural module compatible with Cassiopee and MOLA
+STRUCTURAL MODULE compatible with Cassiopee and MOLA
 
+The objective of this module is to provide cgns based structural functions to perform the
+static or dynamic analysis of structures. This module is fully based in Python.
 
+Author: Mikel Balmaseda 
 
-
-      The objective of this module is to provide cgns based structural functions to perform the
-   static or dynamic analysis of structures. This module is fully based in Python.
-
-   Author: Mikel Balmaseda 
-
-   1. 26/05/2021  Mikel Balmaseda  cgns adaptation of the previous Scripts developed durin the PhD
+1. 26/05/2021  Mikel Balmaseda :  cgns adaptation of the previous Scripts developed durin the PhD
+2. 12/05/2022  Miguel Garcia   :  Comments are introduced to make its reading easier and compatible with GitLab documentation
 
 '''
+
+# System modules
 import sys
 import numpy as np
 from numpy.linalg import norm
@@ -27,7 +28,7 @@ from . import ShortCuts as SJ
 from . import ModalAnalysis   as MA
 from . import NonlinearForcesModels as NFM
 
-
+# Notices/Warnings colors
 FAIL  = '\033[91m'
 GREEN = '\033[92m' 
 WARN  = '\033[93m'
@@ -38,6 +39,30 @@ ENDC  = '\033[0m'
 
 #### AERODYNAMICS:
 def Macro_BEMT(t, PolarsInterpFuns, RPM):
+    '''
+    This is a macro-function used for getting the values calculated by the BEMT theory 
+
+    Parameters
+    ----------
+
+        t : cgns tree 
+            Contains the LiftingLine information
+
+        RPM : float
+            rotational speed of the blade [revolutions per minute]
+
+        PolarsInterpFuns: 
+        
+    Returns
+    -------
+
+        DictOfIntegralData : :py:class:`dict`
+            dictionary including predictions
+
+        Prop.Loads.Data : PUMA object
+
+        SectionalLoadsLL : PUMA object
+    '''
 
     print (CYAN+'Launching 3D BEMT computation...'+ENDC)
 
@@ -289,8 +314,8 @@ def StaticSolver_Newton_Raphson(t, RPM, ForceCoeff):
     nitermax = DictSimulaParam['IntegrationProperties']['NumberOfMaxIterations'][0]
     nincr    = DictSimulaParam['IntegrationProperties']['StaticSteps'][0]
     try:
-        Aij      = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['Aij']
-        Bijm     = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['Bijm']
+        Aij      = DictInternalForcesCoefficients['%sRPM'%np.round(int(RPM),2)]['Aij']
+        Bijm     = DictInternalForcesCoefficients['%sRPM'%np.round(int(RPM),2)]['Bijm']
     except:
         Aij, Bijm = 0, 0 
 
@@ -384,8 +409,8 @@ def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
     nitermax = DictSimulaParam['IntegrationProperties']['NumberOfMaxIterations'][0]
     nincr    = DictSimulaParam['IntegrationProperties']['StaticSteps'][0]
     try:
-        Aij      = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['Aij']
-        Bijm     = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['Bijm']
+        Aij      = DictInternalForcesCoefficients['%sRPM'%np.round(int(RPM),2)]['Aij']
+        Bijm     = DictInternalForcesCoefficients['%sRPM'%np.round(int(RPM),2)]['Bijm']
     except:
         Aij, Bijm = 0, 0 
 
@@ -461,8 +486,8 @@ def DynamicSolver_HHTalpha(t, RPM, ForceCoeff):
     nitermax = DictSimulaParam['IntegrationProperties']['NumberOfMaxIterations'][0]
     
     try:
-        Aij      = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['Aij']
-        Bijm     = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['Bijm']
+        Aij      = DictInternalForcesCoefficients['%sRPM'%np.round(int(RPM),2)]['Aij']
+        Bijm     = DictInternalForcesCoefficients['%sRPM'%np.round(int(RPM),2)]['Bijm']
     except:
         Aij, Bijm = 0, 0 
 
@@ -672,15 +697,15 @@ def SolveROM(tROM, InputRPM = None, InputForceCoeff = None):
     for RPM in InputRPM:
 
         try:
-            ExpansionBase = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['ExpansionBase']
+            ExpansionBase = DictInternalForcesCoefficients['%sRPM'%np.round(int(RPM),2)]['ExpansionBase']
         except:
             ExpansionBase = None
         
-        Solution['%sRPM'%np.round(RPM,2)] = {}
+        Solution['%sRPM'%np.round(int(RPM),2)] = {}
         PHI = SJ.GetReducedBaseFromCGNS(tROM, RPM)
 
         for ForceCoeff in InputForceCoeff:
-            Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff] = {}
+            Solution['%sRPM'%np.round(int(RPM),2)]['FCoeff%s'%ForceCoeff] = {}
 
             if TypeOfSolver == 'Static':
                 q_qp_qpp, fnl_q, fext_q, time  = SolveStatic(tROM, RPM, ForceCoeff)
