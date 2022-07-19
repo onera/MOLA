@@ -1833,7 +1833,7 @@ def _applyLiftingLineInterpolator(LiftingLine, LiftingLineInterpolator,
 def _applyPolarOnLiftingLine(LiftingLines, PolarsInterpolatorDict,
                              InterpFields=['Cl', 'Cd','Cm']):
     """
-    This function computes aerodynamic characteristics of of each section of the
+    This function computes aerodynamic characteristics of each section of the
     LiftingLine using the local conditions defined by ``AoA``, ``Mach`` and
     ``Reynolds`` fields (located in LiftingLine's vertices, at the container
     ``FlowSolution``).

@@ -22,6 +22,9 @@ import numpy as np
 import vg
 from scipy.sparse import csr_matrix, find, issparse
 from itertools import combinations_with_replacement
+import scipy.interpolate as inter
+import matplotlib.pyplot as plt
+
 # MOLA and Cassiopee
 import Converter.Internal as I
 import Converter.PyTree as C
@@ -32,7 +35,7 @@ from .. import LiftingLine  as LL
 # from .  import Models as SM
 from .Models import IsMeshInCaracteristics, ListXYZFromVectFull
 from .  import NonlinearForcesModels as NFM
-
+from .  import PostProcess as SPT
 
 try:
     #Code Aster:
@@ -223,44 +226,121 @@ def SaveModel(t, MName, Modes = False, StaticRotatorySolution = False, fmt = 'cg
 
 
 def getMatrixFromCGNS(t, MatrixName, RPM):
+    '''Compute total K matrix
+
+    Implemented methods:
+
+            - 'Kurs2019': K matrix interpolation :"Parametric Reduced Order Models for Bladed Disks With Mistuning and Varying Operational Speed (E. Kurstak)"
+    
+    '''
     DictMatrices = J.get(t, '.AssembledMatrices')
     try:
-        ReturnMatrix = DictMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]
-    except:
-        print(WARN+'Computing Matrix for parametric condition...'+ENDC)
+        ReturnMatrix = DictMatrices[str(np.round(int(RPM),2))+'RPM'][MatrixName]
+    except: #Parametric model
+        print(WARN+'Computing matrix for parametric condition...'+ENDC)
         if MatrixName == 'Komeg':
             if type(DictMatrices['Parametric']['K0Parametric']) != type(dict()):
                 k0 = DictMatrices['Parametric']['K0Parametric']
                 k1 = DictMatrices['Parametric']['K1Parametric']
                 k2 = DictMatrices['Parametric']['K2Parametric']
-            else:
+                try:
+                    k3 = DictMatrices['Parametric']['K3Parametric']
+                    print('Parametric model (4 RPMs)')
+                except:
+                    print('Parametric model (3 RPMs)')
+
+            else: #2nd way of reading matrix (sparse matrices instead of full matrices)
                 k0,_ = LoadSMatrixFromCGNS(t, RPM, 'K0Parametric')
                 k1,_ = LoadSMatrixFromCGNS(t, RPM, 'K1Parametric')
                 k2,_ = LoadSMatrixFromCGNS(t, RPM, 'K2Parametric')
+                try:
+                    k3 = LoadSMatrixFromCGNS(t, RPM, 'K3Parametric')
+                    print('Parametric model (4 RPMs)')
+                except:
+                    print('Parametric model (3 RPMs)')
 
             DictSimulaParam = J.get(t, '.SimulationParameters')
             RPMs = DictSimulaParam['RotatingProperties']['RPMs']
-
-            ReturnMatrix=k0+k1*(RPM-RPMs[0])+0.5*k2*((RPM-RPMs[0])**2)     #EQ from Kurstak
-
-        else:
+            
+            try:
+                ReturnMatrix=k0+k1*(RPM-RPMs[0])+0.5*k2*((RPM-RPMs[0])**2)+(1/6)*k3*((RPM-RPMs[0])**3)    #3rd Order Taylor development
+            except:
+                ReturnMatrix=k0+k1*(RPM-RPMs[0])+0.5*k2*((RPM-RPMs[0])**2)     #2nd Order Taylor development [Kurs2019]
+            
+        else: 
             ReturnMatrix = DictMatrices['Parametric'][MatrixName]
     return ReturnMatrix
 
+
 def getVectorFromCGNS(t, VectorName, RPM):
+    '''Read/Compute us and fei terms
+
+    Implemented methods:
+
+            - 'Stern2010': us and fei approximation :"Multi-level parametric reduced models of rotating bladed disk assemblies (A. Sternchuss)"
+    
+    '''
     DictVector = J.get(t, '.AssembledVectors')
-    #try:
-    #    ReturnParameter=DictVector[str(np.round(RPM,2))+'RPM'][VectorName]
-    #except: #Parametric case: This nodes are not on the ROM tree for random RPMs (just the 3 basic ones)
-    #    DictVector[str(np.round(RPM,2))+'RPM']['Us']=??
-    #    DictVector[str(np.round(RPM,2))+'RPM']['Fei']=??
-    return DictVector[str(np.round(RPM,2))+'RPM'][VectorName]
+    try:
+        DictVector[str(np.round(int(RPM),2))+'RPM'][VectorName]
+
+    except: #Parametric case
+        
+        DictSimulaParam = J.get(t, '.SimulationParameters')
+        #Rotational speeds for which the parametric model is defined)
+        RPMs=DictSimulaParam['RotatingProperties']['RPMs']
+        DictAeroParam = J.get(t, '.AerodynamicProperties')
+        Rmax=DictAeroParam['BladeParameters']['Rmax']
+        Ndof=len(GetReducedBaseFromCGNS(t, RPMs[1]))
+        NNodes=np.arange(0,Ndof/3)   
+              
+        ## Cuadratic law for fei [Stern2010]
+        #####
+        # The component is not important: the difference has been shown to be infimum
+        if RPMs[0] < 0.1:
+            print(WARN+'Be careful: fei computation might be erroneous ( RPMs[0] near 0)'+ ENDC)
+        feiOmega=getVectorFromCGNS(t, 'Fei', RPMs[0])/(RPMs[0]**2)
+
+        ## Cubic law (splines) for us
+        #####
+        if len(RPMs)==4:
+            usMatrix=np.zeros((len(GetReducedBaseFromCGNS(t, RPM)),5)) #0 rpm point is already included
+            print('RPMs for us interpolation (parametric 4 RPMs): 0 , '+str(RPMs))
+        
+            for idx in range(0,len(RPMs)):
+                #us is read for every one of the RPMS composing the parametric model 
+                usMatrix[:,idx+1]       = getVectorFromCGNS(t, 'Us', RPMs[idx])    
+            
+            RPMsUs=np.concatenate((0,RPMs),axis=None)
+            functionUsSplines=inter.interp1d(RPMsUs,usMatrix,kind='cubic',fill_value="extrapolate")
+        else:
+
+            usMatrix=np.zeros((len(GetReducedBaseFromCGNS(t, RPM)),4)) #0 rpm point is already included
+            print('RPMs for us interpolation (parametric 3 RPMs): 0 , '+str(RPMs))
+        
+            for idx in range(0,len(RPMs)):
+                #us is read for every one of the RPMS composing the parametric FOM    
+                usMatrix[:,idx+1]       = getVectorFromCGNS(t, 'Us', RPMs[idx])    
+            
+            RPMsUs=np.concatenate((0,RPMs),axis=None)
+            functionUsSplines=inter.interp1d(RPMsUs,usMatrix,kind='cubic',fill_value="extrapolate")
+            print(WARN+'Be careful: us computation might be erroneous (pure cubic interpolation). Check RPMs range'+ ENDC)
+
+        #Upload to the tree
+        DictVector = J.get(t, '.AssembledVectors')
+        DictVector[str(np.round(int(RPM),2))+'RPM']={}
+
+        DictVector[str(np.round(int(RPM),2))+'RPM']['Us']=functionUsSplines(RPM)
+        DictVector[str(np.round(int(RPM),2))+'RPM']['Fei']=feiOmega*(RPM**2)
+        J.set(t, '.AssembledVectors', **DictVector)
+      
+    return DictVector[str(np.round(int(RPM),2))+'RPM'][VectorName]
 
 
 
 
 #def getUsVectorFromCGNS(t, RPM):
-#    VectNode = I.getNodeByName(t, 'U_sta%s'%np.round(RPM,2))
+#    VectNode = I.getNodeByName(t, 'U_sta%s'%np.round(int(RPM),2))
 #    return J.getVars(VectNode, ['Usx', 'Usy', 'Usz'])
 
 #def getPHIBaseFromCGNS(t, MatrixName, RPM): #TODO!!!
@@ -299,7 +379,7 @@ def AddFOMVars2Tree(t, RPM, Vars = [], VarsName = [], Type = '.AssembledMatrices
 
         for Var, VarName in zip(Vars, VarsName):
             if VarName in DictVars.keys():
-                DictVars[str(np.round(RPM,2))+'RPM'][VarName] = Var
+                DictVars[str(np.round(int(RPM),2))+'RPM'][VarName] = Var
         #except:
             else:
                 #for Var, VarName in zip(Vars, VarsName):
@@ -536,7 +616,7 @@ def GetSparseMatrixFromCGNS(t, RPM, MatrixName, Type = '.AssembledMatrices'):
 
     DictAssembledMatrices = J.get(t, Type)
     try:
-        SparseMatrix = DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['Matrice'][0]
+        SparseMatrix = DictAssembledMatrices[str(np.round(int(RPM),2))+'RPM'][MatrixName]['Matrice'][0]
     except:
         SparseMatrix = DictAssembledMatrices['Parametric'][MatrixName]['Matrice'][0]
 
@@ -548,7 +628,7 @@ def LoadSMatrixFromCGNS(t, RPM, MatrixName, Type = '.AssembledMatrices' ):
     DictAssembledMatrices = J.get(t, Type)
 
     try:
-        if DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['Matrice'] == None:
+        if DictAssembledMatrices[str(np.round(int(RPM),2))+'RPM'][MatrixName]['Matrice'] == None:
             t = SetSparseMatrixFromCGNS(t, RPM, MatrixName, Type)
     except:
         print('load parametric')
@@ -653,7 +733,7 @@ def SaveSolution2PythonDict(Solution, ForceCoeff, RPM, PHI, q_qp_qpp, fnl_q, fex
                 Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['TimeSave'] = time
 
                 if DictOfLoading is not None:
-                    Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['fextFull'] = np.zeros(np.shape(Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['Displacement']))
+                    Solution['%sRPM'%np.round(int(RPM),2)]['FCoeff%s'%ForceCoeff]['fextFull'] = np.zeros(np.shape(Solution['%sRPM'%np.round(int(RPM),2)]['FCoeff%s'%ForceCoeff]['Displacement']))
                     for timeSave, posSave in zip(time, range(len(time))):
                         index = np.where(np.isclose(DictOfLoading['Time'], timeSave))
                         #index = [DictOfLoading['Time'].index(x) for x in timeSave]
@@ -666,7 +746,7 @@ def SaveSolution2PythonDict(Solution, ForceCoeff, RPM, PHI, q_qp_qpp, fnl_q, fex
 
 def ExtForcesFromBEMT(t):
 
-    fLE, fTE = FrocesAndMomentsFromLiftingLine2ForcesAtLETE(LiftingLine, t)
+    fLE, fTE = ForcesAndMomentsFromLiftingLine2ForcesAtLETE(LiftingLine, t)
 
     fVect = LETEvector2FullDim(t, fLE = fLE, fTE = fTE)
 
@@ -705,8 +785,9 @@ def GetCoordsOfTEandLE(t, RPM = None):
         NewZone = I.getNodeFromNameAndType(t, NewZoneName, 'Zone_t')
 
         XCoords, YCoords, ZCoords = J.getxyz(InitZone)
-
+        print('Read coordinates \n')
         if RPM is not None:
+            
             Us = getVectorFromCGNS(t, 'Us', RPM)
 
 
@@ -723,7 +804,7 @@ def GetCoordsOfTEandLE(t, RPM = None):
 #
 #
 #    if RPM is not None:
-#        UsZone = I.getNodesFromNameAndType(t, 'U_sta'+str(np.round(RPM,2)), 'Zone_t')[0]
+#        UsZone = I.getNodesFromNameAndType(t, 'U_sta'+str(np.round(int(RPM),2)), 'Zone_t')[0]
 #        upx, upy, upz = J.getVars(UsZone,['upx', 'upy', 'upz'])
 #        XCoords += upx
 #        YCoords += upy
@@ -798,7 +879,7 @@ def GetCoordsOfTEandLEWithFOMu(t, RPM = None, u = None):
     return [XCoordsLE, YCoordsLE, ZCoordsLE], [XCoordsTE, YCoordsTE, ZCoordsTE]
 
 
-def FrocesAndMomentsFromLiftingLine2ForcesAtLETE(t, RPM, q = None):
+def ForcesAndMomentsFromLiftingLine2ForcesAtLETE(t, RPM, q = None):
 
     LiftingLine = I.getNodeFromName(t, 'LiftingLine')
 
@@ -972,6 +1053,7 @@ def updateLiftingLineFromStructureLETE(t, RPM, q = None):
 
     try:
         LECoord, TECoord = GetCoordsOfTEandLE(t, RPM)
+        print('LEE \n')
     except:
         DictStructParam = J.get(t, '.StructuralParameters')
         if len(q) == DictStructParam['ROMProperties']['NModes'][0]:

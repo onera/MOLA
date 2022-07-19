@@ -141,6 +141,11 @@ def buildBladeCGNS(BladeName,ParametersDict):
                 * SweepDict : dict
 
 
+        path : str
+            General woking directory
+
+        PitchRotation : bool
+            If True, a rotation of the complete blade is computed
 
     Returns
     -------
@@ -149,7 +154,7 @@ def buildBladeCGNS(BladeName,ParametersDict):
      '''
    
       
-    #Getting every dictionary
+    #Getting every dictionary/variable
     Pitch0=ParametersDict['Pitch0']
     Rmin=ParametersDict['Rmin']
     Rmax=ParametersDict['Rmax']
@@ -175,7 +180,6 @@ def buildBladeCGNS(BladeName,ParametersDict):
                         InterpolationLaw = 'interp1d_linear',)
 
 
-    # MUST BE ODD !!!NPtsSpanwise
     BladeDiscretization = np.linspace(Rmin,Rmax,NPtsSpanwise)
     NPtsTrailingEdge = ParametersDict['NPtsTrailingEdge'] # MUST BE ODD !!!
     IndexEdge = int((NPtsTrailingEdge+1)/2)
@@ -225,147 +229,23 @@ def buildBladeCGNS(BladeName,ParametersDict):
     #                   'External_Forces',
     #                   'FamilySpecified:External_Forces')
 
-    return t
-
-def BladeDictBuilder(GeoId,ParametersDict,path):
-    
-    '''
-    Create a dictionary associated to the input blade geometry
-    that is given as a parameter
-    """
-
-
-    Parameters
-    ----------
-
-        GeoId : 4 digits long str 
-            must contain 4 digits (identifiers) used to indicate the Chord law, Pitch law, Twist law, Sweep law
-            
-           
-        ParametersDict : nested dict
-            Contains the blade geometrical data
-
-            .. important:: **ParametersDict** must be composed of:
-
-                * Pitch0 : float
-                
-                * Rmin : float
-
-                * Rmax: float
-
-                * NPts: int
-
-                * NPtsSpanwise : int
-
-                * ChordDict : dict
-                
-                * TwistDict : dict
-                
-                * DihedralDict : dict
-
-                * SweepDict : dict
-
-                * PolarsType: str
-
-                * filesname: array of str
-
-
-        path : str
-            general woking directory
-
-
-
-    Returns
-    -------
-        None : None
-            **Dict** is saved
-     '''
-    
-    
-    #Getting every dictionary
-    Pitch0=ParametersDict['Pitch0']
-    Rmin=ParametersDict['Rmin']
-    Rmax=ParametersDict['Rmax']
-    NPts=ParametersDict['NPts']
-    NPtsSpanwise=ParametersDict['NPtsSpanwise']
-    ChordDict=ParametersDict['GeomLaws']['ChordDict']
-    TwistDict=ParametersDict['GeomLaws']['TwistDict']
-    DihedralDict=ParametersDict['GeomLaws']['DihedralDict']
-    SweepDict=ParametersDict['GeomLaws']['SweepDict']
-
-    #Composing the blade name (unique for a given geometry)
-    BladeName = 'Blade_'+str(int(Rmin*100))+'cm_'+str(int(Rmax*100))+\
-    'cm_pitch'+str(int(Pitch0))+'_ChLaw'+ GeoId[0]+\
-    '_PLaw'+GeoId[1]+'_TLaw'+GeoId[2]+'_SLaw'+GeoId[3]+'_NPts'+str(int(NPts))
-
-
-    ############################# Begin of main program ###########################################
-
-    AirfoilName = 'NACA4416'
-    AIRFOIL = W.airfoil('NACA4416', ClosedTolerance=0)
-    AirfoilsDict = dict(RelativeSpan     = [  Rmin/Rmax,     1.000],
-                        Airfoil          = [AIRFOIL,  AIRFOIL],
-                        InterpolationLaw = 'interp1d_linear',)
-
-    PolarsDict = dict(RelativeSpan     = [  Rmin/Rmax,  1.000],
-                    PyZonePolarNames = [AirfoilName,AirfoilName],
-                    InterpolationLaw = 'interp1d_linear',)
-
-    RootSegmentLength = 0.0500 * Rmax
-    TipSegmentLength  = 0.0016 * Rmax
-
-    # We list the HOST files in absolute path:
-    PolarsType = ParametersDict['Polars']['PolarsType'] # 'cgns', # HOST/cgns
-    filenames = ParametersDict['Polars']['filenames'] #['PolarsCorrected.cgns',
-    #'POLARS/HOST_Profil_OH312', 
-    #'POLARS/HOST_Profil_OH310',
-    #'POLARS/HOST_Profil_OH309',
-    #]
-
-    #Dictionary composing
-    DictBladeParameters = dict(ChordDict = ChordDict,     
-                            TwistDict = TwistDict,       
-                            DihedralDict = DihedralDict,  
-                            PolarsDict = PolarsDict,  
-                            SweepDict = SweepDict,   
-                            
-                            NBlades=ParametersDict['NBlades'], 
-                            Constraint='Pitch', 
-                            ConstraintValue=0.0,
-                            Rmin = Rmin,
-                            Rmax = Rmax,
-                            NPts = NPts,   
-                            BladeDiscretization = dict(P1=[Rmin,0,0],P2=[Rmax,0,0],
-                                                    N=NPts, kind='tanhTwoSides',
-                                                    FirstCellHeight=RootSegmentLength,
-                                                    LastCellHeight=TipSegmentLength),
-                            Polars = dict(PolarsType = PolarsType,
-                                            filenames = filenames),
-                            Pitch0 = Pitch0,
-                            )
-
- 
-    if not os.path.exists(path + '/InputData/Geometry/BladeDicts'):
-        os.makedirs(path + '/InputData/Geometry/BladeDicts')
-    #os.chdir(path+'/InputData/Geometry/BladeDicts')
-
-
-    Lines = ['#!/usr/bin/python\n']
-    Lines = ['from numpy import array\n']
-    Lines+= ['DictBladeParameters = '+pprint.pformat(DictBladeParameters)+"\n"]
-
-    AllLines = '\n'.join(Lines)
-
-
-    with open(path + '/InputData/Geometry/BladeDicts/%s.py'%BladeName, "w") as a_file:
-        #pickle.dump(DictBladeParameters, a_file)
-        a_file.write(AllLines)
-        a_file.close()
+    # Creating saving folder
+    if not os.path.exists(path + '/InputData/Geometry/BladeCGNS'):
+     os.makedirs(path + '/InputData/Geometry/BladeCGNS')
+    os.chdir(path+'/InputData/Geometry/BladeCGNS')
 
     
-    
+    t = C.newPyTree(['SOLID',WingSolidStructured])
 
-    print('Writing ./InputData/Geometry/BladeDicts/%s.py'%BladeName)
+    #Pitch rotation (The problem associated to local pitch section rotation is avoided)
+    if PitchRotationDict['PitchRotation']== True:
+        t = T.rotate(t,PitchRotationDict['PitchPoint'],PitchRotationDict['PitchAxis'], PitchRotationDict['PitchAngle'])
+
+
+
+    #Saving the .cgns and .tp files
+    C.convertPyTree2File(t,'%s.cgns'%BladeName,'bin_adf')
+    C.convertPyTree2File(t,'%s.tp'%BladeName)
 
 
 
@@ -428,8 +308,8 @@ def InitialLiftinfLine(t):
     # give it a name, like this:
     LiftingLine[0] = 'LiftingLine'
     #LL.resetPitch(LiftingLine, ZeroPitchRelativeSpan=0.75)
-    print(DictAerodynamicProperties['BladeParameters']['Polars']['PolarsType'][0] == 'cgns')
-    print(DictAerodynamicProperties['BladeParameters']['Polars']['PolarsType'][0])
+
+    print('PolarsType== '+DictAerodynamicProperties['BladeParameters']['Polars']['PolarsType'])
 
     if DictAerodynamicProperties['BladeParameters']['Polars']['PolarsType'] == 'HOST':
         PyZonePolars = [LL.convertHOSTPolarFile2PyZonePolar(os.getcwd()+'/InputData/'+fn) for fn in DictAerodynamicProperties['BladeParameters']['Polars']['filenames']]
@@ -438,7 +318,7 @@ def InitialLiftinfLine(t):
         PyZonePolars = I.getZones(PyZonePolars)
     else:
         print(FAIL +'ERROR: PyZonePolars not defined!')
-        XXX
+        stop
 
 
     PolarsInterpFuns = LL.buildPolarsInterpolatorDict(PyZonePolars,

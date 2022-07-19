@@ -29,15 +29,16 @@ except:
 import numpy as np
 import scipy
 from scipy.sparse import csr_matrix
+from scipy import linalg
 # MOLA modules
 import Converter.Internal as I
 import Converter.PyTree as C
 
 from .. import InternalShortcuts as J
-
 from . import ShortCuts as SJ
 from . import ModalAnalysis   as MA
 from . import NonlinearForcesModels as NFM
+
 
 
 
@@ -1319,29 +1320,29 @@ def ListXYZFromVectFull(t, VectFull):
 
 
 def BuildRPMParametrisation(t, ):
-    # Anadir y calculo de los parametricos: --> Calculo de K1...K3
-                                    #      --> Calculo de PHIsvd
-                                    #      --> Eliminar del arbol las dependencias RPM
-                                    #      --> Guardar en el arbol el Dict 'Parametric'
-
+    # This function implements the parametric model:
+        #      --> Compose the enlarged modal matrix 
+        #      --> Compute the three constant matrices composing the model
+        #      --> Remove the unnecessary terms from the tree (just to keep the parametric ones)
+        #      --> Save on the tree the variables defining the model
+    
     DictSimulaParam = J.get(t, '.SimulationParameters')
     DictStructParam = J.get(t, '.StructuralParameters')
 
-    #Check if it's parametric
+    #To check if a parametric model is requested
     RPMs=DictSimulaParam['RotatingProperties']['RPMs']
     #SJ.SaveModel(t, kwargs['FOMName'], Modes = True, StaticRotatorySolution = True)
-
-    #Once every FOM matrix is created, we chck if it's a parametric model and then implement it
     if len(RPMs)==3 and (RPMs[1]-RPMs[0])==(RPMs[2]-RPMs[1]):
-        print(GREEN + 'Parametric model'+ ENDC)
-
-
+        print(GREEN + 'Parametric model (3 RPMs)'+ ENDC)
+        
+        
         NewFOMmatrices = {}
         NewFOMmatrices['Parametric']={}
 
         MatrFOM = J.get(t, '.AssembledMatrices')
         MatrFOM['Temporary']={}
-        #Composing PHIAug
+        
+        #Composing enlarged modal matrix (PHIAug)
         PHIAug = []
         PHIAug = np.hstack((MatrFOM[str(np.round(RPMs[0],2))+'RPM']['PHI'],MatrFOM[str(np.round(RPMs[1],2))+'RPM']['PHI']))
         PHIAug = np.hstack((PHIAug,MatrFOM[str(np.round(RPMs[2],2))+'RPM']['PHI']))
@@ -1349,27 +1350,26 @@ def BuildRPMParametrisation(t, ):
 
 
 
-        #SVD
-        U,s,Vt = scipy.linalg.svd(PHIAug, full_matrices=True) ##CHECK SIZE!!!!
+        #Singluar values decomposition (SVD)
+        U,s,Vt = linalg.svd(PHIAug, full_matrices=True) 
         print('SVD done')
-        #print(type(PHIGrand))
-
-        ## Single values choice (it depends on the type of the matrix: array in this case)
-        # Svalue 0.01%max(sValue)         What about if all s are negative: CHANGE THIS CONDITION
+        
+        ## Single values choice (it depends on the matrix type: array in this case)
+        # Svalue 0.01%max(sValue)         #What about if all s are negative: CHANGE THIS CONDITION
         index=[ i for i in range(0,len(s)) if s[i]>=0.01/100.*max(s)]
         print(CYAN+'NewNumberOfModes: %s'%len(index)+ENDC)
         #The maximum number of single values is 3*r (where r is the number of modes that are chosen)
+        
+        ## Criterion to avoid taking too many modes:
+        #NModesMax=100
+        #if len(index)>NModesMax:
+        #    print(WARN  + 'Number of nodes has been truncated'+ ENDC)
+        #    index=index[0:NMmodesMax] #The first NModesMax modes (they are already sorted in descending order)
+        
         U=U[:,index]
-        NewFOMmatrices['Parametric']['PHI'] = U
-        # Save the basis in the tree:
-
-        #t = SJ.AddFOMVars2Tree(t, 0, Vars = [U], # Kg, Kc, Komeg, C, M],
-        #                           VarsName = ['PHI'], #, 'Kg', 'Kc', 'Komeg', 'C', 'M'],
-        #                           Type = '.AssembledMatrices',
-        #                           )
-
-
-
+        NewFOMmatrices['Parametric']['PHI'] = U   
+       
+        # Save the basis in the tree:  
         for indexVect in range(len(index)):
             ModeVect = U[:,index[indexVect]]
 
@@ -1388,6 +1388,9 @@ def BuildRPMParametrisation(t, ):
         print(WARN + 'Warning! The requested number of modes has changed from %s to %s'%(DictStructParam['ROMProperties']['NModes'][0], len(index))+ENDC)
 
         DictStructParam['ROMProperties']['NModes'] = len(index)
+        
+        #If this line is not executed, the node is not added to the tree
+        J.set(t, '.StructuralParameters', **DictStructParam)
 
         #FO model constants
         Kp0, _ = SJ.LoadSMatrixFromCGNS(t, RPMs[0], 'Komeg')
@@ -1407,31 +1410,109 @@ def BuildRPMParametrisation(t, ):
         NewFOMmatrices['Parametric']['M'], _=SJ.LoadSMatrixFromCGNS(t, RPMs[0], 'M')
 
 
-        #CGNS tree update and remove RPM dependencies
-        #for i in range(0,len(RPMs)):
-        #    MatrRed[str(RPMs[i])+'RPM']={}
-        #    #I.rmNodeByPath(t,'.AssembledMatrices/'+str(RPMs[i])+'RPM')
+        #If this line is not executed, the node is not added to the tree
+        J.set(t, '.AssembledMatrices', **NewFOMmatrices)
+        
+        for NameMV in NewFOMmatrices['Parametric'].keys(): #K0FD,K1FD,K2FD,M et C
+            print(str(NameMV)+' being saved:')
+            t = SJ.AddFOMVars2Tree(t, 'Parametric', Vars = [NewFOMmatrices['Parametric'][NameMV]], 
+                                   VarsName = [NameMV], 
+                                   Type = '.AssembledMatrices',
+                                   )
+            print(str(NameMV)+' saving done!')
+
+        parametric = True
+
+    elif len(RPMs)==4 and (RPMs[1]-RPMs[0])==(RPMs[2]-RPMs[1]) and (RPMs[1]-RPMs[0])==(RPMs[3]-RPMs[2]):
+        print(GREEN + 'Parametric model (4 RPMs)'+ ENDC)
+        
+        
+        NewFOMmatrices = {}
+        NewFOMmatrices['Parametric']={}
+
+        MatrFOM = J.get(t, '.AssembledMatrices')
+        MatrFOM['Temporary']={}
+        
+        #Composing enlarged modal matrix (PHIAug)
+        PHIAug = []
+        PHIAug = np.hstack((MatrFOM[str(np.round(int(RPMs[0]),2))+'RPM']['PHI'],MatrFOM[str(np.round(int(RPMs[1]),2))+'RPM']['PHI'])) 
+        PHIAug = np.hstack((PHIAug,MatrFOM[str(np.round(int(RPMs[2]),2))+'RPM']['PHI']))   
+        PHIAug = np.hstack((PHIAug,MatrFOM[str(np.round(int(RPMs[3]),2))+'RPM']['PHI'])) 
+        
+                
+
+        #Singluar values decomposition (SVD)
+        U,s,Vt = linalg.svd(PHIAug, full_matrices=True) 
+        print('SVD done')
 
 
+        ## Single values choice (it depends on the matrix type: array in this case)
+        # Svalue 0.01%max(sValue)         #What about if all s are negative: CHANGE THIS CONDITION
+        index=[ i for i in range(0,len(s)) if s[i]>=0.01/100.*max(s)]
+        #The maximum number of single values is 4*r (where r is the number of modes that are chosen)
+        
+        
+        ## Criterium to avoid taking too many modes
+        #NModesMax=15
+        #if len(index)>NModesMax:
+        #    print(WARN  + 'Number of nodes has been truncated'+ ENDC)
+        #    index=index[0:NMmodesMax] #The first NModesMax modes (they are already sorted in descending order)
+        
 
-        #WE DON'T PROJECT UNTIL WE ARE IN THE ROM, HERE ONL FOM ARE SAVED
-        #MatrRed['Temporary']['K0FOMFD'] = K0FOMFD
-        #MatrRed['Temporary']['K1FOMFD'] = K1FOMFD
-        #MatrRed['Temporary']['K2FOMFD'] = K2FOMFD
-        #MatrRed['Temporary']['M'] = M
-        #MatrRed['Temporary']['C'] = C
-        #MatrRed['Temporary']['PHI'] = U
-        #MatrRed['Temporary']['p0'] = RPMs[0]
-        #MatrRed['Temporary']['Range'] = [RPMs[0],RPMs[-1]]
+        U=U[:,index]
+        NewFOMmatrices['Parametric']['PHI'] = U   
+        
+        # Save the basis in the tree:
+        for indexVect in range(len(index)):
+            ModeVect = U[:,index[indexVect]]
+            
+            ModZone = SJ.CreateNewSolutionFromNdArray(t, FieldDataArray = [ModeVect], ZoneName='Mode%s_Parametric'%indexVect,
+                                               FieldName = 'ParametricMode%s'%indexVect
+                                    )
 
-        #SI ON N'EXECUTE PAS CETTE LIGNE, CES NOEUDS NE SONT PAS AJOUTES SUR L'ARBRE t
+            try:
+              I._addChild(I.getNodeFromName(t, 'ModalBases'), ModZone)
+            except:
+              t = I.merge([t, C.newPyTree(['ModalBases', []])])
+              I._addChild(I.getNodeFromName(t, 'ModalBases'), ModZone)
+            #I._addChild(I.getNodeFromName(t, 'ModalBases'), I.createNode('Freq_%sRPM'%np.round(RPM,2), 'DataArray_t', value = np.sqrt(s[index[indexVect]])/(2.*np.pi))
+     
+
+        print(WARN + 'Warning! The requested number of modes has changed from %s to %s'%(DictStructParam['ROMProperties']['NModes'][0], len(index))+ENDC)
+
+        DictStructParam['ROMProperties']['NModes'] = len(index)
+        
+        #If this line is not executed, the node is not added to the tree
+        J.set(t, '.StructuralParameters', **DictStructParam)
+
+        #FO model constants
+        Kp0, _ = SJ.LoadSMatrixFromCGNS(t, RPMs[0], 'Komeg')
+        Kp0Delta, _ =  SJ.LoadSMatrixFromCGNS(t, RPMs[1], 'Komeg')
+        Kp02Delta, _ =  SJ.LoadSMatrixFromCGNS(t, RPMs[2], 'Komeg')
+        Kp03Delta, _ =  SJ.LoadSMatrixFromCGNS(t, RPMs[3], 'Komeg')
+        Deltap=RPMs[1]-RPMs[0]
+        
+        NewFOMmatrices['Parametric']['Deltap'] = Deltap
+        NewFOMmatrices['Parametric']['p0'] = RPMs[0]
+        NewFOMmatrices['Parametric']['Range'] = [RPMs[0],RPMs[-1]]
+
+        NewFOMmatrices['Parametric']['K0Parametric'] = Kp0
+        NewFOMmatrices['Parametric']['K1Parametric'] = ((-11/6)*Kp0+(3)*Kp0Delta+(-3/2)*Kp02Delta+(1/3)*Kp03Delta)/(Deltap)
+        NewFOMmatrices['Parametric']['K2Parametric'] = ((2)*Kp0+(-5)*Kp0Delta+(4)*Kp02Delta+(-1)*Kp03Delta)/(Deltap**2)
+        NewFOMmatrices['Parametric']['K3Parametric'] = ((-1)*Kp0+(3)*Kp0Delta+(-3)*Kp02Delta+(1)*Kp03Delta)/(Deltap**3)
+
+        NewFOMmatrices['Parametric']['C'], _=SJ.LoadSMatrixFromCGNS(t, RPMs[0], 'C')
+        NewFOMmatrices['Parametric']['M'], _=SJ.LoadSMatrixFromCGNS(t, RPMs[0], 'M')
+
+
+        #If this line is not executed, the node is not added to the tree
         J.set(t, '.AssembledMatrices', **NewFOMmatrices)
         J.set(t, '.StructuralParameters', **DictStructParam)
 
         for NameMV in NewFOMmatrices['Parametric'].keys(): #K0FD,K1FD,K2FD,M et C
             print(str(NameMV)+' being saved:')
-            t = SJ.AddFOMVars2Tree(t, 'Parametric', Vars = [NewFOMmatrices['Parametric'][NameMV]], # Kg, Kc, Komeg, C, M],
-                                   VarsName = [NameMV], #, 'Kg', 'Kc', 'Komeg', 'C', 'M'],
+            t = SJ.AddFOMVars2Tree(t, 'Parametric', Vars = [NewFOMmatrices['Parametric'][NameMV]],
+                                   VarsName = [NameMV], 
                                    Type = '.AssembledMatrices',
                                    )
             print(str(NameMV)+' saving done!')
@@ -1780,9 +1861,9 @@ def BuildROMMatrices(tFOM, tROM):
             PHIt = PHI.transpose()
 
             MatrRed = J.get(tROM, '.AssembledMatrices')
-            MatrRed[str(np.round(RPM,2))+'RPM'] = {}
-            MatrRed[str(np.round(RPM,2))+'RPM']['PHI'] = PHI
-            for MatrixName in DictAssembledMatrices[str(np.round(RPM,2))+'RPM'].keys():
+            MatrRed[str(np.round(int(RPM),2))+'RPM'] = {}
+            MatrRed[str(np.round(int(RPM),2))+'RPM']['PHI'] = PHI
+            for MatrixName in DictAssembledMatrices[str(np.round(int(RPM),2))+'RPM'].keys():
                 if MatrixName != 'PHI':#print(MatrixName)
                     SFOMMatr, _ = SJ.LoadSMatrixFromCGNS(tFOM, RPM, MatrixName)
                     MatrRed[str(np.round(RPM,2))+'RPM'][MatrixName] = PHIt.dot(SFOMMatr.dot(PHI))
@@ -1996,7 +2077,7 @@ def ComputeDynamic4GivenForceCoeffAndRPM(t, RPM, ForceCoeff, **kwargs):
     DictStructParam = J.get(t, '.StructuralParameters')
     DictSimulaParam = J.get(t, '.SimulationParameters')
 
-    LoadingVector = ForceCoeff * DictSimulaParam['LoadingProperties']['ExternalForcesVector']['ShapeFunctionProj'][str(np.round(RPM,2))+'RPM'] * DictSimulaParam['LoadingProperties']['ExternalForcesVector']['Fmax']
+    LoadingVector = ForceCoeff * DictSimulaParam['LoadingProperties']['ExternalForcesVector']['ShapeFunctionProj'][str(np.round(int(RPM),2))+'RPM'] * DictSimulaParam['LoadingProperties']['ExternalForcesVector']['Fmax']
 
     ListeLoading = SJ.TranslateNumpyLoadingVector2AsterList(t, LoadingVector)
 
