@@ -2205,10 +2205,46 @@ def printEnvironment():
         vMOLA = WARN + totoV + ENDC
     else:
         vMOLA = totoV
+    print('\nMOLA version '+vMOLA+' at '+machine)
+    print(' --> Python '+sys.version.split(' ')[0])
 
-
+    # elsA
     if vELSA == 'UNAVAILABLE': vELSA = FAIL + vELSA + ENDC
+    print(' --> elsA '+vELSA)
 
+    # elsA tools chain
+    try:
+        import etc
+        vETC = etc.version
+    except:
+        vETC = FAIL + 'UNAVAILABLE' + ENDC
+    print(' --> ETC '+vETC)
+
+    # Cassiopee
+    try:
+        import Converter.PyTree as C
+        vCASSIOPEE = C.__version__
+    except:
+        vCASSIOPEE = FAIL + 'UNAVAILABLE' + ENDC
+    print(' --> Cassiopee '+vCASSIOPEE)
+
+    # Vortex Particle Method
+    try:
+        import VortexParticleMethod as VPM
+        vVPM = VPM.__version__
+    except:
+        vVPM = FAIL + 'UNAVAILABLE' + ENDC
+    print(' --> VPM '+vVPM)
+
+    # TreeLab
+    try:
+        import TreeLab
+        vTREELAB = TreeLab.__version__
+    except:
+        vTREELAB = FAIL + 'UNAVAILABLE' + ENDC
+    print(' --> TreeLab '+vTREELAB)
+
+    # PUMA
     vPUMA = os.getenv('PUMAVERSION', 'UNAVAILABLE')
     if vPUMA == 'UNAVAILABLE':
         vPUMA = FAIL + vPUMA + ENDC
@@ -2219,32 +2255,8 @@ def printEnvironment():
                 import PUMA
         except:
             vPUMA = FAIL + 'UNAVAILABLE' + ENDC
-
-    try:
-        import Converter.PyTree as C
-        vCASSIOPEE = C.__version__
-    except:
-        vCASSIOPEE = FAIL + 'UNAVAILABLE' + ENDC
-
-    try:
-        import etc
-        vETC = etc.version
-    except:
-        vETC = FAIL + 'UNAVAILABLE' + ENDC
-
-    try:
-        import TreeLab
-        vTREELAB = TreeLab.__version__
-    except:
-        vTREELAB = FAIL + 'UNAVAILABLE' + ENDC
-
-    print('\nMOLA version '+vMOLA+' at '+machine)
-    print(' --> Python '+sys.version.split(' ')[0])
-    print(' --> elsA '+vELSA)
-    print(' --> Cassiopee '+vCASSIOPEE)
-    print(' --> ETC '+vETC)
     print(' --> PUMA '+vPUMA)
-    print(' --> TreeLab '+vTREELAB)
+
 
     if totoV == 'Dev':
         print(WARN+'WARNING: you are using an UNSTABLE version of MOLA.\nConsider using a stable version.'+ENDC)
@@ -2288,3 +2300,51 @@ def getBCFamilies(t):
             if I.getNodeFromType(fam, 'FamilyBC_t'):
                 familyNames.append(I.getName(fam))
     return familyNames
+
+def createSymbolicLink(src, dst):
+    try:
+        if os.path.islink(dst):
+            os.unlink(dst)
+        else:
+            os.remove(dst)
+    except:
+        pass
+    os.symlink(src, dst)
+
+def getSignal(filename):
+    '''
+    Get a signal using an temporary auxiliar file technique.
+
+    If the intermediary file exists (signal received) then it is removed, and
+    the function returns :py:obj:`True`. Otherwise, it returns
+    :py:obj:`False`.
+
+    This function is employed for controling a simulation in a simple manner,
+    for example using UNIX command ``touch``:
+
+    .. code-block:: bash
+
+        touch filename
+
+    at the same directory where :py:func:`getSignal` is called.
+
+    Parameters
+    ----------
+
+        filename : str
+            the name of the file (the signal keyword)
+
+    Returns
+    -------
+
+        isOrder : bool
+            :py:obj:`True` if the signal is received, otherwise :py:obj:`False`
+    '''
+    isOrder = False
+    try:
+        os.remove(filename)
+        isOrder = True
+        print(CYAN+"Received signal %s"%filename+ENDC)
+    except:
+        pass
+    return isOrder

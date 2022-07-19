@@ -270,6 +270,7 @@ def extractSurfaces(t, Extractions):
     I._renameNode(t, 'FlowSolution#Height', 'FlowSolution')
     I._rmNodesByName(t, 'FlowSolution#EndOfRun*')
     reshapeBCDatasetNodes(t)
+    I._rmNodesByName(t, 'BCDataSet#Init') # see MOLA #75 and Cassiopee #10641
     DictBCNames2Type = C.getFamilyBCNamesDict(t)
     SurfacesTree = I.newCGNSTree()
     PartialTree = Cmpi.convert2PartialTree(t)
@@ -2290,14 +2291,7 @@ def moveLogFiles():
 
 def createSymbolicLink(src, dst):
     if Cmpi.rank == 0:
-        try:
-            if os.path.islink(dst):
-                os.unlink(dst)
-            else:
-                os.remove(dst)
-        except:
-            pass
-        os.symlink(src, dst)
+        J.createSymbolicLink(src, dst)
 
 #_______________________________________________________________________________
 # PROBES MANAGEMENT
