@@ -2536,9 +2536,7 @@ def getElsAkeysCFD(config='3d', unstructured=False, **kwargs):
         elsAkeysCFD : dict
             dictionary containing key/value for elsA *cfd* object
     '''
-    elsAkeysCFD      = dict(
-        config=config,
-        extract_filtering='inactive')
+    elsAkeysCFD = dict(config=config)
 
     if unstructured:
         elsAkeysCFD.update(dict(
@@ -3268,7 +3266,6 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
         writingmode   = 2,
         loc           = 'interface',
         fluxcoeff     = 1.0,
-        force_extract = 1,
         writingframe  = 'absolute',
         geomdepdom = 2 # see #8127#note-26
     )
@@ -3384,7 +3381,6 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False):
                   period=1,
                   writingmode=2,
                   writingframe='absolute',
-                  force_extract=1,
                    )
 
         EoRnode = I.createNode('FlowSolution#EndOfRun', 'FlowSolution_t',
@@ -3397,7 +3393,6 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False):
               period=1,
               writingmode=2,
               writingframe='absolute',
-              force_extract=1,
                )
 
 def addAverageFieldExtractions(t, ReferenceValues, firstIterationForAverage=1):
@@ -3436,7 +3431,6 @@ def addAverageFieldExtractions(t, ReferenceValues, firstIterationForAverage=1):
               period=1,
               writingmode=2,
               writingframe='absolute',
-              force_extract=1,
               average='time',
               period_init=firstIterationForAverage,  #First iteration to consider to compute time average
                )
