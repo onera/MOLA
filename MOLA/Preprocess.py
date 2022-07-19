@@ -347,9 +347,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
     ReferenceValues = computeReferenceValues(FluidProperties,
                                              **ReferenceValuesParams)
 
-    NumberOfProcessors = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
-    ReferenceValues['NumberOfProcessors'] = int(NumberOfProcessors)
-    ReferenceValuesParams['NumberOfProcessors'] = int(NumberOfProcessors)
+    ReferenceValues['NumberOfProcessors'] = int(max(getProc(t))+1)
     elsAkeysCFD      = getElsAkeysCFD(unstructured=IsUnstructured)
     elsAkeysModel    = getElsAkeysModel(FluidProperties, ReferenceValues,
                                         unstructured=IsUnstructured)
@@ -3142,12 +3140,12 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
                                       currentNodePath]]
 
 
-    try: os.makedirs(DIRECTORY_OUTPUT)
-    except: pass
     print('saving PyTrees with links')
     to = I.copyRef(t)
     I._renameNode(to, 'FlowSolution#Centers', 'FlowSolution#Init')
     if writeOutputFields:
+        try: os.makedirs(DIRECTORY_OUTPUT)
+        except: pass
         C.convertPyTree2File(to, os.path.join(DIRECTORY_OUTPUT, FieldsFilename))
     C.convertPyTree2File(t, MainCGNSFilename, links=AllCGNSLinks)
 

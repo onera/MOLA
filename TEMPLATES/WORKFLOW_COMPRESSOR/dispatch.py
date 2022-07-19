@@ -14,7 +14,6 @@ DIRECTORY_DISPATCHER = os.path.join(config.DIRECTORY_WORK, 'DISPATCHER')
 for case in config.JobsQueues:
 
     if case['NewJob']:
-        # JM.buildJob(case, config, config.NumberOfProcessors, 'job_template.sh')
         JM.buildJob_future(case, config)
 
     WorkflowParams = dict()
@@ -31,11 +30,8 @@ for case in config.JobsQueues:
     WF.prepareMainCGNS4ElsA(**WorkflowParams)
     JM.getTemplates('Compressor',
             otherWorkflowFiles=['EXAMPLE/monitor_perfos.py', 'preprocess.py', 'postprocess.py'],
-            # DIRECTORY_WORK=os.path.join(config.DIRECTORY_WORK, case['JobName'], case['CASE_LABEL']),
             JobInformation=case['JobInformation'])
-    # os.chdir(os.path.join(config.DIRECTORY_WORK, case['JobName'], case['CASE_LABEL']))
 
-    # JM.putFilesInComputationDirectory(case)
     os.chdir(DIRECTORY_DISPATCHER)
 
 for case in config.JobsQueues:

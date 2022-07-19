@@ -335,9 +335,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     ReferenceValues['Workflow'] = 'Compressor'
 
     if I.getNodeFromName(t, 'proc'):
-        NumberOfProcessors = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
-        ReferenceValues['NumberOfProcessors'] = int(NumberOfProcessors)
-        ReferenceValuesParams['NumberOfProcessors'] = int(NumberOfProcessors)
+        JobInformation['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
+        ReferenceValues['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
         Splitter = None
     else:
         ReferenceValues['NumberOfProcessors'] = 0
@@ -399,7 +398,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                          AllSetupDics['ReferenceValues'])
     dim = int(AllSetupDics['elsAkeysCFD']['config'][0])
     PRE.addGoverningEquations(t, dim=dim)
-    AllSetupDics['ReferenceValues']['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
     PRE.writeSetup(AllSetupDics)
 
     if FULL_CGNS_MODE:
@@ -3125,9 +3123,9 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
 
         if NewJob:
             JobName = WorkflowParams['JobInformation']['JobName']+'%d'%i
-            writeOutputFields = True
+            WorkflowParams['writeOutputFields'] = True
         else:
-            writeOutputFields = False
+            WorkflowParams['writeOutputFields'] = False
 
         CASE_LABEL = '{:08.2f}_{}'.format(abs(Throttle), JobName)
         if Throttle < 0: CASE_LABEL = 'M'+CASE_LABEL
@@ -3210,6 +3208,7 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
             or len(filename.split('/'))>1:
             MSG = 'Input files must be inside the submission repository (not the case for {})'.format(filename)
             raise Exception(J.FAIL + MSG + J.ENDC)
+
     JM.launchJobsConfiguration_future(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_COMPRESSOR', otherFiles=otherFiles)
 
 def printConfigurationStatus(DIRECTORY_WORK, useLocalConfig=False):
