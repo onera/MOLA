@@ -112,7 +112,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         Extractions=[dict(type='AllBCWall'),
                      dict(type='IsoSurface',field='CoordinateX',value=1.0),
                      dict(type='IsoSurface',field='CoordinateX',value=2.0),
-                     dict(type='IsoSurface',field='q_criterion',value=10.0)],
+                     dict(type='IsoSurface',field='q_criterion',value=20.0)],
         writeOutputFields=True,
         Initialization={'method':'uniform'},
         FULL_CGNS_MODE=False):

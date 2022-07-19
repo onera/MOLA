@@ -270,6 +270,7 @@ def extractSurfaces(t, Extractions):
     I._renameNode(t, 'FlowSolution#Height', 'FlowSolution')
     I._rmNodesByName(t, 'FlowSolution#EndOfRun*')
     reshapeBCDatasetNodes(t)
+    I._rmNodesByName(t, 'BCDataSet#Init') # see MOLA #75 and Cassiopee #10641
     DictBCNames2Type = C.getFamilyBCNamesDict(t)
     SurfacesTree = I.newCGNSTree()
     PartialTree = Cmpi.convert2PartialTree(t)
