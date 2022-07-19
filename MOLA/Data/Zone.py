@@ -21,7 +21,7 @@ class Zone(Node):
             self.setValue(np.array([[2,1,0]],dtype=np.int,order='F'))
 
 
-        if not self.get('ZoneType', Depth=1):
+        if not self.childNamed('ZoneType'):
             Node(Name='ZoneType',Value='Structured',Type='ZoneType_t',Parent=self)
 
         if self.name() == 'Node': self.setName( 'Zone' )
@@ -102,7 +102,7 @@ class Zone(Node):
              ravel=False):
         if isinstance(FieldNames,str): FieldNames = [ FieldNames ]
 
-        FlowSolution = self.childOfName( Container )
+        FlowSolution = self.childNamed( Container )
 
         if FlowSolution is None:
             if BehaviorIfNotFound == 'raise':
@@ -117,7 +117,7 @@ class Zone(Node):
 
         arrays = []
         for FieldName in FieldNames:
-            FieldNode = FlowSolution.childOfName( FieldName )
+            FieldNode = FlowSolution.childNamed( FieldName )
             if FieldNode is None:
                 if BehaviorIfNotFound == 'create':
                     array = self.newFields(FieldName,Container=Container,
@@ -133,10 +133,10 @@ class Zone(Node):
             arrays += [ array ]
 
 
-        if return_type == 'list':
+        if return_type == 'list' or isinstance(return_type,list) or return_type is list:
             if len(arrays) == 1: return array
             return arrays
-        elif return_type == 'dict':
+        elif return_type == 'dict' or isinstance(return_type,dict) or return_type is dict:
             v = dict()
             for key, array in zip( FieldNames, arrays):
                 v[key] = array
@@ -196,14 +196,24 @@ class Zone(Node):
         if return_type == 'list': return z
         else: return dict(CoordinateZ=z)
 
-    def allFields(self,include_coordinates=True,return_type='dict',ravel=False):
+    def allFields(self,include_coordinates=True,return_type='dict',ravel=False,
+                  appendContainerToFieldName=False):
 
         arrays = self.xyz(ravel=ravel)
         FieldsNames = ['CoordinateX','CoordinateY','CoordinateZ']
-        for FlowSolution in self.group(Type='FlowSolution_t',Depth=1):
+        AllFlowSolutionNodes = self.group(Type='FlowSolution_t',Depth=1)
+        NbOfContainers = len(AllFlowSolutionNodes)
+        if NbOfContainers > 1 and not appendContainerToFieldName and return_type=='dict':
+            MSG = ('allFields(): several containers where detected, use'
+                ' appendContainerToFieldName=True for avoid keyword overriding')
+            print(WARN+MSG+ENDC)
+        for FlowSolution in AllFlowSolutionNodes:
             for child in FlowSolution.children():
                 if child.type() != 'DataArray_t': continue
-                FieldsNames += [ FlowSolution.name()+'/'+child.name() ]
+                if appendContainerToFieldName:
+                    FieldsNames += [ FlowSolution.name()+'/'+child.name() ]
+                else:
+                    FieldsNames += [ child.name() ]
                 arrays += [ child.value(ravel=ravel) ]
 
         if return_type == 'dict':
@@ -231,13 +241,12 @@ class Zone(Node):
             elif FieldSize == zone.numberOfCells(): return 'CellCenter'
             else: raise ValueError('could not determine location of '+FlowSolution.path())
 
-
     def useEquation(self, equation, Container='FlowSolution', ravel=False):
         RegExpr = "\{[^}]*\}"
         eqnVarsWithDelimiters = re.findall( RegExpr, equation )
         adaptedEqnVars = []
 
-        v = self.allFields(ravel=ravel)
+        v = self.allFields(ravel=ravel,appendContainerToFieldName=False)
 
         adaptedEqnVars, AllContainers = [], []
         for i, eqnVarWithDelimiters in enumerate(eqnVarsWithDelimiters):

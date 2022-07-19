@@ -37,7 +37,74 @@ import Generator.PyTree as G
 import Transform.PyTree as T
 
 
-def buildBladeCGNS(BladeName,ParametersDict,path,PitchRotationDict):
+def BuildCSMmeshFromCFDsurfaceMesh(t, NPtsSpanwise = 21, NPtsTrailingEdge = 11):
+
+    zones = I.getZones(t)
+    NumberOfSections = I.getZoneDim( zones[0] )[1]
+    ScannedBlade = GSD.scanBlade(t, np.linspace(0.,0.95, NPtsSpanwise), [0., 0., 0.], [1., 0. , 0.], [0., 0., 1.])
+    Sections = I.getZones(I.getNodeFromName(ScannedBlade, 'Sections'))
+    
+    
+    for s in Sections:
+        if C.getNPts(s)%2 != 0:
+            SectionDistribution = W.copyDistribution(s)
+            break
+    ClosedSections = []
+    closedCurves = []
+    for s in I.getZones(Sections):
+    
+        Curve = W.discretize(s, Distribution=SectionDistribution)
+        closed = GSD.closeAirfoil(Curve, Topology='ThickTE_simple',
+            options=dict(NPtsUnion=NPtsTrailingEdge+2,TFITriAbscissa=0.1,TEdetectionAngleThreshold=None))
+        T._reorder(closed,(-1,2,3))
+        ClosedSections.extend(I.getZones(closed))
+    
+    RootAndTipSections = []
+    for i in [0,NumberOfSections-1]:
+        curves = []
+        for zone in zones:
+            x, y, z = J.getxyz( zone )
+            x = x[i,:]
+            y = y[i,:]
+            z = z[i,:]
+            curves += [ J.createZone( 'curve', [x, y, z], ['x','y','z']) ]
+        contour = W.joinSequentially(curves, reorder=True, sort=True)
+        contour = W.discretize(contour, Distribution=SectionDistribution)
+        closed = GSD.closeAirfoil(contour, Topology='ThickTE_simple',
+            options=dict(NPtsUnion=NPtsTrailingEdge+2,TFITriAbscissa=0.1,TEdetectionAngleThreshold=None))
+        T._reorder(closed,(-1,2,3))
+        RootAndTipSections.extend( closed )
+    
+    ClosedSections = [RootAndTipSections[0]] + ClosedSections + [RootAndTipSections[-1]]
+    
+    #C.convertPyTree2File(ClosedSections, 'sections.cgns')
+    
+    WingSolidStructured = G.stack(ClosedSections)
+    #C.convertPyTree2File(WingSolidStructured, 'solid.cgns')
+    
+    
+    # Spanwise towards X positive:
+    WingSolidStructured = T.rotate(WingSolidStructured, (0.,0.,0.),(0.,1.,0.),-90.)
+    WingSolidStructured = T.rotate(WingSolidStructured, (0.,0.,0.),(1.,0.,0.),90.)
+    IndexEdge = int((NPtsTrailingEdge+1)/2)
+    C._addBC2Zone(WingSolidStructured,
+                'Node_Encastrement',
+                'FamilySpecified:Noeud_Encastrement',
+                'kmin')
+    C._addBC2Zone(WingSolidStructured,
+                'LeadingEdge',
+                'FamilySpecified:LeadingEdge',
+                'jmin')
+    C._addBC2Zone(WingSolidStructured,
+                'TrailingEdge',
+                'FamilySpecified:TrailingEdge',
+                'jmax')
+    
+    return WingSolidStructured, Sections
+
+
+
+def buildBladeCGNS(BladeName,ParametersDict):
    
     '''
     Create the geometry files (.tp and .cngs) associated to the input 
