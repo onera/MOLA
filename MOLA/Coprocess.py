@@ -1269,7 +1269,7 @@ def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
     for Torque in ('Cn','Cl','Cm'): arraysSubset[Torque] *= TorqueCoef
 
 def _extendArraysWithWorkflowQuantities(arrays, IntegralDataName):
-    try: Workflow = setup.ReferenceValues['Workflow']
+    try: Workflow = setup.Workflow
     except KeyError: return
 
     if Workflow == 'Propeller':

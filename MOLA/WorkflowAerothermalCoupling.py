@@ -226,8 +226,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     if not 'PeriodicTranslation' in TurboConfiguration:
         WC.addMonitoredRowsInExtractions(Extractions, TurboConfiguration)
 
-    ReferenceValues['Workflow'] = 'AerothermalCoupling'
-    AllSetupDics = dict(FluidProperties=FluidProperties,
+    AllSetupDics = dict(Workflow='AerothermalCoupling',
+                        FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,

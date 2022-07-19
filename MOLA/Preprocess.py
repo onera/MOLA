@@ -357,8 +357,8 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
     elsAkeysNumerics = getElsAkeysNumerics(ReferenceValues,
                                 unstructured=IsUnstructured, **NumericalParams)
 
-    ReferenceValues['Workflow'] = 'Standard'
-    AllSetupDics = dict(FluidProperties=FluidProperties,
+    AllSetupDics = dict(Workflow='Standard',
+                        FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,

@@ -255,7 +255,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
     ReferenceValues = PRE.computeReferenceValues(FluidProperties,
                                                  **ReferenceValuesParams)
     ReferenceValues['RPM'] = RPM
-    ReferenceValues['Workflow'] = 'Propeller'
     ReferenceValues['NumberOfBlades'] = nb_blades
     ReferenceValues['AxialVelocity'] = AxialVelocity
     ReferenceValues['MaximumSpan'] = span
@@ -279,7 +278,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
 
     WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
-    AllSetupDics = dict(FluidProperties=FluidProperties,
+    AllSetupDics = dict(Workflow='Propeller',
+                        FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,

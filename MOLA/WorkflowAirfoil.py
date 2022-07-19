@@ -583,7 +583,6 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
     ReferenceValues['ImposedWallFields'] = ImposedWallFields
     ReferenceValues['TransitionZones'] = TransitionZones
     ReferenceValues['MachPolar']=MachPolar
-    ReferenceValues['Workflow'] = 'Airfoil'
 
     elsAkeysCFD      = PRE.getElsAkeysCFD(config='2d')
     elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues)
@@ -598,7 +597,8 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
     if NonLocalTransition:
         setBCDataSetWithNonLocalTransition(t, AirfoilWallFamilyName, ReferenceValues)
 
-    AllSetupDics = dict(FluidProperties=FluidProperties,
+    AllSetupDics = dict(Workflow='Airfoil',
+                        FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
