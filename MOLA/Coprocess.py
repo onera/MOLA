@@ -2143,11 +2143,7 @@ def loadSkeleton(Skeleton=None, PartTree=None):
 
     def replaceNodeByName(parent, parentPath, name):
         oldNode = I.getNodeFromName1(parent, name)
-<<<<<<< HEAD
         #if not oldNode: return
-=======
-        # if not oldNode: return # TODO evaluate this
->>>>>>> 66e9a83de2cc8e624a4b045da988bde7bfdf70be
         newNode = readNodesFromPaths('{}/{}'.format(parentPath, name))
         I._rmNode(parent, oldNode)
         I._addChild(parent, newNode)
