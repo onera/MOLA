@@ -235,7 +235,7 @@ def getMatrixFromCGNS(t, MatrixName, RPM):
     '''
     DictMatrices = J.get(t, '.AssembledMatrices')
     try:
-        ReturnMatrix = DictMatrices[str(np.round(int(RPM),2))+'RPM'][MatrixName]
+        ReturnMatrix = DictMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]
     except: #Parametric model
         print(WARN+'Computing matrix for parametric condition...'+ENDC)
         if MatrixName == 'Komeg':
@@ -282,7 +282,7 @@ def getVectorFromCGNS(t, VectorName, RPM):
     '''
     DictVector = J.get(t, '.AssembledVectors')
     try:
-        DictVector[str(np.round(int(RPM),2))+'RPM'][VectorName]
+        DictVector[str(np.round(RPM,2))+'RPM'][VectorName]
 
     except: #Parametric case
         
@@ -328,19 +328,19 @@ def getVectorFromCGNS(t, VectorName, RPM):
 
         #Upload to the tree
         DictVector = J.get(t, '.AssembledVectors')
-        DictVector[str(np.round(int(RPM),2))+'RPM']={}
+        DictVector[str(np.round(RPM,2))+'RPM']={}
 
-        DictVector[str(np.round(int(RPM),2))+'RPM']['Us']=functionUsSplines(RPM)
-        DictVector[str(np.round(int(RPM),2))+'RPM']['Fei']=feiOmega*(RPM**2)
+        DictVector[str(np.round(RPM,2))+'RPM']['Us']=functionUsSplines(RPM)
+        DictVector[str(np.round(RPM,2))+'RPM']['Fei']=feiOmega*(RPM**2)
         J.set(t, '.AssembledVectors', **DictVector)
       
-    return DictVector[str(np.round(int(RPM),2))+'RPM'][VectorName]
+    return DictVector[str(np.round(RPM,2))+'RPM'][VectorName]
 
 
 
 
 #def getUsVectorFromCGNS(t, RPM):
-#    VectNode = I.getNodeByName(t, 'U_sta%s'%np.round(int(RPM),2))
+#    VectNode = I.getNodeByName(t, 'U_sta%s'%np.round(RPM,2))
 #    return J.getVars(VectNode, ['Usx', 'Usy', 'Usz'])
 
 #def getPHIBaseFromCGNS(t, MatrixName, RPM): #TODO!!!
@@ -379,7 +379,7 @@ def AddFOMVars2Tree(t, RPM, Vars = [], VarsName = [], Type = '.AssembledMatrices
 
         for Var, VarName in zip(Vars, VarsName):
             if VarName in DictVars.keys():
-                DictVars[str(np.round(int(RPM),2))+'RPM'][VarName] = Var
+                DictVars[str(np.round(RPM,2))+'RPM'][VarName] = Var
         #except:
             else:
                 #for Var, VarName in zip(Vars, VarsName):
@@ -616,7 +616,7 @@ def GetSparseMatrixFromCGNS(t, RPM, MatrixName, Type = '.AssembledMatrices'):
 
     DictAssembledMatrices = J.get(t, Type)
     try:
-        SparseMatrix = DictAssembledMatrices[str(np.round(int(RPM),2))+'RPM'][MatrixName]['Matrice'][0]
+        SparseMatrix = DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['Matrice'][0]
     except:
         SparseMatrix = DictAssembledMatrices['Parametric'][MatrixName]['Matrice'][0]
 
@@ -628,7 +628,7 @@ def LoadSMatrixFromCGNS(t, RPM, MatrixName, Type = '.AssembledMatrices' ):
     DictAssembledMatrices = J.get(t, Type)
 
     try:
-        if DictAssembledMatrices[str(np.round(int(RPM),2))+'RPM'][MatrixName]['Matrice'] == None:
+        if DictAssembledMatrices[str(np.round(RPM,2))+'RPM'][MatrixName]['Matrice'] == None:
             t = SetSparseMatrixFromCGNS(t, RPM, MatrixName, Type)
     except:
         print('load parametric')
@@ -733,7 +733,7 @@ def SaveSolution2PythonDict(Solution, ForceCoeff, RPM, PHI, q_qp_qpp, fnl_q, fex
                 Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['TimeSave'] = time
 
                 if DictOfLoading is not None:
-                    Solution['%sRPM'%np.round(int(RPM),2)]['FCoeff%s'%ForceCoeff]['fextFull'] = np.zeros(np.shape(Solution['%sRPM'%np.round(int(RPM),2)]['FCoeff%s'%ForceCoeff]['Displacement']))
+                    Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['fextFull'] = np.zeros(np.shape(Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff]['Displacement']))
                     for timeSave, posSave in zip(time, range(len(time))):
                         index = np.where(np.isclose(DictOfLoading['Time'], timeSave))
                         #index = [DictOfLoading['Time'].index(x) for x in timeSave]
@@ -804,7 +804,7 @@ def GetCoordsOfTEandLE(t, RPM = None):
 #
 #
 #    if RPM is not None:
-#        UsZone = I.getNodesFromNameAndType(t, 'U_sta'+str(np.round(int(RPM),2)), 'Zone_t')[0]
+#        UsZone = I.getNodesFromNameAndType(t, 'U_sta'+str(np.round(RPM,2)), 'Zone_t')[0]
 #        upx, upy, upz = J.getVars(UsZone,['upx', 'upy', 'upz'])
 #        XCoords += upx
 #        YCoords += upy

@@ -1435,9 +1435,9 @@ def BuildRPMParametrisation(t, ):
         
         #Composing enlarged modal matrix (PHIAug)
         PHIAug = []
-        PHIAug = np.hstack((MatrFOM[str(np.round(int(RPMs[0]),2))+'RPM']['PHI'],MatrFOM[str(np.round(int(RPMs[1]),2))+'RPM']['PHI'])) 
-        PHIAug = np.hstack((PHIAug,MatrFOM[str(np.round(int(RPMs[2]),2))+'RPM']['PHI']))   
-        PHIAug = np.hstack((PHIAug,MatrFOM[str(np.round(int(RPMs[3]),2))+'RPM']['PHI'])) 
+        PHIAug = np.hstack((MatrFOM[str(np.round(RPMs[0],2))+'RPM']['PHI'],MatrFOM[str(np.round(RPMs[1],2))+'RPM']['PHI'])) 
+        PHIAug = np.hstack((PHIAug,MatrFOM[str(np.round(RPMs[2],2))+'RPM']['PHI']))   
+        PHIAug = np.hstack((PHIAug,MatrFOM[str(np.round(RPMs[3],2))+'RPM']['PHI'])) 
         
                 
 
@@ -1861,9 +1861,9 @@ def BuildROMMatrices(tFOM, tROM):
             PHIt = PHI.transpose()
 
             MatrRed = J.get(tROM, '.AssembledMatrices')
-            MatrRed[str(np.round(int(RPM),2))+'RPM'] = {}
-            MatrRed[str(np.round(int(RPM),2))+'RPM']['PHI'] = PHI
-            for MatrixName in DictAssembledMatrices[str(np.round(int(RPM),2))+'RPM'].keys():
+            MatrRed[str(np.round(RPM,2))+'RPM'] = {}
+            MatrRed[str(np.round(RPM,2))+'RPM']['PHI'] = PHI
+            for MatrixName in DictAssembledMatrices[str(np.round(RPM,2))+'RPM'].keys():
                 if MatrixName != 'PHI':#print(MatrixName)
                     SFOMMatr, _ = SJ.LoadSMatrixFromCGNS(tFOM, RPM, MatrixName)
                     MatrRed[str(np.round(RPM,2))+'RPM'][MatrixName] = PHIt.dot(SFOMMatr.dot(PHI))
@@ -2077,7 +2077,7 @@ def ComputeDynamic4GivenForceCoeffAndRPM(t, RPM, ForceCoeff, **kwargs):
     DictStructParam = J.get(t, '.StructuralParameters')
     DictSimulaParam = J.get(t, '.SimulationParameters')
 
-    LoadingVector = ForceCoeff * DictSimulaParam['LoadingProperties']['ExternalForcesVector']['ShapeFunctionProj'][str(np.round(int(RPM),2))+'RPM'] * DictSimulaParam['LoadingProperties']['ExternalForcesVector']['Fmax']
+    LoadingVector = ForceCoeff * DictSimulaParam['LoadingProperties']['ExternalForcesVector']['ShapeFunctionProj'][str(np.round(RPM,2))+'RPM'] * DictSimulaParam['LoadingProperties']['ExternalForcesVector']['Fmax']
 
     ListeLoading = SJ.TranslateNumpyLoadingVector2AsterList(t, LoadingVector)
 

@@ -44,7 +44,7 @@ def PlotVarFromCGNSForAllIterationsAtNodeRPMFcoeff(t, Var, Node, RPM, Fcoeff):
             for Base in I.getNodesFromName(t, 'Iteration*'):
                 Iterfunc.append(int(Base[0][9:]))
 
-                ZoneName = '%sRPM_FCoeff%s_%s'%(np.round(int(RPM),2), Fcoeff, TypeElem)
+                ZoneName = '%sRPM_FCoeff%s_%s'%(np.round(RPM,2), Fcoeff, TypeElem)
                 print(ZoneName)
                 Zone = I.getNodeByName(Base, ZoneName)
                 
@@ -117,7 +117,7 @@ def GetAndSaveResults(pathOut,ModelDir,ModelName,FullResultsDict,LiftingLine, Up
     except:
         ResultsDict = {}
         print('No dictionary found')
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']={}
+    ResultsDict[str(np.round(RPM,2))+'RPM']={}
 
    
     v = J.getVars2Dict(LiftingLine,['Mach', 'Span', 'AoA' , 'Chord', 'Cl', 'Cd','VelocityAxial', 'Reynolds'])
@@ -127,38 +127,38 @@ def GetAndSaveResults(pathOut,ModelDir,ModelName,FullResultsDict,LiftingLine, Up
     #Results Loading
 
     #Propulsif global performances
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['PropPerformances']={}
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['PropPerformances']['Thrust']= FullResultsDict['Thrust']   
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['PropPerformances']['FigureOfMeritPropeller']=FullResultsDict['FigureOfMeritPropeller']
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['PropPerformances']['Power']=FullResultsDict['Power']
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['PropPerformances']['Efficiency']=FullResultsDict['PropulsiveEfficiency']
+    ResultsDict[str(np.round(RPM,2))+'RPM']['PropPerformances']={}
+    ResultsDict[str(np.round(RPM,2))+'RPM']['PropPerformances']['Thrust']= FullResultsDict['Thrust']   
+    ResultsDict[str(np.round(RPM,2))+'RPM']['PropPerformances']['FigureOfMeritPropeller']=FullResultsDict['FigureOfMeritPropeller']
+    ResultsDict[str(np.round(RPM,2))+'RPM']['PropPerformances']['Power']=FullResultsDict['Power']
+    ResultsDict[str(np.round(RPM,2))+'RPM']['PropPerformances']['Efficiency']=FullResultsDict['PropulsiveEfficiency']
 
     #Aero performances
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['AeroPerformances']={}
+    ResultsDict[str(np.round(RPM,2))+'RPM']['AeroPerformances']={}
     indexMaxList=[idx for idx, element in enumerate(v['Cl']) if element==max(v['Cl'])]
     indexMax=indexMaxList[0]
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['AeroPerformances']['SeparationPosition']=v['Chord'][indexMax]
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['AeroPerformances']['SeparationPercent']=(v['Chord'][indexMax])/(v['Chord'][-1])
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['AeroPerformances']['MaxMach']=max(v['Mach'])
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['AeroPerformances']['MaxAoA']=max(v['AoA'])
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['AeroPerformances']['ClEvolution']=v['Cl']
+    ResultsDict[str(np.round(RPM,2))+'RPM']['AeroPerformances']['SeparationPosition']=v['Chord'][indexMax]
+    ResultsDict[str(np.round(RPM,2))+'RPM']['AeroPerformances']['SeparationPercent']=(v['Chord'][indexMax])/(v['Chord'][-1])
+    ResultsDict[str(np.round(RPM,2))+'RPM']['AeroPerformances']['MaxMach']=max(v['Mach'])
+    ResultsDict[str(np.round(RPM,2))+'RPM']['AeroPerformances']['MaxAoA']=max(v['AoA'])
+    ResultsDict[str(np.round(RPM,2))+'RPM']['AeroPerformances']['ClEvolution']=v['Cl']
 
     #Struct performances
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['StructPerformances']={}
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['StructPerformances']['MaxStress']=0
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['StructPerformances']['MaxDeformation']=0
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['StructPerformances']['MaxDisplacement']=max(Up)
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['StructPerformances']['OverStressedAreaPercent']=0
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['StructPerformances']['IsYealdingTrue']=0
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['StructPerformances']['StressEvolution']=0
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['StructPerformances']['DefEvolution']=0
+    ResultsDict[str(np.round(RPM,2))+'RPM']['StructPerformances']={}
+    ResultsDict[str(np.round(RPM,2))+'RPM']['StructPerformances']['MaxStress']=0
+    ResultsDict[str(np.round(RPM,2))+'RPM']['StructPerformances']['MaxDeformation']=0
+    ResultsDict[str(np.round(RPM,2))+'RPM']['StructPerformances']['MaxDisplacement']=max(Up)
+    ResultsDict[str(np.round(RPM,2))+'RPM']['StructPerformances']['OverStressedAreaPercent']=0
+    ResultsDict[str(np.round(RPM,2))+'RPM']['StructPerformances']['IsYealdingTrue']=0
+    ResultsDict[str(np.round(RPM,2))+'RPM']['StructPerformances']['StressEvolution']=0
+    ResultsDict[str(np.round(RPM,2))+'RPM']['StructPerformances']['DefEvolution']=0
 
     #Aeroelastic perfomances
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['AELPerformances']={}
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['AELPerformances']['MaxRelativeDeltaDisplacement']=(max(Up)-max(us))/max(us)
+    ResultsDict[str(np.round(RPM,2))+'RPM']['AELPerformances']={}
+    ResultsDict[str(np.round(RPM,2))+'RPM']['AELPerformances']['MaxRelativeDeltaDisplacement']=(max(Up)-max(us))/max(us)
     #Convergence
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['Convergence']={}
-    ResultsDict[str(np.round(int(RPM),2))+'RPM']['Convergence']['Residue']=Residue
+    ResultsDict[str(np.round(RPM,2))+'RPM']['Convergence']={}
+    ResultsDict[str(np.round(RPM,2))+'RPM']['Convergence']['Residue']=Residue
     
 
     Lines = ['#!/usr/bin/python\n']
@@ -199,7 +199,7 @@ def CheckCriteria(ModelDir,ModelName,pathOut,RefModelDir,RPM):
         WeightingDict[str(CaseDir)]={}
         print('No weighting dictionary found')
 
-    WeightingDict[str(CaseDir)][str(np.round(int(RPM),2))+'RPM']={}
+    WeightingDict[str(CaseDir)][str(np.round(RPM,2))+'RPM']={}
     
     #Reading RefResultsDict
     try:
@@ -247,9 +247,9 @@ def CheckCriteria(ModelDir,ModelName,pathOut,RefModelDir,RPM):
     #Every value/performance is compared to the reference blade value and previous 
     #weighting criteria are used to set a numerical value
     WeightingValue=0
-    BladeDict=ResultsDict[str(np.round(int(RPM),2))+'RPM']
+    BladeDict=ResultsDict[str(np.round(RPM,2))+'RPM']
     try:
-        RefBladeDict=RefResultsDict[str(np.round(int(RPM),2))+'RPM']
+        RefBladeDict=RefResultsDict[str(np.round(RPM,2))+'RPM']
         for i in BladeDict:  #Group of parameters/peformances
             for j in BladeDict[i]: #Specific parameter
                 try:
@@ -262,17 +262,17 @@ def CheckCriteria(ModelDir,ModelName,pathOut,RefModelDir,RPM):
                         print('Zero')
                     try:
                         WeightingValue+=WeightingValueStep[0]
-                        WeightingDict[str(CaseDir)][str(np.round(int(RPM),2))+'RPM'][j]=WeightingValueStep[0]
+                        WeightingDict[str(CaseDir)][str(np.round(RPM,2))+'RPM'][j]=WeightingValueStep[0]
                     except:
                         WeightingValue+=WeightingValueStep
-                        WeightingDict[str(CaseDir)][str(np.round(int(RPM),2))+'RPM'][j]=WeightingValueStep
+                        WeightingDict[str(CaseDir)][str(np.round(RPM,2))+'RPM'][j]=WeightingValueStep
 
                 except:
                     print('No parameter found')  
 
 
-        WeightingDict[str(CaseDir)][str(np.round(int(RPM),2))+'RPM']['Total']=WeightingValue
-        WeightingDict[str(CaseDir)][str(np.round(int(RPM),2))+'RPM']['WRT']=RefModelDir
+        WeightingDict[str(CaseDir)][str(np.round(RPM,2))+'RPM']['Total']=WeightingValue
+        WeightingDict[str(CaseDir)][str(np.round(RPM,2))+'RPM']['WRT']=RefModelDir
 
         Lines = ['#!/usr/bin/python\n']
         Lines = ['from numpy import array\n']

@@ -314,8 +314,8 @@ def StaticSolver_Newton_Raphson(t, RPM, ForceCoeff):
     nitermax = DictSimulaParam['IntegrationProperties']['NumberOfMaxIterations'][0]
     nincr    = DictSimulaParam['IntegrationProperties']['StaticSteps'][0]
     try:
-        Aij      = DictInternalForcesCoefficients['%sRPM'%np.round(int(RPM),2)]['Aij']
-        Bijm     = DictInternalForcesCoefficients['%sRPM'%np.round(int(RPM),2)]['Bijm']
+        Aij      = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['Aij']
+        Bijm     = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['Bijm']
     except:
         Aij, Bijm = 0, 0 
 
@@ -409,8 +409,8 @@ def StaticSolver_Newton_Raphson1IncrFext(t, RPM, fext):
     nitermax = DictSimulaParam['IntegrationProperties']['NumberOfMaxIterations'][0]
     nincr    = DictSimulaParam['IntegrationProperties']['StaticSteps'][0]
     try:
-        Aij      = DictInternalForcesCoefficients['%sRPM'%np.round(int(RPM),2)]['Aij']
-        Bijm     = DictInternalForcesCoefficients['%sRPM'%np.round(int(RPM),2)]['Bijm']
+        Aij      = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['Aij']
+        Bijm     = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['Bijm']
     except:
         Aij, Bijm = 0, 0 
 
@@ -486,8 +486,8 @@ def DynamicSolver_HHTalpha(t, RPM, ForceCoeff):
     nitermax = DictSimulaParam['IntegrationProperties']['NumberOfMaxIterations'][0]
     
     try:
-        Aij      = DictInternalForcesCoefficients['%sRPM'%np.round(int(RPM),2)]['Aij']
-        Bijm     = DictInternalForcesCoefficients['%sRPM'%np.round(int(RPM),2)]['Bijm']
+        Aij      = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['Aij']
+        Bijm     = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['Bijm']
     except:
         Aij, Bijm = 0, 0 
 
@@ -697,15 +697,15 @@ def SolveROM(tROM, InputRPM = None, InputForceCoeff = None):
     for RPM in InputRPM:
 
         try:
-            ExpansionBase = DictInternalForcesCoefficients['%sRPM'%np.round(int(RPM),2)]['ExpansionBase']
+            ExpansionBase = DictInternalForcesCoefficients['%sRPM'%np.round(RPM,2)]['ExpansionBase']
         except:
             ExpansionBase = None
         
-        Solution['%sRPM'%np.round(int(RPM),2)] = {}
+        Solution['%sRPM'%np.round(RPM,2)] = {}
         PHI = SJ.GetReducedBaseFromCGNS(tROM, RPM)
 
         for ForceCoeff in InputForceCoeff:
-            Solution['%sRPM'%np.round(int(RPM),2)]['FCoeff%s'%ForceCoeff] = {}
+            Solution['%sRPM'%np.round(RPM,2)]['FCoeff%s'%ForceCoeff] = {}
 
             if TypeOfSolver == 'Static':
                 q_qp_qpp, fnl_q, fext_q, time  = SolveStatic(tROM, RPM, ForceCoeff)

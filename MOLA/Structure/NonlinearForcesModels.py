@@ -178,7 +178,7 @@ def ComputeMatrULambda4ICE(t, RPM, **kwargs):
 
         # Compute rotating matrix to substract from MatrUpLambda:
 
-        MatrUs = DictAsseVectors[str(np.round(int(RPM))) + 'RPM']['Us'].reshape((DictStructParam['MeshProperties']['Nddl'][0], 1)) * np.ones(np.shape(MatrUpLambda))
+        MatrUs = DictAsseVectors[str(np.round(RPM,2)) + 'RPM']['Us'].reshape((DictStructParam['MeshProperties']['Nddl'][0], 1)) * np.ones(np.shape(MatrUpLambda))
         
     return MatrUpLambda - MatrUs, MatrFLambda  
 
@@ -434,7 +434,7 @@ def ComputeULambda4ICE(t, RPM, **kwargs):
     Aij, Bijm = ComputeAijAndBijmCoefficients(t, RPM, FnlLambdaMatrix, PinvMatrQLambda)
     
     DictOfCoefficients = J.get(t,'.InternalForcesCoefficients')
-    DictOfCoefficients['%sRPM'%np.round(int(RPM),2)] = dict(Type = 'ICE',
+    DictOfCoefficients['%sRPM'%np.round(RPM,2)] = dict(Type = 'ICE',
                                                    Aij  = Aij,
                                                    Bijm = Bijm, 
                                                    ExpansionBase = ExpansionBase)
