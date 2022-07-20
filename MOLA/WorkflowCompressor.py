@@ -337,7 +337,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         JobInformation['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
         Splitter = None
     else:
-        JobInformation['NumberOfProcessors'] = 'free'
         Splitter = 'PyPart'
 
     elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-6, unstructured=IsUnstructured)
@@ -518,8 +517,8 @@ def parametrizeChannelHeight_future(t, nbslice=101, tol=1e-10, offset=1e-10,
             Axis for linear configuration.
             If :py:obj:`None`, the configuration is annular (default case), else
             the configuration is linear.
-            ‘XY’ means that X-axis = streamwise direction and Y-axis = spanwise
-            direction.(see turbo documentation)
+            'XY' means that X-axis is the streamwise direction and Y-axis is the
+            spanwise direction.(see turbo documentation)
 
     Returns
     -------

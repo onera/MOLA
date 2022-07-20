@@ -284,7 +284,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         JobInformation['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
         Splitter = None
     else:
-        JobInformation['NumberOfProcessors'] = 'free'
         Splitter = 'PyPart'
 
     elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-6, unstructured=IsUnstructured)
