@@ -112,12 +112,10 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         Extractions=[dict(type='AllBCWall'),
                      dict(type='IsoSurface',field='CoordinateX',value=1.0),
                      dict(type='IsoSurface',field='CoordinateX',value=2.0),
-                     dict(type='IsoSurface',field='q_criterion',value=20.0)],
+                     dict(type='IsoSurface',field='q_criterion',value=10.0)],
         writeOutputFields=True,
         Initialization={'method':'uniform'},
-        JobInformation={},
-        FULL_CGNS_MODE=False,
-        COPY_TEMPLATES=True):
+        FULL_CGNS_MODE=False):
     '''
     This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to propeller mono-chanel computations. Its purpose is adapting
@@ -178,18 +176,10 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
             dictionary defining the type of initialization, using the key
             **method**. See documentation of :func:`MOLA.Preprocess.initializeFlowSolution`
 
-        JobInformation : dict
-            Dictionary containing information to update the job file. For
-            information on acceptable values, please see the documentation of
-            function :func:`MOLA.JobManager.updateJobFile`
-
         FULL_CGNS_MODE : bool
             if :py:obj:`True`, put all elsA keys in a node ``.Solver#Compute``
             to run in full CGNS mode.
 
-        COPY_TEMPLATES : bool
-            If :py:obj:`True` (default value), copy templates files in the
-            current directory.
     Returns
     -------
 
@@ -276,15 +266,18 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
     ReferenceValues = PRE.computeReferenceValues(FluidProperties,
                                                  **ReferenceValuesParams)
     ReferenceValues['RPM'] = RPM
+    ReferenceValues['Workflow'] = 'Propeller'
     ReferenceValues['NumberOfBlades'] = nb_blades
     ReferenceValues['AxialVelocity'] = AxialVelocity
     ReferenceValues['MaximumSpan'] = span
 
     if I.getNodeFromName(t, 'proc'):
-        JobInformation['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
+        NumberOfProcessors = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
+        ReferenceValues['NumberOfProcessors'] = int(NumberOfProcessors)
+        ReferenceValuesParams['NumberOfProcessors'] = int(NumberOfProcessors)
         Splitter = None
     else:
-        JobInformation['NumberOfProcessors'] = 'free'
+        ReferenceValues['NumberOfProcessors'] = 0
         Splitter = 'PyPart'
 
     elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-6, unstructured=IsUnstructured)
@@ -299,16 +292,14 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
 
     WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
-    AllSetupDics = dict(Workflow='Propeller',
-                        FluidProperties=FluidProperties,
+    AllSetupDics = dict(FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
                         TurboConfiguration=TurboConfiguration,
                         Extractions=Extractions,
-                        Splitter=Splitter,
-                        JobInformation=JobInformation)
+                        Splitter=Splitter)
 
     PRE.addTrigger(t)
     PRE.addExtractions(t, AllSetupDics['ReferenceValues'],
@@ -334,14 +325,10 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
 
     if not Splitter:
         print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
-                                                   JobInformation['NumberOfProcessors'],J.ENDC))
+                                                   ReferenceValues['NumberOfProcessors'],J.ENDC))
     else:
         print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
             Splitter + J.ENDC))
-
-    if COPY_TEMPLATES:
-        JM.getTemplates('Standard', otherWorkflowFiles=['monitor_loads.py'],
-                JobInformation=JobInformation)
 
 def getPropellerKinematic(t):
     mesh_params = I.getNodeFromName(t,'.MeshingParameters')
