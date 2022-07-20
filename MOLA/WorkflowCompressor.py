@@ -70,7 +70,7 @@ def checkDependencies():
 
 def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
                     duplicationInfos={}, zonesToRename={},
-                    scale=1., rotation='fromAG5', PeriodicTranslation=None, WorkflowORAS = False):
+                    scale=1., rotation='fromAG5', PeriodicTranslation=None):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
     from a CGNS file provided by Autogrid 5.
@@ -182,7 +182,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
             scale=scale, rotation=rotation, PeriodicTranslation=PeriodicTranslation)
 
     PRE.checkFamiliesInZonesAndBC(t)
-    t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], zonesToRename=zonesToRename, WorkflowORAS = WorkflowORAS)
+    t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], zonesToRename=zonesToRename)
     PRE.transform(t, InputMeshes)
     for row, rowParams in duplicationInfos.items():
         try: MergeBlocks = rowParams['MergeBlocks']
@@ -773,7 +773,7 @@ def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='from
 
     return InputMeshes
 
-def cleanMeshFromAutogrid(t, basename='Base#1', zonesToRename={}, WorkflowORAS = False):
+def cleanMeshFromAutogrid(t, basename='Base#1', zonesToRename={}):
     '''
     Clean a CGNS mesh from Autogrid 5.
     The sequence of operations performed are the following:
@@ -839,12 +839,7 @@ def cleanMeshFromAutogrid(t, basename='Base#1', zonesToRename={}, WorkflowORAS =
 
     # Clean Joins & Periodic Joins
     I._rmNodesByType(t, 'ZoneGridConnectivity_t')
-    if not WorkflowORAS:
-        periodicFamilyNames = [I.getName(fam) for fam in I.getNodesFromType(t, "Family_t")
-        if 'PER' in I.getName(fam)] 
-    elif WorkflowORAS:
-        periodicFamilyNames = [I.getName(fam) for fam in I.getNodesFromType(t, "Family_t")
-        if 'PER' in I.getName(fam)  or 'CON' in I.getName(fam) or 'SOLID' in I.getName(fam)] 
+    periodicFamilyNames = [I.getName(fam) for fam in I.getNodesFromType(t, "Family_t")
     
     for fname in periodicFamilyNames:
         # print('|- delete PeriodicBC family of name {}'.format(name))
