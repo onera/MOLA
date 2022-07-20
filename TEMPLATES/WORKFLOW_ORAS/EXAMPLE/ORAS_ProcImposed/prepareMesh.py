@@ -13,7 +13,7 @@ import MOLA.WorkflowCompressor as WF
 import MOLA.WorkflowORAS as WO
 
 
-Filein = 'INPUT_MESHES/ORAS_ONERA_FP_67.0_RP_86.0_fromEZmesh.cgns'
+Filein = 'INPUT_MESHES/ORAS_LightMesh.cgns'
 t = C.convertFile2PyTree(Filein)
 
 for fam in I.getNodesFromType(t,'FamilyName_t'):
@@ -51,7 +51,7 @@ for fname in periodicFamilyNames:
     I.rmNode(t, fbc)
 
 
-splitOptions= {} #dict(mode='imposed', NProcs=96)#, SplitDirections = [3])
+splitOptions= dict(mode='imposed', NumberOfProcessors=96)
 
 t = WF.prepareMesh4ElsA(t, scale=0.001, splitOptions=splitOptions)
 
