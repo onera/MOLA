@@ -839,7 +839,7 @@ def cleanMeshFromAutogrid(t, basename='Base#1', zonesToRename={}):
 
     # Clean Joins & Periodic Joins
     I._rmNodesByType(t, 'ZoneGridConnectivity_t')
-    periodicFamilyNames = [I.getName(fam) for fam in I.getNodesFromType(t, "Family_t")
+    periodicFamilyNames = [I.getName(fam) for fam in I.getNodesFromType(t, "Family_t") if 'PER' in I.getName(fam)] 
     
     for fname in periodicFamilyNames:
         # print('|- delete PeriodicBC family of name {}'.format(name))
