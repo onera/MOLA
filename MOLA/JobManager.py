@@ -719,27 +719,25 @@ def repatriate(SourcePath, DestinationPath, removeExistingDestinationPath=True,
     Defaultwait4FileFromServerOptions = dict(requestInterval=0.5,
                                              timeout=60.,)
     Defaultwait4FileFromServerOptions.update(wait4FileFromServerOptions)
-
+    if DestinationPath.startswith('./'): DestinationPath = DestinationPath[2:]
 
     if removeExistingDestinationPath:
-        print( 'Removing pre-existing {} ...'.format(DestinationPath) )
+        # Removing pre-existing file
         ServerTools.cpmvWrap4MultiServer('rm', DestinationPath, 'none')
 
     if moveInsteadOfCopy:
-        print( 'Repatriating {} by MOVE...'.format(SourcePath) )
+        # Move file
         ServerTools.cpmvWrap4MultiServer('mv', SourcePath, DestinationPath)
     else:
-        print( 'Repatriating {} by COPY...'.format(SourcePath) )
+        # Copy file
         ServerTools.cpmvWrap4MultiServer('cp', SourcePath, DestinationPath)
 
-    print( 'Waiting for {} ...'.format(DestinationPath) )
     gotFile = ServerTools.wait4FileFromServer(DestinationPath,
                                **Defaultwait4FileFromServerOptions)
 
     if not gotFile:
         MSG = J.FAIL+"Could not repatriate "+DestinationPath+J.ENDC
         raise IOError(MSG)
-    print(J.GREEN+'ok'+J.ENDC)
 
 
 def fileExists(*path): return os.path.isfile(os.path.join(*path))
@@ -791,12 +789,16 @@ def getTemplates(Workflow, otherWorkflowFiles=[], otherFiles=[],
     for filename in otherFiles:
         files2copy.append(filename)
 
+    CopyDestination = DIRECTORY_WORK
+    if CopyDestination in ['.', './']: CopyDestination = 'the current directory'
+    files2copyString = ', '.join([s.split('/')[-1] for s in files2copy])
+    print(f'Copy templates for Workflow {Workflow} ({files2copyString}) in {CopyDestination}')
+
     for SourcePath in files2copy:
         filename = SourcePath.split(os.path.sep)[-1]
         DestinationPath = os.path.join(DIRECTORY_WORK, filename)
         repatriate(SourcePath, DestinationPath)
-        print("Template file {} copied successfully.".format(filename))
-
+        
     JobInformation['jobTemplate'] = os.path.join(DIRECTORY_WORK, 'job_template.sh')
 
     updateJobFile(**JobInformation)
