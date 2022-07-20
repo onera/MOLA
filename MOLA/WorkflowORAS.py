@@ -25,17 +25,11 @@ from . import Preprocess        as PRE
 from . import JobManager        as JM
 from . import WorkflowCompressor as WC
 
-def prepareMesh4ElsA(InputMeshes, *args):
+def prepareMesh4ElsA(mesh, **kwargs):
     '''
     Exactly like :py:func:`MOLA.Preprocess.prepareMesh4ElsA`
     '''
-    return PRE.prepareMesh4ElsA(InputMeshes, *args)
-
-def cleanMeshFromAutogrid(t, **kwargs):
-    '''
-    Exactly like :py:func:`MOLA.Preprocess.cleanMeshFromAutogrid`
-    '''
-    return WC.cleanMeshFromAutogrid(t, **kwargs)
+    return WC.prepareMesh4ElsA(mesh, **kwargs)
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, Extractions={},

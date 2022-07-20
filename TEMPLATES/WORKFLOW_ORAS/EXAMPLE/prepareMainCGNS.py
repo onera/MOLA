@@ -1,9 +1,9 @@
 '''
-prepareRestart.py template for use with COMPRESSOR WORKFLOW.
+prepareRestart.py template for use with ORAS WORKFLOW.
 
 Produces the case main CGNS file (main.cgns)
 
-MOLA 1.11 - 23/09/2021 - T. Bontemps - creation
+MOLA 1.14 - 19/07/2022 - M. Balmaseda - creation
 '''
 
 import sys, os
@@ -18,11 +18,13 @@ import MOLA.WorkflowORAS as WO
 
 toc = tic() # auxiliary variable used to log the script execution time
 
+RPM = 850.
+
 WO.prepareMainCGNS4ElsA('mesh.cgns',
     ReferenceValuesParams=dict(
-        Density= 0.379597,       # Cruise: 0.379597   // TakeOff: 1.16439
-        Temperature= 218.808,    # Cruise: 218.808   // TakeOff: 303.150
-        Velocity= 0.75*296.535, # Cruise: 0.75*296.535   // TakeOff: 0.25*349.039
+        Density= 0.379597,       # Cruise: 0.379597       // TakeOff: 1.16439
+        Temperature= 218.808,    # Cruise: 218.808        // TakeOff: 303.150
+        Velocity= 0.75*296.535,  # Cruise: 0.75*296.535   // TakeOff: 0.25*349.039
         AngleOfAttackDeg=0.0,
         
         TurbulenceModel='Wilcox2006-klim',
@@ -58,7 +60,7 @@ WO.prepareMainCGNS4ElsA('mesh.cgns',
     TurboConfiguration=dict(
                     # Shaft speed in rad/s
                     # BEWARE: only for single shaft configuration
-                    ShaftRotationSpeed = 850. * np.pi / 30.,
+                    ShaftRotationSpeed = RPM * np.pi / 30.,
                 
                     # Hub rotation speed
                     # List of tuples. Each tuple (xmin, xmax) corresponds to a CoordinateX
@@ -73,12 +75,12 @@ WO.prepareMainCGNS4ElsA('mesh.cgns',
                             # For each row, set here the following parameters:
                             # Rotation speed in rad/s (watch out for the sign)
                             # Set 'auto' to automatically set ShaftRotationSpeed (for a rotor).
-                            RotationSpeed = 850. * np.pi / 30.,
+                            RotationSpeed = RPM * np.pi / 30.,
                             # The number of blades in the row
                             NumberOfBlades = 12,
                             ),
                         FP = dict(
-                            RotationSpeed = 850. * np.pi / 30.,
+                            RotationSpeed = RPM * np.pi / 30.,
                             NumberOfBlades = 12,
                             ),
                         RP = dict(
