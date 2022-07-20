@@ -1,7 +1,7 @@
 '''
 MOLA - WorkflowORAS.py
 
-WORKFLOW PROPELLER
+WORKFLOW ORAS
 
 Collection of functions designed for CFD simulations of Open Rotor And Stator (ORAS)
 

@@ -33,10 +33,10 @@ WO.prepareMainCGNS4ElsA('mesh.cgns',
         CoprocessOptions=dict(
             RequestedStatistics=['std-MomentumXFlux','avg-MomentumXFlux'],
 
-            ConvergenceCriteria = [dict(Family    = 'FP_BladeWall',
+            ConvergenceCriteria = [dict(Family    = 'Rotor_Blade',
                                         Variable  = 'std-MomentumXFlux',
                                         Threshold = 1.,),
-                                   dict(Family    = 'RP_BladeWall',
+                                   dict(Family    = 'Stator_Blade',
                                         Variable  = 'std-MomentumXFlux',
                                         Threshold = 1.,),
                                    ],
@@ -71,26 +71,12 @@ WO.prepareMainCGNS4ElsA('mesh.cgns',
                     # This dictionary has one entry for each row domain.
                     # The key names must be the family names in the CGNS Tree.
                     Rows = dict(
-                        inlet_bulb = dict(
-                            # For each row, set here the following parameters:
-                            # Rotation speed in rad/s (watch out for the sign)
-                            # Set 'auto' to automatically set ShaftRotationSpeed (for a rotor).
-                            RotationSpeed = RPM * np.pi / 30.,
-                            # The number of blades in the row
-                            NumberOfBlades = 12,
-                            ),
-                        FP = dict(
-                            RotationSpeed = RPM * np.pi / 30.,
-                            NumberOfBlades = 12,
-                            ),
-                        RP = dict(
-                            RotationSpeed = 0,
-                            NumberOfBlades = 10,
-                            ),
-                        outlet_bulb = dict(
-                            RotationSpeed = 0,
-                            NumberOfBlades = 10,
-                            ),
+                        Rotor  = dict(RotationSpeed = RPM * np.pi / 30.,
+                                     NumberOfBlades = 12,
+                                     ),
+                        Stator = dict(RotationSpeed = 0,
+                                      NumberOfBlades = 10,
+                                      ),
                         )
                     ),
     
@@ -110,15 +96,10 @@ WO.prepareMainCGNS4ElsA('mesh.cgns',
              value=1.2),
         ],
 
-    BoundaryConditions= [dict(type='Farfield', FamilyName='FAR_FIELD'),
-                         dict(type='MixingPlane', left='Rotor_stator_10_left', right='Rotor_stator_10_right'),
-                         dict(type='WallInviscid', FamilyName = 'FP_HubWall' ),#, method='poswin')
-                         dict(type='WallInviscid', FamilyName = 'inlet_bulb_HUB'),#, method='poswin')
-                         # dict(type='stage_mxpl_hyb', left='Rotor_stator_10_left', right='Rotor_stator_10_right'),
-                         # dict(type='stage_mxpl_hyb', left='Rotor_stator_30_left', right='Rotor_stator_30_right')
+    BoundaryConditions= [dict(type='Farfield', FamilyName='Farfield'),
+                         dict(type='MixingPlane', left='MixingPlaneUpstream', right='MixingPlaneDownstream'),
+                         dict(type='WallInviscid', FamilyName = 'Rotor_Hub' ),
                          ],
-    #Initialization=dict(method = 'uniform',),
-    #bladeFamilyNames=['_FP', '_RP'],
 
     writeOutputFields=True,)
 
