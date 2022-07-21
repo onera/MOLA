@@ -36,6 +36,43 @@ import Converter.Internal as I
 import Generator.PyTree as G
 import Transform.PyTree as T
 
+def AddToBladesDict(NewBlade,NewBladeNumber, BladesDict):
+    '''
+    Add a new blade geometry to the big dictionary of blades, called "BladesBible.py". 
+    Firstly, it makes sure this geometry hasn't been added yet to inform the user that
+    the blade information will be modified on the dictionary.
+    """
+
+    Parameters
+    ----------
+
+        NewBladeNumber: int
+            Number to identify the blade geometry
+           
+        NewBlade : dict
+            Contains the geometric information of a new blade to add or an existing blade
+            to be modified
+        
+        BladesDict: dict
+            Contains the BladeDictionary
+    Returns
+    -------
+        None : None
+            **BladesDict** is saved
+            
+    '''
+    #Add a new key to the big blades dictionary
+    BladesDict['Blade%s'%NewBladeNumber]=NewBlade
+    Lines = ['#!/usr/bin/python\n']
+    Lines = ['from numpy import array\n']
+    Lines+= ['BladesBible = '+pprint.pformat(BladesDict)+"\n"]
+    AllLines = '\n'.join(Lines)
+    with open('InputData/Geometry/BladesBible.py', "w") as a_file:
+        a_file.write(AllLines)
+        a_file.close()
+
+
+
 
 def BuildCSMmeshFromCFDsurfaceMesh(t, NPtsSpanwise = 21, NPtsTrailingEdge = 11):
 
