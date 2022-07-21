@@ -413,7 +413,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             Splitter + J.ENDC))
 
     if COPY_TEMPLATES:
-        JM.getTemplates('Compressor', otherWorkflowFiles=['EXAMPLE/monitor_perfos.py'],
+        JM.getTemplates('Compressor', otherWorkflowFiles=['monitor_perfos.py'],
                 JobInformation=JobInformation)
 
 def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',

@@ -279,7 +279,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             Splitter + J.ENDC))
 
     if COPY_TEMPLATES:
-        JM.getTemplates('AerothermalCoupling', otherWorkflowFiles=['EXAMPLE/monitor_perfos.py'],
+        JM.getTemplates('AerothermalCoupling', otherWorkflowFiles=['monitor_perfos.py'],
                 JobInformation=JobInformation)
 
 
