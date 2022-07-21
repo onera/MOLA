@@ -675,7 +675,7 @@ def setBoundaryConditions(t, InputMeshes):
 
     '''
     print('setting boundary conditions...')
-    
+
     for meshInfo in InputMeshes:
         if 'BoundaryConditions' not in meshInfo: continue
         print('setting BC at base '+meshInfo['baseName'])
@@ -3274,7 +3274,6 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
         writingmode   = 2,
         loc           = 'interface',
         fluxcoeff     = 1.0,
-        force_extract = 1,
         writingframe  = 'absolute',
         geomdepdom = 2 # see #8127#note-26
     )
@@ -3390,7 +3389,6 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False):
                   period=1,
                   writingmode=2,
                   writingframe='absolute',
-                  force_extract=1,
                    )
 
         EoRnode = I.createNode('FlowSolution#EndOfRun', 'FlowSolution_t',
@@ -3403,7 +3401,6 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False):
               period=1,
               writingmode=2,
               writingframe='absolute',
-              force_extract=1,
                )
 
 def addAverageFieldExtractions(t, ReferenceValues, firstIterationForAverage=1):
@@ -3442,7 +3439,6 @@ def addAverageFieldExtractions(t, ReferenceValues, firstIterationForAverage=1):
               period=1,
               writingmode=2,
               writingframe='absolute',
-              force_extract=1,
               average='time',
               period_init=firstIterationForAverage,  #First iteration to consider to compute time average
                )
