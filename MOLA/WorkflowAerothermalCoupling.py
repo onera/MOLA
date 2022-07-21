@@ -67,7 +67,8 @@ def prepareMesh4ElsA(mesh, kwargs):
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, TurboConfiguration={}, Extractions={}, BoundaryConditions={},
         BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade'],
-        Initialization={'method':'uniform'}, FULL_CGNS_MODE=True):
+        Initialization={'method':'uniform'}, JobInformation={},
+        FULL_CGNS_MODE=True, COPY_TEMPLATES=True):
     '''
     This is mainly a function similar to :func:`MOLA.WorkflowCompressor.prepareMainCGNS4ElsA`
     but adapted to aerothermal simulations with CWIPI coupling.
@@ -128,9 +129,18 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             dictionary defining the type of initialization, using the key
             **method**. See documentation of :func:`MOLA.Preprocess.initializeFlowSolution`
 
+        JobInformation : dict
+            Dictionary containing information to update the job file. For
+            information on acceptable values, please see the documentation of
+            function :func:`MOLA.JobManager.updateJobFile`
+
         FULL_CGNS_MODE : bool
             if :py:obj:`True`, put all elsA keys in a node ``.Solver#Compute``
             to run in full CGNS mode.
+
+        COPY_TEMPLATES : bool
+            If :py:obj:`True` (default value), copy templates files in the
+            current directory.
 
     Returns
     -------
@@ -184,12 +194,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         ReferenceValuesParams.update(dict(PitchAxis=PitchAxis, YawAxis=YawAxis))
 
     ReferenceValues = WC.computeReferenceValues(FluidProperties, **ReferenceValuesParams)
-    ReferenceValues['Workflow'] = 'AerothermalCoupling'
 
     if I.getNodeFromName(t, 'proc'):
-        NumberOfProcessors = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
-        ReferenceValues['NumberOfProcessors'] = int(NumberOfProcessors)
-        ReferenceValuesParams['NumberOfProcessors'] = int(NumberOfProcessors)
+        JobInformation['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
         Splitter = None
     else:
         Splitter = 'PyPart'
@@ -218,18 +225,20 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     if not 'PeriodicTranslation' in TurboConfiguration:
         WC.addMonitoredRowsInExtractions(Extractions, TurboConfiguration)
 
-    AllSetupDics = dict(FluidProperties=FluidProperties,
+    AllSetupDics = dict(Workflow='AerothermalCoupling',
+                        FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
                         TurboConfiguration=TurboConfiguration,
                         Extractions=Extractions,
-                        Splitter=Splitter)
+                        Splitter=Splitter,
+                        JobInformation=JobInformation)
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
     BCExtractions = dict(
-        BCWall = ['normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz','psta', 'bl_quantities_2d', 'yplusmeshsize'],
+        BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
         BCInflow = ['convflux_ro'],
         BCOutflow = ['convflux_ro'],
         )
@@ -264,10 +273,14 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     if not Splitter:
         print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
-                                                   ReferenceValues['NumberOfProcessors'],J.ENDC))
+                                                   JobInformation['NumberOfProcessors'],J.ENDC))
     else:
         print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
             Splitter + J.ENDC))
+
+    if COPY_TEMPLATES:
+        JM.getTemplates('AerothermalCoupling', otherWorkflowFiles=['EXAMPLE/monitor_perfos.py'],
+                JobInformation=JobInformation)
 
 
 def addExchangeSurfaces(t, coupledSurfaces, couplingScript='coprocess.py'):

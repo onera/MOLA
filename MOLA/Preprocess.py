@@ -138,7 +138,8 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
 def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
         NumericalParams={}, Extractions=[{'type':'AllBCWall'}],
         Initialization=dict(method='uniform'),
-        BodyForceInputData=[], writeOutputFields=True):
+        BodyForceInputData=[], writeOutputFields=True,
+        JobInformation={}, COPY_TEMPLATES=True):
     '''
     This macro-function takes as input a preprocessed grid file (as produced
     by function :py:func:`prepareMesh4ElsA` ) and adds all remaining information
@@ -347,9 +348,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
     ReferenceValues = computeReferenceValues(FluidProperties,
                                              **ReferenceValuesParams)
 
-    NumberOfProcessors = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
-    ReferenceValues['NumberOfProcessors'] = int(NumberOfProcessors)
-    ReferenceValuesParams['NumberOfProcessors'] = int(NumberOfProcessors)
+    JobInformation['NumberOfProcessors'] = int(max(getProc(t))+1)
     elsAkeysCFD      = getElsAkeysCFD(unstructured=IsUnstructured)
     elsAkeysModel    = getElsAkeysModel(FluidProperties, ReferenceValues,
                                         unstructured=IsUnstructured)
@@ -358,12 +357,14 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
     elsAkeysNumerics = getElsAkeysNumerics(ReferenceValues,
                                 unstructured=IsUnstructured, **NumericalParams)
 
-    AllSetupDics = dict(FluidProperties=FluidProperties,
+    AllSetupDics = dict(Workflow='Standard',
+                        FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
-                        Extractions=Extractions)
+                        Extractions=Extractions,
+                        JobInformation=JobInformation)
 
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
@@ -373,7 +374,9 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
 
 
     print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
-                                               ReferenceValues['NumberOfProcessors'],J.ENDC))
+                                               JobInformation['NumberOfProcessors'],J.ENDC))
+
+    if COPY_TEMPLATES: JM.getTemplates('Standard', JobInformation=JobInformation)
 
 def getMeshesAssembled(InputMeshes):
     '''
@@ -3143,12 +3146,12 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
                                       currentNodePath]]
 
 
-    try: os.makedirs(DIRECTORY_OUTPUT)
-    except: pass
     print('saving PyTrees with links')
     to = I.copyRef(t)
     I._renameNode(to, 'FlowSolution#Centers', 'FlowSolution#Init')
     if writeOutputFields:
+        try: os.makedirs(DIRECTORY_OUTPUT)
+        except: pass
         C.convertPyTree2File(to, os.path.join(DIRECTORY_OUTPUT, FieldsFilename))
     C.convertPyTree2File(t, MainCGNSFilename, links=AllCGNSLinks)
 
@@ -3247,7 +3250,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
             convention).
 
             By default, the following variables are extracted for *BCWall*:
-            ['normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz',
+            ['normalvector', 'frictionvector',
             'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue',
             'flux_rou', 'flux_rov', 'flux_row', 'torque_rou',
             'torque_rov', 'torque_row'].
@@ -3259,7 +3262,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
 
     DefaultBCExtractions = dict(
         BCWall = [
-            'normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz',
+            'normalvector', 'frictionvector',
             'psta', 'bl_quantities_2d', 'yplusmeshsize',
             'bl_ue', # see #10360
             'flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']

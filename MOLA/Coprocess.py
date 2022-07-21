@@ -270,6 +270,7 @@ def extractSurfaces(t, Extractions):
     I._renameNode(t, 'FlowSolution#Height', 'FlowSolution')
     I._rmNodesByName(t, 'FlowSolution#EndOfRun*')
     reshapeBCDatasetNodes(t)
+    I._rmNodesByName(t, 'BCDataSet#Init') # see MOLA #75 and Cassiopee #10641
     DictBCNames2Type = C.getFamilyBCNamesDict(t)
     SurfacesTree = I.newCGNSTree()
     PartialTree = Cmpi.convert2PartialTree(t)
@@ -1269,7 +1270,7 @@ def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
     for Torque in ('Cn','Cl','Cm'): arraysSubset[Torque] *= TorqueCoef
 
 def _extendArraysWithWorkflowQuantities(arrays, IntegralDataName):
-    try: Workflow = setup.ReferenceValues['Workflow']
+    try: Workflow = setup.Workflow
     except KeyError: return
 
     if Workflow == 'Propeller':

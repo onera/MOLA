@@ -43,8 +43,8 @@ def checkDependencies():
     print('\nVERIFICATIONS TERMINATED')
 
 
-def launchBasicStructuredPolars(PREFIX_JOB, FILE_GEOMETRY, AER, machine,
-        DIRECTORY_WORK, AoARange, MachRange, ReynoldsOverMach,
+def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
+        DIRECTORY_WORK, AoARange, MachRange, ReynoldsOverMach, JobInformation,
         AdditionalCoprocessOptions={}, AdditionalTransitionZones={},
         ImposedWallFields=[], TransitionalModeReynoldsThreshold=0,
         ExtraElsAParams={}):
@@ -54,17 +54,11 @@ def launchBasicStructuredPolars(PREFIX_JOB, FILE_GEOMETRY, AER, machine,
     Parameters
     ----------
 
-        PREFIX_JOB : str
-            an arbitrary prefix for the jobs
-
         FILE_GEOMETRY : str
             path where the airfoil coordinates file is
             located.
 
             .. attention:: the airfoil must exist at provided path
-
-        AER : str
-            full AER code for launching simulations on SATOR
 
         machine : str
             name of the machine ``'sator'``, ``'spiro'``, ``'eos'``...
@@ -89,6 +83,11 @@ def launchBasicStructuredPolars(PREFIX_JOB, FILE_GEOMETRY, AER, machine,
         ReynoldsOverMach : float
             :math:`Re/M` value to consider in order to
             compute Reynolds number for each case.
+
+        JobInformation : dict
+            Dictionary containing information to update the job file. For
+            information on acceptable values, please see the documentation of
+            function :func:`MOLA.JobManager.updateJobFile`
 
         AdditionalCoprocessOptions : dict
             values overriding the default set of ``CoprocessOptions``, which
@@ -217,7 +216,7 @@ def launchBasicStructuredPolars(PREFIX_JOB, FILE_GEOMETRY, AER, machine,
                 i, AoA, Reynolds, Mach, NewJob))
 
         if NewJob:
-            JobName = PREFIX_JOB+'%d'%i
+            JobName = JobInformation['JobName']+'%d'%i
             writeOutputFields = True
         else:
             writeOutputFields = False
@@ -236,6 +235,8 @@ def launchBasicStructuredPolars(PREFIX_JOB, FILE_GEOMETRY, AER, machine,
             meshParams['options']['NumberOfProcessors']=24
         elif machine in ['ld', 'eos']:
             meshParams['options']['NumberOfProcessors']=8
+
+        JobInformation['NumberOfProcessors'] = meshParams['options']['NumberOfProcessors']
 
 
         EffectiveMach = np.maximum(Mach, 0.2) # TODO externalize this threshold
@@ -333,10 +334,9 @@ def launchBasicStructuredPolars(PREFIX_JOB, FILE_GEOMETRY, AER, machine,
         JobsQueues.append( dict(ID=i, CASE_LABEL=CASE_LABEL, NewJob=NewJob,
             JobName=JobName, meshParams=meshParams, elsAParams=elsAParams,
             CoprocessOptions=CoprocessOptions, TransitionZones=TransitionZones,
-            ImposedWallFields=ImposedWallFields,) )
+            ImposedWallFields=ImposedWallFields, JobInformation=JobInformation) )
 
-    JM.saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,
-                             FILE_GEOMETRY)
+    JM.saveJobsConfiguration(JobsQueues, machine, DIRECTORY_WORK, FILE_GEOMETRY)
 
     JM.launchJobsConfiguration(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_AIRFOIL')
 
@@ -418,7 +418,9 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                     FieldsAdditionalExtractions=['ViscosityMolecular',
                         'Viscosity_EddyMolecularRatio','Mach'],
                     Extractions=[{'type':'AllBCWall'}],
-                    Initialization={'method':'uniform'}):
+                    Initialization={'method':'uniform'},
+                    JobInformation={},
+                    COPY_TEMPLATES=True):
     '''
     This is mainly a function similar to :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to airfoil computations. Its purpose is adapting the CGNS to
@@ -525,6 +527,15 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
 
             Default method is 'uniform'.
 
+        JobInformation : dict
+            Dictionary containing information to update the job file. For
+            information on acceptable values, please see the documentation of
+            function :func:`MOLA.JobManager.updateJobFile`
+
+        COPY_TEMPLATES : bool
+            If :py:obj:`True` (default value), copy templates files in the
+            current directory.
+
     Returns
     -------
 
@@ -586,19 +597,28 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
     if NonLocalTransition:
         setBCDataSetWithNonLocalTransition(t, AirfoilWallFamilyName, ReferenceValues)
 
-    AllSetupDics = dict(FluidProperties=FluidProperties,
+    AllSetupDics = dict(Workflow='Airfoil',
+                        FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
-                        Extractions=Extractions)
+                        Extractions=Extractions,
+                        JobInformation=JobInformation)
 
 
     t = PRE.newCGNSfromSetup(t, AllSetupDics, Initialization=Initialization,
                             FULL_CGNS_MODE=False)
     PRE.saveMainCGNSwithLinkToOutputFields(t, writeOutputFields=writeOutputFields)
 
-    print(J.CYAN+'REMEMBER : configuration shall be run using %d procs'%ReferenceValues['NumberOfProcessors']+J.ENDC)
+    print(J.CYAN+'REMEMBER : configuration shall be run using %d procs'%JobInformation['NumberOfProcessors']+J.ENDC)
+
+    if 'NumberOfProcessors' not in JobInformation:
+        JobInformation['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
+
+    if COPY_TEMPLATES:
+        JM.getTemplates('Airfoil', otherWorkflowFiles=['monitor_loads.py'],
+                JobInformation=JobInformation)
 
 
 def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
