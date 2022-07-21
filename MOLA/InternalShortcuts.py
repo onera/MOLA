@@ -2180,6 +2180,8 @@ def printEnvironment():
         Major = max(list(AllVersions))
         Minor = max(list(AllVersions[Major]))
         Micro = max(list(AllVersions[Major][Minor]))
+        MajorMinorMicro = [str(Major),str(Minor)]
+        if Micro > 0: MajorMinorMicro.append( str(Micro) )
         return 'v'+'.'.join([str(Major),str(Minor),str(Micro)])
 
     def mostUpToDateMicroVersion(AllVersions, Major, Minor):
@@ -2187,7 +2189,9 @@ def printEnvironment():
 
     def fullStringOfMostUpToDateMicroVersion(AllVersions, Major, Minor):
         Micro = mostUpToDateMicroVersion(AllVersions, Major, Minor)
-        return 'v'+'.'.join([str(Major),str(Minor),str(Micro)])
+        fullString = 'v'+'.'.join([str(Major),str(Minor)])
+        if Micro != '0': fullString += '.'+str(Micro)
+        return fullString
 
     def microVersionIsUpToDate(AllVersions, Major, Minor, Micro):
         mostUpToDateMicro = mostUpToDateMicroVersion(AllVersions, Major, Minor)
