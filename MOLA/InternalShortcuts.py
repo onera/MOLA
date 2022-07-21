@@ -2182,7 +2182,7 @@ def printEnvironment():
         Micro = max(list(AllVersions[Major][Minor]))
         MajorMinorMicro = [str(Major),str(Minor)]
         if Micro > 0: MajorMinorMicro.append( str(Micro) )
-        return 'v'+'.'.join([str(Major),str(Minor),str(Micro)])
+        return 'v'+'.'.join(MajorMinorMicro)
 
     def mostUpToDateMicroVersion(AllVersions, Major, Minor):
         return max(AllVersions[Major][Minor])
@@ -2199,7 +2199,9 @@ def printEnvironment():
 
     def usingMostUpToDateVersion(AllVersions, Major, Minor, Micro):
         latestVersion = mostUpToDateVersion(AllVersions)
-        usedVersion =  'v'+'.'.join([str(Major),str(Minor),str(Micro)])
+        MajorMinorMicro = [str(Major),str(Minor)]
+        if Micro > 0: MajorMinorMicro.append( str(Micro) )
+        usedVersion =  'v'+'.'.join(MajorMinorMicro)
         return usedVersion == latestVersion
 
     machine = os.getenv('MAC', 'UNKNOWN')
