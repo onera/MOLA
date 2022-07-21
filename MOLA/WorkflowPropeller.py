@@ -299,15 +299,15 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
     WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
     AllSetupDics = dict(Workflow='Propeller',
+                        Splitter=Splitter,
+                        JobInformation=JobInformation,
+                        TurboConfiguration=TurboConfiguration,
                         FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
-                        TurboConfiguration=TurboConfiguration,
-                        Extractions=Extractions,
-                        Splitter=Splitter,
-                        JobInformation=JobInformation)
+                        Extractions=Extractions)
 
     PRE.addTrigger(t)
     PRE.addExtractions(t, AllSetupDics['ReferenceValues'],

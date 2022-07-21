@@ -1271,7 +1271,7 @@ def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
 
 def _extendArraysWithWorkflowQuantities(arrays, IntegralDataName):
     try: Workflow = setup.Workflow
-    except KeyError: return
+    except AttributeError: return
 
     if Workflow == 'Propeller':
         from . import WorkflowPropeller as WP

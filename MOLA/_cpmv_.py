@@ -76,10 +76,7 @@ def cpmv(mode, In, Out='none'):
     modeLowercase = mode.lower()[:2]
 
     if In == Out: return
-    if not os.path.exists(In):
-        WMSG = '{} {} impossible: path does not exist'.format(modeLowercase, In)
-        print(WARN + WMSG + ENDC)
-        return
+    if not os.path.exists(In): return
 
     if modeLowercase == 'mv':
         if not os.path.isdir(Out):

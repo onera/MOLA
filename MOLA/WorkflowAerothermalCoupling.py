@@ -226,15 +226,15 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         WC.addMonitoredRowsInExtractions(Extractions, TurboConfiguration)
 
     AllSetupDics = dict(Workflow='AerothermalCoupling',
+                        Splitter=Splitter,
+                        JobInformation=JobInformation,
+                        TurboConfiguration=TurboConfiguration,
                         FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
-                        TurboConfiguration=TurboConfiguration,
-                        Extractions=Extractions,
-                        Splitter=Splitter,
-                        JobInformation=JobInformation)
+                        Extractions=Extractions)
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
     BCExtractions = dict(
@@ -279,7 +279,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             Splitter + J.ENDC))
 
     if COPY_TEMPLATES:
-        JM.getTemplates('AerothermalCoupling', otherWorkflowFiles=['EXAMPLE/monitor_perfos.py'],
+        JM.getTemplates('AerothermalCoupling', otherWorkflowFiles=['monitor_perfos.py'],
                 JobInformation=JobInformation)
 
 
