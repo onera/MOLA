@@ -1,7 +1,7 @@
 '''
 elsA compute.py script for WORKFLOW STANDARD
 
-MOLA Dev
+MOLA v1.14
 
 File History:
 23/12/2020 - L. Bernardos

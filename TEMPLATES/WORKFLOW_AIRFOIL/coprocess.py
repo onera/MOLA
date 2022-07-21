@@ -1,7 +1,7 @@
 '''
 coprocess.py template WORKFLOW AIRFOIL
 
-MOLA Dev
+MOLA v1.14
 '''
 
 # Control Flags for interactive control using command 'touch <flag>'

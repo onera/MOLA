@@ -2201,7 +2201,7 @@ def printEnvironment():
     machine = os.getenv('MAC', 'UNKNOWN')
     vELSA = os.getenv('ELSAVERSION', 'UNAVAILABLE')
     totoV = __version__
-    if totoV == 'Dev':
+    if totoV == 'v1.14':
         vMOLA = WARN + totoV + ENDC
     else:
         vMOLA = totoV
@@ -2258,7 +2258,7 @@ def printEnvironment():
     print(' --> PUMA '+vPUMA)
 
 
-    if totoV == 'Dev':
+    if totoV == 'v1.14':
         print(WARN+'WARNING: you are using an UNSTABLE version of MOLA.\nConsider using a stable version.'+ENDC)
     else:
         Major, Minor, Micro = getMajorMinorMicro(totoV)

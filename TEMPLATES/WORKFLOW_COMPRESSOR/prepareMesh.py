@@ -3,7 +3,7 @@ prepareMesh.py template designed for COMPRESSOR Workflow.
 
 Produces mesh.cgns from a CGNS from Autogrid 5
 
-MOLA Dev
+MOLA v1.14
 '''
 
 import Converter.PyTree as C

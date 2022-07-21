@@ -8,12 +8,12 @@ ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 
 ###############################################################################
 # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
-export MOLA=/stck/lbernard/MOLA/Dev
+export MOLA=/stck/lbernard/MOLA/v1.14
 export TREELAB=/stck/lbernard/TreeLab/dev
-export EXTPYLIB=/stck/lbernard/MOLA/Dev/ExternalPythonPackages
-export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
+export EXTPYLIB=/stck/lbernard/MOLA/v1.14/ExternalPythonPackages
+export MOLASATOR=/tmp_user/sator/lbernard/MOLA/v1.14
 export TREELABSATOR=/tmp_user/sator/lbernard/TreeLab/dev
-export EXTPYLIBSATOR=/tmp_user/sator/lbernard/MOLA/Dev/ExternalPythonPackages
+export EXTPYLIBSATOR=/tmp_user/sator/lbernard/MOLA/v1.14/ExternalPythonPackages
 export VPMVERSION=v0.1
 export PUMAVERSION=r337
 ###############################################################################

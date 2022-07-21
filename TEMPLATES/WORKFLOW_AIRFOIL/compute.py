@@ -1,7 +1,7 @@
 '''
 elsA compute.py script for WORKFLOW AIRFOIL
 
-MOLA Dev
+MOLA v1.14
 
 06/05/2020 - L. Bernardos
 '''

@@ -1,5 +1,5 @@
 import os
-__version__ = 'Dev'
+__version__ = 'v1.14'
 __MOLA_PATH__ = os.path.sep.join(__file__.split(os.path.sep)[:-2])
 
 try:

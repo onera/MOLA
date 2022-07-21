@@ -1,7 +1,7 @@
 '''
 coprocess.py template WORKFLOW STANDARD
 
-MOLA Dev
+MOLA v1.14
 '''
 
 
