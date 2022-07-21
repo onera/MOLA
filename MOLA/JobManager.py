@@ -95,7 +95,8 @@ def checkDependencies():
     print('showing figure... (close figure to continue)')
     plt.show()
 
-def buildJob(case, config, jobTemplate='job_template.sh'):
+
+def buildJob(case, config, NumberOfProcessors, jobTemplate):
     '''
     Produce a computation job file.
 
@@ -108,8 +109,10 @@ def buildJob(case, config, jobTemplate='job_template.sh'):
         config : module
             import of ``JobsConfiguration.py``
 
-        jobTemplate : str
-            name of the job file
+        NumberOfProcessors : int
+            number of procs of the job
+
+            .. danger:: must be coherent with the ``main.cgns`` distribution
 
     Returns
     -------
@@ -123,8 +126,8 @@ def buildJob(case, config, jobTemplate='job_template.sh'):
     with open(jobTemplate,'r') as f: JobText = f.read()
 
     JobText = JobText.replace('<JobName>', case['JobName'])
-    JobText = JobText.replace('<AERnumber>', case['JobInformation']['AER'])
-    JobText = JobText.replace('<NumberOfProcessors>', str(case['JobInformation']['NumberOfProcessors']))
+    JobText = JobText.replace('<AERnumber>', config.AER)
+    JobText = JobText.replace('<NumberOfProcessors>', str(NumberOfProcessors))
     JobText = JobText.split('mpirun ')[0]
 
     # Add source to /etc/bashrc
@@ -146,10 +149,9 @@ def buildJob(case, config, jobTemplate='job_template.sh'):
         f.write('\n')
 
     os.chmod(JobFile, 0o777)
-    ServerTools.cpmv('cp', 'job.sh', os.path.join(config.DIRECTORY_WORK, case['JobName'], 'job.sh'))
 
-def saveJobsConfiguration(JobsQueues, machine, DIRECTORY_WORK,
-                           FILE_GEOMETRY=None):
+def saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK,
+                           FILE_GEOMETRY=None, NumberOfProcessors=None):
     '''
     Generate the file ``JobsConfiguration.py`` from provided user-data.
 
@@ -175,6 +177,10 @@ def saveJobsConfiguration(JobsQueues, machine, DIRECTORY_WORK,
             * JobName : :py:class:`str`
                 the job name employed by the case
 
+
+        AER : str
+            full AER code for launching simulations on SATOR
+
         machine : str
             name of the machine ``'sator'``, ``'spiro'``, ``'eos'``...
 
@@ -186,6 +192,9 @@ def saveJobsConfiguration(JobsQueues, machine, DIRECTORY_WORK,
 
         FILE_GEOMETRY : :py:class:`str` or :py:obj:`None`
             location where geometry is located. Not written if :py:obj:`None`
+
+        NumberOfProcessors : int
+            Number of processors
 
     Returns
     -------
@@ -205,7 +214,10 @@ def saveJobsConfiguration(JobsQueues, machine, DIRECTORY_WORK,
     Lines+=['DIRECTORY_WORK="'+DIRECTORY_WORK+'"\n']
     if FILE_GEOMETRY:
         Lines+=['FILE_GEOMETRY="'+FILE_GEOMETRY+'"\n']
+    if NumberOfProcessors:
+        Lines+=['NumberOfProcessors="'+str(NumberOfProcessors)+'"\n']
     Lines+=['machine="'+machine+'"\n']
+    Lines+=['AER="'+AER+'"\n\n']
     Lines+=['JobsQueues='+pprint.pformat(JobsQueues)+'\n']
 
     try: os.remove(JobsConfigurationFilename)
@@ -225,6 +237,13 @@ def launchJobsConfiguration(
         jobTemplate=__MOLA_PATH__+'/TEMPLATES/job_template.sh',
         DispatchFile='dispatch.py',
         routineFile='routine.sh',
+
+        # TODO group these attributes in a list (specific to the WF)
+        preprocessFile='preprocess.py',
+        computeFile='compute.py',
+        coprocessFile='coprocess.py',
+        postprocessFile='postprocess.py',
+
         otherFiles=[]):
     '''
     Migrates a set of required scripts and launch the multi-jobs script.
@@ -234,6 +253,18 @@ def launchJobsConfiguration(
 
         templatesFolder : str
             location of the templates files
+
+        preprocessFile : str
+            name of the ``preprocess.py`` file required just *before* elsA execution
+
+        computeFile : str
+            name of the ``compute.py`` file required to launch elsA computation
+
+        coprocessFile : str
+            ``coprocess.py`` file used *during* elsA computation
+
+        postprocessFile : str
+            ``postprocess.py`` file used *after* elsA computation
 
         DispatchFile : str
             ``dispatch.py`` file used to produce
@@ -268,7 +299,8 @@ def launchJobsConfiguration(
     if hasattr(config, 'FILE_GEOMETRY'):
         Files2Copy.append(config.FILE_GEOMETRY)
 
-    for filename in [DispatchFile, routineFile]:
+    for filename in [preprocessFile, computeFile, coprocessFile, \
+        postprocessFile, DispatchFile, routineFile]:
         Files2Copy.append(os.path.join(templatesFolder, filename))
     Files2Copy.append(jobTemplate)
 
@@ -306,7 +338,7 @@ def launchJobsConfiguration(
             JobText = f.read()
 
         JobText = JobText.replace('<JobName>', 'dispatcher')
-        JobText = JobText.replace('<AERnumber>', config.JobsQueues[0]['JobInformation']['AER'])
+        JobText = JobText.replace('<AERnumber>', config.AER)
         JobText = JobText.replace('#SBATCH -t 0-15:00', '#SBATCH -t 0-0:30')
         JobText = JobText.replace('<NumberOfProcessors>', '1')
         JobText = JobText.split('mpirun ')[0]
@@ -314,7 +346,7 @@ def launchJobsConfiguration(
         with open(JobFile,'w+') as f:
             f.write(JobText)
             f.write('cd '+DIRECTORY_DISPATCHER+'\n')
-            f.write('mpirun python3 dispatch.py 1>Dispatch-out.log 2>Dispatch-err.log\n')
+            f.write('mpirun -np 1 python3 dispatch.py 1>Dispatch-out.log 2>Dispatch-err.log\n')
 
         os.chmod(JobFile, 0o777)
         ServerTools.cpmvWrap4MultiServer('cp',JobFile,
@@ -324,7 +356,6 @@ def launchJobsConfiguration(
         launchDispatcherJob(DIRECTORY_DISPATCHER, JobFile, machine=config.machine)
 
     print('submitted DISPATCHER files and launched dispatcher job')
-
 
 def remoteFileExists(absolute_file_path, remote_machine='sator'):
 
@@ -745,99 +776,3 @@ def repatriate(SourcePath, DestinationPath, removeExistingDestinationPath=True,
 def fileExists(*path): return os.path.isfile(os.path.join(*path))
 
 def anyFile(*path): return any(glob.glob(os.path.join(*path)))
-
-
-def getTemplates(Workflow, otherWorkflowFiles=[], otherFiles=[],
-        DIRECTORY_WORK='.', JobInformation={}, jobFile='job_template.sh'):
-    '''
-    Copy templates files ('job_template.sh', 'compute.py', 'coprocess.py') and
-    others on demand in the current directory.
-
-    Parameters
-    ----------
-
-        Workflow : str
-            Name of the Workflow
-
-        otherWorkflowFiles : list
-            Paths of others files to copy, relative to the workflow templates
-            directory.
-
-        otherFiles : list
-            Absolute paths of others files to copy.
-
-        DIRECTORY_WORK : str
-            Path to copy files. By default, the current directory.
-
-        JobInformation : dict
-            arguments (kwargs) for the function :func:`updateJobFile`
-
-        jobFile : str
-            Name of the job file.
-
-    '''
-    WORKFLOW_FOLDER = 'WORKFLOW_' + ''.join(['_'+ s.upper() if s.isupper() else s.upper() for s in Workflow]).lstrip('_')
-    templatesFolder = os.path.join(__MOLA_PATH__, 'TEMPLATES')
-
-    files2copy = [
-        os.path.join(templatesFolder, 'job_template.sh'),
-        os.path.join(templatesFolder, WORKFLOW_FOLDER, 'compute.py'),
-        os.path.join(templatesFolder, WORKFLOW_FOLDER, 'coprocess.py'),
-        ]
-
-    for filename in otherWorkflowFiles:
-        files2copy.append(os.path.join(templatesFolder, WORKFLOW_FOLDER, filename))
-
-    for filename in otherFiles:
-        files2copy.append(filename)
-
-    for SourcePath in files2copy:
-        filename = SourcePath.split(os.path.sep)[-1]
-        DestinationPath = os.path.join(DIRECTORY_WORK, filename)
-        repatriate(SourcePath, DestinationPath)
-        print("Template file {} copied successfully.".format(filename))
-
-    JobInformation['jobTemplate'] = os.path.join(DIRECTORY_WORK, 'job_template.sh')
-
-    updateJobFile(**JobInformation)
-
-
-def updateJobFile(jobTemplate='job_template.sh', JobName=None, AER=None,
-                TimeLimit='0-15:00', NumberOfProcessors=None):
-    '''
-    Update job file.
-
-    Parameters
-    ----------
-
-        jobTemplate : str
-            Name of the job file. Should be ``job_template.sh`` or ``PATH/job_template.sh``.
-
-        JobName : :py:class:`str` or py:obj:`None`
-            Name of the job
-
-        AER : :py:class:`str` or py:obj:`None`
-            AER number
-
-        TimeLimit : :py:class:`str` or py:obj:`None`
-            Time limit for the job. The default value is '0-15:00' (15h).
-
-        NumberOfProcessors : :py:class:`str` or py:obj:`None`
-            Number of processors
-
-    '''
-    if any([JobName, AER, TimeLimit not in ['0-15:00', '15:00'], NumberOfProcessors]):
-        with open(jobTemplate, 'r') as f:
-            JobText = f.read()
-
-        if JobName:
-            JobText = JobText.replace('<JobName>', JobName)
-        if AER:
-            JobText = JobText.replace('<AERnumber>', str(AER))
-        if TimeLimit:
-            JobText = JobText.replace('#SBATCH -t 0-15:00', '#SBATCH -t {}'.format(TimeLimit))
-        if NumberOfProcessors:
-            JobText = JobText.replace('<NumberOfProcessors>', str(NumberOfProcessors))
-
-        with open(jobTemplate, 'w') as f:
-            f.write(JobText)

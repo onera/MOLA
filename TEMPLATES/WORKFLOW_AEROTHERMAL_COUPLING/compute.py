@@ -100,6 +100,7 @@ itmax    = inititer+niter-1 # BEWARE last iteration accessible trigger-state-16
 if Splitter == 'PyPart':
     t, Skeleton, PyPartBase, Distribution = CO.splitWithPyPart()
     CO.PyPartBase = PyPartBase
+    setup.ReferenceValues['NumberOfProcessors'] = LocalNProcs
 
     # Pypart loses AdditionalFamilyName_t nodes in BCs, and also changes
     # .elsA#Hybrid nodes

@@ -3,17 +3,17 @@ source /etc/bashrc
 module purge
 unset PYTHONPATH
 shopt -s expand_aliases
-ulimit -s unlimited # magic necessary command
+ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 
 
 ###############################################################################
 # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
 export MOLA=/stck/lbernard/MOLA/Dev
 export TREELAB=/stck/lbernard/TreeLab/dev
-export EXTPYLIB=$MOLA/ExternalPythonPackages
+export EXTPYLIB=/stck/lbernard/MOLA/Dev/ExternalPythonPackages
 export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
 export TREELABSATOR=/tmp_user/sator/lbernard/TreeLab/dev
-export EXTPYLIBSATOR=$MOLASATOR/ExternalPythonPackages
+export EXTPYLIBSATOR=/tmp_user/sator/lbernard/MOLA/Dev/ExternalPythonPackages
 export VPMVERSION=v0.1
 export PUMAVERSION=r337
 ###############################################################################
@@ -22,15 +22,15 @@ export PUMAVERSION=r337
 export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
 export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net
 
-export ELSAVERSION=v5.1.01
-export ELSA_VERBOSE_LEVEL=0 # see ticket #9689
+export ELSAVERSION=v5.1.01 # TODO except visio, "old" sator (el7) and local LD8
+export ELSA_VERBOSE_LEVEL=0 # cf elsA ticket 9689
 export ELSA_MPI_LOG_FILES=OFF
-export ELSA_MPI_APPEND=FALSE # See ticket 7849
+export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849
 export FORT_BUFFERED=true
 export MPI_GROUP_MAX=8192
 export MPI_COMM_MAX=8192
 export ELSA_NOLOG=ON
-export PYTHONUNBUFFERED=true # ticket 9685
+export PYTHONUNBUFFERED=true # cf ticket 9685
 
 # Detection machine
 KC=`uname -n`
@@ -69,12 +69,9 @@ EL8=`uname -r|grep el8`
 
 if [ "$MAC" = "sator" ] ; then
     if [ "$EL8" ]; then
-        echo switching to sator-new
         export MAC="sator-new"
     fi
 fi
-
-echo Machine is $MAC
 
 if [ "$MAC" = "spiro" ]; then
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro3_mpi/.env_elsA
@@ -98,8 +95,6 @@ if [ "$MAC" = "spiro" ]; then
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
-    alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
-    alias python='python3'
     source ~/.bashrc
 
 
@@ -139,9 +134,6 @@ elif [ "$MAC" = "visio" ]; then
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
-    alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
-    alias python='python3'
-
 elif [ "$MAC" = "visung" ]; then
 
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
@@ -156,13 +148,12 @@ elif [ "$MAC" = "visung" ]; then
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
-    alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
-    alias python='python3'
-
 elif [ "$MAC" = "ld" ]; then
     if [ "$EL8" ]; then
         echo 'loading MOLA environment for CentOS 8'
         export ELSAVERSION=UNAVAILABLE # TODO adapt this once #10587 fixed
+        echo -e "\033[93mWARNING: elsA v5.1.01 is not installed yet in LD CentOS 8\033[0m"
+        echo -e "\033[93mwatch https://elsa.onera.fr/issues/10587 for more information\033[0m"
         # source /stck/elsa/Public/v5.0.04dev/Dist/bin/local-os8_mpi/.env_elsA # TODO adapt this once #10587 fixed
         module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
@@ -171,7 +162,6 @@ elif [ "$MAC" = "ld" ]; then
         #module load oce/7.5.0-gnu831
         module load occt/7.6.1-gnu831
         module load python/3.6.1-gnu831
-        # Set next two lines only if python is not python
         export PYTHONEXE=python3
         export PYTHONVR=3.6
         alias python=python3
@@ -202,11 +192,8 @@ elif [ "$MAC" = "ld" ]; then
         export PYTHONPATH=$VPMPATH:$PYTHONPATH
         export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
-
     fi
 
-    alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
-    alias python='python3'
 
 elif [ "$MAC" = "sator" ]; then
     echo -e "\033[91mERROR: MACHINE sator IS BEING DEPREACATED\033[0m"
@@ -249,10 +236,6 @@ elif [ "$MAC" = "sator-new" ]; then
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
-
-    alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
-    alias python='python3'
-
 else
     echo -e "\033[91mERROR: MACHINE $KC NOT INCLUDED IN MOLA ENVIRONMENT\033[0m"
     exit 0
@@ -277,6 +260,10 @@ fi
 
 
 export PYTHONPATH=$MOLA:$TREELAB:$PYTHONPATH
+
+alias python='python3'
+
+alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
 
 alias mola_version="python -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
 

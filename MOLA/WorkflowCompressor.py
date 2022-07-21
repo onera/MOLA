@@ -204,8 +204,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, TurboConfiguration={}, Extractions={}, BoundaryConditions={},
         BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade'],
-        Initialization={'method':'uniform'}, JobInformation={},
-        FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
+        Initialization={'method':'uniform'}, FULL_CGNS_MODE=False):
     '''
     This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to compressor computations. Its purpose is adapting the CGNS to
@@ -267,18 +266,136 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             dictionary defining the type of initialization, using the key
             **method**. See documentation of :func:`MOLA.Preprocess.initializeFlowSolution`
 
-        JobInformation : dict
-            Dictionary containing information to update the job file. For
-            information on acceptable values, please see the documentation of
-            function :func:`MOLA.JobManager.updateJobFile`
-
         FULL_CGNS_MODE : bool
             if :py:obj:`True`, put all elsA keys in a node ``.Solver#Compute``
             to run in full CGNS mode.
 
-        COPY_TEMPLATES : bool
-            If :py:obj:`True` (default value), copy templates files in the
-            current directory.
+    Returns
+    -------
+
+        files : None
+            A number of files are written:
+
+            * ``main.cgns``
+                main CGNS file to be read directly by elsA
+
+            * ``OUTPUT/fields.cgns``
+                file containing the initial fields (if ``writeOutputFields=True``)
+
+            * ``setup.py``
+                ultra-light file containing all relevant info of the simulation
+    '''
+
+    def addFieldExtraction(fieldname):
+        try:
+            FieldsExtr = ReferenceValuesParams['FieldsAdditionalExtractions']
+            if fieldname not in FieldsExtr.split():
+                FieldsExtr += ' '+fieldname
+        except:
+            ReferenceValuesParams['FieldsAdditionalExtractions'] = fieldname
+
+    if isinstance(mesh,str):
+        t = C.convertFile2PyTree(mesh)
+    elif I.isTopTree(mesh):
+        t = mesh
+    else:
+        raise ValueError('parameter mesh must be either a filename or a PyTree')
+
+    hasBCOverlap = True if C.extractBCOfType(t, 'BCOverlap') else False
+
+
+    if hasBCOverlap: addFieldExtraction('ChimeraCellType')
+    if BodyForceInputData: addFieldExtraction('Temperature')
+
+    IsUnstructured = PRE.hasAnyUnstructuredZones(t)
+
+    TurboConfiguration = getTurboConfiguration(t, **TurboConfiguration)
+    FluidProperties = PRE.computeFluidProperties()
+    if not 'Surface' in ReferenceValuesParams:
+        ReferenceValuesParams['Surface'] = getReferenceSurface(t, BoundaryConditions, TurboConfiguration)
+
+    if 'PeriodicTranslation' in TurboConfiguration:
+        MainDirection = np.array([1,0,0]) # Strong assumption here
+
+    if not any([InputMesh['SplitBlocks'] for InputMesh in InputMeshes]):
+        t = PRE.connectMesh(t, InputMeshes)
+    else:
+        t = PRE.splitAndDistribute(t, InputMeshes, **splitOptions)
+    # WARNING: Names of BC_t nodes must be unique to use PyPart on globborders
+    for l in [2,3,4]: I._correctPyTree(t, level=l)
+    PRE.adapt2elsA(t, InputMeshes)
+    J.checkEmptyBC(t)
+
+    return t
+
+def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
+        NumericalParams={}, TurboConfiguration={}, Extractions={}, BoundaryConditions={},
+        BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade'],
+        Initialization={'method':'uniform'}, FULL_CGNS_MODE=False):
+    '''
+    This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
+    but adapted to compressor computations. Its purpose is adapting the CGNS to
+    elsA.
+
+    Parameters
+    ----------
+
+        mesh : :py:class:`str` or PyTree
+            if the input is a :py:class:`str`, then such string specifies the
+            path to file (usually named ``mesh.cgns``) where the result of
+            function :py:func:`prepareMesh4ElsA` has been writen. Otherwise,
+            **mesh** can directly be the PyTree resulting from :func:`prepareMesh4ElsA`
+
+        ReferenceValuesParams : dict
+            Python dictionary containing the
+            Reference Values and other relevant data of the specific case to be
+            run using elsA. For information on acceptable values, please
+            see the documentation of function :func:`computeReferenceValues`.
+
+            .. note:: internally, this dictionary is passed as *kwargs* as follows:
+
+                >>> MOLA.Preprocess.computeReferenceValues(arg, **ReferenceValuesParams)
+
+        NumericalParams : dict
+            dictionary containing the numerical
+            settings for elsA. For information on acceptable values, please see
+            the documentation of function :func:`MOLA.Preprocess.getElsAkeysNumerics`
+
+            .. note:: internally, this dictionary is passed as *kwargs* as follows:
+
+                >>> MOLA.Preprocess.getElsAkeysNumerics(arg, **NumericalParams)
+
+        TurboConfiguration : dict
+            Dictionary concerning the compressor properties.
+            For details, refer to documentation of :func:`getTurboConfiguration`
+
+        Extractions : :py:class:`list` of :py:class:`dict`
+            List of extractions to perform during the simulation. See
+            documentation of :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
+
+        BoundaryConditions : :py:class:`list` of :py:class:`dict`
+            List of boundary conditions to set on the given mesh.
+            For details, refer to documentation of :func:`setBoundaryConditions`
+
+        BodyForceInputData : :py:class:`list` of :py:class:`dict`
+
+        writeOutputFields : bool
+            if :py:obj:`True`, write initialized fields overriding
+            a possibly existing ``OUTPUT/fields.cgns`` file. If :py:obj:`False`, no
+            ``OUTPUT/fields.cgns`` file is writen, but in this case the user must
+            provide a compatible ``OUTPUT/fields.cgns`` file to elsA (for example,
+            using a previous computation result).
+
+        bladeFamilyNames : :py:class:`list` of :py:class:`str`
+            list of patterns to find families related to blades.
+
+        Initialization : dict
+            dictionary defining the type of initialization, using the key
+            **method**. See documentation of :func:`MOLA.Preprocess.initializeFlowSolution`
+
+        FULL_CGNS_MODE : bool
+            if :py:obj:`True`, put all elsA keys in a node ``.Solver#Compute``
+            to run in full CGNS mode.
 
     Returns
     -------
@@ -332,9 +449,12 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         ReferenceValuesParams.update(dict(PitchAxis=PitchAxis, YawAxis=YawAxis))
 
     ReferenceValues = computeReferenceValues(FluidProperties, **ReferenceValuesParams)
+    ReferenceValues['Workflow'] = 'Compressor'
 
     if I.getNodeFromName(t, 'proc'):
-        JobInformation['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
+        NumberOfProcessors = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
+        ReferenceValues['NumberOfProcessors'] = int(NumberOfProcessors)
+        ReferenceValuesParams['NumberOfProcessors'] = int(NumberOfProcessors)
         Splitter = None
     else:
         Splitter = 'PyPart'
@@ -365,20 +485,18 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     addMonitoredRowsInExtractions(Extractions, TurboConfiguration)
 
-    AllSetupDics = dict(Workflow='Compressor',
-                        FluidProperties=FluidProperties,
+    AllSetupDics = dict(FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
                         TurboConfiguration=TurboConfiguration,
                         Extractions=Extractions,
-                        Splitter=Splitter,
-                        JobInformation=JobInformation)
+                        Splitter=Splitter)
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
     BCExtractions = dict(
-        BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
+        BCWall = ['normalvector', 'frictionvectorx', 'frictionvectory', 'frictionvectorz','psta', 'bl_quantities_2d', 'yplusmeshsize'],
         BCInflow = ['convflux_ro'],
         BCOutflow = ['convflux_ro'],
     )
@@ -396,6 +514,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                          AllSetupDics['ReferenceValues'])
     dim = int(AllSetupDics['elsAkeysCFD']['config'][0])
     PRE.addGoverningEquations(t, dim=dim)
+    AllSetupDics['ReferenceValues']['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
     PRE.writeSetup(AllSetupDics)
 
     if FULL_CGNS_MODE:
@@ -407,14 +526,11 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     if not Splitter:
         print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
-                                                   JobInformation['NumberOfProcessors'],J.ENDC))
+                                                   ReferenceValues['NumberOfProcessors'],J.ENDC))
     else:
         print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
             Splitter + J.ENDC))
 
-    if COPY_TEMPLATES:
-        JM.getTemplates('Compressor', otherWorkflowFiles=['EXAMPLE/monitor_perfos.py'],
-                JobInformation=JobInformation)
 
 def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
     hlines='hub_shroud_lines.plt', subTree=None):
@@ -722,8 +838,8 @@ def cleanMeshFromAutogrid(t, basename='Base#1', zonesToRename={}):
 
     # Clean Joins & Periodic Joins
     I._rmNodesByType(t, 'ZoneGridConnectivity_t')
-    periodicFamilyNames = [I.getName(fam) for fam in I.getNodesFromType(t, "Family_t")
-        if 'PER' in I.getName(fam)]
+    periodicFamilyNames = [I.getName(fam) for fam in I.getNodesFromType(t, "Family_t") if 'PER' in I.getName(fam)]
+
     for fname in periodicFamilyNames:
         # print('|- delete PeriodicBC family of name {}'.format(name))
         C._rmBCOfType(t, 'FamilySpecified:%s'%fname)
@@ -3073,13 +3189,22 @@ def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
 #############  Multiple jobs submission  #######################################
 ################################################################################
 
-def launchIsoSpeedLines(machine, DIRECTORY_WORK,
+def launchIsoSpeedLines(PREFIX_JOB, AER, NumberOfProcessors, machine, DIRECTORY_WORK,
                     ThrottleRange, RotationSpeedRange, **kwargs):
     '''
     User-level function designed to launch iso-speed lines.
 
     Parameters
     ----------
+
+        PREFIX_JOB : str
+            an arbitrary prefix for the jobs
+
+        AER : str
+            full AER code for launching simulations on SATOR
+
+        NumberOfProcessors : int
+            Number of processors for each job.
 
         machine : str
             name of the machine ``'sator'``, ``'spiro'``, ``'eos'``...
@@ -3124,16 +3249,16 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
         print('Assembling run {} Throttle={} RotationSpeed={} | NewJob = {}'.format(
                 i, Throttle, RotationSpeed, NewJob))
 
-        WorkflowParams = copy.deepcopy(kwargs)
-
         if NewJob:
-            JobName = WorkflowParams['JobInformation']['JobName']+'%d'%i
-            WorkflowParams['writeOutputFields'] = True
+            JobName = PREFIX_JOB+'%d'%i
+            writeOutputFields = True
         else:
-            WorkflowParams['writeOutputFields'] = False
+            writeOutputFields = False
 
         CASE_LABEL = '{:08.2f}_{}'.format(abs(Throttle), JobName)
         if Throttle < 0: CASE_LABEL = 'M'+CASE_LABEL
+
+        WorkflowParams = copy.deepcopy(kwargs)
 
         WorkflowParams['TurboConfiguration']['ShaftRotationSpeed'] = RotationSpeed
 
@@ -3166,7 +3291,7 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
             dict(ID=i, CASE_LABEL=CASE_LABEL, NewJob=NewJob, JobName=JobName, **WorkflowParams)
             )
 
-    JM.saveJobsConfiguration(JobsQueues, machine, DIRECTORY_WORK)
+    JM.saveJobsConfiguration(JobsQueues, AER, machine, DIRECTORY_WORK, NumberOfProcessors=NumberOfProcessors)
 
     def findElementsInCollection(collec, searchKey, elements=[]):
         '''
@@ -3213,7 +3338,6 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
             or len(filename.split('/'))>1:
             MSG = 'Input files must be inside the submission repository (not the case for {})'.format(filename)
             raise Exception(J.FAIL + MSG + J.ENDC)
-
     JM.launchJobsConfiguration(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_COMPRESSOR', otherFiles=otherFiles)
 
 def printConfigurationStatus(DIRECTORY_WORK, useLocalConfig=False):
