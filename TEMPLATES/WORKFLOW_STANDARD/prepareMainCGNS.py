@@ -171,6 +171,4 @@ PRE.saveEndOfRunAndRestartUsingLinks(t, to, 'OUTPUT',
                                RestartFlowSolutionName='FlowSolution#Init',
                                EndOfRunFlowSolutionName='FlowSolution#Centers')
 
-print('REMEMBER : configuration shall be run using %d procs'%ReferenceValues['NumberOfProcessors'])
-
 print('Elaped time: %g minutes'%((tic()-toc)/60.))
