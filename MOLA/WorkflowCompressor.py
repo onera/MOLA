@@ -366,15 +366,15 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     addMonitoredRowsInExtractions(Extractions, TurboConfiguration)
 
     AllSetupDics = dict(Workflow='Compressor',
+                        Splitter=Splitter,
+                        JobInformation=JobInformation,
+                        TurboConfiguration=TurboConfiguration,
                         FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
-                        TurboConfiguration=TurboConfiguration,
-                        Extractions=Extractions,
-                        Splitter=Splitter,
-                        JobInformation=JobInformation)
+                        Extractions=Extractions)
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
     BCExtractions = dict(
@@ -3112,6 +3112,10 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
             File ``JobsConfiguration.py`` is writen and polar builder job is
             launched
     '''
+    IsJobInformationGiven = 'JobInformation' in kwargs and \
+        all([key in kwargs['JobInformation'] for key in ['JobName', 'AER', 'NumberOfProcessors']])
+    assert IsJobInformationGiven, 'JobInformation is required with not default values for JobName, AER and NumberOfProcessors'
+
     ThrottleMatrix, RotationSpeedMatrix  = np.meshgrid(ThrottleRange, RotationSpeedRange)
 
     Throttle_       = ThrottleMatrix.ravel(order='K')

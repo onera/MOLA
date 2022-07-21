@@ -189,6 +189,9 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
             File ``JobsConfiguration.py`` is writen and polar builder job is
             launched
     '''
+    IsJobInformationGiven = 'JobInformation' in kwargs and \
+        all([key in kwargs['JobInformation'] for key in ['JobName', 'AER', 'NumberOfProcessors']])
+    assert IsJobInformationGiven, 'JobInformation is required with not default values for JobName, AER and NumberOfProcessors'
 
     # TODO appropriately sort AoARange
     a = np.atleast_1d(AoARange)
@@ -598,13 +601,13 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
         setBCDataSetWithNonLocalTransition(t, AirfoilWallFamilyName, ReferenceValues)
 
     AllSetupDics = dict(Workflow='Airfoil',
+                        JobInformation=JobInformation,
                         FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
-                        Extractions=Extractions,
-                        JobInformation=JobInformation)
+                        Extractions=Extractions)
 
 
     t = PRE.newCGNSfromSetup(t, AllSetupDics, Initialization=Initialization,

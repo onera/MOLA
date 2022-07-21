@@ -358,13 +358,13 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
                                 unstructured=IsUnstructured, **NumericalParams)
 
     AllSetupDics = dict(Workflow='Standard',
+                        JobInformation=JobInformation,
                         FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
-                        Extractions=Extractions,
-                        JobInformation=JobInformation)
+                        Extractions=Extractions)
 
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
@@ -856,7 +856,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
             choose the mode of splitting and distribution among these possibilities:
 
             * ``'auto'``
-                automatically search for the optimum distribution veryfing
+                automatically search for the optimum distribution verifying
                 the constraints given by **maximum_allowed_nodes** and
                 **maximum_number_of_points_per_node**
 
