@@ -35,7 +35,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, Extractions={},
         writeOutputFields=True, Initialization={'method':'uniform'}, TurboConfiguration = {},
         BoundaryConditions = [],bladeFamilyNames =['Blade'],
-        FULL_CGNS_MODE=False):
+        JobInformation={}, FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
     '''
     This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to ORAS mono-chanel computations. Its purpose is adapting
@@ -87,10 +87,18 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             dictionary defining the type of initialization, using the key
             **method**. See documentation of :func:`MOLA.Preprocess.initializeFlowSolution`
 
+        JobInformation : dict
+            Dictionary containing information to update the job file. For
+            information on acceptable values, please see the documentation of
+            function :func:`MOLA.JobManager.updateJobFile`
+
         FULL_CGNS_MODE : bool
             if :py:obj:`True`, put all elsA keys in a node ``.Solver#Compute``
             to run in full CGNS mode.
 
+        COPY_TEMPLATES : bool
+            If :py:obj:`True` (default value), copy templates files in the
+            current directory.
     Returns
     -------
 
@@ -132,15 +140,12 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     ReferenceValuesParams.update(dict(PitchAxis=PitchAxis, YawAxis=YawAxis))
 
     ReferenceValues = PRE.computeReferenceValues(FluidProperties, **ReferenceValuesParams)
-    
+
 
     if I.getNodeFromName(t, 'proc'):
-        NProc = max([I.getNodeFromName(z,'proc')[1][0][0] for z in I.getZones(t)])+1
-        ReferenceValues['NProc'] = int(NProc)
-        ReferenceValuesParams['NProc'] = int(NProc)
+        JobInformation['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
         Splitter = None
     else:
-        ReferenceValues['NProc'] = 0
         Splitter = 'PyPart'
 
     elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-4)
@@ -152,25 +157,17 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     WC.setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                             FluidProperties,ReferenceValues, bladeFamilyNames=bladeFamilyNames)
 
-    
-    
-    
-    
-    
-    
-    
-    
-    
     WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
-    AllSetupDics = dict(FluidProperties=FluidProperties,
+    AllSetupDics = dict(Workflow='ORAS',
+                        Splitter=Splitter,
+                        TurboConfiguration=TurboConfiguration,
+                        FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
-                        TurboConfiguration=TurboConfiguration,
-                        Extractions=Extractions,
-                        Splitter=Splitter)
+                        Extractions=Extractions)
 
     PRE.addTrigger(t)
     PRE.addExtractions(t, AllSetupDics['ReferenceValues'],
@@ -184,7 +181,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                          AllSetupDics['ReferenceValues'])
     dim = int(AllSetupDics['elsAkeysCFD']['config'][0])
     PRE.addGoverningEquations(t, dim=dim)
-    AllSetupDics['ReferenceValues']['NProc'] = int(max(PRE.getProc(t))+1)
     PRE.writeSetup(AllSetupDics)
 
     if FULL_CGNS_MODE:
@@ -196,8 +192,10 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     if not Splitter:
         print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
-                                                   ReferenceValues['NProc'],J.ENDC))
+                                                   JobInformation['NumberOfProcessors'],J.ENDC))
     else:
         print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
             Splitter + J.ENDC))
 
+    if COPY_TEMPLATES:
+        JM.getTemplates('Compressor', JobInformation=JobInformation)
