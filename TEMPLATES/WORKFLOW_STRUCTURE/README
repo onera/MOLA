@@ -1,0 +1,57 @@
+Author: M. Balmaseda
+Date:   20/07/2022
+MOLA version 1.14
+
+Available computation types:
+ 
+    - FOM: Finite element with Static/Dynamic loadings
+    - ROM: Parametric/nonParametric :  Static/Dynamic/SteadyAeroelastic
+
+
+The ROM structural computations are divided in two parts:
+
+     - Construction of the MODEL itself with the FEM software (Code_Aster)
+     - ONLINE computation of the loading case 
+
+The FOM structural computations are computed directly
+
+
+-----
+
+The examples that are presented here include (if applicable) the scripts to build and launch the FEM and the ROM models
+
+
+
+To use Code_Aster you will need to load the env_Code_Aster.sh (which includes Cassiopee and MOLA)
+To use the ROM models, you need to load the "classical" env_MOLA.sh
+
+
+-----
+FileTypes of the Structural Workflow:
+-----
+
+0_Setup.py: Is the input case where the user defines the structural properties and aerodynamic properties --> In the future will be adapted to match the setup.py of MOLA
+1_ComputeMODELS.comm: Is the "command" file for Code_Aster is standard for all the cases 
+            !WARNING! IMPORTANT: --> Please adapt the Path to the actual folder  --> TODO: read this information automatically 
+1_LaunchAster: Is the bash command for launching Code_Aster
+            as_run 1_LaunchAster
+
+2a_BuildExternalLoadingForce.py: For the static and dynamic cases creates the reference external loading vector
+
+Once the ROM is built, depending on the loading case:
+
+   - Static loading :  2_TestStaticAnalysis.py  (ROM)  || 3_FOM_Analysis.comm and 3_LaunchAsterFOM (FOM)
+   - Dynamic loading:  4_TestDynamicAnalysis.py (ROM)  || 5_FOM_Dynamic.comm  and 5_LaunChAsterDynamicFOM (FOM)
+
+   - Steady AEL case:  2_AnalyseFOM_EquilibreAEL.py (ROM/BEMT)
+
+
+-----
+Files to build a blade:
+-----
+
+The files to build a blade are tools based on a given definition of a LiftingLine that allow to construct the structural mesh needed by Code_Aster
+
+
+
+

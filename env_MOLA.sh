@@ -100,6 +100,8 @@ if [ "$MAC" = "spiro" ]; then
 
 elif [ "$MAC" = "visio" ]; then
     export ELSAVERSION=UNAVAILABLE # TODO adapt this once #10587 fixed
+    echo -e "\033[93mWARNING: elsA v5.1.01 is not installed yet in VISIO CentOS 6\033[0m"
+    echo -e "\033[93mwatch https://elsa.onera.fr/issues/10587 for more information\033[0m"
     # source /stck/elsa/Public/$ELSAVERSION/Dist/bin/centos6_mpi/.env_elsA
     # export PYTHONPATH=$EXTPYLIB/lib/python2.7/site-packages/:$PYTHONPATH
     # export PATH=$EXTPYLIB/bin:$PATH
@@ -170,7 +172,7 @@ elif [ "$MAC" = "ld" ]; then
         module load hdf5/1.8.17-intel2120
 
         # VPM
-        export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/${MAC}7
+        export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/${MAC}8
         export PATH=$VPMPATH:$VPMPATH/lib:$PATH
         export LD_LIBRARY_PATH=$VPMPATH:$VPMPATH/lib:$LD_LIBRARY_PATH
         export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
