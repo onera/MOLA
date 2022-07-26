@@ -29,7 +29,7 @@ for case in config.JobsQueues:
 
     WF.prepareMainCGNS4ElsA(**WorkflowParams)
     JM.getTemplates('Compressor',
-            otherWorkflowFiles=['EXAMPLE/monitor_perfos.py', 'preprocess.py', 'postprocess.py'],
+            otherWorkflowFiles=['monitor_perfos.py', 'preprocess.py', 'postprocess.py'],
             JobInformation=case['JobInformation'])
 
     os.chdir(DIRECTORY_DISPATCHER)
