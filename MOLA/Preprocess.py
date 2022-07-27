@@ -2895,8 +2895,8 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         cutoff_eint        = 0.005,
         artviscosity       = 'dismrt',
         av_mrt             = 0.3,
-        # av_border          = 'dif0null', # default elsA is 'dif0null', but JCB, JM, LC use 'current'
-        # av_formul          = 'new',  # default elsA is 'new', but JCB, JM, LC use 'current'
+        av_border          = 'current', # default elsA is 'dif0null', but JCB, JM, LC use 'current' see https://elsa.onera.fr/issues/10624
+        av_formul          = 'current', # default elsA is 'new', but JCB, JM, LC use 'current' see https://elsa.onera.fr/issues/10624
         )
         if not unstructured:
             addKeys.update(dict(
