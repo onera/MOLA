@@ -54,9 +54,15 @@ def prepareMesh4ElsA(mesh='mesh.cgns', splitOptions={'maximum_allowed_nodes':3},
             resulting preprocessed tree, that can be sent to :py:func:`prepareMainCGNS4ElsA`
     '''
 
+    if isinstance(mesh,str):
+        t = C.convertFile2PyTree(mesh)
+    elif I.isTopTree(mesh):
+        t = mesh
+    else:
+        raise ValueError('parameter mesh must be either a filename or a PyTree')
 
     blade_number = getPropellerKinematic(t)[0]
-    InputMeshes = [dict(file=mesh,
+    InputMeshes = [dict(file='mesh.cgns',
                         baseName='Base',
                         SplitBlocks=True,
                         BoundaryConditions=[
