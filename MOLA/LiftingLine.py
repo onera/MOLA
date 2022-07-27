@@ -4523,6 +4523,7 @@ def getLocalBodyForceInputData(BodyForceInputData):
             only of rotor such that ``proc = rank``. Otherwise
             the list is empty.
     '''
+    import Converter.Mpi as Cmpi
     LocalBodyForceInputData = []
     for Rotor in BodyForceInputData:
         # TODO: first determine proc, then make deepcopy only if condition
