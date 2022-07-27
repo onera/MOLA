@@ -620,10 +620,11 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                             FULL_CGNS_MODE=False)
     PRE.saveMainCGNSwithLinkToOutputFields(t, writeOutputFields=writeOutputFields)
 
-    print(J.CYAN+'REMEMBER : configuration shall be run using %d procs'%JobInformation['NumberOfProcessors']+J.ENDC)
 
     if 'NumberOfProcessors' not in JobInformation:
         JobInformation['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
+
+    print(J.CYAN+'REMEMBER : configuration shall be run using %d procs'%JobInformation['NumberOfProcessors']+J.ENDC)
 
     if COPY_TEMPLATES:
         JM.getTemplates('Airfoil', otherWorkflowFiles=['monitor_loads.py'],
