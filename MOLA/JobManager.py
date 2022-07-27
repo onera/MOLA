@@ -15,6 +15,7 @@ import socket
 import getpass
 import pprint
 import shutil
+import copy
 
 import Converter.PyTree         as C
 import Converter.Internal       as I
@@ -732,12 +733,17 @@ def repatriate(SourcePath, DestinationPath, removeExistingDestinationPath=True,
         # Copy file
         ServerTools.cpmvWrap4MultiServer('cp', SourcePath, DestinationPath)
 
-    gotFile = ServerTools.wait4FileFromServer(DestinationPath,
-                               **Defaultwait4FileFromServerOptions)
 
-    if not gotFile:
-        MSG = J.FAIL+"Could not repatriate "+DestinationPath+J.ENDC
-        raise IOError(MSG)
+    localhost = ServerTools.whichHost()
+    destinationServer = ServerTools.whichServer(DestinationPath)[0]
+    destinationIsLocal = destinationServer == localhost
+
+    if destinationIsLocal:
+        gotFile = ServerTools.wait4FileFromServer(DestinationPath,
+                                   **Defaultwait4FileFromServerOptions)
+        if not gotFile:
+            MSG = J.FAIL+"Could not repatriate %s to %s"%(SourcePath,DestinationPath)+J.ENDC
+            raise IOError(MSG)
 
 
 def fileExists(*path): return os.path.isfile(os.path.join(*path))
@@ -762,10 +768,7 @@ def getTemplates(Workflow, otherWorkflowFiles=[], otherFiles=[],
             directory.
 
         otherFiles : list
-            Absolute paths of others files to copy.
-
-        DIRECTORY_WORK : str
-            Path to copy files. By default, the current directory.
+            Absolute paths of other files to copy.
 
         JobInformation : dict
             arguments (kwargs) for the function :func:`updateJobFile`
@@ -774,11 +777,16 @@ def getTemplates(Workflow, otherWorkflowFiles=[], otherFiles=[],
             Name of the job file.
 
     '''
-    WORKFLOW_FOLDER = 'WORKFLOW_' + ''.join(['_'+ s.upper() if s.isupper() else s.upper() for s in Workflow]).lstrip('_')
+    WORKFLOW_FOLDER = 'WORKFLOW_' + ''.join(['_'+ s.upper() if s.isupper() \
+                                 else s.upper() for s in Workflow]).lstrip('_')
     templatesFolder = os.path.join(__MOLA_PATH__, 'TEMPLATES')
 
+    DIRECTORY_WORK = JobInformation.get('DIRECTORY_WORK','.')
+
+    repatriate(os.path.join(templatesFolder, 'job_template.sh'), 'job_template.sh')
+    updateJobFile(**JobInformation)
+
     files2copy = [
-        os.path.join(templatesFolder, 'job_template.sh'),
         os.path.join(templatesFolder, WORKFLOW_FOLDER, 'compute.py'),
         os.path.join(templatesFolder, WORKFLOW_FOLDER, 'coprocess.py'),
         ]
@@ -792,20 +800,17 @@ def getTemplates(Workflow, otherWorkflowFiles=[], otherFiles=[],
     CopyDestination = DIRECTORY_WORK
     if CopyDestination in ['.', './']: CopyDestination = 'the current directory'
     files2copyString = ', '.join([s.split('/')[-1] for s in files2copy])
-    print(f'Copy templates for Workflow {Workflow} ({files2copyString}) in {CopyDestination}')
+    print(f'Copying templates of Workflow {Workflow} ({files2copyString}) to {CopyDestination}')
 
     for SourcePath in files2copy:
         filename = SourcePath.split(os.path.sep)[-1]
         DestinationPath = os.path.join(DIRECTORY_WORK, filename)
         repatriate(SourcePath, DestinationPath)
-        
-    JobInformation['jobTemplate'] = os.path.join(DIRECTORY_WORK, 'job_template.sh')
 
-    updateJobFile(**JobInformation)
 
 
 def updateJobFile(jobTemplate='job_template.sh', JobName=None, AER=None,
-                TimeLimit='0-15:00', NumberOfProcessors=None):
+                TimeLimit='0-15:00', NumberOfProcessors=None, DIRECTORY_WORK=None):
     '''
     Update job file.
 
@@ -827,6 +832,9 @@ def updateJobFile(jobTemplate='job_template.sh', JobName=None, AER=None,
         NumberOfProcessors : :py:class:`str` or py:obj:`None`
             Number of processors
 
+        DIRECTORY_WORK : :py:class:`str` or py:obj:`None`
+            if provided, the directory where updated job file is to be moved
+
     '''
     if any([JobName, AER, TimeLimit not in ['0-15:00', '15:00'], NumberOfProcessors]):
         with open(jobTemplate, 'r') as f:
@@ -843,3 +851,44 @@ def updateJobFile(jobTemplate='job_template.sh', JobName=None, AER=None,
 
         with open(jobTemplate, 'w') as f:
             f.write(JobText)
+
+    if DIRECTORY_WORK:
+        repatriate(jobTemplate, os.path.join(DIRECTORY_WORK, jobTemplate),
+                   moveInsteadOfCopy=True)
+
+def submitJob(DIRECTORY_WORK, JobFilename='job_template.sh'):
+    '''
+    Submit the job
+
+    Parameters
+    ----------
+
+        DIRECTORY_WORK : str
+            directory where slurm job file is contained
+
+        JobFilename : str
+            slurm job file
+    '''
+    HostName = socket.gethostname()
+    UserName = getpass.getuser()
+    CMD = '"cd %s; sbatch %s"'%(DIRECTORY_WORK, JobFilename)
+
+    machine = ServerTools.whichServer(DIRECTORY_WORK)[0]
+
+    if machine == 'sator': machine += '-new'
+
+    if machine not in HostName:
+        SatorProd = True if os.getcwd().startswith('/tmp_user/sator') else False
+        if not SatorProd:
+            Host = UserName+"@"+machine
+            CMD = 'ssh %s %s'%(Host,CMD)
+
+    ssh = subprocess.Popen(CMD, shell=True,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    ssh.wait()
+    Output = ServerTools.readStdout(ssh)
+    Error = ServerTools.readStderr(ssh)
+
+    for o in Output: print(o)
+    for e in Error: print(e)

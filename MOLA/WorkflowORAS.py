@@ -35,7 +35,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, Extractions={},
         writeOutputFields=True, Initialization={'method':'uniform'}, TurboConfiguration = {},
         BoundaryConditions = [],bladeFamilyNames =['Blade'],
-        JobInformation={}, FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
+        JobInformation={}, SubmitJob=False, FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
     '''
     This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to ORAS mono-chanel computations. Its purpose is adapting
@@ -91,6 +91,14 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             Dictionary containing information to update the job file. For
             information on acceptable values, please see the documentation of
             function :func:`MOLA.JobManager.updateJobFile`
+
+        SubmitJob : bool
+            if :py:obj:`True`, submit the SLURM job based on information contained
+            in **JobInformation**
+
+            .. note::
+                only relevant if **COPY_TEMPLATES** is py:obj:`True` and
+                **JobInformation** is provided
 
         FULL_CGNS_MODE : bool
             if :py:obj:`True`, put all elsA keys in a node ``.Solver#Compute``
@@ -199,3 +207,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     if COPY_TEMPLATES:
         JM.getTemplates('Compressor', JobInformation=JobInformation)
+
+        if 'DIRECTORY_WORK' in JobInformation:
+            PRE.sendSimulationFiles(JobInformation['DIRECTORY_WORK'],
+                                    overrideFields=writeOutputFields)
+
+        if SubmitJob: JM.submitJob(JobInformation['DIRECTORY_WORK'])

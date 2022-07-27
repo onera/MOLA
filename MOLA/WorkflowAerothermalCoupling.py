@@ -67,7 +67,7 @@ def prepareMesh4ElsA(mesh, kwargs):
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, TurboConfiguration={}, Extractions={}, BoundaryConditions={},
         BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade'],
-        Initialization={'method':'uniform'}, JobInformation={},
+        Initialization={'method':'uniform'}, JobInformation={}, SubmitJob=False,
         FULL_CGNS_MODE=True, COPY_TEMPLATES=True):
     '''
     This is mainly a function similar to :func:`MOLA.WorkflowCompressor.prepareMainCGNS4ElsA`
@@ -133,6 +133,14 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             Dictionary containing information to update the job file. For
             information on acceptable values, please see the documentation of
             function :func:`MOLA.JobManager.updateJobFile`
+
+        SubmitJob : bool
+            if :py:obj:`True`, submit the SLURM job based on information contained
+            in **JobInformation**
+
+            .. note::
+                only relevant if **COPY_TEMPLATES** is py:obj:`True` and
+                **JobInformation** is provided
 
         FULL_CGNS_MODE : bool
             if :py:obj:`True`, put all elsA keys in a node ``.Solver#Compute``
@@ -281,6 +289,13 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     if COPY_TEMPLATES:
         JM.getTemplates('AerothermalCoupling', otherWorkflowFiles=['monitor_perfos.py'],
                 JobInformation=JobInformation)
+
+        if 'DIRECTORY_WORK' in JobInformation:
+            PRE.sendSimulationFiles(JobInformation['DIRECTORY_WORK'],
+                                    overrideFields=writeOutputFields)
+
+        if SubmitJob: JM.submitJob(JobInformation['DIRECTORY_WORK'])
+
 
 
 def addExchangeSurfaces(t, coupledSurfaces, couplingScript='coprocess.py'):

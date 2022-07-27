@@ -35,8 +35,8 @@ def prepareMesh4ElsA(mesh='mesh.cgns', splitOptions={'maximum_allowed_nodes':3},
     Parameters
     ----------
 
-        mesh : :py:class:`str` or tree
-            Mesh issued from automatic mesh generation, including BC families.
+        mesh : :py:class:`str`
+            Mesh filemane issued from automatic mesh generation, including BC families.
 
         splitOptions : dict
             Exactly the keyword arguments of :py:func:`~MOLA.Preprocess.splitAndDistribute`
@@ -53,15 +53,10 @@ def prepareMesh4ElsA(mesh='mesh.cgns', splitOptions={'maximum_allowed_nodes':3},
         t : tree
             resulting preprocessed tree, that can be sent to :py:func:`prepareMainCGNS4ElsA`
     '''
-    if isinstance(mesh,str):
-        t = C.convertFile2PyTree(mesh)
-    elif I.isTopTree(mesh):
-        t = mesh
-    else:
-        raise ValueError('parameter mesh must be either a filename or a PyTree')
+
 
     blade_number = getPropellerKinematic(t)[0]
-    InputMeshes = [dict(file='mesh.cgns',
+    InputMeshes = [dict(file=mesh,
                         baseName='Base',
                         SplitBlocks=True,
                         BoundaryConditions=[
@@ -116,6 +111,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         writeOutputFields=True,
         Initialization={'method':'uniform'},
         JobInformation={},
+        SubmitJob=False,
         FULL_CGNS_MODE=False,
         COPY_TEMPLATES=True):
     '''
@@ -182,6 +178,14 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
             Dictionary containing information to update the job file. For
             information on acceptable values, please see the documentation of
             function :func:`MOLA.JobManager.updateJobFile`
+
+        SubmitJob : bool
+            if :py:obj:`True`, submit the SLURM job based on information contained
+            in **JobInformation**
+
+            .. note::
+                only relevant if **COPY_TEMPLATES** is py:obj:`True` and
+                **JobInformation** is provided
 
         FULL_CGNS_MODE : bool
             if :py:obj:`True`, put all elsA keys in a node ``.Solver#Compute``
@@ -341,6 +345,11 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
     if COPY_TEMPLATES:
         JM.getTemplates('Standard', otherWorkflowFiles=['monitor_loads.py'],
                 JobInformation=JobInformation)
+        if 'DIRECTORY_WORK' in JobInformation:
+            PRE.sendSimulationFiles(JobInformation['DIRECTORY_WORK'],
+                                    overrideFields=writeOutputFields)
+
+        if SubmitJob: JM.submitJob(JobInformation['DIRECTORY_WORK'])
 
 def getPropellerKinematic(t):
     mesh_params = I.getNodeFromName(t,'.MeshingParameters')
