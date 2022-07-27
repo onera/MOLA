@@ -848,6 +848,7 @@ def updateJobFile(jobTemplate='job_template.sh', JobName=None, AER=None,
             JobText = JobText.replace('#SBATCH -t 0-15:00', '#SBATCH -t {}'.format(TimeLimit))
         if NumberOfProcessors:
             JobText = JobText.replace('<NumberOfProcessors>', str(NumberOfProcessors))
+            JobText = JobText.replace('$NPROCMPI', str(NumberOfProcessors))
 
         with open(jobTemplate, 'w') as f:
             f.write(JobText)
