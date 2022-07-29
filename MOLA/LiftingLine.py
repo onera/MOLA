@@ -412,7 +412,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     Stacked[0] = RotorName
 
     addThickwiseCoordinate2BodyForceDisk(Stacked, RotAxis)
-
+    if Dir == -1: T._reorder( Stacked, (1,2,-3))
     '''
     For use with Biel Ortun distribution employing Weibull :
     output=gamma/alpha*((x-mu)/alpha)**(gamma-1.) * np.exp(-((x-mu)/alpha)**gamma)
@@ -825,9 +825,7 @@ def buildPropeller(LiftingLine, NBlades=2, InitialAzimutDirection=[0,1,0],
         Propeller : base
             ``CGNSBase_t`` object with lifting-line zones representing the propeller
     '''
-
     norm = np.linalg.norm
-
     LiftingLine, = I.getZones(LiftingLine)
     InitialAzimutDirection = np.array(InitialAzimutDirection, order='F', dtype=np.float)
     InitialAzimutDirection/= np.sqrt(InitialAzimutDirection.dot(InitialAzimutDirection))
@@ -852,7 +850,7 @@ def buildPropeller(LiftingLine, NBlades=2, InitialAzimutDirection=[0,1,0],
     CoplanarBinormalVector = np.cross(InitialAzimutDirection, RotAxis)
     InitialAzimutDirection = np.cross(RotAxis, CoplanarBinormalVector)
     InitialAzimutDirection /= norm(InitialAzimutDirection)
-    
+
     # Invoke blades
     LLs = []
     for nb in range(NBlades):
