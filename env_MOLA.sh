@@ -16,6 +16,7 @@ export TREELABSATOR=/tmp_user/sator/lbernard/TreeLab/dev
 export EXTPYLIBSATOR=/tmp_user/sator/lbernard/MOLA/Dev/ExternalPythonPackages
 export VPMVERSION=v0.1
 export PUMAVERSION=r337
+export TURBOVERSION=v1.2
 ###############################################################################
 
 
@@ -94,6 +95,9 @@ if [ "$MAC" = "spiro" ]; then
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/opencascade/lib:/opt/tools/hdf5-1.10.5-intel-19-impi-19/lib
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
+
+    # turbo
+    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/spiro3_mpi/lib/python3.7/site-packages/:$PYTHONPATH
 
     source ~/.bashrc
 
@@ -259,6 +263,9 @@ elif [ "$MAC" = "sator-new" ]; then
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
+    # turbo
+    export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
+
 else
     echo -e "\033[91mERROR: MACHINE $KC NOT INCLUDED IN MOLA ENVIRONMENT\033[0m"
     exit 0
@@ -288,7 +295,7 @@ alias python='python3'
 
 alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
 
-alias mola_version="python -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
+alias mola_version="mpirun -np 1 python3 -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
 
 alias mola_jobsqueue_sator="python -c 'import MOLA.JobManager as JM;JM.getCurrentJobsStatus()'"
 

@@ -2263,6 +2263,15 @@ def printEnvironment():
             vPUMA = FAIL + 'UNAVAILABLE' + ENDC
     print(' --> PUMA '+vPUMA)
 
+    # turbo
+    try:
+        import turbo
+        # vTURBO = turbo.__version__
+        vTURBO = turbo.__file__.split('/')[-8]
+    except:
+        vTURBO = FAIL + 'UNAVAILABLE' + ENDC
+    print(' --> turbo '+vTURBO)
+
 
     if totoV == 'Dev':
         print(WARN+'WARNING: you are using an UNSTABLE version of MOLA.\nConsider using a stable version.'+ENDC)
