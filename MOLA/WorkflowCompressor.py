@@ -3507,7 +3507,7 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
     t = TI.initialize(t, mask, RefState(), planes_data,
               nbslice=10,
               constant_data=turbDict,
-              turbvarsname=turbDict.keys(),
+              turbvarsname=list(turbDict),
               velocity='absolute',
               useSI=True,
               keepTmpVars=False
