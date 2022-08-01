@@ -3504,8 +3504,8 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
     for row, rowParams in TurboConfiguration['Rows'].items():
         xOut = rowParams['OutletPlane']
         omega = rowParams['RotationSpeed']
-        beta1 = rowParams['FlowAngleAtRoot']
-        beta2 = rowParams['FlowAngleAtTip']
+        beta1 = rowParams.get('FlowAngleAtRoot', 0.)
+        beta2 = rowParams.get('FlowAngleAtTip', 0.)
         Csir = 1. if omega == 0 else 0.95  # Total pressure loss is null for a rotor, 5% for a stator
         planes_data.append(
             dict(

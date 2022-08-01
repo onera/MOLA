@@ -24,6 +24,7 @@ import Converter.Internal  as I
 from . import InternalShortcuts as J
 from . import Preprocess        as PRE
 from . import WorkflowCompressor as WC
+from . import JobManager as JM
 
 def checkDependencies():
     '''
