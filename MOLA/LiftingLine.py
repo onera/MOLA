@@ -412,7 +412,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     Stacked[0] = RotorName
 
     addThickwiseCoordinate2BodyForceDisk(Stacked, RotAxis)
-
+    if Dir == -1: T._reorder( Stacked, (1,2,-3))
     '''
     For use with Biel Ortun distribution employing Weibull :
     output=gamma/alpha*((x-mu)/alpha)**(gamma-1.) * np.exp(-((x-mu)/alpha)**gamma)
@@ -825,30 +825,31 @@ def buildPropeller(LiftingLine, NBlades=2, InitialAzimutDirection=[0,1,0],
         Propeller : base
             ``CGNSBase_t`` object with lifting-line zones representing the propeller
     '''
-
+    norm = np.linalg.norm
     LiftingLine, = I.getZones(LiftingLine)
     InitialAzimutDirection = np.array(InitialAzimutDirection, order='F', dtype=np.float)
     InitialAzimutDirection/= np.sqrt(InitialAzimutDirection.dot(InitialAzimutDirection))
-
 
     RotAxis, RotCenter,Dir=getRotationAxisCenterAndDirFromKinematics(LiftingLine)
 
     # Force RotAxis to be unitary
     RotAxis /= np.sqrt(RotAxis.dot(RotAxis))
 
-    misalignment = np.sqrt(InitialAzimutDirection.dot(RotAxis))
+    def misalignmentInDegrees(a, b):
+        return np.abs(np.rad2deg( np.arccos( a.dot(b) / (norm(a)*norm(b)) ) ))
 
-    while misalignment > 1e-6:
-        InitialAzimutDirection[0] += 0.1
-        InitialAzimutDirection[1] += 0.2
-        InitialAzimutDirection[2] += 0.3
-        InitialAzimutDirection/= np.sqrt(InitialAzimutDirection.dot(InitialAzimutDirection))
-        misalignment = np.sqrt(InitialAzimutDirection.dot(RotAxis))
+    angle = misalignmentInDegrees(InitialAzimutDirection, RotAxis)
+    while angle < 5.:
+        InitialAzimutDirection[0] += 0.01
+        InitialAzimutDirection[1] += 0.02
+        InitialAzimutDirection[2] += 0.03
+        InitialAzimutDirection/= norm(InitialAzimutDirection)
+        angle = misalignmentInDegrees(InitialAzimutDirection, RotAxis)
 
     # Force initial azimut direction to be on the Rotation plane
-    GuidePoint = RotCenter+InitialAzimutDirection
-    GuidePoint -= RotAxis*(RotAxis.dot(GuidePoint-RotCenter))
-    InitialAzimutDirection = GuidePoint - RotCenter
+    CoplanarBinormalVector = np.cross(InitialAzimutDirection, RotAxis)
+    InitialAzimutDirection = np.cross(RotAxis, CoplanarBinormalVector)
+    InitialAzimutDirection /= norm(InitialAzimutDirection)
 
     # Invoke blades
     LLs = []
@@ -4523,6 +4524,7 @@ def getLocalBodyForceInputData(BodyForceInputData):
             only of rotor such that ``proc = rank``. Otherwise
             the list is empty.
     '''
+    import Converter.Mpi as Cmpi
     LocalBodyForceInputData = []
     for Rotor in BodyForceInputData:
         # TODO: first determine proc, then make deepcopy only if condition

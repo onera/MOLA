@@ -30,6 +30,7 @@ from . import InternalShortcuts as J
 from . import GenerativeShapeDesign as GSD
 from . import GenerativeVolumeDesign as GVD
 from . import ExtractSurfacesProcessor as ESP
+from . import JobManager as JM
 
 DEBUG = False
 
@@ -139,7 +140,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
         NumericalParams={}, Extractions=[{'type':'AllBCWall'}],
         Initialization=dict(method='uniform'),
         BodyForceInputData=[], writeOutputFields=True,
-        JobInformation={}, COPY_TEMPLATES=True):
+        JobInformation={}, SubmitJob=False, COPY_TEMPLATES=True):
     '''
     This macro-function takes as input a preprocessed grid file (as produced
     by function :py:func:`prepareMesh4ElsA` ) and adds all remaining information
@@ -305,6 +306,22 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
             provide a compatible ``OUTPUT/fields.cgns`` file to elsA (for example,
             using a previous computation result).
 
+        JobInformation : dict
+            Dictionary containing information to update the job file. For
+            information on acceptable values, please see the documentation of
+            function :func:`MOLA.JobManager.updateJobFile`
+
+        SubmitJob : bool
+            if :py:obj:`True`, submit the SLURM job based on information contained
+            in **JobInformation**
+
+            .. note::
+                only relevant if **COPY_TEMPLATES** is py:obj:`True` and
+                **JobInformation** is provided
+
+        COPY_TEMPLATES : bool
+            If :py:obj:`True` (default value), copy templates files in the
+            current directory.
 
     Returns
     -------
@@ -376,7 +393,13 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
     print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
                                                JobInformation['NumberOfProcessors'],J.ENDC))
 
-    if COPY_TEMPLATES: JM.getTemplates('Standard', JobInformation=JobInformation)
+    if COPY_TEMPLATES:
+        JM.getTemplates('Standard', JobInformation=JobInformation)
+        if 'DIRECTORY_WORK' in JobInformation:
+            sendSimulationFiles(JobInformation['DIRECTORY_WORK'],
+                                    overrideFields=writeOutputFields)
+
+        if SubmitJob: JM.submitJob(JobInformation['DIRECTORY_WORK'])
 
 def getMeshesAssembled(InputMeshes):
     '''
@@ -2872,8 +2895,8 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         cutoff_eint        = 0.005,
         artviscosity       = 'dismrt',
         av_mrt             = 0.3,
-        # av_border          = 'dif0null', # default elsA is 'dif0null', but JCB, JM, LC use 'current'
-        # av_formul          = 'new',  # default elsA is 'new', but JCB, JM, LC use 'current'
+        av_border          = 'current', # default elsA is 'dif0null', but JCB, JM, LC use 'current' see https://elsa.onera.fr/issues/10624
+        av_formul          = 'current', # default elsA is 'new', but JCB, JM, LC use 'current' see https://elsa.onera.fr/issues/10624
         )
         if not unstructured:
             addKeys.update(dict(
@@ -4570,3 +4593,23 @@ def mergeUnstructuredMeshByFamily(t, tol=1e-6):
     autoMergeBCsUnstructured(t)
 
     return t
+
+
+def sendSimulationFiles(DIRECTORY_WORK, overrideFields=True):
+    ElementsToSend = ['setup.py', 'main.cgns']
+    if os.path.exists('OVERSET'): ElementsToSend += ['OVERSET']
+    if overrideFields: ElementsToSend += ['OUTPUT/fields.cgns']
+    setup = J.load_source('setup','setup.py')
+    try: BodyForceInputData = setup.BodyForceInputData
+    except: BodyForceInputData = []
+
+    for b in BodyForceInputData:
+        for k in b:
+            if k.startswith('FILE_') and b[k] not in ElementsToSend:
+                ElementsToSend += [ b[k] ]
+
+
+    files2copyString = ', '.join([s.split('/')[-1] for s in ElementsToSend])
+    print(f'Copying simulation elements ({files2copyString}) to {DIRECTORY_WORK}')
+    for elt in ElementsToSend:
+        JM.repatriate(elt, os.path.join(DIRECTORY_WORK, elt))

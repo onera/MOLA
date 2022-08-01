@@ -189,9 +189,6 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
             File ``JobsConfiguration.py`` is writen and polar builder job is
             launched
     '''
-    IsJobInformationGiven = 'JobInformation' in kwargs and \
-        all([key in kwargs['JobInformation'] for key in ['JobName', 'AER', 'NumberOfProcessors']])
-    assert IsJobInformationGiven, 'JobInformation is required with not default values for JobName, AER and NumberOfProcessors'
 
     # TODO appropriately sort AoARange
     a = np.atleast_1d(AoARange)
@@ -423,6 +420,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                     Extractions=[{'type':'AllBCWall'}],
                     Initialization={'method':'uniform'},
                     JobInformation={},
+                    SubmitJob=False,
                     COPY_TEMPLATES=True):
     '''
     This is mainly a function similar to :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
@@ -535,6 +533,14 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
             information on acceptable values, please see the documentation of
             function :func:`MOLA.JobManager.updateJobFile`
 
+        SubmitJob : bool
+            if :py:obj:`True`, submit the SLURM job based on information contained
+            in **JobInformation**
+
+            .. note::
+                only relevant if **COPY_TEMPLATES** is py:obj:`True` and
+                **JobInformation** is provided
+
         COPY_TEMPLATES : bool
             If :py:obj:`True` (default value), copy templates files in the
             current directory.
@@ -614,14 +620,20 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                             FULL_CGNS_MODE=False)
     PRE.saveMainCGNSwithLinkToOutputFields(t, writeOutputFields=writeOutputFields)
 
-    print(J.CYAN+'REMEMBER : configuration shall be run using %d procs'%JobInformation['NumberOfProcessors']+J.ENDC)
 
     if 'NumberOfProcessors' not in JobInformation:
         JobInformation['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
 
+    print(J.CYAN+'REMEMBER : configuration shall be run using %d procs'%JobInformation['NumberOfProcessors']+J.ENDC)
+
     if COPY_TEMPLATES:
         JM.getTemplates('Airfoil', otherWorkflowFiles=['monitor_loads.py'],
                 JobInformation=JobInformation)
+        if 'DIRECTORY_WORK' in JobInformation:
+            PRE.sendSimulationFiles(JobInformation['DIRECTORY_WORK'],
+                                    overrideFields=writeOutputFields)
+
+        if SubmitJob: JM.submitJob(JobInformation['DIRECTORY_WORK'])
 
 
 def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,

@@ -141,6 +141,13 @@ elif [ "$MAC" = "visung" ]; then
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
+    # PUMA # not correctly installed !
+    # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_eos3
+    # export PYTHONPATH=$PumaRootDir/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
+    # export PYTHONPATH=$PumaRootDir/lib/python${PYTHONVR}/site-packages/PUMA:$PYTHONPATH
+    # export LD_LIBRARY_PATH=$PumaRootDir/lib/python${PYTHONVR}:$LD_LIBRARY_PATH
+    # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+
     # VPM
     export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/$MAC
     export PATH=$VPMPATH:$VPMPATH/lib:$PATH
@@ -171,6 +178,13 @@ elif [ "$MAC" = "ld" ]; then
         #module load impi/21.2.0
         module load hdf5/1.8.17-intel2120
 
+        # PUMA
+        export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_eos3
+        export PYTHONPATH=$PumaRootDir/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
+        export PYTHONPATH=$PumaRootDir/lib/python${PYTHONVR}/site-packages/PUMA:$PYTHONPATH
+        export LD_LIBRARY_PATH=$PumaRootDir/lib/python${PYTHONVR}:$LD_LIBRARY_PATH
+        export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+
         # VPM
         export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/${MAC}8
         export PATH=$VPMPATH:$VPMPATH/lib:$PATH
@@ -184,6 +198,13 @@ elif [ "$MAC" = "ld" ]; then
         echo 'loading MOLA environment for CentOS 7'
         source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
         module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+
+        # PUMA # not correctly installed !
+        # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_eos3
+        # export PYTHONPATH=$PumaRootDir/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
+        # export PYTHONPATH=$PumaRootDir/lib/python${PYTHONVR}/site-packages/PUMA:$PYTHONPATH
+        # export LD_LIBRARY_PATH=$PumaRootDir/lib/python${PYTHONVR}:$LD_LIBRARY_PATH
+        # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
         # VPM
         export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/${MAC}7

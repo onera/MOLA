@@ -152,6 +152,7 @@ def whichServer(PathElts):
     UserName - (string) - attempt to detect the username where the path
         is located
     '''
+    PathElts = getAsPathElts(PathElts)
     if 'scratch' in PathElts[0]:
         return 'spiro', PathElts[1]
     elif (PathElts[0]=='tmp_user' and PathElts[1]=='sator'):
@@ -373,6 +374,12 @@ def wait4FileFromServer(filename, requestInterval=0.5, timeout=60.):
         print(WARN+'Warning: timeout reached.'+ENDC)
         return False
 
+def getAsPathElts(PathElts):
+    if isinstance(PathElts,str):
+        PathElts = PathElts.split(os.path.sep)
+        if not PathElts[0] and len(PathElts) > 1: PathElts = PathElts[1:]
+
+    return PathElts
 
 if __name__ == '__main__':
     mode = sys.argv[1] # 'cp', 'mv', 'cp_forced', 'mv_forced'

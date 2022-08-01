@@ -2506,7 +2506,7 @@ def stackSurfacesWithFields(FirstSurface, LastSurface, Distribution):
     Spine = J.getDistributionFromHeterogeneousInput__(Distribution)[0]
     RelativeDistribution = Spine/(Spine.max()-Spine.min())
 
-    Layers = [FirstSurface]
+    Layers = []
     for CurrentRelativeAbscissa in RelativeDistribution:
         NewLayer = I.copyTree(FirstSurface)
         xN, yN, zN = J.getxyz(NewLayer)
@@ -2517,7 +2517,6 @@ def stackSurfacesWithFields(FirstSurface, LastSurface, Distribution):
 
         Layers.append(NewLayer)
 
-    Layers.append(LastSurface)
 
     VolumeMesh = G.stack(Layers)
 
