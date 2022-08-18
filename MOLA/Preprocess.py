@@ -141,7 +141,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
         Initialization=dict(method='uniform'),
         BodyForceInputData=[], writeOutputFields=True,
         JobInformation={}, SubmitJob=False, COPY_TEMPLATES=True):
-    '''
+    r'''
     This macro-function takes as input a preprocessed grid file (as produced
     by function :py:func:`prepareMesh4ElsA` ) and adds all remaining information
     required by elsA computation.
@@ -336,7 +336,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
                 file containing the initial fields (if ``writeOutputFields=True``)
 
             * ``setup.py``
-                ultra-light file containing all relevant info of the simulation
+                ultra-light file containing all relevant info of the simulation         
     '''
 
     def addFieldExtraction(fieldname):
@@ -1671,9 +1671,7 @@ def getMaskingBodiesAsDict(t, InputMeshes):
 
         if not CreateMaskFromOverlap: continue
 
-        try:
-            OversetOptions = meshInfo['OversetOptions']
-        except KeyError:
+        if 'OversetOptions' not in meshInfo:
             print(('No OversetOptions dictionary defined for base {}.\n'
             'Will not search overlap masks in this base.').format(basename))
             continue
@@ -1969,8 +1967,10 @@ def applyOffset2OpenMask(mask, offset, support, niter=None):
     tExtru = GVD.extrude(tMask, [ExtrusionDistribution], [Constraint],
                          printIters=False, growthEquation='')
     ExtrudeLayerBase = I.getNodesFromName2(tExtru,'ExtrudeLayerBase')
-    NewOpenMask, = I.getZones(ExtrudeLayerBase)
-
+    NewOpenMaskZones = I.getZones(ExtrudeLayerBase)
+    if len(NewOpenMaskZones) > 1:
+        raise ValueError(J.FAIL+'Unexpected number of NewOpenMask'+J.ENDC)
+    NewOpenMask = NewOpenMaskZones[0]
     NewClosedMask = removeSingularitiesOnMask(NewOpenMask)
 
     return NewClosedMask
@@ -1994,7 +1994,7 @@ def removeSingularitiesOnMask(mask):
         NewClosedMask : zone
             new zone without geometrical singularities.
     '''
-    Name = mask[0]
+    
     mask = XOR.conformUnstr(mask, left_or_right=0, itermax=1)
     masks = T.splitManifold(mask)
 
@@ -2012,13 +2012,12 @@ def removeSingularitiesOnMask(mask):
             G._close(mask, tol=1e-3)
             mask = XOR.conformUnstr(mask, left_or_right=0, itermax=1)
             masks = T.splitManifold(mask)
-            LargeSurfaces, SmallSurfaces=GSD.filterSurfacesByArea(masks,
-                ratio=0.50)
+            LargeSurfaces, _ = GSD.filterSurfacesByArea(masks, ratio=0.50)
             body = T.join(LargeSurfaces)
             G._close(body)
             ClosedBody = T.reorderAll(body, dir=-1)
             C.convertPyTree2File(body,'debug_body.cgns')
-            return body
+            return ClosedBody
 
 
     else:
@@ -2059,7 +2058,10 @@ def buildWatertightBodyFromSurfaces(walls, imposeNormalsOrientation='inwards'):
     body = G.gapsmanager(walls)
     body = T.join(body)
     G._close(body)
-    body, = I.getZones(body)
+    bodyZones = I.getZones(body)
+    if len(bodyZones) > 1:
+        raise ValueError(J.FAIL+'Unexpected number of body zones'+J.ENDC)
+    body = bodyZones[0]
 
     if imposeNormalsOrientation == 'inwards':
         body = T.reorderAll(body, dir=-1)
@@ -2105,7 +2107,10 @@ def buildWatertightBodiesFromSurfaces(walls, imposeNormalsOrientation='inwards',
         body = G.gapsmanager(manifoldWall)
         body = T.join(body)
         G._close(body)
-        body, = I.getZones(body)
+        bodyZones = I.getZones(body)
+        if len(bodyZones) > 1:
+            raise ValueError(J.FAIL+'Unexpected number of body zones'+J.ENDC)
+        body = bodyZones[0]        
         if imposeNormalsOrientation == 'inwards':
             body = T.reorderAll(body, dir=-1)
         elif imposeNormalsOrientation == 'outwards':
@@ -2361,7 +2366,6 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     Gamma   = FluidProperties['Gamma']
     IdealGasConstant = FluidProperties['IdealGasConstant']
     cv      = FluidProperties['cv']
-    cp      = FluidProperties['cp']
 
     # REFERENCE VALUES COMPUTATION
     T   = Temperature
@@ -2478,7 +2482,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         float(ReynoldsStressDissipationScale)]
 
     else:
-        raise AttributeError('Turbulence model %s not implemented in workflow. Must be in: %s'%(TurbulenceModel,str(AvailableTurbulenceModels)))
+        raise AttributeError('Turbulence model %s not implemented in workflow.'%TurbulenceModel)
     Fields         += FieldsTurbulence
     ReferenceState += ReferenceStateTurbulence
 
@@ -2741,7 +2745,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
     # Transition Settings
     if TransitionMode == 'NonLocalCriteria-LSTT':
         if TurbulenceModel == 'SST-2003-LM2009':
-            raise AttributeError(FAIL+"Modeling incoherency! cannot make Non-local transition criteria with Menter-Langtry turbulence model"+ENDC)
+            raise AttributeError(J.FAIL+"Modeling incoherency! cannot make Non-local transition criteria with Menter-Langtry turbulence model"+J.ENDC)
         addKeys4Model.update(dict(
         freqcomptrans     = 1,
         trans_crit        = 'in_ahd_gl_comp',
@@ -2775,7 +2779,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
     # Transition Settings
     if TransitionMode == 'NonLocalCriteria-Step':
         if TurbulenceModel == 'SST-2003-LM2009':
-            raise AttributeError(FAIL+"Modeling incoherency! cannot make Non-local transition criteria with Menter-Langtry turbulence model"+ENDC)
+            raise AttributeError(J.FAIL+"Modeling incoherency! cannot make Non-local transition criteria with Menter-Langtry turbulence model"+J.ENDC)
         addKeys4Model.update(dict(
         freqcomptrans     = 1,
         trans_crit        = 'in_ahd_comp',
@@ -2802,7 +2806,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
 
     elif TransitionMode == 'Imposed':
         if TurbulenceModel == 'SST-2003-LM2009':
-            raise AttributeError(FAIL+"Modeling incoherency! cannot make imposed transition with Menter-Langtry turbulence model"+ENDC)
+            raise AttributeError(J.FAIL+"Modeling incoherency! cannot make imposed transition with Menter-Langtry turbulence model"+J.ENDC)
         addKeys4Model.update(dict(
         intermittency       = 'full',
         interm_thick_coef   = 1.2,
@@ -3400,8 +3404,7 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False):
         if extractCoords:
             EoRnode = I.createNode('FlowSolution#EndOfRun#Coords', 'FlowSolution_t',
                                     parent=zone)
-            GridLocationNode = I.createNode('GridLocation','GridLocation_t',
-                                            value='Vertex', parent=EoRnode)
+            I.createNode('GridLocation','GridLocation_t', value='Vertex', parent=EoRnode)
             for fieldName in ('CoordinateX', 'CoordinateY', 'CoordinateZ'):
                 I.createNode(fieldName, 'DataArray_t', value=None, parent=EoRnode)
             J.set(EoRnode, '.Solver#Output',
@@ -3412,8 +3415,7 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False):
 
         EoRnode = I.createNode('FlowSolution#EndOfRun', 'FlowSolution_t',
                                 parent=zone)
-        GridLocationNode = I.createNode('GridLocation','GridLocation_t',
-                                        value='CellCenter', parent=EoRnode)
+        I.createNode('GridLocation','GridLocation_t', value='CellCenter', parent=EoRnode)
         for fieldName in Fields2Extract:
             I.createNode(fieldName, 'DataArray_t', value=None, parent=EoRnode)
         J.set(EoRnode, '.Solver#Output',
@@ -3450,8 +3452,7 @@ def addAverageFieldExtractions(t, ReferenceValues, firstIterationForAverage=1):
 
         EoRnode = I.createNode('FlowSolution#EndOfRun#Average', 'FlowSolution_t',
                                 parent=zone)
-        GridLocationNode = I.createNode('GridLocation','GridLocation_t',
-                                        value='CellCenter', parent=EoRnode)
+        I.createNode('GridLocation','GridLocation_t', value='CellCenter', parent=EoRnode)
         for fieldName in Fields2Extract:
             I.createNode(fieldName, 'DataArray_t', value=None, parent=EoRnode)
         J.set(EoRnode, '.Solver#Output',
@@ -3851,7 +3852,7 @@ def removeEmptyOversetData(t, silent=True):
     print('cleaning empty chimera nodes...')
     OPL_ns = I.getNodesFromName(t,'OrphanPointList')
     for opl in OPL_ns:
-        ID_node, _ = I.getParentOfNode(t, opl)
+        # ID_node, _ = I.getParentOfNode(t, opl)
         # print(J.WARN+'removing %s'%opl[0]+J.ENDC)
         I.rmNode(t,opl)
 
@@ -4187,12 +4188,8 @@ def hasAnyOversetData(InputMeshes):
             :py:obj:`True` if has overset assembly. :py:obj:`False` otherwise.
     '''
     for meshInfo in InputMeshes:
-        try:
-            OversetOptions = meshInfo['OversetOptions']
+        if 'OversetOptions' in meshInfo:
             return True
-        except KeyError:
-            continue
-
     return False
 
 def hasAnyUnstructuredZones(t):
@@ -4280,7 +4277,7 @@ def autoMergeBCsStructured(t, familyNames=None):
         pt  = I.getNodeFromName(bc, 'PointRange')
         fam = I.getNodeFromName(bc, 'FamilyName')
         if not fam:
-            fam = I.createNode('FamilyName', 'FamilyName_t', Value='Unknown')
+            fam = I.createNode('FamilyName', 'FamilyName_t', value='Unknown')
         return I.getName(bc), I.getValue(fam), pt
 
     def areContiguous(PointRange1, PointRange2):
@@ -4483,7 +4480,7 @@ def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
 
     print('Compute distance to walls...')
 
-    BCs, BCNames, BCTypes = C.getBCs(t)
+    BCs, _, BCTypes = C.getBCs(t)
     walls = []
     wallBCTypes = set()
     for BC, BCType in zip(BCs, BCTypes):
