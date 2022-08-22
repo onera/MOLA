@@ -412,6 +412,9 @@ def design(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225,
                 values are updated).
     '''
 
+    AoA = LL.fields('AoA')
+    if AirfoilAim == 'AoA': AoA_imposed = np.copy(AoA)
+
     RotationAxis, RotationCenter, Dir = LL.getRotationAxisCenterAndDirFromKinematics()
     VelocityVector = - RotationAxis * AxialVelocity
     Velocity = AxialVelocity
@@ -419,8 +422,16 @@ def design(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225,
                      Temperature=Temperature)
     LL.setRPM(RPM)
     LL.updateFrame()
+    AoA = LL.fields('AoA')
+    print(PINK)
+    print(AoA)
     LL.computeKinematicVelocity()
     LL.assembleAndProjectVelocities()
+    if AirfoilAim == 'AoA': AoA[:] = AoA_imposed
+    print(CYAN)
+    print(AoA)
+    print(ENDC)
+
     NPts = LL.numberOfPoints()
 
     NewFields = ['VelocityKinematicAxial','VelocityKinematicTangential','psi',
