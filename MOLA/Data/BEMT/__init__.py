@@ -307,8 +307,8 @@ def compute(LL, NumberOfBlades=2, RPM=1500.,
     DictOfIntegralData = LL.computeLoads(NumberOfBlades=NumberOfBlades)
     DictOfIntegralData['Converged'] = success
     DictOfIntegralData['Attempts']  = attempt
-    DictOfIntegralData['Pitch']     = Pitch
-    DictOfIntegralData['RPM']       = RPM
+    DictOfIntegralData['Pitch']     = LL.Pitch
+    DictOfIntegralData['RPM']       = LL.RPM
     includePropellerLoads(DictOfIntegralData)
 
     return DictOfIntegralData
