@@ -944,24 +944,37 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
 
     TotalNPts = C.getNPts(t)
 
-    if NumberOfProcessors is not None and NumberOfProcessors > 0 and mode =='auto':
-        print(J.WARN+'User requested NumberOfProcessors=%d, switching to mode=="imposed"'%NumberOfProcessors+J.ENDC)
-        mode = 'imposed'
+    if mode == 'auto':
+
+        startNProc = cores_per_node*minimum_number_of_nodes+1
+        if not only_consider_full_node_nproc: startNProc -= cores_per_node 
+        endNProc = maximum_allowed_nodes*cores_per_node+1
+
+        if NumberOfProcessors is not None and NumberOfProcessors > 0:
+            print(J.WARN+'User requested NumberOfProcessors=%d, switching to mode=="imposed"'%NumberOfProcessors+J.ENDC)
+            mode = 'imposed'
+
+        elif minimum_number_of_nodes == maximum_allowed_nodes:
+            if only_consider_full_node_nproc:
+                NumberOfProcessors = minimum_number_of_nodes*cores_per_node
+                print(J.WARN+'User constrained to NumberOfProcessors=%d, switching to mode=="imposed"'%NumberOfProcessors+J.ENDC)
+                mode = 'imposed'
+
+        elif minimum_number_of_nodes > maximum_allowed_nodes:
+            raise ValueError(J.FAIL+'minimum_number_of_nodes > maximum_allowed_nodes'+J.ENDC)
+
+        elif minimum_number_of_nodes < 1:
+            raise ValueError(J.FAIL+'minimum_number_of_nodes must be at least equal to 1'+J.ENDC)
 
 
     if mode == 'auto':
 
         if only_consider_full_node_nproc:
-            NProcCandidates = np.array(list(range(cores_per_node*minimum_number_of_nodes,
-                                         maximum_allowed_nodes*cores_per_node+1,
-                                         cores_per_node)))
+            NProcCandidates = np.array(list(range(startNProc-1,
+                                                  (endNProc-1)+cores_per_node,
+                                                  cores_per_node)))
         else:
-            if minimum_number_of_nodes == maximum_allowed_nodes == 1:
-                startNProc = 1
-            else:
-                startNProc = cores_per_node*minimum_number_of_nodes
-            NProcCandidates = np.array(list(range(startNProc,
-                                       maximum_allowed_nodes*cores_per_node+1)))
+            NProcCandidates = np.array(list(range(startNProc, endNProc)))
 
         EstimatedAverageNodeLoad = TotalNPts / (NProcCandidates / cores_per_node)
         NProcCandidates = NProcCandidates[EstimatedAverageNodeLoad < maximum_number_of_points_per_node]
@@ -970,25 +983,31 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
             raise ValueError(('maximum_number_of_points_per_node is too likely to be exceeded.\n'
                               'Try increasing maximum_allowed_nodes and/or maximum_number_of_points_per_node'))
 
-        Title = '    NumberOfProcessors        NZones    %-imbalance  mean_pts/proc  '
+        Title1= ' number of  | number of  | max pts at | max pts at | percent of | average pts|'
+        Title = ' processors | zones      | any proc   | any node   | imbalance  | per proc   |'
+        
         Ncol = len(Title)
-        print('\n'+Title)
         print('-'*Ncol)
-        Ndigs = int(Ncol/4)
+        print(Title1)
+        print(Title)
+        print('-'*Ncol)
+        Ndigs = len(Title.split('|')[0]) + 1
         ColFmt = r'{:^'+str(Ndigs)+'g}'
 
         AllNZones = []
         AllVarMax = []
         AllAvgPts = []
         AllMaxPtsPerNode = []
+        AllMaxPtsPerProc = []
         for i, NumberOfProcessors in enumerate(NProcCandidates):
-            _, NZones, varMax, meanPtsPerProc, MaxPtsPerNode = _splitAndDistributeUsingNProcs(t,
+            _, NZones, varMax, meanPtsPerProc, MaxPtsPerNode, MaxPtsPerProc = _splitAndDistributeUsingNProcs(t,
                 InputMeshes, NumberOfProcessors, cores_per_node, maximum_number_of_points_per_node,
                 raise_error=False)
             AllNZones.append( NZones )
             AllVarMax.append( varMax )
             AllAvgPts.append( meanPtsPerProc )
             AllMaxPtsPerNode.append( MaxPtsPerNode )
+            AllMaxPtsPerProc.append( MaxPtsPerProc )
 
             if AllNZones[i] == 0:
                 start = J.FAIL
@@ -1000,24 +1019,31 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                 Line += end
             else:
                 Line += ColFmt.format(AllNZones[i])
+                Line += ColFmt.format(AllMaxPtsPerProc[i])
+                Line += ColFmt.format(AllMaxPtsPerNode[i])
                 Line += ColFmt.format(AllVarMax[i] * 100)
-                Line += ColFmt.format(AllAvgPts[i]) + end
+                Line += ColFmt.format(AllAvgPts[i])
+                Line += end
 
             print(Line)
+            if cores_per_node>1 and (NumberOfProcessors%cores_per_node==0):
+                print('-'*Ncol)
+            
 
-        BestOption = np.argmin( AllVarMax )
+        BestOption = np.argmin( AllMaxPtsPerProc )
 
         for i, NumberOfProcessors in enumerate(NProcCandidates):
             if i == BestOption and AllNZones[i] > 0:
-                start = J.GREEN
+                Line = start = J.GREEN + ColFmt.format(NumberOfProcessors)
                 end = '  <== BEST'+J.ENDC
-                Line = start + ColFmt.format(NumberOfProcessors)
                 Line += ColFmt.format(AllNZones[i])
+                Line += ColFmt.format(AllMaxPtsPerProc[i])
+                Line += ColFmt.format(AllMaxPtsPerNode[i])
                 Line += ColFmt.format(AllVarMax[i] * 100)
-                Line += ColFmt.format(AllAvgPts[i]) + end
+                Line += ColFmt.format(AllAvgPts[i])
+                Line += end
                 print(Line)
                 break
-
         tRef = _splitAndDistributeUsingNProcs(t, InputMeshes, NProcCandidates[BestOption],
                 cores_per_node, maximum_number_of_points_per_node, raise_error=True)[0]
 
@@ -1033,7 +1059,6 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
         tRef = connectMesh(tRef, InputMeshes)
 
     showStatisticsAndCheckDistribution(tRef, CoresPerNode=cores_per_node)
-
 
     return tRef
 
@@ -1109,8 +1134,7 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per
                        ' - Reduce the number of procs\n'
                        ' - increase the number of grid points').format( NumberOfProcessors, NZones)
                 raise ValueError(J.FAIL+MSG+J.ENDC)
-            else:
-                return tRef, 0, 1, 9e10, 9e10
+            return tRef, 0, np.inf, np.inf, HighestLoad, HighestLoadProc
 
     NZones = len( I.getZones( tRef ) )
     if NumberOfProcessors > NZones:
@@ -1122,7 +1146,7 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per
                    ' - increase the number of grid points').format( NumberOfProcessors, NZones)
             raise ValueError(J.FAIL+MSG+J.ENDC)
         else:
-            return tRef, 0, 1, 9e10, 9e10
+            return tRef, 0, np.inf, np.inf, HighestLoad, HighestLoadProc
 
     # NOTE see Cassiopee BUG #8244 -> need algorithm='fast'
     silence = J.OutputGrabber()
@@ -1132,20 +1156,21 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per
     behavior = 'raise' if raise_error else 'silent'
 
     if hasAnyEmptyProc(tRef, NumberOfProcessors, behavior=behavior):
-        return tRef, 0, 1, np.inf, np.inf
+        return tRef, 0, np.inf, np.inf, HighestLoad, HighestLoadProc
 
-    HighestLoad = getNbOfPointsOfHighestLoadedNode(tRef, maximum_number_of_points_per_node,
-                                                     cores_per_node)
+    HighestLoad = getNbOfPointsOfHighestLoadedNode(tRef, cores_per_node)
+    HighestLoadProc = getNbOfPointsOfHighestLoadedProc(tRef)
 
     if HighestLoad > maximum_number_of_points_per_node:
         if raise_error:
             raise ValueError('exceeded maximum_number_of_points_per_node (%d>%d)'%(HighestLoad,
                                                 maximum_number_of_points_per_node))
-        return tRef, 0, 1, np.inf, HighestLoad
+        return tRef, 0, np.inf, np.inf, HighestLoad, HighestLoadProc
 
-    return tRef, NZones, stats['varMax'], stats['meanPtsPerProc'], HighestLoad
 
-def getNbOfPointsOfHighestLoadedNode(t, maximum_number_of_points_per_node, cores_per_node):
+    return tRef, NZones, stats['varMax'], stats['meanPtsPerProc'], HighestLoad, HighestLoadProc
+
+def getNbOfPointsOfHighestLoadedNode(t, cores_per_node):
     NPtsPerNode = {}
     for zone in I.getZones(t):
         Proc, = getProc(zone)
@@ -1157,6 +1182,20 @@ def getNbOfPointsOfHighestLoadedNode(t, maximum_number_of_points_per_node, cores
     NodesLoad = np.zeros(max(nodes)+1, dtype=int)
     for node in NPtsPerNode: NodesLoad[node] = NPtsPerNode[node]
     HighestLoad = np.max(NodesLoad)
+
+    return HighestLoad
+
+def getNbOfPointsOfHighestLoadedProc(t):
+    NPtsPerProc = {}
+    for zone in I.getZones(t):
+        Proc, = getProc(zone)
+        try: NPtsPerProc[Proc] += C.getNPts(zone)
+        except KeyError: NPtsPerProc[Proc] = C.getNPts(zone)
+
+    procs = list(NPtsPerProc)
+    ProcsLoad = np.zeros(max(procs)+1, dtype=int)
+    for proc in NPtsPerProc: ProcsLoad[proc] = NPtsPerProc[proc]
+    HighestLoad = np.max(ProcsLoad)
 
     return HighestLoad
 
