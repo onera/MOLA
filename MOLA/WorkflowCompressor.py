@@ -1602,9 +1602,10 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     >>> dict(type='InflowStagnation', option='file', FamilyName='row_1_INFLOW', filename='inflow.cgns')
 
     It defines an inflow condition imposing stagnation quantities ('inj1' in
-    *elsA*) interpolating a 2D map written in the given file.
+    *elsA*) interpolating a 2D map written in the given file (must be given at cell centers, 
+    in the container 'FlowSolution#Centers'). 
 
-    >>> dict(type='InflowMassFlow', FamilyName='row_1_INFLOW', MassFlow=)
+    >>> dict(type='InflowMassFlow', FamilyName='row_1_INFLOW')
 
     It defines a uniform inflow condition imposing the massflow ('inj1mfr1' in
     *elsA*) based on the **ReferenceValues**  and **FluidProperties**
@@ -2174,7 +2175,7 @@ def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileform
     '''
     Set a Boundary Condition ``inj1`` using the field map in the file
     **filename**. It is expected to be a surface with the following variables
-    defined at cell centers:
+    defined at cell centers (in the container 'FlowSolution#Centers'):
 
         * the coordinates
 
@@ -2183,13 +2184,13 @@ def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileform
         * the stagnation enthalpy ``'EnthalpyStagnation'``
 
         * the three components of the unit vector for the velocity direction:
-            ``'VelocityUnitVectorX'``, ``'VelocityUnitVectorY'``, ``'VelocityUnitVectorZ'``
+          ``'VelocityUnitVectorX'``, ``'VelocityUnitVectorY'``, ``'VelocityUnitVectorZ'``
 
         * the primitive turbulent variables (so not multiplied by density)
-            comptuted from ``ReferenceValues['FieldsTurbulence']`` and
-            depending on the turbulence model.
-            For example: ``'TurbulentEnergyKinetic'`` and
-            ``'TurbulentDissipationRate'`` for a k-omega model.
+          comptuted from ``ReferenceValues['FieldsTurbulence']`` and
+          depending on the turbulence model.
+          For example: ``'TurbulentEnergyKinetic'`` and
+          ``'TurbulentDissipationRate'`` for a k-omega model.
 
     Field variables will be extrapolated on the BCs attached to the family
     **FamilyName**, except if:
@@ -3517,6 +3518,7 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
                 )
         )
 
+    tref = I.copyTree(t)
     # > Initialization
     t = TI.initialize(t, mask, RefState(), planes_data,
               nbslice=10,
@@ -3526,4 +3528,14 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
               useSI=True,
               keepTmpVars=False
               )
+
+    # The initialization remove the FlowSolution#Height nodes : Fix this in turbo ? 
+    for base in I.getBases(t):
+        basename = I.getName(base)
+        for zone in I.getZones(base):
+            zonePath = '{}/{}'.format(basename, I.getName(zone))
+            FSHeight = I.getNodeFromPath(tref, zonePath+'/FlowSolution#Height')
+            if FSHeight:
+                I.addChild(zone, FSHeight)
+
     return t
