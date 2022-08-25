@@ -2667,7 +2667,7 @@ def setBC_stage_mxpl(t, left, right, method='globborder_dict'):
 
     ETC.setBC_stage_mxpl(t, left, right, method=method)
 
-def setBC_stage_mxpl_hyb(t, left, right, nbband=100, c=None):
+def setBC_stage_mxpl_hyb(t, left, right, nbband=100, c=0.3):
     '''
     Set a hybrid mixing plane condition between families **left** and **right**.
 
@@ -2719,7 +2719,7 @@ def setBC_stage_red(t, left, right, stage_ref_time):
 
     ETC.setBC_stage_red(t, left, right, stage_ref_time)
 
-def setBC_stage_red_hyb(t, left, right, stage_ref_time, nbband=100, c=None):
+def setBC_stage_red_hyb(t, left, right, stage_ref_time):
     '''
     Set a hybrid RNA condition between families **left** and **right**.
 
@@ -2740,15 +2740,9 @@ def setBC_stage_red_hyb(t, left, right, stage_ref_time, nbband=100, c=None):
         stage_ref_time : float
             Reference period on the simulated azimuthal extension.
 
-        nbband : int
-            Number of points in the radial distribution to compute.
-
-        c : float
-            Parameter for the distribution of radial points.
-
     '''
 
-    ETC.setBC_stage_red_hyb(t, left, right, stage_ref_time, nbband=nbband, c=c)
+    ETC.setBC_stage_red_hyb(t, left, right, stage_ref_time)
 
 def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
     valve_ref_mflow=None, valve_relax=0.1, ReferenceValues=None,
@@ -2818,7 +2812,7 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
         TurboConfiguration=TurboConfiguration, method=method)
 
 def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
-    valve_ref_mflow, valve_relax=0.1, nbband=100, c=None):
+    valve_ref_mflow, valve_relax=0.1, nbband=100, c=0.3):
     '''
     Set an outflow boundary condition of type ``outradeqhyb``.
     The pivot index is 1 and cannot be changed.
@@ -3518,7 +3512,6 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
                 )
         )
 
-    tref = I.copyTree(t)
     # > Initialization
     t = TI.initialize(t, mask, RefState(), planes_data,
               nbslice=10,
@@ -3526,16 +3519,8 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
               turbvarsname=list(turbDict),
               velocity='absolute',
               useSI=True,
-              keepTmpVars=False
+              keepTmpVars=False,
+              keepFS=True  # To conserve other FlowSolution_t nodes, as FlowSolution#Height
               )
-
-    # The initialization remove the FlowSolution#Height nodes : Fix this in turbo ? 
-    for base in I.getBases(t):
-        basename = I.getName(base)
-        for zone in I.getZones(base):
-            zonePath = '{}/{}'.format(basename, I.getName(zone))
-            FSHeight = I.getNodeFromPath(tref, zonePath+'/FlowSolution#Height')
-            if FSHeight:
-                I.addChild(zone, FSHeight)
 
     return t

@@ -71,7 +71,7 @@ def setBC_stage_mxpl(t, left, right, method='globborder_dict'):
     setRotorStatorFamilyBC(t, left, right)
 
 @J.mute_stdout
-def setBC_stage_mxpl_hyb(t, left, right, nbband=100, c=None):
+def setBC_stage_mxpl_hyb(t, left, right, nbband=100, c=0.3):
 
     t = trf.defineBCStageFromBC(t, left)
     t = trf.defineBCStageFromBC(t, right)
@@ -105,23 +105,12 @@ def setBC_stage_red(t, left, right, stage_ref_time):
     setRotorStatorFamilyBC(t, left, right)
 
 @J.mute_stdout
-def setBC_stage_red_hyb(t, left, right, stage_ref_time, nbband=100, c=None):
+def setBC_stage_red_hyb(t, left, right, stage_ref_time):
 
     t = trf.defineBCStageFromBC(t, left)
     t = trf.defineBCStageFromBC(t, right)
-
-    t, stage = trf.newStageRedFromFamily(t, left, right, stage_ref_time=stage_ref_time)
-    stage.hray_tolerance = 1e-16
-    for stg in stage.down:
-        filename = "state_radius_{}_{}.plt".format(right, nbband)
-        radius = stg.repartition(mxpl_dirtype='axial', filename=filename, fileformat="bin_tp")
-        radius.compute(t, nbband=nbband, c=c)
-        radius.write()
-    for stg in stage.up:
-        filename = "state_radius_{}_{}.plt".format(left, nbband)
-        radius = stg.repartition(mxpl_dirtype='axial', filename=filename, fileformat="bin_tp")
-        radius.compute(t, nbband=nbband, c=c)
-        radius.write()
+        
+    t, stage = trf.newStageRedHybFromFamily(t, left, right, stage_ref_time=stage_ref_time)
     stage.create()
 
     for gc in I.getNodesFromType(t, 'GridConnectivity_t'):
@@ -194,7 +183,7 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
 
 @J.mute_stdout
 def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
-    valve_ref_mflow, valve_relax=0.1, nbband=100, c=None):
+    valve_ref_mflow, valve_relax=0.1, nbband=100, c=0.3):
 
     # Delete previous BC if it exists
     for bc in C.getFamilyBCs(t, FamilyName):
