@@ -168,7 +168,7 @@ def compute(LL, NumberOfBlades=2, RPM=1500.,
 
 
     # These flags will be further used for fast conditioning
-    ModelIsDrela = ModelIsHeene = ModelIsAdkins = False
+    ModelIsDrela = ModelIsHeene = False
     if model == 'Heene':
         IterationVariables = ['VelocityInducedAxial','VelocityInducedTangential']
         ModelIsHeene = True
@@ -427,18 +427,13 @@ def design(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225,
     LL.assembleAndProjectVelocities()
     if AirfoilAim == 'AoA': AoA[:] = AoA_imposed
 
-    NPts = LL.numberOfPoints()
-
     NewFields = ['VelocityKinematicAxial','VelocityKinematicTangential','psi',
                  'a','aP']
 
     f = LL.fields(NewFields)
     f = LL.allFields()
-    TangentialDirection = np.vstack([f['tan'+i] for i in 'xyz'])
     f['VelocityKinematicAxial'][:] = f['VelocityAxial'][:]
     f['VelocityKinematicTangential'][:] = -f['VelocityTangential'][:]
-    nxyz = np.array([f['nx'],f['ny'],f['nz']], dtype=np.float, order='F')
-    bxyz = np.array([f['bx'],f['by'],f['bz']], dtype=np.float, order='F')
 
     # Compute some constants:
     # Sutherland's law
@@ -446,7 +441,6 @@ def design(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225,
     SoundSpeed = computeSoundSpeed(Temperature)
     r = f['Span']
     Rmax = f['Span'].max()
-    sigma = NumberOfBlades * f['Chord'] / (2*np.pi*r) # Blade solidity
     ChordMin = 0.001*Rmax # TODO make parameter ?
 
 
@@ -586,6 +580,329 @@ def design(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225,
 
     return DictOfIntegralData
 
+def designHover(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225,
+              Temperature=288.15, TipLossesModel='Adkins',
+              Constraint='Thrust', ConstraintValue=1000.,
+              AirfoilAim='maxClCd', AimValue=None, AoASearchBounds=(-2,8),
+              SmoothAoA=False, itMaxAoAsearch=3):
+    '''
+    This function performs a minimum induced loss design of a propeller
+    in axial flight conditions.
+
+    Parameters
+    ----------
+
+        LiftingLine : zone
+            lifting-line used for design (values of chord and
+            twist can be arbitrary).
+
+            .. note:: this **LiftingLine** will be modified as a result of design
+
+        PolarsInterpolatorDict : dict
+            dictionary of interpolator functions of 2D polars, as obtained from
+            :py:func:`MOLA.LiftingLine.buildPolarsInterpolatorDict`
+
+        NBlades : int
+            the number of blades of the design candidate
+
+        Velocity : float
+            the advance velocity of the propeller [m/s]
+
+        RPM : float
+            the rotational velocity of the propeller [rev / minute]
+
+        Temperature : float
+            the air temperature [K]
+
+        Density : float
+            the air density [kg / m3]
+
+        TipLosses : str
+            the model of tip-losses. Can be one of:
+            ``'Adkins'``, ``'Glauert'`` or ``'Prandtl'``.
+
+            .. note:: we recommend using ``'Adkins'``.
+
+        ListOfEquations : str
+            :py:func:`Converter.PyTree.initVars`-compatible equations to be applied
+            after each lifting-line's polar interpolation operation.
+
+        Constraint : str
+            constraint type for the optimization. Can be: ``'Thrust'`` or ``'Power'``
+
+        ConstraintValue : float
+            the value of the constraint for the design
+
+        Aim : str
+            can be one of:
+
+            * ``'Cl'``
+                aims a given ``Cl``, :math:`c_l` , value (provided by argument **AimValue**)
+                throughout the entire lifting line
+
+            * ``'minCd'``
+                aims the minimum ``Cd``, :math:`\min(c_d)` , value
+
+            * ``'maxClCd'``
+                aims the maximum aero efficiency :math:`\max(c_l/c_d)` value
+
+        AimValue : float
+            Specifies the aimed value for corresponding relevant **Aim** types
+            (e.g. ``'Cl'``).
+
+        AoASearchBounds : :py:class:`tuple` of 2 :py:class:`float`
+            As there may exist multiple AoA values
+            verifying the requested conditions, this argument constraints the
+            research interval of angle-of-attack of valid candidates.
+
+        SmoothAoA : bool
+            if :py:obj:`True`, perform a post-smoothing of angle of
+            attack spanwise distribution after optimization.
+
+            .. tip:: this is useful in order to avoid "shark-teeth" shaped
+                distribution.
+
+        itMaxAoAsearch : int
+            maximum number of iterations allowed for reaching the desired AoA
+            distribution type
+
+    Returns
+    -------
+
+        DictOfIntegralData : dict
+            dictionary containing LiftingLine arrays.
+
+            .. note:: for design result, please refer to input argument
+                **LiftingLine**, which is modified (``Chord`` and ``Twist``
+                values are updated).
+    '''
+
+    AoA = LL.fields('AoA')
+    if AirfoilAim == 'AoA': AoA_imposed = np.copy(AoA)
+
+    RotationAxis = LL.getRotationAxisCenterAndDirFromKinematics()[0]
+    VelocityVector = - RotationAxis * AxialVelocity
+    Velocity = AxialVelocity
+    LL.setConditions(VelocityFreestream=VelocityVector, Density=Density,
+                     Temperature=Temperature)
+    LL.setRPM(RPM)
+    LL.updateFrame()
+    AoA = LL.fields('AoA')
+    LL.computeKinematicVelocity()
+    LL.assembleAndProjectVelocities()
+    if AirfoilAim == 'AoA': AoA[:] = AoA_imposed
+
+    NewFields = ['VelocityKinematicAxial','VelocityKinematicTangential','psi',
+                 'a','aP']
+
+    f = LL.fields(NewFields)
+    f = LL.allFields()
+    f['VelocityKinematicAxial'][:] = f['VelocityAxial'][:]
+    f['VelocityKinematicTangential'][:] = -f['VelocityTangential'][:]
+
+    # Compute some constants:
+    # Sutherland's law
+    Mu = computeViscosityMolecular(Temperature)
+    SoundSpeed = computeSoundSpeed(Temperature)
+    r = f['Span']
+    Rmax = f['Span'].max()
+    ChordMin = 0.001*Rmax # TODO make parameter ?
+
+
+    # Declare additional variables (not stored in LiftingLine)
+    xi    = r/Rmax
+    Omega = LL.RPM*np.pi/30.
+    lambd = Velocity / (Omega * Rmax)
+
+    # Compute Approximate Reynolds, Mach, and AoA,
+    # based on initial "guess" of Chord distribution
+    Wapprox = ((Omega*r)**2+Velocity**2)**0.5
+    f['Reynolds'][:] = Density * Wapprox * f['Chord'] / Mu
+    f['Mach'][:]  = Wapprox / SoundSpeed # Approximate
+
+    if AirfoilAim == 'AoA':
+        LL.computeSectionalCoefficients()
+    else:
+        f['AoA'][:] = 0.
+        LL.setOptimumAngleOfAttack(Aim=AirfoilAim, AimValue=AimValue,
+                                   AoASearchBounds=AoASearchBounds,)
+
+    if SmoothAoA:
+        WindowFilter = int(len(f['AoA'])*0.6)
+        if WindowFilter%2 ==0: WindowFilter -=1
+        FilterOrder  = 4
+        f['AoA'][:] = ss.savgol_filter(f['AoA'],WindowFilter,FilterOrder)
+        LL.computeSectionalCoefficients()
+
+    def computeDistributions(x):
+
+        # advance
+        # zeta = x
+        # xfact = Omega * r / Velocity
+        # hover 
+        vp = x
+
+
+
+        # advance
+        # f['phiRad'][:] = phi = np.arctan( (1+zeta/2.)/xfact ) # Eqn. 8
+        # hover
+        phi_t = np.arctan(vp/(2*Omega*Rmax)) 
+        f['phiRad'][:] = phi = np.arctan(np.tan(phi_t)/xi) # Eqn. 21
+
+        cos_phi = np.cos(phi)
+        sin_phi = np.sin(phi)
+        tan_phi = sin_phi / cos_phi
+
+
+        F = LL.computeTipLossFactor(NumberOfBlades, model=TipLossesModel)
+
+        # advance
+        # G = F * xfact * cos_phi * sin_phi # Eqn. 5
+
+        # advance
+        # Wc = 4*np.pi*lambd*G*Velocity*Rmax*zeta/(f['Cl']*NumberOfBlades) # Eqn. 16
+        # hover
+        Wc = 4.*np.pi*xi*Rmax*F*vp*sin_phi*cos_phi/(f['Cl']*NumberOfBlades)
+
+        f['Reynolds'][:] = Density * Wc / Mu
+
+        # Mach[:]  = Wc / (SoundSpeed * Chord) # Exact but bugged
+        f['Mach'][:]  = Wapprox / SoundSpeed # Approximate
+
+        if AirfoilAim == 'AoA' or it >= itMaxAoAsearch:
+            LL.computeSectionalCoefficients()
+        else:
+            LL.setOptimumAngleOfAttack(Aim=AirfoilAim, AimValue=AimValue,
+                                       AoASearchBounds=AoASearchBounds,)
+
+
+        if SmoothAoA and it < itMaxAoAsearch:
+            f['AoA'][:] = ss.savgol_filter(f['AoA'],WindowFilter,FilterOrder)
+            LL.computeSectionalCoefficients()
+
+        # Determine interference factors (Eqn.7)
+        varepsilon = f['Cd'] / f['Cl']
+
+        # advance
+        # f['a'][:] = (zeta/2.)*cos_phi*cos_phi*(1-varepsilon*tan_phi)
+        # f['aP'][:] = (zeta/(2.*xfact))*cos_phi*sin_phi*(1+varepsilon/tan_phi)
+        # hover
+        f['aP'][:] = vp/(2*Omega*xi*Rmax)*cos_phi*sin_phi*(1+varepsilon/tan_phi)
+
+
+        # Determine actual LocalVelocity (Eqn.17)
+        # # advance
+        # f['VelocityMagnitudeLocal'][:] = W = Velocity*(1+f['a'])/sin_phi
+        # f['VelocityAxial'][:]  = Velocity*(1+f['a'])
+        # f['VelocityTangential'][:] = Omega*r*(1 - f['aP'])
+        # hover
+        f['VelocityAxial'][:]=Va= vp/2.*cos_phi**2.*(1.-varepsilon*tan_phi)
+        f['VelocityTangential'][:]= Omega*r*(1 - f['aP'])
+        f['VelocityMagnitudeLocal'][:] = W = Va/sin_phi # is equivalent to np.sqrt(Va**2+Vt**2)
+
+        # advance
+        # f['VelocityInducedAxial'][:]  = Velocity*(f['a'])
+        # hover
+        f['VelocityInducedAxial'][:]  = f['VelocityAxial']
+
+
+        f['VelocityInducedTangential'][:]  = Omega*r*(- f['aP'])
+
+        # Update Chord distribution
+        f['Chord'][:] = np.maximum(Wc/W,ChordMin)
+
+        # Update blade twist
+        f['Twist'][:] = f['AoA'] + np.rad2deg(f['phiRad'])
+
+        # advance
+        # # Determine derivatives (Eqns.11 a--d)
+        # I1 = 4*xi*G*(1-varepsilon*tan_phi)
+        # J1 = 4*xi*G*(1+varepsilon/tan_phi)
+        # rotor
+        I1 = 2*xi*F/(Omega**2*Rmax**3)*(cos_phi**2*(1-varepsilon*tan_phi))**2.
+        J1 = 2*xi*F/(Omega**2*Rmax**4)* cos_phi**3*(1-varepsilon*tan_phi)*sin_phi*(1+varepsilon/tan_phi)
+
+        I2 = lambd*(0.5*I1/xi)*(1+varepsilon/tan_phi)*sin_phi*cos_phi
+        J2 = 0.5*J1*(1-varepsilon*tan_phi)*cos_phi*cos_phi
+
+        # Integrate derivatives in order to get Power, Thrust and new zeta
+        I1int = sint.simps(I1,xi)
+        J1int = sint.simps(J1,xi)
+        I2int = sint.simps(I2,xi)
+        J2int = sint.simps(J2,xi)
+
+
+        # advance
+        # if Constraint == 'Thrust':
+        #     Thrust = ConstraintValue
+        #     Tc = 2*Thrust/(Density*Velocity**2*np.pi*Rmax**2)
+        #     NewZeta = (0.5*I1int/I2int)-np.sqrt((0.5*I1int/I2int)**2-Tc/I2int)
+        #     Pc = J1int*NewZeta+J2int*NewZeta**2
+        #     Power = 0.5*Density*Velocity**3*np.pi*Rmax**2*Pc
+        # elif Constraint == 'Power':
+        #     Power = ConstraintValue
+        #     Pc = 2*Power/(Density*Velocity**3*np.pi*Rmax**2)
+        #     NewZeta = -(0.5*J1int/J2int)+np.sqrt((0.5*J1int/J2int)**2 + (Pc/J2int))
+        #     Tc = I1int*NewZeta - I2int*NewZeta**2
+        #     Thrust = Tc*0.5*Density*Velocity**2*np.pi*Rmax**2
+        # Residual = NewZeta - zeta
+        # PropulsiveEfficiency = Velocity*Thrust/Power
+        # return Residual, Power, Thrust, PropulsiveEfficiency
+        # rotor
+        if Constraint == 'Thrust':
+            Thrust = ConstraintValue
+            Tc = 2*Thrust/(Density*(Omega*Rmax)**2*np.pi*Rmax**2)
+            new_vp = np.sqrt(Tc/I1int)
+            Pc = J1int*new_vp**2
+            Power = 0.5*Density*(Omega*Rmax)**3*np.pi*Rmax**2*Pc
+            print('Tc=%g ; Pc=%g'%(Tc,Pc))
+
+        elif Constraint == 'Power':
+            raise ValueError('Constrint="Power" not implemented yet')
+        Residual = new_vp - vp
+        FigureOfMerit = 1./np.sqrt(2.)/Pc * Tc**1.5
+
+
+        return Residual, Power, Thrust, FigureOfMerit
+
+
+    # advance
+    # InitialGuess = f['Chord']
+    # hover
+    InitialGuess = 0.1
+
+    # Direct iterations like this may work
+    itmax = 100
+    L2Residual, L2ResidualTol, L2minVariation = 1e8,1e-8, 1e-10
+    x0 = InitialGuess
+    it = -1
+    L2Prev = 1.e10
+    L2Variation = 1.e10
+    while it<itmax and L2Residual>L2ResidualTol and L2Variation > L2minVariation:
+        it += 1
+        Residual, Power, Thrust, Efficiency = computeDistributions(x0)
+        # advance
+        # L2Residual = np.sqrt(Residual.dot(Residual))
+        # hover
+        L2Residual = Residual
+        L2Variation = L2Prev-L2Residual
+        L2Prev = L2Residual
+        print('it=%d | Thrust=%g, Power=%g, Efficiency=%g | L2 res = %g'%(it,Thrust,Power,Efficiency, L2Residual))
+        loads = LL.computeLoads(NumberOfBlades=NumberOfBlades)
+        print(WARN+'it=%d | Thrust=%g, Power=%g'%(it,loads['Thrust'],loads['Power'])+ENDC)
+        x1 = Residual+x0
+        RelaxFactor = 0.
+        x0 = (1.0-RelaxFactor)*x1+RelaxFactor*x0
+
+    # Prepare output
+
+    LL.computeLoads(NumberOfBlades=NumberOfBlades)
+    DictOfIntegralData = LL.addHelicopterRotorLoads()
+    DesignPitch = LL.resetTwist()
+    DictOfIntegralData['Pitch'] = DesignPitch
+
+    return DictOfIntegralData
 
 def optimalDesignByThrustAndFixedPitch(number_of_blades=2, Rmin=0.1, Rmax=1.0,
         max_mach_tip=0.8, min_mach_tip=0.35, nb_envelope_points=11, ChordMax=0.15,
