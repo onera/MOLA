@@ -903,18 +903,23 @@ def computeIntegralLoads(t, torque_center=[0,0,0]):
     _addNormalsIfAbsent(tR)
 
     # surfacic forces
-    C._initVars(tR, 'centers:fx={centers:Pressure}*{centers:nx}-{centers:SkinFrictionX}')
-    C._initVars(tR, 'centers:fy={centers:Pressure}*{centers:ny}-{centers:SkinFrictionY}')
-    C._initVars(tR, 'centers:fz={centers:Pressure}*{centers:nz}-{centers:SkinFrictionZ}')
+    C._initVars(tR, 'centers:fx=-{centers:Pressure}*{centers:nx}+{centers:SkinFrictionX}')
+    C._initVars(tR, 'centers:fy=-{centers:Pressure}*{centers:ny}+{centers:SkinFrictionY}')
+    C._initVars(tR, 'centers:fz=-{centers:Pressure}*{centers:nz}+{centers:SkinFrictionZ}')
 
     # computation of total forces
-    ForceX = P.integ(tR,'centers:fx')[0]
-    ForceY = P.integ(tR,'centers:fy')[0]
-    ForceZ = P.integ(tR,'centers:fz')[0]
+    ForceX = -P.integ(tR,'centers:fx')[0]
+    ForceY = -P.integ(tR,'centers:fy')[0]
+    ForceZ = -P.integ(tR,'centers:fz')[0]
 
     # computation of total torques
     TorqueX, TorqueY, TorqueZ = P.integMoment(tR, center=torque_center,
                                 vector=['centers:fx','centers:fy','centers:fz'])
+    
+    TorqueX *= -1
+    TorqueY *= -1
+    TorqueZ *= -1
+
 
     loads = dict(ForceX=ForceX,ForceY=ForceY,ForceZ=ForceZ,
                  TorqueX=TorqueX,TorqueY=TorqueY,TorqueZ=TorqueZ)
@@ -991,17 +996,17 @@ def computeSectionalLoads(t, start_point, end_point, distribution,
         section = P.isoSurfMC(tR, 'Span', span)
         if not section: continue
         C._normalize(section,['nx','ny','nz'])
-        C._initVars(section, 'fx={Pressure}*{nx}-{SkinFrictionX}')
-        C._initVars(section, 'fy={Pressure}*{ny}-{SkinFrictionY}')
-        C._initVars(section, 'fz={Pressure}*{nz}-{SkinFrictionZ}')
+        C._initVars(section, 'fx=-{Pressure}*{nx}+{SkinFrictionX}')
+        C._initVars(section, 'fy=-{Pressure}*{ny}+{SkinFrictionY}')
+        C._initVars(section, 'fz=-{Pressure}*{nz}+{SkinFrictionZ}')
 
         # computation of sectional forces
-        SectionalForceX += [ P.integ(section,'fx')[0] ]
-        SectionalForceY += [ P.integ(section,'fy')[0] ]
-        SectionalForceZ += [ P.integ(section,'fz')[0] ]
+        SectionalForceX += [ -P.integ(section,'fx')[0] ]
+        SectionalForceY += [ -P.integ(section,'fy')[0] ]
+        SectionalForceZ += [ -P.integ(section,'fz')[0] ]
 
         # computation of sectional torques
-        STorqueX, STorqueY, STorqueZ = P.integMoment(section, center=torque_center,
+        STorqueX, STorqueY, STorqueZ = -P.integMoment(section, center=torque_center,
                                     vector=['fx','fy','fz'])
         SectionalTorqueX += [ STorqueX ]
         SectionalTorqueY += [ STorqueY ]
