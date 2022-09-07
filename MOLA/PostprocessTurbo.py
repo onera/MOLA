@@ -6,6 +6,7 @@ import os
 # Cassiopee packages
 import Converter.PyTree   as C
 import Converter.Internal as I
+import Converter.Mpi      as Cmpi
 import Post.PyTree        as P
 import Transform.PyTree   as T
 
@@ -446,13 +447,11 @@ def computeVariablesOnBladeProfiles(surfaces, allVariables, hList='all'):
     
     if hList == 'all':
         hList = []
-        for surface in surfaces:
+        surfacesIsoH = getSurfacesFromInfo(surfaces, type='IsoSurface', field='ChannelHeight')
+        for surface in surfacesIsoH:
             ExtractionInfo = I.getNodeFromName(surface, '.ExtractionInfo')
-            if not ExtractionInfo: continue
-            field = I.getNodeFromName(ExtractionInfo, 'ChannelHeight')
-            if field:
-                valueH = I.getValue(I.getNodeFromName(ExtractionInfo, 'value'))
-                hList.append(valueH)
+            valueH = I.getValue(I.getNodeFromName(ExtractionInfo, 'value'))
+            hList.append(valueH)
 
     for row in setup.TurboConfiguration['Rows']:
 
@@ -484,7 +483,22 @@ def postprocess_turbomachinery(FILE_SURFACES='OUTPUT/surfaces.cgns',
                                var4comp_repart=None, var4comp_perf=None, var2keep=None, 
                                stages=[]):
     '''
+    Perform a series of classical postprocessings for a turbomachinery case : 
 
+    #. Compute extra variables, in relative and absolute frames of reference
+
+    #. Compute averaged values for all iso-X planes (results are in the `.Average` node), and
+       compare inlet and outlet planes for each row if available, to get row performance (total 
+       pressure ratio, isentropic efficiency, etc) (results are in the `.Average#ComparisonXX` of
+       the inlet plane, `XX` being the numerotation starting at `01`)
+
+    #. Compute radial profiles for all iso-X planes (results are in the `.RadialProfile` node), and
+       compare inlet and outlet planes for each row if available, to get row performance (total 
+       pressure ratio, isentropic efficiency, etc) (results are in the `.RadialProfile#ComparisonXX` of
+       the inlet plane, `XX` being the numerotation starting at `01`)
+
+    #. Compute isentropic Mach number on blades, slicing at constant height, for all values of height 
+       already extracted as iso-surfaces. Results are in the `.Iso_H_XX` nodes.
 
     Parameters
     ----------
@@ -524,7 +538,6 @@ def postprocess_turbomachinery(FILE_SURFACES='OUTPUT/surfaces.cgns',
 
             For each tuple of rows, the inlet plane of row 1 is compared with the outlet plane of row 2.
     '''
-
     #______________________________________________________________________________
     # Variables
     #______________________________________________________________________________
@@ -554,8 +567,9 @@ def postprocess_turbomachinery(FILE_SURFACES='OUTPUT/surfaces.cgns',
     variablesByAverage = sortVariablesByAverage(allVariables)
 
     #______________________________________________________________________________
-
-    surfaces = C.convertFile2PyTree(FILE_SURFACES)
+    Cmpi.barrier()
+    surfaces = Cmpi.convertFile2PyTree(FILE_SURFACES)
+    Cmpi.barrier()
     #______________________________________________________________________________#
     computeVariablesOnIsosurface(surfaces)
     compute0DPerformances(surfaces, variablesByAverage, var4comp_perf)
@@ -570,7 +584,9 @@ def postprocess_turbomachinery(FILE_SURFACES='OUTPUT/surfaces.cgns',
 
     cleanSurfaces(surfaces, var2keep=var2keep)
 
-    C.convertPyTree2File(surfaces, FILE_SURFACES_NEW)
+    Cmpi.barrier()
+    Cmpi.convertPyTree2File(surfaces, FILE_SURFACES_NEW)
+    Cmpi.barrier()
 
 
 
