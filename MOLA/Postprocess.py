@@ -903,9 +903,9 @@ def computeIntegralLoads(t, torque_center=[0,0,0]):
     _addNormalsIfAbsent(tR)
 
     # surfacic forces
-    C._initVars(tR, 'centers:fx={centers:Pressure}*{centers:nx}+{centers:SkinFrictionX}')
-    C._initVars(tR, 'centers:fy={centers:Pressure}*{centers:ny}+{centers:SkinFrictionY}')
-    C._initVars(tR, 'centers:fz={centers:Pressure}*{centers:nz}+{centers:SkinFrictionZ}')
+    C._initVars(tR, 'centers:fx={centers:Pressure}*{centers:nx}-{centers:SkinFrictionX}')
+    C._initVars(tR, 'centers:fy={centers:Pressure}*{centers:ny}-{centers:SkinFrictionY}')
+    C._initVars(tR, 'centers:fz={centers:Pressure}*{centers:nz}-{centers:SkinFrictionZ}')
 
     # computation of total forces
     ForceX = P.integ(tR,'centers:fx')[0]
@@ -991,9 +991,9 @@ def computeSectionalLoads(t, start_point, end_point, distribution,
         section = P.isoSurfMC(tR, 'Span', span)
         if not section: continue
         C._normalize(section,['nx','ny','nz'])
-        C._initVars(section, 'fx={Pressure}*{nx}+{SkinFrictionX}')
-        C._initVars(section, 'fy={Pressure}*{ny}+{SkinFrictionY}')
-        C._initVars(section, 'fz={Pressure}*{nz}+{SkinFrictionZ}')
+        C._initVars(section, 'fx={Pressure}*{nx}-{SkinFrictionX}')
+        C._initVars(section, 'fy={Pressure}*{ny}-{SkinFrictionY}')
+        C._initVars(section, 'fz={Pressure}*{nz}-{SkinFrictionZ}')
 
         # computation of sectional forces
         SectionalForceX += [ P.integ(section,'fx')[0] ]
