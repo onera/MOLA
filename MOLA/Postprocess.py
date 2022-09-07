@@ -1006,11 +1006,11 @@ def computeSectionalLoads(t, start_point, end_point, distribution,
         SectionalForceZ += [ -P.integ(section,'fz')[0] ]
 
         # computation of sectional torques
-        STorqueX, STorqueY, STorqueZ = -P.integMoment(section, center=torque_center,
+        STorqueX, STorqueY, STorqueZ = P.integMoment(section, center=torque_center,
                                     vector=['fx','fy','fz'])
-        SectionalTorqueX += [ STorqueX ]
-        SectionalTorqueY += [ STorqueY ]
-        SectionalTorqueZ += [ STorqueZ ]
+        SectionalTorqueX += [ -STorqueX ]
+        SectionalTorqueY += [ -STorqueY ]
+        SectionalTorqueZ += [ -STorqueZ ]
         SectionalSpan    += [ span ]
 
     SectionalLoads = dict(SectionalForceX=SectionalForceX,
