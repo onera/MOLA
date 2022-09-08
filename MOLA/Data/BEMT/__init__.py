@@ -915,6 +915,7 @@ def optimalDesignByThrustAndFixedPitch(number_of_blades=2, Rmin=0.1, Rmax=1.0,
         PolarsRelativeSpan=[0,1],
         PolarsNames=['OA309', 'OA309'], FAILED_VALUE=np.nan):
 
+
     print(CYAN)
     print('number_of_blades = %g'%number_of_blades)
     print('Rmax = %g'%Rmax)
@@ -968,10 +969,17 @@ def optimalDesignByThrustAndFixedPitch(number_of_blades=2, Rmin=0.1, Rmax=1.0,
         RPM = (30/np.pi)*mach_tip[i]*SpeedOfSound/Rmax
 
         # design the propeller
-        NominalDict = design(LL, AirfoilAim='maxClCd',
-            NumberOfBlades=number_of_blades, AxialVelocity=VelocityAxial,
-            RPM=RPM, Temperature=Temperature, Density=Density,
-            Constraint='Thrust',ConstraintValue=NominalRequiredThrust)
+        AdvanceParameterNorm = abs(VelocityAxial / (LL.RPM/60.*(2*Rmax)))
+        if AdvanceParameterNorm > 0.1:
+            NominalDict = design(LL, AirfoilAim='maxClCd',
+                NumberOfBlades=number_of_blades, AxialVelocity=VelocityAxial,
+                RPM=RPM, Temperature=Temperature, Density=Density,
+                Constraint='Thrust',ConstraintValue=NominalRequiredThrust)
+        else:
+            NominalDict = designHover(LL, AirfoilAim='maxClCd',
+                NumberOfBlades=number_of_blades, AxialVelocity=0,
+                RPM=RPM, Temperature=Temperature, Density=Density,
+                Constraint='Thrust',ConstraintValue=NominalRequiredThrust)                
 
         r, AoA, Chord, Twist = LL.fields(['Span','AoA','Chord','Twist'])
 
@@ -987,10 +995,18 @@ def optimalDesignByThrustAndFixedPitch(number_of_blades=2, Rmin=0.1, Rmax=1.0,
         print('RPM = %g'%RPM)
         print(ENDC)
 
-        NominalDict = design(LL, AirfoilAim='AoA',
-            NumberOfBlades=number_of_blades, AxialVelocity=VelocityAxial,
-            RPM=RPM, Temperature=Temperature, Density=Density,
-            Constraint='Thrust',ConstraintValue=NominalRequiredThrust)
+        AdvanceParameterNorm = abs(VelocityAxial / (LL.RPM/60.*(2*Rmax)))
+        if AdvanceParameterNorm > 0.1:
+            NominalDict = design(LL, AirfoilAim='AoA',
+                NumberOfBlades=number_of_blades, AxialVelocity=VelocityAxial,
+                RPM=RPM, Temperature=Temperature, Density=Density,
+                Constraint='Thrust',ConstraintValue=NominalRequiredThrust)
+        else:
+            NominalDict = designHover(LL, AirfoilAim='AoA',
+                NumberOfBlades=number_of_blades, AxialVelocity=VelocityAxial,
+                RPM=RPM, Temperature=Temperature, Density=Density,
+                Constraint='Thrust',ConstraintValue=NominalRequiredThrust)
+
         Chord[:] = np.minimum(ChordMax,Chord)
         print('design Chord')
         print(Chord)
