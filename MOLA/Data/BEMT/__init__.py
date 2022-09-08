@@ -59,7 +59,7 @@ def compute(LL, NumberOfBlades=2, RPM=1500.,
 
 
         f['VelocityAxial'][i]      = Vax  =  VkAxial + via
-        f['VelocityTangential'][i] = Vtan = -VkTan   - vit
+        f['VelocityTangential'][i] = Vtan = -VkTan   + vit
 
         V2D = Vax * LL.RotationAxis  +  Vtan * TangentialDirection[:,i]
 
@@ -174,8 +174,8 @@ def compute(LL, NumberOfBlades=2, RPM=1500.,
         ModelIsHeene = True
         BEMTsolver = modelHeene
         # Set initial guess:
-        f['VelocityInducedAxial'][:] = 0.0
-        f['VelocityInducedTangential'][:] = 0.5 * f['VelocityInducedAxial'][:]
+        f['VelocityInducedAxial'][:] = 1.0
+        f['VelocityInducedTangential'][:] = 0.0 * f['VelocityInducedAxial'][:]
     elif model == 'Drela':
         IterationVariables = ['psi']
         ModelIsDrela = True
@@ -568,6 +568,8 @@ def design(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225,
         L2Variation = L2Prev-L2Residual
         L2Prev = L2Residual
         print ('it=%d | Thrust=%g, Power=%g, PropulsiveEfficiency=%g | L2 res = %g'%(it,Thrust,Power,PropulsiveEfficiency, L2Residual))
+        loads = LL.computeLoads(NumberOfBlades=NumberOfBlades)
+        print(WARN+'integrated | Thrust=%g, Power=%g'%(loads['Thrust'],loads['Power'])+ENDC)
         zeta1 = Residual+zeta0
         RelaxFactor = 0.
         zeta0 = (1.0-RelaxFactor)*zeta1+RelaxFactor*zeta0
@@ -890,7 +892,7 @@ def designHover(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225
         L2Prev = L2Residual
         print('it=%d | Thrust=%g, Power=%g, Efficiency=%g | L2 res = %g'%(it,Thrust,Power,Efficiency, L2Residual))
         loads = LL.computeLoads(NumberOfBlades=NumberOfBlades)
-        print(WARN+'it=%d | Thrust=%g, Power=%g'%(it,loads['Thrust'],loads['Power'])+ENDC)
+        print(WARN+'integrated | Thrust=%g, Power=%g'%(loads['Thrust'],loads['Power'])+ENDC)
         x1 = Residual+x0
         RelaxFactor = 0.
         x0 = (1.0-RelaxFactor)*x1+RelaxFactor*x0
