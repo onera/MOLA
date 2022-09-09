@@ -496,33 +496,6 @@ def initializeCWIPIConnections(t, Distribution, CouplingSurfaces, tol=0.01):
 # Functions for coprocess (coupling with CWIPI)
 ################################################################################
 
-def rampFunction(iteri, iterf, vali, valf):
-    '''
-    Create a ramp function, going from **vali** to **valf** between **iteri** to **iterf**.
-
-    Parameters
-    ----------
-
-        iteri, iterf, vali, valf : float
-
-    Returns
-    -------
-
-        f : function
-            Ramp function. Could be called in ``x`` with:
-
-            >> f(x)
-    '''
-    iteri, iterf, vali, valf
-    slope = (valf-vali) / (iterf-iteri)
-    if vali == valf:
-        f = lambda x: vali*np.ones(np.shape(x))
-    elif vali < valf:
-        f = lambda x: np.maximum(vali, np.minimum(valf, slope*(x-iteri)+vali))
-    else:
-        f = lambda x: np.minimum(vali, np.maximum(valf, slope*(x-iteri)+vali))
-    return f
-
 def computeOptimalAlpha(FluidData, dt, problem='DirichletRobin'):
     '''
     Compute the optimal value of the coupling coefficient alpha.
@@ -772,7 +745,7 @@ def cwipiCoupling(to, pyC2Connections, setup, CurrentIteration):
 
         alphaOpt = computeOptimalAlpha(BCDataSet, dtCoupling)
         if MultiplicativeRampForAlpha:
-            alphaOpt *= rampFunction(**MultiplicativeRampForAlpha)(CurrentIteration)
+            alphaOpt *= J.rampFunction(**MultiplicativeRampForAlpha)(CurrentIteration)
         CWIPIdata['SEND'][CPLsurf]['alpha'] = alphaOpt
         print('Sending {}...'.format('alpha'))
         cplConnection.publish(alphaOpt, iteration=CurrentIteration, stride=1, tag=100)

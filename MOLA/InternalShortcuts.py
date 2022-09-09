@@ -484,6 +484,39 @@ def getxyz(zone):
     '''
     return getx(zone), gety(zone), getz(zone)
 
+def getRadiusTheta(zone, axis=(1,0,0)):
+    '''
+    Get the radius and the angle theta.
+
+    Parameters
+    ----------
+
+        zone : zone
+            Zone PyTree node from where coordinates are being extracted
+
+        axis : tuple
+            Axis of the cylindrical frame of reference
+
+    Returns
+    -------
+
+        r : numpy.ndarray
+            radius
+
+        theta : numpy.ndarray
+            angle in radians
+
+    See also
+    --------
+    getx, gety, getz, getxy, getxyz
+    '''
+    x, y, z = getxyz(zone)
+    if axis != (1,0,0):
+        raise Exception('getRadiusTheta is available only for axis=(1,0,0)')
+
+    r = (y**2 + z**2)**0.5
+    theta = np.arctan2(z, y)
+    return r, theta
 
 def getNearestPointIndex(a,P):
     '''
@@ -2363,3 +2396,31 @@ def getSignal(filename):
     except:
         pass
     return isOrder
+
+
+def rampFunction(iteri, iterf, vali, valf):
+    '''
+    Create a ramp function, going from **vali** to **valf** between **iteri** to **iterf**.
+
+    Parameters
+    ----------
+
+        iteri, iterf, vali, valf : float
+
+    Returns
+    -------
+
+        f : function
+            Ramp function. Could be called in ``x`` with:
+
+            >> f(x)
+    '''
+    iteri, iterf, vali, valf
+    slope = (valf-vali) / (iterf-iteri)
+    if vali == valf:
+        f = lambda x: vali*np.ones(np.shape(x))
+    elif vali < valf:
+        f = lambda x: np.maximum(vali, np.minimum(valf, slope*(x-iteri)+vali))
+    else:
+        f = lambda x: np.minimum(vali, np.maximum(valf, slope*(x-iteri)+vali))
+    return f
