@@ -3570,6 +3570,14 @@ def initializeFlowSolution(t, Initialization, ReferenceValues):
         if not I.getNodeFromName1(zone, 'FlowSolution#Init'):
             MSG = 'FlowSolution#Init is missing in zone {}'.format(I.getName(zone))
             raise ValueError(J.FAIL + MSG + J.ENDC)
+        
+        # Initialize body-force source terms if a DataSourceTerm node is found
+        DataSourceTerm = I.getNodeFromName(zone, 'FlowSolution#DataSourceTerm')
+        if DataSourceTerm:
+            I.__FlowSolutionCenters__ = 'FlowSolution#SourceTerm'
+            for FieldName in ReferenceValues['Fields']:
+                C._initVars(zone, 'centers:%s' % FieldName, 0.)
+            I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
 
 def initializeFlowSolutionFromReferenceValues(t, ReferenceValues):
     '''
