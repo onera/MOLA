@@ -39,6 +39,7 @@ import Post.PyTree as P
 from . import InternalShortcuts as J
 from . import Preprocess as PRE
 from . import JobManager as JM
+from . import BodyForceTurbomachinery as BF
 
 
 # ------------------------------------------------------------------ #
@@ -2163,6 +2164,7 @@ def loadSkeleton(Skeleton=None, PartTree=None):
             if addCoordinates: replaceNodeByName(zone, zonePath, 'GridCoordinates')
 
             replaceNodeByName(zone, zonePath, 'FlowSolution#Height')
+            replaceNodeByName(zone, zonePath, 'FlowSolution#DataSourceTerm')
 
             replaceNodeByName(zone, zonePath, ':CGNS#Ppart')
 
@@ -2292,6 +2294,40 @@ def moveLogFiles():
 def createSymbolicLink(src, dst):
     if Cmpi.rank == 0:
         J.createSymbolicLink(src, dst)
+
+
+def updateBodyForce(t, iteri=1., iterf=1.):
+
+    printCo('Update body force...', 0, color=J.CYAN)
+
+    toWithSourceTerms = I.copyRef(t)
+    
+    FluidProperties    = setup.FluidProperties
+    TurboConfiguration = setup.TurboConfiguration
+
+    coeff_eff = J.rampFunction(iteri, iterf, 0., 1.)
+
+    for zone in I.getZones(toWithSourceTerms):
+
+        if not I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm'): continue
+
+        NewSourceTerms = BF.computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration)
+
+        BLProtectionSourceTerms = BF.computeProtectionSourceTerms(zone, TurboConfiguration, ProtectedHeightPercentage=5.)
+        for key, value in BLProtectionSourceTerms.items():
+            NewSourceTerms[key] += value
+
+        for key, value in NewSourceTerms.items():
+            NewSourceTerms[key] = coeff_eff(CurrentIteration) * value
+
+        FSSourceTerm = I.newFlowSolution('FlowSolution#SourceTerm', gridLocation='CellCenter', parent=zone)
+        for name, newSourceTerm in NewSourceTerms.items():
+            I.newDataArray(name=name, value=newSourceTerm, parent=FSSourceTerm)
+
+    I._rmNodesByName(toWithSourceTerms, 'FlowSolution#Init')
+    Cmpi.barrier()
+    return toWithSourceTerms
+
 
 #_______________________________________________________________________________
 # PROBES MANAGEMENT

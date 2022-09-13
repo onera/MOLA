@@ -35,7 +35,7 @@ FILE_SURFACES    = 'surfaces.cgns'
 FILE_ARRAYS      = 'arrays.cgns'
 FILE_FIELDS      = 'tmp-fields.cgns' # BEWARE of tmp- suffix
 FILE_COLOG       = 'coprocess.log'
-FILE_BODYFORCESRC= 'BodyForceSources.cgns'
+FILE_BODYFORCESRC= 'bodyforce.cgns'
 DIRECTORY_OUTPUT = 'OUTPUT'
 DIRECTORY_LOGS   = 'LOGS'
 

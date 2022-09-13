@@ -201,7 +201,7 @@ def getVars(zone, VariablesName, Container='FlowSolution'):
     return Pointers
 
 
-def getVars2Dict(zone,VariablesName,Container='FlowSolution'):
+def getVars2Dict(zone, VariablesName=None, Container='FlowSolution'):
     """
     Get a dict containing the numpy arrays from a *zone* of the variables
     specified in *VariablesName*.
@@ -211,7 +211,8 @@ def getVars2Dict(zone,VariablesName,Container='FlowSolution'):
         zone : zone
             The CGNS zone from which numpy arrays are being retreived
         VariablesName : :py:class:`list` of :py:class:`str`
-            List of the field names to be retreived
+            List of the field names to be retreived.
+            If : py:obj:`None`, all variables in the **Container** are retreived.
         Container : str
             The name of the node to look for the requested variable
             (e.g. ``'FlowSolution'``). Container should be at 1 depth level
@@ -260,6 +261,8 @@ def getVars2Dict(zone,VariablesName,Container='FlowSolution'):
     """
     Pointers = {}
     FlowSolution = I.getNodeFromName1(zone,Container)
+    if VariablesName is None:
+        VariablesName = [I.getName(n) for n in I.getNodesFromType1(FlowSolution, 'DataArray_t')]
     for v in VariablesName:
         node = I.getNodeFromName1(FlowSolution,v)
         if node is not None:
@@ -2401,6 +2404,7 @@ def getSignal(filename):
 def rampFunction(iteri, iterf, vali, valf):
     '''
     Create a ramp function, going from **vali** to **valf** between **iteri** to **iterf**.
+    If **iteri**=**iterf**, then the return ramp function is a constant equal to **valf**.
 
     Parameters
     ----------
@@ -2415,7 +2419,8 @@ def rampFunction(iteri, iterf, vali, valf):
 
             >> f(x)
     '''
-    iteri, iterf, vali, valf
+    if iteri == iterf: 
+        return valf
     slope = (valf-vali) / (iterf-iteri)
     if vali == valf:
         f = lambda x: vali*np.ones(np.shape(x))

@@ -163,7 +163,7 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades, NumberOfRadialPoints, NumberO
             ready to be used in :func:`MOLA.WorkflowCompressor.prepareMainCGNS4ElsA`.
 
     '''
-
+    # Get the lines defining the geometry 
     Hub = I.getNodeFromName2(t, 'Hub')
     Shroud = I.getNodeFromName2(t, 'Shroud')
     LeadingEdge = I.getNodeFromName2(t, 'LeadingEdge')
@@ -173,45 +173,33 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades, NumberOfRadialPoints, NumberO
 
     # Extrapolate LE and TE lines to be sure that they intersect hub and shroud lines
     ExtrapDistance = 0.05 * W.getLength(LeadingEdge)
-    LeadingEdge = W.extrapolate(
-        LeadingEdge, ExtrapDistance, opposedExtremum=False)
-    LeadingEdge = W.extrapolate(
-        LeadingEdge, ExtrapDistance, opposedExtremum=True)
+    LeadingEdge = W.extrapolate(LeadingEdge, ExtrapDistance, opposedExtremum=False)
+    LeadingEdge = W.extrapolate(LeadingEdge, ExtrapDistance, opposedExtremum=True)
     ExtrapDistance = 0.05 * W.getLength(TrailingEdge)
-    TrailingEdge = W.extrapolate(
-        TrailingEdge, ExtrapDistance, opposedExtremum=False)
-    TrailingEdge = W.extrapolate(
-        TrailingEdge, ExtrapDistance, opposedExtremum=True)
+    TrailingEdge = W.extrapolate(TrailingEdge, ExtrapDistance, opposedExtremum=False)
+    TrailingEdge = W.extrapolate(TrailingEdge, ExtrapDistance, opposedExtremum=True)
 
     # Compute curves intersections and split curves
     # Split Hub
     cut_point_1 = W.getNearestIntersectingPoint(Hub, LeadingEdge)
     cut_point_2 = W.getNearestIntersectingPoint(Hub, TrailingEdge)
-    HubBetweenLEAndTE = W.trimCurveAlongDirection(
-        Hub, np.array([1., 0, 0]), cut_point_1, cut_point_2)
-    HubBetweenInletAndLE = W.trimCurveAlongDirection(
-        Hub, np.array([1., 0, 0]), np.array([-999, 0, 0]), cut_point_1)
-    HubBetweenTEAndOutlet = W.trimCurveAlongDirection(
-        Hub, np.array([1., 0, 0]), cut_point_2, np.array([999, 0, 0]))
+    HubBetweenLEAndTE = W.trimCurveAlongDirection(Hub, np.array([1., 0, 0]), cut_point_1, cut_point_2)
+    HubBetweenInletAndLE = W.trimCurveAlongDirection(Hub, np.array([1., 0, 0]), np.array([-999, 0, 0]), cut_point_1)
+    HubBetweenTEAndOutlet = W.trimCurveAlongDirection(Hub, np.array([1., 0, 0]), cut_point_2, np.array([999, 0, 0]))
     # Split Shroud
     cut_point_1 = W.getNearestIntersectingPoint(Shroud, LeadingEdge)
     cut_point_2 = W.getNearestIntersectingPoint(Shroud, TrailingEdge)
-    ShroudBetweenLEAndTE = W.trimCurveAlongDirection(
-        Shroud, np.array([1., 0, 0]), cut_point_1, cut_point_2)
-    ShroudBetweenInletAndLE = W.trimCurveAlongDirection(
-        Shroud, np.array([1., 0, 0]), np.array([-999, 0, 0]), cut_point_1)
-    ShroudBetweenTEAndOutlet = W.trimCurveAlongDirection(
-        Shroud, np.array([1., 0, 0]), cut_point_2, np.array([999, 0, 0]))
+    ShroudBetweenLEAndTE = W.trimCurveAlongDirection(Shroud, np.array([1., 0, 0]), cut_point_1, cut_point_2)
+    ShroudBetweenInletAndLE = W.trimCurveAlongDirection(Shroud, np.array([1., 0, 0]), np.array([-999, 0, 0]), cut_point_1)
+    ShroudBetweenTEAndOutlet = W.trimCurveAlongDirection(Shroud, np.array([1., 0, 0]), cut_point_2, np.array([999, 0, 0]))
     # Split LE
     cut_point_1 = W.getNearestIntersectingPoint(LeadingEdge, Hub)
     cut_point_2 = W.getNearestIntersectingPoint(LeadingEdge, Shroud)
-    LeadingEdge = W.trimCurveAlongDirection(
-        LeadingEdge, np.array([0, 1, 0]), cut_point_1, cut_point_2)
+    LeadingEdge = W.trimCurveAlongDirection(LeadingEdge, np.array([0, 1, 0]), cut_point_1, cut_point_2)
     # Split TE
     cut_point_1 = W.getNearestIntersectingPoint(TrailingEdge, Hub)
     cut_point_2 = W.getNearestIntersectingPoint(TrailingEdge, Shroud)
-    TrailingEdge = W.trimCurveAlongDirection(
-        TrailingEdge, np.array([0, 1, 0]), cut_point_1, cut_point_2)
+    TrailingEdge = W.trimCurveAlongDirection(TrailingEdge, np.array([0, 1, 0]), cut_point_1, cut_point_2)
 
     # Modify ends of LE line to collapse them on end points hub and shroud lines.
     # Else there will be an error during TFI (TypeError: TFI: input arrays must be C0)
@@ -244,37 +232,26 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades, NumberOfRadialPoints, NumberO
     I.setName(LeadingEdge, 'LeadingEdge')
     I.setName(TrailingEdge, 'TrailingEdge')
 
-    Inlet = W.discretize(Inlet, N=NumberOfRadialPoints,
-                         Distribution=RadialDistribution)
-    Outlet = W.discretize(Outlet, N=NumberOfRadialPoints,
-                          Distribution=RadialDistribution)
-    LeadingEdge = W.discretize(
-        LeadingEdge, N=NumberOfRadialPoints, Distribution=RadialDistribution)
-    TrailingEdge = W.discretize(
-        TrailingEdge, N=NumberOfRadialPoints, Distribution=RadialDistribution)
+    # Apply the points distribution for each line
+    Inlet = W.discretize(Inlet, N=NumberOfRadialPoints, Distribution=RadialDistribution)
+    Outlet = W.discretize(Outlet, N=NumberOfRadialPoints, Distribution=RadialDistribution)
+    LeadingEdge = W.discretize(LeadingEdge, N=NumberOfRadialPoints, Distribution=RadialDistribution)
+    TrailingEdge = W.discretize(TrailingEdge, N=NumberOfRadialPoints, Distribution=RadialDistribution)
 
-    HubBetweenInletAndLE = W.discretize(
-        HubBetweenInletAndLE, N=NumberOfAxialPointsBeforeLE, Distribution=AxialDistributionBeforeLE)
-    ShroudBetweenInletAndLE = W.discretize(
-        ShroudBetweenInletAndLE, N=NumberOfAxialPointsBeforeLE, Distribution=AxialDistributionBeforeLE)
+    HubBetweenInletAndLE = W.discretize(HubBetweenInletAndLE, N=NumberOfAxialPointsBeforeLE, Distribution=AxialDistributionBeforeLE)
+    ShroudBetweenInletAndLE = W.discretize(ShroudBetweenInletAndLE, N=NumberOfAxialPointsBeforeLE, Distribution=AxialDistributionBeforeLE)
 
-    HubBetweenLEAndTE = W.discretize(
-        HubBetweenLEAndTE, N=NumberOfAxialPointsBetweenLEAndTE, Distribution=AxialDistributionBetweenLEAndTE)
-    ShroudBetweenLEAndTE = W.discretize(
-        ShroudBetweenLEAndTE, N=NumberOfAxialPointsBetweenLEAndTE, Distribution=AxialDistributionBetweenLEAndTE)
+    HubBetweenLEAndTE = W.discretize(HubBetweenLEAndTE, N=NumberOfAxialPointsBetweenLEAndTE, Distribution=AxialDistributionBetweenLEAndTE)
+    ShroudBetweenLEAndTE = W.discretize(ShroudBetweenLEAndTE, N=NumberOfAxialPointsBetweenLEAndTE, Distribution=AxialDistributionBetweenLEAndTE)
 
-    HubBetweenTEAndOutlet = W.discretize(
-        HubBetweenTEAndOutlet, N=NumberOfAxialPointsAfterTE, Distribution=AxialDistributionAfterTE)
-    ShroudBetweenTEAndOutlet = W.discretize(
-        ShroudBetweenTEAndOutlet, N=NumberOfAxialPointsAfterTE, Distribution=AxialDistributionAfterTE)
+    HubBetweenTEAndOutlet = W.discretize(HubBetweenTEAndOutlet, N=NumberOfAxialPointsAfterTE, Distribution=AxialDistributionAfterTE)
+    ShroudBetweenTEAndOutlet = W.discretize(ShroudBetweenTEAndOutlet, N=NumberOfAxialPointsAfterTE, Distribution=AxialDistributionAfterTE)
+
 
     # Use TFI to create the 2D mesh
-    upstream = G.TFI(
-        [Inlet, LeadingEdge, HubBetweenInletAndLE, ShroudBetweenInletAndLE])
-    bodyForce = G.TFI([LeadingEdge, TrailingEdge,
-                      HubBetweenLEAndTE, ShroudBetweenLEAndTE])
-    downstream = G.TFI(
-        [TrailingEdge, Outlet, HubBetweenTEAndOutlet, ShroudBetweenTEAndOutlet])
+    upstream = G.TFI([Inlet, LeadingEdge, HubBetweenInletAndLE, ShroudBetweenInletAndLE])
+    bodyForce = G.TFI([LeadingEdge, TrailingEdge,HubBetweenLEAndTE, ShroudBetweenLEAndTE])
+    downstream = G.TFI([TrailingEdge, Outlet, HubBetweenTEAndOutlet, ShroudBetweenTEAndOutlet])
     I.setName(upstream, 'upstream')
     I.setName(bodyForce, 'bodyForce')
     I.setName(downstream, 'downstream')
@@ -284,15 +261,28 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades, NumberOfRadialPoints, NumberO
     if Skeleton:
         P._extractMesh(Skeleton, bodyForce, order=2, extrapOrder=0, constraint=0.)
         bodyForce = computeBlockage(bodyForce, NumberOfBlades)
-        C._initVars(bodyForce, '{isf}=1')
-        filterDataSourceTerms(bodyForce)
-        I._renameNode(bodyForce, 'FlowSolution', 'FlowSolution#DataSourceTerm')
+        bodyForce = C.node2Center(bodyForce, I.__FlowSolutionNodes__)
+        C._initVars(bodyForce, '{centers:isf}=1')
+        I._rmNodesByName1(bodyForce, I.__FlowSolutionNodes__)
 
     mesh2d = C.newPyTree(['Base', [upstream, bodyForce, downstream]])
 
     # Make a partial revolution to build the 3D mesh
-    mesh3d = D.axisym(mesh2d, (0, 0, 0), (1, 0, 0),
-                      angle=AzimutalAngleDeg, Ntheta=NumberOfAzimutalPoints)
+    mesh3d = D.axisym(mesh2d, (0, 0, 0), (1, 0, 0), angle=AzimutalAngleDeg, Ntheta=NumberOfAzimutalPoints)
+
+    # Move coordinates to cell center and compute radius and azimuthal angle
+    bodyForce = I.getNodeFromName2(mesh3d, 'bodyForce')
+    for coord in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
+        C._node2Center__(bodyForce, coord)
+    C._initVars(bodyForce, '{centers:radius}=sqrt({centers:CoordinateY}**2+{centers:CoordinateZ}**2)')
+    C._initVars(bodyForce, '{centers:theta}=arctan2({centers:CoordinateZ},{centers:CoordinateY})')
+    # Rename x,y,z at cell centers, otherwise Cassiopee and elsA have a problem reading the tree...
+    # Notice that renaming CoordinateX to x does not solve the problem because Cassiopee know x
+    # as an alias for CoordinateX, so it will fail to read the mesh anyway.
+    FS = I.getNodeFromType1(bodyForce, 'FlowSolution_t')
+    I._renameNode(FS, 'CoordinateX', 'xCell')
+    I._renameNode(FS, 'CoordinateY', 'yCell')
+    I._renameNode(FS, 'CoordinateZ', 'zCell')
 
     base = I.getBases(mesh3d)[0]
     upstream = I.getNodeFromNameAndType(base, 'upstream', 'Zone_t')
@@ -341,11 +331,12 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades, NumberOfRadialPoints, NumberO
 
     I.checkPyTree(mesh3d)
     I._correctPyTree(mesh3d)
+    I._renameNode(mesh3d, I.__FlowSolutionCenters__, 'FlowSolution#DataSourceTerm')
 
     return mesh3d
 
 
-def extractRowGeometricalData(mesh, row):
+def extractRowGeometricalData(mesh, row, save=False):
 
     def profilesExtractionAndAnalysis(tree, row, blade='Main_Blade',
                                         zones_for_meridional_lines_extraction=None,
@@ -506,7 +497,7 @@ def extractRowGeometricalData(mesh, row):
     C._initVars(skeletonTree, '{nx}={sx}/({sx}**2+{sy}**2+{sz}**2)**0.5')
     C._initVars(skeletonTree, '{nr}={sr}/({sx}**2+{sy}**2+{sz}**2)**0.5')
     C._initVars(skeletonTree, '{nt}={st}/({sx}**2+{sy}**2+{sz}**2)**0.5')
-    C._extractVars(skeletonTree, ['CoordinateX', 'CoordinateY', 'CoordinateZ', 'nx', 'nr', 'nt', 'theta'])
+    C._extractVars(skeletonTree, ['CoordinateX', 'CoordinateY', 'CoordinateZ', 'nx', 'nr', 'nt'])
 
     skeletonZone = I.getZones(skeletonTree)[0]
 
@@ -524,8 +515,8 @@ def extractRowGeometricalData(mesh, row):
             reshapedValue[i, :] = value
         I.newDataArray(name=I.getName(node), value=reshapedValue, parent=FlowSolution)
 
-    xhub, rhub = readEndWallLine('meridional_lines_row_1/merid001.dat')
-    xshroud, rshroud = readEndWallLine('meridional_lines_row_1/merid141.dat')
+    xhub, rhub = readEndWallLine(f'{directory_meridional_lines}/merid001.dat')
+    xshroud, rshroud = readEndWallLine(f'{directory_meridional_lines}/merid141.dat')
     xLE, rLE = readLEorTE('LE.dat')
     xTE, rTE = readLEorTE('TE.dat')
 
@@ -538,11 +529,13 @@ def extractRowGeometricalData(mesh, row):
 
     t = C.newPyTree(['Base', [Hub, Shroud, LeadingEdge,
                     TrailingEdge, Inlet, Outlet, skeletonZone]])
-    C.convertPyTree2File(t, f'meridional_lines_{row}.cgns')
 
     os.system(f'rm -rf {directory_meridional_lines}')
     os.system(f'rm -rf {directory_profiles}')
     os.system('rm -f LE.dat TE.dat chord.dat thickness.dat skeleton.dat')
+
+    if save:
+        C.convertPyTree2File(t, f'BodyForceData_{row}.cgns')
 
     return t
 
@@ -550,43 +543,82 @@ def extractRowGeometricalData(mesh, row):
 def computeBlockage(t, Nblades, eps=1e-6):
     C._initVars(t, '{b}=-{thickness}/({nt}**2+%.15f)**0.5/%.15f/{CoordinateY}' % (eps, 2*np.pi/Nblades))
     t = P.computeGrad(t, 'b')
-    t = C.center2Node(t, 'centers:gradxb')
-    t = C.center2Node(t, 'centers:gradyb')
-    I._rmNodesByName(t, 'FlowSolution#Centers')
     C._initVars(t, '{blockage}=1.+{b}')
     I._rmNodesByName(t, 'b')
-    I.renameNode(t, 'gradyb', 'gradrb')
+    I._rmNodesByName(t, 'gradzb')
+    I._renameNode(t, 'gradyb', 'gradrb')
     return t
 
 
-def filterDataSourceTerms(t):
-    pass
+def filterDataSourceTermsRadial(t):
+    val_filtered        = ['nx','nr','nt','xc','chord','chordx','b','gradxb','gradrb','delta0']
+    cg = 0.0005  # parametre de lissage [-]
+    # Coefficient de lissage des termes source sur les derniers pc radial de veine
+    coef_env_c = 15.*cg
+    # Coefficient de lissage des termes source sur les premiers pc radial de veine
+    coef_env_m = 40.*cg
+    for zone in I.getNodesFromType(t, 'Zone_t'):
+        zone_dim = I.getZoneDim(zone)
+        Ni, Nj = zone_dim[1], zone_dim[2]
+        dist_inlet_hub = T.subzone(zone, (1, 1, 1), (1, Nj, 1))
+        h_in = D.getLength(dist_inlet_hub)
+        jprot_hub, jprot_shroud = 0, Nj-1
+        for j in range(Nj):
+            dist_inlet_tp = T.subzone(zone, (1, 1, 1), (1, j+1, 1))
+            h_tp = D.getLength(dist_inlet_tp)
+            if h_tp < h_in*coef_env_m:
+                jprot_hub = j
+            if h_tp <= h_in*(1.-coef_env_c):
+                jprot_shroud = j
+        for flowSol in I.getNodesFromType(zone, 'FlowSolution_t'):
+            for data in I.getNodesFromType(flowSol, 'DataArray_t'):
+                data_name = I.getName(data)
+                if data_name in val_filtered:
+                    data_t = I.getValue(data)
+                    data_2d_t = np.zeros((Ni, Nj))
+                    for j in range(0, jprot_hub):
+                        data_2d_t[:, j] = data_t[:, jprot_hub+1]
+                    for j in range(
+                            jprot_hub, jprot_shroud):
+                        data_2d_t[:, j] = data_t[:, j]
+                    for j in range(jprot_shroud, Nj):
+                        data_2d_t[:, j] = data_t[:, jprot_shroud]
+                    I.setValue(data, np.asfortranarray(data_2d_t))
 
 
+def filterDataSourceTermsAxial(t):
+    val_filtered = ['nx', 'nr', 'nt', 'xc', 'chord',
+                    'chordx', 'b', 'gradxb', 'gradrb', 'delta0']
+    cg          = 0.0005 # parametre de lissage [-]
+    coef_env_BA = 5.*cg     #Coefficient de lissage des termes source sur les derniers pc axial de veine
+    coef_env_BF = 5.*cg     #Coefficient de lissage des termes source sur les premiers pc axial de veine
 
-
-
-def updateBodyForce(t, iteri=1., iterf=300., relax=0.):
-
-    FluidProperties    = setup.FluidProperties
-    TurboConfiguration = setup.TurboConfiguration
-
-    coeff_eff = J.rampFunction(iteri, iterf, 0., 1.)
-
-    for zone in I.getZones(t):
-
-        NewSourceTerms = computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration)
-
-        BLProtectionSourceTerms = computeProtectionSourceTerms(zone, TurboConfiguration, ProtectedHeightPercentage=5.)
-        for key, value in BLProtectionSourceTerms.items():
-            NewSourceTerms[key] += value
-
-        CurrentSourceTermNode = I.getNodeFromName1(zone, 'FlowSolution#SourceTerm')
-        for name, newSourceTerm in NewSourceTerms.items():
-            node = I.getNodeFromName1(CurrentSourceTermNode, name)
-            currentSourceTerm = I.getValue(node) 
-            currentSourceTerm = coeff_eff * ((1-relax) * newSourceTerm + relax * currentSourceTerm)
-
+    for zone in I.getNodesFromType(t, 'Zone_t'):
+        zone_dim = I.getZoneDim(zone)
+        Ni, Nj             = zone_dim[1],zone_dim[2]
+        dist_inlet_hub    = T.subzone(zone, (1,1,1),(Ni,1,1))
+        xBABF_hub = D.getLength(dist_inlet_hub)
+        iprot_BA, iprot_BF = 0,Ni-1
+        for i in range(Ni):
+            dist_outlet_tp = T.subzone(zone, (1,1,1),(i+1,1,1))
+            xBAtp =  D.getLength(dist_outlet_tp)
+            if xBAtp < xBABF_hub * coef_env_BA:
+                iprot_BA = i
+            if xBAtp<=xBABF_hub*(1.-coef_env_BF): 
+                iprot_BF = i
+        for flowSol in I.getNodesFromType(zone, 'FlowSolution_t'):
+            for data in I.getNodesFromType(flowSol, 'DataArray_t'):
+                data_name = I.getName(data)
+                if data_name in val_filtered:
+                    data_t = I.getValue(data)
+                    data_2d_t     = np.zeros((Ni, Nj))
+                    for i in range(0,iprot_BA):
+                        data_2d_t[i,:] = data_t[iprot_BA,:]
+                    for i in range(iprot_BA,iprot_BF): 
+                        data_2d_t[i,:] = data_t[i,:]
+                    for i in range(iprot_BF,Ni):
+                        data_2d_t[i,:] = data_t[iprot_BF,:]
+                    I.setValue(data, np.asfortranarray(data_2d_t))
 
 def computeBlockageSourceTerms(zone, tol=1e-5):
     '''
@@ -609,17 +641,14 @@ def computeBlockageSourceTerms(zone, tol=1e-5):
             MomentumZ and EnergyStagnation.
     '''
 
+    FlowSolution = J.getVars2Dict(zone, Container='FlowSolution#Init')
+    DataSourceTerms=J.getVars2Dict(zone, ['theta', 'blockage', 'gradxb', 'gradrb', 'nt'], Container='FlowSolution#DataSourceTerm')
 
-    FlowSolution    = J.getVars2Dict(zone, C.getVarNames(zone), Container='FlowSolution#Init')
-    DataSourceTerms = J.getVars2Dict(zone, ['b', 'gradxb', 'gradrb', 'nt'], Container='FlowSolution#DataSourceTerm')
-
-    radius, theta = J.getRadiusTheta(zone)    
-    Blockage = DataSourceTerms['b']
-
+    Blockage = DataSourceTerms['blockage']
     Density = np.maximum(FlowSolution['Density'], tol)
     EnthalpyStagnation = (FlowSolution['EnergyStagnationDensity'] + FlowSolution['Pressure']) / Density
     Vx, Vy, Vz = FlowSolution['MomentumX']/Density, FlowSolution['MomentumY'] / Density, FlowSolution['MomentumZ']/Density
-    Vr = Vy * np.cos(theta) + Vz * np.sin(theta)
+    Vr = Vy * np.cos(DataSourceTerms['theta']) + Vz * np.sin(DataSourceTerms['theta'])
 
     Sb = -(Vx * DataSourceTerms['gradxb'] + Vr *DataSourceTerms['gradrb']) / Blockage
 
@@ -665,18 +694,17 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, tol=1e-5):
     NumberOfBlades = TurboConfiguration['Rows'][rowName]['NumberOfBlades']
     RotationSpeed = TurboConfiguration['Rows'][rowName]['RotationSpeed']
 
-    FlowSolution    = J.getVars2Dict(zone, C.getVarNames(zone), Container='FlowSolution#Init')
-    DataSourceTerms = J.getVars2Dict(zone, C.getVarNames(zone), Container='FlowSolution#DataSourceTerm')
+    FlowSolution    = J.getVars2Dict(zone, Container='FlowSolution#Init')
+    DataSourceTerms = J.getVars2Dict(zone, Container='FlowSolution#DataSourceTerm')
 
     # Coordinates
-    radius, theta = J.getRadiusTheta(zone)
-    cosTheta = np.cos(theta)
-    sinTheta = np.sin(theta)
+    cosTheta = np.cos(DataSourceTerms['theta'])
+    sinTheta = np.sin(DataSourceTerms['theta'])
 
     # Flow data
     Density = np.maximum(FlowSolution['Density'], tol)
     Vx, Vy, Vz = FlowSolution['MomentumX']/Density, FlowSolution['MomentumY']/Density, FlowSolution['MomentumZ']/Density
-    Wx, Wr, Wt = Vx, Vy*cosTheta+Vz*sinTheta, -Vy*sinTheta+Vz*cosTheta-radius*RotationSpeed
+    Wx, Wr, Wt = Vx, Vy*cosTheta+Vz*sinTheta, -Vy*sinTheta + Vz*cosTheta-DataSourceTerms['radius']*RotationSpeed
     Vmag, Wmag = (Vx**2+Vy**2+Vz**2)**0.5, np.maximum(tol, (Wx**2+Wr**2+Wt**2)**0.5)
     Temperature = np.maximum(tol, (FlowSolution['EnergyStagnationDensity']/Density-0.5*Vmag**2.)/FluidProperties['cp'])
     Mrel = Wmag/(FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*Temperature)**0.5
@@ -696,13 +724,14 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, tol=1e-5):
     CompressibilityCorrection[supersonic_bf]= np.clip(4.0/(2*np.pi)/(Mrel[supersonic_bf]**2-1)**0.5, 0.0, 3.0)
 
     # Force normal to the chord
-    blade2BladeDistance = 2*np.pi*radius / NumberOfBlades * np.absolute(DataSourceTerms['nt']) * DataSourceTerms['b']
+    blade2BladeDistance = 2*np.pi*DataSourceTerms['radius'] / NumberOfBlades * \
+        np.absolute(DataSourceTerms['nt']) * DataSourceTerms['blockage']
     incidence = np.arcsin(Wpn/Wmag)
     fn = -0.5*Wmag**2. * CompressibilityCorrection * 2*np.pi*incidence / blade2BladeDistance * DataSourceTerms['isf']
 
     # Friction on blade
     Viscosity = FluidProperties['SutherlandViscosity']*np.sqrt(Temperature/FluidProperties['SutherlandTemperature'])*(1+FluidProperties['SutherlandConstant'])/(1+FluidProperties['SutherlandConstant']*FluidProperties['SutherlandTemperature']/Temperature)
-    Re_x = Density*DataSourceTerms['xc']*DataSourceTerms['chordx'] * Wmag / Viscosity
+    Re_x = Density*DataSourceTerms['xsc']*DataSourceTerms['chordx'] * Wmag / Viscosity
     cf = 0.0592*Re_x**(-0.2)
 
     # Force parallel to the chord
@@ -720,7 +749,7 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, tol=1e-5):
         MomentumX        = Density * fx,
         MomentumY        = Density * fy,
         MomentumZ        = Density * fz,
-        EnergyStagnation = Density * radius * RotationSpeed * ft
+        EnergyStagnation=Density * DataSourceTerms['radius'] * RotationSpeed * ft
     )
 
     # Add blockage terms
@@ -766,11 +795,11 @@ def computeProtectionSourceTerms(zone, TurboConfiguration, ProtectedHeightPercen
     rowName = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
     RotationSpeed = TurboConfiguration['Rows'][rowName]['RotationSpeed']
 
-    FlowSolution = J.getVars2Dict(zone, C.getVarNames(zone), Container='FlowSolution#Init')
+    FlowSolution = J.getVars2Dict(zone, Container='FlowSolution#Init')
+    DataSourceTerms = J.getVars2Dict(zone, Container='FlowSolution#DataSourceTerm')
 
     # Coordinates
-    x = J.getx(zone)
-    radius, theta = J.getRadiusTheta(zone)
+    x, radius, theta = DataSourceTerms['xCell'], DataSourceTerms['radius'], DataSourceTerms['theta']
     cosTheta = np.cos(theta)
     sinTheta = np.sin(theta)
 
@@ -785,19 +814,14 @@ def computeProtectionSourceTerms(zone, TurboConfiguration, ProtectedHeightPercen
     dr_j = np.absolute(radius[ 0,-1, 0] - radius[0, 0, 0])
     dr_k = np.absolute(radius[ 0, 0,-1] - radius[0, 0, 0])
     dr_array = np.array([dr_i, dr_j, dr_k])
-    if np.argmin(dr_array) == 0:
-        radialIndex = 'i' 
-    elif np.argmin(dr_array) == 1:
-        radialIndex = 'j'
-    else:
-        radialIndex = 'k'
+    radialIndex = np.argmin(dr_array) # 0, 1 or 2, for i, j or k
 
-    Npoints_bottomHalf = int(np.floor(x.shape[radialIndex]/2.))
-    Npoints_topHalf = x.shape[radialIndex] - Npoints_bottomHalf
+    Npoints_bottomHalf = int(np.floor(radius.shape[radialIndex]/2.))
+    Npoints_topHalf = radius.shape[radialIndex] - Npoints_bottomHalf
 
-    if radialIndex == 'i':
+    if radialIndex == 0:
         radialMeshLine = ((x[0, 0, 0]-x[:, 0, 0])**2 + (radius[0, 0, 0]-radius[:, 0, 0])**2)**0.5
-    elif radialIndex == 'j':
+    elif radialIndex == 1:
         radialMeshLine = ((x[0, 0, 0]-x[0, :, 0])**2 + (radius[0, 0, 0]-radius[0, :, 0])**2)**0.5
     else:
         radialMeshLine = ((x[0, 0, 0]-x[0, 0, :])**2 + (radius[0, 0, 0]-radius[0, 0, :])**2)**0.5
@@ -823,12 +847,12 @@ def computeProtectionSourceTerms(zone, TurboConfiguration, ProtectedHeightPercen
                 3D-array uniform in the radial direction on each half of the flow channel, 
                 built by repeatition of the surfaces at the edge of the boudary layers at hub and shroud.
         '''
-        if radialIndex == 'i':
+        if radialIndex == 0:
             vectorAtHubBL            = vector[hubEdgeIndex, :, :]
             vectorAtShroudBL         = vector[shroudEdgeIndex, :, :]
             vectorAtHubBLRepeated    = np.repeat(vectorAtHubBL[np.newaxis, :, :], Npoints_bottomHalf, axis=2)
             vectorAtShroudBLRepeated = np.repeat(vectorAtShroudBL[np.newaxis, :, :], Npoints_topHalf, axis=2)
-        elif radialIndex == 'j':
+        elif radialIndex == 1:
             vectorAtHubBL            = vector[:, hubEdgeIndex, :]
             vectorAtShroudBL         = vector[:, shroudEdgeIndex, :]
             vectorAtHubBLRepeated    = np.repeat(vectorAtHubBL[:, np.newaxis, :], Npoints_bottomHalf, axis=2)

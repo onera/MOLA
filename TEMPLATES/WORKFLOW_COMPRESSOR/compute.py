@@ -34,7 +34,7 @@ FILE_SURFACES    = 'surfaces.cgns'
 FILE_ARRAYS      = 'arrays.cgns'
 FILE_FIELDS      = 'tmp-fields.cgns' # BEWARE of tmp- suffix
 FILE_COLOG       = 'coprocess.log'
-FILE_BODYFORCESRC= 'BodyForceSources.cgns'
+FILE_BODYFORCESRC= 'bodyforce.cgns'
 DIRECTORY_OUTPUT = 'OUTPUT'
 DIRECTORY_LOGS   = 'LOGS'
 
@@ -124,19 +124,12 @@ else:
     e=elsAxdt.XdtCGNS(FILE_CGNS)
 
 # ------------------------------- BODYFORCE ------------------------------- #
-toWithSourceTerms = []
-BodyForceDisks = []
 BODYFORCE_INITIATED = False
-if BodyForceInputData:
-    LocalBodyForceInputData = LL.getLocalBodyForceInputData(BodyForceInputData)
-    LL.invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData)
-    NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NumberOfProcessors)
+COMPUTE_BODYFORCE   = False
 # ------------------------------------------------------------------------- #
 
 e.action=elsAxdt.COMPUTE
 e.mode=elsAxdt.READ_ALL
-# e.mode |=elsAxdt.CGNS_CHIMERACOEFF
-
 e.compute()
 
 t = CO.extractFields(Skeleton)

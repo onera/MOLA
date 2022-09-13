@@ -29,12 +29,6 @@ if CO.getSignal('RELOAD_SETUP'):
     try: BodyForceInputData = setup.BodyForceInputData
     except: BodyForceInputData = None
 
-    if BodyForceInputData:
-        LocalBodyForceInputData = LL.getLocalBodyForceInputData(BodyForceInputData)
-        LL.invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData)
-        NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NumberOfProcessors)
-
-
 UpdateFieldsFrequency     = CO.getOption('UpdateFieldsFrequency', default=1e3)
 UpdateArraysFrequency     = CO.getOption('UpdateArraysFrequency', default=20)
 UpdateSurfacesFrequency   = CO.getOption('UpdateSurfacesFrequency', default=500)
@@ -67,9 +61,9 @@ if not SAVE_ARRAYS:
     SAVE_ARRAYS = all([it%UpdateArraysFrequency == 0, it>inititer])
 
 if not SAVE_BODYFORCE:
-    SAVE_BODYFORCE = all([ BodyForceInputData,
-                          it  % BodyForceSaveFrequency == 0,
-                          it>inititer])
+    SAVE_BODYFORCE = all([BodyForceInputData,
+                          it % BodyForceSaveFrequency == 0,
+                          it > inititer])
 
 if BodyForceInputData and not COMPUTE_BODYFORCE:
     if it >= BodyForceInitialIteration:
@@ -86,6 +80,18 @@ ENTER_COUPLING = anySignal or ReachedTimeOutMargin
 if ENTER_COUPLING:
 
     t = CO.extractFields(Skeleton)
+
+    if COMPUTE_BODYFORCE:
+        BODYFORCE_INITIATED = True
+        toWithSourceTerms = CO.updateBodyForce(t)
+
+        if SAVE_BODYFORCE:
+            BodyForceTree = C.newPyTree(['BODYFORCE'])
+            BodyForceBase = I.getBases(BodyForceTree)[0]
+            for zone in I.getZones(toWithSourceTerms):
+                if I.getNodeFromName1(zone, 'FlowSolution#SourceTerm'):
+                    I.addChild(BodyForceBase, zone)
+            CO.save(BodyForceTree, os.path.join(DIRECTORY_OUTPUT, FILE_BODYFORCESRC))
 
     if SAVE_FIELDS:
         CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
@@ -119,3 +125,8 @@ if ENTER_COUPLING:
         CO.printCo('TERMINATING COMPUTATION', proc=0, color=CO.GREEN)
         CO.updateAndWriteSetup(setup)
         elsAxdt.safeInterrupt()
+
+if BODYFORCE_INITIATED:
+    Cmpi.barrier()
+    # CO.printCo('sending source terms to elsA...', proc=0)
+    elsAxdt.xdt(elsAxdt.PYTHON, ('xdt-runtime-tree', toWithSourceTerms, 1))

@@ -342,7 +342,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-6, unstructured=IsUnstructured)
     elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=IsUnstructured)
-    if BodyForceInputData: NumericalParams['useBodyForce'] = True
+    if BodyForceInputData or I.getNodeFromName3(t, 'FlowSolution#DataSourceTerm'): 
+        NumericalParams['useBodyForce'] = True
     if not 'NumericalScheme' in NumericalParams:
         NumericalParams['NumericalScheme'] = 'roe'
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues,
@@ -376,7 +377,10 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
                         Extractions=Extractions)
-    if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
+    if BodyForceInputData: 
+        AllSetupDics['BodyForceInputData'] = BodyForceInputData
+    elif I.getNodeFromName3(t, 'FlowSolution#DataSourceTerm'): 
+        AllSetupDics['BodyForceInputData'] = True
 
     BCExtractions = dict(
         BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
