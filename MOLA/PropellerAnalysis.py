@@ -449,6 +449,7 @@ def computePUMA(NBlades, Velocity, RPM, Temperature, Density,
             CPlot._addRender2Zone(z, material='Glass', color='Blue', blending=1., meshOverlay=None, shaderParameters=(1.43,2.0))
         if Spinner is not None: I.addChild(BaseGeom,SpinnerSurface)
         for z in BaseGeom[2]: CPlot._addRender2Zone(z, material='Solid', color='Red')
+    for z in I.getZones(t): z[0] = str(z[0])
     C.convertPyTree2File(t, '%s/WakeAndGeometry.cgns'%PUMADir)
 
 

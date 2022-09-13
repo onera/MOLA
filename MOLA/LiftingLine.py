@@ -4239,7 +4239,7 @@ def convertHOSTPolarFile2Dict(filename):
 
         LinesQty = len(lines)
 
-        Data['Title']=lines[0].split()[0]
+        Data['Title']='_'.join(lines[0].split()[1:])
 
         # Read Allowed Variables:
         for i in range(LinesQty):

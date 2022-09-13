@@ -917,6 +917,62 @@ class LiftingLine(Curve):
 
         return DeltaTwist
 
+    def computeAxialSpeed(self):
+        Kinematics = self.getParameters('Kinematics')
+        Conditions = self.getParameters('Conditions')
+        VelocityTranslation = Kinematics['VelocityTranslation']
+        VelocityFreestream = Conditions['VelocityFreestream']
+        RotationAxis = Kinematics['RotationAxis']
+        AxialSpeed = (VelocityTranslation-VelocityFreestream).dot(RotationAxis)
+        
+        return AxialSpeed
+
+    def addPropellerLoads(self):
+        n = self.RPM/60.
+        loads = self.getParameters('.Loads')
+        if not loads:
+            raise ValueError('must call computeLoads before addPropellerLoads')
+        AdvanceVelocityNorm = self.computeAxialSpeed()
+        Span = self.fields('Span')
+        d = 2*Span.max() 
+        Conditions = self.getParameters('Conditions')
+        CTpropeller = loads['Thrust'] / (Conditions['Density'] * n**2 * d**4)
+        CPpropeller = loads['Power']  / (Conditions['Density'] * n**3 * d**5)
+        Jparam = AdvanceVelocityNorm / (n*d)
+        FigureOfMerit = np.sqrt(2./np.pi)* np.maximum(CTpropeller,0)**1.5 / \
+                                           np.maximum(CPpropeller,1e-12)
+        PropEff = AdvanceVelocityNorm*loads['Thrust']/np.abs(loads['Power'])
+        loads['CTpropeller']=CTpropeller
+        loads['CPpropeller']=CPpropeller
+        loads['Jparam']=Jparam
+        loads['FigureOfMerit']=FigureOfMerit
+        loads['PropulsiveEfficiency']=PropEff
+
+        IntegralData = self.setParameters('.Loads',**loads)
+
+        return IntegralData
+
+    def addHelicopterRotorLoads(self):
+        Omega = self.RPM*np.pi/30.
+        loads = self.getParameters('.Loads')
+        if not loads:
+            raise ValueError('must call computeLoads before addHelicopterRotorLoads')
+        Span = self.fields('Span')
+        R = 2*Span.max() 
+        Conditions = self.getParameters('Conditions')
+        T = loads['Thrust']
+        P = loads['Power']
+        rho = Conditions['Density']
+        CT = 2*T/(rho*(Omega*R)**2*np.pi*R**2)
+        CP = 2*P/(rho*(Omega*R)**3*np.pi*R**2)
+        FigureOfMeritHeli = 1./np.sqrt(2.)/CP * CT**1.5
+        loads['CTheli']=CT
+        loads['CPheli']=CP
+        loads['FigureOfMeritHeli']=FigureOfMeritHeli
+
+        IntegralData = self.setParameters('.Loads',**loads)
+
+        return IntegralData
 
 
 def computeViscosityMolecular(Temperature):

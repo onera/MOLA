@@ -869,3 +869,168 @@ def _fitFields(donor, receiver, fields_names_to_fit=[], tol=1e-6):
             fields_donor = [f.ravel(order='F') for f in fields_donor]
             for fr, fd in zip(fields_receiver, fields_donor):
                 fr[ receiver_indexes ] = fd[ close_enough_points ]
+
+def computeIntegralLoads(t, torque_center=[0,0,0]):
+    '''
+    Compute the total integral forces and torques of a set of surfaces with 
+    Pressure and SkinFriction fields
+
+    Parameters
+    ----------
+
+        t : PyTree, Base, Zone or :py:class:`list` of zone
+            surfaces contributing to the total forces and torques being computed
+
+            .. note::
+                surfaces contained in **t** must contain the following fields
+                contained at centers: ``Pressure``, ``SkinFrictionX``,
+                ``SkinFrictionY``, ``SkinFrictionZ``. It may also contain 
+                normals ``nx``, ``ny``, ``nz``. Otherwise they are computed.
+
+        torque_center : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy`
+            center for computation the torque contributions
+
+    Returns
+    -------
+
+        loads : dict
+            dictionary including ``ForceX``, ``ForceY``, ``ForceZ``,
+            ``TorqueX``, ``TorqueY`` and ``TorqueZ`` keys with its associated 
+            values (:py:class:`float`)
+    '''
+
+    tR = I.copyRef(t)
+    _addNormalsIfAbsent(tR)
+
+    # surfacic forces
+    C._initVars(tR, 'centers:fx=-{centers:Pressure}*{centers:nx}+{centers:SkinFrictionX}')
+    C._initVars(tR, 'centers:fy=-{centers:Pressure}*{centers:ny}+{centers:SkinFrictionY}')
+    C._initVars(tR, 'centers:fz=-{centers:Pressure}*{centers:nz}+{centers:SkinFrictionZ}')
+
+    # computation of total forces
+    ForceX = -P.integ(tR,'centers:fx')[0]
+    ForceY = -P.integ(tR,'centers:fy')[0]
+    ForceZ = -P.integ(tR,'centers:fz')[0]
+
+    # computation of total torques
+    TorqueX, TorqueY, TorqueZ = P.integMoment(tR, center=torque_center,
+                                vector=['centers:fx','centers:fy','centers:fz'])
+    
+    TorqueX *= -1
+    TorqueY *= -1
+    TorqueZ *= -1
+
+
+    loads = dict(ForceX=ForceX,ForceY=ForceY,ForceZ=ForceZ,
+                 TorqueX=TorqueX,TorqueY=TorqueY,TorqueZ=TorqueZ)
+    
+    return loads
+
+def computeSectionalLoads(t, start_point, end_point, distribution,
+        torque_center=[0,0,0]):
+    '''
+    Compute the sectional loads (spanwise distributions) along a direction 
+    from a set of surfaces
+
+    Parameters
+    ----------
+    
+        t : PyTree, Base, Zone or :py:class:`list` of Zone
+            surfaces from which sectional loads are to be computed
+
+            .. note::
+                surfaces contained in **t** must contain the following fields
+                 (preferrably at centers): ``Pressure``, ``SkinFrictionX``,
+                ``SkinFrictionY``, ``SkinFrictionZ``. It may also contain 
+                normals ``nx``, ``ny``, ``nz``. Otherwise they are computed.
+
+        start_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy`
+            :math:`(x,y,z)` coordinates of the starting point from which 
+            sectional loads are to be computed
+
+        end_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy`
+            :math:`(x,y,z)` coordinates of the end point up to which 
+            sectional loads are to be computed
+
+        distribution : 1D :py:class:`float` list or :py:class:`numpy`
+            dimensionless coordinate (from *start_point* to *end_point*) used 
+            for discretizing the sectional loads. This must be :math:`\in [0,1]`.
+
+            .. hint:: for example 
+
+                >>> distribution = np.linspace(0,1,200)
+
+        torque_center : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy`
+            center for computation the torque contributions
+
+    Returns
+    -------
+
+        SectionalLoads : dict
+            dictionary including ``SectionalForceX``, ``SectionalForceY``, ``SectionalForceZ``,
+            ``SectionalTorqueX``, ``SectionalTorqueY``, ``SectionalTorqueZ``
+            and ``SectionalSpan`` keys with its associated 1D array values (numpy of :py:class:`float`)
+
+    '''
+
+    tR = I.copyRef(t)
+
+    start_point = np.array(start_point)
+    end_point = np.array(end_point)
+    span_direction = end_point - start_point
+    total_scan_span = np.linalg.norm(span_direction)
+    span_direction /= total_scan_span
+    Eqn = W.computePlaneEquation(start_point, span_direction)
+    C._initVars(tR, 'Span='+Eqn)
+    
+    SectionalForceX  = []
+    SectionalForceY  = []
+    SectionalForceZ  = []
+    SectionalTorqueX = []
+    SectionalTorqueY = []
+    SectionalTorqueZ = []
+    SectionalSpan    = []
+
+    for d in distribution:
+        span = d*total_scan_span
+        section = P.isoSurfMC(tR, 'Span', span)
+        if not section: continue
+        C._normalize(section,['nx','ny','nz'])
+        C._initVars(section, 'fx=-{Pressure}*{nx}+{SkinFrictionX}')
+        C._initVars(section, 'fy=-{Pressure}*{ny}+{SkinFrictionY}')
+        C._initVars(section, 'fz=-{Pressure}*{nz}+{SkinFrictionZ}')
+
+        # computation of sectional forces
+        SectionalForceX += [ -P.integ(section,'fx')[0] ]
+        SectionalForceY += [ -P.integ(section,'fy')[0] ]
+        SectionalForceZ += [ -P.integ(section,'fz')[0] ]
+
+        # computation of sectional torques
+        STorqueX, STorqueY, STorqueZ = P.integMoment(section, center=torque_center,
+                                    vector=['fx','fy','fz'])
+        SectionalTorqueX += [ -STorqueX ]
+        SectionalTorqueY += [ -STorqueY ]
+        SectionalTorqueZ += [ -STorqueZ ]
+        SectionalSpan    += [ span ]
+
+    SectionalLoads = dict(SectionalForceX=SectionalForceX,
+                          SectionalForceY=SectionalForceY,
+                          SectionalForceZ=SectionalForceZ,
+                          SectionalTorqueX=SectionalTorqueX,
+                          SectionalTorqueY=SectionalTorqueY,
+                          SectionalTorqueZ=SectionalTorqueZ,
+                          SectionalSpan=SectionalSpan)
+
+    return SectionalLoads
+
+
+def _addNormalsIfAbsent(t):
+    for z in I.getZones(t):
+        CentersFields = C.getVarNames(z, excludeXYZ=True, loc='centers')[0]
+        if not 'centers:nx' in CentersFields:
+            G._getNormalMap(z)
+            FlowSol = I.getNodeFromName1(z, I.__FlowSolutionCenters__)
+            for i in 'xyz':
+                I.rmNode(FlowSol,'n'+i)
+                I.renameNode(FlowSol,'s'+i,'n'+i)
+        C._normalize(z,['centers:nx', 'centers:ny', 'centers:nz'])    
