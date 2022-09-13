@@ -2420,7 +2420,7 @@ def rampFunction(iteri, iterf, vali, valf):
             >> f(x)
     '''
     if iteri == iterf: 
-        return valf
+        return lambda x:  valf
     slope = (valf-vali) / (iterf-iteri)
     if vali == valf:
         f = lambda x: vali*np.ones(np.shape(x))
