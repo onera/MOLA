@@ -13,6 +13,7 @@ import pprint
 import numpy as np
 from itertools import product
 import copy
+from timeit import default_timer as tic
 
 import Converter.PyTree as C
 import Converter.Internal as I
@@ -1449,10 +1450,26 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
 
     '''
 
+    from . import UnsteadyOverset as UO
+
+    # Order of operations in RB's flow:
+    # ---------------------------------
+    # 1. centers:cellN=1 initialization 
+    # 2. cellN2OversetHoles
+    # 3. applyBCOverlaps
+    # 4. eP.buildMaskFiles
+    # 5. setInterpolations
+    # 6. LT.AddFamiliesOverlap
+    # 7. intersections domains
+    # 8. include (rather update?) NeighbourList
+    # 9. unsteady masking using ElsATools
 
     if not hasAnyOversetData(InputMeshes): return t
 
-    print('building masking bodies...')
+    
+    
+
+    print('building static masking bodies...')
     baseName2BodiesDict = getMaskingBodiesAsDict(t, InputMeshes)
 
     bodies = []
@@ -1466,9 +1483,11 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
 
     BlankingMatrix = getBlankingMatrix(bodies, InputMeshes)
 
+    # TODO -> RB: applyBCOverlaps after cellN2OversetHoles so that 
+    # output files assign cellN=0 on masked overlaps instead of cellN=2
     t = X.applyBCOverlaps(t, depth=depth)
 
-    print('Blanking...')
+    print('Static blanking...')
     # see ticket #7882
     for ibody, body in enumerate(bodies):
         BlankingVector = np.atleast_2d(BlankingMatrix[:,ibody]).T
@@ -1493,7 +1512,11 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
         else:
             raise ValueError('BlankingMethod "{}" not recognized'.format(BlankingMethod))
 
-    print('... blanking done.')
+    print('... static blanking done.')
+
+    print('rotors neighbour list search...', end='')
+    UO.setNeighbourListOfRotors(t, InputMeshes)
+    print('ok')
 
     print('setting hole interpolated points...')
     t = X.setHoleInterpolatedPoints(t, depth=depth)
@@ -1513,11 +1536,13 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
         prefixFile = ''
     else:
         DIRECTORY_OVERSET = 'OVERSET'
+        DIRECTORY_MASK = os.path.join('OVERSET','MASK')
         try: os.makedirs(DIRECTORY_OVERSET)
         except: pass
         prefixFile = os.path.join(DIRECTORY_OVERSET,'overset')
 
     t = X.cellN2OversetHoles(t)
+    t = X.applyBCOverlaps(t, depth=depth) # TODO ->  see previous RB note
 
     t = X.setInterpolations(t, loc='cell', sameBase=0, double_wall=double_wall,
                             storage='inverse', solver='elsA', check=True,
@@ -1591,6 +1616,7 @@ def getBlankingMatrix(bodies, InputMeshes):
 
     # user-provided masking protections
     for i, meshInfo in enumerate(InputMeshes):
+        if 'Motion' in meshInfo: BlankingMatrix[i, :] = 0 # will need unsteady mask
         try:
             Forbidden = meshInfo['OversetOptions']['ForbiddenOverlapMaskingThisBase']
         except KeyError:
@@ -1600,6 +1626,7 @@ def getBlankingMatrix(bodies, InputMeshes):
             BodyParentBaseName = getBodyParentBaseName(BodyName)
             if BodyName.startswith('overlap') and BodyParentBaseName in Forbidden:
                 BlankingMatrix[i, j] = 0
+        
 
     # masking protection using key "OnlyMaskedByWalls"
     for i, meshInfo in enumerate(InputMeshes):
@@ -1651,6 +1678,7 @@ def getMaskingBodiesAsDict(t, InputMeshes):
         # BCOverlap (soft mask)
 
         meshInfo = getMeshInfoFromBaseName(basename, InputMeshes)
+        if 'Motion' in meshInfo: continue
         try:
             CreateMaskFromWall = meshInfo['OversetOptions']['CreateMaskFromWall']
         except KeyError:
