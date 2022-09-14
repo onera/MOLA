@@ -736,7 +736,7 @@ def repatriate(SourcePath, DestinationPath, removeExistingDestinationPath=True,
 
     localhost = ServerTools.whichHost()
     destinationServer = ServerTools.whichServer(DestinationPath)[0]
-    destinationIsLocal = destinationServer == localhost
+    destinationIsLocal = destinationServer == '' or destinationServer == localhost
 
     if destinationIsLocal:
         gotFile = ServerTools.wait4FileFromServer(DestinationPath,
