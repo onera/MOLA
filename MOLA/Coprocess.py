@@ -2304,25 +2304,25 @@ def updateBodyForce(t, iteri=1., iterf=1.):
     
     FluidProperties    = setup.FluidProperties
     TurboConfiguration = setup.TurboConfiguration
+    BodyForceInputData = setup.BodyForceInputData
 
     coeff_eff = J.rampFunction(iteri, iterf, 0., 1.)
 
-    for zone in I.getZones(toWithSourceTerms):
+    for BodyForceFamily, BodyForceParams in BodyForceInputData.items():
 
-        if not I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm'): continue
+        for zone in C.getFamilyZones(toWithSourceTerms, BodyForceFamily):
 
-        NewSourceTerms = BF.computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration)
+            if not I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm'): continue
 
-        BLProtectionSourceTerms = BF.computeProtectionSourceTerms(zone, TurboConfiguration, ProtectedHeightPercentage=5.)
-        for key, value in BLProtectionSourceTerms.items():
-            NewSourceTerms[key] += value
+            NewSourceTerms = BF.computeBodyForce(
+                zone, BodyForceParams, FluidProperties, TurboConfiguration)
 
-        for key, value in NewSourceTerms.items():
-            NewSourceTerms[key] = coeff_eff(CurrentIteration) * value
+            for key, value in NewSourceTerms.items():
+                NewSourceTerms[key] = coeff_eff(CurrentIteration) * value
 
-        FSSourceTerm = I.newFlowSolution('FlowSolution#SourceTerm', gridLocation='CellCenter', parent=zone)
-        for name, newSourceTerm in NewSourceTerms.items():
-            I.newDataArray(name=name, value=newSourceTerm, parent=FSSourceTerm)
+            FSSourceTerm = I.newFlowSolution('FlowSolution#SourceTerm', gridLocation='CellCenter', parent=zone)
+            for name, newSourceTerm in NewSourceTerms.items():
+                I.newDataArray(name=name, value=newSourceTerm, parent=FSSourceTerm)
 
     I._rmNodesByName(toWithSourceTerms, 'FlowSolution#Init')
     Cmpi.barrier()

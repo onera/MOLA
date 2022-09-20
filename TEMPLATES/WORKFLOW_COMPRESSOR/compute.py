@@ -124,6 +124,7 @@ else:
     e=elsAxdt.XdtCGNS(FILE_CGNS)
 
 # ------------------------------- BODYFORCE ------------------------------- #
+toWithSourceTerms = []
 BODYFORCE_INITIATED = False
 COMPUTE_BODYFORCE   = False
 # ------------------------------------------------------------------------- #

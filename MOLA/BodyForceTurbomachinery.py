@@ -21,7 +21,7 @@ import MOLA.InternalShortcuts as J
 import MOLA.Wireframe as W
 
 
-def replaceRowWithBodyForceMesh(t, rows):
+def replaceRowWithBodyForceMesh(t, rows, BodyForceModel='hall'):
     '''
     In the mesh **t**, replace the row domain corresponding to the family 
     **row** by a mesh adapted to body-force.
@@ -45,6 +45,14 @@ def replaceRowWithBodyForceMesh(t, rows):
             to body-force.
 
     '''
+    def printCells(n):
+        if n > 1e6:
+            return f'{n/1e6:.1f}M'
+        elif n > 1e3:
+            return f'{n/1e3:.0f}k'
+        else:
+            return f'{n}'
+
     if isinstance(rows, str):
         rows = [rows]
 
@@ -57,13 +65,14 @@ def replaceRowWithBodyForceMesh(t, rows):
 
         zones = C.getFamilyZones(t, row)
         meshType = 'unstructured' if PRE.hasAnyUnstructuredZones(zones) else 'structured'
+        NumberOfCellsInitial = C.getNCells(zones)
 
         # Get the meridional info from rowTree
         meridionalMesh = extractRowGeometricalData(t, row)
 
-        CellWidthAtWall = 0.005 
-        CellWidthAtLE = 0.01
-        CellWidthAtInlet = 0.05
+        CellWidthAtWall = 0.001 
+        CellWidthAtLE = 0.001
+        CellWidthAtInlet = 0.02
         RadialDistribution = dict( kind='tanhTwoSides', FirstCellHeight=CellWidthAtWall, LastCellHeight=CellWidthAtWall)
         AxialDistributionBeforeLE = dict(kind='tanhTwoSides', FirstCellHeight=CellWidthAtInlet, LastCellHeight=CellWidthAtLE)
         AxialDistributionBetweenLEAndTE = dict(kind='tanhTwoSides', FirstCellHeight=CellWidthAtLE, LastCellHeight=CellWidthAtLE)
@@ -71,16 +80,26 @@ def replaceRowWithBodyForceMesh(t, rows):
 
         newRowMesh = buildBodyForceMeshForOneRow(meridionalMesh,
                             NumberOfBlades=BladeNumber,
-                            NumberOfRadialPoints=51,
-                            NumberOfAxialPointsBeforeLE=21,
-                            NumberOfAxialPointsBetweenLEAndTE=21,
-                            NumberOfAxialPointsAfterTE=21,
+                            NumberOfRadialPoints=101,
+                            NumberOfAxialPointsBeforeLE=101,
+                            NumberOfAxialPointsBetweenLEAndTE=101,
+                            NumberOfAxialPointsAfterTE=101,
                             RadialDistribution=RadialDistribution,
                             AxialDistributionBeforeLE=AxialDistributionBeforeLE,
                             AxialDistributionBetweenLEAndTE=AxialDistributionBetweenLEAndTE,
                             AxialDistributionAfterTE=AxialDistributionAfterTE,
-                            meshType=meshType
+                            meshType=meshType,
+                            BodyForceModel=BodyForceModel
                             )
+
+        # newRowMesh = buildBodyForceMeshForOneRow(meridionalMesh,
+        #                                          NumberOfBlades=BladeNumber,
+        #                                          NumberOfAxialPointsBeforeLE=81,
+        #                                          AxialDistributionBeforeLE=dict(
+        #                                              kind='tanhTwoSides', FirstCellHeight=0.01, LastCellHeight=0.001),
+        #                                          meshType=meshType,
+        #                                          BodyForceModel=BodyForceModel
+        #                                          )
 
         I._renameNode(newRowMesh, 'upstream', f'{row}_upstream')
         I._renameNode(newRowMesh, 'downstream', f'{row}_downstream')
@@ -97,16 +116,24 @@ def replaceRowWithBodyForceMesh(t, rows):
         for zone in zones:
             I.rmNode(t, zone)
 
+        NumberOfCellsBFM = C.getNCells(newRowMesh)
+
+        print(f'Number of cells for the family {row} in the initial mesh : {printCells(NumberOfCellsInitial)}')
+        print(f'Number of cells for the family {row} in the BFM mesh     : {printCells(NumberOfCellsBFM)}')
+        print(f'    --> Reduction with a factor {NumberOfCellsInitial/NumberOfCellsBFM:.1f}')
+
     return t, newRowMeshes
 
 
-def buildBodyForceMeshForOneRow(t, NumberOfBlades, NumberOfRadialPoints, NumberOfAxialPointsBeforeLE,
-                    NumberOfAxialPointsBetweenLEAndTE, NumberOfAxialPointsAfterTE,
-                    NumberOfAzimutalPoints=3, AzimutalAngleDeg=10.,
-                    RadialDistribution=None, AxialDistributionBeforeLE=None,
-                    AxialDistributionBetweenLEAndTE=None, AxialDistributionAfterTE=None,
-                    meshType='structured'
-                    ):
+def buildBodyForceMeshForOneRow(t, NumberOfBlades, 
+                                NumberOfRadialPoints=None, NumberOfAxialPointsBeforeLE=None,
+                                NumberOfAxialPointsBetweenLEAndTE=None, NumberOfAxialPointsAfterTE=None,
+                                NumberOfAzimutalPoints=5, AzimutalAngleDeg=10.,
+                                RadialDistribution=None, AxialDistributionBeforeLE=None,
+                                AxialDistributionBetweenLEAndTE=None, AxialDistributionAfterTE=None,
+                                meshType='structured',
+                                BodyForceModel='hall',
+                                ):
     '''
     Build a mesh suitable for body-force simulations from a PyTree with lines corresponding
     to hub, shroud, inlet, outlet, leading edge and trailing edge, for a single row.
@@ -120,38 +147,47 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades, NumberOfRadialPoints, NumberO
         NumberOfBlades : int
             Number of blades (for the 360deg row). Used to compute the blockage coefficient.
 
-        NumberOfRadialPoints : int
-           Number of points in the radial direction.
+        NumberOfRadialPoints : :py:class:`int` or :py:obj:`None`
+           Number of points in the radial direction. If :py:obj:`None`, then **RadialDistribution**
+           must be a curve whose distribution is to be copied.
 
-        NumberOfAxialPointsBeforeLE : int
+        NumberOfAxialPointsBeforeLE : :py:class:`int` or :py:obj:`None`
             Number of points in the axial direction between the inlet and the blade leading edge.
+            If :py:obj:`None`, then **AxialDistributionBeforeLE** must be a curve whose distribution is to be copied.
 
-        NumberOfAxialPointsBetweenLEAndTE : int
+        NumberOfAxialPointsBetweenLEAndTE : :py:class:`int` or :py:obj:`None`
             Number of points in the axial direction between the blade leading edge and trailing edge.
+            If :py:obj:`None`, then **AxialDistributionBetweenLEAndTE** must be a curve whose distribution is to be copied.
 
-        NumberOfAxialPointsAfterTE : int
+        NumberOfAxialPointsAfterTE : :py:class:`int` or :py:obj:`None`
             Number of points in the axial direction between the blade trailing edge and the outlet.
+            If :py:obj:`None`, then **AxialDistributionAfterTE** must be a curve whose distribution is to be copied.
 
         NumberOfAzimutalPoints : int, optional
-            Number of points in the azimutal direction, by default 3
+            Number of points in the azimutal direction, by default 5.
 
         AzimutalAngleDeg : _type_, optional
             Azimutal extension in degrees of the output computational domain, by default 10.
 
-        RadialDistribution : dict, optional
+        RadialDistribution : :py:class:`dict` or zone
             Points distribution in the radial direction. For details, see the documentation of
             :func:`MOLA.Wireframe.discretize`. Could be for instance: 
             
             >>> dict(kind='tanhTwoSides',FirstCellHeight=CellWidthAtWall,LastCellHeight=CellWidthAtWall)
 
-        AxialDistributionBeforeLE : dict, optional
+            If not given, then the distribution in the initial mesh is used.
+
+        AxialDistributionBeforeLE : :py:class:`dict` or zone
             Points distribution in the axial direction between the inlet and the blade leading edge.
+            If not given, then the distribution in the initial mesh is used.
 
-        AxialDistributionBetweenLEAndTE : dict, optional
+        AxialDistributionBetweenLEAndTE : :py:class:`dict` or zone
             Points distribution in the axial direction between the blade leading edge and trailing edge.
+            If not given, then the distribution in the initial mesh is used.
 
-        AxialDistributionAfterTE : dict, optional
+        AxialDistributionAfterTE : :py:class:`dict` or zone
             Points distribution in the axial direction between the blade trailing edge and the outlet.
+            If not given, then the distribution in the initial mesh is used.
 
         meshType : str, optional
             Type of the mesh. Should be 'structured' or 'unstructured'. By default 'structured'
@@ -232,6 +268,16 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades, NumberOfRadialPoints, NumberO
     I.setName(LeadingEdge, 'LeadingEdge')
     I.setName(TrailingEdge, 'TrailingEdge')
 
+    # If points distribution are not given, they are the same than in the initial mesh
+    if not RadialDistribution:
+        RadialDistribution = LeadingEdge
+    if not AxialDistributionBeforeLE:
+        AxialDistributionBeforeLE = HubBetweenInletAndLE
+    if not AxialDistributionBetweenLEAndTE:
+        AxialDistributionBetweenLEAndTE = HubBetweenLEAndTE
+    if not AxialDistributionAfterTE:
+        AxialDistributionAfterTE = HubBetweenTEAndOutlet
+
     # Apply the points distribution for each line
     Inlet = W.discretize(Inlet, N=NumberOfRadialPoints, Distribution=RadialDistribution)
     Outlet = W.discretize(Outlet, N=NumberOfRadialPoints, Distribution=RadialDistribution)
@@ -256,33 +302,45 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades, NumberOfRadialPoints, NumberO
     I.setName(bodyForce, 'bodyForce')
     I.setName(downstream, 'downstream')
 
-    # Interpolate skeleton data
-    Skeleton = I.getNodeFromName2(t, 'Skeleton')
-    if Skeleton:
-        P._extractMesh(Skeleton, bodyForce, order=2, extrapOrder=0, constraint=0.)
-        bodyForce = computeBlockage(bodyForce, NumberOfBlades)
-        bodyForce = C.node2Center(bodyForce, I.__FlowSolutionNodes__)
-        C._initVars(bodyForce, '{centers:isf}=1')
-        I._rmNodesByName1(bodyForce, I.__FlowSolutionNodes__)
+    if BodyForceModel == 'hall':
+        # Interpolate skeleton data
+        Skeleton = I.getNodeFromName2(t, 'Skeleton')
+        if Skeleton:
+            P._extractMesh(Skeleton, bodyForce, order=2, extrapOrder=0, constraint=0.)
+            bodyForce = computeBlockage(bodyForce, NumberOfBlades)
+            bodyForce = C.node2Center(bodyForce, I.__FlowSolutionNodes__)
+            C._initVars(bodyForce, '{centers:isf}=1')
+            I._rmNodesByName1(bodyForce, I.__FlowSolutionNodes__)
 
     mesh2d = C.newPyTree(['Base', [upstream, bodyForce, downstream]])
 
     # Make a partial revolution to build the 3D mesh
     mesh3d = D.axisym(mesh2d, (0, 0, 0), (1, 0, 0), angle=AzimutalAngleDeg, Ntheta=NumberOfAzimutalPoints)
 
-    # Move coordinates to cell center and compute radius and azimuthal angle
     bodyForce = I.getNodeFromName2(mesh3d, 'bodyForce')
-    for coord in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
-        C._node2Center__(bodyForce, coord)
-    C._initVars(bodyForce, '{centers:radius}=sqrt({centers:CoordinateY}**2+{centers:CoordinateZ}**2)')
-    C._initVars(bodyForce, '{centers:theta}=arctan2({centers:CoordinateZ},{centers:CoordinateY})')
-    # Rename x,y,z at cell centers, otherwise Cassiopee and elsA have a problem reading the tree...
-    # Notice that renaming CoordinateX to x does not solve the problem because Cassiopee know x
-    # as an alias for CoordinateX, so it will fail to read the mesh anyway.
-    FS = I.getNodeFromType1(bodyForce, 'FlowSolution_t')
-    I._renameNode(FS, 'CoordinateX', 'xCell')
-    I._renameNode(FS, 'CoordinateY', 'yCell')
-    I._renameNode(FS, 'CoordinateZ', 'zCell')
+    if BodyForceModel == 'hall':
+        # Move coordinates to cell center and compute radius and azimuthal angle
+        for coord in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
+            C._node2Center__(bodyForce, coord)
+        C._initVars(bodyForce, '{centers:radius}=sqrt({centers:CoordinateY}**2+{centers:CoordinateZ}**2)')
+        C._initVars(bodyForce, '{centers:theta}=arctan2({centers:CoordinateZ},{centers:CoordinateY})')
+        # Rename x,y,z at cell centers, otherwise Cassiopee and elsA have a problem reading the tree...
+        # Notice that renaming CoordinateX to x does not solve the problem because Cassiopee know x
+        # as an alias for CoordinateX, so it will fail to read the mesh anyway.
+        FS = I.getNodeFromType1(bodyForce, 'FlowSolution_t')
+        I._renameNode(FS, 'CoordinateX', 'xCell')
+        I._renameNode(FS, 'CoordinateY', 'yCell')
+        I._renameNode(FS, 'CoordinateZ', 'zCell')
+
+    elif BodyForceModel == 'Tspread':
+        G._getVolumeMap(bodyForce)
+        volumeCell = I.getValue(I.getNodeFromName(bodyForce, 'vol'))
+        C._initVars(bodyForce,
+                    '{{centers:volumicFraction}}={{centers:vol}}/{totalVolume}'.format(totalVolume=np.sum(volumeCell)))
+        # C._initVars(bodyForce, 
+        #     '{{volumicThrust}}={{vol}}/{totalVolume}*{thust}'.format(totalVolume=np.sum(volumeCell), thust=DataSourceTerm['Thrust']))
+        I._rmNodesByNameAndType(bodyForce, 'vol', 'DataArray_t')
+        C._initVars(bodyForce, '{centers:isf}=1')
 
     base = I.getBases(mesh3d)[0]
     upstream = I.getNodeFromNameAndType(base, 'upstream', 'Zone_t')
@@ -620,6 +678,24 @@ def filterDataSourceTermsAxial(t):
                         data_2d_t[i,:] = data_t[iprot_BF,:]
                     I.setValue(data, np.asfortranarray(data_2d_t))
 
+
+def computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration):
+
+    if BodyForceParams['model'] == 'hall':
+        NewSourceTerms = computeBodyForce_Hall(
+            zone, FluidProperties, TurboConfiguration)
+        
+        BLProtectionSourceTerms = computeProtectionSourceTerms(
+            zone, TurboConfiguration, ProtectedHeightPercentage=5.)
+        for key, value in BLProtectionSourceTerms.items():
+            NewSourceTerms[key] += value
+
+    elif BodyForceParams['model'] == 'Tspread':
+        NewSourceTerms = computeBodyForce_Tspread(zone, BodyForceParams['Thrust'])
+
+    return NewSourceTerms
+
+
 def computeBlockageSourceTerms(zone, tol=1e-5):
     '''
     Compute actualized source terms corresponding to blockage.
@@ -745,11 +821,11 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, tol=1e-5):
     fz =  cosTheta * ft + sinTheta * fr
 
     NewSourceTerms = dict(
-        Density          = 0.,
+        Density          = np.zeros(Density.shape),
         MomentumX        = Density * fx,
         MomentumY        = Density * fy,
         MomentumZ        = Density * fz,
-        EnergyStagnation=Density * DataSourceTerms['radius'] * RotationSpeed * ft
+        EnergyStagnation = Density * DataSourceTerms['radius'] * RotationSpeed * ft
     )
 
     # Add blockage terms
@@ -879,10 +955,58 @@ def computeProtectionSourceTerms(zone, TurboConfiguration, ProtectedHeightPercen
     S_corr_BL_z = sinTheta*S_corr_BL_r
 
     BLProtectionSourceTerms = dict(
-        Density          = 0.,
+        Density          = np.zeros(Wmag.shape),
         MomentumX        = S_corr_BL_x,
         MomentumY        = S_corr_BL_y,
         MomentumZ        = S_corr_BL_z,
-        EnergyStagnation = 0.
+        EnergyStagnation = np.zeros(Wmag.shape)
     )
     return BLProtectionSourceTerms
+
+
+def computeBodyForce_Tspread(zone, Thrust, tol=1e-5):
+    '''
+    Compute actualized source terms corresponding to the Tspread model.
+
+    Parameters
+    ----------
+
+        zone : PyTree
+            current zone
+        
+        Thrust : float
+            Value of thrust to apply
+
+        tol : float
+            minimum value for quantities used as a denominator.
+
+    Returns
+    -------
+
+        NewSourceTerms : dict
+            Computed source terms. The keys are Density, MomentumX, MomentumY, 
+            MomentumZ and EnergyStagnation. 
+    '''
+
+    FlowSolution    = J.getVars2Dict(zone, Container='FlowSolution#Init')
+    DataSourceTerms = J.getVars2Dict(zone, Container='FlowSolution#DataSourceTerm')
+
+    # Flow data
+    Density = np.maximum(FlowSolution['Density'], tol)
+    Vx, Vy, Vz = FlowSolution['MomentumX']/Density, FlowSolution['MomentumY']/Density, FlowSolution['MomentumZ']/Density
+    Vmag = np.maximum(tol, (Vx**2+Vy**2+Vz**2)**0.5)
+
+    f = Thrust * DataSourceTerms['isf'] * DataSourceTerms['volumicFraction']
+
+    NewSourceTerms = dict(
+        Density          = np.zeros(Vmag.shape),
+        MomentumX        = f * Vx/Vmag,
+        MomentumY        = f * Vy/Vmag,
+        MomentumZ        = f * Vz/Vmag,
+        EnergyStagnation = f * Vmag,
+    )
+
+    return NewSourceTerms
+
+
+

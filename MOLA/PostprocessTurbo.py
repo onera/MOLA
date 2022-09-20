@@ -627,7 +627,9 @@ if __name__ == '__main__':
     #______________________________________________________________________________
 
     PostTurbo.setup = J.load_source('setup', FILE_SETUP)
-    surfaces = C.convertFile2PyTree(os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES))
+    Cmpi.barrier()
+    surfaces = Cmpi.convertFile2PyTree(FILE_SURFACES)
+    Cmpi.barrier()
     #______________________________________________________________________________#
     PostTurbo.computeVariablesOnIsosurface(surfaces)
     PostTurbo.compute0DPerformances(surfaces, variablesByAverage, var4comp_perf)
@@ -641,4 +643,6 @@ if __name__ == '__main__':
 
     PostTurbo.cleanSurfaces(surfaces, var2keep=var2keep)
 
-    C.convertPyTree2File(surfaces, os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES_NEW))
+    Cmpi.barrier()
+    Cmpi.convertPyTree2File(surfaces, FILE_SURFACES_NEW)
+    Cmpi.barrier()

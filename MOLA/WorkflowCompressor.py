@@ -244,7 +244,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             List of boundary conditions to set on the given mesh.
             For details, refer to documentation of :func:`setBoundaryConditions`
 
-        BodyForceInputData : :py:class:`list` of :py:class:`dict`
+        BodyForceInputData : :py:class:`dict`
 
         writeOutputFields : bool
             if :py:obj:`True`, write initialized fields overriding
@@ -312,12 +312,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     else:
         raise ValueError('parameter mesh must be either a filename or a PyTree')
 
-    hasBCOverlap = True if C.extractBCOfType(t, 'BCOverlap') else False
-
-
-    if hasBCOverlap: addFieldExtraction('ChimeraCellType')
-    if BodyForceInputData: addFieldExtraction('Temperature')
-
     IsUnstructured = PRE.hasAnyUnstructuredZones(t)
 
     TurboConfiguration = getTurboConfiguration(t, **TurboConfiguration)
@@ -342,7 +336,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-6, unstructured=IsUnstructured)
     elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=IsUnstructured)
-    if BodyForceInputData or I.getNodeFromName3(t, 'FlowSolution#DataSourceTerm'): 
+    if BodyForceInputData: 
         NumericalParams['useBodyForce'] = True
     if not 'NumericalScheme' in NumericalParams:
         NumericalParams['NumericalScheme'] = 'roe'
@@ -379,8 +373,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                         Extractions=Extractions)
     if BodyForceInputData: 
         AllSetupDics['BodyForceInputData'] = BodyForceInputData
-    elif I.getNodeFromName3(t, 'FlowSolution#DataSourceTerm'): 
-        AllSetupDics['BodyForceInputData'] = True
 
     BCExtractions = dict(
         BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
