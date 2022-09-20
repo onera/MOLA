@@ -309,7 +309,6 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
             P._extractMesh(Skeleton, bodyForce, order=2, extrapOrder=0, constraint=0.)
             bodyForce = computeBlockage(bodyForce, NumberOfBlades)
             bodyForce = C.node2Center(bodyForce, I.__FlowSolutionNodes__)
-            C._initVars(bodyForce, '{centers:isf}=1')
             I._rmNodesByName1(bodyForce, I.__FlowSolutionNodes__)
 
     mesh2d = C.newPyTree(['Base', [upstream, bodyForce, downstream]])
@@ -318,6 +317,7 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
     mesh3d = D.axisym(mesh2d, (0, 0, 0), (1, 0, 0), angle=AzimutalAngleDeg, Ntheta=NumberOfAzimutalPoints)
 
     bodyForce = I.getNodeFromName2(mesh3d, 'bodyForce')
+    C._initVars(bodyForce, '{centers:isf}=1')
     if BodyForceModel == 'hall':
         # Move coordinates to cell center and compute radius and azimuthal angle
         for coord in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
@@ -335,12 +335,11 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
     elif BodyForceModel == 'Tspread':
         G._getVolumeMap(bodyForce)
         volumeCell = I.getValue(I.getNodeFromName(bodyForce, 'vol'))
-        C._initVars(bodyForce,
-                    '{{centers:volumicFraction}}={{centers:vol}}/{totalVolume}'.format(totalVolume=np.sum(volumeCell)))
-        # C._initVars(bodyForce, 
-        #     '{{volumicThrust}}={{vol}}/{totalVolume}*{thust}'.format(totalVolume=np.sum(volumeCell), thust=DataSourceTerm['Thrust']))
+        # C._initVars(bodyForce,
+        #             '{{centers:volumicFraction}}={{centers:vol}}/{totalVolume}'.format(totalVolume=np.sum(volumeCell)))
+        C._initVars(bodyForce,'{{centers:totalVolume}}={totalVolume}'.format(totalVolume=np.sum(volumeCell)))
         I._rmNodesByNameAndType(bodyForce, 'vol', 'DataArray_t')
-        C._initVars(bodyForce, '{centers:isf}=1')
+        
 
     base = I.getBases(mesh3d)[0]
     upstream = I.getNodeFromNameAndType(base, 'upstream', 'Zone_t')
@@ -680,18 +679,57 @@ def filterDataSourceTermsAxial(t):
 
 
 def computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration):
+    '''
+    Compute Body force source terms in **zone**.
 
-    if BodyForceParams['model'] == 'hall':
-        NewSourceTerms = computeBodyForce_Hall(
-            zone, FluidProperties, TurboConfiguration)
+    Parameters
+    ----------
+        zone : PyTree
+            Zone in which the source terms will be compute
+
+        BodyForceParams : dict
+            Body force parameters for the current family. Correspond to a value 
+            in **BodyForceInputData**, as read from `setup.py`. 
+
+        FluidProperties : dict
+            as read from `setup.py`
+
+        TurboConfiguration : dict
+            as read from `setup.py`
+
+    Returns
+    -------
+        dict
+            New source terms to apply. Should be for example : 
+
+            >>> NewSourceTerms = dict(Density=ndarray, MomentumX=ndarray, ...)
+
+    '''
+
+    if isinstance(BodyForceParams['model'], list):
+        models = BodyForceParams['model']
+    else:
+        models = [BodyForceParams['model']]
+    
+    for model in models:
+
+        if model == 'hall':
+            NewSourceTerms = computeBodyForce_Hall(
+                zone, FluidProperties, TurboConfiguration)
+            
+            BLProtectionSourceTerms = computeProtectionSourceTerms(
+                zone, TurboConfiguration, ProtectedHeightPercentage=5.)
+            for key, value in BLProtectionSourceTerms.items():
+                NewSourceTerms[key] += value
+
+        elif model == 'Tspread':
+            NewSourceTerms = computeBodyForce_Tspread(zone, BodyForceParams['Thrust'])
         
-        BLProtectionSourceTerms = computeProtectionSourceTerms(
-            zone, TurboConfiguration, ProtectedHeightPercentage=5.)
-        for key, value in BLProtectionSourceTerms.items():
-            NewSourceTerms[key] += value
-
-    elif BodyForceParams['model'] == 'Tspread':
-        NewSourceTerms = computeBodyForce_Tspread(zone, BodyForceParams['Thrust'])
+        elif model == 'blockage':
+            NewSourceTerms = computeBlockageSourceTerms(zone)
+        
+        else: 
+            raise Exception(f"Body force model {BodyForceParams['model']} is unknown.")
 
     return NewSourceTerms
 
@@ -726,7 +764,7 @@ def computeBlockageSourceTerms(zone, tol=1e-5):
     Vx, Vy, Vz = FlowSolution['MomentumX']/Density, FlowSolution['MomentumY'] / Density, FlowSolution['MomentumZ']/Density
     Vr = Vy * np.cos(DataSourceTerms['theta']) + Vz * np.sin(DataSourceTerms['theta'])
 
-    Sb = -(Vx * DataSourceTerms['gradxb'] + Vr *DataSourceTerms['gradrb']) / Blockage
+    Sb = -(Vx * DataSourceTerms['gradxb'] + Vr * DataSourceTerms['gradrb']) / Blockage
 
     NewSourceTerms = dict(
         Density          = Sb,
@@ -780,8 +818,9 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, tol=1e-5):
     # Flow data
     Density = np.maximum(FlowSolution['Density'], tol)
     Vx, Vy, Vz = FlowSolution['MomentumX']/Density, FlowSolution['MomentumY']/Density, FlowSolution['MomentumZ']/Density
-    Wx, Wr, Wt = Vx, Vy*cosTheta+Vz*sinTheta, -Vy*sinTheta + Vz*cosTheta-DataSourceTerms['radius']*RotationSpeed
-    Vmag, Wmag = (Vx**2+Vy**2+Vz**2)**0.5, np.maximum(tol, (Wx**2+Wr**2+Wt**2)**0.5)
+    Wx, Wr, Wt = Vx, Vy*cosTheta+Vz*sinTheta, -Vy*sinTheta + Vz*cosTheta - DataSourceTerms['radius'] * RotationSpeed
+    Vmag = (Vx**2 + Vy**2 + Vz**2)**0.5
+    Wmag = np.maximum(tol, (Wx**2 + Wr**2 + Wt**2)**0.5)
     Temperature = np.maximum(tol, (FlowSolution['EnergyStagnationDensity']/Density-0.5*Vmag**2.)/FluidProperties['cp'])
     Mrel = Wmag/(FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*Temperature)**0.5
 
@@ -975,7 +1014,7 @@ def computeBodyForce_Tspread(zone, Thrust, tol=1e-5):
             current zone
         
         Thrust : float
-            Value of thrust to apply
+            Value of thrust (in Newtons) to apply on the whole volume of body-force zones
 
         tol : float
             minimum value for quantities used as a denominator.
@@ -996,14 +1035,14 @@ def computeBodyForce_Tspread(zone, Thrust, tol=1e-5):
     Vx, Vy, Vz = FlowSolution['MomentumX']/Density, FlowSolution['MomentumY']/Density, FlowSolution['MomentumZ']/Density
     Vmag = np.maximum(tol, (Vx**2+Vy**2+Vz**2)**0.5)
 
-    f = Thrust * DataSourceTerms['isf'] * DataSourceTerms['volumicFraction']
+    f = Thrust / DataSourceTerms['totalVolume'] * DataSourceTerms['isf']
 
     NewSourceTerms = dict(
         Density          = np.zeros(Vmag.shape),
-        MomentumX        = f * Vx/Vmag,
-        MomentumY        = f * Vy/Vmag,
-        MomentumZ        = f * Vz/Vmag,
-        EnergyStagnation = f * Vmag,
+        MomentumX        = Density * f * Vx/Vmag,
+        MomentumY        = Density * f * Vy/Vmag,
+        MomentumZ        = Density * f * Vz/Vmag,
+        EnergyStagnation = Density * f * Vmag,
     )
 
     return NewSourceTerms
