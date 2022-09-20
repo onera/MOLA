@@ -1941,6 +1941,7 @@ def setBC_walladia(t, FamilyName):
 
     '''
     wall = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    I._rmNodesByName(wall, '.Solver#BC')
     I._rmNodesByType(wall, 'FamilyBC_t')
     I.newFamilyBC(value='BCWallViscous', parent=wall)
 
@@ -1961,6 +1962,7 @@ def setBC_wallslip(t, FamilyName):
 
     '''
     wall = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    I._rmNodesByName(wall, '.Solver#BC')
     I._rmNodesByType(wall, 'FamilyBC_t')
     I.newFamilyBC(value='BCWallInviscid', parent=wall)
 
@@ -2026,6 +2028,7 @@ def setBC_sym(t, FamilyName):
 
     '''
     symmetry = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    I._rmNodesByName(symmetry, '.Solver#BC')
     I._rmNodesByType(symmetry, 'FamilyBC_t')
     I.newFamilyBC(value='BCSymmetryPlane', parent=symmetry)
 
@@ -2044,6 +2047,7 @@ def setBC_nref(t, FamilyName):
 
     '''
     farfield = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    I._rmNodesByName(farfield, '.Solver#BC')
     I._rmNodesByType(farfield, 'FamilyBC_t')
     I.newFamilyBC(value='BCFarfield', parent=farfield)
 
@@ -2442,8 +2446,7 @@ def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues
         FamilyBC='BCOutflowSubsonic', BCType='outmfr2', bc=bc)
 
 def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
-    bc=None, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData',
-    gridLocation='FaceCenter'):
+    bc=None, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData'):
     '''
     Generic function to impose a Boundary Condition ``inj1``. The following
     functions are more specific:
@@ -2488,6 +2491,7 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
     '''
     checkVariables(ImposedVariables)
     FamilyNode = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    I._rmNodesByName(FamilyNode, '.Solver#BC')
     I._rmNodesByType(FamilyNode, 'FamilyBC_t')
     I.newFamilyBC(value=FamilyBC, parent=FamilyNode)
 
