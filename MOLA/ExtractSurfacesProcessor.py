@@ -9,6 +9,7 @@ from timeit import default_timer as tic
 import Converter.PyTree as C
 import Converter.Internal as I
 import Transform.PyTree as T
+import Connector.PyTree as X
 import Intersector.PyTree as XOR
 import Post.PyTree as P
 import Geom.PyTree as D
@@ -25,12 +26,8 @@ def extractSurfacesByOffsetCellsFromBCFamilyName(t, BCFamilyName='MyBC',
     AllZonesForSubzoning, AllWindowsForSubzoning = [], []
     for ZoneName in ZoneName2ZoneAndWindows:
         zone = ZoneName2ZoneAndWindows[ZoneName]['zone']
-        zoneDims = I.getZoneDim(zone)[1:4]
         for window in ZoneName2ZoneAndWindows[ZoneName]['windows']:
             ZoneNamesAlreadyPropagated = []
-            InwardsIndex = findInwardsIndexFromExteriorWindow(window)
-            OpposedWindow, MaximumOffset = getOpposedWindowAndCumulatedOffsetFromInwardsIndex(zoneDims, window, InwardsIndex)
-
             ZonesForSubzoning, WindowsForSubzoning = [], []
 
             addZonesAndWindowsForSubzoning(WindowsForSubzoning,
@@ -41,10 +38,16 @@ def extractSurfacesByOffsetCellsFromBCFamilyName(t, BCFamilyName='MyBC',
             AllZonesForSubzoning.extend(ZonesForSubzoning)
             AllWindowsForSubzoning.extend(WindowsForSubzoning)
 
+    i = -1
     for z, wnd in zip(AllZonesForSubzoning, AllWindowsForSubzoning):
+        i += 1
         OffsetSurface = T.subzone(z, tuple(wnd[:,0]),
                                      tuple(wnd[:,1]))
-        OffsetSurface[0] += '.offset'
+        info = I.createUniqueChild(OffsetSurface, '.MOLA#Offset', 'UserDefinedData_t')
+        I.createUniqueChild(info, 'Zone', 'DataArray_t', value=z[0])
+        I.createUniqueChild(info, 'BCFamily', 'DataArray_t', value=BCFamilyName)
+        I.createUniqueChild(info, 'Window', 'DataArray_t', value=np.array(wnd,order='F'))
+        OffsetSurface[0] = 'offset.%d'%i
         OffsetSurfaces += [OffsetSurface]
     Nodes2Remove = ('ZoneBC','.Solver#ownData','ZoneGridConnectivity')
     [I._rmNodesByName(OffsetSurfaces, n) for n in Nodes2Remove]
@@ -52,14 +55,14 @@ def extractSurfacesByOffsetCellsFromBCFamilyName(t, BCFamilyName='MyBC',
     if NCellsOffset > 0:
         BCsurfaces = extractSurfacesByOffsetCellsFromBCFamilyName(t,
                                                                 BCFamilyName, 0)
+        for z in I.getZones(t): I._rmNodesByName1(z, '.MOLA#Offset')
         if not BCsurfaces:
             print('warning: no BCsurfaces for '+BCFamilyName)
             return []
-        hook, indir = C.createGlobalHook(BCsurfaces,function='nodes',indir=1)
-        OffsetSurfaces = trimExteriorFaces(OffsetSurfaces, NCellsOffset, hook)
-    OffsetSurfaces = T.merge(OffsetSurfaces)
-    for z in OffsetSurfaces: z[0] += '.offset'
+        OffsetSurfaces = trimExteriorFaces(OffsetSurfaces, BCsurfaces,
+                                           NCellsOffset)
 
+    migrateOffsetData(t, OffsetSurfaces)
     return OffsetSurfaces
 
 def getZonesAndWindowsOfBCNames(t, BCNames):
@@ -70,7 +73,6 @@ def getZonesAndWindowsOfBCNames(t, BCNames):
         if not ZoneBC: continue
         for BC in I.getChildren(ZoneBC):
             if BC[0] in BCNames:
-                print('found %s'%BC[0])
                 if ZoneName not in ZoneName2ZoneAndWindows:
                     ZoneName2ZoneAndWindows[ZoneName] = {'zone':zone,
                                                          'windows':[]}
@@ -135,11 +137,33 @@ def getNewWindowFromIndwardsIndexAndOffset(window, InwardsIndex, NCellsOffset):
 
     return SubzoneWindow
 
-def trimExteriorFaces(OffsetSurfaces, NCellsOffset, hookBCsurfaces):
-    OffsetSurfaces = T.merge(OffsetSurfaces)
-    SplitOffsetSurfaces = splitSurfacesAtOffset(OffsetSurfaces, NCellsOffset)
-    TrimmedOffsetSurfaces = [s for s in SplitOffsetSurfaces if not surfaceTouchesBCsurface(s, hookBCsurfaces)]
-    return TrimmedOffsetSurfaces
+def trimExteriorFaces(OffsetSurfaces, BCSurfaces, NCellsOffset):
+    surfs = OffsetSurfaces
+    X.connectMatch(surfs, tol=1e-8, dim=2)
+    for s in surfs:
+        windows = windowsOfSurfaceTouchingGrid(s, BCSurfaces)
+        if len(windows) == 0: continue
+
+        for window in windows:
+            propagateOffsetAndTagSurface(s, window, NCellsOffset, surfs)
+
+
+    mergeSplitWindows(surfs)
+    addSurfacesByWindowComposition(surfs)
+    surfs = filterSurfacesUsingTag(surfs)
+    I._rmNodesByType(surfs, 'GridConnectivity1to1_t')
+    X.connectMatch(surfs, tol=1e-8, dim=2)
+    for s in surfs: tagSurface(s,'keep', True)
+
+    for s in surfs:
+        windows = windowsOfSurfaceTouchingGrid(s, BCSurfaces)
+        if len(windows) == 0: continue
+
+        for window in windows:
+            propagateOffsetAndTagSurface(s, window, NCellsOffset, surfs)
+
+    trimmed_surfaces = filterSurfacesUsingTag(surfs)
+    return trimmed_surfaces
 
 def getConnectedZonesWindows(t, zone, window, ZoneNamesAlreadyPropagated):
     AllZonesInTree = I.getZones(t)
@@ -177,85 +201,332 @@ def windowsOverlap(window1, window2):
 
     return overlap
 
-def splitSurfacesAtOffset(OffsetSurfaces, NCellsOffset):
-    JcstSplitOffsetSurfaces = []
-    for zone in OffsetSurfaces:
-        Ni, Nj = I.getZoneDim(zone)[1:3]
+def windowsOfSurfaceTouchingGrid(surface, grid):
+    hook, _ = C.createGlobalHook(surface, function='nodes', indir=1)
+    windows = []
 
-        if Nj-1 > 2*NCellsOffset:
-            JcstSplitOffsetSurfaces.append(T.subzone(zone,
-                                            (1, 1, 1),
-                                            (Ni, 1+NCellsOffset, 1)))
-            JcstSplitOffsetSurfaces.append(T.subzone(zone,
-                                                (1,1+NCellsOffset,1),
-                                                (Ni,Nj-(NCellsOffset),1)))
-            JcstSplitOffsetSurfaces.append(T.subzone(zone,
-                                                (1, Nj-(NCellsOffset), 1),
-                                                (Ni ,Nj,1)))
+    for block in I.getZones(grid):
+        nodes = np.array(C.identifyNodes(hook, block))
+        nodes = np.sort(nodes[nodes>0])
+        Ni, Nj = I.getZoneDim(surface)[1:3]
+        unr = np.vstack(np.unravel_index(nodes-1, (Ni,Nj), order='F'))+1
+        NbOfTouchingPts = len(unr[0])
+        if NbOfTouchingPts == 0 or NbOfTouchingPts == 1: continue
+        windows += [ np.array([[unr[0,0],unr[0,-1]],
+                               [unr[1,0],unr[1,-1]]], order='F') ]
 
-        elif Nj == 2*NCellsOffset:
-            JcstSplitOffsetSurfaces.append(T.subzone(zone,
-                    (1, 1, 1),
-                    (Ni, NCellsOffset+1, 1)))
-            JcstSplitOffsetSurfaces.append(T.subzone(zone,
-                    (1, NCellsOffset+1, 1),
-                    (Ni, Nj, 1)))
+    return windows
+
+def getOffsetExceess(surface, NCellOffset, InwardsIndex):
+    dims = I.getZoneDim(surface)[1:3]
+    return NCellOffset - dims[ijk2ind[InwardsIndex[1]]]
+
+def tagSurface(surface, tag='remove', forced=False):
+    info = I.getNodeFromName1(surface,'.MOLA#Trim')
+    if not info:
+        info = I.createUniqueChild(surface, '.MOLA#Trim', 'UserDefinedData_t')
+    else:
+        previous_tag = I.getValue( I.getNodeFromName1(info, 'tag') )
+        if not forced and previous_tag == 'to_split': return
+    I.createUniqueChild(info, 'tag', 'DataArray_t', value=tag)
+
+def getOpposedConnectedSurfaces(surface, InwardIndex, AllSurfaces):
+    zones, windows = [], []
+    for BCMatch in I.getNodesFromType2(surface, 'GridConnectivity1to1_t'):
+        PointRange = I.getNodeFromName(BCMatch, 'PointRange')[1]
+        OpposedIndex = findInwardsIndexFromExteriorWindow(PointRange)
+        if OpposedIndex[1] != InwardIndex[1]: continue
+        if OpposedIndex[0] == InwardIndex[0]: continue
+
+        ConnectedZoneName = I.getValue(BCMatch)
+        
+        connzone, = [z for z in AllSurfaces if z[0]==ConnectedZoneName]
+        zones.append(connzone)
+
+        PointRangeDonor = I.getNodeFromName(BCMatch, 'PointRangeDonor')[1]
+        windows.append(PointRangeDonor)
+
+    return zones, windows    
+
+def addSplitWindow(surface, window, InwardIndex, NCellsOffset):
+    splitWindow = getNewWindowFromIndwardsIndexAndOffset(window, InwardIndex,
+                                                                   NCellsOffset)
+    
+    if splitWindow[0,0]==0 or splitWindow[1,0]==0:
+        print("\033[93mWARNING for surface %s\033[0m"%surface[0])
+        return
+    info = I.getNodeFromName1(surface, '.MOLA#Trim')
+    tag = I.getValue(I.getNodeFromName1(info, 'tag')) 
+    if tag == 'remove':
+        C.convertPyTree2File(surface,'debug.cgns')
+        raise ValueError('UNEXPECTED BEHAVIOR FOR SURFACE %s'%surface[0])
+    sw = I.createChild(info, 'SplitWindow', 'DataArray_t')
+    I.createUniqueChild(sw, 'Window', 'DataArray_t', value=splitWindow)
+    I.createUniqueChild(sw, 'InwardIndex', 'DataArray_t', value=InwardIndex)
+    for i, sw in enumerate(I.getNodesFromName(info,'SplitWindow*')):
+        sw[0] = 'SplitWindow.%d'%i
+
+def propagateOffsetAndTagSurface(surface, window, NCellsOffset, AllSurfaces):
+    inwardInd = findInwardsIndexFromExteriorWindow(window)
+    excess = getOffsetExceess(surface, NCellsOffset, inwardInd)
+
+    if excess >= 0:
+        tagSurface(surface, 'remove')
+        for surf, wndw in zip(*getOpposedConnectedSurfaces(surface, inwardInd,
+                                                          AllSurfaces)):
+            propagateOffsetAndTagSurface(surf, wndw, excess+1,
+                                         AllSurfaces)
+            
+    else:
+        tagSurface(surface, 'to_split')
+        addSplitWindow(surface, window, inwardInd, NCellsOffset)
+
+def addSurfacesByWindowComposition(surfaces):
+    newSurfaces = []
+    for s in I.getZones(surfaces):
+        
+        trimInfo = I.getNodeFromName1(s,'.MOLA#Trim')
+        if not trimInfo: continue
+
+        tag_node = I.getNodeFromName1(trimInfo,'tag')
+        if not tag_node:
+            print('node tag absent of surface "%s"'%(s[0]))
+            continue
+
+        tag = I.getValue(tag_node)
+        if tag == 'remove': continue
+
+        SplitWindows = I.getNodesFromName(trimInfo,'SplitWindow*')
+        NbOfSplit = len(SplitWindows)
+        if NbOfSplit ==0:
+            print('no split windows at surface "%s"'%s[0])
+            continue
+
+        Ni, Nj = I.getZoneDim(s)[1:3]
+
+        if NbOfSplit == 1:
+            w = I.getValue(I.getNodeFromName1(SplitWindows[0],'Window'))
+            inwInd = I.getValue(I.getNodeFromName1(SplitWindows[0],'InwardIndex'))
+
+            if   inwInd == '+i':
+                slice = (w[0,0],w[1,0],1),(Ni,w[1,1],1)
+            elif inwInd == '-i':
+                slice = (1,w[1,0],1),(w[0,0],w[1,1],1)
+            elif inwInd == '+j':
+                slice = (w[0,0],w[1,0],1),(w[0,1],Nj,1)
+            elif inwInd == '-j':
+                slice = (w[0,0],1,1),(w[0,1],w[1,1],1)
+            else:
+                raise ValueError('InwardIndex "%s" not implemented'%inwInd)
 
 
-        elif Nj > NCellsOffset + 1:
-            JcstSplitOffsetSurfaces.append(T.subzone(zone,
-                    (1, 1, 1),
-                    (Ni, Nj-(NCellsOffset), 1)))
-            JcstSplitOffsetSurfaces.append(T.subzone(zone,
-                    (1, 1+NCellsOffset, 1),
-                    (Ni, Nj, 1)))
+        elif NbOfSplit == 2:
+            w0 = I.getValue(I.getNodeFromName1(SplitWindows[0],'Window'))
+            inwInd0 = I.getValue(I.getNodeFromName1(SplitWindows[0],'InwardIndex'))
+            w1 = I.getValue(I.getNodeFromName1(SplitWindows[1],'Window'))
+            inwInd1 = I.getValue(I.getNodeFromName1(SplitWindows[1],'InwardIndex'))
+
+            if inwInd0[1] != 'i':
+                w0, w1 = w1, w0
+                inwInd0, inwInd1 = inwInd1, inwInd0
+
+            if inwInd0[1] == inwInd1[0]:
+                C.convertPyTree2File(s,'debug.cgns')
+                raise ValueError('impossible split topology. Check debug.cgns')
+
+            if   inwInd0 == '+i' and inwInd1 == '+j':
+                slice = (w0[0,0],w1[1,0],1),(Ni,Nj,1)
+            elif inwInd0 == '+i' and inwInd1 == '-j':
+                slice = (w0[0,0],1,1),(Ni,w1[1,1],1)
+            elif inwInd0 == '-i' and inwInd1 == '+j':
+                slice = (1,w1[1,0],1),(w0[0,1],Nj,1)
+            elif inwInd0 == '-i' and inwInd1 == '-j':
+                slice = (1,1,1),(w0[0,1],w1[1,1],1)
 
         else:
-            JcstSplitOffsetSurfaces.append(zone)
+            raise ValueError('unexpected number of SplitWindows. '
+                             'Make sure to merge SplitWindows before composition.')
 
-    SplitOffsetSurfaces = []
-    for zone in JcstSplitOffsetSurfaces:
-        Ni, Nj = I.getZoneDim(zone)[1:3]
+        try:
+            newSurf = T.subzone(s, *slice) 
+        except TypeError:
+            C.convertPyTree2File(s,'debug.cgns')
+            msg = ('failed slice %s for surface %s with dims %dx%d. '
+                   'Check debug.cgns')%(str(slice),s[0],Ni,Nj)
+            raise ValueError(msg)
 
-        if Ni-1 > 2*NCellsOffset:
-            SplitOffsetSurfaces.append(T.subzone(zone,
-                                        (1, 1, 1),
-                                        (1+NCellsOffset, Nj, 1)))
-            SplitOffsetSurfaces.append(T.subzone(zone,
-                                        (1+NCellsOffset, 1, 1),
-                                        (Ni-(NCellsOffset), Nj, 1)))
+        newSurf[0] = s[0]+'.split'
+        tagSurface(newSurf, tag='keep')
+        tagSurface(s, tag='remove', forced=True)
+        updateOffsetWindowInfoAfterSplit(newSurf,slice)
+        offsetInfo = I.getNodeFromName1(s,'.MOLA#Offset')
+        if offsetInfo: I.addChild(s, offsetInfo)
 
-            SplitOffsetSurfaces.append(T.subzone(zone,
-                                        (Ni-(NCellsOffset), 1, 1),
-                                        (Ni, Nj, 1)))
+        newSurfaces += [ newSurf ]
 
-        elif Ni == 2*NCellsOffset:
-            SplitOffsetSurfaces.append(T.subzone(zone,
-                    (1, 1, 1),
-                    (NCellsOffset+1, Nj, 1)))
-            SplitOffsetSurfaces.append(T.subzone(zone,
-                    (NCellsOffset+1, 1, 1),
-                    (Ni, Nj, 1)))
+    surfaces.extend(newSurfaces)
+
+def updateOffsetWindowInfoAfterSplit(surface, slice):
+    info = I.getNodeFromName1(surface,'.MOLA#Offset')
+    window = I.getValue(I.getNodeFromName1(info,'Window'))
+    s = 0
+    for i in range(3):
+        if window[i,0] == window[i,1]: continue
+        window[i,0] = slice[0][s]
+        window[i,1] = slice[1][s]
+        s += 1
 
 
-        elif Ni > NCellsOffset + 1:
-            SplitOffsetSurfaces.append(T.subzone(zone,
-                    (1, 1, 1),
-                    (Ni-(NCellsOffset), Nj, 1)))
-            SplitOffsetSurfaces.append(T.subzone(zone,
-                    (NCellsOffset+1, 1, 1),
-                    (Ni, Nj, 1)))
+def mergeSplitWindows(surfaces):
 
+    for s in I.getZones(surfaces):
+    
+        trimInfo = I.getNodeFromName1(s,'.MOLA#Trim')
+        if not trimInfo: continue
+        
+        tag_node = I.getNodeFromName1(trimInfo,'tag')
+        if not tag_node:
+            print('node tag absent of surface "%s"'%(s[0]))
+            continue
+
+        tag = I.getValue(tag_node)
+        if tag == 'remove': continue
+
+        SplitWindows = I.getNodesFromName(trimInfo,'SplitWindow*')
+        NbOfSplit = len(SplitWindows)
+        if NbOfSplit < 2: continue
+
+        SplitWindows_I, wnds_I, inds_I = [], [], []
+        SplitWindows_J, wnds_J, inds_J = [], [], []
+
+        for sw in SplitWindows:
+            wnd = I.getValue(I.getNodeFromName1(sw,'Window'))
+            ind = I.getValue(I.getNodeFromName1(sw,'InwardIndex'))
+            if ind[1] == 'i':
+                SplitWindows_I += [ sw ]
+                wnds_I += [ wnd ]
+                inds_I += [ ind ]
+            elif ind[1] == 'j':
+                SplitWindows_J += [ sw ]
+                wnds_J += [ wnd ]
+                inds_J += [ ind ]
+            else:
+                raise ValueError('IndwardIndex "%s" not supported'%ind[1])
+
+        if not _allEqual(inds_I) or not _allEqual(inds_J):
+            raise ValueError('incoherent InwardIndex for surface %s'%s[0])
+
+        if len(inds_I) > 1:
+            imin = imax = wnds_I[0][0,0]
+            jmin = min( [w[1,0] for w in wnds_I] )
+            jmax = max( [w[1,1] for w in wnds_I] )
+            newWnd_I = np.array([[imin, imax],[jmin,jmax]], order='F')
+            for sw in SplitWindows_I: I.rmNode(trimInfo, sw)
+            sw = I.createChild(trimInfo, 'SplitWindow.I', 'DataArray_t')
+            I.createUniqueChild(sw, 'Window', 'DataArray_t', value=newWnd_I)
+            I.createUniqueChild(sw, 'InwardIndex', 'DataArray_t', value=inds_I[0])
+
+        if len(inds_J) > 1:
+            jmin = jmax = wnds_J[0][1,0]
+            imin = min( [w[0,0] for w in wnds_J] )
+            imax = max( [w[0,1] for w in wnds_J] )
+            newWnd_J = np.array([[imin, imax],[jmin,jmax]], order='F')
+            for sw in SplitWindows_J: I.rmNode(trimInfo, sw)
+            sw = I.createChild(trimInfo, 'SplitWindow.J', 'DataArray_t')
+            I.createUniqueChild(sw, 'Window', 'DataArray_t', value=newWnd_J)
+            I.createUniqueChild(sw, 'InwardIndex', 'DataArray_t', value=inds_J[0])
+        
+def filterSurfacesUsingTag(surfaces):
+    filteredSurfaces = []
+    for s in I.getZones(surfaces):
+        dim = I.getZoneDim(s)[4]
+        try:
+            trimInfo = I.getNodeFromName1(s,'.MOLA#Trim')
+            tag_node = I.getNodeFromName1(trimInfo,'tag')
+            tag = I.getValue(tag_node)
+        except:
+            if dim == 2: filteredSurfaces += [ s ]
+            continue
+        if tag != 'remove' and dim == 2: filteredSurfaces += [ s ]
+    I._correctPyTree(filteredSurfaces, level=3)
+    return filteredSurfaces
+
+
+def migrateOffsetData(t, OffsetSurfaces):
+    zones = I.getZones(t)
+    for surface in OffsetSurfaces:
+        info = I.getNodeFromName1(surface, '.MOLA#Offset')
+        if not info: continue
+        zone_name = I.getValue(I.getNodeFromName1(info, 'Zone'))
+        zone = _pickZoneFromName(zones, zone_name)
+        zone_info = I.getNodeFromName1(zone, '.MOLA#Offset')
+        if not zone_info:
+            I.addChild(zone, info)
         else:
-            SplitOffsetSurfaces.append(zone)
+            window = I.getNodeFromName1(info, 'Window')
+            I.addChild(zone_info, window)
+    for z in zones:
+        info = I.getNodeFromName1(z, '.MOLA#Offset')
+        if not info: continue
+        windows = I.getNodesByName(info,'Window*')
+        for i, w in enumerate(windows): w[0] = 'Window.%d'%i
 
-    return SplitOffsetSurfaces
+
+        
+        
+
+def extractWindows(t):
+    surfaces = []
+    for zone in I.getZones(t):
+        info = I.getNodeFromName1(zone, '.MOLA#Offset')
+        if not info: continue
+        windows = I.getNodesByName(info, 'Window*')
+        for window in windows:
+            w = I.getValue( window )
+            try:
+                surface = T.subzone(zone,(w[0,0],w[1,0],w[2,0]),
+                                         (w[0,1],w[1,1],w[2,1]))
+            except TypeError:
+                C.convertPyTree2File(zone,'debug.cgns')
+                msg = 'failed extraction for zone %s'%(zone[0])
+                raise ValueError(msg)
+            surface[0] = 'window'
+            I.addChild(surface,info)
+            surfaces += [ surface ]
+    I._correctPyTree(surfaces, level=3)
+    return surfaces
 
 
+def _extractSplitWindows(t):
+    surfs = I.getZones(t)
+    treeBuildList = []
+    for s in surfs:
+        SplitWindows = I.getNodesFromName(s,'SplitWindow*')
+        if not SplitWindows: continue
+        curves = []
+        for sw in SplitWindows:
+            wnd = I.getValue(I.getNodeFromName1(sw,'Window'))
+            try:
+                curve = T.subzone(s,(wnd[0,0],wnd[1,0],1),(wnd[0,1],wnd[1,1],1))
+            except TypeError:
+                Ni, Nj = I.getZoneDim(s)[1:3]
+                slice=str([(wnd[0,0],wnd[1,0],1),(wnd[0,1],wnd[1,1],1)])
+                msg = 'failed slice %s for surface %s with dims %dx%d'%(slice,s[0],Ni,Nj)
+                raise ValueError(msg+' with wnd %s'%str(wnd))
+            curves += [ curve ]
+        treeBuildList.extend([s[0]+'.SW', curves])
+    tOut = C.newPyTree(treeBuildList)
+    I._correctPyTree(tOut,level=3)
+    return tOut
 
-def surfaceTouchesBCsurface(surface, hookBCsurfaces, tol=1e-10):
-    nodes, distances = C.nearestNodes(hookBCsurfaces, surface)
-    MinDistance = np.min(distances)
-    if MinDistance < tol:
-        return True
-    return False
+def _allEqual(x):
+    '''
+    x is a python list
+    '''
+    if len(x) == 0: return True
+    return x.count(x[0]) == len(x)
+
+def _pickZoneFromName(zones, zone_name):
+    for z in zones:
+        if z[0] == zone_name:
+            return z

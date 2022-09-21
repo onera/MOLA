@@ -1464,10 +1464,7 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
     # 8. include (rather update?) NeighbourList
     # 9. unsteady masking using ElsATools
 
-    if not hasAnyOversetData(InputMeshes): return t
-
-    
-    
+    if not hasAnyOversetData(InputMeshes): return t  
 
     print('building static masking bodies...')
     baseName2BodiesDict = getMaskingBodiesAsDict(t, InputMeshes)
@@ -1514,10 +1511,6 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
 
     print('... static blanking done.')
 
-    print('rotors neighbour list search...', end='')
-    UO.setNeighbourListOfRotors(t, InputMeshes)
-    print('ok')
-
     print('setting hole interpolated points...')
     t = X.setHoleInterpolatedPoints(t, depth=depth)
 
@@ -1530,7 +1523,6 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
     print('maximizing blanked cells...')
     t = X.maximizeBlankedCells(t, depth=depth)
 
-    print('Computing interpolation coefficients...')
 
     if overset_in_CGNS:
         prefixFile = ''
@@ -1541,9 +1533,14 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
         except: pass
         prefixFile = os.path.join(DIRECTORY_OVERSET,'overset')
 
+    print('cellN2OversetHoles and applyBCOverlaps...')
     t = X.cellN2OversetHoles(t)
     t = X.applyBCOverlaps(t, depth=depth) # TODO ->  see previous RB note
+    print('... cellN2OversetHoles and applyBCOverlaps done.')
 
+
+
+    print('Computing interpolation coefficients...')
     t = X.setInterpolations(t, loc='cell', sameBase=0, double_wall=double_wall,
                             storage='inverse', solver='elsA', check=True,
                             nGhostCells=2, prefixFile=prefixFile)
@@ -1556,9 +1553,16 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
             CriticalPoints = C.newPyTree([diagnosisType, I.getZones(CriticalPoints)])
             C.convertPyTree2File(CriticalPoints, diagnosisType+'.cgns')
 
+    print('rotors neighbour list search...')
+    EP._overlapGC2BC(t)
+    UO.setNeighbourListOfRotors(t, InputMeshes)
+    print('.. rotors neighbour list search done.')
+
 
     if not overset_in_CGNS:
         I._rmNodesByName(t,'ID_*')
+
+
 
     return t
 
