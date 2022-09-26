@@ -137,7 +137,7 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
 
     return t
 
-def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
+def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
         NumericalParams={}, Extractions=[{'type':'AllBCWall'}],
         Initialization=dict(method='uniform'),
         BodyForceInputData=[], writeOutputFields=True,
@@ -374,11 +374,16 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={},
     if BodyForceInputData: NumericalParams['useBodyForce'] = True
     elsAkeysNumerics = getElsAkeysNumerics(ReferenceValues,
                                 unstructured=IsUnstructured, **NumericalParams)
+    
+    if useBCOverlap and OversetMotion:
+        elsAkeysNumerics['chm_interpcoef_frozen'] = 'inactive'
+
 
     AllSetupDics = dict(Workflow='Standard',
                         JobInformation=JobInformation,
                         FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
+                        OversetMotion=OversetMotion,
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
@@ -442,6 +447,7 @@ def getMeshesAssembled(InputMeshes):
             raise ValueError('InputMesh element in %s must contain only 1 base'%filename)
         base = bases[0]
         base[0] = meshInfo['baseName']
+        J.set(base,'.MOLA#InputMesh',**meshInfo)
         Trees += [C.newPyTree([base])]
 
     t = I.merge(Trees)
@@ -1441,6 +1447,13 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
             if :py:obj:`True`, then saves the file ``masks.cgns``,
             allowing the user to analyze if masks have been properly generated.
 
+        overset_in_CGNS : bool
+            if :py:obj:`True`, then include all interpolation data in CGNS using
+            ``ID_*`` nodes.
+
+            .. danger::
+                beware of elsA bug `10545 <https://elsa.onera.fr/issues/10545>`_
+
     Returns
     -------
 
@@ -1474,7 +1487,12 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
         bodies.extend(baseName2BodiesDict[meshInfo['baseName']])
 
     if saveMaskBodiesTree:
-        tMask = C.newPyTree(['MASK', bodies])
+        treeLikeList = []
+        for bn in baseName2BodiesDict:
+            flat_bodies = _flattenBodies(baseName2BodiesDict[bn])
+            treeLikeList.extend([bn, flat_bodies])
+        tMask = I.copyRef(C.newPyTree(treeLikeList))
+        I._correctPyTree(tMask,level=3)
         C.convertPyTree2File(tMask, 'mask.cgns')
 
 
@@ -1488,7 +1506,7 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
     # see ticket #7882
     for ibody, body in enumerate(bodies):
         BlankingVector = np.atleast_2d(BlankingMatrix[:,ibody]).T
-        BaseNameOfBody = ''.join(body[0].split('-')[1:])
+        BaseNameOfBody = getBodyParentBaseName(getBodyName(body))
         meshInfo = getMeshInfoFromBaseName(BaseNameOfBody, InputMeshes)
         try: BlankingMethod = meshInfo['OversetOptions']['BlankingMethod']
         except KeyError: BlankingMethod = 'blankCellsTri'
@@ -1498,12 +1516,14 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
         BlankingMethodOptions = dict(blankingType='center_in')
         BlankingMethodOptions.update(UserSpecifiedBlankingMethodOptions)
 
+        bodyInterface = [[body]] if isinstance(body[0],str) else [body]
+
         if BlankingMethod == 'blankCellsTri':
-            t = X.blankCellsTri(t, [[body]], BlankingVector,
+            t = X.blankCellsTri(t, bodyInterface, BlankingVector,
                                     **BlankingMethodOptions)
 
         elif BlankingMethod == 'blankCells':
-            t = X.blankCells(t, [[body]], BlankingVector,
+            t = X.blankCells(t, bodyInterface, BlankingVector,
                                 **BlankingMethodOptions)
 
         else:
@@ -1553,11 +1573,16 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
             CriticalPoints = C.newPyTree([diagnosisType, I.getZones(CriticalPoints)])
             C.convertPyTree2File(CriticalPoints, diagnosisType+'.cgns')
 
+    UO.addMaskData(t, InputMeshes, bodies, BlankingMatrix)
+
     print('rotors neighbour list search...')
-    EP._overlapGC2BC(t)
-    UO.setNeighbourListOfRotors(t, InputMeshes)
+    # EP._overlapGC2BC(t) # done later in adapt2ElsA
+    UO.setNeighbourListOfMasks(t, InputMeshes)
+    UO.setMaskParameters(t, InputMeshes)
+    I._rmNodesByName(t,'OversetHoles') # TODO remove this
     print('.. rotors neighbour list search done.')
 
+    
 
     if not overset_in_CGNS:
         I._rmNodesByName(t,'ID_*')
@@ -1597,15 +1622,14 @@ def getBlankingMatrix(bodies, InputMeshes):
             masking surfaces.
     '''
 
-    def getBodyParentBaseName(BodyName):
-        return '-'.join(BodyName.split('-')[1:])
 
     # BM(i,j)=1 means that ith basis is blanked by jth body
     Nbases  = len( InputMeshes )
     Nbodies = len( bodies )
+    
 
     BaseNames = [meshInfo['baseName'] for meshInfo in InputMeshes]
-    BodyNames = [I.getName( body ) for body in bodies]
+    BodyNames = [getBodyName( body ) for body in bodies]
 
     # Initialization: all bodies mask all bases
     BlankingMatrix = np.ones((Nbases, Nbodies))
@@ -1620,7 +1644,7 @@ def getBlankingMatrix(bodies, InputMeshes):
 
     # user-provided masking protections
     for i, meshInfo in enumerate(InputMeshes):
-        if 'Motion' in meshInfo: BlankingMatrix[i, :] = 0 # will need unsteady mask
+        # if 'Motion' in meshInfo: BlankingMatrix[i, :] = 0 # will need unsteady mask
         try:
             Forbidden = meshInfo['OversetOptions']['ForbiddenOverlapMaskingThisBase']
         except KeyError:
@@ -1682,7 +1706,6 @@ def getMaskingBodiesAsDict(t, InputMeshes):
         # BCOverlap (soft mask)
 
         meshInfo = getMeshInfoFromBaseName(basename, InputMeshes)
-        if 'Motion' in meshInfo: continue
         try:
             CreateMaskFromWall = meshInfo['OversetOptions']['CreateMaskFromWall']
         except KeyError:
@@ -1767,13 +1790,28 @@ def getWalls(t, SuffixTag=None):
         walls - list
             closed watertight surfaces (TRI)
     '''
-
     # note: this works also for BCWall* defined by families
     walls = C.extractBCOfType(t, 'BCWall*', reorder=True)
     if not walls: return []
-    walls = buildWatertightBodiesFromSurfaces(walls,
-                                             imposeNormalsOrientation='inwards',
-                                             SuffixTag=SuffixTag)
+    
+    tR = I.copyRef(t)
+    _ungroupBCsByBCType(tR, forced_starting='BCWall')
+    I._groupBCByBCType(tR, btype='BCWall', name=SuffixTag)
+    walls = ESP.extractSurfacesByOffsetCellsFromBCFamilyName(tR,
+                                    BCFamilyName=SuffixTag, NCellsOffset=0)
+
+
+    # walls = C.extractBCOfType(tR, 'BCWall*', reorder=True)
+    # if not walls: return []
+    ## walls = buildWatertightBodiesFromSurfaces(walls,
+    ##                                          imposeNormalsOrientation='inwards',
+    ##                                          SuffixTag=SuffixTag)
+    
+    # EXPERIMENTAL : directly use composite walls
+    if SuffixTag:
+        for w in I.getZones(walls): w[0] = SuffixTag
+    walls = [walls]
+
     return walls
 
 def getOverlapMaskByExtrusion(t, SuffixTag=None, OffsetDistanceOfOverlapMask=0.,
@@ -1892,16 +1930,17 @@ def getOverlapMaskByCellsOffset(base, SuffixTag=None, NCellsOffset=2,
                                                             NCellsOffset)
 
     if not mask: return
-    mask = C.convertArray2Tetra(mask)
-    mask = T.join(mask)
+    # mask = C.convertArray2Tetra(mask)
+    # mask = T.join(mask)
 
-    if GSD.isClosed(mask, tol=MatchTolerance):
-        mask = T.reorderAll(mask, dir=-1) # force normal pointing inwards
-    else:
-        mask = buildWatertightBodyFromSurfaces([mask],
-                                             imposeNormalsOrientation='inwards')
+    # if GSD.isClosed(mask, tol=MatchTolerance):
+    #     mask = T.reorderAll(mask, dir=-1) # force normal pointing inwards
+    # else:
+    #     mask = buildWatertightBodyFromSurfaces([mask],
+    #                                          imposeNormalsOrientation='inwards')
 
-    if SuffixTag: mask[0] = SuffixTag
+    if SuffixTag:
+        for m in I.getZones(mask): m[0] = SuffixTag
 
     return mask
 
@@ -3015,22 +3054,23 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
 
 
     if useChimera:
-        addKeys = dict(chm_double_wall='active',
-                       chm_double_wall_tol=2000.,
+        addKeys = dict(
+                    #    chm_double_wall='active',
+                    #    chm_double_wall_tol=2000.,
                        chm_orphan_treatment= 'neighbourgsmean',
-                       chm_impl_interp='none',
+                    #    chm_impl_interp='none',
                        chm_interp_depth=2,
-                       chm_interpcoef_frozen='active', # TODO: make conditional
-                       chm_conn_io='read', # NOTE ticket 8259
+                    #    chm_interpcoef_frozen='active', # TODO: make conditional
+                    #    chm_conn_io='read', # NOTE ticket 8259
                        )
-        if os.path.exists('OVERSET'):
-            addKeys.update(dict(
-                        # Overset by external files
-                        chm_impl_interp='none',
-                        chm_ovlp_minimize='inactive',
-                        chm_ovlp_thickness=2,
-                        chm_preproc_method='mask_based',
-                        chm_conn_fprefix=DIRECTORY_OVERSET+'/overset'))
+        # if os.path.exists('OVERSET'):
+        #     addKeys.update(dict(
+        #                 # Overset by external files
+        #                 chm_impl_interp='none',
+        #                 chm_ovlp_minimize='inactive',
+        #                 chm_ovlp_thickness=2,
+        #                 chm_preproc_method='mask_based',
+        #                 chm_conn_fprefix=DIRECTORY_OVERSET+'/overset'))
 
 
     addKeys.update(dict(
@@ -3108,6 +3148,8 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
     t = I.copyRef(t)
 
     addTrigger(t)
+    if 'OversetMotion' in AllSetupDictionaries:
+        addOversetMotion(t, AllSetupDictionaries['OversetMotion'])
     addExtractions(t, AllSetupDictionaries['ReferenceValues'],
                       AllSetupDictionaries['elsAkeysModel'],
                       extractCoords=extractCoords, BCExtractions=BCExtractions)
@@ -3128,6 +3170,124 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
     writeSetup(AllSetupDictionaries)
 
     return t
+
+
+def addOversetMotion(t, OversetMotion):
+
+    for base in I.getBases(t):
+        motion_keys = dict( motion=1, omega=0.0, transl_speed=0.0,
+                            axis_ang_1=1, axis_ang_2=1 
+                            )
+
+        try:             OversetMotionData = OversetMotion[base[0]]
+        except KeyError: OversetMotionData = dict(RPM=0.0)
+
+
+        FamilyMotionName = 'MOTION_'+base[0]
+        for z in I.getZones(base):
+            I.createUniqueChild(z,FamilyMotionName,'FamilyName_t',
+                                    value=FamilyMotionName)
+        family = I.createChild(base, FamilyMotionName, 'Family_t')
+        I.createChild(family,'FamilyBC','FamilyBC_t',value='UserDefined')
+
+        rc, ra, td = _getMotionDataFromMeshInfo(base)
+        motion_keys['function_name']=FamilyMotionName
+        motion_keys['omega']=OversetMotionData['RPM']*np.pi/30.
+        motion_keys['axis_pnt_x']=rc[0]
+        motion_keys['axis_pnt_y']=rc[1]
+        motion_keys['axis_pnt_z']=rc[2]
+        motion_keys['axis_vct_x']=ra[0]
+        motion_keys['axis_vct_y']=ra[1]
+        motion_keys['axis_vct_z']=ra[2]
+        motion_keys['transl_vct_x']=td[0]
+        motion_keys['transl_vct_y']=td[1]
+        motion_keys['transl_vct_z']=td[2]
+        
+        _setMobileCoefAtBCsExceptOverlap(base, mobile_coef=-1.0)
+
+        J.set(family,'.Solver#Motion', **motion_keys)
+
+        default_rotor_motion = dict(type='rotor_motion',
+            initial_angles=[0.,0.],
+            alp0=0.,
+            alp_pnt=[0.,0.,0.],
+            alp_vct=[0.,1.,0.],
+            rot_pnt=[rc[0],rc[1],rc[2]],
+            rot_vct=[ra[0],ra[1],ra[2]],
+            rot_omg=motion_keys['omega'],
+            span_vct=[0.,1.,0.],
+            pre_lag_pnt=[0.,0.,0.],
+            pre_lag_vct=[0.,0.,1.],
+            pre_lag_ang=0.,
+            pre_con_pnt=[0.,0.,0.],
+            pre_con_vct=[0.,1.,0.],
+            pre_con_ang=0.,
+            del_pnt=[0.,0.,0.],
+            del_vct=[0.,0.,1.],
+            del0=0.,
+            bet_pnt=[0.,0.,0.],
+            bet_vct=[0.,1.,0.],
+            bet0=0.,
+            tet_pnt=[0.,0.,0.],
+            tet_vct=[1.,0.,0.],
+            tet0=0.)        
+
+        try:
+            function_motion_type = OversetMotionData['Function']['type']
+        except KeyError:
+            function_motion_type = 'rotor_motion'
+            try:
+                OversetMotionData['Function']['type'] = 'rotor_motion'
+            except KeyError:
+                OversetMotionData['Function'] = dict(type='rotor_motion')
+
+        if function_motion_type == 'rotor_motion':
+            J.set(family,'.MOLA#Motion',**default_rotor_motion)
+        else:
+            J.set(family,'.MOLA#Motion',**OversetMotionData['Function'])
+        
+        MOLA_Motion = I.getNodeFromName1(family,'.MOLA#Motion')
+        I.setValue(MOLA_Motion, FamilyMotionName)
+
+
+
+def _getMotionDataFromMeshInfo(base):
+    defaultRotationCenter = np.array([0.,0.,0.],order='F')
+    defaultRotationAxis = np.array([0.,0.,1.],order='F')
+    defaultTranslationDirection = np.array([1.,0.,0.],order='F')
+    default = defaultRotationCenter, defaultRotationAxis, defaultTranslationDirection
+
+    MeshInfo = J.get(base,'.MOLA#MeshInfo')
+    if not MeshInfo: return default
+    try: MotionData = MeshInfo['Motion']
+    except KeyError: return default
+
+    try: RotationCenter = MotionData['RotationCenter']
+    except KeyError: RotationCenter = defaultRotationCenter
+
+    try: RotationAxis = MotionData['RotationAxis']
+    except KeyError: RotationAxis = defaultRotationAxis
+
+    try: TranslationDirection = MotionData['TranslationDirection']
+    except KeyError: TranslationDirection = defaultTranslationDirection
+
+    return RotationCenter, RotationAxis, TranslationDirection
+
+
+def _setMobileCoefAtBCsExceptOverlap(t, mobile_coef=-1.0):
+    for base in I.getBases(t):
+        for family in I.getNodesFromType1(base,'Family_t'):
+            BCType = getFamilyBCTypeFromFamilyBCName(base, family[0])
+            if BCType and BCType != 'BCOverlap':
+                SolverBC = I.getNodeFromName1(family,'.Solver#BC')
+                if not SolverBC:
+                    J.set(family, '.Solver#BC', mobile_coef=mobile_coef)
+                else:
+                    I.createUniqueChild(SolverBC,'mobile_coef',
+                                        'DataArray_t', value=mobile_coef)
+
+
+
 
 def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
                                MainCGNSFilename='main.cgns',
@@ -3330,7 +3490,8 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
         loc           = 'interface',
         fluxcoeff     = 1.0,
         writingframe  = 'absolute',
-        geomdepdom = 2 # see #8127#note-26
+        geomdepdom    = 2, # see #8127#note-26
+        delta_cell_max= 300,
     )
 
     # Keys to write in the .Solver#Output for wall Families
@@ -3346,7 +3507,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
         xtorque       = 0.0,
         ytorque       = 0.0,
         ztorque       = 0.0,
-        writingframe  = 'relative'
+        writingframe  = 'absolute'
     ))
 
     FamilyNodes = I.getNodesFromType2(t, 'Family_t')
@@ -4060,8 +4221,17 @@ def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
     FamilyBCNodeType = I.getValue(FamilyBCNode)
     if FamilyBCNodeType != 'UserDefined': return FamilyBCNodeType
 
+    SolverBC = I.getNodeFromName1(FamilyNode,'.Solver#BC')
+    if SolverBC:
+        SolverBCType = I.getNodeFromName1(SolverBC,'type')
+        if SolverBCType:
+            BCType = I.getValue(SolverBCType)
+            return BCType
+
+    SolverOverlap = I.getNodeFromName1(FamilyNode,'.Solver#Overlap')
+    if SolverOverlap: return 'BCOverlap'
+
     BCnodes = I.getNodesFromType(t, 'BC_t')
-    BCType = None
     for BCnode in BCnodes:
         FamilyNameNode = I.getNodeFromName1(BCnode, 'FamilyName')
         if not FamilyNameNode: continue
@@ -4069,9 +4239,9 @@ def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
         FamilyNameValue = I.getValue( FamilyNameNode )
         if FamilyNameValue == FamilyBCName:
             BCType = I.getValue( BCnode )
+            if BCType != 'FamilySpecified': return BCType
             break
 
-    return BCType
 
 def hasBCOverlap(t):
     '''
@@ -4642,3 +4812,34 @@ def sendSimulationFiles(DIRECTORY_WORK, overrideFields=True):
     print(f'Copying simulation elements ({files2copyString}) to {DIRECTORY_WORK}')
     for elt in ElementsToSend:
         JM.repatriate(elt, os.path.join(DIRECTORY_WORK, elt))
+
+
+def getBodyParentBaseName(BodyName):
+    return '-'.join(BodyName.split('-')[1:])
+
+def getBodyName(body):
+    if isinstance(body[0],str): return body[0]
+    else: return body[0][0]
+
+def _flattenBodies( bodies ):
+    bodies_zones = []
+    for b in bodies:
+        if isinstance(b[0],str):
+            bodies_zones.append(b)
+        elif isinstance(b[0],list):
+            for bb in b:
+                if not isinstance(bb[0],str):
+                    raise ValueError('wrong bodies container')
+                bodies_zones.append(bb)
+    return bodies_zones
+
+def _ungroupBCsByBCType(t, forced_starting=''):
+    for BC in I.getNodesFromType(t,'BC_t'):
+        BCvalue = I.getValue(BC)
+        if BCvalue == 'FamilySpecified':
+            FamilyBC = I.getValue(I.getNodeFromName1(BC,'FamilyName'))
+            BCType = getFamilyBCTypeFromFamilyBCName(t, FamilyBC)
+            if forced_starting:
+                if BCType.startswith(forced_starting):
+                    BCType = forced_starting
+            I.setValue(BC,BCType)

@@ -42,6 +42,7 @@ FILE_COLOG       = 'coprocess.log'
 FILE_BODYFORCESRC= 'bodyforce.cgns'
 DIRECTORY_OUTPUT = 'OUTPUT'
 DIRECTORY_LOGS   = 'LOGS'
+RequestedStatistics = [] # will be overriden by coprocess.py
 
 # ------------------ IMPORT AND SET CURRENT SETUP DATA ------------------ #
 setup = J.load_source('setup',FILE_SETUP)
@@ -83,8 +84,8 @@ Skeleton = CO.loadSkeleton()
 
 # ========================== LAUNCH ELSA ========================== #
 
+import elsA_user
 if not FULL_CGNS_MODE:
-    import elsA_user
 
     Cfdpb = elsA_user.cfdpb(name='cfd')
     Mod   = elsA_user.model(name='Mod')
@@ -128,8 +129,8 @@ if BodyForceInputData:
     NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NumberOfProcessors)
 # ------------------------------------------------------------------------- #
 
+CO.loadRotorMotionForElsA(elsA_user, Skeleton)
 
-e.action=elsAxdt.COMPUTE
 e.mode = elsAxdt.READ_MESH
 e.mode |= elsAxdt.READ_CONNECT
 e.mode |= elsAxdt.READ_BC
@@ -139,9 +140,16 @@ e.mode |= elsAxdt.READ_FLOW
 e.mode |= elsAxdt.READ_COMPUTATION
 e.mode |= elsAxdt.READ_OUTPUT
 e.mode |= elsAxdt.READ_TRACE
+e.mode |= elsAxdt.SKIP_GHOSTMASK
 if not os.path.exists('OVERSET'): e.mode |= elsAxdt.CGNS_CHIMERACOEFF
+e.action=elsAxdt.TRANSLATE
 
 e.compute()
+CO.loadUnsteadyMasksForElsA(e, elsA_user, Skeleton)
+
+Cmpi.barrier()
+Cfdpb.compute()
+Cmpi.barrier()
 
 t = CO.extractFields(Skeleton)
 

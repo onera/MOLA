@@ -67,11 +67,14 @@ def set(parent, childname, childType='UserDefinedData_t', **kwargs):
     for v in kwargs:
         if isinstance(kwargs[v], dict):
             SubChildren += [[v,kwargs[v]]]
-        elif isinstance(kwargs[v], list) and len(kwargs[v])>0:
-            if isinstance(kwargs[v][0], str):
-                value = ' '.join(kwargs[v])
+        elif isinstance(kwargs[v], list):
+            if len(kwargs[v])>0:
+                if isinstance(kwargs[v][0], str):
+                    value = ' '.join(kwargs[v])
+                else:
+                    value = np.atleast_1d(kwargs[v])
             else:
-                value = np.atleast_1d(kwargs[v])
+                value = None
             children += [[v,value]]
         else:
             children += [[v,kwargs[v]]]
@@ -2354,3 +2357,9 @@ def getSignal(filename):
     except:
         pass
     return isOrder
+
+def _getBaseWithZoneName(t,zone_name):
+    for base in I.getBases(t):
+        for child in base[2]:
+            if child[0] == zone_name and child[3] == 'Zone_t':
+                return base

@@ -141,8 +141,8 @@ if ENTER_COUPLING:
             if rank==0:
                 with open('COMPLETED','w') as f: f.write('COMPLETED')
 
-        CO.printCo('TERMINATING COMPUTATION', proc=0, color=CO.GREEN)
         CO.updateAndWriteSetup(setup)
+        Cmpi.barrier()
         elsAxdt.safeInterrupt()
 
 

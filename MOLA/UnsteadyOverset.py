@@ -18,9 +18,27 @@ from . import GenerativeShapeDesign as GSD
 from . import GenerativeVolumeDesign as GVD
 from . import ExtractSurfacesProcessor as ESP
 from . import JobManager as JM
+from .Preprocess import getBodyName
 
+MOLA_MASK = 'mask'
 
-def setNeighbourListOfRotors(t, InputMeshes):
+def setMaskParameters(t, InputMeshes):
+    mask_params = dict(type='cart_elts', proj_direction='z', dim1=100, dim2=100,
+                       blanking_criteria='center_in')
+    for base in I.getBases(t):
+        MasksInfo = I.getNodeFromName1(base,'.MOLA#Masks')
+        if not MasksInfo: continue
+        for mask in MasksInfo[2]:
+            if not mask[0].startswith(MOLA_MASK): continue
+            # we suppose all patches belong to the same base
+            MaskBase = J._getBaseWithZoneName(t,
+                                    I.getValue(I.getNodeFromName2(mask,'Zone')))
+            meshInfo = [m for m in InputMeshes if m['baseName']==MaskBase[0]][0]
+            if 'UnsteadyMaskOptions' in meshInfo['OversetOptions']:
+                mask_params.update(meshInfo['OversetOptions']['UnsteadyMaskOptions'])
+            J.set(mask,'Parameters',**mask_params)
+
+def setNeighbourListOfMasks(t, InputMeshes):
     '''
     Set the ``NeighbourList`` node of each base by considering the rotation of 
     the component. This information is required for unsteady masking.
@@ -80,14 +98,16 @@ def setNeighbourListOfRotors(t, InputMeshes):
     print('building trees of boxes for intersection estimation...')
     aabb, obb = _buildBoxesTrees(tR)
 
+    NeighbourDict = {}
     for meshInfo in InputMeshes:
-        if 'Motion' not in meshInfo: continue
         BaseName = meshInfo['baseName']
         
         print('computing intersection between boxes from base %s...'%BaseName)
-        NewNeighbourList= _findNeighbourListOfBase(BaseName, aabb, obb)
-        print('updating NeighbourList of base %s...'%BaseName)
-        _updateNeighbourListOfBase(BaseName, t, NewNeighbourList)
+        NeighbourList = _findNeighbourListOfBase(BaseName, aabb, obb)
+        NeighbourDict[BaseName] = NeighbourList
+    
+    print('updating NeighbourList of MOLA#Masks at base %s...'%BaseName)
+    _updateNeighbourListOfMasks(t, NeighbourDict)
 
 
 def _getRotorMotionParameters(meshInfo):
@@ -192,52 +212,45 @@ def _buildBoxesTrees(tR):
     return tR_aabb, tR_obb
 
 
-def _updateNeighbourListOfBase(BaseName, t, NewNeighbourList):
+def _updateNeighbourListOfMasks(t, NeighbourDict):
+    if not NeighbourDict: return
+    for base in I.getBases(t):
+        MasksInfo = I.getNodeFromName1(base,'.MOLA#Masks')
+        if not MasksInfo: continue
+        for mask in MasksInfo[2]:
+            if not mask[0].startswith(MOLA_MASK): continue
+            # we suppose all patches belong to the same base
+            MaskBase = J._getBaseWithZoneName(t,
+                                    I.getValue(I.getNodeFromName2(mask,'Zone')))
+            I.createUniqueChild(mask,'NeighbourList','DataArray_t',
+                                    value=' '.join(NeighbourDict[MaskBase[0]]))
+
+
     
-    if not NewNeighbourList: return
-    base = I.getNodeFromName2(t, BaseName)
-    NeighbourListNodes = I.getNodesFromName(base,'NeighbourList')
-
-    AmountOfNeighbourListNodes = len(NeighbourListNodes)
-    if AmountOfNeighbourListNodes != 1:
-        msg = ('found %d NeighbourList nodes in base "%s", '
-              'but exactly 1 was expected')%(AmountOfNeighbourListNodes,BaseName)
-        raise ValueError(msg)
-
-    NeighbourListNode = NeighbourListNodes[0]
-    NeighbourList = I.getValue(NeighbourListNode)
-    
-    if NeighbourList is None:
-        NeighbourList = []
-    else:
-        NeighbourList = NeighbourList.split(' ')
-
-    for NewNeighbour in NewNeighbourList:
-        if NewNeighbour not in NeighbourList:
-            NeighbourList.append( NewNeighbour )
-    I.setValue(NeighbourListNode, ' '.join(NeighbourList))
-
-
-# def addMaskWindowLocation(t, mask, parent_node):
-#     '''
-#     Attach ``.MOLA#Mask`` node to *parent_node*, containing windows location 
-#     of the mask by means of point ranges (structured) or point lists
-#     (unstructured).
-
-#     Parameters
-#     ----------
-
-#         t : PyTree
-#             full grid, where mask is applied
-
-#         mask : PyTree, base, zone or list of zones
-#             geometrical surfaces of the mask, as obtained for example 
-#             using :py:func:`MOLA.ExtractSurfacesProcessor.extractSurfacesByOffsetCellsFromBCFamilyName`
-
-#             .. important::
-#                 the mask must exactly match grid points of **t**.
-
-#         parent_node : node
-#             CGNS node where ``.MOLA#Mask`` will be attached. It is recommended 
-#             to be a relevant *Family_t*.
-#     '''
+def addMaskData(t, InputMeshes, bodies, BlankingMatrix):
+    for i, meshInfo in enumerate(InputMeshes):
+        baseName = meshInfo['baseName']
+        base = _getBaseFromName(t, baseName)
+        MaskBodies = [ b for j, b in enumerate(bodies) if BlankingMatrix[i,j] ]
+        if not MaskBodies: continue
+        AllMasksContainer = I.createUniqueChild(base, '.MOLA#Masks',
+                                                'UserDefinedData_t')
+        for body in MaskBodies:
+            maskName = base[0] + '_by_' + getBodyName(body)
+            mask = I.createChild(AllMasksContainer, MOLA_MASK,
+                                'UserDefinedData_t', value=maskName)
+            if isinstance(body[0], str): body = [body]
+            for k, patch in enumerate(body):
+                offset = I.getNodeFromName1(patch,'.MOLA#Offset')
+                if not offset: continue
+                offset = I.addChild(mask, offset)
+                offset[0] = 'patch.%d'%k
+        
+        for l, mask in enumerate(AllMasksContainer[2]):
+            mask[0]=MOLA_MASK+'.%d'%l
+            
+def _getBaseFromName(t, base_name):
+    bases = I.getBases(t)
+    for b in bases:
+        if b[0] == base_name: 
+            return b

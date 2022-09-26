@@ -2146,7 +2146,8 @@ def loadSkeleton(Skeleton=None, PartTree=None):
     def replaceNodeByName(parent, parentPath, name):
         oldNode = I.getNodeFromName1(parent, name)
         #if not oldNode: return
-        newNode = readNodesFromPaths('{}/{}'.format(parentPath, name))
+        path = '{}/{}'.format(parentPath, name)
+        newNode = readNodesFromPaths(path)
         I._rmNode(parent, oldNode)
         I._addChild(parent, newNode)
 
@@ -2179,6 +2180,18 @@ def loadSkeleton(Skeleton=None, PartTree=None):
                 for GC in I.getNodesFromType2(zone, 'GridConnectivity_t'):
                     GCpath = '{}/ZoneGridConnectivity/{}'.format(zonePath, I.getName(GC))
                     replaceNodeByName(GC, GCpath, 'PointList')
+
+        # always require to fully read Mask nodes 
+        def readNodesFromPathRevursively(node_skel, node_path):
+            new_node = readNodesFromPaths(node_path)[0]
+            node_skel[1] = new_node[1]
+            for child in node_skel[2]:
+                readNodesFromPathRevursively(child, node_path+'/'+child[0])
+
+
+        masks = I.getNodeFromName1(base, '.MOLA#Masks')
+        if masks:
+            readNodesFromPathRevursively(masks, '/'.join([basename, masks[0]]))
 
     return Skeleton
 
@@ -2398,3 +2411,93 @@ def searchZoneAndIndexForProbes(t, Probes, tol=1e-2):
 
         Probe['zone'] = probeZone
         Probe['element'] = nearestElement
+
+
+def loadUnsteadyMasksForElsA(e, elsA_user, Skeleton):
+    Cmpi.barrier()
+    for base in I.getBases(Skeleton):
+        elsA_masks = []
+        masks = I.getNodeFromName1(base, '.MOLA#Masks')
+        if not masks: continue
+
+        for mask in masks[2]:
+            mask_name = I.getValue(mask).replace('.','_').replace('-','_')
+            WndNames, ZonePaths, PtWnds = [], [], []
+            for i, patch in enumerate(I.getNodesFromName(mask,'patch*')):
+                zone_name = I.getValue(I.getNodeFromName1(patch,'Zone'))
+                base_name = J._getBaseWithZoneName(Skeleton, zone_name)[0]
+                wnd_node = I.getNodesFromName(patch,'Window*')[0]
+                w = I.getValue( wnd_node )
+                if w is None:
+                    msg = 'value of node %s not loaded'%os.path.join(base[0],
+                            masks[0], mask[0], patch[0], wnd_node[0])
+                    raise ValueError(msg)
+                wnd_name = 'wnd_'+mask_name+'%d'%i
+                wnd_name = wnd_name.replace('-','_').replace('.','_')
+                WndNames += [ wnd_name ]
+                ZonePaths += [ base_name + '/' +  zone_name ]
+                PtWnds += [ [ int(w[0,0]), int(w[0,1]),
+                              int(w[1,0]), int(w[1,1]),
+                              int(w[2,0]), int(w[2,1])] ]
+
+            elsA_windows = []
+            for name, path, wnd in zip(WndNames, ZonePaths, PtWnds):
+                elsA_windows += [elsA_user.window(
+                                   e.e_getBlockInternalName(path), name=name)]
+                elsA_windows[-1].set('wnd',wnd)
+                elsA_windows[-1].show()
+
+            elsA_masks += [ elsA_user.mask( WndNames, name=mask_name ) ] 
+            
+            Parameters = J.get(mask,'Parameters')
+            for p in Parameters:
+                value = Parameters[p]
+                if isinstance(value, np.ndarray):
+                    dtype = str(value.dtype)
+                    if dtype.startswith('int'):
+                        value = int(value)
+                    elif dtype.startswith('float'):
+                        value = float(value)
+                    else: 
+                        raise TypeError('FATAL: numpy dtype %s not supported'%dtype)
+                    Parameters[p] = value
+                
+
+            elsA_masks[-1].setDict(Parameters)
+
+            Neighbours = I.getValue(I.getNodeFromName(mask,'NeighbourList')).split(' ')
+            for n in Neighbours: elsA_masks[-1].attach(e.e_getBlockInternalName(n))
+            
+            # elsA_masks[-1].submit() # should not explicitly submit
+            elsA_masks[-1].show()
+    Cmpi.barrier()
+
+def loadRotorMotionForElsA(elsA_user, Skeleton):
+    Cmpi.barrier()
+    AllRotorMotions = []
+    bases = I.getBases(Skeleton)
+    for base in I.getBases(Skeleton):
+
+        motion = I.getNodeFromName2(base, '.Solver#Motion')
+        if not motion: continue
+
+        function_name = I.getNodeFromName1(motion, 'function_name')
+        if not function_name: continue
+        function_name = I.getValue(function_name)
+
+        MOLA_motion = I.getNodeFromName2(base, '.MOLA#Motion')
+        Parameters = dict()
+        for p in MOLA_motion[2]:
+            parameter_name = p[0]
+            value = I.getValue(p)
+            if isinstance(value, np.ndarray): value = value.tolist()
+            Parameters[parameter_name] = value
+        
+        # import pprint
+        # with open('motionParams.py','w') as f:
+        #     f.write(pprint.pformat(Parameters))
+
+        AllRotorMotions.append(elsA_user.function(Parameters['type'],name=function_name))
+        AllRotorMotions[-1].setDict(Parameters)
+        AllRotorMotions[-1].show()
+    Cmpi.barrier()
