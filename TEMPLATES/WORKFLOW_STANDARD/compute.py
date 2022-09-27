@@ -140,7 +140,6 @@ e.mode |= elsAxdt.READ_FLOW
 e.mode |= elsAxdt.READ_COMPUTATION
 e.mode |= elsAxdt.READ_OUTPUT
 e.mode |= elsAxdt.READ_TRACE
-e.mode |= elsAxdt.SKIP_GHOSTMASK
 if not os.path.exists('OVERSET'): e.mode |= elsAxdt.CGNS_CHIMERACOEFF
 e.action=elsAxdt.TRANSLATE
 

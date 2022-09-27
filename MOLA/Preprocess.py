@@ -1576,10 +1576,10 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
     UO.addMaskData(t, InputMeshes, bodies, BlankingMatrix)
 
     print('rotors neighbour list search...')
-    # EP._overlapGC2BC(t) # done later in adapt2ElsA
-    UO.setNeighbourListOfMasks(t, InputMeshes)
+    BodyNames = [getBodyName( body ) for body in bodies]
+    UO.setNeighbourListOfMasks(t, InputMeshes, BlankingMatrix, BodyNames)
     UO.setMaskParameters(t, InputMeshes)
-    I._rmNodesByName(t,'OversetHoles') # TODO remove this
+    UO.removeOversetHolesOfUnsteadyMaskedGrids(t)
     print('.. rotors neighbour list search done.')
 
     
@@ -1639,7 +1639,7 @@ def getBlankingMatrix(bodies, InputMeshes):
         BaseName = BaseNames[i]
         BodyName = BodyNames[j]
         BodyParentBaseName = getBodyParentBaseName(BodyName)
-        if BaseName in BodyParentBaseName:
+        if BaseName == BodyParentBaseName:
             BlankingMatrix[i, j] = 0
 
     # user-provided masking protections

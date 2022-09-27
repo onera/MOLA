@@ -4,6 +4,7 @@ UnsteadyOverset
 13/09/2022 - L. Bernardos - creation
 '''
 
+import os
 import numpy as np
 
 import Converter.PyTree as C
@@ -31,14 +32,18 @@ def setMaskParameters(t, InputMeshes):
         for mask in MasksInfo[2]:
             if not mask[0].startswith(MOLA_MASK): continue
             # we suppose all patches belong to the same base
-            MaskBase = J._getBaseWithZoneName(t,
-                                    I.getValue(I.getNodeFromName2(mask,'Zone')))
+            mask_zone = I.getNodeFromName2(mask,'Zone')
+            if not mask_zone:
+                C.convertPyTree2File(base,'debug.cgns')
+                raise ValueError('inexistent Zone node at mask %s'%os.path.join(
+                        base[0],MasksInfo[0],mask[0]))
+            MaskBase = J._getBaseWithZoneName(t, I.getValue(mask_zone))
             meshInfo = [m for m in InputMeshes if m['baseName']==MaskBase[0]][0]
             if 'UnsteadyMaskOptions' in meshInfo['OversetOptions']:
                 mask_params.update(meshInfo['OversetOptions']['UnsteadyMaskOptions'])
             J.set(mask,'Parameters',**mask_params)
 
-def setNeighbourListOfMasks(t, InputMeshes):
+def setNeighbourListOfMasks(t, InputMeshes, BlankingMatrix, BodyNames):
     '''
     Set the ``NeighbourList`` node of each base by considering the rotation of 
     the component. This information is required for unsteady masking.
@@ -107,7 +112,25 @@ def setNeighbourListOfMasks(t, InputMeshes):
         NeighbourDict[BaseName] = NeighbourList
     
     print('updating NeighbourList of MOLA#Masks at base %s...'%BaseName)
-    _updateNeighbourListOfMasks(t, NeighbourDict)
+    _updateNeighbourListOfMasks(t, NeighbourDict, BlankingMatrix, BodyNames)
+
+
+
+def removeOversetHolesOfUnsteadyMaskedGrids(t):
+    zoneNames_to_process = []
+    for base in I.getBases(t):
+        MasksContainer = I.getNodeFromName1(base, '.MOLA#Masks')
+        if not MasksContainer: continue
+        NeighbourLists = I.getNodesFromName2(MasksContainer, 'NeighbourList')
+        for nl in NeighbourLists:
+            Neighbours = I.getValue(nl).split(' ')
+            for n in Neighbours:
+                zone_name = n.split('/')[1]
+                if zone_name not in zoneNames_to_process:
+                    zoneNames_to_process += [ zone_name ]
+    
+    zones = [ z for z in I.getZones(t) if z[0] in zoneNames_to_process ]
+    if zones: I._rmNodesByName(zones,'OversetHoles')
 
 
 def _getRotorMotionParameters(meshInfo):
@@ -212,21 +235,38 @@ def _buildBoxesTrees(tR):
     return tR_aabb, tR_obb
 
 
-def _updateNeighbourListOfMasks(t, NeighbourDict):
+def _updateNeighbourListOfMasks(t, NeighbourDict, BlankingMatrix, BodyNames):
     if not NeighbourDict: return
     for base in I.getBases(t):
         MasksInfo = I.getNodeFromName1(base,'.MOLA#Masks')
         if not MasksInfo: continue
         for mask in MasksInfo[2]:
             if not mask[0].startswith(MOLA_MASK): continue
+            BodyName = I.getValue(mask).split('_by_')[-1]
             # we suppose all patches belong to the same base
-            MaskBase = J._getBaseWithZoneName(t,
-                                    I.getValue(I.getNodeFromName2(mask,'Zone')))
+            mask_zone = I.getNodeFromName2(mask,'Zone')
+            if not mask_zone: continue
+            MaskBaseName = J._getBaseWithZoneName(t, I.getValue(mask_zone))[0]
+            j = _getBodyNumber(BodyName, BodyNames)
+            Neighbours = []
+            for baseZonePath in NeighbourDict[MaskBaseName]:
+                baseNameOfNeighbour = baseZonePath.split('/')[0]
+                i = _getBaseNumber(baseNameOfNeighbour, t)
+                if BlankingMatrix[i,j] and baseNameOfNeighbour == base[0]:
+                    Neighbours += [ baseZonePath ]
             I.createUniqueChild(mask,'NeighbourList','DataArray_t',
-                                    value=' '.join(NeighbourDict[MaskBase[0]]))
+                                    value=' '.join( Neighbours ))
 
-
+def _getBodyNumber(BodyName, BodyNames):
+    for j, bn in enumerate(BodyNames):
+        if BodyName == bn: return j
+    raise ValueError('body name %s not contained in %s'%(BodyName,str(BodyNames)))
     
+def _getBaseNumber(BaseName, t):
+    for i, b in enumerate(I.getBases(t)):
+        if b[0] == BaseName: return i
+    raise ValueError('BaseName %s not found'%(BaseName))
+
 def addMaskData(t, InputMeshes, bodies, BlankingMatrix):
     for i, meshInfo in enumerate(InputMeshes):
         baseName = meshInfo['baseName']
@@ -242,7 +282,11 @@ def addMaskData(t, InputMeshes, bodies, BlankingMatrix):
             if isinstance(body[0], str): body = [body]
             for k, patch in enumerate(body):
                 offset = I.getNodeFromName1(patch,'.MOLA#Offset')
-                if not offset: continue
+                if not offset:
+                    msg = '.MOLA#Offset not found at %s'%maskName
+                    print(J.WARN+msg+J.ENDC)
+                    continue
+                offset = I.copyTree(offset)
                 offset = I.addChild(mask, offset)
                 offset[0] = 'patch.%d'%k
         
