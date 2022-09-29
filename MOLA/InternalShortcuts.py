@@ -64,6 +64,7 @@ def set(parent, childname, childType='UserDefinedData_t', **kwargs):
     '''
     children = []
     SubChildren = []
+    SubSet = []
     for v in kwargs:
         if isinstance(kwargs[v], dict):
             SubChildren += [[v,kwargs[v]]]
@@ -71,6 +72,12 @@ def set(parent, childname, childType='UserDefinedData_t', **kwargs):
             if len(kwargs[v])>0:
                 if isinstance(kwargs[v][0], str):
                     value = ' '.join(kwargs[v])
+                elif isinstance(kwargs[v][0], dict):
+                    p = I.createNode(v, childType)
+                    for i in range(len(kwargs[v])):
+                        set(p, 'set.%d'%i, **kwargs[v][i])
+                    SubSet += [p]
+                    continue
                 else:
                     value = np.atleast_1d(kwargs[v])
             else:
@@ -80,6 +87,7 @@ def set(parent, childname, childType='UserDefinedData_t', **kwargs):
             children += [[v,kwargs[v]]]
     _addSetOfNodes(parent,childname,children, type1=childType)
     NewNode = I.getNodeFromName1(parent,childname)
+    NewNode[2].extend(SubSet)
     for sc in SubChildren: set(NewNode, sc[0], **sc[1])
 
     return get(parent, childname)

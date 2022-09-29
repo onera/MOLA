@@ -3144,3 +3144,20 @@ def trimCartesianGridAtOrigin(t, trim_plane='XZ', reverse=False,
     I._correctPyTree(zones2Keep, level=3)
 
     return zones2Keep
+
+
+def buildCartesianBackground(t, InputMeshes):
+    from .Preprocess import getMaskingBodiesAsDict
+    from .UnsteadyOverset import _getRotorMotionParameters, _addAzimutalGhostComponent
+    
+    baseName2body = getMaskingBodiesAsDict(t, InputMeshes)
+    bodies = []
+    for meshInfo in InputMeshes:
+        baseName = meshInfo['baseName']
+
+        if 'Motion' in meshInfo:
+            rot_ctr, rot_axis, scale, Dpsi = _getRotorMotionParameters(meshInfo)
+            new_bodies = _addAzimutalGhostComponent(baseName2body[baseName],
+                                       rot_ctr, rot_axis, scale, Dpsi)
+        else:
+            new_bodies = baseName2body[baseName]

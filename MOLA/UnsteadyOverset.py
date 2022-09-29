@@ -131,6 +131,10 @@ def removeOversetHolesOfUnsteadyMaskedGrids(t):
     
     zones = [ z for z in I.getZones(t) if z[0] in zoneNames_to_process ]
     if zones: I._rmNodesByName(zones,'OversetHoles')
+    for z in I.getZones(t):
+        gc = I.getNodeFromType1(z, 'ZoneGridConnectivity_t')
+        if not gc: continue
+        if gc and not gc[2]: I.rmNode(t, gc)
 
 
 def _getRotorMotionParameters(meshInfo):
@@ -152,9 +156,15 @@ def _getRotorMotionParameters(meshInfo):
 def _addAzimutalGhostComponent(base, rot_ctr, rot_axis, scale, Dpsi):
     exteriorFaces = []
     for z in I.getZones(base):
-        newExtFaces = I.getZones(P.exteriorFaces(z))
-        for nz in newExtFaces: nz[0] = z[0]
-        exteriorFaces.extend(newExtFaces)
+        dims = I.getZoneDim(z)[4]
+        if dims == 3:
+            newExtFaces = I.getZones(P.exteriorFaces(z))
+            for nz in newExtFaces: nz[0] = z[0]
+            exteriorFaces.extend(newExtFaces)
+        elif dims == 2:
+            exteriorFaces.append( z )
+        else:
+            raise ValueError('cannot make azimutal ghost component of 1D grid')
     T._scale(exteriorFaces,scale)
 
     Azimuts = []
@@ -164,7 +174,10 @@ def _addAzimutalGhostComponent(base, rot_ctr, rot_axis, scale, Dpsi):
     else:
         # fixed component but with unsteady treatment
         Azimuts = I.getZones(base)
-    base[2] = Azimuts
+    
+    if base[3] == 'CGNSBase_t': base[2] = Azimuts
+    
+    return Azimuts
 
 
 def _findNeighbourListOfBase(BaseName, t_aabb, t_obb):

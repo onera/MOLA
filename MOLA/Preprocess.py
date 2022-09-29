@@ -34,6 +34,7 @@ from . import ExtractSurfacesProcessor as ESP
 from . import JobManager as JM
 
 DEBUG = False
+DIRECTORY_OVERSET='OVERSET' 
 
 def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
     '''
@@ -375,8 +376,17 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
     elsAkeysNumerics = getElsAkeysNumerics(ReferenceValues,
                                 unstructured=IsUnstructured, **NumericalParams)
     
-    if useBCOverlap and OversetMotion:
-        elsAkeysNumerics['chm_interpcoef_frozen'] = 'inactive'
+
+    if useBCOverlap and not OversetMotion:
+        NumericalParams['chm_interpcoef_frozen'] = 'active'
+        NumericalParams['chm_conn_io'] = 'read' # NOTE ticket 8259
+        if os.path.exists('OVERSET'):
+            NumericalParams['chm_impl_interp'] = 'none'
+            NumericalParams['chm_ovlp_minimize'] = 'inactive'
+            NumericalParams['chm_ovlp_thickness'] = 2
+            NumericalParams['chm_preproc_method'] = 'mask_based'
+            NumericalParams['chm_conn_fprefix'] = DIRECTORY_OVERSET+'/overset'
+        
 
 
     AllSetupDics = dict(Workflow='Standard',
@@ -1754,8 +1764,7 @@ def getMaskingBodiesAsDict(t, InputMeshes):
         if NCellsOffset is not None:
             print('building mask surface %s by cells offset'%overlapTag)
             overlap = getOverlapMaskByCellsOffset(base, SuffixTag=overlapTag,
-                                               NCellsOffset=NCellsOffset,
-                                               MatchTolerance=MatchTolerance)
+                                               NCellsOffset=NCellsOffset)
 
         elif OffsetDistance is not None:
             print('building mask surface %s by negative extrusion'%overlapTag)
@@ -1893,8 +1902,7 @@ def getOverlapMaskByExtrusion(t, SuffixTag=None, OffsetDistanceOfOverlapMask=0.,
 
     return mask
 
-def getOverlapMaskByCellsOffset(base, SuffixTag=None, NCellsOffset=2,
-                                   MatchTolerance=1e-8):
+def getOverlapMaskByCellsOffset(base, SuffixTag=None, NCellsOffset=2):
     '''
     Build the overlap mask by selecting a fringe of cells from overlap
     boundaries.
@@ -2949,7 +2957,7 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         elsAkeysNumerics : dict
             contains *numerics* object elsA keys/values
     '''
-    DIRECTORY_OVERSET='OVERSET' # TODO: adapt
+    
 
     NumericalScheme = NumericalScheme.lower() # avoid case-type mistakes
     elsAkeysNumerics = dict()
@@ -3054,23 +3062,11 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
 
 
     if useChimera:
-        addKeys = dict(
-                    #    chm_double_wall='active',
-                    #    chm_double_wall_tol=2000.,
+        addKeys = dict(chm_double_wall='active',
+                       chm_double_wall_tol=2000.,
                        chm_orphan_treatment= 'neighbourgsmean',
-                    #    chm_impl_interp='none',
-                       chm_interp_depth=2,
-                    #    chm_interpcoef_frozen='active', # TODO: make conditional
-                    #    chm_conn_io='read', # NOTE ticket 8259
-                       )
-        # if os.path.exists('OVERSET'):
-        #     addKeys.update(dict(
-        #                 # Overset by external files
-        #                 chm_impl_interp='none',
-        #                 chm_ovlp_minimize='inactive',
-        #                 chm_ovlp_thickness=2,
-        #                 chm_preproc_method='mask_based',
-        #                 chm_conn_fprefix=DIRECTORY_OVERSET+'/overset'))
+                       chm_impl_interp='none',
+                       chm_interp_depth=2)
 
 
     addKeys.update(dict(
@@ -3242,6 +3238,7 @@ def addOversetMotion(t, OversetMotion):
                 OversetMotionData['Function'] = dict(type='rotor_motion')
 
         if function_motion_type == 'rotor_motion':
+            default_rotor_motion.update(OversetMotionData['Function'])
             J.set(family,'.MOLA#Motion',**default_rotor_motion)
         else:
             J.set(family,'.MOLA#Motion',**OversetMotionData['Function'])
@@ -3486,7 +3483,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     # The node 'var' will be fill later depending on the BCType
     BCKeys = dict(
         period        = 1,
-        writingmode   = 2,
+        writingmode   = 3, # NOTE using rotor_motion value=2 doesn't extract fields
         loc           = 'interface',
         fluxcoeff     = 1.0,
         writingframe  = 'absolute',

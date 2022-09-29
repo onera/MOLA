@@ -63,6 +63,8 @@ def extractSurfacesByOffsetCellsFromBCFamilyName(t, BCFamilyName='MyBC',
                                            NCellsOffset)
 
     migrateOffsetData(t, OffsetSurfaces)
+    _includeMedianCellHeight(t)
+
     return OffsetSurfaces
 
 def getZonesAndWindowsOfBCNames(t, BCNames):
@@ -530,3 +532,54 @@ def _pickZoneFromName(zones, zone_name):
     for z in zones:
         if z[0] == zone_name:
             return z
+
+def _includeMedianCellHeight(t):
+    for zone in I.getZones(t):
+        info = I.getNodeFromName1(zone,'.MOLA#Offset')
+        if not info: continue
+        Nijk = I.getZoneDim(zone)[1:4]
+        windows = I.getNodesFromName(info, 'Window*')
+        for window in windows:
+            w = np.copy(I.getValue(window), order='F')
+            actual_surface = T.subzone(zone, (w[0,0],w[1,0],w[2,0]),
+                                             (w[0,1],w[1,1],w[2,1]))
+            ijk = findInwardsIndexFromExteriorWindow(w)[1]
+            offset = w[ijk2ind[ijk], 0]
+            if offset < Nijk[ijk2ind[ijk]]:
+                w[ijk2ind[ijk], :] += 1
+            else:
+                w[ijk2ind[ijk], :] -= 1
+            slice = (w[0,0],w[1,0],w[2,0]), (w[0,1],w[1,1],w[2,1])
+        
+            try:
+                next_surface = T.subzone(zone, *slice) 
+            except TypeError:
+                C.convertPyTree2File(zone,'debug.cgns')
+                msg = ('failed slice %s for surface %s with dims %dx%dx%d. '
+                    'Check debug.cgns')%(str(slice),zone[0],*Nijk)
+                raise ValueError(msg)
+
+            min,max,mean,median =_getStatisticPointwiseDistances(actual_surface,
+                                                                 next_surface)
+            I.createUniqueChild(info,'MinimumHeight_'+window[0],'DataArray_t',value=min)
+            I.createUniqueChild(info,'MaximumHeight_'+window[0],'DataArray_t',value=max)
+            I.createUniqueChild(info,'MeanHeight_'+window[0],'DataArray_t',value=mean)
+            I.createUniqueChild(info,'MedianHeight_'+window[0],'DataArray_t',value=median)
+
+def _getStatisticPointwiseDistances(zone1, zone2):
+    x1 = I.getNodeFromName3(zone1, 'CoordinateX')[1].ravel(order='F')
+    y1 = I.getNodeFromName3(zone1, 'CoordinateY')[1].ravel(order='F')
+    z1 = I.getNodeFromName3(zone1, 'CoordinateZ')[1].ravel(order='F')
+
+    x2 = I.getNodeFromName3(zone2, 'CoordinateX')[1].ravel(order='F')
+    y2 = I.getNodeFromName3(zone2, 'CoordinateY')[1].ravel(order='F')
+    z2 = I.getNodeFromName3(zone2, 'CoordinateZ')[1].ravel(order='F')
+
+    dist = np.sqrt((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2)
+
+    min = np.min(dist)
+    max = np.max(dist)
+    mean = np.mean(dist)
+    median = np.mean(dist)
+
+    return min, max, mean, median
