@@ -84,9 +84,8 @@ if ENTER_COUPLING:
     if COMPUTE_BODYFORCE:
         BODYFORCE_INITIATED = True
         elsAxdt.free('xdt-runtime-tree')
-        del toWithSourceTerms
         Cmpi.barrier()
-        toWithSourceTerms = CO.updateBodyForce(t)
+        toWithSourceTerms = CO.updateBodyForce(t, toWithSourceTerms)
 
         if SAVE_BODYFORCE:
             BodyForceTree = C.newPyTree(['BODYFORCE'])
@@ -131,5 +130,5 @@ if ENTER_COUPLING:
 
 if BODYFORCE_INITIATED:
     Cmpi.barrier()
-    CO.printCo('sending source terms to elsA...', proc=0)
+    # CO.printCo('sending source terms to elsA...', proc=0)
     elsAxdt.xdt(elsAxdt.PYTHON, ('xdt-runtime-tree', toWithSourceTerms, 1))

@@ -1,11 +1,20 @@
 '''
 MOLA - BodyForceTurbomachinery.py
 
+There are 2 kinds of functions in this file :
+
+* Functions for preprocessing, that help to create a mesh adapted for body-force
+  and to extract the geometrical parameters needed for the model.
+
+* Functions for coprocessing, that implement body-force models to update source terms 
+  during the simulation.
+
 File history:
 8/09/2022 - T. Bontemps - Creation
 '''
 
 import os
+import glob
 import numpy as np
 
 import Converter.PyTree as C
@@ -20,8 +29,14 @@ import MOLA.Preprocess as PRE
 import MOLA.InternalShortcuts as J
 import MOLA.Wireframe as W
 
+##################################################################################
+# Functions for preprocessing
+# The following functions help to create a mesh adapted for body-force
+# and to extract the geometrical parameters needed for the model
+##################################################################################
 
-def replaceRowWithBodyForceMesh(t, rows, BodyForceModel='hall'):
+
+def replaceRowWithBodyForceMesh(t, BodyForceRows):
     '''
     In the mesh **t**, replace the row domain corresponding to the family 
     **row** by a mesh adapted to body-force.
@@ -31,9 +46,18 @@ def replaceRowWithBodyForceMesh(t, rows, BodyForceModel='hall'):
         t : PyTree
             input mesh, from Autogrid for instance.
 
-        rows : :py:class:`str` or :py:class:`list` of :py:class:`str`
-            Name of the row families that will be replaced by a mesh adapted
-            to body-force.
+        BodyForceRows : :py:class:`dict` of :py:class:`dict`
+            Parameters to generate body-force meshes for the specified rows.
+            The keys of the dictionary corresponds to the names of row 
+            families that will be replaced by meshes adapted to body-force.
+            For each row, the associated value is a dictionary (may be empty)
+            corresponding to the arguments to give to function 
+            :py:func:`buildBodyForceMeshForOneRow`. See the documentation of 
+            this function.
+
+            .. note:: 
+                The parameter **meshType** should not be given, because it will 
+                be automatically set by reading mesh zones.
     
     Returns
     -------
@@ -53,12 +77,35 @@ def replaceRowWithBodyForceMesh(t, rows, BodyForceModel='hall'):
         else:
             return f'{n}'
 
-    if isinstance(rows, str):
-        rows = [rows]
+    def restoreBCFamilies(zones, newRowMesh):
+        FamilyBCNames = []
+        for zone in zones:
+            for BC in I.getNodesFromType2(zone, 'BC_t'):
+                try:
+                    FamilyBC = I.getValue(I.getNodeFromName1(BC, 'FamilyName'))
+                    if FamilyBC not in FamilyBCNames:
+                        FamilyBCNames.append(FamilyBC)
+                except:
+                    pass
+
+        for FamilyBC in FamilyBCNames:
+            FamilyBCLower = FamilyBC.lower()
+            if any([name in FamilyBCLower for name in ['inflow', 'inlet', 'right']]):
+                I._renameNode(newRowMesh, 'Inflow', FamilyBC)
+            elif any([name in FamilyBCLower for name in ['outflow', 'outlet', 'left']]):
+                I._renameNode(newRowMesh, 'Outflow', FamilyBC)
+            elif any([name in FamilyBCLower for name in ['hub', 'moyeu']]):
+                I._renameNode(newRowMesh, 'Hub', FamilyBC)
+            elif any([name in FamilyBCLower for name in ['shroud', 'carter']]):
+                I._renameNode(newRowMesh, 'Shroud', FamilyBC)
 
     newRowMeshes = []
 
-    for row in rows:
+    # Join HUB and SHROUD families
+    J.joinFamilies(t, 'HUB')
+    J.joinFamilies(t, 'SHROUD')
+
+    for row, BodyForceParams in BodyForceRows.items():
 
         RowFamilyNode = I.getNodeFromNameAndType(t, row, 'Family_t')
         BladeNumber = I.getValue(I.getNodeFromName(RowFamilyNode, 'BladeNumber'))
@@ -68,53 +115,29 @@ def replaceRowWithBodyForceMesh(t, rows, BodyForceModel='hall'):
         NumberOfCellsInitial = C.getNCells(zones)
 
         # Get the meridional info from rowTree
-        meridionalMesh = extractRowGeometricalData(t, row)
-
-        CellWidthAtWall = 0.001 
-        CellWidthAtLE = 0.001
-        CellWidthAtInlet = 0.02
-        RadialDistribution = dict( kind='tanhTwoSides', FirstCellHeight=CellWidthAtWall, LastCellHeight=CellWidthAtWall)
-        AxialDistributionBeforeLE = dict(kind='tanhTwoSides', FirstCellHeight=CellWidthAtInlet, LastCellHeight=CellWidthAtLE)
-        AxialDistributionBetweenLEAndTE = dict(kind='tanhTwoSides', FirstCellHeight=CellWidthAtLE, LastCellHeight=CellWidthAtLE)
-        AxialDistributionAfterTE = dict(kind='tanhTwoSides', FirstCellHeight=CellWidthAtLE, LastCellHeight=CellWidthAtInlet)
+        meridionalMesh = extractRowGeometricalData(t, row, save=True)
 
         newRowMesh = buildBodyForceMeshForOneRow(meridionalMesh,
-                            NumberOfBlades=BladeNumber,
-                            NumberOfRadialPoints=101,
-                            NumberOfAxialPointsBeforeLE=101,
-                            NumberOfAxialPointsBetweenLEAndTE=101,
-                            NumberOfAxialPointsAfterTE=101,
-                            RadialDistribution=RadialDistribution,
-                            AxialDistributionBeforeLE=AxialDistributionBeforeLE,
-                            AxialDistributionBetweenLEAndTE=AxialDistributionBetweenLEAndTE,
-                            AxialDistributionAfterTE=AxialDistributionAfterTE,
-                            meshType=meshType,
-                            BodyForceModel=BodyForceModel
-                            )
+                                                 NumberOfBlades=BladeNumber,
+                                                 meshType=meshType,
+                                                 **BodyForceParams
+                                                 )
 
-        # newRowMesh = buildBodyForceMeshForOneRow(meridionalMesh,
-        #                                          NumberOfBlades=BladeNumber,
-        #                                          NumberOfAxialPointsBeforeLE=81,
-        #                                          AxialDistributionBeforeLE=dict(
-        #                                              kind='tanhTwoSides', FirstCellHeight=0.01, LastCellHeight=0.001),
-        #                                          meshType=meshType,
-        #                                          BodyForceModel=BodyForceModel
-        #                                          )
-
+        restoreBCFamilies(zones, newRowMesh)
+        I._renameNode(newRowMesh, 'Fluid', row)
         I._renameNode(newRowMesh, 'upstream', f'{row}_upstream')
         I._renameNode(newRowMesh, 'downstream', f'{row}_downstream')
         I._renameNode(newRowMesh, 'bodyForce', f'{row}_bodyForce')
-        I._renameNode(newRowMesh, 'Inflow', f'{row}_Inflow')
-        I._renameNode(newRowMesh, 'Outflow', f'{row}_Outflow')
-        I._renameNode(newRowMesh, 'Hub', f'{row}_Hub')
-        I._renameNode(newRowMesh, 'Shroud', f'{row}_Shroud')
-
-        I._renameNode(newRowMesh, 'Fluid', row)
 
         newRowMeshes.append(newRowMesh)
 
         for zone in zones:
             I.rmNode(t, zone)
+
+        I._rmNodesByNameAndType(t, f'{row}_*Blade*', 'Family_t')
+        I._rmNodesByNameAndType(t, f'{row}_*BLADE*', 'Family_t')
+        I._rmNodesByNameAndType(t, f'{row}_*Aube*', 'Family_t')
+        I._rmNodesByNameAndType(t, f'{row}_*AUBE*', 'Family_t')
 
         NumberOfCellsBFM = C.getNCells(newRowMesh)
 
@@ -128,11 +151,11 @@ def replaceRowWithBodyForceMesh(t, rows, BodyForceModel='hall'):
 def buildBodyForceMeshForOneRow(t, NumberOfBlades, 
                                 NumberOfRadialPoints=None, NumberOfAxialPointsBeforeLE=None,
                                 NumberOfAxialPointsBetweenLEAndTE=None, NumberOfAxialPointsAfterTE=None,
-                                NumberOfAzimutalPoints=5, AzimutalAngleDeg=10.,
+                                NumberOfAzimutalPoints=5, AzimutalAngleDeg=2.,
                                 RadialDistribution=None, AxialDistributionBeforeLE=None,
                                 AxialDistributionBetweenLEAndTE=None, AxialDistributionAfterTE=None,
                                 meshType='structured',
-                                BodyForceModel='hall',
+                                model='hall',
                                 ):
     '''
     Build a mesh suitable for body-force simulations from a PyTree with lines corresponding
@@ -199,6 +222,32 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
             ready to be used in :func:`MOLA.WorkflowCompressor.prepareMainCGNS4ElsA`.
 
     '''
+    def rediscretize_LE_and_TE(LeadingEdgeTmp, TrailingEdgeTmp):
+        # Compute cell width on hub near LE and TE intersections
+        HubTmp = D.getCurvilinearAbscissa(HubBetweenLEAndTE)
+        s = I.getValue(I.getNodeFromName(HubTmp, 's')) * D.getLength(HubTmp)
+        ds = s[1:]-s[:-1]
+        CellWidthAtHubLE = ds[0]
+        CellWidthAtHubTE = ds[-1]
+        # Compute cell width on shroud near LE and TE intersections
+        ShroudTmp = D.getCurvilinearAbscissa(ShroudBetweenLEAndTE)
+        s = I.getValue(I.getNodeFromName(ShroudTmp, 's')) * \
+            D.getLength(ShroudTmp)
+        ds = s[1:]-s[:-1]
+        CellWidthAtShroudLE = ds[0]
+        CellWidthAtShroudTE = ds[-1]
+
+        # New distributions for LE and TE. The end cells near hub and shroud has a the same width than
+        # cells on hub and shroud. Thus, the intersection will be well computed because cells have the same width.
+        tmpDistributionLE = dict(
+            kind='tanhTwoSides', FirstCellHeight=CellWidthAtHubLE, LastCellHeight=CellWidthAtShroudLE)
+        tmpDistributionTE = dict(
+            kind='tanhTwoSides', FirstCellHeight=CellWidthAtHubTE, LastCellHeight=CellWidthAtShroudTE)
+
+        LE = W.discretize(LeadingEdgeTmp, Distribution=tmpDistributionLE)
+        TE = W.discretize(TrailingEdgeTmp, Distribution=tmpDistributionTE)
+        return LE, TE
+    
     # Get the lines defining the geometry 
     Hub = I.getNodeFromName2(t, 'Hub')
     Shroud = I.getNodeFromName2(t, 'Shroud')
@@ -209,54 +258,52 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
 
     # Extrapolate LE and TE lines to be sure that they intersect hub and shroud lines
     ExtrapDistance = 0.05 * W.getLength(LeadingEdge)
-    LeadingEdge = W.extrapolate(LeadingEdge, ExtrapDistance, opposedExtremum=False)
-    LeadingEdge = W.extrapolate(LeadingEdge, ExtrapDistance, opposedExtremum=True)
+    LeadingEdgeTmp = W.extrapolate(LeadingEdge, ExtrapDistance, opposedExtremum=False)
+    LeadingEdgeTmp = W.extrapolate(LeadingEdgeTmp, ExtrapDistance, opposedExtremum=True)
     ExtrapDistance = 0.05 * W.getLength(TrailingEdge)
-    TrailingEdge = W.extrapolate(TrailingEdge, ExtrapDistance, opposedExtremum=False)
-    TrailingEdge = W.extrapolate(TrailingEdge, ExtrapDistance, opposedExtremum=True)
+    TrailingEdgeTmp = W.extrapolate(TrailingEdge, ExtrapDistance, opposedExtremum=False)
+    TrailingEdgeTmp = W.extrapolate(TrailingEdgeTmp, ExtrapDistance, opposedExtremum=True)
 
     # Compute curves intersections and split curves
     # Split Hub
-    cut_point_1 = W.getNearestIntersectingPoint(Hub, LeadingEdge)
-    cut_point_2 = W.getNearestIntersectingPoint(Hub, TrailingEdge)
+    cut_point_1 = W.getNearestIntersectingPoint(Hub, LeadingEdgeTmp)
+    cut_point_2 = W.getNearestIntersectingPoint(Hub, TrailingEdgeTmp)
     HubBetweenLEAndTE = W.trimCurveAlongDirection(Hub, np.array([1., 0, 0]), cut_point_1, cut_point_2)
     HubBetweenInletAndLE = W.trimCurveAlongDirection(Hub, np.array([1., 0, 0]), np.array([-999, 0, 0]), cut_point_1)
     HubBetweenTEAndOutlet = W.trimCurveAlongDirection(Hub, np.array([1., 0, 0]), cut_point_2, np.array([999, 0, 0]))
     # Split Shroud
-    cut_point_1 = W.getNearestIntersectingPoint(Shroud, LeadingEdge)
-    cut_point_2 = W.getNearestIntersectingPoint(Shroud, TrailingEdge)
+    cut_point_1 = W.getNearestIntersectingPoint(Shroud, LeadingEdgeTmp)
+    cut_point_2 = W.getNearestIntersectingPoint(Shroud, TrailingEdgeTmp)
     ShroudBetweenLEAndTE = W.trimCurveAlongDirection(Shroud, np.array([1., 0, 0]), cut_point_1, cut_point_2)
     ShroudBetweenInletAndLE = W.trimCurveAlongDirection(Shroud, np.array([1., 0, 0]), np.array([-999, 0, 0]), cut_point_1)
     ShroudBetweenTEAndOutlet = W.trimCurveAlongDirection(Shroud, np.array([1., 0, 0]), cut_point_2, np.array([999, 0, 0]))
+    # Rediscretize LE and TE
+    # This operation is needed, otherwise the intersection may be badly defined, 
+    # leading to negative volume cells 
+    LeadingEdgeTmp, TrailingEdgeTmp = rediscretize_LE_and_TE(LeadingEdgeTmp, TrailingEdgeTmp)
     # Split LE
-    cut_point_1 = W.getNearestIntersectingPoint(LeadingEdge, Hub)
-    cut_point_2 = W.getNearestIntersectingPoint(LeadingEdge, Shroud)
-    LeadingEdge = W.trimCurveAlongDirection(LeadingEdge, np.array([0, 1, 0]), cut_point_1, cut_point_2)
+    cut_point_1 = W.getNearestIntersectingPoint(LeadingEdgeTmp, Hub)
+    cut_point_2 = W.getNearestIntersectingPoint(LeadingEdgeTmp, Shroud)
+    LeadingEdgeTmp = W.trimCurveAlongDirection(LeadingEdgeTmp, np.array([0, 1, 0]), cut_point_1, cut_point_2)
     # Split TE
-    cut_point_1 = W.getNearestIntersectingPoint(TrailingEdge, Hub)
-    cut_point_2 = W.getNearestIntersectingPoint(TrailingEdge, Shroud)
-    TrailingEdge = W.trimCurveAlongDirection(TrailingEdge, np.array([0, 1, 0]), cut_point_1, cut_point_2)
+    cut_point_1 = W.getNearestIntersectingPoint(TrailingEdgeTmp, Hub)
+    cut_point_2 = W.getNearestIntersectingPoint(TrailingEdgeTmp, Shroud)
+    TrailingEdgeTmp = W.trimCurveAlongDirection(TrailingEdgeTmp, np.array([0, 1, 0]), cut_point_1, cut_point_2)
 
     # Modify ends of LE line to collapse them on end points hub and shroud lines.
     # Else there will be an error during TFI (TypeError: TFI: input arrays must be C0)
     # For the LE
     inter1 = W.point(HubBetweenLEAndTE, index=0)
     inter2 = W.point(ShroudBetweenLEAndTE, index=0)
-    x, y, z = J.getxyz(LeadingEdge)
+    x, y = J.getxy(LeadingEdgeTmp)
     x[0], y[0] = inter1[0], inter1[1]  # Modify the first point of the line
     x[-1], y[-1] = inter2[0], inter2[1]  # Modify the last point of the line
-    I.setValue(I.getNodeFromName(LeadingEdge, 'CoordinateX'), x)
-    I.setValue(I.getNodeFromName(LeadingEdge, 'CoordinateY'), y)
-    I.setValue(I.getNodeFromName(LeadingEdge, 'CoordinateZ'), z)
     # For the TE
     inter1 = W.point(HubBetweenLEAndTE, index=-1)
     inter2 = W.point(ShroudBetweenLEAndTE, index=-1)
-    x, y, z = J.getxyz(TrailingEdge)
+    x, y = J.getxy(TrailingEdgeTmp)
     x[0], y[0] = inter1[0], inter1[1]  # Modify the first point of the line
     x[-1], y[-1] = inter2[0], inter2[1]  # Modify the last point of the line
-    I.setValue(I.getNodeFromName(TrailingEdge, 'CoordinateX'), x)
-    I.setValue(I.getNodeFromName(TrailingEdge, 'CoordinateY'), y)
-    I.setValue(I.getNodeFromName(TrailingEdge, 'CoordinateZ'), z)
 
     # Rename lines
     I.setName(HubBetweenLEAndTE, 'HubBetweenLEAndTE')
@@ -281,8 +328,8 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
     # Apply the points distribution for each line
     Inlet = W.discretize(Inlet, N=NumberOfRadialPoints, Distribution=RadialDistribution)
     Outlet = W.discretize(Outlet, N=NumberOfRadialPoints, Distribution=RadialDistribution)
-    LeadingEdge = W.discretize(LeadingEdge, N=NumberOfRadialPoints, Distribution=RadialDistribution)
-    TrailingEdge = W.discretize(TrailingEdge, N=NumberOfRadialPoints, Distribution=RadialDistribution)
+    LeadingEdge = W.discretize(LeadingEdgeTmp, N=NumberOfRadialPoints, Distribution=RadialDistribution)
+    TrailingEdge = W.discretize(TrailingEdgeTmp, N=NumberOfRadialPoints, Distribution=RadialDistribution)
 
     HubBetweenInletAndLE = W.discretize(HubBetweenInletAndLE, N=NumberOfAxialPointsBeforeLE, Distribution=AxialDistributionBeforeLE)
     ShroudBetweenInletAndLE = W.discretize(ShroudBetweenInletAndLE, N=NumberOfAxialPointsBeforeLE, Distribution=AxialDistributionBeforeLE)
@@ -296,17 +343,25 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
 
     # Use TFI to create the 2D mesh
     upstream = G.TFI([Inlet, LeadingEdge, HubBetweenInletAndLE, ShroudBetweenInletAndLE])
-    bodyForce = G.TFI([LeadingEdge, TrailingEdge,HubBetweenLEAndTE, ShroudBetweenLEAndTE])
+    bodyForce = G.TFI([LeadingEdge, TrailingEdge, HubBetweenLEAndTE, ShroudBetweenLEAndTE])
     downstream = G.TFI([TrailingEdge, Outlet, HubBetweenTEAndOutlet, ShroudBetweenTEAndOutlet])
     I.setName(upstream, 'upstream')
     I.setName(bodyForce, 'bodyForce')
     I.setName(downstream, 'downstream')
 
-    if BodyForceModel == 'hall':
+    # bodyForceCoarse = G.TFI([
+    #     W.discretize(LeadingEdge, N=10),
+    #     W.discretize(TrailingEdge, N=10),
+    #     W.discretize(HubBetweenLEAndTE, N=10),
+    #     W.discretize(ShroudBetweenLEAndTE, N=10),
+    #     ])
+
+    if model == 'hall':
         # Interpolate skeleton data
         Skeleton = I.getNodeFromName2(t, 'Skeleton')
         if Skeleton:
-            P._extractMesh(Skeleton, bodyForce, order=2, extrapOrder=0, constraint=0.)
+            P._extractMesh(Skeleton, bodyForce, order=2, extrapOrder=0) #, constraint=0.)
+            # P._extractMesh(Skeleton, bodyForceCoarse, order=2, extrapOrder=0)
             bodyForce = computeBlockage(bodyForce, NumberOfBlades)
             bodyForce = C.node2Center(bodyForce, I.__FlowSolutionNodes__)
             I._rmNodesByName1(bodyForce, I.__FlowSolutionNodes__)
@@ -317,8 +372,8 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
     mesh3d = D.axisym(mesh2d, (0, 0, 0), (1, 0, 0), angle=AzimutalAngleDeg, Ntheta=NumberOfAzimutalPoints)
 
     bodyForce = I.getNodeFromName2(mesh3d, 'bodyForce')
-    C._initVars(bodyForce, '{centers:isf}=1')
-    if BodyForceModel == 'hall':
+    # C._initVars(bodyForce, '{centers:isf}=1')
+    if model == 'hall':
         # Move coordinates to cell center and compute radius and azimuthal angle
         for coord in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
             C._node2Center__(bodyForce, coord)
@@ -332,7 +387,7 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
         I._renameNode(FS, 'CoordinateY', 'yCell')
         I._renameNode(FS, 'CoordinateZ', 'zCell')
 
-    elif BodyForceModel == 'Tspread':
+    elif model == 'Tspread':
         G._getVolumeMap(bodyForce)
         volumeCell = I.getValue(I.getNodeFromName(bodyForce, 'vol'))
         # C._initVars(bodyForce,
@@ -372,15 +427,15 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
 
     if meshType == 'structured':
         # Periodic conditions
-        X.connectMatch(mesh3d)
+        X.connectMatch(mesh3d, tol=1e-8)
         mesh3d = X.connectMatchPeriodic(
-            mesh3d, rotationAngle=[AzimutalAngleDeg, 0., 0.])
+            mesh3d, rotationAngle=[AzimutalAngleDeg, 0., 0.], tol=1e-8)
     elif meshType == 'unstructured':
         # Periodic conditions
         mesh3d = C.convertArray2NGon(mesh3d, recoverBC=1)
-        X.connectMatch(mesh3d)
+        X.connectMatch(mesh3d, tol=1e-8)
         mesh3d = X.connectMatchPeriodic(
-            mesh3d, rotationAngle=[AzimutalAngleDeg, 0., 0.])
+            mesh3d, rotationAngle=[AzimutalAngleDeg, 0., 0.], tol=1e-8)
         I._createElsaHybrid(mesh3d, method=1)
     else:
         raise ValueError(
@@ -394,23 +449,79 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
 
 
 def extractRowGeometricalData(mesh, row, save=False):
+    '''
+    Extract geometry data from the input **mesh** for the family **row**.
+    The output tree may be passed to function :py:func:`buildBodyForceMeshForOneRow`.
 
-    def profilesExtractionAndAnalysis(tree, row, blade='Main_Blade',
+    .. important:: Dependency to Ersatz
+
+    Parameters
+    ----------
+    mesh : PyTree
+        input mesh
+    row : str
+        Name of the family of the blade of interest
+    save : bool, optional
+        If :p:obj:`True`, save the output tree with the name 'BodyForceData_{row}.cgns'. 
+
+    Returns
+    -------
+    PyTree
+        The ouput tree has the following 1D zones (lines): 
+        Hub, Shroud, LeadingEdge, TrailingEdge, Inlet, Outlet.
+        The last zone 'Skeleton' is a 2D zone, located between the LE and the TE, 
+        with geometrical data on the blade:
+        'nx', 'nr', 'nt', 'thickness', 'AbscissaFromLE'
+    '''
+
+    def profilesExtractionAndAnalysis(tree, row, 
                                         zones_for_meridional_lines_extraction=None,
                                         zones_for_blade_profiles_extraction=None,
                                         directory_meridional_lines='meridional_lines',
-                                        directory_profiles='profiles'):
+                                        directory_profiles='profiles'
+                                        ):
 
         import Ersatz as EZ
 
+        zones = C.getFamilyZones(tree, row)
         if zones_for_meridional_lines_extraction is None:
+            zones_for_meridional_lines_extraction = []
             # Attention! Ordre de l'amont a l'aval
-            zones_for_meridional_lines_extraction = [row+'_flux_1_'+blade+'_upS',
-                                                    row+'_flux_1_'+blade+'_up',
-                                                    row+'_flux_1_'+blade+'_downS']
-        if zones_for_blade_profiles_extraction is None:
-            zones_for_blade_profiles_extraction = [row+'_flux_1_'+blade+'_skin']
 
+            for zone in zones:
+                zoneName = I.getName(zone)
+                if any([zoneName.endswith(suffix) for suffix in ['_upS', '_upStream', '_upstream']]):
+                    zones_for_meridional_lines_extraction.append(zoneName)
+            for zone in zones:
+                zoneName = I.getName(zone)
+                if zoneName.endswith('_up'):
+                    zones_for_meridional_lines_extraction.append(zoneName)
+            for zone in zones:
+                zoneName = I.getName(zone)
+                if any([zoneName.endswith(suffix) for suffix in ['_downS', '_downStream', '_downstream']]):
+                    zones_for_meridional_lines_extraction.append(zoneName)
+
+        if zones_for_blade_profiles_extraction is None:
+            zones_for_blade_profiles_extraction = []
+            
+            FamilyBCList = list(C.getFamilyBCNamesDict(tree))
+            BladeFamilies = []
+            for fam in FamilyBCList:
+                if any([fam.endswith(suffix) for suffix in ['BLADE', 'Blade', 'blade', 'AUBE', 'Aube', 'aube']]):
+                    BladeFamilies.append(fam)
+
+            for zone in zones:
+                zoneName = I.getName(zone)
+                for BladeFamily in BladeFamilies:
+                    BCs = C.getFamilyBCs(zone, BladeFamily)
+                    if BCs and not 'gap' in zoneName:
+                        zones_for_blade_profiles_extraction.append(zoneName)
+                        break
+
+        print(f'Extraction of hub and shroud lines from zones: {", ".join(zones_for_meridional_lines_extraction)}')
+        print(f'Extraction of profiles from zones: {" ".join(zones_for_blade_profiles_extraction)}')
+        assert len(zones_for_meridional_lines_extraction) > 0 and len(zones_for_blade_profiles_extraction) > 0
+         
         # if directory doesnt exist create it
         if (not(os.path.isdir(directory_meridional_lines))):
             os.mkdir(directory_meridional_lines)
@@ -434,13 +545,10 @@ def extractRowGeometricalData(mesh, row, save=False):
                         zone_j_dim = I.getZoneDim(zone)[2]
                         zone_k_dim = I.getZoneDim(zone)[3]
 
-                        zone_t = T.subzone(
-                            zone, (zone_i_dim, mi+1, 1), (zone_i_dim, mi+1, zone_k_dim))
+                        zone_t = T.subzone(zone, (zone_i_dim, mi+1, 1), (zone_i_dim, mi+1, zone_k_dim))
                         zone_t = T.reorder(zone_t, (-1, 2, 3))
                         zone_t = C.initVars(zone_t, '{myX}={CoordinateZ}')
-                        # zone_t = P.renameVars(zone_t,['myX'],['x'])
                         zone_t = C.initVars(zone_t, '{r}=({CoordinateX}**2+{CoordinateY}**2)**0.5')
-                        # zone_t = C.extractVars(zone_t, ['x','r'])
                         tree_t[2][1][2].append(zone_t)
             tree_t = C.extractVars(tree_t, ['myX', 'r'])
             C.convertPyTree2File(tree_t, directory_meridional_lines+'/merid%03d.dat' % (mi+1))
@@ -449,9 +557,7 @@ def extractRowGeometricalData(mesh, row, save=False):
         # extract blade profiles
         for zone in I.getNodesFromType(tree, 'Zone_t'):
             if I.getName(zone) in zones_for_blade_profiles_extraction:
-                zone_i_dim = (I.getZoneDim(zone))[1]
-                zone_j_dim = (I.getZoneDim(zone))[2]
-                zone_k_dim = (I.getZoneDim(zone))[3]
+                _, _, zone_j_dim, zone_k_dim, _ = I.getZoneDim(zone)
                 for mi in range(zone_j_dim):
                     tree_t = C.newPyTree(['Base', 3])
                     zone_t = T.subzone(zone, (1, mi+1, 1), (1, mi+1, zone_k_dim))
@@ -538,7 +644,7 @@ def extractRowGeometricalData(mesh, row, save=False):
     C._extractVars(chordTree, ['chord', 'chordx'])
 
     thicknessTree = C.convertFile2PyTree('thickness.dat')
-    C._extractVars(thicknessTree, ['xsc', 'thickness'])
+    C._extractVars(thicknessTree, ['xsc', 'thickness', 'mnorm'])
 
     skeletonTree = C.convertFile2PyTree('skeleton.dat')
     G._getNormalMap(skeletonTree)
@@ -572,8 +678,14 @@ def extractRowGeometricalData(mesh, row, save=False):
             reshapedValue[i, :] = value
         I.newDataArray(name=I.getName(node), value=reshapedValue, parent=FlowSolution)
 
+    C._initVars(skeletonTree, '{AbscissaFromLE}={mnorm}*{chord}')
+    C._rmVars(skeletonTree, ['xsc', 'mnorm', 'chord', 'chordx'])
+
     xhub, rhub = readEndWallLine(f'{directory_meridional_lines}/merid001.dat')
-    xshroud, rshroud = readEndWallLine(f'{directory_meridional_lines}/merid141.dat')
+    merid_files = glob.glob(f'{directory_meridional_lines}/merid*.dat')
+    shroud_file = sorted(merid_files, key=lambda name: int(name.split('.dat')[0].split('/merid')[-1]))[-1]
+    print(shroud_file)
+    xshroud, rshroud = readEndWallLine(shroud_file)
     xLE, rLE = readLEorTE('LE.dat')
     xTE, rTE = readLEorTE('TE.dat')
 
@@ -597,9 +709,32 @@ def extractRowGeometricalData(mesh, row, save=False):
     return t
 
 
-def computeBlockage(t, Nblades, eps=1e-6):
+def computeBlockage(t, Nblades, eps=1e-8):
+    '''
+    Compute the blockage.
+
+    Parameters
+    ----------
+    t : PyTree
+        input tree. Must contains the nodes 'thickness' and 'nt' (azimuthal component 
+        of the unit vector normal to the blade).
+    Nblades : int
+        Number of blades in the row (used to compute the pitch)
+    eps : float, optional
+        numerical parameter added to 'nt' square, to prevent division by zero. By default 1e-8
+
+    Returns
+    -------
+    PyTree 
+        Updated tree, with the new nodes 'blockage', 'gradxb' and 'gradrb'.
+    '''
     C._initVars(t, '{b}=-{thickness}/({nt}**2+%.15f)**0.5/%.15f/{CoordinateY}' % (eps, 2*np.pi/Nblades))
     t = P.computeGrad(t, 'b')
+    # C._initVars(bodyForceCoarse, '{b}=-{thickness}/({nt}**2+%.15f)**0.5/%.15f/{CoordinateY}' % (eps, 2*np.pi/Nblades))
+    # bodyForceCoarse = P.computeGrad(bodyForceCoarse, 'b')
+    # C._extractVars(bodyForceCoarse, ['CoordinateX', 'CoordinateY', 'CoordinateZ', 'centers:gradxb', 'centers:gradyb'])
+    # P._extractMesh(bodyForceCoarse, t, order=2, extrapOrder=0, constraint=40.)
+
     C._initVars(t, '{blockage}=1.+{b}')
     I._rmNodesByName(t, 'b')
     I._rmNodesByName(t, 'gradzb')
@@ -608,6 +743,7 @@ def computeBlockage(t, Nblades, eps=1e-6):
 
 
 def filterDataSourceTermsRadial(t):
+    ''' NOT USED '''
     val_filtered        = ['nx','nr','nt','xc','chord','chordx','b','gradxb','gradrb','delta0']
     cg = 0.0005  # parametre de lissage [-]
     # Coefficient de lissage des termes source sur les derniers pc radial de veine
@@ -635,15 +771,14 @@ def filterDataSourceTermsRadial(t):
                     data_2d_t = np.zeros((Ni, Nj))
                     for j in range(0, jprot_hub):
                         data_2d_t[:, j] = data_t[:, jprot_hub+1]
-                    for j in range(
-                            jprot_hub, jprot_shroud):
+                    for j in range(jprot_hub, jprot_shroud):
                         data_2d_t[:, j] = data_t[:, j]
                     for j in range(jprot_shroud, Nj):
                         data_2d_t[:, j] = data_t[:, jprot_shroud]
                     I.setValue(data, np.asfortranarray(data_2d_t))
 
-
 def filterDataSourceTermsAxial(t):
+    ''' NOT USED '''
     val_filtered = ['nx', 'nr', 'nt', 'xc', 'chord',
                     'chordx', 'b', 'gradxb', 'gradrb', 'delta0']
     cg          = 0.0005 # parametre de lissage [-]
@@ -668,7 +803,7 @@ def filterDataSourceTermsAxial(t):
                 data_name = I.getName(data)
                 if data_name in val_filtered:
                     data_t = I.getValue(data)
-                    data_2d_t     = np.zeros((Ni, Nj))
+                    data_2d_t = np.zeros((Ni, Nj))
                     for i in range(0,iprot_BA):
                         data_2d_t[i,:] = data_t[iprot_BA,:]
                     for i in range(iprot_BA,iprot_BF): 
@@ -676,6 +811,15 @@ def filterDataSourceTermsAxial(t):
                     for i in range(iprot_BF,Ni):
                         data_2d_t[i,:] = data_t[iprot_BF,:]
                     I.setValue(data, np.asfortranarray(data_2d_t))
+
+
+##################################################################################
+# Functions for coprocessing
+# The following functions implement body-force models to update source terms 
+# during the simulation.
+# They are all called by th main function computeBodyForce. This latter one
+# is called by Coprocess.updateBodyForce
+##################################################################################
 
 
 def computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration):
@@ -706,30 +850,30 @@ def computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration)
 
     '''
 
-    if isinstance(BodyForceParams['model'], list):
-        models = BodyForceParams['model']
-    else:
-        models = [BodyForceParams['model']]
+    # if isinstance(BodyForceParams['model'], list):
+    #     models = BodyForceParams['model']
+    # else:
+    #     models = [BodyForceParams['model']]
+    model = BodyForceParams['model']
     
-    for model in models:
-
-        if model == 'hall':
-            NewSourceTerms = computeBodyForce_Hall(
-                zone, FluidProperties, TurboConfiguration)
-            
-            BLProtectionSourceTerms = computeProtectionSourceTerms(
-                zone, TurboConfiguration, ProtectedHeightPercentage=5.)
-            for key, value in BLProtectionSourceTerms.items():
-                NewSourceTerms[key] += value
-
-        elif model == 'Tspread':
-            NewSourceTerms = computeBodyForce_Tspread(zone, BodyForceParams['Thrust'])
+    if model == 'hall':
+        NewSourceTerms = computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration)
         
-        elif model == 'blockage':
-            NewSourceTerms = computeBlockageSourceTerms(zone)
-        
-        else: 
-            raise Exception(f"Body force model {BodyForceParams['model']} is unknown.")
+        BLProtectionSourceTerms = computeProtectionSourceTerms(zone, TurboConfiguration)
+        for key, value in BLProtectionSourceTerms.items():
+            NewSourceTerms[key] += value
+
+    elif model == 'Tspread':
+        NewSourceTerms = computeBodyForce_Tspread(zone, BodyForceParams['Thrust'])
+    
+    elif model == 'blockage':
+        NewSourceTerms = computeBlockageSourceTerms(zone)
+    
+    elif model == 'constant':
+        NewSourceTerms = computeBodyForce_constant(zone, BodyForceParams['SourceTerms'])
+    
+    else: 
+        raise Exception(f"Body force model {BodyForceParams['model']} is unknown.")
 
     return NewSourceTerms
 
@@ -767,15 +911,14 @@ def computeBlockageSourceTerms(zone, tol=1e-5):
     Sb = -(Vx * DataSourceTerms['gradxb'] + Vr * DataSourceTerms['gradrb']) / Blockage
 
     NewSourceTerms = dict(
-        Density          = Sb,
-        MomentumX        = Sb * Vx,
-        MomentumY        = Sb * Vy,
-        MomentumZ        = Sb * Vz,
-        EnergyStagnation = Sb * EnthalpyStagnation
+        Density                 = Sb,
+        MomentumX               = Sb * Vx,
+        MomentumY               = Sb * Vy,
+        MomentumZ               = Sb * Vz,
+        EnergyStagnationDensity = Sb * EnthalpyStagnation
     )
 
     return NewSourceTerms
-
 
 def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, tol=1e-5):
     '''
@@ -809,7 +952,10 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, tol=1e-5):
     RotationSpeed = TurboConfiguration['Rows'][rowName]['RotationSpeed']
 
     FlowSolution    = J.getVars2Dict(zone, Container='FlowSolution#Init')
-    DataSourceTerms = J.getVars2Dict(zone, Container='FlowSolution#DataSourceTerm')
+    DataSourceTerms = J.getVars2Dict(zone, ['radius', 'theta', 'blockage', 'nx',
+                                     'nr', 'nt', 'AbscissaFromLE'], Container='FlowSolution#DataSourceTerm')
+    # Variables needed in DataSourceTerms: 'radius', 'theta', 'blockage', 'nx', 'nr', 'nt', 'AbscissaFromLE'
+    # Optional variables in DataSourceTerms: 'delta0'
 
     # Coordinates
     cosTheta = np.cos(DataSourceTerms['theta'])
@@ -824,13 +970,29 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, tol=1e-5):
     Temperature = np.maximum(tol, (FlowSolution['EnergyStagnationDensity']/Density-0.5*Vmag**2.)/FluidProperties['cp'])
     Mrel = Wmag/(FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*Temperature)**0.5
 
-    # Vitesses normales et parallele au squelette
-    Wpn = Wx*DataSourceTerms['nx'] + Wr*DataSourceTerms['nr'] + Wt*DataSourceTerms['nt']
-    Wnx = Wpn * DataSourceTerms['nx']
-    Wnr = Wpn * DataSourceTerms['nr']
-    Wnt = Wpn * DataSourceTerms['nt']
-    Wpx, Wpr, Wpt = Wx-Wnx,   Wr-Wnr,   Wt-Wnt
+    # Velocity normal and parallel to the skeleton
+    # See Cyril Dosnes bibliography synthesis for the local frame of reference
+    Wn = np.absolute(Wx*DataSourceTerms['nx'] + Wr*DataSourceTerms['nr'] + Wt*DataSourceTerms['nt']) # Velocity component normal to the blade surface
+    Wnx = Wn * DataSourceTerms['nx'] * np.sign(Wx*DataSourceTerms['nx'])
+    Wnr = Wn * DataSourceTerms['nr'] * np.sign(Wr*DataSourceTerms['nr'])
+    Wnt = Wn * DataSourceTerms['nt'] * np.sign(Wt*DataSourceTerms['nt'])
+    Wpx, Wpr, Wpt = Wx-Wnx,   Wr-Wnr,   Wt-Wnt # Velocity component in the plane tangent to the blade surface
     Wp = np.maximum(tol, (Wpx**2+Wpr**2+Wpt**2)**0.5)
+
+    # Deviation of the flow with respect to the blade surface
+    # Careful to the sign
+    incidence = np.arcsin(Wn/Wmag) 
+    incidence*= np.sign(Wx*DataSourceTerms['nx'] + Wr*DataSourceTerms['nr'] + Wt*DataSourceTerms['nt'])
+    
+    # Unit vector normal the velocity. Direction of application of the normal force
+    unitVectorN_x = np.cos(incidence) * DataSourceTerms['nx'] - np.sin(incidence)*Wpx/Wp
+    unitVectorN_r = np.cos(incidence) * DataSourceTerms['nr'] - np.sin(incidence)*Wpr/Wp
+    unitVectorN_t = np.cos(incidence) * DataSourceTerms['nt'] - np.sin(incidence)*Wpt/Wp
+
+    # Unit vector parallel to the velocity. Direction of application of the parallel force
+    unitVectorP_x = - Wx / Wmag
+    unitVectorP_r = - Wr / Wmag
+    unitVectorP_t = - Wt / Wmag
 
     # Compressibility correction 
     CompressibilityCorrection = 3. * np.ones(Density.shape)
@@ -838,33 +1000,37 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, tol=1e-5):
     CompressibilityCorrection[subsonic_bf]  = np.clip(1.0/(1-Mrel[subsonic_bf]**2)**0.5, 0.0, 3.0)
     CompressibilityCorrection[supersonic_bf]= np.clip(4.0/(2*np.pi)/(Mrel[supersonic_bf]**2-1)**0.5, 0.0, 3.0)
 
-    # Force normal to the chord
-    blade2BladeDistance = 2*np.pi*DataSourceTerms['radius'] / NumberOfBlades * \
-        np.absolute(DataSourceTerms['nt']) * DataSourceTerms['blockage']
-    incidence = np.arcsin(Wpn/Wmag)
-    fn = -0.5*Wmag**2. * CompressibilityCorrection * 2*np.pi*incidence / blade2BladeDistance * DataSourceTerms['isf']
+    # Blade to blade distance
+    azimuthalPitch = 2*np.pi*DataSourceTerms['radius'] / NumberOfBlades
+    blade2BladeDistance = azimuthalPitch * np.absolute(DataSourceTerms['nt']) * DataSourceTerms['blockage']
 
     # Friction on blade
     Viscosity = FluidProperties['SutherlandViscosity']*np.sqrt(Temperature/FluidProperties['SutherlandTemperature'])*(1+FluidProperties['SutherlandConstant'])/(1+FluidProperties['SutherlandConstant']*FluidProperties['SutherlandTemperature']/Temperature)
-    Re_x = Density*DataSourceTerms['xsc']*DataSourceTerms['chordx'] * Wmag / Viscosity
+    Re_x = Density*DataSourceTerms['AbscissaFromLE'] * Wmag / Viscosity
     cf = 0.0592*Re_x**(-0.2)
+
+    # Force normal to the chord
+    fn = -0.5*Wmag**2. * CompressibilityCorrection * 2*np.pi*incidence / blade2BladeDistance
 
     # Force parallel to the chord
     delta0 = DataSourceTerms.get('delta0', 0.)
-    fp = -0.5*Wmag**2. * (2*cf + 2*np.pi*(incidence - delta0)**2.) / blade2BladeDistance * DataSourceTerms['isf']
+    fp = 0.5*Wmag**2. * (2*cf + 2*np.pi*(incidence - delta0)**2.) / blade2BladeDistance
 
-    fx = fn*(np.cos(incidence)*DataSourceTerms['nx']-np.sin(incidence)*Wpx/Wp) + fp*Wx/Wmag
-    fr = fn*(np.cos(incidence)*DataSourceTerms['nr']-np.sin(incidence)*Wpr/Wp) + fp*Wr/Wmag
-    ft = fn*(np.cos(incidence)*DataSourceTerms['nt']-np.sin(incidence)*Wpt/Wp) + fp*Wt/Wmag
+    # Force in the cylindrical frame of reference
+    fx = fn * unitVectorN_x + fp * unitVectorP_x
+    fr = fn * unitVectorN_r + fp * unitVectorP_r
+    ft = fn * unitVectorN_t + fp * unitVectorP_t
+
+    # Force in the cartesian frame of reference
     fy = -sinTheta * ft + cosTheta * fr
     fz =  cosTheta * ft + sinTheta * fr
 
     NewSourceTerms = dict(
-        Density          = np.zeros(Density.shape),
-        MomentumX        = Density * fx,
-        MomentumY        = Density * fy,
-        MomentumZ        = Density * fz,
-        EnergyStagnation = Density * DataSourceTerms['radius'] * RotationSpeed * ft
+        Density                 = np.zeros(Density.shape),
+        MomentumX               = Density * fx,
+        MomentumY               = Density * fy,
+        MomentumZ               = Density * fz,
+        EnergyStagnationDensity = Density * DataSourceTerms['radius'] * RotationSpeed * ft
     )
 
     # Add blockage terms
@@ -874,13 +1040,107 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, tol=1e-5):
 
     return NewSourceTerms
 
-
-def computeProtectionSourceTerms(zone, TurboConfiguration, ProtectedHeightPercentage=5., tol=1e-5):
+def computeProtectionSourceTerms(zone, TurboConfiguration, ProtectedHeight=0.05):
     ''' 
     Protection of the boudary layer ofr body-force modelling, as explain in the appendix D of 
     W. Thollet PdD manuscrit.
 
-    .. danger:: Available only for structured mesh.
+    .. danger:: Available only for structured mesh. Furthermore, there must be a unique BF zone.
+
+    Parameters
+    ----------
+
+        zone : PyTree
+            current zone
+
+        TurboConfiguration : dict
+            as read in `setup.py`
+
+        ProtectedHeight : float
+            Height of the channel flow corresponding to the boundary layer. 
+            By default, 0.05.
+
+    Returns
+    -------
+
+        BLProtectionSourceTerms : dict
+            Source terms to protect the boundary layer. The keys are Density (=0), MomentumX, 
+            MomentumY, MomentumZ and EnergyStagnation (=0).
+    
+    '''
+
+    rowName = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+    RotationSpeed = TurboConfiguration['Rows'][rowName]['RotationSpeed']
+
+    FlowSolution = J.getVars2Dict(zone, Container='FlowSolution#Init')
+    DataSourceTerms = J.getVars2Dict(zone, Container='FlowSolution#DataSourceTerm')
+
+    # Extract Boundary layers edges, based on ProtectedHeightPercentage
+    zone = I.renameNode(zone, 'FlowSolution#Init', 'FlowSolution#Centers')
+    I._renameNode(zone, 'FlowSolution#Height', 'FlowSolution')
+    BoundarayLayerEdgeAtHub    = P.isoSurfMC(zone, 'ChannelHeight', ProtectedHeight)
+    BoundarayLayerEdgeAtShroud = P.isoSurfMC(zone, 'ChannelHeight', 1-ProtectedHeight)
+    zone = C.node2Center(zone, 'ChannelHeight')
+    h, = J.getVars(zone, VariablesName=['ChannelHeight'], Container='FlowSolution#Centers')
+
+    # Coordinates
+    radius, theta = DataSourceTerms['radius'], DataSourceTerms['theta']
+    cosTheta = np.cos(theta)
+    sinTheta = np.sin(theta)
+    # Flow data
+    Vx = FlowSolution['MomentumX'] / FlowSolution['Density']
+    Vy = FlowSolution['MomentumY'] / FlowSolution['Density']
+    Vz = FlowSolution['MomentumZ'] / FlowSolution['Density']
+    Wr =  Vy*cosTheta + Vz*sinTheta 
+    Wt = -Vy*sinTheta + Vz*cosTheta - radius*RotationSpeed
+    Wmag = (Vx**2+Wr**2+Wt**2)**0.5
+
+    def get_mean_W_and_gradP(z):
+        if not z: 
+            return 1, 0, 0
+
+        C._initVars(z, 'radius=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
+        C._initVars(z, 'theta=arctan2({CoordinateZ}, {CoordinateY})')
+        C._initVars(z, 'Wx={MomentumX}/{Density}')
+        C._initVars(z, 'Vy={MomentumY}/{Density}')
+        C._initVars(z, 'Vz={MomentumZ}/{Density}')
+        C._initVars(z, 'Wr={Vy}*cos({theta})+{Vz}*sin({theta})')
+        C._initVars(z, 'Wt=-{{Vy}}*sin({{theta}})+{{Vz}}*cos({{theta}})-{{radius}}*{}'.format(RotationSpeed))
+        C._initVars(z, 'Wmag=({Wx}**2+{Wr}**2+{Wt}**2)**0.5')
+        C._initVars(z, 'DpDr=cos({theta})*{DpDy}+sin({theta})*{DpDz}')
+
+        meanWmag = C.getMeanValue(z, 'Wmag')
+        meanDpDx = C.getMeanValue(z, 'DpDx')
+        meanDpDr = C.getMeanValue(z, 'DpDr')
+        return meanWmag, meanDpDx, meanDpDr
+
+    W_HubEdge, DpDx_HubEdge, DpDr_HubEdge = get_mean_W_and_gradP(BoundarayLayerEdgeAtHub)
+    W_ShroudEdge, DpDx_ShroudEdge, DpDr_ShroudEdge = get_mean_W_and_gradP(BoundarayLayerEdgeAtShroud)
+
+    # Source terms
+    S_BL_Hub_x    = (1. - (Wmag /    W_HubEdge)**2) * DpDx_HubEdge
+    S_BL_Hub_r    = (1. - (Wmag /    W_HubEdge)**2) * DpDr_HubEdge
+    S_BL_Shroud_x = (1. - (Wmag / W_ShroudEdge)**2) * DpDx_ShroudEdge
+    S_BL_Shroud_r = (1. - (Wmag / W_ShroudEdge)**2) * DpDr_ShroudEdge
+
+    S_BL_x = S_BL_Hub_x * (h<ProtectedHeight) + S_BL_Shroud_x * (h>1-ProtectedHeight)
+    S_BL_r = S_BL_Hub_r * (h<ProtectedHeight) + S_BL_Shroud_r * (h>1-ProtectedHeight)
+
+    BLProtectionSourceTerms = dict(
+        Density                 = np.zeros(Wmag.shape),
+        MomentumX               = S_BL_x,
+        MomentumY               = cosTheta * S_BL_r,
+        MomentumZ               = sinTheta * S_BL_r,
+        EnergyStagnationDensity = np.zeros(Wmag.shape)
+    )
+    return BLProtectionSourceTerms
+
+def computeProtectionSourceTerms_OLD(zone, TurboConfiguration, ProtectedHeightPercentage=5., tol=1e-5):
+    ''' 
+    Protection of the boudary layer ofr body-force modelling, as explain in the appendix D of 
+    W. Thollet PdD manuscrit.
+
+    .. danger:: Available only for structured mesh. Furthermore, there must be a unique BF zone.
 
     Parameters
     ----------
@@ -994,14 +1254,13 @@ def computeProtectionSourceTerms(zone, TurboConfiguration, ProtectedHeightPercen
     S_corr_BL_z = sinTheta*S_corr_BL_r
 
     BLProtectionSourceTerms = dict(
-        Density          = np.zeros(Wmag.shape),
-        MomentumX        = S_corr_BL_x,
-        MomentumY        = S_corr_BL_y,
-        MomentumZ        = S_corr_BL_z,
-        EnergyStagnation = np.zeros(Wmag.shape)
+        Density                 = np.zeros(Wmag.shape),
+        MomentumX               = S_corr_BL_x,
+        MomentumY               = S_corr_BL_y,
+        MomentumZ               = S_corr_BL_z,
+        EnergyStagnationDensity = np.zeros(Wmag.shape)
     )
     return BLProtectionSourceTerms
-
 
 def computeBodyForce_Tspread(zone, Thrust, tol=1e-5):
     '''
@@ -1035,17 +1294,45 @@ def computeBodyForce_Tspread(zone, Thrust, tol=1e-5):
     Vx, Vy, Vz = FlowSolution['MomentumX']/Density, FlowSolution['MomentumY']/Density, FlowSolution['MomentumZ']/Density
     Vmag = np.maximum(tol, (Vx**2+Vy**2+Vz**2)**0.5)
 
-    f = Thrust / DataSourceTerms['totalVolume'] * DataSourceTerms['isf']
+    f = Thrust / DataSourceTerms['totalVolume']
 
     NewSourceTerms = dict(
-        Density          = np.zeros(Vmag.shape),
-        MomentumX        = Density * f * Vx/Vmag,
-        MomentumY        = Density * f * Vy/Vmag,
-        MomentumZ        = Density * f * Vz/Vmag,
-        EnergyStagnation = Density * f * Vmag,
+        Density                 = np.zeros(Vmag.shape),
+        MomentumX               = Density * f * Vx/Vmag,
+        MomentumY               = Density * f * Vy/Vmag,
+        MomentumZ               = Density * f * Vz/Vmag,
+        EnergyStagnationDensity = Density * f * Vmag,
     )
 
     return NewSourceTerms
 
+def computeBodyForce_constant(zone, SourceTerms):
+    '''
+    Compute constant source terms (reshape given source terms if they are uniform).
 
+    Parameters
+    ----------
+
+        zone : PyTree
+            current zone
+        
+        SourceTerms : dict
+            Source terms to apply. For each value, the given value may be a 
+            float or a numpy array (the shape must correspond to the zone shape).
+
+    Returns
+    -------
+
+        NewSourceTerms : dict
+            Computed source terms. 
+    '''
+
+    FlowSolution    = J.getVars2Dict(zone, Container='FlowSolution#Init')
+    ones = np.ones(FlowSolution['Density'].shape)
+
+    NewSourceTerms = dict()
+    for key, value in SourceTerms.items():
+        NewSourceTerms[key] = value * ones
+
+    return NewSourceTerms
 

@@ -2296,21 +2296,48 @@ def createSymbolicLink(src, dst):
         J.createSymbolicLink(src, dst)
 
 
-def updateBodyForce(t, iteri=1., iterf=1.):
+def updateBodyForce(t, previousTreeWithSourceTerms=[], relax=0.):
+    '''
+    In a turbomachinery context, update the source terms for body-force modelling.
+    The user-defined parameter **BodyForceInputData** (in `setup.py`) controls the 
+    behavior of this function.
+
+    Parameters
+    ----------
+    
+        t : PyTree
+            Output PyTree as obtained from :py:func:`extractFields`
+
+        previousTreeWithSourceTerms : PyTree
+            Previous output of this function. It is used for relaxing the source terms, depending 
+            on the value of the **relax** argument. 
+            The first time this function is called, this parameter may be initialized with an empty list.
+
+        relax : float, optional
+            Relaxation coefficient for the source terms. By default 0 (no relaxation). Should be less
+            than 1 (the new source terms are equal to the previous ones).
+
+    Returns
+    -------
+        newTreeWithSourceTerms: PyTree
+            _description_
+    '''
 
     printCo('Update body force...', 0, color=J.CYAN)
 
-    toWithSourceTerms = I.copyRef(t)
+    newTreeWithSourceTerms = I.copyRef(t)
     
     FluidProperties    = setup.FluidProperties
     TurboConfiguration = setup.TurboConfiguration
     BodyForceInputData = setup.BodyForceInputData
-
-    coeff_eff = J.rampFunction(iteri, iterf, 0., 1.)
+    BodyForceInitialIteration = getOption('BodyForceInitialIteration', default=1000)
 
     for BodyForceFamily, BodyForceParams in BodyForceInputData.items():
 
-        for zone in C.getFamilyZones(toWithSourceTerms, BodyForceFamily):
+        BodyForceFinalIteration = BodyForceInitialIteration + BodyForceParams.get('rampIterations', 0.)
+        coeff_eff = J.rampFunction(BodyForceInitialIteration, BodyForceFinalIteration, 0., 1.)
+
+        for zone in C.getFamilyZones(newTreeWithSourceTerms, BodyForceFamily):
 
             if not I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm'): continue
 
@@ -2321,12 +2348,24 @@ def updateBodyForce(t, iteri=1., iterf=1.):
                 NewSourceTerms[key] = coeff_eff(CurrentIteration) * value
 
             FSSourceTerm = I.newFlowSolution('FlowSolution#SourceTerm', gridLocation='CellCenter', parent=zone)
+            SourceTermPath = I.getPath(newTreeWithSourceTerms, FSSourceTerm)
+
+            if CurrentIteration > BodyForceInitialIteration : 
+                previousFSSourceTerm = I.getNodeFromPath(previousTreeWithSourceTerms, SourceTermPath)
+            else:
+                previousFSSourceTerm = None
+                
             for name, newSourceTerm in NewSourceTerms.items():
+                if previousFSSourceTerm:
+                    previousSourceTerm = I.getValue(I.getNodeFromName(previousFSSourceTerm, name))
+                    newSourceTerm = (1-relax) * newSourceTerm + relax * previousSourceTerm
+                
                 I.newDataArray(name=name, value=newSourceTerm, parent=FSSourceTerm)
 
-    I._rmNodesByName(toWithSourceTerms, 'FlowSolution#Init')
+    I._rmNodesByName(newTreeWithSourceTerms, 'FlowSolution#Init')
+    I._rmNodesByName(newTreeWithSourceTerms, 'FlowSolution#DataSourceTerm')
     Cmpi.barrier()
-    return toWithSourceTerms
+    return newTreeWithSourceTerms
 
 
 #_______________________________________________________________________________

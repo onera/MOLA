@@ -28,6 +28,7 @@ import MOLA
 from . import InternalShortcuts as J
 from . import Preprocess        as PRE
 from . import JobManager        as JM
+from . import BodyForceTurbomachinery as BF
 
 try:
     from . import ParametrizeChannelHeight as ParamHeight
@@ -63,7 +64,8 @@ def checkDependencies():
 
 def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
                     duplicationInfos={}, zonesToRename={},
-                    scale=1., rotation='fromAG5', PeriodicTranslation=None):
+                    scale=1., rotation='fromAG5', PeriodicTranslation=None,
+                    BodyForceRows=None):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
     from a CGNS file provided by Autogrid 5.
@@ -150,6 +152,12 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
             a periodicity in the direction **PeriodicTranslation**. This argument
             has to be used for linear cascade configurations.
 
+        BodyForceRows : :py:class:`dict` or :py:obj:`None`
+            If not :py:obj:`None`, this parameters allows to replace user-defined
+            row domains with meshes adapted to body-force modelling.
+            See documentation of 
+            :py:func:`MOLA.BodyForceTurbomachinery.replaceRowWithBodyForceMesh`.
+
     Returns
     -------
 
@@ -175,8 +183,21 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
             scale=scale, rotation=rotation, PeriodicTranslation=PeriodicTranslation)
 
     PRE.checkFamiliesInZonesAndBC(t)
+
+    if BodyForceRows:
+        # Remesh rows to model with body-force
+        t, newRowMeshes = BF.replaceRowWithBodyForceMesh(t, BodyForceRows)
+
     t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], zonesToRename=zonesToRename)
     PRE.transform(t, InputMeshes)
+
+    if BodyForceRows:
+         #Add body-force domains in the main mesh
+        base = I.getBases(t)[0]
+        for newRowMesh in newRowMeshes:
+            for zone in I.getZones(newRowMesh):
+                I.addChild(base, zone)
+
     for row, rowParams in duplicationInfos.items():
         try: MergeBlocks = rowParams['MergeBlocks']
         except: MergeBlocks = False
@@ -196,7 +217,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, TurboConfiguration={}, Extractions={}, BoundaryConditions={},
-        BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['BLADE', 'AUBE'],
+        BodyForceInputData={}, writeOutputFields=True, bladeFamilyNames=['BLADE', 'AUBE'],
         Initialization={'method':'uniform'}, JobInformation={}, SubmitJob=False,
         FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
     '''
@@ -245,6 +266,20 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             For details, refer to documentation of :func:`setBoundaryConditions`
 
         BodyForceInputData : :py:class:`dict`
+            if provided, each key in this :py:class:`dict` is the name of a row family to model
+            with body-force. The associated value is a sub-dictionary, with the following 
+            potential entries:
+
+                * model (:py:class:`dict`): the name of the body-force model to apply. Available models 
+                  are: 'hall', 'blockage', 'Tspread', 'constant'.
+
+                * rampIterations (:py:class:`dict`): The number of iterations to apply a ramp on source terms, 
+                  starting from `BodyForceInitialIteration` (in `ReferenceValues['CoprocessOptions']`). 
+                  If not given, there is no ramp (source terms are fully applied from the `BodyForceInitialIteration`).
+
+                * other optional parameters depending on the **model** 
+                  (see dedicated functions in :mod:`MOLA.BodyForceTurbomachinery`).
+
 
         writeOutputFields : bool
             if :py:obj:`True`, write initialized fields overriding
@@ -296,15 +331,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             * ``setup.py``
                 ultra-light file containing all relevant info of the simulation
     '''
-
-    def addFieldExtraction(fieldname):
-        try:
-            FieldsExtr = ReferenceValuesParams['FieldsAdditionalExtractions']
-            if fieldname not in FieldsExtr.split():
-                FieldsExtr += ' '+fieldname
-        except:
-            ReferenceValuesParams['FieldsAdditionalExtractions'] = fieldname
-
     if isinstance(mesh,str):
         t = C.convertFile2PyTree(mesh)
     elif I.isTopTree(mesh):
@@ -738,59 +764,9 @@ def cleanMeshFromAutogrid(t, basename='Base#1', zonesToRename={}):
     I._rmNodesByType(t,'DonorFamily')
 
     # Join HUB and SHROUD families
-    joinFamilies(t, 'HUB')
-    joinFamilies(t, 'SHROUD')
+    J.joinFamilies(t, 'HUB')
+    J.joinFamilies(t, 'SHROUD')
     return t
-
-def joinFamilies(t, pattern):
-    '''
-    In the CGNS tree t, gather all the Families <ROW_I>_<PATTERN>_<SUFFIXE> into
-    Families <ROW_I>_<PATTERN>, so as many as rows.
-    Useful to join all the row_i_HUB* or (row_i_SHROUD*) together
-
-    Parameters
-    ----------
-
-        t : PyTree
-            A PyTree read by Cassiopee
-
-        pattern : str
-            The pattern used to gather CGNS families. Should be for example 'HUB' or 'SHROUD'
-    '''
-    fam2remove = set()
-    fam2keep = set()
-    # Loop on the BCs in the tree
-    for bc in I.getNodesFromType(t, 'BC_t'):
-        # Get BC family name
-        famBC_node = I.getNodeFromType(bc, 'FamilyName_t')
-        famBC = I.getValue(famBC_node)
-        # Check if the pattern is present in FamilyBC name
-        if pattern not in famBC:
-            continue
-        # Split to get the short name based on pattern
-        split_fanBC = famBC.split(pattern)
-        assert len(split_fanBC) == 2, 'The pattern {} is present more than once in the FamilyBC {}. It must be more selective.'.format(pattern, famBC)
-        preffix, suffix = split_fanBC
-        # Add the short name to the set fam2keep
-        short_name = '{}{}'.format(preffix, pattern)
-        fam2keep |= {short_name}
-        if suffix != '':
-            # Change the family name
-            I.setValue(famBC_node, '{}'.format(short_name))
-            fam2remove |= {famBC}
-
-    # Remove families
-    for fam in fam2remove:
-        print('Remove family {}'.format(fam))
-        I._rmNodesByNameAndType(t, fam, 'Family_t')
-
-    # Check that families to keep still exist
-    base = I.getNodeFromType(t,'CGNSBase_t')
-    for fam in fam2keep:
-        fam_node = I.getNodeFromNameAndType(t, fam, 'Family_t')
-        if fam_node is None:
-            print('Add family {}'.format(fam))
-            I.newFamily(fam, parent=base)
 
 def convert2Unstructured(t, merge=True, tol=1e-6):
     '''

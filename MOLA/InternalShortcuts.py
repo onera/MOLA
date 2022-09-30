@@ -2429,3 +2429,57 @@ def rampFunction(iteri, iterf, vali, valf):
     else:
         f = lambda x: np.minimum(vali, np.maximum(valf, slope*(x-iteri)+vali))
     return f
+
+
+def joinFamilies(t, pattern):
+    '''
+    In the CGNS tree t, gather all the Families <ROW_I>_<PATTERN>_<SUFFIXE> into
+    Families <ROW_I>_<PATTERN>, so as many as rows.
+    Useful to join all the row_i_HUB* or (row_i_SHROUD*) together
+
+    Parameters
+    ----------
+
+        t : PyTree
+            A PyTree read by Cassiopee
+
+        pattern : str
+            The pattern used to gather CGNS families. Should be for example 'HUB' or 'SHROUD'
+    '''
+    fam2remove = []
+    fam2keep = []
+    # Loop on the BCs in the tree
+    for bc in I.getNodesFromType(t, 'BC_t'):
+        # Get BC family name
+        famBC_node = I.getNodeFromType(bc, 'FamilyName_t')
+        famBC = I.getValue(famBC_node)
+        # Check if the pattern is present in FamilyBC name
+        if pattern not in famBC:
+            continue
+        # Split to get the short name based on pattern
+        split_fanBC = famBC.split(pattern)
+        assert len(split_fanBC) == 2, 'The pattern {} is present more than once in the FamilyBC {}. It must be more selective.'.format(
+            pattern, famBC)
+        preffix, suffix = split_fanBC
+        # Add the short name to the set fam2keep
+        short_name = '{}{}'.format(preffix, pattern)
+        if short_name not in fam2keep: 
+            fam2keep.append(short_name)
+        if suffix != '':
+            # Change the family name
+            I.setValue(famBC_node, '{}'.format(short_name))
+            if famBC not in fam2remove: 
+                fam2remove.append(famBC)
+
+    # Remove families
+    for fam in fam2remove:
+        print('Remove family {}'.format(fam))
+        I._rmNodesByNameAndType(t, fam, 'Family_t')
+
+    # Check that families to keep still exist
+    base = I.getNodeFromType(t, 'CGNSBase_t')
+    for fam in fam2keep:
+        fam_node = I.getNodeFromNameAndType(t, fam, 'Family_t')
+        if fam_node is None:
+            print('Add family {}'.format(fam))
+            I.newFamily(fam, parent=base)
