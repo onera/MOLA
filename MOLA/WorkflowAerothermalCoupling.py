@@ -66,7 +66,7 @@ def prepareMesh4ElsA(mesh, kwargs):
     return WC.prepareMesh4ElsA(mesh, **kwargs)
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
-        NumericalParams={}, TurboConfiguration={}, Extractions={}, BoundaryConditions={},
+        NumericalParams={}, TurboConfiguration={}, Extractions=[], BoundaryConditions=[],
         BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade'],
         Initialization={'method':'uniform'}, JobInformation={}, SubmitJob=False,
         FULL_CGNS_MODE=True, COPY_TEMPLATES=True):

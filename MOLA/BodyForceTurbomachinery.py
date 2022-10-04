@@ -56,8 +56,8 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows):
             this function.
 
             .. note:: 
-                The parameter **meshType** should not be given, because it will 
-                be automatically set by reading mesh zones.
+                If the parameter **meshType** is not given, it is 
+                automatically set depending on the initial mesh.
     
     Returns
     -------
@@ -111,15 +111,18 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows):
         BladeNumber = I.getValue(I.getNodeFromName(RowFamilyNode, 'BladeNumber'))
 
         zones = C.getFamilyZones(t, row)
-        meshType = 'unstructured' if PRE.hasAnyUnstructuredZones(zones) else 'structured'
         NumberOfCellsInitial = C.getNCells(zones)
+        if not 'meshType' in BodyForceParams:
+            if PRE.hasAnyUnstructuredZones(zones):
+                BodyForceParams['meshType'] = 'unstructured'
+            else:
+                BodyForceParams['meshType'] = 'unstructured'
 
         # Get the meridional info from rowTree
         meridionalMesh = extractRowGeometricalData(t, row, save=True)
 
         newRowMesh = buildBodyForceMeshForOneRow(meridionalMesh,
                                                  NumberOfBlades=BladeNumber,
-                                                 meshType=meshType,
                                                  **BodyForceParams
                                                  )
 

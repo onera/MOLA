@@ -216,7 +216,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
     return t
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
-        NumericalParams={}, TurboConfiguration={}, Extractions={}, BoundaryConditions={},
+        NumericalParams={}, TurboConfiguration={}, Extractions=[], BoundaryConditions=[],
         BodyForceInputData={}, writeOutputFields=True, bladeFamilyNames=['BLADE', 'AUBE'],
         Initialization={'method':'uniform'}, JobInformation={}, SubmitJob=False,
         FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
