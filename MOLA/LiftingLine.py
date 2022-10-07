@@ -413,6 +413,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
     addThickwiseCoordinate2BodyForceDisk(Stacked, RotAxis)
     if Dir == -1: T._reorder( Stacked, (1,2,-3))
+
     '''
     For use with Biel Ortun distribution employing Weibull :
     output=gamma/alpha*((x-mu)/alpha)**(gamma-1.) * np.exp(-((x-mu)/alpha)**gamma)
@@ -424,30 +425,71 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     '''
     for eqn in WeightEqns: C._initVars(Stacked, eqn)
 
-    CorrVars = ('fa','ft','fx','fy','fz')
+    CorrVars = ['fa','ft','fx','fy','fz'] #MOFIF list instead of tuple
     fieldsCorrVars = J.getVars(Stacked,CorrVars)
 
     weightNode = I.getNodeFromName2(Stacked, 'weight')
     if weightNode:
         weight = I.getValue(weightNode)
-        try:
-            for f in fieldsCorrVars: f *= weight
-        except TypeError as e:
-            C.convertPyTree2File(Stacked,'testStacked.cgns')
-            raise TypeError(e)
+        #MODIF :COMMENTED BELLOW
+        # try:
+        #     for f in fieldsCorrVars: f *= weight
+        # except TypeError as e:
+        #     C.convertPyTree2File(Stacked,'testStacked.cgns')
+        #     raise TypeError(e)
+        #MODIF COMMENTED ABOVE
 
+#MODIF BELOW CORRECTION Repartition termes sources
+    # (Ni, Nj, Nk, dr, dx) = getStackedDimensions(Stacked)
+    (Ni, Nj, Nk, dr) = getStackedDimensions(Stacked)
 
-    # Correction of linear arrays broadcasting
-    integAxial = P.integ(Stacked, 'fa')[0]
+    if weightNode:
+        Stacked = C.node2Center(Stacked, CorrVars)
+        Stacked = C.node2Center(Stacked, 'weight')
+        Stacked = G.getVolumeMap(Stacked)
 
-    tol = 1e-6
+        vol_val, weight_val = J.getVars(Stacked, ['vol','weight'], Container='FlowSolution#Centers')
 
-    if (tol < AvrgThrust < tol) or (tol < integAxial < tol):
-        CorrFactor = 1.0
+        vol_tot_val=np.zeros_like(vol_val)
+        weight_tot_val=np.zeros_like(vol_val)
+        for i in range(Ni-1):
+            vol_tot_val[i,:,:] = np.sum(vol_val[i,1,:])
+            weight_tot_val[i,:,:] = np.sum(weight_val[i,1,:]*vol_val[i,1,:])/vol_tot_val[i,:,:]
+
+        fieldsCorrVars_CC = J.getVars(Stacked,CorrVars,Container='FlowSolution#Centers')
+        for f in fieldsCorrVars_CC:
+            f *= dr * NBlades / (Nj-1) / vol_tot_val * weight_val / weight_tot_val
+
     else:
-        CorrFactor = abs(AvrgThrust / integAxial)
+        Stacked = C.node2Center(Stacked, CorrVars)
+        Stacked = G.getVolumeMap(Stacked)
 
-    for f in fieldsCorrVars: f *= CorrFactor
+        vol_val = J.getVars(Stacked, ['vol'], Container='FlowSolution#Centers')[0]
+
+        vol_tot_val=np.zeros_like(vol_val)
+        for i in range(Ni-1):
+            vol_tot_val[i,:,:] = np.sum(vol_val[i,1,:])
+
+        fieldsCorrVars_CC = J.getVars(Stacked,CorrVars,Container='FlowSolution#Centers')
+        for f in fieldsCorrVars_CC:
+            f *= dr * NBlades / (Nj-1) / vol_tot_val
+
+#MODIF ABOVE CORRECTION Repartition termes sources
+
+    #MODIF :COMMENTED BELLOW
+    # Correction of linear arrays broadcasting
+    # integAxial = P.integ(Stacked, 'fa')[0]
+    #
+    # tol = 1e-6
+    #
+    # if (tol < AvrgThrust < tol) or (tol < integAxial < tol):
+    #     CorrFactor = 1.0
+    # else:
+    #     CorrFactor = abs(AvrgThrust / integAxial)
+    #
+    # for f in fieldsCorrVars: f *= CorrFactor
+    #MODIF COMMENTED ABOVE
+
 
     # # Compute actual BodyForce Power
     # CAVEAT ! not working for volume mesh
@@ -486,11 +528,18 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     I.createUniqueChild(Stacked,'.Kinematics','UserDefinedData_t',
                                  children=Kin_n[2])
 
-    computeSourceTerms(Stacked, SourceTermScale=SourceTermScale)
+    Stacked = computeSourceTerms(Stacked, SourceTermScale=SourceTermScale)#MODIF
+    # computeSourceTerms(Stacked, SourceTermScale=SourceTermScale)#MODIF
 
     return Stacked
 
-
+#MODIF BELOW NEW FUNCTION
+def getStackedDimensions(BF_block):
+    [Ni, Nj, Nk] = I.getZoneDim(BF_block)[1:4]
+    span, InverseThickwiseCoordinate = J.getVars(BF_block, ['Span', 'InverseThickwiseCoordinate'])
+    dr = span[1:,1:,1:] - span[:-1,:-1,:-1]
+    return(Ni, Nj, Nk, dr)
+#MODIF ABOVE NEW FUNCTION
 
 def stackBodyForceComponent(Component, RotationAxis, StackStrategy='constant',
         StackRelativeChord=1.0, ExtrusionDistance=None, StackDistribution=None):
@@ -686,25 +735,47 @@ def computeSourceTerms(zone, SourceTermScale=1.0):
             dissipation effects provoked by the transfer of fields from the disk
             towards the CFD computational grid.
     '''
-    I._rmNodesByName1(zone, 'FlowSolution#Centers')
-
-    ConservativeFields = ['Density', 'MomentumX','MomentumY', 'MomentumZ',
-                          'EnergyStagnationDensity']
-    ro, rou, rov, row, roe = J.getVars(zone, ConservativeFields)
-
+    #MODIF BELOW
+    zone = C.node2Center(zone, 'VelocityTangential')
+    FlowSolution_SourceTerms = I.newFlowSolution(name='FlowSolution#SourceTerm', gridLocation='CellCenter', parent=zone)
     PropellerFields = ['VelocityTangential', 'fx', 'fy', 'fz', 'ft']
-    VelocityTangential, fx, fy, fz, ft = J.getVars(zone, PropellerFields)
+    VelocityTangential, fx, fy, fz, ft = J.getVars(zone, PropellerFields, Container='FlowSolution#Centers')
 
-    ro[:]  = 0.
-    rou[:] = - fx * SourceTermScale
-    rov[:] = - fy * SourceTermScale
-    row[:] = - fz * SourceTermScale
-    roe[:] = np.abs( ft * VelocityTangential ) * SourceTermScale
+    ro  = np.zeros_like(fx)
+    rou = - fx * SourceTermScale
+    rov = - fy * SourceTermScale
+    row = - fz * SourceTermScale
+    roe = np.abs( ft * VelocityTangential ) * SourceTermScale
 
-    [C.node2Center__(zone, 'nodes:'+field) for field in ConservativeFields]
-    I._renameNode(zone, 'FlowSolution#Centers', 'FlowSolution#SourceTerm')
+    I.newDataArray(name='Density', value=ro, parent=FlowSolution_SourceTerms)
+    I.newDataArray(name='MomentumX', value=rou, parent=FlowSolution_SourceTerms)
+    I.newDataArray(name='MomentumY', value=rov, parent=FlowSolution_SourceTerms)
+    I.newDataArray(name='MomentumZ', value=row, parent=FlowSolution_SourceTerms)
+    I.newDataArray(name='EnergyStagnationEnergy', value=roe, parent=FlowSolution_SourceTerms)
 
+    return(zone) #MODIF NOT INCLUDED IN ORIGINAL CODE
+    # I._rmNodesByName(zone, 'FlowSolution#Centers')
 
+    # #COMMENTED BELOW
+    # I._rmNodesByName1(zone, 'FlowSolution#Centers')
+    #
+    # ConservativeFields = ['Density', 'MomentumX','MomentumY', 'MomentumZ',
+    #                       'EnergyStagnationDensity']
+    # ro, rou, rov, row, roe = J.getVars(zone, ConservativeFields)
+    #
+    # PropellerFields = ['VelocityTangential', 'fx', 'fy', 'fz', 'ft']
+    # VelocityTangential, fx, fy, fz, ft = J.getVars(zone, PropellerFields)
+    #
+    # ro[:]  = 0.
+    # rou[:] = - fx * SourceTermScale
+    # rov[:] = - fy * SourceTermScale
+    # row[:] = - fz * SourceTermScale
+    # roe[:] = np.abs( ft * VelocityTangential ) * SourceTermScale
+    #
+    # [C.node2Center__(zone, 'nodes:'+field) for field in ConservativeFields]
+    # I._renameNode(zone, 'FlowSolution#Centers', 'FlowSolution#SourceTerm')
+    # #COMMENTED ABOVE
+    #MODIF ABOVE
 
 def migrateSourceTerms2MainPyTree(donor, receiver):
     '''
@@ -751,9 +822,9 @@ def migrateSourceTerms2MainPyTree(donor, receiver):
     I._rmNodesByName(donor, 'FlowSolution')
     I._rmNodesByName(donor, '.Info')
     I._rmNodesByName(donor, '.Kinematics')
+    I._rmNodesByName(donor, 'FlowSolution#Centers') #MODIF test
 
     Cmpi.barrier()
-
     tRec = I.copyRef(receiver)
 
     I._rmNodesByType(tRec, 'FlowSolution_t')
@@ -2672,8 +2743,12 @@ def plotStructPyZonePolars(PyZonePolars, addiationalQuantities=[],
         nMach = len(Mach)
         Colors = plt.cm.jet(np.linspace(0,1,nMach))
         for i in range(nMach):
-            ax1.plot(AoA,Cl[:,i],color=Colors[i])
-            ax2.plot(AoA,CloCd[:,i],color=Colors[i])
+            if nMach > 1:
+                ax1.plot(AoA,Cl[:,i],color=Colors[i])
+                ax2.plot(AoA,CloCd[:,i],color=Colors[i])
+            else:
+                ax1.plot(AoA,Cl,color=Colors[i])
+                ax2.plot(AoA,CloCd,color=Colors[i])
             ax3.plot([],[],color=Colors[i],label='M=%g, Re=%g'%(Mach[i],Reynolds[i]))
 
         minLocX = AutoMinorLocator()
@@ -2726,7 +2801,9 @@ def plotStructPyZonePolars(PyZonePolars, addiationalQuantities=[],
             fig1, ax1 = plt.subplots(1,1,figsize=(4.75,4.25))
             Field, = J.getVars(pzp,[addQty])
             for i in range(nMach):
-                ax1.plot(AoA,Field[:,i],color=Colors[i])
+                if nMach>1:
+                    ax1.plot(AoA,Field[:,i],color=Colors[i])
+                else: ax1.plot(AoA,Field,color=Colors[i])
             minLocX = AutoMinorLocator()
             ax1.xaxis.set_minor_locator(minLocX)
             minLocY1 = AutoMinorLocator()
@@ -3128,6 +3205,10 @@ def assembleAndProjectVelocities(t):
             else:
                 v[fieldname] = J.invokeFields(LiftingLine,[fieldname])[0]
 
+### MODIF BELOW CORRECTION OF AOA AT TIP USING PRANDTL FACTOR ###
+
+
+
         VelocityKinematic = np.vstack([v['VelocityKinematic'+i] for i in 'XYZ'])
         VelocityInduced = np.vstack([v['VelocityInduced'+i] for i in 'XYZ'])
         TangentialDirection = np.vstack([v['tan'+i] for i in 'xyz'])
@@ -3151,6 +3232,69 @@ def assembleAndProjectVelocities(t):
         # note the absence of radial velocity contribution to Mach and Reynolds
         v['Mach'][:] = W / SoundSpeed
         v['Reynolds'][:] = Density[0] * W * v['Chord'] / Mu
+
+        # for fieldname in ['F_aoa','a_axial_cfd','a_tangential_cfd','a_axial_real','a_tangential_real','Span','VelocityAxial_rot','VelocityTangential_rot','Vax_corr_abs','Vtan_corr_abs']:
+        #     if fieldname in ExistingFieldNames:
+        #         v[fieldname] = J.getVars(LiftingLine,[fieldname])[0]
+        #     else:
+        #         v[fieldname] = J.invokeFields(LiftingLine,[fieldname])[0]
+        #         if fieldname =='F_aoa':
+        #             v['F_aoa'].fill(1)
+        #
+        # for counter_aoa in range(10):
+        #
+        #     VelocityKinematic = np.vstack([v['VelocityKinematic'+i] for i in 'XYZ'])
+        #     VelocityInduced = np.vstack([v['VelocityInduced'+i] for i in 'XYZ'])
+        #     TangentialDirection = np.vstack([v['tan'+i] for i in 'xyz'])
+        #     nxyz = np.vstack([v['n'+i] for i in 'xyz'])
+        #     bxyz = np.vstack([v['b'+i] for i in 'xyz'])
+        #     VelocityRelative = (VelocityInduced.T + VelocityFreestream - VelocityKinematic.T).T
+        #     v['VelocityX'][:] = VelocityInduced[0,:] + VelocityFreestream[0]
+        #     v['VelocityY'][:] = VelocityInduced[1,:] + VelocityFreestream[1]
+        #     v['VelocityZ'][:] = VelocityInduced[2,:] + VelocityFreestream[2]
+        #
+        #     VelocityAbs = (VelocityInduced.T + VelocityFreestream).T
+        #     VelocityAxial_abs = ( VelocityAbs.T.dot(-RotationAxis) ).T
+        #     VelocityTangential_abs = np.diag(VelocityAbs.T.dot( TangentialDirection))
+        #
+        #     v['VelocityAxial_rot'][:] = ( VelocityKinematic.T.dot(-RotationAxis) ).T
+        #     v['VelocityTangential_rot'][:] = np.diag(VelocityKinematic.T.dot( TangentialDirection))
+        #
+        #     v['a_axial_cfd'][:] = 1 - VelocityAxial_abs / 102
+        #     v['a_tangential_cfd'][:] = - VelocityTangential_abs / (212.7*v['Span'])
+        #     v['a_axial_real'][:] = v['a_axial_cfd']/v['F_aoa']
+        #     v['a_tangential_real'][:] = v['a_tangential_cfd']/v['F_aoa']
+        #
+        #     v['Vax_corr_abs'][:] = 102*(1-v['a_axial_real'])
+        #     v['Vtan_corr_abs'][:] = -v['a_tangential_real']*212.7*v['Span']
+        #
+        #     Vax_corr_rel = v['Vax_corr_abs'] - v['VelocityAxial_rot']
+        #     Vtan_corr_rel = v['Vtan_corr_abs'] - v['VelocityTangential_rot']
+        #
+        #
+        #     v['VelocityAxial'][:] = Vax = ( VelocityRelative.T.dot(-RotationAxis) ).T
+        #     v['VelocityTangential'][:] = Vtan = np.diag(VelocityRelative.T.dot( TangentialDirection))
+        #
+        #         # note the absence of radial velocity contribution to 2D flow
+        #     V2D = np.vstack((Vax_corr_rel * RotationAxis[0] + Vtan_corr_rel * TangentialDirection[0,:],
+        #                          Vax_corr_rel * RotationAxis[1] + Vtan_corr_rel * TangentialDirection[1,:],
+        #                          Vax_corr_rel * RotationAxis[2] + Vtan_corr_rel * TangentialDirection[2,:]))
+        #     v['VelocityNormal2D'][:] = V2Dn = np.diag( V2D.T.dot( nxyz) )
+        #     v['VelocityTangential2D'][:] = V2Dt = dir * np.diag( V2D.T.dot( bxyz) )
+        #     v['phiRad'][:] = phi = np.arctan2( V2Dn, V2Dt )
+        #     nblades=3
+        #     span=0.8*1.01
+        #     v['F_aoa'][:] = 2/np.pi*np.arccos(np.exp(-nblades*(span-v['Span'])/(2*v['Span']*np.sin(v['phiRad']))))
+        #
+        #
+        #
+        # v['AoA'][:] = v['Twist'] - np.rad2deg(phi)
+        # v['VelocityMagnitudeLocal'][:] = W = np.sqrt( V2Dn**2 + V2Dt**2 )
+        # # note the absence of radial velocity contribution to Mach and Reynolds
+        # v['Mach'][:] = W / SoundSpeed
+        # v['Reynolds'][:] = Density[0] * W * v['Chord'] / Mu
+
+### MODIF ABOVE CORRECTION OF AOA AT TIP USING PRANDTL FACTOR ###
 
 
 def moveLiftingLines(t, TimeStep):
@@ -3779,6 +3923,39 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         FluxC = 0.5*Density*v['VelocityMagnitudeLocal']**2*v['Chord']
         Lift = FluxC*v['Cl']
         Drag = FluxC*v['Cd']
+
+        ### MODIF TIP VORTEX BELOW ###
+        tip_prandtl=False
+        tip_shen=False
+        if tip_prandtl:
+            nblades=3
+            span=0.8
+            for fn in ('F_prandtl', 'Cl_corr', 'Cd_corr'):
+                try: v[fn] = I.getNodeFromName1(FlowSolution_n,fn)[1]
+                except: v[fn] = J.invokeFields(LiftingLine,[fn])[0]
+            v['F_prandtl'][:] = 2/np.pi*np.arccos(np.exp(-nblades*(span-v['Span'])/(2*v['Span']*np.sin(v['phiRad']))))
+            v['Cl_corr'][:] = v['Cl'] * v['F_prandtl']
+            v['Cd_corr'][:] = v['Cd'] * v['F_prandtl']
+            Lift = FluxC*v['Cl_corr']
+            Drag = FluxC*v['Cd_corr']
+        if tip_shen:
+            nblades=3
+            span=0.8
+            omega=2031*2*np.pi/60
+            U_free=0.3*340
+            for fn in ('F_shen', 'Cl_corr', 'Cd_corr'):
+                try: v[fn] = I.getNodeFromName1(FlowSolution_n,fn)[1]
+                except: v[fn] = J.invokeFields(LiftingLine,[fn])[0]
+            g_shen = np.exp(-0.125*(nblades*span*omega/U_free-21))+0.1 # environ 7.48
+            # g_shen = 3
+            v['F_shen'][:] = 2/np.pi*np.arccos(np.exp(-g_shen*nblades*(span-v['Span'])/(2*v['Span']*np.sin(v['phiRad']))))
+            # v['F_shen'][:] = 2/np.pi*np.arccos(np.exp(-0.75*nblades*(1.-v['Span'])/(2*v['Span']*np.sin(v['phiRad']))))*2/np.pi*np.arccos(np.exp(-20*nblades*(0.8-v['Span'])/(2*v['Span']*np.sin(v['phiRad']))))
+            v['Cl_corr'][:] = v['Cl'] * v['F_shen']
+            v['Cd_corr'][:] = v['Cd'] * v['F_shen']
+            Lift = FluxC*v['Cl_corr']
+            Drag = FluxC*v['Cd_corr']
+        ### MODIF TIP VORTEX ABOVE ###
+
 
         v['Ln'][:] = Lift*np.cos(v['phiRad'])
         v['Lb'][:] = Lift*np.sin(v['phiRad'])
@@ -5026,7 +5203,7 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
     NBlades = 1
     Prop.add_Blades(NBlades, Aerodynamics=dict(Definition=BladeDef,
                                                IndVeloModel=Wake,
-                                               NbSections=50, #MODIF to match LifitngLine.cgns discretization. Ref is 25
+                                               NbSections=50,
                                                Options=dict(
                                                     Interpolate='linear',
                                                     Correction3D='Mach_Wind',
@@ -5043,9 +5220,8 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
     Num.set('NbSubIterations',1)
 
     Pb.set('PerturbationField',VolumePerturbation)
-    Prop.Cmds.set('Pitch',Pitch) #MODIF
+    Prop.Cmds.set('Pitch',Pitch)
     Pb.initialize()
-    # Prop.Cmds.set('Pitch',Pitch) #MODIF
 
     Niters = NumberOfAzimutalPoints
     LLs = []
