@@ -61,7 +61,7 @@ for zone in zones:
     varnames.remove('IterationNumber')
     varnames.remove('MassFlowOut')
     for var in copy.deepcopy(varnames):
-        if any([pattern in var for pattern in ['avg-', 'std-', 'rsd-']]):
+        if any([pattern in var for pattern in ['avg-', 'std-', 'rsd-', 'TemperatureStagnationRatio']]):
             varnames.remove(var)
     varnames = sorted(varnames, key=lambda k: ordering[k])
     Nvars = len(varnames)

@@ -2341,8 +2341,7 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[], relax=0.):
 
             if not I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm'): continue
 
-            NewSourceTerms = BF.computeBodyForce(
-                zone, BodyForceParams, FluidProperties, TurboConfiguration)
+            NewSourceTerms = BF.computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration)
 
             for key, value in NewSourceTerms.items():
                 NewSourceTerms[key] = coeff_eff(CurrentIteration) * value

@@ -442,7 +442,6 @@ def computeVariablesOnBladeProfiles(surfaces, allVariables, hList='all'):
             if len(blade_families) == 1:
                 blade = blade_families[0]
                 break
-        if not blade: raise Exception('No blade family (or more than one) has been found for row {}'.format(row))
         return blade
     
     if hList == 'all':
@@ -460,6 +459,9 @@ def computeVariablesOnBladeProfiles(surfaces, allVariables, hList='all'):
         TF._computeOtherFields(InletPlane, RefState(setup), allVariables, fsname=I.__FlowSolutionNodes__, useSI=True, velocity='absolute')
 
         blade = searchBladeInTree(row)
+        if not blade:
+            print(f'No blade family (or more than one) has been found for row {row}')
+            continue
 
         I._renameNode(blade, 'FlowSolution#Centers', I.__FlowSolutionCenters__)
         C._initVars(blade, 'Radius=sqrt({CoordinateY}**2+{CoordinateZ}**2)')

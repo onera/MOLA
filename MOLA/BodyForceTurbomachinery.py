@@ -116,10 +116,10 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows):
             if PRE.hasAnyUnstructuredZones(zones):
                 BodyForceParams['meshType'] = 'unstructured'
             else:
-                BodyForceParams['meshType'] = 'unstructured'
+                BodyForceParams['meshType'] = 'structured'
 
         # Get the meridional info from rowTree
-        meridionalMesh = extractRowGeometricalData(t, row, save=True)
+        meridionalMesh = extractRowGeometricalData(t, row)
 
         newRowMesh = buildBodyForceMeshForOneRow(meridionalMesh,
                                                  NumberOfBlades=BladeNumber,
@@ -517,7 +517,7 @@ def extractRowGeometricalData(mesh, row, save=False):
                 zoneName = I.getName(zone)
                 for BladeFamily in BladeFamilies:
                     BCs = C.getFamilyBCs(zone, BladeFamily)
-                    if BCs and not 'gap' in zoneName:
+                    if BCs and not ('gap' in zoneName or 'tip' in zoneName):
                         zones_for_blade_profiles_extraction.append(zoneName)
                         break
 
@@ -742,6 +742,10 @@ def computeBlockage(t, Nblades, eps=1e-8):
     I._rmNodesByName(t, 'b')
     I._rmNodesByName(t, 'gradzb')
     I._renameNode(t, 'gradyb', 'gradrb')
+
+    C._initVars(t, '{radius}=sqrt({CoordinateY}**2+{CoordinateZ}**2)')
+    C._initVars(t, '{{blade2BladeDistance}}=2*{}*{{radius}}/{}*{{nt}}*{{blockage}}'.format(np.pi, Nblades))
+
     return t
 
 
@@ -849,39 +853,53 @@ def computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration)
         dict
             New source terms to apply. Should be for example : 
 
-            >>> NewSourceTerms = dict(Density=ndarray, MomentumX=ndarray, ...)
+            >>> TotalSourceTerms = dict(Density=ndarray, MomentumX=ndarray, ...)
 
     '''
+    # Get the list of source terms to compute
+    if isinstance(BodyForceParams['model'], list):
+        models = BodyForceParams['model']
+    else:
+        if BodyForceParams['model'] == 'hall':
+            models = ['blockage', 'hall_without_blockage', 'EndWallsProtection']
+        else:
+            models = [BodyForceParams['model']]
 
-    # if isinstance(BodyForceParams['model'], list):
-    #     models = BodyForceParams['model']
-    # else:
-    #     models = [BodyForceParams['model']]
-    model = BodyForceParams['model']
-    
-    if model == 'hall':
-        NewSourceTerms = computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration)
-        
-        BLProtectionSourceTerms = computeProtectionSourceTerms(zone, TurboConfiguration)
-        for key, value in BLProtectionSourceTerms.items():
-            NewSourceTerms[key] += value
+    # Compute and gather all the required source terms
+    TotalSourceTerms = dict()
+    for model in models:
+        # Default tolerance
+        tol = BodyForceParams.get('tol', 1e-5)
 
-    elif model == 'Tspread':
-        NewSourceTerms = computeBodyForce_Tspread(zone, BodyForceParams['Thrust'])
-    
-    elif model == 'blockage':
-        NewSourceTerms = computeBlockageSourceTerms(zone)
-    
-    elif model == 'constant':
-        NewSourceTerms = computeBodyForce_constant(zone, BodyForceParams['SourceTerms'])
-    
-    else: 
-        raise Exception(f"Body force model {BodyForceParams['model']} is unknown.")
+        # Compute the correct source terms
+        if model == 'blockage':
+            NewSourceTerms = computeBodyForce_Blockage(zone, tol)
+        elif model == 'EndWallsProtection':
+            NewSourceTerms = computeBodyForce_EndWallsProtection(
+                zone, TurboConfiguration, BodyForceParams.get('ProtectedHeight', 0.05))
+        elif model == 'constant':
+            NewSourceTerms = computeBodyForce_constant(
+                zone, BodyForceParams['SourceTerms'])
+        elif model == 'ThrustSpread':
+            NewSourceTerms = computeBodyForce_ThrustSpread(
+                zone, BodyForceParams['Thrust'], tol)
+        elif model == 'hall_without_blockage':
+            NewSourceTerms = computeBodyForce_Hall(
+                zone, FluidProperties, TurboConfiguration, tol)
+        else:
+            raise Exception(f"The body-force model {model} is not implemented")
+            
+        # Add the computed source terms to the total source terms
+        for key, value in NewSourceTerms.items():
+            if key in TotalSourceTerms:
+                TotalSourceTerms[key] += value
+            else:
+                TotalSourceTerms[key] = value
 
-    return NewSourceTerms
+    return TotalSourceTerms
 
 
-def computeBlockageSourceTerms(zone, tol=1e-5):
+def computeBodyForce_Blockage(zone, tol=1e-5):
     '''
     Compute actualized source terms corresponding to blockage.
 
@@ -955,9 +973,8 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, tol=1e-5):
     RotationSpeed = TurboConfiguration['Rows'][rowName]['RotationSpeed']
 
     FlowSolution    = J.getVars2Dict(zone, Container='FlowSolution#Init')
-    DataSourceTerms = J.getVars2Dict(zone, ['radius', 'theta', 'blockage', 'nx',
-                                     'nr', 'nt', 'AbscissaFromLE'], Container='FlowSolution#DataSourceTerm')
-    # Variables needed in DataSourceTerms: 'radius', 'theta', 'blockage', 'nx', 'nr', 'nt', 'AbscissaFromLE'
+    DataSourceTerms = J.getVars2Dict(zone, Container='FlowSolution#DataSourceTerm')
+    # Variables needed in DataSourceTerms: 'radius', 'theta', 'blockage', 'nx', 'nr', 'nt', 'AbscissaFromLE', 'blade2BladeDistance'
     # Optional variables in DataSourceTerms: 'delta0'
 
     # Coordinates
@@ -1003,21 +1020,17 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, tol=1e-5):
     CompressibilityCorrection[subsonic_bf]  = np.clip(1.0/(1-Mrel[subsonic_bf]**2)**0.5, 0.0, 3.0)
     CompressibilityCorrection[supersonic_bf]= np.clip(4.0/(2*np.pi)/(Mrel[supersonic_bf]**2-1)**0.5, 0.0, 3.0)
 
-    # Blade to blade distance
-    azimuthalPitch = 2*np.pi*DataSourceTerms['radius'] / NumberOfBlades
-    blade2BladeDistance = azimuthalPitch * np.absolute(DataSourceTerms['nt']) * DataSourceTerms['blockage']
-
     # Friction on blade
     Viscosity = FluidProperties['SutherlandViscosity']*np.sqrt(Temperature/FluidProperties['SutherlandTemperature'])*(1+FluidProperties['SutherlandConstant'])/(1+FluidProperties['SutherlandConstant']*FluidProperties['SutherlandTemperature']/Temperature)
     Re_x = Density*DataSourceTerms['AbscissaFromLE'] * Wmag / Viscosity
     cf = 0.0592*Re_x**(-0.2)
 
     # Force normal to the chord
-    fn = -0.5*Wmag**2. * CompressibilityCorrection * 2*np.pi*incidence / blade2BladeDistance
+    fn = -0.5*Wmag**2. * CompressibilityCorrection * 2*np.pi*incidence / DataSourceTerms['blade2BladeDistance']
 
     # Force parallel to the chord
     delta0 = DataSourceTerms.get('delta0', 0.)
-    fp = 0.5*Wmag**2. * (2*cf + 2*np.pi*(incidence - delta0)**2.) / blade2BladeDistance
+    fp = 0.5*Wmag**2. * (2*cf + 2*np.pi*(incidence - delta0)**2.) / DataSourceTerms['blade2BladeDistance']
 
     # Force in the cylindrical frame of reference
     fx = fn * unitVectorN_x + fp * unitVectorP_x
@@ -1036,14 +1049,10 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, tol=1e-5):
         EnergyStagnationDensity = Density * DataSourceTerms['radius'] * RotationSpeed * ft
     )
 
-    # Add blockage terms
-    BlockageSourceTerms = computeBlockageSourceTerms(zone, tol=tol)
-    for key, value in BlockageSourceTerms.items():
-        NewSourceTerms[key] += value
-
     return NewSourceTerms
 
-def computeProtectionSourceTerms(zone, TurboConfiguration, ProtectedHeight=0.05):
+
+def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeight=0.05):
     ''' 
     Protection of the boudary layer ofr body-force modelling, as explain in the appendix D of 
     W. Thollet PdD manuscrit.
@@ -1265,7 +1274,7 @@ def computeProtectionSourceTerms_OLD(zone, TurboConfiguration, ProtectedHeightPe
     )
     return BLProtectionSourceTerms
 
-def computeBodyForce_Tspread(zone, Thrust, tol=1e-5):
+def computeBodyForce_ThrustSpread(zone, Thrust, tol=1e-5):
     '''
     Compute actualized source terms corresponding to the Tspread model.
 
@@ -1339,3 +1348,46 @@ def computeBodyForce_constant(zone, SourceTerms):
 
     return NewSourceTerms
 
+def computeBodyForce_ShockWaveLoss(zone, FluidProperties):
+    '''
+    Compute the volumic force parallel to the flow (and in the opposite direction) corresponding 
+    to shock wave loss. 
+
+    .. note::
+        
+        See the following reference for details on equations:
+
+        Pazireh and Defoe, 
+        A New Loss Generation Body Force Model for Fan/Compressor Blade Rows: Application to Uniform 
+        and Non-Uniform Inflow in Rotor 67,
+        Journal of Turbomachinery (2022)
+
+    Parameters
+    ----------
+
+        zone : PyTree
+            current zone
+        
+        FluidProperties : dict
+            as read in `setup.py`
+
+        TurboConfiguration : dict
+            as read in `setup.py`
+
+        tol : float
+            minimum value for quantities used as a denominator.
+
+    Returns
+    -------
+
+        NewSourceTerms : dict
+            Computed source terms. The keys are Density, MomentumX, MomentumY, 
+            MomentumZ and EnergyStagnation. Blockage effect is included.
+    '''
+    cv = FluidProperties['cv']
+    R = FluidProperties['IdealGasConstant']
+    gamma = FluidProperties['Gamma']
+    PressureStagnationLossRatio = cv/R * 2*gamma*(gamma-1) / 3. / (gamma+1)**2 * (Mrel**2-1)**3
+    fp = Pt_rel * PressureStagnationLossRatio / DataSourceTerm['blade2BladeDistance']
+    
+    return fp
