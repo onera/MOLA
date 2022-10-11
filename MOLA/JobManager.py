@@ -95,8 +95,8 @@ def checkDependencies():
     plt.savefig('test-figure.pdf')
     print('showing figure... (close figure to continue)')
     plt.show()
-
-def buildJob(case, config, jobTemplate='job_template.sh'):
+    
+def buildJob(case, config, jobTemplate='job_template.sh', JobFile = 'job.sh', routineTemplate = 'routine.sh'):
     '''
     Produce a computation job file.
 
@@ -112,15 +112,20 @@ def buildJob(case, config, jobTemplate='job_template.sh'):
         jobTemplate : str
             name of the job file
 
+        JobFile : str
+            name of the output job file
+
+        routineTemplate: str
+            name of the routine file
+
     Returns
     -------
 
         None : None
-            Write file ``job.sh``
+            Write file JobFile
     '''
-    JobFile = 'job.sh'
 
-    with open('routine.sh','r') as f: RoutineText = f.read()
+    with open(routineTemplate,'r') as f: RoutineText = f.read()
     with open(jobTemplate,'r') as f: JobText = f.read()
 
     JobText = JobText.replace('<JobName>', case['JobName'])
@@ -147,7 +152,7 @@ def buildJob(case, config, jobTemplate='job_template.sh'):
         f.write('\n')
 
     os.chmod(JobFile, 0o777)
-    ServerTools.cpmv('cp', 'job.sh', os.path.join(config.DIRECTORY_WORK, case['JobName'], 'job.sh'))
+    ServerTools.cpmv('cp', JobFile, os.path.join(config.DIRECTORY_WORK, case['JobName'],JobFile))
 
 def saveJobsConfiguration(JobsQueues, machine, DIRECTORY_WORK,
                            FILE_GEOMETRY=None):
@@ -225,7 +230,7 @@ def launchJobsConfiguration(
         templatesFolder=__MOLA_PATH__+'/TEMPLATES/WORKFLOW_AIRFOIL',
         jobTemplate=__MOLA_PATH__+'/TEMPLATES/job_template.sh',
         DispatchFile='dispatch.py',
-        routineFile='routine.sh',
+        routineFiles=['routine.sh'],
         otherFiles=[]):
     '''
     Migrates a set of required scripts and launch the multi-jobs script.
@@ -241,8 +246,8 @@ def launchJobsConfiguration(
             the required CGNS and setup files as well as the jobs of the polars, and
             launch them.
 
-        routineFile : str
-            bash file used as template for each computation job execution.
+        routineFiles : :py:class:`list` of :py:class:`str`
+            list of bash files used as template for each computation job execution.
 
         otherFiles : :py:class:`list` of :py:class:`str`
             other files to copy for the simulation.
@@ -256,7 +261,6 @@ def launchJobsConfiguration(
 
     config = J.load_source('config', 'JobsConfiguration.py')
 
-
     print(J.WARN+config.DIRECTORY_WORK+J.ENDC)
 
     DIRECTORY_DISPATCHER = os.path.join(config.DIRECTORY_WORK, NAME_DISPATCHER)
@@ -269,10 +273,14 @@ def launchJobsConfiguration(
     if hasattr(config, 'FILE_GEOMETRY'):
         Files2Copy.append(config.FILE_GEOMETRY)
 
-    for filename in [DispatchFile, routineFile]:
-        Files2Copy.append(os.path.join(templatesFolder, filename))
+    
+    Files2Copy.append(os.path.join(templatesFolder, DispatchFile))
+
     Files2Copy.append(jobTemplate)
 
+    for filename in routineFiles:
+        Files2Copy.append(os.path.join(templatesFolder, filename))
+    
     for filename in otherFiles:
         Files2Copy.append(filename)
 
