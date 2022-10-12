@@ -161,6 +161,9 @@ elif [ "$MAC" = "visung" ]; then
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
+    # turbo
+    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/eos-intel3_/lib/python3.6/site-packages/:$PYTHONPATH
+
 elif [ "$MAC" = "ld" ]; then
     if [ "$EL8" ]; then
         echo 'loading MOLA environment for CentOS 8'
@@ -265,6 +268,9 @@ elif [ "$MAC" = "sator-new" ]; then
 
     # turbo
     export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
+    # Workaround to fix the bug described here: https://elsa-e.onera.fr/issues/10697
+    # It should be corrected in elsA v5.1.03 
+    export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/ETC/dev_cor_ticket10697/Dist/bin/sator_new21/lib/python3.7/site-packages:$PYTHONPATH
 
 else
     echo -e "\033[91mERROR: MACHINE $KC NOT INCLUDED IN MOLA ENVIRONMENT\033[0m"
