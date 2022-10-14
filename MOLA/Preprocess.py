@@ -3308,16 +3308,24 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
 def addOversetMotion(t, OversetMotion):
 
     bases = I.getBases(t)
-    
+    bases_names = [b[0] for b in bases]
     NewOversetMotion = dict()
     for k in OversetMotion:
         base_found = bool([b for b in bases if b[0]==k])
         if base_found: continue
         base_candidates = [b for b in bases if b[0].startswith(k)]
+        never_found = True
         for i, b in enumerate(base_candidates):
-            try: base_found = [b for b in base_candidates if b[0]==k+'-%d'%(i+1)][0]
-            except IndexError: continue
+            try:
+                base_found = [b for b in base_candidates if b[0]==k+'-%d'%(i+1)][0]
+                never_found = False
+            except IndexError:
+                continue
             NewOversetMotion[base_found[0]] = OversetMotion[k]
+        if never_found:
+            msg=('tried to set motion to component %s or inherited, but never found.'
+                 '\nAvailable component names are: %s')%(k,str(bases_names))
+            raise ValueError(J.FAIL+msg+J.ENDC)
     OversetMotion.update(NewOversetMotion)
 
     for base in bases:
