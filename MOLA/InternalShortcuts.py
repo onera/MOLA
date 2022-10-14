@@ -31,6 +31,8 @@ WARN  = '\033[93m'
 MAGE  = '\033[95m'
 CYAN  = '\033[96m'
 ENDC  = '\033[0m'
+BOLD = '\033[1m'
+UNDERLINE = '\033[4m'
 
 
 def set(parent, childname, childType='UserDefinedData_t', **kwargs):

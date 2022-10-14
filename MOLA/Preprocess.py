@@ -6,6 +6,7 @@ It implements a collection of routines for preprocessing of CFD simulations
 23/12/2020 - L. Bernardos - creation by recycling
 '''
 
+from multiprocessing.sharedctypes import Value
 import sys
 import os
 import shutil
@@ -43,7 +44,7 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
 
     The sequence of operations performed are the following:
 
-    #. load and assemble the meshes
+    #. load and assemble the meshes, eventually generate background
     #. apply transformations
     #. apply connectivity
     #. set the boundary conditions
@@ -68,11 +69,18 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
             Possible pairs of keywords and its associated values are presented:
 
             * file : :py:class:`str`
-                path of the file containing the grid.
+                path of the file containing the grid or special keyword ``'GENERATE'``.
 
                 .. attention:: each component must have a unique base. If
                     input file have several bases, please separate each base
                     into different files.
+
+                .. note::
+                    if special keyword ``'GENERATE'`` is provided, the automatic 
+                    cartesian background grid generation algorithm is launched.
+                    In this case, please consult 
+                    :py:func:`MOLA.GenerativeVolumeDesign.buildCartesianBackground` 
+                    for relevant options.
 
             * baseName : :py:class:`str`
                 the new name to give to the component.
@@ -367,6 +375,9 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
     ReferenceValues = computeReferenceValues(FluidProperties,
                                              **ReferenceValuesParams)
 
+    BCExtractions = ReferenceValues['BCExtractions']
+
+
     JobInformation['NumberOfProcessors'] = int(max(getProc(t))+1)
     elsAkeysCFD      = getElsAkeysCFD(unstructured=IsUnstructured)
     elsAkeysModel    = getElsAkeysModel(FluidProperties, ReferenceValues,
@@ -378,16 +389,20 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
     
 
     if useBCOverlap and not OversetMotion:
-        NumericalParams['chm_interpcoef_frozen'] = 'active'
-        NumericalParams['chm_conn_io'] = 'read' # NOTE ticket 8259
-        if os.path.exists('OVERSET'):
-            NumericalParams['chm_impl_interp'] = 'none'
-            NumericalParams['chm_ovlp_minimize'] = 'inactive'
-            NumericalParams['chm_ovlp_thickness'] = 2
-            NumericalParams['chm_preproc_method'] = 'mask_based'
-            NumericalParams['chm_conn_fprefix'] = DIRECTORY_OVERSET+'/overset'
+        elsAkeysNumerics['chm_interpcoef_frozen'] = 'active'
+        elsAkeysNumerics['chm_conn_io'] = 'read' # NOTE ticket 8259
+        elsAkeysNumerics['chm_impl_interp'] = 'none'
+        elsAkeysNumerics['chm_ovlp_minimize'] = 'inactive'
+        elsAkeysNumerics['chm_ovlp_thickness'] = 2
+        elsAkeysNumerics['chm_preproc_method'] = 'mask_based'
+        elsAkeysNumerics['chm_conn_fprefix'] = DIRECTORY_OVERSET+'/overset'
         
-
+    if ReferenceValues['CoprocessOptions']['TagSurfacesWithIteration'] == 'auto': 
+        if OversetMotion and elsAkeysNumerics['time_algo'] != 'steady':
+            ReferenceValues['CoprocessOptions']['TagSurfacesWithIteration'] = True
+            elsAkeysModel['walldistcompute'] = 'gridline'
+        else:
+            ReferenceValues['CoprocessOptions']['TagSurfacesWithIteration'] = False
 
     AllSetupDics = dict(Workflow='Standard',
                         JobInformation=JobInformation,
@@ -402,7 +417,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
     t = newCGNSfromSetup(t, AllSetupDics, Initialization=Initialization,
-                         FULL_CGNS_MODE=False)
+                         FULL_CGNS_MODE=False, BCExtractions=BCExtractions)
     saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
 
@@ -449,21 +464,42 @@ def getMeshesAssembled(InputMeshes):
     '''
     print('assembling meshes...')
     Trees = []
-    for meshInfo in InputMeshes:
+    NewComponents = dict()
+    for i, meshInfo in enumerate(InputMeshes):
         filename = meshInfo['file']
+        if filename == 'GENERATE': continue
         t = C.convertFile2PyTree(filename)
         bases = I.getBases(t)
         if len(bases) != 1:
             raise ValueError('InputMesh element in %s must contain only 1 base'%filename)
         base = bases[0]
-        base[0] = meshInfo['baseName']
-        J.set(base,'.MOLA#InputMesh',**meshInfo)
-        Trees += [C.newPyTree([base])]
+        NewBases, NewMeshInfos = duplicateBlades(base, meshInfo)
+    
+        if NewBases:
+            new_tree = C.newPyTree(NewBases)
+            NewComponents[i] = NewMeshInfos
+
+        else: 
+            base[0] = meshInfo['baseName']
+            J.set(base,'.MOLA#InputMesh',**meshInfo)
+            new_tree = C.newPyTree([base]) 
+        
+        Trees += [ new_tree ]
+
+    OriginalInputMeshes = copy.copy(InputMeshes)
+    for k in NewComponents:
+        original_item = OriginalInputMeshes[k]
+        new_index = InputMeshes.index(original_item)
+        InputMeshes[new_index:new_index] = NewComponents[k]
+        InputMeshes.remove(original_item)
 
     t = I.merge(Trees)
+    t_cart = GVD.buildCartesianBackground(t, InputMeshes)
+    if t_cart is not None: t = I.merge([t, t_cart])
     t = I.correctPyTree(t, level=3)
 
     return t
+
 
 def transform(t, InputMeshes):
     '''
@@ -604,11 +640,20 @@ def connectMesh(t, InputMeshes):
             ConnectionType = ConnectParams['type']
             print('connecting type {} at base {}'.format(ConnectionType,
                                                          meshInfo['baseName']))
+            try: tolerance = ConnectParams['tolerance']
+            except KeyError:
+                print('connection tolerance not defined. Using tol=1e-8')
+                tolerance = 1e-8
             if ConnectionType == 'Match':
-                X.connectMatch(base, tol=ConnectParams['tolerance'], dim=baseDim)
+                X.connectMatch(base, tol=tolerance, dim=baseDim)
             elif ConnectionType == 'NearMatch':
-                X.connectNearMatch(base, ratio=ConnectParams['ratio'],
-                                      tol=ConnectParams['tolerance'],
+                try: ratio = ConnectParams['ratio']
+                except KeyError:
+                    print('NearMatch ratio was not defined. Using ratio=2')
+                    ratio = 2
+
+                X.connectNearMatch(base, ratio=ratio,
+                                      tol=tolerance,
                                       dim=baseDim)
             elif ConnectionType == 'PeriodicMatch':
                 try: rotationCenter = ConnectParams['rotationCenter']
@@ -621,7 +666,7 @@ def connectMesh(t, InputMeshes):
                                             rotationCenter=rotationCenter,
                                             rotationAngle=rotationAngle,
                                             translation=translation,
-                                            tol=ConnectParams['tolerance'],
+                                            tol=tolerance,
                                             dim=baseDim)
             else:
                 ERRMSG = 'Connection type %s not implemented'%ConnectionType
@@ -772,6 +817,7 @@ def setBoundaryConditions(t, InputMeshes):
         if FillEmptyBC:
             baseDim = I.getValue(base)[-1]
             C._fillEmptyBCWith(base,FillEmptyBC['name'],BCinfo['type'],dim=baseDim)
+    print('setting boundary conditions... done')
 
 def getWindowTagsAtPlane(zone, planeTag='planeXZ', tolerance=1e-8):
     '''
@@ -1358,10 +1404,11 @@ def showStatisticsAndCheckDistribution(tNew, CoresPerNode=28):
 def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
                    prioritiesIfOptimize=[], double_wall=0,
                    saveMaskBodiesTree=True,
-                   overset_in_CGNS=False # see elsA #10545
+                   overset_in_CGNS=False, # see elsA #10545
+                   CHECK_OVERSET=True,
                    ):
     '''
-    This function performs all required preprocessing operations for a STATIC
+    This function performs all required preprocessing operations for a
     overlapping configuration. This includes masks production, setting
     interpolating regions and computing interpolating coefficients.
 
@@ -1475,21 +1522,13 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
 
     from . import UnsteadyOverset as UO
 
-    # Order of operations in RB's flow:
-    # ---------------------------------
-    # 1. centers:cellN=1 initialization 
-    # 2. cellN2OversetHoles
-    # 3. applyBCOverlaps
-    # 4. eP.buildMaskFiles
-    # 5. setInterpolations
-    # 6. LT.AddFamiliesOverlap
-    # 7. intersections domains
-    # 8. include (rather update?) NeighbourList
-    # 9. unsteady masking using ElsATools
 
     if not hasAnyOversetData(InputMeshes): return t  
 
-    print('building static masking bodies...')
+    try: os.makedirs(DIRECTORY_OVERSET)
+    except: pass
+
+    print('building masking bodies...')
     baseName2BodiesDict = getMaskingBodiesAsDict(t, InputMeshes)
 
     bodies = []
@@ -1503,7 +1542,8 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
             treeLikeList.extend([bn, flat_bodies])
         tMask = I.copyRef(C.newPyTree(treeLikeList))
         I._correctPyTree(tMask,level=3)
-        C.convertPyTree2File(tMask, 'mask.cgns')
+        C.convertPyTree2File(tMask, os.path.join(DIRECTORY_OVERSET,
+                                                'CHECK_ME_mask.cgns'))
 
 
     BlankingMatrix = getBlankingMatrix(bodies, InputMeshes)
@@ -1513,6 +1553,113 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
     t = X.applyBCOverlaps(t, depth=depth)
 
     print('Static blanking...')
+    if CHECK_OVERSET:
+        t_blank = staticBlanking(t, bodies, BlankingMatrix, InputMeshes)
+        if hasAnyOversetMotion(InputMeshes):
+            StaticBlankingMatrix  = getBlankingMatrix(bodies, InputMeshes,
+                                                      StaticOnly=True)
+            t = staticBlanking(t, bodies, StaticBlankingMatrix, InputMeshes)
+        else:
+            StaticBlankingMatrix = BlankingMatrix
+            t = t_blank
+    print('... static blanking done.')
+
+    print('setting hole interpolated points...')
+    t = X.setHoleInterpolatedPoints(t, depth=depth)
+
+    if prioritiesIfOptimize:
+        print('Optimizing overlap...')
+        t = X.optimizeOverlap(t, double_wall=double_wall,
+                              priorities=prioritiesIfOptimize)
+        print('... optimization done.')
+
+    print('maximizing blanked cells...')
+    t = X.maximizeBlankedCells(t, depth=depth)
+
+
+    if overset_in_CGNS:
+        prefixFile = ''
+    else:
+        prefixFile = os.path.join(DIRECTORY_OVERSET,'overset')
+
+    print('cellN2OversetHoles and applyBCOverlaps...')
+    t = X.cellN2OversetHoles(t)
+    t = X.applyBCOverlaps(t, depth=depth) # TODO ->  see previous RB note
+    print('... cellN2OversetHoles and applyBCOverlaps done.')
+
+
+    if hasAnyOversetMotion(InputMeshes):
+        if CHECK_OVERSET:
+            print('Checking overset assembly...')
+            t_blank = X.setHoleInterpolatedPoints(t_blank, depth=depth)
+            if prioritiesIfOptimize:
+                t_blank = X.optimizeOverlap(t_blank, double_wall=double_wall,
+                                    priorities=prioritiesIfOptimize)
+            t_blank = X.maximizeBlankedCells(t_blank, depth=depth)          
+            t_blank = X.cellN2OversetHoles(t_blank)
+            t_blank = X.applyBCOverlaps(t_blank, depth=depth) 
+            t_blank = muted_setInterpolations(t_blank, loc='cell', sameBase=0,
+                    double_wall=double_wall, storage='inverse', solver='elsA',
+                    check=True, nGhostCells=2, prefixFile='')
+            print('Checking overset assembly... done')
+
+        print('Writing static masking files...')
+        EP.buildMaskFiles(t, fileDir=DIRECTORY_OVERSET, prefixBase=True)
+        print('Writing static masking files... done')
+
+    else:
+        print('Computing interpolation coefficients...')
+        t = muted_setInterpolations(t, loc='cell', sameBase=0,
+                double_wall=double_wall, storage='inverse', solver='elsA',
+                check=True, nGhostCells=2, prefixFile=prefixFile)
+        print('... interpolation coefficients built.')
+
+    if CHECK_OVERSET:
+        if not hasAnyOversetMotion(InputMeshes): t_blank = t
+        TreesDiagnosis = []
+        anyOrphan = False
+        for diagnosisType in ['orphan', 'extrapolated']:
+            tAux = X.chimeraInfo(t_blank, type=diagnosisType)
+            for base in I.getBases(tAux):
+                CriticalPoints = X.extractChimeraInfo(base, type=diagnosisType)
+                if CriticalPoints:
+                    nCells = C.getNCells(CriticalPoints)
+                    TreesDiagnosis += [ C.newPyTree([base[0]+'_'+diagnosisType,
+                                                    CriticalPoints]) ]
+                    msg = 'base %s has %d %s cells'%(base[0],nCells,diagnosisType)
+                    if diagnosisType == 'orphan':
+                        anyOrphan = True
+                        print(J.FAIL+'DANGER: %s'%msg+J.ENDC)
+                    elif diagnosisType == 'extrapolated':
+                        print(J.WARN+'WARNING: %s'%msg+J.ENDC)
+
+        if TreesDiagnosis:
+            TreeDiagnosis = I.merge(TreesDiagnosis)
+            diagnosis_file = os.path.join(DIRECTORY_OVERSET,
+                                        'CHECK_ME_OverlapCriticalCells.cgns')
+            C.convertPyTree2File(TreeDiagnosis, diagnosis_file)
+            start = J.FAIL if anyOrphan else J.WARN
+            print(start+'Please check '+J.BOLD+diagnosis_file+J.ENDC)
+        else:
+            print(J.GREEN+'Congratulations! no extrapolated or orphan cells!'+J.ENDC)
+
+
+    print('adding unsteady overset data...')
+    DynamicBlankingMatrix = BlankingMatrix - StaticBlankingMatrix
+    UO.addMaskData(t, InputMeshes, bodies, DynamicBlankingMatrix)
+    BodyNames = [getBodyName( body ) for body in bodies]
+    UO.setMaskedZonesOfMasks(t, InputMeshes, DynamicBlankingMatrix, BodyNames)
+    UO.setMaskParameters(t, InputMeshes)
+    I._rmNodesByName(t,'OversetHoles')
+    # UO.removeOversetHolesOfUnsteadyMaskedGrids(t)
+    print('adding unsteady overset data... done')
+
+    if not overset_in_CGNS: I._rmNodesByName(t,'ID_*')
+
+    return t
+
+
+def staticBlanking(t, bodies, BlankingMatrix, InputMeshes):
     # see ticket #7882
     for ibody, body in enumerate(bodies):
         BlankingVector = np.atleast_2d(BlankingMatrix[:,ibody]).T
@@ -1538,70 +1685,38 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
 
         else:
             raise ValueError('BlankingMethod "{}" not recognized'.format(BlankingMethod))
+    return t 
 
-    print('... static blanking done.')
-
-    print('setting hole interpolated points...')
-    t = X.setHoleInterpolatedPoints(t, depth=depth)
-
-    if prioritiesIfOptimize:
-        print('Optimizing overlap...')
-        t = X.optimizeOverlap(t, double_wall=double_wall,
-                              priorities=prioritiesIfOptimize)
-        print('... optimization done.')
-
-    print('maximizing blanked cells...')
-    t = X.maximizeBlankedCells(t, depth=depth)
+@J.mute_stdout
+def muted_setInterpolations(*args, **kwargs):
+    return X.setInterpolations(*args, **kwargs)
 
 
-    if overset_in_CGNS:
-        prefixFile = ''
-    else:
-        DIRECTORY_OVERSET = 'OVERSET'
-        DIRECTORY_MASK = os.path.join('OVERSET','MASK')
-        try: os.makedirs(DIRECTORY_OVERSET)
-        except: pass
-        prefixFile = os.path.join(DIRECTORY_OVERSET,'overset')
+def hasAnyOversetMotion(InputMeshes):
+    '''
+    Determine if at least one item in **InputMeshes** has a motion overset kind
+    of assembly.
 
-    print('cellN2OversetHoles and applyBCOverlaps...')
-    t = X.cellN2OversetHoles(t)
-    t = X.applyBCOverlaps(t, depth=depth) # TODO ->  see previous RB note
-    print('... cellN2OversetHoles and applyBCOverlaps done.')
+    Parameters
+    ----------
 
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            as described by :py:func:`prepareMesh4ElsA`
 
+    Returns
+    -------
 
-    print('Computing interpolation coefficients...')
-    t = X.setInterpolations(t, loc='cell', sameBase=0, double_wall=double_wall,
-                            storage='inverse', solver='elsA', check=True,
-                            nGhostCells=2, prefixFile=prefixFile)
-    print('... interpolation coefficients built.')
-
-    for diagnosisType in ['orphan', 'extrapolated']:
-        tAux = X.chimeraInfo(t, type=diagnosisType)
-        CriticalPoints = X.extractChimeraInfo(tAux, type=diagnosisType)
-        if CriticalPoints:
-            CriticalPoints = C.newPyTree([diagnosisType, I.getZones(CriticalPoints)])
-            C.convertPyTree2File(CriticalPoints, diagnosisType+'.cgns')
-
-    UO.addMaskData(t, InputMeshes, bodies, BlankingMatrix)
-
-    print('rotors neighbour list search...')
-    BodyNames = [getBodyName( body ) for body in bodies]
-    UO.setNeighbourListOfMasks(t, InputMeshes, BlankingMatrix, BodyNames)
-    UO.setMaskParameters(t, InputMeshes)
-    UO.removeOversetHolesOfUnsteadyMaskedGrids(t)
-    print('.. rotors neighbour list search done.')
-
-    
-
-    if not overset_in_CGNS:
-        I._rmNodesByName(t,'ID_*')
+        bool : bool
+            :py:obj:`True` if has moving overset assembly. :py:obj:`False` otherwise.
+    '''
+    if hasAnyOversetData(InputMeshes):
+        for meshInfo in InputMeshes:
+            if 'Motion' in meshInfo:
+                return True
+    return False
 
 
-
-    return t
-
-def getBlankingMatrix(bodies, InputMeshes):
+def getBlankingMatrix(bodies, InputMeshes, StaticOnly=False):
     '''
     .. attention:: this is a **private-level** function. Users shall employ
         user-level function :py:func:`addOversetData`.
@@ -1675,9 +1790,23 @@ def getBlankingMatrix(bodies, InputMeshes):
                 if not BodyName.startswith('wall'):
                     BlankingMatrix[i, j] = 0
 
+    if StaticOnly:
+        # TODO optimize by fixed masking of components with same rigid motion
+        for j, BodyName in enumerate(BodyNames):
+            BodyParentBaseName = getBodyParentBaseName(BodyName)
+            bodyInfo = getMeshInfoFromBaseName(BodyParentBaseName,InputMeshes)
+            MovingBody = True if 'Motion' in bodyInfo else False
+            if MovingBody or BodyName.startswith('overlap'):
+                BlankingMatrix[:,j] = 0
+
+        for i, meshInfo in enumerate(InputMeshes):
+            MovingBase = True if 'Motion' in meshInfo else False
+            if MovingBase: BlankingMatrix[i,:] = 0
+
     print('BaseNames = %s'%str(BaseNames))
     print('BodyNames = %s'%str(BodyNames))
-    print('BlankingMatrix:')
+    msg = 'BlankingMatrix:' if not StaticOnly else 'static BlankingMatrix:'
+    print(msg)
     print(BlankingMatrix)
 
     return BlankingMatrix
@@ -2278,7 +2407,9 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         Surface=1.0, Length=1.0, TorqueOrigin=[0,0,0],
         TurbulenceModel='Wilcox2006-klim', Viscosity_EddyMolecularRatio=0.1,
         TurbulenceCutoff=0.1, TransitionMode=None, CoprocessOptions={},
-        FieldsAdditionalExtractions=['ViscosityMolecular','ViscosityEddy','Mach']):
+        FieldsAdditionalExtractions=['ViscosityMolecular','ViscosityEddy','Mach'],
+        BCExtractions=dict(BCWall=['normalvector', 'frictionvector',
+                        'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue'])):
     '''
     Compute ReferenceValues dictionary used for pre/co/postprocessing a CFD
     case. It contains multiple information and is mostly self-explanatory.
@@ -2369,6 +2500,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
                 UpdateFieldsFrequency   = 2000,
                 UpdateArraysFrequency    = 50,
                 UpdateSurfacesFrequency = 500,
+                TagSurfacesWithIteration='auto',
                 AveragingIterations     = 3000,
                 ItersMinEvenIfConverged = 1000,
                 TimeOutInSeconds        = 54000.0, # 15 h * 3600 s/h = 53100 s
@@ -2385,6 +2517,9 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
             .. note:: primitive conservative variables required for restart are
                 automatically included
 
+        BCExtractions : dict
+            determine the BC (surfacic) extractions.
+            See :py:func:`addSurfacicExtractions` doc for relevant parameters.
 
     Returns
     -------
@@ -2399,6 +2534,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         UpdateFieldsFrequency   = 2000,
         UpdateArraysFrequency    = 50,
         UpdateSurfacesFrequency = 500,
+        TagSurfacesWithIteration='auto',
         AveragingIterations     = 3000,
         ItersMinEvenIfConverged = 1000,
         TimeOutInSeconds        = 54000.0, # 15 h * 3600 s/h = 53100 s
@@ -2605,6 +2741,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     Fields                           = Fields,
     FieldsTurbulence                 = FieldsTurbulence,
     FieldsAdditionalExtractions      = FieldsAdditionalExtractions,
+    BCExtractions                    = BCExtractions,
     ReferenceStateTurbulence         = ReferenceStateTurbulence,
     ReferenceState                   = ReferenceState,
     ))
@@ -3170,10 +3307,23 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
 
 def addOversetMotion(t, OversetMotion):
 
-    for base in I.getBases(t):
+    bases = I.getBases(t)
+    
+    NewOversetMotion = dict()
+    for k in OversetMotion:
+        base_found = bool([b for b in bases if b[0]==k])
+        if base_found: continue
+        base_candidates = [b for b in bases if b[0].startswith(k)]
+        for i, b in enumerate(base_candidates):
+            try: base_found = [b for b in base_candidates if b[0]==k+'-%d'%(i+1)][0]
+            except IndexError: continue
+            NewOversetMotion[base_found[0]] = OversetMotion[k]
+    OversetMotion.update(NewOversetMotion)
+
+    for base in bases:
+
         motion_keys = dict( motion=1, omega=0.0, transl_speed=0.0,
-                            axis_ang_1=1, axis_ang_2=1 
-                            )
+                            axis_ang_1=1, axis_ang_2=1 )
 
         try:             OversetMotionData = OversetMotion[base[0]]
         except KeyError: OversetMotionData = dict(RPM=0.0)
@@ -3203,15 +3353,34 @@ def addOversetMotion(t, OversetMotion):
 
         J.set(family,'.Solver#Motion', **motion_keys)
 
+        MeshInfo = J.get(base,'.MOLA#MeshInfo') 
+        try: is_duplicated = bool(MeshInfo['DuplicatedFrom'] != base[0])
+        except KeyError: is_duplicated = False
+
+        if is_duplicated:
+            blade_id = int(base[0].split('-')[-1])
+            blade_nb = MeshInfo['Motion']['NumberOfBlades']
+            try:
+                RH=MeshInfo['Motion']['RequestedFrame']['RightHandRuleRotation']
+                sign = 1 if RH else -1
+            except KeyError:
+                sign = 1
+            psi0 = blade_id*sign*(360.0/float(blade_nb))
+        else:
+            psi0 = 0.0
+
+        try: bd = MeshInfo['Motion']['RequestedFrame']['BladeDirection']
+        except KeyError: bd = np.array([1.0,0.0,0.0])
+
         default_rotor_motion = dict(type='rotor_motion',
-            initial_angles=[0.,0.],
+            initial_angles=[0.,psi0],
             alp0=0.,
             alp_pnt=[0.,0.,0.],
             alp_vct=[0.,1.,0.],
             rot_pnt=[rc[0],rc[1],rc[2]],
             rot_vct=[ra[0],ra[1],ra[2]],
             rot_omg=motion_keys['omega'],
-            span_vct=[0.,1.,0.],
+            span_vct=bd,
             pre_lag_pnt=[0.,0.,0.],
             pre_lag_vct=[0.,0.,1.],
             pre_lag_ang=0.,
@@ -3391,7 +3560,7 @@ def addTrigger(t, coprocessFilename='coprocess.py'):
                  file=coprocessFilename)
 
 def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
-        BCExtractions={}):
+        BCExtractions=dict()):
     '''
     Include surfacic and field extraction information to CGNS tree using
     information contained in dictionaries **ReferenceValues** and
@@ -3457,27 +3626,15 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
             The value associated to each key is a :py:class:`list` of
             :py:class:`str` corresponding to variable names to extract (in elsA
             convention).
-
-            By default, the following variables are extracted for *BCWall*:
-            ['normalvector', 'frictionvector',
-            'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue',
-            'flux_rou', 'flux_rov', 'flux_row', 'torque_rou',
-            'torque_rov', 'torque_row'].
-
-            These default values are updated with **BCExtractions**.
-
     '''
 
-
-    DefaultBCExtractions = dict(
-        BCWall = [
-            'normalvector', 'frictionvector',
-            'psta', 'bl_quantities_2d', 'yplusmeshsize',
-            'bl_ue', # see #10360
-            'flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
-    )
     # TODO notify bug for torque_origin in CGNS mode
-    DefaultBCExtractions.update(BCExtractions)
+    fluxes=['flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
+    for bc in BCExtractions:
+        if bc.startswith('BCWall'):
+            for f in fluxes:
+                if f not in BCExtractions[bc]:
+                    BCExtractions[bc].append(f)
 
     # Default keys to write in the .Solver#Output of the Family node
     # The node 'var' will be fill later depending on the BCType
@@ -3508,14 +3665,14 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     ))
 
     FamilyNodes = I.getNodesFromType2(t, 'Family_t')
-    for ExtractBCType, ExtractVariablesList in DefaultBCExtractions.items():
+    for ExtractBCType, ExtractVariablesList in BCExtractions.items():
         for FamilyNode in FamilyNodes:
             FamilyName = I.getName( FamilyNode )
             BCType = getFamilyBCTypeFromFamilyBCName(t, FamilyName)
             if not BCType: continue
 
             if ExtractBCType in BCType:
-                if ExtractBCType != BCType and BCType in DefaultBCExtractions:
+                if ExtractBCType != BCType and BCType in BCExtractions:
                     # There is a more specific ExtractBCType
                     continue
 
@@ -4811,6 +4968,13 @@ def sendSimulationFiles(DIRECTORY_WORK, overrideFields=True):
         JM.repatriate(elt, os.path.join(DIRECTORY_WORK, elt))
 
 
+def isUnsteadyMask(body, InputMeshes):
+    body_name = getBodyName(body)
+    base_name = getBodyParentBaseName(body_name)
+    meshInfo = getMeshInfoFromBaseName(base_name)
+    if 'Motion' in meshInfo: return True
+    return False
+
 def getBodyParentBaseName(BodyName):
     return '-'.join(BodyName.split('-')[1:])
 
@@ -4840,3 +5004,53 @@ def _ungroupBCsByBCType(t, forced_starting=''):
                 if BCType.startswith(forced_starting):
                     BCType = forced_starting
             I.setValue(BC,BCType)
+
+
+def duplicateBlades(base, meshInfo):
+    try: MotionInfo = meshInfo['Motion']
+    except KeyError: return [], []
+    
+    try: NumberOfBlades = MotionInfo['NumberOfBlades']
+    except KeyError: NumberOfBlades = 1
+
+    try: InitialFrame = MotionInfo['InitialFrame']
+    except KeyError: InitialFrame = None
+
+    try: RequestedFrame = MotionInfo['RequestedFrame']
+    except KeyError: RequestedFrame = None
+
+    if not InitialFrame and not RequestedFrame:
+        return [], []
+    
+    elif RequestedFrame and not InitialFrame:
+        InitialFrame = RequestedFrame
+        MotionInfo['InitialFrame'] = InitialFrame
+         
+    elif InitialFrame and not RequestedFrame:
+        RequestedFrame = InitialFrame
+        MotionInfo['RequestedFrame'] = RequestedFrame
+
+    from .RotatoryWings import placeRotorAndDuplicateBlades
+    NewBases = placeRotorAndDuplicateBlades(base,
+                                    InitialFrame['RotationCenter'],
+                                    InitialFrame['RotationAxis'],
+                                    InitialFrame['BladeDirection'],
+                                    InitialFrame['RightHandRuleRotation'],
+                                    RequestedFrame['RotationCenter'],
+                                    RequestedFrame['RotationAxis'],
+                                    RequestedFrame['BladeDirection'], 
+                                    RequestedFrame['RightHandRuleRotation'],
+                                    AzimutalDuplicationNumber=NumberOfBlades,
+                                    orthonormal_tolerance_in_degree=0.5)
+
+    NewMeshInfos = []
+    for i, base in enumerate(NewBases):
+        base[0] = meshInfo['baseName'] + '-%d'%(i+1)
+        newMeshInfo = copy.deepcopy(meshInfo)
+        newMeshInfo['baseName'] = base[0]
+        if i > 0: newMeshInfo['DuplicatedFrom'] = newMeshInfo['baseName']+'-1'
+        J.set(base,'.MOLA#InputMesh',**newMeshInfo)
+        NewMeshInfos += [newMeshInfo]
+
+    return NewBases, NewMeshInfos
+

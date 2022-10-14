@@ -318,14 +318,14 @@ def cpmvWrap4MultiServer(mode,In,Out='none'):
             if   InAtServer == 'spiro': Host = usernameIn+'@'+'spiro-daaa'
             elif InAtServer == 'sator': Host = usernameIn+'@'+'sator'
             else: raise ValueError('BAD CONDITIONING')
-            CMD = 'python $MOLA/MOLA/_cpmv_.py %s_forced %s %s'%(mode,In,OutAuxiliary)
+            CMD = 'python3 $MOLA/MOLA/_cpmv_.py %s_forced %s %s'%(mode,In,OutAuxiliary)
             _launchSubprocess(Host,CMD)
 
             if   OutAtServer == 'spiro': Host = usernameIn+'@'+'spiro-daaa'
             elif OutAtServer == 'sator': Host = usernameIn+'@'+'sator'
             else: raise ValueError('BAD CONDITIONING')
             if In[-1] == os.path.sep: OutAuxiliary += os.path.sep
-            CMD = 'python $MOLA/MOLA/_cpmv_.py mv_forced %s %s'%(OutAuxiliary,Out)
+            CMD = 'python3 $MOLA/MOLA/_cpmv_.py mv_forced %s %s'%(OutAuxiliary,Out)
             _launchSubprocess(Host,CMD)
 
         elif any([InAtServer,OutAtServer]):
@@ -334,7 +334,7 @@ def cpmvWrap4MultiServer(mode,In,Out='none'):
             if Server == 'spiro': Server += '01'
             Host = User+'@'+Server
 
-            CMD = 'python $MOLA/MOLA/_cpmv_.py %s_forced %s %s'%(mode,In,Out)
+            CMD = 'python3 $MOLA/MOLA/_cpmv_.py %s_forced %s %s'%(mode,In,Out)
             _launchSubprocess(Host,CMD)
 
         else:

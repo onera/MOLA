@@ -416,6 +416,7 @@ def mergeSplitWindows(surfaces):
                 raise ValueError('IndwardIndex "%s" not supported'%ind[1])
 
         if not _allEqual(inds_I) or not _allEqual(inds_J):
+            C.convertPyTree2File(s,'debug.cgns')
             raise ValueError('incoherent InwardIndex for surface %s'%s[0])
 
         if len(inds_I) > 1:

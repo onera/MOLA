@@ -95,8 +95,6 @@ if [ "$MAC" = "spiro" ]; then
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
-    source ~/.bashrc
-
 
 elif [ "$MAC" = "visio" ]; then
     export ELSAVERSION=UNAVAILABLE # TODO adapt this once #10587 fixed

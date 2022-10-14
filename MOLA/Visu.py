@@ -19,24 +19,15 @@ USEFUL NOTES:
 
 Command lines for animations:
 
+# first, resize your images to the width size desired for final video (e.g. 600 px)
+cd FRAMES
+for img in frame*.png; do convert -resize 600 -quality 100 "$img" "resized-$img"; done
 
-# By Ronan
-mencoder  mf://@'+str(Imglist)  -mf fps=24  -ovc x264 -x264encopts subq=6:partitions=all:8x8dct:me=umh:frameref=5:bframes=3:b_pyramid=normal:weight_b -o fileout.avi
+# second, create movie with (increase fps for having faster motion)
+mencoder  mf://FRAMES/resized-frame*.png -mf fps=24  -ovc x264 -x264encopts subq=6:partitions=all:8x8dct:me=umh:frameref=5:bframes=3:b_pyramid=normal:weight_b -o movie.avi
 
-# By Rocco
-mencoder mf://FRAMES/FrameIsoY*.png -mf w=800:h=600:fps=10:type=png -ovc lavc -lavcopts vcodec=mpeg4:mbd=2:trell -oac copy -o animIsoY.avi
-
-
-# Resize frames
-for f in Frames:
-    os.system('convert "%s" -resize %dx%d -quality 100 "%s"'%(f,WidthPixels,WidthPixels,f))
-
-# Make animation
-convert -delay 50 -loop 0 frame* animation.gif
-
-# Using ffmpeg
-os.system('ffmpeg -i Frame%06d.png -vf palettegen palette.png -y') # make palette
-os.system('ffmpeg -framerate 25 -i Frame%06d.png -i palette.png -lavfi paletteuse Animation.gif -y') # make animation
+# then convert movie to gif, by scaling to desired pixels (e.g. width 400 px)
+ffmpeg -i movie.avi -vf "fps=10,scale=400:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 animation.gif
 
 '''
 

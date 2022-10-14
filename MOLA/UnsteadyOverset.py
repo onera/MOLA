@@ -4,6 +4,8 @@ UnsteadyOverset
 13/09/2022 - L. Bernardos - creation
 '''
 
+from ctypes import alignment
+from multiprocessing.sharedctypes import Value
 import os
 import numpy as np
 
@@ -24,8 +26,9 @@ from .Preprocess import getBodyName
 MOLA_MASK = 'mask'
 
 def setMaskParameters(t, InputMeshes):
-    mask_params = dict(type='cart_elts', proj_direction='z', dim1=100, dim2=100,
-                       blanking_criteria='center_in')
+    mask_params = dict(type='cart_elts', blanking_criteria='center_in',
+                       dim1=100, dim2=100)
+    
     for base in I.getBases(t):
         MasksInfo = I.getNodeFromName1(base,'.MOLA#Masks')
         if not MasksInfo: continue
@@ -33,19 +36,23 @@ def setMaskParameters(t, InputMeshes):
             if not mask[0].startswith(MOLA_MASK): continue
             # we suppose all patches belong to the same base
             mask_zone = I.getNodeFromName2(mask,'Zone')
-            if not mask_zone:
-                C.convertPyTree2File(base,'debug.cgns')
-                raise ValueError('inexistent Zone node at mask %s'%os.path.join(
-                        base[0],MasksInfo[0],mask[0]))
             MaskBase = J._getBaseWithZoneName(t, I.getValue(mask_zone))
             meshInfo = [m for m in InputMeshes if m['baseName']==MaskBase[0]][0]
             if 'UnsteadyMaskOptions' in meshInfo['OversetOptions']:
                 mask_params.update(meshInfo['OversetOptions']['UnsteadyMaskOptions'])
+            if mask_params['type'] == 'cart_elts':
+                try: a = np.array(meshInfo['Motion']['RotationAxis'],dtype=float)
+                except KeyError: a = np.array([0,0,1],dtype=float)
+                alignment = [np.abs(a.dot(np.array([1.0,0.0,0.0]))),
+                                np.abs(a.dot(np.array([0.0,1.0,0.0]))),
+                                np.abs(a.dot(np.array([0.0,0.0,1.0])))]
+                mask_params['proj_direction'] = 'xyz'[np.argmax(alignment)]
+
             J.set(mask,'Parameters',**mask_params)
 
-def setNeighbourListOfMasks(t, InputMeshes, BlankingMatrix, BodyNames):
+def setMaskedZonesOfMasks(t, InputMeshes, BlankingMatrix, BodyNames):
     '''
-    Set the ``NeighbourList`` node of each base by considering the rotation of 
+    Set the ``MaskedZones`` node of each base by considering the rotation of 
     the component. This information is required for unsteady masking.
     
 
@@ -108,21 +115,19 @@ def setNeighbourListOfMasks(t, InputMeshes, BlankingMatrix, BodyNames):
         BaseName = meshInfo['baseName']
         
         print('computing intersection between boxes from base %s...'%BaseName)
-        NeighbourList = _findNeighbourListOfBase(BaseName, aabb, obb)
-        NeighbourDict[BaseName] = NeighbourList
+        MaskedZones = _findMaskedZonesOfBase(BaseName, aabb, obb)
+        NeighbourDict[BaseName] = MaskedZones
     
-    print('updating NeighbourList of MOLA#Masks at base %s...'%BaseName)
-    _updateNeighbourListOfMasks(t, NeighbourDict, BlankingMatrix, BodyNames)
-
-
+    print('updating MaskedZones of MOLA#Masks at base %s...'%BaseName)
+    _updateMaskedZonesOfMasks(t, NeighbourDict, BlankingMatrix, BodyNames)
 
 def removeOversetHolesOfUnsteadyMaskedGrids(t):
     zoneNames_to_process = []
     for base in I.getBases(t):
         MasksContainer = I.getNodeFromName1(base, '.MOLA#Masks')
         if not MasksContainer: continue
-        NeighbourLists = I.getNodesFromName2(MasksContainer, 'NeighbourList')
-        for nl in NeighbourLists:
+        MaskedZones = I.getNodesFromName2(MasksContainer, 'MaskedZones')
+        for nl in MaskedZones:
             Neighbours = I.getValue(nl).split(' ')
             for n in Neighbours:
                 zone_name = n.split('/')[1]
@@ -138,16 +143,16 @@ def removeOversetHolesOfUnsteadyMaskedGrids(t):
 
 
 def _getRotorMotionParameters(meshInfo):
-    try: rot_ctr = tuple(meshInfo['Motion']['RotationCenter'])
+    try: rot_ctr = tuple(meshInfo['Motion']['RequestedFrame']['RotationCenter'])
     except KeyError: rot_ctr = (0,0,0)
 
-    try: rot_axis = tuple(meshInfo['Motion']['RotationAxis'])
+    try: rot_axis = tuple(meshInfo['Motion']['RequestedFrame']['RotationAxis'])
     except KeyError: rot_axis = (0,0,1)
 
-    try: scale_factor = meshInfo['Motion']['NeighbourSearchScaleFactor']
+    try: scale_factor = meshInfo['Motion']['RequestedFrame']['NeighbourSearchScaleFactor']
     except KeyError: scale_factor = 1.2
 
-    try: Dpsi = meshInfo['Motion']['NeighbourSearchAzimutResolution']
+    try: Dpsi = meshInfo['Motion']['RequestedFrame']['NeighbourSearchAzimutResolution']
     except KeyError: Dpsi = 5.0    
 
     return rot_ctr, rot_axis, scale_factor, Dpsi
@@ -175,18 +180,21 @@ def _addAzimutalGhostComponent(base, rot_ctr, rot_axis, scale, Dpsi):
         # fixed component but with unsteady treatment
         Azimuts = I.getZones(base)
     
-    if base[3] == 'CGNSBase_t': base[2] = Azimuts
+    try:
+        if base[3] == 'CGNSBase_t': base[2] = Azimuts
+    except:
+        pass
     
     return Azimuts
 
 
-def _findNeighbourListOfBase(BaseName, t_aabb, t_obb):
+def _findMaskedZonesOfBase(BaseName, t_aabb, t_obb):
 
     base_aabb = I.getNodeFromName2(t_aabb, BaseName)
     base_obb = I.getNodeFromName2(t_obb, BaseName)
 
 
-    NewNeighbourList = []
+    NewMaskedZones = []
     for z_aabb0, z_obb0 in zip(I.getZones(base_aabb),I.getZones(base_obb)):
         for b, bo in zip(I.getBases(t_aabb), I.getBases(t_obb)):
             if b[0] == BaseName: continue
@@ -206,10 +214,10 @@ def _findNeighbourListOfBase(BaseName, t_aabb, t_obb):
                 
                 NewNeighbour = b[0] + '/' + z_aabb[0]
 
-                if NewNeighbour not in NewNeighbourList:
-                    NewNeighbourList += [ NewNeighbour ]
-    NewNeighbourList.sort()
-    return NewNeighbourList
+                if NewNeighbour not in NewMaskedZones:
+                    NewMaskedZones += [ NewNeighbour ]
+    NewMaskedZones.sort()
+    return NewMaskedZones
 
 
 def _buildBoxesTrees(tR):
@@ -248,7 +256,7 @@ def _buildBoxesTrees(tR):
     return tR_aabb, tR_obb
 
 
-def _updateNeighbourListOfMasks(t, NeighbourDict, BlankingMatrix, BodyNames):
+def _updateMaskedZonesOfMasks(t, NeighbourDict, BlankingMatrix, BodyNames):
     if not NeighbourDict: return
     for base in I.getBases(t):
         MasksInfo = I.getNodeFromName1(base,'.MOLA#Masks')
@@ -267,7 +275,7 @@ def _updateNeighbourListOfMasks(t, NeighbourDict, BlankingMatrix, BodyNames):
                 i = _getBaseNumber(baseNameOfNeighbour, t)
                 if BlankingMatrix[i,j] and baseNameOfNeighbour == base[0]:
                     Neighbours += [ baseZonePath ]
-            I.createUniqueChild(mask,'NeighbourList','DataArray_t',
+            I.createUniqueChild(mask,'MaskedZones','DataArray_t',
                                     value=' '.join( Neighbours ))
 
 def _getBodyNumber(BodyName, BodyNames):

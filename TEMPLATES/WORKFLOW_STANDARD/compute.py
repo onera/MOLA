@@ -14,6 +14,7 @@ import numpy as np
 # np.seterr(all='raise')
 import shutil
 import timeit
+from MOLA.Coprocess import printCo
 LaunchTime = timeit.default_timer()
 from mpi4py import MPI
 comm   = MPI.COMM_WORLD
@@ -42,8 +43,10 @@ FILE_COLOG       = 'coprocess.log'
 FILE_BODYFORCESRC= 'bodyforce.cgns'
 DIRECTORY_OUTPUT = 'OUTPUT'
 DIRECTORY_LOGS   = 'LOGS'
-RequestedStatistics = [] # will be overriden by coprocess.py
 
+# will be overriden by coprocess.py : 
+RequestedStatistics = [] 
+TagSurfacesWithIteration = False
 # ------------------ IMPORT AND SET CURRENT SETUP DATA ------------------ #
 setup = J.load_source('setup',FILE_SETUP)
 
@@ -129,7 +132,7 @@ if BodyForceInputData:
     NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NumberOfProcessors)
 # ------------------------------------------------------------------------- #
 
-CO.loadRotorMotionForElsA(elsA_user, Skeleton)
+CO.loadMotionForElsA(elsA_user, Skeleton)
 
 e.mode = elsAxdt.READ_MESH
 e.mode |= elsAxdt.READ_CONNECT
@@ -140,13 +143,16 @@ e.mode |= elsAxdt.READ_FLOW
 e.mode |= elsAxdt.READ_COMPUTATION
 e.mode |= elsAxdt.READ_OUTPUT
 e.mode |= elsAxdt.READ_TRACE
+e.mode |= elsAxdt.SKIP_GHOSTMASK # NOTE https://elsa.onera.fr/issues/3480
 if not os.path.exists('OVERSET'): e.mode |= elsAxdt.CGNS_CHIMERACOEFF
 e.action=elsAxdt.TRANSLATE
 
 e.compute()
+CO.readStaticMasksForElsA(e, elsA_user, Skeleton)
 CO.loadUnsteadyMasksForElsA(e, elsA_user, Skeleton)
 
 Cmpi.barrier()
+CO.printCo('launch compute',proc=0)
 Cfdpb.compute()
 Cmpi.barrier()
 
@@ -159,7 +165,8 @@ CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))
 
 # save surfaces
 surfs = CO.extractSurfaces(t, setup.Extractions)
-CO.save(surfs, os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
+CO.save(surfs, os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES),
+               tagWithIteration=TagSurfacesWithIteration)
 
 # save bodyforce disks
 CO.save(BodyForceDisks,os.path.join(DIRECTORY_OUTPUT,FILE_BODYFORCESRC))
