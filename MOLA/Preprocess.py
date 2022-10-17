@@ -498,6 +498,11 @@ def getMeshesAssembled(InputMeshes):
     if t_cart is not None: t = I.merge([t, t_cart])
     t = I.correctPyTree(t, level=3)
 
+    # with open('InputMeshes.py','w') as f:
+    #     import pprint
+    #     f.write(pprint.pformat(InputMeshes))
+    # exit()
+
     return t
 
 
@@ -1803,11 +1808,11 @@ def getBlankingMatrix(bodies, InputMeshes, StaticOnly=False):
             MovingBase = True if 'Motion' in meshInfo else False
             if MovingBase: BlankingMatrix[i,:] = 0
 
-    print('BaseNames = %s'%str(BaseNames))
-    print('BodyNames = %s'%str(BodyNames))
+    print('BaseNames (rows) = %s'%str(BaseNames))
+    print('BodyNames (columns) = %s'%str(BodyNames))
     msg = 'BlankingMatrix:' if not StaticOnly else 'static BlankingMatrix:'
     print(msg)
-    print(BlankingMatrix)
+    print(np.array(BlankingMatrix,dtype=int))
 
     return BlankingMatrix
 
@@ -3317,7 +3322,7 @@ def addOversetMotion(t, OversetMotion):
         never_found = True
         for i, b in enumerate(base_candidates):
             try:
-                base_found = [b for b in base_candidates if b[0]==k+'-%d'%(i+1)][0]
+                base_found = [b for b in base_candidates if b[0]==k+'_%d'%(i+1)][0]
                 never_found = False
             except IndexError:
                 continue
@@ -3361,24 +3366,30 @@ def addOversetMotion(t, OversetMotion):
 
         J.set(family,'.Solver#Motion', **motion_keys)
 
-        MeshInfo = J.get(base,'.MOLA#MeshInfo') 
+        MeshInfo = J.get(base,'.MOLA#InputMesh') 
         try: is_duplicated = bool(MeshInfo['DuplicatedFrom'] != base[0])
         except KeyError: is_duplicated = False
 
         if is_duplicated:
-            blade_id = int(base[0].split('-')[-1])
+            blade_id = int(base[0].split('_')[-1])
             blade_nb = MeshInfo['Motion']['NumberOfBlades']
             try:
                 RH=MeshInfo['Motion']['RequestedFrame']['RightHandRuleRotation']
                 sign = 1 if RH else -1
             except KeyError:
                 sign = 1
-            psi0 = blade_id*sign*(360.0/float(blade_nb))
+            psi0 = (blade_id-1)*sign*(360.0/float(blade_nb))
         else:
+            # print('base %s is NOT duplicated since:'%base[0])
+            # try:
+            #     print('%s != %s'%(MeshInfo['DuplicatedFrom'], base[0]))
+            # except KeyError:
+            #     print('"DuplicatedFrom" key does not exist')
             psi0 = 0.0
 
         try: bd = MeshInfo['Motion']['RequestedFrame']['BladeDirection']
-        except KeyError: bd = np.array([1.0,0.0,0.0])
+        except KeyError: bd = [1,0,0]
+        bd = np.array(bd,dtype=float)
 
         default_rotor_motion = dict(type='rotor_motion',
             initial_angles=[0.,psi0],
@@ -5053,10 +5064,19 @@ def duplicateBlades(base, meshInfo):
 
     NewMeshInfos = []
     for i, base in enumerate(NewBases):
-        base[0] = meshInfo['baseName'] + '-%d'%(i+1)
+        suffix = '_%d'%(i+1)
+        base[0] = meshInfo['baseName'] + suffix
         newMeshInfo = copy.deepcopy(meshInfo)
         newMeshInfo['baseName'] = base[0]
-        if i > 0: newMeshInfo['DuplicatedFrom'] = newMeshInfo['baseName']+'-1'
+        if i > 0: newMeshInfo['DuplicatedFrom'] = meshInfo['baseName']+'_1'
+        
+        try: BCinfo = newMeshInfo['BoundaryConditions']
+        except KeyError: BCinfo = []
+        for bc in BCinfo:
+            if bc['type'].startswith('FamilySpecified:'):
+                bc['type'] += suffix
+                bc['name'] += suffix
+
         J.set(base,'.MOLA#InputMesh',**newMeshInfo)
         NewMeshInfos += [newMeshInfo]
 

@@ -20,6 +20,7 @@ import glob
 import numpy as np
 from itertools import product
 from timeit import default_timer as tic
+from fnmatch import fnmatch
 
 import Converter.PyTree as C
 import Converter.Internal as I
@@ -2373,3 +2374,60 @@ def _getBaseWithZoneName(t,zone_name):
         for child in base[2]:
             if child[0] == zone_name and child[3] == 'Zone_t':
                 return base
+
+def zoneOfFamily(zone, family_name, wildcard_used=False):
+    families = I.getNodesFromType1(zone,'FamilyName_t')
+    families += I.getNodesFromType1(zone,'AdditionalFamilyName_t')
+    for f in families:
+        if wildcard_used:
+            if fnmatch(f[0], family_name): return True
+        elif f[0] == family_name: return True
+    return False
+
+def selectZones(t, baseName=None, familyName=None, zoneName=None):
+    '''
+    Gather zones contained in **t** such that they verify a given set of 
+    conditions defined by pair of keyword-argument. All conditions are taken 
+    as ``AND`` condition (all must be verified simultaneously).
+
+    .. note::
+        if a condition is given the value :py:obj:`None`, then it is interpreted
+        as *any* (criterion is verified).
+
+    Parameters
+    ----------
+
+        t : PyTree
+            input tree where zones will be selected
+
+        baseName : str
+            select only zones that are contained in a base name **baseName**.
+
+            .. hint:: wildcards are accepted (e.g. ``Iso*``)
+            
+        familyName : str
+            select only zones that belongs to a family named **familyName**.
+
+            .. hint:: wildcards are accepted (e.g. ``BLADE*``)
+
+        zoneName : str
+            select only zones that has name **zoneName**.
+
+            .. hint:: wildcards are accepted (e.g. ``cart*``)
+
+    Returns
+    -------
+
+        zones : :py:class:`list` of zone
+            zones verifying the selection conditions
+    '''
+    allzones = I.getZones(t)
+    zones = []
+    for zone in allzones:
+        zoneWithBaseName = _getBaseWithZoneName(t,zone[0])[0]
+        BaseMatch = fnmatch(zoneWithBaseName, baseName) if baseName is not None else True
+        FamilyMatch = zoneOfFamily(zone, familyName, wildcard_used=True)
+        ZoneMatch = fnmatch(zone[0], zoneName) if zoneName is not None else True
+        if BaseMatch == ZoneMatch == FamilyMatch == True: zones += [ zone ]
+
+    return zones

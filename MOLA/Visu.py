@@ -6,15 +6,6 @@ VISU MODULE
 Collection of routines and functions designed for visualization
 techniques.
 
-File history:
-12/06/2020 - v1.8.01 - L. Bernardos - Creation
-'''
-
-import sys
-import os
-import numpy as np
-
-'''
 USEFUL NOTES:
 
 Command lines for animations:
@@ -29,7 +20,19 @@ mencoder  mf://FRAMES/resized-frame*.png -mf fps=24  -ovc x264 -x264encopts subq
 # then convert movie to gif, by scaling to desired pixels (e.g. width 400 px)
 ffmpeg -i movie.avi -vf "fps=10,scale=400:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 animation.gif
 
+File history:
+12/06/2020 - v1.8.01 - L. Bernardos - Creation
 '''
+
+import sys
+import os
+import numpy as np
+from time import sleep
+
+import Converter.PyTree as C
+import Converter.Internal as I
+
+from . import InternalShortcuts as J
 
 
 def xyz2Pixel(points,win,posCam,posEye,dirCam,viewAngle):
@@ -131,36 +134,102 @@ def xyz2Pixel(points,win,posCam,posEye,dirCam,viewAngle):
         Pixels += [[pxP_w, pxP_h]]
     return Pixels
 
-def makeAnimation(Frames, WidthPixels=700, FrameWildCard='Frame*', delay=10,
-                  OutputFilename='Animation.gif', RemoveFramesAtEnd=True):
-    '''
-    Make an animated gif file using a set of previously saved frames.
 
-    Parameters
-    ----------
+def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={}, 
+        window_in_pixels=(1200,800),
+        Elements=[dict(selection=dict(baseName='BCWall'),
+                       material='Solid', color='White', blending=0.8,
+                       colormap='Viridis', levels=[200,'min','max'],
+                       additionalDisplayOptions={})]):
 
-        Frames : :py:class:`list` of :py:class:`str`
-            List of paths where frames are located
+    machine = os.getenv('MAC', 'ld')
+    if machine in ['spiro', 'sator']:
+        offscreen=1 # TODO solve bug https://elsa.onera.fr/issues/10536
+    elif machine in ['ld', 'visung', 'visio']:
+        offscreen=3
+    else:
+        raise SystemError('machine "%s" not supported.'%machine)
 
-        WidthPixels : int
-            Width pixels of final movie (keeping aspect ratio)
+    cmap2int = dict(Blue2Red=1, Green2Red=3, Diverging=9, Grey2White=15,
+                    Viridis=17, Inferno=19, Magma=21, Plasma=23, Blue=25)
 
-        FrameWildCard : str
-            Wildcard used for detecting the frame files
+    import CPlot.PyTree as CPlot
 
-        delay : float
-            delay between frames
+    if isinstance(surfaces,str):
+        t = C.convertFile2PyTree(surfaces)
+    elif I.isTopTree(surfaces):
+        t = surfaces
+    else:
+        raise ValueError('parameter mesh must be either a filename or a PyTree')
 
-        OutputFilename : str
-            final file produced by this function
+    DIRECTORY_FRAMES = frame.split(os.path.sep)[:-1]
+    
+    try: os.makedirs(os.path.join(*DIRECTORY_FRAMES))
+    except: pass
 
-        RemoveFramesAtEnd : bool
-            if :py:obj:`True`, systematically remove Frames after movie creation
-    '''
-    for f in Frames:
-        os.system('convert "%s" -resize %dx%d -quality 100 "%s"'%(f,WidthPixels,WidthPixels,f))
-    os.system('convert   -delay %d   -loop 0 %s  %s'%(delay,FrameWildCard,OutputFilename))
-    if RemoveFramesAtEnd:
-        for f in Frames:
-            try: os.remove(f)
-            except OSError: pass
+    DisplayOptions = dict(mode='Render', displayInfo=0, displayIsoLegend=0, 
+                          win=window_in_pixels, export=frame, shadow=1,
+                          exportResolution='%gx%g'%window_in_pixels)
+    DisplayOptions.update(camera)
+
+    def hasBlending(elt):
+        try: return elt['blending'] > 0
+        except: return False
+
+    Trees = []
+    TreesBlending = []
+    for i, elt in enumerate(Elements):
+        try: selection = elt['selection']
+        except KeyError: selection = {}
+        zones = J.selectZones(t, **selection)
+
+        if hasBlending(elt): zones = C.convertArray2Hexa(zones) # see cassiopee #8740
+
+        for z in zones:
+            CPlot._addRender2Zone(z, material=elt['material'],color=elt['color'],
+                                     blending=elt['blending'])
+
+        if hasBlending(elt):
+            TreesBlending += [ C.newPyTree(['blend.%d'%i, zones]) ]
+        else:
+            Trees += [ C.newPyTree(['elt.%d'%i, zones]) ]
+
+    # requires to append blended zones (see cassiopee #8740 and #8748)
+    if TreesBlending:
+        for i in range(Trees):
+            Trees[i] = I.merge([Trees[i]]+TreesBlending)
+
+
+    for i in range(len(Trees)):
+        tree = Trees[i]
+        elt = Elements[i]
+        
+        if elt['color'].startswith('Iso:'):
+            field_name = elt['color'].replace('Iso:','')
+            levels = elt['levels']
+            levels[2] = C.getMinValue(tree, field_name) if levels[2] == 'min' else float(levels[2])
+            levels[3] = C.getMaxValue(tree, field_name) if levels[3] == 'max' else float(levels[3])
+            isoScales = [[field_name, levels[1], levels[2], levels[3]]]
+        else:
+            isoScales = []
+
+        if i == len(Trees)-1: offscreen += 1
+
+        try: additionalDisplayOptions = elt['additionalDisplayOptions']
+        except: additionalDisplayOptions = {}
+
+        CPlot.display(tree, offscreen=offscreen, colormap=cmap2int[elt['colormap']],
+                        isoScales=isoScales, **DisplayOptions, **additionalDisplayOptions)
+        CPlot.finalizeExport(offscreen)
+
+        if 'backgroundFile' not in additionalDisplayOptions:
+            MOLA = os.getenv('MOLA')
+            MOLASATOR = os.getenv('MOLASATOR')
+            for MOLAloc in [MOLA, MOLASATOR]:
+                backgroundFile = os.path.join(MOLAloc,'MOLA','GUIs','background.png')
+                if os.path.exists(backgroundFile):
+                    CPlot.setState(backgroundFile=backgroundFile)
+                    CPlot.setState(bgColor=13)
+                    break
+    
+        sleep(0.5)

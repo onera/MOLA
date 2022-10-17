@@ -114,6 +114,9 @@ def setMaskedZonesOfMasks(t, InputMeshes, BlankingMatrix, BodyNames):
     for meshInfo in InputMeshes:
         BaseName = meshInfo['baseName']
         
+        try: is_duplicated = bool(meshInfo['DuplicatedFrom'] != base[0])
+        except KeyError: is_duplicated = False
+
         print('computing intersection between boxes from base %s...'%BaseName)
         MaskedZones = _findMaskedZonesOfBase(BaseName, aabb, obb)
         NeighbourDict[BaseName] = MaskedZones
@@ -275,6 +278,8 @@ def _updateMaskedZonesOfMasks(t, NeighbourDict, BlankingMatrix, BodyNames):
                 i = _getBaseNumber(baseNameOfNeighbour, t)
                 if BlankingMatrix[i,j] and baseNameOfNeighbour == base[0]:
                     Neighbours += [ baseZonePath ]
+            if not Neighbours:
+                raise ValueError('empty MaskedZones for mask %s at base %s'%(BodyName,base[0]))
             I.createUniqueChild(mask,'MaskedZones','DataArray_t',
                                     value=' '.join( Neighbours ))
 

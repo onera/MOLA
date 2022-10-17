@@ -247,12 +247,24 @@ def extractSurfaces(t, Extractions):
                 Name of a zone Family. The extraction is performed only in zones
                 with this ``FamilyName``.
 
-            * ``OnlyCoordinates`` : :py:class:`bool`
-                if :py:obj:`True`, then do not include fields on the surface
-                extraction. This may be useful to save disk space if user is 
-                only interested in visualization of coordinates (e.g. a 
-                Q-criterion surface). Default value is :py:obj:`False`, and all 
-                fields are included in surface.
+            * ``AllowedFields`` : :py:class:`str`, :py:class:`list` of :py:class:`str` or :py:class:`bool`
+                Specifies the allowed field names to be stored in the surfaces.
+                If *AllowedFields* is ``'all'`` or :py:obj:`True`, then all fields
+                are kept in surfaces (default behavior).
+                If *AllowedFields* is a :py:class:`list` of :py:class:`str`, then 
+                only fields with corresponding name are kept in surfaces, if 
+                available.
+
+                .. hint::
+                    if *AllowedFields* is :py:obj:`False` or :py:obj:`None` or 
+                    an empty list ``[]`` then only coordinates are kept in final
+                    surfaces. This is optimum for plotting q-criterion iso-surfaces
+                    without coloring.
+
+                .. danger::
+                    if you are making an Overset type of simulation, do not 
+                    forget to include the field ``'cellN'`` to *AllowedFields*
+                    if you wish to keep the blanking information
 
     Returns
     -------
@@ -273,6 +285,20 @@ def extractSurfaces(t, Extractions):
         J.set(base, '.ExtractionInfo', **ExtractionInfo)
         return base
 
+    def keepOnlyAllowedFields(zones, AllowedFields):
+        if not AllowedFields:
+            I._rmNodesByType(zones,'FlowSolution_t')
+        elif isinstance(AllowedFields, list):
+            for zone in zones:
+                for fs in I.getNodesFromType1(zone, 'FlowSolution_t'):
+                    fields2remove = []
+                    for field in I.getChildren(fs):
+                        fieldName = I.getName(field)
+                        fieldType = I.getType(field)
+                        if fieldType == 'DataArray_t' and fieldName not in AllowedFields:
+                            fields2remove += [ field ]
+                    for field in fields2remove: I.rmNode(fs,field)
+
     t = I.renameNode(t, 'FlowSolution#Init', 'FlowSolution#Centers')
     I._renameNode(t, 'FlowSolution#Height', 'FlowSolution')
     I._rmNodesByName(t, 'FlowSolution#EndOfRun*')
@@ -285,8 +311,15 @@ def extractSurfaces(t, Extractions):
     for Extraction in Extractions:
         TypeOfExtraction = Extraction['type']
         ExtractionInfo = copy.deepcopy(Extraction)
-        try: OnlyCoordinates = ExtractionInfo['OnlyCoordinates']
-        except KeyError: OnlyCoordinates = False
+
+        try: AllowedFields = ExtractionInfo['AllowedFields']
+        except KeyError: AllowedFields = True
+
+
+        if isinstance(AllowedFields,str) and AllowedFields.lower() != 'all':
+            AllowedFields = [ AllowedFields ]
+
+
         if 'family' in Extraction:
             Tree4Extraction = I.copyTree(PartialTree)
             for base in I.getBases(Tree4Extraction):
@@ -306,7 +339,7 @@ def extractSurfaces(t, Extractions):
                     zones = C.extractBCOfName(Tree4Extraction,'FamilySpecified:'+BCFamilyName, extrapFlow=False)
                     ExtractionInfo['type'] = 'BC'
                     ExtractionInfo['BCType'] = BCType
-                    if OnlyCoordinates: I._rmNodesByType(zones,'FlowSolution_t')
+                    keepOnlyAllowedFields(zones, AllowedFields)
                     addBase2SurfacesTree(BCFamilyName)
 
         elif TypeOfExtraction.startswith('BC'):
@@ -315,7 +348,7 @@ def extractSurfaces(t, Extractions):
             except KeyError: basename = TypeOfExtraction
             ExtractionInfo['type'] = 'BC'
             ExtractionInfo['BCType'] = TypeOfExtraction
-            if OnlyCoordinates: I._rmNodesByType(zones,'FlowSolution_t')
+            keepOnlyAllowedFields(zones, AllowedFields)
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction.startswith('FamilySpecified:'):
@@ -324,7 +357,7 @@ def extractSurfaces(t, Extractions):
             except KeyError: basename = TypeOfExtraction.replace('FamilySpecified:','')
             ExtractionInfo['type'] = 'BC'
             ExtractionInfo['BCType'] = TypeOfExtraction
-            if OnlyCoordinates: I._rmNodesByType(zones,'FlowSolution_t')
+            keepOnlyAllowedFields(zones, AllowedFields)
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction == 'IsoSurface':
@@ -335,7 +368,7 @@ def extractSurfaces(t, Extractions):
             except KeyError:
                 FieldName = Extraction['field'].replace('Coordinate','').replace('Radius', 'R').replace('ChannelHeight', 'H')
                 basename = 'Iso_%s_%g'%(FieldName,Extraction['value'])
-            if OnlyCoordinates: I._rmNodesByType(zones,'FlowSolution_t')
+            keepOnlyAllowedFields(zones, AllowedFields)
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction == 'Sphere':
@@ -349,7 +382,7 @@ def extractSurfaces(t, Extractions):
             zones = P.isoSurfMC(Tree4Extraction, 'Slice', 0.0)
             try: basename = Extraction['name']
             except KeyError: basename = 'Sphere_%g'%Extraction['radius']
-            if OnlyCoordinates: I._rmNodesByType(zones,'FlowSolution_t')
+            keepOnlyAllowedFields(zones, AllowedFields)
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction == 'Plane':
@@ -360,7 +393,7 @@ def extractSurfaces(t, Extractions):
             zones = P.isoSurfMC(Tree4Extraction, 'Slice', 0.0)
             try: basename = Extraction['name']
             except KeyError: basename = 'Plane'
-            if OnlyCoordinates: I._rmNodesByType(zones,'FlowSolution_t')
+            keepOnlyAllowedFields(zones, AllowedFields)
             addBase2SurfacesTree(basename)
 
     Cmpi._convert2PartialTree(SurfacesTree)

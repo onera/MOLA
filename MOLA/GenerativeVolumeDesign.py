@@ -3299,7 +3299,7 @@ def buildCartesianBackground(t, InputMeshes):
 
     
     from . import ExtractSurfacesProcessor as ESP
-    from .Preprocess import getMeshInfoFromBaseName, setBoundaryConditions
+    from .Preprocess import getMeshInfoFromBaseName, setBoundaryConditions, connectMesh
     from .UnsteadyOverset import _getRotorMotionParameters, _addAzimutalGhostComponent
     import Converter.elsAProfile as EP
     import Apps.Mesh.Cart as CART
@@ -3314,6 +3314,7 @@ def buildCartesianBackground(t, InputMeshes):
         tR = C.newPyTree([])
         tR[2].append(I.copyRef(base))
         if NCellsOffset:
+            connectMesh(tR, [meshInfo])
             setBoundaryConditions(tR, [meshInfo])
             EP._overlapGC2BC(tR)
             FamilyName = 'F_OV_'+base[0]
