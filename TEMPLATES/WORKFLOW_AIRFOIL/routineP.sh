@@ -23,7 +23,7 @@ for case in `ls -d 0*/ | sort -V`; do
             rm NEWJOB_REQUIRED
             echo "LAUNCHING THIS JOB AGAIN"
             cd ..
-            sbatch job.sh --dependency=singleton
+            sbatch jobP.sh --dependency=singleton
             exit 0
         fi
     done

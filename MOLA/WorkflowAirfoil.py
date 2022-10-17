@@ -220,7 +220,7 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
 
         if NewJob:
             if AoA >= 0:
-                JobName = JobInformation['JobName']+'%d'%i
+                JobName = JobInformation['JobName']+'_Mach%1.2f'%Mach
             writeOutputFields = True
         else:
             writeOutputFields = False
