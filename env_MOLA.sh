@@ -17,6 +17,7 @@ export EXTPYLIBSATOR=/tmp_user/sator/lbernard/MOLA/Dev/ExternalPythonPackages
 export VPMVERSION=v0.1
 export PUMAVERSION=r337
 export TURBOVERSION=v1.2
+export ERSTAZVERSION=vT
 ###############################################################################
 
 
@@ -99,6 +100,10 @@ if [ "$MAC" = "spiro" ]; then
     # turbo
     export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/spiro3_mpi/lib/python3.7/site-packages/:$PYTHONPATH
 
+    # ErstaZ
+    export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
+    export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
+
     source ~/.bashrc
 
 
@@ -140,6 +145,10 @@ elif [ "$MAC" = "visio" ]; then
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
+    # ErstaZ
+    export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/visio
+    export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
+
 elif [ "$MAC" = "visung" ]; then
 
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
@@ -163,6 +172,10 @@ elif [ "$MAC" = "visung" ]; then
 
     # turbo
     export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/eos-intel3_/lib/python3.6/site-packages/:$PYTHONPATH
+
+    # ErstaZ
+    export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/visio
+    export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
 
 elif [ "$MAC" = "ld" ]; then
     if [ "$EL8" ]; then
@@ -201,6 +214,10 @@ elif [ "$MAC" = "ld" ]; then
         export PYTHONPATH=$VPMPATH:$PYTHONPATH
         export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
+        # ErstaZ
+        export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/centos8
+        export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
+
     else
         echo 'loading MOLA environment for CentOS 7'
         source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
@@ -221,6 +238,10 @@ elif [ "$MAC" = "ld" ]; then
         export LD_LIBRARY_PATH=$VPMPATH:$VPMPATH/lib:$LD_LIBRARY_PATH
         export PYTHONPATH=$VPMPATH:$PYTHONPATH
         export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
+
+        # ErstaZ
+        export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/eos
+        export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
 
     fi
 

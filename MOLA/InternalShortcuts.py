@@ -2308,6 +2308,14 @@ def printEnvironment():
         vTURBO = FAIL + 'UNAVAILABLE' + ENDC
     print(' --> turbo '+vTURBO)
 
+    # ErsatZ
+    try:
+        import Ersatz
+        vERSATZ = Ersatz.__file__.split('/')[-4].lstrip('ersatZ_')
+    except:
+        vERSATZ = FAIL + 'UNAVAILABLE' + ENDC
+    print(' --> Ersatz '+vERSATZ)
+
 
     if totoV == 'Dev':
         print(WARN+'WARNING: you are using an UNSTABLE version of MOLA.\nConsider using a stable version.'+ENDC)
