@@ -66,7 +66,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     AttemptCommandGuess=[],
     PerturbationFields=None,
     LiftingLineSolver='MOLA', StackOptions={}, WeightEqns=[],
-    SourceTermScale=1.0):
+    SourceTermScale=1.0, TipLossFactorOptions={}):
     '''
     Macro-function used to generate the ready-to-use BodyForce
     element for interfacing with a CFD solver.
@@ -157,6 +157,11 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
             .. tip:: slightly increase this value for
                 compensating dissipation effects during the flow data transfers
                 between grids or overset operations
+
+        TipLossFactorOptions : dict
+            Use a tip-loss factor function to the aerodynamic coefficients.
+            This :py:class:`dict` defines a pair of keyword-arguments of the 
+            function :py:func:`applyTipLossFactorToBladeEfforts`.
 
     Returns
     -------
@@ -290,7 +295,10 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         computeKinematicVelocity(tLL)
         assembleAndProjectVelocities(tLL)
         _applyPolarOnLiftingLine(tLL,PolarsInterpolatorsDict)
-        computeGeneralLoadsOfLiftingLine(tLL)
+        if TipLossFactorOptions:
+            TipLossFactorOptions['NumberOfBlades']=NBlades
+        computeGeneralLoadsOfLiftingLine(tLL,
+            TipLossFactorOptions=TipLossFactorOptions)
 
         if CommandType == 'Pitch':
             C._initVars(tLL,'Twist={Twist}-%0.12g'%cmd)
@@ -413,6 +421,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
     addThickwiseCoordinate2BodyForceDisk(Stacked, RotAxis)
     if Dir == -1: T._reorder( Stacked, (1,2,-3))
+
     '''
     For use with Biel Ortun distribution employing Weibull :
     output=gamma/alpha*((x-mu)/alpha)**(gamma-1.) * np.exp(-((x-mu)/alpha)**gamma)
@@ -424,39 +433,39 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     '''
     for eqn in WeightEqns: C._initVars(Stacked, eqn)
 
-    CorrVars = ('fa','ft','fx','fy','fz')
-    fieldsCorrVars = J.getVars(Stacked,CorrVars)
+    CorrVars = ['fa','ft','fx','fy','fz']
+
+    Ni, Nj, Nk, dr = getStackedDimensions(Stacked)
 
     weightNode = I.getNodeFromName2(Stacked, 'weight')
     if weightNode:
-        weight = I.getValue(weightNode)
-        try:
-            for f in fieldsCorrVars: f *= weight
-        except TypeError as e:
-            C.convertPyTree2File(Stacked,'testStacked.cgns')
-            raise TypeError(e)
+        for corrVar in CorrVars+['weight']: C.node2Center__(Stacked, corrVar)
+        G._getVolumeMap(Stacked)
 
+        vol_val, weight_val = J.getVars(Stacked, ['vol','weight'], Container='FlowSolution#Centers')
 
-    # Correction of linear arrays broadcasting
-    integAxial = P.integ(Stacked, 'fa')[0]
+        vol_tot_val=np.zeros_like(vol_val)
+        weight_tot_val=np.zeros_like(vol_val)
+        
+        vol_tot_val[:,:,:] = np.sum(vol_val[:,1,:])
+        weight_tot_val[:,:,:] = np.sum(weight_val[:,1,:]*vol_val[:,1,:])/vol_tot_val[:,:,:]
 
-    tol = 1e-6
+        fieldsCorrVars_CC = J.getVars(Stacked,CorrVars,Container='FlowSolution#Centers')
+        for f in fieldsCorrVars_CC:
+            f *= dr * NBlades / (Nj-1) / vol_tot_val * weight_val / weight_tot_val
 
-    if (tol < AvrgThrust < tol) or (tol < integAxial < tol):
-        CorrFactor = 1.0
     else:
-        CorrFactor = abs(AvrgThrust / integAxial)
+        for corrVar in CorrVars: C.node2Center__(Stacked, corrVar)
+        G._getVolumeMap(Stacked)
 
-    for f in fieldsCorrVars: f *= CorrFactor
+        vol_val = J.getVars(Stacked, ['vol'], Container='FlowSolution#Centers')[0]
 
-    # # Compute actual BodyForce Power
-    # CAVEAT ! not working for volume mesh
-    # integMoment = P.integMoment(Stacked,center=(0,0,0),vector=['fx','fy','fz'])
-    # integMoment = -np.array(integMoment) # solid frame
-    # AxisTorque = integMoment.dot(RotAxis)
-    # AxisPower = RPM_n[1]*(np.pi/30.)*AxisTorque
+        vol_tot_val=np.zeros_like(vol_val)
+        vol_tot_val[:,:,:] = np.sum(vol_val[:,1,:])
 
-    # Store general info of BodyForce zone
+        fieldsCorrVars_CC = J.getVars(Stacked,CorrVars,Container='FlowSolution#Centers')
+        for f in fieldsCorrVars_CC:
+            f *= dr * NBlades / (Nj-1) / vol_tot_val
 
     if not usePUMA:
         AzimutalLoads = dict()
@@ -490,6 +499,11 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
     return Stacked
 
+def getStackedDimensions(BF_block):
+    Ni, Nj, Nk = I.getZoneDim(BF_block)[1:4]
+    span = J.getVars(BF_block, ['Span'])[0]
+    dr = span[1:,1:,1:] - span[:-1,:-1,:-1]
+    return Ni, Nj, Nk, dr
 
 
 def stackBodyForceComponent(Component, RotationAxis, StackStrategy='constant',
@@ -687,20 +701,20 @@ def computeSourceTerms(zone, SourceTermScale=1.0):
             towards the CFD computational grid.
     '''
     I._rmNodesByName1(zone, 'FlowSolution#Centers')
-
+    
     ConservativeFields = ['Density', 'MomentumX','MomentumY', 'MomentumZ',
                           'EnergyStagnationDensity']
     ro, rou, rov, row, roe = J.getVars(zone, ConservativeFields)
-
+    
     PropellerFields = ['VelocityTangential', 'fx', 'fy', 'fz', 'ft']
     VelocityTangential, fx, fy, fz, ft = J.getVars(zone, PropellerFields)
-
+    
     ro[:]  = 0.
     rou[:] = - fx * SourceTermScale
     rov[:] = - fy * SourceTermScale
     row[:] = - fz * SourceTermScale
     roe[:] = np.abs( ft * VelocityTangential ) * SourceTermScale
-
+    
     [C.node2Center__(zone, 'nodes:'+field) for field in ConservativeFields]
     I._renameNode(zone, 'FlowSolution#Centers', 'FlowSolution#SourceTerm')
 
@@ -753,7 +767,6 @@ def migrateSourceTerms2MainPyTree(donor, receiver):
     I._rmNodesByName(donor, '.Kinematics')
 
     Cmpi.barrier()
-
     tRec = I.copyRef(receiver)
 
     I._rmNodesByType(tRec, 'FlowSolution_t')
@@ -2672,8 +2685,12 @@ def plotStructPyZonePolars(PyZonePolars, addiationalQuantities=[],
         nMach = len(Mach)
         Colors = plt.cm.jet(np.linspace(0,1,nMach))
         for i in range(nMach):
-            ax1.plot(AoA,Cl[:,i],color=Colors[i])
-            ax2.plot(AoA,CloCd[:,i],color=Colors[i])
+            if nMach > 1:
+                ax1.plot(AoA,Cl[:,i],color=Colors[i])
+                ax2.plot(AoA,CloCd[:,i],color=Colors[i])
+            else:
+                ax1.plot(AoA,Cl,color=Colors[i])
+                ax2.plot(AoA,CloCd,color=Colors[i])
             ax3.plot([],[],color=Colors[i],label='M=%g, Re=%g'%(Mach[i],Reynolds[i]))
 
         minLocX = AutoMinorLocator()
@@ -2726,7 +2743,9 @@ def plotStructPyZonePolars(PyZonePolars, addiationalQuantities=[],
             fig1, ax1 = plt.subplots(1,1,figsize=(4.75,4.25))
             Field, = J.getVars(pzp,[addQty])
             for i in range(nMach):
-                ax1.plot(AoA,Field[:,i],color=Colors[i])
+                if nMach>1:
+                    ax1.plot(AoA,Field[:,i],color=Colors[i])
+                else: ax1.plot(AoA,Field,color=Colors[i])
             minLocX = AutoMinorLocator()
             ax1.xaxis.set_minor_locator(minLocX)
             minLocY1 = AutoMinorLocator()
@@ -3612,7 +3631,8 @@ def _computeLiftingLine3DLoads(LiftingLine, Density, RotAxis, RPM):
 
 
 def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
-        UnsteadyDataIndependentAbscissa='IterationNumber'):
+        UnsteadyDataIndependentAbscissa='IterationNumber',
+        TipLossFactorOptions={}):
     '''
     This function is used to compute local and integral arrays of a lifting line
     with general orientation and shape (including sweep and dihedral).
@@ -3714,8 +3734,14 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
 
             .. note::
                 LiftingLine zones contained in **t** are modified
+
         NBlades : float
             Multiplication factor of integral arrays
+
+        TipLossFactorOptions : dict
+            Use a tip-loss factor function to the aerodynamic coefficients.
+            This :py:class:`dict` defines a pair of keyword-arguments of the 
+            function :py:func:`applyTipLossFactorToBladeEfforts`.
     '''
 
     FrenetFields = ('tx','ty','tz','nx','ny','nz','bx','by','bz',
@@ -3777,8 +3803,13 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
 
         # ----------------------- COMPUTE LINEAR FORCES ----------------------- #
         FluxC = 0.5*Density*v['VelocityMagnitudeLocal']**2*v['Chord']
+        if TipLossFactorOptions:
+            applyTipLossFactorToBladeEfforts(LiftingLine, **TipLossFactorOptions)
         Lift = FluxC*v['Cl']
         Drag = FluxC*v['Cd']
+
+
+
 
         v['Ln'][:] = Lift*np.cos(v['phiRad'])
         v['Lb'][:] = Lift*np.sin(v['phiRad'])
@@ -3907,6 +3938,104 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
     AllIntegralData['Total'] = TotalIntegralData
 
     return AllIntegralData
+
+def applyTipLossFactorToBladeEfforts(LiftingLine, kind='Pantel', NumberOfBlades=3,
+        g1_parameter='default', g2_parameter=20.0, composite_factor=0.8):
+    '''
+    Apply a tip loss factor function to :math:`C_l` and :math:`C_d` quantities 
+    of a LiftingLine. 
+
+    .. note:: this function is optionally called used in the context of :py:fun:`computeGeneralLoadsOfLiftingLine`
+
+    Parameters
+    ----------
+
+        LiftingLine : zone
+            lifting-line where the tip-loss factor is being applied
+
+        kind : str
+            Kind of tip-loss factor to be used. Can be one of:
+
+            * ``'Shen'``
+                Use Shen's function
+
+            * ``'Prandtl'``
+                Use Prandtl's function
+
+            * ``'Pantel'``
+                Use Pantel's composite function
+        
+        NumberOfBlades : int
+            Number of blades used for modeling the tip loss factor
+
+        g1_parameter : :py:class:`str` or :py:class:`float`
+            parameter :math:`g` of tip loss factor function. If ``'default'``,
+            and **kind** = ``'Shen'``, then defaults to a kinematic correlation;
+            or if **kind** = ``'Pantel'`` then defaults to ``0.75``.
+
+        g2_parameter : float
+            second parameter :math:`g` of the second composite function of 
+            Pantel's function.
+
+        composite_factor : float
+            spanwise portion of application of composite function of Pantel.
+    '''
+
+    
+    # TODO reuse a call to PropellerAnalysis.TipLossFactor() for obtaining F ?
+
+    required_fields = ['Cl', 'Cd', 'Span', 'phiRad']
+    new_fields = ['F', 'Cl_without_F', 'Cd_without_F']
+    FlowSolution_n = I.getNodeFromName1(LiftingLine, 'FlowSolution')
+    v = {}
+    for fn in required_fields: v[fn] = I.getNodeFromName1(FlowSolution_n,fn)[1]
+    for fn in new_fields:
+        try: v[fn] = I.getNodeFromName1(FlowSolution_n,fn)[1]
+        except: v[fn] = J.invokeFields(LiftingLine,[fn])[0]    
+    span = v['Span'].max()
+
+    v['Cl_without_F'][:] = v['Cl']
+    v['Cd_without_F'][:] = v['Cd']
+
+    Kinematics = J.get(LiftingLine,'.Kinematics')
+    omega = Kinematics['RPM'] * np.pi / 30.0
+    
+    if kind == 'Pantel':
+        if g1_parameter == 'default':
+            g1 = 0.75
+        else:
+            g1 = g1_parameter
+        g2 = g2_parameter
+        fix1 = span/composite_factor
+        fix2 = span
+        F1 = 2/np.pi*np.arccos(np.exp(-g1*NumberOfBlades*(fix1-v['Span'])/  \
+                                     (2*v['Span']*np.sin(v['phiRad']))))
+        F2 = 2/np.pi*np.arccos(np.exp(-g2*NumberOfBlades*(fix2-v['Span'])/  \
+                                     (2*v['Span']*np.sin(v['phiRad']))))
+        F = F1 * F2
+
+    elif kind == 'Prandtl':
+        F = 2/np.pi*np.arccos(np.exp(  -NumberOfBlades*(span-v['Span'])/  \
+                                     (2*v['Span']*np.sin(v['phiRad']))))
+
+    elif kind == 'Shen':
+        if g1_parameter == 'default':
+            Conditions = J.get(LiftingLine,'.Conditions')
+            VelocityFreestream = Conditions['VelocityFreestream']
+            U = np.linalg.norm(VelocityFreestream)
+            g = np.exp(-0.125*(NumberOfBlades*span*omega/U-21))+0.1
+        else:
+            g = g1_parameter
+        F = 2/np.pi*np.arccos(np.exp( -g*NumberOfBlades*(span-v['Span'])/  \
+                                     (2*v['Span']*np.sin(v['phiRad']))))
+
+    else:
+        raise AttributeError('TipLossFactor kind %s not recognized'%kind)
+
+    v['F'][:] = F
+    v['Cl'][:] = F*v['Cl']
+    v['Cd'][:] = F*v['Cd']
+
 
 def _computeLocalVelocity(t):
     '''
@@ -5026,7 +5155,7 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
     NBlades = 1
     Prop.add_Blades(NBlades, Aerodynamics=dict(Definition=BladeDef,
                                                IndVeloModel=Wake,
-                                               NbSections=50, #MODIF to match LifitngLine.cgns discretization. Ref is 25
+                                               NbSections=50,
                                                Options=dict(
                                                     Interpolate='linear',
                                                     Correction3D='Mach_Wind',
@@ -5043,9 +5172,8 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
     Num.set('NbSubIterations',1)
 
     Pb.set('PerturbationField',VolumePerturbation)
-    Prop.Cmds.set('Pitch',Pitch) #MODIF
+    Prop.Cmds.set('Pitch',Pitch)
     Pb.initialize()
-    # Prop.Cmds.set('Pitch',Pitch) #MODIF
 
     Niters = NumberOfAzimutalPoints
     LLs = []
