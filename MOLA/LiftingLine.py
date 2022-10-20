@@ -3939,7 +3939,7 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
 
     return AllIntegralData
 
-def applyTipLossFactorToBladeEfforts(LiftingLine, kind='Pantel', NumberOfBlades=3,
+def applyTipLossFactorToBladeEfforts(LiftingLine, kind='Prandtl', NumberOfBlades=3,
         g1_parameter='default', g2_parameter=20.0, composite_factor=0.8):
     '''
     Apply a tip loss factor function to :math:`C_l` and :math:`C_d` quantities 
@@ -4000,7 +4000,11 @@ def applyTipLossFactorToBladeEfforts(LiftingLine, kind='Pantel', NumberOfBlades=
     Kinematics = J.get(LiftingLine,'.Kinematics')
     omega = Kinematics['RPM'] * np.pi / 30.0
     
-    if kind == 'Pantel':
+    if kind == 'Prandtl':
+        F = 2/np.pi*np.arccos(np.exp(  -NumberOfBlades*(span-v['Span'])/  \
+                                     (2*v['Span']*np.sin(v['phiRad']))))
+
+    elif kind == 'Pantel':
         if g1_parameter == 'default':
             g1 = 0.75
         else:
@@ -4013,10 +4017,6 @@ def applyTipLossFactorToBladeEfforts(LiftingLine, kind='Pantel', NumberOfBlades=
         F2 = 2/np.pi*np.arccos(np.exp(-g2*NumberOfBlades*(fix2-v['Span'])/  \
                                      (2*v['Span']*np.sin(v['phiRad']))))
         F = F1 * F2
-
-    elif kind == 'Prandtl':
-        F = 2/np.pi*np.arccos(np.exp(  -NumberOfBlades*(span-v['Span'])/  \
-                                     (2*v['Span']*np.sin(v['phiRad']))))
 
     elif kind == 'Shen':
         if g1_parameter == 'default':
