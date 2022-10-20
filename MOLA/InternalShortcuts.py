@@ -2380,7 +2380,7 @@ def zoneOfFamily(zone, family_name, wildcard_used=False):
     families += I.getNodesFromType1(zone,'AdditionalFamilyName_t')
     for f in families:
         if wildcard_used:
-            if fnmatch(f[0], family_name): return True
+            if fnmatch(I.getValue(f), family_name): return True
         elif f[0] == family_name: return True
     return False
 
@@ -2426,7 +2426,7 @@ def selectZones(t, baseName=None, familyName=None, zoneName=None):
     for zone in allzones:
         zoneWithBaseName = _getBaseWithZoneName(t,zone[0])[0]
         BaseMatch = fnmatch(zoneWithBaseName, baseName) if baseName is not None else True
-        FamilyMatch = zoneOfFamily(zone, familyName, wildcard_used=True)
+        FamilyMatch = zoneOfFamily(zone, familyName, wildcard_used=True) if familyName is not None else True
         ZoneMatch = fnmatch(zone[0], zoneName) if zoneName is not None else True
         if BaseMatch == ZoneMatch == FamilyMatch == True: zones += [ zone ]
 

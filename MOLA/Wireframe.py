@@ -1679,7 +1679,12 @@ def closeCurve(curve,NPts4closingGap=3, tol=1e-10):
         JoinLine = D.line( (x[-1], y[-1], z[-1]),
                            (x[ 0], y[ 0], z[ 0]),
                            NPts4closingGap       )
-
+        for fs in I.getNodesFromType(curve, 'FlowSolution_t'):
+            fsCopy = I.copyTree(fs)
+            JoinLine[2] += [fsCopy]
+            for field in fsCopy[2]:
+                if field[3] != 'DataArray_t': continue
+                field[1] = np.linspace(field[1][0],field[1][-1],NPts4closingGap)
         ClosedCurve = T.join(curve, JoinLine)
 
     else:
