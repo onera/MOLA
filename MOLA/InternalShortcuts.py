@@ -1117,7 +1117,7 @@ def sampleIn2DQhull__(x,y,QhullNPts=20,QhullScale=1.2, grading=0.1, rescale=True
     '''
     import Generator.PyTree as G
     import Transform.PyTree as T
-    import Wireframe as W
+    from . import Wireframe as W
 
     QhullZone, xScale, yScale = get2DQhullZone__(x,y,rescale)
     xq, yq = getxy(QhullZone)

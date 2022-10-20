@@ -207,8 +207,11 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
     AoA_  =      AoAMatrix.ravel(order='K')
     M_    =     MachMatrix.ravel(order='K')
     Re_   = ReynoldsMatrix.ravel(order='K')
-    NewJobs = AoA_ == AoARange[0]
+    NewJobsP = (AoA_ == AoARange[0]) #NewJob =True for first positive angle (closest to 0)
+    NewJobsM = (AoA_ == AoARange[len(aP)]) #NewJob =True for first negative angle (closest to 0)
 
+    NewJobs = NewJobsP + NewJobsM # combine NewJobs array
+    
     JobsQueues = []
     for i, (AoA, Reynolds, Mach, NewJob) in enumerate(zip(AoA_, Re_, M_, NewJobs)):
 
@@ -216,7 +219,8 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
                 i, AoA, Reynolds, Mach, NewJob))
 
         if NewJob:
-            JobName = JobInformation['JobName']+'%d'%i
+            if AoA >= 0:
+                JobName = JobInformation['JobName']+'_Mach%1.2f'%Mach
             writeOutputFields = True
         else:
             writeOutputFields = False
@@ -338,7 +342,7 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
 
     JM.saveJobsConfiguration(JobsQueues, machine, DIRECTORY_WORK, FILE_GEOMETRY)
 
-    JM.launchJobsConfiguration(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_AIRFOIL')
+    JM.launchJobsConfiguration(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_AIRFOIL', routineFiles=['routineP.sh','routineM.sh'])
 
 
 def buildMesh(FILE_GEOMETRY,

@@ -15,11 +15,18 @@ DIRECTORY_DISPATCHER = os.path.join(config.DIRECTORY_WORK, 'DISPATCHER')
 for case in config.JobsQueues:
 
     if case['NewJob']:
-        t, meshParams = WF.buildMesh(Airfoil,
-                                     meshParams=case['meshParams'],
-                                     save_meshParams=True,
-                                     save_mesh=False)
-        JM.buildJob(case, config)
+        if case['CASE_LABEL'].startswith('M'):
+            t, meshParams = WF.buildMesh(Airfoil,
+                                         meshParams=case['meshParams'],
+                                         save_meshParams=True,
+                                         save_mesh=False)
+            JM.buildJob(case, config, jobTemplate='job_template.sh', JobFile = 'jobM.sh', routineTemplate = 'routineM.sh')
+        else:
+            t, meshParams = WF.buildMesh(Airfoil,
+                                         meshParams=case['meshParams'],
+                                         save_meshParams=True,
+                                         save_mesh=False)
+            JM.buildJob(case, config, jobTemplate='job_template.sh', JobFile = 'jobP.sh', routineTemplate = 'routineP.sh')
 
     caseDir = os.path.join(config.DIRECTORY_WORK, case['JobName'], case['CASE_LABEL'])
     os.makedirs(caseDir, exist_ok=True)
@@ -40,4 +47,7 @@ for case in config.JobsQueues:
 
 for case in config.JobsQueues:
     if case['NewJob']:
-        JM.launchComputationJob(case, config, submitReserveJob=False)
+        if case['CASE_LABEL'].startswith('M'):
+            JM.launchComputationJob(case, config, JobFilename='jobM.sh', submitReserveJob=False)
+        else:
+            JM.launchComputationJob(case, config, JobFilename='jobP.sh', submitReserveJob=False)
