@@ -145,6 +145,9 @@ elif [ "$MAC" = "visio" ]; then
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
+    # turbo 
+    export TURBOVERSION=UNAVAILABLE 
+
     # ErstaZ
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/visio
     export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
@@ -214,6 +217,9 @@ elif [ "$MAC" = "ld" ]; then
         export PYTHONPATH=$VPMPATH:$PYTHONPATH
         export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
+        # turbo 
+        export TURBOVERSION=UNAVAILABLE 
+
         # ErstaZ
         export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/centos8
         export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
@@ -238,6 +244,9 @@ elif [ "$MAC" = "ld" ]; then
         export LD_LIBRARY_PATH=$VPMPATH:$VPMPATH/lib:$LD_LIBRARY_PATH
         export PYTHONPATH=$VPMPATH:$PYTHONPATH
         export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
+
+        # turbo 
+        export TURBOVERSION=UNAVAILABLE 
 
         # ErstaZ
         export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/eos
@@ -322,7 +331,7 @@ alias python='python3'
 
 alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
 
-alias mola_version="mpirun -np 1 python3 -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
+alias mola_version="python3 -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
 
 alias mola_jobsqueue_sator="python -c 'import MOLA.JobManager as JM;JM.getCurrentJobsStatus()'"
 

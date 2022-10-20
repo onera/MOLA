@@ -2300,12 +2300,8 @@ def printEnvironment():
     print(' --> PUMA '+vPUMA)
 
     # turbo
-    try:
-        import turbo
-        # vTURBO = turbo.__version__
-        vTURBO = turbo.__file__.split('/')[-8]
-    except:
-        vTURBO = FAIL + 'UNAVAILABLE' + ENDC
+    vTURBO = os.getenv('TURBOVERSION', 'UNAVAILABLE')
+    if vTURBO == 'UNAVAILABLE': vTURBO = FAIL + vTURBO + ENDC
     print(' --> turbo '+vTURBO)
 
     # ErsatZ
