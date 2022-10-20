@@ -14,7 +14,7 @@ May be used in MODULE MODE or in TERMINAL MODE.
 Example: Move an entire directory from sator to spiro.
 
 -------------- Example of usage in MODULE MODE --------------
-python
+python3
 >>> import MOLA._cpmv_ as cpmv
 >>> cpmv.cpmvWrap4MultiServer('mv',
 '/tmp_user/sator/username/sandbox/',
@@ -23,13 +23,13 @@ python
 
 ------------- Example of usage in TERMINAL MODE -------------
 # REMEMBER: environment variables must be properly set
-alias cpmv='python $MOLA/_cpmv_.py'
+alias cpmv='python3 $MOLA/_cpmv_.py'
 
 # Then in terminal one may tape this:
 cpmv mv /tmp_user/sator/username/sandbox/ /scratchm/username/sandbox/
 
 -------------------------- IMPORTANT --------------------------
-This module must import standard python libraries only !!!
+This module must import standard python3 libraries only !!!
 Otherwise, calling this module in TERMINAL MODE will produce
 an error. Remember that even a usage as a MODULE will lead to
 a usage in TERMINAL MODE because of the function cpmvWrap4MultiServer
@@ -318,14 +318,14 @@ def cpmvWrap4MultiServer(mode,In,Out='none'):
             if   InAtServer == 'spiro': Host = usernameIn+'@'+'spiro-daaa'
             elif InAtServer == 'sator': Host = usernameIn+'@'+'sator'
             else: raise ValueError('BAD CONDITIONING')
-            CMD = 'python $MOLA/MOLA/_cpmv_.py %s_forced %s %s'%(mode,In,OutAuxiliary)
+            CMD = 'python3 $MOLA/MOLA/_cpmv_.py %s_forced %s %s'%(mode,In,OutAuxiliary)
             _launchSubprocess(Host,CMD)
 
             if   OutAtServer == 'spiro': Host = usernameIn+'@'+'spiro-daaa'
             elif OutAtServer == 'sator': Host = usernameIn+'@'+'sator'
             else: raise ValueError('BAD CONDITIONING')
             if In[-1] == os.path.sep: OutAuxiliary += os.path.sep
-            CMD = 'python $MOLA/MOLA/_cpmv_.py mv_forced %s %s'%(OutAuxiliary,Out)
+            CMD = 'python3 $MOLA/MOLA/_cpmv_.py mv_forced %s %s'%(OutAuxiliary,Out)
             _launchSubprocess(Host,CMD)
 
         elif any([InAtServer,OutAtServer]):
@@ -334,7 +334,7 @@ def cpmvWrap4MultiServer(mode,In,Out='none'):
             if Server == 'spiro': Server += '01'
             Host = User+'@'+Server
 
-            CMD = 'python $MOLA/MOLA/_cpmv_.py %s_forced %s %s'%(mode,In,Out)
+            CMD = 'python3 $MOLA/MOLA/_cpmv_.py %s_forced %s %s'%(mode,In,Out)
             _launchSubprocess(Host,CMD)
 
         else:
