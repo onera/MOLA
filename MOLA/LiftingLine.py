@@ -687,10 +687,9 @@ def computeSourceTerms(zone, SourceTermScale=1.0):
             BodyForce disk.
 
             .. important:: It must contain the fields:
-                ``Density``, ``MomentumX``,``MomentumY``, ``MomentumZ``,
-                ``EnergyStagnationDensity``, ``VelocityTangential``,
-                ``fx``, ``fy``, ``fz``, ``ft``
-                located at nodes (``FlowSolution`` container).
+                ``fx``, ``fy``, ``fz``, ``ft`` located at centers
+                (``FlowSolution#Centers`` container); ``VelocityTangential`` 
+                located at nodes (``FlowSolution`` container)
 
             .. note:: **zone** is modified (new cell-centered fields are added in
                 ``FlowSolution#SourceTerm`` container)
