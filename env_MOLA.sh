@@ -16,6 +16,8 @@ export TREELABSATOR=/tmp_user/sator/lbernard/TreeLab/dev
 export EXTPYLIBSATOR=/tmp_user/sator/lbernard/MOLA/Dev/ExternalPythonPackages
 export VPMVERSION=v0.1
 export PUMAVERSION=r337
+export TURBOVERSION=v1.2
+export ERSTAZVERSION=vT
 ###############################################################################
 
 
@@ -95,6 +97,13 @@ if [ "$MAC" = "spiro" ]; then
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
+    # turbo
+    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/spiro3_mpi/lib/python3.7/site-packages/:$PYTHONPATH
+
+    # ErstaZ
+    export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
+    export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
+
     source ~/.bashrc
 
 
@@ -136,6 +145,13 @@ elif [ "$MAC" = "visio" ]; then
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
+    # turbo 
+    export TURBOVERSION=UNAVAILABLE 
+
+    # ErstaZ
+    export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/visio
+    export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
+
 elif [ "$MAC" = "visung" ]; then
 
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
@@ -156,6 +172,13 @@ elif [ "$MAC" = "visung" ]; then
     export LD_LIBRARY_PATH=$VPMPATH:$VPMPATH/lib:$LD_LIBRARY_PATH
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
+
+    # turbo
+    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/eos-intel3_/lib/python3.6/site-packages/:$PYTHONPATH
+
+    # ErstaZ
+    export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/visio
+    export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
 
 elif [ "$MAC" = "ld" ]; then
     if [ "$EL8" ]; then
@@ -194,6 +217,13 @@ elif [ "$MAC" = "ld" ]; then
         export PYTHONPATH=$VPMPATH:$PYTHONPATH
         export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
+        # turbo 
+        export TURBOVERSION=UNAVAILABLE 
+
+        # ErstaZ
+        export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/centos8
+        export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
+
     else
         echo 'loading MOLA environment for CentOS 7'
         source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
@@ -214,6 +244,13 @@ elif [ "$MAC" = "ld" ]; then
         export LD_LIBRARY_PATH=$VPMPATH:$VPMPATH/lib:$LD_LIBRARY_PATH
         export PYTHONPATH=$VPMPATH:$PYTHONPATH
         export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
+
+        # turbo 
+        export TURBOVERSION=UNAVAILABLE 
+
+        # ErstaZ
+        export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/eos
+        export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
 
     fi
 
@@ -259,6 +296,12 @@ elif [ "$MAC" = "sator-new" ]; then
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
+    # turbo
+    export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
+    # Workaround to fix the bug described here: https://elsa-e.onera.fr/issues/10697
+    # It should be corrected in elsA v5.1.03 
+    export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/ETC/dev_cor_ticket10697/Dist/bin/sator_new21/lib/python3.7/site-packages:$PYTHONPATH
+
 else
     echo -e "\033[91mERROR: MACHINE $KC NOT INCLUDED IN MOLA ENVIRONMENT\033[0m"
     exit 0
@@ -288,7 +331,7 @@ alias python='python3'
 
 alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
 
-alias mola_version="python -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
+alias mola_version="python3 -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
 
 alias mola_jobsqueue_sator="python -c 'import MOLA.JobManager as JM;JM.getCurrentJobsStatus()'"
 

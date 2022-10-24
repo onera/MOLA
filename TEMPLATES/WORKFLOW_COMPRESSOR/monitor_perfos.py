@@ -53,7 +53,7 @@ def shortvarname(varname):
 for zone in zones:
 
     row = I.getName(zone).replace('PERFOS_', '')
-    figname = 'perfos_{}.pdf'.format(row)
+    figname = 'perfos_{}.png'.format(row)
 
     # Get variables in zone
     FS = I.getNodeFromType(zone, 'FlowSolution_t')
@@ -61,7 +61,7 @@ for zone in zones:
     varnames.remove('IterationNumber')
     varnames.remove('MassFlowOut')
     for var in copy.deepcopy(varnames):
-        if any([pattern in var for pattern in ['avg-', 'std-', 'rsd-']]):
+        if any([pattern in var for pattern in ['avg-', 'std-', 'rsd-', 'TemperatureStagnationRatio']]):
             varnames.remove(var)
     varnames = sorted(varnames, key=lambda k: ordering[k])
     Nvars = len(varnames)
@@ -180,7 +180,7 @@ if massflows.keys() != []:
     plt.ylabel('MassFlow (kg/s)')
     plt.legend(loc='best')
     plt.grid()
-    figname = "massflow.pdf"
+    figname = "massflow.png"
     print('Saving %s%s%s ...'%(J.CYAN,figname,J.ENDC))
     plt.savefig(figname, dpi=150, bbox_inches='tight')
     print(J.GREEN+'ok'+J.ENDC)
@@ -208,7 +208,7 @@ if ConvergenceHistory:
     plt.ylabel('Residuals')
     plt.legend(loc='best')
     plt.grid()
-    figname = "residuals.pdf"
+    figname = "residuals.png"
     print('Saving %s%s%s ...'%(J.CYAN,figname,J.ENDC))
     plt.savefig(figname, dpi=150, bbox_inches='tight')
     print(J.GREEN+'ok'+J.ENDC)

@@ -201,7 +201,7 @@ def getVars(zone, VariablesName, Container='FlowSolution'):
     return Pointers
 
 
-def getVars2Dict(zone,VariablesName,Container='FlowSolution'):
+def getVars2Dict(zone, VariablesName=None, Container='FlowSolution'):
     """
     Get a dict containing the numpy arrays from a *zone* of the variables
     specified in *VariablesName*.
@@ -211,7 +211,8 @@ def getVars2Dict(zone,VariablesName,Container='FlowSolution'):
         zone : zone
             The CGNS zone from which numpy arrays are being retreived
         VariablesName : :py:class:`list` of :py:class:`str`
-            List of the field names to be retreived
+            List of the field names to be retreived.
+            If : py:obj:`None`, all variables in the **Container** are retreived.
         Container : str
             The name of the node to look for the requested variable
             (e.g. ``'FlowSolution'``). Container should be at 1 depth level
@@ -260,6 +261,8 @@ def getVars2Dict(zone,VariablesName,Container='FlowSolution'):
     """
     Pointers = {}
     FlowSolution = I.getNodeFromName1(zone,Container)
+    if VariablesName is None:
+        VariablesName = [I.getName(n) for n in I.getNodesFromType1(FlowSolution, 'DataArray_t')]
     for v in VariablesName:
         node = I.getNodeFromName1(FlowSolution,v)
         if node is not None:
@@ -484,6 +487,39 @@ def getxyz(zone):
     '''
     return getx(zone), gety(zone), getz(zone)
 
+def getRadiusTheta(zone, axis=(1,0,0)):
+    '''
+    Get the radius and the angle theta.
+
+    Parameters
+    ----------
+
+        zone : zone
+            Zone PyTree node from where coordinates are being extracted
+
+        axis : tuple
+            Axis of the cylindrical frame of reference
+
+    Returns
+    -------
+
+        r : numpy.ndarray
+            radius
+
+        theta : numpy.ndarray
+            angle in radians
+
+    See also
+    --------
+    getx, gety, getz, getxy, getxyz
+    '''
+    x, y, z = getxyz(zone)
+    if axis != (1,0,0):
+        raise Exception('getRadiusTheta is available only for axis=(1,0,0)')
+
+    r = (y**2 + z**2)**0.5
+    theta = np.arctan2(z, y)
+    return r, theta
 
 def getNearestPointIndex(a,P):
     '''
@@ -2263,6 +2299,19 @@ def printEnvironment():
             vPUMA = FAIL + 'UNAVAILABLE' + ENDC
     print(' --> PUMA '+vPUMA)
 
+    # turbo
+    vTURBO = os.getenv('TURBOVERSION', 'UNAVAILABLE')
+    if vTURBO == 'UNAVAILABLE': vTURBO = FAIL + vTURBO + ENDC
+    print(' --> turbo '+vTURBO)
+
+    # ErsatZ
+    try:
+        import Ersatz
+        vERSATZ = Ersatz.__file__.split('/')[-4].lstrip('ersatZ_')
+    except:
+        vERSATZ = FAIL + 'UNAVAILABLE' + ENDC
+    print(' --> Ersatz '+vERSATZ)
+
 
     if totoV == 'Dev':
         print(WARN+'WARNING: you are using an UNSTABLE version of MOLA.\nConsider using a stable version.'+ENDC)
@@ -2354,3 +2403,87 @@ def getSignal(filename):
     except:
         pass
     return isOrder
+
+
+def rampFunction(iteri, iterf, vali, valf):
+    '''
+    Create a ramp function, going from **vali** to **valf** between **iteri** to **iterf**.
+    If **iteri**=**iterf**, then the return ramp function is a constant equal to **valf**.
+
+    Parameters
+    ----------
+
+        iteri, iterf, vali, valf : float
+
+    Returns
+    -------
+
+        f : function
+            Ramp function. Could be called in ``x`` with:
+
+            >> f(x)
+    '''
+    if iteri == iterf: 
+        return lambda x:  valf
+    slope = (valf-vali) / (iterf-iteri)
+    if vali == valf:
+        f = lambda x: vali*np.ones(np.shape(x))
+    elif vali < valf:
+        f = lambda x: np.maximum(vali, np.minimum(valf, slope*(x-iteri)+vali))
+    else:
+        f = lambda x: np.minimum(vali, np.maximum(valf, slope*(x-iteri)+vali))
+    return f
+
+
+def joinFamilies(t, pattern):
+    '''
+    In the CGNS tree t, gather all the Families <ROW_I>_<PATTERN>_<SUFFIXE> into
+    Families <ROW_I>_<PATTERN>, so as many as rows.
+    Useful to join all the row_i_HUB* or (row_i_SHROUD*) together
+
+    Parameters
+    ----------
+
+        t : PyTree
+            A PyTree read by Cassiopee
+
+        pattern : str
+            The pattern used to gather CGNS families. Should be for example 'HUB' or 'SHROUD'
+    '''
+    fam2remove = []
+    fam2keep = []
+    # Loop on the BCs in the tree
+    for bc in I.getNodesFromType(t, 'BC_t'):
+        # Get BC family name
+        famBC_node = I.getNodeFromType(bc, 'FamilyName_t')
+        famBC = I.getValue(famBC_node)
+        # Check if the pattern is present in FamilyBC name
+        if pattern not in famBC:
+            continue
+        # Split to get the short name based on pattern
+        split_fanBC = famBC.split(pattern)
+        assert len(split_fanBC) == 2, 'The pattern {} is present more than once in the FamilyBC {}. It must be more selective.'.format(
+            pattern, famBC)
+        preffix, suffix = split_fanBC
+        # Add the short name to the set fam2keep
+        short_name = '{}{}'.format(preffix, pattern)
+        if short_name not in fam2keep: 
+            fam2keep.append(short_name)
+        if suffix != '':
+            # Change the family name
+            I.setValue(famBC_node, '{}'.format(short_name))
+            if famBC not in fam2remove: 
+                fam2remove.append(famBC)
+
+    # Remove families
+    for fam in fam2remove:
+        print('Remove family {}'.format(fam))
+        I._rmNodesByNameAndType(t, fam, 'Family_t')
+
+    # Check that families to keep still exist
+    base = I.getNodeFromType(t, 'CGNSBase_t')
+    for fam in fam2keep:
+        fam_node = I.getNodeFromNameAndType(t, fam, 'Family_t')
+        if fam_node is None:
+            print('Add family {}'.format(fam))
+            I.newFamily(fam, parent=base)

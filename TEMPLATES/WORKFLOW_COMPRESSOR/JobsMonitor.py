@@ -1,11 +1,13 @@
 #!/usr/bin/python
-import MOLA.WorkflowCompressor as WF
+import numpy as np
 import matplotlib.pyplot as plt
+import MOLA.WorkflowCompressor as WF
 
 DIRECTORY_WORK = '/tmp_user/sator/tbontemp/rafale_rotor37/'
 
 # Get performance in a dictionary
-perfo = WF.printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=True)
+perfo = WF.printConfigurationStatusWithPerfo(
+    DIRECTORY_WORK, useLocalConfig=True, monitoredRow='row_1')
 
 
 linestyles = [dict(linestyle=ls, marker=m) for m in ['o', 's', 'd', 'h']

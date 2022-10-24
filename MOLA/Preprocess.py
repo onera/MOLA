@@ -2517,6 +2517,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         float(ReynoldsStressDissipationScale)]
 
     else:
+        AvailableTurbulenceModels = ['SA','BSL','BSL-V','SST-2003','SST','SST-V','Wilcox2006-klim','smith','SST-2003-LM2009','SSG/LRR-RSM-w2012']
         raise AttributeError('Turbulence model %s not implemented in workflow. Must be in: %s'%(TurbulenceModel,str(AvailableTurbulenceModels)))
     Fields         += FieldsTurbulence
     ReferenceState += ReferenceStateTurbulence
@@ -2780,7 +2781,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
     # Transition Settings
     if TransitionMode == 'NonLocalCriteria-LSTT':
         if TurbulenceModel == 'SST-2003-LM2009':
-            raise AttributeError(FAIL+"Modeling incoherency! cannot make Non-local transition criteria with Menter-Langtry turbulence model"+ENDC)
+            raise AttributeError(J.FAIL+"Modeling incoherency! cannot make Non-local transition criteria with Menter-Langtry turbulence model"+J.ENDC)
         addKeys4Model.update(dict(
         freqcomptrans     = 1,
         trans_crit        = 'in_ahd_gl_comp',
@@ -2814,7 +2815,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
     # Transition Settings
     if TransitionMode == 'NonLocalCriteria-Step':
         if TurbulenceModel == 'SST-2003-LM2009':
-            raise AttributeError(FAIL+"Modeling incoherency! cannot make Non-local transition criteria with Menter-Langtry turbulence model"+ENDC)
+            raise AttributeError(J.FAIL+"Modeling incoherency! cannot make Non-local transition criteria with Menter-Langtry turbulence model"+J.ENDC)
         addKeys4Model.update(dict(
         freqcomptrans     = 1,
         trans_crit        = 'in_ahd_comp',
@@ -2841,7 +2842,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
 
     elif TransitionMode == 'Imposed':
         if TurbulenceModel == 'SST-2003-LM2009':
-            raise AttributeError(FAIL+"Modeling incoherency! cannot make imposed transition with Menter-Langtry turbulence model"+ENDC)
+            raise AttributeError(J.FAIL+"Modeling incoherency! cannot make imposed transition with Menter-Langtry turbulence model"+J.ENDC)
         addKeys4Model.update(dict(
         intermittency       = 'full',
         interm_thick_coef   = 1.2,
@@ -3608,6 +3609,7 @@ def initializeFlowSolution(t, Initialization, ReferenceValues):
         if not I.getNodeFromName1(zone, 'FlowSolution#Init'):
             MSG = 'FlowSolution#Init is missing in zone {}'.format(I.getName(zone))
             raise ValueError(J.FAIL + MSG + J.ENDC)
+        
 
 def initializeFlowSolutionFromReferenceValues(t, ReferenceValues):
     '''

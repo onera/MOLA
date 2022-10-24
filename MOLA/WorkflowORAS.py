@@ -32,9 +32,9 @@ def prepareMesh4ElsA(mesh, **kwargs):
     return WC.prepareMesh4ElsA(mesh, **kwargs)
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
-        NumericalParams={}, Extractions={},
-        writeOutputFields=True, Initialization={'method':'uniform'}, TurboConfiguration = {},
-        BoundaryConditions = [],bladeFamilyNames =['Blade'],
+        NumericalParams={}, Extractions=[],
+        writeOutputFields=True, Initialization={'method':'uniform'}, TurboConfiguration={},
+        BoundaryConditions=[],bladeFamilyNames=['Blade'],
         JobInformation={}, SubmitJob=False, FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
     '''
     This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
