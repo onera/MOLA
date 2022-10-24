@@ -3423,8 +3423,14 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
                 else:
                     raise Exception('valve_type={} not taken into account yet'.format(BC['valve_type']))
 
-        if 'Initialization' in WorkflowParams and i != 0:
-            WorkflowParams.pop('Initialization')
+        if 'Initialization' in WorkflowParams:
+            if i != 0:
+                WorkflowParams.pop('Initialization')
+            elif 'file' in WorkflowParams['Initialization']:
+                filename = WorkflowParams['Initialization']['file']
+                if len(filename.split('/'))>1:
+                    # This is a path: remove it for writing in JobConfiguration.py
+                    WorkflowParams['Initialization']['file'] = '../../DISPATCHER/' + filename.split('/')[-1]
 
         if isinstance(WorkflowParams['mesh'], list):
             speedIndex = RotationSpeedRange.index(RotationSpeed)
@@ -3476,11 +3482,6 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
         otherFiles.extend(kwargs['mesh'])
     else:
         otherFiles.append(kwargs['mesh'])
-    for filename in otherFiles:
-        if filename.startswith('/') or filename.startswith('../') \
-            or len(filename.split('/'))>1:
-            MSG = 'Input files must be inside the submission repository (not the case for {})'.format(filename)
-            raise Exception(J.FAIL + MSG + J.ENDC)
 
     JM.launchJobsConfiguration(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_COMPRESSOR', otherFiles=otherFiles)
 

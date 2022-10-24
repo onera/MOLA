@@ -97,7 +97,7 @@ def cpmv(mode, In, Out='none'):
         else:
             if sys.version_info.major == 3 and sys.version_info.minor > 2:
                 os.makedirs(os.path.dirname(Out), exist_ok=True)
-                shutil.copy2(In,Out,follow_symlinks=False)
+                shutil.copy2(In,Out,follow_symlinks=True)
             else:
                 try:
                     shutil.copy2(In,Out)
