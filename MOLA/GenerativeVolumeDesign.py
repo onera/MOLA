@@ -11,7 +11,7 @@ First creation:
 '''
 
 # System modules
-import sys, time, timeit
+import sys, os, time, timeit
 from copy import deepcopy as cdeep
 import numpy as np
 import numpy.linalg as la
@@ -3144,3 +3144,480 @@ def trimCartesianGridAtOrigin(t, trim_plane='XZ', reverse=False,
     I._correctPyTree(zones2Keep, level=3)
 
     return zones2Keep
+
+
+def buildCartesianBackground(t, InputMeshes):
+    '''
+    Make automatic generation of cartesian background grid using overlap and 
+    motion user-data. It is activated by a  special item of the list
+    **InputMeshes** (as documented in :py:func:`MOLA.Preprocess.prepareMesh4ElsA`),
+    which contains a :py:class:`dict` including a value ``'GENERATE'`` for the
+    keyword ``file``.
+
+    .. note::
+        this function is automatically called by :py:func:`MOLA.Preprocess.prepareMesh4ElsA`,
+        and more specifically by :py:func:`MOLA.Preprocess.getMeshesAssembled`.
+
+    .. hint::
+        by default, snear size around existing *BCOverlap* is taking by calculating 
+        the median cell height normal to the masks. This should be optimum for 
+        overset technique. If user want to tune this value, this can be done 
+        through OversetOptions :py:class:`dict` using a keyword ``'Snear'`` 
+        and a desired :py:class:`float` value.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Assembled PyTree as obtained from :py:func:`MOLA.Preprocess.getMeshesAssembled`
+
+        InputMeshes : :py:class:`list` of :py:class:`dict`
+            preprocessing information provided by user as defined in
+            :py:func:`prepareMesh4ElsA` doc. On of the items of **InputMeshes**
+            must be a :py:class:`dict` including a value ``'GENERATE'`` 
+            associated to keyword ``file``:
+
+            >>> [ dict(file='GENERATE', ...)]
+
+            In this case, all the pairs of keyword/values documented in 
+            :py:func:`MOLA.Preprocess.prepareMesh4ElsA` are still valid, and 
+            some additional options are proposed for controlling the grid 
+            generation:
+
+
+            * ``extension`` : :py:class:`float`
+                the maximum extension (farfield) of the cartesian grid, in 
+                meters. If not provided, then next keyword ``extension_factor`` 
+                is employed.
+
+            * ``extension_factor`` : :py:class:`float`
+                If **extension** is not provided, then the extension is calculated
+                using the formula ``extension_factor * diag`` where ``diag`` is 
+                the cartesian diagonal of the bounding-box covering all overlaps
+                of the provided grid.
+
+            * ``AnalyticalRegions`` : :py:class:`list` of :py:class:`dict`
+                Each item of this :py:class:`list` is a :py:class:`dict` that 
+                defines a region (analytically) where refinement is requested.
+                Pair of keyword/arguments of the :py:class:`dict` are:
+
+                * ``geometry`` : :py:class:`str`
+                    Indicates the geometry of the analytical refinement component.
+                    Can be one of:
+
+                    * ``'cylinder'``
+                        the refinement region is a cylinder with the following 
+                        relevant parameters: ``snear``, ``diameter``, ``base_center``,
+                        ``height``, ``direction`` and ``azimutal_resolution``.
+                        
+
+                    * ``'box'``
+                        the refinement region is a box with the following 
+                        relevant parameters: ``snear``, ``length``,
+                        ``base_center``,``width``,``height``,
+                        ``width_direction``,``length_direction``,
+                        ``height_direction``.
+
+                * ``snear`` : :py:class:`float`
+                    cartesian cell size desired around this region. If not 
+                    provided, it will use the average median cell height around 
+                    overlap masks in the provided grid.
+
+                * ``diameter`` : :py:class:`float`
+                    diameter of the cylinder.
+                    Only relevant if ``geometry='cylinder'``.
+
+                * ``base_center`` : :py:class:`list` of 3 :py:class:`float`
+                    coordinates of the center of the base of the cylinder or 
+                    of the box.
+                    Only relevant if ``geometry='cylinder' or 'box'``.
+
+                * ``height`` : :py:class:`list` of 3 :py:class:`float`
+                    height of the cylinder or length of one of the 3 sides of 
+                    a box.
+                    Only relevant if ``geometry='cylinder' or 'box'``.
+
+                * ``direction`` : :py:class:`list` of 3 :py:class:`float`
+                    vector direction of the cylinder, from base to base.
+                    Only relevant if ``geometry='cylinder'``.
+
+                * ``azimutal_resolution`` : :py:class:`float`
+                    Angle in degrees of the resolution taken for the cylinder.
+                    A Value of 20 deg is usually good enough.
+                    Only relevant if ``geometry='cylinder'``.
+
+                * ``width`` : :py:class:`float`
+                    length of one of the 3 sides of a box.
+                    Only relevant if ``geometry='box'``.
+
+                * ``length`` : :py:class:`float`
+                    length of one of the 3 sides of a box.
+                    Only relevant if ``geometry='box'``.
+
+                * ``width_direction`` : :py:class:`list` of 3 :py:class:`float`
+                    vector direction of the width side of the box.
+                    Only relevant if ``geometry='box'``.
+
+                * ``length_direction`` : :py:class:`list` of 3 :py:class:`float`
+                    vector direction of the length side of the box.
+                    Only relevant if ``geometry='box'``.
+
+                * ``height_direction`` : :py:class:`list` of 3 :py:class:`float`
+                    vector direction of the height side of the box.
+                    Only relevant if ``geometry='box'``.
+    
+            * ``UserDefinedRegions`` : :py:class:`list` of :py:class:`dict`
+                Each item of this :py:class:`list` is a :py:class:`dict` that 
+                defines a region (existing file) where refinement is requested.
+                Pair of keyword/arguments of the :py:class:`dict` are:
+
+                * ``file`` : :py:class:`str`
+                    full or relative path of the file containing the geometry
+
+                * ``snear`` : :py:class:`float`
+                    cartesian cell size desired around this region. If not 
+                    provided, it will use the average median cell height around 
+                    overlap masks in the provided grid.
+
+            * trim_options : :py:class:`dict`
+                Allows for trimming the final grid (for example, for making a
+                simulation with a symmetry plane). It is a :py:class:`dict` 
+                whose pair of keyword/arguments are literally the options of
+                :py:func:`trimCartesianGridAtOrigin`
+
+    Returns
+    -------
+
+        t_cart : PyTree
+            resulting cartesian grid
+    '''
+    GenerationInfo = False
+    for meshInfo in InputMeshes:
+        if meshInfo['file'] == 'GENERATE':
+            GenerationInfo = meshInfo
+    if not GenerationInfo: return
+
+    
+    from . import ExtractSurfacesProcessor as ESP
+    from .Preprocess import getMeshInfoFromBaseName, setBoundaryConditions, connectMesh
+    from .UnsteadyOverset import _getRotorMotionParameters, _addAzimutalGhostComponent
+    import Converter.elsAProfile as EP
+    import Apps.Mesh.Cart as CART
+
+    print('extracting offset surfaces...')
+    baseName2body = dict()
+    for base in I.getBases(t):
+        meshInfo = getMeshInfoFromBaseName(base[0], InputMeshes)
+        try: NCellsOffset = meshInfo['OversetOptions']['NCellsOffset']
+        except: NCellsOffset = None
+
+        tR = C.newPyTree([])
+        tR[2].append(I.copyRef(base))
+        if NCellsOffset:
+            connectMesh(tR, [meshInfo])
+            setBoundaryConditions(tR, [meshInfo])
+            EP._overlapGC2BC(tR)
+            FamilyName = 'F_OV_'+base[0]
+            body = ESP.extractSurfacesByOffsetCellsFromBCFamilyName(tR, FamilyName,
+                                                                NCellsOffset)
+        else:
+            body = C.extractBCOfType(tR, 'BCOverlap', reorder=True)
+        baseName2body[base[0]] = body
+
+    print('generating refinement regions...')
+    bodies = []
+    for meshInfo in InputMeshes:
+        if meshInfo['file'] == 'GENERATE': continue
+        baseName = meshInfo['baseName']
+
+        if 'Motion' in meshInfo:
+            rot_ctr, rot_axis, scale, Dpsi = _getRotorMotionParameters(meshInfo)
+            new_bodies = _addAzimutalGhostComponent(baseName2body[baseName],
+                                       rot_ctr, rot_axis, scale, Dpsi)
+        else:
+            try: new_bodies = baseName2body[baseName]
+            except KeyError: new_bodies = []
+
+        try: imposed_snear = meshInfo['OversetOptions']['Snear']
+        except: imposed_snear = None
+        _setSnearAtBodies(new_bodies, imposed_snear)
+
+        bodies.extend(new_bodies)
+
+    all_snear = []
+    for b in bodies:
+        solver_define = I.getNodeFromName1(b, '.Solver#define')
+        if not solver_define: continue
+        try: all_snear+=[I.getValue(I.getNodeFromName1(solver_define,'snear'))]
+        except: continue
+    mean_snear = np.mean(all_snear)
+
+    
+    bodies.extend(_generateAnalyticalRegions(GenerationInfo, mean_snear))
+    bodies.extend(_addUserDefinedRegions(GenerationInfo, mean_snear))
+    I._correctPyTree(bodies,level=3)
+    _setCartesianExtension(GenerationInfo, bodies)
+
+    from .Preprocess import DIRECTORY_OVERSET
+    try: os.makedirs(DIRECTORY_OVERSET)
+    except: pass
+
+    C.convertPyTree2File(bodies, os.path.join(DIRECTORY_OVERSET,
+                                    'refinement_bodies.cgns'))
+
+    t_cart = _generateCartesianFromProcessedBodies(GenerationInfo, bodies)
+    try: trim_options = GenerationInfo['trim_options']
+    except: trim_options = None
+    if trim_options: t_cart = trimCartesianGridAtOrigin(t_cart, **trim_options)
+
+    return t_cart
+
+
+
+
+def _getFrameFromInitialAxis(direction):
+    norm = np.linalg.norm
+
+    def misalignmentInDegrees(a, b):
+        return np.abs(np.rad2deg( np.arccos( a.dot(b) / (norm(a)*norm(b)) ) ))
+
+    InitialAzimutDirection = np.array([1.0,0.0,0.0])
+    angle = misalignmentInDegrees(InitialAzimutDirection, direction)
+    while angle < 5.:
+        InitialAzimutDirection[0] += 0.01
+        InitialAzimutDirection[1] += 0.02
+        InitialAzimutDirection[2] += 0.03
+        InitialAzimutDirection/= norm(InitialAzimutDirection)
+        angle = misalignmentInDegrees(InitialAzimutDirection, direction)
+
+    # Force initial azimut direction to be on the Rotation plane
+    CoplanarBinormalVector = np.cross(InitialAzimutDirection, direction)
+    InitialAzimutDirection = np.cross(direction, CoplanarBinormalVector)
+    InitialAzimutDirection /= norm(InitialAzimutDirection)
+    sweepwise = np.cross(direction,InitialAzimutDirection)   
+
+    PropFrame = (tuple(InitialAzimutDirection),     # Blade-wise
+                tuple(sweepwise), # sweep-wise
+                tuple(direction))   # Rotation axis
+
+    return PropFrame
+
+def _generateAnalyticalRegions(GenerationInfo, mean_snear):
+    
+    try: AnalyticalRegions = GenerationInfo['AnalyticalRegions']
+    except: return []
+    
+    import Apps.Mesh.Cart as CART
+
+    all_bodies = []
+    for region in AnalyticalRegions:
+        geom = region['geometry']
+        
+        if geom == 'cylinder':
+            diameter = region['diameter']
+
+            try: base_center = np.array(region['base_center'],dtype=float)
+            except: base_center = np.array([0,0,0],dtype=float)
+
+            try: height = region['height']
+            except: height = diameter
+
+            try: direction = np.array(region['direction'],dtype=float)
+            except: direction = np.array([1,0,0],dtype=float)
+            direction /= np.linalg.norm(direction)
+
+            try: azimutal_resolution = region['azimutal_resolution']
+            except: azimutal_resolution = 20.0
+
+            try: snear = region['snear']
+            except: snear = mean_snear
+
+            nb_parts = int(90.0/azimutal_resolution)-1
+            disc = D.disc((0,0,0), 0.5*diameter, N=nb_parts)
+            T._reorder(disc,(1,-2,3))
+            nb_disc = int(np.round(height/snear))
+            bodies = [T.translate(disc,(0,0,snear*i)) for i in range(nb_disc)]
+            flat_bodies = []
+            for body_set in bodies:
+                flat_bodies.extend(body_set)
+            bodies = flat_bodies
+            I._correctPyTree(bodies, level=3)
+            NewFrame = _getFrameFromInitialAxis(direction)
+            T._rotate(bodies, (0,0,0), ((1,0,0),(0,1,0),(0,0,1)), NewFrame)
+            T._translate(bodies, base_center)
+
+        elif geom == 'box':
+
+            length = region['length']
+
+            try: snear = region['snear']
+            except: snear = mean_snear
+
+            try: base_center = np.array(region['base_center'],dtype=float)
+            except: base_center = np.array([0,0,0],dtype=float)
+
+            try: width = region['width']
+            except: width = length
+
+            try: height = region['height']
+            except: height = length
+
+            # width direction
+            try:
+                width_direction = np.array(region['width_direction'],dtype=float)
+            except:
+                try:
+                    ld = np.array(region['length_direction'],dtype=float)
+                    ld /= np.linalg.norm(ld)
+                    hd = np.array(region['height_direction'],dtype=float)
+                    hd /= np.linalg.norm(hd)
+                    width_direction = np.cross(hd,ld)
+                except:
+                    width_direction = np.array([1,0,0],dtype=float)
+            width_direction /= np.linalg.norm(width_direction)
+            region['width_direction'] = width_direction
+
+            # height direction
+            try:
+                height_direction = np.array(region['height_direction'],dtype=float)
+            except:
+                try:
+                    ld = np.array(region['length_direction'],dtype=float)
+                    ld /= np.linalg.norm(ld)
+                    wd = np.array(region['width_direction'],dtype=float)
+                    wd /= np.linalg.norm(wd)
+                    height_direction = np.cross(ld,wd)
+                except:
+                    height_direction = np.array([0,1,0],dtype=float)
+            height_direction /= np.linalg.norm(height_direction)
+            region['height_direction'] = height_direction
+
+            # length direction
+            wd = np.array(region['width_direction'],dtype=float)
+            hd = np.array(region['height_direction'],dtype=float)
+            length_direction = np.cross(wd,hd)
+            region['length_direction'] = length_direction
+
+            cart = G.cart((-width/2,-height/2,0),(width, height,1),(2,2,1))
+            nb_bodies = int(np.round(length/snear))
+            bodies = [T.translate(cart,(0,0,snear*i)) for i in range(nb_bodies)]
+            I._correctPyTree(bodies, level=3)
+            T._rotate(bodies, (0,0,0), ((1,0,0),(0,1,0),(0,0,1)),
+                     (tuple(region['width_direction']),
+                      tuple(region['height_direction']),
+                      tuple(region['length_direction'])))
+            T._translate(bodies, base_center)
+            
+        else:
+            raise ValueError('geometry "%s" not implemented'%geom)
+
+        CART._setSnear(bodies, snear)
+        all_bodies.extend(bodies)
+
+    return all_bodies
+
+
+def _addUserDefinedRegions(GenerationInfo, mean_snear):
+    
+    try: UserDefinedRegions = GenerationInfo['UserDefinedRegions']
+    except: return []
+
+    import Apps.Mesh.Cart as CART
+
+    bodies = []
+    for region in UserDefinedRegions:
+        t = C.convertFile2PyTree(region['file'])
+        try: snear = region['snear']
+        except: snear = mean_snear
+        new_bodies = []
+        for zone in I.getZones(t):
+            topo, Ni,Nj,Nk, dim = I.getZoneDim(zone)
+
+            if dim == 2:
+                new_bodies.append( zone )
+            elif dim ==3:
+                if topo == 'Structured':
+                    slices = []
+                    for i in range(1,Ni+1):
+                        slices += [ T.subzone(zone,(i,1,1),(i,Nj,Nk)) ]
+                    new_bodies.extend(slices)
+                else:
+                    new_bodies.extend(I.getZones(P.exteriorFaces(zone)))
+            else:
+                raise ValueError('refinement regions must be at least 2D')
+    
+        CART._setSnear(new_bodies, snear)
+        bodies.extend(new_bodies)
+    
+    I._correctPyTree(bodies, level=3)
+
+    return bodies
+
+
+
+def _setSnearAtBodies(bodies, imposed_snear=None):
+    import Apps.Mesh.Cart as CART
+    for body in I.getZones(bodies):
+        if imposed_snear:
+            CART._setSnear(body, imposed_snear)
+            continue
+
+        offset_info = I.getNodeFromName1(body,'.MOLA#Offset')
+        if offset_info:
+            heights_info = I.getNodesFromName(offset_info,'MedianHeight*')
+        else:
+            heights_info = []
+        
+        if heights_info:
+            snear = np.mean([I.getValue(n) for n in heights_info])
+        else:
+            tri = C.convertArray2Tetra(body)
+            G._getCircumCircleMap(tri)
+            r = J.getVars(body, ['ccradius'], Container=I.__FlowSolutionCenters__)
+            snear = np.median(r)
+        CART._setSnear(body, snear)
+
+def _setCartesianExtension(GenerationInfo, bodies):
+    import Apps.Mesh.Cart as CART
+
+    try:
+        extension = GenerationInfo['extension']
+    except:
+        try: extension_factor = GenerationInfo['extension_factor']
+        except: extension_factor = 5
+        diag = np.linalg.norm(np.diff(np.array(G.bbox(bodies)).reshape((2,3)).T,axis=1))
+        extension = extension_factor * diag
+    CART._setDfar(bodies, extension)
+
+
+def _generateCartesianFromProcessedBodies(GenerationInfo, bodies):
+    # TODO make this call MPI parallel
+    import Apps.Mesh.Cart as CART
+
+    try: vmin = GenerationInfo['MinimumNumberOfPointsPerDirection']
+    except: vmin = 5
+
+    try: sizeMax = GenerationInfo['MaximumNumberOfPoints']
+    except: sizeMax = 90000
+
+    try: generateCartMesh_kwargs = GenerationInfo['generateCartMesh_kwargs']
+    except: generateCartMesh_kwargs = dict(vmin=vmin,sizeMax=sizeMax,
+                                           ext=0, dimPb=3, expand=0)
+
+    GenerationInfo['Connection'] = [ dict(type='Match', tolerance=1e-8),
+                                     dict(type='NearMatch', tolerance=1e-8)]
+    
+    if 'baseName' not in GenerationInfo:
+        GenerationInfo['baseName'] = 'BACKGROUND'
+
+    FineRegion = C.newPyTree(['RefinementRegions', bodies])
+    I._correctPyTree(FineRegion,level=3)
+    t = CART.generateCartMesh(FineRegion, **generateCartMesh_kwargs)
+    base = I.getBases(t)[0]
+    base[0] = GenerationInfo['baseName']
+    I._rmNodesByName(t,'.Solver#Param')
+    I._rmNodesByName(t,'ZoneBC')
+    I._rmNodesByName(t,'ZoneGridConnectivity')
+    J.set(base,'.MOLA#InputMesh',**GenerationInfo)
+
+    return t

@@ -92,9 +92,8 @@ Cmpi.barrier()
 
 
 # ========================== LAUNCH ELSA ========================== #
-
+import elsA_user
 if not FULL_CGNS_MODE:
-    import elsA_user
 
     Cfdpb = elsA_user.cfdpb(name='cfd')
     Mod   = elsA_user.model(name='Mod')
@@ -121,11 +120,13 @@ if not FULL_CGNS_MODE:
                         f_cfl.set(v,  funDict[v])
                 Num.attach('cfl', function=f_cfl)
 
+    
 import elsAxdt
 CO.elsAxdt = elsAxdt
 
 e=elsAxdt.XdtCGNS(FILE_CGNS)
 
+CO.loadUnsteadyMasks(Skeleton, e)
 
 e.action=elsAxdt.COMPUTE
 e.mode=elsAxdt.READ_ALL
@@ -133,7 +134,6 @@ e.mode=elsAxdt.READ_ALL
 
 e.compute()
 
-t = CO.extractFields(Skeleton)
 
 # save arrays
 arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,

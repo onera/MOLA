@@ -860,6 +860,7 @@ def updateJobFile(jobTemplate='job_template.sh', JobName=None, AER=None,
 
         with open(jobTemplate, 'w') as f:
             f.write(JobText)
+        os.chmod(jobTemplate, 0o777)
 
     if DIRECTORY_WORK:
         repatriate(jobTemplate, os.path.join(DIRECTORY_WORK, jobTemplate),

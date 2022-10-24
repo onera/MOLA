@@ -104,9 +104,6 @@ if [ "$MAC" = "spiro" ]; then
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
     export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
 
-    source ~/.bashrc
-
-
 elif [ "$MAC" = "visio" ]; then
     export ELSAVERSION=UNAVAILABLE # TODO adapt this once #10587 fixed
     echo -e "\033[93mWARNING: elsA v5.1.01 is not installed yet in VISIO CentOS 6\033[0m"

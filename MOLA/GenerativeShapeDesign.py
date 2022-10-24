@@ -1030,7 +1030,8 @@ def closeWingTipAndRoot(wingsurface, tip_window='jmax', close_root=True,
             root = closeAirfoil(rootContour, Topology='ThickTE_simple',
                                 options=dict(NPtsUnion=airfoil_top2bottom_NPts,
                                 TEdetectionAngleThreshold=TEdetectionAngleThreshold))
-            root, = I.getZones(root)
+            root = I.getZones(root)[0]
+            T._reorder(root,(1,-2,3))
             zones.append(root)
 
         if AirfoilIsOpen:
@@ -1057,6 +1058,7 @@ def closeWingTipAndRoot(wingsurface, tip_window='jmax', close_root=True,
             root = closeAirfoil(rootContour, Topology='SharpTE_TFITri',
                                 options=dict(NPtsUnion=airfoil_top2bottom_NPts,
                                 TFITriAbscissa=sharp_TrailingEdge_TFI_chord_ref))
+            T._reorder(root,(1,-2,3))
             zones.extend(root)
 
     for i,t in enumerate(I.getZones(tip)): t[0]='tip.%d'%i

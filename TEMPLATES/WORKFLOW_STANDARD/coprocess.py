@@ -51,6 +51,7 @@ BodyForceInitialIteration = CO.getOption('BodyForceInitialIteration', default=10
 ItersMinEvenIfConverged = CO.getOption('ItersMinEvenIfConverged', default=1e3)
 ConvergenceCriteria       = CO.getOption('ConvergenceCriteria', default=[])
 RequestedStatistics       = CO.getOption('RequestedStatistics', default=[])
+TagSurfacesWithIteration  = CO.getOption('TagSurfacesWithIteration', default=False)
 
 
 # BEWARE! state 16 => triggers *before* iteration, which means
@@ -126,7 +127,8 @@ if ENTER_COUPLING:
 
     if SAVE_SURFACES:
         surfs = CO.extractSurfaces(t, setup.Extractions)
-        CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
+        CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES), 
+                      tagWithIteration=TagSurfacesWithIteration)
 
 
     if SAVE_BODYFORCE:
@@ -141,8 +143,8 @@ if ENTER_COUPLING:
             if rank==0:
                 with open('COMPLETED','w') as f: f.write('COMPLETED')
 
-        CO.printCo('TERMINATING COMPUTATION', proc=0, color=CO.GREEN)
         CO.updateAndWriteSetup(setup)
+        Cmpi.barrier()
         elsAxdt.safeInterrupt()
 
 

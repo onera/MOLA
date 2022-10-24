@@ -20,6 +20,7 @@ import glob
 import numpy as np
 from itertools import product
 from timeit import default_timer as tic
+from fnmatch import fnmatch
 
 import Converter.PyTree as C
 import Converter.Internal as I
@@ -31,6 +32,8 @@ WARN  = '\033[93m'
 MAGE  = '\033[95m'
 CYAN  = '\033[96m'
 ENDC  = '\033[0m'
+BOLD = '\033[1m'
+UNDERLINE = '\033[4m'
 
 
 def set(parent, childname, childType='UserDefinedData_t', **kwargs):
@@ -64,19 +67,30 @@ def set(parent, childname, childType='UserDefinedData_t', **kwargs):
     '''
     children = []
     SubChildren = []
+    SubSet = []
     for v in kwargs:
         if isinstance(kwargs[v], dict):
             SubChildren += [[v,kwargs[v]]]
-        elif isinstance(kwargs[v], list) and len(kwargs[v])>0:
-            if isinstance(kwargs[v][0], str):
-                value = ' '.join(kwargs[v])
+        elif isinstance(kwargs[v], list):
+            if len(kwargs[v])>0:
+                if isinstance(kwargs[v][0], str):
+                    value = ' '.join(kwargs[v])
+                elif isinstance(kwargs[v][0], dict):
+                    p = I.createNode(v, childType)
+                    for i in range(len(kwargs[v])):
+                        set(p, 'set.%d'%i, **kwargs[v][i])
+                    SubSet += [p]
+                    continue
+                else:
+                    value = np.atleast_1d(kwargs[v])
             else:
-                value = np.atleast_1d(kwargs[v])
+                value = None
             children += [[v,value]]
         else:
             children += [[v,kwargs[v]]]
     _addSetOfNodes(parent,childname,children, type1=childType)
     NewNode = I.getNodeFromName1(parent,childname)
+    NewNode[2].extend(SubSet)
     for sc in SubChildren: set(NewNode, sc[0], **sc[1])
 
     return get(parent, childname)
@@ -2404,7 +2418,6 @@ def getSignal(filename):
         pass
     return isOrder
 
-
 def rampFunction(iteri, iterf, vali, valf):
     '''
     Create a ramp function, going from **vali** to **valf** between **iteri** to **iterf**.
@@ -2487,3 +2500,64 @@ def joinFamilies(t, pattern):
         if fam_node is None:
             print('Add family {}'.format(fam))
             I.newFamily(fam, parent=base)
+
+def _getBaseWithZoneName(t,zone_name):
+    for base in I.getBases(t):
+        for child in base[2]:
+            if child[0] == zone_name and child[3] == 'Zone_t':
+                return base
+
+def zoneOfFamily(zone, family_name, wildcard_used=False):
+    families = I.getNodesFromType1(zone,'FamilyName_t')
+    families += I.getNodesFromType1(zone,'AdditionalFamilyName_t')
+    for f in families:
+        if wildcard_used:
+            if fnmatch(I.getValue(f), family_name): return True
+        elif f[0] == family_name: return True
+    return False
+
+def selectZones(t, baseName=None, familyName=None, zoneName=None):
+    '''
+    Gather zones contained in **t** such that they verify a given set of 
+    conditions defined by pair of keyword-argument. All conditions are taken 
+    as ``AND`` condition (all must be verified simultaneously).
+
+    .. note::
+        if a condition is given the value :py:obj:`None`, then it is interpreted
+        as *any* (criterion is verified).
+
+    Parameters
+    ----------
+
+        t : PyTree
+            input tree where zones will be selected
+
+        baseName : str
+            select only zones that are contained in a base name **baseName**.
+
+            .. hint:: wildcards are accepted (e.g. ``Iso*``)
+            
+        familyName : str
+            select only zones that belongs to a family named **familyName**.
+
+            .. hint:: wildcards are accepted (e.g. ``BLADE*``)
+
+        zoneName : str
+            select only zones that has name **zoneName**.
+
+            .. hint:: wildcards are accepted (e.g. ``cart*``)
+
+    Returns
+    -------
+
+        zones : :py:class:`list` of zone
+            zones verifying the selection conditions
+    '''
+    allzones = I.getZones(t)
+    zones = []
+    for zone in allzones:
+        zoneWithBaseName = _getBaseWithZoneName(t,zone[0])[0]
+        BaseMatch = fnmatch(zoneWithBaseName, baseName) if baseName is not None else True
+        FamilyMatch = zoneOfFamily(zone, familyName, wildcard_used=True) if familyName is not None else True
+        ZoneMatch = fnmatch(zone[0], zoneName) if zoneName is not None else True
+        if BaseMatch == ZoneMatch == FamilyMatch == True: zones += [ zone ]

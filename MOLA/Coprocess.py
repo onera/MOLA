@@ -248,6 +248,25 @@ def extractSurfaces(t, Extractions):
                 Name of a zone Family. The extraction is performed only in zones
                 with this ``FamilyName``.
 
+            * ``AllowedFields`` : :py:class:`str`, :py:class:`list` of :py:class:`str` or :py:class:`bool`
+                Specifies the allowed field names to be stored in the surfaces.
+                If *AllowedFields* is ``'all'`` or :py:obj:`True`, then all fields
+                are kept in surfaces (default behavior).
+                If *AllowedFields* is a :py:class:`list` of :py:class:`str`, then 
+                only fields with corresponding name are kept in surfaces, if 
+                available.
+
+                .. hint::
+                    if *AllowedFields* is :py:obj:`False` or :py:obj:`None` or 
+                    an empty list ``[]`` then only coordinates are kept in final
+                    surfaces. This is optimum for plotting q-criterion iso-surfaces
+                    without coloring.
+
+                .. danger::
+                    if you are making an Overset type of simulation, do not 
+                    forget to include the field ``'cellN'`` to *AllowedFields*
+                    if you wish to keep the blanking information
+
     Returns
     -------
 
@@ -267,6 +286,20 @@ def extractSurfaces(t, Extractions):
         J.set(base, '.ExtractionInfo', **ExtractionInfo)
         return base
 
+    def keepOnlyAllowedFields(zones, AllowedFields):
+        if not AllowedFields:
+            I._rmNodesByType(zones,'FlowSolution_t')
+        elif isinstance(AllowedFields, list):
+            for zone in zones:
+                for fs in I.getNodesFromType1(zone, 'FlowSolution_t'):
+                    fields2remove = []
+                    for field in I.getChildren(fs):
+                        fieldName = I.getName(field)
+                        fieldType = I.getType(field)
+                        if fieldType == 'DataArray_t' and fieldName not in AllowedFields:
+                            fields2remove += [ field ]
+                    for field in fields2remove: I.rmNode(fs,field)
+
     t = I.renameNode(t, 'FlowSolution#Init', 'FlowSolution#Centers')
     I._renameNode(t, 'FlowSolution#Height', 'FlowSolution')
     I._rmNodesByName(t, 'FlowSolution#EndOfRun*')
@@ -279,6 +312,15 @@ def extractSurfaces(t, Extractions):
     for Extraction in Extractions:
         TypeOfExtraction = Extraction['type']
         ExtractionInfo = copy.deepcopy(Extraction)
+
+        try: AllowedFields = ExtractionInfo['AllowedFields']
+        except KeyError: AllowedFields = True
+
+
+        if isinstance(AllowedFields,str) and AllowedFields.lower() != 'all':
+            AllowedFields = [ AllowedFields ]
+
+
         if 'family' in Extraction:
             Tree4Extraction = I.copyTree(PartialTree)
             for base in I.getBases(Tree4Extraction):
@@ -298,6 +340,7 @@ def extractSurfaces(t, Extractions):
                     zones = C.extractBCOfName(Tree4Extraction,'FamilySpecified:'+BCFamilyName, extrapFlow=False)
                     ExtractionInfo['type'] = 'BC'
                     ExtractionInfo['BCType'] = BCType
+                    keepOnlyAllowedFields(zones, AllowedFields)
                     addBase2SurfacesTree(BCFamilyName)
 
         elif TypeOfExtraction.startswith('BC'):
@@ -306,6 +349,7 @@ def extractSurfaces(t, Extractions):
             except KeyError: basename = TypeOfExtraction
             ExtractionInfo['type'] = 'BC'
             ExtractionInfo['BCType'] = TypeOfExtraction
+            keepOnlyAllowedFields(zones, AllowedFields)
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction.startswith('FamilySpecified:'):
@@ -314,6 +358,7 @@ def extractSurfaces(t, Extractions):
             except KeyError: basename = TypeOfExtraction.replace('FamilySpecified:','')
             ExtractionInfo['type'] = 'BC'
             ExtractionInfo['BCType'] = TypeOfExtraction
+            keepOnlyAllowedFields(zones, AllowedFields)
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction == 'IsoSurface':
@@ -324,6 +369,7 @@ def extractSurfaces(t, Extractions):
             except KeyError:
                 FieldName = Extraction['field'].replace('Coordinate','').replace('Radius', 'R').replace('ChannelHeight', 'H')
                 basename = 'Iso_%s_%g'%(FieldName,Extraction['value'])
+            keepOnlyAllowedFields(zones, AllowedFields)
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction == 'Sphere':
@@ -337,6 +383,7 @@ def extractSurfaces(t, Extractions):
             zones = P.isoSurfMC(Tree4Extraction, 'Slice', 0.0)
             try: basename = Extraction['name']
             except KeyError: basename = 'Sphere_%g'%Extraction['radius']
+            keepOnlyAllowedFields(zones, AllowedFields)
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction == 'Plane':
@@ -347,6 +394,7 @@ def extractSurfaces(t, Extractions):
             zones = P.isoSurfMC(Tree4Extraction, 'Slice', 0.0)
             try: basename = Extraction['name']
             except KeyError: basename = 'Plane'
+            keepOnlyAllowedFields(zones, AllowedFields)
             addBase2SurfacesTree(basename)
 
     Cmpi._convert2PartialTree(SurfacesTree)
@@ -2147,10 +2195,12 @@ def loadSkeleton(Skeleton=None, PartTree=None):
     def replaceNodeByName(parent, parentPath, name):
         oldNode = I.getNodeFromName1(parent, name)
         #if not oldNode: return
-        newNode = readNodesFromPaths('{}/{}'.format(parentPath, name))
+        path = '{}/{}'.format(parentPath, name)
+        newNode = readNodesFromPaths(path)
         I._rmNode(parent, oldNode)
         I._addChild(parent, newNode)
 
+    containers2read = ['FlowSolution#Height',':CGNS#Ppart', 'FlowSolution#DataSourceTerm']
     for base in I.getBases(Skeleton):
         basename = I.getName(base)
         for zone in I.getNodesFromType1(base, 'Zone_t'):
@@ -2163,10 +2213,10 @@ def loadSkeleton(Skeleton=None, PartTree=None):
             # Coordinates
             if addCoordinates: replaceNodeByName(zone, zonePath, 'GridCoordinates')
 
-            replaceNodeByName(zone, zonePath, 'FlowSolution#Height')
-            replaceNodeByName(zone, zonePath, 'FlowSolution#DataSourceTerm')
 
-            replaceNodeByName(zone, zonePath, ':CGNS#Ppart')
+            for nodeName2read in containers2read:
+                if I.getNodeFromName1(zone,nodeName2read):
+                    replaceNodeByName(zone, zonePath, nodeName2read)
 
             # For unstructured mesh
             if I.getZoneType(zone) == 2: # unstructured zone
@@ -2181,6 +2231,18 @@ def loadSkeleton(Skeleton=None, PartTree=None):
                 for GC in I.getNodesFromType2(zone, 'GridConnectivity_t'):
                     GCpath = '{}/ZoneGridConnectivity/{}'.format(zonePath, I.getName(GC))
                     replaceNodeByName(GC, GCpath, 'PointList')
+
+        # always require to fully read Mask nodes 
+        def readNodesFromPathRevursively(node_skel, node_path):
+            new_node = readNodesFromPaths(node_path)[0]
+            node_skel[1] = new_node[1]
+            for child in node_skel[2]:
+                readNodesFromPathRevursively(child, node_path+'/'+child[0])
+
+
+        masks = I.getNodeFromName1(base, '.MOLA#Masks')
+        if masks:
+            readNodesFromPathRevursively(masks, '/'.join([basename, masks[0]]))
 
     return Skeleton
 
@@ -2472,3 +2534,143 @@ def searchZoneAndIndexForProbes(t, Probes, tol=1e-2):
 
         Probe['zone'] = probeZone
         Probe['element'] = nearestElement
+
+
+def loadUnsteadyMasksForElsA(e, elsA_user, Skeleton):
+    
+    Cmpi.barrier()
+    AllMaskedZones = dict()
+    for base in I.getBases(Skeleton):
+        elsA_masks = []
+        masks = I.getNodeFromName1(base, '.MOLA#Masks')
+        if not masks: continue
+
+        for mask in masks[2]:
+            mask_name = I.getValue(mask).replace('.','_').replace('-','_')
+            WndNames, ZonePaths, PtWnds = [], [], []
+            for i, patch in enumerate(I.getNodesFromName(mask,'patch*')):
+                zone_name = I.getValue(I.getNodeFromName1(patch,'Zone'))
+                base_name = J._getBaseWithZoneName(Skeleton, zone_name)[0]
+                wnd_node = I.getNodesFromName(patch,'Window*')[0]
+                w = I.getValue( wnd_node )
+                if w is None:
+                    msg = 'value of node %s not loaded'%os.path.join(base[0],
+                            masks[0], mask[0], patch[0], wnd_node[0])
+                    raise ValueError(msg)
+                wnd_name = 'wnd_'+mask_name+'%d'%i
+                wnd_name = wnd_name.replace('-','_').replace('.','_')
+                WndNames += [ wnd_name ]
+                ZonePaths += [ base_name + '/' +  zone_name ]
+                PtWnds += [ [ int(w[0,0]), int(w[0,1]),
+                              int(w[1,0]), int(w[1,1]),
+                              int(w[2,0]), int(w[2,1])] ]
+
+            elsA_windows = []
+            for name, path, wnd in zip(WndNames, ZonePaths, PtWnds):
+                elsA_windows += [elsA_user.window(
+                                   e.e_getBlockInternalName(path), name=name)]
+                elsA_windows[-1].set('wnd',wnd)
+                elsA_windows[-1].show()
+
+            printCo('setting unsteady mask '+mask_name,proc=0)
+            elsA_masks += [ elsA_user.mask( ' '.join(WndNames), name=mask_name ) ] 
+            
+            Parameters = J.get(mask,'Parameters')
+            for p in Parameters:
+                value = Parameters[p]
+                if isinstance(value, np.ndarray):
+                    dtype = str(value.dtype)
+                    if dtype.startswith('int'):
+                        value = int(value)
+                    elif dtype.startswith('float'):
+                        value = float(value)
+                    else: 
+                        raise TypeError('FATAL: numpy dtype %s not supported'%dtype)
+                    Parameters[p] = value
+                
+
+            elsA_masks[-1].setDict(Parameters)
+
+            Neighbours = I.getValue(I.getNodeFromName(mask,'MaskedZones')).split(' ')
+            for n in Neighbours:
+                elsA_masks[-1].attach(e.e_getBlockInternalName(n))
+                if n not in AllMaskedZones:
+                    AllMaskedZones[n] = ZonePaths
+                else:
+                    for zp in ZonePaths:
+                        if zp not in AllMaskedZones[n]:
+                            AllMaskedZones[n] += [ zp ]
+            elsA_masks[-1].show()
+    Cmpi.barrier()
+
+    # create ghost masks
+    for ghost_zonename in AllMaskedZones:
+        ghost_name = 'maskG_'+ghost_zonename
+        ghost_name = ghost_name.replace('.','_').replace('/','_').replace('-','_')
+        ghost_mask = elsA_user.mask( e.blockwindow(ghost_zonename), name=ghost_name)
+        ghost_mask.set('type','ghost')
+        for interpolant_name in AllMaskedZones[ghost_zonename]:
+            ghost_mask.attach( e.blockname(interpolant_name) )
+
+    Cmpi.barrier()
+
+
+
+
+def readStaticMasksForElsA(e, elsA_user, Skeleton):
+    
+    Cmpi.barrier()
+    bases = I.getBases(Skeleton)
+    for base in bases:
+
+        meshInfo = J.get(base,'.MOLA#InputMesh')
+        if 'Motion' in meshInfo: continue
+        
+        for zone in I.getZones(base):
+            mask_file = os.path.join(PRE.DIRECTORY_OVERSET,
+                                     'hole_%s_%s.v3d'%(base[0],zone[0]))
+            
+            if os.path.isfile(mask_file):
+                baseAndZoneName = base[0]+'/'+zone[0]
+                blockname = e.blockname( baseAndZoneName )
+                mask_name = 'staticMask_%s_%s'%(base[0],zone[0])
+                mask_name = mask_name.replace('.','_')
+                printCo('setting static mask %s at base %s'%(mask_file,base[0]), proc=0)
+                mask = elsA_user.mask(e.blockwindow(baseAndZoneName), name=mask_name)
+                mask.set('type', 'file')
+                mask.set('file', mask_file)
+                mask.set('format', 'bin_v3d')
+                mask.attach(blockname)
+    Cmpi.barrier()
+
+
+def loadMotionForElsA(elsA_user, Skeleton):
+    Cmpi.barrier()
+    
+    AllMotions = []
+    bases = I.getBases(Skeleton)
+    for base in bases:
+
+        motion = I.getNodeFromName2(base, '.Solver#Motion')
+        if not motion: continue
+
+        function_name = I.getNodeFromName1(motion, 'function_name')
+        if not function_name: continue
+        function_name = I.getValue(function_name)
+
+        MOLA_motion = I.getNodeFromName2(base, '.MOLA#Motion')
+        Parameters = dict()
+        for p in MOLA_motion[2]:
+            parameter_name = p[0]
+            value = I.getValue(p)
+            if isinstance(value, np.ndarray): value = value.tolist()
+            Parameters[parameter_name] = value
+        
+        # import pprint
+        # with open('motionParams.py','w') as f:
+        #     f.write(pprint.pformat(Parameters))
+        printCo('setting elsA motion function %s at base %s'%(function_name,base[0]), proc=0)
+        AllMotions.append(elsA_user.function(Parameters['type'],name=function_name))
+        AllMotions[-1].setDict(Parameters)
+        AllMotions[-1].show()
+    Cmpi.barrier()

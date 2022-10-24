@@ -17,6 +17,7 @@ import os
 from timeit import default_timer as Tok
 import numpy as np
 import numpy.linalg as npla
+norm = np.linalg.norm
 from scipy.spatial.transform import Rotation as ScipyRotation
 
 
@@ -3380,3 +3381,91 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
     T._makeDirect(grids)
 
     return grids, farfield_faces
+
+
+def angleBetweenVectors(a, b):
+    return np.abs(np.rad2deg( np.arccos( a.dot(b) / (norm(a)*norm(b)) ) ))
+
+
+def projectApproximateBladeDirectionOnRotationPlane(RotationAxis,
+        RequestedBladeDirection, misalignment_tolerance_in_degree=5.0):
+    
+    RotAxis = np.array(RotationAxis,dtype=float)
+    BladeDir = np.array(RequestedBladeDirection,dtype=float)
+    
+    RotAxis /= norm(RotAxis)
+    BladeDir /= norm(BladeDir)
+
+
+    angle = angleBetweenVectors(BladeDir, RotAxis)
+    while angle < 5.:
+        BladeDir[0] += 0.01
+        BladeDir[1] += 0.02
+        BladeDir[2] += 0.03
+        BladeDir/= norm(BladeDir)
+        angle = angleBetweenVectors(BladeDir, RotAxis)
+
+    # Force initial azimut direction to be on the Rotation plane
+    CoplanarBinormalVector = np.cross(BladeDir, RotAxis)
+    BladeDir = np.cross(RotAxis, CoplanarBinormalVector)
+    BladeDir /= norm(BladeDir)
+
+    return BladeDir
+
+def placeRotorAndDuplicateBlades(InitialMesh, InitialRotationCenter,
+        InitialRotationAxis, InitialBladeDirection, InitialRightHandRuleRotation,
+        FinalRotationCenter, FinalRotationAxis, FinalBladeDirection, 
+        FinalRightHandRuleRotation=True, AzimutalDuplicationNumber=1,
+        orthonormal_tolerance_in_degree=0.5):
+
+    O0 = np.array(InitialRotationCenter, dtype=float)
+    a0 = np.array(InitialRotationAxis, dtype=float)
+    b0 = np.array(InitialBladeDirection, dtype=float)
+    d0 = 1 if InitialRightHandRuleRotation else -1
+
+    O1 = np.array(FinalRotationCenter, dtype=float)
+    a1 = np.array(FinalRotationAxis, dtype=float)
+    b1 = np.array(FinalBladeDirection, dtype=float)
+    d1 = 1 if FinalRightHandRuleRotation else -1
+
+    a0 /= norm(a0)
+    b0 /= norm(b0)
+    a1 /= norm(a1)
+    b1 /= norm(b1)
+    
+    if abs(angleBetweenVectors(a0,b0) - 90) > orthonormal_tolerance_in_degree:
+        msg = 'InitialRotationAxis and InitialBladeDirection must form 90 deg'
+        raise AttributeError(J.FAIL+msg+J.ENDC)
+
+    if abs(angleBetweenVectors(a1,b1) - 90) > orthonormal_tolerance_in_degree:
+        b1 = projectApproximateBladeDirectionOnRotationPlane(a1, b1, misalignment_tolerance_in_degree=5.0)
+        msg = 'warning: FinalRotationAxis and FinalBladeDirection must form 90 deg'
+        msg+= '\nFinalBladeDirection is projected on rotation plane and becomes: %s'%str(b1)
+        print(J.WARN+msg+J.ENDC)
+
+    FinalMeshes = [I.copyTree(InitialMesh)]
+    if AzimutalDuplicationNumber > 1:
+        for i in range(1, AzimutalDuplicationNumber):
+            AzPos = i*d0*(360.0/float(AzimutalDuplicationNumber))
+            FinalMeshes += [ T.rotate(InitialMesh,tuple(O0),tuple(a0),AzPos) ]
+
+
+    InitialFrame = (tuple(b0),                 # blade-wise
+                    tuple(d0*np.cross(a0,b0)), # sweep-wise
+                    tuple(a0))                 # rotation axis
+
+    FinalFrame   = (tuple(b1),                 # blade-wise
+                    tuple(d1*np.cross(a1,b1)), # sweep-wise
+                    tuple(a1))                 # rotation axis
+
+    T._rotate(FinalMeshes,(0,0,0),InitialFrame,arg2=FinalFrame)
+    T._translate(FinalMeshes,tuple(O1))
+    I._correctPyTree(FinalMeshes,level=2)
+    I._correctPyTree(FinalMeshes,level=3)
+    
+    if InitialRightHandRuleRotation != FinalRightHandRuleRotation:
+        for t in FinalMeshes:
+            for z in I.getZones(t):
+                T._reorder(z,(-1,2,3))
+
+    return FinalMeshes
