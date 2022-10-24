@@ -3326,8 +3326,7 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
     t = I.copyRef(t)
 
     addTrigger(t)
-    if 'OversetMotion' in AllSetupDictionaries:
-        addOversetMotion(t, AllSetupDictionaries['OversetMotion'])
+    addOversetMotion(t, AllSetupDictionaries['OversetMotion'])
     addExtractions(t, AllSetupDictionaries['ReferenceValues'],
                       AllSetupDictionaries['elsAkeysModel'],
                       extractCoords=extractCoords, BCExtractions=BCExtractions)
@@ -3351,7 +3350,7 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
 
 
 def addOversetMotion(t, OversetMotion):
-
+    if not OversetMotion: return
     bases = I.getBases(t)
     bases_names = [b[0] for b in bases]
     NewOversetMotion = dict()

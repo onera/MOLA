@@ -177,6 +177,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     import Converter.Mpi as Cmpi
     Cmpi.barrier()
 
+
     if not Propeller:
         if not PerturbationFields:
             raise ValueError('Must provide Propeller or PerturbationFields')
@@ -700,24 +701,26 @@ def computeSourceTerms(zone, SourceTermScale=1.0):
             dissipation effects provoked by the transfer of fields from the disk
             towards the CFD computational grid.
     '''
-    I._rmNodesByName1(zone, 'FlowSolution#Centers')
-    
+
     ConservativeFields = ['Density', 'MomentumX','MomentumY', 'MomentumZ',
-                          'EnergyStagnationDensity']
-    ro, rou, rov, row, roe = J.getVars(zone, ConservativeFields)
+                        'EnergyStagnationDensity']
+    I.__FlowSolutionCenters__ = 'FlowSolution#SourceTerm'
+    v1= ro, rou, rov, row, roe = J.invokeFields(zone, ConservativeFields,
+                                                locationTag='centers:')
     
+    I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
+    C.node2Center__(zone, 'nodes:VelocityTangential')
     PropellerFields = ['VelocityTangential', 'fx', 'fy', 'fz', 'ft']
-    VelocityTangential, fx, fy, fz, ft = J.getVars(zone, PropellerFields)
-    
-    ro[:]  = 0.
+    v2 = VelocityTangential, fx, fy, fz, ft = J.getVars(zone, PropellerFields,
+                                                Container='FlowSolution#Centers')
+
+
+    ro[:]  = 0.0
     rou[:] = - fx * SourceTermScale
     rov[:] = - fy * SourceTermScale
     row[:] = - fz * SourceTermScale
     roe[:] = np.abs( ft * VelocityTangential ) * SourceTermScale
     
-    [C.node2Center__(zone, 'nodes:'+field) for field in ConservativeFields]
-    I._renameNode(zone, 'FlowSolution#Centers', 'FlowSolution#SourceTerm')
-
 
 
 def migrateSourceTerms2MainPyTree(donor, receiver):

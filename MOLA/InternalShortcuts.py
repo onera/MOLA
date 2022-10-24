@@ -310,7 +310,7 @@ def invokeFields(zone, VariableNames, locationTag='nodes:'):
     """
     _invokeFields(zone,VariableNames,locationTag=locationTag)
     # TODO: replace locationTag by general Container
-    Container = 'FlowSolution' if locationTag == 'nodes:' else 'FlowSolution#Centers'
+    Container = I.__FlowSolutionNodes__ if locationTag == 'nodes:' else I.__FlowSolutionCenters__
 
     return getVars(zone,VariableNames,Container)
 
