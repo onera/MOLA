@@ -593,6 +593,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
         CoprocessOptions=CoprocessOpts,
         FieldsAdditionalExtractions=FieldsAdditionalExtractions,
                             )
+    BCExtractions = ReferenceValues['BCExtractions']
     ReferenceValues['ImposedWallFields'] = ImposedWallFields
     ReferenceValues['TransitionZones'] = TransitionZones
     ReferenceValues['MachPolar']=MachPolar
@@ -621,7 +622,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
 
 
     t = PRE.newCGNSfromSetup(t, AllSetupDics, Initialization=Initialization,
-                            FULL_CGNS_MODE=False)
+                            FULL_CGNS_MODE=False, BCExtractions=BCExtractions)
     PRE.saveMainCGNSwithLinkToOutputFields(t, writeOutputFields=writeOutputFields)
 
 
@@ -646,7 +647,9 @@ def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
         TurbulenceLevel=0.001,
         TurbulenceModel='Wilcox2006-klim', Viscosity_EddyMolecularRatio=0.1,
         TurbulenceCutoff=1.0, TransitionMode=None, CoprocessOptions={},
-        FieldsAdditionalExtractions=[]):
+        FieldsAdditionalExtractions=[], BCExtractions=dict(
+            BCWall=['normalvector', 'frictionvector', 'psta',
+                    'bl_quantities_2d', 'yplusmeshsize', 'bl_ue'])):
     '''
     This function is the Airfoil's equivalent of :py:func:`MOLA.Preprocess.computeReferenceValues` .
     The main difference is that in this case reference values are set through
@@ -731,7 +734,8 @@ def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
         TurbulenceCutoff=TurbulenceCutoff,
         TransitionMode=TransitionMode,
         CoprocessOptions=DefaultCoprocessOptions,
-        FieldsAdditionalExtractions=FieldsAdditionalExtractions)
+        FieldsAdditionalExtractions=FieldsAdditionalExtractions,
+        BCExtractions=BCExtractions)
 
     return ReferenceValues
 
