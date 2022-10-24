@@ -3112,6 +3112,12 @@ def assembleAndProjectVelocities(t):
                           'VelocityX',
                           'VelocityY',
                           'VelocityZ',
+                          'VelocityRelativeX',
+                          'VelocityRelativeY',
+                          'VelocityRelativeZ',
+                          'Velocity2DX',
+                          'Velocity2DY',
+                          'Velocity2DZ',
                           'VelocityAxial',
                           'VelocityTangential',
                           'VelocityNormal2D',
@@ -3156,12 +3162,23 @@ def assembleAndProjectVelocities(t):
         v['VelocityX'][:] = VelocityInduced[0,:] + VelocityFreestream[0]
         v['VelocityY'][:] = VelocityInduced[1,:] + VelocityFreestream[1]
         v['VelocityZ'][:] = VelocityInduced[2,:] + VelocityFreestream[2]
+        v['VelocityRelativeX'][:] = VelocityRelative[0,:]
+        v['VelocityRelativeY'][:] = VelocityRelative[1,:]
+        v['VelocityRelativeZ'][:] = VelocityRelative[2,:]
         v['VelocityAxial'][:] = Vax = ( VelocityRelative.T.dot(-RotationAxis) ).T
-        v['VelocityTangential'][:] = Vtan = np.diag(VelocityRelative.T.dot( TangentialDirection))
+        v['VelocityTangential'][:] = Vtan = np.diag(VelocityRelative.T.dot(TangentialDirection))
         # note the absence of radial velocity contribution to 2D flow
         V2D = np.vstack((Vax * RotationAxis[0] + Vtan * TangentialDirection[0,:],
                          Vax * RotationAxis[1] + Vtan * TangentialDirection[1,:],
                          Vax * RotationAxis[2] + Vtan * TangentialDirection[2,:]))
+        Vax_rel = np.diag(VelocityRelative.T.dot(nxyz))
+        Vtan_rel = np.diag(VelocityRelative.T.dot(bxyz))
+        V2D_rel = np.vstack((Vax_rel * nxyz[0, :] + Vtan_rel * bxyz[0,:],
+                             Vax_rel * nxyz[1, :] + Vtan_rel * bxyz[1,:],
+                             Vax_rel * nxyz[2, :] + Vtan_rel * bxyz[2,:]))
+        v['Velocity2DX'][:] = V2D_rel[0, :]
+        v['Velocity2DY'][:] = V2D_rel[1, :]
+        v['Velocity2DZ'][:] = V2D_rel[2, :]
         v['VelocityNormal2D'][:] = V2Dn = np.diag( V2D.T.dot( nxyz) )
         v['VelocityTangential2D'][:] = V2Dt = dir * np.diag( V2D.T.dot( bxyz) )
         v['phiRad'][:] = phi = np.arctan2( V2Dn, V2Dt )
@@ -5241,9 +5258,9 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
     '''
     Build a set of zones composed of particles with fields:
 
-    ``CoordinateX``, ``CoordinateY``, ``CoordinateZ``,
-    ``VelocityKinematicX``, ``VelocityKinematicY``, ``VelocityKinematicZ``,
-    ``Gamma``, ``SectionArea``
+    ``CoordinateX``,``CoordinateY``,``CoordinateZ``,
+    ``VelocityRelativeX``, ``VelocityRelativeY``, ``VelocityRelativeZ``,
+    ``Velocity2DX``, ``Velocity2DY``, ``Velocity2DZ``, ``Gamma``
 
     Parameters
     ----------
@@ -5270,12 +5287,9 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
 
 
 
-    FieldsNames2Extract = [
-                    'CoordinateX','CoordinateY','CoordinateZ',
-                    'VelocityKinematicX','VelocityKinematicY','VelocityKinematicZ',
-                    'VelocityInducedX','VelocityInducedY','VelocityInducedZ',
-                    'Gamma', #'SectionArea'
-                    ]
+    FieldsNames2Extract = ['CoordinateX','CoordinateY','CoordinateZ',
+                    'VelocityRelativeX', 'VelocityRelativeY', 'VelocityRelativeZ',
+                    'Velocity2DX', 'Velocity2DY', 'Velocity2DZ', 'Gamma']
     AllSourceZones = []
 
     LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
