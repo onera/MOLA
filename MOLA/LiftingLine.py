@@ -447,9 +447,13 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
         vol_tot_val=np.zeros_like(vol_val)
         weight_tot_val=np.zeros_like(vol_val)
-        
-        vol_tot_val[:,:,:] = np.sum(vol_val[:,1,:])
-        weight_tot_val[:,:,:] = np.sum(weight_val[:,1,:]*vol_val[:,1,:])/vol_tot_val[:,:,:]
+
+        # for i in range(Ni-1):
+        #     vol_tot_val[i,:,:] = np.sum(vol_val[i,1,:])
+        #     weight_tot_val[i,:,:] = np.sum(weight_val[i,1,:]*vol_val[i,1,:])/vol_tot_val[i,:,:]
+
+        vol_tot_val[:,:,:] = np.sum(vol_val[:,1,:],axis=(1,2))
+        weight_tot_val[:,:,:] = np.sum(weight_val[:,1,:]*vol_val[:,1,:],axis=(1,2))/vol_tot_val[:,:,:]
 
         fieldsCorrVars_CC = J.getVars(Stacked,CorrVars,Container='FlowSolution#Centers')
         for f in fieldsCorrVars_CC:

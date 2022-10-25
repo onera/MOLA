@@ -126,9 +126,25 @@ def extractFields(Skeleton):
     '''
     t = elsAxdt.get(elsAxdt.OUTPUT_TREE)
     adaptEndOfRun(t)
+    _keepOnlyLastNeumannData(t)
     t = I.merge([Skeleton, t])
 
     return t
+
+
+def _keepOnlyLastNeumannData(t):
+    for zone in I.getZones(t):
+        ZoneBC = I.getNodeFromType1(zone, 'ZoneBC_t')
+        if not ZoneBC: continue
+        BCDataSets = I.getNodesFromType2(ZoneBC,'BCDataSet_t')
+        for bcds in BCDataSets:
+            AllNeumannData = I.getNodesFromType1(bcds,'BCData_t')
+            if len(AllNeumannData) == 1: continue
+            LastNeumannDataName = AllNeumannData[-1][0]
+            for n in bcds[2][:]:
+                if n[0] != LastNeumannDataName and n[3]=='BCData_t':
+                    bcds[2].remove(n)
+
 
 def extractArrays(t, arrays, RequestedStatistics=[], Extractions=[],
                   addMemoryUsage=True, addResiduals=True):
