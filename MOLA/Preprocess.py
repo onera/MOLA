@@ -3351,7 +3351,7 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
 
 
 def addOversetMotion(t, OversetMotion):
-
+    if not OversetMotion: return
     bases = I.getBases(t)
     bases_names = [b[0] for b in bases]
     NewOversetMotion = dict()
@@ -3690,7 +3690,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     # TODO notify bug for torque_origin in CGNS mode
     fluxes=['flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
     for bc in BCExtractions:
-        if bc.startswith('BCWall'):
+        if 'BCWall' in bc:
             for f in fluxes:
                 if f not in BCExtractions[bc]:
                     BCExtractions[bc].append(f)
@@ -3722,7 +3722,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
         ztorque       = 0.0,
         writingframe  = 'absolute'
     ))
-
+    
     FamilyNodes = I.getNodesFromType2(t, 'Family_t')
     for ExtractBCType, ExtractVariablesList in BCExtractions.items():
         for FamilyNode in FamilyNodes:
@@ -3771,6 +3771,8 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
                     else:
                         BCKeys.update(varDict)
                         J.set(FamilyNode, '.Solver#Output',**BCKeys)
+                else:
+                    raise ValueError('did not added anything since:\nExtractVariablesList=%s'%str(ExtractVariablesList))
 
 def addFieldExtractions(t, ReferenceValues, extractCoords=False):
     '''

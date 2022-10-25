@@ -126,7 +126,6 @@ CO.elsAxdt = elsAxdt
 
 e=elsAxdt.XdtCGNS(FILE_CGNS)
 
-CO.loadUnsteadyMasks(Skeleton, e)
 
 e.action=elsAxdt.COMPUTE
 e.mode=elsAxdt.READ_ALL

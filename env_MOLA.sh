@@ -330,6 +330,6 @@ alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
 
 alias mola_version="python3 -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
 
-alias mola_jobsqueue_sator="python -c 'import MOLA.JobManager as JM;JM.getCurrentJobsStatus()'"
+alias mola_jobsqueue_sator="python3 -c 'import MOLA.JobManager as JM;JM.getCurrentJobsStatus()'"
 
 mola_version
