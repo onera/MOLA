@@ -9,7 +9,7 @@ import MOLA.JobManager as JM
 
 import JobsConfiguration as config
 
-DIRECTORY_DISPATCHER = os.path.join(config.DIRECTORY_WORK, 'DISPATCHER')
+DIRECTORY_DISPATCHER = os.path.join('..', '..', 'DISPATCHER')
 
 for case in config.JobsQueues:
 

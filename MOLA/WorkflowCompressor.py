@@ -3430,7 +3430,8 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
                 filename = WorkflowParams['Initialization']['file']
                 if len(filename.split('/'))>1:
                     # This is a path: remove it for writing in JobConfiguration.py
-                    WorkflowParams['Initialization']['file'] = '../../DISPATCHER/' + filename.split('/')[-1]
+                    new_filename = os.path.join('..', '..', 'DISPATCHER', filename.split(os.path.sep)[-1])
+                    WorkflowParams['Initialization']['file'] = new_filename
 
         if isinstance(WorkflowParams['mesh'], list):
             speedIndex = RotationSpeedRange.index(RotationSpeed)
