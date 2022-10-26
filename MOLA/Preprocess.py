@@ -3699,7 +3699,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     # The node 'var' will be fill later depending on the BCType
     BCKeys = dict(
         period        = 1,
-        writingmode   = 3, # NOTE using rotor_motion value=2 doesn't extract fields
+        writingmode   = 2, 
         loc           = 'interface',
         fluxcoeff     = 1.0,
         writingframe  = 'absolute',
