@@ -18,8 +18,7 @@ def fileExist(*path): return os.path.isfile(os.path.join(*path))
 
 def getDirectoriesNamesOfJob():
     Directories = glob.glob('..'+os.path.sep+'*'+os.path.sep)
-    Directories = sorted([d.split(os.path.sep)[-2] for d in Directories])
-
+    Directories = sorted([d.split(os.path.sep)[-2] for d in Directories], key=lambda x: float(x.split('_')[0]))
     return Directories
 
 HasOutput = os.path.isdir('OUTPUT')
