@@ -2203,8 +2203,8 @@ def makeBladeSurfaceFromLiftingLineAndAirfoilsPolars(LiftingLine, AirfoilsPolars
     if isinstance(AirfoilsPolars, str):
         AirfoilsPolars = C.convertFile2PyTree(AirfoilsPolars)
 
-    LiftingLine, = I.getZones(LiftingLine)
-    AirfoilsPolars, = I.getZones(AirfoilsPolars)
+    LiftingLine = I.getZones(LiftingLine)[0]
+    AirfoilsPolars = I.getZones(AirfoilsPolars)
     Span, = J.getVars(LiftingLine, ['Span'])
     RadialRelativeDiscretization = dict( N=blade_radial_NPts, kind='tanhTwoSides',
                                  FirstCellHeight=blade_root_cellwidth/Span.max(),

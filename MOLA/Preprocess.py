@@ -1597,15 +1597,14 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
     t = X.applyBCOverlaps(t, depth=depth)
 
     print('Static blanking...')
-    if CHECK_OVERSET:
-        t_blank = staticBlanking(t, bodies, BlankingMatrix, InputMeshes)
-        if hasAnyOversetMotion(InputMeshes):
-            StaticBlankingMatrix  = getBlankingMatrix(bodies, InputMeshes,
-                                                      StaticOnly=True)
-            t = staticBlanking(t, bodies, StaticBlankingMatrix, InputMeshes)
-        else:
-            StaticBlankingMatrix = BlankingMatrix
-            t = t_blank
+    t_blank = staticBlanking(t, bodies, BlankingMatrix, InputMeshes)
+    if hasAnyOversetMotion(InputMeshes):
+        StaticBlankingMatrix  = getBlankingMatrix(bodies, InputMeshes,
+                                                    StaticOnly=True)
+        t = staticBlanking(t, bodies, StaticBlankingMatrix, InputMeshes)
+    else:
+        StaticBlankingMatrix = BlankingMatrix
+        t = t_blank
     print('... static blanking done.')
 
     print('setting hole interpolated points...')
