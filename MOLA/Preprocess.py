@@ -321,9 +321,11 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
             information on acceptable values, please see the documentation of
             function :func:`MOLA.JobManager.updateJobFile`
 
-        SubmitJob : bool
+        SubmitJob : :py:class:`bool` or :py:class:`int`
             if :py:obj:`True`, submit the SLURM job based on information contained
-            in **JobInformation**
+            in **JobInformation**. If **SubmitJob** is an :py:class:`int` ``>1``,
+            then will submit the specified number of jobs in queue with singleton
+            dependency (useful for long simulations).
 
             .. note::
                 only relevant if **COPY_TEMPLATES** is py:obj:`True` and
@@ -430,7 +432,9 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
             sendSimulationFiles(JobInformation['DIRECTORY_WORK'],
                                     overrideFields=writeOutputFields)
 
-        if SubmitJob: JM.submitJob(JobInformation['DIRECTORY_WORK'])
+        for i in range(SubmitJob):
+            singleton = False if i==0 else True
+            JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
 
 def getMeshesAssembled(InputMeshes):
     '''

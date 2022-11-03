@@ -139,7 +139,7 @@ rsync -var /stck/$USER/MOLA/Dev /tmp_user/sator/$USER/MOLA/
 6. After `commit` + `push`, request a merge towards `master` branch using GitLab's web interface.
    You will be automatically notified by e-mail once MOLA's maintainer has integrated your contribution.
 
-7. You can update your sources using master's branch using:
+7. You can update your own branch sources using master's branch with:
 
 ```bash
 git pull origin master
