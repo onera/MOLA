@@ -153,5 +153,11 @@ elsAxdt.free("xdt-output-tree")
 
 CO.moveTemporaryFile(os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
 
+try:
+    from MOLA.PostprocessTurbo import postprocess_turbomachinery
+    postprocess_turbomachinery(stages=[('row_1', 'row_2')])
+except:
+    pass
+
 CO.printCo('END OF compute.py',0)
 CO.moveLogFiles()

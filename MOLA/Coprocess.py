@@ -2674,3 +2674,30 @@ def loadMotionForElsA(elsA_user, Skeleton):
         AllMotions[-1].setDict(Parameters)
         AllMotions[-1].show()
     Cmpi.barrier()
+
+
+def _extendSurfacesWithWorkflowQuantities(surfaces):
+    try:
+        Workflow = setup.Workflow
+    except AttributeError:
+        return 
+    
+    try:
+        PostprocessOptions = setup.PostprocessOptions
+    except AttributeError:
+        return 
+
+    if Workflow == 'Compressor':
+        import MOLA.WorkflowCompressor as WC
+        PostprocessOptions = dict(
+                stages = [],
+                var2keep = None,
+            )
+
+        if setup.elsAkeysNumerics['time_algo'] != 'steady':
+            PostprocessOptions.setdefault('Coprocess', True)
+        try:           
+            WC.postprocess_turbomachinery(surfaces, **setup.PostprocessOptions)
+            printCo('Postprocess done', proc=0, color=J.MAGE)
+        except ImportError:
+            pass

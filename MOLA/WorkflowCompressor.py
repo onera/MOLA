@@ -3781,3 +3781,111 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
               )
 
     return t
+
+
+def postprocess_turbomachinery(surfaces, stages=[], 
+                                var4comp_repart=None, var4comp_perf=None, var2keep=None):
+    '''
+    Perform a series of classical postprocessings for a turbomachinery case : 
+
+    #. Compute extra variables, in relative and absolute frames of reference
+
+    #. Compute averaged values for all iso-X planes (results are in the `.Average` node), and
+       compare inlet and outlet planes for each row if available, to get row performance (total 
+       pressure ratio, isentropic efficiency, etc) (results are in the `.Average#ComparisonXX` of
+       the inlet plane, `XX` being the numerotation starting at `01`)
+
+    #. Compute radial profiles for all iso-X planes (results are in the `.RadialProfile` node), and
+       compare inlet and outlet planes for each row if available, to get row performance (total 
+       pressure ratio, isentropic efficiency, etc) (results are in the `.RadialProfile#ComparisonXX` of
+       the inlet plane, `XX` being the numerotation starting at `01`)
+
+    #. Compute isentropic Mach number on blades, slicing at constant height, for all values of height 
+       already extracted as iso-surfaces. Results are in the `.Iso_H_XX` nodes.
+
+    Parameters
+    ----------
+
+        surfaces : PyTree
+            extracted surfaces
+
+        stages : :py:class:`list` of :py:class:`tuple`, optional
+            List of row stages, of the form:
+
+            >>> stages = [('rotor1', 'stator1'), ('rotor2', 'stator2')] 
+
+            For each tuple of rows, the inlet plane of row 1 is compared with the outlet plane of row 2.
+
+        var4comp_repart : :py:class:`list`, optional
+            List of variables computed for radial distributions. If not given, all possible variables are computed.
+
+        var4comp_perf : :py:class:`list`, optional
+            List of variables computed for row performance (plane to plane comparison). If not given, 
+            the same variables as in **var4comp_repart** are computed, plus `Power`.
+
+        var2keep : :py:class:`list`, optional
+            List of variables to keep in the saved file. If not given, the following variables are kept:
+            
+            .. code-block:: python
+
+                var2keep = [
+                    'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation',
+                    'StagnationPressureRelDim', 'StagnationTemperatureRelDim',
+                    'Entropy',
+                    'Viscosity_EddyMolecularRatio',
+                    'VelocitySoundDim', 'StagnationEnthalpyAbsDim',
+                    'MachNumberAbs', 'MachNumberRel',
+                    'AlphaAngleDegree',  'BetaAngleDegree', 'PhiAngleDegree',
+                    'VelocityXAbsDim', 'VelocityRadiusAbsDim', 'VelocityThetaAbsDim',
+                    'VelocityMeridianDim', 'VelocityRadiusRelDim', 'VelocityThetaRelDim',
+                    ]
+        
+    '''
+
+    import MOLA.PostprocessTurbo as Post
+    import turbo.user as TUS
+
+    Post.setup = J.load_source('setup', 'setup.py')
+
+    #______________________________________________________________________________
+    # Variables
+    #______________________________________________________________________________
+    allVariables = TUS.getFields()
+    if not var4comp_repart:
+        var4comp_repart = ['StagnationEnthalpyDelta',
+                           'StagnationPressureRatio', 'StagnationTemperatureRatio',
+                           'StaticPressureRatio', 'Static2StagnationPressureRatio',
+                           'IsentropicEfficiency', 'PolytropicEfficiency',
+                           'StaticPressureCoefficient', 'StagnationPressureCoefficient',
+                           'StagnationPressureLoss1', 'StagnationPressureLoss2',
+                           ]
+    if not var4comp_perf:
+        var4comp_perf = var4comp_repart + ['Power']
+    if not var2keep:
+        var2keep = [
+            'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation',
+            'StagnationPressureRelDim', 'StagnationTemperatureRelDim',
+            'Entropy',
+            'Viscosity_EddyMolecularRatio',
+            'VelocitySoundDim', 'StagnationEnthalpyAbsDim',
+            'MachNumberAbs', 'MachNumberRel',
+            'AlphaAngleDegree',  'BetaAngleDegree', 'PhiAngleDegree',
+            'VelocityXAbsDim', 'VelocityRadiusAbsDim', 'VelocityThetaAbsDim',
+            'VelocityMeridianDim', 'VelocityRadiusRelDim', 'VelocityThetaRelDim',
+        ]
+
+    variablesByAverage = Post.sortVariablesByAverage(allVariables)
+
+    #______________________________________________________________________________#
+    Post.computeVariablesOnIsosurface(surfaces)
+    Post.compute0DPerformances(surfaces, variablesByAverage, var4comp_perf)
+    Post.compute1DRadialProfiles(surfaces, variablesByAverage, var4comp_repart)
+    Post.computeVariablesOnBladeProfiles(surfaces, allVariables)
+    #______________________________________________________________________________#
+
+    for (row1, row2) in stages:
+        InletPlane = Post.getSurfaceFromInfo(surfaces, ReferenceRow=row1, tag='InletPlane')
+        OutletPlane = Post.getSurfaceFromInfo(surfaces, ReferenceRow=row2, tag='OutletPlane')
+        Post.comparePerfoPlane2Plane(InletPlane, OutletPlane, var4comp_perf)
+
+    Post.cleanSurfaces(surfaces, var2keep=var2keep)
