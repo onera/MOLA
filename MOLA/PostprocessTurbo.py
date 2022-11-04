@@ -23,8 +23,11 @@ import turbo.slicesAt as TS
 import turbo.user     as TUS
 import turbo.utils    as TU
 
-setup = J.load_source('setup', 'setup.py')
-
+try:
+    setup = J.load_source('setup', 'setup.py')
+except:
+    setup = None
+    
 class RefState(object):
     def __init__(self, setup):
       self.Gamma = setup.FluidProperties['Gamma']
