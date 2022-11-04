@@ -110,6 +110,9 @@ def setMaskedZonesOfMasks(t, InputMeshes, BlankingMatrix, BodyNames):
     print('building trees of boxes for intersection estimation...')
     aabb, obb = _buildBoxesTrees(tR)
 
+    print('estimating intersections...')
+    IntersectingZones = _getIntersectingZones(aabb, obb)
+
     NeighbourDict = {}
     for meshInfo in InputMeshes:
         BaseName = meshInfo['baseName']
@@ -118,7 +121,7 @@ def setMaskedZonesOfMasks(t, InputMeshes, BlankingMatrix, BodyNames):
         except KeyError: is_duplicated = False
 
         print('computing intersection between boxes from base %s...'%BaseName)
-        MaskedZones = _findMaskedZonesOfBase(BaseName, aabb, obb)
+        MaskedZones = _findMaskedZonesOfBase(BaseName, t, IntersectingZones)
         NeighbourDict[BaseName] = MaskedZones
     
     print('updating MaskedZones of MOLA#Masks at base %s...'%BaseName)
@@ -191,36 +194,78 @@ def _addAzimutalGhostComponent(base, rot_ctr, rot_axis, scale, Dpsi):
     return Azimuts
 
 
-def _findMaskedZonesOfBase(BaseName, t_aabb, t_obb):
+def _findMaskedZonesOfBase(BaseName, t, IntersectingZones):
 
-    base_aabb = I.getNodeFromName2(t_aabb, BaseName)
-    base_obb = I.getNodeFromName2(t_obb, BaseName)
-
-
+    base = I.getNodeFromName2(t, BaseName)
     NewMaskedZones = []
-    for z_aabb0, z_obb0 in zip(I.getZones(base_aabb),I.getZones(base_obb)):
-        for b, bo in zip(I.getBases(t_aabb), I.getBases(t_obb)):
-            if b[0] == BaseName: continue
-            for z_aabb, z_obb in zip(I.getZones(b), I.getZones(bo)):
-                if not G.bboxIntersection(z_aabb0, z_aabb,
-                                          tol=1e-8, isBB=True, method='AABB'):
-                    continue
-                if not G.bboxIntersection(z_aabb, z_obb0,
-                                          tol=1e-8, isBB=True, method='AABBOBB'):
-                    continue
-                if not G.bboxIntersection(z_aabb0, z_obb,
-                                          tol=1e-8, isBB=True, method='AABBOBB'):
-                    continue
-                if not G.bboxIntersection(z_obb0, z_obb,
-                                          tol=1e-8, isBB=True, method='OBB'):
-                    continue
-                
-                NewNeighbour = b[0] + '/' + z_aabb[0]
-
-                if NewNeighbour not in NewMaskedZones:
-                    NewMaskedZones += [ NewNeighbour ]
+    for zone in I.getZones(base):
+        try: LocalIntersectingZones = IntersectingZones[ zone[0] ]
+        except KeyError: continue
+        for IntersectingZone in LocalIntersectingZones:
+            BaseNameOfIntersectingZone = J._getBaseWithZoneName(t,IntersectingZone)[0]
+            if BaseNameOfIntersectingZone == BaseName: continue
+            BaseNameAndZoneName = BaseNameOfIntersectingZone + '/' + IntersectingZone
+            if BaseNameAndZoneName not in NewMaskedZones:
+                NewMaskedZones += [ BaseNameAndZoneName ]
     NewMaskedZones.sort()
     return NewMaskedZones
+
+def _getIntersectingZones(aabb, obb):
+    zones_aabb = I.getZones(aabb)
+    zones_obb = I.getZones(obb)
+    IntersectingZones = dict()
+    for z_aabb0, z_obb0 in zip(zones_aabb, zones_obb):
+        name0 = z_aabb0[0]
+        Base0name = _getBaseNameFromUserData(z_aabb0)
+        for z_aabb, z_obb in zip(zones_aabb, zones_obb):
+            name1 = z_aabb[0]
+            Base1name = _getBaseNameFromUserData(z_aabb)
+            if Base0name == Base1name: continue
+            if _inIntersectionDomain(name0, name1, IntersectingZones):
+                continue
+            if not G.bboxIntersection(z_aabb0, z_aabb,
+                                        tol=1e-8, isBB=True, method='AABB'):
+                continue
+            if not G.bboxIntersection(z_aabb, z_obb0,
+                                        tol=1e-8, isBB=True, method='AABBOBB'):
+                continue
+            if not G.bboxIntersection(z_aabb0, z_obb,
+                                        tol=1e-8, isBB=True, method='AABBOBB'):
+                continue
+            if not G.bboxIntersection(z_obb0, z_obb,
+                                        tol=1e-8, isBB=True, method='OBB'):
+                continue
+            
+            _addToIntersectingZones(name0, name1, IntersectingZones)
+
+
+    return IntersectingZones
+
+def _getBaseNameFromUserData(zone):
+    data = I.getNodeFromName1(zone, '.MOLA#BoxData')
+    return I.getValue(I.getNodeFromName1(data, 'ParentBaseName'))
+
+def _addToIntersectingZones(name0, name1, IntersectingZones):
+    if name0 not in IntersectingZones:
+        IntersectingZones[name0]  = [ name1 ]
+    elif name1 not in IntersectingZones[name0]:
+        IntersectingZones[name0] += [ name1 ]
+
+    if name1 not in IntersectingZones:
+        IntersectingZones[name1]  = [ name0 ]
+    elif name0 not in IntersectingZones[name1]:
+        IntersectingZones[name1] += [ name0 ]
+
+
+
+def _inIntersectionDomain(zone_name_1, zone_name_2, IntersectingZones):
+    if zone_name_1 in IntersectingZones:
+        if zone_name_2 in IntersectingZones[zone_name_1]:
+            return True
+    elif zone_name_2 in IntersectingZones:
+        if zone_name_1 in IntersectingZones[zone_name_2]:
+            return True
+    return False
 
 
 def _buildBoxesTrees(tR):
@@ -243,6 +288,7 @@ def _buildBoxesTrees(tR):
             exterior = AllExteriorFaces[b[0]][i]
             AllExteriorFaces[b[0]][i] = exterior
             aabb = G.BB(exterior,method='AABB')
+            J.set(aabb,'.MOLA#BoxData',ParentBaseName=b[0])
             aabb[0] = z[0]
             b[2][i] = aabb
 
@@ -253,6 +299,7 @@ def _buildBoxesTrees(tR):
             if z[3] != 'Zone_t': continue
             exterior = AllExteriorFaces[b[0]][i]
             obb = G.BB(exterior,method='OBB')
+            J.set(obb,'.MOLA#BoxData',ParentBaseName=b[0])
             obb[0] = z[0]
             b[2][i] = obb
 
