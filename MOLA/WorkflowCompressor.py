@@ -3386,6 +3386,12 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
     RotationSpeed_  = RotationSpeedMatrix.ravel(order='K')
     NewJobs         = Throttle_ == ThrottleRange[0]
 
+    def adaptPathForDispatcher(filename):
+        if len(filename.split('/'))>1:
+            # This is a path: remove it for writing in JobConfiguration.py
+            filename = os.path.join('..', '..', 'DISPATCHER', filename.split(os.path.sep)[-1])
+        return filename
+
     JobsQueues = []
     for i, (Throttle, RotationSpeed, NewJob) in enumerate(zip(Throttle_, RotationSpeed_, NewJobs)):
 
@@ -3427,15 +3433,13 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
             if i != 0:
                 WorkflowParams.pop('Initialization')
             elif 'file' in WorkflowParams['Initialization']:
-                filename = WorkflowParams['Initialization']['file']
-                if len(filename.split('/'))>1:
-                    # This is a path: remove it for writing in JobConfiguration.py
-                    new_filename = os.path.join('..', '..', 'DISPATCHER', filename.split(os.path.sep)[-1])
-                    WorkflowParams['Initialization']['file'] = new_filename
+                WorkflowParams['Initialization']['file'] = adaptPathForDispatcher(WorkflowParams['Initialization']['file'])
 
         if isinstance(WorkflowParams['mesh'], list):
             speedIndex = RotationSpeedRange.index(RotationSpeed)
             WorkflowParams['mesh'] = WorkflowParams['mesh'][speedIndex]
+        
+        WorkflowParams['mesh'] = adaptPathForDispatcher(WorkflowParams['mesh'])
 
         JobsQueues.append(
             dict(ID=i, CASE_LABEL=CASE_LABEL, NewJob=NewJob, JobName=JobName, **WorkflowParams)
