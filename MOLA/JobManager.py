@@ -866,7 +866,7 @@ def updateJobFile(jobTemplate='job_template.sh', JobName=None, AER=None,
         repatriate(jobTemplate, os.path.join(DIRECTORY_WORK, jobTemplate),
                    moveInsteadOfCopy=True)
 
-def submitJob(DIRECTORY_WORK, JobFilename='job_template.sh'):
+def submitJob(DIRECTORY_WORK, JobFilename='job_template.sh', singleton=False):
     '''
     Submit the job
 
@@ -878,14 +878,16 @@ def submitJob(DIRECTORY_WORK, JobFilename='job_template.sh'):
 
         JobFilename : str
             slurm job file
+
+        singleton : bool
+            if :py:obj:`True`, submit sbatch job including singleton dependency
     '''
     HostName = socket.gethostname()
     UserName = getpass.getuser()
-    CMD = '"cd %s; sbatch %s"'%(DIRECTORY_WORK, JobFilename)
+    singleCmd = '' if not singleton else '--dependency=singleton '
+    CMD = '"cd %s; sbatch %s%s"'%(DIRECTORY_WORK, singleCmd, JobFilename)
 
     machine = ServerTools.whichServer(DIRECTORY_WORK)[0]
-
-    if machine == 'sator': machine += '-new'
 
     if machine not in HostName:
         SatorProd = True if os.getcwd().startswith('/tmp_user/sator') else False

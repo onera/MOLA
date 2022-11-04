@@ -26,8 +26,8 @@ import turbo.utils    as TU
 try:
     setup = J.load_source('setup', 'setup.py')
 except:
-    None
-
+    setup = None
+    
 class RefState(object):
     def __init__(self, setup):
       self.Gamma = setup.FluidProperties['Gamma']

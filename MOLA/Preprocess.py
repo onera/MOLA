@@ -321,9 +321,11 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
             information on acceptable values, please see the documentation of
             function :func:`MOLA.JobManager.updateJobFile`
 
-        SubmitJob : bool
+        SubmitJob : :py:class:`bool` or :py:class:`int`
             if :py:obj:`True`, submit the SLURM job based on information contained
-            in **JobInformation**
+            in **JobInformation**. If **SubmitJob** is an :py:class:`int` ``>1``,
+            then will submit the specified number of jobs in queue with singleton
+            dependency (useful for long simulations).
 
             .. note::
                 only relevant if **COPY_TEMPLATES** is py:obj:`True` and
@@ -430,7 +432,9 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
             sendSimulationFiles(JobInformation['DIRECTORY_WORK'],
                                     overrideFields=writeOutputFields)
 
-        if SubmitJob: JM.submitJob(JobInformation['DIRECTORY_WORK'])
+        for i in range(SubmitJob):
+            singleton = False if i==0 else True
+            JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
 
 def getMeshesAssembled(InputMeshes):
     '''
@@ -1597,15 +1601,14 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
     t = X.applyBCOverlaps(t, depth=depth)
 
     print('Static blanking...')
-    if CHECK_OVERSET:
-        t_blank = staticBlanking(t, bodies, BlankingMatrix, InputMeshes)
-        if hasAnyOversetMotion(InputMeshes):
-            StaticBlankingMatrix  = getBlankingMatrix(bodies, InputMeshes,
-                                                      StaticOnly=True)
-            t = staticBlanking(t, bodies, StaticBlankingMatrix, InputMeshes)
-        else:
-            StaticBlankingMatrix = BlankingMatrix
-            t = t_blank
+    t_blank = staticBlanking(t, bodies, BlankingMatrix, InputMeshes)
+    if hasAnyOversetMotion(InputMeshes):
+        StaticBlankingMatrix  = getBlankingMatrix(bodies, InputMeshes,
+                                                    StaticOnly=True)
+        t = staticBlanking(t, bodies, StaticBlankingMatrix, InputMeshes)
+    else:
+        StaticBlankingMatrix = BlankingMatrix
+        t = t_blank
     print('... static blanking done.')
 
     print('setting hole interpolated points...')
@@ -3699,7 +3702,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     # The node 'var' will be fill later depending on the BCType
     BCKeys = dict(
         period        = 1,
-        writingmode   = 3, # NOTE using rotor_motion value=2 doesn't extract fields
+        writingmode   = 2, 
         loc           = 'interface',
         fluxcoeff     = 1.0,
         writingframe  = 'absolute',

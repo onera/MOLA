@@ -447,9 +447,14 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
         vol_tot_val=np.zeros_like(vol_val)
         weight_tot_val=np.zeros_like(vol_val)
-        
-        vol_tot_val[:,:,:] = np.sum(vol_val[:,1,:])
-        weight_tot_val[:,:,:] = np.sum(weight_val[:,1,:]*vol_val[:,1,:])/vol_tot_val[:,:,:]
+
+        # TODO investigate fully vectorial technique, something similar to (this is bugged):
+        # vol_tot_val[:,:,:] = np.sum(vol_val[:,1,:],axis=(1,2))
+        # weight_tot_val[:,:,:] = np.sum(weight_val[:,1,:]*vol_val[:,1,:],axis=(1,2))/vol_tot_val[:,:,:]
+        for i in range(Ni-1):
+            vol_tot_val[i,:,:] = np.sum(vol_val[i,1,:])
+            weight_tot_val[i,:,:] = np.sum(weight_val[i,1,:]*vol_val[i,1,:])/vol_tot_val[i,:,:]
+
 
         fieldsCorrVars_CC = J.getVars(Stacked,CorrVars,Container='FlowSolution#Centers')
         for f in fieldsCorrVars_CC:
@@ -462,7 +467,8 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         vol_val = J.getVars(Stacked, ['vol'], Container='FlowSolution#Centers')[0]
 
         vol_tot_val=np.zeros_like(vol_val)
-        vol_tot_val[:,:,:] = np.sum(vol_val[:,1,:])
+        for i in range(Ni-1):
+            vol_tot_val[i,:,:] = np.sum(vol_val[i,1,:])
 
         fieldsCorrVars_CC = J.getVars(Stacked,CorrVars,Container='FlowSolution#Centers')
         for f in fieldsCorrVars_CC:
@@ -2197,8 +2203,8 @@ def makeBladeSurfaceFromLiftingLineAndAirfoilsPolars(LiftingLine, AirfoilsPolars
     if isinstance(AirfoilsPolars, str):
         AirfoilsPolars = C.convertFile2PyTree(AirfoilsPolars)
 
-    LiftingLine, = I.getZones(LiftingLine)
-    AirfoilsPolars, = I.getZones(AirfoilsPolars)
+    LiftingLine = I.getZones(LiftingLine)[0]
+    AirfoilsPolars = I.getZones(AirfoilsPolars)
     Span, = J.getVars(LiftingLine, ['Span'])
     RadialRelativeDiscretization = dict( N=blade_radial_NPts, kind='tanhTwoSides',
                                  FirstCellHeight=blade_root_cellwidth/Span.max(),
