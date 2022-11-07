@@ -2697,22 +2697,23 @@ def _extendSurfacesWithWorkflowQuantities(surfaces):
     try:
         Workflow = setup.Workflow
     except AttributeError:
-        return 
+        return surfaces
     
     try:
         PostprocessOptions = setup.PostprocessOptions
     except AttributeError:
-        return 
+        return surfaces
 
     if Workflow == 'Compressor':
         import MOLA.WorkflowCompressor as WC
 
-        try:           
-            if EndOfRun or setup.elsAkeysNumerics['time_algo'] != 'steady':
-                save(surfaces, os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES))
-                surfaces = Cmpi.convertFile2PyTree(os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES))
+        if EndOfRun or setup.elsAkeysNumerics['time_algo'] != 'steady':
+            # FIXME: do not save and reload surfaces.cgns
+            save(surfaces, os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES))
+            surfaces = Cmpi.convertFile2PyTree(os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES))
+            try:           
                 WC.postprocess_turbomachinery(surfaces, **PostprocessOptions)
                 printCo('Postprocess done on surfaces', proc=0, color=J.MAGE)
-        except ImportError:
-            pass
+            except ImportError:
+                pass
     return surfaces

@@ -402,7 +402,7 @@ def compute0DPerformances(surfaces, variablesByAverage, var4comp_perf):
 
 def comparePerfoPlane2Plane(InletPlane, OutletPlane, var4comp_perf):
     '''
-    Compute averaged values for all variables for all iso-X surfaces
+    Compare averaged values between the **InletPlane** and the **OutletPlane**.
 
     Parameters
     ----------
@@ -433,8 +433,8 @@ def comparePerfoPlane2Plane(InletPlane, OutletPlane, var4comp_perf):
                     config='compressor', variables=var4comp_perf)
     tBilan = I.getNodeFromType2(tBilan, 'Zone_t')
     I.setType(tBilan, 'UserDefinedData_t')
-    I.createChild(tBilan, '.comparedTo', 'UserDefinedData_t', value=I.getName(OutletPlane), pos=0)
-    I.addChild(InletPlane, tBilan)
+    I.createChild(tBilan, '.comparedTo', 'UserDefinedData_t', value=I.getName(InletPlane), pos=0)
+    I.addChild(OutletPlane, tBilan)
 
     # Convert average nodes in 'UserDefinedData_t'
     # Must be done at the end, because TP.comparePerformancesPlane2Plane need
@@ -478,15 +478,53 @@ def compute1DRadialProfiles(surfaces, variablesByAverage, var4comp_repart):
         OutletPlane = getSurfaceFromInfo(surfaces, ReferenceRow=row, tag='OutletPlane')
         if not(InletPlane and OutletPlane): continue
 
-        tBilan = TR.compareRadialProfilePlane2Plane(InletPlane, OutletPlane,
-                        '.RadialProfile', '.RadialProfile#Comparison',
-                        config='compressor', variables=var4comp_repart)
-        tBilan = I.getNodeFromType2(tBilan, 'Zone_t')
-        I.setType(tBilan, 'UserDefinedData_t')
-        I.createChild(tBilan, '.comparedTo', 'UserDefinedData_t', value=I.getName(OutletPlane), pos=0)
-        I.addChild(InletPlane, tBilan)
+        compareRadialProfilesPlane2Plane(InletPlane, OutletPlane, var4comp_repart)
 
     for node in I.getNodesFromName2(surfaces, '.RadialProfile'):
+        I.setType(node, 'UserDefinedData_t')
+
+
+def compareRadialProfilesPlane2Plane(InletPlane, OutletPlane, var4comp_repart):
+    '''
+    Compare radial profiles between the **InletPlane** and the **OutletPlane**.
+
+    Parameters
+    ----------
+    
+        InletPlane : PyTree
+            First plane to compare. Depending on the computed values, it will be the denominator 
+            in a ratio or the second term in a difference.
+
+        OutletPlane : PyTree
+            Second plane to compare. Depending on the computed values, it will be the numerator 
+            in a ratio or the first term in a difference.
+
+        var4comp_repart : list 
+            Names of variables to compute
+    '''
+    for node in I.getNodesFromName1(InletPlane, '.RadialProfile') + I.getNodesFromName1(OutletPlane, '.RadialProfile'):
+        I.setType(node, 'Zone_t')
+
+    ComparisonNodeName = '.RadialProfile#Comparison01'
+    ExistingComparisonNodes = [I.getName(n) for n in I.getNodesFromName(InletPlane, '.RadialProfile#Comparison*')]
+    i = 1
+    while ComparisonNodeName in ExistingComparisonNodes:
+        i += 1
+        ComparisonNodeName = '.RadialProfile#Comparison{:02d}'.format(i)
+
+    tBilan = TR.compareRadialProfilePlane2Plane(InletPlane, OutletPlane,
+                                               '.RadialProfile', ComparisonNodeName,
+                                               config='compressor', variables=var4comp_repart)
+    tBilan = I.getNodeFromType2(tBilan, 'Zone_t')
+    I.setType(tBilan, 'UserDefinedData_t')
+    I.createChild(tBilan, '.comparedTo', 'UserDefinedData_t',
+                  value=I.getName(InletPlane), pos=0)
+    I.addChild(OutletPlane, tBilan)
+
+    # Convert average nodes in 'UserDefinedData_t'
+    # Must be done at the end, because TP.comparePerformancesPlane2Plane need
+    # that these nodes are 'Zone_t'
+    for node in I.getNodesFromName2(InletPlane, '.RadialProfile') + I.getNodesFromName2(OutletPlane, '.RadialProfile'):
         I.setType(node, 'UserDefinedData_t')
 
 # @J.mute_stdout
@@ -658,6 +696,7 @@ def postprocess_turbomachinery(FILE_SURFACES='OUTPUT/surfaces.cgns',
         InletPlane = getSurfaceFromInfo(surfaces, ReferenceRow=row1, tag='InletPlane')
         OutletPlane = getSurfaceFromInfo(surfaces, ReferenceRow=row2, tag='OutletPlane')
         comparePerfoPlane2Plane(InletPlane, OutletPlane, var4comp_perf)
+        compareRadialProfilesPlane2Plane(InletPlane, OutletPlane, var4comp_repart)
 
     cleanSurfaces(surfaces, var2keep=var2keep)
 
