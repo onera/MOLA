@@ -2831,7 +2831,9 @@ def getElsAkeysCFD(config='3d', unstructured=False, **kwargs):
         elsAkeysCFD : dict
             dictionary containing key/value for elsA *cfd* object
     '''
-    elsAkeysCFD = dict(config=config)
+    elsAkeysCFD = dict(config=config,
+        extract_filtering='inactive' # NOTE required with writingmode=2 for NeumannData in coprocess
+        )
 
     if unstructured:
         elsAkeysCFD.update(dict(
@@ -3702,7 +3704,12 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     # The node 'var' will be fill later depending on the BCType
     BCKeys = dict(
         period        = 1,
-        writingmode   = 2, 
+
+        # TODO make ticket:
+        # BUG with writingmode=2 and Cfdpb.compute() (required by unsteady overset) 
+        # wall extractions ignored during coprocess
+        writingmode   = 2, # NOTE requires extract_filtering='inactive'
+
         loc           = 'interface',
         fluxcoeff     = 1.0,
         writingframe  = 'absolute',

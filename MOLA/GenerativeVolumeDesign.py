@@ -3285,6 +3285,9 @@ def buildCartesianBackground(t, InputMeshes):
                 whose pair of keyword/arguments are literally the options of
                 :py:func:`trimCartesianGridAtOrigin`
 
+            * backup_file : :py:class:`str`
+                Specifies a filename where to save the background mesh
+
     Returns
     -------
 
@@ -3369,6 +3372,10 @@ def buildCartesianBackground(t, InputMeshes):
     try: trim_options = GenerationInfo['trim_options']
     except: trim_options = None
     if trim_options: t_cart = trimCartesianGridAtOrigin(t_cart, **trim_options)
+
+    try: backup_file = GenerationInfo['backup_file']
+    except: backup_file = None
+    if backup_file: C.convertPyTree2File(t_cart, backup_file)
 
     return t_cart
 
