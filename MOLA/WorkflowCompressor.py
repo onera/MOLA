@@ -217,6 +217,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, TurboConfiguration={}, Extractions=[], BoundaryConditions=[],
+        PostprocessOptions={},
         BodyForceInputData={}, writeOutputFields=True, bladeFamilyNames=['BLADE', 'AUBE'],
         Initialization={'method':'uniform'}, JobInformation={}, SubmitJob=False,
         FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
@@ -264,6 +265,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         BoundaryConditions : :py:class:`list` of :py:class:`dict`
             List of boundary conditions to set on the given mesh.
             For details, refer to documentation of :func:`setBoundaryConditions`
+
+        PostprocessOptions : dict
+            Dictionary for post-processing.
 
         BodyForceInputData : :py:class:`dict`
             if provided, each key in this :py:class:`dict` is the name of a row family to model
@@ -396,7 +400,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
-                        Extractions=Extractions)
+                        Extractions=Extractions, 
+                        PostprocessOptions=PostprocessOptions)
     if BodyForceInputData: 
         AllSetupDics['BodyForceInputData'] = BodyForceInputData
 

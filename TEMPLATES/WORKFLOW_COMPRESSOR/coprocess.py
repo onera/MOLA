@@ -113,6 +113,7 @@ if ENTER_COUPLING:
         CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))
 
     if CONVERGED or it >= itmax or ReachedTimeOutMargin:
+        CO.EndOfRun = True
         if ReachedTimeOutMargin:
             CO.printCo('REACHED TIMEOUT', proc=0, color=J.WARN)
             if rank == 0:

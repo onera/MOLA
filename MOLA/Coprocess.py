@@ -59,6 +59,7 @@ setup            = None
 CurrentIteration = 0
 elsAxdt          = None
 PyPartBase       = None
+EndOfRun         = False
 # ------------------------------------------------------------------- #
 FAIL  = '\033[91m'
 GREEN = '\033[92m'
@@ -314,14 +315,6 @@ def extractSurfaces(t, Extractions):
         TypeOfExtraction = Extraction['type']
         ExtractionInfo = copy.deepcopy(Extraction)
 
-        try: AllowedFields = ExtractionInfo['AllowedFields']
-        except KeyError: AllowedFields = True
-
-
-        if isinstance(AllowedFields,str) and AllowedFields.lower() != 'all':
-            AllowedFields = [ AllowedFields ]
-
-
         if 'family' in Extraction:
             Tree4Extraction = I.copyTree(PartialTree)
             for base in I.getBases(Tree4Extraction):
@@ -341,7 +334,6 @@ def extractSurfaces(t, Extractions):
                     zones = C.extractBCOfName(Tree4Extraction,'FamilySpecified:'+BCFamilyName, extrapFlow=False)
                     ExtractionInfo['type'] = 'BC'
                     ExtractionInfo['BCType'] = BCType
-                    keepOnlyAllowedFields(zones, AllowedFields)
                     addBase2SurfacesTree(BCFamilyName)
 
         elif TypeOfExtraction.startswith('BC'):
@@ -350,7 +342,6 @@ def extractSurfaces(t, Extractions):
             except KeyError: basename = TypeOfExtraction
             ExtractionInfo['type'] = 'BC'
             ExtractionInfo['BCType'] = TypeOfExtraction
-            keepOnlyAllowedFields(zones, AllowedFields)
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction.startswith('FamilySpecified:'):
@@ -359,7 +350,6 @@ def extractSurfaces(t, Extractions):
             except KeyError: basename = TypeOfExtraction.replace('FamilySpecified:','')
             ExtractionInfo['type'] = 'BC'
             ExtractionInfo['BCType'] = TypeOfExtraction
-            keepOnlyAllowedFields(zones, AllowedFields)
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction == 'IsoSurface':
@@ -370,7 +360,6 @@ def extractSurfaces(t, Extractions):
             except KeyError:
                 FieldName = Extraction['field'].replace('Coordinate','').replace('Radius', 'R').replace('ChannelHeight', 'H')
                 basename = 'Iso_%s_%g'%(FieldName,Extraction['value'])
-            keepOnlyAllowedFields(zones, AllowedFields)
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction == 'Sphere':
@@ -384,7 +373,6 @@ def extractSurfaces(t, Extractions):
             zones = P.isoSurfMC(Tree4Extraction, 'Slice', 0.0)
             try: basename = Extraction['name']
             except KeyError: basename = 'Sphere_%g'%Extraction['radius']
-            keepOnlyAllowedFields(zones, AllowedFields)
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction == 'Plane':
@@ -395,7 +383,6 @@ def extractSurfaces(t, Extractions):
             zones = P.isoSurfMC(Tree4Extraction, 'Slice', 0.0)
             try: basename = Extraction['name']
             except KeyError: basename = 'Plane'
-            keepOnlyAllowedFields(zones, AllowedFields)
             addBase2SurfacesTree(basename)
 
     Cmpi._convert2PartialTree(SurfacesTree)
@@ -403,6 +390,23 @@ def extractSurfaces(t, Extractions):
     Cmpi.barrier()
     restoreFamilies(SurfacesTree, t)
     Cmpi.barrier()
+
+    # Workflow specific postprocessings
+    SurfacesTree = _extendSurfacesWithWorkflowQuantities(SurfacesTree)
+
+    # Keep only allowed fields in surfaces
+    for base in I.getBases(SurfacesTree):
+        try: 
+            ExtractionInfo = I.getNodeFromName1(base, '.ExtractionInfo')
+            AllowedFieldsNode = I.getNodeFromName1(ExtractionInfo, 'AllowedFields')
+            AllowedFields = I.getValue(AllowedFieldsNode).split()
+        except:
+            AllowedFields = True
+
+        if isinstance(AllowedFields,str) and AllowedFields.lower() != 'all':
+            AllowedFields = [ AllowedFields ]
+
+        keepOnlyAllowedFields(I.getZones(base), AllowedFields)
 
     return SurfacesTree
 
@@ -2677,6 +2681,19 @@ def loadMotionForElsA(elsA_user, Skeleton):
 
 
 def _extendSurfacesWithWorkflowQuantities(surfaces):
+    '''
+    Perform post-process specific to the workflow.
+
+    Parameters
+    ----------
+        surfaces : PyTree
+            Tree as given by :py:func:`extractSurfaces`
+
+    Returns
+    -------
+        PyTree
+            Same as the input **surfaces** with eventual post-processed data.
+    '''
     try:
         Workflow = setup.Workflow
     except AttributeError:
@@ -2689,15 +2706,13 @@ def _extendSurfacesWithWorkflowQuantities(surfaces):
 
     if Workflow == 'Compressor':
         import MOLA.WorkflowCompressor as WC
-        PostprocessOptions = dict(
-                stages = [],
-                var2keep = None,
-            )
 
-        if setup.elsAkeysNumerics['time_algo'] != 'steady':
-            PostprocessOptions.setdefault('Coprocess', True)
         try:           
-            WC.postprocess_turbomachinery(surfaces, **setup.PostprocessOptions)
-            printCo('Postprocess done', proc=0, color=J.MAGE)
+            if EndOfRun or setup.elsAkeysNumerics['time_algo'] != 'steady':
+                save(surfaces, os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES))
+                surfaces = Cmpi.convertFile2PyTree(os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES))
+                WC.postprocess_turbomachinery(surfaces, **PostprocessOptions)
+                printCo('Postprocess done on surfaces', proc=0, color=J.MAGE)
         except ImportError:
             pass
+    return surfaces

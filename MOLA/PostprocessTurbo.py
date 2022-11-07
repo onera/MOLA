@@ -331,7 +331,7 @@ def cleanSurfaces(surfaces, var2keep=[]):
                 if varname not in var2keepOnBlade:
                     I._rmNode(FSnodes, node)
 
-@J.mute_stdout
+# @J.mute_stdout
 def computeVariablesOnIsosurface(surfaces):
     '''
     Compute extra variables for all isoSurfaces, using **turbo** function `_computeOtherFields`.
@@ -443,7 +443,7 @@ def comparePerfoPlane2Plane(InletPlane, OutletPlane, var4comp_perf):
         I.setType(node, 'UserDefinedData_t')
 
 
-@J.mute_stdout
+# @J.mute_stdout
 def compute1DRadialProfiles(surfaces, variablesByAverage, var4comp_repart):
     '''
     Compute radial profiles for all iso-X surfaces
@@ -489,7 +489,7 @@ def compute1DRadialProfiles(surfaces, variablesByAverage, var4comp_repart):
     for node in I.getNodesFromName2(surfaces, '.RadialProfile'):
         I.setType(node, 'UserDefinedData_t')
 
-@J.mute_stdout
+# @J.mute_stdout
 def computeVariablesOnBladeProfiles(surfaces, variables, hList='all'):
     '''
     Make height-constant slices on the blades to compute the isentropic Mach number and other
@@ -511,14 +511,12 @@ def computeVariablesOnBladeProfiles(surfaces, variables, hList='all'):
     '''
 
     def searchBladeInTree(row):
-        famnames = ['{}_*BLADE*'.format(row), '{}_*Blade*'.format(row), '{}_*AUBE*'.format(row), '{}_*Aube*'.format(row)]
-        blade = None
+        famnames = ['*BLADE*'.format(row), '*Blade*'.format(row), '*AUBE*'.format(row), '*Aube*'.format(row)]
         for famname in famnames:
-            blade_families = I.getNodesFromNameAndType(surfaces, famname, 'CGNSBase_t')
-            if len(blade_families) == 1:
-                blade = blade_families[0]
-                break
-        return blade
+            for bladeSurface in I.getNodesFromNameAndType(surfaces, famname, 'CGNSBase_t'):
+                if I.getNodeFromNameAndType(bladeSurface, row, 'Family_t'):
+                    return bladeSurface
+        return
     
     if hList == 'all':
         hList = []
