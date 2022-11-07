@@ -69,9 +69,9 @@ class Node(list):
         from .Tree import Tree
         node_to_save = self if isinstance(self, Tree) else Tree( self )
         links = node_to_save.getLinks()
-        if verbose: print('saving %s ...'%filename)
+        if verbose: print('saving %s ... '%filename, end='')
         CGM.save(filename, node_to_save, links=links)
-        if verbose: print('saving %s ... ok'%filename)
+        if verbose: print('ok')
 
     def name(self): return self[0]
 
@@ -542,7 +542,7 @@ def castNode( NodeOrNodelikeList ):
 
     elif node[3] == 'CGNSTree_t':
         from .Tree import Tree
-        if not isinstance(node, Tree):
-            node = Base(node)
+        t = Tree(node)
+        node = t
 
     return node

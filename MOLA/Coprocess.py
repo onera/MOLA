@@ -952,10 +952,11 @@ def updateAndWriteSetup(setup):
     '''
     if rank == 0:
         printCo('updating setup.py ...', proc=0, color=GREEN)
-        setup.elsAkeysNumerics['niter'] -= CurrentIteration - setup.elsAkeysNumerics['inititer'] + 1
-        setup.elsAkeysNumerics['inititer'] = CurrentIteration
-        if 'itime' in setup.elsAkeysNumerics:
-            setup.elsAkeysNumerics['itime'] = CurrentIteration * setup.elsAkeysNumerics['timestep']
+        if CurrentIteration > 1:
+            setup.elsAkeysNumerics['niter'] -= CurrentIteration - setup.elsAkeysNumerics['inititer'] + 1
+            setup.elsAkeysNumerics['inititer'] = CurrentIteration + 1 
+            if 'itime' in setup.elsAkeysNumerics:
+                setup.elsAkeysNumerics['itime'] = CurrentIteration * setup.elsAkeysNumerics['timestep']
         PRE.writeSetupFromModuleObject(setup)
         printCo('updating setup.py ... OK', proc=0, color=GREEN)
     comm.Barrier()
@@ -1685,7 +1686,7 @@ def copyOutputFiles(*files2copy):
         f2cSplit = file2copy.split('.')
         newFileName = '{name}_AfterIter{it}.{fmt}'.format(
                         name='.'.join(f2cSplit[:-1]),
-                        it=CurrentIteration-1,
+                        it=CurrentIteration,
                         fmt=f2cSplit[-1])
         try:
             shutil.copy2(file2copy, newFileName)

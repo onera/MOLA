@@ -28,7 +28,7 @@ if CO.getSignal('RELOAD_SETUP'):
     CO.setup = setup
     niter    = setup.elsAkeysNumerics['niter']
     inititer = setup.elsAkeysNumerics['inititer']
-    itmax    = inititer+niter-1 # BEWARE last iteration accessible trigger-state-16
+    itmax    = inititer+niter-2 # BEWARE last iteration accessible trigger-state-16
 
     try: BodyForceInputData = setup.BodyForceInputData
     except: BodyForceInputData = None
@@ -55,8 +55,8 @@ TagSurfacesWithIteration  = CO.getOption('TagSurfacesWithIteration', default=Fal
 
 
 # BEWARE! state 16 => triggers *before* iteration, which means
-# that variable "it" represents actually the *next* iteration
-it = elsAxdt.iteration()
+# that "elsAxdt.iteration()" represents actually the *next* iteration
+it = elsAxdt.iteration() - 1
 CO.CurrentIteration = it
 CO.printCo('iteration %d'%it, proc=0)
 
@@ -143,7 +143,6 @@ if ENTER_COUPLING:
             if rank==0:
                 with open('COMPLETED','w') as f: f.write('COMPLETED')
 
-        CO.updateAndWriteSetup(setup)
         Cmpi.barrier()
         elsAxdt.safeInterrupt()
 

@@ -13,8 +13,7 @@ class Tree(Node):
     """docstring for Tree"""
     def __init__(self, input=[], **kwargs):
         if isinstance(input, Node):
-            self.setName('CGNSTree')
-            self.setType('CGNSTree_t')
+            super().__init__(Name='CGNSTree',Type='CGNSTree_t')
             self.addChildren( input.children() )
         else:
             super().__init__(Name='CGNSTree',Type='CGNSTree_t')
@@ -43,7 +42,6 @@ class Tree(Node):
         return [c.name() for c in self.children() if isinstance(c, Base)]
 
     def setUniqueBaseNames(self):
-        BaseNames = self.baseNames()
         for base in self.bases():
             Name = base.name()
             RestOfBaseNames = [c.name() for c in self.children() if isinstance(c, Base) and c is not base]
@@ -67,7 +65,6 @@ class Tree(Node):
             allzones.extend([z.name() for z in b.children() if isinstance(z,Zone)])
 
     def setUniqueZoneNames(self):
-        ZoneNames = self.zoneNames()
         for zone in self.zones():
             Name = zone.name()
             RestOfZoneNames = [z.name() for z in self.zones() if z is not zone]
