@@ -3896,6 +3896,9 @@ def postprocess_turbomachinery(surfaces, stages=[],
         InletPlane = Post.getSurfaceFromInfo(surfaces, ReferenceRow=row1, tag='InletPlane')
         OutletPlane = Post.getSurfaceFromInfo(surfaces, ReferenceRow=row2, tag='OutletPlane')
         Post.comparePerfoPlane2Plane(InletPlane, OutletPlane, var4comp_perf)
-        Post.compareRadialProfilesPlane2Plane(InletPlane, OutletPlane, var4comp_repart)
+        extractionInfoInlet = Post.getExtractionInfo(InletPlane)
+        extractionInfoOutlet = Post.getExtractionInfo(OutletPlane)
+        if extractionInfoInlet['field'] == 'CoordinateX' and extractionInfoOutlet['field'] == 'CoordinateX':
+            Post.compareRadialProfilesPlane2Plane(InletPlane, OutletPlane, var4comp_repart)
 
     Post.cleanSurfaces(surfaces, var2keep=var2keep)

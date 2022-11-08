@@ -370,8 +370,16 @@ def compute0DPerformances(surfaces, variablesByAverage, var4comp_perf):
         var4comp_perf : list 
             Names of variables to compare between planes tagged with 'InletPlane' and 'OutletPlane'.
     '''
-    surfacesIsoX = getSurfacesFromInfo(surfaces, type='IsoSurface', field='CoordinateX')
-    for surface in surfacesIsoX:
+    surfacesToProcess = getSurfacesFromInfo(surfaces, type='IsoSurface', field='CoordinateX')
+    # Add eventual non axial InletPlanes or OutletPlanes for centrifugal configurations
+    InletPlanes = getSurfacesFromInfo(surfaces, type='IsoSurface', tag='InletPlane')
+    OutletPlanes = getSurfacesFromInfo(surfaces, type='IsoSurface', tag='OutletPlane')
+    surfacesToProcessNames = [I.getName(surf) for surf in surfacesToProcess]
+    for plane in InletPlanes + OutletPlanes:
+        if I.getName(plane) not in surfacesToProcessNames:
+            surfacesToProcess.append(plane)
+
+    for surface in surfacesToProcess:
         ExtractionInfo = I.getNodeFromName(surface, '.ExtractionInfo')
         ReferenceRow = I.getValue(I.getNodeFromName(ExtractionInfo, 'ReferenceRow'))
         nBlades = setup.TurboConfiguration['Rows'][ReferenceRow]['NumberOfBlades']
@@ -522,7 +530,7 @@ def compareRadialProfilesPlane2Plane(InletPlane, OutletPlane, var4comp_repart):
     I.addChild(OutletPlane, tBilan)
 
     # Convert average nodes in 'UserDefinedData_t'
-    # Must be done at the end, because TP.comparePerformancesPlane2Plane need
+    # Must be done at the end, because TR.compareRadialProfilePlane2Plane need
     # that these nodes are 'Zone_t'
     for node in I.getNodesFromName2(InletPlane, '.RadialProfile') + I.getNodesFromName2(OutletPlane, '.RadialProfile'):
         I.setType(node, 'UserDefinedData_t')
