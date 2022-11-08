@@ -99,7 +99,11 @@ if [ "$MAC" = "spiro" ]; then
 
     # turbo
     export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/spiro3_mpi/lib/python3.7/site-packages/:$PYTHONPATH
-
+    # Workaround to fix the bug described here: https://elsa-e.onera.fr/issues/10697
+    # It should be corrected in elsA v5.1.03 
+    export PYTHONPATH=/stck/jmarty/ETUDES/SONICE/DEV/2021/FT3_post_metier/src_etc/install_py3_dev_cor_ticket10697/:$PYTHONPATH
+    export PYTHONPATH=/stck/jmarty/ETUDES/SONICE/DEV/2021/FT3_post_metier/src_etc/install_py3_dev_cor_ticket10697/Dist/bin/spiro_mpi/lib/python3.7/site-packages:$PYTHONPATH
+    
     # ErstaZ
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
     export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
