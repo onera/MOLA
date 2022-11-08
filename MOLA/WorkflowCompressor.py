@@ -3392,10 +3392,8 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
     NewJobs         = Throttle_ == ThrottleRange[0]
 
     def adaptPathForDispatcher(filename):
-        if len(filename.split('/'))>1:
-            # This is a path: remove it for writing in JobConfiguration.py
-            filename = os.path.join('..', '..', 'DISPATCHER', filename.split(os.path.sep)[-1])
-        return filename
+        # This is a path: remove it for writing in JobConfiguration.py
+        return os.path.join('..', '..', 'DISPATCHER', filename.split(os.path.sep)[-1])
 
     JobsQueues = []
     for i, (Throttle, RotationSpeed, NewJob) in enumerate(zip(Throttle_, RotationSpeed_, NewJobs)):
