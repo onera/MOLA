@@ -2561,3 +2561,61 @@ def selectZones(t, baseName=None, familyName=None, zoneName=None):
         FamilyMatch = zoneOfFamily(zone, familyName, wildcard_used=True) if familyName is not None else True
         ZoneMatch = fnmatch(zone[0], zoneName) if zoneName is not None else True
         if BaseMatch == ZoneMatch == FamilyMatch == True: zones += [ zone ]
+
+
+def moveFields(t, origin='FlowSolution#EndOfRun#Relative',
+        destination='FlowSolution#Init'):
+    '''
+    For each zone contained in PyTree **t**, move all the fields of container
+    **origin** into the container **destination**, possibly overriding nodes of 
+    same name already present in **destination**.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            tree to modify
+
+        origin : str 
+            name of the container where fields to be moved are present
+
+        destination : str
+            name of the container where fields of **origin** are being moved
+    '''
+    
+    for zone in I.getZones(t):
+    
+        container_origin = I.getNodeFromName1(zone, origin)
+        if not container_origin: continue
+        
+        container_destination = I.getNodeFromName1(zone, destination)
+        if not container_destination:
+            container_origin[0] = destination
+            continue
+
+        for field_src in container_origin[2]:
+            
+            if field_src[3] != 'DataArray_t': continue
+            
+            replaced = False
+            for i, field_dst in enumerate(container_destination[2]):
+                if field_dst[0] == field_src[0]:
+                    del container_destination[2][i]
+                    container_destination[2].insert(i, field_src)
+                    replaced = True
+                    break
+            if not replaced: container_destionation += [ field_src ]
+
+        I._rmNode(zone, container_origin)
+
+def load(*args, **kwargs):
+    '''
+    literally, a shortcut of C.convertFile2PyTree
+    '''
+    return C.convertFile2PyTree(*args, **kwargs)
+
+def save(*args, **kwargs):
+    '''
+    literally, a shortcut of C.convertPyTree2File
+    '''
+    C.convertPyTree2File(*args, **kwargs)

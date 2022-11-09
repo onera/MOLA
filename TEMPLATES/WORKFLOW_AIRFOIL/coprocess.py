@@ -86,6 +86,7 @@ if ENTER_COUPLING:
     t = CO.extractFields(Skeleton)
 
     if SAVE_FIELDS:
+        J.moveFields(t)
         CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
 
     if REGISTER_TRANSITION:

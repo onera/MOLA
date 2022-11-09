@@ -114,9 +114,6 @@ if ENTER_COUPLING:
         SAVE_BODYFORCE = False
 
 
-    if SAVE_FIELDS:
-        CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
-
     if SAVE_ARRAYS:
         arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,
                             Extractions=setup.Extractions, addMemoryUsage=True)
@@ -130,9 +127,15 @@ if ENTER_COUPLING:
         CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES), 
                       tagWithIteration=TagSurfacesWithIteration)
 
-
     if SAVE_BODYFORCE:
         CO.save(BodyForceDisks,os.path.join(DIRECTORY_OUTPUT,FILE_BODYFORCESRC))
+
+
+    if SAVE_FIELDS:
+        J.moveFields(t)
+        CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS),
+                   tagWithIteration=TagSurfacesWithIteration)
+
 
     if CONVERGED or it >= itmax or ReachedTimeOutMargin:
         if ReachedTimeOutMargin:

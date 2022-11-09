@@ -11,7 +11,7 @@ from matplotlib.ticker import AutoMinorLocator, LogLocator, NullFormatter
 
 FILE_ARRAYS = os.path.join('OUTPUT','arrays.cgns')
 
-FluxName = 'CL'
+FluxName = 'MomentumZFlux'
 
 figname = 'arrays.svg'
 
@@ -34,19 +34,21 @@ for zone, ax in zip(zones, axes):
                               FluxName,
                               'avg-'+FluxName,
                               'std-'+FluxName,])
+    if v[FluxName][0] is None: continue
     ax[0].set_title(zone[0])
 
     ax[0].plot(v['IterationNumber'], v[FluxName], label=FluxName, color='k')
-    ax[0].plot(v['IterationNumber'], v['avg-'+FluxName],
-               label='average '+FluxName, color='C0')
+    if v['avg-'+FluxName][0] is not None:
+        ax[0].plot(v['IterationNumber'], v['avg-'+FluxName],
+                label='average '+FluxName, color='C0')
 
-
-    ax[1].plot(v['IterationNumber'], v['std-'+FluxName],
-            label='std(%s)'%FluxName, color='C1')
-    ax[1].set_yscale('log')
-    for a in ax:
-        a.set_xlabel('iteration')
-        a.legend(loc='best')
+    if v['std-'+FluxName][0] is not None:
+        ax[1].plot(v['IterationNumber'], v['std-'+FluxName],
+                label='std(%s)'%FluxName, color='C1')
+        ax[1].set_yscale('log')
+        for a in ax:
+            a.set_xlabel('iteration')
+            a.legend(loc='best')
 
 FlatListAxes = [i for j in axes for i in j]
 drawMinorGrid = True
