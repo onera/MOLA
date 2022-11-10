@@ -34,6 +34,9 @@ from . import GenerativeVolumeDesign as GVD
 from . import ExtractSurfacesProcessor as ESP
 from . import JobManager as JM
 
+load = J.load 
+save = J.save
+
 DEBUG = False
 DIRECTORY_OVERSET='OVERSET' 
 
@@ -497,7 +500,8 @@ def getMeshesAssembled(InputMeshes):
         InputMeshes[new_index:new_index] = NewComponents[k]
         InputMeshes.remove(original_item)
 
-    t = I.merge(Trees)
+    if Trees: t = I.merge(Trees)
+    else: t = C.newPyTree([])
     t_cart = GVD.buildCartesianBackground(t, InputMeshes)
     if t_cart is not None: t = I.merge([t, t_cart])
     t = I.correctPyTree(t, level=3)

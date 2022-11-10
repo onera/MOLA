@@ -3,6 +3,8 @@ Main subpackage for Blade-Element Momentum Theory (BEMT) computations
 
 13/06/2022 - L. Bernardos - first creation
 '''
+
+from .. import load as file_load
 from ..Core import np,RED,GREEN,WARN,PINK,CYAN,ENDC,interpolate,secant
 from ..LiftingLine import (LiftingLine, Polars,
                            computeViscosityMolecular, computeSoundSpeed)
@@ -1112,3 +1114,15 @@ def optimalDesignByThrustAndFixedPitch(number_of_blades=2, Rmin=0.1, Rmax=1.0,
         outputs['pitch'] = DesignLiftingLine.Pitch
 
         return DesignLiftingLine, outputs
+
+
+def load(filename):
+    t = file_load( filename )
+    LLs = [ z for z in t.zones() if isinstance(z,LiftingLine) ]
+    NbOfLiftingLines = len(LLs)
+    if NbOfLiftingLines == 1:
+        return LLs[0]
+    elif NbOfLiftingLines == 0:
+        raise IOError('no lifting line found in file %s'%filename)
+    else:
+        raise IOError('multiple lifting lines (%d) found in file %s'%(NbOfLiftingLines,filename))
