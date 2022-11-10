@@ -3712,7 +3712,6 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
             for f in fluxes:
                 if f not in BCExtractions[bc]:
                     BCExtractions[bc].append(f)
-
     # Default keys to write in the .Solver#Output of the Family node
     # The node 'var' will be fill later depending on the BCType
     BCKeys = dict(
@@ -3747,8 +3746,9 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     ))
     
     FamilyNodes = I.getNodesFromType2(t, 'Family_t')
-    for ExtractBCType, ExtractVariablesList in BCExtractions.items():
+    for ExtractBCType, ExtractVariablesListDefault in BCExtractions.items():
         for FamilyNode in FamilyNodes:
+            ExtractVariablesList = copy.deepcopy(ExtractVariablesListDefault)
             FamilyName = I.getName( FamilyNode )
             BCType = getFamilyBCTypeFromFamilyBCName(t, FamilyName)
             if not BCType: continue
@@ -3766,12 +3766,11 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
                             if 'bl_quantities_2d' in ExtractVariablesList:
                                 ExtractVariablesList.remove('bl_quantities_2d')
                             break
-
                     if 'Inviscid' in BCType:
-                        if 'bl_quantities_2d' in ExtractVariablesList:
-                            ExtractVariablesList.remove('bl_quantities_2d')
-                        if 'yplusmeshsize' in ExtractVariablesList:
-                            ExtractVariablesList.remove('yplusmeshsize')
+                        var2remove = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue', 'yplusmeshsize']
+                        for var in var2remove:
+                            if var in ExtractVariablesList:
+                                ExtractVariablesList.remove(var)
                     else:
                         TransitionMode = ReferenceValues['TransitionMode']
 
@@ -3784,7 +3783,6 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
                         elif TransitionMode == 'Imposed':
                             extraVariables = ['intermittency', 'clim']
                             ExtractVariablesList.extend(extraVariables)
-
                 if ExtractVariablesList != []:
                     varDict = dict(var=' '.join(ExtractVariablesList))
                     print('setting .Solver#Output to FamilyNode '+FamilyNode[0])
