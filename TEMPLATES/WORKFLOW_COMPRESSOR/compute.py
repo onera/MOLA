@@ -135,15 +135,16 @@ e.compute()
 
 t = CO.extractFields(Skeleton)
 
+# save surfaces
+surfs = CO.extractSurfaces(t, setup.Extractions)
+surfs = CO._extendSurfacesWithWorkflowQuantities(surfs, arrays)
+CO.monitorTurboPerformance(surfs, arrays, RequestedStatistics)
+CO.save(surfs, os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES))
+
 # save arrays
 arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,
           Extractions=setup.Extractions, addMemoryUsage=True)
 CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))
-
-# save surfaces
-surfs = CO.extractSurfaces(t, setup.Extractions)
-CO.monitorTurboPerformance(surfs, arrays, RequestedStatistics)
-CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
 
 # save fields
 CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))

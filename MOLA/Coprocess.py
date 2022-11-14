@@ -391,8 +391,8 @@ def extractSurfaces(t, Extractions):
     restoreFamilies(SurfacesTree, t)
     Cmpi.barrier()
 
-    # Workflow specific postprocessings
-    SurfacesTree = _extendSurfacesWithWorkflowQuantities(SurfacesTree)
+    # # Workflow specific postprocessings
+    # SurfacesTree = _extendSurfacesWithWorkflowQuantities(SurfacesTree)
 
     # Keep only allowed fields in surfaces
     for base in I.getBases(SurfacesTree):
@@ -765,6 +765,8 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[], tagWithIte
             IsRotor = False
 
         for base in I.getNodesFromType(surfaces, 'CGNSBase_t'):
+            if I.getName(base) == 'RadialProfiles': continue
+            
             try:
                 ExtractionInfo = I.getNodeFromNameAndType(base, '.ExtractionInfo', 'UserDefinedData_t')
                 ReferenceRow = I.getValue(I.getNodeFromName(ExtractionInfo, 'ReferenceRow'))
@@ -2680,7 +2682,7 @@ def loadMotionForElsA(elsA_user, Skeleton):
     Cmpi.barrier()
 
 
-def _extendSurfacesWithWorkflowQuantities(surfaces):
+def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
     '''
     Perform post-process specific to the workflow.
 
@@ -2707,13 +2709,49 @@ def _extendSurfacesWithWorkflowQuantities(surfaces):
     if Workflow == 'Compressor':
         import MOLA.WorkflowCompressor as WC
 
-        if EndOfRun or setup.elsAkeysNumerics['time_algo'] != 'steady':
-            # FIXME: do not save and reload surfaces.cgns
-            save(surfaces, os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES))
-            surfaces = Cmpi.convertFile2PyTree(os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES))
+        if EndOfRun: # or setup.elsAkeysNumerics['time_algo'] != 'steady':
+            if NumberOfProcessors > 1:
+                # Share the skeleton on all procs
+                Cmpi._setProc(surfaces, rank)
+                Skeleton = J.getStructure(surfaces)
+                trees = comm.allgather(Skeleton)
+                trees.insert(0, surfaces)
+                surfaces = I.merge(trees)
+                Cmpi._convert2PartialTree(surfaces)
+
+                # Ensure that bases are in the same order on all procs. 
+                # It is MANDATORY for next post-processings
+                J._reorderBases(surfaces)
+
             try:           
                 WC.postprocess_turbomachinery(surfaces, **PostprocessOptions)
                 printCo('Postprocess done on surfaces', proc=0, color=J.MAGE)
+
+                if rank == 0:
+                    # Move 0D averages to arrays
+                    averagesDict = dict()
+                    Averages0D = I.getNodeFromName1(surfaces, 'Averages0D')
+                    for zone in I.getZones(Averages0D):
+                        for FS in I.getNodesFromType1(zone, 'FlowSolution_t'):
+                            zoneName = I.getName(zone)
+                            FSname = I.getName(FS)
+
+                            if 'Comparison' in FSname:
+                                zoneName += '#' + I.getName(FS).split('#')[-1]
+
+                            averagesDict = dict(IterationNumber = CurrentIteration-1)
+                            for node in I.getNodesFromType1(FS, 'DataArray_t'):
+                                averagesDict[I.getName(node)] = I.getValue(node)
+
+                            appendDict2Arrays(arrays, averagesDict, zoneName)
+            
+                else:
+                    # Remove RadialProfiles for all proc except one, because only proc 0 is up-to-date
+                    I._rmNodesFromName1(surfaces, 'RadialProfiles')
+
+                # Remove 0D averages from surfaces tree for all procs
+                I._rmNodesFromName1(surfaces, 'Averages0D')
+
             except ImportError:
                 pass
     return surfaces

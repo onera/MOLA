@@ -51,15 +51,18 @@ def getExtractionInfo(surface):
     Returns
     -------
 
-        info : dict
+        dict
             dictionary with the template:
 
             >>> info[nodeName] = nodeValue
 
     '''
-    ExtractionInfo = I.getNodeFromName1(surface, '.ExtractionInfo')
-    info = dict((I.getName(node), str(I.getValue(node))) for node in I.getChildren(ExtractionInfo))
-    return info
+    ExtractionInfo = I.getNodeFromName2(surface, '.ExtractionInfo')
+    if not ExtractionInfo: 
+        return dict()
+    else:
+        return dict((I.getName(node), str(I.getValue(node))) for node in I.getChildren(ExtractionInfo))
+
 
 def getSurfacesFromInfo(surfaces, breakAtFirst=False, **kwargs):
     '''
@@ -138,98 +141,6 @@ def getSurfaceArea(surface):
         area += abs(P.integNorm(zone, var='ones')[0][0])
     return area
 
-# @J.mute_stdout
-# def _computeAeroVariables(surfaces, filename=None, useSI=True, velForm='absolute'):
-#     for surface in I.getNodesFromType(surfaces, 'CGNSBase_t'):
-#         info = getExtractionInfo(surface)
-#         if info['type'] != 'IsoSurface': continue
-#         tmp_surface = C.node2Center(surface, I.__FlowSolutionNodes__)
-#         for fsname in [I.__FlowSolutionNodes__, I.__FlowSolutionCenters__]:
-#             TF._computeOtherFields(tmp_surface, RefState(setup), TUS.getFields(),
-#                 fsname=fsname, useSI=useSI, velocity=velForm, specific_tv_dir_name=True)
-#         I.rmNode(surfaces, surface)
-#         I.addChild(surfaces, tmp_surface)
-#     if filename: C.convertPyTree2File(surfaces, filename)
-
-# def computeAeroVariables(surfaces, filename=None, useSI=True, velForm='absolute',
-#                         var2saveCell=None, var2saveVertex=None):
-#     new_surfaces = I.copyTree(surfaces)
-#     _computeAeroVariables(new_surfaces, filename=filename, useSI=useSI, velForm=velForm)
-#     mergeFlowSolutionOfTrees(surfaces, new_surfaces, var2save=var2saveCell, container=I.__FlowSolutionCenters__)
-#     mergeFlowSolutionOfTrees(surfaces, new_surfaces, var2save=var2saveVertex, container=I.__FlowSolutionNodes__)
-#     return new_surfaces
-
-# def computePerfosFromPlanes(upstream, downstream, downstream2=None, var2avgByMassflow=[], var2avgBySurface=[], var4comp=[]):
-#     '''
-#     Compute row performance (massflow in/out, total pressure ratio,
-#     total temperature ratio, isentropic efficiency) between two surfaces.
-#     Results are written into a file.
-
-#     Parameters
-#     ----------
-
-#         upstream : PyTree
-#             Top PyTree or base corresponding to the upstream surface for
-#             performance computation.
-
-#         downstream : PyTree
-#             Top PyTree or base corresponding to the downstream surface for
-#             performance computation.
-
-#         downstream2 : PyTree
-
-#     '''
-#     TurboConfiguration = setup.TurboConfiguration
-
-#     if downstream2 is not None:
-#         plane_names = ['upstream','downstream', 'downstream2']
-#         plane_trees = [upstream, downstream, downstream2]
-#     else:
-#         plane_names = ['upstream','downstream']
-#         plane_trees = [upstream, downstream]
-
-#     perfos = dict()
-#     for plane, slices in zip(plane_names, plane_trees):
-#         ExtractionInfo = I.getNodeFromName(slices, '.ExtractionInfo')
-#         ReferenceRow = I.getValue(I.getNodeFromName(ExtractionInfo, 'ReferenceRow'))
-
-#         nBlades = TurboConfiguration['Rows'][ReferenceRow]['NumberOfBlades']
-#         nBladesSimu = TurboConfiguration['Rows'][ReferenceRow]['NumberOfBladesSimulated']
-#         fluxcoeff = nBlades / float(nBladesSimu)
-#         perfTreeMassflow = TP.computePerformances(slices, plane,
-#             variables=var2avgByMassflow,
-#             average='massflow',
-#             compute_massflow=True,
-#             fluxcoef=fluxcoeff,
-#             fsname=I.__FlowSolutionCenters__)
-#         perfTreeSurface = TP.computePerformances(slices, plane,
-#             variables=var2avgBySurface,
-#             average='surface',
-#             compute_massflow=True,
-#             fluxcoef=fluxcoeff,
-#             fsname=I.__FlowSolutionCenters__)
-
-#         perfos[plane] = I.merge([perfTreeMassflow, perfTreeSurface])
-
-#     tAvg = I.merge(perfos.values())
-
-#     if downstream2 is not None:
-#         tBilan = TP.comparePerformancesPlane2Plane(perfos['upstream'], perfos['downstream'],
-#                                           ['upstream','downstream', 'downstream2'],
-#                                           'Bilan',
-#                                           t3=perfos['downstream2'],
-#                                           config='compressor',
-#                                           variables=var4comp)
-#     else:
-#         tBilan = TP.comparePerformancesPlane2Plane(perfos['upstream'], perfos['downstream'],
-#                                           ['upstream','downstream'],
-#                                           'Bilan',
-#                                           config='compressor',
-#                                           variables=var4comp)
-
-#     tPerfos = I.merge([tAvg, tBilan])
-
-#     return tPerfos
 
 def sortVariablesByAverage(variables):
     '''
@@ -354,7 +265,7 @@ def computeVariablesOnIsosurface(surfaces):
                                     fsname=fsname, useSI=True, velocity='absolute')
 
 
-def compute0DPerformances(surfaces, variablesByAverage, var4comp_perf):
+def compute0DPerformances(surfaces, variablesByAverage):
     '''
     Compute averaged values for all variables for all iso-X surfaces
 
@@ -367,8 +278,6 @@ def compute0DPerformances(surfaces, variablesByAverage, var4comp_perf):
         variablesByAverage : dict
             Lists of variables sorted by type of average (as produced by :py:func:`sortVariablesByAverage`)
 
-        var4comp_perf : list 
-            Names of variables to compare between planes tagged with 'InletPlane' and 'OutletPlane'.
     '''
     surfacesToProcess = getSurfacesFromInfo(surfaces, type='IsoSurface', field='CoordinateX')
     # Add eventual non axial InletPlanes or OutletPlanes for centrifugal configurations
@@ -379,80 +288,86 @@ def compute0DPerformances(surfaces, variablesByAverage, var4comp_perf):
         if I.getName(plane) not in surfacesToProcessNames:
             surfacesToProcess.append(plane)
 
-    for surface in surfacesToProcess:
-        ExtractionInfo = I.getNodeFromName(surface, '.ExtractionInfo')
-        ReferenceRow = I.getValue(I.getNodeFromName(ExtractionInfo, 'ReferenceRow'))
+    def getFluxCoeff(surface):
+        RowFamilies = []
+        for Family in I.getNodesFromType1(surface, 'Family_t'):
+            if I.getNodeFromName1(Family, '.Solver#Motion'):
+                RowFamilies.append(I.getName(Family))
+        assert len(
+            RowFamilies) == 1, f'There are more than 1 zone family in {I.getName(surface)}'
+        ReferenceRow = RowFamilies[0]
         nBlades = setup.TurboConfiguration['Rows'][ReferenceRow]['NumberOfBlades']
         nBladesSimu = setup.TurboConfiguration['Rows'][ReferenceRow]['NumberOfBladesSimulated']
         fluxcoeff = nBlades / float(nBladesSimu)
+        return fluxcoeff
 
-        perfTreeMassflow = TP.computePerformances(surface, '.Average',
-            variables=variablesByAverage['massflow'], average='massflow',
-            compute_massflow=False, fluxcoef=fluxcoeff, fsname=I.__FlowSolutionCenters__)
-        perfTreeSurface = TP.computePerformances(surface, '.Average',
-            variables=variablesByAverage['surface'], average='surface',
-            compute_massflow=True, fluxcoef=fluxcoeff, fsname=I.__FlowSolutionCenters__)
+    Averages = I.newCGNSBase('Averages0D', cellDim=0, physDim=3, parent=surfaces)
+
+    for surface in surfacesToProcess:
+        surfaceName = I.getName(surface)
+        fluxcoeff = getFluxCoeff(surface)
+        info = getExtractionInfo(surface)
+
+        perfTreeMassflow = TP.computePerformances(surface, surfaceName,
+                                                  variables=variablesByAverage['massflow'], average='massflow',
+                                                  compute_massflow=False, fluxcoef=fluxcoeff, fsname=I.__FlowSolutionCenters__)
+        perfTreeSurface = TP.computePerformances(surface, surfaceName,
+                                                 variables=variablesByAverage['surface'], average='surface',
+                                                 compute_massflow=True, fluxcoef=fluxcoeff, fsname=I.__FlowSolutionCenters__)
 
         perfos = I.merge([perfTreeMassflow, perfTreeSurface])
         perfos = I.getNodeFromType2(perfos, 'Zone_t')
-        # I.setType(perfos, 'UserDefinedData_t')  # must be a zone to be detected by comparePerformancesPlane2Plane
-        J.set(perfos, '.averageType', **variablesByAverage)
-        I.addChild(surface, perfos)
-
-    for row in setup.TurboConfiguration['Rows']:
-
-        InletPlane = getSurfaceFromInfo(surfaces, ReferenceRow=row, tag='InletPlane')
-        OutletPlane = getSurfaceFromInfo(surfaces, ReferenceRow=row, tag='OutletPlane')
-        if not(InletPlane and OutletPlane): continue
-
-        comparePerfoPlane2Plane(InletPlane, OutletPlane, var4comp_perf)
+        PostprocessInfo = {'averageType': variablesByAverage,
+                           'surfaceName': surfaceName,
+                           '.ExtractionInfo': info
+                           }
+        J.set(perfos, '.PostprocessInfo', **PostprocessInfo)
+        I.addChild(Averages, perfos)
 
 
-def comparePerfoPlane2Plane(InletPlane, OutletPlane, var4comp_perf):
+def comparePerfoPlane2Plane(surfaces, var4comp_perf, stages=[]):
     '''
     Compare averaged values between the **InletPlane** and the **OutletPlane**.
 
     Parameters
     ----------
+
+        surfaces : PyTree
+            as produced by :py:func:`extractSurfaces`
     
-        InletPlane : PyTree
-            First plane to compare. Depending on the computed values, it will be the denominator 
-            in a ratio or the second term in a difference.
-
-        OutletPlane : PyTree
-            Second plane to compare. Depending on the computed values, it will be the numerator 
-            in a ratio or the first term in a difference.
-
         var4comp_perf : list 
-            Names of variables to compute
+            Names of variables to compare between planes tagged with 'InletPlane' and 'OutletPlane'.
+        
+        stages : :py:class:`list` of :py:class:`tuple`, optional
+            List of row stages, of the form:
+
+            >>> stages = [('rotor1', 'stator1'), ('rotor2', 'stator2')] 
+
+            For each tuple of rows, the inlet plane of row 1 is compared with the outlet plane of row 2.
+
     '''
-    for node in I.getNodesFromName1(InletPlane, '.Average') + I.getNodesFromName1(OutletPlane, '.Average'):
-        I.setType(node, 'Zone_t')
+    Averages0D = I.getNodeFromName1(surfaces, 'Averages0D')
 
-    ComparisonNodeName = '.Average#Comparison01'
-    ExistingComparisonNodes = [I.getName(n) for n in I.getNodesFromName(InletPlane, '.Average#Comparison*')]
-    i = 1
-    while ComparisonNodeName in ExistingComparisonNodes:
-        i += 1
-        ComparisonNodeName = '.Average#Comparison{:02d}'.format(i)
+    for row in setup.TurboConfiguration['Rows']:
+        if (row, row) not in stages:
+            stages.append((row, row))
 
-    tBilan = TP.comparePerformancesPlane2Plane(InletPlane, OutletPlane,
-                    '.Average', ComparisonNodeName,
-                    config='compressor', variables=var4comp_perf)
-    tBilan = I.getNodeFromType2(tBilan, 'Zone_t')
-    I.setType(tBilan, 'UserDefinedData_t')
-    I.createChild(tBilan, '.comparedTo', 'UserDefinedData_t', value=I.getName(InletPlane), pos=0)
-    I.addChild(OutletPlane, tBilan)
+    for (row1, row2) in stages:
+        InletPlane = getSurfaceFromInfo(Averages0D, ReferenceRow=row1, tag='InletPlane')
+        OutletPlane = getSurfaceFromInfo(Averages0D, ReferenceRow=row2, tag='OutletPlane')
+        if not(InletPlane and OutletPlane): 
+            continue
 
-    # Convert average nodes in 'UserDefinedData_t'
-    # Must be done at the end, because TP.comparePerformancesPlane2Plane need
-    # that these nodes are 'Zone_t'
-    for node in I.getNodesFromName2(InletPlane, '.Average') + I.getNodesFromName2(OutletPlane, '.Average'):
-        I.setType(node, 'UserDefinedData_t')
+        tBilan = TP.comparePerformancesPlane2Plane(InletPlane, OutletPlane,
+                                                    [I.getName(InletPlane), I.getName(OutletPlane)],
+                                                    f'Comparison',
+                                                    config='compressor', variables=var4comp_perf)
+        tBilan = I.getNodeFromType(tBilan, 'FlowSolution_t')
+        I.setName(tBilan, f'Comparison#{I.getName(InletPlane)}')
+        I.addChild(OutletPlane, tBilan)
 
 
-# @J.mute_stdout
-def compute1DRadialProfiles(surfaces, variablesByAverage, var4comp_repart):
+def compute1DRadialProfiles(surfaces, variablesByAverage):
     '''
     Compute radial profiles for all iso-X surfaces
 
@@ -465,78 +380,71 @@ def compute1DRadialProfiles(surfaces, variablesByAverage, var4comp_repart):
         variablesByAverage : dict
             Lists of variables sorted by type of average (as produced by :py:func:`sortVariablesByAverage`)
 
-        var4comp_repart : list 
-            Names of variables to compute
     '''
+    RadialProfiles = I.newCGNSBase('RadialProfiles', cellDim=1, physDim=3, parent=surfaces)
     surfacesIsoX = getSurfacesFromInfo(surfaces, type='IsoSurface', field='CoordinateX')
+
     for surface in surfacesIsoX:
+        surfaceName = I.getName(surface)
         tmp_surface = C.convertArray2NGon(surface, recoverBC=0)
-        radial_surf = TR.computeRadialProfile_future(tmp_surface, '.RadialProfile',
-            variablesByAverage['surface'], 'surface', fsname=I.__FlowSolutionCenters__)
-        radial_massflow = TR.computeRadialProfile_future(tmp_surface, '.RadialProfile',
-            variablesByAverage['massflow'], 'massflow', fsname=I.__FlowSolutionCenters__)
+        radial_surf = TR.computeRadialProfile_future(tmp_surface, surfaceName, variablesByAverage['surface'], 'surface', fsname=I.__FlowSolutionCenters__)
+        radial_massflow = TR.computeRadialProfile_future(tmp_surface, surfaceName, variablesByAverage['massflow'], 'massflow', fsname=I.__FlowSolutionCenters__)
         t_radial = I.merge([radial_surf, radial_massflow])
         t_radial = I.getNodeFromType2(t_radial, 'Zone_t')
-        J.set(t_radial, '.averageType', **variablesByAverage)
-        I.addChild(surface, t_radial)
-
-    for row in setup.TurboConfiguration['Rows']:
-
-        InletPlane = getSurfaceFromInfo(surfaces, ReferenceRow=row, tag='InletPlane')
-        OutletPlane = getSurfaceFromInfo(surfaces, ReferenceRow=row, tag='OutletPlane')
-        if not(InletPlane and OutletPlane): continue
-
-        compareRadialProfilesPlane2Plane(InletPlane, OutletPlane, var4comp_repart)
-
-    for node in I.getNodesFromName2(surfaces, '.RadialProfile'):
-        I.setType(node, 'UserDefinedData_t')
+        PostprocessInfo = {'averageType': variablesByAverage, 
+                            'surfaceName': surfaceName,
+                            '.ExtractionInfo': getExtractionInfo(surface)
+                            }
+        J.set(t_radial, '.PostprocessInfo', **PostprocessInfo)
+        I.addChild(RadialProfiles, t_radial)
 
 
-def compareRadialProfilesPlane2Plane(InletPlane, OutletPlane, var4comp_repart):
+def compareRadialProfilesPlane2Plane(surfaces, var4comp_repart, stages=[]):
     '''
     Compare radial profiles between the **InletPlane** and the **OutletPlane**.
 
     Parameters
     ----------
     
-        InletPlane : PyTree
-            First plane to compare. Depending on the computed values, it will be the denominator 
-            in a ratio or the second term in a difference.
-
-        OutletPlane : PyTree
-            Second plane to compare. Depending on the computed values, it will be the numerator 
-            in a ratio or the first term in a difference.
-
+        surfaces : PyTree
+            as produced by :py:func:`extractSurfaces`
+    
         var4comp_repart : list 
-            Names of variables to compute
+            Names of variables to compare between planes tagged with 'InletPlane' and 'OutletPlane'.
+        
+        stages : :py:class:`list` of :py:class:`tuple`, optional
+            List of row stages, of the form:
+
+            >>> stages = [('rotor1', 'stator1'), ('rotor2', 'stator2')] 
+
+            For each tuple of rows, the inlet plane of row 1 is compared with the outlet plane of row 2.
+
     '''
-    for node in I.getNodesFromName1(InletPlane, '.RadialProfile') + I.getNodesFromName1(OutletPlane, '.RadialProfile'):
-        I.setType(node, 'Zone_t')
+    RadialProfiles = I.getNodeFromName1(surfaces, 'RadialProfiles')
 
-    ComparisonNodeName = '.RadialProfile#Comparison01'
-    ExistingComparisonNodes = [I.getName(n) for n in I.getNodesFromName(InletPlane, '.RadialProfile#Comparison*')]
-    i = 1
-    while ComparisonNodeName in ExistingComparisonNodes:
-        i += 1
-        ComparisonNodeName = '.RadialProfile#Comparison{:02d}'.format(i)
+    for row in setup.TurboConfiguration['Rows']:
+        if (row, row) not in stages:
+            stages.append((row, row))
 
-    tBilan = TR.compareRadialProfilePlane2Plane(InletPlane, OutletPlane,
-                                               '.RadialProfile', ComparisonNodeName,
-                                               config='compressor', variables=var4comp_repart)
-    tBilan = I.getNodeFromType2(tBilan, 'Zone_t')
-    I.setType(tBilan, 'UserDefinedData_t')
-    I.createChild(tBilan, '.comparedTo', 'UserDefinedData_t',
-                  value=I.getName(InletPlane), pos=0)
-    I.addChild(OutletPlane, tBilan)
+    for (row1, row2) in stages:
+        InletPlane = getSurfaceFromInfo(RadialProfiles, ReferenceRow=row1, tag='InletPlane')
+        OutletPlane = getSurfaceFromInfo(RadialProfiles, ReferenceRow=row2, tag='OutletPlane')
+        if not(InletPlane and OutletPlane):
+            continue
 
-    # Convert average nodes in 'UserDefinedData_t'
-    # Must be done at the end, because TR.compareRadialProfilePlane2Plane need
-    # that these nodes are 'Zone_t'
-    for node in I.getNodesFromName2(InletPlane, '.RadialProfile') + I.getNodesFromName2(OutletPlane, '.RadialProfile'):
-        I.setType(node, 'UserDefinedData_t')
+        extractionInfoInlet = getExtractionInfo(InletPlane)
+        extractionInfoOutlet = getExtractionInfo(OutletPlane)
+        if extractionInfoInlet['field'] == 'CoordinateX' and extractionInfoOutlet['field'] == 'CoordinateX':
+            tBilan = TR.compareRadialProfilePlane2Plane(InletPlane, OutletPlane,
+                                                        [I.getName(InletPlane), I.getName(OutletPlane)],
+                                                        f'Comparison',
+                                                        config='compressor', variables=var4comp_repart)
+            tBilan = I.getNodeFromType(tBilan, 'FlowSolution_t')
+            I.setName(tBilan, f'Comparison#{I.getName(InletPlane)}')
+            I.addChild(OutletPlane, tBilan)
 
-# @J.mute_stdout
-def computeVariablesOnBladeProfiles(surfaces, variables, hList='all'):
+
+def computeVariablesOnBladeProfiles(surfaces, hList='all'):
     '''
     Make height-constant slices on the blades to compute the isentropic Mach number and other
     variables at blade wall.
@@ -547,9 +455,6 @@ def computeVariablesOnBladeProfiles(surfaces, variables, hList='all'):
         surfaces : PyTree
             as produced by :py:func:`extractSurfaces`
 
-        variables : list
-            Names of the variables to compute
-
         hList : list or str, optional
             List of heights to make slices on blades. 
             If 'all' (by default), the list is got by taking the values of the existing 
@@ -557,13 +462,14 @@ def computeVariablesOnBladeProfiles(surfaces, variables, hList='all'):
     '''
 
     def searchBladeInTree(row):
-        famnames = ['*BLADE*'.format(row), '*Blade*'.format(row), '*AUBE*'.format(row), '*Aube*'.format(row)]
+        famnames = ['*BLADE*'.format(row), '*Blade*'.format(row),
+                    '*AUBE*'.format(row), '*Aube*'.format(row)]
         for famname in famnames:
             for bladeSurface in I.getNodesFromNameAndType(surfaces, famname, 'CGNSBase_t'):
-                if I.getNodeFromNameAndType(bladeSurface, row, 'Family_t'):
+                if I.getNodeFromNameAndType(bladeSurface, row, 'Family_t') and I.getZones(bladeSurface) != []:
                     return bladeSurface
         return
-    
+
     if hList == 'all':
         hList = []
         surfacesIsoH = getSurfacesFromInfo(surfaces, type='IsoSurface', field='ChannelHeight')
@@ -571,13 +477,14 @@ def computeVariablesOnBladeProfiles(surfaces, variables, hList='all'):
             ExtractionInfo = I.getNodeFromName(surface, '.ExtractionInfo')
             valueH = I.getValue(I.getNodeFromName(ExtractionInfo, 'value'))
             hList.append(valueH)
+        
+    RadialProfiles = I.getNodeByName1(surfaces, 'RadialProfiles')
 
     for row in setup.TurboConfiguration['Rows']:
 
-        InletPlane = getSurfaceFromInfo(surfaces, ReferenceRow=row, tag='InletPlane')
-        if not InletPlane: continue
-        TF._computeOtherFields(InletPlane, RefState(
-            setup), variables, fsname=I.__FlowSolutionNodes__, useSI=True, velocity='absolute')
+        InletPlane = getSurfaceFromInfo(RadialProfiles, ReferenceRow=row, tag='InletPlane')
+        if not InletPlane:
+            continue
 
         blade = searchBladeInTree(row)
         if not blade:
@@ -588,185 +495,13 @@ def computeVariablesOnBladeProfiles(surfaces, variables, hList='all'):
         C._initVars(blade, 'Radius=sqrt({CoordinateY}**2+{CoordinateZ}**2)')
         blade = C.center2Node(blade, I.__FlowSolutionCenters__)
         C._initVars(blade, 'StaticPressureDim={Pressure}')
-        #TODO: compute a new InletPlane: profiles of ptmax on the blade
+
         blade = TMis.computeIsentropicMachNumber(InletPlane, blade, RefState(setup))
 
+        BladeSlices = I.newCGNSBase(f'{row}_Slices', cellDim=1, physDim=3, parent=surfaces)
         for h in hList:
             bladeIsoH = T.join(P.isoSurfMC(blade, 'ChannelHeight', h))
-            I.setName(bladeIsoH, '.Iso_H_{}'.format(h))
-            I.setType(bladeIsoH, 'UserDefinedData_t')
-            I._addChild(blade, bladeIsoH)
+            # bladeIsoH = P.isoSurfMC(blade, 'ChannelHeight', h)
+            I.setName(bladeIsoH, 'Iso_H_{}'.format(h))
+            I._addChild(BladeSlices, bladeIsoH)
 
-        I._rmNodesByName1(surfaces, I.getName(blade))
-        I.addChild(surfaces, blade)
-
-
-def postprocess_turbomachinery(FILE_SURFACES='OUTPUT/surfaces.cgns', 
-                               FILE_SURFACES_NEW='OUTPUT/surfaces.cgns', 
-                               var4comp_repart=None, var4comp_perf=None, var2keep=None, 
-                               stages=[]):
-    '''
-    Perform a series of classical postprocessings for a turbomachinery case : 
-
-    #. Compute extra variables, in relative and absolute frames of reference
-
-    #. Compute averaged values for all iso-X planes (results are in the `.Average` node), and
-       compare inlet and outlet planes for each row if available, to get row performance (total 
-       pressure ratio, isentropic efficiency, etc) (results are in the `.Average#ComparisonXX` of
-       the inlet plane, `XX` being the numerotation starting at `01`)
-
-    #. Compute radial profiles for all iso-X planes (results are in the `.RadialProfile` node), and
-       compare inlet and outlet planes for each row if available, to get row performance (total 
-       pressure ratio, isentropic efficiency, etc) (results are in the `.RadialProfile#ComparisonXX` of
-       the inlet plane, `XX` being the numerotation starting at `01`)
-
-    #. Compute isentropic Mach number on blades, slicing at constant height, for all values of height 
-       already extracted as iso-surfaces. Results are in the `.Iso_H_XX` nodes.
-
-    Parameters
-    ----------
-        FILE_SURFACES : str, optional
-            Name of the input file with surfaces, by default 'OUTPUT/surfaces.cgns'
-
-        FILE_SURFACES_NEW : str, optional
-            Name of the output file with surface, by default 'OUTPUT/surfaces.cgns' (same as input)
-
-        var4comp_repart : :py:class:`list`, optional
-            List of variables computed for radial distributions. If not given, all possible variables are computed.
-
-        var4comp_perf : :py:class:`list`, optional
-            List of variables computed for row performance (plane to plane comparison). If not given, 
-            the same variables as in **var4comp_repart** are computed, plus `Power`.
-
-        var2keep : :py:class:`list`, optional
-            List of variables to keep in the saved file. If not given, the following variables are kept:
-            
-            .. code-block:: python
-
-                var2keep = [
-                    'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation',
-                    'Entropy',
-                    'Viscosity_EddyMolecularRatio',
-                    'VelocitySoundDim', 'StagnationEnthalpyAbsDim',
-                    'MachNumberAbs', 'MachNumberRel',
-                    'AlphaAngleDegree',  'BetaAngleDegree', 'PhiAngleDegree',
-                    'VelocityXAbsDim', 'VelocityRadiusAbsDim', 'VelocityThetaAbsDim',
-                    'VelocityMeridianDim', 'VelocityRadiusRelDim', 'VelocityThetaRelDim',
-                    ]
-
-        stages : :py:class:`list` of :py:class:`tuple`, optional
-            List of row stages, of the form:
-
-            >>> stages = [('rotor1', 'stator1'), ('rotor2', 'stator2')] 
-
-            For each tuple of rows, the inlet plane of row 1 is compared with the outlet plane of row 2.
-    '''
-    #______________________________________________________________________________
-    # Variables
-    #______________________________________________________________________________
-    allVariables = TUS.getFields()
-    if not var4comp_repart:
-        var4comp_repart = ['StagnationEnthalpyDelta',
-                        'StagnationPressureRatio', 'StagnationTemperatureRatio',
-                        'StaticPressureRatio', 'Static2StagnationPressureRatio',
-                        'IsentropicEfficiency', 'PolytropicEfficiency',
-                        'StaticPressureCoefficient', 'StagnationPressureCoefficient',
-                        'StagnationPressureLoss1', 'StagnationPressureLoss2',
-                        ]
-    if not var4comp_perf:
-        var4comp_perf = var4comp_repart + ['Power']  
-    if not var2keep:
-        var2keep = [
-            'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation',
-            'Entropy',
-            'Viscosity_EddyMolecularRatio',
-            'VelocitySoundDim', 'StagnationEnthalpyAbsDim',
-            'MachNumberAbs', 'MachNumberRel',
-            'AlphaAngleDegree',  'BetaAngleDegree', 'PhiAngleDegree',
-            'VelocityXAbsDim', 'VelocityRadiusAbsDim', 'VelocityThetaAbsDim',
-            'VelocityMeridianDim', 'VelocityRadiusRelDim', 'VelocityThetaRelDim',
-            ]
-        
-    variablesByAverage = sortVariablesByAverage(allVariables)
-
-    #______________________________________________________________________________
-    Cmpi.barrier()
-    surfaces = Cmpi.convertFile2PyTree(FILE_SURFACES)
-    Cmpi.barrier()
-    #______________________________________________________________________________#
-    computeVariablesOnIsosurface(surfaces)
-    compute0DPerformances(surfaces, variablesByAverage, var4comp_perf)
-    compute1DRadialProfiles(surfaces, variablesByAverage, var4comp_repart)
-    computeVariablesOnBladeProfiles(surfaces, allVariables)
-    #______________________________________________________________________________#
-
-    for (row1, row2) in stages:
-        InletPlane = getSurfaceFromInfo(surfaces, ReferenceRow=row1, tag='InletPlane')
-        OutletPlane = getSurfaceFromInfo(surfaces, ReferenceRow=row2, tag='OutletPlane')
-        comparePerfoPlane2Plane(InletPlane, OutletPlane, var4comp_perf)
-        compareRadialProfilesPlane2Plane(InletPlane, OutletPlane, var4comp_repart)
-
-    cleanSurfaces(surfaces, var2keep=var2keep)
-
-    Cmpi.barrier()
-    Cmpi.convertPyTree2File(surfaces, FILE_SURFACES_NEW)
-    Cmpi.barrier()
-
-
-
-if __name__ == '__main__':
-
-    import MOLA.PostprocessTurbo as PostTurbo
-
-    # > USER DATA
-    FILE_SETUP        = 'setup.py'
-    FILE_FIELDS       = 'fields.cgns'
-    FILE_SURFACES     = 'surfaces.cgns'
-    FILE_SURFACES_NEW = 'surfaces.cgns'
-    DIRECTORY_OUTPUT  = 'OUTPUT'
-
-    #______________________________________________________________________________
-    # Variables
-    #______________________________________________________________________________
-    allVariables = TUS.getFields()
-    var4comp_repart = ['StagnationEnthalpyDelta',
-                       'StagnationPressureRatio', 'StagnationTemperatureRatio',
-                       'StaticPressureRatio', 'Static2StagnationPressureRatio',
-                       'IsentropicEfficiency', 'PolytropicEfficiency',
-                       'StaticPressureCoefficient', 'StagnationPressureCoefficient',
-                       'StagnationPressureLoss1', 'StagnationPressureLoss2',
-                       ]
-    var4comp_perf = var4comp_repart + ['Power']
-    variablesByAverage = PostTurbo.sortVariablesByAverage(allVariables)
-    var2keep = [
-        'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation',
-        'Entropy',
-        'Viscosity_EddyMolecularRatio',
-        'VelocitySoundDim', 'StagnationEnthalpyAbsDim',
-        'MachNumberAbs', 'MachNumberRel',
-        'AlphaAngleDegree',  'BetaAngleDegree', 'PhiAngleDegree',
-        'VelocityXAbsDim', 'VelocityRadiusAbsDim', 'VelocityThetaAbsDim',
-        'VelocityMeridianDim', 'VelocityRadiusRelDim', 'VelocityThetaRelDim',
-        ]
-    #______________________________________________________________________________
-
-    PostTurbo.setup = J.load_source('setup', FILE_SETUP)
-    Cmpi.barrier()
-    surfaces = Cmpi.convertFile2PyTree(FILE_SURFACES)
-    Cmpi.barrier()
-    #______________________________________________________________________________#
-    PostTurbo.computeVariablesOnIsosurface(surfaces)
-    PostTurbo.compute0DPerformances(surfaces, variablesByAverage, var4comp_perf)
-    PostTurbo.compute1DRadialProfiles(surfaces, variablesByAverage, var4comp_repart)
-    PostTurbo.computeVariablesOnBladeProfiles(surfaces, allVariables, [0.1, 0.5, 0.9])
-    #______________________________________________________________________________#
-
-    InletPlane = PostTurbo.getSurfaceFromInfo(surfaces, ReferenceRow='row_1', tag='InletPlane')
-    OutletPlane = PostTurbo.getSurfaceFromInfo(surfaces, ReferenceRow='row_2', tag='OutletPlane')
-    PostTurbo.comparePerfoPlane2Plane(InletPlane, OutletPlane, var4comp_perf)
-
-    PostTurbo.cleanSurfaces(surfaces, var2keep=var2keep)
-
-    Cmpi.barrier()
-    Cmpi.convertPyTree2File(surfaces, FILE_SURFACES_NEW)
-    Cmpi.barrier()
