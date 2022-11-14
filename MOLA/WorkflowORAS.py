@@ -177,9 +177,13 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                         elsAkeysNumerics=elsAkeysNumerics,
                         Extractions=Extractions)
 
+    BCExtractions = dict(
+    BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
+    )
+
     PRE.addTrigger(t)
     PRE.addExtractions(t, AllSetupDics['ReferenceValues'],
-                          AllSetupDics['elsAkeysModel'], extractCoords=False)
+                          AllSetupDics['elsAkeysModel'], extractCoords=False,BCExtractions=BCExtractions)
 
     if elsAkeysNumerics['time_algo'] != 'steady':
         PRE.addAverageFieldExtractions(t, AllSetupDics['ReferenceValues'],

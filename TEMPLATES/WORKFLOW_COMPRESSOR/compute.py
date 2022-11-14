@@ -75,7 +75,7 @@ if niter == 0:
     CO.printCo('niter = 0: Please update this value and run the simulation again', proc=0, color=J.WARN)
     exit()
 inititer = setup.elsAkeysNumerics['inititer']
-itmax    = inititer+niter-1 # BEWARE last iteration accessible trigger-state-16
+itmax    = inititer+niter-2 # BEWARE last iteration accessible trigger-state-16
 
 if Splitter == 'PyPart':
     t, Skeleton, PyPartBase, Distribution = CO.splitWithPyPart()
@@ -133,6 +133,10 @@ e.action=elsAxdt.COMPUTE
 e.mode=elsAxdt.READ_ALL
 e.compute()
 
+
+CO.CurrentIteration += 1
+CO.printCo('iteration %d -> end of run'%CO.CurrentIteration, proc=0, color=J.MAGE)
+CO.updateAndWriteSetup(setup)
 t = CO.extractFields(Skeleton)
 
 # save surfaces

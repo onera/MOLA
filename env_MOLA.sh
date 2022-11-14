@@ -157,6 +157,8 @@ elif [ "$MAC" = "visung" ]; then
 
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+    module load freetype/2.10.2
+    module load pointwise/18.6R1
 
     # PUMA # not correctly installed !
     # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_eos3

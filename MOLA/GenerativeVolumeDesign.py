@@ -3343,6 +3343,7 @@ def buildCartesianBackground(t, InputMeshes):
 
         try: imposed_snear = meshInfo['OversetOptions']['Snear']
         except: imposed_snear = None
+        
         _setSnearAtBodies(new_bodies, imposed_snear)
 
         bodies.extend(new_bodies)
@@ -3442,8 +3443,10 @@ def _generateAnalyticalRegions(GenerationInfo, mean_snear):
             nb_parts = int(90.0/azimutal_resolution)-1
             disc = D.disc((0,0,0), 0.5*diameter, N=nb_parts)
             T._reorder(disc,(1,-2,3))
-            nb_disc = int(np.round(height/snear))
-            bodies = [T.translate(disc,(0,0,snear*i)) for i in range(nb_disc)]
+            spacing_factor_snear = 5
+            spacing = spacing_factor_snear * snear
+            nb_disc = int(np.round(height/spacing))
+            bodies = [T.translate(disc,(0,0,spacing*i)) for i in range(nb_disc)]
             flat_bodies = []
             for body_set in bodies:
                 flat_bodies.extend(body_set)
@@ -3572,6 +3575,9 @@ def _setSnearAtBodies(bodies, imposed_snear=None):
         offset_info = I.getNodeFromName1(body,'.MOLA#Offset')
         if offset_info:
             heights_info = I.getNodesFromName(offset_info,'MedianHeight*')
+            if not heights_info:
+                C.convertPyTree2File(body,'debug.cgns')
+                raise ValueError('no MedianHeight at body %s'%body[0])
         else:
             heights_info = []
         

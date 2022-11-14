@@ -28,7 +28,7 @@ if CO.getSignal('RELOAD_SETUP'):
     CO.setup = setup
     niter    = setup.elsAkeysNumerics['niter']
     inititer = setup.elsAkeysNumerics['inititer']
-    itmax    = inititer+niter-1 # BEWARE last iteration accessible trigger-state-16
+    itmax    = inititer+niter-2 # BEWARE last iteration accessible trigger-state-16
 
     try: BodyForceInputData = setup.BodyForceInputData
     except: BodyForceInputData = None
@@ -55,8 +55,8 @@ TagSurfacesWithIteration  = CO.getOption('TagSurfacesWithIteration', default=Fal
 
 
 # BEWARE! state 16 => triggers *before* iteration, which means
-# that variable "it" represents actually the *next* iteration
-it = elsAxdt.iteration()
+# that "elsAxdt.iteration()" represents actually the *next* iteration
+it = elsAxdt.iteration() - 1
 CO.CurrentIteration = it
 CO.printCo('iteration %d'%it, proc=0)
 
@@ -114,9 +114,6 @@ if ENTER_COUPLING:
         SAVE_BODYFORCE = False
 
 
-    if SAVE_FIELDS:
-        CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
-
     if SAVE_ARRAYS:
         arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,
                             Extractions=setup.Extractions, addMemoryUsage=True)
@@ -130,9 +127,15 @@ if ENTER_COUPLING:
         CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES), 
                       tagWithIteration=TagSurfacesWithIteration)
 
-
     if SAVE_BODYFORCE:
         CO.save(BodyForceDisks,os.path.join(DIRECTORY_OUTPUT,FILE_BODYFORCESRC))
+
+
+    if SAVE_FIELDS:
+        J.moveFields(t)
+        CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS),
+                   tagWithIteration=TagSurfacesWithIteration)
+
 
     if CONVERGED or it >= itmax or ReachedTimeOutMargin:
         if ReachedTimeOutMargin:
@@ -143,7 +146,6 @@ if ENTER_COUPLING:
             if rank==0:
                 with open('COMPLETED','w') as f: f.write('COMPLETED')
 
-        CO.updateAndWriteSetup(setup)
         Cmpi.barrier()
         elsAxdt.safeInterrupt()
 

@@ -24,7 +24,7 @@ if CO.getSignal('RELOAD_SETUP'):
     CO.setup = setup
     niter    = setup.elsAkeysNumerics['niter']
     inititer = setup.elsAkeysNumerics['inititer']
-    itmax    = inititer+niter-1 # BEWARE last iteration accessible trigger-state-16
+    itmax    = inititer+niter-2 # BEWARE last iteration accessible trigger-state-16
 
 
 UpdateFieldsFrequency   = CO.getOption('UpdateFieldsFrequency', default=1e3)
@@ -86,6 +86,7 @@ if ENTER_COUPLING:
     t = CO.extractFields(Skeleton)
 
     if SAVE_FIELDS:
+        J.moveFields(t)
         CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
 
     if REGISTER_TRANSITION:
@@ -121,7 +122,6 @@ if ENTER_COUPLING:
         if it >= itmax or CONVERGED:
             if rank==0:
                 with open('COMPLETED','w') as f: f.write('COMPLETED')
-
-        CO.printCo('TERMINATING COMPUTATION', proc=0, color=CO.GREEN)
-        CO.updateAndWriteSetup(setup)
+        
+        Cmpi.barrier()
         elsAxdt.safeInterrupt()

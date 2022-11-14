@@ -34,6 +34,9 @@ from . import GenerativeVolumeDesign as GVD
 from . import ExtractSurfacesProcessor as ESP
 from . import JobManager as JM
 
+load = J.load 
+save = J.save
+
 DEBUG = False
 DIRECTORY_OVERSET='OVERSET' 
 
@@ -497,7 +500,8 @@ def getMeshesAssembled(InputMeshes):
         InputMeshes[new_index:new_index] = NewComponents[k]
         InputMeshes.remove(original_item)
 
-    t = I.merge(Trees)
+    if Trees: t = I.merge(Trees)
+    else: t = C.newPyTree([])
     t_cart = GVD.buildCartesianBackground(t, InputMeshes)
     if t_cart is not None: t = I.merge([t, t_cart])
     t = I.correctPyTree(t, level=3)
@@ -3333,9 +3337,13 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
     addTrigger(t)
     if 'OversetMotion' in AllSetupDictionaries:
         addOversetMotion(t, AllSetupDictionaries['OversetMotion'])
+        includeRelativeFieldsForRestart = True
+    else:
+        includeRelativeFieldsForRestart = False
     addExtractions(t, AllSetupDictionaries['ReferenceValues'],
                       AllSetupDictionaries['elsAkeysModel'],
-                      extractCoords=extractCoords, BCExtractions=BCExtractions)
+                      extractCoords=extractCoords, BCExtractions=BCExtractions,
+                      includeRelativeFieldsForRestart=includeRelativeFieldsForRestart)
     addReferenceState(t, AllSetupDictionaries['FluidProperties'],
                          AllSetupDictionaries['ReferenceValues'])
     dim = int(AllSetupDictionaries['elsAkeysCFD']['config'][0])
@@ -3624,7 +3632,7 @@ def addTrigger(t, coprocessFilename='coprocess.py'):
                  file=coprocessFilename)
 
 def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
-        BCExtractions=dict()):
+        BCExtractions=dict(), includeRelativeFieldsForRestart=False):
     '''
     Include surfacic and field extraction information to CGNS tree using
     information contained in dictionaries **ReferenceValues** and
@@ -3658,9 +3666,18 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
             convention).
 
             To see default extracted variables, see :py:func:`addSurfacicExtractions`
+        
+        includeRelativeFieldsForRestart : bool
+            if :py:obj:`True`, then creates an additional container
+            'FlowSolution#EndOfRun#Relative' where restart fields will be 
+            extracted
     '''
     addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions=BCExtractions)
     addFieldExtractions(t, ReferenceValues, extractCoords=extractCoords)
+    if includeRelativeFieldsForRestart:
+        addFieldExtractions(t, ReferenceValues, extractCoords=False,
+        includeAdditionalExtractions=False, container='FlowSolution#EndOfRun#Relative',
+        ReferenceFrame='relative')
     EP._addGlobalConvergenceHistory(t)
 
 def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
@@ -3699,7 +3716,6 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
             for f in fluxes:
                 if f not in BCExtractions[bc]:
                     BCExtractions[bc].append(f)
-
     # Default keys to write in the .Solver#Output of the Family node
     # The node 'var' will be fill later depending on the BCType
     BCKeys = dict(
@@ -3734,8 +3750,9 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     ))
     
     FamilyNodes = I.getNodesFromType2(t, 'Family_t')
-    for ExtractBCType, ExtractVariablesList in BCExtractions.items():
+    for ExtractBCType, ExtractVariablesListDefault in BCExtractions.items():
         for FamilyNode in FamilyNodes:
+            ExtractVariablesList = copy.deepcopy(ExtractVariablesListDefault)
             FamilyName = I.getName( FamilyNode )
             BCType = getFamilyBCTypeFromFamilyBCName(t, FamilyName)
             if not BCType: continue
@@ -3753,12 +3770,11 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
                             if 'bl_quantities_2d' in ExtractVariablesList:
                                 ExtractVariablesList.remove('bl_quantities_2d')
                             break
-
                     if 'Inviscid' in BCType:
-                        if 'bl_quantities_2d' in ExtractVariablesList:
-                            ExtractVariablesList.remove('bl_quantities_2d')
-                        if 'yplusmeshsize' in ExtractVariablesList:
-                            ExtractVariablesList.remove('yplusmeshsize')
+                        var2remove = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue', 'yplusmeshsize']
+                        for var in var2remove:
+                            if var in ExtractVariablesList:
+                                ExtractVariablesList.remove(var)
                     else:
                         TransitionMode = ReferenceValues['TransitionMode']
 
@@ -3771,7 +3787,6 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
                         elif TransitionMode == 'Imposed':
                             extraVariables = ['intermittency', 'clim']
                             ExtractVariablesList.extend(extraVariables)
-
                 if ExtractVariablesList != []:
                     varDict = dict(var=' '.join(ExtractVariablesList))
                     print('setting .Solver#Output to FamilyNode '+FamilyNode[0])
@@ -3784,7 +3799,9 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
                 else:
                     raise ValueError('did not added anything since:\nExtractVariablesList=%s'%str(ExtractVariablesList))
 
-def addFieldExtractions(t, ReferenceValues, extractCoords=False):
+def addFieldExtractions(t, ReferenceValues, extractCoords=False,
+        includeAdditionalExtractions=True, container='FlowSolution#EndOfRun',
+        ReferenceFrame='absolute'):
     '''
     Include fields extraction information to CGNS tree using
     information contained in dictionary **ReferenceValues**.
@@ -3804,20 +3821,20 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False):
             if :py:obj:`True`, then create a ``FlowSolution`` container named
             ``FlowSolution#EndOfRun#Coords`` to perform coordinates extraction.
 
+        includeAdditionalExtractions : bool
+            if :py:obj:`True`, will include fields listed in in 
+            ReferenceValues['FieldsAdditionalExtractions']
+
+        container : str
+            name of the container of the field extraction
+
+        ReferenceFrame : str
+            ``'absolute'`` or ``'relative'``
     '''
 
-    Fields2Extract = ReferenceValues['Fields'] + ReferenceValues['FieldsAdditionalExtractions']
-
-    '''
-    # Do not respect order, see #7764
-    EP._addFlowSolutionEoR(t,
-        name='',
-        variables=ReferenceValues['Fields']+' '+
-                  ReferenceValues['FieldsAdditionalExtractions'],
-        protocol='iteration',
-        writingFrame='absolute')
-    '''
-    I._rmNodesByName(t, 'FlowSolution#EndOfRun')
+    Fields2Extract = ReferenceValues['Fields'][:] 
+    if includeAdditionalExtractions: Fields2Extract += ReferenceValues['FieldsAdditionalExtractions']
+    I._rmNodesByName(t, container)
     for zone in I.getZones(t):
         if extractCoords:
             EoRnode = I.createNode('FlowSolution#EndOfRun#Coords', 'FlowSolution_t',
@@ -3828,10 +3845,9 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False):
             J.set(EoRnode, '.Solver#Output',
                   period=1,
                   writingmode=2,
-                  writingframe='absolute',
-                   )
+                  writingframe='absolute')
 
-        EoRnode = I.createNode('FlowSolution#EndOfRun', 'FlowSolution_t',
+        EoRnode = I.createNode(container, 'FlowSolution_t',
                                 parent=zone)
         I.createNode('GridLocation','GridLocation_t', value='CellCenter', parent=EoRnode)
         for fieldName in Fields2Extract:
@@ -3839,8 +3855,7 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False):
         J.set(EoRnode, '.Solver#Output',
               period=1,
               writingmode=2,
-              writingframe='absolute',
-               )
+              writingframe=ReferenceFrame)
 
 def addAverageFieldExtractions(t, ReferenceValues, firstIterationForAverage=1):
     '''
@@ -4214,9 +4229,9 @@ def addReferenceState(t, FluidProperties, ReferenceValues):
     # RefState = zip(ReferenceValues['Fields'].split(' '),
     #                ReferenceValues['ReferenceState'])
     RefState = []
-    FieldsNames = ReferenceValues['Fields']
-    for i in range(len(FieldsNames)):
-        RefState += [[FieldsNames[i],ReferenceValues['ReferenceState'][i]]]
+    for f, rs in zip(ReferenceValues['Fields'], ReferenceValues['ReferenceState']):
+        RefState += [[f,rs]]
+
     for i in ('Reynolds','Mach','Pressure','Temperature'):
         RefState += [[i,ReferenceValues[i]]]
     RefState += [

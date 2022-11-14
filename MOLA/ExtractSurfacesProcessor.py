@@ -62,8 +62,9 @@ def extractSurfacesByOffsetCellsFromBCFamilyName(t, BCFamilyName='MyBC',
         OffsetSurfaces = trimExteriorFaces(OffsetSurfaces, BCsurfaces,
                                            NCellsOffset)
 
+
+    _includeMedianCellHeight(t, OffsetSurfaces)
     migrateOffsetData(t, OffsetSurfaces)
-    _includeMedianCellHeight(t)
 
     return OffsetSurfaces
 
@@ -311,11 +312,11 @@ def addSurfacesByWindowComposition(surfaces):
             inwInd = I.getValue(I.getNodeFromName1(SplitWindows[0],'InwardIndex'))
 
             if   inwInd == '+i':
-                slice = (w[0,0],w[1,0],1),(Ni,w[1,1],1)
+                slice = (w[0,0],w[1,0],1),(w[0,1],w[1,1],1)
             elif inwInd == '-i':
                 slice = (1,w[1,0],1),(w[0,0],w[1,1],1)
             elif inwInd == '+j':
-                slice = (w[0,0],w[1,0],1),(w[0,1],Nj,1)
+                slice = (w[0,0],w[1,0],1),(w[0,1],w[1,1],1)
             elif inwInd == '-j':
                 slice = (w[0,0],1,1),(w[0,1],w[1,1],1)
             else:
@@ -415,12 +416,15 @@ def mergeSplitWindows(surfaces):
             else:
                 raise ValueError('IndwardIndex "%s" not supported'%ind[1])
 
-        if not _allEqual(inds_I) or not _allEqual(inds_J):
-            C.convertPyTree2File(s,'debug.cgns')
-            raise ValueError('incoherent InwardIndex for surface %s'%s[0])
+        # NOTE -> beware, it is not necessary !
+        # if not _allEqual(inds_I) or not _allEqual(inds_J):
+        #     C.convertPyTree2File(s,'debug.cgns')
+        #     raise ValueError('incoherent InwardIndex for surface %s'%s[0])
 
         if len(inds_I) > 1:
-            imin = imax = wnds_I[0][0,0]
+            # imin = imax = wnds_I[0][0,0]
+            imin = min( [w[0,0] for w in wnds_I] )
+            imax = max( [w[0,1] for w in wnds_I] )
             jmin = min( [w[1,0] for w in wnds_I] )
             jmax = max( [w[1,1] for w in wnds_I] )
             newWnd_I = np.array([[imin, imax],[jmin,jmax]], order='F')
@@ -430,15 +434,18 @@ def mergeSplitWindows(surfaces):
             I.createUniqueChild(sw, 'InwardIndex', 'DataArray_t', value=inds_I[0])
 
         if len(inds_J) > 1:
-            jmin = jmax = wnds_J[0][1,0]
+            # jmin = jmax = wnds_J[0][1,0]
             imin = min( [w[0,0] for w in wnds_J] )
             imax = max( [w[0,1] for w in wnds_J] )
+            jmin = min( [w[1,0] for w in wnds_J] )
+            jmax = max( [w[1,1] for w in wnds_J] )
             newWnd_J = np.array([[imin, imax],[jmin,jmax]], order='F')
             for sw in SplitWindows_J: I.rmNode(trimInfo, sw)
             sw = I.createChild(trimInfo, 'SplitWindow.J', 'DataArray_t')
             I.createUniqueChild(sw, 'Window', 'DataArray_t', value=newWnd_J)
             I.createUniqueChild(sw, 'InwardIndex', 'DataArray_t', value=inds_J[0])
         
+
 def filterSurfacesUsingTag(surfaces):
     filteredSurfaces = []
     for s in I.getZones(surfaces):
@@ -457,25 +464,24 @@ def filterSurfacesUsingTag(surfaces):
 
 def migrateOffsetData(t, OffsetSurfaces):
     zones = I.getZones(t)
+    names = ['Window', 'MinimumHeight', 'MaximumHeight', 'MeanHeight', 'MedianHeight']
     for surface in OffsetSurfaces:
-        info = I.getNodeFromName1(surface, '.MOLA#Offset')
-        if not info: continue
+        info = I.copyTree(I.getNodeFromName1(surface, '.MOLA#Offset'))
         zone_name = I.getValue(I.getNodeFromName1(info, 'Zone'))
         zone = _pickZoneFromName(zones, zone_name)
         zone_info = I.getNodeFromName1(zone, '.MOLA#Offset')
         if not zone_info:
             I.addChild(zone, info)
         else:
-            window = I.getNodeFromName1(info, 'Window')
-            I.addChild(zone_info, window)
+            for nodeName in names:
+                node = I.getNodeFromName1(info, nodeName)
+                I.addChild(zone_info, node)
     for z in zones:
         info = I.getNodeFromName1(z, '.MOLA#Offset')
         if not info: continue
-        windows = I.getNodesByName(info,'Window*')
-        for i, w in enumerate(windows): w[0] = 'Window.%d'%i
-
-
-        
+        for name in names:
+            nodes = I.getNodesByName(info,name+'*')
+            for i, n in enumerate(nodes): n[0] = name+'.%d'%i
         
 
 def extractWindows(t):
@@ -534,38 +540,41 @@ def _pickZoneFromName(zones, zone_name):
         if z[0] == zone_name:
             return z
 
-def _includeMedianCellHeight(t):
-    for zone in I.getZones(t):
-        info = I.getNodeFromName1(zone,'.MOLA#Offset')
+def _includeMedianCellHeight(t, OffsetSurfaces):
+    for s in OffsetSurfaces:
+        info = I.getNodeFromName1(s,'.MOLA#Offset')
         if not info: continue
+        zoneNode = I.getNodeFromName1(info,'Zone')
+        zone = I.getNodeFromName3(t, I.getValue(zoneNode) )
         Nijk = I.getZoneDim(zone)[1:4]
-        windows = I.getNodesFromName(info, 'Window*')
-        for window in windows:
-            w = np.copy(I.getValue(window), order='F')
-            actual_surface = T.subzone(zone, (w[0,0],w[1,0],w[2,0]),
-                                             (w[0,1],w[1,1],w[2,1]))
-            ijk = findInwardsIndexFromExteriorWindow(w)[1]
-            offset = w[ijk2ind[ijk], 0]
-            if offset < Nijk[ijk2ind[ijk]]:
-                w[ijk2ind[ijk], :] += 1
-            else:
-                w[ijk2ind[ijk], :] -= 1
-            slice = (w[0,0],w[1,0],w[2,0]), (w[0,1],w[1,1],w[2,1])
+        window = I.getNodeFromName(info, 'Window')
         
-            try:
-                next_surface = T.subzone(zone, *slice) 
-            except TypeError:
-                C.convertPyTree2File(zone,'debug.cgns')
-                msg = ('failed slice %s for surface %s with dims %dx%dx%d. '
-                    'Check debug.cgns')%(str(slice),zone[0],*Nijk)
-                raise ValueError(msg)
+        w = np.copy(I.getValue(window), order='F')
+        actual_surface = T.subzone(zone, (w[0,0],w[1,0],w[2,0]),
+                                            (w[0,1],w[1,1],w[2,1]))
+        ijk = findInwardsIndexFromExteriorWindow(w)[1]
+        offset = w[ijk2ind[ijk], 0]
+        if offset < Nijk[ijk2ind[ijk]]:
+            w[ijk2ind[ijk], :] += 1
+        else:
+            w[ijk2ind[ijk], :] -= 1
+        slice = (w[0,0],w[1,0],w[2,0]), (w[0,1],w[1,1],w[2,1])
+    
+        try:
+            next_surface = T.subzone(zone, *slice) 
+        except TypeError:
+            C.convertPyTree2File(zone,'debug.cgns')
+            msg = ('failed slice %s for surface %s with dims %dx%dx%d. '
+                'Check debug.cgns')%(str(slice),zone[0],*Nijk)
+            raise ValueError(msg)
 
-            min,max,mean,median =_getStatisticPointwiseDistances(actual_surface,
-                                                                 next_surface)
-            I.createUniqueChild(info,'MinimumHeight_'+window[0],'DataArray_t',value=min)
-            I.createUniqueChild(info,'MaximumHeight_'+window[0],'DataArray_t',value=max)
-            I.createUniqueChild(info,'MeanHeight_'+window[0],'DataArray_t',value=mean)
-            I.createUniqueChild(info,'MedianHeight_'+window[0],'DataArray_t',value=median)
+        min,max,mean,median =_getStatisticPointwiseDistances(actual_surface,
+                                                                next_surface)
+        I.createUniqueChild(info,'MinimumHeight','DataArray_t',value=min)
+        I.createUniqueChild(info,'MaximumHeight','DataArray_t',value=max)
+        I.createUniqueChild(info,'MeanHeight','DataArray_t',value=mean)
+        I.createUniqueChild(info,'MedianHeight','DataArray_t',value=median)
+        
 
 def _getStatisticPointwiseDistances(zone1, zone2):
     x1 = I.getNodeFromName3(zone1, 'CoordinateX')[1].ravel(order='F')
