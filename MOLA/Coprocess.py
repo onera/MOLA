@@ -2196,7 +2196,6 @@ def loadSkeleton(Skeleton=None, PartTree=None):
 
     def replaceNodeByName(parent, parentPath, name):
         oldNode = I.getNodeFromName1(parent, name)
-        #if not oldNode: return
         path = '{}/{}'.format(parentPath, name)
         newNode = readNodesFromPaths(path)
         I._rmNode(parent, oldNode)
@@ -2211,13 +2210,13 @@ def loadSkeleton(Skeleton=None, PartTree=None):
             if proc != rank: continue
 
             zonePath = '{}/{}'.format(basename, I.getName(zone))
+            zoneInPartialTree = readNodesFromPaths(zonePath)[0]
 
             # Coordinates
             if addCoordinates: replaceNodeByName(zone, zonePath, 'GridCoordinates')
 
-
             for nodeName2read in containers2read:
-                if I.getNodeFromName1(zone,nodeName2read):
+                if I.getNodeFromName1(zoneInPartialTree, nodeName2read):
                     replaceNodeByName(zone, zonePath, nodeName2read)
 
             # For unstructured mesh
