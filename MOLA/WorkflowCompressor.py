@@ -3372,7 +3372,7 @@ def getGlobDir(tree, bc):
 ################################################################################
 
 def launchIsoSpeedLines(machine, DIRECTORY_WORK,
-                    ThrottleRange, RotationSpeedRange, **kwargs):
+                    ThrottleRange, RotationSpeedRange=None, **kwargs):
     '''
     User-level function designed to launch iso-speed lines.
 
@@ -3393,8 +3393,8 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
         ThrottleRange : list
             Throttle values to consider (depend on the valve law)
 
-        RotationSpeedRange : list
-            RotationSpeed numbers to consider
+        RotationSpeedRange : list, optional
+            RotationSpeed values to consider. If not given, then the value in **TurboConfiguration** is taken.
 
         kwargs : dict
             same arguments than prepareMainCGNS4ElsA, except that 'mesh' may be
@@ -3413,6 +3413,12 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
     IsJobInformationGiven = 'JobInformation' in kwargs and \
         all([key in kwargs['JobInformation'] for key in ['JobName', 'AER', 'NumberOfProcessors']])
     assert IsJobInformationGiven, 'JobInformation is required with not default values for JobName, AER and NumberOfProcessors'
+
+    if not RotationSpeedRange:
+        RotationSpeedRange = [kwargs['TurboConfiguration']['ShaftRotationSpeed']]
+
+    ThrottleRange = sorted(list(ThrottleRange))
+    RotationSpeedRange = sorted(list(RotationSpeedRange))
 
     ThrottleMatrix, RotationSpeedMatrix  = np.meshgrid(ThrottleRange, RotationSpeedRange)
 
