@@ -376,6 +376,9 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
 
     IsUnstructured = hasAnyUnstructuredZones(t)
 
+    ReferenceValuesParams.setdefault('CoprocessOptions', dict())
+    ReferenceValuesParams['CoprocessOptions'].setdefault('TagSurfacesWithIteration', 'auto')
+
     FluidProperties = computeFluidProperties()
     ReferenceValues = computeReferenceValues(FluidProperties,
                                              **ReferenceValuesParams)
@@ -2551,7 +2554,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
                 UpdateFieldsFrequency   = 2000,
                 UpdateArraysFrequency    = 50,
                 UpdateSurfacesFrequency = 500,
-                TagSurfacesWithIteration='auto',
+                TagSurfacesWithIteration= False,
                 AveragingIterations     = 3000,
                 ItersMinEvenIfConverged = 1000,
                 TimeOutInSeconds        = 54000.0, # 15 h * 3600 s/h = 53100 s
@@ -2585,7 +2588,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         UpdateFieldsFrequency   = 2000,
         UpdateArraysFrequency    = 50,
         UpdateSurfacesFrequency = 500,
-        TagSurfacesWithIteration='auto',
+        TagSurfacesWithIteration= False,
         AveragingIterations     = 3000,
         ItersMinEvenIfConverged = 1000,
         TimeOutInSeconds        = 54000.0, # 15 h * 3600 s/h = 53100 s

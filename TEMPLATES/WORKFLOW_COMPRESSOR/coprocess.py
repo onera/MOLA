@@ -40,7 +40,7 @@ TimeOut                   = CO.getOption('TimeOutInSeconds', default=53100.0)
 ItersMinEvenIfConverged   = CO.getOption('ItersMinEvenIfConverged', default=1e3)
 ConvergenceCriteria       = CO.getOption('ConvergenceCriteria', default=[])
 RequestedStatistics       = CO.getOption('RequestedStatistics', default=[])
-
+TagSurfacesWithIteration = CO.getOption('TagSurfacesWithIteration', default=False)
 
 # BEWARE! state 16 => triggers *before* iteration, which means
 # that variable "it" represents actually the *next* iteration
@@ -96,11 +96,11 @@ if ENTER_COUPLING:
             CO.save(BodyForceTree, os.path.join(DIRECTORY_OUTPUT, FILE_BODYFORCESRC))
 
     if SAVE_FIELDS:
-        CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
+        CO.save(t, os.path.join(DIRECTORY_OUTPUT, FILE_FIELDS), tagWithIteration=TagSurfacesWithIteration)
 
     if SAVE_SURFACES:
         surfs = CO.extractSurfaces(t, setup.Extractions)
-        CO.save(surfs,os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
+        CO.save(surfs, os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES), tagWithIteration=TagSurfacesWithIteration)
         arraysTree = CO.monitorTurboPerformance(surfs, arrays, RequestedStatistics)
         SAVE_ARRAYS = True
 

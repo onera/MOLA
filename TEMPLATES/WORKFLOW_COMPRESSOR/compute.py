@@ -38,6 +38,9 @@ FILE_BODYFORCESRC= 'bodyforce.cgns'
 DIRECTORY_OUTPUT = 'OUTPUT'
 DIRECTORY_LOGS   = 'LOGS'
 
+# will be overriden by coprocess.py :
+RequestedStatistics = []
+TagSurfacesWithIteration = False
 # ------------------ IMPORT AND SET CURRENT SETUP DATA ------------------ #
 setup = J.load_source('setup',FILE_SETUP)
 
@@ -143,7 +146,7 @@ t = CO.extractFields(Skeleton)
 surfs = CO.extractSurfaces(t, setup.Extractions)
 surfs = CO._extendSurfacesWithWorkflowQuantities(surfs, arrays)
 CO.monitorTurboPerformance(surfs, arrays, RequestedStatistics)
-CO.save(surfs, os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES))
+CO.save(surfs, os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES), tagWithIteration=TagSurfacesWithIteration)
 
 # save arrays
 arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,
