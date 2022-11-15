@@ -3683,6 +3683,7 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
         ReferenceFrame='relative')
     EP._addGlobalConvergenceHistory(t)
 
+
 def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     '''
     Include surfacic extraction information to CGNS tree using information
@@ -3749,7 +3750,9 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
         xtorque       = 0.0,
         ytorque       = 0.0,
         ztorque       = 0.0,
-        writingframe  = 'absolute'
+        writingframe  = 'absolute',
+        geomdepdom    = 2,  # see #8127#note-26
+        delta_cell_max= 300,
     ))
     
     FamilyNodes = I.getNodesFromType2(t, 'Family_t')
@@ -3770,8 +3773,10 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
                     for zone in I.getZones(t):
                         if I.getZoneType(zone) == 2: # unstructured zone
                             # Remove extraction of bl_quantities, see https://elsa-e.onera.fr/issues/6479
-                            if 'bl_quantities_2d' in ExtractVariablesList:
-                                ExtractVariablesList.remove('bl_quantities_2d')
+                            var2remove = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue']
+                            for var in var2remove:
+                                if var in ExtractVariablesList:
+                                    ExtractVariablesList.remove(var)
                             break
                     if 'Inviscid' in BCType:
                         var2remove = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue', 'yplusmeshsize']
