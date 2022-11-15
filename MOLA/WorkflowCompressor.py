@@ -1704,6 +1704,8 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
         elif BCparam['type'] == 'outradeqhyb':
             print(J.CYAN + 'set BC outradeqhyb on ' + BCparam['FamilyName'] + J.ENDC)
+            BCkwargs['ReferenceValues'] = ReferenceValues
+            BCkwargs['TurboConfiguration'] = TurboConfiguration
             setBC_outradeqhyb(t, **BCkwargs)
 
         elif BCparam['type'] == 'stage_mxpl':
@@ -2944,8 +2946,9 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
 
 
 @J.mute_stdout
-def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
-    valve_ref_mflow, valve_relax=0.1, nbband=100, c=0.3):
+def setBC_outradeqhyb(t, FamilyName, valve_type=0, valve_ref_pres=None,
+                      valve_ref_mflow=None, valve_relax=0.1, nbband=100, c=0.3, ReferenceValues=None,
+                      TurboConfiguration=None):
     '''
     Set an outflow boundary condition of type ``outradeqhyb``.
     The pivot index is 1 and cannot be changed.
@@ -2988,10 +2991,36 @@ def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
 
         c : float
             Parameter for the distribution of radial points.
+        
+        ReferenceValues : :py:class:`dict` or :py:obj:`None`
+            as produced by :py:func:`computeReferenceValues`
+
+        TurboConfiguration : :py:class:`dict` or :py:obj:`None`
+            as produced by :py:func:`getTurboConfiguration`
+
 
     '''
 
     import etc.transform.__future__ as trf
+
+    if valve_ref_pres is None:
+        try:
+            valve_ref_pres = ReferenceValues['Pressure']
+        except:
+            MSG = 'valve_ref_pres or ReferenceValues must be not None'
+            raise Exception(J.FAIL+MSG+J.ENDC)
+    if valve_type != 0 and valve_ref_mflow is None:
+        try:
+            bc = C.getFamilyBCs(t, FamilyName)[0]
+            zone = I.getParentFromType(t, bc, 'Zone_t')
+            row = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+            rowParams = TurboConfiguration['Rows'][row]
+            fluxcoeff = rowParams['NumberOfBlades'] / \
+                float(rowParams['NumberOfBladesSimulated'])
+            valve_ref_mflow = ReferenceValues['MassFlow'] / fluxcoeff
+        except:
+            MSG = 'Either valve_ref_mflow or both ReferenceValues and TurboConfiguration must be not None'
+            raise Exception(J.FAIL+MSG+J.ENDC)
 
     # Delete previous BC if it exists
     for bc in C.getFamilyBCs(t, FamilyName):
