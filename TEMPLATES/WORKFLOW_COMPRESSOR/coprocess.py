@@ -100,6 +100,7 @@ if ENTER_COUPLING:
 
     if SAVE_SURFACES:
         surfs = CO.extractSurfaces(t, setup.Extractions)
+        surfs = CO._extendSurfacesWithWorkflowQuantities(surfs, arrays)
         CO.save(surfs, os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES), tagWithIteration=TagSurfacesWithIteration)
         arraysTree = CO.monitorTurboPerformance(surfs, arrays, RequestedStatistics)
         SAVE_ARRAYS = True

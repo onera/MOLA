@@ -3826,7 +3826,8 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
 
 
 def postprocess_turbomachinery(surfaces, stages=[], 
-                                var4comp_repart=None, var4comp_perf=None, var2keep=None):
+                                var4comp_repart=None, var4comp_perf=None, var2keep=None, 
+                                computeRadialProfiles=True):
     '''
     Perform a series of classical postprocessings for a turbomachinery case : 
 
@@ -3882,6 +3883,9 @@ def postprocess_turbomachinery(surfaces, stages=[],
                     'VelocityMeridianDim', 'VelocityRadiusRelDim', 'VelocityThetaRelDim',
                     ]
         
+        computeRadialProfiles : bool
+            Choose or not to compute radial profiles.
+        
     '''
     import Converter.Mpi as Cmpi
     import MOLA.PostprocessTurbo as Post
@@ -3921,12 +3925,14 @@ def postprocess_turbomachinery(surfaces, stages=[],
     #______________________________________________________________________________#
     Post.computeVariablesOnIsosurface(surfaces)
     Post.compute0DPerformances(surfaces, variablesByAverage)
-    Post.compute1DRadialProfiles(surfaces, variablesByAverage)
+    if computeRadialProfiles: 
+        Post.compute1DRadialProfiles(surfaces, variablesByAverage)
     # Post.computeVariablesOnBladeProfiles(surfaces, hList='all')
     #______________________________________________________________________________#
 
     if Cmpi.rank == 0:
         Post.comparePerfoPlane2Plane(surfaces, var4comp_perf, stages)
-        Post.compareRadialProfilesPlane2Plane(surfaces, var4comp_repart, stages)
+        if computeRadialProfiles: 
+            Post.compareRadialProfilesPlane2Plane(surfaces, var4comp_repart, stages)
 
     Post.cleanSurfaces(surfaces, var2keep=var2keep)

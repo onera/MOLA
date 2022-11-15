@@ -766,7 +766,7 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[], tagWithIte
 
         for base in I.getNodesFromType(surfaces, 'CGNSBase_t'):
             if I.getName(base) == 'RadialProfiles': continue
-            
+
             try:
                 ExtractionInfo = I.getNodeFromNameAndType(base, '.ExtractionInfo', 'UserDefinedData_t')
                 ReferenceRow = I.getValue(I.getNodeFromName(ExtractionInfo, 'ReferenceRow'))
@@ -2710,7 +2710,13 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
     if Workflow == 'Compressor':
         import MOLA.WorkflowCompressor as WC
 
-        if EndOfRun: # or setup.elsAkeysNumerics['time_algo'] != 'steady':
+        if EndOfRun or setup.elsAkeysNumerics['time_algo'] != 'steady':
+
+            if not EndOfRun and setup.elsAkeysNumerics['time_algo'] != 'steady':
+                computeRadialProfiles = False
+            else: 
+                computeRadialProfiles = True
+
             if NumberOfProcessors > 1:
                 # Share the skeleton on all procs
                 Cmpi._setProc(surfaces, rank)
@@ -2725,7 +2731,7 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                 J._reorderBases(surfaces)
 
             try:           
-                WC.postprocess_turbomachinery(surfaces, **PostprocessOptions)
+                WC.postprocess_turbomachinery(surfaces, computeRadialProfiles=computeRadialProfiles, **PostprocessOptions)
                 printCo('Postprocess done on surfaces', proc=0, color=J.MAGE)
 
                 if rank == 0:
@@ -2740,9 +2746,9 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                             if 'Comparison' in FSname:
                                 zoneName += '#' + I.getName(FS).split('#')[-1]
 
-                            averagesDict = dict(IterationNumber = CurrentIteration-1)
                             for node in I.getNodesFromType1(FS, 'DataArray_t'):
                                 averagesDict[I.getName(node)] = I.getValue(node)
+                            averagesDict['IterationNumber'] = CurrentIteration-1
 
                             appendDict2Arrays(arrays, averagesDict, zoneName)
             
