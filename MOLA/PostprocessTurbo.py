@@ -255,7 +255,9 @@ def computeVariablesOnIsosurface(surfaces):
     '''
     I._renameNode(surfaces, 'FlowSolution#Init', I.__FlowSolutionCenters__)
     surfacesIso = getSurfacesFromInfo(surfaces, type='IsoSurface')
-    varAtNodes = C.getVarNames(I.getNodeFromType1(surfacesIso[0], 'Zone_t'), loc='nodes')[0]
+    firstZone = I.getNodeFromType1(surfacesIso[0], 'Zone_t')
+    if not firstZone: return
+    varAtNodes = C.getVarNames(firstZone, loc='nodes')[0]
     for v in varAtNodes: C._node2Center__(surfacesIso, v)
 
     variables = TUS.getFields()
