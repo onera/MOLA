@@ -3750,7 +3750,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
         xtorque       = 0.0,
         ytorque       = 0.0,
         ztorque       = 0.0,
-        writingframe  = 'absolute',
+        writingframe  = 'relative', # absolute incompatible with unstructured mesh
         geomdepdom    = 2,  # see #8127#note-26
         delta_cell_max= 300,
     ))
