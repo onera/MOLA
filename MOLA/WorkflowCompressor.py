@@ -3923,7 +3923,7 @@ def postprocess_turbomachinery(surfaces, stages=[],
     variablesByAverage = Post.sortVariablesByAverage(allVariables)
 
     #______________________________________________________________________________#
-    Post.computeVariablesOnIsosurface(surfaces)
+    Post.computeVariablesOnIsosurface(surfaces, allVariables)
     Post.compute0DPerformances(surfaces, variablesByAverage)
     if computeRadialProfiles: 
         Post.compute1DRadialProfiles(surfaces, variablesByAverage)

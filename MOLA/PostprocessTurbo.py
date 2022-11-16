@@ -243,7 +243,7 @@ def cleanSurfaces(surfaces, var2keep=[]):
                     I._rmNode(FSnodes, node)
 
 # @J.mute_stdout
-def computeVariablesOnIsosurface(surfaces):
+def computeVariablesOnIsosurface(surfaces, variables):
     '''
     Compute extra variables for all isoSurfaces, using **turbo** function `_computeOtherFields`.
 
@@ -255,12 +255,20 @@ def computeVariablesOnIsosurface(surfaces):
     '''
     I._renameNode(surfaces, 'FlowSolution#Init', I.__FlowSolutionCenters__)
     surfacesIso = getSurfacesFromInfo(surfaces, type='IsoSurface')
-    firstZone = I.getNodeFromType1(surfacesIso[0], 'Zone_t')
-    if not firstZone: return
-    varAtNodes = C.getVarNames(firstZone, loc='nodes')[0]
-    for v in varAtNodes: C._node2Center__(surfacesIso, v)
+    varAtNodes = None
+    for surface in surfacesIso:
+        firstZone = I.getNodeFromType1(surface, 'Zone_t')
+        if firstZone: 
+            varAtNodes = C.getVarNames(firstZone, loc='nodes')[0]
+            break
 
-    variables = TUS.getFields()
+    if not varAtNodes:
+        # There is no zone in any iso-surface on this proc
+        # Caution: cannot do a return here, because it seems to be a barrier hidden inside _computeOtherFields
+        variables = []
+    else:
+        for v in varAtNodes: C._node2Center__(surfacesIso, v)
+
     for surface in surfacesIso:
         for fsname in [I.__FlowSolutionNodes__, I.__FlowSolutionCenters__]:
             TF._computeOtherFields(surface, RefState(setup), variables,
