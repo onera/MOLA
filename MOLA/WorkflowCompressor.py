@@ -3713,6 +3713,74 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
 
     return perfo
 
+def getPostprocessQuantities(DIRECTORY_WORK, basename, useLocalConfig=False):
+    '''
+    Print the current status of a IsoSpeedLines computation and display
+    performance of the monitored row for completed jobs.
+
+    Parameters
+    ----------
+
+        DIRECTORY_WORK : str
+            directory where ``JobsConfiguration.py`` file is located
+
+        basename : str
+            Name of the base to get
+
+        useLocalConfig : bool
+            if :py:obj:`True`, use the local ``JobsConfiguration.py``
+            file instead of retreiving it from **DIRECTORY_WORK**
+
+    Returns
+    -------
+
+        perfo : :py:class:`dict` of :py:class:`list`
+            dictionary with data contained in the base **baseName** for completed
+            simulations. 
+
+            Each list corresponds to one rotation speed. Each sub-list
+            corresponds to the different operating points on a iso-speed line.
+
+    '''
+    config = JM.getJobsConfiguration(DIRECTORY_WORK, useLocalConfig)
+    Throttle = np.array(sorted(list(set([float(case['CASE_LABEL'].split('_')[0]) for case in config.JobsQueues]))))
+    RotationSpeed = np.array(sorted(list(set([case['TurboConfiguration']['ShaftRotationSpeed'] for case in config.JobsQueues]))))
+
+    def getCaseLabel(config, throttle, rotSpeed):
+        for case in config.JobsQueues:
+            if np.isclose(float(case['CASE_LABEL'].split('_')[0]), throttle) and \
+                np.isclose(case['TurboConfiguration']['ShaftRotationSpeed'], rotSpeed):
+
+                return case['CASE_LABEL']
+
+    perfo = dict()
+
+    for idSpeed, rotationSpeed in enumerate(RotationSpeed):
+        perfoOnCarac = dict(RotationSpeed=[], Throttle=[])
+
+        for idThrottle, throttle in enumerate(Throttle):
+            CASE_LABEL = getCaseLabel(config, throttle, rotationSpeed)
+            status = JM.statusOfCase(config, CASE_LABEL)
+
+            if status == 'COMPLETED':
+                lastarrays = JM.getCaseArrays(config, CASE_LABEL, basename=basename)
+                for key, value in lastarrays.items():
+                    if idThrottle == 0:
+                        perfoOnCarac[key] = [value]
+                    else:
+                        perfoOnCarac[key].append(value)
+                perfoOnCarac['RotationSpeed'].append(rotationSpeed)
+                perfoOnCarac['Throttle'].append(throttle)
+
+        for key, value in perfoOnCarac.items():
+            if idSpeed == 0:
+                perfo[key] = [value]
+            else:
+                perfo[key].append(value)
+
+    return perfo
+
+
 
 def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboConfiguration, mask=None):
     '''
