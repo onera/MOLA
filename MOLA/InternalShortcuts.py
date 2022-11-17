@@ -2561,6 +2561,7 @@ def selectZones(t, baseName=None, familyName=None, zoneName=None):
         FamilyMatch = zoneOfFamily(zone, familyName, wildcard_used=True) if familyName is not None else True
         ZoneMatch = fnmatch(zone[0], zoneName) if zoneName is not None else True
         if BaseMatch == ZoneMatch == FamilyMatch == True: zones += [ zone ]
+    return zones
 
 def _reorderBases(t):
     '''Reorder bases of the PyTree **t** in the alphabetical order.'''
