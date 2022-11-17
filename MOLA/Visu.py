@@ -432,7 +432,8 @@ class matplotlipOverlap():
             xlim=None, ylim=None, xmax=None, xlabel=None, ylabel=None, figure_name=None,
             background_opacity=1.0, font_color='black', 
             curves=[dict(zone_name='BLADES',x='IterationNumber',y='MomentumXFlux',
-                         plot_params={})]):
+                         plot_params={})], 
+            iterationTracer=None):
 
         if not self.arrays: self._loadArrays(arrays_file)
         ax = self.fig.add_axes([left,bottom,right-left,top-bottom])
@@ -454,6 +455,19 @@ class matplotlipOverlap():
                 y = y[interval]
 
             ax.plot(x,y,**curve['plot_params'])
+            if iterationTracer:
+                try:
+                    if isinstance(iterationTracer, int):
+                        iterationTracer = dict(iteration=iterationTracer)
+                    iterations = J.getVars(zone, ['IterationNumber'])[0]
+                    # On the following line: -1 because quantities correspond to the previous iteration
+                    index = np.where(iterations == iterationTracer['iteration'] - 1)[0]
+                    if not 'plot_params' in iterationTracer:
+                        iterationTracer['plot_params'] = dict(marker='o', color='red')
+                    ax.plot(x[index], y[index], **iterationTracer['plot_params'])
+                except:
+                    pass
+
         if xlim is not None: ax.set_xlim(xlim)
         if ylim is not None: ax.set_ylim(ylim)
         if isinstance(xlabel,str): ax.set_xlabel(xlabel)
