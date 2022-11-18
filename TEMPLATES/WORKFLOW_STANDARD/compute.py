@@ -156,6 +156,7 @@ CO.loadUnsteadyMasksForElsA(e, elsA_user, Skeleton)
 Cmpi.barrier()
 CO.printCo('launch compute',proc=0)
 Cfdpb.compute()
+Cfdpb.extract()
 Cmpi.barrier()
 
 
