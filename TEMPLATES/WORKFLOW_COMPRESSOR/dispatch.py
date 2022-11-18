@@ -9,7 +9,7 @@ import MOLA.JobManager as JM
 
 import JobsConfiguration as config
 
-DIRECTORY_DISPATCHER = os.path.join('..', '..', 'DISPATCHER')
+DIRECTORY_DISPATCHER = os.path.join(config.DIRECTORY_WORK, 'DISPATCHER')
 
 for case in config.JobsQueues:
 
@@ -25,7 +25,6 @@ for case in config.JobsQueues:
     caseDir = os.path.join(config.DIRECTORY_WORK, case['JobName'], case['CASE_LABEL'])
     os.makedirs(caseDir, exist_ok=True)
     os.chdir(caseDir)
-    os.symlink(os.path.join(DIRECTORY_DISPATCHER, case['mesh']), case['mesh'])
 
     WF.prepareMainCGNS4ElsA(**WorkflowParams)
     JM.getTemplates('Compressor',

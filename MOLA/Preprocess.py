@@ -390,6 +390,9 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
 
     IsUnstructured = hasAnyUnstructuredZones(t)
 
+    ReferenceValuesParams.setdefault('CoprocessOptions', dict())
+    ReferenceValuesParams['CoprocessOptions'].setdefault('TagSurfacesWithIteration', 'auto')
+
     FluidProperties = computeFluidProperties()
     ReferenceValues = computeReferenceValues(FluidProperties,
                                              **ReferenceValuesParams)
@@ -2576,7 +2579,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
                 UpdateFieldsFrequency   = 2000,
                 UpdateArraysFrequency    = 50,
                 UpdateSurfacesFrequency = 500,
-                TagSurfacesWithIteration='auto',
+                TagSurfacesWithIteration= False,
                 AveragingIterations     = 3000,
                 ItersMinEvenIfConverged = 1000,
                 TimeOutInSeconds        = 54000.0, # 15 h * 3600 s/h = 53100 s
@@ -2610,7 +2613,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         UpdateFieldsFrequency   = 2000,
         UpdateArraysFrequency    = 50,
         UpdateSurfacesFrequency = 500,
-        TagSurfacesWithIteration='auto',
+        TagSurfacesWithIteration= False,
         AveragingIterations     = 3000,
         ItersMinEvenIfConverged = 1000,
         TimeOutInSeconds        = 54000.0, # 15 h * 3600 s/h = 53100 s
@@ -3704,6 +3707,7 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
         ReferenceFrame='relative')
     EP._addGlobalConvergenceHistory(t)
 
+
 def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     '''
     Include surfacic extraction information to CGNS tree using information
@@ -3771,7 +3775,9 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
         xtorque       = 0.0,
         ytorque       = 0.0,
         ztorque       = 0.0,
-        writingframe  = 'absolute'
+        writingframe  = 'relative', # absolute incompatible with unstructured mesh
+        geomdepdom    = 2,  # see #8127#note-26
+        delta_cell_max= 300,
     ))
     
     FamilyNodes = I.getNodesFromType2(t, 'Family_t')
@@ -3791,8 +3797,10 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
                     for zone in I.getZones(t):
                         if I.getZoneType(zone) == 2: # unstructured zone
                             # Remove extraction of bl_quantities, see https://elsa-e.onera.fr/issues/6479
-                            if 'bl_quantities_2d' in ExtractVariablesList:
-                                ExtractVariablesList.remove('bl_quantities_2d')
+                            var2remove = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue']
+                            for var in var2remove:
+                                if var in ExtractVariablesList:
+                                    ExtractVariablesList.remove(var)
                             break
 
                     if 'Inviscid' in BCType:

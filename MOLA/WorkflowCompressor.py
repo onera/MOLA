@@ -217,6 +217,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, TurboConfiguration={}, Extractions=[], BoundaryConditions=[],
+        PostprocessOptions={},
         BodyForceInputData={}, writeOutputFields=True, bladeFamilyNames=['BLADE', 'AUBE'],
         Initialization={'method':'uniform'}, JobInformation={}, SubmitJob=False,
         FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
@@ -264,6 +265,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         BoundaryConditions : :py:class:`list` of :py:class:`dict`
             List of boundary conditions to set on the given mesh.
             For details, refer to documentation of :func:`setBoundaryConditions`
+
+        PostprocessOptions : dict
+            Dictionary for post-processing.
 
         BodyForceInputData : :py:class:`dict`
             if provided, each key in this :py:class:`dict` is the name of a row family to model
@@ -396,7 +400,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                         elsAkeysCFD=elsAkeysCFD,
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
-                        Extractions=Extractions)
+                        Extractions=Extractions, 
+                        PostprocessOptions=PostprocessOptions)
     if BodyForceInputData: 
         AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
@@ -1699,6 +1704,8 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
         elif BCparam['type'] == 'outradeqhyb':
             print(J.CYAN + 'set BC outradeqhyb on ' + BCparam['FamilyName'] + J.ENDC)
+            BCkwargs['ReferenceValues'] = ReferenceValues
+            BCkwargs['TurboConfiguration'] = TurboConfiguration
             setBC_outradeqhyb(t, **BCkwargs)
 
         elif BCparam['type'] == 'stage_mxpl':
@@ -2939,8 +2946,9 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
 
 
 @J.mute_stdout
-def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
-    valve_ref_mflow, valve_relax=0.1, nbband=100, c=0.3):
+def setBC_outradeqhyb(t, FamilyName, valve_type=0, valve_ref_pres=None,
+                      valve_ref_mflow=None, valve_relax=0.1, nbband=100, c=0.3, ReferenceValues=None,
+                      TurboConfiguration=None):
     '''
     Set an outflow boundary condition of type ``outradeqhyb``.
     The pivot index is 1 and cannot be changed.
@@ -2983,10 +2991,36 @@ def setBC_outradeqhyb(t, FamilyName, valve_type, valve_ref_pres,
 
         c : float
             Parameter for the distribution of radial points.
+        
+        ReferenceValues : :py:class:`dict` or :py:obj:`None`
+            as produced by :py:func:`computeReferenceValues`
+
+        TurboConfiguration : :py:class:`dict` or :py:obj:`None`
+            as produced by :py:func:`getTurboConfiguration`
+
 
     '''
 
     import etc.transform.__future__ as trf
+
+    if valve_ref_pres is None:
+        try:
+            valve_ref_pres = ReferenceValues['Pressure']
+        except:
+            MSG = 'valve_ref_pres or ReferenceValues must be not None'
+            raise Exception(J.FAIL+MSG+J.ENDC)
+    if valve_type != 0 and valve_ref_mflow is None:
+        try:
+            bc = C.getFamilyBCs(t, FamilyName)[0]
+            zone = I.getParentFromType(t, bc, 'Zone_t')
+            row = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+            rowParams = TurboConfiguration['Rows'][row]
+            fluxcoeff = rowParams['NumberOfBlades'] / \
+                float(rowParams['NumberOfBladesSimulated'])
+            valve_ref_mflow = ReferenceValues['MassFlow'] / fluxcoeff
+        except:
+            MSG = 'Either valve_ref_mflow or both ReferenceValues and TurboConfiguration must be not None'
+            raise Exception(J.FAIL+MSG+J.ENDC)
 
     # Delete previous BC if it exists
     for bc in C.getFamilyBCs(t, FamilyName):
@@ -3338,7 +3372,7 @@ def getGlobDir(tree, bc):
 ################################################################################
 
 def launchIsoSpeedLines(machine, DIRECTORY_WORK,
-                    ThrottleRange, RotationSpeedRange, **kwargs):
+                    ThrottleRange, RotationSpeedRange=None, **kwargs):
     '''
     User-level function designed to launch iso-speed lines.
 
@@ -3359,8 +3393,8 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
         ThrottleRange : list
             Throttle values to consider (depend on the valve law)
 
-        RotationSpeedRange : list
-            RotationSpeed numbers to consider
+        RotationSpeedRange : list, optional
+            RotationSpeed values to consider. If not given, then the value in **TurboConfiguration** is taken.
 
         kwargs : dict
             same arguments than prepareMainCGNS4ElsA, except that 'mesh' may be
@@ -3380,11 +3414,21 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
         all([key in kwargs['JobInformation'] for key in ['JobName', 'AER', 'NumberOfProcessors']])
     assert IsJobInformationGiven, 'JobInformation is required with not default values for JobName, AER and NumberOfProcessors'
 
+    if not RotationSpeedRange:
+        RotationSpeedRange = [kwargs['TurboConfiguration']['ShaftRotationSpeed']]
+
+    ThrottleRange = sorted(list(ThrottleRange))
+    RotationSpeedRange = sorted(list(RotationSpeedRange))
+
     ThrottleMatrix, RotationSpeedMatrix  = np.meshgrid(ThrottleRange, RotationSpeedRange)
 
     Throttle_       = ThrottleMatrix.ravel(order='K')
     RotationSpeed_  = RotationSpeedMatrix.ravel(order='K')
     NewJobs         = Throttle_ == ThrottleRange[0]
+
+    def adaptPathForDispatcher(filename):
+        # This is a path: remove it for writing in JobConfiguration.py
+        return os.path.join('..', '..', 'DISPATCHER', filename.split(os.path.sep)[-1])
 
     JobsQueues = []
     for i, (Throttle, RotationSpeed, NewJob) in enumerate(zip(Throttle_, RotationSpeed_, NewJobs)):
@@ -3427,15 +3471,13 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
             if i != 0:
                 WorkflowParams.pop('Initialization')
             elif 'file' in WorkflowParams['Initialization']:
-                filename = WorkflowParams['Initialization']['file']
-                if len(filename.split('/'))>1:
-                    # This is a path: remove it for writing in JobConfiguration.py
-                    new_filename = os.path.join('..', '..', 'DISPATCHER', filename.split(os.path.sep)[-1])
-                    WorkflowParams['Initialization']['file'] = new_filename
+                WorkflowParams['Initialization']['file'] = adaptPathForDispatcher(WorkflowParams['Initialization']['file'])
 
         if isinstance(WorkflowParams['mesh'], list):
             speedIndex = RotationSpeedRange.index(RotationSpeed)
             WorkflowParams['mesh'] = WorkflowParams['mesh'][speedIndex]
+        
+        WorkflowParams['mesh'] = adaptPathForDispatcher(WorkflowParams['mesh'])
 
         JobsQueues.append(
             dict(ID=i, CASE_LABEL=CASE_LABEL, NewJob=NewJob, JobName=JobName, **WorkflowParams)
@@ -3671,6 +3713,74 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
 
     return perfo
 
+def getPostprocessQuantities(DIRECTORY_WORK, basename, useLocalConfig=False):
+    '''
+    Print the current status of a IsoSpeedLines computation and display
+    performance of the monitored row for completed jobs.
+
+    Parameters
+    ----------
+
+        DIRECTORY_WORK : str
+            directory where ``JobsConfiguration.py`` file is located
+
+        basename : str
+            Name of the base to get
+
+        useLocalConfig : bool
+            if :py:obj:`True`, use the local ``JobsConfiguration.py``
+            file instead of retreiving it from **DIRECTORY_WORK**
+
+    Returns
+    -------
+
+        perfo : :py:class:`dict` of :py:class:`list`
+            dictionary with data contained in the base **baseName** for completed
+            simulations. 
+
+            Each list corresponds to one rotation speed. Each sub-list
+            corresponds to the different operating points on a iso-speed line.
+
+    '''
+    config = JM.getJobsConfiguration(DIRECTORY_WORK, useLocalConfig)
+    Throttle = np.array(sorted(list(set([float(case['CASE_LABEL'].split('_')[0]) for case in config.JobsQueues]))))
+    RotationSpeed = np.array(sorted(list(set([case['TurboConfiguration']['ShaftRotationSpeed'] for case in config.JobsQueues]))))
+
+    def getCaseLabel(config, throttle, rotSpeed):
+        for case in config.JobsQueues:
+            if np.isclose(float(case['CASE_LABEL'].split('_')[0]), throttle) and \
+                np.isclose(case['TurboConfiguration']['ShaftRotationSpeed'], rotSpeed):
+
+                return case['CASE_LABEL']
+
+    perfo = dict()
+
+    for idSpeed, rotationSpeed in enumerate(RotationSpeed):
+        perfoOnCarac = dict(RotationSpeed=[], Throttle=[])
+
+        for idThrottle, throttle in enumerate(Throttle):
+            CASE_LABEL = getCaseLabel(config, throttle, rotationSpeed)
+            status = JM.statusOfCase(config, CASE_LABEL)
+
+            if status == 'COMPLETED':
+                lastarrays = JM.getCaseArrays(config, CASE_LABEL, basename=basename)
+                for key, value in lastarrays.items():
+                    if idThrottle == 0:
+                        perfoOnCarac[key] = [value]
+                    else:
+                        perfoOnCarac[key].append(value)
+                perfoOnCarac['RotationSpeed'].append(rotationSpeed)
+                perfoOnCarac['Throttle'].append(throttle)
+
+        for key, value in perfoOnCarac.items():
+            if idSpeed == 0:
+                perfo[key] = [value]
+            else:
+                perfo[key].append(value)
+
+    return perfo
+
+
 
 def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboConfiguration, mask=None):
     '''
@@ -3781,3 +3891,116 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
               )
 
     return t
+
+
+def postprocess_turbomachinery(surfaces, stages=[], 
+                                var4comp_repart=None, var4comp_perf=None, var2keep=None, 
+                                computeRadialProfiles=True):
+    '''
+    Perform a series of classical postprocessings for a turbomachinery case : 
+
+    #. Compute extra variables, in relative and absolute frames of reference
+
+    #. Compute averaged values for all iso-X planes (results are in the `.Average` node), and
+       compare inlet and outlet planes for each row if available, to get row performance (total 
+       pressure ratio, isentropic efficiency, etc) (results are in the `.Average#ComparisonXX` of
+       the inlet plane, `XX` being the numerotation starting at `01`)
+
+    #. Compute radial profiles for all iso-X planes (results are in the `.RadialProfile` node), and
+       compare inlet and outlet planes for each row if available, to get row performance (total 
+       pressure ratio, isentropic efficiency, etc) (results are in the `.RadialProfile#ComparisonXX` of
+       the inlet plane, `XX` being the numerotation starting at `01`)
+
+    #. Compute isentropic Mach number on blades, slicing at constant height, for all values of height 
+       already extracted as iso-surfaces. Results are in the `.Iso_H_XX` nodes.
+
+    Parameters
+    ----------
+
+        surfaces : PyTree
+            extracted surfaces
+
+        stages : :py:class:`list` of :py:class:`tuple`, optional
+            List of row stages, of the form:
+
+            >>> stages = [('rotor1', 'stator1'), ('rotor2', 'stator2')] 
+
+            For each tuple of rows, the inlet plane of row 1 is compared with the outlet plane of row 2.
+
+        var4comp_repart : :py:class:`list`, optional
+            List of variables computed for radial distributions. If not given, all possible variables are computed.
+
+        var4comp_perf : :py:class:`list`, optional
+            List of variables computed for row performance (plane to plane comparison). If not given, 
+            the same variables as in **var4comp_repart** are computed, plus `Power`.
+
+        var2keep : :py:class:`list`, optional
+            List of variables to keep in the saved file. If not given, the following variables are kept:
+            
+            .. code-block:: python
+
+                var2keep = [
+                    'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation',
+                    'StagnationPressureRelDim', 'StagnationTemperatureRelDim',
+                    'Entropy',
+                    'Viscosity_EddyMolecularRatio',
+                    'VelocitySoundDim', 'StagnationEnthalpyAbsDim',
+                    'MachNumberAbs', 'MachNumberRel',
+                    'AlphaAngleDegree',  'BetaAngleDegree', 'PhiAngleDegree',
+                    'VelocityXAbsDim', 'VelocityRadiusAbsDim', 'VelocityThetaAbsDim',
+                    'VelocityMeridianDim', 'VelocityRadiusRelDim', 'VelocityThetaRelDim',
+                    ]
+        
+        computeRadialProfiles : bool
+            Choose or not to compute radial profiles.
+        
+    '''
+    import Converter.Mpi as Cmpi
+    import MOLA.PostprocessTurbo as Post
+    import turbo.user as TUS
+
+    Post.setup = J.load_source('setup', 'setup.py')
+
+    #______________________________________________________________________________
+    # Variables
+    #______________________________________________________________________________
+    allVariables = TUS.getFields()
+    if not var4comp_repart:
+        var4comp_repart = ['StagnationEnthalpyDelta',
+                           'StagnationPressureRatio', 'StagnationTemperatureRatio',
+                           'StaticPressureRatio', 'Static2StagnationPressureRatio',
+                           'IsentropicEfficiency', 'PolytropicEfficiency',
+                           'StaticPressureCoefficient', 'StagnationPressureCoefficient',
+                           'StagnationPressureLoss1', 'StagnationPressureLoss2',
+                           ]
+    if not var4comp_perf:
+        var4comp_perf = var4comp_repart + ['Power']
+    if not var2keep:
+        var2keep = [
+            'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation',
+            'StagnationPressureRelDim', 'StagnationTemperatureRelDim',
+            'Entropy',
+            'Viscosity_EddyMolecularRatio',
+            'VelocitySoundDim', 'StagnationEnthalpyAbsDim',
+            'MachNumberAbs', 'MachNumberRel',
+            'AlphaAngleDegree',  'BetaAngleDegree', 'PhiAngleDegree',
+            'VelocityXAbsDim', 'VelocityRadiusAbsDim', 'VelocityThetaAbsDim',
+            'VelocityMeridianDim', 'VelocityRadiusRelDim', 'VelocityThetaRelDim',
+        ]
+
+    variablesByAverage = Post.sortVariablesByAverage(allVariables)
+
+    #______________________________________________________________________________#
+    Post.computeVariablesOnIsosurface(surfaces, allVariables)
+    Post.compute0DPerformances(surfaces, variablesByAverage)
+    if computeRadialProfiles: 
+        Post.compute1DRadialProfiles(surfaces, variablesByAverage)
+    # Post.computeVariablesOnBladeProfiles(surfaces, hList='all')
+    #______________________________________________________________________________#
+
+    if Cmpi.rank == 0:
+        Post.comparePerfoPlane2Plane(surfaces, var4comp_perf, stages)
+        if computeRadialProfiles: 
+            Post.compareRadialProfilesPlane2Plane(surfaces, var4comp_repart, stages)
+
+    Post.cleanSurfaces(surfaces, var2keep=var2keep)
