@@ -282,6 +282,14 @@ def extractSurfaces(t, Extractions):
 
     def addBase2SurfacesTree(basename):
         if not zones: return
+        # Rename zones like the base
+        for i, zone in enumerate(zones):
+            # The name of the parent zone is kept in a temporary node .parentZone, 
+            # that will be removed before saving
+            # There might be a \ in zone name if it is a result of C.ExtractBCOfType
+            zoneName = I.getName(zone).split('/')[0]
+            I.createNode('.parentZone', 'UserDefinedData_t', value=zoneName, parent=zone)
+            I.setName(zone, f'{basename}_R{rank}N{i}')
         base = I.newCGNSBase(basename, cellDim=cellDimOutputTree-1, physDim=3,
             parent=SurfacesTree)
         I._addChild(base, zones)
@@ -389,6 +397,8 @@ def extractSurfaces(t, Extractions):
     J.forceZoneDimensionsCoherency(SurfacesTree)
     Cmpi.barrier()
     restoreFamilies(SurfacesTree, t)
+    I._rmNodesFromName(SurfacesTree, '.parentZone')
+    I._rmNodesFromName(SurfacesTree, ':CGNS#Ppart')
     Cmpi.barrier()
 
     # # Workflow specific postprocessings
@@ -674,15 +684,8 @@ def restoreFamilies(surfaces, skeleton):
         I.addChild(base, ReferenceState)
         familiesInBase = []
         for zone in I.getZones(base):
-            zoneName = I.getName(zone).split('\\')[0]  # There might be a \ in zone name
-                                                       # if it is a result of C.ExtractBCOfType
+            zoneName = I.getValue(I.getNodeFromName1(zone, '.parentZone'))
             zoneInFullTree = I.getNodeFromNameAndType(skeleton, zoneName, 'Zone_t')
-            if not zoneInFullTree:
-                # Zone may have been renamed by C.correctPyTree in <zone>.N with N an integer
-                zoneName = '.'.join(zoneName.split('.')[:-1])
-                zoneInFullTree = I.getNodeFromNameAndType(skeleton, zoneName, 'Zone_t')
-                if not zoneInFullTree:
-                    raise Exception('Zone {} not found in skeleton'.format(zoneName))
             fam = I.getNodeFromType1(zoneInFullTree, 'FamilyName_t')
             I.addChild(zone, fam)
             familiesInBase.append(I.getValue(fam))
