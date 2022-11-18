@@ -402,7 +402,7 @@ def launchComputationJob(case, config, JobFilename='job.sh',
     for e in Error: print(e)
 
     if submitReserveJob:
-        CMD = 'sbatch %s --dependency=singleton'%(JobFilename)
+        CMD = 'sbatch --dependency=singleton %s'%(JobFilename)
 
         if not InSator:
             Host = UserName+"@"+machine

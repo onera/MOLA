@@ -15,6 +15,7 @@ import numpy as np
 from itertools import product
 import copy
 from timeit import default_timer as tic
+import datetime
 
 import Converter.PyTree as C
 import Converter.Internal as I
@@ -135,7 +136,7 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
                 The user shall employ function :py:func:`prepareMainCGNS4ElsA`
                 as next step
     '''
-
+    toc = tic()
     t = getMeshesAssembled(InputMeshes)
     I._fixNGon(t) # Needed for an unstructured mesh
     transform(t, InputMeshes)
@@ -143,11 +144,24 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
     setBoundaryConditions(t, InputMeshes)
     t = splitAndDistribute(t, InputMeshes, **splitOptions)
     addFamilies(t, InputMeshes)
+    _writeBackUpFiles(t, InputMeshes)
     t = addOversetData(t, InputMeshes, **globalOversetOptions)
     adapt2elsA(t, InputMeshes)
     J.checkEmptyBC(t)
+    ElapsedTime = str(datetime.timedelta(seconds=tic()-toc))
+    hours, minutes, seconds = ElapsedTime.split(':')
+    ElapsedTimeHuman = hours+' hours '+minutes+' minutes and '+seconds+' seconds'
+    msg = 'prepareMesh took '+ElapsedTimeHuman
+    print(J.BOLD+msg+J.ENDC)
 
     return t
+
+def _writeBackUpFiles(t, InputMeshes):
+    for b, meshInfo in zip(I.getBases(t), InputMeshes):
+        try: backup_file = meshInfo['backup_file']
+        except KeyError: continue
+        if backup_file: J.save(b, backup_file)
+
 
 def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
         NumericalParams={}, Extractions=[{'type':'AllBCWall'}],
@@ -361,7 +375,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
         except:
             ReferenceValuesParams['FieldsAdditionalExtractions'] = [fieldname]
 
-
+    toc = tic()
     if isinstance(mesh,str):
         t = C.convertFile2PyTree(mesh)
     elif I.isTopTree(mesh):
@@ -442,6 +456,13 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
             singleton = False if i==0 else True
             JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
 
+    ElapsedTime = str(datetime.timedelta(seconds=tic()-toc))
+    hours, minutes, seconds = ElapsedTime.split(':')
+    ElapsedTimeHuman = hours+' hours '+minutes+' minutes and '+seconds+' seconds'
+    msg = 'prepareMainCGNS took '+ElapsedTimeHuman
+    print(J.BOLD+msg+J.ENDC)
+
+
 def getMeshesAssembled(InputMeshes):
     '''
     This function reads the grid files provided by the user-provided list
@@ -489,8 +510,11 @@ def getMeshesAssembled(InputMeshes):
             new_tree = C.newPyTree(NewBases)
             NewComponents[i] = NewMeshInfos
 
-        else: 
-            base[0] = meshInfo['baseName']
+        else:
+            try: 
+                base[0] = meshInfo['baseName']
+            except KeyError:
+                meshInfo['baseName'] = base[0]
             J.set(base,'.MOLA#InputMesh',**meshInfo)
             new_tree = C.newPyTree([base]) 
         
@@ -1450,7 +1474,7 @@ def showStatisticsAndCheckDistribution(tNew, CoresPerNode=28):
     for node in NPtsPerNode:
         print('Node %d has %d points'%(node,NPtsPerNode[node]))
 
-    print(J.CYAN+'TOTAL NUMBER OF POINTS: %d\n'%C.getNPts(tNew)+J.ENDC)
+    print(J.CYAN+'TOTAL NUMBER OF POINTS: '+'{:,}'.format(C.getNPts(tNew)).replace(',',' ')+'\n'+J.ENDC)
 
     for p in range(ResultingNProc):
         if p not in ProcDistributed:
@@ -1565,6 +1589,10 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
 
             .. danger::
                 beware of elsA bug `10545 <https://elsa.onera.fr/issues/10545>`_
+        
+        CHECK_OVERSET : bool
+            if :py:obj:`True`, then make an extrapolated-orphan cell diagnosis
+            when making unsteady motion overset preprocess.
 
     Returns
     -------
@@ -2121,6 +2149,7 @@ def getOverlapMaskByCellsOffset(base, SuffixTag=None, NCellsOffset=2):
                                                             NCellsOffset)
 
     if not mask: return
+    mask = ESP.extractWindows(t)
     # mask = C.convertArray2Tetra(mask)
     # mask = T.join(mask)
 
@@ -3426,6 +3455,9 @@ def addOversetMotion(t, OversetMotion):
         try: is_duplicated = bool(MeshInfo['DuplicatedFrom'] != base[0])
         except KeyError: is_duplicated = False
 
+        
+        phase = 0.0
+
         if is_duplicated:
             blade_id = int(base[0].split('_')[-1])
             blade_nb = MeshInfo['Motion']['NumberOfBlades']
@@ -3434,21 +3466,16 @@ def addOversetMotion(t, OversetMotion):
                 sign = 1 if RH else -1
             except KeyError:
                 sign = 1
-            psi0 = (blade_id-1)*sign*(360.0/float(blade_nb))
+            psi0_b = (blade_id-1)*sign*(360.0/float(blade_nb)) + phase
         else:
-            # print('base %s is NOT duplicated since:'%base[0])
-            # try:
-            #     print('%s != %s'%(MeshInfo['DuplicatedFrom'], base[0]))
-            # except KeyError:
-            #     print('"DuplicatedFrom" key does not exist')
-            psi0 = 0.0
+            psi0_b = phase
 
         try: bd = MeshInfo['Motion']['RequestedFrame']['BladeDirection']
         except KeyError: bd = [1,0,0]
         bd = np.array(bd,dtype=float)
 
         default_rotor_motion = dict(type='rotor_motion',
-            initial_angles=[0.,psi0],
+            initial_angles=[0.,psi0_b],
             alp0=0.,
             alp_pnt=[0.,0.,0.],
             alp_vct=[0.,1.,0.],
@@ -3471,6 +3498,7 @@ def addOversetMotion(t, OversetMotion):
             tet_pnt=[0.,0.,0.],
             tet_vct=[1.,0.,0.],
             tet0=0.)        
+        
 
         try:
             function_motion_type = OversetMotionData['Function']['type']
@@ -3720,6 +3748,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
             for f in fluxes:
                 if f not in BCExtractions[bc]:
                     BCExtractions[bc].append(f)
+
     # Default keys to write in the .Solver#Output of the Family node
     # The node 'var' will be fill later depending on the BCType
     BCKeys = dict(
@@ -3756,9 +3785,8 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     ))
     
     FamilyNodes = I.getNodesFromType2(t, 'Family_t')
-    for ExtractBCType, ExtractVariablesListDefault in BCExtractions.items():
+    for ExtractBCType, ExtractVariablesList in BCExtractions.items():
         for FamilyNode in FamilyNodes:
-            ExtractVariablesList = copy.deepcopy(ExtractVariablesListDefault)
             FamilyName = I.getName( FamilyNode )
             BCType = getFamilyBCTypeFromFamilyBCName(t, FamilyName)
             if not BCType: continue
@@ -3778,11 +3806,12 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
                                 if var in ExtractVariablesList:
                                     ExtractVariablesList.remove(var)
                             break
+
                     if 'Inviscid' in BCType:
-                        var2remove = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue', 'yplusmeshsize']
-                        for var in var2remove:
-                            if var in ExtractVariablesList:
-                                ExtractVariablesList.remove(var)
+                        if 'bl_quantities_2d' in ExtractVariablesList:
+                            ExtractVariablesList.remove('bl_quantities_2d')
+                        if 'yplusmeshsize' in ExtractVariablesList:
+                            ExtractVariablesList.remove('yplusmeshsize')
                     else:
                         TransitionMode = ReferenceValues['TransitionMode']
 
@@ -3795,6 +3824,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
                         elif TransitionMode == 'Imposed':
                             extraVariables = ['intermittency', 'clim']
                             ExtractVariablesList.extend(extraVariables)
+
                 if ExtractVariablesList != []:
                     varDict = dict(var=' '.join(ExtractVariablesList))
                     print('setting .Solver#Output to FamilyNode '+FamilyNode[0])
@@ -4546,9 +4576,8 @@ def adapt2elsA(t, InputMeshes):
     unnecessary operations. It also cleans spurious 0-length data CGNS nodes that
     can be generated during overset preprocessing.
     '''
-    if hasAnyNearMatch(InputMeshes):
-        print('adapting NearMatch to elsA...')
-        EP._adaptNearMatch(t)
+    print('adapting NearMatch to elsA')
+    EP._adaptNearMatch(t)
 
     # TODO remove this, as it is not required by elsA anymore
     # # Optional in the general but incompatible with PyPart

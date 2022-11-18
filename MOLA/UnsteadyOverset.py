@@ -8,6 +8,8 @@ from ctypes import alignment
 from multiprocessing.sharedctypes import Value
 import os
 import numpy as np
+from itertools import product
+from timeit import default_timer as ToK
 
 import Converter.PyTree as C
 import Converter.Internal as I
@@ -15,6 +17,7 @@ import Connector.PyTree as X
 import Transform.PyTree as T
 import Generator.PyTree as G
 import Post.PyTree as P
+import Geom.PyTree as D
 
 from . import InternalShortcuts as J
 from . import GenerativeShapeDesign as GSD
@@ -24,6 +27,8 @@ from . import JobManager as JM
 from .Preprocess import getBodyName
 
 MOLA_MASK = 'mask'
+
+cost_est = np.array([0.0])
 
 def setMaskParameters(t, InputMeshes):
     mask_params = dict(type='cart_elts', blanking_criteria='center_in',
@@ -88,7 +93,7 @@ def setMaskedZonesOfMasks(t, InputMeshes, BlankingMatrix, BodyNames):
                 accounted for. (default value is **1.2**)
 
             * ``'NeighbourSearchAzimutResolution'`` : :py:class:`float`
-                The azimutal spatial step for the neighbour search, in degrees.
+                The azimuthal spatial step for the neighbour search, in degrees.
                 (default value is **5**)
 
                 .. tip:: 
@@ -105,7 +110,7 @@ def setMaskedZonesOfMasks(t, InputMeshes, BlankingMatrix, BodyNames):
         base = I.getNodeFromName2(tR,BaseName)
 
         rot_ctr, rot_axis, scale, Dpsi = _getRotorMotionParameters(meshInfo)
-        _addAzimutalGhostComponent(base, rot_ctr, rot_axis, scale, Dpsi)
+        _addAzimuthalGhostComponent(base, rot_ctr, rot_axis, scale, Dpsi)
 
     print('building trees of boxes for intersection estimation...')
     aabb, obb = _buildBoxesTrees(tR)
@@ -159,12 +164,12 @@ def _getRotorMotionParameters(meshInfo):
     except KeyError: scale_factor = 1.2
 
     try: Dpsi = meshInfo['Motion']['RequestedFrame']['NeighbourSearchAzimutResolution']
-    except KeyError: Dpsi = 5.0    
+    except KeyError: Dpsi = 15.0 
 
     return rot_ctr, rot_axis, scale_factor, Dpsi
 
 
-def _addAzimutalGhostComponent(base, rot_ctr, rot_axis, scale, Dpsi):
+def _addAzimuthalGhostComponent(base, rot_ctr, rot_axis, scale, Dpsi):
     exteriorFaces = []
     for z in I.getZones(base):
         dims = I.getZoneDim(z)[4]
@@ -175,23 +180,30 @@ def _addAzimutalGhostComponent(base, rot_ctr, rot_axis, scale, Dpsi):
         elif dims == 2:
             exteriorFaces.append( z )
         else:
-            raise ValueError('cannot make azimutal ghost component of 1D grid')
+            raise ValueError('cannot make azimuthal ghost component of 1D grid')
     T._scale(exteriorFaces,scale)
 
+    newAzimuts = []
     Azimuts = []
     if Dpsi > 0:
-        for i in range(int(360/Dpsi)):
-            Azimuts.extend(T.rotate(exteriorFaces,rot_ctr,rot_axis,i*Dpsi))
+        newAzimuts = []
+        for ef in exteriorFaces:
+            for i in range(int(360/Dpsi)):
+                newAzimuts += [ T.rotate(ef,rot_ctr,rot_axis,i*Dpsi) ]
+                newAzimuts[-1][0] = ef[0]
+            
+            xmin, ymin, zmin, xmax, ymax, zmax = G.bbox(newAzimuts)
+            az = G.cart((xmin,ymin,zmin),(xmax-xmin,ymax-ymin,zmax-zmin),(2,2,2))
+            az[0] = ef[0]
+            Azimuts += [az]
     else:
         # fixed component but with unsteady treatment
         Azimuts = I.getZones(base)
+        
+    if base[3] == 'CGNSBase_t' and Azimuts: base[2] = Azimuts
     
-    try:
-        if base[3] == 'CGNSBase_t': base[2] = Azimuts
-    except:
-        pass
-    
-    return Azimuts
+    return newAzimuts
+
 
 
 def _findMaskedZonesOfBase(BaseName, t, IntersectingZones):
@@ -211,62 +223,106 @@ def _findMaskedZonesOfBase(BaseName, t, IntersectingZones):
     return NewMaskedZones
 
 def _getIntersectingZones(aabb, obb):
-    zones_aabb = I.getZones(aabb)
-    zones_obb = I.getZones(obb)
-    IntersectingZones = dict()
-    for z_aabb0, z_obb0 in zip(zones_aabb, zones_obb):
-        name0 = z_aabb0[0]
-        Base0name = _getBaseNameFromUserData(z_aabb0)
-        for z_aabb, z_obb in zip(zones_aabb, zones_obb):
-            name1 = z_aabb[0]
-            Base1name = _getBaseNameFromUserData(z_aabb)
-            if Base0name == Base1name: continue
-            if _inIntersectionDomain(name0, name1, IntersectingZones):
-                continue
-            if not G.bboxIntersection(z_aabb0, z_aabb,
-                                        tol=1e-8, isBB=True, method='AABB'):
-                continue
-            if not G.bboxIntersection(z_aabb, z_obb0,
-                                        tol=1e-8, isBB=True, method='AABBOBB'):
-                continue
-            if not G.bboxIntersection(z_aabb0, z_obb,
-                                        tol=1e-8, isBB=True, method='AABBOBB'):
-                continue
-            if not G.bboxIntersection(z_obb0, z_obb,
-                                        tol=1e-8, isBB=True, method='OBB'):
-                continue
-            
-            _addToIntersectingZones(name0, name1, IntersectingZones)
+    TiK = ToK()
+    zones_aabb = I.getNodesFromType2(aabb,'Zone_t')
+    zones_obb = I.getNodesFromType2(obb,'Zone_t')
+    nb_zones = len(zones_aabb)
+    Xmatrix = computeRoughIntersectionMatrix(aabb)
 
+    
+    for i in range(nb_zones):
+        z_aabb0 = zones_aabb[i]
+        z_obb0 = zones_obb[i]
+        baseName0 = _getBaseNameFromUserData(z_aabb0)
+        for j in range(nb_zones):
+            if i==j:
+                Xmatrix[i,j] = Xmatrix[j,i] = 0
+                continue
+
+            z_aabb = zones_aabb[j]
+            z_obb = zones_obb[j]
+            if Xmatrix[j,i] == 0:
+                Xmatrix[i,j] = 0 
+                continue
+
+            baseName1 = _getBaseNameFromUserData(z_aabb)
+
+            if baseName0 == baseName1:
+                Xmatrix[i,j] = Xmatrix[j,i] = 0
+                continue
+
+            if not G.bboxIntersection(z_aabb0, z_aabb, tol=1e-8, isBB=True, method='AABB'):
+                Xmatrix[i,j] = Xmatrix[j,i] = 0
+                continue
+
+            if not G.bboxIntersection(z_aabb, z_obb0, tol=1e-8, isBB=True, method='AABBOBB'):
+                Xmatrix[i,j] = Xmatrix[j,i] = 0
+                continue
+
+            if not G.bboxIntersection(z_aabb0, z_obb, tol=1e-8, isBB=True, method='AABBOBB'):
+                Xmatrix[i,j] = Xmatrix[j,i] = 0
+                continue
+                    
+            if not G.bboxIntersection(z_obb0, z_obb, tol=1e-8, isBB=True, method='OBB'):
+                Xmatrix[i,j] = Xmatrix[j,i] = 0
+                continue
+
+    IntersectingZones = dict()
+    for i in range(nb_zones):
+        nameI = zones_aabb[i][0]
+        IntersectingZones[nameI] = []
+        for j in range(nb_zones):
+            if Xmatrix[i,j] == 1:
+                nameJ = zones_aabb[j][0]
+                IntersectingZones[nameI] += [ nameJ ]
+
+    cost_est[0] += ToK()-TiK
+    print('intersections estimation cost: %g s'%cost_est)
 
     return IntersectingZones
+
+
+
+def buildSpheres(t):
+    x, y, z, r = [], [], [], []
+    for zone in I.getNodesFromType2(t, 'Zone_t'):
+        barycenter = G.barycenter(zone)
+        xmin, ymin, zmin, xmax, ymax, zmax = G.bbox(zone)
+        x += [ barycenter[0] ]
+        y += [ barycenter[1] ]
+        z += [ barycenter[2] ]
+        r += [ (xmax-xmin)**2 + (ymax-ymin)**2 + (zmax-zmin)**2 ]
+    x = np.array(x,order='F')
+    y = np.array(y,order='F')
+    z = np.array(z,order='F')
+    r = np.sqrt(0.5*np.array(r,order='F'))
+    N = len(x)
+    spheres = I.newZone(name='spheres', zsize=[[N,N-1,0]], ztype='Structured')
+    gc = I.newGridCoordinates(parent=spheres)
+    I.newDataArray('CoordinateX', value=x, parent=gc)
+    I.newDataArray('CoordinateY', value=y, parent=gc)
+    I.newDataArray('CoordinateZ', value=z, parent=gc)
+    fs = I.newFlowSolution(parent=spheres)
+    I.newDataArray('radius', value=r, parent=fs)
+
+    return spheres
+
+def computeRoughIntersectionMatrix(t):
+    from scipy.spatial import distance
+    spheres = buildSpheres(t)
+    x,y,z = J.getxyz(spheres)
+    r = J.getVars(spheres,['radius'])[0]
+    ri_plus_rj = r[:,None] + r[None,:]
+    xyz = np.vstack((x,y,z)).T
+    distanceMatrix = distance.cdist(xyz,xyz,'euclidean')
+    X = np.array(distanceMatrix < ri_plus_rj, dtype=int)
+
+    return X
+    
 
 def _getBaseNameFromUserData(zone):
     data = I.getNodeFromName1(zone, '.MOLA#BoxData')
     return I.getValue(I.getNodeFromName1(data, 'ParentBaseName'))
-
-def _addToIntersectingZones(name0, name1, IntersectingZones):
-    if name0 not in IntersectingZones:
-        IntersectingZones[name0]  = [ name1 ]
-    elif name1 not in IntersectingZones[name0]:
-        IntersectingZones[name0] += [ name1 ]
-
-    if name1 not in IntersectingZones:
-        IntersectingZones[name1]  = [ name0 ]
-    elif name0 not in IntersectingZones[name1]:
-        IntersectingZones[name1] += [ name0 ]
-
-
-
-def _inIntersectionDomain(zone_name_1, zone_name_2, IntersectingZones):
-    if zone_name_1 in IntersectingZones:
-        if zone_name_2 in IntersectingZones[zone_name_1]:
-            return True
-    elif zone_name_2 in IntersectingZones:
-        if zone_name_1 in IntersectingZones[zone_name_2]:
-            return True
-    return False
-
 
 def _buildBoxesTrees(tR):
 

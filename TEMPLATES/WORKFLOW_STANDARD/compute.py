@@ -131,6 +131,10 @@ if BodyForceInputData:
     NumberOfSerialRuns = LL.getNumberOfSerialRuns(BodyForceInputData, NumberOfProcessors)
 # ------------------------------------------------------------------------- #
 
+# TODO : remove conditioning on UNSTEADY_OVERSET once elsA bug 
+# https://elsa.onera.fr/issues/10824 is fixed
+UNSTEADY_OVERSET = hasattr(setup,'OversetMotion') and setup.OversetMotion
+
 CO.loadMotionForElsA(elsA_user, Skeleton)
 
 e.mode = elsAxdt.READ_MESH
@@ -143,7 +147,6 @@ e.mode |= elsAxdt.READ_COMPUTATION
 e.mode |= elsAxdt.READ_OUTPUT
 e.mode |= elsAxdt.READ_TRACE
 e.mode |= elsAxdt.SKIP_GHOSTMASK # NOTE https://elsa.onera.fr/issues/3480
-if not os.path.exists('OVERSET'): e.mode |= elsAxdt.CGNS_CHIMERACOEFF
 e.action=elsAxdt.TRANSLATE
 
 e.compute()
@@ -153,6 +156,7 @@ CO.loadUnsteadyMasksForElsA(e, elsA_user, Skeleton)
 Cmpi.barrier()
 CO.printCo('launch compute',proc=0)
 Cfdpb.compute()
+Cfdpb.extract()
 Cmpi.barrier()
 
 
