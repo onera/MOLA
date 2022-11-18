@@ -1589,6 +1589,10 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
 
             .. danger::
                 beware of elsA bug `10545 <https://elsa.onera.fr/issues/10545>`_
+        
+        CHECK_OVERSET : bool
+            if :py:obj:`True`, then make an extrapolated-orphan cell diagnosis
+            when making unsteady motion overset preprocess.
 
     Returns
     -------
