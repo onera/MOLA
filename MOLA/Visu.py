@@ -37,6 +37,7 @@ from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
 import Converter.PyTree as C
 import Converter.Internal as I
+import Transform.PyTree as T
 
 from . import InternalShortcuts as J
 
@@ -510,3 +511,89 @@ class matplotlipOverlap():
         self.fig.clear()
         plt.close('all')
 
+
+def makeShaftRotate(t, iteration):
+    '''
+    For a turbomachinery case, make rotate all the domains depending on their `.Solver#Motion` node in 
+    their family. The angle of rotation is computed as:
+    :math:`\theta = t_0 + \Omega (i-i_0)`
+    where :math:`t_0` corresponds to the `itime` elsA key, :math:`t_0` is the rotationnal speed of the 
+    row (depending on the current zone), :math:`i` is the current iteration (input argument **iteration**)
+    and :math:`i_0` corresponds to the `inititer` elsA key.
+
+    Parameters
+    ----------
+    t : PyTree
+        Should be the PyTree read from a ``surfaces_AfterIteration*.cgns``.
+
+    iteration : int
+        iteration of extraction of **t**. Should correspond to the iteration in the name 
+        of the file ``surfaces_AfterIteration*.cgns``.
+    '''
+    # TODO: Is this iteration or iteration - 1 to consider ? 
+
+    # TODO: rotate also BCDataSet, ZoneSubRegion, etc, and others vectors
+    # typically what Maia already
+
+    setup = J.load_source('setup', 'setup.py')
+
+    ekn = setup.elsAkeysNumerics
+    currentTime = ekn['itime'] + ekn['timestep'] * (iteration - ekn['inititer'])
+
+    vectors2rotate = [['VelocityX', 'VelocityY', 'VelocityZ'], ['MomentumX', 'MomentumY', 'MomentumZ']]
+    vectors = []
+    for vec in vectors2rotate:
+        vectors.append(vec)
+        vectors.append(['centers:'+v for v in vec])
+
+    for base in I.getBases(t):
+        # Fill families information
+        rowFrame = dict()
+        for Family in I.getNodesFromType1(base, 'Family_t'):
+            solverMotion = I.getNodeFromName(Family, '.Solver#Motion')
+            if not solverMotion: continue # Only zone families
+            solverMotionDict = dict((I.getName(node), I.getValue(node))
+                                    for node in I.getNodesFromType(solverMotion, 'DataArray_t'))
+            rowFrame[I.getName(Family)] = dict(
+                omega =solverMotionDict['omega'],
+                center=(solverMotionDict['axis_pnt_x'], solverMotionDict['axis_pnt_y'], solverMotionDict['axis_pnt_z']),
+                axis  =(solverMotionDict['axis_vct_x'], solverMotionDict['axis_vct_y'], solverMotionDict['axis_vct_z'])   
+            )
+        for zone in I.getZones(base):
+            familyNode = I.getNodeFromType1(zone, 'FamilyName_t')
+            if not familyNode: continue
+            row = I.getValue(familyNode)
+            angleDeg = rowFrame[row]['omega'] * currentTime * 180/np.pi
+            T._rotate(zone, rowFrame[row]['center'], 
+                            rowFrame[row]['axis'], 
+                            angleDeg, 
+                            vectors=vectors)
+
+
+def makeMovie(FRAMES_DIRECTORY='.', filename='animation.gif', fps=24, width=400):
+    '''
+    Make an gif animation easily from pre-existing frames (must be named 'frame*.png')
+
+    Parameters
+    ----------
+    FRAMES_DIRECTORY : str, optional
+        Directory where the frames are, by default '.'
+    filename : str, optional
+        Name of the output file, by default 'animation.gif'
+    fps : int, optional
+        Number of frames per second, by default 24
+    width : int, optional
+        Width in pixels of the output animation file, by default 400
+    '''
+
+    # first, resize your images to the width size desired for final video (e.g. 600 px)
+    os.system(
+        f'for img in frame*.png; do convert -resize 600 -quality 100 "{FRAMES_DIRECTORY}/$img" "{FRAMES_DIRECTORY}/resized-$img"; done')
+    
+    # second, create movie with (increase fps for having faster motion)
+    os.system(
+        f'mencoder  mf://{FRAMES_DIRECTORY}/resized-frame*.png -mf fps={fps}  -ovc x264 -x264encopts subq=6:partitions=all:8x8dct:me=umh:frameref=5:bframes=3:b_pyramid=normal:weight_b -o movie.avi')
+
+    # then convert movie to gif, by scaling to desired pixels (e.g. width 400 px)
+    os.system(
+        f'ffmpeg -i movie.avi -vf "fps=10,scale={width}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 {filename}')
