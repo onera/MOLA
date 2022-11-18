@@ -3285,9 +3285,6 @@ def buildCartesianBackground(t, InputMeshes):
                 whose pair of keyword/arguments are literally the options of
                 :py:func:`trimCartesianGridAtOrigin`
 
-            * backup_file : :py:class:`str`
-                Specifies a filename where to save the background mesh
-
     Returns
     -------
 
@@ -3303,7 +3300,7 @@ def buildCartesianBackground(t, InputMeshes):
     
     from . import ExtractSurfacesProcessor as ESP
     from .Preprocess import getMeshInfoFromBaseName, setBoundaryConditions, connectMesh
-    from .UnsteadyOverset import _getRotorMotionParameters, _addAzimutalGhostComponent
+    from .UnsteadyOverset import _getRotorMotionParameters, _addAzimuthalGhostComponent
     import Converter.elsAProfile as EP
     import Apps.Mesh.Cart as CART
 
@@ -3335,7 +3332,7 @@ def buildCartesianBackground(t, InputMeshes):
 
         if 'Motion' in meshInfo:
             rot_ctr, rot_axis, scale, Dpsi = _getRotorMotionParameters(meshInfo)
-            new_bodies = _addAzimutalGhostComponent(baseName2body[baseName],
+            new_bodies = _addAzimuthalGhostComponent(baseName2body[baseName],
                                        rot_ctr, rot_axis, scale, Dpsi)
         else:
             try: new_bodies = baseName2body[baseName]
@@ -3373,10 +3370,6 @@ def buildCartesianBackground(t, InputMeshes):
     try: trim_options = GenerationInfo['trim_options']
     except: trim_options = None
     if trim_options: t_cart = trimCartesianGridAtOrigin(t_cart, **trim_options)
-
-    try: backup_file = GenerationInfo['backup_file']
-    except: backup_file = None
-    if backup_file: C.convertPyTree2File(t_cart, backup_file)
 
     return t_cart
 
@@ -3616,9 +3609,6 @@ def _generateCartesianFromProcessedBodies(GenerationInfo, bodies):
     try: generateCartMesh_kwargs = GenerationInfo['generateCartMesh_kwargs']
     except: generateCartMesh_kwargs = dict(vmin=vmin,sizeMax=sizeMax,
                                            ext=0, dimPb=3, expand=0)
-
-    GenerationInfo['Connection'] = [ dict(type='Match', tolerance=1e-8),
-                                     dict(type='NearMatch', tolerance=1e-8)]
     
     if 'baseName' not in GenerationInfo:
         GenerationInfo['baseName'] = 'BACKGROUND'
@@ -3629,8 +3619,6 @@ def _generateCartesianFromProcessedBodies(GenerationInfo, bodies):
     base = I.getBases(t)[0]
     base[0] = GenerationInfo['baseName']
     I._rmNodesByName(t,'.Solver#Param')
-    I._rmNodesByName(t,'ZoneBC')
-    I._rmNodesByName(t,'ZoneGridConnectivity')
     J.set(base,'.MOLA#InputMesh',**GenerationInfo)
 
     return t
