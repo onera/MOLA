@@ -135,8 +135,7 @@ if BodyForceInputData:
 # https://elsa.onera.fr/issues/10824 is fixed
 UNSTEADY_OVERSET = hasattr(setup,'OversetMotion') and setup.OversetMotion
 
-if UNSTEADY_OVERSET:
-    CO.loadMotionForElsA(elsA_user, Skeleton)
+CO.loadMotionForElsA(elsA_user, Skeleton)
 
 e.mode = elsAxdt.READ_MESH
 e.mode |= elsAxdt.READ_CONNECT
@@ -148,13 +147,11 @@ e.mode |= elsAxdt.READ_COMPUTATION
 e.mode |= elsAxdt.READ_OUTPUT
 e.mode |= elsAxdt.READ_TRACE
 e.mode |= elsAxdt.SKIP_GHOSTMASK # NOTE https://elsa.onera.fr/issues/3480
-if not os.path.exists('OVERSET'): e.mode |= elsAxdt.CGNS_CHIMERACOEFF
-if UNSTEADY_OVERSET: e.action=elsAxdt.TRANSLATE
+e.action=elsAxdt.TRANSLATE
 
 e.compute()
-if UNSTEADY_OVERSET:
-    CO.readStaticMasksForElsA(e, elsA_user, Skeleton)
-    CO.loadUnsteadyMasksForElsA(e, elsA_user, Skeleton)
+CO.readStaticMasksForElsA(e, elsA_user, Skeleton)
+CO.loadUnsteadyMasksForElsA(e, elsA_user, Skeleton)
 
 Cmpi.barrier()
 CO.printCo('launch compute',proc=0)
