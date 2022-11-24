@@ -8,7 +8,14 @@ Other classes inheriting from **Node** are: :py:class:`Tree`,
 '''
 
 from fnmatch import fnmatch
-from .Core import np, RED,GREEN,WARN,PINK,CYAN,ENDC,CGM
+from . import Core
+np = Core.np
+RED = Core.RED 
+GREEN = Core.GREEN
+WARN = Core.WARN
+PINK = Core.PINK
+CYAN = Core.CYAN
+ENDC = Core.ENDC
 
 
 class Node(list):
@@ -69,9 +76,17 @@ class Node(list):
         from .Tree import Tree
         node_to_save = self if isinstance(self, Tree) else Tree( self )
         links = node_to_save.getLinks()
-        if verbose: print('saving %s ... '%filename, end='')
-        CGM.save(filename, node_to_save, links=links)
-        if verbose: print('ok')
+
+        if Core.settings.backend == 'pycgns':
+            if verbose: print('saving %s ... '%filename, end='')
+            Core.CGM.save(filename, node_to_save, links=links)
+            if verbose: print('ok')
+        
+        elif Core.settings.backend == 'cassiopee':
+            Core.C.convertPyTree2File(node_to_save, filename, links=links)
+        
+        else:
+            raise ModuleNotFoundError('%s backend not supported'%Core.settings.backend)
 
     def name(self): return self[0]
 
@@ -445,10 +460,21 @@ class Node(list):
         self.setValue( updated_node.value() )
 
     def saveThisNodeOnly(self, filename ):
-        flags = CGM.S2P_UPDATE
+
         t = self.getTopParent()
-        path = self.path().replace('CGNSTree','')
-        CGM.save( filename, t, update={path:self}, flags=flags)
+
+        if Core.settings.backend == 'pycgns':
+            flags = Core.CGM.S2P_UPDATE
+            path = self.path().replace('CGNSTree','')
+            Core.CGM.save(filename, t, update={path:self}, flags=flags)
+
+        elif Core.settings.backend == 'cassiopee':
+            # NOTE beware of BUG https://elsa.onera.fr/issues/10833
+            Core.Filter.writeNodesFromPaths(filename, [self.path()], [self], mode=1)
+
+        else:
+            raise ModuleNotFoundError('%s backend not supported'%Core.settings.backend)
+
 
     def setParameters(self, ContainerName, ContainerType='UserDefinedData_t',
                       ParameterType='DataArray_t', **parameters):
@@ -544,5 +570,30 @@ def castNode( NodeOrNodelikeList ):
         from .Tree import Tree
         t = Tree(node)
         node = t
+
+    return node
+
+def readNode(filename, path):
+
+    if path.startswith('CGNSTree/'):
+        path_map = path.replace('CGNSTree','')
+    else:
+        path_map = path
+
+    if Core.settings.backend == 'pycgns':
+        t, _, _ = Core.CGM.load( filename, subtree=path_map )
+        t = castNode(t)
+        node = t.getAtPath( path )
+    
+    elif Core.settings.backend == 'cassiopee':
+        node = Core.Filter.readNodesFromPaths(filename, [path_map])[0]
+        node = castNode( node )
+    
+    else:
+        raise ModuleNotFoundError('%s backend not supported'%Core.settings.backend)
+
+    if node is None:
+        raise ValueError("node %s not found in %s"%( path, filename ))
+
 
     return node

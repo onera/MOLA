@@ -332,7 +332,7 @@ export PYTHONPATH=$MOLA:$TREELAB:$PYTHONPATH
 
 alias python='python3'
 
-alias treelab='python3 $TREELAB/TreeLab/GUI/__init__.py'
+alias treelab='python3 $MOLA/MOLA/GUIs/TreeLab/__init__.py'
 
 alias mola_version="python3 -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
 
