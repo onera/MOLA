@@ -90,7 +90,9 @@ class LiftingLine(Curve):
         self.constructAttributes()
 
     def constructAttributes(self):
-        AirfoilPolarsFilenames = self.get('AirfoilPolarsFilenames').value()
+        AirfoilPolarsFilenames = self.get('AirfoilPolarsFilenames')
+        if not AirfoilPolarsFilenames: return
+        AirfoilPolarsFilenames = AirfoilPolarsFilenames.value()
         self.setAirfoilPolarInterpolator(AirfoilPolarsFilenames)
         Kinematics = self.childNamed('Kinematics')
         if Kinematics:

@@ -4,7 +4,7 @@ Implements class **Zone**, which inherits from :py:class:`Node`
 21/12/2021 - L. Bernardos - first creation
 '''
 
-from .Core import (np,RED,GREEN,WARN,PINK,CYAN,ENDC,CGM,
+from .Core import (np,RED,GREEN,WARN,PINK,CYAN,ENDC,
                    AutoGridLocation, re)
 
 from .Node import Node

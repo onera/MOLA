@@ -2525,6 +2525,20 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
 
     AoA, Mach, Reynolds = J.getVars(LiftingLine,["AoA", "Mach", "Reynolds"])
 
+    # TODO use same idea as GSD.wing() ?
+    # InterpYmatrix = np.zeros((NinterFoils,NPts),dtype=np.float64,order='F')
+    # for j in range(NinterFoils):
+    #     InterpXmatrix[j,:] = J.getx(RediscretizedAirfoils[j])
+    #     InterpYmatrix[j,:] = J.gety(RediscretizedAirfoils[j])
+
+    # if FoilInterpLaw.startswith('rectbivariatespline'):
+    #     u = W.gets(RediscretizedAirfoils[0])
+    #     v = kwargs[GeomParam]['RelativeSpan']
+    #     order = int(FoilInterpLaw[-1])
+    #     interpX = si.RectBivariateSpline(v,u,InterpXmatrix,
+    #                                                     kx=order, ky=order)
+
+
     # Apply polar interpolations and store them in a dict
     AllValues = {}
     for pzn in PyZonePolarNames:
@@ -2541,29 +2555,22 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
             IntArrayShape = InterpolatedArray.shape
             print('Variable %s at polar %s has shape: %s'%(Variables[v],pzn,str(IntArrayShape)))
             if len(IntArrayShape)==2:
-                if IntArrayShape[0] != AllFoilNPts:
-                    print('FOILWISE INTERPOLATION IS REQUIRED')
-                    # Compute the PyZonePolar foilwise abscissa
-                    # For that, build an auxiliar foil and
-                    # compute its abcissa coordinate
-                    AuxFoil = pyZonePolar2AirfoilZone(pzn,PyZonePolars)
-                    CurrentCurvAbs = W.gets(AuxFoil)
 
-                    interpFoilwise = si.interp1d(CurrentCurvAbs, InterpolatedArray,
-                                        kind='cubic', copy=False, axis=0,
-                                        assume_sorted=True)
+                # Compute the PyZonePolar foilwise abscissa
+                # For that, build an auxiliar foil and
+                # compute its abcissa coordinate
+                AuxFoil = pyZonePolar2AirfoilZone(pzn,PyZonePolars)
+                CurrentCurvAbs = W.gets(AuxFoil)
 
-                    NewInterpArray = interpFoilwise(RefCurvAbs)
-                    print('new shape = %s'%str(NewInterpArray.shape))
+                interpFoilwise = si.interp1d(CurrentCurvAbs, InterpolatedArray,
+                                    kind='cubic', copy=False, axis=0,
+                                    assume_sorted=True)
 
-                    # TODO: Check orientation of foil and data
-                    adaptedSet += [NewInterpArray]
+                NewInterpArray = interpFoilwise(RefCurvAbs)
 
-                else:
-                    print('DATA VALID')
-                    # data is valid.
-                    # TODO: Check orientation of foil and data
-                    adaptedSet += [InterpolatedArray]
+                # TODO: Check orientation of foil and data
+                adaptedSet += [NewInterpArray]
+
             elif len(IntArrayShape)==1:
                 # Integral data. Simply broadcast.
                 print('BROADCAST')
@@ -2581,7 +2588,6 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
         # 2nd dimension: Spanwise data
         # 3rd dimension: slices corresponding to PyZonePolars
         AllValues3D = np.dstack([AllValues[pzn][v] for pzn in PyZonePolarNames])
-
         _applyInterpolationFunction__(AllValues3D, Variables[v], 'interp1d_linear')
 
     return Surf

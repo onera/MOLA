@@ -357,9 +357,9 @@ class matplotlipOverlap():
             Plasma=[(0.00,[240./255.,249./255.,33./255.]),
                     (0.50,[204./255.,71./255.,120./255.]),
                     (1.00,[13./255.,8./255.,135./255.])],
-            NiceBlue=[(0.00,[0./255.,0./255.,0./255.]),
-                      (0.50,[255./255.,255./255.,255./255.]),
-                      (1.00,[0./255.,97./255.,165./255.])]) 
+            NiceBlue=[(0.00,[255./255.,255./255.,255./255.]),
+                      (0.50,[0./255.,97./255.,165./255.]),
+                      (1.00,[0./255.,0./255.,0./255.])]) 
 
         self.colormaps = dict()
         for color_code in self.color_codes:
@@ -426,17 +426,21 @@ class matplotlipOverlap():
         
         return cbar
 
-    def _loadArrays(self, arrays_file):
-        self.arrays = C.convertFile2PyTree( arrays_file )
+    def _loadArrays(self, arrays_file_or_tree):
+        if isinstance(arrays_file_or_tree,str):
+            self.arrays = C.convertFile2PyTree( arrays_file_or_tree )
+        else:
+            self.arrays = arrays_file_or_tree
 
-    def plotArrays(self, arrays_file, left=0.05, right=0.5, bottom=0.05, top=0.4,
+    def plotArrays(self, arrays_file_or_tree, left=0.05, right=0.5, bottom=0.05, top=0.4,
             xlim=None, ylim=None, xmax=None, xlabel=None, ylabel=None, figure_name=None,
             background_opacity=1.0, font_color='black', 
             curves=[dict(zone_name='BLADES',x='IterationNumber',y='MomentumXFlux',
                          plot_params={})], 
             iterationTracer=None):
 
-        if not self.arrays: self._loadArrays(arrays_file)
+        if not self.arrays: self._loadArrays(arrays_file_or_tree)
+        
         ax = self.fig.add_axes([left,bottom,right-left,top-bottom])
 
         for curve in curves:

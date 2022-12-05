@@ -4,7 +4,7 @@ Implements class **Line**, which inherits from :py:class:`Curve`
 28/04/2022 - L. Bernardos - first creation
 '''
 
-from ...Core import np, RED,GREEN,WARN,PINK,CYAN,ENDC,CGM
+from ...Core import np, RED,GREEN,WARN,PINK,CYAN,ENDC
 from . import Curve
 from ...Node import Node
 

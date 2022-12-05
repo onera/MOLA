@@ -132,8 +132,8 @@ if ENTER_COUPLING:
 
 
     if SAVE_FIELDS:
-        J.moveFields(t)
-        CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS),
+        tR = J.moveFields(t)
+        CO.save(tR, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS),
                    tagWithIteration=TagSurfacesWithIteration)
 
 
