@@ -99,7 +99,7 @@ def reload_source(module):
 
 class default_settings():
     def __init__(self):
-        self.backend = 'cassiopee'
+        self.backend = 'h5py2cgns'
 
 try:
     settings = load_source('settings', os.path.join(home,'.MOLA.py'))
@@ -107,12 +107,14 @@ except:
     settings = default_settings()
 
 
+try: from . import h5py2cgns as h
+except: pass
+
 try: import CGNS.MAP as CGM
 except: pass
 
 try:
     import Converter.PyTree as C
-    import Converter.Mpi as Cmpi
     import Converter.Filter as Filter
 except: pass
 

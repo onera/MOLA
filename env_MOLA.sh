@@ -9,10 +9,8 @@ ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 ###############################################################################
 # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
 export MOLA=/stck/lbernard/MOLA/Dev
-export TREELAB=/stck/lbernard/TreeLab/dev
 export EXTPYLIB=/stck/lbernard/MOLA/Dev/ExternalPythonPackages
 export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
-export TREELABSATOR=/tmp_user/sator/lbernard/TreeLab/dev
 export EXTPYLIBSATOR=/tmp_user/sator/lbernard/MOLA/Dev/ExternalPythonPackages
 export VPMVERSION=v0.1
 export PUMAVERSION=r337
@@ -257,29 +255,9 @@ elif [ "$MAC" = "ld" ]; then
 
     fi
 
-
-elif [ "$MAC" = "sator" ]; then
-    echo -e "\033[91mERROR: MACHINE sator IS BEING DEPREACATED\033[0m"
-    echo -e "\033[91mPLEASE, RATHER USE sator-new\033[0m"
-    echo -e "\033[91mABORTING\033[0m"
-    exit 0
-
-    # source /tmp_user/sator/elsa/Public/v5.0.04/Dist/bin/sator/.env_elsA # TODO adapt this once #10587 fixed
-    # export MOLA=$MOLASATOR
-    # export TREELAB=$TREELABSATOR
-    # export PYTHONPATH=$EXTPYLIBSATOR/lib/python2.7/site-packages/:$PYTHONPATH
-    # export PATH=$EXTPYLIBSATOR/bin:$PATH
-    #
-    # export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_${PUMAVERSION}_sator
-    # export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages:$PYTHONPATH
-    # export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages/PUMA:$PYTHONPATH
-    # export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
-    # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
-
 elif [ "$MAC" = "sator-new" ]; then
     source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA
     export MOLA=$MOLASATOR
-    export TREELAB=$TREELABSATOR
     export PYTHONPATH=$EXTPYLIBSATOR/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIBSATOR/bin:$PATH
 
@@ -328,11 +306,11 @@ else
 fi
 
 
-export PYTHONPATH=$MOLA:$TREELAB:$PYTHONPATH
+export PYTHONPATH=$MOLA:$PYTHONPATH
 
 alias python='python3'
 
-alias treelab='python3 $MOLA/MOLA/GUIs/TreeLab/__init__.py'
+alias treelab="python3 -c 'import MOLA.GUIs.TreeLab as t;import sys;t.launch(sys.argv)'"
 
 alias mola_version="python3 -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
 
