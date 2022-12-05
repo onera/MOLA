@@ -4,7 +4,7 @@ Main subpackage for curves operations
 28/04/2022 - L. Bernardos - first creation
 '''
 
-from ...Core import (np, RED,GREEN,WARN,PINK,CYAN,ENDC,CGM, interpolate,
+from ...Core import (np, RED,GREEN,WARN,PINK,CYAN,ENDC, interpolate,
                      tanhOneSideFromStep, tanhTwoSidesFromSteps)
 from ...Zone import Zone
 

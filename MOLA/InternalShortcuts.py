@@ -2292,14 +2292,6 @@ def printEnvironment():
         vVPM = FAIL + 'UNAVAILABLE' + ENDC
     print(' --> VPM '+vVPM)
 
-    # TreeLab
-    try:
-        import TreeLab
-        vTREELAB = TreeLab.__version__
-    except:
-        vTREELAB = FAIL + 'UNAVAILABLE' + ENDC
-    print(' --> TreeLab '+vTREELAB)
-
     # PUMA
     vPUMA = os.getenv('PUMAVERSION', 'UNAVAILABLE')
     if vPUMA == 'UNAVAILABLE':

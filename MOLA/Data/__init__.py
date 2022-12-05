@@ -10,9 +10,16 @@ Please use the following convention when importing:
 21/12/2021 - L. Bernardos - first creation
 '''
 
-from .Core import np,RED,GREEN,WARN,PINK,CYAN,ENDC,CGM, toc
+from . import Core 
+np = Core.np
+RED = Core.RED 
+GREEN = Core.GREEN
+WARN = Core.WARN
+PINK = Core.PINK
+CYAN = Core.CYAN
+ENDC = Core.ENDC
 
-from .Node import Node
+from .Node import Node, readNode, castNode
 from .Zone import Zone
 from .Base import Base
 from .Tree import Tree
@@ -29,29 +36,35 @@ CoordinatesShortcuts = dict(CoordinateX='CoordinateX',
                             Z='CoordinateZ',)
 
 
-def load(filename):
-    t, links, paths = CGM.load(filename)
-    for p in paths:
-        raise IOError('file %s : could not read node %s'%(filename,str(p)))
-    t = Tree(t)
-    for link in links:
-        t.addLink(path=link[3], target_file=link[1], target_path=link[2])
+def load(filename, only_skeleton=False):
+
+    if Core.settings.backend == 'h5py2cgns':
+        t, f, links = Core.h.load(filename, only_skeleton=only_skeleton)
+        t = Tree(t)
+        for link in links:
+            t.addLink(path=link[3], target_file=link[1], target_path=link[2])
+
+    elif Core.settings.backend == 'pycgns':
+        t, links, paths = Core.CGM.load(filename)
+        for p in paths:
+            raise IOError('file %s : could not read node %s'%(filename,str(p)))
+        t = Tree(t)
+        for link in links:
+            t.addLink(path=link[3], target_file=link[1], target_path=link[2])
+
+    elif Core.settings.backend == 'cassiopee':
+        links = []
+        t = Core.C.convertFile2PyTree(filename, links=links)
+        t = Tree(t)
+        for link in links:
+            t.addLink(path=link[3], target_file=link[1], target_path=link[2])
+
+
+    else:
+        raise ModuleNotFoundError('%s backend not supported'%Core.settings.backend)
 
     return t
 
-
-def readNode(filename, path):
-    if path.startswith('CGNSTree/'):
-        path_map = path.replace('CGNSTree','')
-    else:
-        path_map = path
-    t, l, p = CGM.load( filename, subtree=path_map )
-    t = Node(t)
-    node = t.getAtPath( path )
-    if node is None:
-        raise ValueError("node %s not found in %s"%( path, filename ))
-
-    return node
 
 def save(data, *args, **kwargs):
     if type(data) in ( Tree, Base, Zone ):
