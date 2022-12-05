@@ -24,5 +24,4 @@ pages:    # Nom à utiliser
   artifacts:   # Bloc obligatoire
     paths:
       - public
-      - public/latest
 
