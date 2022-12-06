@@ -3036,9 +3036,9 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         addKeys4Model = dict(
         turbmod        = 'rsm',
         rsm_name       = 'ssg_lrr_bsl',
-        rsm_diffusion = 'isotropic'
+        rsm_diffusion = 'isotropic',
         rsm_bous_limiter = 10,
-        omega_prolong  = 'linear_extrap'
+        omega_prolong  = 'linear_extrap',
                             )
 
     # Transition Settings
