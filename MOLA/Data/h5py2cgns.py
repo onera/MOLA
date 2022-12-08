@@ -9,7 +9,12 @@ File history:
 '''
 
 import numpy as np
-import h5py
+try:
+    import h5py
+except:
+    print('\033[93mh5py not found. Please install it using:')
+    print('pip3 install --user h5py\033[0m')
+    pass
 
 
 encoding = 'utf-8'
