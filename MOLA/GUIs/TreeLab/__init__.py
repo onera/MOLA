@@ -523,14 +523,17 @@ class MainWindow(QMainWindow):
         Xlabel.setSizePolicy(QtWidgets.QSizePolicy.Fixed, 16)
         curve.layout().addWidget(Xlabel)
         curve.Xchoser = QComboBox()
-        curve.Xchoser.addItems( self.get_plot_x_items() )
+        curve.Xchoser.addItems( self.plot_x_container )
+        curve.Xchoser.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
         curve.layout().addWidget(curve.Xchoser)
+
 
         Ylabel = QLabel('Y=')
         Ylabel.setSizePolicy(QtWidgets.QSizePolicy.Fixed, 16)
         curve.layout().addWidget(Ylabel)
         curve.Ychoser = QComboBox()
-        curve.Ychoser.addItems( self.get_plot_y_items() )
+        curve.Ychoser.addItems( self.plot_y_container )
+        curve.Ychoser.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
         curve.layout().addWidget(curve.Ychoser)
 
         button_remove_curve = QPushButton()
@@ -554,22 +557,16 @@ class MainWindow(QMainWindow):
                 del self.curves_container[i]
                 return
 
-    def get_plot_x_items(self):
-        return [n.path().replace('CGNSTree/','') for n in self.plot_x_container ]
-
-    def get_plot_y_items(self):
-        return [n.path().replace('CGNSTree/','') for n in self.plot_y_container ]
-
 
     def add_selected_nodes_to_plot_x_container(self):
         QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
         for node in self.selectedNodesCGNS:
-            if node not in self.plot_x_container:
-                self.plot_x_container += [ node ]
-        plot_items = self.get_plot_x_items()
+            path = node.path().replace('CGNSTree/','')
+            if path not in self.plot_x_container:
+                self.plot_x_container += [ path ]
         for c in self.curves_container:
             AllItems = [c.Xchoser.itemText(i) for i in range(c.Xchoser.count())]
-            for p in plot_items:
+            for p in self.plot_x_container:
                 if p not in AllItems:
                     c.Xchoser.addItem( p )
         QApplication.restoreOverrideCursor()
@@ -578,12 +575,12 @@ class MainWindow(QMainWindow):
     def add_selected_nodes_to_plot_y_container(self):
         QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
         for node in self.selectedNodesCGNS:
-            if node not in self.plot_y_container:
-                self.plot_y_container += [ node ]
-        plot_items = self.get_plot_y_items()
+            path = node.path().replace('CGNSTree/','')
+            if path not in self.plot_y_container:
+                self.plot_y_container += [ path ]
         for c in self.curves_container:
             AllItems = [c.Ychoser.itemText(i) for i in range(c.Ychoser.count())]
-            for p in plot_items:
+            for p in self.plot_y_container:
                 if p not in AllItems:
                     c.Ychoser.addItem( p )
         QApplication.restoreOverrideCursor()
