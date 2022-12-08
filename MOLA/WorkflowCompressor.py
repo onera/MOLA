@@ -408,7 +408,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     BCExtractions = dict(
         BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
         BCInflow = ['convflux_ro'],
-        BCOutflow = ['convflux_ro'],
+        BCOutflow = ['convflux_ro', 'psta'],
     )
 
     PRE.addTrigger(t)
@@ -786,10 +786,6 @@ def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0),
     Duplicate **nDupli** times the domain attached to the family **rowFamily**
     around the axis of rotation.
 
-    .. warning:: This function works only for empty meshes. It can be used on a
-        PyTree with FlowSolution containers, but the vectors will not be
-        rotated !
-
     Parameters
     ----------
 
@@ -860,40 +856,43 @@ def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0),
     else:
         if verbose>0: print('Duplicate {} on {} blades ({} blades in row)'.format(rowFamily, nDupli, nBlades))
 
-    if I.getType(tree) == 'CGNSBase_t':
-        base = tree
-    else:
-        base = I.getNodeFromType(tree, 'CGNSBase_t')
-
     check = False
     vectors = []
     for vec in vectors2rotate:
         vectors.append(vec)
         vectors.append(['centers:'+v for v in vec])
 
-    for zone in I.getZones(base):
-        zone_name = I.getName(zone)
-        zone_family = I.getValue(I.getNodeFromName1(zone, 'FamilyName'))
-        if zone_family == rowFamily:
-            if verbose>1: print('  > zone {}'.format(zone_name))
-            check = True
-            zones2merge = [zone]
-            for n in range(nDupli-1):
-                ang = 360./nBlades*(n+1)
-                rot = T.rotate(I.copyNode(zone),(0.,0.,0.), axis, ang, vectors=vectors)
-                I.setName(rot, "{}_{}".format(zone_name, n+2))
-                I._addChild(base, rot)
-                zones2merge.append(rot)
-            if merge:
-                for node in zones2merge:
-                    I.rmNode(base, node)
-                tree_dist = T.merge(zones2merge, tol=1e-8)
-                for i, node in enumerate(I.getZones(tree_dist)):
-                    I._addChild(base, node)
-                    disk_block = I.getNodeFromName(base, I.getName(node))
-                    disk_block[0] = '{}_{:02d}'.format(zone_name, i)
-                    I.createChild(disk_block, 'FamilyName', 'FamilyName_t', value=rowFamily)
-                PRE.autoMergeBCs(tree)
+    if I.getType(tree) == 'CGNSBase_t':
+        bases = [tree]
+    else:
+        bases = I.getBases(tree)
+
+    for base in bases:
+        for zone in I.getZones(base):
+            zone_name = I.getName(zone)
+            FamilyNameNode = I.getNodeFromName1(zone, 'FamilyName')
+            if not FamilyNameNode: continue
+            zone_family = I.getValue(FamilyNameNode)
+            if zone_family == rowFamily:
+                if verbose>1: print('  > zone {}'.format(zone_name))
+                check = True
+                zones2merge = [zone]
+                for n in range(nDupli-1):
+                    ang = 360./nBlades*(n+1)
+                    rot = T.rotate(I.copyNode(zone),(0.,0.,0.), axis, ang, vectors=vectors)
+                    I.setName(rot, "{}_{}".format(zone_name, n+2))
+                    I._addChild(base, rot)
+                    zones2merge.append(rot)
+                if merge:
+                    for node in zones2merge:
+                        I.rmNode(base, node)
+                    tree_dist = T.merge(zones2merge, tol=1e-8)
+                    for i, node in enumerate(I.getZones(tree_dist)):
+                        I._addChild(base, node)
+                        disk_block = I.getNodeFromName(base, I.getName(node))
+                        disk_block[0] = '{}_{:02d}'.format(zone_name, i)
+                        I.createChild(disk_block, 'FamilyName', 'FamilyName_t', value=rowFamily)
+    if merge: PRE.autoMergeBCs(tree)
 
     I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
     assert check, 'None of the zones was duplicated. Check the name of row family'

@@ -2545,14 +2545,15 @@ def selectZones(t, baseName=None, familyName=None, zoneName=None):
         zones : :py:class:`list` of zone
             zones verifying the selection conditions
     '''
-    allzones = I.getZones(t)
     zones = []
-    for zone in allzones:
-        zoneWithBaseName = _getBaseWithZoneName(t,zone[0])[0]
-        BaseMatch = fnmatch(zoneWithBaseName, baseName) if baseName is not None else True
-        FamilyMatch = zoneOfFamily(zone, familyName, wildcard_used=True) if familyName is not None else True
-        ZoneMatch = fnmatch(zone[0], zoneName) if zoneName is not None else True
-        if BaseMatch == ZoneMatch == FamilyMatch == True: zones += [ zone ]
+    for base in I.getBases(t):
+        currentBaseName = I.getName(base)
+        BaseMatch = fnmatch(currentBaseName, baseName) if baseName is not None else True
+        if not BaseMatch: continue
+        for zone in I.getZones(base):
+            FamilyMatch = zoneOfFamily(zone, familyName, wildcard_used=True) if familyName is not None else True
+            ZoneMatch = fnmatch(zone[0], zoneName) if zoneName is not None else True
+            if BaseMatch == ZoneMatch == FamilyMatch == True: zones += [ zone ]
     return zones
 
 def _reorderBases(t):
