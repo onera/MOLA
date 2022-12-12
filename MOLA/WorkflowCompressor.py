@@ -64,7 +64,7 @@ def checkDependencies():
 
 def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
                     duplicationInfos={}, zonesToRename={},
-                    scale=1., rotation='fromAG5', PeriodicTranslation=None,
+                    scale=1., rotation='fromAG5', tol=1e-8, PeriodicTranslation=None,
                     BodyForceRows=None):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
@@ -152,6 +152,9 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
             a periodicity in the direction **PeriodicTranslation**. This argument
             has to be used for linear cascade configurations.
 
+        tol : float
+            Tolerance for connectivities matching (including periodic connectivities).
+
         BodyForceRows : :py:class:`dict` or :py:obj:`None`
             If not :py:obj:`None`, this parameters allows to replace user-defined
             row domains with meshes adapted to body-force modelling.
@@ -180,7 +183,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
     if InputMeshes is None:
         SplitBlocks = True if splitOptions else False
         InputMeshes = generateInputMeshesFromAG5(t, SplitBlocks=SplitBlocks,
-            scale=scale, rotation=rotation, PeriodicTranslation=PeriodicTranslation)
+            scale=scale, rotation=rotation, tol=tol, PeriodicTranslation=PeriodicTranslation)
 
     PRE.checkFamiliesInZonesAndBC(t)
 
@@ -408,8 +411,11 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     BCExtractions = dict(
         BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
         BCInflow = ['convflux_ro'],
-        BCOutflow = ['convflux_ro', 'psta'],
+        BCOutflow = ['convflux_ro'], 
     )
+    # WARNING: BCInflow and BCOutflow are also used for rotor/stator interfaces. However, extracting other
+    # quantities on them, such as 'psta', is not possible and would raise the following error:
+    # BaseException: Error: boundary BCOutflow is not implemented yet.
 
     PRE.addTrigger(t)
     PRE.addExtractions(t, AllSetupDics['ReferenceValues'],
@@ -601,7 +607,7 @@ def parametrizeChannelHeight_future(t, nbslice=101, tol=1e-10, offset=1e-10,
     print(J.GREEN + 'done.' + J.ENDC)
     return t
 
-def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='fromAG5', PeriodicTranslation=None):
+def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='fromAG5', tol=1e-8, PeriodicTranslation=None):
     '''
     Generate automatically the :py:class:`list` **InputMeshes** with a default
     parametrization adapted to Autogrid 5 meshes.
@@ -635,6 +641,8 @@ def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='from
                 * a float (or integer) defining the angle of rotation in
                   degrees
 
+        tol : float
+            Tolerance for connectivities matching (including periodic connectivities).
 
         PeriodicTranslation : :py:obj:'None' or :py:class:`list` of :py:class:`float`
             If not :py:obj:'None', the configuration is considered to be with
@@ -669,7 +677,7 @@ def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='from
     InputMeshes = [dict(
                     baseName=I.getName(I.getNodeByType(t, 'CGNSBase_t')),
                     Transform=dict(scale=scale, rotate=rotation),
-                    Connection=[dict(type='Match', tolerance=1e-8)],
+                    Connection=[dict(type='Match', tolerance=tol)],
                     SplitBlocks=SplitBlocks,
                     )]
     # Set automatic periodic connections
@@ -680,12 +688,12 @@ def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='from
         for angle in angles:
             print('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)))
             InputMesh['Connection'].append(
-                    dict(type='PeriodicMatch', tolerance=1e-8, rotationAngle=[angle,0.,0.])
+                    dict(type='PeriodicMatch', tolerance=tol, rotationAngle=[angle,0.,0.])
                     )
     if PeriodicTranslation:
         print('  translation = {} m'.format(PeriodicTranslation))
         InputMesh['Connection'].append(
-                dict(type='PeriodicMatch', tolerance=1e-8, translation=PeriodicTranslation)
+                dict(type='PeriodicMatch', tolerance=tol, translation=PeriodicTranslation)
                 )
 
     return InputMeshes
@@ -1003,8 +1011,8 @@ def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
     print('Number of blades in initial mesh for {}: {}'.format(FamilyName, Nb))
     return Nb
 
-def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
-        TemperatureStagnation, Surface, TurbulenceLevel=0.001,
+def computeReferenceValues(FluidProperties, PressureStagnation,
+                           TemperatureStagnation, Surface, MassFlow=None, Mach=None, TurbulenceLevel=0.001,
         Viscosity_EddyMolecularRatio=0.1, TurbulenceModel='Wilcox2006-klim',
         TurbulenceCutoff=1e-8, TransitionMode=None, CoprocessOptions={},
         Length=1.0, TorqueOrigin=[0., 0., 0.],
@@ -1018,6 +1026,8 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
     ``MassFlow``, total Pressure ``PressureStagnation``, total Temperature
     ``TemperatureStagnation`` and ``Surface``.
 
+    You can also give the Mach number instead of massflow (but not both).
+
     Please, refer to :func:`MOLA.Preprocess.computeReferenceValues` doc for more details.
     '''
     # Fluid properties local shortcuts
@@ -1027,7 +1037,13 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
     cp      = FluidProperties['cp']
 
     # Compute variables
-    Mach  = machFromMassFlow(MassFlow, Surface, Pt=PressureStagnation,
+    assert not(MassFlow and Mach), 'MassFlow and Mach cannot be given together in ReferenceValues. Choose one'
+    if MassFlow:
+        Mach  = machFromMassFlow(MassFlow, Surface, Pt=PressureStagnation,
+                                Tt=TemperatureStagnation, r=IdealGasConstant,
+                                gamma=Gamma)
+    else:
+        MassFlow  = massflowFromMach(Mach, Surface, Pt=PressureStagnation,
                             Tt=TemperatureStagnation, r=IdealGasConstant,
                             gamma=Gamma)
     Temperature  = TemperatureStagnation / (1. + 0.5*(Gamma-1.) * Mach**2)
@@ -3417,7 +3433,12 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
         RotationSpeedRange = [kwargs['TurboConfiguration']['ShaftRotationSpeed']]
 
     ThrottleRange = sorted(list(ThrottleRange))
-    RotationSpeedRange = sorted(list(RotationSpeedRange))
+    # Sort Rotation speeds (and mesh files, if a list is given) 
+    RotationSpeedRange = list(RotationSpeedRange)
+    index2sortRSpeed = sorted(range(len(RotationSpeedRange)), key=lambda i: abs(RotationSpeedRange[i]))
+    RotationSpeedRange = [RotationSpeedRange[i] for i in index2sortRSpeed]
+    if isinstance(kwargs['mesh'], list):
+        kwargs['mesh'] = [kwargs['mesh'][i] for i in index2sortRSpeed]
 
     ThrottleMatrix, RotationSpeedMatrix  = np.meshgrid(ThrottleRange, RotationSpeedRange)
 
@@ -3465,6 +3486,9 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
                     else: raise Exception('valve_relax must be given explicitely')
                 else:
                     raise Exception('valve_type={} not taken into account yet'.format(BC['valve_type']))
+
+            if 'filename' in BC:
+                BC['filename'] = adaptPathForDispatcher(BC['filename'])
 
         if 'Initialization' in WorkflowParams:
             if i != 0:
