@@ -81,6 +81,9 @@ class Node(list):
     def path(self): return self.Path
 
     def save(self, filename, verbose=True):
+        '''
+        save node
+        '''
         from .Tree import Tree
         node_to_save = self if isinstance(self, Tree) else Tree( self )
         links = node_to_save.getLinks()

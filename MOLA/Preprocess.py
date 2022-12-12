@@ -3782,8 +3782,9 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     ))
     
     FamilyNodes = I.getNodesFromType2(t, 'Family_t')
-    for ExtractBCType, ExtractVariablesList in BCExtractions.items():
+    for ExtractBCType, ExtractVariablesListDefault in BCExtractions.items():
         for FamilyNode in FamilyNodes:
+            ExtractVariablesList = copy.deepcopy(ExtractVariablesListDefault)
             FamilyName = I.getName( FamilyNode )
             BCType = getFamilyBCTypeFromFamilyBCName(t, FamilyName)
             if not BCType: continue

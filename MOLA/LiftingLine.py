@@ -5025,39 +5025,60 @@ def convertPolarsCGNS2HOSTformat(PyZonePolars,
                 KeyName = BigAoAsValue[0].replace('BigAngleOfAttack','')
                 BigAoAsValuesDict[KeyName] = BigAoAsValue[1]
 
-            f.write(FoilName+'\n')
+            #f.write(FoilName+'\n')
+            f.write('%5i\n' %MachQty)
 
             for var in AllowedQuantities:
                 var_n = I.getNodeFromName1(FlowSol_n,var)
                 varName   = var
                 varValues = I.getValue( var_n )
 
-                f.write('1 %s\n'%varName)
-                f.write('%d  %d\n'%(AoAQty, MachQty))
-                for i in AngleOfAttackRange: f.write('%0.5f   '%i)
-                f.write('\n')
-                for i in MachRange: f.write('%0.2f   '%i)
-                f.write('\n')
-
+                f.write('    1 %s %s\n'%(varName,FoilName))
+                f.write('%5i%5i\n'%(AoAQty, MachQty))
+                inc=1
+                for i in AngleOfAttackRange: 
+                    f.write('%10.5f'%i)
+                    if inc%8==0 or inc==len(AngleOfAttackRange) :
+                        f.write('\n')
+                    inc+=1
+                inc=1
+                for i in MachRange: 
+                    f.write('%10.5f'%i)
+                    if inc%8==0 or inc==len(MachRange):
+                        f.write('\n')
+                    inc+=1
                 for row in varValues:
-                    for i in row: f.write('%0.4f  '%i)
-                    f.write('\n')
+                    inc=1
+                    for i in row: 
+                        f.write('%10.5f'%i)
+                        if inc==len(MachRange) :
+                            f.write('\n')
+                        inc+=1
                 BigAoARange = BigAoAsRangesDict[varName]
                 BigAoAValue = BigAoAsValuesDict[varName]
                 LowAoABool  = BigAoARange < 0
                 HighAoABool = BigAoARange > 0
 
                 for BoolRange in (HighAoABool, LowAoABool):
-                    f.write('  ')
-                    f.write('%d \n'%len(BigAoARange[BoolRange]))
-                    for i in BigAoARange[BoolRange]: f.write('%0.4f  '%i)
-                    f.write('\n')
-                    f.write('  ')
-                    for i in BigAoAValue[BoolRange]: f.write('%0.4f  '%i)
-                    f.write('\n')
+                    # f.write('  ')
+                    f.write('%5i\n'%len(BigAoARange[BoolRange]))
+                    inc=1
+                    for i in BigAoARange[BoolRange]: 
+                        f.write('%10.5f'%i)
+                        if inc%8==0 or inc==len(BigAoARange[BoolRange]) :
+                            f.write('\n')
+                        inc+=1
+                    # f.write('  ')
+                    inc=1
+                    for i in BigAoAValue[BoolRange]: 
+                        f.write('%10.5f'%i)
+                        if inc%8==0 or inc==len(BigAoAValue[BoolRange]) :
+                            f.write('\n')
+                        inc+=1
 
-            f.write('COEFFICIENT (C*L/NU)I0 (OU BIEN REYNOLDS/MACH) ............    ')
-            f.write('%0.5f\n'%AvrgReOverMach)
+            f.write('COEFFICIENT (C*L/NU)I0 (OU BIEN REYNOLDS/MACH) ............ %10.1f\n' %AvrgReOverMach)
+            f.write('CORRECTION DE PRESSION GENERATRICE REYNOLDS/MACH=CSTE. .... SANS\n')
+            f.write('EXPOSANT POUR CORRECTION DE REYNOLDS ( EXPREY) ............   -0.16667')
         os.chmod(FileFullPath, 0o777)
 
 
