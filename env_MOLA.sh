@@ -67,12 +67,6 @@ fi
 
 EL8=`uname -r|grep el8`
 
-if [ "$MAC" = "sator" ] ; then
-    if [ "$EL8" ]; then
-        export MAC="sator-new"
-    fi
-fi
-
 if [ "$MAC" = "spiro" ]; then
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro3_mpi/.env_elsA
     export PYTHONPATH=$EXTPYLIB/lib/python3.7/site-packages/:$PYTHONPATH
@@ -255,7 +249,7 @@ elif [ "$MAC" = "ld" ]; then
 
     fi
 
-elif [ "$MAC" = "sator-new" ]; then
+elif [ "$MAC" = "sator" ]; then
     source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA
     export MOLA=$MOLASATOR
     export PYTHONPATH=$EXTPYLIBSATOR/lib/python3.7/site-packages/:$PYTHONPATH
