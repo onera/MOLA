@@ -12,8 +12,12 @@ MIN_PYTHON = (3,6,1)
 if sys.version_info < MIN_PYTHON:
     raise SystemError("Python %s or later is required.\n"%'.'.join([str(i) for i in MIN_PYTHON]))
 import numpy as np
+import pprint
 import re
+import os
 from timeit import default_timer as toc
+from pathlib import Path
+home = str(Path.home())
 
 RED  = '\033[91m'
 GREEN = '\033[92m'
@@ -22,10 +26,99 @@ PINK  = '\033[95m'
 CYAN  = '\033[96m'
 ENDC  = '\033[0m'
 
+def load_source(ModuleName, filename, safe=True):
+    '''
+    Load a python file as a module guaranteeing intercompatibility between
+    different Python versions
+
+    Parameters
+    ----------
+
+        ModuleName : str
+            name to be provided to the new module
+
+        filename : str
+            full or relative path of the file containing the source (moudule)
+            to be loaded
+
+        safe : bool
+            if :py:obj:`True`, then cached files of previously loaded versions
+            are explicitely removed
+
+    Returns
+    -------
+
+        module : module
+            the loaded module
+    '''
+    if safe:
+        current_path_file = filename.split(os.path.sep)[-1]
+        for fn in [filename, current_path_file]:
+            try: os.remove(fn+'c')
+            except: pass
+        try: shutil.rmtree('__pycache__')
+        except: pass
+
+    if sys.version_info[0] == 3 and sys.version_info[1] >= 5:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(ModuleName, filename)
+        LoadedModule = importlib.util.module_from_spec(spec)
+        sys.modules[ModuleName] = LoadedModule
+        spec.loader.exec_module(LoadedModule)
+    elif sys.version_info[0] == 3 and sys.version_info[1] < 5:
+        from importlib.machinery import SourceFileLoader
+        LoadedModule = SourceFileLoader(ModuleName, filename).load_module()
+    elif sys.version_info[0] == 2:
+        import imp
+        LoadedModule = imp.load_source(ModuleName, filename)
+    else:
+        raise ValueError("Not supporting Python version "+sys.version)
+    
+    return LoadedModule
+
+def reload_source(module):
+    '''
+    Reload a python module guaranteeing intercompatibility between
+    different Python versions
+
+    Parameters
+    ----------
+
+        module : module
+            pointer towards the previously loaded module
+    '''
+    if sys.version_info[0] == 3:
+        import importlib
+        importlib.reload(module)
+    elif sys.version_info[0] == 2:
+        import imp
+        imp.reload(module)
+    else:
+        raise ValueError("Not supporting Python version "+sys.version)
+
+
+class default_settings():
+    def __init__(self):
+        self.backend = 'h5py2cgns'
+
 try:
-    import CGNS.MAP as CGM
+    settings = load_source('settings', os.path.join(home,'.MOLA.py'))
 except:
-    raise ImportError(RED+'could not import CGNS.MAP, try installing it:\npip3 install --user h5py pycgns'+ENDC)
+    settings = default_settings()
+
+
+try: from . import h5py2cgns as h
+except: pass
+
+try: import CGNS.MAP as CGM
+except: pass
+
+try:
+    import Converter.PyTree as C
+    import Converter.Filter as Filter
+except: pass
+
+
 
 
 AutoGridLocation = {'FlowSolution':'Vertex',
@@ -35,6 +128,21 @@ AutoGridLocation = {'FlowSolution':'Vertex',
                     'FlowSolution#SourceTerm':'CellCenter',
                     'FlowSolution#EndOfRun#Coords':'Vertex'}
 
+def save_settings():
+    writeFileFromModuleObject(settings, os.path.join(home,'.MOLA.py'))
+
+
+def writeFileFromModuleObject(settings, filename='.MOLA.py'):
+    Lines = '#!/usr/bin/python\n'
+
+    for Item in dir(settings):
+        if not Item.startswith('_'):
+            Lines+=Item+"="+pprint.pformat(getattr(settings, Item))+"\n\n"
+
+    with open(filename,'w') as f: f.write(Lines)
+
+    try: os.remove(filename+'c')
+    except: pass
 
 def sortListsUsingSortOrderOfFirstList(*arraysOrLists):
     '''
@@ -459,3 +567,4 @@ def findRootWithScipy(fun, **kwargs):
     from scipy.optimize import root_scalar
     sol = root_scalar(fun, **kwargs)
     return sol.root
+

@@ -2292,14 +2292,6 @@ def printEnvironment():
         vVPM = FAIL + 'UNAVAILABLE' + ENDC
     print(' --> VPM '+vVPM)
 
-    # TreeLab
-    try:
-        import TreeLab
-        vTREELAB = TreeLab.__version__
-    except:
-        vTREELAB = FAIL + 'UNAVAILABLE' + ENDC
-    print(' --> TreeLab '+vTREELAB)
-
     # PUMA
     vPUMA = os.getenv('PUMAVERSION', 'UNAVAILABLE')
     if vPUMA == 'UNAVAILABLE':
@@ -2584,16 +2576,22 @@ def moveFields(t, origin='FlowSolution#EndOfRun#Relative',
     ----------
 
         t : PyTree
-            tree to modify
+            input tree (will *not* be modified)
 
         origin : str 
             name of the container where fields to be moved are present
 
         destination : str
             name of the container where fields of **origin** are being moved
+
+    Returns
+    ----------
+
+        tR : PyTree
+            reference copy of **t**, with the modification
     '''
-    
-    for zone in I.getZones(t):
+    tR = I.copyRef(t)
+    for zone in I.getZones(tR):
     
         container_origin = I.getNodeFromName1(zone, origin)
         if not container_origin: continue
@@ -2617,6 +2615,8 @@ def moveFields(t, origin='FlowSolution#EndOfRun#Relative',
             if not replaced: container_destionation += [ field_src ]
 
         I._rmNode(zone, container_origin)
+    
+    return tR
 
 def load(*args, **kwargs):
     '''

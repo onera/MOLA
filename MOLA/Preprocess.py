@@ -3036,13 +3036,10 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         addKeys4Model = dict(
         turbmod        = 'rsm',
         rsm_name       = 'ssg_lrr_bsl',
-        sst_version    = 'std_sij',
-        k_prod_limiter = 10.,
-        k_prod_compute = 'from_sij',
-        zhenglim       = 'inactive',
+        rsm_diffusion = 'isotropic',
+        rsm_bous_limiter = 10,
         omega_prolong  = 'linear_extrap',
-        trans_mod      = 'menter',
-            )
+                            )
 
     # Transition Settings
     if TransitionMode == 'NonLocalCriteria-LSTT':
@@ -3785,8 +3782,9 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     ))
     
     FamilyNodes = I.getNodesFromType2(t, 'Family_t')
-    for ExtractBCType, ExtractVariablesList in BCExtractions.items():
+    for ExtractBCType, ExtractVariablesListDefault in BCExtractions.items():
         for FamilyNode in FamilyNodes:
+            ExtractVariablesList = copy.deepcopy(ExtractVariablesListDefault)
             FamilyName = I.getName( FamilyNode )
             BCType = getFamilyBCTypeFromFamilyBCName(t, FamilyName)
             if not BCType: continue

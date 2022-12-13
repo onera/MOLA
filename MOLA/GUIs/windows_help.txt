@@ -1,0 +1,35 @@
+Useful commands for configuring MOLA / TreeLab in windows and VSCode integrated 
+terminal (you will need Anaconda distribution):
+
+1 - append following directories to your user's PATH and PYTHONPATH environment
+variables:
+
+PATH:
+C:\Anaconda3\Scripts
+
+PYTHONPATH:
+\\navier\lbernard\stck\MOLA\Dev
+
+
+1 - edit your profile .ps1, e.g:
+D:\lbernard\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1
+with following contents:
+
+echo 'profile is in' $profile
+function treelab()
+{
+  python -c "import MOLA.GUIs.TreeLab as g;g.launch('$args')"
+}
+
+2 - You need to activate unrestricted script permissions for your user.
+In a standard WindowsPowerShell terminal enter:
+
+> Set-ExecutionPolicy -Scope "CurrentUser" -ExecutionPolicy "Unrestricted"
+
+3 - open vscode and open a powershell integrated terminal.
+You may have an error when command 'conda activate base' is prompted.
+Then, introduce command:
+
+> conda init
+
+and open new terminal.

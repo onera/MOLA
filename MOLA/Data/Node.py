@@ -8,7 +8,14 @@ Other classes inheriting from **Node** are: :py:class:`Tree`,
 '''
 
 from fnmatch import fnmatch
-from .Core import np, RED,GREEN,WARN,PINK,CYAN,ENDC,CGM
+from . import Core
+np = Core.np
+RED = Core.RED 
+GREEN = Core.GREEN
+WARN = Core.WARN
+PINK = Core.PINK
+CYAN = Core.CYAN
+ENDC = Core.ENDC
 
 
 class Node(list):
@@ -17,7 +24,8 @@ class Node(list):
     def __init__(self, args=['Node',None,[],'DataArray_t'], Parent=None, Children=[],
                              Name=None, Value=None, Type=None,
                              override_brother_by_name=True,
-                             position='last'):
+                             position='last',
+                             h5=None):
         list.__init__(self, args)
         if Name is not None:
             self[0] = Name
@@ -60,18 +68,40 @@ class Node(list):
         self[2].extend(args[2])
         self.addChildren(Children, override_brother_by_name)
         self._updateSelfAndChildrenPaths()
+        self.h5 = h5
+
+    def set_h5(self, h5):
+        self.h5 = h5
+
+    def reload_h5(self, filename):
+        self.h5 = Core.h.load_h5( filename )
 
     def parent(self): return self.Parent
 
     def path(self): return self.Path
 
     def save(self, filename, verbose=True):
+        '''
+        save node
+        '''
         from .Tree import Tree
         node_to_save = self if isinstance(self, Tree) else Tree( self )
         links = node_to_save.getLinks()
-        if verbose: print('saving %s ... '%filename, end='')
-        CGM.save(filename, node_to_save, links=links)
-        if verbose: print('ok')
+
+        if Core.settings.backend == 'h5py2cgns':
+            Core.h.save(node_to_save, filename)
+
+        elif Core.settings.backend == 'pycgns':
+            if verbose: print('saving %s ... '%filename, end='')
+            Core.CGM.save(filename, node_to_save, links=links)
+            if verbose: print('ok')
+        
+        elif Core.settings.backend == 'cassiopee':
+            Core.C.convertPyTree2File(node_to_save, filename, links=links)
+        
+
+        else:
+            raise ModuleNotFoundError('%s backend not supported'%Core.settings.backend)
 
     def name(self): return self[0]
 
@@ -135,6 +165,7 @@ class Node(list):
         if isinstance(value,np.ndarray):
             if not value.flags['F_CONTIGUOUS']:
                 print('WARNING: numpy array being set to node %s is not order="F"'%self.name())
+            self[1] = np.atleast_1d(value)
         elif isinstance(value,list) or isinstance(value,tuple):
             if isinstance(value[0],str):
                 value = np.array(' '.join(value),dtype='c',order='F').ravel()
@@ -147,19 +178,27 @@ class Node(list):
                        'with first element of type {}').format(type(value),
                                                                type(value[0]))
                 raise TypeError(RED+MSG+ENDC)
+            self[1] = np.atleast_1d(value)
         elif isinstance(value, int) or isinstance(value, bool):
             value = np.array([value],dtype=np.int32,order='F')
+            self[1] = np.atleast_1d(value)
+
         elif isinstance(value, float):
             value = np.array([value],dtype=np.float,order='F')
+            self[1] = np.atleast_1d(value)
+
         elif isinstance(value, str):
             value = np.array([value],dtype='c',order='F').ravel()
+            self[1] = np.atleast_1d(value)
+
         elif value is None:
-            value = None
+            self[1] = None
+
         else:
             MSG = 'type of value %s not recognized'%type(value)
             raise TypeError(RED+MSG+ENDC)
 
-        self[1] = np.atleast_1d(value)
+        
 
     def setType(self, newType):
         try:
@@ -227,14 +266,24 @@ class Node(list):
         self._updateSelfAndChildrenPaths()
 
     def swap(self, node):
-        selfBrothers = self.Parent.children()
-        for i, n in enumerate(selfBrothers):
-            if n is self:
-                break
-        nodeBrothers = node.Parent.children()
-        for j, n in enumerate(nodeBrothers):
-            if n is node:
-                break
+
+        if self.Parent is not None:
+            selfBrothers = self.Parent.children()
+            for i, n in enumerate(selfBrothers):
+                if n is self:
+                    break
+        else:
+            selfBrothers = [ self ]
+            i = 0
+
+        if node.Parent is not None:
+            nodeBrothers = node.Parent.children()
+            for j, n in enumerate(nodeBrothers):
+                if n is node:
+                    break
+        else:
+            nodeBrothers = [ node ]
+            j = 0
         selfBrothers[i], nodeBrothers[j] = nodeBrothers[j], selfBrothers[i]
         self.Parent, node.Parent = node.Parent, self.Parent
         self._updateSelfAndChildrenPaths()
@@ -289,8 +338,6 @@ class Node(list):
             if not isinstance(child, Node):
                 children[i] = Node(child, Parent=self)
             else:
-                # child.Parent = self
-                # child.Path = self[0] + '/' + child[0]
                 child._adaptChildren()
 
     def getPaths(self, starting_at_top_parent=False):
@@ -374,6 +421,8 @@ class Node(list):
         n = t
         for p in PathElements[1:]:
             n = n.get(p, Depth=1)
+        
+        if n is self: return None
 
         return n
 
@@ -434,7 +483,8 @@ class Node(list):
             elif v.startswith('target_path:'):
                 target_path = v.replace('target_path:','')
         full_node = readNode(target_file, target_path)
-        self.swap(full_node)
+        self.setValue(full_node.value())
+        self.setType(full_node.type())
 
     def replaceLinks(self, starting_at_top_parent=False):
         n = self.getTopParent() if starting_at_top_parent else self
@@ -444,11 +494,39 @@ class Node(list):
         updated_node = readNode( filename, self.path() )
         self.setValue( updated_node.value() )
 
-    def saveThisNodeOnly(self, filename ):
-        flags = CGM.S2P_UPDATE
-        t = self.getTopParent()
-        path = self.path().replace('CGNSTree','')
-        CGM.save( filename, t, update={path:self}, flags=flags)
+    def saveThisNodeOnly( self, filename ):
+
+        if Core.settings.backend == 'h5py2cgns':
+            value = self.value()
+            if isinstance(value,str) and value == '_skeleton':
+                raise IOError('%s cannot write a skeleton node'%self.path())
+            path = self.path().replace('CGNSTree/','')
+            f = Core.h.load_h5(filename,'r+')
+            node_exists = True if path in f else False
+            if not node_exists:
+                group = Core.h.nodelist_to_group(f, self, path)
+            else:
+                if isinstance(value, list) and isinstance(value[0],str):
+                    newvalue = ' '.join(value)
+                elif isinstance(value, str):
+                    newvalue = value
+                else:
+                    newvalue = self[1]
+                Core.h._setData(f[path], newvalue)
+
+        if Core.settings.backend == 'pycgns':
+            t = self.getTopParent()
+            flags = Core.CGM.S2P_UPDATE
+            path = self.path().replace('CGNSTree','')
+            Core.CGM.save(filename, t, update={path:self}, flags=flags)
+
+        elif Core.settings.backend == 'cassiopee':
+            # NOTE beware of BUG https://elsa.onera.fr/issues/10833
+            Core.Filter.writeNodesFromPaths(filename, [self.path()], [self], mode=1)
+
+        # else:
+        #     raise ModuleNotFoundError('%s backend not supported'%Core.settings.backend)
+
 
     def setParameters(self, ContainerName, ContainerType='UserDefinedData_t',
                       ParameterType='DataArray_t', **parameters):
@@ -492,6 +570,10 @@ class Node(list):
             if n[0] == Name:
                 return n
 
+    def replaceSkeletonWithDataRecursively(self, filename):
+        nodes = self.group(Value='_skeleton')
+        if self.value() == '_skeleton': nodes += [self]
+        for n in nodes: n.reloadNodeData(filename)
 
 def _compareValue(node, Value):
     NodeValue = node.value()
@@ -544,5 +626,38 @@ def castNode( NodeOrNodelikeList ):
         from .Tree import Tree
         t = Tree(node)
         node = t
+
+    return node
+
+def readNode(filename, path):
+
+    if path.startswith('CGNSTree/'):
+        path_map = path.replace('CGNSTree','')
+    else:
+        path_map = path
+
+    if Core.settings.backend == 'h5py2cgns':
+        if path_map.startswith('/'): path_map = path_map[1:]
+        f = Core.h.load_h5(filename)
+        group = f[ path_map ]
+        node = Core.h.build_cgns_nodelist( group )
+        node = castNode( node )
+
+    elif Core.settings.backend == 'pycgns':
+        t, _, _ = Core.CGM.load( filename, subtree=path_map )
+        t = castNode(t)
+        node = t.getAtPath( path )
+    
+    elif Core.settings.backend == 'cassiopee':
+        node = Core.Filter.readNodesFromPaths(filename, [path_map])[0]
+        node = castNode( node )
+
+    
+    else:
+        raise ModuleNotFoundError('%s backend not supported'%Core.settings.backend)
+
+    if node is None:
+        raise ValueError("node %s not found in %s"%( path, filename ))
+
 
     return node
