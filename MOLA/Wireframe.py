@@ -2106,32 +2106,8 @@ def is2DCurveClockwiseOriented(curve):
     return isClockwise
 
 
-def isAirfoilClockwiseOriented(curve):
-    '''
-    .. warning:: this function requires further validation
-
-    returns :py:obj:`True` if provided **curve** supported on :math:`OXY` plane
-    is oriented clockwise
-    '''
-    # TODO try to uniformly discretize curve before evaluating orientation
-    raise ValueError('isAirfoilClockwiseOriented must be replaced with is2DCurveClockwiseOriented')
-    cx, cy = J.getxy(curve)
-    p2 = np.array([cx[2],cy[2],0])
-    p1 = np.array([cx[1],cy[1],0])
-    p0 = np.array([cx[0],cy[0],0])
-    v12 = p2-p1
-    v12 /= np.sqrt(v12.dot(v12))
-    v01 = p1-p0
-    v01 /= np.sqrt(v01.dot(v01))
-    v = np.cross(v12,v01)
-
-    isClockwise = True if v[2] > 0 else False
-
-    return isClockwise
-
-
-def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge( airfoil, tol=1e-5,
-                                                    trailing_edge_margin=1e-4):
+def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge( airfoil, tol=1e-10,
+                                                    trailing_edge_region=0.95):
     '''
     This function transforms the input airfoil into clockwise-oriented and
     starting from trailing edge.
@@ -2145,10 +2121,20 @@ def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge( airfoil, tol=1e-5,
             structured curve of the airfoil
 
             .. note:: **airfoil** is modified
-    '''
 
-    LE,_ = findLeadingOrTrailingEdge( airfoil, ChordwiseRegion='> 0.99')
-    TE,_ = findLeadingOrTrailingEdge( airfoil, ChordwiseRegion='< -0.99')
+        tol : float
+            distance tolerance (absolute) to determine if two points are
+            coincident. Coincident points are removed.
+
+        trailing_edge_region : float
+            relative distance to determine the trailing and leading edge point 
+            research region, following the chordwise direction. 
+            This value is passed to :py:func:`findLeadingOrTrailingEdge`
+
+    '''
+    tem = '%g'%trailing_edge_region
+    LE,_ = findLeadingOrTrailingEdge( airfoil, ChordwiseRegion='> '+tem)
+    TE,_ = findLeadingOrTrailingEdge( airfoil, ChordwiseRegion='< -'+tem)
 
     if C.getMaxValue(LE,"CoordinateX") > C.getMaxValue(TE,"CoordinateX"):
         LE, TE = TE, LE
@@ -2163,25 +2149,19 @@ def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge( airfoil, tol=1e-5,
     if not is2DCurveClockwiseOriented( airfoil ):
         T._reorder( airfoil, (-1,2,3))
 
-    roll_index, sqrd_distance = D.getNearestPointIndex(airfoil, TE_xyz)
+    roll_index, _ = D.getNearestPointIndex(airfoil, TE_xyz)
     x, y = J.getxy( airfoil )
-    mult_point = (x[roll_index]*1., y[roll_index]*1., 0.)
     fields = J.getVars( airfoil, FieldNames )
     x[:] = np.roll(x, -roll_index)
     y[:] = np.roll(y, -roll_index)
     for field in fields:
         field[:] = np.roll(field, -roll_index)
 
-    # remove multiple point
-    tol = 1e-10
-    for i in range(len(x)):
-        ni, sqrd_distance = D.getNearestPointIndex(airfoil, (x[i],y[i],0))
-        if i == ni: continue
-        distance = np.sqrt( (x[i]-x[ni])**2 + (y[i]-y[ni])**2)
-        if distance <= tol:
-            break
-
-    if distance < tol:
+    # roll multiple point
+    s = gets(airfoil)
+    delta_s = np.diff(s * getLength(airfoil))
+    i = np.argmin(delta_s)
+    if delta_s[i] < tol:
         x[i:-1] = x[i+1:]
         y[i:-1] = y[i+1:]
         x[-1] = x[0]
@@ -2949,9 +2929,12 @@ def computeChordwiseAndThickwiseIndicators(AirfoilCurve):
     '''
 
     AirfoilCurveForOBB = C.convertBAR2Struct(AirfoilCurve)
-    AirfoilCurveForOBB = G.map(AirfoilCurveForOBB,
-                         D.line((0,0,0),(1,0,0),C.getNPts(AirfoilCurveForOBB)))
+    AirfoilCurveForOBB = discretize(AirfoilCurve, MappingLaw='interp1d_linear')
+    # AirfoilCurveForOBB = G.map(AirfoilCurveForOBB,
+    #                      D.line((0,0,0),(1,0,0),C.getNPts(AirfoilCurveForOBB)))
+    AirfoilCurveForOBB[0] = 'AirfoilCurveForOBB'
     OBB = G.BB(AirfoilCurveForOBB, method='OBB')
+    OBB[0]='OBB'
 
     Barycenter = G.barycenter(OBB)
     Barycenter = np.array(Barycenter)
@@ -2982,6 +2965,8 @@ def computeChordwiseAndThickwiseIndicators(AirfoilCurve):
                                              'ChordwiseIndicator'     )
     ApproximateThickness = _invokeIndicator( DecreasingDirections[1],
                                              'ThickwiseIndicator'     )
+    if np.isnan(ApproximateChord ):
+        J.save([AirfoilCurve,AirfoilCurveForOBB,OBB], 'debug.cgns' )
 
     return ApproximateChord, ApproximateThickness
 
