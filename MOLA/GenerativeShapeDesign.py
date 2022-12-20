@@ -541,7 +541,7 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
         else:
             Params['splitAirfoilOptions'] = splitAirfoilOptions
 
-            ModSection = W.modifyAirfoil(Sections[j],**Params)
+            ModSection, ModCamber = W.modifyAirfoil(Sections[j],**Params)
             AirfoilProperties = J.get(ModSection, '.AirfoilProperties')
 
             NewSection = I.copyRef(CurrentSection)

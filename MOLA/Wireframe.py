@@ -1916,7 +1916,6 @@ def buildAirfoilFromCamberLine(CamberLine, NormalDirection=None,
 
     T._reorder(Bottom,(-1,2,3))
 
-
     if TopDistribution is not None:
         Top = G.map(Top,TopDistribution)
     if BottomDistribution is not None:
@@ -3721,6 +3720,7 @@ def getAirfoilPropertiesAndCamber(AirfoilCurve, buildCamberOptions={},
 
     buildCamberOptions['splitAirfoilOptions'] = splitAirfoilOptions
     CamberLine = buildCamber(AirfoilCurve, **buildCamberOptions)
+    InitialCamberLine = I.copyTree(CamberLine)
     CamberLineX, CamberLineY, CamberLineZ = J.getxyz(CamberLine)
     RelativeThickness, = J.getVars(CamberLine, ['RelativeThickness'])
 
@@ -3973,6 +3973,9 @@ def modifyAirfoil(AirfoilInput, Chord=None,
 
         NewAirfoil : zone
             structured curve of the new airfoil
+
+        NewAirfoilCamber : zone
+            structured curve of the camber line of the new airfoil
     '''
 
 
@@ -3981,6 +3984,7 @@ def modifyAirfoil(AirfoilInput, Chord=None,
     AirfoilProperties, Camber = getAirfoilPropertiesAndCamber(AirfoilInput,
                                         buildCamberOptions=buildCamberOptions,
                                         splitAirfoilOptions=splitAirfoilOptions)
+    InitialCamber = I.copyTree(Camber)
 
     TE = AirfoilProperties['TrailingEdge']
     LE = AirfoilProperties['LeadingEdge']
@@ -4021,11 +4025,17 @@ def modifyAirfoil(AirfoilInput, Chord=None,
                     MinCamberRelativeLocation=MinCamberRelativeLocation,
                     InterpolationLaw=InterpolationLaw)
 
+    x0,y0,z0 = J.getxyz(InitialCamber)
+    xf,yf,zf = J.getxyz(Camber)
+
+    T._translate(Camber,(x0[0]-xf[0], y0[0]-yf[0], z0[0]-zf[0]))
+
     NewAirfoil = buildAirfoilFromCamberLine(Camber, NormalDirection)
     NewAirfoil[0] = AirfoilInput[0]+'.mod'
+    Camber[0] = NewAirfoil[0]+'.camber'
     J.set(NewAirfoil, '.AirfoilProperties', **AirfoilProperties)
 
-    return NewAirfoil
+    return NewAirfoil, Camber
 
 def modifyThicknessOfCamberLine(CamberCurve, NormalDirection, MaxThickness=None,
                 MaxRelativeThickness=None, MaxThicknessRelativeLocation=None,
