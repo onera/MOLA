@@ -14,6 +14,7 @@ import sys
 import os
 import re
 import copy
+import traceback
 from timeit import default_timer as tic
 import numpy as np
 from numpy.linalg import norm
@@ -36,7 +37,7 @@ from . import Wireframe as W
 from . import GenerativeShapeDesign as GSD
 from . import GenerativeVolumeDesign as GVD
 from . import __version__
-
+from .Coprocess import printCo
 
 
 try:
@@ -184,6 +185,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         addPerturbationFields([], PerturbationFields=PerturbationFields)
         return [] # BEWARE: CANNOT USE BARRIERS IN THIS FUNCTION FROM THIS LINE
 
+
     usePUMA = LiftingLineSolver == 'PUMA'
 
     # this guarantees backwards compatibility
@@ -275,6 +277,8 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     PerturbationDisk = addPerturbationFields(tLL, PerturbationFields)
 
 
+
+
     # MOLA LiftingLine solver :
     def singleShotMOLA__(cmd):
         '''
@@ -295,11 +299,22 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         [updateLocalFrame(ll) for ll in I.getZones(tLL)]
         computeKinematicVelocity(tLL)
         assembleAndProjectVelocities(tLL)
+        
+
         _applyPolarOnLiftingLine(tLL,PolarsInterpolatorsDict)
+
+
         if TipLossFactorOptions:
             TipLossFactorOptions['NumberOfBlades']=NBlades
-        computeGeneralLoadsOfLiftingLine(tLL,
-            TipLossFactorOptions=TipLossFactorOptions)
+
+        # for zLL in I.getZones(tLL):
+        #     vars = C.getVarNames(zLL, excludeXYZ=True)[0]
+        #     fields_bfs = J.getVars2Dict(zLL, VariablesName=vars)
+        #     for f in fields_bfs:
+        #         if np.any(np.logical_not(np.isfinite(fields_bfs[f]))):
+        #             printCo("ERROR: (0) NaN were found in Lifting-Line field %s !!"%f,color=J.FAIL)
+
+        computeGeneralLoadsOfLiftingLine(tLL, TipLossFactorOptions=TipLossFactorOptions)
 
         if CommandType == 'Pitch':
             C._initVars(tLL,'Twist={Twist}-%0.12g'%cmd)
@@ -342,7 +357,6 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         elif Constraint == 'Power':
             return Power-ConstraintValue/float(NBlades)
 
-
     if Constraint == 'Pitch':
         # Just 1 call required
         if usePUMA:
@@ -354,6 +368,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         else:
             singleShotMOLA__(Pitch)
             C._initVars(tLL,'Twist={Twist}+%0.12g'%Pitch)
+
 
 
     elif Constraint in ('Power','Thrust'):
@@ -501,7 +516,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
     I.createUniqueChild(Stacked,'.Kinematics','UserDefinedData_t',
                                  children=Kin_n[2])
-
+    printCo('computeSourceTerms')
     computeSourceTerms(Stacked, SourceTermScale=SourceTermScale)
 
     return Stacked
@@ -706,6 +721,8 @@ def computeSourceTerms(zone, SourceTermScale=1.0):
             dissipation effects provoked by the transfer of fields from the disk
             towards the CFD computational grid.
     '''
+    
+
 
     ConservativeFields = ['Density', 'MomentumX','MomentumY', 'MomentumZ',
                         'EnergyStagnationDensity']
@@ -713,11 +730,21 @@ def computeSourceTerms(zone, SourceTermScale=1.0):
     v1= ro, rou, rov, row, roe = J.invokeFields(zone, ConservativeFields,
                                                 locationTag='centers:')
     
+    for v in v1:
+        if np.any(np.logical_not(np.isfinite(v))):
+            printCo("ERROR: NaN were found in conservative quantities !! Ignoring current bodyforce...",color=J.FAIL)
+            v[:] = 0
+
     I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
     C.node2Center__(zone, 'nodes:VelocityTangential')
     PropellerFields = ['VelocityTangential', 'fx', 'fy', 'fz', 'ft']
     v2 = VelocityTangential, fx, fy, fz, ft = J.getVars(zone, PropellerFields,
                                                 Container='FlowSolution#Centers')
+
+    for v in v2:
+        if np.any(np.logical_not(np.isfinite(v))):
+            printCo("ERROR: NaN were found in source terms !! Ignoring current bodyforce...",color=J.FAIL)
+            v[:] = 0
 
 
     ro[:]  = 0.0
@@ -3475,6 +3502,7 @@ def addPerturbationFields(t, PerturbationFields=None):
 
         tPert = I.renameNode(PerturbationFields,
                              'FlowSolution#Init', 'FlowSolution#Centers')
+        I._rmNodesByName(tPert,'FlowSolution#EndOfRun#Relative')
 
         if t:
             LLs = I.getZones(t)
@@ -3509,7 +3537,6 @@ def addPerturbationFields(t, PerturbationFields=None):
         except: tAux = None
         Cmpi.barrier()
 
-
         if not tAux: return # BEWARE cannot use barriers from this point
 
         AuxiliarDisc = I.getZones(tAux)[0]
@@ -3536,7 +3563,6 @@ def addPerturbationFields(t, PerturbationFields=None):
         for v in [iVx, iVy, iVz]:
             isNotFinite = np.logical_not(np.isfinite(v))
             v[isNotFinite] = 0.
-
 
         migratePerturbationsFromAuxiliarDisc2LiftingLines(AuxiliarDisc, t)
 
@@ -4713,7 +4739,6 @@ def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
             as obtained from the function :py:func:`getLocalBodyForceInputData`
     '''
     import Converter.Mpi as Cmpi
-    from .Coprocess import printCo
     def getItemOrRaiseWarning(itemName):
         try:
             item = Rotor[itemName]
@@ -4858,40 +4883,45 @@ def computePropellerBodyForce(to, NumberOfSerialRuns, LocalBodyForceInputData):
     '''
     BodyForceDisks = []
     BodyForcePropellers = []
-    for iBF in range(NumberOfSerialRuns):
-        try:
-            SerialBFdata = LocalBodyForceInputData[iBF]
+
+    try:
+        for iBF in range(NumberOfSerialRuns):
             try:
-                Propeller = SerialBFdata['Propeller']
-                PolarsInterpolatorsDict = SerialBFdata['PolarsInterpolatorsDict']
-                NumberOfAzimutalPoints = SerialBFdata['NumberOfAzimutalPoints']
-                buildBodyForceDiskOptions = SerialBFdata['buildBodyForceDiskOptions']
-            except KeyError:
+                SerialBFdata = LocalBodyForceInputData[iBF]
+                try:
+                    Propeller = SerialBFdata['Propeller']
+                    PolarsInterpolatorsDict = SerialBFdata['PolarsInterpolatorsDict']
+                    NumberOfAzimutalPoints = SerialBFdata['NumberOfAzimutalPoints']
+                    buildBodyForceDiskOptions = SerialBFdata['buildBodyForceDiskOptions']
+                except KeyError:
+                    Propeller = []
+                    PolarsInterpolatorsDict = None
+                    NumberOfAzimutalPoints = None
+                    buildBodyForceDiskOptions = {}
+
+            except IndexError:
                 Propeller = []
                 PolarsInterpolatorsDict = None
                 NumberOfAzimutalPoints = None
                 buildBodyForceDiskOptions = {}
 
-        except IndexError:
-            Propeller = []
-            PolarsInterpolatorsDict = None
-            NumberOfAzimutalPoints = None
-            buildBodyForceDiskOptions = {}
 
+            BodyForceOptions = dict(PerturbationFields=to)
+            BodyForceOptions.update(buildBodyForceDiskOptions)
 
-        BodyForceOptions = dict(PerturbationFields=to)
-        BodyForceOptions.update(buildBodyForceDiskOptions)
+            BFdisk = buildBodyForceDisk(Propeller,
+                                        PolarsInterpolatorsDict,
+                                        NumberOfAzimutalPoints,
+                                        **BodyForceOptions)
+            if BFdisk: BodyForceDisks.append(BFdisk)
 
-        BFdisk = buildBodyForceDisk(Propeller,
-                                    PolarsInterpolatorsDict,
-                                    NumberOfAzimutalPoints,
-                                    **BodyForceOptions)
+            # TODO:
+            # Examine if returning BodyForcePropellers or not: is it really useful?
+            if Propeller: BodyForcePropellers.append(Propeller)
 
-        if BFdisk: BodyForceDisks.append(BFdisk)
-
-        # TODO:
-        # Examine if returning BodyForcePropellers or not: is it really useful?
-        if Propeller: BodyForcePropellers.append(Propeller)
+    except BaseException:
+        printCo(traceback.format_exc(),color=J.FAIL)
+        os._exit(0)
 
     return BodyForceDisks
 

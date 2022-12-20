@@ -3364,11 +3364,15 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
     t = I.copyRef(t)
 
     addTrigger(t)
-    if 'OversetMotion' in AllSetupDictionaries:
+    if AllSetupDictionaries['OversetMotion']:
         addOversetMotion(t, AllSetupDictionaries['OversetMotion'])
         includeRelativeFieldsForRestart = True
     else:
         includeRelativeFieldsForRestart = False
+
+    includeRelativeFieldsForRestart=True
+    # print('includeRelativeFieldsForRestart='+str(includeRelativeFieldsForRestart));exit()
+
     addExtractions(t, AllSetupDictionaries['ReferenceValues'],
                       AllSetupDictionaries['elsAkeysModel'],
                       extractCoords=extractCoords, BCExtractions=BCExtractions,
