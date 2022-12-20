@@ -1237,7 +1237,7 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per
                        ' - Reduce the number of procs\n'
                        ' - increase the number of grid points').format( NumberOfProcessors, NZones)
                 raise ValueError(J.FAIL+MSG+J.ENDC)
-            return tRef, 0, np.inf, np.inf, HighestLoad, HighestLoadProc
+            return tRef, 0, np.inf, np.inf, np.inf, np.inf
 
     NZones = len( I.getZones( tRef ) )
     if NumberOfProcessors > NZones:
@@ -1249,7 +1249,7 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per
                    ' - increase the number of grid points').format( NumberOfProcessors, NZones)
             raise ValueError(J.FAIL+MSG+J.ENDC)
         else:
-            return tRef, 0, np.inf, np.inf, HighestLoad, HighestLoadProc
+            return tRef, 0, np.inf, np.inf, np.inf, np.inf
 
     # NOTE see Cassiopee BUG #8244 -> need algorithm='fast'
     silence = J.OutputGrabber()
@@ -1259,7 +1259,7 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per
     behavior = 'raise' if raise_error else 'silent'
 
     if hasAnyEmptyProc(tRef, NumberOfProcessors, behavior=behavior):
-        return tRef, 0, np.inf, np.inf, HighestLoad, HighestLoadProc
+        return tRef, 0, np.inf, np.inf, np.inf, np.inf
 
     HighestLoad = getNbOfPointsOfHighestLoadedNode(tRef, cores_per_node)
     HighestLoadProc = getNbOfPointsOfHighestLoadedProc(tRef)
@@ -1268,7 +1268,7 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per
         if raise_error:
             raise ValueError('exceeded maximum_number_of_points_per_node (%d>%d)'%(HighestLoad,
                                                 maximum_number_of_points_per_node))
-        return tRef, 0, np.inf, np.inf, HighestLoad, HighestLoadProc
+        return tRef, 0, np.inf, np.inf, np.inf, np.inf
 
 
     return tRef, NZones, stats['varMax'], stats['meanPtsPerProc'], HighestLoad, HighestLoadProc
@@ -3364,11 +3364,15 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
     t = I.copyRef(t)
 
     addTrigger(t)
-    if 'OversetMotion' in AllSetupDictionaries:
+    if AllSetupDictionaries['OversetMotion']:
         addOversetMotion(t, AllSetupDictionaries['OversetMotion'])
         includeRelativeFieldsForRestart = True
     else:
         includeRelativeFieldsForRestart = False
+
+    includeRelativeFieldsForRestart=True
+    # print('includeRelativeFieldsForRestart='+str(includeRelativeFieldsForRestart));exit()
+
     addExtractions(t, AllSetupDictionaries['ReferenceValues'],
                       AllSetupDictionaries['elsAkeysModel'],
                       extractCoords=extractCoords, BCExtractions=BCExtractions,

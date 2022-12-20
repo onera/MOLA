@@ -4385,6 +4385,9 @@ def trimCurveAlongDirection(curve, direction, cut_point_1, cut_point_2):
     Trim a curve along a direction using two cut points (resulting curve is
     placed between the cut points, along the requested direction).
 
+    .. note::
+        this will be replaced with strategy shown in `10357 <https://elsa.onera.fr/issues/10357>`_
+
     Parameters
     ----------
 
@@ -4408,6 +4411,9 @@ def trimCurveAlongDirection(curve, direction, cut_point_1, cut_point_2):
         trimmed_curve : zone
             trimmed structured curve
     '''
+
+    # TODO replace with strategy: https://elsa.onera.fr/issues/10357
+
     curve = I.copyRef(curve)
     x,y,z = J.getxyz(curve)
     FieldToSlice, = J.invokeFields(curve,['FieldToSlice'])
@@ -4460,7 +4466,8 @@ def getNearestIntersectingPoint(zone1, zone2):
     Return the coordinates of a point belonging to **zone2** such that
     its distance is minimum with respect to any point of **zone1**
 
-    .. note:: this is an 0th-order method
+    .. note::
+        this is an 0th-order method. Will be replaced by `10356 <https://elsa.onera.fr/issues/10356>`_
 
     Parameters
     ----------
@@ -4500,6 +4507,9 @@ def intersection(curves):
     Computes the intersecting points of a set of curves, including
     possibly self-intersecting points.
 
+    .. note::
+        Will be replaced by `10356 <https://elsa.onera.fr/issues/10356>`_
+
     Parameters
     ----------
 
@@ -4512,7 +4522,7 @@ def intersection(curves):
         points : py:class:`list` of zone
             list of points (each point is a zone) of the intersections.
     '''
-
+    # TODO to be replaced by `10356 <https://elsa.onera.fr/issues/10356>`_
     concatenated = concatenate(curves)
     InitialNPts = C.getNPts(concatenated)
     bar = C.convertArray2Tetra(concatenated)

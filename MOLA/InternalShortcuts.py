@@ -2284,14 +2284,6 @@ def printEnvironment():
         vCASSIOPEE = FAIL + 'UNAVAILABLE' + ENDC
     print(' --> Cassiopee '+vCASSIOPEE)
 
-    # Vortex Particle Method
-    try:
-        import VortexParticleMethod as VPM
-        vVPM = VPM.__version__
-    except:
-        vVPM = FAIL + 'UNAVAILABLE' + ENDC
-    print(' --> VPM '+vVPM)
-
     # PUMA
     vPUMA = os.getenv('PUMAVERSION', 'UNAVAILABLE')
     if vPUMA == 'UNAVAILABLE':
@@ -2317,6 +2309,15 @@ def printEnvironment():
     except:
         vERSATZ = FAIL + 'UNAVAILABLE' + ENDC
     print(' --> Ersatz '+vERSATZ)
+
+
+    # Vortex Particle Method
+    # try:
+    #     import VortexParticleMethod as VPM
+    #     vVPM = VPM.__version__
+    # except:
+    #     vVPM = FAIL + 'UNAVAILABLE' + ENDC
+    # print(' --> VPM '+vVPM)
 
 
     if totoV == 'Dev':

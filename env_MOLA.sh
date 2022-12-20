@@ -269,13 +269,13 @@ elif [ "$MAC" = "sator-new" ]; then
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
     # VPM
-    export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/$MAC
-    export PATH=$VPMPATH:$PATH
-    export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
-    export LD_LIBRARY_PATH=$VPMPATH:$LD_LIBRARY_PATH
-    # export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp_user/sator/lbernard/lib
-    export PYTHONPATH=$VPMPATH:$PYTHONPATH
-    export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
+    # export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/$MAC
+    # export PATH=$VPMPATH:$PATH
+    # export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
+    # export LD_LIBRARY_PATH=$VPMPATH:$LD_LIBRARY_PATH
+    # # export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp_user/sator/lbernard/lib
+    # export PYTHONPATH=$VPMPATH:$PYTHONPATH
+    # export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
     # turbo
     export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
