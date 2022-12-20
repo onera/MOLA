@@ -516,7 +516,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
     I.createUniqueChild(Stacked,'.Kinematics','UserDefinedData_t',
                                  children=Kin_n[2])
-    printCo('computeSourceTerms')
+
     computeSourceTerms(Stacked, SourceTermScale=SourceTermScale)
 
     return Stacked
