@@ -1,10 +1,14 @@
 '''
-Implements class **Node**, which inherits from standard Python :py:class:`list`
+.. role:: python(code)
+  :language: python
+  :class: highlight
 
-Other classes inheriting from **Node** are: :py:class:`Tree`,
-:py:class:`Base` and :py:class:`Zone`
+.. _CGNS: http://cgns.github.io/
 
-21/12/2021 - L. Bernardos - first creation
+Node class
+==========
+
+*21/12/2021 - L. Bernardos - first creation*
 '''
 
 from fnmatch import fnmatch
@@ -19,13 +23,140 @@ ENDC = Core.ENDC
 
 
 class Node(list):
-    """docstring for Node."""
+    '''
+    Implements class :py:class:`~MOLA.Data.Node.Node`, which inherits from standard
+    Python :py:class:`list` with `CGNS`_ structure: 
+
+    ::
+
+        # name       value      children (list)   type (str)
+        ['name', numpy.ndarray,             [],     'type_t']
+
+    .. note::
+        Some classes inheriting from :py:class:`~MOLA.Data.Node.Node` are:
+
+        * :py:class:`~MOLA.Data.Tree.Tree`
+        * :py:class:`~MOLA.Data.Base.Base`
+        * :py:class:`~MOLA.Data.Zone.Zone`
+
+
+    Creation of nodes
+    -----------------
+
+    Please note the following construction parameters for the creation of
+    :py:class:`~MOLA.Data.Node.Node` objects:
+
+    Parameters
+    ----------
+
+        args : :py:class:`list`
+            a python `CGNS`_ list 
+
+        Parent : :py:class:`~MOLA.Data.Node.Node` or :py:obj:`None`
+            an existing :py:class:`~MOLA.Data.Node.Node` where the new :py:class:`~MOLA.Data.Node.Node`
+            will be attached
+
+        Children : :py:class:`list`
+            a :py:class:`list` of :py:class:`~MOLA.Data.Node.Node` or a
+            :py:class:`list` of `CGNS`_ lists. These will be the nodes attached 
+            to the new :py:class:`~MOLA.Data.Node.Node`
+
+        Name : :py:class:`str`
+            the name of the new :py:class:`~MOLA.Data.Node.Node`
+
+        Value : multiple
+            the value to be attributed to the new :py:class:`~MOLA.Data.Node.Node`.
+            It can be one of :
+
+                * :py:obj:`None`
+                
+                * :py:class:`str` (or :py:class:`list` of :py:class:`str`)
+            
+                * :py:class:`int` (or :py:class:`list` of :py:class:`int`)
+                
+                * :py:class:`float` (or :py:class:`list` of :py:class:`float`)
+                
+                * :py:class:`numpy.ndarray`
+
+        Type : :py:class:`str`
+            The type of the `CGNS`_ node. 
+
+            .. hint:: 
+                you can omit the suffix ``_t`` if you like *(it will be 
+                automatically added if omitted)*
+
+        override_brother_by_name : :py:class:`bool`
+            if :py:obj:`True`, all children at same hierarchical level with 
+            same **Name** are overriden (only last is kept). If :py:obj:`False`,
+            an incremental numeric tag is appended to the **Name** such that 
+            no other brother has same name.
+
+            .. important::
+                brother nodes must have different names
+
+        position : :py:class:`str` or :py:class:`int`
+            the position among the children of **Parent** where the new 
+            :py:class:`~MOLA.Data.Node.Node` will be inserted (defaults to :python:`'last'`)
+
+            .. note::
+                only relevant if **Parent** is provided
+
+
+    Examples
+    ********
+
+    You can easily invoke (create) a :py:class:`~MOLA.Data.Node.Node` like this:
+
+    ::
+
+        import MOLA.Data as M
+        node = M.Node()
+        print(node)
+        # >>> ['Node', None, [], 'DataArray_t']
+
+    Of course, when invoking a :py:class:`~MOLA.Data.Node.Node`, you can specify 
+    some of their attributes, like its **name**, its **value**, its **type** or
+    its **children**:
+
+    ::
+
+        import MOLA.Data as M
+        node = M.Node(Name='MyName', Value=[1,2,3,4], Type='DataArray')
+        print(node)
+        # >>> ['MyName', array([1, 2, 3, 4], dtype=int32), [], 'DataArray_t']
+
+    
+    Alternatively, you can use a python :py:class:`list` corresponding to your
+    `CGNS`_ node:
+
+    ::
+
+        import numpy as np
+        import MOLA.Data as M
+        node = M.Node( ['name', np.array([0,1,2]), [], 'DataArray_t'] )
+        print(node)
+        # >>> ['name', array([0, 1, 2]), [], 'DataArray_t']
+
+    However, since the new node may also belong to a different inherited class 
+    (like a :py:class:`~MOLA.Data.Tree.Tree` or a :py:class:`~MOLA.Data.Base.Base`, etc...)
+    it is more recommended to rather use the function :py:func:`~MOLA.Data.Node.castNode`
+    as follows:
+
+    ::
+
+        import numpy as np
+        import MOLA.Data as M
+        node = M.castNode( ['name', np.array([0,1,2]), [], 'DataArray_t'] )
+        print(node)
+        # >>> ['name', array([0, 1, 2]), [], 'DataArray_t']
+
+
+    '''
 
     def __init__(self, args=['Node',None,[],'DataArray_t'], Parent=None, Children=[],
                              Name=None, Value=None, Type=None,
                              override_brother_by_name=True,
-                             position='last',
-                             h5=None):
+                             position='last'):
         list.__init__(self, args)
         if Name is not None:
             self[0] = Name
@@ -68,28 +199,129 @@ class Node(list):
         self[2].extend(args[2])
         self.addChildren(Children, override_brother_by_name)
         self._updateSelfAndChildrenPaths()
-        self.h5 = h5
 
-    def set_h5(self, h5):
-        self.h5 = h5
+    def parent(self):
+        '''
+        Get the parent of a given :py:class:`~MOLA.Data.Node.Node`
 
-    def reload_h5(self, filename):
-        self.h5 = Core.h.load_h5( filename )
+        Returns
+        -------
 
-    def parent(self): return self.Parent
+            node : :py:class:`~MOLA.Data.Node.Node` or :py:obj:`None`
+                the parent :py:class:`~MOLA.Data.Node.Node` or if current node is
+                not attached to any node, then returns :py:obj:`None`
 
-    def path(self): return self.Path
+        Example
+        *******
+
+        Create two nodes, with parent/child hierarchy, and get back the parent 
+        from the child node:
+
+        ::
+
+            import MOLA.Data as M
+
+            # create a node and attach it to another node 
+            a = M.Node( Name='TheParent')
+            b = M.Node( Name='TheChild', Parent=a )
+
+            # show the actual hierarchy
+            a.printPaths()
+            # >>> TheParent
+            # >>> TheParent/TheChild
+
+            # get the parent of node b
+            p = b.parent()
+
+            print(p is a)
+            # >>> True
+
+            # get the parent of node a
+            p = a.parent()
+            print(p)
+            # >>> None
+
+        '''
+        
+        return self.Parent
+
+    def path(self):
+        '''
+        Get the `CGNS`_ Path of a given node
+
+        Returns
+        -------
+
+            Path : str
+                :py:class:`str` of its path from the most top parent 
+                :py:class:`~MOLA.Data.Node.Node`
+
+        Example
+        *******
+
+        Create two nodes, with parent/child hierarchy, and show path of child:
+
+        ::
+
+            import MOLA.Data as M
+
+            # create a node and attach it to another node 
+            a = M.Node( Name='TheParent')
+            b = M.Node( Name='TheChild', Parent=a )
+
+            path = b.path() # get the path
+            print( path ) 
+            # >>> TheParent/TheChild
+
+
+        '''
+
+        return self.Path
 
     def save(self, filename, verbose=True):
         '''
-        save node
+        Save into a `CGNS`_ file the node and their children keeping **exactly**
+        the same hierarchy as defined by their :py:meth:`~MOLA.Data.Node.Node.path`
+
+        Parameters
+        ----------
+
+            filename : str
+                the absolute or relative filename path where the :py:class:`~MOLA.Data.Node.Node`
+                is being saved 
+
+            verbose : bool
+                if :py:obj:`True`, prints saving status into standard output
+
+        Example
+        *******
+
+        Create a node and save it into a file
+
+        ::
+
+            import MOLA.Data as M
+            n = M.Node( Name='jamon' )
+            n.save('out.cgns', verbose=True)
+            # >>> saving out.cgns ... ok
+
+
         '''
         from .Tree import Tree
-        node_to_save = self if isinstance(self, Tree) else Tree( self )
+        if isinstance(self, Tree):
+            node_to_save = self
+        elif self.type() == 'CGNSTree':
+            node_to_save = Tree( self )
+        else:
+            node_to_save = Tree()
+            self.attachTo(node_to_save)
+
         links = node_to_save.getLinks()
 
         if Core.settings.backend == 'h5py2cgns':
+            if verbose: print('saving %s ... '%filename, end='')
             Core.h.save(node_to_save, filename)
+            if verbose: print('ok')
 
         elif Core.settings.backend == 'pycgns':
             if verbose: print('saving %s ... '%filename, end='')
@@ -103,11 +335,213 @@ class Node(list):
         else:
             raise ModuleNotFoundError('%s backend not supported'%Core.settings.backend)
 
-    def name(self): return self[0]
+    def name(self):
+        '''
+        get the name of the current :py:class:`~MOLA.Data.Node.Node`
 
-    def printName(self): print(self.name())
+        Returns
+        -------
+
+            Name : str 
+                the name of the node
+
+        Example
+        *******
+
+        ::
+
+            import MOLA.Data as M
+            n = M.Node( Name='tortilla' )
+            print( n.name() )
+            # >>> tortilla
+
+
+        '''
+        
+        return self[0]
+
+
+    def printName(self):
+        '''
+        prints into standard output the name of the current :py:class:`~MOLA.Data.Node.Node`
+
+        Example
+        *******
+
+        ::
+
+            import MOLA.Data as M
+            n = M.Node( Name='croquetas' )
+            n.printName()
+            # >>> croquetas
+
+
+        '''
+        
+        print(self.name())
 
     def value(self, ravel=False):
+        '''
+        get the value associated to the current :py:class:`~MOLA.Data.Node.Node`
+
+        Parameters
+        ----------
+
+            ravel : bool
+                if :py:obj:`True` and when returned value is an object of type 
+                :py:class:`numpy.ndarray`, then such returned :py:class:`numpy.ndarray`
+                is a flattened view of the original, without copy, as in
+                :py:func:`~numpy.ravel` function (with :python:`order='K'`)
+
+        Returns
+        -------
+
+            value : multiple
+
+                * the value is a chain of characters
+                    a :py:class:`str` is returned except if the original chain of
+                    characters contains spaces; in such case, a :py:class:`list`
+                    of :py:class:`str` is returned. A copy is made. 
+
+                * the value is numeric
+                    a :py:class:`numpy.ndarray` is returned. No copy is made.
+                    If :python:`ravel=True`, then a flattened view is returned
+                
+                * no value exist
+                    the object :py:obj:`None` is returned
+
+                * the value is not loaded into memory
+                    the private :py:class:`str` :python:`'_skeleton'` is 
+                    returned (see :py:meth:`~MOLA.Data.Node.Node.reloadNodeData`)
+
+        Examples
+        --------
+
+        It is very important to note that in many cases (specially when :py:class:`str`
+        are involved) the value returned by :py:meth:`~MOLA.Data.Node.Node.value`
+        does **not** correspond to the actual object stored in :python:`node[1]`.
+
+        For this reason, the following example will show the 
+        differences between :python:`node[1]` and :python:`node.value()`
+
+        In this example, we will be getting a :py:class:`str`:
+        
+        ::
+
+            import MOLA.Data as M
+
+            node = M.Node( Value='jamon' )
+
+            value_str = node.value() # will return a readable str
+            print(value_str)
+            # >>> jamon
+
+            value_np = node[1] # will return an unreadable numpy.ndarray
+            print(value_np)
+            # >>> [b'j' b'a' b'm' b'o' b'n']
+
+        as shown, when the value has :py:class:`str`, it is preferred using 
+        :python:`node.value()` instead of :python:`node[1]`.
+
+        This is still true when the value is a chain of characters including 
+        spaces, which is interpreted as different *words* and stored into a
+        :py:class:`list`:
+
+        ::
+
+            import MOLA.Data as M
+
+            node = M.Node( Value='jamon tortilla croquetas' )
+
+            value_str = node.value() # will return a readable list of str
+            print(value_str)
+            # >>> ['jamon', 'tortilla', 'croquetas']
+
+
+            value_np = node[1] # will return an unreadable numpy.ndarray
+            print(value_np)
+            # >>> [b'j' b'a' b'm' b'o' b'n' b' ' b't' b'o' b'r' b't' b'i' b'l' b'l' b'a'
+            #      b' ' b'c' b'r' b'o' b'q' b'u' b'e' b't' b'a' b's']
+
+        Once again, you can see that working with 
+
+        >>> ['jamon', 'tortilla', 'croquetas']
+
+        is much more practical than working with 
+
+        >>> [b'j' b'a' b'm' b'o' b'n' b' ' b't' b'o' b'r' b't' b'i' b'l' b'l' b'a' b' ' b'c' b'r' b'o' b'q' b'u' b'e' b't' b'a' b's']
+
+        so, again, you will prefer :python:`node.value()` over :python:`node[1]`
+
+        If the value contained in the :py:class:`~MOLA.Data.Node.Node` is a 
+        numeric :py:class:`numpy.ndarray`, then its value is always directly 
+        returned, without copy. Hence, you can make modifications of the :py:class:`~MOLA.Data.Node.Node`,
+        or share its value with other nodes without concern. If the :py:class:`numpy.ndarray`
+        is multi-dimensional, it is sometimes preferred to work with a flattened 
+        view. This is why the option **ravel** is included in :py:meth:`~MOLA.Data.Node.Node.value`.
+        The next example illustrates how to create a :py:class:`numpy.ndarray`,
+        share it between two different nodes, get it in flattened view,
+        modify it, and still check that no copy is made:
+
+        ::
+
+            import MOLA.Data as M
+            import numpy as np 
+
+            # create a multi-dimensional array to be attributed to several nodes
+            # it is very important to set order='F' !
+            array = np.array( [[0,1,2],
+                               [3,4,5],
+                               [6,7,8]], order='F' )
+
+            # create our two nodes, and attribute their values to our array
+            jamon    = M.Node( Name='jamon', Value=array )
+            tortilla = M.Node( Name='tortilla', Value=array )
+
+            # get the value of jamon
+            jamon_value = jamon.value() # in this case, the same as jamon[1]
+            print(jamon_value)
+            # >>> [[0 1 2]
+            #      [3 4 5]
+            #      [6 7 8]]
+
+
+            # get a flattened view of the array of node tortilla
+            tortilla_value = tortilla.value(ravel=True)
+            print(tortilla_value)
+            # >>> [0 3 6 1 4 7 2 5 8]
+
+
+            # our arrays share memory
+            print(np.shares_memory(tortilla_value, jamon_value))
+            # >>> True
+            print(np.shares_memory(tortilla_value, array))
+            # >>> True
+
+            # hence we can modify it in different fashions, all changes will be propagated
+            tortilla_value[0] = 12
+            array[1,:] = -2
+
+            print(array)
+            print(jamon_value)
+            print(tortilla_value)
+            # >>> [[12  1  2]
+            #      [-2 -2 -2]
+            #      [ 6  7  8]]
+            #     [[12  1  2]
+            #      [-2 -2 -2]
+            #      [ 6  7  8]]
+            #     [12 -2  6  1 -2  7  2 -2  8]
+
+        See also
+        --------
+
+        :py:func:`numpy.shares_memory`
+        
+        :py:obj:`numpy.ndarray.flags`
+
+        '''
+
         v = self._value(ravel)
         if isinstance(v,str):
             words = v.split(' ')
@@ -590,6 +1024,9 @@ def _compareValue(node, Value):
 
 
 def castNode( NodeOrNodelikeList ):
+    '''
+    toto
+    '''
 
     if not isinstance(NodeOrNodelikeList, Node):
         node = Node(NodeOrNodelikeList)

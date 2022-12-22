@@ -16,10 +16,10 @@ class Base(Node):
         self.setType('CGNSBase_t')
 
         if self.value() is None:
-            BaseValue = np.array([3,3],dtype=np.int,order='F')
+            BaseValue = np.array([3,3],dtype=np.int32,order='F')
             for child in self.children():
                 if isinstance(child, Zone):
-                    BaseValue = np.array([child.dim(),3],dtype=np.int,order='F')
+                    BaseValue = np.array([child.dim(),3],dtype=np.int32,order='F')
                     break
             self.setValue(BaseValue)
 
