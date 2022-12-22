@@ -1035,5 +1035,5 @@ def _addNormalsIfAbsent(t):
             FlowSol = I.getNodeFromName1(z, I.__FlowSolutionCenters__)
             for i in 'xyz':
                 I.rmNode(FlowSol,'n'+i)
-                I.renameNode(FlowSol,'s'+i,'n'+i)
+                I._renameNode(FlowSol,'s'+i,'n'+i)
         C._normalize(z,['centers:nx', 'centers:ny', 'centers:nz'])    
