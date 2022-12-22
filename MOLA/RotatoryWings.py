@@ -11,25 +11,29 @@ File history:
 19/03/2019 - v1.0 - L. Bernardos - Creation.
 '''
 
-# System modules
-import sys
-import os
-from timeit import default_timer as Tok
-import numpy as np
-import numpy.linalg as npla
-norm = np.linalg.norm
-from scipy.spatial.transform import Rotation as ScipyRotation
+import MOLA
+
+if not MOLA.__ONLY_DOC__:
+
+    # System modules
+    import sys
+    import os
+    from timeit import default_timer as Tok
+    import numpy as np
+    import numpy.linalg as npla
+    norm = np.linalg.norm
+    from scipy.spatial.transform import Rotation as ScipyRotation
 
 
-# Cassiopee
-import Converter.PyTree as C
-import Converter.Internal as I
-import Geom.PyTree as D
-import Post.PyTree as P
-import Generator.PyTree as G
-import Transform.PyTree as T
-import Connector.PyTree as X
-import Intersector.PyTree as XOR
+    # Cassiopee
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Geom.PyTree as D
+    import Post.PyTree as P
+    import Generator.PyTree as G
+    import Transform.PyTree as T
+    import Connector.PyTree as X
+    import Intersector.PyTree as XOR
 
 
 # Generative modules

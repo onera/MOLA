@@ -9,16 +9,19 @@ First creation:
 07/10/2021 - T. Bontemps - creation
 '''
 
-import os
-import subprocess
-import socket
-import getpass
-import pprint
-import shutil
-import copy
+import MOLA
 
-import Converter.PyTree         as C
-import Converter.Internal       as I
+if not MOLA.__ONLY_DOC__:
+    import os
+    import subprocess
+    import socket
+    import getpass
+    import pprint
+    import shutil
+    import copy
+
+    import Converter.PyTree         as C
+    import Converter.Internal       as I
 
 
 from . import __version__, __MOLA_PATH__

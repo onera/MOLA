@@ -597,6 +597,63 @@ def getBases( data ):
 
 
 def useEquation(data, *args, **kwargs):
+    '''
+    Call the :py:meth:`~MOLA.Data.Zone.Zone.useEquation` method 
+    for each :py:class:`~MOLA.Data.Zone.Zone` contained in 
+    argument **data**
+
+    Parameters
+    ----------
+
+        data : list
+            heterogeneous container of nodes compatible with :py:func:`merge`
+
+            .. note::
+                :py:class:`~MOLA.Data.Zone.Zone`'s are modified    
+
+        args
+            mandatory comma-separated arguments of
+            :py:class:`~MOLA.Data.Zone.Zone`'s :py:meth:`~MOLA.Data.Zone.Zone.useEquation` method
+
+        kwargs
+            optional pair of ``keyword=value`` arguments of
+            :py:class:`~MOLA.Data.Zone.Zone`'s :py:meth:`~MOLA.Data.Zone.Zone.useEquation` method
+
+    Returns
+    -------
+
+        t : :py:class:`~MOLA.Data.Tree.Tree`
+            same result as :py:func:`merge`
+
+    Examples
+    --------
+
+    Create two :py:class:`~MOLA.Data.Tree.Tree`, each containing a different 
+    number of :py:class:`~MOLA.Data.Zone.Zone` and create a new field named 
+    ``field`` attributing a specific value:
+
+    ::
+
+        import MOLA.Data as M
+
+
+        zoneA = M.Mesh.Line( Name='zoneA', N=2 )
+        zoneB = M.Mesh.Line( Name='zoneB', N=4 )
+        zoneC = M.Mesh.Line( Name='zoneC', N=6 )
+
+        tree1 = M.Tree(Base1=[zoneA, zoneB])
+        tree2 = M.Tree(Base2=[zoneC])
+
+        M.useEquation( [tree1, tree2], '{field} = 12.0' )
+
+        for zone in zoneA, zoneB, zoneC:
+            print(zone.name()+' has field '+str(zone.field('field')))
+
+
+    ok
+
+    '''
+
     t = merge( data ) # TODO avoid merge
     for zone in t.zones(): zone.useEquation(*args, **kwargs)
 

@@ -10,21 +10,23 @@ First creation:
 27/02/2019 - L. Bernardos
 '''
 
-# System modules
 import sys
 usingPython2 = sys.version_info[0] == 2
 import os
-import threading
-import time
-import glob
-import numpy as np
-from itertools import product
-from timeit import default_timer as tic
-from fnmatch import fnmatch
 
-import Converter.PyTree as C
-import Converter.Internal as I
+import MOLA
 from . import __version__, __MOLA_PATH__
+if not MOLA.__ONLY_DOC__:
+    import threading
+    import time
+    import glob
+    import numpy as np
+    from itertools import product
+    from timeit import default_timer as tic
+    from fnmatch import fnmatch
+
+    import Converter.PyTree as C
+    import Converter.Internal as I
 
 FAIL  = '\033[91m'
 GREEN = '\033[92m'

@@ -106,6 +106,12 @@ if [ "$MAC" = "spiro" ]; then
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
     export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
 
+    # MAIA
+    module load gcc/8.3
+    export MAIA_HOME=/scratchm/jcoulet/aa_install_py3/maia/dbg-intel19
+    export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
+    export PYTHONPATH=$MAIA_HOME/lib/python3.7/site-packages:$PYTHONPATH
+
 elif [ "$MAC" = "visio" ]; then
     export ELSAVERSION=UNAVAILABLE # TODO adapt this once #10587 fixed
     echo -e "\033[93mWARNING: elsA v5.1.01 is not installed yet in VISIO CentOS 6\033[0m"

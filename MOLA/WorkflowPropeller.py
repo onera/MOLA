@@ -10,22 +10,24 @@ File history:
 22/03/2022 - L. Bernardos - Creation
 '''
 
-import os
-import numpy as np
+import MOLA
+if not MOLA.__ONLY_DOC__:
+    import os
+    import numpy as np
 
-import Converter.PyTree    as C
-import Converter.Internal  as I
-import Distributor2.PyTree as D2
-import Post.PyTree         as P
-import Generator.PyTree    as G
-import Transform.PyTree    as T
-import Connector.PyTree    as X
+    import Converter.PyTree    as C
+    import Converter.Internal  as I
+    import Distributor2.PyTree as D2
+    import Post.PyTree         as P
+    import Generator.PyTree    as G
+    import Transform.PyTree    as T
+    import Connector.PyTree    as X
 
-from . import InternalShortcuts as J
-from . import Wireframe as W
-from . import Preprocess        as PRE
-from . import JobManager        as JM
-from . import WorkflowCompressor as WC
+    from . import InternalShortcuts as J
+    from . import Wireframe as W
+    from . import Preprocess        as PRE
+    from . import JobManager        as JM
+    from . import WorkflowCompressor as WC
 
 def prepareMesh4ElsA(mesh='mesh.cgns', splitOptions={'maximum_allowed_nodes':3},
                      match_tolerance=1e-7, periodic_match_tolerance=1e-7):

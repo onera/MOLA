@@ -6,34 +6,37 @@ It implements a collection of routines for preprocessing of CFD simulations
 23/12/2020 - L. Bernardos - creation by recycling
 '''
 
-from multiprocessing.sharedctypes import Value
-import sys
-import os
-import shutil
-import pprint
-import numpy as np
-from itertools import product
-import copy
-from timeit import default_timer as tic
-import datetime
-
-import Converter.PyTree as C
-import Converter.Internal as I
-import Connector.PyTree as X
-import Transform.PyTree as T
-import Generator.PyTree as G
-import Geom.PyTree as D
-import Post.PyTree as P
-import Distributor2.PyTree as D2
-import Converter.elsAProfile as EP
-import Intersector.PyTree as XOR
-import Dist2Walls.PyTree as DTW
 import MOLA
 from . import InternalShortcuts as J
 from . import GenerativeShapeDesign as GSD
 from . import GenerativeVolumeDesign as GVD
 from . import ExtractSurfacesProcessor as ESP
 from . import JobManager as JM
+
+if not MOLA.__ONLY_DOC__:
+    from multiprocessing.sharedctypes import Value
+    import sys
+    import os
+    import shutil
+    import pprint
+    import numpy as np
+    from itertools import product
+    import copy
+    from timeit import default_timer as tic
+    import datetime
+
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Connector.PyTree as X
+    import Transform.PyTree as T
+    import Generator.PyTree as G
+    import Geom.PyTree as D
+    import Post.PyTree as P
+    import Distributor2.PyTree as D2
+    import Converter.elsAProfile as EP
+    import Intersector.PyTree as XOR
+    import Dist2Walls.PyTree as DTW
+
 
 load = J.load 
 save = J.save

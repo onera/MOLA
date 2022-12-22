@@ -13,13 +13,16 @@ File history:
 07/04/2022 - T. Bontemps - Creation
 '''
 
-import sys
-import os
-import numpy as np
-import copy
+import MOLA
 
-import Converter.PyTree    as C
-import Converter.Internal  as I
+if not MOLA.__ONLY_DOC__:
+    import sys
+    import os
+    import numpy as np
+    import copy
+
+    import Converter.PyTree    as C
+    import Converter.Internal  as I
 
 from . import InternalShortcuts as J
 from . import Preprocess        as PRE

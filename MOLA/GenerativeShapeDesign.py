@@ -11,32 +11,34 @@ First creation:
 01/03/2019 - L. Bernardos - Creation by recycling.
 '''
 
-# System modules
-import sys
-from copy import deepcopy as cdeep
-import numpy as np
-import pprint
-from timeit import default_timer as Tok
-
-
-# Cassiopee
-import Converter.PyTree as C
-import Converter.Internal as I
-import Geom.PyTree as D
-import Post.PyTree as P
-import Generator.PyTree as G
-import Transform.PyTree as T
-import Connector.PyTree as X
-import Distributor2.PyTree as D2
-import Intersector.PyTree as XOR
-
-# MOLA
+import MOLA
 from . import InternalShortcuts as J
 from . import Wireframe as W
 
-verbose = False
-MAX = np.maximum
-MIN = np.minimum
+if not MOLA.__ONLY_DOC__:
+    # System modules
+    import sys
+    from copy import deepcopy as cdeep
+    import numpy as np
+    import pprint
+    from timeit import default_timer as Tok
+
+
+    # Cassiopee
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Geom.PyTree as D
+    import Post.PyTree as P
+    import Generator.PyTree as G
+    import Transform.PyTree as T
+    import Connector.PyTree as X
+    import Distributor2.PyTree as D2
+    import Intersector.PyTree as XOR
+
+
+    verbose = False
+    MAX = np.maximum
+    MIN = np.minimum
 
 def sweepSections(sections=[], SpanPositions=None,
                   rotation=[0.], rotationLaw='linear',
