@@ -650,7 +650,14 @@ def useEquation(data, *args, **kwargs):
             print(zone.name()+' has field '+str(zone.field('field')))
 
 
-    ok
+    this will produce: 
+
+    .. code-block:: text
+
+        zoneA has field [12. 12.]
+        zoneB has field [12. 12. 12. 12.]
+        zoneC has field [12. 12. 12. 12. 12. 12.]
+
 
     '''
 
