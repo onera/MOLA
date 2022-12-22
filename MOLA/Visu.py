@@ -24,22 +24,25 @@ File history:
 12/06/2020 - v1.8.01 - L. Bernardos - Creation
 '''
 
-import sys
-import os
-import numpy as np
-from time import sleep
-
-import matplotlib.pyplot as plt
-import matplotlib.colors as mplcolors
-from matplotlib import cm
-from matplotlib.colors import ListedColormap, LinearSegmentedColormap
-
-
-import Converter.PyTree as C
-import Converter.Internal as I
-import Transform.PyTree as T
-
+import MOLA
 from . import InternalShortcuts as J
+
+if not MOLA.__ONLY_DOC__:
+    import sys
+    import os
+    import numpy as np
+    from time import sleep
+
+    import matplotlib.pyplot as plt
+    import matplotlib.colors as mplcolors
+    from matplotlib import cm
+    from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+
+
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Transform.PyTree as T
+
 
 
 def xyz2Pixel(points,win,posCam,posEye,dirCam,viewAngle=50.0):

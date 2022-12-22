@@ -1,16 +1,20 @@
 #!/usr/bin/python
-# Python general packages
-import os
-import sys
-import numpy as np
-from mpi4py import MPI
-# Cassiopee packages
-import Converter.PyTree   as C
-import Converter.Internal as I
-import Post.PyTree        as P
-# ETC packages
-import etc.transform.__future__ as trf
-import etc.post as epost
+
+import MOLA
+
+if not MOLA.__ONLY_DOC__:
+    # Python general packages
+    import os
+    import sys
+    import numpy as np
+    from mpi4py import MPI
+    # Cassiopee packages
+    import Converter.PyTree   as C
+    import Converter.Internal as I
+    import Post.PyTree        as P
+    # ETC packages
+    import etc.transform.__future__ as trf
+    import etc.post as epost
 
 from . import InternalShortcuts as J
 

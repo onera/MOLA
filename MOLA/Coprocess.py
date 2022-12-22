@@ -10,36 +10,38 @@ Recommended syntax for use:
 23/12/2020 - L. Bernardos - creation by recycling
 '''
 
-
-import sys
-import os
-import time
-import timeit
-from datetime import datetime
-import numpy as np
-from scipy.ndimage.filters import uniform_filter1d
-import shutil
-import psutil
-import pprint
-import glob
-import copy
-from mpi4py import MPI
-comm   = MPI.COMM_WORLD
-rank   = comm.Get_rank()
-NumberOfProcessors = comm.Get_size()
-nbOfDigitsOfNProcs = int(np.ceil(np.log10(NumberOfProcessors+1)))
-
-import Converter.PyTree as C
-import Converter.Internal as I
-import Converter.Filter as Filter
-import Converter.Mpi as Cmpi
-import Transform.PyTree as T
-import Post.PyTree as P
-
+import MOLA
 from . import InternalShortcuts as J
 from . import Preprocess as PRE
 from . import JobManager as JM
 from . import BodyForceTurbomachinery as BF
+
+if not MOLA.__ONLY_DOC__:
+    import sys
+    import os
+    import time
+    import timeit
+    from datetime import datetime
+    import numpy as np
+    from scipy.ndimage.filters import uniform_filter1d
+    import shutil
+    import psutil
+    import pprint
+    import glob
+    import copy
+    from mpi4py import MPI
+    comm   = MPI.COMM_WORLD
+    rank   = comm.Get_rank()
+    NumberOfProcessors = comm.Get_size()
+    nbOfDigitsOfNProcs = int(np.ceil(np.log10(NumberOfProcessors+1)))
+
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Converter.Filter as Filter
+    import Converter.Mpi as Cmpi
+    import Transform.PyTree as T
+    import Post.PyTree as P
+
 
 
 # ------------------------------------------------------------------ #
@@ -223,8 +225,7 @@ def extractSurfaces(t, Extractions):
                 If provided, this name replaces the default name of the CGNSBase
                 container of the surfaces
 
-                ..note::
-                  not relevant if ``type`` starts with  ``AllBC``
+                .. note:: not relevant if ``type`` starts with  ``AllBC``
 
             * ``field`` : :py:class:`str` (contextual)
                 Name of the field employed for slicing if ``type`` = ``IsoSurface``
@@ -427,7 +428,7 @@ def extractIntegralData(to, arrays, Extractions=[],
 
             >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
-            ..note:: **arrays** is modified in-place
+            .. note:: **arrays** is modified in-place
 
         RequestedStatistics : :py:class:`list` of :py:class:`str`
             Here, the user requests the additional statistics to be computed.
@@ -474,7 +475,7 @@ def extractResiduals(to, arrays):
 
             >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
-            ..note:: **arrays** is modified in-place
+            .. note:: **arrays** is modified in-place
 
     '''
     ConvergenceHistoryNodes = I.getNodesByType(to, 'ConvergenceHistory_t')

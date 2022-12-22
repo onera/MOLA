@@ -10,42 +10,42 @@ First creation:
 24/11/2019 - L. Bernardos
 '''
 
-import sys
-import os
-import re
-import copy
-import traceback
-from timeit import default_timer as tic
-import numpy as np
-from numpy.linalg import norm
-import scipy.interpolate as si
-import scipy.optimize as so
-from scipy.spatial import Delaunay
-import scipy.integrate as sint
-
-
-import Converter.PyTree as C
-import Converter.Internal as I
-import Transform.PyTree as T
-import Generator.PyTree as G
-import Connector.PyTree as X
-import Post.PyTree as P
-import Geom.PyTree as D
-
+import MOLA
 from . import InternalShortcuts as J
 from . import Wireframe as W
 from . import GenerativeShapeDesign as GSD
 from . import GenerativeVolumeDesign as GVD
 from . import __version__
-from .Coprocess import printCo
+
+import sys
+import os
+import re
+import copy
+import traceback
+import numpy as np
+if not MOLA.__ONLY_DOC__:
+    from timeit import default_timer as tic
+    from numpy.linalg import norm
+    import scipy.interpolate as si
+    import scipy.optimize as so
+    from scipy.spatial import Delaunay
+    import scipy.integrate as sint
 
 
-try:
-    silence = J.OutputGrabber()
-    with silence:
-        import PUMA
-except:
-    pass
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Transform.PyTree as T
+    import Generator.PyTree as G
+    import Connector.PyTree as X
+    import Post.PyTree as P
+    import Geom.PyTree as D
+
+    try:
+        silence = J.OutputGrabber()
+        with silence:
+            import PUMA
+    except:
+        pass
 
 
 # Global constants
@@ -306,13 +306,6 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
         if TipLossFactorOptions:
             TipLossFactorOptions['NumberOfBlades']=NBlades
-
-        # for zLL in I.getZones(tLL):
-        #     vars = C.getVarNames(zLL, excludeXYZ=True)[0]
-        #     fields_bfs = J.getVars2Dict(zLL, VariablesName=vars)
-        #     for f in fields_bfs:
-        #         if np.any(np.logical_not(np.isfinite(fields_bfs[f]))):
-        #             printCo("ERROR: (0) NaN were found in Lifting-Line field %s !!"%f,color=J.FAIL)
 
         computeGeneralLoadsOfLiftingLine(tLL, TipLossFactorOptions=TipLossFactorOptions)
 
@@ -721,7 +714,7 @@ def computeSourceTerms(zone, SourceTermScale=1.0):
             dissipation effects provoked by the transfer of fields from the disk
             towards the CFD computational grid.
     '''
-    
+    from .Coprocess import printCo
 
 
     ConservativeFields = ['Density', 'MomentumX','MomentumY', 'MomentumZ',
@@ -4002,7 +3995,7 @@ def applyTipLossFactorToBladeEfforts(LiftingLine, kind='Prandtl', NumberOfBlades
     Apply a tip loss factor function to :math:`C_l` and :math:`C_d` quantities 
     of a LiftingLine. 
 
-    .. note:: this function is optionally called used in the context of :py:fun:`computeGeneralLoadsOfLiftingLine`
+    .. note:: this function is optionally called used in the context of :py:func:`computeGeneralLoadsOfLiftingLine`
 
     Parameters
     ----------
@@ -4739,6 +4732,8 @@ def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
             as obtained from the function :py:func:`getLocalBodyForceInputData`
     '''
     import Converter.Mpi as Cmpi
+    from .Coprocess import printCo
+
     def getItemOrRaiseWarning(itemName):
         try:
             item = Rotor[itemName]
@@ -4881,6 +4876,7 @@ def computePropellerBodyForce(to, NumberOfSerialRuns, LocalBodyForceInputData):
             container, ready to be migrated into CFD grid
             ( see :py:func:`migrateSourceTerms2MainPyTree` )
     '''
+    from .Coprocess import printCo
     BodyForceDisks = []
     BodyForcePropellers = []
 

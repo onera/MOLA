@@ -9,33 +9,35 @@ File history:
 31/08/2021 - T. Bontemps - Creation
 '''
 
-import sys
-import os
-import numpy as np
-import pprint
-import copy
-import scipy.optimize
-
-import Converter.PyTree    as C
-import Converter.Internal  as I
-import Distributor2.PyTree as D2
-import Post.PyTree         as P
-import Generator.PyTree    as G
-import Transform.PyTree    as T
-import Connector.PyTree    as X
-
 import MOLA
 from . import InternalShortcuts as J
 from . import Preprocess        as PRE
 from . import JobManager        as JM
 from . import BodyForceTurbomachinery as BF
 
-try:
-    from . import ParametrizeChannelHeight as ParamHeight
-except ImportError:
-    MSG = 'Fail to import ParametrizeChannelHeight: function parametrizeChannelHeight is unavailable'.format(__name__)
-    print(J.WARN + MSG + J.ENDC)
-    ParamHeight = None
+if not MOLA.__ONLY_DOC__:
+    import sys
+    import os
+    import numpy as np
+    import pprint
+    import copy
+    import scipy.optimize
+
+    import Converter.PyTree    as C
+    import Converter.Internal  as I
+    import Distributor2.PyTree as D2
+    import Post.PyTree         as P
+    import Generator.PyTree    as G
+    import Transform.PyTree    as T
+    import Connector.PyTree    as X
+
+
+    try:
+        from . import ParametrizeChannelHeight as ParamHeight
+    except ImportError:
+        MSG = 'Fail to import ParametrizeChannelHeight: function parametrizeChannelHeight is unavailable'.format(__name__)
+        print(J.WARN + MSG + J.ENDC)
+        ParamHeight = None
 
 def checkDependencies():
     '''

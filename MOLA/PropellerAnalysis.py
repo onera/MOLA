@@ -16,20 +16,25 @@ import numpy as np
 import timeit
 import itertools
 
-import Converter.PyTree as C
-import Converter.Internal as I
+import MOLA
 
 from . import InternalShortcuts as J
 from . import Wireframe as W
 from . import LiftingLine as LL
 
-try:
-    silence = J.OutputGrabber()
-    with silence:
-        import PUMA
-        import PUMA.Fact
-except:
-    pass
+if not MOLA.__ONLY_DOC__:
+
+    import Converter.PyTree as C
+    import Converter.Internal as I
+
+
+    try:
+        silence = J.OutputGrabber()
+        with silence:
+            import PUMA
+            import PUMA.Fact
+    except:
+        pass
 
 # Global constants
 # -> Fluid constants

@@ -6,25 +6,28 @@ BETA Module
 12/05/2021 - L. Bernardos - Creation from recycling
 '''
 
-# System modules
-import sys
-import os
-import time
-import timeit
-import shutil
-import imp
-import copy
-import numpy as np
-from itertools import product
+import MOLA
 
-# Cassiopee
-import Converter.PyTree as C
-import Converter.Internal as I
-import Transform.PyTree as T
-import Generator.PyTree as G
-import Geom.PyTree as D
-import Post.PyTree as P
-import Converter.elsAProfile as eP
+if not MOLA.__ONLY_DOC__:
+    # System modules
+    import sys
+    import os
+    import time
+    import timeit
+    import shutil
+    import imp
+    import copy
+    import numpy as np
+    from itertools import product
+
+    # Cassiopee
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Transform.PyTree as T
+    import Generator.PyTree as G
+    import Geom.PyTree as D
+    import Post.PyTree as P
+    import Converter.elsAProfile as eP
 
 # MOLA
 from . import InternalShortcuts as J

@@ -4,20 +4,24 @@ UnsteadyOverset
 13/09/2022 - L. Bernardos - creation
 '''
 
-from ctypes import alignment
-from multiprocessing.sharedctypes import Value
-import os
-import numpy as np
-from itertools import product
-from timeit import default_timer as ToK
+import MOLA
 
-import Converter.PyTree as C
-import Converter.Internal as I
-import Connector.PyTree as X
-import Transform.PyTree as T
-import Generator.PyTree as G
-import Post.PyTree as P
-import Geom.PyTree as D
+if not MOLA.__ONLY_DOC__:
+    from ctypes import alignment
+    from multiprocessing.sharedctypes import Value
+    import os
+    import numpy as np
+    from itertools import product
+    from timeit import default_timer as ToK
+
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Connector.PyTree as X
+    import Transform.PyTree as T
+    import Generator.PyTree as G
+    import Post.PyTree as P
+    import Geom.PyTree as D
+    cost_est = np.array([0.0])
 
 from . import InternalShortcuts as J
 from . import GenerativeShapeDesign as GSD
@@ -28,7 +32,6 @@ from .Preprocess import getBodyName
 
 MOLA_MASK = 'mask'
 
-cost_est = np.array([0.0])
 
 def setMaskParameters(t, InputMeshes):
     mask_params = dict(type='cart_elts', blanking_criteria='center_in',

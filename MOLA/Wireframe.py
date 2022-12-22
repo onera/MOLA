@@ -13,31 +13,32 @@ File history:
 27/02/2019 - v1.0 - L. Bernardos - Creation by recycling
 '''
 
-# System modules
-import sys
-import os
-import numpy as np
-from copy import deepcopy as cdeep
-from timeit import default_timer as tic
-
-# Scipy modules
-try: import scipy.optimize
-except:
-    print ('%s: WARNING could not import scipy.optimize. This may cause error for some functions.'%__file__)
-    pass
-
-# Cassiopee
-import Converter.PyTree as C
-import Converter.Internal as I
-import Geom.PyTree as D
-import Post.PyTree as P
-import Generator.PyTree as G
-import Transform.PyTree as T
-import Connector.PyTree as X
-import Intersector.PyTree as XOR
-
-# Generative modules
+import MOLA
 from . import InternalShortcuts as J
+if not MOLA.__ONLY_DOC__:
+    # System modules
+    import sys
+    import os
+    import numpy as np
+    from copy import deepcopy as cdeep
+    from timeit import default_timer as tic
+
+    # Scipy modules
+    try: import scipy.optimize
+    except:
+        print ('%s: WARNING could not import scipy.optimize. This may cause error for some functions.'%__file__)
+        pass
+
+    # Cassiopee
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Geom.PyTree as D
+    import Post.PyTree as P
+    import Generator.PyTree as G
+    import Transform.PyTree as T
+    import Connector.PyTree as X
+    import Intersector.PyTree as XOR
+
 
 linelawVerbose = False
 
