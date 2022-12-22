@@ -3146,9 +3146,6 @@ def assembleAndProjectVelocities(t):
                           'VelocityX',
                           'VelocityY',
                           'VelocityZ',
-                          'VelocityRelativeX',
-                          'VelocityRelativeY',
-                          'VelocityRelativeZ',
                           'Velocity2DX',
                           'Velocity2DY',
                           'Velocity2DZ',
@@ -3196,9 +3193,6 @@ def assembleAndProjectVelocities(t):
         v['VelocityX'][:] = VelocityInduced[0,:] + VelocityFreestream[0]
         v['VelocityY'][:] = VelocityInduced[1,:] + VelocityFreestream[1]
         v['VelocityZ'][:] = VelocityInduced[2,:] + VelocityFreestream[2]
-        v['VelocityRelativeX'][:] = VelocityRelative[0,:]
-        v['VelocityRelativeY'][:] = VelocityRelative[1,:]
-        v['VelocityRelativeZ'][:] = VelocityRelative[2,:]
         v['VelocityAxial'][:] = Vax = ( VelocityRelative.T.dot(-RotationAxis) ).T
         v['VelocityTangential'][:] = Vtan = np.diag(VelocityRelative.T.dot(TangentialDirection))
         # note the absence of radial velocity contribution to 2D flow
@@ -5349,7 +5343,6 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
 
 
     FieldsNames2Extract = ['CoordinateX','CoordinateY','CoordinateZ',
-                    'VelocityRelativeX', 'VelocityRelativeY', 'VelocityRelativeZ',
                     'Velocity2DX', 'Velocity2DY', 'Velocity2DZ', 'Gamma']
     AllSourceZones = []
 
