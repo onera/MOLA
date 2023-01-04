@@ -110,7 +110,7 @@ def load(filename, only_skeleton=False):
           import MOLA.Data as M
           t = M.load('myfile.cgns')
 
-        will open the file, including numpy contained in *DataArray_t* nodes.
+        will open the file, including :py:class:`numpy.ndarray` contained in *DataArray_t* nodes.
         If you want to open a file without loading *DataArray_t* data, then you
         can do it like this:
 
@@ -668,6 +668,68 @@ def useEquation(data, *args, **kwargs):
 
 
 def newZoneFromArrays(Name, ArraysNames, Arrays):
+    '''
+    This handy function easily produces a structured :py:class:`~MOLA.Data.Zone.Zone`
+    directly from numpy arrays.
+
+    Parameters
+    ----------
+
+        Name : str
+            The name you want to attribute to the new :py:class:`~MOLA.Data.Zone.Zone`
+
+        ArraysNames: list
+            A :py:class:`list` of :py:class:`str` corresponding to the names 
+            of each field (or coordinate) contained in **Arrays** (see next)
+
+        Arrays : :py:class:`list` of :py:class:`numpy.ndarray`
+            A :py:class:`list` containing each numpy array (coordinates and/or
+            fields). All :py:class:`numpy.ndarray` must have identical :py:obj:`~numpy.ndarray.shape`
+
+    Returns
+    -------
+
+        zone : :py:class:`~MOLA.Data.Zone.Zone`
+            the new created :py:class:`~MOLA.Data.Zone.Zone`
+
+    Examples
+    --------
+
+    Create a block including a field 
+
+    ::
+
+        import MOLA.Data as M
+        import numpy as np
+
+        # create a grid
+        x, y, z = np.meshgrid( np.linspace(0,1,11),
+                               np.linspace(0,0.5,7),
+                               np.linspace(0,0.3,4), indexing='ij')
+
+        # create a field
+        field = x*y
+
+        # create the new zone using numpy arrays of coordinates and field
+        zone = M.newZoneFromArrays( 'block', ['x','y','z','field'],
+                                             [ x,  y,  z,  field ])
+
+        # save result
+        M.save(zone,'out.cgns')
+
+    
+    .. note::
+        In this example we employ useful numpy functions
+        :py:func:`~numpy.meshgrid` and :py:func:`~numpy.linspace`. In order to
+        obtain a direct ordered mesh (following the right-hand-rule),
+        we must specify :python:`indexing='ij'` option to :py:func:`~numpy.meshgrid`
+        
+
+    See also
+    --------
+
+    :py:func:`newZoneFromDict`
+    '''
 
     CoordinatesNames = list(CoordinatesShortcuts)
     numpyarray = np.array(Arrays[0])
@@ -693,6 +755,64 @@ def newZoneFromArrays(Name, ArraysNames, Arrays):
     return zone
 
 def newZoneFromDict(Name, DictWithArrays):
+    '''
+    This handy function easily produces a structured :py:class:`~MOLA.Data.Zone.Zone`
+    directly from numpy arrays.
+
+    Parameters
+    ----------
+
+        Name : str
+            The name you want to attribute to the new :py:class:`~MOLA.Data.Zone.Zone`
+
+        DictWithArrays: dict
+            A :py:class:`dict` where each key corresponds to a field or coordinate 
+            name and each value corresponds to the :py:class:`numpy.ndarray`.
+            All :py:class:`numpy.ndarray` must have identical :py:obj:`~numpy.ndarray.shape`
+
+    Returns
+    -------
+
+        zone : :py:class:`~MOLA.Data.Zone.Zone`
+            the new created :py:class:`~MOLA.Data.Zone.Zone`
+
+    Examples
+    --------
+
+    Create a block including a field 
+
+    ::
+
+        import MOLA.Data as M
+        import numpy as np
+
+        # create a grid
+        x, y, z = np.meshgrid( np.linspace(0,1,11),
+                               np.linspace(0,0.5,7),
+                               np.linspace(0,0.3,4), indexing='ij')
+
+        # create a field
+        field = x*y
+
+        # create the new zone using numpy arrays of coordinates and field
+        zone = M.newZoneFromDict( 'block', dict(x=x, y=y, z=z, filed=field) )
+
+        # save result
+        M.save(zone,'out.cgns')
+
+
+    .. note::
+        In this example we employ useful numpy functions
+        :py:func:`~numpy.meshgrid` and :py:func:`~numpy.linspace`. In order to
+        obtain a direct ordered mesh (following the right-hand-rule),
+        we must specify :python:`indexing='ij'` option to :py:func:`~numpy.meshgrid`
+        
+
+    See also
+    --------
+
+    :py:func:`newZoneFromArrays`
+    '''
     ArraysNames, Arrays = [], []
     for k in DictWithArrays:
         ArraysNames += [k]

@@ -22,7 +22,7 @@ class Tree(Node):
 
         if not self.get('CGNSLibraryVersion', Depth=1):
             ver=Node(Name='CGNSLibraryVersion',
-                     Value=3.1,
+                     Value=np.array([3.1],dtype=np.float32),
                      Type='CGNSLibraryVersion_t')
             self.addChild(ver,position=0)
 

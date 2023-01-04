@@ -2314,12 +2314,12 @@ def printEnvironment():
 
 
     # Vortex Particle Method
-    # try:
-    #     import VortexParticleMethod as VPM
-    #     vVPM = VPM.__version__
-    # except:
-    #     vVPM = FAIL + 'UNAVAILABLE' + ENDC
-    # print(' --> VPM '+vVPM)
+    try:
+        import VortexParticleMethod as VPM
+        vVPM = VPM.__version__
+    except:
+        vVPM = FAIL + 'UNAVAILABLE' + ENDC
+    print(' --> VPM '+vVPM)
 
 
     if totoV == 'Dev':
