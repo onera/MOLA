@@ -23,12 +23,6 @@ if not MOLA.__ONLY_DOC__:
     from copy import deepcopy as cdeep
     from timeit import default_timer as tic
 
-    # Scipy modules
-    try: import scipy.optimize
-    except:
-        print ('%s: WARNING could not import scipy.optimize. This may cause error for some functions.'%__file__)
-        pass
-
     # Cassiopee
     import Converter.PyTree as C
     import Converter.Internal as I
@@ -958,15 +952,25 @@ def discretize(curve, N=None, Distribution=None, MappingLaw='Generator.map'):
     if MappingLaw == 'Generator.map':
         return G.map(curve,D.getDistribution(curve_Distri))
     else:
-        s        = gets(curve)
-        sMap     = gets(curve_Distri)
-        x, y, z  = J.getxyz(curve)
-        curveMap = D.line((0,0,0),(1,0,0),C.getNPts(curve_Distri))
-        curveMap[0] = curve[0]+'.mapped'
-        xMap, yMap, zMap = J.getxyz(curveMap)
-        xMap[:] = J.interpolate__(sMap, s, x, Law=MappingLaw, axis=-1)
-        yMap[:] = J.interpolate__(sMap, s, y, Law=MappingLaw, axis=-1)
-        zMap[:] = J.interpolate__(sMap, s, z, Law=MappingLaw, axis=-1)
+
+        # List of variables to remap
+        VarsNames = C.getVarNames(curve)[0]
+
+        # Get the list of arrays, including coordinates
+        OldVars = [I.getValue(I.getNodeFromName2(curve,vn)) for vn in VarsNames]
+        if 's' in VarsNames:
+            OldAbscissa = J.getVars(curve,['s'])[0]
+        else:
+            OldAbscissa = gets(curve)
+
+        # Get the newly user-defined abscissa
+        _,NewAbscissa,_ = J.getDistributionFromHeterogeneousInput__(curve_Distri)
+
+        # Perform remapping (interpolation)
+        VarsArrays = [J.interpolate__(NewAbscissa,OldAbscissa,OldVar, Law=MappingLaw) for OldVar in OldVars]
+
+        # Invoke newly remapped curve
+        curveMap = J.createZone(curve[0],VarsArrays,VarsNames)
 
         return curveMap
 
@@ -1733,7 +1737,8 @@ def _rootScalar__(func, x0, xmin=None, xmax=None, args=None, maxstep=1.e-3,
 
 def extrapolate(curve, ExtrapDistance, mode='tangent', opposedExtremum=False):
     '''
-    Extrapolate a curve from one of its boundaries.
+    Extrapolate a curve from one of its boundaries. Fields are **not** 
+    extrapolated, but rather initialized to zero.
 
     Parameters
     ----------
@@ -1757,12 +1762,15 @@ def extrapolate(curve, ExtrapDistance, mode='tangent', opposedExtremum=False):
         ExtrapolatedCurve : zone
             extrapolated curve (structured)
     '''
+    curve = I.copyRef(curve)
 
     if opposedExtremum: T._reorder(curve,(-1,2,3))
 
     cX, cY, cZ = J.getxyz(curve)
     Tangent    = D.getTangent(curve)
     tX, tY, tZ = J.getxyz(Tangent)
+
+    fields_names = C.getVarNames(curve, excludeXYZ=True)[0]
 
     if mode=='tangent':
 
@@ -1772,7 +1780,9 @@ def extrapolate(curve, ExtrapDistance, mode='tangent', opposedExtremum=False):
                     Pt[1]+tY[-1]*ExtrapDistance,
                     Pt[2]+tZ[-1]*ExtrapDistance)]
         Appendix = D.polyline(Points)
-        ExtrapolatedCurve = T.join(curve,Appendix)
+        if fields_names: J.invokeFields(Appendix, fields_names)
+        
+        ExtrapolatedCurve = T.join(curve, Appendix)
 
 
     if opposedExtremum: T._reorder(ExtrapolatedCurve,(-1,2,3))
@@ -3362,17 +3372,18 @@ def splitAirfoil(AirfoilCurve, FirstEdgeSearchPortion = 0.50,
                                ChordwiseRegion='< %g'%SecondEdgeSearchPortion,
                                ToleranceRelativeRadius=RelativeRadiusTolerance)
 
-
     if TErmin > LErmin:
         TErmin , LErmin = LErmin , TErmin
         TE , LE = LE , TE
-    C._rmVars([LE, TE], 'radius')
+    I._rmNodesByType([LE, TE], 'FlowSolution_t')
     LE[0] = 'LeadingEdge'
     TE[0] = 'TrailingEdge'
     LeadingEdgeCoords  = np.array(J.getxyz( LE )).flatten()
     TrailingEdgeCoords = np.array(J.getxyz( TE )).flatten()
     Chord = distance(LeadingEdgeCoords, TrailingEdgeCoords)
     ChordDirection = TrailingEdgeCoords - LeadingEdgeCoords
+    
+    # TODO BUG replace this (beware of https://elsa.onera.fr/issues/10878)
     for receiver in [LE, TE]:
         T._projectOrtho( receiver, AirfoilCurve )
         P._extractMesh( AirfoilCurve,
@@ -3387,7 +3398,6 @@ def splitAirfoil(AirfoilCurve, FirstEdgeSearchPortion = 0.50,
     I.setName(BottomSide, 'BottomSideCandidate')
     TopSide    = splitSide( LE, TE )
     I.setName(TopSide, 'TopSideCandidate')
-
     for criterion in SideChoiceCriteriaPriorities:
         if criterion == 'distance':
             TopSideMaxDistanceToChordLine = getMaximumDistanceToChordLine(
@@ -3604,7 +3614,7 @@ def buildCamber(AirfoilCurve, MaximumControlPoints=100, StepControlPoints=10,
     CamberPolyline = D.line( J.getxyz( LeadingEdge ),
                              J.getxyz( TrailingEdge ),
                              NCtrlPts )
-
+    
     ptrs = prepareCamberLine(CamberPolyline)
     CamberPolylineFields, CamberPolylineTangents, CamberPolylineCoords = ptrs
 
@@ -3647,8 +3657,6 @@ def buildCamber(AirfoilCurve, MaximumControlPoints=100, StepControlPoints=10,
                                kind='trigonometric', parameter=1)
 
 
-    NCtrlPts = FinalDistribution['N']
-    Camber = discretize(Camber, N=NCtrlPts, Distribution=FinalDistribution)
     CamberPolyline = Camber
     ptrs = prepareCamberLine(CamberPolyline)
     e, = J.invokeFields(CamberPolyline,['RelativeThickness'])
@@ -3660,11 +3668,60 @@ def buildCamber(AirfoilCurve, MaximumControlPoints=100, StepControlPoints=10,
             np.sqrt(CamberPolylineFields['SquaredDistanceBottom'])) / Chord
 
     if not CONVERGED:
-        print('Camber line not converged with residual %g'%residual)
+        print(J.WARN+'Camber line not converged with residual %g'%residual+J.ENDC)
 
-    CamberPolyline[0] += '.camber'
+    CamberCoarse = I.copyTree(CamberPolyline)
+    CamberCoarse[0] = 'coarse'
+    CamberPolyline = discretize(CamberCoarse, N=FinalDistribution['N'],
+                             Distribution=FinalDistribution, MappingLaw='akima')
+    NCtrlPts = FinalDistribution['N']
+    gets(TopSide)
+    TopSide = discretize(TopSide, N=FinalDistribution['N'],
+                             Distribution=FinalDistribution, MappingLaw='akima')
+    gets(BottomSide)
+    BottomSide = discretize(BottomSide, N=FinalDistribution['N'],
+                             Distribution=FinalDistribution, MappingLaw='akima')
 
-    return CamberPolyline
+    ptrs = prepareCamberLine(CamberPolyline)
+    e, = J.invokeFields(CamberPolyline,['RelativeThickness'])
+    CamberPolylineFields, CamberPolylineTangents, CamberPolylineCoords = ptrs
+    updateTangents()
+    updatePerpendicularSquaredDistance(    TopSide, 'Top' )
+    updatePerpendicularSquaredDistance( BottomSide, 'Bottom' )
+    e[:] = (np.sqrt(CamberPolylineFields['SquaredDistanceTop']) + \
+            np.sqrt(CamberPolylineFields['SquaredDistanceBottom'])) / Chord
+    CamberFine = CamberPolyline
+   
+
+
+    # NOTE this could produce awful results dependending on the slope value...
+    # CamberFine = discretize(CamberPolyline, N=FinalDistribution['N'],
+    #                          Distribution=FinalDistribution, MappingLaw='akima')
+    # fields_names = C.getVarNames(CamberFine, excludeXYZ=True)[0]
+    # # interpolate coarse fields into fine fields
+    # fields_coarse = J.getVars(CamberPolyline, fields_names)
+    # fields_fine = J.getVars(CamberFine, fields_names)
+    # s_coarse = gets(CamberPolyline)
+    # s_fine = gets(CamberFine)
+    # slope = 5
+    # for field_coarse, field_fine in zip(fields_coarse, fields_fine):
+    #     field_fine[:] = J.interpolate__(s_fine,s_coarse,field_coarse, Law='cubic',
+    #                                     bc_type=((1,slope),'not-a-knot'))
+
+    CamberFine[0] = CamberPolyline[0]+'.camber'
+    gets(CamberFine)
+    gets(CamberCoarse)
+
+    # import matplotlib.pyplot as plt
+    # s, e = J.getVars(CamberCoarse,['s','RelativeThickness'])
+    # plt.plot(s,e,'o',mfc='None')
+    # s, e = J.getVars(CamberFine,['s','RelativeThickness'])
+    # plt.plot(s,e,'.-')
+    # plt.show()
+
+    
+    
+    return CamberFine
 
 
 def getAirfoilPropertiesAndCamber(AirfoilCurve, buildCamberOptions={},
@@ -3740,7 +3797,7 @@ def getAirfoilPropertiesAndCamber(AirfoilCurve, buildCamberOptions={},
     ChordDirection /= Chord
     AirfoilProperties['Chord'] = Chord
     AirfoilProperties['ChordDirection'] = ChordDirection
-
+    
 
     TopSideX, TopSideY, TopSideZ = J.getxyz(TopSide)
     ChordCoplanarDirection = np.array([TopSideX[1]-TopSideX[0],
@@ -4102,6 +4159,7 @@ def modifyThicknessOfCamberLine(CamberCurve, NormalDirection, MaxThickness=None,
     T._translate(CamberLine,-LeadingEdge)
     T._rotate(CamberLine, (0,0,0),FrenetOriginal, FrenetAuxiliary)
     x,y,z = J.getxyz(CamberLine)
+    s = gets(CamberLine)
 
 
     RelativeThickness, = J.getVars(CamberLine, ['RelativeThickness'])
@@ -4146,9 +4204,9 @@ def modifyThicknessOfCamberLine(CamberCurve, NormalDirection, MaxThickness=None,
 
         AuxCamberLine = T.join(FrontCamber, RearCamber)
         AuxRelativeThickness, = J.getVars(AuxCamberLine, ['RelativeThickness'])
-        AuxX = J.getx(AuxCamberLine)
 
-        RelativeThickness[:] = J.interpolate__(x, AuxX, AuxRelativeThickness,
+        AuxS = gets(AuxCamberLine)
+        RelativeThickness[:] = J.interpolate__(s, AuxS, AuxRelativeThickness,
                                                Law=InterpolationLaw)
 
 
@@ -4220,7 +4278,6 @@ def modifyCamberOfCamberLine(CamberCurve, NormalDirection,
                         (MinRelativeCamber is not None) or
                         MinCamberRelativeLocation)
     if not needModification: return CamberCurve
-
     if (MaxCamber and MaxRelativeCamber) or \
        (MinCamber and MinRelativeCamber):
         raise AttributeError('Cannot specify both relative and absolute camber')

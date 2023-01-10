@@ -113,6 +113,53 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
                 see :py:func:`addOversetData` doc for more information on
                 accepted values.
 
+            * Motion : :py:class:`dict`
+                Specifies if the block corresponds to a rotating overset grid.
+                This is specifically designed for propeller or rotor blades.
+
+                Acceptable keys are:
+
+                * NumberOfBlades : :py:class:`int`
+                    Specifies the number of blades of the component that will be
+                    duplicated. New blades will be added to the main tree as 
+                    new CGNS Bases and will be named ``<baseName>_#``.
+
+                * InitialFrame : :py:class:`dict`
+                    Specifies the position of the original mesh as placed in 
+                    **file**. Possible keys are:
+
+                    RotationCenter : 3-float :py:class:`list`
+                        :math:`(x,y,z)` coordinates of the rotation point
+
+                    RotationAxis : 3-float :py:class:`list`
+                        :math:`(x,y,z)` components of the rotation axis
+
+                    BladeDirection : 3-float :py:class:`list`
+                        :math:`(x,y,z)` components of the direction of the blade,
+                        from root to tip.
+
+                    RightHandRuleRotation : :py:class:`bool`
+                        if :py:obj:`True`, the rotation orientation of the blade
+                        in the input **file** follows the right-hand-rule.
+
+                * RequestedFrame : :py:class:`dict`
+                    Specifies the requested final position of the component.
+                    Possible keys are:
+
+                    RotationCenter : 3-float :py:class:`list`
+                        :math:`(x,y,z)` coordinates of the rotation point
+
+                    RotationAxis : 3-float :py:class:`list`
+                        :math:`(x,y,z)` components of the rotation axis
+
+                    BladeDirection : 3-float :py:class:`list`
+                        :math:`(x,y,z)` components of the direction of the blade,
+                        from root to tip.
+
+                    RightHandRuleRotation : :py:class:`bool`
+                        if :py:obj:`True`, the rotation orientation of the blade
+                        will follow the right-hand-rule.
+
             * SplitBlocks : :py:class:`bool`
                 if :py:obj:`True`, allow for splitting this component in
                 order to satisfy the user-provided rules of total number of used
@@ -122,6 +169,10 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
                 .. attention:: split operation results in loss of connectivity information.
                     Hence, if ``SplitBlocks=True`` , then user must specify connection
                     rules in list **Connection**.
+
+                .. danger:: you must **NOT** split blocks requiring *NearMatch*,
+                    like e.g. octree cartesian structured blocks commonly used 
+                    as background mesh in overset computations.
 
         splitOptions : dict
             All optional parameters passed to function :py:func:`splitAndDistribute`
@@ -220,6 +271,26 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
             List of extractions to perform during the simulation. For now, only
             surfacic extractions may be asked. See documentation of :func:`MOLA.Coprocess.extractSurfaces` for further details on the
             available types of extractions.
+
+        OversetMotion : :py:class:`dict` of :py:class:`dict`.
+            Set a motion (kinematic) law to each grid component (Base).
+            The value of the :py:class:`dict` must correspond to a given component
+            (**baseName** in **InputMeshes**). Each value is another :py:class:`dict`
+            defining the kinematic parameters. Acceptable keys are:
+
+            * RPM : :py:class:`int`
+                Rotation speed (in Revolutions Per Minute) of the component.
+
+            * Function : :py:class:`dict`
+                A :py:class:`dict` with pairs of keywords and values defining 
+                the elsA motion function. By default, ``'rotor_motion'`` function 
+                is employed using as rotation point and rotation vector the 
+                information provided by user in **Motion** parameter of function 
+                :py:func:`prepareMesh4ElsA`.
+
+                .. hint:: for information on elsA kinematic functions, please 
+                    see `this page <http://elsa.onera.fr/restricted/MU_tuto/latest/MU-98057/Textes/Attribute/function.html?#attributes-of-the-function-class>`_. For detailed information on elsA ``rotor_motion`` 
+                    function, please see `this page <http://elsa.onera.fr/restricted/MU_tuto/latest/MU-98057/Textes/HelicopterBladePosition.html>`_
 
         Initialization : dict
             dictionary defining the type of initialization, using the key
@@ -1492,7 +1563,8 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
     '''
     This function performs all required preprocessing operations for a
     overlapping configuration. This includes masks production, setting
-    interpolating regions and computing interpolating coefficients.
+    interpolating regions and computing interpolating coefficients. This may 
+    also include unsteady overset masking operations. 
 
     Global overset options are provided by the optional arguments of the
     function.
@@ -1563,6 +1635,9 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
                 if :py:obj:`True`, then this overset component
                 is strongly protected against masking. Only other component's walls
                 are allowed to mask this component.
+
+                .. hint:: you should use ```OnlyMaskedByWalls=True`` **except**
+                    for background grids.
 
             * ``'ForbiddenOverlapMaskingThisBase'`` : :py:class:`list` of :py:class:`str`
                 This is a list of
@@ -3367,14 +3442,12 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
     t = I.copyRef(t)
 
     addTrigger(t)
-    if AllSetupDictionaries['OversetMotion']:
+
+    if 'OversetMotion' in AllSetupDictionaries and AllSetupDictionaries['OversetMotion']:
         addOversetMotion(t, AllSetupDictionaries['OversetMotion'])
         includeRelativeFieldsForRestart = True
     else:
         includeRelativeFieldsForRestart = False
-
-    includeRelativeFieldsForRestart=True
-    # print('includeRelativeFieldsForRestart='+str(includeRelativeFieldsForRestart));exit()
 
     addExtractions(t, AllSetupDictionaries['ReferenceValues'],
                       AllSetupDictionaries['elsAkeysModel'],

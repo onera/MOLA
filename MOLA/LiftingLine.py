@@ -14,7 +14,6 @@ import MOLA
 from . import InternalShortcuts as J
 from . import Wireframe as W
 from . import GenerativeShapeDesign as GSD
-from . import GenerativeVolumeDesign as GVD
 from . import __version__
 
 import sys
@@ -24,13 +23,7 @@ import copy
 import traceback
 import numpy as np
 if not MOLA.__ONLY_DOC__:
-    from timeit import default_timer as tic
     from numpy.linalg import norm
-    import scipy.interpolate as si
-    import scipy.optimize as so
-    from scipy.spatial import Delaunay
-    import scipy.integrate as sint
-
 
     import Converter.PyTree as C
     import Converter.Internal as I
@@ -39,14 +32,6 @@ if not MOLA.__ONLY_DOC__:
     import Connector.PyTree as X
     import Post.PyTree as P
     import Geom.PyTree as D
-
-    try:
-        silence = J.OutputGrabber()
-        with silence:
-            import PUMA
-    except:
-        pass
-
 
 # Global constants
 # -> Fluid constants
@@ -577,7 +562,7 @@ def stackBodyForceComponent(Component, RotationAxis, StackStrategy='constant',
         VolumeMesh : zone
             the bodyforce volume grid
     '''
-
+    from .GenerativeVolumeDesign import stackSurfacesWithFields
     LeadingEdge = I.copyTree(Component)
     xLE,yLE,zLE = J.getxyz(LeadingEdge)
     Chord, Twist = J.getVars(LeadingEdge, ['Chord', 'Twist'])
@@ -615,7 +600,7 @@ def stackBodyForceComponent(Component, RotationAxis, StackStrategy='constant',
     yTE += TrailingEdgeDisplacement * RotationAxis[1]
     zTE += TrailingEdgeDisplacement * RotationAxis[2]
 
-    VolumeBodyForce = GVD.stackSurfacesWithFields(TrailingEdge, LeadingEdge,
+    VolumeBodyForce = stackSurfacesWithFields(TrailingEdge, LeadingEdge,
                                                   StackDistribution)
 
     return VolumeBodyForce
@@ -1316,7 +1301,7 @@ def interpolatorFromPyZonePolar(PyZonePolar, interpOptions=None,
             >>> InterpolationFunctions(AoA, Mach, Reynolds, ListOfEquations=[])
 
     '''
-
+    import scipy.interpolate as si
 
 
     # Get the fields to interpolate
@@ -1602,8 +1587,8 @@ def RbfInterpFromPyZonePolar(PyZonePolar, InterpFields=['Cl', 'Cd', 'Cm']):
 
             >>> Cl, Cd, Cm = InterpolationFunction(AoA, Mach, Reynolds)
     '''
-
-
+    from scipy.spatial import Delaunay
+    import scipy.interpolate as si
 
     # Check kind of PyZonePolar
     PolarInterpNode = I.getNodeFromName1(PyZonePolar,'.Polar#Interp')
@@ -2006,7 +1991,7 @@ def _findOptimumAngleOfAttackOnLiftLine(LiftingLine, PolarsInterpolatorDict,
             the aerodynamic coefficients.
     """
 
-
+    import scipy.optimize as so
     AoA, Cl, Cd, Mach, Reynolds = J.getVars(LiftingLine,['AoA','Cl','Cd','Mach', 'Reynolds'])
 
     if SpecificSections is None: SpecificSections = range(len(AoA))
@@ -2327,7 +2312,7 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
             structured surface containing fields at ``FlowSolution``, where the
             variables requested by the user are interpolated.
     '''
-
+    import scipy.interpolate as si
     def _applyInterpolationFunction__(VariableArray, Var, InterpolationLaw):
         '''
         Perform spanwise interpolation of PyZonePolar data
@@ -3787,6 +3772,7 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
             This :py:class:`dict` defines a pair of keyword-arguments of the 
             function :py:func:`applyTipLossFactorToBladeEfforts`.
     '''
+    import scipy.integrate as sint
 
     FrenetFields = ('tx','ty','tz','nx','ny','nz','bx','by','bz',
         'tanx','tany','tanz')
@@ -4465,7 +4451,11 @@ def convertHOSTPolarFile2Dict(filename):
                     SetOfBigAoA += BigAoA
                     SetOfBigAoAValues += BigAoAValues
                     j+=1
-                    NextTag = lines[j].split()
+                    try:
+                        NextTag = lines[j].split()
+                    except IndexError:
+                        break
+
 
                 SortInd = np.argsort(SetOfBigAoA)
                 SetOfBigAoA= np.array([SetOfBigAoA[i] for i in SortInd], order='F')
@@ -4473,7 +4463,7 @@ def convertHOSTPolarFile2Dict(filename):
 
                 Data[Var]['BigAoA'] = SetOfBigAoA
                 Data[Var]['BigAoAValues'] = SetOfBigAoAValues
-            elif len(re.findall(r'REYNOLDS/MACH',lines[i].upper()))==1:
+            elif len(re.findall(r'(C*L/NU)I0',lines[i].upper()))==1:
                 j=i
                 ReynoldsOverMach = scan(lines[j],float)
                 Data['ReynoldsOverMach'] = ReynoldsOverMach[-1]
@@ -5045,7 +5035,7 @@ def convertPolarsCGNS2HOSTformat(PyZonePolars,
                 KeyName = BigAoAsValue[0].replace('BigAngleOfAttack','')
                 BigAoAsValuesDict[KeyName] = BigAoAsValue[1]
 
-            #f.write(FoilName+'\n')
+            f.write('      78      %s\n'%FoilName)
             f.write('%5i\n' %MachQty)
 
             for var in AllowedQuantities:
@@ -5145,6 +5135,10 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
     '''
 
     from .RotatoryWings import getEulerAngles4PUMA
+    from .GenerativeVolumeDesign import stackSurfacesWithFields
+    silence = J.OutputGrabber()
+    with silence:
+        import PUMA
 
     Density = C.getMeanValue(perturbationField,'Density')
     Temperature = C.getMeanValue(perturbationField,'Temperature')
@@ -5185,7 +5179,7 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
 
     TrailingEdge, = I.getZones(TrailingEdge)
     LeadingEdge, = I.getZones(LeadingEdge)
-    VolumePerturbation = GVD.stackSurfacesWithFields(TrailingEdge, LeadingEdge,
+    VolumePerturbation = stackSurfacesWithFields(TrailingEdge, LeadingEdge,
                                                      np.array([0.0,1.0]))
 
 

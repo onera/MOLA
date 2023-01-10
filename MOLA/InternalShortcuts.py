@@ -878,7 +878,7 @@ def interpolate__(AbscissaRequest, AbscissaData, ValuesData,
         try: bc_type = kwargs['CubicSplineBoundaryConditions']
         except KeyError: bc_type = 'not-a-knot'
 
-        interp = scipy.interpolate.CubicSpline(AbscissaData, ValuesData, axis=axis, bc_type=bc_type, extrapolate=True)
+        interp = scipy.interpolate.CubicSpline(AbscissaData, ValuesData, axis=axis, extrapolate=True, **kwargs)
         return interp(AbscissaRequest)
 
     else:
@@ -2273,9 +2273,15 @@ def printEnvironment():
     # elsA tools chain
     try:
         import etc
-        vETC = etc.version
     except:
         vETC = FAIL + 'UNAVAILABLE' + ENDC
+    else:
+        vETC = WARN + 'UNKNOWN' + ENDC
+        for vatt in ('__version__','version'):
+            if hasattr(etc, vatt):
+                vETC = getattr(etc,vatt)
+                break
+    
     print(' --> ETC '+vETC)
 
     # Cassiopee
@@ -2315,6 +2321,7 @@ def printEnvironment():
 
     # Vortex Particle Method
     try:
+        import VortexParticleMethod.vortexparticlemethod
         import VortexParticleMethod as VPM
         vVPM = VPM.__version__
     except:
