@@ -12,7 +12,7 @@ export MOLA=/stck/lbernard/MOLA/Dev
 export EXTPYLIB=/stck/lbernard/MOLA/Dev/ExternalPythonPackages
 export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
 export EXTPYLIBSATOR=/tmp_user/sator/lbernard/MOLA/Dev/ExternalPythonPackages
-export VPMVERSION=v0.1
+export VPMVERSION=v0.2
 export PUMAVERSION=r337
 export TURBOVERSION=v1.2
 export ERSTAZVERSION=vT
@@ -22,7 +22,7 @@ export ERSTAZVERSION=vT
 export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
 export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net
 
-export ELSAVERSION=v5.1.01 # TODO except visio, "old" sator (el7) and local LD8
+export ELSAVERSION=v5.1.03 # except CentOS < 7 (ld7, visung, visio) see elsA ticket 10870
 export ELSA_VERBOSE_LEVEL=0 # cf elsA ticket 9689
 export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849
@@ -67,11 +67,6 @@ fi
 
 EL8=`uname -r|grep el8`
 
-if [ "$MAC" = "sator" ] ; then
-    if [ "$EL8" ]; then
-        export MAC="sator-new"
-    fi
-fi
 
 if [ "$MAC" = "spiro" ]; then
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro3_mpi/.env_elsA
@@ -97,10 +92,6 @@ if [ "$MAC" = "spiro" ]; then
 
     # turbo
     export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/spiro3_mpi/lib/python3.7/site-packages/:$PYTHONPATH
-    # Workaround to fix the bug described here: https://elsa-e.onera.fr/issues/10697
-    # It should be corrected in elsA v5.1.03 
-    export PYTHONPATH=/stck/jmarty/ETUDES/SONICE/DEV/2021/FT3_post_metier/src_etc/install_py3_dev_cor_ticket10697/:$PYTHONPATH
-    export PYTHONPATH=/stck/jmarty/ETUDES/SONICE/DEV/2021/FT3_post_metier/src_etc/install_py3_dev_cor_ticket10697/Dist/bin/spiro_mpi/lib/python3.7/site-packages:$PYTHONPATH
     
     # ErstaZ
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
@@ -114,11 +105,8 @@ if [ "$MAC" = "spiro" ]; then
 
 elif [ "$MAC" = "visio" ]; then
     export ELSAVERSION=UNAVAILABLE # TODO adapt this once #10587 fixed
-    echo -e "\033[93mWARNING: elsA v5.1.01 is not installed yet in VISIO CentOS 6\033[0m"
+    echo -e "\033[93mWARNING: elsA is not installed yet in VISIO CentOS 6\033[0m"
     echo -e "\033[93mwatch https://elsa.onera.fr/issues/10587 for more information\033[0m"
-    # source /stck/elsa/Public/$ELSAVERSION/Dist/bin/centos6_mpi/.env_elsA
-    # export PYTHONPATH=$EXTPYLIB/lib/python2.7/site-packages/:$PYTHONPATH
-    # export PATH=$EXTPYLIB/bin:$PATH
 
     . /etc/profile.d/modules-dri.sh
     module load subversion/1.7.6
@@ -140,8 +128,7 @@ elif [ "$MAC" = "visio" ]; then
     # export PYTHONPATH=$PumaRootDir/lib/python2.7/site-packages/PUMA:$PYTHONPATH
     # export LD_LIBRARY_PATH=$PumaRootDir/lib/python2.7:$LD_LIBRARY_PATH
     # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
-
-    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/$MAC
+    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/vis_r8
     export PATH=$PATH:$VPMPATH
     # export PATH=/stck/lbernard/.local/bin:$PATH
     export PATH=$VPMPATH:$PATH
@@ -158,11 +145,20 @@ elif [ "$MAC" = "visio" ]; then
     export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
 
 elif [ "$MAC" = "visung" ]; then
-
+    ELSAVERSION=v5.1.02
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
     module load freetype/2.10.2
     module load pointwise/18.6R1
+
+    module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+
+    export PYTHONEXE=python3
+    export PYTHONVR=3.6
+    alias python=python3
+    module load intel/17.0.4
+    module load impi/17
+    module load hdf5/1.8.8
 
     # PUMA # not correctly installed !
     # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_eos3
@@ -190,23 +186,10 @@ elif [ "$MAC" = "visung" ]; then
 elif [ "$MAC" = "ld" ]; then
     if [ "$EL8" ]; then
         echo 'loading MOLA environment for CentOS 8'
-        export ELSAVERSION=UNAVAILABLE # TODO adapt this once #10587 fixed
-        echo -e "\033[93mWARNING: elsA v5.1.01 is not installed yet in LD CentOS 8\033[0m"
-        echo -e "\033[93mwatch https://elsa.onera.fr/issues/10587 for more information\033[0m"
-        # source /stck/elsa/Public/v5.0.04dev/Dist/bin/local-os8_mpi/.env_elsA # TODO adapt this once #10587 fixed
+        export ELSAVERSION=/stck/elsa/Public/$ELSAVERSION/Dist/bin/local-os8_mpi/.env_elsA
         module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
-        module unload intel/19.0.5
-        module unload impi/19.0.5
-        #module load oce/7.5.0-gnu831
-        module load occt/7.6.1-gnu831
-        module load python/3.6.1-gnu831
-        export PYTHONEXE=python3
-        export PYTHONVR=3.6
         alias python=python3
-        module load intel/21.2.0
-        #module load impi/21.2.0
-        module load hdf5/1.8.17-intel2120
 
         # PUMA
         export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_eos3
@@ -233,8 +216,17 @@ elif [ "$MAC" = "ld" ]; then
 
     else
         echo 'loading MOLA environment for CentOS 7'
+        ELSAVERSION=v5.1.02
         source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
         module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+
+        module load python/3.6.1
+        export PYTHONEXE=python3
+        export PYTHONVR=3.6
+        alias python=python3
+        module load intel/17.0.4
+        module load impi/17
+        module load hdf5/1.8.8
 
         # PUMA # not correctly installed !
         # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_eos3
@@ -261,11 +253,12 @@ elif [ "$MAC" = "ld" ]; then
 
     fi
 
-elif [ "$MAC" = "sator-new" ]; then
+elif [ "$MAC" = "sator" ]; then
     source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA
     export MOLA=$MOLASATOR
     export PYTHONPATH=$EXTPYLIBSATOR/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$EXTPYLIBSATOR/bin:$PATH
+    export PATH=$PATH:/tmp_user/sator/lbernard/lib
 
     # PUMA incompatible with intel21 ?
     export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_${PUMAVERSION}_satornew
@@ -274,20 +267,16 @@ elif [ "$MAC" = "sator-new" ]; then
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
-    # VPM
-    # export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/$MAC
-    # export PATH=$VPMPATH:$PATH
-    # export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
-    # export LD_LIBRARY_PATH=$VPMPATH:$LD_LIBRARY_PATH
-    # # export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp_user/sator/lbernard/lib
-    # export PYTHONPATH=$VPMPATH:$PYTHONPATH
-    # export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
+    export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sat_cas_r8
+    export PATH=$VPMPATH:$PATH
+    export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=$VPMPATH:$LD_LIBRARY_PATH
+    # export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp_user/sator/lbernard/lib
+    export PYTHONPATH=$VPMPATH:$PYTHONPATH
+    export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
     # turbo
     export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
-    # Workaround to fix the bug described here: https://elsa-e.onera.fr/issues/10697
-    # It should be corrected in elsA v5.1.03 
-    export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/ETC/dev_cor_ticket10697/Dist/bin/sator_new21/lib/python3.7/site-packages:$PYTHONPATH
 
 else
     echo -e "\033[91mERROR: MACHINE $KC NOT INCLUDED IN MOLA ENVIRONMENT\033[0m"
