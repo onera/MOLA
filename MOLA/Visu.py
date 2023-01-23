@@ -155,7 +155,7 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
 
     machine = os.getenv('MAC', 'ld')
     if machine in ['spiro', 'sator']:
-        offscreen=1 # TODO solve bug https://elsa.onera.fr/issues/10536
+        offscreen=5 # TODO solve bug https://elsa.onera.fr/issues/10536
     elif machine in ['ld', 'visung', 'visio']:
         offscreen=3
     else:
@@ -216,7 +216,7 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
     if TreesBlending:
         for i in range(len(Trees)):
             Trees[i] = I.merge([Trees[i]]+TreesBlending)
-    # Trees.extend(TreesBlending)
+    
 
 
     for i in range(len(Trees)):
@@ -233,10 +233,7 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
         else:
             isoScales = []
 
-        finalize = False
-        if i == len(Trees)-1:
-            offscreen += 1
-            finalize = True
+        if i>0 and i == len(Trees)-1 and offscreen > 1: offscreen += 1
 
         try: additionalDisplayOptions = elt['additionalDisplayOptions']
         except: additionalDisplayOptions = {}

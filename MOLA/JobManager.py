@@ -340,7 +340,7 @@ def launchJobsConfiguration(
 
 def remoteFileExists(absolute_file_path, remote_machine='sator'):
 
-    if remote_machine not in ('sator','spiro'):
+    if remote_machine != 'sator' and not remote_machine.startswith('spiro'):
         return os.path.isfile(absolute_file_path)
 
     HostName = socket.gethostname()
@@ -353,8 +353,28 @@ def remoteFileExists(absolute_file_path, remote_machine='sator'):
     ssh.wait()
     Output = ServerTools.readStdout(ssh)
     Error = ServerTools.readStderr(ssh)
-    if len(Error) >0: return False
+    if len(Error) >0:
+        return False
     return bool(int(Output[0]))
+
+def remoteFileSize(absolute_file_path):
+    server = ServerTools.whichServer(absolute_file_path)[0]
+    if server.startswith('spiro'): server='spiro-commun'
+
+    HostName = socket.gethostname()
+    UserName = getpass.getuser()
+
+    CMD='ls -l %s'%absolute_file_path
+    CMD = 'ssh '+UserName+"@"+server+' '+CMD
+    ssh = subprocess.Popen(CMD, shell=True, stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+    ssh.wait()
+    Output = ServerTools.readStdout(ssh)
+    Error = ServerTools.readStderr(ssh)
+    if len(Error) >0:
+        print(Error)
+        return None
+    return int(Output[0].split()[4])
 
 
 def launchComputationJob(case, config, JobFilename='job.sh',

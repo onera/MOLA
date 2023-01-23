@@ -16,8 +16,8 @@ import MOLA.InternalShortcuts as J
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator, LogLocator, NullFormatter
 
-FILE_ARRAYS = 'arrays.cgns'
-FluxName = 'CL'
+FILE_ARRAYS = 'OUTPUT/arrays.cgns'
+FluxName = 'MomentumXFlux'
 figname = 'arrays.svg'
 
 t = C.convertFile2PyTree(FILE_ARRAYS)
