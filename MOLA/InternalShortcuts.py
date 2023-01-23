@@ -2322,7 +2322,7 @@ def printEnvironment():
     # Vortex Particle Method
     try:
         import VortexParticleMethod.vortexparticlemethod
-        import VortexParticleMethod as VPM
+        import MOLA.VPM as VPM
         vVPM = VPM.__version__
     except:
         vVPM = FAIL + 'UNAVAILABLE' + ENDC
@@ -2505,6 +2505,7 @@ def joinFamilies(t, pattern):
 
 def _getBaseWithZoneName(t,zone_name):
     for base in I.getBases(t):
+        lbase = len(base)
         for child in base[2]:
             if child[0] == zone_name and child[3] == 'Zone_t':
                 return base
@@ -2558,8 +2559,11 @@ def selectZones(t, baseName=None, familyName=None, zoneName=None):
     allzones = I.getZones(t)
     zones = []
     for zone in allzones:
-        zoneWithBaseName = _getBaseWithZoneName(t,zone[0])[0]
-        BaseMatch = fnmatch(zoneWithBaseName, baseName) if baseName is not None else True
+        base = _getBaseWithZoneName(t,zone[0])
+        if base is None:
+            BaseMatch = True
+        else:
+            BaseMatch = fnmatch(base[0], baseName) if baseName is not None else True
         FamilyMatch = zoneOfFamily(zone, familyName, wildcard_used=True) if familyName is not None else True
         ZoneMatch = fnmatch(zone[0], zoneName) if zoneName is not None else True
         if BaseMatch == ZoneMatch == FamilyMatch == True: zones += [ zone ]

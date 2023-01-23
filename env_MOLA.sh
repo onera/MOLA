@@ -98,10 +98,11 @@ if [ "$MAC" = "spiro" ]; then
     export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
 
     # MAIA
-    module load gcc/8.3
-    export MAIA_HOME=/scratchm/jcoulet/aa_install_py3/maia/dbg-intel19
+    export MAIA_HOME=/scratchm/jcoulet/aa_install_py3/maia/opt-intel19/
     export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
     export PYTHONPATH=$MAIA_HOME/lib/python3.7/site-packages:$PYTHONPATH
+
+
 
 elif [ "$MAC" = "visio" ]; then
     export ELSAVERSION=UNAVAILABLE # TODO adapt this once #10587 fixed
@@ -168,7 +169,7 @@ elif [ "$MAC" = "visung" ]; then
     # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
     # VPM
-    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/$MAC
+    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/vis_r8
     export PATH=$VPMPATH:$VPMPATH/lib:$PATH
     export LD_LIBRARY_PATH=$VPMPATH:$VPMPATH/lib:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
@@ -186,7 +187,8 @@ elif [ "$MAC" = "visung" ]; then
 elif [ "$MAC" = "ld" ]; then
     if [ "$EL8" ]; then
         echo 'loading MOLA environment for CentOS 8'
-        export ELSAVERSION=/stck/elsa/Public/$ELSAVERSION/Dist/bin/local-os8_mpi/.env_elsA
+        source /stck/elsa/Public/v5.1.02/Dist/bin/local-os8_mpi/.env_elsA
+        module load hdf5/1.8.17-intel2120
         module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
         alias python=python3
@@ -201,7 +203,6 @@ elif [ "$MAC" = "ld" ]; then
         # VPM
         export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/${MAC}8
         export PATH=$VPMPATH:$VPMPATH/lib:$PATH
-        export LD_LIBRARY_PATH=$VPMPATH:$VPMPATH/lib:$LD_LIBRARY_PATH
         export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
         export LD_LIBRARY_PATH=$VPMPATH:$VPMPATH/lib:$LD_LIBRARY_PATH
         export PYTHONPATH=$VPMPATH:$PYTHONPATH

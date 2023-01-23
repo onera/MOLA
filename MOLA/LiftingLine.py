@@ -429,6 +429,8 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
     CorrVars = ['fa','ft','fx','fy','fz']
 
+    _keepSectionalForces(Stacked)
+
     Ni, Nj, Nk, dr = getStackedDimensions(Stacked)
 
     weightNode = I.getNodeFromName2(Stacked, 'weight')
@@ -498,6 +500,52 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     computeSourceTerms(Stacked, SourceTermScale=SourceTermScale)
 
     return Stacked
+
+
+def _keepSectionalForces(t):
+    '''
+    TODO : change SectionalForces at source (computeGeneralLoads) and propagate
+    this is a temporary fix
+    '''
+    newFields = ['SectionalForceAxial',
+                 'SectionalForceTangential',
+                 'SectionalForceX',
+                 'SectionalForceY',
+                 'SectionalForceZ']
+
+    for z in I.getZones(t):
+        
+        FlSol = I.getNodeFromName1(z,'FlowSolution')
+        if not FlSol: continue
+
+        for fn in newFields: I._rmNodesByName1(FlSol, fn)
+
+        for n in FlSol[2][:]:
+            if n[0] == 'fa':
+                n_new = I.copyTree(n)
+                n_new[0] = 'SectionalForceAxial'
+                FlSol[2] += [ n_new ]
+
+            elif n[0] == 'ft':
+                n_new = I.copyTree(n)
+                n_new[0] = 'SectionalForceTangential'
+                FlSol[2] += [ n_new ]
+
+            elif n[0] == 'fx':
+                n_new = I.copyTree(n)
+                n_new[0] = 'SectionalForceX'
+                FlSol[2] += [ n_new ]
+
+            elif n[0] == 'fy':
+                n_new = I.copyTree(n)
+                n_new[0] = 'SectionalForceY'
+                FlSol[2] += [ n_new ]
+
+            elif n[0] == 'fz':
+                n_new = I.copyTree(n)
+                n_new[0] = 'SectionalForceZ'
+                FlSol[2] += [ n_new ]
+
 
 def getStackedDimensions(BF_block):
     Ni, Nj, Nk = I.getZoneDim(BF_block)[1:4]
