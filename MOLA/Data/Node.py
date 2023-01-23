@@ -319,17 +319,20 @@ class Node(list):
         links = node_to_save.getLinks()
 
         if Core.settings.backend == 'h5py2cgns':
+            from . import h5py2cgns as h
             if verbose: print('saving %s ... '%filename, end='')
             Core.h.save(node_to_save, filename)
             if verbose: print('ok')
 
         elif Core.settings.backend == 'pycgns':
+            import CGNS.MAP as CGM
             if verbose: print('saving %s ... '%filename, end='')
-            Core.CGM.save(filename, node_to_save, links=links)
+            CGM.save(filename, node_to_save, links=links)
             if verbose: print('ok')
         
         elif Core.settings.backend == 'cassiopee':
-            Core.C.convertPyTree2File(node_to_save, filename, links=links)
+            import Converter.PyTree as C
+            C.convertPyTree2File(node_to_save, filename, links=links)
         
 
         else:
@@ -931,14 +934,15 @@ class Node(list):
     def saveThisNodeOnly( self, filename ):
 
         if Core.settings.backend == 'h5py2cgns':
+            from . import h5py2cgns as h
             value = self.value()
             if isinstance(value,str) and value == '_skeleton':
                 raise IOError('%s cannot write a skeleton node'%self.path())
             path = self.path().replace('CGNSTree/','')
-            f = Core.h.load_h5(filename,'r+')
+            f = h.load_h5(filename,'r+')
             node_exists = True if path in f else False
             if not node_exists:
-                group = Core.h.nodelist_to_group(f, self, path)
+                group = h.nodelist_to_group(f, self, path)
             else:
                 if isinstance(value, list) and isinstance(value[0],str):
                     newvalue = ' '.join(value)
@@ -946,20 +950,22 @@ class Node(list):
                     newvalue = value
                 else:
                     newvalue = self[1]
-                Core.h._setData(f[path], newvalue)
+                h._setData(f[path], newvalue)
 
         if Core.settings.backend == 'pycgns':
+            import CGNS.MAP as CGM
             t = self.getTopParent()
-            flags = Core.CGM.S2P_UPDATE
+            flags = CGM.S2P_UPDATE
             path = self.path().replace('CGNSTree','')
-            Core.CGM.save(filename, t, update={path:self}, flags=flags)
+            CGM.save(filename, t, update={path:self}, flags=flags)
 
         elif Core.settings.backend == 'cassiopee':
+            import Converter.Filter as Filter
             # NOTE beware of BUG https://elsa.onera.fr/issues/10833
-            Core.Filter.writeNodesFromPaths(filename, [self.path()], [self], mode=1)
+            Filter.writeNodesFromPaths(filename, [self.path()], [self], mode=1)
 
-        # else:
-        #     raise ModuleNotFoundError('%s backend not supported'%Core.settings.backend)
+        else:
+            raise ModuleNotFoundError('%s backend not supported'%Core.settings.backend)
 
 
     def setParameters(self, ContainerName, ContainerType='UserDefinedData_t',
@@ -1074,19 +1080,22 @@ def readNode(filename, path):
         path_map = path
 
     if Core.settings.backend == 'h5py2cgns':
+        from . import h5py2cgns as h
         if path_map.startswith('/'): path_map = path_map[1:]
-        f = Core.h.load_h5(filename)
+        f =h.load_h5(filename)
         group = f[ path_map ]
-        node = Core.h.build_cgns_nodelist( group )
+        node = h.build_cgns_nodelist( group )
         node = castNode( node )
 
     elif Core.settings.backend == 'pycgns':
-        t, _, _ = Core.CGM.load( filename, subtree=path_map )
+        import CGNS.MAP as CGM
+        t, _, _ = CGM.load( filename, subtree=path_map )
         t = castNode(t)
         node = t.getAtPath( path )
     
     elif Core.settings.backend == 'cassiopee':
-        node = Core.Filter.readNodesFromPaths(filename, [path_map])[0]
+        import Converter.Filter as Filter
+        node = Filter.readNodesFromPaths(filename, [path_map])[0]
         node = castNode( node )
 
     

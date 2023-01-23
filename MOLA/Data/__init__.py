@@ -124,13 +124,15 @@ def load(filename, only_skeleton=False):
 
 
     if Core.settings.backend == 'h5py2cgns':
-        t, f, links = Core.h.load(filename, only_skeleton=only_skeleton)
+        from . import h5py2cgns as h
+        t, f, links = h.load(filename, only_skeleton=only_skeleton)
         t = Tree(t)
         for link in links:
             t.addLink(path=link[3], target_file=link[1], target_path=link[2])
 
     elif Core.settings.backend == 'pycgns':
-        t, links, paths = Core.CGM.load(filename)
+        import CGNS.MAP as CGM
+        t, links, paths = CGM.load(filename)
         for p in paths:
             raise IOError('file %s : could not read node %s'%(filename,str(p)))
         t = Tree(t)
@@ -138,8 +140,9 @@ def load(filename, only_skeleton=False):
             t.addLink(path=link[3], target_file=link[1], target_path=link[2])
 
     elif Core.settings.backend == 'cassiopee':
+        import Converter.PyTree as C
         links = []
-        t = Core.C.convertFile2PyTree(filename, links=links)
+        t = C.convertFile2PyTree(filename, links=links)
         t = Tree(t)
         for link in links:
             t.addLink(path=link[3], target_file=link[1], target_path=link[2])
