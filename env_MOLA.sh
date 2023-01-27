@@ -14,7 +14,7 @@ export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
 export EXTPYLIBSATOR=/tmp_user/sator/lbernard/MOLA/Dev/ExternalPythonPackages
 export VPMVERSION=v0.2
 export PUMAVERSION=r337
-export TURBOVERSION=v1.2
+export TURBOVERSION=v1.2.2
 export ERSTAZVERSION=vT
 ###############################################################################
 
