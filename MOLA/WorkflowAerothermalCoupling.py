@@ -228,6 +228,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             for rowParams in TurboConfiguration['Rows'].values()]):
         t = WC.duplicateFlowSolution(t, TurboConfiguration)
 
+    WC.setMotionForRowsFamilies(t, TurboConfiguration)
     WC.setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                             FluidProperties, ReferenceValues,
                             bladeFamilyNames=bladeFamilyNames)

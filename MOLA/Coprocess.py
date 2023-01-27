@@ -694,7 +694,7 @@ def restoreFamilies(surfaces, skeleton):
             if I.getName(family) in familiesInBase:
                 I.addChild(base, family)
 
-def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[], tagWithIteration=False):
+def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[]):
     '''
     Monitor performance (massflow in/out, total pressure ratio, total
     temperature ratio, isentropic efficiency) for each row in a compressor

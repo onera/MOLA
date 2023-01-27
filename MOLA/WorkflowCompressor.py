@@ -403,6 +403,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             for rowParams in TurboConfiguration['Rows'].values()]):
         t = duplicateFlowSolution(t, TurboConfiguration)
 
+    setMotionForRowsFamilies(t, TurboConfiguration)
     setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                             FluidProperties, ReferenceValues,
                             bladeFamilyNames=bladeFamilyNames)
@@ -1444,6 +1445,42 @@ def machFromMassFlow(massflow, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
         Mx = scipy.optimize.brentq(g, 0, 1)
         return Mx
 
+def setMotionForRowsFamilies(t, TurboConfiguration):
+    '''
+    Set the rotation speed for all families related to row domains. It is defined in:
+
+        >>> TurboConfiguration['Rows'][rowName]['RotationSpeed'] = float
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        TurboConfiguration : dict
+            as produced :py:func:`getTurboConfiguration`
+            
+    '''
+    # Add info on row movement (.Solver#Motion)
+    for row, rowParams in TurboConfiguration['Rows'].items():
+        famNode = I.getNodeFromNameAndType(t, row, 'Family_t')
+        omega = rowParams['RotationSpeed']
+
+        # Test if zones in that family are modelled with Body Force
+        for zone in C.getFamilyZones(t, row):
+            if I.getNodeFromName1(zone, 'FlowSolution#DataSourceTerm'):
+                # If this node is present, body force is used
+                # Then the frame of this row must be the absolute frame
+                omega = 0.
+                break
+        
+        print(f'setting .Solver#Motion at family {row} (omega={omega}rad/s)')
+        J.set(famNode, '.Solver#Motion',
+                motion='mobile',
+                omega=omega,
+                axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
+                axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
+
 
 ################################################################################
 ################# Boundary Conditions Settings  ################################
@@ -1785,6 +1822,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
         else:
             raise AttributeError('BC type %s not implemented'%BCparam['type'])
 
+
 def setBC_Walls(t, TurboConfiguration,
                     bladeFamilyNames=['BLADE', 'AUBE'],
                     hubFamilyNames=['HUB', 'SPINNER', 'MOYEU'],
@@ -1792,11 +1830,6 @@ def setBC_Walls(t, TurboConfiguration,
     '''
     Set all the wall boundary conditions in a turbomachinery context, by making
     the following operations:
-
-        * set the rotation speed for all families related to row domains. It is
-          defined in:
-
-            >>> TurboConfiguration['Rows'][rowName]['RotationSpeed'] = float
 
         * set BCs related to each blade.
         * set BCs related to hub. The intervals where the rotation speed is the
@@ -1859,26 +1892,6 @@ def setBC_Walls(t, TurboConfiguration,
             omega[(x1<=x) & (x<=x2)] = TurboConfiguration['ShaftRotationSpeed']
         return np.asfortranarray(omega)
 
-    # Add info on row movement (.Solver#Motion)
-    for row, rowParams in TurboConfiguration['Rows'].items():
-        famNode = I.getNodeFromNameAndType(t, row, 'Family_t')
-        omega = rowParams['RotationSpeed']
-
-        # Test if zones in that family are modelled with Body Force
-        for zone in C.getFamilyZones(t, row):
-            if I.getNodeFromName1(zone, 'FlowSolution#DataSourceTerm'):
-                # If this node is present, body force is used
-                # Then the frame of this row must be the absolute frame
-                omega = 0.
-                break
-        
-        print(f'setting .Solver#Motion at family {row} (omega={omega}rad/s)')
-        J.set(famNode, '.Solver#Motion',
-                motion='mobile',
-                omega=omega,
-                axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
-                axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
-
     def getAssociatedZoneFamilyNameWithFamilyNameBC(zone, FamilyNameBC):
         ZoneBC = I.getNodeFromType1(zone,'ZoneBC_t')
         FamiliesNames = I.getNodesFromType2(ZoneBC,'FamilyName_t')
@@ -1900,29 +1913,15 @@ def setBC_Walls(t, TurboConfiguration,
             assert ZoneFamilyName is not None, 'Cannot determine associated row for family {}. '.format(famName)
 
             family_with_bcwall, = [f for f in families if f[0]==ZoneFamilyName]
-
             solver_motion_data = J.get(family_with_bcwall,'.Solver#Motion')
-
-            I.newFamilyBC(value='BCWallViscous', parent=famNode)
-            J.set(famNode, '.Solver#BC',
-                    type='walladia',
-                    data_frame='user',
-                    omega=solver_motion_data['omega'],
-                    axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
-                    axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
+            setBC_walladia(t, famName, omega=solver_motion_data['omega'])
 
     # HUB
     for hub_family in hubFamilyNames:
         for famNode in I.getNodesFromNameAndType(t, '*{}*'.format(hub_family), 'Family_t'):
             famName = I.getName(famNode)
             if famName.startswith('F_OV_') or famName.endswith('Zones'): continue
-            I.newFamilyBC(value='BCWallViscous', parent=famNode)
-            J.set(famNode, '.Solver#BC',
-                    type='walladia',
-                    data_frame='user',
-                    omega=0.,
-                    axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
-                    axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
+            setBC_walladia(t, famName, omega=0.)
 
             # TODO request initVars of BCDataSet
             wallHubBC = C.extractBCOfName(t, 'FamilySpecified:{0}'.format(famName))
@@ -1941,15 +1940,9 @@ def setBC_Walls(t, TurboConfiguration,
         for famNode in I.getNodesFromNameAndType(t, '*{}*'.format(shroud_family), 'Family_t'):
             famName = I.getName(famNode)
             if famName.startswith('F_OV_') or famName.endswith('Zones'): continue
-            I.newFamilyBC(value='BCWallViscous', parent=famNode)
-            J.set(famNode, '.Solver#BC',
-                    type='walladia',
-                    data_frame='user',
-                    omega=0.,
-                    axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
-                    axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
+            setBC_walladia(t, famName, omega=0.)
 
-def setBC_walladia(t, FamilyName):
+def setBC_walladia(t, FamilyName, omega=None):
     '''
     Set a viscous wall boundary condition.
 
@@ -1964,11 +1957,22 @@ def setBC_walladia(t, FamilyName):
         FamilyName : str
             Name of the family on which the boundary condition will be imposed
 
+        omega : float
+            Rotation speed imposed at the wall. If :py:obj:`None`, it is not specified 
+            in the Family node (but same behavior that zero).
+
     '''
     wall = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
     I._rmNodesByName(wall, '.Solver#BC')
     I._rmNodesByType(wall, 'FamilyBC_t')
     I.newFamilyBC(value='BCWallViscous', parent=wall)
+    if omega is not None:
+        J.set(wall, '.Solver#BC',
+                    type='walladia',
+                    data_frame='user',
+                    omega=omega,
+                    axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
+                    axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
 
 def setBC_wallslip(t, FamilyName):
     '''

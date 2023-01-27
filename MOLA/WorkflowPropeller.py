@@ -305,8 +305,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
 
     PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
 
-    WC.setBoundaryConditions(t, {}, TurboConfiguration,
-                            FluidProperties, ReferenceValues)
+    WC.setMotionForRowsFamilies(t, TurboConfiguration)
+    WC.setBC_Walls(t, TurboConfiguration)
 
     WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
