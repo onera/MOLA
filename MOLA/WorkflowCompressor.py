@@ -65,7 +65,7 @@ def checkDependencies():
 def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
                     duplicationInfos={}, zonesToRename={},
                     scale=1., rotation='fromAG5', tol=1e-8, PeriodicTranslation=None,
-                    BodyForceRows=None):
+                    BodyForceRows=None, families2Remove=[]):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
     from a CGNS file provided by Autogrid 5.
@@ -161,6 +161,12 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
             See documentation of 
             :py:func:`MOLA.BodyForceTurbomachinery.replaceRowWithBodyForceMesh`.
 
+        families2Remove : list
+            Families to remove in the tree when using body-force. Should be a list 
+            of families related to interstage interfaces between a stator row and 
+            a BFM row, or to BFM rows. It allows to force a matching mesh at the interface
+            instead having a mixing plane.
+
     Returns
     -------
 
@@ -200,6 +206,15 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
         for newRowMesh in newRowMeshes:
             for zone in I.getZones(newRowMesh):
                 I.addChild(base, zone)
+        if families2Remove == []:
+            warning = 'WARNING: families2Remove is empty although body force is used.'
+            warning+= 'Please have a look to the documentation and double check that is not a mistake.'
+            print(J.WARN+warning+J.ENDC)
+        else:
+            for family in families2Remove:
+                for bc in C.getFamilyBCs(t, family):
+                    I._rmNode(t, bc)
+                I._rmNodesByName(t, family)
 
     for row, rowParams in duplicationInfos.items():
         try: MergeBlocks = rowParams['MergeBlocks']
@@ -1845,10 +1860,20 @@ def setBC_Walls(t, TurboConfiguration,
     # Add info on row movement (.Solver#Motion)
     for row, rowParams in TurboConfiguration['Rows'].items():
         famNode = I.getNodeFromNameAndType(t, row, 'Family_t')
-        print('setting .Solver#Motion at family %s'%row)
+        omega = rowParams['RotationSpeed']
+
+        # Test if zones in that family are modelled with Body Force
+        for zone in C.getFamilyZones(t, row):
+            if I.getNodeFromName1(zone, 'FlowSolution#DataSourceTerm'):
+                # If this node is present, body force is used
+                # Then the frame of this row must be the absolute frame
+                omega = 0.
+                break
+        
+        print(f'setting .Solver#Motion at family {row} (omega={omega}rad/s)')
         J.set(famNode, '.Solver#Motion',
                 motion='mobile',
-                omega=rowParams['RotationSpeed'],
+                omega=omega,
                 axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
                 axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
 
