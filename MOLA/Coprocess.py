@@ -2368,11 +2368,22 @@ def createSymbolicLink(src, dst):
         J.createSymbolicLink(src, dst)
 
 
-def updateBodyForce(t, previousTreeWithSourceTerms=[], relax=0.5):
+def updateBodyForce(t, previousTreeWithSourceTerms=[]):
     '''
     In a turbomachinery context, update the source terms for body-force modelling.
     The user-defined parameter **BodyForceInputData** (in `setup.py`) controls the 
     behavior of this function.
+
+    The optional parameter **BodyForceInitialIteration** (=1 by default) may be modified in
+    `CoprocessOptions`.
+
+    For each row modelled with body force, the following parameters are optional:
+
+    * **relax** (=0.5 by default): Relaxation coefficient for the source terms. 
+       Should be less than 1 (the new source terms are equal to the previous ones).
+
+    * **rampIterations** (=50 by default): Number of iterations (starting from **BodyForceInitialIteration**)
+       to activate body force progressively, with a coefficient ramping from 0 to 1.
 
     Parameters
     ----------
@@ -2384,10 +2395,6 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[], relax=0.5):
             Previous output of this function. It is used for relaxing the source terms, depending 
             on the value of the **relax** argument. 
             The first time this function is called, this parameter may be initialized with an empty list.
-
-        relax : float, optional
-            Relaxation coefficient for the source terms. By default 0.5. Should be less
-            than 1 (the new source terms are equal to the previous ones).
 
     Returns
     -------
@@ -2402,11 +2409,12 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[], relax=0.5):
     FluidProperties    = setup.FluidProperties
     TurboConfiguration = setup.TurboConfiguration
     BodyForceInputData = setup.BodyForceInputData
-    BodyForceInitialIteration = getOption('BodyForceInitialIteration', default=1000)
+    BodyForceInitialIteration = getOption('BodyForceInitialIteration', default=1)
 
     for BodyForceFamily, BodyForceParams in BodyForceInputData.items():
 
-        BodyForceFinalIteration = BodyForceInitialIteration + BodyForceParams.get('rampIterations', 0.)
+        relax = BodyForceParams.get('relax', 0.5)
+        BodyForceFinalIteration = BodyForceInitialIteration + BodyForceParams.get('rampIterations', 50.)
         coeff_eff = J.rampFunction(BodyForceInitialIteration, BodyForceFinalIteration, 0., 1.)
 
         for zone in C.getFamilyZones(newTreeWithSourceTerms, BodyForceFamily):
