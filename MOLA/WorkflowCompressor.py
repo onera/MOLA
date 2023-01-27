@@ -2858,11 +2858,10 @@ def setBC_stage_red_hyb(t, left, right, stage_ref_time):
 
 @J.mute_stdout
 def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
-    valve_ref_mflow=None, valve_relax=0.1, ReferenceValues=None,
-    TurboConfiguration=None, method='globborder_dict'):
+    valve_ref_mflow=None, valve_relax=0.1, indpiv=1, 
+    ReferenceValues=None, TurboConfiguration=None, method='globborder_dict'):
     '''
     Set an outflow boundary condition of type ``outradeq``.
-    The pivot index is 1 and cannot be changed.
 
     .. important : This function has a dependency to the ETC module.
 
@@ -2903,6 +2902,9 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
               by a mass flow.
 
             * for law 4, it is a value homogeneous with a pressure.
+        
+        indpiv : int
+            Index of the cell where the pivot value is imposed.
 
         ReferenceValues : :py:class:`dict` or :py:obj:`None`
             as produced by :py:func:`computeReferenceValues`
@@ -2960,7 +2962,7 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
     for bcn in C.getFamilyBCs(t, FamilyName):
         bcpath = I.getPath(t, bcn)
         bc = trf.BCOutRadEq(t, bcn)
-        bc.indpiv = 1
+        bc.indpiv = indpiv
         bc.dirorder = -1
         # Valve laws:
         # <bc>.valve_law(valve_type, pref, Qref, valve_relax=relax, valve_file=None, valve_file_freq=1) # v4.2.01 pour valve_file*
@@ -2989,11 +2991,10 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
 
 @J.mute_stdout
 def setBC_outradeqhyb(t, FamilyName, valve_type=0, valve_ref_pres=None,
-                      valve_ref_mflow=None, valve_relax=0.1, nbband=100, c=0.3, ReferenceValues=None,
-                      TurboConfiguration=None):
+                      valve_ref_mflow=None, valve_relax=0.1, indpiv=1, nbband=100, c=0.3, 
+                      ReferenceValues=None, TurboConfiguration=None):
     '''
     Set an outflow boundary condition of type ``outradeqhyb``.
-    The pivot index is 1 and cannot be changed.
 
     .. important : This function has a dependency to the ETC module.
 
@@ -3027,6 +3028,9 @@ def setBC_outradeqhyb(t, FamilyName, valve_type=0, valve_ref_pres=None,
               by a mass flow.
 
             * for law 4, it is a value homogeneous with a pressure.
+        
+        indpiv : int
+            Index of the cell where the pivot value is imposed.
 
         nbband : int
             Number of points in the radial distribution to compute.
@@ -3075,7 +3079,7 @@ def setBC_outradeqhyb(t, FamilyName, valve_type=0, valve_ref_pres=None,
     bc = trf.BCOutRadEqHyb(
         t, I.getNodeFromNameAndType(t, FamilyName, 'Family_t'))
     bc.glob_border()
-    bc.indpiv = 1
+    bc.indpiv = indpiv
     valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget',
                       3: 'QLinear', 4: 'QHyperbolic'}
     bc.valve_law(valve_law_dict[valve_type], valve_ref_pres,
