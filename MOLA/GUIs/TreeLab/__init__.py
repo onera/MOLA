@@ -993,11 +993,11 @@ class MainWindow(QMainWindow):
     def saveTree(self):
         if self.t.file:
             print('will write: '+self.t.file)
-            # QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+            QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
             self.t.replaceSkeletonWithDataRecursively(self.t.file)
             self.t.save(self.t.file)
             print('done')
-            # QApplication.restoreOverrideCursor()
+            QApplication.restoreOverrideCursor()
         else:
             self.saveTreeAs()
 
@@ -1005,13 +1005,14 @@ class MainWindow(QMainWindow):
         fname = QFileDialog.getSaveFileName(self, 'Save file', '.',"CGNS files (*.cgns)")
         onlyFileName = fname[0].split(os.sep)[-1]
         if onlyFileName:
-            # QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+            QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
             print('will write: '+onlyFileName)
+            self.t.replaceSkeletonWithDataRecursively(self.t.file)
             self.t.save(fname[0])
             print('done')
             self.t.file = fname[0]
             self.setWindowTitle("TreeLab - "+onlyFileName)
-            # QApplication.restoreOverrideCursor()
+            QApplication.restoreOverrideCursor()
 
 
     def updateNameOfNodeCGNS(self, item):

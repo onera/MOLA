@@ -13,17 +13,20 @@ File history:
 8/09/2022 - T. Bontemps - Creation
 '''
 
-import os
-import glob
-import numpy as np
+import MOLA
 
-import Converter.PyTree as C
-import Converter.Internal as I
-import Geom.PyTree as D
-import Generator.PyTree as G
-import Connector.PyTree as X
-import Transform.PyTree as T
-import Post.PyTree as P
+if not MOLA.__ONLY_DOC__:
+    import os
+    import glob
+    import numpy as np
+
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Geom.PyTree as D
+    import Generator.PyTree as G
+    import Connector.PyTree as X
+    import Transform.PyTree as T
+    import Post.PyTree as P
 
 import MOLA.Preprocess as PRE
 import MOLA.InternalShortcuts as J

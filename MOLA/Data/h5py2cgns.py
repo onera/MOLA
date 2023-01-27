@@ -16,7 +16,7 @@ except:
     print('pip3 install --user h5py\033[0m')
     pass
 
-
+use_chunks = True
 encoding = 'utf-8'
 nodesNamesToRead = ['proc', 'kind']
 
@@ -60,12 +60,11 @@ def save(t, filename):
         f['/'].attrs.create('label', np.array('Root Node of HDF5 File'.encode(encoding), dtype=str_dtype) )
         f['/'].attrs.create('type', np.array('MT'.encode(encoding), dtype=cgns_dtype) )
 
-        string_array = np.array([np.array(s, dtype='S1') for s in 'IEEE_LITTLE_32'])
-        data = np.frombuffer(string_array, dtype='int8'.encode(encoding))
+        data = np.frombuffer('IEEE_LITTLE_32'.encode(encoding), dtype='int8'.encode(encoding))
         f.create_dataset(' format', data=data)
 
-        string_array = np.array([np.array(s, dtype='S1') for s in 'HDF5 Version 1.8.17'])
-        data = np.frombuffer(string_array, dtype='int8'.encode(encoding))
+        data = np.frombuffer('HDF5 Version 1.8.17'.encode(encoding), dtype='int8'.encode(encoding))
+        data = np.concatenate((data,np.zeros(33-len(data), dtype='int8'.encode(encoding))))
         f.create_dataset(' hdf5version', data=data)
 
         for child in t[2]:
@@ -96,15 +95,23 @@ def _setData(group, nodevalue):
 
         else:
             data_type = Numpy_dtype_to_CGNS_dtype[nodevalue.dtype]
-            group.attrs.create('type', np.array(data_type.encode(encoding), dtype=cgns_dtype))
-            if len(nodevalue.shape) > 1: 
-                data = nodevalue.T # put it as F-contiguous compatible
+            if data_type == 'C1':
+                group.attrs.create('type', np.array('C1'.encode(encoding), dtype=cgns_dtype))
+                nodevalue = ''.join([n.decode(encoding) for n in nodevalue])
+                data = np.frombuffer(nodevalue.encode(encoding), dtype='int8'.encode(encoding))
             else:
-                data = nodevalue
+                group.attrs.create('type', np.array(data_type.encode(encoding), dtype=cgns_dtype))
+                if len(nodevalue.shape) > 1: 
+                    data = nodevalue.T # put it as F-contiguous compatible
+                else:
+                    data = nodevalue
 
         if ' data' not in group:
-            maxshape = [None for s in data.shape]
-            group.create_dataset(' data', data=data, maxshape=maxshape, chunks=True)
+            if use_chunks:
+                maxshape = [None for s in data.shape]
+                group.create_dataset(' data', data=data, maxshape=maxshape, chunks=True)
+            else:
+                group.create_dataset(' data', data=data, chunks=None)
         else:
             group[' data'].resize( data.shape )
             group[' data'][:] = data

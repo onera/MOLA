@@ -10,42 +10,28 @@ First creation:
 24/11/2019 - L. Bernardos
 '''
 
+import MOLA
+from . import InternalShortcuts as J
+from . import Wireframe as W
+from . import GenerativeShapeDesign as GSD
+from . import __version__
+
 import sys
 import os
 import re
 import copy
-from timeit import default_timer as tic
+import traceback
 import numpy as np
-from numpy.linalg import norm
-import scipy.interpolate as si
-import scipy.optimize as so
-from scipy.spatial import Delaunay
-import scipy.integrate as sint
+if not MOLA.__ONLY_DOC__:
+    from numpy.linalg import norm
 
-
-import Converter.PyTree as C
-import Converter.Internal as I
-import Transform.PyTree as T
-import Generator.PyTree as G
-import Connector.PyTree as X
-import Post.PyTree as P
-import Geom.PyTree as D
-
-from . import InternalShortcuts as J
-from . import Wireframe as W
-from . import GenerativeShapeDesign as GSD
-from . import GenerativeVolumeDesign as GVD
-from . import __version__
-
-
-
-try:
-    silence = J.OutputGrabber()
-    with silence:
-        import PUMA
-except:
-    pass
-
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Transform.PyTree as T
+    import Generator.PyTree as G
+    import Connector.PyTree as X
+    import Post.PyTree as P
+    import Geom.PyTree as D
 
 # Global constants
 # -> Fluid constants
@@ -184,6 +170,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         addPerturbationFields([], PerturbationFields=PerturbationFields)
         return [] # BEWARE: CANNOT USE BARRIERS IN THIS FUNCTION FROM THIS LINE
 
+
     usePUMA = LiftingLineSolver == 'PUMA'
 
     # this guarantees backwards compatibility
@@ -275,6 +262,8 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     PerturbationDisk = addPerturbationFields(tLL, PerturbationFields)
 
 
+
+
     # MOLA LiftingLine solver :
     def singleShotMOLA__(cmd):
         '''
@@ -295,11 +284,15 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         [updateLocalFrame(ll) for ll in I.getZones(tLL)]
         computeKinematicVelocity(tLL)
         assembleAndProjectVelocities(tLL)
+        
+
         _applyPolarOnLiftingLine(tLL,PolarsInterpolatorsDict)
+
+
         if TipLossFactorOptions:
             TipLossFactorOptions['NumberOfBlades']=NBlades
-        computeGeneralLoadsOfLiftingLine(tLL,
-            TipLossFactorOptions=TipLossFactorOptions)
+
+        computeGeneralLoadsOfLiftingLine(tLL, TipLossFactorOptions=TipLossFactorOptions)
 
         if CommandType == 'Pitch':
             C._initVars(tLL,'Twist={Twist}-%0.12g'%cmd)
@@ -342,7 +335,6 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         elif Constraint == 'Power':
             return Power-ConstraintValue/float(NBlades)
 
-
     if Constraint == 'Pitch':
         # Just 1 call required
         if usePUMA:
@@ -354,6 +346,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         else:
             singleShotMOLA__(Pitch)
             C._initVars(tLL,'Twist={Twist}+%0.12g'%Pitch)
+
 
 
     elif Constraint in ('Power','Thrust'):
@@ -436,6 +429,8 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
     CorrVars = ['fa','ft','fx','fy','fz']
 
+    _keepSectionalForces(Stacked)
+
     Ni, Nj, Nk, dr = getStackedDimensions(Stacked)
 
     weightNode = I.getNodeFromName2(Stacked, 'weight')
@@ -506,6 +501,52 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
     return Stacked
 
+
+def _keepSectionalForces(t):
+    '''
+    TODO : change SectionalForces at source (computeGeneralLoads) and propagate
+    this is a temporary fix
+    '''
+    newFields = ['SectionalForceAxial',
+                 'SectionalForceTangential',
+                 'SectionalForceX',
+                 'SectionalForceY',
+                 'SectionalForceZ']
+
+    for z in I.getZones(t):
+        
+        FlSol = I.getNodeFromName1(z,'FlowSolution')
+        if not FlSol: continue
+
+        for fn in newFields: I._rmNodesByName1(FlSol, fn)
+
+        for n in FlSol[2][:]:
+            if n[0] == 'fa':
+                n_new = I.copyTree(n)
+                n_new[0] = 'SectionalForceAxial'
+                FlSol[2] += [ n_new ]
+
+            elif n[0] == 'ft':
+                n_new = I.copyTree(n)
+                n_new[0] = 'SectionalForceTangential'
+                FlSol[2] += [ n_new ]
+
+            elif n[0] == 'fx':
+                n_new = I.copyTree(n)
+                n_new[0] = 'SectionalForceX'
+                FlSol[2] += [ n_new ]
+
+            elif n[0] == 'fy':
+                n_new = I.copyTree(n)
+                n_new[0] = 'SectionalForceY'
+                FlSol[2] += [ n_new ]
+
+            elif n[0] == 'fz':
+                n_new = I.copyTree(n)
+                n_new[0] = 'SectionalForceZ'
+                FlSol[2] += [ n_new ]
+
+
 def getStackedDimensions(BF_block):
     Ni, Nj, Nk = I.getZoneDim(BF_block)[1:4]
     span = J.getVars(BF_block, ['Span'])[0]
@@ -569,7 +610,7 @@ def stackBodyForceComponent(Component, RotationAxis, StackStrategy='constant',
         VolumeMesh : zone
             the bodyforce volume grid
     '''
-
+    from .GenerativeVolumeDesign import stackSurfacesWithFields
     LeadingEdge = I.copyTree(Component)
     xLE,yLE,zLE = J.getxyz(LeadingEdge)
     Chord, Twist = J.getVars(LeadingEdge, ['Chord', 'Twist'])
@@ -607,7 +648,7 @@ def stackBodyForceComponent(Component, RotationAxis, StackStrategy='constant',
     yTE += TrailingEdgeDisplacement * RotationAxis[1]
     zTE += TrailingEdgeDisplacement * RotationAxis[2]
 
-    VolumeBodyForce = GVD.stackSurfacesWithFields(TrailingEdge, LeadingEdge,
+    VolumeBodyForce = stackSurfacesWithFields(TrailingEdge, LeadingEdge,
                                                   StackDistribution)
 
     return VolumeBodyForce
@@ -706,6 +747,8 @@ def computeSourceTerms(zone, SourceTermScale=1.0):
             dissipation effects provoked by the transfer of fields from the disk
             towards the CFD computational grid.
     '''
+    from .Coprocess import printCo
+
 
     ConservativeFields = ['Density', 'MomentumX','MomentumY', 'MomentumZ',
                         'EnergyStagnationDensity']
@@ -713,11 +756,21 @@ def computeSourceTerms(zone, SourceTermScale=1.0):
     v1= ro, rou, rov, row, roe = J.invokeFields(zone, ConservativeFields,
                                                 locationTag='centers:')
     
+    for v in v1:
+        if np.any(np.logical_not(np.isfinite(v))):
+            printCo("ERROR: NaN were found in conservative quantities !! Ignoring current bodyforce...",color=J.FAIL)
+            v[:] = 0
+
     I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
     C.node2Center__(zone, 'nodes:VelocityTangential')
     PropellerFields = ['VelocityTangential', 'fx', 'fy', 'fz', 'ft']
     v2 = VelocityTangential, fx, fy, fz, ft = J.getVars(zone, PropellerFields,
                                                 Container='FlowSolution#Centers')
+
+    for v in v2:
+        if np.any(np.logical_not(np.isfinite(v))):
+            printCo("ERROR: NaN were found in source terms !! Ignoring current bodyforce...",color=J.FAIL)
+            v[:] = 0
 
 
     ro[:]  = 0.0
@@ -1296,7 +1349,7 @@ def interpolatorFromPyZonePolar(PyZonePolar, interpOptions=None,
             >>> InterpolationFunctions(AoA, Mach, Reynolds, ListOfEquations=[])
 
     '''
-
+    import scipy.interpolate as si
 
 
     # Get the fields to interpolate
@@ -1582,8 +1635,8 @@ def RbfInterpFromPyZonePolar(PyZonePolar, InterpFields=['Cl', 'Cd', 'Cm']):
 
             >>> Cl, Cd, Cm = InterpolationFunction(AoA, Mach, Reynolds)
     '''
-
-
+    from scipy.spatial import Delaunay
+    import scipy.interpolate as si
 
     # Check kind of PyZonePolar
     PolarInterpNode = I.getNodeFromName1(PyZonePolar,'.Polar#Interp')
@@ -1986,7 +2039,7 @@ def _findOptimumAngleOfAttackOnLiftLine(LiftingLine, PolarsInterpolatorDict,
             the aerodynamic coefficients.
     """
 
-
+    import scipy.optimize as so
     AoA, Cl, Cd, Mach, Reynolds = J.getVars(LiftingLine,['AoA','Cl','Cd','Mach', 'Reynolds'])
 
     if SpecificSections is None: SpecificSections = range(len(AoA))
@@ -2307,7 +2360,7 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
             structured surface containing fields at ``FlowSolution``, where the
             variables requested by the user are interpolated.
     '''
-
+    import scipy.interpolate as si
     def _applyInterpolationFunction__(VariableArray, Var, InterpolationLaw):
         '''
         Perform spanwise interpolation of PyZonePolar data
@@ -3126,9 +3179,6 @@ def assembleAndProjectVelocities(t):
                           'VelocityX',
                           'VelocityY',
                           'VelocityZ',
-                          'VelocityRelativeX',
-                          'VelocityRelativeY',
-                          'VelocityRelativeZ',
                           'Velocity2DX',
                           'Velocity2DY',
                           'Velocity2DZ',
@@ -3176,9 +3226,6 @@ def assembleAndProjectVelocities(t):
         v['VelocityX'][:] = VelocityInduced[0,:] + VelocityFreestream[0]
         v['VelocityY'][:] = VelocityInduced[1,:] + VelocityFreestream[1]
         v['VelocityZ'][:] = VelocityInduced[2,:] + VelocityFreestream[2]
-        v['VelocityRelativeX'][:] = VelocityRelative[0,:]
-        v['VelocityRelativeY'][:] = VelocityRelative[1,:]
-        v['VelocityRelativeZ'][:] = VelocityRelative[2,:]
         v['VelocityAxial'][:] = Vax = ( VelocityRelative.T.dot(-RotationAxis) ).T
         v['VelocityTangential'][:] = Vtan = np.diag(VelocityRelative.T.dot(TangentialDirection))
         # note the absence of radial velocity contribution to 2D flow
@@ -3475,6 +3522,7 @@ def addPerturbationFields(t, PerturbationFields=None):
 
         tPert = I.renameNode(PerturbationFields,
                              'FlowSolution#Init', 'FlowSolution#Centers')
+        I._rmNodesByName(tPert,'FlowSolution#EndOfRun#Relative')
 
         if t:
             LLs = I.getZones(t)
@@ -3509,7 +3557,6 @@ def addPerturbationFields(t, PerturbationFields=None):
         except: tAux = None
         Cmpi.barrier()
 
-
         if not tAux: return # BEWARE cannot use barriers from this point
 
         AuxiliarDisc = I.getZones(tAux)[0]
@@ -3536,7 +3583,6 @@ def addPerturbationFields(t, PerturbationFields=None):
         for v in [iVx, iVy, iVz]:
             isNotFinite = np.logical_not(np.isfinite(v))
             v[isNotFinite] = 0.
-
 
         migratePerturbationsFromAuxiliarDisc2LiftingLines(AuxiliarDisc, t)
 
@@ -3774,6 +3820,7 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
             This :py:class:`dict` defines a pair of keyword-arguments of the 
             function :py:func:`applyTipLossFactorToBladeEfforts`.
     '''
+    import scipy.integrate as sint
 
     FrenetFields = ('tx','ty','tz','nx','ny','nz','bx','by','bz',
         'tanx','tany','tanz')
@@ -3976,7 +4023,7 @@ def applyTipLossFactorToBladeEfforts(LiftingLine, kind='Prandtl', NumberOfBlades
     Apply a tip loss factor function to :math:`C_l` and :math:`C_d` quantities 
     of a LiftingLine. 
 
-    .. note:: this function is optionally called used in the context of :py:fun:`computeGeneralLoadsOfLiftingLine`
+    .. note:: this function is optionally called used in the context of :py:func:`computeGeneralLoadsOfLiftingLine`
 
     Parameters
     ----------
@@ -4452,7 +4499,11 @@ def convertHOSTPolarFile2Dict(filename):
                     SetOfBigAoA += BigAoA
                     SetOfBigAoAValues += BigAoAValues
                     j+=1
-                    NextTag = lines[j].split()
+                    try:
+                        NextTag = lines[j].split()
+                    except IndexError:
+                        break
+
 
                 SortInd = np.argsort(SetOfBigAoA)
                 SetOfBigAoA= np.array([SetOfBigAoA[i] for i in SortInd], order='F')
@@ -4460,7 +4511,7 @@ def convertHOSTPolarFile2Dict(filename):
 
                 Data[Var]['BigAoA'] = SetOfBigAoA
                 Data[Var]['BigAoAValues'] = SetOfBigAoAValues
-            elif len(re.findall(r'REYNOLDS/MACH',lines[i].upper()))==1:
+            elif len(re.findall(r'(C*L/NU)I0',lines[i].upper()))==1:
                 j=i
                 ReynoldsOverMach = scan(lines[j],float)
                 Data['ReynoldsOverMach'] = ReynoldsOverMach[-1]
@@ -4714,6 +4765,7 @@ def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
     '''
     import Converter.Mpi as Cmpi
     from .Coprocess import printCo
+
     def getItemOrRaiseWarning(itemName):
         try:
             item = Rotor[itemName]
@@ -4856,42 +4908,48 @@ def computePropellerBodyForce(to, NumberOfSerialRuns, LocalBodyForceInputData):
             container, ready to be migrated into CFD grid
             ( see :py:func:`migrateSourceTerms2MainPyTree` )
     '''
+    from .Coprocess import printCo
     BodyForceDisks = []
     BodyForcePropellers = []
-    for iBF in range(NumberOfSerialRuns):
-        try:
-            SerialBFdata = LocalBodyForceInputData[iBF]
+
+    try:
+        for iBF in range(NumberOfSerialRuns):
             try:
-                Propeller = SerialBFdata['Propeller']
-                PolarsInterpolatorsDict = SerialBFdata['PolarsInterpolatorsDict']
-                NumberOfAzimutalPoints = SerialBFdata['NumberOfAzimutalPoints']
-                buildBodyForceDiskOptions = SerialBFdata['buildBodyForceDiskOptions']
-            except KeyError:
+                SerialBFdata = LocalBodyForceInputData[iBF]
+                try:
+                    Propeller = SerialBFdata['Propeller']
+                    PolarsInterpolatorsDict = SerialBFdata['PolarsInterpolatorsDict']
+                    NumberOfAzimutalPoints = SerialBFdata['NumberOfAzimutalPoints']
+                    buildBodyForceDiskOptions = SerialBFdata['buildBodyForceDiskOptions']
+                except KeyError:
+                    Propeller = []
+                    PolarsInterpolatorsDict = None
+                    NumberOfAzimutalPoints = None
+                    buildBodyForceDiskOptions = {}
+
+            except IndexError:
                 Propeller = []
                 PolarsInterpolatorsDict = None
                 NumberOfAzimutalPoints = None
                 buildBodyForceDiskOptions = {}
 
-        except IndexError:
-            Propeller = []
-            PolarsInterpolatorsDict = None
-            NumberOfAzimutalPoints = None
-            buildBodyForceDiskOptions = {}
 
+            BodyForceOptions = dict(PerturbationFields=to)
+            BodyForceOptions.update(buildBodyForceDiskOptions)
 
-        BodyForceOptions = dict(PerturbationFields=to)
-        BodyForceOptions.update(buildBodyForceDiskOptions)
+            BFdisk = buildBodyForceDisk(Propeller,
+                                        PolarsInterpolatorsDict,
+                                        NumberOfAzimutalPoints,
+                                        **BodyForceOptions)
+            if BFdisk: BodyForceDisks.append(BFdisk)
 
-        BFdisk = buildBodyForceDisk(Propeller,
-                                    PolarsInterpolatorsDict,
-                                    NumberOfAzimutalPoints,
-                                    **BodyForceOptions)
+            # TODO:
+            # Examine if returning BodyForcePropellers or not: is it really useful?
+            if Propeller: BodyForcePropellers.append(Propeller)
 
-        if BFdisk: BodyForceDisks.append(BFdisk)
-
-        # TODO:
-        # Examine if returning BodyForcePropellers or not: is it really useful?
-        if Propeller: BodyForcePropellers.append(Propeller)
+    except BaseException:
+        printCo(traceback.format_exc(),color=J.FAIL)
+        os._exit(0)
 
     return BodyForceDisks
 
@@ -5025,7 +5083,7 @@ def convertPolarsCGNS2HOSTformat(PyZonePolars,
                 KeyName = BigAoAsValue[0].replace('BigAngleOfAttack','')
                 BigAoAsValuesDict[KeyName] = BigAoAsValue[1]
 
-            #f.write(FoilName+'\n')
+            f.write('      78      %s\n'%FoilName)
             f.write('%5i\n' %MachQty)
 
             for var in AllowedQuantities:
@@ -5125,6 +5183,10 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
     '''
 
     from .RotatoryWings import getEulerAngles4PUMA
+    from .GenerativeVolumeDesign import stackSurfacesWithFields
+    silence = J.OutputGrabber()
+    with silence:
+        import PUMA
 
     Density = C.getMeanValue(perturbationField,'Density')
     Temperature = C.getMeanValue(perturbationField,'Temperature')
@@ -5165,7 +5227,7 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
 
     TrailingEdge, = I.getZones(TrailingEdge)
     LeadingEdge, = I.getZones(LeadingEdge)
-    VolumePerturbation = GVD.stackSurfacesWithFields(TrailingEdge, LeadingEdge,
+    VolumePerturbation = stackSurfacesWithFields(TrailingEdge, LeadingEdge,
                                                      np.array([0.0,1.0]))
 
 
@@ -5323,7 +5385,6 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
 
 
     FieldsNames2Extract = ['CoordinateX','CoordinateY','CoordinateZ',
-                    'VelocityRelativeX', 'VelocityRelativeY', 'VelocityRelativeZ',
                     'Velocity2DX', 'Velocity2DY', 'Velocity2DZ', 'Gamma']
     AllSourceZones = []
 

@@ -10,21 +10,23 @@ First creation:
 27/02/2019 - L. Bernardos
 '''
 
-# System modules
 import sys
 usingPython2 = sys.version_info[0] == 2
 import os
-import threading
-import time
-import glob
-import numpy as np
-from itertools import product
-from timeit import default_timer as tic
-from fnmatch import fnmatch
 
-import Converter.PyTree as C
-import Converter.Internal as I
+import MOLA
 from . import __version__, __MOLA_PATH__
+if not MOLA.__ONLY_DOC__:
+    import threading
+    import time
+    import glob
+    import numpy as np
+    from itertools import product
+    from timeit import default_timer as tic
+    from fnmatch import fnmatch
+
+    import Converter.PyTree as C
+    import Converter.Internal as I
 
 FAIL  = '\033[91m'
 GREEN = '\033[92m'
@@ -876,7 +878,7 @@ def interpolate__(AbscissaRequest, AbscissaData, ValuesData,
         try: bc_type = kwargs['CubicSplineBoundaryConditions']
         except KeyError: bc_type = 'not-a-knot'
 
-        interp = scipy.interpolate.CubicSpline(AbscissaData, ValuesData, axis=axis, bc_type=bc_type, extrapolate=True)
+        interp = scipy.interpolate.CubicSpline(AbscissaData, ValuesData, axis=axis, extrapolate=True, **kwargs)
         return interp(AbscissaRequest)
 
     else:
@@ -2271,9 +2273,15 @@ def printEnvironment():
     # elsA tools chain
     try:
         import etc
-        vETC = etc.version
     except:
         vETC = FAIL + 'UNAVAILABLE' + ENDC
+    else:
+        vETC = WARN + 'UNKNOWN' + ENDC
+        for vatt in ('__version__','version'):
+            if hasattr(etc, vatt):
+                vETC = getattr(etc,vatt)
+                break
+    
     print(' --> ETC '+vETC)
 
     # Cassiopee
@@ -2283,14 +2291,6 @@ def printEnvironment():
     except:
         vCASSIOPEE = FAIL + 'UNAVAILABLE' + ENDC
     print(' --> Cassiopee '+vCASSIOPEE)
-
-    # Vortex Particle Method
-    try:
-        import VortexParticleMethod as VPM
-        vVPM = VPM.__version__
-    except:
-        vVPM = FAIL + 'UNAVAILABLE' + ENDC
-    print(' --> VPM '+vVPM)
 
     # PUMA
     vPUMA = os.getenv('PUMAVERSION', 'UNAVAILABLE')
@@ -2317,6 +2317,16 @@ def printEnvironment():
     except:
         vERSATZ = FAIL + 'UNAVAILABLE' + ENDC
     print(' --> Ersatz '+vERSATZ)
+
+
+    # Vortex Particle Method
+    try:
+        import VortexParticleMethod.vortexparticlemethod
+        import MOLA.VPM as VPM
+        vVPM = VPM.__version__
+    except:
+        vVPM = FAIL + 'UNAVAILABLE' + ENDC
+    print(' --> VPM '+vVPM)
 
 
     if totoV == 'Dev':
@@ -2495,6 +2505,7 @@ def joinFamilies(t, pattern):
 
 def _getBaseWithZoneName(t,zone_name):
     for base in I.getBases(t):
+        lbase = len(base)
         for child in base[2]:
             if child[0] == zone_name and child[3] == 'Zone_t':
                 return base

@@ -18,7 +18,7 @@ class Zone(Node):
         self.setType('Zone_t')
 
         if self.value() is None:
-            self.setValue(np.array([[2,1,0]],dtype=np.int,order='F'))
+            self.setValue(np.array([[2,1,0]],dtype=np.int32,order='F'))
 
 
         if not self.childNamed('ZoneType'):

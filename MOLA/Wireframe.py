@@ -13,31 +13,26 @@ File history:
 27/02/2019 - v1.0 - L. Bernardos - Creation by recycling
 '''
 
-# System modules
-import sys
-import os
-import numpy as np
-from copy import deepcopy as cdeep
-from timeit import default_timer as tic
-
-# Scipy modules
-try: import scipy.optimize
-except:
-    print ('%s: WARNING could not import scipy.optimize. This may cause error for some functions.'%__file__)
-    pass
-
-# Cassiopee
-import Converter.PyTree as C
-import Converter.Internal as I
-import Geom.PyTree as D
-import Post.PyTree as P
-import Generator.PyTree as G
-import Transform.PyTree as T
-import Connector.PyTree as X
-import Intersector.PyTree as XOR
-
-# Generative modules
+import MOLA
 from . import InternalShortcuts as J
+if not MOLA.__ONLY_DOC__:
+    # System modules
+    import sys
+    import os
+    import numpy as np
+    from copy import deepcopy as cdeep
+    from timeit import default_timer as tic
+
+    # Cassiopee
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Geom.PyTree as D
+    import Post.PyTree as P
+    import Generator.PyTree as G
+    import Transform.PyTree as T
+    import Connector.PyTree as X
+    import Intersector.PyTree as XOR
+
 
 linelawVerbose = False
 
@@ -957,15 +952,25 @@ def discretize(curve, N=None, Distribution=None, MappingLaw='Generator.map'):
     if MappingLaw == 'Generator.map':
         return G.map(curve,D.getDistribution(curve_Distri))
     else:
-        s        = gets(curve)
-        sMap     = gets(curve_Distri)
-        x, y, z  = J.getxyz(curve)
-        curveMap = D.line((0,0,0),(1,0,0),C.getNPts(curve_Distri))
-        curveMap[0] = curve[0]+'.mapped'
-        xMap, yMap, zMap = J.getxyz(curveMap)
-        xMap[:] = J.interpolate__(sMap, s, x, Law=MappingLaw, axis=-1)
-        yMap[:] = J.interpolate__(sMap, s, y, Law=MappingLaw, axis=-1)
-        zMap[:] = J.interpolate__(sMap, s, z, Law=MappingLaw, axis=-1)
+
+        # List of variables to remap
+        VarsNames = C.getVarNames(curve)[0]
+
+        # Get the list of arrays, including coordinates
+        OldVars = [I.getValue(I.getNodeFromName2(curve,vn)) for vn in VarsNames]
+        if 's' in VarsNames:
+            OldAbscissa = J.getVars(curve,['s'])[0]
+        else:
+            OldAbscissa = gets(curve)
+
+        # Get the newly user-defined abscissa
+        _,NewAbscissa,_ = J.getDistributionFromHeterogeneousInput__(curve_Distri)
+
+        # Perform remapping (interpolation)
+        VarsArrays = [J.interpolate__(NewAbscissa,OldAbscissa,OldVar, Law=MappingLaw) for OldVar in OldVars]
+
+        # Invoke newly remapped curve
+        curveMap = J.createZone(curve[0],VarsArrays,VarsNames)
 
         return curveMap
 
@@ -1732,7 +1737,8 @@ def _rootScalar__(func, x0, xmin=None, xmax=None, args=None, maxstep=1.e-3,
 
 def extrapolate(curve, ExtrapDistance, mode='tangent', opposedExtremum=False):
     '''
-    Extrapolate a curve from one of its boundaries.
+    Extrapolate a curve from one of its boundaries. Fields are **not** 
+    extrapolated, but rather initialized to zero.
 
     Parameters
     ----------
@@ -1756,12 +1762,15 @@ def extrapolate(curve, ExtrapDistance, mode='tangent', opposedExtremum=False):
         ExtrapolatedCurve : zone
             extrapolated curve (structured)
     '''
+    curve = I.copyRef(curve)
 
     if opposedExtremum: T._reorder(curve,(-1,2,3))
 
     cX, cY, cZ = J.getxyz(curve)
     Tangent    = D.getTangent(curve)
     tX, tY, tZ = J.getxyz(Tangent)
+
+    fields_names = C.getVarNames(curve, excludeXYZ=True)[0]
 
     if mode=='tangent':
 
@@ -1771,7 +1780,9 @@ def extrapolate(curve, ExtrapDistance, mode='tangent', opposedExtremum=False):
                     Pt[1]+tY[-1]*ExtrapDistance,
                     Pt[2]+tZ[-1]*ExtrapDistance)]
         Appendix = D.polyline(Points)
-        ExtrapolatedCurve = T.join(curve,Appendix)
+        if fields_names: J.invokeFields(Appendix, fields_names)
+        
+        ExtrapolatedCurve = T.join(curve, Appendix)
 
 
     if opposedExtremum: T._reorder(ExtrapolatedCurve,(-1,2,3))
@@ -1915,7 +1926,6 @@ def buildAirfoilFromCamberLine(CamberLine, NormalDirection=None,
         BottomY[i] = CamberY[i]-0.5*e[i]*np.cos(gamma[i])*Chord
 
     T._reorder(Bottom,(-1,2,3))
-
 
     if TopDistribution is not None:
         Top = G.map(Top,TopDistribution)
@@ -2106,32 +2116,8 @@ def is2DCurveClockwiseOriented(curve):
     return isClockwise
 
 
-def isAirfoilClockwiseOriented(curve):
-    '''
-    .. warning:: this function requires further validation
-
-    returns :py:obj:`True` if provided **curve** supported on :math:`OXY` plane
-    is oriented clockwise
-    '''
-    # TODO try to uniformly discretize curve before evaluating orientation
-    raise ValueError('isAirfoilClockwiseOriented must be replaced with is2DCurveClockwiseOriented')
-    cx, cy = J.getxy(curve)
-    p2 = np.array([cx[2],cy[2],0])
-    p1 = np.array([cx[1],cy[1],0])
-    p0 = np.array([cx[0],cy[0],0])
-    v12 = p2-p1
-    v12 /= np.sqrt(v12.dot(v12))
-    v01 = p1-p0
-    v01 /= np.sqrt(v01.dot(v01))
-    v = np.cross(v12,v01)
-
-    isClockwise = True if v[2] > 0 else False
-
-    return isClockwise
-
-
-def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge( airfoil, tol=1e-5,
-                                                    trailing_edge_margin=1e-4):
+def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge( airfoil, tol=1e-10,
+                                                    trailing_edge_region=0.95):
     '''
     This function transforms the input airfoil into clockwise-oriented and
     starting from trailing edge.
@@ -2145,10 +2131,20 @@ def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge( airfoil, tol=1e-5,
             structured curve of the airfoil
 
             .. note:: **airfoil** is modified
-    '''
 
-    LE,_ = findLeadingOrTrailingEdge( airfoil, ChordwiseRegion='> 0.99')
-    TE,_ = findLeadingOrTrailingEdge( airfoil, ChordwiseRegion='< -0.99')
+        tol : float
+            distance tolerance (absolute) to determine if two points are
+            coincident. Coincident points are removed.
+
+        trailing_edge_region : float
+            relative distance to determine the trailing and leading edge point 
+            research region, following the chordwise direction. 
+            This value is passed to :py:func:`findLeadingOrTrailingEdge`
+
+    '''
+    tem = '%g'%trailing_edge_region
+    LE,_ = findLeadingOrTrailingEdge( airfoil, ChordwiseRegion='> '+tem)
+    TE,_ = findLeadingOrTrailingEdge( airfoil, ChordwiseRegion='< -'+tem)
 
     if C.getMaxValue(LE,"CoordinateX") > C.getMaxValue(TE,"CoordinateX"):
         LE, TE = TE, LE
@@ -2163,25 +2159,19 @@ def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge( airfoil, tol=1e-5,
     if not is2DCurveClockwiseOriented( airfoil ):
         T._reorder( airfoil, (-1,2,3))
 
-    roll_index, sqrd_distance = D.getNearestPointIndex(airfoil, TE_xyz)
+    roll_index, _ = D.getNearestPointIndex(airfoil, TE_xyz)
     x, y = J.getxy( airfoil )
-    mult_point = (x[roll_index]*1., y[roll_index]*1., 0.)
     fields = J.getVars( airfoil, FieldNames )
     x[:] = np.roll(x, -roll_index)
     y[:] = np.roll(y, -roll_index)
     for field in fields:
         field[:] = np.roll(field, -roll_index)
 
-    # remove multiple point
-    tol = 1e-10
-    for i in range(len(x)):
-        ni, sqrd_distance = D.getNearestPointIndex(airfoil, (x[i],y[i],0))
-        if i == ni: continue
-        distance = np.sqrt( (x[i]-x[ni])**2 + (y[i]-y[ni])**2)
-        if distance <= tol:
-            break
-
-    if distance < tol:
+    # roll multiple point
+    s = gets(airfoil)
+    delta_s = np.diff(s * getLength(airfoil))
+    i = np.argmin(delta_s)
+    if delta_s[i] < tol:
         x[i:-1] = x[i+1:]
         y[i:-1] = y[i+1:]
         x[-1] = x[0]
@@ -2949,9 +2939,12 @@ def computeChordwiseAndThickwiseIndicators(AirfoilCurve):
     '''
 
     AirfoilCurveForOBB = C.convertBAR2Struct(AirfoilCurve)
-    AirfoilCurveForOBB = G.map(AirfoilCurveForOBB,
-                         D.line((0,0,0),(1,0,0),C.getNPts(AirfoilCurveForOBB)))
+    AirfoilCurveForOBB = discretize(AirfoilCurve, MappingLaw='interp1d_linear')
+    # AirfoilCurveForOBB = G.map(AirfoilCurveForOBB,
+    #                      D.line((0,0,0),(1,0,0),C.getNPts(AirfoilCurveForOBB)))
+    AirfoilCurveForOBB[0] = 'AirfoilCurveForOBB'
     OBB = G.BB(AirfoilCurveForOBB, method='OBB')
+    OBB[0]='OBB'
 
     Barycenter = G.barycenter(OBB)
     Barycenter = np.array(Barycenter)
@@ -2982,6 +2975,8 @@ def computeChordwiseAndThickwiseIndicators(AirfoilCurve):
                                              'ChordwiseIndicator'     )
     ApproximateThickness = _invokeIndicator( DecreasingDirections[1],
                                              'ThickwiseIndicator'     )
+    if np.isnan(ApproximateChord ):
+        J.save([AirfoilCurve,AirfoilCurveForOBB,OBB], 'debug.cgns' )
 
     return ApproximateChord, ApproximateThickness
 
@@ -3377,17 +3372,18 @@ def splitAirfoil(AirfoilCurve, FirstEdgeSearchPortion = 0.50,
                                ChordwiseRegion='< %g'%SecondEdgeSearchPortion,
                                ToleranceRelativeRadius=RelativeRadiusTolerance)
 
-
     if TErmin > LErmin:
         TErmin , LErmin = LErmin , TErmin
         TE , LE = LE , TE
-    C._rmVars([LE, TE], 'radius')
+    I._rmNodesByType([LE, TE], 'FlowSolution_t')
     LE[0] = 'LeadingEdge'
     TE[0] = 'TrailingEdge'
     LeadingEdgeCoords  = np.array(J.getxyz( LE )).flatten()
     TrailingEdgeCoords = np.array(J.getxyz( TE )).flatten()
     Chord = distance(LeadingEdgeCoords, TrailingEdgeCoords)
     ChordDirection = TrailingEdgeCoords - LeadingEdgeCoords
+    
+    # TODO BUG replace this (beware of https://elsa.onera.fr/issues/10878)
     for receiver in [LE, TE]:
         T._projectOrtho( receiver, AirfoilCurve )
         P._extractMesh( AirfoilCurve,
@@ -3402,7 +3398,6 @@ def splitAirfoil(AirfoilCurve, FirstEdgeSearchPortion = 0.50,
     I.setName(BottomSide, 'BottomSideCandidate')
     TopSide    = splitSide( LE, TE )
     I.setName(TopSide, 'TopSideCandidate')
-
     for criterion in SideChoiceCriteriaPriorities:
         if criterion == 'distance':
             TopSideMaxDistanceToChordLine = getMaximumDistanceToChordLine(
@@ -3619,7 +3614,7 @@ def buildCamber(AirfoilCurve, MaximumControlPoints=100, StepControlPoints=10,
     CamberPolyline = D.line( J.getxyz( LeadingEdge ),
                              J.getxyz( TrailingEdge ),
                              NCtrlPts )
-
+    
     ptrs = prepareCamberLine(CamberPolyline)
     CamberPolylineFields, CamberPolylineTangents, CamberPolylineCoords = ptrs
 
@@ -3662,8 +3657,6 @@ def buildCamber(AirfoilCurve, MaximumControlPoints=100, StepControlPoints=10,
                                kind='trigonometric', parameter=1)
 
 
-    NCtrlPts = FinalDistribution['N']
-    Camber = discretize(Camber, N=NCtrlPts, Distribution=FinalDistribution)
     CamberPolyline = Camber
     ptrs = prepareCamberLine(CamberPolyline)
     e, = J.invokeFields(CamberPolyline,['RelativeThickness'])
@@ -3675,11 +3668,60 @@ def buildCamber(AirfoilCurve, MaximumControlPoints=100, StepControlPoints=10,
             np.sqrt(CamberPolylineFields['SquaredDistanceBottom'])) / Chord
 
     if not CONVERGED:
-        print('Camber line not converged with residual %g'%residual)
+        print(J.WARN+'Camber line not converged with residual %g'%residual+J.ENDC)
 
-    CamberPolyline[0] += '.camber'
+    CamberCoarse = I.copyTree(CamberPolyline)
+    CamberCoarse[0] = 'coarse'
+    CamberPolyline = discretize(CamberCoarse, N=FinalDistribution['N'],
+                             Distribution=FinalDistribution, MappingLaw='akima')
+    NCtrlPts = FinalDistribution['N']
+    gets(TopSide)
+    TopSide = discretize(TopSide, N=FinalDistribution['N'],
+                             Distribution=FinalDistribution, MappingLaw='akima')
+    gets(BottomSide)
+    BottomSide = discretize(BottomSide, N=FinalDistribution['N'],
+                             Distribution=FinalDistribution, MappingLaw='akima')
 
-    return CamberPolyline
+    ptrs = prepareCamberLine(CamberPolyline)
+    e, = J.invokeFields(CamberPolyline,['RelativeThickness'])
+    CamberPolylineFields, CamberPolylineTangents, CamberPolylineCoords = ptrs
+    updateTangents()
+    updatePerpendicularSquaredDistance(    TopSide, 'Top' )
+    updatePerpendicularSquaredDistance( BottomSide, 'Bottom' )
+    e[:] = (np.sqrt(CamberPolylineFields['SquaredDistanceTop']) + \
+            np.sqrt(CamberPolylineFields['SquaredDistanceBottom'])) / Chord
+    CamberFine = CamberPolyline
+   
+
+
+    # NOTE this could produce awful results dependending on the slope value...
+    # CamberFine = discretize(CamberPolyline, N=FinalDistribution['N'],
+    #                          Distribution=FinalDistribution, MappingLaw='akima')
+    # fields_names = C.getVarNames(CamberFine, excludeXYZ=True)[0]
+    # # interpolate coarse fields into fine fields
+    # fields_coarse = J.getVars(CamberPolyline, fields_names)
+    # fields_fine = J.getVars(CamberFine, fields_names)
+    # s_coarse = gets(CamberPolyline)
+    # s_fine = gets(CamberFine)
+    # slope = 5
+    # for field_coarse, field_fine in zip(fields_coarse, fields_fine):
+    #     field_fine[:] = J.interpolate__(s_fine,s_coarse,field_coarse, Law='cubic',
+    #                                     bc_type=((1,slope),'not-a-knot'))
+
+    CamberFine[0] = CamberPolyline[0]+'.camber'
+    gets(CamberFine)
+    gets(CamberCoarse)
+
+    # import matplotlib.pyplot as plt
+    # s, e = J.getVars(CamberCoarse,['s','RelativeThickness'])
+    # plt.plot(s,e,'o',mfc='None')
+    # s, e = J.getVars(CamberFine,['s','RelativeThickness'])
+    # plt.plot(s,e,'.-')
+    # plt.show()
+
+    
+    
+    return CamberFine
 
 
 def getAirfoilPropertiesAndCamber(AirfoilCurve, buildCamberOptions={},
@@ -3736,6 +3778,7 @@ def getAirfoilPropertiesAndCamber(AirfoilCurve, buildCamberOptions={},
 
     buildCamberOptions['splitAirfoilOptions'] = splitAirfoilOptions
     CamberLine = buildCamber(AirfoilCurve, **buildCamberOptions)
+    InitialCamberLine = I.copyTree(CamberLine)
     CamberLineX, CamberLineY, CamberLineZ = J.getxyz(CamberLine)
     RelativeThickness, = J.getVars(CamberLine, ['RelativeThickness'])
 
@@ -3754,7 +3797,7 @@ def getAirfoilPropertiesAndCamber(AirfoilCurve, buildCamberOptions={},
     ChordDirection /= Chord
     AirfoilProperties['Chord'] = Chord
     AirfoilProperties['ChordDirection'] = ChordDirection
-
+    
 
     TopSideX, TopSideY, TopSideZ = J.getxyz(TopSide)
     ChordCoplanarDirection = np.array([TopSideX[1]-TopSideX[0],
@@ -3988,6 +4031,9 @@ def modifyAirfoil(AirfoilInput, Chord=None,
 
         NewAirfoil : zone
             structured curve of the new airfoil
+
+        NewAirfoilCamber : zone
+            structured curve of the camber line of the new airfoil
     '''
 
 
@@ -3996,6 +4042,7 @@ def modifyAirfoil(AirfoilInput, Chord=None,
     AirfoilProperties, Camber = getAirfoilPropertiesAndCamber(AirfoilInput,
                                         buildCamberOptions=buildCamberOptions,
                                         splitAirfoilOptions=splitAirfoilOptions)
+    InitialCamber = I.copyTree(Camber)
 
     TE = AirfoilProperties['TrailingEdge']
     LE = AirfoilProperties['LeadingEdge']
@@ -4036,11 +4083,17 @@ def modifyAirfoil(AirfoilInput, Chord=None,
                     MinCamberRelativeLocation=MinCamberRelativeLocation,
                     InterpolationLaw=InterpolationLaw)
 
+    x0,y0,z0 = J.getxyz(InitialCamber)
+    xf,yf,zf = J.getxyz(Camber)
+
+    T._translate(Camber,(x0[0]-xf[0], y0[0]-yf[0], z0[0]-zf[0]))
+
     NewAirfoil = buildAirfoilFromCamberLine(Camber, NormalDirection)
     NewAirfoil[0] = AirfoilInput[0]+'.mod'
+    Camber[0] = NewAirfoil[0]+'.camber'
     J.set(NewAirfoil, '.AirfoilProperties', **AirfoilProperties)
 
-    return NewAirfoil
+    return NewAirfoil, Camber
 
 def modifyThicknessOfCamberLine(CamberCurve, NormalDirection, MaxThickness=None,
                 MaxRelativeThickness=None, MaxThicknessRelativeLocation=None,
@@ -4106,6 +4159,7 @@ def modifyThicknessOfCamberLine(CamberCurve, NormalDirection, MaxThickness=None,
     T._translate(CamberLine,-LeadingEdge)
     T._rotate(CamberLine, (0,0,0),FrenetOriginal, FrenetAuxiliary)
     x,y,z = J.getxyz(CamberLine)
+    s = gets(CamberLine)
 
 
     RelativeThickness, = J.getVars(CamberLine, ['RelativeThickness'])
@@ -4150,9 +4204,9 @@ def modifyThicknessOfCamberLine(CamberCurve, NormalDirection, MaxThickness=None,
 
         AuxCamberLine = T.join(FrontCamber, RearCamber)
         AuxRelativeThickness, = J.getVars(AuxCamberLine, ['RelativeThickness'])
-        AuxX = J.getx(AuxCamberLine)
 
-        RelativeThickness[:] = J.interpolate__(x, AuxX, AuxRelativeThickness,
+        AuxS = gets(AuxCamberLine)
+        RelativeThickness[:] = J.interpolate__(s, AuxS, AuxRelativeThickness,
                                                Law=InterpolationLaw)
 
 
@@ -4224,7 +4278,6 @@ def modifyCamberOfCamberLine(CamberCurve, NormalDirection,
                         (MinRelativeCamber is not None) or
                         MinCamberRelativeLocation)
     if not needModification: return CamberCurve
-
     if (MaxCamber and MaxRelativeCamber) or \
        (MinCamber and MinRelativeCamber):
         raise AttributeError('Cannot specify both relative and absolute camber')
@@ -4400,6 +4453,9 @@ def trimCurveAlongDirection(curve, direction, cut_point_1, cut_point_2):
     Trim a curve along a direction using two cut points (resulting curve is
     placed between the cut points, along the requested direction).
 
+    .. note::
+        this will be replaced with strategy shown in `10357 <https://elsa.onera.fr/issues/10357>`_
+
     Parameters
     ----------
 
@@ -4423,6 +4479,9 @@ def trimCurveAlongDirection(curve, direction, cut_point_1, cut_point_2):
         trimmed_curve : zone
             trimmed structured curve
     '''
+
+    # TODO replace with strategy: https://elsa.onera.fr/issues/10357
+
     curve = I.copyRef(curve)
     x,y,z = J.getxyz(curve)
     FieldToSlice, = J.invokeFields(curve,['FieldToSlice'])
@@ -4475,7 +4534,8 @@ def getNearestIntersectingPoint(zone1, zone2):
     Return the coordinates of a point belonging to **zone2** such that
     its distance is minimum with respect to any point of **zone1**
 
-    .. note:: this is an 0th-order method
+    .. note::
+        this is an 0th-order method. Will be replaced by `10356 <https://elsa.onera.fr/issues/10356>`_
 
     Parameters
     ----------
@@ -4515,6 +4575,9 @@ def intersection(curves):
     Computes the intersecting points of a set of curves, including
     possibly self-intersecting points.
 
+    .. note::
+        Will be replaced by `10356 <https://elsa.onera.fr/issues/10356>`_
+
     Parameters
     ----------
 
@@ -4527,7 +4590,7 @@ def intersection(curves):
         points : py:class:`list` of zone
             list of points (each point is a zone) of the intersections.
     '''
-
+    # TODO to be replaced by `10356 <https://elsa.onera.fr/issues/10356>`_
     concatenated = concatenate(curves)
     InitialNPts = C.getNPts(concatenated)
     bar = C.convertArray2Tetra(concatenated)

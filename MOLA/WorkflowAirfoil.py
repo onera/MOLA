@@ -9,17 +9,19 @@ File history:
 15/02/2021 - L. Bernardos - Creation
 '''
 
-import sys
-import os
-import numpy as np
-import pprint
-
-import Converter.PyTree as C
-import Converter.Internal as I
-import Geom.PyTree as D
-import Transform.PyTree as T
-
 import MOLA
+
+if not MOLA.__ONLY_DOC__:
+    import sys
+    import os
+    import numpy as np
+    import pprint
+
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Geom.PyTree as D
+    import Transform.PyTree as T
+
 from . import InternalShortcuts as J
 from . import Preprocess as PRE
 from . import GenerativeShapeDesign as GSD
@@ -564,6 +566,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
     if not t: t = C.convertFile2PyTree(file_mesh)
     else: t = I.copyRef(t)
 
+    CoprocessOptions.setdefault('TagSurfacesWithIteration', 'auto')
     FluidProperties = PRE.computeFluidProperties()
 
     try:

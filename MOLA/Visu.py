@@ -24,22 +24,25 @@ File history:
 12/06/2020 - v1.8.01 - L. Bernardos - Creation
 '''
 
-import sys
-import os
-import numpy as np
-from time import sleep
-
-import matplotlib.pyplot as plt
-import matplotlib.colors as mplcolors
-from matplotlib import cm
-from matplotlib.colors import ListedColormap, LinearSegmentedColormap
-
-
-import Converter.PyTree as C
-import Converter.Internal as I
-import Transform.PyTree as T
-
+import MOLA
 from . import InternalShortcuts as J
+
+if not MOLA.__ONLY_DOC__:
+    import sys
+    import os
+    import numpy as np
+    from time import sleep
+
+    import matplotlib.pyplot as plt
+    import matplotlib.colors as mplcolors
+    from matplotlib import cm
+    from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+
+
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Transform.PyTree as T
+
 
 
 def xyz2Pixel(points,win,posCam,posEye,dirCam,viewAngle=50.0):
@@ -152,7 +155,7 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
 
     machine = os.getenv('MAC', 'ld')
     if machine in ['spiro', 'sator']:
-        offscreen=1 # TODO solve bug https://elsa.onera.fr/issues/10536
+        offscreen=5 # TODO solve bug https://elsa.onera.fr/issues/10536
     elif machine in ['ld', 'visung', 'visio']:
         offscreen=3
     else:
@@ -213,7 +216,7 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
     if TreesBlending:
         for i in range(len(Trees)):
             Trees[i] = I.merge([Trees[i]]+TreesBlending)
-    # Trees.extend(TreesBlending)
+    
 
 
     for i in range(len(Trees)):
@@ -230,10 +233,7 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
         else:
             isoScales = []
 
-        finalize = False
-        if i == len(Trees)-1:
-            offscreen += 1
-            finalize = True
+        if i>0 and i == len(Trees)-1 and offscreen > 1: offscreen += 1
 
         try: additionalDisplayOptions = elt['additionalDisplayOptions']
         except: additionalDisplayOptions = {}

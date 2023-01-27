@@ -3,16 +3,19 @@ ExtractSurfacesProcessor.py module
 15/07/2021 - L. Bernardos
 '''
 
-import numpy as np
-from timeit import default_timer as tic
+import MOLA
 
-import Converter.PyTree as C
-import Converter.Internal as I
-import Transform.PyTree as T
-import Connector.PyTree as X
-import Intersector.PyTree as XOR
-import Post.PyTree as P
-import Geom.PyTree as D
+if not MOLA.__ONLY_DOC__:
+    import numpy as np
+    from timeit import default_timer as tic
+
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Transform.PyTree as T
+    import Connector.PyTree as X
+    import Intersector.PyTree as XOR
+    import Post.PyTree as P
+    import Geom.PyTree as D
 
 ijk2ind = {'i':0, 'j':1, 'k':2}
 

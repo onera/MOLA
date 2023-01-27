@@ -1,27 +1,29 @@
 #!/usr/bin/python
-
-# Python general packages
-import os
-
-# Cassiopee packages
-import Converter.PyTree   as C
-import Converter.Internal as I
-import Converter.Mpi      as Cmpi
-import Post.PyTree        as P
-import Transform.PyTree   as T
+import MOLA
 
 import MOLA.InternalShortcuts as J
+if not MOLA.__ONLY_DOC__:
+    # Python general packages
+    import os
 
-########################
-import turbo.fields   as TF
-import turbo.height   as TH
-import turbo.machis   as TMis
-import turbo.meridian as TM
-import turbo.perfos   as TP
-import turbo.radial_future  as TR
-import turbo.slicesAt as TS
-import turbo.user     as TUS
-import turbo.utils    as TU
+    # Cassiopee packages
+    import Converter.PyTree   as C
+    import Converter.Internal as I
+    import Converter.Mpi      as Cmpi
+    import Post.PyTree        as P
+    import Transform.PyTree   as T
+
+
+    ########################
+    import turbo.fields   as TF
+    import turbo.height   as TH
+    import turbo.machis   as TMis
+    import turbo.meridian as TM
+    import turbo.perfos   as TP
+    import turbo.radial_future  as TR
+    import turbo.slicesAt as TS
+    import turbo.user     as TUS
+    import turbo.utils    as TU
 
 try:
     setup = J.load_source('setup', 'setup.py')

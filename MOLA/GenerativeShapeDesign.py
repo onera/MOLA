@@ -11,32 +11,34 @@ First creation:
 01/03/2019 - L. Bernardos - Creation by recycling.
 '''
 
-# System modules
-import sys
-from copy import deepcopy as cdeep
-import numpy as np
-import pprint
-from timeit import default_timer as Tok
-
-
-# Cassiopee
-import Converter.PyTree as C
-import Converter.Internal as I
-import Geom.PyTree as D
-import Post.PyTree as P
-import Generator.PyTree as G
-import Transform.PyTree as T
-import Connector.PyTree as X
-import Distributor2.PyTree as D2
-import Intersector.PyTree as XOR
-
-# MOLA
+import MOLA
 from . import InternalShortcuts as J
 from . import Wireframe as W
 
-verbose = False
-MAX = np.maximum
-MIN = np.minimum
+if not MOLA.__ONLY_DOC__:
+    # System modules
+    import sys
+    from copy import deepcopy as cdeep
+    import numpy as np
+    import pprint
+    from timeit import default_timer as Tok
+
+
+    # Cassiopee
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Geom.PyTree as D
+    import Post.PyTree as P
+    import Generator.PyTree as G
+    import Transform.PyTree as T
+    import Connector.PyTree as X
+    import Distributor2.PyTree as D2
+    import Intersector.PyTree as XOR
+
+
+    verbose = False
+    MAX = np.maximum
+    MIN = np.minimum
 
 def sweepSections(sections=[], SpanPositions=None,
                   rotation=[0.], rotationLaw='linear',
@@ -541,7 +543,7 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
         else:
             Params['splitAirfoilOptions'] = splitAirfoilOptions
 
-            ModSection = W.modifyAirfoil(Sections[j],**Params)
+            ModSection, ModCamber = W.modifyAirfoil(Sections[j],**Params)
             AirfoilProperties = J.get(ModSection, '.AirfoilProperties')
 
             NewSection = I.copyRef(CurrentSection)
