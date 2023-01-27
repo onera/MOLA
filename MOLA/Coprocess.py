@@ -2368,7 +2368,7 @@ def createSymbolicLink(src, dst):
         J.createSymbolicLink(src, dst)
 
 
-def updateBodyForce(t, previousTreeWithSourceTerms=[], relax=0.):
+def updateBodyForce(t, previousTreeWithSourceTerms=[], relax=0.5):
     '''
     In a turbomachinery context, update the source terms for body-force modelling.
     The user-defined parameter **BodyForceInputData** (in `setup.py`) controls the 
@@ -2386,7 +2386,7 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[], relax=0.):
             The first time this function is called, this parameter may be initialized with an empty list.
 
         relax : float, optional
-            Relaxation coefficient for the source terms. By default 0 (no relaxation). Should be less
+            Relaxation coefficient for the source terms. By default 0.5. Should be less
             than 1 (the new source terms are equal to the previous ones).
 
     Returns
