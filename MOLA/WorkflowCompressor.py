@@ -426,11 +426,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     if BodyForceInputData: 
         AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
-    BCExtractions = dict(
-        BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
-        BCInflow = ['convflux_ro'],
-        BCOutflow = ['convflux_ro'], 
-    )
+
     # WARNING: BCInflow and BCOutflow are also used for rotor/stator interfaces. However, extracting other
     # quantities on them, such as 'psta', is not possible and would raise the following error:
     # BaseException: Error: boundary BCOutflow is not implemented yet.
@@ -438,7 +434,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     PRE.addTrigger(t)
     PRE.addExtractions(t, AllSetupDics['ReferenceValues'],
                       AllSetupDics['elsAkeysModel'],
-                      extractCoords=False, BCExtractions=BCExtractions)
+                      extractCoords=False, BCExtractions=ReferenceValuesParams['BCExtractions'])
 
     if elsAkeysNumerics['time_algo'] != 'steady':
         PRE.addAverageFieldExtractions(t, AllSetupDics['ReferenceValues'],
@@ -1035,6 +1031,10 @@ def computeReferenceValues(FluidProperties, PressureStagnation,
         TurbulenceCutoff=1e-8, TransitionMode=None, CoprocessOptions={},
         Length=1.0, TorqueOrigin=[0., 0., 0.],
         FieldsAdditionalExtractions=['ViscosityMolecular', 'Viscosity_EddyMolecularRatio', 'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation', 'Mach', 'Entropy'],
+        BCExtractions=dict(
+            BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
+            BCInflow = ['convflux_ro'],
+            BCOutflow = ['convflux_ro']),
         AngleOfAttackDeg=0.,
         YawAxis=[0.,0.,1.],
         PitchAxis=[0.,1.,0.]):
