@@ -431,10 +431,12 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     # quantities on them, such as 'psta', is not possible and would raise the following error:
     # BaseException: Error: boundary BCOutflow is not implemented yet.
 
+
+
     PRE.addTrigger(t)
     PRE.addExtractions(t, AllSetupDics['ReferenceValues'],
                       AllSetupDics['elsAkeysModel'],
-                      extractCoords=False, BCExtractions=ReferenceValuesParams['BCExtractions'])
+                      extractCoords=False, BCExtractions=ReferenceValues['BCExtractions'])
 
     if elsAkeysNumerics['time_algo'] != 'steady':
         PRE.addAverageFieldExtractions(t, AllSetupDics['ReferenceValues'],
