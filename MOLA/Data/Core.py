@@ -107,19 +107,6 @@ except:
     settings = default_settings()
 
 
-try: from . import h5py2cgns as h
-except: pass
-
-try: import CGNS.MAP as CGM
-except: pass
-
-try:
-    import Converter.PyTree as C
-    import Converter.Filter as Filter
-except: pass
-
-
-
 
 AutoGridLocation = {'FlowSolution':'Vertex',
                     'FlowSolution#Centers':'CellCenter',

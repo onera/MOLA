@@ -3383,7 +3383,6 @@ def splitAirfoil(AirfoilCurve, FirstEdgeSearchPortion = 0.50,
     Chord = distance(LeadingEdgeCoords, TrailingEdgeCoords)
     ChordDirection = TrailingEdgeCoords - LeadingEdgeCoords
     
-    # TODO BUG replace this (beware of https://elsa.onera.fr/issues/10878)
     for receiver in [LE, TE]:
         T._projectOrtho( receiver, AirfoilCurve )
         P._extractMesh( AirfoilCurve,
@@ -3391,7 +3390,7 @@ def splitAirfoil(AirfoilCurve, FirstEdgeSearchPortion = 0.50,
                         mode='accurate',
                         extrapOrder=0,
                         constraint=MergePointsTolerance,
-                        tol=MergePointsTolerance )
+                        tol=1e-7 )
 
 
     BottomSide = splitSide( TE, LE )
