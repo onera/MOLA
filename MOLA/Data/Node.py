@@ -321,7 +321,7 @@ class Node(list):
         if Core.settings.backend == 'h5py2cgns':
             from . import h5py2cgns as h
             if verbose: print('saving %s ... '%filename, end='')
-            Core.h.save(node_to_save, filename)
+            h.save(node_to_save, filename, links=links)
             if verbose: print('ok')
 
         elif Core.settings.backend == 'pycgns':

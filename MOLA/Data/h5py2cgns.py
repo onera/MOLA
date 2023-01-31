@@ -1,20 +1,16 @@
 '''
 Low-level module for wrapping HDF5 file operations and inferring the CGNS
-list-like structure. It is used as a backend of data structure.
+list-like structure. It is used as a backend of MOLA.Data structure.
 
-Requires installation of publicly available python library "h5py" and numpy
+Requires installation of python libraries "h5py" and "numpy"
 
 File history:
 24/11/2022 - Luis Bernardos - creation
 '''
 
 import numpy as np
-try:
-    import h5py
-except:
-    print('\033[93mh5py not found. Please install it using:')
-    print('pip3 install --user h5py\033[0m')
-    pass
+import h5py
+
 
 use_chunks = True
 encoding = 'utf-8'
@@ -54,7 +50,7 @@ def load_h5(filename, permission='r'):
     f = h5py.File(filename, permission)
     return f
 
-def save(t, filename):
+def save(t, filename, links=[]):
     with h5py.File(filename, 'w') as f:
         f['/'].attrs.create('name', np.array('HDF5 MotherNode'.encode(encoding), dtype=str_dtype) )
         f['/'].attrs.create('label', np.array('Root Node of HDF5 File'.encode(encoding), dtype=str_dtype) )
@@ -67,8 +63,10 @@ def save(t, filename):
         data = np.concatenate((data,np.zeros(33-len(data), dtype='int8'.encode(encoding))))
         f.create_dataset(' hdf5version', data=data)
 
-        for child in t[2]:
-            nodelist_to_group(f, child)
+        for child in t[2]: nodelist_to_group(f, child)
+
+        for l in links: write_link(f, l)
+
 
 
 def nodelist_to_group(f, node, nodepath=None, links=[] ):
@@ -127,6 +125,8 @@ def build_cgns_nodelist( group, links=[], ignore_DataArray=False ):
     if nodename.startswith(' '): return
     children = []
     group_type = group.attrs['type'].decode(encoding)
+
+
     if group_type != 'LK':
         for childname in group:
             childnode = build_cgns_nodelist( group[childname], links=links,
@@ -139,10 +139,11 @@ def build_cgns_nodelist( group, links=[], ignore_DataArray=False ):
             cgns_value = '_skeleton'
         else:
             cgns_value = extract_value(group)
-
+        
         return [ nodename, cgns_value, children, cgns_type ]
     
     links += [ extract_link(group) ]
+        
 
 
 def extract_value( group ):
@@ -167,7 +168,27 @@ def extract_type( group ):
     return label
 
 def extract_link( group ):
-    file = group[' file'][()].tostring().decode(encoding)
-    path = group[' path'][()].tostring().decode(encoding)
+    file = group[' file'][()].tostring().decode(encoding).replace('\x00','')
+    path = group[' path'][()].tostring().decode(encoding).replace('\x00','')
     link = ['', file, path, path, 5]
+    
     return link
+
+def write_link(f, link):
+    file = link[1]
+    path = link[2]
+    group = f[path]
+
+    del group.attrs['flags']
+    del group[' data']
+
+    group.attrs['type'] = np.array('LK'.encode(encoding), dtype=cgns_dtype)
+    group.attrs['label'] = np.array(''.encode(encoding), dtype=str_dtype)
+
+    data = np.frombuffer(file.encode(encoding), dtype='int8'.encode(encoding))
+    group.create_dataset(' file', data=data)
+
+    data = np.frombuffer(path.encode(encoding), dtype='int8'.encode(encoding))
+    group.create_dataset(' path', data=data)
+
+    group[' link'] = h5py.ExternalLink(file, path)
