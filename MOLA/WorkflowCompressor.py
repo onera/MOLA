@@ -1110,7 +1110,8 @@ def computeReferenceValues(FluidProperties, PressureStagnation,
         TurbulenceCutoff=TurbulenceCutoff,
         TransitionMode=TransitionMode,
         CoprocessOptions=CoprocessOptions,
-        FieldsAdditionalExtractions=FieldsAdditionalExtractions)
+        FieldsAdditionalExtractions=FieldsAdditionalExtractions,
+        BCExtractions=BCExtractions)
 
     addKeys = dict(
         PressureStagnation = PressureStagnation,
