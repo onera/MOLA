@@ -9,9 +9,7 @@ ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 ###############################################################################
 # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
 export MOLA=/stck/lbernard/MOLA/Dev
-export EXTPYLIB=/stck/lbernard/MOLA/Dev/ExternalPythonPackages
 export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
-export EXTPYLIBSATOR=/tmp_user/sator/lbernard/MOLA/Dev/ExternalPythonPackages
 export VPMVERSION=v0.2
 export PUMAVERSION=r337
 export TURBOVERSION=v1.2.2
@@ -69,20 +67,27 @@ EL8=`uname -r|grep el8`
 
 
 if [ "$MAC" = "spiro" ]; then
-    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro3_mpi/.env_elsA
-    export PYTHONPATH=$EXTPYLIB/lib/python3.7/site-packages/:$PYTHONPATH
-    export PATH=$EXTPYLIB/bin:$PATH
-    module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+    if [ "$EL8" ]; then
+            echo 'loading MOLA environment for CentOS 8'
+    else
+        echo -e "\033[91mERROR: YOU MUST CONNECT TO SPIRO CENTOS 8 (temporarily ssh -X spiro-el8)\033[0m"
+        exit 0
+    fi
+    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro-el8_mpi/.env_elsA
 
-    # PUMA
-    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro3
-    export PYTHONPATH=$PumaRootDir/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
-    export PYTHONPATH=$PumaRootDir/lib/python${PYTHONVR}/site-packages/PUMA:$PYTHONPATH
-    export LD_LIBRARY_PATH=$PumaRootDir/lib/python${PYTHONVR}:$LD_LIBRARY_PATH
-    export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+    export PYTHONPATH=$MOLA/ext/spiro_el8/lib/python3.7/site-packages/:$PYTHONPATH
+    export PATH=$MOLA/ext/spiro_el8/bin:$PATH
+
+
+    # # PUMA
+    # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro3
+    # export PYTHONPATH=$PumaRootDir/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
+    # export PYTHONPATH=$PumaRootDir/lib/python${PYTHONVR}/site-packages/PUMA:$PYTHONPATH
+    # export LD_LIBRARY_PATH=$PumaRootDir/lib/python${PYTHONVR}:$LD_LIBRARY_PATH
+    # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
     # VPM
-    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/$MAC
+    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro_el8
     export PATH=$VPMPATH:$PATH
     export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
@@ -98,7 +103,7 @@ if [ "$MAC" = "spiro" ]; then
     export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
 
     # MAIA
-    export MAIA_HOME=/scratchm/jcoulet/aa_install_py3/maia/opt-intel19/
+    export MAIA_HOME=/stck/jcoulet/dev/dev-Tools/maia/TestInstallElsA/install_el8_cfd5_impi21
     export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
     export PYTHONPATH=$MAIA_HOME/lib/python3.7/site-packages:$PYTHONPATH
 
@@ -161,6 +166,10 @@ elif [ "$MAC" = "visung" ]; then
     module load impi/17
     module load hdf5/1.8.8
 
+    export PYTHONPATH=$MOLA/ext/ld7/lib/python3.7/site-packages/:$PYTHONPATH
+    export PATH=$MOLA/ext/ld7/bin:$PATH
+
+
     # PUMA # not correctly installed !
     # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_eos3
     # export PYTHONPATH=$PumaRootDir/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
@@ -193,6 +202,10 @@ elif [ "$MAC" = "ld" ]; then
 
         alias python=python3
 
+        export PYTHONPATH=$MOLA/ext/ld8/lib/python3.6/site-packages/:$PYTHONPATH
+        export PATH=$MOLA/ext/ld8/bin:$PATH
+
+
         # PUMA
         export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_eos3
         export PYTHONPATH=$PumaRootDir/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
@@ -217,17 +230,19 @@ elif [ "$MAC" = "ld" ]; then
 
     else
         echo 'loading MOLA environment for CentOS 7'
-        ELSAVERSION=v5.1.02
+        # ELSAVERSION=v5.1.02
         source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
         module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
 
-        module load python/3.6.1
         export PYTHONEXE=python3
         export PYTHONVR=3.6
         alias python=python3
         module load intel/17.0.4
         module load impi/17
-        module load hdf5/1.8.8
+        module load hdf5/1.8.8-intel-15
+
+        export PYTHONPATH=$MOLA/ext/ld7/lib/python3.6/site-packages/:$PYTHONPATH
+        export PATH=$MOLA/ext/ld7/bin:$PATH
 
         # PUMA # not correctly installed !
         # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_eos3
@@ -257,9 +272,11 @@ elif [ "$MAC" = "ld" ]; then
 elif [ "$MAC" = "sator" ]; then
     source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA
     export MOLA=$MOLASATOR
-    export PYTHONPATH=$EXTPYLIBSATOR/lib/python3.7/site-packages/:$PYTHONPATH
-    export PATH=$EXTPYLIBSATOR/bin:$PATH
     export PATH=$PATH:/tmp_user/sator/lbernard/lib
+
+    export PYTHONPATH=$MOLA/ext/sator/lib/python3.7/site-packages/:$PYTHONPATH
+    export PATH=$MOLA/ext/sator/bin:$PATH
+
 
     # PUMA incompatible with intel21 ?
     export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_${PUMAVERSION}_satornew
@@ -272,7 +289,6 @@ elif [ "$MAC" = "sator" ]; then
     export PATH=$VPMPATH:$PATH
     export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=$VPMPATH:$LD_LIBRARY_PATH
-    # export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp_user/sator/lbernard/lib
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
