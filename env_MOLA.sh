@@ -239,7 +239,7 @@ elif [ "$MAC" = "ld" ]; then
         alias python=python3
         module load intel/17.0.4
         module load impi/17
-        module load hdf5/1.8.8
+        module load hdf5/1.8.8-intel-15
 
         export PYTHONPATH=$MOLA/ext/ld7/lib/python3.6/site-packages/:$PYTHONPATH
         export PATH=$MOLA/ext/ld7/bin:$PATH

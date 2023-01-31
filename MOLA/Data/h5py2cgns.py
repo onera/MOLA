@@ -175,8 +175,8 @@ def extract_link( group ):
     return link
 
 def write_link(f, link):
-    file = link[1]
-    path = link[2]
+    file = link[1] + '\x00'
+    path = link[2] + '\x00'
     group = f[path]
 
     del group.attrs['flags']
