@@ -1892,13 +1892,20 @@ def setBC_Walls(t, TurboConfiguration,
             omega[(x1<=x) & (x<=x2)] = TurboConfiguration['ShaftRotationSpeed']
         return np.asfortranarray(omega)
 
-    def getAssociatedZoneFamilyNameWithFamilyNameBC(zone, FamilyNameBC):
-        ZoneBC = I.getNodeFromType1(zone,'ZoneBC_t')
-        FamiliesNames = I.getNodesFromType2(ZoneBC,'FamilyName_t')
-        for FamilyName_n in FamiliesNames:
-            if I.getValue(FamilyName_n) == FamilyNameBC:
-                return I.getValue(I.getNodeFromType1(zone,'FamilyName_t'))
+    def getZoneFamilyNameWithFamilyNameBC(zones, FamilyNameBC):
+        ZoneFamilyName = None
+        for zone in zones:
+            ZoneBC = I.getNodeFromType1(zone, 'ZoneBC_t')
+            if not ZoneBC: continue
+            FamiliesNames = I.getNodesFromType2(ZoneBC, 'FamilyName_t')
+            for FamilyName_n in FamiliesNames:
+                if I.getValue(FamilyName_n) == FamilyNameBC:
+                    ZoneFamilyName = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+            if ZoneFamilyName: break
 
+        assert ZoneFamilyName is not None, 'Cannot determine associated row for family {}. '.format(FamilyNameBC)
+        return ZoneFamilyName
+        
     # BLADES
     zones = I.getZones(t)
     families = I.getNodesFromType2(t,'Family_t')
@@ -1906,12 +1913,7 @@ def setBC_Walls(t, TurboConfiguration,
         for famNode in I.getNodesFromNameAndType(t, '*{}*'.format(blade_family), 'Family_t'):
             famName = I.getName(famNode)
             if famName.startswith('F_OV_') or famName.endswith('Zones'): continue
-            for z in zones:
-                ZoneFamilyName = getAssociatedZoneFamilyNameWithFamilyNameBC(z, famName)
-                if ZoneFamilyName: break
-
-            assert ZoneFamilyName is not None, 'Cannot determine associated row for family {}. '.format(famName)
-
+            ZoneFamilyName = getZoneFamilyNameWithFamilyNameBC(zones, famName)
             family_with_bcwall, = [f for f in families if f[0]==ZoneFamilyName]
             solver_motion_data = J.get(family_with_bcwall,'.Solver#Motion')
             setBC_walladia(t, famName, omega=solver_motion_data['omega'])
