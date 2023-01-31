@@ -1037,3 +1037,65 @@ def _addNormalsIfAbsent(t):
                 I.rmNode(FlowSol,'n'+i)
                 I._renameNode(FlowSol,'s'+i,'n'+i)
         C._normalize(z,['centers:nx', 'centers:ny', 'centers:nz'])    
+
+
+def getSubIterations():
+
+    import glob
+
+    setup = J.load_source('setup', 'setup.py')
+   
+    time_algo = setup.elsAkeysNumerics['time_algo']
+    if time_algo not in ['gear', 'dts']:
+        print(J.WARN + f'Cannot monitor sub-iterations for time_algo={time_algo}' + J.ENDC)
+        print(J.WARN + f'  (time_algo must be gear or dts)' + J.ENDC)
+        return None, None, None
+
+    cwd = os.getcwd()
+
+    # Find all elsA_MPI_* log files
+    elsA_log_files = glob.glob('elsA_MPI_*')
+    if len(elsA_log_files) == 0:
+        elsA_log_files = glob.glob('LOGS/elsA_MPI_*')
+
+    # Find the last modified file
+    elsA_log_file = None
+    maxtime = 0.
+    for filename in elsA_log_files:
+        full_path = os.path.join(cwd, filename)
+        mtime = os.stat(full_path).st_mtime
+        if mtime > maxtime:
+            maxtime = mtime
+            elsA_log_file = filename
+    print(f'Last modified elsA log file: {elsA_log_file}')
+
+    # Read this file
+    with open(elsA_log_file, 'r') as fi:
+        lines = fi.readlines()
+
+    iterationList     = []
+    residualList      = []
+    dualIterationList = []
+
+    for line in lines:
+
+        if 'iteration no' in line:
+            iteration = int(line.split('iteration no')[-1])
+            iterationList.append(iteration)
+
+            residualList.append([])
+            dualIterationList.append([])
+        
+        if 'DualIter' in line:
+            # print(line.split('residual :')[-1].split('DualIter :')[0])
+            residual = float(line.split('residual :')[-1].split('DualIter :')[0])
+            dualIteration = int(line.split('DualIter :')[-1].split('(Outer Iter:')[0])
+
+            residualList[-1].append(residual)
+            dualIterationList[-1].append(dualIteration)
+
+    iterationArray = np.array(iterationList)
+    dualIterationArray = np.array(dualIterationList)
+    residualArray  = np.array(residualList)
+
+    return iterationArray, dualIterationArray, residualArray

@@ -283,6 +283,14 @@ def extractSurfaces(t, Extractions):
 
     def addBase2SurfacesTree(basename):
         if not zones: return
+        # Rename zones like the base
+        for i, zone in enumerate(zones):
+            # The name of the parent zone is kept in a temporary node .parentZone, 
+            # that will be removed before saving
+            # There might be a \ in zone name if it is a result of C.ExtractBCOfType
+            zoneName = I.getName(zone).split('/')[0]
+            I.createNode('.parentZone', 'UserDefinedData_t', value=zoneName, parent=zone)
+            I.setName(zone, f'{basename}_R{rank}N{i}')
         base = I.newCGNSBase(basename, cellDim=cellDimOutputTree-1, physDim=3,
             parent=SurfacesTree)
         I._addChild(base, zones)
@@ -390,6 +398,8 @@ def extractSurfaces(t, Extractions):
     J.forceZoneDimensionsCoherency(SurfacesTree)
     Cmpi.barrier()
     restoreFamilies(SurfacesTree, t)
+    I._rmNodesFromName(SurfacesTree, '.parentZone')
+    I._rmNodesFromName(SurfacesTree, ':CGNS#Ppart')
     Cmpi.barrier()
 
     # # Workflow specific postprocessings
@@ -675,15 +685,8 @@ def restoreFamilies(surfaces, skeleton):
         I.addChild(base, ReferenceState)
         familiesInBase = []
         for zone in I.getZones(base):
-            zoneName = I.getName(zone).split('\\')[0]  # There might be a \ in zone name
-                                                       # if it is a result of C.ExtractBCOfType
+            zoneName = I.getValue(I.getNodeFromName1(zone, '.parentZone'))
             zoneInFullTree = I.getNodeFromNameAndType(skeleton, zoneName, 'Zone_t')
-            if not zoneInFullTree:
-                # Zone may have been renamed by C.correctPyTree in <zone>.N with N an integer
-                zoneName = '.'.join(zoneName.split('.')[:-1])
-                zoneInFullTree = I.getNodeFromNameAndType(skeleton, zoneName, 'Zone_t')
-                if not zoneInFullTree:
-                    raise Exception('Zone {} not found in skeleton'.format(zoneName))
             fam = I.getNodeFromType1(zoneInFullTree, 'FamilyName_t')
             I.addChild(zone, fam)
             familiesInBase.append(I.getValue(fam))
@@ -691,7 +694,7 @@ def restoreFamilies(surfaces, skeleton):
             if I.getName(family) in familiesInBase:
                 I.addChild(base, family)
 
-def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[], tagWithIteration=False):
+def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[]):
     '''
     Monitor performance (massflow in/out, total pressure ratio, total
     temperature ratio, isentropic efficiency) for each row in a compressor
@@ -2366,11 +2369,22 @@ def createSymbolicLink(src, dst):
         J.createSymbolicLink(src, dst)
 
 
-def updateBodyForce(t, previousTreeWithSourceTerms=[], relax=0.):
+def updateBodyForce(t, previousTreeWithSourceTerms=[]):
     '''
     In a turbomachinery context, update the source terms for body-force modelling.
     The user-defined parameter **BodyForceInputData** (in `setup.py`) controls the 
     behavior of this function.
+
+    The optional parameter **BodyForceInitialIteration** (=1 by default) may be modified in
+    `CoprocessOptions`.
+
+    For each row modelled with body force, the following parameters are optional:
+
+    * **relax** (=0.5 by default): Relaxation coefficient for the source terms. 
+       Should be less than 1 (the new source terms are equal to the previous ones).
+
+    * **rampIterations** (=50 by default): Number of iterations (starting from **BodyForceInitialIteration**)
+       to activate body force progressively, with a coefficient ramping from 0 to 1.
 
     Parameters
     ----------
@@ -2382,10 +2396,6 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[], relax=0.):
             Previous output of this function. It is used for relaxing the source terms, depending 
             on the value of the **relax** argument. 
             The first time this function is called, this parameter may be initialized with an empty list.
-
-        relax : float, optional
-            Relaxation coefficient for the source terms. By default 0 (no relaxation). Should be less
-            than 1 (the new source terms are equal to the previous ones).
 
     Returns
     -------
@@ -2400,11 +2410,12 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[], relax=0.):
     FluidProperties    = setup.FluidProperties
     TurboConfiguration = setup.TurboConfiguration
     BodyForceInputData = setup.BodyForceInputData
-    BodyForceInitialIteration = getOption('BodyForceInitialIteration', default=1000)
+    BodyForceInitialIteration = getOption('BodyForceInitialIteration', default=1)
 
     for BodyForceFamily, BodyForceParams in BodyForceInputData.items():
 
-        BodyForceFinalIteration = BodyForceInitialIteration + BodyForceParams.get('rampIterations', 0.)
+        relax = BodyForceParams.get('relax', 0.5)
+        BodyForceFinalIteration = BodyForceInitialIteration + BodyForceParams.get('rampIterations', 50.)
         coeff_eff = J.rampFunction(BodyForceInitialIteration, BodyForceFinalIteration, 0., 1.)
 
         for zone in C.getFamilyZones(newTreeWithSourceTerms, BodyForceFamily):

@@ -555,7 +555,9 @@ def makeShaftRotate(t, iteration):
         rowFrame = dict()
         for Family in I.getNodesFromType1(base, 'Family_t'):
             solverMotion = I.getNodeFromName(Family, '.Solver#Motion')
-            if not solverMotion: continue # Only zone families
+            if not solverMotion: 
+                # Not a zone family or a zone family without movement
+                continue
             solverMotionDict = dict((I.getName(node), I.getValue(node))
                                     for node in I.getNodesFromType(solverMotion, 'DataArray_t'))
             rowFrame[I.getName(Family)] = dict(
@@ -601,3 +603,48 @@ def makeMovie(FRAMES_DIRECTORY='.', filename='animation.gif', fps=24, width=400)
     # then convert movie to gif, by scaling to desired pixels (e.g. width 400 px)
     os.system(
         f'ffmpeg -i movie.avi -vf "fps=10,scale={width}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 {filename}')
+
+def duplicateRows(t, setup=None, **RowsToDuplicate):
+    '''
+    Duplicate tree for visualization, for turbomachinery applications.
+
+    Parameters
+    ----------
+    t : PyTree
+        Input tree. It must be either a top tree or a base.
+
+    setup : module, optional
+        Read from ``setup.py``. If not given, the file ``setup.py`` is read in the current directory.
+
+    RowsToDuplicate : kwargs
+        Row families to duplicate. For each key, the value corresponds to the wished number of duplications.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import Converter.PyTree as C
+        import MOLA.Visu as Visu 
+
+        surfaces = C.convertFile2PyTree('OUTPUT/surfaces.cgns')
+        Visu.duplicateRows(t, Rotor=3, Stator=5)
+
+    Raises
+    ------
+    TypeError
+        The input tree must be either a top tree or a base.
+    '''
+
+    import MOLA.WorkflowCompressor as WF
+
+    if not setup:
+        setup = J.load_source('setup', 'setup.py')
+
+    if I.isTopTree(t) or I.getType(t) == 'CGNSBase_t':
+        for row, nDupli in RowsToDuplicate.items():
+            WF.duplicate(t, rowFamily=row, nBlades=setup.TurboConfiguration['Rows'][row]['NumberOfBlades'], 
+                         nDupli=nDupli, verbose=1)
+    else:
+        raise TypeError('The input tree must be either a top tree or a base')
+
