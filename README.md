@@ -70,9 +70,6 @@ MOLASATOR='/tmp_user/sator/lbernard/MOLA/Dev'
 # Modify paths to my custom MOLA dev version
 sed -i $myMOLA/env_MOLA.sh -e "s|MOLA=$MOLA|MOLA=$myMOLA|"
 sed -i $myMOLA/env_MOLA.sh -e "s|MOLASATOR=$MOLASATOR|MOLASATOR=$myMOLASATOR|"
-# Restore paths to exterior Python libraries for MOLA
-sed -i $myMOLA/env_MOLA.sh -e "s|EXTPYLIB=\$MOLA|EXTPYLIB=$MOLA|"
-sed -i $myMOLA/env_MOLA.sh -e "s|EXTPYLIBSATOR=\$MOLASATOR|EXTPYLIBSATOR=$MOLASATOR|"
 # Modify paths to my custom MOLA dev version in the job template
 sed -i $myMOLA/TEMPLATES/job_template.sh -e "s|$MOLA|$myMOLA|"
 sed -i $myMOLA/TEMPLATES/job_template.sh -e "s|$MOLASATOR|$myMOLASATOR|"
