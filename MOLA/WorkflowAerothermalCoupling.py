@@ -169,7 +169,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             * ``setup.py``
                 ultra-light file containing all relevant info of the simulation
     '''
-
+    toc = J.tic()
     def addFieldExtraction(fieldname):
         try:
             FieldsExtr = ReferenceValuesParams['FieldsAdditionalExtractions']
@@ -250,18 +250,17 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                         Extractions=Extractions)
     if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
-    BCExtractions = dict(
-        BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
-        BCInflow = ['convflux_ro'],
-        BCOutflow = ['convflux_ro'],
-        )
-    BCExtractions['BCWallViscousIsothermal'] = BCExtractions['BCWall'] \
-        + ['tsta', 'normalheatflux', 'thrm_cndy_lam', 'hpar', 'ro', 'visclam', 'viscrapp']
+    
+    ReferenceValues['BCExtractions']['BCWallViscousIsothermal'] = \
+        ReferenceValues['BCExtractions']['BCWall'] \
+        + ['tsta', 'normalheatflux', 'thrm_cndy_lam',
+           'hpar', 'ro', 'visclam', 'viscrapp']
 
     PRE.addTrigger(t)
     PRE.addExtractions(t, AllSetupDics['ReferenceValues'],
                       AllSetupDics['elsAkeysModel'],
-                      extractCoords=False, BCExtractions=BCExtractions)
+                      extractCoords=False,
+                      BCExtractions=ReferenceValues['BCExtractions'])
 
     if elsAkeysNumerics['time_algo'] != 'steady':
         PRE.addAverageFieldExtractions(t, AllSetupDics['ReferenceValues'],
@@ -299,8 +298,15 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             PRE.sendSimulationFiles(JobInformation['DIRECTORY_WORK'],
                                     overrideFields=writeOutputFields)
 
-        if SubmitJob: JM.submitJob(JobInformation['DIRECTORY_WORK'])
+        for i in range(SubmitJob):
+            singleton = False if i==0 else True
+            JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
 
+    ElapsedTime = str(PRE.datetime.timedelta(seconds=J.tic()-toc))
+    hours, minutes, seconds = ElapsedTime.split(':')
+    ElapsedTimeHuman = hours+' hours '+minutes+' minutes and '+seconds+' seconds'
+    msg = 'prepareMainCGNS took '+ElapsedTimeHuman
+    print(J.BOLD+msg+J.ENDC)
 
 
 def addExchangeSurfaces(t, coupledSurfaces, couplingScript='coprocess.py'):

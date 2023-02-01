@@ -38,16 +38,16 @@ def prepareMesh4ElsA(mesh='mesh.cgns', splitOptions={'maximum_allowed_nodes':3},
     ----------
 
         mesh : :py:class:`str`
-            Mesh filemane issued from automatic mesh generation, including BC families.
+            Mesh filename issued from automatic mesh generation, including BC families.
 
         splitOptions : dict
             Exactly the keyword arguments of :py:func:`~MOLA.Preprocess.splitAndDistribute`
 
         match_tolerance : float
-            small tolerance for consctructing the match connectivity.
+            small tolerance for constructing the match connectivity.
 
         periodic_match_tolerance : float
-            small tolerance for consctructing the periodic match connectivity
+            small tolerance for constructing the periodic match connectivity
 
     Returns
     -------
@@ -217,7 +217,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
             * ``setup.py``
                 ultra-light file containing all relevant info of the simulation
     '''
-
+    toc = J.tic()
     ReferenceValuesParamsDefault = dict(
         FieldsAdditionalExtractions=['q_criterion'],
         CoprocessOptions=dict(
@@ -323,7 +323,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
 
     PRE.addTrigger(t)
     PRE.addExtractions(t, AllSetupDics['ReferenceValues'],
-                          AllSetupDics['elsAkeysModel'], extractCoords=False)
+                          AllSetupDics['elsAkeysModel'], extractCoords=False,
+                          BCExtractions=ReferenceValues['BCExtractions'])
 
     if elsAkeysNumerics['time_algo'] != 'steady':
         PRE.addAverageFieldExtractions(t, AllSetupDics['ReferenceValues'],
@@ -357,7 +358,16 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
             PRE.sendSimulationFiles(JobInformation['DIRECTORY_WORK'],
                                     overrideFields=writeOutputFields)
 
-        if SubmitJob: JM.submitJob(JobInformation['DIRECTORY_WORK'])
+        for i in range(SubmitJob):
+            singleton = False if i==0 else True
+            JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
+
+    ElapsedTime = str(PRE.datetime.timedelta(seconds=J.tic()-toc))
+    hours, minutes, seconds = ElapsedTime.split(':')
+    ElapsedTimeHuman = hours+' hours '+minutes+' minutes and '+seconds+' seconds'
+    msg = 'prepareMainCGNS took '+ElapsedTimeHuman
+    print(J.BOLD+msg+J.ENDC)
+
 
 def getPropellerKinematic(t):
     mesh_params = I.getNodeFromName(t,'.MeshingParameters')
