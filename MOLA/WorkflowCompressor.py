@@ -1464,7 +1464,11 @@ def setMotionForRowsFamilies(t, TurboConfiguration):
     # Add info on row movement (.Solver#Motion)
     for row, rowParams in TurboConfiguration['Rows'].items():
         famNode = I.getNodeFromNameAndType(t, row, 'Family_t')
-        omega = rowParams['RotationSpeed']
+        try: 
+            omega = rowParams['RotationSpeed']
+        except KeyError:
+            # No RotationSpeed --> zones attached to this family are not moving
+            continue
 
         # Test if zones in that family are modelled with Body Force
         for zone in C.getFamilyZones(t, row):
