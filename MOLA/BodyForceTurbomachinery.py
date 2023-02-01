@@ -39,7 +39,7 @@ import MOLA.Wireframe as W
 ##################################################################################
 
 
-def replaceRowWithBodyForceMesh(t, BodyForceRows):
+def replaceRowWithBodyForceMesh(t, BodyForceRows, saveGeometricalDataForBodyForce=False):
     '''
     In the mesh **t**, replace the row domain corresponding to the family 
     **row** by a mesh adapted to body-force.
@@ -61,6 +61,12 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows):
             .. note:: 
                 If the parameter **meshType** is not given, it is 
                 automatically set depending on the initial mesh.
+
+        saveGeometricalDataForBodyForce : bool
+            If :py:obj:`True`, save the intermediate files 'BodyForceData_{row}.cgns' for each row.
+            These files contain a CGNS tree with :
+                #. 4 lines (1D zones) corresponding to Hub, Shroud, Leading edge and Trailing Edge.
+                #. The zone'Skeleton' with geometrical data on blade profile (used for interpolation later). 
     
     Returns
     -------
@@ -122,7 +128,7 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows):
                 BodyForceParams['meshType'] = 'structured'
 
         # Get the meridional info from rowTree
-        meridionalMesh = extractRowGeometricalData(t, row)
+        meridionalMesh = extractRowGeometricalData(t, row, save=saveGeometricalDataForBodyForce)
 
         newRowMesh = buildBodyForceMeshForOneRow(meridionalMesh,
                                                  NumberOfBlades=BladeNumber,
@@ -361,6 +367,7 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
         if Skeleton:
             P._extractMesh(Skeleton, bodyForce, order=2, extrapOrder=0) 
             bodyForce = computeBlockage(bodyForce, NumberOfBlades)
+            addMetalAngle(bodyForce)
             bodyForce = C.node2Center(bodyForce, I.__FlowSolutionNodes__)
             I._rmNodesByName1(bodyForce, I.__FlowSolutionNodes__)
 
@@ -440,6 +447,26 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
     I._renameNode(mesh3d, I.__FlowSolutionCenters__, 'FlowSolution#DataSourceTerm')
 
     return mesh3d
+
+
+def addMetalAngle(t):
+    '''
+    Add the reference flow incidence ``delta0`` for the loss part of the Hall-Thollet model.
+    It is the metal angle, between the blade skeleton and the axial direction.
+
+    :math:`\delta_0 = sign(t_x) * arccos(t_x / t)`
+    :math:`\delta_0 = sign(n_t) * arccos(n_t)` with :math:`t_x=n_t` and :math:`t=n=1`
+
+    .. danger::
+        
+        WORK IN PROGRESS, DO NOT USE THIS FUNCTION ! TO TEST
+
+    Parameters
+    ----------
+    t : PyTree
+        input mesh tree. Must contains the node 'nt' (azimuthal component of the unit vector normal to the blade).
+    '''
+    C._initVars(t, '{delta0}=sign({nt})*arccos({nt})')
 
 
 def addReferenceFlowIncidence(t, tsource, omega):

@@ -67,7 +67,7 @@ def checkDependencies():
 def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
                     duplicationInfos={}, zonesToRename={},
                     scale=1., rotation='fromAG5', tol=1e-8, PeriodicTranslation=None,
-                    BodyForceRows=None, families2Remove=[]):
+                    BodyForceRows=None, families2Remove=[], saveGeometricalDataForBodyForce=True):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
     from a CGNS file provided by Autogrid 5.
@@ -169,6 +169,12 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
             a BFM row, or to BFM rows. It allows to force a matching mesh at the interface
             instead having a mixing plane.
 
+        saveGeometricalDataForBodyForce : bool
+            If :py:obj:`True`, save the intermediate files 'BodyForceData_{row}.cgns' for each row.
+            These files contain a CGNS tree with :
+                #. 4 lines (1D zones) corresponding to Hub, Shroud, Leading edge and Trailing Edge.
+                #. The zone'Skeleton' with geometrical data on blade profile (used for interpolation later). 
+
     Returns
     -------
 
@@ -197,7 +203,8 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
 
     if BodyForceRows:
         # Remesh rows to model with body-force
-        t, newRowMeshes = BF.replaceRowWithBodyForceMesh(t, BodyForceRows)
+        t, newRowMeshes = BF.replaceRowWithBodyForceMesh(
+            t, BodyForceRows, saveGeometricalDataForBodyForce=saveGeometricalDataForBodyForce)
 
     t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], zonesToRename=zonesToRename)
     PRE.transform(t, InputMeshes)
