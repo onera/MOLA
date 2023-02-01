@@ -2570,7 +2570,8 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         TurbulenceCutoff=0.1, TransitionMode=None, CoprocessOptions={},
         FieldsAdditionalExtractions=['ViscosityMolecular','ViscosityEddy','Mach'],
         BCExtractions=dict(BCWall=['normalvector', 'frictionvector',
-                        'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue'])):
+                        'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue',
+                        'flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row'])):
     '''
     Compute ReferenceValues dictionary used for pre/co/postprocessing a CFD
     case. It contains multiple information and is mostly self-explanatory.
@@ -3817,14 +3818,6 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
             :py:class:`str` corresponding to variable names to extract (in elsA
             convention).
     '''
-
-    # TODO notify bug for torque_origin in CGNS mode
-    fluxes=['flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
-    for bc in BCExtractions:
-        if 'BCWall' in bc:
-            for f in fluxes:
-                if f not in BCExtractions[bc]:
-                    BCExtractions[bc].append(f)
 
     # Default keys to write in the .Solver#Output of the Family node
     # The node 'var' will be fill later depending on the BCType
