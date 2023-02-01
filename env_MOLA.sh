@@ -14,6 +14,8 @@ export VPMVERSION=v0.2
 export PUMAVERSION=r337
 export TURBOVERSION=v1.2.2
 export ERSTAZVERSION=vT
+export MOLAext=/stck/lbernard/MOLA/Dev/ext # you should not modify this line
+export MOLASATORext=/stck/lbernard/MOLA/Dev/ext # you should not modify this line
 ###############################################################################
 
 
@@ -75,8 +77,8 @@ if [ "$MAC" = "spiro" ]; then
     fi
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro-el8_mpi/.env_elsA
 
-    export PYTHONPATH=$MOLA/ext/spiro_el8/lib/python3.7/site-packages/:$PYTHONPATH
-    export PATH=$MOLA/ext/spiro_el8/bin:$PATH
+    export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/:$PYTHONPATH
+    export PATH=$MOLAext/spiro_el8/bin:$PATH
 
 
     # # PUMA
@@ -103,10 +105,9 @@ if [ "$MAC" = "spiro" ]; then
     export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
 
     # MAIA
-    export MAIA_HOME=/stck/jcoulet/dev/dev-Tools/maia/TestInstallElsA/install_el8_cfd5_impi21
+    export MAIA_HOME=/scratchm/jcoulet/aa_install_py3/maia/opt-cfd5_21/
     export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
     export PYTHONPATH=$MAIA_HOME/lib/python3.7/site-packages:$PYTHONPATH
-
 
 
 elif [ "$MAC" = "visio" ]; then
@@ -166,8 +167,8 @@ elif [ "$MAC" = "visung" ]; then
     module load impi/17
     module load hdf5/1.8.8
 
-    export PYTHONPATH=$MOLA/ext/ld7/lib/python3.7/site-packages/:$PYTHONPATH
-    export PATH=$MOLA/ext/ld7/bin:$PATH
+    export PYTHONPATH=$MOLAext/ld7/lib/python3.7/site-packages/:$PYTHONPATH
+    export PATH=$MOLAext/ld7/bin:$PATH
 
 
     # PUMA # not correctly installed !
@@ -202,8 +203,8 @@ elif [ "$MAC" = "ld" ]; then
 
         alias python=python3
 
-        export PYTHONPATH=$MOLA/ext/ld8/lib/python3.6/site-packages/:$PYTHONPATH
-        export PATH=$MOLA/ext/ld8/bin:$PATH
+        export PYTHONPATH=$MOLAext/ld8/lib/python3.6/site-packages/:$PYTHONPATH
+        export PATH=$MOLAext/ld8/bin:$PATH
 
 
         # PUMA
@@ -241,8 +242,8 @@ elif [ "$MAC" = "ld" ]; then
         module load impi/17
         module load hdf5/1.8.8-intel-15
 
-        export PYTHONPATH=$MOLA/ext/ld7/lib/python3.6/site-packages/:$PYTHONPATH
-        export PATH=$MOLA/ext/ld7/bin:$PATH
+        export PYTHONPATH=$MOLAext/ld7/lib/python3.6/site-packages/:$PYTHONPATH
+        export PATH=$MOLAext/ld7/bin:$PATH
 
         # PUMA # not correctly installed !
         # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_eos3
@@ -274,8 +275,8 @@ elif [ "$MAC" = "sator" ]; then
     export MOLA=$MOLASATOR
     export PATH=$PATH:/tmp_user/sator/lbernard/lib
 
-    export PYTHONPATH=$MOLA/ext/sator/lib/python3.7/site-packages/:$PYTHONPATH
-    export PATH=$MOLA/ext/sator/bin:$PATH
+    export PYTHONPATH=$MOLASATORext/sator/lib/python3.7/site-packages/:$PYTHONPATH
+    export PATH=$MOLASATORext/sator/bin:$PATH
 
 
     # PUMA incompatible with intel21 ?
