@@ -599,6 +599,9 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
             if :py:obj:`True`, adds a suffix ``_AfterIter<iteration>``
             to the saved filename (creates a copy)
     '''
+    import Distributor2.PyTree as D2
+    
+    # Write PyPart files
     t = I.copyRef(t)
     Cmpi._convert2PartialTree(t)
     I._rmNodesByName(t, '.Solver#Param')
@@ -607,12 +610,19 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
     printCo('will save %s ...'%filename,0, color=J.CYAN)
     PyPartBase.mergeAndSave(t, 'PyPart_fields')
     Cmpi.barrier()
-    if rank == 0:
-        t = C.convertFile2PyTree('PyPart_fields_all.hdf')
-        C.convertPyTree2File(t, filename)
-        for fn in glob.glob('PyPart_fields_*.hdf'):
-            try: os.remove(fn)
-            except: pass
+    # Read PyPart files in parallel 
+    t = Cmpi.convertFile2SkeletonTree('PyPart_fields_all.hdf')
+    t, stats = D2.distribute(t, NumberOfProcessors, useCom=0, algorithm='fast')
+    t = Cmpi.readZones(t, 'PyPart_fields_all.hdf', rank=rank)
+    Cmpi.barrier()
+    # Remove PyPart files
+    for fn in glob.glob('PyPart_fields_*.hdf'):
+        try: os.remove(fn)
+        except: pass
+    # Write a unique file
+    Cmpi._setProc(t, rank)
+    Cmpi.convertPyTree2File(t, os.path.join(DIRECTORY_OUTPUT, FILE_FIELDS))
+
     printCo('... saved %s'%filename,0, color=J.CYAN)
     Cmpi.barrier()
     if tagWithIteration and rank == 0: copyOutputFiles(filename)
