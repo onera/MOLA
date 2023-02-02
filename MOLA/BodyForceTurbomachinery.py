@@ -367,7 +367,7 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
         if Skeleton:
             P._extractMesh(Skeleton, bodyForce, order=2, extrapOrder=0) 
             bodyForce = computeBlockage(bodyForce, NumberOfBlades)
-            addMetalAngle(bodyForce)
+            # addMetalAngle(bodyForce)
             bodyForce = C.node2Center(bodyForce, I.__FlowSolutionNodes__)
             I._rmNodesByName1(bodyForce, I.__FlowSolutionNodes__)
 
@@ -917,10 +917,19 @@ def computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration)
     if isinstance(BodyForceParams['model'], list):
         models = BodyForceParams['model']
     else:
-        if BodyForceParams['model'] == 'hall':
-            models = ['blockage', 'hall_without_blockage', 'EndWallsProtection']
-        else:
-            models = [BodyForceParams['model']]
+        models = [BodyForceParams['model']]
+        
+    if 'hall' in models:
+        models.remove('hall')
+        if 'blockage' in models or 'hall_without_blockage' in models:
+            raise Exception(J.FAIL + '[BFM error] The list model is badly defined' + J.ENDC)
+        models += ['blockage', 'hall_without_blockage']
+    
+    if 'incidenceLoss' in models:
+        incidenceLoss = True
+        models.remove('incidenceLoss')
+    else:
+        incidenceLoss = False
 
     # Compute and gather all the required source terms
     TotalSourceTerms = dict()
@@ -942,7 +951,7 @@ def computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration)
                 zone, BodyForceParams['Thrust'], tol)
         elif model == 'hall_without_blockage':
             NewSourceTerms = computeBodyForce_Hall(
-                zone, FluidProperties, TurboConfiguration, tol)
+                zone, FluidProperties, TurboConfiguration, incidenceLoss=incidenceLoss, tol=tol)
         else:
             raise Exception(f"The body-force model {model} is not implemented")
             
@@ -1113,12 +1122,10 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, incidenceLo
     return NewSourceTerms
 
 
-def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeight=0.05):
+def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeight=0.05, EndWallsCoefficient=10.):
     ''' 
     Protection of the boudary layer ofr body-force modelling, as explain in the appendix D of 
     W. Thollet PdD manuscrit.
-
-    .. danger:: Available only for structured mesh. Furthermore, there must be a unique BF zone.
 
     Parameters
     ----------
@@ -1132,6 +1139,9 @@ def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeigh
         ProtectedHeight : float
             Height of the channel flow corresponding to the boundary layer. 
             By default, 0.05.
+        
+        EndWallsCoefficient : float
+            Multiplicative factor to apply on source terms.
 
     Returns
     -------
@@ -1170,7 +1180,7 @@ def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeigh
 
     def get_mean_W_and_gradP(z):
         if not z: 
-            return 1, 0, 0
+            return Wmag, 0, 0
 
         C._initVars(z, 'radius=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
         C._initVars(z, 'theta=arctan2({CoordinateZ}, {CoordinateY})')
@@ -1192,10 +1202,10 @@ def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeigh
 
     zeros = np.zeros(Wmag.shape)
     # Source terms
-    S_BL_Hub_x    = np.minimum(zeros, 10 * (1. - (Wmag /    W_HubEdge)**2) * DpDx_HubEdge)
-    S_BL_Hub_r    = np.minimum(zeros, 10 * (1. - (Wmag /    W_HubEdge)**2) * DpDr_HubEdge)
-    S_BL_Shroud_x = np.minimum(zeros, 10 * (1. - (Wmag / W_ShroudEdge)**2) * DpDx_ShroudEdge)
-    S_BL_Shroud_r = np.minimum(zeros, 10 * (1. - (Wmag / W_ShroudEdge)**2) * DpDr_ShroudEdge)
+    S_BL_Hub_x    = np.minimum(zeros, (1. - (Wmag /    W_HubEdge)**2)) * EndWallsCoefficient * DpDx_HubEdge
+    S_BL_Hub_r    = np.minimum(zeros, (1. - (Wmag /    W_HubEdge)**2)) * EndWallsCoefficient * DpDr_HubEdge
+    S_BL_Shroud_x = np.minimum(zeros, (1. - (Wmag / W_ShroudEdge)**2)) * EndWallsCoefficient * DpDx_ShroudEdge
+    S_BL_Shroud_r = np.minimum(zeros, (1. - (Wmag / W_ShroudEdge)**2)) * EndWallsCoefficient * DpDr_ShroudEdge
 
     # Terms applied only in the BL protected area
     S_BL_x = S_BL_Hub_x * (h<ProtectedHeight) + S_BL_Shroud_x * (h>1-ProtectedHeight)
