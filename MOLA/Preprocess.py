@@ -44,6 +44,12 @@ save = J.save
 DEBUG = False
 DIRECTORY_OVERSET='OVERSET' 
 
+K_OMEGA_MODELS = ['Wilcox2006-klim', 'Wilcox2006-klim-V',
+            'Wilcox2006', 'Wilcox2006-V', 'SST-2003', 
+            'SST-V2003', 'SST', 'SST-V',  'BSL', 'BSL-V',
+            'SST-2003-LM2009', 'SST-V2003-LM2009', 'SSG/LRR-RSM-w2012']
+
+
 def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
@@ -3206,11 +3212,11 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         ahd_n_extract          = 'active',
             ))
 
-        if TurbulenceModel in ('BSL','BSL-V','SST-2003','SST','SST-V','Wilcox2006-klim'):  addKeys4Model['prod_omega_red'] = 'active'
+        if TurbulenceModel in K_OMEGA_MODELS:  addKeys4Model['prod_omega_red'] = 'active'
 
     # Transition Settings
     if TransitionMode == 'NonLocalCriteria-Step':
-        if TurbulenceModel == 'SST-2003-LM2009':
+        if 'LM2009' in TurbulenceModel:
             raise AttributeError(J.FAIL+"Modeling incoherency! cannot make Non-local transition criteria with Menter-Langtry turbulence model"+J.ENDC)
         addKeys4Model.update(dict(
         freqcomptrans     = 1,
@@ -3233,11 +3239,11 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         ahd_n_extract          = 'active',
             ))
 
-        if TurbulenceModel in ('BSL','BSL-V','SST-2003','SST','SST-V','Wilcox2006-klim'):  addKeys4Model['prod_omega_red'] = 'active'
+        if TurbulenceModel in K_OMEGA_MODELS:  addKeys4Model['prod_omega_red'] = 'active'
 
 
     elif TransitionMode == 'Imposed':
-        if TurbulenceModel == 'SST-2003-LM2009':
+        if 'LM2009' in TurbulenceModel:
             raise AttributeError(J.FAIL+"Modeling incoherency! cannot make imposed transition with Menter-Langtry turbulence model"+J.ENDC)
         addKeys4Model.update(dict(
         intermittency       = 'full',
@@ -3249,7 +3255,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         intermittency_form  = 'LSTT19',
             ))
 
-        if TurbulenceModel in ('BSL','BSL-V','SST-2003','SST','SST-V','Wilcox2006-klim'):  addKeys4Model['prod_omega_red'] = 'active'
+        if TurbulenceModel in K_OMEGA_MODELS:  addKeys4Model['prod_omega_red'] = 'active'
 
     elsAkeysModel.update(addKeys4Model)
 
