@@ -39,7 +39,7 @@ import MOLA.Wireframe as W
 ##################################################################################
 
 
-def replaceRowWithBodyForceMesh(t, BodyForceRows):
+def replaceRowWithBodyForceMesh(t, BodyForceRows, saveGeometricalDataForBodyForce=False):
     '''
     In the mesh **t**, replace the row domain corresponding to the family 
     **row** by a mesh adapted to body-force.
@@ -61,6 +61,12 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows):
             .. note:: 
                 If the parameter **meshType** is not given, it is 
                 automatically set depending on the initial mesh.
+
+        saveGeometricalDataForBodyForce : bool
+            If :py:obj:`True`, save the intermediate files 'BodyForceData_{row}.cgns' for each row.
+            These files contain a CGNS tree with :
+                #. 4 lines (1D zones) corresponding to Hub, Shroud, Leading edge and Trailing Edge.
+                #. The zone'Skeleton' with geometrical data on blade profile (used for interpolation later). 
     
     Returns
     -------
@@ -122,7 +128,7 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows):
                 BodyForceParams['meshType'] = 'structured'
 
         # Get the meridional info from rowTree
-        meridionalMesh = extractRowGeometricalData(t, row)
+        meridionalMesh = extractRowGeometricalData(t, row, save=saveGeometricalDataForBodyForce)
 
         newRowMesh = buildBodyForceMeshForOneRow(meridionalMesh,
                                                  NumberOfBlades=BladeNumber,
@@ -361,6 +367,7 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
         if Skeleton:
             P._extractMesh(Skeleton, bodyForce, order=2, extrapOrder=0) 
             bodyForce = computeBlockage(bodyForce, NumberOfBlades)
+            # addMetalAngle(bodyForce)
             bodyForce = C.node2Center(bodyForce, I.__FlowSolutionNodes__)
             I._rmNodesByName1(bodyForce, I.__FlowSolutionNodes__)
 
@@ -440,6 +447,26 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
     I._renameNode(mesh3d, I.__FlowSolutionCenters__, 'FlowSolution#DataSourceTerm')
 
     return mesh3d
+
+
+def addMetalAngle(t):
+    '''
+    Add the reference flow incidence ``delta0`` for the loss part of the Hall-Thollet model.
+    It is the metal angle, between the blade skeleton and the axial direction.
+
+    :math:`\delta_0 = sign(t_x) * arccos(t_x / t)`
+    :math:`\delta_0 = sign(n_t) * arccos(n_t)` with :math:`t_x=n_t` and :math:`t=n=1`
+
+    .. danger::
+        
+        WORK IN PROGRESS, DO NOT USE THIS FUNCTION ! TO TEST
+
+    Parameters
+    ----------
+    t : PyTree
+        input mesh tree. Must contains the node 'nt' (azimuthal component of the unit vector normal to the blade).
+    '''
+    C._initVars(t, '{delta0}=sign({nt})*arccos({nt})')
 
 
 def addReferenceFlowIncidence(t, tsource, omega):
@@ -890,10 +917,19 @@ def computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration)
     if isinstance(BodyForceParams['model'], list):
         models = BodyForceParams['model']
     else:
-        if BodyForceParams['model'] == 'hall':
-            models = ['blockage', 'hall_without_blockage', 'EndWallsProtection']
-        else:
-            models = [BodyForceParams['model']]
+        models = [BodyForceParams['model']]
+        
+    if 'hall' in models:
+        models.remove('hall')
+        if 'blockage' in models or 'hall_without_blockage' in models:
+            raise Exception(J.FAIL + '[BFM error] The list model is badly defined' + J.ENDC)
+        models += ['blockage', 'hall_without_blockage']
+    
+    if 'incidenceLoss' in models:
+        incidenceLoss = True
+        models.remove('incidenceLoss')
+    else:
+        incidenceLoss = False
 
     # Compute and gather all the required source terms
     TotalSourceTerms = dict()
@@ -915,7 +951,7 @@ def computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration)
                 zone, BodyForceParams['Thrust'], tol)
         elif model == 'hall_without_blockage':
             NewSourceTerms = computeBodyForce_Hall(
-                zone, FluidProperties, TurboConfiguration, tol)
+                zone, FluidProperties, TurboConfiguration, incidenceLoss=incidenceLoss, tol=tol)
         else:
             raise Exception(f"The body-force model {model} is not implemented")
             
@@ -1086,12 +1122,10 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, incidenceLo
     return NewSourceTerms
 
 
-def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeight=0.05):
+def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeight=0.05, EndWallsCoefficient=10.):
     ''' 
     Protection of the boudary layer ofr body-force modelling, as explain in the appendix D of 
     W. Thollet PdD manuscrit.
-
-    .. danger:: Available only for structured mesh. Furthermore, there must be a unique BF zone.
 
     Parameters
     ----------
@@ -1105,6 +1139,9 @@ def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeigh
         ProtectedHeight : float
             Height of the channel flow corresponding to the boundary layer. 
             By default, 0.05.
+        
+        EndWallsCoefficient : float
+            Multiplicative factor to apply on source terms.
 
     Returns
     -------
@@ -1143,7 +1180,7 @@ def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeigh
 
     def get_mean_W_and_gradP(z):
         if not z: 
-            return 1, 0, 0
+            return Wmag, 0, 0
 
         C._initVars(z, 'radius=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
         C._initVars(z, 'theta=arctan2({CoordinateZ}, {CoordinateY})')
@@ -1165,10 +1202,10 @@ def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeigh
 
     zeros = np.zeros(Wmag.shape)
     # Source terms
-    S_BL_Hub_x    = np.minimum(zeros, 10 * (1. - (Wmag /    W_HubEdge)**2) * DpDx_HubEdge)
-    S_BL_Hub_r    = np.minimum(zeros, 10 * (1. - (Wmag /    W_HubEdge)**2) * DpDr_HubEdge)
-    S_BL_Shroud_x = np.minimum(zeros, 10 * (1. - (Wmag / W_ShroudEdge)**2) * DpDx_ShroudEdge)
-    S_BL_Shroud_r = np.minimum(zeros, 10 * (1. - (Wmag / W_ShroudEdge)**2) * DpDr_ShroudEdge)
+    S_BL_Hub_x    = np.minimum(zeros, (1. - (Wmag /    W_HubEdge)**2)) * EndWallsCoefficient * DpDx_HubEdge
+    S_BL_Hub_r    = np.minimum(zeros, (1. - (Wmag /    W_HubEdge)**2)) * EndWallsCoefficient * DpDr_HubEdge
+    S_BL_Shroud_x = np.minimum(zeros, (1. - (Wmag / W_ShroudEdge)**2)) * EndWallsCoefficient * DpDx_ShroudEdge
+    S_BL_Shroud_r = np.minimum(zeros, (1. - (Wmag / W_ShroudEdge)**2)) * EndWallsCoefficient * DpDr_ShroudEdge
 
     # Terms applied only in the BL protected area
     S_BL_x = S_BL_Hub_x * (h<ProtectedHeight) + S_BL_Shroud_x * (h>1-ProtectedHeight)

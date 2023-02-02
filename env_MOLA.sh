@@ -15,7 +15,7 @@ export PUMAVERSION=r337
 export TURBOVERSION=v1.2.2
 export ERSTAZVERSION=vT
 export MOLAext=/stck/lbernard/MOLA/Dev/ext # you should not modify this line
-export MOLASATORext=/stck/lbernard/MOLA/Dev/ext # you should not modify this line
+export MOLASATORext=/tmp_user/sator/lbernard/MOLA/Dev/ext # you should not modify this line
 ###############################################################################
 
 
