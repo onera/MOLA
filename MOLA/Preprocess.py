@@ -2636,12 +2636,13 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         TurbulenceModel : str
             Some `NASA's conventional turbulence model <https://turbmodels.larc.nasa.gov/>`_
             available in elsA are included:
-            ``'SA'``, ``'BSL'``, ``'BSL-V'``, ``'SST-2003'``, ``'SST'``,
-            ``'SST-V'``, ``'Wilcox2006-klim'``, ``'SST-2003-LM2009'``,
-            ``'SSG/LRR-RSM-w2012'``
+            ``'SA'``, ``'Wilcox2006-klim'``, ``'Wilcox2006-klim-V'``,
+            ``'Wilcox2006'``, ``'Wilcox2006-V'``, ``'SST-2003'``, 
+            ``'SST-V2003'``, ``'SST'``, ``'SST-V'``,  ``'BSL'``, ``'BSL-V'``,
+            ``'SST-2003-LM2009'``, ``'SST-V2003-LM2009'``, ``'SSG/LRR-RSM-w2012'``.
 
             other non-conventional turbulence models:
-            ``'smith'`` reference `doi:10.2514/6.1995-232 <http://doi.org/10.2514/6.1995-232>`_
+            ``'smith'`` and ``'smith-V'`` reference `doi:10.2514/6.1995-232 <http://doi.org/10.2514/6.1995-232>`_
 
         Viscosity_EddyMolecularRatio : float
             Expected ratio of eddy to molecular viscosity at farfield
@@ -3029,6 +3030,41 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         omega_prolong  = 'linear_extrap',
             )
 
+    elif TurbulenceModel == 'Wilcox2006-klim-V':
+        addKeys4Model = dict(
+        turbmod        = 'komega_kok',
+        kok_diff_cor   = 'wilcox2006',
+        sst_cor        = 'active',
+        sst_version    = 'wilcox2006',
+        k_prod_limiter = 20.,
+        k_prod_compute = 'from_vorticity',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',
+            )
+
+    elif TurbulenceModel == 'Wilcox2006':
+        addKeys4Model = dict(
+        turbmod        = 'komega_kok',
+        kok_diff_cor   = 'wilcox2006',
+        sst_cor        = 'active',
+        sst_version    = 'wilcox2006',
+        k_prod_compute = 'from_sij',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',
+            )
+
+    elif TurbulenceModel == 'Wilcox2006-V':
+        addKeys4Model = dict(
+        turbmod        = 'komega_kok',
+        kok_diff_cor   = 'wilcox2006',
+        sst_cor        = 'active',
+        sst_version    = 'wilcox2006',
+        k_prod_compute = 'from_vorticity',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',
+            )
+
+
     elif TurbulenceModel == 'SST-2003':
         addKeys4Model = dict(
         turbmod        = 'komega_menter',
@@ -3099,6 +3135,12 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_compute = 'from_sij',
             )
 
+    elif TurbulenceModel == 'smith-V':
+        addKeys4Model = dict(
+        turbmod        = 'smith',
+        k_prod_compute = 'from_vorticity',
+            )
+
     elif TurbulenceModel == 'SST-2003-LM2009':
         addKeys4Model = dict(
         turbmod        = 'komega_menter',
@@ -3106,6 +3148,18 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         sst_version    = 'std_sij',
         k_prod_limiter = 10.,
         k_prod_compute = 'from_sij',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',
+        trans_mod      = 'menter',
+            )
+
+    elif TurbulenceModel == 'SST-V2003-LM2009':
+        addKeys4Model = dict(
+        turbmod        = 'komega_menter',
+        sst_cor        = 'active',
+        sst_version    = 'std_sij',
+        k_prod_limiter = 10.,
+        k_prod_compute = 'from_vorticity',
         zhenglim       = 'inactive',
         omega_prolong  = 'linear_extrap',
         trans_mod      = 'menter',
@@ -3122,7 +3176,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
 
     # Transition Settings
     if TransitionMode == 'NonLocalCriteria-LSTT':
-        if TurbulenceModel == 'SST-2003-LM2009':
+        if 'LM2009' in TurbulenceModel:
             raise AttributeError(J.FAIL+"Modeling incoherency! cannot make Non-local transition criteria with Menter-Langtry turbulence model"+J.ENDC)
         addKeys4Model.update(dict(
         freqcomptrans     = 1,
