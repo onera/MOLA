@@ -19,8 +19,10 @@ __pycache__
 *.log
 *.html
 *elsA_MPI_Pid*
-*DOCUMENTATION*
-Examples
+DOCUMENTATION/*
 EXAMPLES
 ExternalPythonPackages
 ext
+!DOCUMENTATION/src_sphinx/*.rst
+!DOCUMENTATION/src_sphinx/DataPckg/*.rst
+!DOCUMENTATION/src_sphinx/conf.py
