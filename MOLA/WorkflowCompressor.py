@@ -2447,7 +2447,7 @@ def setBC_outpres(t, FamilyName, Pressure, bc=None, variableForInterpolation='Ch
         ImposedVariables = Pressure
     else:
         ImposedVariables = dict(Pressure=Pressure)
-        
+
     if not bc and not all([np.ndim(v) == 0 and not callable(v) for v in ImposedVariables.values()]):
         for bc in C.getFamilyBCs(t, FamilyName):
             setBCwithImposedVariables(t, FamilyName, ImposedVariables,
@@ -4034,7 +4034,10 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
 
 def postprocess_turbomachinery(surfaces, stages=[], 
                                 var4comp_repart=None, var4comp_perf=None, var2keep=None, 
-                                computeRadialProfiles=True):
+                                computeRadialProfiles=True, 
+                                config='annular', 
+                                lin_axis='XY',
+                                RowType='compressor'):
     '''
     Perform a series of classical postprocessings for a turbomachinery case : 
 
@@ -4093,6 +4096,15 @@ def postprocess_turbomachinery(surfaces, stages=[],
         computeRadialProfiles : bool
             Choose or not to compute radial profiles.
         
+        config : str
+            see :py:func:`MOLA.Postprocess.compute1DRadialProfiles`
+
+        lin_axis : str
+            see :py:func:`MOLA.Postprocess.compute1DRadialProfiles`
+
+        RowType : str
+            see parameter 'config' of :py:func:`MOLA.Postprocess.compareRadialProfilesPlane2Plane`
+        
     '''
     import Converter.Mpi as Cmpi
     import MOLA.PostprocessTurbo as Post
@@ -4103,7 +4115,7 @@ def postprocess_turbomachinery(surfaces, stages=[],
     #______________________________________________________________________________
     # Variables
     #______________________________________________________________________________
-    allVariables = TUS.getFields()
+    allVariables = TUS.getFields(config=config)
     if not var4comp_repart:
         var4comp_repart = ['StagnationEnthalpyDelta',
                            'StagnationPressureRatio', 'StagnationTemperatureRatio',
@@ -4133,13 +4145,15 @@ def postprocess_turbomachinery(surfaces, stages=[],
     Post.computeVariablesOnIsosurface(surfaces, allVariables)
     Post.compute0DPerformances(surfaces, variablesByAverage)
     if computeRadialProfiles: 
-        Post.compute1DRadialProfiles(surfaces, variablesByAverage)
+        Post.compute1DRadialProfiles(
+            surfaces, variablesByAverage, config=config, lin_axis=lin_axis)
     # Post.computeVariablesOnBladeProfiles(surfaces, hList='all')
     #______________________________________________________________________________#
 
     if Cmpi.rank == 0:
         Post.comparePerfoPlane2Plane(surfaces, var4comp_perf, stages)
         if computeRadialProfiles: 
-            Post.compareRadialProfilesPlane2Plane(surfaces, var4comp_repart, stages)
+            Post.compareRadialProfilesPlane2Plane(
+                surfaces, var4comp_repart, stages, config=RowType)
 
     Post.cleanSurfaces(surfaces, var2keep=var2keep)
