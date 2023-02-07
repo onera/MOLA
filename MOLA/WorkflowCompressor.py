@@ -1035,7 +1035,7 @@ def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
     # Compute surface
     SurfaceTree = C.convertArray2Tetra(sliceX)
     SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
-    Surface = abs(P.integNorm(SurfaceTree, var='ones')[0][0])
+    Surface = P.integ(SurfaceTree, var='ones')[0]
     # Compute deltaTheta
     deltaTheta = 2* Surface / (Rmax**2 - Rmin**2)
     # Compute number of blades in the mesh
