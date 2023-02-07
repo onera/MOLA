@@ -32,6 +32,11 @@ export MPI_COMM_MAX=8192
 export ELSA_NOLOG=ON
 export PYTHONUNBUFFERED=true # cf ticket 9685
 
+# to avoid messages MPI startup(): Warning: I_MPI_PMI_LIBRARY will be ignored since the hydra process manager was found
+# https://www.osc.edu/supercomputing/batch-processing-at-osc/slurm_migration/slurm_migration_issues
+unset I_MPI_PMI_LIBRARY 
+export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=0   # the option -ppn only works if you set this before
+
 # Detection machine
 KC=`uname -n`
 MAC0=$(echo $KC | grep 'n'); if [ "$MAC0" != "" ]; then export MAC="sator"; fi
@@ -156,9 +161,7 @@ elif [ "$MAC" = "visung" ]; then
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
     module load freetype/2.10.2
-    module load pointwise/18.6R1
-
-    module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+    module load pointwise/2022.1.2
 
     export PYTHONEXE=python3
     export PYTHONVR=3.6
@@ -179,7 +182,7 @@ elif [ "$MAC" = "visung" ]; then
     # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
     # VPM
-    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/vis_r8
+    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/visung_r8
     export PATH=$VPMPATH:$VPMPATH/lib:$PATH
     export LD_LIBRARY_PATH=$VPMPATH:$VPMPATH/lib:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
