@@ -1,3 +1,5 @@
+.. _TutorialWorkflowCompressor:
+
 Workflow Compressor
 ===================
 
@@ -318,7 +320,7 @@ with the commands:
     >>> touch SAVE_SURFACES
     >>> touch SAVE_ARRAYS
 
-We can check that the signal is well written in the file ``coprocess.py``:
+We can check that the signal is well written in the file ``coprocess.log``:
 
 ::
 

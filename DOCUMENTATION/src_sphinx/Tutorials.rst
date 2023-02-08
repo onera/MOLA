@@ -8,3 +8,4 @@ Tutorials
   AirfoilPolars
   TutorialWorkflowCompressor
   TutorialWorkflowCompressorMultipleJobs
+  TutorialWorkflowCompressorBodyForce
