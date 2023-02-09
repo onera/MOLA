@@ -37,6 +37,7 @@ if not MOLA.__ONLY_DOC__:
     import matplotlib.colors as mplcolors
     from matplotlib import cm
     from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+    from matplotlib.backends.backend_pdf import PdfPages
 
 
     import Converter.PyTree as C
@@ -648,3 +649,242 @@ def duplicateRows(t, setup=None, **RowsToDuplicate):
     else:
         raise TypeError('The input tree must be either a top tree or a base')
 
+
+def prettyName(var):
+    '''
+    Return a pretty label to write on a plot axis.
+
+    Parameters
+    ----------
+    var : str
+        Name of the variable in the CGNS tree
+
+    Returns
+    -------
+    str
+        Depending on **var**, try to return a pretty name 'Variable [unit]'
+    '''
+    unit = None
+    if any([v in var for v in ['MachNumber', 'Efficiency', 'Ratio', 'Coefficient', 'Loss']]):
+        unit = '-'
+    elif 'Pressure' in var:
+        unit = 'Pa'
+    elif 'Velocity' in var:
+        unit = 'm/s'
+    elif 'AngleDegree' in var:
+        unit = 'deg'
+    elif 'Enthalpy' in var:
+        unit = r'J/kg'
+    elif 'Entropy' in var:
+        unit = r'J/kg/K'
+    elif 'Efficiency' in var:
+        unit = r'J.m$^3$/K/kg'
+    elif 'Entropy' in var:
+        unit = r'J.m$^3$/K/kg'
+    remplacements = [
+        ('StagnationPressureAbsDim', '$P_{t,abs}$'),
+        ('StagnationTemperatureAbsDim', '$T_{t,abs}$'),
+        ('StagnationEnthalpyAbsDim', '$h_{t,abs}$'),
+        ('StagnationPressureRelDim', '$P_{t,rel}$'),
+        ('StagnationTemperatureRelDim', '$T_{t,rel}$'),
+        ('StagnationEnthalpyRelDim', '$h_{t,rel}$'),
+        ('StaticPressureDim', '$P_s$'),
+        ('StaticTemperatureDim', '$T_s$'),
+        ('StaticEnthalpyDim', '$h_s$'),
+        ('EntropyDim',  '$s$'),
+        ('Viscosity_EddyMolecularRatio', '$\mu_t / \mu$'),
+        ('VelocityMeridianDim',  '$V_m$'),
+        ('VelocityThetaRelDim',  '$W_\theta$'),
+        ('VelocityThetaAbsDim', '$V_\theta$'),
+        ('MachNumberRel',  '$M_{rel}$'),
+        ('MachNumberAbs', '$M_{abs}$'),
+        ('IsentropicMachNumber', '$M_{is}$'),
+        ('AlphaAngleDegree', r'$\alpha$'),
+        ('BetaAngleDegree', r'$\beta$'),
+        ('PhiAngleDegree', r'$\phi$'),
+        ('ChannelHeight', 'h'),
+        ('StagnationPressureRatio', '$P_{t, abs, 2}/P_{t, abs, 1}$'),
+        ('StagnationTemperatureRatio', '$T_{t, abs, 2}/T_{t, abs, 1}$'),
+        ('StaticPressureRatio', '$P_{s, 2}/P_{s, 1}$'),
+        ('Static2StagnationPressureRatio', '$P_{s, 2}/P_{t, abs, 1}$'),
+        ('IsentropicEfficiency', r'$\eta_{is}$'),
+        ('PolytropicEfficiency',  r'$\eta_{pol}$'),
+        ('StagnationEnthalpyDelta', r'$\Delta h_{t, abs}$'),
+        ('StaticPressureCoefficient', '$c_p$'),
+        ('StagnationPressureCoefficient', '$c_{P_t}$'),
+        ('StagnationPressureLoss1', r'$\omega_{P_t}$'),
+        ('StagnationPressureLoss2', r'$\tilde{\omega}_{P_t}$'),
+    ]
+    for LongName, ShortName in remplacements:
+        var = var.replace(LongName, ShortName)
+    if unit:
+        var += ' ({})'.format(unit)
+    return var
+
+
+def getRadialProfiles(surfaces='OUTPUT/surfaces.cgns'):
+    '''
+    Get the radial profiles into a dictionary. This function may feed :py:func:`getRadialProfiles`. 
+
+    Parameters
+    ----------
+    surfaces : str or PyTree
+        name of the CGNS file with a 'RadialProfiles' node (default is 'OUTPUT/surfaces.cgns'),
+        or already read PyTree. 
+
+    Returns
+    -------
+        RadialProfiles : dict
+            Dictionary with all radial profiles in **surfaces**. The structure is 
+            the following:
+
+            .. code-block:: python
+            
+                RadialProfiles['Iso_X_0.1'] = {'MachNumberAbs': numpy.array(...), 
+                                               'EntropyDim': numpy.array(...), 
+                                               ...
+                                               '.ExtractionInfo': {...},
+                                               '.PlotParameters': {...}
+                                            }
+            
+            Each iso-surface has an arbitrary number of quantities, plus additional optional 
+            data with a key name starting with a dot '.':
+
+                * '.ExtractionInfo': it is fill automatically if the corresponding node is found.
+                
+                * '.PlotParameters': the function lets it empty, but you may fill this node with
+                  parameters used in the 'plot' function of matplotlib if you give the returned
+                  **RadialProfiles** to :py:func:`getRadialProfiles`.
+    '''
+
+    if isinstance(surfaces, str):
+        surfaces = C.convertFile2PyTree(surfaces)
+
+    RadialProfiles = dict()
+    RadialProfilesBase = I.getNodeFromName1(surfaces, 'RadialProfiles')
+    for zone in I.getZones(RadialProfilesBase):
+        surfaceName = I.getName(zone)
+        RadialProfiles[surfaceName] = J.getVars2Dict(zone, Container='FlowSolution#Centers')
+        extractionInfo = J.get(zone, '.ExtractionInfo')
+        if extractionInfo:
+            RadialProfiles[surfaceName]['.ExtractionInfo'] = extractionInfo
+
+    return RadialProfiles
+
+
+def plotRadialProfiles(RadialProfiles, filename='RadialProfiles.pdf', assemble=False, variablesToPlot=None):
+    '''
+    Plot radial profiles
+
+    Parameters
+    ----------
+    RadialProfiles : dict
+        as got from :py:func:`getRadialProfiles`
+
+    filename : str, optional
+        generic name of the file, by default 'RadialProfiles.pdf'
+
+    assemble : bool, optional
+        if True, write a unique PDF file with all the plots. By default False
+    
+    variablesToPlot : list
+        Among the available data, plot only variables in this list. If :py:obj:`None`, plot all available data.
+
+    '''
+    
+    try:
+        os.makedirs(os.path.dirname(filename))
+    except:
+        pass
+
+    filename_split = filename.split('.')
+    filename_root = '.'.join(filename_split[:-1])
+    extension = filename_split[-1]
+    if not extension == 'pdf':
+        assemble = False
+
+    def getTextForFirstPage(RadialProfiles):
+        '''Generate the text to fill the first page of the PDF file, with information on planes
+
+        Parameters
+        ----------
+        RadialProfiles : dict
+            as got from :py:func:`getRadialProfiles`
+
+        Returns
+        -------
+        str
+            text to write on the first page of the PDF file
+        '''
+        # First pages with infomation
+        txt = 'RADIAL PROFILES\n\n'
+        for plane, RadialProfilesOnPlane in RadialProfiles.items():
+            ExtractionInfo = RadialProfilesOnPlane.get('.ExtractionInfo', {})
+            PlotParameters = RadialProfilesOnPlane.get('.PlotParameters', dict(label=plane))
+            if 'label' in PlotParameters:
+                txt += PlotParameters['label'] + '\n'
+            if ExtractionInfo:
+                txt += f"IsoSurface {ExtractionInfo['field']} = {ExtractionInfo['value']}\n"
+                try:
+                    txt += f"{ExtractionInfo['ReferenceRow']} {ExtractionInfo['tag']}\n"
+                except: 
+                    pass
+            txt += '\n'
+        return txt
+
+    if not assemble:
+
+        for plane, RadialProfilesOnPlane in RadialProfiles.items():
+            variables2plot = []
+            for var in RadialProfilesOnPlane:
+                if not var in ['ChannelHeight', 'Gamma'] and not var.startswith('.'):
+                    if (variablesToPlot is None) or (var in variablesToPlot):
+                        variables2plot.append(var)
+            
+            PlotParameters = RadialProfilesOnPlane.get('.PlotParameters', dict(label=plane))
+
+            for var in variables2plot:
+                print(f'  > plot {var}')
+                plt.figure()
+                plt.plot(RadialProfilesOnPlane[var], RadialProfilesOnPlane['ChannelHeight'] * 100., **PlotParameters)
+                plt.xlabel(prettyName(var))
+                plt.ylabel('h (%)')
+                plt.grid()
+                plt.savefig(f'{filename_root}_{var}_{plane}.{extension}')
+                plt.close()
+
+    else:
+
+        with PdfPages(filename) as pdf:
+
+            textFirstPage = getTextForFirstPage(RadialProfiles)
+            
+            firstPage = plt.figure()
+            firstPage.clf()
+            firstPage.text(0.5, 0.5, textFirstPage, transform=firstPage.transFigure, size=12, ha="center", va="center")
+            pdf.savefig()
+            plt.close()
+
+            # Assumption: same data on all plane
+            variables2plot = []
+            firstPlaneData = next(iter(RadialProfiles.values())) 
+            for var in firstPlaneData:
+                if not var in ['ChannelHeight', 'Gamma'] and not var.startswith('.'):
+                    if (variablesToPlot is None) or (var in variablesToPlot):
+                        variables2plot.append(var)
+
+            for var in variables2plot:
+                print(f'  > plot {var}')
+                plt.figure()
+                for plane, RadialProfilesOnPlane in RadialProfiles.items():
+                    PlotParameters = RadialProfilesOnPlane.get('.PlotParameters', dict(label=plane))
+                    if not var in RadialProfilesOnPlane: 
+                        continue
+                    plt.plot(RadialProfilesOnPlane[var], RadialProfilesOnPlane['ChannelHeight'] * 100., **PlotParameters)
+                plt.xlabel(prettyName(var))
+                plt.ylabel('h (%)')
+                plt.grid()
+                if len(RadialProfiles) > 1: 
+                    plt.legend()
+                pdf.savefig()  # saves the current figure into a pdf page
+                plt.close()
