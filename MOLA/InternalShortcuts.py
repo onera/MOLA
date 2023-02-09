@@ -21,6 +21,7 @@ if not MOLA.__ONLY_DOC__:
     import time
     import glob
     import numpy as np
+    import pprint
     from itertools import product
     from timeit import default_timer as tic
     from fnmatch import fnmatch
