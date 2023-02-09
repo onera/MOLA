@@ -67,7 +67,8 @@ def checkDependencies():
 def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
                     duplicationInfos={}, zonesToRename={},
                     scale=1., rotation='fromAG5', tol=1e-8, PeriodicTranslation=None,
-                    BodyForceRows=None, families2Remove=[], saveGeometricalDataForBodyForce=True):
+                    BodyForceRows=None, families2Remove=[], saveGeometricalDataForBodyForce=True,
+                    ):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
     from a CGNS file provided by Autogrid 5.
@@ -195,9 +196,8 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
     I._fixNGon(t) # Needed for an unstructured mesh
 
     if InputMeshes is None:
-        SplitBlocks = True if splitOptions else False
-        InputMeshes = generateInputMeshesFromAG5(t, SplitBlocks=SplitBlocks,
-            scale=scale, rotation=rotation, tol=tol, PeriodicTranslation=PeriodicTranslation)
+        InputMeshes = generateInputMeshesFromAG5(t,  scale=scale,
+            rotation=rotation, tol=tol, PeriodicTranslation=PeriodicTranslation)
 
     PRE.checkFamiliesInZonesAndBC(t)
 
@@ -231,12 +231,17 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
         duplicate(t, row, rowParams['NumberOfBlades'],
                 nDupli=rowParams['NumberOfDuplications'], merge=MergeBlocks)
 
-    if not any([InputMesh['SplitBlocks'] for InputMesh in InputMeshes]):
-        t = PRE.connectMesh(t, InputMeshes)
-    else:
+    if splitOptions:
         t = PRE.splitAndDistribute(t, InputMeshes, **splitOptions)
+    else:
+        t = PRE.connectMesh(t, InputMeshes)
     # WARNING: Names of BC_t nodes must be unique to use PyPart on globborders
     for l in [2,3,4]: I._correctPyTree(t, level=l)
+
+    for base, meshInfo in zip(I.getBases(t), InputMeshes):
+        J.set(base,'.MOLA#InputMesh',**meshInfo)
+
+
     PRE.adapt2elsA(t, InputMeshes)
     J.checkEmptyBC(t)
 
@@ -640,7 +645,7 @@ def parametrizeChannelHeight_future(t, nbslice=101, tol=1e-10, offset=1e-10,
     print(J.GREEN + 'done.' + J.ENDC)
     return t
 
-def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='fromAG5', tol=1e-8, PeriodicTranslation=None):
+def generateInputMeshesFromAG5(mesh, scale=1., rotation='fromAG5', tol=1e-8, PeriodicTranslation=None):
     '''
     Generate automatically the :py:class:`list` **InputMeshes** with a default
     parametrization adapted to Autogrid 5 meshes.
@@ -650,10 +655,6 @@ def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='from
 
         mesh : :py:class:`str` or PyTree
             Name of the CGNS mesh file from Autogrid 5 or already read PyTree.
-
-        SplitBlocks : bool
-            if :py:obj:`False`, do not split and distribute the mesh (use this
-            option if the simulation will run with PyPart).
 
         scale : float
             Homothety factor to apply on the mesh. Default is 1.
@@ -711,7 +712,6 @@ def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='from
                     baseName=I.getName(I.getNodeByType(t, 'CGNSBase_t')),
                     Transform=dict(scale=scale, rotate=rotation),
                     Connection=[dict(type='Match', tolerance=tol)],
-                    SplitBlocks=SplitBlocks,
                     )]
     # Set automatic periodic connections
     InputMesh = InputMeshes[0]
@@ -1035,7 +1035,7 @@ def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
     # Compute surface
     SurfaceTree = C.convertArray2Tetra(sliceX)
     SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
-    Surface = P.integ(SurfaceTree, var='ones')[0]
+    Surface = abs(P.integNorm(SurfaceTree, var='ones')[0][0])
     # Compute deltaTheta
     deltaTheta = 2* Surface / (Rmax**2 - Rmin**2)
     # Compute number of blades in the mesh
@@ -2106,7 +2106,7 @@ def setBC_nref(t, FamilyName):
     I._rmNodesByType(farfield, 'FamilyBC_t')
     I.newFamilyBC(value='BCFarfield', parent=farfield)
 
-def setBC_inj1(t, FamilyName, ImposedVariables, bc=None, variableForInterpolation='ChannelHeight'):
+def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
     '''
     Generic function to impose a Boundary Condition ``inj1``. The following
     functions are more specific:
@@ -2141,24 +2141,14 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None, variableForInterpolatio
             ``BC_t`` node on which the boundary condition will be imposed. Must
             be :py:obj:`None` if the condition must be imposed once in the
             ``Family_t`` node.
-        
-        variableForInterpolation : str
-            When using a function to impose the radial profile of one or several quantities, 
-            it defines the variable used as the argument of this function.
-            Must be 'ChannelHeight' (default value) or 'Radius'.
 
     See also
     --------
 
     setBC_inj1_uniform, setBC_inj1_interpFromFile
     '''
-    if not bc and not all([np.ndim(v)==0 and not callable(v) for v in ImposedVariables.values()]):
-        for bc in C.getFamilyBCs(t, FamilyName):
-            setBCwithImposedVariables(t, FamilyName, ImposedVariables,
-                FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc, variableForInterpolation=variableForInterpolation)
-    else:
-        setBCwithImposedVariables(t, FamilyName, ImposedVariables,
-            FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc, variableForInterpolation=variableForInterpolation)
+    setBCwithImposedVariables(t, FamilyName, ImposedVariables,
+        FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc)
 
 def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     '''
@@ -2198,7 +2188,6 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs
     VelocityUnitVectorX   = kwargs.get('VelocityUnitVectorX', ReferenceValues['DragDirection'][0])
     VelocityUnitVectorY   = kwargs.get('VelocityUnitVectorY', ReferenceValues['DragDirection'][1])
     VelocityUnitVectorZ   = kwargs.get('VelocityUnitVectorZ', ReferenceValues['DragDirection'][2])
-    variableForInterpolation = kwargs.get('variableForInterpolation', 'ChannelHeight')
 
     # Get turbulent variables names and values
     turbVars = ReferenceValues['FieldsTurbulence']
@@ -2206,16 +2195,29 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs
     turbValues = [val/ReferenceValues['Density'] for val in ReferenceValues['ReferenceStateTurbulence']]
     turbDict = dict(zip(turbVars, turbValues))
 
+    # Convert names to inj_tur1 and (if needed) inj_tur2
+    if 'TurbulentSANuTilde' in turbDict:
+        turbDict = dict(inj_tur1=turbDict['TurbulentSANuTilde'])
+    else:
+        turbDict['inj_tur1'] = turbDict['TurbulentEnergyKinetic']
+        turbDict.pop('TurbulentEnergyKinetic')
+        inj_tur2 = [var for var in turbDict if var != 'inj_tur1']
+        assert len(inj_tur2) == 1, \
+            'Turbulent models with more than 2 equations are not supported yet'
+        inj_tur2 = inj_tur2[0]
+        turbDict['inj_tur2'] = turbDict[inj_tur2]
+        turbDict.pop(inj_tur2)
+
     ImposedVariables = dict(
-        PressureStagnation  = PressureStagnation,
-        EnthalpyStagnation  = EnthalpyStagnation,
-        VelocityUnitVectorX = VelocityUnitVectorX,
-        VelocityUnitVectorY = VelocityUnitVectorY,
-        VelocityUnitVectorZ = VelocityUnitVectorZ,
+        stagnation_pressure = PressureStagnation,
+        stagnation_enthalpy = EnthalpyStagnation,
+        txv                 = VelocityUnitVectorX,
+        tyv                 = VelocityUnitVectorY,
+        tzv                 = VelocityUnitVectorZ,
         **turbDict
         )
 
-    setBC_inj1(t, FamilyName, ImposedVariables, variableForInterpolation=variableForInterpolation)
+    setBC_inj1(t, FamilyName, ImposedVariables)
 
 def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileformat=None):
     '''
@@ -2399,7 +2401,7 @@ def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     setBCwithImposedVariables(t, FamilyName, ImposedVariables,
         FamilyBC='BCInflowSubsonic', BCType='injmfr1')
 
-def setBC_outpres(t, FamilyName, Pressure, bc=None, variableForInterpolation='ChannelHeight'):
+def setBC_outpres(t, FamilyName, Pressure, bc=None):
     '''
     Impose a Boundary Condition ``outpres``.
 
@@ -2434,12 +2436,6 @@ def setBC_outpres(t, FamilyName, Pressure, bc=None, variableForInterpolation='Ch
             ``BC_t`` node on which the boundary condition will be imposed. Must
             be :py:obj:`None` if the condition must be imposed once in the
             ``Family_t`` node.
-        
-        variableForInterpolation : str
-            When using a function to impose the radial profile of one or several quantities, 
-            it defines the variable used as the argument of this function.
-            Must be 'ChannelHeight' (default value) or 'Radius'.
-
     '''
     if isinstance(Pressure, dict):
         assert 'Pressure' in Pressure or 'pressure' in Pressure
@@ -2447,14 +2443,8 @@ def setBC_outpres(t, FamilyName, Pressure, bc=None, variableForInterpolation='Ch
         ImposedVariables = Pressure
     else:
         ImposedVariables = dict(Pressure=Pressure)
-
-    if not bc and not all([np.ndim(v) == 0 and not callable(v) for v in ImposedVariables.values()]):
-        for bc in C.getFamilyBCs(t, FamilyName):
-            setBCwithImposedVariables(t, FamilyName, ImposedVariables,
-                                      FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc, variableForInterpolation=variableForInterpolation)
-    else:
-        setBCwithImposedVariables(t, FamilyName, ImposedVariables,
-                                FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc, variableForInterpolation=variableForInterpolation)
+    setBCwithImposedVariables(t, FamilyName, ImposedVariables,
+        FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc)
 
 def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues=None, TurboConfiguration=None):
     '''
@@ -2511,7 +2501,7 @@ def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues
         FamilyBC='BCOutflowSubsonic', BCType='outmfr2', bc=bc)
 
 def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
-    bc=None, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData', variableForInterpolation='ChannelHeight'):
+    bc=None, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData'):
     '''
     Generic function to impose a Boundary Condition ``inj1``. The following
     functions are more specific:
@@ -2525,21 +2515,15 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
         FamilyName : str
             Name of the family on which the boundary condition will be imposed
 
-        ImposedVarvariableForInterpolation : str
-            When using a function to impose the radial profile of one or several quantities, 
-            it defines the variable used as the argument of this function.
-            Must be 'ChannelHeight' (default value) or 'Radius'.riable names and values must be either:
+        ImposedVariables : dict
+            Dictionary of variables to imposed on the boudary condition. Keys
+            are variable names and values must be:
 
-                * scalars: in that case they are imposed once for the
+                * either scalars: in that case they are imposed once for the
                   family **FamilyName** in the corresponding ``Family_t`` node.
 
-                * numpy arrays: in that case they are imposed for the ``BC_t``
+                * or numpy arrays: in that case they are imposed for the ``BC_t``
                   node **bc**.
-
-                * functions: in that case the function defined a profile depending on radius.
-                  It is evaluated in each cell on the **bc**.
-            
-            They may be a combination of three.
 
         bc : PyTree
             ``BC_t`` node on which the boundary condition will be imposed. Must
@@ -2553,11 +2537,6 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
         BCDataName : str
             Name of the created node of type ``BCData_t``. Default value is
             'DirichletData'
-        
-        variableForInterpolation : str
-            When using a function to impose the radial profile of one or several quantities, 
-            it defines the variable used as the argument of this function.
-            Must be 'ChannelHeight' (default value) or 'Radius'.
 
     See also
     --------
@@ -2565,67 +2544,33 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
     setBC_inj1, setBC_outpres, setBC_outmfr2
 
     '''
+    checkVariables(ImposedVariables)
     FamilyNode = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
     I._rmNodesByName(FamilyNode, '.Solver#BC')
     I._rmNodesByType(FamilyNode, 'FamilyBC_t')
     I.newFamilyBC(value=FamilyBC, parent=FamilyNode)
 
-    if all([np.ndim(v)==0 and not callable(v) for v in ImposedVariables.values()]):
-        checkVariables(ImposedVariables)
+    if all([np.ndim(v)==0 for v in ImposedVariables.values()]):
         ImposedVariables = translateVariablesFromCGNS2Elsa(ImposedVariables)
         J.set(FamilyNode, '.Solver#BC', type=BCType, **ImposedVariables)
     else:
         assert bc is not None
         J.set(bc, '.Solver#BC', type=BCType)
 
-        zone = I.getParentFromType(t, bc, 'Zone_t') 
-        if variableForInterpolation in ['Radius', 'radius']:
-            radius, theta = J.getRadiusTheta(zone)
-        elif variableForInterpolation == 'ChannelHeight':
-            radius = I.getValue(I.getNodeFromName(zone, 'ChannelHeight'))
+        PointRange = I.getValue(I.getNodeFromType(bc, 'IndexRange_t'))
+        bc_shape = PointRange[:, 1] - PointRange[:, 0]
+        if bc_shape[0] == 0:
+            bc_shape = (bc_shape[1], bc_shape[2])
+        elif bc_shape[1] == 0:
+            bc_shape = (bc_shape[0], bc_shape[2])
+        elif bc_shape[2] == 0:
+            bc_shape = (bc_shape[0], bc_shape[1])
         else:
-            raise ValueError('varForInterpolation must be Radius or ChannelHeight')
-
-        PointRangeNode = I.getNodeFromType(bc, 'IndexRange_t')
-        if PointRangeNode:
-            # Structured mesh
-            PointRange = I.getValue(PointRangeNode)
-            bc_shape = PointRange[:, 1] - PointRange[:, 0]
-            if bc_shape[0] == 0:
-                bc_shape = (bc_shape[1], bc_shape[2])
-                radius = radius[PointRange[0, 0]-1,
-                                PointRange[1, 0]-1:PointRange[1, 1]-1, 
-                                PointRange[2, 0]-1:PointRange[2, 1]-1]
-            elif bc_shape[1] == 0:
-                bc_shape = (bc_shape[0], bc_shape[2])
-                radius = radius[PointRange[0, 0]-1:PointRange[0, 1]-1,
-                                PointRange[1, 0]-1, 
-                                PointRange[2, 0]-1:PointRange[2, 1]-1]
-            elif bc_shape[2] == 0:
-                bc_shape = (bc_shape[0], bc_shape[1])
-                radius = radius[PointRange[0, 0]-1:PointRange[0, 1]-1,
-                                PointRange[1, 0]-1:PointRange[1, 1]-1,
-                                PointRange[2, 0]-1]
-            else:
-                raise ValueError('Wrong BC shape {} in {}'.format(bc_shape, I.getPath(t, bc)))
-        
-        else: 
-            # Unstructured mesh
-            PointList = I.getValue(I.getNodeFromType(bc, 'IndexArray_t'))
-            bc_shape = PointList.size
-            radius = radius[PointList-1]
+            raise ValueError('Wrong BC shape {} in {}'.format(bc_shape, I.getPath(t, bc)))
 
         for var, value in ImposedVariables.items():
-            if callable(value):
-                ImposedVariables[var] = value(radius) 
-            elif np.ndim(value)==0:
-                # scalar value --> uniform data
-                ImposedVariables[var] = value * np.ones(radius.shape)
-            assert ImposedVariables[var].shape == bc_shape, \
-                'Wrong shape for variable {}: {} (shape {} for {})'.format(
-                    var, ImposedVariables[var].shape, bc_shape, I.getPath(t, bc))
-        
-        checkVariables(ImposedVariables)
+            assert value.shape == bc_shape, \
+                'Wrong shape for variable {}: {} (shape {} for {})'.format(var, value.shape, bc_shape, I.getPath(t, bc))
 
         BCDataSet = I.newBCDataSet(name=BCDataSetName, value='Null',
             gridLocation='FaceCenter', parent=bc)
@@ -4034,10 +3979,7 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
 
 def postprocess_turbomachinery(surfaces, stages=[], 
                                 var4comp_repart=None, var4comp_perf=None, var2keep=None, 
-                                computeRadialProfiles=True, 
-                                config='annular', 
-                                lin_axis='XY',
-                                RowType='compressor'):
+                                computeRadialProfiles=True):
     '''
     Perform a series of classical postprocessings for a turbomachinery case : 
 
@@ -4096,15 +4038,6 @@ def postprocess_turbomachinery(surfaces, stages=[],
         computeRadialProfiles : bool
             Choose or not to compute radial profiles.
         
-        config : str
-            see :py:func:`MOLA.Postprocess.compute1DRadialProfiles`
-
-        lin_axis : str
-            see :py:func:`MOLA.Postprocess.compute1DRadialProfiles`
-
-        RowType : str
-            see parameter 'config' of :py:func:`MOLA.Postprocess.compareRadialProfilesPlane2Plane`
-        
     '''
     import Converter.Mpi as Cmpi
     import MOLA.PostprocessTurbo as Post
@@ -4115,7 +4048,7 @@ def postprocess_turbomachinery(surfaces, stages=[],
     #______________________________________________________________________________
     # Variables
     #______________________________________________________________________________
-    allVariables = TUS.getFields(config=config)
+    allVariables = TUS.getFields()
     if not var4comp_repart:
         var4comp_repart = ['StagnationEnthalpyDelta',
                            'StagnationPressureRatio', 'StagnationTemperatureRatio',
@@ -4145,15 +4078,13 @@ def postprocess_turbomachinery(surfaces, stages=[],
     Post.computeVariablesOnIsosurface(surfaces, allVariables)
     Post.compute0DPerformances(surfaces, variablesByAverage)
     if computeRadialProfiles: 
-        Post.compute1DRadialProfiles(
-            surfaces, variablesByAverage, config=config, lin_axis=lin_axis)
+        Post.compute1DRadialProfiles(surfaces, variablesByAverage)
     # Post.computeVariablesOnBladeProfiles(surfaces, hList='all')
     #______________________________________________________________________________#
 
     if Cmpi.rank == 0:
         Post.comparePerfoPlane2Plane(surfaces, var4comp_perf, stages)
         if computeRadialProfiles: 
-            Post.compareRadialProfilesPlane2Plane(
-                surfaces, var4comp_repart, stages, config=RowType)
+            Post.compareRadialProfilesPlane2Plane(surfaces, var4comp_repart, stages)
 
     Post.cleanSurfaces(surfaces, var2keep=var2keep)
