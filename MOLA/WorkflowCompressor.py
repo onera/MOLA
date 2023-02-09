@@ -195,8 +195,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
     I._fixNGon(t) # Needed for an unstructured mesh
 
     if InputMeshes is None:
-        SplitBlocks = True if splitOptions else False
-        InputMeshes = generateInputMeshesFromAG5(t, SplitBlocks=SplitBlocks,
+        InputMeshes = generateInputMeshesFromAG5(t,
             scale=scale, rotation=rotation, tol=tol, PeriodicTranslation=PeriodicTranslation)
 
     PRE.checkFamiliesInZonesAndBC(t)
@@ -231,12 +230,16 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
         duplicate(t, row, rowParams['NumberOfBlades'],
                 nDupli=rowParams['NumberOfDuplications'], merge=MergeBlocks)
 
-    if not any([InputMesh['SplitBlocks'] for InputMesh in InputMeshes]):
-        t = PRE.connectMesh(t, InputMeshes)
-    else:
+    if splitOptions:
         t = PRE.splitAndDistribute(t, InputMeshes, **splitOptions)
+    else:
+        t = PRE.connectMesh(t, InputMeshes)
     # WARNING: Names of BC_t nodes must be unique to use PyPart on globborders
     for l in [2,3,4]: I._correctPyTree(t, level=l)
+
+    for base, meshInfo in zip(I.getBases(t), InputMeshes):
+        J.set(base,'.MOLA#InputMesh',**meshInfo)
+
     PRE.adapt2elsA(t, InputMeshes)
     J.checkEmptyBC(t)
 
@@ -640,7 +643,7 @@ def parametrizeChannelHeight_future(t, nbslice=101, tol=1e-10, offset=1e-10,
     print(J.GREEN + 'done.' + J.ENDC)
     return t
 
-def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='fromAG5', tol=1e-8, PeriodicTranslation=None):
+def generateInputMeshesFromAG5(mesh, scale=1., rotation='fromAG5', tol=1e-8, PeriodicTranslation=None):
     '''
     Generate automatically the :py:class:`list` **InputMeshes** with a default
     parametrization adapted to Autogrid 5 meshes.
@@ -711,7 +714,7 @@ def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='from
                     baseName=I.getName(I.getNodeByType(t, 'CGNSBase_t')),
                     Transform=dict(scale=scale, rotate=rotation),
                     Connection=[dict(type='Match', tolerance=tol)],
-                    SplitBlocks=SplitBlocks,
+                    SplitBlocks=False,
                     )]
     # Set automatic periodic connections
     InputMesh = InputMeshes[0]

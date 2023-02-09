@@ -114,6 +114,7 @@ if [ "$MAC" = "spiro" ]; then
     export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
     export PYTHONPATH=$MAIA_HOME/lib/python3.7/site-packages:$PYTHONPATH
 
+    alias mola_sinter='srun --export=ALL,SLURM_EXACT=1,SLURM_OVERLAP=1 --immediate=2 --pty --qos c1_inter_giga'
 
 elif [ "$MAC" = "visio" ]; then
     export ELSAVERSION=UNAVAILABLE # TODO adapt this once #10587 fixed

@@ -38,7 +38,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, Extractions=[],
         writeOutputFields=True, Initialization={'method':'uniform'}, TurboConfiguration={},
         BoundaryConditions=[],bladeFamilyNames=['Blade'],
-        JobInformation={}, SubmitJob=False, FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
+        JobInformation={}, SubmitJob=False, FULL_CGNS_MODE=False, COPY_TEMPLATES=True,
+        override_keysCFD={}, override_keysModel={}, override_keysNumerics={}):
     '''
     This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to ORAS mono-chanel computations. Its purpose is adapting
@@ -170,6 +171,11 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                             FluidProperties,ReferenceValues, bladeFamilyNames=bladeFamilyNames)
 
     WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
+
+    elsAkeysCFD.update(override_keysCFD)
+    elsAkeysModel.update(override_keysModel)
+    elsAkeysNumerics.update(override_keysNumerics)
+
 
     AllSetupDics = dict(Workflow='ORAS',
                         Splitter=Splitter,

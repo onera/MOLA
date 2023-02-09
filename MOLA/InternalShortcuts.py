@@ -85,6 +85,14 @@ def set(parent, childname, childType='UserDefinedData_t', **kwargs):
                     continue
                 else:
                     value = np.atleast_1d(kwargs[v])
+
+                    if value.dtype == 'O':
+                        print(WARN+'key:  '+'/'.join([parent[0],childname,v])+ENDC)
+                        print(WARN+'has value:'+ENDC)
+                        print(WARN+pprint.pformat(kwargs[v])+ENDC)
+                        print(WARN+'which cannot be written in CGNS'+ENDC)
+                        print(WARN+'this value will be replaced in CGNS by: '+BOLD+'None'+ENDC)
+                        value = None
             else:
                 value = None
             children += [[v,value]]

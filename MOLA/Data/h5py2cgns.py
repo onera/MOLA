@@ -124,7 +124,10 @@ def build_cgns_nodelist( group, links=[], ignore_DataArray=False ):
     nodename = group.name.split('/')[-1]  
     if nodename.startswith(' '): return
     children = []
-    group_type = group.attrs['type'].decode(encoding)
+    try:
+        group_type = group.attrs['type'].decode(encoding)
+    except KeyError:
+        raise KeyError('could not find attribute "type" in node %s'%group.name)
 
 
     if group_type != 'LK':

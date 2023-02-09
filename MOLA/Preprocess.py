@@ -1041,7 +1041,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                        maximum_allowed_nodes=20,
                        maximum_number_of_points_per_node=1e9,
                        only_consider_full_node_nproc=True,
-                       NumberOfProcessors=None):
+                       NumberOfProcessors=None, SplitBlocks=True):
     '''
     Distribute a PyTree **t**, with optional splitting.
 
@@ -1116,6 +1116,11 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
 
             .. attention:: if **mode** = ``'auto'``, this parameter is ignored
 
+        SplitBlocks : bool
+            default value of **SplitBlocks** if it does not exist in the InputMesh
+            component.
+
+
     Returns
     -------
 
@@ -1124,6 +1129,10 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
 
     '''
     print('splitting and distributing mesh...')
+    for meshInfo in InputMeshes:
+        if 'SplitBlocks' not in meshInfo:
+            meshInfo['SplitBlocks'] = SplitBlocks
+
 
     TotalNPts = C.getNPts(t)
 
@@ -1495,12 +1504,9 @@ def getBasesBasedOnSplitPolicy(t,InputMeshes):
     basesNotToSplit = []
     for meshInfo in InputMeshes:
         base = I.getNodeFromName1(t,meshInfo['baseName'])
-        try:
-            if meshInfo['SplitBlocks']:
-                basesToSplit += [base]
-            else:
-                basesNotToSplit += [base]
-        except KeyError:
+        if meshInfo['SplitBlocks']:
+            basesToSplit += [base]
+        else:
             basesNotToSplit += [base]
 
     return basesToSplit, basesNotToSplit
