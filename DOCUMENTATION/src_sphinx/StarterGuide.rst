@@ -171,3 +171,73 @@ the correct output of the call of :mod:`~MOLA.WorkflowAirfoil.checkDependencies`
 .. attention:: The checking procedure produces **graphic output**. If you do not
   allow for graphic output in the used machine, then `XFoil`_ and `matplotlib`_
   operations will fail.
+
+.. _spiroadvices:
+
+Using an interactive session in spiro
+-------------------------------------
+
+You may want to use ``spiro`` machine for development purposes or for following MOLA tutorials. In this case, you may want to run an interactive session. In this paragraph, some guidelines are provided for successfully running MOLA in ``spiro``.
+
+First step consists in connecting to ``spiro`` machine:
+
+.. code-block:: bash
+
+    ssh -X spiro-daaa
+
+
+Next step is to launch an interactive session. For this, you need to know the maximum number of processors you will need for your computation. Let us suppose you will only need 6 processors for 1 hour. In that case you use the command:
+
+.. code-block:: bash
+
+    sinter --time 1:00:00 --ntasks 6 --x11 bash 
+
+
+If enough resources are available, then a new interactive session will be opened a session on a specific spiro *node*. To know the name of your node, use the command `hostname`:
+
+.. code-block:: bash
+
+    hostname 
+    > spiro-n054-clu
+
+
+In this example, the hostname is ``spiro-n054-clu``. Now you can open as many terminals as you need and connect to your interactive session in spiro, like this:
+
+
+.. code-block:: bash
+
+    ssh -X spiro-n054-clu 
+
+
+.. note:: 
+    please do **not** close the first terminal where you launched `sinter` command, since that will immediately terminate the interactive session
+
+.. important::
+    please open **new terminals** and connect to your interactive session for your work. Otherwise, if you work directly on the first terminal, you will experiment a significant degradation of performances *(openMP loops will be executed sequentially)*
+
+.. warning::
+    if you launch python scripts like this:
+
+    .. code-block:: bash
+
+        python3 script.py
+
+
+    You may encounter this kind of problem:
+
+    .. code-block:: text 
+
+        python3: error: _get_addr: No error
+        Error in system call pthread_mutex_destroy: Device or resource busy
+            ../../src/mpi/init/init_thread_cs.c:60
+        Abort(3712655) on node 0 (rank 0 in comm 0): Fatal error in PMPI_Init_thread: Other MPI error, error stack:
+        MPIR_Init_thread(138)........:
+        MPID_Init(1139)..............:
+        MPIDI_OFI_mpi_init_hook(1678):
+        MPIDU_bc_table_create(309)...:
+
+    if this is the case, please launch your script using the command:
+
+    .. code-block:: bash
+
+        mpirun -np 1 python3 script.py

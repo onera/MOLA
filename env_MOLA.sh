@@ -200,9 +200,13 @@ elif [ "$MAC" = "visung" ]; then
 elif [ "$MAC" = "ld" ]; then
     if [ "$EL8" ]; then
         echo 'loading MOLA environment for CentOS 8'
-        source /stck/elsa/Public/v5.1.02/Dist/bin/local-os8_mpi/.env_elsA
+        export ELSAVERSION=v5.1.02
+        source /stck/elsa/Public/$ELSAVERSION/Dist/bin/local-os8_mpi/.env_elsA
         module load hdf5/1.8.17-intel2120
-        module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
+        module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
+        module load vscode/1.74.3
+        module load pointwise/2022.1.2
+        # module load paraview/5.11.0 # provokes python and libraries incompatibilities
 
         alias python=python3
 
