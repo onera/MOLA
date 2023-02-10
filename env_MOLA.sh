@@ -85,6 +85,10 @@ if [ "$MAC" = "spiro" ]; then
     export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$MOLAext/spiro_el8/bin:$PATH
 
+    # to avoid message:
+    # MPI startup(): Warning: I_MPI_PMI_LIBRARY will be ignored since the hydra process manager was found
+    # source : https://www.osc.edu/supercomputing/batch-processing-at-osc/slurm_migration/slurm_migration_issues
+    unset I_MPI_PMI_LIBRARY 
 
     # # PUMA
     # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro3
@@ -201,7 +205,6 @@ elif [ "$MAC" = "visung" ]; then
 elif [ "$MAC" = "ld" ]; then
     if [ "$EL8" ]; then
         echo 'loading MOLA environment for CentOS 8'
-        export ELSAVERSION=v5.1.02
         source /stck/elsa/Public/$ELSAVERSION/Dist/bin/local-os8_mpi/.env_elsA
         module load hdf5/1.8.17-intel2120
         module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
@@ -211,16 +214,17 @@ elif [ "$MAC" = "ld" ]; then
 
         alias python=python3
 
-        export PYTHONPATH=$MOLAext/ld8/lib/python3.6/site-packages/:$PYTHONPATH
+        export PYTHONPATH=$MOLAext/ld8/lib/python3.8/site-packages/:$PYTHONPATH
         export PATH=$MOLAext/ld8/bin:$PATH
 
 
-        # PUMA
-        export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_eos3
-        export PYTHONPATH=$PumaRootDir/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
-        export PYTHONPATH=$PumaRootDir/lib/python${PYTHONVR}/site-packages/PUMA:$PYTHONPATH
-        export LD_LIBRARY_PATH=$PumaRootDir/lib/python${PYTHONVR}:$LD_LIBRARY_PATH
-        export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+        # NOTE not installed in correct python version !
+        # PUMA 
+        # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_eos3
+        # export PYTHONPATH=$PumaRootDir/lib/python3.6/site-packages:$PYTHONPATH
+        # export PYTHONPATH=$PumaRootDir/lib/python3.6/site-packages/PUMA:$PYTHONPATH
+        # export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.6:$LD_LIBRARY_PATH
+        # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
         # VPM
         export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/${MAC}8
@@ -333,7 +337,7 @@ alias python='python3'
 
 alias treelab="python3 -c 'import MOLA.GUIs.TreeLab as t;import sys;t.launch(sys.argv)'"
 
-alias mola_version="python3 -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
+alias mola_version="mpirun -np 1 python3 -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
 
 alias mola_jobsqueue_sator="python3 -c 'import MOLA.JobManager as JM;JM.getCurrentJobsStatus()'"
 

@@ -246,10 +246,11 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
     return t
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
-        NumericalParams={}, TurboConfiguration={}, Extractions=[], BoundaryConditions=[],
-        PostprocessOptions={},
-        BodyForceInputData={}, writeOutputFields=True, bladeFamilyNames=['BLADE', 'AUBE'],
-        Initialization={'method':'uniform'}, JobInformation={}, SubmitJob=False,
+        NumericalParams={}, OverrideSolverKeys= {}, 
+        TurboConfiguration={}, Extractions=[], BoundaryConditions=[],
+        PostprocessOptions={}, BodyForceInputData={}, writeOutputFields=True,
+        bladeFamilyNames=['BLADE', 'AUBE'], Initialization={'method':'uniform'},
+        JobInformation={}, SubmitJob=False,
         FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
     '''
     This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
@@ -283,6 +284,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             .. note:: internally, this dictionary is passed as *kwargs* as follows:
 
                 >>> MOLA.Preprocess.getElsAkeysNumerics(arg, **NumericalParams)
+
+        OverrideSolverKeys : :py:class:`dict` of maximum 3 :py:class:`dict`
+            exactly the same as in :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
 
         TurboConfiguration : dict
             Dictionary concerning the compressor properties.
@@ -423,7 +427,19 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     addMonitoredRowsInExtractions(Extractions, TurboConfiguration)
 
-    AllSetupDics = dict(Workflow='Compressor',
+    allowed_override_objects = ['cfdpb','numerics','model']
+    for v in OverrideSolverKeys:
+        if v == 'cfdpb':
+            elsAkeysCFD.update(OverrideSolverKeys[v])
+        elif v == 'numerics':
+            elsAkeysNumerics.update(OverrideSolverKeys[v])
+        elif v == 'model':
+            elsAkeysModel.update(OverrideSolverKeys[v])
+        else:
+            raise AttributeError('OverrideSolverKeys "%s" must be one of %s'%(v,
+                                                str(allowed_override_objects)))
+
+    AllSetupDicts = dict(Workflow='Compressor',
                         Splitter=Splitter,
                         JobInformation=JobInformation,
                         TurboConfiguration=TurboConfiguration,
@@ -435,7 +451,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                         Extractions=Extractions, 
                         PostprocessOptions=PostprocessOptions)
     if BodyForceInputData: 
-        AllSetupDics['BodyForceInputData'] = BodyForceInputData
+        AllSetupDicts['BodyForceInputData'] = BodyForceInputData
 
 
     # WARNING: BCInflow and BCOutflow are also used for rotor/stator interfaces. However, extracting other
@@ -445,25 +461,25 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
 
     PRE.addTrigger(t)
-    PRE.addExtractions(t, AllSetupDics['ReferenceValues'],
-                          AllSetupDics['elsAkeysModel'],
+    PRE.addExtractions(t, AllSetupDicts['ReferenceValues'],
+                          AllSetupDicts['elsAkeysModel'],
                           extractCoords=False,
                           BCExtractions=ReferenceValues['BCExtractions'])
 
     if elsAkeysNumerics['time_algo'] != 'steady':
-        PRE.addAverageFieldExtractions(t, AllSetupDics['ReferenceValues'],
-            AllSetupDics['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
+        PRE.addAverageFieldExtractions(t, AllSetupDicts['ReferenceValues'],
+            AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
 
-    PRE.addReferenceState(t, AllSetupDics['FluidProperties'],
-                         AllSetupDics['ReferenceValues'])
-    dim = int(AllSetupDics['elsAkeysCFD']['config'][0])
+    PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],
+                         AllSetupDicts['ReferenceValues'])
+    dim = int(AllSetupDicts['elsAkeysCFD']['config'][0])
     PRE.addGoverningEquations(t, dim=dim)
-    PRE.writeSetup(AllSetupDics)
+    PRE.writeSetup(AllSetupDicts)
 
     if FULL_CGNS_MODE:
-        PRE.addElsAKeys2CGNS(t, [AllSetupDics['elsAkeysCFD'],
-                                 AllSetupDics['elsAkeysModel'],
-                                 AllSetupDics['elsAkeysNumerics']])
+        PRE.addElsAKeys2CGNS(t, [AllSetupDicts['elsAkeysCFD'],
+                                 AllSetupDicts['elsAkeysModel'],
+                                 AllSetupDicts['elsAkeysNumerics']])
 
     PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 

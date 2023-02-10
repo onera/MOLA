@@ -2301,6 +2301,15 @@ def printEnvironment():
         vCASSIOPEE = FAIL + 'UNAVAILABLE' + ENDC
     print(' --> Cassiopee '+vCASSIOPEE)
 
+    # Vortex Particle Method
+    try:
+        import VortexParticleMethod.vortexparticlemethod
+        import MOLA.VPM as VPM
+        vVPM = VPM.__version__
+    except:
+        vVPM = FAIL + 'UNAVAILABLE' + ENDC
+    print(' --> VPM '+vVPM)
+
     # PUMA
     vPUMA = os.getenv('PUMAVERSION', 'UNAVAILABLE')
     if vPUMA == 'UNAVAILABLE':
@@ -2316,7 +2325,11 @@ def printEnvironment():
 
     # turbo
     vTURBO = os.getenv('TURBOVERSION', 'UNAVAILABLE')
-    if vTURBO == 'UNAVAILABLE': vTURBO = FAIL + vTURBO + ENDC
+    if vTURBO != 'UNAVAILABLE':
+        try:
+            import turbo
+        except:
+            vTURBO = FAIL + 'UNAVAILABLE' + ENDC 
     print(' --> turbo '+vTURBO)
 
     # ErsatZ
@@ -2328,15 +2341,16 @@ def printEnvironment():
     print(' --> Ersatz '+vERSATZ)
 
 
-    # Vortex Particle Method
+    # maia
     try:
-        import VortexParticleMethod.vortexparticlemethod
-        import MOLA.VPM as VPM
-        vVPM = VPM.__version__
+        import maia
+        try:
+            vMAIA = maia.__version__
+        except:
+            vMAIA = 'dev'
     except:
-        vVPM = FAIL + 'UNAVAILABLE' + ENDC
-    print(' --> VPM '+vVPM)
-
+        vMAIA = FAIL+'UNAVAILABLE'+ENDC
+    print(' --> maia '+vMAIA)
 
     if totoV == 'Dev':
         print(WARN+'WARNING: you are using an UNSTABLE version of MOLA.\nConsider using a stable version.'+ENDC)
