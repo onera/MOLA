@@ -30,7 +30,7 @@ class LiftingLine(Curve):
                              Node(Name='CoordinateY', Value=Y, Type='DataArray_t'),
                              Node(Name='CoordinateZ', Value=Z, Type='DataArray_t')])
 
-            self.setValue(np.array([[N,N-1,0]],dtype=np.int,order='F'))
+            self.setValue(np.array([[N,N-1,0]],dtype=np.int32,order='F'))
 
             s = self.abscissa()
 
@@ -104,11 +104,11 @@ class LiftingLine(Curve):
             self.RightHandRuleRotation = np.atleast_1d(Kinematics.childNamed('RightHandRuleRotation').value())
 
         else:
-            self.RPM = np.array([0.],dtype=np.float)
-            self.Pitch = np.array([0.],dtype=np.float)
-            self.RotationCenter = np.array([0.,0.,0.],dtype=np.float)
-            self.RotationAxis = np.array([0.,0.,0.],dtype=np.float)
-            self.VelocityTranslation = np.array([0.,0.,0.],dtype=np.float)
+            self.RPM = np.array([0.],dtype=np.float64)
+            self.Pitch = np.array([0.],dtype=np.float64)
+            self.RotationCenter = np.array([0.,0.,0.],dtype=np.float64)
+            self.RotationAxis = np.array([0.,0.,0.],dtype=np.float64)
+            self.VelocityTranslation = np.array([0.,0.,0.],dtype=np.float64)
             self.RightHandRuleRotation = np.array([1.],dtype=np.int32)
             self.setKinematicsUsingConstantRotationAndTranslation()
 

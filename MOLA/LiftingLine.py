@@ -901,7 +901,7 @@ def buildPropeller(LiftingLine, NBlades=2, InitialAzimutDirection=[0,1,0],
     '''
     norm = np.linalg.norm
     LiftingLine, = I.getZones(LiftingLine)
-    InitialAzimutDirection = np.array(InitialAzimutDirection, order='F', dtype=np.float)
+    InitialAzimutDirection = np.array(InitialAzimutDirection, order='F', dtype=np.float64)
     InitialAzimutDirection/= np.sqrt(InitialAzimutDirection.dot(InitialAzimutDirection))
 
     RotAxis, RotCenter,Dir=getRotationAxisCenterAndDirFromKinematics(LiftingLine)
@@ -2845,10 +2845,10 @@ def setRPM(LiftingLines, newRPM):
                 RPMvalue[:] = newRPM
             else:
                 I.createNode('RPM','DataArray_t',
-                             value=np.atleast_1d(np.array(newRPM,dtype=np.float)),
+                             value=np.atleast_1d(np.array(newRPM,dtype=np.float64)),
                              parent=Kin_n)
         else:
-            J.set(LiftingLine,'.Kinematics',RPM=np.atleast_1d(np.array(newRPM,dtype=np.float)))
+            J.set(LiftingLine,'.Kinematics',RPM=np.atleast_1d(np.array(newRPM,dtype=np.float64)))
 
 def setVPMParameters(LiftingLines, GammaZeroAtRoot = True, GammaZeroAtTip = True, GhostParticleAtRoot = True,
                   GhostParticleAtTip = True, IntegralLaw='linear',
@@ -2981,11 +2981,11 @@ def setKinematicsUsingConstantRotationAndTranslation(LiftingLines, RotationCente
 
     for LiftingLine in I.getZones( LiftingLines ):
         J.set(LiftingLine,'.Kinematics',
-                RotationCenter=np.array(RotationCenter,dtype=np.float),
-                RotationAxis=np.array(RotationAxis,dtype=np.float),
-                RPM=np.atleast_1d(np.array(RPM,dtype=np.float)),
+                RotationCenter=np.array(RotationCenter,dtype=np.float64),
+                RotationAxis=np.array(RotationAxis,dtype=np.float64),
+                RPM=np.atleast_1d(np.array(RPM,dtype=np.float64)),
                 RightHandRuleRotation=RightHandRuleRotation,
-                VelocityTranslation=np.array(VelocityTranslation,dtype=np.float),)
+                VelocityTranslation=np.array(VelocityTranslation,dtype=np.float64),)
 
 def setConditions(LiftingLines, VelocityFreestream=[0,0,0], Density=1.225,
                   Temperature=288.15):
@@ -3108,7 +3108,7 @@ def computeKinematicVelocity(t):
         for i in range(NPts):
             rvec = np.array([x[i] - RotationCenter[0],
                              y[i] - RotationCenter[1],
-                             z[i] - RotationCenter[2]],dtype=np.float)
+                             z[i] - RotationCenter[2]],dtype=np.float64)
 
             VelocityKinematic = np.cross( Dir * Omega * RotationAxis, rvec) + VelocityTranslation
 
@@ -4875,7 +4875,7 @@ def getNumberOfSerialRuns(BodyForceInputData, NumberOfProcessors):
         NumberOfSerialRuns : int
             Required number of serial runs
     '''
-    NRunsPerProc = np.zeros(NumberOfProcessors, dtype=np.int)
+    NRunsPerProc = np.zeros(NumberOfProcessors, dtype=np.int32)
     for inputData in BodyForceInputData:
         NRunsPerProc[inputData['proc']] += 1
     NumberOfSerialRuns = np.max(NRunsPerProc)
@@ -5430,7 +5430,7 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
         if GhostParticleAtTip:
             AbscissaSegment = np.append(AbscissaSegment ,
                                     2*AbscissaSegment[-1] - AbscissaSegment[-2])
-        AbscissaSegment = np.array(AbscissaSegment, dtype=np.float)
+        AbscissaSegment = np.array(AbscissaSegment, dtype=np.float64)
 
         v = J.getVars2Dict(LiftingLine,['s']+FieldsNames2Extract[3:])
         x,y,z = J.getxyz(LiftingLine)

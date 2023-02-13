@@ -111,23 +111,23 @@ def distanceOfPointToLine(Point, LineVector, LinePassingPoint):
 
     if isPyTreePoint(Point):
         x,y,z = J.getxyz(Point)
-        p = np.array([x[0],y[0],z[0]],dtype=np.float)
+        p = np.array([x[0],y[0],z[0]],dtype=np.float64)
     else:
         p = np.array([Point[0],
                       Point[1],
-                      Point[2]],dtype=np.float)
+                      Point[2]],dtype=np.float64)
 
     if isPyTreePoint(LinePassingPoint):
         x,y,z = J.getxyz(LinePassingPoint)
-        c = np.array([x[0],y[0],z[0]],dtype=np.float)
+        c = np.array([x[0],y[0],z[0]],dtype=np.float64)
     else:
         c = np.array([LinePassingPoint[0],
                       LinePassingPoint[1],
-                      LinePassingPoint[2]],dtype=np.float)
+                      LinePassingPoint[2]],dtype=np.float64)
 
     l = np.array([LineVector[0],
                   LineVector[1],
-                  LineVector[2]],dtype=np.float)
+                  LineVector[2]],dtype=np.float64)
     l /= np.sqrt(l.dot(l))
 
     cp = p - c
@@ -672,7 +672,7 @@ def airfoil(designation='NACA0012',Ntop=None, Nbot=None, ChordLength=1.,
     NACAstringLoc = designation.find('NACA')
     # Determines the kind of airfoil to generate
     if designation.find('.') != -1: # Then user wants to import an airfoil from file
-        Imported = np.genfromtxt(designation, dtype=np.float, skip_header=1, usecols=(0,1))
+        Imported = np.genfromtxt(designation, dtype=np.float64, skip_header=1, usecols=(0,1))
         # Deletes useless lines
         RowsToDelete = []
         for i in range(len(Imported[:,0])):
@@ -3783,12 +3783,12 @@ def getAirfoilPropertiesAndCamber(AirfoilCurve, buildCamberOptions={},
 
     LeadingEdge  = np.array([CamberLineX[0],
                              CamberLineY[0],
-                             CamberLineZ[0]], dtype=np.float)
+                             CamberLineZ[0]], dtype=np.float64)
     AirfoilProperties['LeadingEdge'] = LeadingEdge
 
     TrailingEdge = np.array([CamberLineX[-1],
                              CamberLineY[-1],
-                             CamberLineZ[-1]], dtype=np.float)
+                             CamberLineZ[-1]], dtype=np.float64)
     AirfoilProperties['TrailingEdge'] = TrailingEdge
 
     ChordDirection = TrailingEdge - LeadingEdge
@@ -3823,7 +3823,7 @@ def getAirfoilPropertiesAndCamber(AirfoilCurve, buildCamberOptions={},
     AirfoilProperties['MaxThickness'] = RelativeThickness[iMaxThickness]*Chord
     MaxThicknessCoords = np.array([CamberLineX[iMaxThickness],
                                    CamberLineY[iMaxThickness],
-                                   CamberLineZ[iMaxThickness]],dtype=np.float)
+                                   CamberLineZ[iMaxThickness]],dtype=np.float64)
     MaxThicknessLocation = (MaxThicknessCoords-LeadingEdge).dot(ChordDirection)
     MaxThicknessLocation /= Chord
     AirfoilProperties['MaxThicknessRelativeLocation'] = MaxThicknessLocation
@@ -3833,7 +3833,7 @@ def getAirfoilPropertiesAndCamber(AirfoilCurve, buildCamberOptions={},
     AirfoilProperties['MaxRelativeCamber'] = CamberValues[iMaxCamber] / Chord
     MaxCamberCoords = np.array([CamberLineX[iMaxCamber],
                                 CamberLineY[iMaxCamber],
-                                CamberLineZ[iMaxCamber]],dtype=np.float)
+                                CamberLineZ[iMaxCamber]],dtype=np.float64)
     MaxCamberLocation = (MaxCamberCoords-LeadingEdge).dot(ChordDirection)
     MaxCamberLocation /= Chord
     AirfoilProperties['MaxCamberRelativeLocation'] = MaxCamberLocation
@@ -3843,7 +3843,7 @@ def getAirfoilPropertiesAndCamber(AirfoilCurve, buildCamberOptions={},
     AirfoilProperties['MinRelativeCamber'] = CamberValues[iMinCamber] / Chord
     MinCamberCoords = np.array([CamberLineX[iMinCamber],
                                 CamberLineY[iMinCamber],
-                                CamberLineZ[iMinCamber]],dtype=np.float)
+                                CamberLineZ[iMinCamber]],dtype=np.float64)
     MinCamberLocation = (MinCamberCoords-LeadingEdge).dot(ChordDirection)
     MinCamberLocation /= Chord
     AirfoilProperties['MinCamberRelativeLocation'] = MinCamberLocation
@@ -3916,8 +3916,8 @@ def addDistanceRespectToLine(t, LinePassingPoint, LineDirection,
             name to give to the new field to be added in **t**, representing the
             distance to the line
     '''
-    a = np.array(LinePassingPoint,dtype=np.float)
-    n = np.array(LineDirection,dtype=np.float)
+    a = np.array(LinePassingPoint,dtype=np.float64)
+    n = np.array(LineDirection,dtype=np.float64)
     n /= np.sqrt(n.dot(n))
     for zone in I.getZones(t):
         x,y,z = J.getxyz(zone)

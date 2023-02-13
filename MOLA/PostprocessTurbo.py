@@ -239,6 +239,7 @@ def cleanSurfaces(surfaces, var2keep=[]):
     for surface in surfacesBC:
         for zone in I.getZones(surface):
             FSnodes = I.getNodeFromName1(zone, I.__FlowSolutionNodes__)
+            if not FSnodes: continue
             for node in I.getNodesFromType(FSnodes, 'DataArray_t'):
                 varname = I.getName(node)
                 if varname not in var2keepOnBlade:
@@ -303,14 +304,22 @@ def compute0DPerformances(surfaces, variablesByAverage):
     def getFluxCoeff(surface):
         RowFamilies = []
         for Family in I.getNodesFromType1(surface, 'Family_t'):
-            if I.getNodeFromName1(Family, '.Solver#Motion'):
+            # if I.getNodeFromName1(Family, '.Solver#Motion'):
+            #     RowFamilies.append(I.getName(Family))
+            if not I.getNodeFromType1(Family, 'FamilyBC_t'):
                 RowFamilies.append(I.getName(Family))
-        assert len(
-            RowFamilies) == 1, f'There are more than 1 zone family in {I.getName(surface)}'
+        if len(RowFamilies) == 0:
+            raise Exception(f'There is no zone family detected in {I.getName(surface)}')
+        elif len(RowFamilies) > 1:
+            raise Exception(f'There are more than 1 zone family in {I.getName(surface)}')
         ReferenceRow = RowFamilies[0]
-        nBlades = setup.TurboConfiguration['Rows'][ReferenceRow]['NumberOfBlades']
-        nBladesSimu = setup.TurboConfiguration['Rows'][ReferenceRow]['NumberOfBladesSimulated']
-        fluxcoeff = nBlades / float(nBladesSimu)
+        try:
+            nBlades = setup.TurboConfiguration['Rows'][ReferenceRow]['NumberOfBlades']
+            nBladesSimu = setup.TurboConfiguration['Rows'][ReferenceRow]['NumberOfBladesSimulated']
+            fluxcoeff = nBlades / float(nBladesSimu)
+        except:
+            # Linear cascade with a periodicity by translation
+            fluxcoeff = 1.
         return fluxcoeff
 
     Averages = I.newCGNSBase('Averages0D', cellDim=0, physDim=3, parent=surfaces)
@@ -379,7 +388,7 @@ def comparePerfoPlane2Plane(surfaces, var4comp_perf, stages=[]):
         I.addChild(OutletPlane, tBilan)
 
 
-def compute1DRadialProfiles(surfaces, variablesByAverage):
+def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_axis='XY'):
     '''
     Compute radial profiles for all iso-X surfaces
 
@@ -392,6 +401,13 @@ def compute1DRadialProfiles(surfaces, variablesByAverage):
         variablesByAverage : dict
             Lists of variables sorted by type of average (as produced by :py:func:`sortVariablesByAverage`)
 
+        config : str
+            ‘annular’ or ‘linear’ configuration
+
+        lin_axis : str
+            For ‘linear’ configuration, streamwise and spanwise directions. 
+            ‘XZ’ means: streamwise = X-axis, spanwise = Z-axis
+
     '''
     RadialProfiles = I.newCGNSBase('RadialProfiles', cellDim=1, physDim=3, parent=surfaces)
     surfacesIsoX = getSurfacesFromInfo(surfaces, type='IsoSurface', field='CoordinateX')
@@ -399,8 +415,12 @@ def compute1DRadialProfiles(surfaces, variablesByAverage):
     for surface in surfacesIsoX:
         surfaceName = I.getName(surface)
         tmp_surface = C.convertArray2NGon(surface, recoverBC=0)
-        radial_surf = TR.computeRadialProfile_future(tmp_surface, surfaceName, variablesByAverage['surface'], 'surface', fsname=I.__FlowSolutionCenters__)
-        radial_massflow = TR.computeRadialProfile_future(tmp_surface, surfaceName, variablesByAverage['massflow'], 'massflow', fsname=I.__FlowSolutionCenters__)
+        radial_surf = TR.computeRadialProfile_future(
+            tmp_surface, surfaceName, variablesByAverage['surface'], 'surface', fsname=I.__FlowSolutionCenters__, 
+            config=config, lin_axis=lin_axis)
+        radial_massflow = TR.computeRadialProfile_future(
+            tmp_surface, surfaceName, variablesByAverage['massflow'], 'massflow', fsname=I.__FlowSolutionCenters__, 
+            config=config, lin_axis=lin_axis)
         t_radial = I.merge([radial_surf, radial_massflow])
         t_radial = I.getNodeFromType2(t_radial, 'Zone_t')
         PostprocessInfo = {'averageType': variablesByAverage, 
@@ -411,7 +431,7 @@ def compute1DRadialProfiles(surfaces, variablesByAverage):
         I.addChild(RadialProfiles, t_radial)
 
 
-def compareRadialProfilesPlane2Plane(surfaces, var4comp_repart, stages=[]):
+def compareRadialProfilesPlane2Plane(surfaces, var4comp_repart, stages=[], config='compressor'):
     '''
     Compare radial profiles between the **InletPlane** and the **OutletPlane**.
 
@@ -430,7 +450,9 @@ def compareRadialProfilesPlane2Plane(surfaces, var4comp_repart, stages=[]):
             >>> stages = [('rotor1', 'stator1'), ('rotor2', 'stator2')] 
 
             For each tuple of rows, the inlet plane of row 1 is compared with the outlet plane of row 2.
-
+        
+        config : str
+            Must be ‘compressor’ or ‘turbine’. Useful to compute efficency.
     '''
     RadialProfiles = I.getNodeFromName1(surfaces, 'RadialProfiles')
 
@@ -450,7 +472,8 @@ def compareRadialProfilesPlane2Plane(surfaces, var4comp_repart, stages=[]):
             tBilan = TR.compareRadialProfilePlane2Plane(InletPlane, OutletPlane,
                                                         [I.getName(InletPlane), I.getName(OutletPlane)],
                                                         f'Comparison',
-                                                        config='compressor', variables=var4comp_repart)
+                                                        config=config, 
+                                                        variables=var4comp_repart)
             tBilan = I.getNodeFromType(tBilan, 'FlowSolution_t')
             I.setName(tBilan, f'Comparison#{I.getName(InletPlane)}')
             I.addChild(OutletPlane, tBilan)

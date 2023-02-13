@@ -7,14 +7,17 @@ For this purpose, we will make a computation of a flow around a very simple aero
 
 Before proceeding further, please make sure you have carefully followed the instructions of :ref:`StarterGuide`. 
 
-
 In this tutorial, you will learn how to run a CFD elsA computation using MOLA interface, from mesh creation to visualization of results. To follow this tutorial, you will need a local machine with MOLA and elsA available. 
+
+.. note::
+    if you are using **SPIRO** machine, then please carefully read the :ref:`interactive session guidelines <spiroadvices>`
 
 Before start, please copy the full example to a local directory of your choice, for instance:
 
 .. code-block:: text
 
-    cp -r $MOLA/EXAMPLES/WORKFLOW_STANDARD/SPHERE/SIMPLE $USER/TUTO_SPHERE && cd $USER/TUTO_SPHERE
+    cp -r $MOLA/EXAMPLES/WORKFLOW_STANDARD/SPHERE/SIMPLE /stck/$USER/TUTO_SPHERE
+    cd /stck/$USER/TUTO_SPHERE
 
 Then, you can reset the case files by running:
 
@@ -91,6 +94,7 @@ Finally, you can run the preprocess using the command:
 .. code-block:: bash
 
     python3 prepare.py
+
 
 
 The output message will be:

@@ -21,6 +21,7 @@ if not MOLA.__ONLY_DOC__:
     import time
     import glob
     import numpy as np
+    import pprint
     from itertools import product
     from timeit import default_timer as tic
     from fnmatch import fnmatch
@@ -85,6 +86,14 @@ def set(parent, childname, childType='UserDefinedData_t', **kwargs):
                     continue
                 else:
                     value = np.atleast_1d(kwargs[v])
+
+                    if value.dtype == 'O':
+                        print(WARN+'key:  '+'/'.join([parent[0],childname,v])+ENDC)
+                        print(WARN+'has value:'+ENDC)
+                        print(WARN+pprint.pformat(kwargs[v])+ENDC)
+                        print(WARN+'which cannot be written in CGNS'+ENDC)
+                        print(WARN+'this value will be replaced in CGNS by: '+BOLD+'None'+ENDC)
+                        value = None
             else:
                 value = None
             children += [[v,value]]
@@ -2292,6 +2301,15 @@ def printEnvironment():
         vCASSIOPEE = FAIL + 'UNAVAILABLE' + ENDC
     print(' --> Cassiopee '+vCASSIOPEE)
 
+    # Vortex Particle Method
+    try:
+        import VortexParticleMethod.vortexparticlemethod
+        import MOLA.VPM as VPM
+        vVPM = VPM.__version__
+    except:
+        vVPM = FAIL + 'UNAVAILABLE' + ENDC
+    print(' --> VPM '+vVPM)
+
     # PUMA
     vPUMA = os.getenv('PUMAVERSION', 'UNAVAILABLE')
     if vPUMA == 'UNAVAILABLE':
@@ -2307,7 +2325,11 @@ def printEnvironment():
 
     # turbo
     vTURBO = os.getenv('TURBOVERSION', 'UNAVAILABLE')
-    if vTURBO == 'UNAVAILABLE': vTURBO = FAIL + vTURBO + ENDC
+    if vTURBO != 'UNAVAILABLE':
+        try:
+            import turbo
+        except:
+            vTURBO = FAIL + 'UNAVAILABLE' + ENDC 
     print(' --> turbo '+vTURBO)
 
     # ErsatZ
@@ -2319,15 +2341,16 @@ def printEnvironment():
     print(' --> Ersatz '+vERSATZ)
 
 
-    # Vortex Particle Method
+    # maia
     try:
-        import VortexParticleMethod.vortexparticlemethod
-        import MOLA.VPM as VPM
-        vVPM = VPM.__version__
+        import maia
+        try:
+            vMAIA = maia.__version__
+        except:
+            vMAIA = 'dev'
     except:
-        vVPM = FAIL + 'UNAVAILABLE' + ENDC
-    print(' --> VPM '+vVPM)
-
+        vMAIA = FAIL+'UNAVAILABLE'+ENDC
+    print(' --> maia '+vMAIA)
 
     if totoV == 'Dev':
         print(WARN+'WARNING: you are using an UNSTABLE version of MOLA.\nConsider using a stable version.'+ENDC)

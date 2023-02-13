@@ -112,6 +112,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
                 UpdateSurfacesFrequency = 500,
                 UpdateFieldsFrequency = 2000)),
         NumericalParams={},
+        OverrideSolverKeys={},
         Extractions=[dict(type='AllBCWall'),
                      dict(type='IsoSurface',field='CoordinateX',value=1.0),
                      dict(type='IsoSurface',field='CoordinateX',value=2.0),
@@ -166,6 +167,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
             .. note:: internally, this dictionary is passed as *kwargs* as follows:
 
                 >>> MOLA.Preprocess.getElsAkeysNumerics(arg, **NumericalParams)
+
+        OverrideSolverKeys : :py:class:`dict` of maximum 3 :py:class:`dict`
+            exactly the same as in :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
 
         Extractions : :py:class:`list` of :py:class:`dict`
             List of extractions to perform during the simulation. See
@@ -310,7 +314,19 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
 
     WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
-    AllSetupDics = dict(Workflow='Propeller',
+    allowed_override_objects = ['cfdpb','numerics','model']
+    for v in OverrideSolverKeys:
+        if v == 'cfdpb':
+            elsAkeysCFD.update(OverrideSolverKeys[v])
+        elif v == 'numerics':
+            elsAkeysNumerics.update(OverrideSolverKeys[v])
+        elif v == 'model':
+            elsAkeysModel.update(OverrideSolverKeys[v])
+        else:
+            raise AttributeError('OverrideSolverKeys "%s" must be one of %s'%(v,
+                                                str(allowed_override_objects)))
+
+    AllSetupDicts = dict(Workflow='Propeller',
                         Splitter=Splitter,
                         JobInformation=JobInformation,
                         TurboConfiguration=TurboConfiguration,
@@ -322,25 +338,25 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
                         Extractions=Extractions)
 
     PRE.addTrigger(t)
-    PRE.addExtractions(t, AllSetupDics['ReferenceValues'],
-                          AllSetupDics['elsAkeysModel'], extractCoords=False,
+    PRE.addExtractions(t, AllSetupDicts['ReferenceValues'],
+                          AllSetupDicts['elsAkeysModel'], extractCoords=False,
                           BCExtractions=ReferenceValues['BCExtractions'])
 
     if elsAkeysNumerics['time_algo'] != 'steady':
-        PRE.addAverageFieldExtractions(t, AllSetupDics['ReferenceValues'],
-            AllSetupDics['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
+        PRE.addAverageFieldExtractions(t, AllSetupDicts['ReferenceValues'],
+            AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
 
-    PRE.addReferenceState(t, AllSetupDics['FluidProperties'],
-                         AllSetupDics['ReferenceValues'])
-    dim = int(AllSetupDics['elsAkeysCFD']['config'][0])
+    PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],
+                         AllSetupDicts['ReferenceValues'])
+    dim = int(AllSetupDicts['elsAkeysCFD']['config'][0])
     PRE.addGoverningEquations(t, dim=dim)
-    AllSetupDics['ReferenceValues']['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
-    PRE.writeSetup(AllSetupDics)
+    AllSetupDicts['ReferenceValues']['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
+    PRE.writeSetup(AllSetupDicts)
 
     if FULL_CGNS_MODE:
-        PRE.addElsAKeys2CGNS(t, [AllSetupDics['elsAkeysCFD'],
-                                 AllSetupDics['elsAkeysModel'],
-                                 AllSetupDics['elsAkeysNumerics']])
+        PRE.addElsAKeys2CGNS(t, [AllSetupDicts['elsAkeysCFD'],
+                                 AllSetupDicts['elsAkeysModel'],
+                                 AllSetupDicts['elsAkeysNumerics']])
 
     PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 

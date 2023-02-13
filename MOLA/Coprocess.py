@@ -620,9 +620,9 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
         try: os.remove(fn)
         except: pass
     # Write a unique file
-    Cmpi._setProc(t, rank)
+    Cmpi._convert2PartialTree(t)
+    Cmpi.barrier()
     Cmpi.convertPyTree2File(t, os.path.join(DIRECTORY_OUTPUT, FILE_FIELDS))
-
     printCo('... saved %s'%filename,0, color=J.CYAN)
     Cmpi.barrier()
     if tagWithIteration and rank == 0: copyOutputFiles(filename)
@@ -1298,9 +1298,9 @@ def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
     '''
 
 
-    DragDirection=np.array(setup.ReferenceValues['DragDirection'],dtype=np.float)
-    SideDirection=np.array(setup.ReferenceValues['SideDirection'],dtype=np.float)
-    LiftDirection=np.array(setup.ReferenceValues['LiftDirection'],dtype=np.float)
+    DragDirection=np.array(setup.ReferenceValues['DragDirection'],dtype=np.float64)
+    SideDirection=np.array(setup.ReferenceValues['SideDirection'],dtype=np.float64)
+    LiftDirection=np.array(setup.ReferenceValues['LiftDirection'],dtype=np.float64)
 
     arraysSubset = arrays[IntegralDataName]
 
@@ -2729,7 +2729,7 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
     except AttributeError:
         return surfaces
 
-    if Workflow == 'Compressor':
+    if Workflow == 'Compressor' and PostprocessOptions:
         import MOLA.WorkflowCompressor as WC
 
         if EndOfRun or setup.elsAkeysNumerics['time_algo'] != 'steady':

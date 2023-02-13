@@ -40,8 +40,8 @@ def compute(LL, NumberOfBlades=2, RPM=1500.,
     TangentialDirection = np.vstack([f['tan'+i] for i in 'xyz'])
     f['VelocityKinematicAxial'][:] = f['VelocityAxial'][:]
     f['VelocityKinematicTangential'][:] = -f['VelocityTangential'][:]
-    nxyz = np.array([f['nx'],f['ny'],f['nz']], dtype=np.float, order='F')
-    bxyz = np.array([f['bx'],f['by'],f['bz']], dtype=np.float, order='F')
+    nxyz = np.array([f['nx'],f['ny'],f['nz']], dtype=np.float64, order='F')
+    bxyz = np.array([f['bx'],f['by'],f['bz']], dtype=np.float64, order='F')
 
 
     Mu = computeViscosityMolecular(Temperature)
