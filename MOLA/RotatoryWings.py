@@ -152,8 +152,8 @@ def extrudeBladeSupportedOnSpinner(blade_surface, spinner, rotation_center,
 
     '''
 
-    rotation_axis = np.array(rotation_axis, dtype=np.float, order='F')
-    rotation_center = np.array(rotation_center, dtype=np.float, order='F')
+    rotation_axis = np.array(rotation_axis, dtype=np.float64, order='F')
+    rotation_center = np.array(rotation_center, dtype=np.float64, order='F')
 
     inds = _getRootAndTransitionIndices(blade_surface, spinner, rotation_center,
                                     rotation_axis, root_to_transition_distance)
@@ -432,7 +432,7 @@ def addPitchAndAdjustPositionOfBladeSurface(blade,
             **blade** is modified
     '''
 
-    pitch_axis = np.array(pitch_axis,dtype=np.float)
+    pitch_axis = np.array(pitch_axis,dtype=np.float64)
     pitch_axis /= np.sqrt(pitch_axis.dot(pitch_axis))
 
     blade_main_surface = J.selectZoneWithHighestNumberOfPoints(blade)
@@ -442,8 +442,8 @@ def addPitchAndAdjustPositionOfBladeSurface(blade,
     adjust_point = [x[0] + pitch_center_adjust_relative2chord * (x[-1] - x[0]),
                     y[0] + pitch_center_adjust_relative2chord * (y[-1] - y[0]),
                     z[0] + pitch_center_adjust_relative2chord * (z[-1] - z[0])]
-    adjust_point = np.array(adjust_point, dtype=np.float)
-    pitch_center = np.array(pitch_center, dtype=np.float)
+    adjust_point = np.array(adjust_point, dtype=np.float64)
+    pitch_center = np.array(pitch_center, dtype=np.float64)
 
     center2adjust_point = adjust_point - pitch_center
     distanceAlongAxis = center2adjust_point.dot(pitch_axis)
@@ -744,8 +744,8 @@ def makeHub(profile, blade_number, number_of_points_azimut=31,
     if blade_number<2:
         raise ValueError(J.FAIL+'blade_number must be greater than 1'+J.ENDC)
 
-    center = np.array([0,0,0],dtype=np.float)
-    axis = np.array(profile_axis,dtype=np.float)
+    center = np.array([0,0,0],dtype=np.float64)
+    axis = np.array(profile_axis,dtype=np.float64)
     tol = 1e-8
 
 
@@ -1198,9 +1198,9 @@ def getFrenetFromRotationAxisAndPhaseDirection(RotationAxis, PhaseDirection):
 
             >>> (tuple(PhaseDir), tuple(Binormal), tuple(RotAxis))
     '''
-    RotAxis  = np.array(list(RotationAxis),dtype=np.float)
+    RotAxis  = np.array(list(RotationAxis),dtype=np.float64)
     RotAxis /= np.sqrt(RotAxis.dot(RotAxis))
-    PhaseDir = np.array(list(PhaseDirection),dtype=np.float)
+    PhaseDir = np.array(list(PhaseDirection),dtype=np.float64)
     PhaseDir /= np.sqrt(PhaseDir.dot(PhaseDir))
 
     PhaseAligned = np.allclose(np.abs(PhaseDir),np.abs(RotAxis))
@@ -1645,9 +1645,9 @@ def makeBladeAndSpinnerTreeForChecking(blade_extruded, spinner_extruded,
     '''
     t = C.newPyTree(['Blade', P.exteriorFacesStructured(blade_extruded),
                      'Spinner', P.exteriorFacesStructured(spinner_extruded)])
-    pt1 = np.array(list(G.barycenter(blade_extruded)),dtype=np.float)
-    c = np.array(rotation_center,dtype=np.float)
-    a = np.array(rotation_axis,dtype=np.float)
+    pt1 = np.array(list(G.barycenter(blade_extruded)),dtype=np.float64)
+    c = np.array(rotation_center,dtype=np.float64)
+    a = np.array(rotation_axis,dtype=np.float64)
     pt2 = c + a*(pt1-c).dot(a)
     pt3 = c
     n = np.cross(pt1-pt2,pt3-pt2)
@@ -1804,8 +1804,8 @@ def _getSpineFromBlade( blade ):
 
 def _buildExternalSurfacesHgrid(blade, spinner_split, rotation_axis,
                                 rotation_center, spreading=2.):
-    c = np.array(rotation_center,dtype=np.float)
-    a = np.array(rotation_axis,dtype=np.float)
+    c = np.array(rotation_center,dtype=np.float64)
+    a = np.array(rotation_axis,dtype=np.float64)
     spine = _getSpineFromBlade( blade )
     distribution = D.getDistribution( spine )
 
@@ -1858,8 +1858,8 @@ def _buildExternalSurfacesHgrid(blade, spinner_split, rotation_axis,
 
 
 def _buildSupportFromBoundaries(boundaries, rotation_center, rotation_axis):
-    c = np.array(rotation_center,dtype=np.float)
-    a = np.array(rotation_axis,dtype=np.float)
+    c = np.array(rotation_center,dtype=np.float64)
+    a = np.array(rotation_axis,dtype=np.float64)
     boundaries = W.reorderAndSortCurvesSequentially( boundaries )
     alignment = [ a.dot( W.tangentExtremum( b ) ) for b in boundaries ]
     best_aligned = np.argmax( alignment )
@@ -2122,8 +2122,8 @@ def _buildHubWallAdjacentSector(surface, spinner, bulb, blade_number,
         return union
 
 
-    c = np.array(rotation_center,dtype=np.float)
-    a = np.array(rotation_axis,dtype=np.float)
+    c = np.array(rotation_center,dtype=np.float64)
+    a = np.array(rotation_axis,dtype=np.float64)
 
     surface_dist = GSD.getBoundary(surface,'jmin')
     wall_cell_height = W.distance(W.point(surface_dist),W.point(surface_dist,1))
@@ -2428,8 +2428,8 @@ def _buildHubWallAdjacentSector(surface, spinner, bulb, blade_number,
 def _buildHubWallAdjacentSectorWithoutBulb(surface, spinner, blade_number,
                             rotation_center, rotation_axis,central_last_cell):
 
-    c = np.array(rotation_center,dtype=np.float)
-    a = np.array(rotation_axis,dtype=np.float)
+    c = np.array(rotation_center,dtype=np.float64)
+    a = np.array(rotation_axis,dtype=np.float64)
 
     surface_dist = GSD.getBoundary(surface,'jmin')
     surface_dist[0] =  'surface_dist'
@@ -2566,8 +2566,8 @@ def _extractWallAdjacentSectorFullProfile(wires_front, wires_rear, external_surf
 
 def _buildFarfieldSupport(profile, blade_number, npts_azimut, distance,
                                rotation_center=[0,0,0], rotation_axis=[-1,0,0]):
-    c = np.array(rotation_center,dtype=np.float)
-    a = np.array(rotation_axis,dtype=np.float)
+    c = np.array(rotation_center,dtype=np.float64)
+    a = np.array(rotation_axis,dtype=np.float64)
 
     T._reorder(profile[0],(-1,2,3))
     profile = W.reorderCurvesSequentially(profile)
@@ -2660,7 +2660,7 @@ def _buildFarfieldSupport(profile, blade_number, npts_azimut, distance,
     return proj_support, profile_rev
 
 def _extractBladeTipTopology(sector_bnds, rotation_axis):
-    a = np.array(rotation_axis,dtype=np.float)
+    a = np.array(rotation_axis,dtype=np.float64)
 
 
     tip_curves = [GSD.getBoundary(s,'jmin') for s in sector_bnds if s[0].startswith('tfi')]
@@ -2699,8 +2699,8 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
                          tip_axial_scaling_at_farfield = 0.5,
                          normal_tension=0.05):
 
-    c = np.array(rotation_center,dtype=np.float)
-    a = np.array(rotation_axis,dtype=np.float)
+    c = np.array(rotation_center,dtype=np.float64)
+    a = np.array(rotation_axis,dtype=np.float64)
 
     if len(profile) == 5:
         HAS_REAR_BULB = True

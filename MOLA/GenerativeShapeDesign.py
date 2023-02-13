@@ -1505,7 +1505,7 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
     '''
 
     def getUnitVector(vector):
-        v = np.array(vector, dtype=np.float)
+        v = np.array(vector, dtype=np.float64)
         v /= np.sqrt(v.dot(v))
         return v
 
@@ -1514,7 +1514,7 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
 
     NumberOfSections = len(RelativeSpanDistribution)
 
-    RotationCenter = np.array(RotationCenter, dtype=np.float)
+    RotationCenter = np.array(RotationCenter, dtype=np.float64)
     RotationCenterX, RotationCenterY, RotationCenterZ = RotationCenter
 
     RotationAxis = getUnitVector(RotationAxis)
@@ -3483,8 +3483,8 @@ def allHaveNormals(t):
 
 def _alignNormalsWithRadialCylindricProjection(t, rotation_center, rotation_axis):
     alignmentTol=1.0-1.e-10
-    c = np.array(rotation_center,dtype=np.float)
-    a = np.array(rotation_axis,dtype=np.float)
+    c = np.array(rotation_center,dtype=np.float64)
+    a = np.array(rotation_axis,dtype=np.float64)
     q = c + a
     qc = c - q
     for zone in I.getZones(t):

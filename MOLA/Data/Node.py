@@ -621,7 +621,7 @@ class Node(list):
             self[1] = np.atleast_1d(value)
 
         elif isinstance(value, float):
-            value = np.array([value],dtype=np.float,order='F')
+            value = np.array([value],dtype=np.float64,order='F')
             self[1] = np.atleast_1d(value)
 
         elif isinstance(value, str):
@@ -952,7 +952,7 @@ class Node(list):
                     newvalue = self[1]
                 h._setData(f[path], newvalue)
 
-        if Core.settings.backend == 'pycgns':
+        elif Core.settings.backend == 'pycgns':
             import CGNS.MAP as CGM
             t = self.getTopParent()
             flags = CGM.S2P_UPDATE

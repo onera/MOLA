@@ -20,5 +20,5 @@ class Point(Curve):
                          Node(Name='CoordinateY', Value=Coordinates[1], Type='DataArray_t'),
                          Node(Name='CoordinateZ', Value=Coordinates[2], Type='DataArray_t')])
 
-        self.setValue(np.array([[1,1,0]],dtype=np.int,order='F'))
+        self.setValue(np.array([[1,1,0]],dtype=np.int32,order='F'))
 
