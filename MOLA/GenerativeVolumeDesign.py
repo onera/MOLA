@@ -2056,11 +2056,11 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
         elif ProjectionMode == 'CylinderRadial':
             if ProjectionCenter is None:
                 raise AttributeError('CylinderRadial projection requires "ProjectionCenter" argument')
-            ProjectionCenter = np.array(ProjectionCenter,dtype=np.float)
+            ProjectionCenter = np.array(ProjectionCenter,dtype=np.float64)
             ExtrusionData['ProjectionCenter'] = ProjectionCenter
             if ProjectionAxis is None:
                 raise AttributeError('CylinderRadial projection requires "ProjectionAxis" argument')
-            ProjectionAxis = np.array(ProjectionAxis,dtype=np.float)
+            ProjectionAxis = np.array(ProjectionAxis,dtype=np.float64)
             ProjectionAxis/= np.sqrt(ProjectionAxis.dot(ProjectionAxis))
             ExtrusionData['ProjectionAxis'] = ProjectionAxis
         J.set(curve,'.ExtrusionData',**ExtrusionData)

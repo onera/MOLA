@@ -82,8 +82,6 @@ if [ "$MAC" = "spiro" ]; then
     fi
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro-el8_mpi/.env_elsA
 
-    export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/:$PYTHONPATH
-    export PATH=$MOLAext/spiro_el8/bin:$PATH
 
     # to avoid message:
     # MPI startup(): Warning: I_MPI_PMI_LIBRARY will be ignored since the hydra process manager was found
@@ -117,6 +115,9 @@ if [ "$MAC" = "spiro" ]; then
     export MAIA_HOME=/scratchm/jcoulet/aa_install_py3/maia/opt-cfd5_21/
     export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
     export PYTHONPATH=$MAIA_HOME/lib/python3.7/site-packages:$PYTHONPATH
+
+    export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/:$PYTHONPATH
+    export PATH=$MOLAext/spiro_el8/bin:$PATH
 
     alias mola_sinter='srun --export=ALL,SLURM_EXACT=1,SLURM_OVERLAP=1 --immediate=2 --pty --qos c1_inter_giga'
 
@@ -175,8 +176,6 @@ elif [ "$MAC" = "visung" ]; then
     module load impi/17
     module load hdf5/1.8.8
 
-    export PYTHONPATH=$MOLAext/ld7/lib/python3.7/site-packages/:$PYTHONPATH
-    export PATH=$MOLAext/ld7/bin:$PATH
 
 
     # PUMA # not correctly installed !
@@ -202,6 +201,9 @@ elif [ "$MAC" = "visung" ]; then
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/visio
     export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
 
+    export PYTHONPATH=$MOLAext/ld7/lib/python3.7/site-packages/:$PYTHONPATH
+    export PATH=$MOLAext/ld7/bin:$PATH
+
 elif [ "$MAC" = "ld" ]; then
     if [ "$EL8" ]; then
         echo 'loading MOLA environment for CentOS 8'
@@ -214,8 +216,6 @@ elif [ "$MAC" = "ld" ]; then
 
         alias python=python3
 
-        export PYTHONPATH=$MOLAext/ld8/lib/python3.8/site-packages/:$PYTHONPATH
-        export PATH=$MOLAext/ld8/bin:$PATH
 
 
         # NOTE not installed in correct python version !
@@ -241,6 +241,11 @@ elif [ "$MAC" = "ld" ]; then
         export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/centos8
         export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
 
+
+        export PYTHONPATH=$MOLAext/ld8/lib/python3.8/site-packages/:$PYTHONPATH
+        export PATH=$MOLAext/ld8/bin:$PATH
+        export LD_LIBRARY_PATH=$MOLAext/ld8/lib/python3.8/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
+
     else
         echo 'loading MOLA environment for CentOS 7'
         # ELSAVERSION=v5.1.02
@@ -254,8 +259,6 @@ elif [ "$MAC" = "ld" ]; then
         module load impi/17
         module load hdf5/1.8.8-intel-15
 
-        export PYTHONPATH=$MOLAext/ld7/lib/python3.6/site-packages/:$PYTHONPATH
-        export PATH=$MOLAext/ld7/bin:$PATH
 
         # PUMA # not correctly installed !
         # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_eos3
@@ -280,6 +283,8 @@ elif [ "$MAC" = "ld" ]; then
         export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/eos
         export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
 
+        export PYTHONPATH=$MOLAext/ld7/lib/python3.6/site-packages/:$PYTHONPATH
+        export PATH=$MOLAext/ld7/bin:$PATH
     fi
 
 elif [ "$MAC" = "sator" ]; then
@@ -287,8 +292,6 @@ elif [ "$MAC" = "sator" ]; then
     export MOLA=$MOLASATOR
     export PATH=$PATH:/tmp_user/sator/lbernard/lib
 
-    export PYTHONPATH=$MOLASATORext/sator/lib/python3.7/site-packages/:$PYTHONPATH
-    export PATH=$MOLASATORext/sator/bin:$PATH
 
 
     # PUMA incompatible with intel21 ?
@@ -307,6 +310,9 @@ elif [ "$MAC" = "sator" ]; then
 
     # turbo
     export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
+
+    export PYTHONPATH=$MOLASATORext/sator/lib/python3.7/site-packages/:$PYTHONPATH
+    export PATH=$MOLASATORext/sator/bin:$PATH
 
 else
     echo -e "\033[91mERROR: MACHINE $KC NOT INCLUDED IN MOLA ENVIRONMENT\033[0m"

@@ -114,7 +114,7 @@ class Tree(Node):
 
 
     def newFields(self, FieldNames, Container='FlowSolution',
-                  GridLocation='auto', dtype=np.float, return_type='dict',
+                  GridLocation='auto', dtype=np.float64, return_type='dict',
                   ravel=False):
 
         arrays = []
@@ -134,7 +134,7 @@ class Tree(Node):
             return v
 
     def getFields(self, FieldNames, Container='FlowSolution',
-                  BehaviorIfNotFound='create', dtype=np.float, return_type='dict',
+                  BehaviorIfNotFound='create', dtype=np.float64, return_type='dict',
                   ravel=False):
 
         arrays = []

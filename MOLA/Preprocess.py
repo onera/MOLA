@@ -4574,11 +4574,11 @@ def getFlowDirections(AngleOfAttackDeg, AngleOfSlipDeg, YawAxis, PitchAxis):
         return Direction
 
     # Yaw axis must be exact
-    YawAxis    = np.array(YawAxis, dtype=np.float)
+    YawAxis    = np.array(YawAxis, dtype=np.float64)
     YawAxis   /= np.sqrt(YawAxis.dot(YawAxis))
 
     # Pitch axis may be approximate
-    PitchAxis  = np.array(PitchAxis, dtype=np.float)
+    PitchAxis  = np.array(PitchAxis, dtype=np.float64)
     PitchAxis /= np.sqrt(PitchAxis.dot(PitchAxis))
 
     # Roll axis is inferred

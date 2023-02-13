@@ -1680,7 +1680,7 @@ def buildPolar(JobsConfiguration, PolarName='Polar',
                     try:
                         Matrix = PolarsDict[v]
                     except KeyError:
-                        Matrix = np.zeros((nA,nM), dtype=np.float, order='F')
+                        Matrix = np.zeros((nA,nM), dtype=np.float64, order='F')
                         Matrix[:i,:j] = 0.0
                         Matrix[i,:j]  = 0.0
                         Matrix[:i,j]  = 0.0
@@ -1702,7 +1702,7 @@ def buildPolar(JobsConfiguration, PolarName='Polar',
                         Matrix = PolarsDict[v]
                     except KeyError:
                         nS = distr[v].shape[-1]
-                        Matrix = np.zeros((nA,nM,nS), dtype=np.float, order='F')
+                        Matrix = np.zeros((nA,nM,nS), dtype=np.float64, order='F')
                         Matrix[:i,:j,:] = 0.0
                         Matrix[i,:j,:]  = 0.0
                         Matrix[:i,j,:]  = 0.0

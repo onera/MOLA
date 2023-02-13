@@ -1298,9 +1298,9 @@ def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
     '''
 
 
-    DragDirection=np.array(setup.ReferenceValues['DragDirection'],dtype=np.float)
-    SideDirection=np.array(setup.ReferenceValues['SideDirection'],dtype=np.float)
-    LiftDirection=np.array(setup.ReferenceValues['LiftDirection'],dtype=np.float)
+    DragDirection=np.array(setup.ReferenceValues['DragDirection'],dtype=np.float64)
+    SideDirection=np.array(setup.ReferenceValues['SideDirection'],dtype=np.float64)
+    LiftDirection=np.array(setup.ReferenceValues['LiftDirection'],dtype=np.float64)
 
     arraysSubset = arrays[IntegralDataName]
 
