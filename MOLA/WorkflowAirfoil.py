@@ -415,6 +415,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                     TimeMarching='steady', timestep=0.01,
                     CFLparams=dict(vali=1.,valf=10.,iteri=1,
                                            iterf=1000,function_type='linear'),
+                    OverrideSolverKeys={},
                     CoprocessOptions={'ConvergenceCriteria': [dict(Family='AIRFOIL',
                                                 Variable='std-CL',
                                                 Threshold=CONVERGENCE_THRESHOLD)]},
@@ -496,6 +497,9 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
 
         CFLParams : dict
             any accepted value by any value accepted by :py:func:`MOLA.Preprocess.getElsAkeysNumerics`
+
+        OverrideSolverKeys : :py:class:`dict` of maximum 3 :py:class:`dict`
+            exactly the same as in :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
 
         CoprocessOptions : dict
             any accepted value by :py:func:`MOLA.Preprocess.computeReferenceValues`
@@ -612,7 +616,19 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
     if NonLocalTransition:
         setBCDataSetWithNonLocalTransition(t, AirfoilWallFamilyName, ReferenceValues)
 
-    AllSetupDics = dict(Workflow='Airfoil',
+    allowed_override_objects = ['cfdpb','numerics','model']
+    for v in OverrideSolverKeys:
+        if v == 'cfdpb':
+            elsAkeysCFD.update(OverrideSolverKeys[v])
+        elif v == 'numerics':
+            elsAkeysNumerics.update(OverrideSolverKeys[v])
+        elif v == 'model':
+            elsAkeysModel.update(OverrideSolverKeys[v])
+        else:
+            raise AttributeError('OverrideSolverKeys "%s" must be one of %s'%(v,
+                                                str(allowed_override_objects)))
+
+    AllSetupDicts = dict(Workflow='Airfoil',
                         JobInformation=JobInformation,
                         FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
@@ -622,7 +638,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                         Extractions=Extractions)
 
 
-    t = PRE.newCGNSfromSetup(t, AllSetupDics, Initialization=Initialization,
+    t = PRE.newCGNSfromSetup(t, AllSetupDicts, Initialization=Initialization,
                             FULL_CGNS_MODE=False, BCExtractions=BCExtractions)
     PRE.saveMainCGNSwithLinkToOutputFields(t, writeOutputFields=writeOutputFields)
 

@@ -224,8 +224,8 @@ def _writeBackUpFiles(t, InputMeshes):
 
 
 def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
-        NumericalParams={}, Extractions=[{'type':'AllBCWall'}],
-        Initialization=dict(method='uniform'),
+        NumericalParams={}, OverrideSolverKeys={}, 
+        Extractions=[{'type':'AllBCWall'}], Initialization=dict(method='uniform'),
         BodyForceInputData=[], writeOutputFields=True,
         JobInformation={}, SubmitJob=False, COPY_TEMPLATES=True):
     r'''
@@ -264,20 +264,6 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
 
                 >>> PRE.computeReferenceValues(arg, **ReferenceValuesParams)
 
-        NumericalParams : dict
-            dictionary containing the numerical
-            settings for elsA. For information on acceptable values, please see
-            the documentation of function :py:func:`getElsAkeysNumerics`
-
-            .. note:: internally, this dictionary is passed as *kwargs* as follows:
-
-                >>> PRE.getElsAkeysNumerics(arg, **NumericalParams)
-
-        Extractions : :py:class:`list` of :py:class:`dict`
-            List of extractions to perform during the simulation. For now, only
-            surfacic extractions may be asked. See documentation of :func:`MOLA.Coprocess.extractSurfaces` for further details on the
-            available types of extractions.
-
         OversetMotion : :py:class:`dict` of :py:class:`dict`.
             Set a motion (kinematic) law to each grid component (Base).
             The value of the :py:class:`dict` must correspond to a given component
@@ -297,6 +283,37 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
                 .. hint:: for information on elsA kinematic functions, please 
                     see `this page <http://elsa.onera.fr/restricted/MU_tuto/latest/MU-98057/Textes/Attribute/function.html?#attributes-of-the-function-class>`_. For detailed information on elsA ``rotor_motion`` 
                     function, please see `this page <http://elsa.onera.fr/restricted/MU_tuto/latest/MU-98057/Textes/HelicopterBladePosition.html>`_
+                                      
+        Extractions : :py:class:`list` of :py:class:`dict`
+            List of extractions to perform during the simulation. For now, only
+            surfacic extractions may be asked. See documentation of :func:`MOLA.Coprocess.extractSurfaces` for further details on the
+            available types of extractions.
+
+        NumericalParams : dict
+            dictionary containing the numerical
+            settings for elsA. For information on acceptable values, please see
+            the documentation of function :py:func:`getElsAkeysNumerics`
+
+            .. note:: internally, this dictionary is passed as *kwargs* as follows:
+
+                >>> PRE.getElsAkeysNumerics(arg, **NumericalParams)
+
+        OverrideSolverKeys : :py:class:`dict` of maximum 3 :py:class:`dict`
+            this is a dictionary containing up to three dictionaries with 
+            meaningful keys ``cfdpb``, ``model`` and ``numerics``. The 
+            information contained in each one of the aforementioned dictionaries 
+            are user-specified elsA keys that will override (or add to) any
+            previous key inferred by MOLA. For example:
+
+            ::
+
+                OverrideSolverKeys = {
+                    'cfdpb':    dict(metrics_type    = 'barycenter')
+                    'model':    dict(k_prod_compute  = 'from_kato',
+                                     walldistcompute = 'gridline')
+                    'numerics': dict(gear_iteration  = 20,
+                                     av_mrt          = 0.3)
+                                      }
 
         Initialization : dict
             dictionary defining the type of initialization, using the key
@@ -506,7 +523,20 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
         else:
             ReferenceValues['CoprocessOptions']['TagSurfacesWithIteration'] = False
 
-    AllSetupDics = dict(Workflow='Standard',
+    allowed_override_objects = ['cfdpb','numerics','model']
+    for v in OverrideSolverKeys:
+        if v == 'cfdpb':
+            elsAkeysCFD.update(OverrideSolverKeys[v])
+        elif v == 'numerics':
+            elsAkeysNumerics.update(OverrideSolverKeys[v])
+        elif v == 'model':
+            elsAkeysModel.update(OverrideSolverKeys[v])
+        else:
+            raise AttributeError('OverrideSolverKeys "%s" must be one of %s'%(v,
+                                                str(allowed_override_objects)))
+
+
+    AllSetupDicts = dict(Workflow='Standard',
                         JobInformation=JobInformation,
                         FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
@@ -516,9 +546,9 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
                         elsAkeysNumerics=elsAkeysNumerics,
                         Extractions=Extractions)
 
-    if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
+    if BodyForceInputData: AllSetupDicts['BodyForceInputData'] = BodyForceInputData
 
-    t = newCGNSfromSetup(t, AllSetupDics, Initialization=Initialization,
+    t = newCGNSfromSetup(t, AllSetupDicts, Initialization=Initialization,
                          FULL_CGNS_MODE=False, BCExtractions=BCExtractions)
     saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 

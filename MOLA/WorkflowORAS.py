@@ -35,11 +35,10 @@ def prepareMesh4ElsA(mesh, **kwargs):
     return WC.prepareMesh4ElsA(mesh, **kwargs)
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
-        NumericalParams={}, Extractions=[],
+        NumericalParams={}, OverrideSolverKeys ={}, Extractions=[],
         writeOutputFields=True, Initialization={'method':'uniform'}, TurboConfiguration={},
         BoundaryConditions=[],bladeFamilyNames=['Blade'],
-        JobInformation={}, SubmitJob=False, FULL_CGNS_MODE=False, COPY_TEMPLATES=True,
-        override_keysCFD={}, override_keysModel={}, override_keysNumerics={}):
+        JobInformation={}, SubmitJob=False, FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
     '''
     This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to ORAS mono-chanel computations. Its purpose is adapting
@@ -72,6 +71,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             .. note:: internally, this dictionary is passed as *kwargs* as follows:
 
                 >>> MOLA.Preprocess.getElsAkeysNumerics(arg, **NumericalParams)
+
+        OverrideSolverKeys : :py:class:`dict` of maximum 3 :py:class:`dict`
+            exactly the same as in :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
 
         RPM : float
             revolutions per minute of the blade
@@ -172,12 +174,19 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
-    elsAkeysCFD.update(override_keysCFD)
-    elsAkeysModel.update(override_keysModel)
-    elsAkeysNumerics.update(override_keysNumerics)
+    allowed_override_objects = ['cfdpb','numerics','model']
+    for v in OverrideSolverKeys:
+        if v == 'cfdpb':
+            elsAkeysCFD.update(OverrideSolverKeys[v])
+        elif v == 'numerics':
+            elsAkeysNumerics.update(OverrideSolverKeys[v])
+        elif v == 'model':
+            elsAkeysModel.update(OverrideSolverKeys[v])
+        else:
+            raise AttributeError('OverrideSolverKeys "%s" must be one of %s'%(v,
+                                                str(allowed_override_objects)))
 
-
-    AllSetupDics = dict(Workflow='ORAS',
+    AllSetupDicts = dict(Workflow='ORAS',
                         Splitter=Splitter,
                         TurboConfiguration=TurboConfiguration,
                         FluidProperties=FluidProperties,
@@ -188,25 +197,25 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                         Extractions=Extractions)
 
     PRE.addTrigger(t)
-    PRE.addExtractions(t, AllSetupDics['ReferenceValues'],
-                          AllSetupDics['elsAkeysModel'],
+    PRE.addExtractions(t, AllSetupDicts['ReferenceValues'],
+                          AllSetupDicts['elsAkeysModel'],
                           extractCoords=False,
                           BCExtractions=ReferenceValues['BCExtractions'])
 
     if elsAkeysNumerics['time_algo'] != 'steady':
-        PRE.addAverageFieldExtractions(t, AllSetupDics['ReferenceValues'],
-            AllSetupDics['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
+        PRE.addAverageFieldExtractions(t, AllSetupDicts['ReferenceValues'],
+            AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
 
-    PRE.addReferenceState(t, AllSetupDics['FluidProperties'],
-                         AllSetupDics['ReferenceValues'])
-    dim = int(AllSetupDics['elsAkeysCFD']['config'][0])
+    PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],
+                         AllSetupDicts['ReferenceValues'])
+    dim = int(AllSetupDicts['elsAkeysCFD']['config'][0])
     PRE.addGoverningEquations(t, dim=dim)
-    PRE.writeSetup(AllSetupDics)
+    PRE.writeSetup(AllSetupDicts)
 
     if FULL_CGNS_MODE:
-        PRE.addElsAKeys2CGNS(t, [AllSetupDics['elsAkeysCFD'],
-                                 AllSetupDics['elsAkeysModel'],
-                                 AllSetupDics['elsAkeysNumerics']])
+        PRE.addElsAKeys2CGNS(t, [AllSetupDicts['elsAkeysCFD'],
+                                 AllSetupDicts['elsAkeysModel'],
+                                 AllSetupDicts['elsAkeysNumerics']])
 
     PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
