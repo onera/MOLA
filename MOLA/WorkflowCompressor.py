@@ -3991,6 +3991,20 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
     if not mask:
         mask = C.convertFile2PyTree('mask.cgns')
 
+    def getInletPlane(t, row, rowParams):
+        try: 
+            return rowParams['InletPlane']
+        except KeyError:
+            zones = C.getFamilyZones(t, row)
+            return C.getMinValue(zones, 'CoordinateX')
+
+    def getOutletPlane(t, row, rowParams):
+        try: 
+            return rowParams['OutletPlane']
+        except KeyError:
+            zones = C.getFamilyZones(t, row)
+            return C.getMaxValue(zones, 'CoordinateX')
+
     class RefState(object):
         def __init__(self):
           self.Gamma = FluidProperties['Gamma']
@@ -4007,7 +4021,7 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
     planes_data = []
 
     row, rowParams = list(TurboConfiguration['Rows'].items())[0]
-    xIn = rowParams['InletPlane']
+    xIn = getInletPlane(t, row, rowParams)
     alpha = ReferenceValues['AngleOfAttackDeg']
     planes_data.append(
         dict(
@@ -4022,10 +4036,15 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
     )
 
     for row, rowParams in TurboConfiguration['Rows'].items():
-        xOut = rowParams['OutletPlane']
+        xOut = getOutletPlane(t, row, rowParams)
         omega = rowParams['RotationSpeed']
         beta1 = rowParams.get('FlowAngleAtRoot', 0.)
         beta2 = rowParams.get('FlowAngleAtTip', 0.)
+        for (beta, paramName) in [(beta1, 'FlowAngleAtRoot'), (beta2, 'FlowAngleAtTip')]:
+            if beta * omega < 0:
+                MSG=f'WARNING: {paramName} ({beta} deg) has not the same sign that the rotation speed in {row} ({omega} rad/s).\n'
+                MSG += '        Double check it is not a mistake.'
+                print(J.WARN + MSG + J.ENDC)
         Csir = 1. if omega == 0 else 0.95  # Total pressure loss is null for a rotor, 5% for a stator
         planes_data.append(
             dict(
@@ -4038,15 +4057,19 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
         )
 
     # > Initialization
-    t = TI.initialize(t, mask, RefState(), planes_data,
-              nbslice=10,
-              constant_data=turbDict,
-              turbvarsname=list(turbDict),
-              velocity='absolute',
-              useSI=True,
-              keepTmpVars=False,
-              keepFS=True  # To conserve other FlowSolution_t nodes, as FlowSolution#Height
-              )
+    print(J.CYAN + 'Initialization with turbo...' + J.ENDC)
+    silence = J.OutputGrabber()
+    with silence:
+        t = TI.initialize(t, mask, RefState(), planes_data,
+                nbslice=10,
+                constant_data=turbDict,
+                turbvarsname=list(turbDict),
+                velocity='absolute',
+                useSI=True,
+                keepTmpVars=False,
+                keepFS=True  # To conserve other FlowSolution_t nodes, as FlowSolution#Height
+                )
+    print('..done.')
 
     return t
 
