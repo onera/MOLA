@@ -3711,6 +3711,10 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
         otherFiles.extend(kwargs['mesh'])
     else:
         otherFiles.append(kwargs['mesh'])
+    if 'Initialization' in kwargs:
+        if 'method' in kwargs['Initialization']:
+            if 'turbo' in kwargs['Initialization']['method']:
+                otherFiles.append('mask.cgns')
 
     JM.launchJobsConfiguration(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_COMPRESSOR', otherFiles=otherFiles)
 
@@ -4017,7 +4021,11 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
     import turbo.initial as TI
 
     if not mask:
-        mask = C.convertFile2PyTree('mask.cgns')
+        if os.path.isfile('mask.cgns'):
+            mask = C.convertFile2PyTree('mask.cgns')
+        elif os.path.isfile('../../DISPATCHER/mask.cgns'):
+            mask = C.convertFile2PyTree('../../DISPATCHER/mask.cgns')
+        else: raise NameError("File 'mask.cgns' not found")
 
     class RefState(object):
         def __init__(self):
