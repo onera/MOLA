@@ -647,7 +647,9 @@ def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
         YawAxis=[0.,1.,0.], PitchAxis=[0.,0.,-1.],
         TurbulenceLevel=0.001,
         TurbulenceModel='Wilcox2006-klim', Viscosity_EddyMolecularRatio=0.1,
-        TurbulenceCutoff=1.0, TransitionMode=None, CoprocessOptions={},
+        TurbulenceCutoff=1.0, TransitionMode=None,
+        WallDistance=None,
+        CoprocessOptions={},
         FieldsAdditionalExtractions=[], BCExtractions=dict(
             BCWall=['normalvector', 'frictionvector', 'psta',
                     'bl_quantities_2d', 'yplusmeshsize', 'bl_ue'])):
@@ -734,6 +736,7 @@ def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
         Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio,
         TurbulenceCutoff=TurbulenceCutoff,
         TransitionMode=TransitionMode,
+        WallDistance=WallDistance,
         CoprocessOptions=DefaultCoprocessOptions,
         FieldsAdditionalExtractions=FieldsAdditionalExtractions,
         BCExtractions=BCExtractions)

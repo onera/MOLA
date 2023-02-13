@@ -30,6 +30,7 @@ if not MOLA.__ONLY_DOC__:
     import Generator.PyTree    as G
     import Transform.PyTree    as T
     import Connector.PyTree    as X
+    import Converter.elsAProfile as elsAProfile
 
 
     try:
@@ -412,6 +413,10 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         t = duplicateFlowSolution(t, TurboConfiguration)
 
     setMotionForRowsFamilies(t, TurboConfiguration)
+    # print('walldistperio' in elsAkeysModel)
+    if 'walldistperio' in elsAkeysModel:
+        setZoneParamForPeriodicDistanceByRowsFamilies(t, TurboConfiguration)
+
     setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                             FluidProperties, ReferenceValues,
                             bladeFamilyNames=bladeFamilyNames)
@@ -1047,7 +1052,9 @@ def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
 def computeReferenceValues(FluidProperties, PressureStagnation,
                            TemperatureStagnation, Surface, MassFlow=None, Mach=None, TurbulenceLevel=0.001,
         Viscosity_EddyMolecularRatio=0.1, TurbulenceModel='Wilcox2006-klim',
-        TurbulenceCutoff=1e-8, TransitionMode=None, CoprocessOptions={},
+        TurbulenceCutoff=1e-8, TransitionMode=None,
+        WallDistance=None,
+        CoprocessOptions={},
         Length=1.0, TorqueOrigin=[0., 0., 0.],
         FieldsAdditionalExtractions=['ViscosityMolecular', 'Viscosity_EddyMolecularRatio', 'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation', 'Mach', 'Entropy'],
         BCExtractions=dict(
@@ -1126,6 +1133,7 @@ def computeReferenceValues(FluidProperties, PressureStagnation,
         Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio,
         TurbulenceCutoff=TurbulenceCutoff,
         TransitionMode=TransitionMode,
+        WallDistance=WallDistance,
         CoprocessOptions=CoprocessOptions,
         FieldsAdditionalExtractions=FieldsAdditionalExtractions,
         BCExtractions=BCExtractions)
@@ -1505,6 +1513,26 @@ def setMotionForRowsFamilies(t, TurboConfiguration):
                 axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
                 axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
 
+def setZoneParamForPeriodicDistanceByRowsFamilies(t, TurboConfiguration):
+    '''
+    Set the zone parameters for all families related to row domains if periodicity in accounting for in wall distance computation.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        TurboConfiguration : dict
+            as produced :py:func:`getTurboConfiguration`
+
+    '''
+    # Add info on Zone_t nodes (.Solver#Param)
+    for row, rowParams in TurboConfiguration['Rows'].items():
+        for zone in C.getFamilyZones(t, row):
+            elsAProfile._addPeriodicDataInSolverParam(zone,rotationAngle=[360./rowParams['NumberOfBlades'],0.,0.],NAzimutalSectors=rowParams['NumberOfBlades'])
+            axis_ang2 = I.getNodeFromNameAndType(zone,'axis_ang_2','DataArray_t') # always 1 even in case of duplicated configuration
+            I.setValue(axis_ang2,rowParams['NumberOfBladesSimulated'])
 
 ################################################################################
 ################# Boundary Conditions Settings  ################################

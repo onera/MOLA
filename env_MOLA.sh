@@ -8,8 +8,8 @@ ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 
 ###############################################################################
 # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
-export MOLA=/stck/lbernard/MOLA/Dev
-export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
+export MOLA=/stck/jmarty/ETUDES/SONICE/DEV/2022/Pilotage_CL/MOLA/mola
+export MOLASATOR=/tmp_user/sator/jmarty/ETUDES/SONICE/DEV/2022/Pilotage_CL/MOLA/mola
 export VPMVERSION=v0.2
 export PUMAVERSION=r337
 export TURBOVERSION=v1.2.2

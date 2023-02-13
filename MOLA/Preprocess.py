@@ -2573,7 +2573,9 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         TurbulenceLevel=0.001,
         Surface=1.0, Length=1.0, TorqueOrigin=[0,0,0],
         TurbulenceModel='Wilcox2006-klim', Viscosity_EddyMolecularRatio=0.1,
-        TurbulenceCutoff=0.1, TransitionMode=None, CoprocessOptions={},
+        TurbulenceCutoff=0.1, TransitionMode=None,
+        WallDistance=None,
+        CoprocessOptions={},
         FieldsAdditionalExtractions=['ViscosityMolecular','ViscosityEddy','Mach'],
         BCExtractions=dict(BCWall=['normalvector', 'frictionvector',
                         'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue',
@@ -2658,6 +2660,11 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
 
         TransitionMode : str
             .. attention:: not implemented in workflow standard
+
+        WallDistance : dict or str
+            Method to compute wall distance
+            Str type: name of the method (e.g. 'mininterf_ortho4')
+            Dict type: must contain 'compute' key with name of method as value, can contain 'periodic' key in order to take the periodicity into account
 
         CoprocessOptions : dict
             Override default coprocess options dictionary with this paramter.
@@ -2744,6 +2751,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     TransitionMode     = TransitionMode,
     Viscosity_EddyMolecularRatio = Viscosity_EddyMolecularRatio,
     TurbulenceCutoff   = TurbulenceCutoff,
+    WallDistance       = WallDistance,
     )
 
     # Fluid properties local shortcuts
@@ -2870,6 +2878,10 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         raise AttributeError('Turbulence model %s not implemented in workflow. Must be in: %s'%(TurbulenceModel,str(AvailableTurbulenceModels)))
     Fields         += FieldsTurbulence
     ReferenceState += ReferenceStateTurbulence
+
+    if isinstance(WallDistance,dict):
+        if WallDistance.get('extract',False) and ('TurbulentDistance' not in FieldsAdditionalExtractions):
+            FieldsAdditionalExtractions += ['TurbulentDistance','TurbulentDistanceIndex']
 
     # Update ReferenceValues dictionary
     ReferenceValues.update(dict(
@@ -3018,6 +3030,12 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         elsAkeysModel['walldistcompute'] = 'mininterf'
     else:
         elsAkeysModel['walldistcompute'] = 'mininterf_ortho'
+    WallDistance = ReferenceValues.get('WallDistance',None)
+    if isinstance(WallDistance,dict):
+        elsAkeysModel['walldistcompute'] = WallDistance.get('compute',elsAkeysModel['walldistcompute'])
+        elsAkeysModel['walldistperio']   = WallDistance.get('periodic','none')
+    elif isinstance(WallDistance,str):
+        elsAkeysModel['walldistcompute'] = WallDistance
 
     if TurbulenceModel == 'SA':
         addKeys4Model = dict(
