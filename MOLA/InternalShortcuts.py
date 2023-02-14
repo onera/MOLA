@@ -85,9 +85,15 @@ def set(parent, childname, childType='UserDefinedData_t', **kwargs):
                     SubSet += [p]
                     continue
                 else:
-                    value = np.atleast_1d(kwargs[v])
+                    try:
+                        value = np.atleast_1d(kwargs[v])
+                        if value.dtype == 'O': 
+                            # 'O' for 'Object'. It generally means that kwargs[v] contains mixed values
+                            value = None
+                    except ValueError:
+                        value = None
 
-                    if value.dtype == 'O':
+                    if value is None:
                         print(WARN+'key:  '+'/'.join([parent[0],childname,v])+ENDC)
                         print(WARN+'has value:'+ENDC)
                         print(WARN+pprint.pformat(kwargs[v])+ENDC)
