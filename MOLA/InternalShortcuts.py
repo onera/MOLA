@@ -2385,7 +2385,10 @@ def getBCFamilies(t):
     # Automatically get BC Families
     if I.getType(t) == 'Zone_t':
         for BC in I.getNodesFromType2(t, 'BC_t'):
-            FamilyName = I.getValue(I.getNodeFromType1(BC, 'FamilyName_t'))
+            FamilyNameNode = I.getNodeFromType1(BC, 'FamilyName_t')
+            if not FamilyNameNode:
+                continue
+            FamilyName = I.getValue(FamilyNameNode)
             if FamilyName not in familyNames:
                 familyNames.append(FamilyName)
     else:
@@ -2494,6 +2497,8 @@ def joinFamilies(t, pattern):
     for bc in I.getNodesFromType(t, 'BC_t'):
         # Get BC family name
         famBC_node = I.getNodeFromType(bc, 'FamilyName_t')
+        if not famBC_node: 
+            continue
         famBC = I.getValue(famBC_node)
         # Check if the pattern is present in FamilyBC name
         if pattern not in famBC:
