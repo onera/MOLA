@@ -132,6 +132,15 @@ BODYFORCE_INITIATED = False
 COMPUTE_BODYFORCE   = False
 # ------------------------------------------------------------------------- #
 
+# ------------------------------- CHOROCHRONIC ------------------------------- #
+choroNodes = I.getNodesFromName(Skeleton,'choro_file')
+if choroNodes:
+    CHORO = True
+else:
+    CHORO = False
+# ------------------------------------------------------------------------- #
+
+
 e.action=elsAxdt.COMPUTE
 e.mode=elsAxdt.READ_ALL
 e.compute()
@@ -161,5 +170,12 @@ elsAxdt.free("xdt-output-tree")
 
 CO.moveTemporaryFile(os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
 
+
 CO.printCo('END OF compute.py',0)
 CO.moveLogFiles()
+
+if CHORO == True:
+    MSG = 'Chorochronic simulation detected. Checking if main.cgns should be updated for restart'
+    print(J.WARN + MSG + J.ENDC)
+    if rank==0:
+        CO.checkandUpdateMainCGNSforChoroRestart()

@@ -2765,3 +2765,36 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
             except ImportError:
                 pass
     return surfaces
+
+def archiveMainCGNS():
+    if not os.path.isfile('./INIT_MAIN'):
+        MSG = 'Archiving inital main.cgns in INIT_MAIN folder'
+        print(J.WARN + MSG + J.ENDC)
+        os.mkdir('./INIT_MAIN')
+        shutil.move('./main.cgns', './INIT_MAIN/main.cgns')
+
+
+def checkandUpdateMainCGNSforChoroRestart():
+    
+    main=C.convertFile2PyTree('main.cgns')
+    ChoroNodesMain=I.getNodesFromName(main,"ChoroData")
+    if ChoroNodesMain:
+        MSG = 'main.cgns file already up-to-date'
+        print(J.WARN + MSG + J.ENDC)
+    else:
+        MSG = 'main.cgns file must be updated before restart. Updating...'
+        print(J.WARN + MSG + J.ENDC)   
+        t=C.convertFile2PyTree('./OUTPUT/fields.cgns')    
+        ChoroNodes=I.getNodesFromName(t,"ChoroData")
+        if ChoroNodes:
+            MSG = 'ChoroData nodes detected in fields.cgns.'
+            print(J.WARN + MSG + J.ENDC)
+            ChoroLinks = []
+            for node in ChoroNodes:
+                ChoroPath=I.getPath(t,node)
+                ChoroLinks.append(['.', './OUTPUT/fields.cgns', ChoroPath, ChoroPath],)
+            archiveMainCGNS()
+    
+            C.convertPyTree2File(main,"main.cgns", links=ChoroLinks)
+            MSG = 'main.cgns updated with links to fields.cgns ChoroData nodes for restart'
+            print(J.WARN + MSG + J.ENDC)
