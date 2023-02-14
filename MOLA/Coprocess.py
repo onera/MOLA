@@ -10,36 +10,38 @@ Recommended syntax for use:
 23/12/2020 - L. Bernardos - creation by recycling
 '''
 
-
-import sys
-import os
-import time
-import timeit
-from datetime import datetime
-import numpy as np
-from scipy.ndimage.filters import uniform_filter1d
-import shutil
-import psutil
-import pprint
-import glob
-import copy
-from mpi4py import MPI
-comm   = MPI.COMM_WORLD
-rank   = comm.Get_rank()
-NumberOfProcessors = comm.Get_size()
-nbOfDigitsOfNProcs = int(np.ceil(np.log10(NumberOfProcessors+1)))
-
-import Converter.PyTree as C
-import Converter.Internal as I
-import Converter.Filter as Filter
-import Converter.Mpi as Cmpi
-import Transform.PyTree as T
-import Post.PyTree as P
-
+import MOLA
 from . import InternalShortcuts as J
 from . import Preprocess as PRE
 from . import JobManager as JM
 from . import BodyForceTurbomachinery as BF
+
+if not MOLA.__ONLY_DOC__:
+    import sys
+    import os
+    import time
+    import timeit
+    from datetime import datetime
+    import numpy as np
+    from scipy.ndimage.filters import uniform_filter1d
+    import shutil
+    import psutil
+    import pprint
+    import glob
+    import copy
+    from mpi4py import MPI
+    comm   = MPI.COMM_WORLD
+    rank   = comm.Get_rank()
+    NumberOfProcessors = comm.Get_size()
+    nbOfDigitsOfNProcs = int(np.ceil(np.log10(NumberOfProcessors+1)))
+
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Converter.Filter as Filter
+    import Converter.Mpi as Cmpi
+    import Transform.PyTree as T
+    import Post.PyTree as P
+
 
 
 # ------------------------------------------------------------------ #
@@ -223,8 +225,7 @@ def extractSurfaces(t, Extractions):
                 If provided, this name replaces the default name of the CGNSBase
                 container of the surfaces
 
-                ..note::
-                  not relevant if ``type`` starts with  ``AllBC``
+                .. note:: not relevant if ``type`` starts with  ``AllBC``
 
             * ``field`` : :py:class:`str` (contextual)
                 Name of the field employed for slicing if ``type`` = ``IsoSurface``
@@ -437,7 +438,7 @@ def extractIntegralData(to, arrays, Extractions=[],
 
             >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
-            ..note:: **arrays** is modified in-place
+            .. note:: **arrays** is modified in-place
 
         RequestedStatistics : :py:class:`list` of :py:class:`str`
             Here, the user requests the additional statistics to be computed.
@@ -484,7 +485,7 @@ def extractResiduals(to, arrays):
 
             >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
 
-            ..note:: **arrays** is modified in-place
+            .. note:: **arrays** is modified in-place
 
     '''
     ConvergenceHistoryNodes = I.getNodesByType(to, 'ConvergenceHistory_t')
@@ -598,6 +599,9 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
             if :py:obj:`True`, adds a suffix ``_AfterIter<iteration>``
             to the saved filename (creates a copy)
     '''
+    import Distributor2.PyTree as D2
+    
+    # Write PyPart files
     t = I.copyRef(t)
     Cmpi._convert2PartialTree(t)
     I._rmNodesByName(t, '.Solver#Param')
@@ -606,12 +610,19 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
     printCo('will save %s ...'%filename,0, color=J.CYAN)
     PyPartBase.mergeAndSave(t, 'PyPart_fields')
     Cmpi.barrier()
-    if rank == 0:
-        t = C.convertFile2PyTree('PyPart_fields_all.hdf')
-        C.convertPyTree2File(t, filename)
-        for fn in glob.glob('PyPart_fields_*.hdf'):
-            try: os.remove(fn)
-            except: pass
+    # Read PyPart files in parallel 
+    t = Cmpi.convertFile2SkeletonTree('PyPart_fields_all.hdf')
+    t, stats = D2.distribute(t, NumberOfProcessors, useCom=0, algorithm='fast')
+    t = Cmpi.readZones(t, 'PyPart_fields_all.hdf', rank=rank)
+    Cmpi.barrier()
+    # Remove PyPart files
+    for fn in glob.glob('PyPart_fields_*.hdf'):
+        try: os.remove(fn)
+        except: pass
+    # Write a unique file
+    Cmpi._convert2PartialTree(t)
+    Cmpi.barrier()
+    Cmpi.convertPyTree2File(t, os.path.join(DIRECTORY_OUTPUT, FILE_FIELDS))
     printCo('... saved %s'%filename,0, color=J.CYAN)
     Cmpi.barrier()
     if tagWithIteration and rank == 0: copyOutputFiles(filename)
@@ -693,7 +704,7 @@ def restoreFamilies(surfaces, skeleton):
             if I.getName(family) in familiesInBase:
                 I.addChild(base, family)
 
-def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[], tagWithIteration=False):
+def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[]):
     '''
     Monitor performance (massflow in/out, total pressure ratio, total
     temperature ratio, isentropic efficiency) for each row in a compressor
@@ -1287,9 +1298,9 @@ def _extendArraysWithProjectedLoads(arrays, IntegralDataName):
     '''
 
 
-    DragDirection=np.array(setup.ReferenceValues['DragDirection'],dtype=np.float)
-    SideDirection=np.array(setup.ReferenceValues['SideDirection'],dtype=np.float)
-    LiftDirection=np.array(setup.ReferenceValues['LiftDirection'],dtype=np.float)
+    DragDirection=np.array(setup.ReferenceValues['DragDirection'],dtype=np.float64)
+    SideDirection=np.array(setup.ReferenceValues['SideDirection'],dtype=np.float64)
+    LiftDirection=np.array(setup.ReferenceValues['LiftDirection'],dtype=np.float64)
 
     arraysSubset = arrays[IntegralDataName]
 
@@ -2368,11 +2379,22 @@ def createSymbolicLink(src, dst):
         J.createSymbolicLink(src, dst)
 
 
-def updateBodyForce(t, previousTreeWithSourceTerms=[], relax=0.):
+def updateBodyForce(t, previousTreeWithSourceTerms=[]):
     '''
     In a turbomachinery context, update the source terms for body-force modelling.
     The user-defined parameter **BodyForceInputData** (in `setup.py`) controls the 
     behavior of this function.
+
+    The optional parameter **BodyForceInitialIteration** (=1 by default) may be modified in
+    `CoprocessOptions`.
+
+    For each row modelled with body force, the following parameters are optional:
+
+    * **relax** (=0.5 by default): Relaxation coefficient for the source terms. 
+       Should be less than 1 (the new source terms are equal to the previous ones).
+
+    * **rampIterations** (=50 by default): Number of iterations (starting from **BodyForceInitialIteration**)
+       to activate body force progressively, with a coefficient ramping from 0 to 1.
 
     Parameters
     ----------
@@ -2384,10 +2406,6 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[], relax=0.):
             Previous output of this function. It is used for relaxing the source terms, depending 
             on the value of the **relax** argument. 
             The first time this function is called, this parameter may be initialized with an empty list.
-
-        relax : float, optional
-            Relaxation coefficient for the source terms. By default 0 (no relaxation). Should be less
-            than 1 (the new source terms are equal to the previous ones).
 
     Returns
     -------
@@ -2402,11 +2420,12 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[], relax=0.):
     FluidProperties    = setup.FluidProperties
     TurboConfiguration = setup.TurboConfiguration
     BodyForceInputData = setup.BodyForceInputData
-    BodyForceInitialIteration = getOption('BodyForceInitialIteration', default=1000)
+    BodyForceInitialIteration = getOption('BodyForceInitialIteration', default=1)
 
     for BodyForceFamily, BodyForceParams in BodyForceInputData.items():
 
-        BodyForceFinalIteration = BodyForceInitialIteration + BodyForceParams.get('rampIterations', 0.)
+        relax = BodyForceParams.get('relax', 0.5)
+        BodyForceFinalIteration = BodyForceInitialIteration + BodyForceParams.get('rampIterations', 50.)
         coeff_eff = J.rampFunction(BodyForceInitialIteration, BodyForceFinalIteration, 0., 1.)
 
         for zone in C.getFamilyZones(newTreeWithSourceTerms, BodyForceFamily):
@@ -2710,7 +2729,7 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
     except AttributeError:
         return surfaces
 
-    if Workflow == 'Compressor':
+    if Workflow == 'Compressor' and PostprocessOptions:
         import MOLA.WorkflowCompressor as WC
 
         if EndOfRun or setup.elsAkeysNumerics['time_algo'] != 'steady':

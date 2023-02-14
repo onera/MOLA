@@ -11,32 +11,34 @@ First creation:
 01/03/2019 - L. Bernardos - Creation by recycling.
 '''
 
-# System modules
-import sys
-from copy import deepcopy as cdeep
-import numpy as np
-import pprint
-from timeit import default_timer as Tok
-
-
-# Cassiopee
-import Converter.PyTree as C
-import Converter.Internal as I
-import Geom.PyTree as D
-import Post.PyTree as P
-import Generator.PyTree as G
-import Transform.PyTree as T
-import Connector.PyTree as X
-import Distributor2.PyTree as D2
-import Intersector.PyTree as XOR
-
-# MOLA
+import MOLA
 from . import InternalShortcuts as J
 from . import Wireframe as W
 
-verbose = False
-MAX = np.maximum
-MIN = np.minimum
+if not MOLA.__ONLY_DOC__:
+    # System modules
+    import sys
+    from copy import deepcopy as cdeep
+    import numpy as np
+    import pprint
+    from timeit import default_timer as Tok
+
+
+    # Cassiopee
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Geom.PyTree as D
+    import Post.PyTree as P
+    import Generator.PyTree as G
+    import Transform.PyTree as T
+    import Connector.PyTree as X
+    import Distributor2.PyTree as D2
+    import Intersector.PyTree as XOR
+
+
+    verbose = False
+    MAX = np.maximum
+    MIN = np.minimum
 
 def sweepSections(sections=[], SpanPositions=None,
                   rotation=[0.], rotationLaw='linear',
@@ -541,7 +543,7 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
         else:
             Params['splitAirfoilOptions'] = splitAirfoilOptions
 
-            ModSection = W.modifyAirfoil(Sections[j],**Params)
+            ModSection, ModCamber = W.modifyAirfoil(Sections[j],**Params)
             AirfoilProperties = J.get(ModSection, '.AirfoilProperties')
 
             NewSection = I.copyRef(CurrentSection)
@@ -1503,7 +1505,7 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
     '''
 
     def getUnitVector(vector):
-        v = np.array(vector, dtype=np.float)
+        v = np.array(vector, dtype=np.float64)
         v /= np.sqrt(v.dot(v))
         return v
 
@@ -1512,7 +1514,7 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
 
     NumberOfSections = len(RelativeSpanDistribution)
 
-    RotationCenter = np.array(RotationCenter, dtype=np.float)
+    RotationCenter = np.array(RotationCenter, dtype=np.float64)
     RotationCenterX, RotationCenterY, RotationCenterZ = RotationCenter
 
     RotationAxis = getUnitVector(RotationAxis)
@@ -3481,8 +3483,8 @@ def allHaveNormals(t):
 
 def _alignNormalsWithRadialCylindricProjection(t, rotation_center, rotation_axis):
     alignmentTol=1.0-1.e-10
-    c = np.array(rotation_center,dtype=np.float)
-    a = np.array(rotation_axis,dtype=np.float)
+    c = np.array(rotation_center,dtype=np.float64)
+    a = np.array(rotation_axis,dtype=np.float64)
     q = c + a
     qc = c - q
     for zone in I.getZones(t):

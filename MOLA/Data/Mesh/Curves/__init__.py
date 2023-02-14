@@ -195,7 +195,7 @@ class Curve(Zone):
         x_node.setValue( interpolate(snew, sv, x, 'pchip') )
         y_node.setValue( interpolate(snew, sv, y, 'pchip') )
         z_node.setValue( interpolate(snew, sv, z, 'pchip') )
-        self.setValue(np.array([[N,N-1,0]],dtype=np.int,order='F'))
+        self.setValue(np.array([[N,N-1,0]],dtype=np.int32,order='F'))
 
         if self.hasFields():
             selfCopy = self.copy()

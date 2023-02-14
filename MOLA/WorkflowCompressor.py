@@ -9,33 +9,35 @@ File history:
 31/08/2021 - T. Bontemps - Creation
 '''
 
-import sys
-import os
-import numpy as np
-import pprint
-import copy
-import scipy.optimize
-
-import Converter.PyTree    as C
-import Converter.Internal  as I
-import Distributor2.PyTree as D2
-import Post.PyTree         as P
-import Generator.PyTree    as G
-import Transform.PyTree    as T
-import Connector.PyTree    as X
-
 import MOLA
 from . import InternalShortcuts as J
 from . import Preprocess        as PRE
 from . import JobManager        as JM
 from . import BodyForceTurbomachinery as BF
 
-try:
-    from . import ParametrizeChannelHeight as ParamHeight
-except ImportError:
-    MSG = 'Fail to import ParametrizeChannelHeight: function parametrizeChannelHeight is unavailable'.format(__name__)
-    print(J.WARN + MSG + J.ENDC)
-    ParamHeight = None
+if not MOLA.__ONLY_DOC__:
+    import sys
+    import os
+    import numpy as np
+    import pprint
+    import copy
+    import scipy.optimize
+
+    import Converter.PyTree    as C
+    import Converter.Internal  as I
+    import Distributor2.PyTree as D2
+    import Post.PyTree         as P
+    import Generator.PyTree    as G
+    import Transform.PyTree    as T
+    import Connector.PyTree    as X
+
+
+    try:
+        from . import ParametrizeChannelHeight as ParamHeight
+    except ImportError:
+        MSG = 'Fail to import ParametrizeChannelHeight: function parametrizeChannelHeight is unavailable'.format(__name__)
+        print(J.WARN + MSG + J.ENDC)
+        ParamHeight = None
 
 def checkDependencies():
     '''
@@ -64,8 +66,8 @@ def checkDependencies():
 
 def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
                     duplicationInfos={}, zonesToRename={},
-                    scale=1., rotation='fromAG5', PeriodicTranslation=None,
-                    BodyForceRows=None):
+                    scale=1., rotation='fromAG5', tol=1e-8, PeriodicTranslation=None,
+                    BodyForceRows=None, families2Remove=[], saveGeometricalDataForBodyForce=True):
     '''
     This is a macro-function used to prepare the mesh for an elsA computation
     from a CGNS file provided by Autogrid 5.
@@ -152,11 +154,26 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
             a periodicity in the direction **PeriodicTranslation**. This argument
             has to be used for linear cascade configurations.
 
+        tol : float
+            Tolerance for connectivities matching (including periodic connectivities).
+
         BodyForceRows : :py:class:`dict` or :py:obj:`None`
             If not :py:obj:`None`, this parameters allows to replace user-defined
             row domains with meshes adapted to body-force modelling.
             See documentation of 
             :py:func:`MOLA.BodyForceTurbomachinery.replaceRowWithBodyForceMesh`.
+
+        families2Remove : list
+            Families to remove in the tree when using body-force. Should be a list 
+            of families related to interstage interfaces between a stator row and 
+            a BFM row, or to BFM rows. It allows to force a matching mesh at the interface
+            instead having a mixing plane.
+
+        saveGeometricalDataForBodyForce : bool
+            If :py:obj:`True`, save the intermediate files 'BodyForceData_{row}.cgns' for each row.
+            These files contain a CGNS tree with :
+                #. 4 lines (1D zones) corresponding to Hub, Shroud, Leading edge and Trailing Edge.
+                #. The zone'Skeleton' with geometrical data on blade profile (used for interpolation later). 
 
     Returns
     -------
@@ -178,15 +195,15 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
     I._fixNGon(t) # Needed for an unstructured mesh
 
     if InputMeshes is None:
-        SplitBlocks = True if splitOptions else False
-        InputMeshes = generateInputMeshesFromAG5(t, SplitBlocks=SplitBlocks,
-            scale=scale, rotation=rotation, PeriodicTranslation=PeriodicTranslation)
+        InputMeshes = generateInputMeshesFromAG5(t,
+            scale=scale, rotation=rotation, tol=tol, PeriodicTranslation=PeriodicTranslation)
 
     PRE.checkFamiliesInZonesAndBC(t)
 
     if BodyForceRows:
         # Remesh rows to model with body-force
-        t, newRowMeshes = BF.replaceRowWithBodyForceMesh(t, BodyForceRows)
+        t, newRowMeshes = BF.replaceRowWithBodyForceMesh(
+            t, BodyForceRows, saveGeometricalDataForBodyForce=saveGeometricalDataForBodyForce)
 
     t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], zonesToRename=zonesToRename)
     PRE.transform(t, InputMeshes)
@@ -197,6 +214,15 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
         for newRowMesh in newRowMeshes:
             for zone in I.getZones(newRowMesh):
                 I.addChild(base, zone)
+        if families2Remove == []:
+            warning = 'WARNING: families2Remove is empty although body force is used.'
+            warning+= 'Please have a look to the documentation and double check that is not a mistake.'
+            print(J.WARN+warning+J.ENDC)
+        else:
+            for family in families2Remove:
+                for bc in C.getFamilyBCs(t, family):
+                    I._rmNode(t, bc)
+                I._rmNodesByName(t, family)
 
     for row, rowParams in duplicationInfos.items():
         try: MergeBlocks = rowParams['MergeBlocks']
@@ -204,22 +230,27 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
         duplicate(t, row, rowParams['NumberOfBlades'],
                 nDupli=rowParams['NumberOfDuplications'], merge=MergeBlocks)
 
-    if not any([InputMesh['SplitBlocks'] for InputMesh in InputMeshes]):
-        t = PRE.connectMesh(t, InputMeshes)
-    else:
+    if splitOptions:
         t = PRE.splitAndDistribute(t, InputMeshes, **splitOptions)
+    else:
+        t = PRE.connectMesh(t, InputMeshes)
     # WARNING: Names of BC_t nodes must be unique to use PyPart on globborders
     for l in [2,3,4]: I._correctPyTree(t, level=l)
+
+    for base, meshInfo in zip(I.getBases(t), InputMeshes):
+        J.set(base,'.MOLA#InputMesh',**meshInfo)
+
     PRE.adapt2elsA(t, InputMeshes)
     J.checkEmptyBC(t)
 
     return t
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
-        NumericalParams={}, TurboConfiguration={}, Extractions=[], BoundaryConditions=[],
-        PostprocessOptions={},
-        BodyForceInputData={}, writeOutputFields=True, bladeFamilyNames=['BLADE', 'AUBE'],
-        Initialization={'method':'uniform'}, JobInformation={}, SubmitJob=False,
+        NumericalParams={}, OverrideSolverKeys= {}, 
+        TurboConfiguration={}, Extractions=[], BoundaryConditions=[],
+        PostprocessOptions={}, BodyForceInputData={}, writeOutputFields=True,
+        bladeFamilyNames=['BLADE', 'AUBE'], Initialization={'method':'uniform'},
+        JobInformation={}, SubmitJob=False,
         FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
     '''
     This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
@@ -253,6 +284,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             .. note:: internally, this dictionary is passed as *kwargs* as follows:
 
                 >>> MOLA.Preprocess.getElsAkeysNumerics(arg, **NumericalParams)
+
+        OverrideSolverKeys : :py:class:`dict` of maximum 3 :py:class:`dict`
+            exactly the same as in :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
 
         TurboConfiguration : dict
             Dictionary concerning the compressor properties.
@@ -335,6 +369,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             * ``setup.py``
                 ultra-light file containing all relevant info of the simulation
     '''
+    toc = J.tic()
     if isinstance(mesh,str):
         t = C.convertFile2PyTree(mesh)
     elif I.isTopTree(mesh):
@@ -399,7 +434,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             for rowParams in TurboConfiguration['Rows'].values()]):
         t = duplicateFlowSolution(t, TurboConfiguration)
 
-    
+    setMotionForRowsFamilies(t, TurboConfiguration)
     setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                             FluidProperties, ReferenceValues,
                             bladeFamilyNames=bladeFamilyNames)
@@ -409,7 +444,19 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     addMonitoredRowsInExtractions(Extractions, TurboConfiguration)
 
-    AllSetupDics = dict(Workflow='Compressor',
+    allowed_override_objects = ['cfdpb','numerics','model']
+    for v in OverrideSolverKeys:
+        if v == 'cfdpb':
+            elsAkeysCFD.update(OverrideSolverKeys[v])
+        elif v == 'numerics':
+            elsAkeysNumerics.update(OverrideSolverKeys[v])
+        elif v == 'model':
+            elsAkeysModel.update(OverrideSolverKeys[v])
+        else:
+            raise AttributeError('OverrideSolverKeys "%s" must be one of %s'%(v,
+                                                str(allowed_override_objects)))
+
+    AllSetupDicts = dict(Workflow='Compressor',
                         Splitter=Splitter,
                         JobInformation=JobInformation,
                         TurboConfiguration=TurboConfiguration,
@@ -421,37 +468,35 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                         Extractions=Extractions, 
                         PostprocessOptions=PostprocessOptions)
     if BodyForceInputData: 
-        AllSetupDics['BodyForceInputData'] = BodyForceInputData
+        AllSetupDicts['BodyForceInputData'] = BodyForceInputData
 
-    BCExtractions = dict(
-        BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
-        BCInflow = ['convflux_ro'],
-        BCOutflow = ['convflux_ro'],
-    )
+
+    # WARNING: BCInflow and BCOutflow are also used for rotor/stator interfaces. However, extracting other
+    # quantities on them, such as 'psta', is not possible and would raise the following error:
+    # BaseException: Error: boundary BCOutflow is not implemented yet.
+
+
 
     PRE.addTrigger(t)
-    PRE.addExtractions(t, AllSetupDics['ReferenceValues'],
-                      AllSetupDics['elsAkeysModel'],
-                      extractCoords=False, BCExtractions=BCExtractions)
+    PRE.addExtractions(t, AllSetupDicts['ReferenceValues'],
+                          AllSetupDicts['elsAkeysModel'],
+                          extractCoords=False,
+                          BCExtractions=ReferenceValues['BCExtractions'])
 
     if elsAkeysNumerics['time_algo'] != 'steady':
-        if 'FirstIterationForAverage' in AllSetupDics['ReferenceValues']['CoprocessOptions'].keys():
-            PRE.addAverageFieldExtractions(t, AllSetupDics['ReferenceValues'],
-                AllSetupDics['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
-        else:
-            PRE.addAverageFieldExtractions(t, AllSetupDics['ReferenceValues'])
+        PRE.addAverageFieldExtractions(t, AllSetupDicts['ReferenceValues'],
+            AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
 
-
-    PRE.addReferenceState(t, AllSetupDics['FluidProperties'],
-                         AllSetupDics['ReferenceValues'])
-    dim = int(AllSetupDics['elsAkeysCFD']['config'][0])
+    PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],
+                         AllSetupDicts['ReferenceValues'])
+    dim = int(AllSetupDicts['elsAkeysCFD']['config'][0])
     PRE.addGoverningEquations(t, dim=dim)
-    PRE.writeSetup(AllSetupDics)
+    PRE.writeSetup(AllSetupDicts)
 
     if FULL_CGNS_MODE:
-        PRE.addElsAKeys2CGNS(t, [AllSetupDics['elsAkeysCFD'],
-                                 AllSetupDics['elsAkeysModel'],
-                                 AllSetupDics['elsAkeysNumerics']])
+        PRE.addElsAKeys2CGNS(t, [AllSetupDicts['elsAkeysCFD'],
+                                 AllSetupDicts['elsAkeysModel'],
+                                 AllSetupDicts['elsAkeysNumerics']])
 
     PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
@@ -469,7 +514,15 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             PRE.sendSimulationFiles(JobInformation['DIRECTORY_WORK'],
                                     overrideFields=writeOutputFields)
 
-        if SubmitJob: JM.submitJob(JobInformation['DIRECTORY_WORK'])
+        for i in range(SubmitJob):
+            singleton = False if i==0 else True
+            JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
+
+    ElapsedTime = str(PRE.datetime.timedelta(seconds=J.tic()-toc))
+    hours, minutes, seconds = ElapsedTime.split(':')
+    ElapsedTimeHuman = hours+' hours '+minutes+' minutes and '+seconds+' seconds'
+    msg = 'prepareMainCGNS took '+ElapsedTimeHuman
+    print(J.BOLD+msg+J.ENDC)
 
 
 def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
@@ -623,7 +676,7 @@ def parametrizeChannelHeight_future(t, nbslice=101, tol=1e-10, offset=1e-10,
     print(J.GREEN + 'done.' + J.ENDC)
     return t
 
-def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='fromAG5', PeriodicTranslation=None):
+def generateInputMeshesFromAG5(mesh, scale=1., rotation='fromAG5', tol=1e-8, PeriodicTranslation=None):
     '''
     Generate automatically the :py:class:`list` **InputMeshes** with a default
     parametrization adapted to Autogrid 5 meshes.
@@ -657,6 +710,8 @@ def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='from
                 * a float (or integer) defining the angle of rotation in
                   degrees
 
+        tol : float
+            Tolerance for connectivities matching (including periodic connectivities).
 
         PeriodicTranslation : :py:obj:'None' or :py:class:`list` of :py:class:`float`
             If not :py:obj:'None', the configuration is considered to be with
@@ -691,8 +746,8 @@ def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='from
     InputMeshes = [dict(
                     baseName=I.getName(I.getNodeByType(t, 'CGNSBase_t')),
                     Transform=dict(scale=scale, rotate=rotation),
-                    Connection=[dict(type='Match', tolerance=1e-8)],
-                    SplitBlocks=SplitBlocks,
+                    Connection=[dict(type='Match', tolerance=tol)],
+                    SplitBlocks=False,
                     )]
     # Set automatic periodic connections
     InputMesh = InputMeshes[0]
@@ -702,12 +757,12 @@ def generateInputMeshesFromAG5(mesh, SplitBlocks=False, scale=1., rotation='from
         for angle in angles:
             print('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)))
             InputMesh['Connection'].append(
-                    dict(type='PeriodicMatch', tolerance=1e-8, rotationAngle=[angle,0.,0.])
+                    dict(type='PeriodicMatch', tolerance=tol, rotationAngle=[angle,0.,0.])
                     )
     if PeriodicTranslation:
         print('  translation = {} m'.format(PeriodicTranslation))
         InputMesh['Connection'].append(
-                dict(type='PeriodicMatch', tolerance=1e-8, translation=PeriodicTranslation)
+                dict(type='PeriodicMatch', tolerance=tol, translation=PeriodicTranslation)
                 )
 
     return InputMeshes
@@ -808,10 +863,6 @@ def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0),
     Duplicate **nDupli** times the domain attached to the family **rowFamily**
     around the axis of rotation.
 
-    .. warning:: This function works only for empty meshes. It can be used on a
-        PyTree with FlowSolution containers, but the vectors will not be
-        rotated !
-
     Parameters
     ----------
 
@@ -882,40 +933,43 @@ def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0),
     else:
         if verbose>0: print('Duplicate {} on {} blades ({} blades in row)'.format(rowFamily, nDupli, nBlades))
 
-    if I.getType(tree) == 'CGNSBase_t':
-        base = tree
-    else:
-        base = I.getNodeFromType(tree, 'CGNSBase_t')
-
     check = False
     vectors = []
     for vec in vectors2rotate:
         vectors.append(vec)
         vectors.append(['centers:'+v for v in vec])
 
-    for zone in I.getZones(base):
-        zone_name = I.getName(zone)
-        zone_family = I.getValue(I.getNodeFromName1(zone, 'FamilyName'))
-        if zone_family == rowFamily:
-            if verbose>1: print('  > zone {}'.format(zone_name))
-            check = True
-            zones2merge = [zone]
-            for n in range(nDupli-1):
-                ang = 360./nBlades*(n+1)
-                rot = T.rotate(I.copyNode(zone),(0.,0.,0.), axis, ang, vectors=vectors)
-                I.setName(rot, "{}_{}".format(zone_name, n+2))
-                I._addChild(base, rot)
-                zones2merge.append(rot)
-            if merge:
-                for node in zones2merge:
-                    I.rmNode(base, node)
-                tree_dist = T.merge(zones2merge, tol=1e-8)
-                for i, node in enumerate(I.getZones(tree_dist)):
-                    I._addChild(base, node)
-                    disk_block = I.getNodeFromName(base, I.getName(node))
-                    disk_block[0] = '{}_{:02d}'.format(zone_name, i)
-                    I.createChild(disk_block, 'FamilyName', 'FamilyName_t', value=rowFamily)
-                PRE.autoMergeBCs(tree)
+    if I.getType(tree) == 'CGNSBase_t':
+        bases = [tree]
+    else:
+        bases = I.getBases(tree)
+
+    for base in bases:
+        for zone in I.getZones(base):
+            zone_name = I.getName(zone)
+            FamilyNameNode = I.getNodeFromName1(zone, 'FamilyName')
+            if not FamilyNameNode: continue
+            zone_family = I.getValue(FamilyNameNode)
+            if zone_family == rowFamily:
+                if verbose>1: print('  > zone {}'.format(zone_name))
+                check = True
+                zones2merge = [zone]
+                for n in range(nDupli-1):
+                    ang = 360./nBlades*(n+1)
+                    rot = T.rotate(I.copyNode(zone),(0.,0.,0.), axis, ang, vectors=vectors)
+                    I.setName(rot, "{}_{}".format(zone_name, n+2))
+                    I._addChild(base, rot)
+                    zones2merge.append(rot)
+                if merge:
+                    for node in zones2merge:
+                        I.rmNode(base, node)
+                    tree_dist = T.merge(zones2merge, tol=1e-8)
+                    for i, node in enumerate(I.getZones(tree_dist)):
+                        I._addChild(base, node)
+                        disk_block = I.getNodeFromName(base, I.getName(node))
+                        disk_block[0] = '{}_{:02d}'.format(zone_name, i)
+                        I.createChild(disk_block, 'FamilyName', 'FamilyName_t', value=rowFamily)
+    if merge: PRE.autoMergeBCs(tree)
 
     I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
     assert check, 'None of the zones was duplicated. Check the name of row family'
@@ -1017,7 +1071,7 @@ def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
     # Compute surface
     SurfaceTree = C.convertArray2Tetra(sliceX)
     SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
-    Surface = abs(P.integNorm(SurfaceTree, var='ones')[0][0])
+    Surface = P.integ(SurfaceTree, var='ones')[0]
     # Compute deltaTheta
     deltaTheta = 2* Surface / (Rmax**2 - Rmin**2)
     # Compute number of blades in the mesh
@@ -1026,12 +1080,16 @@ def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
     print('Number of blades in initial mesh for {}: {}'.format(FamilyName, Nb))
     return Nb
 
-def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
-        TemperatureStagnation, Surface, TurbulenceLevel=0.001,
+def computeReferenceValues(FluidProperties, PressureStagnation,
+                           TemperatureStagnation, Surface, MassFlow=None, Mach=None, TurbulenceLevel=0.001,
         Viscosity_EddyMolecularRatio=0.1, TurbulenceModel='Wilcox2006-klim',
         TurbulenceCutoff=1e-8, TransitionMode=None, CoprocessOptions={},
         Length=1.0, TorqueOrigin=[0., 0., 0.],
         FieldsAdditionalExtractions=['ViscosityMolecular', 'Viscosity_EddyMolecularRatio', 'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation', 'Mach', 'Entropy'],
+        BCExtractions=dict(
+            BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
+            BCInflow = ['convflux_ro'],
+            BCOutflow = ['convflux_ro']),
         AngleOfAttackDeg=0.,
         YawAxis=[0.,0.,1.],
         PitchAxis=[0.,1.,0.]):
@@ -1040,6 +1098,8 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
     The main difference is that in this case reference values are set through
     ``MassFlow``, total Pressure ``PressureStagnation``, total Temperature
     ``TemperatureStagnation`` and ``Surface``.
+
+    You can also give the Mach number instead of massflow (but not both).
 
     Please, refer to :func:`MOLA.Preprocess.computeReferenceValues` doc for more details.
     '''
@@ -1050,7 +1110,13 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
     cp      = FluidProperties['cp']
 
     # Compute variables
-    Mach  = machFromMassFlow(MassFlow, Surface, Pt=PressureStagnation,
+    assert not(MassFlow and Mach), 'MassFlow and Mach cannot be given together in ReferenceValues. Choose one'
+    if MassFlow:
+        Mach  = machFromMassFlow(MassFlow, Surface, Pt=PressureStagnation,
+                                Tt=TemperatureStagnation, r=IdealGasConstant,
+                                gamma=Gamma)
+    else:
+        MassFlow  = massflowFromMach(Mach, Surface, Pt=PressureStagnation,
                             Tt=TemperatureStagnation, r=IdealGasConstant,
                             gamma=Gamma)
     Temperature  = TemperatureStagnation / (1. + 0.5*(Gamma-1.) * Mach**2)
@@ -1097,7 +1163,8 @@ def computeReferenceValues(FluidProperties, MassFlow, PressureStagnation,
         TurbulenceCutoff=TurbulenceCutoff,
         TransitionMode=TransitionMode,
         CoprocessOptions=CoprocessOptions,
-        FieldsAdditionalExtractions=FieldsAdditionalExtractions)
+        FieldsAdditionalExtractions=FieldsAdditionalExtractions,
+        BCExtractions=BCExtractions)
 
     addKeys = dict(
         PressureStagnation = PressureStagnation,
@@ -1433,6 +1500,46 @@ def machFromMassFlow(massflow, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
         # Search for the corresponding Mach Number between 0 and 1
         Mx = scipy.optimize.brentq(g, 0, 1)
         return Mx
+
+def setMotionForRowsFamilies(t, TurboConfiguration):
+    '''
+    Set the rotation speed for all families related to row domains. It is defined in:
+
+        >>> TurboConfiguration['Rows'][rowName]['RotationSpeed'] = float
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        TurboConfiguration : dict
+            as produced :py:func:`getTurboConfiguration`
+            
+    '''
+    # Add info on row movement (.Solver#Motion)
+    for row, rowParams in TurboConfiguration['Rows'].items():
+        famNode = I.getNodeFromNameAndType(t, row, 'Family_t')
+        try: 
+            omega = rowParams['RotationSpeed']
+        except KeyError:
+            # No RotationSpeed --> zones attached to this family are not moving
+            continue
+
+        # Test if zones in that family are modelled with Body Force
+        for zone in C.getFamilyZones(t, row):
+            if I.getNodeFromName1(zone, 'FlowSolution#DataSourceTerm'):
+                # If this node is present, body force is used
+                # Then the frame of this row must be the absolute frame
+                omega = 0.
+                break
+        
+        print(f'setting .Solver#Motion at family {row} (omega={omega}rad/s)')
+        J.set(famNode, '.Solver#Motion',
+                motion='mobile',
+                omega=omega,
+                axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
+                axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
 
 
 ################################################################################
@@ -1800,6 +1907,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
         else:
             raise AttributeError('BC type %s not implemented'%BCparam['type'])
 
+
 def setBC_Walls(t, TurboConfiguration,
                     bladeFamilyNames=['BLADE', 'AUBE'],
                     hubFamilyNames=['HUB', 'SPINNER', 'MOYEU'],
@@ -1807,11 +1915,6 @@ def setBC_Walls(t, TurboConfiguration,
     '''
     Set all the wall boundary conditions in a turbomachinery context, by making
     the following operations:
-
-        * set the rotation speed for all families related to row domains. It is
-          defined in:
-
-            >>> TurboConfiguration['Rows'][rowName]['RotationSpeed'] = float
 
         * set BCs related to each blade.
         * set BCs related to hub. The intervals where the rotation speed is the
@@ -1874,23 +1977,20 @@ def setBC_Walls(t, TurboConfiguration,
             omega[(x1<=x) & (x<=x2)] = TurboConfiguration['ShaftRotationSpeed']
         return np.asfortranarray(omega)
 
-    # Add info on row movement (.Solver#Motion)
-    for row, rowParams in TurboConfiguration['Rows'].items():
-        famNode = I.getNodeFromNameAndType(t, row, 'Family_t')
-        print('setting .Solver#Motion at family %s'%row)
-        J.set(famNode, '.Solver#Motion',
-                motion='mobile',
-                omega=float(rowParams['RotationSpeed']),
-                axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
-                axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
+    def getZoneFamilyNameWithFamilyNameBC(zones, FamilyNameBC):
+        ZoneFamilyName = None
+        for zone in zones:
+            ZoneBC = I.getNodeFromType1(zone, 'ZoneBC_t')
+            if not ZoneBC: continue
+            FamiliesNames = I.getNodesFromType2(ZoneBC, 'FamilyName_t')
+            for FamilyName_n in FamiliesNames:
+                if I.getValue(FamilyName_n) == FamilyNameBC:
+                    ZoneFamilyName = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+            if ZoneFamilyName: break
 
-    def getAssociatedZoneFamilyNameWithFamilyNameBC(zone, FamilyNameBC):
-        ZoneBC = I.getNodeFromType1(zone,'ZoneBC_t')
-        FamiliesNames = I.getNodesFromType2(ZoneBC,'FamilyName_t')
-        for FamilyName_n in FamiliesNames:
-            if I.getValue(FamilyName_n) == FamilyNameBC:
-                return I.getValue(I.getNodeFromType1(zone,'FamilyName_t'))
-
+        assert ZoneFamilyName is not None, 'Cannot determine associated row for family {}. '.format(FamilyNameBC)
+        return ZoneFamilyName
+        
     # BLADES
     zones = I.getZones(t)
     families = I.getNodesFromType2(t,'Family_t')
@@ -1898,36 +1998,17 @@ def setBC_Walls(t, TurboConfiguration,
         for famNode in I.getNodesFromNameAndType(t, '*{}*'.format(blade_family), 'Family_t'):
             famName = I.getName(famNode)
             if famName.startswith('F_OV_') or famName.endswith('Zones'): continue
-            for z in zones:
-                ZoneFamilyName = getAssociatedZoneFamilyNameWithFamilyNameBC(z, famName)
-                if ZoneFamilyName: break
-
-            assert ZoneFamilyName is not None, 'Cannot determine associated row for family {}. '.format(famName)
-
+            ZoneFamilyName = getZoneFamilyNameWithFamilyNameBC(zones, famName)
             family_with_bcwall, = [f for f in families if f[0]==ZoneFamilyName]
-
             solver_motion_data = J.get(family_with_bcwall,'.Solver#Motion')
-
-            I.newFamilyBC(value='BCWallViscous', parent=famNode)
-            J.set(famNode, '.Solver#BC',
-                    type='walladia',
-                    data_frame='user',
-                    omega=solver_motion_data['omega'],
-                    axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
-                    axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
+            setBC_walladia(t, famName, omega=solver_motion_data['omega'])
 
     # HUB
     for hub_family in hubFamilyNames:
         for famNode in I.getNodesFromNameAndType(t, '*{}*'.format(hub_family), 'Family_t'):
             famName = I.getName(famNode)
             if famName.startswith('F_OV_') or famName.endswith('Zones'): continue
-            I.newFamilyBC(value='BCWallViscous', parent=famNode)
-            J.set(famNode, '.Solver#BC',
-                    type='walladia',
-                    data_frame='user',
-                    omega=0.,
-                    axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
-                    axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
+            setBC_walladia(t, famName, omega=0.)
 
             # TODO request initVars of BCDataSet
             wallHubBC = C.extractBCOfName(t, 'FamilySpecified:{0}'.format(famName))
@@ -1946,15 +2027,9 @@ def setBC_Walls(t, TurboConfiguration,
         for famNode in I.getNodesFromNameAndType(t, '*{}*'.format(shroud_family), 'Family_t'):
             famName = I.getName(famNode)
             if famName.startswith('F_OV_') or famName.endswith('Zones'): continue
-            I.newFamilyBC(value='BCWallViscous', parent=famNode)
-            J.set(famNode, '.Solver#BC',
-                    type='walladia',
-                    data_frame='user',
-                    omega=0.,
-                    axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
-                    axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
+            setBC_walladia(t, famName, omega=0.)
 
-def setBC_walladia(t, FamilyName):
+def setBC_walladia(t, FamilyName, omega=None):
     '''
     Set a viscous wall boundary condition.
 
@@ -1969,11 +2044,22 @@ def setBC_walladia(t, FamilyName):
         FamilyName : str
             Name of the family on which the boundary condition will be imposed
 
+        omega : float
+            Rotation speed imposed at the wall. If :py:obj:`None`, it is not specified 
+            in the Family node (but same behavior that zero).
+
     '''
     wall = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
     I._rmNodesByName(wall, '.Solver#BC')
     I._rmNodesByType(wall, 'FamilyBC_t')
     I.newFamilyBC(value='BCWallViscous', parent=wall)
+    if omega is not None:
+        J.set(wall, '.Solver#BC',
+                    type='walladia',
+                    data_frame='user',
+                    omega=omega,
+                    axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
+                    axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
 
 def setBC_wallslip(t, FamilyName):
     '''
@@ -2081,7 +2167,7 @@ def setBC_nref(t, FamilyName):
     I._rmNodesByType(farfield, 'FamilyBC_t')
     I.newFamilyBC(value='BCFarfield', parent=farfield)
 
-def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
+def setBC_inj1(t, FamilyName, ImposedVariables, bc=None, variableForInterpolation='ChannelHeight'):
     '''
     Generic function to impose a Boundary Condition ``inj1``. The following
     functions are more specific:
@@ -2116,14 +2202,24 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None):
             ``BC_t`` node on which the boundary condition will be imposed. Must
             be :py:obj:`None` if the condition must be imposed once in the
             ``Family_t`` node.
+        
+        variableForInterpolation : str
+            When using a function to impose the radial profile of one or several quantities, 
+            it defines the variable used as the argument of this function.
+            Must be 'ChannelHeight' (default value) or 'Radius'.
 
     See also
     --------
 
     setBC_inj1_uniform, setBC_inj1_interpFromFile
     '''
-    setBCwithImposedVariables(t, FamilyName, ImposedVariables,
-        FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc)
+    if not bc and not all([np.ndim(v)==0 and not callable(v) for v in ImposedVariables.values()]):
+        for bc in C.getFamilyBCs(t, FamilyName):
+            setBCwithImposedVariables(t, FamilyName, ImposedVariables,
+                FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc, variableForInterpolation=variableForInterpolation)
+    else:
+        setBCwithImposedVariables(t, FamilyName, ImposedVariables,
+            FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc, variableForInterpolation=variableForInterpolation)
 
 def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     '''
@@ -2163,6 +2259,7 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs
     VelocityUnitVectorX   = kwargs.get('VelocityUnitVectorX', ReferenceValues['DragDirection'][0])
     VelocityUnitVectorY   = kwargs.get('VelocityUnitVectorY', ReferenceValues['DragDirection'][1])
     VelocityUnitVectorZ   = kwargs.get('VelocityUnitVectorZ', ReferenceValues['DragDirection'][2])
+    variableForInterpolation = kwargs.get('variableForInterpolation', 'ChannelHeight')
 
     # Get turbulent variables names and values
     turbVars = ReferenceValues['FieldsTurbulence']
@@ -2170,29 +2267,16 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs
     turbValues = [val/ReferenceValues['Density'] for val in ReferenceValues['ReferenceStateTurbulence']]
     turbDict = dict(zip(turbVars, turbValues))
 
-    # Convert names to inj_tur1 and (if needed) inj_tur2
-    if 'TurbulentSANuTilde' in turbDict:
-        turbDict = dict(inj_tur1=turbDict['TurbulentSANuTilde'])
-    else:
-        turbDict['inj_tur1'] = turbDict['TurbulentEnergyKinetic']
-        turbDict.pop('TurbulentEnergyKinetic')
-        inj_tur2 = [var for var in turbDict if var != 'inj_tur1']
-        assert len(inj_tur2) == 1, \
-            'Turbulent models with more than 2 equations are not supported yet'
-        inj_tur2 = inj_tur2[0]
-        turbDict['inj_tur2'] = turbDict[inj_tur2]
-        turbDict.pop(inj_tur2)
-
     ImposedVariables = dict(
-        stagnation_pressure = PressureStagnation,
-        stagnation_enthalpy = EnthalpyStagnation,
-        txv                 = VelocityUnitVectorX,
-        tyv                 = VelocityUnitVectorY,
-        tzv                 = VelocityUnitVectorZ,
+        PressureStagnation  = PressureStagnation,
+        EnthalpyStagnation  = EnthalpyStagnation,
+        VelocityUnitVectorX = VelocityUnitVectorX,
+        VelocityUnitVectorY = VelocityUnitVectorY,
+        VelocityUnitVectorZ = VelocityUnitVectorZ,
         **turbDict
         )
 
-    setBC_inj1(t, FamilyName, ImposedVariables)
+    setBC_inj1(t, FamilyName, ImposedVariables, variableForInterpolation=variableForInterpolation)
 
 def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileformat=None):
     '''
@@ -2376,7 +2460,7 @@ def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     setBCwithImposedVariables(t, FamilyName, ImposedVariables,
         FamilyBC='BCInflowSubsonic', BCType='injmfr1')
 
-def setBC_outpres(t, FamilyName, Pressure, bc=None):
+def setBC_outpres(t, FamilyName, Pressure, bc=None, variableForInterpolation='ChannelHeight'):
     '''
     Impose a Boundary Condition ``outpres``.
 
@@ -2411,6 +2495,12 @@ def setBC_outpres(t, FamilyName, Pressure, bc=None):
             ``BC_t`` node on which the boundary condition will be imposed. Must
             be :py:obj:`None` if the condition must be imposed once in the
             ``Family_t`` node.
+        
+        variableForInterpolation : str
+            When using a function to impose the radial profile of one or several quantities, 
+            it defines the variable used as the argument of this function.
+            Must be 'ChannelHeight' (default value) or 'Radius'.
+
     '''
     if isinstance(Pressure, dict):
         assert 'Pressure' in Pressure or 'pressure' in Pressure
@@ -2418,8 +2508,14 @@ def setBC_outpres(t, FamilyName, Pressure, bc=None):
         ImposedVariables = Pressure
     else:
         ImposedVariables = dict(Pressure=Pressure)
-    setBCwithImposedVariables(t, FamilyName, ImposedVariables,
-        FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc)
+
+    if not bc and not all([np.ndim(v) == 0 and not callable(v) for v in ImposedVariables.values()]):
+        for bc in C.getFamilyBCs(t, FamilyName):
+            setBCwithImposedVariables(t, FamilyName, ImposedVariables,
+                                      FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc, variableForInterpolation=variableForInterpolation)
+    else:
+        setBCwithImposedVariables(t, FamilyName, ImposedVariables,
+                                FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc, variableForInterpolation=variableForInterpolation)
 
 def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues=None, TurboConfiguration=None):
     '''
@@ -2476,7 +2572,7 @@ def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues
         FamilyBC='BCOutflowSubsonic', BCType='outmfr2', bc=bc)
 
 def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
-    bc=None, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData'):
+    bc=None, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData', variableForInterpolation='ChannelHeight'):
     '''
     Generic function to impose a Boundary Condition ``inj1``. The following
     functions are more specific:
@@ -2490,15 +2586,21 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
         FamilyName : str
             Name of the family on which the boundary condition will be imposed
 
-        ImposedVariables : dict
-            Dictionary of variables to imposed on the boudary condition. Keys
-            are variable names and values must be:
+        ImposedVarvariableForInterpolation : str
+            When using a function to impose the radial profile of one or several quantities, 
+            it defines the variable used as the argument of this function.
+            Must be 'ChannelHeight' (default value) or 'Radius'.riable names and values must be either:
 
-                * either scalars: in that case they are imposed once for the
+                * scalars: in that case they are imposed once for the
                   family **FamilyName** in the corresponding ``Family_t`` node.
 
-                * or numpy arrays: in that case they are imposed for the ``BC_t``
+                * numpy arrays: in that case they are imposed for the ``BC_t``
                   node **bc**.
+
+                * functions: in that case the function defined a profile depending on radius.
+                  It is evaluated in each cell on the **bc**.
+            
+            They may be a combination of three.
 
         bc : PyTree
             ``BC_t`` node on which the boundary condition will be imposed. Must
@@ -2512,6 +2614,11 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
         BCDataName : str
             Name of the created node of type ``BCData_t``. Default value is
             'DirichletData'
+        
+        variableForInterpolation : str
+            When using a function to impose the radial profile of one or several quantities, 
+            it defines the variable used as the argument of this function.
+            Must be 'ChannelHeight' (default value) or 'Radius'.
 
     See also
     --------
@@ -2519,33 +2626,67 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
     setBC_inj1, setBC_outpres, setBC_outmfr2
 
     '''
-    checkVariables(ImposedVariables)
     FamilyNode = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
     I._rmNodesByName(FamilyNode, '.Solver#BC')
     I._rmNodesByType(FamilyNode, 'FamilyBC_t')
     I.newFamilyBC(value=FamilyBC, parent=FamilyNode)
 
-    if all([np.ndim(v)==0 for v in ImposedVariables.values()]):
+    if all([np.ndim(v)==0 and not callable(v) for v in ImposedVariables.values()]):
+        checkVariables(ImposedVariables)
         ImposedVariables = translateVariablesFromCGNS2Elsa(ImposedVariables)
         J.set(FamilyNode, '.Solver#BC', type=BCType, **ImposedVariables)
     else:
         assert bc is not None
         J.set(bc, '.Solver#BC', type=BCType)
 
-        PointRange = I.getValue(I.getNodeFromType(bc, 'IndexRange_t'))
-        bc_shape = PointRange[:, 1] - PointRange[:, 0]
-        if bc_shape[0] == 0:
-            bc_shape = (bc_shape[1], bc_shape[2])
-        elif bc_shape[1] == 0:
-            bc_shape = (bc_shape[0], bc_shape[2])
-        elif bc_shape[2] == 0:
-            bc_shape = (bc_shape[0], bc_shape[1])
+        zone = I.getParentFromType(t, bc, 'Zone_t') 
+        if variableForInterpolation in ['Radius', 'radius']:
+            radius, theta = J.getRadiusTheta(zone)
+        elif variableForInterpolation == 'ChannelHeight':
+            radius = I.getValue(I.getNodeFromName(zone, 'ChannelHeight'))
         else:
-            raise ValueError('Wrong BC shape {} in {}'.format(bc_shape, I.getPath(t, bc)))
+            raise ValueError('varForInterpolation must be Radius or ChannelHeight')
+
+        PointRangeNode = I.getNodeFromType(bc, 'IndexRange_t')
+        if PointRangeNode:
+            # Structured mesh
+            PointRange = I.getValue(PointRangeNode)
+            bc_shape = PointRange[:, 1] - PointRange[:, 0]
+            if bc_shape[0] == 0:
+                bc_shape = (bc_shape[1], bc_shape[2])
+                radius = radius[PointRange[0, 0]-1,
+                                PointRange[1, 0]-1:PointRange[1, 1]-1, 
+                                PointRange[2, 0]-1:PointRange[2, 1]-1]
+            elif bc_shape[1] == 0:
+                bc_shape = (bc_shape[0], bc_shape[2])
+                radius = radius[PointRange[0, 0]-1:PointRange[0, 1]-1,
+                                PointRange[1, 0]-1, 
+                                PointRange[2, 0]-1:PointRange[2, 1]-1]
+            elif bc_shape[2] == 0:
+                bc_shape = (bc_shape[0], bc_shape[1])
+                radius = radius[PointRange[0, 0]-1:PointRange[0, 1]-1,
+                                PointRange[1, 0]-1:PointRange[1, 1]-1,
+                                PointRange[2, 0]-1]
+            else:
+                raise ValueError('Wrong BC shape {} in {}'.format(bc_shape, I.getPath(t, bc)))
+        
+        else: 
+            # Unstructured mesh
+            PointList = I.getValue(I.getNodeFromType(bc, 'IndexArray_t'))
+            bc_shape = PointList.size
+            radius = radius[PointList-1]
 
         for var, value in ImposedVariables.items():
-            assert value.shape == bc_shape, \
-                'Wrong shape for variable {}: {} (shape {} for {})'.format(var, value.shape, bc_shape, I.getPath(t, bc))
+            if callable(value):
+                ImposedVariables[var] = value(radius) 
+            elif np.ndim(value)==0:
+                # scalar value --> uniform data
+                ImposedVariables[var] = value * np.ones(radius.shape)
+            assert ImposedVariables[var].shape == bc_shape, \
+                'Wrong shape for variable {}: {} (shape {} for {})'.format(
+                    var, ImposedVariables[var].shape, bc_shape, I.getPath(t, bc))
+        
+        checkVariables(ImposedVariables)
 
         BCDataSet = I.newBCDataSet(name=BCDataSetName, value='Null',
             gridLocation='FaceCenter', parent=bc)
@@ -3002,11 +3143,10 @@ def setBC_stage_choro(t, left, right, method='globborder_dict', stage_choro_type
 
 @J.mute_stdout
 def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
-    valve_ref_mflow=None, valve_relax=0.1, ReferenceValues=None,
-    TurboConfiguration=None, method='globborder_dict'):
+    valve_ref_mflow=None, valve_relax=0.1, indpiv=1, 
+    ReferenceValues=None, TurboConfiguration=None, method='globborder_dict'):
     '''
     Set an outflow boundary condition of type ``outradeq``.
-    The pivot index is 1 and cannot be changed.
 
     .. important : This function has a dependency to the ETC module.
 
@@ -3047,6 +3187,9 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
               by a mass flow.
 
             * for law 4, it is a value homogeneous with a pressure.
+        
+        indpiv : int
+            Index of the cell where the pivot value is imposed.
 
         ReferenceValues : :py:class:`dict` or :py:obj:`None`
             as produced by :py:func:`computeReferenceValues`
@@ -3104,7 +3247,7 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
     for bcn in C.getFamilyBCs(t, FamilyName):
         bcpath = I.getPath(t, bcn)
         bc = trf.BCOutRadEq(t, bcn)
-        bc.indpiv = 1
+        bc.indpiv = indpiv
         bc.dirorder = -1
         # Valve laws:
         # <bc>.valve_law(valve_type, pref, Qref, valve_relax=relax, valve_file=None, valve_file_freq=1) # v4.2.01 pour valve_file*
@@ -3133,11 +3276,10 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
 
 @J.mute_stdout
 def setBC_outradeqhyb(t, FamilyName, valve_type=0, valve_ref_pres=None,
-                      valve_ref_mflow=None, valve_relax=0.1, nbband=100, c=0.3, ReferenceValues=None,
-                      TurboConfiguration=None):
+                      valve_ref_mflow=None, valve_relax=0.1, indpiv=1, nbband=100, c=0.3, 
+                      ReferenceValues=None, TurboConfiguration=None):
     '''
     Set an outflow boundary condition of type ``outradeqhyb``.
-    The pivot index is 1 and cannot be changed.
 
     .. important : This function has a dependency to the ETC module.
 
@@ -3171,6 +3313,9 @@ def setBC_outradeqhyb(t, FamilyName, valve_type=0, valve_ref_pres=None,
               by a mass flow.
 
             * for law 4, it is a value homogeneous with a pressure.
+        
+        indpiv : int
+            Index of the cell where the pivot value is imposed.
 
         nbband : int
             Number of points in the radial distribution to compute.
@@ -3219,7 +3364,7 @@ def setBC_outradeqhyb(t, FamilyName, valve_type=0, valve_ref_pres=None,
     bc = trf.BCOutRadEqHyb(
         t, I.getNodeFromNameAndType(t, FamilyName, 'Family_t'))
     bc.glob_border()
-    bc.indpiv = 1
+    bc.indpiv = indpiv
     valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget',
                       3: 'QLinear', 4: 'QHyperbolic'}
     bc.valve_law(valve_law_dict[valve_type], valve_ref_pres,
@@ -3604,7 +3749,12 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
         RotationSpeedRange = [kwargs['TurboConfiguration']['ShaftRotationSpeed']]
 
     ThrottleRange = sorted(list(ThrottleRange))
-    RotationSpeedRange = sorted(list(RotationSpeedRange))
+    # Sort Rotation speeds (and mesh files, if a list is given) 
+    RotationSpeedRange = list(RotationSpeedRange)
+    index2sortRSpeed = sorted(range(len(RotationSpeedRange)), key=lambda i: abs(RotationSpeedRange[i]))
+    RotationSpeedRange = [RotationSpeedRange[i] for i in index2sortRSpeed]
+    if isinstance(kwargs['mesh'], list):
+        kwargs['mesh'] = [kwargs['mesh'][i] for i in index2sortRSpeed]
 
     ThrottleMatrix, RotationSpeedMatrix  = np.meshgrid(ThrottleRange, RotationSpeedRange)
 
@@ -3652,6 +3802,9 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
                     else: raise Exception('valve_relax must be given explicitely')
                 else:
                     raise Exception('valve_type={} not taken into account yet'.format(BC['valve_type']))
+
+            if 'filename' in BC:
+                BC['filename'] = adaptPathForDispatcher(BC['filename'])
 
         if 'Initialization' in WorkflowParams:
             if i != 0:
@@ -4336,7 +4489,10 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
 
 def postprocess_turbomachinery(surfaces, stages=[], 
                                 var4comp_repart=None, var4comp_perf=None, var2keep=None, 
-                                computeRadialProfiles=True):
+                                computeRadialProfiles=True, 
+                                config='annular', 
+                                lin_axis='XY',
+                                RowType='compressor'):
     '''
     Perform a series of classical postprocessings for a turbomachinery case : 
 
@@ -4395,6 +4551,15 @@ def postprocess_turbomachinery(surfaces, stages=[],
         computeRadialProfiles : bool
             Choose or not to compute radial profiles.
         
+        config : str
+            see :py:func:`MOLA.Postprocess.compute1DRadialProfiles`
+
+        lin_axis : str
+            see :py:func:`MOLA.Postprocess.compute1DRadialProfiles`
+
+        RowType : str
+            see parameter 'config' of :py:func:`MOLA.Postprocess.compareRadialProfilesPlane2Plane`
+        
     '''
     import Converter.Mpi as Cmpi
     import MOLA.PostprocessTurbo as Post
@@ -4405,7 +4570,7 @@ def postprocess_turbomachinery(surfaces, stages=[],
     #______________________________________________________________________________
     # Variables
     #______________________________________________________________________________
-    allVariables = TUS.getFields()
+    allVariables = TUS.getFields(config=config)
     if not var4comp_repart:
         var4comp_repart = ['StagnationEnthalpyDelta',
                            'StagnationPressureRatio', 'StagnationTemperatureRatio',
@@ -4435,13 +4600,15 @@ def postprocess_turbomachinery(surfaces, stages=[],
     Post.computeVariablesOnIsosurface(surfaces, allVariables)
     Post.compute0DPerformances(surfaces, variablesByAverage)
     if computeRadialProfiles: 
-        Post.compute1DRadialProfiles(surfaces, variablesByAverage)
+        Post.compute1DRadialProfiles(
+            surfaces, variablesByAverage, config=config, lin_axis=lin_axis)
     # Post.computeVariablesOnBladeProfiles(surfaces, hList='all')
     #______________________________________________________________________________#
 
     if Cmpi.rank == 0:
         Post.comparePerfoPlane2Plane(surfaces, var4comp_perf, stages)
         if computeRadialProfiles: 
-            Post.compareRadialProfilesPlane2Plane(surfaces, var4comp_repart, stages)
+            Post.compareRadialProfilesPlane2Plane(
+                surfaces, var4comp_repart, stages, config=RowType)
 
     Post.cleanSurfaces(surfaces, var2keep=var2keep)

@@ -9,17 +9,19 @@ File history:
 15/02/2021 - L. Bernardos - Creation
 '''
 
-import sys
-import os
-import numpy as np
-import pprint
-
-import Converter.PyTree as C
-import Converter.Internal as I
-import Geom.PyTree as D
-import Transform.PyTree as T
-
 import MOLA
+
+if not MOLA.__ONLY_DOC__:
+    import sys
+    import os
+    import numpy as np
+    import pprint
+
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Geom.PyTree as D
+    import Transform.PyTree as T
+
 from . import InternalShortcuts as J
 from . import Preprocess as PRE
 from . import GenerativeShapeDesign as GSD
@@ -232,8 +234,6 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
         meshParams['References'].update({'Reynolds':Reynolds})
         if 'options' not in machine: meshParams['options'] = {}
         if machine == 'sator':
-            meshParams['options']['NumberOfProcessors']=28
-        elif machine == 'sator-new':
             meshParams['options']['NumberOfProcessors']=48
         elif machine == 'spiro':
             meshParams['options']['NumberOfProcessors']=24
@@ -415,6 +415,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                     TimeMarching='steady', timestep=0.01,
                     CFLparams=dict(vali=1.,valf=10.,iteri=1,
                                            iterf=1000,function_type='linear'),
+                    OverrideSolverKeys={},
                     CoprocessOptions={'ConvergenceCriteria': [dict(Family='AIRFOIL',
                                                 Variable='std-CL',
                                                 Threshold=CONVERGENCE_THRESHOLD)]},
@@ -497,6 +498,9 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
         CFLParams : dict
             any accepted value by any value accepted by :py:func:`MOLA.Preprocess.getElsAkeysNumerics`
 
+        OverrideSolverKeys : :py:class:`dict` of maximum 3 :py:class:`dict`
+            exactly the same as in :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
+
         CoprocessOptions : dict
             any accepted value by :py:func:`MOLA.Preprocess.computeReferenceValues`
 
@@ -566,6 +570,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
     if not t: t = C.convertFile2PyTree(file_mesh)
     else: t = I.copyRef(t)
 
+    CoprocessOptions.setdefault('TagSurfacesWithIteration', 'auto')
     FluidProperties = PRE.computeFluidProperties()
 
     try:
@@ -611,7 +616,19 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
     if NonLocalTransition:
         setBCDataSetWithNonLocalTransition(t, AirfoilWallFamilyName, ReferenceValues)
 
-    AllSetupDics = dict(Workflow='Airfoil',
+    allowed_override_objects = ['cfdpb','numerics','model']
+    for v in OverrideSolverKeys:
+        if v == 'cfdpb':
+            elsAkeysCFD.update(OverrideSolverKeys[v])
+        elif v == 'numerics':
+            elsAkeysNumerics.update(OverrideSolverKeys[v])
+        elif v == 'model':
+            elsAkeysModel.update(OverrideSolverKeys[v])
+        else:
+            raise AttributeError('OverrideSolverKeys "%s" must be one of %s'%(v,
+                                                str(allowed_override_objects)))
+
+    AllSetupDicts = dict(Workflow='Airfoil',
                         JobInformation=JobInformation,
                         FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
@@ -621,7 +638,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                         Extractions=Extractions)
 
 
-    t = PRE.newCGNSfromSetup(t, AllSetupDics, Initialization=Initialization,
+    t = PRE.newCGNSfromSetup(t, AllSetupDicts, Initialization=Initialization,
                             FULL_CGNS_MODE=False, BCExtractions=BCExtractions)
     PRE.saveMainCGNSwithLinkToOutputFields(t, writeOutputFields=writeOutputFields)
 
@@ -1663,7 +1680,7 @@ def buildPolar(JobsConfiguration, PolarName='Polar',
                     try:
                         Matrix = PolarsDict[v]
                     except KeyError:
-                        Matrix = np.zeros((nA,nM), dtype=np.float, order='F')
+                        Matrix = np.zeros((nA,nM), dtype=np.float64, order='F')
                         Matrix[:i,:j] = 0.0
                         Matrix[i,:j]  = 0.0
                         Matrix[:i,j]  = 0.0
@@ -1685,7 +1702,7 @@ def buildPolar(JobsConfiguration, PolarName='Polar',
                         Matrix = PolarsDict[v]
                     except KeyError:
                         nS = distr[v].shape[-1]
-                        Matrix = np.zeros((nA,nM,nS), dtype=np.float, order='F')
+                        Matrix = np.zeros((nA,nM,nS), dtype=np.float64, order='F')
                         Matrix[:i,:j,:] = 0.0
                         Matrix[i,:j,:]  = 0.0
                         Matrix[:i,j,:]  = 0.0

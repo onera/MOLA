@@ -13,13 +13,16 @@ File history:
 07/04/2022 - T. Bontemps - Creation
 '''
 
-import sys
-import os
-import numpy as np
-import copy
+import MOLA
 
-import Converter.PyTree    as C
-import Converter.Internal  as I
+if not MOLA.__ONLY_DOC__:
+    import sys
+    import os
+    import numpy as np
+    import copy
+
+    import Converter.PyTree    as C
+    import Converter.Internal  as I
 
 from . import InternalShortcuts as J
 from . import Preprocess        as PRE
@@ -66,7 +69,8 @@ def prepareMesh4ElsA(mesh, kwargs):
     return WC.prepareMesh4ElsA(mesh, **kwargs)
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
-        NumericalParams={}, TurboConfiguration={}, Extractions=[], BoundaryConditions=[],
+        NumericalParams={}, OverrideSolverKeys={},
+        TurboConfiguration={}, Extractions=[], BoundaryConditions=[],
         BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade'],
         Initialization={'method':'uniform'}, JobInformation={}, SubmitJob=False,
         FULL_CGNS_MODE=True, COPY_TEMPLATES=True):
@@ -101,6 +105,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             .. note:: internally, this dictionary is passed as *kwargs* as follows:
 
                 >>> MOLA.Preprocess.getElsAkeysNumerics(arg, **NumericalParams)
+
+        OverrideSolverKeys : :py:class:`dict` of maximum 3 :py:class:`dict`
+            exactly the same as in :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
 
         TurboConfiguration : dict
             Dictionary concerning the compressor properties.
@@ -166,7 +173,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             * ``setup.py``
                 ultra-light file containing all relevant info of the simulation
     '''
-
+    toc = J.tic()
     def addFieldExtraction(fieldname):
         try:
             FieldsExtr = ReferenceValuesParams['FieldsAdditionalExtractions']
@@ -225,6 +232,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             for rowParams in TurboConfiguration['Rows'].values()]):
         t = WC.duplicateFlowSolution(t, TurboConfiguration)
 
+    WC.setMotionForRowsFamilies(t, TurboConfiguration)
     WC.setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                             FluidProperties, ReferenceValues,
                             bladeFamilyNames=bladeFamilyNames)
@@ -234,7 +242,19 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     if not 'PeriodicTranslation' in TurboConfiguration:
         WC.addMonitoredRowsInExtractions(Extractions, TurboConfiguration)
 
-    AllSetupDics = dict(Workflow='AerothermalCoupling',
+    allowed_override_objects = ['cfdpb','numerics','model']
+    for v in OverrideSolverKeys:
+        if v == 'cfdpb':
+            elsAkeysCFD.update(OverrideSolverKeys[v])
+        elif v == 'numerics':
+            elsAkeysNumerics.update(OverrideSolverKeys[v])
+        elif v == 'model':
+            elsAkeysModel.update(OverrideSolverKeys[v])
+        else:
+            raise AttributeError('OverrideSolverKeys "%s" must be one of %s'%(v,
+                                                str(allowed_override_objects)))
+
+    AllSetupDicts = dict(Workflow='AerothermalCoupling',
                         Splitter=Splitter,
                         JobInformation=JobInformation,
                         TurboConfiguration=TurboConfiguration,
@@ -244,38 +264,38 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
                         Extractions=Extractions)
-    if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
 
-    BCExtractions = dict(
-        BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
-        BCInflow = ['convflux_ro'],
-        BCOutflow = ['convflux_ro'],
-        )
-    BCExtractions['BCWallViscousIsothermal'] = BCExtractions['BCWall'] \
-        + ['tsta', 'normalheatflux', 'thrm_cndy_lam', 'hpar', 'ro', 'visclam', 'viscrapp']
+    if BodyForceInputData: AllSetupDicts['BodyForceInputData'] = BodyForceInputData
+
+    
+    ReferenceValues['BCExtractions']['BCWallViscousIsothermal'] = \
+        ReferenceValues['BCExtractions']['BCWall'] \
+        + ['tsta', 'normalheatflux', 'thrm_cndy_lam',
+           'hpar', 'ro', 'visclam', 'viscrapp']
 
     PRE.addTrigger(t)
-    PRE.addExtractions(t, AllSetupDics['ReferenceValues'],
-                      AllSetupDics['elsAkeysModel'],
-                      extractCoords=False, BCExtractions=BCExtractions)
+    PRE.addExtractions(t, AllSetupDicts['ReferenceValues'],
+                      AllSetupDicts['elsAkeysModel'],
+                      extractCoords=False,
+                      BCExtractions=ReferenceValues['BCExtractions'])
 
     if elsAkeysNumerics['time_algo'] != 'steady':
-        PRE.addAverageFieldExtractions(t, AllSetupDics['ReferenceValues'],
-            AllSetupDics['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
+        PRE.addAverageFieldExtractions(t, AllSetupDicts['ReferenceValues'],
+            AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
 
-    PRE.addReferenceState(t, AllSetupDics['FluidProperties'],
-                         AllSetupDics['ReferenceValues'])
-    dim = int(AllSetupDics['elsAkeysCFD']['config'][0])
+    PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],
+                         AllSetupDicts['ReferenceValues'])
+    dim = int(AllSetupDicts['elsAkeysCFD']['config'][0])
     PRE.addGoverningEquations(t, dim=dim)
-    AllSetupDics['ReferenceValues']['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
-    PRE.writeSetup(AllSetupDics)
+    AllSetupDicts['ReferenceValues']['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
+    PRE.writeSetup(AllSetupDicts)
 
     if FULL_CGNS_MODE:
-        PRE.addElsAKeys2CGNS(t, [AllSetupDics['elsAkeysCFD'],
-                                 AllSetupDics['elsAkeysModel'],
-                                 AllSetupDics['elsAkeysNumerics']])
+        PRE.addElsAKeys2CGNS(t, [AllSetupDicts['elsAkeysCFD'],
+                                 AllSetupDicts['elsAkeysModel'],
+                                 AllSetupDicts['elsAkeysNumerics']])
 
-    addExchangeSurfaces(t, AllSetupDics['ReferenceValues']['CoprocessOptions']['CoupledSurfaces'])
+    addExchangeSurfaces(t, AllSetupDicts['ReferenceValues']['CoprocessOptions']['CoupledSurfaces'])
     renameElementsNodesInElsAHybrid(t)
 
     PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
@@ -295,8 +315,15 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             PRE.sendSimulationFiles(JobInformation['DIRECTORY_WORK'],
                                     overrideFields=writeOutputFields)
 
-        if SubmitJob: JM.submitJob(JobInformation['DIRECTORY_WORK'])
+        for i in range(SubmitJob):
+            singleton = False if i==0 else True
+            JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
 
+    ElapsedTime = str(PRE.datetime.timedelta(seconds=J.tic()-toc))
+    hours, minutes, seconds = ElapsedTime.split(':')
+    ElapsedTimeHuman = hours+' hours '+minutes+' minutes and '+seconds+' seconds'
+    msg = 'prepareMainCGNS took '+ElapsedTimeHuman
+    print(J.BOLD+msg+J.ENDC)
 
 
 def addExchangeSurfaces(t, coupledSurfaces, couplingScript='coprocess.py'):

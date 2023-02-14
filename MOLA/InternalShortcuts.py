@@ -10,21 +10,24 @@ First creation:
 27/02/2019 - L. Bernardos
 '''
 
-# System modules
 import sys
 usingPython2 = sys.version_info[0] == 2
 import os
-import threading
-import time
-import glob
-import numpy as np
-from itertools import product
-from timeit import default_timer as tic
-from fnmatch import fnmatch
 
-import Converter.PyTree as C
-import Converter.Internal as I
+import MOLA
 from . import __version__, __MOLA_PATH__
+if not MOLA.__ONLY_DOC__:
+    import threading
+    import time
+    import glob
+    import numpy as np
+    import pprint
+    from itertools import product
+    from timeit import default_timer as tic
+    from fnmatch import fnmatch
+
+    import Converter.PyTree as C
+    import Converter.Internal as I
 
 FAIL  = '\033[91m'
 GREEN = '\033[92m'
@@ -83,6 +86,14 @@ def set(parent, childname, childType='UserDefinedData_t', **kwargs):
                     continue
                 else:
                     value = np.atleast_1d(kwargs[v])
+
+                    if value.dtype == 'O':
+                        print(WARN+'key:  '+'/'.join([parent[0],childname,v])+ENDC)
+                        print(WARN+'has value:'+ENDC)
+                        print(WARN+pprint.pformat(kwargs[v])+ENDC)
+                        print(WARN+'which cannot be written in CGNS'+ENDC)
+                        print(WARN+'this value will be replaced in CGNS by: '+BOLD+'None'+ENDC)
+                        value = None
             else:
                 value = None
             children += [[v,value]]
@@ -876,7 +887,7 @@ def interpolate__(AbscissaRequest, AbscissaData, ValuesData,
         try: bc_type = kwargs['CubicSplineBoundaryConditions']
         except KeyError: bc_type = 'not-a-knot'
 
-        interp = scipy.interpolate.CubicSpline(AbscissaData, ValuesData, axis=axis, bc_type=bc_type, extrapolate=True)
+        interp = scipy.interpolate.CubicSpline(AbscissaData, ValuesData, axis=axis, extrapolate=True, **kwargs)
         return interp(AbscissaRequest)
 
     else:
@@ -2271,9 +2282,15 @@ def printEnvironment():
     # elsA tools chain
     try:
         import etc
-        vETC = etc.version
     except:
         vETC = FAIL + 'UNAVAILABLE' + ENDC
+    else:
+        vETC = WARN + 'UNKNOWN' + ENDC
+        for vatt in ('__version__','version'):
+            if hasattr(etc, vatt):
+                vETC = getattr(etc,vatt)
+                break
+    
     print(' --> ETC '+vETC)
 
     # Cassiopee
@@ -2286,7 +2303,8 @@ def printEnvironment():
 
     # Vortex Particle Method
     try:
-        import VortexParticleMethod as VPM
+        import VortexParticleMethod.vortexparticlemethod
+        import MOLA.VPM as VPM
         vVPM = VPM.__version__
     except:
         vVPM = FAIL + 'UNAVAILABLE' + ENDC
@@ -2307,7 +2325,11 @@ def printEnvironment():
 
     # turbo
     vTURBO = os.getenv('TURBOVERSION', 'UNAVAILABLE')
-    if vTURBO == 'UNAVAILABLE': vTURBO = FAIL + vTURBO + ENDC
+    if vTURBO != 'UNAVAILABLE':
+        try:
+            import turbo
+        except:
+            vTURBO = FAIL + 'UNAVAILABLE' + ENDC 
     print(' --> turbo '+vTURBO)
 
     # ErsatZ
@@ -2318,6 +2340,17 @@ def printEnvironment():
         vERSATZ = FAIL + 'UNAVAILABLE' + ENDC
     print(' --> Ersatz '+vERSATZ)
 
+
+    # maia
+    try:
+        import maia
+        try:
+            vMAIA = maia.__version__
+        except:
+            vMAIA = 'dev'
+    except:
+        vMAIA = FAIL+'UNAVAILABLE'+ENDC
+    print(' --> maia '+vMAIA)
 
     if totoV == 'Dev':
         print(WARN+'WARNING: you are using an UNSTABLE version of MOLA.\nConsider using a stable version.'+ENDC)
@@ -2495,6 +2528,7 @@ def joinFamilies(t, pattern):
 
 def _getBaseWithZoneName(t,zone_name):
     for base in I.getBases(t):
+        lbase = len(base)
         for child in base[2]:
             if child[0] == zone_name and child[3] == 'Zone_t':
                 return base
@@ -2545,14 +2579,15 @@ def selectZones(t, baseName=None, familyName=None, zoneName=None):
         zones : :py:class:`list` of zone
             zones verifying the selection conditions
     '''
-    allzones = I.getZones(t)
     zones = []
-    for zone in allzones:
-        zoneWithBaseName = _getBaseWithZoneName(t,zone[0])[0]
-        BaseMatch = fnmatch(zoneWithBaseName, baseName) if baseName is not None else True
-        FamilyMatch = zoneOfFamily(zone, familyName, wildcard_used=True) if familyName is not None else True
-        ZoneMatch = fnmatch(zone[0], zoneName) if zoneName is not None else True
-        if BaseMatch == ZoneMatch == FamilyMatch == True: zones += [ zone ]
+    for base in I.getBases(t):
+        currentBaseName = I.getName(base)
+        BaseMatch = fnmatch(currentBaseName, baseName) if baseName is not None else True
+        if not BaseMatch: continue
+        for zone in I.getZones(base):
+            FamilyMatch = zoneOfFamily(zone, familyName, wildcard_used=True) if familyName is not None else True
+            ZoneMatch = fnmatch(zone[0], zoneName) if zoneName is not None else True
+            if BaseMatch == ZoneMatch == FamilyMatch == True: zones += [ zone ]
     return zones
 
 def _reorderBases(t):

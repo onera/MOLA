@@ -785,9 +785,9 @@ class MainWindow(QMainWindow):
 
             elif NewValue[0].isdigit():
                 if '.' in NewValue:
-                    NewValue = np.array([NewValue],dtype=np.float,order='F')
+                    NewValue = np.array([NewValue],dtype=np.float64,order='F')
                 else:
-                    NewValue = np.array([NewValue],dtype=np.int,order='F')
+                    NewValue = np.array([NewValue],dtype=np.int32,order='F')
 
             
             indices = self.tree.selectionModel().selectedIndexes()
@@ -993,11 +993,11 @@ class MainWindow(QMainWindow):
     def saveTree(self):
         if self.t.file:
             print('will write: '+self.t.file)
-            # QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+            QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
             self.t.replaceSkeletonWithDataRecursively(self.t.file)
             self.t.save(self.t.file)
             print('done')
-            # QApplication.restoreOverrideCursor()
+            QApplication.restoreOverrideCursor()
         else:
             self.saveTreeAs()
 
@@ -1005,13 +1005,14 @@ class MainWindow(QMainWindow):
         fname = QFileDialog.getSaveFileName(self, 'Save file', '.',"CGNS files (*.cgns)")
         onlyFileName = fname[0].split(os.sep)[-1]
         if onlyFileName:
-            # QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+            QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
             print('will write: '+onlyFileName)
+            self.t.replaceSkeletonWithDataRecursively(self.t.file)
             self.t.save(fname[0])
             print('done')
             self.t.file = fname[0]
             self.setWindowTitle("TreeLab - "+onlyFileName)
-            # QApplication.restoreOverrideCursor()
+            QApplication.restoreOverrideCursor()
 
 
     def updateNameOfNodeCGNS(self, item):
@@ -1361,9 +1362,9 @@ class MainWindow(QMainWindow):
                     node_cgns.setValue(None)
                 elif new_value[0].isdigit():
                     if '.' in new_value:
-                        new_value = np.array([new_value],dtype=np.float,order='F')
+                        new_value = np.array([new_value],dtype=np.float64,order='F')
                     else:
-                        new_value = np.array([new_value],dtype=np.int,order='F')
+                        new_value = np.array([new_value],dtype=np.int32,order='F')
                 node_cgns.setValue(new_value)
 
             elif isinstance(value,list):

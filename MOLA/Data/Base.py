@@ -16,10 +16,10 @@ class Base(Node):
         self.setType('CGNSBase_t')
 
         if self.value() is None:
-            BaseValue = np.array([3,3],dtype=np.int,order='F')
+            BaseValue = np.array([3,3],dtype=np.int32,order='F')
             for child in self.children():
                 if isinstance(child, Zone):
-                    BaseValue = np.array([child.dim(),3],dtype=np.int,order='F')
+                    BaseValue = np.array([child.dim(),3],dtype=np.int32,order='F')
                     break
             self.setValue(BaseValue)
 
@@ -41,7 +41,7 @@ class Base(Node):
         self.value()[0] = PhysicalDimension
 
     def newFields(self, FieldNames, Container='FlowSolution',
-                  GridLocation='auto', dtype=np.float, return_type='dict',
+                  GridLocation='auto', dtype=np.float64, return_type='dict',
                   ravel=False):
 
         arrays = []
@@ -61,7 +61,7 @@ class Base(Node):
             return v
 
     def getFields(self, FieldNames, Container='FlowSolution',
-                  BehaviorIfNotFound='create', dtype=np.float, return_type='dict',
+                  BehaviorIfNotFound='create', dtype=np.float64, return_type='dict',
                   ravel=False):
 
         arrays = []

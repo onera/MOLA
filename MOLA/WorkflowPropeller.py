@@ -10,22 +10,24 @@ File history:
 22/03/2022 - L. Bernardos - Creation
 '''
 
-import os
-import numpy as np
+import MOLA
+if not MOLA.__ONLY_DOC__:
+    import os
+    import numpy as np
 
-import Converter.PyTree    as C
-import Converter.Internal  as I
-import Distributor2.PyTree as D2
-import Post.PyTree         as P
-import Generator.PyTree    as G
-import Transform.PyTree    as T
-import Connector.PyTree    as X
+    import Converter.PyTree    as C
+    import Converter.Internal  as I
+    import Distributor2.PyTree as D2
+    import Post.PyTree         as P
+    import Generator.PyTree    as G
+    import Transform.PyTree    as T
+    import Connector.PyTree    as X
 
-from . import InternalShortcuts as J
-from . import Wireframe as W
-from . import Preprocess        as PRE
-from . import JobManager        as JM
-from . import WorkflowCompressor as WC
+    from . import InternalShortcuts as J
+    from . import Wireframe as W
+    from . import Preprocess        as PRE
+    from . import JobManager        as JM
+    from . import WorkflowCompressor as WC
 
 def prepareMesh4ElsA(mesh='mesh.cgns', splitOptions={'maximum_allowed_nodes':3},
                      match_tolerance=1e-7, periodic_match_tolerance=1e-7):
@@ -36,16 +38,16 @@ def prepareMesh4ElsA(mesh='mesh.cgns', splitOptions={'maximum_allowed_nodes':3},
     ----------
 
         mesh : :py:class:`str`
-            Mesh filemane issued from automatic mesh generation, including BC families.
+            Mesh filename issued from automatic mesh generation, including BC families.
 
         splitOptions : dict
             Exactly the keyword arguments of :py:func:`~MOLA.Preprocess.splitAndDistribute`
 
         match_tolerance : float
-            small tolerance for consctructing the match connectivity.
+            small tolerance for constructing the match connectivity.
 
         periodic_match_tolerance : float
-            small tolerance for consctructing the periodic match connectivity
+            small tolerance for constructing the periodic match connectivity
 
     Returns
     -------
@@ -110,6 +112,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
                 UpdateSurfacesFrequency = 500,
                 UpdateFieldsFrequency = 2000)),
         NumericalParams={},
+        OverrideSolverKeys={},
         Extractions=[dict(type='AllBCWall'),
                      dict(type='IsoSurface',field='CoordinateX',value=1.0),
                      dict(type='IsoSurface',field='CoordinateX',value=2.0),
@@ -165,6 +168,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
 
                 >>> MOLA.Preprocess.getElsAkeysNumerics(arg, **NumericalParams)
 
+        OverrideSolverKeys : :py:class:`dict` of maximum 3 :py:class:`dict`
+            exactly the same as in :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
+
         Extractions : :py:class:`list` of :py:class:`dict`
             List of extractions to perform during the simulation. See
             documentation of :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
@@ -215,7 +221,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
             * ``setup.py``
                 ultra-light file containing all relevant info of the simulation
     '''
-
+    toc = J.tic()
     ReferenceValuesParamsDefault = dict(
         FieldsAdditionalExtractions=['q_criterion'],
         CoprocessOptions=dict(
@@ -303,12 +309,24 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
 
     PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
 
-    WC.setBoundaryConditions(t, {}, TurboConfiguration,
-                            FluidProperties, ReferenceValues)
+    WC.setMotionForRowsFamilies(t, TurboConfiguration)
+    WC.setBC_Walls(t, TurboConfiguration)
 
     WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
-    AllSetupDics = dict(Workflow='Propeller',
+    allowed_override_objects = ['cfdpb','numerics','model']
+    for v in OverrideSolverKeys:
+        if v == 'cfdpb':
+            elsAkeysCFD.update(OverrideSolverKeys[v])
+        elif v == 'numerics':
+            elsAkeysNumerics.update(OverrideSolverKeys[v])
+        elif v == 'model':
+            elsAkeysModel.update(OverrideSolverKeys[v])
+        else:
+            raise AttributeError('OverrideSolverKeys "%s" must be one of %s'%(v,
+                                                str(allowed_override_objects)))
+
+    AllSetupDicts = dict(Workflow='Propeller',
                         Splitter=Splitter,
                         JobInformation=JobInformation,
                         TurboConfiguration=TurboConfiguration,
@@ -320,24 +338,25 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
                         Extractions=Extractions)
 
     PRE.addTrigger(t)
-    PRE.addExtractions(t, AllSetupDics['ReferenceValues'],
-                          AllSetupDics['elsAkeysModel'], extractCoords=False)
+    PRE.addExtractions(t, AllSetupDicts['ReferenceValues'],
+                          AllSetupDicts['elsAkeysModel'], extractCoords=False,
+                          BCExtractions=ReferenceValues['BCExtractions'])
 
     if elsAkeysNumerics['time_algo'] != 'steady':
-        PRE.addAverageFieldExtractions(t, AllSetupDics['ReferenceValues'],
-            AllSetupDics['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
+        PRE.addAverageFieldExtractions(t, AllSetupDicts['ReferenceValues'],
+            AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
 
-    PRE.addReferenceState(t, AllSetupDics['FluidProperties'],
-                         AllSetupDics['ReferenceValues'])
-    dim = int(AllSetupDics['elsAkeysCFD']['config'][0])
+    PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],
+                         AllSetupDicts['ReferenceValues'])
+    dim = int(AllSetupDicts['elsAkeysCFD']['config'][0])
     PRE.addGoverningEquations(t, dim=dim)
-    AllSetupDics['ReferenceValues']['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
-    PRE.writeSetup(AllSetupDics)
+    AllSetupDicts['ReferenceValues']['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
+    PRE.writeSetup(AllSetupDicts)
 
     if FULL_CGNS_MODE:
-        PRE.addElsAKeys2CGNS(t, [AllSetupDics['elsAkeysCFD'],
-                                 AllSetupDics['elsAkeysModel'],
-                                 AllSetupDics['elsAkeysNumerics']])
+        PRE.addElsAKeys2CGNS(t, [AllSetupDicts['elsAkeysCFD'],
+                                 AllSetupDicts['elsAkeysModel'],
+                                 AllSetupDicts['elsAkeysNumerics']])
 
     PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
@@ -355,7 +374,16 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
             PRE.sendSimulationFiles(JobInformation['DIRECTORY_WORK'],
                                     overrideFields=writeOutputFields)
 
-        if SubmitJob: JM.submitJob(JobInformation['DIRECTORY_WORK'])
+        for i in range(SubmitJob):
+            singleton = False if i==0 else True
+            JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
+
+    ElapsedTime = str(PRE.datetime.timedelta(seconds=J.tic()-toc))
+    hours, minutes, seconds = ElapsedTime.split(':')
+    ElapsedTimeHuman = hours+' hours '+minutes+' minutes and '+seconds+' seconds'
+    msg = 'prepareMainCGNS took '+ElapsedTimeHuman
+    print(J.BOLD+msg+J.ENDC)
+
 
 def getPropellerKinematic(t):
     mesh_params = I.getNodeFromName(t,'.MeshingParameters')

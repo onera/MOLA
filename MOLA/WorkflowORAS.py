@@ -9,16 +9,19 @@ File history:
 01/04/2022 - M. Balmaseda - Creation
 '''
 
-import os
-import numpy as np
+import MOLA
 
-import Converter.PyTree    as C
-import Converter.Internal  as I
-import Distributor2.PyTree as D2
-import Post.PyTree         as P
-import Generator.PyTree    as G
-import Transform.PyTree    as T
-import Connector.PyTree    as X
+if not MOLA.__ONLY_DOC__:
+    import os
+    import numpy as np
+
+    import Converter.PyTree    as C
+    import Converter.Internal  as I
+    import Distributor2.PyTree as D2
+    import Post.PyTree         as P
+    import Generator.PyTree    as G
+    import Transform.PyTree    as T
+    import Connector.PyTree    as X
 
 from . import InternalShortcuts as J
 from . import Preprocess        as PRE
@@ -32,7 +35,7 @@ def prepareMesh4ElsA(mesh, **kwargs):
     return WC.prepareMesh4ElsA(mesh, **kwargs)
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
-        NumericalParams={}, Extractions=[],
+        NumericalParams={}, OverrideSolverKeys ={}, Extractions=[],
         writeOutputFields=True, Initialization={'method':'uniform'}, TurboConfiguration={},
         BoundaryConditions=[],bladeFamilyNames=['Blade'],
         JobInformation={}, SubmitJob=False, FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
@@ -68,6 +71,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             .. note:: internally, this dictionary is passed as *kwargs* as follows:
 
                 >>> MOLA.Preprocess.getElsAkeysNumerics(arg, **NumericalParams)
+
+        OverrideSolverKeys : :py:class:`dict` of maximum 3 :py:class:`dict`
+            exactly the same as in :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
 
         RPM : float
             revolutions per minute of the blade
@@ -122,7 +128,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             * ``setup.py``
                 ultra-light file containing all relevant info of the simulation
     '''
-
+    toc = J.tic()
     def addFieldExtraction(fieldname):
         try:
             FieldsExtr = ReferenceValuesParams['FieldsAdditionalExtractions']
@@ -174,12 +180,25 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         raise ValueError('No initial solution provided. Chorochronic simulations must be initialized from a mixing plane solution obtained on the same mesh.')
     PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
 
+    WC.setMotionForRowsFamilies(t, TurboConfiguration)
     WC.setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                             FluidProperties,ReferenceValues, bladeFamilyNames=bladeFamilyNames)
 
     WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
-    AllSetupDics = dict(Workflow='ORAS',
+    allowed_override_objects = ['cfdpb','numerics','model']
+    for v in OverrideSolverKeys:
+        if v == 'cfdpb':
+            elsAkeysCFD.update(OverrideSolverKeys[v])
+        elif v == 'numerics':
+            elsAkeysNumerics.update(OverrideSolverKeys[v])
+        elif v == 'model':
+            elsAkeysModel.update(OverrideSolverKeys[v])
+        else:
+            raise AttributeError('OverrideSolverKeys "%s" must be one of %s'%(v,
+                                                str(allowed_override_objects)))
+
+    AllSetupDicts = dict(Workflow='ORAS',
                         Splitter=Splitter,
                         TurboConfiguration=TurboConfiguration,
                         FluidProperties=FluidProperties,
@@ -189,31 +208,26 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                         elsAkeysNumerics=elsAkeysNumerics,
                         Extractions=Extractions)
 
-    BCExtractions = dict(
-    BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
-    )
-
     PRE.addTrigger(t)
-    PRE.addExtractions(t, AllSetupDics['ReferenceValues'],
-                          AllSetupDics['elsAkeysModel'], extractCoords=False,BCExtractions=BCExtractions)
+    PRE.addExtractions(t, AllSetupDicts['ReferenceValues'],
+                          AllSetupDicts['elsAkeysModel'],
+                          extractCoords=False,
+                          BCExtractions=ReferenceValues['BCExtractions'])
 
     if elsAkeysNumerics['time_algo'] != 'steady':
-        if 'FirstIterationForAverage' in AllSetupDics['ReferenceValues']['CoprocessOptions'].keys():
-            PRE.addAverageFieldExtractions(t, AllSetupDics['ReferenceValues'],
-                AllSetupDics['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
-        else:
-            PRE.addAverageFieldExtractions(t, AllSetupDics['ReferenceValues'])
+        PRE.addAverageFieldExtractions(t, AllSetupDicts['ReferenceValues'],
+            AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
 
-    PRE.addReferenceState(t, AllSetupDics['FluidProperties'],
-                         AllSetupDics['ReferenceValues'])
-    dim = int(AllSetupDics['elsAkeysCFD']['config'][0])
+    PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],
+                         AllSetupDicts['ReferenceValues'])
+    dim = int(AllSetupDicts['elsAkeysCFD']['config'][0])
     PRE.addGoverningEquations(t, dim=dim)
-    PRE.writeSetup(AllSetupDics)
+    PRE.writeSetup(AllSetupDicts)
 
     if FULL_CGNS_MODE:
-        PRE.addElsAKeys2CGNS(t, [AllSetupDics['elsAkeysCFD'],
-                                 AllSetupDics['elsAkeysModel'],
-                                 AllSetupDics['elsAkeysNumerics']])
+        PRE.addElsAKeys2CGNS(t, [AllSetupDicts['elsAkeysCFD'],
+                                 AllSetupDicts['elsAkeysModel'],
+                                 AllSetupDicts['elsAkeysNumerics']])
 
     PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
@@ -231,7 +245,15 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             PRE.sendSimulationFiles(JobInformation['DIRECTORY_WORK'],
                                     overrideFields=writeOutputFields)
 
-        if SubmitJob: JM.submitJob(JobInformation['DIRECTORY_WORK'])
+        for i in range(SubmitJob):
+            singleton = False if i==0 else True
+            JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
+
+    ElapsedTime = str(PRE.datetime.timedelta(seconds=J.tic()-toc))
+    hours, minutes, seconds = ElapsedTime.split(':')
+    ElapsedTimeHuman = hours+' hours '+minutes+' minutes and '+seconds+' seconds'
+    msg = 'prepareMainCGNS took '+ElapsedTimeHuman
+    print(J.BOLD+msg+J.ENDC)
 
 
 def updateChoroTimestep(t, Rows, NumericalParams):

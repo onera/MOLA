@@ -12,19 +12,22 @@ First creation:
 13/04/2021 - L. Bernardos
 '''
 
-import sys
-import pprint
-import os
-from timeit import default_timer as tic
-import numpy as np
+import MOLA
 
-import Converter.PyTree as C
-import Converter.Internal as I
-import Converter.Distributed as Distributed
-import Converter.Mpi as Cmpi
-import Connector.PyTree as X
-import Generator.PyTree as G
-import Distributor2.PyTree as D2
+if not MOLA.__ONLY_DOC__:
+    import sys
+    import pprint
+    import os
+    from timeit import default_timer as tic
+    import numpy as np
+
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Converter.Distributed as Distributed
+    import Converter.Mpi as Cmpi
+    import Connector.PyTree as X
+    import Generator.PyTree as G
+    import Distributor2.PyTree as D2
 
 
 def prepareInterpolation(donor, receiver, container='FlowSolution#SourceTerm'):

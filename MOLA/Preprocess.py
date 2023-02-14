@@ -6,28 +6,6 @@ It implements a collection of routines for preprocessing of CFD simulations
 23/12/2020 - L. Bernardos - creation by recycling
 '''
 
-from multiprocessing.sharedctypes import Value
-import sys
-import os
-import shutil
-import pprint
-import numpy as np
-from itertools import product
-import copy
-from timeit import default_timer as tic
-import datetime
-
-import Converter.PyTree as C
-import Converter.Internal as I
-import Connector.PyTree as X
-import Transform.PyTree as T
-import Generator.PyTree as G
-import Geom.PyTree as D
-import Post.PyTree as P
-import Distributor2.PyTree as D2
-import Converter.elsAProfile as EP
-import Intersector.PyTree as XOR
-import Dist2Walls.PyTree as DTW
 import MOLA
 from . import InternalShortcuts as J
 from . import GenerativeShapeDesign as GSD
@@ -35,11 +13,42 @@ from . import GenerativeVolumeDesign as GVD
 from . import ExtractSurfacesProcessor as ESP
 from . import JobManager as JM
 
+if not MOLA.__ONLY_DOC__:
+    from multiprocessing.sharedctypes import Value
+    import sys
+    import os
+    import shutil
+    import pprint
+    import numpy as np
+    from itertools import product
+    import copy
+    from timeit import default_timer as tic
+    import datetime
+
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Connector.PyTree as X
+    import Transform.PyTree as T
+    import Generator.PyTree as G
+    import Geom.PyTree as D
+    import Post.PyTree as P
+    import Distributor2.PyTree as D2
+    import Converter.elsAProfile as EP
+    import Intersector.PyTree as XOR
+    import Dist2Walls.PyTree as DTW
+
+
 load = J.load 
 save = J.save
 
 DEBUG = False
 DIRECTORY_OVERSET='OVERSET' 
+
+K_OMEGA_MODELS = ['Wilcox2006-klim', 'Wilcox2006-klim-V',
+            'Wilcox2006', 'Wilcox2006-V', 'SST-2003', 
+            'SST-V2003', 'SST', 'SST-V',  'BSL', 'BSL-V',
+            'SST-2003-LM2009', 'SST-V2003-LM2009', 'SSG/LRR-RSM-w2012']
+
 
 def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
     '''
@@ -110,6 +119,53 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
                 see :py:func:`addOversetData` doc for more information on
                 accepted values.
 
+            * Motion : :py:class:`dict`
+                Specifies if the block corresponds to a rotating overset grid.
+                This is specifically designed for propeller or rotor blades.
+
+                Acceptable keys are:
+
+                * NumberOfBlades : :py:class:`int`
+                    Specifies the number of blades of the component that will be
+                    duplicated. New blades will be added to the main tree as 
+                    new CGNS Bases and will be named ``<baseName>_#``.
+
+                * InitialFrame : :py:class:`dict`
+                    Specifies the position of the original mesh as placed in 
+                    **file**. Possible keys are:
+
+                    RotationCenter : 3-float :py:class:`list`
+                        :math:`(x,y,z)` coordinates of the rotation point
+
+                    RotationAxis : 3-float :py:class:`list`
+                        :math:`(x,y,z)` components of the rotation axis
+
+                    BladeDirection : 3-float :py:class:`list`
+                        :math:`(x,y,z)` components of the direction of the blade,
+                        from root to tip.
+
+                    RightHandRuleRotation : :py:class:`bool`
+                        if :py:obj:`True`, the rotation orientation of the blade
+                        in the input **file** follows the right-hand-rule.
+
+                * RequestedFrame : :py:class:`dict`
+                    Specifies the requested final position of the component.
+                    Possible keys are:
+
+                    RotationCenter : 3-float :py:class:`list`
+                        :math:`(x,y,z)` coordinates of the rotation point
+
+                    RotationAxis : 3-float :py:class:`list`
+                        :math:`(x,y,z)` components of the rotation axis
+
+                    BladeDirection : 3-float :py:class:`list`
+                        :math:`(x,y,z)` components of the direction of the blade,
+                        from root to tip.
+
+                    RightHandRuleRotation : :py:class:`bool`
+                        if :py:obj:`True`, the rotation orientation of the blade
+                        will follow the right-hand-rule.
+
             * SplitBlocks : :py:class:`bool`
                 if :py:obj:`True`, allow for splitting this component in
                 order to satisfy the user-provided rules of total number of used
@@ -119,6 +175,10 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
                 .. attention:: split operation results in loss of connectivity information.
                     Hence, if ``SplitBlocks=True`` , then user must specify connection
                     rules in list **Connection**.
+
+                .. danger:: you must **NOT** split blocks requiring *NearMatch*,
+                    like e.g. octree cartesian structured blocks commonly used 
+                    as background mesh in overset computations.
 
         splitOptions : dict
             All optional parameters passed to function :py:func:`splitAndDistribute`
@@ -164,8 +224,8 @@ def _writeBackUpFiles(t, InputMeshes):
 
 
 def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
-        NumericalParams={}, Extractions=[{'type':'AllBCWall'}],
-        Initialization=dict(method='uniform'),
+        NumericalParams={}, OverrideSolverKeys={}, 
+        Extractions=[{'type':'AllBCWall'}], Initialization=dict(method='uniform'),
         BodyForceInputData=[], writeOutputFields=True,
         JobInformation={}, SubmitJob=False, COPY_TEMPLATES=True):
     r'''
@@ -204,6 +264,31 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
 
                 >>> PRE.computeReferenceValues(arg, **ReferenceValuesParams)
 
+        OversetMotion : :py:class:`dict` of :py:class:`dict`.
+            Set a motion (kinematic) law to each grid component (Base).
+            The value of the :py:class:`dict` must correspond to a given component
+            (**baseName** in **InputMeshes**). Each value is another :py:class:`dict`
+            defining the kinematic parameters. Acceptable keys are:
+
+            * RPM : :py:class:`int`
+                Rotation speed (in Revolutions Per Minute) of the component.
+
+            * Function : :py:class:`dict`
+                A :py:class:`dict` with pairs of keywords and values defining 
+                the elsA motion function. By default, ``'rotor_motion'`` function 
+                is employed using as rotation point and rotation vector the 
+                information provided by user in **Motion** parameter of function 
+                :py:func:`prepareMesh4ElsA`.
+
+                .. hint:: for information on elsA kinematic functions, please 
+                    see `this page <http://elsa.onera.fr/restricted/MU_tuto/latest/MU-98057/Textes/Attribute/function.html?#attributes-of-the-function-class>`_. For detailed information on elsA ``rotor_motion`` 
+                    function, please see `this page <http://elsa.onera.fr/restricted/MU_tuto/latest/MU-98057/Textes/HelicopterBladePosition.html>`_
+                                      
+        Extractions : :py:class:`list` of :py:class:`dict`
+            List of extractions to perform during the simulation. For now, only
+            surfacic extractions may be asked. See documentation of :func:`MOLA.Coprocess.extractSurfaces` for further details on the
+            available types of extractions.
+
         NumericalParams : dict
             dictionary containing the numerical
             settings for elsA. For information on acceptable values, please see
@@ -213,10 +298,22 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
 
                 >>> PRE.getElsAkeysNumerics(arg, **NumericalParams)
 
-        Extractions : :py:class:`list` of :py:class:`dict`
-            List of extractions to perform during the simulation. For now, only
-            surfacic extractions may be asked. See documentation of :func:`MOLA.Coprocess.extractSurfaces` for further details on the
-            available types of extractions.
+        OverrideSolverKeys : :py:class:`dict` of maximum 3 :py:class:`dict`
+            this is a dictionary containing up to three dictionaries with 
+            meaningful keys ``cfdpb``, ``model`` and ``numerics``. The 
+            information contained in each one of the aforementioned dictionaries 
+            are user-specified elsA keys that will override (or add to) any
+            previous key inferred by MOLA. For example:
+
+            ::
+
+                OverrideSolverKeys = {
+                    'cfdpb':    dict(metrics_type    = 'barycenter')
+                    'model':    dict(k_prod_compute  = 'from_kato',
+                                     walldistcompute = 'gridline')
+                    'numerics': dict(gear_iteration  = 20,
+                                     av_mrt          = 0.3)
+                                      }
 
         Initialization : dict
             dictionary defining the type of initialization, using the key
@@ -426,7 +523,20 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
         else:
             ReferenceValues['CoprocessOptions']['TagSurfacesWithIteration'] = False
 
-    AllSetupDics = dict(Workflow='Standard',
+    allowed_override_objects = ['cfdpb','numerics','model']
+    for v in OverrideSolverKeys:
+        if v == 'cfdpb':
+            elsAkeysCFD.update(OverrideSolverKeys[v])
+        elif v == 'numerics':
+            elsAkeysNumerics.update(OverrideSolverKeys[v])
+        elif v == 'model':
+            elsAkeysModel.update(OverrideSolverKeys[v])
+        else:
+            raise AttributeError('OverrideSolverKeys "%s" must be one of %s'%(v,
+                                                str(allowed_override_objects)))
+
+
+    AllSetupDicts = dict(Workflow='Standard',
                         JobInformation=JobInformation,
                         FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
@@ -436,9 +546,9 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
                         elsAkeysNumerics=elsAkeysNumerics,
                         Extractions=Extractions)
 
-    if BodyForceInputData: AllSetupDics['BodyForceInputData'] = BodyForceInputData
+    if BodyForceInputData: AllSetupDicts['BodyForceInputData'] = BodyForceInputData
 
-    t = newCGNSfromSetup(t, AllSetupDics, Initialization=Initialization,
+    t = newCGNSfromSetup(t, AllSetupDicts, Initialization=Initialization,
                          FULL_CGNS_MODE=False, BCExtractions=BCExtractions)
     saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
@@ -961,7 +1071,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                        maximum_allowed_nodes=20,
                        maximum_number_of_points_per_node=1e9,
                        only_consider_full_node_nproc=True,
-                       NumberOfProcessors=None):
+                       NumberOfProcessors=None, SplitBlocks=True):
     '''
     Distribute a PyTree **t**, with optional splitting.
 
@@ -1036,6 +1146,11 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
 
             .. attention:: if **mode** = ``'auto'``, this parameter is ignored
 
+        SplitBlocks : bool
+            default value of **SplitBlocks** if it does not exist in the InputMesh
+            component.
+
+
     Returns
     -------
 
@@ -1044,6 +1159,10 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
 
     '''
     print('splitting and distributing mesh...')
+    for meshInfo in InputMeshes:
+        if 'SplitBlocks' not in meshInfo:
+            meshInfo['SplitBlocks'] = SplitBlocks
+
 
     TotalNPts = C.getNPts(t)
 
@@ -1237,7 +1356,7 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per
                        ' - Reduce the number of procs\n'
                        ' - increase the number of grid points').format( NumberOfProcessors, NZones)
                 raise ValueError(J.FAIL+MSG+J.ENDC)
-            return tRef, 0, np.inf, np.inf, HighestLoad, HighestLoadProc
+            return tRef, 0, np.inf, np.inf, np.inf, np.inf
 
     NZones = len( I.getZones( tRef ) )
     if NumberOfProcessors > NZones:
@@ -1249,7 +1368,7 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per
                    ' - increase the number of grid points').format( NumberOfProcessors, NZones)
             raise ValueError(J.FAIL+MSG+J.ENDC)
         else:
-            return tRef, 0, np.inf, np.inf, HighestLoad, HighestLoadProc
+            return tRef, 0, np.inf, np.inf, np.inf, np.inf
 
     # NOTE see Cassiopee BUG #8244 -> need algorithm='fast'
     silence = J.OutputGrabber()
@@ -1259,7 +1378,7 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per
     behavior = 'raise' if raise_error else 'silent'
 
     if hasAnyEmptyProc(tRef, NumberOfProcessors, behavior=behavior):
-        return tRef, 0, np.inf, np.inf, HighestLoad, HighestLoadProc
+        return tRef, 0, np.inf, np.inf, np.inf, np.inf
 
     HighestLoad = getNbOfPointsOfHighestLoadedNode(tRef, cores_per_node)
     HighestLoadProc = getNbOfPointsOfHighestLoadedProc(tRef)
@@ -1268,7 +1387,7 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per
         if raise_error:
             raise ValueError('exceeded maximum_number_of_points_per_node (%d>%d)'%(HighestLoad,
                                                 maximum_number_of_points_per_node))
-        return tRef, 0, np.inf, np.inf, HighestLoad, HighestLoadProc
+        return tRef, 0, np.inf, np.inf, np.inf, np.inf
 
 
     return tRef, NZones, stats['varMax'], stats['meanPtsPerProc'], HighestLoad, HighestLoadProc
@@ -1415,12 +1534,9 @@ def getBasesBasedOnSplitPolicy(t,InputMeshes):
     basesNotToSplit = []
     for meshInfo in InputMeshes:
         base = I.getNodeFromName1(t,meshInfo['baseName'])
-        try:
-            if meshInfo['SplitBlocks']:
-                basesToSplit += [base]
-            else:
-                basesNotToSplit += [base]
-        except KeyError:
+        if meshInfo['SplitBlocks']:
+            basesToSplit += [base]
+        else:
             basesNotToSplit += [base]
 
     return basesToSplit, basesNotToSplit
@@ -1489,7 +1605,8 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
     '''
     This function performs all required preprocessing operations for a
     overlapping configuration. This includes masks production, setting
-    interpolating regions and computing interpolating coefficients.
+    interpolating regions and computing interpolating coefficients. This may 
+    also include unsteady overset masking operations. 
 
     Global overset options are provided by the optional arguments of the
     function.
@@ -1560,6 +1677,9 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
                 if :py:obj:`True`, then this overset component
                 is strongly protected against masking. Only other component's walls
                 are allowed to mask this component.
+
+                .. hint:: you should use ```OnlyMaskedByWalls=True`` **except**
+                    for background grids.
 
             * ``'ForbiddenOverlapMaskingThisBase'`` : :py:class:`list` of :py:class:`str`
                 This is a list of
@@ -2492,7 +2612,8 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         TurbulenceCutoff=0.1, TransitionMode=None, CoprocessOptions={},
         FieldsAdditionalExtractions=['ViscosityMolecular','ViscosityEddy','Mach'],
         BCExtractions=dict(BCWall=['normalvector', 'frictionvector',
-                        'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue'])):
+                        'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue',
+                        'flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row'])):
     '''
     Compute ReferenceValues dictionary used for pre/co/postprocessing a CFD
     case. It contains multiple information and is mostly self-explanatory.
@@ -2557,12 +2678,13 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         TurbulenceModel : str
             Some `NASA's conventional turbulence model <https://turbmodels.larc.nasa.gov/>`_
             available in elsA are included:
-            ``'SA'``, ``'BSL'``, ``'BSL-V'``, ``'SST-2003'``, ``'SST'``,
-            ``'SST-V'``, ``'Wilcox2006-klim'``, ``'SST-2003-LM2009'``,
-            ``'SSG/LRR-RSM-w2012'``
+            ``'SA'``, ``'Wilcox2006-klim'``, ``'Wilcox2006-klim-V'``,
+            ``'Wilcox2006'``, ``'Wilcox2006-V'``, ``'SST-2003'``, 
+            ``'SST-V2003'``, ``'SST'``, ``'SST-V'``,  ``'BSL'``, ``'BSL-V'``,
+            ``'SST-2003-LM2009'``, ``'SST-V2003-LM2009'``, ``'SSG/LRR-RSM-w2012'``.
 
             other non-conventional turbulence models:
-            ``'smith'`` reference `doi:10.2514/6.1995-232 <http://doi.org/10.2514/6.1995-232>`_
+            ``'smith'`` and ``'smith-V'`` reference `doi:10.2514/6.1995-232 <http://doi.org/10.2514/6.1995-232>`_
 
         Viscosity_EddyMolecularRatio : float
             Expected ratio of eddy to molecular viscosity at farfield
@@ -2950,6 +3072,41 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         omega_prolong  = 'linear_extrap',
             )
 
+    elif TurbulenceModel == 'Wilcox2006-klim-V':
+        addKeys4Model = dict(
+        turbmod        = 'komega_kok',
+        kok_diff_cor   = 'wilcox2006',
+        sst_cor        = 'active',
+        sst_version    = 'wilcox2006',
+        k_prod_limiter = 20.,
+        k_prod_compute = 'from_vorticity',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',
+            )
+
+    elif TurbulenceModel == 'Wilcox2006':
+        addKeys4Model = dict(
+        turbmod        = 'komega_kok',
+        kok_diff_cor   = 'wilcox2006',
+        sst_cor        = 'active',
+        sst_version    = 'wilcox2006',
+        k_prod_compute = 'from_sij',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',
+            )
+
+    elif TurbulenceModel == 'Wilcox2006-V':
+        addKeys4Model = dict(
+        turbmod        = 'komega_kok',
+        kok_diff_cor   = 'wilcox2006',
+        sst_cor        = 'active',
+        sst_version    = 'wilcox2006',
+        k_prod_compute = 'from_vorticity',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',
+            )
+
+
     elif TurbulenceModel == 'SST-2003':
         addKeys4Model = dict(
         turbmod        = 'komega_menter',
@@ -3020,6 +3177,12 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_compute = 'from_sij',
             )
 
+    elif TurbulenceModel == 'smith-V':
+        addKeys4Model = dict(
+        turbmod        = 'smith',
+        k_prod_compute = 'from_vorticity',
+            )
+
     elif TurbulenceModel == 'SST-2003-LM2009':
         addKeys4Model = dict(
         turbmod        = 'komega_menter',
@@ -3027,6 +3190,18 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         sst_version    = 'std_sij',
         k_prod_limiter = 10.,
         k_prod_compute = 'from_sij',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',
+        trans_mod      = 'menter',
+            )
+
+    elif TurbulenceModel == 'SST-V2003-LM2009':
+        addKeys4Model = dict(
+        turbmod        = 'komega_menter',
+        sst_cor        = 'active',
+        sst_version    = 'std_sij',
+        k_prod_limiter = 10.,
+        k_prod_compute = 'from_vorticity',
         zhenglim       = 'inactive',
         omega_prolong  = 'linear_extrap',
         trans_mod      = 'menter',
@@ -3043,7 +3218,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
 
     # Transition Settings
     if TransitionMode == 'NonLocalCriteria-LSTT':
-        if TurbulenceModel == 'SST-2003-LM2009':
+        if 'LM2009' in TurbulenceModel:
             raise AttributeError(J.FAIL+"Modeling incoherency! cannot make Non-local transition criteria with Menter-Langtry turbulence model"+J.ENDC)
         addKeys4Model.update(dict(
         freqcomptrans     = 1,
@@ -3073,11 +3248,11 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         ahd_n_extract          = 'active',
             ))
 
-        if TurbulenceModel in ('BSL','BSL-V','SST-2003','SST','SST-V','Wilcox2006-klim'):  addKeys4Model['prod_omega_red'] = 'active'
+        if TurbulenceModel in K_OMEGA_MODELS:  addKeys4Model['prod_omega_red'] = 'active'
 
     # Transition Settings
     if TransitionMode == 'NonLocalCriteria-Step':
-        if TurbulenceModel == 'SST-2003-LM2009':
+        if 'LM2009' in TurbulenceModel:
             raise AttributeError(J.FAIL+"Modeling incoherency! cannot make Non-local transition criteria with Menter-Langtry turbulence model"+J.ENDC)
         addKeys4Model.update(dict(
         freqcomptrans     = 1,
@@ -3100,11 +3275,11 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         ahd_n_extract          = 'active',
             ))
 
-        if TurbulenceModel in ('BSL','BSL-V','SST-2003','SST','SST-V','Wilcox2006-klim'):  addKeys4Model['prod_omega_red'] = 'active'
+        if TurbulenceModel in K_OMEGA_MODELS:  addKeys4Model['prod_omega_red'] = 'active'
 
 
     elif TransitionMode == 'Imposed':
-        if TurbulenceModel == 'SST-2003-LM2009':
+        if 'LM2009' in TurbulenceModel:
             raise AttributeError(J.FAIL+"Modeling incoherency! cannot make imposed transition with Menter-Langtry turbulence model"+J.ENDC)
         addKeys4Model.update(dict(
         intermittency       = 'full',
@@ -3116,7 +3291,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         intermittency_form  = 'LSTT19',
             ))
 
-        if TurbulenceModel in ('BSL','BSL-V','SST-2003','SST','SST-V','Wilcox2006-klim'):  addKeys4Model['prod_omega_red'] = 'active'
+        if TurbulenceModel in K_OMEGA_MODELS:  addKeys4Model['prod_omega_red'] = 'active'
 
     elsAkeysModel.update(addKeys4Model)
 
@@ -3364,11 +3539,13 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
     t = I.copyRef(t)
 
     addTrigger(t)
-    if 'OversetMotion' in AllSetupDictionaries:
+
+    if 'OversetMotion' in AllSetupDictionaries and AllSetupDictionaries['OversetMotion']:
         addOversetMotion(t, AllSetupDictionaries['OversetMotion'])
         includeRelativeFieldsForRestart = True
     else:
         includeRelativeFieldsForRestart = False
+
     addExtractions(t, AllSetupDictionaries['ReferenceValues'],
                       AllSetupDictionaries['elsAkeysModel'],
                       extractCoords=extractCoords, BCExtractions=BCExtractions,
@@ -3737,14 +3914,6 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
             :py:class:`str` corresponding to variable names to extract (in elsA
             convention).
     '''
-
-    # TODO notify bug for torque_origin in CGNS mode
-    fluxes=['flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row']
-    for bc in BCExtractions:
-        if 'BCWall' in bc:
-            for f in fluxes:
-                if f not in BCExtractions[bc]:
-                    BCExtractions[bc].append(f)
 
     # Default keys to write in the .Solver#Output of the Family node
     # The node 'var' will be fill later depending on the BCType
@@ -4405,11 +4574,11 @@ def getFlowDirections(AngleOfAttackDeg, AngleOfSlipDeg, YawAxis, PitchAxis):
         return Direction
 
     # Yaw axis must be exact
-    YawAxis    = np.array(YawAxis, dtype=np.float)
+    YawAxis    = np.array(YawAxis, dtype=np.float64)
     YawAxis   /= np.sqrt(YawAxis.dot(YawAxis))
 
     # Pitch axis may be approximate
-    PitchAxis  = np.array(PitchAxis, dtype=np.float)
+    PitchAxis  = np.array(PitchAxis, dtype=np.float64)
     PitchAxis /= np.sqrt(PitchAxis.dot(PitchAxis))
 
     # Roll axis is inferred

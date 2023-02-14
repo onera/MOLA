@@ -9,16 +9,19 @@ First creation:
 07/10/2021 - T. Bontemps - creation
 '''
 
-import os
-import subprocess
-import socket
-import getpass
-import pprint
-import shutil
-import copy
+import MOLA
 
-import Converter.PyTree         as C
-import Converter.Internal       as I
+if not MOLA.__ONLY_DOC__:
+    import os
+    import subprocess
+    import socket
+    import getpass
+    import pprint
+    import shutil
+    import copy
+
+    import Converter.PyTree         as C
+    import Converter.Internal       as I
 
 
 from . import __version__, __MOLA_PATH__
@@ -203,7 +206,7 @@ def saveJobsConfiguration(JobsQueues, machine, DIRECTORY_WORK,
 
     if not DIRECTORY_WORK.endswith('/'): raise ValueError('DIRECTORY_WORK must end with "/"')
 
-    AllowedMachines = ('spiro', 'sator','sator-new','local','eos','ld')
+    AllowedMachines = ('spiro', 'sator','local','eos','ld')
     if machine not in AllowedMachines:
         raise ValueError('Machine %s not supported. Must be one of: %s'%(machine,str(AllowedMachines)))
 
@@ -291,7 +294,7 @@ def launchJobsConfiguration(
         # repatriate(Source, Destination, removeExistingDestinationPath=True)
         ServerTools.cpmvWrap4MultiServer('cp', Source, Destination)
 
-    ComputeServers = ('sator', 'sator-new', 'spiro')
+    ComputeServers = ('sator', 'spiro')
     if config.machine not in ComputeServers:
         print('Machine "%s" not in %s: assuming that local subprocess launch of elsA is possible.'%(config.machine, str(ComputeServers)))
         # launch local mesher-dispatcher job by subprocess - no sbatch no wait ssh
@@ -337,7 +340,7 @@ def launchJobsConfiguration(
 
 def remoteFileExists(absolute_file_path, remote_machine='sator'):
 
-    if remote_machine not in ('sator','spiro'):
+    if remote_machine != 'sator' and not remote_machine.startswith('spiro'):
         return os.path.isfile(absolute_file_path)
 
     HostName = socket.gethostname()
@@ -350,8 +353,28 @@ def remoteFileExists(absolute_file_path, remote_machine='sator'):
     ssh.wait()
     Output = ServerTools.readStdout(ssh)
     Error = ServerTools.readStderr(ssh)
-    if len(Error) >0: return False
+    if len(Error) >0:
+        return False
     return bool(int(Output[0]))
+
+def remoteFileSize(absolute_file_path):
+    server = ServerTools.whichServer(absolute_file_path)[0]
+    if server.startswith('spiro'): server='spiro-commun'
+
+    HostName = socket.gethostname()
+    UserName = getpass.getuser()
+
+    CMD='ls -l %s'%absolute_file_path
+    CMD = 'ssh '+UserName+"@"+server+' '+CMD
+    ssh = subprocess.Popen(CMD, shell=True, stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+    ssh.wait()
+    Output = ServerTools.readStdout(ssh)
+    Error = ServerTools.readStderr(ssh)
+    if len(Error) >0:
+        print(Error)
+        return None
+    return int(Output[0].split()[4])
 
 
 def launchComputationJob(case, config, JobFilename='job.sh',

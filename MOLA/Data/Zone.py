@@ -18,7 +18,7 @@ class Zone(Node):
         self.setType('Zone_t')
 
         if self.value() is None:
-            self.setValue(np.array([[2,1,0]],dtype=np.int,order='F'))
+            self.setValue(np.array([[2,1,0]],dtype=np.int32,order='F'))
 
 
         if not self.childNamed('ZoneType'):
@@ -48,7 +48,7 @@ class Zone(Node):
         return np.prod(self.value(), axis=0)[1]
 
     def newFields(self, FieldNames, Container='FlowSolution',
-                  GridLocation='guess', dtype=np.float, return_type='list',
+                  GridLocation='guess', dtype=np.float64, return_type='list',
                   ravel=False):
 
         if GridLocation == 'guess':
@@ -98,7 +98,7 @@ class Zone(Node):
             AttributeError('return_type=%s not supported'%return_type)
 
     def fields(self, FieldNames, Container='FlowSolution',
-             BehaviorIfNotFound='create', dtype=np.float, return_type='list',
+             BehaviorIfNotFound='create', dtype=np.float64, return_type='list',
              ravel=False):
         if isinstance(FieldNames,str): FieldNames = [ FieldNames ]
 

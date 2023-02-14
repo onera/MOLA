@@ -22,7 +22,7 @@ class Tree(Node):
 
         if not self.get('CGNSLibraryVersion', Depth=1):
             ver=Node(Name='CGNSLibraryVersion',
-                     Value=3.1,
+                     Value=np.array([3.1],dtype=np.float32),
                      Type='CGNSLibraryVersion_t')
             self.addChild(ver,position=0)
 
@@ -114,7 +114,7 @@ class Tree(Node):
 
 
     def newFields(self, FieldNames, Container='FlowSolution',
-                  GridLocation='auto', dtype=np.float, return_type='dict',
+                  GridLocation='auto', dtype=np.float64, return_type='dict',
                   ravel=False):
 
         arrays = []
@@ -134,7 +134,7 @@ class Tree(Node):
             return v
 
     def getFields(self, FieldNames, Container='FlowSolution',
-                  BehaviorIfNotFound='create', dtype=np.float, return_type='dict',
+                  BehaviorIfNotFound='create', dtype=np.float64, return_type='dict',
                   ravel=False):
 
         arrays = []

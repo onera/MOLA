@@ -1,22 +1,18 @@
 '''
 Low-level module for wrapping HDF5 file operations and inferring the CGNS
-list-like structure. It is used as a backend of data structure.
+list-like structure. It is used as a backend of MOLA.Data structure.
 
-Requires installation of publicly available python library "h5py" and numpy
+Requires installation of python libraries "h5py" and "numpy"
 
 File history:
 24/11/2022 - Luis Bernardos - creation
 '''
 
 import numpy as np
-try:
-    import h5py
-except:
-    print('\033[93mh5py not found. Please install it using:')
-    print('pip3 install --user h5py\033[0m')
-    pass
+import h5py
 
 
+use_chunks = True
 encoding = 'utf-8'
 nodesNamesToRead = ['proc', 'kind']
 
@@ -54,22 +50,23 @@ def load_h5(filename, permission='r'):
     f = h5py.File(filename, permission)
     return f
 
-def save(t, filename):
+def save(t, filename, links=[]):
     with h5py.File(filename, 'w') as f:
         f['/'].attrs.create('name', np.array('HDF5 MotherNode'.encode(encoding), dtype=str_dtype) )
         f['/'].attrs.create('label', np.array('Root Node of HDF5 File'.encode(encoding), dtype=str_dtype) )
         f['/'].attrs.create('type', np.array('MT'.encode(encoding), dtype=cgns_dtype) )
 
-        string_array = np.array([np.array(s, dtype='S1') for s in 'IEEE_LITTLE_32'])
-        data = np.frombuffer(string_array, dtype='int8'.encode(encoding))
+        data = np.frombuffer('IEEE_LITTLE_32'.encode(encoding), dtype='int8'.encode(encoding))
         f.create_dataset(' format', data=data)
 
-        string_array = np.array([np.array(s, dtype='S1') for s in 'HDF5 Version 1.8.17'])
-        data = np.frombuffer(string_array, dtype='int8'.encode(encoding))
+        data = np.frombuffer('HDF5 Version 1.8.17'.encode(encoding), dtype='int8'.encode(encoding))
+        data = np.concatenate((data,np.zeros(33-len(data), dtype='int8'.encode(encoding))))
         f.create_dataset(' hdf5version', data=data)
 
-        for child in t[2]:
-            nodelist_to_group(f, child)
+        for child in t[2]: nodelist_to_group(f, child)
+
+        for l in links: write_link(f, l)
+
 
 
 def nodelist_to_group(f, node, nodepath=None, links=[] ):
@@ -96,15 +93,23 @@ def _setData(group, nodevalue):
 
         else:
             data_type = Numpy_dtype_to_CGNS_dtype[nodevalue.dtype]
-            group.attrs.create('type', np.array(data_type.encode(encoding), dtype=cgns_dtype))
-            if len(nodevalue.shape) > 1: 
-                data = nodevalue.T # put it as F-contiguous compatible
+            if data_type == 'C1':
+                group.attrs.create('type', np.array('C1'.encode(encoding), dtype=cgns_dtype))
+                nodevalue = ''.join([n.decode(encoding) for n in nodevalue])
+                data = np.frombuffer(nodevalue.encode(encoding), dtype='int8'.encode(encoding))
             else:
-                data = nodevalue
+                group.attrs.create('type', np.array(data_type.encode(encoding), dtype=cgns_dtype))
+                if len(nodevalue.shape) > 1: 
+                    data = nodevalue.T # put it as F-contiguous compatible
+                else:
+                    data = nodevalue
 
         if ' data' not in group:
-            maxshape = [None for s in data.shape]
-            group.create_dataset(' data', data=data, maxshape=maxshape, chunks=True)
+            if use_chunks:
+                maxshape = [None for s in data.shape]
+                group.create_dataset(' data', data=data, maxshape=maxshape, chunks=True)
+            else:
+                group.create_dataset(' data', data=data, chunks=None)
         else:
             group[' data'].resize( data.shape )
             group[' data'][:] = data
@@ -119,7 +124,12 @@ def build_cgns_nodelist( group, links=[], ignore_DataArray=False ):
     nodename = group.name.split('/')[-1]  
     if nodename.startswith(' '): return
     children = []
-    group_type = group.attrs['type'].decode(encoding)
+    try:
+        group_type = group.attrs['type'].decode(encoding)
+    except KeyError:
+        raise KeyError('could not find attribute "type" in node %s'%group.name)
+
+
     if group_type != 'LK':
         for childname in group:
             childnode = build_cgns_nodelist( group[childname], links=links,
@@ -132,10 +142,11 @@ def build_cgns_nodelist( group, links=[], ignore_DataArray=False ):
             cgns_value = '_skeleton'
         else:
             cgns_value = extract_value(group)
-
+        
         return [ nodename, cgns_value, children, cgns_type ]
     
     links += [ extract_link(group) ]
+        
 
 
 def extract_value( group ):
@@ -160,7 +171,27 @@ def extract_type( group ):
     return label
 
 def extract_link( group ):
-    file = group[' file'][()].tostring().decode(encoding)
-    path = group[' path'][()].tostring().decode(encoding)
+    file = group[' file'][()].tostring().decode(encoding).replace('\x00','')
+    path = group[' path'][()].tostring().decode(encoding).replace('\x00','')
     link = ['', file, path, path, 5]
+    
     return link
+
+def write_link(f, link):
+    file = link[1] + '\x00'
+    path = link[2] + '\x00'
+    group = f[path]
+
+    del group.attrs['flags']
+    del group[' data']
+
+    group.attrs['type'] = np.array('LK'.encode(encoding), dtype=cgns_dtype)
+    group.attrs['label'] = np.array(''.encode(encoding), dtype=str_dtype)
+
+    data = np.frombuffer(file.encode(encoding), dtype='int8'.encode(encoding))
+    group.create_dataset(' file', data=data)
+
+    data = np.frombuffer(path.encode(encoding), dtype='int8'.encode(encoding))
+    group.create_dataset(' path', data=data)
+
+    group[' link'] = h5py.ExternalLink(file, path)

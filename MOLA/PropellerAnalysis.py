@@ -16,20 +16,25 @@ import numpy as np
 import timeit
 import itertools
 
-import Converter.PyTree as C
-import Converter.Internal as I
+import MOLA
 
 from . import InternalShortcuts as J
 from . import Wireframe as W
 from . import LiftingLine as LL
 
-try:
-    silence = J.OutputGrabber()
-    with silence:
-        import PUMA
-        import PUMA.Fact
-except:
-    pass
+if not MOLA.__ONLY_DOC__:
+
+    import Converter.PyTree as C
+    import Converter.Internal as I
+
+
+    try:
+        silence = J.OutputGrabber()
+        with silence:
+            import PUMA
+            import PUMA.Fact
+    except:
+        pass
 
 # Global constants
 # -> Fluid constants
@@ -2285,9 +2290,9 @@ def computeBEMTaxial3D(LiftingLine, PolarsInterpolatorDict,
     # Read existing flight conditions.
     # For each user-provided not None condition,
     # replace existing one in LiftingLine object
-    Velocity = np.array(Velocity,dtype=np.float, order='F')
-    RotationAxis = np.array(RotationAxis,dtype=np.float, order='F')
-    RotationCenter = np.array(RotationCenter,dtype=np.float, order='F')
+    Velocity = np.array(Velocity,dtype=np.float64, order='F')
+    RotationAxis = np.array(RotationAxis,dtype=np.float64, order='F')
+    RotationCenter = np.array(RotationCenter,dtype=np.float64, order='F')
     ProvidedFlightVars = dict(NBlades=NBlades, VelocityFreestream=Velocity, RPM=RPM,
                         Density=Density, Temperature=Temperature, Pitch=Pitch,
                         RotationAxis=RotationAxis, RotationCenter=RotationCenter,
@@ -2373,7 +2378,7 @@ def computeBEMTaxial3D(LiftingLine, PolarsInterpolatorDict,
     for i in range(NPts):
         rvec = np.array([x[i] - RotationCenter[0],
                          y[i] - RotationCenter[1],
-                         z[i] - RotationCenter[2]],dtype=np.float)
+                         z[i] - RotationCenter[2]],dtype=np.float64)
 
         VelocityKinematic = -Velocity + np.cross(Dir*Omega*RotationAxis,rvec)
         v['VelocityKinematicX'][i] = VelocityKinematic[0]
@@ -2396,12 +2401,12 @@ def computeBEMTaxial3D(LiftingLine, PolarsInterpolatorDict,
         Vk = np.array([v['VelocityKinematicX'][i],
                        v['VelocityKinematicY'][i],
                        v['VelocityKinematicZ'][i]],
-                      dtype=np.float, order='F')
+                      dtype=np.float64, order='F')
 
         TangentialDirection = np.array([v['tanx'][i],
                                         v['tany'][i],
                                         v['tanz'][i]],
-                                        dtype=np.float, order='F')
+                                        dtype=np.float64, order='F')
 
         VkAxial = Vk.dot(RotationAxis)
         VkTan = Vk.dot(TangentialDirection)
@@ -2414,9 +2419,9 @@ def computeBEMTaxial3D(LiftingLine, PolarsInterpolatorDict,
 
 
         nxyz = np.array([v['nx'][i],v['ny'][i],v['nz'][i]],
-                        dtype=np.float, order='F')
+                        dtype=np.float64, order='F')
         bxyz = np.array([v['bx'][i],v['by'][i],v['bz'][i]],
-                        dtype=np.float, order='F')
+                        dtype=np.float64, order='F')
 
 
         v['VelocityAxial'][i]      = Vax  =  VkAxial + via

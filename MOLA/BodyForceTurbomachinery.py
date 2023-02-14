@@ -13,17 +13,20 @@ File history:
 8/09/2022 - T. Bontemps - Creation
 '''
 
-import os
-import glob
-import numpy as np
+import MOLA
 
-import Converter.PyTree as C
-import Converter.Internal as I
-import Geom.PyTree as D
-import Generator.PyTree as G
-import Connector.PyTree as X
-import Transform.PyTree as T
-import Post.PyTree as P
+if not MOLA.__ONLY_DOC__:
+    import os
+    import glob
+    import numpy as np
+
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Geom.PyTree as D
+    import Generator.PyTree as G
+    import Connector.PyTree as X
+    import Transform.PyTree as T
+    import Post.PyTree as P
 
 import MOLA.Preprocess as PRE
 import MOLA.InternalShortcuts as J
@@ -36,7 +39,7 @@ import MOLA.Wireframe as W
 ##################################################################################
 
 
-def replaceRowWithBodyForceMesh(t, BodyForceRows):
+def replaceRowWithBodyForceMesh(t, BodyForceRows, saveGeometricalDataForBodyForce=False):
     '''
     In the mesh **t**, replace the row domain corresponding to the family 
     **row** by a mesh adapted to body-force.
@@ -58,6 +61,12 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows):
             .. note:: 
                 If the parameter **meshType** is not given, it is 
                 automatically set depending on the initial mesh.
+
+        saveGeometricalDataForBodyForce : bool
+            If :py:obj:`True`, save the intermediate files 'BodyForceData_{row}.cgns' for each row.
+            These files contain a CGNS tree with :
+                #. 4 lines (1D zones) corresponding to Hub, Shroud, Leading edge and Trailing Edge.
+                #. The zone'Skeleton' with geometrical data on blade profile (used for interpolation later). 
     
     Returns
     -------
@@ -119,7 +128,7 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows):
                 BodyForceParams['meshType'] = 'structured'
 
         # Get the meridional info from rowTree
-        meridionalMesh = extractRowGeometricalData(t, row)
+        meridionalMesh = extractRowGeometricalData(t, row, save=saveGeometricalDataForBodyForce)
 
         newRowMesh = buildBodyForceMeshForOneRow(meridionalMesh,
                                                  NumberOfBlades=BladeNumber,
@@ -352,20 +361,13 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
     I.setName(bodyForce, 'bodyForce')
     I.setName(downstream, 'downstream')
 
-    # bodyForceCoarse = G.TFI([
-    #     W.discretize(LeadingEdge, N=10),
-    #     W.discretize(TrailingEdge, N=10),
-    #     W.discretize(HubBetweenLEAndTE, N=10),
-    #     W.discretize(ShroudBetweenLEAndTE, N=10),
-    #     ])
-
     if model == 'hall':
         # Interpolate skeleton data
         Skeleton = I.getNodeFromName2(t, 'Skeleton')
         if Skeleton:
-            P._extractMesh(Skeleton, bodyForce, order=2, extrapOrder=0) #, constraint=0.)
-            # P._extractMesh(Skeleton, bodyForceCoarse, order=2, extrapOrder=0)
+            P._extractMesh(Skeleton, bodyForce, order=2, extrapOrder=0) 
             bodyForce = computeBlockage(bodyForce, NumberOfBlades)
+            # addMetalAngle(bodyForce)
             bodyForce = C.node2Center(bodyForce, I.__FlowSolutionNodes__)
             I._rmNodesByName1(bodyForce, I.__FlowSolutionNodes__)
 
@@ -393,8 +395,6 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
     elif model == 'Tspread':
         G._getVolumeMap(bodyForce)
         volumeCell = I.getValue(I.getNodeFromName(bodyForce, 'vol'))
-        # C._initVars(bodyForce,
-        #             '{{centers:volumicFraction}}={{centers:vol}}/{totalVolume}'.format(totalVolume=np.sum(volumeCell)))
         C._initVars(bodyForce,'{{centers:totalVolume}}={totalVolume}'.format(totalVolume=np.sum(volumeCell)))
         I._rmNodesByNameAndType(bodyForce, 'vol', 'DataArray_t')
         
@@ -408,8 +408,6 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
     C._addFamily2Base(base, 'Fluid')
     for zone in I.getZones(base):
         C._tagWithFamily(zone, 'Fluid')
-    # C._addFamily2Base(base, 'BFM')
-    # C._tagWithFamily(bodyForce, 'BFM', add=True)
 
     FamilyNode = I.newFamily(name='Inflow', parent=base)
     I.newFamilyBC(value='BCInflow', parent=FamilyNode)
@@ -449,6 +447,65 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
     I._renameNode(mesh3d, I.__FlowSolutionCenters__, 'FlowSolution#DataSourceTerm')
 
     return mesh3d
+
+
+def addMetalAngle(t):
+    '''
+    Add the reference flow incidence ``delta0`` for the loss part of the Hall-Thollet model.
+    It is the metal angle, between the blade skeleton and the axial direction.
+
+    :math:`\delta_0 = sign(t_x) * arccos(t_x / t)`
+    :math:`\delta_0 = sign(n_t) * arccos(n_t)` with :math:`t_x=n_t` and :math:`t=n=1`
+
+    .. danger::
+        
+        WORK IN PROGRESS, DO NOT USE THIS FUNCTION ! TO TEST
+
+    Parameters
+    ----------
+    t : PyTree
+        input mesh tree. Must contains the node 'nt' (azimuthal component of the unit vector normal to the blade).
+    '''
+    C._initVars(t, '{delta0}=sign({nt})*arccos({nt})')
+
+
+def addReferenceFlowIncidence(t, tsource, omega):
+    '''
+    Add the reference flow incidence ``delta0`` for the loss part of the Hall-Thollet model.
+
+    .. danger::
+        
+        WORK IN PROGRESS, DO NOT USE THIS FUNCTION ! TO TEST
+
+    Parameters
+    ----------
+    t : PyTree
+        input mesh tree
+    tsource : PyTree
+        Source tree with flow solution. It must be a previous body-force simulation converged on the maximum
+        efficiency operating point.
+    omega : float
+        rotationnal speed in rad/s
+    '''
+
+    I._renameNode(tsource, 'FlowSolution#Init', I.__FlowSolutionCenters__)
+
+    # Move coordinates to cell center and compute radius and azimuthal angle
+    for coord in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
+        C._node2Center__(tsource, coord)
+        C._initVars(tsource, '{centers:radius}=sqrt({centers:CoordinateY}**2+{centers:CoordinateZ}**2)')
+        C._initVars(tsource, '{centers:theta}=arctan2({centers:CoordinateZ},{centers:CoordinateY})')
+    C._initVars(tsource,'{centers:rovr}= {centers:MomentumY}*cos({centers:theta})+{centers:MomentumZ}*sin({centers:theta})')
+    C._initVars(tsource,'{centers:rovt}=-{centers:MomentumY}*sin({centers:theta})+{centers:MomentumZ}*cos({centers:theta})')
+    C._initVars(tsource, '{{centers:rowt}}={{centers:rovt}}-{{centers:Density}}*{{centers:radius}}*{omega}'.format(omega))
+
+    C._initVars(
+        tsource, '{centers:delta0}=arcsin(({centers:rovx*nx+rovr}*{centers:nr}+{centers:rowt}*{centers:nt})\
+                                  /(({centers:rovx}**2+{centers:rovr}**2+{centers:rowt}**2)**0.5+0.0001))')
+
+    # Interpolate delta0 on the mesh
+    C._extractVars(tsource, ['centers:delta0'])
+    P._extractMesh(tsource, t, order=2, extrapOrder=0)
 
 
 def extractRowGeometricalData(mesh, row, save=False):
@@ -860,10 +917,19 @@ def computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration)
     if isinstance(BodyForceParams['model'], list):
         models = BodyForceParams['model']
     else:
-        if BodyForceParams['model'] == 'hall':
-            models = ['blockage', 'hall_without_blockage', 'EndWallsProtection']
-        else:
-            models = [BodyForceParams['model']]
+        models = [BodyForceParams['model']]
+        
+    if 'hall' in models:
+        models.remove('hall')
+        if 'blockage' in models or 'hall_without_blockage' in models:
+            raise Exception(J.FAIL + '[BFM error] The list model is badly defined' + J.ENDC)
+        models += ['blockage', 'hall_without_blockage']
+    
+    if 'incidenceLoss' in models:
+        incidenceLoss = True
+        models.remove('incidenceLoss')
+    else:
+        incidenceLoss = False
 
     # Compute and gather all the required source terms
     TotalSourceTerms = dict()
@@ -885,7 +951,7 @@ def computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration)
                 zone, BodyForceParams['Thrust'], tol)
         elif model == 'hall_without_blockage':
             NewSourceTerms = computeBodyForce_Hall(
-                zone, FluidProperties, TurboConfiguration, tol)
+                zone, FluidProperties, TurboConfiguration, incidenceLoss=incidenceLoss, tol=tol)
         else:
             raise Exception(f"The body-force model {model} is not implemented")
             
@@ -941,7 +1007,7 @@ def computeBodyForce_Blockage(zone, tol=1e-5):
 
     return NewSourceTerms
 
-def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, tol=1e-5):
+def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, incidenceLoss=False, tol=1e-5):
     '''
     Compute actualized source terms corresponding to the Hall model.
 
@@ -956,6 +1022,10 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, tol=1e-5):
 
         TurboConfiguration : dict
             as read in `setup.py`
+
+        incidenceLoss : bool
+            apply or not the source term related to loss due to the deviation of the flow compared with 
+            the reference angle: :math:`2 \pi (\delta - \delta_0)^2 / H` where H is the blade to blade distance.
 
         tol : float
             minimum value for quantities used as a denominator.
@@ -1030,7 +1100,7 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, tol=1e-5):
 
     # Force parallel to the chord
     delta0 = DataSourceTerms.get('delta0', 0.)
-    fp = 0.5*Wmag**2. * (2*cf + 2*np.pi*(incidence - delta0)**2.) / DataSourceTerms['blade2BladeDistance']
+    fp = 0.5*Wmag**2. * (2*cf + incidenceLoss * 2*np.pi*(incidence - delta0)**2.) / DataSourceTerms['blade2BladeDistance']
 
     # Force in the cylindrical frame of reference
     fx = fn * unitVectorN_x + fp * unitVectorP_x
@@ -1052,12 +1122,10 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, tol=1e-5):
     return NewSourceTerms
 
 
-def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeight=0.05):
+def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeight=0.05, EndWallsCoefficient=10.):
     ''' 
     Protection of the boudary layer ofr body-force modelling, as explain in the appendix D of 
     W. Thollet PdD manuscrit.
-
-    .. danger:: Available only for structured mesh. Furthermore, there must be a unique BF zone.
 
     Parameters
     ----------
@@ -1071,6 +1139,9 @@ def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeigh
         ProtectedHeight : float
             Height of the channel flow corresponding to the boundary layer. 
             By default, 0.05.
+        
+        EndWallsCoefficient : float
+            Multiplicative factor to apply on source terms.
 
     Returns
     -------
@@ -1109,7 +1180,7 @@ def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeigh
 
     def get_mean_W_and_gradP(z):
         if not z: 
-            return 1, 0, 0
+            return Wmag, 0, 0
 
         C._initVars(z, 'radius=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
         C._initVars(z, 'theta=arctan2({CoordinateZ}, {CoordinateY})')
@@ -1129,21 +1200,23 @@ def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeigh
     W_HubEdge, DpDx_HubEdge, DpDr_HubEdge = get_mean_W_and_gradP(BoundarayLayerEdgeAtHub)
     W_ShroudEdge, DpDx_ShroudEdge, DpDr_ShroudEdge = get_mean_W_and_gradP(BoundarayLayerEdgeAtShroud)
 
+    zeros = np.zeros(Wmag.shape)
     # Source terms
-    S_BL_Hub_x    = (1. - (Wmag /    W_HubEdge)**2) * DpDx_HubEdge
-    S_BL_Hub_r    = (1. - (Wmag /    W_HubEdge)**2) * DpDr_HubEdge
-    S_BL_Shroud_x = (1. - (Wmag / W_ShroudEdge)**2) * DpDx_ShroudEdge
-    S_BL_Shroud_r = (1. - (Wmag / W_ShroudEdge)**2) * DpDr_ShroudEdge
+    S_BL_Hub_x    = np.minimum(zeros, (1. - (Wmag /    W_HubEdge)**2)) * EndWallsCoefficient * DpDx_HubEdge
+    S_BL_Hub_r    = np.minimum(zeros, (1. - (Wmag /    W_HubEdge)**2)) * EndWallsCoefficient * DpDr_HubEdge
+    S_BL_Shroud_x = np.minimum(zeros, (1. - (Wmag / W_ShroudEdge)**2)) * EndWallsCoefficient * DpDx_ShroudEdge
+    S_BL_Shroud_r = np.minimum(zeros, (1. - (Wmag / W_ShroudEdge)**2)) * EndWallsCoefficient * DpDr_ShroudEdge
 
+    # Terms applied only in the BL protected area
     S_BL_x = S_BL_Hub_x * (h<ProtectedHeight) + S_BL_Shroud_x * (h>1-ProtectedHeight)
     S_BL_r = S_BL_Hub_r * (h<ProtectedHeight) + S_BL_Shroud_r * (h>1-ProtectedHeight)
 
     BLProtectionSourceTerms = dict(
-        Density                 = np.zeros(Wmag.shape),
+        Density                 = zeros,
         MomentumX               = S_BL_x,
         MomentumY               = cosTheta * S_BL_r,
         MomentumZ               = sinTheta * S_BL_r,
-        EnergyStagnationDensity = np.zeros(Wmag.shape)
+        EnergyStagnationDensity = zeros
     )
     return BLProtectionSourceTerms
 
@@ -1352,6 +1425,10 @@ def computeBodyForce_ShockWaveLoss(zone, FluidProperties):
     '''
     Compute the volumic force parallel to the flow (and in the opposite direction) corresponding 
     to shock wave loss. 
+
+    .. danger::
+        
+        WORK IN PROGRESS, DO NOT USE THIS FUNCTION !
 
     .. note::
         

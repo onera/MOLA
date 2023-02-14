@@ -10,46 +10,48 @@ First creation:
 01/03/2019 - L. Bernardos - Creation by recycling.
 '''
 
-# System modules
-import sys, os, time, timeit
-from copy import deepcopy as cdeep
-import numpy as np
-import numpy.linalg as la
-import scipy.interpolate
-from timeit import default_timer as tic
-
-# Cassiopee
-import Converter.PyTree as C
-import Converter.Internal as I
-import Geom.PyTree as D
-import Post.PyTree as P
-import Generator.PyTree as G
-import Transform.PyTree as T
-import Connector.PyTree as X
-import Intersector.PyTree as XOR
-try: import CPlot.PyTree as CPlot
-except: CPlot = None
-
-# MOLA
+import MOLA
 from . import InternalShortcuts as J
 from . import Wireframe as W
 from . import GenerativeShapeDesign as GSD
 
-initVarsCostInSeconds = np.array([0.0])
-computeExtrusionIndicatorsTime = np.array([0.0])
-constrainedSmoothing = np.array([0.0])
-GrowthTime = np.array([0.0])
-smoothField = np.array([0.0])
-keepConstrainedHeight = np.array([0.0])
-ApplyConstraintsTime = np.array([0.0])
-TransferDataTime = np.array([0.0])
-StackLayersTime = np.array([0.0])
-ExtrusionPreprocess = np.array([0.0])
-Weighting = np.array([0.0])
-Gathering = np.array([0.0])
-Transformation = np.array([0.0])
-DisplaceLayerTime = np.array([0.0])
-newBaseLayerTime = np.array([0.0])
+if not MOLA.__ONLY_DOC__:
+
+    # System modules
+    import sys, os, time, timeit
+    from copy import deepcopy as cdeep
+    import numpy as np
+    import numpy.linalg as la
+    import scipy.interpolate
+    from timeit import default_timer as tic
+
+    # Cassiopee
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Geom.PyTree as D
+    import Post.PyTree as P
+    import Generator.PyTree as G
+    import Transform.PyTree as T
+    import Connector.PyTree as X
+    import Intersector.PyTree as XOR
+    try: import CPlot.PyTree as CPlot
+    except: CPlot = None
+
+    initVarsCostInSeconds = np.array([0.0])
+    computeExtrusionIndicatorsTime = np.array([0.0])
+    constrainedSmoothing = np.array([0.0])
+    GrowthTime = np.array([0.0])
+    smoothField = np.array([0.0])
+    keepConstrainedHeight = np.array([0.0])
+    ApplyConstraintsTime = np.array([0.0])
+    TransferDataTime = np.array([0.0])
+    StackLayersTime = np.array([0.0])
+    ExtrusionPreprocess = np.array([0.0])
+    Weighting = np.array([0.0])
+    Gathering = np.array([0.0])
+    Transformation = np.array([0.0])
+    DisplaceLayerTime = np.array([0.0])
+    newBaseLayerTime = np.array([0.0])
 
 def extrudeWingOnSupport(Wing, Support, Distributions, Constraints=[],
         SupportMode='intersection', extrapolatePoints=30, InterMinSep=0.1,
@@ -2054,11 +2056,11 @@ def addExtrusionConstraint(tExtru, kind='Imposed', curve=None, surface=None,
         elif ProjectionMode == 'CylinderRadial':
             if ProjectionCenter is None:
                 raise AttributeError('CylinderRadial projection requires "ProjectionCenter" argument')
-            ProjectionCenter = np.array(ProjectionCenter,dtype=np.float)
+            ProjectionCenter = np.array(ProjectionCenter,dtype=np.float64)
             ExtrusionData['ProjectionCenter'] = ProjectionCenter
             if ProjectionAxis is None:
                 raise AttributeError('CylinderRadial projection requires "ProjectionAxis" argument')
-            ProjectionAxis = np.array(ProjectionAxis,dtype=np.float)
+            ProjectionAxis = np.array(ProjectionAxis,dtype=np.float64)
             ProjectionAxis/= np.sqrt(ProjectionAxis.dot(ProjectionAxis))
             ExtrusionData['ProjectionAxis'] = ProjectionAxis
         J.set(curve,'.ExtrusionData',**ExtrusionData)

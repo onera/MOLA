@@ -110,7 +110,7 @@ def load(filename, only_skeleton=False):
           import MOLA.Data as M
           t = M.load('myfile.cgns')
 
-        will open the file, including numpy contained in *DataArray_t* nodes.
+        will open the file, including :py:class:`numpy.ndarray` contained in *DataArray_t* nodes.
         If you want to open a file without loading *DataArray_t* data, then you
         can do it like this:
 
@@ -124,13 +124,15 @@ def load(filename, only_skeleton=False):
 
 
     if Core.settings.backend == 'h5py2cgns':
-        t, f, links = Core.h.load(filename, only_skeleton=only_skeleton)
+        from . import h5py2cgns as h
+        t, f, links = h.load(filename, only_skeleton=only_skeleton)
         t = Tree(t)
         for link in links:
             t.addLink(path=link[3], target_file=link[1], target_path=link[2])
 
     elif Core.settings.backend == 'pycgns':
-        t, links, paths = Core.CGM.load(filename)
+        import CGNS.MAP as CGM
+        t, links, paths = CGM.load(filename)
         for p in paths:
             raise IOError('file %s : could not read node %s'%(filename,str(p)))
         t = Tree(t)
@@ -138,8 +140,9 @@ def load(filename, only_skeleton=False):
             t.addLink(path=link[3], target_file=link[1], target_path=link[2])
 
     elif Core.settings.backend == 'cassiopee':
+        import Converter.PyTree as C
         links = []
-        t = Core.C.convertFile2PyTree(filename, links=links)
+        t = C.convertFile2PyTree(filename, links=links)
         t = Tree(t)
         for link in links:
             t.addLink(path=link[3], target_file=link[1], target_path=link[2])
@@ -597,6 +600,70 @@ def getBases( data ):
 
 
 def useEquation(data, *args, **kwargs):
+    '''
+    Call the :py:meth:`~MOLA.Data.Zone.Zone.useEquation` method 
+    for each :py:class:`~MOLA.Data.Zone.Zone` contained in 
+    argument **data**
+
+    Parameters
+    ----------
+
+        data : list
+            heterogeneous container of nodes compatible with :py:func:`merge`
+
+            .. note::
+                :py:class:`~MOLA.Data.Zone.Zone`'s are modified    
+
+        args
+            mandatory comma-separated arguments of
+            :py:class:`~MOLA.Data.Zone.Zone`'s :py:meth:`~MOLA.Data.Zone.Zone.useEquation` method
+
+        kwargs
+            optional pair of ``keyword=value`` arguments of
+            :py:class:`~MOLA.Data.Zone.Zone`'s :py:meth:`~MOLA.Data.Zone.Zone.useEquation` method
+
+    Returns
+    -------
+
+        t : :py:class:`~MOLA.Data.Tree.Tree`
+            same result as :py:func:`merge`
+
+    Examples
+    --------
+
+    Create two :py:class:`~MOLA.Data.Tree.Tree`, each containing a different 
+    number of :py:class:`~MOLA.Data.Zone.Zone` and create a new field named 
+    ``field`` attributing a specific value:
+
+    ::
+
+        import MOLA.Data as M
+
+
+        zoneA = M.Mesh.Line( Name='zoneA', N=2 )
+        zoneB = M.Mesh.Line( Name='zoneB', N=4 )
+        zoneC = M.Mesh.Line( Name='zoneC', N=6 )
+
+        tree1 = M.Tree(Base1=[zoneA, zoneB])
+        tree2 = M.Tree(Base2=[zoneC])
+
+        M.useEquation( [tree1, tree2], '{field} = 12.0' )
+
+        for zone in zoneA, zoneB, zoneC:
+            print(zone.name()+' has field '+str(zone.field('field')))
+
+
+    this will produce: 
+
+    .. code-block:: text
+
+        zoneA has field [12. 12.]
+        zoneB has field [12. 12. 12. 12.]
+        zoneC has field [12. 12. 12. 12. 12. 12.]
+
+
+    '''
+
     t = merge( data ) # TODO avoid merge
     for zone in t.zones(): zone.useEquation(*args, **kwargs)
 
@@ -604,6 +671,68 @@ def useEquation(data, *args, **kwargs):
 
 
 def newZoneFromArrays(Name, ArraysNames, Arrays):
+    '''
+    This handy function easily produces a structured :py:class:`~MOLA.Data.Zone.Zone`
+    directly from numpy arrays.
+
+    Parameters
+    ----------
+
+        Name : str
+            The name you want to attribute to the new :py:class:`~MOLA.Data.Zone.Zone`
+
+        ArraysNames: list
+            A :py:class:`list` of :py:class:`str` corresponding to the names 
+            of each field (or coordinate) contained in **Arrays** (see next)
+
+        Arrays : :py:class:`list` of :py:class:`numpy.ndarray`
+            A :py:class:`list` containing each numpy array (coordinates and/or
+            fields). All :py:class:`numpy.ndarray` must have identical :py:obj:`~numpy.ndarray.shape`
+
+    Returns
+    -------
+
+        zone : :py:class:`~MOLA.Data.Zone.Zone`
+            the new created :py:class:`~MOLA.Data.Zone.Zone`
+
+    Examples
+    --------
+
+    Create a block including a field 
+
+    ::
+
+        import MOLA.Data as M
+        import numpy as np
+
+        # create a grid
+        x, y, z = np.meshgrid( np.linspace(0,1,11),
+                               np.linspace(0,0.5,7),
+                               np.linspace(0,0.3,4), indexing='ij')
+
+        # create a field
+        field = x*y
+
+        # create the new zone using numpy arrays of coordinates and field
+        zone = M.newZoneFromArrays( 'block', ['x','y','z','field'],
+                                             [ x,  y,  z,  field ])
+
+        # save result
+        M.save(zone,'out.cgns')
+
+    
+    .. note::
+        In this example we employ useful numpy functions
+        :py:func:`~numpy.meshgrid` and :py:func:`~numpy.linspace`. In order to
+        obtain a direct ordered mesh (following the right-hand-rule),
+        we must specify :python:`indexing='ij'` option to :py:func:`~numpy.meshgrid`
+        
+
+    See also
+    --------
+
+    :py:func:`newZoneFromDict`
+    '''
 
     CoordinatesNames = list(CoordinatesShortcuts)
     numpyarray = np.array(Arrays[0])
@@ -629,6 +758,64 @@ def newZoneFromArrays(Name, ArraysNames, Arrays):
     return zone
 
 def newZoneFromDict(Name, DictWithArrays):
+    '''
+    This handy function easily produces a structured :py:class:`~MOLA.Data.Zone.Zone`
+    directly from numpy arrays.
+
+    Parameters
+    ----------
+
+        Name : str
+            The name you want to attribute to the new :py:class:`~MOLA.Data.Zone.Zone`
+
+        DictWithArrays: dict
+            A :py:class:`dict` where each key corresponds to a field or coordinate 
+            name and each value corresponds to the :py:class:`numpy.ndarray`.
+            All :py:class:`numpy.ndarray` must have identical :py:obj:`~numpy.ndarray.shape`
+
+    Returns
+    -------
+
+        zone : :py:class:`~MOLA.Data.Zone.Zone`
+            the new created :py:class:`~MOLA.Data.Zone.Zone`
+
+    Examples
+    --------
+
+    Create a block including a field 
+
+    ::
+
+        import MOLA.Data as M
+        import numpy as np
+
+        # create a grid
+        x, y, z = np.meshgrid( np.linspace(0,1,11),
+                               np.linspace(0,0.5,7),
+                               np.linspace(0,0.3,4), indexing='ij')
+
+        # create a field
+        field = x*y
+
+        # create the new zone using numpy arrays of coordinates and field
+        zone = M.newZoneFromDict( 'block', dict(x=x, y=y, z=z, filed=field) )
+
+        # save result
+        M.save(zone,'out.cgns')
+
+
+    .. note::
+        In this example we employ useful numpy functions
+        :py:func:`~numpy.meshgrid` and :py:func:`~numpy.linspace`. In order to
+        obtain a direct ordered mesh (following the right-hand-rule),
+        we must specify :python:`indexing='ij'` option to :py:func:`~numpy.meshgrid`
+        
+
+    See also
+    --------
+
+    :py:func:`newZoneFromArrays`
+    '''
     ArraysNames, Arrays = [], []
     for k in DictWithArrays:
         ArraysNames += [k]
