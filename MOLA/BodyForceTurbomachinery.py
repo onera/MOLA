@@ -543,24 +543,32 @@ def extractRowGeometricalData(mesh, row, save=False):
 
         import Ersatz as EZ
 
+        def getBlockName(zone):
+            try:
+                bkNameNode = I.getNodeFromNameAndType(zone, 'blockName', 'DataArray_t')
+                blockName = I.getValue(bkNameNode)
+            except:
+                blockName = I.getName(zone)
+            return blockName
+
         zones = C.getFamilyZones(tree, row)
         if zones_for_meridional_lines_extraction is None:
             zones_for_meridional_lines_extraction = []
             # Attention! Ordre de l'amont a l'aval
 
             for zone in zones:
-                zoneName = I.getName(zone)
+                zoneName = getBlockName(zone)
                 if any([zoneName.endswith(suffix) for suffix in ['_upS', '_upStream', '_upstream']]):
                     zones_for_meridional_lines_extraction.append(zoneName)
             for zone in zones:
-                zoneName = I.getName(zone)
+                zoneName = getBlockName(zone)
                 if zoneName.endswith('_up'):
                     zones_for_meridional_lines_extraction.append(zoneName)
             for zone in zones:
-                zoneName = I.getName(zone)
+                zoneName = getBlockName(zone)
                 if any([zoneName.endswith(suffix) for suffix in ['_downS', '_downStream', '_downstream']]):
                     zones_for_meridional_lines_extraction.append(zoneName)
-
+        
         if zones_for_blade_profiles_extraction is None:
             zones_for_blade_profiles_extraction = []
             
@@ -600,7 +608,7 @@ def extractRowGeometricalData(mesh, row, save=False):
             tree_t = C.newPyTree(['Base', 3])
             for zm in zones_for_meridional_lines_extraction:
                 for zone in I.getNodesFromType(tree, 'Zone_t'):
-                    if I.getName(zone) == zm:
+                    if getBlockName(zone) == zm:
                         zone_i_dim = I.getZoneDim(zone)[1]
                         zone_j_dim = I.getZoneDim(zone)[2]
                         zone_k_dim = I.getZoneDim(zone)[3]
