@@ -5095,6 +5095,18 @@ def checkFamiliesInZonesAndBC(t):
                     FAILMSG += 'BC {} in zone {} has no node of type FamilyName_t'.format(I.getName(bc), I.getName(zone))
                     raise Exception(J.FAIL+FAILMSG+J.ENDC)
 
+def extendListOfFamilies(FamilyNames):
+    '''
+    For each <NAME> in the list **FamilyNames**, add Name, name and NAME.
+    '''
+    ExtendedFamilyNames = copy.deepcopy(FamilyNames)
+    for fam in FamilyNames:
+        newNames = [fam.lower(), fam.upper(), fam.capitalize()]
+        for name in newNames:
+            if name not in ExtendedFamilyNames:
+                ExtendedFamilyNames.append(name)
+    return ExtendedFamilyNames
+
 def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
     '''
     Compute the distance to the walls and add nodes ``'TurbulentDistance'`` and
@@ -5129,17 +5141,17 @@ def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
             **wallFilename**.
 
     '''
-    def extendListOfFamilies(FamilyNames):
-        '''
-        For each <NAME> in the list **FamilyNames**, add Name, name and NAME.
-        '''
-        ExtendedFamilyNames = copy.deepcopy(FamilyNames)
-        for fam in FamilyNames:
-            newNames = [fam.lower(), fam.upper(), fam.capitalize()]
-            for name in newNames:
-                if name not in ExtendedFamilyNames:
-                    ExtendedFamilyNames.append(name)
-        return ExtendedFamilyNames
+    # def extendListOfFamilies(FamilyNames):
+    #     '''
+    #     For each <NAME> in the list **FamilyNames**, add Name, name and NAME.
+    #     '''
+    #     ExtendedFamilyNames = copy.deepcopy(FamilyNames)
+    #     for fam in FamilyNames:
+    #         newNames = [fam.lower(), fam.upper(), fam.capitalize()]
+    #         for name in newNames:
+    #             if name not in ExtendedFamilyNames:
+    #                 ExtendedFamilyNames.append(name)
+    #     return ExtendedFamilyNames
 
     WallFamilies = extendListOfFamilies(WallFamilies)
 

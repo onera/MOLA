@@ -428,6 +428,10 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                             FluidProperties, ReferenceValues,
                             bladeFamilyNames=bladeFamilyNames)
 
+    if 'walldistperio' in elsAkeysModel:
+        setBCFamilyParamForPeriodicDistance(t, ReferenceValues,
+                                            bladeFamilyNames=bladeFamilyNames)
+
     computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
     addMonitoredRowsInExtractions(Extractions, TurboConfiguration)
@@ -1553,6 +1557,50 @@ def setZoneParamForPeriodicDistanceByRowsFamilies(t, TurboConfiguration):
             axis_ang2 = I.getNodeFromNameAndType(zone,'axis_ang_2','DataArray_t') # always 1 even in case of duplicated configuration
             I.setValue(axis_ang2,rowParams['NumberOfBladesSimulated'])
 
+def setBCFamilyParamForPeriodicDistance(t, ReferenceValues,
+                                        bladeFamilyNames=['BLADE','AUBE'],
+                                        hubFamilyNames=['HUB', 'SPINNER', 'MOYEU'],
+                                        shroudFamilyNames=['SHROUD', 'CARTER']):
+    '''
+    Set the BC family parameters for all families related to BCWall* conditions if periodicity in accounting for in wall distance computation.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        ReferenceValues : dict
+            as produced by :py:func:`computeReferenceValues`
+
+        bladeFamilyNames : :py:class:`list` of :py:class:`str`
+            list of patterns to find families related to blades.
+
+        hubFamilyNames : :py:class:`list` of :py:class:`str`
+            list of patterns to find families related to hub.
+
+        shroudFamilyNames : :py:class:`list` of :py:class:`str`
+            list of patterns to find families related to shroud.
+
+    '''
+    # Add info on Family_t nodes (in .Solver#BC)
+    bladeFamilyNames = PRE.extendListOfFamilies(bladeFamilyNames)
+    hubFamilyNames = PRE.extendListOfFamilies(hubFamilyNames)
+    shroudFamilyNames = PRE.extendListOfFamilies(shroudFamilyNames)
+
+    # print('setBCFamilyParamForPeriodicDistance')
+    for family in bladeFamilyNames+hubFamilyNames+shroudFamilyNames:
+        for famNode in I.getNodesFromNameAndType(t, '*{}*'.format(family), 'Family_t'):
+            famName = I.getName(famNode)
+            famBC = I.getNodeFromType1(famNode,'FamilyBC_t')
+            if 'BCWall' in I.getValue(famBC) or 'UserDefined' in I.getValue(famBC):
+                # I.printTree(famNode)
+                solver_bc_data = I.getNodeFromName(famNode,'.Solver#BC')
+                if not solver_bc_data: # does not exists
+                    solver_bc_data = I.newUserDefinedData(name='.Solver#BC', value=None, parent=famNode)
+                I.newDataArray('pangle', value=1, parent=solver_bc_data)
+                I.newDataArray('ptype', value='rot2dir', parent=solver_bc_data)
+
 ################################################################################
 ################# Boundary Conditions Settings  ################################
 ################################################################################
@@ -1932,21 +1980,21 @@ def setBC_Walls(t, TurboConfiguration,
             to string case. By default, search patterns 'SHROUD' and 'CARTER'.
 
     '''
-    def extendListOfFamilies(FamilyNames):
-        '''
-        For each <NAME> in the list **FamilyNames**, add Name, name and NAME.
-        '''
-        ExtendedFamilyNames = copy.deepcopy(FamilyNames)
-        for fam in FamilyNames:
-            newNames = [fam.lower(), fam.upper(), fam.capitalize()]
-            for name in newNames:
-                if name not in ExtendedFamilyNames:
-                    ExtendedFamilyNames.append(name)
-        return ExtendedFamilyNames
+    # def extendListOfFamilies(FamilyNames):
+    #     '''
+    #     For each <NAME> in the list **FamilyNames**, add Name, name and NAME.
+    #     '''
+    #     ExtendedFamilyNames = copy.deepcopy(FamilyNames)
+    #     for fam in FamilyNames:
+    #         newNames = [fam.lower(), fam.upper(), fam.capitalize()]
+    #         for name in newNames:
+    #             if name not in ExtendedFamilyNames:
+    #                 ExtendedFamilyNames.append(name)
+    #     return ExtendedFamilyNames
 
-    bladeFamilyNames = extendListOfFamilies(bladeFamilyNames)
-    hubFamilyNames = extendListOfFamilies(hubFamilyNames)
-    shroudFamilyNames = extendListOfFamilies(shroudFamilyNames)
+    bladeFamilyNames = PRE.extendListOfFamilies(bladeFamilyNames)
+    hubFamilyNames = PRE.extendListOfFamilies(hubFamilyNames)
+    shroudFamilyNames = PRE.extendListOfFamilies(shroudFamilyNames)
 
     if 'PeriodicTranslation' in TurboConfiguration:
         # For linear cascade configuration: all blocks and wall are motionless
