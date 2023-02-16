@@ -768,9 +768,42 @@ def getRadialProfiles(surfaces='OUTPUT/surfaces.cgns'):
         extractionInfo = J.get(zone, '.ExtractionInfo')
         if extractionInfo:
             RadialProfiles[surfaceName]['.ExtractionInfo'] = extractionInfo
+        
+        for FS in I.getNodesFromNameAndType(zone, 'Comparison#*', 'FlowSolution_t'):
+            comparedPlane = I.getName(FS).split('#')[-1]
+            comparisonName = f'{surfaceName}#{comparedPlane}'
+            RadialProfiles[comparisonName] = J.getVars2Dict(zone, Container=I.getName(FS))
 
     return RadialProfiles
 
+
+def sortRadialProfiles(RadialProfiles):
+    '''
+    Sort radial profiles in two groups: 
+
+    #. radial profiles on a single surface
+
+    #. radial profiles resulting of the comparison of two surfaces (difference, quotient). For instance, 
+       an isentropic efficiency profile.
+
+    Parameters
+    ----------
+    RadialProfiles : dict
+        as got from :py:func:`getRadialProfiles`
+
+    Returns
+    -------
+    RadialProfilesSingleSurface, RadialProfilesComparison : :py:class:`tuple` of :py:class:`dict`
+    '''
+
+    RadialProfilesSingleSurface = dict()
+    RadialProfilesComparison = dict()
+    for surface, RadialProfilesOnSurface in RadialProfiles.items():
+        if '#' in surface:
+            RadialProfilesComparison[surface] = RadialProfilesOnSurface
+        else:
+            RadialProfilesSingleSurface[surface] = RadialProfilesOnSurface
+    return RadialProfilesSingleSurface, RadialProfilesComparison
 
 def plotRadialProfiles(RadialProfiles, filename='RadialProfiles.pdf', assemble=False, variablesToPlot=None):
     '''
@@ -779,8 +812,33 @@ def plotRadialProfiles(RadialProfiles, filename='RadialProfiles.pdf', assemble=F
     Parameters
     ----------
     RadialProfiles : dict
-        as got from :py:func:`getRadialProfiles`
+        as got from :py:func:`getRadialProfiles`.
 
+        .. code-block:: python
+            
+                RadialProfiles['Iso_X_0.1'] = {'MachNumberAbs': numpy.array(...), 
+                                               'EntropyDim': numpy.array(...), 
+                                               ...
+                                               '.ExtractionInfo': {...},
+                                               '.PlotParameters': {...}
+                                            }
+            
+        Each iso-surface has an arbitrary number of quantities, plus additional optional 
+        data with a key name starting with a dot '.':
+
+            * '.ExtractionInfo': information taken from a `.ExtractionInfo` node.
+            
+            * '.PlotParameters': additional parameters to be given to `matplotlib.pyplot.plot` function.
+              '.PlotParameters' must be a :py:class:`dict`, it will be given as 'kwargs'.
+
+        For each kind of variable, there may be a '.AxisProperty' argument that will be given to 
+        the matplotlib axis object. For example, to set the limits of IsentropicEfficiency to 
+        [0.7, 1.0], it must be set as:
+
+        .. code-block:: python
+            
+                RadialProfiles['.AxisProperties']['IsentropicEfficiency'] = dict(xlim=[0.7, 1.0])
+        
     filename : str, optional
         generic name of the file, by default 'RadialProfiles.pdf'
 
@@ -835,6 +893,8 @@ def plotRadialProfiles(RadialProfiles, filename='RadialProfiles.pdf', assemble=F
     if not assemble:
 
         for plane, RadialProfilesOnPlane in RadialProfiles.items():
+            if plane.startswith('.'):
+                continue
             variables2plot = []
             for var in RadialProfilesOnPlane:
                 if not var in ['ChannelHeight', 'Gamma'] and not var.startswith('.'):
@@ -872,13 +932,18 @@ def plotRadialProfiles(RadialProfiles, filename='RadialProfiles.pdf', assemble=F
                 if not var in ['ChannelHeight', 'Gamma'] and not var.startswith('.'):
                     if (variablesToPlot is None) or (var in variablesToPlot):
                         variables2plot.append(var)
+            
+            AxisProperties = RadialProfiles.get('.AxisProperties', dict())
 
             for var in variables2plot:
                 print(f'  > plot {var}')
                 plt.figure()
                 for plane, RadialProfilesOnPlane in RadialProfiles.items():
+                    if plane.startswith('.'): 
+                        continue
                     PlotParameters = RadialProfilesOnPlane.get('.PlotParameters', dict(label=plane))
                     if not var in RadialProfilesOnPlane: 
+                        print(J.WARN + f'    not found on {plane}' + J.ENDC)
                         continue
                     plt.plot(RadialProfilesOnPlane[var], RadialProfilesOnPlane['ChannelHeight'] * 100., **PlotParameters)
                 plt.xlabel(prettyName(var))
@@ -886,5 +951,7 @@ def plotRadialProfiles(RadialProfiles, filename='RadialProfiles.pdf', assemble=F
                 plt.grid()
                 if len(RadialProfiles) > 1: 
                     plt.legend()
+                if var in AxisProperties:
+                    plt.gca().set(**AxisProperties[var])
                 pdf.savefig()  # saves the current figure into a pdf page
                 plt.close()
