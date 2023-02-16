@@ -1554,7 +1554,7 @@ def migrateFields(Donor, Receiver, keepMigrationDataForReuse=False,
                 MaskNode = I.getNodeFromName(DonorMigrationNode,
                                              Keyname+'Mask')
                 Mask = I.getValue(MaskNode)
-                Mask = np.asarray(Mask, dtype=np.bool, order='F')
+                Mask = np.asarray(Mask, dtype=bool, order='F')
                 PointListDonorNode = I.getNodeFromName(DonorMigrationNode,
                                                  Keyname+'ListDonor')
                 PointListDonor = PointListDonorNode[1]
@@ -2272,7 +2272,7 @@ def printEnvironment():
         vMOLA = WARN + totoV + ENDC
     else:
         vMOLA = totoV
-    print('\nMOLA version '+vMOLA+' at '+machine)
+    print('MOLA version '+vMOLA+' at '+machine+' (%s)'%os.getenv('ARCH', '-'))
     print(' --> Python '+sys.version.split(' ')[0])
 
     # elsA
@@ -2300,6 +2300,22 @@ def printEnvironment():
     except:
         vCASSIOPEE = FAIL + 'UNAVAILABLE' + ENDC
     print(' --> Cassiopee '+vCASSIOPEE)
+
+    try:
+        import OCC
+        vOCC = OCC.__version__
+    except:
+        vOCC = FAIL + 'UNAVAILABLE' + ENDC
+    print(' --> OCC '+vOCC)
+
+    try:
+        import Apps
+        vApps = Apps.__version__
+    except:
+        vApps = FAIL + 'UNAVAILABLE' + ENDC
+    print(' --> Apps '+vApps)
+
+
 
     # Vortex Particle Method
     try:
@@ -2330,6 +2346,9 @@ def printEnvironment():
             import turbo
         except:
             vTURBO = FAIL + 'UNAVAILABLE' + ENDC 
+    else:
+        vTURBO = FAIL + 'UNAVAILABLE' + ENDC 
+
     print(' --> turbo '+vTURBO)
 
     # ErsatZ
