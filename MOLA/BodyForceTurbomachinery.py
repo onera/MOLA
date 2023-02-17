@@ -548,14 +548,11 @@ def extractRowGeometricalData(mesh, row, save=False):
         if (not(os.path.isdir(directory_profiles))):
             os.mkdir(directory_profiles)
 
-        tree_rotate = T.rotate(tree, (0, 0, 0), (0, 1, 0), 90)
-        T._rotate(tree_rotate, (0, 0, 0), (1, 0, 0), 90)
-
         familyNames = [] 
         for pattern in ['HUB', 'hub', 'Hub']: 
             families = I.getNodesFromNameAndType(tree, f'{row}_*{pattern}*', 'Family_t')
             familyNames += [I.getName(fam) for fam in families]
-        x, r = XR.extract_xr_family(tree_rotate, familyNames)
+        x, r = XR.extract_xr_family(tree, familyNames)
         curve = J.createZone('hub', [x, r], ['x', 'r'])
         C.convertPyTree2File(curve, 'hub.dat')
 
@@ -563,7 +560,7 @@ def extractRowGeometricalData(mesh, row, save=False):
         for pattern in ['SHROUD', 'shroud', 'Shroud']: 
             families = I.getNodesFromNameAndType(tree, f'{row}_*{pattern}*', 'Family_t')
             familyNames += [I.getName(fam) for fam in families]
-        x, r = XR.extract_xr_family(tree_rotate, familyNames)
+        x, r = XR.extract_xr_family(tree, familyNames)
         curve = J.createZone('shroud', [x, r], ['x', 'r'])
         C.convertPyTree2File(curve, 'shroud.dat')
 
@@ -586,7 +583,7 @@ def extractRowGeometricalData(mesh, row, save=False):
             for j in range(zone_j_dim):
                 zone_t = T.subzone(zone, (1, j+1, 1), (1, j+1, zone_k_dim))
                 x, y, z = J.getxyz(zone_t)
-                curve = J.createZone('profile', [z, x, y], ['x', 'y', 'z'])
+                curve = J.createZone('profile', [x, y, z], ['x', 'y', 'z'])
                 C.convertPyTree2File(curve, f'{directory_profiles}/profile{j+1:03d}.dat')
             
             # Because of the assumption that there is only one zone around the blade skin,

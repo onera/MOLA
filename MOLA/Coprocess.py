@@ -2502,8 +2502,10 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
             for name, newSourceTerm in NewSourceTerms.items():
                 if previousFSSourceTerm:
                     previousSourceTerm = I.getValue(I.getNodeFromName(previousFSSourceTerm, name))
-                    newSourceTerm = (1-relax) * newSourceTerm + relax * previousSourceTerm
-                
+                else:
+                    previousSourceTerm = 0.
+
+                newSourceTerm = (1-relax) * newSourceTerm + relax * previousSourceTerm
                 I.newDataArray(name=name, value=newSourceTerm, parent=FSSourceTerm)
 
     I._rmNodesByName(newTreeWithSourceTerms, 'FlowSolution#Init')

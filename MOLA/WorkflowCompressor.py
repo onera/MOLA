@@ -203,6 +203,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlock
             InputMesh['file'] = filename
 
     PRE.checkFamiliesInZonesAndBC(t)
+    PRE.transform(t, InputMeshes)
 
     if BodyForceRows:
         # Remesh rows to model with body-force
@@ -210,7 +211,6 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlock
             t, BodyForceRows, saveGeometricalDataForBodyForce=saveGeometricalDataForBodyForce)
 
     t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], zonesToRename=zonesToRename)
-    PRE.transform(t, InputMeshes)
 
     if BodyForceRows:
          #Add body-force domains in the main mesh
