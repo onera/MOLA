@@ -3923,6 +3923,8 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
         # TODO make ticket:
         # BUG with writingmode=2 and Cfdpb.compute() (required by unsteady overset) 
         # wall extractions ignored during coprocess
+        # BEWARE : contradiction in doc :  http://elsa.onera.fr/restricted/MU_tuto/latest/MU-98057/Textes/Attribute/extract.html#extract.writingmode 
+        #                        versus :  http://elsa.onera.fr/restricted/MU_tuto/latest/MU_Annexe/CGNS/CGNS.html#Solver-Output
         writingmode   = 2, # NOTE requires extract_filtering='inactive'
 
         loc           = 'interface',
@@ -3975,10 +3977,15 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
                             break
 
                     if 'Inviscid' in BCType:
-                        if 'bl_quantities_2d' in ExtractVariablesList:
-                            ExtractVariablesList.remove('bl_quantities_2d')
-                        if 'yplusmeshsize' in ExtractVariablesList:
-                            ExtractVariablesList.remove('yplusmeshsize')
+                        ViscousKeys = ['geomdepdom','delta_cell_max','delta_compute',
+                            'vortratiolim','shearratiolim','pressratiolim',
+                            'bl_quantities_2d', 'bl_quantities_3d', 'bl_ue',
+                            'yplusmeshsize']
+                        for vk in ViscousKeys:
+                            try:
+                                ExtractVariablesList.remove(vk)
+                            except ValueError:
+                                pass
                     else:
                         TransitionMode = ReferenceValues['TransitionMode']
 
@@ -4746,12 +4753,6 @@ def adapt2elsA(t, InputMeshes):
     print('adapting NearMatch to elsA')
     EP._adaptNearMatch(t)
 
-    # TODO remove this, as it is not required by elsA anymore
-    # # Optional in the general but incompatible with PyPart
-    # if hasAnyPeriodicMatch(InputMeshes):
-    #     print('adapting PeriodicMatch to elsA...')
-    #     EP._adaptPeriodicMatch(t, clean=True)
-
     if hasAnyOversetData(InputMeshes):
         print('adapting overset data to elsA...')
         EP._overlapGC2BC(t)
@@ -4759,6 +4760,21 @@ def adapt2elsA(t, InputMeshes):
         EP._fillNeighbourList(t, sameBase=0)
         EP._prefixDnrInSubRegions(t)
         removeEmptyOversetData(t, silent=False)
+
+    # https://elsa.onera.fr/issues/10928
+    for base in I.getBases(t):
+        print(base[0])
+        for zone in I.getZones(base):
+            print(zone[0])
+            for ZoneBC in I.getNodesFromType1(zone,'ZoneBC_t'):
+                print(ZoneBC[0])
+                for BC in I.getNodesFromType1(ZoneBC,'BC_t'):
+                    print(BC[0])
+                    if I.getNodeFromType1(BC,'FamilyName_t') is not None:
+                        print('ADAPTING')
+                        I.setValue(BC,'FamilySpecified')
+                        continue
+
 
     I._createElsaHybrid(t, method=1)
 

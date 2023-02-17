@@ -207,6 +207,16 @@ def windowsOverlap(window1, window2):
 
     return overlap
 
+def _getDuplicated(a):
+    seen = set()
+    dupes = []
+    for x in a:
+        if x in seen:
+            dupes.append(x)
+        else:
+            seen.add(x)
+    return dupes
+
 def windowsOfSurfaceTouchingGrid(surface, grid):
     hook, _ = C.createGlobalHook(surface, function='nodes', indir=1)
     windows = []
@@ -218,6 +228,27 @@ def windowsOfSurfaceTouchingGrid(surface, grid):
         unr = np.vstack(np.unravel_index(nodes-1, (Ni,Nj), order='F'))+1
         NbOfTouchingPts = len(unr[0])
         if NbOfTouchingPts == 0 or NbOfTouchingPts == 1: continue
+        i_dupl = _getDuplicated(unr[0])
+        j_dupl = _getDuplicated(unr[0])
+        if i_dupl and j_dupl:
+            if len(i_dupl)==1:
+                if i_dupl[0] == 1:
+                    unr[0,-1] += 1
+                else:
+                    unr[0,0] = 1
+            elif len(j_dupl)==1:
+                if j_dupl[0] == 1:
+                    unr[1,-1] += 1
+                else:
+                    unr[1,0] = 1
+            else:
+                msg = 'Unexpected number of duplicated points:\n'
+                msg+= str(i_dupl)+'\n'
+                msg+= str(j_dupl)+'\n'
+                msg+= 'unr:\n'
+                msg+= str(unr)
+                raise ValueError(msg)
+
         windows += [ np.array([[unr[0,0],unr[0,-1]],
                                [unr[1,0],unr[1,-1]]], order='F') ]
 
@@ -257,7 +288,6 @@ def getOpposedConnectedSurfaces(surface, InwardIndex, AllSurfaces):
 def addSplitWindow(surface, window, InwardIndex, NCellsOffset):
     splitWindow = getNewWindowFromIndwardsIndexAndOffset(window, InwardIndex,
                                                                    NCellsOffset)
-    
     if splitWindow[0,0]==0 or splitWindow[1,0]==0:
         print("\033[93mWARNING for surface %s\033[0m"%surface[0])
         return
@@ -287,6 +317,7 @@ def propagateOffsetAndTagSurface(surface, window, NCellsOffset, AllSurfaces):
         tagSurface(surface, 'to_split')
         addSplitWindow(surface, window, inwardInd, NCellsOffset)
 
+
 def addSurfacesByWindowComposition(surfaces):
     newSurfaces = []
     for s in I.getZones(surfaces):
@@ -315,11 +346,11 @@ def addSurfacesByWindowComposition(surfaces):
             inwInd = I.getValue(I.getNodeFromName1(SplitWindows[0],'InwardIndex'))
 
             if   inwInd == '+i':
-                slice = (w[0,0],w[1,0],1),(w[0,1],w[1,1],1)
+                slice = (w[0,0],w[1,0],1),(Ni,w[1,1],1)
             elif inwInd == '-i':
                 slice = (1,w[1,0],1),(w[0,0],w[1,1],1)
             elif inwInd == '+j':
-                slice = (w[0,0],w[1,0],1),(w[0,1],w[1,1],1)
+                slice = (w[0,0],w[1,0],1),(w[0,1],Nj,1)
             elif inwInd == '-j':
                 slice = (w[0,0],1,1),(w[0,1],w[1,1],1)
             else:
