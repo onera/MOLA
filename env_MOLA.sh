@@ -87,7 +87,7 @@ fi
 
 
 if [ "$MAC" = "sator" ]; then
-    source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA 2>/dev/null
+    source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA &>/dev/null
     export MOLA=$MOLASATOR
     export PATH=$PATH:/tmp_user/sator/lbernard/lib
 
@@ -114,13 +114,11 @@ if [ "$MAC" = "sator" ]; then
     export LD_LIBRARY_PATH=$MOLASATORext/sator/lib/python3.7/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
 
 elif [ "$MAC" = "spiro" ]; then
-    if [ "$EL8" ]; then
-            echo 'loading MOLA environment for CentOS 8'
-    else
+    if [ ! "$EL8" ]; then
         echo -e "\033[91mERROR: SPIRO CENTOS 7 NOT SUPPORTED ANYMORE\033[0m"
         exit 0
     fi
-    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro-el8_mpi/.env_elsA 2>/dev/null
+    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro-el8_mpi/.env_elsA &>/dev/null
 
 
     # to avoid message:
@@ -172,7 +170,7 @@ elif [ "$MAC" = "spiro" ]; then
 
 elif [ "$MAC" = "visung" ]; then
 
-    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA 2>/dev/null
+    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA &>/dev/null
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
     module load freetype/2.10.2
     module load pointwise/2022.1.2
@@ -209,7 +207,7 @@ elif [ "$MAC" = "visung" ]; then
 
 elif [ "$MAC" = "ld" ]; then
 
-    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/local-os8_mpi/.env_elsA 2>/dev/null
+    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/local-os8_mpi/.env_elsA &>/dev/null
     module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
     module load vscode/1.74.3
     module load pointwise/2022.1.2
@@ -255,7 +253,7 @@ elif [ "$MAC" = "visio" ]; then
     echo -e "\033[93mWARNING: elsA is not installed yet in VISIO CentOS 6\033[0m"
     echo -e "\033[93mwatch https://elsa.onera.fr/issues/10587 for more information\033[0m"
 
-    . /etc/profile.d/modules-dri.sh 2>/dev/null
+    . /etc/profile.d/modules-dri.sh &>/dev/null
     module load subversion/1.7.6
     module load python/3.6.1
     module unload $(module -t list 2>&1 | grep -i intel)
