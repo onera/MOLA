@@ -64,7 +64,7 @@ def checkDependencies():
     print('\nVERIFICATIONS TERMINATED')
 
 
-def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
+def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlocks=False),
                     duplicationInfos={}, zonesToRename={},
                     scale=1., rotation='fromAG5', tol=1e-8, PeriodicTranslation=None,
                     BodyForceRows=None, families2Remove=[], saveGeometricalDataForBodyForce=True):
@@ -186,8 +186,10 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
                 as next step
     '''
     if isinstance(mesh,str):
+        filename = mesh
         t = C.convertFile2PyTree(mesh)
     elif I.isTopTree(mesh):
+        filename = None
         t = mesh
     else:
         raise ValueError('parameter mesh must be either a filename or a PyTree')
@@ -197,6 +199,8 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
     if InputMeshes is None:
         InputMeshes = generateInputMeshesFromAG5(t,
             scale=scale, rotation=rotation, tol=tol, PeriodicTranslation=PeriodicTranslation)
+        for InputMesh in InputMeshes: 
+            InputMesh['file'] = filename
 
     PRE.checkFamiliesInZonesAndBC(t)
 
@@ -230,7 +234,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
         duplicate(t, row, rowParams['NumberOfBlades'],
                 nDupli=rowParams['NumberOfDuplications'], merge=MergeBlocks)
 
-    if splitOptions:
+    if splitOptions is not None:
         t = PRE.splitAndDistribute(t, InputMeshes, **splitOptions)
     else:
         t = PRE.connectMesh(t, InputMeshes)
@@ -670,10 +674,6 @@ def generateInputMeshesFromAG5(mesh, scale=1., rotation='fromAG5', tol=1e-8, Per
         mesh : :py:class:`str` or PyTree
             Name of the CGNS mesh file from Autogrid 5 or already read PyTree.
 
-        SplitBlocks : bool
-            if :py:obj:`False`, do not split and distribute the mesh (use this
-            option if the simulation will run with PyPart).
-
         scale : float
             Homothety factor to apply on the mesh. Default is 1.
 
@@ -730,7 +730,6 @@ def generateInputMeshesFromAG5(mesh, scale=1., rotation='fromAG5', tol=1e-8, Per
                     baseName=I.getName(I.getNodeByType(t, 'CGNSBase_t')),
                     Transform=dict(scale=scale, rotate=rotation),
                     Connection=[dict(type='Match', tolerance=tol)],
-                    SplitBlocks=False,
                     )]
     # Set automatic periodic connections
     InputMesh = InputMeshes[0]
@@ -3991,6 +3990,20 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
     if not mask:
         mask = C.convertFile2PyTree('mask.cgns')
 
+    def getInletPlane(t, row, rowParams):
+        try: 
+            return rowParams['InletPlane']
+        except KeyError:
+            zones = C.getFamilyZones(t, row)
+            return C.getMinValue(zones, 'CoordinateX')
+
+    def getOutletPlane(t, row, rowParams):
+        try: 
+            return rowParams['OutletPlane']
+        except KeyError:
+            zones = C.getFamilyZones(t, row)
+            return C.getMaxValue(zones, 'CoordinateX')
+
     class RefState(object):
         def __init__(self):
           self.Gamma = FluidProperties['Gamma']
@@ -4007,7 +4020,7 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
     planes_data = []
 
     row, rowParams = list(TurboConfiguration['Rows'].items())[0]
-    xIn = rowParams['InletPlane']
+    xIn = getInletPlane(t, row, rowParams)
     alpha = ReferenceValues['AngleOfAttackDeg']
     planes_data.append(
         dict(
@@ -4022,10 +4035,15 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
     )
 
     for row, rowParams in TurboConfiguration['Rows'].items():
-        xOut = rowParams['OutletPlane']
+        xOut = getOutletPlane(t, row, rowParams)
         omega = rowParams['RotationSpeed']
         beta1 = rowParams.get('FlowAngleAtRoot', 0.)
         beta2 = rowParams.get('FlowAngleAtTip', 0.)
+        for (beta, paramName) in [(beta1, 'FlowAngleAtRoot'), (beta2, 'FlowAngleAtTip')]:
+            if beta * omega < 0:
+                MSG=f'WARNING: {paramName} ({beta} deg) has not the same sign that the rotation speed in {row} ({omega} rad/s).\n'
+                MSG += '        Double check it is not a mistake.'
+                print(J.WARN + MSG + J.ENDC)
         Csir = 1. if omega == 0 else 0.95  # Total pressure loss is null for a rotor, 5% for a stator
         planes_data.append(
             dict(
@@ -4038,15 +4056,19 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
         )
 
     # > Initialization
-    t = TI.initialize(t, mask, RefState(), planes_data,
-              nbslice=10,
-              constant_data=turbDict,
-              turbvarsname=list(turbDict),
-              velocity='absolute',
-              useSI=True,
-              keepTmpVars=False,
-              keepFS=True  # To conserve other FlowSolution_t nodes, as FlowSolution#Height
-              )
+    print(J.CYAN + 'Initialization with turbo...' + J.ENDC)
+    silence = J.OutputGrabber()
+    with silence:
+        t = TI.initialize(t, mask, RefState(), planes_data,
+                nbslice=10,
+                constant_data=turbDict,
+                turbvarsname=list(turbDict),
+                velocity='absolute',
+                useSI=True,
+                keepTmpVars=False,
+                keepFS=True  # To conserve other FlowSolution_t nodes, as FlowSolution#Height
+                )
+    print('..done.')
 
     return t
 

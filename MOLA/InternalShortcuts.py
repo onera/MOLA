@@ -85,9 +85,15 @@ def set(parent, childname, childType='UserDefinedData_t', **kwargs):
                     SubSet += [p]
                     continue
                 else:
-                    value = np.atleast_1d(kwargs[v])
+                    try:
+                        value = np.atleast_1d(kwargs[v])
+                        if value.dtype == 'O': 
+                            # 'O' for 'Object'. It generally means that kwargs[v] contains mixed values
+                            value = None
+                    except ValueError:
+                        value = None
 
-                    if value.dtype == 'O':
+                    if value is None:
                         print(WARN+'key:  '+'/'.join([parent[0],childname,v])+ENDC)
                         print(WARN+'has value:'+ENDC)
                         print(WARN+pprint.pformat(kwargs[v])+ENDC)
@@ -2404,7 +2410,10 @@ def getBCFamilies(t):
     # Automatically get BC Families
     if I.getType(t) == 'Zone_t':
         for BC in I.getNodesFromType2(t, 'BC_t'):
-            FamilyName = I.getValue(I.getNodeFromType1(BC, 'FamilyName_t'))
+            FamilyNameNode = I.getNodeFromType1(BC, 'FamilyName_t')
+            if not FamilyNameNode:
+                continue
+            FamilyName = I.getValue(FamilyNameNode)
             if FamilyName not in familyNames:
                 familyNames.append(FamilyName)
     else:
@@ -2513,6 +2522,8 @@ def joinFamilies(t, pattern):
     for bc in I.getNodesFromType(t, 'BC_t'):
         # Get BC family name
         famBC_node = I.getNodeFromType(bc, 'FamilyName_t')
+        if not famBC_node: 
+            continue
         famBC = I.getValue(famBC_node)
         # Check if the pattern is present in FamilyBC name
         if pattern not in famBC:

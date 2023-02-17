@@ -33,14 +33,14 @@ generate a mesh adapted for the body force method (BFM). There are two main oper
 The figure below illustrates this procedure:
 
 .. figure:: FIGURES_WORKFLOW_COMPRESSOR/mesh_generation_process_BFM.png
-      :width: 90%
+      :width: 100%
       :align: center
 
       Meshing procedure to get a BFM adapted domain
 
 In the user script, the mesh can be defined this way:
 
-::code-block:: python
+.. code-block:: python
 
     CellWidthAtWall = 2e-6 
     CellWidthAtLE = 5e-6
@@ -81,7 +81,7 @@ there is no need for keeping a mixing plane at the interface between these rows.
 In this case, think about adding the additional argument `families2remove` to 
 :mod:`~MOLA.WorkflowCompressor.prepareMesh4ElsA`:
 
-:: code-block:: python
+.. code-block:: python
 
     mesh = WF.prepareMesh4ElsA('r37.cgns', 
         BodyForceRows = dict(
@@ -103,7 +103,7 @@ to :mod:`~MOLA.WorkflowCompressor.prepareMainCGNS4ElsA` or :mod:`~MOLA.WorkflowC
 This argument is a dictionary describing the body-force model (or the list of models) used 
 for each row:
 
-:: code-block:: python 
+.. code-block:: python 
 
     BodyForceInputData = dict(
     R37 = dict(

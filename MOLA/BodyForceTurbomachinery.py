@@ -28,6 +28,8 @@ if not MOLA.__ONLY_DOC__:
     import Transform.PyTree as T
     import Post.PyTree as P
 
+    import etc.geom.xr_features as XR
+
 import MOLA.Preprocess as PRE
 import MOLA.InternalShortcuts as J
 import MOLA.Wireframe as W
@@ -128,7 +130,11 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows, saveGeometricalDataForBodyForc
                 BodyForceParams['meshType'] = 'structured'
 
         # Get the meridional info from rowTree
-        meridionalMesh = extractRowGeometricalData(t, row, save=saveGeometricalDataForBodyForce)
+        if os.path.isfile(f'BodyForceData_{row}.cgns'):
+            print(J.CYAN + f'Find body-force input BodyForceData_{row}.cgns' + J.ENDC)
+            meridionalMesh = C.convertFile2PyTree(f'BodyForceData_{row}.cgns')
+        else:
+            meridionalMesh = extractRowGeometricalData(t, row, save=saveGeometricalDataForBodyForce)
 
         newRowMesh = buildBodyForceMeshForOneRow(meridionalMesh,
                                                  NumberOfBlades=BladeNumber,
@@ -534,123 +540,69 @@ def extractRowGeometricalData(mesh, row, save=False):
         'nx', 'nr', 'nt', 'thickness', 'AbscissaFromLE'
     '''
 
-    def profilesExtractionAndAnalysis(tree, row, 
-                                        zones_for_meridional_lines_extraction=None,
-                                        zones_for_blade_profiles_extraction=None,
-                                        directory_meridional_lines='meridional_lines',
-                                        directory_profiles='profiles'
-                                        ):
+    def profilesExtractionAndAnalysis(tree, row, directory_profiles='profiles'):
 
         import Ersatz as EZ
-
-        zones = C.getFamilyZones(tree, row)
-        if zones_for_meridional_lines_extraction is None:
-            zones_for_meridional_lines_extraction = []
-            # Attention! Ordre de l'amont a l'aval
-
-            for zone in zones:
-                zoneName = I.getName(zone)
-                if any([zoneName.endswith(suffix) for suffix in ['_upS', '_upStream', '_upstream']]):
-                    zones_for_meridional_lines_extraction.append(zoneName)
-            for zone in zones:
-                zoneName = I.getName(zone)
-                if zoneName.endswith('_up'):
-                    zones_for_meridional_lines_extraction.append(zoneName)
-            for zone in zones:
-                zoneName = I.getName(zone)
-                if any([zoneName.endswith(suffix) for suffix in ['_downS', '_downStream', '_downstream']]):
-                    zones_for_meridional_lines_extraction.append(zoneName)
-
-        if zones_for_blade_profiles_extraction is None:
-            zones_for_blade_profiles_extraction = []
-            
-            FamilyBCList = list(C.getFamilyBCNamesDict(tree))
-            BladeFamilies = []
-            for fam in FamilyBCList:
-                if any([fam.endswith(suffix) for suffix in ['BLADE', 'Blade', 'blade', 'AUBE', 'Aube', 'aube']]):
-                    BladeFamilies.append(fam)
-
-            for zone in zones:
-                zoneName = I.getName(zone)
-                for BladeFamily in BladeFamilies:
-                    BCs = C.getFamilyBCs(zone, BladeFamily)
-                    if BCs and not ('gap' in zoneName or 'tip' in zoneName):
-                        zones_for_blade_profiles_extraction.append(zoneName)
-                        break
-
-        print(f'Extraction of hub and shroud lines from zones: {", ".join(zones_for_meridional_lines_extraction)}')
-        print(f'Extraction of profiles from zones: {" ".join(zones_for_blade_profiles_extraction)}')
-        assert len(zones_for_meridional_lines_extraction) > 0 and len(zones_for_blade_profiles_extraction) > 0
-         
-        # if directory doesnt exist create it
-        if (not(os.path.isdir(directory_meridional_lines))):
-            os.mkdir(directory_meridional_lines)
 
         # if directory doesnt exist create it
         if (not(os.path.isdir(directory_profiles))):
             os.mkdir(directory_profiles)
 
-        # recuperer le nbre de lignes meridiennes
-        for zone in I.getNodesFromType(tree, 'Zone_t'):
-            if I.getName(zone) in zones_for_meridional_lines_extraction[0]:
-                meridional_lines_number = I.getZoneDim(zone)[2]
+        tree_rotate = T.rotate(tree, (0, 0, 0), (0, 1, 0), 90)
+        T._rotate(tree_rotate, (0, 0, 0), (1, 0, 0), 90)
 
-        for mi in range(meridional_lines_number):
-            # extract meridional lines
-            tree_t = C.newPyTree(['Base', 3])
-            for zm in zones_for_meridional_lines_extraction:
-                for zone in I.getNodesFromType(tree, 'Zone_t'):
-                    if I.getName(zone) == zm:
-                        zone_i_dim = I.getZoneDim(zone)[1]
-                        zone_j_dim = I.getZoneDim(zone)[2]
-                        zone_k_dim = I.getZoneDim(zone)[3]
+        familyNames = [] 
+        for pattern in ['HUB', 'hub', 'Hub']: 
+            families = I.getNodesFromNameAndType(tree, f'{row}_*{pattern}*', 'Family_t')
+            familyNames += [I.getName(fam) for fam in families]
+        x, r = XR.extract_xr_family(tree_rotate, familyNames)
+        curve = J.createZone('hub', [x, r], ['x', 'r'])
+        C.convertPyTree2File(curve, 'hub.dat')
 
-                        zone_t = T.subzone(zone, (zone_i_dim, mi+1, 1), (zone_i_dim, mi+1, zone_k_dim))
-                        zone_t = T.reorder(zone_t, (-1, 2, 3))
-                        zone_t = C.initVars(zone_t, '{myX}={CoordinateZ}')
-                        zone_t = C.initVars(zone_t, '{r}=({CoordinateX}**2+{CoordinateY}**2)**0.5')
-                        tree_t[2][1][2].append(zone_t)
-            tree_t = C.extractVars(tree_t, ['myX', 'r'])
-            C.convertPyTree2File(tree_t, directory_meridional_lines+'/merid%03d.dat' % (mi+1))
-            os.system('sed -i {} -e s/"myX"/"x"/'.format(directory_meridional_lines+'/merid%03d.dat' % (mi+1)))
+        familyNames = [] 
+        for pattern in ['SHROUD', 'shroud', 'Shroud']: 
+            families = I.getNodesFromNameAndType(tree, f'{row}_*{pattern}*', 'Family_t')
+            familyNames += [I.getName(fam) for fam in families]
+        x, r = XR.extract_xr_family(tree_rotate, familyNames)
+        curve = J.createZone('shroud', [x, r], ['x', 'r'])
+        C.convertPyTree2File(curve, 'shroud.dat')
 
-        # extract blade profiles
-        for zone in I.getNodesFromType(tree, 'Zone_t'):
-            if I.getName(zone) in zones_for_blade_profiles_extraction:
-                _, _, zone_j_dim, zone_k_dim, _ = I.getZoneDim(zone)
-                for mi in range(zone_j_dim):
-                    tree_t = C.newPyTree(['Base', 3])
-                    zone_t = T.subzone(zone, (1, mi+1, 1), (1, mi+1, zone_k_dim))
-                    tree_t[2][1][2].append(zone_t)
-                    tree_t = C.initVars(tree_t, '{myX}={CoordinateZ}')
-                    tree_t = C.initVars(tree_t, '{myY}={CoordinateX}')
-                    tree_t = C.initVars(tree_t, '{myZ}={CoordinateY}')
-                    tree_t = C.extractVars(tree_t, ['myX', 'myY', 'myZ'])
-                    C.convertPyTree2File(tree_t, directory_profiles+'/profile%03d.dat' % (mi+1))
-                    os.system('sed -i {} -e s/"myX"/"x"/'.format(directory_profiles+'/profile%03d.dat' % (mi+1)))
-                    os.system('sed -i {} -e s/"myY"/"y"/'.format(directory_profiles+'/profile%03d.dat' % (mi+1)))
-                    os.system('sed -i {} -e s/"myZ"/"z"/'.format(directory_profiles+'/profile%03d.dat' % (mi+1)))
+        # Get blade profiles, assuming that there is only one zone around the blade skin (O-block)
+        for zone in C.getFamilyZones(tree, row):
+            # Search a Blade BC
+            FOUND_BLADE = False
+            for bc in I.getNodesFromType2(zone, 'BC_t'):
+                FamilyNameNode = I.getNodeFromType1(bc, 'FamilyName_t')
+                if not FamilyNameNode: continue
+                FamilyName = I.getValue(FamilyNameNode)
+                if any([pattern in FamilyName for pattern in ['BLADE', 'blade', 'Blade']]):
+                    FOUND_BLADE = True
+                    break
+            if not FOUND_BLADE: 
+                continue
 
-        nprofil = len(os.listdir(directory_profiles))
-        Npro = nprofil
-        step = (nprofil-1) / float(Npro-1)
-        ind_range = [int(np.ceil(step*n)) for n in range(Npro)]
+            # Get dimension
+            _, _, zone_j_dim, zone_k_dim, _ = I.getZoneDim(zone)
+            for j in range(zone_j_dim):
+                zone_t = T.subzone(zone, (1, j+1, 1), (1, j+1, zone_k_dim))
+                x, y, z = J.getxyz(zone_t)
+                curve = J.createZone('profile', [z, x, y], ['x', 'y', 'z'])
+                C.convertPyTree2File(curve, f'{directory_profiles}/profile{j+1:03d}.dat')
+            
+            # Because of the assumption that there is only one zone around the blade skin,
+            # the loop can be broken
+            Nprofiles = zone_j_dim
+            break
 
         ezpb = EZ.Ersatz()
         # hub and shroud information (needed for the "height" variable calculation)
-        ezpb.set('hub', '%s/merid001.dat' % directory_meridional_lines)
-        ezpb.set('shroud', '%s/merid%03d.dat' % (directory_meridional_lines, nprofil))
+        ezpb.set('hub', 'hub.dat')
+        ezpb.set('shroud', 'shroud.dat')
 
         profile = []
-        for n in ind_range:
+        for n in range(Nprofiles):
             profile.append(EZ.Profile(ezpb))
             profile[-1].set('file', '%s/profile%03d.dat' %(directory_profiles, n+1))
-            # associate meridional line
-            profile[-1].set('meridline', '%s/merid%03d.dat' %(directory_meridional_lines, n+1))
-            # LE index
-            # Si trop de points Autogrid buggue (Tangent break error)
-            profile[-1].set('ns', 101)
-            # profile[-1].set('nsk', 100)
 
         # geometric analysis
         ezpb.set('extract_skeleton', 1)
@@ -694,11 +646,8 @@ def extractRowGeometricalData(mesh, row, save=False):
         return curve
 
 
-    directory_meridional_lines = 'meridional_lines_{}'.format(row)
     directory_profiles = 'profiles_{}'.format(row)
-    profilesExtractionAndAnalysis(mesh, row,
-                                directory_meridional_lines=directory_meridional_lines,
-                                directory_profiles=directory_profiles)
+    profilesExtractionAndAnalysis(mesh, row, directory_profiles=directory_profiles)
 
     chordTree = C.convertFile2PyTree('chord.dat')
     C._extractVars(chordTree, ['chord', 'chordx'])
@@ -741,11 +690,8 @@ def extractRowGeometricalData(mesh, row, save=False):
     C._initVars(skeletonTree, '{AbscissaFromLE}={mnorm}*{chord}')
     C._rmVars(skeletonTree, ['xsc', 'mnorm', 'chord', 'chordx'])
 
-    xhub, rhub = readEndWallLine(f'{directory_meridional_lines}/merid001.dat')
-    merid_files = glob.glob(f'{directory_meridional_lines}/merid*.dat')
-    shroud_file = sorted(merid_files, key=lambda name: int(name.split('.dat')[0].split('/merid')[-1]))[-1]
-    print(shroud_file)
-    xshroud, rshroud = readEndWallLine(shroud_file)
+    xhub, rhub = readEndWallLine('hub.dat')
+    xshroud, rshroud = readEndWallLine('shroud.dat')
     xLE, rLE = readLEorTE('LE.dat')
     xTE, rTE = readLEorTE('TE.dat')
 
@@ -759,7 +705,7 @@ def extractRowGeometricalData(mesh, row, save=False):
     t = C.newPyTree(['Base', [Hub, Shroud, LeadingEdge,
                     TrailingEdge, Inlet, Outlet, skeletonZone]])
 
-    os.system(f'rm -rf {directory_meridional_lines}')
+    os.system(f'rm -f hub.dat shroud.dat')
     os.system(f'rm -rf {directory_profiles}')
     os.system('rm -f LE.dat TE.dat chord.dat thickness.dat skeleton.dat')
 

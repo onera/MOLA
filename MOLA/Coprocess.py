@@ -599,6 +599,60 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
             if :py:obj:`True`, adds a suffix ``_AfterIter<iteration>``
             to the saved filename (creates a copy)
     '''
+    t = I.copyRef(t)
+    Cmpi._convert2PartialTree(t)
+    I._rmNodesByName(t, '.Solver#Param')
+    I._rmNodesByType(t, 'IntegralData_t')
+    Cmpi.barrier()
+    printCo('will save %s ...' % filename, 0, color=J.CYAN)
+    PyPartBase.mergeAndSave(t, 'PyPart_fields')
+    Cmpi.barrier()
+    if rank == 0:
+        t = C.convertFile2PyTree('PyPart_fields_all.hdf')
+        C.convertPyTree2File(t, filename)
+        for fn in glob.glob('PyPart_fields_*.hdf'):
+            try:
+                os.remove(fn)
+            except:
+                pass
+    printCo('... saved %s' % filename, 0, color=J.CYAN)
+    Cmpi.barrier()
+    if tagWithIteration and rank == 0:
+        copyOutputFiles(filename)
+
+def saveWithPyPart_NEW(t, filename, tagWithIteration=False):
+    '''
+    .. danger::
+
+        This function is still in development, and MPI deadlocks may happen depending of the
+        parallelisation of the case. It should replace :py:func:`saveWithPyPart` once it is debuged.
+        Should answer to issue #79.
+
+    Function to save a PyTree **t** with PyPart. The PyTree must have been
+    splitted with PyPart in ``compute.py``. An important point is the presence
+    in every zone of **t** of the special node ``:CGNS#Ppart``.
+
+    Use this function to save ``'fields.cgns'``.
+
+    .. note:: For more details on PyPart, see the dedicated pages on elsA
+        support:
+        `PyPart alone <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/etc_pypart_alone.html>`_
+        and
+        `PyPart with elsA <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/etc_pypart_elsa.html>`_
+
+    Parameters
+    ----------
+
+        t : PyTree
+            tree to save
+
+        filename : str
+            Name of the file
+
+        tagWithIteration : bool
+            if :py:obj:`True`, adds a suffix ``_AfterIter<iteration>``
+            to the saved filename (creates a copy)
+    '''
     import Distributor2.PyTree as D2
     
     # Write PyPart files

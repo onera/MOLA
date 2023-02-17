@@ -5088,6 +5088,8 @@ def checkFamiliesInZonesAndBC(t):
                 raise Exception(J.FAIL+FAILMSG+J.ENDC)
             # Check that each BC is attached to a family
             for bc in I.getNodesFromType(zone, 'BC_t'):
+                if I.getValue(bc) in ['BCDegenerateLine', 'BCDegeneratePoint']:
+                    continue
                 if not I.getNodeFromType1(bc, 'FamilyName_t'):
                     FAILMSG = 'Each BC must be attached to a Family:\n'
                     FAILMSG += 'BC {} in zone {} has no node of type FamilyName_t'.format(I.getName(bc), I.getName(zone))
