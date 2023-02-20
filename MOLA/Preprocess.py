@@ -4763,15 +4763,10 @@ def adapt2elsA(t, InputMeshes):
 
     # https://elsa.onera.fr/issues/10928
     for base in I.getBases(t):
-        print(base[0])
         for zone in I.getZones(base):
-            print(zone[0])
             for ZoneBC in I.getNodesFromType1(zone,'ZoneBC_t'):
-                print(ZoneBC[0])
                 for BC in I.getNodesFromType1(ZoneBC,'BC_t'):
-                    print(BC[0])
                     if I.getNodeFromType1(BC,'FamilyName_t') is not None:
-                        print('ADAPTING')
                         I.setValue(BC,'FamilySpecified')
                         continue
 
