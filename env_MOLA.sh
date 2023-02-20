@@ -16,6 +16,7 @@ export TURBOVERSION=v1.2.2
 export ERSTAZVERSION=vT
 export MOLAext=/stck/lbernard/MOLA/Dev/ext # you should not modify this line
 export MOLASATORext=/tmp_user/sator/lbernard/MOLA/Dev/ext # you should not modify this line
+export OWNCASSREV=rev4386
 ###############################################################################
 
 
@@ -86,6 +87,8 @@ else
 fi
 
 
+alias mola_version="python3 -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
+
 if [ "$MAC" = "sator" ]; then
     source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA &>/dev/null
     unset I_MPI_PMI_LIBRARY
@@ -98,8 +101,13 @@ if [ "$MAC" = "sator" ]; then
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
+    # MAIA
+    export MAIA_HOME=/tmp_user/sator/jcoulet/opt/maia-cfd5_21
+    export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
+    export PYTHONPATH=$MAIA_HOME/lib/python3.7/site-packages:$PYTHONPATH
+
     # VPM
-    export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sat_cas_r8
+    export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator/$ARCH
     export PATH=$VPMPATH:$PATH
     export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=$VPMPATH:$LD_LIBRARY_PATH
@@ -108,6 +116,13 @@ if [ "$MAC" = "sator" ]; then
 
     # turbo
     export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
+
+    # own Cassiopee
+    export OWNCASS=/tmp_user/sator/lbernard/Cassiopee/$OWNCASSREV/sator
+    export PATH=$PATH:$OWNCASS
+    export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH
+    export PYTHONPATH=$OWNCASS/lib/python3.7/site-packages:$PYTHONPATH
+
 
     export PYTHONPATH=$MOLASATORext/sator/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$MOLASATORext/sator/bin:$PATH
@@ -126,6 +141,9 @@ elif [ "$MAC" = "spiro" ]; then
     # MPI startup(): Warning: I_MPI_PMI_LIBRARY will be ignored since the hydra process manager was found
     # source : https://www.osc.edu/supercomputing/batch-processing-at-osc/slurm_migration/slurm_migration_issues
     unset I_MPI_PMI_LIBRARY 
+
+    unset I_MPI_TCP_NETMASK
+    unset I_MPI_FABRICS_LIST
 
     # # PUMA
     # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro3
@@ -157,7 +175,6 @@ elif [ "$MAC" = "spiro" ]; then
 
     # own Cassiopee
     module load occt/7.6.1-gnu831
-    export OWNCASSREV=rev4386
     export OWNCASS=/stck/lbernard/Cassiopee/$OWNCASSREV/spiro
     export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH
     export PYTHONPATH=$OWNCASS/lib/python3.7/site-packages:$PYTHONPATH
@@ -168,6 +185,8 @@ elif [ "$MAC" = "spiro" ]; then
     export LD_LIBRARY_PATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
 
     alias mola_sinter='srun --export=ALL,SLURM_EXACT=1,SLURM_OVERLAP=1 --immediate=2 --pty --qos c1_inter_giga'
+    alias mola_version="mpirun -np 1 python3 -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
+
 
 elif [ "$MAC" = "visung" ]; then
 
@@ -175,9 +194,6 @@ elif [ "$MAC" = "visung" ]; then
     module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
     module load freetype/2.10.2
     module load pointwise/2022.1.2
-
-    export PYTHONEXE=python3
-    alias python=python3
 
     # turbo
     export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/eos-intel3_mpi/lib/python3.6/site-packages/:$PYTHONPATH
@@ -192,7 +208,6 @@ elif [ "$MAC" = "visung" ]; then
     export PYTHONPATH=$VPMPATH/lib/python3.7/site-packages:$PYTHONPATH
 
     # own Cassiopee
-    export OWNCASSREV=rev4386
     export OWNCASS=/stck/lbernard/Cassiopee/$OWNCASSREV/visung
     export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH
     export PYTHONPATH=$OWNCASS/lib/python3.7/site-packages:$PYTHONPATH
@@ -217,7 +232,6 @@ elif [ "$MAC" = "ld" ]; then
 
     export OPENMPIOVERSUBSCRIBE='-oversubscribe'
 
-    alias python=python3
     unset I_MPI_PMI_LIBRARY
 
     # turbo 
@@ -226,6 +240,11 @@ elif [ "$MAC" = "ld" ]; then
     # ErstaZ
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/centos8
     export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
+
+    # MAIA
+    export MAIA_HOME=/d/jcoulet/opt/maia-openmpi
+    export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
+    export PYTHONPATH=$MAIA_HOME/lib/python3.8/site-packages:$PYTHONPATH
 
     # VPM
     export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld8/$ARCH
@@ -241,7 +260,6 @@ elif [ "$MAC" = "ld" ]; then
     
 
     # own Cassiopee
-    export OWNCASSREV=rev4386
     export OWNCASS=/stck/lbernard/Cassiopee/$OWNCASSREV/ld8
     export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH
     export PYTHONPATH=$OWNCASS/lib/python3.8/site-packages:$PYTHONPATH
@@ -263,8 +281,6 @@ elif [ "$MAC" = "visio" ]; then
     module load gcc/4.8.1
     module load intel/17.0.4
     module load impi/17
-    alias python=python3
-    export PYTHONEXE=python3
 
     # turbo 
     export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/eos-intel3_mpi/lib/python3.6/site-packages/:$PYTHONPATH 
@@ -274,17 +290,16 @@ elif [ "$MAC" = "visio" ]; then
     export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
 
     # own Cassiopee (includes OCC, Apps, VPM)
-    export OWNCASSREV=rev4386
     export OWNCASS=/stck/lbernard/Cassiopee/$OWNCASSREV/visio
     export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=/stck/benoit/opencascade2/lib:$CASSIOPEE/Dist/bin/"$ELSAPROD":$CASSIOPEE/Dist/bin/"$ELSAPROD"/lib:/usr/local/hdf5-intel-1.8.8/lib:/usr/local/gtk+3/lib:$LD_LIBRARY_PATH
     export PYTHONPATH=$OWNCASS/lib/python3.6/site-packages:$PYTHONPATH
+    export PATH=/stck/lbernard/Cassiopee/rev4386/visio:$PATH
 
     # external python dependencies
     export PYTHONPATH=$MOLAext/visio/lib/python3.6/site-packages/:$PYTHONPATH
     export PATH=$MOLAext/visio/bin:$PATH
     export LD_LIBRARY_PATH=$MOLAext/visio/lib/python3.6/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
-
 
 else
     echo -e "\033[91mERROR: MACHINE $KC NOT INCLUDED IN MOLA ENVIRONMENT\033[0m"
@@ -293,11 +308,10 @@ fi
 
 export PYTHONPATH=$MOLA:$PYTHONPATH
 
-alias python='python3'
+export PYTHONEXE=python3
+alias python=python3
 
 alias treelab="python3 -c 'import MOLA.GUIs.TreeLab as t;import sys;t.launch(sys.argv)'"
-
-alias mola_version="mpirun -np 1 python3 -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
 
 alias mola_jobsqueue_sator="python3 -c 'import MOLA.JobManager as JM;JM.getCurrentJobsStatus()'"
 
