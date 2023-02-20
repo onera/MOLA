@@ -1127,6 +1127,7 @@ def computeReferenceValues(FluidProperties, PressureStagnation,
     except KeyError:
         CoprocessOptions['RequestedStatistics'] = TurboStatistics
 
+    CoprocessOptions.setdefault('BodyForceComputeFrequency', 1)
 
     ReferenceValues = PRE.computeReferenceValues(FluidProperties,
         Density=Density,
