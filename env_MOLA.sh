@@ -88,8 +88,8 @@ fi
 
 if [ "$MAC" = "sator" ]; then
     source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA &>/dev/null
+    unset I_MPI_PMI_LIBRARY
     export MOLA=$MOLASATOR
-    export PATH=$PATH:/tmp_user/sator/lbernard/lib
 
     # PUMA incompatible with intel21 ?
     export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_${PUMAVERSION}_satornew
@@ -111,7 +111,8 @@ if [ "$MAC" = "sator" ]; then
 
     export PYTHONPATH=$MOLASATORext/sator/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$MOLASATORext/sator/bin:$PATH
-    export LD_LIBRARY_PATH=$MOLASATORext/sator/lib/python3.7/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=$MOLASATORext/sator/lib/python3.7/site-packages/PyQt5/Qt5/lib:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=/tmp_user/sator/lbernard/lib:$LD_LIBRARY_PATH
 
 elif [ "$MAC" = "spiro" ]; then
     if [ ! "$EL8" ]; then
@@ -179,7 +180,7 @@ elif [ "$MAC" = "visung" ]; then
     alias python=python3
 
     # turbo
-    # export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/eos-intel3_mpi/lib/python3.6/site-packages/:$PYTHONPATH
+    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/eos-intel3_mpi/lib/python3.6/site-packages/:$PYTHONPATH
 
     # ErstaZ
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/visio
@@ -236,6 +237,8 @@ elif [ "$MAC" = "ld" ]; then
     # replaces module load intel/21.2.0 since this module
     # brakes MPI https://elsa.onera.fr/issues/10933#note-16
     export LD_LIBRARY_PATH=/opt/tools/intel/oneapi/compiler/2021.2.0/linux/compiler/lib/intel64_lin/:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=/opt/tools/intel/oneapi/mpi/2021.6.0/lib/release:$LD_LIBRARY_PATH
+    
 
     # own Cassiopee
     export OWNCASSREV=rev4386
@@ -264,7 +267,7 @@ elif [ "$MAC" = "visio" ]; then
     export PYTHONEXE=python3
 
     # turbo 
-    export TURBOVERSION=UNAVAILABLE 
+    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/eos-intel3_mpi/lib/python3.6/site-packages/:$PYTHONPATH 
 
     # ErstaZ
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/visio

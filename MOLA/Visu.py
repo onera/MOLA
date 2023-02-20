@@ -154,11 +154,11 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
                        additionalDisplayOptions={},
                        additionalStateOptions={})]):
 
-    machine = os.getenv('MAC', 'ld')
+    machine = os.getenv('MAC')
     if machine in ['spiro', 'sator']:
-        offscreen=5 # TODO solve bug https://elsa.onera.fr/issues/10536
+        offscreen=5 # MESA TODO solve bug https://elsa.onera.fr/issues/10536 
     elif machine in ['ld', 'visung', 'visio']:
-        offscreen=3
+        offscreen=3 # openGL
     else:
         raise SystemError('machine "%s" not supported.'%machine)
 
