@@ -155,9 +155,9 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
                        additionalStateOptions={})]):
 
     machine = os.getenv('MAC')
-    if machine in ['spiro', 'sator']:
+    if machine in ['spiro']:
         offscreen=5 # MESA TODO solve bug https://elsa.onera.fr/issues/10536 
-    elif machine in ['ld', 'visung', 'visio']:
+    elif machine in ['ld', 'visung', 'visio', 'sator']:
         offscreen=3 # openGL
     else:
         raise SystemError('machine "%s" not supported.'%machine)
@@ -165,7 +165,10 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
     cmap2int = dict(Blue2Red=1, Green2Red=3, Diverging=9, Black2White=15,
                     Viridis=17, Inferno=19, Magma=21, Plasma=23, NiceBlue=25)
 
-    import CPlot.PyTree as CPlot
+    try:
+        import CPlotOffscreen.PyTree as CPlot
+    except:
+        import CPlot.PyTree as CPlot
 
     if isinstance(surfaces,str):
         t = C.convertFile2PyTree(surfaces)

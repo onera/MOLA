@@ -7,7 +7,10 @@ import Geom.PyTree as D
 import Converter.Internal as I
 import Generator.PyTree as G
 import Transform.PyTree as T
-import CPlotOffscreen.PyTree as CPlot
+try:
+    import CPlotOffscreen.PyTree as CPlot
+except:
+    import CPlot.PyTree as CPlot
 from . import particles as LLparticles
 from .. import LiftingLine as MLL
 from .. import Wireframe as W
@@ -746,9 +749,9 @@ def saveImage(t, ImagesDirectory='FRAMES', **DisplayOptions):
         'frame%05d.png'%sp['CurrentIteration'])
 
     machine = os.getenv('MAC')
-    if machine in ['spiro', 'sator']:
+    if machine in ['spiro']:
         DisplayOptions['offscreen']=2 # MESA
-    elif machine in ['ld', 'visung', 'visio']:
+    elif machine in ['ld', 'visung', 'visio', 'sator']:
         DisplayOptions['offscreen']=1 # openGL
     else:
         raise SystemError('machine "%s" not supported.'%machine)

@@ -2307,6 +2307,7 @@ def printEnvironment():
         vCASSIOPEE = FAIL + 'UNAVAILABLE' + ENDC
     print(' --> Cassiopee '+vCASSIOPEE)
 
+    # OCC # TODO CAUTION https://elsa.onera.fr/issues/10950
     try:
         import OCC
         vOCC = OCC.__version__
