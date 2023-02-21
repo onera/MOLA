@@ -383,7 +383,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     IsUnstructured = PRE.hasAnyUnstructuredZones(t)
 
-    TurboConfiguration = getTurboConfiguration(t, **TurboConfiguration)
+    TurboConfiguration = getTurboConfiguration(t, BodyForceInputData=BodyForceInputData, **TurboConfiguration)
     FluidProperties = PRE.computeFluidProperties()
     if not 'Surface' in ReferenceValuesParams:
         ReferenceValuesParams['Surface'] = getReferenceSurface(t, BoundaryConditions, TurboConfiguration)
@@ -1011,6 +1011,50 @@ def duplicateFlowSolution(t, TurboConfiguration):
 
     return t
 
+def computeAzimuthalExtensionFromFamily(t, FamilyName):
+    '''
+    Compute the azimuthal extension in radians of the mesh **t** for the row **FamilyName**.
+
+    .. warning:: This function needs to calculate the surface of the slice in X
+                 at Xmin + 5% (Xmax - Xmin). If this surface is crossed by a
+                 solid (e.g. a blade) or by the inlet boundary, the function
+                 will compute a wrong value of the number of blades inside the
+                 mesh.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            mesh tree
+
+        FamilyName : str
+            Name of the row, identified by a ``FamilyName``.
+
+    Returns
+    -------
+
+        deltaTheta : float
+            Azimuthal extension in radians
+
+    '''
+    # Extract zones in family
+    zonesInFamily = C.getFamilyZones(t, FamilyName)
+    # Slice in x direction at middle range
+    xmin = C.getMinValue(zonesInFamily, 'CoordinateX')
+    xmax = C.getMaxValue(zonesInFamily, 'CoordinateX')
+    sliceX = P.isoSurfMC(zonesInFamily, 'CoordinateX', value=xmin+0.05*(xmax-xmin))
+    # Compute Radius
+    C._initVars(sliceX, '{Radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
+    Rmin = C.getMinValue(sliceX, 'Radius')
+    Rmax = C.getMaxValue(sliceX, 'Radius')
+    # Compute surface
+    SurfaceTree = C.convertArray2Tetra(sliceX)
+    SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
+    Surface = P.integ(SurfaceTree, var='ones')[0]
+    # Compute deltaTheta
+    deltaTheta = 2* Surface / (Rmax**2 - Rmin**2)
+    return deltaTheta
+
 def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
     '''
     Compute the number of blades for the row **FamilyName** in the mesh **t**.
@@ -1040,22 +1084,23 @@ def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
             Number of blades in **t** for row **FamilyName**
 
     '''
-    # Extract zones in family
-    zonesInFamily = C.getFamilyZones(t, FamilyName)
-    # Slice in x direction at middle range
-    xmin = C.getMinValue(zonesInFamily, 'CoordinateX')
-    xmax = C.getMaxValue(zonesInFamily, 'CoordinateX')
-    sliceX = P.isoSurfMC(zonesInFamily, 'CoordinateX', value=xmin+0.05*(xmax-xmin))
-    # Compute Radius
-    C._initVars(sliceX, '{Radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
-    Rmin = C.getMinValue(sliceX, 'Radius')
-    Rmax = C.getMaxValue(sliceX, 'Radius')
-    # Compute surface
-    SurfaceTree = C.convertArray2Tetra(sliceX)
-    SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
-    Surface = P.integ(SurfaceTree, var='ones')[0]
-    # Compute deltaTheta
-    deltaTheta = 2* Surface / (Rmax**2 - Rmin**2)
+    # # Extract zones in family
+    # zonesInFamily = C.getFamilyZones(t, FamilyName)
+    # # Slice in x direction at middle range
+    # xmin = C.getMinValue(zonesInFamily, 'CoordinateX')
+    # xmax = C.getMaxValue(zonesInFamily, 'CoordinateX')
+    # sliceX = P.isoSurfMC(zonesInFamily, 'CoordinateX', value=xmin+0.05*(xmax-xmin))
+    # # Compute Radius
+    # C._initVars(sliceX, '{Radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
+    # Rmin = C.getMinValue(sliceX, 'Radius')
+    # Rmax = C.getMaxValue(sliceX, 'Radius')
+    # # Compute surface
+    # SurfaceTree = C.convertArray2Tetra(sliceX)
+    # SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
+    # Surface = P.integ(SurfaceTree, var='ones')[0]
+    # # Compute deltaTheta
+    # deltaTheta = 2* Surface / (Rmax**2 - Rmin**2)
+    deltaTheta = computeAzimuthalExtensionFromFamily(t, FamilyName)
     # Compute number of blades in the mesh
     Nb = NumberOfBlades * deltaTheta / (2*np.pi)
     Nb = int(np.round(Nb))
@@ -1212,7 +1257,7 @@ def computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration):
             ReferenceValues['NormalizationCoefficient'][FamilyName] = dict(FluxCoef=fluxcoeff)
 
 def getTurboConfiguration(t, ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={},
-    PeriodicTranslation=None):
+    PeriodicTranslation=None, BodyForceInputData={}):
     '''
     Construct a dictionary concerning the compressor properties.
 
@@ -1274,6 +1319,9 @@ def getTurboConfiguration(t, ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}
             If not :py:obj:'None', the configuration is considered to be with
             a periodicity in the direction **PeriodicTranslation**. This argument
             has to be used for linear cascade configurations.
+        
+        BodyForceInputData : dict
+            see :py:func:`prepareMainCGNS4ElsA`
 
     Returns
     -------
@@ -1296,6 +1344,12 @@ def getTurboConfiguration(t, ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}
             for key, value in rowParams.items():
                 if key == 'RotationSpeed' and value == 'auto':
                     rowParams[key] = ShaftRotationSpeed
+            if row in BodyForceInputData:
+                # Replace the number of blades to be consistant with the body-force mesh
+                deltaTheta = computeAzimuthalExtensionFromFamily(t, row)
+                rowParams['NumberOfBlades'] = int(2*np.pi / deltaTheta)
+                rowParams['NumberOfBladesInInitialMesh'] = 1
+                print(f'Number of blades for {row}: {rowParams["NumberOfBlades"]} (got from the body-force mesh)')
             if not 'NumberOfBladesSimulated' in rowParams:
                 rowParams['NumberOfBladesSimulated'] = 1
             if not 'NumberOfBladesInInitialMesh' in rowParams:
