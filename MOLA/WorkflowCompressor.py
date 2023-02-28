@@ -2791,7 +2791,9 @@ def translateVariablesFromCGNS2Elsa(Variables):
     if isinstance(Variables, dict):
         NewVariables = dict()
         for var, value in Variables.items():
-            if var in elsAVariables:
+            if var == 'groupmassflow':
+                NewVariables[var] = int(value)                    
+            elif var in elsAVariables:
                 NewVariables[var] = float(value)
             elif var in CGNS2ElsaDict:
                 NewVariables[CGNS2ElsaDict[var]] = float(value)
