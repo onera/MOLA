@@ -746,22 +746,25 @@ def computeBlockage(t, Nblades, eps=1e-6):
 
     C._initVars(t, f'{{b}}=maximum(-1+{eps}, -{{thickness}} / ({{nt}}**2+{eps})**0.5 / ({2*np.pi/Nblades}*{{CoordinateY}}))')
 
-    # Impose b = 0 on the edges on I and J indices (LE, TE, hub and shroud)
+    # Force b = 0 on the edges on I indices (LE and TE)
+    # Force a constant grad(b) on the edges on J indicies (hub and shroud)
     # It helps to have consistant grandients at the edge of the BF domain
     bNode = I.getNodeFromName(t, 'b')
     b = I.getValue(bNode)
     b[ 0, :] = 0 # LE
     b[-1, :] = 0 # TE
-    b[ :, 0] = 0 # Hub
-    b[ :,-1] = 0 # Shroud
+    b[ :, 0] = b[ :, 1] # Hub
+    b[ :,-1] = b[ :,-2] # Shroud
     I.setValue(bNode, b)
 
+    # Compute gradient of b and correct the definition of b
     t = P.computeGrad(t, 'b')
     C._initVars(t, '{blockage}=1.+{b}')
     I._rmNodesByName(t, 'b')
     I._rmNodesByName(t, 'gradzb')
     I._renameNode(t, 'gradyb', 'gradrb')
 
+    # Compute de distance between 2 blades in the direction norm
     C._initVars(t, '{radius}=sqrt({CoordinateY}**2+{CoordinateZ}**2)')
     C._initVars(t, f'{{blade2BladeDistance}}=2*{np.pi}*{{radius}}/{Nblades}*{{nt}}*{{blockage}}')
 
@@ -910,7 +913,9 @@ def computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration)
             NewSourceTerms = computeBodyForce_Blockage(zone, tol)
         elif model == 'EndWallsProtection':
             NewSourceTerms = computeBodyForce_EndWallsProtection(
-                zone, TurboConfiguration, BodyForceParams.get('ProtectedHeight', 0.05))
+                zone, TurboConfiguration, 
+                ProtectedHeight=BodyForceParams.get('ProtectedHeight', 0.05), 
+                EndWallsCoefficient=BodyForceParams.get('EndWallsCoefficient', 10.))
         elif model == 'constant':
             NewSourceTerms = computeBodyForce_constant(
                 zone, BodyForceParams['SourceTerms'])
