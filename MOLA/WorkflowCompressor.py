@@ -420,17 +420,27 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         t = duplicateFlowSolution(t, TurboConfiguration)
 
     setMotionForRowsFamilies(t, TurboConfiguration)
-    # print('walldistperio' in elsAkeysModel)
-    if 'walldistperio' in elsAkeysModel:
-        setZoneParamForPeriodicDistanceByRowsFamilies(t, TurboConfiguration)
 
     setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                             FluidProperties, ReferenceValues,
                             bladeFamilyNames=bladeFamilyNames)
 
-    if 'walldistperio' in elsAkeysModel:
-        setBCFamilyParamForPeriodicDistance(t, ReferenceValues,
-                                            bladeFamilyNames=bladeFamilyNames)
+    # print('walldistperio' in elsAkeysModel)
+    # TODO: improvement => via ReferenceValues['WallDistance'] => distinction elsA/Cassiopee
+    # if 'walldistperio' in elsAkeysModel:
+    WallDistance = ReferenceValues.get('WallDistance',None)
+    if isinstance(WallDistance,dict):
+        walldistperiodic = WallDistance.get('periodic',None)
+        walldistsoftware = WallDistance.get('software','elsa')
+        if walldistperiodic:
+            setZoneParamForPeriodicDistanceByRowsFamilies(t, TurboConfiguration)
+            if 'elsa' in walldistsoftware.lower():
+                setBCFamilyParamForPeriodicDistance(t, ReferenceValues, bladeFamilyNames=bladeFamilyNames)
+            elif 'cassiopee' in walldistsoftware.lower():
+                hubFamilyNames=['HUB', 'SPINNER', 'MOYEU']
+                shroudFamilyNames=['SHROUD', 'CARTER']
+                computeDistance2Walls(t, WallFamilies=bladeFamilyNames+hubFamilyNames+shroudFamilyNames, verbose=True, wallFilename='wall.hdf')
+            else: raise ValueError('WallDistance: value for software key must be "elsa" or "cassiopee"')
 
     computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 

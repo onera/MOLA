@@ -5162,23 +5162,52 @@ def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
     wallBCTypes = set()
     for BC, BCType in zip(BCs, BCTypes):
         FamilyBCType = getFamilyBCTypeFromFamilyBCName(t, BCType)
+        # print('isStdNode=',I.isStdNode(BC))
         if FamilyBCType is not None and 'BCWall' in FamilyBCType:
             wallBCTypes.add(FamilyBCType)
-            walls.append(BC)
+            if I.isStdNode(BC) == 0: # list of pytree nodes
+                tmpBC = BC
+            elif I.isStdNode(BC) == -1: # pytree node
+                tmpBC = [BC]
+            else: raise TypeError('BC is not a PyTree node or a liste of PyTree nodes')
+            for tbc in tmpBC:
+                I._rmNodesByType(tbc,'FlowSolution_t')
+                I._adaptZoneNamesForSlash(tbc)
+                walls.append(tbc)
         elif any([pattern in BCType for pattern in WallFamilies]):
             wallBCTypes.add(BCType)
-            walls.append(BC)
+            if I.isStdNode(BC) == 0: # list of pytree nodes
+                tmpBC = BC
+            elif I.isStdNode(BC) == -1: # pytree node
+                tmpBC = [BC]
+            else: raise TypeError('BC is not a PyTree node or a liste of PyTree nodes')
+            for tbc in tmpBC:
+                I._rmNodesByType(tbc,'FlowSolution_t')
+                I._adaptZoneNamesForSlash(tbc)
+                walls.append(tbc)
     if verbose:
         print('List of BCTypes recognized as walls:')
         for BCType in wallBCTypes:
             print('  {}'.format(BCType))
-    walls = T.merge(walls)
+    # print('-'*10+'WALLS'+'-'*10)
+    I._adaptZoneNamesForSlash(walls)
+    # I.printTree(walls)
+    # walls = T.merge(walls) # je perds le .Solver#Param 
+    # print('-'*10+'WALLS_MERGE'+'-'*10)
+    # I.printTree(walls)
+    # TODO
+    # - cela ne fonctionne pas encore => pas d'effet de la periodicite
+    # - voir difference avec ma pratique AITEC2
+    # - au lieu de merge, newPyTree ?
 
     if wallFilename:
         C.convertPyTree2File(walls, wallFilename)
 
+    container_cell_save = I.__FlowSolutionCenters__
+    I.__FlowSolutionCenters__ = 'FlowSolution#Init'
     DTW._distance2Walls(t, walls)
     EP._addTurbulentDistanceIndex(t)
+    I.__FlowSolutionCenters__ = container_cell_save
 
 def convert2Unstructured(t, merge=True, tol=1e-6):
     '''
