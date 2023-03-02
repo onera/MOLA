@@ -89,7 +89,7 @@ def prepareMesh4ElsA(mesh='mesh.cgns', splitOptions={'maximum_allowed_nodes':3},
 
 
 
-    return PRE.prepareMesh4ElsA(InputMeshes, splitOptions)
+    return PRE.prepareMesh4ElsA(InputMeshes, splitOptions=splitOptions)
 
 def cleanMeshFromAutogrid(t, **kwargs):
     '''

@@ -65,7 +65,7 @@ def checkDependencies():
     print('\nVERIFICATIONS TERMINATED')
 
 
-def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
+def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlocks=False),
                     duplicationInfos={}, zonesToRename={},
                     scale=1., rotation='fromAG5', tol=1e-8, PeriodicTranslation=None,
                     BodyForceRows=None, families2Remove=[], saveGeometricalDataForBodyForce=True):
@@ -187,8 +187,10 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
                 as next step
     '''
     if isinstance(mesh,str):
+        filename = mesh
         t = C.convertFile2PyTree(mesh)
     elif I.isTopTree(mesh):
+        filename = None
         t = mesh
     else:
         raise ValueError('parameter mesh must be either a filename or a PyTree')
@@ -198,8 +200,11 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
     if InputMeshes is None:
         InputMeshes = generateInputMeshesFromAG5(t,
             scale=scale, rotation=rotation, tol=tol, PeriodicTranslation=PeriodicTranslation)
+        for InputMesh in InputMeshes: 
+            InputMesh['file'] = filename
 
     PRE.checkFamiliesInZonesAndBC(t)
+    PRE.transform(t, InputMeshes)
 
     if BodyForceRows:
         # Remesh rows to model with body-force
@@ -207,7 +212,6 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
             t, BodyForceRows, saveGeometricalDataForBodyForce=saveGeometricalDataForBodyForce)
 
     t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], zonesToRename=zonesToRename)
-    PRE.transform(t, InputMeshes)
 
     if BodyForceRows:
          #Add body-force domains in the main mesh
@@ -231,7 +235,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions={},
         duplicate(t, row, rowParams['NumberOfBlades'],
                 nDupli=rowParams['NumberOfDuplications'], merge=MergeBlocks)
 
-    if splitOptions:
+    if splitOptions is not None:
         t = PRE.splitAndDistribute(t, InputMeshes, **splitOptions)
     else:
         t = PRE.connectMesh(t, InputMeshes)
@@ -380,7 +384,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     IsUnstructured = PRE.hasAnyUnstructuredZones(t)
 
-    TurboConfiguration = getTurboConfiguration(t, **TurboConfiguration)
+    TurboConfiguration = getTurboConfiguration(t, BodyForceInputData=BodyForceInputData, **TurboConfiguration)
     FluidProperties = PRE.computeFluidProperties()
     if not 'Surface' in ReferenceValuesParams:
         ReferenceValuesParams['Surface'] = getReferenceSurface(t, BoundaryConditions, TurboConfiguration)
@@ -689,10 +693,6 @@ def generateInputMeshesFromAG5(mesh, scale=1., rotation='fromAG5', tol=1e-8, Per
         mesh : :py:class:`str` or PyTree
             Name of the CGNS mesh file from Autogrid 5 or already read PyTree.
 
-        SplitBlocks : bool
-            if :py:obj:`False`, do not split and distribute the mesh (use this
-            option if the simulation will run with PyPart).
-
         scale : float
             Homothety factor to apply on the mesh. Default is 1.
 
@@ -749,7 +749,6 @@ def generateInputMeshesFromAG5(mesh, scale=1., rotation='fromAG5', tol=1e-8, Per
                     baseName=I.getName(I.getNodeByType(t, 'CGNSBase_t')),
                     Transform=dict(scale=scale, rotate=rotation),
                     Connection=[dict(type='Match', tolerance=tol)],
-                    SplitBlocks=False,
                     )]
     # Set automatic periodic connections
     InputMesh = InputMeshes[0]
@@ -1031,6 +1030,50 @@ def duplicateFlowSolution(t, TurboConfiguration):
 
     return t
 
+def computeAzimuthalExtensionFromFamily(t, FamilyName):
+    '''
+    Compute the azimuthal extension in radians of the mesh **t** for the row **FamilyName**.
+
+    .. warning:: This function needs to calculate the surface of the slice in X
+                 at Xmin + 5% (Xmax - Xmin). If this surface is crossed by a
+                 solid (e.g. a blade) or by the inlet boundary, the function
+                 will compute a wrong value of the number of blades inside the
+                 mesh.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            mesh tree
+
+        FamilyName : str
+            Name of the row, identified by a ``FamilyName``.
+
+    Returns
+    -------
+
+        deltaTheta : float
+            Azimuthal extension in radians
+
+    '''
+    # Extract zones in family
+    zonesInFamily = C.getFamilyZones(t, FamilyName)
+    # Slice in x direction at middle range
+    xmin = C.getMinValue(zonesInFamily, 'CoordinateX')
+    xmax = C.getMaxValue(zonesInFamily, 'CoordinateX')
+    sliceX = P.isoSurfMC(zonesInFamily, 'CoordinateX', value=xmin+0.05*(xmax-xmin))
+    # Compute Radius
+    C._initVars(sliceX, '{Radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
+    Rmin = C.getMinValue(sliceX, 'Radius')
+    Rmax = C.getMaxValue(sliceX, 'Radius')
+    # Compute surface
+    SurfaceTree = C.convertArray2Tetra(sliceX)
+    SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
+    Surface = P.integ(SurfaceTree, var='ones')[0]
+    # Compute deltaTheta
+    deltaTheta = 2* Surface / (Rmax**2 - Rmin**2)
+    return deltaTheta
+
 def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
     '''
     Compute the number of blades for the row **FamilyName** in the mesh **t**.
@@ -1060,22 +1103,23 @@ def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
             Number of blades in **t** for row **FamilyName**
 
     '''
-    # Extract zones in family
-    zonesInFamily = C.getFamilyZones(t, FamilyName)
-    # Slice in x direction at middle range
-    xmin = C.getMinValue(zonesInFamily, 'CoordinateX')
-    xmax = C.getMaxValue(zonesInFamily, 'CoordinateX')
-    sliceX = P.isoSurfMC(zonesInFamily, 'CoordinateX', value=xmin+0.05*(xmax-xmin))
-    # Compute Radius
-    C._initVars(sliceX, '{Radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
-    Rmin = C.getMinValue(sliceX, 'Radius')
-    Rmax = C.getMaxValue(sliceX, 'Radius')
-    # Compute surface
-    SurfaceTree = C.convertArray2Tetra(sliceX)
-    SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
-    Surface = P.integ(SurfaceTree, var='ones')[0]
-    # Compute deltaTheta
-    deltaTheta = 2* Surface / (Rmax**2 - Rmin**2)
+    # # Extract zones in family
+    # zonesInFamily = C.getFamilyZones(t, FamilyName)
+    # # Slice in x direction at middle range
+    # xmin = C.getMinValue(zonesInFamily, 'CoordinateX')
+    # xmax = C.getMaxValue(zonesInFamily, 'CoordinateX')
+    # sliceX = P.isoSurfMC(zonesInFamily, 'CoordinateX', value=xmin+0.05*(xmax-xmin))
+    # # Compute Radius
+    # C._initVars(sliceX, '{Radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
+    # Rmin = C.getMinValue(sliceX, 'Radius')
+    # Rmax = C.getMaxValue(sliceX, 'Radius')
+    # # Compute surface
+    # SurfaceTree = C.convertArray2Tetra(sliceX)
+    # SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
+    # Surface = P.integ(SurfaceTree, var='ones')[0]
+    # # Compute deltaTheta
+    # deltaTheta = 2* Surface / (Rmax**2 - Rmin**2)
+    deltaTheta = computeAzimuthalExtensionFromFamily(t, FamilyName)
     # Compute number of blades in the mesh
     Nb = NumberOfBlades * deltaTheta / (2*np.pi)
     Nb = int(np.round(Nb))
@@ -1149,6 +1193,7 @@ def computeReferenceValues(FluidProperties, PressureStagnation,
     except KeyError:
         CoprocessOptions['RequestedStatistics'] = TurboStatistics
 
+    CoprocessOptions.setdefault('BodyForceComputeFrequency', 1)
 
     ReferenceValues = PRE.computeReferenceValues(FluidProperties,
         Density=Density,
@@ -1234,7 +1279,7 @@ def computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration):
             ReferenceValues['NormalizationCoefficient'][FamilyName] = dict(FluxCoef=fluxcoeff)
 
 def getTurboConfiguration(t, ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={},
-    PeriodicTranslation=None):
+    PeriodicTranslation=None, BodyForceInputData={}):
     '''
     Construct a dictionary concerning the compressor properties.
 
@@ -1296,6 +1341,9 @@ def getTurboConfiguration(t, ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}
             If not :py:obj:'None', the configuration is considered to be with
             a periodicity in the direction **PeriodicTranslation**. This argument
             has to be used for linear cascade configurations.
+        
+        BodyForceInputData : dict
+            see :py:func:`prepareMainCGNS4ElsA`
 
     Returns
     -------
@@ -1318,6 +1366,12 @@ def getTurboConfiguration(t, ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}
             for key, value in rowParams.items():
                 if key == 'RotationSpeed' and value == 'auto':
                     rowParams[key] = ShaftRotationSpeed
+            if row in BodyForceInputData:
+                # Replace the number of blades to be consistant with the body-force mesh
+                deltaTheta = computeAzimuthalExtensionFromFamily(t, row)
+                rowParams['NumberOfBlades'] = int(2*np.pi / deltaTheta)
+                rowParams['NumberOfBladesInInitialMesh'] = 1
+                print(f'Number of blades for {row}: {rowParams["NumberOfBlades"]} (got from the body-force mesh)')
             if not 'NumberOfBladesSimulated' in rowParams:
                 rowParams['NumberOfBladesSimulated'] = 1
             if not 'NumberOfBladesInInitialMesh' in rowParams:
@@ -3858,26 +3912,22 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
     Returns
     -------
 
-        perfo : :py:class:`dict` of :py:class:`list`
-            dictionary with performance of **monitoredRow** for completed
-            simulations. It contains the following keys:
+        perfo : list
+            list with performance of **monitoredRow** for completed
+            simulations. Each element is a dict corresponding to one rotation speed.
+            This dict contains the following keys:
 
-            * MassFlow
+            * RotationSpeed (float)
 
-            * PressureStagnationRatio
+            * Throttle (numpy.array)
 
-            * EfficiencyIsentropic
+            * MassFlow (numpy.array)
 
-            * RotationSpeed
+            * PressureStagnationRatio (numpy.array)
 
-            * Throttle
-
-            Each list corresponds to one rotation speed. Each sub-list
-            corresponds to the different operating points on a iso-speed line.
+            * EfficiencyIsentropic (numpy.array)
 
     '''
-    from . import Coprocess as CO
-
     config = JM.getJobsConfiguration(DIRECTORY_WORK, useLocalConfig)
     Throttle = np.array(sorted(list(set([float(case['CASE_LABEL'].split('_')[0]) for case in config.JobsQueues]))))
     RotationSpeed = np.array(sorted(list(set([case['TurboConfiguration']['ShaftRotationSpeed'] for case in config.JobsQueues]))))
@@ -3899,13 +3949,7 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
 
                 return case['CASE_LABEL']
 
-    perfo = dict(
-        MassFlow = [],
-        PressureStagnationRatio = [],
-        EfficiencyIsentropic = [],
-        RotationSpeed = [],
-        Throttle = []
-    )
+    perfo = []
     lines = ['']
 
     JobNames = [getCaseLabel(config, Throttle[0], r).split('_')[-1] for r in RotationSpeed]
@@ -3915,11 +3959,14 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
         lines.append(TagStrFmt.format('RotationSpeed |')+''.join([ColFmt.format(rotationSpeed)] + [ColStrFmt.format('') for j in range(nCol-1)]))
         lines.append(TagStrFmt.format(' |')+''.join([ColStrFmt.format(''), ColStrFmt.format('MFR'), ColStrFmt.format('RPI'), ColStrFmt.format('ETA')]))
         lines.append(TagStrFmt.format('Throttle |')+''.join(['_' for m in range(NcolMax-FirstCol)]))
-        MFR = []
-        RPI = []
-        ETA = []
-        ROT = []
-        THR = []
+        
+        perfoOverIsospeedLine = dict(
+            RotationSpeed = rotationSpeed,
+            Throttle = [],
+            MassFlow = [],
+            PressureStagnationRatio = [],
+            EfficiencyIsentropic = []
+        )
 
         for throttle in Throttle:
             Line = TagFmt.format(throttle)
@@ -3937,31 +3984,31 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
                 msg = ColStrFmt.format('PD') # Pending
 
             if status == 'COMPLETED':
-                lastarrays = JM.getCaseArrays(config, CASE_LABEL,
-                                        basename='PERFOS_{}'.format(monitoredRow))
-                MFR.append(lastarrays['MassFlowIn'])
-                RPI.append(lastarrays['PressureStagnationRatio'])
-                ETA.append(lastarrays['EfficiencyIsentropic'])
-                ROT.append(rotationSpeed)
-                THR.append(throttle)
-                msg += ''.join([ColFmt.format(MFR[-1]), ColFmt.format(RPI[-1]), ColFmt.format(ETA[-1])])
+                lastarrays = JM.getCaseArrays(config, CASE_LABEL, basename='PERFOS_{}'.format(monitoredRow))
+                perfoOverIsospeedLine['Throttle'].append(throttle)
+                perfoOverIsospeedLine['MassFlow'].append(lastarrays['MassFlowIn'])
+                perfoOverIsospeedLine['PressureStagnationRatio'].append(lastarrays['PressureStagnationRatio'])
+                perfoOverIsospeedLine['EfficiencyIsentropic'].append(lastarrays['EfficiencyIsentropic'])
+    
+                msg += ''.join([ColFmt.format(lastarrays['MassFlowIn']), 
+                                ColFmt.format(lastarrays['PressureStagnationRatio']), 
+                                ColFmt.format(lastarrays['EfficiencyIsentropic'])
+                                ])
             else:
                 msg += ''.join([ColStrFmt.format('') for n in range(nCol-1)])
             Line += msg
             lines.append(Line)
 
         lines.append('')
-        perfo['MassFlow'].append(MFR)
-        perfo['PressureStagnationRatio'].append(RPI)
-        perfo['EfficiencyIsentropic'].append(ETA)
-        perfo['RotationSpeed'].append(ROT)
-        perfo['Throttle'].append(THR)
+        for key, value in perfoOverIsospeedLine.items():
+            perfoOverIsospeedLine[key] = np.array(value)
+        perfo.append(perfoOverIsospeedLine)
 
     for line in lines: print(line)
 
     return perfo
 
-def getPostprocessQuantities(DIRECTORY_WORK, basename, useLocalConfig=False):
+def getPostprocessQuantities(DIRECTORY_WORK, basename, useLocalConfig=False, rename=True):
     '''
     Print the current status of a IsoSpeedLines computation and display
     performance of the monitored row for completed jobs.
@@ -3979,15 +4026,22 @@ def getPostprocessQuantities(DIRECTORY_WORK, basename, useLocalConfig=False):
             if :py:obj:`True`, use the local ``JobsConfiguration.py``
             file instead of retreiving it from **DIRECTORY_WORK**
 
+        rename : bool 
+            if :py:obj:`True`, rename variables with CGNS names (or inspired CGNS names, already used in MOLA)
+
     Returns
     -------
 
-        perfo : :py:class:`dict` of :py:class:`list`
-            dictionary with data contained in the base **baseName** for completed
-            simulations. 
+        perfo : list
+            list with data contained in the base **baseName** for completed
+            simulations. Each element is a dict corresponding to one rotation speed.
+            This dict contains the following keys:
 
-            Each list corresponds to one rotation speed. Each sub-list
-            corresponds to the different operating points on a iso-speed line.
+            * RotationSpeed (float)
+
+            * Throttle (numpy.array)
+
+            * and all quantities found in **baseName** (numpy.array)
 
     '''
     config = JM.getJobsConfiguration(DIRECTORY_WORK, useLocalConfig)
@@ -4001,33 +4055,86 @@ def getPostprocessQuantities(DIRECTORY_WORK, basename, useLocalConfig=False):
 
                 return case['CASE_LABEL']
 
-    perfo = dict()
-
-    for idSpeed, rotationSpeed in enumerate(RotationSpeed):
-        perfoOnCarac = dict(RotationSpeed=[], Throttle=[])
+    perfo = []
+    for rotationSpeed in RotationSpeed:
+        perfoOverIsospeedLine = dict(RotationSpeed=rotationSpeed, Throttle=[])
 
         for idThrottle, throttle in enumerate(Throttle):
             CASE_LABEL = getCaseLabel(config, throttle, rotationSpeed)
             status = JM.statusOfCase(config, CASE_LABEL)
 
             if status == 'COMPLETED':
+                perfoOverIsospeedLine['Throttle'].append(throttle)
                 lastarrays = JM.getCaseArrays(config, CASE_LABEL, basename=basename)
                 for key, value in lastarrays.items():
                     if idThrottle == 0:
-                        perfoOnCarac[key] = [value]
+                        perfoOverIsospeedLine[key] = [value]
                     else:
-                        perfoOnCarac[key].append(value)
-                perfoOnCarac['RotationSpeed'].append(rotationSpeed)
-                perfoOnCarac['Throttle'].append(throttle)
+                        perfoOverIsospeedLine[key].append(value)
 
-        for key, value in perfoOnCarac.items():
-            if idSpeed == 0:
-                perfo[key] = [value]
-            else:
-                perfo[key].append(value)
+        for key, value in perfoOverIsospeedLine.items():
+            perfoOverIsospeedLine[key] = np.array(value)
+        perfo.append(perfoOverIsospeedLine)
+
+    if rename:
+        VarsToRename = [
+            ('MassFlow', 'Massflow'), 
+            ('PressureStagnationRatio', 'StagnationPressureRatio'), 
+            ('EfficiencyIsentropic', 'IsentropicEfficiency')
+            ]
+        for (name1, name2) in VarsToRename:
+            for perfoOverIsospeedLine in perfo: 
+                perfoOverIsospeedLine[name1] = perfoOverIsospeedLine[name2]
 
     return perfo
 
+def plotIsoSpeedLine(perfo, filename='isoSpeedLines.png'):
+    '''Plot performances in **perfo** (total pressure ratio and isentropic efficiency depending on massflow)
+
+    Parameters
+    ----------
+    perfo : list
+        as got from :py:func:`printConfigurationStatusWithPerfo` or :py:func:`getPostprocessQuantities`
+    '''
+    import matplotlib.pyplot as plt
+
+    linestyles = [dict(linestyle=ls, marker=mk) for mk in ['o', 's', 'd', 'h']
+                                            for ls in ['-', ':', '--', '-.']]
+    fig, ax1 = plt.subplots()
+
+    # Total pressure ratio
+    color = 'teal'
+    ax1.set_xlabel('MassFlow (kg/s)')
+    ax1.set_ylabel('Total pressure ratio (-)', color=color)
+    for i, perfo_iso in enumerate(perfo):
+        speed = perfo_iso['RotationSpeed'] * 30./np.pi # in RPM
+        ax1.plot(perfo_iso['MassFlow'], perfo_iso['PressureStagnationRatio'],
+                color=color, 
+                label=f'{speed} rpm', 
+                **linestyles[i])
+    ax1.tick_params(axis='y', labelcolor=color)
+
+    # Isentropic efficiency
+    color = 'firebrick'
+    ax2 = ax1.twinx()
+    ax2.set_ylabel('Isentropic efficiency (-)', color=color)
+    for i, perfo_iso in enumerate(perfo):
+        speed = perfo_iso['RotationSpeed'] * 30./np.pi # in RPM
+        ax2.plot(perfo_iso['MassFlow'], perfo_iso['EfficiencyIsentropic'],
+                color=color, 
+                label=f'{speed} rpm', 
+                **linestyles[i])
+        # To display legend in black
+        ax2.plot([], [], color='k', label=f'{speed} rpm', **linestyles[i])
+    ax2.tick_params(axis='y', labelcolor=color)
+    ax2.set_ylim(top=1)
+
+    if len(perfo) > 1:
+        ax2.legend(loc='center left', bbox_to_anchor=(1.1, 0.5))
+
+    fig.tight_layout()
+    plt.savefig(filename, dpi=300)
+    plt.show()
 
 
 def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboConfiguration, mask=None):
@@ -4085,6 +4192,20 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
             mask = C.convertFile2PyTree('../../DISPATCHER/mask.cgns')
         else: raise NameError("File 'mask.cgns' not found")
 
+    def getInletPlane(t, row, rowParams):
+        try: 
+            return rowParams['InletPlane']
+        except KeyError:
+            zones = C.getFamilyZones(t, row)
+            return C.getMinValue(zones, 'CoordinateX')
+
+    def getOutletPlane(t, row, rowParams):
+        try: 
+            return rowParams['OutletPlane']
+        except KeyError:
+            zones = C.getFamilyZones(t, row)
+            return C.getMaxValue(zones, 'CoordinateX')
+
     class RefState(object):
         def __init__(self):
           self.Gamma = FluidProperties['Gamma']
@@ -4101,7 +4222,7 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
     planes_data = []
 
     row, rowParams = list(TurboConfiguration['Rows'].items())[0]
-    xIn = rowParams['InletPlane']
+    xIn = getInletPlane(t, row, rowParams)
     alpha = ReferenceValues['AngleOfAttackDeg']
     planes_data.append(
         dict(
@@ -4116,10 +4237,15 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
     )
 
     for row, rowParams in TurboConfiguration['Rows'].items():
-        xOut = rowParams['OutletPlane']
+        xOut = getOutletPlane(t, row, rowParams)
         omega = rowParams['RotationSpeed']
         beta1 = rowParams.get('FlowAngleAtRoot', 0.)
         beta2 = rowParams.get('FlowAngleAtTip', 0.)
+        for (beta, paramName) in [(beta1, 'FlowAngleAtRoot'), (beta2, 'FlowAngleAtTip')]:
+            if beta * omega < 0:
+                MSG=f'WARNING: {paramName} ({beta} deg) has not the same sign that the rotation speed in {row} ({omega} rad/s).\n'
+                MSG += '        Double check it is not a mistake.'
+                print(J.WARN + MSG + J.ENDC)
         Csir = 1. if omega == 0 else 0.95  # Total pressure loss is null for a rotor, 5% for a stator
         planes_data.append(
             dict(
@@ -4132,15 +4258,19 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
         )
 
     # > Initialization
-    t = TI.initialize(t, mask, RefState(), planes_data,
-              nbslice=10,
-              constant_data=turbDict,
-              turbvarsname=list(turbDict),
-              velocity='absolute',
-              useSI=True,
-              keepTmpVars=False,
-              keepFS=True  # To conserve other FlowSolution_t nodes, as FlowSolution#Height
-              )
+    print(J.CYAN + 'Initialization with turbo...' + J.ENDC)
+    silence = J.OutputGrabber()
+    with silence:
+        t = TI.initialize(t, mask, RefState(), planes_data,
+                nbslice=10,
+                constant_data=turbDict,
+                turbvarsname=list(turbDict),
+                velocity='absolute',
+                useSI=True,
+                keepTmpVars=False,
+                keepFS=True  # To conserve other FlowSolution_t nodes, as FlowSolution#Height
+                )
+    print('..done.')
 
     return t
 

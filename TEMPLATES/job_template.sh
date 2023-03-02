@@ -19,7 +19,7 @@ else
 fi
 ###############################################################################
 
-mpirun -np $NPROCMPI elsA.x -C xdt-runtime-tree -- compute.py 1>stdout.log 2>stderr.log
+mpirun $OPENMPIOVERSUBSCRIBE -np $NPROCMPI elsA.x -C xdt-runtime-tree -- compute.py 1>stdout.log 2>stderr.log
 
 if [ -f "NEWJOB_REQUIRED" ]; then
     rm -f  NEWJOB_REQUIRED

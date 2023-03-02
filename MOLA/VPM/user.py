@@ -7,7 +7,10 @@ import Geom.PyTree as D
 import Converter.Internal as I
 import Generator.PyTree as G
 import Transform.PyTree as T
-import CPlot.PyTree as CPlot
+try:
+    import CPlotOffscreen.PyTree as CPlot
+except:
+    import CPlot.PyTree as CPlot
 from . import particles as LLparticles
 from .. import LiftingLine as MLL
 from .. import Wireframe as W
@@ -728,7 +731,7 @@ def setVisualization(t, ParticlesColorField='VorticityMagnitude',
     CPlot._addRender2PyTree(t, mode='Render', colormap='Blue2Red', isoLegend=1,
                                scalarField=ParticlesColorField)
 
-def saveImage(t, ShowInScreen=False, ImagesDirectory='FRAMES', **DisplayOptions):
+def saveImage(t, ImagesDirectory='FRAMES', **DisplayOptions):
 
     if 'mode' not in DisplayOptions: DisplayOptions['mode'] = 'Render'
     if 'displayInfo' not in DisplayOptions: DisplayOptions['displayInfo'] = 0
@@ -745,14 +748,13 @@ def saveImage(t, ShowInScreen=False, ImagesDirectory='FRAMES', **DisplayOptions)
     DisplayOptions['export'] = os.path.join(ImagesDirectory,
         'frame%05d.png'%sp['CurrentIteration'])
 
-    if ShowInScreen:
-        DisplayOptions['offscreen']=0
+    machine = os.getenv('MAC')
+    if machine in ['spiro']:
+        DisplayOptions['offscreen']=2 # MESA
+    elif machine in ['ld', 'visung', 'visio', 'sator']:
+        DisplayOptions['offscreen']=1 # openGL
     else:
-        machine = os.getenv('MAC', 'ld')
-        if 'spiro' in machine or 'sator' in machine:
-            DisplayOptions['offscreen']=1 # TODO solve bug https://elsa.onera.fr/issues/10536
-        else:
-            DisplayOptions['offscreen']=2
+        raise SystemError('machine "%s" not supported.'%machine)
 
     CPlot.display(t, **DisplayOptions)
     from time import sleep; sleep(0.1)
@@ -782,8 +784,6 @@ def save(*args, **kwargs):
 def loadAirfoilPolars(filename): return MLL.loadPolarsInterpolatorDict(filename)
 
 def addParticlesFromLiftingLines(*args, **kwargs): return LLparticles.addParticles(*args, **kwargs)
-
-def exit(): os._exit(0)
 
 def extract(t, ExctractionTree, NbOfParticlesUsedForPrecisionEvaluation = 1000):
     if not ExctractionTree: return
@@ -914,6 +914,7 @@ def compute(Parameters, PolarsFilename, LiftingLinePath = 'LiftingLine.cgns',
         if CONVERGED: break
 
     setVisualization(t, **VisualisationOptions)
+    saveImage(t, **SaveImageOptions)
     filename = os.path.join(DIRECTORY_OUTPUT,'VPM_AfterIt%d.cgns'%it)
     save(t, DIRECTORY_OUTPUT + '.cgns')
     J.createSymbolicLink(filename,  DIRECTORY_OUTPUT + '.cgns')
@@ -921,7 +922,6 @@ def compute(Parameters, PolarsFilename, LiftingLinePath = 'LiftingLine.cgns',
     print('||' + '{:-^50}'.format(' End of VPM computation '))
     for _ in range(3): print('||' + '{:=^50}'.format(''))
 
-    # exit()
 
 def computePolar(Parameters, dictPolar, PolarsFilename, LiftingLinePath = 'LiftingLine.cgns',
                 DIRECTORY_OUTPUT = 'POLARS', RestartPath = None, MaxNumberOfIterationsPerPolar = 200,

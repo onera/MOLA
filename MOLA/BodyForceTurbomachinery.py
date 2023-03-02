@@ -28,6 +28,8 @@ if not MOLA.__ONLY_DOC__:
     import Transform.PyTree as T
     import Post.PyTree as P
 
+    import etc.geom.xr_features as XR
+
 import MOLA.Preprocess as PRE
 import MOLA.InternalShortcuts as J
 import MOLA.Wireframe as W
@@ -127,8 +129,17 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows, saveGeometricalDataForBodyForc
             else:
                 BodyForceParams['meshType'] = 'structured'
 
+        if 'locateLE' in BodyForceParams:
+            locateLE = BodyForceParams.pop('locateLE')
+        else:
+            locateLE = 'auto'
+
         # Get the meridional info from rowTree
-        meridionalMesh = extractRowGeometricalData(t, row, save=saveGeometricalDataForBodyForce)
+        if os.path.isfile(f'BodyForceData_{row}.cgns'):
+            print(J.CYAN + f'Find body-force input BodyForceData_{row}.cgns' + J.ENDC)
+            meridionalMesh = C.convertFile2PyTree(f'BodyForceData_{row}.cgns')
+        else:
+            meridionalMesh = extractRowGeometricalData(t, row, save=saveGeometricalDataForBodyForce, locateLE=locateLE)
 
         newRowMesh = buildBodyForceMeshForOneRow(meridionalMesh,
                                                  NumberOfBlades=BladeNumber,
@@ -508,7 +519,7 @@ def addReferenceFlowIncidence(t, tsource, omega):
     P._extractMesh(tsource, t, order=2, extrapOrder=0)
 
 
-def extractRowGeometricalData(mesh, row, save=False):
+def extractRowGeometricalData(mesh, row, save=False, locateLE='auto'):
     '''
     Extract geometry data from the input **mesh** for the family **row**.
     The output tree may be passed to function :py:func:`buildBodyForceMeshForOneRow`.
@@ -534,123 +545,72 @@ def extractRowGeometricalData(mesh, row, save=False):
         'nx', 'nr', 'nt', 'thickness', 'AbscissaFromLE'
     '''
 
-    def profilesExtractionAndAnalysis(tree, row, 
-                                        zones_for_meridional_lines_extraction=None,
-                                        zones_for_blade_profiles_extraction=None,
-                                        directory_meridional_lines='meridional_lines',
-                                        directory_profiles='profiles'
-                                        ):
+    def profilesExtractionAndAnalysis(tree, row, directory_profiles='profiles', locateLE='auto'):
 
         import Ersatz as EZ
-
-        zones = C.getFamilyZones(tree, row)
-        if zones_for_meridional_lines_extraction is None:
-            zones_for_meridional_lines_extraction = []
-            # Attention! Ordre de l'amont a l'aval
-
-            for zone in zones:
-                zoneName = I.getName(zone)
-                if any([zoneName.endswith(suffix) for suffix in ['_upS', '_upStream', '_upstream']]):
-                    zones_for_meridional_lines_extraction.append(zoneName)
-            for zone in zones:
-                zoneName = I.getName(zone)
-                if zoneName.endswith('_up'):
-                    zones_for_meridional_lines_extraction.append(zoneName)
-            for zone in zones:
-                zoneName = I.getName(zone)
-                if any([zoneName.endswith(suffix) for suffix in ['_downS', '_downStream', '_downstream']]):
-                    zones_for_meridional_lines_extraction.append(zoneName)
-
-        if zones_for_blade_profiles_extraction is None:
-            zones_for_blade_profiles_extraction = []
-            
-            FamilyBCList = list(C.getFamilyBCNamesDict(tree))
-            BladeFamilies = []
-            for fam in FamilyBCList:
-                if any([fam.endswith(suffix) for suffix in ['BLADE', 'Blade', 'blade', 'AUBE', 'Aube', 'aube']]):
-                    BladeFamilies.append(fam)
-
-            for zone in zones:
-                zoneName = I.getName(zone)
-                for BladeFamily in BladeFamilies:
-                    BCs = C.getFamilyBCs(zone, BladeFamily)
-                    if BCs and not ('gap' in zoneName or 'tip' in zoneName):
-                        zones_for_blade_profiles_extraction.append(zoneName)
-                        break
-
-        print(f'Extraction of hub and shroud lines from zones: {", ".join(zones_for_meridional_lines_extraction)}')
-        print(f'Extraction of profiles from zones: {" ".join(zones_for_blade_profiles_extraction)}')
-        assert len(zones_for_meridional_lines_extraction) > 0 and len(zones_for_blade_profiles_extraction) > 0
-         
-        # if directory doesnt exist create it
-        if (not(os.path.isdir(directory_meridional_lines))):
-            os.mkdir(directory_meridional_lines)
 
         # if directory doesnt exist create it
         if (not(os.path.isdir(directory_profiles))):
             os.mkdir(directory_profiles)
 
-        # recuperer le nbre de lignes meridiennes
-        for zone in I.getNodesFromType(tree, 'Zone_t'):
-            if I.getName(zone) in zones_for_meridional_lines_extraction[0]:
-                meridional_lines_number = I.getZoneDim(zone)[2]
+        familyNames = [] 
+        for pattern in ['HUB', 'hub', 'Hub']: 
+            families = I.getNodesFromNameAndType(tree, f'{row}_*{pattern}*', 'Family_t')
+            familyNames += [I.getName(fam) for fam in families]
+        x, r = XR.extract_xr_family(tree, familyNames)
+        curve = J.createZone('hub', [x, r], ['x', 'r'])
+        C.convertPyTree2File(curve, 'hub.dat')
 
-        for mi in range(meridional_lines_number):
-            # extract meridional lines
-            tree_t = C.newPyTree(['Base', 3])
-            for zm in zones_for_meridional_lines_extraction:
-                for zone in I.getNodesFromType(tree, 'Zone_t'):
-                    if I.getName(zone) == zm:
-                        zone_i_dim = I.getZoneDim(zone)[1]
-                        zone_j_dim = I.getZoneDim(zone)[2]
-                        zone_k_dim = I.getZoneDim(zone)[3]
+        familyNames = [] 
+        for pattern in ['SHROUD', 'shroud', 'Shroud']: 
+            families = I.getNodesFromNameAndType(tree, f'{row}_*{pattern}*', 'Family_t')
+            familyNames += [I.getName(fam) for fam in families]
+        x, r = XR.extract_xr_family(tree, familyNames)
+        curve = J.createZone('shroud', [x, r], ['x', 'r'])
+        C.convertPyTree2File(curve, 'shroud.dat')
 
-                        zone_t = T.subzone(zone, (zone_i_dim, mi+1, 1), (zone_i_dim, mi+1, zone_k_dim))
-                        zone_t = T.reorder(zone_t, (-1, 2, 3))
-                        zone_t = C.initVars(zone_t, '{myX}={CoordinateZ}')
-                        zone_t = C.initVars(zone_t, '{r}=({CoordinateX}**2+{CoordinateY}**2)**0.5')
-                        tree_t[2][1][2].append(zone_t)
-            tree_t = C.extractVars(tree_t, ['myX', 'r'])
-            C.convertPyTree2File(tree_t, directory_meridional_lines+'/merid%03d.dat' % (mi+1))
-            os.system('sed -i {} -e s/"myX"/"x"/'.format(directory_meridional_lines+'/merid%03d.dat' % (mi+1)))
+        # Get blade profiles, assuming that there is only one zone around the blade skin (O-block)
+        for zone in C.getFamilyZones(tree, row):
+            # Search a Blade BC
+            FOUND_BLADE = False
+            for bc in I.getNodesFromType2(zone, 'BC_t'):
+                FamilyNameNode = I.getNodeFromType1(bc, 'FamilyName_t')
+                if not FamilyNameNode: continue
+                FamilyName = I.getValue(FamilyNameNode)
+                if any([pattern in FamilyName for pattern in ['BLADE', 'blade', 'Blade']]):
+                    FOUND_BLADE = True
+                    break
+            if not FOUND_BLADE: 
+                continue
 
-        # extract blade profiles
-        for zone in I.getNodesFromType(tree, 'Zone_t'):
-            if I.getName(zone) in zones_for_blade_profiles_extraction:
-                _, _, zone_j_dim, zone_k_dim, _ = I.getZoneDim(zone)
-                for mi in range(zone_j_dim):
-                    tree_t = C.newPyTree(['Base', 3])
-                    zone_t = T.subzone(zone, (1, mi+1, 1), (1, mi+1, zone_k_dim))
-                    tree_t[2][1][2].append(zone_t)
-                    tree_t = C.initVars(tree_t, '{myX}={CoordinateZ}')
-                    tree_t = C.initVars(tree_t, '{myY}={CoordinateX}')
-                    tree_t = C.initVars(tree_t, '{myZ}={CoordinateY}')
-                    tree_t = C.extractVars(tree_t, ['myX', 'myY', 'myZ'])
-                    C.convertPyTree2File(tree_t, directory_profiles+'/profile%03d.dat' % (mi+1))
-                    os.system('sed -i {} -e s/"myX"/"x"/'.format(directory_profiles+'/profile%03d.dat' % (mi+1)))
-                    os.system('sed -i {} -e s/"myY"/"y"/'.format(directory_profiles+'/profile%03d.dat' % (mi+1)))
-                    os.system('sed -i {} -e s/"myZ"/"z"/'.format(directory_profiles+'/profile%03d.dat' % (mi+1)))
-
-        nprofil = len(os.listdir(directory_profiles))
-        Npro = nprofil
-        step = (nprofil-1) / float(Npro-1)
-        ind_range = [int(np.ceil(step*n)) for n in range(Npro)]
+            # Get dimension
+            _, _, zone_j_dim, zone_k_dim, _ = I.getZoneDim(zone)
+            NptsOnProfile = []
+            for j in range(zone_j_dim):
+                zone_t = T.subzone(zone, (1, j+1, 1), (1, j+1, zone_k_dim))
+                x, y, z = J.getxyz(zone_t)
+                curve = J.createZone('profile', [x, y, z], ['x', 'y', 'z'])
+                C.convertPyTree2File(curve, f'{directory_profiles}/profile{j+1:03d}.dat')
+                NptsOnProfile.append(x.size)
+            
+            # Because of the assumption that there is only one zone around the blade skin,
+            # the loop can be broken
+            Nprofiles = zone_j_dim
+            break
 
         ezpb = EZ.Ersatz()
         # hub and shroud information (needed for the "height" variable calculation)
-        ezpb.set('hub', '%s/merid001.dat' % directory_meridional_lines)
-        ezpb.set('shroud', '%s/merid%03d.dat' % (directory_meridional_lines, nprofil))
+        ezpb.set('hub', 'hub.dat')
+        ezpb.set('shroud', 'shroud.dat')
 
         profile = []
-        for n in ind_range:
+        for n in range(Nprofiles):
             profile.append(EZ.Profile(ezpb))
-            profile[-1].set('file', '%s/profile%03d.dat' %(directory_profiles, n+1))
-            # associate meridional line
-            profile[-1].set('meridline', '%s/merid%03d.dat' %(directory_meridional_lines, n+1))
-            # LE index
-            # Si trop de points Autogrid buggue (Tangent break error)
-            profile[-1].set('ns', 101)
-            # profile[-1].set('nsk', 100)
+            profile[-1].set('file', f'{directory_profiles}/profile{n+1:03d}.dat')
+            if locateLE == 'from_index':
+                profile[-1].set('LEindex', NptsOnProfile[n]/2+1)
+            else:
+                assert locateLE =='auto'
 
         # geometric analysis
         ezpb.set('extract_skeleton', 1)
@@ -694,11 +654,8 @@ def extractRowGeometricalData(mesh, row, save=False):
         return curve
 
 
-    directory_meridional_lines = 'meridional_lines_{}'.format(row)
     directory_profiles = 'profiles_{}'.format(row)
-    profilesExtractionAndAnalysis(mesh, row,
-                                directory_meridional_lines=directory_meridional_lines,
-                                directory_profiles=directory_profiles)
+    profilesExtractionAndAnalysis(mesh, row, directory_profiles=directory_profiles, locateLE=locateLE)
 
     chordTree = C.convertFile2PyTree('chord.dat')
     C._extractVars(chordTree, ['chord', 'chordx'])
@@ -741,11 +698,8 @@ def extractRowGeometricalData(mesh, row, save=False):
     C._initVars(skeletonTree, '{AbscissaFromLE}={mnorm}*{chord}')
     C._rmVars(skeletonTree, ['xsc', 'mnorm', 'chord', 'chordx'])
 
-    xhub, rhub = readEndWallLine(f'{directory_meridional_lines}/merid001.dat')
-    merid_files = glob.glob(f'{directory_meridional_lines}/merid*.dat')
-    shroud_file = sorted(merid_files, key=lambda name: int(name.split('.dat')[0].split('/merid')[-1]))[-1]
-    print(shroud_file)
-    xshroud, rshroud = readEndWallLine(shroud_file)
+    xhub, rhub = readEndWallLine('hub.dat')
+    xshroud, rshroud = readEndWallLine('shroud.dat')
     xLE, rLE = readLEorTE('LE.dat')
     xTE, rTE = readLEorTE('TE.dat')
 
@@ -759,7 +713,7 @@ def extractRowGeometricalData(mesh, row, save=False):
     t = C.newPyTree(['Base', [Hub, Shroud, LeadingEdge,
                     TrailingEdge, Inlet, Outlet, skeletonZone]])
 
-    os.system(f'rm -rf {directory_meridional_lines}')
+    os.system(f'rm -f hub.dat shroud.dat')
     os.system(f'rm -rf {directory_profiles}')
     os.system('rm -f LE.dat TE.dat chord.dat thickness.dat skeleton.dat')
 
@@ -769,7 +723,7 @@ def extractRowGeometricalData(mesh, row, save=False):
     return t
 
 
-def computeBlockage(t, Nblades, eps=1e-8):
+def computeBlockage(t, Nblades, eps=1e-6):
     '''
     Compute the blockage.
 
@@ -781,27 +735,35 @@ def computeBlockage(t, Nblades, eps=1e-8):
     Nblades : int
         Number of blades in the row (used to compute the pitch)
     eps : float, optional
-        numerical parameter added to 'nt' square, to prevent division by zero. By default 1e-8
+        numerical parameter added to 'nt' square, to prevent division by zero. By default 1e-6
 
     Returns
     -------
     PyTree 
         Updated tree, with the new nodes 'blockage', 'gradxb' and 'gradrb'.
     '''
-    C._initVars(t, '{b}=-{thickness}/({nt}**2+%.15f)**0.5/%.15f/{CoordinateY}' % (eps, 2*np.pi/Nblades))
-    t = P.computeGrad(t, 'b')
-    # C._initVars(bodyForceCoarse, '{b}=-{thickness}/({nt}**2+%.15f)**0.5/%.15f/{CoordinateY}' % (eps, 2*np.pi/Nblades))
-    # bodyForceCoarse = P.computeGrad(bodyForceCoarse, 'b')
-    # C._extractVars(bodyForceCoarse, ['CoordinateX', 'CoordinateY', 'CoordinateZ', 'centers:gradxb', 'centers:gradyb'])
-    # P._extractMesh(bodyForceCoarse, t, order=2, extrapOrder=0, constraint=40.)
 
+
+    C._initVars(t, f'{{b}}=maximum(-1+{eps}, -{{thickness}} / ({{nt}}**2+{eps})**0.5 / ({2*np.pi/Nblades}*{{CoordinateY}}))')
+
+    # Impose b = 0 on the edges on I and J indices (LE, TE, hub and shroud)
+    # It helps to have consistant grandients at the edge of the BF domain
+    bNode = I.getNodeFromName(t, 'b')
+    b = I.getValue(bNode)
+    b[ 0, :] = 0 # LE
+    b[-1, :] = 0 # TE
+    b[ :, 0] = 0 # Hub
+    b[ :,-1] = 0 # Shroud
+    I.setValue(bNode, b)
+
+    t = P.computeGrad(t, 'b')
     C._initVars(t, '{blockage}=1.+{b}')
     I._rmNodesByName(t, 'b')
     I._rmNodesByName(t, 'gradzb')
     I._renameNode(t, 'gradyb', 'gradrb')
 
     C._initVars(t, '{radius}=sqrt({CoordinateY}**2+{CoordinateZ}**2)')
-    C._initVars(t, '{{blade2BladeDistance}}=2*{}*{{radius}}/{}*{{nt}}*{{blockage}}'.format(np.pi, Nblades))
+    C._initVars(t, f'{{blade2BladeDistance}}=2*{np.pi}*{{radius}}/{Nblades}*{{nt}}*{{blockage}}')
 
     return t
 
@@ -932,7 +894,13 @@ def computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration)
         incidenceLoss = False
 
     # Compute and gather all the required source terms
-    TotalSourceTerms = dict()
+    TotalSourceTerms = dict(
+        Density = 0.,
+        MomentumX = 0.,
+        MomentumY = 0.,
+        MomentumZ = 0.,
+        EnergyStagnationDensity = 0.
+    )
     for model in models:
         # Default tolerance
         tol = BodyForceParams.get('tol', 1e-5)
@@ -959,8 +927,6 @@ def computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration)
         for key, value in NewSourceTerms.items():
             if key in TotalSourceTerms:
                 TotalSourceTerms[key] += value
-            else:
-                TotalSourceTerms[key] = value
 
     return TotalSourceTerms
 
@@ -995,7 +961,7 @@ def computeBodyForce_Blockage(zone, tol=1e-5):
     Vx, Vy, Vz = FlowSolution['MomentumX']/Density, FlowSolution['MomentumY'] / Density, FlowSolution['MomentumZ']/Density
     Vr = Vy * np.cos(DataSourceTerms['theta']) + Vz * np.sin(DataSourceTerms['theta'])
 
-    Sb = -(Vx * DataSourceTerms['gradxb'] + Vr * DataSourceTerms['gradrb']) / Blockage
+    Sb = - Density * (Vx * DataSourceTerms['gradxb'] + Vr * DataSourceTerms['gradrb']) / Blockage
 
     NewSourceTerms = dict(
         Density                 = Sb,
@@ -1039,7 +1005,6 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, incidenceLo
     '''
 
     rowName = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
-    NumberOfBlades = TurboConfiguration['Rows'][rowName]['NumberOfBlades']
     RotationSpeed = TurboConfiguration['Rows'][rowName]['RotationSpeed']
 
     FlowSolution    = J.getVars2Dict(zone, Container='FlowSolution#Init')
@@ -1151,20 +1116,21 @@ def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeigh
             MomentumY, MomentumZ and EnergyStagnation (=0).
     
     '''
+    zoneCopy = I.copyTree(zone)
 
-    rowName = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+    rowName = I.getValue(I.getNodeFromType1(zoneCopy, 'FamilyName_t'))
     RotationSpeed = TurboConfiguration['Rows'][rowName]['RotationSpeed']
 
-    FlowSolution = J.getVars2Dict(zone, Container='FlowSolution#Init')
-    DataSourceTerms = J.getVars2Dict(zone, Container='FlowSolution#DataSourceTerm')
+    FlowSolution = J.getVars2Dict(zoneCopy, Container='FlowSolution#Init')
+    DataSourceTerms = J.getVars2Dict(zoneCopy, Container='FlowSolution#DataSourceTerm')
 
     # Extract Boundary layers edges, based on ProtectedHeightPercentage
-    zone = I.renameNode(zone, 'FlowSolution#Init', 'FlowSolution#Centers')
-    I._renameNode(zone, 'FlowSolution#Height', 'FlowSolution')
-    BoundarayLayerEdgeAtHub    = P.isoSurfMC(zone, 'ChannelHeight', ProtectedHeight)
-    BoundarayLayerEdgeAtShroud = P.isoSurfMC(zone, 'ChannelHeight', 1-ProtectedHeight)
-    zone = C.node2Center(zone, 'ChannelHeight')
-    h, = J.getVars(zone, VariablesName=['ChannelHeight'], Container='FlowSolution#Centers')
+    I._renameNode(zoneCopy, 'FlowSolution#Init', 'FlowSolution#Centers')
+    I._renameNode(zoneCopy, 'FlowSolution#Height', 'FlowSolution')
+    BoundarayLayerEdgeAtHub    = P.isoSurfMC(zoneCopy, 'ChannelHeight', ProtectedHeight)
+    BoundarayLayerEdgeAtShroud = P.isoSurfMC(zoneCopy, 'ChannelHeight', 1-ProtectedHeight)
+    C._node2Center__(zoneCopy, 'ChannelHeight')
+    h, = J.getVars(zoneCopy, VariablesName=['ChannelHeight'], Container='FlowSolution#Centers')
 
     # Coordinates
     radius, theta = DataSourceTerms['radius'], DataSourceTerms['theta']
@@ -1220,7 +1186,7 @@ def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeigh
     )
     return BLProtectionSourceTerms
 
-def computeProtectionSourceTerms_OLD(zone, TurboConfiguration, ProtectedHeightPercentage=5., tol=1e-5):
+def computeBodyForce_EndWallsProtection_OLD(zone, TurboConfiguration, ProtectedHeightPercentage=5., tol=1e-5):
     ''' 
     Protection of the boudary layer ofr body-force modelling, as explain in the appendix D of 
     W. Thollet PdD manuscrit.
