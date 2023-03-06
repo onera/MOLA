@@ -2700,7 +2700,11 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         WallDistance : dict or str
             Method to compute wall distance
             Str type: name of the method (e.g. 'mininterf_ortho4')
-            Dict type: must contain 'compute' key with name of method as value, can contain 'periodic' key in order to take the periodicity into account
+            Dict type: must contain 'compute' key with name of method as value (e.g. 'mininterf_ortho4'), can contain 'periodic' key in order to take the periodicity into account (e.g. 'two_dir'). The solver can be chosen between 'elsa' and 'cassiopee' (key 'software') and specific extraction can be added  thanks to the key 'extract' (value=boolean True or False).
+
+            .. code-block:: python
+
+               WallDistance=dict(compute='mininterf_ortho4', periodic='two_dir', extract=True, software='elsa')
 
         CoprocessOptions : dict
             Override default coprocess options dictionary with this paramter.
@@ -5134,6 +5138,7 @@ def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
         Be careful when using this function on a partial mesh with periodicity
         conditions. If this kind of BC is not equidistant to the walls, the
         computed ``'TurbulentDistance'`` will be wrong !
+        Except if options are specified to take periodicity into account
 
     Parameters
     ----------
@@ -5166,12 +5171,41 @@ def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
     #                 ExtendedFamilyNames.append(name)
     #     return ExtendedFamilyNames
 
+    def __adaptZoneNames(zone):
+        zn = I.getName(zone)
+        if   '/' in zn:  zn = zn.split('/')[-1]
+        elif "\\" in zn: zn = zn.split('\\')[-1]
+        I.setName(zone,zn)
+
+    def __duplicateWalls(walls):
+        for bw in I.getBases(walls):
+            for zw in I.getZones(bw):
+                sp = I.getNodeFromName2(zw,".Solver#Param")
+                if sp:
+                    __adaptZoneNames(zw)
+                    ang1 = I.getNodeFromName1(sp,'axis_ang_1'); ang1 = I.getValue(ang1)
+                    ang2 = I.getNodeFromName1(sp,'axis_ang_2'); ang2 = I.getValue(ang2)
+                    angle = float(ang2)/float(ang1)*360.
+                    xc = I.getNodeFromName1(sp,'axis_pnt_x'); xc = I.getValue(xc)
+                    yc = I.getNodeFromName1(sp,'axis_pnt_y'); yc = I.getValue(yc)
+                    zc = I.getNodeFromName1(sp,'axis_pnt_z'); zc = I.getValue(zc)
+                    vx = I.getNodeFromName1(sp,'axis_vct_x'); vx = I.getValue(vx)
+                    vy = I.getNodeFromName1(sp,'axis_vct_y'); vy = I.getValue(vy)
+                    vz = I.getNodeFromName1(sp,'axis_vct_z'); vz = I.getValue(vz)
+                    if angle != 0.:
+                        zdupPos = T.rotate(zw,(xc,yc,zc), (vx,vy,vz),angle)
+                        zdupNeg = T.rotate(zw,(xc,yc,zc), (vx,vy,vz),-angle)
+                        zdupPos[0] += 'dup_pos'
+                        zdupNeg[0] += 'dup_neg'
+                        I.addChild(bw,zdupPos)
+                        I.addChild(bw,zdupNeg)
+
     WallFamilies = extendListOfFamilies(WallFamilies)
 
     print('Compute distance to walls...')
 
     BCs, _, BCTypes = C.getBCs(t)
-    walls = []
+    walls = [] # will be a list on Zone_t nodes
     wallBCTypes = set()
     for BC, BCType in zip(BCs, BCTypes):
         FamilyBCType = getFamilyBCTypeFromFamilyBCName(t, BCType)
@@ -5202,16 +5236,9 @@ def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
         print('List of BCTypes recognized as walls:')
         for BCType in wallBCTypes:
             print('  {}'.format(BCType))
-    # print('-'*10+'WALLS'+'-'*10)
+    walls = C.newPyTree(['WALLS', walls]) # as walls is a list of Zone_t nodes 
     I._adaptZoneNamesForSlash(walls)
-    # I.printTree(walls)
-    # walls = T.merge(walls) # je perds le .Solver#Param 
-    # print('-'*10+'WALLS_MERGE'+'-'*10)
-    # I.printTree(walls)
-    # TODO
-    # - cela ne fonctionne pas encore => pas d'effet de la periodicite
-    # - voir difference avec ma pratique AITEC2
-    # - au lieu de merge, newPyTree ?
+    __duplicateWalls(walls)
 
     if wallFilename:
         C.convertPyTree2File(walls, wallFilename)
