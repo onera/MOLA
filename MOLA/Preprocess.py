@@ -61,10 +61,14 @@ save = J.save
 DEBUG = False
 DIRECTORY_OVERSET='OVERSET' 
 
-K_OMEGA_MODELS = ['Wilcox2006-klim', 'Wilcox2006-klim-V',
+K_OMEGA_TWO_EQN_MODELS = ['Wilcox2006-klim', 'Wilcox2006-klim-V',
             'Wilcox2006', 'Wilcox2006-V', 'SST-2003', 
-            'SST-V2003', 'SST', 'SST-V',  'BSL', 'BSL-V',
-            'SST-2003-LM2009', 'SST-V2003-LM2009', 'SSG/LRR-RSM-w2012']
+            'SST-V2003', 'SST', 'SST-V',  'BSL', 'BSL-V']
+
+K_OMEGA_MODELS = K_OMEGA_TWO_EQN_MODELS + [ 'SST-2003-LM2009',
+                 'SST-V2003-LM2009', 'SSG/LRR-RSM-w2012']
+
+AvailableTurbulenceModels = K_OMEGA_MODELS + ['smith', 'SA']
 
 
 def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
@@ -2890,7 +2894,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         ReferenceStateTurbulence = [float(TurbulentSANuTilde)]
 
 
-    elif TurbulenceModel in ('BSL','BSL-V','SST-2003','SST','SST-V','Wilcox2006-klim'):
+    elif TurbulenceModel in K_OMEGA_TWO_EQN_MODELS:
         FieldsTurbulence  = ['TurbulentEnergyKineticDensity','TurbulentDissipationRateDensity']
         ReferenceStateTurbulence = [float(TurbulentEnergyKineticDensity), float(TurbulentDissipationRateDensity)]
 
@@ -2898,7 +2902,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         FieldsTurbulence  = ['TurbulentEnergyKineticDensity','TurbulentLengthScaleDensity']
         ReferenceStateTurbulence = [float(TurbulentEnergyKineticDensity), float(TurbulentLengthScaleDensity)]
 
-    elif TurbulenceModel == 'SST-2003-LM2009':
+    elif 'LM2009' in TurbulenceModel:
         FieldsTurbulence = ['TurbulentEnergyKineticDensity','TurbulentDissipationRateDensity',
                     'IntermittencyDensity','MomentumThicknessReynoldsDensity']
 
@@ -2919,7 +2923,6 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         float(ReynoldsStressDissipationScale)]
 
     else:
-        AvailableTurbulenceModels = ['SA','BSL','BSL-V','SST-2003','SST','SST-V','Wilcox2006-klim','smith','SST-2003-LM2009','SSG/LRR-RSM-w2012']
         raise AttributeError('Turbulence model %s not implemented in workflow. Must be in: %s'%(TurbulenceModel,str(AvailableTurbulenceModels)))
     Fields         += FieldsTurbulence
     ReferenceState += ReferenceStateTurbulence
@@ -3229,7 +3232,7 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         turbmod        = 'rsm',
         rsm_name       = 'ssg_lrr_bsl',
         rsm_diffusion = 'isotropic',
-        rsm_bous_limiter = 10,
+        rsm_bous_limiter = 10.0,
         omega_prolong  = 'linear_extrap',
                             )
 
@@ -3492,8 +3495,18 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
 
     ReferenceStateTurbulence = ReferenceValues['ReferenceStateTurbulence']
     TurbulenceCutoff         = ReferenceValues['TurbulenceCutoff']
-    for i in range(len(ReferenceStateTurbulence)):
-        addKeys['t_cutvar%d'%(i+1)] = TurbulenceCutoff*ReferenceStateTurbulence[i]
+    if len(ReferenceStateTurbulence)==7:  # RSM
+        addKeys['t_cutvar1'] = TurbulenceCutoff*ReferenceStateTurbulence[0]
+        addKeys['t_cutvar2'] = TurbulenceCutoff*ReferenceStateTurbulence[3]
+        addKeys['t_cutvar3'] = TurbulenceCutoff*ReferenceStateTurbulence[5]
+        addKeys['t_cutvar4'] = TurbulenceCutoff*ReferenceStateTurbulence[6]
+
+    elif len(ReferenceStateTurbulence)>4: # unsupported 
+        raise ValueError('UNSUPPORTED NUMBER OF TURBULENT FIELDS')
+    
+    else:
+        for i in range(len(ReferenceStateTurbulence)):
+            addKeys['t_cutvar%d'%(i+1)] = TurbulenceCutoff*ReferenceStateTurbulence[i]
     elsAkeysNumerics.update(addKeys)
 
     if unstructured:
