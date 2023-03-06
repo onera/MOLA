@@ -454,6 +454,8 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         fieldsCorrVars_CC = J.getVars(Stacked,CorrVars,Container='FlowSolution#Centers')
         for f in fieldsCorrVars_CC:
             f *= dr * NBlades / (Nj-1) / vol_tot_val * weight_val / weight_tot_val
+            # LB TODO write more clearly:
+            # f *= (dr * NBlades / ((Nj-1) * vol_tot_val)) * (weight_val / weight_tot_val)
 
     else:
         for corrVar in CorrVars: C.node2Center__(Stacked, corrVar)
@@ -468,6 +470,9 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         fieldsCorrVars_CC = J.getVars(Stacked,CorrVars,Container='FlowSolution#Centers')
         for f in fieldsCorrVars_CC:
             f *= dr * NBlades / (Nj-1) / vol_tot_val
+            # LB TODO write more clearly:
+            # f *= (dr * NBlades / ((Nj-1) * vol_tot_val))
+
 
     if not usePUMA:
         AzimutalLoads = dict()
