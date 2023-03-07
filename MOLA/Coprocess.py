@@ -2484,7 +2484,8 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
 
         for zone in C.getFamilyZones(newTreeWithSourceTerms, BodyForceFamily):
 
-            if not I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm'): continue
+            DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
+            if not DataSourceTermNode: continue
 
             NewSourceTerms = BF.computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration)
 
@@ -2515,9 +2516,16 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
             # else:
             #     relax = 0.999
             # printCo(f'  relax = {relax}', 0, J.MAGE)
+
+            ActiveSourceTermNode = I.getNodeFromName1(DataSourceTermNode, 'ActiveSourceTerm')
+            if ActiveSourceTermNode:
+                ActiveSourceTerm = I.getValue(ActiveSourceTermNode)
+            else:
+                ActiveSourceTerm = 1
                 
             for name in NewSourceTerms:
                 newSourceTerm = (1-relax) * NewSourceTerms[name] + relax * previousSourceTerms[name]
+                newSourceTerm *= ActiveSourceTerm
                 I.newDataArray(name=name, value=newSourceTerm, parent=FSSourceTerm)
 
     I._rmNodesByName(newTreeWithSourceTerms, 'FlowSolution#Init')
