@@ -2501,7 +2501,8 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
 
         for zone in C.getFamilyZones(newTreeWithSourceTerms, BodyForceFamily):
 
-            if not I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm'): continue
+            DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
+            if not DataSourceTermNode: continue
 
             NewSourceTerms = BF.computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration)
 
@@ -2511,16 +2512,37 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
             FSSourceTerm = I.newFlowSolution('FlowSolution#SourceTerm', gridLocation='CellCenter', parent=zone)
             SourceTermPath = I.getPath(newTreeWithSourceTerms, FSSourceTerm)
 
+            # Get previous source terms
+            previousSourceTerms = dict()
             if CurrentIteration > BodyForceInitialIteration : 
                 previousFSSourceTerm = I.getNodeFromPath(previousTreeWithSourceTerms, SourceTermPath)
+                for name in NewSourceTerms:
+                    previousSourceTerms[name] = I.getValue(I.getNodeFromName(previousFSSourceTerm, name))
             else:
-                previousFSSourceTerm = None
+                for name in NewSourceTerms:
+                    previousSourceTerms[name] = 0.
+            
+            # # Optimal relaxation coefficient
+            # NormOfNewSourceTerms = sum([x**2 for x in NewSourceTerms.values()])**0.5
+            # NormOfPreviousSourceTerms = sum([x**2 for x in previousSourceTerms.values()])**0.5
+            # num = np.amax( np.absolute(NormOfNewSourceTerms - NormOfPreviousSourceTerms) )
+            # den = np.amax( np.absolute(NormOfNewSourceTerms + NormOfPreviousSourceTerms) )
+            # if den != 0:
+            #     relax_optim  =  num / den 
+            #     relax = min(max(relax_optim, relax), 0.999) # must be between relax and 0.999
+            # else:
+            #     relax = 0.999
+            # printCo(f'  relax = {relax}', 0, J.MAGE)
+
+            ActiveSourceTermNode = I.getNodeFromName1(DataSourceTermNode, 'ActiveSourceTerm')
+            if ActiveSourceTermNode:
+                ActiveSourceTerm = I.getValue(ActiveSourceTermNode)
+            else:
+                ActiveSourceTerm = 1
                 
-            for name, newSourceTerm in NewSourceTerms.items():
-                if previousFSSourceTerm:
-                    previousSourceTerm = I.getValue(I.getNodeFromName(previousFSSourceTerm, name))
-                    newSourceTerm = (1-relax) * newSourceTerm + relax * previousSourceTerm
-                
+            for name in NewSourceTerms:
+                newSourceTerm = (1-relax) * NewSourceTerms[name] + relax * previousSourceTerms[name]
+                newSourceTerm *= ActiveSourceTerm
                 I.newDataArray(name=name, value=newSourceTerm, parent=FSSourceTerm)
 
     I._rmNodesByName(newTreeWithSourceTerms, 'FlowSolution#Init')
@@ -2802,6 +2824,8 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
 
     if Workflow == 'Compressor' and PostprocessOptions:
         import MOLA.WorkflowCompressor as WC
+        class ChannelHeightError(Exception):
+            pass
 
         if EndOfRun or setup.elsAkeysNumerics['time_algo'] != 'steady':
 
@@ -2823,7 +2847,10 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                 # It is MANDATORY for next post-processings
                 J._reorderBases(surfaces)
 
-            try:           
+            try:         
+                if not I.getNodeFromName(surfaces, 'ChannelHeight'):
+                    printCo('Postprocess cannot be done because ChannelHeight is missing', 0, color=J.WARN)
+                    raise ChannelHeightError
                 WC.postprocess_turbomachinery(surfaces, computeRadialProfiles=computeRadialProfiles, **PostprocessOptions)
                 printCo('Postprocess done on surfaces', proc=0, color=J.MAGE)
 
@@ -2853,5 +2880,7 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                 I._rmNodesFromName1(surfaces, 'Averages0D')
 
             except ImportError:
+                pass
+            except ChannelHeightError:
                 pass
     return surfaces

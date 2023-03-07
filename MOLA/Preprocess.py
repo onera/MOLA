@@ -3229,11 +3229,11 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
 
     elif TurbulenceModel == 'SSG/LRR-RSM-w2012':
         addKeys4Model = dict(
-        turbmod        = 'rsm',
-        rsm_name       = 'ssg_lrr_bsl',
-        rsm_diffusion = 'isotropic',
+        turbmod          = 'rsm',
+        rsm_name         = 'ssg_lrr_bsl',
+        rsm_diffusion    = 'isotropic',
         rsm_bous_limiter = 10.0,
-        omega_prolong  = 'linear_extrap',
+        omega_prolong    = 'linear_extrap',
                             )
 
     # Transition Settings

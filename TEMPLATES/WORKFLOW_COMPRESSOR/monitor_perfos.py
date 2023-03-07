@@ -49,7 +49,6 @@ ordering = dict(MassFlowIn=0,
     )
 
 t = C.convertFile2PyTree(FILE_ARRAYS)
-zones = I.getNodesFromNameAndType(t, 'PERFOS_*', 'Zone_t')
 
 def shortvarname(varname):
     if varname == 'MassFlowIn':
@@ -67,6 +66,7 @@ def shortvarname(varname):
     else:
         return varname
 
+zones = I.getNodesFromNameAndType(t, 'PERFOS_*', 'Zone_t')
 for zone in zones:
 
     row = I.getName(zone).replace('PERFOS_', '')
@@ -154,7 +154,8 @@ for zone in zones:
     print('Saving %s%s%s ...'%(J.CYAN,figname,J.ENDC))
     plt.savefig(figname)
     print(J.GREEN+'ok'+J.ENDC)
-
+if len(zones) > 3:
+    plt.close('all')
 
 ################################################################################
 #########################         Massflow         #############################
