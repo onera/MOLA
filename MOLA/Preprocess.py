@@ -3209,11 +3209,11 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
 
     elif TurbulenceModel == 'SSG/LRR-RSM-w2012':
         addKeys4Model = dict(
-        turbmod        = 'rsm',
-        rsm_name       = 'ssg_lrr_bsl',
-        rsm_diffusion = 'isotropic',
-        rsm_bous_limiter = 10,
-        omega_prolong  = 'linear_extrap',
+        turbmod          = 'rsm',
+        rsm_name         = 'ssg_lrr_bsl',
+        rsm_diffusion    = 'isotropic',
+        rsm_bous_limiter = 10.,
+        omega_prolong    = 'linear_extrap',
                             )
 
     # Transition Settings
@@ -3475,8 +3475,15 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
 
     ReferenceStateTurbulence = ReferenceValues['ReferenceStateTurbulence']
     TurbulenceCutoff         = ReferenceValues['TurbulenceCutoff']
-    for i in range(len(ReferenceStateTurbulence)):
-        addKeys['t_cutvar%d'%(i+1)] = TurbulenceCutoff*ReferenceStateTurbulence[i]
+    if len(ReferenceStateTurbulence) <= 2:
+        for i in range(len(ReferenceStateTurbulence)):
+            addKeys['t_cutvar%d'%(i+1)] = TurbulenceCutoff*ReferenceStateTurbulence[i]
+    else:
+        # RSM models
+        addKeys['t_cutvar1'] = TurbulenceCutoff*ReferenceValues['ReynoldsStressXX']
+        addKeys['t_cutvar2'] = TurbulenceCutoff*ReferenceValues['ReynoldsStressYY']
+        addKeys['t_cutvar3'] = TurbulenceCutoff*ReferenceValues['ReynoldsStressZZ']
+        addKeys['t_cutvar4'] = TurbulenceCutoff*ReferenceValues['ReynoldsStressDissipationScale']
     elsAkeysNumerics.update(addKeys)
 
     if unstructured:

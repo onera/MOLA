@@ -2233,6 +2233,52 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None, variableForInterpolatio
         setBCwithImposedVariables(t, FamilyName, ImposedVariables,
             FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc, variableForInterpolation=variableForInterpolation)
 
+def getPrimitiveTurbulentFieldForInjection(FluidProperties, ReferenceValues, **kwargs):
+        '''
+        Get the primitive (without the Density factor) turbulent variables (names and values) 
+        to inject in an inflow boundary condition.
+
+        For RSM models, see issue https://elsa.onera.fr/issues/5136 for the naming convention.
+
+        Parameters
+        ----------
+        ReferenceValues : dict
+            as obtained from :py:func:`computeReferenceValues`
+
+        kwargs : dict
+            Optional parameters, taken from **ReferenceValues** if not given.
+
+        Returns
+        -------
+        dict
+            Imposed turbulent variables
+        '''
+        TurbulenceLevel = kwargs.get('TurbulenceLevel', None)
+        Viscosity_EddyMolecularRatio = kwargs.get('Viscosity_EddyMolecularRatio', None)
+        if TurbulenceLevel and Viscosity_EddyMolecularRatio:
+            ReferenceValuesForTurbulence = computeReferenceValues(FluidProperties,
+                    kwargs.get('MassFlow'), ReferenceValues['PressureStagnation'],
+                    kwargs.get('TemperatureStagnation'), kwargs.get('Surface'),
+                    TurbulenceLevel=TurbulenceLevel,
+                    Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio,
+                    TurbulenceModel=ReferenceValues['TurbulenceModel'])
+        else:
+            ReferenceValuesForTurbulence = ReferenceValues
+
+        turbDict = dict()
+        for name, value in zip(ReferenceValuesForTurbulence['FieldsTurbulence'], ReferenceValuesForTurbulence['ReferenceStateTurbulence']):
+            if name.endswith('Density'):
+                name = name.replace('Density', '')
+                value /= ReferenceValues['Density']
+            elif name == 'ReynoldsStressDissipationScale':
+                name = 'TurbulentDissipationRate'
+                value /= ReferenceValues['Density']
+            elif name.startswith('ReynoldsStress'):
+                name = name.replace('ReynoldsStress', 'VelocityCorrelation')
+                value /= ReferenceValues['Density']
+            turbDict[name] = kwargs.get(name, value)
+        return turbDict
+
 def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     '''
     Set a Boundary Condition ``inj1`` with uniform inflow values. These values
@@ -2256,7 +2302,8 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs
         kwargs : dict
             Optional parameters, taken from **ReferenceValues** if not given:
             PressureStagnation, TemperatureStagnation, EnthalpyStagnation,
-            VelocityUnitVectorX, VelocityUnitVectorY, VelocityUnitVectorZ
+            VelocityUnitVectorX, VelocityUnitVectorY, VelocityUnitVectorZ, 
+            and primitive turbulent variables
 
     See also
     --------
@@ -2271,13 +2318,7 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs
     VelocityUnitVectorX   = kwargs.get('VelocityUnitVectorX', ReferenceValues['DragDirection'][0])
     VelocityUnitVectorY   = kwargs.get('VelocityUnitVectorY', ReferenceValues['DragDirection'][1])
     VelocityUnitVectorZ   = kwargs.get('VelocityUnitVectorZ', ReferenceValues['DragDirection'][2])
-    variableForInterpolation = kwargs.get('variableForInterpolation', 'ChannelHeight')
-
-    # Get turbulent variables names and values
-    turbVars = ReferenceValues['FieldsTurbulence']
-    turbVars = [var.replace('Density', '') for var in turbVars]
-    turbValues = [val/ReferenceValues['Density'] for val in ReferenceValues['ReferenceStateTurbulence']]
-    turbDict = dict(zip(turbVars, turbValues))
+    variableForInterpolation = kwargs.get('variableForInterpolation', 'ChannelHeight')   
 
     ImposedVariables = dict(
         PressureStagnation  = PressureStagnation,
@@ -2285,7 +2326,7 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs
         VelocityUnitVectorX = VelocityUnitVectorX,
         VelocityUnitVectorY = VelocityUnitVectorY,
         VelocityUnitVectorZ = VelocityUnitVectorZ,
-        **turbDict
+        **getPrimitiveTurbulentFieldForInjection(FluidProperties, ReferenceValues, **kwargs)
         )
 
     setBC_inj1(t, FamilyName, ImposedVariables, variableForInterpolation=variableForInterpolation)
@@ -2405,7 +2446,7 @@ def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
             Optional parameters, taken from **ReferenceValues** if not given:
             MassFlow, SurfacicMassFlow, Surface, TemperatureStagnation, EnthalpyStagnation,
             VelocityUnitVectorX, VelocityUnitVectorY, VelocityUnitVectorZ,
-            TurbulenceLevel, Viscosity_EddyMolecularRatio
+            TurbulenceLevel, Viscosity_EddyMolecularRatio and primitive turbulent variables
 
     See also
     --------
@@ -2428,49 +2469,24 @@ def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     VelocityUnitVectorX   = kwargs.get('VelocityUnitVectorX', ReferenceValues['DragDirection'][0])
     VelocityUnitVectorY   = kwargs.get('VelocityUnitVectorY', ReferenceValues['DragDirection'][1])
     VelocityUnitVectorZ   = kwargs.get('VelocityUnitVectorZ', ReferenceValues['DragDirection'][2])
-
-    TurbulenceLevel = kwargs.get('TurbulenceLevel', None)
-    Viscosity_EddyMolecularRatio = kwargs.get('Viscosity_EddyMolecularRatio', None)
-    if TurbulenceLevel and Viscosity_EddyMolecularRatio:
-        ReferenceValuesForTurbulence = computeReferenceValues(FluidProperties,
-                MassFlow, ReferenceValues['PressureStagnation'],
-                TemperatureStagnation, Surface,
-                TurbulenceLevel=TurbulenceLevel,
-                Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio,
-                TurbulenceModel=ReferenceValues['TurbulenceModel'])
-    else:
-        ReferenceValuesForTurbulence = ReferenceValues
-
-    # Get turbulent variables names and values
-    turbVars = ReferenceValues['FieldsTurbulence']
-    turbVars = [var.replace('Density', '') for var in turbVars]
-    turbValues = [val/ReferenceValues['Density'] for val in ReferenceValues['ReferenceStateTurbulence']]
-    turbDict = dict(zip(turbVars, turbValues))
-
-    # Convert names to inj_tur1 and (if needed) inj_tur2
-    if 'TurbulentSANuTilde' in turbDict:
-        turbDict = dict(inj_tur1=turbDict['TurbulentSANuTilde'])
-    else:
-        turbDict['inj_tur1'] = turbDict['TurbulentEnergyKinetic']
-        turbDict.pop('TurbulentEnergyKinetic')
-        inj_tur2 = [var for var in turbDict if var != 'inj_tur1']
-        assert len(inj_tur2) == 1, \
-            'Turbulent models with more than 2 equations are not supported yet'
-        inj_tur2 = inj_tur2[0]
-        turbDict['inj_tur2'] = turbDict[inj_tur2]
-        turbDict.pop(inj_tur2)
+    variableForInterpolation = kwargs.get('variableForInterpolation', 'ChannelHeight')   
 
     ImposedVariables = dict(
-        surf_massflow       = SurfacicMassFlow,
-        stagnation_enthalpy = EnthalpyStagnation,
-        txv                 = VelocityUnitVectorX,
-        tyv                 = VelocityUnitVectorY,
-        tzv                 = VelocityUnitVectorZ,
-        **turbDict
+        SurfacicMassFlow    = SurfacicMassFlow,
+        EnthalpyStagnation  = EnthalpyStagnation,
+        VelocityUnitVectorX = VelocityUnitVectorX,
+        VelocityUnitVectorY = VelocityUnitVectorY,
+        VelocityUnitVectorZ = VelocityUnitVectorZ,
+        **getPrimitiveTurbulentFieldForInjection(FluidProperties, 
+                                                 ReferenceValues,
+                                                 Surface=Surface,
+                                                 MassFlow=MassFlow,
+                                                 TemperatureStagnation=TemperatureStagnation
+                                                )
         )
 
     setBCwithImposedVariables(t, FamilyName, ImposedVariables,
-        FamilyBC='BCInflowSubsonic', BCType='injmfr1')
+        FamilyBC='BCInflowSubsonic', BCType='injmfr1', variableForInterpolation=variableForInterpolation)
 
 def setBC_outpres(t, FamilyName, Pressure, bc=None, variableForInterpolation='ChannelHeight'):
     '''
@@ -2776,15 +2792,25 @@ def translateVariablesFromCGNS2Elsa(Variables):
         TemperatureStagnation    = 'stagnation_temperature',
         Pressure                 = 'pressure',
         MassFlow                 = 'globalmassflow',
+        SurfacicMassFlow         = 'surf_massflow',
+        VelocityUnitVectorX      = 'txv',
+        VelocityUnitVectorY      = 'tyv',
+        VelocityUnitVectorZ      = 'tzv',
         TurbulentSANuTilde       = 'inj_tur1',
         TurbulentEnergyKinetic   = 'inj_tur1',
         TurbulentDissipationRate = 'inj_tur2',
         TurbulentDissipation     = 'inj_tur2',
         TurbulentLengthScale     = 'inj_tur2',
-        VelocityUnitVectorX      = 'txv',
-        VelocityUnitVectorY      = 'tyv',
-        VelocityUnitVectorZ      = 'tzv',
+        VelocityCorrelationXX    = 'inj_tur1',
+        VelocityCorrelationXY    = 'inj_tur2', 
+        VelocityCorrelationXZ    = 'inj_tur3',
+        VelocityCorrelationYY    = 'inj_tur4', 
+        VelocityCorrelationYZ    = 'inj_tur5', 
+        VelocityCorrelationZZ    = 'inj_tur6',
     )
+    if 'VelocityCorrelationXX' in Variables:
+        # For RSM models
+        CGNS2ElsaDict['TurbulentDissipationRate'] = 'inj_tur7'
 
     elsAVariables = CGNS2ElsaDict.values()
 
