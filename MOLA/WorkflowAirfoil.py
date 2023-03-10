@@ -249,7 +249,7 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
 
         meshParams = getMeshingParameters()
         meshParams['References'].update({'Reynolds':Reynolds})
-        if 'options' not in machine: meshParams['options'] = {}
+        if 'options' not in meshParams: meshParams['options'] = {}
         if machine == 'sator':
             meshParams['options']['NumberOfProcessors']=48
         elif machine == 'spiro':
