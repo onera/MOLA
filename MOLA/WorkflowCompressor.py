@@ -2631,7 +2631,7 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
         FamilyName : str
             Name of the family on which the boundary condition will be imposed
 
-        ImposedVarvariableForInterpolation : str
+        ImposedVariables : str
             When using a function to impose the radial profile of one or several quantities, 
             it defines the variable used as the argument of this function.
             Must be 'ChannelHeight' (default value) or 'Radius'.riable names and values must be either:
@@ -2663,7 +2663,7 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
         variableForInterpolation : str
             When using a function to impose the radial profile of one or several quantities, 
             it defines the variable used as the argument of this function.
-            Must be 'ChannelHeight' (default value) or 'Radius'.
+            Must be 'ChannelHeight' (default value), 'Radius', 'CoordinateX', 'CoordinateY' or 'CoordinateZ'.
 
     See also
     --------
@@ -2689,8 +2689,10 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
             radius, theta = J.getRadiusTheta(zone)
         elif variableForInterpolation == 'ChannelHeight':
             radius = I.getValue(I.getNodeFromName(zone, 'ChannelHeight'))
+        elif variableForInterpolation.startsWith('Coordinate'):
+            radius = I.getValue(I.getNodeFromName(zone, variableForInterpolation))
         else:
-            raise ValueError('varForInterpolation must be Radius or ChannelHeight')
+            raise ValueError('varForInterpolation must be ChannelHeight, Radius, CoordinateX, CoordinateY or CoordinateZ')
 
         PointRangeNode = I.getNodeFromType(bc, 'IndexRange_t')
         if PointRangeNode:
@@ -4291,13 +4293,13 @@ def postprocess_turbomachinery(surfaces, stages=[],
             Choose or not to compute radial profiles.
         
         config : str
-            see :py:func:`MOLA.Postprocess.compute1DRadialProfiles`
+            see :py:func:`MOLA.PostprocessTurbo.compute1DRadialProfiles`
 
         lin_axis : str
-            see :py:func:`MOLA.Postprocess.compute1DRadialProfiles`
+            see :py:func:`MOLA.PostprocessTurbo.compute1DRadialProfiles`
 
         RowType : str
-            see parameter 'config' of :py:func:`MOLA.Postprocess.compareRadialProfilesPlane2Plane`
+            see parameter 'config' of :py:func:`MOLA.PostprocessTurbo.compareRadialProfilesPlane2Plane`
         
     '''
     import Converter.Mpi as Cmpi

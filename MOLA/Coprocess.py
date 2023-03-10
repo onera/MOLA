@@ -2822,7 +2822,7 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
     except AttributeError:
         return surfaces
 
-    if Workflow == 'Compressor' and PostprocessOptions:
+    if Workflow == 'Compressor' and PostprocessOptions is not None:
         import MOLA.WorkflowCompressor as WC
         class ChannelHeightError(Exception):
             pass
