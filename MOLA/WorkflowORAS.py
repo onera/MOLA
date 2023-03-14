@@ -166,7 +166,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
       MSG = 'Chorochronic interface detected'
       print(J.WARN + MSG + J.ENDC)
       CHORO_TAG = True
-      updateChoroTimestep(t, Rows =TurboConfiguration['Rows'], NumericalParams = NumericalParams)
+      updateChoroTimestep(t, Rows = TurboConfiguration['Rows'], NumericalParams = NumericalParams)
     else:
         CHORO_TAG = False
 
@@ -175,9 +175,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues, **NumericalParams)
 
     if CHORO_TAG == True and Initialization['method'] != 'copy':
-        MSG = 'Flow initialization failed'
-        print(J.FAIL + MSG + J.ENDC)
-        raise ValueError('No initial solution provided. Chorochronic simulations must be initialized from a mixing plane solution obtained on the same mesh.')
+            MSG = 'Flow initialization failed. No initial solution provided. Chorochronic simulations must be initialized from a mixing plane solution obtained on the same mesh'
+            print(J.FAIL + MSG + J.ENDC)
+            raise Exception(J.FAIL + MSG + J.ENDC)
     PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
 
     WC.setMotionForRowsFamilies(t, TurboConfiguration)

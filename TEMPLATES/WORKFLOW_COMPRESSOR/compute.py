@@ -183,7 +183,5 @@ CO.printCo('END OF compute.py',0)
 CO.moveLogFiles()
 
 if CHORO == True:
-    MSG = 'Chorochronic simulation detected. Checking if main.cgns should be updated for restart'
-    print(J.WARN + MSG + J.ENDC)
     if rank==0:
         CO.checkandUpdateMainCGNSforChoroRestart()

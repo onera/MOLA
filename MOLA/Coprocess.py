@@ -2785,35 +2785,32 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                 pass
     return surfaces
 
-def archiveMainCGNS():
-    if not os.path.isfile('./INIT_MAIN'):
-        MSG = 'Archiving inital main.cgns in INIT_MAIN folder'
-        print(J.WARN + MSG + J.ENDC)
-        os.mkdir('./INIT_MAIN')
-        shutil.move('./main.cgns', './INIT_MAIN/main.cgns')
-
-
 def checkandUpdateMainCGNSforChoroRestart():
+    '''
+    Check the main.cgns and update it with links to ChoroData nodes located in fields.cgns if necessary.
+    '''    
+
+    MSG = 'Chorochronic simulation detected. Checking if main.cgns should be updated for restart'
+    printCo(MSG, proc=0, color=J.CYAN)
     
     main=C.convertFile2PyTree('main.cgns')
     ChoroNodesMain=I.getNodesFromName(main,"ChoroData")
     if ChoroNodesMain:
-        MSG = 'main.cgns file already up-to-date'
-        print(J.WARN + MSG + J.ENDC)
+        MSG = 'main.cgns file already up-to-date for chorochronic computation'
+        printCo(MSG, proc=0, color=J.GREEN)
     else:
-        MSG = 'main.cgns file must be updated before restart. Updating...'
-        print(J.WARN + MSG + J.ENDC)   
+        MSG = 'ChoroData nodes not referenced in main.cgns. Updating main.cgns...'
+        printCo(MSG, proc=0, color=J.CYAN)   
         t=C.convertFile2PyTree('./OUTPUT/fields.cgns')    
         ChoroNodes=I.getNodesFromName(t,"ChoroData")
         if ChoroNodes:
             MSG = 'ChoroData nodes detected in fields.cgns.'
-            print(J.WARN + MSG + J.ENDC)
+            printCo(MSG, proc=0)
             ChoroLinks = []
             for node in ChoroNodes:
                 ChoroPath=I.getPath(t,node)
                 ChoroLinks.append(['.', './OUTPUT/fields.cgns', ChoroPath, ChoroPath],)
-            archiveMainCGNS()
     
             C.convertPyTree2File(main,"main.cgns", links=ChoroLinks)
-            MSG = 'main.cgns updated with links to fields.cgns ChoroData nodes for restart'
-            print(J.WARN + MSG + J.ENDC)
+            MSG = 'main.cgns updated with links to fields.cgns ChoroData nodes for restart.'
+            printCo(MSG, proc=0, color=J.GREEN)
