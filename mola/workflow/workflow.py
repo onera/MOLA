@@ -15,31 +15,143 @@
 #    You should have received a copy of the GNU General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import mola.cfd.preprocess as PRE
 import mola.application.external_flow as ExtFlow
 
 
 class Workflow(object):
 
-    def __init__(self, **UserParameters):
+    def __init__(self, tree=None,
 
-        self.filename = None
-        self.tree = None
-        self.unstructured = False
-        self.read_tree(UserParameters['mesh']) # set attributes filename and tree
+            RawMeshComponents=[],
 
-        self.name = 'Standard'
-        self.solver = 'elsA'
-        self.Splitter = None
-        self.JobInformation  = UserParameters['JobInformation']
-        self.ReferenceValues = UserParameters['ReferenceValues']
-        self.FluidProperties = UserParameters['FluidProperties']
-        self.OversetMotion = dict()
-        self.solver_parameters = dict()
-        self.Extractions = []
+            Fluid=dict(Gamma=1.4,
+                       IdealGasConstant=287.053,
+                       Prandtl=0.72,
+                       PrandtlTurbulent=0.9,
+                       SutherlandConstant=110.4,
+                       SutherlandViscosity=1.78938e-05,
+                       SutherlandTemperature=288.15),
 
-        self.BCExtractions = dict()
+            Flow=dict(),
+
+            
+            Turbulence=dict(Model='Wilcox2006-klim',
+                            Level=0.001,
+                            ReferenceVelocity='auto',
+                            Viscosity_EddyMolecularRatio=0.1),
+
+            BoundaryConditions=[],
+            
+            Solver='elsA',
+
+            Splitter=None,
+
+            Numerics=dict(Scheme='Jameson',
+                          TimeMarching='Steady',
+                          NumberOfIterations=1e4,
+                          TimeStep=None,
+                          CFL=None),
+
+            BodyForceModeling=dict(),
+
+            Motion=dict(),
+
+            Initialization=dict(method='uniform'),
+
+            Extractions=[],
+
+            ConvergenceCriteria=[],
+
+            CoprocessOptions=dict(SaveSignalsPeriod=30,
+                                  SaveExtractionsPeriod=30,
+                                  SaveFieldsPeriod=30),
+
+            PostprocessOptions=dict(),
+            
+            RunManagement=dict(
+                JobName='MOLAjob',
+                RunDirectory='.',
+                NumberOfProcessors=None,
+                AER='',
+                FilesAndDirectories=[f"{os.getenv('MOLA')}/templates/compute.py"],
+                SubmitJob=False),
+
+            ):
+
         
+        self.name = 'Standard'
+
+        if tree is not None:
+            self.read_workflow_parameters(tree)
+
+        else:
+            self.tree = None
+            self.RawMeshComponents=RawMeshComponents
+            self.Fluid=Fluid
+            self.Flow=Flow
+            self.Turbulence=Turbulence
+            self.BoundaryConditions=BoundaryConditions
+            self.Solver=Solver
+            self.Splitter=Splitter
+            self.Numerics=Numerics
+            self.BodyForceModeling=BodyForceModeling
+            self.Motion=Motion
+            self.Initialization=Initialization
+            self.Extractions=Extractions
+            # Extractions=[
+            #     dict(type='default', AveragingIterations=500,
+            #                          SaveSignalsPeriod=30,
+            #                          SaveExtractionsPeriod=30,
+            #                          SaveFieldsPeriod=30)
+            #     dict(type='signals', name='Integrals', fields=['CL', 'std-CL'], AveragingIterations=1000, Period=10)
+            #     dict(type='probe', name='probe1', fields=['std-Pressure'], Period=5)
+            #     dict(type='probe', name='probe2', fields=['std-Density'], Period=5)
+            #     dict(type='3D', fields=['Mach', 'q_criterion']),
+            #     dict(type='AllBCWall'),
+            #     dict(type='IsoSurface',
+            #         field='CoordinateY',
+            #         value=1.e-6,
+            #         AllowedFields=['Mach','cellN'])]
+
+            self.ConvergenceCriteria=ConvergenceCriteria
+            self.CoprocessOptions=CoprocessOptions
+            self.PostprocessOptions=PostprocessOptions
+            self.RunManagement=RunManagement
+            
+    def prepare(self):
+        self.assemble()
+        self.transform()
+        self.connect()
+        self.define_bc_families() # will include "addFamilies"
+        self.split_and_distribute()
+        self.process_overset()
+
+        self.compute_reference_values()
+        self.set_solver_parameters() # BC, motion, extractions, solver keys
+        self.initialize_flow() # eventually + distance to wall
+        self.write_cfd_files()
+        self.check_preprocess() # empty BCs... maybe solver-specific
+        self.submit_jobs()
+
+    def assemble(self):
+        # RawMeshComponent with:
+        # -> file or tree
+        # -> component name
+        # -> mesher type
+        # -> family_bc definition
+        # -> Overset Options
+        # -> Connection
+        # -> splitBlocks 
+
+        # operations :
+        # -> read file
+        # -> clean tree
+        # -> adapt Motion attribute
+        # -> create families of zones
+        # -> merge tree (creating bases if Overset)
+
 
     def read_tree(self, t):
         if isinstance(t, str):
@@ -52,48 +164,27 @@ class Workflow(object):
         
         self.unstructured = PRE.mesh.hasAnyUnstructuredZones(self.tree) # To be replaced with Tree attr.
 
-    def prepare_chimera(self):
-        self.tree = PRE.mesh.getMeshesAssembled(InputMeshes)
-        self.prepare()
-
-    def prepare(self, solver='elsA', **Parameters):
-
-        for component in OversetComponents:
 
 
-            self.tree = PRE.mesh.getMeshesAssembled(['toto.cgns'])
+    def compute_reference_values(self):
+        # mola-generic set of paramaterers
+        self.compute_flow_properties()
+        self.set_modeling_parameters()
+        self.set_numerical_parameters()
 
-            self.tree, self.InputMeshes = PRE.mesh.fun(t, mesher=None)  # Must add families 
-            self.transform()
-            self.connect_mesh()
+    def set_solver_parameters(self):
+        # CGNS, solver-specific obj, or to be parsed UserDefinedData_t
+        self.set_solver_boundary_conditions()
+        self.set_solver_motion()
+        self.set_solver_keys() # model, numerics, others...
+        self.set_solver_extractions()
+        self.adapt_tree_to_solver()
 
-            self.adapt2elsA() # to put at the end, with solver specific methods ? 
-        
-        self.split_and_distribute(**splitOptions)
-        self.add_overset_data(**globalOversetOptions)
+    def write_cfd_files(self):
+        self.write_setup()
+        self.write_run_scripts() # including job bash file(s)
+        self.write_data_files() # CGNS, FSDM...
 
-        J.checkEmptyBC(self.tree)
-
-        PRE.compute_fluid_properties()
-        ExtFlow.compute_reference_values()
-
-        # JobInformation['NumberOfProcessors'] = int(max(getProc(t))+1)
-        
-        PRE.get_solver_parameters(self)  # Must return dict(cfdpb=dict(), models=dict(), numerics=())
-
-        self.addTiggerReferenceStateGoverningEquations()
-        PRE.addExtractions(self)
-        self.save_main()
-
-        # if COPY_TEMPLATES:
-        #     JM.getTemplates('Standard', JobInformation=self.JobInformation)
-        #     if 'DIRECTORY_WORK' in JobInformation:
-        #         sendSimulationFiles(JobInformation['DIRECTORY_WORK'],
-        #                                 overrideFields=writeOutputFields)
-
-        #     for i in range(SubmitJob):
-        #         singleton = False if i==0 else True
-        #         JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
 
     def save_main(self):
         PRE.writeSetup(AllSetupDicts)
@@ -111,90 +202,10 @@ class Workflow(object):
     def visu(self):
         pass
 
-def test_Workflow():
+def future_test_Workflow():
 
-    InputMeshes = [
+    workflow = Workflow()
 
-    dict(file='INPUT_MESHES/raw_mesh.cgns',
-        baseName='Base',
-        Connection=[dict(type='Match',
-                        tolerance=1e-8),],
-        BoundaryConditions= [
-            dict(name='WingBCWall',
-                type='FamilySpecified:WING',
-                familySpecifiedType='BCWall',
-                location='kmin'
-                ),
-            dict(name='WingSymmetry',
-                type='FamilySpecified:symmetry',
-                familySpecifiedType='BCSymmetryPlane',
-                location='special',
-                specialLocation='planeXZ'),
-            dict(name='Farfield',
-                type='FamilySpecified:farfield',
-                familySpecifiedType='BCFarfield',
-                location='special',
-                specialLocation='fillEmpty'),
-                            ],
-        SplitBlocks=True,
-        ),
-    ]
-
-    workflow = Workflow(
-        mesh = 'mesh.cgns',
-        ReferenceValuesParams=dict(
-            Density=1.225,
-            Temperature=288.,
-            Velocity=50.,
-            AngleOfAttackDeg=4.0,
-            Surface=0.15,
-            Length=0.15,
-            TorqueOrigin=[0, 0, 0],
-            TurbulenceModel='SA',
-            YawAxis=[0.,0.,1.],
-            PitchAxis=[0.,1.,0.],
-            FieldsAdditionalExtractions=['VorticityX',
-                                         'q_criterion'],
-            CoprocessOptions=dict(
-                RequestedStatistics=['std-CD','std-Cm'],
-
-                ConvergenceCriteria = [dict(Family='WING',
-                                            Variable='std-CL',
-                                            Threshold=1e-3)],
-                AveragingIterations = 1000,
-                ItersMinEvenIfConverged = 1000,
-
-                UpdateArraysFrequency     = 100,
-                UpdateSurfacesFrequency   = 500,
-                UpdateFieldsFrequency     = 2000,
-                ),),
-
-        NumericalParams=dict(niter=10000),
-
-
-        Extractions=[
-            dict(type='BCWall'),
-            dict(type='IsoSurface',
-                 field='CoordinateX',
-                 value=0.75),
-            dict(type='IsoSurface',
-                 field='CoordinateX',
-                 value=0.5),
-            dict(type='IsoSurface',
-                 field='CoordinateX',
-                 value=0.25),
-            dict(type='IsoSurface',
-                 field='VorticityX',
-                 value=10.),],
-
-        writeOutputFields=True,
-
-        JobInformation=dict(
-            JobName = 'LIGHT_WING',
-            AER = '32877010F',
-            ),
-    )
-    
     workflow.prepare()
     workflow.save_main()
 
