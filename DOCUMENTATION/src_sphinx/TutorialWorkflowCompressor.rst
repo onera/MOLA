@@ -136,7 +136,7 @@ In this simple case, we just need to give the name  of the input mesh file
 (here ``'rotor37.cgns'``). :mod:`~MOLA.WorkflowCompressor.prepareMesh4ElsA`
 transforms the Autogrid mesh in a mesh readable by elsA.
 
-The second function :mod:`~MOLA.WorkflowCompressor.parametrizeChannelHeight`
+The second function :mod:`~MOLA.WorkflowCompressor.parametrize_channel_height`
 puts the variable ``ChannelHeight`` (0 at hub and 1 at shroud) in a node
 ``FlowSolution#Height`` in each zone. This new coordinate will stay in the tree
 during all the simulation, allowing for example to make iso-surfaces in

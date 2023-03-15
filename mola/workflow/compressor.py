@@ -21,23 +21,24 @@ import mola.application.internal_flow as IntFlow
 import mola.application.turbomachine as Turb
 
 
-class WorkflowCompressor(Workflow):
+class WorkflowCompressor(Workflow, InternalFlow, RotatingComponent):
 
-    def __init__(self, **UserParameters):
-        super(WorkflowCompressor, self).__init__(**UserParameters)
+    def __init__(self, 
+                
+                 Splitter='PyPart',
+
+                 **kwargs
+                 ):
+        
+        super(WorkflowCompressor, self).__init__(Splitter=Splitter, **kwargs)
 
         self.name = 'Compressor'
-        self.Splitter = 'PyPart'
-        self.TurboConfiguration = dict()
-        self.BodyForceInputData = None
 
-        self.BCExtractions = UserParameters.get('BCExtractions', 
-            dict(
-                BCWall    = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
-                BCInflow  = ['convflux_ro'],
-                BCOutflow = ['convflux_ro']
-            )
-        )
+        for meshInfo in self.RawMeshComponents:
+            meshInfo.setdefault('mesher', 'Autogrid')
+
+        self.TurboConfiguration = dict()
+        
 
     def prepare(self):
         
@@ -52,7 +53,7 @@ class WorkflowCompressor(Workflow):
 
         self.initializeFlowSolution(self)
 
-        self.tree = Turb.duplicateFlowSolution(self.tree, self.TurboConfiguration)
+        self.tree = Turb.duplicate_flow_solution(self.tree, self.TurboConfiguration)
 
         Turb.setMotionForRowsFamilies(self.tree, self.TurboConfiguration)
         self.setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
@@ -95,15 +96,11 @@ class WorkflowCompressor(Workflow):
     
     def prepare_mesh(self):
         self.tree = PRE.mesh.read_mesh(mesher='Autogrid')
+        self.InputMeshes = generate_input_meshes_from_autogrid(t,
+            scale=scale, rotation=rotation, tol=tol, PeriodicTranslation=PeriodicTranslation)
 
-        self.transform()
-        self.connect_mesh()
-        self.split_and_distribute(**splitOptions)
-        self.add_overset_data(**globalOversetOptions)
+        t = clean_mesh_from_autogrid(t, basename=InputMeshes[0]['baseName'], zonesToRename=zonesToRename)
 
-        self.adapt2elsA() # to put at the end, with solver specific methods ? 
-
-        J.checkEmptyBC(self.tree)
 
     def prepare_configuration(self):
 
@@ -120,8 +117,50 @@ class WorkflowCompressor(Workflow):
         #     PitchAxis = np.cross(YawAxis, MainDirection)
         #     self.ReferenceValues.update(dict(PitchAxis=PitchAxis, YawAxis=YawAxis))
 
-    def initializeFlow(self):
+    def initialize_flow(self):
         if self.Initialization['method'] == 'turbo':
-            self.tree = Turb.initializeFlowSolutionWithTurbo(self.tree, self.FluidProperties, self.ReferenceValues, self.TurboConfiguration)
+            self.tree = Turb.initialize_flow_with_turbo(self)
         else:
-            self.tree = PRE.initializeFlowSolution(self.tree, self.Initialization, self.ReferenceValues)
+            self.initialize_flow()
+
+    def set_turbo_configuration(self):
+        for row, rowParams in self.TurboConfiguration['Rows'].items():
+            for key, value in rowParams.items():
+                if key == 'RotationSpeed' and value == 'auto':
+                    rowParams[key] = self.TurboConfiguration['ShaftRotationSpeed']
+            if hasattr(self, 'BodyForceInputData') and row in self.BodyForceInputData:
+                # Replace the number of blades to be consistant with the body-force mesh
+                deltaTheta = computeAzimuthalExtensionFromFamily(self.tree, row)
+                rowParams['NumberOfBlades'] = int(2*np.pi / deltaTheta)
+                rowParams['NumberOfBladesInInitialMesh'] = 1
+                print(f'Number of blades for {row}: {rowParams["NumberOfBlades"]} (got from the body-force mesh)')
+            if not 'NumberOfBladesSimulated' in rowParams:
+                rowParams['NumberOfBladesSimulated'] = 1
+            if not 'NumberOfBladesInInitialMesh' in rowParams:
+                rowParams['NumberOfBladesInInitialMesh'] = getNumberOfBladesInMeshFromFamily(self.tree, row, rowParams['NumberOfBlades'])
+
+
+    def set_solver_motion_elsa(self):
+        # Add info on row movement (.Solver#Motion)
+        for row, rowParams in self.TurboConfiguration['Rows'].items():
+            famNode = I.getNodeFromNameAndType(self.tree, row, 'Family_t')
+            try: 
+                omega = rowParams['RotationSpeed']
+            except KeyError:
+                # No RotationSpeed --> zones attached to this family are not moving
+                continue
+
+            # Test if zones in that family are modelled with Body Force
+            for zone in C.getFamilyZones(self.tree, row):
+                if I.getNodeFromName1(zone, 'FlowSolution#DataSourceTerm'):
+                    # If this node is present, body force is used
+                    # Then the frame of this row must be the absolute frame
+                    omega = 0.
+                    break
+            
+            print(f'setting .Solver#Motion at family {row} (omega={omega}rad/s)')
+            J.set(famNode, '.Solver#Motion',
+                    motion='mobile',
+                    omega=omega,
+                    axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
+                    axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)

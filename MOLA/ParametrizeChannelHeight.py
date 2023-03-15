@@ -157,5 +157,5 @@ if __name__ == '__main__':
 
     links = []
     t = C.convertFile2PyTree('mesh.cgns', links=links)
-    parametrizeChannelHeight(t, nbslice=101)
+    parametrize_channel_height(t, nbslice=101)
     C.convertPyTree2File(t, fileOut, links=links)

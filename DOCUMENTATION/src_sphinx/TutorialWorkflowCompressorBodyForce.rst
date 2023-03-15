@@ -59,7 +59,7 @@ In the user script, the mesh can be defined this way:
             )
         )
     )
-    mesh = WF.parametrizeChannelHeight(mesh)
+    mesh = WF.parametrize_channel_height(mesh)
     C.convertPyTree2File(mesh, 'mesh.cgns')
 
 The argument `BodyForceRows` triggers a remeshing adapted to body force modelling for each row listed in the dictionary.
