@@ -224,6 +224,9 @@ class Workflow(object):
         self.set_modeling_parameters()
         self.set_numerical_parameters()
 
+    def set_boundary_conditions(self):
+        PRE.set_boundary_conditions(self)
+
     def write_cfd_files(self):
         self.write_setup()
         self.write_run_scripts() # including job bash file(s)

@@ -61,12 +61,12 @@ def checkDependencies():
     else:
         print(J.GREEN+'ETC module is available'+J.ENDC)
 
-    print('Checking MOLA.ParametrizeChannelHeight...')
+    print('Checking MOLA.parametrize_channel_height...')
     if  WC.ParamHeight is None:
-        MSG = 'Fail to import MOLA.ParametrizeChannelHeight module: Some functions of {} are unavailable'.format(__name__)
+        MSG = 'Fail to import MOLA.parametrize_channel_height module: Some functions of {} are unavailable'.format(__name__)
         print(J.FAIL + MSG + J.ENDC)
     else:
-        print(J.GREEN+'MOLA.ParametrizeChannelHeight module is available'+J.ENDC)
+        print(J.GREEN+'MOLA.parametrize_channel_height module is available'+J.ENDC)
 
     print('Checking CWIPI...')
     try:
@@ -247,7 +247,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     if not 'PeriodicTranslation' in TurboConfiguration and \
         any([rowParams['NumberOfBladesSimulated'] > rowParams['NumberOfBladesInInitialMesh'] \
             for rowParams in TurboConfiguration['Rows'].values()]):
-        t = WC.duplicateFlowSolution(t, TurboConfiguration)
+        t = WC.duplicate_flow_solution(t, TurboConfiguration)
 
     WC.setMotionForRowsFamilies(t, TurboConfiguration)
     WC.setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,

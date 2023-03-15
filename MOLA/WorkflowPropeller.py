@@ -108,11 +108,11 @@ def prepareMesh4ElsA(mesh='mesh.cgns', splitOptions={'maximum_allowed_nodes':3},
 
     return PRE.prepareMesh4ElsA(InputMeshes, splitOptions=splitOptions)
 
-def cleanMeshFromAutogrid(t, **kwargs):
+def clean_mesh_from_autogrid(t, **kwargs):
     '''
-    Exactly like :py:func:`MOLA.WorkflowCompressor.cleanMeshFromAutogrid`
+    Exactly like :py:func:`MOLA.WorkflowCompressor.clean_mesh_from_autogrid`
     '''
-    return WC.cleanMeshFromAutogrid(t, **kwargs)
+    return WC.clean_mesh_from_autogrid(t, **kwargs)
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         RPM=0., AxialVelocity=0., ReferenceTurbulenceSetAtRelativeSpan=0.75,
