@@ -15,6 +15,81 @@
 #    You should have received a copy of the GNU General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+BoundaryConditionsNames = dict(
+    Farfield                     = dict(elsa='nref'),
+    InflowStagnation             = dict(elsa='inj1'),
+    InflowMassFlow               = dict(elsa='injmfr1'),
+    OutflowPressure              = dict(elsa='outpres'),
+    OutflowMassFlow              = dict(elsa='outmfr2'),
+    OutflowRadialEquilibrium     = dict(elsa='outradeq'),
+    MixingPlane                  = dict(elsa='stage_mxpl'),
+    UnsteadyRotorStatorInterface = dict(elsa='stage_red'),
+    WallViscous                  = dict(elsa='walladia'),
+    WallViscousIsothermal        = dict(elsa='wallisoth'),
+    WallInviscid                 = dict(elsa='wallslip'),
+    SymmetryPlane                = dict(elsa='sym'),
+)
+
+# Shortcuts for already defined boundary conditions
+BoundaryConditionsNames = dict(
+    Wall = BoundaryConditionsNames['WallViscous']
+)
+
+
+def set_boundary_conditions(workflow):
+    '''
+    Set all boundary conditions for **workflow**.
+    It transforms the tree attribute of the **workflow**.
+
+    Parameters
+    ----------
+    workflow : Workflow object
+    '''
+
+    for bc in workflow.BoundaryConditions:
+        
+        bcName = bc['type']
+        if bcName in BoundaryConditionsNames:
+            # Define in the main MOLA preprocess, lower in this file
+            MOLAGenericFunction = getattr('.', bcName)
+            solverSpecificFunctionName = BoundaryConditionsNames[bc['type']]
+            args, kwargs = MOLAGenericFunction(workflow, bc)
+        else:
+            # Defined only in the specific solver module
+            solverSpecificFunctionName = bcName
+            args, kwargs = bc['args'], bc['kwargs']
+
+        solverModule = load_source('solverModule', workflow.Solver)
+        try:
+            solverSpecificFunction = getattr(solverModule, solverSpecificFunctionName)
+        except AttributeError:
+            print(f'The function {solverSpecificFunctionName} does not exist for the solver {workflow.Solver}.')
+        else:
+            solverSpecificFunction(workflow.tree, *args, **kwargs)
+
+
+def WallViscous(workflow, bc):
+    RotationSpeed = bc.get('RotationSpeed', [0., 0., 0.])
+    if isinstance(RotationSpeed, (int, float)):
+        print(f'No rotation axis for WallViscous condition on {bc["Family"]}: set to x-axis by default.')
+        RotationSpeed = [RotationSpeed, 0., 0.]
+    RotationAxisOrigin = bc.get('RotationAxisOrigin', [0., 0., 0.])
+    TranslationSpeed = bc.get('TranslationSpeed', [0., 0., 0.])
+
+    Motion = dict(
+        RotationSpeed = RotationSpeed,
+        RotationAxisOrigin = RotationAxisOrigin,
+        TranslationSpeed = TranslationSpeed
+    )
+    return [bc['Family']], dict(Motion=Motion) 
+
+def WallInviscid(workflow, bc):
+    return [bc['Family']], dict() 
+    
+def Farfield(workflow, bc):
+    return [bc['Family']], dict() 
+    
+
 def set_boundary_conditions(t, BoundaryConditions, TurboConfiguration,
     FluidProperties, ReferenceValues, bladeFamilyNames=['BLADE','AUBE']):
     '''
@@ -473,58 +548,6 @@ def setBC_Walls(t, TurboConfiguration,
             if famName.startswith('F_OV_') or famName.endswith('Zones'): continue
             setBC_walladia(t, famName, omega=0.)
 
-def setBC_walladia(t, FamilyName, omega=None):
-    '''
-    Set a viscous wall boundary condition.
-
-    .. note:: see `elsA Tutorial about wall conditions <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#wall-conditions/>`_
-
-    Parameters
-    ----------
-
-        t : PyTree
-            Tree to modify
-
-        FamilyName : str
-            Name of the family on which the boundary condition will be imposed
-
-        omega : float
-            Rotation speed imposed at the wall. If :py:obj:`None`, it is not specified 
-            in the Family node (but same behavior that zero).
-
-    '''
-    wall = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
-    I._rmNodesByName(wall, '.Solver#BC')
-    I._rmNodesByType(wall, 'FamilyBC_t')
-    I.newFamilyBC(value='BCWallViscous', parent=wall)
-    if omega is not None:
-        J.set(wall, '.Solver#BC',
-                    type='walladia',
-                    data_frame='user',
-                    omega=omega,
-                    axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
-                    axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
-
-def setBC_wallslip(t, FamilyName):
-    '''
-    Set an inviscid wall boundary condition.
-
-    .. note:: see `elsA Tutorial about wall conditions <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#wall-conditions/>`_
-
-    Parameters
-    ----------
-
-        t : PyTree
-            Tree to modify
-
-        FamilyName : str
-            Name of the family on which the boundary condition will be imposed
-
-    '''
-    wall = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
-    I._rmNodesByName(wall, '.Solver#BC')
-    I._rmNodesByType(wall, 'FamilyBC_t')
-    I.newFamilyBC(value='BCWallInviscid', parent=wall)
 
 def setBC_wallisoth(t, FamilyName, Temperature, bc=None):
     '''
@@ -592,78 +615,6 @@ def setBC_sym(t, FamilyName):
     I._rmNodesByType(symmetry, 'FamilyBC_t')
     I.newFamilyBC(value='BCSymmetryPlane', parent=symmetry)
 
-def setBC_nref(t, FamilyName):
-    '''
-    Set a nref boundary condition.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            Tree to modify
-
-        FamilyName : str
-            Name of the family on which the boundary condition will be imposed
-
-    '''
-    farfield = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
-    I._rmNodesByName(farfield, '.Solver#BC')
-    I._rmNodesByType(farfield, 'FamilyBC_t')
-    I.newFamilyBC(value='BCFarfield', parent=farfield)
-
-def setBC_inj1(t, FamilyName, ImposedVariables, bc=None, variableForInterpolation='ChannelHeight'):
-    '''
-    Generic function to impose a Boundary Condition ``inj1``. The following
-    functions are more specific:
-
-        * :py:func:`setBC_inj1_uniform`
-
-        * :py:func:`setBC_inj1_interpFromFile`
-
-    .. note::
-        see `elsA Tutorial about inj1 condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#inj1/>`_
-
-    Parameters
-    ----------
-
-        t : PyTree
-            Tree to modify
-
-        FamilyName : str
-            Name of the family on which the boundary condition will be imposed
-
-        ImposedVariables : dict
-            Dictionary of variables to imposed on the boudary condition. Keys
-            are variable names and values must be:
-
-                * either scalars: in that case they are imposed once for the
-                  family **FamilyName** in the corresponding ``Family_t`` node.
-
-                * or numpy arrays: in that case they are imposed for the ``BC_t``
-                  node **bc**.
-
-        bc : PyTree
-            ``BC_t`` node on which the boundary condition will be imposed. Must
-            be :py:obj:`None` if the condition must be imposed once in the
-            ``Family_t`` node.
-        
-        variableForInterpolation : str
-            When using a function to impose the radial profile of one or several quantities, 
-            it defines the variable used as the argument of this function.
-            Must be 'ChannelHeight' (default value) or 'Radius'.
-
-    See also
-    --------
-
-    setBC_inj1_uniform, setBC_inj1_interpFromFile
-    '''
-    if not bc and not all([np.ndim(v)==0 and not callable(v) for v in ImposedVariables.values()]):
-        for bc in C.getFamilyBCs(t, FamilyName):
-            setBCwithImposedVariables(t, FamilyName, ImposedVariables,
-                FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc, variableForInterpolation=variableForInterpolation)
-    else:
-        setBCwithImposedVariables(t, FamilyName, ImposedVariables,
-            FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc, variableForInterpolation=variableForInterpolation)
 
 def getPrimitiveTurbulentFieldForInjection(FluidProperties, ReferenceValues, **kwargs):
         '''
@@ -763,7 +714,7 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs
 
     setBC_inj1(t, FamilyName, ImposedVariables, variableForInterpolation=variableForInterpolation)
 
-def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileformat=None):
+def setBC_inj1_interpFromFile(t, FluidProperties, ReferenceValues, FamilyName, filename, fileformat=None):
     '''
     Set a Boundary Condition ``inj1`` using the field map in the file
     **filename**. It is expected to be a surface with the following variables
@@ -827,9 +778,8 @@ def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileform
 
     var2interp = ['PressureStagnation', 'EnthalpyStagnation',
         'VelocityUnitVectorX', 'VelocityUnitVectorY', 'VelocityUnitVectorZ']
-    turbVars = ReferenceValues['FieldsTurbulence']
-    turbVars = [var.replace('Density', '') for var in turbVars]
-    var2interp += turbVars
+    turbDict = getPrimitiveTurbulentFieldForInjection(FluidProperties, ReferenceValues)
+    var2interp += list(turbDict)
 
     donor_tree = C.convertFile2PyTree(filename, format=fileformat)
     inlet_BC_nodes = C.extractBCOfName(t, 'FamilySpecified:{0}'.format(FamilyName))
@@ -1030,249 +980,6 @@ def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues
 
     setBCwithImposedVariables(t, FamilyName, ImposedVariables,
         FamilyBC='BCOutflowSubsonic', BCType='outmfr2', bc=bc)
-
-def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
-    bc=None, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData', variableForInterpolation='ChannelHeight'):
-    '''
-    Generic function to impose a Boundary Condition ``inj1``. The following
-    functions are more specific:
-
-    Parameters
-    ----------
-
-        t : PyTree
-            Tree to modify
-
-        FamilyName : str
-            Name of the family on which the boundary condition will be imposed
-
-        ImposedVariables : str
-            When using a function to impose the radial profile of one or several quantities, 
-            it defines the variable used as the argument of this function.
-            Must be 'ChannelHeight' (default value) or 'Radius'.riable names and values must be either:
-
-                * scalars: in that case they are imposed once for the
-                  family **FamilyName** in the corresponding ``Family_t`` node.
-
-                * numpy arrays: in that case they are imposed for the ``BC_t``
-                  node **bc**.
-
-                * functions: in that case the function defined a profile depending on radius.
-                  It is evaluated in each cell on the **bc**.
-            
-            They may be a combination of three.
-
-        bc : PyTree
-            ``BC_t`` node on which the boundary condition will be imposed. Must
-            be :py:obj:`None` if the condition must be imposed once in the
-            ``Family_t`` node.
-
-        BCDataSetName : str
-            Name of the created node of type ``BCDataSet_t``. Default value is
-            'BCDataSet#Init'
-
-        BCDataName : str
-            Name of the created node of type ``BCData_t``. Default value is
-            'DirichletData'
-        
-        variableForInterpolation : str
-            When using a function to impose the radial profile of one or several quantities, 
-            it defines the variable used as the argument of this function.
-            Must be 'ChannelHeight' (default value), 'Radius', 'CoordinateX', 'CoordinateY' or 'CoordinateZ'.
-
-    See also
-    --------
-
-    setBC_inj1, setBC_outpres, setBC_outmfr2
-
-    '''
-    FamilyNode = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
-    I._rmNodesByName(FamilyNode, '.Solver#BC')
-    I._rmNodesByType(FamilyNode, 'FamilyBC_t')
-    I.newFamilyBC(value=FamilyBC, parent=FamilyNode)
-
-    if all([np.ndim(v)==0 and not callable(v) for v in ImposedVariables.values()]):
-        checkVariables(ImposedVariables)
-        ImposedVariables = translateVariablesFromCGNS2Elsa(ImposedVariables)
-        J.set(FamilyNode, '.Solver#BC', type=BCType, **ImposedVariables)
-    else:
-        assert bc is not None
-        J.set(bc, '.Solver#BC', type=BCType)
-
-        zone = I.getParentFromType(t, bc, 'Zone_t') 
-        if variableForInterpolation in ['Radius', 'radius']:
-            radius, theta = J.getRadiusTheta(zone)
-        elif variableForInterpolation == 'ChannelHeight':
-            radius = I.getValue(I.getNodeFromName(zone, 'ChannelHeight'))
-        elif variableForInterpolation.startsWith('Coordinate'):
-            radius = I.getValue(I.getNodeFromName(zone, variableForInterpolation))
-        else:
-            raise ValueError('varForInterpolation must be ChannelHeight, Radius, CoordinateX, CoordinateY or CoordinateZ')
-
-        PointRangeNode = I.getNodeFromType(bc, 'IndexRange_t')
-        if PointRangeNode:
-            # Structured mesh
-            PointRange = I.getValue(PointRangeNode)
-            bc_shape = PointRange[:, 1] - PointRange[:, 0]
-            if bc_shape[0] == 0:
-                bc_shape = (bc_shape[1], bc_shape[2])
-                radius = radius[PointRange[0, 0]-1,
-                                PointRange[1, 0]-1:PointRange[1, 1]-1, 
-                                PointRange[2, 0]-1:PointRange[2, 1]-1]
-            elif bc_shape[1] == 0:
-                bc_shape = (bc_shape[0], bc_shape[2])
-                radius = radius[PointRange[0, 0]-1:PointRange[0, 1]-1,
-                                PointRange[1, 0]-1, 
-                                PointRange[2, 0]-1:PointRange[2, 1]-1]
-            elif bc_shape[2] == 0:
-                bc_shape = (bc_shape[0], bc_shape[1])
-                radius = radius[PointRange[0, 0]-1:PointRange[0, 1]-1,
-                                PointRange[1, 0]-1:PointRange[1, 1]-1,
-                                PointRange[2, 0]-1]
-            else:
-                raise ValueError('Wrong BC shape {} in {}'.format(bc_shape, I.getPath(t, bc)))
-        
-        else: 
-            # Unstructured mesh
-            PointList = I.getValue(I.getNodeFromType(bc, 'IndexArray_t'))
-            bc_shape = PointList.size
-            radius = radius[PointList-1]
-
-        for var, value in ImposedVariables.items():
-            if callable(value):
-                ImposedVariables[var] = value(radius) 
-            elif np.ndim(value)==0:
-                # scalar value --> uniform data
-                ImposedVariables[var] = value * np.ones(radius.shape)
-            assert ImposedVariables[var].shape == bc_shape, \
-                'Wrong shape for variable {}: {} (shape {} for {})'.format(
-                    var, ImposedVariables[var].shape, bc_shape, I.getPath(t, bc))
-        
-        checkVariables(ImposedVariables)
-
-        BCDataSet = I.newBCDataSet(name=BCDataSetName, value='Null',
-            gridLocation='FaceCenter', parent=bc)
-        J.set(BCDataSet, BCDataName, childType='BCData_t', **ImposedVariables)
-
-def checkVariables(ImposedVariables):
-    '''
-    Check that variables in the input dictionary are well defined. Raise a
-    ``ValueError`` if not.
-
-    Parameters
-    ----------
-
-        ImposedVariables : dict
-            Each key is a variable name. Based on this name, the value (float or
-            numpy.array) is checked.
-            For instance:
-
-                * Variables such as pressure, temperature or turbulent quantities
-                  must be strictly positive.
-
-                * Components of a unit vector must be between -1 and 1.
-
-    '''
-    posiviteVars = ['PressureStagnation', 'EnthalpyStagnation',
-        'stagnation_pressure', 'stagnation_enthalpy', 'stagnation_temperature',
-        'Pressure', 'pressure', 'Temperature', 'wall_temp',
-        'TurbulentEnergyKinetic', 'TurbulentDissipationRate', 'TurbulentDissipation', 'TurbulentLengthScale',
-        'TurbulentSANuTilde', 'globalmassflow', 'MassFlow', 'surf_massflow']
-    unitVectorComponent = ['VelocityUnitVectorX', 'VelocityUnitVectorY', 'VelocityUnitVectorZ',
-        'txv', 'tyv', 'tzv']
-
-    def positive(value):
-        if isinstance(value, np.ndarray): return np.all(value>0)
-        else: return value>0
-
-    def unitComponent(value):
-        if isinstance(value, np.ndarray): return np.all(np.absolute(value)<=1)
-        else: return abs(value)<=1
-
-    for var, value in ImposedVariables.items():
-        if var in posiviteVars and not positive(value):
-            raise ValueError('{} must be positive, but here it is equal to {}'.format(var, value))
-        elif var in unitVectorComponent and not unitComponent(value):
-            raise ValueError('{} must be between -1 and +1, but here it is equal to {}'.format(var, value))
-
-def translateVariablesFromCGNS2Elsa(Variables):
-    '''
-    Translate names in **Variables** from CGNS standards to elsA names for
-    boundary conditions.
-
-    Parameters
-    ----------
-
-        Variables : :py:class:`dict` or :py:class:`list` or :py:class:`str`
-            Could be eiter:
-
-                * a :py:class:`dict` with keys corresponding to variables names
-
-                * a :py:class:`list` of variables names
-
-                * a :py:class:`str` as a single variable name
-
-    Returns
-    -------
-
-        NewVariables : :py:class:`dict` or :py:class:`list` or :py:class:`str`
-            Depending on the input type, return the same object with variable
-            names translated to elsA standards.
-
-    '''
-    CGNS2ElsaDict = dict(
-        PressureStagnation       = 'stagnation_pressure',
-        EnthalpyStagnation       = 'stagnation_enthalpy',
-        TemperatureStagnation    = 'stagnation_temperature',
-        Pressure                 = 'pressure',
-        MassFlow                 = 'globalmassflow',
-        SurfacicMassFlow         = 'surf_massflow',
-        VelocityUnitVectorX      = 'txv',
-        VelocityUnitVectorY      = 'tyv',
-        VelocityUnitVectorZ      = 'tzv',
-        TurbulentSANuTilde       = 'inj_tur1',
-        TurbulentEnergyKinetic   = 'inj_tur1',
-        TurbulentDissipationRate = 'inj_tur2',
-        TurbulentDissipation     = 'inj_tur2',
-        TurbulentLengthScale     = 'inj_tur2',
-        VelocityCorrelationXX    = 'inj_tur1',
-        VelocityCorrelationXY    = 'inj_tur2', 
-        VelocityCorrelationXZ    = 'inj_tur3',
-        VelocityCorrelationYY    = 'inj_tur4', 
-        VelocityCorrelationYZ    = 'inj_tur5', 
-        VelocityCorrelationZZ    = 'inj_tur6',
-    )
-    if 'VelocityCorrelationXX' in Variables:
-        # For RSM models
-        CGNS2ElsaDict['TurbulentDissipationRate'] = 'inj_tur7'
-
-    elsAVariables = CGNS2ElsaDict.values()
-
-    if isinstance(Variables, dict):
-        NewVariables = dict()
-        for var, value in Variables.items():
-            if var == 'groupmassflow':
-                NewVariables[var] = int(value)                    
-            elif var in elsAVariables:
-                NewVariables[var] = float(value)
-            elif var in CGNS2ElsaDict:
-                NewVariables[CGNS2ElsaDict[var]] = float(value)
-            else:
-                NewVariables[var] = float(value)
-        return NewVariables
-    elif isinstance(Variables, list):
-        NewVariables = []
-        for var in Variables:
-            if var in elsAVariables:
-                NewVariables.append(var)
-            else:
-                NewVariables.append(CGNS2ElsaDict[var])
-        return NewVariables
-    elif isinstance(Variables, str):
-        if Variables in elsAVariables:
-            return CGNS2ElsaDict[Variables]
-    else:
-        raise TypeError('Variables must be of type dict, list or string')
 
 
 @J.mute_stdout
