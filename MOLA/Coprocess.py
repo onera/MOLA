@@ -1,3 +1,20 @@
+#    Copyright 2023 ONERA - contact luis.bernardos@onera.fr
+#
+#    This file is part of MOLA.
+#
+#    MOLA is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    MOLA is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
 '''
 MOLA Coprocess module - designed to be used in coupling (trigger) elsA context
 
@@ -574,6 +591,60 @@ def save(t, filename, tagWithIteration=False):
 
 def saveWithPyPart(t, filename, tagWithIteration=False):
     '''
+    Function to save a PyTree **t** with PyPart. The PyTree must have been
+    splitted with PyPart in ``compute.py``. An important point is the presence
+    in every zone of **t** of the special node ``:CGNS#Ppart``.
+
+    Use this function to save ``'fields.cgns'``.
+
+    .. note:: For more details on PyPart, see the dedicated pages on elsA
+        support:
+        `PyPart alone <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/etc_pypart_alone.html>`_
+        and
+        `PyPart with elsA <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/etc_pypart_elsa.html>`_
+
+    Parameters
+    ----------
+
+        t : PyTree
+            tree to save
+
+        filename : str
+            Name of the file
+
+        tagWithIteration : bool
+            if :py:obj:`True`, adds a suffix ``_AfterIter<iteration>``
+            to the saved filename (creates a copy)
+    '''
+    t = I.copyRef(t)
+    Cmpi._convert2PartialTree(t)
+    I._rmNodesByName(t, '.Solver#Param')
+    I._rmNodesByType(t, 'IntegralData_t')
+    Cmpi.barrier()
+    printCo('will save %s ...' % filename, 0, color=J.CYAN)
+    PyPartBase.mergeAndSave(t, 'PyPart_fields')
+    Cmpi.barrier()
+    if rank == 0:
+        t = C.convertFile2PyTree('PyPart_fields_all.hdf')
+        C.convertPyTree2File(t, filename)
+        for fn in glob.glob('PyPart_fields_*.hdf'):
+            try:
+                os.remove(fn)
+            except:
+                pass
+    printCo('... saved %s' % filename, 0, color=J.CYAN)
+    Cmpi.barrier()
+    if tagWithIteration and rank == 0:
+        copyOutputFiles(filename)
+
+def saveWithPyPart_NEW(t, filename, tagWithIteration=False):
+    '''
+    .. danger::
+
+        This function is still in development, and MPI deadlocks may happen depending of the
+        parallelisation of the case. It should replace :py:func:`saveWithPyPart` once it is debuged.
+        Should answer to issue #79.
+
     Function to save a PyTree **t** with PyPart. The PyTree must have been
     splitted with PyPart in ``compute.py``. An important point is the presence
     in every zone of **t** of the special node ``:CGNS#Ppart``.
@@ -2430,7 +2501,8 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
 
         for zone in C.getFamilyZones(newTreeWithSourceTerms, BodyForceFamily):
 
-            if not I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm'): continue
+            DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
+            if not DataSourceTermNode: continue
 
             NewSourceTerms = BF.computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration)
 
@@ -2440,16 +2512,37 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
             FSSourceTerm = I.newFlowSolution('FlowSolution#SourceTerm', gridLocation='CellCenter', parent=zone)
             SourceTermPath = I.getPath(newTreeWithSourceTerms, FSSourceTerm)
 
+            # Get previous source terms
+            previousSourceTerms = dict()
             if CurrentIteration > BodyForceInitialIteration : 
                 previousFSSourceTerm = I.getNodeFromPath(previousTreeWithSourceTerms, SourceTermPath)
+                for name in NewSourceTerms:
+                    previousSourceTerms[name] = I.getValue(I.getNodeFromName(previousFSSourceTerm, name))
             else:
-                previousFSSourceTerm = None
+                for name in NewSourceTerms:
+                    previousSourceTerms[name] = 0.
+            
+            # # Optimal relaxation coefficient
+            # NormOfNewSourceTerms = sum([x**2 for x in NewSourceTerms.values()])**0.5
+            # NormOfPreviousSourceTerms = sum([x**2 for x in previousSourceTerms.values()])**0.5
+            # num = np.amax( np.absolute(NormOfNewSourceTerms - NormOfPreviousSourceTerms) )
+            # den = np.amax( np.absolute(NormOfNewSourceTerms + NormOfPreviousSourceTerms) )
+            # if den != 0:
+            #     relax_optim  =  num / den 
+            #     relax = min(max(relax_optim, relax), 0.999) # must be between relax and 0.999
+            # else:
+            #     relax = 0.999
+            # printCo(f'  relax = {relax}', 0, J.MAGE)
+
+            ActiveSourceTermNode = I.getNodeFromName1(DataSourceTermNode, 'ActiveSourceTerm')
+            if ActiveSourceTermNode:
+                ActiveSourceTerm = I.getValue(ActiveSourceTermNode)
+            else:
+                ActiveSourceTerm = 1
                 
-            for name, newSourceTerm in NewSourceTerms.items():
-                if previousFSSourceTerm:
-                    previousSourceTerm = I.getValue(I.getNodeFromName(previousFSSourceTerm, name))
-                    newSourceTerm = (1-relax) * newSourceTerm + relax * previousSourceTerm
-                
+            for name in NewSourceTerms:
+                newSourceTerm = (1-relax) * NewSourceTerms[name] + relax * previousSourceTerms[name]
+                newSourceTerm *= ActiveSourceTerm
                 I.newDataArray(name=name, value=newSourceTerm, parent=FSSourceTerm)
 
     I._rmNodesByName(newTreeWithSourceTerms, 'FlowSolution#Init')
@@ -2729,8 +2822,10 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
     except AttributeError:
         return surfaces
 
-    if Workflow == 'Compressor' and PostprocessOptions:
+    if Workflow == 'Compressor' and PostprocessOptions is not None:
         import MOLA.WorkflowCompressor as WC
+        class ChannelHeightError(Exception):
+            pass
 
         if EndOfRun or setup.elsAkeysNumerics['time_algo'] != 'steady':
 
@@ -2752,7 +2847,10 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                 # It is MANDATORY for next post-processings
                 J._reorderBases(surfaces)
 
-            try:           
+            try:         
+                if not I.getNodeFromName(surfaces, 'ChannelHeight'):
+                    printCo('Postprocess cannot be done because ChannelHeight is missing', 0, color=J.WARN)
+                    raise ChannelHeightError
                 WC.postprocess_turbomachinery(surfaces, computeRadialProfiles=computeRadialProfiles, **PostprocessOptions)
                 printCo('Postprocess done on surfaces', proc=0, color=J.MAGE)
 
@@ -2783,12 +2881,20 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
 
             except ImportError:
                 pass
+            except ChannelHeightError:
+                pass
     return surfaces
 
 def checkandUpdateMainCGNSforChoroRestart():
     '''
     Check the main.cgns and update it with links to ChoroData nodes located in fields.cgns if necessary.
     '''    
+
+    DIRECTORY_OUTPUT='OUTPUT'
+    MainCGNSFilename='main.cgns'
+    FieldsFilename='fields.cgns'
+    MainCGNS_FlowSolutionName='FlowSolution#Init'
+    Fields_FlowSolutionName='FlowSolution#Init'
 
     MSG = 'Chorochronic simulation detected. Checking if main.cgns should be updated for restart'
     printCo(MSG, proc=0, color=J.CYAN)
@@ -2800,17 +2906,34 @@ def checkandUpdateMainCGNSforChoroRestart():
         printCo(MSG, proc=0, color=J.GREEN)
     else:
         MSG = 'ChoroData nodes not referenced in main.cgns. Updating main.cgns...'
-        printCo(MSG, proc=0, color=J.CYAN)   
+        printCo(MSG, proc=0, color=J.CYAN)
+        AllCGNSLinks = []
         t=C.convertFile2PyTree('./OUTPUT/fields.cgns')    
         ChoroNodes=I.getNodesFromName(t,"ChoroData")
         if ChoroNodes:
-            MSG = 'ChoroData nodes detected in fields.cgns.'
-            printCo(MSG, proc=0)
+            MSG = 'ChoroData nodes detected in fields.cgns. Gathering links between main.cgns and fields'
+            printCo(MSG, proc=0, color=J.CYAN)
             ChoroLinks = []
             for node in ChoroNodes:
                 ChoroPath=I.getPath(t,node)
-                ChoroLinks.append(['.', './OUTPUT/fields.cgns', ChoroPath, ChoroPath],)
+                AllCGNSLinks.append(['.', './OUTPUT/fields.cgns', ChoroPath, ChoroPath],)
+
+            for b in I.getBases(main):
+                for z in b[2]:
+                    fs = I.getNodeFromName1(z,MainCGNS_FlowSolutionName)
+                    if not fs: continue
+                    for field in I.getChildren(fs):
+                        if I.getType(field) == 'DataArray_t':
+                            currentNodePath='/'.join([b[0], z[0], fs[0], field[0]])
+                            targetNodePath=currentNodePath.replace(MainCGNS_FlowSolutionName,
+                                                                   Fields_FlowSolutionName)
+                            # TODO: Cassiopee BUG ! targetNodePath must be identical
+                            # to currentNodePath...
+                            AllCGNSLinks += [['.',
+                                              DIRECTORY_OUTPUT+'/'+FieldsFilename,
+                                              '/'+targetNodePath,
+                                              currentNodePath]]
     
-            C.convertPyTree2File(main,"main.cgns", links=ChoroLinks)
+            C.convertPyTree2File(main,"main.cgns", links=AllCGNSLinks)
             MSG = 'main.cgns updated with links to fields.cgns ChoroData nodes for restart.'
             printCo(MSG, proc=0, color=J.GREEN)

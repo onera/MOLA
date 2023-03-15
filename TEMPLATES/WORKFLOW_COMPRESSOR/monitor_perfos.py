@@ -1,3 +1,20 @@
+#    Copyright 2023 ONERA - contact luis.bernardos@onera.fr
+#
+#    This file is part of MOLA.
+#
+#    MOLA is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    MOLA is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
 '''
 Template for reading and showing the arrays.cgns file using Matplotlib
 
@@ -32,7 +49,6 @@ ordering = dict(MassFlowIn=0,
     )
 
 t = C.convertFile2PyTree(FILE_ARRAYS)
-zones = I.getNodesFromNameAndType(t, 'PERFOS_*', 'Zone_t')
 
 def shortvarname(varname):
     if varname == 'MassFlowIn':
@@ -50,6 +66,7 @@ def shortvarname(varname):
     else:
         return varname
 
+zones = I.getNodesFromNameAndType(t, 'PERFOS_*', 'Zone_t')
 for zone in zones:
 
     row = I.getName(zone).replace('PERFOS_', '')
@@ -137,7 +154,8 @@ for zone in zones:
     print('Saving %s%s%s ...'%(J.CYAN,figname,J.ENDC))
     plt.savefig(figname)
     print(J.GREEN+'ok'+J.ENDC)
-
+if len(zones) > 3:
+    plt.close('all')
 
 ################################################################################
 #########################         Massflow         #############################

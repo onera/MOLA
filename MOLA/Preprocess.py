@@ -1,3 +1,20 @@
+#    Copyright 2023 ONERA - contact luis.bernardos@onera.fr
+#
+#    This file is part of MOLA.
+#
+#    MOLA is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    MOLA is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
 '''
 PREPROCESS module
 
@@ -44,10 +61,14 @@ save = J.save
 DEBUG = False
 DIRECTORY_OVERSET='OVERSET' 
 
-K_OMEGA_MODELS = ['Wilcox2006-klim', 'Wilcox2006-klim-V',
+K_OMEGA_TWO_EQN_MODELS = ['Wilcox2006-klim', 'Wilcox2006-klim-V',
             'Wilcox2006', 'Wilcox2006-V', 'SST-2003', 
-            'SST-V2003', 'SST', 'SST-V',  'BSL', 'BSL-V',
-            'SST-2003-LM2009', 'SST-V2003-LM2009', 'SSG/LRR-RSM-w2012']
+            'SST-V2003', 'SST', 'SST-V',  'BSL', 'BSL-V']
+
+K_OMEGA_MODELS = K_OMEGA_TWO_EQN_MODELS + [ 'SST-2003-LM2009',
+                 'SST-V2003-LM2009', 'SSG/LRR-RSM-w2012']
+
+AvailableTurbulenceModels = K_OMEGA_MODELS + ['smith', 'SA']
 
 
 def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
@@ -2873,7 +2894,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         ReferenceStateTurbulence = [float(TurbulentSANuTilde)]
 
 
-    elif TurbulenceModel in ('BSL','BSL-V','SST-2003','SST','SST-V','Wilcox2006-klim'):
+    elif TurbulenceModel in K_OMEGA_TWO_EQN_MODELS:
         FieldsTurbulence  = ['TurbulentEnergyKineticDensity','TurbulentDissipationRateDensity']
         ReferenceStateTurbulence = [float(TurbulentEnergyKineticDensity), float(TurbulentDissipationRateDensity)]
 
@@ -2881,7 +2902,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         FieldsTurbulence  = ['TurbulentEnergyKineticDensity','TurbulentLengthScaleDensity']
         ReferenceStateTurbulence = [float(TurbulentEnergyKineticDensity), float(TurbulentLengthScaleDensity)]
 
-    elif TurbulenceModel == 'SST-2003-LM2009':
+    elif 'LM2009' in TurbulenceModel:
         FieldsTurbulence = ['TurbulentEnergyKineticDensity','TurbulentDissipationRateDensity',
                     'IntermittencyDensity','MomentumThicknessReynoldsDensity']
 
@@ -2902,7 +2923,6 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         float(ReynoldsStressDissipationScale)]
 
     else:
-        AvailableTurbulenceModels = ['SA','BSL','BSL-V','SST-2003','SST','SST-V','Wilcox2006-klim','smith','SST-2003-LM2009','SSG/LRR-RSM-w2012']
         raise AttributeError('Turbulence model %s not implemented in workflow. Must be in: %s'%(TurbulenceModel,str(AvailableTurbulenceModels)))
     Fields         += FieldsTurbulence
     ReferenceState += ReferenceStateTurbulence
@@ -3209,11 +3229,11 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
 
     elif TurbulenceModel == 'SSG/LRR-RSM-w2012':
         addKeys4Model = dict(
-        turbmod        = 'rsm',
-        rsm_name       = 'ssg_lrr_bsl',
-        rsm_diffusion = 'isotropic',
-        rsm_bous_limiter = 10,
-        omega_prolong  = 'linear_extrap',
+        turbmod          = 'rsm',
+        rsm_name         = 'ssg_lrr_bsl',
+        rsm_diffusion    = 'isotropic',
+        rsm_bous_limiter = 10.0,
+        omega_prolong    = 'linear_extrap',
                             )
 
     # Transition Settings
@@ -3475,8 +3495,18 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
 
     ReferenceStateTurbulence = ReferenceValues['ReferenceStateTurbulence']
     TurbulenceCutoff         = ReferenceValues['TurbulenceCutoff']
-    for i in range(len(ReferenceStateTurbulence)):
-        addKeys['t_cutvar%d'%(i+1)] = TurbulenceCutoff*ReferenceStateTurbulence[i]
+    if len(ReferenceStateTurbulence)==7:  # RSM
+        addKeys['t_cutvar1'] = TurbulenceCutoff*ReferenceStateTurbulence[0]
+        addKeys['t_cutvar2'] = TurbulenceCutoff*ReferenceStateTurbulence[3]
+        addKeys['t_cutvar3'] = TurbulenceCutoff*ReferenceStateTurbulence[5]
+        addKeys['t_cutvar4'] = TurbulenceCutoff*ReferenceStateTurbulence[6]
+
+    elif len(ReferenceStateTurbulence)>4: # unsupported 
+        raise ValueError('UNSUPPORTED NUMBER OF TURBULENT FIELDS')
+    
+    else:
+        for i in range(len(ReferenceStateTurbulence)):
+            addKeys['t_cutvar%d'%(i+1)] = TurbulenceCutoff*ReferenceStateTurbulence[i]
     elsAkeysNumerics.update(addKeys)
 
     if unstructured:
@@ -3923,6 +3953,8 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
         # TODO make ticket:
         # BUG with writingmode=2 and Cfdpb.compute() (required by unsteady overset) 
         # wall extractions ignored during coprocess
+        # BEWARE : contradiction in doc :  http://elsa.onera.fr/restricted/MU_tuto/latest/MU-98057/Textes/Attribute/extract.html#extract.writingmode 
+        #                        versus :  http://elsa.onera.fr/restricted/MU_tuto/latest/MU_Annexe/CGNS/CGNS.html#Solver-Output
         writingmode   = 2, # NOTE requires extract_filtering='inactive'
 
         loc           = 'interface',
@@ -3975,10 +4007,15 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
                             break
 
                     if 'Inviscid' in BCType:
-                        if 'bl_quantities_2d' in ExtractVariablesList:
-                            ExtractVariablesList.remove('bl_quantities_2d')
-                        if 'yplusmeshsize' in ExtractVariablesList:
-                            ExtractVariablesList.remove('yplusmeshsize')
+                        ViscousKeys = ['geomdepdom','delta_cell_max','delta_compute',
+                            'vortratiolim','shearratiolim','pressratiolim',
+                            'bl_quantities_2d', 'bl_quantities_3d', 'bl_ue',
+                            'yplusmeshsize']
+                        for vk in ViscousKeys:
+                            try:
+                                ExtractVariablesList.remove(vk)
+                            except ValueError:
+                                pass
                     else:
                         TransitionMode = ReferenceValues['TransitionMode']
 
@@ -4746,12 +4783,6 @@ def adapt2elsA(t, InputMeshes):
     print('adapting NearMatch to elsA')
     EP._adaptNearMatch(t)
 
-    # TODO remove this, as it is not required by elsA anymore
-    # # Optional in the general but incompatible with PyPart
-    # if hasAnyPeriodicMatch(InputMeshes):
-    #     print('adapting PeriodicMatch to elsA...')
-    #     EP._adaptPeriodicMatch(t, clean=True)
-
     if hasAnyOversetData(InputMeshes):
         print('adapting overset data to elsA...')
         EP._overlapGC2BC(t)
@@ -4759,6 +4790,16 @@ def adapt2elsA(t, InputMeshes):
         EP._fillNeighbourList(t, sameBase=0)
         EP._prefixDnrInSubRegions(t)
         removeEmptyOversetData(t, silent=False)
+
+    # https://elsa.onera.fr/issues/10928
+    for base in I.getBases(t):
+        for zone in I.getZones(base):
+            for ZoneBC in I.getNodesFromType1(zone,'ZoneBC_t'):
+                for BC in I.getNodesFromType1(ZoneBC,'BC_t'):
+                    if I.getNodeFromType1(BC,'FamilyName_t') is not None:
+                        I.setValue(BC,'FamilySpecified')
+                        continue
+
 
     I._createElsaHybrid(t, method=1)
 
@@ -5072,6 +5113,8 @@ def checkFamiliesInZonesAndBC(t):
                 raise Exception(J.FAIL+FAILMSG+J.ENDC)
             # Check that each BC is attached to a family
             for bc in I.getNodesFromType(zone, 'BC_t'):
+                if I.getValue(bc) in ['BCDegenerateLine', 'BCDegeneratePoint']:
+                    continue
                 if not I.getNodeFromType1(bc, 'FamilyName_t'):
                     FAILMSG = 'Each BC must be attached to a Family:\n'
                     FAILMSG += 'BC {} in zone {} has no node of type FamilyName_t'.format(I.getName(bc), I.getName(zone))
