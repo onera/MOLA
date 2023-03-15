@@ -16,8 +16,10 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import mola.cfd.preprocess as PRE
-import mola.application.external_flow as ExtFlow
+from ..cfd import preprocess as PRE
+from ..application import external_flow as ExtFlow
+from .. import cgns as c
+
 
 
 class Workflow(object):
@@ -51,6 +53,7 @@ class Workflow(object):
             Numerics=dict(Scheme='Jameson',
                           TimeMarching='Steady',
                           NumberOfIterations=1e4,
+                          MinimumNumberOfIterations = 1000,
                           TimeStep=None,
                           CFL=None),
 
@@ -62,32 +65,58 @@ class Workflow(object):
 
             Extractions=[],
 
+            # Extractions=[
+            #     dict(type='default', AveragingIterations=500,
+            #                          SaveSignalsPeriod=30,
+            #                          SaveExtractionsPeriod=30,
+            #                          SaveFieldsPeriod=30)
+            #     dict(type='signals', name='Integrals', fields=['CL', 'std-CL'], AveragingIterations=1000, Period=10)
+            #     dict(type='probe', name='probe1', fields=['std-Pressure'], Period=5)
+            #     dict(type='probe', name='probe2', fields=['std-Density'], Period=5)
+            #     dict(type='3D', fields=['Mach', 'q_criterion']),
+            #     dict(type='AllBCWall'),
+            #     dict(type='IsoSurface',
+            #         name='MySurface',
+            #         postprocess=[dict(operation='AzimuthalAverage',
+            #                           selectedZones=dict()),
+            #                      dict(operation='MassFlowLoss',
+            #                           selectedZones=dict(),
+            #                           SecondMassFlowRegion=)],
+            #         field='CoordinateY',
+            #         value=1.e-6,
+            #         AllowedFields=['Mach','cellN'])]
+
             ConvergenceCriteria=[],
 
-            CoprocessOptions=dict(SaveSignalsPeriod=30,
-                                  SaveExtractionsPeriod=30,
-                                  SaveFieldsPeriod=30),
+            Monitoring=dict(SaveSignalsPeriod=30,
+                            SaveExtractionsPeriod=30,
+                            SaveFieldsPeriod=30,
+                            SaveBodyForcePeriod=2000,
+                            TagExtractionsWithIteration='auto'),
 
-            PostprocessOptions=dict(),
-            
             RunManagement=dict(
                 JobName='MOLAjob',
                 RunDirectory='.',
                 NumberOfProcessors=None,
                 AER='',
                 FilesAndDirectories=[f"{os.getenv('MOLA')}/templates/compute.py"],
-                SubmitJob=False),
+                SubmitJob=False,
+                TimeOutInSeconds = 'auto',
+                Machine = 'auto', # or 'spiro-dtis', 'topaze'...
+                LauncherCommand = 'auto', # or 'sbatch job.sh', './job.sh'...
+                SecondsMargin4QuitBeforeTimeOut = 180.0),
 
             ):
 
-        
-        self.name = 'Standard'
+        self._workflow_parameters_container_ = 'WorkflowParameters'
 
-        if tree is not None:
-            self.read_workflow_parameters(tree)
+        self.Name = 'Standard'
+        self.tree = tree
+
+        if self.tree is not None:
+            self.read_workflow_parameters_from_tree()
 
         else:
-            self.tree = None
             self.RawMeshComponents=RawMeshComponents
             self.Fluid=Fluid
             self.Flow=Flow
@@ -100,25 +129,44 @@ class Workflow(object):
             self.Motion=Motion
             self.Initialization=Initialization
             self.Extractions=Extractions
-            # Extractions=[
-            #     dict(type='default', AveragingIterations=500,
-            #                          SaveSignalsPeriod=30,
-            #                          SaveExtractionsPeriod=30,
-            #                          SaveFieldsPeriod=30)
-            #     dict(type='signals', name='Integrals', fields=['CL', 'std-CL'], AveragingIterations=1000, Period=10)
-            #     dict(type='probe', name='probe1', fields=['std-Pressure'], Period=5)
-            #     dict(type='probe', name='probe2', fields=['std-Density'], Period=5)
-            #     dict(type='3D', fields=['Mach', 'q_criterion']),
-            #     dict(type='AllBCWall'),
-            #     dict(type='IsoSurface',
-            #         field='CoordinateY',
-            #         value=1.e-6,
-            #         AllowedFields=['Mach','cellN'])]
-
             self.ConvergenceCriteria=ConvergenceCriteria
-            self.CoprocessOptions=CoprocessOptions
-            self.PostprocessOptions=PostprocessOptions
+            self.Monitoring=Monitoring
             self.RunManagement=RunManagement
+
+
+    def write_tree(self, filename='main.cgns'):
+        self.tree.save(filename)
+
+
+    def read_workflow_parameters_from_tree(self):
+        
+        if isinstance(self.tree,str): self.tree = c.load(self.tree)
+        
+        workflow_parameters = self.tree.getParameters(self._workflow_parameters_container_)
+        
+        for parameter in workflow_parameters:
+            setattr(self, parameter, workflow_parameters[parameter])
+
+
+    def set_workflow_parameters_in_tree(self):
+        self.tree.setParameters(self._workflow_parameters_container_,
+                        Name=self.Name,
+                        RawMeshComponents=self.RawMeshComponents,
+                        Fluid=self.Fluid,
+                        Flow=self.Flow,
+                        Turbulence=self.Turbulence,
+                        BoundaryConditions=self.BoundaryConditions,
+                        Solver=self.Solver,
+                        Splitter=self.Splitter,
+                        Numerics=self.Numerics,
+                        BodyForceModeling=self.BodyForceModeling,
+                        Motion=self.Motion,
+                        Initialization=self.Initialization,
+                        Extractions=self.Extractions,
+                        ConvergenceCriteria=self.ConvergenceCriteria,
+                        Monitoring=self.Monitoring,
+                        RunManagement=self.RunManagement)
+
             
     def prepare(self):
         self.assemble()
@@ -127,15 +175,19 @@ class Workflow(object):
         self.define_bc_families() # will include "addFamilies"
         self.split_and_distribute()
         self.process_overset()
-
         self.compute_reference_values()
-        self.set_solver_parameters() # BC, motion, extractions, solver keys
         self.initialize_flow() # eventually + distance to wall
+        self.set_solver_boundary_conditions()
+        self.set_solver_motion()
+        self.set_solver_keys() # model, numerics, others...
+        self.set_solver_extractions()
+        self.adapt_tree_to_solver()
         self.write_cfd_files()
         self.check_preprocess() # empty BCs... maybe solver-specific
         self.submit_jobs()
 
     def assemble(self):
+        return
         # RawMeshComponent with:
         # -> file or tree
         # -> component name
@@ -153,32 +205,11 @@ class Workflow(object):
         # -> merge tree (creating bases if Overset)
 
 
-    def read_tree(self, t):
-        if isinstance(t, str):
-            self.filename = t
-            self.tree = C.convertFile2PyTree(t)
-        elif I.isTopTree(t):
-            self.tree = t
-        else:
-            raise ValueError('parameter mesh must be either a filename or a PyTree')
-        
-        self.unstructured = PRE.mesh.hasAnyUnstructuredZones(self.tree) # To be replaced with Tree attr.
-
-
-
     def compute_reference_values(self):
         # mola-generic set of paramaterers
         self.compute_flow_properties()
         self.set_modeling_parameters()
         self.set_numerical_parameters()
-
-    def set_solver_parameters(self):
-        # CGNS, solver-specific obj, or to be parsed UserDefinedData_t
-        self.set_solver_boundary_conditions()
-        self.set_solver_motion()
-        self.set_solver_keys() # model, numerics, others...
-        self.set_solver_extractions()
-        self.adapt_tree_to_solver()
 
     def write_cfd_files(self):
         self.write_setup()
