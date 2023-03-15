@@ -38,11 +38,12 @@ class Workflow(object):
 
             Flow=dict(),
 
-            
             Turbulence=dict(Model='Wilcox2006-klim',
                             Level=0.001,
                             ReferenceVelocity='auto',
-                            Viscosity_EddyMolecularRatio=0.1),
+                            Viscosity_EddyMolecularRatio=0.1,
+                            TurbulenceCutOffRatio=1e-8
+                            TransitionMode=None),
 
             BoundaryConditions=[],
             
@@ -63,25 +64,35 @@ class Workflow(object):
 
             Initialization=dict(method='uniform'),
 
+            ExtractionsDefaults=dict(
+                                    #  signals=dict(Surface=, Length=, Period=,
+                                    #  TorqueOrigin=, AveragingIterations=
+                                     ),
+
             Extractions=[],
 
             # Extractions=[
-            #     dict(type='default', AveragingIterations=500,
-            #                          SaveSignalsPeriod=30,
-            #                          SaveExtractionsPeriod=30,
-            #                          SaveFieldsPeriod=30)
-            #     dict(type='signals', name='Integrals', fields=['CL', 'std-CL'], AveragingIterations=1000, Period=10)
+            #     dict(type='signals', name='Integrals', fields=['CL', 'std-CL'],
+            #          Period=10)
             #     dict(type='probe', name='probe1', fields=['std-Pressure'], Period=5)
             #     dict(type='probe', name='probe2', fields=['std-Density'], Period=5)
             #     dict(type='3D', fields=['Mach', 'q_criterion']),
-            #     dict(type='AllBCWall'),
+            #     dict(type='bc', BCType='BCWall*', storage='ByFamily',
+            #          fields=['normalvector', 'frictionvector'])
+            #     dict(type='bc', BCType='*', storage='ByFamily',
+            #          fields=['Pressure'])
             #     dict(type='IsoSurface',
             #         name='MySurface',
             #         postprocess=[dict(operation='AzimuthalAverage',
             #                           selectedZones=dict()),
             #                      dict(operation='MassFlowLoss',
-            #                           selectedZones=dict(),
-            #                           SecondMassFlowRegion=)],
+            #                           selectedZones=dict(Component=),
+            #                           SecondMassFlowRegion=,
+            #                           flowComputation='from_compressor',
+            #                           workflowReference=),
+            #                      dict(operation='CnM²'
+            #                           selectedZones=dict(Component=),
+            #                           flowComputation='from_helicopter')],
             #         field='CoordinateY',
             #         value=1.e-6,
             #         AllowedFields=['Mach','cellN'])]
@@ -182,9 +193,11 @@ class Workflow(object):
         self.set_solver_keys() # model, numerics, others...
         self.set_solver_extractions()
         self.adapt_tree_to_solver()
-        self.write_cfd_files()
         self.check_preprocess() # empty BCs... maybe solver-specific
-        self.submit_jobs()
+        self.write_cfd_files()
+
+    def submit_jobs():
+        ()
 
     def assemble(self):
         return
