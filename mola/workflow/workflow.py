@@ -27,6 +27,21 @@ class Workflow(object):
     def __init__(self, tree=None,
 
             RawMeshComponents=[],
+            # RawMeshComponent with:
+            # -> file or tree
+            # -> component name
+            # -> mesher type
+            # -> family_bc definition
+            # -> Overset Options
+            # -> Connection
+            # -> splitBlocks 
+
+            # operations :
+            # -> read file
+            # -> clean tree
+            # -> adapt Motion attribute
+            # -> create families of zones
+            # -> merge tree (creating bases if Overset)
 
             Fluid=dict(Gamma=1.4,
                        IdealGasConstant=287.053,
@@ -42,7 +57,7 @@ class Workflow(object):
                             Level=0.001,
                             ReferenceVelocity='auto',
                             Viscosity_EddyMolecularRatio=0.1,
-                            TurbulenceCutOffRatio=1e-8
+                            TurbulenceCutOffRatio=1e-8,
                             TransitionMode=None),
 
             BoundaryConditions=[],
@@ -139,6 +154,7 @@ class Workflow(object):
             self.BodyForceModeling=BodyForceModeling
             self.Motion=Motion
             self.Initialization=Initialization
+            self.ExtractionsDefaults=ExtractionsDefaults
             self.Extractions=Extractions
             self.ConvergenceCriteria=ConvergenceCriteria
             self.Monitoring=Monitoring
@@ -173,6 +189,7 @@ class Workflow(object):
                         BodyForceModeling=self.BodyForceModeling,
                         Motion=self.Motion,
                         Initialization=self.Initialization,
+                        ExtractionsDefaults=self.ExtractionsDefaults,
                         Extractions=self.Extractions,
                         ConvergenceCriteria=self.ConvergenceCriteria,
                         Monitoring=self.Monitoring,
@@ -194,32 +211,15 @@ class Workflow(object):
         self.set_solver_extractions()
         self.adapt_tree_to_solver()
         self.check_preprocess() # empty BCs... maybe solver-specific
-        self.write_cfd_files()
 
-    def submit_jobs():
-        ()
-
+    def write_cfd_files(self):
+        return
+    
     def assemble(self):
         return
-        # RawMeshComponent with:
-        # -> file or tree
-        # -> component name
-        # -> mesher type
-        # -> family_bc definition
-        # -> Overset Options
-        # -> Connection
-        # -> splitBlocks 
-
-        # operations :
-        # -> read file
-        # -> clean tree
-        # -> adapt Motion attribute
-        # -> create families of zones
-        # -> merge tree (creating bases if Overset)
-        pass
 
     def compute_reference_values(self):
-        # mola-generic set of paramaterers
+        # mola-generic set of parameters
         self.compute_flow_properties()
         self.set_modeling_parameters()
         self.set_numerical_parameters()
