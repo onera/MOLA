@@ -166,7 +166,7 @@ class Workflow(object):
         self.tree.save(filename)
 
 
-    def read_workflow_parameters_from_tree(self):
+    def get_workflow_parameters_from_tree(self):
         
         if isinstance(self.tree,str): self.tree = c.load(self.tree)
         

@@ -1032,15 +1032,29 @@ class Node(list):
 
     def getParameters(self, ContainerName):
         Container = self.get( Name=ContainerName, Depth=1 )
-        Params = dict()
+        ParamsDict = dict()
+        ParamsList = []
         if Container is None:
-            raise ValueError('node %s not found in %s'%(ContainerName,self.path()))
+            raise ValueError(f'node {ContainerName} not found in {self.path()}')
 
         for param in Container.children():
-            if param.children():
-                Params[param.name()] = Container.getParameters(param.name())
+            if param.name().startswith('_list_'):
+                ParamsList += [ Container.getParameters(param.name()) ]
             else:
-                Params[param.name()] = param.value()
+                if param.children():
+                    ParamsDict[param.name()] = Container.getParameters(param.name())
+                else:
+                    ParamsDict[param.name()] = param.value()
+
+        if ParamsDict and not ParamsList:
+            Params = ParamsDict
+        elif ParamsList and not ParamsDict:
+            Params = ParamsList
+        elif bool(ParamsList) and bool(ParamsDict):
+            ParamsList += [ ParamsDict ]
+            Params = ParamsList
+        else:
+            Params = dict()
 
         return Params
 

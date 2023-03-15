@@ -1,6 +1,7 @@
-import mola.cgns as c
-import numpy as np
 import os
+import pprint
+import numpy as np
+import mola.cgns as c
 
 def test_init1():
     node = c.Node()
@@ -84,7 +85,7 @@ def test_value3():
 
     assert str(tortilla_value) == "[12 -2  6  1 -2  7  2 -2  8]"
 
-def test_setParameters(save_filename=''):
+def test_setParameters(filename=''):
     t = c.Node(Name='main')
     t.setParameters('Parameters',
         none=None,
@@ -104,5 +105,55 @@ def test_setParameters(save_filename=''):
                     {'Str':'calamares','Int':12},
                     {'Str':'morcilla','Int':12}]
         )
-    if save_filename: t.save(save_filename)
+    if filename: t.save(filename)
+
+def test_getParameters(filename=''):
+    t = c.Node(Name='main')
+    set_params = dict(none=None,
+        EmptyList=[],
+        NumpyArray=np.array([0,1,2]),
+        BooleanList=[True,False,False],
+        Boolean=True,
+        Int=12,
+        IntList=[1,2,3,4],
+        Float=13.0,
+        FloatList=[1.0,2.0,3.0],
+        Str='jamon',
+        StrList=['croquetas', 'tortilla'],
+        Dict={'Str':'paella','Int':12},
+        DictOfDict=dict(SecondDict={'Str':'gazpacho','Int':12}),
+        ListOfDict=[{'Str':'pescaito','Int':12},
+                    {'Str':'calamares','Int':12},
+                    {'Str':'morcilla','Int':12}])
+
+    expected="{'Boolean': array([1], dtype=int32),\n"
+    expected+=" 'BooleanList': array([1, 0, 0], dtype=int32),\n"
+    expected+=" 'Dict': {'Int': array([12], dtype=int32), 'Str': 'paella'},\n"
+    expected+=" 'DictOfDict': {'SecondDict': {'Int': array([12], dtype=int32),\n"
+    expected+="                               'Str': 'gazpacho'}},\n"
+    expected+=" 'EmptyList': None,\n"
+    expected+=" 'Float': array([13.]),\n"
+    expected+=" 'FloatList': array([1., 2., 3.]),\n"
+    expected+=" 'Int': array([12], dtype=int32),\n"
+    expected+=" 'IntList': array([1, 2, 3, 4], dtype=int32),\n"
+    expected+=" 'ListOfDict': [{'Int': array([12], dtype=int32), 'Str': 'pescaito'},\n"
+    expected+="                {'Int': array([12], dtype=int32), 'Str': 'calamares'},\n"
+    expected+="                {'Int': array([12], dtype=int32), 'Str': 'morcilla'}],\n"
+    expected+=" 'NumpyArray': array([0, 1, 2]),\n"
+    expected+=" 'Str': 'jamon',\n"
+    expected+=" 'StrList': ['croquetas', 'tortilla'],\n"
+    expected+=" 'none': None}"
+
+
+    t.setParameters('Parameters', **set_params)
+    get_params = t.getParameters('Parameters')
+    try:
+        assert pprint.pformat(get_params) == expected
+    except AssertionError:
+        msg = 'parameters are not equivalent:\n'
+        msg+= 'expected:\n'
+        msg+= expected+'\n'
+        msg+= 'got:\n'
+        msg+= pprint.pformat(get_params)
+        raise ValueError(msg)
 
