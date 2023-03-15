@@ -162,6 +162,7 @@ class Workflow(object):
 
 
     def write_tree(self, filename='main.cgns'):
+        if not self.tree: self.tree = c.Tree()
         self.tree.save(filename)
 
 
@@ -176,6 +177,7 @@ class Workflow(object):
 
 
     def set_workflow_parameters_in_tree(self):
+        if not self.tree: self.tree = c.Tree()
         self.tree.setParameters(self._workflow_parameters_container_,
                         Name=self.Name,
                         RawMeshComponents=self.RawMeshComponents,
@@ -246,10 +248,5 @@ class Workflow(object):
     def visu(self):
         pass
 
-def future_test_Workflow():
 
-    workflow = Workflow()
-
-    workflow.prepare()
-    workflow.save_main()
 

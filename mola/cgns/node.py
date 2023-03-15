@@ -982,23 +982,51 @@ class Node(list):
     def setParameters(self, ContainerName, ContainerType='UserDefinedData_t',
                       ParameterType='DataArray_t', **parameters):
 
-        Container = self.get( Name=ContainerName, Depth=1 )
-        if not Container:
-            Container = Node(Parent=self, Name=ContainerName, Type=ContainerType)
+        def updateParameterOrMakeNewOne(Parent, ParamName, ParamValue=None,
+                                                 ParamType=ParameterType):
+            paramNode = Parent.get( Name=ParamName, Depth=1 )
+            if paramNode:
+                paramNode.setValue( ParamValue )
+                paramNode.setType( ParamType )
+            else:
+                try:
+                    paramNode = Node(Parent=Parent,Name=ParamName,
+                        Value=ParamValue, Type=ParamType)
+                except:
+                    raise ValueError(f'Name={ParamValue}, Value={ParamValue}')
+                
+            return paramNode
+
+        Container = updateParameterOrMakeNewOne(self, ContainerName, None, ContainerType)
+
         for parameterName in parameters:
             parameterValue = parameters[parameterName]
+
             if isinstance(parameterValue, dict):
                 Container.setParameters(parameterName,
                     ContainerType=ContainerType,
                     ParameterType=ParameterType,**parameterValue)
-            else:
-                paramNode = Container.get( Name=parameterName )
-                if paramNode:
-                    paramNode.setValue( parameterValue )
-                    paramNode.setType( ParameterType )
+                
+            elif isinstance(parameterValue, list):
+                
+                if len(parameterValue)==0 or parameterValue[0] is None:
+                    updateParameterOrMakeNewOne(Container, parameterName, None)
+                
+                elif isinstance(parameterValue[0], dict):
+                    ListContainer = updateParameterOrMakeNewOne(Container, parameterName)
+                    for i, pv in enumerate(parameterValue):
+                        if not isinstance(pv, dict):
+                            raise ValueError(f'expected dict at {self.path()}/{parameterName}')
+
+                        ListContainer.setParameters(f'_list_.{i}',
+                            ContainerType=ContainerType,
+                            ParameterType=ParameterType,**pv)
+
                 else:
-                    Node(Parent=Container,Name=parameterName,
-                         Value=parameterValue,Type=ParameterType)
+                    updateParameterOrMakeNewOne(Container, parameterName, parameterValue)
+
+            else:
+                updateParameterOrMakeNewOne(Container, parameterName, parameterValue)
 
         return self.getParameters( ContainerName )
 
