@@ -28,12 +28,13 @@ class Workflow(object):
 
             RawMeshComponents=[],
             # RawMeshComponent with:
-            # -> file or tree
             # -> component name
+            # -> file or tree
             # -> mesher type
             # -> family_bc definition
             # -> Overset Options
             # -> Connection
+            # -> Positioning (previously Tranform)
             # -> splitBlocks 
 
             # operations :
@@ -162,10 +163,11 @@ class Workflow(object):
 
 
     def write_tree(self, filename='main.cgns'):
+        if not self.tree: self.tree = c.Tree()
         self.tree.save(filename)
 
 
-    def read_workflow_parameters_from_tree(self):
+    def get_workflow_parameters_from_tree(self):
         
         if isinstance(self.tree,str): self.tree = c.load(self.tree)
         
@@ -176,6 +178,7 @@ class Workflow(object):
 
 
     def set_workflow_parameters_in_tree(self):
+        if not self.tree: self.tree = c.Tree()
         self.tree.setParameters(self._workflow_parameters_container_,
                         Name=self.Name,
                         RawMeshComponents=self.RawMeshComponents,
@@ -198,17 +201,17 @@ class Workflow(object):
             
     def prepare(self):
         self.assemble()
-        self.transform()
+        self.positioning()
         self.connect()
         self.define_bc_families() # will include "addFamilies"
         self.split_and_distribute()
         self.process_overset()
         self.compute_reference_values()
         self.initialize_flow() # eventually + distance to wall
-        self.set_solver_boundary_conditions()
-        self.set_solver_motion()
-        self.set_solver_keys() # model, numerics, others...
-        self.set_solver_extractions()
+        self.set_boundary_conditions()
+        self.set_motion()
+        self.set_cfd_parameters() # model, numerics, others...
+        self.set_extractions()
         self.adapt_tree_to_solver()
         self.check_preprocess() # empty BCs... maybe solver-specific
 
@@ -216,7 +219,34 @@ class Workflow(object):
         return
     
     def assemble(self):
-        return
+        self.read_meshes()
+        self.clean_mesh()
+        self.set_workflow_parameters_in_tree()
+
+    def positioning(self):
+
+
+
+    def read_meshes(self):
+        meshes = []
+        for component in self.RawMeshComponents:
+            src = component['Source']
+            if isinstance(src,str):
+                mesh = c.load(src)
+            else:
+                mesh = c.merge(src)
+            nb_of_bases = len(mesh.bases())
+            if nb_of_bases != 1:
+                msg = f"component {component['Name']} must have exactly 1 base (got {nb_of_bases})"
+                raise ValueError(msg)
+
+            base = mesh.bases()[0]
+            base.setName( component['Name'] )
+            meshes += [base]
+        self.tree = c.merge(meshes)
+
+    def clean_mesh(self):
+        ... # TODO include AutoGrid cleanining and other macros
 
     def compute_reference_values(self):
         # mola-generic set of parameters
@@ -248,11 +278,4 @@ class Workflow(object):
 
     def visu(self):
         pass
-
-def future_test_Workflow():
-
-    workflow = Workflow()
-
-    workflow.prepare()
-    workflow.save_main()
 

@@ -672,63 +672,6 @@ def getMeshesAssembled(InputMeshes):
     return t
 
 
-def transform(t, InputMeshes):
-    '''
-    This function applies the ``'Transform'`` key contained in user-provided
-    list of Python dictionaries **InputMeshes** as introduced in
-    function :py:func:`prepareMesh4ElsA` documentation.
-
-    .. important:: in all cases, this function forces the grid to be direct
-
-    Parameters
-    ----------
-
-        t : PyTree
-            Assembled PyTree as obtained from :py:func:`getMeshesAssembled`
-
-            .. note:: tree **t** is modified
-
-        InputMeshes : :py:class:`list` of :py:class:`dict`
-            preprocessing information provided by user as defined in
-            :py:func:`prepareMesh4ElsA` doc.
-
-            Acceptable values concerning the :py:class:`dict` associated to
-            the key ``'Transform'`` are the following:
-
-                * 'scale' : :py:class:`float`
-                    Scaling factor to apply to the grid component.
-
-                    .. tip:: use this option to transform a grid built in
-                             milimeters into meters
-
-                * 'rotate' : :py:class:`list` of :py:class:`tuple`
-                    List of rotation to apply to the grid component. Each rotation
-                    is defined by 3 elements:
-
-                        * a 3-tuple corresponding to the center coordinates
-
-                        * a 3-tuple corresponding to the rotation axis
-
-                        * a float (or integer) defining the angle of rotation in
-                          degrees
-
-                    .. tip:: this option is useful to change the orientation of
-                             a mesh built in Autogrid 5.
-
-    '''
-    for meshInfo in InputMeshes:
-        if 'Transform' not in meshInfo: continue
-
-        base = I.getNodeFromName1(t, meshInfo['baseName'])
-
-        if 'scale' in meshInfo['Transform']:
-            s = float(meshInfo['Transform']['scale'])
-            T._homothety(base,(0,0,0),s)
-
-        if 'rotate' in meshInfo['Transform']:
-            for center, axis, ang in meshInfo['Transform']['rotate']:
-                T._rotate(base, center, axis, ang)
-    T._makeDirect(t)
 
 def connectMesh(t, InputMeshes):
     '''

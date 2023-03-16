@@ -59,6 +59,11 @@ class Tree(Node):
     def baseNames(self):
         return [c.name() for c in self.children() if isinstance(c, Base)]
 
+    def base(self,**kwargs):
+        kwargs['Type'] = 'CGNSBase_t'
+        kwargs['Depth'] = 1
+        return self.get(**kwargs)
+
     def setUniqueBaseNames(self):
         for base in self.bases():
             Name = base.name()

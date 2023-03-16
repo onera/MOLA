@@ -67,7 +67,7 @@ class Zone(Node):
     def numberOfCells(self):
         return np.prod(self.value(), axis=0)[1]
 
-    def newFields(self, FieldNames, Container='FlowSolution',
+    def newFields(self, InputFields, Container='FlowSolution',
                   GridLocation='guess', dtype=np.float64, return_type='list',
                   ravel=False):
 
@@ -87,31 +87,33 @@ class Zone(Node):
                                     GridLocation,Container,ExistingLocation)
             raise ValueError(m.RED+MSG+m.ENDC)
 
-        if isinstance(FieldNames,str): FieldNames = [ FieldNames ]
+        if isinstance(InputFields,str):
+            InputFields = dict(InputFields=0)
+        elif isinstance(InputFields, list):
+            InputFields = dict((key, 0) for key in InputFields)
+        elif not isinstance(InputFields, dict):
+            raise TypeError(f"attribute FieldNames must be a str, list or dict")
 
         arrays = []
-        shape = self.value()
         if GridLocation == 'Vertex':
-            for name in FieldNames:
-                array = np.zeros(shape[:,0], dtype=dtype, order='F')
-                arrays += [ array ]
-                Node(Parent=FlowSolution, Name=name, Type='DataArray_t', Value=array)
-                if ravel: array = array.ravel(order='K')
+            shape = self.value()[:,0]
         elif GridLocation == 'CellCenter':
-            for name in FieldNames:
-                array = np.zeros(shape[:,1], dtype=dtype, order='F')
-                arrays += [ array ]
-                Node(Parent=FlowSolution, Name=name, Type='DataArray_t', Value=array)
-                if ravel: array = array.ravel(order='K')
+            shape = self.value()[:,1]
         else:
             raise AttributeError('GridLocation=%s not supported'%GridLocation)
+
+        for name, value in InputFields.items():
+            array = np.full(shape, value, dtype=dtype, order='F')
+            arrays += [ array ]
+            Node(Parent=FlowSolution, Name=name, Type='DataArray_t', Value=array)
+            if ravel: array = array.ravel(order='K')
 
         if return_type == 'list':
             if len(arrays) == 1: arrays = array
             return arrays
         elif return_type == 'dict':
             v = dict()
-            for key, array in zip( FieldNames, arrays):
+            for key, array in zip( list(InputFields), arrays):
                 v[key] = array
             return v
         else:
