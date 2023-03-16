@@ -209,6 +209,23 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
             launched
     '''
 
+    try:
+        print('Step1')
+        AoARange_Original = copy.deepcopy(AoARange)
+        print('Step2')
+        prev_config = JM.getJobsConfiguration('./',useLocalConfig=True)
+        print('Step3')
+        prev_AoAs, prev_Machs, prev_Reynolds = getRangesOfStructuredPolar(prev_config) #WARNING : la presence du fichier config ne garantit pas que la config a ete lancee... Il vaudrait peut etre mieux checker si des fichiers sont present sur le cluster...
+        print('Step4')
+        AoARange = AoARange + prev_AoAs.tolist()
+        print('Step5')
+        MachRange = MachRange + prev_Machs #Mach numbers are already provided as a list
+        EXPAND = True
+        print('Expanding previous polar range.TEST')
+    except:
+        print('Building new polar from scratch TEST')
+        EXPAND = False
+
     # TODO appropriately sort AoARange
     a = np.atleast_1d(AoARange)
     a = np.unique(a)
