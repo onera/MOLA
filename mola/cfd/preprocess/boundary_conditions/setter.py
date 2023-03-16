@@ -15,6 +15,9 @@
 #    You should have received a copy of the GNU General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import mola.cgns as c
+import mola.misc as m
+
 BoundaryConditionsNames = dict(
     Farfield                     = dict(elsa='nref'),
     InflowStagnation             = dict(elsa='inj1'),
@@ -31,8 +34,10 @@ BoundaryConditionsNames = dict(
 )
 
 # Shortcuts for already defined boundary conditions
-BoundaryConditionsNames = dict(
-    Wall = BoundaryConditionsNames['WallViscous']
+BoundaryConditionsNames.update(
+    dict(
+        Wall = BoundaryConditionsNames['WallViscous']
+    )
 )
 
 
@@ -59,13 +64,13 @@ def set_boundary_conditions(workflow):
             solverSpecificFunctionName = bcName
             args, kwargs = bc['args'], bc['kwargs']
 
-        solverModule = load_source('solverModule', workflow.Solver)
+        solverModule = m.load_source('solverModule', workflow.Solver)
         try:
             solverSpecificFunction = getattr(solverModule, solverSpecificFunctionName)
         except AttributeError:
             print(f'The function {solverSpecificFunctionName} does not exist for the solver {workflow.Solver}.')
         else:
-            solverSpecificFunction(workflow.tree, *args, **kwargs)
+            solverSpecificFunction(workflow, *args, **kwargs)
 
 
 def WallViscous(workflow, bc):
@@ -88,9 +93,10 @@ def WallInviscid(workflow, bc):
     
 def Farfield(workflow, bc):
     return [bc['Family']], dict() 
-    
 
-def set_boundary_conditions(t, BoundaryConditions, TurboConfiguration,
+
+
+def set_boundary_conditions_OLD(t, BoundaryConditions, TurboConfiguration,
     FluidProperties, ReferenceValues, bladeFamilyNames=['BLADE','AUBE']):
     '''
     Set all BCs defined in the dictionary **BoundaryConditions**.

@@ -22,7 +22,7 @@ import pprint
 
 RED  = '\033[91m'
 GREEN = '\033[92m'
-WARN  = '\033[93m'
+YELLOW = '\033[93m'
 PINK  = '\033[95m'
 CYAN  = '\033[96m'
 BOLD = '\033[1m'
@@ -121,6 +121,52 @@ def writeFileFromModuleObject(settings, filename='.MOLA.py'):
 
     try: os.remove(filename+'c')
     except: pass
+
+def load_source(ModuleName, filename, safe=True):
+    '''
+    Load a python file as a module guaranteeing intercompatibility between
+    different Python versions
+
+    Parameters
+    ----------
+
+        ModuleName : str
+            name to be provided to the new module
+
+        filename : str
+            full or relative path of the file containing the source (moudule)
+            to be loaded
+
+        safe : bool
+            if :py:obj:`True`, then cached files of previously loaded versions
+            are explicitely removed
+
+    Returns
+    -------
+
+        module : module
+            the loaded module
+    '''
+    if safe:
+        current_path_file = filename.split(os.path.sep)[-1]
+        for fn in [filename, current_path_file]:
+            try: os.remove(fn+'c')
+            except: pass
+        try: shutil.rmtree('__pycache__')
+        except: pass
+
+    if sys.version_info[0] == 3 and sys.version_info[1] >= 5:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(ModuleName, filename)
+        LoadedModule = importlib.util.module_from_spec(spec)
+        sys.modules[ModuleName] = LoadedModule
+        spec.loader.exec_module(LoadedModule)
+    elif sys.version_info[0] == 3 and sys.version_info[1] < 5:
+        from importlib.machinery import SourceFileLoader
+        LoadedModule = SourceFileLoader(ModuleName, filename).load_module()
+    else:
+        raise ValueError("Not supporting Python version "+sys.version)
+    return LoadedModule
 
 
 def reload_source(module):
