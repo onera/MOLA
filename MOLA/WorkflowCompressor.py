@@ -1859,7 +1859,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
             elif BCparam['option'] == 'file':
                 print('{}set BC inj1 (from file {}) on {}{}'.format(J.CYAN,
                     BCparam['filename'], BCparam['FamilyName'], J.ENDC))
-                setBC_inj1_interpFromFile(t, ReferenceValues, **BCkwargs)
+                setBC_inj1_interpFromFile(t, FluidProperties, ReferenceValues, **BCkwargs)
 
             elif BCparam['option'] == 'bc':
                 print('set BC inj1 on {}'.format(J.CYAN, BCparam['FamilyName'], J.ENDC))
@@ -2348,7 +2348,7 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs
 
     setBC_inj1(t, FamilyName, ImposedVariables, variableForInterpolation=variableForInterpolation)
 
-def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileformat=None):
+def setBC_inj1_interpFromFile(t, FluidProperties, ReferenceValues, FamilyName, filename, fileformat=None):
     '''
     Set a Boundary Condition ``inj1`` using the field map in the file
     **filename**. It is expected to be a surface with the following variables
@@ -2412,9 +2412,8 @@ def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileform
 
     var2interp = ['PressureStagnation', 'EnthalpyStagnation',
         'VelocityUnitVectorX', 'VelocityUnitVectorY', 'VelocityUnitVectorZ']
-    turbVars = ReferenceValues['FieldsTurbulence']
-    turbVars = [var.replace('Density', '') for var in turbVars]
-    var2interp += turbVars
+    turbDict = getPrimitiveTurbulentFieldForInjection(FluidProperties, ReferenceValues)
+    var2interp += list(turbDict)
 
     donor_tree = C.convertFile2PyTree(filename, format=fileformat)
     inlet_BC_nodes = C.extractBCOfName(t, 'FamilySpecified:{0}'.format(FamilyName))
