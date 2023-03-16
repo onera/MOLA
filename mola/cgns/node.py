@@ -615,18 +615,22 @@ class Node(list):
                 print('WARNING: numpy array being set to node %s is not order="F"'%self.name())
             self[1] = np.atleast_1d(value)
         elif isinstance(value,list) or isinstance(value,tuple):
-            if isinstance(value[0],str):
-                value = np.array(' '.join(value),dtype='c',order='F').ravel()
-            elif isinstance(value[0],float):
-                value = np.array(value,dtype=float,order='F')
-            elif isinstance(value[0],int):
-                value = np.array(value,dtype=np.int32,order='F')
+
+            if len(value) == 0:
+                self[1] = None
             else:
-                MSG = ('could not make a numpy array from an object of type {} '
-                       'with first element of type {}').format(type(value),
-                                                               type(value[0]))
-                raise TypeError(m.RED+MSG+m.ENDC)
-            self[1] = np.atleast_1d(value)
+                if isinstance(value[0],str):
+                    value = np.array(' '.join(value),dtype='c',order='F').ravel()
+                elif isinstance(value[0],float):
+                    value = np.array(value,dtype=float,order='F')
+                elif isinstance(value[0],int):
+                    value = np.array(value,dtype=np.int32,order='F')
+                else:
+                    MSG = ('could not make a numpy array from an object of type {} '
+                        'with first element of type {}').format(type(value),
+                                                                type(value[0]))
+                    raise TypeError(m.RED+MSG+m.ENDC)
+                self[1] = np.atleast_1d(value)
         elif isinstance(value, int) or isinstance(value, bool):
             value = np.array([value],dtype=np.int32,order='F')
             self[1] = np.atleast_1d(value)
@@ -985,15 +989,13 @@ class Node(list):
         def updateParameterOrMakeNewOne(Parent, ParamName, ParamValue=None,
                                                  ParamType=ParameterType):
             paramNode = Parent.get( Name=ParamName, Depth=1 )
+            if callable(ParamValue): ParamValue = None
             if paramNode:
                 paramNode.setValue( ParamValue )
                 paramNode.setType( ParamType )
             else:
-                try:
-                    paramNode = Node(Parent=Parent,Name=ParamName,
-                        Value=ParamValue, Type=ParamType)
-                except:
-                    raise ValueError(f'Name={ParamValue}, Value={ParamValue}')
+                paramNode = Node(Parent=Parent,Name=ParamName,
+                    Value=ParamValue, Type=ParamType)
                 
             return paramNode
 
@@ -1007,9 +1009,12 @@ class Node(list):
                     ContainerType=ContainerType,
                     ParameterType=ParameterType,**parameterValue)
                 
+            elif isinstance(parameterValue, Node):
+                updateParameterOrMakeNewOne(Container, parameterName, None)
+            
             elif isinstance(parameterValue, list):
                 
-                if len(parameterValue)==0 or parameterValue[0] is None:
+                if len(parameterValue)==0 or parameterValue[0] is None or isinstance(parameterValue[0], Node):
                     updateParameterOrMakeNewOne(Container, parameterName, None)
                 
                 elif isinstance(parameterValue[0], dict):

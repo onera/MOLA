@@ -87,9 +87,15 @@ def test_value3():
 
 def test_setParameters(filename=''):
     t = c.Node(Name='main')
+    
+    def f(x,y): return x+y
+    
     t.setParameters('Parameters',
         none=None,
+        Fun=f,
         EmptyList=[],
+        EmptyDict={},
+        EmptyTuple=(),
         NumpyArray=np.array([0,1,2]),
         BooleanList=[True,False,False],
         Boolean=True,
@@ -103,14 +109,25 @@ def test_setParameters(filename=''):
         DictOfDict=dict(SecondDict={'Str':'gazpacho','Int':12}),
         ListOfDict=[{'Str':'pescaito','Int':12},
                     {'Str':'calamares','Int':12},
-                    {'Str':'morcilla','Int':12}]
+                    {'Str':'morcilla','Int':12}],
+        Node=c.Node(Name='n1'),
+        DictOfNode={'a':c.Node(Name='n5'), 'b':c.Node(Name='n6')},
+        ListOfNode=[c.Node(Name='n2'),c.Node(Name='n3'),c.Node(Name='n4')],
         )
+    
     if filename: t.save(filename)
 
 def test_getParameters(filename=''):
     t = c.Node(Name='main')
-    set_params = dict(none=None,
+
+    def f(x,y): return x+y
+
+    set_params = dict(
+        none=None,
+        Fun=f,
         EmptyList=[],
+        EmptyDict={},
+        EmptyTuple=(),
         NumpyArray=np.array([0,1,2]),
         BooleanList=[True,False,False],
         Boolean=True,
@@ -124,26 +141,35 @@ def test_getParameters(filename=''):
         DictOfDict=dict(SecondDict={'Str':'gazpacho','Int':12}),
         ListOfDict=[{'Str':'pescaito','Int':12},
                     {'Str':'calamares','Int':12},
-                    {'Str':'morcilla','Int':12}])
+                    {'Str':'morcilla','Int':12}],
+        Node=c.Node(Name='n1'),
+        DictOfNode={'a':c.Node(Name='n5'), 'b':c.Node(Name='n6')},
+        ListOfNode=[c.Node(Name='n2'),c.Node(Name='n3'),c.Node(Name='n4')],
+        )
 
     expected="{'Boolean': array([1], dtype=int32),\n"
     expected+=" 'BooleanList': array([1, 0, 0], dtype=int32),\n"
     expected+=" 'Dict': {'Int': array([12], dtype=int32), 'Str': 'paella'},\n"
     expected+=" 'DictOfDict': {'SecondDict': {'Int': array([12], dtype=int32),\n"
     expected+="                               'Str': 'gazpacho'}},\n"
+    expected+=" 'DictOfNode': {'a': None, 'b': None},\n"
+    expected+=" 'EmptyDict': None,\n"
     expected+=" 'EmptyList': None,\n"
+    expected+=" 'EmptyTuple': None,\n"
     expected+=" 'Float': array([13.]),\n"
     expected+=" 'FloatList': array([1., 2., 3.]),\n"
+    expected+=" 'Fun': None,\n"
     expected+=" 'Int': array([12], dtype=int32),\n"
     expected+=" 'IntList': array([1, 2, 3, 4], dtype=int32),\n"
     expected+=" 'ListOfDict': [{'Int': array([12], dtype=int32), 'Str': 'pescaito'},\n"
     expected+="                {'Int': array([12], dtype=int32), 'Str': 'calamares'},\n"
     expected+="                {'Int': array([12], dtype=int32), 'Str': 'morcilla'}],\n"
+    expected+=" 'ListOfNode': None,\n"
+    expected+=" 'Node': None,\n"
     expected+=" 'NumpyArray': array([0, 1, 2]),\n"
     expected+=" 'Str': 'jamon',\n"
     expected+=" 'StrList': ['croquetas', 'tortilla'],\n"
     expected+=" 'none': None}"
-
 
     t.setParameters('Parameters', **set_params)
     get_params = t.getParameters('Parameters')

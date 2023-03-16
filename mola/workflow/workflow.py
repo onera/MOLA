@@ -28,12 +28,13 @@ class Workflow(object):
 
             RawMeshComponents=[],
             # RawMeshComponent with:
-            # -> file or tree
             # -> component name
+            # -> file or tree
             # -> mesher type
             # -> family_bc definition
             # -> Overset Options
             # -> Connection
+            # -> Positioning (previously Tranform)
             # -> splitBlocks 
 
             # operations :
@@ -218,7 +219,9 @@ class Workflow(object):
         return
     
     def assemble(self):
-        return
+        self.read_meshes()
+        self.set_workflow_parameters_in_tree()
+
 
     def compute_reference_values(self):
         # mola-generic set of parameters
@@ -248,5 +251,11 @@ class Workflow(object):
     def visu(self):
         pass
 
-
+    def read_meshes(self):
+        for component in self.RawMeshComponents:
+            src = component['Source']
+            if isinstance(src,str):
+                component['Source'] = c.load(src)
+            else:
+                component['Source'] = c.merge(src)
 
