@@ -130,7 +130,15 @@ class Tree(Node):
         self.setUniqueBaseNames()
         self.setUniqueZoneNames()
 
+    def isStructured(self):
+        return all([base.isStructured() for base in self.bases()])
+    
+    def isUnstructured(self):
+        return all([base.isUnstructured() for base in self.bases()])
 
+    def isHybrid(self):
+        return not self.isStructured() and not self.isUnstructured()
+    
     def newFields(self, FieldNames, Container='FlowSolution',
                   GridLocation='auto', dtype=np.float64, return_type='dict',
                   ravel=False):

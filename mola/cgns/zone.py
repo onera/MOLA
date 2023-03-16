@@ -50,6 +50,9 @@ class Zone(Node):
 
     def isStructured(self):
         return self.get('ZoneType',Depth=1).value() == 'Structured'
+    
+    def isUnstructured(self):
+        return self.get('ZoneType',Depth=1).value() == 'Unstructured'
 
     def dim(self):
         if self.isStructured():
