@@ -28,12 +28,13 @@ class Workflow(object):
 
             RawMeshComponents=[],
             # RawMeshComponent with:
-            # -> file or tree
             # -> component name
+            # -> file or tree
             # -> mesher type
             # -> family_bc definition
             # -> Overset Options
             # -> Connection
+            # -> Positioning (previously Tranform)
             # -> splitBlocks 
 
             # operations :
@@ -162,10 +163,11 @@ class Workflow(object):
 
 
     def write_tree(self, filename='main.cgns'):
+        if not self.tree: self.tree = c.Tree()
         self.tree.save(filename)
 
 
-    def read_workflow_parameters_from_tree(self):
+    def get_workflow_parameters_from_tree(self):
         
         if isinstance(self.tree,str): self.tree = c.load(self.tree)
         
@@ -176,6 +178,7 @@ class Workflow(object):
 
 
     def set_workflow_parameters_in_tree(self):
+        if not self.tree: self.tree = c.Tree()
         self.tree.setParameters(self._workflow_parameters_container_,
                         Name=self.Name,
                         RawMeshComponents=self.RawMeshComponents,
@@ -216,7 +219,9 @@ class Workflow(object):
         return
     
     def assemble(self):
-        return
+        self.read_meshes()
+        self.set_workflow_parameters_in_tree()
+
 
     def compute_reference_values(self):
         # mola-generic set of parameters
@@ -249,10 +254,11 @@ class Workflow(object):
     def visu(self):
         pass
 
-def future_test_Workflow():
-
-    workflow = Workflow()
-
-    workflow.prepare()
-    workflow.save_main()
+    def read_meshes(self):
+        for component in self.RawMeshComponents:
+            src = component['Source']
+            if isinstance(src,str):
+                component['Source'] = c.load(src)
+            else:
+                component['Source'] = c.merge(src)
 

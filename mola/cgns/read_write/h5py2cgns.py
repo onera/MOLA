@@ -175,7 +175,7 @@ def extract_value( group ):
     else:
         cgns_dtype = group.attrs['type'].decode(encoding)
 
-    if cgns_dtype == 'C1': return data.tostring().decode(encoding)
+    if cgns_dtype == 'C1': return data.tobytes().decode(encoding)
     
     if len(data.shape) > 1: data = data.T # put in memory as in Fortran
 
@@ -188,8 +188,8 @@ def extract_type( group ):
     return label
 
 def extract_link( group ):
-    file = group[' file'][()].tostring().decode(encoding).replace('\x00','')
-    path = group[' path'][()].tostring().decode(encoding).replace('\x00','')
+    file = group[' file'][()].tobytes().decode(encoding).replace('\x00','')
+    path = group[' path'][()].tobytes().decode(encoding).replace('\x00','')
     link = ['', file, path, path, 5]
     
     return link

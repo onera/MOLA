@@ -615,18 +615,22 @@ class Node(list):
                 print('WARNING: numpy array being set to node %s is not order="F"'%self.name())
             self[1] = np.atleast_1d(value)
         elif isinstance(value,list) or isinstance(value,tuple):
-            if isinstance(value[0],str):
-                value = np.array(' '.join(value),dtype='c',order='F').ravel()
-            elif isinstance(value[0],float):
-                value = np.array(value,dtype=float,order='F')
-            elif isinstance(value[0],int):
-                value = np.array(value,dtype=np.int32,order='F')
+
+            if len(value) == 0:
+                self[1] = None
             else:
-                MSG = ('could not make a numpy array from an object of type {} '
-                       'with first element of type {}').format(type(value),
-                                                               type(value[0]))
-                raise TypeError(m.RED+MSG+m.ENDC)
-            self[1] = np.atleast_1d(value)
+                if isinstance(value[0],str):
+                    value = np.array(' '.join(value),dtype='c',order='F').ravel()
+                elif isinstance(value[0],float):
+                    value = np.array(value,dtype=float,order='F')
+                elif isinstance(value[0],int):
+                    value = np.array(value,dtype=np.int32,order='F')
+                else:
+                    MSG = ('could not make a numpy array from an object of type {} '
+                        'with first element of type {}').format(type(value),
+                                                                type(value[0]))
+                    raise TypeError(m.RED+MSG+m.ENDC)
+                self[1] = np.atleast_1d(value)
         elif isinstance(value, int) or isinstance(value, bool):
             value = np.array([value],dtype=np.int32,order='F')
             self[1] = np.atleast_1d(value)
@@ -982,37 +986,80 @@ class Node(list):
     def setParameters(self, ContainerName, ContainerType='UserDefinedData_t',
                       ParameterType='DataArray_t', **parameters):
 
-        Container = self.get( Name=ContainerName, Depth=1 )
-        if not Container:
-            Container = Node(Parent=self, Name=ContainerName, Type=ContainerType)
+        def updateParameterOrMakeNewOne(Parent, ParamName, ParamValue=None,
+                                                 ParamType=ParameterType):
+            paramNode = Parent.get( Name=ParamName, Depth=1 )
+            if callable(ParamValue): ParamValue = None
+            if paramNode:
+                paramNode.setValue( ParamValue )
+                paramNode.setType( ParamType )
+            else:
+                paramNode = Node(Parent=Parent,Name=ParamName,
+                    Value=ParamValue, Type=ParamType)
+                
+            return paramNode
+
+        Container = updateParameterOrMakeNewOne(self, ContainerName, None, ContainerType)
+
         for parameterName in parameters:
             parameterValue = parameters[parameterName]
+
             if isinstance(parameterValue, dict):
                 Container.setParameters(parameterName,
                     ContainerType=ContainerType,
                     ParameterType=ParameterType,**parameterValue)
-            else:
-                paramNode = Container.get( Name=parameterName )
-                if paramNode:
-                    paramNode.setValue( parameterValue )
-                    paramNode.setType( ParameterType )
+                
+            elif isinstance(parameterValue, Node):
+                updateParameterOrMakeNewOne(Container, parameterName, None)
+            
+            elif isinstance(parameterValue, list):
+                
+                if len(parameterValue)==0 or parameterValue[0] is None or isinstance(parameterValue[0], Node):
+                    updateParameterOrMakeNewOne(Container, parameterName, None)
+                
+                elif isinstance(parameterValue[0], dict):
+                    ListContainer = updateParameterOrMakeNewOne(Container, parameterName)
+                    for i, pv in enumerate(parameterValue):
+                        if not isinstance(pv, dict):
+                            raise ValueError(f'expected dict at {self.path()}/{parameterName}')
+
+                        ListContainer.setParameters(f'_list_.{i}',
+                            ContainerType=ContainerType,
+                            ParameterType=ParameterType,**pv)
+
                 else:
-                    Node(Parent=Container,Name=parameterName,
-                         Value=parameterValue,Type=ParameterType)
+                    updateParameterOrMakeNewOne(Container, parameterName, parameterValue)
+
+            else:
+                updateParameterOrMakeNewOne(Container, parameterName, parameterValue)
 
         return self.getParameters( ContainerName )
 
     def getParameters(self, ContainerName):
         Container = self.get( Name=ContainerName, Depth=1 )
-        Params = dict()
+        ParamsDict = dict()
+        ParamsList = []
         if Container is None:
-            raise ValueError('node %s not found in %s'%(ContainerName,self.path()))
+            raise ValueError(f'node {ContainerName} not found in {self.path()}')
 
         for param in Container.children():
-            if param.children():
-                Params[param.name()] = Container.getParameters(param.name())
+            if param.name().startswith('_list_'):
+                ParamsList += [ Container.getParameters(param.name()) ]
             else:
-                Params[param.name()] = param.value()
+                if param.children():
+                    ParamsDict[param.name()] = Container.getParameters(param.name())
+                else:
+                    ParamsDict[param.name()] = param.value()
+
+        if ParamsDict and not ParamsList:
+            Params = ParamsDict
+        elif ParamsList and not ParamsDict:
+            Params = ParamsList
+        elif bool(ParamsList) and bool(ParamsDict):
+            ParamsList += [ ParamsDict ]
+            Params = ParamsList
+        else:
+            Params = dict()
 
         return Params
 
