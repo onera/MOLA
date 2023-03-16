@@ -15,10 +15,15 @@
 #    You should have received a copy of the GNU General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import numpy as np
+
 import Converter.PyTree as C
 import Converter.Internal as I
 
-def walladia(t, Family, Motion=None):
+import mola.cgns as c
+
+
+def walladia(workflow, Family, Motion=None):
     '''
     Set a viscous wall boundary condition.
 
@@ -27,8 +32,7 @@ def walladia(t, Family, Motion=None):
     Parameters
     ----------
 
-        t : PyTree
-            Tree to modify
+        workflow : Workflow object
 
         Family : str
             Name of the family on which the boundary condition will be imposed
@@ -44,10 +48,11 @@ def walladia(t, Family, Motion=None):
                     )
 
     '''
-    wall = I.getNodeFromNameAndType(t, Family, 'Family_t')
+    wall = I.getNodeFromNameAndType(workflow.tree, Family, 'Family_t')
     I._rmNodesByName(wall, '.Solver#BC')
     I._rmNodesByType(wall, 'FamilyBC_t')
     I.newFamilyBC(value='BCWallViscous', parent=wall)
+    c.castNode(wall)
 
     if Motion:
         # For elsA, the rotation must be around one axis only
@@ -60,18 +65,19 @@ def walladia(t, Family, Motion=None):
         omega = sum(Motion['RotationSpeed'])
 
         if omega != 0. or any(Motion['TranslationSpeed']!=0.):
-            J.set(wall, '.Solver#BC',
-                    type='walladia',
-                    data_frame='user',
-                    omega=omega,
-                    axis_pnt_x=Motion['RotationAxisOrigin'][0], 
-                    axis_pnt_y=Motion['RotationAxisOrigin'][1], 
-                    axis_pnt_z=Motion['RotationAxisOrigin'][2],
-                    axis_vct_x=Motion['TranslationSpeed'][0], 
-                    axis_vct_y=Motion['TranslationSpeed'][1], 
-                    axis_vct_z=Motion['TranslationSpeed'][2])
+            wall.setParameters('.Solver#BC',
+                                type='walladia',
+                                data_frame='user',
+                                omega=omega,
+                                axis_pnt_x=Motion['RotationAxisOrigin'][0], 
+                                axis_pnt_y=Motion['RotationAxisOrigin'][1], 
+                                axis_pnt_z=Motion['RotationAxisOrigin'][2],
+                                axis_vct_x=Motion['TranslationSpeed'][0], 
+                                axis_vct_y=Motion['TranslationSpeed'][1], 
+                                axis_vct_z=Motion['TranslationSpeed'][2]
+                                )
 
-def wallslip(t, Family):
+def wallslip(workflow, Family):
     '''
     Set an inviscid wall boundary condition.
 
@@ -80,38 +86,40 @@ def wallslip(t, Family):
     Parameters
     ----------
 
-        t : PyTree
+        workflow.tree : PyTree
             Tree to modify
 
         Family : str
             Name of the family on which the boundary condition will be imposed
 
     '''
-    wall = I.getNodeFromNameAndType(t, Family, 'Family_t')
+    wall = I.getNodeFromNameAndType(workflow.tree, Family, 'Family_t')
     I._rmNodesByName(wall, '.Solver#BC')
     I._rmNodesByType(wall, 'FamilyBC_t')
     I.newFamilyBC(value='BCWallInviscid', parent=wall)
+    c.castNode(wall)
 
-def nref(t, Family):
+def nref(workflow, Family):
     '''
     Set a nref boundary condition.
 
     Parameters
     ----------
 
-        t : PyTree
+        workflow.tree : PyTree
             Tree to modify
 
         Family : str
             Name of the family on which the boundary condition will be imposed
 
     '''
-    farfield = I.getNodeFromNameAndType(t, Family, 'Family_t')
+    farfield = I.getNodeFromNameAndType(workflow.tree, Family, 'Family_t')
     I._rmNodesByName(farfield, '.Solver#BC')
     I._rmNodesByType(farfield, 'FamilyBC_t')
     I.newFamilyBC(value='BCFarfield', parent=farfield)
+    c.castNode(farfield)
 
-def inj1(t, Family, ImposedVariables, bc=None, variableForInterpolation='ChannelHeight'):
+def inj1(workflow, Family, ImposedVariables, bc=None, variableForInterpolation='ChannelHeight'):
     '''
     Generic function to impose a Boundary Condition ``inj1``. The following
     functions are more specific:
@@ -126,7 +134,7 @@ def inj1(t, Family, ImposedVariables, bc=None, variableForInterpolation='Channel
     Parameters
     ----------
 
-        t : PyTree
+        workflow.tree : PyTree
             Tree to modify
 
         Family : str
@@ -158,16 +166,16 @@ def inj1(t, Family, ImposedVariables, bc=None, variableForInterpolation='Channel
     setBC_inj1_uniform, setBC_inj1_interpFromFile
     '''
     if not bc and not all([np.ndim(v)==0 and not callable(v) for v in ImposedVariables.values()]):
-        for bc in C.getFamilyBCs(t, Family):
-            setBCwithImposedVariables(t, Family, ImposedVariables,
+        for bc in C.getFamilyBCs(workflow.tree, Family):
+            setBCwithImposedVariables(workflow.tree, Family, ImposedVariables,
                 FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc, variableForInterpolation=variableForInterpolation)
     else:
-        setBCwithImposedVariables(t, Family, ImposedVariables,
+        setBCwithImposedVariables(workflow.tree, Family, ImposedVariables,
             FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc, variableForInterpolation=variableForInterpolation)
 
 
 
-def setBCwithImposedVariables(t, Family, ImposedVariables, FamilyBC, BCType,
+def setBCwithImposedVariables(workflow, Family, ImposedVariables, FamilyBC, BCType,
     bc=None, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData', variableForInterpolation='ChannelHeight'):
     '''
     Generic function to impose a Boundary Condition ``inj1``. The following
@@ -176,7 +184,7 @@ def setBCwithImposedVariables(t, Family, ImposedVariables, FamilyBC, BCType,
     Parameters
     ----------
 
-        t : PyTree
+        workflow.tree : PyTree
             Tree to modify
 
         Family : str
@@ -222,7 +230,7 @@ def setBCwithImposedVariables(t, Family, ImposedVariables, FamilyBC, BCType,
     setBC_inj1, setBC_outpres, setBC_outmfr2
 
     '''
-    FamilyNode = I.getNodeFromNameAndType(t, Family, 'Family_t')
+    FamilyNode = I.getNodeFromNameAndType(workflow.tree, Family, 'Family_t')
     I._rmNodesByName(FamilyNode, '.Solver#BC')
     I._rmNodesByType(FamilyNode, 'FamilyBC_t')
     I.newFamilyBC(value=FamilyBC, parent=FamilyNode)
@@ -235,7 +243,7 @@ def setBCwithImposedVariables(t, Family, ImposedVariables, FamilyBC, BCType,
         assert bc is not None
         J.set(bc, '.Solver#BC', type=BCType)
 
-        zone = I.getParentFromType(t, bc, 'Zone_t') 
+        zone = I.getParentFromType(workflow.tree, bc, 'Zone_t') 
         if variableForInterpolation in ['Radius', 'radius']:
             radius, theta = J.getRadiusTheta(zone)
         elif variableForInterpolation == 'ChannelHeight':
@@ -266,7 +274,7 @@ def setBCwithImposedVariables(t, Family, ImposedVariables, FamilyBC, BCType,
                                 PointRange[1, 0]-1:PointRange[1, 1]-1,
                                 PointRange[2, 0]-1]
             else:
-                raise ValueError('Wrong BC shape {} in {}'.format(bc_shape, I.getPath(t, bc)))
+                raise ValueError('Wrong BC shape {} in {}'.format(bc_shape, I.getPath(workflow.tree, bc)))
         
         else: 
             # Unstructured mesh
@@ -282,7 +290,7 @@ def setBCwithImposedVariables(t, Family, ImposedVariables, FamilyBC, BCType,
                 ImposedVariables[var] = value * np.ones(radius.shape)
             assert ImposedVariables[var].shape == bc_shape, \
                 'Wrong shape for variable {}: {} (shape {} for {})'.format(
-                    var, ImposedVariables[var].shape, bc_shape, I.getPath(t, bc))
+                    var, ImposedVariables[var].shape, bc_shape, I.getPath(workflow.tree, bc))
         
         checkVariables(ImposedVariables)
 

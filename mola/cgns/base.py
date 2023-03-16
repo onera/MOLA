@@ -57,6 +57,15 @@ class Base(Node):
     def setPhysicalDimension(self, PhysicalDimension):
         self.value()[0] = PhysicalDimension
 
+    def isStructured(self):
+        return all([zone.isStructured() for zone in self.zones()])
+    
+    def isUnstructured(self):
+        return all([zone.isUnstructured() for zone in self.zones()])
+
+    def isHybrid(self):
+        return not self.isStructured() and not self.isUnstructured()
+    
     def newFields(self, FieldNames, Container='FlowSolution',
                   GridLocation='auto', dtype=np.float64, return_type='dict',
                   ravel=False):
