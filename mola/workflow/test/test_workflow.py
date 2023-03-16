@@ -1,5 +1,6 @@
 import os
 from mola.workflow.workflow import Workflow
+import mola.cgns as c
 
 def test_init():
     w = Workflow()
@@ -25,10 +26,9 @@ def test_get_workflow_parameters_from_tree(filename=''):
 
 def test_assemble():
     import Generator.PyTree as G
-    import Transform.PyTree as T
 
     mesh = G.cart((0,0,0),(1,1,1),(9,9,9))
-
+    mesh = c.castNode(mesh)
     w = Workflow(
         RawMeshComponents=[
             dict(
@@ -73,4 +73,4 @@ def test_assemble():
         ]
         )
     w.assemble()
-    w.write_tree()
+
