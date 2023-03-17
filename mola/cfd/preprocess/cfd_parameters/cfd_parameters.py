@@ -15,17 +15,16 @@
 #    You should have received a copy of the GNU General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import misc as m
+from mola import misc
 
 
-def set_cfd_parameters(workflow):
-
-    workflow.SolverParameters = dict()
+def apply(workflow):
     
     set_modelling_parameters(workflow)
     set_numerical_parameters(workflow)
 
-    solverModule = m.load_source('solverModule', workflow.Solver)
+    workflow.SolverParameters = dict()
+    solverModule = misc.load_source('solverModule', workflow.Solver)
     solverModule.adapt_to_solver(workflow)
 
 
@@ -38,4 +37,30 @@ def set_modelling_parameters(workflow):
 
 
 def set_numerical_parameters(workflow):
-    pass
+
+    workflow.Numerics.setdefault('IterationAtInitialState', 1)
+    workflow.Numerics.setdefault('TimeAtInitialState', 0.)
+
+    # Time marching
+    if workflow.Numerics['TimeMarching'] != 'Steady':
+        assert workflow.Numerics['TimeStep'] is not None, misc.RED+f'TimeStep must be defined to perform a simulation with TimeMarching={workflow.Numerics["TimeMarching"]}'+misc.ENDC
+
+        workflow.Numerics.setdefault('TimeMarchingOrder', 2)
+
+    # CFL
+    if workflow.Numerics['CFL'] is None:
+        print(misc.RED+'CFL is not defined. Please give a value or function in Workflow.Numerics'+misc.ENDC)     
+    elif isinstance(workflow.Numerics['CFL'], float):
+        pass
+    elif isinstance(workflow.Numerics['CFL'], int):
+        workflow.Numerics['CFL'] = float(workflow.Numerics['CFL'])
+    elif dict(workflow.Numerics['CFL']):
+        workflow.Numerics['CFL'].setdefault('StartIteration', workflow.Numerics['IterationAtInitialState'])
+        mandatoryKeys = ['EndIteration', 'StartValue', 'EndValue']
+        ERROR = f'If CFL is a dict, it must contains at least {", ".join(mandatoryKeys)}. \
+You may also define StartIteration, otherwise it will be equal to IterationAtInitialState (1 by default).'
+        assert all([(key in workflow.Numerics['CFL']) for key in mandatoryKeys]), \
+            misc.RED + ERROR + misc.ENDC
+    else:
+        print(misc.RED+'CFL must be a scalar or a dict'+misc.ENDC)
+

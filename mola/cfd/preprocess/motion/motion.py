@@ -15,10 +15,9 @@
 #    You should have received a copy of the GNU General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import misc as m
+from mola import misc
 
-
-def set_motion(workflow):
+def apply(workflow):
     '''
     Set Motion for each families
     '''
@@ -26,10 +25,10 @@ def set_motion(workflow):
 
         RotationSpeed = MotionOnFamily.setdefault('RotationSpeed', [0., 0., 0.])
         if isinstance(RotationSpeed, (int, float)):
-            print(f'No rotation axis for motion on {family}: set to x-axis by default.')
+            print(misc.RED+f'No rotation axis for motion on {family}: set to x-axis by default.'+misc.ENDC)
             MotionOnFamily['RotationSpeed'] = [RotationSpeed, 0., 0.]
         MotionOnFamily.setdefault('RotationAxisOrigin', [0., 0., 0.])
         MotionOnFamily.setdefault('TranslationSpeed', [0., 0., 0.])
 
-    solverModule = m.load_source('solverModule', workflow.Solver)
+    solverModule = misc.load_source('solverModule', workflow.Solver)
     solverModule.adapt_to_solver(workflow)

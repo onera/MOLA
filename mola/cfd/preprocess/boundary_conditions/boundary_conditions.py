@@ -15,8 +15,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import mola.cgns as c
-import mola.misc as m
+from mola import (misc, cgns)
 
 BoundaryConditionsNames = dict(
     Farfield                     = dict(elsa='nref'),
@@ -41,7 +40,7 @@ BoundaryConditionsNames.update(
 )
 
 
-def set_boundary_conditions(workflow):
+def apply(workflow):
     '''
     Set all boundary conditions for **workflow**.
     It transforms the tree attribute of the **workflow**.
@@ -64,11 +63,11 @@ def set_boundary_conditions(workflow):
             solverSpecificFunctionName = bcName
             args, kwargs = bc['args'], bc['kwargs']
 
-        solverModule = m.load_source('solverModule', workflow.Solver)
+        solverModule = misc.load_source('solverModule', workflow.Solver)
         try:
             solverSpecificFunction = getattr(solverModule, solverSpecificFunctionName)
         except AttributeError:
-            print(f'The function {solverSpecificFunctionName} does not exist for the solver {workflow.Solver}.')
+            print(misc.RED+f'The function {solverSpecificFunctionName} does not exist for the solver {workflow.Solver}.'+misc.ENDC)
         else:
             solverSpecificFunction(workflow, *args, **kwargs)
 

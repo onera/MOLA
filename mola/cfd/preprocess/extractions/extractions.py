@@ -15,4 +15,31 @@
 #    You should have received a copy of the GNU General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from .motion import apply
+from mola import misc
+
+
+def apply(workflow):
+
+    process_extractions_3d(workflow)
+    process_extractions_2d(workflow)
+
+    workflow.SolverParameters = dict()
+    solverModule = misc.load_source('solverModule', workflow.Solver)
+    solverModule.adapt_to_solver(workflow)
+
+
+def process_extractions_3d(workflow):
+    '''
+    Process 3D extractions. 
+    The conservatives quantities are unconditionnally extracted, plus all the 
+    quantities 
+    '''
+
+    # TODO Check the name 
+    workflow.Extractions.insert(0, dict(type='3D', fields=workflow.Flow['Conservatives']))
+
+
+def process_extractions_2d(workflow):
+    pass
+    
+    

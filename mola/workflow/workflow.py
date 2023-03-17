@@ -92,7 +92,7 @@ class Workflow(object):
             #          Period=10)
             #     dict(type='probe', name='probe1', fields=['std-Pressure'], Period=5)
             #     dict(type='probe', name='probe2', fields=['std-Density'], Period=5)
-            #     dict(type='3D', fields=['Mach', 'q_criterion']),
+            #     dict(type='3D', fields=['Mach', 'q_criterion'], Family='ROW1'),
             #     dict(type='bc', BCType='BCWall*', storage='ByFamily',
             #          fields=['normalvector', 'frictionvector'])
             #     dict(type='bc', BCType='*', storage='ByFamily',
@@ -160,6 +160,15 @@ class Workflow(object):
             self.ConvergenceCriteria=ConvergenceCriteria
             self.Monitoring=Monitoring
             self.RunManagement=RunManagement
+
+            self.Extractions.append(
+                dict(
+                    type='bc', 
+                    BCType='BCWall*', 
+                    fields=['Pressure', 'BoundaryLayer', 'NormalVector', 'Friction', 'yPlus', 
+                            'MomentumFlux', 'TorqueFlux']
+                )
+            )
 
 
     def write_tree(self, filename='main.cgns'):
