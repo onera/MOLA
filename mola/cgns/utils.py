@@ -782,7 +782,7 @@ def newZoneFromArrays(Name, ArraysNames, Arrays):
             Node(Name=name, Value=numpyarray, Type='DataArray_t', Parent=Fields)
 
     if Coordinates.hasChildren(): zone.addChild( Coordinates )
-    if Fields.hasChildren: zone.addChild( Fields )
+    if Fields.hasChildren(): zone.addChild( Fields )
 
     return zone
 
