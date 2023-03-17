@@ -25,6 +25,7 @@ import numpy as np
 import re
 from .. import misc as m
 from .node import Node
+from . import utils
 
 
 class Zone(Node):
@@ -44,7 +45,7 @@ class Zone(Node):
         if self.name() == 'Node': self.setName( 'Zone' )
 
     def save(self,*args,**kwargs):
-        from .Tree import Tree
+        from .tree import Tree
         t = Tree(Base=self)
         t.save(*args,**kwargs)
 
@@ -88,7 +89,7 @@ class Zone(Node):
             raise ValueError(m.RED+MSG+m.ENDC)
 
         if isinstance(InputFields,str):
-            InputFields = dict(InputFields=0)
+            InputFields = {InputFields:0}
         elif isinstance(InputFields, list):
             InputFields = dict((key, 0) for key in InputFields)
         elif not isinstance(InputFields, dict):
@@ -221,8 +222,12 @@ class Zone(Node):
     def allFields(self,include_coordinates=True,return_type='dict',ravel=False,
                   appendContainerToFieldName=False):
 
-        arrays = self.xyz(ravel=ravel)
-        FieldsNames = ['CoordinateX','CoordinateY','CoordinateZ']
+        if include_coordinates:
+            arrays = self.xyz(ravel=ravel)
+            FieldsNames = ['CoordinateX','CoordinateY','CoordinateZ']
+        else:
+            arrays = []
+            FieldsNames = []
         AllFlowSolutionNodes = self.group(Type='FlowSolution_t',Depth=1)
         NbOfContainers = len(AllFlowSolutionNodes)
         if NbOfContainers > 1 and not appendContainerToFieldName and return_type=='dict':
@@ -326,3 +331,109 @@ class Zone(Node):
 
     def hasFields(self):
         return bool( self.get( Type='FlowSolution_t', Depth=1 ) )
+
+
+    def boundary(self, index='i', bound='min'):
+        if not self.isStructured(): 
+            raise ValueError(f'boundary only meaningful for structured zone')
+
+        x, y, z, containers, fieldnames, fields = self._xyz_containers_fieldsnames_fields()
+
+        if bound == 'min':
+            bnd = 0
+        elif bound == 'max':
+            bnd = -1
+        else:
+            raise ValueError(f'bound {bound} not implemented. Must be "min" or "max"')
+
+        if index == 'i':
+            if self.dim() == 3:
+                x = x[bnd,:,:]
+                y = y[bnd,:,:]
+                z = z[bnd,:,:]
+                for i, f in enumerate(fields[:]):
+                    fields[i] = f[bnd,:,:]
+            elif self.dim() == 2:
+                x = x[bnd,:]
+                y = y[bnd,:]
+                z = z[bnd,:]
+                for i, f in enumerate(fields[:]):
+                    fields[i] = f[bnd,:]
+            else:
+                x = np.atleast_1d(x[bnd])
+                y = np.atleast_1d(y[bnd])
+                z = np.atleast_1d(z[bnd])
+                for i, f in enumerate(fields[:]):
+                    fields[i] = np.atleast_1d(f[bnd])
+
+        elif index == 'j':
+            if self.dim() == 3:
+                x = x[:,bnd,:]
+                y = y[:,bnd,:]
+                z = z[:,bnd,:]
+                for i, f in enumerate(fields[:]):
+                    fields[i] = f[:,bnd,:]
+            elif self.dim() == 2:
+                x = x[:,bnd]
+                y = y[:,bnd]
+                z = z[:,bnd]
+                for i, f in enumerate(fields[:]):
+                    fields[i] = f[:,bnd]
+            else:
+                raise ValueError(f'cannot extract {index+bound} from 1D zone')
+
+        elif index == 'k':
+            if self.dim() == 3:
+                x = x[:,:,bnd]
+                y = y[:,:,bnd]
+                z = z[:,:,bnd]
+                for i, f in enumerate(fields[:]):
+                    fields[i] = f[:,:,bnd]
+            else:
+                raise ValueError(f'cannot extract {index+bound} from f{self.dim()}D zone')
+
+        zone = utils.newZoneFromArrays(self.name()+'_imin',
+                    ['x','y','z'], [x,y,z])
+        contDict = dict()
+        if len(containers) == 0: return zone
+
+        for container, fieldname, field in zip(containers, fieldnames, fields):
+            try:
+                contDict[container][fieldname] = field 
+            except KeyError:
+                contDict[container] = {fieldname:field}
+
+        for container, fieldname in contDict.items():
+            zone.setParameters(container, ContainerType='FlowSolution_t',
+                **contDict[container])
+
+        return zone
+
+
+    def imin(self): return self.boundary('i','min')
+
+    def imax(self): return self.boundary('i','max')
+
+    def jmin(self): return self.boundary('j','min')
+
+    def jmax(self): return self.boundary('j','max')
+
+    def kmin(self): return self.boundary('k','min')
+
+    def kmax(self): return self.boundary('k','max')
+
+
+    def _xyz_containers_fieldsnames_fields(self):
+        x,y,z = self.xyz()
+        allfields = self.allFields(include_coordinates=False,
+                                appendContainerToFieldName=True)
+        containers, fieldnames, fields = [], [], []
+        for name, field in allfields.items():
+            container, fieldname = name.split('/')
+            containers += [container]
+            fieldnames += [fieldname]
+            fields += [field]
+
+        return x, y, z, containers, fieldnames, fields
+
+
