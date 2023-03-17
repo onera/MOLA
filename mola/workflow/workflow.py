@@ -19,8 +19,9 @@ import os
 from ..cfd import preprocess as PRE
 from ..application import external_flow as ExtFlow
 from .. import cgns as c
-
-
+from  mola.cfd.preprocess.mesh import (positioning,
+                                       connect,
+                                       families)
 
 class Workflow(object):
 
@@ -179,31 +180,22 @@ class Workflow(object):
 
     def set_workflow_parameters_in_tree(self):
         if not self.tree: self.tree = c.Tree()
-        self.tree.setParameters(self._workflow_parameters_container_,
-                        Name=self.Name,
-                        RawMeshComponents=self.RawMeshComponents,
-                        Fluid=self.Fluid,
-                        Flow=self.Flow,
-                        Turbulence=self.Turbulence,
-                        BoundaryConditions=self.BoundaryConditions,
-                        Solver=self.Solver,
-                        Splitter=self.Splitter,
-                        Numerics=self.Numerics,
-                        BodyForceModeling=self.BodyForceModeling,
-                        Motion=self.Motion,
-                        Initialization=self.Initialization,
-                        ExtractionsDefaults=self.ExtractionsDefaults,
-                        Extractions=self.Extractions,
-                        ConvergenceCriteria=self.ConvergenceCriteria,
-                        Monitoring=self.Monitoring,
-                        RunManagement=self.RunManagement)
 
+        params= dict()
+        for a in list(self.__dict__):
+            if not a.startswith('_') and a != 'tree':
+                att = getattr(self,a)
+                if not callable(att):
+                    params[a] = att
+
+        self.tree.setParameters(self._workflow_parameters_container_,
+                                **params)
             
     def prepare(self):
         self.assemble()
         self.positioning()
         self.connect()
-        self.define_bc_families() # will include "addFamilies"
+        self.define_families()
         self.split_and_distribute()
         self.process_overset()
         self.compute_reference_values()
@@ -224,8 +216,13 @@ class Workflow(object):
         self.set_workflow_parameters_in_tree()
 
     def positioning(self):
+        positioning.apply(self)
 
+    def connect(self):
+        connect.apply(self)
 
+    def define_families(self):
+        families.apply(self)
 
     def read_meshes(self):
         meshes = []
@@ -244,6 +241,7 @@ class Workflow(object):
             base.setName( component['Name'] )
             meshes += [base]
         self.tree = c.merge(meshes)
+
 
     def clean_mesh(self):
         ... # TODO include AutoGrid cleanining and other macros
@@ -279,3 +277,13 @@ class Workflow(object):
     def visu(self):
         pass
 
+    def get_component(self, base_name):
+        for component in self.RawMeshComponents:
+            if component['Name']==base_name:
+                return component
+
+    def has_overset_component(self):
+        for component in self.RawMeshComponents:
+            if component['OversetOptions']:
+                return True
+        return False
