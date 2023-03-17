@@ -15,13 +15,13 @@
 #    You should have received a copy of the GNU General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import mola.misc as m 
+from mola import misc
 
 import Converter.PyTree as C
 import Converter.Internal as I
 
 
-def initialize_flow(workflow):
+def apply(workflow):
     '''
     Initialize the flow solution.
 
@@ -33,27 +33,27 @@ def initialize_flow(workflow):
     if workflow.Initialization['method'] is None:
         pass
     elif workflow.Initialization['method'] == 'uniform':
-        print(m.CYAN + 'Initialize FlowSolution with uniform reference values' + m.ENDC)
+        print(misc.CYAN + 'Initialize FlowSolution with uniform reference values' + misc.ENDC)
         workflow.tree.newFields(workflow.Flow['Fields'], Container='FlowSolution#Init')
 
     elif workflow.Initialization['method'] == 'interpolate':
-        print(m.CYAN + 'Initialize FlowSolution by interpolation from {}'.format(workflow.Initialization['file']) + m.ENDC)
+        print(misc.CYAN + 'Initialize FlowSolution by interpolation from {}'.format(workflow.Initialization['file']) + misc.ENDC)
         initialize_flow_from_file_by_interpolation(workflow)
         
     elif workflow.Initialization['method'] == 'copy':
-        print(m.CYAN + 'Initialize FlowSolution by copy of {}'.format(workflow.Initialization['file']) + m.ENDC)
+        print(misc.CYAN + 'Initialize FlowSolution by copy of {}'.format(workflow.Initialization['file']) + misc.ENDC)
         if not 'keepTurbulentDistance' in workflow.Initialization:
             workflow.Initialization['keepTurbulentDistance'] = False
         initialize_flow_from_file_by_copy(workflow)
     else:
-        raise Exception(m.FAIL+'The key "method" of the dictionary workflow.Initialization is mandatory'+m.ENDC)
+        raise Exception(misc.RED+'The key "method" of the dictionary workflow.Initialization is mandatory'+misc.ENDC)
 
     for zone in workflow.tree.getZones():
         if not zone.get(Name='FlowSolution#Init', Type='FlowSolution', Depth=1):
             MSG = 'FlowSolution#Init is missing in zone {}'.format(zone.name)
-            raise ValueError(m.FAIL + MSG + m.ENDC)
+            raise ValueError(misc.RED + MSG + misc.ENDC)
         
-    solverModule = m.load_source('solverModule', workflow.Solver)
+    solverModule = misc.load_source('solverModule', workflow.Solver)
     solverModule.adapt_to_solver(workflow)
 
 
@@ -149,7 +149,7 @@ def initialize_flow_from_file_by_copy(t, ReferenceValues, sourceFilename,
                 I._append(t, FlowSolutionInSourceTree, zonepath)
             else:
                 ERROR_MSG = 'The node {} is not found in {}'.format(FSpath, sourceFilename)
-                raise Exception(m.FAIL+ERROR_MSG+m.ENDC)
+                raise Exception(misc.RED+ERROR_MSG+misc.ENDC)
 
     if container != 'FlowSolution#Init':
         I.renameNode(t, container, 'FlowSolution#Init')

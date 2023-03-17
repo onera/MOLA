@@ -20,8 +20,7 @@ import numpy as np
 import Converter.PyTree as C
 import Converter.Internal as I
 
-import mola.cgns as c
-
+from mola import cgns
 
 def walladia(workflow, Family, Motion=None):
     '''
@@ -52,7 +51,7 @@ def walladia(workflow, Family, Motion=None):
     I._rmNodesByName(wall, '.Solver#BC')
     I._rmNodesByType(wall, 'FamilyBC_t')
     I.newFamilyBC(value='BCWallViscous', parent=wall)
-    c.castNode(wall)
+    cgns.castNode(wall)
 
     if Motion:
         # For elsA, the rotation must be around one axis only
@@ -97,7 +96,7 @@ def wallslip(workflow, Family):
     I._rmNodesByName(wall, '.Solver#BC')
     I._rmNodesByType(wall, 'FamilyBC_t')
     I.newFamilyBC(value='BCWallInviscid', parent=wall)
-    c.castNode(wall)
+    cgns.castNode(wall)
 
 def nref(workflow, Family):
     '''
@@ -117,7 +116,7 @@ def nref(workflow, Family):
     I._rmNodesByName(farfield, '.Solver#BC')
     I._rmNodesByType(farfield, 'FamilyBC_t')
     I.newFamilyBC(value='BCFarfield', parent=farfield)
-    c.castNode(farfield)
+    cgns.castNode(farfield)
 
 def inj1(workflow, Family, ImposedVariables, bc=None, variableForInterpolation='ChannelHeight'):
     '''
@@ -340,82 +339,53 @@ def checkVariables(ImposedVariables):
         elif var in unitVectorComponent and not unitComponent(value):
             raise ValueError('{} must be between -1 and +1, but here it is equal to {}'.format(var, value))
 
-def translateVariablesFromCGNS2Elsa(Variables):
+def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
     '''
-    Translate names in **Variables** from CGNS standards to elsA names for
-    boundary conditions.
+    Get the *BCType* of BCs defined by a given family BC name.
 
     Parameters
     ----------
 
-        Variables : :py:class:`dict` or :py:class:`list` or :py:class:`str`
-            Could be eiter:
+        t : PyTree
+            main CGNS tree
 
-                * a :py:class:`dict` with keys corresponding to variables names
-
-                * a :py:class:`list` of variables names
-
-                * a :py:class:`str` as a single variable name
+        FamilyBCName : str
+            requested name of the *FamilyBC*
 
     Returns
     -------
 
-        NewVariables : :py:class:`dict` or :py:class:`list` or :py:class:`str`
-            Depending on the input type, return the same object with variable
-            names translated to elsA standards.
-
+        BCType : str
+            the resulting *BCType*. Returns:py:obj:`None` if **FamilyBCName** is not
+            found
     '''
-    CGNS2ElsaDict = dict(
-        PressureStagnation       = 'stagnation_pressure',
-        EnthalpyStagnation       = 'stagnation_enthalpy',
-        TemperatureStagnation    = 'stagnation_temperature',
-        Pressure                 = 'pressure',
-        MassFlow                 = 'globalmassflow',
-        SurfacicMassFlow         = 'surf_massflow',
-        VelocityUnitVectorX      = 'txv',
-        VelocityUnitVectorY      = 'tyv',
-        VelocityUnitVectorZ      = 'tzv',
-        TurbulentSANuTilde       = 'inj_tur1',
-        TurbulentEnergyKinetic   = 'inj_tur1',
-        TurbulentDissipationRate = 'inj_tur2',
-        TurbulentDissipation     = 'inj_tur2',
-        TurbulentLengthScale     = 'inj_tur2',
-        VelocityCorrelationXX    = 'inj_tur1',
-        VelocityCorrelationXY    = 'inj_tur2', 
-        VelocityCorrelationXZ    = 'inj_tur3',
-        VelocityCorrelationYY    = 'inj_tur4', 
-        VelocityCorrelationYZ    = 'inj_tur5', 
-        VelocityCorrelationZZ    = 'inj_tur6',
-    )
-    if 'VelocityCorrelationXX' in Variables:
-        # For RSM models
-        CGNS2ElsaDict['TurbulentDissipationRate'] = 'inj_tur7'
+    FamilyNode = I.getNodeFromNameAndType(t, FamilyBCName, 'Family_t')
+    if not FamilyNode: return
 
-    elsAVariables = CGNS2ElsaDict.values()
+    FamilyBCNode = I.getNodeFromName1(FamilyNode, 'FamilyBC')
+    if not FamilyBCNode: return
 
-    if isinstance(Variables, dict):
-        NewVariables = dict()
-        for var, value in Variables.items():
-            if var == 'groupmassflow':
-                NewVariables[var] = int(value)                    
-            elif var in elsAVariables:
-                NewVariables[var] = float(value)
-            elif var in CGNS2ElsaDict:
-                NewVariables[CGNS2ElsaDict[var]] = float(value)
-            else:
-                NewVariables[var] = float(value)
-        return NewVariables
-    elif isinstance(Variables, list):
-        NewVariables = []
-        for var in Variables:
-            if var in elsAVariables:
-                NewVariables.append(var)
-            else:
-                NewVariables.append(CGNS2ElsaDict[var])
-        return NewVariables
-    elif isinstance(Variables, str):
-        if Variables in elsAVariables:
-            return CGNS2ElsaDict[Variables]
-    else:
-        raise TypeError('Variables must be of type dict, list or string')
+    FamilyBCNodeType = I.getValue(FamilyBCNode)
+    if FamilyBCNodeType != 'UserDefined': return FamilyBCNodeType
+
+    SolverBC = I.getNodeFromName1(FamilyNode,'.Solver#BC')
+    if SolverBC:
+        SolverBCType = I.getNodeFromName1(SolverBC,'type')
+        if SolverBCType:
+            BCType = I.getValue(SolverBCType)
+            return BCType
+
+    SolverOverlap = I.getNodeFromName1(FamilyNode,'.Solver#Overlap')
+    if SolverOverlap: return 'BCOverlap'
+
+    BCnodes = I.getNodesFromType(t, 'BC_t')
+    for BCnode in BCnodes:
+        FamilyNameNode = I.getNodeFromName1(BCnode, 'FamilyName')
+        if not FamilyNameNode: continue
+
+        FamilyNameValue = I.getValue( FamilyNameNode )
+        if FamilyNameValue == FamilyBCName:
+            BCType = I.getValue( BCnode )
+            if BCType != 'FamilySpecified': return BCType
+            break
 

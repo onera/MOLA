@@ -1033,7 +1033,7 @@ class Node(list):
             else:
                 updateParameterOrMakeNewOne(Container, parameterName, parameterValue)
 
-        return self.getParameters( ContainerName )
+        return Container
 
     def getParameters(self, ContainerName):
         Container = self.get( Name=ContainerName, Depth=1 )
