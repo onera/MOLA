@@ -16,12 +16,11 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from mola.workflow.workflow import Workflow
-import mola.cfd.preprocess as PRE
-import mola.application.internal_flow as IntFlow
+import .internal_flow.FlowGenerator as InternalFlowGenerator
 import mola.application.turbomachine as Turb
 
 
-class WorkflowCompressor(Workflow, InternalFlow, RotatingComponent):
+class WorkflowCompressor(Workflow):
 
     def __init__(self, 
                 
@@ -30,14 +29,20 @@ class WorkflowCompressor(Workflow, InternalFlow, RotatingComponent):
                  **kwargs
                  ):
         
-        super(WorkflowCompressor, self).__init__(Splitter=Splitter, **kwargs)
+        super().__init__(Splitter=Splitter, FlowGenerator=InternalFlowGenerator, **kwargs)
 
         self.name = 'Compressor'
 
-        for meshInfo in self.RawMeshComponents:
-            meshInfo.setdefault('mesher', 'Autogrid')
+        if self.tree is not None:
+            for meshInfo in self.RawMeshComponents:
+                meshInfo.setdefault('mesher', 'Autogrid')
 
-        self.TurboConfiguration = dict()
+            self.TurboConfiguration = dict()
+
+            self.Extractions.append(
+                dict(type='bc', BCType='BCInflow*', fields=['convflux_ro']),
+                dict(type='bc', BCType='BCOutflow*', fields=['convflux_ro']),
+            )
         
 
     def prepare(self):
@@ -45,11 +50,6 @@ class WorkflowCompressor(Workflow, InternalFlow, RotatingComponent):
         self.prepare_mesh()
 
         self.prepare_configuration()
-
-        PRE.compute_fluid_properties()
-        IntFlow.compute_reference_values()
-        
-        PRE.get_solver_parameters(self)  # Must return dict(cfdpb=dict(), models=dict(), numerics=())
 
         self.initializeFlowSolution(self)
 
@@ -64,35 +64,9 @@ class WorkflowCompressor(Workflow, InternalFlow, RotatingComponent):
 
         addMonitoredRowsInExtractions(Extractions, TurboConfiguration)
 
-        allowed_override_objects = ['cfdpb','numerics','model']
-        for v in OverrideSolverKeys:
-            if v == 'cfdpb':
-                elsAkeysCFD.update(OverrideSolverKeys[v])
-            elif v == 'numerics':
-                elsAkeysNumerics.update(OverrideSolverKeys[v])
-            elif v == 'model':
-                elsAkeysModel.update(OverrideSolverKeys[v])
-            else:
-                raise AttributeError('OverrideSolverKeys "%s" must be one of %s'%(v,
-                                                    str(allowed_override_objects)))
-
-        AllSetupDicts = dict(Workflow='Compressor',
-                            Splitter=Splitter,
-                            JobInformation=JobInformation,
-                            TurboConfiguration=TurboConfiguration,
-                            FluidProperties=FluidProperties,
-                            ReferenceValues=ReferenceValues,
-                            elsAkeysCFD=elsAkeysCFD,
-                            elsAkeysModel=elsAkeysModel,
-                            elsAkeysNumerics=elsAkeysNumerics,
-                            Extractions=Extractions, 
-                            PostprocessOptions=PostprocessOptions)
         if BodyForceInputData: 
             AllSetupDicts['BodyForceInputData'] = BodyForceInputData
 
-        self.addTiggerReferenceStateGoverningEquations()
-        PRE.addExtractions(self)
-        self.save_main()
     
     def prepare_mesh(self):
         self.tree = PRE.mesh.read_mesh(mesher='Autogrid')
