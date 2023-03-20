@@ -37,5 +37,4 @@ def test_exteriorFaces():
     zone.newFields(['f1','f2'])
     zone.newFields('f3', Container='FlowSolution#Centers')
     exterior_faces = zone.exteriorFaces()
-    cgns.save(exterior_faces,'toto.cgns')
     

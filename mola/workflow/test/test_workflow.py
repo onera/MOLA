@@ -82,3 +82,5 @@ def test_prepare_workflow1():
     w.assemble()
     w.positioning()
     w.connect()
+    w.define_families()
+    w.write_tree()

@@ -52,6 +52,8 @@ def apply(workflow):
 
                 WindowTags = getWindowTagsAtPlane(zone, planeTag=location)
 
+        appendFamiliesToBase(base)
+
 
     workflow.tree = cgns.castNode(t)
 
@@ -113,3 +115,16 @@ def getWindowTagsAtPlane(zone, planeTag='planeXZ', tolerance=1e-8):
         WindowTagsAtPlane += [tag]
 
     return WindowTagsAtPlane
+
+def appendFamiliesToBase(base):
+    cgns.castNode(base)
+    AllFamilyNames = set()
+    for zone in base.zones():
+        for zbc in zone.group(Type='ZoneBC', Depth=1):
+            for bc in zbc.group(Type='BC', Depth=1):
+                if bc.value() != 'FamilySpecified': continue
+                FamilyNameNode = bc.get(Type='FamilyName', Depth=1)
+                if not FamilyNameNode: continue
+                AllFamilyNames.add( FamilyNameNode.value() )
+    for FamilyName in AllFamilyNames:
+        cgns.Node(Name=FamilyName, Type='Family', Parent=base)
