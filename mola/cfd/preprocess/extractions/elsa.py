@@ -20,9 +20,6 @@ from ..boundary_conditions.elsa import getFamilyBCTypeFromFamilyBCName
 
 import copy
 
-import Converter.elsAProfile as EP
-
-
 def adapt_to_solver(workflow):
 
     if workflow.has_overset_component():
@@ -38,9 +35,12 @@ def adapt_to_solver(workflow):
     process_extractions_3d(workflow)
     process_extractions_2d(workflow)
     add_trigger(workflow.tree)
-    EP._addGlobalConvergenceHistory(workflow.tree)
-    cgns.castNode(workflow.tree)
+    add_global_convergence_history(workflow)
 
+def add_global_convergence_history(workflow):
+    for base in workflow.tree.bases():
+        GlobalConvergenceHistory = cgns.Node(Parent=base, Name='GlobalConvergenceHistory', Value=0, Type='ConvergenceHistory')
+        cgns.Node(Parent=GlobalConvergenceHistory, Name='NormDefinitions', Value='ConvergenceHistory', Type='Descriptor')
 
 def process_extractions_3d(workflow):
 
@@ -221,14 +221,25 @@ def process_extractions_2d(workflow):
                         ExtractVariablesList.extend(extraVariables)
 
                 if ExtractVariablesList != []:
-                    varDict = dict(var=' '.join(ExtractVariablesList))
-                    print('setting .Solver#Output to FamilyNode '+FamilyNode.name())
-                    if 'BCWall' in ExtractBCType:
-                        BCWallKeys.update(varDict)
-                        FamilyNode.setParameters('.Solver#Output', **translate_to_elsa(BCWallKeys))
+                    varList = translate_to_elsa(ExtractVariablesList)
+                    SolverOutput = FamilyNode.get(Name='.Solver#Output', Depth=1) 
+                    if not SolverOutput:
+                        print('setting .Solver#Output to FamilyNode '+FamilyNode.name())
+                        if 'BCWall' in ExtractBCType:
+                            SolverOutputKeys = dict(**BCWallKeys, var=' '.join(varList))
+                        else:
+                            SolverOutputKeys = dict(**BCKeys, var=' '.join(varList))
+                        FamilyNode.setParameters('.Solver#Output', **SolverOutputKeys)
                     else:
-                        BCKeys.update(varDict)
-                        FamilyNode.setParameters('.Solver#Output',**translate_to_elsa(BCKeys))
+                        print('adding variables in .Solver#Output to FamilyNode '+FamilyNode.name())
+                        # Add variables that are not already in the node
+                        varNode = SolverOutput.get(Name='var', Depth=1)
+                        varListAlreadyPresent = varNode.value().split() 
+                        newVarList = copy.deepcopy(varListAlreadyPresent)
+                        for var in varList:
+                            if not var in varListAlreadyPresent:
+                                newVarList.append(var)
+                        varNode.setValue(' '.join(newVarList))
                 else:
                     raise ValueError(misc.RED+f'Did not added anything since:\nExtractVariablesList={ExtractVariablesList}'+misc.ENDC)
 
