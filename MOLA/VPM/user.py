@@ -455,7 +455,7 @@ def initialise(LiftingLinesTree, PolarInterpolator, **solverParameters):
     if 'TimeStep' not in defaultParameters:
         setTimeStepFromShedParticles(defaultParameters, LiftingLines, NumberParticlesShedAtTip = 1.)
 
-    os.environ['OMP_NUM_THREADS'] = str(defaultParameters['NumberOfThreads'])
+    os.environ['OMP_NUM_THREADS'] = str(int(defaultParameters['NumberOfThreads']))
     defaultParameters['Sigma0'] = defaultParameters['Resolution']* \
                                  defaultParameters['SmoothingRatio']
     defaultParameters['IterationCounter'] = 0
@@ -1235,6 +1235,7 @@ def getAerodynamicCoefficientsOnRotor(LiftingLines, NumberOfSampleForStdDeviatio
     P = IntegralLoads['Total']['Power'][0]
     cT = T/(Rho*n**2*D**4)
     cP = P/(Rho*n**3*D**5)
+    cP = np.sign(cP)*np.maximum(1e-6,np.abs(cP))
     Eff = np.sqrt(2./np.pi)*cT**1.5/cP
 
     std_Thrust, std_Power = getStandardDeviationBlade(LiftingLines = LiftingLines,
