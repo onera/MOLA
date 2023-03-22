@@ -52,7 +52,6 @@ def get_workflow1():
                     dict(Type='Match', Tolerance=1e-8),
                 ],
                 OversetOptions=dict(),
-                SplitMesh=True,
                 )
         ]
         )

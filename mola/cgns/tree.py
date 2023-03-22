@@ -204,3 +204,6 @@ class Tree(Node):
 
     def useEquation(self, *args, **kwargs):
         for zone in self.zones(): zone.useEquation(*args, **kwargs)
+
+    def numberOfPoints(self):
+        return int( np.sum( [ z.numberOfPoints() for z in self.zones() ]) )

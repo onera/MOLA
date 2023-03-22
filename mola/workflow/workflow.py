@@ -21,7 +21,8 @@ from ..application import external_flow as ExtFlow
 from .. import cgns as c
 from  mola.cfd.preprocess.mesh import (positioning,
                                        connect,
-                                       families)
+                                       families,
+                                       split)
 
 class Workflow(object):
 
@@ -36,14 +37,6 @@ class Workflow(object):
             # -> Overset Options
             # -> Connection
             # -> Positioning (previously Tranform)
-            # -> splitBlocks 
-
-            # operations :
-            # -> read file
-            # -> clean tree
-            # -> adapt Motion attribute
-            # -> create families of zones
-            # -> merge tree (creating bases if Overset)
 
             Fluid=dict(Gamma=1.4,
                        IdealGasConstant=287.053,
@@ -66,7 +59,18 @@ class Workflow(object):
             
             Solver='elsA',
 
-            Splitter=None,
+            SplittingAndDistribution=dict(
+                Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
+                Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
+                Distributor='Cassiopee', 
+                ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
+                NumberOfProcessors='auto', 
+                MinimumAllowedNodes=1,
+                MaximumAllowedNodes=20,
+                MaximumNumberOfPointsPerNode=1e9,
+                CoresPerNode=48,
+                DistributeExclusivelyOnFullNodes=True,
+                ),
 
             Numerics=dict(Scheme='Jameson',
                           TimeMarching='Steady',
@@ -254,6 +258,10 @@ class Workflow(object):
 
     def clean_mesh(self):
         ... # TODO include AutoGrid cleanining and other macros
+
+
+    def split_and_distribute(self):
+        split.apply(self)
 
     def compute_reference_values(self):
         # mola-generic set of parameters

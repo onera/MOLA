@@ -332,11 +332,22 @@ class Zone(Node):
     def hasFields(self):
         return bool( self.get( Type='FlowSolution_t', Depth=1 ) )
 
-    def exteriorFaces(self):
+    def boundaries(self):
         if not self.isStructured(): 
-            raise ValueError('exteriorFaces only implemented for structured zones')
+            raise ValueError('boundaries only implemented for structured zones')
         
-        return [self.imin(), self.imax(), self.jmin(), self.jmax(), self.kmin(), self.kmax()]
+        dim = self.dim()
+        if dim == 3:
+            bnds = [self.imin(), self.imax(),
+                    self.jmin(), self.jmax(),
+                    self.kmin(), self.kmax()]
+        elif dim == 2:
+            bnds = [self.imin(), self.imax(),
+                    self.jmin(), self.jmax()]
+        else:
+            bnds = [self.imin(), self.imax()]
+        
+        return bnds
 
 
     def boundary(self, index='i', bound='min'):

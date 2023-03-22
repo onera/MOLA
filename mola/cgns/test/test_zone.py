@@ -32,9 +32,9 @@ def test_newFields3():
     expected_f2 = np.full((3,3,3), 2, dtype=np.float64)
     assert str(f2) == str(expected_f2)
 
-def test_exteriorFaces():
+def test_boundaries():
     zone = get_cart()
     zone.newFields(['f1','f2'])
     zone.newFields('f3', Container='FlowSolution#Centers')
-    exterior_faces = zone.exteriorFaces()
+    boundaries = zone.boundaries()
     
