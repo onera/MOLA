@@ -118,6 +118,7 @@ if [ "$MAC" = "sator" ]; then
     export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
 
     # own Cassiopee
+    module load occt/7.6.1-gnu831
     export OWNCASS=/tmp_user/sator/lbernard/Cassiopee/$OWNCASSREV/sator
     export PATH=$PATH:$OWNCASS
     export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH

@@ -226,8 +226,16 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
     AoA_  =      AoAMatrix.ravel(order='K')
     M_    =     MachMatrix.ravel(order='K')
     Re_   = ReynoldsMatrix.ravel(order='K')
-    NewJobsP = (AoA_ == AoARange[0]) #NewJob =True for first positive angle (closest to 0)
-    NewJobsM = (AoA_ == AoARange[len(aP)]) #NewJob =True for first negative angle (closest to 0)
+    
+    if len(aP) != 0:
+        NewJobsP = (AoA_ == AoARange[0]) #NewJob =True for first positive angle (closest to 0)
+    else:
+        NewJobsP = np.full(AoA_.shape, False) #No positive angles in AoARange
+
+    if len(aM) != 0:    
+        NewJobsM = (AoA_ == AoARange[len(aP)]) #NewJob =True for first negative angle (closest to 0)
+    else:
+        NewJobsM = np.full(AoA_.shape, False) #No negative angles in AoARange
 
     NewJobs = NewJobsP + NewJobsM # combine NewJobs array
     
@@ -236,20 +244,20 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
 
         print('Assembling run {} AoA={} Re={} M={} | NewJob = {}'.format(
                 i, AoA, Reynolds, Mach, NewJob))
+        JobName = JobInformation['JobName']+'_Mach%1.2f'%Mach
 
         if NewJob:
-            if AoA >= 0:
-                JobName = JobInformation['JobName']+'_Mach%1.2f'%Mach
             writeOutputFields = True
         else:
             writeOutputFields = False
 
         CASE_LABEL = '%06.2f'%abs(AoA)+'_'+JobName # CAVEAT tol AoA >= 0.01 deg
-        if AoA < 0: CASE_LABEL = 'M'+CASE_LABEL
+        if AoA < 0: 
+            CASE_LABEL = 'M'+CASE_LABEL
 
         meshParams = getMeshingParameters()
         meshParams['References'].update({'Reynolds':Reynolds})
-        if 'options' not in machine: meshParams['options'] = {}
+        if 'options' not in meshParams: meshParams['options'] = {}
         if machine == 'sator':
             meshParams['options']['NumberOfProcessors']=48
         elif machine == 'spiro':

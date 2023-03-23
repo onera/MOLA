@@ -2817,6 +2817,8 @@ def translateVariablesFromCGNS2Elsa(Variables):
         VelocityCorrelationYY    = 'inj_tur4', 
         VelocityCorrelationYZ    = 'inj_tur5', 
         VelocityCorrelationZZ    = 'inj_tur6',
+        Intermittency            = 'inj_tur3',
+        MomentumThicknessReynolds= 'inj_tur4',
     )
     if 'VelocityCorrelationXX' in Variables:
         # For RSM models
