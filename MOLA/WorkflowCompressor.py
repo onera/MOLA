@@ -1149,18 +1149,13 @@ def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
     return Nb
 
 def computeReferenceValues(FluidProperties, PressureStagnation,
-                           TemperatureStagnation, Surface, MassFlow=None, Mach=None, TurbulenceLevel=0.001,
-        Viscosity_EddyMolecularRatio=0.1, TurbulenceModel='Wilcox2006-klim',
-        TurbulenceCutoff=1e-8, TransitionMode=None, CoprocessOptions={},
-        Length=1.0, TorqueOrigin=[0., 0., 0.],
-        FieldsAdditionalExtractions=['ViscosityMolecular', 'Viscosity_EddyMolecularRatio', 'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation', 'Mach', 'Entropy'],
-        BCExtractions=dict(
-            BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
-            BCInflow = ['convflux_ro'],
-            BCOutflow = ['convflux_ro']),
-        AngleOfAttackDeg=0.,
-        YawAxis=[0.,0.,1.],
-        PitchAxis=[0.,1.,0.]):
+                           TemperatureStagnation, Surface, MassFlow=None, Mach=None,
+                           FieldsAdditionalExtractions=['ViscosityMolecular', 'Viscosity_EddyMolecularRatio', 'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation', 'Mach', 'Entropy'],
+                           BCExtractions=dict(
+                             BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
+                             BCInflow = ['convflux_ro'],
+                             BCOutflow = ['convflux_ro']),
+                            **kwargs):
     '''
     This function is the Compressor's equivalent of :func:`MOLA.Preprocess.computeReferenceValues`.
     The main difference is that in this case reference values are set through
@@ -1171,6 +1166,11 @@ def computeReferenceValues(FluidProperties, PressureStagnation,
 
     Please, refer to :func:`MOLA.Preprocess.computeReferenceValues` doc for more details.
     '''
+    ASSERTION_ERR = 'For this workflow, you must provide PressureStagnation, TemperatureStagnation and MassFlow (or Mach). '
+    ASSERTION_ERR+= 'You cannot provide Density, Temperature and Velocity'
+    assert all([not var in kwargs for var in ['Density', 'Temperature', 'Velocity']]), \
+        J.FAIL + ASSERTION_ERR + J.ENDC
+    
     # Fluid properties local shortcuts
     Gamma   = FluidProperties['Gamma']
     IdealGasConstant = FluidProperties['IdealGasConstant']
@@ -1205,6 +1205,8 @@ def computeReferenceValues(FluidProperties, PressureStagnation,
     TurboStatistics = ['rsd-{}'.format(var) for var in ['MassFlowIn', 'MassFlowOut',
         'PressureStagnationRatio', 'TemperatureStagnationRatio', 'EfficiencyIsentropic',
         'PressureStagnationLossCoeff']]
+    
+    CoprocessOptions = kwargs.pop('CoprocessOptions')
     try:
         RequestedStatistics = CoprocessOptions['RequestedStatistics']
         for stat in TurboStatistics:
@@ -1219,29 +1221,19 @@ def computeReferenceValues(FluidProperties, PressureStagnation,
         Density=Density,
         Velocity=Velocity,
         Temperature=Temperature,
-        AngleOfAttackDeg=AngleOfAttackDeg,
-        AngleOfSlipDeg = 0.0,
-        YawAxis=YawAxis,
-        PitchAxis=PitchAxis,
-        TurbulenceLevel=TurbulenceLevel,
         Surface=Surface,
-        Length=Length,
-        TorqueOrigin=TorqueOrigin,
-        TurbulenceModel=TurbulenceModel,
-        Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio,
-        TurbulenceCutoff=TurbulenceCutoff,
-        TransitionMode=TransitionMode,
         CoprocessOptions=CoprocessOptions,
         FieldsAdditionalExtractions=FieldsAdditionalExtractions,
-        BCExtractions=BCExtractions)
+        BCExtractions=BCExtractions,
+        **kwargs)
 
-    addKeys = dict(
-        PressureStagnation = PressureStagnation,
-        TemperatureStagnation = TemperatureStagnation,
-        MassFlow = MassFlow,
+    ReferenceValues.update(
+        dict(
+            PressureStagnation    = PressureStagnation,
+            TemperatureStagnation = TemperatureStagnation,
+            MassFlow              = MassFlow,
         )
-
-    ReferenceValues.update(addKeys)
+    )
 
     return ReferenceValues
 
@@ -1892,7 +1884,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
             elif BCparam['option'] == 'file':
                 print('{}set BC inj1 (from file {}) on {}{}'.format(J.CYAN,
                     BCparam['filename'], BCparam['FamilyName'], J.ENDC))
-                setBC_inj1_interpFromFile(t, ReferenceValues, **BCkwargs)
+                setBC_inj1_interpFromFile(t, FluidProperties, ReferenceValues, **BCkwargs)
 
             elif BCparam['option'] == 'bc':
                 print('set BC inj1 on {}'.format(J.CYAN, BCparam['FamilyName'], J.ENDC))
@@ -2393,7 +2385,7 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs
 
     setBC_inj1(t, FamilyName, ImposedVariables, variableForInterpolation=variableForInterpolation)
 
-def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileformat=None):
+def setBC_inj1_interpFromFile(t, FluidProperties, ReferenceValues, FamilyName, filename, fileformat=None):
     '''
     Set a Boundary Condition ``inj1`` using the field map in the file
     **filename**. It is expected to be a surface with the following variables
@@ -2457,9 +2449,8 @@ def setBC_inj1_interpFromFile(t, ReferenceValues, FamilyName, filename, fileform
 
     var2interp = ['PressureStagnation', 'EnthalpyStagnation',
         'VelocityUnitVectorX', 'VelocityUnitVectorY', 'VelocityUnitVectorZ']
-    turbVars = ReferenceValues['FieldsTurbulence']
-    turbVars = [var.replace('Density', '') for var in turbVars]
-    var2interp += turbVars
+    turbDict = getPrimitiveTurbulentFieldForInjection(FluidProperties, ReferenceValues)
+    var2interp += list(turbDict)
 
     donor_tree = C.convertFile2PyTree(filename, format=fileformat)
     inlet_BC_nodes = C.extractBCOfName(t, 'FamilySpecified:{0}'.format(FamilyName))
