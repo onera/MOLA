@@ -33,6 +33,7 @@ if not MOLA.__ONLY_DOC__:
     import os
     import numpy as np
     import pprint
+    import copy
 
     import Converter.PyTree as C
     import Converter.Internal as I
@@ -209,6 +210,20 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
             launched
     '''
 
+    try:
+        AoARange_Original = copy.deepcopy(AoARange)
+        prev_config = JM.getJobsConfiguration('./',useLocalConfig=True)
+        prev_AoAs, prev_Machs, prev_Reynolds = getRangesOfStructuredPolar(prev_config) #WARNING : la presence du fichier config ne garantit pas que la config a ete lancee... Il vaudrait peut etre mieux checker si des fichiers sont presents sur le cluster...
+        AoARange = AoARange + prev_AoAs.tolist()
+        MachRange = MachRange + prev_Machs #Mach numbers are already provided as a list
+        EXTEND = True
+        MSG = 'Extending previous polar range.'
+        print(J.WARN + MSG + J.ENDC)  
+    except:
+        MSG = 'Building new polar from scratch.'
+        print(J.CYAN + MSG + J.ENDC) 
+        EXTEND = False
+
     # TODO appropriately sort AoARange
     a = np.atleast_1d(AoARange)
     a = np.unique(a)
@@ -367,7 +382,7 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
 
     JM.saveJobsConfiguration(JobsQueues, machine, DIRECTORY_WORK, FILE_GEOMETRY)
 
-    JM.launchJobsConfiguration(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_AIRFOIL', routineFiles=['routineP.sh','routineM.sh'])
+    JM.launchJobsConfiguration(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_AIRFOIL', routineFiles=['routineP.sh','routineM.sh'], ExtendPreviousConfig=EXTEND)
 
 
 def buildMesh(FILE_GEOMETRY,
