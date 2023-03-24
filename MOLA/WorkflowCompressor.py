@@ -4268,7 +4268,7 @@ def updateChoroTimestep(t, Rows, NumericalParams):
         print(J.WARN + MSG + J.ENDC)
         NewNquo = DeltaT/NumericalParams['timestep']
         Nquo_round = np.round(NewNquo)
-        if np.absolute(NewNquo-Nquo_round)>1e-01:
+        if np.absolute(NewNquo-Nquo_round)>1e-08:
             MSG = 'Choice of time-step does no seem to be suited for the case. Check the following parameters:'
             print(J.WARN + MSG + J.ENDC)
 

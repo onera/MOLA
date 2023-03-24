@@ -274,24 +274,40 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
 
 def updateChoroTimestep(t, Rows, NumericalParams):
+    '''
+    Compute the timestep for chorochronic simulations if not provided.
     
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        Rows : :py:class:`dict`
+            Dictionary of Rows as provided in TurboConfiguration for the prepareMainCGNS function.
+
+        NumericalParams : :py:class:`dict`
+            dictionary containing the numerical settings for elsA. Similar to that required in prepareMainCGNS function.
+
+    '''   
+    rowNameList = list(Rows.keys())
+
+    Nblade_Row1 = Rows[rowNameList[0]]['NumberOfBlades']
+    Nblade_Row2 = Rows[rowNameList[1]]['NumberOfBlades']
+    omega_Row1 = Rows[rowNameList[0]]['RotationSpeed']
+    omega_Row2 = Rows[rowNameList[1]]['RotationSpeed']
+
+    per_Row1 = (2*np.pi)/(Nblade_Row2*np.abs(omega_Row1-omega_Row2))
+    per_Row2 = (2*np.pi)/(Nblade_Row1*np.abs(omega_Row1-omega_Row2))
+
+    gcd =np.gcd(Nblade_Row1,Nblade_Row2)
+    
+    DeltaT = gcd*2*np.pi/(np.abs(omega_Row1-omega_Row2)*Nblade_Row1*Nblade_Row2) #Largest time step that is a fraction of the period of both Row1 and Row2.
+    MSG = 'DeltaT : %s'%(DeltaT)
+    print(J.WARN + MSG + J.ENDC)
+
     if 'timestep' not in NumericalParams.keys():
         MSG = 'Time-step not provided by the user. Computating of a suitable time-step based on stage properties.'
-        print(J.WARN + MSG + J.ENDC)
-        rowNameList = list(Rows.keys())
-    
-        Nblade_Row1 = Rows[rowNameList[0]]['NumberOfBlades']
-        Nblade_Row2 = Rows[rowNameList[1]]['NumberOfBlades']
-        omega_Row1 = Rows[rowNameList[0]]['RotationSpeed']
-        omega_Row2 = Rows[rowNameList[1]]['RotationSpeed']
-
-        per_Row1 = (2*np.pi)/(Nblade_Row2*np.abs(omega_Row1-omega_Row2))
-        per_Row2 = (2*np.pi)/(Nblade_Row1*np.abs(omega_Row1-omega_Row2))
-
-        gcd =np.gcd(Nblade_Row1,Nblade_Row2)
-        
-        DeltaT = gcd*2*np.pi/(np.abs(omega_Row1-omega_Row2)*Nblade_Row1*Nblade_Row2) #Largest time step that is a fraction of the period of both Row1 and Row2.
-        MSG = 'DeltaT : %s'%(DeltaT)
         print(J.WARN + MSG + J.ENDC)
         Nquo = 10
         time_step = DeltaT/Nquo
@@ -308,6 +324,12 @@ def updateChoroTimestep(t, Rows, NumericalParams):
     else:
         MSG = 'Time-step provided by the user.'
         print(J.WARN + MSG + J.ENDC)
+        NewNquo = DeltaT/NumericalParams['timestep']
+        Nquo_round = np.round(NewNquo)
+        print()
+        if np.absolute(NewNquo-Nquo_round)>1e-08:
+            MSG = 'Choice of time-step does no seem to be suited for the case. Check the following parameters:'
+            print(J.WARN + MSG + J.ENDC)
 
     MSG = 'Nquo : %s'%(NewNquo)
     print(J.WARN + MSG + J.ENDC)    
