@@ -153,15 +153,6 @@ if BodyForceInputData:
         toWithSourceTerms = C.convertFile2PyTree(os.path.join(DIRECTORY_OUTPUT, FILE_BODYFORCESRC))
 # ------------------------------------------------------------------------- #
 
-# ------------------------------- CHOROCHRONIC ------------------------------- #
-choroNodes = I.getNodesFromName(Skeleton,'choro_file')
-if choroNodes:
-    CHORO = True
-else:
-    CHORO = False
-# ------------------------------------------------------------------------- #
-
-
 e.action=elsAxdt.COMPUTE
 e.mode=elsAxdt.READ_ALL
 e.compute()
@@ -194,10 +185,7 @@ elsAxdt.free("xdt-runtime-tree")
 elsAxdt.free("xdt-output-tree")
 
 CO.moveTemporaryFile(os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
-
-if CHORO == True:
-    if rank==0:
-        CO.checkandUpdateMainCGNSforChoroRestart()
+CO.checkAndUpdateMainCGNSforChoroRestart()
 
 CO.printCo('END OF compute.py',0)
 

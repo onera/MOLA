@@ -2885,55 +2885,28 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                 pass
     return surfaces
 
-def checkandUpdateMainCGNSforChoroRestart():
+def checkAndUpdateMainCGNSforChoroRestart():
     '''
     Check the main.cgns and update it with links to ChoroData nodes located in fields.cgns if necessary.
     '''    
-
-    DIRECTORY_OUTPUT='OUTPUT'
-    MainCGNSFilename='main.cgns'
-    FieldsFilename='fields.cgns'
-    MainCGNS_FlowSolutionName='FlowSolution#Init'
-    Fields_FlowSolutionName='FlowSolution#Init'
-
-    MSG = 'Chorochronic simulation detected. Checking if main.cgns should be updated for restart'
-    printCo(MSG, proc=0, color=J.CYAN)
-    
-    main=C.convertFile2PyTree('main.cgns')
-    ChoroNodesMain=I.getNodesFromName(main,"ChoroData")
-    if ChoroNodesMain:
-        MSG = 'main.cgns file already up-to-date for chorochronic computation'
-        printCo(MSG, proc=0, color=J.GREEN)
-    else:
-        MSG = 'ChoroData nodes not referenced in main.cgns. Updating main.cgns...'
-        printCo(MSG, proc=0, color=J.CYAN)
-        AllCGNSLinks = []
-        t=C.convertFile2PyTree('./OUTPUT/fields.cgns')    
-        ChoroNodes=I.getNodesFromName(t,"ChoroData")
-        if ChoroNodes:
-            MSG = 'ChoroData nodes detected in fields.cgns. Gathering links between main.cgns and fields'
-            printCo(MSG, proc=0, color=J.CYAN)
-            ChoroLinks = []
-            for node in ChoroNodes:
-                ChoroPath=I.getPath(t,node)
-                AllCGNSLinks.append(['.', './OUTPUT/fields.cgns', ChoroPath, ChoroPath],)
-
-            for b in I.getBases(main):
-                for z in b[2]:
-                    fs = I.getNodeFromName1(z,MainCGNS_FlowSolutionName)
-                    if not fs: continue
-                    for field in I.getChildren(fs):
-                        if I.getType(field) == 'DataArray_t':
-                            currentNodePath='/'.join([b[0], z[0], fs[0], field[0]])
-                            targetNodePath=currentNodePath.replace(MainCGNS_FlowSolutionName,
-                                                                   Fields_FlowSolutionName)
-                            # TODO: Cassiopee BUG ! targetNodePath must be identical
-                            # to currentNodePath...
-                            AllCGNSLinks += [['.',
-                                              DIRECTORY_OUTPUT+'/'+FieldsFilename,
-                                              '/'+targetNodePath,
-                                              currentNodePath]]
-    
-            C.convertPyTree2File(main,"main.cgns", links=AllCGNSLinks)
-            MSG = 'main.cgns updated with links to fields.cgns ChoroData nodes for restart.'
-            printCo(MSG, proc=0, color=J.GREEN)
+    if rank == 0:
+        mainSkel = Filter.convertFile2SkeletonTree(FILE_CGNS)
+        ChoroNodesMain = I.getNodeFromName(mainSkel, 'ChoroData')
+        if I.getNodeFromName(mainSkel, 'choro_file'): 
+            # Chrochronic simulation
+            printCo('Chorochronic simulation detected. Checking if main.cgns should be updated for restart', proc=0, color=J.CYAN)
+            if I.getNodeFromName(mainSkel, 'ChoroData'):
+                printCo('main.cgns file already up-to-date for chorochronic computation.', proc=0, color=J.GREEN)
+                return
+            else:
+                printCo('ChoroData nodes detected in fields.cgns. Gathering links between main.cgns and fields.', proc=0, color=J.CYAN)
+                AllCGNSLinks = []
+                main = C.convertFile2PyTree(FILE_CGNS, links=AllCGNSLinks)
+                t = Filter.convertFile2SkeletonTree(os.path.join(DIRECTORY_OUTPUT, 'fields.cgns'))
+                ChoroNodes = I.getNodesFromName(t, 'ChoroData')
+                for node in ChoroNodes:
+                    ChoroPath = I.getPath(t,node)
+                    AllCGNSLinks.append(['.', os.path.join(DIRECTORY_OUTPUT, 'fields.cgns'), ChoroPath, ChoroPath],)
+                
+                C.convertPyTree2File(main, FILE_CGNS, links=AllCGNSLinks)
+                printCo('main.cgns updated with links to fields.cgns ChoroData nodes for restart.', proc=0, color=J.GREEN)
