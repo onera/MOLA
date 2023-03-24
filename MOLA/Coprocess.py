@@ -2884,3 +2884,29 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
             except ChannelHeightError:
                 pass
     return surfaces
+
+def checkAndUpdateMainCGNSforChoroRestart():
+    '''
+    Check the main.cgns and update it with links to ChoroData nodes located in fields.cgns if necessary.
+    '''    
+    if rank == 0:
+        mainSkel = Filter.convertFile2SkeletonTree(FILE_CGNS)
+        ChoroNodesMain = I.getNodeFromName(mainSkel, 'ChoroData')
+        if I.getNodeFromName(mainSkel, 'choro_file'): 
+            # Chrochronic simulation
+            printCo('Chorochronic simulation detected. Checking if main.cgns should be updated for restart', proc=0, color=J.CYAN)
+            if I.getNodeFromName(mainSkel, 'ChoroData'):
+                printCo('main.cgns file already up-to-date for chorochronic computation.', proc=0, color=J.GREEN)
+                return
+            else:
+                printCo('ChoroData nodes detected in fields.cgns. Gathering links between main.cgns and fields.', proc=0, color=J.CYAN)
+                AllCGNSLinks = []
+                main = C.convertFile2PyTree(FILE_CGNS, links=AllCGNSLinks)
+                t = Filter.convertFile2SkeletonTree(os.path.join(DIRECTORY_OUTPUT, 'fields.cgns'))
+                ChoroNodes = I.getNodesFromName(t, 'ChoroData')
+                for node in ChoroNodes:
+                    ChoroPath = I.getPath(t,node)
+                    AllCGNSLinks.append(['.', os.path.join(DIRECTORY_OUTPUT, 'fields.cgns'), ChoroPath, ChoroPath],)
+                
+                C.convertPyTree2File(main, FILE_CGNS, links=AllCGNSLinks)
+                printCo('main.cgns updated with links to fields.cgns ChoroData nodes for restart.', proc=0, color=J.GREEN)

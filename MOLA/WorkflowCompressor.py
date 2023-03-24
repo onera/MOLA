@@ -422,16 +422,39 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-6, unstructured=IsUnstructured)
     elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=IsUnstructured)
+    
     if BodyForceInputData: 
         NumericalParams['useBodyForce'] = True
     if not 'NumericalScheme' in NumericalParams:
         NumericalParams['NumericalScheme'] = 'roe'
+ 
+    if ('ChorochronicInterface' or 'stage_choro') in (bc['type'] for bc in BoundaryConditions):
+        CHORO_TAG = True
+        MSG = 'Chorochronic BC detected.'
+        print(J.WARN + MSG + J.ENDC)
+        ChoroInterfaceNumber = 0 
+        for bc in BoundaryConditions :
+            if bc['type'] == 'ChorochronicInterface' or bc['type'] == 'stage_choro':
+                ChoroInterfaceNumber += 1
+        if ChoroInterfaceNumber > 1:
+            MSG = 'Warning: more than one chorochronic interface has been detected: multichorochronic simulation is not available yet.'
+            raise Exception(J.FAIL + MSG + J.ENDC)       
+        updateChoroTimestep(t, Rows = TurboConfiguration['Rows'], NumericalParams = NumericalParams)
+    else:
+        CHORO_TAG = False
+
+    
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues,
                             unstructured=IsUnstructured, **NumericalParams)
 
     if Initialization['method'] == 'turbo':
         t = initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboConfiguration)
     else:
+        if CHORO_TAG and Initialization['method'] != 'copy':
+            MSG = 'Flow initialization failed. No initial solution provided. Chorochronic simulations must be initialized from a mixing plane solution obtained on the same mesh'
+            print(J.FAIL + MSG + J.ENDC)
+            raise Exception(J.FAIL + MSG + J.ENDC)
+
         PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
 
     if not 'PeriodicTranslation' in TurboConfiguration and \
@@ -443,6 +466,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                             FluidProperties, ReferenceValues,
                             bladeFamilyNames=bladeFamilyNames)
+
 
     computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
@@ -1567,7 +1591,7 @@ def setMotionForRowsFamilies(t, TurboConfiguration):
     for row, rowParams in TurboConfiguration['Rows'].items():
         famNode = I.getNodeFromNameAndType(t, row, 'Family_t')
         try: 
-            omega = rowParams['RotationSpeed']
+            omega = float(rowParams['RotationSpeed'])
         except KeyError:
             # No RotationSpeed --> zones attached to this family are not moving
             continue
@@ -1634,6 +1658,8 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
                   * UnsteadyRotorStatorInterface
 
+                  * ChorochronicInterface
+
                   * WallViscous
 
                   * WallViscousIsothermal
@@ -1678,6 +1704,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     setBC_outradeq, setBC_outradeqhyb,
     setBC_stage_mxpl, setBC_stage_mxpl_hyb,
     setBC_stage_red, setBC_stage_red_hyb,
+    setBC_stage_choro, setBC_stage_choro_hyb,
     setBCwithImposedVariables
 
     Examples
@@ -1807,6 +1834,11 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
     >>> stage_ref_time = 2*np.pi / abs(TurboConfiguration['ShaftRotationSpeed'])
 
+
+    >>> dict(type='ChorochronicInterface', left='Rotor_stator_10_left', right='Rotor_stator_10_right', stage_ref_time=1e-5) 
+
+    It defines a chorochronic  interface ('stage_choro' in *elsA*)
+
     '''
     PreferedBoundaryConditions = dict(
         Farfield                     = 'nref',
@@ -1817,6 +1849,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
         OutflowRadialEquilibrium     = 'outradeq',
         MixingPlane                  = 'stage_mxpl',
         UnsteadyRotorStatorInterface = 'stage_red',
+        ChorochronicInterface        = 'stage_choro',
         WallViscous                  = 'walladia',
         WallViscousIsothermal        = 'wallisoth',
         WallInviscid                 = 'wallslip',
@@ -1908,6 +1941,18 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                 # Assume a 360 configuration
                 BCkwargs['stage_ref_time'] = 2*np.pi / abs(TurboConfiguration['ShaftRotationSpeed'])
             setBC_stage_red_hyb(t, **BCkwargs)
+
+        elif BCparam['type'] == 'stage_choro':
+            print('{}set BC stage_choro between {} and {}{}'.format(J.CYAN,
+                BCparam['left'], BCparam['right'], J.ENDC))
+            BCkwargs['Rows'] = TurboConfiguration['Rows']
+            setChorochronic(t, **BCkwargs)
+
+        # TODO
+        # elif BCparam['type'] == 'stage_choro_hyb':
+        #     print('{}set BC stage_red_hyb between {} and {}{}'.format(J.CYAN,
+        #         BCparam['left'], BCparam['right'], J.ENDC))
+        #     setBC_stage_choro_hyb(t, **BCkwargs)
 
         elif BCparam['type'] == 'sym':
             print(J.CYAN + 'set BC sym on ' + BCparam['FamilyName'] + J.ENDC)
@@ -3054,6 +3099,109 @@ def setBC_stage_red_hyb(t, left, right, stage_ref_time):
         I._rmNodesByType(gc, 'FamilyBC_t')
 
 
+
+@J.mute_stdout
+def setBC_stage_choro(t, left, right, method='globborder_dict', stage_choro_type='characteristic', harm_freq_comp=1, jtype = 'nomatch_rad_line'):
+    '''
+    Set a chorochronic interface condition between families **left** and **right**.
+
+    .. important : This function has a dependency to the ETC module.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        left : str
+            Name of the family on the left side.
+
+        right : str
+            Name of the family on the right side.
+
+        method : optional, str
+            Method used to compute the globborder. The default value is
+            ``'globborder_dict'``, it corresponds to the ETC topological
+            algorithm.
+            Another possible value is ``'poswin'`` to use the geometrical
+            algorithm in *turbo* (in this case, *turbo* environment must be
+            sourced).
+
+        stage_choro_type : str
+            Type of chorochronic interface:
+                characteristic (default) : condition based on characteristic relations.
+                half_sum : condition based on half-sum of values.
+
+        harm_freq_comp : str
+            Frequency of harmonics computation
+
+        jtype : str
+            Specifies the type of join:
+                match_rad_line : coincident radial match along lines (for “stage”-like turbomachine conditions);
+                nomatch_rad_line : non-coincident radial match along lines (for “stage”-like turbomachine conditions).
+
+    '''
+
+    import etc.transform.__future__ as trf
+
+    if method == 'globborder_dict':
+        t = trf.defineBCStageFromBC(t, left)
+        t = trf.defineBCStageFromBC(t, right)
+        t, stage = trf.newStageChoroFromFamily(t, left, right)
+
+    elif method == 'poswin':
+        t = trf.defineBCStageFromBC(t, left)
+        t = trf.defineBCStageFromBC(t, right)
+
+        gbdu = computeGlobborderPoswin(t, left)
+        # print("newStageMxPlFromFamily(up): gbdu = {}".format(gbdu))
+        ups = []
+        for bc in C.getFamilyBCs(t, left):
+          bcpath = I.getPath(t, bc)
+          bcu = trf.BCStageChoroUp(t, bc)
+          globborder = bcu.glob_border(left, opposite=right)
+          globborder.i_poswin = gbdu[bcpath]['i_poswin']
+          globborder.j_poswin = gbdu[bcpath]['j_poswin']
+          globborder.glob_dir_i = gbdu[bcpath]['glob_dir_i']
+          globborder.glob_dir_j = gbdu[bcpath]['glob_dir_j']
+          ups.append(bcu)
+
+        # Downstream BCs declaration
+        gbdd = computeGlobborderPoswin(t, right)
+        # print("newStageMxPlFromFamily(down): gbdd = {}".format(gbdd))
+        downs = []
+        for bc in C.getFamilyBCs(t, right):
+          bcpath = I.getPath(t, bc)
+          bcd = trf.BCStageChoroDown(t, bc)
+          globborder = bcd.glob_border(right, opposite=left)
+          globborder.i_poswin = gbdd[bcpath]['i_poswin']
+          globborder.j_poswin = gbdd[bcpath]['j_poswin']
+          globborder.glob_dir_i = gbdd[bcpath]['glob_dir_i']
+          globborder.glob_dir_j = gbdd[bcpath]['glob_dir_j']
+          downs.append(bcd)
+
+        # StageMxpl declaration
+        stage = trf.BCStageChoro(t, up=ups, down=downs)
+    else:
+        raise Exception
+
+    stage.jtype = jtype
+    stage.stage_choro_type = stage_choro_type
+    stage.harm_freq_comp = harm_freq_comp
+    stage.choro_file_up = 'None'
+    stage.file_up = None
+    stage.choro_file_down = 'None'
+    stage.file_down = None
+    stage.nomatch_special = 'None'
+    stage.format = 'CGNS'
+
+    stage.create()
+
+    setRotorStatorFamilyBC(t, left, right)
+
+###TODO: DEVELOP THE FUNCTION FOR THE HYBRID CHORO
+
+
 @J.mute_stdout
 def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
     valve_ref_mflow=None, valve_relax=0.1, indpiv=1, 
@@ -4037,6 +4185,311 @@ def getPostprocessQuantities(DIRECTORY_WORK, basename, useLocalConfig=False, ren
                 perfoOverIsospeedLine[name1] = perfoOverIsospeedLine[name2]
 
     return perfo
+def convertPeriodic2Chorochrono(t):
+    '''
+    Convert the periodic boundary condition from a PyTree t to a chorochrono boundary condition.
+    
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+    '''
+    import etc.transform.__future__ as trf
+    gcnodes = []
+    for zone_node in I.getZones(t):
+        zgc_node = I.getNodeFromType1(zone_node,"ZoneGridConnectivity_t")
+        if zgc_node:
+            for gc_node in I.getNodesFromType1(zgc_node,"GridConnectivity_t")+I.getNodesFromType1(zgc_node,"GridConnectivity1to1_t"):
+                gcp_node = I.getNodeFromType1(gc_node,"GridConnectivityProperty_t")
+                if gcp_node:
+                    periodic_node = I.getNodeFromType1(gcp_node,"Periodic_t")
+                    if periodic_node:
+                        gcnodes.append(gc_node)
+
+    for gcnode in gcnodes:
+        gc = trf.BCChoroChrono(t, gcnode, choro_file = 'None')
+        gc.choro_file   = 'None'
+        gc.file   = None
+        gc.format = 'CGNS'
+        gc.create()
+
+def updateChoroTimestep(t, Rows, NumericalParams):
+    '''
+    Compute the timestep for chorochronic simulations if not provided.
+    
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        Rows : :py:class:`dict`
+            Dictionary of Rows as provided in TurboConfiguration for the prepareMainCGNS function.
+
+        NumericalParams : :py:class:`dict`
+            dictionary containing the numerical settings for elsA. Similar to that required in prepareMainCGNS function.
+
+    '''   
+
+    rowNameList = list(Rows.keys())
+    
+    Nblade_Row1 = Rows[rowNameList[0]]['NumberOfBlades']
+    Nblade_Row2 = Rows[rowNameList[1]]['NumberOfBlades']
+    omega_Row1 = Rows[rowNameList[0]]['RotationSpeed']
+    omega_Row2 = Rows[rowNameList[1]]['RotationSpeed']
+
+    per_Row1 = (2*np.pi)/(Nblade_Row2*np.abs(omega_Row1-omega_Row2))
+    per_Row2 = (2*np.pi)/(Nblade_Row1*np.abs(omega_Row1-omega_Row2))
+
+    gcd =np.gcd(Nblade_Row1,Nblade_Row2)
+    
+    DeltaT = gcd*2*np.pi/(np.abs(omega_Row1-omega_Row2)*Nblade_Row1*Nblade_Row2) #Largest time step that is a fraction of the period of both Row1 and Row2.
+    MSG = 'DeltaT : %s'%(DeltaT)
+    print(J.WARN + MSG + J.ENDC)
+    
+    if 'timestep' not in NumericalParams.keys():
+        MSG = 'Time-step not provided by the user. Computing a suitable time-step based on stage properties.'
+        print(J.WARN + MSG + J.ENDC)
+        Nquo = 10
+        time_step = DeltaT/Nquo
+    
+        NewNquo = Nquo
+        while time_step> 5*10**-7:
+            NewNquo = NewNquo+10
+            time_step = DeltaT/NewNquo
+
+    
+        NumericalParams['timestep'] = time_step
+
+    else:
+        MSG = 'Time-step provided by the user.'
+        print(J.WARN + MSG + J.ENDC)
+        NewNquo = DeltaT/NumericalParams['timestep']
+        Nquo_round = np.round(NewNquo)
+        if np.absolute(NewNquo-Nquo_round)>1e-01:
+            MSG = 'Choice of time-step does no seem to be suited for the case. Check the following parameters:'
+            print(J.WARN + MSG + J.ENDC)
+
+
+    MSG = 'Nquo : %s'%(NewNquo)
+    print(J.WARN + MSG + J.ENDC)    
+    
+    MSG = 'Time step : %s'%(NumericalParams['timestep'])
+    print(J.WARN + MSG + J.ENDC)
+
+    MSG = 'Number of time step per period for row 1 : %s'%(per_Row1/NumericalParams['timestep'])
+    print(J.WARN + MSG + J.ENDC)
+
+    MSG = 'Number of time step per period for row 2 : %s'%(per_Row2/NumericalParams['timestep'])
+    print(J.WARN + MSG + J.ENDC)   
+
+def computeChoroParameters(t, Rows, Nharm_Row1, Nharm_Row2):
+    '''
+    Compute the parameters to run a chorochronic computation.
+    
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        Rows : :py:class:`dict`
+            Dictionary of Rows as provided in TurboConfiguration for the prepareMainCGNS function.
+
+        Nharm_Row1 : float
+            Number of harmonics of the first row.
+
+        Nharm_Row2 : float
+            Number of harmonics of the second row.
+
+    Returns
+    -------
+
+        choroParamsStage : :py:class:`dict`
+           Dictionary containing chorochronic parameters for each row. The dictionary keys correspond to the row names referenced in the TurboConfiguration dictionary.
+
+    '''       
+    rowNameList = list(Rows.keys())
+
+    Nblade_Row1 = Rows[rowNameList[0]]['NumberOfBlades']
+    Nblade_Row2 = Rows[rowNameList[1]]['NumberOfBlades']
+    omega_Row1 = Rows[rowNameList[0]]['RotationSpeed']
+    omega_Row2 = Rows[rowNameList[1]]['RotationSpeed']
+
+    freq_Row1 = Nblade_Row2*np.abs(omega_Row1-omega_Row2)/(2*np.pi)
+    freq_Row2 = Nblade_Row1*np.abs(omega_Row1-omega_Row2)/(2*np.pi)
+    omgRel_Row2  = omega_Row1 - omega_Row2
+    omgRel_Row1  = omega_Row2 - omega_Row1
+
+    gcd =np.gcd(Nblade_Row1,Nblade_Row2)
+    if Nharm_Row1 < Nblade_Row1/gcd:
+        MSG = 'The number of chorochronic harmonics for the first row is too low (%s). Recomputing...\n '%(Nharm_Row1)
+        print(J.WARN + MSG + J.ENDC)     
+        Nharm_Row1 = float(Nblade_Row2)
+
+
+    if Nharm_Row2 < Nblade_Row2/gcd:
+        MSG = 'The number of chorochronic harmonics for the second row is too low (%s). Recomputing...\n '%(Nharm_Row2)
+        print(J.WARN + MSG + J.ENDC)
+        Nharm_Row2 = float(Nblade_Row1)
+        MSG = 'New number of harmonics for row 2 : %s'%(Nharm_Row2)
+        print(J.WARN + MSG + J.ENDC)
+
+    relax  = 1.0 
+
+    # PeriodRow1 = 2*np.pi/(Nblade_Row1*np.abs(omega_Row1  - omega_Row2))
+    # PeriodRow2 = 2*np.pi/(Nblade_Row2*np.abs(omega_Row1  - omega_Row2))
+
+    choroParamsRow1 = dict( freq = freq_Row1, omega = omgRel_Row1, harm = Nharm_Row1, relax = relax, axis_ang_1 = Nblade_Row1, axis_ang_2 = 1)
+    choroParamsRow2 = dict( freq = freq_Row2, omega = omgRel_Row2, harm = Nharm_Row2, relax = relax, axis_ang_1 = Nblade_Row2, axis_ang_2 = 1)
+    choroParamsStage = {rowNameList[0]:choroParamsRow1, rowNameList[1]:choroParamsRow2}
+    
+    MSG = 'Number of harmonics for %s : %s'%(rowNameList[0], Nharm_Row1)
+    print(J.WARN + MSG + J.ENDC)
+
+    MSG = 'Number of harmonics for %s : %s'%(rowNameList[1], Nharm_Row2)
+    print(J.WARN + MSG + J.ENDC)
+    
+    return choroParamsStage
+
+
+def add_choro_data(t,rowName,freq,omega,Nharm,relax,axis_ang_1,axis_ang_2):
+    '''
+    Add the chorochronic parameters computed using computeChoroParameters() to the PyTree t.
+    
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        rowName : str
+            Name of the considered row. Correspond to an element of TurboConfiguration['Rows'].keys()
+
+        freq : float
+            Frequency of blade passage to next wheel, as provided by computeChoroParameters().
+
+        Nharm : float
+            Number of harmonics of the considered row, as provided by computeChoroParameters().
+
+        omega : float
+            rotation speed in rad/s relative to the other row, as provided by computeChoroParameters().
+
+        relax : float
+            Relaxation coefficient for multichoro condition, as provided by computeChoroParameters(). Equals 1.0 for a single stage rotor/stator stage.
+
+        axis_ang_1 : float
+           Number of blades in the considered row, as provided by computeChoroParameters().
+
+        axis_ang_2 : float
+            Number of simulated passages for the considered row, as provided by computeChoroParameters().
+
+    ''' 
+    zones = C.getFamilyZones(t,rowName)
+    fam_node = I.getNodeFromName(t,rowName)
+    motion_node = I.getNodeFromName(fam_node,'.Solver#Motion')
+
+    for z in zones:
+        # I.printTree(z)
+        sp = I.getNodeFromName1(z,'.Solver#Param')
+        if not isinstance(sp,list): sp = I.createChild(z,'.Solver#Param','UserDefinedData_t')
+        I.newDataArray('f_freq', value=float(freq), parent=sp)
+        I.newDataArray('f_omega',value=float(omega),parent=sp)
+        I.newDataArray('f_harm', value=float(Nharm), parent=sp)
+        I.newDataArray('f_relax',value=float(relax),parent=sp)
+        I.newDataArray('axis_ang_1',value=axis_ang_1,parent=sp)
+        I.newDataArray('axis_ang_2',value=axis_ang_2,parent=sp)
+        for node in I.getChildren(motion_node):
+            if 'axis' in I.getName(node):
+                I.newDataArray(I.getName(node),value=I.getValue(node),parent=sp)
+
+    print('Adding axis ang to Motion node')
+    I.newDataArray('axis_ang_1',value=axis_ang_1,parent=motion_node)
+    I.newDataArray('axis_ang_2',value=axis_ang_2,parent=motion_node)
+    
+
+
+def computeChoroAndAddParameters(t, Rows, Nharm_Row1 = 20., Nharm_Row2 = 20.):
+    '''
+    Compute the parameters to run a chorochronic computation an add them to the PyTree t.
+    
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        Rows : :py:class:`dict`
+            Dictionary of Rows as provided in TurboConfiguration for the prepareMainCGNS function.
+
+        Nharm_Row1 : float
+            Number of harmonics of the first row.
+
+        Nharm_Row2 : float
+            Number of harmonics of the second row.
+    '''  
+    
+    choroParamsStage = computeChoroParameters(t, Rows, Nharm_Row1 = Nharm_Row1, Nharm_Row2 = Nharm_Row2)
+    RowsL=[]
+    for row_fam in Rows.keys():
+        RowsL.append(row_fam)
+    add_choro_data(t,RowsL[0],freq = choroParamsStage[RowsL[0]]['freq'], omega = choroParamsStage[RowsL[0]]['omega'], Nharm = choroParamsStage[RowsL[0]]['harm'], relax = choroParamsStage[RowsL[0]]['relax'], axis_ang_1 = choroParamsStage[RowsL[0]]['axis_ang_1'],axis_ang_2 = choroParamsStage[RowsL[0]]['axis_ang_2'])
+    add_choro_data(t,RowsL[1],freq = choroParamsStage[RowsL[1]]['freq'], omega = choroParamsStage[RowsL[1]]['omega'], Nharm = choroParamsStage[RowsL[1]]['harm'], relax = choroParamsStage[RowsL[1]]['relax'], axis_ang_1 = choroParamsStage[RowsL[1]]['axis_ang_1'],axis_ang_2 = choroParamsStage[RowsL[1]]['axis_ang_2'])
+
+
+def setChorochronic(t, Rows, left, right, method='globborder_dict', stage_choro_type='characteristic', harm_freq_comp=1, jtype = 'nomatch_rad_line', Nharm_Row1 = 20., Nharm_Row2 = 20.):
+    '''
+    Compute the parameters to run a chorochronic computation.
+    
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        Rows : :py:class:`dict`
+            Dictionary of Rows as provided in TurboConfiguration for the prepareMainCGNS function.
+
+        left : str
+            Name of the family on the left side of the chorochronic interface.
+
+        right : str
+            Name of the family on the right side of the chorochronic interface.
+
+        method : optional, str
+            Method used to compute the globborder of the chorochronic interface. 
+            The default value is``'globborder_dict'``, it corresponds to the ETC topological
+            algorithm.
+            Another possible value is ``'poswin'`` to use the geometrical
+            algorithm in *turbo* (in this case, *turbo* environment must be
+            sourced).
+
+        stage_choro_type : str
+            Type of chorochronic interface:
+                characteristic (default) : condition based on characteristic relations.
+                half_sum : condition based on half-sum of values.
+
+        harm_freq_comp : str
+            Frequency of harmonics computation
+
+        jtype : str
+            Specifies the type of join:
+                match_rad_line : coincident radial match along lines (for “stage”-like turbomachine conditions);
+                nomatch_rad_line : non-coincident radial match along lines (for “stage”-like turbomachine conditions).
+
+        Nharm_Row1 : float
+            Number of harmonics of the first row.
+
+        Nharm_Row2 : float
+            Number of harmonics of the second row.
+    '''   
+
+    setBC_stage_choro(t, left, right, method='globborder_dict', stage_choro_type='characteristic', harm_freq_comp=1, jtype = 'nomatch_rad_line')
+    convertPeriodic2Chorochrono(t)
+    computeChoroAndAddParameters(t, Rows, Nharm_Row1 = Nharm_Row1, Nharm_Row2 = Nharm_Row2)
+
 
 def plotIsoSpeedLine(perfo, filename='isoSpeedLines.png'):
     '''Plot performances in **perfo** (total pressure ratio and isentropic efficiency depending on massflow)

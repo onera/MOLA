@@ -179,10 +179,22 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     else:
         Splitter = 'PyPart'
 
+    if ('ChorochronicInterface' or 'stage_choro') in (bc['type'] for bc in BoundaryConditions):
+      MSG = 'Chorochronic interface detected'
+      print(J.WARN + MSG + J.ENDC)
+      CHORO_TAG = True
+      updateChoroTimestep(t, Rows = TurboConfiguration['Rows'], NumericalParams = NumericalParams)
+    else:
+        CHORO_TAG = False
+
     elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-4)
     elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues)
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues, **NumericalParams)
 
+    if CHORO_TAG == True and Initialization['method'] != 'copy':
+            MSG = 'Flow initialization failed. No initial solution provided. Chorochronic simulations must be initialized from a mixing plane solution obtained on the same mesh'
+            print(J.FAIL + MSG + J.ENDC)
+            raise Exception(J.FAIL + MSG + J.ENDC)
     PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
 
     WC.setMotionForRowsFamilies(t, TurboConfiguration)
@@ -259,3 +271,52 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     ElapsedTimeHuman = hours+' hours '+minutes+' minutes and '+seconds+' seconds'
     msg = 'prepareMainCGNS took '+ElapsedTimeHuman
     print(J.BOLD+msg+J.ENDC)
+
+
+def updateChoroTimestep(t, Rows, NumericalParams):
+    
+    if 'timestep' not in NumericalParams.keys():
+        MSG = 'Time-step not provided by the user. Computating of a suitable time-step based on stage properties.'
+        print(J.WARN + MSG + J.ENDC)
+        rowNameList = list(Rows.keys())
+    
+        Nblade_Row1 = Rows[rowNameList[0]]['NumberOfBlades']
+        Nblade_Row2 = Rows[rowNameList[1]]['NumberOfBlades']
+        omega_Row1 = Rows[rowNameList[0]]['RotationSpeed']
+        omega_Row2 = Rows[rowNameList[1]]['RotationSpeed']
+
+        per_Row1 = (2*np.pi)/(Nblade_Row2*np.abs(omega_Row1-omega_Row2))
+        per_Row2 = (2*np.pi)/(Nblade_Row1*np.abs(omega_Row1-omega_Row2))
+
+        gcd =np.gcd(Nblade_Row1,Nblade_Row2)
+        
+        DeltaT = gcd*2*np.pi/(np.abs(omega_Row1-omega_Row2)*Nblade_Row1*Nblade_Row2) #Largest time step that is a fraction of the period of both Row1 and Row2.
+        MSG = 'DeltaT : %s'%(DeltaT)
+        print(J.WARN + MSG + J.ENDC)
+        Nquo = 10
+        time_step = DeltaT/Nquo
+    
+        NewNquo = Nquo
+        while time_step*np.abs(omega_Row1-omega_Row2)*180./np.pi> 0.06:
+            NewNquo = NewNquo+10
+            time_step = DeltaT/NewNquo
+
+    
+        NumericalParams['timestep'] = time_step
+
+    
+    else:
+        MSG = 'Time-step provided by the user.'
+        print(J.WARN + MSG + J.ENDC)
+
+    MSG = 'Nquo : %s'%(NewNquo)
+    print(J.WARN + MSG + J.ENDC)    
+    
+    MSG = 'Time step : %s'%(NumericalParams['timestep'])
+    print(J.WARN + MSG + J.ENDC)
+
+    MSG = 'Number of time step per period for row 1 : %s'%(per_Row1/NumericalParams['timestep'])
+    print(J.WARN + MSG + J.ENDC)
+
+    MSG = 'Number of time step per period for row 2 : %s'%(per_Row2/NumericalParams['timestep'])
+    print(J.WARN + MSG + J.ENDC) 
