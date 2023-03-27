@@ -1212,7 +1212,7 @@ def buildPolarsInterpolatorDict(PyZonePolars, InterpFields=['Cl', 'Cd','Cm'],
     return InterpDict
 
 
-def buildPolarsAnalyticalDict(CLmin=-1.0, CLmax=1.5, CL0=0.0, CLa=2*np.pi,
+def buildPolarsAnalyticalDict(Name='MyPolar', CLmin=-1.0, CLmax=1.5, CL0=0.0, CLa=2*np.pi,
         CD0 = 0.011, CD2u = 0.004, CD2l = 0.013, CLCD0 = 0.013, REref = 1.e6,
         REexp = 0.):
     """
@@ -1246,28 +1246,23 @@ def buildPolarsAnalyticalDict(CLmin=-1.0, CLmax=1.5, CL0=0.0, CLa=2*np.pi,
         AnalyticalDict : dict
             dictionary containing the analytical functions.
     """
-    InterpDict = {}
-    for polar in AnalyticalPolarsDict:
+    def analyticalPolar(AoA,Mach,Reynolds):
+        # Linear for CL(AoA)
+        CL = np.minimum(np.maximum((CL0 + CLa*np.deg2rad(AoA))/np.sqrt(1-Mach**2),CLmin),CLmax)
 
-        def analyticalPolar(AoA,Mach,Reynolds):
-            # Analytical functions :-)
+        # Double parabola for CD(CL)
+        CD2 = CL*0
+        CD2[CL>CLCD0]  = CD2u
+        CD2[CL<=CLCD0] = CD2l
+        CD = (CD0+CD2*(CL-CLCD0)**2)*(Reynolds/REref)**REexp
 
-            # Linear for CL(AoA)
-            CL = np.minimum(np.maximum((CL0 + CLa*np.deg2rad(AoA))/np.sqrt(1-Mach**2),CLmin),CLmax)
+        CM = 0.
 
-            # Double parabola for CD(CL)
-            CD2 = CL*0
-            CD2[CL>CLCD0]  = CD2u
-            CD2[CL<=CLCD0] = CD2l
-            CD = (CD0+CD2*(CL-CLCD0)**2)*(Reynolds/REref)**REexp
+        DictOfVals = dict(Cl=CL, Cd=CD, Cm=CM)
 
-            CM = 0.
+        return DictOfVals['Cl'], DictOfVals['Cd'], DictOfVals['Cm']
 
-            DictOfVals = dict(Cl=CL, Cd=CD, Cm=CM)
-
-            return DictOfVals['Cl'], DictOfVals['Cd'], DictOfVals['Cm']
-
-        InterpDict[polar] = analyticalPolar
+    InterpDict = dict(Name=analyticalPolar)
 
     return InterpDict
 
