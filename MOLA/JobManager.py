@@ -374,9 +374,11 @@ def remoteFileExists(absolute_file_path, remote_machine='sator'):
     ssh.wait()
     Output = ServerTools.readStdout(ssh)
     Error = ServerTools.readStderr(ssh)
-    if len(Error) >0:
-        return False
-    return bool(int(Output[0]))
+    try:
+        file_exists = bool(int(Output[-1]))
+    except:
+        file_exists = False
+    return file_exists
 
 def remoteFileSize(absolute_file_path):
     server = ServerTools.whichServer(absolute_file_path)[0]
