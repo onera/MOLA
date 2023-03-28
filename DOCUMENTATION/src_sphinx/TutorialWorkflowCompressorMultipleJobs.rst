@@ -34,9 +34,9 @@ tutorial :ref:`workflow Compressor<Workflow Compressor>`.
 
 The preparation of a case is very similar to what was done for a single case in
 the previous tutorial on the :ref:`workflow Compressor<Workflow Compressor>`.
-The same structure than the file can be taken, except that we won't apply the
+The same structure as the file can be taken, except that we won't apply the
 function :mod:`~MOLA.WorkflowCompressor.prepareMainCGNS4ElsA`. Instead, we have
-to define some additionnal parameters and apply
+to define some additional parameters and apply
 :mod:`~MOLA.WorkflowCompressor.launchIsoSpeedLines`.
 
 Here there is the last lines of the example file

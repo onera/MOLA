@@ -1150,6 +1150,7 @@ def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
 
 def computeReferenceValues(FluidProperties, PressureStagnation,
                            TemperatureStagnation, Surface, MassFlow=None, Mach=None,
+                           YawAxis=[0.,0.,1.], PitchAxis=[0.,1.,0.],
                            FieldsAdditionalExtractions=['ViscosityMolecular', 'Viscosity_EddyMolecularRatio', 'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation', 'Mach', 'Entropy'],
                            BCExtractions=dict(
                              BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
@@ -1225,6 +1226,8 @@ def computeReferenceValues(FluidProperties, PressureStagnation,
         CoprocessOptions=CoprocessOptions,
         FieldsAdditionalExtractions=FieldsAdditionalExtractions,
         BCExtractions=BCExtractions,
+        YawAxis=YawAxis,
+        PitchAxis=PitchAxis,
         **kwargs)
 
     ReferenceValues.update(
