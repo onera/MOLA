@@ -1,15 +1,35 @@
+#    Copyright 2023 ONERA - contact luis.bernardos@onera.fr
+#
+#    This file is part of MOLA.
+#
+#    MOLA is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    MOLA is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
 import sys
-import vortexparticlemethod as VPM
 import os
 import numpy as np
+import VortexParticleMethod.vortexparticlemethod as vpm_cpp
 import Converter.PyTree as C
 import Geom.PyTree as D
 import Converter.Internal as I
 import Generator.PyTree as G
 import Transform.PyTree as T
-import CPlot.PyTree as CPlot
 import Connector.PyTree as CX
 import Post.PyTree as P
+try:
+    import CPlotOffscreen.PyTree as CPlot
+except:
+    import CPlot.PyTree as CPlot
 from .. import LiftingLine as LL
 from .. import Wireframe as W
 from .. import InternalShortcuts as J
@@ -292,7 +312,7 @@ if True:
 
         os.popen("export OMP_NUM_THREADS=" + str(defaultParameters['NumberOfThreads']))
         defaultParameters['NumberOfThreads'] = int(os.getenv("OMP_NUM_THREADS"))
-        VPM.mpi_init(defaultParameters['NumberOfThreads']);
+        vpm_cpp.mpi_init(defaultParameters['NumberOfThreads']);
         checkParametersTypes([defaultParameters, defaultHybridParameters,
                                defaultLiftingLineParameters], int_Params, float_Params, bool_Params)
         renameLiftingLineTree(LiftingLineTree, defaultParameters, defaultLiftingLineParameters)
@@ -365,33 +385,33 @@ if True:
         if not Offset: Offset = 0
 
         roll(t, Np - Offset)
-        solverInfo = VPM.solve_particle_strength(t)
+        solverInfo = vpm_cpp.solve_particle_strength(t)
         roll(t, Offset)
         return solverInfo
 
     def maskParticlesInsideShieldBoxes(t = [], Boxes = []):
         BoxesBase = I.newCGNSBase('ShieldBoxes', cellDim=1, physDim=3)
         BoxesBase[2] = I.getZones(Boxes)
-        return VPM.box_interaction(t, BoxesBase)
+        return vpm_cpp.box_interaction(t, BoxesBase)
 
     def getInducedVelocityFromWake(t = [], Target = [], TargetSigma = []):
         TargetBase = I.newCGNSBase('Targets', cellDim=1, physDim=3)
         TargetBase[2] = I.getZones(Target)
         Kernel = Kernel_str2int[getParameter(t, 'RegularisationKernel')]
-        return VPM.induce_velocity_from_wake(t, TargetBase, Kernel, TargetSigma)
+        return vpm_cpp.induce_velocity_from_wake(t, TargetBase, Kernel, TargetSigma)
 
     def findMinimumDistanceBetweenParticles(X = [], Y = [], Z = []):
-        return VPM.find_minimum_distance_between_particles(X, Y, Z)
+        return vpm_cpp.find_minimum_distance_between_particles(X, Y, Z)
 
     def findParticleClusters(X = [], Y = [], Z = [], ClusterSize = 0.):
-        return VPM.find_particle_clusters(X, Y, Z, ClusterSize)
+        return vpm_cpp.find_particle_clusters(X, Y, Z, ClusterSize)
 
     def solveVorticityEquation(t = [], IterationInfo = {}):
         Kernel = Kernel_str2int[getParameter(t, 'RegularisationKernel')]
         Scheme = Scheme_str2int[getParameter(t, 'VorticityEquationScheme')]
         Diffusion = DiffusionScheme_str2int[getParameter(t, 'DiffusionScheme')]
         EddyViscosityModel = EddyViscosityModel_str2int[getParameter(t, 'EddyViscosityModel')]
-        solveVorticityEquationInfo = VPM.wrap_vpm_solver(t, Kernel, Scheme, Diffusion,
+        solveVorticityEquationInfo = vpm_cpp.wrap_vpm_solver(t, Kernel, Scheme, Diffusion,
                                                                 EddyViscosityModel)
         IterationInfo['Number of threads'] = int(solveVorticityEquationInfo[0])
         IterationInfo['SIMD vectorisation'] = int(solveVorticityEquationInfo[1])
@@ -452,15 +472,15 @@ if True:
         Scheme = Scheme_str2int[getParameter(t, 'VorticityEquationScheme')]
         Diffusion = DiffusionScheme_str2int[getParameter(t, 'DiffusionScheme')]
         EddyViscosityModel = EddyViscosityModel_str2int[getParameter(t, 'EddyViscosityModel')]
-        if lowstorage: VPM.runge_kutta_low_storage(t, a, b, Kernel, Scheme, Diffusion,
+        if lowstorage: vpm_cpp.runge_kutta_low_storage(t, a, b, Kernel, Scheme, Diffusion,
                                                     EddyViscosityModel, NumberOfSources)
-        else: VPM.runge_kutta(t, a, b, Kernel, Scheme, Diffusion,EddyViscosityModel,NumberOfSources)
+        else: vpm_cpp.runge_kutta(t, a, b, Kernel, Scheme, Diffusion,EddyViscosityModel,NumberOfSources)
 
         time += dt
         it += 1
 
     def populationControl(t = [], NoRedistributionRegions = [], IterationInfo = {}):
-        IterationInfo['Population Control time'] = time()
+        IterationInfo['Population Control time'] = J.tic()
         LiftingLines = LL.getLiftingLines(t)
         Particles = pickParticlesZone(t)
         HybridInterface = pickHybridDomainOuterInterface(t)
@@ -478,7 +498,7 @@ if True:
         RedistributionKernel = RedistributionKernel_str2int[getParameter(t, 'RedistributionKernel')]
         N0 = Np[0]
         populationControlInfo = np.array([0, 0, 0, 0], dtype = np.int32)
-        RedistributedParticles = VPM.population_control(t, AABB, RedistributionKernel,
+        RedistributedParticles = vpm_cpp.population_control(t, AABB, RedistributionKernel,
                                                                               populationControlInfo)
         if RedistributedParticles.any():
             adjustTreeSize(t, NewSize = len(RedistributedParticles[0]), OldSize = N0)
@@ -506,7 +526,7 @@ if True:
         IterationInfo['Number of split Particles'] = populationControlInfo[1]
         IterationInfo['Number of depleted Particles'] = populationControlInfo[2]
         IterationInfo['Number of merged Particles'] = populationControlInfo[3]
-        IterationInfo['Population Control time'] = time() - IterationInfo['Population Control time']
+        IterationInfo['Population Control time'] = J.tic() - IterationInfo['Population Control time']
         return IterationInfo
 
 ####################################################################################################
@@ -842,7 +862,7 @@ if True:
 
     def splitHybridParticles(t = []):
         Particles = pickParticlesZone(t)
-        splitParticles = VPM.split_hybrid_particles(t)
+        splitParticles = vpm_cpp.split_hybrid_particles(t)
         Offset = getParameter(Particles, 'NumberOfSources')
         if not Offset: Offset = 0
         HybridParameters = getHybridParameters(t)
@@ -872,7 +892,7 @@ if True:
 
     def generateParticlesInHybridInterfaces(tL = [], tE = [], IterationInfo = {}):
         if not tE: return IterationInfo
-        IterationInfo['Strength computation time'] = time()
+        IterationInfo['Strength computation time'] = J.tic()
         HybridParameters = getHybridParameters(tL)
         VPMParameters = getVPMParameters(tL) 
         Offset = getParameter(tL, 'NumberOfSources')
@@ -963,7 +983,7 @@ if True:
         IterationInfo['Minimum Eulerian Vorticity'] = np.min(VortMag[Offset: Np])
         IterationInfo['Eulerian Vorticity lost'] = ωtot - ωkept
         IterationInfo['Eulerian Vorticity lost per'] = (ωtot - ωkept)/ωtot*100
-        IterationInfo['Strength computation time'] = time() - IterationInfo['Strength computation time']
+        IterationInfo['Strength computation time'] = J.tic() - IterationInfo['Strength computation time']
         return IterationInfo
 
 ####################################################################################################
@@ -1283,7 +1303,7 @@ if True:
         TargetBase = I.newCGNSBase('LiftingLine', cellDim=1, physDim=3)
         TargetBase[2] = I.getZones(Target)
         Kernel = Kernel_str2int[getParameter(t, 'RegularisationKernel')]
-        return VPM.induce_total_velocity_on_lifting_line(t, Nsource, Kernel, TargetBase,TargetSigma,
+        return vpm_cpp.induce_total_velocity_on_lifting_line(t, Nsource, Kernel, TargetBase,TargetSigma,
                                                                                 WakeInducedVelocity)
 
     def addParticlesFromLiftingLineSources(t = [], Sources = [], SourcesM1 = [], NumberParticlesShedPerStation = 0, NumberSource = 0):
@@ -1291,7 +1311,7 @@ if True:
         SourcesBase[2] = I.getZones(Sources)
         SourcesBaseM1 = I.newCGNSBase('SourcesM1', cellDim=1, physDim=3)
         SourcesBaseM1[2] = I.getZones(SourcesM1)
-        return VPM.generate_particles_on_lifting_lines(t, SourcesBase, SourcesBaseM1,
+        return vpm_cpp.generate_particles_on_lifting_lines(t, SourcesBase, SourcesBaseM1,
                                                         NumberParticlesShedPerStation, NumberSource)
 
     def getLiftingLineParameters(t = []): return J.get(pickParticlesZone(t), '.LiftingLine#Parameters')
@@ -1306,7 +1326,7 @@ if True:
         return GammaError
 
     def shedParticlesFromLiftingLines(t = [], PolarsInterpolatorDict = {}, IterationInfo = {}):
-        timeLL = time()
+        timeLL = J.tic()
         LiftingLines = LL.getLiftingLines(t)
         if not LiftingLines: return IterationInfo
         ShieldsBase = I.getNodeFromName2(t, 'ShieldsBase')
@@ -1443,7 +1463,7 @@ if True:
         IterationInfo['Circulation error'] = GammaError
         IterationInfo['Number of sub-iterations (LL)'] = ni
         IterationInfo['Number of shed particles'] = NumberParticlesShed
-        IterationInfo['Lifting Line time'] = time() - timeLL
+        IterationInfo['Lifting Line time'] = J.tic() - timeLL
         return IterationInfo
 
 ####################################################################################################
@@ -1482,7 +1502,7 @@ if True:
         cT = T/(Rho*n**2*D**4)
         cP = P/(Rho*n**3*D**5)
         Uinf = np.linalg.norm(U0 - V)
-        Eff = T/P*Uinf
+        Eff = T/(P + 1e-12)*Uinf
         std_Thrust, std_Power = getStandardDeviationBlade(LiftingLines = LiftingLines,
                                                             StdDeviationSample = StdDeviationSample)
         IterationInfo['Thrust'] = T
@@ -1508,7 +1528,7 @@ if True:
         P = IntegralLoads['Total']['Power'][0]
         cT = T/(Rho*n**2*D**4)
         cP = P/(Rho*n**3*D**5)
-        Eff = np.sqrt(2./np.pi)*cT**1.5/cP
+        Eff = np.sqrt(2./np.pi)*cT**1.5/(cP + 1e-12)
 
         std_Thrust, std_Power = getStandardDeviationBlade(LiftingLines = LiftingLines, StdDeviationSample = StdDeviationSample)
         IterationInfo['Thrust'] = T
@@ -1532,8 +1552,8 @@ if True:
         Fz = IntegralLoads['ForceZ'][0]
         Fx = IntegralLoads['ForceX'][0]
         q0 = 0.5*Rho*Surface*np.linalg.norm(U0 - V)**2
-        cL = Fz/q0
-        cD = Fx/q0
+        cL = Fz/(q0 + 1e-12)
+        cD = Fx/(q0 + 1e-12)
         std_Thrust, std_Drag = getStandardDeviationWing(LiftingLines = LiftingLines,
                                                             StdDeviationSample = StdDeviationSample)
         IterationInfo['Lift'] = Fz
@@ -1550,7 +1570,7 @@ if True:
         UnsteadyLoads = I.getNodeFromName(LiftingLine, '.UnsteadyLoads')
         Thrust = I.getValue(I.getNodeFromName(UnsteadyLoads, 'Thrust'))
         if type(Thrust) == np.ndarray or type(Thrust) == list:
-            StdDeviationSample = min(StdDeviationSample,len(Thrust))
+            StdDeviationSample = max(min(StdDeviationSample,len(Thrust)), 1)
         else: return 0., 0.
 
         Thrust = np.array([0.]*StdDeviationSample)
@@ -1571,7 +1591,7 @@ if True:
         UnsteadyLoads = I.getNodeFromName(LiftingLine, '.UnsteadyLoads')
         Thrust = I.getValue(I.getNodeFromName(UnsteadyLoads, 'Thrust'))
         if type(Thrust) == np.ndarray or type(Thrust) == list:
-            StdDeviationSample = min(StdDeviationSample,len(Thrust))
+            StdDeviationSample = max(min(StdDeviationSample,len(Thrust)), 1)
         else: return 0., 0.
 
         Thrust = np.array([0.]*StdDeviationSample)
@@ -1642,14 +1662,16 @@ if True:
         if ShowInScreen:
             DisplayOptions['offscreen'] = 0
         else:
-            machine = os.getenv('MAC', 'ld')
-            if 'spiro' in machine or 'sator' in machine:
-                DisplayOptions['offscreen'] = 1 # TODO solve bug https://elsa.onera.fr/issues/10536
+            machine = os.getenv('MAC')
+            if machine in ['spiro']:
+                DisplayOptions['offscreen']=2 # MESA
+            elif machine in ['ld', 'visung', 'visio', 'sator']:
+                DisplayOptions['offscreen']=1 # openGL
             else:
-                DisplayOptions['offscreen'] = 2
+                raise SystemError('machine "%s" not supported.'%machine)
 
         CPlot.display(t, **DisplayOptions)
-        sleep(0.1)
+
         if 'backgroundFile' not in DisplayOptions:
             MOLA = os.getenv('MOLA')
             MOLASATOR = os.getenv('MOLASATOR')
@@ -1699,11 +1721,11 @@ if True:
         if (Wings and 'Lift' in IterationInfo) or (not Wings and 'Thrust' in IterationInfo):
             if (Wings):
                 msg += '||' + '{:34}'.format('Lift') + \
-                      ': ' + '{:.3f}'.format(IterationInfo['Lift']) + ' N' + '\n'
+                      ': ' + '{:.3g}'.format(IterationInfo['Lift']) + ' N' + '\n'
                 msg += '||' + '{:34}'.format('Lift Standard Deviation') + \
                       ': ' + '{:.3g}'.format(IterationInfo['Lift Standard Deviation']) + ' N' + '\n'
                 msg += '||' + '{:34}'.format('Drag') + \
-                      ': ' + '{:.3f}'.format(IterationInfo['Drag']) + ' N' + '\n'
+                      ': ' + '{:.3g}'.format(IterationInfo['Drag']) + ' N' + '\n'
                 msg += '||' + '{:34}'.format('Drag Standard Deviation') + \
                       ': ' + '{:.3g}'.format(IterationInfo['Drag Standard Deviation']) + ' N' + '\n'
                 msg += '||' + '{:34}'.format('cL') + \
@@ -1714,11 +1736,11 @@ if True:
                       ': ' + '{:.4f}'.format(IterationInfo['f']) + '\n'
             else:
                 msg += '||' + '{:34}'.format('Thrust') + \
-                    ': ' + '{:.3f}'.format(IterationInfo['Thrust']) + ' N' + '\n'
+                    ': ' + '{:.3g}'.format(IterationInfo['Thrust']) + ' N' + '\n'
                 msg += '||' + '{:34}'.format('Thrust Standard Deviation') + \
                     ': ' + '{:.3g}'.format(IterationInfo['Thrust Standard Deviation']) + ' N' + '\n'
                 msg += '||' + '{:34}'.format('Power') + \
-                    ': ' + '{:.3f}'.format(IterationInfo['Power']) + ' W' + '\n'
+                    ': ' + '{:.3g}'.format(IterationInfo['Power']) + ' W' + '\n'
                 msg += '||' + '{:34}'.format('Power Standard Deviation') + \
                     ': ' + '{:.3g}'.format(IterationInfo['Power Standard Deviation']) + ' W' + '\n'
                 msg += '||' + '{:34}'.format('cT') + \
@@ -1831,7 +1853,7 @@ if True:
         
         IterationInfo = {'Rel. err. of Velocity': 0, 'Rel. err. of Velocity Gradient': 0,
                             'Rel. err. of PSE': 0}
-        TotalTime = time()
+        TotalTime = J.tic()
         sp = getVPMParameters(t)
         Np = pickParticlesZone(t)[1][0]
         LiftingLines = LL.getLiftingLines(t)
@@ -1862,7 +1884,7 @@ if True:
             if SAVE_ALL:
                 SAVE_FIELDS = SAVE_VPM = True
             
-            IterationTime = time()
+            IterationTime = J.tic()
             computeNextTimeStep(t)
             IterationInfo['Iteration'] = it[0]
             IterationInfo['Percentage'] = it[0]/NumberOfIterations*100.
@@ -1872,11 +1894,11 @@ if True:
             IterationInfo = shedParticlesFromLiftingLines(t, AirfoilPolars, IterationInfo)
             IterationInfo['Number of Particles'] = Np[0]
             IterationInfo = solveVorticityEquation(t, IterationInfo = IterationInfo)
-            IterationInfo['Total iteration time'] = time() - IterationTime
+            IterationInfo['Total iteration time'] = J.tic() - IterationTime
             IterationInfo = getAerodynamicCoefficientsOnLiftingLine(LiftingLines, Wings = Wing,
                                    StdDeviationSample = StdDeviationSample, Freestream = Freestream, 
                                                    IterationInfo = IterationInfo, Surface = Surface)
-            IterationInfo['Total simulation time'] = time() - TotalTime
+            IterationInfo['Total simulation time'] = J.tic() - TotalTime
             if Verbose: printIterationInfo(IterationInfo, PSE = PSE, Wings = Wing)
 
             if (SAVE_FIELDS or SAVE_ALL) and FieldsExtractionGrid:
@@ -1900,8 +1922,6 @@ if True:
         for _ in range(3): print('||' + '{:=^50}'.format(''))
         print('||' + '{:-^50}'.format(' End of VPM computation '))
         for _ in range(3): print('||' + '{:=^50}'.format(''))
-
-        exit()
 
     def computePolar(Parameters = {}, dictPolar = {}, PolarsFilename = '', LiftingLinePath = 'LiftingLine.cgns', DIRECTORY_OUTPUT = 'POLARS', RestartPath = None, MaxNumberOfIterationsPerPolar = 200, NumberOfIterationsForTransition = 0, StdDeviationSample = 10, Surface = 1., Verbose = True, MaxThrustStandardDeviation = 1, MaxPowerStandardDeviation = 100, VisualisationOptions = {'addLiftingLineSurfaces':True}):
         try: os.makedirs(DIRECTORY_OUTPUT)
@@ -1999,7 +2019,7 @@ if True:
         print('||' + '{:=^50}'.format(' Begin VPM Polar '))
         for _ in range(3): print('||' + '{:=^50}'.format(''))
 
-        TotalTime = time()
+        TotalTime = J.tic()
         for i, Variable in enumerate(dictPolar['Variables'][N0:]):
             i += N0
             if NumberOfIterationsForTransition or N0 == i:
@@ -2146,7 +2166,7 @@ if True:
                         '\n||' + '{:=^50}'.format(''))
 
         
-        TotalTime = time() - TotalTime
+        TotalTime = J.tic() - TotalTime
         print('||' + '{:=^50}'.format(' Total time spent: ' +str(int(round(TotalTime//60)))+' min '\
                                            + str(int(round(TotalTime - TotalTime//60*60))) + ' s '))
         for _ in range(3): print('||' + '{:=^50}'.format(''))
@@ -2171,7 +2191,7 @@ if True:
         tmpTree = C.newPyTree(['Base', tmpZone])
         Kernel = Kernel_str2int[getParameter(t, 'RegularisationKernel')]
         EddyViscosityModel = EddyViscosityModel_str2int[getParameter(t, 'EddyViscosityModel')]
-        VPM.wrap_extract_plane(t, tmpTree, int(NbOfParticlesUsedForPrecisionEvaluation), Kernel,
+        vpm_cpp.wrap_extract_plane(t, tmpTree, int(NbOfParticlesUsedForPrecisionEvaluation), Kernel,
                                     EddyViscosityModel)
         tmpFields = J.getVars(I.getZones(tmpTree)[0], newFieldNames)
 
@@ -2182,8 +2202,6 @@ if True:
                 fr[:] = ft[NPtsPerZone[i]:NPtsPerZone[i+1]]
 
         return ExctractionTree
-
-    def exit(): os._exit(0)
 
 
 
