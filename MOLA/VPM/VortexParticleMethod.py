@@ -1499,10 +1499,11 @@ if True:
         n   = RPM/60.
         T = IntegralLoads['Total']['Thrust'][0]
         P = IntegralLoads['Total']['Power'][0]
+        P = np.sign(P)*np.maximum(1e-6,np.abs(P))
         cT = T/(Rho*n**2*D**4)
         cP = P/(Rho*n**3*D**5)
         Uinf = np.linalg.norm(U0 - V)
-        Eff = T/(P + 1e-12)*Uinf
+        Eff = Uinf*T/P
         std_Thrust, std_Power = getStandardDeviationBlade(LiftingLines = LiftingLines,
                                                             StdDeviationSample = StdDeviationSample)
         IterationInfo['Thrust'] = T
@@ -1528,7 +1529,8 @@ if True:
         P = IntegralLoads['Total']['Power'][0]
         cT = T/(Rho*n**2*D**4)
         cP = P/(Rho*n**3*D**5)
-        Eff = np.sqrt(2./np.pi)*cT**1.5/(cP + 1e-12)
+        cP = np.sign(cP)*np.maximum(1e-6,np.abs(cP))
+        Eff = np.sqrt(2./np.pi)*cT**1.5/cP
 
         std_Thrust, std_Power = getStandardDeviationBlade(LiftingLines = LiftingLines, StdDeviationSample = StdDeviationSample)
         IterationInfo['Thrust'] = T
