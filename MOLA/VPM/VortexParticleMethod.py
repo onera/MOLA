@@ -295,10 +295,6 @@ if True:
                 'IntegralLaw'                      : 'linear',                 #uniform, tanhOneSide, tanhTwoSides or ratio, gives the type of interpolation of the circulation on the lifting lines
                 'MaxLiftingLineSubIterations'      : 100,                      #max number of sub iteration when computing the LL circulations
                 'MinNbShedParticlesPerLiftingLine' : 27,                       #minimum number of station for every LL from which Particles are shed
-                'ParticleDistribution'             : dict(kind = 'uniform',    #uniform, tanhOneSide, tanhTwoSides or ratio, repatition law of the Particles on the Lifting Lines
-                                                        FirstSegmentRatio = 1.,#size of the Particles at the root of the blades relative to Sigma0 (i.e. Resolution*SmoothingRatio)
-                                                        LastSegmentRatio = 1., #size of the Particles at the tip  of the blades relative to Sigma0 (i.e. Resolution*SmoothingRatio)
-                                                        Symmetrical = False),  #[|0, 1|], gives a symmetrical repartition of Particles along the blades or not
                 'Pitch'                            : 0.,                       #]-180., 180[ in deg, gives the pitch given to all the lifting lines, if 0 no pitch id added
         }
         defaultParameters.update(VPMParameters)
@@ -313,7 +309,7 @@ if True:
         else:
             NbOfThreads = defaultParameters['NumberOfThreads']
         os.environ['OMP_NUM_THREADS'] = str(NbOfThreads)
-
+        #vpm_cpp.mpi_init(defaultParameters['NumberOfThreads']);
         checkParametersTypes([defaultParameters, defaultHybridParameters,
                                defaultLiftingLineParameters], int_Params, float_Params, bool_Params)
         renameLiftingLineTree(LiftingLineTree, defaultParameters, defaultLiftingLineParameters)
@@ -412,8 +408,11 @@ if True:
         Scheme = Scheme_str2int[getParameter(t, 'VorticityEquationScheme')]
         Diffusion = DiffusionScheme_str2int[getParameter(t, 'DiffusionScheme')]
         EddyViscosityModel = EddyViscosityModel_str2int[getParameter(t, 'EddyViscosityModel')]
+        NumberOfSources = getParameter(t, 'NumberOfSources')
+        if not NumberOfSources: NumberOfSources = 0
+
         solveVorticityEquationInfo = vpm_cpp.wrap_vpm_solver(t, Kernel, Scheme, Diffusion,
-                                                                EddyViscosityModel)
+                                                                EddyViscosityModel, NumberOfSources[0])
         IterationInfo['Number of threads'] = int(solveVorticityEquationInfo[0])
         IterationInfo['SIMD vectorisation'] = int(solveVorticityEquationInfo[1])
         IterationInfo['Near field overlapping ratio'] = solveVorticityEquationInfo[2]
@@ -474,8 +473,8 @@ if True:
         Diffusion = DiffusionScheme_str2int[getParameter(t, 'DiffusionScheme')]
         EddyViscosityModel = EddyViscosityModel_str2int[getParameter(t, 'EddyViscosityModel')]
         if lowstorage: vpm_cpp.runge_kutta_low_storage(t, a, b, Kernel, Scheme, Diffusion,
-                                                    EddyViscosityModel, NumberOfSources)
-        else: vpm_cpp.runge_kutta(t, a, b, Kernel, Scheme, Diffusion,EddyViscosityModel,NumberOfSources)
+                                                    EddyViscosityModel, NumberOfSources[0])
+        else: vpm_cpp.runge_kutta(t, a, b, Kernel, Scheme, Diffusion,EddyViscosityModel,NumberOfSources[0])
 
         time += dt
         it += 1
@@ -1101,6 +1100,27 @@ if True:
 
     def updateParametersWithLiftingLines(LiftingLineTree = [], Parameters = {}, LiftingLineParameters = {}):
         LiftingLines = I.getZones(LiftingLineTree)
+        flag = False
+        if LiftingLineParameters['MinNbShedParticlesPerLiftingLine']%2:
+            if 'ParticleDistribution' in LiftingLineParameters and \
+                                    LiftingLineParameters['ParticleDistribution']['Symmetrical']:
+                flag = True
+            else:
+                for LiftingLine in LiftingLines:
+                    LLParameters = J.get(LiftingLine, '.VPM#Parameters')
+                    if LLParameters and 'ParticleDistribution' in LLParameters and 'Symmetrical' in\
+                        LLParameters['ParticleDistribution'] and \
+                            LLParameters['ParticleDistribution']['Symmetrical']:
+                        flag = True
+
+            if flag:
+                LiftingLineParameters['MinNbShedParticlesPerLiftingLine'] += 1
+                print('||' + '{:=^50}'.format(''))
+                print('||Odd number of embedded particles on at least one ')
+                print('||Lifting Line dispite its symmetry. Embbeded ')
+                print('||particle number changed to %d'%LiftingLineParameters['MinNbShedParticlesPerLiftingLine'][0])
+                print('||' + '{:=^50}'.format(''))
+
         if 'Resolution' not in Parameters and LiftingLines:
             ShortestLiftingLineSpan = np.inf
             for LiftingLine in LiftingLines:
@@ -1192,6 +1212,7 @@ if True:
                 ParticleDistribution['parameter'] = ParticleDistributionOld['parameter']
             if 'Symmetrical' in ParticleDistributionOld:
                 ParticleDistribution['Symmetrical'] = ParticleDistributionOld['Symmetrical']
+                
             LLParameters['ParticleDistribution'] = ParticleDistribution
 
             J.set(LiftingLine, '.VPM#Parameters',
@@ -1230,12 +1251,6 @@ if True:
                                                                                 (0, 0, 1)), SemiWing))
                 WingDiscretization += L/2.
                 ParticleDistribution = WingDiscretization/L
-                if not (NumberOfStations % 2):
-                    N = len(ParticleDistribution)//2
-                    array = ParticleDistribution
-                    ParticleDistribution = np.append([(array[N] + array[N - 2])/2., (array[N + 2] +\
-                                                                       array[N])/2.], array[N + 2:])
-                    ParticleDistribution = np.append(array[:N - 1], ParticleDistribution)
             else:
                 WingDiscretization = J.getx(W.linelaw(P1 = (0., 0., 0.), P2 = (L, 0., 0.),
                                                         N = NumberOfStations,
@@ -1500,7 +1515,7 @@ if True:
         n   = RPM/60.
         T = IntegralLoads['Total']['Thrust'][0]
         P = IntegralLoads['Total']['Power'][0]
-        P = np.sign(P)*np.maximum(1e-6,np.abs(P))
+        P = np.sign(P)*np.maximum(1e-12,np.abs(P))
         cT = T/(Rho*n**2*D**4)
         cP = P/(Rho*n**3*D**5)
         Uinf = np.linalg.norm(U0 - V)
@@ -1530,7 +1545,7 @@ if True:
         P = IntegralLoads['Total']['Power'][0]
         cT = T/(Rho*n**2*D**4)
         cP = P/(Rho*n**3*D**5)
-        cP = np.sign(cP)*np.maximum(1e-6,np.abs(cP))
+        cP = np.sign(cP)*np.maximum(1e-12,np.abs(cP))
         Eff = np.sqrt(2./np.pi)*cT**1.5/cP
 
         std_Thrust, std_Power = getStandardDeviationBlade(LiftingLines = LiftingLines, StdDeviationSample = StdDeviationSample)
@@ -1615,7 +1630,7 @@ if True:
 ######################################### IO/Visualisation #########################################
 ####################################################################################################
 ####################################################################################################
-    def setVisualization(t = [], ParticlesColorField = 'VorticityMagnitude', ParticlesRadius = '{Sigma}/10', addLiftingLineSurfaces = True, AirfoilPolarsFilename = None):
+    def setVisualization(t = [], ParticlesColorField = 'VorticityMagnitude', ParticlesRadius = '{Sigma}/5', addLiftingLineSurfaces = True, AirfoilPolarsFilename = None):
         Particles = pickParticlesZone(t)
         Sigma = I.getValue(I.getNodeFromName(Particles, 'Sigma'))
         C._initVars(Particles, 'radius=' + ParticlesRadius)
