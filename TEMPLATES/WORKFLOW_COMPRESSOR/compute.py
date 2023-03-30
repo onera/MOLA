@@ -185,6 +185,9 @@ elsAxdt.free("xdt-runtime-tree")
 elsAxdt.free("xdt-output-tree")
 
 CO.moveTemporaryFile(os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
+CO.checkAndUpdateMainCGNSforChoroRestart()
 
 CO.printCo('END OF compute.py',0)
+
 CO.moveLogFiles()
+

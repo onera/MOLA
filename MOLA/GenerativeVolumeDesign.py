@@ -3314,6 +3314,7 @@ def buildCartesianBackground(t, InputMeshes):
     for meshInfo in InputMeshes:
         if meshInfo['file'] == 'GENERATE':
             GenerationInfo = meshInfo
+            GenerationInfo['SplitBlocks'] = False
     if not GenerationInfo: return
 
     

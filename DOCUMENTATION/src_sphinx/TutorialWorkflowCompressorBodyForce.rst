@@ -66,7 +66,7 @@ The argument `BodyForceRows` triggers a remeshing adapted to body force modellin
 For each row, all the parameters are optional, but it is recommended to give a full parametrization of the mesh
 (otherwise, default values are got from the ersatZ anlysis of the blade). 
 
-There is three zones for each row domain. If the row family is 'ROW', zone names are 
+There are three zones for each row domain. If the row family is 'ROW', zone names are 
 'ROW_upstream', 'ROW_bodyforce', 'ROW_downstream'. Body force will be applied only in 'ROW_bodyforce'.
 This zone is fitted on the blade, that's why you need to correctly refine the mesh around joins between the zones
 to discretize well gradients that will be used in BFM during the simulation.

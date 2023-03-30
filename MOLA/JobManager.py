@@ -251,7 +251,7 @@ def launchJobsConfiguration(
         jobTemplate=__MOLA_PATH__+'/TEMPLATES/job_template.sh',
         DispatchFile='dispatch.py',
         routineFiles=['routine.sh'],
-        otherFiles=[]):
+        otherFiles=[], ExtendPreviousConfig = False):
     '''
     Migrates a set of required scripts and launch the multi-jobs script.
 
@@ -286,8 +286,12 @@ def launchJobsConfiguration(
     DIRECTORY_DISPATCHER = os.path.join(config.DIRECTORY_WORK, NAME_DISPATCHER)
 
     JOBS_CONFIG_REMOTE = os.path.join(DIRECTORY_DISPATCHER,'JobsConfiguration.py')
+
     if remoteFileExists(JOBS_CONFIG_REMOTE, remote_machine=config.machine):
-        raise ValueError(J.FAIL+'DIRECTORY %s ALREADY EXISTS. CANCELLING.'%config.DIRECTORY_WORK+J.ENDC)
+        if ExtendPreviousConfig == False:
+            raise ValueError(J.FAIL+'DIRECTORY %s ALREADY EXISTS. CANCELLING.'%config.DIRECTORY_WORK+J.ENDC)
+        else:
+            print(J.WARN+'EXPANDING PREVIOUS CONFIGURATION'+J.ENDC)
 
     Files2Copy = ['JobsConfiguration.py']
     if hasattr(config, 'FILE_GEOMETRY'):
@@ -370,9 +374,11 @@ def remoteFileExists(absolute_file_path, remote_machine='sator'):
     ssh.wait()
     Output = ServerTools.readStdout(ssh)
     Error = ServerTools.readStderr(ssh)
-    if len(Error) >0:
-        return False
-    return bool(int(Output[0]))
+    try:
+        file_exists = bool(int(Output[-1]))
+    except:
+        file_exists = False
+    return file_exists
 
 def remoteFileSize(absolute_file_path):
     server = ServerTools.whichServer(absolute_file_path)[0]
