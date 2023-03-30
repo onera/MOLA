@@ -8,8 +8,8 @@ ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 
 ###############################################################################
 # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
-export MOLA=/stck/jmarty/ETUDES/SONICE/DEV/2022/Pilotage_CL/MOLA/mola
-export MOLASATOR=/tmp_user/sator/jmarty/ETUDES/SONICE/DEV/2022/Pilotage_CL/MOLA/mola
+export MOLA=/stck/lbernard/MOLA/Dev
+export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
 export VPMVERSION=v0.2
 export PUMAVERSION=r337
 export TURBOVERSION=v1.2.2
@@ -118,6 +118,7 @@ if [ "$MAC" = "sator" ]; then
     export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
 
     # own Cassiopee
+    module load occt/7.6.1-gnu831
     export OWNCASS=/tmp_user/sator/lbernard/Cassiopee/$OWNCASSREV/sator
     export PATH=$PATH:$OWNCASS
     export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH

@@ -1,3 +1,20 @@
+#    Copyright 2023 ONERA - contact luis.bernardos@onera.fr
+#
+#    This file is part of MOLA.
+#
+#    MOLA is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    MOLA is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
 '''
 MOLA - JobManager.py
 
@@ -206,7 +223,7 @@ def saveJobsConfiguration(JobsQueues, machine, DIRECTORY_WORK,
 
     if not DIRECTORY_WORK.endswith('/'): raise ValueError('DIRECTORY_WORK must end with "/"')
 
-    AllowedMachines = ('spiro', 'sator','local','eos','ld','sator-new')
+    AllowedMachines = ('spiro', 'sator','local','eos','ld')
     if machine not in AllowedMachines:
         raise ValueError('Machine %s not supported. Must be one of: %s'%(machine,str(AllowedMachines)))
 
@@ -234,7 +251,7 @@ def launchJobsConfiguration(
         jobTemplate=__MOLA_PATH__+'/TEMPLATES/job_template.sh',
         DispatchFile='dispatch.py',
         routineFiles=['routine.sh'],
-        otherFiles=[]):
+        otherFiles=[], ExtendPreviousConfig = False):
     '''
     Migrates a set of required scripts and launch the multi-jobs script.
 
@@ -269,8 +286,12 @@ def launchJobsConfiguration(
     DIRECTORY_DISPATCHER = os.path.join(config.DIRECTORY_WORK, NAME_DISPATCHER)
 
     JOBS_CONFIG_REMOTE = os.path.join(DIRECTORY_DISPATCHER,'JobsConfiguration.py')
+
     if remoteFileExists(JOBS_CONFIG_REMOTE, remote_machine=config.machine):
-        raise ValueError(J.FAIL+'DIRECTORY %s ALREADY EXISTS. CANCELLING.'%config.DIRECTORY_WORK+J.ENDC)
+        if ExtendPreviousConfig == False:
+            raise ValueError(J.FAIL+'DIRECTORY %s ALREADY EXISTS. CANCELLING.'%config.DIRECTORY_WORK+J.ENDC)
+        else:
+            print(J.WARN+'EXPANDING PREVIOUS CONFIGURATION'+J.ENDC)
 
     Files2Copy = ['JobsConfiguration.py']
     if hasattr(config, 'FILE_GEOMETRY'):
@@ -294,7 +315,7 @@ def launchJobsConfiguration(
         # repatriate(Source, Destination, removeExistingDestinationPath=True)
         ServerTools.cpmvWrap4MultiServer('cp', Source, Destination)
 
-    ComputeServers = ('sator', 'spiro', 'sator-new')
+    ComputeServers = ('sator', 'spiro')
     if config.machine not in ComputeServers:
         print('Machine "%s" not in %s: assuming that local subprocess launch of elsA is possible.'%(config.machine, str(ComputeServers)))
         # launch local mesher-dispatcher job by subprocess - no sbatch no wait ssh
@@ -353,9 +374,11 @@ def remoteFileExists(absolute_file_path, remote_machine='sator'):
     ssh.wait()
     Output = ServerTools.readStdout(ssh)
     Error = ServerTools.readStderr(ssh)
-    if len(Error) >0:
-        return False
-    return bool(int(Output[0]))
+    try:
+        file_exists = bool(int(Output[-1]))
+    except:
+        file_exists = False
+    return file_exists
 
 def remoteFileSize(absolute_file_path):
     server = ServerTools.whichServer(absolute_file_path)[0]

@@ -1,3 +1,20 @@
+#    Copyright 2023 ONERA - contact luis.bernardos@onera.fr
+#
+#    This file is part of MOLA.
+#
+#    MOLA is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    MOLA is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
 '''
 ExtractSurfacesProcessor.py module
 15/07/2021 - L. Bernardos
@@ -153,7 +170,6 @@ def trimExteriorFaces(OffsetSurfaces, BCSurfaces, NCellsOffset):
         for window in windows:
             propagateOffsetAndTagSurface(s, window, NCellsOffset, surfs)
 
-
     mergeSplitWindows(surfs)
     addSurfacesByWindowComposition(surfs)
     surfs = filterSurfacesUsingTag(surfs)
@@ -288,6 +304,7 @@ def getOpposedConnectedSurfaces(surface, InwardIndex, AllSurfaces):
 def addSplitWindow(surface, window, InwardIndex, NCellsOffset):
     splitWindow = getNewWindowFromIndwardsIndexAndOffset(window, InwardIndex,
                                                                    NCellsOffset)
+
     if splitWindow[0,0]==0 or splitWindow[1,0]==0:
         print("\033[93mWARNING for surface %s\033[0m"%surface[0])
         return
@@ -301,6 +318,7 @@ def addSplitWindow(surface, window, InwardIndex, NCellsOffset):
     I.createUniqueChild(sw, 'InwardIndex', 'DataArray_t', value=InwardIndex)
     for i, sw in enumerate(I.getNodesFromName(info,'SplitWindow*')):
         sw[0] = 'SplitWindow.%d'%i
+
 
 def propagateOffsetAndTagSurface(surface, window, NCellsOffset, AllSurfaces):
     inwardInd = findInwardsIndexFromExteriorWindow(window)
@@ -320,8 +338,8 @@ def propagateOffsetAndTagSurface(surface, window, NCellsOffset, AllSurfaces):
 
 def addSurfacesByWindowComposition(surfaces):
     newSurfaces = []
+
     for s in I.getZones(surfaces):
-        
         trimInfo = I.getNodeFromName1(s,'.MOLA#Trim')
         if not trimInfo: continue
 
@@ -345,17 +363,17 @@ def addSurfacesByWindowComposition(surfaces):
             w = I.getValue(I.getNodeFromName1(SplitWindows[0],'Window'))
             inwInd = I.getValue(I.getNodeFromName1(SplitWindows[0],'InwardIndex'))
 
+
             if   inwInd == '+i':
-                slice = (w[0,0],w[1,0],1),(Ni,w[1,1],1)
+                slice = (w[0,0],w[1,0],1),(w[0,1],w[1,1],1)
             elif inwInd == '-i':
                 slice = (1,w[1,0],1),(w[0,0],w[1,1],1)
             elif inwInd == '+j':
-                slice = (w[0,0],w[1,0],1),(w[0,1],Nj,1)
+                slice = (w[0,0],w[1,0],1),(w[0,1],w[1,1],1)
             elif inwInd == '-j':
                 slice = (w[0,0],1,1),(w[0,1],w[1,1],1)
             else:
                 raise ValueError('InwardIndex "%s" not implemented'%inwInd)
-
 
         elif NbOfSplit == 2:
             w0 = I.getValue(I.getNodeFromName1(SplitWindows[0],'Window'))
@@ -392,6 +410,7 @@ def addSurfacesByWindowComposition(surfaces):
                    'Check debug.cgns')%(str(slice),s[0],Ni,Nj)
             raise ValueError(msg)
 
+
         newSurf[0] = s[0]+'.split'
         tagSurface(newSurf, tag='keep')
         tagSurface(s, tag='remove', forced=True)
@@ -417,7 +436,6 @@ def updateOffsetWindowInfoAfterSplit(surface, slice):
 def mergeSplitWindows(surfaces):
 
     for s in I.getZones(surfaces):
-    
         trimInfo = I.getNodeFromName1(s,'.MOLA#Trim')
         if not trimInfo: continue
         
@@ -429,14 +447,30 @@ def mergeSplitWindows(surfaces):
         tag = I.getValue(tag_node)
         if tag == 'remove': continue
 
-        SplitWindows = I.getNodesFromName(trimInfo,'SplitWindow*')
-        NbOfSplit = len(SplitWindows)
-        if NbOfSplit < 2: continue
+        NbOfSplit = getNumberOfSplitWindowsRemovingDuplicatedOnes(trimInfo)
+        if NbOfSplit==1:
+            Ni, Nj = I.getZoneDim(s)[1:3]
+            for sw in I.getNodesFromName(trimInfo,'SplitWindow*'):
+                wnd = I.getValue(I.getNodeFromName1(sw,'Window'))
+                ind = I.getValue(I.getNodeFromName1(sw,'InwardIndex'))
+                if ind == '-i':
+                    wnd[0,0] = 1
+                elif ind == '+i':
+                    wnd[0,1] = Ni
+                elif ind == '-j':
+                    wnd[1,0] = 1
+                elif ind == '+j':
+                    wnd[1,1] = Nj
+            continue
+
+        elif NbOfSplit < 2:
+            continue
+
 
         SplitWindows_I, wnds_I, inds_I = [], [], []
         SplitWindows_J, wnds_J, inds_J = [], [], []
 
-        for sw in SplitWindows:
+        for sw in I.getNodesFromName(trimInfo,'SplitWindow*'):
             wnd = I.getValue(I.getNodeFromName1(sw,'Window'))
             ind = I.getValue(I.getNodeFromName1(sw,'InwardIndex'))
             if ind[1] == 'i':
@@ -450,10 +484,6 @@ def mergeSplitWindows(surfaces):
             else:
                 raise ValueError('IndwardIndex "%s" not supported'%ind[1])
 
-        # NOTE -> beware, it is not necessary !
-        # if not _allEqual(inds_I) or not _allEqual(inds_J):
-        #     C.convertPyTree2File(s,'debug.cgns')
-        #     raise ValueError('incoherent InwardIndex for surface %s'%s[0])
 
         if len(inds_I) > 1:
             # imin = imax = wnds_I[0][0,0]
@@ -478,7 +508,35 @@ def mergeSplitWindows(surfaces):
             sw = I.createChild(trimInfo, 'SplitWindow.J', 'DataArray_t')
             I.createUniqueChild(sw, 'Window', 'DataArray_t', value=newWnd_J)
             I.createUniqueChild(sw, 'InwardIndex', 'DataArray_t', value=inds_J[0])
-        
+
+def getNumberOfSplitWindowsRemovingDuplicatedOnes(trimInfo):
+    SplitWindows = I.getNodesFromName(trimInfo,'SplitWindow*')
+    NbOfSplit = len(SplitWindows)
+    if NbOfSplit == 0: return NbOfSplit
+
+    ToRemove = set()
+    ToKeep = set()
+    for i, sw in enumerate(SplitWindows):
+        wnd = I.getNodeFromName1(sw,'Window')[1]
+        inw = I.getValue(I.getNodeFromName1(sw,'InwardIndex'))
+        for j, sw2 in enumerate(SplitWindows):
+            if i == j: continue
+            wnd2 = I.getNodeFromName1(sw2,'Window')[1]
+            inw2 = I.getValue(I.getNodeFromName1(sw2,'InwardIndex'))
+            if inw2 != inw: continue
+            if not np.array_equal(wnd, wnd2): continue
+
+            # sw and sw2 are repeated
+            if sw2[0] not in ToKeep:
+                ToRemove.add(sw2[0])
+                ToKeep.add(sw[0])
+
+    for sw in trimInfo[2][:]:
+        if sw[0] in ToRemove:
+            trimInfo[2].remove(sw)
+    SplitWindows = I.getNodesFromName(trimInfo,'SplitWindow*')
+    NbOfSplit = len(SplitWindows)
+    return NbOfSplit
 
 def filterSurfacesUsingTag(surfaces):
     filteredSurfaces = []

@@ -1,3 +1,20 @@
+#    Copyright 2023 ONERA - contact luis.bernardos@onera.fr
+#
+#    This file is part of MOLA.
+#
+#    MOLA is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    MOLA is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
 '''
 MOLA - WorkflowAirfoil.py
 
@@ -16,6 +33,7 @@ if not MOLA.__ONLY_DOC__:
     import os
     import numpy as np
     import pprint
+    import copy
 
     import Converter.PyTree as C
     import Converter.Internal as I
@@ -192,6 +210,20 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
             launched
     '''
 
+    try:
+        AoARange_Original = copy.deepcopy(AoARange)
+        prev_config = JM.getJobsConfiguration('./',useLocalConfig=True)
+        prev_AoAs, prev_Machs, prev_Reynolds = getRangesOfStructuredPolar(prev_config) #WARNING : la presence du fichier config ne garantit pas que la config a ete lancee... Il vaudrait peut etre mieux checker si des fichiers sont presents sur le cluster...
+        AoARange = AoARange + prev_AoAs.tolist()
+        MachRange = MachRange + prev_Machs #Mach numbers are already provided as a list
+        EXTEND = True
+        MSG = 'Extending previous polar range.'
+        print(J.WARN + MSG + J.ENDC)  
+    except:
+        MSG = 'Building new polar from scratch.'
+        print(J.CYAN + MSG + J.ENDC) 
+        EXTEND = False
+
     # TODO appropriately sort AoARange
     a = np.atleast_1d(AoARange)
     a = np.unique(a)
@@ -209,8 +241,16 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
     AoA_  =      AoAMatrix.ravel(order='K')
     M_    =     MachMatrix.ravel(order='K')
     Re_   = ReynoldsMatrix.ravel(order='K')
-    NewJobsP = (AoA_ == AoARange[0]) #NewJob =True for first positive angle (closest to 0)
-    NewJobsM = (AoA_ == AoARange[len(aP)]) #NewJob =True for first negative angle (closest to 0)
+    
+    if len(aP) != 0:
+        NewJobsP = (AoA_ == AoARange[0]) #NewJob =True for first positive angle (closest to 0)
+    else:
+        NewJobsP = np.full(AoA_.shape, False) #No positive angles in AoARange
+
+    if len(aM) != 0:    
+        NewJobsM = (AoA_ == AoARange[len(aP)]) #NewJob =True for first negative angle (closest to 0)
+    else:
+        NewJobsM = np.full(AoA_.shape, False) #No negative angles in AoARange
 
     NewJobs = NewJobsP + NewJobsM # combine NewJobs array
     
@@ -219,20 +259,20 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
 
         print('Assembling run {} AoA={} Re={} M={} | NewJob = {}'.format(
                 i, AoA, Reynolds, Mach, NewJob))
+        JobName = JobInformation['JobName']+'_Mach%1.2f'%Mach
 
         if NewJob:
-            if AoA >= 0:
-                JobName = JobInformation['JobName']+'_Mach%1.2f'%Mach
             writeOutputFields = True
         else:
             writeOutputFields = False
 
         CASE_LABEL = '%06.2f'%abs(AoA)+'_'+JobName # CAVEAT tol AoA >= 0.01 deg
-        if AoA < 0: CASE_LABEL = 'M'+CASE_LABEL
+        if AoA < 0: 
+            CASE_LABEL = 'M'+CASE_LABEL
 
         meshParams = getMeshingParameters()
         meshParams['References'].update({'Reynolds':Reynolds})
-        if 'options' not in machine: meshParams['options'] = {}
+        if 'options' not in meshParams: meshParams['options'] = {}
         if machine == 'sator':
             meshParams['options']['NumberOfProcessors']=48
         elif machine == 'spiro':
@@ -342,7 +382,7 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
 
     JM.saveJobsConfiguration(JobsQueues, machine, DIRECTORY_WORK, FILE_GEOMETRY)
 
-    JM.launchJobsConfiguration(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_AIRFOIL', routineFiles=['routineP.sh','routineM.sh'])
+    JM.launchJobsConfiguration(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_AIRFOIL', routineFiles=['routineP.sh','routineM.sh'], ExtendPreviousConfig=EXTEND)
 
 
 def buildMesh(FILE_GEOMETRY,
@@ -668,7 +708,9 @@ def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
         CoprocessOptions={},
         FieldsAdditionalExtractions=[], BCExtractions=dict(
             BCWall=['normalvector', 'frictionvector', 'psta',
-                    'bl_quantities_2d', 'yplusmeshsize', 'bl_ue'])):
+                    'bl_quantities_2d', 'yplusmeshsize', 'bl_ue',
+                    'flux_rou','flux_rov','flux_row',
+                    'torque_rou','torque_rov','torque_row'])):
     '''
     This function is the Airfoil's equivalent of :py:func:`MOLA.Preprocess.computeReferenceValues` .
     The main difference is that in this case reference values are set through

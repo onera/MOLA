@@ -80,7 +80,7 @@ Essentially, :py:func:`~MOLA.Preprocess.prepareMesh4ElsA` function is employed f
 * making the `connection <https://cgns.github.io/CGNS_docs_current/sids/cnct.html#GridConnectivity1to1>`_ between blocks of the mesh
 * setting `simple <https://cgns.github.io/CGNS_docs_current/sids/bc.html#t:BCTypeSimple>`_ `boundary-conditions <https://cgns.github.io/CGNS_docs_current/sids/bc.html>`_ (classical of external aerodynamics). In this case, *BCWall* and *BCFarfield* are both specified through `families <https://cgns.github.io/CGNS_docs_current/sids/misc.html#FamilyBC>`_ named ``WALL`` and ``FARFIELD``, respectively.
 * making overset-oriented operations (not covered in this tutorial)
-* splitting (or *partitioning*) and setting the processor's distribution of the final mesh. In this case, we impose ``6`` processors, since we have 6 blocks with identical cell number.
+* splitting (or *partitioning*) and setting the processor's distribution of the final mesh. In this case, we impose ``4`` processors.
 
 Next, :py:func:`~MOLA.Preprocess.prepareMainCGNS4ElsA` is basically employed for:
 
@@ -108,23 +108,23 @@ The output message will be:
     setting BC at base SPHERE
     setting boundary conditions... done
     splitting and distributing mesh...
-    User requested NumberOfProcessors=6, switching to mode=="imposed"
+    User requested NumberOfProcessors=4, switching to mode=="imposed"
     connecting type Match at base SPHERE
 
-    Total number of processors is 6
-    Total number of zones is 6
-    Proc 0 has lowest nb. of points with 10976
-    Proc 0 has highest nb. of points with 10976
+    Total number of processors is 4
+    Total number of zones is 8
+    Proc 0 has lowest nb. of points with 12152
+    Proc 0 has highest nb. of points with 12152
 
-    Node 1 has 65856 points
-    TOTAL NUMBER OF POINTS: 65 856
+    Node 1 has 48608 points
+    TOTAL NUMBER OF POINTS: 48 608
 
     adding families...
     Setting BCName WALL of BCType BCWall at base SPHERE
     Setting BCName FARFIELD of BCType BCFarfield at base SPHERE
     adapting NearMatch to elsA
     No undefined BC found on PyTree
-    prepareMesh took 0 hours 00 minutes and 00.581349 seconds
+    prepareMesh took 0 hours 00 minutes and 00.237360 seconds
     setting .Solver#Output to FamilyNode WALL
     Initialize FlowSolution with uniform reference values
     invoking FlowSolution#Init with uniform fields using ReferenceState
@@ -132,9 +132,9 @@ The output message will be:
     saving PyTrees with links
     Writing OUTPUT/fields.cgns (bin_cgns)...done.
     Writing main.cgns (bin_cgns)...done.
-    REMEMBER : configuration shall be run using 6 procs
+    REMEMBER : configuration shall be run using 4 procs
     Copying templates of Workflow Standard (compute.py, coprocess.py) to the current directory
-    prepareMainCGNS took 0 hours 00 minutes and 03.546443 seconds
+    prepareMainCGNS took 0 hours 00 minutes and 02.638992 seconds
 
 
 
@@ -182,7 +182,7 @@ We are done with preprocessing! now we are ready to launch our simulation!
 3. Computation
 --------------
 
-Next step is launch the CFD solver. This example is very light and can be run in your local machine. However, you will need at least ``6`` logical CPUs in order to run this example as presented here. 
+Next step is launch the CFD solver. This example is very light and can be run in your local machine. However, you will need at least ``4`` logical CPUs in order to run this example as presented here. 
 
 Please check how many CPUs your machine has using:
 
@@ -191,7 +191,7 @@ Please check how many CPUs your machine has using:
     echo Available CPUs: $NPROCMPI
 
 
-If your number of CPUs shown is lower than ``6``, then adjust **NumberOfProcessors** parameter of ``prepare.py`` to fit your available number of processors.
+If your number of CPUs shown is lower than ``4``, then adjust **NumberOfProcessors** parameter of ``prepare.py`` to fit your available number of processors.
 
 Then, you can run the simulation in your local machine using:
 
@@ -214,7 +214,7 @@ This will launch elsA solver and the simulation will start.
 
     .. code-block:: text
 
-        COPROCESS LOG FILE STARTED AT 17/01/2023 11:20:31
+        COPROCESS LOG FILE STARTED AT 22/02/2023 10:41:17
         [0]: launch compute
         [0]: iteration 0
         [0]: iteration 1
@@ -222,11 +222,12 @@ This will launch elsA solver and the simulation will start.
         [0]: iteration 3
         [0]: iteration 4
         ...
-        [0]: iteration 4996
-        [0]: iteration 4997
-        [0]: iteration 4998
-        [0]: iteration 4999
-        [0]: iteration 5000 -> end of run
+        [0]: iteration 1195
+        [0]: iteration 1196
+        [0]: iteration 1197
+        [0]: iteration 1198
+        [0]: iteration 1199
+        [0]: iteration 1200 -> end of run
         [0]: updating setup.py ...
         [0]: updating setup.py ... OK
         [0]: will save OUTPUT/arrays.cgns ...
@@ -242,6 +243,7 @@ This will launch elsA solver and the simulation will start.
         [0]: moving OUTPUT/tmp-fields.cgns to OUTPUT/fields.cgns ...
         [0]: moving OUTPUT/tmp-fields.cgns to OUTPUT/fields.cgns ... OK
         [0]: END OF compute.py
+
 
 
     you can quit the file using keyboard touches ``ctrl`` + ``C`` and then touch ``Q``.
@@ -476,3 +478,12 @@ Or, once Tecplot is opened, by using the menu ``File`` > ``Load Data`` > select 
 
 
     This applies to the main three OUTPUT files: ``arrays.cgns``, ``surfaces.cgns`` and ``fields.cgns``
+
+
+matplotlib
+**********
+
+Visualization of 1D data is easily done using matplotlib and ``arrays.cgns``` file. For example, you may use script :download:`monitor_loads.py <../../EXAMPLES/WORKFLOW_STANDARD/SPHERE/SIMPLE/monitor_loads.py>` for plotting the :math:`C_D`:
+
+.. literalinclude:: ../../EXAMPLES/WORKFLOW_STANDARD/SPHERE/SIMPLE/monitor_loads.py
+    :language: python 

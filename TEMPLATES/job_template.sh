@@ -12,10 +12,10 @@
 
 ###############################################################################
 # -------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ------------------ #
-if [ -f "/tmp_user/sator/jmarty/ETUDES/SONICE/DEV/2022/Pilotage_CL/MOLA/mola/env_MOLA.sh" ]; then
-    source /tmp_user/sator/jmarty/ETUDES/SONICE/DEV/2022/Pilotage_CL/MOLA/mola/env_MOLA.sh
+if [ -f "/tmp_user/sator/lbernard/MOLA/Dev/env_MOLA.sh" ]; then
+    source /tmp_user/sator/lbernard/MOLA/Dev/env_MOLA.sh
 else
-    source /stck/jmarty/ETUDES/SONICE/DEV/2022/Pilotage_CL/MOLA/mola/env_MOLA.sh
+    source /stck/lbernard/MOLA/Dev/env_MOLA.sh
 fi
 ###############################################################################
 

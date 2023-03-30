@@ -1,3 +1,20 @@
+#    Copyright 2023 ONERA - contact luis.bernardos@onera.fr
+#
+#    This file is part of MOLA.
+#
+#    MOLA is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    MOLA is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
 '''
 MOLA - LiftingLine.py
 
@@ -454,6 +471,8 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         fieldsCorrVars_CC = J.getVars(Stacked,CorrVars,Container='FlowSolution#Centers')
         for f in fieldsCorrVars_CC:
             f *= dr * NBlades / (Nj-1) / vol_tot_val * weight_val / weight_tot_val
+            # LB TODO write more clearly:
+            # f *= (dr * NBlades / ((Nj-1) * vol_tot_val)) * (weight_val / weight_tot_val)
 
     else:
         for corrVar in CorrVars: C.node2Center__(Stacked, corrVar)
@@ -468,6 +487,9 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         fieldsCorrVars_CC = J.getVars(Stacked,CorrVars,Container='FlowSolution#Centers')
         for f in fieldsCorrVars_CC:
             f *= dr * NBlades / (Nj-1) / vol_tot_val
+            # LB TODO write more clearly:
+            # f *= (dr * NBlades / ((Nj-1) * vol_tot_val))
+
 
     if not usePUMA:
         AzimutalLoads = dict()
@@ -1190,7 +1212,7 @@ def buildPolarsInterpolatorDict(PyZonePolars, InterpFields=['Cl', 'Cd','Cm'],
     return InterpDict
 
 
-def buildPolarsAnalyticalDict(CLmin=-1.0, CLmax=1.5, CL0=0.0, CLa=2*np.pi,
+def buildPolarsAnalyticalDict(Name='MyPolar', CLmin=-1.0, CLmax=1.5, CL0=0.0, CLa=2*np.pi,
         CD0 = 0.011, CD2u = 0.004, CD2l = 0.013, CLCD0 = 0.013, REref = 1.e6,
         REexp = 0.):
     """
@@ -1224,28 +1246,23 @@ def buildPolarsAnalyticalDict(CLmin=-1.0, CLmax=1.5, CL0=0.0, CLa=2*np.pi,
         AnalyticalDict : dict
             dictionary containing the analytical functions.
     """
-    InterpDict = {}
-    for polar in AnalyticalPolarsDict:
+    def analyticalPolar(AoA,Mach,Reynolds):
+        # Linear for CL(AoA)
+        CL = np.minimum(np.maximum((CL0 + CLa*np.deg2rad(AoA))/np.sqrt(1-Mach**2),CLmin),CLmax)
 
-        def analyticalPolar(AoA,Mach,Reynolds):
-            # Analytical functions :-)
+        # Double parabola for CD(CL)
+        CD2 = CL*0
+        CD2[CL>CLCD0]  = CD2u
+        CD2[CL<=CLCD0] = CD2l
+        CD = (CD0+CD2*(CL-CLCD0)**2)*(Reynolds/REref)**REexp
 
-            # Linear for CL(AoA)
-            CL = np.minimum(np.maximum((CL0 + CLa*np.deg2rad(AoA))/np.sqrt(1-Mach**2),CLmin),CLmax)
+        CM = 0.
 
-            # Double parabola for CD(CL)
-            CD2 = CL*0
-            CD2[CL>CLCD0]  = CD2u
-            CD2[CL<=CLCD0] = CD2l
-            CD = (CD0+CD2*(CL-CLCD0)**2)*(Reynolds/REref)**REexp
+        DictOfVals = dict(Cl=CL, Cd=CD, Cm=CM)
 
-            CM = 0.
+        return DictOfVals['Cl'], DictOfVals['Cd'], DictOfVals['Cm']
 
-            DictOfVals = dict(Cl=CL, Cd=CD, Cm=CM)
-
-            return DictOfVals['Cl'], DictOfVals['Cd'], DictOfVals['Cm']
-
-        InterpDict[polar] = analyticalPolar
+    InterpDict = dict(Name=analyticalPolar)
 
     return InterpDict
 

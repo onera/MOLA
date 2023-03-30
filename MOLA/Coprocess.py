@@ -1,3 +1,20 @@
+#    Copyright 2023 ONERA - contact luis.bernardos@onera.fr
+#
+#    This file is part of MOLA.
+#
+#    MOLA is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    MOLA is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
 '''
 MOLA Coprocess module - designed to be used in coupling (trigger) elsA context
 
@@ -2484,7 +2501,8 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
 
         for zone in C.getFamilyZones(newTreeWithSourceTerms, BodyForceFamily):
 
-            if not I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm'): continue
+            DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
+            if not DataSourceTermNode: continue
 
             NewSourceTerms = BF.computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration)
 
@@ -2515,9 +2533,16 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
             # else:
             #     relax = 0.999
             # printCo(f'  relax = {relax}', 0, J.MAGE)
+
+            ActiveSourceTermNode = I.getNodeFromName1(DataSourceTermNode, 'ActiveSourceTerm')
+            if ActiveSourceTermNode:
+                ActiveSourceTerm = I.getValue(ActiveSourceTermNode)
+            else:
+                ActiveSourceTerm = 1
                 
             for name in NewSourceTerms:
                 newSourceTerm = (1-relax) * NewSourceTerms[name] + relax * previousSourceTerms[name]
+                newSourceTerm *= ActiveSourceTerm
                 I.newDataArray(name=name, value=newSourceTerm, parent=FSSourceTerm)
 
     I._rmNodesByName(newTreeWithSourceTerms, 'FlowSolution#Init')
@@ -2797,7 +2822,7 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
     except AttributeError:
         return surfaces
 
-    if Workflow == 'Compressor' and PostprocessOptions:
+    if Workflow == 'Compressor' and PostprocessOptions is not None:
         import MOLA.WorkflowCompressor as WC
         class ChannelHeightError(Exception):
             pass
@@ -2859,3 +2884,29 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
             except ChannelHeightError:
                 pass
     return surfaces
+
+def checkAndUpdateMainCGNSforChoroRestart():
+    '''
+    Check the main.cgns and update it with links to ChoroData nodes located in fields.cgns if necessary.
+    '''    
+    if rank == 0:
+        mainSkel = Filter.convertFile2SkeletonTree(FILE_CGNS)
+        ChoroNodesMain = I.getNodeFromName(mainSkel, 'ChoroData')
+        if I.getNodeFromName(mainSkel, 'choro_file'): 
+            # Chrochronic simulation
+            printCo('Chorochronic simulation detected. Checking if main.cgns should be updated for restart', proc=0, color=J.CYAN)
+            if I.getNodeFromName(mainSkel, 'ChoroData'):
+                printCo('main.cgns file already up-to-date for chorochronic computation.', proc=0, color=J.GREEN)
+                return
+            else:
+                printCo('ChoroData nodes detected in fields.cgns. Gathering links between main.cgns and fields.', proc=0, color=J.CYAN)
+                AllCGNSLinks = []
+                main = C.convertFile2PyTree(FILE_CGNS, links=AllCGNSLinks)
+                t = Filter.convertFile2SkeletonTree(os.path.join(DIRECTORY_OUTPUT, 'fields.cgns'))
+                ChoroNodes = I.getNodesFromName(t, 'ChoroData')
+                for node in ChoroNodes:
+                    ChoroPath = I.getPath(t,node)
+                    AllCGNSLinks.append(['.', os.path.join(DIRECTORY_OUTPUT, 'fields.cgns'), ChoroPath, ChoroPath],)
+                
+                C.convertPyTree2File(main, FILE_CGNS, links=AllCGNSLinks)
+                printCo('main.cgns updated with links to fields.cgns ChoroData nodes for restart.', proc=0, color=J.GREEN)
