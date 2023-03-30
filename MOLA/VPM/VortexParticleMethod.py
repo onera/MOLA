@@ -266,7 +266,7 @@ if True:
                 'FarFieldApproximationOrder'    : 8,              #[|6, 12|], order of the polynomial which approximates the far field interactions, the higher the more accurate and the more costly
                 'IterationTuningFMM'            : 50,             #frequency at which the FMM is compared to the direct computation, gives the relative L2 error
                 'NearFieldOverlappingRatio'     : 0.5,            #[0., 1.], Direct computation of the interactions between clusters that overlap by NearFieldOverlappingRatio, the smaller the more accurate and the more costly
-                'NumberOfThreads'               : "`nproc --all`",#number of threads of the machine used, does not matter if above the total number of threads of the machine, just slows down the simulation
+                'NumberOfThreads'               : 'auto',#number of threads of the machine used, does not matter if above the total number of threads of the machine, just slows down the simulation
                 'TimeFMM'                       : 0.,             #in s, keep track of the CPU time spent for the FMM
         }
         defaultHybridParameters = {
@@ -307,12 +307,13 @@ if True:
         if LiftingLineTree: defaultLiftingLineParameters.update(LiftingLineParameters)
         else: defaultLiftingLineParameters = {}
 
-        if type(defaultParameters['NumberOfThreads']) != str: defaultParameters['NumberOfThreads']=\
-                                                    int(round(defaultParameters['NumberOfThreads']))
+        if defaultParameters['NumberOfThreads'] == 'auto':
+            NbOfThreads = int(os.getenv('OMP_NUM_THREADS',len(os.sched_getaffinity(0))))
+            defaultParameters['NumberOfThreads'] = NbOfThreads
+        else:
+            NbOfThreads = defaultParameters['NumberOfThreads']
+        os.environ['OMP_NUM_THREADS'] = str(NbOfThreads)
 
-        os.popen("export OMP_NUM_THREADS=" + str(defaultParameters['NumberOfThreads']))
-        defaultParameters['NumberOfThreads'] = int(os.getenv("OMP_NUM_THREADS"))
-        vpm_cpp.mpi_init(defaultParameters['NumberOfThreads']);
         checkParametersTypes([defaultParameters, defaultHybridParameters,
                                defaultLiftingLineParameters], int_Params, float_Params, bool_Params)
         renameLiftingLineTree(LiftingLineTree, defaultParameters, defaultLiftingLineParameters)
@@ -1840,10 +1841,10 @@ if True:
 
         if RestartPath:
             t = open(RestartPath)
-            try: tE = open('tE.cgns')
+            try: tE = open('tE.cgns') # LB: TODO dangerous; rather use os.path.isfile()
             except: tE = []
         else:
-            if LiftingLinePath: LiftingLine = open(LiftingLinePath)
+            if LiftingLinePath: LiftingLine = open(LiftingLinePath) # LB: TODO dangerous; rather use os.path.isfile()
             else: LiftingLine = []
             #if EulerianPath: EulerianMesh = open(EulerianPath)
             #else: EulerianMesh = []
