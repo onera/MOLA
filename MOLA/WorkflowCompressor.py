@@ -2418,23 +2418,24 @@ def setBC_inj1_interpFromFile(t, FluidProperties, ReferenceValues, FamilyName, f
     donor_tree = C.convertFile2PyTree(filename, format=fileformat)
     inlet_BC_nodes = C.extractBCOfName(t, 'FamilySpecified:{0}'.format(FamilyName))
     I._adaptZoneNamesForSlash(inlet_BC_nodes)
+    I._rmNodesByType(inlet_BC_nodes,'FlowSolution_t')
+    J.migrateFields(donor_tree, inlet_BC_nodes)
+
     for w in inlet_BC_nodes:
         bcLongName = I.getName(w)  # from C.extractBCOfName: <zone>\<bc>
         zname, wname = bcLongName.split('\\')
         znode = I.getNodeFromNameAndType(t, zname, 'Zone_t')
         bcnode = I.getNodeFromNameAndType(znode, wname, 'BC_t')
-
-        print('Interpolate Inflow condition on BC {}...'.format(bcLongName))
-        I._rmNodesByType(w, 'FlowSolution_t')
-        donor_BC = P.extractMesh(donor_tree, w, mode='accurate')
-
         ImposedVariables = dict()
         for var in var2interp:
-            varNode = I.getNodeFromName(donor_BC, var)
+            FS = I.getNodeFromName(w, I.__FlowSolutionCenters__)
+            varNode = I.getNodeFromName(FS, var) 
             if varNode:
                 ImposedVariables[var] = np.asfortranarray(I.getValue(varNode))
             else:
                 raise TypeError('variable {} not found in {}'.format(var, filename))
+        
+        print('ImposedVariables:',ImposedVariables)
 
         setBC_inj1(t, FamilyName, ImposedVariables, bc=bcnode)
 
