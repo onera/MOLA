@@ -52,7 +52,7 @@ BoundaryLayerMaxPoints  = 400,
 )
 
 options = dict(
-NumberOfProcessors=28,
+NumberOfProcessors=48,
 TEclosureTolerance=1e-6,
 )
 
