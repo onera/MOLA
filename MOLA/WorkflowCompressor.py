@@ -1702,7 +1702,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
     setBC_Walls, setBC_walladia, setBC_wallisoth, setBC_wallslip, setBC_sym,
     setBC_nref,
-    setBC_inj1, setBC_inj1_uniform, setBC_inj1_interpFromFile,
+    setBC_inj1, setBC_inj1_uniform, setBC_inj1_imposeFromFile,
     setBC_outpres, setBC_outmfr2,
     setBC_outradeq, setBC_outradeqhyb,
     setBC_stage_mxpl, setBC_stage_mxpl_hyb,
@@ -1767,18 +1767,31 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     It defines a 'nref' condition based on the **ReferenceValues**
     :py:class:`dict`.
 
-    >>> dict(type='InflowStagnation', option='uniform', FamilyName='row_1_INFLOW')
+    >>> dict(type='InflowStagnation', FamilyName='row_1_INFLOW')
 
     It defines a uniform inflow condition imposing stagnation quantities ('inj1' in
     *elsA*) based on the **ReferenceValues**  and **FluidProperties**
     :py:class:`dict`. To impose values not based on **ReferenceValues**, additional
     optional parameters may be given (see the dedicated documentation for the function).
 
+    >>> dict(type='InflowStagnation', FamilyName='row_1_INFLOW', PressureStagnation=100000.)
+
+    Same that before but imposing a PressureStagnation different from that in **ReferenceValues**.
+
+    >>> dict(type='InflowStagnation', FamilyName='row_1_INFLOW', PressureStagnation=funPt)
+
+    Same that before but imposing a radial profile of PressureStagnation given by the function 'funPt'
+    (must be defined before by the user). The function may be an analytical function or a interpoland 
+    computed by the user from a data set. If not given, the function argument is the variable 'ChannelHeight'.
+    Otherwise, the function argument has to be precised with the optional argument `variableForInterpolation`.
+    It must be one of 'ChannelHeight' (default value), 'Radius', 'CoordinateX', 'CoordinateY' or 'CoordinateZ'.
+
     >>> dict(type='InflowStagnation', option='file', FamilyName='row_1_INFLOW', filename='inflow.cgns')
 
     It defines an inflow condition imposing stagnation quantities ('inj1' in
-    *elsA*) interpolating a 2D map written in the given file (must be given at cell centers, 
-    in the container 'FlowSolution#Centers'). 
+    *elsA*) given a 2D map written in the given file (must be given at cell centers, 
+    in the container 'FlowSolution#Centers'). The flow field will be just copied, there is no 
+    interpolation (if needed, the user has to done that before and provide a ready-to-copy file).
 
     >>> dict(type='InflowMassFlow', FamilyName='row_1_INFLOW')
 
@@ -1887,7 +1900,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
             elif BCparam['option'] == 'file':
                 print('{}set BC inj1 (from file {}) on {}{}'.format(J.CYAN,
                     BCparam['filename'], BCparam['FamilyName'], J.ENDC))
-                setBC_inj1_interpFromFile(t, FluidProperties, ReferenceValues, **BCkwargs)
+                setBC_inj1_imposeFromFile(t, FluidProperties, ReferenceValues, **BCkwargs)
 
             elif BCparam['option'] == 'bc':
                 print('set BC inj1 on {}'.format(J.CYAN, BCparam['FamilyName'], J.ENDC))
@@ -2243,7 +2256,7 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None, variableForInterpolatio
 
         * :py:func:`setBC_inj1_uniform`
 
-        * :py:func:`setBC_inj1_interpFromFile`
+        * :py:func:`setBC_inj1_imposeFromFile`
 
     .. note::
         see `elsA Tutorial about inj1 condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#inj1/>`_
@@ -2280,7 +2293,7 @@ def setBC_inj1(t, FamilyName, ImposedVariables, bc=None, variableForInterpolatio
     See also
     --------
 
-    setBC_inj1_uniform, setBC_inj1_interpFromFile
+    setBC_inj1_uniform, setBC_inj1_imposeFromFile
     '''
     if not bc and not all([np.ndim(v)==0 and not callable(v) for v in ImposedVariables.values()]):
         for bc in C.getFamilyBCs(t, FamilyName):
@@ -2365,7 +2378,7 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs
     See also
     --------
 
-    setBC_inj1, setBC_inj1_interpFromFile, setBC_injmfr1
+    setBC_inj1, setBC_inj1_imposeFromFile, setBC_injmfr1
 
     '''
 
@@ -2388,7 +2401,7 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs
 
     setBC_inj1(t, FamilyName, ImposedVariables, variableForInterpolation=variableForInterpolation)
 
-def setBC_inj1_interpFromFile(t, FluidProperties, ReferenceValues, FamilyName, filename, fileformat=None):
+def setBC_inj1_imposeFromFile(t, FluidProperties, ReferenceValues, FamilyName, filename, fileformat=None):
     '''
     Set a Boundary Condition ``inj1`` using the field map in the file
     **filename**. It is expected to be a surface with the following variables
@@ -2409,18 +2422,8 @@ def setBC_inj1_interpFromFile(t, FluidProperties, ReferenceValues, FamilyName, f
           For example: ``'TurbulentEnergyKinetic'`` and
           ``'TurbulentDissipationRate'`` for a k-omega model.
 
-    Field variables will be extrapolated on the BCs attached to the family
-    **FamilyName**, except if:
-
-    * the file can be converted in a PyTree
-
-    * with zone names like: ``<ZONE>\<BC>``, as obtained from function
-      :py:func:`Converter.PyTree.extractBCOfName`
-
-    * and all zone names and BC names are consistent with the current tree **t**
-
-    In that case, field variables are just read in **filename** and written in
-    BCs of **t**.
+    Field variables are just read in **filename** and written in
+    BCs of **t** attached to the family **FamilyName**.
 
     Parameters
     ----------
@@ -2508,7 +2511,7 @@ def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     See also
     --------
 
-    setBC_inj1, setBC_inj1_interpFromFile
+    setBC_inj1, setBC_inj1_imposeFromFile
 
     '''
     Surface = kwargs.get('Surface', None)
