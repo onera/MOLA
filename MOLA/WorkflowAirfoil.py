@@ -706,7 +706,9 @@ def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
         TurbulenceCutoff=1.0, TransitionMode=None, CoprocessOptions={},
         FieldsAdditionalExtractions=[], BCExtractions=dict(
             BCWall=['normalvector', 'frictionvector', 'psta',
-                    'bl_quantities_2d', 'yplusmeshsize', 'bl_ue'])):
+                    'bl_quantities_2d', 'yplusmeshsize', 'bl_ue',
+                    'flux_rou','flux_rov','flux_row',
+                    'torque_rou','torque_rov','torque_row'])):
     '''
     This function is the Airfoil's equivalent of :py:func:`MOLA.Preprocess.computeReferenceValues` .
     The main difference is that in this case reference values are set through
