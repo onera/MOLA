@@ -22,9 +22,18 @@ fi
 mpirun $OPENMPIOVERSUBSCRIBE -np $NPROCMPI elsA.x -C xdt-runtime-tree -- compute.py 1>stdout.log 2>stderr.log
 
 if [ -f "NEWJOB_REQUIRED" ]; then
-    rm -f  NEWJOB_REQUIRED
-    job_filename="${0##*/}"
-    echo "LAUNCHING ${job_filename} AGAIN"
-    sbatch ${job_filename} --dependency=singleton
+    # check if script is started via SLURM or bash
+    if [ ! -z "$SLURM_JOB_ID" ];  then
+        # check the original location through scontrol and $SLURM_JOB_ID
+        SCRIPT_PATH=$(scontrol show job $SLURM_JOBID | awk -F= '/Command=/{print $2}')
+        echo "LAUNCHING ${SCRIPT_PATH} AGAIN USING SLURM"
+        sbatch ${SCRIPT_PATH} --dependency=singleton
+    else
+        # otherwise: started with bash. Get the real location.
+        SCRIPT_PATH=${0}
+        echo "LAUNCHING ${SCRIPT_PATH} AGAIN USING BASH"
+        ${SCRIPT_PATH} &
+    fi
+    rm -f NEWJOB_REQUIRED
     exit 0
 fi
