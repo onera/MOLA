@@ -2630,9 +2630,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         TurbulenceLevel=0.001,
         Surface=1.0, Length=1.0, TorqueOrigin=[0,0,0],
         TurbulenceModel='Wilcox2006-klim', Viscosity_EddyMolecularRatio=0.1,
-        TurbulenceCutoff=0.1, TransitionMode=None,
-        WallDistance=None,
-        CoprocessOptions={},
+        TurbulenceCutoff=0.1, TransitionMode=None, CoprocessOptions={},
         FieldsAdditionalExtractions=['ViscosityMolecular','ViscosityEddy','Mach'],
         BCExtractions=dict(BCWall=['normalvector', 'frictionvector',
                         'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue',
@@ -2717,15 +2715,6 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
 
         TransitionMode : str
             .. attention:: not implemented in workflow standard
-
-        WallDistance : dict or str
-            Method to compute wall distance
-            Str type: name of the method (e.g. 'mininterf_ortho4')
-            Dict type: must contain 'compute' key with name of method as value (e.g. 'mininterf_ortho4'), can contain 'periodic' key in order to take the periodicity into account (e.g. 'two_dir'). The solver can be chosen between 'elsa' and 'cassiopee' (key 'software') and specific extraction can be added  thanks to the key 'extract' (value=boolean True or False).
-
-            .. code-block:: python
-
-               WallDistance=dict(compute='mininterf_ortho4', periodic='two_dir', extract=True, software='elsa')
 
         CoprocessOptions : dict
             Override default coprocess options dictionary with this paramter.
@@ -2812,7 +2801,6 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     TransitionMode     = TransitionMode,
     Viscosity_EddyMolecularRatio = Viscosity_EddyMolecularRatio,
     TurbulenceCutoff   = TurbulenceCutoff,
-    WallDistance       = WallDistance,
     )
 
     # Fluid properties local shortcuts
@@ -2938,10 +2926,6 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         raise AttributeError('Turbulence model %s not implemented in workflow. Must be in: %s'%(TurbulenceModel,str(AvailableTurbulenceModels)))
     Fields         += FieldsTurbulence
     ReferenceState += ReferenceStateTurbulence
-
-    if isinstance(WallDistance,dict):
-        if WallDistance.get('extract',False) and ('TurbulentDistance' not in FieldsAdditionalExtractions):
-            FieldsAdditionalExtractions += ['TurbulentDistance','TurbulentDistanceIndex']
 
     # Update ReferenceValues dictionary
     ReferenceValues.update(dict(
@@ -3090,12 +3074,6 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         elsAkeysModel['walldistcompute'] = 'mininterf'
     else:
         elsAkeysModel['walldistcompute'] = 'mininterf_ortho'
-    WallDistance = ReferenceValues.get('WallDistance',None)
-    if isinstance(WallDistance,dict):
-        elsAkeysModel['walldistcompute'] = WallDistance.get('compute',elsAkeysModel['walldistcompute'])
-        elsAkeysModel['walldistperio']   = WallDistance.get('periodic','none')
-    elif isinstance(WallDistance,str):
-        elsAkeysModel['walldistcompute'] = WallDistance
 
     if TurbulenceModel == 'SA':
         addKeys4Model = dict(
@@ -5142,18 +5120,6 @@ def checkFamiliesInZonesAndBC(t):
                     FAILMSG += 'BC {} in zone {} has no node of type FamilyName_t'.format(I.getName(bc), I.getName(zone))
                     raise Exception(J.FAIL+FAILMSG+J.ENDC)
 
-def extendListOfFamilies(FamilyNames):
-    '''
-    For each <NAME> in the list **FamilyNames**, add Name, name and NAME.
-    '''
-    ExtendedFamilyNames = copy.deepcopy(FamilyNames)
-    for fam in FamilyNames:
-        newNames = [fam.lower(), fam.upper(), fam.capitalize()]
-        for name in newNames:
-            if name not in ExtendedFamilyNames:
-                ExtendedFamilyNames.append(name)
-    return ExtendedFamilyNames
-
 def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
     '''
     Compute the distance to the walls and add nodes ``'TurbulentDistance'`` and
@@ -5168,7 +5134,6 @@ def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
         Be careful when using this function on a partial mesh with periodicity
         conditions. If this kind of BC is not equidistant to the walls, the
         computed ``'TurbulentDistance'`` will be wrong !
-        Except if options are specified to take periodicity into account
 
     Parameters
     ----------
@@ -5189,83 +5154,44 @@ def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
             **wallFilename**.
 
     '''
-    def __adaptZoneNames(zone):
-        zn = I.getName(zone)
-        if   '/' in zn:  zn = zn.split('/')[-1]
-        elif "\\" in zn: zn = zn.split('\\')[-1]
-        I.setName(zone,zn)
-
-    def __duplicateWalls(walls):
-        for bw in I.getBases(walls):
-            for zw in I.getZones(bw):
-                sp = I.getNodeFromName2(zw,".Solver#Param")
-                if sp:
-                    __adaptZoneNames(zw)
-                    ang1 = I.getNodeFromName1(sp,'axis_ang_1'); ang1 = I.getValue(ang1)
-                    ang2 = I.getNodeFromName1(sp,'axis_ang_2'); ang2 = I.getValue(ang2)
-                    angle = float(ang2)/float(ang1)*360.
-                    xc = I.getNodeFromName1(sp,'axis_pnt_x'); xc = I.getValue(xc)
-                    yc = I.getNodeFromName1(sp,'axis_pnt_y'); yc = I.getValue(yc)
-                    zc = I.getNodeFromName1(sp,'axis_pnt_z'); zc = I.getValue(zc)
-                    vx = I.getNodeFromName1(sp,'axis_vct_x'); vx = I.getValue(vx)
-                    vy = I.getNodeFromName1(sp,'axis_vct_y'); vy = I.getValue(vy)
-                    vz = I.getNodeFromName1(sp,'axis_vct_z'); vz = I.getValue(vz)
-                    if angle != 0.:
-                        zdupPos = T.rotate(zw,(xc,yc,zc), (vx,vy,vz),angle)
-                        zdupNeg = T.rotate(zw,(xc,yc,zc), (vx,vy,vz),-angle)
-                        zdupPos[0] += 'dup_pos'
-                        zdupNeg[0] += 'dup_neg'
-                        I.addChild(bw,zdupPos)
-                        I.addChild(bw,zdupNeg)
+    def extendListOfFamilies(FamilyNames):
+        '''
+        For each <NAME> in the list **FamilyNames**, add Name, name and NAME.
+        '''
+        ExtendedFamilyNames = copy.deepcopy(FamilyNames)
+        for fam in FamilyNames:
+            newNames = [fam.lower(), fam.upper(), fam.capitalize()]
+            for name in newNames:
+                if name not in ExtendedFamilyNames:
+                    ExtendedFamilyNames.append(name)
+        return ExtendedFamilyNames
 
     WallFamilies = extendListOfFamilies(WallFamilies)
 
     print('Compute distance to walls...')
 
     BCs, _, BCTypes = C.getBCs(t)
-    walls = [] # will be a list on Zone_t nodes
+    walls = []
     wallBCTypes = set()
     for BC, BCType in zip(BCs, BCTypes):
         FamilyBCType = getFamilyBCTypeFromFamilyBCName(t, BCType)
-        # print('isStdNode=',I.isStdNode(BC))
         if FamilyBCType is not None and 'BCWall' in FamilyBCType:
             wallBCTypes.add(FamilyBCType)
-            if I.isStdNode(BC) == 0: # list of pytree nodes
-                tmpBC = BC
-            elif I.isStdNode(BC) == -1: # pytree node
-                tmpBC = [BC]
-            else: raise TypeError('BC is not a PyTree node or a list of PyTree nodes')
-            for tbc in tmpBC:
-                I._rmNodesByType(tbc,'FlowSolution_t')
-                I._adaptZoneNamesForSlash(tbc)
-                walls.append(tbc)
+            walls.append(BC)
         elif any([pattern in BCType for pattern in WallFamilies]):
             wallBCTypes.add(BCType)
-            if I.isStdNode(BC) == 0: # list of pytree nodes
-                tmpBC = BC
-            elif I.isStdNode(BC) == -1: # pytree node
-                tmpBC = [BC]
-            else: raise TypeError('BC is not a PyTree node or a list of PyTree nodes')
-            for tbc in tmpBC:
-                I._rmNodesByType(tbc,'FlowSolution_t')
-                I._adaptZoneNamesForSlash(tbc)
-                walls.append(tbc)
+            walls.append(BC)
     if verbose:
         print('List of BCTypes recognized as walls:')
         for BCType in wallBCTypes:
             print('  {}'.format(BCType))
-    walls = C.newPyTree(['WALLS', walls]) # as walls is a list of Zone_t nodes 
-    I._adaptZoneNamesForSlash(walls)
-    __duplicateWalls(walls)
+    walls = T.merge(walls)
 
     if wallFilename:
         C.convertPyTree2File(walls, wallFilename)
 
-    container_cell_save = I.__FlowSolutionCenters__
-    I.__FlowSolutionCenters__ = 'FlowSolution#Init'
     DTW._distance2Walls(t, walls)
     EP._addTurbulentDistanceIndex(t)
-    I.__FlowSolutionCenters__ = container_cell_save
 
 def convert2Unstructured(t, merge=True, tol=1e-6):
     '''
