@@ -1454,7 +1454,7 @@ if True:
         StrengthMagnitude = J.getVars(Particles, ['StrengthMagnitude'])[0]
         StrengthMagnitude[N0 - NumberSource:] = AlphaNorm[:]
 
-        Volume[N0 - NumberSource:] = (2.*np.pi)**1.5*Sigma[N0 - NumberSource:]
+        Volume[N0 - NumberSource:] = (2.*np.pi)**1.5*Sigma[N0 - NumberSource:]**3
         KinematicViscosity[N0 - NumberSource:] = VPM_Params['KinematicViscosity'][0] + \
             (Sigma0*VPM_Params['EddyViscosityConstant'][0])**2*2**0.5*\
             AlphaNorm[:]/Volume[N0 - NumberSource:]
