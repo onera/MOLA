@@ -292,7 +292,7 @@ def computeVariablesOnIsosurface(surfaces, variables):
     for surface in surfacesIso:
         for fsname in [I.__FlowSolutionNodes__, I.__FlowSolutionCenters__]:
             TF._computeOtherFields(surface, RefState(setup), variables,
-                                    fsname=fsname, useSI=True, velocity='absolute') # FIXME: to be adapted if user can perform relative computation (vel_formulation)
+                                    fsname=fsname, useSI=True, velocity='absolute')
 
 
 def compute0DPerformances(surfaces, variablesByAverage):
