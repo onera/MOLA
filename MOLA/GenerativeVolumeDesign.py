@@ -2436,7 +2436,12 @@ def multiSections(ProvidedSections, SpineDiscretization,InterpolationData={'Inte
     InterpYmatrix = np.zeros((NinterFoils,NPtsI,NPtsJ),dtype=np.float64,order='F')
     InterpZmatrix = np.zeros((NinterFoils,NPtsI,NPtsJ),dtype=np.float64,order='F')
     for k in range(NinterFoils):
-        InterpXmatrix[k,:,:] = J.getx(ProvidedSections[k])
+        try:
+            InterpXmatrix[k,:,:] = J.getx(ProvidedSections[k])
+        except BaseException as e:
+            J.save(ProvidedSections,'debug.cgns')
+            raise e
+
         InterpYmatrix[k,:,:] = J.gety(ProvidedSections[k])
         InterpZmatrix[k,:,:] = J.getz(ProvidedSections[k])
     if 'interp1d' in InterpolationData['InterpolationLaw'].lower():

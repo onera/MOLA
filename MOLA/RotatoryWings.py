@@ -180,8 +180,6 @@ def extrudeBladeSupportedOnSpinner(blade_surface, spinner, rotation_center,
             blade_surface, rotation_center, rotation_axis, spinner,
             transition_section_index,method=intersection_method)
 
-
-
     supported_profile = _convertIntersectionContour2Structured(blade_surface,
                             spinner_surface, root_section_index, intersection_bar)
 
@@ -1417,14 +1415,14 @@ def _convertIntersectionContour2Structured(blade_surface, spinner_surface,
     CassiopeeVersionIsGreaterThan3dot3 = int(C.__version__.split('.')[1]) > 3
     useApproximate=False
     if CassiopeeVersionIsGreaterThan3dot3:
+        intersection_contour = I.getZones(C.convertArray2Tetra(intersection_contour))[0]
         for i in range(Ni):
             spanwise_curve = GSD.getBoundary(blade_main_surface,'imin',i)
-            spanwise_curve = C.convertArray2Tetra(spanwise_curve)
-            intersection_contour = C.convertArray2Tetra(intersection_contour)
-            # see #9599
+            spanwise_curve = I.getZones(C.convertArray2Tetra(spanwise_curve))[0]
             try:
-                IntersectingPoint = XOR.intersection(spanwise_curve, intersection_contour,
-                                                 tol=1e-6)
+                # see #9599
+                IntersectingPoint = XOR.intersection(spanwise_curve,
+                                                intersection_contour, tol=1e-10)
             except:
                 print(J.WARN+'XOR.intersection failed at point i=%d\nWill use APPROXIMATE METHOD'%i+J.ENDC)
                 useApproximate=True
@@ -1442,7 +1440,6 @@ def _convertIntersectionContour2Structured(blade_surface, spinner_surface,
         supported_profile[0] = 'supported_profile'
         x,y,z = J.getxyz(supported_profile)
 
-        Projections, Distances = [], []
         Section = GSD.getBoundary(blade_main_surface,'jmin',root_section_index)
         dx, dy, dz = J.invokeFields(supported_profile,['dx','dy','dz'])
         Sx, Sy, Sz = J.getxyz(Section)

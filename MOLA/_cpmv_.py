@@ -215,7 +215,7 @@ def _launchSubprocess(Host,CMD):
     Error = readStderr(ssh)
     Output = readStdout(ssh)
     if len(Output)>0:
-        for o in Output: print(o)
+        print('\n'.join(Output))
     if len(Error)>0:
         WillRaise = False
         for e in Error:
@@ -227,7 +227,8 @@ def _launchSubprocess(Host,CMD):
                 print(FAIL+str(e)+ENDC)
 
         if WillRaise:
-            raise IOError(Error[-1])
+            msg = f'Host: {Host}\nCMD={CMD}\nerror message:\n' + '\n'.join(Error)
+            raise IOError(FAIL+msg+ENDC)
 
 def readStderr(ssh):
     '''
