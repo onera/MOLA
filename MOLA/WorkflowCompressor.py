@@ -469,9 +469,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                             FluidProperties, ReferenceValues,
                             bladeFamilyNames=bladeFamilyNames)
 
-    # print('walldistperio' in elsAkeysModel)
     # TODO: improvement => via ReferenceValues['WallDistance'] => distinction elsA/Cassiopee
-    # if 'walldistperio' in elsAkeysModel:
     WallDistance = ReferenceValues.get('WallDistance',None)
     if isinstance(WallDistance,dict):
         walldistperiodic = WallDistance.get('periodic',None)
@@ -2110,18 +2108,6 @@ def setBC_Walls(t, TurboConfiguration,
             to string case. By default, search patterns 'SHROUD' and 'CARTER'.
 
     '''
-    # def extendListOfFamilies(FamilyNames):
-    #     '''
-    #     For each <NAME> in the list **FamilyNames**, add Name, name and NAME.
-    #     '''
-    #     ExtendedFamilyNames = copy.deepcopy(FamilyNames)
-    #     for fam in FamilyNames:
-    #         newNames = [fam.lower(), fam.upper(), fam.capitalize()]
-    #         for name in newNames:
-    #             if name not in ExtendedFamilyNames:
-    #                 ExtendedFamilyNames.append(name)
-    #     return ExtendedFamilyNames
-
     bladeFamilyNames = PRE.extendListOfFamilies(bladeFamilyNames)
     hubFamilyNames = PRE.extendListOfFamilies(hubFamilyNames)
     shroudFamilyNames = PRE.extendListOfFamilies(shroudFamilyNames)

@@ -5189,18 +5189,6 @@ def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
             **wallFilename**.
 
     '''
-    # def extendListOfFamilies(FamilyNames):
-    #     '''
-    #     For each <NAME> in the list **FamilyNames**, add Name, name and NAME.
-    #     '''
-    #     ExtendedFamilyNames = copy.deepcopy(FamilyNames)
-    #     for fam in FamilyNames:
-    #         newNames = [fam.lower(), fam.upper(), fam.capitalize()]
-    #         for name in newNames:
-    #             if name not in ExtendedFamilyNames:
-    #                 ExtendedFamilyNames.append(name)
-    #     return ExtendedFamilyNames
-
     def __adaptZoneNames(zone):
         zn = I.getName(zone)
         if   '/' in zn:  zn = zn.split('/')[-1]
@@ -5246,7 +5234,7 @@ def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
                 tmpBC = BC
             elif I.isStdNode(BC) == -1: # pytree node
                 tmpBC = [BC]
-            else: raise TypeError('BC is not a PyTree node or a liste of PyTree nodes')
+            else: raise TypeError('BC is not a PyTree node or a list of PyTree nodes')
             for tbc in tmpBC:
                 I._rmNodesByType(tbc,'FlowSolution_t')
                 I._adaptZoneNamesForSlash(tbc)
@@ -5257,7 +5245,7 @@ def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
                 tmpBC = BC
             elif I.isStdNode(BC) == -1: # pytree node
                 tmpBC = [BC]
-            else: raise TypeError('BC is not a PyTree node or a liste of PyTree nodes')
+            else: raise TypeError('BC is not a PyTree node or a list of PyTree nodes')
             for tbc in tmpBC:
                 I._rmNodesByType(tbc,'FlowSolution_t')
                 I._adaptZoneNamesForSlash(tbc)
