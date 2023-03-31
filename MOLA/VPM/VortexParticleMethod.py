@@ -50,7 +50,7 @@ if True:
         FlowSolutionNode = I.getNodeFromName1(Particles, 'FlowSolution')
         Np = Particles[1].ravel(order = 'F')[0]
         if Np != len(mask): raise ValueError('The length of the mask (%d) must be the same as the \
-                                                          number of Particles (%d)'%(len(mask), Np))
+                                                          number of particles (%d)'%(len(mask), Np))
         mask = np.logical_not(mask)
         for node in GridCoordinatesNode[2] + FlowSolutionNode[2]:
             if node[3] == 'DataArray_t':
@@ -64,7 +64,7 @@ if True:
         FlowSolutionNode = I.getNodeFromName1(Particles, 'FlowSolution')
         Np = len(J.getx(Particles))
         if Np < abs(Offset): raise ValueError('Offset (%d) cannot be greater than existing number \
-                                                                    of Particles (%d)'%(Offset, Np))
+                                                                    of particles (%d)'%(Offset, Np))
         if ExtendAtTheEnd:
             for node in GridCoordinatesNode[2] + FlowSolutionNode[2]:
                 if node[3] == 'DataArray_t':
@@ -87,7 +87,7 @@ if True:
         FlowSolutionNode = I.getNodeFromName1(Particles, 'FlowSolution')
         Np = len(J.getx(Particles))
         if Np < abs(Offset): raise ValueError('Offset (%d) cannot be greater than existing number \
-                                                                    of Particles (%d)'%(Offset, Np))
+                                                                    of particles (%d)'%(Offset, Np))
         if TrimAtTheEnd:
             for node in GridCoordinatesNode[2] + FlowSolutionNode[2]:
                 if node[3] == 'DataArray_t':
@@ -112,7 +112,7 @@ if True:
         Np = Particles[1].ravel(order = 'F')[0]
         if PivotNumber == 0 or PivotNumber == Np: return
         if PivotNumber > Np:
-            raise ValueError('PivotNumber (%d) cannot be greater than existing number of Particles\
+            raise ValueError('PivotNumber (%d) cannot be greater than existing number of particles\
                                                                             (%d)'%(PivotNumber, Np))
         GridCoordinatesNode = I.getNodeFromName1(Particles, 'GridCoordinates')
         FlowSolutionNode = I.getNodeFromName1(Particles, 'FlowSolution')
@@ -216,6 +216,12 @@ if True:
             ############################################################################################
             ################################### Simulation conditions ##################################
             ############################################################################################
+                'Density'                            : 1.225,         #]0., +inf[, in kg.m^-3
+                'EddyViscosityConstant'              : 0.1,           #[0., +inf[, constant for the eddy viscosity model, Cm(Mansour) around 0.1, Cs(Smagorinsky) around 0.15, Cr(Vreman) around 0.07
+                'EddyViscosityModel'                 : 'Vreman',      #Mansour, Mansour2, Smagorinsky, Vreman or None, select a LES model to compute the eddy viscosity
+                'KinematicViscosity'                 : 1.46e-5,       #[0., +inf[, in m^2.s^-1
+                'Temperature'                        : 288.15,        #]0., +inf[, in K
+                'VelocityFreestream'                 : [40., 0., 0.], #E |R^3, in m.s^-1
                 'Density'                       : 1.225,          #in kg.m^-3, 1.01325e5/((273.15 + 15)*287.05)
                 'EddyViscosityConstant'         : 0.1,            #constant for the eddy viscosity model, Cm(Mansour) around 0.1, Cs(Smagorinsky) around 0.15, Cr(Vreman) around 0.7
                 'EddyViscosityModel'            : 'Vreman',       #Mansour, Smagorinsky, Vreman or None, select a LES model to compute the eddy viscosity
@@ -225,10 +231,10 @@ if True:
             ############################################################################################
             ###################################### VPM parameters ######################################
             ############################################################################################
-                'AntiStretching'                : 0.,             #between 0 and 1, 0 means Particle strength fully takes vortex stretching, 1 means the Particle size fully takes the vortex stretching
+                'AntiStretching'                : 0.,             #between 0 and 1, 0 means particle strength fully takes vortex stretching, 1 means the particle size fully takes the vortex stretching
                 'DiffusionScheme'               : 'PSE',          #PSE, CSM or None. gives the scheme used to compute the diffusion term of the vorticity equation
                 'RegularisationKernel'          : 'Gaussian',     #The available smoothing kernels are Gaussian, HOA, LOA, Gaussian3 and SuperGaussian
-                'SFSContribution'               : 0.,             #between 0 and 1, the closer to 0, the more the viscosity affects the Particle strength, the closer to 1, the more it affects the Particle size
+                'SFSContribution'               : 0.,             #between 0 and 1, the closer to 0, the more the viscosity affects the particle strength, the closer to 1, the more it affects the particle size
                 'SmoothingRatio'                : 2.,             #in m, anywhere between 1.5 and 2.5, the higher the NumberSource, the smaller the Resolution and the higher the SmoothingRatio should be to avoid blowups, the HOA kernel requires a higher smoothing
                 'VorticityEquationScheme'       : 'Transpose',    #Classical, Transpose or Mixed, The schemes used to compute the vorticity equation are the classical scheme, the transpose scheme (conserves total vorticity) and the mixed scheme (a fusion of the previous two)
             ############################################################################################
@@ -247,18 +253,18 @@ if True:
                 'CutoffYmax'                    : +np.inf,        #in m, spatial Cutoff
                 'CutoffZmin'                    : -np.inf,        #in m, spatial Cutoff
                 'CutoffZmax'                    : +np.inf,        #in m, spatial Cutoff
-                'ForcedDissipation'             : 0.,             #in %/s, gives the % of strength Particles looses per sec, usefull to kill unnecessary Particles without affecting the LLs
-                'MaximumAgeAllowed'             : 0,              #0 <=,  Particles are eliminated after MaximumAgeAllowed iterations, if MaximumAgeAllowed == 0, they are not deleted
-                'MaximumAngleForMerging'        : 0.,             #[0., 180.[ in deg,   maximum angle   allowed between two Particles to be merged
-                'MaximumMergingVorticityFactor' : 0.,             #in %, Particles can be merged if their combined strength is below the given poucentage of the maximum strength on the blades
-                'MinimumOverlapForMerging'      : 0.,             #[0., +inf[, if two Particles have at least an overlap of MinimumOverlapForMerging*SigmaRatio, they are considered for merging
+                'ForcedDissipation'             : 0.,             #in %/s, gives the % of strength particles looses per sec, usefull to kill unnecessary particles without affecting the LLs
+                'MaximumAgeAllowed'             : 0,              #0 <=,  particles are eliminated after MaximumAgeAllowed iterations, if MaximumAgeAllowed == 0, they are not deleted
+                'MaximumAngleForMerging'        : 0.,             #[0., 180.[ in deg,   maximum angle   allowed between two particles to be merged
+                'MaximumMergingVorticityFactor' : 0.,             #in %, particles can be merged if their combined strength is below the given poucentage of the maximum strength on the blades
+                'MinimumOverlapForMerging'      : 0.,             #[0., +inf[, if two particles have at least an overlap of MinimumOverlapForMerging*SigmaRatio, they are considered for merging
                 'MinimumVorticityFactor'        : 0.,             #in %, sets the minimum strength kept as a percentage of the maximum strength on the blades
-                'RedistributeParticlesBeyond'   : np.inf,         #do not redistribute Particles if closer than RedistributeParticlesBeyond*Resolution from a LL
+                'RedistributeParticlesBeyond'   : np.inf,         #do not redistribute particles if closer than RedistributeParticlesBeyond*Resolution from a LL
                 'RedistributionKernel'          : None,           #M4Prime, M4, M3, M2, M1 or None, redistribution kernel used. the number gives the order preserved by the kernel, if None local splitting/merging is used
-                'RedistributionPeriod'          : 0,              #frequency at which Particles are redistributed, if 0 the Particles are never redistributed
-                'RelaxationCutoff'              : 0.,             #in Hz, is used during the relaxation process to realign the Particles with the vorticity
-                'RemoveWeakParticlesBeyond'     : np.inf,         #do not remove weak Particles if closer than RemoveWeakParticlesBeyond*Resolution from a LL
-                'ResizeParticleFactor'          : 0.,             #[0, +inf[, resize Particles that grow/shrink RedistributeParticleSizeFactor * Sigma0 (i.e. Resolution*SmoothingRatio), if 0 then no resizing is done
+                'RedistributionPeriod'          : 0,              #frequency at which particles are redistributed, if 0 the particles are never redistributed
+                'RelaxationCutoff'              : 0.,             #in Hz, is used during the relaxation process to realign the particles with the vorticity
+                'RemoveWeakParticlesBeyond'     : np.inf,         #do not remove weak particles if closer than RemoveWeakParticlesBeyond*Resolution from a LL
+                'ResizeParticleFactor'          : 0.,             #[0, +inf[, resize particles that grow/shrink RedistributeParticleSizeFactor * Sigma0 (i.e. Resolution*SmoothingRatio), if 0 then no resizing is done
                 'StrengthRampAtbeginning'       : 25,             #[|0, +inf [|, limit the vorticity shed for the StrengthRampAtbeginning first iterations for the wake to stabilise
             ############################################################################################
             ###################################### FMM parameters ######################################
@@ -266,7 +272,7 @@ if True:
                 'FarFieldApproximationOrder'    : 8,              #[|6, 12|], order of the polynomial which approximates the far field interactions, the higher the more accurate and the more costly
                 'IterationTuningFMM'            : 50,             #frequency at which the FMM is compared to the direct computation, gives the relative L2 error
                 'NearFieldOverlappingRatio'     : 0.5,            #[0., 1.], Direct computation of the interactions between clusters that overlap by NearFieldOverlappingRatio, the smaller the more accurate and the more costly
-                'NumberOfThreads'               : 'auto',#number of threads of the machine used, does not matter if above the total number of threads of the machine, just slows down the simulation
+                'NumberOfThreads'               : 'auto',         #number of threads of the machine used. If 'auto', the highest number of threads is set
                 'TimeFMM'                       : 0.,             #in s, keep track of the CPU time spent for the FMM
         }
         defaultHybridParameters = {
@@ -274,13 +280,13 @@ if True:
             ################################ Hybrid Domain parameters ################################
             ############################################################################################
                 'BCFarFieldName'                   : 'farfield',#the name of the farfield boundary condition from which the Outer Interface is searched
-                'MaximumSubIteration'              : 100,       #[|0, +inf[|, gives the maximum number of sub-iterations when computing the strength of the Particles generated from the vorticity on the Interfaces
+                'MaximumSubIteration'              : 100,       #[|0, +inf[|, gives the maximum number of sub-iterations when computing the strength of the particles generated from the vorticity on the Interfaces
                 'NumberOfHybridInterfaces'         : 4.,        #|]0, +inf[|, number of interfaces in the Hybrid Domain from which hybrid particles are generated
                 'OuterDomainToWallDistance'        : 0.3,       #]0, +inf[ in m, distance between the wall and the end of the Hybrid Domain
                 'OuterInterfaceCell'               : 0,         #[|0, +inf[|, the Outer Interface is searched starting at the OuterInterfaceCell cell from the given BCFarFieldName, one row of cells at a time, until OuterDomainToWallDistance is reached
                 'NumberOfParticlesPerInterface'    : 300,      #[|0, +inf[|, number of particles generated per hybrid interface
-                'RelaxationFactor'                 : 0.5,       #[0, +inf[, gives the relaxtion factor used for the relaxation process when computing the strength of the Particles generated from the vorticity on the Interface
-                'RelaxationThreshold'              : 1e-6,      #[0, +inf[ in m^3.s^-1, gives the convergence criteria for the relaxtion process when computing the strength of the Particles generated from the vorticity on the Interface
+                'RelaxationFactor'                 : 0.5,       #[0, +inf[, gives the relaxtion factor used for the relaxation process when computing the strength of the particles generated from the vorticity on the Interface
+                'RelaxationThreshold'              : 1e-6,      #[0, +inf[ in m^3.s^-1, gives the convergence criteria for the relaxtion process when computing the strength of the particles generated from the vorticity on the Interface
         }
         defaultLiftingLineParameters = {
             ############################################################################################
@@ -290,15 +296,11 @@ if True:
                 'CirculationRelaxation'            : 1./5.,                    #relaxation parameter of the circulation sub-iterations, somwhere between 0.1 and 1 is good, the more unstable the simulation, the lower it should be
                 'GammaZeroAtRoot'                  : True,                     #[|0, 1|], sets the circulation of the root of the blade to zero
                 'GammaZeroAtTip'                   : True,                     #[|0, 1|], sets the circulation of the tip  of the blade to zero
-                'GhostParticleAtRoot'              : False,                    #[|0, 1|], add a Particles at after the root of the blade
-                'GhostParticleAtTip'               : False,                    #[|0, 1|], add a Particles at after the tip  of the blade
+                'GhostParticleAtRoot'              : False,                    #[|0, 1|], add a particles at after the root of the blade
+                'GhostParticleAtTip'               : False,                    #[|0, 1|], add a particles at after the tip  of the blade
                 'IntegralLaw'                      : 'linear',                 #uniform, tanhOneSide, tanhTwoSides or ratio, gives the type of interpolation of the circulation on the lifting lines
                 'MaxLiftingLineSubIterations'      : 100,                      #max number of sub iteration when computing the LL circulations
-                'MinNbShedParticlesPerLiftingLine' : 27,                       #minimum number of station for every LL from which Particles are shed
-                'ParticleDistribution'             : dict(kind = 'uniform',    #uniform, tanhOneSide, tanhTwoSides or ratio, repatition law of the Particles on the Lifting Lines
-                                                        FirstSegmentRatio = 1.,#size of the Particles at the root of the blades relative to Sigma0 (i.e. Resolution*SmoothingRatio)
-                                                        LastSegmentRatio = 1., #size of the Particles at the tip  of the blades relative to Sigma0 (i.e. Resolution*SmoothingRatio)
-                                                        Symmetrical = False),  #[|0, 1|], gives a symmetrical repartition of Particles along the blades or not
+                'MinNbShedParticlesPerLiftingLine' : 27,                       #minimum number of station for every LL from which particles are shed
                 'Pitch'                            : 0.,                       #]-180., 180[ in deg, gives the pitch given to all the lifting lines, if 0 no pitch id added
         }
         defaultParameters.update(VPMParameters)
@@ -313,7 +315,7 @@ if True:
         else:
             NbOfThreads = defaultParameters['NumberOfThreads']
         os.environ['OMP_NUM_THREADS'] = str(NbOfThreads)
-
+        #vpm_cpp.mpi_init(defaultParameters['NumberOfThreads']);
         checkParametersTypes([defaultParameters, defaultHybridParameters,
                                defaultLiftingLineParameters], int_Params, float_Params, bool_Params)
         renameLiftingLineTree(LiftingLineTree, defaultParameters, defaultLiftingLineParameters)
@@ -412,8 +414,11 @@ if True:
         Scheme = Scheme_str2int[getParameter(t, 'VorticityEquationScheme')]
         Diffusion = DiffusionScheme_str2int[getParameter(t, 'DiffusionScheme')]
         EddyViscosityModel = EddyViscosityModel_str2int[getParameter(t, 'EddyViscosityModel')]
+        NumberOfSources = getParameter(t, 'NumberOfSources')
+        if not NumberOfSources: NumberOfSources = 0
+
         solveVorticityEquationInfo = vpm_cpp.wrap_vpm_solver(t, Kernel, Scheme, Diffusion,
-                                                                EddyViscosityModel)
+                                                                EddyViscosityModel, NumberOfSources[0])
         IterationInfo['Number of threads'] = int(solveVorticityEquationInfo[0])
         IterationInfo['SIMD vectorisation'] = int(solveVorticityEquationInfo[1])
         IterationInfo['Near field overlapping ratio'] = solveVorticityEquationInfo[2]
@@ -474,8 +479,8 @@ if True:
         Diffusion = DiffusionScheme_str2int[getParameter(t, 'DiffusionScheme')]
         EddyViscosityModel = EddyViscosityModel_str2int[getParameter(t, 'EddyViscosityModel')]
         if lowstorage: vpm_cpp.runge_kutta_low_storage(t, a, b, Kernel, Scheme, Diffusion,
-                                                    EddyViscosityModel, NumberOfSources)
-        else: vpm_cpp.runge_kutta(t, a, b, Kernel, Scheme, Diffusion,EddyViscosityModel,NumberOfSources)
+                                                    EddyViscosityModel, NumberOfSources[0])
+        else: vpm_cpp.runge_kutta(t, a, b, Kernel, Scheme, Diffusion,EddyViscosityModel,NumberOfSources[0])
 
         time += dt
         it += 1
@@ -523,10 +528,10 @@ if True:
         else:
            adjustTreeSize(t, NewSize = Np[0], OldSize = N0)
 
-        IterationInfo['Number of Particles beyond cutoff'] = populationControlInfo[0]
-        IterationInfo['Number of split Particles'] = populationControlInfo[1]
-        IterationInfo['Number of depleted Particles'] = populationControlInfo[2]
-        IterationInfo['Number of merged Particles'] = populationControlInfo[3]
+        IterationInfo['Number of particles beyond cutoff'] = populationControlInfo[0]
+        IterationInfo['Number of split particles'] = populationControlInfo[1]
+        IterationInfo['Number of depleted particles'] = populationControlInfo[2]
+        IterationInfo['Number of merged particles'] = populationControlInfo[3]
         IterationInfo['Population Control time'] = J.tic() - IterationInfo['Population Control time']
         return IterationInfo
 
@@ -831,12 +836,12 @@ if True:
 
         Np -= Offset
         msg = '||'+'{:27}'.format('Number of cells') + ': '+ '{:d}'.format(Nh) + '\n'
-        msg += '||' + '{:27}'.format('Number of hybrid Particles') + ': '+ '{:d}'.format(Np) +\
+        msg += '||' + '{:27}'.format('Number of hybrid particles') + ': '+ '{:d}'.format(Np) +\
                                                     ' (' + '{:.1f}'.format(Np/Nh*100.) + '%)\n'
-        msg += '||' + '{:27}'.format('Mean Particle spacing') + ': '+'{:.3f}'.format(np.mean(s)) +' m\n'
+        msg += '||' + '{:27}'.format('Mean particle spacing') + ': '+'{:.3f}'.format(np.mean(s)) +' m\n'
         msg += '||' +'{:27}'.format('Particle spacing deviation')+': '+'{:.3f}'.format(np.std(s))+' m\n'
-        msg += '||' + '{:27}'.format('Maximum Particle spacing') +': '+'{:.3f}'.format(np.max(s))+' m\n'
-        msg += '||' + '{:27}'.format('Minimum Particle spacing') +': '+'{:.3f}'.format(np.min(s))+' m\n'
+        msg += '||' + '{:27}'.format('Maximum particle spacing') +': '+'{:.3f}'.format(np.max(s))+' m\n'
+        msg += '||' + '{:27}'.format('Minimum particle spacing') +': '+'{:.3f}'.format(np.min(s))+' m\n'
         print(msg)
 
     def eraseParticlesInHybridDomain(t = [], Offset = 0):
@@ -1101,6 +1106,27 @@ if True:
 
     def updateParametersWithLiftingLines(LiftingLineTree = [], Parameters = {}, LiftingLineParameters = {}):
         LiftingLines = I.getZones(LiftingLineTree)
+        flag = False
+        if LiftingLineParameters['MinNbShedParticlesPerLiftingLine']%2:
+            if 'ParticleDistribution' in LiftingLineParameters and \
+                                    LiftingLineParameters['ParticleDistribution']['Symmetrical']:
+                flag = True
+            else:
+                for LiftingLine in LiftingLines:
+                    LLParameters = J.get(LiftingLine, '.VPM#Parameters')
+                    if LLParameters and 'ParticleDistribution' in LLParameters and 'Symmetrical' in\
+                        LLParameters['ParticleDistribution'] and \
+                            LLParameters['ParticleDistribution']['Symmetrical']:
+                        flag = True
+
+            if flag:
+                LiftingLineParameters['MinNbShedParticlesPerLiftingLine'] += 1
+                print('||' + '{:=^50}'.format(''))
+                print('||Odd number of embedded particles on at least one ')
+                print('||Lifting Line dispite its symmetry. Embbeded ')
+                print('||particle number changed to %d'%LiftingLineParameters['MinNbShedParticlesPerLiftingLine'][0])
+                print('||' + '{:=^50}'.format(''))
+
         if 'Resolution' not in Parameters and LiftingLines:
             ShortestLiftingLineSpan = np.inf
             for LiftingLine in LiftingLines:
@@ -1115,7 +1141,7 @@ if True:
                 ShortestLiftingLineSpan = np.minimum(ShortestLiftingLineSpan,
                                                      W.getLength(LiftingLine))
             LiftingLineParameters['MinNbShedParticlesPerLiftingLine'] = \
-                                int(round(ShortestLiftingLineSpan/Parameters['Resolution']))#n segments gives n + 1 stations, and each Particles is surrounded by two stations, thus shedding n Particles. One has to add up to that the presence of ghost Particles at the tips
+                                int(round(ShortestLiftingLineSpan/Parameters['Resolution']))#n segments gives n + 1 stations, and each particles is surrounded by two stations, thus shedding n particles. One has to add up to that the presence of ghost particles at the tips
         elif 'Resolution' not in Parameters:
             raise ValueError('The Resolution can not be computed, the Resolution itself or a \
                                 Lifting Line with a MinNbShedParticlesPerLiftingLine must be given')
@@ -1192,6 +1218,7 @@ if True:
                 ParticleDistribution['parameter'] = ParticleDistributionOld['parameter']
             if 'Symmetrical' in ParticleDistributionOld:
                 ParticleDistribution['Symmetrical'] = ParticleDistributionOld['Symmetrical']
+                
             LLParameters['ParticleDistribution'] = ParticleDistribution
 
             J.set(LiftingLine, '.VPM#Parameters',
@@ -1230,12 +1257,6 @@ if True:
                                                                                 (0, 0, 1)), SemiWing))
                 WingDiscretization += L/2.
                 ParticleDistribution = WingDiscretization/L
-                if not (NumberOfStations % 2):
-                    N = len(ParticleDistribution)//2
-                    array = ParticleDistribution
-                    ParticleDistribution = np.append([(array[N] + array[N - 2])/2., (array[N + 2] +\
-                                                                       array[N])/2.], array[N + 2:])
-                    ParticleDistribution = np.append(array[:N - 1], ParticleDistribution)
             else:
                 WingDiscretization = J.getx(W.linelaw(P1 = (0., 0., 0.), P2 = (L, 0., 0.),
                                                         N = NumberOfStations,
@@ -1433,7 +1454,7 @@ if True:
         StrengthMagnitude = J.getVars(Particles, ['StrengthMagnitude'])[0]
         StrengthMagnitude[N0 - NumberSource:] = AlphaNorm[:]
 
-        Volume[N0 - NumberSource:] = (2.*np.pi)**1.5*Sigma[N0 - NumberSource:]
+        Volume[N0 - NumberSource:] = (2.*np.pi)**1.5*Sigma[N0 - NumberSource:]**3
         KinematicViscosity[N0 - NumberSource:] = VPM_Params['KinematicViscosity'][0] + \
             (Sigma0*VPM_Params['EddyViscosityConstant'][0])**2*2**0.5*\
             AlphaNorm[:]/Volume[N0 - NumberSource:]
@@ -1500,7 +1521,7 @@ if True:
         n   = RPM/60.
         T = IntegralLoads['Total']['Thrust'][0]
         P = IntegralLoads['Total']['Power'][0]
-        P = np.sign(P)*np.maximum(1e-6,np.abs(P))
+        P = np.sign(P)*np.maximum(1e-12,np.abs(P))
         cT = T/(Rho*n**2*D**4)
         cP = P/(Rho*n**3*D**5)
         Uinf = np.linalg.norm(U0 - V)
@@ -1530,7 +1551,7 @@ if True:
         P = IntegralLoads['Total']['Power'][0]
         cT = T/(Rho*n**2*D**4)
         cP = P/(Rho*n**3*D**5)
-        cP = np.sign(cP)*np.maximum(1e-6,np.abs(cP))
+        cP = np.sign(cP)*np.maximum(1e-12,np.abs(cP))
         Eff = np.sqrt(2./np.pi)*cT**1.5/cP
 
         std_Thrust, std_Power = getStandardDeviationBlade(LiftingLines = LiftingLines, StdDeviationSample = StdDeviationSample)
@@ -1615,7 +1636,7 @@ if True:
 ######################################### IO/Visualisation #########################################
 ####################################################################################################
 ####################################################################################################
-    def setVisualization(t = [], ParticlesColorField = 'VorticityMagnitude', ParticlesRadius = '{Sigma}/10', addLiftingLineSurfaces = True, AirfoilPolarsFilename = None):
+    def setVisualization(t = [], ParticlesColorField = 'VorticityMagnitude', ParticlesRadius = '{Sigma}/5', addLiftingLineSurfaces = True, AirfoilPolarsFilename = None):
         Particles = pickParticlesZone(t)
         Sigma = I.getValue(I.getNodeFromName(Particles, 'Sigma'))
         C._initVars(Particles, 'radius=' + ParticlesRadius)
@@ -1714,8 +1735,8 @@ if True:
                         ' (' + '{:.1f}'.format(IterationInfo['Percentage']) + '%) ') + '\n'
         msg += '||' + '{:34}'.format('Physical time') + \
                         ': ' + '{:.5f}'.format(IterationInfo['Physical time']) + ' s' + '\n'
-        msg += '||' + '{:34}'.format('Number of Particles') + \
-                        ': ' + '{:d}'.format(IterationInfo['Number of Particles']) + '\n'
+        msg += '||' + '{:34}'.format('Number of particles') + \
+                        ': ' + '{:d}'.format(IterationInfo['Number of particles']) + '\n'
         msg += '||' + '{:34}'.format('Total iteration time') + \
                         ': ' + '{:.2f}'.format(IterationInfo['Total iteration time']) + ' s' + '\n'
         msg += '||' + '{:34}'.format('Total simulation time') + \
@@ -1739,9 +1760,9 @@ if True:
                       ': ' + '{:.4f}'.format(IterationInfo['f']) + '\n'
             else:
                 msg += '||' + '{:34}'.format('Thrust') + \
-                    ': ' + '{:.3g}'.format(IterationInfo['Thrust']) + ' N' + '\n'
+                    ': ' + '{:.5g}'.format(IterationInfo['Thrust']) + ' N' + '\n'
                 msg += '||' + '{:34}'.format('Thrust Standard Deviation') + \
-                    ': ' + '{:.3g}'.format(IterationInfo['Thrust Standard Deviation']) + ' N' + '\n'
+                    ': ' + '{:.5g}'.format(IterationInfo['Thrust Standard Deviation']) + ' N' + '\n'
                 msg += '||' + '{:34}'.format('Power') + \
                     ': ' + '{:.3g}'.format(IterationInfo['Power']) + ' W' + '\n'
                 msg += '||' + '{:34}'.format('Power Standard Deviation') + \
@@ -1753,14 +1774,14 @@ if True:
                 msg += '||' + '{:34}'.format('Eff') + \
                     ': ' + '{:.5f}'.format(IterationInfo['Eff']) + '\n'
         msg += '||' + '{:-^50}'.format(' Population Control ') + '\n'
-        msg += '||' + '{:34}'.format('Number of Particles beyond cutoff') + \
-                     ': ' + '{:d}'.format(IterationInfo['Number of Particles beyond cutoff']) + '\n'
-        msg += '||' + '{:34}'.format('Number of split Particles') + \
-                     ': ' + '{:d}'.format(IterationInfo['Number of split Particles']) + '\n'
-        msg += '||' + '{:34}'.format('Number of depleted Particles') + \
-                     ': ' + '{:d}'.format(IterationInfo['Number of depleted Particles']) + '\n'
-        msg += '||' + '{:34}'.format('Number of merged Particles') + \
-                     ': ' + '{:d}'.format(IterationInfo['Number of merged Particles']) + '\n'
+        msg += '||' + '{:34}'.format('Number of particles beyond cutoff') + \
+                     ': ' + '{:d}'.format(IterationInfo['Number of particles beyond cutoff']) + '\n'
+        msg += '||' + '{:34}'.format('Number of split particles') + \
+                     ': ' + '{:d}'.format(IterationInfo['Number of split particles']) + '\n'
+        msg += '||' + '{:34}'.format('Number of depleted particles') + \
+                     ': ' + '{:d}'.format(IterationInfo['Number of depleted particles']) + '\n'
+        msg += '||' + '{:34}'.format('Number of merged particles') + \
+                     ': ' + '{:d}'.format(IterationInfo['Number of merged particles']) + '\n'
         msg += '||' + '{:34}'.format('Control Computation time') + \
                      ': ' + '{:.2f}'.format(IterationInfo['Population Control time']) + ' s (' + \
                                           '{:.1f}'.format(IterationInfo['Population Control time']/\
@@ -1771,7 +1792,7 @@ if True:
                          ': ' + '{:.5e}'.format(IterationInfo['Circulation error']) + '\n'
             msg += '||' + '{:34}'.format('Number of sub-iterations') + \
                          ': ' + '{:d}'.format(IterationInfo['Number of sub-iterations (LL)']) + '\n'
-            msg += '||' + '{:34}'.format('Number of shed Particles') + \
+            msg += '||' + '{:34}'.format('Number of shed particles') + \
                          ': ' + '{:d}'.format(IterationInfo['Number of shed particles']) + '\n'
             msg += '||' + '{:34}'.format('Lifting Line Computation time') + \
                          ': ' + '{:.2f}'.format(IterationInfo['Lifting Line time']) + ' s (' + \
@@ -1895,7 +1916,7 @@ if True:
             IterationInfo = generateParticlesInHybridInterfaces(t, tE, IterationInfo)
             IterationInfo = populationControl(t, [], IterationInfo)
             IterationInfo = shedParticlesFromLiftingLines(t, AirfoilPolars, IterationInfo)
-            IterationInfo['Number of Particles'] = Np[0]
+            IterationInfo['Number of particles'] = Np[0]
             IterationInfo = solveVorticityEquation(t, IterationInfo = IterationInfo)
             IterationInfo['Total iteration time'] = J.tic() - IterationTime
             IterationInfo = getAerodynamicCoefficientsOnLiftingLine(LiftingLines, Wings = Wing,
