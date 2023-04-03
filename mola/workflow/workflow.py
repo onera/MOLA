@@ -21,6 +21,7 @@ import .external_flow.FlowGenerator as ExternalFlowGenerator
 from .. import cgns as c
 from  mola.cfd.preprocess.mesh import (positioning,
                                        connect,
+                                       split,
                                        families)
 from  mola.cfd.preprocess import (boundary_conditions,
                                   initialization,
