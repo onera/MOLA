@@ -36,6 +36,25 @@ Major changes
 
 Major changes with respect to previous version (``v1.14``):
 
+CFD
+---
+* use of elsA v5.1.03
+* cell-volume correction on lifting-line bodyforce method
+* major enhancements on internal aerodynamics bodyforce method
+* automatic turbomachinery post-processing using *turbo* module
+* dynamic overset suitable for unsteady rotor computations
+* chorochronic simulations on Workflow Compressor and ORAS
+* expansion of existing Airfoil Polars
+* automatic restart of any CFD run upon timeout
+* injection of user-defined radial profiles in turbomachinery simulations
+
+Miscellaneous
+-------------
+* Release of Vortex Particle Method (VPM) stable version v0.2, including multiple examples
+* major enhancements of TreeLab 
+* enhanced visualisation techniques (Visu module)
+* new tools accessible from MOLA environment: turbo, ErsatZ, maia
+* bugs correction and improved general robustness
 
 Indices and tables
 ==================
