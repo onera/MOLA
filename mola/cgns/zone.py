@@ -332,6 +332,23 @@ class Zone(Node):
     def hasFields(self):
         return bool( self.get( Type='FlowSolution_t', Depth=1 ) )
 
+    def boundaries(self):
+        if not self.isStructured(): 
+            raise ValueError('boundaries only implemented for structured zones')
+        
+        dim = self.dim()
+        if dim == 3:
+            bnds = [self.imin(), self.imax(),
+                    self.jmin(), self.jmax(),
+                    self.kmin(), self.kmax()]
+        elif dim == 2:
+            bnds = [self.imin(), self.imax(),
+                    self.jmin(), self.jmax()]
+        else:
+            bnds = [self.imin(), self.imax()]
+        
+        return bnds
+
 
     def boundary(self, index='i', bound='min'):
         if not self.isStructured(): 
@@ -392,7 +409,7 @@ class Zone(Node):
             else:
                 raise ValueError(f'cannot extract {index+bound} from f{self.dim()}D zone')
 
-        zone = utils.newZoneFromArrays(self.name()+'_imin',
+        zone = utils.newZoneFromArrays(self.name()+f'_{index+bound}',
                     ['x','y','z'], [x,y,z])
         contDict = dict()
         if len(containers) == 0: return zone

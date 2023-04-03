@@ -52,7 +52,6 @@ def get_workflow1():
                     dict(Type='Match', Tolerance=1e-8),
                 ],
                 OversetOptions=dict(),
-                SplitMesh=True,
                 )
         ]
         )
@@ -82,3 +81,5 @@ def test_prepare_workflow1():
     w.assemble()
     w.positioning()
     w.connect()
+    w.define_families()
+    w.write_tree()
