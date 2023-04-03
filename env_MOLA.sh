@@ -154,7 +154,7 @@ elif [ "$MAC" = "spiro" ]; then
     # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
     # VPM
-    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro_el8
+    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro_el8/$ARCH
     export PATH=$VPMPATH:$PATH
     export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
@@ -204,7 +204,7 @@ elif [ "$MAC" = "visung" ]; then
     export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
 
     # VPM
-    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/visung
+    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld7/$ARCH
     export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
     export PYTHONPATH=$VPMPATH/lib/python3.7/site-packages:$PYTHONPATH
 
@@ -212,7 +212,7 @@ elif [ "$MAC" = "visung" ]; then
     export OWNCASS=/stck/lbernard/Cassiopee/$OWNCASSREV/visung
     export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH
     export PYTHONPATH=$OWNCASS/lib/python3.7/site-packages:$PYTHONPATH
-    # requireed by OCC, not provided currently in CentOS 7 visung
+    # required by OCC, not provided currently in CentOS 7 visung
     export LD_LIBRARY_PATH=/stck/benoit/opencascade/lib:$LD_LIBRARY_PATH
     
 
