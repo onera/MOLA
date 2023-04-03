@@ -17,12 +17,16 @@
 
 import os
 from ..cfd import preprocess as PRE
-from ..application import external_flow as ExtFlow
+import .external_flow.FlowGenerator as ExternalFlowGenerator
 from .. import cgns as c
 from  mola.cfd.preprocess.mesh import (positioning,
                                        connect,
-                                       families,
-                                       split)
+                                       families)
+from  mola.cfd.preprocess import (boundary_conditions,
+                                  initialization,
+                                  motion,
+                                  cfd_parameters,
+                                  extractions)
 
 class Workflow(object):
 
@@ -138,6 +142,8 @@ class Workflow(object):
                 LauncherCommand = 'auto', # or 'sbatch job.sh', './job.sh'...
                 SecondsMargin4QuitBeforeTimeOut = 180.0),
 
+            FlowGenerator=ExternalFlowGenerator,
+
             ):
 
         self._workflow_parameters_container_ = 'WorkflowParameters'
@@ -152,6 +158,7 @@ class Workflow(object):
             self.RawMeshComponents=RawMeshComponents
             self.Fluid=Fluid
             self.Flow=Flow
+            self._FlowGenerator=FlowGenerator
             self.Turbulence=Turbulence
             self.BoundaryConditions=BoundaryConditions
             self.Solver=Solver
@@ -220,9 +227,6 @@ class Workflow(object):
         self.adapt_tree_to_solver()
         self.check_preprocess() # empty BCs... maybe solver-specific
 
-    def write_cfd_files(self):
-        return
-    
     def assemble(self):
         self.read_meshes()
         self.clean_mesh()
@@ -265,31 +269,30 @@ class Workflow(object):
 
     def compute_reference_values(self):
         # mola-generic set of parameters
-        self.compute_flow_properties()
-        self.set_modeling_parameters()
-        self.set_numerical_parameters()
+        FlowGen = self._FlowGenerator(self)
+        FlowGen.generate()
+        self.Flow = FlowGen.Flow
+        self.Turbulence = FlowGen.Turbulence
 
+    def initialize_flow(self):
+        initialization.apply(self)
+    
     def set_boundary_conditions(self):
-        PRE.set_boundary_conditions(self)
+        boundary_conditions.apply(self)
+
+    def set_motion(self):
+        motion.apply(self)
+
+    def set_cfd_parameters(self):
+        cfd_parameters.apply(self)
+
+    def set_extractions(self):
+        extractions.apply(self)
 
     def write_cfd_files(self):
         self.write_setup()
         self.write_run_scripts() # including job bash file(s)
         self.write_data_files() # CGNS, FSDM...
-
-
-    def save_main(self):
-        PRE.writeSetup(AllSetupDicts)
-        PRE.mesh.saveMainCGNSwithLinkToOutputFields(writeOutputFields=True)
-
-    def addTiggerReferenceStateGoverningEquations(self):
-        PRE.addTrigger()
-        PRE.addReferenceState(self.tree, self.FluidProperties, self.ReferenceValues) 
-        dim = int(self.solver_parameters['cfdpb']['config'][0])
-        PRE.addGoverningEquations(self.tree, dim=dim)
-
-    def write_compute(self):
-        pass
 
     def visu(self):
         pass

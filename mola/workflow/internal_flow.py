@@ -15,91 +15,113 @@
 #    You should have received a copy of the GNU General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import .external_flow as ExtFlow
 
-class InternalFlow(object):
+class FlowGenerator(ExtFlow.FlowGenerator):
 
-    def __init__(self, Fluid, Flow, Turbulence, Surface):
-        self.Fluid = Fluid
-        self.Flow = Flow
-        self.Turbulence = Turbulence
-        self.Surface = Surface
-
+    def __init__(self, workflow):
+        super().init(workflow)
+        self.Surface = workflow.Surface
 
     def set_flow_properties(self):
-         # Compute variables
-        assert not(MassFlow and Mach), 'MassFlow and Mach cannot be given together in ReferenceValues. Choose one'
+        assert not(self.Flow['MassFlow'] and self.Flow['Mach']), 'MassFlow and Mach cannot be given together in ReferenceValues. Choose one'
         if self.Flow['MassFlow']:
-            self.machFromMassFlow()
+            self.Flow['Mach'] = self.MachFromMassFlow(self.Flow['MassFlow'], 
+                                                      self.Surface, 
+                                                      self.Flow['PressureStagnation'], 
+                                                      self.Flow['TemperatureStagnation'], 
+                                                      self.Fluid['IdealGasConstant'], 
+                                                      self.Fluid['Gamma']
+                                                      )
         else:
-            self.massflowFromMach()
+            self.Flow['MassFlow'] = self.MassFlowFromMach(self.Flow['Mach'], 
+                                                          self.Surface, 
+                                                          self.Flow['PressureStagnation'], 
+                                                          self.Flow['TemperatureStagnation'], 
+                                                          self.Fluid['IdealGasConstant'], 
+                                                          self.Fluid['Gamma']
+                                                          )
+
         Temperature  = self.Flow['TemperatureStagnation'] / (1. + 0.5*(self.Fluid['Gamma']-1.) * Mach**2)
         Pressure  = self.Flow['PressureStagnation'] / (1. + 0.5*(self.Fluid['Gamma']-1.) * Mach**2)**(self.Fluid['Gamma']/(self.Fluid['Gamma']-1))
         Density = Pressure / (Temperature * self.Fluid['IdealGasConstant'])
         SoundSpeed  = np.sqrt(self.Fluid['Gamma'] * self.Fluid['IdealGasConstant'] * Temperature)
         Velocity  = Mach * SoundSpeed
 
-        # REFERENCE VALUES COMPUTATION
-        mus = self.Fluid['SutherlandViscosity']
-        Ts  = self.Fluid['SutherlandTemperature']
-        S   = self.Fluid['SutherlandConstant']
-        ViscosityMolecular = mus * (Temperature/Ts)**1.5 * ((Ts + S)/(Temperature + S))
+        super().set_flow_properties()
 
-        # ReferenceValues = PRE.computeReferenceValues(Fluid,
-        #     Density=Density,
-        #     Velocity=Velocity,
-        #     Temperature=Temperature,
-        #     AngleOfAttackDeg=AngleOfAttackDeg,
-        #     AngleOfSlipDeg = 0.0,
-        #     YawAxis=YawAxis,
-        #     PitchAxis=PitchAxis,
-        #     TurbulenceLevel=TurbulenceLevel,
-        #     Surface=Surface,
-        #     Length=Length,
-        #     TorqueOrigin=TorqueOrigin,
-        #     TurbulenceModel=TurbulenceModel,
-        #     Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio,
-        #     TurbulenceCutoff=TurbulenceCutoff,
-        #     TransitionMode=TransitionMode,
-        #     )
-
-        # addKeys = dict(
-        #     PressureStagnation = PressureStagnation,
-        #     TemperatureStagnation = TemperatureStagnation,
-        #     MassFlow = MassFlow,
-        #     )
-
-        # ReferenceValues.update(addKeys)
-
-        # return ReferenceValues
-
-        self.Flow = dict()
-
-    def set_turbulence_properties(self):
-        self.Turbulence = dict()
-
-    def massflowFromMach(self):
+    @staticmethod
+    def MassFlowFromMach(Mx, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
         '''
         Compute the massflow rate through a section.
+
+        Parameters
+        ----------
+
+            Mx : :py:class:`float`
+                Mach number in the normal direction to the section.
+
+            S : :py:class:`float`
+                Surface of the section.
+
+            Pt : :py:class:`float`
+                Stagnation pressure of the flow.
+
+            Tt : :py:class:`float`
+                Stagnation temperature of the flow.
+
+            r : :py:class:`float`
+                Specific gas constant.
+
+            gamma : :py:class:`float`
+                Ratio of specific heats of the gas.
+
+
+        Returns
+        -------
+
+            massflow : :py:class:`float`
+                Value of massflow through the section.
         '''
-        S = self.Surface
-        Mx = self.Flow['Mach']
-        Pt = self.Flow['PressureStagnation']
-        Tt = self.Flow['TemperatureStagnation']
-        r = self.Fluid['IdealGasConstant']
-        gamma = self.Fluid['Gamma']
+        return S * Pt * (gamma/r/Tt)**0.5 * Mx / (1. + 0.5*(gamma-1.) * Mx**2) ** ((gamma+1) / 2 / (gamma-1))
 
-        self.MassFlow = S * Pt * (gamma/r/Tt)**0.5 * Mx / (1. + 0.5*(gamma-1.) * Mx**2) ** ((gamma+1) / 2 / (gamma-1))
-        return self.MassFlow
-
-    def machFromMassFlow(self):
+    @staticmethod
+    def MachFromMassFlow(massflow, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
         '''
         Compute the Mach number normal to a section from the massflow rate.
-        '''
 
+        Parameters
+        ----------
+
+            massflow : :py:class:`float`
+                MassFlow rate through the section.
+
+            S : :py:class:`float`
+                Surface of the section.
+
+            Pt : :py:class:`float`
+                Stagnation pressure of the flow.
+
+            Tt : :py:class:`float`
+                Stagnation temperature of the flow.
+
+            r : :py:class:`float`
+                Specific gas constant.
+
+            gamma : :py:class:`float`
+                Ratio of specific heats of the gas.
+
+
+        Returns
+        -------
+
+            Mx : :py:class:`float`
+                Value of the Mach number in the normal direction to the section.
+        '''
         if isinstance(massflow, (list, tuple, np.ndarray)):
             Mx = []
             for i, MF in enumerate(massflow):
-                Mx.append(self.machFromMassFlow())
+                Mx.append(machFromMassFlow(MF, S, Pt=Pt, Tt=Tt, r=r, gamma=gamma))
             if isinstance(massflow, np.ndarray):
                 Mx = np.array(Mx)
             return Mx
@@ -114,4 +136,3 @@ class InternalFlow(object):
             # Search for the corresponding Mach Number between 0 and 1
             Mx = scipy.optimize.brentq(g, 0, 1)
             return Mx
-

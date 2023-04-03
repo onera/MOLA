@@ -14,3 +14,10 @@
 #
 #    You should have received a copy of the GNU General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
+
+def apply(workflow):
+
+    workflow.SolverParameters = dict()
+    solverModule = misc.load_source('solverModule', workflow.Solver)
+    solverModule.adapt_to_solver(workflow)
