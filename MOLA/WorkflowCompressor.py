@@ -2527,7 +2527,8 @@ def setBC_inj1_imposeFromFile(t, FluidProperties, ReferenceValues, FamilyName, f
     var2interp += list(turbDict)
 
     donor_tree = C.convertFile2PyTree(filename, format=fileformat)
-    inlet_BC_nodes = C.extractBCOfName(t, 'FamilySpecified:{0}'.format(FamilyName))
+    inlet_BC_nodes = J.extractBCFromFamily(t, Family=FamilyName)
+
     I._adaptZoneNamesForSlash(inlet_BC_nodes)
     I._rmNodesByType(inlet_BC_nodes,'FlowSolution_t')
     J.migrateFields(donor_tree, inlet_BC_nodes)
@@ -2840,6 +2841,9 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
             elif np.ndim(value)==0:
                 # scalar value --> uniform data
                 ImposedVariables[var] = value * np.ones(radius.shape)
+            elif len(ImposedVariables[var].shape) == 3:
+                ImposedVariables[var] = np.squeeze(ImposedVariables[var])
+
             assert ImposedVariables[var].shape == bc_shape, \
                 'Wrong shape for variable {}: {} (shape {} for {})'.format(
                     var, ImposedVariables[var].shape, bc_shape, I.getPath(t, bc))

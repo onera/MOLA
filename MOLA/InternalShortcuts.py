@@ -2712,3 +2712,126 @@ def save(*args, **kwargs):
     literally, a shortcut of C.convertPyTree2File
     '''
     C.convertPyTree2File(*args, **kwargs)
+
+def extractBCFromFamily(t, Family):        
+    BCList = []
+    for zone in I.getZones(t):
+        zoneType = I.getValue(I.getNodeFromName1(zone, 'ZoneType'))
+        x, y, z = getxyz(zone)
+        for BC in I.getNodesFromType2(zone, 'BC_t'):
+            FamilyNode = I.getNodeFromType1(BC, 'FamilyName_t') # Adapt for several families
+            if not FamilyNode: continue
+            FamilyName = I.getValue(FamilyNode)
+            if Family == FamilyName:
+                if zoneType == 'Structured':
+                    PointRange = I.getValue(I.getNodeFromName1(BC, 'PointRange'))
+                    bc_shape = PointRange[:, 1] - PointRange[:, 0]
+                    if bc_shape[0] == 0:
+                        squeezedAxis = 0
+                        if PointRange[0, 0]-1 == 0: 
+                            indexBC = 0 # BC on imin
+                        else:
+                            indexBC = -1 # BC on imax
+                        SliceOnVertex = np.s_[[indexBC], 
+                                                PointRange[1, 0]-1:PointRange[1, 1], 
+                                                PointRange[2, 0]-1:PointRange[2, 1]]
+                        SliceOnCell = np.s_[[indexBC],
+                                                PointRange[1, 0]-1:PointRange[1, 1]-1, 
+                                                PointRange[2, 0]-1:PointRange[2, 1]-1]
+
+                    elif bc_shape[1] == 0:
+                        squeezedAxis = 1
+                        if PointRange[1, 0]-1 == 0: 
+                            indexBC = 0 # BC on jmin
+                        else:
+                            indexBC = -1 # BC on jmax
+                        SliceOnVertex = np.s_[PointRange[0, 0]-1:PointRange[0, 1],
+                                            [indexBC], 
+                                            PointRange[2, 0]-1:PointRange[2, 1]]
+                        SliceOnCell = np.s_[PointRange[0, 0]-1:PointRange[0, 1]-1,
+                                            [indexBC], 
+                                            PointRange[2, 0]-1:PointRange[2, 1]-1]
+                        
+
+                    elif bc_shape[2] == 0:
+                        squeezedAxis = 2
+                        if PointRange[2, 0]-1 == 0: 
+                            indexBC = 0 # BC on kmin
+                        else:
+                            indexBC = -1 # BC on kmax
+                        SliceOnVertex = np.s_[PointRange[0, 0]-1:PointRange[0, 1],
+                                            PointRange[1, 0]-1:PointRange[1, 1],
+                                            [indexBC]]
+                        SliceOnCell = np.s_[PointRange[0, 0]-1:PointRange[0, 1]-1,
+                                            PointRange[1, 0]-1:PointRange[1, 1]-1,
+                                            [indexBC]]
+
+                    ni, nj, nk = x[SliceOnVertex].shape
+                    zsize = np.zeros((3,3),dtype=int)
+                    zsize[0,0] = ni
+                    zsize[1,0] = nj
+                    zsize[2,0] = nk
+                    zsize[0,1] = np.maximum(ni-1,1)
+                    zsize[1,1] = np.maximum(nj-1,1)
+                    zsize[2,1] = np.maximum(nk-1,1)
+                
+                    newZoneForBC = I.newZone(f'{I.getName(zone)}\{I.getName(BC)}', zsize=zsize, ztype='Structured', family=Family)
+                    set(newZoneForBC, 'GridCoordinates', childType='GridCoordinates_t', 
+                        CoordinateX=x[SliceOnVertex], CoordinateY=y[SliceOnVertex], CoordinateZ=z[SliceOnVertex])
+
+                    # FlowSolution nodes
+                    for FS in I.getNodesFromType1(zone, 'FlowSolution_t'):
+                        FSName = I.getName(FS)
+                        try:
+                            GridLocation = I.getValue(I.getNodeFromType1(FS, 'GridLocation_t'))
+                        except:
+                            GridLocation = 'Vertex'
+                        if GridLocation == 'Vertex':
+                            localSlice = SliceOnVertex
+                        else:
+                            localSlice = SliceOnCell
+
+                        FSdata = dict()
+                        for node in I.getNodesFromType(FS, 'DataArray_t'):
+                            FSdata[I.getName(node)] = I.getValue(node)[localSlice]
+
+                        set(newZoneForBC, FSName, childType='FlowSolution_t', **FSdata)
+                        newFS = I.getNodeFromNameAndType(newZoneForBC, FSName, 'FlowSolution_t')
+                        I.createNode('GridLocation', 'GridLocation_t', value=GridLocation, parent=newFS)
+
+                    # BCDataSet
+                    for BCDataSet in I.getNodesFromType(BC, 'BCDataSet_t'):
+                        BCDataSetName = I.getName(BCDataSet)
+
+                        # Assumption: Only one BCData per BCDataSet and GridLocation = FaceCenter
+                        GridLocationNode = I.getNodeFromType1(BCDataSet, 'GridLocation_t')
+                        if GridLocationNode and I.getValue(GridLocationNode) != 'FaceCenter':
+                            raise Exception('GridLocation is must be "FaceCenter" for BCDataSet.')
+                        
+                        BCData = dict()
+                        for node in I.getNodesFromType(BCDataSet, 'DataArray_t'):
+                            value = I.getValue(node)
+                            if value.ndim < 3:
+                                value = np.expand_dims(value, axis=squeezedAxis)
+                            BCData[I.getName(node)] = value
+
+                        set(newZoneForBC, BCDataSetName, childType='FlowSolution_t', **BCData)
+                        newFS = I.getNodeFromNameAndType(newZoneForBC, BCDataSetName, 'FlowSolution_t')
+                        I.createNode('GridLocation', 'GridLocation_t', value='CellCenter', parent=newFS)                        
+
+                else:
+                    raise Exception('extractBCFromFamily not yet implemented for unsructured mesh')
+                    PointList = I.getValue(I.getNodeFromName1(BC, 'PointList'))
+                    xBC = x[PointList-1]
+                    yBC = y[PointList-1]
+                    zBC = z[PointList-1]
+                    zsize = None # TODO
+
+                    newZoneForBC = I.newZone(f'{I.getName(zone)}\{I.getName(BC)}', zsize=zsize, ztype='Structured', family=Family)
+                    set(newZoneForBC, 'GridCoordinates', childType='GridCoordinates_t', 
+                        CoordinateX=xBC, CoordinateY=yBC, CoordinateZ=zBC)
+                
+                BCList.append(newZoneForBC)
+
+    return BCList
+
