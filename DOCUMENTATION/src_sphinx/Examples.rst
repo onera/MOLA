@@ -8,23 +8,54 @@ This page summarizes all examples that can be found on ``EXAMPLES`` directory.
 BEMT
 ----
 
-Design cartography of a rotor
+Design of a rotor in hover
+**************************
+
+.. code-block:: bash
+
+   $MOLA/EXAMPLES/BEMT/ROTOR_HOVER_DESIGN
+
+**Short description:** computation of the geometrical laws of the blade
+(and associated ``LiftingLine.cgns`` file)  using Minimum Induced Loss theory
+based on Blade Element Momentum Theory (BEMT), for a single condition
+
+.. figure:: ../../EXAMPLES/BEMT/ROTOR_HOVER_DESIGN/rotor_laws.svg
+    :width: 60%
+    :align: center
+
+    Geometrical laws of the blade
+
+
+Optimum design of a propeller
 *****************************
 
 .. code-block:: bash
 
-   /stck/lbernard/MOLA/v1.14/EXAMPLES/BEMT/ROTOR_DESIGN
+   $MOLA/EXAMPLES/BEMT/PROPELLER_DESIGN
 
 **Short description:** computation of the geometrical laws of the blade
-(and associated ``LiftingLine.cgns`` files)  using Minimum Induced Loss theory
-based on Blade Element Momentum Theory (BEMT)
+(and associated ``LiftingLine.cgns`` file)  using Minimum Induced Loss theory
+based on Blade Element Momentum Theory (BEMT), using an enveloppe of conditions 
+(first a nominal condition and second a maximum thrust constraint).
 
-.. figure:: ../../EXAMPLES/BEMT/ROTOR_DESIGN/design.svg
-    :width: 60%
-    :align: center
+Analysis of a propeller
+***********************
 
-    Figure of Merit enveloppe for constant Thrust, at various rotation speeds
+.. code-block:: bash
 
+   $MOLA/EXAMPLES/BEMT/PROPELLER_ANALYSIS
+
+**Short description:** make a BEMT computation of a propeller.
+
+Airfoil Polars computation using XFoil
+**************************************
+
+.. code-block:: bash
+
+   $MOLA/EXAMPLES/BEMT/POLARS_XFOIL
+
+**Short description:** generate a ``Polars.cgns`` file of the flow around an airoil 
+using XFoil solver.
 
 MESHING
 -------
@@ -34,7 +65,7 @@ Modification of an airfoil geometry
 
 .. code-block:: bash
 
-   /stck/lbernard/MOLA/v1.14/EXAMPLES/MESHING/AIRFOIL_DESIGN/
+   $MOLA/EXAMPLES/MESHING/AIRFOIL_DESIGN/
 
 **Short description:** modify an existing airfoil using new airfoil geometrical
 characteristics
@@ -52,17 +83,11 @@ Generation of a O-H mesh surface
 
 .. code-block:: bash
 
-   /stck/lbernard/MOLA/v1.14/EXAMPLES/MESHING/PERIODIC_O-H
+   $MOLA/EXAMPLES/MESHING/PERIODIC_O-H
 
 **Short description:** create a O-H surface grid with arbitrary orientation
 
-.. figure:: ../../EXAMPLES/MESHING/PERIODIC_O-H/mesh2D.gif
-    :width: 80%
-    :align: center
-
-    OH grid around an airfoil, with imposed coplanar boundaries
-
-.. figure:: ../../EXAMPLES/MESHING/PERIODIC_O-H/mesh3D.gif
+.. figure:: ../../EXAMPLES/MESHING/PERIODIC_O-H/mesh3D.png
     :width: 80%
     :align: center
 
@@ -78,7 +103,7 @@ Very light single case
 
 .. code-block:: bash
 
-   /stck/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_AIRFOIL/LIGHT_SINGLE_CASE
+   $MOLA/EXAMPLES/WORKFLOW_AIRFOIL/LIGHT_SINGLE_CASE
 
 **Short description:** very light case of a 2D flow computation around an airfoil
 showing the main steps of a MOLA computation using elsA, from mesh construction
@@ -97,7 +122,7 @@ Airfoil Polar computation using light mesh
 
 .. code-block:: bash
 
-   /stck/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_AIRFOIL/LIGHT_POLAR
+   $MOLA/EXAMPLES/WORKFLOW_AIRFOIL/LIGHT_POLAR
 
 **Short description:** this example is employed in Tutorial :ref:`AirfoilPolars`.
 
@@ -118,7 +143,7 @@ Rotor 37
 
 .. code-block:: bash
 
-    /stck/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_SingleCase/
+    $MOLA/EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_SingleCase/
 
 .. figure:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_SingleCase/OUTPUT/static_pressure.png
     :width: 80%
@@ -150,7 +175,7 @@ Rotor 37 - iso-speed line
 
 .. code-block:: bash
 
-    /stck/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/
+    $MOLA/EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/
 
 .. figure:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/isoSpeedLines.png
     :width: 80%
@@ -170,7 +195,7 @@ LMFA linear cascade
 
 .. code-block:: bash
 
-    /stck/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_COMPRESSOR/LMFAcascade_NACA65009/
+    $MOLA/EXAMPLES/WORKFLOW_COMPRESSOR/LMFAcascade_NACA65009/
 
 .. figure:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/LMFAcascade_NACA65009/OUTPUT/LMFAcascade.png
     :width: 80%
@@ -202,7 +227,7 @@ Channel with two heated walls
 
 .. code-block:: bash
 
-    /stck/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_AEROTHERMAL_COUPLING/channel_2HeatedWalls_structured/
+    $MOLA/EXAMPLES/WORKFLOW_AEROTHERMAL_COUPLING/channel_2HeatedWalls_structured/
 
 .. figure:: ../../EXAMPLES/WORKFLOW_AEROTHERMAL_COUPLING/channel_2HeatedWalls_structured/Temperature.png
     :width: 100%
@@ -241,7 +266,7 @@ Light wing case
 
 .. code-block:: bash
 
-   /stck/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_STANDARD/LIGHT_WING
+   $MOLA/EXAMPLES/WORKFLOW_STANDARD/LIGHT_WING
 
 
 **Short description:** light case of the 3D flow computation around a wing
@@ -261,7 +286,7 @@ Light wing case (overset)
 
 .. code-block:: bash
 
-   /stck/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_STANDARD/LIGHT_OVERSET
+   $MOLA/EXAMPLES/WORKFLOW_STANDARD/LIGHT_OVERSET
 
 
 **Short description:** This case is identical to :ref:`LightWing`, except that
@@ -281,30 +306,47 @@ Light Propeller using Bodyforce
 
 .. code-block:: bash
 
-   /stck/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_STANDARD/LIGHT_BODYFORCE
+   $MOLA/EXAMPLES/WORKFLOW_STANDARD/LIGHT_BODYFORCE
 
 
 **Short description:** Light case of the CFD computation of a propeller using
 the Bodyforce Method. Mesh is *VERY* coarse and must be refined for practical
 usage. Only an octree grid is employed, with no overset components.
 
-.. figure:: ../../EXAMPLES/WORKFLOW_STANDARD/LIGHT_BODYFORCE/arrays.svg
+.. figure:: ../../EXAMPLES/WORKFLOW_STANDARD/LIGHT_BODYFORCE/azimut.png
     :width: 80%
     :align: center
 
-    Evolution of propeller's Thrust and its statistics during the simulation
+    azimutal cartography of the sectional axial force
 
+
+Propeller using Bodyforce and an Overset mesh refinement technique
+******************************************************************
+
+.. code-block:: bash
+
+   $MOLA/EXAMPLES/WORKFLOW_STANDARD/OVERSET_BODYFORCE
+
+
+**Short description:** CFD computation of a propeller using
+the Bodyforce Method using a local refinment mesh using the overset mesh technique.
+
+.. figure:: ../../EXAMPLES/WORKFLOW_STANDARD/OVERSET_BODYFORCE/slice.png
+    :width: 80%
+    :align: center
+
+    contours of Momentum in the axial direction.
 
 Aircraft components with several propellers and rotors
 ******************************************************
 
 .. code-block:: bash
 
-    /stck/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_STANDARD/HEAVY_OVERSET_BODYFORCE
+    $MOLA/EXAMPLES/WORKFLOW_STANDARD/HEAVY_OVERSET_BODYFORCE
 
 .. code-block:: bash
 
-    /tmp_user/sator/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_STANDARD/HEAVY_OVERSET_BODYFORCE
+    $MOLASATOR/EXAMPLES/WORKFLOW_STANDARD/HEAVY_OVERSET_BODYFORCE
 
 **Short description:** Simulation of an aircraft represented
 by only two solids (wing and horizontal stabilizer) which includes a propulsive
@@ -318,6 +360,15 @@ simulated.
     View of two slices of *MomentumX* including the solid walls and bodyforce
     disks
 
+Light Helicopter Rotor
+**********************
+
+.. code-block:: bash
+
+    $MOLA/EXAMPLES/WORKFLOW_STANDARD/LIGHT_ROTOR
+
+**Short description:** Simulation of a light rotor of a helicopter using unsteady
+overset technique.
 
 WORKFLOW PROPELLER
 ------------------
@@ -327,11 +378,11 @@ HAD-1 Propeller
 
 .. code-block:: bash
 
-    /stck/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_PROPELLER/HAD-1
+    $MOLA/EXAMPLES/WORKFLOW_PROPELLER/HAD-1
 
 .. code-block:: bash
 
-    /tmp_user/sator/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_PROPELLER/HAD-1
+    $MOLASATOR/EXAMPLES/WORKFLOW_PROPELLER/HAD-1
 
 **Short description:** Simulation of HAD-1 propeller in axial flight conditions.
 This case features automatic full-match grid generation.
@@ -343,11 +394,11 @@ Own designed propeller
 
 .. code-block:: bash
 
-    /stck/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_PROPELLER/BLADE_NACA_AIRFOIL
+    $MOLA/EXAMPLES/WORKFLOW_PROPELLER/BLADE_NACA_AIRFOIL
 
 .. code-block:: bash
 
-    /tmp_user/sator/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_PROPELLER/BLADE_NACA_AIRFOIL
+    $MOLASATOR/EXAMPLES/WORKFLOW_PROPELLER/BLADE_NACA_AIRFOIL
 
 **Short description:** Simulation of a totally custom propeller in axial flight
 conditions.
@@ -369,32 +420,29 @@ WORKFLOW ORAS
 ORAS case
 *********
 
-Two equivalent examples are provided (one with imposing the mesh splitting at
-preprocess, the other using automatic splitting during computation using pypart).
-
 .. code-block:: bash
 
-    /stck/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_ORAS/ORAS_ProcImposed
-    /stck/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_ORAS/ORAS_PyPart
+    $MOLA/EXAMPLES/WORKFLOW_ORAS/USF_NEXTAIR_SE
 
 
 .. code-block:: bash
 
-    /tmp_user/sator/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_ORAS/ORAS_ProcImposed
-    /tmp_user/sator/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_ORAS/ORAS_PyPart
+    $MOLASATOR/EXAMPLES/WORKFLOW_ORAS/USF_NEXTAIR_SE
 
 **Short description:** This example presents an Open Rotor and Stator (ORAS)
-configuration for steady RANS computations with mixing-plane. The first lines of
-the ``prepareMesh.py`` provide an example of what would be the recommended families
-in the input mesh. The ``prepareMain.py`` file finalises the pre-processing for elsA.
+configuration for steady RANS computations with mixing-plane.
 
-.. warning::
-  The mesh of this example is for ONERA internal use only. Diffusion of the mesh
-  or the geometry is forbidden.
+VPM
+---
 
+Several VPM examples of wings, rotors and propellers are available here:
 
-.. figure:: FIGURES/ORAS.png
+.. code-block:: bash
+
+    $MOLA/EXAMPLES/VPM/LIFTING_LINE
+
+.. figure:: ../../EXAMPLES/VPM/LIFTING_LINE/ROTORS/HAD1/particles.png
     :width: 80%
     :align: center
 
-    Open rotor and stator (ORAS) simulation
+    Particles around HAD-1 propeller

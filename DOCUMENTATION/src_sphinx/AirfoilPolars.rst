@@ -435,7 +435,7 @@ Monitor the simulation convergence
 Now that relevant files are repatriated, it is possible to visualize the
 integral loads evolution, using file ``arrays.cgns``.
 
-The structure and contents of ``arrays.cgns`` can be explored using `cgnsview`_
+The structure and contents of ``arrays.cgns`` can be explored using **treelab**
 tool, as shown in :numref:`ArraysCGNSview`.
 
 .. _ArraysCGNSview:
@@ -579,7 +579,7 @@ data and will assemble the information in a CGNS file, here named ``Polar.cgns``
     that constitutes the polar matrix.
 
 Once the script have finished, the file ``Polar.cgns`` is written and can
-be explored using `cgnsview`_ tool, as shown in :numref:`PolarTree`.
+be explored using **treelab** tool, as shown in :numref:`PolarTree`.
 
 .. _PolarTree:
 

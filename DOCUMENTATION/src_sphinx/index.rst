@@ -11,7 +11,7 @@ and its associated `Issues <https://gitlab.onera.net/numerics/mola/-/issues>`_ s
 you can make suggestions or report bugs.
 
 
-MOLA is a `ONERA <https://www.onera.fr>`_ code [#f1]_
+MOLA is an `ONERA <https://www.onera.fr>`_ code [#f1]_
 that implements user-level workflows and tools for aerodynamic analysis. These
 tools are essentially interfaces of multiple simulation techniques such as
 computational fluid dynamics (CFD), blade-element momentum theory (BEMT) and
@@ -35,6 +35,10 @@ Major changes
 =============
 
 Major changes with respect to previous version (``v1.14``):
+
+General
+-------
+* MOLA is now released using `GNU GPL v3 open-source license <http://www.gnu.org/licenses/>`_
 
 CFD
 ---
