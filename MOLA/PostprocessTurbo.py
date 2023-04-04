@@ -263,7 +263,7 @@ def cleanSurfaces(surfaces, var2keep=[]):
                     I._rmNode(FSnodes, node)
 
 # @J.mute_stdout
-def computeVariablesOnIsosurface(surfaces, variables):
+def computeVariablesOnIsosurface(surfaces, variables, config='annular', lin_axis='XZ'):
     '''
     Compute extra variables for all isoSurfaces, using **turbo** function `_computeOtherFields`.
 
@@ -292,7 +292,8 @@ def computeVariablesOnIsosurface(surfaces, variables):
     for surface in surfacesIso:
         for fsname in [I.__FlowSolutionNodes__, I.__FlowSolutionCenters__]:
             TF._computeOtherFields(surface, RefState(setup), variables,
-                                    fsname=fsname, useSI=True, velocity='absolute') # FIXME: to be adapted if user can perform relative computation (vel_formulation)
+                                    fsname=fsname, useSI=True, velocity='absolute',
+                                    config=config, lin_axis=lin_axis) # FIXME: to be adapted if user can perform relative computation (vel_formulation)
 
 
 def compute0DPerformances(surfaces, variablesByAverage):
