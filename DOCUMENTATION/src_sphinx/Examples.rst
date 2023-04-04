@@ -367,6 +367,14 @@ Light Helicopter Rotor
 
     $MOLA/EXAMPLES/WORKFLOW_STANDARD/LIGHT_ROTOR
 
+
+.. figure:: FIGURES/hvab_cfd.png
+    :width: 80%
+    :align: center
+
+    Simulation of the HVAB rotor using MOLA standard workflow
+
+
 **Short description:** Simulation of a light rotor of a helicopter using unsteady
 overset technique.
 
