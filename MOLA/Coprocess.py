@@ -2414,7 +2414,7 @@ def splitWithPyPart():
     if 'CoupledSurfaces' in setup.ReferenceValues['CoprocessOptions']:
         # This part is linked to the WorkflowAerothermalCoupling
         # For unstructured zones, AdditionnalFamilyName nodes are lost
-        # See Anomaly #10494 on elsA support
+        # See Anomaly #10494 on elsA support # TODO: Fixed since elsA v5.2.01
         # We need to restore them
         for i, famBCTrigger in enumerate(setup.ReferenceValues['CoprocessOptions']['CoupledSurfaces']):
             surfaceName = 'ExchangeSurface{}'.format(i)

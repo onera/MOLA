@@ -2717,13 +2717,17 @@ def extractBCFromFamily(t, Family):
     BCList = []
     for zone in I.getZones(t):
         zoneType = I.getValue(I.getNodeFromName1(zone, 'ZoneType'))
-        x, y, z = getxyz(zone)
-        for BC in I.getNodesFromType2(zone, 'BC_t'):
-            FamilyNode = I.getNodeFromType1(BC, 'FamilyName_t') # Adapt for several families
-            if not FamilyNode: continue
-            FamilyName = I.getValue(FamilyNode)
-            if Family == FamilyName:
-                if zoneType == 'Structured':
+        
+        if zoneType == 'Unstructured':
+            BCList += C.extractBCOfName(zone, f'FamilySpecified:{Family}', reorder=False)
+        
+        else:
+            x, y, z = getxyz(zone)
+            for BC in I.getNodesFromType2(zone, 'BC_t'):
+                FamilyNode = I.getNodeFromType1(BC, 'FamilyName_t') # Adapt for several families
+                if not FamilyNode: continue
+                FamilyName = I.getValue(FamilyNode)
+                if Family == FamilyName:
                     PointRange = I.getValue(I.getNodeFromName1(BC, 'PointRange'))
                     bc_shape = PointRange[:, 1] - PointRange[:, 0]
                     if bc_shape[0] == 0:
@@ -2810,28 +2814,14 @@ def extractBCFromFamily(t, Family):
                         
                         BCData = dict()
                         for node in I.getNodesFromType(BCDataSet, 'DataArray_t'):
-                            value = I.getValue(node)
-                            if value.ndim < 3:
-                                value = np.expand_dims(value, axis=squeezedAxis)
-                            BCData[I.getName(node)] = value
+                            value = np.ravel(I.getValue(node), order='F')
+                            BCData[I.getName(node)] = value.reshape((zsize[0,1], zsize[1,1], zsize[2,1]))
 
                         set(newZoneForBC, BCDataSetName, childType='FlowSolution_t', **BCData)
                         newFS = I.getNodeFromNameAndType(newZoneForBC, BCDataSetName, 'FlowSolution_t')
                         I.createNode('GridLocation', 'GridLocation_t', value='CellCenter', parent=newFS)                        
-
-                else:
-                    raise Exception('extractBCFromFamily not yet implemented for unsructured mesh')
-                    PointList = I.getValue(I.getNodeFromName1(BC, 'PointList'))
-                    xBC = x[PointList-1]
-                    yBC = y[PointList-1]
-                    zBC = z[PointList-1]
-                    zsize = None # TODO
-
-                    newZoneForBC = I.newZone(f'{I.getName(zone)}\{I.getName(BC)}', zsize=zsize, ztype='Structured', family=Family)
-                    set(newZoneForBC, 'GridCoordinates', childType='GridCoordinates_t', 
-                        CoordinateX=xBC, CoordinateY=yBC, CoordinateZ=zBC)
                 
-                BCList.append(newZoneForBC)
+                    BCList.append(newZoneForBC)
 
     return BCList
 

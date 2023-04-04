@@ -2527,7 +2527,7 @@ def setBC_inj1_imposeFromFile(t, FluidProperties, ReferenceValues, FamilyName, f
     var2interp += list(turbDict)
 
     donor_tree = C.convertFile2PyTree(filename, format=fileformat)
-    inlet_BC_nodes = J.extractBCFromFamily(t, Family=FamilyName)
+    inlet_BC_nodes = C.extractBCOfName(t, f'FamilySpecified:{FamilyName}', reorder=False)
 
     I._adaptZoneNamesForSlash(inlet_BC_nodes)
     I._rmNodesByType(inlet_BC_nodes,'FlowSolution_t')
