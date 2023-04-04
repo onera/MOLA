@@ -8,14 +8,14 @@ ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 
 ###############################################################################
 # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
-export MOLA=/stck/lbernard/MOLA/Dev
-export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
+export MOLA=/stck/lbernard/MOLA/v1.15
+export MOLASATOR=/tmp_user/sator/lbernard/MOLA/v1.15
 export VPMVERSION=v0.2
 export PUMAVERSION=r337
 export TURBOVERSION=v1.2.2
 export ERSTAZVERSION=vT
-export MOLAext=/stck/lbernard/MOLA/Dev/ext # you should not modify this line
-export MOLASATORext=/tmp_user/sator/lbernard/MOLA/Dev/ext # you should not modify this line
+export MOLAext=/stck/lbernard/MOLA/v1.15/ext # you should not modify this line
+export MOLASATORext=/tmp_user/sator/lbernard/MOLA/v1.15/ext # you should not modify this line
 export OWNCASSREV=rev4386
 ###############################################################################
 
