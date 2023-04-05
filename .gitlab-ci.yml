@@ -24,4 +24,5 @@ pages:    # Nom à utiliser
   artifacts:   # Bloc obligatoire
     paths:
       - public
+    expire_in: 10 seconds
 
