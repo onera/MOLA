@@ -20,7 +20,6 @@ pages:    # Nom à utiliser
   rules:   # Bloc  facultatif : ça permet de déployer la doc que si on a pushé sur la branche master
     - if: $CI_COMMIT_BRANCH == "master"
   script:   # Le dossier html qui défini le site web doit se trouver à la racine du working directory et s'appeller public. Ici, on l'a déjà généré avant donc on a juste à copier
-    - rm -r public/*
     - cp -r /stck/lbernard/MOLA/Dev/DOCUMENTATION/html public
   artifacts:   # Bloc obligatoire
     paths:
