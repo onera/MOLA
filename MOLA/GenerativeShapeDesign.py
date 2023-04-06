@@ -225,7 +225,9 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
          AvoidAirfoilModification=True,
          splitAirfoilOptions=dict(FirstEdgeSearchPortion=0.99,
                                   SecondEdgeSearchPortion=-0.99,
-                                  RelativeRadiusTolerance = 1e-1), **kwargs):
+                                  RelativeRadiusTolerance = 1e-1), 
+         AirfoilDiscretization=None,
+         **kwargs):
     '''
     This function is used to build a wing-like surface (also suitable for
     tail planes, propeller or rotor blades). It employs geometrical laws defined
@@ -292,6 +294,10 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
             Their values may determine the accuracy of the automatic computation
             of the leading and trailing edges of arbitrary airfoil-like geometry.
 
+        AirfoilDiscretization : dict
+            Parameters to be passed to :py:func:`MOLA.Wireframe.discretizeAirfoil`
+            required for airfoil re-discretization.
+
         kwargs : additional parameters
             These are used for providing the spanwise geometrical laws and
             airfoil sections. Some possible argument names are:
@@ -354,7 +360,6 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
             dictionary containing the resulting geometrical laws as 1D numpy
             arrays with same dimensions
     '''
-
     import scipy.interpolate
     # ------------ PERFORM SOME VERIFICATIONS ------------ #
     AllowedInterpolationLaws = ('interp1d_<KindOfInterpolation>', 'pchip', 'akima', 'cubic')
@@ -377,17 +382,19 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
                 kwargs[GeomParam]['InterpolationLaw'] = 'interp1d_linear'
         if any( np.diff(kwargs[GeomParam]['RelativeSpan'] )<0 ): raise AttributeError("wing(): 'RelativeSpan' values shall be monotonically increasing.")
 
-    # Verify if all airfoils have the same number of points:
-    AirfoilList = kwargs['Airfoil']['Airfoil']
-    ListOfNPts = np.array([C.getNPts(a) for a in AirfoilList])
-    NPts = ListOfNPts[0]
-    if not all(NPts == ListOfNPts): raise AttributeError('wing(): All Airfoils MUST have the SAME number of points.')
+    if AirfoilDiscretization is None:
+        # Verify if all airfoils have the same number of points:
+        AirfoilList = kwargs['Airfoil']['Airfoil']
+        ListOfNPts = np.array([C.getNPts(a) for a in AirfoilList])
+        NPts = ListOfNPts[0]
+        if not all(NPts == ListOfNPts): raise AttributeError('wing(): All Airfoils MUST have the SAME number of points.')
     # ----------------- END OF VERIFICATIONS ----------------- #
 
 
 
     # -------------- CONSTRUCTION OF THE WING -------------- #
     # This operation is performed following these steps:
+    # 0. Re-descretize airfoils if required using AirfoilDiscretization
     # 1. Interpolate each airfoil
     # 2. Scale each airfoil based upon the chord distribution.
     # 3. Scale each airfoil based upon the thickness distribution.
@@ -397,6 +404,19 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
     # 7. Put sections along span.
 
     DistributionResult = {} # Here the 1D data of the distributions will be stored as PUMA-compatible dictionnary.
+
+    # STEP 0: Re-descretize airfoils if required
+    if AirfoilDiscretization is not None:
+        # Start with a re-discretization of airfoils
+        AirfoilList = kwargs['Airfoil']['Airfoil']
+        for i in range(len(AirfoilList)):
+            AirfoilList[i] = W.discretizeAirfoil(AirfoilList[i], **AirfoilDiscretization)
+
+        # Verify if all airfoils have the same number of points:
+        ListOfNPts = np.array([C.getNPts(a) for a in AirfoilList])
+        NPts = ListOfNPts[0]
+        if not all(NPts == ListOfNPts): raise AttributeError('wing(): All Airfoils MUST have the SAME number of points.')
+
 
     # STEP 1: Interpolate each airfoil.
     #         This step is mandatory.
@@ -3564,3 +3584,243 @@ def selectConnectingSurface(surfaces, candidates, mode='first'):
         raise ValueError('no matching surfaces. Check debug.cgns.')
 
     return returned_surfaces
+
+def writeGeomTurbo(Rows, Hub, Shroud, Zmin=None, Zmax=None, filename='geometry.geomTurbo', unit='Meters'):
+    '''
+    Write a geomTurbo file for Autogrid5 given a geometry for rows, hub and shroud built with MOLA.
+
+    Parameters
+    ----------
+    Rows : dict 
+        Dictionary of rows to write in the geomTurbo file. 
+        For instance:
+
+        .. code-block:: python
+
+            Rows = dict( 
+                Rotor = dict(
+                    Periodicity = 30,
+                    ShroudGap = 1e-4, # optional
+                    # Blades are given with as a PyTree or a filename 
+                    # It refers to the blades in the current row
+                    # Most of the time, there is a single blade defined per row.
+                    Blades = RotorBlades  # or getSectionsForAutogrid(RotorBlades)
+                ), 
+                Stator = dict(
+                    Periodicity = 40,
+                    # HubGap = 2e-4, # optional
+                    Blades = StatorBlades
+                ), 
+            )
+        
+        .. important:: 
+            The axis of the machine is Z. Please apply a rotation if necessary before using this function.
+
+    Hub : PyTree Zone
+        Zone corresponding to hub line. Axial direction must be Z and radial direction must be X.
+    Shroud : PyTree Zone
+        Zone corresponding to shroud line. Axial direction must be Z and radial direction must be X.
+    Zmin : float, optional
+        Bottom threshold in the axial direction (threshold on hub and shroud lines).
+        If not given, it is max(min(zHub, zShroud)).
+    Zmax : float, optional
+        Top threshold in the axial direction (threshold on hub and shroud lines).
+        If not given, it is min(max(zHub, zShroud)).
+    filename : str, optional
+        Name of the written file, by default 'geometry.geomTurbo'
+    unit : str, optional
+        Unit in the geomTurbo file, by default 'Meters'
+    '''
+
+    def writeChannelCurve(fout, name, z, r, Zmin, Zmax):
+        txt = f"""
+  NI_BEGIN basic_curve
+    NAME     {name}
+    DISCRETISATION 10
+    DATA_REDUCTION 0
+    NI_BEGIN zrcurve
+    ZR
+"""
+        indexMin = np.amin(np.argwhere(z>Zmin))
+        indexMax = np.amax(np.argwhere(z<Zmax))
+
+        txt += f'    {indexMax-indexMin+2}\n'
+        
+        txt += f'    {Zmin} {r[indexMin+1]}\n'
+        for item in range(indexMin, indexMax):
+            txt += f'    {z[item]} {r[item]}\n'
+        txt += f'    {Zmax} {r[indexMax-1]}\n'
+
+        txt += '    NI_END zrcurve\n    NI_END   basic_curve'
+        fout.write(txt)
+    
+               
+    fout = open(filename,'w')
+    fout.write(f"""GEOMETRY TURBO
+VERSION    5.4
+TOLERANCE  1e-06
+UNITS        {unit}
+UNITS-FACTOR 1
+
+NI_BEGIN CHANNEL""")
+               
+    xHub, yHub, zHub = J.getxyz(Hub)
+    xShroud, yShroud, zShroud = J.getxyz(Shroud)
+    if Zmin is None: 
+        Zmin = max(np.amin(zHub), np.amin(zShroud))
+    if Zmax is None: 
+        Zmax = min(np.amax(zHub), np.amax(zShroud))
+    
+    writeChannelCurve(fout, 'hub', zHub, xHub, Zmin, Zmax)
+    writeChannelCurve(fout, 'shroud', zShroud, xShroud, Zmin, Zmax)
+
+    fout.write("""
+  NI_BEGIN channel_curve hub    
+    NAME     hub
+    VERTEX   CURVE_P hub 0
+    VERTEX   CURVE_P hub 1
+    NI_END   channel_curve hub    
+  NI_BEGIN channel_curve shroud 
+    NAME     shroud
+    VERTEX   CURVE_P shroud 0
+    VERTEX   CURVE_P shroud 1
+    NI_END   channel_curve shroud 
+  NI_BEGIN channel_curve nozzle 
+    NAME     nozzle
+    NI_END   channel_curve nozzle 
+  NI_END   CHANNEL
+""")
+               
+    for row, rowParams in Rows.items():
+        print(f'Build ROW {row} (Periodicity={rowParams["Periodicity"]})')
+        rowParams.setdefault('RotationSpeed', 500)      
+        fout.write(f"""
+NI_BEGIN nirow
+  NAME      {row}
+  TYPE      normal
+  PERIODICITY     {rowParams['Periodicity']}
+  ROTATION_SPEED  {rowParams['RotationSpeed']}""")
+        
+        if not isinstance(rowParams['Blades'], dict):
+            rowParams['Blades'] = getSectionsForAutogrid(rowParams['Blades'])
+        
+        for blade, bladeParams in rowParams['Blades'].items():
+            print(f'  Build BLADE {blade} ({len(bladeParams["suction"])} sections)')
+            bladeParams.setdefault('ExpandTip', 0.05)
+            bladeParams.setdefault('ExpandRoot', 0.05)
+
+            fout.write(f"""
+  NI_BEGIN NIBlade
+    NAME      {blade}""")
+            
+            if 'HubGap' in bladeParams:
+                print(f'    with hub gap = {bladeParams["HubGap"]}')
+                fout.write(f"""
+    NI_BEGIN NIRootGap
+      WIDTH_AT_LEADING_EDGE  {bladeParams['HubGap']}
+      WIDTH_AT_TRAILING_EDGE {bladeParams['HubGap']}
+      NI_END   NIRootGap""")
+            
+            if 'ShroudGap' in bladeParams:
+                print(f'    with shroud gap = {bladeParams["HubGap"]}')
+                fout.write(f"""
+    NI_BEGIN NITipGap
+      WIDTH_AT_LEADING_EDGE  {bladeParams['ShroudGap']}
+      WIDTH_AT_TRAILING_EDGE {bladeParams['ShroudGap']}
+      NI_END   NITipGap""")
+                
+            fout.write(f"""
+    NI_BEGIN nibladegeometry
+      TYPE  GEOMTURBO
+      blade_expansion_factor_hub    {bladeParams['ExpandRoot']}
+      blade_expansion_factor_shroud   {bladeParams['ExpandTip']}""")
+            
+            for oneside in ['suction','pressure']:
+                sections = bladeParams[oneside]
+                print(f'    {sections[0][0].size} points found on {oneside} side (for section 1)')
+                fout.write(f"""
+      {oneside}
+        SECTIONAL
+        {len(sections)}""")
+                for item in range(len(sections)):
+                    NbOfPoints = sections[item][0].size
+                    fout.write(f"""
+        #   section {item+1}
+        XYZ
+        {NbOfPoints}
+""")
+                    for i in range(NbOfPoints):
+                        fout.write(f'        {sections[item][0][i]} {sections[item][1][i]} {sections[item][2][i]}\n')
+            
+            fout.write("""
+      NI_END   nibladegeometry
+    SOLID_BODY_CONFIGURATION 0
+    NI_END   NIBlade""")
+
+        fout.write("""
+  NI_END   nirow
+""")
+    
+    fout.write("""
+NI_END GEOMTURBO
+NI_BEGIN GEOMETRY
+NI_END   GEOMETRY
+""")
+
+    fout.close()
+
+def getSectionsForAutogrid(mesh, indexLE=None):
+    '''
+    From a given **mesh**, get the sections and organize them as expected for a .geomTurbo file. 
+    For each section, suction side et pressure side are separated and points are sorted from 
+    leading edge to trailing edge. 
+
+    Parameters
+    ----------
+    mesh : str or PyTree
+        Row mesh, gievn as a filename or a PyTree
+         
+    indexLE : int, optional
+        Index of the leading edge on the section.
+        If not given, it is taken at N//2, where N is the number of points on the section.
+
+    Returns
+    -------
+    dict
+        dictionary of sections to give to :py:func:`WriteGeomTurbo`
+
+    '''
+
+    if isinstance(mesh,str):
+        t = C.convertFile2PyTree(mesh)
+    elif I.isStdNode(mesh) != -2:
+        # Node or list of nodes
+        t = mesh
+    else:
+        raise ValueError('parameter mesh must be either a filename or a PyTree')
+
+    Blades = dict()
+    for blade in I.getZones(t):
+        bladeName = I.getName(blade)
+        Blades[bladeName] = dict(
+            suction = [],
+            pressure = []
+        )
+        
+        x, y, z = J.getxyz(blade)
+        if indexLE is None:
+            # By default, SS and PS are assumed to be discretized with the same number of points
+            indexLE = x.shape[0] // 2 
+                
+        for j in range(x.shape[1]):
+            coordsPS = np.array([x[:indexLE+1, j], y[:indexLE+1, j], z[:indexLE+1, j]])
+            coordsSS = np.array([x[indexLE:, j], y[indexLE:, j], z[indexLE:, j]])
+
+            # CAUTION: In Autogrid5, points for SS and PS must be ordered from LE to TE !!!
+            # Flip points in order to respect this requirement
+            coordsPS = np.fliplr(coordsPS)
+            
+            Blades[bladeName]['suction'].append(coordsSS)
+            Blades[bladeName]['pressure'].append(coordsPS)
+    
+    return Blades
