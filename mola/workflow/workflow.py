@@ -17,7 +17,7 @@
 
 import os
 from ..cfd import preprocess as PRE
-import .external_flow.FlowGenerator as ExternalFlowGenerator
+from .external_flow import FlowGenerator as ExternalFlowGenerator
 from .. import cgns as c
 from  mola.cfd.preprocess.mesh import (positioning,
                                        connect,
@@ -79,7 +79,7 @@ class Workflow(object):
 
             Numerics=dict(Scheme='Jameson',
                           TimeMarching='Steady',
-                          NumberOfIterations=1e4,
+                          NumberOfIterations=10000,
                           MinimumNumberOfIterations = 1000,
                           TimeStep=None,
                           CFL=None),
@@ -163,7 +163,6 @@ class Workflow(object):
             self.Turbulence=Turbulence
             self.BoundaryConditions=BoundaryConditions
             self.Solver=Solver
-            self.Splitter=Splitter
             self.Numerics=Numerics
             self.BodyForceModeling=BodyForceModeling
             self.Motion=Motion
@@ -173,16 +172,6 @@ class Workflow(object):
             self.ConvergenceCriteria=ConvergenceCriteria
             self.Monitoring=Monitoring
             self.RunManagement=RunManagement
-
-            self.Extractions.append(
-                dict(
-                    type='bc', 
-                    BCType='BCWall*', 
-                    fields=['Pressure', 'BoundaryLayer', 'NormalVector', 'Friction', 'yPlus', 
-                            'MomentumFlux', 'TorqueFlux']
-                )
-            )
-
 
     def write_tree(self, filename='main.cgns'):
         if not self.tree: self.tree = c.Tree()

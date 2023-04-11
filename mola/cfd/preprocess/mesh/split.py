@@ -114,16 +114,20 @@ def apply(workflow
             new distributed *(and possibly split)* tree
 
     '''
-    print('splitting and distributing mesh...')
     t = workflow.tree
-    # for base in t.bases():
-    #     component = workflow.get_component(base.name())
-    #     component.setdefault('SplitMesh')
-    #     if 'SplitMesh' not in component:
-    #         component['SplitMesh']
 
+    if workflow.SplittingAndDistribution['Strategy'].lower() == 'atcomputation':
+        return
+    
+    print('splitting and distributing mesh...')
 
     TotalNPts = t.numberOfPoints()
+
+    cores_per_node = workflow.CoresPerNode
+    minimum_number_of_nodes = workflow.MinimumAllowedNodes
+    maximum_allowed_nodes = workflow.MaximumAllowedNodes
+    only_consider_full_node_nproc = workflow.DistributeExclusivelyOnFullNodes
+    maximum_number_of_points_per_node = workflow.MaximumNumberOfPointsPerNode
 
     if mode == 'auto':
 
@@ -132,23 +136,20 @@ def apply(workflow
         endNProc = maximum_allowed_nodes*cores_per_node+1
 
         if NumberOfProcessors is not None and NumberOfProcessors > 0:
-            print(J.WARN+'User requested NumberOfProcessors=%d, switching to mode=="imposed"'%NumberOfProcessors+J.ENDC)
+            print(misc.WARN+'User requested NumberOfProcessors=%d, switching to mode=="imposed"'%NumberOfProcessors+misc.ENDC)
             mode = 'imposed'
 
         elif minimum_number_of_nodes == maximum_allowed_nodes:
             if only_consider_full_node_nproc:
                 NumberOfProcessors = minimum_number_of_nodes*cores_per_node
-                print(J.WARN+'User constrained to NumberOfProcessors=%d, switching to mode=="imposed"'%NumberOfProcessors+J.ENDC)
+                print(misc.WARN+'User constrained to NumberOfProcessors=%d, switching to mode=="imposed"'%NumberOfProcessors+misc.ENDC)
                 mode = 'imposed'
 
         elif minimum_number_of_nodes > maximum_allowed_nodes:
-            raise ValueError(J.FAIL+'minimum_number_of_nodes > maximum_allowed_nodes'+J.ENDC)
+            raise ValueError(misc.FAIL+'minimum_number_of_nodes > maximum_allowed_nodes'+misc.ENDC)
 
         elif minimum_number_of_nodes < 1:
-            raise ValueError(J.FAIL+'minimum_number_of_nodes must be at least equal to 1'+J.ENDC)
-
-
-    if mode == 'auto':
+            raise ValueError(misc.FAIL+'minimum_number_of_nodes must be at least equal to 1'+misc.ENDC)
 
         if only_consider_full_node_nproc:
             NProcCandidates = np.array(list(range(startNProc-1,
@@ -191,8 +192,8 @@ def apply(workflow
             AllMaxPtsPerProc.append( MaxPtsPerProc )
 
             if AllNZones[i] == 0:
-                start = J.FAIL
-                end = '  <== EXCEEDED nb. pts. per node with %d'%AllMaxPtsPerNode[i]+J.ENDC
+                start = misc.FAIL
+                end = '  <== EXCEEDED nb. pts. per node with %d'%AllMaxPtsPerNode[i]+misc.ENDC
             else:
                 start = end = ''
             Line = start + ColFmt.format(NumberOfProcessors)
@@ -215,8 +216,8 @@ def apply(workflow
 
         for i, NumberOfProcessors in enumerate(NProcCandidates):
             if i == BestOption and AllNZones[i] > 0:
-                Line = start = J.GREEN + ColFmt.format(NumberOfProcessors)
-                end = '  <== BEST'+J.ENDC
+                Line = start = misc.GREEN + ColFmt.format(NumberOfProcessors)
+                end = '  <== BEST'+misc.ENDC
                 Line += ColFmt.format(AllNZones[i])
                 Line += ColFmt.format(AllMaxPtsPerProc[i])
                 Line += ColFmt.format(AllMaxPtsPerNode[i])
@@ -243,10 +244,7 @@ def apply(workflow
 
     return tRef
 
-def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per_node,
-                         maximum_number_of_points_per_node, raise_error=False):
-
-    if DEBUG: print('attempting distribution for NumberOfProcessors= %d ...'%NumberOfProcessors)
+def _splitAndDistributeUsingNProcs(workflow, raise_error=False):
 
     tRef = I.copyRef(t)
     TotalNPts = C.getNPts(tRef)
@@ -275,13 +273,13 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per
         if NbOfZonesAfterSplit < remainingNProcs:
             MSG = 'WARNING: nb of zones after split (%d) is less than expected procs (%d)'%(NbOfZonesAfterSplit, remainingNProcs)
             MSG += '\nattempting T.splitNParts()...'
-            print(J.WARN+MSG+J.ENDC)
+            print(misc.WARN+MSG+misc.ENDC)
             tSplit = T.splitNParts(tToSplit, remainingNProcs)
             splitZones = I.getZones(tSplit)
             if len(splitZones) < remainingNProcs:
                 MSG = ('could not split sufficiently. Try manually splitting '
                        'mesh and set SplitBlocks=False')
-                raise ValueError(J.FAIL+MSG+J.ENDC)
+                raise ValueError(misc.FAIL+MSG+misc.ENDC)
             for zone in splitZones:
                 zoneDims = I.getZoneDim(zone)
                 if zoneDims[0] == 'Structured':
@@ -289,14 +287,14 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per
                     for NPts, dir in zip(dims, ['i', 'j', 'k']):
                         if NPts < 5:
                             if NPts < 3:
-                                MSG = J.FAIL+'ERROR: zone %s has %d pts in %s direction'%(zone[0],NPts,dir)+J.ENDC
+                                MSG = misc.FAIL+'ERROR: zone %s has %d pts in %s direction'%(zone[0],NPts,dir)+misc.ENDC
                                 HasDegeneratedZones = True
                             else:
-                                MSG = J.WARN+'WARNING: zone %s has %d pts in %s direction'%(zone[0],NPts,dir)+J.ENDC
+                                MSG = misc.WARN+'WARNING: zone %s has %d pts in %s direction'%(zone[0],NPts,dir)+misc.ENDC
                             print(MSG)
 
         if HasDegeneratedZones:
-            raise ValueError(J.FAIL+'grid has degenerated zones. See previous print error messages'+J.ENDC)
+            raise ValueError(misc.FAIL+'grid has degenerated zones. See previous print error messages'+misc.ENDC)
 
         for splitbase in I.getBases(tSplit):
             basename = splitbase[0]
@@ -314,7 +312,7 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per
                        'You may try the following:\n'
                        ' - Reduce the number of procs\n'
                        ' - increase the number of grid points').format( NumberOfProcessors, NZones)
-                raise ValueError(J.FAIL+MSG+J.ENDC)
+                raise ValueError(misc.FAIL+MSG+misc.ENDC)
             return tRef, 0, np.inf, np.inf, np.inf, np.inf
 
     NZones = len( I.getZones( tRef ) )
@@ -325,12 +323,12 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per
                    ' - set SplitBlocks=True to more grid components\n'
                    ' - Reduce the number of procs\n'
                    ' - increase the number of grid points').format( NumberOfProcessors, NZones)
-            raise ValueError(J.FAIL+MSG+J.ENDC)
+            raise ValueError(misc.FAIL+MSG+misc.ENDC)
         else:
             return tRef, 0, np.inf, np.inf, np.inf, np.inf
 
     # NOTE see Cassiopee BUG #8244 -> need algorithm='fast'
-    silence = J.OutputGrabber()
+    silence = misc.OutputGrabber()
     with silence:
         tRef, stats = D2.distribute(tRef, NumberOfProcessors, algorithm='fast', useCom='all')
 
@@ -451,8 +449,8 @@ def hasAnyEmptyProc(t, NumberOfProcessors, behavior='raise', debug_filename=''):
     if UnaffectedProcs:
         hasAnyEmptyProc = True
         if debug_filename: C.convertPyTree2File(t, debug_filename)
-        MSG = J.FAIL+'THERE ARE UNAFFECTED PROCS IN DISTRIBUTION!!\n'
-        MSG+= 'Empty procs: %s'%str(UnaffectedProcs)+J.ENDC
+        MSG = misc.FAIL+'THERE ARE UNAFFECTED PROCS IN DISTRIBUTION!!\n'
+        MSG+= 'Empty procs: %s'%str(UnaffectedProcs)+misc.ENDC
         if behavior == 'raise':
             raise ValueError(MSG)
         elif behavior == 'print':
@@ -549,8 +547,29 @@ def showStatisticsAndCheckDistribution(tNew, CoresPerNode=28):
     for node in NPtsPerNode:
         print('Node %d has %d points'%(node,NPtsPerNode[node]))
 
-    print(J.CYAN+'TOTAL NUMBER OF POINTS: '+'{:,}'.format(C.getNPts(tNew)).replace(',',' ')+'\n'+J.ENDC)
+    print(misc.CYAN+'TOTAL NUMBER OF POINTS: '+'{:,}'.format(C.getNPts(tNew)).replace(',',' ')+'\n'+misc.ENDC)
 
     for p in range(ResultingNProc):
         if p not in ProcDistributed:
             raise ValueError('Bad proc distribution! rank %d is empty'%p)
+
+
+def _getComponentsNamesBasedOnSplitPolicy(workflow):
+    splitUserData = workflow.SplittingAndDistribution
+    splitCompsUserData = splitUserData['ComponentsToSplit']
+    ComponentsToSplit = []
+    ComponentsNotToSplit = []
+    for component in workflow.RawMeshComponents:
+        if isinstance(splitCompsUserData, str) and splitCompsUserData.lower()=='all':
+            ComponentsToSplit += [ component['Name']  ]
+        elif isinstance(splitCompsUserData, list):
+            if component['Name'] in splitCompsUserData:
+                ComponentsToSplit += [ component['Name']  ]
+            else:
+                ComponentsNotToSplit += [ component['Name']  ]
+        else:
+            ComponentsNotToSplit += [ component['Name']  ]
+    
+    return ComponentsToSplit, ComponentsNotToSplit
+
+

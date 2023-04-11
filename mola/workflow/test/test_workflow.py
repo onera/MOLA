@@ -8,9 +8,9 @@ def test_init():
 
 def get_workflow1():
 
-    x, y, z = np.meshgrid( np.linspace(0,1,3),
-                           np.linspace(0,1,3),
-                           np.linspace(0,1,3), indexing='ij')
+    x, y, z = np.meshgrid( np.linspace(0,1,11),
+                           np.linspace(0,1,11),
+                           np.linspace(0,1,11), indexing='ij')
     mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'],
                                             [ x,  y,  z ])
 
@@ -22,6 +22,8 @@ def get_workflow1():
                 Mesher=None,
                 CleaningMacro=None,
                 Families=[
+                    dict(Name='Ground',
+                         Location='kmin'),
                     dict(Name='Farfield',
                          Location='remaining'),
                 ],
