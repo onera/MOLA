@@ -118,6 +118,9 @@ if [ "$MAC" = "sator" ]; then
     # turbo
     export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
 
+    # ErstaZ
+    export PYTHONPATH=/tmp_user/sator/rbarrier/ersatZ_v1.6.2/python_module:$PYTHONPATH
+
     # own Cassiopee
     module load occt/7.6.1-gnu831
     export OWNCASS=/tmp_user/sator/lbernard/Cassiopee/$OWNCASSREV/sator
@@ -167,8 +170,7 @@ elif [ "$MAC" = "spiro" ]; then
     export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/spiro3_mpi/lib/python3.7/site-packages/:$PYTHONPATH
     
     # ErstaZ
-    export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
-    export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
+    export PYTHONPATH=/home/rbarrier/PARTAGE/ersatZ_v1.6.2/python_module:$PYTHONPATH
 
     # # MAIA # should be available with elsA v5.2.01
     # export MAIA_HOME=/scratchm/jcoulet/aa_install_py3/maia/opt-cfd5_21/
@@ -208,8 +210,7 @@ elif [ "$MAC" = "visung" ]; then
     export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/eos-intel3_mpi/lib/python3.6/site-packages/:$PYTHONPATH
 
     # ErstaZ
-    export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/visio
-    export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
+    export PYTHONPATH=/home/rbarrier/PARTAGE/ersatZ_v1.6.2/python_module:$PYTHONPATH
 
     # VPM
     export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld7/$ARCH
@@ -254,8 +255,7 @@ elif [ "$MAC" = "ld" ]; then
     export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/local-os8_mpi/lib/python3.8/site-packages/:$PYTHONPATH
 
     # ErstaZ
-    export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/centos8
-    export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
+    export PYTHONPATH=/home/rbarrier/PARTAGE/ersatZ_v1.6.2/python_module:$PYTHONPATH
 
     # # MAIA # should be available with elsA v5.2.01
     # export MAIA_HOME=/d/jcoulet/opt/maia-openmpi
@@ -312,8 +312,7 @@ elif [ "$MAC" = "visio" ]; then
     export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/eos-intel3_mpi/lib/python3.6/site-packages/:$PYTHONPATH 
 
     # ErstaZ
-    export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/visio
-    export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
+    export PYTHONPATH=/home/rbarrier/PARTAGE/ersatZ_v1.6.2/python_module:$PYTHONPATH
 
     # own Cassiopee (includes OCC, Apps, VPM)
     export OWNCASS=/stck/lbernard/Cassiopee/$OWNCASSREV/visio

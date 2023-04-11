@@ -2378,7 +2378,10 @@ def printEnvironment():
     # ErsatZ
     try:
         import Ersatz
-        vERSATZ = Ersatz.__file__.split('/')[-4].lstrip('ersatZ_')
+        vERSATZ = WARN+"unknown"+ENDC
+        for path_elt in Ersatz.__file__.split('/'):
+            if path_elt.startswith('ersatZ_'):
+                vERSATZ = path_elt.replace('ersatZ_','')
     except:
         vERSATZ = FAIL + 'UNAVAILABLE' + ENDC
     print(' --> Ersatz '+vERSATZ)
