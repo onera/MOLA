@@ -285,6 +285,16 @@ elif [ "$MAC" = "ld" ]; then
     export PATH=$MOLAext/ld8/bin:$PATH
     export LD_LIBRARY_PATH=$MOLAext/ld8/lib/python3.8/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
 
+    # trick to read pdf files due to conflict https://elsa.onera.fr/issues/11052
+    pdf()
+    {
+      export OLD_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+      export LD_LIBRARY_PATH=/usr/lib64:$LD_LIBRARY_PATH
+      okular "$1" &
+      export LD_LIBRARY_PATH=$OLD_LD_LIBRARY_PATH
+    }
+
+
 elif [ "$MAC" = "visio" ]; then
     export ELSAVERSION=UNAVAILABLE # TODO adapt this once #10587 fixed
     echo -e "\033[93mWARNING: elsA is not installed yet in VISIO CentOS 6\033[0m"
