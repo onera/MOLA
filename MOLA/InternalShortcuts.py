@@ -2364,26 +2364,19 @@ def printEnvironment():
     print(' --> PUMA '+vPUMA)
 
     # turbo
-    vTURBO = os.getenv('TURBOVERSION', 'UNAVAILABLE')
-    if vTURBO != 'UNAVAILABLE':
-        try:
-            import turbo
-        except:
-            vTURBO = FAIL + 'UNAVAILABLE' + ENDC 
-    else:
+    try:
+        import turbo
+        vTURBO = turbo.__version__
+    except:
         vTURBO = FAIL + 'UNAVAILABLE' + ENDC 
-
     print(' --> turbo '+vTURBO)
 
     # ErsatZ
     try:
         import Ersatz
-        vERSATZ = WARN+"unknown"+ENDC
-        for path_elt in Ersatz.__file__.split('/'):
-            if path_elt.startswith('ersatZ_'):
-                vERSATZ = path_elt.replace('ersatZ_','')
+        vERSATZ = Ersatz.__version__
     except:
-        vERSATZ = FAIL + 'UNAVAILABLE' + ENDC
+        vERSATZ = FAIL + 'UNAVAILABLE' + ENDC 
     print(' --> Ersatz '+vERSATZ)
 
 
