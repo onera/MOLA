@@ -61,12 +61,17 @@ class Zone(Node):
                 return len(self.get('GridCoordinates',Depth=1).get('Coordinate*').value().shape)
             except:
                 return self.value().shape[0]
+        else:
+            return self.value().shape[0]
+
+    def shape(self):
+        return self.get('GridCoordinates',Depth=1).get('Coordinate*').value().shape
 
     def numberOfPoints(self):
-        return np.prod(self.value(), axis=0)[0]
+        return int(np.prod(self.value(), axis=0)[0])
 
     def numberOfCells(self):
-        return np.prod(self.value(), axis=0)[1]
+        return int(np.prod(self.value(), axis=0)[1])
 
     def newFields(self, InputFields, Container='FlowSolution',
                   GridLocation='guess', dtype=np.float64, return_type='list',

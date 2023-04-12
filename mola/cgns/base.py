@@ -126,3 +126,12 @@ class Base(Node):
 
     def useEquation(self, *args, **kwargs):
         for zone in self.zones(): zone.useEquation(*args, **kwargs)
+
+    def numberOfPoints(self):
+        return int( np.sum( [ z.numberOfPoints() for z in self.zones() ]) )
+
+    def numberOfCells(self):
+        return int( np.sum( [ z.numberOfPoints() for z in self.zones() ]) )
+
+    def numberOfZones(self):
+        return len( self.zones() ) 

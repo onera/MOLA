@@ -16,18 +16,12 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
-from mola import misc
+from mola import misc, cgns
 
 import Transform.PyTree as T
+import Distributor2.PyTree as D2
 
-def apply(workflow
-                    #    t, InputMeshes, mode='auto', cores_per_node=48,
-                    #    minimum_number_of_nodes=1,
-                    #    maximum_allowed_nodes=20,
-                    #    maximum_number_of_points_per_node=1e9,
-                    #    only_consider_full_node_nproc=True,
-                    #    NumberOfProcessors=None, SplitBlocks=True
-                     ):
+def apply(workflow):
     '''
     Distribute a PyTree **t**, with optional splitting.
 
@@ -115,41 +109,46 @@ def apply(workflow
 
     '''
     t = workflow.tree
+    splitAndDistribUser = workflow.SplittingAndDistribution
 
-    if workflow.SplittingAndDistribution['Strategy'].lower() == 'atcomputation':
-        return
+    if splitAndDistribUser['Strategy'].lower() == 'atcomputation': return
     
+    if splitAndDistribUser['NumberOfProcessors'] == 'auto':
+        mode = 'auto'
+    else:
+        mode = 'imposed'
+        NumberOfProcessors = splitAndDistribUser['NumberOfProcessors']
+        
     print('splitting and distributing mesh...')
-
-    TotalNPts = t.numberOfPoints()
-
-    cores_per_node = workflow.CoresPerNode
-    minimum_number_of_nodes = workflow.MinimumAllowedNodes
-    maximum_allowed_nodes = workflow.MaximumAllowedNodes
-    only_consider_full_node_nproc = workflow.DistributeExclusivelyOnFullNodes
-    maximum_number_of_points_per_node = workflow.MaximumNumberOfPointsPerNode
+    
+    cores_per_node = splitAndDistribUser['CoresPerNode']
+    minimum_number_of_nodes = splitAndDistribUser['MinimumAllowedNodes']
+    maximum_allowed_nodes = splitAndDistribUser['MaximumAllowedNodes']
+    only_consider_full_node_nproc = splitAndDistribUser['DistributeExclusivelyOnFullNodes']
+    maximum_number_of_points_per_node = splitAndDistribUser['MaximumNumberOfPointsPerNode']
 
     if mode == 'auto':
 
+        TotalNPts = t.numberOfPoints()
         startNProc = cores_per_node*minimum_number_of_nodes+1
         if not only_consider_full_node_nproc: startNProc -= cores_per_node 
         endNProc = maximum_allowed_nodes*cores_per_node+1
 
         if NumberOfProcessors is not None and NumberOfProcessors > 0:
-            print(misc.WARN+'User requested NumberOfProcessors=%d, switching to mode=="imposed"'%NumberOfProcessors+misc.ENDC)
+            print(misc.YELLOW+'User requested NumberOfProcessors=%d, switching to mode=="imposed"'%NumberOfProcessors+misc.ENDC)
             mode = 'imposed'
 
         elif minimum_number_of_nodes == maximum_allowed_nodes:
             if only_consider_full_node_nproc:
                 NumberOfProcessors = minimum_number_of_nodes*cores_per_node
-                print(misc.WARN+'User constrained to NumberOfProcessors=%d, switching to mode=="imposed"'%NumberOfProcessors+misc.ENDC)
+                print(misc.YELLOW+'User constrained to NumberOfProcessors=%d, switching to mode=="imposed"'%NumberOfProcessors+misc.ENDC)
                 mode = 'imposed'
 
         elif minimum_number_of_nodes > maximum_allowed_nodes:
-            raise ValueError(misc.FAIL+'minimum_number_of_nodes > maximum_allowed_nodes'+misc.ENDC)
+            raise ValueError(misc.RED+'minimum_number_of_nodes > maximum_allowed_nodes'+misc.ENDC)
 
         elif minimum_number_of_nodes < 1:
-            raise ValueError(misc.FAIL+'minimum_number_of_nodes must be at least equal to 1'+misc.ENDC)
+            raise ValueError(misc.RED+'minimum_number_of_nodes must be at least equal to 1'+misc.ENDC)
 
         if only_consider_full_node_nproc:
             NProcCandidates = np.array(list(range(startNProc-1,
@@ -182,9 +181,9 @@ def apply(workflow
         AllMaxPtsPerNode = []
         AllMaxPtsPerProc = []
         for i, NumberOfProcessors in enumerate(NProcCandidates):
-            _, NZones, varMax, meanPtsPerProc, MaxPtsPerNode, MaxPtsPerProc = _splitAndDistributeUsingNProcs(t,
-                InputMeshes, NumberOfProcessors, cores_per_node, maximum_number_of_points_per_node,
-                raise_error=False)
+            _, NZones, varMax, meanPtsPerProc, MaxPtsPerNode, MaxPtsPerProc = \
+                _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors,
+                                               raise_error=False)
             AllNZones.append( NZones )
             AllVarMax.append( varMax )
             AllAvgPts.append( meanPtsPerProc )
@@ -192,7 +191,7 @@ def apply(workflow
             AllMaxPtsPerProc.append( MaxPtsPerProc )
 
             if AllNZones[i] == 0:
-                start = misc.FAIL
+                start = misc.RED
                 end = '  <== EXCEEDED nb. pts. per node with %d'%AllMaxPtsPerNode[i]+misc.ENDC
             else:
                 start = end = ''
@@ -226,36 +225,39 @@ def apply(workflow
                 Line += end
                 print(Line)
                 break
-        tRef = _splitAndDistributeUsingNProcs(t, InputMeshes, NProcCandidates[BestOption],
-                cores_per_node, maximum_number_of_points_per_node, raise_error=True)[0]
+        tRef = _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors,
+                                              raise_error=True)[0]
 
-        I._correctPyTree(tRef,level=3)
-        tRef = connectMesh(tRef, InputMeshes)
+        tRef.setUniqueZoneNames()
+        # tRef = connectMesh(tRef, InputMeshes) # TODO do it after split&dist
 
     elif mode == 'imposed':
 
-        tRef = _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per_node,
-                                 maximum_number_of_points_per_node, raise_error=True)[0]
+        tRef = _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors,
+                                              raise_error=True)[0]
 
-        I._correctPyTree(tRef,level=3)
-        tRef = connectMesh(tRef, InputMeshes)
+        tRef.setUniqueZoneNames()
+        # tRef = connectMesh(tRef, InputMeshes) # TODO do it after split&dist
 
     showStatisticsAndCheckDistribution(tRef, CoresPerNode=cores_per_node)
 
+    workflow.tree = tRef
+
     return tRef
 
-def _splitAndDistributeUsingNProcs(workflow, raise_error=False):
+def _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors, raise_error=False):
 
-    tRef = I.copyRef(t)
-    TotalNPts = C.getNPts(tRef)
+    t = workflow.tree
+    tRef = t.copy()
+    TotalNPts = t.numberOfCells()
+
     ProcPointsLoad = TotalNPts / NumberOfProcessors
-    basesToSplit, basesBackground = getBasesBasedOnSplitPolicy(tRef, InputMeshes)
-
+    basesToSplit, basesNotToSplit = _getBasesBasedOnSplitPolicy(tRef, workflow)
     remainingNProcs = NumberOfProcessors * 1
     baseName2NProc = dict()
 
-    for base in basesBackground:
-        baseNPts = C.getNPts(base)
+    for base in basesNotToSplit:
+        baseNPts = base.numberOfCells()
         baseNProc = int( baseNPts / ProcPointsLoad )
         baseName2NProc[base[0]] = baseNProc
         remainingNProcs -= baseNProc
@@ -263,59 +265,67 @@ def _splitAndDistributeUsingNProcs(workflow, raise_error=False):
 
     if basesToSplit:
 
-        tToSplit = I.merge([C.newPyTree([b[0],I.getZones(b)]) for b in basesToSplit])
+        tToSplit = cgns.merge([b.copy() for b in basesToSplit])
+        splitter = workflow.SplittingAndDistribution['Splitter']
+        if splitter.lower() == 'cassiopee':
+            tToSplit.findAndRemoveNodes(Type='GridConnectivity1to1_t')
+            tToSplit.findAndRemoveNodes(Type='GridConnectivity_t', Value='Abbuting')
 
-        removeMatchAndNearMatch(tToSplit)
-        tSplit = T.splitSize(tToSplit, 0, type=0, R=remainingNProcs,
-                             minPtsPerDir=5)
-        NbOfZonesAfterSplit = len(I.getZones(tSplit))
+            tSplit = T.splitSize(tToSplit, 0, type=0, R=remainingNProcs,
+                                minPtsPerDir=5)
+            tSplit = cgns.castNode(tSplit)
+        else:
+            raise ValueError(f'splitter {splitter} not implemented yet')
+
+        NbOfZonesAfterSplit = tSplit.numberOfZones()
         HasDegeneratedZones = False
         if NbOfZonesAfterSplit < remainingNProcs:
             MSG = 'WARNING: nb of zones after split (%d) is less than expected procs (%d)'%(NbOfZonesAfterSplit, remainingNProcs)
-            MSG += '\nattempting T.splitNParts()...'
-            print(misc.WARN+MSG+misc.ENDC)
-            tSplit = T.splitNParts(tToSplit, remainingNProcs)
-            splitZones = I.getZones(tSplit)
+            print(misc.YELLOW+MSG+misc.ENDC)
+            if splitter.lower() == 'cassiopee':
+                MSG = 'attempting T.splitNParts()...'
+                tSplit = T.splitNParts(tToSplit, remainingNProcs)
+                tSplit = cgns.castNode(tSplit)
+            else:
+                raise ValueError(f'splitter {splitter} not implemented yet')
+
+            splitZones = tSplit.zones()
             if len(splitZones) < remainingNProcs:
                 MSG = ('could not split sufficiently. Try manually splitting '
-                       'mesh and set SplitBlocks=False')
-                raise ValueError(misc.FAIL+MSG+misc.ENDC)
+                       'mesh and set SplittingAndDistribution["ComponentsToSplit"]=None')
+                raise ValueError(misc.RED+MSG+misc.ENDC)
+            
             for zone in splitZones:
-                zoneDims = I.getZoneDim(zone)
-                if zoneDims[0] == 'Structured':
-                    dims = zoneDims[1:-1]
+                if zone.isStructured():
+                    dims = zone.shape()
                     for NPts, dir in zip(dims, ['i', 'j', 'k']):
                         if NPts < 5:
                             if NPts < 3:
-                                MSG = misc.FAIL+'ERROR: zone %s has %d pts in %s direction'%(zone[0],NPts,dir)+misc.ENDC
+                                MSG = misc.RED+'ERROR: zone %s has %d pts in %s direction'%(zone[0],NPts,dir)+misc.ENDC
                                 HasDegeneratedZones = True
                             else:
-                                MSG = misc.WARN+'WARNING: zone %s has %d pts in %s direction'%(zone[0],NPts,dir)+misc.ENDC
+                                MSG = misc.YELLOW+'WARNING: zone %s has %d pts in %s direction'%(zone[0],NPts,dir)+misc.ENDC
                             print(MSG)
 
         if HasDegeneratedZones:
-            raise ValueError(misc.FAIL+'grid has degenerated zones. See previous print error messages'+misc.ENDC)
+            raise ValueError(misc.RED+'grid has degenerated zones. See previous print error messages'+misc.ENDC)
 
-        for splitbase in I.getBases(tSplit):
-            basename = splitbase[0]
-            base = I.getNodeFromName2(tRef, basename)
-            if not base: raise ValueError('unexpected !')
-            I._rmNodesByType(base, 'Zone_t')
-            base[2].extend( I.getZones(splitbase) )
-
-        tRef = I.merge([tRef,tSplit])
-
-        NZones = len( I.getZones( tRef ) )
+        for splitbase in tSplit.bases():
+            base = tRef.get(Name=splitbase.name(), Type='CGNSBase_t', Depth=1)
+            if not base: raise ValueError(f'unexpected ! could not find base {splitbase.name()}')
+            base.swap(splitbase)
+        
+        NZones = tRef.numberOfZones()
         if NumberOfProcessors > NZones:
             if raise_error:
                 MSG = ('Requested number of procs ({}) is higher than the final number of zones ({}).\n'
                        'You may try the following:\n'
                        ' - Reduce the number of procs\n'
                        ' - increase the number of grid points').format( NumberOfProcessors, NZones)
-                raise ValueError(misc.FAIL+MSG+misc.ENDC)
+                raise ValueError(misc.RED+MSG+misc.ENDC)
             return tRef, 0, np.inf, np.inf, np.inf, np.inf
 
-    NZones = len( I.getZones( tRef ) )
+    NZones = tRef.numberOfZones()
     if NumberOfProcessors > NZones:
         if raise_error:
             MSG = ('Requested number of procs ({}) is higher than the final number of zones ({}).\n'
@@ -323,19 +333,31 @@ def _splitAndDistributeUsingNProcs(workflow, raise_error=False):
                    ' - set SplitBlocks=True to more grid components\n'
                    ' - Reduce the number of procs\n'
                    ' - increase the number of grid points').format( NumberOfProcessors, NZones)
-            raise ValueError(misc.FAIL+MSG+misc.ENDC)
+            raise ValueError(misc.RED+MSG+misc.ENDC)
         else:
             return tRef, 0, np.inf, np.inf, np.inf, np.inf
 
-    # NOTE see Cassiopee BUG #8244 -> need algorithm='fast'
-    silence = misc.OutputGrabber()
-    with silence:
-        tRef, stats = D2.distribute(tRef, NumberOfProcessors, algorithm='fast', useCom='all')
-
+    distributor = workflow.SplittingAndDistribution['Distributor']
+    stats = dict()
+    if distributor.lower() == 'cassiopee':
+        # NOTE see Cassiopee BUG #8244 -> need algorithm='fast'
+        silence = misc.OutputGrabber()
+        with silence:
+            tRef, stats = D2.distribute(tRef, NumberOfProcessors, algorithm='fast', useCom='all')
+            tRef = cgns.castNode(tRef)
+        stats.update(stats)
+    else: 
+        raise ValueError(f'distributor {distributor} not implemented yet')
+   
     behavior = 'raise' if raise_error else 'silent'
 
     if hasAnyEmptyProc(tRef, NumberOfProcessors, behavior=behavior):
         return tRef, 0, np.inf, np.inf, np.inf, np.inf
+
+    splitAndDistribUser = workflow.SplittingAndDistribution
+
+    cores_per_node = splitAndDistribUser['CoresPerNode']
+    maximum_number_of_points_per_node = splitAndDistribUser['MaximumNumberOfPointsPerNode']
 
     HighestLoad = getNbOfPointsOfHighestLoadedNode(tRef, cores_per_node)
     HighestLoadProc = getNbOfPointsOfHighestLoadedProc(tRef)
@@ -351,11 +373,11 @@ def _splitAndDistributeUsingNProcs(workflow, raise_error=False):
 
 def getNbOfPointsOfHighestLoadedNode(t, cores_per_node):
     NPtsPerNode = {}
-    for zone in I.getZones(t):
+    for zone in t.zones():
         Proc, = getProc(zone)
-        Node = Proc//cores_per_node
-        try: NPtsPerNode[Node] += C.getNPts(zone)
-        except KeyError: NPtsPerNode[Node] = C.getNPts(zone)
+        Node = int(Proc)//cores_per_node
+        try: NPtsPerNode[Node] += zone.numberOfCells()
+        except KeyError: NPtsPerNode[Node] = zone.numberOfCells()
 
     nodes = list(NPtsPerNode)
     NodesLoad = np.zeros(max(nodes)+1, dtype=int)
@@ -366,10 +388,10 @@ def getNbOfPointsOfHighestLoadedNode(t, cores_per_node):
 
 def getNbOfPointsOfHighestLoadedProc(t):
     NPtsPerProc = {}
-    for zone in I.getZones(t):
+    for zone in t.zones():
         Proc, = getProc(zone)
-        try: NPtsPerProc[Proc] += C.getNPts(zone)
-        except KeyError: NPtsPerProc[Proc] = C.getNPts(zone)
+        try: NPtsPerProc[Proc] += zone.numberOfCells()
+        except KeyError: NPtsPerProc[Proc] = zone.numberOfCells()
 
     procs = list(NPtsPerProc)
     ProcsLoad = np.zeros(max(procs)+1, dtype=int)
@@ -377,18 +399,6 @@ def getNbOfPointsOfHighestLoadedProc(t):
     HighestLoad = np.max(ProcsLoad)
 
     return HighestLoad
-
-def _isMaximumNbOfPtsPerNodeExceeded(t, maximum_number_of_points_per_node, cores_per_node):
-    NPtsPerNode = {}
-    for zone in I.getZones(t):
-        Proc, = getProc(zone)
-        Node = (Proc//cores_per_node)+1
-        try: NPtsPerNode[Node] += C.getNPts(zone)
-        except KeyError: NPtsPerNode[Node] = C.getNPts(zone)
-
-    for node in NPtsPerNode:
-        if NPtsPerNode[node] > maximum_number_of_points_per_node: return True
-    return False
 
 def hasAnyEmptyProc(t, NumberOfProcessors, behavior='raise', debug_filename=''):
     '''
@@ -430,17 +440,16 @@ def hasAnyEmptyProc(t, NumberOfProcessors, behavior='raise', debug_filename=''):
     Proc2Zones = dict()
     UnaffectedProcs = list(range(NumberOfProcessors))
 
-    for z in I.getZones(t):
-        proc = int(D2.getProc(z))
+    for z in t.zones():
+        proc = int(getProc(z))
 
         if proc < 0:
-            if debug_filename: C.convertPyTree2File(t, debug_filename)
             raise ValueError('zone %s is not distributed'%z[0])
 
         if proc in Proc2Zones:
-            Proc2Zones[proc].append( I.getName(z) )
+            Proc2Zones[proc].append( z.name() )
         else:
-            Proc2Zones[proc] = [ I.getName(z) ]
+            Proc2Zones[proc] = [ z.name() ]
 
         try: UnaffectedProcs.remove( proc )
         except ValueError: pass
@@ -448,8 +457,7 @@ def hasAnyEmptyProc(t, NumberOfProcessors, behavior='raise', debug_filename=''):
 
     if UnaffectedProcs:
         hasAnyEmptyProc = True
-        if debug_filename: C.convertPyTree2File(t, debug_filename)
-        MSG = misc.FAIL+'THERE ARE UNAFFECTED PROCS IN DISTRIBUTION!!\n'
+        MSG = misc.RED+'THERE ARE UNAFFECTED PROCS IN DISTRIBUTION!!\n'
         MSG+= 'Empty procs: %s'%str(UnaffectedProcs)+misc.ENDC
         if behavior == 'raise':
             raise ValueError(MSG)
@@ -462,43 +470,7 @@ def hasAnyEmptyProc(t, NumberOfProcessors, behavior='raise', debug_filename=''):
 
     return hasAnyEmptyProc
 
-def getBasesBasedOnSplitPolicy(t,InputMeshes):
-    '''
-    Returns two different lists, one with bases to split and other with bases
-    not to split. The filter is done depending on the boolean value
-    of ``SplitBlocks`` key provided by user for each component of **InputMeshes**.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            assembled tree
-
-        InputMeshes : :py:class:`list` of :py:class:`dict`
-            user-provided preprocessing
-            instructions as described in :py:func:`prepareMesh4ElsA` doc
-
-    Returns
-    -------
-
-        basesToSplit : :py:class`list` of base
-            bases that are to be split.
-
-        basesNotToSplit : :py:class`list` of base
-            bases that are NOT to be split.
-    '''
-    basesToSplit = []
-    basesNotToSplit = []
-    for meshInfo in InputMeshes:
-        base = I.getNodeFromName1(t,meshInfo['baseName'])
-        if meshInfo['SplitBlocks']:
-            basesToSplit += [base]
-        else:
-            basesNotToSplit += [base]
-
-    return basesToSplit, basesNotToSplit
-
-def showStatisticsAndCheckDistribution(tNew, CoresPerNode=28):
+def showStatisticsAndCheckDistribution(tNew, CoresPerNode=48):
     '''
     Print statistics on the distribution of a PyTree and also indicates the load
     attributed to each computational node.
@@ -515,20 +487,19 @@ def showStatisticsAndCheckDistribution(tNew, CoresPerNode=28):
     '''
     ProcDistributed = getProc(tNew)
     ResultingNProc = max(ProcDistributed)+1
-    Distribution = D2.getProcDict(tNew)
 
     NPtsPerProc = {}
-    for zone in I.getZones(tNew):
+    for zone in tNew.zones():
         Proc, = getProc(zone)
-        try: NPtsPerProc[Proc] += C.getNPts(zone)
-        except KeyError: NPtsPerProc[Proc] = C.getNPts(zone)
+        try: NPtsPerProc[Proc] += zone.numberOfCells()
+        except KeyError: NPtsPerProc[Proc] = zone.numberOfCells()
 
     NPtsPerNode = {}
-    for zone in I.getZones(tNew):
+    for zone in tNew.zones():
         Proc, = getProc(zone)
         Node = (Proc//CoresPerNode)+1
-        try: NPtsPerNode[Node] += C.getNPts(zone)
-        except KeyError: NPtsPerNode[Node] = C.getNPts(zone)
+        try: NPtsPerNode[Node] += zone.numberOfCells()
+        except KeyError: NPtsPerNode[Node] = zone.numberOfCells()
 
 
     ListOfProcs = list(NPtsPerProc.keys())
@@ -537,7 +508,7 @@ def showStatisticsAndCheckDistribution(tNew, CoresPerNode=28):
     ArgNPtsMax = np.argmax(ListOfNPts)
 
     MSG = '\nTotal number of processors is %d\n'%ResultingNProc
-    MSG += 'Total number of zones is %d\n'%len(I.getZones(tNew))
+    MSG += 'Total number of zones is %d\n'%tNew.numberOfZones()
     MSG += 'Proc %d has lowest nb. of points with %d\n'%(ListOfProcs[ArgNPtsMin],
                                                     ListOfNPts[ArgNPtsMin])
     MSG += 'Proc %d has highest nb. of points with %d\n'%(ListOfProcs[ArgNPtsMax],
@@ -547,7 +518,7 @@ def showStatisticsAndCheckDistribution(tNew, CoresPerNode=28):
     for node in NPtsPerNode:
         print('Node %d has %d points'%(node,NPtsPerNode[node]))
 
-    print(misc.CYAN+'TOTAL NUMBER OF POINTS: '+'{:,}'.format(C.getNPts(tNew)).replace(',',' ')+'\n'+misc.ENDC)
+    print(misc.CYAN+'TOTAL NUMBER OF POINTS: '+'{:,}'.format(tNew.numberOfCells()).replace(',',' ')+'\n'+misc.ENDC)
 
     for p in range(ResultingNProc):
         if p not in ProcDistributed:
@@ -573,3 +544,27 @@ def _getComponentsNamesBasedOnSplitPolicy(workflow):
     return ComponentsToSplit, ComponentsNotToSplit
 
 
+def _getBasesBasedOnSplitPolicy(t, workflow):
+    toSplit, notToSplit = _getComponentsNamesBasedOnSplitPolicy(workflow)
+    basesToSplit = []
+    basesNotToSplit = []
+    for base in t.bases():
+        if base.name() in toSplit:
+            basesToSplit += [ base ]
+        elif base.name() in notToSplit:
+            basesNotToSplit += [ base ]
+        else:
+            msg = f'FATAL: base {base.name()} was neither in toSplit:\n'
+            msg+= str(toSplit)+'\n'
+            msg+= 'nor in notToSplit:\n'
+            msg+= str(notToSplit)+'\n'
+            msg+= 'please contact the support'
+            ValueError(misc.RED+msg+misc.ENDC)
+    return basesToSplit, basesNotToSplit
+
+def getProc(t):
+    procs = []
+    for zone in cgns.getZones(t):
+        solverParam = zone.get(Name='.Solver#Param',Depth=1)
+        procs += [ int(solverParam.get(Name='proc').value()) ]
+    return np.array(procs, order='F', ndmin=1)

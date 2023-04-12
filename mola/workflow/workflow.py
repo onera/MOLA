@@ -163,6 +163,22 @@ class Workflow(object):
             self.Turbulence=Turbulence
             self.BoundaryConditions=BoundaryConditions
             self.Solver=Solver
+
+            default_splitAndDist = dict(
+                Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
+                Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
+                Distributor='Cassiopee', 
+                ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
+                NumberOfProcessors='auto', 
+                MinimumAllowedNodes=1,
+                MaximumAllowedNodes=1,
+                MaximumNumberOfPointsPerNode=1e9,
+                CoresPerNode=48,
+                DistributeExclusivelyOnFullNodes=True)
+
+            default_splitAndDist.update(SplittingAndDistribution)
+
+            self.SplittingAndDistribution=default_splitAndDist
             self.Numerics=Numerics
             self.BodyForceModeling=BodyForceModeling
             self.Motion=Motion

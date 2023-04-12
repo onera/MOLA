@@ -207,3 +207,12 @@ class Tree(Node):
 
     def numberOfPoints(self):
         return int( np.sum( [ z.numberOfPoints() for z in self.zones() ]) )
+
+    def numberOfCells(self):
+        return int( np.sum( [ z.numberOfPoints() for z in self.zones() ]) )
+
+    def numberOfZones(self):
+        return len( self.zones() ) 
+
+    def numberOfBases(self):
+        return len( self.bases() ) 

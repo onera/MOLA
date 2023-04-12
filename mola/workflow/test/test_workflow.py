@@ -8,9 +8,9 @@ def test_init():
 
 def get_workflow1():
 
-    x, y, z = np.meshgrid( np.linspace(0,1,11),
-                           np.linspace(0,1,11),
-                           np.linspace(0,1,11), indexing='ij')
+    x, y, z = np.meshgrid( np.linspace(0,1,21),
+                           np.linspace(0,1,21),
+                           np.linspace(0,1,21), indexing='ij')
     mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'],
                                             [ x,  y,  z ])
 
@@ -55,7 +55,22 @@ def get_workflow1():
                 ],
                 OversetOptions=dict(),
                 )
-        ]
+        ],
+
+        SplittingAndDistribution=dict(
+            Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
+            Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
+            Distributor='Cassiopee', 
+            ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
+            NumberOfProcessors=4, 
+            # MinimumAllowedNodes=1,
+            # MaximumAllowedNodes=20,
+            # MaximumNumberOfPointsPerNode=1e9,
+            # CoresPerNode=48,
+            # DistributeExclusivelyOnFullNodes=True,
+            ),
+
+
         )
     return w
 
@@ -84,4 +99,5 @@ def test_prepare_workflow1():
     w.positioning()
     w.connect()
     w.define_families()
+    w.split_and_distribute()
     w.write_tree()
