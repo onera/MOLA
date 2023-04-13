@@ -47,6 +47,8 @@ MAC0=$(echo $KC | grep 'celeste'); if [ "$MAC0" != "" ]; then export MAC="visio"
 
 if [ "$MAC" = "ld" ] && [ ! "$EL8" ] ; then export MAC="visung"; fi
 
+if [ "$MAC" = "visung" ] && [ "$EL8" ] ; then export MAC="ld"; fi
+
 
 if [ -n "$SLURM_NTASKS" ] ; then
     if [ $SLURM_NTASKS == 1 ] ; then
