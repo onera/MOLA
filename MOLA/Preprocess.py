@@ -4802,8 +4802,10 @@ def adapt2elsA(t, InputMeshes):
     unnecessary operations. It also cleans spurious 0-length data CGNS nodes that
     can be generated during overset preprocessing.
     '''
-    print('adapting NearMatch to elsA')
-    EP._adaptNearMatch(t)
+
+    if hasAnyNearMatch(t, InputMeshes):
+        print('adapting NearMatch to elsA')
+        EP._adaptNearMatch(t)
 
     if hasAnyOversetData(InputMeshes):
         print('adapting overset data to elsA...')
@@ -4825,13 +4827,15 @@ def adapt2elsA(t, InputMeshes):
 
     I._createElsaHybrid(t, method=1)
 
-def hasAnyNearMatch(InputMeshes):
+def hasAnyNearMatch(t, InputMeshes):
     '''
-    Determine if at least one item in **InputMeshes** has a connectivity of
-    type ``NearMatch``.
+    Determine if configuration has a connectivity of type ``NearMatch``.
 
     Parameters
     ----------
+
+        t : PyTree
+            input tree to test
 
         InputMeshes : :py:class:`list` of :py:class:`dict`
             as described by :py:func:`prepareMesh4ElsA`
@@ -4844,11 +4848,16 @@ def hasAnyNearMatch(InputMeshes):
     '''
     for meshInfo in InputMeshes:
         try: Connection = meshInfo['Connection']
-        except KeyError: continue
+        except KeyError: pass
 
         for ConnectionInfo in Connection:
             isNearMatch = ConnectionInfo['type'] == 'NearMatch'
             if isNearMatch: return True
+    
+    for GridConnectivityNode in I.getNodesFromType(t, 'GridConnectivity_t'):
+        if I.getNodesFromValue(GridConnectivityNode, 'Abbuting'):
+            return True
+
 
     return False
 
