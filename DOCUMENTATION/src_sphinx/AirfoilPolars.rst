@@ -173,7 +173,10 @@ file is given here:
 .. important:: the presented ``MeshingParameters.py`` example file produces a *light*
     mesh. Please feel free to adapt it according to the meshing requirements of
     your work. An example of a finer MeshingParameters file can be found in
-    ``TEMPLATES/WORKFLOW_AIRFOIL`` directory
+    ``TEMPLATES/WORKFLOW_AIRFOIL`` directory. To know more about the parameters 
+    of this function, please see the documentation of functions
+    :py:func:`~MOLA.GenerativeShapeDesign.buildMesh` and
+    :py:func:`~MOLA.GenerativeShapeDesign.extrudeAirfoil2D`
 
 .. note:: some of *(or all)* the meshing parameters defined in dictionaries **Sizes**, **Cells**,
     **Points** and **options** can be undefined. In this case, undefined values
