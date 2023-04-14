@@ -2093,13 +2093,6 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
     '''
     Build a 2D mesh around a given airfoil geometry.
 
-    .. attention:: For the moment, only a C-topology of the mesh is employed
-        (see Cassiopee ticket `6466 <https://elsa.onera.fr/issues/6466>`_).
-        This means that trailing edge of the airfoil **shall not** be rounded.
-
-    .. attention:: poor wall-adjacent cell orthogonality may be produced (
-        see Cassiopee ticket `7517 <https://elsa.onera.fr/issues/7517>`_)
-
     Parameters
     ----------
 
