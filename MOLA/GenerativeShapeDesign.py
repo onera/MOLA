@@ -3631,68 +3631,132 @@ def writeGeomTurbo(Rows, Hub, Shroud, Zmin=None, Zmax=None, filename='geometry.g
     unit : str, optional
         Unit in the geomTurbo file, by default 'Meters'
     '''
+    # WATCH OUT: There must not be any empty line between the lines
+    # defining each section for SS and PS. 
+    # If there is, the geomTurbo file cannot be read correctly by Autogrid v>9
 
-    def writeChannelCurve(fout, name, z, r, Zmin, Zmax):
+    if not filename.endswith('geomTurbo'): 
+        filename += '.geomTurbo'
+    print(J.CYAN+f'Start to build the geometry file {filename} for Autogrid5...'+J.ENDC)
+    
+    floatFormat = '.15g' # Above that, Autogrid will not save additional figures
+
+    def writeZRCurve(fout, name, z, r, ZminForCurve=-1e20, ZmaxForCurve=1e20):
         txt = f"""
   NI_BEGIN basic_curve
     NAME     {name}
-    DISCRETISATION 10
-    DATA_REDUCTION 0
     NI_BEGIN zrcurve
     ZR
 """
-        indexMin = np.amin(np.argwhere(z>Zmin))
-        indexMax = np.amax(np.argwhere(z<Zmax))
+        indexMin = np.amin(np.argwhere(z>ZminForCurve))
+        indexMax = np.amax(np.argwhere(z<ZmaxForCurve))
 
-        txt += f'    {indexMax-indexMin+2}\n'
-        
-        txt += f'    {Zmin} {r[indexMin+1]}\n'
-        for item in range(indexMin, indexMax):
-            txt += f'    {z[item]} {r[item]}\n'
-        txt += f'    {Zmax} {r[indexMax-1]}\n'
-
+        txt += f'    {indexMax-indexMin+1}\n'
+        for item in range(indexMin, indexMax+1):
+            txt += f'    {z[item]:{floatFormat}} {r[item]:{floatFormat}}\n'
         txt += '    NI_END zrcurve\n    NI_END   basic_curve'
         fout.write(txt)
     
-               
+    def writeChannelCurve(fout, name, curveNames):
+        '''
+        Write the channel curve called **name**, written as the concatenation of zero, one or several curves
+        already defined. CurveNames is the list of their names.
+        '''
+        txt = f"""
+  NI_BEGIN channel_curve {name}    
+    NAME     {name}
+"""     
+        # First point of each curve
+        for curveName in curveNames:
+            txt += f'    VERTEX   CURVE_P {curveName} 0\n'
+        # Last point of the last curve
+        if len(curveNames) != 0:
+            txt += f'    VERTEX   CURVE_P {curveName} 1\n'
+        txt += f'    NI_END   channel_curve {name}'
+        fout.write(txt)
+
+
+    # Write the header of the file
     fout = open(filename,'w')
     fout.write(f"""GEOMETRY TURBO
-VERSION    5.4
+VERSION    5.6
 TOLERANCE  1e-06
 UNITS        {unit}
 UNITS-FACTOR 1
 
 NI_BEGIN CHANNEL""")
-               
-    xHub, yHub, zHub = J.getxyz(Hub)
-    xShroud, yShroud, zShroud = J.getxyz(Shroud)
-    if Zmin is None: 
-        Zmin = max(np.amin(zHub), np.amin(zShroud))
-    if Zmax is None: 
-        Zmax = min(np.amax(zHub), np.amax(zShroud))
     
-    writeChannelCurve(fout, 'hub', zHub, xHub, Zmin, Zmax)
-    writeChannelCurve(fout, 'shroud', zShroud, xShroud, Zmin, Zmax)
+    # Axial direction must be Z and radial direction must be X
+    xHub, _, zHub = J.getxyz(Hub)
+    xShroud, _, zShroud = J.getxyz(Shroud)
 
-    fout.write("""
-  NI_BEGIN channel_curve hub    
-    NAME     hub
-    VERTEX   CURVE_P hub 0
-    VERTEX   CURVE_P hub 1
-    NI_END   channel_curve hub    
-  NI_BEGIN channel_curve shroud 
-    NAME     shroud
-    VERTEX   CURVE_P shroud 0
-    VERTEX   CURVE_P shroud 1
-    NI_END   channel_curve shroud 
-  NI_BEGIN channel_curve nozzle 
-    NAME     nozzle
-    NI_END   channel_curve nozzle 
-  NI_END   CHANNEL
-""")
+    # Detection of bulb geometry if hub radius reaches zero (upstream or downstream)
+    if xHub[0] < 1e-12:
+        print('  --> Bulb geometry detected upstream')
+        xHub[0] = 0
+        BulbGeometryUpstream = True
+    else:
+        BulbGeometryUpstream = False
+    if xHub[-1] < 1e-12:
+        print('  --> Bulb geometry detected downstream')
+        xHub[-1] = 0
+        BulbGeometryDownstream = True
+    else:
+        BulbGeometryDownstream = False
+
+    if Zmin is None: 
+        if BulbGeometryUpstream:
+            Zmin = zShroud[0]
+        else:
+            Zmin = max(zHub[0], zShroud[0])
+    if Zmax is None: 
+        if BulbGeometryDownstream:
+            Zmax = zShroud[-1]
+        else:
+            Zmax = min(zHub[-1], zShroud[-1])
+    print(f'  Zmin={Zmin}, Zmax={Zmax}')
+    
+    hubCurves = []
+    # Eventual extension of hub upstream (with a direct line, not a spline)
+    if zHub[0] > Zmin and not BulbGeometryUpstream:
+        print('  Extend the hub upstream until Zmin')
+        writeZRCurve(fout, 'hub_upstream', np.array([Zmin, zHub[0]]), np.array([xHub[0], xHub[0]]))
+        hubCurves.append('hub_upstream')
+    # Main curve defining hub
+    writeZRCurve(fout, 'hub_main', zHub, xHub, Zmin, Zmax) 
+    hubCurves.append('hub_main')
+    # Eventual extension of hub downstream (with a direct line, not a spline)
+    if zHub[-1] < Zmax and not BulbGeometryDownstream:
+        print('  Extend the hub downstream until Zmax')
+        writeZRCurve(fout, 'hub_downstream', np.array([zHub[-1], Zmax]), np.array([xHub[-1], xHub[-1]]))
+        hubCurves.append('hub_downstream')
+
+    shroudCurves = []
+    # Eventual extension of shroud upstream (with a direct line, not a spline)
+    if zShroud[0] > Zmin:
+        print('  Extend the shroud upstream until Zmin')
+        writeZRCurve(fout, 'shroud_upstream', np.array([Zmin, zShroud[0]]), np.array([xShroud[0], xShroud[0]]))
+        shroudCurves.append('shroud_upstream')
+    # Main curve defining shroud
+    writeZRCurve(fout, 'shroud_main', zShroud, xShroud, Zmin, Zmax)
+    shroudCurves.append('shroud_main')
+    # Eventual extension of shroud downstream (with a direct line, not a spline)
+    if zShroud[-1] < Zmax:
+        print('  Extend the shroud downstream until Zmax')
+        writeZRCurve(fout, 'shroud_downstream', np.array([zShroud[-1], Zmax]), np.array([xShroud[-1], xShroud[-1]]))
+        shroudCurves.append('shroud_downstream')
+
+    # Write the block with Channel curves. There must be curves named hub and shroud, and eventually a nozzle (for bypass configuration)
+    writeChannelCurve(fout, 'hub', hubCurves)
+    writeChannelCurve(fout, 'shroud', shroudCurves)
+    # writeChannelCurve(fout, 'nozzle', [])
+
+    fout.write('\n  NI_END   CHANNEL\n')
+
+
                
     for row, rowParams in Rows.items():
-        print(f'Build ROW {row} (Periodicity={rowParams["Periodicity"]})')
+        print(f'  Build ROW {row} (Periodicity={rowParams["Periodicity"]})')
         rowParams.setdefault('RotationSpeed', 500)      
         fout.write(f"""
 NI_BEGIN nirow
@@ -3705,7 +3769,7 @@ NI_BEGIN nirow
             rowParams['Blades'] = getSectionsForAutogrid(rowParams['Blades'])
         
         for blade, bladeParams in rowParams['Blades'].items():
-            print(f'  Build BLADE {blade} ({len(bladeParams["suction"])} sections)')
+            print(f'    Build BLADE {blade} ({len(bladeParams["suction"])} sections)')
             bladeParams.setdefault('ExpandTip', 0.05)
             bladeParams.setdefault('ExpandRoot', 0.05)
 
@@ -3714,7 +3778,7 @@ NI_BEGIN nirow
     NAME      {blade}""")
             
             if 'HubGap' in bladeParams:
-                print(f'    with hub gap = {bladeParams["HubGap"]}')
+                print(f'      with hub gap = {bladeParams["HubGap"]}')
                 fout.write(f"""
     NI_BEGIN NIRootGap
       WIDTH_AT_LEADING_EDGE  {bladeParams['HubGap']}
@@ -3722,7 +3786,7 @@ NI_BEGIN nirow
       NI_END   NIRootGap""")
             
             if 'ShroudGap' in bladeParams:
-                print(f'    with shroud gap = {bladeParams["HubGap"]}')
+                print(f'      with shroud gap = {bladeParams["HubGap"]}')
                 fout.write(f"""
     NI_BEGIN NITipGap
       WIDTH_AT_LEADING_EDGE  {bladeParams['ShroudGap']}
@@ -3737,24 +3801,23 @@ NI_BEGIN nirow
             
             for oneside in ['suction','pressure']:
                 sections = bladeParams[oneside]
-                print(f'    {sections[0][0].size} points found on {oneside} side (for section 1)')
+                print(f'      {sections[0][0].size} points found on {oneside} side (for section 1)')
                 fout.write(f"""
       {oneside}
         SECTIONAL
-        {len(sections)}""")
+        {len(sections)}
+""")
                 for item in range(len(sections)):
                     NbOfPoints = sections[item][0].size
-                    fout.write(f"""
-        #   section {item+1}
+                    fout.write(f"""        # section {item+1}
         XYZ
         {NbOfPoints}
 """)
                     for i in range(NbOfPoints):
-                        fout.write(f'        {sections[item][0][i]} {sections[item][1][i]} {sections[item][2][i]}\n')
+                        fout.write(f'        {sections[item][0][i]:{floatFormat}} {sections[item][1][i]:{floatFormat}} {sections[item][2][i]:{floatFormat}}\n')
             
             fout.write("""
       NI_END   nibladegeometry
-    SOLID_BODY_CONFIGURATION 0
     NI_END   NIBlade""")
 
         fout.write("""
@@ -3768,6 +3831,7 @@ NI_END   GEOMETRY
 """)
 
     fout.close()
+    print(J.GREEN+f'> File {filename} written'+J.ENDC)
 
 def getSectionsForAutogrid(mesh, indexLE=None):
     '''
