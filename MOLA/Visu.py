@@ -175,16 +175,24 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
     # TODO solve bugs:
     # https://elsa.onera.fr/issues/10536
     # https://elsa.onera.fr/issues/11045
-    # try: import CPlotOffscreen.PyTree as CPlot
-    # except: import CPlot.PyTree as CPlot
-    import CPlot.PyTree as CPlot
 
-    if machine in ['sator']:
+    offscreen_mode = 'auto'
+
+    if offscreen_mode == 'auto':
+        import CPlot.PyTree as CPlot
+        if machine in ['sator']:
+            offscreen=5 # MESA 
+        elif machine in ['ld','visung', 'visio', 'sator', 'spiro']:
+            offscreen=3 # openGL
+        else:
+            raise SystemError('machine "%s" not supported.'%machine)
+    elif offscreen_mode == 'mesa':
+        try: import CPlotOffscreen.PyTree as CPlot
+        except: import CPlot.PyTree as CPlot
         offscreen=5 # MESA 
-    elif machine in ['ld','visung', 'visio', 'sator', 'spiro']:
-        offscreen=3 # openGL
     else:
-        raise SystemError('machine "%s" not supported.'%machine)
+        raise SystemError('offscreen_mode "%s" not supported.'%offscreen_mode)
+
 
     cmap2int = dict(Blue2Red=1, Diverging=15, Black2White=15,
                     Viridis=17, Inferno=19, Magma=21, Plasma=23, Jet=25,
@@ -260,7 +268,9 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
         else:
             isoScales = []
 
-        if i>0 and i == len(Trees)-1 and offscreen > 1: offscreen += 1
+        increment_offscreen = i>0 and i == len(Trees)-1 and offscreen > 1
+
+        if increment_offscreen: offscreen += 1
 
         try: additionalDisplayOptions = elt['additionalDisplayOptions']
         except: additionalDisplayOptions = {}
@@ -290,7 +300,11 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
 
         CPlot.display(tree, offscreen=offscreen, colormap=cmap,
             isoScales=isoScales, **DisplayOptions, **additionalDisplayOptions)
-        CPlot.finalizeExport(offscreen)
+        if offscreen_mode == 'mesa':
+            if not increment_offscreen:
+                CPlot.finalizeExport(offscreen)
+        else:
+            CPlot.finalizeExport(offscreen)
     
         sleep(0.5)
 

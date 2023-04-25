@@ -4466,6 +4466,7 @@ def convertHOSTPolarFile2Dict(filename):
         Data['Title']='_'.join(lines[0].split()[1:])
 
         # Read Allowed Variables:
+
         for i in range(LinesQty):
             lS = lines[i].split()
             if (len(lS) >= 2) and (lS[1] in AllowedVars):
@@ -4528,7 +4529,7 @@ def convertHOSTPolarFile2Dict(filename):
 
                 Data[Var]['BigAoA'] = SetOfBigAoA
                 Data[Var]['BigAoAValues'] = SetOfBigAoAValues
-            elif len(re.findall(r'(C*L/NU)I0',lines[i].upper()))==1:
+            elif '(C*L/NU)I0' in lines[i]:
                 j=i
                 ReynoldsOverMach = scan(lines[j],float)
                 Data['ReynoldsOverMach'] = ReynoldsOverMach[-1]
@@ -4726,7 +4727,7 @@ def convertLiftingLine2PUMABladeDef(LiftingLine, PolarName2FileDict,
 
     print ('Writing %s...'%OutputFile)
     with open(OutputFile,'w') as f: f.write(MainBodyText)
-    os.chmod(OutputFile, 0o777)
+    os.chmod(OutputFile, 0o755)
     print ('done')
 
 
@@ -5154,7 +5155,7 @@ def convertPolarsCGNS2HOSTformat(PyZonePolars,
             f.write('COEFFICIENT (C*L/NU)I0 (OU BIEN REYNOLDS/MACH) ............ %10.1f\n' %AvrgReOverMach)
             f.write('CORRECTION DE PRESSION GENERATRICE REYNOLDS/MACH=CSTE. .... SANS\n')
             f.write('EXPOSANT POUR CORRECTION DE REYNOLDS ( EXPREY) ............   -0.16667')
-        os.chmod(FileFullPath, 0o777)
+        os.chmod(FileFullPath, 0o755)
 
 
 
