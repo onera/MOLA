@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from mola import (misc, cgns)
@@ -326,7 +326,7 @@ def set_boundary_conditions_OLD(t, BoundaryConditions, TurboConfiguration,
         SymmetryPlane                = 'sym',
     )
 
-    print(J.CYAN + 'set BCs at walls' + J.ENDC)
+    print(misc.CYAN + 'set BCs at walls' + misc.ENDC)
     setBC_Walls(t, TurboConfiguration, bladeFamilyNames=bladeFamilyNames)
 
     for BCparam in BoundaryConditions:
@@ -336,7 +336,7 @@ def set_boundary_conditions_OLD(t, BoundaryConditions, TurboConfiguration,
             BCparam['type'] = PreferedBoundaryConditions[BCparam['type']]
 
         if BCparam['type'] == 'nref':
-            print(J.CYAN + 'set BC nref on ' + BCparam['FamilyName'] + J.ENDC)
+            print(misc.CYAN + 'set BC nref on ' + BCparam['FamilyName'] + misc.ENDC)
             setBC_nref(t, **BCkwargs)
 
         elif BCparam['type'] == 'inj1':
@@ -348,84 +348,84 @@ def set_boundary_conditions_OLD(t, BoundaryConditions, TurboConfiguration,
                     BCparam['option'] = 'uniform'
 
             if BCparam['option'] == 'uniform':
-                print(J.CYAN + 'set BC inj1 (uniform) on ' + BCparam['FamilyName'] + J.ENDC)
+                print(misc.CYAN + 'set BC inj1 (uniform) on ' + BCparam['FamilyName'] + misc.ENDC)
                 setBC_inj1_uniform(t, FluidProperties, ReferenceValues, **BCkwargs)
 
             elif BCparam['option'] == 'file':
-                print('{}set BC inj1 (from file {}) on {}{}'.format(J.CYAN,
-                    BCparam['filename'], BCparam['FamilyName'], J.ENDC))
+                print('{}set BC inj1 (from file {}) on {}{}'.format(misc.CYAN,
+                    BCparam['filename'], BCparam['FamilyName'], misc.ENDC))
                 setBC_inj1_interpFromFile(t, ReferenceValues, **BCkwargs)
 
             elif BCparam['option'] == 'bc':
-                print('set BC inj1 on {}'.format(J.CYAN, BCparam['FamilyName'], J.ENDC))
+                print('set BC inj1 on {}'.format(misc.CYAN, BCparam['FamilyName'], misc.ENDC))
                 setBC_inj1(t, ReferenceValues, **BCkwargs)
 
         elif BCparam['type'] == 'injmfr1':
-            print(J.CYAN + 'set BC injmfr1 on ' + BCparam['FamilyName'] + J.ENDC)
+            print(misc.CYAN + 'set BC injmfr1 on ' + BCparam['FamilyName'] + misc.ENDC)
             setBC_injmfr1(t, FluidProperties, ReferenceValues, **BCkwargs)
 
         elif BCparam['type'] == 'outpres':
-            print(J.CYAN + 'set BC outpres on ' + BCparam['FamilyName'] + J.ENDC)
+            print(misc.CYAN + 'set BC outpres on ' + BCparam['FamilyName'] + misc.ENDC)
             setBC_outpres(t, **BCkwargs)
 
         elif BCparam['type'] == 'outmfr2':
-            print(J.CYAN + 'set BC outmfr2 on ' + BCparam['FamilyName'] + J.ENDC)
+            print(misc.CYAN + 'set BC outmfr2 on ' + BCparam['FamilyName'] + misc.ENDC)
             BCkwargs['ReferenceValues'] = ReferenceValues
             BCkwargs['TurboConfiguration'] = TurboConfiguration
             setBC_outmfr2(t, **BCkwargs)
 
         elif BCparam['type'] == 'outradeq':
-            print(J.CYAN + 'set BC outradeq on ' + BCparam['FamilyName'] + J.ENDC)
+            print(misc.CYAN + 'set BC outradeq on ' + BCparam['FamilyName'] + misc.ENDC)
             BCkwargs['ReferenceValues'] = ReferenceValues
             BCkwargs['TurboConfiguration'] = TurboConfiguration
             setBC_outradeq(t, **BCkwargs)
 
         elif BCparam['type'] == 'outradeqhyb':
-            print(J.CYAN + 'set BC outradeqhyb on ' + BCparam['FamilyName'] + J.ENDC)
+            print(misc.CYAN + 'set BC outradeqhyb on ' + BCparam['FamilyName'] + misc.ENDC)
             BCkwargs['ReferenceValues'] = ReferenceValues
             BCkwargs['TurboConfiguration'] = TurboConfiguration
             setBC_outradeqhyb(t, **BCkwargs)
 
         elif BCparam['type'] == 'stage_mxpl':
-            print('{}set BC stage_mxpl between {} and {}{}'.format(J.CYAN,
-                BCparam['left'], BCparam['right'], J.ENDC))
+            print('{}set BC stage_mxpl between {} and {}{}'.format(misc.CYAN,
+                BCparam['left'], BCparam['right'], misc.ENDC))
             setBC_stage_mxpl(t, **BCkwargs)
 
         elif BCparam['type'] == 'stage_mxpl_hyb':
-            print('{}set BC stage_mxpl_hyb between {} and {}{}'.format(J.CYAN,
-                BCparam['left'], BCparam['right'], J.ENDC))
+            print('{}set BC stage_mxpl_hyb between {} and {}{}'.format(misc.CYAN,
+                BCparam['left'], BCparam['right'], misc.ENDC))
             setBC_stage_mxpl_hyb(t, **BCkwargs)
 
         elif BCparam['type'] == 'stage_red':
-            print('{}set BC stage_red between {} and {}{}'.format(J.CYAN,
-                BCparam['left'], BCparam['right'], J.ENDC))
+            print('{}set BC stage_red between {} and {}{}'.format(misc.CYAN,
+                BCparam['left'], BCparam['right'], misc.ENDC))
             if not 'stage_ref_time' in BCkwargs:
                 # Assume a 360 configuration
                 BCkwargs['stage_ref_time'] = 2*np.pi / abs(TurboConfiguration['ShaftRotationSpeed'])
             setBC_stage_red(t, **BCkwargs)
 
         elif BCparam['type'] == 'stage_red_hyb':
-            print('{}set BC stage_red_hyb between {} and {}{}'.format(J.CYAN,
-                BCparam['left'], BCparam['right'], J.ENDC))
+            print('{}set BC stage_red_hyb between {} and {}{}'.format(misc.CYAN,
+                BCparam['left'], BCparam['right'], misc.ENDC))
             if not 'stage_ref_time' in BCkwargs:
                 # Assume a 360 configuration
                 BCkwargs['stage_ref_time'] = 2*np.pi / abs(TurboConfiguration['ShaftRotationSpeed'])
             setBC_stage_red_hyb(t, **BCkwargs)
 
         elif BCparam['type'] == 'sym':
-            print(J.CYAN + 'set BC sym on ' + BCparam['FamilyName'] + J.ENDC)
+            print(misc.CYAN + 'set BC sym on ' + BCparam['FamilyName'] + misc.ENDC)
             setBC_sym(t, **BCkwargs)
 
         elif BCparam['type'] == 'walladia':
-            print(J.CYAN + 'set BC walladia on ' + BCparam['FamilyName'] + J.ENDC)
+            print(misc.CYAN + 'set BC walladia on ' + BCparam['FamilyName'] + misc.ENDC)
             setBC_walladia(t, **BCkwargs)
 
         elif BCparam['type'] == 'wallslip':
-            print(J.CYAN + 'set BC wallslip on ' + BCparam['FamilyName'] + J.ENDC)
+            print(misc.CYAN + 'set BC wallslip on ' + BCparam['FamilyName'] + misc.ENDC)
             setBC_wallslip(t, **BCkwargs)
 
         elif BCparam['type'] == 'wallisoth':
-            print(J.CYAN + 'set BC wallisoth on ' + BCparam['FamilyName'] + J.ENDC)
+            print(misc.CYAN + 'set BC wallisoth on ' + BCparam['FamilyName'] + misc.ENDC)
             setBC_wallisoth(t, **BCkwargs)
 
         else:
@@ -524,7 +524,7 @@ def setBC_Walls(t, TurboConfiguration,
             if famName.startswith('F_OV_') or famName.endswith('Zones'): continue
             ZoneFamilyName = getZoneFamilyNameWithFamilyNameBC(zones, famName)
             family_with_bcwall, = [f for f in families if f[0]==ZoneFamilyName]
-            solver_motion_data = J.get(family_with_bcwall,'.Solver#Motion')
+            solver_motion_data = misc.get(family_with_bcwall,'.Solver#Motion')
             setBC_walladia(t, famName, omega=solver_motion_data['omega'])
 
     # HUB
@@ -544,7 +544,7 @@ def setBC_Walls(t, TurboConfiguration,
                 wnode = I.getNodeFromNameAndType(znode,wname,'BC_t')
                 BCDataSet = I.newBCDataSet(name='BCDataSet#Init', value='Null',
                     gridLocation='FaceCenter', parent=wnode)
-                J.set(BCDataSet, 'NeumannData', childType='BCData_t', omega=omegaHubAtX(xw))
+                misc.set(BCDataSet, 'NeumannData', childType='BCData_t', omega=omegaHubAtX(xw))
 
     # SHROUD
     for shroud_family in shroudFamilyNames:
@@ -987,7 +987,7 @@ def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues
         FamilyBC='BCOutflowSubsonic', BCType='outmfr2', bc=bc)
 
 
-@J.mute_stdout
+@misc.mute_stdout
 def setBC_stage_mxpl(t, left, right, method='globborder_dict'):
     '''
     Set a mixing plane condition between families **left** and **right**.
@@ -1064,7 +1064,7 @@ def setBC_stage_mxpl(t, left, right, method='globborder_dict'):
     setRotorStatorFamilyBC(t, left, right)
 
 
-@J.mute_stdout
+@misc.mute_stdout
 def setBC_stage_mxpl_hyb(t, left, right, nbband=100, c=0.3):
     '''
     Set a hybrid mixing plane condition between families **left** and **right**.
@@ -1116,7 +1116,7 @@ def setBC_stage_mxpl_hyb(t, left, right, nbband=100, c=0.3):
     setRotorStatorFamilyBC(t, left, right)
 
 
-@J.mute_stdout
+@misc.mute_stdout
 def setBC_stage_red(t, left, right, stage_ref_time):
     '''
     Set a RNA condition between families **left** and **right**.
@@ -1151,7 +1151,7 @@ def setBC_stage_red(t, left, right, stage_ref_time):
     setRotorStatorFamilyBC(t, left, right)
 
 
-@J.mute_stdout
+@misc.mute_stdout
 def setBC_stage_red_hyb(t, left, right, stage_ref_time):
     '''
     Set a hybrid RNA condition between families **left** and **right**.
@@ -1188,7 +1188,7 @@ def setBC_stage_red_hyb(t, left, right, stage_ref_time):
         I._rmNodesByType(gc, 'FamilyBC_t')
 
 
-@J.mute_stdout
+@misc.mute_stdout
 def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
     valve_ref_mflow=None, valve_relax=0.1, indpiv=1, 
     ReferenceValues=None, TurboConfiguration=None, method='globborder_dict'):
@@ -1261,7 +1261,7 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
             valve_ref_pres = ReferenceValues['Pressure']
         except:
             MSG = 'valve_ref_pres or ReferenceValues must be not None'
-            raise Exception(J.FAIL+MSG+J.ENDC)
+            raise Exception(misc.FAIL+MSG+misc.ENDC)
     if valve_type != 0 and valve_ref_mflow is None:
         try:
             bc = C.getFamilyBCs(t, FamilyName)[0]
@@ -1273,7 +1273,7 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
             valve_ref_mflow = ReferenceValues['MassFlow'] / fluxcoeff
         except:
             MSG = 'Either valve_ref_mflow or both ReferenceValues and TurboConfiguration must be not None'
-            raise Exception(J.FAIL+MSG+J.ENDC)
+            raise Exception(misc.FAIL+MSG+misc.ENDC)
 
     # Delete previous BC if it exists
     for bc in C.getFamilyBCs(t, FamilyName):
@@ -1321,7 +1321,7 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
         bc.create()
 
 
-@J.mute_stdout
+@misc.mute_stdout
 def setBC_outradeqhyb(t, FamilyName, valve_type=0, valve_ref_pres=None,
                       valve_ref_mflow=None, valve_relax=0.1, indpiv=1, nbband=100, c=0.3, 
                       ReferenceValues=None, TurboConfiguration=None):
@@ -1386,7 +1386,7 @@ def setBC_outradeqhyb(t, FamilyName, valve_type=0, valve_ref_pres=None,
             valve_ref_pres = ReferenceValues['Pressure']
         except:
             MSG = 'valve_ref_pres or ReferenceValues must be not None'
-            raise Exception(J.FAIL+MSG+J.ENDC)
+            raise Exception(misc.FAIL+MSG+misc.ENDC)
     if valve_type != 0 and valve_ref_mflow is None:
         try:
             bc = C.getFamilyBCs(t, FamilyName)[0]
@@ -1398,7 +1398,7 @@ def setBC_outradeqhyb(t, FamilyName, valve_type=0, valve_ref_pres=None,
             valve_ref_mflow = ReferenceValues['MassFlow'] / fluxcoeff
         except:
             MSG = 'Either valve_ref_mflow or both ReferenceValues and TurboConfiguration must be not None'
-            raise Exception(J.FAIL+MSG+J.ENDC)
+            raise Exception(misc.FAIL+MSG+misc.ENDC)
 
     # Delete previous BC if it exists
     for bc in C.getFamilyBCs(t, FamilyName):
@@ -1442,7 +1442,7 @@ def computeGlobborderPoswin(tree, win):
         bc = I.getNodeFromPath(tree, path)
         gdi, gdj = getGlobDir(tree, bc)
         gbd['CGNSTree/'+path] = dict(glob_dir_i=gdi, glob_dir_j=gdj,
-                                     i_poswin=obj.i, j_poswin=obj.j,
+                                     i_poswin=obmisc.i, j_poswin=obmisc.j,
                                      azi_orientation=gdi, h_orientation=gdj)
     return gbd
 
@@ -1455,7 +1455,7 @@ def getGlobDir(tree, bc):
     ptRi = I.getValue(I.getNodeFromName(bc, 'PointRange'))[0]
     ptRj = I.getValue(I.getNodeFromName(bc, 'PointRange'))[1]
     ptRk = I.getValue(I.getNodeFromName(bc, 'PointRange'))[2]
-    x, y, z = J.getxyz(I.getParentFromType(tree, bc, 'Zone_t'))
+    x, y, z = misc.getxyz(I.getParentFromType(tree, bc, 'Zone_t'))
     y0 = y[0, 0, 0]
     z0 = z[0, 0, 0]
 

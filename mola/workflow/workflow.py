@@ -3,21 +3,21 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
 from ..cfd import preprocess as PRE
-import .external_flow.FlowGenerator as ExternalFlowGenerator
+from .external_flow import FlowGenerator as ExternalFlowGenerator
 from .. import cgns as c
 from  mola.cfd.preprocess.mesh import (positioning,
                                        connect,
@@ -79,7 +79,7 @@ class Workflow(object):
 
             Numerics=dict(Scheme='Jameson',
                           TimeMarching='Steady',
-                          NumberOfIterations=1e4,
+                          NumberOfIterations=10000,
                           MinimumNumberOfIterations = 1000,
                           TimeStep=None,
                           CFL=None),
@@ -163,7 +163,22 @@ class Workflow(object):
             self.Turbulence=Turbulence
             self.BoundaryConditions=BoundaryConditions
             self.Solver=Solver
-            self.Splitter=Splitter
+
+            default_splitAndDist = dict(
+                Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
+                Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
+                Distributor='Cassiopee', 
+                ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
+                NumberOfProcessors='auto', 
+                MinimumAllowedNodes=1,
+                MaximumAllowedNodes=1,
+                MaximumNumberOfPointsPerNode=1e9,
+                CoresPerNode=48,
+                DistributeExclusivelyOnFullNodes=True)
+
+            default_splitAndDist.update(SplittingAndDistribution)
+
+            self.SplittingAndDistribution=default_splitAndDist
             self.Numerics=Numerics
             self.BodyForceModeling=BodyForceModeling
             self.Motion=Motion
@@ -173,16 +188,6 @@ class Workflow(object):
             self.ConvergenceCriteria=ConvergenceCriteria
             self.Monitoring=Monitoring
             self.RunManagement=RunManagement
-
-            self.Extractions.append(
-                dict(
-                    type='bc', 
-                    BCType='BCWall*', 
-                    fields=['Pressure', 'BoundaryLayer', 'NormalVector', 'Friction', 'yPlus', 
-                            'MomentumFlux', 'TorqueFlux']
-                )
-            )
-
 
     def write_tree(self, filename='main.cgns'):
         if not self.tree: self.tree = c.Tree()

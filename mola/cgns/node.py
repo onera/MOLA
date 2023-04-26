@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -704,7 +704,7 @@ class Node(list):
 
     def dettach(self):
         try:
-            brothers = self.Parent.children()
+            brothers = self.brothers()
             for i, n in enumerate(brothers):
                 if n is self:
                     brothers.pop(i)
@@ -718,28 +718,27 @@ class Node(list):
         self._updateSelfAndChildrenPaths()
 
     def swap(self, node):
-
         if self.Parent is not None:
-            selfBrothers = self.Parent.children()
-            for i, n in enumerate(selfBrothers):
+            for i, n in enumerate( self.brothers() ):
                 if n is self:
                     break
         else:
-            selfBrothers = [ self ]
             i = 0
 
         if node.Parent is not None:
-            nodeBrothers = node.Parent.children()
-            for j, n in enumerate(nodeBrothers):
+            for j, n in enumerate( node.brothers() ):
                 if n is node:
                     break
         else:
-            nodeBrothers = [ node ]
             j = 0
-        selfBrothers[i], nodeBrothers[j] = nodeBrothers[j], selfBrothers[i]
-        self.Parent, node.Parent = node.Parent, self.Parent
-        self._updateSelfAndChildrenPaths()
-        node._updateSelfAndChildrenPaths()
+
+        nodeParent=node.Parent
+        selfParent=self.Parent
+        self.dettach()
+        node.dettach()
+        self.attachTo(nodeParent, position=j)
+        node.attachTo(selfParent, position=i)
+
 
     def moveTo(self, Parent, position='last'):
         if self.Parent: self.dettach()

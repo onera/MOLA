@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -61,12 +61,17 @@ class Zone(Node):
                 return len(self.get('GridCoordinates',Depth=1).get('Coordinate*').value().shape)
             except:
                 return self.value().shape[0]
+        else:
+            return self.value().shape[0]
+
+    def shape(self):
+        return self.get('GridCoordinates',Depth=1).get('Coordinate*').value().shape
 
     def numberOfPoints(self):
-        return np.prod(self.value(), axis=0)[0]
+        return int(np.prod(self.value(), axis=0)[0])
 
     def numberOfCells(self):
-        return np.prod(self.value(), axis=0)[1]
+        return int(np.prod(self.value(), axis=0)[1])
 
     def newFields(self, InputFields, Container='FlowSolution',
                   GridLocation='guess', dtype=np.float64, return_type='list',
