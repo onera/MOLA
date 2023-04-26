@@ -38,7 +38,7 @@ Major changes with respect to previous version (``v1.14``):
 
 General
 -------
-* MOLA is now released using `GNU GPL v3 open-source license <http://www.gnu.org/licenses/>`_
+* MOLA is now released using `GNU LGPL v3 open-source license <http://www.gnu.org/licenses/>`_
 
 CFD
 ---
