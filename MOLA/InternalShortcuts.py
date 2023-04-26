@@ -1852,11 +1852,11 @@ def checkEmptyBC(t):
             :py:obj:`True` if **t** has at least one empty BC
     '''
     def isEmpty(emptyBC):
-        if isinstance(emptyBC, list):
+        if isinstance(emptyBC, list) or isinstance(emptyBC, np.ndarray):
             for i in emptyBC:
                 return isEmpty(i)
             return False
-        elif isinstance(emptyBC, int) or isinstance(emptyBC, float):
+        elif np.isfinite(emptyBC):
             return True
         else:
             raise ValueError('unexpected type %s'%type(emptyBC))
