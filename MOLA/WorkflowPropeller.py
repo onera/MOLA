@@ -457,3 +457,16 @@ def _extendArraysWithPropellerQuantities(arrays, IntegralDataName, setup):
     arraysSubset['CP']=CP
     arraysSubset['FigureOfMeritHover']=FM
     arraysSubset['PropulsiveEfficiency']=eta
+
+
+def _removeFamilies(t, families_to_remove):
+    all_family_types = I.getNodesFromType(t,'Family_t')
+    all_bc_types = I.getNodesFromType(t,'BC_t')
+    for f in families_to_remove:
+        for n in all_family_types+all_bc_types:
+            if n[0] == f:
+                I.rmNode(t, n)
+
+def _renameFamilies(t, families_to_rename={}):
+    for old, new in families_to_rename.items():
+        I._renameNode(t, old, new)

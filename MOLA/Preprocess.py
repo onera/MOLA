@@ -329,11 +329,11 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
             ::
 
                 OverrideSolverKeys = {
-                    'cfdpb':    dict(metrics_type    = 'barycenter')
+                    'cfdpb':    dict(metrics_type    = 'barycenter'),
                     'model':    dict(k_prod_compute  = 'from_kato',
-                                     walldistcompute = 'gridline')
+                                     walldistcompute = 'gridline'),
                     'numerics': dict(gear_iteration  = 20,
-                                     av_mrt          = 0.3)
+                                     av_mrt          = 0.3),
                                       }
 
         Initialization : dict

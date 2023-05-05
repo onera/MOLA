@@ -1,6 +1,6 @@
 #! /bin/sh
 source /etc/bashrc
-module purge
+module purge &>/dev/null
 unset PYTHONPATH
 shopt -s expand_aliases
 ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
