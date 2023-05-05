@@ -273,7 +273,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
     nb_blades, Dir = getPropellerKinematic(t)
     span = maximumSpan(t)
 
-
     hasBCOverlap = True if C.extractBCOfType(t, 'BCOverlap') else False
 
     if hasBCOverlap: addFieldExtraction('ChimeraCellType')
@@ -374,7 +373,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         PRE.addElsAKeys2CGNS(t, [AllSetupDicts['elsAkeysCFD'],
                                  AllSetupDicts['elsAkeysModel'],
                                  AllSetupDicts['elsAkeysNumerics']])
-
+    PRE.adaptFamilyBCNamesToElsA(t)
     PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
     if not Splitter:
@@ -458,15 +457,7 @@ def _extendArraysWithPropellerQuantities(arrays, IntegralDataName, setup):
     arraysSubset['FigureOfMeritHover']=FM
     arraysSubset['PropulsiveEfficiency']=eta
 
-
-def _removeFamilies(t, families_to_remove):
-    all_family_types = I.getNodesFromType(t,'Family_t')
-    all_bc_types = I.getNodesFromType(t,'BC_t')
-    for f in families_to_remove:
-        for n in all_family_types+all_bc_types:
-            if n[0] == f:
-                I.rmNode(t, n)
-
-def _renameFamilies(t, families_to_rename={}):
-    for old, new in families_to_rename.items():
-        I._renameNode(t, old, new)
+def defineBladeNumberAndRotationRule(t, blade_number, RightHandRuleRotation=True):
+    for base in I.getBases(t):
+        J.set(base, '.MeshingParameters', blade_number=blade_number,
+              RightHandRuleRotation=False)

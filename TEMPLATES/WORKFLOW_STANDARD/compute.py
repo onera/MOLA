@@ -88,6 +88,8 @@ if rank==0:
 # --------------------------- END OF IMPORTS --------------------------- #
 
 # ----------------- DECLARE ADDITIONAL GLOBAL VARIABLES ----------------- #
+try: Splitter = setup.Splitter
+except: Splitter = None
 try: BodyForceInputData = setup.BodyForceInputData
 except: BodyForceInputData = None
 CO.invokeCoprocessLogFile()
@@ -99,7 +101,11 @@ if niter == 0:
 inititer = setup.elsAkeysNumerics['inititer']
 itmax    = inititer+niter-2 # BEWARE last iteration accessible trigger-state-16
 
-Skeleton = CO.loadSkeleton()
+if Splitter == 'PyPart':
+    t, Skeleton, PyPartBase, Distribution = CO.splitWithPyPart()
+    CO.PyPartBase = PyPartBase
+else:
+    Skeleton = CO.loadSkeleton()
 
 # ========================== LAUNCH ELSA ========================== #
 
@@ -135,7 +141,11 @@ import elsAxdt
 elsAxdt.trace(0)
 CO.elsAxdt = elsAxdt
 
-e=elsAxdt.XdtCGNS(FILE_CGNS)
+if Splitter == 'PyPart':
+    e = elsAxdt.XdtCGNS(tree=t, links=[], paths=[])
+    e.distribution = Distribution
+else:
+    e=elsAxdt.XdtCGNS(FILE_CGNS)
 
 
 # ------------------------------- BODYFORCE ------------------------------- #

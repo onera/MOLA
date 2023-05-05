@@ -212,7 +212,8 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlock
     else:
         raise ValueError('parameter mesh must be either a filename or a PyTree')
 
-    I._fixNGon(t) # Needed for an unstructured mesh
+
+    if PRE.hasAnyUnstructuredZones: t = PRE.convertUnstructuredMeshToNGon(t)
 
     if InputMeshes is None:
         InputMeshes = generateInputMeshesFromAG5(t,
@@ -542,6 +543,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                                  AllSetupDicts['elsAkeysModel'],
                                  AllSetupDicts['elsAkeysNumerics']])
 
+    PRE.adaptFamilyBCNamesToElsA(t)
     PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
     if not Splitter:
@@ -1624,6 +1626,13 @@ def setMotionForRowsFamilies(t, TurboConfiguration):
                 break
         
         print(f'setting .Solver#Motion at family {row} (omega={omega}rad/s)')
+        if famNode is None:
+            MSG = 'did not find family node for row\n'
+            MSG+= str(row)
+            MSG+= '\ncheck debug.cgns'
+            try: C.convertPyTree2File(t,'debug.cgns')
+            except: pass
+            raise Exception(J.FAIL+MSG+J.ENDC)
         J.set(famNode, '.Solver#Motion',
                 motion='mobile',
                 omega=omega,
