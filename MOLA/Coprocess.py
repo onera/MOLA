@@ -2380,9 +2380,10 @@ def splitWithPyPart():
                             LoggingVerbose=40  # Filter: None=0, DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
                             )
     # reorder=[6, 2] is recommended by CLEF, mostly for unstructured mesh
-    # with modernized elsA. It is also mandatory to use lussorscawf on
-    # unstructured mesh.
-    PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[6, 2])
+    # with modernized elsA. 
+    # Mandatory arguments to use lussorscawf: reorder=[6,2], nCellPerCache!=0
+    # See http://elsa.onera.fr/restricted/MU_MT_tuto/latest/MU-98057/Textes/Attribute/numerics.html#numerics.implicit
+    PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[6, 2], nCellPerCache=1024)
     PyPartBase.finalise(PartTree, savePpart=True, method=1)
     Skeleton = PyPartBase.getPyPartSkeletonTree()
     Distribution = PyPartBase.getDistribution()
