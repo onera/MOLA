@@ -45,8 +45,6 @@ if not MOLA.__ONLY_DOC__:
     import Transform.PyTree as T
     import Post.PyTree as P
 
-    import etc.geom.xr_features as XR
-
 import MOLA.Preprocess as PRE
 import MOLA.InternalShortcuts as J
 import MOLA.Wireframe as W
@@ -833,6 +831,7 @@ def extractRowGeometricalData(mesh, row, save=False, locateLE='auto'):
     def profilesExtractionAndAnalysis(tree, row, directory_profiles='profiles', locateLE='auto'):
 
         import Ersatz as EZ
+        import etc.geom.xr_features as XR
 
         # if directory doesnt exist create it
         if (not(os.path.isdir(directory_profiles))):
