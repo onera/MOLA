@@ -10,8 +10,13 @@ the functions implemented in module :mod:`MOLA.WorkflowCompressor`.
 Firstly, take a look at the :ref:`Environment and machine`
 section and check that you are able to source the environment correctly.
 
-This tutorial follows the example case in
-*EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_SingleCase*.
+This tutorial follows the example case in:
+
+.. code-block:: text
+
+    $MOLA/EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_SingleCase
+
+
 It develops the preparation of the mesh, starting from a file generated with
 Autogrid 5, the preparation of the simulation with elsA,
 the monitoring of results, and how the simulation comes to an end.

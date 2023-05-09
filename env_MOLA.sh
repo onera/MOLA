@@ -1,6 +1,6 @@
 #! /bin/sh
 source /etc/bashrc
-module purge
+module purge &>/dev/null
 unset PYTHONPATH
 shopt -s expand_aliases
 ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
@@ -23,7 +23,7 @@ export OWNCASSREV=rev4386
 export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
 export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net
 
-export ELSAVERSION=v5.1.03
+export ELSAVERSION=v5.2.01
 export ELSA_VERBOSE_LEVEL=0 # cf elsA ticket 9689
 export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849
@@ -46,6 +46,8 @@ MAC0=$(echo $KC | grep 'visio'); if [ "$MAC0" != "" ]; then export MAC="visio"; 
 MAC0=$(echo $KC | grep 'celeste'); if [ "$MAC0" != "" ]; then export MAC="visio"; fi
 
 if [ "$MAC" = "ld" ] && [ ! "$EL8" ] ; then export MAC="visung"; fi
+
+if [ "$MAC" = "visung" ] && [ "$EL8" ] ; then export MAC="ld"; fi
 
 
 if [ -n "$SLURM_NTASKS" ] ; then
@@ -101,10 +103,11 @@ if [ "$MAC" = "sator" ]; then
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
-    # MAIA
-    export MAIA_HOME=/tmp_user/sator/jcoulet/opt/maia-cfd5_21
-    export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
-    export PYTHONPATH=$MAIA_HOME/lib/python3.7/site-packages:$PYTHONPATH
+
+    # # MAIA # should be available with elsA v5.2.01
+    # export MAIA_HOME=/tmp_user/sator/jcoulet/opt/maia-cfd5_21
+    # export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
+    # export PYTHONPATH=$MAIA_HOME/lib/python3.7/site-packages:$PYTHONPATH
 
     # VPM
     export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator/$ARCH
@@ -115,7 +118,10 @@ if [ "$MAC" = "sator" ]; then
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
     # turbo
-    export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
+    export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
+
+    # ErstaZ
+    export PYTHONPATH=/tmp_user/sator/rbarrier/ersatZ_v1.6.2/python_module:$PYTHONPATH
 
     # own Cassiopee
     module load occt/7.6.1-gnu831
@@ -146,12 +152,12 @@ elif [ "$MAC" = "spiro" ]; then
     unset I_MPI_TCP_NETMASK
     unset I_MPI_FABRICS_LIST
 
-    # # PUMA
-    # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro3
-    # export PYTHONPATH=$PumaRootDir/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
-    # export PYTHONPATH=$PumaRootDir/lib/python${PYTHONVR}/site-packages/PUMA:$PYTHONPATH
-    # export LD_LIBRARY_PATH=$PumaRootDir/lib/python${PYTHONVR}:$LD_LIBRARY_PATH
-    # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+    # PUMA
+    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro3
+    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
+    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH
+    export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
+    export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
     # VPM
     export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro_el8/$ARCH
@@ -163,16 +169,15 @@ elif [ "$MAC" = "spiro" ]; then
     export PYTHONPATH=$VPMPATH/lib/python3.7/site-packages:$PYTHONPATH
 
     # turbo
-    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/spiro3_mpi/lib/python3.7/site-packages/:$PYTHONPATH
+    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/spiro3_mpi/lib/python3.7/site-packages/:$PYTHONPATH
     
     # ErstaZ
-    export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
-    export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
+    export PYTHONPATH=/home/rbarrier/PARTAGE/ersatZ_v1.6.2/python_module:$PYTHONPATH
 
-    # MAIA
-    export MAIA_HOME=/scratchm/jcoulet/aa_install_py3/maia/opt-cfd5_21/
-    export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
-    export PYTHONPATH=$MAIA_HOME/lib/python3.7/site-packages:$PYTHONPATH
+    # # MAIA # should be available with elsA v5.2.01
+    # export MAIA_HOME=/scratchm/jcoulet/aa_install_py3/maia/opt-cfd5_21/
+    # export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
+    # export PYTHONPATH=$MAIA_HOME/lib/python3.7/site-packages:$PYTHONPATH
 
     # own Cassiopee
     module load occt/7.6.1-gnu831
@@ -196,12 +201,18 @@ elif [ "$MAC" = "visung" ]; then
     module load freetype/2.10.2
     module load pointwise/2022.1.2
 
+    # # PUMA
+    # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro3
+    # export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
+    # export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH
+    # export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
+    # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+
     # turbo
-    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/eos-intel3_mpi/lib/python3.6/site-packages/:$PYTHONPATH
+    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/eos-intel3_mpi/lib/python3.6/site-packages/:$PYTHONPATH
 
     # ErstaZ
-    export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/visio
-    export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
+    export PYTHONPATH=/home/rbarrier/PARTAGE/ersatZ_v1.6.2/python_module:$PYTHONPATH
 
     # VPM
     export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld7/$ARCH
@@ -235,14 +246,24 @@ elif [ "$MAC" = "ld" ]; then
 
     unset I_MPI_PMI_LIBRARY
 
+    # # PUMA
+    # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_eos3
+    # export PYTHONPATH=$PumaRootDir/lib/python3.6/site-packages:$PYTHONPATH
+    # export PYTHONPATH=$PumaRootDir/lib/python3.6/site-packages/PUMA:$PYTHONPATH
+    # export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.6:$LD_LIBRARY_PATH
+    # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+
     # turbo 
-    export TURBOVERSION=UNAVAILABLE 
+    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/local-os8_mpi/lib/python3.8/site-packages/:$PYTHONPATH
 
     # ErstaZ
-    export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/centos8
-    export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
+    export PYTHONPATH=/home/rbarrier/PARTAGE/ersatZ_v1.6.2/python_module:$PYTHONPATH
 
-    # MAIA
+    # # MAIA # should be available with elsA v5.2.01 (but currently bugged maia #41)
+    module load scotch/6.0.9-idx32-gnu831-ompi405
+    module load parmetis/4.0.3-gnu831-ompi405
+    module load metis/5.1.0-gnu831
+    module load cmake/3.19.8-gnu831
     export MAIA_HOME=/d/jcoulet/opt/maia-openmpi
     export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
     export PYTHONPATH=$MAIA_HOME/lib/python3.8/site-packages:$PYTHONPATH
@@ -270,6 +291,16 @@ elif [ "$MAC" = "ld" ]; then
     export PATH=$MOLAext/ld8/bin:$PATH
     export LD_LIBRARY_PATH=$MOLAext/ld8/lib/python3.8/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
 
+    # trick to read pdf files due to conflict https://elsa.onera.fr/issues/11052
+    pdf()
+    {
+      export OLD_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+      export LD_LIBRARY_PATH=/usr/lib64:$LD_LIBRARY_PATH
+      okular "$1" &
+      export LD_LIBRARY_PATH=$OLD_LD_LIBRARY_PATH
+    }
+
+
 elif [ "$MAC" = "visio" ]; then
     export ELSAVERSION=UNAVAILABLE # TODO adapt this once #10587 fixed
     echo -e "\033[93mWARNING: elsA is not installed yet in VISIO CentOS 6\033[0m"
@@ -287,8 +318,7 @@ elif [ "$MAC" = "visio" ]; then
     export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/eos-intel3_mpi/lib/python3.6/site-packages/:$PYTHONPATH 
 
     # ErstaZ
-    export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/visio
-    export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/module_python/python3:$PYTHONPATH
+    export PYTHONPATH=/home/rbarrier/PARTAGE/ersatZ_v1.6.2/python_module:$PYTHONPATH
 
     # own Cassiopee (includes OCC, Apps, VPM)
     export OWNCASS=/stck/lbernard/Cassiopee/$OWNCASSREV/visio

@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -273,7 +273,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
     nb_blades, Dir = getPropellerKinematic(t)
     span = maximumSpan(t)
 
-
     hasBCOverlap = True if C.extractBCOfType(t, 'BCOverlap') else False
 
     if hasBCOverlap: addFieldExtraction('ChimeraCellType')
@@ -374,7 +373,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         PRE.addElsAKeys2CGNS(t, [AllSetupDicts['elsAkeysCFD'],
                                  AllSetupDicts['elsAkeysModel'],
                                  AllSetupDicts['elsAkeysNumerics']])
-
+    PRE.adaptFamilyBCNamesToElsA(t)
     PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
     if not Splitter:
@@ -457,3 +456,8 @@ def _extendArraysWithPropellerQuantities(arrays, IntegralDataName, setup):
     arraysSubset['CP']=CP
     arraysSubset['FigureOfMeritHover']=FM
     arraysSubset['PropulsiveEfficiency']=eta
+
+def defineBladeNumberAndRotationRule(t, blade_number, RightHandRuleRotation=True):
+    for base in I.getBases(t):
+        J.set(base, '.MeshingParameters', blade_number=blade_number,
+              RightHandRuleRotation=False)

@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -219,7 +219,7 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
     '''
     toc = tic()
     t = getMeshesAssembled(InputMeshes)
-    I._fixNGon(t) # Needed for an unstructured mesh
+    if hasAnyUnstructuredZones: t = convertUnstructuredMeshToNGon(t)
     transform(t, InputMeshes)
     t = connectMesh(t, InputMeshes)
     setBoundaryConditions(t, InputMeshes)
@@ -329,11 +329,11 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
             ::
 
                 OverrideSolverKeys = {
-                    'cfdpb':    dict(metrics_type    = 'barycenter')
+                    'cfdpb':    dict(metrics_type    = 'barycenter'),
                     'model':    dict(k_prod_compute  = 'from_kato',
-                                     walldistcompute = 'gridline')
+                                     walldistcompute = 'gridline'),
                     'numerics': dict(gear_iteration  = 20,
-                                     av_mrt          = 0.3)
+                                     av_mrt          = 0.3),
                                       }
 
         Initialization : dict
@@ -1086,6 +1086,7 @@ def addFamilies(t, InputMeshes, tagZonesWithBaseName=True):
                 C._addFamily2Base(base, BCName, bndType=BCType)
 
     groupUserDefinedBCFamiliesByName(t)
+    adaptFamilyBCNamesToElsA(t)
 
 def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                        minimum_number_of_nodes=1,
@@ -4802,8 +4803,10 @@ def adapt2elsA(t, InputMeshes):
     unnecessary operations. It also cleans spurious 0-length data CGNS nodes that
     can be generated during overset preprocessing.
     '''
-    print('adapting NearMatch to elsA')
-    EP._adaptNearMatch(t)
+
+    if hasAnyNearMatch(t, InputMeshes):
+        print('adapting NearMatch to elsA')
+        EP._adaptNearMatch(t)
 
     if hasAnyOversetData(InputMeshes):
         print('adapting overset data to elsA...')
@@ -4825,13 +4828,15 @@ def adapt2elsA(t, InputMeshes):
 
     I._createElsaHybrid(t, method=1)
 
-def hasAnyNearMatch(InputMeshes):
+def hasAnyNearMatch(t, InputMeshes):
     '''
-    Determine if at least one item in **InputMeshes** has a connectivity of
-    type ``NearMatch``.
+    Determine if configuration has a connectivity of type ``NearMatch``.
 
     Parameters
     ----------
+
+        t : PyTree
+            input tree to test
 
         InputMeshes : :py:class:`list` of :py:class:`dict`
             as described by :py:func:`prepareMesh4ElsA`
@@ -4844,11 +4849,16 @@ def hasAnyNearMatch(InputMeshes):
     '''
     for meshInfo in InputMeshes:
         try: Connection = meshInfo['Connection']
-        except KeyError: continue
+        except KeyError: pass
 
         for ConnectionInfo in Connection:
             isNearMatch = ConnectionInfo['type'] == 'NearMatch'
             if isNearMatch: return True
+    
+    for GridConnectivityNode in I.getNodesFromType(t, 'GridConnectivity_t'):
+        if I.getNodesFromValue(GridConnectivityNode, 'Abbuting'):
+            return True
+
 
     return False
 
@@ -5112,16 +5122,24 @@ def autoMergeBCsUnstructured(t, familyNames=None):
             for BC in BCs: I.rmNode(zoneBC, BC)
             I.addChild(zoneBC, newBC)
 
-def checkFamiliesInZonesAndBC(t):
+def checkFamiliesInZonesAndBC(t, behavior='add'):
     '''
     Check that each zone and each BC is attached to a family (so there must be
-    a ``FamilyName_t`` node). Raise an exception in case of family missing.
+    a ``FamilyName_t`` node). In case of family missing, raise an exception or
+    add family depending on the value of parameter behavior.
 
     Parameters
     ----------
 
         t : PyTree
             PyTree to check
+
+        behavior : str
+            if ``'raise'``, then raise an exception. 
+            If ``'add'``, then add the family zone tag as ``basename+'Zones'``.
+
+            .. note::
+                In all cases, FamilyBC without FamilyName_t raises an exception
     '''
     for base in I.getBases(t):
         if any([pattern in I.getName(base) for pattern in ['Numeca', 'meridional_base', 'tools_base']]):
@@ -5132,7 +5150,17 @@ def checkFamiliesInZonesAndBC(t):
             if not I.getNodeFromType1(zone, 'FamilyName_t'):
                 FAILMSG = 'Each zone must be attached to a Family:\n'
                 FAILMSG += 'Zone {} has no node of type FamilyName_t'.format(I.getName(zone))
-                raise Exception(J.FAIL+FAILMSG+J.ENDC)
+                if behavior=='raise':
+                    raise Exception(J.FAIL+FAILMSG+J.ENDC)
+                elif behavior=='add':
+                    newFamilyTag = base[0]+'Zones'
+                    FAILMSG += '\nAdding tag '+newFamilyTag
+                    print(J.WARN+FAILMSG+J.ENDC)
+                    C._tagWithFamily(base, 'BaseZones')
+                    C._addFamily2Base(base, 'BaseZones')
+                    I._correctPyTree(base, level=7)
+                else:
+                    raise Exception(f'behavior {behavior} not recognized')
             # Check that each BC is attached to a family
             for bc in I.getNodesFromType(zone, 'BC_t'):
                 if I.getValue(bc) in ['BCDegenerateLine', 'BCDegeneratePoint']:
@@ -5471,3 +5499,71 @@ def duplicateBlades(base, meshInfo):
 
     return NewBases, NewMeshInfos
 
+def removeFamilies(t, families_to_remove):
+    '''
+    Remove useless families by their name on tree (both *Family_t*, 
+    *FamilyName_t* and *BC_t*
+    nodes are removed).
+
+    Parameters
+    ----------
+
+        t : PyTree
+            working tree
+
+            .. note:: tree **t** is modified
+
+        families_to_remove : :py:class:`list` of :py:class:`str`
+            names of the families to be removed
+    '''
+    all_family_types = I.getNodesFromType(t,'Family_t')
+    all_family_name_types = I.getNodesFromType(t,'FamilyName_t')
+    all_bc_types = I.getNodesFromType(t,'BC_t')
+    for f in families_to_remove:
+        for n in all_family_types+all_family_name_types+all_bc_types:
+            if n[0] == f or I.getValue(n) == f:
+                I.rmNode(t, n)
+
+def renameNodes(t, rename_dict={}):
+    '''
+    a shortcut of I._renameNode function, literally:
+
+    ::
+
+        for old, new in rename_dict.items():
+            I._renameNode(t, old, new)
+
+    '''
+    for old, new in rename_dict.items():
+        I._renameNode(t, old, new)
+
+
+def adaptFamilyBCNamesToElsA(t):
+    '''
+    See https://elsa.onera.fr/issues/11090
+    '''
+    for n in I.getNodesFromType(t, 'FamilyBC_t'):
+        n[0] = 'FamilyBC'
+
+def convertUnstructuredMeshToNGon(t):
+    print('making unstructured mesh adaptations for elsA:')
+    from mpi4py import MPI
+    import maia
+
+    t = maia.factory.distribute_tree(t, MPI.COMM_WORLD, owner=0)
+
+    print(' -> converting to NGon using maia')
+    maia.algo.dist.generate_ngon_from_std_elements(t, MPI.COMM_WORLD)
+
+    print(' -> merging all zones into a single block using maia')
+    zone_paths = []
+    for base in I.getBases(t):
+        for zone in I.getZones(base):
+            zone_paths += [ base[0] + '/' + zone[0] ]
+    maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD)
+
+    maia.algo.seq.enforce_ngon_pe_local(t) # required by elsA ?
+
+    I._fixNGon(t) # required ?
+    
+    return t

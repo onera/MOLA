@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 project = 'MOLA'
 copyright = 'ONERA'
 author = 'Luis BERNARDOS'
-release = 'Dev' # sets the default doc version
+release = 'v1.15' # sets the default doc version
 
 
 # -- General configuration ---------------------------------------------------
@@ -79,9 +79,10 @@ html_static_path = ['_static']
 
 # variables to pass to HTML templating engine
 html_context = {
-    "default_mode": "dark",
+    "default_mode": "light",
     'versions_dropdown': {
         'Dev': 'development',
+        'v1.15': 'v1.15',
         'v1.14': 'v1.14',
         'v1.13': 'v1.13'
     },

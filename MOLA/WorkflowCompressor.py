@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -212,7 +212,8 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlock
     else:
         raise ValueError('parameter mesh must be either a filename or a PyTree')
 
-    I._fixNGon(t) # Needed for an unstructured mesh
+
+    if PRE.hasAnyUnstructuredZones: t = PRE.convertUnstructuredMeshToNGon(t)
 
     if InputMeshes is None:
         InputMeshes = generateInputMeshesFromAG5(t,
@@ -542,6 +543,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                                  AllSetupDicts['elsAkeysModel'],
                                  AllSetupDicts['elsAkeysNumerics']])
 
+    PRE.adaptFamilyBCNamesToElsA(t)
     PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
     if not Splitter:
@@ -1624,6 +1626,13 @@ def setMotionForRowsFamilies(t, TurboConfiguration):
                 break
         
         print(f'setting .Solver#Motion at family {row} (omega={omega}rad/s)')
+        if famNode is None:
+            MSG = 'did not find family node for row\n'
+            MSG+= str(row)
+            MSG+= '\ncheck debug.cgns'
+            try: C.convertPyTree2File(t,'debug.cgns')
+            except: pass
+            raise Exception(J.FAIL+MSG+J.ENDC)
         J.set(famNode, '.Solver#Motion',
                 motion='mobile',
                 omega=omega,

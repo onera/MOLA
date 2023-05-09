@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -1852,11 +1852,11 @@ def checkEmptyBC(t):
             :py:obj:`True` if **t** has at least one empty BC
     '''
     def isEmpty(emptyBC):
-        if isinstance(emptyBC, list):
+        if isinstance(emptyBC, list) or isinstance(emptyBC, np.ndarray):
             for i in emptyBC:
                 return isEmpty(i)
             return False
-        elif isinstance(emptyBC, int) or isinstance(emptyBC, float):
+        elif np.isfinite(emptyBC):
             return True
         else:
             raise ValueError('unexpected type %s'%type(emptyBC))
@@ -2364,23 +2364,19 @@ def printEnvironment():
     print(' --> PUMA '+vPUMA)
 
     # turbo
-    vTURBO = os.getenv('TURBOVERSION', 'UNAVAILABLE')
-    if vTURBO != 'UNAVAILABLE':
-        try:
-            import turbo
-        except:
-            vTURBO = FAIL + 'UNAVAILABLE' + ENDC 
-    else:
+    try:
+        import turbo
+        vTURBO = turbo.__version__
+    except:
         vTURBO = FAIL + 'UNAVAILABLE' + ENDC 
-
     print(' --> turbo '+vTURBO)
 
     # ErsatZ
     try:
         import Ersatz
-        vERSATZ = Ersatz.__file__.split('/')[-4].lstrip('ersatZ_')
+        vERSATZ = Ersatz.__version__
     except:
-        vERSATZ = FAIL + 'UNAVAILABLE' + ENDC
+        vERSATZ = FAIL + 'UNAVAILABLE' + ENDC 
     print(' --> Ersatz '+vERSATZ)
 
 

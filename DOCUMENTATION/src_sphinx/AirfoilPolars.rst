@@ -173,7 +173,10 @@ file is given here:
 .. important:: the presented ``MeshingParameters.py`` example file produces a *light*
     mesh. Please feel free to adapt it according to the meshing requirements of
     your work. An example of a finer MeshingParameters file can be found in
-    ``TEMPLATES/WORKFLOW_AIRFOIL`` directory
+    ``TEMPLATES/WORKFLOW_AIRFOIL`` directory. To know more about the parameters 
+    of this function, please see the documentation of functions
+    :py:func:`~MOLA.GenerativeShapeDesign.buildMesh` and
+    :py:func:`~MOLA.GenerativeShapeDesign.extrudeAirfoil2D`
 
 .. note:: some of *(or all)* the meshing parameters defined in dictionaries **Sizes**, **Cells**,
     **Points** and **options** can be undefined. In this case, undefined values
@@ -435,7 +438,7 @@ Monitor the simulation convergence
 Now that relevant files are repatriated, it is possible to visualize the
 integral loads evolution, using file ``arrays.cgns``.
 
-The structure and contents of ``arrays.cgns`` can be explored using `cgnsview`_
+The structure and contents of ``arrays.cgns`` can be explored using **treelab**
 tool, as shown in :numref:`ArraysCGNSview`.
 
 .. _ArraysCGNSview:
@@ -579,7 +582,7 @@ data and will assemble the information in a CGNS file, here named ``Polar.cgns``
     that constitutes the polar matrix.
 
 Once the script have finished, the file ``Polar.cgns`` is written and can
-be explored using `cgnsview`_ tool, as shown in :numref:`PolarTree`.
+be explored using **treelab** tool, as shown in :numref:`PolarTree`.
 
 .. _PolarTree:
 

@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -359,13 +359,40 @@ def launchJobsConfiguration(
     print('submitted DISPATCHER files and launched dispatcher job')
 
 
-def remoteFileExists(absolute_file_path, remote_machine='sator'):
-
-    if remote_machine != 'sator' and not remote_machine.startswith('spiro'):
-        return os.path.isfile(absolute_file_path)
+def remoteDirectoryExists(absolute_file_path, remote_machine='sator'):
 
     HostName = socket.gethostname()
     UserName = getpass.getuser()
+
+    if ('sator' in HostName and absolute_file_path.startswith('/tmp_user/sator')) \
+        or ('spiro' in HostName and absolute_file_path.startswith('/scratch')):
+        return os.path.isdir(absolute_file_path)
+
+    CMD='[ -d %s ] && echo 1 || echo 0'%absolute_file_path
+    CMD = 'ssh '+UserName+"@"+remote_machine+' '+CMD
+    ssh = subprocess.Popen(CMD, shell=True, stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+    ssh.wait()
+    Output = ServerTools.readStdout(ssh)
+    Error = ServerTools.readStderr(ssh)
+
+    if Error: print(J.FAIL+''.join(Error)+J.ENDC)
+
+    try:
+        file_exists = bool(int(Output[-1]))
+    except:
+        file_exists = False
+    return file_exists
+
+
+def remoteFileExists(absolute_file_path, remote_machine='sator'):
+
+    HostName = socket.gethostname()
+    UserName = getpass.getuser()
+
+    if ('sator' in HostName and absolute_file_path.startswith('/tmp_user/sator')) \
+        or ('spiro' in HostName and absolute_file_path.startswith('/scratch')):
+        return os.path.isfile(absolute_file_path)
 
     CMD='[ -f %s ] && echo 1 || echo 0'%absolute_file_path
     CMD = 'ssh '+UserName+"@"+remote_machine+' '+CMD
@@ -374,31 +401,39 @@ def remoteFileExists(absolute_file_path, remote_machine='sator'):
     ssh.wait()
     Output = ServerTools.readStdout(ssh)
     Error = ServerTools.readStderr(ssh)
+
+    if Error: print(J.FAIL+''.join(Error)+J.ENDC)
+
     try:
         file_exists = bool(int(Output[-1]))
     except:
         file_exists = False
     return file_exists
 
-def remoteFileSize(absolute_file_path):
-    server = ServerTools.whichServer(absolute_file_path)[0]
-    if server.startswith('spiro'): server='spiro-commun'
+def remoteFileSize(absolute_file_path, remote_machine='sator'):
 
     HostName = socket.gethostname()
     UserName = getpass.getuser()
 
+    if ('sator' in HostName and absolute_file_path.startswith('/tmp_user/sator')) \
+        or ('spiro' in HostName and absolute_file_path.startswith('/scratch')):
+        return os.path.getsize(absolute_file_path)
+
     CMD='ls -l %s'%absolute_file_path
-    CMD = 'ssh '+UserName+"@"+server+' '+CMD
+    CMD = 'ssh '+UserName+"@"+remote_machine+' '+CMD
     ssh = subprocess.Popen(CMD, shell=True, stdout=subprocess.PIPE,
                            stderr=subprocess.PIPE)
     ssh.wait()
     Output = ServerTools.readStdout(ssh)
     Error = ServerTools.readStderr(ssh)
-    if len(Error) >0:
-        print(Error)
-        return None
-    return int(Output[0].split()[4])
 
+    if Error: print(J.FAIL+''.join(Error)+J.ENDC)
+
+    try:
+        size = int(Output[-1].split()[4])
+    except:
+        size = None
+    return size
 
 def launchComputationJob(case, config, JobFilename='job.sh',
                          submitReserveJob=False):

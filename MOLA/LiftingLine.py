@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -4466,6 +4466,7 @@ def convertHOSTPolarFile2Dict(filename):
         Data['Title']='_'.join(lines[0].split()[1:])
 
         # Read Allowed Variables:
+
         for i in range(LinesQty):
             lS = lines[i].split()
             if (len(lS) >= 2) and (lS[1] in AllowedVars):
@@ -4528,7 +4529,7 @@ def convertHOSTPolarFile2Dict(filename):
 
                 Data[Var]['BigAoA'] = SetOfBigAoA
                 Data[Var]['BigAoAValues'] = SetOfBigAoAValues
-            elif len(re.findall(r'(C*L/NU)I0',lines[i].upper()))==1:
+            elif '(C*L/NU)I0' in lines[i]:
                 j=i
                 ReynoldsOverMach = scan(lines[j],float)
                 Data['ReynoldsOverMach'] = ReynoldsOverMach[-1]
@@ -4726,7 +4727,7 @@ def convertLiftingLine2PUMABladeDef(LiftingLine, PolarName2FileDict,
 
     print ('Writing %s...'%OutputFile)
     with open(OutputFile,'w') as f: f.write(MainBodyText)
-    os.chmod(OutputFile, 0o777)
+    os.chmod(OutputFile, 0o755)
     print ('done')
 
 
@@ -5154,7 +5155,7 @@ def convertPolarsCGNS2HOSTformat(PyZonePolars,
             f.write('COEFFICIENT (C*L/NU)I0 (OU BIEN REYNOLDS/MACH) ............ %10.1f\n' %AvrgReOverMach)
             f.write('CORRECTION DE PRESSION GENERATRICE REYNOLDS/MACH=CSTE. .... SANS\n')
             f.write('EXPOSANT POUR CORRECTION DE REYNOLDS ( EXPREY) ............   -0.16667')
-        os.chmod(FileFullPath, 0o777)
+        os.chmod(FileFullPath, 0o755)
 
 
 
