@@ -184,11 +184,11 @@ def extractArrays(t, arrays, RequestedStatistics=[], Extractions=[],
         arraysTree : PyTree
             PyTree equivalent of the input :py:class:`dict` **arrays**
     '''
-
     if addResiduals: extractResiduals(t, arrays)
     if addMemoryUsage: addMemoryUsage2Arrays(arrays)
     extractIntegralData(t, arrays, RequestedStatistics=RequestedStatistics,
                          Extractions=Extractions)
+    _scatterArraysFromRootToLocal(arrays)
     arraysTree = arraysDict2PyTree(arrays)
 
     return arraysTree
@@ -506,8 +506,8 @@ def extractResiduals(to, arrays):
 
     '''
     ConvergenceHistoryNodes = I.getNodesByType(to, 'ConvergenceHistory_t')
+    ConvergenceDict = dict()
     for ConvergenceHistory in ConvergenceHistoryNodes:
-        ConvergenceDict = dict()
         for DataArrayNode in I.getNodesFromType(ConvergenceHistory, 'DataArray_t'):
             DataArrayValue = I.getValue(DataArrayNode)
             if isinstance(DataArrayValue, int) or isinstance(DataArrayValue, float):
@@ -879,6 +879,7 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[]):
         if not dataUpstream or not dataDownstream:
             continue
 
+        perfos = dict()
         if rank == 0:
             if 'PeriodicTranslation' in setup.TurboConfiguration:
                 fluxcoeff = 1.
@@ -888,8 +889,8 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[]):
                 perfos = computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
             else:
                 perfos = computePerfoStator(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
-            appendDict2Arrays(arrays, perfos, 'PERFOS_{}'.format(row))
-            _extendArraysWithStatistics(arrays, 'PERFOS_{}'.format(row), RequestedStatistics)
+        appendDict2Arrays(arrays, perfos, 'PERFOS_{}'.format(row))
+        _extendArraysWithStatistics(arrays, 'PERFOS_{}'.format(row), RequestedStatistics)
 
     arraysTree = arraysDict2PyTree(arrays)
     return arraysTree
@@ -1069,34 +1070,35 @@ def invokeArrays():
             >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
     '''
     Cmpi.barrier()
+    try: os.remove('COMPLETED')
+    except: pass
     arrays = dict()
     FullPathArraysFile = os.path.join(DIRECTORY_OUTPUT, FILE_ARRAYS)
     ExistingArraysFile = os.path.exists(FullPathArraysFile)
     Cmpi.barrier()
     inititer = setup.elsAkeysNumerics['inititer']
     if ExistingArraysFile and inititer>1:
-        t = Cmpi.convertFile2SkeletonTree(FullPathArraysFile)
-        t = Cmpi.readZones(t, FullPathArraysFile, rank=rank)
-        Cmpi._convert2PartialTree(t, rank=rank)
+        if rank==0:
+            t = C.convertFile2PyTree(FullPathArraysFile)
 
-        for zone in I.getZones(t):
-            ZoneName = I.getName(zone)
-            VarNames, = C.getVarNames(zone, excludeXYZ=True)
-            FlowSol_n = I.getNodeFromName1(zone, 'FlowSolution')
-            arrays[ZoneName] = dict()
-            arraysSubset = arrays[ZoneName]
-            if FlowSol_n:
-                for VarName in VarNames:
-                    Var_n = I.getNodeFromName1(FlowSol_n, VarName)
-                    if Var_n:
-                        arraysSubset[VarName] = Var_n[1]
+            for zone in I.getZones(t):
+                ZoneName = I.getName(zone)
+                VarNames, = C.getVarNames(zone, excludeXYZ=True)
+                FlowSol_n = I.getNodeFromName1(zone, 'FlowSolution')
+                arrays[ZoneName] = dict()
+                arraysSubset = arrays[ZoneName]
+                if FlowSol_n:
+                    for VarName in VarNames:
+                        Var_n = I.getNodeFromName1(FlowSol_n, VarName)
+                        if Var_n:
+                            arraysSubset[VarName] = Var_n[1]
 
-            try:
-                iters = np.copy(arraysSubset['IterationNumber'])
-                for VarName in arraysSubset:
-                    arraysSubset[VarName] = arraysSubset[VarName][iters<inititer]
-            except KeyError:
-                pass
+                try:
+                    iters = np.copy(arraysSubset['IterationNumber'])
+                    for VarName in arraysSubset:
+                        arraysSubset[VarName] = arraysSubset[VarName][iters<inititer]
+                except KeyError:
+                    pass
 
     Cmpi.barrier()
 
@@ -1223,6 +1225,50 @@ def appendDict2Arrays(arrays, dictToAppend, basename):
             arrays[basename][var] = np.append(arrays[basename][var], value)
         else:
             arrays[basename][var] = np.array([value],ndmin=1)
+
+
+def _scatterArraysFromRootToLocal(arrays):
+    local_keys = [k for k in arrays]
+
+    all_local_keys = comm.gather(local_keys, 0)
+    all_local_keys = comm.bcast(all_local_keys, 0)
+    comm.barrier()
+    i = -1
+    for rank_recv, local_keys in enumerate(all_local_keys):
+        for lk in local_keys:
+            i +=1
+            if rank==0:
+                if rank_recv == 0:
+                    root_item = arrays[lk] 
+                else:
+                    obj = arrays[lk] if lk in arrays else None
+                    comm.send(obj, rank_recv, tag=i)
+                    if obj: del arrays[lk]
+            
+            if rank != 0:
+                if rank == rank_recv:
+                    root_item = comm.recv(source=0, tag=i)
+                    if not root_item: continue
+
+                    rootHasItNb = True if 'IterationNumber' in root_item else False
+                    localHasItNb = True if 'IterationNumber' in arrays[lk] else False
+
+                    if rootHasItNb and localHasItNb:
+                        RegisteredIterations = root_item['IterationNumber']
+                        IterationNumber = arrays[lk]['IterationNumber']
+                        eps = 1e-12
+                        UpdatePortion = IterationNumber > (RegisteredIterations[-1] + eps)
+                        FirstIndex2Update = np.where(UpdatePortion)[0][0]
+                    else:
+                        FirstIndex2Update = 0
+
+                    for var, value in root_item.items():
+                        if var in arrays[lk]:
+                            arrays[lk][var] = np.append(value, arrays[lk][var][FirstIndex2Update:])
+                        else:
+                            arrays[lk][var] = np.array([value],ndmin=1)
+                else:
+                    root_item = None
 
 
 def _appendIntegralDataNode2Arrays(arrays, IntegralDataNode):
@@ -2601,6 +2647,7 @@ def appendProbes2Arrays_extractMesh(t, arrays, Probes, order=2):
 
     probesTree = Cmpi.allgatherTree(probesTree)
 
+    ProbesDict = dict()
     for probeZone in I.getZones(probesTree):
         ProbesDict = dict( IterationNumber = CurrentIteration-1 )
         GC = I.getNodeByName1(probeZone, 'GridCoordinates')
