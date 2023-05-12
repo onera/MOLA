@@ -219,7 +219,7 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
     '''
     toc = tic()
     t = getMeshesAssembled(InputMeshes)
-    if hasAnyUnstructuredZones: t = convertUnstructuredMeshToNGon(t)
+    if hasAnyUnstructuredZones(t): t = convertUnstructuredMeshToNGon(t)
     transform(t, InputMeshes)
     t = connectMesh(t, InputMeshes)
     setBoundaryConditions(t, InputMeshes)

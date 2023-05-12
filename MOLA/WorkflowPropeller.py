@@ -270,7 +270,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
     else:
         raise ValueError('parameter mesh must be either a filename or a PyTree')
 
-    nb_blades, Dir = getPropellerKinematic(t)
+    nb_blades, Dir, rot_axis = getPropellerKinematic(t)
     span = maximumSpan(t)
 
     hasBCOverlap = True if C.extractBCOfType(t, 'BCOverlap') else False
@@ -308,6 +308,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
     ReferenceValues = PRE.computeReferenceValues(FluidProperties,
                                                  **ReferenceValuesParams)
     ReferenceValues['RPM'] = RPM
+    ReferenceValues['RotationAxis'] = list(rot_axis)
+    ReferenceValues['RightHandRuleRotation'] = True if Dir == 1 else False
     ReferenceValues['NumberOfBlades'] = nb_blades
     ReferenceValues['AxialVelocity'] = AxialVelocity
     ReferenceValues['MaximumSpan'] = span
@@ -419,7 +421,14 @@ def getPropellerKinematic(t):
         ERRMSG = 'could not find .MeshingParameters/RightHandRuleRotation in tree'
         raise ValueError(J.FAIL+ERRMSG+J.ENDC)
 
-    return nb_blades, Dir
+    try:
+        rot_axis = I.getValue(I.getNodeFromName(mesh_params,'rotation_axis'))
+    except:
+        ERRMSG = 'could not find .MeshingParameters/rotation_axis in tree'
+        raise ValueError(J.FAIL+ERRMSG+J.ENDC)
+
+
+    return nb_blades, Dir, rot_axis
 
 def maximumSpan(t):
     zones = C.extractBCOfName(t,'FamilySpecified:BLADE')
@@ -428,11 +437,16 @@ def maximumSpan(t):
 
 def _extendArraysWithPropellerQuantities(arrays, IntegralDataName, setup):
     arraysSubset = arrays[IntegralDataName]
+    '''
+    RotationAxis must be along OX
+    '''
 
     try:
         FX = arraysSubset['MomentumXFlux']
         MX = arraysSubset['TorqueX']
         blade_number = setup.ReferenceValues['NumberOfBlades']
+        RHRR = setup.ReferenceValues['RightHandRuleRotation']
+        RA = setup.ReferenceValues['RotationAxis']
         RPM = setup.ReferenceValues['RPM']
         AxialVelocity = setup.ReferenceValues['AxialVelocity']
         Density = setup.ReferenceValues['Density']
@@ -440,11 +454,15 @@ def _extendArraysWithPropellerQuantities(arrays, IntegralDataName, setup):
     except KeyError:
         return
 
+    Dir = 1 if RHRR else -1
+
     RPS = RPM / 60.
     diameter = span * 2
 
-    Thrust = - blade_number * FX
-    Power = blade_number * MX * RPM * np.pi / 30.
+    sign_axis = np.sign(RA[0])
+
+    Thrust = sign_axis * blade_number * FX
+    Power = -Dir * sign_axis * blade_number * MX * RPM * np.pi / 30.
     CT = Thrust / (Density * RPS**2 * diameter**4)
     CP = Power / (Density * RPS**3 * diameter**5)
     FM = np.sqrt(2./np.pi)* np.sign(CT)*np.abs(CT)**1.5 / CP
@@ -457,7 +475,3 @@ def _extendArraysWithPropellerQuantities(arrays, IntegralDataName, setup):
     arraysSubset['FigureOfMeritHover']=FM
     arraysSubset['PropulsiveEfficiency']=eta
 
-def defineBladeNumberAndRotationRule(t, blade_number, RightHandRuleRotation=True):
-    for base in I.getBases(t):
-        J.set(base, '.MeshingParameters', blade_number=blade_number,
-              RightHandRuleRotation=False)
