@@ -5552,15 +5552,31 @@ def convertUnstructuredMeshToNGon(t):
 
     t = maia.factory.distribute_tree(t, MPI.COMM_WORLD, owner=0)
 
-    print(' -> converting to NGon using maia')
-    maia.algo.dist.generate_ngon_from_std_elements(t, MPI.COMM_WORLD)
+    if J.anyNotNGon(t):
+        print(' -> some cells are not NGon : converting to NGon')
+        maia.algo.dist.generate_ngon_from_std_elements(t, MPI.COMM_WORLD)
 
-    print(' -> merging all zones into a single block using maia')
-    zone_paths = []
+    print(' -> merging zones by family')
+    zonePathsByFamily = dict()
     for base in I.getBases(t):
         for zone in I.getZones(base):
-            zone_paths += [ base[0] + '/' + zone[0] ]
-    maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD)
+            zone_path = base[0] + '/' + zone[0]
+            FamilyNameNode = I.getNodeFromType1(zone, 'FamilyName_t')
+            if FamilyNameNode: 
+                FamilyName = I.getValue(FamilyNameNode)
+                if FamilyName not in zonePathsByFamily:
+                    zonePathsByFamily[FamilyName] = [zone_path]
+                else:
+                    zonePathsByFamily[FamilyName] += [zone_path]
+            else:
+                if 'unspecified' not in zonePathsByFamily:
+                    zonePathsByFamily['unspecified'] = [zone_path]
+                else:
+                    zonePathsByFamily['unspecified'] += [zone_path]
+
+    for family, zone_paths in zonePathsByFamily.items():
+        print(f' --> merging zones of family {family}')
+        maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD)
 
     maia.algo.seq.enforce_ngon_pe_local(t) # required by elsA ?
 
