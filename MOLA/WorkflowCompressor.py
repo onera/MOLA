@@ -50,13 +50,6 @@ if not MOLA.__ONLY_DOC__:
     import Converter.elsAProfile as elsAProfile
 
 
-    try:
-        from . import ParametrizeChannelHeight as ParamHeight
-    except ImportError:
-        MSG = 'Fail to import ParametrizeChannelHeight: function parametrizeChannelHeight is unavailable'.format(__name__)
-        print(J.WARN + MSG + J.ENDC)
-        ParamHeight = None
-
 def checkDependencies():
     '''
     Make a series of functional tests in order to determine if the user
@@ -73,9 +66,11 @@ def checkDependencies():
         print(J.FAIL + MSG + J.ENDC)
 
     print('Checking MOLA.ParametrizeChannelHeight...')
-    if ParamHeight is None:
-        MSG = 'Fail to import MOLA.ParametrizeChannelHeight module: Some functions of {} are unavailable'.format(__name__)
-        print(J.FAIL + MSG + J.ENDC)
+    try:
+        from . import ParametrizeChannelHeight
+    except ImportError:
+        MSG = 'Fail to import ParametrizeChannelHeight: function parametrizeChannelHeight is unavailable'
+        print(J.WARN + MSG + J.ENDC)
     else:
         print(J.GREEN+'MOLA.ParametrizeChannelHeight module is available'+J.ENDC)
 
@@ -612,6 +607,8 @@ def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
             modified tree
 
     '''
+    from . import ParametrizeChannelHeight as ParamHeight
+
     print(J.CYAN + 'Add ChannelHeight in the mesh...' + J.ENDC)
     excludeZones = True
     if not subTree:
