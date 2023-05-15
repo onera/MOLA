@@ -2371,12 +2371,14 @@ def splitWithPyPart():
 
     import etc.pypart.PyPart     as PPA
 
+    # For now, PyPart Log files must be written in order to not polluate the stderr.log file
+    # See https://elsa-e.onera.fr/issues/11028#note-4
     PyPartBase = PPA.PyPart(FILE_CGNS,
                             lksearch=[DIRECTORY_OUTPUT, '.'],
                             loadoption='partial',
                             mpicomm=comm,
-                            LoggingInFile=False,
-                            LoggingFile='{}/partTree'.format(DIRECTORY_LOGS),
+                            LoggingInFile=True,
+                            LoggingFile='{}/PYPART_partTree'.format(DIRECTORY_LOGS),
                             LoggingVerbose=40  # Filter: None=0, DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
                             )
     # reorder=[6, 2] is recommended by CLEF, mostly for unstructured mesh
