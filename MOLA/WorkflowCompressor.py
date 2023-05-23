@@ -2553,8 +2553,6 @@ def setBC_inj1_imposeFromFile(t, FluidProperties, ReferenceValues, FamilyName, f
             else:
                 raise TypeError('variable {} not found in {}'.format(var, filename))
         
-        print('ImposedVariables:',ImposedVariables)
-
         setBC_inj1(t, FamilyName, ImposedVariables, bc=bcnode)
 
 def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
@@ -2804,11 +2802,16 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
 
         zone = I.getParentFromType(t, bc, 'Zone_t') 
         if variableForInterpolation in ['Radius', 'radius']:
-            radius, theta = J.getRadiusTheta(zone)
+            varForInterp, _ = J.getRadiusTheta(zone)
         elif variableForInterpolation == 'ChannelHeight':
-            radius = I.getValue(I.getNodeFromName(zone, 'ChannelHeight'))
+            try:
+                varForInterp = I.getValue(I.getNodeFromName(zone, 'ChannelHeight'))
+                CheckForInterpolation = True
+            except:
+                varForInterp = I.getValue(I.getNodeFromName(zone, 'CoordinateX'))
+                CheckForInterpolation = False
         elif variableForInterpolation.startsWith('Coordinate'):
-            radius = I.getValue(I.getNodeFromName(zone, variableForInterpolation))
+            varForInterp = I.getValue(I.getNodeFromName(zone, variableForInterpolation))
         else:
             raise ValueError('varForInterpolation must be ChannelHeight, Radius, CoordinateX, CoordinateY or CoordinateZ')
 
@@ -2819,19 +2822,19 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
             bc_shape = PointRange[:, 1] - PointRange[:, 0]
             if bc_shape[0] == 0:
                 bc_shape = (bc_shape[1], bc_shape[2])
-                radius = radius[PointRange[0, 0]-1,
-                                PointRange[1, 0]-1:PointRange[1, 1]-1, 
-                                PointRange[2, 0]-1:PointRange[2, 1]-1]
+                varForInterp = varForInterp[PointRange[0, 0]-1,
+                                            PointRange[1, 0]-1:PointRange[1, 1]-1, 
+                                            PointRange[2, 0]-1:PointRange[2, 1]-1]
             elif bc_shape[1] == 0:
                 bc_shape = (bc_shape[0], bc_shape[2])
-                radius = radius[PointRange[0, 0]-1:PointRange[0, 1]-1,
-                                PointRange[1, 0]-1, 
-                                PointRange[2, 0]-1:PointRange[2, 1]-1]
+                varForInterp = varForInterp[PointRange[0, 0]-1:PointRange[0, 1]-1,
+                                            PointRange[1, 0]-1, 
+                                            PointRange[2, 0]-1:PointRange[2, 1]-1]
             elif bc_shape[2] == 0:
                 bc_shape = (bc_shape[0], bc_shape[1])
-                radius = radius[PointRange[0, 0]-1:PointRange[0, 1]-1,
-                                PointRange[1, 0]-1:PointRange[1, 1]-1,
-                                PointRange[2, 0]-1]
+                varForInterp = varForInterp[PointRange[0, 0]-1:PointRange[0, 1]-1,
+                                            PointRange[1, 0]-1:PointRange[1, 1]-1,
+                                            PointRange[2, 0]-1]
             else:
                 raise ValueError('Wrong BC shape {} in {}'.format(bc_shape, I.getPath(t, bc)))
         
@@ -2839,14 +2842,19 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
             # Unstructured mesh
             PointList = I.getValue(I.getNodeFromType(bc, 'IndexArray_t'))
             bc_shape = PointList.size
-            radius = radius[PointList-1]
+            varForInterp = varForInterp[PointList-1]
 
         for var, value in ImposedVariables.items():
             if callable(value):
-                ImposedVariables[var] = value(radius) 
+                if variableForInterpolation == 'ChannelHeight':
+                    ERR_MSG = 'ChannelHeight is mandatory to impose a radial profile based on this quantity, ' 
+                    ERR_MSG+= 'but it has not been computed yet. '
+                    ERR_MSG+= 'Please compute it earlier in the process or change varForInterpolation.'
+                    assert CheckForInterpolation, J.FAIL + ERR_MSG + J.ENDC
+                ImposedVariables[var] = value(varForInterp) 
             elif np.ndim(value)==0:
                 # scalar value --> uniform data
-                ImposedVariables[var] = value * np.ones(radius.shape)
+                ImposedVariables[var] = value * np.ones(varForInterp.shape)
             elif len(ImposedVariables[var].shape) == 3:
                 ImposedVariables[var] = np.squeeze(ImposedVariables[var])
 
