@@ -1976,6 +1976,8 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
             if 'option' not in BCparam:
                 if 'bc' in BCkwargs:
                     BCparam['option'] = 'bc'
+                elif 'filename' in BCkwargs:
+                    BCparam['option'] = 'file'
                 else:
                     BCparam['option'] = 'uniform'
 
