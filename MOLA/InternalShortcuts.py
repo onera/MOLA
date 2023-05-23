@@ -55,6 +55,19 @@ ENDC  = '\033[0m'
 BOLD = '\033[1m'
 UNDERLINE = '\033[4m'
 
+# ref: https://github.com/CGNS/CGNS/blob/develop/src/cgnslib.h#L510
+element_types = [
+    'Null', 'UserDefined',
+    'NODE', 'BAR_2', 'BAR_3', 'TRI_3', 'TRI_6', 'QUAD_4', 'QUAD_8', 'QUAD_9',
+    'TETRA_4', 'TETRA_10', 'PYRA_5', 'PYRA_14', 'PENTA_6', 'PENTA_15',
+    'PENTA_18', 'HEXA_8', 'HEXA_20', 'HEXA_27', 'MIXED', 'PYRA_13',
+    'NGON_n', 'NFACE_n', 'BAR_4', 'TRI_9', 'TRI_10', 'QUAD_12', 'QUAD_16',
+    'TETRA_16', 'TETRA_20', 'PYRA_21', 'PYRA_29', 'PYRA_30', 'PENTA_24',
+    'PENTA_38', 'PENTA_40', 'HEXA_32', 'HEXA_56', 'HEXA_64', 'BAR_5', 'TRI_12',
+    'TRI_15', 'QUAD_P4_16', 'QUAD_25', 'TETRA_22', 'TETRA_34', 'TETRA_35',
+    'PYRA_P4_29', 'PYRA_50', 'PYRA_55', 'PENTA_33', 'PENTA_66', 'PENTA_75',
+    'HEXA_44', 'HEXA_98', 'HEXA_125']
+
 
 def set(parent, childname, childType='UserDefinedData_t', **kwargs):
     '''
@@ -2821,3 +2834,29 @@ def extractBCFromFamily(t, Family):
 
     return BCList
 
+def elementTypes(t):
+    f'''
+    returns a list of all CGNS unstructured element types contained in **t**
+
+    Possible values are: {element_types}
+    '''
+    types = []
+    for zone in I.getZones(t):
+        elts_nodes = I.getNodesFromType1(zone, 'Elements_t')
+
+        if not elts_nodes:
+            zone_type = I.getValue(I.getNodeFromName1(zone,'ZoneType'))
+            if zone_type == 'Structured':
+                types += ['STRUCTURED']
+
+        for elts in elts_nodes:
+            enum = int(elts[1][0])
+            types += [element_types[enum]]
+            
+    return types
+
+def hasAllNGon(t):
+    return all(elt_type in ['NGON_n', 'NFACE_n'] for elt_type in elementTypes(t))
+
+def anyNotNGon(t):
+    return any(elt_type not in ['NGON_n', 'NFACE_n'] for elt_type in elementTypes(t))
