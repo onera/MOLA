@@ -333,6 +333,16 @@ def getVars2Dict(zone, VariablesName=None, Container='FlowSolution'):
             print ("Field %s not found in container %s of zone %s. Check spelling or data."%(v,Container,zone[0]))
     return Pointers
 
+def getVars2DictPerZone(t, **getVars2DictOpts):
+    '''
+    higher-level version of :py:func:`getVars2Dict`, where a new level is provided
+    to the returned dict, which includes the zone names (which must be unique 
+    in the tree).
+    '''
+    zoneDict = dict()
+    for zone in I.getZones(t):
+        zoneDict[zone[0]] = getVars2Dict(zone, **getVars2DictOpts)
+    return zoneDict
 
 def invokeFields(zone, VariableNames, locationTag='nodes:'):
     """

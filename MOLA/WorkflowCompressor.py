@@ -410,6 +410,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         ReferenceValuesParams.update(dict(PitchAxis=PitchAxis, YawAxis=YawAxis))
 
     ReferenceValues = computeReferenceValues(FluidProperties, **ReferenceValuesParams)
+    PRE.appendAdditionalFieldExtractions(ReferenceValues, Extractions)
 
     if I.getNodeFromName(t, 'proc'):
         JobInformation['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
@@ -525,7 +526,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     if elsAkeysNumerics['time_algo'] != 'steady':
         PRE.addAverageFieldExtractions(t, AllSetupDicts['ReferenceValues'],
-            AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
+            AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'])
 
     PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],
                          AllSetupDicts['ReferenceValues'])
@@ -1166,7 +1167,15 @@ def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
 def computeReferenceValues(FluidProperties, PressureStagnation,
                            TemperatureStagnation, Surface, MassFlow=None, Mach=None,
                            YawAxis=[0.,0.,1.], PitchAxis=[0.,1.,0.],
-                           FieldsAdditionalExtractions=['ViscosityMolecular', 'Viscosity_EddyMolecularRatio', 'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation', 'Mach', 'Entropy'],
+                           FieldsAdditionalExtractions=[
+                                'ViscosityMolecular',
+                                'Viscosity_EddyMolecularRatio',
+                                'Pressure',
+                                'Temperature',
+                                'PressureStagnation',
+                                'TemperatureStagnation',
+                                'Mach',
+                                'Entropy'],
                            BCExtractions=dict(
                              BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
                              BCInflow = ['convflux_ro'],

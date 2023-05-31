@@ -17,6 +17,7 @@ if [ -f "/tmp_user/sator/lbernard/MOLA/Dev/env_MOLA.sh" ]; then
 else
     source /stck/lbernard/MOLA/Dev/env_MOLA.sh
 fi
+if [ "$MAC" = "ld" ] ; then export OMP_NUM_THREADS=1; fi # ticket elsA 11143
 ###############################################################################
 
 mpirun $OPENMPIOVERSUBSCRIBE -np $NPROCMPI elsA.x -C xdt-runtime-tree -- compute.py 1>stdout.log 2>stderr.log

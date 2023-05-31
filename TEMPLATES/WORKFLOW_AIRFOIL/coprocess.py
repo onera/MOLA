@@ -53,8 +53,9 @@ ItersMinEvenIfConverged = CO.getOption('ItersMinEvenIfConverged', default=1e3)
 ConvergenceCriteria     = CO.getOption('ConvergenceCriteria', default=[])
 RegisterTransitionFrequency = CO.getOption('RegisterTransitionFrequency', default=10)
 RequestedStatistics       = CO.getOption('RequestedStatistics', default=[])
+FirstIterForFieldsStats  = CO.getOption('FirstIterationForFieldsAveraging', default=1e12)
 
-
+if FirstIterForFieldsStats is None: FirstIterForFieldsStats = 1e12
 
 # BEWARE! state 16 => triggers *before* iteration, which means
 # that variable "it" represents actually the *next* iteration
@@ -94,7 +95,8 @@ ElapsedTime = timeit.default_timer() - LaunchTime
 ReachedTimeOutMargin = CO.hasReachedTimeOutMargin(ElapsedTime, TimeOut,
                                                             MarginBeforeTimeOut)
 anySignal = any([SAVE_ARRAYS, SAVE_SURFACES, SAVE_FIELDS, CONVERGED,
-                 REGISTER_TRANSITION])
+                 REGISTER_TRANSITION, it>=itmax, it==FirstIterForFieldsStats-1])
+
 ENTER_COUPLING = anySignal or ReachedTimeOutMargin
 
 

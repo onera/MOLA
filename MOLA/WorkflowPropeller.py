@@ -117,7 +117,6 @@ def cleanMeshFromAutogrid(t, **kwargs):
 def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         RPM=0., AxialVelocity=0., ReferenceTurbulenceSetAtRelativeSpan=0.75,
         ReferenceValuesParams=dict(
-            FieldsAdditionalExtractions=['q_criterion'],
             CoprocessOptions=dict(
                 RequestedStatistics=['std-Thrust','std-Power'],
                 ConvergenceCriteria=[dict(Family='BLADE',
@@ -239,29 +238,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
                 ultra-light file containing all relevant info of the simulation
     '''
     toc = J.tic()
-    ReferenceValuesParamsDefault = dict(
-        FieldsAdditionalExtractions=['q_criterion'],
-        CoprocessOptions=dict(
-            RequestedStatistics=['std-Thrust','std-Power'],
-            ConvergenceCriteria=[dict(Family='BLADE',
-                                      Variable='std-Thrust',
-                                      Threshold=1e-3)],
-            AveragingIterations = 1000,
-            ItersMinEvenIfConverged = 1000,
-            UpdateArraysFrequency = 100,
-            UpdateSurfacesFrequency = 500,
-            UpdateFieldsFrequency = 2000))
 
-    ReferenceValuesParams.update(ReferenceValuesParamsDefault)
     ReferenceValuesParams['Velocity'] = AxialVelocity
-
-    def addFieldExtraction(fieldname):
-        print('adding %s'%fieldname)
-        try:
-            ReferenceValuesParams['FieldsAdditionalExtractions'].append(fieldname)
-        except:
-            ReferenceValuesParams['FieldsAdditionalExtractions'] = [fieldname]
-
 
     if isinstance(mesh,str):
         t = C.convertFile2PyTree(mesh)
@@ -275,7 +253,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
 
     hasBCOverlap = True if C.extractBCOfType(t, 'BCOverlap') else False
 
-    if hasBCOverlap: addFieldExtraction('ChimeraCellType')
+    if hasBCOverlap:
+        PRE.addFieldExtraction(ReferenceValuesParams, 'ChimeraCellType')
+    PRE.appendAdditionalFieldExtractions(ReferenceValuesParams, Extractions)
 
     IsUnstructured = PRE.hasAnyUnstructuredZones(t)
 
@@ -307,6 +287,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
 
     ReferenceValues = PRE.computeReferenceValues(FluidProperties,
                                                  **ReferenceValuesParams)
+    PRE.appendAdditionalFieldExtractions(ReferenceValues, Extractions)
     ReferenceValues['RPM'] = RPM
     ReferenceValues['RotationAxis'] = list(rot_axis)
     ReferenceValues['RightHandRuleRotation'] = True if Dir == 1 else False
@@ -362,7 +343,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
 
     if elsAkeysNumerics['time_algo'] != 'steady':
         PRE.addAverageFieldExtractions(t, AllSetupDicts['ReferenceValues'],
-            AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
+            AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'])
 
     PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],
                          AllSetupDicts['ReferenceValues'])
