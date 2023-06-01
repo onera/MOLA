@@ -5557,7 +5557,7 @@ def renameNodes(t, rename_dict={}):
 
 def adaptFamilyBCNamesToElsA(t):
     '''
-    See https://elsa.onera.fr/issues/11090
+    Due to https://elsa.onera.fr/issues/11090
     '''
     for n in I.getNodesFromType(t, 'FamilyBC_t'):
         n[0] = 'FamilyBC'

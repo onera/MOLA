@@ -85,7 +85,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlock
     This is a macro-function used to prepare the mesh for an elsA computation
     from a CGNS file provided by Autogrid 5.
 
-    The sequence of operations performed are the following:
+    The sequence of performed operations is the following:
 
     #. load and clean the mesh from Autogrid 5
     #. apply transformations
@@ -95,13 +95,14 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlock
     #. distribute the mesh (only if PyPart is not used)
     #. make final elsA-specific adaptations of CGNS data
 
+    
     .. warning::
         The following assumptions on the input mesh are made:
-
+        
         * it does not need any scaling
 
         * the shaft axis is the Z-axis, pointing downstream (convention in
-          Autgrid 5). The mesh will be rotated to follow the elsA convention,
+          Autogrid 5). The mesh will be rotated to follow the elsA convention,
           thus the shaft axis will be the X-axis, pointing downstream.
 
     Parameters
@@ -145,9 +146,9 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlock
         scale : float
             Homothety factor to apply on the mesh. Default is 1.
 
-        rotation : :py:class:'str' or :py:class:`list`
+        rotation : :py:class:`str` or :py:class:`list`
             List of rotations to apply on the mesh. If **rotation** =
-            ``fromAG5``, then default rotations are applied:
+            ``'fromAG5'``, then default rotations are applied:
 
             >>> rotation = [((0,0,0), (0,1,0), 90), ((0,0,0), (1,0,0), 90)]
 
@@ -155,15 +156,12 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlock
             component. Each rotation is defined by 3 elements:
 
                 * a 3-tuple corresponding to the center coordinates
-
                 * a 3-tuple corresponding to the rotation axis
-
                 * a float (or integer) defining the angle of rotation in
                   degrees
 
-
-        PeriodicTranslation : :py:obj:'None' or :py:class:`list` of :py:class:`float`
-            If not :py:obj:'None', the configuration is considered to be with
+        PeriodicTranslation : :py:obj:`None` or :py:class:`list` of :py:class:`float`
+            If not :py:obj:`None`, the configuration is considered to be with
             a periodicity in the direction **PeriodicTranslation**. This argument
             has to be used for linear cascade configurations.
 
@@ -173,8 +171,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlock
         BodyForceRows : :py:class:`dict` or :py:obj:`None`
             If not :py:obj:`None`, this parameters allows to replace user-defined
             row domains with meshes adapted to body-force modelling.
-            See documentation of 
-            :py:func:`MOLA.BodyForceTurbomachinery.replaceRowWithBodyForceMesh`.
+            See documentation of py:func:`MOLA.BodyForceTurbomachinery.replaceRowWithBodyForceMesh`.
 
         families2Remove : list
             Families to remove in the tree when using body-force. Should be a list 
@@ -183,10 +180,11 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlock
             instead having a mixing plane.
 
         saveGeometricalDataForBodyForce : bool
-            If :py:obj:`True`, save the intermediate files 'BodyForceData_{row}.cgns' for each row.
-            These files contain a CGNS tree with :
-                #. 4 lines (1D zones) corresponding to Hub, Shroud, Leading edge and Trailing Edge.
-                #. The zone'Skeleton' with geometrical data on blade profile (used for interpolation later). 
+            If :py:obj:`True`, save the intermediate files ``BodyForceData_{row}.cgns`` for each row.
+            These files contain a CGNS tree with:
+
+                * 4 lines (1D zones) corresponding to Hub, Shroud, Leading edge and Trailing Edge.
+                * The zone'Skeleton' with geometrical data on blade profile (used for interpolation later). 
 
     Returns
     -------
