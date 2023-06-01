@@ -913,7 +913,8 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[]):
             else:
                 perfos = computePerfoStator(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
         appendDict2Arrays(arrays, perfos, 'PERFOS_{}'.format(row))
-        _extendArraysWithStatistics(arrays, 'PERFOS_{}'.format(row), RequestedStatistics)
+        if perfos:
+            _extendArraysWithStatistics(arrays, 'PERFOS_{}'.format(row), RequestedStatistics)
 
     arraysTree = arraysDict2PyTree(arrays)
     return arraysTree
@@ -1249,12 +1250,14 @@ def appendDict2Arrays(arrays, dictToAppend, basename):
     if not basename in arrays: arrays[basename] = dict()
 
     for var, value in dictToAppend.items():
+        np_value = np.array([value],ndmin=1).ravel(order='F')
         if var in arrays[basename]:
             arrays[basename][var] = np.hstack(
                                         (arrays[basename][var].ravel(order='F'),
-                                         value.ravel(order='F'))).ravel(order='F')
+                                         np_value )
+                                              ).ravel(order='F')
         else:
-            arrays[basename][var] = np.array([value],ndmin=1).ravel(order='F')
+            arrays[basename][var] = np_value
 
 
 def _scatterArraysFromRootToLocal(arrays):
