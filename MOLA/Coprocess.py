@@ -1245,7 +1245,7 @@ def appendDict2Arrays(arrays, dictToAppend, basename):
 
     '''
 
-    if not dictToAppend or not arrays: return
+    if not dictToAppend or arrays is None: return
 
 
     if not basename in arrays: arrays[basename] = dict()
