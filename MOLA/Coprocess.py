@@ -1245,7 +1245,8 @@ def appendDict2Arrays(arrays, dictToAppend, basename):
 
     '''
 
-    if not dictToAppend: return
+    if not dictToAppend or not arrays: return
+
 
     if not basename in arrays: arrays[basename] = dict()
 
@@ -3004,7 +3005,6 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                             for node in I.getNodesFromType1(FS, 'DataArray_t'):
                                 averagesDict[I.getName(node)] = I.getValue(node)
                             averagesDict['IterationNumber'] = CurrentIteration-1
-
                             appendDict2Arrays(arrays, averagesDict, zoneName)
             
                 else:
