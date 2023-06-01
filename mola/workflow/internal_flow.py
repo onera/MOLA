@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import numpy as np
 import .external_flow as ExtFlow
 
 class FlowGenerator(ExtFlow.FlowGenerator):
@@ -42,11 +43,20 @@ class FlowGenerator(ExtFlow.FlowGenerator):
                                                           self.Fluid['Gamma']
                                                           )
 
+        Mach = self.Flow['Mach']
         Temperature  = self.Flow['TemperatureStagnation'] / (1. + 0.5*(self.Fluid['Gamma']-1.) * Mach**2)
         Pressure  = self.Flow['PressureStagnation'] / (1. + 0.5*(self.Fluid['Gamma']-1.) * Mach**2)**(self.Fluid['Gamma']/(self.Fluid['Gamma']-1))
         Density = Pressure / (Temperature * self.Fluid['IdealGasConstant'])
         SoundSpeed  = np.sqrt(self.Fluid['Gamma'] * self.Fluid['IdealGasConstant'] * Temperature)
         Velocity  = Mach * SoundSpeed
+
+        self.Flow.update(dict(
+            Temperature = Temperature,
+            Pressure = Pressure,
+            Density = Density,
+            SoundSpeed = SoundSpeed,
+            Velocity = Velocity,
+        ))
 
         super().set_flow_properties()
 

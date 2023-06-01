@@ -20,7 +20,7 @@ import .internal_flow.FlowGenerator as InternalFlowGenerator
 import mola.application.turbomachine as Turb
 
 
-class WorkflowCompressor(Workflow):
+class WorkflowTurbomachinery(Workflow):
 
     def __init__(self, 
                 
@@ -31,13 +31,24 @@ class WorkflowCompressor(Workflow):
         
         super().__init__(Splitter=Splitter, FlowGenerator=InternalFlowGenerator, **kwargs)
 
-        self.name = 'Compressor'
+        self.name = 'Turbomachinery'
 
         if self.tree is not None:
             for meshInfo in self.RawMeshComponents:
                 meshInfo.setdefault('mesher', 'Autogrid')
 
             self.TurboConfiguration = dict()
+            # self.TurboConfiguration = dict(
+            #     Component1 = dict(
+            #         ShaftRotationSpeed = 500.,
+            #         HubRotationSpeed = [(xmin, xmax)],
+            #         Rows = dict(
+            #             rotor = dict(
+            #                 NumberOfBlades = 16,
+            #             )
+            #         )
+            #     ),
+            # )
 
             self.Extractions.append(
                 dict(type='bc', BCType='BCInflow*', fields=['convflux_ro']),
@@ -70,6 +81,7 @@ class WorkflowCompressor(Workflow):
     
     def prepare_mesh(self):
         self.tree = PRE.mesh.read_mesh(mesher='Autogrid')
+
         self.InputMeshes = generate_input_meshes_from_autogrid(t,
             scale=scale, rotation=rotation, tol=tol, PeriodicTranslation=PeriodicTranslation)
 
@@ -138,3 +150,139 @@ class WorkflowCompressor(Workflow):
                     omega=omega,
                     axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
                     axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
+            
+
+    def reader_autogrid(base, 
+                        unit='m',
+                        Tolerance=1e-8, 
+                        InitialFrame=dict(Point=[0,0,0], Axis1=[0,0,1], Axis2=[1,0,0], Axis3=[0,1,0])
+                        ):
+        
+        # CAREFUL : Update Positioning, Connection, etc. rather than write over them
+
+        ScaleDict = dict(
+            mm = 0.001,
+            cm = 0.01,
+            dm = 0.1,
+            m  = 1.
+        )
+
+        Positioning=[
+            dict(
+                Type='TranslationAndRotation',
+                InitialFrame=InitialFrame,
+                RequestedFrame=dict(
+                    Point=[0,0,0],
+                    Axis1=[1,0,0],
+                    Axis2=[0,1,0],
+                    Axis3=[0,0,1]),
+                ),
+            dict(
+                Type  = 'scale',
+                Scale = ScaleDict[unit],
+                ),
+        ]
+
+        # Only if grid connectivities are not already in the mesh
+        # TODO: Test on the presence of GC
+        Connection = [
+            dict(Type='Match', Tolerance=Tolerance),
+        ]
+
+        # Set automatic periodic connections
+        angles = set()
+        for node in base.group(Name='BladeNumber'):
+            angles.add(360./float(node.value()))
+        for angle in angles:
+            print('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)))
+            Connection.append(
+                dict(type='PeriodicMatch', Tolerance=Tolerance, rotationAngle=[angle,0.,0.])
+                )
+
+        return component
+    
+    def clean_mesh_from_autogrid(t, basename='Base#1', zonesToRename={}):
+        '''
+        Clean a CGNS mesh from Autogrid 5.
+        The sequence of operations performed are the following:
+
+        #. remove useless nodes specific to AG5
+        #. rename base
+        #. rename zones
+        #. clean Joins & Periodic Joins
+        #. clean Rotor/Stator interfaces
+        #. join HUB and SHROUD families
+
+        Parameters
+        ----------
+
+            t : PyTree
+                CGNS mesh from Autogrid 5
+
+            basename: str
+                Name of the base. Will replace the default AG5 name.
+
+            zonesToRename : dict
+                Each key corresponds to the name of a zone to modify, and the associated
+                value is the new name to give.
+
+        Returns
+        -------
+
+            t : PyTree
+                modified mesh tree
+
+        '''
+
+        t.findAndRemoveNodes(Name='Numeca*')
+        t.findAndRemoveNodes(Name='blockName')
+        t.findAndRemoveNodes(Name='meridional_base')
+        t.findAndRemoveNodes(Name='tools_base')
+
+        # Clean Names
+        # - Recover BladeNumber and Clean Families
+        for fam in t.group(Type='Family'): 
+            t.findAndRemoveNodes(Name='RotatingCoordinates')
+            t.findAndRemoveNodes(Name='Periodicity')
+            t.findAndRemoveNodes(Name='DynamicData')
+        t.findAndRemoveNodes(Name='FamilyProperty')
+
+        # - Rename base
+        base = t.get(Type='CGNSBase')
+        base.setName(basename)
+
+        # - Rename Zones
+        for zone in t.zones():
+            name = zone.name()
+            if name in zonesToRename:
+                newName = zonesToRename[name]
+                print("Zone {} is renamed: {}".format(name, newName))
+                I._renameNode(t, name, newName)
+                continue
+            # Delete some usual patterns in AG5
+            new_name = name
+            for pattern in ['_flux_1', '_flux_2', '_flux_3', '_Main_Blade']:
+                new_name = new_name.replace(pattern, '')
+            I._renameNode(t, name, new_name)
+
+        # Clean Joins & Periodic Joins
+        # TODO: The objective should be to keep GC if there are already in the tree
+        t.findAndRemoveNodes(Type='ZoneGridConnectivity_t')
+
+        periodicFamilies = t.group(Name='*PER*', Type='Family', Depth=2)
+        for familyNode in periodicFamilies:
+            for BC in t.group(Type='BC'):
+                for FamilyName in BC.group(Type='*FamilyName'): # FamilyName or AdditionalFamilyName
+                    if FamilyName.name() == familyNode.name():
+                        BC.remove()
+                        break
+            familyNode.remove()
+
+        # Clean RS interfaces
+        t.findAndRemoveNodes(Type='InterfaceType')
+        t.findAndRemoveNodes(Type='DonorFamily')
+
+        # Join HUB and SHROUD families
+        J.joinFamilies(t, 'HUB')
+        J.joinFamilies(t, 'SHROUD')
+        return t
