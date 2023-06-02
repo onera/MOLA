@@ -18,14 +18,14 @@ All elements in this tutorial can be recovered in the example directory:
 
 .. code-block:: bash
 
-    /stck/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_AIRFOIL/LIGHT_POLAR
+    $MOLA/EXAMPLES/WORKFLOW_AIRFOIL/LIGHT_POLAR
 
 
 The default template scripts can be found at:
 
 .. code-block:: bash
 
-    /stck/lbernard/MOLA/v1.14/TEMPLATES/WORKFLOW_AIRFOIL
+    $MOLA/TEMPLATES/WORKFLOW_AIRFOIL
 
 
 Meshing procedure checking
