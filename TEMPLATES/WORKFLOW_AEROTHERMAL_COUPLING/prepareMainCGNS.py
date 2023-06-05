@@ -77,7 +77,7 @@ ReferenceValues = dict(
             ),
         ],
 
-        FirstIterationForAverage = 1000,
+        FirstIterationForFieldsAveraging = 1000,
 
         # These keys are used to determine the save frequency of the files
         # arrays.cgns, surfaces.cgns and fields.cgns

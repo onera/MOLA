@@ -47,6 +47,7 @@ if not MOLA.__ONLY_DOC__:
     import glob
     import copy
     from mpi4py import MPI
+    import traceback
     comm   = MPI.COMM_WORLD
     rank   = comm.Get_rank()
     NumberOfProcessors = comm.Get_size()
@@ -146,6 +147,7 @@ def extractFields(Skeleton):
     '''
     t = elsAxdt.get(elsAxdt.OUTPUT_TREE)
     adaptEndOfRun(t)
+    resumeFieldsAveraging(Skeleton, t)
     t = I.merge([Skeleton, t])
 
     return t
@@ -337,6 +339,7 @@ def extractSurfaces(t, Extractions):
     SurfacesTree = I.newCGNSTree()
     PartialTree = Cmpi.convert2PartialTree(t)
 
+    
     for Extraction in Extractions:
         TypeOfExtraction = Extraction['type']
         ExtractionInfo = copy.deepcopy(Extraction)
@@ -419,8 +422,8 @@ def extractSurfaces(t, Extractions):
     I._rmNodesFromName(SurfacesTree, ':CGNS#Ppart')
     Cmpi.barrier()
 
-    # # Workflow specific postprocessings
-    # SurfacesTree = _extendSurfacesWithWorkflowQuantities(SurfacesTree)
+    # Workflow specific postprocessings
+    SurfacesTree = _extendSurfacesWithWorkflowQuantities(SurfacesTree)
 
     # Keep only allowed fields in surfaces
     for base in I.getBases(SurfacesTree):
@@ -616,17 +619,37 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
             if :py:obj:`True`, adds a suffix ``_AfterIter<iteration>``
             to the saved filename (creates a copy)
     '''
-    t = I.copyRef(t)
-    Cmpi._convert2PartialTree(t)
-    I._rmNodesByName(t, '.Solver#Param')
-    I._rmNodesByType(t, 'IntegralData_t')
+
+
+    def migrateSolverOutputOfFlowSolutions(tpt, t):
+        # Required because of https://elsa.onera.fr/issues/11137
+        zones = I.getZones(t)
+        for zm in I.getZones(t_merged):
+            for z in zones:
+                if z[0].startswith(zm[0]):
+                    all_fs  = I.getNodesFromType(z, 'FlowSolution_t')
+                    all_fsm = I.getNodesFromType(zm, 'FlowSolution_t')
+                    for fsm in all_fsm:
+                        for fs in all_fs:
+                            if fs[0] == fsm[0]:
+                                SolverOutput = I.getNodeFromName(fs, '.Solver#Output')
+                                if SolverOutput:
+                                    fsm[2].append( SolverOutput )
+                                    continue
+
+
+    tpt = I.copyRef(t)
+    Cmpi._convert2PartialTree(tpt)
+    I._rmNodesByName(tpt, '.Solver#Param')
+    I._rmNodesByType(tpt, 'IntegralData_t')
     Cmpi.barrier()
     printCo('will save %s ...' % filename, 0, color=J.CYAN)
-    PyPartBase.mergeAndSave(t, 'PyPart_fields')
+    PyPartBase.mergeAndSave(tpt, 'PyPart_fields')
     Cmpi.barrier()
     if rank == 0:
-        t = C.convertFile2PyTree('PyPart_fields_all.hdf')
-        C.convertPyTree2File(t, filename)
+        t_merged = C.convertFile2PyTree('PyPart_fields_all.hdf')
+        migrateSolverOutputOfFlowSolutions(tpt, t)
+        C.convertPyTree2File(t_merged, filename)
         for fn in glob.glob('PyPart_fields_*.hdf'):
             try:
                 os.remove(fn)
@@ -890,7 +913,8 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[]):
             else:
                 perfos = computePerfoStator(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
         appendDict2Arrays(arrays, perfos, 'PERFOS_{}'.format(row))
-        _extendArraysWithStatistics(arrays, 'PERFOS_{}'.format(row), RequestedStatistics)
+        if perfos:
+            _extendArraysWithStatistics(arrays, 'PERFOS_{}'.format(row), RequestedStatistics)
 
     arraysTree = arraysDict2PyTree(arrays)
     return arraysTree
@@ -1139,12 +1163,15 @@ def addMemoryUsage2Arrays(arrays):
             ArraysItem = arrays[ZoneName]
 
         try:
-            ArraysItem['IterationNumber'] = np.hstack((ArraysItem['IterationNumber'],
-                                                      int(CurrentIteration)))
-            ArraysItem['UsedMemoryInPercent'] = np.hstack((ArraysItem['UsedMemoryInPercent'],
-                                                          float(UsedMemoryPctg)))
-            ArraysItem['UsedMemory'] = np.hstack((ArraysItem['UsedMemory'],
-                                             float(UsedMemory)))
+            ArraysItem['IterationNumber'] = np.hstack((
+                ArraysItem['IterationNumber'].ravel(order='F'),
+                int(CurrentIteration))).ravel(order='F')
+            ArraysItem['UsedMemoryInPercent'] = np.hstack((
+                ArraysItem['UsedMemoryInPercent'].ravel(order='F'),
+                float(UsedMemoryPctg))).ravel(order='F')
+            ArraysItem['UsedMemory'] = np.hstack((
+                ArraysItem['UsedMemory'].ravel(order='F'),
+                float(UsedMemory))).ravel(order='F')
         except KeyError:
             del arrays[ZoneName]
     Cmpi.barrier()
@@ -1217,18 +1244,31 @@ def appendDict2Arrays(arrays, dictToAppend, basename):
             Name of the base in which values will be appended.
 
     '''
-    if not basename in arrays:
-        arrays[basename] = dict()
+
+    if not dictToAppend or arrays is None: return
+
+
+    if not basename in arrays: arrays[basename] = dict()
 
     for var, value in dictToAppend.items():
+        np_value = np.array([value],ndmin=1).ravel(order='F')
         if var in arrays[basename]:
-            arrays[basename][var] = np.append(arrays[basename][var], value)
+            arrays[basename][var] = np.hstack(
+                                        (arrays[basename][var].ravel(order='F'),
+                                         np_value )
+                                              ).ravel(order='F')
         else:
-            arrays[basename][var] = np.array([value],ndmin=1)
+            arrays[basename][var] = np_value
 
 
 def _scatterArraysFromRootToLocal(arrays):
     local_keys = [k for k in arrays]
+
+    # for debug
+    # for r in range(NumberOfProcessors):
+    #     Cmpi.barrier()
+    #     if r==rank: printCo('local_keys= %s'%str(local_keys),color=J.WARN)
+    #     Cmpi.barrier()
 
     all_local_keys = comm.gather(local_keys, 0)
     all_local_keys = comm.bcast(all_local_keys, 0)
@@ -1239,7 +1279,7 @@ def _scatterArraysFromRootToLocal(arrays):
             i +=1
             if rank==0:
                 if rank_recv == 0:
-                    root_item = arrays[lk] 
+                    root_item = arrays[lk]
                 else:
                     obj = arrays[lk] if lk in arrays else None
                     comm.send(obj, rank_recv, tag=i)
@@ -1248,27 +1288,57 @@ def _scatterArraysFromRootToLocal(arrays):
             if rank != 0:
                 if rank == rank_recv:
                     root_item = comm.recv(source=0, tag=i)
-                    if not root_item: continue
+                    if not root_item: continue # nothing to append
 
-                    rootHasItNb = True if 'IterationNumber' in root_item else False
-                    localHasItNb = True if 'IterationNumber' in arrays[lk] else False
+                else:
+                    continue # nothing to append
 
-                    if rootHasItNb and localHasItNb:
-                        RegisteredIterations = root_item['IterationNumber']
-                        IterationNumber = arrays[lk]['IterationNumber']
+            if lk not in arrays: continue 
+            
+            rootHasItNb = True if 'IterationNumber' in root_item else False
+
+            try:
+                localHasItNb = True if 'IterationNumber' in arrays[lk] else False
+            except:
+                printCo(traceback.format_exc(),color=J.FAIL)
+                printCo('FATAL: failed processing signal %s'%lk)
+                printCo('arrays keys are: %s'%','.join([k for k in arrays]),color=J.FAIL)
+                os._exit(0)
+
+            override_all = False
+            if rootHasItNb and localHasItNb:
+                RegisteredIterations = root_item['IterationNumber'].ravel(order='F')
+                IterationNumber = arrays[lk]['IterationNumber'].ravel(order='F')
+
+                try:
+                    if IterationNumber[0] <= RegisteredIterations[0]:
+                        override_all = True
+
+                    if not override_all:
                         eps = 1e-12
                         UpdatePortion = IterationNumber > (RegisteredIterations[-1] + eps)
                         FirstIndex2Update = np.where(UpdatePortion)[0][0]
-                    else:
-                        FirstIndex2Update = 0
 
-                    for var, value in root_item.items():
-                        if var in arrays[lk]:
-                            arrays[lk][var] = np.append(value, arrays[lk][var][FirstIndex2Update:])
-                        else:
-                            arrays[lk][var] = np.array([value],ndmin=1)
+                except:
+                    printCo(traceback.format_exc(),color=J.FAIL)
+                    printCo('processing signal %s'%lk,color=J.FAIL)
+                    printCo('RegisteredIterations',color=J.FAIL)
+                    printCo(str(RegisteredIterations),color=J.FAIL)
+                    printCo(str(type(RegisteredIterations)),color=J.FAIL)
+                    printCo('IterationNumber',color=J.FAIL)
+                    printCo(str(IterationNumber),color=J.FAIL)
+                    os._exit(0)
+            else:
+                FirstIndex2Update = 0
+            
+            for var, value in root_item.items():
+                if var in arrays[lk]:
+                    if override_all:
+                        arrays[lk][var] = np.array([value],ndmin=1).ravel(order='F')
+                    else:
+                        arrays[lk][var] = np.hstack((value, arrays[lk][var][FirstIndex2Update:])).ravel(order='F')
                 else:
-                    root_item = None
+                    arrays[lk][var] = np.array([value],ndmin=1).ravel(order='F')
 
 
 def _appendIntegralDataNode2Arrays(arrays, IntegralDataNode):
@@ -2069,7 +2139,6 @@ def adaptEndOfRun(to):
     I._renameNode(to, 'cellnf', 'cellN')
     I._renameNode(to, 'FlowSolution#EndOfRun', 'FlowSolution#Init')
 
-
 def moveCoordsFromEndOfRunToGridCoords(to):
     '''
     This function is used to make adaptations of the coupling trigger tree
@@ -2311,7 +2380,7 @@ def loadSkeleton(Skeleton=None, PartTree=None):
     FScoords = I.getNodeFromName1(Skeleton, 'FlowSolution#EndOfRun#Coords')
     if FScoords: addCoordinates = False
 
-    I._rmNodesByName(Skeleton, 'FlowSolution*')
+    I._rmNodesByName(Skeleton, 'FlowSolution#EndOfRun*')
     I._rmNodesByName(Skeleton, 'ID_*')
 
     if PartTree:
@@ -2338,7 +2407,21 @@ def loadSkeleton(Skeleton=None, PartTree=None):
         I._rmNode(parent, oldNode)
         I._addChild(parent, newNode)
 
-    containers2read = ['FlowSolution#Height',':CGNS#Ppart', 'FlowSolution#DataSourceTerm']
+    # def replaceNodesByNameRecursively(parent, parentPath, name):
+    #     for child in parent[2]:
+
+
+    def replaceNodeValuesRecursively(node_skel, node_path):
+        new_node = readNodesFromPaths(node_path)[0]
+        node_skel[1] = new_node[1]
+        for child in node_skel[2]:
+            replaceNodeValuesRecursively(child, node_path+'/'+child[0])
+
+    containers2read = ['FlowSolution#Height',
+                       ':CGNS#Ppart',
+                       'FlowSolution#DataSourceTerm',
+                       'FlowSolution#Average']
+
     for base in I.getBases(Skeleton):
         basename = I.getName(base)
         for zone in I.getNodesFromType1(base, 'Zone_t'):
@@ -2356,6 +2439,14 @@ def loadSkeleton(Skeleton=None, PartTree=None):
                 if I.getNodeFromName1(zoneInPartialTree, nodeName2read):
                     replaceNodeByName(zone, zonePath, nodeName2read)
 
+                # doesnt work:
+                # container = I.getNodeFromName1(zone, nodeName2read)
+                # if container is not None:
+                #     replaceNodeValuesRecursively(container, 
+                #                                  '/'.join([basename,
+                #                                            zone[0],
+                #                                            container[0]]))
+
             # For unstructured mesh
             if I.getZoneType(zone) == 2: # unstructured zone
                 replaceNodeByName(zone, zonePath, ':elsA#Hybrid')
@@ -2370,17 +2461,12 @@ def loadSkeleton(Skeleton=None, PartTree=None):
                     GCpath = '{}/ZoneGridConnectivity/{}'.format(zonePath, I.getName(GC))
                     replaceNodeByName(GC, GCpath, 'PointList')
 
+
+
         # always require to fully read Mask nodes 
-        def readNodesFromPathRevursively(node_skel, node_path):
-            new_node = readNodesFromPaths(node_path)[0]
-            node_skel[1] = new_node[1]
-            for child in node_skel[2]:
-                readNodesFromPathRevursively(child, node_path+'/'+child[0])
-
-
         masks = I.getNodeFromName1(base, '.MOLA#Masks')
         if masks:
-            readNodesFromPathRevursively(masks, '/'.join([basename, masks[0]]))
+            replaceNodeValuesRecursively(masks, '/'.join([basename, masks[0]]))
 
     return Skeleton
 
@@ -2919,7 +3005,6 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                             for node in I.getNodesFromType1(FS, 'DataArray_t'):
                                 averagesDict[I.getName(node)] = I.getValue(node)
                             averagesDict['IterationNumber'] = CurrentIteration-1
-
                             appendDict2Arrays(arrays, averagesDict, zoneName)
             
                 else:
@@ -2960,3 +3045,60 @@ def checkAndUpdateMainCGNSforChoroRestart():
                 
                 C.convertPyTree2File(main, FILE_CGNS, links=AllCGNSLinks)
                 printCo('main.cgns updated with links to fields.cgns ChoroData nodes for restart.', proc=0, color=J.GREEN)
+
+def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
+    '''
+    use any pre-existing average fields contained in ``FlowSolution#Average``
+    nodes in order to resume the fields averaging process
+    '''
+    inititer = setup.elsAkeysNumerics['inititer']
+    firstiter = setup.ReferenceValues['CoprocessOptions']['FirstIterationForFieldsAveraging']
+    if firstiter is None: return
+    firstiter -= 1
+    setup.ReferenceValues['CoprocessOptions']['FirstIterationForFieldsAveraging']
+    cit = CurrentIteration
+
+    old = _getDictofNodesFieldsPerZone(Skeleton, container_name)
+    tot = _getDictofNodesFieldsPerZone(t, container_name)
+    if cit == firstiter:
+        ini = _getDictofNodesFieldsPerZone(t, 'FlowSolution#Init')
+
+    for zone_name in tot:
+        for field_name in tot[zone_name]:
+            avg_old = old[zone_name][field_name] # BEWARE this is a CGNS node
+            avg_tot = tot[zone_name][field_name] # BEWARE this is a CGNS node
+            
+            if cit == firstiter:
+                avg_old[1] = np.copy(avg_tot[1], order='F')
+                avg_tot[1] = np.copy(ini[zone_name][field_name][1], order='F')
+                continue
+
+            if cit < firstiter: 
+                avg_old[1] = None
+                avg_new    = None
+            
+            else:
+                if inititer < firstiter:
+                    avg_new =  (avg_tot[1]*(cit-inititer+1) \
+                            -avg_old[1]*(firstiter-inititer+1))/(cit-firstiter)
+                
+                else:
+                    avg_new =  (avg_old[1]*(inititer-(firstiter+1)) \
+                            +avg_tot[1]*(cit-inititer+1))/(cit-firstiter)
+
+            avg_tot[1] = avg_new # update of OUTPUT_TREE
+
+def _getDictofNodesFieldsPerZone(t, Container):
+    fields = dict()
+    for base in I.getNodesByType1(t, 'CGNSBase_t'):
+        for zone in I.getNodesByType1(base, 'Zone_t'):
+            zone_name = zone[0]
+            fields[zone_name] = dict()
+            fs = I.getNodeFromName1(zone, Container)
+            if not fs:
+                del fields[zone_name]
+                continue
+            for f in fs[2]:
+                if f[3] != 'DataArray_t': continue
+                fields[zone_name][f[0]] = f
+    return fields

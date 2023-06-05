@@ -171,6 +171,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     ReferenceValuesParams.update(dict(PitchAxis=PitchAxis, YawAxis=YawAxis))
 
     ReferenceValues = PRE.computeReferenceValues(FluidProperties, **ReferenceValuesParams)
+    PRE.appendAdditionalFieldExtractions(ReferenceValues, Extractions)
 
 
     if I.getNodeFromName(t, 'proc'):
@@ -233,7 +234,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     if elsAkeysNumerics['time_algo'] != 'steady':
         PRE.addAverageFieldExtractions(t, AllSetupDicts['ReferenceValues'],
-            AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
+            AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'])
 
     PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],
                          AllSetupDicts['ReferenceValues'])

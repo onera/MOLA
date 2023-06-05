@@ -486,13 +486,6 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
                 ultra-light file containing all relevant info of the simulation         
     '''
 
-    def addFieldExtraction(fieldname):
-        print('adding %s'%fieldname)
-        try:
-            ReferenceValuesParams['FieldsAdditionalExtractions'].append(fieldname)
-        except:
-            ReferenceValuesParams['FieldsAdditionalExtractions'] = [fieldname]
-
     toc = tic()
     if isinstance(mesh,str):
         t = C.convertFile2PyTree(mesh)
@@ -503,8 +496,11 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
 
     useBCOverlap = hasBCOverlap(t)
 
-    if useBCOverlap: addFieldExtraction('ChimeraCellType')
-    if BodyForceInputData: addFieldExtraction('Temperature')
+    if useBCOverlap:
+        addFieldExtraction(ReferenceValuesParams, 'ChimeraCellType')
+    if BodyForceInputData:
+        addFieldExtraction(ReferenceValuesParams, 'Temperature')
+
 
     IsUnstructured = hasAnyUnstructuredZones(t)
 
@@ -514,6 +510,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
     FluidProperties = computeFluidProperties()
     ReferenceValues = computeReferenceValues(FluidProperties,
                                              **ReferenceValuesParams)
+    appendAdditionalFieldExtractions(ReferenceValues, Extractions)
 
     BCExtractions = ReferenceValues['BCExtractions']
 
@@ -2736,7 +2733,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
 
                 RequestedStatistics=[],
                 UpdateFieldsFrequency   = 2000,
-                UpdateArraysFrequency    = 50,
+                UpdateArraysFrequency   = 50,
                 UpdateSurfacesFrequency = 500,
                 TagSurfacesWithIteration= False,
                 AveragingIterations     = 3000,
@@ -2747,6 +2744,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
                 BodyForceComputeFrequency = 50,
                 BodyForceSaveFrequency    = 100,
                 ConvergenceCriteria = [],
+                FirstIterationForFieldsAveraging=None
 
         FieldsAdditionalExtractions : :py:class:`list` of :py:class:`str`
             elsA or CGNS keywords of fields to be extracted.
@@ -2770,7 +2768,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     DefaultCoprocessOptions = dict(            # Default values
         RequestedStatistics=[],
         UpdateFieldsFrequency   = 2000,
-        UpdateArraysFrequency    = 50,
+        UpdateArraysFrequency   = 50,
         UpdateSurfacesFrequency = 500,
         TagSurfacesWithIteration= False,
         AveragingIterations     = 3000,
@@ -2781,6 +2779,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         BodyForceComputeFrequency = 50,
         BodyForceSaveFrequency    = 100,
         ConvergenceCriteria = [],
+        FirstIterationForFieldsAveraging=None,
     )
     DefaultCoprocessOptions.update(CoprocessOptions) # User-provided values
 
@@ -3360,7 +3359,8 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
             one of: (``'jameson'``, ``'ausm+'``, ``'roe'``)
 
         TimeMarching : str
-            One of: (``'steady'``, ``'gear'``, ``'DualTimeStep'``)
+            One of: (``'steady'``, ``'UnsteadyFirstOrder'``, ``'gear'``,
+            ``'DualTimeStep'``)
 
         inititer : int
             initial iteration
@@ -3598,6 +3598,10 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
         includeRelativeFieldsForRestart = True
     else:
         includeRelativeFieldsForRestart = False
+
+    if AllSetupDictionaries['elsAkeysNumerics']['time_algo'] != 'steady':
+        addAverageFieldExtractions(t, AllSetupDictionaries['ReferenceValues'],
+            AllSetupDictionaries['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'])
 
     addExtractions(t, AllSetupDictionaries['ReferenceValues'],
                       AllSetupDictionaries['elsAkeysModel'],
@@ -3840,19 +3844,27 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
     for b in I.getBases(t):
         for z in b[2]:
             fs = I.getNodeFromName1(z,MainCGNS_FlowSolutionName)
-            if not fs: continue
-            for field in I.getChildren(fs):
-                if I.getType(field) == 'DataArray_t':
-                    currentNodePath='/'.join([b[0], z[0], fs[0], field[0]])
-                    targetNodePath=currentNodePath.replace(MainCGNS_FlowSolutionName,
-                                                           Fields_FlowSolutionName)
-                    # TODO: Cassiopee BUG ! targetNodePath must be identical
-                    # to currentNodePath...
-                    AllCGNSLinks += [['.',
-                                      DIRECTORY_OUTPUT+'/'+FieldsFilename,
-                                      '/'+targetNodePath,
-                                      currentNodePath]]
+            if fs:
+                for field in I.getChildren(fs):
+                    if I.getType(field) == 'DataArray_t':
+                        currentNodePath='/'.join([b[0], z[0], fs[0], field[0]])
+                        targetNodePath=currentNodePath.replace(MainCGNS_FlowSolutionName,
+                                                            Fields_FlowSolutionName)
+                        # TODO: Cassiopee BUG ! targetNodePath must be identical
+                        # to currentNodePath...
+                        AllCGNSLinks += [['.',
+                                        DIRECTORY_OUTPUT+'/'+FieldsFilename,
+                                        '/'+targetNodePath,
+                                        currentNodePath]]
 
+            fs = I.getNodeFromName1(z,'FlowSolution#Average')
+            if fs:
+                currentNodePath='/'.join([b[0], z[0], fs[0]])
+                targetNodePath=currentNodePath
+                AllCGNSLinks += [['.',
+                                DIRECTORY_OUTPUT+'/'+FieldsFilename,
+                                '/'+targetNodePath,
+                                currentNodePath]]
 
     print('saving PyTrees with links')
     to = I.copyRef(t)
@@ -4122,7 +4134,7 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False,
               writingmode=2,
               writingframe=ReferenceFrame)
 
-def addAverageFieldExtractions(t, ReferenceValues, firstIterationForAverage=1):
+def addAverageFieldExtractions(t, ReferenceValues, FirstIterationForFieldsAveraging=1):
     '''
     Include time averaged fields extraction information to CGNS tree using
     information contained in dictionary **ReferenceValues**.
@@ -4138,17 +4150,22 @@ def addAverageFieldExtractions(t, ReferenceValues, firstIterationForAverage=1):
         ReferenceValues : dict
             dictionary as produced by :py:func:`computeReferenceValues` function
 
-        firstIterationForAverage : int
-            Iteration to start the computation of time average. All the following iterations
-            will be taken into account to compute the average.
-
+        FirstIterationForFieldsAveraging : int
+            Iteration to start the computation of time average.
     '''
 
+    if FirstIterationForFieldsAveraging is None:
+        msg =('WARNING: You are setting an unsteady simulation, but no field averaging\n'
+              'will be done since CoprocessOptions key "FirstIterationForFieldsAveraging"\n'
+              'is set to None. If you want fields average extraction, please set a finite\n'
+              'positive value to "FirstIterationForFieldsAveraging" and relaunch preprocess')
+        print(J.WARN+msg+J.ENDC)
+        return
     Fields2Extract = ReferenceValues['Fields'] + ReferenceValues['FieldsAdditionalExtractions']
 
     for zone in I.getZones(t):
 
-        EoRnode = I.createNode('FlowSolution#EndOfRun#Average', 'FlowSolution_t',
+        EoRnode = I.createNode('FlowSolution#Average', 'FlowSolution_t',
                                 parent=zone)
         I.createNode('GridLocation','GridLocation_t', value='CellCenter', parent=EoRnode)
         for fieldName in Fields2Extract:
@@ -4158,8 +4175,8 @@ def addAverageFieldExtractions(t, ReferenceValues, firstIterationForAverage=1):
               writingmode=2,
               writingframe='absolute',
               average='time',
-              period_init=firstIterationForAverage,  #First iteration to consider to compute time average
-               )
+              period_init='inactive')
+
 
 def addGoverningEquations(t, dim=3):
     '''
@@ -5540,7 +5557,7 @@ def renameNodes(t, rename_dict={}):
 
 def adaptFamilyBCNamesToElsA(t):
     '''
-    See https://elsa.onera.fr/issues/11090
+    Due to https://elsa.onera.fr/issues/11090
     '''
     for n in I.getNodesFromType(t, 'FamilyBC_t'):
         n[0] = 'FamilyBC'
@@ -5560,6 +5577,7 @@ def convertUnstructuredMeshToNGon(t):
     zonePathsByFamily = dict()
     for base in I.getBases(t):
         for zone in I.getZones(base):
+            if I.getZoneType(zone) == 1: continue # structured zone
             zone_path = base[0] + '/' + zone[0]
             FamilyNameNode = I.getNodeFromType1(zone, 'FamilyName_t')
             if FamilyNameNode: 
@@ -5583,3 +5601,18 @@ def convertUnstructuredMeshToNGon(t):
     I._fixNGon(t) # required ?
     
     return t
+
+def addFieldExtraction(ReferenceValues, fieldname):
+    print('adding %s'%fieldname)
+    try:
+        if fieldname not in ReferenceValues['FieldsAdditionalExtractions']:
+            ReferenceValues['FieldsAdditionalExtractions'].append(fieldname)
+    except:
+        ReferenceValues['FieldsAdditionalExtractions'] = [fieldname]
+
+def appendAdditionalFieldExtractions(ReferenceValues, Extractions):
+    for e in Extractions:
+        try: field_name = e['field']
+        except KeyError: continue
+        if field_name.startswith('Coordinate'): continue
+        addFieldExtraction(ReferenceValues, field_name)

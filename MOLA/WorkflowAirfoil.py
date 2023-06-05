@@ -607,9 +607,6 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
     else:
         raise ValueError('parameter mesh must be either a filename or a PyTree')
 
-    if not t: t = C.convertFile2PyTree(file_mesh)
-    else: t = I.copyRef(t)
-
     CoprocessOptions.setdefault('TagSurfacesWithIteration', 'auto')
     FluidProperties = PRE.computeFluidProperties()
 
@@ -638,6 +635,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
         CoprocessOptions=CoprocessOpts,
         FieldsAdditionalExtractions=FieldsAdditionalExtractions,
                             )
+    PRE.appendAdditionalFieldExtractions(ReferenceValues, Extractions)                            
     BCExtractions = ReferenceValues['BCExtractions']
     ReferenceValues['ImposedWallFields'] = ImposedWallFields
     ReferenceValues['TransitionZones'] = TransitionZones

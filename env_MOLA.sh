@@ -68,7 +68,6 @@ fi
 
 
 
-
 # architecture
 if lscpu | grep -q 'avx512' ; then
     export ARCH='avx512'

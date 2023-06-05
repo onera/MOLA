@@ -816,7 +816,7 @@ def extractRowGeometricalData(mesh, row, save=False, locateLE='auto'):
     row : str
         Name of the family of the blade of interest
     save : bool, optional
-        If :p:obj:`True`, save the output tree with the name 'BodyForceData_{row}.cgns'. 
+        If :py:obj:`True`, save the output tree with the name 'BodyForceData_{row}.cgns'. 
 
     Returns
     -------
