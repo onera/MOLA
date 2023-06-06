@@ -4011,6 +4011,9 @@ def addDistanceRespectToLine(t, LinePassingPoint, LineDirection,
 def modifyAirfoil(AirfoilInput, Chord=None,
                   MaxThickness=None, MaxRelativeThickness=None,
                   MaxThicknessRelativeLocation=None,
+                  MinThickness=None, MinRelativeThickness=None, 
+                  TrailingEdgeRadius=None, TrailingEdgeRelativeRadius=None,
+                  SmoothingDistance=0.1,
                   MaxCamber=None, MaxRelativeCamber=None,
                   MaxCamberRelativeLocation=None,
                   MinCamber=None, MinRelativeCamber=None,
@@ -4046,6 +4049,26 @@ def modifyAirfoil(AirfoilInput, Chord=None,
             Relative chordwise location of maximum thickness, with respect to the
             chord length. Must be :math:`\in (0,1)`
             Use :py:obj:`None` if this parameter is not aimed.
+        
+        MinThickness : float
+            if provided, sets the minimum thickness in absolute value [m]. 
+            It is used only after the position of maximum thickness, to be applied near the trailing edge only.
+
+        MinRelativeThickness : float
+            if provided, sets the minimum thickness in relative value
+            (normalized by the chord length)
+
+        TrailingEdgeRadius : float 
+            if provided, sets the radius to force a circular trailing edge shape in absolute value [m]. 
+
+        TrailingEdgeRelativeRadius : float
+            if provided, sets the radius to force a circular trailing edge shape in relative value
+            (normalized by the chord length). 
+            If MinRelativeThickness is not given, it will be taken equal to TrailingEdgeRelativeRadius.
+        
+        SmoothingDistance : float
+            Smoothing distance (relative to the chord), used when minimum thickness is applied to smooth 
+            the thickness law around the angular join. Default value is 0.1.
 
         MaxCamber : float
             Aimed maximum camber [m] (in top-side direction) of the new airfoil.
@@ -4145,6 +4168,11 @@ def modifyAirfoil(AirfoilInput, Chord=None,
                     MaxThickness=MaxThickness,
                     MaxRelativeThickness=MaxRelativeThickness,
                     MaxThicknessRelativeLocation=MaxThicknessRelativeLocation,
+                    MinThickness=MinThickness, 
+                    MinRelativeThickness=MinRelativeThickness, 
+                    TrailingEdgeRadius=TrailingEdgeRadius, 
+                    TrailingEdgeRelativeRadius=TrailingEdgeRelativeRadius,
+                    SmoothingDistance=SmoothingDistance,
                     InterpolationLaw=InterpolationLaw)
 
     Camber = modifyCamberOfCamberLine(Camber,
@@ -4171,6 +4199,9 @@ def modifyAirfoil(AirfoilInput, Chord=None,
 
 def modifyThicknessOfCamberLine(CamberCurve, NormalDirection, MaxThickness=None,
                 MaxRelativeThickness=None, MaxThicknessRelativeLocation=None,
+                MinThickness=None, MinRelativeThickness=None, 
+                TrailingEdgeRadius=None, TrailingEdgeRelativeRadius=None,
+                SmoothingDistance=0.1,
                 InterpolationLaw='interp1d_cubic'):
     '''
     Modify the ``RelativeThickness`` fields contained in a CamberLine zone.
@@ -4197,6 +4228,26 @@ def modifyThicknessOfCamberLine(CamberCurve, NormalDirection, MaxThickness=None,
         MaxThicknessRelativeLocation : float
             if provided, sets the chordwise relative location at which thickness
             is maximum.
+        
+        MinThickness : float
+            if provided, sets the minimum thickness in absolute value [m]. 
+            It is used only after the position of maximum thickness, to be applied near the trailing edge only.
+
+        MinRelativeThickness : float
+            if provided, sets the minimum thickness in relative value
+            (normalized by the chord length)
+
+        TrailingEdgeRadius : float 
+            if provided, sets the radius to force a circular trailing edge shape in absolute value [m]. 
+
+        TrailingEdgeRelativeRadius : float
+            if provided, sets the radius to force a circular trailing edge shape in relative value
+            (normalized by the chord length). 
+            If MinRelativeThickness is not given, it will be taken equal to TrailingEdgeRelativeRadius.
+        
+        SmoothingDistance : float
+            Smoothing distance (relative to the chord), used when minimum thickness is applied to smooth 
+            the thickness law around the angular join. Default value is 0.1.
 
         InterpolationLaw : str
             interpolation law to be applied for the modification of thickness
@@ -4205,11 +4256,16 @@ def modifyThicknessOfCamberLine(CamberCurve, NormalDirection, MaxThickness=None,
                 :py:func:`MOLA.InternalShortcuts.interpolate__`
     '''
 
-    needModification = MaxThickness or MaxRelativeThickness or MaxThicknessRelativeLocation
+    needModification = MaxThickness or MaxRelativeThickness or MaxThicknessRelativeLocation \
+        or MinThickness or MinRelativeThickness or TrailingEdgeRadius or TrailingEdgeRelativeRadius
     if not needModification: return CamberCurve
 
     if MaxThickness and MaxRelativeThickness:
         raise AttributeError('Cannot specify both relative and absolute thickness')
+    if MinThickness and MinRelativeThickness:
+        raise AttributeError('Cannot specify both relative and absolute thickness')
+    if TrailingEdgeRadius and TrailingEdgeRelativeRadius:
+        raise AttributeError('Cannot specify both relative and absolute TE radii')
 
     CamberLine = I.copyTree(CamberCurve)
 
@@ -4283,6 +4339,45 @@ def modifyThicknessOfCamberLine(CamberCurve, NormalDirection, MaxThickness=None,
         RelativeThickness[:] = J.interpolate__(s, AuxS, AuxRelativeThickness,
                                                Law=InterpolationLaw)
 
+    if MinThickness:
+        MinRelativeThickness = MinThickness / Chord
+    
+    if TrailingEdgeRadius:
+        TrailingEdgeRelativeRadius = TrailingEdgeRadius / Chord
+    
+    if not MinRelativeThickness and TrailingEdgeRelativeRadius:
+        MinRelativeThickness = TrailingEdgeRelativeRadius
+
+    if MinRelativeThickness:
+
+        import scipy
+
+        if not TrailingEdgeRelativeRadius:
+            raise AttributeError('Must provide a TrailingEdgeRelativeRadius when giving a min thickness')
+        
+        # Above this index, thickness is modified (lower bound) 
+        ModifIndex = ArgMaxThickness + np.argmin(np.abs(RelativeThickness[ArgMaxThickness:]-MinRelativeThickness))
+        RelativeThickness[ModifIndex:] = MinRelativeThickness
+
+        # Modify thickness near the TE to get a circular TE of radius TrailingEdgeRelativeRadius
+        LocalAbscissa = s-(np.amax(s)-TrailingEdgeRelativeRadius) # zero at TE minus the chosen radius
+        TEindices = np.where(LocalAbscissa>=0)[0]
+        RelativeThickness[TEindices] = np.sqrt(np.maximum(0, TrailingEdgeRelativeRadius**2 - LocalAbscissa[TEindices]**2))
+
+        # Apply a smoothing on thickness law on the distance sigma around the angular point
+        SmoothingDistance = min(SmoothingDistance, 1-s[ModifIndex] - TrailingEdgeRelativeRadius)
+        SmoothingIndices = np.where(np.abs(s-s[ModifIndex]) < SmoothingDistance)[0] # indices where smooting is performed
+        # Compute the derivative at the distance sigma before the angular point
+        # Remark : the derivative at the distance sigma after the angular point is set to zero
+        deriv1 = (RelativeThickness[SmoothingIndices[0]+1]-RelativeThickness[SmoothingIndices[0]-1]) / (s[SmoothingIndices[0]+1] - s[SmoothingIndices[0]-1])
+        # Smoothing : interpolation with a cubic spline, imposing the first derivative for both bounds
+        smoothed_thickness = scipy.interpolate.CubicSpline([s[SmoothingIndices][0], s[SmoothingIndices][-1]], 
+                                                           [RelativeThickness[SmoothingIndices][0], RelativeThickness[SmoothingIndices][-1]],
+                                                           bc_type=((1, deriv1), (1, 0.))
+                                                           )
+        # Aplly the smoothing
+        RelativeThickness[SmoothingIndices] = smoothed_thickness(s[SmoothingIndices])
+        
 
     T._rotate(CamberLine, (0,0,0), FrenetAuxiliary, FrenetOriginal)
     T._translate(CamberLine, LeadingEdge)
