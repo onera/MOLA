@@ -3510,9 +3510,6 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     addKeys.update(dict(
     multigrid     = 'none',
     t_harten      = 0.01,
-    harten_type   = 2,  # see Development #7765 on https://elsa-e.onera.fr/issues/7765
-                        # Incompability between default value harten_type=1
-                        # and default value vel_formulation='absolute'
     muratiomax    = 1.e+20,
         ))
 
