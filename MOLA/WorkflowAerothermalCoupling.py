@@ -292,14 +292,23 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
            'hpar', 'ro', 'visclam', 'viscrapp']
 
     PRE.addTrigger(t)
+
+    is_unsteady = AllSetupDicts['elsAkeysNumerics']['time_algo'] != 'steady'
+    avg_requested = AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'] is not None
+
+    if is_unsteady and not avg_requested:
+        msg =('WARNING: You are setting an unsteady simulation, but no field averaging\n'
+              'will be done since CoprocessOptions key "FirstIterationForFieldsAveraging"\n'
+              'is set to None. If you want fields average extraction, please set a finite\n'
+              'positive value to "FirstIterationForFieldsAveraging" and relaunch preprocess')
+        print(J.WARN+msg+J.ENDC)
+
     PRE.addExtractions(t, AllSetupDicts['ReferenceValues'],
                       AllSetupDicts['elsAkeysModel'],
                       extractCoords=False,
-                      BCExtractions=ReferenceValues['BCExtractions'])
+                      BCExtractions=ReferenceValues['BCExtractions'],
+                      add_time_average= is_unsteady and avg_requested)
 
-    if elsAkeysNumerics['time_algo'] != 'steady':
-        PRE.addAverageFieldExtractions(t, AllSetupDicts['ReferenceValues'],
-            AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'])
 
     PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],
                          AllSetupDicts['ReferenceValues'])

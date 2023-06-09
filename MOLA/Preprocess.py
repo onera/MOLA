@@ -514,8 +514,12 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
 
     BCExtractions = ReferenceValues['BCExtractions']
 
+    if I.getNodeFromName(t, 'proc'):
+        JobInformation['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
+        Splitter = None
+    else:
+        Splitter = 'PyPart'
 
-    JobInformation['NumberOfProcessors'] = int(max(getProc(t))+1)
     elsAkeysCFD      = getElsAkeysCFD(unstructured=IsUnstructured)
     elsAkeysModel    = getElsAkeysModel(FluidProperties, ReferenceValues,
                                         unstructured=IsUnstructured)
@@ -555,6 +559,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
 
 
     AllSetupDicts = dict(Workflow='Standard',
+                        Splitter=Splitter,
                         JobInformation=JobInformation,
                         FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
@@ -571,8 +576,12 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
     saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
 
-    print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
-                                               JobInformation['NumberOfProcessors'],J.ENDC))
+    if not Splitter:
+        print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
+                                                   JobInformation['NumberOfProcessors'],J.ENDC))
+    else:
+        print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
+            Splitter + J.ENDC))
 
     if COPY_TEMPLATES:
         JM.getTemplates('Standard', JobInformation=JobInformation)
@@ -802,9 +811,9 @@ def connectMesh(t, InputMeshes):
     '''
     for meshInfo in InputMeshes:
         if 'Connection' not in meshInfo: continue
-        base = I.getNodeFromName1(t, meshInfo['baseName'])
-        baseDim = I.getValue(base)[-1]
         for ConnectParams in meshInfo['Connection']:
+            base = I.getNodeFromName1(t, meshInfo['baseName'])
+            baseDim = I.getValue(base)[-1]
             ConnectionType = ConnectParams['type']
             print('connecting type {} at base {}'.format(ConnectionType,
                                                          meshInfo['baseName']))
@@ -813,14 +822,14 @@ def connectMesh(t, InputMeshes):
                 print('connection tolerance not defined. Using tol=1e-8')
                 tolerance = 1e-8
             if ConnectionType == 'Match':
-                X.connectMatch(base, tol=tolerance, dim=baseDim)
+                base_out = X.connectMatch(base, tol=tolerance, dim=baseDim)
             elif ConnectionType == 'NearMatch':
                 try: ratio = ConnectParams['ratio']
                 except KeyError:
                     print('NearMatch ratio was not defined. Using ratio=2')
                     ratio = 2
 
-                X.connectNearMatch(base, ratio=ratio,
+                base_out = X.connectNearMatch(base, ratio=ratio,
                                       tol=tolerance,
                                       dim=baseDim)
             elif ConnectionType == 'PeriodicMatch':
@@ -830,15 +839,16 @@ def connectMesh(t, InputMeshes):
                 except: rotationAngle = [0., 0., 0.]
                 try: translation = ConnectParams['translation']
                 except: translation = [0., 0., 0.]
-                t = X.connectMatchPeriodic(t,
-                                            rotationCenter=rotationCenter,
-                                            rotationAngle=rotationAngle,
-                                            translation=translation,
-                                            tol=tolerance,
-                                            dim=baseDim)
+                base_out = X.connectMatchPeriodic(base,
+                                                  rotationCenter=rotationCenter,
+                                                  rotationAngle=rotationAngle,
+                                                  translation=translation,
+                                                  tol=tolerance,
+                                                  dim=baseDim)
             else:
                 ERRMSG = 'Connection type %s not implemented'%ConnectionType
                 raise AttributeError(ERRMSG)
+            base[2] = base_out[2]
     return t
 
 def setBoundaryConditions(t, InputMeshes):
@@ -1126,6 +1136,10 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                 .. note:: **cores_per_node** and **maximum_allowed_nodes**
                     parameters are ignored.
 
+            * ``'pypart'``
+                the mesh will be split and distributed on-the-run using PyPart.
+                In this case, this function is not effective.
+
         cores_per_node : int
             number of available CPU cores per node.
 
@@ -1177,6 +1191,11 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
             new distributed *(and possibly split)* tree
 
     '''
+
+    if mode.lower() == 'pypart':
+        print(J.WARN+'mesh shall be split and distributed using PyPart'+J.ENDC)
+        return t
+
     print('splitting and distributing mesh...')
     for meshInfo in InputMeshes:
         if 'SplitBlocks' not in meshInfo:
@@ -3596,14 +3615,21 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
     else:
         includeRelativeFieldsForRestart = False
 
-    if AllSetupDictionaries['elsAkeysNumerics']['time_algo'] != 'steady':
-        addAverageFieldExtractions(t, AllSetupDictionaries['ReferenceValues'],
-            AllSetupDictionaries['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'])
+    is_unsteady = AllSetupDictionaries['elsAkeysNumerics']['time_algo'] != 'steady'
+    avg_requested = AllSetupDictionaries['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'] is not None
+
+    if is_unsteady and not avg_requested:
+        msg =('WARNING: You are setting an unsteady simulation, but no field averaging\n'
+              'will be done since CoprocessOptions key "FirstIterationForFieldsAveraging"\n'
+              'is set to None. If you want fields average extraction, please set a finite\n'
+              'positive value to "FirstIterationForFieldsAveraging" and relaunch preprocess')
+        print(J.WARN+msg+J.ENDC)
 
     addExtractions(t, AllSetupDictionaries['ReferenceValues'],
                       AllSetupDictionaries['elsAkeysModel'],
                       extractCoords=extractCoords, BCExtractions=BCExtractions,
-                      includeRelativeFieldsForRestart=includeRelativeFieldsForRestart)
+                      includeRelativeFieldsForRestart=includeRelativeFieldsForRestart,
+                      add_time_average= is_unsteady and avg_requested )
     addReferenceState(t, AllSetupDictionaries['FluidProperties'],
                          AllSetupDictionaries['ReferenceValues'])
     dim = int(AllSetupDictionaries['elsAkeysCFD']['config'][0])
@@ -3838,8 +3864,10 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
     '''
     print('gathering links between main CGNS and fields')
     AllCGNSLinks = []
+    include_zone_bc_link = I.getNodeFromName(t,'.Solver#Output#Average') is not None
     for b in I.getBases(t):
         for z in b[2]:
+            if z[3] != 'Zone_t': continue
             fs = I.getNodeFromName1(z,MainCGNS_FlowSolutionName)
             if fs:
                 for field in I.getChildren(fs):
@@ -3862,6 +3890,17 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
                                 DIRECTORY_OUTPUT+'/'+FieldsFilename,
                                 '/'+targetNodePath,
                                 currentNodePath]]
+
+            zbc = I.getNodeFromType1(z,'ZoneBC_t')
+            if zbc:
+                for bc in I.getNodesFromType1(zbc, 'BC_t'):
+                    currentNodePath='/'.join([b[0], z[0], zbc[0], bc[0],
+                                              'BCDataSet#Average'])
+                    targetNodePath=currentNodePath
+                    AllCGNSLinks += [['.',
+                                    DIRECTORY_OUTPUT+'/'+FieldsFilename,
+                                    '/'+targetNodePath,
+                                    currentNodePath]]
 
     print('saving PyTrees with links')
     to = I.copyRef(t)
@@ -3899,7 +3938,8 @@ def addTrigger(t, coprocessFilename='coprocess.py'):
                  file=coprocessFilename)
 
 def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
-        BCExtractions=dict(), includeRelativeFieldsForRestart=False):
+        BCExtractions=dict(), includeRelativeFieldsForRestart=False,
+        add_time_average=False):
     '''
     Include surfacic and field extraction information to CGNS tree using
     information contained in dictionaries **ReferenceValues** and
@@ -3938,9 +3978,16 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
             if :py:obj:`True`, then creates an additional container
             'FlowSolution#EndOfRun#Relative' where restart fields will be 
             extracted
+
+        add_time_average : bool
+            if :py:obj:`True`, include additional ``FlowSolution#Average`` for 
+            time-averaged field extraction and ``.Solver#Output#Average`` 
+            for time-averaging fields at boundary-conditions.
     '''
-    addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions=BCExtractions)
-    addFieldExtractions(t, ReferenceValues, extractCoords=extractCoords)
+    addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
+        BCExtractions=BCExtractions, add_time_average=add_time_average)
+    addFieldExtractions(t, ReferenceValues, extractCoords=extractCoords,
+        add_time_average=add_time_average)
     if includeRelativeFieldsForRestart:
         addFieldExtractions(t, ReferenceValues, extractCoords=False,
         includeAdditionalExtractions=False, container='FlowSolution#EndOfRun#Relative',
@@ -3948,7 +3995,8 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
     EP._addGlobalConvergenceHistory(t)
 
 
-def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
+def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={},
+        add_time_average=False):
     '''
     Include surfacic extraction information to CGNS tree using information
     contained in dictionaries **ReferenceValues** and **elsAkeysModel**.
@@ -3975,6 +4023,10 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
             The value associated to each key is a :py:class:`list` of
             :py:class:`str` corresponding to variable names to extract (in elsA
             convention).
+
+        add_time_average : bool
+            if :py:obj:`True`, include additional ``.Solver#Output#Average`` 
+            extraction node for time-averaging fields at boundary-conditions.
     '''
 
     # Default keys to write in the .Solver#Output of the Family node
@@ -4066,16 +4118,26 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
                     print('setting .Solver#Output to FamilyNode '+FamilyNode[0])
                     if 'BCWall' in BCType:
                         BCWallKeys.update(varDict)
+                        params = BCWallKeys
                         J.set(FamilyNode, '.Solver#Output',**BCWallKeys)
                     else:
                         BCKeys.update(varDict)
-                        J.set(FamilyNode, '.Solver#Output',**BCKeys)
+                        params = BCKeys
+                    J.set(FamilyNode, '.Solver#Output',**params)
+                    if add_time_average:
+                        print('setting .Solver#Output#Average to FamilyNode '+FamilyNode[0])
+                        avg_params = dict(average='time',
+                                          period_init='inactive')
+
+                        avg_params.update(params)
+                        J.set(FamilyNode, '.Solver#Output#Average',**avg_params)
+
                 else:
                     raise ValueError('did not added anything since:\nExtractVariablesList=%s'%str(ExtractVariablesList))
 
 def addFieldExtractions(t, ReferenceValues, extractCoords=False,
         includeAdditionalExtractions=True, container='FlowSolution#EndOfRun',
-        ReferenceFrame='absolute'):
+        ReferenceFrame='absolute', add_time_average=False):
     '''
     Include fields extraction information to CGNS tree using
     information contained in dictionary **ReferenceValues**.
@@ -4104,6 +4166,11 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False,
 
         ReferenceFrame : str
             ``'absolute'`` or ``'relative'``
+
+        add_time_average : bool
+            if :py:obj:`True`, include additional ``FlowSolution#Average`` for 
+            time-averaged field extraction
+
     '''
 
     Fields2Extract = ReferenceValues['Fields'][:] 
@@ -4131,48 +4198,21 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False,
               writingmode=2,
               writingframe=ReferenceFrame)
 
-def addAverageFieldExtractions(t, ReferenceValues, FirstIterationForFieldsAveraging=1):
-    '''
-    Include time averaged fields extraction information to CGNS tree using
-    information contained in dictionary **ReferenceValues**.
+        if add_time_average:
+            Fields2Extract = ReferenceValues['Fields'] + \
+                             ReferenceValues['FieldsAdditionalExtractions']
 
-    Parameters
-    ----------
-
-        t : PyTree
-            prepared grid as produced by :py:func:`prepareMesh4ElsA` function.
-
-            .. note:: tree **t** is modified
-
-        ReferenceValues : dict
-            dictionary as produced by :py:func:`computeReferenceValues` function
-
-        FirstIterationForFieldsAveraging : int
-            Iteration to start the computation of time average.
-    '''
-
-    if FirstIterationForFieldsAveraging is None:
-        msg =('WARNING: You are setting an unsteady simulation, but no field averaging\n'
-              'will be done since CoprocessOptions key "FirstIterationForFieldsAveraging"\n'
-              'is set to None. If you want fields average extraction, please set a finite\n'
-              'positive value to "FirstIterationForFieldsAveraging" and relaunch preprocess')
-        print(J.WARN+msg+J.ENDC)
-        return
-    Fields2Extract = ReferenceValues['Fields'] + ReferenceValues['FieldsAdditionalExtractions']
-
-    for zone in I.getZones(t):
-
-        EoRnode = I.createNode('FlowSolution#Average', 'FlowSolution_t',
-                                parent=zone)
-        I.createNode('GridLocation','GridLocation_t', value='CellCenter', parent=EoRnode)
-        for fieldName in Fields2Extract:
-            I.createNode(fieldName, 'DataArray_t', value=None, parent=EoRnode)
-        J.set(EoRnode, '.Solver#Output',
-              period=1,
-              writingmode=2,
-              writingframe='absolute',
-              average='time',
-              period_init='inactive')
+            EoRnode = I.createNode('FlowSolution#Average', 'FlowSolution_t',
+                                    parent=zone)
+            I.createNode('GridLocation','GridLocation_t', value='CellCenter', parent=EoRnode)
+            for fieldName in Fields2Extract:
+                I.createNode(fieldName, 'DataArray_t', value=None, parent=EoRnode)
+            J.set(EoRnode, '.Solver#Output',
+                period=1,
+                writingmode=2,
+                writingframe='absolute',
+                average='time',
+                period_init='inactive')
 
 
 def addGoverningEquations(t, dim=3):
@@ -4830,6 +4870,10 @@ def adapt2elsA(t, InputMeshes):
         EP._prefixDnrInSubRegions(t)
         removeEmptyOversetData(t, silent=False)
 
+    forceFamilyBCasFamilySpecified(t) # https://elsa.onera.fr/issues/10928
+    I._createElsaHybrid(t, method=1)
+
+def forceFamilyBCasFamilySpecified(t):
     # https://elsa.onera.fr/issues/10928
     for base in I.getBases(t):
         for zone in I.getZones(base):
@@ -4838,9 +4882,6 @@ def adapt2elsA(t, InputMeshes):
                     if I.getNodeFromType1(BC,'FamilyName_t') is not None:
                         I.setValue(BC,'FamilySpecified')
                         continue
-
-
-    I._createElsaHybrid(t, method=1)
 
 def hasAnyNearMatch(t, InputMeshes):
     '''
@@ -5611,5 +5652,6 @@ def appendAdditionalFieldExtractions(ReferenceValues, Extractions):
     for e in Extractions:
         try: field_name = e['field']
         except KeyError: continue
-        if field_name.startswith('Coordinate'): continue
+        if field_name.startswith('Coordinate') or field_name == 'ChannelHeight':
+            continue
         addFieldExtraction(ReferenceValues, field_name)
