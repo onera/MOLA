@@ -304,6 +304,7 @@ Now, we are going to explain briefly how to show a field and explore data.
 
 * on ``Mesh`` scroll-bar menu, select ``Scalar``
 
+
 .. figure:: ../../EXAMPLES/WORKFLOW_STANDARD/SPHERE/SIMPLE/FIGURES/tkCassiopeeScalarSelection.png
     :width: 50%
     :align: center
