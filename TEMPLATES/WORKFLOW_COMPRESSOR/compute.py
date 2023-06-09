@@ -103,6 +103,8 @@ if Splitter == 'PyPart':
 else:
     Skeleton = CO.loadSkeleton()
 
+
+
 # ========================== LAUNCH ELSA ========================== #
 
 if not FULL_CGNS_MODE:

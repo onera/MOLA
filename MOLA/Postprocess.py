@@ -46,6 +46,11 @@ if not MOLA.__ONLY_DOC__:
     import Post.PyTree as P
     import Converter.elsAProfile as eP
 
+    from mpi4py import MPI
+    comm   = MPI.COMM_WORLD
+    rank   = comm.Get_rank()
+
+
 # MOLA
 from . import InternalShortcuts as J
 from . import Wireframe as W
@@ -1116,3 +1121,160 @@ def getSubIterations():
     residualArray  = np.array(residualList)
 
     return iterationArray, dualIterationArray, residualArray
+
+def extractBC(t, Name=None, Type=None):
+    if Name is not None and Type is not None:
+        raise AttributeError('must provide either Name or Type, but not both.')
+    
+    t = I.copyRef(t)
+
+    bases_children_except_zones = []
+    for base in I.getBases(t):
+        for n in base[2]:
+            if n[3] != 'Zone_t': 
+                bases_children_except_zones.append( n )
+
+    # information must be in BCDataSet_t containers
+    I._rmNodesByType(t, 'FlowSolution_t')
+    BCDataSetNames = set()
+    for zone in I.getZones(t):
+        zbc = I.getNodeFromType1(zone, 'ZoneBC_t')
+        for bc in zbc[2]:
+            for bcds in I.getNodesFromType1(bc,'BCDataSet_t'):
+                BCDataSetNames.add( bcds[0] )
+
+    zones_merged = []
+    for BCDataSetName in BCDataSetNames:
+        tR = I.copyRef(t)
+        for zone in I.getZones(tR):
+            zbc = I.getNodeFromType1(zone, 'ZoneBC_t')
+            LocalBCDataSetNames = set()
+            for bc in zbc[2]:
+                for bcds in I.getNodesFromType1(bc,'BCDataSet_t'):
+                    LocalBCDataSetNames.add( bcds[0] )
+            for bc in zbc[2]:
+                for LocalBCDataSetName in LocalBCDataSetNames:
+                    if LocalBCDataSetName != BCDataSetName:
+                        I._rmNodesByName1(bc, BCDataSetName)
+        if Name:
+            zones = I.getZones( C.extractBCOfName(tR, Name, extrapFlow=False) )
+        else:
+            zones = I.getZones( C.extractBCOfType(tR, Type, extrapFlow=False) )
+        
+        for z in zones:
+            fs = I.getNodeFromType1(z, 'FlowSolution_t')
+            if not fs: continue
+            fs[0] = BCDataSetName
+            if zones_merged:
+                for zm in zones_merged:
+                    if z[0] == zm[0]:
+                        zm[2] += [ fs ]
+                        break
+            else:
+                zones_merged = zones
+        
+    
+    t_merged = C.newPyTree(['Base',zones_merged])
+    base = I.getBases(t_merged)[0]
+    base[2].extend( bases_children_except_zones )
+    zones = I.getZones(t_merged)
+    return zones
+
+
+def isoSurface(t, fieldname=None, value=None, container='FlowSolution#Init'):
+    t = I.copyRef(t)
+    bases_children_except_zones = []
+    for base in I.getBases(t):
+        for n in base[2]:
+            if n[3] != 'Zone_t': 
+                bases_children_except_zones.append( n )
+
+    # information must be in FlowSolution_t containers
+    fsn2ind = dict()
+    zones = I.getZones(t)
+    i = -1
+    for zone in zones:
+        for fs in I.getNodesFromType1(zone, 'FlowSolution_t'):
+            if fs[0] not in fsn2ind:
+                i+=1
+                fsn2ind[fs[0]] = i
+    ind2fsn = [k for k in fsn2ind]
+    
+    zones_tmp = []
+    for zone in zones:
+        center_fields = []
+        node_fields = []
+        for fs in I.getNodesFromType1(zone, 'FlowSolution_t'):
+            i = fsn2ind[fs[0]]
+            GridLocNode = I.getNodeFromType1(fs,'GridLocation_t')
+            location = I.getValue(GridLocNode) if GridLocNode else 'Vertex'
+            fields = I.getNodesFromType1(fs, 'DataArray_t')
+            for field in fields:
+                field[0] = '%d_%s'%(i, field[0])
+            if location == 'Vertex':
+                node_fields.extend( fields )
+            else:
+                center_fields.extend( fields )
+        zone_tmp = I.copyRef(zone)
+        I._rmNodesByType1(zone_tmp, 'FlowSolution_t')
+        
+        if node_fields:
+            fs = I.createNode('%s'%I.__FlowSolutionNodes__, 'FlowSolution_t', parent=zone_tmp)
+            I.createNode('GridLocation', 'GridLocation_t', 'Vertex', parent=fs)
+            fs[2].extend( node_fields )
+        
+        if center_fields:
+            fs = I.createNode('%s'%I.__FlowSolutionCenters__, 'FlowSolution_t', parent=zone_tmp)
+            I.createNode('GridLocation', 'GridLocation_t', 'CellCenter', parent=fs)
+            fs[2].extend( center_fields )
+
+        zones_tmp += [ zone_tmp ]
+
+    if fieldname not in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
+        fsfieldname = '%d_'%fsn2ind[container]+fieldname
+    else:
+        fsfieldname = fieldname
+
+    surfs = P.isoSurfMC(zones_tmp, fsfieldname, value)
+
+    for zone in surfs:
+        fs = I.getNodeFromName1(zone, I.__FlowSolutionNodes__)
+        if not fs: continue
+        fields = I.getNodesFromType1(fs, 'DataArray_t')
+        fsn2fields = dict()
+        for field in fields:
+            fieldnamesplit = field[0].split('_')
+            fieldind = int(fieldnamesplit[0])
+            field[0] = '_'.join(fieldnamesplit[1:])
+            fsname = ind2fsn[ fieldind ]
+            if fsname not in fsn2fields:
+                fsn2fields[fsname] = [field]
+            else:
+                fsn2fields[fsname]+= [field]
+        I._rmNodesByType1(zone, 'FlowSolution_t')
+        for fsn, fields in fsn2fields.items():
+            if not fields: continue
+            fs = I.createNode(fsn, 'FlowSolution_t', parent=zone)
+            I.createNode('GridLocation', 'GridLocation_t', 'Vertex', parent=fs)
+            fs[2].extend(fields)
+
+    t_merged = C.newPyTree(['Base', surfs])
+    base = I.getBases(t_merged)[0]
+    base[2].extend( bases_children_except_zones )
+    surfs = I.getZones(t_merged)
+    
+    return surfs
+
+def convertToTetra(t):
+    tR = I.copyRef(t)
+    fs_per_zone = []
+    for z in I.getZones(tR):
+        fs_per_zone += [ I.getNodesFromType3(t, 'FlowSolution_t') ]
+        I._rmNodesFromType1(z, 'FlowSolution_t')
+    tetra = C.convertArray2Tetra(tR)
+
+    for z, fs_at_zone in zip( I.getZones(tetra), fs_per_zone ):
+        z[2].extend( fs_at_zone )
+
+    return tetra
+
