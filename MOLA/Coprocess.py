@@ -2503,7 +2503,7 @@ def splitWithPyPart():
 
     import etc.pypart.PyPart     as PPA
 
-    # For now, PyPart Log files must be written in order to not polluate the stderr.log file
+    # HACK For now, PyPart Log files must be written in order to not polluate the stderr.log file
     # See https://elsa-e.onera.fr/issues/11028#note-4
     PyPartBase = PPA.PyPart(FILE_CGNS,
                             lksearch=[DIRECTORY_OUTPUT, '.'],
@@ -2538,7 +2538,7 @@ def splitWithPyPart():
             J.set(zone, 'GridCoordinates', childType='GridCoordinates_t',
                 CoordinateX=None, CoordinateY=None, CoordinateZ=None)
         elif I.getZoneType(zone) == 2:
-            # For unstructured zone, correct the node NFaceElements/ElementConnectivity
+            # HACK For unstructured zone, correct the node NFaceElements/ElementConnectivity
             # Problem with PyPart: see issue https://elsa-e.onera.fr/issues/9002
             # C._convertArray2NGon(zone)
             NFaceElements = I.getNodeFromName(zone, 'NFaceElements')

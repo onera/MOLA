@@ -3532,7 +3532,7 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     if unstructured:
         elsAkeysNumerics.update(dict(
             implconvectname = 'vleer', # only available for unstructured mesh, see https://elsa-e.onera.fr/issues/6492
-            viscous_fluxes  = '5p_cor2', # adapted to unstructured mesh
+            viscous_fluxes  = '5p_cor2', # adapted to unstructured mesh # TODO Set 5p_cor2 for structured mesh also ?
         ))
 
     elsAkeysNumerics.update(kwargs)

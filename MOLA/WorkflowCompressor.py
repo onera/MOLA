@@ -614,11 +614,13 @@ def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
         subTree = t
         excludeZones = False
 
-    ParamHeight.generateHLinesAxial(subTree, hlines, nbslice=nbslice)
-    try: ParamHeight.plot_hub_and_shroud_lines(hlines)
-    except: pass
-    I._rmNodesByName(t, fsname)
-    t = ParamHeight.computeHeight(t, hlines, fsname=fsname, writeMask='mask.cgns')
+    silence = J.OutputGrabber()
+    with silence:
+        ParamHeight.generateHLinesAxial(subTree, hlines, nbslice=nbslice)
+        try: ParamHeight.plot_hub_and_shroud_lines(hlines)
+        except: pass
+        I._rmNodesByName(t, fsname)
+        t = ParamHeight.computeHeight(t, hlines, fsname=fsname, writeMask='mask.cgns')
 
     if excludeZones:
         OLD_FlowSolutionNodes = I.__FlowSolutionNodes__
@@ -712,7 +714,7 @@ def parametrizeChannelHeight_future(t, nbslice=101, tol=1e-10, offset=1e-10,
         else:
             m = TH.generateMaskWithChannelHeightLinear(t, lin_axis=lin_axis)
         # - Generation of the ChannelHeight field
-        t = TH.computeHeightFromMask(t, m, writeMask='mask.cgns')
+        TH._computeHeightFromMask(t, m, writeMask='mask.cgns', lin_axis=lin_axis)
 
     I.__FlowSolutionNodes__ = OLD_FlowSolutionNodes
     print(J.GREEN + 'done.' + J.ENDC)
