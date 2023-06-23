@@ -129,6 +129,7 @@ if ENTER_COUPLING:
             CONVERGED = CO.isConverged(ConvergenceCriteria)
 
     if SAVE_ARRAYS:
+        CO.appendProbes2Arrays(t, arrays, setup.Probes)
         arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,
                   Extractions=setup.Extractions, addMemoryUsage=True)
         CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))

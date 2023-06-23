@@ -103,6 +103,9 @@ if Splitter == 'PyPart':
 else:
     Skeleton = CO.loadSkeleton()
 
+# ========================== INIT PROBES ========================== #
+CO.searchZoneAndIndexForProbes(Skeleton, setup.Probes)
+
 # ========================== LAUNCH ELSA ========================== #
 
 if not FULL_CGNS_MODE:
@@ -170,6 +173,7 @@ CO.monitorTurboPerformance(surfs, arrays, RequestedStatistics)
 CO.save(surfs, os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES), tagWithIteration=TagSurfacesWithIteration)
 
 # save arrays
+CO.appendProbes2Arrays(t, arrays, setup.Probes)
 arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,
           Extractions=setup.Extractions, addMemoryUsage=True)
 CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))
