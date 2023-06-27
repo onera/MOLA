@@ -2036,9 +2036,8 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
             I._rmNodesByType(FamilyNode, 'FamilyBC_t')
             I.newFamilyBC(value='BCOutflowSubsonic', parent=FamilyNode)
 
-            for BC in C.getFamilyBCs(t,BCparam['FamilyName']):
-                BCkwargs.update({'bc':BC}) 
-                setBC_giles_outlet(t,**BCkwargs)
+            for bc in C.getFamilyBCs(t,BCparam['FamilyName']):
+                setBC_giles_outlet(t, bc, FluidProperties, ReferenceValues, **BCkwargs)
 
         elif BCparam['type'] == 'giles_in':
             print(J.CYAN + 'set BC nscbc giles_in on ' + BCparam['FamilyName'] + J.ENDC)
@@ -2049,9 +2048,8 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
             I._rmNodesByType(FamilyNode, 'FamilyBC_t')
             I.newFamilyBC(value='BCInflowSubsonic', parent=FamilyNode)
 
-            for BC in C.getFamilyBCs(t,BCparam['FamilyName']):
-                BCkwargs.update({'bc':BC}) 
-                setBC_giles_inlet(t, FluidProperties, ReferenceValues, **BCkwargs)
+            for bc in C.getFamilyBCs(t,BCparam['FamilyName']):
+                setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, **BCkwargs)
 
 
         elif BCparam['type'] == 'stage_mxpl':
@@ -2716,7 +2714,7 @@ def setBC_outpres(t, FamilyName, Pressure, bc=None, variableForInterpolation='Ch
         setBCwithImposedVariables(t, FamilyName, ImposedVariables,
                                 FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc, variableForInterpolation=variableForInterpolation)
 
-def setBC_giles_outlet(t, FluidProperties, ReferenceValues, FamilyName,**kwargs):
+def setBC_giles_outlet(t, bc, FluidProperties, ReferenceValues, FamilyName,**kwargs):
 
     '''
     Impose a Boundary Condition ``giles_out``.
@@ -2730,88 +2728,90 @@ def setBC_giles_outlet(t, FluidProperties, ReferenceValues, FamilyName,**kwargs)
             t : PyTree
                 Tree to modify
 
+            bc : CGNS node of type BC_t
+                 BC node attached to the family in the which the boundary condition is applied
+
+            FluidProperties : dict
+                as obtained from :py:func:`computeFluidProperties`
+
+            ReferenceValues : dict
+                as obtained from :py:func:`computeReferenceValues`
+
             FamilyName : str
                 Name of the family on which the boundary condition will be imposed
+            
+            kwargs : dict
+                Parameters defined by the user: FamilyName, Pressure, NbModesFourierGiles, monitoring_flag, option
 
             TO DO: 
-               1. bien faire le tri entre les grandeurs à imposer par l'utilisateur et celle qu'il ne doit pas imposer
-               2. se caler davantage sur ce qui est fait pour outpres et outradeq
-               3. ajouter la possibilité d'imposer une cartographie
-               4. ajouter les paramètres Giles dans le setup.py pour la tracabilité
+               1. keep a similar structure as outpres and outradeq
+               2. add cartography
     '''
 
-
-
-    #setBCwithImposedVariables(t, FamilyName, Pressure,
-    #    FamilyBC='BCOutflowSubsonic', BCType='BCGilesOutlet', bc=bc)
-
-    # -------------------------------------------------------
-    #Add nodes relative to Giles bc: 
-
-    # mandatory keys
-    # Giles
-    NbModesFourier = kwargs.get('giles_nbMode')               # given by the user - recommended value : ncells_theta/2 + 1 (odd_value)
-    # monitoring
-    monitoring_flag = kwargs.get('monitoring_flag',  None)    # given by the user
-    # Outlet
-    Pressure = kwargs.get('Pressure',None)                    # given by the user
-
-    # get the BC
-    bc = kwargs.get('bc',None)
-    #FamilyNode = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')  # Inutile?
-    #SolverBCNode = I.getNodeFromName(bc, '.Solver#BC')                # Inutile?
+    # option: RadialEquilibrium or file
+    option = 'RadialEquilibrium'                # default option
 
     # computation of sound velocity for Giles
     VelocityScale =  (FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*ReferenceValues['TemperatureStagnation'])**0.5
 
-    J.set(bc, '.Solver#BC', 
-        # keys relative to NSCBC
-        type = 'nscbc_out',                                                          # mandatory key to have NSCBC-Giles treatment
-        nscbc_giles= 'statio',                                                       # mandatory key to have NSCBC-Giles treatment
-        nscbc_interpbc = 'linear',                                                   # mandatory value
-        nscbc_fluxt = kwargs.get('nscbc_fluxt', 'fluxBothTransv'),                   # recommended value - possible keys : 'classic'; 'fluxInviscidTransv'; 'fluxBothTransv'
-        nscbc_surf =  kwargs.get('nscbc_surf',  'revolution'),                       # recommended value - possible keys : 'flat', 'revolution'
-        nscbc_outwave = kwargs.get('nscbc_outwave',  'grad_etat'),                   # recommended value - possible keys : 'grad_etat'; 'extrap_flux'
-        nscbc_velocity_scale = kwargs.get('nscbc_velocity_scale',VelocityScale),     # default value - sound velocity 
-        nscbc_viscwall_len = kwargs.get('nscbc_viscwall_len', 5.e-4) ,               # default value, could be updated by the user if convergence issue
-        # keys relative to the Giles treatment 
-        giles_opt = 'relax',                                                         # mandatory key for NSCBC-Giles treatment
-        giles_restric_relax = 'inactive',                                            # mandatory key for NSCBC-Giles treatment
-        giles_exact_lodi = kwargs.get('giles_exact_lodi',  'active'),                # recommended value - possible keys: 'inactive', 'partial', 'active'
-        giles_nbMode = NbModesFourier,                                               # given by the user
-        # keys relative to the monitoring and radii calculus - donnees monitoring stockées dans LOGS
-        bnd_monitoring = 'active',                                                   # recommended value
-        monitoring_comp_rad = 'auto',                                                # recommended value - possible keys: 'from_file', 'monofenetre'
-        monitoring_tol_rad =kwargs.get('monitoring_tol_rad',  1e-6),                 # recommended value
-        monitoring_var = 'psta', 
-        monitoring_file = 'LOGS/Outlet_',
-        monitoring_period = kwargs.get('monitoring_period',  20),                    # recommended value                             
-        monitoring_flag = monitoring_flag,                                           # given by the user
-        # keys relative to the outlet BC
-        nscbc_relaxo = kwargs.get('nscbc_relaxo',  200.),                            # recommended value  
-        giles_relaxo = kwargs.get('giles_relaxo',  200.),                            # recommended value  
-        monitoring_indpiv = kwargs.get('IndexPivot',1),                              # default value
-        monitoring_pressure = Pressure                                               # given by the user
-        )
+    # creation of dictionnary of keys for Giles outlet BC  
+    DictKeysGilesOutlet = {}
 
-    '''
-    if isinstance(IndexPivot,int):
-        J.set(bc, '.Solver#BC', monitoring_indpiv =IndexPivot)
-    else:
-        J.set(bc, '.Solver#BC', monitoring_indpiv = 1)
-    '''
+    # keys relative to NSCBC
+    DictKeysGilesOutlet['type'] = 'nscbc_out'                                                         # mandatory key to have NSCBC-Giles treatment
+    DictKeysGilesOutlet['nscbc_giles'] = 'statio'                                                     # mandatory key to have NSCBC-Giles treatment
+    DictKeysGilesOutlet['nscbc_interpbc'] = 'linear'                                                  # mandatory value
+    DictKeysGilesOutlet['nscbc_fluxt'] = kwargs.get('nscbc_fluxt', 'fluxBothTransv')                  # recommended value - possible keys : 'classic'; 'fluxInviscidTransv'; 'fluxBothTransv'
+    DictKeysGilesOutlet['nscbc_surf'] = kwargs.get('nscbc_surf',  'revolution')                       # recommended value - possible keys : 'flat', 'revolution'
+    DictKeysGilesOutlet['nscbc_outwave'] = kwargs.get('nscbc_outwave',  'grad_etat')                  # recommended value - possible keys : 'grad_etat'; 'extrap_flux'
+    DictKeysGilesOutlet['nscbc_velocity_scale'] = kwargs.get('nscbc_velocity_scale',VelocityScale)    # default value - reference sound velocity 
+    DictKeysGilesOutlet['nscbc_viscwall_len'] = kwargs.get('nscbc_viscwall_len', 5.e-4)               # default value, could be updated by the user if convergence issue
 
-    # Case for Valve Law - PAS TESTE
-    valve_ref_type = kwargs.get('valve_ref_type',0)
-    if valve_ref_type!=0:
+    # keys relative to the Giles treatment 
+    DictKeysGilesOutlet['giles_opt'] = 'relax'                                                        # mandatory key for NSCBC-Giles treatment
+    DictKeysGilesOutlet['giles_restric_relax'] = 'inactive'                                           # mandatory key for NSCBC-Giles treatment
+    DictKeysGilesOutlet['giles_exact_lodi'] = kwargs.get('giles_exact_lodi',  'active')               # recommended value - possible keys: 'inactive', 'partial', 'active'
+    DictKeysGilesOutlet['giles_nbMode'] = kwargs.get('NbModesFourierGiles')                           # given by the user - recommended value : ncells_theta/2 + 1 (odd_value)
 
-        J.set(bc, '.Solver#BC', monitoring_valve_ref_type = valve_ref_type,
-                                monitoring_valve_ref_pres = valve_ref_pres,
-                                monitoring_valve_ref_mflow =  valve_ref_mflow,
-                                monitoring_valve_relax = valve_relax)
+    # keys relative to the monitoring and radii calculus - monitoring data stored in LOGS
+    DictKeysGilesOutlet['bnd_monitoring'] = 'active'                                                  # recommended value
+    DictKeysGilesOutlet['monitoring_comp_rad'] = 'auto'                                               # recommended value - possible keys: 'from_file', 'monofenetre'
+    DictKeysGilesOutlet['monitoring_tol_rad'] = kwargs.get('monitoring_tol_rad',  1e-6)               # recommended value
+    DictKeysGilesOutlet['monitoring_var'] = 'psta'
+    DictKeysGilesOutlet['monitoring_file'] = 'LOGS/%s_'%FamilyName
+    DictKeysGilesOutlet['monitoring_period'] = kwargs.get('monitoring_period',  20)                   # recommended value   
+    DictKeysGilesOutlet['monitoring_flag'] = kwargs.get('monitoring_flag',  None)                     # given by the user
+
+    # keys relative to the outlet NSCBC/Giles
+    DictKeysGilesOutlet['nscbc_relaxo'] = kwargs.get('nscbc_relaxo',  200.)                           # recommended value
+    DictKeysGilesOutlet['giles_relaxo'] = kwargs.get('giles_relaxo',  200.)                           # recommended value
+
+    # default option: RadialEquilibrium
+    if option == 'RadialEquilibrium':
+        DictKeysGilesOutlet['monitoring_indpiv'] = kwargs.get('IndexPivot',1)                         # default value
+        DictKeysGilesOutlet['monitoring_pressure'] = kwargs.get('Pressure',None)                      # given by the user
+
+        # Case for Valve Law
+        valve_ref_type = kwargs.get('valve_ref_type',0)
+        if valve_ref_type!=0:
+            DictKeysGilesOutlet['monitoring_valve_ref_type'] = valve_ref_type
+            DictKeysGilesOutlet['monitoring_valve_ref_pres'] = valve_ref_pres
+            DictKeysGilesOutlet['monitoring_valve_ref_mflow'] = valve_ref_mflow
+            DictKeysGilesOutlet['monitoring_valve_relax'] = valve_relax
+            
+    # imposed cartography from a CGNS file
+    elif option == 'file':
+
+        print('NOT IMPLEMENTED YET')
 
 
-def setBC_giles_inlet(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
+    # set the BC with keys
+    print(DictKeysGilesOutlet)  
+    J.set(bc, '.Solver#BC',**DictKeysGilesOutlet)
+
+
+
+def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     '''
     Impose a Boundary Condition ``giles_in``.
 
@@ -2824,81 +2824,90 @@ def setBC_giles_inlet(t, FluidProperties, ReferenceValues, FamilyName, **kwargs)
             t : PyTree
                 Tree to modify
 
+            bc : CGNS node of type BC_t
+                 BC node attached to the family in the which the boundary condition is applied
+
+            FluidProperties : dict
+                as obtained from :py:func:`computeFluidProperties`
+
+            ReferenceValues : dict
+                as obtained from :py:func:`computeReferenceValues`
+
             FamilyName : str
                 Name of the family on which the boundary condition will be imposed
 
+            kwargs : dict
+                Parameters defined by the user: FamilyName, NbModesFourierGiles, monitoring_flag, option
+
+            TO DO: 
+               1. add a cartography
             
     '''
 
-    # mandatory keys
-    # Giles
-    NbModesFourier = kwargs.get('giles_nbMode')                                                                             # to be given by the user - recommended value : ncells_theta/2 + 1 (odd_value)
-    # monitoring
-    monitoring_flag = kwargs.get('monitoring_flag',  None)                                                                  # to be given by the user
-    # Inlet
-    StagnationEnthalpy = kwargs.get('stagnation_enthalpy',FluidProperties['cp'] * ReferenceValues['TemperatureStagnation']) # to be given by the user
-    StagnationPressure = kwargs.get('stagnation_pressure',ReferenceValues['PressureStagnation'])                            # to be given by the user
-    VelocityUnitVectorCyl = kwargs.get('VelocityUnitVectorCyl',None) #X,R,Theta                                             # to be given by the user
-    turbDict = getPrimitiveTurbulentFieldForInjection(FluidProperties, ReferenceValues)
-
-    # optional keys and default value
-    giles_relax_in = kwargs.get('giles_relax_in',  [200.,  500.,  1000.,  1000.]) # recommended value
-
-
-    # get the BC
-    bc = kwargs.get('bc',None)
-    #FamilyNode = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')  
-    #SolverBCNode = I.getNodeFromName(bc, '.Solver#BC')
+    # option: uniform or file
+    option = 'uniform'                # default option
 
     # computation of sound velocity for Giles
-    VelocityScale =  (FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*ReferenceValues['TemperatureStagnation'])**0.5
+    VelocityScale =  (FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*ReferenceValues['TemperatureStagnation'])**0.5 # SoundSpeed (existante)
 
-    J.set(bc, '.Solver#BC', 
-            # keys relative to NSCBC
-            type = 'nscbc_in',                                                           # mandatory key to have NSCBC-Giles treatment
-            nscbc_giles= 'statio',                                                       # mandatory key to have NSCBC-Giles treatment
-            nscbc_interpbc = 'linear',                                                   # mandatory value
-            nscbc_fluxt = kwargs.get('nscbc_fluxt', 'fluxBothTransv'),                   # recommended value - possible keys : 'classic'; 'fluxInviscidTransv'; 'fluxBothTransv' 
-            nscbc_surf =  kwargs.get('nscbc_surf',  'revolution'),                       # recommended value - possible keys : 'flat', 'revolution'
-            nscbc_outwave = kwargs.get('nscbc_outwave',  'grad_etat'),                   # recommended value - possible keys : 'grad_etat'; 'extrap_flux'
-            nscbc_velocity_scale = kwargs.get('nscbc_velocity_scale',VelocityScale),     # default value - sound velocity 
-            nscbc_viscwall_len = kwargs.get('nscbc_viscwall_len', 5.e-4) ,               # default value, could be updated by the user if convergence issue
-            # keys relative to the Giles treatment 
-            giles_opt = kwargs.get('giles_relax_opt', 'relax'),                          # mandatory key for NSCBC-Giles treatment
-            giles_restric_relax = 'inactive',                                            # mandatory key for NSCBC-Giles treatment
-            giles_exact_lodi = kwargs.get('giles_exact_lodi',  'active'),                # recommended value - possible keys: 'inactive', 'partial', 'active'
-            giles_nbMode = NbModesFourier,
-            # keys relative to the monitoring and radii calculus - donnees monitoring stockées dans LOGS
-            bnd_monitoring = 'active',                                                   # recommended value
-            monitoring_comp_rad = 'auto',                                                # recommended value - possible keys: 'from_file', 'monofenetre'
-            monitoring_tol_rad =kwargs.get('monitoring_tol_rad',  1e-6),                 # recommended value
-            monitoring_var = 'psta pgen Tgen ux uy uz diffPgen diffTgen diffVel',
-            monitoring_file = 'LOGS/Inlet_',
-            monitoring_period = kwargs.get('monitoring_period',  20),                    # recommended value   
-            monitoring_flag = monitoring_flag,                                           # given by the user
-            # keys relative to the inlet BC
-            nscbc_in_type = 'htpt',                                                      # mandatory key to have NSCBC-Giles treatment
-            nscbc_relaxi1 = kwargs.get('nscbc_relaxi1',  500.),                          # recommended value
-            nscbc_relaxi2 = kwargs.get('nscbc_relaxi2',  500.),                          # recommended value
-            giles_relax_in1 = giles_relax_in[0],
-            giles_relax_in2 = giles_relax_in[1],
-            giles_relax_in3 = giles_relax_in[2],
-            giles_relax_in4 = giles_relax_in[3],
-            stagnation_enthalpy = StagnationEnthalpy,                                    # given by the user
-            stagnation_pressure = StagnationPressure,                                    # given by the user
-            vtx = VelocityUnitVectorCyl[0],    #X                                        # given by the user
-            vtr = VelocityUnitVectorCyl[1],    #r                                        # given by the user
-            vtt = VelocityUnitVectorCyl[2],    #theta                                    # given by the user 
-            inj_tur1 = turbDict['TurbulentSANuTilde']                                    # already given by the user
-            )
+    # creation of dictionnary of keys for Giles inlet BC  
+    DictKeysGilesInlet = {}
 
-    '''
-    # imposing the turbulent value - bug -> set écrase le reste, il ne permet pas d'ajouter
-    turbDict = getPrimitiveTurbulentFieldForInjection(FluidProperties, ReferenceValues)
-    J.set(bc, '.Solver#BC',
-            inj_tur1 = turbDict['TurbulentSANuTilde']    
-            )
-    '''
+    # keys relative to NSCBC
+    DictKeysGilesInlet['type'] = 'nscbc_in'                                                              # mandatory key to have NSCBC-Giles treatment
+    DictKeysGilesInlet['nscbc_giles'] = 'statio'                                                         # mandatory key to have NSCBC-Giles treatment
+    DictKeysGilesInlet['nscbc_interpbc'] = 'linear'                                                      # mandatory value
+    DictKeysGilesInlet['nscbc_fluxt'] = kwargs.get('nscbc_fluxt', 'fluxBothTransv')                      # recommended value - possible keys : 'classic'; 'fluxInviscidTransv'; 'fluxBothTransv' 
+    DictKeysGilesInlet['nscbc_surf'] = kwargs.get('nscbc_surf',  'revolution')                           # recommended value - possible keys : 'flat', 'revolution' 
+    DictKeysGilesInlet['nscbc_outwave'] = kwargs.get('nscbc_outwave',  'grad_etat')                      # recommended value - possible keys : 'grad_etat'; 'extrap_flux'
+    DictKeysGilesInlet['nscbc_velocity_scale'] = kwargs.get('nscbc_velocity_scale',VelocityScale)        # default value - sound velocity
+    DictKeysGilesInlet['nscbc_viscwall_len'] = kwargs.get('nscbc_viscwall_len', 5.e-4)                   # default value, could be updated by the user if convergence issue
+
+    # keys relative to the Giles treatment 
+    DictKeysGilesInlet['giles_opt'] = kwargs.get('giles_relax_opt', 'relax')                             # mandatory key for NSCBC-Giles treatment
+    DictKeysGilesInlet['giles_restric_relax'] = 'inactive'                                               # mandatory key for NSCBC-Giles treatment
+    DictKeysGilesInlet['giles_exact_lodi'] = kwargs.get('giles_exact_lodi',  'active')                   # recommended value - possible keys: 'inactive', 'partial', 'active'
+    DictKeysGilesInlet['giles_nbMode'] = kwargs.get('NbModesFourierGiles')                               # to be given by the user - recommended value : ncells_theta/2 + 1 (odd_value)
+
+    # keys relative to the monitoring and radii calculus - monitoring data stored in LOGS
+    DictKeysGilesInlet['bnd_monitoring'] = 'active'                                                      # recommended value
+    DictKeysGilesInlet['monitoring_comp_rad'] = 'auto'                                                   # recommended value - possible keys: 'from_file', 'monofenetre'
+    DictKeysGilesInlet['monitoring_tol_rad'] = kwargs.get('monitoring_tol_rad',  1e-6)                   # recommended value
+    DictKeysGilesInlet['monitoring_var'] = 'psta pgen Tgen ux uy uz diffPgen diffTgen diffVel'
+    DictKeysGilesInlet['monitoring_file'] = 'LOGS/%s_'%FamilyName
+    DictKeysGilesInlet['monitoring_period'] = kwargs.get('monitoring_period',  20)                       # recommended value
+    DictKeysGilesInlet['monitoring_flag'] = kwargs.get('monitoring_flag',  None)                         # to be given by the user
+
+    # keys relative to the inlet BC
+    DictKeysGilesInlet['nscbc_in_type'] = 'htpt'                                                         # mandatory key to have NSCBC-Giles treatment
+    # - numerics -
+    DictKeysGilesInlet['nscbc_relaxi1'] = kwargs.get('nscbc_relaxi1',  500.)                             # recommended value
+    DictKeysGilesInlet['nscbc_relaxi2'] = kwargs.get('nscbc_relaxi2',  500.)                             # recommended value
+    giles_relax_in = kwargs.get('giles_relax_in',  [200.,  500.,  1000.,  1000.])                        # recommended value
+    DictKeysGilesInlet['giles_relax_in1'] = giles_relax_in[0]
+    DictKeysGilesInlet['giles_relax_in2'] = giles_relax_in[1]
+    DictKeysGilesInlet['giles_relax_in3'] = giles_relax_in[2]
+    DictKeysGilesInlet['giles_relax_in4'] = giles_relax_in[3]    
+    if option == 'uniform':
+        # - physical quantities -
+        DictKeysGilesInlet['stagnation_enthalpy'] = kwargs.get('stagnation_enthalpy',FluidProperties['cp'] * ReferenceValues['TemperatureStagnation'])   # to be given by the user
+        DictKeysGilesInlet['stagnation_pressure'] = kwargs.get('stagnation_pressure',ReferenceValues['PressureStagnation'])                              # to be given by the user
+        DictKeysGilesInlet['vtx'] = kwargs.get('VelocityUnitVectorX',1.)                                                                                 # to be given by the user
+        DictKeysGilesInlet['vtr'] = kwargs.get('VelocityUnitVectorR',0.)                                                                                 # to be given by the user
+        DictKeysGilesInlet['vtt'] = kwargs.get('VelocityUnitVectorTheta',0.)                                                                             # to be given by the user
+        # - turbulent quantities -
+        turbDict = getPrimitiveTurbulentFieldForInjection(FluidProperties, ReferenceValues)
+        for CGNSTurbVariable in turbDict.keys():
+            elsATurbVariable = translateVariablesFromCGNS2Elsa([CGNSTurbVariable])[0]
+            DictKeysGilesInlet[elsATurbVariable] = turbDict[CGNSTurbVariable]
+    elif option == 'file':
+        print('NOT IMPLEMENTED YET')
+
+    # set the BC with keys
+    print(DictKeysGilesInlet)  
+    J.set(bc, '.Solver#BC',**DictKeysGilesInlet)
+
+
 
 def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues=None, TurboConfiguration=None):
     '''
