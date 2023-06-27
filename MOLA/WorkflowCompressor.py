@@ -2801,8 +2801,7 @@ def setBC_giles_outlet(t, bc, FluidProperties, ReferenceValues, FamilyName,**kwa
             
     # imposed cartography from a CGNS file
     elif option == 'file':
-
-        print('NOT IMPLEMENTED YET')
+        raise Exception('Giles BC with file imposed not implemented yet')
 
 
     # set the BC with keys
@@ -2901,7 +2900,7 @@ def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwa
             elsATurbVariable = translateVariablesFromCGNS2Elsa([CGNSTurbVariable])[0]
             DictKeysGilesInlet[elsATurbVariable] = turbDict[CGNSTurbVariable]
     elif option == 'file':
-        print('NOT IMPLEMENTED YET')
+        raise Exception('Giles BC with file imposed not implemented yet')
 
     # set the BC with keys
     print(DictKeysGilesInlet)  
