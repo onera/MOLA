@@ -4666,7 +4666,7 @@ def trimCurveAlongDirection(curve, direction, cut_point_1, cut_point_2):
     number_of_subparts = len(I.getZones(T.splitConnexity(trimmed_element)))
     if number_of_subparts != 1:
         C.convertPyTree2File(curve,'debug.cgns')
-        raise ValueError('could not trim along direction, since multiple subparts were obtained.')
+        raise ValueError(f'could not trim along direction, since multiple subparts were obtained ({number_of_subparts}).')
 
     trimmed_curve = C.convertBAR2Struct(trimmed_element)
     I._rmNodesByType(trimmed_curve,'FlowSolution_t')

@@ -986,7 +986,8 @@ def extractRowGeometricalData(mesh, row, save=False, locateLE='auto'):
     xshroud, rshroud = readEndWallLine('shroud.dat')
     xLE, rLE = readLEorTE('LE.dat')
     xTE, rTE = readLEorTE('TE.dat')
-
+    assert rTE.size > 5, J.FAIL+f'Building of body-force mesh in MOLA assumes that the Autogrid mesh contains more than 5 points in the radial direction ({rTE.size} points detected in the current AG5 mesh)'+J.ENDC
+    
     Hub          = curve('Hub', xhub, rhub)
     Shroud       = curve('Shroud', xshroud, rshroud)
     LeadingEdge  = curve('LeadingEdge', xLE, rLE)
