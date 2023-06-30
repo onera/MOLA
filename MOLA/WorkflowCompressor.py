@@ -4788,7 +4788,8 @@ def postprocess_turbomachinery(surfaces, stages=[],
                                 computeRadialProfiles=True, 
                                 config='annular', 
                                 lin_axis='XY',
-                                RowType='compressor'):
+                                RowType='compressor',
+                                container_at_vertex='FlowSolution#Init'):
     '''
     Perform a series of classical postprocessings for a turbomachinery case : 
 
@@ -4856,6 +4857,16 @@ def postprocess_turbomachinery(surfaces, stages=[],
         RowType : str
             see parameter 'config' of :py:func:`MOLA.PostprocessTurbo.compareRadialProfilesPlane2Plane`
         
+        container_at_vertex : :py:class:`str` or :py:class:`list` of :py:class:`str`
+            specifies the *FlowSolution* container located at 
+            vertex where postprocess will be applied. 
+
+            .. hint::
+                provide a :py:class:`list` of :py:class:`str` so that the 
+                postprocess will be applied to each of the provided containers.
+                This is useful for making post-processing on e.g. both
+                instantaneous and averaged flow fields
+        
     '''
     import Converter.Mpi as Cmpi
     import MOLA.PostprocessTurbo as Post
@@ -4863,48 +4874,100 @@ def postprocess_turbomachinery(surfaces, stages=[],
 
     Post.setup = J.load_source('setup', 'setup.py')
 
-    #______________________________________________________________________________
-    # Variables
-    #______________________________________________________________________________
-    allVariables = TUS.getFields(config=config)
-    if not var4comp_repart:
-        var4comp_repart = ['StagnationEnthalpyDelta',
-                           'StagnationPressureRatio', 'StagnationTemperatureRatio',
-                           'StaticPressureRatio', 'Static2StagnationPressureRatio',
-                           'IsentropicEfficiency', 'PolytropicEfficiency',
-                           'StaticPressureCoefficient', 'StagnationPressureCoefficient',
-                           'StagnationPressureLoss1', 'StagnationPressureLoss2',
-                           ]
-    if not var4comp_perf:
-        var4comp_perf = var4comp_repart + ['Power']
-    if not var2keep:
-        var2keep = [
-            'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation',
-            'StagnationPressureRelDim', 'StagnationTemperatureRelDim',
-            'Entropy',
-            'Viscosity_EddyMolecularRatio',
-            'VelocitySoundDim', 'StagnationEnthalpyAbsDim',
-            'MachNumberAbs', 'MachNumberRel',
-            'AlphaAngleDegree',  'BetaAngleDegree', 'PhiAngleDegree',
-            'VelocityXAbsDim', 'VelocityRadiusAbsDim', 'VelocityThetaAbsDim',
-            'VelocityMeridianDim', 'VelocityRadiusRelDim', 'VelocityThetaRelDim',
-        ]
+    # prepare auxiliary surfaces tree, with flattened FlowSolution container
+    # located at Vertex including ChannelHeight
+    previous_vertex_container = I.__FlowSolutionNodes__
+    turbo_required_vertex_container = 'FlowSolution'
+    turbo_new_centers_container = 'FlowSolution#Centers'
 
-    variablesByAverage = Post.sortVariablesByAverage(allVariables)
+    if isinstance(container_at_vertex, str):
+        containers_at_vertex = [container_at_vertex]
+    elif not isinstance(container_at_vertex, list):
+        raise TypeError('container_at_vertex must be str or list of str')
+    else:
+        containers_at_vertex = container_at_vertex
 
-    #______________________________________________________________________________#
-    Post.computeVariablesOnIsosurface(surfaces, allVariables, config=config, lin_axis=lin_axis)
-    Post.compute0DPerformances(surfaces, variablesByAverage)
-    if computeRadialProfiles: 
-        Post.compute1DRadialProfiles(
-            surfaces, variablesByAverage, config=config, lin_axis=lin_axis)
-    # Post.computeVariablesOnBladeProfiles(surfaces, hList='all')
-    #______________________________________________________________________________#
+    suffixes = [c.replace('FlowSolution','') for c in containers_at_vertex]
 
-    if Cmpi.rank == 0:
-        Post.comparePerfoPlane2Plane(surfaces, var4comp_perf, stages)
-        if computeRadialProfiles: 
-            Post.compareRadialProfilesPlane2Plane(
-                surfaces, var4comp_repart, stages, config=RowType)
+    for container_at_vertex in containers_at_vertex:
+        I.__FlowSolutionNodes__ = container_at_vertex
+        print(J.WARN+f'DEBUG {Cmpi.rank} {container_at_vertex}: adapting container names'+J.ENDC)
+        for zone in I.getZones(surfaces):
+            fs_container = I.getNodeFromName1(zone, container_at_vertex)
+            if not fs_container: continue
+            channel_height = I.getNodeFromName2(zone, 'ChannelHeight')
+            if not channel_height: continue
+            fs_container[2] += [ channel_height ]
+            fs_container[0] = turbo_required_vertex_container
 
-    Post.cleanSurfaces(surfaces, var2keep=var2keep)
+        #______________________________________________________________________________
+        # Variables
+        #______________________________________________________________________________
+        allVariables = TUS.getFields(config=config)
+        if not var4comp_repart:
+            var4comp_repart = ['StagnationEnthalpyDelta',
+                            'StagnationPressureRatio', 'StagnationTemperatureRatio',
+                            'StaticPressureRatio', 'Static2StagnationPressureRatio',
+                            'IsentropicEfficiency', 'PolytropicEfficiency',
+                            'StaticPressureCoefficient', 'StagnationPressureCoefficient',
+                            'StagnationPressureLoss1', 'StagnationPressureLoss2',
+                            ]
+        if not var4comp_perf:
+            var4comp_perf = var4comp_repart + ['Power']
+        if not var2keep:
+            var2keep = [
+                'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation',
+                'StagnationPressureRelDim', 'StagnationTemperatureRelDim',
+                'Entropy',
+                'Viscosity_EddyMolecularRatio',
+                'VelocitySoundDim', 'StagnationEnthalpyAbsDim',
+                'MachNumberAbs', 'MachNumberRel',
+                'AlphaAngleDegree',  'BetaAngleDegree', 'PhiAngleDegree',
+                'VelocityXAbsDim', 'VelocityRadiusAbsDim', 'VelocityThetaAbsDim',
+                'VelocityMeridianDim', 'VelocityRadiusRelDim', 'VelocityThetaRelDim',
+            ]
+
+        variablesByAverage = Post.sortVariablesByAverage(allVariables)
+        
+        #______________________________________________________________________#
+        print(J.WARN+f'DEBUG {Cmpi.rank} {container_at_vertex}: computeVariablesOnIsosurface'+J.ENDC)
+        Post.computeVariablesOnIsosurface(surfaces, allVariables, config=config,
+                                          lin_axis=lin_axis)
+        print(J.WARN+f'DEBUG {Cmpi.rank} {container_at_vertex}: compute0DPerformances'+J.ENDC)
+        Post.compute0DPerformances(surfaces, variablesByAverage)
+        if computeRadialProfiles:
+            print(J.WARN+f'DEBUG {Cmpi.rank} {container_at_vertex}: compute1DRadialProfiles'+J.ENDC)
+            Post.compute1DRadialProfiles(
+                surfaces, variablesByAverage, config=config, lin_axis=lin_axis)
+        # Post.computeVariablesOnBladeProfiles(surfaces, hList='all')
+        #______________________________________________________________________#            
+        if Cmpi.rank == 0:
+            print(J.WARN+f'DEBUG {Cmpi.rank} {container_at_vertex}: comparePerfoPlane2Plane'+J.ENDC)
+            Post.comparePerfoPlane2Plane(surfaces, var4comp_perf, stages)
+            if computeRadialProfiles: 
+                print(J.WARN+f'DEBUG {Cmpi.rank} {container_at_vertex}: compareRadialProfilesPlane2Plane'+J.ENDC)
+                Post.compareRadialProfilesPlane2Plane(
+                    surfaces, var4comp_repart, stages, config=RowType)
+        
+        print(J.WARN+f'DEBUG {Cmpi.rank} {container_at_vertex}: cleanSurfaces'+J.ENDC)
+        Post.cleanSurfaces(surfaces, var2keep=var2keep)
+
+        print(J.WARN+f'DEBUG {Cmpi.rank} {container_at_vertex}: final adaptation of containers'+J.ENDC)
+        suffix = container_at_vertex.replace('FlowSolution','')
+        for zone in I.getZones(surfaces):
+            for fs_container in I.getNodesFromType1(zone, 'FlowSolution_t'):
+                fs_name = fs_container[0]
+                is_turbo_container = fs_name in [turbo_required_vertex_container,
+                                                turbo_new_centers_container]
+                is_new_comparison = fs_name.startswith('Comparison') and not \
+                                    fs_name.endswith(suffix)
+
+                if is_turbo_container or is_new_comparison: 
+                    if not any([fs_container[0].endswith(s) for s in suffixes]):
+                        fs_container[0] += suffix
+                        if fs_container[0].startswith(turbo_new_centers_container):
+                            fs_container[0]=fs_container[0].replace(turbo_new_centers_container,
+                                                                    'FlowSolution')
+
+        I.__FlowSolutionNodes__ = previous_vertex_container
+

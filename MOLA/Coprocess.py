@@ -199,7 +199,7 @@ def extractArrays(t, arrays, RequestedStatistics=[], Extractions=[],
     return arraysTree
 
 
-def extractSurfaces(t, Extractions):
+def extractSurfaces(t, Extractions, arrays=None):
     '''
     Extracts flowfield data as surfacic (or curvilinear) zones from input
     fields **t** and requested extraction information provided in **Extractions**.
@@ -291,6 +291,11 @@ def extractSurfaces(t, Extractions):
                     if you are making an Overset type of simulation, do not 
                     forget to include the field ``'cellN'`` to *AllowedFields*
                     if you wish to keep the blanking information
+
+        arrays : dict
+            if provided, some worfklow-specific operations may add quantities 
+            to arrays using surfacic postprocessing. This is the case for 
+            example for plane-to-plane turbomachine postprocessing.
 
     Returns
     -------
@@ -385,7 +390,7 @@ def extractSurfaces(t, Extractions):
         elif TypeOfExtraction == 'IsoSurface':
             if Extraction['field'] in ['Radius', 'radius', 'CoordinateR']:
                 C._initVars(Tree4Extraction, '{}=({{CoordinateY}}**2+{{CoordinateZ}}**2)**0.5'.format(Extraction['field']))
-            container = deduceContainerContainerForSlicing(Extraction)
+            container = deduceContainerForSlicing(Extraction)
             zones = POST.isoSurface(Tree4Extraction,
                                     fieldname=Extraction['field'],
                                     value=Extraction['value'],
@@ -433,10 +438,9 @@ def extractSurfaces(t, Extractions):
     I._rmNodesFromName(SurfacesTree, ':CGNS#Ppart')
     Cmpi.barrier()
 
+
     # Workflow specific postprocessings
-    save(SurfacesTree, 'before.cgns')
-    SurfacesTree = _extendSurfacesWithWorkflowQuantities(SurfacesTree)
-    save(SurfacesTree, 'after.cgns')
+    SurfacesTree = _extendSurfacesWithWorkflowQuantities(SurfacesTree, arrays=arrays)
 
     # Keep only allowed fields in surfaces
     for base in I.getBases(SurfacesTree):
@@ -452,10 +456,9 @@ def extractSurfaces(t, Extractions):
 
         keepOnlyAllowedFields(I.getZones(base), AllowedFields)
 
-
     return SurfacesTree
 
-def deduceContainerContainerForSlicing(Extraction):
+def deduceContainerForSlicing(Extraction):
     if 'field_container' in Extraction:
         return Extraction['field_container']
 
@@ -807,6 +810,10 @@ def restoreFamilies(surfaces, skeleton):
         for zone in I.getZones(base):
             zoneName = I.getValue(I.getNodeFromName1(zone, '.parentZone'))
             zoneInFullTree = I.getNodeFromNameAndType(skeleton, zoneName, 'Zone_t')
+            
+            # surface comes from extractBC => already contains all families
+            if not zoneInFullTree: continue 
+            
             fam = I.getNodeFromType1(zoneInFullTree, 'FamilyName_t')
             I.addChild(zone, fam)
             familiesInBase.append(I.getValue(fam))
@@ -863,11 +870,7 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[]):
     # FIXME: Segmentation fault bug when this function is used after
     #        POST.absolute2Relative (in co -proccessing only)
     def massflowWeightedIntegral(t, var):
-        try:
-            t = C.initVars(t, 'rou_var={MomentumX}*{%s}'%(var))
-        except BaseException as e:
-            C.convertPyTree2File(t,'debug.cgns')
-            raise e
+        t = C.initVars(t, 'rou_var={MomentumX}*{%s}'%(var))
         C._initVars(t, 'rov_var={MomentumY}*{%s}'%(var))
         C._initVars(t, 'row_var={MomentumZ}*{%s}'%(var))
         integ  = abs(P.integNorm(t, 'rou_var')[0][0]) \
@@ -916,7 +919,6 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[]):
                 (['Pressure'], surfaceWeightedIntegral)
             ]
 
-        C.convertPyTree2File(planeUpstream, 'up_%d.cgns'%rank)
         dataUpstream   = integrateVariablesOnPlane(  planeUpstream, VarAndMeanList)
         dataDownstream = integrateVariablesOnPlane(planeDownstream, VarAndMeanList)
 
@@ -938,6 +940,7 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[]):
             _extendArraysWithStatistics(arrays, 'PERFOS_{}'.format(row), RequestedStatistics)
 
     arraysTree = arraysDict2PyTree(arrays)
+
     return arraysTree
 
 def computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=1., fluxcoeffOut=None):
@@ -965,8 +968,6 @@ def computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=1., fluxcoeffOut=N
         TemperatureStagnationRatio = TtRatio,
         EfficiencyIsentropic       = etaIs
     )
-    printCo('performance of rotor')
-    printCo(pprint.pformat(perfos))
 
     return perfos
 
@@ -986,9 +987,6 @@ def computePerfoStator(dataUpstream, dataDownstream, fluxcoeff=1., fluxcoeffOut=
         PressureStagnationRatio = meanPtOut / meanPtIn,
         PressureStagnationLossCoeff = (meanPtIn - meanPtOut) / (meanPtIn - meanPsIn)
     )
-
-    printCo('performance of stator')
-    printCo(pprint.pformat(perfos))
 
     return perfos
 
@@ -1039,25 +1037,37 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
             :py:obj:`None`.
 
     '''
+
+    try:
+        container_at_vertex = setup.PostprocessOptions['container_at_vertex']
+        if isinstance(container_at_vertex, list):
+            container_at_vertex = container_at_vertex[0]
+    except (AttributeError, KeyError):
+        container_at_vertex = 'FlowSolution#Init'
+
+    surface = I.copyRef(surface)
+    for zone in I.getZones(surface):
+        fsToRemove = [n[0] for n in I.getNodesFromType1(zone,'FlowSolution_t') \
+                      if n[0] != container_at_vertex]
+        for fsname in fsToRemove:
+            I._rmNodesByName(zone,fsname)
+
     # Convert to Tetra arrays for integration # TODO identify bug and notify
     surface = POST.convertToTetra(surface)
-
-    PreviousVertexContainer = '%s'%I.__FlowSolutionNodes__
-    # BEWARE : FlowSolution#Height/ChannelHeight becomes unreachable by initVars
-    I.__FlowSolutionNodes__ = 'FlowSolution#Init' 
     
+    previous_container = I.__FlowSolutionNodes__
+    I.__FlowSolutionNodes__ = container_at_vertex
+
     check =  True
     data = dict()
 
     if I.getNodesFromType(surface, 'FlowSolution_t') == []:
-        printCo('first')
         for var in ['MassFlow', 'Area']:
             data[var] = 0
         for varList, meanFunction in VarAndMeanList:
             for var in varList:
                 data[var] = 0
     else:
-        printCo('second')
         C._initVars(surface, 'ones=1')
         data['Area']     = abs(P.integNorm(surface, var='ones')[0][0])
         data['MassFlow'] = abs(P.integNorm(surface, var='MomentumX')[0][0]) \
@@ -1068,7 +1078,6 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
                 for var in varList:
                     data[var] = meanFunction(surface, var)
         except NameError as e:
-            printCo('third')
             raise e
             # Variables cannot be found
             check = False
@@ -1079,7 +1088,9 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
     data['MassFlow'] = comm.allreduce(data['MassFlow'], op=MPI.SUM)
     data['Area'] = comm.allreduce(data['Area'], op=MPI.SUM)
     Cmpi.barrier()
-    if not check or data['Area']==0: return None
+    if not check or data['Area']==0:
+        I.__FlowSolutionNodes__ = previous_container
+        return None
 
     # MPI Reduction to sum quantities on proc 0
     Cmpi.barrier()
@@ -1087,7 +1098,7 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
         for var in varList:
             data[var] = comm.reduce(data[var], op=MPI.SUM, root=0)
     Cmpi.barrier()
-    I.__FlowSolutionNodes__ = PreviousVertexContainer
+    I.__FlowSolutionNodes__ = previous_container
     return data
 
 def updateAndWriteSetup(setup):
@@ -1252,6 +1263,7 @@ def arraysDict2PyTree(arrays):
     if zones:
         Cmpi._setProc(zones, rank)
         t = C.newPyTree(['Base', zones])
+        for base in I.getBases(t): I._sortByName(base)
     else:
         t = C.newPyTree(['Base'])
     Cmpi.barrier()
@@ -1282,7 +1294,6 @@ def appendDict2Arrays(arrays, dictToAppend, basename):
     '''
 
     if not dictToAppend or arrays is None: return
-
 
     if not basename in arrays: arrays[basename] = dict()
 
@@ -2976,6 +2987,7 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
         PyTree
             Same as the input **surfaces** with eventual post-processed data.
     '''
+
     try:
         Workflow = setup.Workflow
     except AttributeError:
@@ -3008,53 +3020,53 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                 Cmpi._convert2PartialTree(surfaces)
                 # Ensure that bases are in the same order on all procs. 
                 # It is MANDATORY for next post-processings
-                if rank==0: J.save(surfaces, 'db1.cgns')
                 J._reorderBases(surfaces)
-                if rank==0: J.save(surfaces, 'db2.cgns')
+            Cmpi.barrier()
 
-            # try:
-            if True: # FIXME      
-                if not I.getNodeFromName(surfaces, 'ChannelHeight'):
-                    printCo('Postprocess cannot be done because ChannelHeight is missing', 0, color=J.WARN)
+            try:
+                LocalChannelHeight = bool(I.getNodeFromName(surfaces, 'ChannelHeight'))
+                GlobalChannelHeight = any(comm.allgather(LocalChannelHeight))
+                if not GlobalChannelHeight:
+                    printCo('Postprocess cannot be done because ChannelHeight is missing', color=J.WARN)
                     raise ChannelHeightError
-                if rank==0: J.save(surfaces, 'db3.cgns')
-                prev_fsn = '%s'%I.__FlowSolutionNodes__
-                I.__FlowSolutionNodes__ = 'FlowSolution#Init'
-                WC.postprocess_turbomachinery(surfaces, computeRadialProfiles=computeRadialProfiles, **PostprocessOptions)
-                I.__FlowSolutionNodes__ = prev_fsn
-                if rank==0: J.save(surfaces, 'db4.cgns')
-                Cmpi.barrier()
-                os._exit(0)
-                printCo('Postprocess done on surfaces', proc=0, color=J.MAGE)
+                printCo('making postprocess_turbomachinery...', proc=0, color=J.MAGE)
+                WC.postprocess_turbomachinery(surfaces,
+                    computeRadialProfiles=computeRadialProfiles, **PostprocessOptions)
+                printCo('making postprocess_turbomachinery... done', proc=0, color=J.MAGE)
 
                 if rank == 0:
                     # Move 0D averages to arrays
                     averagesDict = dict()
-                    Averages0D = I.getNodeFromName1(surfaces, 'Averages0D')
-                    for zone in I.getZones(Averages0D):
-                        for FS in I.getNodesFromType1(zone, 'FlowSolution_t'):
-                            zoneName = I.getName(zone)
-                            FSname = I.getName(FS)
+                    Averages0D = [I.getZones(b) for b in I.getBases(surfaces) \
+                                  if b[0].startswith('Averages0D')]
+                    for zones in Averages0D: 
+                        for zone in zones:
+                            for FS in I.getNodesFromType1(zone, 'FlowSolution_t'):
+                                FSname = I.getName(FS)
 
-                            if 'Comparison' in FSname:
-                                zoneName += '#' + I.getName(FS).split('#')[-1]
+                                if FSname.startswith('Comparison'):
+                                    zoneName = I.getName(zone) \
+                                               + FSname.replace('Comparison','')
+                                else:
+                                    zoneName = I.getName(zone) \
+                                               + FSname.replace('FlowSolution','')
 
-                            for node in I.getNodesFromType1(FS, 'DataArray_t'):
-                                averagesDict[I.getName(node)] = I.getValue(node)
-                            averagesDict['IterationNumber'] = CurrentIteration-1
-                            appendDict2Arrays(arrays, averagesDict, zoneName)
+                                for node in I.getNodesFromType1(FS, 'DataArray_t'):
+                                    averagesDict[I.getName(node)] = I.getValue(node)
+                                averagesDict['IterationNumber'] = CurrentIteration-1
+                                appendDict2Arrays(arrays, averagesDict, zoneName)
             
                 else:
                     # Remove RadialProfiles for all proc except one, because only proc 0 is up-to-date
                     I._rmNodesFromName1(surfaces, 'RadialProfiles')
 
                 # Remove 0D averages from surfaces tree for all procs
-                I._rmNodesFromName1(surfaces, 'Averages0D')
+                I._rmNodesFromName(surfaces, 'Averages0D*')
 
-            # except ImportError:
-            #     pass
-            # except ChannelHeightError:
-            #     pass
+            except ImportError: # BUG https://gitlab.onera.net/numerics/analysis/turbo/-/issues/1
+                pass
+            except ChannelHeightError:
+                pass
     return surfaces
 
 def checkAndUpdateMainCGNSforChoroRestart():
