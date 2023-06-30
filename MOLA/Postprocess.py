@@ -1161,23 +1161,35 @@ def extractBC(t, Name=None, Type=None):
         else:
             zones = I.getZones( C.extractBCOfType(tR, Type, extrapFlow=False) )
         
+        I._adaptZoneNamesForSlash(zones)
+
         for z in zones:
             fs = I.getNodeFromType1(z, 'FlowSolution_t')
+
             if not fs: continue
             fs[0] = BCDataSetName
             if zones_merged:
                 for zm in zones_merged:
-                    if z[0] == zm[0]:
-                        zm[2] += [ fs ]
+                    containers_names = [f[0] for f in I.getNodesFromType1(zm, 'FlowSolution_t')]
+                    if z[0] == zm[0]:                        
+                        if fs[0] not in containers_names: 
+                            zm[2] += [ fs ]
                         break
             else:
                 zones_merged = zones
-        
+
+            fs_nodes = I.getNodesFromType1(z, 'FlowSolution_t')
+            if len(fs_nodes) > 1:
+                I.printTree(z, 'debug_extractBC_z.txt')
+                raise ValueError('unexpected number of fs_nodes. Check debug_extractBC_z.txt')
+
     
     t_merged = C.newPyTree(['Base',zones_merged])
     base = I.getBases(t_merged)[0]
     base[2].extend( bases_children_except_zones )
     zones = I.getZones(t_merged)
+
+    
     return zones
 
 

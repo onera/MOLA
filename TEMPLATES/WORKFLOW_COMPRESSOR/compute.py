@@ -167,8 +167,7 @@ CO.updateAndWriteSetup(setup)
 t = CO.extractFields(Skeleton)
 
 # save surfaces
-surfs = CO.extractSurfaces(t, setup.Extractions)
-surfs = CO._extendSurfacesWithWorkflowQuantities(surfs, arrays)
+surfs = CO.extractSurfaces(t, setup.Extractions, arrays=arrays)
 CO.monitorTurboPerformance(surfs, arrays, RequestedStatistics)
 CO.save(surfs, os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES), tagWithIteration=TagSurfacesWithIteration)
 
