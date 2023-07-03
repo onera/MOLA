@@ -105,7 +105,7 @@ if [ "$MAC" = "sator" ]; then
 
     # maia
     module use --append /tmp_user/sator/sonics/usr/modules/
-    module load maia/dev-dsi-cfd5
+    module load maia/1.1-dsi-cfd5
 
     # VPM
     export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator/$ARCH
@@ -176,7 +176,7 @@ elif [ "$MAC" = "spiro" ]; then
 
     # maia
     module use --append /scratchm/sonics/usr/modules/
-    module load maia/dev-dsi-cfd5
+    module load maia/1.1-dsi-cfd5
 
     # own Cassiopee
     module load occt/7.6.1-gnu831
@@ -214,23 +214,9 @@ elif [ "$MAC" = "visung" ]; then
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/visung
     export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
 
-    # # MAIA # should be available with elsA v5.2.01 (but currently bugged maia #41)
-    module load scotch/6.0.9-idx32-gnu831-ompi405
-    module load parmetis/4.0.3-gnu831-ompi405
-    module load metis/5.1.0-gnu831
-    module load cmake/3.19.8-gnu831
-    export MAIA_HOME=/d/jcoulet/opt/maia-openmpi
-    export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
-    export PYTHONPATH=$MAIA_HOME/lib/python3.8/site-packages:$PYTHONPATH
-
-    # # MAIA # should be available with elsA v5.2.01 (but currently bugged maia #41)
-    module load scotch/6.0.9-idx32-gnu831-ompi405
-    module load parmetis/4.0.3-gnu831-ompi405
-    module load metis/5.1.0-gnu831
-    module load cmake/3.19.8-gnu831
-    export MAIA_HOME=/d/jcoulet/opt/maia-openmpi
-    export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
-    export PYTHONPATH=$MAIA_HOME/lib/python3.8/site-packages:$PYTHONPATH
+    # maia
+    module use --append /home/sonics/LD8/modules/
+    module load maia/1.1-dsi-ompi405
 
     # VPM
     export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld7/$ARCH
@@ -278,14 +264,9 @@ elif [ "$MAC" = "ld" ]; then
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/eos
     export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
 
-    # # MAIA # should be available with elsA v5.2.01 (but currently bugged maia #41)
-    module load scotch/6.0.9-idx32-gnu831-ompi405
-    module load parmetis/4.0.3-gnu831-ompi405
-    module load metis/5.1.0-gnu831
-    module load cmake/3.19.8-gnu831
-    export MAIA_HOME=/d/jcoulet/opt/maia-openmpi
-    export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
-    export PYTHONPATH=$MAIA_HOME/lib/python3.8/site-packages:$PYTHONPATH
+    # maia
+    module use --append /home/sonics/LD8/modules/
+    module load maia/1.1-dsi-ompi405
 
     # VPM
     export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld8/$ARCH
