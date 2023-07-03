@@ -123,13 +123,6 @@ def set(parent, childname, childType='UserDefinedData_t', **kwargs):
                     except ValueError:
                         value = None
 
-                    if value is None:
-                        print(WARN+'key:  '+'/'.join([parent[0],childname,v])+ENDC)
-                        print(WARN+'has value:'+ENDC)
-                        print(WARN+pprint.pformat(kwargs[v])+ENDC)
-                        print(WARN+'which cannot be written in CGNS'+ENDC)
-                        print(WARN+'this value will be replaced in CGNS by: '+BOLD+'None'+ENDC)
-                        value = None
             else:
                 value = None
             children += [[v,value]]
@@ -730,7 +723,7 @@ def createZone(Name, Arrays, Vars):
         z = y*1.5
         Ro = np.zeros((10)) + 1.225
         MyZone = J.createZone('MyTitle',
-                              [            x,            y,            z,       Ro],
+                              [            x,            y,            z,       rho],
                               ['CoordinateX','CoordinateY','CoordinateZ','Density'])
         C.convertPyTree2File(MyZone,'MyZone.cgns')
 
@@ -742,7 +735,7 @@ def createZone(Name, Arrays, Vars):
     try:
         ar=np.concatenate([aa.reshape((1,ni*nj*nk),order='F') for aa in Arrays],axis=0)
     except ValueError:
-        ERRMSG = FAIL+'ERROR - COULD NOT CONCATENATE ARRAYS:\n'
+        ERRMSG = FAIL+'ERROR - COULD NOT CONCATENATE ARRAYS FOR %s:\n'%Name
         for i,v in enumerate(Vars):
             ERRMSG += v+' with shape: '+str(Arrays[i].shape)+'\n'
         ERRMSG += ENDC

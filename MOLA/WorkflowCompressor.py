@@ -517,14 +517,34 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
 
     PRE.addTrigger(t)
+
+    is_unsteady = AllSetupDicts['elsAkeysNumerics']['time_algo'] != 'steady'
+    avg_requested = AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'] is not None
+
+    if is_unsteady and not avg_requested:
+        msg =('WARNING: You are setting an unsteady simulation, but no field averaging\n'
+              'will be done since CoprocessOptions key "FirstIterationForFieldsAveraging"\n'
+              'is set to None. If you want fields average extraction, please set a finite\n'
+              'positive value to "FirstIterationForFieldsAveraging" and relaunch preprocess')
+        print(J.WARN+msg+J.ENDC)
+
+
+    is_unsteady = AllSetupDicts['elsAkeysNumerics']['time_algo'] != 'steady'
+    avg_requested = AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'] is not None
+
+    if is_unsteady and not avg_requested:
+        msg =('WARNING: You are setting an unsteady simulation, but no field averaging\n'
+              'will be done since CoprocessOptions key "FirstIterationForFieldsAveraging"\n'
+              'is set to None. If you want fields average extraction, please set a finite\n'
+              'positive value to "FirstIterationForFieldsAveraging" and relaunch preprocess')
+        print(J.WARN+msg+J.ENDC)
+
     PRE.addExtractions(t, AllSetupDicts['ReferenceValues'],
                           AllSetupDicts['elsAkeysModel'],
                           extractCoords=False,
-                          BCExtractions=ReferenceValues['BCExtractions'])
+                          BCExtractions=ReferenceValues['BCExtractions'],
+                          add_time_average= is_unsteady and avg_requested)
 
-    if elsAkeysNumerics['time_algo'] != 'steady':
-        PRE.addAverageFieldExtractions(t, AllSetupDicts['ReferenceValues'],
-            AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'])
 
     PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],
                          AllSetupDicts['ReferenceValues'])
@@ -1442,7 +1462,7 @@ def getReferenceSurface(t, BoundaryConditions, TurboConfiguration):
     '''
     # Get inflow BCs
     InflowBCs = [bc for bc in BoundaryConditions \
-        if bc['type'] == 'InflowStagnation' or bc['type'].startswith('inj')]
+        if bc['type'] == 'InflowStagnation' or bc['type'].startswith('inj') or bc['type'] == 'InflowGiles']
     # Check unicity
     if len(InflowBCs) != 1:
         MSG = 'Please provide a reference surface as "Surface" in '
@@ -1965,6 +1985,8 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
         WallViscousIsothermal        = 'wallisoth',
         WallInviscid                 = 'wallslip',
         SymmetryPlane                = 'sym',
+        OutflowGiles                 = 'giles_out',
+        InflowGiles                  = 'giles_in'
     )
 
     print(J.CYAN + 'set BCs at walls' + J.ENDC)
@@ -2028,6 +2050,31 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
             BCkwargs['ReferenceValues'] = ReferenceValues
             BCkwargs['TurboConfiguration'] = TurboConfiguration
             setBC_outradeqhyb(t, **BCkwargs)
+
+        elif BCparam['type'] == 'giles_out':
+            print(J.CYAN + 'set BC nscbc giles_out on ' + BCparam['FamilyName'] + J.ENDC)
+            
+            # add the node FamilyBC_t in the Family Node
+            FamilyNode = I.getNodeFromNameAndType(t, BCparam['FamilyName'], 'Family_t')
+            I._rmNodesByName(FamilyNode, '.Solver#BC')
+            I._rmNodesByType(FamilyNode, 'FamilyBC_t')
+            I.newFamilyBC(value='BCOutflowSubsonic', parent=FamilyNode)
+
+            for bc in C.getFamilyBCs(t,BCparam['FamilyName']):
+                setBC_giles_outlet(t, bc, FluidProperties, ReferenceValues, **BCkwargs)
+
+        elif BCparam['type'] == 'giles_in':
+            print(J.CYAN + 'set BC nscbc giles_in on ' + BCparam['FamilyName'] + J.ENDC)
+            
+            # add the node FamilyBC_t in the Family Node
+            FamilyNode = I.getNodeFromNameAndType(t, BCparam['FamilyName'], 'Family_t')
+            I._rmNodesByName(FamilyNode, '.Solver#BC')
+            I._rmNodesByType(FamilyNode, 'FamilyBC_t')
+            I.newFamilyBC(value='BCInflowSubsonic', parent=FamilyNode)
+
+            for bc in C.getFamilyBCs(t,BCparam['FamilyName']):
+                setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, **BCkwargs)
+
 
         elif BCparam['type'] == 'stage_mxpl':
             print('{}set BC stage_mxpl between {} and {}{}'.format(J.CYAN,
@@ -2688,6 +2735,200 @@ def setBC_outpres(t, FamilyName, Pressure, bc=None, variableForInterpolation='Ch
     else:
         setBCwithImposedVariables(t, FamilyName, ImposedVariables,
                                 FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc, variableForInterpolation=variableForInterpolation)
+
+def setBC_giles_outlet(t, bc, FluidProperties, ReferenceValues, FamilyName,**kwargs):
+
+    '''
+    Impose a Boundary Condition ``giles_out``.
+
+    .. note::
+    see theoretical report: /home/bfrancoi/NSCBC/RapportsONERA/SONICE-TF-S2.1.4.1.2_NSCBCgilesInletSteadyStructured_Final3.pdf
+
+    Parameters
+        ----------
+
+            t : PyTree
+                Tree to modify
+
+            bc : CGNS node of type BC_t
+                 BC node attached to the family in the which the boundary condition is applied
+
+            FluidProperties : dict
+                as obtained from :py:func:`computeFluidProperties`
+
+            ReferenceValues : dict
+                as obtained from :py:func:`computeReferenceValues`
+
+            FamilyName : str
+                Name of the family on which the boundary condition will be imposed
+            
+            kwargs : dict
+                Parameters defined by the user: FamilyName, Pressure, NbModesFourierGiles, monitoring_flag, option
+
+            TO DO: 
+               1. keep a similar structure as outpres and outradeq
+               2. add cartography
+    '''
+
+    # option: RadialEquilibrium or file
+    option = 'RadialEquilibrium'                # default option
+
+    # computation of sound velocity for Giles
+    VelocityScale =  (FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*ReferenceValues['TemperatureStagnation'])**0.5
+
+    # creation of dictionnary of keys for Giles outlet BC  
+    DictKeysGilesOutlet = {}
+
+    # keys relative to NSCBC
+    DictKeysGilesOutlet['type'] = 'nscbc_out'                                                         # mandatory key to have NSCBC-Giles treatment
+    DictKeysGilesOutlet['nscbc_giles'] = 'statio'                                                     # mandatory key to have NSCBC-Giles treatment
+    DictKeysGilesOutlet['nscbc_interpbc'] = 'linear'                                                  # mandatory value
+    DictKeysGilesOutlet['nscbc_fluxt'] = kwargs.get('nscbc_fluxt', 'fluxBothTransv')                  # recommended value - possible keys : 'classic'; 'fluxInviscidTransv'; 'fluxBothTransv'
+    DictKeysGilesOutlet['nscbc_surf'] = kwargs.get('nscbc_surf',  'revolution')                       # recommended value - possible keys : 'flat', 'revolution'
+    DictKeysGilesOutlet['nscbc_outwave'] = kwargs.get('nscbc_outwave',  'grad_etat')                  # recommended value - possible keys : 'grad_etat'; 'extrap_flux'
+    DictKeysGilesOutlet['nscbc_velocity_scale'] = kwargs.get('nscbc_velocity_scale',VelocityScale)    # default value - reference sound velocity 
+    DictKeysGilesOutlet['nscbc_viscwall_len'] = kwargs.get('nscbc_viscwall_len', 5.e-4)               # default value, could be updated by the user if convergence issue
+
+    # keys relative to the Giles treatment 
+    DictKeysGilesOutlet['giles_opt'] = 'relax'                                                        # mandatory key for NSCBC-Giles treatment
+    DictKeysGilesOutlet['giles_restric_relax'] = 'inactive'                                           # mandatory key for NSCBC-Giles treatment
+    DictKeysGilesOutlet['giles_exact_lodi'] = kwargs.get('giles_exact_lodi',  'active')               # recommended value - possible keys: 'inactive', 'partial', 'active'
+    DictKeysGilesOutlet['giles_nbMode'] = kwargs.get('NbModesFourierGiles')                           # given by the user - recommended value : ncells_theta/2 + 1 (odd_value)
+
+    # keys relative to the monitoring and radii calculus - monitoring data stored in LOGS
+    DictKeysGilesOutlet['bnd_monitoring'] = 'active'                                                  # recommended value
+    DictKeysGilesOutlet['monitoring_comp_rad'] = 'auto'                                               # recommended value - possible keys: 'from_file', 'monofenetre'
+    DictKeysGilesOutlet['monitoring_tol_rad'] = kwargs.get('monitoring_tol_rad',  1e-6)               # recommended value
+    DictKeysGilesOutlet['monitoring_var'] = 'psta'
+    DictKeysGilesOutlet['monitoring_file'] = 'LOGS/%s_'%FamilyName
+    DictKeysGilesOutlet['monitoring_period'] = kwargs.get('monitoring_period',  20)                   # recommended value   
+    DictKeysGilesOutlet['monitoring_flag'] = kwargs.get('monitoring_flag',  None)                     # given by the user
+
+    # keys relative to the outlet NSCBC/Giles
+    DictKeysGilesOutlet['nscbc_relaxo'] = kwargs.get('nscbc_relaxo',  200.)                           # recommended value
+    DictKeysGilesOutlet['giles_relaxo'] = kwargs.get('giles_relaxo',  200.)                           # recommended value
+
+    # default option: RadialEquilibrium
+    if option == 'RadialEquilibrium':
+        DictKeysGilesOutlet['monitoring_indpiv'] = kwargs.get('IndexPivot',1)                         # default value
+        DictKeysGilesOutlet['monitoring_pressure'] = kwargs.get('Pressure',None)                      # given by the user
+
+        # Case for Valve Law
+        valve_ref_type = kwargs.get('valve_ref_type',0)
+        if valve_ref_type!=0:
+            DictKeysGilesOutlet['monitoring_valve_ref_type'] = valve_ref_type
+            DictKeysGilesOutlet['monitoring_valve_ref_pres'] = valve_ref_pres
+            DictKeysGilesOutlet['monitoring_valve_ref_mflow'] = valve_ref_mflow
+            DictKeysGilesOutlet['monitoring_valve_relax'] = valve_relax
+            
+    # imposed cartography from a CGNS file
+    elif option == 'file':
+        raise Exception('Giles BC with file imposed not implemented yet')
+
+
+    # set the BC with keys
+    print(DictKeysGilesOutlet)  
+    J.set(bc, '.Solver#BC',**DictKeysGilesOutlet)
+
+
+
+def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwargs):
+    '''
+    Impose a Boundary Condition ``giles_in``.
+
+    .. note::
+    see theoretical report: /home/bfrancoi/NSCBC/RapportsONERA/SONICE-TF-S2.1.4.1.2_NSCBCgilesInletSteadyStructured_Final3.pdf
+
+    Parameters
+        ----------
+
+            t : PyTree
+                Tree to modify
+
+            bc : CGNS node of type BC_t
+                 BC node attached to the family in the which the boundary condition is applied
+
+            FluidProperties : dict
+                as obtained from :py:func:`computeFluidProperties`
+
+            ReferenceValues : dict
+                as obtained from :py:func:`computeReferenceValues`
+
+            FamilyName : str
+                Name of the family on which the boundary condition will be imposed
+
+            kwargs : dict
+                Parameters defined by the user: FamilyName, NbModesFourierGiles, monitoring_flag, option
+
+            TO DO: 
+               1. add a cartography
+            
+    '''
+
+    # option: uniform or file
+    option = 'uniform'                # default option
+
+    # computation of sound velocity for Giles
+    VelocityScale =  (FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*ReferenceValues['TemperatureStagnation'])**0.5 # SoundSpeed (existante)
+
+    # creation of dictionnary of keys for Giles inlet BC  
+    DictKeysGilesInlet = {}
+
+    # keys relative to NSCBC
+    DictKeysGilesInlet['type'] = 'nscbc_in'                                                              # mandatory key to have NSCBC-Giles treatment
+    DictKeysGilesInlet['nscbc_giles'] = 'statio'                                                         # mandatory key to have NSCBC-Giles treatment
+    DictKeysGilesInlet['nscbc_interpbc'] = 'linear'                                                      # mandatory value
+    DictKeysGilesInlet['nscbc_fluxt'] = kwargs.get('nscbc_fluxt', 'fluxBothTransv')                      # recommended value - possible keys : 'classic'; 'fluxInviscidTransv'; 'fluxBothTransv' 
+    DictKeysGilesInlet['nscbc_surf'] = kwargs.get('nscbc_surf',  'revolution')                           # recommended value - possible keys : 'flat', 'revolution' 
+    DictKeysGilesInlet['nscbc_outwave'] = kwargs.get('nscbc_outwave',  'grad_etat')                      # recommended value - possible keys : 'grad_etat'; 'extrap_flux'
+    DictKeysGilesInlet['nscbc_velocity_scale'] = kwargs.get('nscbc_velocity_scale',VelocityScale)        # default value - sound velocity
+    DictKeysGilesInlet['nscbc_viscwall_len'] = kwargs.get('nscbc_viscwall_len', 5.e-4)                   # default value, could be updated by the user if convergence issue
+
+    # keys relative to the Giles treatment 
+    DictKeysGilesInlet['giles_opt'] = kwargs.get('giles_relax_opt', 'relax')                             # mandatory key for NSCBC-Giles treatment
+    DictKeysGilesInlet['giles_restric_relax'] = 'inactive'                                               # mandatory key for NSCBC-Giles treatment
+    DictKeysGilesInlet['giles_exact_lodi'] = kwargs.get('giles_exact_lodi',  'active')                   # recommended value - possible keys: 'inactive', 'partial', 'active'
+    DictKeysGilesInlet['giles_nbMode'] = kwargs.get('NbModesFourierGiles')                               # to be given by the user - recommended value : ncells_theta/2 + 1 (odd_value)
+
+    # keys relative to the monitoring and radii calculus - monitoring data stored in LOGS
+    DictKeysGilesInlet['bnd_monitoring'] = 'active'                                                      # recommended value
+    DictKeysGilesInlet['monitoring_comp_rad'] = 'auto'                                                   # recommended value - possible keys: 'from_file', 'monofenetre'
+    DictKeysGilesInlet['monitoring_tol_rad'] = kwargs.get('monitoring_tol_rad',  1e-6)                   # recommended value
+    DictKeysGilesInlet['monitoring_var'] = 'psta pgen Tgen ux uy uz diffPgen diffTgen diffVel'
+    DictKeysGilesInlet['monitoring_file'] = 'LOGS/%s_'%FamilyName
+    DictKeysGilesInlet['monitoring_period'] = kwargs.get('monitoring_period',  20)                       # recommended value
+    DictKeysGilesInlet['monitoring_flag'] = kwargs.get('monitoring_flag',  None)                         # to be given by the user
+
+    # keys relative to the inlet BC
+    DictKeysGilesInlet['nscbc_in_type'] = 'htpt'                                                         # mandatory key to have NSCBC-Giles treatment
+    # - numerics -
+    DictKeysGilesInlet['nscbc_relaxi1'] = kwargs.get('nscbc_relaxi1',  500.)                             # recommended value
+    DictKeysGilesInlet['nscbc_relaxi2'] = kwargs.get('nscbc_relaxi2',  500.)                             # recommended value
+    giles_relax_in = kwargs.get('giles_relax_in',  [200.,  500.,  1000.,  1000.])                        # recommended value
+    DictKeysGilesInlet['giles_relax_in1'] = giles_relax_in[0]
+    DictKeysGilesInlet['giles_relax_in2'] = giles_relax_in[1]
+    DictKeysGilesInlet['giles_relax_in3'] = giles_relax_in[2]
+    DictKeysGilesInlet['giles_relax_in4'] = giles_relax_in[3]    
+    if option == 'uniform':
+        # - physical quantities -
+        DictKeysGilesInlet['stagnation_enthalpy'] = kwargs.get('stagnation_enthalpy',FluidProperties['cp'] * ReferenceValues['TemperatureStagnation'])   # to be given by the user
+        DictKeysGilesInlet['stagnation_pressure'] = kwargs.get('stagnation_pressure',ReferenceValues['PressureStagnation'])                              # to be given by the user
+        DictKeysGilesInlet['vtx'] = kwargs.get('VelocityUnitVectorX',1.)                                                                                 # to be given by the user
+        DictKeysGilesInlet['vtr'] = kwargs.get('VelocityUnitVectorR',0.)                                                                                 # to be given by the user
+        DictKeysGilesInlet['vtt'] = kwargs.get('VelocityUnitVectorTheta',0.)                                                                             # to be given by the user
+        # - turbulent quantities -
+        turbDict = getPrimitiveTurbulentFieldForInjection(FluidProperties, ReferenceValues)
+        for CGNSTurbVariable in turbDict.keys():
+            elsATurbVariable = translateVariablesFromCGNS2Elsa([CGNSTurbVariable])[0]
+            DictKeysGilesInlet[elsATurbVariable] = turbDict[CGNSTurbVariable]
+    elif option == 'file':
+        raise Exception('Giles BC with file imposed not implemented yet')
+
+    # set the BC with keys
+    print(DictKeysGilesInlet)  
+    J.set(bc, '.Solver#BC',**DictKeysGilesInlet)
+
+
 
 def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues=None, TurboConfiguration=None):
     '''
@@ -4827,7 +5068,8 @@ def postprocess_turbomachinery(surfaces, stages=[],
                                 computeRadialProfiles=True, 
                                 config='annular', 
                                 lin_axis='XY',
-                                RowType='compressor'):
+                                RowType='compressor',
+                                container_at_vertex='FlowSolution#Init'):
     '''
     Perform a series of classical postprocessings for a turbomachinery case : 
 
@@ -4895,6 +5137,26 @@ def postprocess_turbomachinery(surfaces, stages=[],
         RowType : str
             see parameter 'config' of :py:func:`MOLA.PostprocessTurbo.compareRadialProfilesPlane2Plane`
         
+        container_at_vertex : :py:class:`str` or :py:class:`list` of :py:class:`str`
+            specifies the *FlowSolution* container located at 
+            vertex where postprocess will be applied. 
+
+            .. hint::
+                provide a :py:class:`list` of :py:class:`str` so that the 
+                postprocess will be applied to each of the provided containers.
+                This is useful for making post-processing on e.g. both
+                instantaneous and averaged flow fields
+        
+        container_at_vertex : :py:class:`str` or :py:class:`list` of :py:class:`str`
+            specifies the *FlowSolution* container located at 
+            vertex where postprocess will be applied. 
+
+            .. hint::
+                provide a :py:class:`list` of :py:class:`str` so that the 
+                postprocess will be applied to each of the provided containers.
+                This is useful for making post-processing on e.g. both
+                instantaneous and averaged flow fields
+        
     '''
     import Converter.Mpi as Cmpi
     import MOLA.PostprocessTurbo as Post
@@ -4902,49 +5164,92 @@ def postprocess_turbomachinery(surfaces, stages=[],
 
     Post.setup = J.load_source('setup', 'setup.py')
 
-    #______________________________________________________________________________
-    # Variables
-    #______________________________________________________________________________
-    allVariables = TUS.getFields(config=config)
-    if not var4comp_repart:
-        var4comp_repart = ['StagnationEnthalpyDelta',
-                           'StagnationPressureRatio', 'StagnationTemperatureRatio',
-                           'StaticPressureRatio', 'Static2StagnationPressureRatio',
-                           'IsentropicEfficiency', 'PolytropicEfficiency',
-                           'StaticPressureCoefficient', 'StagnationPressureCoefficient',
-                           'StagnationPressureLoss1', 'StagnationPressureLoss2',
-                           ]
-    if not var4comp_perf:
-        var4comp_perf = var4comp_repart + ['Power']
-    if not var2keep:
-        var2keep = [
-            'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation',
-            'StagnationPressureRelDim', 'StagnationTemperatureRelDim',
-            'Entropy',
-            'Viscosity_EddyMolecularRatio',
-            'VelocitySoundDim', 'StagnationEnthalpyAbsDim',
-            'MachNumberAbs', 'MachNumberRel',
-            'AlphaAngleDegree',  'BetaAngleDegree', 'PhiAngleDegree',
-            'VelocityXAbsDim', 'VelocityRadiusAbsDim', 'VelocityThetaAbsDim',
-            'VelocityMeridianDim', 'VelocityRadiusRelDim', 'VelocityThetaRelDim',
-        ]
+    # prepare auxiliary surfaces tree, with flattened FlowSolution container
+    # located at Vertex including ChannelHeight
+    previous_vertex_container = I.__FlowSolutionNodes__
+    turbo_required_vertex_container = 'FlowSolution'
+    turbo_new_centers_container = 'FlowSolution#Centers'
 
-    variablesByAverage = Post.sortVariablesByAverage(allVariables)
+    if isinstance(container_at_vertex, str):
+        containers_at_vertex = [container_at_vertex]
+    elif not isinstance(container_at_vertex, list):
+        raise TypeError('container_at_vertex must be str or list of str')
+    else:
+        containers_at_vertex = container_at_vertex
 
-    #______________________________________________________________________________#
-    Post.computeVariablesOnIsosurface(surfaces, allVariables, config=config, lin_axis=lin_axis)
-    Post.compute0DPerformances(surfaces, variablesByAverage)
-    if computeRadialProfiles: 
-        Post.compute1DRadialProfiles(
-            surfaces, variablesByAverage, config=config, lin_axis=lin_axis)
-    # Post.computeVariablesOnBladeProfiles(surfaces, hList='all')
-    #______________________________________________________________________________#
+    suffixes = [c.replace('FlowSolution','') for c in containers_at_vertex]
 
-    if Cmpi.rank == 0:
-        Post.comparePerfoPlane2Plane(surfaces, var4comp_perf, stages)
+    for container_at_vertex in containers_at_vertex:
+        I.__FlowSolutionNodes__ = container_at_vertex
+        for zone in I.getZones(surfaces):
+            fs_container = I.getNodeFromName1(zone, container_at_vertex)
+            if not fs_container: continue
+            channel_height = I.getNodeFromName2(zone, 'ChannelHeight')
+            if not channel_height: continue
+            fs_container[2] += [ channel_height ]
+            fs_container[0] = turbo_required_vertex_container
+
+        #______________________________________________________________________________
+        # Variables
+        #______________________________________________________________________________
+        allVariables = TUS.getFields(config=config)
+        if not var4comp_repart:
+            var4comp_repart = ['StagnationEnthalpyDelta',
+                            'StagnationPressureRatio', 'StagnationTemperatureRatio',
+                            'StaticPressureRatio', 'Static2StagnationPressureRatio',
+                            'IsentropicEfficiency', 'PolytropicEfficiency',
+                            'StaticPressureCoefficient', 'StagnationPressureCoefficient',
+                            'StagnationPressureLoss1', 'StagnationPressureLoss2',
+                            ]
+        if not var4comp_perf:
+            var4comp_perf = var4comp_repart + ['Power']
+        if not var2keep:
+            var2keep = [
+                'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation',
+                'StagnationPressureRelDim', 'StagnationTemperatureRelDim',
+                'Entropy',
+                'Viscosity_EddyMolecularRatio',
+                'VelocitySoundDim', 'StagnationEnthalpyAbsDim',
+                'MachNumberAbs', 'MachNumberRel',
+                'AlphaAngleDegree',  'BetaAngleDegree', 'PhiAngleDegree',
+                'VelocityXAbsDim', 'VelocityRadiusAbsDim', 'VelocityThetaAbsDim',
+                'VelocityMeridianDim', 'VelocityRadiusRelDim', 'VelocityThetaRelDim',
+            ]
+
+        variablesByAverage = Post.sortVariablesByAverage(allVariables)
+
+        #______________________________________________________________________________#
+        Post.computeVariablesOnIsosurface(surfaces, allVariables, config=config, lin_axis=lin_axis)
+        Post.compute0DPerformances(surfaces, variablesByAverage)
         if computeRadialProfiles: 
-            Post.compareRadialProfilesPlane2Plane(
-                surfaces, var4comp_repart, stages, config=RowType)
+            Post.compute1DRadialProfiles(
+                surfaces, variablesByAverage, config=config, lin_axis=lin_axis)
+        # Post.computeVariablesOnBladeProfiles(surfaces, hList='all')
+        #______________________________________________________________________________#
 
-    Post.cleanSurfaces(surfaces, var2keep=var2keep)
-    Cmpi.barrier()
+        if Cmpi.rank == 0:
+            Post.comparePerfoPlane2Plane(surfaces, var4comp_perf, stages)
+            if computeRadialProfiles: 
+                Post.compareRadialProfilesPlane2Plane(
+                    surfaces, var4comp_repart, stages, config=RowType)
+
+        Post.cleanSurfaces(surfaces, var2keep=var2keep)
+
+        suffix = container_at_vertex.replace('FlowSolution','')
+        for zone in I.getZones(surfaces):
+            for fs_container in I.getNodesFromType1(zone, 'FlowSolution_t'):
+                fs_name = fs_container[0]
+                is_turbo_container = fs_name in [turbo_required_vertex_container,
+                                                turbo_new_centers_container]
+                is_new_comparison = fs_name.startswith('Comparison') and not \
+                                    fs_name.endswith(suffix)
+
+                if is_turbo_container or is_new_comparison: 
+                    if not any([fs_container[0].endswith(s) for s in suffixes]):
+                        fs_container[0] += suffix
+                        if fs_container[0].startswith(turbo_new_centers_container):
+                            fs_container[0]=fs_container[0].replace(turbo_new_centers_container,
+                                                                    'FlowSolution')
+
+        I.__FlowSolutionNodes__ = previous_vertex_container
+
