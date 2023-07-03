@@ -223,6 +223,15 @@ elif [ "$MAC" = "visung" ]; then
     export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
     export PYTHONPATH=$MAIA_HOME/lib/python3.8/site-packages:$PYTHONPATH
 
+    # # MAIA # should be available with elsA v5.2.01 (but currently bugged maia #41)
+    module load scotch/6.0.9-idx32-gnu831-ompi405
+    module load parmetis/4.0.3-gnu831-ompi405
+    module load metis/5.1.0-gnu831
+    module load cmake/3.19.8-gnu831
+    export MAIA_HOME=/d/jcoulet/opt/maia-openmpi
+    export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
+    export PYTHONPATH=$MAIA_HOME/lib/python3.8/site-packages:$PYTHONPATH
+
     # VPM
     export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld7/$ARCH
     export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH

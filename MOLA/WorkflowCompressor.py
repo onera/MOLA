@@ -547,6 +547,17 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
               'positive value to "FirstIterationForFieldsAveraging" and relaunch preprocess')
         print(J.WARN+msg+J.ENDC)
 
+
+    is_unsteady = AllSetupDicts['elsAkeysNumerics']['time_algo'] != 'steady'
+    avg_requested = AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'] is not None
+
+    if is_unsteady and not avg_requested:
+        msg =('WARNING: You are setting an unsteady simulation, but no field averaging\n'
+              'will be done since CoprocessOptions key "FirstIterationForFieldsAveraging"\n'
+              'is set to None. If you want fields average extraction, please set a finite\n'
+              'positive value to "FirstIterationForFieldsAveraging" and relaunch preprocess')
+        print(J.WARN+msg+J.ENDC)
+
     PRE.addExtractions(t, AllSetupDicts['ReferenceValues'],
                           AllSetupDicts['elsAkeysModel'],
                           extractCoords=False,
@@ -5155,6 +5166,16 @@ def postprocess_turbomachinery(surfaces, stages=[],
                 This is useful for making post-processing on e.g. both
                 instantaneous and averaged flow fields
         
+        container_at_vertex : :py:class:`str` or :py:class:`list` of :py:class:`str`
+            specifies the *FlowSolution* container located at 
+            vertex where postprocess will be applied. 
+
+            .. hint::
+                provide a :py:class:`list` of :py:class:`str` so that the 
+                postprocess will be applied to each of the provided containers.
+                This is useful for making post-processing on e.g. both
+                instantaneous and averaged flow fields
+        
     '''
     import Converter.Mpi as Cmpi
     import MOLA.PostprocessTurbo as Post
@@ -5214,26 +5235,78 @@ def postprocess_turbomachinery(surfaces, stages=[],
                 'VelocityXAbsDim', 'VelocityRadiusAbsDim', 'VelocityThetaAbsDim',
                 'VelocityMeridianDim', 'VelocityRadiusRelDim', 'VelocityThetaRelDim',
             ]
+    # prepare auxiliary surfaces tree, with flattened FlowSolution container
+    # located at Vertex including ChannelHeight
+    previous_vertex_container = I.__FlowSolutionNodes__
+    turbo_required_vertex_container = 'FlowSolution'
+    turbo_new_centers_container = 'FlowSolution#Centers'
+
+    if isinstance(container_at_vertex, str):
+        containers_at_vertex = [container_at_vertex]
+    elif not isinstance(container_at_vertex, list):
+        raise TypeError('container_at_vertex must be str or list of str')
+    else:
+        containers_at_vertex = container_at_vertex
+
+    suffixes = [c.replace('FlowSolution','') for c in containers_at_vertex]
+
+    for container_at_vertex in containers_at_vertex:
+        I.__FlowSolutionNodes__ = container_at_vertex
+        print(J.WARN+f'DEBUG {Cmpi.rank} {container_at_vertex}: adapting container names'+J.ENDC)
+        for zone in I.getZones(surfaces):
+            fs_container = I.getNodeFromName1(zone, container_at_vertex)
+            if not fs_container: continue
+            channel_height = I.getNodeFromName2(zone, 'ChannelHeight')
+            if not channel_height: continue
+            fs_container[2] += [ channel_height ]
+            fs_container[0] = turbo_required_vertex_container
+
+        #______________________________________________________________________________
+        # Variables
+        #______________________________________________________________________________
+        allVariables = TUS.getFields(config=config)
+        if not var4comp_repart:
+            var4comp_repart = ['StagnationEnthalpyDelta',
+                            'StagnationPressureRatio', 'StagnationTemperatureRatio',
+                            'StaticPressureRatio', 'Static2StagnationPressureRatio',
+                            'IsentropicEfficiency', 'PolytropicEfficiency',
+                            'StaticPressureCoefficient', 'StagnationPressureCoefficient',
+                            'StagnationPressureLoss1', 'StagnationPressureLoss2',
+                            ]
+        if not var4comp_perf:
+            var4comp_perf = var4comp_repart + ['Power']
+        if not var2keep:
+            var2keep = [
+                'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation',
+                'StagnationPressureRelDim', 'StagnationTemperatureRelDim',
+                'Entropy',
+                'Viscosity_EddyMolecularRatio',
+                'VelocitySoundDim', 'StagnationEnthalpyAbsDim',
+                'MachNumberAbs', 'MachNumberRel',
+                'AlphaAngleDegree',  'BetaAngleDegree', 'PhiAngleDegree',
+                'VelocityXAbsDim', 'VelocityRadiusAbsDim', 'VelocityThetaAbsDim',
+                'VelocityMeridianDim', 'VelocityRadiusRelDim', 'VelocityThetaRelDim',
+            ]
 
         variablesByAverage = Post.sortVariablesByAverage(allVariables)
-        
-        #______________________________________________________________________#
-        Post.computeVariablesOnIsosurface(surfaces, allVariables, config=config,
-                                          lin_axis=lin_axis)
+
+        #______________________________________________________________________________#
+        Post.computeVariablesOnIsosurface(surfaces, allVariables, config=config, lin_axis=lin_axis)
         Post.compute0DPerformances(surfaces, variablesByAverage)
-        if computeRadialProfiles:
+        if computeRadialProfiles: 
             Post.compute1DRadialProfiles(
                 surfaces, variablesByAverage, config=config, lin_axis=lin_axis)
         # Post.computeVariablesOnBladeProfiles(surfaces, hList='all')
-        #______________________________________________________________________#
+        #______________________________________________________________________________#
+
         if Cmpi.rank == 0:
             Post.comparePerfoPlane2Plane(surfaces, var4comp_perf, stages)
             if computeRadialProfiles: 
                 Post.compareRadialProfilesPlane2Plane(
                     surfaces, var4comp_repart, stages, config=RowType)
-        
+
         Post.cleanSurfaces(surfaces, var2keep=var2keep)
-        Cmpi.barrier()
+
         suffix = container_at_vertex.replace('FlowSolution','')
         for zone in I.getZones(surfaces):
             for fs_container in I.getNodesFromType1(zone, 'FlowSolution_t'):

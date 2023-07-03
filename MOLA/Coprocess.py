@@ -33,6 +33,7 @@ from . import Preprocess as PRE
 from . import JobManager as JM
 from . import BodyForceTurbomachinery as BF
 from . import Postprocess as POST
+from . import Postprocess as POST
 
 if not MOLA.__ONLY_DOC__:
     import sys
@@ -48,6 +49,7 @@ if not MOLA.__ONLY_DOC__:
     import glob
     import copy
     import traceback
+    from mpi4py import MPI
     from mpi4py import MPI
     comm   = MPI.COMM_WORLD
     rank   = comm.Get_rank()
@@ -151,6 +153,8 @@ def extractFields(Skeleton):
     adaptEndOfRun(t)
     resumeFieldsAveraging(Skeleton, t)
     t = I.merge([Skeleton, t])
+    removeEmptyBCDataSet(t)
+    PRE.forceFamilyBCasFamilySpecified(t) # https://elsa.onera.fr/issues/10928
     removeEmptyBCDataSet(t)
     PRE.forceFamilyBCasFamilySpecified(t) # https://elsa.onera.fr/issues/10928
 
