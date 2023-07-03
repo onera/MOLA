@@ -33,7 +33,6 @@ from . import Preprocess as PRE
 from . import JobManager as JM
 from . import BodyForceTurbomachinery as BF
 from . import Postprocess as POST
-from . import Postprocess as POST
 
 if not MOLA.__ONLY_DOC__:
     import sys
@@ -49,7 +48,6 @@ if not MOLA.__ONLY_DOC__:
     import glob
     import copy
     import traceback
-    from mpi4py import MPI
     from mpi4py import MPI
     comm   = MPI.COMM_WORLD
     rank   = comm.Get_rank()
@@ -460,6 +458,16 @@ def extractSurfaces(t, Extractions, arrays=None):
             AllowedFields = [ AllowedFields ]
 
         keepOnlyAllowedFields(I.getZones(base), AllowedFields)
+
+    # Add probes locations
+    if hasattr(setup, 'Probes'):
+        # FIXME Paraview cannot read probes with this implementation
+        base = I.newCGNSBase('Probes', cellDim=0, physDim=3, parent=SurfacesTree)
+        for Probe in setup.Probes:
+            zone = D.point(Probe['location'])
+            I.setName(zone, Probe['name'])
+            J.set(zone, '.ExtractionInfo', **Probe)
+            I._addChild(base, zone)
 
     return SurfacesTree
 
