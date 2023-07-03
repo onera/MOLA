@@ -133,6 +133,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
                      dict(type='IsoSurface',field='CoordinateX',value=1.0),
                      dict(type='IsoSurface',field='CoordinateX',value=2.0),
                      dict(type='IsoSurface',field='q_criterion',value=20.0)],
+        BoundaryConditions=[],
         writeOutputFields=True,
         Initialization={'method':'uniform'},
         JobInformation={},
@@ -190,6 +191,11 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         Extractions : :py:class:`list` of :py:class:`dict`
             List of extractions to perform during the simulation. See
             documentation of :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
+
+        BoundaryConditions : :py:class:`list` of :py:class:`dict`
+            List of boundary conditions to set on the given mesh.
+            For details, refer to documentation of
+            :func:`MOLA.WorkflowCompressor.setBoundaryConditions`
 
         writeOutputFields : bool
             if :py:obj:`True`, write initialized fields overriding
@@ -309,7 +315,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
     PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
 
     WC.setMotionForRowsFamilies(t, TurboConfiguration)
-    WC.setBC_Walls(t, TurboConfiguration)
+    WC.setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
+                            FluidProperties, ReferenceValues)
 
     WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 

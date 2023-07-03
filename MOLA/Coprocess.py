@@ -2559,6 +2559,7 @@ def splitWithPyPart():
 
     # HACK For now, PyPart Log files must be written in order to not polluate the stderr.log file
     # See https://elsa-e.onera.fr/issues/11028#note-4
+    printCo(J.WARN+'DEBUG: PPA.PyPart'+J.ENDC,0)
     PyPartBase = PPA.PyPart(FILE_CGNS,
                             lksearch=[DIRECTORY_OUTPUT, '.'],
                             loadoption='partial',
@@ -2571,10 +2572,14 @@ def splitWithPyPart():
     # with modernized elsA. 
     # Mandatory arguments to use lussorscawf: reorder=[6,2], nCellPerCache!=0
     # See http://elsa.onera.fr/restricted/MU_MT_tuto/latest/MU-98057/Textes/Attribute/numerics.html#numerics.implicit
+    printCo(J.WARN+'DEBUG: PyPartBase.runPyPart'+J.ENDC,0)
     PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[6, 2], nCellPerCache=1024)
+    printCo(J.WARN+'DEBUG: finalise'+J.ENDC,0)
     PyPartBase.finalise(PartTree, savePpart=True, method=1)
+    printCo(J.WARN+'DEBUG: PyPartBase.getPyPartSkeletonTree'+J.ENDC,0)
     Skeleton = PyPartBase.getPyPartSkeletonTree()
     I._rmNodesByName(Skeleton,'ZoneBCGT') # https://elsa.onera.fr/issues/11149
+    printCo(J.WARN+'DEBUG: PyPartBase.getDistribution'+J.ENDC,0)
     Distribution = PyPartBase.getDistribution()
 
     # Put Distribution into the Skeleton
@@ -2582,11 +2587,14 @@ def splitWithPyPart():
         zonePath = I.getPath(Skeleton, zone, pyCGNSLike=True)[1:]
         Cmpi._setProc(zone, Distribution[zonePath])
 
+    printCo(J.WARN+'DEBUG: merge skeleton with part tree'+J.ENDC,0)
     t = I.merge([Skeleton, PartTree])
 
+    printCo(J.WARN+'DEBUG: load skeleton'+J.ENDC,0)
     Skeleton = loadSkeleton(Skeleton, PartTree)
     # Add empty Coordinates for skeleton zones
     # Needed to make Cmpi.convert2PartialTree work
+    printCo(J.WARN+'DEBUG: adding coordinates'+J.ENDC,0)
     for zone in I.getZones(Skeleton):
         GC = I.getNodeFromType1(zone, 'GridCoordinates_t')
         if not GC:
@@ -2606,6 +2614,7 @@ def splitWithPyPart():
         # For unstructured zones, AdditionnalFamilyName nodes are lost
         # See Anomaly #10494 on elsA support # TODO: Fixed since elsA v5.2.01
         # We need to restore them
+        printCo(J.WARN+'DEBUG: ExchangeSurface'+J.ENDC,0)
         for i, famBCTrigger in enumerate(setup.ReferenceValues['CoprocessOptions']['CoupledSurfaces']):
             surfaceName = 'ExchangeSurface{}'.format(i)
             for zone in I.getZones(t):
