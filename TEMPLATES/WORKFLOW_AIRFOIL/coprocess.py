@@ -94,7 +94,7 @@ if not REGISTER_TRANSITION:
 ElapsedTime = timeit.default_timer() - LaunchTime
 ReachedTimeOutMargin = CO.hasReachedTimeOutMargin(ElapsedTime, TimeOut,
                                                             MarginBeforeTimeOut)
-anySignal = any([SAVE_ARRAYS, SAVE_SURFACES, SAVE_FIELDS, CONVERGED,
+anySignal = any([SAVE_ARRAYS, SAVE_SURFACES, SAVE_FIELDS, CONVERGED, HAS_PROBES,
                  REGISTER_TRANSITION, it>=itmax, it==FirstIterForFieldsStats-1])
 
 ENTER_COUPLING = anySignal or ReachedTimeOutMargin
@@ -103,6 +103,9 @@ ENTER_COUPLING = anySignal or ReachedTimeOutMargin
 if ENTER_COUPLING:
 
     t = CO.extractFields(Skeleton)
+
+    if HAS_PROBES:
+        CO.appendProbes2Arrays(t, arrays)
 
     if SAVE_FIELDS:
         J.moveFields(t)

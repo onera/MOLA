@@ -107,6 +107,11 @@ if Splitter == 'PyPart':
 else:
     Skeleton = CO.loadSkeleton()
 
+# ========================== INIT PROBES ========================== #
+HAS_PROBES = CO.hasProbes()
+if HAS_PROBES:
+    CO.searchZoneAndIndexForProbes(Skeleton)
+
 # ========================== LAUNCH ELSA ========================== #
 
 import elsA_user

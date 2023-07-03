@@ -104,7 +104,9 @@ else:
     Skeleton = CO.loadSkeleton()
 
 # ========================== INIT PROBES ========================== #
-CO.searchZoneAndIndexForProbes(Skeleton, setup.Probes)
+HAS_PROBES = CO.hasProbes()
+if HAS_PROBES:
+    CO.searchZoneAndIndexForProbes(Skeleton)
 
 # ========================== LAUNCH ELSA ========================== #
 

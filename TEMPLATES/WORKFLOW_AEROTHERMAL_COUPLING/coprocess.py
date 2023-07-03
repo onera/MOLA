@@ -84,13 +84,16 @@ CWIPY_COUPLING = all([UpdateCWIPICouplingFrequency,
 ElapsedTime = timeit.default_timer() - LaunchTime
 ReachedTimeOutMargin = CO.hasReachedTimeOutMargin(ElapsedTime, TimeOut,
                                                             MarginBeforeTimeOut)
-anySignal = any([SAVE_ARRAYS, SAVE_SURFACES, SAVE_FIELDS, CWIPY_COUPLING,
+anySignal = any([SAVE_ARRAYS, SAVE_SURFACES, SAVE_FIELDS, CWIPY_COUPLING, HAS_PROBES, 
                 CONVERGED, it>=itmax, it==FirstIterForFieldsStats-1])
 ENTER_COUPLING = anySignal or ReachedTimeOutMargin
 
 if ENTER_COUPLING:
 
     t = CO.extractFields(Skeleton)
+
+    if HAS_PROBES:
+        CO.appendProbes2Arrays(t, arrays)
 
     if SAVE_FIELDS:
         CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))

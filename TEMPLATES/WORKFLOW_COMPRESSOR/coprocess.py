@@ -93,13 +93,16 @@ if BodyForceInputData and not COMPUTE_BODYFORCE:
 ElapsedTime = timeit.default_timer() - LaunchTime
 ReachedTimeOutMargin = CO.hasReachedTimeOutMargin(ElapsedTime, TimeOut,
                                                             MarginBeforeTimeOut)
-anySignal = any([SAVE_ARRAYS, SAVE_SURFACES, SAVE_BODYFORCE, COMPUTE_BODYFORCE,
+anySignal = any([SAVE_ARRAYS, SAVE_SURFACES, SAVE_BODYFORCE, COMPUTE_BODYFORCE, HAS_PROBES,
                  SAVE_FIELDS, CONVERGED, it>=itmax, it==FirstIterForFieldsStats-1])
 ENTER_COUPLING = anySignal or ReachedTimeOutMargin
 
 if ENTER_COUPLING:
 
     t = CO.extractFields(Skeleton)
+
+    if HAS_PROBES:
+        CO.appendProbes2Arrays(t, arrays)
 
     if COMPUTE_BODYFORCE:
         BODYFORCE_INITIATED = True
@@ -129,7 +132,6 @@ if ENTER_COUPLING:
             CONVERGED = CO.isConverged(ConvergenceCriteria)
 
     if SAVE_ARRAYS:
-        CO.appendProbes2Arrays(t, arrays, setup.Probes)
         arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,
                   Extractions=setup.Extractions, addMemoryUsage=True)
         CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))

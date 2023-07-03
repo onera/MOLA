@@ -130,6 +130,11 @@ else:
     t = Cmpi.convertFile2PyTree('main.cgns')
     Skeleton = CO.loadSkeleton()
 
+# ========================== INIT PROBES ========================== #
+HAS_PROBES = CO.hasProbes()
+if HAS_PROBES:
+    CO.searchZoneAndIndexForProbes(Skeleton)
+
 ################################################################################
 # PREPARE VARIABLES TO LOCATE INTERFACES
 ################################################################################
