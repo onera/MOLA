@@ -59,6 +59,7 @@ if not MOLA.__ONLY_DOC__:
     import Converter.Mpi as Cmpi
     import Transform.PyTree as T
     import Post.PyTree as P
+    import Geom.PyTree as D
 
 
 
@@ -438,6 +439,16 @@ def extractSurfaces(t, Extractions):
             AllowedFields = [ AllowedFields ]
 
         keepOnlyAllowedFields(I.getZones(base), AllowedFields)
+
+    # Add probes locations
+    if hasattr(setup, 'Probes'):
+        # FIXME Paraview cannot read probes with this implementation
+        base = I.newCGNSBase('Probes', cellDim=0, physDim=3, parent=SurfacesTree)
+        for Probe in setup.Probes:
+            zone = D.point(Probe['location'])
+            I.setName(zone, Probe['name'])
+            J.set(zone, '.ExtractionInfo', **Probe)
+            I._addChild(base, zone)
 
     return SurfacesTree
 
@@ -2503,7 +2514,7 @@ def splitWithPyPart():
 
     import etc.pypart.PyPart     as PPA
 
-    # For now, PyPart Log files must be written in order to not polluate the stderr.log file
+    # HACK For now, PyPart Log files must be written in order to not polluate the stderr.log file
     # See https://elsa-e.onera.fr/issues/11028#note-4
     PyPartBase = PPA.PyPart(FILE_CGNS,
                             lksearch=[DIRECTORY_OUTPUT, '.'],
@@ -2538,7 +2549,7 @@ def splitWithPyPart():
             J.set(zone, 'GridCoordinates', childType='GridCoordinates_t',
                 CoordinateX=None, CoordinateY=None, CoordinateZ=None)
         elif I.getZoneType(zone) == 2:
-            # For unstructured zone, correct the node NFaceElements/ElementConnectivity
+            # HACK For unstructured zone, correct the node NFaceElements/ElementConnectivity
             # Problem with PyPart: see issue https://elsa-e.onera.fr/issues/9002
             # C._convertArray2NGon(zone)
             NFaceElements = I.getNodeFromName(zone, 'NFaceElements')
@@ -2707,7 +2718,6 @@ def appendProbes2Arrays_extractMesh(t, arrays, Probes, order=2):
         order : int
             order of interpolation
     '''
-    import Geom.PyTree as D
     import Post.Mpi as Pmpi
 
     t = Cmpi.convert2PartialTree(t)
@@ -2764,34 +2774,86 @@ def appendProbes2Arrays(t, arrays, Probes):
             >>> Probes = dict(  )
     '''
     for Probe in Probes:
+        if Probe['rank'] != rank:
+            continue
         ProbesDict = dict( IterationNumber = CurrentIteration-1 )
-        zone = I.getNodeFromName2(t, Probe['zone'])
-        variables = Probe['variables']
-        for var in variables:
-            ProbesDict[var] = C.getValue(zone , 'centers:{}'.format(var), Probe['element'])
+        if setup.elsAkeysNumerics['time_algo'] != 'steady': 
+            ProbesDict['Time'] = ProbesDict['IterationNumber'] * setup.elsAkeysNumerics['timestep']
 
-        if 'name' not in Probe:
-            x, y, z = Probe['location']
-            Probe['name'] = 'Probe_{:.3g}_{:.3g}_{:.3g}'.format(x, y, z)
+        variables = Probe['variables']
+        if isinstance(variables, str):
+            variables = [variables]
+        zone = I.getNodeFromName2(t, Probe['zone'])
+        variablesDict = J.getVars2Dict(zone, VariablesName=variables, Container='FlowSolution#Init')
+        for var, value in variablesDict.items():
+            ProbesDict[var] = value.ravel('F')[Probe['element']]
+
         appendDict2Arrays(arrays, ProbesDict, Probe['name'])
 
 def searchZoneAndIndexForProbes(t, Probes, tol=1e-2):
-    for Probe in Probes:
+    
+    '''
+    Search for the nearest vertex from each probe in **Probes** in a PyTree.
 
+    Parameters
+    ----------
+    t : PyTree
+        Input PyTree.
+    Probes : list of dict
+        A list of probes.
+    tol : float, optional
+        The tolerance for minimum distance. Default is 1e-2.
+
+    Notes
+    -----
+        - The function modifies the probe dictionaries by adding information about the zone, element, distance to the nearest vertex, and processor rank.
+        - Probes that are too far from the nearest vertex are removed from the list.
+    '''
+    # Put data at cell center, including coordinates
+    t = C.node2Center(t)
+
+    for Probe in Probes:
         # Search the nearest points in all zones
         nearestElement = None
         minDistance = 1e20
         for zone in I.getZones(t):
-            element, distance = DP.getNearestPointIndex(zone, Probe['location'])
+            try:
+                element, squaredDistance = D.getNearestPointIndex(zone, Probe['location'])
+            except IndexError:
+                # Skeleton zone on this proc
+                continue
+            distance = np.sqrt(squaredDistance)
             if distance < minDistance:
+                minDistance = distance
                 nearestElement = element
-                probeZone = I.getName(zone)
+                probeZone = zone
+        
+        Probe['rank'] = -1
+        Cmpi.barrier()
+        minDistanceForAllProcessors = comm.allreduce(minDistance, op=MPI.MIN)
+        if minDistance == minDistanceForAllProcessors:
+            # Probe on this proc
+            Probe['rank'] = Cmpi.getProc(probeZone)
+            Probe['zone'] = I.getName(probeZone)
+            Probe['element'] = nearestElement
+            Probe['distanceToNearestCellCenter'] = minDistance     
+            x, y, z = J.getxyz(probeZone)
+            Probe['location'] = x.ravel(order='F')[nearestElement], y.ravel(order='F')[nearestElement], z.ravel(order='F')[nearestElement]
+            if 'name' not in Probe:
+                Probe['name'] = 'Probe_{:.3g}_{:.3g}_{:.3g}'.format(Probe['location'][0], Probe['location'][1], Probe['location'][2])
+        Cmpi.barrier()
+        rankForComm = comm.allreduce(Probe['rank'], op=MPI.MAX)
+        Cmpi.barrier()
+        UpdatedProbe = comm.bcast(Probe, root=rankForComm)
+        Cmpi.barrier()
+        Probe.update(UpdatedProbe)
 
-        if minDistance > tol:
-            print('This probe is too far of one ')
+        if minDistanceForAllProcessors > tol:
+            printCo(f'The probe {Probe["name"]} is too far from the nearest vertex ({minDistanceForAllProcessors} m). It is removed.', 0, J.WARN)
+            Probes.remove(Probe)
 
-        Probe['zone'] = probeZone
-        Probe['element'] = nearestElement
+    for Probe in Probes:
+        printCo(f'{Probe}', 0, J.MAGE)
 
 
 def loadUnsteadyMasksForElsA(e, elsA_user, Skeleton):
@@ -2987,8 +3049,9 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                 if not I.getNodeFromName(surfaces, 'ChannelHeight'):
                     printCo('Postprocess cannot be done because ChannelHeight is missing', 0, color=J.WARN)
                     raise ChannelHeightError
+                printCo('Postprocess in progress...', proc=0, color=J.MAGE)
                 WC.postprocess_turbomachinery(surfaces, computeRadialProfiles=computeRadialProfiles, **PostprocessOptions)
-                printCo('Postprocess done on surfaces', proc=0, color=J.MAGE)
+                printCo('Postprocess done on surfaces', proc=0, color=J.GREEN)
 
                 if rank == 0:
                     # Move 0D averages to arrays
@@ -3015,6 +3078,7 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                 I._rmNodesFromName1(surfaces, 'Averages0D')
 
             except ImportError:
+                printCo('Postprocess cannot be done (ImportError)', proc=0, color=J.WARN)
                 pass
             except ChannelHeightError:
                 pass
