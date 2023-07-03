@@ -15,6 +15,11 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
+import shutil 
+from mola import (cgns, misc)
+from mola import __MOLA_PATH__
+
 def adapt_to_solver(workflow):
 
     add_reference_state(workflow)
@@ -32,8 +37,8 @@ def add_reference_state(workflow):
 
     ReferenceState = dict(**workflow.Flow['ReferenceState'])
 
-    for var in ['Reynolds','Mach','Pressure','Temperature']
-        ReferenceState[var] = self.Flow[var]
+    for var in ['Reynolds','Mach','Pressure','Temperature']:
+        ReferenceState[var] = workflow.Flow[var]
  
     namesForCassiopee = dict(
         cv                    = 'Cv',
@@ -44,7 +49,7 @@ def add_reference_state(workflow):
         Prandtl               = 'Pr',
     )
     for var in ['cv','Gamma','SutherlandViscosity','SutherlandConstant','SutherlandTemperature','Prandtl']:
-        ReferenceState[namesForCassiopee[var]] = self.Fluid[var]
+        ReferenceState[namesForCassiopee[var]] = workflow.Fluid[var]
 
     for base in workflow.tree.bases():
         base.setParameters('ReferenceState', ContainerType='ReferenceState', **ReferenceState)
@@ -81,7 +86,8 @@ def write_run_scripts(workflow):
     write_job_launcher(workflow)
 
 def write_data_files(workflow):
-    workflow.tree.save(os.path.join(workflow.RunManagement['RunDirectory'],'OUTPUT', 'fields.cgns'))
+    os.makedirs(os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT'), exist_ok=True)
+    workflow.tree.save(os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT', 'fields.cgns'))
     mainCGNS = workflow.tree.copy()
 
     # Replace all FlowSolution#Init nodes with paths to OUTPUT/fields.cgns
@@ -105,13 +111,18 @@ compute(workflow)
     with open(os.path.join(workflow.RunManagement['RunDirectory'], 'compute.py'), 'w') as File:
         File.write(txt)
 
+    # shutil.copy2(f'{__MOLA_PATH__}/TEMPLATES/WORKFLOW_STANDARD/.sh', 'job.sh')
+
 def write_coprocess(workflow):
     with open(os.path.join(workflow.RunManagement['RunDirectory'], 'coprocess.py'), 'w') as File:
         File.write('# do nothing')
 
 def write_job_launcher(workflow):
-    with open(os.path.join(workflow.RunManagement['RunDirectory'], 'job.sh'), 'w') as File:
-        File.write('# do nothing')
+
+    shutil.copy2(f'{__MOLA_PATH__}/TEMPLATES/job_template.sh', 'job.sh')
+
+    # with open(os.path.join(workflow.RunManagement['RunDirectory'], 'job.sh'), 'w') as File:
+    #     File.write('# do nothing')
     
 def compute(workflow):
     
@@ -157,7 +168,7 @@ def compute(workflow):
     # arrays = CO.invokeArrays()
 
     # if workflow.Numerics['NumberOfIterations'] == 0:
-    #     CO.printCo('WARNING: niter = 0 -> will only make extractions', proc=0, color=J.WARN)
+    #     CO.printCo('WARNING: niter = 0 -> will only make extractions', proc=0, color=J.YELLOW)
     # inititer = setup.elsAkeysNumerics['inititer']
     # itmax    = inititer+niter-2 # BEWARE last iteration accessible trigger-state-16
 

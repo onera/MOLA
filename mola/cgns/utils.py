@@ -40,7 +40,7 @@ def castNode( NodeOrNodelikeList ):
         except: Kind = None
         if Kind is None:
             if node.isStructured() and node.dim() == 1:
-                from .Mesh.Curves import Curve
+                from .mesh.curves import Curve
                 if not isinstance(node, Curve):
                     node = Curve(node)
         elif Kind == 'LiftingLine':

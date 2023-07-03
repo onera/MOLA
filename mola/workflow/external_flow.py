@@ -15,6 +15,17 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import numpy as np
+from mola import misc, cgns, math_tools
+
+K_OMEGA_TWO_EQN_MODELS = ['Wilcox2006-klim', 'Wilcox2006-klim-V',
+            'Wilcox2006', 'Wilcox2006-V', 'SST-2003', 
+            'SST-V2003', 'SST', 'SST-V',  'BSL', 'BSL-V']
+
+K_OMEGA_MODELS = K_OMEGA_TWO_EQN_MODELS + [ 'SST-2003-LM2009',
+                 'SST-V2003-LM2009', 'SSG/LRR-RSM-w2012']
+
+AvailableTurbulenceModels = K_OMEGA_MODELS + ['smith', 'SA']
 
 class FlowGenerator(object):
 
@@ -28,6 +39,9 @@ class FlowGenerator(object):
             self.Length = workflow.Length  # Mandatory to compute the Reynolds number
         else:
             self.Length = 1.
+
+        self.Fluid['cv'] = self.Fluid['IdealGasConstant']/(self.Fluid['Gamma']-1.0)
+        self.Fluid['cp'] = self.Fluid['Gamma'] * self.Fluid['cv']
 
         # Set default values 
         self.Flow.setdefault('Density', 1.225)
@@ -43,16 +57,16 @@ class FlowGenerator(object):
         # Compute flow and turbulence properties
         self.set_flow_properties()
         self.set_turbulence_properties()
-        self.Flow['ReferenceState'] = dict(**self.Flow['Conservatives'], **self.Turbulence['FieldsTurbulence'])
+        self.Flow['ReferenceState'] = dict(**self.Flow['Conservatives'], **self.Turbulence['Conservatives'])
 
         # TODO Move these values ?
         # If yes, Surface can be removed from the attributes of this class
-        self.Flow.update(dict(
-            Length          = Length,
-            Surface         = Surface,
-            FluxCoef        = 1./(self.Flow['PressureDynamic'] * Surface),
-            TorqueCoef      = 1./(self.Flow['PressureDynamic'] * self.Surface*self.Length),
-        ))
+        # self.Flow.update(dict(
+        #     Length          = Length,
+        #     Surface         = Surface,
+        #     FluxCoef        = 1./(self.Flow['PressureDynamic'] * Surface),
+        #     TorqueCoef      = 1./(self.Flow['PressureDynamic'] * Surface * Length),
+        # ))
 
     def set_flow_properties(self):
 
@@ -60,12 +74,12 @@ class FlowGenerator(object):
         if FreestreamIsTooLow and self.Flow['VelocityUsedForScalingAndTurbulence'] is None:
             ERRMSG = f'Velocity is too low ({self.Flow["Velocity"]}).'
             ERRMSG+= 'You must provide a non-zero value for VelocityUsedForScalingAndTurbulence'
-            raise ValueError(J.FAIL+ERRMSG+J.ENDC)
+            raise ValueError(misc.RED+ERRMSG+misc.ENDC)
 
         if self.Flow['VelocityUsedForScalingAndTurbulence'] is not None:
             if self.Flow['VelocityUsedForScalingAndTurbulence'] <= 0:
                 ERRMSG = 'VelocityUsedForScalingAndTurbulence must be positive'
-                raise ValueError(J.FAIL+ERRMSG+J.ENDC)
+                raise ValueError(misc.RED+ERRMSG+misc.ENDC)
         else:
             self.Flow['VelocityUsedForScalingAndTurbulence'] = np.abs(self.Flow['Velocity'])
 
@@ -110,7 +124,7 @@ class FlowGenerator(object):
             Pressure                = Pressure,
             PressureDynamic         = PressureDynamic,
             ViscosityMolecular      = ViscosityMolecular,
-            ViscosityEddy           = self.Flow['Viscosity_EddyMolecularRatio'] * ViscosityMolecular,
+            ViscosityEddy           = self.Turbulence['Viscosity_EddyMolecularRatio'] * ViscosityMolecular,
             MomentumX               = MomentumX,
             MomentumY               = MomentumY,
             MomentumZ               = MomentumZ,
@@ -133,29 +147,29 @@ class FlowGenerator(object):
             def residualEddyViscosityRatioFromGivenNuTilde(NuTilde):
                 return Nut_Nu - computeEddyViscosityFromNuTilde(Nu, NuTilde) / Nu
 
-            sol = J.secant(residualEddyViscosityRatioFromGivenNuTilde, x0=Nut_Nu*Nu, x1=1.5*Nut_Nu*Nu, ftol=Nut_Nu*0.001, bounds=(1e-14,1.e6))
+            sol = math_tools.secant(residualEddyViscosityRatioFromGivenNuTilde, x0=Nut_Nu*Nu, x1=1.5*Nut_Nu*Nu, ftol=Nut_Nu*0.001, bounds=(1e-14,1.e6))
             return sol['root']
 
-        self.Turbulence['TurbulentSANuTilde'] = computeTurbulentSANuTilde(
+        TurbulentSANuTilde = computeTurbulentSANuTilde(
                                                     Nu=self.Flow['ViscosityMolecular']/self.Flow['Density'],
-                                                    Nut_Nu=self.Flow['Viscosity_EddyMolecularRatio']
+                                                    Nut_Nu=self.Turbulence['Viscosity_EddyMolecularRatio']
                                                     )
 
         # -> for k-omega models
         TurbulentEnergyKineticDensity   = self.Flow['Density']*1.5*(self.Turbulence['Level']**2)*(self.Flow['VelocityUsedForScalingAndTurbulence']**2)
-        TurbulentDissipationRateDensity = self.Flow['Density'] * TurbulentEnergyKineticDensity / (self.Flow['Viscosity_EddyMolecularRatio'] * self.Flow['ViscosityMolecular'])
+        TurbulentDissipationRateDensity = self.Flow['Density'] * TurbulentEnergyKineticDensity / (self.Turbulence['Viscosity_EddyMolecularRatio'] * self.Flow['ViscosityMolecular'])
         
         # -> for Smith k-l model
         k = TurbulentEnergyKineticDensity / self.Flow['Density']
         omega = TurbulentDissipationRateDensity / self.Flow['Density']
-        TurbulentLengthScaleDensity = self.Flow['Density'] * k * 18.0**(1./3.) / (np.sqrt(2*k)*omega),
+        TurbulentLengthScaleDensity = self.Flow['Density'] * k * 18.0**(1./3.) / (np.sqrt(2*k)*omega)
         
         # -> for k-kL model
         TurbulentEnergyKineticPLSDensity = TurbulentLengthScaleDensity*k
 
         # -> for Menter-Langtry assuming acceleration factor F(lambda_theta)=1
         IntermittencyDensity = self.Flow['Density'] * 1.0
-        if TurbulenceLevel*100 <= 1.3:
+        if self.Turbulence['Level']*100 <= 1.3:
             MomentumThicknessReynoldsDensity = self.Flow['Density'] * (1173.51 - 589.428*(self.Turbulence['Level']*100) + 0.2196*(self.Turbulence['Level']*100)**(-2.))
         else:
             MomentumThicknessReynoldsDensity = self.Flow['Density'] * ( 331.50*(self.Turbulence['Level']*100-0.5658)**(-0.671) )
@@ -181,24 +195,24 @@ class FlowGenerator(object):
             ReynoldsStressDissipationScale   = TurbulentDissipationRateDensity,
         ))
 
-        if TurbulenceModel == 'SA':
+        if self.Turbulence['Model'] == 'SA':
             self.Turbulence['Conservatives'] = dict(
                 TurbulentSANuTildeDensity = self.Turbulence['TurbulentSANuTilde'] * self.Flow['Density']
             )
 
-        elif TurbulenceModel in K_OMEGA_TWO_EQN_MODELS:
+        elif self.Turbulence['Model'] in K_OMEGA_TWO_EQN_MODELS:
             self.Turbulence['Conservatives'] = dict(
                 TurbulentEnergyKineticDensity   = self.Turbulence['TurbulentEnergyKineticDensity'],
                 TurbulentDissipationRateDensity = self.Turbulence['TurbulentDissipationRateDensity'],
             )
 
-        elif TurbulenceModel == 'smith':
+        elif self.Turbulence['Model'] == 'smith':
             self.Turbulence['Conservatives'] = dict(
                 TurbulentEnergyKineticDensity   = self.Turbulence['TurbulentEnergyKineticDensity'],
                 TurbulentLengthScaleDensity = self.Turbulence['TurbulentLengthScaleDensity'],
             )
 
-        elif 'LM2009' in TurbulenceModel:
+        elif 'LM2009' in self.Turbulence['Model']:
             self.Turbulence['Conservatives'] = dict(
                 TurbulentEnergyKineticDensity    = self.Turbulence['TurbulentEnergyKineticDensity'],
                 TurbulentDissipationRateDensity  = self.Turbulence['TurbulentDissipationRateDensity'],
@@ -206,7 +220,7 @@ class FlowGenerator(object):
                 MomentumThicknessReynoldsDensity = self.Turbulence['MomentumThicknessReynoldsDensity'],
             )
 
-        elif TurbulenceModel == 'SSG/LRR-RSM-w2012':
+        elif self.Turbulence['Model'] == 'SSG/LRR-RSM-w2012':
             self.Turbulence['Conservatives'] = dict(
                 ReynoldsStressXX               = self.Turbulence['ReynoldsStressXX'],
                 ReynoldsStressXY               = self.Turbulence['ReynoldsStressXY'],
@@ -293,11 +307,11 @@ class FlowGenerator(object):
                 obtained by projection of the absolute (X, Y, Z) forces onto this
                 vector.
         '''
-
+        import Geom.PyTree as D
         import Transform.PyTree as T
 
         def getDirectionFromLine(line):
-            x,y,z = J.getxyz(line)
+            x,y,z = line.xyz()
             Direction = np.array([x[-1]-x[0], y[-1]-y[0], z[-1]-z[0]])
             Direction /= np.sqrt(Direction.dot(Direction))
             return Direction
@@ -319,9 +333,9 @@ class FlowGenerator(object):
         PitchAxis /= np.sqrt(PitchAxis.dot(PitchAxis))
 
         # FlowLines are used to infer the final flow direction
-        DragLine = D.line((0,0,0),(1,0,0),2)
-        SideLine = D.line((0,0,0),(0,1,0),2)
-        LiftLine = D.line((0,0,0),(0,0,1),2)
+        DragLine = cgns.castNode(D.line((0,0,0),(1,0,0),2))
+        SideLine = cgns.castNode(D.line((0,0,0),(0,1,0),2))
+        LiftLine = cgns.castNode(D.line((0,0,0),(0,0,1),2))
         FlowLines = [DragLine, SideLine, LiftLine]
 
         # Put FlowLines in Aircraft's frame

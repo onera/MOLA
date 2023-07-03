@@ -1651,7 +1651,7 @@ def plotRadialProfiles(RadialProfiles, filename='RadialProfiles.pdf', assemble=F
                         continue
                     PlotParameters = RadialProfilesOnPlane.get('.PlotParameters', dict(label=plane))
                     if not var in RadialProfilesOnPlane: 
-                        print(J.WARN + f'    not found on {plane}' + J.ENDC)
+                        print(J.YELLOW + f'    not found on {plane}' + J.ENDC)
                         continue
                     plt.plot(RadialProfilesOnPlane[var], RadialProfilesOnPlane['ChannelHeight'] * 100., **PlotParameters)
                 plt.xlabel(prettyName(var))

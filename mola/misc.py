@@ -19,6 +19,7 @@ import numpy as np
 import sys
 import os
 import pprint
+import shutil
 
 RED  = '\033[91m'
 GREEN = '\033[92m'
@@ -134,7 +135,7 @@ def load_source(ModuleName, filename, safe=True):
             name to be provided to the new module
 
         filename : str
-            full or relative path of the file containing the source (moudule)
+            full or relative path of the file containing the source (module)
             to be loaded
 
         safe : bool

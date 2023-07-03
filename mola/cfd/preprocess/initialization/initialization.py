@@ -14,7 +14,7 @@
 #
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
-
+import os
 from mola import misc
 
 import Converter.PyTree as C
@@ -34,7 +34,7 @@ def apply(workflow):
         pass
     elif workflow.Initialization['method'] == 'uniform':
         print(misc.CYAN + 'Initialize FlowSolution with uniform reference values' + misc.ENDC)
-        workflow.tree.newFields(workflow.Flow['Fields'], Container='FlowSolution#Init')
+        workflow.tree.newFields(workflow.Flow['ReferenceState'], Container='FlowSolution#Init')
 
     elif workflow.Initialization['method'] == 'interpolate':
         print(misc.CYAN + 'Initialize FlowSolution by interpolation from {}'.format(workflow.Initialization['file']) + misc.ENDC)
@@ -48,12 +48,13 @@ def apply(workflow):
     else:
         raise Exception(misc.RED+'The key "method" of the dictionary workflow.Initialization is mandatory'+misc.ENDC)
 
-    for zone in workflow.tree.getZones():
+    for zone in workflow.tree.zones():
         if not zone.get(Name='FlowSolution#Init', Type='FlowSolution', Depth=1):
             MSG = 'FlowSolution#Init is missing in zone {}'.format(zone.name)
             raise ValueError(misc.RED + MSG + misc.ENDC)
-        
-    solverModule = misc.load_source('solverModule', workflow.Solver)
+    
+    current_path = os.path.dirname(os.path.realpath(__file__))
+    solverModule = misc.load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
     solverModule.adapt_to_solver(workflow)
 
 

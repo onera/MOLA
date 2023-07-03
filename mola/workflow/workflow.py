@@ -27,7 +27,8 @@ from  mola.cfd.preprocess import (boundary_conditions,
                                   initialization,
                                   motion,
                                   cfd_parameters,
-                                  extractions)
+                                  extractions,
+                                  write_cfd_files)
 
 class Workflow(object):
 
@@ -99,14 +100,14 @@ class Workflow(object):
 
             # Extractions=[
             #     dict(type='signals', name='Integrals', fields=['CL', 'std-CL'],
-            #          Period=10)
-            #     dict(type='probe', name='probe1', fields=['std-Pressure'], Period=5)
-            #     dict(type='probe', name='probe2', fields=['std-Density'], Period=5)
+            #          Period=10),
+            #     dict(type='probe', name='probe1', fields=['std-Pressure'], Period=5),
+            #     dict(type='probe', name='probe2', fields=['std-Density'], Period=5),
             #     dict(type='3D', fields=['Mach', 'q_criterion'], Family='ROW1'),
             #     dict(type='bc', BCType='BCWall*', storage='ByFamily',
-            #          fields=['normalvector', 'frictionvector'])
+            #          fields=['normalvector', 'frictionvector']),
             #     dict(type='bc', BCType='*', storage='ByFamily',
-            #          fields=['Pressure'])
+            #          fields=['Pressure']),
             #     dict(type='IsoSurface',
             #         name='MySurface',
             #         postprocess=[dict(operation='AzimuthalAverage',
@@ -121,7 +122,8 @@ class Workflow(object):
             #                           flowComputation='from_helicopter')],
             #         field='CoordinateY',
             #         value=1.e-6,
-            #         AllowedFields=['Mach','cellN'])]
+            #         AllowedFields=['Mach','cellN']),
+            # ]
 
             ConvergenceCriteria=[],
 
@@ -230,8 +232,9 @@ class Workflow(object):
         self.set_motion()
         self.set_cfd_parameters() # model, numerics, others...
         self.set_extractions()
-        self.adapt_tree_to_solver()
-        self.check_preprocess() # empty BCs... maybe solver-specific
+        # self.adapt_tree_to_solver()
+        # self.check_preprocess() # empty BCs... maybe solver-specific
+        self.set_workflow_parameters_in_tree()
 
     def assemble(self):
         self.read_meshes()
@@ -273,10 +276,14 @@ class Workflow(object):
     def split_and_distribute(self):
         split.apply(self)
 
+    def process_overset(self):
+        pass
+
     def compute_reference_values(self):
         # mola-generic set of parameters
         FlowGen = self._FlowGenerator(self)
         FlowGen.generate()
+        self.Fluid = FlowGen.Fluid
         self.Flow = FlowGen.Flow
         self.Turbulence = FlowGen.Turbulence
 
@@ -296,9 +303,10 @@ class Workflow(object):
         extractions.apply(self)
 
     def write_cfd_files(self):
-        self.write_setup()
-        self.write_run_scripts() # including job bash file(s)
-        self.write_data_files() # CGNS, FSDM...
+        write_cfd_files.apply(self)
+        # self.write_setup()
+        # self.write_run_scripts() # including job bash file(s)
+        # self.write_data_files() # CGNS, FSDM...
 
     def visu(self):
         pass

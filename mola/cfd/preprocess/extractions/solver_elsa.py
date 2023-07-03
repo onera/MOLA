@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from mola import (cgns, misc)
-from ..boundary_conditions.elsa import getFamilyBCTypeFromFamilyBCName
+from mola.cfd.preprocess.boundary_conditions.solver_elsa import getFamilyBCTypeFromFamilyBCName
 
 import copy
 
@@ -48,7 +48,7 @@ def process_extractions_3d(workflow):
 
     for zone in workflow.tree.zones():
 
-        for Extraction in workflow.Extractions():
+        for Extraction in workflow.Extractions:
             if Extraction['type'] != '3D':
                 continue
 
@@ -62,7 +62,7 @@ def process_extractions_3d(workflow):
             Container = Extraction.get('Container', 'FlowSolution#EndOfRun')
             GridLocation = Extraction.get('GridLocation', 'CellCenter')
             Frame = Extraction.get('Frame', 'absolute')
-            Fields2Extract = translate_to_elsa(Extraction['fields'])
+            Fields2Extract = Extraction['fields']
 
             EoRnode = zone.get(Name=Container, Type='FlowSolution', Depth=1) 
             if not EoRnode:
@@ -91,7 +91,7 @@ def process_extractions_3d(workflow):
                 # Add variables that are not already in this FlowSolution
                 for field in Fields2Extract:
                     if not EoRnode.get(Name=field, Type='DataArray', Depth=1):
-                        cgns.Node(Pärent=EoRnode, Name=field, Type='DataArray')
+                        cgns.Node(Parent=EoRnode, Name=field, Type='DataArray')
 
 
 def addAverageFieldExtractions(t, ReferenceValues, firstIterationForAverage=1):
@@ -159,10 +159,10 @@ def process_extractions_2d(workflow):
     BCWallKeys = dict()
     BCWallKeys.update(BCKeys)
     BCWallKeys.update(dict(
-        delta_compute = workflow.SolverParamters['model']['delta_compute'],
-        vortratiolim  = workflow.SolverParamters['model']['vortratiolim'],
-        shearratiolim = workflow.SolverParamters['model']['shearratiolim'],
-        pressratiolim = workflow.SolverParamters['model']['pressratiolim'],
+        delta_compute = workflow.SolverParameters['model']['delta_compute'],
+        vortratiolim  = workflow.SolverParameters['model']['vortratiolim'],
+        shearratiolim = workflow.SolverParameters['model']['shearratiolim'],
+        pressratiolim = workflow.SolverParameters['model']['pressratiolim'],
         pinf          = workflow.Flow['Pressure'],
         torquecoeff   = 1.0,
         xtorque       = 0.0,

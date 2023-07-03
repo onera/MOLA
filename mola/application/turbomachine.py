@@ -729,7 +729,7 @@ def initialize_flow_solution_with_turbo(t, FluidProperties, ReferenceValues, Tur
             if beta * omega < 0:
                 MSG=f'WARNING: {paramName} ({beta} deg) has not the same sign that the rotation speed in {row} ({omega} rad/s).\n'
                 MSG += '        Double check it is not a mistake.'
-                print(J.WARN + MSG + J.ENDC)
+                print(J.YELLOW + MSG + J.ENDC)
         Csir = 1. if omega == 0 else 0.95  # Total pressure loss is null for a rotor, 5% for a stator
         planes_data.append(
             dict(
