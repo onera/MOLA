@@ -23,7 +23,7 @@ export OWNCASSREV=rev4386
 export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
 export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net
 
-export ELSAVERSION=v5.2.01
+export ELSAVERSION=v5.1.03
 export ELSA_VERBOSE_LEVEL=0 # cf elsA ticket 9689
 export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849
@@ -103,10 +103,9 @@ if [ "$MAC" = "sator" ]; then
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
 
-    # # MAIA # should be available with elsA v5.2.01
-    # export MAIA_HOME=/tmp_user/sator/jcoulet/opt/maia-cfd5_21
-    # export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
-    # export PYTHONPATH=$MAIA_HOME/lib/python3.7/site-packages:$PYTHONPATH
+    # maia
+    module use --append /tmp_user/sator/sonics/usr/modules/
+    module load maia/dev-dsi-cfd5
 
     # VPM
     export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator/$ARCH
@@ -173,10 +172,9 @@ elif [ "$MAC" = "spiro" ]; then
     # ErstaZ
     export PYTHONPATH=/home/rbarrier/PARTAGE/ersatZ_v1.6.2/python_module:$PYTHONPATH
 
-    # # MAIA # should be available with elsA v5.2.01
-    # export MAIA_HOME=/scratchm/jcoulet/aa_install_py3/maia/opt-cfd5_21/
-    # export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
-    # export PYTHONPATH=$MAIA_HOME/lib/python3.7/site-packages:$PYTHONPATH
+    # maia
+    module use --append /scratchm/sonics/usr/modules/
+    module load maia/dev-dsi-cfd5
 
     # own Cassiopee
     module load occt/7.6.1-gnu831
@@ -212,6 +210,15 @@ elif [ "$MAC" = "visung" ]; then
 
     # ErstaZ
     export PYTHONPATH=/home/rbarrier/PARTAGE/ersatZ_v1.6.2/python_module:$PYTHONPATH
+
+    # # MAIA # should be available with elsA v5.2.01 (but currently bugged maia #41)
+    module load scotch/6.0.9-idx32-gnu831-ompi405
+    module load parmetis/4.0.3-gnu831-ompi405
+    module load metis/5.1.0-gnu831
+    module load cmake/3.19.8-gnu831
+    export MAIA_HOME=/d/jcoulet/opt/maia-openmpi
+    export LD_LIBRARY_PATH=$MAIA_HOME/lib:$LD_LIBRARY_PATH
+    export PYTHONPATH=$MAIA_HOME/lib/python3.8/site-packages:$PYTHONPATH
 
     # VPM
     export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld7/$ARCH
