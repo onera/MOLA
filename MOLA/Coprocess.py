@@ -153,8 +153,6 @@ def extractFields(Skeleton):
     t = I.merge([Skeleton, t])
     removeEmptyBCDataSet(t)
     PRE.forceFamilyBCasFamilySpecified(t) # https://elsa.onera.fr/issues/10928
-    removeEmptyBCDataSet(t)
-    PRE.forceFamilyBCasFamilySpecified(t) # https://elsa.onera.fr/issues/10928
 
     return t
 
@@ -441,7 +439,6 @@ def extractSurfaces(t, Extractions, arrays=None):
     I._rmNodesFromName(SurfacesTree, ':CGNS#Ppart')
     Cmpi.barrier()
 
-
     # Workflow specific postprocessings
     SurfacesTree = _extendSurfacesWithWorkflowQuantities(SurfacesTree, arrays=arrays)
 
@@ -468,6 +465,8 @@ def extractSurfaces(t, Extractions, arrays=None):
             I.setName(zone, Probe['name'])
             J.set(zone, '.ExtractionInfo', **Probe)
             I._addChild(base, zone)
+
+
 
     return SurfacesTree
 
@@ -3093,6 +3092,8 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                 if not GlobalChannelHeight:
                     printCo('Postprocess cannot be done because ChannelHeight is missing', color=J.WARN)
                     raise ChannelHeightError
+
+
                 printCo('making postprocess_turbomachinery...', proc=0, color=J.MAGE)
                 WC.postprocess_turbomachinery(surfaces,
                     computeRadialProfiles=computeRadialProfiles, **PostprocessOptions)
