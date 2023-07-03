@@ -20,6 +20,7 @@ __pycache__
 *.html
 *elsA_MPI_Pid*
 EXAMPLES
+EXAMPLES*
 ExternalPythonPackages
 ext
 DOCUMENTATION/html
