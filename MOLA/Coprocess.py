@@ -32,6 +32,7 @@ from . import InternalShortcuts as J
 from . import Preprocess as PRE
 from . import JobManager as JM
 from . import BodyForceTurbomachinery as BF
+from . import Postprocess as POST
 
 if not MOLA.__ONLY_DOC__:
     import sys
@@ -46,8 +47,8 @@ if not MOLA.__ONLY_DOC__:
     import pprint
     import glob
     import copy
-    from mpi4py import MPI
     import traceback
+    from mpi4py import MPI
     comm   = MPI.COMM_WORLD
     rank   = comm.Get_rank()
     NumberOfProcessors = comm.Get_size()
@@ -150,6 +151,10 @@ def extractFields(Skeleton):
     adaptEndOfRun(t)
     resumeFieldsAveraging(Skeleton, t)
     t = I.merge([Skeleton, t])
+    removeEmptyBCDataSet(t)
+    PRE.forceFamilyBCasFamilySpecified(t) # https://elsa.onera.fr/issues/10928
+    removeEmptyBCDataSet(t)
+    PRE.forceFamilyBCasFamilySpecified(t) # https://elsa.onera.fr/issues/10928
 
     return t
 
@@ -197,7 +202,7 @@ def extractArrays(t, arrays, RequestedStatistics=[], Extractions=[],
     return arraysTree
 
 
-def extractSurfaces(t, Extractions):
+def extractSurfaces(t, Extractions, arrays=None):
     '''
     Extracts flowfield data as surfacic (or curvilinear) zones from input
     fields **t** and requested extraction information provided in **Extractions**.
@@ -290,6 +295,11 @@ def extractSurfaces(t, Extractions):
                     forget to include the field ``'cellN'`` to *AllowedFields*
                     if you wish to keep the blanking information
 
+        arrays : dict
+            if provided, some worfklow-specific operations may add quantities 
+            to arrays using surfacic postprocessing. This is the case for 
+            example for plane-to-plane turbomachine postprocessing.
+
     Returns
     -------
 
@@ -331,8 +341,6 @@ def extractSurfaces(t, Extractions):
                             fields2remove += [ field ]
                     for field in fields2remove: I.rmNode(fs,field)
 
-    t = I.renameNode(t, 'FlowSolution#Init', 'FlowSolution#Centers')
-    I._renameNode(t, 'FlowSolution#Height', 'FlowSolution')
     I._rmNodesByName(t, 'FlowSolution#EndOfRun*')
     reshapeBCDatasetNodes(t)
     I._rmNodesByName(t, 'BCDataSet#Init') # see MOLA #75 and Cassiopee #10641
@@ -361,13 +369,13 @@ def extractSurfaces(t, Extractions):
             for BCFamilyName in DictBCNames2Type:
                 BCType = DictBCNames2Type[BCFamilyName]
                 if BCFilterName.lower() in BCType.lower():
-                    zones = C.extractBCOfName(Tree4Extraction,'FamilySpecified:'+BCFamilyName, extrapFlow=False)
+                    zones = POST.extractBC(Tree4Extraction, Name='FamilySpecified:'+BCFamilyName)
                     ExtractionInfo['type'] = 'BC'
                     ExtractionInfo['BCType'] = BCType
                     addBase2SurfacesTree(BCFamilyName)
 
         elif TypeOfExtraction.startswith('BC'):
-            zones = C.extractBCOfType(Tree4Extraction, TypeOfExtraction, extrapFlow=False)
+            zones = POST.extractBC(Tree4Extraction, Type=TypeOfExtraction)
             try: basename = Extraction['name']
             except KeyError: basename = TypeOfExtraction
             ExtractionInfo['type'] = 'BC'
@@ -375,7 +383,7 @@ def extractSurfaces(t, Extractions):
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction.startswith('FamilySpecified:'):
-            zones = C.extractBCOfName(Tree4Extraction, TypeOfExtraction, extrapFlow=False)
+            zones = POST.extractBC(Tree4Extraction, Name=TypeOfExtraction)
             try: basename = Extraction['name']
             except KeyError: basename = TypeOfExtraction.replace('FamilySpecified:','')
             ExtractionInfo['type'] = 'BC'
@@ -385,7 +393,11 @@ def extractSurfaces(t, Extractions):
         elif TypeOfExtraction == 'IsoSurface':
             if Extraction['field'] in ['Radius', 'radius', 'CoordinateR']:
                 C._initVars(Tree4Extraction, '{}=({{CoordinateY}}**2+{{CoordinateZ}}**2)**0.5'.format(Extraction['field']))
-            zones = P.isoSurfMC(Tree4Extraction, Extraction['field'], Extraction['value'])
+            container = deduceContainerForSlicing(Extraction)
+            zones = POST.isoSurface(Tree4Extraction,
+                                    fieldname=Extraction['field'],
+                                    value=Extraction['value'],
+                                    container=container)
             try: basename = Extraction['name']
             except KeyError:
                 FieldName = Extraction['field'].replace('Coordinate','').replace('Radius', 'R').replace('ChannelHeight', 'H')
@@ -400,7 +412,10 @@ def extractSurfaces(t, Extractions):
                 r=Extraction['radius'], x0=center[0],
                 y0=center[1], z0=center[2])
             C._initVars(Tree4Extraction,'Slice=%s'%Eqn)
-            zones = P.isoSurfMC(Tree4Extraction, 'Slice', 0.0)
+            zones = POST.isoSurface(Tree4Extraction,
+                                    fieldname='Slice',
+                                    value=0.0,
+                                    container='FlowSolution')
             try: basename = Extraction['name']
             except KeyError: basename = 'Sphere_%g'%Extraction['radius']
             addBase2SurfacesTree(basename)
@@ -410,7 +425,10 @@ def extractSurfaces(t, Extractions):
             Pt = np.array(Extraction['point'])
             PlaneCoefs = n[0],n[1],n[2],-n.dot(Pt)
             C._initVars(Tree4Extraction,'Slice=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
-            zones = P.isoSurfMC(Tree4Extraction, 'Slice', 0.0)
+            zones = POST.isoSurface(Tree4Extraction,
+                                    fieldname='Slice',
+                                    value=0.0,
+                                    container='FlowSolution')
             try: basename = Extraction['name']
             except KeyError: basename = 'Plane'
             addBase2SurfacesTree(basename)
@@ -423,8 +441,9 @@ def extractSurfaces(t, Extractions):
     I._rmNodesFromName(SurfacesTree, ':CGNS#Ppart')
     Cmpi.barrier()
 
+
     # Workflow specific postprocessings
-    SurfacesTree = _extendSurfacesWithWorkflowQuantities(SurfacesTree)
+    SurfacesTree = _extendSurfacesWithWorkflowQuantities(SurfacesTree, arrays=arrays)
 
     # Keep only allowed fields in surfaces
     for base in I.getBases(SurfacesTree):
@@ -451,6 +470,23 @@ def extractSurfaces(t, Extractions):
             I._addChild(base, zone)
 
     return SurfacesTree
+
+def deduceContainerForSlicing(Extraction):
+    if 'field_container' in Extraction:
+        return Extraction['field_container']
+
+    elif Extraction['field'] in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
+        return 'GridCoordinates'
+
+    elif Extraction['field'] in ['Radius', 'radius', 'CoordinateR', 'Slice']:
+        return 'FlowSolution'    
+
+    elif Extraction['field'] == 'ChannelHeight':
+        return 'FlowSolution#Height'
+    
+    else:
+        return 'FlowSolution#Init'
+
 
 def extractIntegralData(to, arrays, Extractions=[],
                         RequestedStatistics=['std-CL', 'std-CD']):
@@ -570,11 +606,11 @@ def save(t, filename, tagWithIteration=False):
     I._rmNodesByName(t,'ID_*')
     I._rmNodesByType(t,'IntegralData_t')
 
-    Skeleton = J.getStructure(t)
+    Skel = J.getStructure(t)
 
     UseMerge = False
     try:
-        trees = comm.allgather( Skeleton )
+        trees = comm.allgather( Skel )
         trees.insert( 0, t )
         tWithSkel = I.merge( trees )
         renameTooLongZones(tWithSkel)
@@ -631,24 +667,6 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
             to the saved filename (creates a copy)
     '''
 
-
-    def migrateSolverOutputOfFlowSolutions(tpt, t):
-        # Required because of https://elsa.onera.fr/issues/11137
-        zones = I.getZones(t)
-        for zm in I.getZones(t_merged):
-            for z in zones:
-                if z[0].startswith(zm[0]):
-                    all_fs  = I.getNodesFromType(z, 'FlowSolution_t')
-                    all_fsm = I.getNodesFromType(zm, 'FlowSolution_t')
-                    for fsm in all_fsm:
-                        for fs in all_fs:
-                            if fs[0] == fsm[0]:
-                                SolverOutput = I.getNodeFromName(fs, '.Solver#Output')
-                                if SolverOutput:
-                                    fsm[2].append( SolverOutput )
-                                    continue
-
-
     tpt = I.copyRef(t)
     Cmpi._convert2PartialTree(tpt)
     I._rmNodesByName(tpt, '.Solver#Param')
@@ -659,7 +677,10 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
     Cmpi.barrier()
     if rank == 0:
         t_merged = C.convertFile2PyTree('PyPart_fields_all.hdf')
-        migrateSolverOutputOfFlowSolutions(tpt, t)
+        migrateSolverOutputOfFlowSolutions(tpt, t_merged)
+        removeEmptyBCDataSet(t_merged)
+        PRE.forceFamilyBCasFamilySpecified(t_merged) # https://elsa.onera.fr/issues/10928
+        I._rmNodesByName(t_merged, 'FlowSolution#EndOfRun*')
         C.convertPyTree2File(t_merged, filename)
         for fn in glob.glob('PyPart_fields_*.hdf'):
             try:
@@ -802,6 +823,10 @@ def restoreFamilies(surfaces, skeleton):
         for zone in I.getZones(base):
             zoneName = I.getValue(I.getNodeFromName1(zone, '.parentZone'))
             zoneInFullTree = I.getNodeFromNameAndType(skeleton, zoneName, 'Zone_t')
+            
+            # surface comes from extractBC => already contains all families
+            if not zoneInFullTree: continue 
+            
             fam = I.getNodeFromType1(zoneInFullTree, 'FamilyName_t')
             I.addChild(zone, fam)
             familiesInBase.append(I.getValue(fam))
@@ -928,6 +953,7 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[]):
             _extendArraysWithStatistics(arrays, 'PERFOS_{}'.format(row), RequestedStatistics)
 
     arraysTree = arraysDict2PyTree(arrays)
+
     return arraysTree
 
 def computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=1., fluxcoeffOut=None):
@@ -1024,8 +1050,27 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
             :py:obj:`None`.
 
     '''
+
+    try:
+        container_at_vertex = setup.PostprocessOptions['container_at_vertex']
+        if isinstance(container_at_vertex, list):
+            container_at_vertex = container_at_vertex[0]
+    except (AttributeError, KeyError):
+        container_at_vertex = 'FlowSolution#Init'
+
+    surface = I.copyRef(surface)
+    for zone in I.getZones(surface):
+        fsToRemove = [n[0] for n in I.getNodesFromType1(zone,'FlowSolution_t') \
+                      if n[0] != container_at_vertex]
+        for fsname in fsToRemove:
+            I._rmNodesByName(zone,fsname)
+
     # Convert to Tetra arrays for integration # TODO identify bug and notify
-    surface = C.convertArray2Tetra(surface)
+    surface = POST.convertToTetra(surface)
+    
+    previous_container = I.__FlowSolutionNodes__
+    I.__FlowSolutionNodes__ = container_at_vertex
+
     check =  True
     data = dict()
 
@@ -1045,7 +1090,8 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
             for varList, meanFunction in VarAndMeanList:
                 for var in varList:
                     data[var] = meanFunction(surface, var)
-        except NameError:
+        except NameError as e:
+            raise e
             # Variables cannot be found
             check = False
 
@@ -1055,7 +1101,9 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
     data['MassFlow'] = comm.allreduce(data['MassFlow'], op=MPI.SUM)
     data['Area'] = comm.allreduce(data['Area'], op=MPI.SUM)
     Cmpi.barrier()
-    if not check or data['Area']==0: return None
+    if not check or data['Area']==0:
+        I.__FlowSolutionNodes__ = previous_container
+        return None
 
     # MPI Reduction to sum quantities on proc 0
     Cmpi.barrier()
@@ -1063,6 +1111,7 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
         for var in varList:
             data[var] = comm.reduce(data[var], op=MPI.SUM, root=0)
     Cmpi.barrier()
+    I.__FlowSolutionNodes__ = previous_container
     return data
 
 def updateAndWriteSetup(setup):
@@ -1227,6 +1276,7 @@ def arraysDict2PyTree(arrays):
     if zones:
         Cmpi._setProc(zones, rank)
         t = C.newPyTree(['Base', zones])
+        for base in I.getBases(t): I._sortByName(base)
     else:
         t = C.newPyTree(['Base'])
     Cmpi.barrier()
@@ -1257,7 +1307,6 @@ def appendDict2Arrays(arrays, dictToAppend, basename):
     '''
 
     if not dictToAppend or arrays is None: return
-
 
     if not basename in arrays: arrays[basename] = dict()
 
@@ -2450,14 +2499,6 @@ def loadSkeleton(Skeleton=None, PartTree=None):
                 if I.getNodeFromName1(zoneInPartialTree, nodeName2read):
                     replaceNodeByName(zone, zonePath, nodeName2read)
 
-                # doesnt work:
-                # container = I.getNodeFromName1(zone, nodeName2read)
-                # if container is not None:
-                #     replaceNodeValuesRecursively(container, 
-                #                                  '/'.join([basename,
-                #                                            zone[0],
-                #                                            container[0]]))
-
             # For unstructured mesh
             if I.getZoneType(zone) == 2: # unstructured zone
                 replaceNodeByName(zone, zonePath, ':elsA#Hybrid')
@@ -2510,6 +2551,9 @@ def splitWithPyPart():
         Distribution : dict
             Correspondence between zones and processors.
 
+        PartTree : PyTree
+            Required for adequately saving tree using PyPart (see https://elsa.onera.fr/issues/11149)
+
     '''
 
     import etc.pypart.PyPart     as PPA
@@ -2531,6 +2575,7 @@ def splitWithPyPart():
     PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[6, 2], nCellPerCache=1024)
     PyPartBase.finalise(PartTree, savePpart=True, method=1)
     Skeleton = PyPartBase.getPyPartSkeletonTree()
+    I._rmNodesByName(Skeleton,'ZoneBCGT') # https://elsa.onera.fr/issues/11149
     Distribution = PyPartBase.getDistribution()
 
     # Put Distribution into the Skeleton
@@ -2568,7 +2613,6 @@ def splitWithPyPart():
                 if I.getZoneType(zone) == 2:
                     for BC in C.getFamilyBCs(t, famBCTrigger):
                         I.createChild(BC, 'SurfaceName', 'AdditionalFamilyName_t', value=surfaceName)
-
 
     return t, Skeleton, PyPartBase, Distribution
 
@@ -2986,9 +3030,6 @@ def loadMotionForElsA(elsA_user, Skeleton):
             if isinstance(value, np.ndarray): value = value.tolist()
             Parameters[parameter_name] = value
         
-        # import pprint
-        # with open('motionParams.py','w') as f:
-        #     f.write(pprint.pformat(Parameters))
         printCo('setting elsA motion function %s at base %s'%(function_name,base[0]), proc=0)
         AllMotions.append(elsA_user.function(Parameters['type'],name=function_name))
         AllMotions[-1].setDict(Parameters)
@@ -3010,6 +3051,7 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
         PyTree
             Same as the input **surfaces** with eventual post-processed data.
     '''
+
     try:
         Workflow = setup.Workflow
     except AttributeError:
@@ -3040,44 +3082,52 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                 trees.insert(0, surfaces)
                 surfaces = I.merge(trees)
                 Cmpi._convert2PartialTree(surfaces)
-
                 # Ensure that bases are in the same order on all procs. 
                 # It is MANDATORY for next post-processings
                 J._reorderBases(surfaces)
+            Cmpi.barrier()
 
-            try:         
-                if not I.getNodeFromName(surfaces, 'ChannelHeight'):
-                    printCo('Postprocess cannot be done because ChannelHeight is missing', 0, color=J.WARN)
+            try:
+                LocalChannelHeight = bool(I.getNodeFromName(surfaces, 'ChannelHeight'))
+                GlobalChannelHeight = any(comm.allgather(LocalChannelHeight))
+                if not GlobalChannelHeight:
+                    printCo('Postprocess cannot be done because ChannelHeight is missing', color=J.WARN)
                     raise ChannelHeightError
-                printCo('Postprocess in progress...', proc=0, color=J.MAGE)
-                WC.postprocess_turbomachinery(surfaces, computeRadialProfiles=computeRadialProfiles, **PostprocessOptions)
-                printCo('Postprocess done on surfaces', proc=0, color=J.GREEN)
+                printCo('making postprocess_turbomachinery...', proc=0, color=J.MAGE)
+                WC.postprocess_turbomachinery(surfaces,
+                    computeRadialProfiles=computeRadialProfiles, **PostprocessOptions)
+                printCo('making postprocess_turbomachinery... done', proc=0, color=J.MAGE)
 
                 if rank == 0:
                     # Move 0D averages to arrays
                     averagesDict = dict()
-                    Averages0D = I.getNodeFromName1(surfaces, 'Averages0D')
-                    for zone in I.getZones(Averages0D):
-                        for FS in I.getNodesFromType1(zone, 'FlowSolution_t'):
-                            zoneName = I.getName(zone)
-                            FSname = I.getName(FS)
+                    Averages0D = [I.getZones(b) for b in I.getBases(surfaces) \
+                                  if b[0].startswith('Averages0D')]
+                    for zones in Averages0D: 
+                        for zone in zones:
+                            for FS in I.getNodesFromType1(zone, 'FlowSolution_t'):
+                                FSname = I.getName(FS)
 
-                            if 'Comparison' in FSname:
-                                zoneName += '#' + I.getName(FS).split('#')[-1]
+                                if FSname.startswith('Comparison'):
+                                    zoneName = I.getName(zone) \
+                                               + FSname.replace('Comparison','')
+                                else:
+                                    zoneName = I.getName(zone) \
+                                               + FSname.replace('FlowSolution','')
 
-                            for node in I.getNodesFromType1(FS, 'DataArray_t'):
-                                averagesDict[I.getName(node)] = I.getValue(node)
-                            averagesDict['IterationNumber'] = CurrentIteration-1
-                            appendDict2Arrays(arrays, averagesDict, zoneName)
+                                for node in I.getNodesFromType1(FS, 'DataArray_t'):
+                                    averagesDict[I.getName(node)] = I.getValue(node)
+                                averagesDict['IterationNumber'] = CurrentIteration-1
+                                appendDict2Arrays(arrays, averagesDict, zoneName)
             
                 else:
                     # Remove RadialProfiles for all proc except one, because only proc 0 is up-to-date
                     I._rmNodesFromName1(surfaces, 'RadialProfiles')
 
                 # Remove 0D averages from surfaces tree for all procs
-                I._rmNodesFromName1(surfaces, 'Averages0D')
+                I._rmNodesFromName(surfaces, 'Averages0D*')
 
-            except ImportError:
+            except ImportError: # https://gitlab.onera.net/numerics/analysis/turbo/-/issues/1
                 printCo('Postprocess cannot be done (ImportError)', proc=0, color=J.WARN)
                 pass
             except ChannelHeightError:
@@ -3122,11 +3172,11 @@ def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
     setup.ReferenceValues['CoprocessOptions']['FirstIterationForFieldsAveraging']
     cit = CurrentIteration
 
+    # adapt 3D fields:
     old = _getDictofNodesFieldsPerZone(Skeleton, container_name)
     tot = _getDictofNodesFieldsPerZone(t, container_name)
     if cit == firstiter:
         ini = _getDictofNodesFieldsPerZone(t, 'FlowSolution#Init')
-
     for zone_name in tot:
         for field_name in tot[zone_name]:
             avg_old = old[zone_name][field_name] # BEWARE this is a CGNS node
@@ -3142,6 +3192,7 @@ def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
                 avg_new    = None
             
             else:
+                if avg_old[1] is None or avg_tot[1] is None: continue
                 if inititer < firstiter:
                     avg_new =  (avg_tot[1]*(cit-inititer+1) \
                             -avg_old[1]*(firstiter-inititer+1))/(cit-firstiter)
@@ -3151,6 +3202,41 @@ def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
                             +avg_tot[1]*(cit-inititer+1))/(cit-firstiter)
 
             avg_tot[1] = avg_new # update of OUTPUT_TREE
+
+    # adapt BC fields:
+    old = _getDictofNodesBCFieldsPerZone(Skeleton, '.Solver#Output#Average')
+    tot = _getDictofNodesBCFieldsPerZone(t, '.Solver#Output#Average')
+    if cit == firstiter:
+        ini = _getDictofNodesBCFieldsPerZone(t, '.Solver#Output#Output')
+    for zone_name in tot:
+        for bcfamily_name in tot[zone_name]:
+            for field_name in tot[zone_name][bcfamily_name]:
+                avg_old = old[zone_name][bcfamily_name][field_name] # BEWARE this is a CGNS node
+                avg_tot = tot[zone_name][bcfamily_name][field_name] # BEWARE this is a CGNS node
+                
+                if cit == firstiter:
+                    avg_old[1] = np.copy(avg_tot[1], order='F')
+                    avg_tot[1] = np.copy(ini[zone_name][bcfamily_name][field_name][1], order='F')
+                    continue
+
+                if cit < firstiter: 
+                    avg_old[1] = None
+                    avg_new    = None
+                
+                else:
+                    if avg_old[1] is None or avg_tot[1] is None: continue
+                    if inititer < firstiter:
+                        avg_new =  (avg_tot[1]*(cit-inititer+1) \
+                                -avg_old[1]*(firstiter-inititer+1))/(cit-firstiter)
+                    
+                    else:
+                        avg_new =  (avg_old[1]*(inititer-(firstiter+1)) \
+                                +avg_tot[1]*(cit-inititer+1))/(cit-firstiter)
+
+                avg_tot[1] = avg_new # update of OUTPUT_TREE
+
+
+
 
 def _getDictofNodesFieldsPerZone(t, Container):
     fields = dict()
@@ -3166,3 +3252,45 @@ def _getDictofNodesFieldsPerZone(t, Container):
                 if f[3] != 'DataArray_t': continue
                 fields[zone_name][f[0]] = f
     return fields
+
+def _getDictofNodesBCFieldsPerZone(t, Container):
+    fields = dict()
+    for base in I.getNodesByType1(t, 'CGNSBase_t'):
+        for zone in I.getNodesByType1(base, 'Zone_t'):
+            zone_name = zone[0]
+            fields[zone_name] = dict()
+            for bc in I.getNodesFromType(zone,'BC_t'):
+                bcfamily_name = bc[0]
+                bcds = I.getNodeFromName1(bc, Container)
+                if bcds:
+                    data = I.getNodeFromName1(bcds,'NeumannData')
+                    for f in data[2]:
+                        if f[3] != 'DataArray_t': continue
+                        fields[zone_name][bcfamily_name][f[0]] = f
+    return fields
+
+def removeEmptyBCDataSet(t):
+    for z in I.getZones(t):
+        for zbc in I.getNodesFromType1(z,'ZoneBC_t'):
+            for bc in I.getNodesFromType1(zbc,'BC_t'):
+                for n in bc[2]:
+                    if n[0].startswith('BCDataSet') and not n[2]:
+                        I._rmNode(t, n)
+
+def migrateSolverOutputOfFlowSolutions(t_dnr, t_rcv):
+    # Required because of https://elsa.onera.fr/issues/11137
+    zones = I.getZones(t_dnr)
+    for zm in I.getZones(t_rcv):
+        for z in zones:
+            if z[0].startswith(zm[0]):
+                all_fs  = I.getNodesFromType(z, 'FlowSolution_t')
+                all_fsm = I.getNodesFromType(zm, 'FlowSolution_t')
+                for fsm in all_fsm:
+                    for fs in all_fs:
+                        if fs[0] == fsm[0]:
+                            SolverOutput = I.getNodeFromName(fs, '.Solver#Output')
+                            if SolverOutput:
+                                fsm[2].append( SolverOutput )
+                                continue
+
+
