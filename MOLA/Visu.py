@@ -169,9 +169,16 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
                        material='Solid', color='White', blending=0.8,
                        colormap='Viridis', levels=[200,'min','max'], shadow=True,
                        additionalDisplayOptions={},
-                       additionalStateOptions={})]):
-
+                       additionalStateOptions={})],
+        vertex_container='FlowSolution#Init',
+        centers_container='BCDataSet'):
     machine = os.getenv('MAC')
+    previous_centers_container = I.__FlowSolutionCenters__
+    I.__FlowSolutionCenters__ = centers_container
+
+    previous_vertex_container = I.__FlowSolutionNodes__
+    I.__FlowSolutionNodes__ = vertex_container
+
     # TODO solve bugs:
     # https://elsa.onera.fr/issues/10536
     # https://elsa.onera.fr/issues/11045
@@ -307,6 +314,9 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
             CPlot.finalizeExport(offscreen)
     
         sleep(0.5)
+
+    I.__FlowSolutionCenters__ = previous_centers_container
+    I.__FlowSolutionNodes__ = previous_vertex_container
 
 
 class matplotlipOverlap():

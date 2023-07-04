@@ -102,8 +102,11 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
             Each list item is a Python dictionary with special keywords.
             Possible pairs of keywords and its associated values are presented:
 
-            * file : :py:class:`str`
-                path of the file containing the grid or special keyword ``'GENERATE'``.
+            * file : :py:class:`str` or PyTree
+                if it is a :py:class:`str`, then it is the
+                path of the file containing the grid. It can also be the special
+                keyword ``'GENERATE'``. Alternatively, user can provide directly
+                a PyTree (in-memory).
 
                 .. attention:: each component must have a unique base. If
                     input file have several bases, please separate each base
@@ -223,7 +226,7 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
     transform(t, InputMeshes)
     t = connectMesh(t, InputMeshes)
     setBoundaryConditions(t, InputMeshes)
-    t = splitAndDistribute(t, InputMeshes, **splitOptions)
+    if splitOptions: t = splitAndDistribute(t, InputMeshes, **splitOptions)
     addFamilies(t, InputMeshes)
     _writeBackUpFiles(t, InputMeshes)
     t = addOversetData(t, InputMeshes, **globalOversetOptions)
@@ -515,7 +518,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
     BCExtractions = ReferenceValues['BCExtractions']
 
     if I.getNodeFromName(t, 'proc'):
-        JobInformation['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
+        JobInformation['NumberOfProcessors'] = int(max(getProc(t))+1)
         Splitter = None
     else:
         Splitter = 'PyPart'
@@ -613,9 +616,11 @@ def getMeshesAssembled(InputMeshes):
             each component (:py:class:`dict`) is associated to a base.
             Two keys are *compulsory*:
 
-            * file : :py:class:`str`
+            * file : :py:class:`str` or PyTree
                 the CGNS file containing the grid and possibly
-                other CGNS information.
+                other CGNS information. If a :py:class:`str` is provided, then
+                it is interpreted as a file name in absolute or relative path.
+                Alternatively, top CGNS PyTree can be provided in memory.
 
                 .. danger:: It must contain only 1 base
 
@@ -636,7 +641,15 @@ def getMeshesAssembled(InputMeshes):
     for i, meshInfo in enumerate(InputMeshes):
         filename = meshInfo['file']
         if filename == 'GENERATE': continue
-        t = C.convertFile2PyTree(filename)
+        if not isinstance(filename, str):
+            if not I.isTopTree(filename):
+                MSG = 'the value of key "file" of InputMeshes item %d shall be'%i
+                MSG+= ' either a str or a top CGNS PyTree.'
+                raise ValueError(J.FAIL+MSG+J.ENDC)
+            t = meshInfo['file']
+            meshInfo['file'] = 'user_provided_in_memory'
+        else:
+            t = C.convertFile2PyTree(filename)
         bases = I.getBases(t)
         if len(bases) != 1:
             raise ValueError('InputMesh element in %s must contain only 1 base'%filename)
@@ -3891,16 +3904,17 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
                                 '/'+targetNodePath,
                                 currentNodePath]]
 
-            zbc = I.getNodeFromType1(z,'ZoneBC_t')
-            if zbc:
-                for bc in I.getNodesFromType1(zbc, 'BC_t'):
-                    currentNodePath='/'.join([b[0], z[0], zbc[0], bc[0],
-                                              'BCDataSet#Average'])
-                    targetNodePath=currentNodePath
-                    AllCGNSLinks += [['.',
-                                    DIRECTORY_OUTPUT+'/'+FieldsFilename,
-                                    '/'+targetNodePath,
-                                    currentNodePath]]
+            if include_zone_bc_link:
+                zbc = I.getNodeFromType1(z,'ZoneBC_t')
+                if zbc:
+                    for bc in I.getNodesFromType1(zbc, 'BC_t'):
+                        currentNodePath='/'.join([b[0], z[0], zbc[0], bc[0],
+                                                'BCDataSet#Average'])
+                        targetNodePath=currentNodePath
+                        AllCGNSLinks += [['.',
+                                        DIRECTORY_OUTPUT+'/'+FieldsFilename,
+                                        '/'+targetNodePath,
+                                        currentNodePath]]
 
     print('saving PyTrees with links')
     to = I.copyRef(t)
@@ -5650,8 +5664,15 @@ def addFieldExtraction(ReferenceValues, fieldname):
 
 def appendAdditionalFieldExtractions(ReferenceValues, Extractions):
     for e in Extractions:
-        try: field_name = e['field']
-        except KeyError: continue
-        if field_name.startswith('Coordinate') or field_name == 'ChannelHeight':
+        field_names = []
+        if 'field' in e:
+            field_names += [e['field']]
+        elif e['type'] == 'Probe':
+            field_names += e['variables']
+        else:
             continue
-        addFieldExtraction(ReferenceValues, field_name)
+
+        for field_name in field_names:
+            if field_name.startswith('Coordinate') or field_name == 'ChannelHeight':
+                continue
+            addFieldExtraction(ReferenceValues, field_name)

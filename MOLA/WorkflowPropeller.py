@@ -39,6 +39,8 @@ if not MOLA.__ONLY_DOC__:
     import Generator.PyTree    as G
     import Transform.PyTree    as T
     import Connector.PyTree    as X
+    import Intersector.PyTree  as XOR
+    import Geom.PyTree         as D
 
     from . import InternalShortcuts as J
     from . import Wireframe as W
@@ -46,8 +48,11 @@ if not MOLA.__ONLY_DOC__:
     from . import JobManager        as JM
     from . import WorkflowCompressor as WC
 
-def prepareMesh4ElsA(mesh='mesh.cgns', splitOptions={'maximum_allowed_nodes':3},
-                     match_tolerance=1e-7, periodic_match_tolerance=1e-7):
+def prepareMesh4ElsA(mesh='mesh.cgns', scale=None,
+                     match_tolerance=1e-7, periodic_match_tolerance=1e-7,
+                     blade_number=None, thrust_axis=[-1,0,0],
+                     RightHandRuleRotation=True,                      
+                     splitOptions=None, OverrideInputMeshes=None):
     '''
     An adaptation of  :py:func:`MOLA.Preprocess.prepareMesh4ElsA`.
 
@@ -57,14 +62,15 @@ def prepareMesh4ElsA(mesh='mesh.cgns', splitOptions={'maximum_allowed_nodes':3},
         mesh : :py:class:`str`
             Mesh filename issued from automatic mesh generation, including BC families.
 
-        splitOptions : dict
-            Exactly the keyword arguments of :py:func:`~MOLA.Preprocess.splitAndDistribute`
 
         match_tolerance : float
             small tolerance for constructing the match connectivity.
 
         periodic_match_tolerance : float
             small tolerance for constructing the periodic match connectivity
+
+        splitOptions : dict
+            Exactly the keyword arguments of :py:func:`~MOLA.Preprocess.splitAndDistribute`
 
     Returns
     -------
@@ -80,29 +86,49 @@ def prepareMesh4ElsA(mesh='mesh.cgns', splitOptions={'maximum_allowed_nodes':3},
     else:
         raise ValueError('parameter mesh must be either a filename or a PyTree')
 
-    blade_number = getPropellerKinematic(t)[0]
-    InputMeshes = [dict(file='mesh.cgns',
-                        baseName='Base',
-                        SplitBlocks=True,
-                        BoundaryConditions=[
-                            dict(name='blade_wall',
-                                 type='FamilySpecified:BLADE',
-                                 familySpecifiedType='BCWall'),
-                            dict(name='spinner_wall',
-                                 type='FamilySpecified:SPINNER',
-                                 familySpecifiedType='BCWall'),
-                            dict(name='farfield',
-                                 type='FamilySpecified:FARFIELD',
-                                 familySpecifiedType='BCFarfield',
-                                 location='special',
-                                 specialLocation='fillEmpty')],
-                        Connection=[
-                            dict(type='Match',
-                                 tolerance=match_tolerance),
-                            dict(type='PeriodicMatch',
-                                 tolerance=periodic_match_tolerance,
-                                 rotationCenter=[0.,0.,0.],
-                                 rotationAngle=[360./float(blade_number),0.,0.])])]
+    if blade_number is None:
+        try:
+            blade_number = getPropellerKinematic(t)[0]
+        except:
+            raise ValueError(J.FAIL+'you must provide blade_number information'+J.ENDC)
+    
+    base = I.getBases(t)[0]
+    J.set(base,'.MeshingParameters',
+            blade_number=blade_number,
+            rotation_axis=thrust_axis,
+            RightHandRuleRotation=RightHandRuleRotation,
+            rotation_center=[0,0,0])
+
+    # NOTE familySpecifiedType can be overridden in prepareMainCGNS4ElsA
+    if OverrideInputMeshes is None:
+        meshInfo = dict(file=t,
+                baseName=I.getBases(t)[0][0],
+                SplitBlocks=True,
+                BoundaryConditions=[
+                    dict(name='blade_wall',
+                        type='FamilySpecified:BLADE',
+                        familySpecifiedType='BCWall'),
+                    dict(name='spinner_wall',
+                        type='FamilySpecified:SPINNER',
+                        familySpecifiedType='BCWall'),
+                    dict(name='farfield',
+                        type='FamilySpecified:FARFIELD',
+                        familySpecifiedType='BCFarfield',
+                        location='special',
+                        specialLocation='fillEmpty')],
+                Connection=[
+                    dict(type='Match',
+                        tolerance=match_tolerance),
+                    dict(type='PeriodicMatch',
+                        tolerance=periodic_match_tolerance,
+                        rotationCenter=[0.,0.,0.],
+                        rotationAngle=[360./float(blade_number),0.,0.])])
+        
+        if scale is not None: meshInfo['Transform'] = dict(scale=scale)
+
+        InputMeshes = [ meshInfo ]
+    else: 
+        InputMeshes = OverrideInputMeshes
 
 
 
@@ -133,6 +159,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
                      dict(type='IsoSurface',field='CoordinateX',value=1.0),
                      dict(type='IsoSurface',field='CoordinateX',value=2.0),
                      dict(type='IsoSurface',field='q_criterion',value=20.0)],
+        BoundaryConditions=[],
         writeOutputFields=True,
         Initialization={'method':'uniform'},
         JobInformation={},
@@ -177,7 +204,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
 
         NumericalParams : dict
             dictionary containing the numerical
-            settings for elsA. For information on acceptable values, please see
+            settings for elsA. For informatsplitOptionsion on acceptable values, please see
             the documentation of function :func:`MOLA.Preprocess.getElsAkeysNumerics`
 
             .. note:: internally, this dictionary is passed as *kwargs* as follows:
@@ -190,6 +217,11 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         Extractions : :py:class:`list` of :py:class:`dict`
             List of extractions to perform during the simulation. See
             documentation of :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
+
+        BoundaryConditions : :py:class:`list` of :py:class:`dict`
+            List of boundary conditions to set on the given mesh.
+            For details, refer to documentation of
+            :func:`MOLA.WorkflowCompressor.setBoundaryConditions`
 
         writeOutputFields : bool
             if :py:obj:`True`, write initialized fields overriding
@@ -309,7 +341,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
     PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
 
     WC.setMotionForRowsFamilies(t, TurboConfiguration)
-    WC.setBC_Walls(t, TurboConfiguration)
+    WC.setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
+                            FluidProperties, ReferenceValues)
 
     WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
@@ -464,4 +497,7 @@ def _extendArraysWithPropellerQuantities(arrays, IntegralDataName, setup):
     arraysSubset['CP']=CP
     arraysSubset['FigureOfMeritHover']=FM
     arraysSubset['PropulsiveEfficiency']=eta
+
+
+
 
