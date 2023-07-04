@@ -5664,8 +5664,15 @@ def addFieldExtraction(ReferenceValues, fieldname):
 
 def appendAdditionalFieldExtractions(ReferenceValues, Extractions):
     for e in Extractions:
-        try: field_name = e['field']
-        except KeyError: continue
-        if field_name.startswith('Coordinate') or field_name == 'ChannelHeight':
+        field_names = []
+        if 'field' in e:
+            field_names += [e['field']]
+        elif e['type'] == 'Probe':
+            field_names += e['variables']
+        else:
             continue
-        addFieldExtraction(ReferenceValues, field_name)
+
+        for field_name in field_names:
+            if field_name.startswith('Coordinate') or field_name == 'ChannelHeight':
+                continue
+            addFieldExtraction(ReferenceValues, field_name)

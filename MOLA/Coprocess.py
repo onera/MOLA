@@ -1287,6 +1287,14 @@ def arraysDict2PyTree(arrays):
         Cmpi._setProc(zones, rank)
         t = C.newPyTree(['Base', zones])
         for base in I.getBases(t): I._sortByName(base)
+
+        for zone in zones:
+            zone_name = I.getName(zone)
+            for e in setup.Extractions:
+                if e['type'] == 'Probe' and e['name'] == zone_name:
+                    J.set(zone, '.ExtractionInfo', **e)
+                    break
+            
     else:
         t = C.newPyTree(['Base'])
     Cmpi.barrier()
