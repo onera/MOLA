@@ -101,3 +101,86 @@ def test_prepare_workflow1():
     w.define_families()
     w.split_and_distribute()
     w.write_tree()
+
+def get_workflow2():
+
+    x, y, z = np.meshgrid( np.linspace(0,1,21),
+                           np.linspace(0,1,21),
+                           np.linspace(0,1,21), indexing='ij')
+    mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'],
+                                            [ x,  y,  z ])
+
+    w = Workflow(
+        RawMeshComponents=[
+            dict(
+                Name='cartesian',
+                Source=mesh,
+                Families=[
+                    dict(Name='Ground',
+                         Location='kmin'),
+                    dict(Name='Farfield',
+                         Location='remaining'),
+                ],
+                Positioning=[
+                    dict(
+                        Type='TranslationAndRotation',
+                        InitialFrame=dict(
+                            Point=[0,0,0],
+                            Axis1=[1,0,0],
+                            Axis2=[0,1,0],
+                            Axis3=[0,0,1]),
+                        RequestedFrame=dict(
+                            Point=[0,0,0],
+                            Axis1=[1,0,0],
+                            Axis2=[0,1,0],
+                            Axis3=[0,0,1]),
+                        ),
+                ],
+                Connection = [
+                    dict(Type='Match', Tolerance=1e-8),
+                ],
+                OversetOptions=dict(),
+                )
+        ],
+
+        SplittingAndDistribution=dict(
+            Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
+            Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
+            Distributor='Cassiopee', 
+            ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
+            NumberOfProcessors=4, 
+            ),
+
+        Flow=dict(
+            Velocity = 100.,
+        ),
+
+        Solver='elsa',
+
+        Numerics = dict(
+            CFL=1.,
+        ),
+
+        BoundaryConditions=[
+            dict(Family='Ground', type='Wall'),
+            dict(Family='Farfield', type='Farfield'),
+        ],
+
+        Extractions=[
+            dict(type='signals', name='Integrals', fields=['CL', 'std-CL'], Period=10),
+            dict(type='probe', name='probe1', fields=['std-Pressure'], Period=5),
+            dict(type='probe', name='probe2', fields=['std-Density'], Period=5),
+            dict(type='3D', fields=['Mach', 'q_criterion']),
+            dict(type='bc', BCType='BCWall*', storage='ByFamily', fields=['normalvector', 'frictionvector']),
+            dict(type='bc', BCType='*', storage='ByFamily', fields=['Pressure']),
+            dict(type='IsoSurface', name='MySurface', field='CoordinateY', value=1.e-6, AllowedFields=['Mach','cellN']),
+            ],
+
+
+        )
+    return w
+
+def test_prepare_workflow2():
+    w = get_workflow2()
+    w.prepare()
+    w.write_cfd_files()

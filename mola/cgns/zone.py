@@ -74,10 +74,10 @@ class Zone(Node):
         return int(np.prod(self.value(), axis=0)[1])
 
     def newFields(self, InputFields, Container='FlowSolution',
-                  GridLocation='guess', dtype=np.float64, return_type='list',
+                  GridLocation='auto', dtype=np.float64, return_type='list',
                   ravel=False):
 
-        if GridLocation == 'guess':
+        if GridLocation == 'auto':
             GridLocation = m.AutoGridLocation[ Container ]
 
         FlowSolution = self.get(Container,Depth=1)
@@ -238,7 +238,7 @@ class Zone(Node):
         if NbOfContainers > 1 and not appendContainerToFieldName and return_type=='dict':
             MSG = ('allFields(): several containers where detected, use'
                 ' appendContainerToFieldName=True for avoid keyword overriding')
-            print(m.WARN+MSG+m.ENDC)
+            print(m.YELLOW+MSG+m.ENDC)
         for FlowSolution in AllFlowSolutionNodes:
             for child in FlowSolution.children():
                 if child.type() != 'DataArray_t': continue

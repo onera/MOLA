@@ -63,7 +63,7 @@ def walladia(workflow, Family, Motion=None):
         assert onlyOneRotationComponent, 'For elsA, the rotation must be around one axis only'
         omega = sum(Motion['RotationSpeed'])
 
-        if omega != 0. or any(Motion['TranslationSpeed']!=0.):
+        if omega != 0. or any(Motion['TranslationSpeed']):
             wall.setParameters('.Solver#BC',
                                 type='walladia',
                                 data_frame='user',

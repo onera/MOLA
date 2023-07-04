@@ -14,7 +14,7 @@
 #
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
-
+import os
 from mola import misc
 
 
@@ -23,8 +23,8 @@ def apply(workflow):
     process_extractions_3d(workflow)
     process_extractions_2d(workflow)
 
-    workflow.SolverParameters = dict()
-    solverModule = misc.load_source('solverModule', workflow.Solver)
+    current_path = os.path.dirname(os.path.realpath(__file__))
+    solverModule = misc.load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
     solverModule.adapt_to_solver(workflow)
 
 
@@ -36,7 +36,7 @@ def process_extractions_3d(workflow):
     '''
 
     # TODO Check the name 
-    workflow.Extractions.insert(0, dict(type='3D', fields=workflow.Flow['Conservatives']))
+    workflow.Extractions.append(dict(type='3D', fields=workflow.Flow['ReferenceState']))
 
 
 def process_extractions_2d(workflow):

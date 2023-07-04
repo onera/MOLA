@@ -56,7 +56,7 @@ def set_model(workflow):
         gamma            = workflow.Fluid['Gamma'],
         phymod           = 'nstur',
         prandtl          = workflow.Fluid['Prandtl'],
-        prandtltb        = workflow.Fluid['PrandtlTurbulence'],
+        prandtltb        = workflow.Fluid['PrandtlTurbulent'],
         visclaw          = 'sutherland',
         suth_const       = workflow.Fluid['SutherlandConstant'],
         suth_muref       = workflow.Fluid['SutherlandViscosity'],
@@ -231,11 +231,8 @@ def set_model(workflow):
     
     # _____________________________________________________________________________
     # Transition Settings
-    if workflow.Turbulence['TransitionMode']:
-
-        TransitionModeSetup = dict()
-    
-    elif workflow.Turbulence['TransitionMode'] == 'NonLocalCriteria-LSTT':
+    TransitionModeSetup = dict()
+    if workflow.Turbulence['TransitionMode'] == 'NonLocalCriteria-LSTT':
 
         if 'LM2009' in workflow.Turbulence['Model']:
             raise AttributeError(misc.RED+"Modeling incoherency! cannot make Non-local transition criteria with Menter-Langtry turbulence model"+misc.ENDC)
@@ -417,7 +414,7 @@ def set_numerics(workflow):
    
     # _____________________________________________________________________________
     # Definition of cut-off values for turbulence 
-    turbValues = workflow.Flow['ReferenceStateTurbulence'].values()
+    turbValues = workflow.Turbulence['Conservatives'].values()
     if len(turbValues) == 7:  # RSM
         TurbulenceCutOffSetup = dict(
             t_cutvar1 = workflow.Turbulence['TurbulenceCutOffRatio'] * turbValues[0],

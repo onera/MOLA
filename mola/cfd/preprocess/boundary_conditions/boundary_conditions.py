@@ -14,7 +14,7 @@
 #
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
-
+import os
 from mola import (misc, cgns)
 
 BoundaryConditionsNames = dict(
@@ -35,7 +35,7 @@ BoundaryConditionsNames = dict(
 # Shortcuts for already defined boundary conditions
 BoundaryConditionsNames.update(
     dict(
-        Wall = BoundaryConditionsNames['WallViscous']
+        Wall = BoundaryConditionsNames['WallViscous'],
     )
 )
 
@@ -53,17 +53,20 @@ def apply(workflow):
     for bc in workflow.BoundaryConditions:
         
         bcName = bc['type']
+        print(misc.CYAN+f'Set boundary condition {bcName} on family {bc["Family"]}'+misc.ENDC)
+        
         if bcName in BoundaryConditionsNames:
             # Define in the main MOLA preprocess, lower in this file
-            MOLAGenericFunction = getattr('.', bcName)
-            solverSpecificFunctionName = BoundaryConditionsNames[bc['type']]
+            MOLAGenericFunction = globals()[bcName]
+            solverSpecificFunctionName = BoundaryConditionsNames[bcName][workflow.Solver]
             args, kwargs = MOLAGenericFunction(workflow, bc)
         else:
             # Defined only in the specific solver module
             solverSpecificFunctionName = bcName
             args, kwargs = bc['args'], bc['kwargs']
 
-        solverModule = misc.load_source('solverModule', workflow.Solver)
+        current_path = os.path.dirname(os.path.realpath(__file__))
+        solverModule = misc.load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
         try:
             solverSpecificFunction = getattr(solverModule, solverSpecificFunctionName)
         except AttributeError:
@@ -71,6 +74,8 @@ def apply(workflow):
         else:
             solverSpecificFunction(workflow, *args, **kwargs)
 
+def Wall(workflow, bc):
+    return WallViscous(workflow, bc)
 
 def WallViscous(workflow, bc):
     RotationSpeed = bc.get('RotationSpeed', [0., 0., 0.])
