@@ -35,16 +35,12 @@ from . import BodyForceTurbomachinery as BF
 from . import Postprocess as POST
 
 if not MOLA.__ONLY_DOC__:
-    import sys
     import os
-    import time
-    import timeit
     from datetime import datetime
     import numpy as np
     from scipy.ndimage.filters import uniform_filter1d
     import shutil
     import psutil
-    import pprint
     import glob
     import copy
     import traceback
@@ -243,6 +239,18 @@ def extractSurfaces(t, Extractions, arrays=None):
                 * ``Plane``
                     Slice the input flowfields using a plane defined using a
                     point and a normal direction.
+                
+                * ``Probe``
+                    A probe to extract, defining a name, a location (x,y,z) and variables to extract. 
+                    
+                    Example: 
+
+                    .. code-block:: python
+
+                            dict(name='probeTest', location=(0.012, 0.24, -0.007), variables=['Temperature', 'Pressure'])
+
+                    .. note:: If not provided, defaut name will be 'Probe_X_Y_Z'
+              
 
             * ``name`` : :py:class:`str` (optional)
                 If provided, this name replaces the default name of the CGNSBase
@@ -346,6 +354,9 @@ def extractSurfaces(t, Extractions, arrays=None):
     SurfacesTree = I.newCGNSTree()
     PartialTree = Cmpi.convert2PartialTree(t)
 
+    # Prepare a base for Probes
+    # FIXME Paraview cannot read probes with this implementation
+    ProbesBase = I.newCGNSBase('Probes', cellDim=0, physDim=3)
     
     for Extraction in Extractions:
         TypeOfExtraction = Extraction['type']
@@ -431,6 +442,12 @@ def extractSurfaces(t, Extractions, arrays=None):
             except KeyError: basename = 'Plane'
             addBase2SurfacesTree(basename)
 
+        elif TypeOfExtraction == 'Probe':
+            zone = D.point(Extraction['location'])
+            I.setName(zone, Extraction['name'])
+            J.set(zone, '.ExtractionInfo', **Extraction)
+            I._addChild(ProbesBase, zone)
+    
     Cmpi._convert2PartialTree(SurfacesTree)
     J.forceZoneDimensionsCoherency(SurfacesTree)
     Cmpi.barrier()
@@ -456,15 +473,9 @@ def extractSurfaces(t, Extractions, arrays=None):
 
         keepOnlyAllowedFields(I.getZones(base), AllowedFields)
 
-    # Add probes locations
-    if hasattr(setup, 'Probes'):
-        # FIXME Paraview cannot read probes with this implementation
-        base = I.newCGNSBase('Probes', cellDim=0, physDim=3, parent=SurfacesTree)
-        for Probe in setup.Probes:
-            zone = D.point(Probe['location'])
-            I.setName(zone, Probe['name'])
-            J.set(zone, '.ExtractionInfo', **Probe)
-            I._addChild(base, zone)
+    # Add probes if there are any
+    if len(I.getZones(ProbesBase)) > 0:
+        I._addChild(SurfacesTree, ProbesBase)
 
 
 
@@ -2752,6 +2763,11 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
 #_______________________________________________________________________________
 # PROBES MANAGEMENT
 #_______________________________________________________________________________
+def hasProbes():
+    for Extraction in setup.Extractions:
+        if Extraction['type'] == 'Probe':
+            return True
+    return False
 
 def appendProbes2Arrays_extractMesh(t, arrays, Probes, order=2):
     '''
@@ -2811,8 +2827,10 @@ def appendProbes2Arrays_extractMesh(t, arrays, Probes, order=2):
     return probesTree
 
 
-def appendProbes2Arrays(t, arrays, Probes):
+def appendProbes2Arrays(t, arrays):
     '''
+    Append probes with picked data in **arrays**.
+
     Parameter
     ---------
 
@@ -2820,12 +2838,10 @@ def appendProbes2Arrays(t, arrays, Probes):
 
         arrays : dict
 
-        Probes :
-            :py:class:`dict` of the form:
-
-            >>> Probes = dict(  )
     '''
-    for Probe in Probes:
+    for Probe in setup.Extractions:
+        if Probe['type'] != 'Probe':
+            continue
         if Probe['rank'] != rank:
             continue
         ProbesDict = dict( IterationNumber = CurrentIteration-1 )
@@ -2842,17 +2858,19 @@ def appendProbes2Arrays(t, arrays, Probes):
 
         appendDict2Arrays(arrays, ProbesDict, Probe['name'])
 
-def searchZoneAndIndexForProbes(t, Probes, tol=1e-2):
+def searchZoneAndIndexForProbes(t, method='getNearestPointIndex', tol=1e-2):
     
     '''
-    Search for the nearest vertex from each probe in **Probes** in a PyTree.
+    Search for the nearest vertex from each probe in **setup.Extractions** in a PyTree.
 
     Parameters
     ----------
     t : PyTree
         Input PyTree.
-    Probes : list of dict
-        A list of probes.
+
+    method : str
+        One of 'getNearestPointIndex' (from Cassiopee Geom module) or 'nearestNodes' (from Converter module).
+
     tol : float, optional
         The tolerance for minimum distance. Default is 1e-2.
 
@@ -2862,19 +2880,37 @@ def searchZoneAndIndexForProbes(t, Probes, tol=1e-2):
         - Probes that are too far from the nearest vertex are removed from the list.
     '''
     # Put data at cell center, including coordinates
+    # IMPORTANT: In this function, the mesh will be now the dual mesh, with nodes corresponding cell centers of the input mesh
     t = C.node2Center(t)
 
-    for Probe in Probes:
+    for Probe in setup.Extractions:
+        if Probe['type'] != 'Probe':
+            continue
+
         # Search the nearest points in all zones
         nearestElement = None
         minDistance = 1e20
         for zone in I.getZones(t):
-            try:
-                element, squaredDistance = D.getNearestPointIndex(zone, Probe['location'])
-            except IndexError:
-                # Skeleton zone on this proc
+            x = J.getx(zone)
+            if x is None:
+                # This zone is a skeleton zone, so the current processor is not in charge of this zone
                 continue
-            distance = np.sqrt(squaredDistance)
+
+            if method == 'getNearestPointIndex':
+                element, squaredDistance = D.getNearestPointIndex(zone, Probe['location'])
+                distance = np.sqrt(squaredDistance)
+
+            elif method == 'nearestNodes':
+                # Get the nearest node of the dual mesh 
+                # Prefer this function C.nearestNodes to D.getNearestPointIndex for performance
+                # (see https://elsa.onera.fr/issues/8236)
+                hook = C.createGlobalHook(zone, function='nodes')
+                nodes, distances = C.nearestNodes(hook, D.point(Probe['location']))
+                element, distance = nodes[0], distances[0]
+            
+            else:
+                raise Exception('method must be getNearestPointIndex or nearestNodes')
+
             if distance < minDistance:
                 minDistance = distance
                 nearestElement = element
@@ -2885,7 +2921,7 @@ def searchZoneAndIndexForProbes(t, Probes, tol=1e-2):
         minDistanceForAllProcessors = comm.allreduce(minDistance, op=MPI.MIN)
         if minDistance == minDistanceForAllProcessors:
             # Probe on this proc
-            Probe['rank'] = Cmpi.getProc(probeZone)
+            Probe['rank'] = rank
             Probe['zone'] = I.getName(probeZone)
             Probe['element'] = nearestElement
             Probe['distanceToNearestCellCenter'] = minDistance     
@@ -2902,11 +2938,8 @@ def searchZoneAndIndexForProbes(t, Probes, tol=1e-2):
 
         if minDistanceForAllProcessors > tol:
             printCo(f'The probe {Probe["name"]} is too far from the nearest vertex ({minDistanceForAllProcessors} m). It is removed.', 0, J.WARN)
-            Probes.remove(Probe)
-
-    for Probe in Probes:
-        printCo(f'{Probe}', 0, J.MAGE)
-
+            setup.Extractions.remove(Probe)
+    
 
 def loadUnsteadyMasksForElsA(e, elsA_user, Skeleton):
     

@@ -263,7 +263,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlock
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, OverrideSolverKeys= {}, 
-        TurboConfiguration={}, Extractions=[], Probes=[], BoundaryConditions=[],
+        TurboConfiguration={}, Extractions=[], BoundaryConditions=[],
         PostprocessOptions={}, BodyForceInputData={}, writeOutputFields=True,
         bladeFamilyNames=['BLADE', 'AUBE'], Initialization={'method':'uniform'},
         JobInformation={}, SubmitJob=False,
@@ -311,24 +311,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         Extractions : :py:class:`list` of :py:class:`dict`
             List of extractions to perform during the simulation. See
             documentation of :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
-        
-        Probes : :py:class:`list` of :py:class:`dict`
-            List of probes to extract. Example with 2 probes : 
-
-            .. code-block:: python
-
-                Probes = [
-                    dict(
-                        name='probeTest',
-                        location=(0.012, 0.24, -0.007),
-                        variables=['Temperature', 'Pressure']
-                        ),
-                    dict(
-                        # If not provided, defaut name will be 'Probe_X_Y_Z'
-                        location=(0.02, 0.24, -0.007),
-                        variables=['Pressure']
-                        ),
-                    ]
 
         BoundaryConditions : :py:class:`list` of :py:class:`dict`
             List of boundary conditions to set on the given mesh.
@@ -523,7 +505,6 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
                         Extractions=Extractions, 
-                        Probes=Probes,
                         PostprocessOptions=PostprocessOptions)
     if BodyForceInputData: 
         AllSetupDicts['BodyForceInputData'] = BodyForceInputData

@@ -130,6 +130,11 @@ else:
     t = Cmpi.convertFile2PyTree('main.cgns')
     Skeleton = CO.loadSkeleton()
 
+# ========================== INIT PROBES ========================== #
+HAS_PROBES = CO.hasProbes()
+if HAS_PROBES:
+    CO.searchZoneAndIndexForProbes(Skeleton)
+
 ################################################################################
 # PREPARE VARIABLES TO LOCATE INTERFACES
 ################################################################################
@@ -155,6 +160,8 @@ CO.updateAndWriteSetup(setup)
 t = CO.extractFields(Skeleton)
 
 # save arrays
+if HAS_PROBES:
+    CO.appendProbes2Arrays(t, arrays)
 arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,
           Extractions=setup.Extractions, addMemoryUsage=True)
 CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))

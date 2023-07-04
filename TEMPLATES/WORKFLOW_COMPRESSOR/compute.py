@@ -104,7 +104,9 @@ else:
     Skeleton = CO.loadSkeleton()
 
 # ========================== INIT PROBES ========================== #
-CO.searchZoneAndIndexForProbes(Skeleton, setup.Probes)
+HAS_PROBES = CO.hasProbes()
+if HAS_PROBES:
+    CO.searchZoneAndIndexForProbes(Skeleton)
 
 # ========================== LAUNCH ELSA ========================== #
 
@@ -172,6 +174,8 @@ CO.monitorTurboPerformance(surfs, arrays, RequestedStatistics)
 CO.save(surfs, os.path.join(DIRECTORY_OUTPUT, FILE_SURFACES), tagWithIteration=TagSurfacesWithIteration)
 
 # save arrays
+if HAS_PROBES:
+    CO.appendProbes2Arrays(t, arrays)
 CO.appendProbes2Arrays(t, arrays, setup.Probes)
 arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,
           Extractions=setup.Extractions, addMemoryUsage=True)
