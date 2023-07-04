@@ -518,7 +518,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
     BCExtractions = ReferenceValues['BCExtractions']
 
     if I.getNodeFromName(t, 'proc'):
-        JobInformation['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
+        JobInformation['NumberOfProcessors'] = int(max(getProc(t))+1)
         Splitter = None
     else:
         Splitter = 'PyPart'
