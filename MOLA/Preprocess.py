@@ -4789,7 +4789,7 @@ def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
     FamilyNode = I.getNodeFromNameAndType(t, FamilyBCName, 'Family_t')
     if not FamilyNode: return
 
-    FamilyBCNode = I.getNodeFromName1(FamilyNode, 'FamilyBC')
+    FamilyBCNode = I.getNodeFromType1(FamilyNode, 'FamilyBC_t')
     if not FamilyBCNode: return
 
     FamilyBCNodeType = I.getValue(FamilyBCNode)
