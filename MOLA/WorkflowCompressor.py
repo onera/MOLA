@@ -521,24 +521,25 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     is_unsteady = AllSetupDicts['elsAkeysNumerics']['time_algo'] != 'steady'
     avg_requested = AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'] is not None
 
-    if is_unsteady and not avg_requested:
-        msg =('WARNING: You are setting an unsteady simulation, but no field averaging\n'
-              'will be done since CoprocessOptions key "FirstIterationForFieldsAveraging"\n'
-              'is set to None. If you want fields average extraction, please set a finite\n'
-              'positive value to "FirstIterationForFieldsAveraging" and relaunch preprocess')
-        print(J.WARN+msg+J.ENDC)
+    if is_unsteady:
+        if avg_requested:
+            containers = ['FlowSolution#Init', 'FlowSolution#Average']
+            try:
+                containers_at_vertex = PostprocessOptions['container_at_vertex']
+                for c in containers:
+                    if c not in containers_at_vertex: 
+                        containers_at_vertex += [ c ]
+            except KeyError:
+                PostprocessOptions['container_at_vertex'] = containers
 
+        else:
+            msg =('WARNING: You are setting an unsteady simulation, but no field averaging\n'
+                'will be done since CoprocessOptions key "FirstIterationForFieldsAveraging"\n'
+                'is set to None. If you want fields average extraction, please set a finite\n'
+                'positive value to "FirstIterationForFieldsAveraging" and relaunch preprocess')
+            print(J.WARN+msg+J.ENDC)
 
-    is_unsteady = AllSetupDicts['elsAkeysNumerics']['time_algo'] != 'steady'
-    avg_requested = AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'] is not None
-
-    if is_unsteady and not avg_requested:
-        msg =('WARNING: You are setting an unsteady simulation, but no field averaging\n'
-              'will be done since CoprocessOptions key "FirstIterationForFieldsAveraging"\n'
-              'is set to None. If you want fields average extraction, please set a finite\n'
-              'positive value to "FirstIterationForFieldsAveraging" and relaunch preprocess')
-        print(J.WARN+msg+J.ENDC)
-
+    
     PRE.addExtractions(t, AllSetupDicts['ReferenceValues'],
                           AllSetupDicts['elsAkeysModel'],
                           extractCoords=False,

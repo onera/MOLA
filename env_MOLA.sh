@@ -11,7 +11,7 @@ ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 export MOLA=/stck/lbernard/MOLA/Dev
 export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
 export VPMVERSION=v0.2
-export PUMAVERSION=r337
+export PUMAVERSION=v2.0.3
 export TURBOVERSION=v1.2.2
 export ERSTAZVERSION=v1.6.3
 export MOLAext=/stck/lbernard/MOLA/Dev/ext # you should not modify this line
@@ -95,8 +95,9 @@ if [ "$MAC" = "sator" ]; then
     unset I_MPI_PMI_LIBRARY
     export MOLA=$MOLASATOR
 
-    # PUMA incompatible with intel21 ?
-    export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_${PUMAVERSION}_satornew
+    # PUMA
+    export PUMAVERSION=v2.0.1
+    export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_${PUMAVERSION}
     export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
     export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
@@ -200,12 +201,12 @@ elif [ "$MAC" = "visung" ]; then
     module load freetype/2.10.2
     module load pointwise/2022.1.2
 
-    # # PUMA
-    # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro3
-    # export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
-    # export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH
-    # export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
-    # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+    # PUMA
+    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_os8
+    export PYTHONPATH=$PumaRootDir/lib/python3.8/site-packages:$PYTHONPATH
+    export PYTHONPATH=$PumaRootDir/lib/python3.8/site-packages/PUMA:$PYTHONPATH
+    export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.8:$LD_LIBRARY_PATH
+    export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
     # turbo
     export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/eos-intel3_mpi/lib/python3.6/site-packages/:$PYTHONPATH
@@ -250,12 +251,12 @@ elif [ "$MAC" = "ld" ]; then
 
     unset I_MPI_PMI_LIBRARY
 
-    # # PUMA
-    # export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_eos3
-    # export PYTHONPATH=$PumaRootDir/lib/python3.6/site-packages:$PYTHONPATH
-    # export PYTHONPATH=$PumaRootDir/lib/python3.6/site-packages/PUMA:$PYTHONPATH
-    # export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.6:$LD_LIBRARY_PATH
-    # export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+    # PUMA
+    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_os8
+    export PYTHONPATH=$PumaRootDir/lib/python3.8/site-packages:$PYTHONPATH
+    export PYTHONPATH=$PumaRootDir/lib/python3.8/site-packages/PUMA:$PYTHONPATH
+    export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.8:$LD_LIBRARY_PATH
+    export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
     # turbo 
     export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/local-os8_mpi/lib/python3.8/site-packages/:$PYTHONPATH
