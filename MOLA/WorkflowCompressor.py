@@ -1518,7 +1518,7 @@ def addMonitoredRowsInExtractions(Extractions, TurboConfiguration):
                         break
                 if not planeAlreadyInExtractions:
                     Extractions.append(dict(type='IsoSurface', field='CoordinateX', \
-                        value=rowParams[plane], ReferenceRow=row, tag=plane))
+                        value=rowParams[plane], ReferenceRow=row, tag=plane, family=row))
 
 def computeDistance2Walls(t, WallFamilies=[], verbose=True, wallFilename=None):
     '''
