@@ -4562,15 +4562,18 @@ def getPostprocessQuantities(DIRECTORY_WORK, basename, useLocalConfig=False, ren
 
     if rename:
         VarsToRename = [
-            ('MassFlow', 'Massflow'), 
-            ('PressureStagnationRatio', 'StagnationPressureRatio'), 
-            ('EfficiencyIsentropic', 'IsentropicEfficiency')
+            ('Massflow', 'MassFlow'), 
+            ('StagnationPressureRatio', 'PressureStagnationRatio'), 
+            ('IsentropicEfficiency', 'EfficiencyIsentropic')
             ]
-        for (name1, name2) in VarsToRename:
+        for (oldName, newName) in VarsToRename:
             for perfoOverIsospeedLine in perfo: 
-                perfoOverIsospeedLine[name1] = perfoOverIsospeedLine[name2]
+                if oldName in perfoOverIsospeedLine:
+                    perfoOverIsospeedLine[newName] = perfoOverIsospeedLine[oldName]
 
     return perfo
+
+
 def convertPeriodic2Chorochrono(t):
     '''
     Convert the periodic boundary condition from a PyTree t to a chorochrono boundary condition.
