@@ -117,13 +117,33 @@ def write_coprocess(workflow):
     with open(os.path.join(workflow.RunManagement['RunDirectory'], 'coprocess.py'), 'w') as File:
         File.write('# do nothing')
 
-def write_job_launcher(workflow):
+def write_job_launcher(workflow, jobFile='job.sh'):
 
-    shutil.copy2(f'{__MOLA_PATH__}/TEMPLATES/job_template.sh', 'job.sh')
+    # shutil.copy2(f'{__MOLA_PATH__}/TEMPLATES/job_template.sh', 'job.sh')
 
-    # with open(os.path.join(workflow.RunManagement['RunDirectory'], 'job.sh'), 'w') as File:
-    #     File.write('# do nothing')
-    
+    with open(f'{__MOLA_PATH__}/TEMPLATES/job_template.sh', 'r') as f:
+        JobText = f.read()
+
+    JobText = JobText.replace('<JobName>', workflow.RunManagement['JobName'])
+    JobText = JobText.replace('<AERnumber>', str(workflow.RunManagement['AER']))
+    JobText = JobText.replace('<TimeLimit>', str(workflow.RunManagement["TimeLimit"]))
+    JobText = JobText.replace('<NumberOfProcessors>', str(workflow.RunManagement['NumberOfProcessors']))
+    JobText = JobText.replace('$NPROCMPI', str(workflow.RunManagement['NumberOfProcessors']))
+
+    if workflow.RunManagement['SlurmConstraint'] is None:
+        JobText = JobText.replace('#SBATCH --constraint=<SlurmConstraint>', '')
+    else:
+        JobText = JobText.replace('<SlurmConstraint>', workflow.RunManagement['SlurmConstraint']) 
+
+    if workflow.RunManagement['SlurmQualityOfService'] is None:
+        JobText = JobText.replace('#SBATCH --qos=<SlurmQualityOfService>', '')
+    else:
+        JobText = JobText.replace('<SlurmQualityOfService>', workflow.RunManagement['SlurmQualityOfService']) 
+
+    with open(jobFile, 'w') as f:
+        f.write(JobText)
+    os.chmod(jobFile, 0o777)
+
 def compute(workflow):
     
     # ----------------------- IMPORT SYSTEM MODULES ----------------------- #

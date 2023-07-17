@@ -3,12 +3,10 @@
 #SBATCH --comment <AERnumber> # only relevant for sator
 #SBATCH -o output.%j.log
 #SBATCH -e error.%j.log
-#SBATCH -t 0-15:00
+#SBATCH -t <TimeLimit>
 #SBATCH -n <NumberOfProcessors>
-#SBATCH --constraint="csl"
-# NOTE : if job is used in SPIRO, then flag --qos (e.g. c1_test_giga)
-#        must also be provided
-
+#SBATCH --constraint=<SlurmConstraint>
+#SBATCH --qos=<SlurmQualityOfService>
 
 ###############################################################################
 # -------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ------------------ #

@@ -169,8 +169,6 @@ def process_extractions_2d(workflow):
         ytorque       = 0.0,
         ztorque       = 0.0,
         writingframe  = 'relative', # absolute incompatible with unstructured mesh
-        geomdepdom    = 2,  # see #8127#note-26
-        delta_cell_max= 300,
     ))
     
     FamilyNodes = workflow.tree.group(Type='Family', Depth=2)
@@ -186,13 +184,14 @@ def process_extractions_2d(workflow):
             continue
 
         # TODO : manage the case with no BCType given but a Family instead
-        ExtractBCType = Extraction['BCType']
+        ExtractBCTypeRequired = Extraction['BCType'] # It may contain *
         ExtractVariablesListDefault = Extraction['fields']
 
         for FamilyNode in FamilyNodes:
-            ExtractVariablesList = copy.deepcopy(ExtractVariablesListDefault)
-
-            if FamilyNode.get(Type='FamilyBC', Name=ExtractBCType, Depth=1):
+            FamilyBCNode = FamilyNode.get(Type='FamilyBC', Value=ExtractBCTypeRequired, Depth=1)
+            if FamilyBCNode:
+                ExtractVariablesList = copy.deepcopy(ExtractVariablesListDefault)
+                ExtractBCType = FamilyBCNode.value()
 
                 if not workflow.tree.isStructured():
                     if 'BoundaryLayer' in Extraction['fields']:
@@ -223,6 +222,7 @@ def process_extractions_2d(workflow):
                 if ExtractVariablesList != []:
                     varList = translate_to_elsa(ExtractVariablesList)
                     SolverOutput = FamilyNode.get(Name='.Solver#Output', Depth=1) 
+                    
                     if not SolverOutput:
                         print('setting .Solver#Output to FamilyNode '+FamilyNode.name())
                         if 'BCWall' in ExtractBCType:
