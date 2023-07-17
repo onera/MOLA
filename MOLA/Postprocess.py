@@ -1142,46 +1142,56 @@ def extractBC(t, Name=None, Type=None):
         for bc in zbc[2]:
             for bcds in I.getNodesFromType1(bc,'BCDataSet_t'):
                 BCDataSetNames.add( bcds[0] )
-
-    zones_merged = []
-    for BCDataSetName in BCDataSetNames:
-        tR = I.copyRef(t)
-        for zone in I.getZones(tR):
-            zbc = I.getNodeFromType1(zone, 'ZoneBC_t')
-            LocalBCDataSetNames = set()
-            for bc in zbc[2]:
-                for bcds in I.getNodesFromType1(bc,'BCDataSet_t'):
-                    LocalBCDataSetNames.add( bcds[0] )
-            for bc in zbc[2]:
-                for LocalBCDataSetName in LocalBCDataSetNames:
-                    if LocalBCDataSetName != BCDataSetName:
-                        I._rmNodesByName1(bc, BCDataSetName)
+ 
+    if len(BCDataSetNames) == 0:
+        # No fields extracted, only the surface geometry
         if Name:
-            zones = I.getZones( C.extractBCOfName(tR, Name, extrapFlow=False) )
+            zones_merged = I.getZones( C.extractBCOfName(t, Name, extrapFlow=False) )
         else:
-            zones = I.getZones( C.extractBCOfType(tR, Type, extrapFlow=False) )
-        
-        I._adaptZoneNamesForSlash(zones)
+            zones_merged = I.getZones( C.extractBCOfType(t, Type, extrapFlow=False) )
+        I._adaptZoneNamesForSlash(zones_merged)
 
-        for z in zones:
-            fs = I.getNodeFromType1(z, 'FlowSolution_t')
-
-            if not fs: continue
-            fs[0] = BCDataSetName
-            if zones_merged:
-                for zm in zones_merged:
-                    containers_names = [f[0] for f in I.getNodesFromType1(zm, 'FlowSolution_t')]
-                    if z[0] == zm[0]:                        
-                        if fs[0] not in containers_names: 
-                            zm[2] += [ fs ]
-                        break
+    else:
+        zones_merged = []
+        for BCDataSetName in BCDataSetNames:
+            tR = I.copyRef(t)
+            for zone in I.getZones(tR):
+                zbc = I.getNodeFromType1(zone, 'ZoneBC_t')
+                LocalBCDataSetNames = set()
+                for bc in zbc[2]:
+                    for bcds in I.getNodesFromType1(bc,'BCDataSet_t'):
+                        LocalBCDataSetNames.add( bcds[0] )
+                for bc in zbc[2]:
+                    for LocalBCDataSetName in LocalBCDataSetNames:
+                        if LocalBCDataSetName != BCDataSetName:
+                            I._rmNodesByName1(bc, BCDataSetName)
+            if Name:
+                zones = I.getZones( C.extractBCOfName(tR, Name, extrapFlow=False) )
             else:
-                zones_merged = zones
+                zones = I.getZones( C.extractBCOfType(tR, Type, extrapFlow=False) )
+            
+            I._adaptZoneNamesForSlash(zones)
 
-            fs_nodes = I.getNodesFromType1(z, 'FlowSolution_t')
-            if len(fs_nodes) > 1:
-                I.printTree(z, 'debug_extractBC_z.txt')
-                raise ValueError('unexpected number of fs_nodes. Check debug_extractBC_z.txt')
+            for z in zones:
+                fs = I.getNodeFromType1(z, 'FlowSolution_t')
+                if fs: 
+                    fs[0] = BCDataSetName
+                    
+                if zones_merged:
+                    if not fs: continue
+                    for zm in zones_merged:
+                        containers_names = [f[0] for f in I.getNodesFromType1(zm, 'FlowSolution_t')]
+                        if z[0] == zm[0]:                        
+                            if fs[0] not in containers_names: 
+                                zm[2] += [ fs ]
+                            break
+                else:
+                    zones_merged = zones
+
+                fs_nodes = I.getNodesFromType1(z, 'FlowSolution_t')
+                if len(fs_nodes) > 1:
+                    I.printTree(z, 'debug_extractBC_z.txt')
+                    raise ValueError('unexpected number of fs_nodes. Check debug_extractBC_z.txt')
 
     
     t_merged = C.newPyTree(['Base',zones_merged])
