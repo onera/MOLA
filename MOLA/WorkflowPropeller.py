@@ -80,7 +80,7 @@ def prepareMesh4ElsA(mesh='mesh.cgns', scale=None,
     '''
 
     if isinstance(mesh,str):
-        t = C.convertFile2PyTree(mesh)
+        t = J.load(mesh)
     elif I.isTopTree(mesh):
         t = mesh
     else:

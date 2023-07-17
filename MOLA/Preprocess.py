@@ -649,7 +649,7 @@ def getMeshesAssembled(InputMeshes):
             t = meshInfo['file']
             meshInfo['file'] = 'user_provided_in_memory'
         else:
-            t = C.convertFile2PyTree(filename)
+            t = J.load(filename)
         bases = I.getBases(t)
         if len(bases) != 1:
             raise ValueError('InputMesh element in %s must contain only 1 base'%filename)
@@ -5622,8 +5622,6 @@ def convertUnstructuredMeshToNGon(t):
     from mpi4py import MPI
     import maia
     
-    t = maia.factory.distribute_tree(t, MPI.COMM_WORLD, owner=0)
-
     if J.anyNotNGon(t):
         print(' -> some cells are not NGon : converting to NGon')
         maia.algo.dist.generate_ngon_from_std_elements(t, MPI.COMM_WORLD)
@@ -5648,13 +5646,16 @@ def convertUnstructuredMeshToNGon(t):
                     zonePathsByFamily['unspecified'] += [zone_path]
 
     for family, zone_paths in zonePathsByFamily.items():
+        if len(zone_paths) < 2: continue
         print(f' --> merging zones of family {family}')
         maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD)
 
+    print(' -> enforcing ngon_pe_local')
     maia.algo.seq.enforce_ngon_pe_local(t) # required by elsA ?
 
     I._fixNGon(t) # required ?
-    
+    print('finished unstructured mesh adaptations for elsA')
+
     return t
 
 def addFieldExtraction(ReferenceValues, fieldname):

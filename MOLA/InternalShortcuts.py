@@ -2715,9 +2715,34 @@ def moveFields(t, origin='FlowSolution#EndOfRun#Relative',
 
 def load(*args, **kwargs):
     '''
-    literally, a shortcut of C.convertFile2PyTree
+    load a file using either Cassiopee convertFile2PyTree or maia
+    file_to_dist_tree depending on the chosen backend (``'maia'`` or
+    ``'cassiopee'`` ). By default, keyword ``backend='auto'`` will use maia
+    for  ``*.cgns`` and ``*.hdf`` formats; and Cassiopee for the rest.
     '''
-    return C.convertFile2PyTree(*args, **kwargs)
+    try:
+        backend = kwargs['backend']
+        del kwargs['backend']
+    except KeyError:
+        backend = 'auto'
+
+    if backend == 'auto':
+        filename = args[0]
+        if filename.endswith('.cgns') or filename.endswith('.hdf'):
+            import maia
+            from mpi4py import MPI
+            t = maia.io.file_to_dist_tree(filename, MPI.COMM_WORLD, **kwargs)
+        else:
+            t = C.convertFile2PyTree(*args, **kwargs)
+    elif backend == 'cassiopee':
+        t = C.convertFile2PyTree(args)
+    elif backend == 'maia':
+        import maia
+        from mpi4py import MPI
+        filename = args[0]
+        t = maia.io.file_to_dist_tree(filename, MPI.COMM_WORLD,**kwargs)
+
+    return t
 
 def save(*args, **kwargs):
     '''

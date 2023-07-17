@@ -197,8 +197,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlock
                 as next step
     '''
     if isinstance(mesh,str):
-        filename = mesh
-        t = C.convertFile2PyTree(mesh)
+        t = J.load(mesh)
     elif I.isTopTree(mesh):
         filename = None
         t = mesh
@@ -387,7 +386,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     '''
     toc = J.tic()
     if isinstance(mesh,str):
-        t = C.convertFile2PyTree(mesh)
+        t = J.load(mesh)
     elif I.isTopTree(mesh):
         t = mesh
     else:
@@ -787,7 +786,7 @@ def generateInputMeshesFromAG5(mesh, scale=1., rotation='fromAG5', tol=1e-8, Per
     '''
 
     if isinstance(mesh,str):
-        t = C.convertFile2PyTree(mesh)
+        t = J.load(mesh)
     elif I.isTopTree(mesh):
         t = mesh
     else:
