@@ -96,7 +96,7 @@ if [ "$MAC" = "sator" ]; then
     export MOLA=$MOLASATOR
 
     # PUMA
-    export PUMAVERSION=v2.0.1
+    export PUMAVERSION=v2.0.3_mod
     export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_${PUMAVERSION}
     export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
     export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH

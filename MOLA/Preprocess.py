@@ -1094,7 +1094,10 @@ def addFamilies(t, InputMeshes, tagZonesWithBaseName=True):
         for BCinfo in meshInfo['BoundaryConditions']:
             if BCinfo['type'].startswith('FamilySpecified:') and 'familySpecifiedType' in BCinfo:
                 BCName = BCinfo['type'][16:]
-                BCType = BCinfo['familySpecifiedType']
+                try:
+                    BCType = BCinfo['familySpecifiedType']
+                except:
+                    BCType = 'UserDefined'
                 if BCType == 'BCOverlap':
                     # TODO: Check tickets closure
                     ERRMSG=('BCOverlap must be fully defined directly on zones'
@@ -5618,7 +5621,7 @@ def convertUnstructuredMeshToNGon(t):
     print('making unstructured mesh adaptations for elsA:')
     from mpi4py import MPI
     import maia
-
+    
     t = maia.factory.distribute_tree(t, MPI.COMM_WORLD, owner=0)
 
     if J.anyNotNGon(t):
