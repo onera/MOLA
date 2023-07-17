@@ -318,6 +318,8 @@ class Workflow(object):
 
     def has_overset_component(self):
         for component in self.RawMeshComponents:
+            if 'OversetOptions' not in component: 
+                continue
             if component['OversetOptions']:
                 return True
         return False

@@ -243,6 +243,10 @@ def apply(workflow):
 
     workflow.tree = tRef
 
+    if 'NumberOfProcessors' not in workflow.RunManagement \
+        or workflow.RunManagement['NumberOfProcessors'] is None:
+        workflow.RunManagement['NumberOfProcessors'] = NumberOfProcessors
+
     return tRef
 
 def _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors, raise_error=False):

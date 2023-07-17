@@ -22,6 +22,7 @@ def apply(workflow):
     for base in workflow.tree.bases():
         component = workflow.get_component(base.name())
         
+        if 'Positioning' not in component: continue
 
         for operation in component['Positioning']:
             if operation['Type'] == 'scale':
