@@ -2731,7 +2731,13 @@ def load(*args, **kwargs):
         if filename.endswith('.cgns') or filename.endswith('.hdf'):
             import maia
             from mpi4py import MPI
-            t = maia.io.file_to_dist_tree(filename, MPI.COMM_WORLD, **kwargs)
+            try:
+                t = maia.io.file_to_dist_tree(filename, MPI.COMM_WORLD, **kwargs)
+            except BaseException as e:
+                print(WARN+f'could not open {filename} with maia, received error:')
+                print(e)
+                print('switching to Cassiopee...'+ENDC)
+                t = C.convertFile2PyTree(*args, **kwargs)
         else:
             t = C.convertFile2PyTree(*args, **kwargs)
     elif backend == 'cassiopee':

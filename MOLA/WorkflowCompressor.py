@@ -2264,6 +2264,9 @@ def setBC_walladia(t, FamilyName, omega=None):
 
     '''
     wall = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    if not wall: 
+        J.save(t,'debug.cgns')
+        raise ValueError(J.FAIL+f'could not find family "{FamilyName}" for wall. Check debug.cgns'+J.ENDC)
     I._rmNodesByName(wall, '.Solver#BC')
     I._rmNodesByType(wall, 'FamilyBC_t')
     I.newFamilyBC(value='BCWallViscous', parent=wall)

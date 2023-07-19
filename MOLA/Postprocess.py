@@ -1192,14 +1192,12 @@ def extractBC(t, Name=None, Type=None):
                 if len(fs_nodes) > 1:
                     I.printTree(z, 'debug_extractBC_z.txt')
                     raise ValueError('unexpected number of fs_nodes. Check debug_extractBC_z.txt')
-
     
     t_merged = C.newPyTree(['Base',zones_merged])
     base = I.getBases(t_merged)[0]
     base[2].extend( bases_children_except_zones )
     zones = I.getZones(t_merged)
-
-    
+        
     return zones
 
 

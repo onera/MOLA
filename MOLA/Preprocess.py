@@ -249,7 +249,8 @@ def _writeBackUpFiles(t, InputMeshes):
 
 def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
         NumericalParams={}, OverrideSolverKeys={}, 
-        Extractions=[{'type':'AllBCWall'}], Initialization=dict(method='uniform'),
+        Extractions=[{'type':'AllBCWall'}], BoundaryConditions=[],
+        Initialization=dict(method='uniform'),
         BodyForceInputData=[], writeOutputFields=True,
         JobInformation={}, SubmitJob=False, COPY_TEMPLATES=True):
     r'''
@@ -312,6 +313,11 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
             List of extractions to perform during the simulation. For now, only
             surfacic extractions may be asked. See documentation of :func:`MOLA.Coprocess.extractSurfaces` for further details on the
             available types of extractions.
+
+        BoundaryConditions : :py:class:`list` of :py:class:`dict`
+            List of boundary conditions to set on the given mesh.
+            For details, refer to documentation of :py:func:`MOLA.WorfklowCompressor.setBoundaryConditions`
+
 
         NumericalParams : dict
             dictionary containing the numerical
@@ -548,6 +554,13 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
         else:
             ReferenceValues['CoprocessOptions']['TagSurfacesWithIteration'] = False
 
+    if BoundaryConditions:
+        from . import WorkflowCompressor as WC
+        WC.setBoundaryConditions(t, BoundaryConditions, dict(),
+                                FluidProperties, ReferenceValues,
+                                bladeFamilyNames=[])
+
+
     allowed_override_objects = ['cfdpb','numerics','model']
     for v in OverrideSolverKeys:
         if v == 'cfdpb':
@@ -683,11 +696,6 @@ def getMeshesAssembled(InputMeshes):
     if t_cart is not None: t = I.merge([t, t_cart])
     t = I.correctPyTree(t, level=3)
 
-    # with open('InputMeshes.py','w') as f:
-    #     import pprint
-    #     f.write(pprint.pformat(InputMeshes))
-    # exit()
-
     return t
 
 
@@ -735,6 +743,7 @@ def transform(t, InputMeshes):
                              a mesh built in Autogrid 5.
 
     '''
+    makeStructuredAdaptations(t)
     for meshInfo in InputMeshes:
         if 'Transform' not in meshInfo: continue
 
@@ -747,7 +756,18 @@ def transform(t, InputMeshes):
         if 'rotate' in meshInfo['Transform']:
             for center, axis, ang in meshInfo['Transform']['rotate']:
                 T._rotate(base, center, axis, ang)
-    T._makeDirect(t)
+    makeStructuredAdaptations(t)
+
+def makeStructuredAdaptations(t):
+    zones = getStructuredZones(t)
+    for zone in zones:
+        type, Ni, Nj, Nk, dim = I.getZoneDim(zone)
+        for gc in I.getNodesFromType1(zone,'GridCoordinates_t'):
+            for n in I.getNodesFromType1(gc,'DataArray_t'):
+                if n[1] is None: continue
+                if len(n[1].shape) != dim:
+                    n[1] = n[1].reshape((Ni,Nj,Nk))
+    T._makeDirect(zones)
 
 def connectMesh(t, InputMeshes):
     '''
@@ -1088,25 +1108,36 @@ def addFamilies(t, InputMeshes, tagZonesWithBaseName=True):
             C._tagWithFamily(base, FamilyZoneName)
             C._addFamily2Base(base, FamilyZoneName)
 
-        if 'BoundaryConditions' not in meshInfo: continue
+
 
         I._correctPyTree(base, level=7)
-        for BCinfo in meshInfo['BoundaryConditions']:
-            if BCinfo['type'].startswith('FamilySpecified:') and 'familySpecifiedType' in BCinfo:
-                BCName = BCinfo['type'][16:]
-                try:
-                    BCType = BCinfo['familySpecifiedType']
-                except:
-                    BCType = 'UserDefined'
-                if BCType == 'BCOverlap':
-                    # TODO: Check tickets closure
-                    ERRMSG=('BCOverlap must be fully defined directly on zones'
-                        ' instead of indirectly using FAMILIES.\n'
-                        'This option will be acceptable once Cassiopee tickets #7868'
-                        ' and #7869 are solved.')
-                    raise ValueError(J.FAIL+ERRMSG+J.ENDC)
-                print('Setting BCName %s of BCType %s at base %s'%(BCName, BCType, base[0]))
-                C._addFamily2Base(base, BCName, bndType=BCType)
+        
+        if 'BoundaryConditions' in meshInfo:
+            for BCinfo in meshInfo['BoundaryConditions']:
+                if BCinfo['type'].startswith('FamilySpecified:') and 'familySpecifiedType' in BCinfo:
+                    BCName = BCinfo['type'][16:]
+                    try:
+                        BCType = BCinfo['familySpecifiedType']
+                    except:
+                        BCType = 'UserDefined'
+                    if BCType == 'BCOverlap':
+                        # TODO: HACK Check tickets closure
+                        ERRMSG=('BCOverlap must be fully defined directly on zones'
+                            ' instead of indirectly using FAMILIES.\n'
+                            'This option will be acceptable once Cassiopee tickets #7868'
+                            ' and #7869 are solved.')
+                        raise ValueError(J.FAIL+ERRMSG+J.ENDC)
+                    print('Setting BCName %s of BCType %s at base %s'%(BCName, BCType, base[0]))
+                    C._addFamily2Base(base, BCName, bndType=BCType)
+
+        all_family_names = [n[0] for n in I.getNodesFromType1(base,'Family_t')]
+        for bc in I.getNodesFromType(base, 'BC_t'):
+            for fn in I.getNodesFromType1(bc,'FamilyName_t'):
+                FamilyName = I.getValue(fn)
+                if FamilyName not in all_family_names:
+                    all_family_names += [ FamilyName ]
+                    f = I.createUniqueChild(base,FamilyName,'Family_t')
+                    I.createUniqueChild(f,'FamilyBC','FamilyBC_t',value='UserDefined')
 
     groupUserDefinedBCFamiliesByName(t)
     adaptFamilyBCNamesToElsA(t)
@@ -3658,8 +3689,6 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
                              AllSetupDictionaries['elsAkeysModel'],
                              AllSetupDictionaries['elsAkeysNumerics']])
 
-    AllSetupDictionaries['ReferenceValues']['NumberOfProcessors'] = int(max(getProc(t))+1)
-
     writeSetup(AllSetupDictionaries)
 
     return t
@@ -4984,6 +5013,22 @@ def hasAnyOversetData(InputMeshes):
             return True
     return False
 
+
+def getStructuredZones(t):
+    zones = []
+    for z in I.getZones(t):
+        if I.getZoneType(z) == 1:
+            zones += [ z ]
+    return zones
+
+def getUnstructuredZones(t):
+    zones = []
+    for z in I.getZones(t):
+        if I.getZoneType(z) == 2:
+            zones += [ z ]
+    return zones
+
+
 def hasAnyUnstructuredZones(t):
     '''
     Determine if at least one zone in **t** is unstructured.
@@ -5624,7 +5669,30 @@ def convertUnstructuredMeshToNGon(t):
     
     if J.anyNotNGon(t):
         print(' -> some cells are not NGon : converting to NGon')
-        maia.algo.dist.generate_ngon_from_std_elements(t, MPI.COMM_WORLD)
+        try:
+            tRef = I.copyRef(t)
+            maia.algo.dist.generate_ngon_from_std_elements(tRef, MPI.COMM_WORLD)
+            t = tRef
+        except BaseException as e:
+            print(J.WARN+f'could not convert to NGon using maia, received error:')
+            print(e)
+            print('attempting using Cassiopee...'+J.ENDC)
+            try:
+                tRef = I.copyRef(t)
+                uns = getUnstructuredZones(tRef)[0]
+                I.printTree(uns,'tree1.txt')
+                C._convertArray2NGon(uns, recoverBC=1)
+                t = tRef
+            except BaseException as e2:
+                print(J.FAIL)
+                C.convertPyTree2File(t,'debug.cgns')
+                print('could not convert to NGon using Cassiopee, check debug.cgns')
+                t = C.convertFile2PyTree('debug.cgns')
+                uns = getUnstructuredZones(t)[0]
+                I.printTree(uns,'tree2.txt')
+                C._convertArray2NGon(uns, recoverBC=1)
+                print(J.GREEN+'OK'+J.ENDC)
+
 
     print(' -> merging zones by family')
     zonePathsByFamily = dict()
@@ -5648,7 +5716,14 @@ def convertUnstructuredMeshToNGon(t):
     for family, zone_paths in zonePathsByFamily.items():
         if len(zone_paths) < 2: continue
         print(f' --> merging zones of family {family}')
-        maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD)
+        try:
+            maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD)
+        except BaseException as e:
+            print(J.WARN+f'could not merge zones using maia, received error:')
+            print(e)
+            print('will not merge zones'+J.ENDC)
+
+
 
     print(' -> enforcing ngon_pe_local')
     maia.algo.seq.enforce_ngon_pe_local(t) # required by elsA ?
@@ -5680,3 +5755,38 @@ def appendAdditionalFieldExtractions(ReferenceValues, Extractions):
             if field_name.startswith('Coordinate') or field_name == 'ChannelHeight':
                 continue
             addFieldExtraction(ReferenceValues, field_name)
+
+def addBC2Zone(*args, **kwargs):
+    '''
+    Workaround of Converter._addBC2Zone (in-place) function in order to circumvent 
+    https://elsa.onera.fr/issues/11236
+
+    '''
+    zone = args[0]
+    if len(zone) != 4: 
+        raise ValueError('first argument must be a zone')
+    else:
+        try:
+            is_zone = zone[3] == 'Zone_t'
+        except:
+            raise ValueError('first argument must be a zone')
+        if not is_zone:
+            raise ValueError('first argument must be a zone')
+
+    is_structured = I.getZoneType(zone) == 1
+
+
+    if is_structured: return C._addBC2Zone(*args,**kwargs)
+
+    C._addBC2Zone(*args,**kwargs)
+
+    # HACK https://elsa.onera.fr/issues/11236
+    for n in I.getNodesFromType(zone,'ZoneBC_t'):
+        I._renameNode(n,'ElementRange','PointRange')
+    
+    for n in I.getNodesFromType(zone,'BC_t'):
+        I.createUniqueChild(n, 'GridLocation', 'GridLocation_t', value='FaceCenter')
+
+    for n in I.getNodesFromType(zone,'Elements_t'): n[0] = n[0].replace('/','_')
+
+_addBC2Zone = addBC2Zone
