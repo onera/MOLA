@@ -197,6 +197,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlock
                 as next step
     '''
     if isinstance(mesh,str):
+        filename = mesh
         t = J.load(mesh)
     elif I.isTopTree(mesh):
         filename = None
@@ -2189,7 +2190,7 @@ def setBC_Walls(t, TurboConfiguration,
         omega = np.zeros(x.shape, dtype=float)
         for (x1, x2) in TurboConfiguration['HubRotationSpeed']:
             omega[(x1<=x) & (x<=x2)] = TurboConfiguration['ShaftRotationSpeed']
-        return np.asfortranarray(omega)
+        return np.asfortranarray(omega).ravel(order='K')
 
     def getZoneFamilyNameWithFamilyNameBC(zones, FamilyNameBC):
         ZoneFamilyName = None
@@ -3149,9 +3150,8 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
                 # data is a 3D array, supposed to be flat for one axis
                 ImposedVariables[var] = np.squeeze(ImposedVariables[var]) # remove the flat axis to be imposed as a 2D array on the BC
 
-            # In all cases, imposed data shall be 2D now and with the same shape as the BC
-            assert ImposedVariables[var].shape == bc_shape, \
-                f'Wrong shape for variable {var}: {ImposedVariables[var].shape} (shape {bc_shape} for {I.getPath(t, bc)})'
+            # data shall be 1D https://elsa.onera.fr/issues/11219
+            ImposedVariables[var] = ImposedVariables[var].ravel(order='K')
         
         checkVariables(ImposedVariables)
 
