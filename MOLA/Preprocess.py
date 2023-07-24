@@ -4063,9 +4063,9 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={},
     )
 
     # Keys to write in the .Solver#Output for wall Families
-    BCWallKeys = dict()
-    BCWallKeys.update(BCKeys)
-    BCWallKeys.update(dict(
+    BCWallKeysDefault = dict()
+    BCWallKeysDefault.update(BCKeys)
+    BCWallKeysDefault.update(dict(
         delta_compute = elsAkeysModel['delta_compute'],
         vortratiolim  = elsAkeysModel['vortratiolim'],
         shearratiolim = elsAkeysModel['shearratiolim'],
@@ -4083,6 +4083,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={},
     FamilyNodes = I.getNodesFromType2(t, 'Family_t')
     for ExtractBCType, ExtractVariablesListDefault in BCExtractions.items():
         for FamilyNode in FamilyNodes:
+            BCWallKeys = copy.deepcopy(BCWallKeysDefault)
             ExtractVariablesList = copy.deepcopy(ExtractVariablesListDefault)
             FamilyName = I.getName( FamilyNode )
             BCType = getFamilyBCTypeFromFamilyBCName(t, FamilyName)
@@ -4105,13 +4106,19 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={},
                             break
 
                     if 'Inviscid' in BCType:
-                        ViscousKeys = ['geomdepdom','delta_cell_max','delta_compute',
-                            'vortratiolim','shearratiolim','pressratiolim',
-                            'bl_quantities_2d', 'bl_quantities_3d', 'bl_ue',
-                            'yplusmeshsize']
+                        ViscousKeys = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue',
+                            'yplusmeshsize', 'frictionvector']
                         for vk in ViscousKeys:
                             try:
                                 ExtractVariablesList.remove(vk)
+                            except ValueError:
+                                pass
+
+                        param2remove = ['geomdepdom','delta_cell_max','delta_compute',
+                            'vortratiolim','shearratiolim','pressratiolim']
+                        for p in param2remove:
+                            try:
+                                BCWallKeys.pop(p)
                             except ValueError:
                                 pass
                     else:
