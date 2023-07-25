@@ -22,7 +22,6 @@ WORKFLOW COMPRESSOR
 
 Collection of functions designed for Workflow Compressor
 
-File history:
 31/08/2021 - T. Bontemps - Creation
 '''
 
@@ -198,7 +197,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlock
     '''
     if isinstance(mesh,str):
         filename = mesh
-        t = C.convertFile2PyTree(mesh)
+        t = J.load(mesh)
     elif I.isTopTree(mesh):
         filename = None
         t = mesh
@@ -387,7 +386,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     '''
     toc = J.tic()
     if isinstance(mesh,str):
-        t = C.convertFile2PyTree(mesh)
+        t = J.load(mesh)
     elif I.isTopTree(mesh):
         t = mesh
     else:
@@ -787,7 +786,7 @@ def generateInputMeshesFromAG5(mesh, scale=1., rotation='fromAG5', tol=1e-8, Per
     '''
 
     if isinstance(mesh,str):
-        t = C.convertFile2PyTree(mesh)
+        t = J.load(mesh)
     elif I.isTopTree(mesh):
         t = mesh
     else:
@@ -2190,7 +2189,7 @@ def setBC_Walls(t, TurboConfiguration,
         omega = np.zeros(x.shape, dtype=float)
         for (x1, x2) in TurboConfiguration['HubRotationSpeed']:
             omega[(x1<=x) & (x<=x2)] = TurboConfiguration['ShaftRotationSpeed']
-        return np.asfortranarray(omega)
+        return np.asfortranarray(omega).ravel(order='K')
 
     def getZoneFamilyNameWithFamilyNameBC(zones, FamilyNameBC):
         ZoneFamilyName = None
@@ -2265,6 +2264,9 @@ def setBC_walladia(t, FamilyName, omega=None):
 
     '''
     wall = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    if not wall: 
+        J.save(t,'debug.cgns')
+        raise ValueError(J.FAIL+f'could not find family "{FamilyName}" for wall. Check debug.cgns'+J.ENDC)
     I._rmNodesByName(wall, '.Solver#BC')
     I._rmNodesByType(wall, 'FamilyBC_t')
     I.newFamilyBC(value='BCWallViscous', parent=wall)
@@ -3106,10 +3108,9 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
                 # data is a 3D array, supposed to be flat for one axis
                 ImposedVariables[var] = np.squeeze(ImposedVariables[var]) # remove the flat axis to be imposed as a 2D array on the BC
 
-            # In all cases, imposed data shall be 2D now and with the same shape as the BC
-            assert ImposedVariables[var].shape == bc_shape, \
-                f'Wrong shape for variable {var}: {ImposedVariables[var].shape} (shape {bc_shape} for {I.getPath(t, bc)})'
-
+            # data shall be 1D https://elsa.onera.fr/issues/11219
+            ImposedVariables[var] = ImposedVariables[var].ravel(order='K')
+        
         checkVariables(ImposedVariables)
 
         BCDataSet = I.newBCDataSet(name=BCDataSetName, value='Null',

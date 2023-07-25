@@ -1,0 +1,3 @@
+#!/usr/bin/bash
+
+less -rf +F coprocess.log

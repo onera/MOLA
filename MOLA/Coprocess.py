@@ -148,7 +148,8 @@ def extractFields(Skeleton):
     resumeFieldsAveraging(Skeleton, t)
     t = I.merge([Skeleton, t])
     removeEmptyBCDataSet(t)
-    PRE.forceFamilyBCasFamilySpecified(t) # https://elsa.onera.fr/issues/10928
+    PRE.forceFamilyBCasFamilySpecified(t) # HACK https://elsa.onera.fr/issues/10928
+    ravelBCDataSet(t) # HACK https://elsa.onera.fr/issues/11219
 
     return t
 
@@ -690,6 +691,7 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
         migrateSolverOutputOfFlowSolutions(tpt, t_merged)
         removeEmptyBCDataSet(t_merged)
         PRE.forceFamilyBCasFamilySpecified(t_merged) # https://elsa.onera.fr/issues/10928
+        ravelBCDataSet(t_merged) # HACK https://elsa.onera.fr/issues/11219
         I._rmNodesByName(t_merged, 'FlowSolution#EndOfRun*')
         C.convertPyTree2File(t_merged, filename)
         for fn in glob.glob('PyPart_fields_*.hdf'):
@@ -3336,3 +3338,13 @@ def migrateSolverOutputOfFlowSolutions(t_dnr, t_rcv):
                                 continue
 
 
+def ravelBCDataSet(t):
+    # HACK https://elsa.onera.fr/issues/11219
+    # HACK https://elsa-e.onera.fr/issues/10750
+    for zone in I.getZones(t):
+        for zbc in I.getNodesFromType1(zone,'ZoneBC_t'):
+            for bc in I.getNodesFromType1(zbc,'BC_t'):
+                for bcds in I.getNodesFromType1(bc,'BCDataSet_t'):
+                    for bcd in I.getNodesFromType1(bcds,'BCData_t'):
+                        for da in I.getNodesFromType1(bcd,'DataArray_t'):
+                            da[1] = da[1].ravel(order='K')

@@ -63,6 +63,7 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows, saveGeometricalDataForBodyForc
 
     Parameters
     ----------
+
         t : PyTree
             input mesh, from Autogrid for instance.
 
@@ -89,7 +90,6 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows, saveGeometricalDataForBodyForc
     -------
 
         newRowMeshes : :py:class:`list` of PyTree
-
             New mesh, identical to the input mesh **t** except that the domain 
             corresponding to the family **row** has been replaced by a mesh adapted
             to body-force.

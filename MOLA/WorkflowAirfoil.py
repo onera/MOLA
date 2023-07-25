@@ -1052,7 +1052,7 @@ def setBCDataSetWithNonLocalTransition(t, AirfoilWallFamilyName, ReferenceValues
         VarNames, = C.getVarNames(AirfoilCentersZone, excludeXYZ=True)
         for varname in VarNames:
             field, = J.getVars(AirfoilCentersZone, [varname])
-            I.newDataArray(varname, value=field, parent=NeumannData)
+            I.newDataArray(varname, value=field.ravel(order='K'), parent=NeumannData)
 
 
 def computeTransitionCriterion(walls, criterion='in_ahd_gl'):
