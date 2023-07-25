@@ -87,9 +87,6 @@ else
     export ARCH='sse2'
 fi
 
-
-alias mola_version="python3 -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
-
 if [ "$MAC" = "sator" ]; then
     source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA &>/dev/null
     unset I_MPI_PMI_LIBRARY
@@ -143,7 +140,6 @@ elif [ "$MAC" = "spiro" ]; then
     fi
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro-el8_mpi/.env_elsA &>/dev/null
 
-
     # to avoid message:
     # MPI startup(): Warning: I_MPI_PMI_LIBRARY will be ignored since the hydra process manager was found
     # source : https://www.osc.edu/supercomputing/batch-processing-at-osc/slurm_migration/slurm_migration_issues
@@ -189,10 +185,6 @@ elif [ "$MAC" = "spiro" ]; then
     export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$MOLAext/spiro_el8/bin:$PATH
     export LD_LIBRARY_PATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
-
-    alias mola_sinter='srun --export=ALL,SLURM_EXACT=1,SLURM_OVERLAP=1 --immediate=2 --pty --qos c1_inter_giga'
-    alias mola_version="mpirun -np 1 python3 -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'"
-
 
 elif [ "$MAC" = "visung" ]; then
 
@@ -340,14 +332,9 @@ else
 fi
 
 export PYTHONPATH=$MOLA:$PYTHONPATH
+export PATH=$MOLA/bin:$PATH
 
 export PYTHONEXE=python3
 alias python=python3
-
-alias treelab="python3 -c 'import MOLA.GUIs.TreeLab as t;import sys;t.launch(sys.argv)'"
-
-alias mola_jobsqueue_sator="python3 -c 'import MOLA.JobManager as JM;JM.getCurrentJobsStatus()'"
-
-alias mola_seelog="less -rf +F coprocess.log"
 
 mola_version

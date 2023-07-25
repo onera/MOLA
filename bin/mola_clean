@@ -1,0 +1,54 @@
+#!/usr/bin/bash
+
+display_help() {
+    echo "Usage: $0 [option...]" >&2
+    echo
+    echo "   remove all MOLA log files, cache files, debug files, status files and plots"
+    echo
+    echo "   -h, --help           display help"
+    echo "   -f, --full           remove also MOLA inputs and outputs"
+    echo
+    exit 1
+}
+
+remove_inputs() {
+    echo "remove all MOLA inputs"
+    rm -f main.cgns setup.py 
+    rm -f compute.py coprocess.py job_template.sh 
+    rm -f dispatcherJob.sh JobsConfiguration.py
+}
+
+remove_outputs() {
+    echo "remove all MOLA outputs"
+    rm -rf OUTPUT
+}
+
+remove_logs() {
+    echo "remove all MOLA log files, cache files, debug files, status files and plots"
+    # remove cache
+    rm -rf __pycache__ *.pyc TurboVariables
+    # remove logs
+    rm -rf LOGS *.log elsA_MPI_* 
+    # remove core files in case of bugs
+    rm -f bk00* core* 
+    # remove figures saved by MOLA
+    rm -f massflow.pdf perfos_*.pdf residuals.pdf 
+    # remove MOLA status files
+    rm -f COMPLETED FAILED NEWJOB_REQUIRED
+}
+
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -h|--help) 
+            display_help
+            shift;;
+        -f|--full)
+            remove_inputs; remove_outputs;;
+        *) 
+            echo "Unknown parameter passed: $1" 
+            display_help;;
+    esac
+    shift
+done
+
+remove_logs

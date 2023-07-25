@@ -3063,80 +3063,39 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
         assert bc is not None
         J.set(bc, '.Solver#BC', type=BCType)
 
+        zone = I.getParentFromType(t, bc, 'Zone_t') 
+        zone = I.copyRef(zone)
+        I._rmNodesFromName(zone, 'FlowSolution#Init')
+        I._renameNode(zone, 'FlowSolution#Height', 'FlowSolution')
+        extractedBC = C.extractBCOfName(zone, I.getName(bc))
+        extractedBC = C.node2Center(extractedBC)
+
         # Check if some data are functions to interpolate, to prepare the dedicated treatment
         varForInterp = None
         for var, value in ImposedVariables.items():
             if callable(value): # it is a function
-                # Get the parent zone and put it at cell centers
-                zone = I.getParentFromType(t, bc, 'Zone_t') 
-                zone = I.copyRef(zone)
-                I._rmNodesFromName(zone, 'FlowSolution#Init')
-                I._renameNode(zone, 'FlowSolution#Height', 'FlowSolution')
-                zone = C.node2Center(zone)
-
                 if variableForInterpolation in ['Radius', 'radius']:
-                    varForInterp, _ = J.getRadiusTheta(zone)
+                    varForInterp, _ = J.getRadiusTheta(extractedBC)
                 elif variableForInterpolation == 'ChannelHeight':
                     try:
-                        varForInterp = I.getValue(I.getNodeFromName(zone, 'ChannelHeight'))
+                        varForInterp = I.getValue(I.getNodeFromName(extractedBC, 'ChannelHeight'))
                     except:
                         ERR_MSG = 'ChannelHeight is mandatory to impose a radial profile based on this quantity, ' 
                         ERR_MSG+= 'but it has not been computed yet. '
                         ERR_MSG+= 'Please compute it earlier in the process or change varForInterpolation.'
                         raise Exception(J.FAIL + ERR_MSG + J.ENDC)
                 elif variableForInterpolation.startsWith('Coordinate'):
-                    varForInterp = I.getValue(I.getNodeFromName(zone, variableForInterpolation))
+                    varForInterp = I.getValue(I.getNodeFromName(extractedBC, variableForInterpolation))
                 else:
                     raise ValueError('varForInterpolation must be ChannelHeight, Radius, CoordinateX, CoordinateY or CoordinateZ')
-                
+
                 break
 
-        # Extract BC shape
-        PointRangeNode = I.getNodeFromType(bc, 'IndexRange_t')
-        if PointRangeNode:
-            # Structured mesh
-            PointRange = I.getValue(PointRangeNode)
-            bc_shape = PointRange[:, 1] - PointRange[:, 0]
-            if bc_shape[0] == 0:
-                bc_shape = (bc_shape[1], bc_shape[2])
-                if varForInterp is not None:
-                    if PointRange[0, 0]-1 == 0: 
-                        indexBC = 0 # BC on imin
-                    else:
-                        indexBC = -1 # BC on imax
-                    varForInterp = varForInterp[indexBC, 
-                                                PointRange[1, 0]-1:PointRange[1, 1]-1, 
-                                                PointRange[2, 0]-1:PointRange[2, 1]-1]
-            elif bc_shape[1] == 0:
-                bc_shape = (bc_shape[0], bc_shape[2])
-                if varForInterp is not None:
-                    if PointRange[1, 0]-1 == 0: 
-                        indexBC = 0 # BC on jmin
-                    else:
-                        indexBC = -1 # BC on jmax
-                    varForInterp = varForInterp[PointRange[0, 0]-1:PointRange[0, 1]-1,
-                                                indexBC, 
-                                                PointRange[2, 0]-1:PointRange[2, 1]-1]
-            elif bc_shape[2] == 0:
-                bc_shape = (bc_shape[0], bc_shape[1])
-                if varForInterp is not None:
-                    if PointRange[2, 0]-1 == 0: 
-                        indexBC = 0 # BC on kmin
-                    else:
-                        indexBC = -1 # BC on kmax
-                    varForInterp = varForInterp[PointRange[0, 0]-1:PointRange[0, 1]-1,
-                                                PointRange[1, 0]-1:PointRange[1, 1]-1,
-                                                indexBC] 
-            else:
-                raise ValueError('Wrong BC shape {} in {}'.format(bc_shape, I.getPath(t, bc)))
-        
-        else: 
-            # Unstructured mesh
-            PointList = I.getValue(I.getNodeFromType(bc, 'IndexArray_t'))
-            bc_shape = PointList.size
-            if varForInterp is not None:
-                varForInterp = varForInterp[PointList-1]
+        if varForInterp is None:
+            varForInterp = I.getValue(I.getNodeFromName(extractedBC, 'CoordinateX'))
 
+        bc_shape = varForInterp.shape
+        
         for var, value in ImposedVariables.items():
             # Reshape data if needed to have a 2D map to impose on the BC at face centers
             if callable(value):
@@ -3144,7 +3103,7 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
                 ImposedVariables[var] = value(varForInterp) 
             elif np.ndim(value)==0:
                 # scalar value --> uniform data
-                ImposedVariables[var] = value * np.ones(bc_shape) #varForInterp.shape)
+                ImposedVariables[var] = value * np.ones(bc_shape) 
             elif len(ImposedVariables[var].shape) == 3:
                 # data is a 3D array, supposed to be flat for one axis
                 ImposedVariables[var] = np.squeeze(ImposedVariables[var]) # remove the flat axis to be imposed as a 2D array on the BC
