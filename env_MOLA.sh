@@ -348,4 +348,6 @@ alias treelab="python3 -c 'import MOLA.GUIs.TreeLab as t;import sys;t.launch(sys
 
 alias mola_jobsqueue_sator="python3 -c 'import MOLA.JobManager as JM;JM.getCurrentJobsStatus()'"
 
+alias mola_seelog="less -rf +F coprocess.log"
+
 mola_version

@@ -171,7 +171,7 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
                        additionalDisplayOptions={},
                        additionalStateOptions={})],
         vertex_container='FlowSolution#Init',
-        centers_container='BCDataSet'):
+        centers_container='BCData#Init'):
     machine = os.getenv('MAC')
     previous_centers_container = I.__FlowSolutionCenters__
     I.__FlowSolutionCenters__ = centers_container

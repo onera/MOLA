@@ -1949,6 +1949,12 @@ def sortListsUsingSortOrderOfFirstList(*arraysOrLists):
 
     return NewArrays
 
+def sortNodesByName(nodes):
+    names = [n[0] for n in nodes]
+    sorted_nodes = sortListsUsingSortOrderOfFirstList(names, nodes)[1]
+    nodes[:] = sorted_nodes
+
+
 
 def getSkeleton(t, keepNumpyOfSizeLessThan=20):
     '''
@@ -2721,7 +2727,7 @@ def load(*args, **kwargs):
     for  ``*.cgns`` and ``*.hdf`` formats; and Cassiopee for the rest.
     '''
     try:
-        backend = kwargs['backend']
+        backend = kwargs['backend'].lower()
         del kwargs['backend']
     except KeyError:
         backend = 'auto'
@@ -2740,13 +2746,15 @@ def load(*args, **kwargs):
                 t = C.convertFile2PyTree(*args, **kwargs)
         else:
             t = C.convertFile2PyTree(*args, **kwargs)
-    elif backend == 'cassiopee':
-        t = C.convertFile2PyTree(args)
-    elif backend == 'maia':
+    elif backend.lower() == 'cassiopee':
+        t = C.convertFile2PyTree(*args, **kwargs)
+    elif backend.lower() == 'maia':
         import maia
         from mpi4py import MPI
         filename = args[0]
         t = maia.io.file_to_dist_tree(filename, MPI.COMM_WORLD,**kwargs)
+    else:
+        raise NotImplementedError(f'backend {backend} unknown')
 
     return t
 

@@ -22,7 +22,6 @@ WORKFLOW COMPRESSOR
 
 Collection of functions designed for Workflow Compressor
 
-File history:
 31/08/2021 - T. Bontemps - Creation
 '''
 
