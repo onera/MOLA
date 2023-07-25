@@ -30,6 +30,7 @@ using `elsA <https://elsa.onera.fr>`_ solver.
   Tutorials
   Examples
   Modules
+  MOLACommands
 
 Major changes
 =============
