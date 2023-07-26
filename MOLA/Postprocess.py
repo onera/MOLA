@@ -1351,13 +1351,20 @@ def isoSurface(t, fieldname=None, value=None, container='FlowSolution#Init'):
 
     zone = I.getNodeFromType3(t,'Zone_t')
     tags_containers = I.getNodeFromName1(zone, 'tags_containers')
-    
+    tags_containers_dict = J.get(zone, 'tags_containers')
+
+    containers_names = I.getNodeFromName1(tags_containers, 'containers_names')
+    for n in containers_names[2]:
+        tag = n[0]
+        loc = tags_containers_dict['locations'][tag]
+        if loc == 'CellCenter':
+            cont_name = I.getValue(n)
+            I.setValue(n,cont_name+'V') # https://gitlab.onera.net/numerics/mola/-/issues/146#note_20639
+
     for n in I.getNodeFromName1(tags_containers, 'locations')[2]:
         if I.getValue(n) == 'CellCenter':
             I.setValue(n,'Vertex')
 
-
-    containers_names = I.getNodeFromName1(tags_containers, 'containers_names')
     if fieldname not in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
         fieldnameWithTag = None
         for cn in containers_names[2]:
@@ -1467,9 +1474,16 @@ def _mergeFlowSolutions(zone, FlowSolutionVertexName='FlowSolution',
     nodes = dict()
     locations = dict()
     FlowSolutions = I.getNodesFromType1(zone,'FlowSolution_t')
+    for fs in FlowSolutions:
+        if not I.getNodesFromType1(fs, 'DataArray_t'):
+            try:
+                FlowSolutions.pop(fs)
+            except:
+                pass
     if not FlowSolutions: return
     J.sortNodesByName(FlowSolutions)
     for i, fs in enumerate(FlowSolutions):
+        if not I.getNodesFromType1(fs, 'DataArray_t'): continue
         loc = _getFlowSolutionLocation(fs)
         tag = '%d'%i
         locations[tag] = loc
@@ -1484,9 +1498,15 @@ def _mergeFlowSolutions(zone, FlowSolutionVertexName='FlowSolution',
                 fields_names[tag]  = [f[0]]
                 nodes[tag]  = [f]
     
+    prev_zone = I.copyRef(zone)
     I._rmNodesByType1(zone,'FlowSolution_t')
     for tag, loc in locations.items():
-        fields_nodes = nodes[tag]
+        try:
+            fields_nodes = nodes[tag]
+        except KeyError as e:
+            C.convertPyTree2File(prev_zone,f'debug_{zone[0]}.cgns')
+            raise e
+
         if not fields_nodes: continue
         fs = I.getNodeFromName1(zone, monoFlowSolutionNames[loc])
         if not fs:

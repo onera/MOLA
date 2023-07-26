@@ -3500,9 +3500,9 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         ausm_wiggle        = 'inactive',
         ausmp_diss_cst     = 0.04,
         ausmp_press_vel_cst= 0.04,
-        ausm_tref          = ReferenceValues['Temperature'],
-        ausm_pref          = ReferenceValues['Pressure'],
-        ausm_mref          = ReferenceValues['Mach'],
+        ausm_tref          = float(ReferenceValues['Temperature']),
+        ausm_pref          = float(ReferenceValues['Pressure']),
+        ausm_mref          = float(ReferenceValues['Mach']),
         limiter            = 'third_order',
         )
     elif NumericalScheme == 'roe':
