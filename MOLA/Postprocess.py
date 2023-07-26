@@ -1710,11 +1710,12 @@ def _mergeBCtagContainerWithFlowSolutionTagContainer(zone, surf_bc):
     bcname = surf_bc[0].split('\\')[-1]
     zbc = I.getNodeFromName1(zone,'ZoneBC')
     if not zbc: return
+    bc_tags = None
     for bc in I.getNodesFromType1(zbc,'BC_t'):
         if bc[0] != bcname: continue
         bc_tags = I.getNodeFromName1(bc,'tags_containers')
-        if not bc_tags: return
         break
+    if not bc_tags: return
     for n in zone_tags[2]:
         bc_n = I.getNodeFromName1(bc_tags, n[0])
         if not bc_n:
