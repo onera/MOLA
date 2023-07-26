@@ -1529,6 +1529,7 @@ def _mergeBCData(zone, BCDataSetFaceCenterName='BCDataSet',
     if zone[3] != 'Zone_t': return AttributeError('first argument must be a zone')
     monoBCDataSetNames = dict(FaceCenter=BCDataSetFaceCenterName)
     zbc = I.getNodeFromName1(zone,'ZoneBC')
+    if not zbc: return
     BCs = I.getNodesFromType(zbc,'BC_t')
     if not BCs: return
     J.sortNodesByName(BCs)
