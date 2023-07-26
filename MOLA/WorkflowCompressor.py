@@ -522,7 +522,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     if is_unsteady:
         if avg_requested:
-            containers = ['FlowSolution#Init', 'FlowSolution#Average']
+            containers = ['FlowSolution#InitV', 'FlowSolution#AverageV']
             try:
                 containers_at_vertex = PostprocessOptions['container_at_vertex']
                 for c in containers:
@@ -5033,7 +5033,7 @@ def postprocess_turbomachinery(surfaces, stages=[],
                                 config='annular', 
                                 lin_axis='XY',
                                 RowType='compressor',
-                                container_at_vertex='FlowSolution#Init'):
+                                container_at_vertex='FlowSolution#InitV'):
     '''
     Perform a series of classical postprocessings for a turbomachinery case : 
 
@@ -5100,16 +5100,6 @@ def postprocess_turbomachinery(surfaces, stages=[],
 
         RowType : str
             see parameter 'config' of :py:func:`MOLA.PostprocessTurbo.compareRadialProfilesPlane2Plane`
-        
-        container_at_vertex : :py:class:`str` or :py:class:`list` of :py:class:`str`
-            specifies the *FlowSolution* container located at 
-            vertex where postprocess will be applied. 
-
-            .. hint::
-                provide a :py:class:`list` of :py:class:`str` so that the 
-                postprocess will be applied to each of the provided containers.
-                This is useful for making post-processing on e.g. both
-                instantaneous and averaged flow fields
         
         container_at_vertex : :py:class:`str` or :py:class:`list` of :py:class:`str`
             specifies the *FlowSolution* container located at 
