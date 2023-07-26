@@ -1345,7 +1345,7 @@ def isoSurface(t, fieldname=None, value=None, container='FlowSolution#Init'):
         for n in base[2]:
             if n[3] != 'Zone_t': 
                 bases_children_except_zones.append( n )
-
+    if not I.getNodeFromType3(t,'Zone_t'): return
     t = mergeContainers(t, FlowSolutionVertexName=I.__FlowSolutionNodes__,
                            FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
 
@@ -1710,11 +1710,12 @@ def _mergeBCtagContainerWithFlowSolutionTagContainer(zone, surf_bc):
     bcname = surf_bc[0].split('\\')[-1]
     zbc = I.getNodeFromName1(zone,'ZoneBC')
     if not zbc: return
+    bc_tags = None
     for bc in I.getNodesFromType1(zbc,'BC_t'):
         if bc[0] != bcname: continue
         bc_tags = I.getNodeFromName1(bc,'tags_containers')
-        if not bc_tags: return
         break
+    if not bc_tags: return
     for n in zone_tags[2]:
         bc_n = I.getNodeFromName1(bc_tags, n[0])
         if not bc_n:

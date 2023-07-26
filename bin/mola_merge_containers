@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+#
+# merge fields containers to facilitate visualization
+import sys
+
+err1 = 'must specify an input file name, e.g.: "mola_merge_containers surfaces.cgns"'
+if len(sys.argv) != 2: raise AttributeError(err1)
+filename = str(sys.argv[1])
+
+import MOLA.Postprocess as POST
+import pprint
+
+t = POST.C.convertFile2PyTree(filename)
+t = POST.mergeContainers(t)
+for b in POST.I.getBases(t):
+    zone = POST.I.getNodeFromType1(b, 'Zone_t')
+    tags = POST.J.get(zone, 'tags_containers')
+    print(f'Tags of Base {b[0]}:')
+    print(pprint.pformat(tags)+'\n')
+
+fsplit = filename.split('.')
+fmt = fsplit[-1]
+new_filename = '.'.join(fsplit[:-1])+'_merged.'+fmt
+POST.C.convertPyTree2File(t, new_filename)
