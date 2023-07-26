@@ -169,15 +169,14 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
                        material='Solid', color='White', blending=0.8,
                        colormap='Viridis', levels=[200,'min','max'], shadow=True,
                        additionalDisplayOptions={},
-                       additionalStateOptions={})],
-        vertex_container='FlowSolution#Init',
-        centers_container='BCData#Init'):
+                       additionalStateOptions={},
+                       vertex_container='FlowSolution#InitV',
+                       centers_container='BCDataSet',
+                       )],
+                ):
     machine = os.getenv('MAC')
-    previous_centers_container = I.__FlowSolutionCenters__
-    I.__FlowSolutionCenters__ = centers_container
-
-    previous_vertex_container = I.__FlowSolutionNodes__
-    I.__FlowSolutionNodes__ = vertex_container
+    external_centers_container = I.__FlowSolutionCenters__
+    external_vertex_container = I.__FlowSolutionNodes__
 
     # TODO solve bugs:
     # https://elsa.onera.fr/issues/10536
@@ -236,6 +235,13 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
         except KeyError: material = 'Solid'
         try: color = elt['color']
         except KeyError: color = 'White'
+        try: vertex_container = elt['vertex_container']
+        except KeyError: vertex_container = 'FlowSolution#InitV'
+        try: centers_container = elt['centers_container']
+        except KeyError: centers_container = 'BCDataSet'
+        I.__FlowSolutionNodes__ = vertex_container
+        I.__FlowSolutionCenters__ = centers_container
+
         zones = J.selectZones(t, **selection)
 
         if hasBlending(elt): zones = C.convertArray2Hexa(zones) # see cassiopee #8740
@@ -315,8 +321,8 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
     
         sleep(0.5)
 
-    I.__FlowSolutionCenters__ = previous_centers_container
-    I.__FlowSolutionNodes__ = previous_vertex_container
+    I.__FlowSolutionCenters__ = external_centers_container
+    I.__FlowSolutionNodes__ = external_vertex_container
 
 
 class matplotlipOverlap():
