@@ -3208,19 +3208,26 @@ def buildCartesianBackground(t, InputMeshes):
             some additional options are proposed for controlling the grid 
             generation:
 
-
-            * ``extension`` : :py:class:`float`
+            * extension : :py:class:`float`
                 the maximum extension (farfield) of the cartesian grid, in 
                 meters. If not provided, then next keyword ``extension_factor`` 
                 is employed.
 
-            * ``extension_factor`` : :py:class:`float`
+            * extension_factor : :py:class:`float`
                 If **extension** is not provided, then the extension is calculated
                 using the formula ``extension_factor * diag`` where ``diag`` is 
                 the cartesian diagonal of the bounding-box covering all overlaps
                 of the provided grid.
 
-            * ``AnalyticalRegions`` : :py:class:`list` of :py:class:`dict`
+            * MinimumNumberOfPointsPerDirection : :py:class:`int`
+                Minimum number of points per :math:`(x, y, z)` direction. 
+                Default value: ``5`` 
+
+            * MaximumNumberOfPoints : :py:class:`int`
+                Maximum number of points that can contain a zone block. 
+                Default value: ``90000`` 
+
+            * AnalyticalRegions : :py:class:`list` of :py:class:`dict`
                 Each item of this :py:class:`list` is a :py:class:`dict` that 
                 defines a region (analytically) where refinement is requested.
                 Pair of keyword/arguments of the :py:class:`dict` are:
@@ -3234,7 +3241,6 @@ def buildCartesianBackground(t, InputMeshes):
                         relevant parameters: ``snear``, ``diameter``, ``base_center``,
                         ``height``, ``direction`` and ``azimutal_resolution``.
                         
-
                     * ``'box'``
                         the refinement region is a box with the following 
                         relevant parameters: ``snear``, ``length``,
@@ -3290,7 +3296,7 @@ def buildCartesianBackground(t, InputMeshes):
                     vector direction of the height side of the box.
                     Only relevant if ``geometry='box'``.
     
-            * ``UserDefinedRegions`` : :py:class:`list` of :py:class:`dict`
+            * UserDefinedRegions : :py:class:`list` of :py:class:`dict`
                 Each item of this :py:class:`list` is a :py:class:`dict` that 
                 defines a region (existing file) where refinement is requested.
                 Pair of keyword/arguments of the :py:class:`dict` are:
@@ -3308,6 +3314,11 @@ def buildCartesianBackground(t, InputMeshes):
                 simulation with a symmetry plane). It is a :py:class:`dict` 
                 whose pair of keyword/arguments are literally the options of
                 :py:func:`trimCartesianGridAtOrigin`
+
+            * generateCartMesh_kwargs : :py:class:`dict`
+                pair of keyword/value arguments of optional parameters of 
+                Cassiopee function ``Apps.Mesh.Cart.generateCartMesh()``. 
+                Defaults to ``ext=0``, ``dimPb=3`` and ``expand=0``
 
     Returns
     -------
