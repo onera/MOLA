@@ -101,10 +101,11 @@ def write_data_files(workflow):
 def write_compute(workflow):
 
     txt = '''
-from mola.workflow import Workflow
-from mola.cfd.preprocess.write_cfd_files.elsa import compute
+from mola.workflow.workflow import Workflow
+from mola.cfd.preprocess.write_cfd_files.solver_elsa import compute
 
 workflow = Workflow('main.cgns')
+workflow.print()
 compute(workflow)
 '''
 
@@ -192,7 +193,7 @@ def compute(workflow):
     # inititer = setup.elsAkeysNumerics['inititer']
     # itmax    = inititer+niter-2 # BEWARE last iteration accessible trigger-state-16
 
-    Skeleton = CO.loadSkeleton()
+    # Skeleton = CO.loadSkeleton()
 
     # ========================== LAUNCH ELSA ========================== #
 
@@ -211,6 +212,7 @@ def compute(workflow):
         elsAdics = [CfdDict, ModDict, NumDict]
 
         for obj, dic in zip(elsAobjs, elsAdics):
+            # [print(f'{v} = {dic[v]} ({type(dic[v])})') for v in dic if not isinstance(dic[v], dict)]
             [obj.set(v,dic[v]) for v in dic if not isinstance(dic[v], dict)]
 
         for k in NumDict:

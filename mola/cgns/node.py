@@ -1049,6 +1049,16 @@ class Node(list):
                     ParamsDict[param.name()] = Container.getParameters(param.name())
                 else:
                     ParamsDict[param.name()] = param.value()
+                    # TODO For some applications, we need to get scalars, not 1 sized arrays
+                    # The following lines do that, but it is risky modifying types
+                    # v = param.value()
+                    # if isinstance(v, np.ndarray) and v.size == 1:
+                    #     v = v[0]
+                    #     if isinstance(v, np.int32):
+                    #         v = int(v)
+                    #     elif isinstance(v, np.float64):
+                    #         v = float(v)
+                    # ParamsDict[param.name()] = v
 
         if ParamsDict and not ParamsList:
             Params = ParamsDict
