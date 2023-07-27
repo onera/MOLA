@@ -101,9 +101,12 @@ if [ "$MAC" = "sator" ]; then
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
 
-    # # maia # BUG https://gitlab.onera.net/numerics/mesh/maia/-/issues/46
-    # module use --append /tmp_user/sator/sonics/usr/modules/
-    # module load maia/1.1-dsi-cfd5
+    # maia BEWARE https://gitlab.onera.net/numerics/mesh/maia/-/issues/46
+    export MAIA_ROOT=/tmp_user/sator/jcoulet/opt/maia-sator-cfd5-i4/
+    export LD_LIBRARY_PATH=$MAIA_ROOT/lib:$LD_LIBRARY_PATH
+    export PYTHONPATH=$MAIA_ROOT/lib/python3.7/site-packages:$PYTHONPATH
+    export PATH=$MAIA_ROOT/bin:$PATH
+
 
     # VPM
     export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator/$ARCH

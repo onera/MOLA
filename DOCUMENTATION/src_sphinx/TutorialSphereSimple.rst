@@ -204,13 +204,14 @@ Then, you can run the simulation in your local machine using:
 This will launch elsA solver and the simulation will start.
 
 .. hint::
-    You can check the iteration progress of the simulation using:
+    You can check the iteration progress of the simulation using command:
 
     .. code-block:: bash
 
-        less -r coprocess.log
+        mola_seelog
 
-    followed by keyboard touches ``Shift`` + ``F``. This will show:
+    .. note::
+        ``mola_seelog`` is a shortcut of ``less -rf +F coprocess.log``
 
     .. code-block:: text
 
