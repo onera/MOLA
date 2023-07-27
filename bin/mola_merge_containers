@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# merge fields containers to facilitate visualization
+# Merge fields containers to facilitate visualization
 import sys
 
 err1 = 'must specify an input file name, e.g.: "mola_merge_containers surfaces.cgns"'

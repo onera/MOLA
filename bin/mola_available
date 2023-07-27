@@ -4,6 +4,18 @@
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
+# Get maximum length of filenames in bin/
+# It will be used later for pretty display
+maxLength=0
+for f in $SCRIPT_DIR/*
+do
+    name=$(basename $f)
+    length=${#name}
+    if [ $length -gt $maxLength ] ; then
+        maxLength=$length
+    fi
+done
+
 for f in $SCRIPT_DIR/*
 do
     # For each file, get the third line, which is supposed to be a comment and to content a one-line description
@@ -17,5 +29,5 @@ do
         description=' No description yet: write it in the third line of the file, starting with character #'; 
     fi
     # Print command name and its short description
-    printf "%-20s :$description\n" $(basename $f)
+    printf "%-${maxLength}s :$description\n" $(basename $f)
 done
