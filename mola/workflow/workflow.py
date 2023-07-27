@@ -16,7 +16,6 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-from ..cfd import preprocess as PRE
 from .external_flow import FlowGenerator as ExternalFlowGenerator
 from .. import cgns as c
 from  mola.cfd.preprocess.mesh import (positioning,
@@ -155,7 +154,7 @@ class Workflow(object):
         self.tree = tree
 
         if self.tree is not None:
-            self.read_workflow_parameters_from_tree()
+            self.get_workflow_parameters_from_tree()
 
         else:
             self.RawMeshComponents=RawMeshComponents
@@ -195,6 +194,22 @@ class Workflow(object):
         if not self.tree: self.tree = c.Tree()
         self.tree.save(filename)
 
+    def convert_to_dict(self):
+        params= dict()
+        for a in list(self.__dict__):
+            if not a.startswith('_') and a != 'tree':
+                att = getattr(self,a)
+                if not callable(att):
+                    params[a] = att
+        return params
+
+    def print(self):
+        print(self.__str__())
+    
+    def __str__(self):
+        params= self.convert_to_dict()
+        import pprint
+        return pprint.pformat(params)
 
     def get_workflow_parameters_from_tree(self):
         
@@ -209,13 +224,7 @@ class Workflow(object):
     def set_workflow_parameters_in_tree(self):
         if not self.tree: self.tree = c.Tree()
 
-        params= dict()
-        for a in list(self.__dict__):
-            if not a.startswith('_') and a != 'tree':
-                att = getattr(self,a)
-                if not callable(att):
-                    params[a] = att
-
+        params= self.convert_to_dict()
         self.tree.setParameters(self._workflow_parameters_container_,
                                 **params)
             
