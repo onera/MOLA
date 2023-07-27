@@ -1,10 +1,11 @@
-.. _MOLACommands:
+.. _Commands:
 
-MOLA Commands
-=============
+Commands
+========
 
 MOLA comes with several commands accessible from any directory, once MOLA environment is sourced. 
-These commands are shortcuts for often simple but frequent operations.
+These commands are shortcuts for often simple but frequent operations. They may be used directly in 
+the terminal. 
 
 The list of available commands may be displayed (with a short description for each) by using:
 
@@ -27,6 +28,11 @@ The output of this command is:
 
 You may notice that each of them starts with the prefix `mola_*`. The only exception is the 
 graphical CGNS interface `treelab`, which is kind of an enhanced version of `cgnsview`.
+
+.. note::
+    
+    Some of the commands may be used with options. You may try to call a command with the 
+    help option (``-h`` or ``--help``) to display help, but it may be not available for all commands yet.
 
 .. note:: 
 
