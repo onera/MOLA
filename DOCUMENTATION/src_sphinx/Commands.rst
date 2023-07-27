@@ -21,9 +21,10 @@ The output of this command is:
     mola_clean            : Remove all MOLA log files, cache files, debug files, status files and plots
     mola_jobsqueue_sator  : Show jobs currently in queue on sator
     mola_merge_containers : Merge fields containers to facilitate visualization
-    mola_monitor          : Not yet implemented
     mola_seelog           : Display the updated content of coprocess.log
     mola_version          : Display versions of modules loaded with MOLA
+    mola_watchdir         : watch the current directory files
+    mola_watchqueue       : watch the SLURM job queue
     treelab               : Open the Treelab interface to read and manipulate CGNS tree
 
 You may notice that each of them starts with the prefix `mola_*`. The only exception is the 
