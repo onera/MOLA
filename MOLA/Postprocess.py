@@ -1350,43 +1350,56 @@ def isoSurface(t, fieldname=None, value=None, container='FlowSolution#Init'):
     t = mergeContainers(t, FlowSolutionVertexName=I.__FlowSolutionNodes__,
                            FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
 
-    zone = I.getNodeFromType3(t,'Zone_t')
-    tags_containers = I.getNodeFromName1(zone, 'tags_containers')
-    tags_containers_dict = J.get(zone, 'tags_containers')
-
-    containers_names = I.getNodeFromName1(tags_containers, 'containers_names')
-    if fieldname not in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
-        fieldnameWithTag = None
-        for cn in containers_names[2]:
-            container_name = I.getValue(cn)
-            tag = cn[0]
-            if container_name == container:
-                fieldnameWithTag = fieldname + tag
-                break
-        if fieldnameWithTag is None:
-            C.convertPyTree2File(tPrev,f'debug_tPrev_{rank}.cgns')
-            C.convertPyTree2File(zone,f'debug_zone_{rank}.cgns')
-            raise ValueError(f'could not find tag <-> container "{container}" correspondance')
-    else:
-        fieldnameWithTag = fieldname
-
-    # NOTE slicing will provoque all containers to be located at Vertex
-    for n in containers_names[2]:
-        tag = n[0]
-        loc = tags_containers_dict['locations'][tag]
-        if loc == 'CellCenter':
-            cont_name = I.getValue(n)
-            I.setValue(n,cont_name+'V') # https://gitlab.onera.net/numerics/mola/-/issues/146#note_20639
-
-    for n in I.getNodeFromName1(tags_containers, 'locations')[2]:
-        if I.getValue(n) == 'CellCenter':
-            I.setValue(n,'Vertex')
-
-    surfs = P.isoSurfMC(t, fieldnameWithTag, value)
     isosurfs = []
-    for surf in I.getZones(surfs):
-        surf[2] += [ tags_containers ]
-        isosurfs += [ recoverContainers(surf) ]
+    for zone in I.getZones(t):
+
+        # NOTE slicing will provoque all containers to be located at Vertex
+        tags_containers = I.getNodeFromName1(zone, 'tags_containers')
+        tags_containers_dict = J.get(zone, 'tags_containers')
+
+        containers_names = I.getNodeFromName1(tags_containers, 'containers_names')
+        if fieldname not in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
+            fieldnameWithTag = None
+            for cn in containers_names[2]:
+                container_name = I.getValue(cn)
+                tag = cn[0]
+                if container_name == container:
+                    fieldnameWithTag = fieldname + tag
+                    break
+            if fieldnameWithTag is None:
+                C.convertPyTree2File(tPrev,f'debug_tPrev_{rank}.cgns')
+                C.convertPyTree2File(zone,f'debug_zone_{rank}.cgns')
+                raise ValueError(f'could not find tag <-> container "{container}" correspondance')
+        else:
+            fieldnameWithTag = fieldname
+
+        for n in containers_names[2]:
+            tag = n[0]
+            loc = tags_containers_dict['locations'][tag]
+            if loc == 'CellCenter':
+                cont_name = I.getValue(n)
+                I.setValue(n,cont_name+'V') # https://gitlab.onera.net/numerics/mola/-/issues/146#note_20639
+
+        for n in I.getNodeFromName1(tags_containers, 'locations')[2]:
+            if I.getValue(n) == 'CellCenter':
+                I.setValue(n,'Vertex')
+
+        # HACK https://elsa.onera.fr/issues/11255
+        if I.getZoneType(zone) == 2: # unstructured zone
+            if I.getNodeFromName1(zone,I.__FlowSolutionCenters__):
+                fieldnames = C.getVarNames(zone, excludeXYZ=True, loc='centers')[0]
+                for f in fieldnames:
+                    C._center2Node__(zone,f,0)
+                I._rmNodesByName1(zone,I.__FlowSolutionCenters__)
+
+            # HACK https://gitlab.onera.net/numerics/mola/-/issues/111
+            # HACK https://elsa.onera.fr/issues/10997#note-6
+            zone = T.breakElements(zone)
+
+        surfs = P.isoSurfMC(zone, fieldnameWithTag, value)
+        for surf in I.getZones(surfs):
+            surf[2] += [ tags_containers ]
+            isosurfs += [ recoverContainers(surf) ]
 
     t_merged = C.newPyTree(['Base', isosurfs])
     base = I.getBases(t_merged)[0]
@@ -1638,7 +1651,7 @@ def _recoverFlowSolutions(zone):
         for node_name in fields_names[tag].split():
             node = I.getNodeFromName(MergedNodes[loc], node_name)
             if not node:
-                J.save(zone,'debug.cgns')
+                J.save(zone,f'debug_zone_{rank}.cgns')
                 raise ValueError(f'UNEXPECTED: could not find node {node_name}')
             if tag in nodes:
                 nodes[tag] += [ node ]
