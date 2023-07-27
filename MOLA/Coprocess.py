@@ -1067,8 +1067,8 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
         container_at_vertex = setup.PostprocessOptions['container_at_vertex']
         if isinstance(container_at_vertex, list):
             container_at_vertex = container_at_vertex[0]
-    except (AttributeError, KeyError):
-        container_at_vertex = 'FlowSolution#Init'
+    except (TypeError, AttributeError, KeyError):
+        container_at_vertex = 'FlowSolution#InitV'
 
     surface = I.copyRef(surface)
     for zone in I.getZones(surface):
