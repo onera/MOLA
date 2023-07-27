@@ -1346,6 +1346,7 @@ def isoSurface(t, fieldname=None, value=None, container='FlowSolution#Init'):
             if n[3] != 'Zone_t': 
                 bases_children_except_zones.append( n )
     if not I.getNodeFromType3(t,'Zone_t'): return
+    tPrev = I.copyRef(t)
     t = mergeContainers(t, FlowSolutionVertexName=I.__FlowSolutionNodes__,
                            FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
 
@@ -1354,6 +1355,22 @@ def isoSurface(t, fieldname=None, value=None, container='FlowSolution#Init'):
     tags_containers_dict = J.get(zone, 'tags_containers')
 
     containers_names = I.getNodeFromName1(tags_containers, 'containers_names')
+    if fieldname not in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
+        fieldnameWithTag = None
+        for cn in containers_names[2]:
+            container_name = I.getValue(cn)
+            tag = cn[0]
+            if container_name == container:
+                fieldnameWithTag = fieldname + tag
+                break
+        if fieldnameWithTag is None:
+            C.convertPyTree2File(tPrev,f'debug_tPrev_{rank}.cgns')
+            C.convertPyTree2File(zone,f'debug_zone_{rank}.cgns')
+            raise ValueError(f'could not find tag <-> container "{container}" correspondance')
+    else:
+        fieldnameWithTag = fieldname
+
+    # NOTE slicing will provoque all containers to be located at Vertex
     for n in containers_names[2]:
         tag = n[0]
         loc = tags_containers_dict['locations'][tag]
@@ -1364,19 +1381,6 @@ def isoSurface(t, fieldname=None, value=None, container='FlowSolution#Init'):
     for n in I.getNodeFromName1(tags_containers, 'locations')[2]:
         if I.getValue(n) == 'CellCenter':
             I.setValue(n,'Vertex')
-
-    if fieldname not in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
-        fieldnameWithTag = None
-        for cn in containers_names[2]:
-            container_name = I.getValue(cn)
-            tag = cn[0]
-            if container_name == container:
-                fieldnameWithTag = fieldname + tag
-                break
-        if fieldnameWithTag is None:
-            raise ValueError('could not find tag <-> container correspondance')
-    else:
-        fieldnameWithTag = fieldname
 
     surfs = P.isoSurfMC(t, fieldnameWithTag, value)
     isosurfs = []
