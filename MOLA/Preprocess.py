@@ -5674,6 +5674,8 @@ def convertUnstructuredMeshToNGon(t):
     from mpi4py import MPI
     import maia
     
+    t = maia.factory.distribute_tree(t, MPI.COMM_WORLD, owner=None)
+    
     if J.anyNotNGon(t):
         print(' -> some cells are not NGon : converting to NGon')
         try:

@@ -1142,10 +1142,14 @@ class matplotlipOverlap():
         cbar_ticks = np.linspace(levels[1],levels[2],number_of_ticks)
         cbaxes = self.fig.add_axes([xmin,ymin,xmax-xmin,ymax-ymin])
 
+        if cmap == 'Jet':
+            colormap = self.colormaps[cmap].reversed()
+        else:
+            colormap = self.colormaps[cmap]
         cset = cm.ScalarMappable(norm=mplcolors.Normalize(levels[1],
                                                           levels[2],
                                                         clip=False),
-                                 cmap=self.colormaps[cmap].reversed())
+                                 cmap=colormap)
         cset.set_array(np.linspace(levels[1],levels[2],levels[0]))
         cbar = self.fig.colorbar(cset, cax=cbaxes, orientation=orientation,
                                        ticks=cbar_ticks, format=ticks_format)

@@ -2,6 +2,7 @@
 #
 # Remove all MOLA log files, cache files, debug files, status files and plots
 
+
 display_help() {
     echo "Usage: $0 [option...]" >&2
     echo
@@ -18,11 +19,13 @@ remove_inputs() {
     rm -f main.cgns setup.py 
     rm -f compute.py coprocess.py job_template.sh 
     rm -f dispatcherJob.sh JobsConfiguration.py
+    rm -f mask.cgns hub_shroud_lines*
 }
 
 remove_outputs() {
     echo "remove all MOLA outputs"
     rm -rf OUTPUT
+    rm -rf RadialProfiles/*
 }
 
 remove_logs() {

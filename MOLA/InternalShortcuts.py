@@ -2310,10 +2310,17 @@ def printEnvironment():
         usedVersion =  'v'+'.'.join(MajorMinorMicro)
         return usedVersion == latestVersion
 
+    def printTime(toc):
+        ElapsedTime = tic() - toc
+        if ElapsedTime < 0.1: return ''
+        if ElapsedTime < 0.5: return ' (took %g s)'%ElapsedTime
+        if ElapsedTime < 1.0: return WARN+' (took %g s)'%ElapsedTime+ENDC
+        return FAIL+' (took %g s : too long)'%ElapsedTime+ENDC
+
     machine = os.getenv('MAC', 'UNKNOWN')
     vELSA = os.getenv('ELSAVERSION', 'UNAVAILABLE')
     totoV = __version__
-    if totoV == 'Dev':
+    if totoV in ['Dev','master']:
         vMOLA = WARN + totoV + ENDC
     else:
         vMOLA = totoV
@@ -2325,95 +2332,119 @@ def printEnvironment():
     print(' --> elsA '+vELSA)
 
     # elsA tools chain
+    tag = ' --> ETC '
+    print(tag,end='')
+    toc = tic()
     try:
         import etc
     except:
-        vETC = FAIL + 'UNAVAILABLE' + ENDC
+        v = FAIL + 'UNAVAILABLE' + ENDC
     else:
-        vETC = WARN + 'UNKNOWN' + ENDC
+        v = WARN + 'UNKNOWN' + ENDC
         for vatt in ('__version__','version'):
             if hasattr(etc, vatt):
-                vETC = getattr(etc,vatt)
+                v = getattr(etc,vatt)
                 break
-    
-    print(' --> ETC '+vETC)
+    print(v.ljust(20-len(tag))+printTime(toc))
 
     # Cassiopee
+    tag = ' --> Cassiopee '
+    print(tag,end='')
+    toc = tic()
     try:
         import Converter.PyTree as C
-        vCASSIOPEE = C.__version__
+        v = C.__version__
     except:
-        vCASSIOPEE = FAIL + 'UNAVAILABLE' + ENDC
-    print(' --> Cassiopee '+vCASSIOPEE)
+        v = FAIL + 'UNAVAILABLE' + ENDC
+    print(v.ljust(20-len(tag))+printTime(toc))
+
 
     # OCC # TODO CAUTION https://elsa.onera.fr/issues/10950
+    tag = ' ----> OCC '
+    print(tag,end='')
+    toc = tic()
     try:
         import OCC
-        vOCC = OCC.__version__
+        v = OCC.__version__
     except:
-        vOCC = FAIL + 'UNAVAILABLE' + ENDC
-    print(' --> OCC '+vOCC)
+        v = FAIL + 'UNAVAILABLE' + ENDC
+    print(v.ljust(20-len(tag))+printTime(toc))
 
+    tag = ' ----> Apps '
+    print(tag,end='')
+    toc = tic()
     try:
         import Apps
-        vApps = Apps.__version__
+        v = Apps.__version__
     except:
-        vApps = FAIL + 'UNAVAILABLE' + ENDC
-    print(' --> Apps '+vApps)
-
-
+        v = FAIL + 'UNAVAILABLE' + ENDC
+    print(v.ljust(20-len(tag))+printTime(toc))
 
     # Vortex Particle Method
+    tag = ' --> VPM '
+    print(tag,end='')
+    toc = tic()
     try:
         import VortexParticleMethod.vortexparticlemethod
         import MOLA.VPM as VPM
-        vVPM = VPM.__version__
+        v = VPM.__version__
     except:
-        vVPM = FAIL + 'UNAVAILABLE' + ENDC
-    print(' --> VPM '+vVPM)
+        v = FAIL + 'UNAVAILABLE' + ENDC
+    print(v.ljust(20-len(tag))+printTime(toc))
 
     # PUMA
-    vPUMA = os.getenv('PUMAVERSION', 'UNAVAILABLE')
-    if vPUMA == 'UNAVAILABLE':
-        vPUMA = FAIL + vPUMA + ENDC
+    tag = ' --> PUMA '
+    print(tag,end='')
+    toc = tic()
+    v = os.getenv('PUMAVERSION', 'UNAVAILABLE')
+    if v == 'UNAVAILABLE':
+        v = FAIL + v + ENDC
     else:
         try:
             silence = OutputGrabber()
             with silence:
                 import PUMA
         except:
-            vPUMA = FAIL + 'UNAVAILABLE' + ENDC
-    print(' --> PUMA '+vPUMA)
+            v = FAIL + 'UNAVAILABLE' + ENDC
+    print(v.ljust(20-len(tag))+printTime(toc))
 
     # turbo
+    tag = ' --> turbo '
+    print(tag,end='')
+    toc = tic()
     try:
         import turbo
-        vTURBO = turbo.__version__
+        v = turbo.__version__
     except:
-        vTURBO = FAIL + 'UNAVAILABLE' + ENDC 
-    print(' --> turbo '+vTURBO)
+        v = FAIL + 'UNAVAILABLE' + ENDC 
+    print(v.ljust(20-len(tag))+printTime(toc))
 
     # ErsatZ
+    tag = ' --> Ersatz '
+    print(tag,end='')
+    toc = tic()
     try:
         import Ersatz
-        vERSATZ = Ersatz.__version__
+        v = Ersatz.__version__
     except:
-        vERSATZ = FAIL + 'UNAVAILABLE' + ENDC 
-    print(' --> Ersatz '+vERSATZ)
-
+        v = FAIL + 'UNAVAILABLE' + ENDC 
+    print(v.ljust(20-len(tag))+printTime(toc))
 
     # maia
+    tag = ' --> maia '
+    print(tag,end='')
+    toc = tic()
     try:
         import maia
         try:
-            vMAIA = maia.__version__
+            v = maia.__version__
         except:
-            vMAIA = 'dev'
+            v = 'dev'
     except:
-        vMAIA = FAIL+'UNAVAILABLE'+ENDC
-    print(' --> maia '+vMAIA)
+        v = FAIL+'UNAVAILABLE'+ENDC
+    print(v.ljust(20-len(tag))+printTime(toc))
 
-    if totoV == 'Dev':
+    if totoV in ['Dev', 'master']:
         print(WARN+'WARNING: you are using an UNSTABLE version of MOLA.\nConsider using a stable version.'+ENDC)
     else:
         Major, Minor, Micro = getMajorMinorMicro(totoV)
@@ -2723,14 +2754,15 @@ def load(*args, **kwargs):
     '''
     load a file using either Cassiopee convertFile2PyTree or maia
     file_to_dist_tree depending on the chosen backend (``'maia'`` or
-    ``'cassiopee'`` ). By default, keyword ``backend='auto'`` will use maia
+    ``'cassiopee'`` ). Keyword ``backend='auto'`` will use maia
     for  ``*.cgns`` and ``*.hdf`` formats; and Cassiopee for the rest.
+    Default backend is Cassiopee
     '''
     try:
         backend = kwargs['backend'].lower()
         del kwargs['backend']
     except KeyError:
-        backend = 'auto'
+        backend = 'Cassiopee' # this is the default value 
 
     if backend == 'auto':
         filename = args[0]

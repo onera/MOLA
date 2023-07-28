@@ -23,7 +23,7 @@ export OWNCASSREV=rev4386
 export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
 export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net
 
-export ELSAVERSION=v5.1.03
+export ELSAVERSION=v5.2.02
 export ELSA_VERBOSE_LEVEL=0 # cf elsA ticket 9689
 export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849
@@ -116,8 +116,12 @@ if [ "$MAC" = "sator" ]; then
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
-    # turbo
-    export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
+    # # turbo
+    # export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
+
+    # turbo 
+    export PYTHONPATH=/tmp_user/sator/lbernard/turbo/dev:$PYTHONPATH
+
 
     # ErstaZ
     export EZPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/bin/sator
@@ -167,16 +171,19 @@ elif [ "$MAC" = "spiro" ]; then
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python3.7/site-packages:$PYTHONPATH
 
-    # turbo
-    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/spiro3_mpi/lib/python3.7/site-packages/:$PYTHONPATH
-    
+    # # turbo
+    # export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/spiro3_mpi/lib/python3.7/site-packages/:$PYTHONPATH
+
+    # turbo 
+    export PYTHONPATH=/stck/lbernard/turbo/dev:$PYTHONPATH
+
     # ErstaZ
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
     export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
 
-    # maia
+    # maia # BUG https://gitlab.onera.net/numerics/mesh/maia/-/issues/54
     module use --append /scratchm/sonics/usr/modules/
-    module load maia/1.1-dsi-cfd5
+    module load maia/dev-dsi-cfd5
 
     # own Cassiopee
     module load occt/7.6.1-gnu831
@@ -188,50 +195,6 @@ elif [ "$MAC" = "spiro" ]; then
     export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$MOLAext/spiro_el8/bin:$PATH
     export LD_LIBRARY_PATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
-
-elif [ "$MAC" = "visung" ]; then
-
-    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/eos-intel3_mpi/.env_elsA &>/dev/null
-    module load texlive/2016 # for LaTeX rendering in matplotlib with STIX font
-    module load freetype/2.10.2
-    module load pointwise/2022.1.2
-
-    # PUMA
-    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_os8
-    export PYTHONPATH=$PumaRootDir/lib/python3.8/site-packages:$PYTHONPATH
-    export PYTHONPATH=$PumaRootDir/lib/python3.8/site-packages/PUMA:$PYTHONPATH
-    export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.8:$LD_LIBRARY_PATH
-    export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
-
-    # turbo
-    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/eos-intel3_mpi/lib/python3.6/site-packages/:$PYTHONPATH
-
-    # ErstaZ
-    export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/visung
-    export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
-
-    # maia
-    module use --append /home/sonics/LD8/modules/
-    module load maia/1.1-dsi-ompi405
-
-    # VPM
-    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld7/$ARCH
-    export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
-    export PYTHONPATH=$VPMPATH/lib/python3.7/site-packages:$PYTHONPATH
-
-    # own Cassiopee
-    export OWNCASS=/stck/lbernard/Cassiopee/$OWNCASSREV/visung
-    export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH
-    export PYTHONPATH=$OWNCASS/lib/python3.7/site-packages:$PYTHONPATH
-    # required by OCC, not provided currently in CentOS 7 visung
-    export LD_LIBRARY_PATH=/stck/benoit/opencascade/lib:$LD_LIBRARY_PATH
-    
-
-    # external python dependencies
-    export PYTHONPATH=$MOLAext/visung/lib/python3.7/site-packages/:$PYTHONPATH
-    export PATH=$MOLAext/visung/bin:$PATH
-    export LD_LIBRARY_PATH=$MOLAext/visung/lib/python3.7/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
-    
 
 elif [ "$MAC" = "ld" ]; then
 
@@ -253,8 +216,11 @@ elif [ "$MAC" = "ld" ]; then
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.8:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
+    # # turbo 
+    # export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/local-os8_mpi/lib/python3.8/site-packages/:$PYTHONPATH
+
     # turbo 
-    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/local-os8_mpi/lib/python3.8/site-packages/:$PYTHONPATH
+    export PYTHONPATH=/stck/lbernard/turbo/dev:$PYTHONPATH
 
     # ErstaZ
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/eos
@@ -262,7 +228,7 @@ elif [ "$MAC" = "ld" ]; then
 
     # maia
     module use --append /home/sonics/LD8/modules/
-    module load maia/1.1-dsi-ompi405
+    module load maia/dev-dsi-ompi405
 
     # VPM
     export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld8/$ARCH
@@ -310,8 +276,12 @@ elif [ "$MAC" = "visio" ]; then
     module load intel/17.0.4
     module load impi/17
 
+    # # turbo 
+    # export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/eos-intel3_mpi/lib/python3.6/site-packages/:$PYTHONPATH 
+
     # turbo 
-    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/eos-intel3_mpi/lib/python3.6/site-packages/:$PYTHONPATH 
+    export PYTHONPATH=/stck/lbernard/turbo/dev:$PYTHONPATH
+
 
     # ErstaZ
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/visio

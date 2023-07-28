@@ -30,7 +30,7 @@ if not MOLA.__ONLY_DOC__:
     import Converter.Internal as I
     import Post.PyTree        as P
     # ETC packages
-    import etc.transform.__future__ as trf
+    import etc.transform as trf
     import etc.post as epost
 
 from . import InternalShortcuts as J

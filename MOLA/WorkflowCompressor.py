@@ -58,7 +58,7 @@ def checkDependencies():
 
     print('Checking ETC...')
     try:
-        import etc.transform.__future__
+        import etc.transform
         print(J.GREEN+'ETC module is available'+J.ENDC)
     except ImportError:
         MSG = 'Fail to import ETC module: Some functions of {} are unavailable'.format(__name__)
@@ -3268,7 +3268,7 @@ def setBC_stage_mxpl(t, left, right, method='globborder_dict'):
             sourced).
     '''
 
-    import etc.transform.__future__ as trf
+    import etc.transform as trf
 
     if method == 'globborder_dict':
         t = trf.defineBCStageFromBC(t, left)
@@ -3344,7 +3344,7 @@ def setBC_stage_mxpl_hyb(t, left, right, nbband=100, c=0.3):
 
     '''
 
-    import etc.transform.__future__ as trf
+    import etc.transform as trf
 
     t = trf.defineBCStageFromBC(t, left)
     t = trf.defineBCStageFromBC(t, right)
@@ -3392,7 +3392,7 @@ def setBC_stage_red(t, left, right, stage_ref_time):
             Reference period on the simulated azimuthal extension.
     '''
 
-    import etc.transform.__future__ as trf
+    import etc.transform as trf
 
     t = trf.defineBCStageFromBC(t, left)
     t = trf.defineBCStageFromBC(t, right)
@@ -3428,7 +3428,7 @@ def setBC_stage_red_hyb(t, left, right, stage_ref_time):
 
     '''
 
-    import etc.transform.__future__ as trf
+    import etc.transform as trf
 
     t = trf.defineBCStageFromBC(t, left)
     t = trf.defineBCStageFromBC(t, right)
@@ -3484,7 +3484,7 @@ def setBC_stage_choro(t, left, right, method='globborder_dict', stage_choro_type
 
     '''
 
-    import etc.transform.__future__ as trf
+    import etc.transform as trf
 
     if method == 'globborder_dict':
         t = trf.defineBCStageFromBC(t, left)
@@ -3610,7 +3610,7 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
 
     '''
 
-    import etc.transform.__future__ as trf
+    import etc.transform as trf
 
     if valve_ref_pres is None:
         try:
@@ -3735,7 +3735,7 @@ def setBC_outradeqhyb(t, FamilyName, valve_type=0, valve_ref_pres=None,
 
     '''
 
-    import etc.transform.__future__ as trf
+    import etc.transform as trf
 
     if valve_ref_pres is None:
         try:
@@ -4545,7 +4545,7 @@ def convertPeriodic2Chorochrono(t):
             Tree to modify
 
     '''
-    import etc.transform.__future__ as trf
+    import etc.transform as trf
     gcnodes = []
     for zone_node in I.getZones(t):
         zgc_node = I.getNodeFromType1(zone_node,"ZoneGridConnectivity_t")
