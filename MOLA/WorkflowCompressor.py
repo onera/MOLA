@@ -654,8 +654,7 @@ def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
     print(J.GREEN + 'done.' + J.ENDC)
     return t
 
-def parametrizeChannelHeight_future(t, nbslice=101, tol=1e-10, offset=1e-10,
-                                elines='shroud_hub_lines.plt', lin_axis=None):
+def parametrizeChannelHeight_future(t, nbslice=101, lin_axis=None):
     '''
     Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
     relies on the turbo module.
@@ -673,18 +672,6 @@ def parametrizeChannelHeight_future(t, nbslice=101, tol=1e-10, offset=1e-10,
         nbslice : int
             Number of axial positions used to compute the iso-lines in
             *ChannelHeight*. Change the axial discretization.
-
-        tol : float
-            Tolerance to offset the min (+tol) / max (-tol) value for CoordinateX
-
-        offset : float
-            Offset value to add an articifial point (not based on real geometry)
-            to be sure that the mesh is fully included. 'tol' and 'offset' must
-            be consistent.
-
-        elines : str
-            Name of the intermediate file that contains (x,r) coordinates of hub
-            and shroud lines.
 
         lin_axis : :py:obj:`None` or :py:class:`str`
             Axis for linear configuration.
@@ -706,28 +693,24 @@ def parametrizeChannelHeight_future(t, nbslice=101, tol=1e-10, offset=1e-10,
     OLD_FlowSolutionNodes = I.__FlowSolutionNodes__
     I.__FlowSolutionNodes__ = 'FlowSolution#Height'
 
+    elines = 'shroud_hub_lines.plt'
+
     silence = J.OutputGrabber()
     with silence:
         if not lin_axis:
             # - Generation of hub/shroud lines (axial configuration only)
-            endlinesTree = TH.generateHLinesAxial(t, elines, nbslice=nbslice, tol=tol, offset=offset)
+            endlinesTree = TH.generateHLinesAxial(t, elines, nbslice=nbslice)
 
-            try:
-                import matplotlib.pyplot as plt
-                # Get geometry
-                xHub, yHub = J.getxy(I.getNodeFromName(endlinesTree, 'Hub'))
-                xShroud, yShroud = J.getxy(I.getNodeFromName(endlinesTree, 'Shroud'))
-                # Plot
-                plt.figure()
-                plt.plot(xHub, yHub, '-', label='Hub')
-                plt.plot(xShroud, yShroud, '-', label='Shroud')
-                plt.axis('equal')
-                plt.grid()
-                plt.xlabel('x (m)')
-                plt.ylabel('y (m)')
-                plt.savefig(elines.replace('.plt', '.png'), dpi=150, bbox_inches='tight')
-            except:
-                pass
+            # # see in turbo v1.3
+            # print(f'PRE.hasAnyUnstructuredZones(subTree)={PRE.hasAnyUnstructuredZones(subTree)}')
+            # if PRE.hasAnyUnstructuredZones(subTree):
+            #     # for structured and unstructured mesh, only for axial configurations
+            #     method = 0
+            # else:
+            #     # only for structured mesh, but faster and works for axial and centrifugal configurations
+            #     method = 1
+            #     print('use method=1')
+            # endlinesTree = TH.generateHLinesAxial(subTree, method=method, nbslice=nbslice)
 
             # - Generation of the mask file
             m = TH.generateMaskWithChannelHeight(t, elines, 'bin_tp')
@@ -4334,11 +4317,16 @@ def printConfigurationStatus(DIRECTORY_WORK, useLocalConfig=False):
             Line += msg
         print(Line)
 
-def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
+def printConfigurationStatusWithPerfo_OLD(DIRECTORY_WORK, useLocalConfig=False,
                                         monitoredRow='row_1'):
     '''
     Print the current status of a IsoSpeedLines computation and display
     performance of the monitored row for completed jobs.
+
+    .. warning::
+
+        This function is deprecated and will be removed in the future. 
+        Use instead :py:func:`printConfigurationStatusWithPerfo`
 
     Parameters
     ----------
@@ -4452,10 +4440,15 @@ def printConfigurationStatusWithPerfo(DIRECTORY_WORK, useLocalConfig=False,
 
     return perfo
 
-def getPostprocessQuantities(DIRECTORY_WORK, basename, useLocalConfig=False, rename=True):
+def getPostprocessQuantities_OLD(DIRECTORY_WORK, basename, useLocalConfig=False, rename=True):
     '''
     Print the current status of a IsoSpeedLines computation and display
     performance of the monitored row for completed jobs.
+
+    .. warning::
+
+        This function is deprecated and will be removed in the future. 
+        Use instead :py:func:`getPostprocessQuantities`
 
     Parameters
     ----------
@@ -4510,6 +4503,238 @@ def getPostprocessQuantities(DIRECTORY_WORK, basename, useLocalConfig=False, ren
             if status == 'COMPLETED':
                 perfoOverIsospeedLine['Throttle'].append(throttle)
                 lastarrays = JM.getCaseArrays(config, CASE_LABEL, basename=basename)
+                for key, value in lastarrays.items():
+                    if idThrottle == 0:
+                        perfoOverIsospeedLine[key] = [value]
+                    else:
+                        perfoOverIsospeedLine[key].append(value)
+
+        for key, value in perfoOverIsospeedLine.items():
+            perfoOverIsospeedLine[key] = np.array(value)
+        perfo.append(perfoOverIsospeedLine)
+
+    if rename:
+        VarsToRename = [
+            ('Massflow', 'MassFlow'), 
+            ('StagnationPressureRatio', 'PressureStagnationRatio'), 
+            ('IsentropicEfficiency', 'EfficiencyIsentropic')
+            ]
+        for (oldName, newName) in VarsToRename:
+            for perfoOverIsospeedLine in perfo: 
+                if oldName in perfoOverIsospeedLine:
+                    perfoOverIsospeedLine[newName] = perfoOverIsospeedLine[oldName]
+
+    return perfo
+
+def printConfigurationStatusWithPerfo(monitoredRow):
+    '''
+    Print the current status of a IsoSpeedLines computation and display
+    performance of the monitored row for completed jobs.
+
+    Parameters
+    ----------
+
+        monitoredRow : str
+            Name of the row whose performance will be displayed
+
+    Returns
+    -------
+
+        perfo : list
+            list with performance of **monitoredRow** for completed
+            simulations. Each element is a dict corresponding to one rotation speed.
+            This dict contains the following keys:
+
+            * RotationSpeed (float)
+
+            * Throttle (numpy.array)
+
+            * MassFlow (numpy.array)
+
+            * PressureStagnationRatio (numpy.array)
+
+            * EfficiencyIsentropic (numpy.array)
+
+    '''
+    print(J.CYAN+'Repatriating data...'+J.ENDC)
+    os.system("mola_repatriate --arrays")
+    print(J.GREEN+'  Repatriating data done.'+J.ENDC)
+
+    config = JM.getJobsConfiguration('.', useLocalConfig=True)
+    Throttle = np.array(sorted(list(set([float(case['CASE_LABEL'].split('_')[0]) for case in config.JobsQueues]))))
+    RotationSpeed = np.array(sorted(list(set([case['TurboConfiguration']['ShaftRotationSpeed'] for case in config.JobsQueues]))))
+    root_path = config.DIRECTORY_WORK.split('/')[-2]
+
+    nThrottle = Throttle.size
+    nCol = 4
+    NcolMax = 79
+    FirstCol = 15
+    Ndigs = int((NcolMax-FirstCol)/nCol)
+    ColFmt = r'{:^'+str(Ndigs)+'g}'
+    ColStrFmt = r'{:^'+str(Ndigs)+'s}'
+    TagStrFmt = r'{:>'+str(FirstCol)+'s}'
+    TagFmt = r'{:>'+str(FirstCol-2)+'g} |'
+
+    def getCaseLabel(config, throttle, rotSpeed):
+        for case in config.JobsQueues:
+            if np.isclose(float(case['CASE_LABEL'].split('_')[0]), throttle) and \
+                np.isclose(case['TurboConfiguration']['ShaftRotationSpeed'], rotSpeed):
+
+                return case['CASE_LABEL']
+    
+    def getStatus(path):
+        Output = os.listdir(path)
+        if 'COMPLETED' in Output:
+            return 'COMPLETED'
+        if 'FAILED' in Output:
+            return 'FAILED'
+        for o in Output:
+            if o.startswith('core') or o.startswith('elsA.x'):
+                return 'TIMEOUT'
+        if 'coprocess.log' in Output:
+            return 'RUNNING'
+        return 'PENDING'
+
+    perfo = []
+    lines = ['']
+
+    JobNames = [getCaseLabel(config, Throttle[0], r).split('_')[-1] for r in RotationSpeed]
+    for idSpeed, rotationSpeed in enumerate(RotationSpeed):
+
+        lines.append(TagStrFmt.format('JobName |')+''.join([ColStrFmt.format(JobNames[idSpeed])] + [ColStrFmt.format('') for j in range(nCol-1)]))
+        lines.append(TagStrFmt.format('RotationSpeed |')+''.join([ColFmt.format(rotationSpeed)] + [ColStrFmt.format('') for j in range(nCol-1)]))
+        lines.append(TagStrFmt.format(' |')+''.join([ColStrFmt.format(''), ColStrFmt.format('MFR'), ColStrFmt.format('RPI'), ColStrFmt.format('ETA')]))
+        lines.append(TagStrFmt.format('Throttle |')+''.join(['_' for m in range(NcolMax-FirstCol)]))
+        
+        perfoOverIsospeedLine = dict(
+            RotationSpeed = rotationSpeed,
+            Throttle = [],
+            MassFlow = [],
+            PressureStagnationRatio = [],
+            EfficiencyIsentropic = []
+        )
+
+        for throttle in Throttle:
+            Line = TagFmt.format(throttle)
+            CASE_LABEL = getCaseLabel(config, throttle, rotationSpeed)
+            interm_dir = '_'.join(CASE_LABEL.split('_')[1:])
+            case_path = f'{root_path}/{interm_dir}/{CASE_LABEL}'
+            status = getStatus(case_path)
+            if status == 'COMPLETED':
+                msg = J.GREEN+ColStrFmt.format('OK')+J.ENDC
+            elif status == 'FAILED':
+                msg = J.FAIL+ColStrFmt.format('KO')+J.ENDC
+            elif status == 'TIMEOUT':
+                msg = J.WARN+ColStrFmt.format('TO')+J.ENDC
+            elif status == 'RUNNING':
+                msg = ColStrFmt.format('GO')
+            else:
+                msg = ColStrFmt.format('PD') # Pending
+
+            if os.path.isfile(f'{case_path}/COMPLETED'):
+                ArraysTree = C.convertFile2PyTree(f'{case_path}/OUTPUT/arrays.cgns')
+                ArraysZone = I.getNodeFromName2(ArraysTree, 'PERFOS_{}'.format(monitoredRow))
+                lastarrays = J.getVars2Dict(ArraysZone,C.getVarNames(ArraysZone,excludeXYZ=True)[0])
+                for v in lastarrays: lastarrays[v] = lastarrays[v][-1]
+
+                perfoOverIsospeedLine['Throttle'].append(throttle)
+                perfoOverIsospeedLine['MassFlow'].append(lastarrays['MassFlowIn'])
+                perfoOverIsospeedLine['PressureStagnationRatio'].append(lastarrays['PressureStagnationRatio'])
+                perfoOverIsospeedLine['EfficiencyIsentropic'].append(lastarrays['EfficiencyIsentropic'])
+    
+                msg += ''.join([ColFmt.format(lastarrays['MassFlowIn']), 
+                                ColFmt.format(lastarrays['PressureStagnationRatio']), 
+                                ColFmt.format(lastarrays['EfficiencyIsentropic'])
+                                ])
+            else:
+                msg += ''.join([ColStrFmt.format('') for n in range(nCol-1)])
+            Line += msg
+            lines.append(Line)
+
+        lines.append('')
+        for key, value in perfoOverIsospeedLine.items():
+            perfoOverIsospeedLine[key] = np.array(value)
+        perfo.append(perfoOverIsospeedLine)
+
+    for line in lines: print(line)
+
+    return perfo
+
+def getPostprocessQuantities(basename, rename=True):
+    '''
+    Print the current status of a IsoSpeedLines computation and display
+    performance of the monitored row for completed jobs.
+
+    Parameters
+    ----------
+        basename : str
+            Name of the base to get
+
+        rename : bool 
+            if :py:obj:`True`, rename variables with CGNS names (or inspired CGNS names, already used in MOLA)
+
+    Returns
+    -------
+
+        perfo : list
+            list with data contained in the base **baseName** for completed
+            simulations. Each element is a dict corresponding to one rotation speed.
+            This dict contains the following keys:
+
+            * RotationSpeed (float)
+
+            * Throttle (numpy.array)
+
+            * and all quantities found in **baseName** (numpy.array)
+
+    '''
+    print(J.CYAN+'Repatriating data...'+J.ENDC)
+    os.system("mola_repatriate --light")
+    print(J.GREEN+'  Repatriating data done.'+J.ENDC)
+
+    config = JM.getJobsConfiguration('.', useLocalConfig=True)
+    Throttle = np.array(sorted(list(set([float(case['CASE_LABEL'].split('_')[0]) for case in config.JobsQueues]))))
+    RotationSpeed = np.array(sorted(list(set([case['TurboConfiguration']['ShaftRotationSpeed'] for case in config.JobsQueues]))))
+    root_path = config.DIRECTORY_WORK.split('/')[-2]
+
+    def getCaseLabel(config, throttle, rotSpeed):
+        for case in config.JobsQueues:
+            if np.isclose(float(case['CASE_LABEL'].split('_')[0]), throttle) and \
+                np.isclose(case['TurboConfiguration']['ShaftRotationSpeed'], rotSpeed):
+
+                return case['CASE_LABEL']
+
+    def getStatus(path):
+        Output = os.listdir(path)
+        if 'COMPLETED' in Output:
+            return 'COMPLETED'
+        if 'FAILED' in Output:
+            return 'FAILED'
+        for o in Output:
+            if o.startswith('core') or o.startswith('elsA.x'):
+                return 'TIMEOUT'
+        if 'coprocess.log' in Output:
+            return 'RUNNING'
+        return 'PENDING'
+    
+    perfo = []
+    for rotationSpeed in RotationSpeed:
+        perfoOverIsospeedLine = dict(RotationSpeed=rotationSpeed, Throttle=[])
+
+        for idThrottle, throttle in enumerate(Throttle):
+            CASE_LABEL = getCaseLabel(config, throttle, rotationSpeed)
+            interm_dir = '_'.join(CASE_LABEL.split('_')[1:])
+            case_path = f'{root_path}/{interm_dir}/{CASE_LABEL}'
+            status = getStatus(case_path)
+
+            if status == 'COMPLETED':
+                perfoOverIsospeedLine['Throttle'].append(throttle)
+
+                ArraysTree = C.convertFile2PyTree(f'{case_path}/OUTPUT/arrays.cgns')
+                ArraysZone = I.getNodeFromName2(ArraysTree, basename)
+                lastarrays = J.getVars2Dict(ArraysZone,C.getVarNames(ArraysZone,excludeXYZ=True)[0])
+                for v in lastarrays: lastarrays[v] = lastarrays[v][-1]
+
                 for key, value in lastarrays.items():
                     if idThrottle == 0:
                         perfoOverIsospeedLine[key] = [value]
