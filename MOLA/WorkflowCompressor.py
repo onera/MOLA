@@ -654,8 +654,7 @@ def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
     print(J.GREEN + 'done.' + J.ENDC)
     return t
 
-def parametrizeChannelHeight_future(t, nbslice=101, tol=1e-10, offset=1e-10,
-                                elines='shroud_hub_lines.plt', lin_axis=None):
+def parametrizeChannelHeight_future(t, nbslice=101, lin_axis=None):
     '''
     Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
     relies on the turbo module.
@@ -673,18 +672,6 @@ def parametrizeChannelHeight_future(t, nbslice=101, tol=1e-10, offset=1e-10,
         nbslice : int
             Number of axial positions used to compute the iso-lines in
             *ChannelHeight*. Change the axial discretization.
-
-        tol : float
-            Tolerance to offset the min (+tol) / max (-tol) value for CoordinateX
-
-        offset : float
-            Offset value to add an articifial point (not based on real geometry)
-            to be sure that the mesh is fully included. 'tol' and 'offset' must
-            be consistent.
-
-        elines : str
-            Name of the intermediate file that contains (x,r) coordinates of hub
-            and shroud lines.
 
         lin_axis : :py:obj:`None` or :py:class:`str`
             Axis for linear configuration.
@@ -706,28 +693,24 @@ def parametrizeChannelHeight_future(t, nbslice=101, tol=1e-10, offset=1e-10,
     OLD_FlowSolutionNodes = I.__FlowSolutionNodes__
     I.__FlowSolutionNodes__ = 'FlowSolution#Height'
 
+    elines = 'shroud_hub_lines.plt'
+
     silence = J.OutputGrabber()
     with silence:
         if not lin_axis:
             # - Generation of hub/shroud lines (axial configuration only)
-            endlinesTree = TH.generateHLinesAxial(t, elines, nbslice=nbslice, tol=tol, offset=offset)
+            endlinesTree = TH.generateHLinesAxial(t, elines, nbslice=nbslice)
 
-            try:
-                import matplotlib.pyplot as plt
-                # Get geometry
-                xHub, yHub = J.getxy(I.getNodeFromName(endlinesTree, 'Hub'))
-                xShroud, yShroud = J.getxy(I.getNodeFromName(endlinesTree, 'Shroud'))
-                # Plot
-                plt.figure()
-                plt.plot(xHub, yHub, '-', label='Hub')
-                plt.plot(xShroud, yShroud, '-', label='Shroud')
-                plt.axis('equal')
-                plt.grid()
-                plt.xlabel('x (m)')
-                plt.ylabel('y (m)')
-                plt.savefig(elines.replace('.plt', '.png'), dpi=150, bbox_inches='tight')
-            except:
-                pass
+            # # see in turbo v1.3
+            # print(f'PRE.hasAnyUnstructuredZones(subTree)={PRE.hasAnyUnstructuredZones(subTree)}')
+            # if PRE.hasAnyUnstructuredZones(subTree):
+            #     # for structured and unstructured mesh, only for axial configurations
+            #     method = 0
+            # else:
+            #     # only for structured mesh, but faster and works for axial and centrifugal configurations
+            #     method = 1
+            #     print('use method=1')
+            # endlinesTree = TH.generateHLinesAxial(subTree, method=method, nbslice=nbslice)
 
             # - Generation of the mask file
             m = TH.generateMaskWithChannelHeight(t, elines, 'bin_tp')
