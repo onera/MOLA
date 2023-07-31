@@ -101,12 +101,9 @@ if [ "$MAC" = "sator" ]; then
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
 
-    # maia BEWARE https://gitlab.onera.net/numerics/mesh/maia/-/issues/46
-    export MAIA_ROOT=/tmp_user/sator/jcoulet/opt/maia-sator-cfd5-i4/
-    export LD_LIBRARY_PATH=$MAIA_ROOT/lib:$LD_LIBRARY_PATH
-    export PYTHONPATH=$MAIA_ROOT/lib/python3.7/site-packages:$PYTHONPATH
-    export PATH=$MAIA_ROOT/bin:$PATH
-
+    # maia
+    module use --append /tmp_user/sator/sonics/usr/modules/
+    module load maia/RC-dsi-cfd5
 
     # VPM
     export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator/$ARCH
@@ -173,7 +170,6 @@ elif [ "$MAC" = "spiro" ]; then
 
     # # turbo
     # export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/spiro3_mpi/lib/python3.7/site-packages/:$PYTHONPATH
-
     # turbo 
     export PYTHONPATH=/stck/lbernard/turbo/dev:$PYTHONPATH
 
@@ -181,9 +177,9 @@ elif [ "$MAC" = "spiro" ]; then
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
     export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
 
-    # maia # BUG https://gitlab.onera.net/numerics/mesh/maia/-/issues/54
+    # maia 
     module use --append /scratchm/sonics/usr/modules/
-    module load maia/dev-dsi-cfd5
+    module maia/load RC-dsi-cfd5
 
     # own Cassiopee
     module load occt/7.6.1-gnu831
@@ -228,7 +224,7 @@ elif [ "$MAC" = "ld" ]; then
 
     # maia
     module use --append /home/sonics/LD8/modules/
-    module load maia/dev-dsi-ompi405
+    module load maia/RC-dsi-ompi405
 
     # VPM
     export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld8/$ARCH

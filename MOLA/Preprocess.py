@@ -5674,7 +5674,7 @@ def convertUnstructuredMeshToNGon(t):
     from mpi4py import MPI
     import maia
     
-    t = maia.factory.distribute_tree(t, MPI.COMM_WORLD, owner=None)
+    t = maia.factory.full_to_dist_tree(t, MPI.COMM_WORLD, owner=None)
     
     if J.anyNotNGon(t):
         print(' -> some cells are not NGon : converting to NGon')
@@ -5737,11 +5737,7 @@ def convertUnstructuredMeshToNGon(t):
     print(' -> enforcing ngon_pe_local')
     maia.algo.seq.enforce_ngon_pe_local(t) # required by elsA ?
 
-    try:
-        t = maia.factory.undistribute_tree(t, MPI.COMM_WORLD, target=0)
-    except AttributeError as e:
-        print(J.WARN+'maia.factory.undistribute_tree not yet installed'+J.ENDC)
-        print(J.WARN+str(e)+J.ENDC)
+    t = maia.factory.dist_to_full_tree(t, MPI.COMM_WORLD, target=0)
     I._fixNGon(t) # required ?
     print('finished unstructured mesh adaptations for elsA')
 
