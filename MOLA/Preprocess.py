@@ -5737,6 +5737,11 @@ def convertUnstructuredMeshToNGon(t):
     print(' -> enforcing ngon_pe_local')
     maia.algo.seq.enforce_ngon_pe_local(t) # required by elsA ?
 
+    try:
+        t = maia.factory.undistribute_tree(t, MPI.COMM_WORLD, target=0)
+    except AttributeError as e:
+        print(J.WARN+'maia.factory.undistribute_tree not yet installed'+J.ENDC)
+        print(J.WARN+str(e)+J.ENDC)
     I._fixNGon(t) # required ?
     print('finished unstructured mesh adaptations for elsA')
 
