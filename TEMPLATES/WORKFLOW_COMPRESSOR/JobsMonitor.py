@@ -15,11 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-#!/usr/bin/python
 import MOLA.WorkflowCompressor as WF
 
-perfo = WF.printConfigurationStatusWithPerfo(
-    '/tmp_user/sator/tbontemp/rafale_rotor37/',
-    monitoredRow='row_1'
-    )
+perfo = WF.printConfigurationStatusWithPerfo(monitoredRow='R37')
+# perfo = WF.getPostprocessQuantities(basename='Iso_X_0.08#Iso_X_-0.0419#InitV')
 WF.plotIsoSpeedLine(perfo)
