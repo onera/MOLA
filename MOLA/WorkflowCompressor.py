@@ -1407,12 +1407,13 @@ def getTurboConfiguration(t, ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}
             for key, value in rowParams.items():
                 if key == 'RotationSpeed' and value == 'auto':
                     rowParams[key] = ShaftRotationSpeed
-            if row in BodyForceInputData:
-                # Replace the number of blades to be consistant with the body-force mesh
-                deltaTheta = computeAzimuthalExtensionFromFamily(t, row)
-                rowParams['NumberOfBlades'] = int(2*np.pi / deltaTheta)
-                rowParams['NumberOfBladesInInitialMesh'] = 1
-                print(f'Number of blades for {row}: {rowParams["NumberOfBlades"]} (got from the body-force mesh)')
+            for BodyForceComponent in BodyForceInputData:
+                if row == BodyForceComponent['Family']:
+                    # Replace the number of blades to be consistant with the body-force mesh
+                    deltaTheta = computeAzimuthalExtensionFromFamily(t, row)
+                    rowParams['NumberOfBlades'] = int(2*np.pi / deltaTheta)
+                    rowParams['NumberOfBladesInInitialMesh'] = 1
+                    print(f'Number of blades for {row}: {rowParams["NumberOfBlades"]} (got from the body-force mesh)')
             if not 'NumberOfBladesSimulated' in rowParams:
                 rowParams['NumberOfBladesSimulated'] = 1
             if not 'NumberOfBladesInInitialMesh' in rowParams:

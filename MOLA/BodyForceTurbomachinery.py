@@ -1135,167 +1135,124 @@ def filterDataSourceTermsAxial(t):
 # is called by Coprocess.updateBodyForce
 ##################################################################################
 
+import MOLA.BodyForceModels.BodyForceModels as BFM
 
-def computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration):
+BodyForceModel = dict(
+    blockage = BFM.BodyForceModel_blockage,
+    blockage_correction = BFM.BodyForceModel_blockage_correction,
+    hall_without_blockage = BFM.BodyForceModel_hall_without_blockage,
+    HallThollet = BFM.BodyForceModel_HallThollet,
+    ThrustSpread = BFM.BodyForceModel_ThrustSpread,
+    constant = BFM.BodyForceModel_constant,
+    ShockWaveLoss = BFM.BodyForceModel_ShockWaveLoss,
+)
+
+def computeBodyForce(t, BodyForceFamily, BodyForceParameters, FluidProperties, TurboConfiguration):
     '''
-    Compute Body force source terms in **zone**.
+    Compute Body force source terms.
 
     Parameters
     ----------
-        zone : PyTree
-            Zone in which the source terms will be compute
+        t : PyTree
 
-        BodyForceParams : dict
-            Body force parameters for the current family. Correspond to a value 
-            in **BodyForceInputData**, as read from `setup.py`. 
+            Tree in which the source terms will be compute
+        
+        BodyForceFamily : str
+            Family of zones to compute source terms on.
 
-        FluidProperties : dict
-            as read from `setup.py`
-
-        TurboConfiguration : dict
-            as read from `setup.py`
+        BodyForceParameters : dict
+            Body force parameters for the current family.
 
     Returns
     -------
         dict
             New source terms to apply. Should be for example : 
 
-            >>> TotalSourceTerms = dict(Density=ndarray, MomentumX=ndarray, ...)
+            >>> TotalSourceTermsGloblal['zoneName'] = dict(Density=ndarray, MomentumX=ndarray, ...)
 
     '''
     # Get the list of source terms to compute
-    if isinstance(BodyForceParams['model'], list):
-        models = BodyForceParams['model']
-    else:
-        models = [BodyForceParams['model']]
-        
-    if 'hall' in models:
-        models.remove('hall')
-        if 'blockage' in models or 'hall_without_blockage' in models:
-            raise Exception(J.FAIL + '[BFM error] The list model is badly defined' + J.ENDC)
-        models += ['blockage', 'hall_without_blockage']
-    
-    if 'incidenceLoss' in models:
-        incidenceLoss = True
-        models.remove('incidenceLoss')
-    else:
-        incidenceLoss = False
+    if not isinstance(BodyForceParameters, list):
+        BodyForceParameters = [BodyForceParameters]
 
     # Compute and gather all the required source terms
-    TotalSourceTerms = dict(
-        Density = 0.,
-        MomentumX = 0.,
-        MomentumY = 0.,
-        MomentumZ = 0.,
-        EnergyStagnationDensity = 0.
-    )
-    for model in models:
-        # Default tolerance
-        tol = BodyForceParams.get('tol', 1e-5)
+    TotalSourceTermsGlobal = dict()
+    for modelParameters in BodyForceParameters:
 
-        # Compute the correct source terms
-        if model == 'blockage':
-            NewSourceTerms = computeBodyForce_Blockage(zone, tol)
-        elif model == 'EndWallsProtection':
-            NewSourceTerms = computeBodyForce_EndWallsProtection(
-                zone, TurboConfiguration, 
-                ProtectedHeight=BodyForceParams.get('ProtectedHeight', 0.05), 
-                EndWallsCoefficient=BodyForceParams.get('EndWallsCoefficient', 10.))
-        elif model == 'constant':
-            NewSourceTerms = computeBodyForce_constant(
-                zone, BodyForceParams['SourceTerms'])
-        elif model == 'ThrustSpread':
-            NewSourceTerms = computeBodyForce_ThrustSpread(
-                zone, BodyForceParams['Thrust'], tol)
-        elif model == 'hall_without_blockage':
-            NewSourceTerms = computeBodyForce_Hall(
-                zone, FluidProperties, TurboConfiguration, incidenceLoss=incidenceLoss, tol=tol)
-        else:
-            raise Exception(f"The body-force model {model} is not implemented")
+        model = modelParameters.pop('model')
+        modelParameters['FluidProperties'] = FluidProperties
+        modelParameters['TurboConfiguration'] = TurboConfiguration
+
+        NewSourceTermsGlobal = BodyForceModel[model](t, BodyForceFamily, modelParameters)
             
         # Add the computed source terms to the total source terms
-        for key, value in NewSourceTerms.items():
-            if key in TotalSourceTerms:
-                TotalSourceTerms[key] += value
+        addDictionaries(TotalSourceTermsGlobal, NewSourceTermsGlobal)
 
-    return TotalSourceTerms
+    return TotalSourceTermsGlobal
 
 
-def computeBodyForce_Blockage(zone, tol=1e-5):
+def addDictionaries(d1, d2):
     '''
-    Compute actualized source terms corresponding to blockage.
+    Update **d1** by adding values of **d2** to values in **d1**
+
+    .. important:: 
+
+        Dictionaries must have two levels like that:
+
+        >>> d1['zoneName']['Density'] = np.ndarray(...)
+
+    Parameters
+    ----------
+
+        d1 : dict
+            Dictionary that will be updated
+        
+        d2 : dict
+            Dictionary that will be added to **d1**
+
+    '''
+    for zone in d2:
+        if not zone in d1:
+            d1[zone] = d2[zone]
+        else:
+            for key, value in d2[zone].items():
+                if key in d1[zone]:
+                    d1[zone][key] += value
+                else:
+                    d1[zone][key] = value
+
+def getAdditionalFields(zone, FluidProperties, RotationSpeed, tol=1e-5):
+    '''
+    Compute additional flow quantities used in body-force models, and store them into a
+    temporary node in **zone** to have access to them later if the function is called more 
+    than once.
 
     Parameters
     ----------
 
         zone : PyTree
-            current zone
-
-        tol : float
-            minimum value for quantities used as a denominator.
-
-    Returns
-    -------
-
-        NewSourceTerms : dict
-            Computed source terms. The keys are Density, MomentumX, MomentumY,
-            MomentumZ and EnergyStagnation.
-    '''
-
-    FlowSolution = J.getVars2Dict(zone, Container='FlowSolution#Init')
-    DataSourceTerms=J.getVars2Dict(zone, ['theta', 'blockage', 'gradxb', 'gradrb', 'nt'], Container='FlowSolution#DataSourceTerm')
-
-    Blockage = DataSourceTerms['blockage']
-    Density = np.maximum(FlowSolution['Density'], tol)
-    EnthalpyStagnation = (FlowSolution['EnergyStagnationDensity'] + FlowSolution['Pressure']) / Density
-    Vx, Vy, Vz = FlowSolution['MomentumX']/Density, FlowSolution['MomentumY'] / Density, FlowSolution['MomentumZ']/Density
-    Vr = Vy * np.cos(DataSourceTerms['theta']) + Vz * np.sin(DataSourceTerms['theta'])
-
-    Sb = - Density * (Vx * DataSourceTerms['gradxb'] + Vr * DataSourceTerms['gradrb']) / Blockage
-
-    NewSourceTerms = dict(
-        Density                 = Sb,
-        MomentumX               = Sb * Vx,
-        MomentumY               = Sb * Vy,
-        MomentumZ               = Sb * Vz,
-        EnergyStagnationDensity = Sb * EnthalpyStagnation
-    )
-
-    return NewSourceTerms
-
-def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, incidenceLoss=False, tol=1e-5):
-    '''
-    Compute actualized source terms corresponding to the Hall model.
-
-    Parameters
-    ----------
-
-        zone : PyTree
-            current zone
+            Current zone
         
         FluidProperties : dict
             as read in `setup.py`
 
-        TurboConfiguration : dict
-            as read in `setup.py`
-
-        incidenceLoss : bool
-            apply or not the source term related to loss due to the deviation of the flow compared with 
-            the reference angle: :math:`2 \pi (\delta - \delta_0)^2 / H` where H is the blade to blade distance.
+        RotationSpeed : float
+            Rotation speed of the current zone
 
         tol : float
             minimum value for quantities used as a denominator.
 
     Returns
     -------
+    
+        dict
 
-        NewSourceTerms : dict
-            Computed source terms. The keys are Density, MomentumX, MomentumY, 
-            MomentumZ and EnergyStagnation. Blockage effect is included.
+            Newly computed quantities
     '''
-
-    rowName = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
-    RotationSpeed = TurboConfiguration['Rows'][rowName]['RotationSpeed']
+    tmpMOLAFlowNode = I.getNodeFromName(zone, 'FlowSolution#tmpMOLAFlow')
+    
+    if tmpMOLAFlowNode:
+        return J.getVars2Dict(zone, Container='FlowSolution#tmpMOLAFlow')
 
     FlowSolution    = J.getVars2Dict(zone, Container='FlowSolution#Init')
     DataSourceTerms = J.getVars2Dict(zone, Container='FlowSolution#DataSourceTerm')
@@ -1328,399 +1285,80 @@ def computeBodyForce_Hall(zone, FluidProperties, TurboConfiguration, incidenceLo
     # Careful to the sign
     incidence = np.arcsin(Wn/Wmag) 
     incidence*= np.sign(Wx*DataSourceTerms['nx'] + Wr*DataSourceTerms['nr'] + Wt*DataSourceTerms['nt'])
+
+    tmpMOLAFlow = dict(
+        theta = DataSourceTerms['theta'],
+
+        Vx = Vx,
+        Vy = Vy, 
+        Vz = Vz,
+        Vmag = Vmag,
+
+        Wx = Wx,
+        Wr = Wr,
+        Wt = Wt,
+        Wmag = Wmag,
+        Wn = Wn,
+        Wnx = Wnx,
+        Wnr = Wnr,
+        Wnt = Wnt,
+        Wp = Wp,
+        Wpx = Wpx,
+        Wpr = Wpr,
+        Wpt = Wpt,
+
+        Temperature = Temperature,
+        Mrel = Mrel,
+
+        incidence = incidence,
+
+        # Unit vector normal the velocity. Direction of application of the normal force
+        unitVectorNormalX = np.cos(incidence) * DataSourceTerms['nx'] - np.sin(incidence)*Wpx/Wp,
+        unitVectorNormalR = np.cos(incidence) * DataSourceTerms['nr'] - np.sin(incidence)*Wpr/Wp,
+        unitVectorNormalT = np.cos(incidence) * DataSourceTerms['nt'] - np.sin(incidence)*Wpt/Wp,
+
+        # Unit vector parallel to the velocity. Direction of application of the parallel force
+        unitVectorParallelX = - Wx / Wmag,
+        unitVectorParallelR = - Wr / Wmag,
+        unitVectorParallelT = - Wt / Wmag,
+
+    )
+
+    J.set(zone, 'FlowSolution#tmpMOLAFlow', childType='FlowSolution_t', **tmpMOLAFlow)
+
+    return tmpMOLAFlow 
+
+def getForceComponents(fn, fp, tmpMOLAFlow):
+    '''
+    Compute cartesian and cylindrical components of the force with its components in the blade local frame.
+
+    Parameters
+    ----------
+
+        fn : numpy.ndarray
+            Force component in the direction normal to the chord
+        
+        fp : numpy.ndarray
+            Force component in the direction parallel to the chord (oriented upstream)
+
+        tmpMOLAFlow : dict
+            temporary container of flow quantities, as got by :py:func:`getAdditionalFields`
+
+    Returns
+    -------
     
-    # Unit vector normal the velocity. Direction of application of the normal force
-    unitVectorN_x = np.cos(incidence) * DataSourceTerms['nx'] - np.sin(incidence)*Wpx/Wp
-    unitVectorN_r = np.cos(incidence) * DataSourceTerms['nr'] - np.sin(incidence)*Wpr/Wp
-    unitVectorN_t = np.cos(incidence) * DataSourceTerms['nt'] - np.sin(incidence)*Wpt/Wp
+        :py:class:`tuple` of :py:class:`numpy.ndarray`
 
-    # Unit vector parallel to the velocity. Direction of application of the parallel force
-    unitVectorP_x = - Wx / Wmag
-    unitVectorP_r = - Wr / Wmag
-    unitVectorP_t = - Wt / Wmag
-
-    # Compressibility correction 
-    CompressibilityCorrection = 3. * np.ones(Density.shape)
-    subsonic_bf, supersonic_bf = np.less_equal(Mrel,0.99), np.greater_equal(Mrel,1.01)
-    CompressibilityCorrection[subsonic_bf]  = np.clip(1.0/(1-Mrel[subsonic_bf]**2)**0.5, 0.0, 3.0)
-    CompressibilityCorrection[supersonic_bf]= np.clip(4.0/(2*np.pi)/(Mrel[supersonic_bf]**2-1)**0.5, 0.0, 3.0)
-
-    # Friction on blade
-    Viscosity = FluidProperties['SutherlandViscosity']*np.sqrt(Temperature/FluidProperties['SutherlandTemperature'])*(1+FluidProperties['SutherlandConstant'])/(1+FluidProperties['SutherlandConstant']*FluidProperties['SutherlandTemperature']/Temperature)
-    Re_x = Density*DataSourceTerms['AbscissaFromLE'] * Wmag / Viscosity
-    cf = 0.0592*Re_x**(-0.2)
-
-    # Force normal to the chord
-    fn = -0.5*Wmag**2. * CompressibilityCorrection * 2*np.pi*incidence / DataSourceTerms['blade2BladeDistance']
-
-    # Force parallel to the chord
-    delta0 = DataSourceTerms.get('delta0', 0.)
-    fp = 0.5*Wmag**2. * (2*cf + incidenceLoss * 2*np.pi*(incidence - delta0)**2.) / DataSourceTerms['blade2BladeDistance']
+        Force components in x, y, z, r and theta. 
+    '''
 
     # Force in the cylindrical frame of reference
-    fx = fn * unitVectorN_x + fp * unitVectorP_x
-    fr = fn * unitVectorN_r + fp * unitVectorP_r
-    ft = fn * unitVectorN_t + fp * unitVectorP_t
+    fx = fn * tmpMOLAFlow['unitVectorNormalX'] + fp * tmpMOLAFlow['unitVectorParallelX']
+    fr = fn * tmpMOLAFlow['unitVectorNormalR'] + fp * tmpMOLAFlow['unitVectorParallelR']
+    ft = fn * tmpMOLAFlow['unitVectorNormalT'] + fp * tmpMOLAFlow['unitVectorParallelT']
 
     # Force in the cartesian frame of reference
-    fy = -sinTheta * ft + cosTheta * fr
-    fz =  cosTheta * ft + sinTheta * fr
+    fy = -np.sin(tmpMOLAFlow['theta']) * ft + np.cos(tmpMOLAFlow['theta']) * fr
+    fz =  np.cos(tmpMOLAFlow['theta']) * ft + np.sin(tmpMOLAFlow['theta']) * fr
 
-    NewSourceTerms = dict(
-        Density                 = np.zeros(Density.shape),
-        MomentumX               = Density * fx,
-        MomentumY               = Density * fy,
-        MomentumZ               = Density * fz,
-        EnergyStagnationDensity = Density * DataSourceTerms['radius'] * RotationSpeed * ft
-    )
-
-    return NewSourceTerms
-
-
-def computeBodyForce_EndWallsProtection(zone, TurboConfiguration, ProtectedHeight=0.05, EndWallsCoefficient=10.):
-    ''' 
-    Protection of the boudary layer ofr body-force modelling, as explain in the appendix D of 
-    W. Thollet PdD manuscrit.
-
-    Parameters
-    ----------
-
-        zone : PyTree
-            current zone
-
-        TurboConfiguration : dict
-            as read in `setup.py`
-
-        ProtectedHeight : float
-            Height of the channel flow corresponding to the boundary layer. 
-            By default, 0.05.
-        
-        EndWallsCoefficient : float
-            Multiplicative factor to apply on source terms.
-
-    Returns
-    -------
-
-        BLProtectionSourceTerms : dict
-            Source terms to protect the boundary layer. The keys are Density (=0), MomentumX, 
-            MomentumY, MomentumZ and EnergyStagnation (=0).
-    
-    '''
-    zoneCopy = I.copyTree(zone)
-
-    rowName = I.getValue(I.getNodeFromType1(zoneCopy, 'FamilyName_t'))
-    RotationSpeed = TurboConfiguration['Rows'][rowName]['RotationSpeed']
-
-    FlowSolution = J.getVars2Dict(zoneCopy, Container='FlowSolution#Init')
-    DataSourceTerms = J.getVars2Dict(zoneCopy, Container='FlowSolution#DataSourceTerm')
-
-    # Extract Boundary layers edges, based on ProtectedHeightPercentage
-    I._renameNode(zoneCopy, 'FlowSolution#Init', 'FlowSolution#Centers')
-    I._renameNode(zoneCopy, 'FlowSolution#Height', 'FlowSolution')
-    BoundarayLayerEdgeAtHub    = P.isoSurfMC(zoneCopy, 'ChannelHeight', ProtectedHeight)
-    BoundarayLayerEdgeAtShroud = P.isoSurfMC(zoneCopy, 'ChannelHeight', 1-ProtectedHeight)
-    C._node2Center__(zoneCopy, 'ChannelHeight')
-    h, = J.getVars(zoneCopy, VariablesName=['ChannelHeight'], Container='FlowSolution#Centers')
-
-    # Coordinates
-    radius, theta = DataSourceTerms['radius'], DataSourceTerms['theta']
-    cosTheta = np.cos(theta)
-    sinTheta = np.sin(theta)
-    # Flow data
-    Vx = FlowSolution['MomentumX'] / FlowSolution['Density']
-    Vy = FlowSolution['MomentumY'] / FlowSolution['Density']
-    Vz = FlowSolution['MomentumZ'] / FlowSolution['Density']
-    Wr =  Vy*cosTheta + Vz*sinTheta 
-    Wt = -Vy*sinTheta + Vz*cosTheta - radius*RotationSpeed
-    Wmag = (Vx**2+Wr**2+Wt**2)**0.5
-
-    def get_mean_W_and_gradP(z):
-        if not z: 
-            return Wmag, 0, 0
-
-        C._initVars(z, 'radius=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
-        C._initVars(z, 'theta=arctan2({CoordinateZ}, {CoordinateY})')
-        C._initVars(z, 'Wx={MomentumX}/{Density}')
-        C._initVars(z, 'Vy={MomentumY}/{Density}')
-        C._initVars(z, 'Vz={MomentumZ}/{Density}')
-        C._initVars(z, 'Wr={Vy}*cos({theta})+{Vz}*sin({theta})')
-        C._initVars(z, 'Wt=-{{Vy}}*sin({{theta}})+{{Vz}}*cos({{theta}})-{{radius}}*{}'.format(RotationSpeed))
-        C._initVars(z, 'Wmag=({Wx}**2+{Wr}**2+{Wt}**2)**0.5')
-        C._initVars(z, 'DpDr=cos({theta})*{DpDy}+sin({theta})*{DpDz}')
-
-        meanWmag = C.getMeanValue(z, 'Wmag')
-        meanDpDx = C.getMeanValue(z, 'DpDx')
-        meanDpDr = C.getMeanValue(z, 'DpDr')
-        return meanWmag, meanDpDx, meanDpDr
-
-    W_HubEdge, DpDx_HubEdge, DpDr_HubEdge = get_mean_W_and_gradP(BoundarayLayerEdgeAtHub)
-    W_ShroudEdge, DpDx_ShroudEdge, DpDr_ShroudEdge = get_mean_W_and_gradP(BoundarayLayerEdgeAtShroud)
-
-    zeros = np.zeros(Wmag.shape)
-    # Source terms
-    S_BL_Hub_x    = np.minimum(zeros, (1. - (Wmag /    W_HubEdge)**2)) * EndWallsCoefficient * DpDx_HubEdge
-    S_BL_Hub_r    = np.minimum(zeros, (1. - (Wmag /    W_HubEdge)**2)) * EndWallsCoefficient * DpDr_HubEdge
-    S_BL_Shroud_x = np.minimum(zeros, (1. - (Wmag / W_ShroudEdge)**2)) * EndWallsCoefficient * DpDx_ShroudEdge
-    S_BL_Shroud_r = np.minimum(zeros, (1. - (Wmag / W_ShroudEdge)**2)) * EndWallsCoefficient * DpDr_ShroudEdge
-
-    # Terms applied only in the BL protected area
-    S_BL_x = S_BL_Hub_x * (h<ProtectedHeight) + S_BL_Shroud_x * (h>1-ProtectedHeight)
-    S_BL_r = S_BL_Hub_r * (h<ProtectedHeight) + S_BL_Shroud_r * (h>1-ProtectedHeight)
-
-    BLProtectionSourceTerms = dict(
-        Density                 = zeros,
-        MomentumX               = S_BL_x,
-        MomentumY               = cosTheta * S_BL_r,
-        MomentumZ               = sinTheta * S_BL_r,
-        EnergyStagnationDensity = zeros
-    )
-    return BLProtectionSourceTerms
-
-def computeBodyForce_EndWallsProtection_OLD(zone, TurboConfiguration, ProtectedHeightPercentage=5., tol=1e-5):
-    ''' 
-    Protection of the boudary layer ofr body-force modelling, as explain in the appendix D of 
-    W. Thollet PdD manuscrit.
-
-    .. danger:: Available only for structured mesh. Furthermore, there must be a unique BF zone.
-
-    Parameters
-    ----------
-
-        zone : PyTree
-            current zone
-
-        TurboConfiguration : dict
-            as read in `setup.py`
-
-        ProtectedHeightPercentage : float
-            Percentage of the total height of the channel flow corresponding to the boundary layer. 
-            By default, 5.
-
-        tol : float
-            minimum value for quantities used as a denominator.
-
-    Returns
-    -------
-
-        BLProtectionSourceTerms : dict
-            Source terms to protect the boundary layer. The keys are Density (=0), MomentumX, 
-            MomentumY, MomentumZ and EnergyStagnation (=0).
-    
-    '''
-
-    rowName = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
-    RotationSpeed = TurboConfiguration['Rows'][rowName]['RotationSpeed']
-
-    FlowSolution = J.getVars2Dict(zone, Container='FlowSolution#Init')
-    DataSourceTerms = J.getVars2Dict(zone, Container='FlowSolution#DataSourceTerm')
-
-    # Coordinates
-    x, radius, theta = DataSourceTerms['xCell'], DataSourceTerms['radius'], DataSourceTerms['theta']
-    cosTheta = np.cos(theta)
-    sinTheta = np.sin(theta)
-
-    # Flow data
-    Density = np.maximum(FlowSolution['Density'], tol)
-    Vx, Vy, Vz = FlowSolution['MomentumX']/Density, FlowSolution['MomentumY'] / Density, FlowSolution['MomentumZ']/Density
-    Wx, Wr, Wt = Vx, Vy*cosTheta+Vz*sinTheta, -Vy*sinTheta+Vz*cosTheta-radius*RotationSpeed
-    Wmag = np.maximum(tol, (Wx**2+Wr**2+Wt**2)**0.5)
-
-    # Find radial direction
-    dr_i = np.absolute(radius[-1, 0, 0] - radius[0, 0, 0])
-    dr_j = np.absolute(radius[ 0,-1, 0] - radius[0, 0, 0])
-    dr_k = np.absolute(radius[ 0, 0,-1] - radius[0, 0, 0])
-    dr_array = np.array([dr_i, dr_j, dr_k])
-    radialIndex = np.argmin(dr_array) # 0, 1 or 2, for i, j or k
-
-    Npoints_bottomHalf = int(np.floor(radius.shape[radialIndex]/2.))
-    Npoints_topHalf = radius.shape[radialIndex] - Npoints_bottomHalf
-
-    if radialIndex == 0:
-        radialMeshLine = ((x[0, 0, 0]-x[:, 0, 0])**2 + (radius[0, 0, 0]-radius[:, 0, 0])**2)**0.5
-    elif radialIndex == 1:
-        radialMeshLine = ((x[0, 0, 0]-x[0, :, 0])**2 + (radius[0, 0, 0]-radius[0, :, 0])**2)**0.5
-    else:
-        radialMeshLine = ((x[0, 0, 0]-x[0, 0, :])**2 + (radius[0, 0, 0]-radius[0, 0, :])**2)**0.5
-
-    # These three lines do not depend on the radial direction index
-    radialMeshLineLength = np.absolute(radialMeshLine[-1] - radialMeshLine[0])
-    hubEdgeIndex = np.argmin(np.absolute(radialMeshLine - radialMeshLineLength * ProtectedHeightPercentage/100.))
-    shroudEdgeIndex = np.argmin(np.absolute(radialMeshLine - radialMeshLineLength * ProtectedHeightPercentage/100.))
-
-    def broadcastBLEdgeValues(vector):
-        '''
-        From the radial distribution **vector**, locate values at the boudary layer edges near the hub and the 
-        shroud and broadcast them on the whole span of the flow channel.
-
-        Parameters
-        ----------
-            vector : numpy.array
-                3D-array corresponding of a field of interest 
-
-        Returns
-        -------
-            vectorEdges : numpy.array
-                3D-array uniform in the radial direction on each half of the flow channel, 
-                built by repeatition of the surfaces at the edge of the boudary layers at hub and shroud.
-        '''
-        if radialIndex == 0:
-            vectorAtHubBL            = vector[hubEdgeIndex, :, :]
-            vectorAtShroudBL         = vector[shroudEdgeIndex, :, :]
-            vectorAtHubBLRepeated    = np.repeat(vectorAtHubBL[np.newaxis, :, :], Npoints_bottomHalf, axis=2)
-            vectorAtShroudBLRepeated = np.repeat(vectorAtShroudBL[np.newaxis, :, :], Npoints_topHalf, axis=2)
-        elif radialIndex == 1:
-            vectorAtHubBL            = vector[:, hubEdgeIndex, :]
-            vectorAtShroudBL         = vector[:, shroudEdgeIndex, :]
-            vectorAtHubBLRepeated    = np.repeat(vectorAtHubBL[:, np.newaxis, :], Npoints_bottomHalf, axis=2)
-            vectorAtShroudBLRepeated = np.repeat(vectorAtShroudBL[:, np.newaxis, :], Npoints_topHalf, axis=2)
-        else:
-            vectorAtHubBL            = vector[:, :, hubEdgeIndex]
-            vectorAtShroudBL         = vector[:, :, shroudEdgeIndex]
-            vectorAtHubBLRepeated    = np.repeat(vectorAtHubBL[:, :, np.newaxis], Npoints_bottomHalf, axis=2)
-            vectorAtShroudBLRepeated = np.repeat(vectorAtShroudBL[:, :, np.newaxis], Npoints_topHalf, axis=2)
-
-        vectorEdges = np.concatenate((vectorAtHubBLRepeated, vectorAtShroudBLRepeated), axis=2)
-        return vectorEdges
-
-    Wedges = broadcastBLEdgeValues(Wmag)
-    DpDxEdges = broadcastBLEdgeValues(FlowSolution['DpDx'])
-    DpDyEdges = broadcastBLEdgeValues(FlowSolution['DpDy'])
-    DpDzEdges = broadcastBLEdgeValues(FlowSolution['DpDz'])
-    DpDrEdges = cosTheta*DpDyEdges + sinTheta*DpDzEdges
-
-    # Source terms
-    S_corr_BL_x = (1. - np.minimum((Wmag/Wedges)**2.,1.) ) * DpDxEdges * 10.
-    S_corr_BL_r = (1. - np.minimum((Wmag/Wedges)**2.,1.) ) * DpDrEdges * 10.
-    S_corr_BL_y = cosTheta*S_corr_BL_r
-    S_corr_BL_z = sinTheta*S_corr_BL_r
-
-    BLProtectionSourceTerms = dict(
-        Density                 = np.zeros(Wmag.shape),
-        MomentumX               = S_corr_BL_x,
-        MomentumY               = S_corr_BL_y,
-        MomentumZ               = S_corr_BL_z,
-        EnergyStagnationDensity = np.zeros(Wmag.shape)
-    )
-    return BLProtectionSourceTerms
-
-def computeBodyForce_ThrustSpread(zone, Thrust, tol=1e-5):
-    '''
-    Compute actualized source terms corresponding to the Tspread model.
-
-    Parameters
-    ----------
-
-        zone : PyTree
-            current zone
-        
-        Thrust : float
-            Value of thrust (in Newtons) to apply on the whole volume of body-force zones
-
-        tol : float
-            minimum value for quantities used as a denominator.
-
-    Returns
-    -------
-
-        NewSourceTerms : dict
-            Computed source terms. The keys are Density, MomentumX, MomentumY, 
-            MomentumZ and EnergyStagnation. 
-    '''
-
-    FlowSolution    = J.getVars2Dict(zone, Container='FlowSolution#Init')
-    DataSourceTerms = J.getVars2Dict(zone, Container='FlowSolution#DataSourceTerm')
-
-    # Flow data
-    Density = np.maximum(FlowSolution['Density'], tol)
-    Vx, Vy, Vz = FlowSolution['MomentumX']/Density, FlowSolution['MomentumY']/Density, FlowSolution['MomentumZ']/Density
-    Vmag = np.maximum(tol, (Vx**2+Vy**2+Vz**2)**0.5)
-
-    f = Thrust / DataSourceTerms['totalVolume']
-
-    NewSourceTerms = dict(
-        Density                 = np.zeros(Vmag.shape),
-        MomentumX               = Density * f * Vx/Vmag,
-        MomentumY               = Density * f * Vy/Vmag,
-        MomentumZ               = Density * f * Vz/Vmag,
-        EnergyStagnationDensity = Density * f * Vmag,
-    )
-
-    return NewSourceTerms
-
-def computeBodyForce_constant(zone, SourceTerms):
-    '''
-    Compute constant source terms (reshape given source terms if they are uniform).
-
-    Parameters
-    ----------
-
-        zone : PyTree
-            current zone
-        
-        SourceTerms : dict
-            Source terms to apply. For each value, the given value may be a 
-            float or a numpy array (the shape must correspond to the zone shape).
-
-    Returns
-    -------
-
-        NewSourceTerms : dict
-            Computed source terms. 
-    '''
-
-    FlowSolution    = J.getVars2Dict(zone, Container='FlowSolution#Init')
-    ones = np.ones(FlowSolution['Density'].shape)
-
-    NewSourceTerms = dict()
-    for key, value in SourceTerms.items():
-        NewSourceTerms[key] = value * ones
-
-    return NewSourceTerms
-
-def computeBodyForce_ShockWaveLoss(zone, FluidProperties):
-    '''
-    Compute the volumic force parallel to the flow (and in the opposite direction) corresponding 
-    to shock wave loss. 
-
-    .. danger::
-        
-        WORK IN PROGRESS, DO NOT USE THIS FUNCTION !
-
-    .. note::
-        
-        See the following reference for details on equations:
-
-        Pazireh and Defoe, 
-        A New Loss Generation Body Force Model for Fan/Compressor Blade Rows: Application to Uniform 
-        and Non-Uniform Inflow in Rotor 67,
-        Journal of Turbomachinery (2022)
-
-    Parameters
-    ----------
-
-        zone : PyTree
-            current zone
-        
-        FluidProperties : dict
-            as read in `setup.py`
-
-        TurboConfiguration : dict
-            as read in `setup.py`
-
-        tol : float
-            minimum value for quantities used as a denominator.
-
-    Returns
-    -------
-
-        NewSourceTerms : dict
-            Computed source terms. The keys are Density, MomentumX, MomentumY, 
-            MomentumZ and EnergyStagnation. Blockage effect is included.
-    '''
-    cv = FluidProperties['cv']
-    R = FluidProperties['IdealGasConstant']
-    gamma = FluidProperties['Gamma']
-    PressureStagnationLossRatio = cv/R * 2*gamma*(gamma-1) / 3. / (gamma+1)**2 * (Mrel**2-1)**3
-    fp = Pt_rel * PressureStagnationLossRatio / DataSourceTerm['blade2BladeDistance']
-    
-    return fp
+    return fx, fy, fz, fr, ft 

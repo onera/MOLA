@@ -2700,21 +2700,29 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
     
     FluidProperties    = setup.FluidProperties
     TurboConfiguration = setup.TurboConfiguration
-    BodyForceInputData = setup.BodyForceInputData
     BodyForceInitialIteration = getOption('BodyForceInitialIteration', default=1)
 
-    for BodyForceFamily, BodyForceParams in BodyForceInputData.items():
+    for BodyForceComponent in setup.BodyForceInputData:
 
-        relax = BodyForceParams.get('relax', 0.5)
-        BodyForceFinalIteration = BodyForceInitialIteration + BodyForceParams.get('rampIterations', 50.)
+        BFtype = BodyForceComponent.get('type', 'AnalyticalByFamily')
+        assert BFtype =='AnalyticalByFamily', 'Body-force "type" must be "AnalyticalByFamily" for now'
+
+        BodyForceFamily = BodyForceComponent['Family']
+        BodyForceParameters = copy.deepcopy(BodyForceComponent['BodyForceParameters'])
+        CouplingOptions = copy.deepcopy(BodyForceComponent.get('CouplingOptions', dict()))
+
+        relax = CouplingOptions.get('relax', 0.5)
+        BodyForceFinalIteration = BodyForceInitialIteration + CouplingOptions.get('rampIterations', 50.)
         coeff_eff = J.rampFunction(BodyForceInitialIteration, BodyForceFinalIteration, 0., 1.)
+
+        NewSourceTermsGlobal = BF.computeBodyForce(newTreeWithSourceTerms, BodyForceFamily, BodyForceParameters, FluidProperties, TurboConfiguration)
 
         for zone in C.getFamilyZones(newTreeWithSourceTerms, BodyForceFamily):
 
             DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
             if not DataSourceTermNode: continue
 
-            NewSourceTerms = BF.computeBodyForce(zone, BodyForceParams, FluidProperties, TurboConfiguration)
+            NewSourceTerms = NewSourceTermsGlobal[I.getName(zone)]
 
             for key, value in NewSourceTerms.items():
                 NewSourceTerms[key] = coeff_eff(CurrentIteration) * value
@@ -2757,6 +2765,7 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
 
     I._rmNodesByName(newTreeWithSourceTerms, 'FlowSolution#Init')
     I._rmNodesByName(newTreeWithSourceTerms, 'FlowSolution#DataSourceTerm')
+    I._rmNodesByName(newTreeWithSourceTerms, 'FlowSolution#tmpMOLAFlow')
     Cmpi.barrier()
     return newTreeWithSourceTerms
 
