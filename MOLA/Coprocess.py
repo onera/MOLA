@@ -1102,8 +1102,7 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
             for varList, meanFunction in VarAndMeanList:
                 for var in varList:
                     data[var] = meanFunction(surface, var)
-        except NameError as e:
-            raise e
+        except:
             # Variables cannot be found
             check = False
 
@@ -1125,6 +1124,149 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
     Cmpi.barrier()
     I.__FlowSolutionNodes__ = previous_container
     return data
+
+def integrateVariablesOnVolume(t, VarAndMeanList, container='FlowSolution#Init', localComm=comm):
+    '''
+    Integrate variables on a volume.
+
+    Parameters
+    ----------
+
+        t : PyTree or list of zones
+            Tree for integration. Required variables must be present already
+            in **t**.
+
+        VarAndMeanList : :py:class:`list` of :py:class:`tuple`
+            List of 2-tuples. Each tuple associates:
+
+                * a list of variables, that must be found in **t**
+
+                * a function to perform the weighted integration wished for
+                  variables
+
+            For example:
+
+            ::
+
+                VarAndMeanList = [([var1, var2], meanFunction1),
+                                  ([var3], meanFunction2), ...]
+
+            Example of function for a massflow weighted integration:
+
+            ::
+
+                import Converter.PyTree as C
+                import Post.PyTree      as P
+                def massflowWeightedIntegral(t, var):
+                    t = C.initVars(t, 'rou_var={MomentumX}*{%s}'%(var))
+                    integ  = abs(P.integNorm(t, 'rou_var')[0][0])
+                    return integ
+        
+        container : str
+            Name of the `FlowSolution_t` node with a ``GridLocation='CellCenter'`` on which perform the average.  
+        
+        localComm : MPI communicator
+            local communicator for processors involved in this function (t may be a filtered tree, a zone or a list of zones)
+
+    Returns
+    -------
+
+        data : :py:class:`dict` or :py:obj:`None`
+            dictionary that contains integrated values of variables. If
+            **t** is empty, does not contain a ``FlowSolution`` node or
+            does not contains required variables, the function returns
+            :py:obj:`None`.
+
+    '''
+    t = I.copyRef(t)
+    previous_container = I.__FlowSolutionCenters__
+    I.__FlowSolutionCenters__ = container
+
+    check =  True
+    data = dict()
+    if I.getNodesFromType(t, 'FlowSolution_t') == []:
+        data['Volume'] = 0
+        for varList, meanFunction in VarAndMeanList:
+            for var in varList:
+                data[var] = 0
+    else:
+        C._initVars(t, 'centers:ones=1')
+        data['Volume'] = P.integ(t, var='centers:ones')[0]
+        try:
+            for varList, meanFunction in VarAndMeanList:
+                for var in varList:
+                    data[var] = meanFunction(t, var)
+        except:
+            # Variables cannot be found
+            check = False
+
+    # Check if volume > 0
+    localComm.barrier()
+    data['Volume'] = localComm.allreduce(data['Volume'], op=MPI.SUM)
+    localComm.barrier()
+    if not check or data['Volume'] == 0:
+        I.__FlowSolutionCenters__ = previous_container
+        return None
+
+    # MPI Reduction to sum quantities
+    localComm.barrier()
+    for varList, meanFunction in VarAndMeanList:
+        for var in varList:
+            data[var] = localComm.allreduce(data[var], op=MPI.SUM) 
+    localComm.barrier()
+    I.__FlowSolutionCenters__ = previous_container
+    return data
+
+def volumicAverage(t, container='FlowSolution#Init', localComm=comm):
+    '''
+    Perform a volumic average of quantities in the given **container**.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Input tree
+
+        container : str
+            Name of the `FlowSolution_t` node with a ``GridLocation='CellCenter'`` on which perform the average.
+
+        localComm : MPI communicator
+            local communicator for processors involved in this function (t may be a filtered tree, a zone or a list of zones) 
+
+    Returns
+    -------
+
+        dict
+
+            Dictionary with averaged quantities, plus the volume ('Volume') of the domain.
+    '''
+    def volumicIntegral(t, var):
+        integ  = P.integ(t, var)[0]
+        return integ
+
+    # Get the list of variables in the first zone with the given container
+    varList = []
+    for zone in I.getZones(t):
+        if I.getNodeFromName1(zone, container):
+            varList = J.getVars2Dict(zone, Container=container)
+            break
+    # Rename (cell-centered) variables for Cassiopee
+    varList = [f'centers:{v}' for v in varList]
+
+    # integratedData = integrateVariablesOnVolume(t, [(varList, volumicIntegral)], container=container, localComm=localComm)
+    integratedData = dict((var, 0.) for var in varList)
+    integratedData['Volume'] = 1.
+    # localComm.barrier()
+
+    averagedData = dict()
+    for k, v in integratedData.items():
+        k = k.replace('centers:', '')
+        if k == 'Volume':
+            averagedData[k] = v
+        else:
+            averagedData[k] = v / integratedData['Volume']
+
+    return averagedData
 
 def updateAndWriteSetup(setup):
     '''
@@ -2694,13 +2836,63 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
             _description_
     '''
 
+    def getBodyForceZones(t, BodyForceFamily):
+        '''
+        Return zones in BodyForceFamily and processors that manage them, and create also 
+        a sub-commnunicator with these processors
+        '''
+        zones = []
+        for zone in C.getFamilyZones(t, BodyForceFamily):
+            DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
+            if DataSourceTermNode:
+                zones.append(zone)
+
+        # Create a subcommunicator for processors managing t
+        procDict = Cmpi.getProcDict(zones)
+        procList = list(set(p for p in procDict.values()))
+        # printCo(f'{procList}', rank, J.MAGE)
+        newGroup = comm.group.Incl(procList)
+        subComm = comm.Create_group(newGroup)
+
+        return zones, subComm, procList
+    
+    # def splitCommunicatorByBodyForceFamily(t, BodyForceFamilies):
+    #     zones = []
+    #     color = -1
+    #     for famColor, BodyForceFamily in enumerate(BodyForceFamilies):
+    #         for zone in C.getFamilyZones(t, BodyForceFamily):
+    #             DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
+    #             if DataSourceTermNode:
+    #                 zones.append(zone)
+    #                 if color == -1: 
+    #                     color = famColor
+    #                 else:
+    #                     assert color == famColor
+
+    #     commBF = comm.Split(color=color, key=0)
+    #     return zones, commBF
+
+    def compute_optimal_relaxation(NewSourceTerms, previousSourceTerms, relax):
+        # Optimal relaxation coefficient
+        NormOfNewSourceTerms = sum([x**2 for x in NewSourceTerms.values()])**0.5
+        NormOfPreviousSourceTerms = sum([x**2 for x in previousSourceTerms.values()])**0.5
+        num = np.amax( np.absolute(NormOfNewSourceTerms - NormOfPreviousSourceTerms) )
+        den = np.amax( np.absolute(NormOfNewSourceTerms + NormOfPreviousSourceTerms) )
+        if den != 0:
+            relax_optim  =  num / den 
+            relax = min(max(relax_optim, relax), 0.999) # must be between relax and 0.999
+        else:
+            relax = 0.999
+        printCo(f'  relax = {relax}', 0, J.MAGE)
+        return relax
+
     printCo('Update body force...', 0, color=J.CYAN)
 
     newTreeWithSourceTerms = I.copyRef(t)
     
     FluidProperties    = setup.FluidProperties
     TurboConfiguration = setup.TurboConfiguration
-    BodyForceInitialIteration = getOption('BodyForceInitialIteration', default=1)
+    BodyForceInitialIteration = setup.ReferenceValues['CoprocessOptions'].get('BodyForceInitialIteration', 1)
 
     for BodyForceComponent in setup.BodyForceInputData:
 
@@ -2715,13 +2907,28 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
         BodyForceFinalIteration = BodyForceInitialIteration + CouplingOptions.get('rampIterations', 50.)
         coeff_eff = J.rampFunction(BodyForceInitialIteration, BodyForceFinalIteration, 0., 1.)
 
-        NewSourceTermsGlobal = BF.computeBodyForce(newTreeWithSourceTerms, BodyForceFamily, BodyForceParameters, FluidProperties, TurboConfiguration)
+        # Create a local communicator active only for processors that manage zones in BodyForceFamily
+        BFzones, subComm, procList = getBodyForceZones(newTreeWithSourceTerms, BodyForceFamily)
+        BodyForceParameters['communicator'] = subComm
+        if rank not in procList:
+            # Only processors involved in the computation of source terms for BodyForceFamily
+            # read lines that follow in the loop
+            continue
 
-        for zone in C.getFamilyZones(newTreeWithSourceTerms, BodyForceFamily):
+        # Add FluidProperties and TurboConfiguration in BodyForceParameters, that could be a dict or a list of dict
+        if isinstance(BodyForceParameters, list):
+            for BFParams in BodyForceParameters:
+                BFParams['FluidProperties'] = FluidProperties
+                BFParams['TurboConfiguration'] = TurboConfiguration
+        else:
+            BodyForceParameters['FluidProperties'] = FluidProperties
+            BodyForceParameters['TurboConfiguration'] = TurboConfiguration
+
+        NewSourceTermsGlobal = BF.computeBodyForce(BFzones, BodyForceParameters)
+
+        for zone in BFzones:
 
             DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
-            if not DataSourceTermNode: continue
-
             NewSourceTerms = NewSourceTermsGlobal[I.getName(zone)]
 
             for key, value in NewSourceTerms.items():
@@ -2741,16 +2948,7 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
                     previousSourceTerms[name] = 0.
             
             # # Optimal relaxation coefficient
-            # NormOfNewSourceTerms = sum([x**2 for x in NewSourceTerms.values()])**0.5
-            # NormOfPreviousSourceTerms = sum([x**2 for x in previousSourceTerms.values()])**0.5
-            # num = np.amax( np.absolute(NormOfNewSourceTerms - NormOfPreviousSourceTerms) )
-            # den = np.amax( np.absolute(NormOfNewSourceTerms + NormOfPreviousSourceTerms) )
-            # if den != 0:
-            #     relax_optim  =  num / den 
-            #     relax = min(max(relax_optim, relax), 0.999) # must be between relax and 0.999
-            # else:
-            #     relax = 0.999
-            # printCo(f'  relax = {relax}', 0, J.MAGE)
+            # relax = compute_optimal_relaxation(NewSourceTerms, previousSourceTerms, relax)
 
             ActiveSourceTermNode = I.getNodeFromName1(DataSourceTermNode, 'ActiveSourceTerm')
             if ActiveSourceTermNode:
@@ -2762,6 +2960,8 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
                 newSourceTerm = (1-relax) * NewSourceTerms[name] + relax * previousSourceTerms[name]
                 newSourceTerm *= ActiveSourceTerm
                 I.newDataArray(name=name, value=newSourceTerm, parent=FSSourceTerm)
+            
+            subComm.Free()
 
     I._rmNodesByName(newTreeWithSourceTerms, 'FlowSolution#Init')
     I._rmNodesByName(newTreeWithSourceTerms, 'FlowSolution#DataSourceTerm')

@@ -1145,9 +1145,10 @@ BodyForceModel = dict(
     ThrustSpread = BFM.BodyForceModel_ThrustSpread,
     constant = BFM.BodyForceModel_constant,
     ShockWaveLoss = BFM.BodyForceModel_ShockWaveLoss,
+    EndWallsProtection = BFM.BodyForceModel_EndWallsProtection,
 )
 
-def computeBodyForce(t, BodyForceFamily, BodyForceParameters, FluidProperties, TurboConfiguration):
+def computeBodyForce(t, BodyForceParameters):
     '''
     Compute Body force source terms.
 
@@ -1157,9 +1158,6 @@ def computeBodyForce(t, BodyForceFamily, BodyForceParameters, FluidProperties, T
 
             Tree in which the source terms will be compute
         
-        BodyForceFamily : str
-            Family of zones to compute source terms on.
-
         BodyForceParameters : dict
             Body force parameters for the current family.
 
@@ -1178,13 +1176,8 @@ def computeBodyForce(t, BodyForceFamily, BodyForceParameters, FluidProperties, T
     # Compute and gather all the required source terms
     TotalSourceTermsGlobal = dict()
     for modelParameters in BodyForceParameters:
-
         model = modelParameters.pop('model')
-        modelParameters['FluidProperties'] = FluidProperties
-        modelParameters['TurboConfiguration'] = TurboConfiguration
-
-        NewSourceTermsGlobal = BodyForceModel[model](t, BodyForceFamily, modelParameters)
-            
+        NewSourceTermsGlobal = BodyForceModel[model](t, modelParameters)
         # Add the computed source terms to the total source terms
         addDictionaries(TotalSourceTermsGlobal, NewSourceTermsGlobal)
 
@@ -1325,6 +1318,8 @@ def getAdditionalFields(zone, FluidProperties, RotationSpeed, tol=1e-5):
     )
 
     J.set(zone, 'FlowSolution#tmpMOLAFlow', childType='FlowSolution_t', **tmpMOLAFlow)
+    tmpMOLAFlowNode = I.getNodeFromName(zone, 'FlowSolution#tmpMOLAFlow')
+    I.createChild(tmpMOLAFlowNode, 'GridLocation', 'GridLocation_t', value='CellCenter')
 
     return tmpMOLAFlow 
 
@@ -1362,3 +1357,6 @@ def getForceComponents(fn, fp, tmpMOLAFlow):
     fz =  np.cos(tmpMOLAFlow['theta']) * ft + np.sin(tmpMOLAFlow['theta']) * fr
 
     return fx, fy, fz, fr, ft 
+
+def getFieldsAtLeadingEdge(t):
+    ...
