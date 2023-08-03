@@ -27,6 +27,22 @@ def apply(workflow):
 
 def setdefault(workflow):
 
+    # Set default parameters
+    RunManagementDefault = dict(
+        JobName='MOLAjob',
+        RunDirectory='.',
+        NumberOfProcessors=None,
+        AER='not_given',
+        FilesAndDirectories=[f"{os.getenv('MOLA')}/templates/compute.py"],
+        SubmitJob=False,
+        TimeOutInSeconds = 'auto',
+        Machine = 'auto', # or 'spiro-dtis', 'topaze'...
+        LauncherCommand = 'auto', # or 'sbatch job.sh', './job.sh'...
+        SecondsMargin4QuitBeforeTimeOut = 180.0
+        )
+    for key, default_value in RunManagementDefault.items():
+        workflow.RunManagement.setdefault(key, default_value)
+
     # NumberOfProcessors must be set before this stage
     # It may have been set during an automatic splitting operation
     ERR_NPROC = misc.RED+f'The value {workflow.RunManagement["NumberOfProcessors"]} for NumberOfProcessors is not allowed. It must be an integer'+misc.ENDC
@@ -54,4 +70,11 @@ def setdefault(workflow):
 
     if workflow.RunManagement['Machine'] == 'spiro':
         workflow.RunManagement.setdefault('SlurmQualityOfService', 'c1_test_giga')
+        
+    if workflow.RunManagement['AER'] == '':
+        # if an empty string is written in the tree, elsA is bugging with the following error message:
+        #   File "/stck/elsa/Public/v5.1.03/Dist/lib/py/elsA/Parse/loadCGNSPython.py", line 143, in loadOne
+        #     if not isinstance(data[0], np.string_) and not isinstance(data[0], np.str_) and data.dtype not in [np.float32,np.float64,np.int32,np.int64,'|S1']:
+        #   IndexError: index 0 is out of bounds for axis 0 with size 0
+        workflow.RunManagement['AER'] == 'not_given' 
 

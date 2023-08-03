@@ -86,17 +86,20 @@ def write_run_scripts(workflow):
     write_job_launcher(workflow)
 
 def write_data_files(workflow):
-    os.makedirs(os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT'), exist_ok=True)
-    workflow.tree.save(os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT', 'fields.cgns'))
-    mainCGNS = workflow.tree.copy()
 
-    # Replace all FlowSolution#Init nodes with paths to OUTPUT/fields.cgns
-    for FlowSolutionInit in mainCGNS.group(Name='FlowSolution#Init', Type='FlowSolution', Depth=3):
+    t = workflow.tree
+
+    # Save fields.cgns with the 3D fields
+    os.makedirs(os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT'), exist_ok=True)
+    t.save(os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT', 'fields.cgns'))
+
+    # Save main.cgns with links to fields.cgns for FlowSolution#Init nodes
+    # --> Replace all FlowSolution#Init nodes with paths to OUTPUT/fields.cgns
+    for FlowSolutionInit in t.group(Name='FlowSolution#Init', Type='FlowSolution', Depth=3):
         path = FlowSolutionInit.path()
         FlowSolutionInit.remove()
-        mainCGNS.addLink(path=path, target_file='OUTPUT/fields.cgns', target_path=path)
-
-    workflow.tree.save(os.path.join(workflow.RunManagement['RunDirectory'], 'main.cgns'))
+        t.addLink(path=path, target_file='OUTPUT/fields.cgns', target_path=path)
+    t.save(os.path.join(workflow.RunManagement['RunDirectory'], 'main.cgns'))
 
 def write_compute(workflow):
 
@@ -212,7 +215,6 @@ def compute(workflow):
         elsAdics = [CfdDict, ModDict, NumDict]
 
         for obj, dic in zip(elsAobjs, elsAdics):
-            # [print(f'{v} = {dic[v]} ({type(dic[v])})') for v in dic if not isinstance(dic[v], dict)]
             [obj.set(v,dic[v]) for v in dic if not isinstance(dic[v], dict)]
 
         for k in NumDict:

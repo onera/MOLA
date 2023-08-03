@@ -22,6 +22,13 @@ import Converter.Internal as I
 
 from mola import cgns
 
+def define_bc_family(workflow, Family, Value):
+    familyNode = workflow.tree.get(Name=Family, Type='Family', Depth=2)
+    familyNode.findAndRemoveNode(Name='.Solver#BC', Depth=1)
+    familyNode.findAndRemoveNodes(Type='FamilyBC', Depth=1)
+    cgns.Node( Name='FamilyBC', Value=Value, Type='FamilyBC', Parent=familyNode )
+    return familyNode
+
 def walladia(workflow, Family, Motion=None):
     '''
     Set a viscous wall boundary condition.
@@ -47,11 +54,7 @@ def walladia(workflow, Family, Motion=None):
                     )
 
     '''
-    wall = I.getNodeFromNameAndType(workflow.tree, Family, 'Family_t')
-    I._rmNodesByName(wall, '.Solver#BC')
-    I._rmNodesByType(wall, 'FamilyBC_t')
-    I.newFamilyBC(value='BCWallViscous', parent=wall)
-    cgns.castNode(wall)
+    wall = define_bc_family(workflow, Family, 'BCWallViscous')
 
     if Motion:
         # For elsA, the rotation must be around one axis only
@@ -92,11 +95,7 @@ def wallslip(workflow, Family):
             Name of the family on which the boundary condition will be imposed
 
     '''
-    wall = I.getNodeFromNameAndType(workflow.tree, Family, 'Family_t')
-    I._rmNodesByName(wall, '.Solver#BC')
-    I._rmNodesByType(wall, 'FamilyBC_t')
-    I.newFamilyBC(value='BCWallInviscid', parent=wall)
-    cgns.castNode(wall)
+    define_bc_family(workflow, Family, 'BCWallInviscid')
 
 def nref(workflow, Family):
     '''
@@ -112,12 +111,8 @@ def nref(workflow, Family):
             Name of the family on which the boundary condition will be imposed
 
     '''
-    farfield = I.getNodeFromNameAndType(workflow.tree, Family, 'Family_t')
-    I._rmNodesByName(farfield, '.Solver#BC')
-    I._rmNodesByType(farfield, 'FamilyBC_t')
-    I.newFamilyBC(value='BCFarfield', parent=farfield)
-    cgns.castNode(farfield)
-
+    define_bc_family(workflow, Family, 'BCFarfield')
+ 
 def inj1(workflow, Family, ImposedVariables, bc=None, variableForInterpolation='ChannelHeight'):
     '''
     Generic function to impose a Boundary Condition ``inj1``. The following

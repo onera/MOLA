@@ -351,12 +351,10 @@ def set_numerics(workflow):
     
     SchemeSetup['t_harten'] = 0.01
 
-    # Viscous flux 
-    if workflow.tree.isStructured():
-        SchemeSetup['viscous_fluxes']  = '5p_cor'
-    else:
-        SchemeSetup['viscous_fluxes']  = '5p_cor2' # adapted to unstructured mesh
-        SchemeSetup['implconvectname'] = 'vleer' # only available for unstructured mesh, see https://elsa-e.onera.fr/issues/6492
+    # Viscous flux
+    # TODO Put in CHANGELOG: parameters for unstructured meshes are now used for structured meshes
+    SchemeSetup['viscous_fluxes']  = '5p_cor2' # adapted to unstructured mesh
+    SchemeSetup['implconvectname'] = 'vleer' # only available for unstructured mesh, see https://elsa-e.onera.fr/issues/6492
 
     # _____________________________________________________________________________
     # CFL 

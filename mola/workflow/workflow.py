@@ -227,13 +227,31 @@ class Workflow(object):
         params= self.convert_to_dict()
         self.tree.setParameters(self._workflow_parameters_container_,
                                 **params)
+    
+    def set_workflow_parameters_in_file(self, filename='setup.py'):
+
+        import mola
+        import pprint
+        Lines = '#!/usr/bin/env python3\n'
+        Lines+= f"'''\nMOLA {mola.__version__} setup.py file automatically generated in PREPROCESS\n"
+        Lines+= f"Path to MOLA: {mola.__MOLA_PATH__}\n"
+        Lines+= f"Commit SHA: {mola.__SHA__}\n'''\n\n"
+
+        params = self.convert_to_dict()
+        for key, value in params.items():
+            Lines += f"{key}={pprint.pformat(value)}\n\n"
+
+        with open(filename,'w') as f: f.write(Lines)
+
+        try: os.remove(filename+'c')
+        except: pass
             
     def prepare(self):
         self.assemble()
         self.positioning()
         self.connect()
         self.define_families()
-        self.split_and_distribute()
+        self.split_and_distribute() # FIXME: the tree is wrong after this method (see printPaths, name of bases are wrong)
         self.process_overset()
         self.compute_reference_values()
         self.initialize_flow() # eventually + distance to wall
@@ -244,6 +262,7 @@ class Workflow(object):
         # self.adapt_tree_to_solver()
         # self.check_preprocess() # empty BCs... maybe solver-specific
         self.set_workflow_parameters_in_tree()
+        # self.set_workflow_parameters_in_file()
 
     def assemble(self):
         self.read_meshes()

@@ -148,7 +148,7 @@ class FlowGenerator(object):
                 return Nut_Nu - computeEddyViscosityFromNuTilde(Nu, NuTilde) / Nu
 
             sol = math_tools.secant(residualEddyViscosityRatioFromGivenNuTilde, x0=Nut_Nu*Nu, x1=1.5*Nut_Nu*Nu, ftol=Nut_Nu*0.001, bounds=(1e-14,1.e6))
-            return sol['root']
+            return float(sol['root'])
 
         TurbulentSANuTilde = computeTurbulentSANuTilde(
                                                     Nu=self.Flow['ViscosityMolecular']/self.Flow['Density'],
