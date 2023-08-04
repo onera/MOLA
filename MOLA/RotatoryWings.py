@@ -60,7 +60,8 @@ from . import GenerativeShapeDesign as GSD
 from . import GenerativeVolumeDesign as GVD
 
 def extrudeBladeSupportedOnSpinner(blade_surface, spinner, rotation_center,
-        rotation_axis, wall_cell_height=2e-6, root_to_transition_distance=0.1,
+        rotation_axis, blade_wall_cell_height=2e-6, spinner_wall_cell_height=2e-6,
+        root_to_transition_distance=0.1,
         root_to_transition_number_of_points=100,
         maximum_number_of_points_in_normal_direction=200, distribution_law='ratio',
         distribution_growth_rate=1.05, last_extrusion_cell_height=1e-3,
@@ -114,8 +115,11 @@ def extrudeBladeSupportedOnSpinner(blade_surface, spinner, rotation_center,
         rotation_axis : 3-:py:class:`float` :py:class:`list` or numpy array
             indicates the rotation axis unitary direction vector
 
-        wall_cell_height : float
-            the cell height to verify in wall-adjacent cells
+        blade_wall_cell_height : float
+            the cell height to verify in wall-adjacent cells of the blade
+
+        spinner_wall_cell_height : float
+            the cell height to verify in wall-adjacent cells of the spinner
 
         root_to_transition_distance : float
             radial distance between the spinner wall and the blade location
@@ -187,7 +191,7 @@ def extrudeBladeSupportedOnSpinner(blade_surface, spinner, rotation_center,
     Distributions = _computeBladeDistributions(blade_surface, rotation_axis,
             supported_profile, transition_section_index, distribution_law,
             maximum_extrusion_distance_at_spinner, maximum_number_of_points_in_normal_direction,
-            wall_cell_height, last_extrusion_cell_height,
+            blade_wall_cell_height, last_extrusion_cell_height,
             distribution_growth_rate, smoothing_start_at_layer,
             smoothing_normals_iterations, smoothing_normals_subiterations,
             smoothing_growth_iterations, smoothing_growth_subiterations,
@@ -200,7 +204,7 @@ def extrudeBladeSupportedOnSpinner(blade_surface, spinner, rotation_center,
                                                                   Distributions)
 
     ExtrusionResult = _buildAndJoinCollarGrid(blade_surface, blade_root2trans_extrusion, transition_section_index,
-            root_section_index, supported_profile, supported_match, wall_cell_height,
+            root_section_index, supported_profile, supported_match, spinner_wall_cell_height,
             root_to_transition_number_of_points, CollarLaw='interp1d_cubic')
 
     base, = I.getBases(C.newPyTree(['BLADE',ExtrusionResult]))
@@ -1529,7 +1533,9 @@ def buildMatchMesh(spinner, blade, blade_number, rotation_axis=[-1,0,0],
                    H_grid_interior_spreading=2.0,
                    relax_relative_length=0.5, distance=10., number_of_points=200,
                    farfield_cell_height=1., tip_axial_scaling_at_farfield=0.5,
-                   normal_tension=0.05, DIRECTORY_CHECKME='CHECK_ME'):
+                   normal_tension=0.05, RightHandRuleRotation=True,
+                   radial_H_compromise=0.25,
+                   DIRECTORY_CHECKME='CHECK_ME'):
 
     # NOTE implement so that blade can be a surface (2D) or a volume (3D)
     spinner_front, spinner_middle, spinner_rear = _splitSpinnerHgrid(spinner,
@@ -1573,7 +1579,8 @@ def buildMatchMesh(spinner, blade, blade_number, rotation_axis=[-1,0,0],
 
 
     Hgrids = _buildHgridAroundBlade(external_surfaces, blade, rotation_center,
-                   rotation_axis, H_grid_interior_points, relax_relative_length)
+                   rotation_axis, H_grid_interior_points, relax_relative_length,
+                   radial_H_compromise)
 
     profile = _extractWallAdjacentSectorFullProfile(wires_front, wires_rear,
                                                         external_surfaces)
@@ -1598,7 +1605,7 @@ def buildMatchMesh(spinner, blade, blade_number, rotation_axis=[-1,0,0],
     t = C.newPyTree(['Base',grids_front+Hgrids+grids_rear+fargrids+I.getZones(blade)])
     base, = I.getBases(t)
     J.set(base,'.MeshingParameters',blade_number=blade_number,
-               RightHandRuleRotation=True, # TODO CAVEAT
+               RightHandRuleRotation=RightHandRuleRotation, 
                rotation_axis=rotation_axis, rotation_center=rotation_center)
 
     J.save(P.exteriorFacesStructured(t),
@@ -1762,7 +1769,8 @@ def _getInnerContour(blade,index,increasing_span_indexing='jmin'):
 
 
 def _buildHgridAroundBlade(external_surfaces, blade, rotation_center,
-                           rotation_axis, H_grid_interior_points, relax_relative_length):
+                           rotation_axis, H_grid_interior_points, relax_relative_length,
+                           radial_H_compromise):
     spine = _getSpineFromBlade( blade )
     wall_cell_height = W.distance( W.point( spine ), W.point( spine, 1 ) )
     W.addDistanceRespectToLine(spine, rotation_center, rotation_axis, 'span')
@@ -1771,6 +1779,8 @@ def _buildHgridAroundBlade(external_surfaces, blade, rotation_center,
     MaxSpan = np.max( span )
     s = W.gets( spine )
     span_pts = len(s)
+
+    i_compromise = int(np.round(np.interp(radial_H_compromise, s, np.arange(0,span_pts))))
 
     Tik = Tok()
     nbOfDigits = int(np.ceil(np.log10(span_pts+1)))
@@ -1785,15 +1795,20 @@ def _buildHgridAroundBlade(external_surfaces, blade, rotation_center,
 
     all_ref_index = []
 
-    for i in range( span_pts ):
+    # for i in range( span_pts ):
+    #     boundaries = [ GSD.getBoundary(e, 'imin', i) for e in external_surfaces ]
+    #     inner_contour, inner_cell_size = _getInnerContour(blade,i)
+    #     bnds_split, inner_split, ref_index = W.splitInnerContourFromOutterBoundariesTopology(
+    #                                                 boundaries, inner_contour)
+    #     all_ref_index += [ ref_index ]
+    # ref_index = int(np.median(all_ref_index)) # not always good compromise
+    # ref_index = int(0.5*(np.max(all_ref_index)+np.min(all_ref_index)))
+    # ref_index = all_ref_index[0]
 
-        boundaries = [ GSD.getBoundary(e, 'imin', i) for e in external_surfaces ]
-        inner_contour, inner_cell_size = _getInnerContour(blade,i)
-        bnds_split, inner_split, ref_index = W.splitInnerContourFromOutterBoundariesTopology(
-                                                    boundaries, inner_contour)
-        all_ref_index += [ ref_index ]
-
-    ref_index = int(np.median(all_ref_index))
+    boundaries = [ GSD.getBoundary(e, 'imin', i_compromise) for e in external_surfaces ]
+    inner_contour, inner_cell_size = _getInnerContour(blade,i_compromise)
+    bnds_split, inner_split, ref_index = W.splitInnerContourFromOutterBoundariesTopology(
+                                                boundaries, inner_contour)
 
 
     for i in range( span_pts ):
@@ -2394,6 +2409,7 @@ def _buildHubWallAdjacentSectorWithoutBulb(surface, spinner, blade_number,
                           TFI2_inter_side_2, TFI2_inter_side_1,
                           spinner, TFI2_spinner])
     TFI3_spinner[0] = 'TFI3_spinner'
+    T._reorder(TFI3_spinner,(2,1,3))
     print('making open near-blade 3D TFI at rear... ok')
     C._addBC2Zone(TFI3_spinner,'spinner_wall','FamilySpecified:SPINNER', 'kmin')
     grids = [ TFI3_spinner ]
@@ -2934,9 +2950,15 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
     W.projectNormals(TFI_H_group_bnd, support_central, projection_direction=proj_dir)
 
 
-
     print('fill farfield H with bezier...')
     topo_cell = W.meanSegmentLength(TFI_H_group_topo)
+    axial_cell_length_front = W.distance(W.point(profile_rev_sectors[2],-2),
+                                         W.point(profile_rev_sectors[2],-1))
+    axial_cell_length_rear = W.distance(W.point(profile_rev_sectors[2],0),
+                                        W.point(profile_rev_sectors[2],1))
+    axial_cell_length = 0.5*(axial_cell_length_rear+axial_cell_length_front)
+
+
     i = 0
     TFI2_bnd_blends = []
     for c1, c2 in zip(TFI_H_group_topo,TFI_H_group_bnd):
@@ -2945,7 +2967,7 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
                         tension1=normal_tension*central_width, tension2=0.15, # TODO parameter ?
                         tension1_is_absolute=True,
                         tension2_is_absolute=False,
-                        length1 = topo_cell, length2=cell_height,
+                        length1 = topo_cell, length2=axial_cell_length,
                         support=support_central,
                         projection_direction=proj_dir
                         )
