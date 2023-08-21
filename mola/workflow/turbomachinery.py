@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from mola.workflow.workflow import Workflow
-import .internal_flow.FlowGenerator as InternalFlowGenerator
+from .internal_flow import FlowGenerator as InternalFlowGenerator
 import mola.application.turbomachine as Turb
 
 
@@ -26,10 +26,12 @@ class WorkflowTurbomachinery(Workflow):
                 
                  Splitter='PyPart',
 
+                 FlowGenerator=InternalFlowGenerator,
+
                  **kwargs
                  ):
         
-        super().__init__(Splitter=Splitter, FlowGenerator=InternalFlowGenerator, **kwargs)
+        super().__init__(Splitter=Splitter, FlowGenerator=FlowGenerator, **kwargs)
 
         self.name = 'Turbomachinery'
 

@@ -16,17 +16,24 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
-import .external_flow as ExtFlow
+import scipy
+from .external_flow import ExternalFlowGenerator 
 
-class FlowGenerator(ExtFlow.FlowGenerator):
+class InternalFlowGenerator(ExternalFlowGenerator):
 
     def __init__(self, workflow):
-        super().init(workflow)
-        self.Surface = workflow.Surface
+        super().__init__(workflow)
+        self.name = 'Internal'
+
+        if hasattr(workflow, 'Surface'):
+            self.Surface = workflow.Surface
+        else:
+            from..mesh.tools import get_surface_of_inflow
+            self.Surface = get_surface_of_inflow(workflow)
 
     def set_flow_properties(self):
-        assert not(self.Flow['MassFlow'] and self.Flow['Mach']), 'MassFlow and Mach cannot be given together in ReferenceValues. Choose one'
-        if self.Flow['MassFlow']:
+        assert not('MassFlow' in self.Flow and 'Mach' in self.Flow), 'MassFlow and Mach cannot be given together in Flow. Choose one'
+        if 'MassFlow' in self.Flow:
             self.Flow['Mach'] = self.MachFromMassFlow(self.Flow['MassFlow'], 
                                                       self.Surface, 
                                                       self.Flow['PressureStagnation'], 
@@ -34,7 +41,7 @@ class FlowGenerator(ExtFlow.FlowGenerator):
                                                       self.Fluid['IdealGasConstant'], 
                                                       self.Fluid['Gamma']
                                                       )
-        else:
+        elif 'Mach' in self.Flow:
             self.Flow['MassFlow'] = self.MassFlowFromMach(self.Flow['Mach'], 
                                                           self.Surface, 
                                                           self.Flow['PressureStagnation'], 
@@ -42,6 +49,8 @@ class FlowGenerator(ExtFlow.FlowGenerator):
                                                           self.Fluid['IdealGasConstant'], 
                                                           self.Fluid['Gamma']
                                                           )
+        else:
+            raise Exception(f'Either MassFlow or Mach must be provided for the FlowGenerator {self.name}')
 
         Mach = self.Flow['Mach']
         Temperature  = self.Flow['TemperatureStagnation'] / (1. + 0.5*(self.Fluid['Gamma']-1.) * Mach**2)
@@ -95,8 +104,7 @@ class FlowGenerator(ExtFlow.FlowGenerator):
         '''
         return S * Pt * (gamma/r/Tt)**0.5 * Mx / (1. + 0.5*(gamma-1.) * Mx**2) ** ((gamma+1) / 2 / (gamma-1))
 
-    @staticmethod
-    def MachFromMassFlow(massflow, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
+    def MachFromMassFlow(self, massflow, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
         '''
         Compute the Mach number normal to a section from the massflow rate.
 
@@ -131,16 +139,16 @@ class FlowGenerator(ExtFlow.FlowGenerator):
         if isinstance(massflow, (list, tuple, np.ndarray)):
             Mx = []
             for i, MF in enumerate(massflow):
-                Mx.append(machFromMassFlow(MF, S, Pt=Pt, Tt=Tt, r=r, gamma=gamma))
+                Mx.append(self.MassFlowFromMach(MF, S, Pt=Pt, Tt=Tt, r=r, gamma=gamma))
             if isinstance(massflow, np.ndarray):
                 Mx = np.array(Mx)
             return Mx
         else:
             # Check that massflow is lower than the chocked massflow
-            chocked_massflow = massflowFromMach(1., S, Pt=Pt, Tt=Tt, r=r, gamma=gamma)
+            chocked_massflow = self.MassFlowFromMach(1., S, Pt=Pt, Tt=Tt, r=r, gamma=gamma)
             assert massflow < chocked_massflow, "MassFlow ({:6.3f}kg/s) is greater than the chocked massflow ({:6.3f}kg/s)".format(massflow, chocked_massflow)
             # MassFlow as a function of Mach number
-            f = lambda Mx: massflowFromMach(Mx, S, Pt, Tt, r, gamma)
+            f = lambda Mx: self.MassFlowFromMach(Mx, S, Pt, Tt, r, gamma)
             # Objective function
             g = lambda Mx: f(Mx) - massflow
             # Search for the corresponding Mach Number between 0 and 1

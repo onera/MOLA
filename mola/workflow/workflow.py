@@ -16,13 +16,13 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-from .external_flow import FlowGenerator as ExternalFlowGenerator
 from .. import cgns as c
 from  mola.cfd.preprocess.mesh import (positioning,
                                        connect,
                                        split,
                                        families)
-from  mola.cfd.preprocess import (boundary_conditions,
+from  mola.cfd.preprocess import (flow_generators,
+                                  boundary_conditions,
                                   initialization,
                                   motion,
                                   cfd_parameters,
@@ -144,7 +144,7 @@ class Workflow(object):
                 LauncherCommand = 'auto', # or 'sbatch job.sh', './job.sh'...
                 SecondsMargin4QuitBeforeTimeOut = 180.0),
 
-            FlowGenerator=ExternalFlowGenerator,
+            FlowGenerator='External_rho_V_T',
 
             ):
 
@@ -160,7 +160,7 @@ class Workflow(object):
             self.RawMeshComponents=RawMeshComponents
             self.Fluid=Fluid
             self.Flow=Flow
-            self._FlowGenerator=FlowGenerator
+            self._FlowGenerator=self.get_flow_generator(FlowGenerator)
             self.Turbulence=Turbulence
             self.BoundaryConditions=BoundaryConditions
             self.Solver=Solver
@@ -307,6 +307,12 @@ class Workflow(object):
     def process_overset(self):
         pass
 
+    def get_flow_generator(self, fg):
+        if isinstance(fg, str):
+            return flow_generators.AvailableFlowGenerators[fg]
+        else:
+            return fg
+        
     def compute_reference_values(self):
         # mola-generic set of parameters
         FlowGen = self._FlowGenerator(self)
@@ -351,3 +357,4 @@ class Workflow(object):
             if component['OversetOptions']:
                 return True
         return False
+

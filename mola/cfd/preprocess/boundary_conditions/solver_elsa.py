@@ -21,6 +21,7 @@ import Converter.PyTree as C
 import Converter.Internal as I
 
 from mola import cgns
+from ..extractions.solver_elsa import translate_to_elsa
 
 def define_bc_family(workflow, Family, Value):
     familyNode = workflow.tree.get(Name=Family, Type='Family', Depth=2)
@@ -113,6 +114,14 @@ def nref(workflow, Family):
     '''
     define_bc_family(workflow, Family, 'BCFarfield')
  
+def get_bcs(t, Family):
+    bcs = []
+    all_bcs = t.group(Type='BC')
+    for bc in all_bcs:
+        if bc.get('FamilyName') == Family:
+            bcs.append(bc)
+    return bc
+
 def inj1(workflow, Family, ImposedVariables, bc=None, variableForInterpolation='ChannelHeight'):
     '''
     Generic function to impose a Boundary Condition ``inj1``. The following
@@ -160,13 +169,64 @@ def inj1(workflow, Family, ImposedVariables, bc=None, variableForInterpolation='
     setBC_inj1_uniform, setBC_inj1_interpFromFile
     '''
     if not bc and not all([np.ndim(v)==0 and not callable(v) for v in ImposedVariables.values()]):
-        for bc in C.getFamilyBCs(workflow.tree, Family):
+        for bc in get_bcs(workflow.tree, Family):
             setBCwithImposedVariables(workflow.tree, Family, ImposedVariables,
                 FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc, variableForInterpolation=variableForInterpolation)
     else:
         setBCwithImposedVariables(workflow.tree, Family, ImposedVariables,
             FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc, variableForInterpolation=variableForInterpolation)
 
+def outpres(workflow, Family, Pressure, bc=None, variableForInterpolation='ChannelHeight'):
+    '''
+    Impose a Boundary Condition ``outpres``.
+
+    .. note::
+        see `elsA Tutorial about outpres condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#outpres/>`_
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+        Pressure : :py:class:`float` or :py:class:`numpy.ndarray` or :py:class:`dict`
+            Value of pressure to impose on the boundary conditions. May be:
+
+                * either a scalar: in that case it is imposed once for the
+                  family **FamilyName** in the corresponding ``Family_t`` node.
+
+                * or a numpy array: in that case it is imposed for the ``BC_t``
+                  node **bc**.
+
+            Alternatively, **Pressure** may be a :py:class:`dict` of the form:
+
+            >>> Pressure = dict(Pressure=value)
+
+            In that case, the same requirements that before stands for *value*.
+
+        bc : PyTree
+            ``BC_t`` node on which the boundary condition will be imposed. Must
+            be :py:obj:`None` if the condition must be imposed once in the
+            ``Family_t`` node.
+        
+        variableForInterpolation : str
+            When using a function to impose the radial profile of one or several quantities, 
+            it defines the variable used as the argument of this function.
+            Must be 'ChannelHeight' (default value) or 'Radius'.
+
+    '''
+    ImposedVariables = dict(Pressure=Pressure)
+
+    if not bc and not all([np.ndim(v) == 0 and not callable(v) for v in ImposedVariables.values()]):
+        for bc in get_bcs(workflow.tree, Family):
+            setBCwithImposedVariables(workflow.tree, Family, ImposedVariables,
+                                      FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc, variableForInterpolation=variableForInterpolation)
+    else:
+        setBCwithImposedVariables(workflow.tree, Family, ImposedVariables,
+                                FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc, variableForInterpolation=variableForInterpolation)
 
 
 def setBCwithImposedVariables(workflow, Family, ImposedVariables, FamilyBC, BCType,
@@ -224,16 +284,15 @@ def setBCwithImposedVariables(workflow, Family, ImposedVariables, FamilyBC, BCTy
     setBC_inj1, setBC_outpres, setBC_outmfr2
 
     '''
-    FamilyNode = I.getNodeFromNameAndType(workflow.tree, Family, 'Family_t')
-    I._rmNodesByName(FamilyNode, '.Solver#BC')
-    I._rmNodesByType(FamilyNode, 'FamilyBC_t')
-    I.newFamilyBC(value=FamilyBC, parent=FamilyNode)
+    FamilyNode = define_bc_family(workflow, Family, FamilyBC)
 
     if all([np.ndim(v)==0 and not callable(v) for v in ImposedVariables.values()]):
         checkVariables(ImposedVariables)
-        ImposedVariables = translateVariablesFromCGNS2Elsa(ImposedVariables)
-        J.set(FamilyNode, '.Solver#BC', type=BCType, **ImposedVariables)
+        ImposedVariables = translate_to_elsa(ImposedVariables)
+        FamilyNode.setParameters('.Solver#BC', type=BCType, **ImposedVariables)
+
     else:
+        raise Exception('Not implemented yet')
         assert bc is not None
         J.set(bc, '.Solver#BC', type=BCType)
 

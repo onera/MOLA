@@ -27,9 +27,12 @@ K_OMEGA_MODELS = K_OMEGA_TWO_EQN_MODELS + [ 'SST-2003-LM2009',
 
 AvailableTurbulenceModels = K_OMEGA_MODELS + ['smith', 'SA']
 
-class FlowGenerator(object):
+class ExternalFlowGenerator(object):
 
     def __init__(self, workflow):
+
+        self.name = 'External_rho_T_V'
+
         # Set attributes
         self.Fluid = workflow.Fluid
         self.Flow = workflow.Flow
