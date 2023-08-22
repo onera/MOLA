@@ -3398,14 +3398,15 @@ def setBC_giles_stage_mxpl(t, left, right, method = 'Robust', **kwargs):
     DictKeysGilesMxpl['monitoring_comp_rad'] = 'auto'                                               # recommended value - possible keys: 'from_file', 'monofenetre'
     DictKeysGilesMxpl['monitoring_tol_rad'] = kwargs.get('monitoring_tol_rad',  1e-6)               # recommended value - decrease value if the mesh is coarse
     DictKeysGilesMxpl['monitoring_var'] = 'psta  pgen Tgen ux uy uz diffPgen diffTgen diffVel'
-    DictKeysGilesMxpl['monitoring_file'] = 'LOGS/%s_'%MxplFamilyName
     DictKeysGilesMxpl['monitoring_period'] = kwargs.get('monitoring_period',  20)                   # recommended value   
 
     # define parameter for left and right interface
     DictKeysGilesMxpl_left = DictKeysGilesMxpl.copy()
     DictKeysGilesMxpl_left['monitoring_flag'] = kwargs['GilesMonitoringFlag_left']                  # automatically computed, must be different from other Giles BC, including right BC of Mxpl
+    DictKeysGilesMxpl_left['monitoring_file'] = 'LOGS/%s_%i_'%(MxplFamilyName,kwargs['GilesMonitoringFlag_left'])
     DictKeysGilesMxpl_right = DictKeysGilesMxpl.copy()
     DictKeysGilesMxpl_right['monitoring_flag'] = kwargs['GilesMonitoringFlag_right']                # automatically computed, must be different from other Giles BC, including left BC of Mxpl
+    DictKeysGilesMxpl_right['monitoring_file'] = 'LOGS/%s_%i_'%(MxplFamilyName,kwargs['GilesMonitoringFlag_right'])
 
     print(DictKeysGilesMxpl_left)  
     print(DictKeysGilesMxpl_right)  
