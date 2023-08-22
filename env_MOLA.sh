@@ -103,7 +103,7 @@ if [ "$MAC" = "sator" ]; then
 
     # maia
     module use --append /tmp_user/sator/sonics/usr/modules/
-    module load maia/RC-dsi-cfd5
+    module load maia/1.2-dsi-cfd5_idx32
 
     # VPM
     export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator/$ARCH
@@ -179,7 +179,7 @@ elif [ "$MAC" = "spiro" ]; then
 
     # maia 
     module use --append /scratchm/sonics/usr/modules/
-    module maia/load RC-dsi-cfd5
+    module load maia/1.2-dsi-cfd5
 
     # own Cassiopee
     module load occt/7.6.1-gnu831
@@ -204,6 +204,7 @@ elif [ "$MAC" = "ld" ]; then
     export OPENMPIOVERSUBSCRIBE='-oversubscribe'
 
     unset I_MPI_PMI_LIBRARY
+    export OMPI_MCA_mca_base_component_show_load_errors=0
 
     # PUMA
     export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_os8
@@ -224,7 +225,7 @@ elif [ "$MAC" = "ld" ]; then
 
     # maia
     module use --append /home/sonics/LD8/modules/
-    module load maia/RC-dsi-ompi405
+    module load maia/1.2-dsi-ompi405
 
     # VPM
     export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld8/$ARCH

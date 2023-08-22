@@ -3549,6 +3549,7 @@ def _hasMatchingFace(contour_struct, faces):
         for c in contour_struct:
             if C.getNPts(c) != C.getNPts(f): continue
             if W.isSubzone(f, c): return True
+            if W.isSubzone(c, f): return True
     return False
 
 def selectConnectingSurface(surfaces, candidates, mode='first'):
