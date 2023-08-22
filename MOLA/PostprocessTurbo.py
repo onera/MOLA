@@ -273,16 +273,13 @@ def computeVariablesOnIsosurface(surfaces, variables, config='annular', lin_axis
         surfaces : PyTree
             as produced by :py:func:`extractSurfaces`
     '''
-
-    # I._renameNode(surfaces, 'FlowSolution', I.__FlowSolutionCenters__) # LB: why ?
     surfacesIso = getSurfacesFromInfo(surfaces, type='IsoSurface')
     varAtNodes = None
     prev_fs_vertex = I.__FlowSolutionNodes__
+    I.__FlowSolutionNodes__ = 'FlowSolution'
     for surface in surfacesIso:
         firstZone = I.getNodeFromType1(surface, 'Zone_t')
         if firstZone:
-            prev_fs_vertex = I.__FlowSolutionNodes__
-            I.__FlowSolutionNodes__ = 'FlowSolution'
             varAtNodes = C.getVarNames(firstZone, loc='nodes')[0]
             break
 
@@ -293,15 +290,14 @@ def computeVariablesOnIsosurface(surfaces, variables, config='annular', lin_axis
     else:
         for v in varAtNodes: C._node2Center__(surfacesIso, v)
     
-    I.__FlowSolutionNodes__ = prev_fs_vertex
-
     for surface in surfacesIso:
         for fsname in [I.__FlowSolutionNodes__, I.__FlowSolutionCenters__]:
             # BUG https://gitlab.onera.net/numerics/analysis/turbo/-/issues/1
-                TF._computeOtherFields(surface, RefState(setup), variables,
+            TF._computeOtherFields(surface, RefState(setup), variables,
                                         fsname=fsname, useSI=True, velocity='absolute',
                                         config=config, lin_axis=lin_axis) # FIXME: to be adapted if user can perform relative computation (vel_formulation)
 
+    I.__FlowSolutionNodes__ = prev_fs_vertex
 
 def compute0DPerformances(surfaces, variablesByAverage):
     '''
