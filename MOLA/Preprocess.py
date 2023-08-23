@@ -232,11 +232,8 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
     t = addOversetData(t, InputMeshes, **globalOversetOptions)
     adapt2elsA(t, InputMeshes)
     J.checkEmptyBC(t)
-    ElapsedTime = str(datetime.timedelta(seconds=tic()-toc))
-    hours, minutes, seconds = ElapsedTime.split(':')
-    ElapsedTimeHuman = hours+' hours '+minutes+' minutes and '+seconds+' seconds'
-    msg = 'prepareMesh took '+ElapsedTimeHuman
-    print(J.BOLD+msg+J.ENDC)
+
+    J.printElapsedTime('prepareMesh4ElsA took:', toc)
 
     return t
 

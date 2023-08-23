@@ -52,6 +52,7 @@ if not MOLA.__ONLY_DOC__:
     import Connector.PyTree as X
     import Intersector.PyTree as XOR
 
+DIRECTORY_CHECKME = 'CHECK_ME'
 
 # Generative modules
 from . import InternalShortcuts as J
@@ -212,6 +213,15 @@ def extrudeBladeSupportedOnSpinner(blade_surface, spinner, rotation_center,
         C._addBC2Zone(zone,'blade_wall','FamilySpecified:BLADE', 'kmin')
     blade = J.selectZoneWithHighestNumberOfPoints(I.getZones(base))
     C._addBC2Zone(blade,'spinner_wall','FamilySpecified:SPINNER', 'jmin')
+
+    print('checking negative volume cells in blade... ',end='')
+    negative_volume_cells = GVD.checkNegativeVolumeCells(base, volume_threshold=0)
+    if negative_volume_cells:
+        try: os.makedirs(DIRECTORY_CHECKME)
+        except: pass
+        J.save(negative_volume_cells, os.path.join(DIRECTORY_CHECKME,'negative_volume_cells.cgns'))
+    else:
+        print(J.GREEN+'ok'+J.ENDC)
 
 
     return base
@@ -1535,7 +1545,10 @@ def buildMatchMesh(spinner, blade, blade_number, rotation_axis=[-1,0,0],
                    farfield_cell_height=1., tip_axial_scaling_at_farfield=0.5,
                    normal_tension=0.05, RightHandRuleRotation=True,
                    radial_H_compromise=0.25,
-                   DIRECTORY_CHECKME='CHECK_ME'):
+                   tip_radial_tension=0.03,
+                   radial_breakpoints=[0.5],
+                   DIRECTORY_CHECKME='CHECK_ME',
+                   CHECK_MESH=True):
 
     # NOTE implement so that blade can be a surface (2D) or a volume (3D)
     spinner_front, spinner_middle, spinner_rear = _splitSpinnerHgrid(spinner,
@@ -1580,7 +1593,7 @@ def buildMatchMesh(spinner, blade, blade_number, rotation_axis=[-1,0,0],
 
     Hgrids = _buildHgridAroundBlade(external_surfaces, blade, rotation_center,
                    rotation_axis, H_grid_interior_points, relax_relative_length,
-                   radial_H_compromise)
+                   radial_H_compromise, radial_breakpoints=radial_breakpoints)
 
     profile = _extractWallAdjacentSectorFullProfile(wires_front, wires_rear,
                                                         external_surfaces)
@@ -1598,7 +1611,8 @@ def buildMatchMesh(spinner, blade, blade_number, rotation_axis=[-1,0,0],
                          distance=distance, number_of_points=number_of_points,
                          farfield_cell_height=farfield_cell_height,
                          tip_axial_scaling_at_farfield=tip_axial_scaling_at_farfield,
-                         normal_tension=normal_tension)
+                         normal_tension=normal_tension,
+                         tip_radial_tension=tip_radial_tension)
 
     J.save(farfaces, os.path.join(DIRECTORY_CHECKME,'9_farfaces.cgns'))
 
@@ -1613,6 +1627,14 @@ def buildMatchMesh(spinner, blade, blade_number, rotation_axis=[-1,0,0],
 
     print(f'Total number of cells in mesh: {J.CYAN}{C.getNCells(t):,}{J.ENDC}')
 
+    if CHECK_MESH:
+        print('checking negative volume cells... ',end='')
+        negative_volume_cells = GVD.checkNegativeVolumeCells(t, volume_threshold=0)
+        if negative_volume_cells:
+            J.save(negative_volume_cells, os.path.join(DIRECTORY_CHECKME,'negative_volume_cells.cgns'))
+        else:
+            print(J.GREEN+'ok'+J.ENDC)
+
     return t
 
 
@@ -1623,13 +1645,15 @@ def _splitSpinnerHgrid(spinner, blade, rotation_axis, rotation_center,
     spinner_azimut_indexing = 'j' if spinner_axial_indexing == 'i' else 'i'
     spinner_profile = GSD.getBoundary(spinner_main_surface,
                                       spinner_azimut_indexing+'min')
+    
 
-    N_segs_azimut = C.getNCells( GSD.getBoundary( spinner_main_surface, spinner_axial_indexing+'min' ) )
+    N_segs_azimut = C.getNCells(GSD.getBoundary(spinner_main_surface,
+                                                spinner_axial_indexing+'min'))
     N_segs_foil = I.getZoneDim( blade_main_surface )[1] - 1
     N_segs_axial = int(N_segs_foil/2 - N_segs_azimut)
 
     blade_root = GSD.getBoundary( blade_main_surface, 'jmin')
-    bary = G.barycenter( blade_root )
+    bary = np.array(G.barycenter( blade_root ))
     bary_index,_ = D.getNearestPointIndex( spinner_profile, tuple(bary) )
 
     if N_segs_axial % 2 == 0:
@@ -1637,6 +1661,22 @@ def _splitSpinnerHgrid(spinner, blade, rotation_axis, rotation_center,
     else:
         N_segs_axial -= 1
         cut_indices = [int(bary_index-N_segs_axial/2 +1), int(bary_index+N_segs_axial/2)]
+
+    def getHgridExtremaDistances(shift=0):
+        shift = int(shift)
+        point1 = W.point(spinner_profile, cut_indices[0]+shift)
+        point2 = W.point(spinner_profile, cut_indices[1]+shift)
+        dist1 = W.distance(bary,point1)
+        dist2 = W.distance(bary,point2)
+        residual = dist2 - dist1
+        return residual
+
+    optimization_shift =  J.secant(getHgridExtremaDistances,
+        x0=int(-N_segs_axial*0.50), x1=int(N_segs_axial*0.50),
+        bounds=(int(-N_segs_axial), int(+N_segs_axial)), maxiter=10)
+    shift = int(optimization_shift['root'][0])
+    cut_indices[0] += shift
+    cut_indices[1] += shift
 
 
     _,Ni,Nj,_,_ = I.getZoneDim( spinner_main_surface )
@@ -1664,12 +1704,15 @@ def _splitSpinnerHgrid(spinner, blade, rotation_axis, rotation_center,
 
 def _getSpineFromBlade( blade ):
     blade_main_surface = J.selectZoneWithHighestNumberOfPoints( blade )
-    dim = I.getZoneDim( blade_main_surface )[-1]
+    _,Ni,Nj,Nk,dim = I.getZoneDim( blade_main_surface )
     if dim == 3:
         external = GSD.getBoundary( blade_main_surface, 'kmax')
-        spine = GSD.getBoundary( external, 'imin')
     else:
-        spine = GSD.getBoundary( blade_main_surface, 'imin')
+        external = blade_main_surface
+
+    imin = GSD.getBoundary( external, 'imin')
+    imid = GSD.getBoundary( external, 'imin', int(Ni/2))
+    spine = imin if W.getLength(imin) > W.getLength(imid) else imid
 
     return spine
 
@@ -1680,9 +1723,11 @@ def _buildExternalSurfacesHgrid(blade, spinner_split, rotation_axis,
     a = np.array(rotation_axis,dtype=np.float64)
     spine = _getSpineFromBlade( blade )
     distribution = D.getDistribution( spine )
-
-    W.addDistanceRespectToLine( spine , c, a, 'span')
-    Length = C.getMaxValue( spine, 'span' ) - C.getMinValue( spine, 'span' )
+    d_x = J.getx(distribution)
+    W.addDistanceRespectToLine( spine , c, a, 'radius')
+    r = J.getVars(spine,['radius'])[0]
+    Length = r.max() - r.min()
+    d_x[:] = (r - r.min())/Length
 
     bary = D.point(G.barycenter(spinner_split))
     W.projectOnAxis(bary, rotation_axis, rotation_center)
@@ -1750,7 +1795,13 @@ def _buildSupportFromBoundaries(boundaries, rotation_center, rotation_axis):
     support = D.axisym(best_aligned_boundary,tuple(c),tuple(rotation_sign*a),
                        sector_angle, C.getNPts(azimut_boundary))
     support[0] = 'support'
-    outter_cell_size = W.distance(W.point(azimut_boundary),W.point(azimut_boundary,1))
+
+    azimut_segment = np.mean([W.segment(azimut_boundary),
+                              W.segment(azimut_boundary,-1)])
+    axial_segment = np.mean([W.segment(best_aligned_boundary),
+                             W.segment(best_aligned_boundary,-1)])
+
+    outter_cell_size = axial_segment
     return support, outter_cell_size
 
 def _getInnerContour(blade,index,increasing_span_indexing='jmin'):
@@ -1770,17 +1821,16 @@ def _getInnerContour(blade,index,increasing_span_indexing='jmin'):
 
 def _buildHgridAroundBlade(external_surfaces, blade, rotation_center,
                            rotation_axis, H_grid_interior_points, relax_relative_length,
-                           radial_H_compromise):
+                           radial_H_compromise, radial_breakpoints=[0.5]):
     spine = _getSpineFromBlade( blade )
     wall_cell_height = W.distance( W.point( spine ), W.point( spine, 1 ) )
     W.addDistanceRespectToLine(spine, rotation_center, rotation_axis, 'span')
     span, = J.getVars(spine, ['span'])
-    MinSpan = np.min( span )
-    MaxSpan = np.max( span )
     s = W.gets( spine )
     span_pts = len(s)
 
     i_compromise = int(np.round(np.interp(radial_H_compromise, s, np.arange(0,span_pts))))
+    i_breakpoints = [int(i) for i in np.round(np.interp(radial_breakpoints, s, np.arange(0,span_pts)))]
 
     Tik = Tok()
     nbOfDigits = int(np.ceil(np.log10(span_pts+1)))
@@ -1793,23 +1843,11 @@ def _buildHgridAroundBlade(external_surfaces, blade, rotation_center,
     walls_stack = []
     blks_stack = []
 
-    all_ref_index = []
-
-    # for i in range( span_pts ):
-    #     boundaries = [ GSD.getBoundary(e, 'imin', i) for e in external_surfaces ]
-    #     inner_contour, inner_cell_size = _getInnerContour(blade,i)
-    #     bnds_split, inner_split, ref_index = W.splitInnerContourFromOutterBoundariesTopology(
-    #                                                 boundaries, inner_contour)
-    #     all_ref_index += [ ref_index ]
-    # ref_index = int(np.median(all_ref_index)) # not always good compromise
-    # ref_index = int(0.5*(np.max(all_ref_index)+np.min(all_ref_index)))
-    # ref_index = all_ref_index[0]
 
     boundaries = [ GSD.getBoundary(e, 'imin', i_compromise) for e in external_surfaces ]
     inner_contour, inner_cell_size = _getInnerContour(blade,i_compromise)
     bnds_split, inner_split, ref_index = W.splitInnerContourFromOutterBoundariesTopology(
                                                 boundaries, inner_contour)
-
 
     for i in range( span_pts ):
 
@@ -1818,13 +1856,14 @@ def _buildHgridAroundBlade(external_surfaces, blade, rotation_center,
         bnds_split, inner_split,_ = W.splitInnerContourFromOutterBoundariesTopology(
                                                     boundaries, inner_contour,ref_index)
 
-        if i>0 and i<span_pts-1:
+        if i>0 and i<span_pts-1 and i not in i_breakpoints:
             for j in range( len(bnds_split) ):
                 bnds_to_stack[j] += [bnds_split[j]]
                 walls_to_stack[j] += [inner_split[j]]
             continue
 
         elif i==0:
+            is_interior_point = False
             for j in range( len(bnds_split) ):
                 bnds_to_stack += [[]]
                 walls_to_stack += [[]]
@@ -1837,6 +1876,10 @@ def _buildHgridAroundBlade(external_surfaces, blade, rotation_center,
                 walls_to_stack[j] = [inner_split[j]]
 
         else:
+            if i == span_pts-1:
+                is_interior_point = False
+            else:
+                is_interior_point = True
 
             for j in range( len(bnds_split) ):
                 bnds_to_stack[j] += [bnds_split[j]]
@@ -1847,17 +1890,20 @@ def _buildHgridAroundBlade(external_surfaces, blade, rotation_center,
                 walls_to_stack[j] = [walls_to_stack[j][-1]]
 
         currentLayer = ('{:0%d}'%nbOfDigits).format(i+1)
-        Message = J.MAGE+'H-grid'+J.ENDC+' %s/%s | cost: %0.5f s'%(currentLayer,LastLayer,Tok()-Tik)
-        print(Message)
+        print(J.MAGE+'H-grid boundaries'+J.ENDC+' %s/%s | '%(currentLayer,LastLayer), end='')
         Tik = Tok()
-
-        all_ref_index += [ ref_index ]
 
         support, outter_cell_size = _buildSupportFromBoundaries(boundaries,
                                                 rotation_center, rotation_axis)
-        W.computeBarycenterDirectionalField(boundaries, support)
-        W.projectNormals(boundaries, support, normal_projection_length=1e-4)
-        W.projectNormals(inner_contour, support, normal_projection_length=1e-4)
+        if is_interior_point:
+            inner_normal_tension, outter_normal_tension = 0, 0
+            support = None
+        else:
+            inner_normal_tension, outter_normal_tension = 0.3, 0.3
+            W.computeBarycenterDirectionalField(boundaries, support)
+            W.projectNormals(boundaries, support, normal_projection_length=1e-4)
+            W.projectNormals(inner_contour, support, normal_projection_length=1e-4)
+
         if inner_cell_size is None: inner_cell_size = wall_cell_height
 
         min_distance = W.pointwiseDistances(bnds_split, inner_split)[0]
@@ -1867,14 +1913,15 @@ def _buildHgridAroundBlade(external_surfaces, blade, rotation_center,
                           inner_cell_size=inner_cell_size,
                           outter_cell_size=outter_cell_size,
                           number_of_points_union=H_grid_interior_points,
-                          inner_normal_tension=0.3, outter_normal_tension=0.3,
+                          inner_normal_tension=inner_normal_tension,
+                          outter_normal_tension=outter_normal_tension,
                           projection_support=support,
                           global_projection_relaxation=0,
                           local_projection_relaxation_length=local_relax_length,
                           forced_split_index=ref_index)
         T._reorder(surfs, (2,1,3))
         All_surfs += [ surfs ]
-
+        print('cost: %0.5f s'%(Tok()-Tik))
 
     Tik = Tok()
     nb_stacks = len(All_surfs)
@@ -1884,15 +1931,18 @@ def _buildHgridAroundBlade(external_surfaces, blade, rotation_center,
         surfs = All_surfs[i]
         next_surfs = All_surfs[i+1]
         currentLayer = ('{:0%d}'%nb_dgs).format(i+1)
-        Message = J.CYAN+'TFI...'+J.ENDC+' %s/%s | cost: %0.5f s'%(currentLayer,LastLayer,Tok()-Tik)
-        print(Message)
+        print(J.CYAN+'H-grid TFI'+J.ENDC+' %s/%s | '%(currentLayer,LastLayer), end='')
         Tik = Tok()
 
         for j in range( len(bnds_split) ):
             wall_curve = GSD.getBoundary(walls_stack[j][i],'imin')
+            wall_curve[0] = 'wall_curve'
             bnd_curve = GSD.getBoundary(bnds_stack[j][i],'imin')
+            bnd_curve[0] = 'bnd_curve'
             surfs_curve = GSD.getBoundary(surfs[j],'imin')
+            surfs_curve[0] = 'surfs_curve'
             next_surfs_curve = GSD.getBoundary(next_surfs[j],'imin')
+            next_surfs_curve[0] = 'next_surfs_curve'
             curves = [wall_curve,bnd_curve,surfs_curve,next_surfs_curve]
             imin_surf = G.TFI( curves )
 
@@ -1909,20 +1959,32 @@ def _buildHgridAroundBlade(external_surfaces, blade, rotation_center,
                         surfs[j], next_surfs[j] ])
 
             blks_stack[j] += [blk]
+        print('cost: %0.5f s'%(Tok()-Tik))
 
-
-    print('joining...')
+    print('joining H-grids TFI... ',end='')
     grids = []
     for j in range( len(bnds_split) ):
+        nb_blks = len(blks_stack[j])
         blk = blks_stack[j][0]
         for blk2 in blks_stack[j][1:]:
             blk = T.join(blk,blk2)
         blk[0] = blks_stack[j][0][0]
+        if nb_blks > 1: T._reorder(blk,(3,1,2))
         grids += [ blk ]
-    print('joining... ok')
+    print(J.GREEN+'ok'+J.ENDC)
 
     for grid in grids:
         C._addBC2Zone(grid,'spinner_wall','FamilySpecified:SPINNER', 'kmin')
+
+    print('checking negative volume cells in H-grid regions... ',end='')
+    negative_volume_cells = GVD.checkNegativeVolumeCells(grids, volume_threshold=0)
+    if negative_volume_cells:
+        try: os.makedirs(DIRECTORY_CHECKME)
+        except: pass
+        J.save(grids,'grids.cgns')
+        J.save(negative_volume_cells, os.path.join(DIRECTORY_CHECKME,'negative_volume_cells.cgns'))
+    else:
+        print(J.GREEN+'ok'+J.ENDC)
 
     return grids
 
@@ -2283,7 +2345,7 @@ def _buildHubWallAdjacentSector(surface, spinner, bulb, blade_number,
               TFI2_spinner_1, TFI2_spinner_2]
 
     # VOLUME GRIDS
-    print('making near-blade 3D TFI at %s...'%topo)
+    print('making near-blade 3D TFI at %s... '%topo,end='')
     TFI3_bulb = G.TFI([TFI2_inter_join_1, TFI2_bulb_1,
                        TFI2_bulb_0, TFI2_inter_join_2,
                        bulb, TFI2_bulb ])
@@ -2302,7 +2364,7 @@ def _buildHubWallAdjacentSector(surface, spinner, bulb, blade_number,
     TFI3_spinner_1[0] = 'TFI3_spinner_1'
     TFI3_spinner_2[0] = 'TFI3_spinner_2'
     TFI3_spinner[0] = 'TFI3_spinner.'+topo
-    print('making near-blade 3D TFI at %s... ok'%topo)
+    print(J.GREEN+'ok'+J.ENDC)
 
     C._addBC2Zone(TFI3_bulb,'spinner_wall','FamilySpecified:SPINNER', 'kmin')
     C._addBC2Zone(TFI3_spinner,'spinner_wall','FamilySpecified:SPINNER', 'kmin')
@@ -2404,13 +2466,13 @@ def _buildHubWallAdjacentSectorWithoutBulb(surface, spinner, blade_number,
     surfs = [spinner,surface, TFI2_inter_side_1, TFI2_inter_side_2, TE_azm,
             TFI2_spinner_1,TFI2_spinner_2, TFI2_TE]
 
-    print('making open near-blade 3D TFI at rear...')
+    print('making open near-blade 3D TFI at rear... ', end='')
     TFI3_spinner = G.TFI([TFI2_TE, surface,
                           TFI2_inter_side_2, TFI2_inter_side_1,
                           spinner, TFI2_spinner])
     TFI3_spinner[0] = 'TFI3_spinner'
     T._reorder(TFI3_spinner,(2,1,3))
-    print('making open near-blade 3D TFI at rear... ok')
+    print(J.GREEN+'ok'+J.ENDC)
     C._addBC2Zone(TFI3_spinner,'spinner_wall','FamilySpecified:SPINNER', 'kmin')
     grids = [ TFI3_spinner ]
 
@@ -2427,6 +2489,13 @@ def _gatherSectorBoundaries(Hgrids, blade, surfs_rear, surfs_front):
         surf = GSD.getBoundary(z,'kmax')
         surf[0] = 'tip.%d'%i
         surfaces += [surf]
+
+    _putSmoothedNormalsAtSurfaces(surfaces, eps=0.9, niter=100, mode=0)
+
+    return surfaces
+
+
+def _putSmoothedNormalsAtSurfaces(surfaces, eps=0.9, niter=100, mode=0):
     uns = C.convertArray2Hexa(surfaces)
     uns = T.merge(uns)
     G._getNormalMap(uns)
@@ -2436,11 +2505,9 @@ def _gatherSectorBoundaries(Hgrids, blade, surfs_rear, surfs_front):
         C.center2Node__(s,'centers:sz',cellNType=0)
     I._rmNodesByName(uns,'FlowSolution#Centers')
     C._normalize(uns, ['sx','sy','sz'])
-    T._smoothField(uns, 0.9, 100, 0, ['sx','sy','sz']) # TODO externalize param?
+    T._smoothField(uns, eps, niter, mode, ['sx','sy','sz']) # TODO externalize param?
     C._normalize(uns, ['sx','sy','sz'])
     J.migrateFields(uns, surfaces)
-
-    return surfaces
 
 
 def _extractWallAdjacentSectorFullProfile(wires_front, wires_rear, external_surfaces):
@@ -2502,7 +2569,7 @@ def _buildFarfieldSupport(profile, blade_number, npts_azimut, distance,
     profile_rev = I.copyTree(profile_farfield)
     profile_rev[0] = 'profile_rev'
     all_valid = False
-    print('optimizing farfield revolution profile...')
+    print('optimizing farfield revolution profile... ',end='')
     identical_invalid_count = 0
     previous_count = 0
     while not all_valid:
@@ -2527,15 +2594,16 @@ def _buildFarfieldSupport(profile, blade_number, npts_azimut, distance,
         profile_rev = J.createZone('profile_rev',[x,y,z],['x','y','z'])
         profile_rev = W.discretize(profile_rev,N=C.getNPts(profile_joined))
 
-        if identical_invalid_count >=5:
-            msg = 'WARNING: could not optimize rev. profile properly\n'
+        is_stuck = identical_invalid_count >=5
+        if is_stuck:
+            msg = '\nWARNING: could not optimize rev. profile properly\n'
             msg+= f'kept getting {new_count} invalid tangents after {identical_invalid_count} trys\n'
             msg+= '-> check debug_rev_profile.cgns for reversed segments'
             print(J.WARN+msg+J.ENDC)
             J.save(profile_rev, 'debug_rev_profile.cgns')
             break
 
-    print('optimizing farfield revolution profile... ok')
+    if not is_stuck: print(J.GREEN+'ok'+J.ENDC)
 
     subprofiles = []
     indices = [r[0] for r in D.getNearestPointIndex(profile_rev, split_points)]
@@ -2575,6 +2643,7 @@ def _extractBladeTipTopology(sector_bnds, rotation_axis):
             for i,b in enumerate(bnds):
                 b[0] = s[0]+'.%d'%i
             tip_curves.extend(bnds)
+    
     contour = contours[0]
     for c in contours[1:]: contour = T.join(contour,c)
     cx, cy, cz = J.getxyz(contour)
@@ -2602,7 +2671,8 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
                          distance=10., number_of_points=200,
                          farfield_cell_height=1.,
                          tip_axial_scaling_at_farfield = 0.5,
-                         normal_tension=0.05):
+                         normal_tension=0.05,
+                         tip_radial_tension=0.03):
 
     c = np.array(rotation_center,dtype=np.float64)
     a = np.array(rotation_axis,dtype=np.float64)
@@ -2871,18 +2941,26 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
     J.migrateFields(support,tip_curves_topo)
     C._normalize(tip_curves_topo,['sx','sy','sz'])
 
-    for crv in tip_curves:
-        sx,sy,sz = J.getVars(crv,['sx','sy','sz'])
-        sx[:]=frenet[0][0]
-        sy[:]=frenet[0][1]
-        sz[:]=frenet[0][2]
+    tip_sectors =  [ s for s in sector_bnds if s[0].startswith('tip')]
+    _putSmoothedNormalsAtSurfaces(tip_sectors, eps=0.9, niter=100, mode=0)
+    J.migrateFields(tip_sectors,tip_curves)
+    C._normalize(tip_curves,['sx','sy','sz'])
 
-    GSD._alignNormalsWithRadialCylindricProjection(tip_curves,rotation_center,rotation_axis)
+    # # for DEBUG
+    # J.save(sector_bnds,'sector_bnds.cgns')
+    # J.save(tip_curves,'tip_curves.cgns')
+    # J.save(tip_curves_topo,'tip_curves_topo.cgns')
+    # print('number_of_points',number_of_points)
+    # print('tension1',normal_tension)
+    # print('length1',tip_cell_length)
+    # print('length2',farfield_cell_height)
+    # exit()
+    
 
     TFI2_blends = []
     for c1, c2 in zip(tip_curves,tip_curves_topo):
         TFI2_blend = W.fillWithBezier(c1, c2, number_of_points,
-                        tension1=normal_tension, tension2=0., # TODO parameter ?
+                        tension1=tip_radial_tension, tension2=0., # TODO parameter ?
                         length1=tip_cell_length, length2=farfield_cell_height)
         TFI2_blend[0] = c1[0]+'.blend'
         TFI2_blends += [ TFI2_blend ]
@@ -2894,7 +2972,18 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
         topos = W.reorderAndSortCurvesSequentially(topos)
         all_topos += [ topos ]
 
-    All_TFI2_far = [G.TFI([cr[0],cr[2],cr[1],cr[3]]) for cr in all_topos]
+
+    # DEBUG:
+    All_TFI2_far = []
+    for cr in all_topos:
+        try:
+            All_TFI2_far += [G.TFI([cr[0],cr[2],cr[1],cr[3]])]
+        except BaseException as e:
+            J.save(cr,'debug.cgns')
+            if W.isSubzone(cr[0],cr[2]) or W.isSubzone(cr[1],cr[3]):
+                raise ValueError(J.FAIL+'TFI bounds cannot be coincident. Check debug.cgns and modify tip topology'+J.ENDC)
+            raise e
+    
 
     TFI_H_group_topo = [cr for cr in tip_curves_topo if cr[0].startswith('tfi')]
     I._rmNodesByType(TFI_H_group_topo,'FlowSolution_t')
@@ -2950,7 +3039,7 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
     W.projectNormals(TFI_H_group_bnd, support_central, projection_direction=proj_dir)
 
 
-    print('fill farfield H with bezier...')
+    print('fill farfield H with bezier... ',end='')
     topo_cell = W.meanSegmentLength(TFI_H_group_topo)
     axial_cell_length_front = W.distance(W.point(profile_rev_sectors[2],-2),
                                          W.point(profile_rev_sectors[2],-1))
@@ -2973,21 +3062,21 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
                         )
         TFI2_bnd_blend[0] = 'bl.%d.blend'%i
         TFI2_bnd_blends += [ TFI2_bnd_blend ]
-    print('fill farfield H with bezier... ok')
+    print(J.GREEN+'ok'+J.ENDC)
 
-    print('smoothing farfield H...')
+    print('smoothing farfield H... ',end='')
     fixedZones = TFI_H_group_topo+TFI_H_group_bnd
     fixedZones.extend( [ GSD.getBoundary(z,'imin',1) for z in TFI2_bnd_blends ] )
     fixedZones.extend( [ GSD.getBoundary(z,'imin',2) for z in TFI2_bnd_blends ] )
     GSD.prepareGlue(TFI2_bnd_blends,fixedZones)
     for i in range( 5 ):
-        T._smooth(TFI2_bnd_blends,eps=0.8,niter=200,type=2,
+        T._smooth(TFI2_bnd_blends,eps=0.8,niter=50,type=2,
             fixedConstraints=fixedZones)
         T._projectRay(TFI2_bnd_blends,support_central, [0,0,0])
     GSD.applyGlue(TFI2_bnd_blends,fixedZones)
-    print('smoothing farfield H... ok')
+    print(J.GREEN+'ok'+J.ENDC)
 
-
+    print('building farfield connectors... ', end='')
     profile_rev_sectors = W.reorderAndSortCurvesSequentially(profile_rev_sectors)
     for p in profile+profile_rev_sectors: W.addNormals(p)
 
@@ -3023,7 +3112,10 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
                 length2=farfield_cell_height, only_at_indices=[-1],tension2=0.,
                 tension1=normal_tension,)
     union_curves += [ union_curve ]
+    print(J.GREEN+'ok'+J.ENDC)
 
+
+    print('creating farfield surfacic domains... ',end='')
     tfi_unions = []
     i = -1
     for c1, c2 in zip(profile,profile_rev_sectors):
@@ -3314,9 +3406,11 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
     # remove duplicates
     for base in I.getBases(farfield_faces):
         base[2] = getUniqueSurfaces(I.getZones(base))
+    print(J.GREEN+'ok'+J.ENDC) # 'creating farfield surfacic domains... '
+
 
     grids = []
-    print('making farfield 3D TFI...')
+    print('making farfield 3D TFI... ', end='')
     for base in I.getBases(farfield_faces):
         try:
             surfs_for_tfi = I.getZones(base)
@@ -3328,9 +3422,20 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
             J.save(farfield_faces,'debug.cgns')
             raise ValueError(f'TFI failed for base {base[0]}, check debug.cgns') from e
         tfi3D[0] = base[0]
+        T._makeDirect(tfi3D)
         grids += [ tfi3D ]
-    print('making farfield 3D TFI... ok')
-    T._makeDirect(grids)
+    print(J.GREEN+'ok'+J.ENDC)
+
+    print('checking negative volume cells in farfield 3D TFI... ',end='')
+    negative_volume_cells = GVD.checkNegativeVolumeCells(grids, volume_threshold=0)
+    if negative_volume_cells:
+        try: os.makedirs(DIRECTORY_CHECKME)
+        except: pass
+        J.save([z for z in I.getZones(grids) if z[0].startswith('tip_')], 'tips.cgns')
+        J.save(negative_volume_cells, os.path.join(DIRECTORY_CHECKME,'negative_volume_cells.cgns'))
+    else:
+        print(J.GREEN+'ok'+J.ENDC)
+
 
     return grids, farfield_faces
 
@@ -3819,5 +3924,20 @@ def makeHub(profile, blade_number=4, rotation_center=[0,0,0],
         surfaces = [ tfi_le_bulb, main_hub ]
 
     return surfaces
+    
+def computeOptimumProfileHgridSegment(profile, number_of_blades, npts_azimuth,
+        BreakPoint, BreakPoint_coordinate='x', rotation_center=[0,0,0],
+        rotation_axis=[1,0,0]):
+    subparts = W.splitAt(profile, BreakPoint, 'Coordinate'+BreakPoint_coordinate.upper())
+    if len(subparts) != 2: return ValueError('unexpected number of profile parts')
+    subparts = W.reorderAndSortCurvesSequentially(subparts)
+    RelevantPoint = W.point(subparts[0],-1)
+    distance_to_axis = W.distanceOfPointToLine(RelevantPoint, rotation_axis,
+                                               rotation_center)
+    sector_angle = 2*np.pi/number_of_blades
+    azimuthal_angle = sector_angle / (npts_azimuth-1)
+    arc = azimuthal_angle * distance_to_axis
+    return arc
+
     
     

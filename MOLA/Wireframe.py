@@ -2472,7 +2472,7 @@ def pointwiseVectors(curve1, curve2, normalize=True, reverse=False):
                 **curve1** is modified, with new ``{sx}``, ``{sy}``, ``{sz}``
 
         curve2 : zone
-            zone with same points as **curve1** and equvalent indexing
+            zone with same points as **curve1** and equivalent indexing
 
     Returns
     -------
