@@ -77,7 +77,7 @@ setup            = None
 CurrentIteration = 0
 elsAxdt          = None
 PyPartBase       = None
-EndOfRun         = False
+EndOfRun         = True
 # ------------------------------------------------------------------- #
 FAIL  = '\033[91m'
 GREEN = '\033[92m'
