@@ -4527,7 +4527,7 @@ def getPostprocessQuantities_OLD(DIRECTORY_WORK, basename, useLocalConfig=False,
 
     return perfo
 
-def printConfigurationStatusWithPerfo(monitoredRow):
+def printConfigurationStatusWithPerfo(monitoredRow, DIRECTORY_WORK='.'):
     '''
     Print the current status of a IsoSpeedLines computation and display
     performance of the monitored row for completed jobs.
@@ -4537,6 +4537,9 @@ def printConfigurationStatusWithPerfo(monitoredRow):
 
         monitoredRow : str
             Name of the row whose performance will be displayed
+        
+        DIRECTORY_WORK : str
+            directory where ``JobsConfiguration.py`` file is located
 
     Returns
     -------
@@ -4561,10 +4564,10 @@ def printConfigurationStatusWithPerfo(monitoredRow):
     os.system("mola_repatriate --arrays")
     print(J.GREEN+'  Repatriating data done.'+J.ENDC)
 
-    config = JM.getJobsConfiguration('.', useLocalConfig=True)
+    config = J.load_source('config', os.path.join(DIRECTORY_WORK, 'JobsConfiguration.py'))
     Throttle = np.array(sorted(list(set([float(case['CASE_LABEL'].split('_')[0]) for case in config.JobsQueues]))))
     RotationSpeed = np.array(sorted(list(set([case['TurboConfiguration']['ShaftRotationSpeed'] for case in config.JobsQueues]))))
-    root_path = config.DIRECTORY_WORK.split('/')[-2]
+    root_path = os.path.join(DIRECTORY_WORK, config.DIRECTORY_WORK.split('/')[-2])
 
     nThrottle = Throttle.size
     nCol = 4
@@ -4661,7 +4664,7 @@ def printConfigurationStatusWithPerfo(monitoredRow):
 
     return perfo
 
-def getPostprocessQuantities(basename, rename=True):
+def getPostprocessQuantities(basename, DIRECTORY_WORK='.', rename=True):
     '''
     Print the current status of a IsoSpeedLines computation and display
     performance of the monitored row for completed jobs.
@@ -4670,6 +4673,9 @@ def getPostprocessQuantities(basename, rename=True):
     ----------
         basename : str
             Name of the base to get
+
+        DIRECTORY_WORK : str
+            directory where ``JobsConfiguration.py`` file is located
 
         rename : bool 
             if :py:obj:`True`, rename variables with CGNS names (or inspired CGNS names, already used in MOLA)
@@ -4689,14 +4695,17 @@ def getPostprocessQuantities(basename, rename=True):
             * and all quantities found in **baseName** (numpy.array)
 
     '''
+    current_directory = os.getcwd()
+    os.chdir(DIRECTORY_WORK)
     print(J.CYAN+'Repatriating data...'+J.ENDC)
     os.system("mola_repatriate --light")
     print(J.GREEN+'  Repatriating data done.'+J.ENDC)
+    os.chdir(current_directory)
 
-    config = JM.getJobsConfiguration('.', useLocalConfig=True)
+    config = J.load_source('config', os.path.join(DIRECTORY_WORK, 'JobsConfiguration.py'))
     Throttle = np.array(sorted(list(set([float(case['CASE_LABEL'].split('_')[0]) for case in config.JobsQueues]))))
     RotationSpeed = np.array(sorted(list(set([case['TurboConfiguration']['ShaftRotationSpeed'] for case in config.JobsQueues]))))
-    root_path = config.DIRECTORY_WORK.split('/')[-2]
+    root_path = os.path.join(DIRECTORY_WORK, config.DIRECTORY_WORK.split('/')[-2])
 
     def getCaseLabel(config, throttle, rotSpeed):
         for case in config.JobsQueues:
