@@ -39,9 +39,11 @@ if not MOLA.__ONLY_DOC__:
     import glob
     import numpy as np
     import pprint
+    import datetime
     from itertools import product
     from timeit import default_timer as tic
     from fnmatch import fnmatch
+
 
     import Converter.PyTree as C
     import Converter.Internal as I
@@ -2754,15 +2756,27 @@ def load(*args, **kwargs):
     '''
     load a file using either Cassiopee convertFile2PyTree or maia
     file_to_dist_tree depending on the chosen backend (``'maia'`` or
-    ``'cassiopee'`` ). Keyword ``backend='auto'`` will use maia
+    ``'cassiopee'`` ). 
+    
+    Special keyword ``backend='auto'`` will use maia
     for  ``*.cgns`` and ``*.hdf`` formats; and Cassiopee for the rest.
     Default backend is Cassiopee
+
+    Special keyword ``return_type='zones'`` will return only a list of zones
+    contained in the file (if any). By default, ``return_type='tree'``
     '''
     try:
         backend = kwargs['backend'].lower()
         del kwargs['backend']
     except KeyError:
         backend = 'Cassiopee' # this is the default value 
+
+    try:
+        return_type = kwargs['return_type'].lower()
+        del kwargs['return_type']
+    except KeyError:
+        return_type = 'tree' # this is the default value 
+
 
     if backend == 'auto':
         filename = args[0]
@@ -2788,12 +2802,28 @@ def load(*args, **kwargs):
     else:
         raise NotImplementedError(f'backend {backend} unknown')
 
-    return t
+    if return_type == 'tree':
+        return t
+    elif return_type == 'zones':
+        return I.getZones(t)
+    else:
+        raise NotImplementedError(f'return_type must be "tree" or "zones", got "{return_type}"')
 
 def save(*args, **kwargs):
     '''
-    literally, a shortcut of C.convertPyTree2File
+    shortcut of C.convertPyTree2File.
+
+    If special keyword ``force_unique_zones_names=True`` then uses I.correctPyTree(level=3)
+    before saving file, in order to avoid loosing data
     '''
+    try:
+        force_unique_zones_names = kwargs['force_unique_zones_names']
+        del kwargs['force_unique_zones_names']
+    except KeyError:
+        force_unique_zones_names = False # this is the default value 
+
+    if force_unique_zones_names: I._correctPyTree(args[0],level=3)
+
     C.convertPyTree2File(*args, **kwargs)
 
 def extractBCFromFamily(t, Family):        
@@ -2949,3 +2979,21 @@ def checkUniqueChildren(t, recursive=False):
     if recursive:
         for node in I.getChildren(t):
             checkUniqueChildren(node, recursive=True)
+
+def printElapsedTime(message='', previous_timer=0.0):
+    ElapsedTime = str(datetime.timedelta(seconds=tic()-previous_timer))
+    hours, minutes, seconds = ElapsedTime.split(':')
+    int_hours = int(hours)
+    int_minutes = int(minutes)
+    if int_hours < 1:
+        if int_minutes < 1:
+            ElapsedTimeHuman = f'{seconds} seconds'
+        else:
+            s = 's' if int_minutes!=1 else ''
+            ElapsedTimeHuman = f'{int_minutes} minute{s} and {seconds} seconds'
+    else:
+        sh = 's' if int_hours!=1 else ''
+        sm = 's' if int_hours!=1 else ''
+        ElapsedTimeHuman = f'{int_hours} hour{sh} {int_minutes} minute{sm} and {seconds} seconds'
+    msg = message + ' ' + ElapsedTimeHuman
+    print(BOLD+msg+ENDC)
