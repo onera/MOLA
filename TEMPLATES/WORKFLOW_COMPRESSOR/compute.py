@@ -73,6 +73,7 @@ CO.FILE_BODYFORCESRC= FILE_BODYFORCESRC
 CO.DIRECTORY_OUTPUT = DIRECTORY_OUTPUT
 CO.DIRECTORY_LOGS   = DIRECTORY_LOGS
 CO.setup            = setup
+CO.EndOfRun         = False
 
 if rank==0:
     try: os.makedirs(DIRECTORY_OUTPUT)

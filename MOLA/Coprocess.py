@@ -77,7 +77,7 @@ setup            = None
 CurrentIteration = 0
 elsAxdt          = None
 PyPartBase       = None
-EndOfRun         = False
+EndOfRun         = True
 # ------------------------------------------------------------------- #
 FAIL  = '\033[91m'
 GREEN = '\033[92m'
@@ -2578,13 +2578,11 @@ def splitWithPyPart():
 
     import etc.pypart.PyPart     as PPA
 
-    # HACK For now, PyPart Log files must be written in order to not polluate the stderr.log file
-    # See https://elsa-e.onera.fr/issues/11028#note-4
     PyPartBase = PPA.PyPart(FILE_CGNS,
                             lksearch=[DIRECTORY_OUTPUT, '.'],
                             loadoption='partial',
                             mpicomm=comm,
-                            LoggingInFile=True,
+                            LoggingInFile=False, 
                             LoggingFile='{}/PYPART_partTree'.format(DIRECTORY_LOGS),
                             LoggingVerbose=40  # Filter: None=0, DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
                             )
