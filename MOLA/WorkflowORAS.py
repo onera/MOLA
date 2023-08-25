@@ -276,12 +276,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             singleton = False if i==0 else True
             JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
 
-    ElapsedTime = str(PRE.datetime.timedelta(seconds=J.tic()-toc))
-    hours, minutes, seconds = ElapsedTime.split(':')
-    ElapsedTimeHuman = hours+' hours '+minutes+' minutes and '+seconds+' seconds'
-    msg = 'prepareMainCGNS took '+ElapsedTimeHuman
-    print(J.BOLD+msg+J.ENDC)
-
+    J.printElapsedTime('prepareMainCGNS4ElsA took ', toc)
 
 def updateChoroTimestep(t, Rows, NumericalParams):
     '''

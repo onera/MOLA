@@ -195,6 +195,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlock
                 The user shall employ function :py:func:`prepareMainCGNS4ElsA`
                 as next step
     '''
+    toc = J.tic()
     if isinstance(mesh,str):
         filename = mesh
         t = J.load(mesh)
@@ -257,6 +258,8 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlock
 
     PRE.adapt2elsA(t, InputMeshes)
     J.checkEmptyBC(t)
+
+    J.printElapsedTime('prepareMesh took ', toc)
 
     return t
 
@@ -578,11 +581,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             singleton = False if i==0 else True
             JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
 
-    ElapsedTime = str(PRE.datetime.timedelta(seconds=J.tic()-toc))
-    hours, minutes, seconds = ElapsedTime.split(':')
-    ElapsedTimeHuman = hours+' hours '+minutes+' minutes and '+seconds+' seconds'
-    msg = 'prepareMainCGNS took '+ElapsedTimeHuman
-    print(J.BOLD+msg+J.ENDC)
+    J.printElapsedTime('prepareMainCGNS4ElsA took ', toc)
 
 
 def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
@@ -2835,7 +2834,6 @@ def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
 
 
     # set the BC with keys
-    print(DictKeysGilesOutlet)  
     J.set(bc, '.Solver#BC',**DictKeysGilesOutlet)
 
 
@@ -2930,7 +2928,6 @@ def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwa
         raise Exception('Giles BC with file imposed not implemented yet')
 
     # set the BC with keys
-    print(DictKeysGilesInlet)  
     J.set(bc, '.Solver#BC',**DictKeysGilesInlet)
 
 
@@ -3408,8 +3405,6 @@ def setBC_giles_stage_mxpl(t, left, right, method = 'Robust', **kwargs):
     DictKeysGilesMxpl_right['monitoring_flag'] = kwargs['GilesMonitoringFlag_right']                # automatically computed, must be different from other Giles BC, including left BC of Mxpl
     DictKeysGilesMxpl_right['monitoring_file'] = 'LOGS/%s_%i_'%(MxplFamilyName,kwargs['GilesMonitoringFlag_right'])
 
-    print(DictKeysGilesMxpl_left)  
-    print(DictKeysGilesMxpl_right)  
 
     # set the BCs left with keys
     ListBCNodes_left = C.getFamilyBCs(t,left)
