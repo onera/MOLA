@@ -2997,3 +2997,18 @@ def printElapsedTime(message='', previous_timer=0.0):
         ElapsedTimeHuman = f'{int_hours} hour{sh} {int_minutes} minute{sm} and {seconds} seconds'
     msg = message + ' ' + ElapsedTimeHuman
     print(BOLD+msg+ENDC)
+
+def checkUniqueChildren(t, recursive=False):
+    nodes_names_and_types = [(I.getName(child), I.getType(child)) for child in I.getChildren(t)]
+    # Check unicity of each child
+    # assert len(nodes_names_and_types) == len(set(nodes_names_and_types)) # Cannot do that because of the function set defined in the current module...
+    tmp_list = []
+    for name_type in nodes_names_and_types:
+        if name_type not in tmp_list:
+            tmp_list.append(name_type)
+        else:
+            save(t, 'debug.cgns')
+            raise Exception(FAIL+f'The node {name_type[0]} of type {name_type[1]} is defined twice'+ENDC)
+    if recursive:
+        for node in I.getChildren(t):
+            checkUniqueChildren(node, recursive=True)

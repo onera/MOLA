@@ -61,7 +61,7 @@ if not MOLA.__ONLY_DOC__:
     import Converter.Internal as I
     import Transform.PyTree as T
 
-
+def exit(): os._exit(0)
 
 def xyz2Pixel(points,win,posCam,posEye,dirCam,viewAngle=50.0):
     '''
@@ -262,8 +262,6 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
         for i in range(len(Trees)):
             Trees[i] = I.merge([Trees[i]]+TreesBlending)
     
-
-
     for i in range(len(Trees)):
         tree = Trees[i]
         elt = Elements[i]
@@ -281,8 +279,7 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
         else:
             isoScales = []
 
-        increment_offscreen = i>0 and i == len(Trees)-1 and offscreen > 1
-
+        increment_offscreen = len(Trees)==1 or (i>0 and i == len(Trees)-1 and offscreen > 1)
         if increment_offscreen: offscreen += 1
 
         try: additionalDisplayOptions = elt['additionalDisplayOptions']
@@ -1509,13 +1506,13 @@ def getRadialProfiles(surfaces='OUTPUT/surfaces.cgns'):
     RadialProfilesBase = I.getNodeFromName1(surfaces, 'RadialProfiles')
     for zone in I.getZones(RadialProfilesBase):
         surfaceName = I.getName(zone)
-        RadialProfiles[surfaceName] = J.getVars2Dict(zone, Container='FlowSolution#Centers')
+        RadialProfiles[surfaceName] = J.getVars2Dict(zone, Container='FlowSolution#InitV')
         extractionInfo = J.get(zone, '.ExtractionInfo')
         if extractionInfo:
             RadialProfiles[surfaceName]['.ExtractionInfo'] = extractionInfo
         
         for FS in I.getNodesFromNameAndType(zone, 'Comparison#*', 'FlowSolution_t'):
-            comparedPlane = I.getName(FS).split('#')[-1]
+            comparedPlane = I.getName(FS).split('#')[1]
             comparisonName = f'{surfaceName}#{comparedPlane}'
             RadialProfiles[comparisonName] = J.getVars2Dict(zone, Container=I.getName(FS))
 

@@ -599,7 +599,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
         None : None
             Writes ``setup.py``, ``main.cgns`` and eventually ``OUTPUT/fields.cgns``
     '''
-
+    toc = J.tic()
     if isinstance(mesh,str):
         t = C.convertFile2PyTree(mesh)
     elif I.isTopTree(mesh):
@@ -695,6 +695,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
 
         if SubmitJob: JM.submitJob(JobInformation['DIRECTORY_WORK'])
 
+    J.printElapsedTime('prepareMainCGNS4ElsA took ', toc)
 
 def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
         Temperature=288.15, AngleOfAttackDeg=0.0, AngleOfSlipDeg=0.0,

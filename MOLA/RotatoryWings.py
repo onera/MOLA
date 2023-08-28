@@ -1981,8 +1981,10 @@ def _buildHgridAroundBlade(external_surfaces, blade, rotation_center,
     if negative_volume_cells:
         try: os.makedirs(DIRECTORY_CHECKME)
         except: pass
-        J.save(grids,'grids.cgns')
+        print(J.WARN)
+        J.save(grids, os.path.join(DIRECTORY_CHECKME,'H-grids.cgns'))
         J.save(negative_volume_cells, os.path.join(DIRECTORY_CHECKME,'negative_volume_cells.cgns'))
+        print(J.ENDC)
     else:
         print(J.GREEN+'ok'+J.ENDC)
 
