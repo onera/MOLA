@@ -1,0 +1,55 @@
+#!/usr/bin/bash
+#
+# Repatriate directories after submitting several simulations on sator at once
+
+display_help() {
+    echo "Usage: $0 [option...]" >&2
+    echo
+    echo "   repatriate directories after submitting several simulations on sator at once."
+    echo "   There has to be a file JobsConfiguration.py in the current directory."
+    echo "   This command must be used with at least one option."
+    echo
+    echo "   -a, --arrays         copy only arrays.cgns, setup.py and coprocess.log"
+    echo "       --log            copy only logs"
+    echo "   -l, --light          copy main files that are useful for data analysis, including arrays.cgns, surfaces.cgns and figures. It excludes other CGNS files (e.g. main.cgns and fields.cgns) and logs."
+    echo "       --full           copy all files (except __pycache__ and TurboVariables directories)"
+    echo "   -h, --help           display help"
+    echo
+    exit 1
+}
+
+get_working_directory() {
+    mola_wd=$(sed '/DIRECTORY_WORK/!d' JobsConfiguration.py | sed 's/DIRECTORY_WORK=//' | sed 's/"//g')
+    wd_name=$(basename `pwd`)
+    echo $mola_wd
+}
+
+if [[ "$#" == 0 ]]; then
+    echo "This command expects at least on option to work." 
+    display_help
+fi
+
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -h|--help) 
+            display_help
+            exit;;
+        -a| --arrays)
+            # only arrays
+            get_working_directory
+            rsync -av --include={'setup.py','coprocess.log','arrays.cgns'} --exclude={'__pycache__','LOGS/*','TurboVariables','OUTPUT/*','*.cgns','*.py','*.sh'} sator:$mola_wd $wd_name;;
+        -l| --light)
+            get_working_directory
+            rsync -av --include={'setup.py','coprocess.log','arrays.cgns','surfaces*.cgns','*.png','*.pdf','.svg'} --exclude={'__pycache__','LOGS/*','TurboVariables','OUTPUT/*','*.cgns'} sator:$mola_wd $wd_name;;
+        --log)
+            get_working_directory
+            rsync -av --exclude={'__pycache__','TurboVariables','OUTPUT','*.cgns','*.py','*.sh','PYPART_partTree.*.log'} sator:$mola_wd $wd_name;;
+        --full)
+            get_working_directory
+            rsync -av --exclude={'__pycache__','TurboVariables'} sator:$mola_wd $wd_name;;
+        *) 
+            echo "Unknown parameter passed: $1" 
+            display_help;;
+    esac
+    shift
+done

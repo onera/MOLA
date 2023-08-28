@@ -1,0 +1,9 @@
+#!/usr/bin/bash
+#
+# Display versions of modules loaded with MOLA
+
+if [ "$MAC" = "spiro" ]; then
+    mpirun -np 1 python3 -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'
+else
+    python3 -c 'import MOLA.InternalShortcuts as J;J.printEnvironment()'
+fi

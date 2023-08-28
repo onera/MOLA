@@ -79,9 +79,10 @@ html_static_path = ['_static']
 
 # variables to pass to HTML templating engine
 html_context = {
-    "default_mode": "dark",
+    "default_mode": "light",
     'versions_dropdown': {
         'Dev': 'development',
+        'v1.15': 'v1.15',
         'v1.14': 'v1.14',
         'v1.13': 'v1.13'
     },

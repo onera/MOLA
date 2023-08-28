@@ -18,14 +18,14 @@ All elements in this tutorial can be recovered in the example directory:
 
 .. code-block:: bash
 
-    /stck/lbernard/MOLA/v1.14/EXAMPLES/WORKFLOW_AIRFOIL/LIGHT_POLAR
+    $MOLA/EXAMPLES/WORKFLOW_AIRFOIL/LIGHT_POLAR
 
 
 The default template scripts can be found at:
 
 .. code-block:: bash
 
-    /stck/lbernard/MOLA/v1.14/TEMPLATES/WORKFLOW_AIRFOIL
+    $MOLA/TEMPLATES/WORKFLOW_AIRFOIL
 
 
 Meshing procedure checking
@@ -173,7 +173,10 @@ file is given here:
 .. important:: the presented ``MeshingParameters.py`` example file produces a *light*
     mesh. Please feel free to adapt it according to the meshing requirements of
     your work. An example of a finer MeshingParameters file can be found in
-    ``TEMPLATES/WORKFLOW_AIRFOIL`` directory
+    ``TEMPLATES/WORKFLOW_AIRFOIL`` directory. To know more about the parameters 
+    of this function, please see the documentation of functions
+    :py:func:`~MOLA.GenerativeShapeDesign.buildMesh` and
+    :py:func:`~MOLA.GenerativeShapeDesign.extrudeAirfoil2D`
 
 .. note:: some of *(or all)* the meshing parameters defined in dictionaries **Sizes**, **Cells**,
     **Points** and **options** can be undefined. In this case, undefined values
@@ -435,7 +438,7 @@ Monitor the simulation convergence
 Now that relevant files are repatriated, it is possible to visualize the
 integral loads evolution, using file ``arrays.cgns``.
 
-The structure and contents of ``arrays.cgns`` can be explored using `cgnsview`_
+The structure and contents of ``arrays.cgns`` can be explored using **treelab**
 tool, as shown in :numref:`ArraysCGNSview`.
 
 .. _ArraysCGNSview:
@@ -579,7 +582,7 @@ data and will assemble the information in a CGNS file, here named ``Polar.cgns``
     that constitutes the polar matrix.
 
 Once the script have finished, the file ``Polar.cgns`` is written and can
-be explored using `cgnsview`_ tool, as shown in :numref:`PolarTree`.
+be explored using **treelab** tool, as shown in :numref:`PolarTree`.
 
 .. _PolarTree:
 
@@ -688,6 +691,34 @@ values of empirical stalled conditions.
     the threshold parameter **useBigRangeValuesIf_StdCLisHigherThan** of
     function :func:`~MOLA.WorkflowAirfoil.correctPolar`.
 
+Extension of an existing polar
+------------------------------
+
+In some cases, you may have computed a polar for a given range of angles-of-attack
+and Mach numbers (using for example :download:`PolarLauncherStruct_BASIC.py <../../TEMPLATES/WORKFLOW_AIRFOIL/PolarLauncherStruct_BASIC.py>`)
+and then you realize that you forgot to include some angles-of-attack and/or Mach 
+numbers, or you simply realize that you need to extend your range once the Polar 
+is computed.
+
+If this is your case, then I have some good news for you: since MOLA v1.15, you
+do *not* need to relaunch the entire range of polar points! Now, you can simply
+perform an *extension* of your previously computed Polar.
+
+This is quite easy: you simply have to launch again the function
+:func:`~MOLA.WorkflowAirfoil.launchBasicStructuredPolars` providing the same 
+*DIRECTORY_WORK*, *FILE_GEOMETRY* as your previous polar computation, and 
+provide the angles-of-attack and Mach number to be extended through variables 
+``AoARange`` and ``MachRange``. For the example of this tutorial, the following
+script would do the job for requesting a polar extension of angles-of-attack 
+-1.5 deg and 2.5 deg (which did not exist in previous polar computation) and 
+also add the Mach numbers 0.35 and 0.55, as follows 
+:download:`PolarLauncherStruct_EXTEND.py <../../EXAMPLES/WORKFLOW_AIRFOIL/LIGHT_POLAR/PolarLauncherStruct_EXTEND.py>`:
+
+.. literalinclude:: ../../EXAMPLES/WORKFLOW_AIRFOIL/LIGHT_POLAR/PolarLauncherStruct_EXTEND.py
+
+
+
+
 Workflow Checklist
 ------------------
 
@@ -701,9 +732,9 @@ Workflow Checklist
 
 #. adapt ``MeshingParameters.py`` to your needs
 
-#. make a test mesh verification with :download:`test-mesher.py <../../TEMPLATES/WORKFLOW_AIRFOIL/test-mesher.py>`
+#. make a test mesh verification with :download:`test-mesher.py <../../EXAMPLES/WORKFLOW_AIRFOIL/LIGHT_POLAR/PolarLauncherStruct_BASIC.py>`
 
-#. adapt and launch CFD runs using :download:`PolarLauncherStruct_BASIC.py <../../TEMPLATES/WORKFLOW_AIRFOIL/PolarLauncherStruct_BASIC.py>`
+#. adapt and launch CFD runs using :download:`PolarLauncherStruct_BASIC.py <../../EXAMPLES/WORKFLOW_AIRFOIL/LIGHT_POLAR/PolarLauncherStruct_BASIC.py>`
 
 #. monitor all the polars status and retrieve specific case files using :download:`PolarMonitor.py <../../TEMPLATES/WORKFLOW_AIRFOIL/PolarMonitor.py>`
 
@@ -718,6 +749,9 @@ Workflow Checklist
 #. *If required*, correct polar results using :download:`PolarCorrector.py <../../TEMPLATES/WORKFLOW_AIRFOIL/PolarCorrector.py>`
 
 #. *If required*, plot the corrected polar using again :download:`PolarPlotter.py <../../TEMPLATES/WORKFLOW_AIRFOIL/PolarPlotter.py>`
+
+#. if you want to include new values of angle-of-attack or Mach numbers, relaunch the polar launcher with new ``AoARange`` and ``MachRange`` as in 
+   :download:`PolarLauncherStruct_EXTEND.py <../../EXAMPLES/WORKFLOW_AIRFOIL/LIGHT_POLAR/PolarLauncherStruct_EXTEND.py>`
 
 Conclusion
 ----------

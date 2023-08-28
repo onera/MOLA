@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -39,9 +39,11 @@ if not MOLA.__ONLY_DOC__:
     import glob
     import numpy as np
     import pprint
+    import datetime
     from itertools import product
     from timeit import default_timer as tic
     from fnmatch import fnmatch
+
 
     import Converter.PyTree as C
     import Converter.Internal as I
@@ -54,6 +56,19 @@ CYAN  = '\033[96m'
 ENDC  = '\033[0m'
 BOLD = '\033[1m'
 UNDERLINE = '\033[4m'
+
+# ref: https://github.com/CGNS/CGNS/blob/develop/src/cgnslib.h#L510
+element_types = [
+    'Null', 'UserDefined',
+    'NODE', 'BAR_2', 'BAR_3', 'TRI_3', 'TRI_6', 'QUAD_4', 'QUAD_8', 'QUAD_9',
+    'TETRA_4', 'TETRA_10', 'PYRA_5', 'PYRA_14', 'PENTA_6', 'PENTA_15',
+    'PENTA_18', 'HEXA_8', 'HEXA_20', 'HEXA_27', 'MIXED', 'PYRA_13',
+    'NGON_n', 'NFACE_n', 'BAR_4', 'TRI_9', 'TRI_10', 'QUAD_12', 'QUAD_16',
+    'TETRA_16', 'TETRA_20', 'PYRA_21', 'PYRA_29', 'PYRA_30', 'PENTA_24',
+    'PENTA_38', 'PENTA_40', 'HEXA_32', 'HEXA_56', 'HEXA_64', 'BAR_5', 'TRI_12',
+    'TRI_15', 'QUAD_P4_16', 'QUAD_25', 'TETRA_22', 'TETRA_34', 'TETRA_35',
+    'PYRA_P4_29', 'PYRA_50', 'PYRA_55', 'PENTA_33', 'PENTA_66', 'PENTA_75',
+    'HEXA_44', 'HEXA_98', 'HEXA_125']
 
 
 def set(parent, childname, childType='UserDefinedData_t', **kwargs):
@@ -110,13 +125,6 @@ def set(parent, childname, childType='UserDefinedData_t', **kwargs):
                     except ValueError:
                         value = None
 
-                    if value is None:
-                        print(WARN+'key:  '+'/'.join([parent[0],childname,v])+ENDC)
-                        print(WARN+'has value:'+ENDC)
-                        print(WARN+pprint.pformat(kwargs[v])+ENDC)
-                        print(WARN+'which cannot be written in CGNS'+ENDC)
-                        print(WARN+'this value will be replaced in CGNS by: '+BOLD+'None'+ENDC)
-                        value = None
             else:
                 value = None
             children += [[v,value]]
@@ -320,6 +328,16 @@ def getVars2Dict(zone, VariablesName=None, Container='FlowSolution'):
             print ("Field %s not found in container %s of zone %s. Check spelling or data."%(v,Container,zone[0]))
     return Pointers
 
+def getVars2DictPerZone(t, **getVars2DictOpts):
+    '''
+    higher-level version of :py:func:`getVars2Dict`, where a new level is provided
+    to the returned dict, which includes the zone names (which must be unique 
+    in the tree).
+    '''
+    zoneDict = dict()
+    for zone in I.getZones(t):
+        zoneDict[zone[0]] = getVars2Dict(zone, **getVars2DictOpts)
+    return zoneDict
 
 def invokeFields(zone, VariableNames, locationTag='nodes:'):
     """
@@ -707,7 +725,7 @@ def createZone(Name, Arrays, Vars):
         z = y*1.5
         Ro = np.zeros((10)) + 1.225
         MyZone = J.createZone('MyTitle',
-                              [            x,            y,            z,       Ro],
+                              [            x,            y,            z,       rho],
                               ['CoordinateX','CoordinateY','CoordinateZ','Density'])
         C.convertPyTree2File(MyZone,'MyZone.cgns')
 
@@ -719,7 +737,7 @@ def createZone(Name, Arrays, Vars):
     try:
         ar=np.concatenate([aa.reshape((1,ni*nj*nk),order='F') for aa in Arrays],axis=0)
     except ValueError:
-        ERRMSG = FAIL+'ERROR - COULD NOT CONCATENATE ARRAYS:\n'
+        ERRMSG = FAIL+'ERROR - COULD NOT CONCATENATE ARRAYS FOR %s:\n'%Name
         for i,v in enumerate(Vars):
             ERRMSG += v+' with shape: '+str(Arrays[i].shape)+'\n'
         ERRMSG += ENDC
@@ -1852,11 +1870,11 @@ def checkEmptyBC(t):
             :py:obj:`True` if **t** has at least one empty BC
     '''
     def isEmpty(emptyBC):
-        if isinstance(emptyBC, list):
+        if isinstance(emptyBC, list) or isinstance(emptyBC, np.ndarray):
             for i in emptyBC:
                 return isEmpty(i)
             return False
-        elif isinstance(emptyBC, int) or isinstance(emptyBC, float):
+        elif np.isfinite(emptyBC):
             return True
         else:
             raise ValueError('unexpected type %s'%type(emptyBC))
@@ -1932,6 +1950,12 @@ def sortListsUsingSortOrderOfFirstList(*arraysOrLists):
         NewArrays.append( NewArray )
 
     return NewArrays
+
+def sortNodesByName(nodes):
+    names = [n[0] for n in nodes]
+    sorted_nodes = sortListsUsingSortOrderOfFirstList(names, nodes)[1]
+    nodes[:] = sorted_nodes
+
 
 
 def getSkeleton(t, keepNumpyOfSizeLessThan=20):
@@ -2288,10 +2312,17 @@ def printEnvironment():
         usedVersion =  'v'+'.'.join(MajorMinorMicro)
         return usedVersion == latestVersion
 
+    def printTime(toc):
+        ElapsedTime = tic() - toc
+        if ElapsedTime < 0.1: return ''
+        if ElapsedTime < 0.5: return ' (took %g s)'%ElapsedTime
+        if ElapsedTime < 1.0: return WARN+' (took %g s)'%ElapsedTime+ENDC
+        return FAIL+' (took %g s : too long)'%ElapsedTime+ENDC
+
     machine = os.getenv('MAC', 'UNKNOWN')
     vELSA = os.getenv('ELSAVERSION', 'UNAVAILABLE')
     totoV = __version__
-    if totoV == 'Dev':
+    if totoV in ['Dev','master']:
         vMOLA = WARN + totoV + ENDC
     else:
         vMOLA = totoV
@@ -2303,99 +2334,119 @@ def printEnvironment():
     print(' --> elsA '+vELSA)
 
     # elsA tools chain
+    tag = ' --> ETC '
+    print(tag,end='')
+    toc = tic()
     try:
         import etc
     except:
-        vETC = FAIL + 'UNAVAILABLE' + ENDC
+        v = FAIL + 'UNAVAILABLE' + ENDC
     else:
-        vETC = WARN + 'UNKNOWN' + ENDC
+        v = WARN + 'UNKNOWN' + ENDC
         for vatt in ('__version__','version'):
             if hasattr(etc, vatt):
-                vETC = getattr(etc,vatt)
+                v = getattr(etc,vatt)
                 break
-    
-    print(' --> ETC '+vETC)
+    print(v.ljust(20-len(tag))+printTime(toc))
 
     # Cassiopee
+    tag = ' --> Cassiopee '
+    print(tag,end='')
+    toc = tic()
     try:
         import Converter.PyTree as C
-        vCASSIOPEE = C.__version__
+        v = C.__version__
     except:
-        vCASSIOPEE = FAIL + 'UNAVAILABLE' + ENDC
-    print(' --> Cassiopee '+vCASSIOPEE)
+        v = FAIL + 'UNAVAILABLE' + ENDC
+    print(v.ljust(20-len(tag))+printTime(toc))
+
 
     # OCC # TODO CAUTION https://elsa.onera.fr/issues/10950
+    tag = ' ----> OCC '
+    print(tag,end='')
+    toc = tic()
     try:
         import OCC
-        vOCC = OCC.__version__
+        v = OCC.__version__
     except:
-        vOCC = FAIL + 'UNAVAILABLE' + ENDC
-    print(' --> OCC '+vOCC)
+        v = FAIL + 'UNAVAILABLE' + ENDC
+    print(v.ljust(20-len(tag))+printTime(toc))
 
+    tag = ' ----> Apps '
+    print(tag,end='')
+    toc = tic()
     try:
         import Apps
-        vApps = Apps.__version__
+        v = Apps.__version__
     except:
-        vApps = FAIL + 'UNAVAILABLE' + ENDC
-    print(' --> Apps '+vApps)
-
-
+        v = FAIL + 'UNAVAILABLE' + ENDC
+    print(v.ljust(20-len(tag))+printTime(toc))
 
     # Vortex Particle Method
+    tag = ' --> VPM '
+    print(tag,end='')
+    toc = tic()
     try:
         import VortexParticleMethod.vortexparticlemethod
         import MOLA.VPM as VPM
-        vVPM = VPM.__version__
+        v = VPM.__version__
     except:
-        vVPM = FAIL + 'UNAVAILABLE' + ENDC
-    print(' --> VPM '+vVPM)
+        v = FAIL + 'UNAVAILABLE' + ENDC
+    print(v.ljust(20-len(tag))+printTime(toc))
 
     # PUMA
-    vPUMA = os.getenv('PUMAVERSION', 'UNAVAILABLE')
-    if vPUMA == 'UNAVAILABLE':
-        vPUMA = FAIL + vPUMA + ENDC
+    tag = ' --> PUMA '
+    print(tag,end='')
+    toc = tic()
+    v = os.getenv('PUMAVERSION', 'UNAVAILABLE')
+    if v == 'UNAVAILABLE':
+        v = FAIL + v + ENDC
     else:
         try:
             silence = OutputGrabber()
             with silence:
                 import PUMA
         except:
-            vPUMA = FAIL + 'UNAVAILABLE' + ENDC
-    print(' --> PUMA '+vPUMA)
+            v = FAIL + 'UNAVAILABLE' + ENDC
+    print(v.ljust(20-len(tag))+printTime(toc))
 
     # turbo
-    vTURBO = os.getenv('TURBOVERSION', 'UNAVAILABLE')
-    if vTURBO != 'UNAVAILABLE':
-        try:
-            import turbo
-        except:
-            vTURBO = FAIL + 'UNAVAILABLE' + ENDC 
-    else:
-        vTURBO = FAIL + 'UNAVAILABLE' + ENDC 
-
-    print(' --> turbo '+vTURBO)
+    tag = ' --> turbo '
+    print(tag,end='')
+    toc = tic()
+    try:
+        import turbo
+        v = turbo.__version__
+    except:
+        v = FAIL + 'UNAVAILABLE' + ENDC 
+    print(v.ljust(20-len(tag))+printTime(toc))
 
     # ErsatZ
+    tag = ' --> Ersatz '
+    print(tag,end='')
+    toc = tic()
     try:
         import Ersatz
-        vERSATZ = Ersatz.__file__.split('/')[-4].lstrip('ersatZ_')
+        v = Ersatz.__version__
     except:
-        vERSATZ = FAIL + 'UNAVAILABLE' + ENDC
-    print(' --> Ersatz '+vERSATZ)
-
+        v = FAIL + 'UNAVAILABLE' + ENDC 
+    print(v.ljust(20-len(tag))+printTime(toc))
 
     # maia
+    tag = ' --> maia '
+    print(tag,end='')
+    toc = tic()
     try:
         import maia
         try:
-            vMAIA = maia.__version__
+            v = maia.__version__
         except:
-            vMAIA = 'dev'
+            v = 'dev'
     except:
-        vMAIA = FAIL+'UNAVAILABLE'+ENDC
-    print(' --> maia '+vMAIA)
+        v = FAIL+'UNAVAILABLE'+ENDC
+    print(v.ljust(20-len(tag))+printTime(toc))
 
-    if totoV == 'Dev':
+    if totoV in ['Dev', 'master']:
         print(WARN+'WARNING: you are using an UNSTABLE version of MOLA.\nConsider using a stable version.'+ENDC)
     else:
         Major, Minor, Micro = getMajorMinorMicro(totoV)
@@ -2703,12 +2754,246 @@ def moveFields(t, origin='FlowSolution#EndOfRun#Relative',
 
 def load(*args, **kwargs):
     '''
-    literally, a shortcut of C.convertFile2PyTree
+    load a file using either Cassiopee convertFile2PyTree or maia
+    file_to_dist_tree depending on the chosen backend (``'maia'`` or
+    ``'cassiopee'`` ). 
+    
+    Special keyword ``backend='auto'`` will use maia
+    for  ``*.cgns`` and ``*.hdf`` formats; and Cassiopee for the rest.
+    Default backend is Cassiopee
+
+    Special keyword ``return_type='zones'`` will return only a list of zones
+    contained in the file (if any). By default, ``return_type='tree'``
     '''
-    return C.convertFile2PyTree(*args, **kwargs)
+    try:
+        backend = kwargs['backend'].lower()
+        del kwargs['backend']
+    except KeyError:
+        backend = 'Cassiopee' # this is the default value 
+
+    try:
+        return_type = kwargs['return_type'].lower()
+        del kwargs['return_type']
+    except KeyError:
+        return_type = 'tree' # this is the default value 
+
+
+    if backend == 'auto':
+        filename = args[0]
+        if filename.endswith('.cgns') or filename.endswith('.hdf'):
+            import maia
+            from mpi4py import MPI
+            try:
+                t = maia.io.file_to_dist_tree(filename, MPI.COMM_WORLD, **kwargs)
+            except BaseException as e:
+                print(WARN+f'could not open {filename} with maia, received error:')
+                print(e)
+                print('switching to Cassiopee...'+ENDC)
+                t = C.convertFile2PyTree(*args, **kwargs)
+        else:
+            t = C.convertFile2PyTree(*args, **kwargs)
+    elif backend.lower() == 'cassiopee':
+        t = C.convertFile2PyTree(*args, **kwargs)
+    elif backend.lower() == 'maia':
+        import maia
+        from mpi4py import MPI
+        filename = args[0]
+        t = maia.io.file_to_dist_tree(filename, MPI.COMM_WORLD,**kwargs)
+    else:
+        raise NotImplementedError(f'backend {backend} unknown')
+
+    if return_type == 'tree':
+        return t
+    elif return_type == 'zones':
+        return I.getZones(t)
+    else:
+        raise NotImplementedError(f'return_type must be "tree" or "zones", got "{return_type}"')
 
 def save(*args, **kwargs):
     '''
-    literally, a shortcut of C.convertPyTree2File
+    shortcut of C.convertPyTree2File.
+
+    If special keyword ``force_unique_zones_names=True`` then uses I.correctPyTree(level=3)
+    before saving file, in order to avoid loosing data
     '''
+    try:
+        force_unique_zones_names = kwargs['force_unique_zones_names']
+        del kwargs['force_unique_zones_names']
+    except KeyError:
+        force_unique_zones_names = False # this is the default value 
+
+    if force_unique_zones_names: I._correctPyTree(args[0],level=3)
+
     C.convertPyTree2File(*args, **kwargs)
+
+def extractBCFromFamily(t, Family):        
+    BCList = []
+    for zone in I.getZones(t):
+        zoneType = I.getValue(I.getNodeFromName1(zone, 'ZoneType'))
+        
+        if zoneType == 'Unstructured':
+            BCList += C.extractBCOfName(zone, f'FamilySpecified:{Family}', reorder=False)
+        
+        else:
+            x, y, z = getxyz(zone)
+            for BC in I.getNodesFromType2(zone, 'BC_t'):
+                FamilyNode = I.getNodeFromType1(BC, 'FamilyName_t') # Adapt for several families
+                if not FamilyNode: continue
+                FamilyName = I.getValue(FamilyNode)
+                if Family == FamilyName:
+                    PointRange = I.getValue(I.getNodeFromName1(BC, 'PointRange'))
+                    bc_shape = PointRange[:, 1] - PointRange[:, 0]
+                    if bc_shape[0] == 0:
+                        squeezedAxis = 0
+                        if PointRange[0, 0]-1 == 0: 
+                            indexBC = 0 # BC on imin
+                        else:
+                            indexBC = -1 # BC on imax
+                        SliceOnVertex = np.s_[[indexBC], 
+                                                PointRange[1, 0]-1:PointRange[1, 1], 
+                                                PointRange[2, 0]-1:PointRange[2, 1]]
+                        SliceOnCell = np.s_[[indexBC],
+                                                PointRange[1, 0]-1:PointRange[1, 1]-1, 
+                                                PointRange[2, 0]-1:PointRange[2, 1]-1]
+
+                    elif bc_shape[1] == 0:
+                        squeezedAxis = 1
+                        if PointRange[1, 0]-1 == 0: 
+                            indexBC = 0 # BC on jmin
+                        else:
+                            indexBC = -1 # BC on jmax
+                        SliceOnVertex = np.s_[PointRange[0, 0]-1:PointRange[0, 1],
+                                            [indexBC], 
+                                            PointRange[2, 0]-1:PointRange[2, 1]]
+                        SliceOnCell = np.s_[PointRange[0, 0]-1:PointRange[0, 1]-1,
+                                            [indexBC], 
+                                            PointRange[2, 0]-1:PointRange[2, 1]-1]
+                        
+
+                    elif bc_shape[2] == 0:
+                        squeezedAxis = 2
+                        if PointRange[2, 0]-1 == 0: 
+                            indexBC = 0 # BC on kmin
+                        else:
+                            indexBC = -1 # BC on kmax
+                        SliceOnVertex = np.s_[PointRange[0, 0]-1:PointRange[0, 1],
+                                            PointRange[1, 0]-1:PointRange[1, 1],
+                                            [indexBC]]
+                        SliceOnCell = np.s_[PointRange[0, 0]-1:PointRange[0, 1]-1,
+                                            PointRange[1, 0]-1:PointRange[1, 1]-1,
+                                            [indexBC]]
+
+                    ni, nj, nk = x[SliceOnVertex].shape
+                    zsize = np.zeros((3,3),dtype=int)
+                    zsize[0,0] = ni
+                    zsize[1,0] = nj
+                    zsize[2,0] = nk
+                    zsize[0,1] = np.maximum(ni-1,1)
+                    zsize[1,1] = np.maximum(nj-1,1)
+                    zsize[2,1] = np.maximum(nk-1,1)
+                
+                    newZoneForBC = I.newZone(f'{I.getName(zone)}\{I.getName(BC)}', zsize=zsize, ztype='Structured', family=Family)
+                    set(newZoneForBC, 'GridCoordinates', childType='GridCoordinates_t', 
+                        CoordinateX=x[SliceOnVertex], CoordinateY=y[SliceOnVertex], CoordinateZ=z[SliceOnVertex])
+
+                    # FlowSolution nodes
+                    for FS in I.getNodesFromType1(zone, 'FlowSolution_t'):
+                        FSName = I.getName(FS)
+                        try:
+                            GridLocation = I.getValue(I.getNodeFromType1(FS, 'GridLocation_t'))
+                        except:
+                            GridLocation = 'Vertex'
+                        if GridLocation == 'Vertex':
+                            localSlice = SliceOnVertex
+                        else:
+                            localSlice = SliceOnCell
+
+                        FSdata = dict()
+                        for node in I.getNodesFromType(FS, 'DataArray_t'):
+                            FSdata[I.getName(node)] = I.getValue(node)[localSlice]
+
+                        set(newZoneForBC, FSName, childType='FlowSolution_t', **FSdata)
+                        newFS = I.getNodeFromNameAndType(newZoneForBC, FSName, 'FlowSolution_t')
+                        I.createNode('GridLocation', 'GridLocation_t', value=GridLocation, parent=newFS)
+
+                    # BCDataSet
+                    for BCDataSet in I.getNodesFromType(BC, 'BCDataSet_t'):
+                        BCDataSetName = I.getName(BCDataSet)
+
+                        # Assumption: Only one BCData per BCDataSet and GridLocation = FaceCenter
+                        GridLocationNode = I.getNodeFromType1(BCDataSet, 'GridLocation_t')
+                        if GridLocationNode and I.getValue(GridLocationNode) != 'FaceCenter':
+                            raise Exception('GridLocation is must be "FaceCenter" for BCDataSet.')
+                        
+                        BCData = dict()
+                        for node in I.getNodesFromType(BCDataSet, 'DataArray_t'):
+                            value = np.ravel(I.getValue(node), order='F')
+                            BCData[I.getName(node)] = value.reshape((zsize[0,1], zsize[1,1], zsize[2,1]))
+
+                        set(newZoneForBC, BCDataSetName, childType='FlowSolution_t', **BCData)
+                        newFS = I.getNodeFromNameAndType(newZoneForBC, BCDataSetName, 'FlowSolution_t')
+                        I.createNode('GridLocation', 'GridLocation_t', value='CellCenter', parent=newFS)                        
+                
+                    BCList.append(newZoneForBC)
+
+    return BCList
+
+def elementTypes(t):
+    f'''
+    returns a list of all CGNS unstructured element types contained in **t**
+
+    Possible values are: {element_types}
+    '''
+    types = []
+    for zone in I.getZones(t):
+        elts_nodes = I.getNodesFromType1(zone, 'Elements_t')
+
+        if not elts_nodes:
+            zone_type = I.getValue(I.getNodeFromName1(zone,'ZoneType'))
+            if zone_type == 'Structured':
+                types += ['STRUCTURED']
+
+        for elts in elts_nodes:
+            enum = int(elts[1][0])
+            types += [element_types[enum]]
+            
+    return types
+
+def hasAllNGon(t):
+    return all(elt_type in ['NGON_n', 'NFACE_n'] for elt_type in elementTypes(t))
+
+def anyNotNGon(t):
+    return any(elt_type not in ['NGON_n', 'NFACE_n'] for elt_type in elementTypes(t))
+
+def printElapsedTime(message='', previous_timer=0.0):
+    ElapsedTime = str(datetime.timedelta(seconds=tic()-previous_timer))
+    hours, minutes, seconds = ElapsedTime.split(':')
+    int_hours = int(hours)
+    int_minutes = int(minutes)
+    if int_hours < 1:
+        if int_minutes < 1:
+            ElapsedTimeHuman = f'{seconds} seconds'
+        else:
+            s = 's' if int_minutes!=1 else ''
+            ElapsedTimeHuman = f'{int_minutes} minute{s} and {seconds} seconds'
+    else:
+        sh = 's' if int_hours!=1 else ''
+        sm = 's' if int_hours!=1 else ''
+        ElapsedTimeHuman = f'{int_hours} hour{sh} {int_minutes} minute{sm} and {seconds} seconds'
+    msg = message + ' ' + ElapsedTimeHuman
+    print(BOLD+msg+ENDC)
+
+def checkUniqueChildren(t, recursive=False):
+    nodes_names_and_types = [(I.getName(child), I.getType(child)) for child in I.getChildren(t)]
+    # Check unicity of each child
+    # assert len(nodes_names_and_types) == len(set(nodes_names_and_types)) # Cannot do that because of the function set defined in the current module...
+    tmp_list = []
+    for name_type in nodes_names_and_types:
+        if name_type not in tmp_list:
+            tmp_list.append(name_type)
+        else:
+            save(t, 'debug.cgns')
+            raise Exception(FAIL+f'The node {name_type[0]} of type {name_type[1]} is defined twice'+ENDC)
+    if recursive:
+        for node in I.getChildren(t):
+            checkUniqueChildren(node, recursive=True)

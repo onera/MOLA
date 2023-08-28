@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 #!/usr/bin/python
@@ -263,7 +263,7 @@ def cleanSurfaces(surfaces, var2keep=[]):
                     I._rmNode(FSnodes, node)
 
 # @J.mute_stdout
-def computeVariablesOnIsosurface(surfaces, variables):
+def computeVariablesOnIsosurface(surfaces, variables, config='annular', lin_axis='XZ'):
     '''
     Compute extra variables for all isoSurfaces, using **turbo** function `_computeOtherFields`.
 
@@ -273,12 +273,13 @@ def computeVariablesOnIsosurface(surfaces, variables):
         surfaces : PyTree
             as produced by :py:func:`extractSurfaces`
     '''
-    I._renameNode(surfaces, 'FlowSolution#Init', I.__FlowSolutionCenters__)
     surfacesIso = getSurfacesFromInfo(surfaces, type='IsoSurface')
     varAtNodes = None
+    prev_fs_vertex = I.__FlowSolutionNodes__
+    I.__FlowSolutionNodes__ = 'FlowSolution'
     for surface in surfacesIso:
         firstZone = I.getNodeFromType1(surface, 'Zone_t')
-        if firstZone: 
+        if firstZone:
             varAtNodes = C.getVarNames(firstZone, loc='nodes')[0]
             break
 
@@ -288,12 +289,15 @@ def computeVariablesOnIsosurface(surfaces, variables):
         variables = []
     else:
         for v in varAtNodes: C._node2Center__(surfacesIso, v)
-
+    
     for surface in surfacesIso:
         for fsname in [I.__FlowSolutionNodes__, I.__FlowSolutionCenters__]:
+            # BUG https://gitlab.onera.net/numerics/analysis/turbo/-/issues/1
             TF._computeOtherFields(surface, RefState(setup), variables,
-                                    fsname=fsname, useSI=True, velocity='absolute')
+                                        fsname=fsname, useSI=True, velocity='absolute',
+                                        config=config, lin_axis=lin_axis) # FIXME: to be adapted if user can perform relative computation (vel_formulation)
 
+    I.__FlowSolutionNodes__ = prev_fs_vertex
 
 def compute0DPerformances(surfaces, variablesByAverage):
     '''
@@ -339,7 +343,8 @@ def compute0DPerformances(surfaces, variablesByAverage):
             fluxcoeff = 1.
         return fluxcoeff
 
-    Averages = I.newCGNSBase('Averages0D', cellDim=0, physDim=3, parent=surfaces)
+    AveragesName = 'Averages0D'+I.__FlowSolutionNodes__.replace('FlowSolution','')
+    Averages = I.newCGNSBase(AveragesName, cellDim=0, physDim=3, parent=surfaces)
 
     for surface in surfacesToProcess:
         surfaceName = I.getName(surface)
@@ -384,25 +389,29 @@ def comparePerfoPlane2Plane(surfaces, var4comp_perf, stages=[]):
             For each tuple of rows, the inlet plane of row 1 is compared with the outlet plane of row 2.
 
     '''
-    Averages0D = I.getNodeFromName1(surfaces, 'Averages0D')
+    avg_name = 'Averages0D'+I.__FlowSolutionNodes__.replace('FlowSolution','')
+    Averages0D = I.getNodeFromName1(surfaces, avg_name)
 
     for row in setup.TurboConfiguration['Rows']:
         if (row, row) not in stages:
             stages.append((row, row))
-
+    
     for (row1, row2) in stages:
         InletPlane = getSurfaceFromInfo(Averages0D, ReferenceRow=row1, tag='InletPlane')
         OutletPlane = getSurfaceFromInfo(Averages0D, ReferenceRow=row2, tag='OutletPlane')
         if not(InletPlane and OutletPlane): 
             continue
 
-        tBilan = TP.comparePerformancesPlane2Plane(InletPlane, OutletPlane,
+        tBudget = TP.comparePerformancesPlane2Plane(InletPlane, OutletPlane,
                                                     [I.getName(InletPlane), I.getName(OutletPlane)],
                                                     f'Comparison',
+                                                    fsname=I.__FlowSolutionNodes__,
                                                     config='compressor', variables=var4comp_perf)
-        tBilan = I.getNodeFromType(tBilan, 'FlowSolution_t')
-        I.setName(tBilan, f'Comparison#{I.getName(InletPlane)}')
-        I.addChild(OutletPlane, tBilan)
+            
+        fsBudget = I.getNodeFromType(tBudget, 'FlowSolution_t')
+        I.createUniqueChild(fsBudget, 'GridLocation', 'GridLocation_t', 'CellCenter', pos=0)
+        I.setName(fsBudget, f'Comparison#{I.getName(InletPlane)}')
+        I.addChild(OutletPlane, fsBudget)
 
 
 def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_axis='XY'):
@@ -426,26 +435,40 @@ def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_
             ‘XZ’ means: streamwise = X-axis, spanwise = Z-axis
 
     '''
-    RadialProfiles = I.newCGNSBase('RadialProfiles', cellDim=1, physDim=3, parent=surfaces)
+    RadialProfiles = I.getNodeFromName1(surfaces,'RadialProfiles')
+    if not RadialProfiles:
+        RadialProfiles = I.newCGNSBase('RadialProfiles', cellDim=1, physDim=3,
+                                        parent=surfaces)
     surfacesIsoX = getSurfacesFromInfo(surfaces, type='IsoSurface', field='CoordinateX')
 
     for surface in surfacesIsoX:
         surfaceName = I.getName(surface)
         tmp_surface = C.convertArray2NGon(surface, recoverBC=0)
         radial_surf = TR.computeRadialProfile_future(
-            tmp_surface, surfaceName, variablesByAverage['surface'], 'surface', fsname=I.__FlowSolutionCenters__, 
-            config=config, lin_axis=lin_axis)
+            tmp_surface, surfaceName, variablesByAverage['surface'], 'surface',
+            fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis)
         radial_massflow = TR.computeRadialProfile_future(
-            tmp_surface, surfaceName, variablesByAverage['massflow'], 'massflow', fsname=I.__FlowSolutionCenters__, 
-            config=config, lin_axis=lin_axis)
+            tmp_surface, surfaceName, variablesByAverage['massflow'], 'massflow',
+            fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis)
         t_radial = I.merge([radial_surf, radial_massflow])
-        t_radial = I.getNodeFromType2(t_radial, 'Zone_t')
-        PostprocessInfo = {'averageType': variablesByAverage, 
-                            'surfaceName': surfaceName,
-                            '.ExtractionInfo': getExtractionInfo(surface)
-                            }
-        J.set(t_radial, '.PostprocessInfo', **PostprocessInfo)
-        I.addChild(RadialProfiles, t_radial)
+        z_radial = I.getNodeFromType2(t_radial, 'Zone_t')
+        previous_z_radial = I.getNodeFromName1(RadialProfiles, z_radial[0])
+        if not previous_z_radial:
+            PostprocessInfo = {'averageType': variablesByAverage, 
+                                'surfaceName': surfaceName,
+                                '.ExtractionInfo': getExtractionInfo(surface)
+                                }
+            J.set(z_radial, '.PostprocessInfo', **PostprocessInfo)
+            I.addChild(RadialProfiles, z_radial)
+        else:
+            flowSolsToAdd = I.getNodesFromType1(z_radial, 'FlowSolution_t')
+            flowSolsToAddNames = [n[0] for n in flowSolsToAdd]
+            flowSolsPrev = I.getNodesFromType1(previous_z_radial, 'FlowSolution_t')
+            flowSolsPrevNames = [n[0] for n in flowSolsPrev]
+            for fs, fsn in zip(flowSolsToAdd, flowSolsToAddNames):
+                if fsn not in flowSolsPrevNames:
+                    previous_z_radial[2] += [fs]
+                
 
 
 def compareRadialProfilesPlane2Plane(surfaces, var4comp_repart, stages=[], config='compressor'):
@@ -480,20 +503,25 @@ def compareRadialProfilesPlane2Plane(surfaces, var4comp_repart, stages=[], confi
     for (row1, row2) in stages:
         InletPlane = getSurfaceFromInfo(RadialProfiles, ReferenceRow=row1, tag='InletPlane')
         OutletPlane = getSurfaceFromInfo(RadialProfiles, ReferenceRow=row2, tag='OutletPlane')
-        if not(InletPlane and OutletPlane):
-            continue
+        
+        if not(InletPlane and OutletPlane): continue
+
+        fsname = I.getNodeFromType(InletPlane, 'FlowSolution_t')[0]
 
         extractionInfoInlet = getExtractionInfo(InletPlane)
         extractionInfoOutlet = getExtractionInfo(OutletPlane)
         if extractionInfoInlet['field'] == 'CoordinateX' and extractionInfoOutlet['field'] == 'CoordinateX':
-            tBilan = TR.compareRadialProfilePlane2Plane(InletPlane, OutletPlane,
+            tBudget = TR.compareRadialProfilePlane2Plane(InletPlane, OutletPlane,
                                                         [I.getName(InletPlane), I.getName(OutletPlane)],
                                                         f'Comparison',
-                                                        config=config, 
+                                                        config=config,
+                                                        fsname=fsname,
                                                         variables=var4comp_repart)
-            tBilan = I.getNodeFromType(tBilan, 'FlowSolution_t')
-            I.setName(tBilan, f'Comparison#{I.getName(InletPlane)}')
-            I.addChild(OutletPlane, tBilan)
+            zBudget = I.getNodeFromType3(tBudget,'Zone_t')
+            fsBudget = I.getNodeFromType(zBudget, 'FlowSolution_t')
+            I.createUniqueChild(fsBudget, 'GridLocation', 'GridLocation_t', 'CellCenter', pos=0)
+            I.setName(fsBudget, f'Comparison#{I.getName(InletPlane)}')
+            I.addChild(OutletPlane, fsBudget)
 
 
 def computeVariablesOnBladeProfiles(surfaces, hList='all'):

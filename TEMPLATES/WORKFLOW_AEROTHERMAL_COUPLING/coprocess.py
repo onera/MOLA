@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -55,7 +55,9 @@ TimeOut                   = CO.getOption('TimeOutInSeconds', default=53100.0)
 ItersMinEvenIfConverged   = CO.getOption('ItersMinEvenIfConverged', default=1e3)
 ConvergenceCriteria       = CO.getOption('ConvergenceCriteria', default=[])
 RequestedStatistics       = CO.getOption('RequestedStatistics', default=[])
+FirstIterForFieldsStats  = CO.getOption('FirstIterationForFieldsAveraging', default=1e12)
 
+if FirstIterForFieldsStats is None: FirstIterForFieldsStats = 1e12
 
 # BEWARE! state 16 => triggers *before* iteration, which means
 # that variable "it" represents actually the *next* iteration
@@ -82,13 +84,16 @@ CWIPY_COUPLING = all([UpdateCWIPICouplingFrequency,
 ElapsedTime = timeit.default_timer() - LaunchTime
 ReachedTimeOutMargin = CO.hasReachedTimeOutMargin(ElapsedTime, TimeOut,
                                                             MarginBeforeTimeOut)
-anySignal = any([SAVE_ARRAYS, SAVE_SURFACES, SAVE_FIELDS, CWIPY_COUPLING,
-                CONVERGED, it>=itmax])
+anySignal = any([SAVE_ARRAYS, SAVE_SURFACES, SAVE_FIELDS, CWIPY_COUPLING, HAS_PROBES, 
+                CONVERGED, it>=itmax, it==FirstIterForFieldsStats-1])
 ENTER_COUPLING = anySignal or ReachedTimeOutMargin
 
 if ENTER_COUPLING:
 
     t = CO.extractFields(Skeleton)
+
+    if HAS_PROBES:
+        CO.appendProbes2Arrays(t, arrays)
 
     if SAVE_FIELDS:
         CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))

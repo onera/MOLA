@@ -108,8 +108,8 @@ for each row:
     BodyForceInputData = dict(
     R37 = dict(
         model='hall',
-    )
-)
+    ))
+    
 
 The available models are:
 

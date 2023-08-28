@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -102,8 +102,11 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
             Each list item is a Python dictionary with special keywords.
             Possible pairs of keywords and its associated values are presented:
 
-            * file : :py:class:`str`
-                path of the file containing the grid or special keyword ``'GENERATE'``.
+            * file : :py:class:`str` or PyTree
+                if it is a :py:class:`str`, then it is the
+                path of the file containing the grid. It can also be the special
+                keyword ``'GENERATE'``. Alternatively, user can provide directly
+                a PyTree (in-memory).
 
                 .. attention:: each component must have a unique base. If
                     input file have several bases, please separate each base
@@ -219,21 +222,18 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
     '''
     toc = tic()
     t = getMeshesAssembled(InputMeshes)
-    I._fixNGon(t) # Needed for an unstructured mesh
+    if hasAnyUnstructuredZones(t): t = convertUnstructuredMeshToNGon(t)
     transform(t, InputMeshes)
     t = connectMesh(t, InputMeshes)
     setBoundaryConditions(t, InputMeshes)
-    t = splitAndDistribute(t, InputMeshes, **splitOptions)
+    if splitOptions: t = splitAndDistribute(t, InputMeshes, **splitOptions)
     addFamilies(t, InputMeshes)
     _writeBackUpFiles(t, InputMeshes)
     t = addOversetData(t, InputMeshes, **globalOversetOptions)
     adapt2elsA(t, InputMeshes)
     J.checkEmptyBC(t)
-    ElapsedTime = str(datetime.timedelta(seconds=tic()-toc))
-    hours, minutes, seconds = ElapsedTime.split(':')
-    ElapsedTimeHuman = hours+' hours '+minutes+' minutes and '+seconds+' seconds'
-    msg = 'prepareMesh took '+ElapsedTimeHuman
-    print(J.BOLD+msg+J.ENDC)
+
+    J.printElapsedTime('prepareMesh4ElsA took:', toc)
 
     return t
 
@@ -246,7 +246,8 @@ def _writeBackUpFiles(t, InputMeshes):
 
 def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
         NumericalParams={}, OverrideSolverKeys={}, 
-        Extractions=[{'type':'AllBCWall'}], Initialization=dict(method='uniform'),
+        Extractions=[{'type':'AllBCWall'}], BoundaryConditions=[],
+        Initialization=dict(method='uniform'),
         BodyForceInputData=[], writeOutputFields=True,
         JobInformation={}, SubmitJob=False, COPY_TEMPLATES=True):
     r'''
@@ -310,6 +311,11 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
             surfacic extractions may be asked. See documentation of :func:`MOLA.Coprocess.extractSurfaces` for further details on the
             available types of extractions.
 
+        BoundaryConditions : :py:class:`list` of :py:class:`dict`
+            List of boundary conditions to set on the given mesh.
+            For details, refer to documentation of :py:func:`MOLA.WorfklowCompressor.setBoundaryConditions`
+
+
         NumericalParams : dict
             dictionary containing the numerical
             settings for elsA. For information on acceptable values, please see
@@ -329,11 +335,11 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
             ::
 
                 OverrideSolverKeys = {
-                    'cfdpb':    dict(metrics_type    = 'barycenter')
+                    'cfdpb':    dict(metrics_type    = 'barycenter'),
                     'model':    dict(k_prod_compute  = 'from_kato',
-                                     walldistcompute = 'gridline')
+                                     walldistcompute = 'gridline'),
                     'numerics': dict(gear_iteration  = 20,
-                                     av_mrt          = 0.3)
+                                     av_mrt          = 0.3),
                                       }
 
         Initialization : dict
@@ -486,13 +492,6 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
                 ultra-light file containing all relevant info of the simulation         
     '''
 
-    def addFieldExtraction(fieldname):
-        print('adding %s'%fieldname)
-        try:
-            ReferenceValuesParams['FieldsAdditionalExtractions'].append(fieldname)
-        except:
-            ReferenceValuesParams['FieldsAdditionalExtractions'] = [fieldname]
-
     toc = tic()
     if isinstance(mesh,str):
         t = C.convertFile2PyTree(mesh)
@@ -503,8 +502,11 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
 
     useBCOverlap = hasBCOverlap(t)
 
-    if useBCOverlap: addFieldExtraction('ChimeraCellType')
-    if BodyForceInputData: addFieldExtraction('Temperature')
+    if useBCOverlap:
+        addFieldExtraction(ReferenceValuesParams, 'ChimeraCellType')
+    if BodyForceInputData:
+        addFieldExtraction(ReferenceValuesParams, 'Temperature')
+
 
     IsUnstructured = hasAnyUnstructuredZones(t)
 
@@ -514,11 +516,16 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
     FluidProperties = computeFluidProperties()
     ReferenceValues = computeReferenceValues(FluidProperties,
                                              **ReferenceValuesParams)
+    appendAdditionalFieldExtractions(ReferenceValues, Extractions)
 
     BCExtractions = ReferenceValues['BCExtractions']
 
+    if I.getNodeFromName(t, 'proc'):
+        JobInformation['NumberOfProcessors'] = int(max(getProc(t))+1)
+        Splitter = None
+    else:
+        Splitter = 'PyPart'
 
-    JobInformation['NumberOfProcessors'] = int(max(getProc(t))+1)
     elsAkeysCFD      = getElsAkeysCFD(unstructured=IsUnstructured)
     elsAkeysModel    = getElsAkeysModel(FluidProperties, ReferenceValues,
                                         unstructured=IsUnstructured)
@@ -544,6 +551,13 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
         else:
             ReferenceValues['CoprocessOptions']['TagSurfacesWithIteration'] = False
 
+    if BoundaryConditions:
+        from . import WorkflowCompressor as WC
+        WC.setBoundaryConditions(t, BoundaryConditions, dict(),
+                                FluidProperties, ReferenceValues,
+                                bladeFamilyNames=[])
+
+
     allowed_override_objects = ['cfdpb','numerics','model']
     for v in OverrideSolverKeys:
         if v == 'cfdpb':
@@ -558,6 +572,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
 
 
     AllSetupDicts = dict(Workflow='Standard',
+                        Splitter=Splitter,
                         JobInformation=JobInformation,
                         FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
@@ -574,8 +589,12 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
     saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
 
-    print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
-                                               JobInformation['NumberOfProcessors'],J.ENDC))
+    if not Splitter:
+        print('REMEMBER : configuration shall be run using %s%d%s procs'%(J.CYAN,
+                                                   JobInformation['NumberOfProcessors'],J.ENDC))
+    else:
+        print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
+            Splitter + J.ENDC))
 
     if COPY_TEMPLATES:
         JM.getTemplates('Standard', JobInformation=JobInformation)
@@ -607,9 +626,11 @@ def getMeshesAssembled(InputMeshes):
             each component (:py:class:`dict`) is associated to a base.
             Two keys are *compulsory*:
 
-            * file : :py:class:`str`
+            * file : :py:class:`str` or PyTree
                 the CGNS file containing the grid and possibly
-                other CGNS information.
+                other CGNS information. If a :py:class:`str` is provided, then
+                it is interpreted as a file name in absolute or relative path.
+                Alternatively, top CGNS PyTree can be provided in memory.
 
                 .. danger:: It must contain only 1 base
 
@@ -630,7 +651,15 @@ def getMeshesAssembled(InputMeshes):
     for i, meshInfo in enumerate(InputMeshes):
         filename = meshInfo['file']
         if filename == 'GENERATE': continue
-        t = C.convertFile2PyTree(filename)
+        if not isinstance(filename, str):
+            if not I.isTopTree(filename):
+                MSG = 'the value of key "file" of InputMeshes item %d shall be'%i
+                MSG+= ' either a str or a top CGNS PyTree.'
+                raise ValueError(J.FAIL+MSG+J.ENDC)
+            t = meshInfo['file']
+            meshInfo['file'] = 'user_provided_in_memory'
+        else:
+            t = J.load(filename)
         bases = I.getBases(t)
         if len(bases) != 1:
             raise ValueError('InputMesh element in %s must contain only 1 base'%filename)
@@ -663,11 +692,6 @@ def getMeshesAssembled(InputMeshes):
     t_cart = GVD.buildCartesianBackground(t, InputMeshes)
     if t_cart is not None: t = I.merge([t, t_cart])
     t = I.correctPyTree(t, level=3)
-
-    # with open('InputMeshes.py','w') as f:
-    #     import pprint
-    #     f.write(pprint.pformat(InputMeshes))
-    # exit()
 
     return t
 
@@ -716,6 +740,7 @@ def transform(t, InputMeshes):
                              a mesh built in Autogrid 5.
 
     '''
+    makeStructuredAdaptations(t)
     for meshInfo in InputMeshes:
         if 'Transform' not in meshInfo: continue
 
@@ -728,7 +753,18 @@ def transform(t, InputMeshes):
         if 'rotate' in meshInfo['Transform']:
             for center, axis, ang in meshInfo['Transform']['rotate']:
                 T._rotate(base, center, axis, ang)
-    T._makeDirect(t)
+    makeStructuredAdaptations(t)
+
+def makeStructuredAdaptations(t):
+    zones = getStructuredZones(t)
+    for zone in zones:
+        type, Ni, Nj, Nk, dim = I.getZoneDim(zone)
+        for gc in I.getNodesFromType1(zone,'GridCoordinates_t'):
+            for n in I.getNodesFromType1(gc,'DataArray_t'):
+                if n[1] is None: continue
+                if len(n[1].shape) != dim:
+                    n[1] = n[1].reshape((Ni,Nj,Nk))
+    T._makeDirect(zones)
 
 def connectMesh(t, InputMeshes):
     '''
@@ -805,9 +841,9 @@ def connectMesh(t, InputMeshes):
     '''
     for meshInfo in InputMeshes:
         if 'Connection' not in meshInfo: continue
-        base = I.getNodeFromName1(t, meshInfo['baseName'])
-        baseDim = I.getValue(base)[-1]
         for ConnectParams in meshInfo['Connection']:
+            base = I.getNodeFromName1(t, meshInfo['baseName'])
+            baseDim = I.getValue(base)[-1]
             ConnectionType = ConnectParams['type']
             print('connecting type {} at base {}'.format(ConnectionType,
                                                          meshInfo['baseName']))
@@ -816,14 +852,14 @@ def connectMesh(t, InputMeshes):
                 print('connection tolerance not defined. Using tol=1e-8')
                 tolerance = 1e-8
             if ConnectionType == 'Match':
-                X.connectMatch(base, tol=tolerance, dim=baseDim)
+                base_out = X.connectMatch(base, tol=tolerance, dim=baseDim)
             elif ConnectionType == 'NearMatch':
                 try: ratio = ConnectParams['ratio']
                 except KeyError:
                     print('NearMatch ratio was not defined. Using ratio=2')
                     ratio = 2
 
-                X.connectNearMatch(base, ratio=ratio,
+                base_out = X.connectNearMatch(base, ratio=ratio,
                                       tol=tolerance,
                                       dim=baseDim)
             elif ConnectionType == 'PeriodicMatch':
@@ -833,15 +869,16 @@ def connectMesh(t, InputMeshes):
                 except: rotationAngle = [0., 0., 0.]
                 try: translation = ConnectParams['translation']
                 except: translation = [0., 0., 0.]
-                t = X.connectMatchPeriodic(t,
-                                            rotationCenter=rotationCenter,
-                                            rotationAngle=rotationAngle,
-                                            translation=translation,
-                                            tol=tolerance,
-                                            dim=baseDim)
+                base_out = X.connectMatchPeriodic(base,
+                                                  rotationCenter=rotationCenter,
+                                                  rotationAngle=rotationAngle,
+                                                  translation=translation,
+                                                  tol=tolerance,
+                                                  dim=baseDim)
             else:
                 ERRMSG = 'Connection type %s not implemented'%ConnectionType
                 raise AttributeError(ERRMSG)
+            base[2] = base_out[2]
     return t
 
 def setBoundaryConditions(t, InputMeshes):
@@ -1068,24 +1105,39 @@ def addFamilies(t, InputMeshes, tagZonesWithBaseName=True):
             C._tagWithFamily(base, FamilyZoneName)
             C._addFamily2Base(base, FamilyZoneName)
 
-        if 'BoundaryConditions' not in meshInfo: continue
+
 
         I._correctPyTree(base, level=7)
-        for BCinfo in meshInfo['BoundaryConditions']:
-            if BCinfo['type'].startswith('FamilySpecified:') and 'familySpecifiedType' in BCinfo:
-                BCName = BCinfo['type'][16:]
-                BCType = BCinfo['familySpecifiedType']
-                if BCType == 'BCOverlap':
-                    # TODO: Check tickets closure
-                    ERRMSG=('BCOverlap must be fully defined directly on zones'
-                        ' instead of indirectly using FAMILIES.\n'
-                        'This option will be acceptable once Cassiopee tickets #7868'
-                        ' and #7869 are solved.')
-                    raise ValueError(J.FAIL+ERRMSG+J.ENDC)
-                print('Setting BCName %s of BCType %s at base %s'%(BCName, BCType, base[0]))
-                C._addFamily2Base(base, BCName, bndType=BCType)
+        
+        if 'BoundaryConditions' in meshInfo:
+            for BCinfo in meshInfo['BoundaryConditions']:
+                if BCinfo['type'].startswith('FamilySpecified:') and 'familySpecifiedType' in BCinfo:
+                    BCName = BCinfo['type'][16:]
+                    try:
+                        BCType = BCinfo['familySpecifiedType']
+                    except:
+                        BCType = 'UserDefined'
+                    if BCType == 'BCOverlap':
+                        # TODO: HACK Check tickets closure
+                        ERRMSG=('BCOverlap must be fully defined directly on zones'
+                            ' instead of indirectly using FAMILIES.\n'
+                            'This option will be acceptable once Cassiopee tickets #7868'
+                            ' and #7869 are solved.')
+                        raise ValueError(J.FAIL+ERRMSG+J.ENDC)
+                    print('Setting BCName %s of BCType %s at base %s'%(BCName, BCType, base[0]))
+                    C._addFamily2Base(base, BCName, bndType=BCType)
+
+        all_family_names = [n[0] for n in I.getNodesFromType1(base,'Family_t')]
+        for bc in I.getNodesFromType(base, 'BC_t'):
+            for fn in I.getNodesFromType1(bc,'FamilyName_t'):
+                FamilyName = I.getValue(fn)
+                if FamilyName not in all_family_names:
+                    all_family_names += [ FamilyName ]
+                    f = I.createUniqueChild(base,FamilyName,'Family_t')
+                    I.createUniqueChild(f,'FamilyBC','FamilyBC_t',value='UserDefined')
 
     groupUserDefinedBCFamiliesByName(t)
+    adaptFamilyBCNamesToElsA(t)
 
 def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                        minimum_number_of_nodes=1,
@@ -1127,6 +1179,10 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
 
                 .. note:: **cores_per_node** and **maximum_allowed_nodes**
                     parameters are ignored.
+
+            * ``'pypart'``
+                the mesh will be split and distributed on-the-run using PyPart.
+                In this case, this function is not effective.
 
         cores_per_node : int
             number of available CPU cores per node.
@@ -1179,6 +1235,11 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
             new distributed *(and possibly split)* tree
 
     '''
+
+    if mode.lower() == 'pypart':
+        print(J.WARN+'mesh shall be split and distributed using PyPart'+J.ENDC)
+        return t
+
     print('splitting and distributing mesh...')
     for meshInfo in InputMeshes:
         if 'SplitBlocks' not in meshInfo:
@@ -2630,7 +2691,9 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         TurbulenceLevel=0.001,
         Surface=1.0, Length=1.0, TorqueOrigin=[0,0,0],
         TurbulenceModel='Wilcox2006-klim', Viscosity_EddyMolecularRatio=0.1,
-        TurbulenceCutoff=0.1, TransitionMode=None, CoprocessOptions={},
+        TurbulenceCutoff=0.1, TransitionMode=None,
+        WallDistance=None,
+        CoprocessOptions={},
         FieldsAdditionalExtractions=['ViscosityMolecular','ViscosityEddy','Mach'],
         BCExtractions=dict(BCWall=['normalvector', 'frictionvector',
                         'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue',
@@ -2716,6 +2779,15 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         TransitionMode : str
             .. attention:: not implemented in workflow standard
 
+        WallDistance : dict or str
+            Method to compute wall distance
+            Str type: name of the method (e.g. 'mininterf_ortho4')
+            Dict type: must contain 'compute' key with name of method as value (e.g. 'mininterf_ortho4'), can contain 'periodic' key in order to take the periodicity into account (e.g. 'two_dir'). The solver can be chosen between 'elsa' and 'cassiopee' (key 'software') and specific extraction can be added  thanks to the key 'extract' (value=boolean True or False).
+
+            .. code-block:: python
+
+               WallDistance=dict(compute='mininterf_ortho4', periodic='two_dir', extract=True, software='elsa')
+
         CoprocessOptions : dict
             Override default coprocess options dictionary with this paramter.
             Default options are:
@@ -2724,7 +2796,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
 
                 RequestedStatistics=[],
                 UpdateFieldsFrequency   = 2000,
-                UpdateArraysFrequency    = 50,
+                UpdateArraysFrequency   = 50,
                 UpdateSurfacesFrequency = 500,
                 TagSurfacesWithIteration= False,
                 AveragingIterations     = 3000,
@@ -2735,6 +2807,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
                 BodyForceComputeFrequency = 50,
                 BodyForceSaveFrequency    = 100,
                 ConvergenceCriteria = [],
+                FirstIterationForFieldsAveraging=None
 
         FieldsAdditionalExtractions : :py:class:`list` of :py:class:`str`
             elsA or CGNS keywords of fields to be extracted.
@@ -2758,7 +2831,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     DefaultCoprocessOptions = dict(            # Default values
         RequestedStatistics=[],
         UpdateFieldsFrequency   = 2000,
-        UpdateArraysFrequency    = 50,
+        UpdateArraysFrequency   = 50,
         UpdateSurfacesFrequency = 500,
         TagSurfacesWithIteration= False,
         AveragingIterations     = 3000,
@@ -2769,6 +2842,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         BodyForceComputeFrequency = 50,
         BodyForceSaveFrequency    = 100,
         ConvergenceCriteria = [],
+        FirstIterationForFieldsAveraging=None,
     )
     DefaultCoprocessOptions.update(CoprocessOptions) # User-provided values
 
@@ -2801,6 +2875,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     TransitionMode     = TransitionMode,
     Viscosity_EddyMolecularRatio = Viscosity_EddyMolecularRatio,
     TurbulenceCutoff   = TurbulenceCutoff,
+    WallDistance       = WallDistance,
     )
 
     # Fluid properties local shortcuts
@@ -2926,6 +3001,10 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         raise AttributeError('Turbulence model %s not implemented in workflow. Must be in: %s'%(TurbulenceModel,str(AvailableTurbulenceModels)))
     Fields         += FieldsTurbulence
     ReferenceState += ReferenceStateTurbulence
+
+    if isinstance(WallDistance,dict):
+        if WallDistance.get('extract',False) and ('TurbulentDistance' not in FieldsAdditionalExtractions):
+            FieldsAdditionalExtractions += ['TurbulentDistance','TurbulentDistanceIndex']
 
     # Update ReferenceValues dictionary
     ReferenceValues.update(dict(
@@ -3074,6 +3153,12 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         elsAkeysModel['walldistcompute'] = 'mininterf'
     else:
         elsAkeysModel['walldistcompute'] = 'mininterf_ortho'
+    WallDistance = ReferenceValues.get('WallDistance',None)
+    if isinstance(WallDistance,dict):
+        elsAkeysModel['walldistcompute'] = WallDistance.get('compute',elsAkeysModel['walldistcompute'])
+        elsAkeysModel['walldistperio']   = WallDistance.get('periodic','none')
+    elif isinstance(WallDistance,str):
+        elsAkeysModel['walldistcompute'] = WallDistance
 
     if TurbulenceModel == 'SA':
         addKeys4Model = dict(
@@ -3337,7 +3422,8 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
             one of: (``'jameson'``, ``'ausm+'``, ``'roe'``)
 
         TimeMarching : str
-            One of: (``'steady'``, ``'gear'``, ``'DualTimeStep'``)
+            One of: (``'steady'``, ``'UnsteadyFirstOrder'``, ``'gear'``,
+            ``'DualTimeStep'``)
 
         inititer : int
             initial iteration
@@ -3411,9 +3497,9 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         ausm_wiggle        = 'inactive',
         ausmp_diss_cst     = 0.04,
         ausmp_press_vel_cst= 0.04,
-        ausm_tref          = ReferenceValues['Temperature'],
-        ausm_pref          = ReferenceValues['Pressure'],
-        ausm_mref          = ReferenceValues['Mach'],
+        ausm_tref          = float(ReferenceValues['Temperature']),
+        ausm_pref          = float(ReferenceValues['Pressure']),
+        ausm_mref          = float(ReferenceValues['Mach']),
         limiter            = 'third_order',
         )
     elif NumericalScheme == 'roe':
@@ -3487,9 +3573,6 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     addKeys.update(dict(
     multigrid     = 'none',
     t_harten      = 0.01,
-    harten_type   = 2,  # see Development #7765 on https://elsa-e.onera.fr/issues/7765
-                        # Incompability between default value harten_type=1
-                        # and default value vel_formulation='absolute'
     muratiomax    = 1.e+20,
         ))
 
@@ -3512,7 +3595,7 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     if unstructured:
         elsAkeysNumerics.update(dict(
             implconvectname = 'vleer', # only available for unstructured mesh, see https://elsa-e.onera.fr/issues/6492
-            viscous_fluxes  = '5p_cor2', # adapted to unstructured mesh
+            viscous_fluxes  = '5p_cor2', # adapted to unstructured mesh # TODO Set 5p_cor2 for structured mesh also ?
         ))
 
     elsAkeysNumerics.update(kwargs)
@@ -3576,10 +3659,21 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
     else:
         includeRelativeFieldsForRestart = False
 
+    is_unsteady = AllSetupDictionaries['elsAkeysNumerics']['time_algo'] != 'steady'
+    avg_requested = AllSetupDictionaries['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'] is not None
+
+    if is_unsteady and not avg_requested:
+        msg =('WARNING: You are setting an unsteady simulation, but no field averaging\n'
+              'will be done since CoprocessOptions key "FirstIterationForFieldsAveraging"\n'
+              'is set to None. If you want fields average extraction, please set a finite\n'
+              'positive value to "FirstIterationForFieldsAveraging" and relaunch preprocess')
+        print(J.WARN+msg+J.ENDC)
+
     addExtractions(t, AllSetupDictionaries['ReferenceValues'],
                       AllSetupDictionaries['elsAkeysModel'],
                       extractCoords=extractCoords, BCExtractions=BCExtractions,
-                      includeRelativeFieldsForRestart=includeRelativeFieldsForRestart)
+                      includeRelativeFieldsForRestart=includeRelativeFieldsForRestart,
+                      add_time_average= is_unsteady and avg_requested )
     addReferenceState(t, AllSetupDictionaries['FluidProperties'],
                          AllSetupDictionaries['ReferenceValues'])
     dim = int(AllSetupDictionaries['elsAkeysCFD']['config'][0])
@@ -3591,8 +3685,6 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
         addElsAKeys2CGNS(t, [AllSetupDictionaries['elsAkeysCFD'],
                              AllSetupDictionaries['elsAkeysModel'],
                              AllSetupDictionaries['elsAkeysNumerics']])
-
-    AllSetupDictionaries['ReferenceValues']['NumberOfProcessors'] = int(max(getProc(t))+1)
 
     writeSetup(AllSetupDictionaries)
 
@@ -3814,22 +3906,44 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
     '''
     print('gathering links between main CGNS and fields')
     AllCGNSLinks = []
+    include_zone_bc_link = I.getNodeFromName(t,'.Solver#Output#Average') is not None
     for b in I.getBases(t):
         for z in b[2]:
+            if z[3] != 'Zone_t': continue
             fs = I.getNodeFromName1(z,MainCGNS_FlowSolutionName)
-            if not fs: continue
-            for field in I.getChildren(fs):
-                if I.getType(field) == 'DataArray_t':
-                    currentNodePath='/'.join([b[0], z[0], fs[0], field[0]])
-                    targetNodePath=currentNodePath.replace(MainCGNS_FlowSolutionName,
-                                                           Fields_FlowSolutionName)
-                    # TODO: Cassiopee BUG ! targetNodePath must be identical
-                    # to currentNodePath...
-                    AllCGNSLinks += [['.',
-                                      DIRECTORY_OUTPUT+'/'+FieldsFilename,
-                                      '/'+targetNodePath,
-                                      currentNodePath]]
+            if fs:
+                for field in I.getChildren(fs):
+                    if I.getType(field) == 'DataArray_t':
+                        currentNodePath='/'.join([b[0], z[0], fs[0], field[0]])
+                        targetNodePath=currentNodePath.replace(MainCGNS_FlowSolutionName,
+                                                            Fields_FlowSolutionName)
+                        # TODO: Cassiopee BUG ! targetNodePath must be identical
+                        # to currentNodePath...
+                        AllCGNSLinks += [['.',
+                                        DIRECTORY_OUTPUT+'/'+FieldsFilename,
+                                        '/'+targetNodePath,
+                                        currentNodePath]]
 
+            fs = I.getNodeFromName1(z,'FlowSolution#Average')
+            if fs:
+                currentNodePath='/'.join([b[0], z[0], fs[0]])
+                targetNodePath=currentNodePath
+                AllCGNSLinks += [['.',
+                                DIRECTORY_OUTPUT+'/'+FieldsFilename,
+                                '/'+targetNodePath,
+                                currentNodePath]]
+
+            if include_zone_bc_link:
+                zbc = I.getNodeFromType1(z,'ZoneBC_t')
+                if zbc:
+                    for bc in I.getNodesFromType1(zbc, 'BC_t'):
+                        currentNodePath='/'.join([b[0], z[0], zbc[0], bc[0],
+                                                'BCDataSet#Average'])
+                        targetNodePath=currentNodePath
+                        AllCGNSLinks += [['.',
+                                        DIRECTORY_OUTPUT+'/'+FieldsFilename,
+                                        '/'+targetNodePath,
+                                        currentNodePath]]
 
     print('saving PyTrees with links')
     to = I.copyRef(t)
@@ -3867,7 +3981,8 @@ def addTrigger(t, coprocessFilename='coprocess.py'):
                  file=coprocessFilename)
 
 def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
-        BCExtractions=dict(), includeRelativeFieldsForRestart=False):
+        BCExtractions=dict(), includeRelativeFieldsForRestart=False,
+        add_time_average=False):
     '''
     Include surfacic and field extraction information to CGNS tree using
     information contained in dictionaries **ReferenceValues** and
@@ -3906,9 +4021,16 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
             if :py:obj:`True`, then creates an additional container
             'FlowSolution#EndOfRun#Relative' where restart fields will be 
             extracted
+
+        add_time_average : bool
+            if :py:obj:`True`, include additional ``FlowSolution#Average`` for 
+            time-averaged field extraction and ``.Solver#Output#Average`` 
+            for time-averaging fields at boundary-conditions.
     '''
-    addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions=BCExtractions)
-    addFieldExtractions(t, ReferenceValues, extractCoords=extractCoords)
+    addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
+        BCExtractions=BCExtractions, add_time_average=add_time_average)
+    addFieldExtractions(t, ReferenceValues, extractCoords=extractCoords,
+        add_time_average=add_time_average)
     if includeRelativeFieldsForRestart:
         addFieldExtractions(t, ReferenceValues, extractCoords=False,
         includeAdditionalExtractions=False, container='FlowSolution#EndOfRun#Relative',
@@ -3916,7 +4038,8 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
     EP._addGlobalConvergenceHistory(t)
 
 
-def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
+def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={},
+        add_time_average=False):
     '''
     Include surfacic extraction information to CGNS tree using information
     contained in dictionaries **ReferenceValues** and **elsAkeysModel**.
@@ -3943,6 +4066,10 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
             The value associated to each key is a :py:class:`list` of
             :py:class:`str` corresponding to variable names to extract (in elsA
             convention).
+
+        add_time_average : bool
+            if :py:obj:`True`, include additional ``.Solver#Output#Average`` 
+            extraction node for time-averaging fields at boundary-conditions.
     '''
 
     # Default keys to write in the .Solver#Output of the Family node
@@ -3965,9 +4092,9 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     )
 
     # Keys to write in the .Solver#Output for wall Families
-    BCWallKeys = dict()
-    BCWallKeys.update(BCKeys)
-    BCWallKeys.update(dict(
+    BCWallKeysDefault = dict()
+    BCWallKeysDefault.update(BCKeys)
+    BCWallKeysDefault.update(dict(
         delta_compute = elsAkeysModel['delta_compute'],
         vortratiolim  = elsAkeysModel['vortratiolim'],
         shearratiolim = elsAkeysModel['shearratiolim'],
@@ -3985,6 +4112,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
     FamilyNodes = I.getNodesFromType2(t, 'Family_t')
     for ExtractBCType, ExtractVariablesListDefault in BCExtractions.items():
         for FamilyNode in FamilyNodes:
+            BCWallKeys = copy.deepcopy(BCWallKeysDefault)
             ExtractVariablesList = copy.deepcopy(ExtractVariablesListDefault)
             FamilyName = I.getName( FamilyNode )
             BCType = getFamilyBCTypeFromFamilyBCName(t, FamilyName)
@@ -4007,13 +4135,19 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
                             break
 
                     if 'Inviscid' in BCType:
-                        ViscousKeys = ['geomdepdom','delta_cell_max','delta_compute',
-                            'vortratiolim','shearratiolim','pressratiolim',
-                            'bl_quantities_2d', 'bl_quantities_3d', 'bl_ue',
-                            'yplusmeshsize']
+                        ViscousKeys = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue',
+                            'yplusmeshsize', 'frictionvector']
                         for vk in ViscousKeys:
                             try:
                                 ExtractVariablesList.remove(vk)
+                            except ValueError:
+                                pass
+
+                        param2remove = ['geomdepdom','delta_cell_max','delta_compute',
+                            'vortratiolim','shearratiolim','pressratiolim']
+                        for p in param2remove:
+                            try:
+                                BCWallKeys.pop(p)
                             except ValueError:
                                 pass
                     else:
@@ -4034,16 +4168,26 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={}):
                     print('setting .Solver#Output to FamilyNode '+FamilyNode[0])
                     if 'BCWall' in BCType:
                         BCWallKeys.update(varDict)
+                        params = BCWallKeys
                         J.set(FamilyNode, '.Solver#Output',**BCWallKeys)
                     else:
                         BCKeys.update(varDict)
-                        J.set(FamilyNode, '.Solver#Output',**BCKeys)
+                        params = BCKeys
+                    J.set(FamilyNode, '.Solver#Output',**params)
+                    if add_time_average:
+                        print('setting .Solver#Output#Average to FamilyNode '+FamilyNode[0])
+                        avg_params = dict(average='time',
+                                          period_init='inactive')
+
+                        avg_params.update(params)
+                        J.set(FamilyNode, '.Solver#Output#Average',**avg_params)
+
                 else:
                     raise ValueError('did not added anything since:\nExtractVariablesList=%s'%str(ExtractVariablesList))
 
 def addFieldExtractions(t, ReferenceValues, extractCoords=False,
         includeAdditionalExtractions=True, container='FlowSolution#EndOfRun',
-        ReferenceFrame='absolute'):
+        ReferenceFrame='absolute', add_time_average=False):
     '''
     Include fields extraction information to CGNS tree using
     information contained in dictionary **ReferenceValues**.
@@ -4072,6 +4216,11 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False,
 
         ReferenceFrame : str
             ``'absolute'`` or ``'relative'``
+
+        add_time_average : bool
+            if :py:obj:`True`, include additional ``FlowSolution#Average`` for 
+            time-averaged field extraction
+
     '''
 
     Fields2Extract = ReferenceValues['Fields'][:] 
@@ -4099,44 +4248,22 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False,
               writingmode=2,
               writingframe=ReferenceFrame)
 
-def addAverageFieldExtractions(t, ReferenceValues, firstIterationForAverage=1):
-    '''
-    Include time averaged fields extraction information to CGNS tree using
-    information contained in dictionary **ReferenceValues**.
+        if add_time_average:
+            Fields2Extract = ReferenceValues['Fields'] + \
+                             ReferenceValues['FieldsAdditionalExtractions']
 
-    Parameters
-    ----------
+            EoRnode = I.createNode('FlowSolution#Average', 'FlowSolution_t',
+                                    parent=zone)
+            I.createNode('GridLocation','GridLocation_t', value='CellCenter', parent=EoRnode)
+            for fieldName in Fields2Extract:
+                I.createNode(fieldName, 'DataArray_t', value=None, parent=EoRnode)
+            J.set(EoRnode, '.Solver#Output',
+                period=1,
+                writingmode=2,
+                writingframe='absolute',
+                average='time',
+                period_init='inactive')
 
-        t : PyTree
-            prepared grid as produced by :py:func:`prepareMesh4ElsA` function.
-
-            .. note:: tree **t** is modified
-
-        ReferenceValues : dict
-            dictionary as produced by :py:func:`computeReferenceValues` function
-
-        firstIterationForAverage : int
-            Iteration to start the computation of time average. All the following iterations
-            will be taken into account to compute the average.
-
-    '''
-
-    Fields2Extract = ReferenceValues['Fields'] + ReferenceValues['FieldsAdditionalExtractions']
-
-    for zone in I.getZones(t):
-
-        EoRnode = I.createNode('FlowSolution#EndOfRun#Average', 'FlowSolution_t',
-                                parent=zone)
-        I.createNode('GridLocation','GridLocation_t', value='CellCenter', parent=EoRnode)
-        for fieldName in Fields2Extract:
-            I.createNode(fieldName, 'DataArray_t', value=None, parent=EoRnode)
-        J.set(EoRnode, '.Solver#Output',
-              period=1,
-              writingmode=2,
-              writingframe='absolute',
-              average='time',
-              period_init=firstIterationForAverage,  #First iteration to consider to compute time average
-               )
 
 def addGoverningEquations(t, dim=3):
     '''
@@ -4698,7 +4825,7 @@ def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
     FamilyNode = I.getNodeFromNameAndType(t, FamilyBCName, 'Family_t')
     if not FamilyNode: return
 
-    FamilyBCNode = I.getNodeFromName1(FamilyNode, 'FamilyBC')
+    FamilyBCNode = I.getNodeFromType1(FamilyNode, 'FamilyBC_t')
     if not FamilyBCNode: return
 
     FamilyBCNodeType = I.getValue(FamilyBCNode)
@@ -4780,8 +4907,10 @@ def adapt2elsA(t, InputMeshes):
     unnecessary operations. It also cleans spurious 0-length data CGNS nodes that
     can be generated during overset preprocessing.
     '''
-    print('adapting NearMatch to elsA')
-    EP._adaptNearMatch(t)
+
+    if hasAnyNearMatch(t, InputMeshes):
+        print('adapting NearMatch to elsA')
+        EP._adaptNearMatch(t)
 
     if hasAnyOversetData(InputMeshes):
         print('adapting overset data to elsA...')
@@ -4791,6 +4920,10 @@ def adapt2elsA(t, InputMeshes):
         EP._prefixDnrInSubRegions(t)
         removeEmptyOversetData(t, silent=False)
 
+    forceFamilyBCasFamilySpecified(t) # https://elsa.onera.fr/issues/10928
+    I._createElsaHybrid(t, method=1)
+
+def forceFamilyBCasFamilySpecified(t):
     # https://elsa.onera.fr/issues/10928
     for base in I.getBases(t):
         for zone in I.getZones(base):
@@ -4800,16 +4933,15 @@ def adapt2elsA(t, InputMeshes):
                         I.setValue(BC,'FamilySpecified')
                         continue
 
-
-    I._createElsaHybrid(t, method=1)
-
-def hasAnyNearMatch(InputMeshes):
+def hasAnyNearMatch(t, InputMeshes):
     '''
-    Determine if at least one item in **InputMeshes** has a connectivity of
-    type ``NearMatch``.
+    Determine if configuration has a connectivity of type ``NearMatch``.
 
     Parameters
     ----------
+
+        t : PyTree
+            input tree to test
 
         InputMeshes : :py:class:`list` of :py:class:`dict`
             as described by :py:func:`prepareMesh4ElsA`
@@ -4822,11 +4954,16 @@ def hasAnyNearMatch(InputMeshes):
     '''
     for meshInfo in InputMeshes:
         try: Connection = meshInfo['Connection']
-        except KeyError: continue
+        except KeyError: pass
 
         for ConnectionInfo in Connection:
             isNearMatch = ConnectionInfo['type'] == 'NearMatch'
             if isNearMatch: return True
+    
+    for GridConnectivityNode in I.getNodesFromType(t, 'GridConnectivity_t'):
+        if I.getNodesFromValue(GridConnectivityNode, 'Abbuting'):
+            return True
+
 
     return False
 
@@ -4879,6 +5016,22 @@ def hasAnyOversetData(InputMeshes):
         if 'OversetOptions' in meshInfo:
             return True
     return False
+
+
+def getStructuredZones(t):
+    zones = []
+    for z in I.getZones(t):
+        if I.getZoneType(z) == 1:
+            zones += [ z ]
+    return zones
+
+def getUnstructuredZones(t):
+    zones = []
+    for z in I.getZones(t):
+        if I.getZoneType(z) == 2:
+            zones += [ z ]
+    return zones
+
 
 def hasAnyUnstructuredZones(t):
     '''
@@ -5090,16 +5243,24 @@ def autoMergeBCsUnstructured(t, familyNames=None):
             for BC in BCs: I.rmNode(zoneBC, BC)
             I.addChild(zoneBC, newBC)
 
-def checkFamiliesInZonesAndBC(t):
+def checkFamiliesInZonesAndBC(t, behavior='add'):
     '''
     Check that each zone and each BC is attached to a family (so there must be
-    a ``FamilyName_t`` node). Raise an exception in case of family missing.
+    a ``FamilyName_t`` node). In case of family missing, raise an exception or
+    add family depending on the value of parameter behavior.
 
     Parameters
     ----------
 
         t : PyTree
             PyTree to check
+
+        behavior : str
+            if ``'raise'``, then raise an exception. 
+            If ``'add'``, then add the family zone tag as ``basename+'Zones'``.
+
+            .. note::
+                In all cases, FamilyBC without FamilyName_t raises an exception
     '''
     for base in I.getBases(t):
         if any([pattern in I.getName(base) for pattern in ['Numeca', 'meridional_base', 'tools_base']]):
@@ -5110,7 +5271,17 @@ def checkFamiliesInZonesAndBC(t):
             if not I.getNodeFromType1(zone, 'FamilyName_t'):
                 FAILMSG = 'Each zone must be attached to a Family:\n'
                 FAILMSG += 'Zone {} has no node of type FamilyName_t'.format(I.getName(zone))
-                raise Exception(J.FAIL+FAILMSG+J.ENDC)
+                if behavior=='raise':
+                    raise Exception(J.FAIL+FAILMSG+J.ENDC)
+                elif behavior=='add':
+                    newFamilyTag = base[0]+'Zones'
+                    FAILMSG += '\nAdding tag '+newFamilyTag
+                    print(J.WARN+FAILMSG+J.ENDC)
+                    C._tagWithFamily(base, 'BaseZones')
+                    C._addFamily2Base(base, 'BaseZones')
+                    I._correctPyTree(base, level=7)
+                else:
+                    raise Exception(f'behavior {behavior} not recognized')
             # Check that each BC is attached to a family
             for bc in I.getNodesFromType(zone, 'BC_t'):
                 if I.getValue(bc) in ['BCDegenerateLine', 'BCDegeneratePoint']:
@@ -5119,6 +5290,18 @@ def checkFamiliesInZonesAndBC(t):
                     FAILMSG = 'Each BC must be attached to a Family:\n'
                     FAILMSG += 'BC {} in zone {} has no node of type FamilyName_t'.format(I.getName(bc), I.getName(zone))
                     raise Exception(J.FAIL+FAILMSG+J.ENDC)
+
+def extendListOfFamilies(FamilyNames):
+    '''
+    For each <NAME> in the list **FamilyNames**, add Name, name and NAME.
+    '''
+    ExtendedFamilyNames = copy.deepcopy(FamilyNames)
+    for fam in FamilyNames:
+        newNames = [fam.lower(), fam.upper(), fam.capitalize()]
+        for name in newNames:
+            if name not in ExtendedFamilyNames:
+                ExtendedFamilyNames.append(name)
+    return ExtendedFamilyNames
 
 def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
     '''
@@ -5134,6 +5317,7 @@ def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
         Be careful when using this function on a partial mesh with periodicity
         conditions. If this kind of BC is not equidistant to the walls, the
         computed ``'TurbulentDistance'`` will be wrong !
+        Except if options are specified to take periodicity into account
 
     Parameters
     ----------
@@ -5154,44 +5338,83 @@ def computeDistance2Walls(t, WallFamilies=[], verbose=False, wallFilename=None):
             **wallFilename**.
 
     '''
-    def extendListOfFamilies(FamilyNames):
-        '''
-        For each <NAME> in the list **FamilyNames**, add Name, name and NAME.
-        '''
-        ExtendedFamilyNames = copy.deepcopy(FamilyNames)
-        for fam in FamilyNames:
-            newNames = [fam.lower(), fam.upper(), fam.capitalize()]
-            for name in newNames:
-                if name not in ExtendedFamilyNames:
-                    ExtendedFamilyNames.append(name)
-        return ExtendedFamilyNames
+    def __adaptZoneNames(zone):
+        zn = I.getName(zone)
+        if   '/' in zn:  zn = zn.split('/')[-1]
+        elif "\\" in zn: zn = zn.split('\\')[-1]
+        I.setName(zone,zn)
+
+    def __duplicateWalls(walls):
+        for bw in I.getBases(walls):
+            for zw in I.getZones(bw):
+                sp = I.getNodeFromName2(zw,".Solver#Param")
+                if sp:
+                    __adaptZoneNames(zw)
+                    ang1 = I.getNodeFromName1(sp,'axis_ang_1'); ang1 = I.getValue(ang1)
+                    ang2 = I.getNodeFromName1(sp,'axis_ang_2'); ang2 = I.getValue(ang2)
+                    angle = float(ang2)/float(ang1)*360.
+                    xc = I.getNodeFromName1(sp,'axis_pnt_x'); xc = I.getValue(xc)
+                    yc = I.getNodeFromName1(sp,'axis_pnt_y'); yc = I.getValue(yc)
+                    zc = I.getNodeFromName1(sp,'axis_pnt_z'); zc = I.getValue(zc)
+                    vx = I.getNodeFromName1(sp,'axis_vct_x'); vx = I.getValue(vx)
+                    vy = I.getNodeFromName1(sp,'axis_vct_y'); vy = I.getValue(vy)
+                    vz = I.getNodeFromName1(sp,'axis_vct_z'); vz = I.getValue(vz)
+                    if angle != 0.:
+                        zdupPos = T.rotate(zw,(xc,yc,zc), (vx,vy,vz),angle)
+                        zdupNeg = T.rotate(zw,(xc,yc,zc), (vx,vy,vz),-angle)
+                        zdupPos[0] += 'dup_pos'
+                        zdupNeg[0] += 'dup_neg'
+                        I.addChild(bw,zdupPos)
+                        I.addChild(bw,zdupNeg)
 
     WallFamilies = extendListOfFamilies(WallFamilies)
 
     print('Compute distance to walls...')
 
     BCs, _, BCTypes = C.getBCs(t)
-    walls = []
+    walls = [] # will be a list on Zone_t nodes
     wallBCTypes = set()
     for BC, BCType in zip(BCs, BCTypes):
         FamilyBCType = getFamilyBCTypeFromFamilyBCName(t, BCType)
+        # print('isStdNode=',I.isStdNode(BC))
         if FamilyBCType is not None and 'BCWall' in FamilyBCType:
             wallBCTypes.add(FamilyBCType)
-            walls.append(BC)
+            if I.isStdNode(BC) == 0: # list of pytree nodes
+                tmpBC = BC
+            elif I.isStdNode(BC) == -1: # pytree node
+                tmpBC = [BC]
+            else: raise TypeError('BC is not a PyTree node or a list of PyTree nodes')
+            for tbc in tmpBC:
+                I._rmNodesByType(tbc,'FlowSolution_t')
+                I._adaptZoneNamesForSlash(tbc)
+                walls.append(tbc)
         elif any([pattern in BCType for pattern in WallFamilies]):
             wallBCTypes.add(BCType)
-            walls.append(BC)
+            if I.isStdNode(BC) == 0: # list of pytree nodes
+                tmpBC = BC
+            elif I.isStdNode(BC) == -1: # pytree node
+                tmpBC = [BC]
+            else: raise TypeError('BC is not a PyTree node or a list of PyTree nodes')
+            for tbc in tmpBC:
+                I._rmNodesByType(tbc,'FlowSolution_t')
+                I._adaptZoneNamesForSlash(tbc)
+                walls.append(tbc)
     if verbose:
         print('List of BCTypes recognized as walls:')
         for BCType in wallBCTypes:
             print('  {}'.format(BCType))
-    walls = T.merge(walls)
+    walls = C.newPyTree(['WALLS', walls]) # as walls is a list of Zone_t nodes 
+    I._adaptZoneNamesForSlash(walls)
+    __duplicateWalls(walls)
 
     if wallFilename:
         C.convertPyTree2File(walls, wallFilename)
 
+    container_cell_save = I.__FlowSolutionCenters__
+    I.__FlowSolutionCenters__ = 'FlowSolution#Init'
     DTW._distance2Walls(t, walls)
     EP._addTurbulentDistanceIndex(t)
+    I.__FlowSolutionCenters__ = container_cell_save
 
 def convert2Unstructured(t, merge=True, tol=1e-6):
     '''
@@ -5397,3 +5620,180 @@ def duplicateBlades(base, meshInfo):
 
     return NewBases, NewMeshInfos
 
+def removeFamilies(t, families_to_remove):
+    '''
+    Remove useless families by their name on tree (both *Family_t*, 
+    *FamilyName_t* and *BC_t*
+    nodes are removed).
+
+    Parameters
+    ----------
+
+        t : PyTree
+            working tree
+
+            .. note:: tree **t** is modified
+
+        families_to_remove : :py:class:`list` of :py:class:`str`
+            names of the families to be removed
+    '''
+    all_family_types = I.getNodesFromType(t,'Family_t')
+    all_family_name_types = I.getNodesFromType(t,'FamilyName_t')
+    all_bc_types = I.getNodesFromType(t,'BC_t')
+    for f in families_to_remove:
+        for n in all_family_types+all_family_name_types+all_bc_types:
+            if n[0] == f or I.getValue(n) == f:
+                I.rmNode(t, n)
+
+def renameNodes(t, rename_dict={}):
+    '''
+    a shortcut of I._renameNode function, literally:
+
+    ::
+
+        for old, new in rename_dict.items():
+            I._renameNode(t, old, new)
+
+    '''
+    for old, new in rename_dict.items():
+        I._renameNode(t, old, new)
+
+
+def adaptFamilyBCNamesToElsA(t):
+    '''
+    Due to https://elsa.onera.fr/issues/11090
+    '''
+    for n in I.getNodesFromType(t, 'FamilyBC_t'):
+        n[0] = 'FamilyBC'
+
+def convertUnstructuredMeshToNGon(t):
+    print('making unstructured mesh adaptations for elsA:')
+    from mpi4py import MPI
+    import maia
+    
+    t = maia.factory.full_to_dist_tree(t, MPI.COMM_WORLD, owner=None)
+    
+    if J.anyNotNGon(t):
+        print(' -> some cells are not NGon : converting to NGon')
+        try:
+            tRef = I.copyRef(t)
+            maia.algo.dist.generate_ngon_from_std_elements(tRef, MPI.COMM_WORLD)
+            t = tRef
+        except BaseException as e:
+            print(J.WARN+f'could not convert to NGon using maia, received error:')
+            print(e)
+            print('attempting using Cassiopee...'+J.ENDC)
+            try:
+                tRef = I.copyRef(t)
+                uns = getUnstructuredZones(tRef)[0]
+                I.printTree(uns,'tree1.txt')
+                C._convertArray2NGon(uns, recoverBC=1)
+                t = tRef
+            except BaseException as e2:
+                print(J.FAIL)
+                C.convertPyTree2File(t,'debug.cgns')
+                print('could not convert to NGon using Cassiopee, check debug.cgns')
+                t = C.convertFile2PyTree('debug.cgns')
+                uns = getUnstructuredZones(t)[0]
+                I.printTree(uns,'tree2.txt')
+                C._convertArray2NGon(uns, recoverBC=1)
+                print(J.GREEN+'OK'+J.ENDC)
+
+
+    print(' -> merging zones by family')
+    zonePathsByFamily = dict()
+    for base in I.getBases(t):
+        for zone in I.getZones(base):
+            if I.getZoneType(zone) == 1: continue # structured zone
+            zone_path = base[0] + '/' + zone[0]
+            FamilyNameNode = I.getNodeFromType1(zone, 'FamilyName_t')
+            if FamilyNameNode: 
+                FamilyName = I.getValue(FamilyNameNode)
+                if FamilyName not in zonePathsByFamily:
+                    zonePathsByFamily[FamilyName] = [zone_path]
+                else:
+                    zonePathsByFamily[FamilyName] += [zone_path]
+            else:
+                if 'unspecified' not in zonePathsByFamily:
+                    zonePathsByFamily['unspecified'] = [zone_path]
+                else:
+                    zonePathsByFamily['unspecified'] += [zone_path]
+
+    for family, zone_paths in zonePathsByFamily.items():
+        if len(zone_paths) < 2: continue
+        print(f' --> merging zones of family {family}')
+        try:
+            maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD)
+        except BaseException as e:
+            print(J.WARN+f'could not merge zones using maia, received error:')
+            print(e)
+            print('will not merge zones'+J.ENDC)
+
+
+
+    print(' -> enforcing ngon_pe_local')
+    maia.algo.seq.enforce_ngon_pe_local(t) # required by elsA ?
+
+    t = maia.factory.dist_to_full_tree(t, MPI.COMM_WORLD, target=0)
+    I._fixNGon(t) # required ?
+    print('finished unstructured mesh adaptations for elsA')
+
+    return t
+
+def addFieldExtraction(ReferenceValues, fieldname):
+    print('adding %s'%fieldname)
+    try:
+        if fieldname not in ReferenceValues['FieldsAdditionalExtractions']:
+            ReferenceValues['FieldsAdditionalExtractions'].append(fieldname)
+    except:
+        ReferenceValues['FieldsAdditionalExtractions'] = [fieldname]
+
+def appendAdditionalFieldExtractions(ReferenceValues, Extractions):
+    for e in Extractions:
+        field_names = []
+        if 'field' in e:
+            field_names += [e['field']]
+        elif e['type'] == 'Probe':
+            field_names += e['variables']
+        else:
+            continue
+
+        for field_name in field_names:
+            if field_name.startswith('Coordinate') or field_name == 'ChannelHeight':
+                continue
+            addFieldExtraction(ReferenceValues, field_name)
+
+def addBC2Zone(*args, **kwargs):
+    '''
+    Workaround of Converter._addBC2Zone (in-place) function in order to circumvent 
+    https://elsa.onera.fr/issues/11236
+
+    '''
+    zone = args[0]
+    if len(zone) != 4: 
+        raise ValueError('first argument must be a zone')
+    else:
+        try:
+            is_zone = zone[3] == 'Zone_t'
+        except:
+            raise ValueError('first argument must be a zone')
+        if not is_zone:
+            raise ValueError('first argument must be a zone')
+
+    is_structured = I.getZoneType(zone) == 1
+
+
+    if is_structured: return C._addBC2Zone(*args,**kwargs)
+
+    C._addBC2Zone(*args,**kwargs)
+
+    # HACK https://elsa.onera.fr/issues/11236
+    for n in I.getNodesFromType(zone,'ZoneBC_t'):
+        I._renameNode(n,'ElementRange','PointRange')
+    
+    for n in I.getNodesFromType(zone,'BC_t'):
+        I.createUniqueChild(n, 'GridLocation', 'GridLocation_t', value='FaceCenter')
+
+    for n in I.getNodesFromType(zone,'Elements_t'): n[0] = n[0].replace('/','_')
+
+_addBC2Zone = addBC2Zone

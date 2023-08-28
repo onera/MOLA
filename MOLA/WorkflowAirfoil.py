@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -599,16 +599,13 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
         None : None
             Writes ``setup.py``, ``main.cgns`` and eventually ``OUTPUT/fields.cgns``
     '''
-
+    toc = J.tic()
     if isinstance(mesh,str):
         t = C.convertFile2PyTree(mesh)
     elif I.isTopTree(mesh):
         t = mesh
     else:
         raise ValueError('parameter mesh must be either a filename or a PyTree')
-
-    if not t: t = C.convertFile2PyTree(file_mesh)
-    else: t = I.copyRef(t)
 
     CoprocessOptions.setdefault('TagSurfacesWithIteration', 'auto')
     FluidProperties = PRE.computeFluidProperties()
@@ -638,6 +635,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
         CoprocessOptions=CoprocessOpts,
         FieldsAdditionalExtractions=FieldsAdditionalExtractions,
                             )
+    PRE.appendAdditionalFieldExtractions(ReferenceValues, Extractions)                            
     BCExtractions = ReferenceValues['BCExtractions']
     ReferenceValues['ImposedWallFields'] = ImposedWallFields
     ReferenceValues['TransitionZones'] = TransitionZones
@@ -697,16 +695,21 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
 
         if SubmitJob: JM.submitJob(JobInformation['DIRECTORY_WORK'])
 
+    J.printElapsedTime('prepareMainCGNS4ElsA took ', toc)
 
 def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
         Temperature=288.15, AngleOfAttackDeg=0.0, AngleOfSlipDeg=0.0,
         YawAxis=[0.,1.,0.], PitchAxis=[0.,0.,-1.],
         TurbulenceLevel=0.001,
         TurbulenceModel='Wilcox2006-klim', Viscosity_EddyMolecularRatio=0.1,
-        TurbulenceCutoff=1.0, TransitionMode=None, CoprocessOptions={},
+        TurbulenceCutoff=1.0, TransitionMode=None,
+        WallDistance=None,
+        CoprocessOptions={},
         FieldsAdditionalExtractions=[], BCExtractions=dict(
             BCWall=['normalvector', 'frictionvector', 'psta',
-                    'bl_quantities_2d', 'yplusmeshsize', 'bl_ue'])):
+                    'bl_quantities_2d', 'yplusmeshsize', 'bl_ue',
+                    'flux_rou','flux_rov','flux_row',
+                    'torque_rou','torque_rov','torque_row'])):
     '''
     This function is the Airfoil's equivalent of :py:func:`MOLA.Preprocess.computeReferenceValues` .
     The main difference is that in this case reference values are set through
@@ -790,6 +793,7 @@ def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
         Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio,
         TurbulenceCutoff=TurbulenceCutoff,
         TransitionMode=TransitionMode,
+        WallDistance=WallDistance,
         CoprocessOptions=DefaultCoprocessOptions,
         FieldsAdditionalExtractions=FieldsAdditionalExtractions,
         BCExtractions=BCExtractions)
@@ -1049,7 +1053,7 @@ def setBCDataSetWithNonLocalTransition(t, AirfoilWallFamilyName, ReferenceValues
         VarNames, = C.getVarNames(AirfoilCentersZone, excludeXYZ=True)
         for varname in VarNames:
             field, = J.getVars(AirfoilCentersZone, [varname])
-            I.newDataArray(varname, value=field, parent=NeumannData)
+            I.newDataArray(varname, value=field.ravel(order='K'), parent=NeumannData)
 
 
 def computeTransitionCriterion(walls, criterion='in_ahd_gl'):

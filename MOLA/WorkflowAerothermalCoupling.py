@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -227,6 +227,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         ReferenceValuesParams.update(dict(PitchAxis=PitchAxis, YawAxis=YawAxis))
 
     ReferenceValues = WC.computeReferenceValues(FluidProperties, **ReferenceValuesParams)
+    PRE.appendAdditionalFieldExtractions(ReferenceValues, Extractions)
 
     if I.getNodeFromName(t, 'proc'):
         JobInformation['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
@@ -291,14 +292,23 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
            'hpar', 'ro', 'visclam', 'viscrapp']
 
     PRE.addTrigger(t)
+
+    is_unsteady = AllSetupDicts['elsAkeysNumerics']['time_algo'] != 'steady'
+    avg_requested = AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'] is not None
+
+    if is_unsteady and not avg_requested:
+        msg =('WARNING: You are setting an unsteady simulation, but no field averaging\n'
+              'will be done since CoprocessOptions key "FirstIterationForFieldsAveraging"\n'
+              'is set to None. If you want fields average extraction, please set a finite\n'
+              'positive value to "FirstIterationForFieldsAveraging" and relaunch preprocess')
+        print(J.WARN+msg+J.ENDC)
+
     PRE.addExtractions(t, AllSetupDicts['ReferenceValues'],
                       AllSetupDicts['elsAkeysModel'],
                       extractCoords=False,
-                      BCExtractions=ReferenceValues['BCExtractions'])
+                      BCExtractions=ReferenceValues['BCExtractions'],
+                      add_time_average= is_unsteady and avg_requested)
 
-    if elsAkeysNumerics['time_algo'] != 'steady':
-        PRE.addAverageFieldExtractions(t, AllSetupDicts['ReferenceValues'],
-            AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
 
     PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],
                          AllSetupDicts['ReferenceValues'])
@@ -336,11 +346,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             singleton = False if i==0 else True
             JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
 
-    ElapsedTime = str(PRE.datetime.timedelta(seconds=J.tic()-toc))
-    hours, minutes, seconds = ElapsedTime.split(':')
-    ElapsedTimeHuman = hours+' hours '+minutes+' minutes and '+seconds+' seconds'
-    msg = 'prepareMainCGNS took '+ElapsedTimeHuman
-    print(J.BOLD+msg+J.ENDC)
+    J.printElapsedTime('prepareMainCGNS4ElsA took ', toc)
 
 
 def addExchangeSurfaces(t, coupledSurfaces, couplingScript='coprocess.py'):

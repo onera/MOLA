@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -58,6 +58,9 @@ ItersMinEvenIfConverged   = CO.getOption('ItersMinEvenIfConverged', default=1e3)
 ConvergenceCriteria       = CO.getOption('ConvergenceCriteria', default=[])
 RequestedStatistics       = CO.getOption('RequestedStatistics', default=[])
 TagSurfacesWithIteration = CO.getOption('TagSurfacesWithIteration', default=False)
+FirstIterForFieldsStats  = CO.getOption('FirstIterationForFieldsAveraging', default=1e12)
+
+if FirstIterForFieldsStats is None: FirstIterForFieldsStats = 1e12
 
 # BEWARE! state 16 => triggers *before* iteration, which means
 # that variable "it" represents actually the *next* iteration
@@ -90,13 +93,16 @@ if BodyForceInputData and not COMPUTE_BODYFORCE:
 ElapsedTime = timeit.default_timer() - LaunchTime
 ReachedTimeOutMargin = CO.hasReachedTimeOutMargin(ElapsedTime, TimeOut,
                                                             MarginBeforeTimeOut)
-anySignal = any([SAVE_ARRAYS, SAVE_SURFACES, SAVE_BODYFORCE, COMPUTE_BODYFORCE,
-                 SAVE_FIELDS, CONVERGED, it>=itmax])
+anySignal = any([SAVE_ARRAYS, SAVE_SURFACES, SAVE_BODYFORCE, COMPUTE_BODYFORCE, HAS_PROBES,
+                 SAVE_FIELDS, CONVERGED, it>=itmax, it==FirstIterForFieldsStats-1])
 ENTER_COUPLING = anySignal or ReachedTimeOutMargin
 
 if ENTER_COUPLING:
 
     t = CO.extractFields(Skeleton)
+
+    if HAS_PROBES:
+        CO.appendProbes2Arrays(t, arrays)
 
     if COMPUTE_BODYFORCE:
         BODYFORCE_INITIATED = True
@@ -116,8 +122,7 @@ if ENTER_COUPLING:
         CO.save(t, os.path.join(DIRECTORY_OUTPUT, FILE_FIELDS), tagWithIteration=TagSurfacesWithIteration)
 
     if SAVE_SURFACES:
-        surfs = CO.extractSurfaces(t, setup.Extractions)
-        surfs = CO._extendSurfacesWithWorkflowQuantities(surfs, arrays)
+        surfs = CO.extractSurfaces(t, setup.Extractions, arrays=arrays)
         CO.save(surfs, os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES), tagWithIteration=TagSurfacesWithIteration)
         arraysTree = CO.monitorTurboPerformance(surfs, arrays, RequestedStatistics)
         SAVE_ARRAYS = True

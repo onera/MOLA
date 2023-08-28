@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -45,8 +45,6 @@ if not MOLA.__ONLY_DOC__:
     import Transform.PyTree as T
     import Post.PyTree as P
 
-    import etc.geom.xr_features as XR
-
 import MOLA.Preprocess as PRE
 import MOLA.InternalShortcuts as J
 import MOLA.Wireframe as W
@@ -65,6 +63,7 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows, saveGeometricalDataForBodyForc
 
     Parameters
     ----------
+
         t : PyTree
             input mesh, from Autogrid for instance.
 
@@ -91,7 +90,6 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows, saveGeometricalDataForBodyForc
     -------
 
         newRowMeshes : :py:class:`list` of PyTree
-
             New mesh, identical to the input mesh **t** except that the domain 
             corresponding to the family **row** has been replaced by a mesh adapted
             to body-force.
@@ -160,15 +158,10 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows, saveGeometricalDataForBodyForc
 
         newRowMesh = buildBodyForceMeshForOneRow(meridionalMesh,
                                                  NumberOfBlades=BladeNumber,
+                                                 RowFamily=row,
                                                  **BodyForceParams
                                                  )
-
         restoreBCFamilies(zones, newRowMesh)
-        I._renameNode(newRowMesh, 'Fluid', row)
-        I._renameNode(newRowMesh, 'upstream', f'{row}_upstream')
-        I._renameNode(newRowMesh, 'downstream', f'{row}_downstream')
-        I._renameNode(newRowMesh, 'bodyForce', f'{row}_bodyForce')
-
         newRowMeshes.append(newRowMesh)
 
         for zone in zones:
@@ -187,8 +180,104 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows, saveGeometricalDataForBodyForc
 
     return t, newRowMeshes
 
+def generateThroughFlowGeometry(Hub, Shroud, Blade):
+    '''
+    Generate the input geometry for :py:func:`buildBodyForceMeshForOneRow`.
 
-def buildBodyForceMeshForOneRow(t, NumberOfBlades, 
+    Parameters
+    ----------
+    Hub : PyTree
+        Hub line, oriented such as :math:`(x,y,z) = (x_{hub},r_{hub},0)`
+    Shroud : PyTree
+        Shroud line, oriented such as :math:`(x,y,z) = (x_{shroud},r_{shroud},0)`
+    Blade : PyTree
+        Sections given by :py:func:`GenerativeShapeDesign.wing`
+    
+    Returns
+    -------
+        PyTree
+            2D mesh ready to be used in :py:func:`buildBodyForceMeshForOneRow`.
+    '''
+
+    def curve(name, x, y, z=None):
+        if z is None: z = np.zeros(x.size)
+        curve = J.createZone(name, [x, y, z], ['CoordinateX', 'CoordinateY', 'CoordinateZ'])
+        return curve
+
+    assert len(I.getZones(Hub)) == 1
+    assert len(I.getZones(Shroud)) == 1
+    Hub = I.getZones(Hub)[0] 
+    I.setName(Hub, 'Hub')
+    Shroud = I.getZones(Shroud)[0] 
+    I.setName(Shroud, 'Shroud')
+
+    xhub, rhub = J.getxy(Hub)
+    xshroud, rshroud = J.getxy(Shroud)
+    Inlet        = curve('Inlet', np.array([xhub[0], xshroud[0]]), np.array([rhub[0], rshroud[0]]))
+    Outlet       = curve('Outlet', np.array([xhub[-1], xshroud[-1]]), np.array([rhub[-1], rshroud[-1]]))
+
+    if I.isStdNode(Blade) == 0:
+       # List of PyTree: Blade is a list of Sections, as returned by GSD.wing
+       Sections = Blade
+    elif I.isStdNode(Blade) == -1:
+        # PyTree: Blade is a Wing PyTree, as returned by GSD.wing
+        # We must decompose the blade into sections  
+        raise Exception('Not yet implemented. Blade must be a list of PyTree (Sections)')
+    else:
+        raise Exception('Blade must be a PyTree (Wing) or a list of PyTree (Sections)')
+
+    SkeletonLines = [] 
+
+    W.T._rotate(Sections, (0,0,0), (1, 0, 0), 90., vectors=[['TangentX', 'TangentY', 'TangentZ']])
+
+    xLE = [] 
+    rLE = [] 
+    xTE = [] 
+    rTE = []
+    i = 1
+    for section in Sections:
+        print(i); i+=1
+        AirfoilProperties, Camber = W.getAirfoilPropertiesAndCamber(section)
+
+       # Update LE and TE curves 
+        LE = AirfoilProperties['LeadingEdge']
+        TE = AirfoilProperties['TrailingEdge']
+        xLE.append(LE[0])
+        xTE.append(TE[0])
+        rLE.append((LE[1]**2+LE[2]**2)**0.5)
+        rTE.append((TE[1]**2+TE[2]**2)**0.5)
+
+       # Get the skeleton line by flattening the camber line 
+        FlatCamber = I.copyTree(Camber)
+        x, y, z = J.getxyz(FlatCamber)
+        z[:] = z[0]
+
+        C._initVars(FlatCamber, '{nx}=-{TangentZ}')
+        C._initVars(FlatCamber, '{nr}=0')
+        C._initVars(FlatCamber, '{nt}={TangentX}')
+        C._initVars(FlatCamber, f'{{thickness}}= {{RelativeThickness}}*{AirfoilProperties["Chord"]}') 
+        C._initVars(FlatCamber, f'{{AbscissaFromLE}}={{s}}*{W.getLength(Camber)}')
+        C._extractVars(FlatCamber, ['CoordinateX', 'CoordinateY', 'CoordinateZ', 'nx', 'nr', 'nt', 'thickness', 'AbscissaFromLE'])
+
+        SkeletonLines.append(FlatCamber)
+
+    skeletonZone = G.stack(SkeletonLines)
+    I.setName(skeletonZone, 'Skeleton')
+
+    xLE = np.array(xLE)
+    rLE = np.array(rLE) 
+    xTE = np.array(xTE) 
+    rTE = np.array(rTE)
+
+    LeadingEdge  = curve('LeadingEdge', xLE, rLE)
+    TrailingEdge = curve('TrailingEdge', xTE, rTE)
+    
+    t = C.newPyTree(['Base', [Hub, Shroud, LeadingEdge,
+                    TrailingEdge, Inlet, Outlet, skeletonZone]])
+
+    return t
+
+def buildBodyForceMeshForOneRow(t, NumberOfBlades, RowFamily='ROW',
                                 NumberOfRadialPoints=None, NumberOfAxialPointsBeforeLE=None,
                                 NumberOfAxialPointsBetweenLEAndTE=None, NumberOfAxialPointsAfterTE=None,
                                 NumberOfAzimutalPoints=5, AzimutalAngleDeg=2.,
@@ -209,6 +298,9 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
 
         NumberOfBlades : int
             Number of blades (for the 360deg row). Used to compute the blockage coefficient.
+
+        RowFamily : str
+            Name of the zone family for the output tree. Default is 'ROW'.
 
         NumberOfRadialPoints : :py:class:`int` or :py:obj:`None`
            Number of points in the radial direction. If :py:obj:`None`, then **RadialDistribution**
@@ -385,14 +477,18 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
     upstream = G.TFI([Inlet, LeadingEdge, HubBetweenInletAndLE, ShroudBetweenInletAndLE])
     bodyForce = G.TFI([LeadingEdge, TrailingEdge, HubBetweenLEAndTE, ShroudBetweenLEAndTE])
     downstream = G.TFI([TrailingEdge, Outlet, HubBetweenTEAndOutlet, ShroudBetweenTEAndOutlet])
-    I.setName(upstream, 'upstream')
-    I.setName(bodyForce, 'bodyForce')
-    I.setName(downstream, 'downstream')
+    I.setName(upstream, f'{RowFamily}_upstream')
+    I.setName(bodyForce, f'{RowFamily}_bodyForce')
+    I.setName(downstream, f'{RowFamily}_downstream')
 
     if model == 'hall':
         # Interpolate skeleton data
         Skeleton = I.getNodeFromName2(t, 'Skeleton')
         if Skeleton:
+            # Post._extractMesh is not robust for 2D to 2D interpolation
+            # Solution: make the source tree Skeleton 'thick' to make a 3D to 2D interpolation
+            T._addkplane(Skeleton) # Add a plane in k direction at z0+1
+            T._translate(Skeleton, (0,0,-0.5))
             P._extractMesh(Skeleton, bodyForce, order=2, extrapOrder=0) 
             bodyForce = computeBlockage(bodyForce, NumberOfBlades)
             # addMetalAngle(bodyForce)
@@ -404,7 +500,7 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
     # Make a partial revolution to build the 3D mesh
     mesh3d = D.axisym(mesh2d, (0, 0, 0), (1, 0, 0), angle=AzimutalAngleDeg, Ntheta=NumberOfAzimutalPoints)
 
-    bodyForce = I.getNodeFromName2(mesh3d, 'bodyForce')
+    bodyForce = I.getNodeFromName2(mesh3d, f'{RowFamily}_bodyForce')
     # C._initVars(bodyForce, '{centers:isf}=1')
     if model == 'hall':
         # Move coordinates to cell center and compute radius and azimuthal angle
@@ -428,14 +524,14 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
         
 
     base = I.getBases(mesh3d)[0]
-    upstream = I.getNodeFromNameAndType(base, 'upstream', 'Zone_t')
-    bodyForce = I.getNodeFromNameAndType(base, 'bodyForce', 'Zone_t')
-    downstream = I.getNodeFromNameAndType(base, 'downstream', 'Zone_t')
+    upstream = I.getNodeFromNameAndType(base, f'{RowFamily}_upstream', 'Zone_t')
+    bodyForce = I.getNodeFromNameAndType(base, f'{RowFamily}_bodyForce', 'Zone_t')
+    downstream = I.getNodeFromNameAndType(base, f'{RowFamily}_downstream', 'Zone_t')
 
     # Add BC and Families
-    C._addFamily2Base(base, 'Fluid')
+    C._addFamily2Base(base, RowFamily)
     for zone in I.getZones(base):
-        C._tagWithFamily(zone, 'Fluid')
+        C._tagWithFamily(zone, RowFamily)
 
     FamilyNode = I.newFamily(name='Inflow', parent=base)
     I.newFamilyBC(value='BCInflow', parent=FamilyNode)
@@ -476,6 +572,176 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades,
 
     return mesh3d
 
+def interpolateBodyForceMeshesForOneRow(meshes, AzimuthalPositions, NumberOfAzimutalPoints=100, kind='pchip'):
+    '''
+    Generate a 360 mesh with non-uniform data source terms for body-force.
+
+    Parameters
+    ----------
+    meshes : :py:class:`list` of PyTree
+        Meshes generated by :py:func:`buildBodyForceMeshForOneRow`. Only the first K index will be used, 
+        so it may be as thin as possible.
+    
+    AzimuthalPositions : :py:class:`list` of :py:class:`float`
+        Positions (in degrees) of each mesh to perform the interpolation.
+    
+    kind : str
+        Interpolation method
+
+    Returns
+    -------
+    PyTree
+        _description_
+    '''
+    import scipy
+
+    I.__FlowSolutionCenters__ = 'FlowSolution#DataSourceTerm'
+
+    def extract_mesh_k0(mesh3D):
+        mesh2D = I.newCGNSTree()
+        base = I.newCGNSBase('Base', cellDim=2, physDim=3, parent=mesh2D)
+        for zone in I.getZones(mesh3D):
+            zone2D = T.subzone(zone, (1,1,1), (-1,-1,1))
+            name = I.getName(zone2D)
+            I.setName(zone2D, '.'.join(name.split('.')[:-1]))
+            I._addChild(base, zone2D)
+        return mesh2D
+    
+    def interpolate(theta, data, axis=1):
+        if kind.startswith('interp1d'):
+            ScipyLaw = kind.split('_')[1]
+            return scipy.interpolate.interp1d(theta, data, axis=axis, kind=ScipyLaw, bounds_error=False, fill_value='extrapolate')
+        if kind == 'pchip':
+            return scipy.interpolate.PchipInterpolator(theta, data, axis=axis, extrapolate=True)
+        if kind == 'akima':
+            return scipy.interpolate.Akima1DInterpolator(theta, data, axis=axis)
+        if kind == 'cubic':
+            return scipy.interpolate.CubicSpline(theta, data, axis=axis, extrapolate='periodic')
+
+    def prepareMeshList(meshes, Nazim):
+        # Cell to node for all meshes
+        newMeshes = []
+        for n, mesh in enumerate(meshes):
+            newMesh = I.copyRef(mesh)
+            for zone in I.getZones(newMesh):
+                FlowSolution = I.getNodeFromName1(zone, 'FlowSolution#DataSourceTerm')
+                if FlowSolution:
+                    VariableNames = [I.getName(node) for node in I.getNodesFromType1(FlowSolution, 'DataArray_t')]
+                    for var in ['centers:'+name for name in VariableNames]:
+                        C._center2Node__(zone, var, cellNType=0)
+            
+            I._rmNodesByName(zone, 'FlowSolution#DataSourceTerm')
+
+            # Extract 2D mesh
+            newMesh = extract_mesh_k0(newMesh)
+
+            # Rotate meshes
+            T._rotate(newMesh, (0,0,0), (1,0,0), 360*n/Nazim, vectors=[['nx', 'ny', 'nz']])
+
+            newMeshes.append(newMesh)
+
+        return newMeshes, VariableNames
+
+    # AzimuthalPositions = np.array(AzimuthalPositions)
+    Nazim = AzimuthalPositions.size
+            
+    # Cell to node, remove unnecessary FlowSolution, extract 2D meshes, and rotate meshes
+    meshes, VariableNames = prepareMeshList(meshes, Nazim)
+
+    # Add a last mesh to buckle the loop
+    AzimuthalPositions.append(360.)
+    meshes.append(meshes[0])
+    Nazim += 1
+
+    # Make a revolution to build the 3D mesh
+    t = D.axisym(meshes[0], (0, 0, 0), (1, 0, 0), angle=360., Ntheta=NumberOfAzimutalPoints)
+
+    for zone in I.getZones(t):
+        zoneName = I.getName(zone)
+        zoneType, ni, nj, nk, celldim = I.getZoneDim(zone)
+        assert zoneType == 'Structured'
+
+        x, y, z = J.getxyz(zone)
+        interpAzimPositions = np.arctan2(y[0, :, :], z[0, :, :]) * 180./np.pi
+        InterpDataSourceTerms = dict()
+        if zoneName.endswith('bodyforce'):
+            for var in VariableNames:
+                InterpDataSourceTerms[var] = np.zeros((ni, nj, nk),dtype=np.float64,order='F')
+        
+        for j in range(nj): # loop on slice at constant height
+
+            # Initialize data arrays
+            InterpXmatrix = np.zeros((ni, Nazim),dtype=np.float64,order='F')
+            InterpYmatrix = np.zeros((ni, Nazim),dtype=np.float64,order='F')
+            InterpZmatrix = np.zeros((ni, Nazim),dtype=np.float64,order='F')
+            DataSourceTerms = dict()
+            for name in InterpDataSourceTerms:
+                DataSourceTerms[name] = np.zeros((ni, Nazim),dtype=np.float64,order='F')
+            
+            # Fill data arrays for interpolation
+            for n, mesh in enumerate(meshes):
+                zoneMesh = I.getNodeFromName2(mesh, zoneName)
+
+                # TODO : Interpolate only x and r
+
+                InterpXmatrix[:,n] = J.getx(zoneMesh)[:,j]
+                InterpYmatrix[:,n] = J.gety(zoneMesh)[:,j]  
+                InterpZmatrix[:,n] = J.getz(zoneMesh)[:,j]     
+                if len(InterpDataSourceTerms) != 0:
+                    FS = I.getNodeFromName(zoneMesh, 'FlowSolution') 
+                    for node in I.getNodesFromType(FS, 'DataArray_t'):
+                        DataSourceTerms[I.getName(node)][:,n] = I.getValue(node)[:,j] 
+            
+            # Build interpolators
+            interpX = interpolate(AzimuthalPositions, InterpXmatrix)
+            interpY = interpolate(AzimuthalPositions, InterpYmatrix)
+            interpZ = interpolate(AzimuthalPositions, InterpZmatrix)
+            interpData = dict()
+            for name in DataSourceTerms:
+                interpData[name] = interpolate(AzimuthalPositions, DataSourceTerms[name])
+            
+            # Evaluate interpolators
+            x[:, j, :] = interpX(interpAzimPositions[j, :])
+            y[:, j, :] = interpY(interpAzimPositions[j, :])
+            z[:, j, :] = interpZ(interpAzimPositions[j, :])
+            for name in DataSourceTerms:
+                InterpDataSourceTerms[name][:, j, :] = interpData[name](interpAzimPositions[j, :])
+        
+        if len(InterpDataSourceTerms) != 0:
+            J.set(zone, 'FlowSolution', childType='FlowSolution_t', **InterpDataSourceTerms)
+            for var in VariableNames:
+                C._node2Center__(zone, var)
+    
+    I._rmNodesByName(t, 'FlowSolution')
+    I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
+
+    base = I.getBases(t)[0]
+    upstream = I.getNodeFromNameAndType(base, '*_upstream', 'Zone_t')
+    downstream = I.getNodeFromNameAndType(base, '*_downstream', 'Zone_t')
+
+    for family in ['Inflow', 'Outflow', 'Hub', 'Shroud']:
+        I._rmNodesFromName1(base, family)
+
+    FamilyNode = I.newFamily(name='Inflow', parent=base)
+    I.newFamilyBC(value='BCInflow', parent=FamilyNode)
+    FamilyNode = I.newFamily(name='Outflow', parent=base)
+    I.newFamilyBC(value='BCOutflow', parent=FamilyNode)
+    FamilyNode = I.newFamily(name='Hub', parent=base)
+    I.newFamilyBC(value='BCWallViscous', parent=FamilyNode)
+    FamilyNode = I.newFamily(name='Shroud', parent=base)
+    I.newFamilyBC(value='BCWallViscous', parent=FamilyNode)
+
+    C._addBC2Zone(upstream, 'inflow', 'FamilySpecified:Inflow', wrange='imin')
+    C._addBC2Zone(downstream, 'outflow', 'FamilySpecified:Outflow', wrange='imax')
+    for zone in I.getZones(base):
+        C._addBC2Zone(zone, 'hub', 'FamilySpecified:Hub',    wrange='jmin')
+        C._addBC2Zone(zone, 'shroud', 'FamilySpecified:Shroud', wrange='jmax')
+
+    X.connectMatch(t, tol=1e-8)
+    I.checkPyTree(t)
+    I._correctPyTree(t)
+
+    return t
 
 def addMetalAngle(t):
     '''
@@ -550,7 +816,7 @@ def extractRowGeometricalData(mesh, row, save=False, locateLE='auto'):
     row : str
         Name of the family of the blade of interest
     save : bool, optional
-        If :p:obj:`True`, save the output tree with the name 'BodyForceData_{row}.cgns'. 
+        If :py:obj:`True`, save the output tree with the name 'BodyForceData_{row}.cgns'. 
 
     Returns
     -------
@@ -565,6 +831,7 @@ def extractRowGeometricalData(mesh, row, save=False, locateLE='auto'):
     def profilesExtractionAndAnalysis(tree, row, directory_profiles='profiles', locateLE='auto'):
 
         import Ersatz as EZ
+        import etc.geom.xr_features as XR
 
         # if directory doesnt exist create it
         if (not(os.path.isdir(directory_profiles))):
@@ -719,7 +986,8 @@ def extractRowGeometricalData(mesh, row, save=False, locateLE='auto'):
     xshroud, rshroud = readEndWallLine('shroud.dat')
     xLE, rLE = readLEorTE('LE.dat')
     xTE, rTE = readLEorTE('TE.dat')
-
+    assert rTE.size > 5, J.FAIL+f'Building of body-force mesh in MOLA assumes that the Autogrid mesh contains more than 5 points in the radial direction ({rTE.size} points detected in the current AG5 mesh)'+J.ENDC
+    
     Hub          = curve('Hub', xhub, rhub)
     Shroud       = curve('Shroud', xshroud, rshroud)
     LeadingEdge  = curve('LeadingEdge', xLE, rLE)

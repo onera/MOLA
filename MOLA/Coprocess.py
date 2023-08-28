@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -32,20 +32,18 @@ from . import InternalShortcuts as J
 from . import Preprocess as PRE
 from . import JobManager as JM
 from . import BodyForceTurbomachinery as BF
+from . import Postprocess as POST
 
 if not MOLA.__ONLY_DOC__:
-    import sys
     import os
-    import time
-    import timeit
     from datetime import datetime
     import numpy as np
     from scipy.ndimage.filters import uniform_filter1d
     import shutil
     import psutil
-    import pprint
     import glob
     import copy
+    import traceback
     from mpi4py import MPI
     comm   = MPI.COMM_WORLD
     rank   = comm.Get_rank()
@@ -58,6 +56,7 @@ if not MOLA.__ONLY_DOC__:
     import Converter.Mpi as Cmpi
     import Transform.PyTree as T
     import Post.PyTree as P
+    import Geom.PyTree as D
 
 
 
@@ -78,7 +77,7 @@ setup            = None
 CurrentIteration = 0
 elsAxdt          = None
 PyPartBase       = None
-EndOfRun         = False
+EndOfRun         = True
 # ------------------------------------------------------------------- #
 FAIL  = '\033[91m'
 GREEN = '\033[92m'
@@ -146,7 +145,11 @@ def extractFields(Skeleton):
     '''
     t = elsAxdt.get(elsAxdt.OUTPUT_TREE)
     adaptEndOfRun(t)
+    resumeFieldsAveraging(Skeleton, t)
     t = I.merge([Skeleton, t])
+    removeEmptyBCDataSet(t)
+    PRE.forceFamilyBCasFamilySpecified(t) # HACK https://elsa.onera.fr/issues/10928
+    ravelBCDataSet(t) # HACK https://elsa.onera.fr/issues/11219
 
     return t
 
@@ -184,17 +187,17 @@ def extractArrays(t, arrays, RequestedStatistics=[], Extractions=[],
         arraysTree : PyTree
             PyTree equivalent of the input :py:class:`dict` **arrays**
     '''
-
     if addResiduals: extractResiduals(t, arrays)
     if addMemoryUsage: addMemoryUsage2Arrays(arrays)
     extractIntegralData(t, arrays, RequestedStatistics=RequestedStatistics,
                          Extractions=Extractions)
+    _scatterArraysFromRootToLocal(arrays)
     arraysTree = arraysDict2PyTree(arrays)
 
     return arraysTree
 
 
-def extractSurfaces(t, Extractions):
+def extractSurfaces(t, Extractions, arrays=None):
     '''
     Extracts flowfield data as surfacic (or curvilinear) zones from input
     fields **t** and requested extraction information provided in **Extractions**.
@@ -237,6 +240,18 @@ def extractSurfaces(t, Extractions):
                 * ``Plane``
                     Slice the input flowfields using a plane defined using a
                     point and a normal direction.
+                
+                * ``Probe``
+                    A probe to extract, defining a name, a location (x,y,z) and variables to extract. 
+                    
+                    Example: 
+
+                    .. code-block:: python
+
+                            dict(name='probeTest', location=(0.012, 0.24, -0.007), variables=['Temperature', 'Pressure'])
+
+                    .. note:: If not provided, defaut name will be 'Probe_X_Y_Z'
+              
 
             * ``name`` : :py:class:`str` (optional)
                 If provided, this name replaces the default name of the CGNSBase
@@ -287,6 +302,11 @@ def extractSurfaces(t, Extractions):
                     forget to include the field ``'cellN'`` to *AllowedFields*
                     if you wish to keep the blanking information
 
+        arrays : dict
+            if provided, some worfklow-specific operations may add quantities 
+            to arrays using surfacic postprocessing. This is the case for 
+            example for plane-to-plane turbomachine postprocessing.
+
     Returns
     -------
 
@@ -328,8 +348,6 @@ def extractSurfaces(t, Extractions):
                             fields2remove += [ field ]
                     for field in fields2remove: I.rmNode(fs,field)
 
-    t = I.renameNode(t, 'FlowSolution#Init', 'FlowSolution#Centers')
-    I._renameNode(t, 'FlowSolution#Height', 'FlowSolution')
     I._rmNodesByName(t, 'FlowSolution#EndOfRun*')
     reshapeBCDatasetNodes(t)
     I._rmNodesByName(t, 'BCDataSet#Init') # see MOLA #75 and Cassiopee #10641
@@ -337,6 +355,10 @@ def extractSurfaces(t, Extractions):
     SurfacesTree = I.newCGNSTree()
     PartialTree = Cmpi.convert2PartialTree(t)
 
+    # Prepare a base for Probes
+    # FIXME Paraview cannot read probes with this implementation
+    ProbesBase = I.newCGNSBase('Probes', cellDim=0, physDim=3)
+    
     for Extraction in Extractions:
         TypeOfExtraction = Extraction['type']
         ExtractionInfo = copy.deepcopy(Extraction)
@@ -357,13 +379,13 @@ def extractSurfaces(t, Extractions):
             for BCFamilyName in DictBCNames2Type:
                 BCType = DictBCNames2Type[BCFamilyName]
                 if BCFilterName.lower() in BCType.lower():
-                    zones = C.extractBCOfName(Tree4Extraction,'FamilySpecified:'+BCFamilyName, extrapFlow=False)
+                    zones = POST.extractBC(Tree4Extraction, Name='FamilySpecified:'+BCFamilyName)
                     ExtractionInfo['type'] = 'BC'
                     ExtractionInfo['BCType'] = BCType
                     addBase2SurfacesTree(BCFamilyName)
 
         elif TypeOfExtraction.startswith('BC'):
-            zones = C.extractBCOfType(Tree4Extraction, TypeOfExtraction, extrapFlow=False)
+            zones = POST.extractBC(Tree4Extraction, Type=TypeOfExtraction)
             try: basename = Extraction['name']
             except KeyError: basename = TypeOfExtraction
             ExtractionInfo['type'] = 'BC'
@@ -371,7 +393,7 @@ def extractSurfaces(t, Extractions):
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction.startswith('FamilySpecified:'):
-            zones = C.extractBCOfName(Tree4Extraction, TypeOfExtraction, extrapFlow=False)
+            zones = POST.extractBC(Tree4Extraction, Name=TypeOfExtraction)
             try: basename = Extraction['name']
             except KeyError: basename = TypeOfExtraction.replace('FamilySpecified:','')
             ExtractionInfo['type'] = 'BC'
@@ -381,7 +403,11 @@ def extractSurfaces(t, Extractions):
         elif TypeOfExtraction == 'IsoSurface':
             if Extraction['field'] in ['Radius', 'radius', 'CoordinateR']:
                 C._initVars(Tree4Extraction, '{}=({{CoordinateY}}**2+{{CoordinateZ}}**2)**0.5'.format(Extraction['field']))
-            zones = P.isoSurfMC(Tree4Extraction, Extraction['field'], Extraction['value'])
+            container = deduceContainerForSlicing(Extraction)
+            zones = POST.isoSurface(Tree4Extraction,
+                                    fieldname=Extraction['field'],
+                                    value=Extraction['value'],
+                                    container=container)
             try: basename = Extraction['name']
             except KeyError:
                 FieldName = Extraction['field'].replace('Coordinate','').replace('Radius', 'R').replace('ChannelHeight', 'H')
@@ -396,7 +422,10 @@ def extractSurfaces(t, Extractions):
                 r=Extraction['radius'], x0=center[0],
                 y0=center[1], z0=center[2])
             C._initVars(Tree4Extraction,'Slice=%s'%Eqn)
-            zones = P.isoSurfMC(Tree4Extraction, 'Slice', 0.0)
+            zones = POST.isoSurface(Tree4Extraction,
+                                    fieldname='Slice',
+                                    value=0.0,
+                                    container='FlowSolution')
             try: basename = Extraction['name']
             except KeyError: basename = 'Sphere_%g'%Extraction['radius']
             addBase2SurfacesTree(basename)
@@ -406,11 +435,20 @@ def extractSurfaces(t, Extractions):
             Pt = np.array(Extraction['point'])
             PlaneCoefs = n[0],n[1],n[2],-n.dot(Pt)
             C._initVars(Tree4Extraction,'Slice=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
-            zones = P.isoSurfMC(Tree4Extraction, 'Slice', 0.0)
+            zones = POST.isoSurface(Tree4Extraction,
+                                    fieldname='Slice',
+                                    value=0.0,
+                                    container='FlowSolution')
             try: basename = Extraction['name']
             except KeyError: basename = 'Plane'
             addBase2SurfacesTree(basename)
 
+        elif TypeOfExtraction == 'Probe':
+            zone = D.point(Extraction['location'])
+            I.setName(zone, Extraction['name'])
+            J.set(zone, '.ExtractionInfo', **Extraction)
+            I._addChild(ProbesBase, zone)
+    
     Cmpi._convert2PartialTree(SurfacesTree)
     J.forceZoneDimensionsCoherency(SurfacesTree)
     Cmpi.barrier()
@@ -419,8 +457,8 @@ def extractSurfaces(t, Extractions):
     I._rmNodesFromName(SurfacesTree, ':CGNS#Ppart')
     Cmpi.barrier()
 
-    # # Workflow specific postprocessings
-    # SurfacesTree = _extendSurfacesWithWorkflowQuantities(SurfacesTree)
+    # Workflow specific postprocessings
+    SurfacesTree = _extendSurfacesWithWorkflowQuantities(SurfacesTree, arrays=arrays)
 
     # Keep only allowed fields in surfaces
     for base in I.getBases(SurfacesTree):
@@ -436,7 +474,30 @@ def extractSurfaces(t, Extractions):
 
         keepOnlyAllowedFields(I.getZones(base), AllowedFields)
 
+    # Add probes if there are any
+    if len(I.getZones(ProbesBase)) > 0:
+        I._addChild(SurfacesTree, ProbesBase)
+
+
+
     return SurfacesTree
+
+def deduceContainerForSlicing(Extraction):
+    if 'field_container' in Extraction:
+        return Extraction['field_container']
+
+    elif Extraction['field'] in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
+        return 'GridCoordinates'
+
+    elif Extraction['field'] in ['Radius', 'radius', 'CoordinateR', 'Slice']:
+        return 'FlowSolution#Height'
+
+    elif Extraction['field'] == 'ChannelHeight':
+        return 'FlowSolution#Height'
+    
+    else:
+        return 'FlowSolution#Init'
+
 
 def extractIntegralData(to, arrays, Extractions=[],
                         RequestedStatistics=['std-CL', 'std-CD']):
@@ -506,8 +567,8 @@ def extractResiduals(to, arrays):
 
     '''
     ConvergenceHistoryNodes = I.getNodesByType(to, 'ConvergenceHistory_t')
+    ConvergenceDict = dict()
     for ConvergenceHistory in ConvergenceHistoryNodes:
-        ConvergenceDict = dict()
         for DataArrayNode in I.getNodesFromType(ConvergenceHistory, 'DataArray_t'):
             DataArrayValue = I.getValue(DataArrayNode)
             if isinstance(DataArrayValue, int) or isinstance(DataArrayValue, float):
@@ -556,11 +617,11 @@ def save(t, filename, tagWithIteration=False):
     I._rmNodesByName(t,'ID_*')
     I._rmNodesByType(t,'IntegralData_t')
 
-    Skeleton = J.getStructure(t)
+    Skel = J.getStructure(t)
 
     UseMerge = False
     try:
-        trees = comm.allgather( Skeleton )
+        trees = comm.allgather( Skel )
         trees.insert( 0, t )
         tWithSkel = I.merge( trees )
         renameTooLongZones(tWithSkel)
@@ -616,17 +677,23 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
             if :py:obj:`True`, adds a suffix ``_AfterIter<iteration>``
             to the saved filename (creates a copy)
     '''
-    t = I.copyRef(t)
-    Cmpi._convert2PartialTree(t)
-    I._rmNodesByName(t, '.Solver#Param')
-    I._rmNodesByType(t, 'IntegralData_t')
+
+    tpt = I.copyRef(t)
+    Cmpi._convert2PartialTree(tpt)
+    I._rmNodesByName(tpt, '.Solver#Param')
+    I._rmNodesByType(tpt, 'IntegralData_t')
     Cmpi.barrier()
     printCo('will save %s ...' % filename, 0, color=J.CYAN)
-    PyPartBase.mergeAndSave(t, 'PyPart_fields')
+    PyPartBase.mergeAndSave(tpt, 'PyPart_fields')
     Cmpi.barrier()
     if rank == 0:
-        t = C.convertFile2PyTree('PyPart_fields_all.hdf')
-        C.convertPyTree2File(t, filename)
+        t_merged = C.convertFile2PyTree('PyPart_fields_all.hdf')
+        migrateSolverOutputOfFlowSolutions(tpt, t_merged)
+        removeEmptyBCDataSet(t_merged)
+        PRE.forceFamilyBCasFamilySpecified(t_merged) # https://elsa.onera.fr/issues/10928
+        ravelBCDataSet(t_merged) # HACK https://elsa.onera.fr/issues/11219
+        I._rmNodesByName(t_merged, 'FlowSolution#EndOfRun*')
+        C.convertPyTree2File(t_merged, filename)
         for fn in glob.glob('PyPart_fields_*.hdf'):
             try:
                 os.remove(fn)
@@ -768,6 +835,10 @@ def restoreFamilies(surfaces, skeleton):
         for zone in I.getZones(base):
             zoneName = I.getValue(I.getNodeFromName1(zone, '.parentZone'))
             zoneInFullTree = I.getNodeFromNameAndType(skeleton, zoneName, 'Zone_t')
+            
+            # surface comes from extractBC => already contains all families
+            if not zoneInFullTree: continue 
+            
             fam = I.getNodeFromType1(zoneInFullTree, 'FamilyName_t')
             I.addChild(zone, fam)
             familiesInBase.append(I.getValue(fam))
@@ -879,6 +950,7 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[]):
         if not dataUpstream or not dataDownstream:
             continue
 
+        perfos = dict()
         if rank == 0:
             if 'PeriodicTranslation' in setup.TurboConfiguration:
                 fluxcoeff = 1.
@@ -888,10 +960,12 @@ def monitorTurboPerformance(surfaces, arrays, RequestedStatistics=[]):
                 perfos = computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
             else:
                 perfos = computePerfoStator(dataUpstream, dataDownstream, fluxcoeff=fluxcoeff)
-            appendDict2Arrays(arrays, perfos, 'PERFOS_{}'.format(row))
+        appendDict2Arrays(arrays, perfos, 'PERFOS_{}'.format(row))
+        if perfos:
             _extendArraysWithStatistics(arrays, 'PERFOS_{}'.format(row), RequestedStatistics)
 
     arraysTree = arraysDict2PyTree(arrays)
+
     return arraysTree
 
 def computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=1., fluxcoeffOut=None):
@@ -988,8 +1062,27 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
             :py:obj:`None`.
 
     '''
+
+    try:
+        container_at_vertex = setup.PostprocessOptions['container_at_vertex']
+        if isinstance(container_at_vertex, list):
+            container_at_vertex = container_at_vertex[0]
+    except (TypeError, AttributeError, KeyError):
+        container_at_vertex = 'FlowSolution#InitV'
+
+    surface = I.copyRef(surface)
+    for zone in I.getZones(surface):
+        fsToRemove = [n[0] for n in I.getNodesFromType1(zone,'FlowSolution_t') \
+                      if n[0] != container_at_vertex]
+        for fsname in fsToRemove:
+            I._rmNodesByName(zone,fsname)
+
     # Convert to Tetra arrays for integration # TODO identify bug and notify
-    surface = C.convertArray2Tetra(surface)
+    surface = POST.convertToTetra(surface)
+    
+    previous_container = I.__FlowSolutionNodes__
+    I.__FlowSolutionNodes__ = container_at_vertex
+
     check =  True
     data = dict()
 
@@ -1009,7 +1102,8 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
             for varList, meanFunction in VarAndMeanList:
                 for var in varList:
                     data[var] = meanFunction(surface, var)
-        except NameError:
+        except NameError as e:
+            raise e
             # Variables cannot be found
             check = False
 
@@ -1019,7 +1113,9 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
     data['MassFlow'] = comm.allreduce(data['MassFlow'], op=MPI.SUM)
     data['Area'] = comm.allreduce(data['Area'], op=MPI.SUM)
     Cmpi.barrier()
-    if not check or data['Area']==0: return None
+    if not check or data['Area']==0:
+        I.__FlowSolutionNodes__ = previous_container
+        return None
 
     # MPI Reduction to sum quantities on proc 0
     Cmpi.barrier()
@@ -1027,6 +1123,7 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
         for var in varList:
             data[var] = comm.reduce(data[var], op=MPI.SUM, root=0)
     Cmpi.barrier()
+    I.__FlowSolutionNodes__ = previous_container
     return data
 
 def updateAndWriteSetup(setup):
@@ -1069,34 +1166,35 @@ def invokeArrays():
             >>> arrays['FamilyBCNameOrElementName']['VariableName'] = np.array
     '''
     Cmpi.barrier()
+    try: os.remove('COMPLETED')
+    except: pass
     arrays = dict()
     FullPathArraysFile = os.path.join(DIRECTORY_OUTPUT, FILE_ARRAYS)
     ExistingArraysFile = os.path.exists(FullPathArraysFile)
     Cmpi.barrier()
     inititer = setup.elsAkeysNumerics['inititer']
     if ExistingArraysFile and inititer>1:
-        t = Cmpi.convertFile2SkeletonTree(FullPathArraysFile)
-        t = Cmpi.readZones(t, FullPathArraysFile, rank=rank)
-        Cmpi._convert2PartialTree(t, rank=rank)
+        if rank==0:
+            t = C.convertFile2PyTree(FullPathArraysFile)
 
-        for zone in I.getZones(t):
-            ZoneName = I.getName(zone)
-            VarNames, = C.getVarNames(zone, excludeXYZ=True)
-            FlowSol_n = I.getNodeFromName1(zone, 'FlowSolution')
-            arrays[ZoneName] = dict()
-            arraysSubset = arrays[ZoneName]
-            if FlowSol_n:
-                for VarName in VarNames:
-                    Var_n = I.getNodeFromName1(FlowSol_n, VarName)
-                    if Var_n:
-                        arraysSubset[VarName] = Var_n[1]
+            for zone in I.getZones(t):
+                ZoneName = I.getName(zone)
+                VarNames, = C.getVarNames(zone, excludeXYZ=True)
+                FlowSol_n = I.getNodeFromName1(zone, 'FlowSolution')
+                arrays[ZoneName] = dict()
+                arraysSubset = arrays[ZoneName]
+                if FlowSol_n:
+                    for VarName in VarNames:
+                        Var_n = I.getNodeFromName1(FlowSol_n, VarName)
+                        if Var_n:
+                            arraysSubset[VarName] = Var_n[1]
 
-            try:
-                iters = np.copy(arraysSubset['IterationNumber'])
-                for VarName in arraysSubset:
-                    arraysSubset[VarName] = arraysSubset[VarName][iters<inititer]
-            except KeyError:
-                pass
+                try:
+                    iters = np.copy(arraysSubset['IterationNumber'])
+                    for VarName in arraysSubset:
+                        arraysSubset[VarName] = arraysSubset[VarName][iters<inititer]
+                except KeyError:
+                    pass
 
     Cmpi.barrier()
 
@@ -1137,12 +1235,15 @@ def addMemoryUsage2Arrays(arrays):
             ArraysItem = arrays[ZoneName]
 
         try:
-            ArraysItem['IterationNumber'] = np.hstack((ArraysItem['IterationNumber'],
-                                                      int(CurrentIteration)))
-            ArraysItem['UsedMemoryInPercent'] = np.hstack((ArraysItem['UsedMemoryInPercent'],
-                                                          float(UsedMemoryPctg)))
-            ArraysItem['UsedMemory'] = np.hstack((ArraysItem['UsedMemory'],
-                                             float(UsedMemory)))
+            ArraysItem['IterationNumber'] = np.hstack((
+                ArraysItem['IterationNumber'].ravel(order='F'),
+                int(CurrentIteration))).ravel(order='F')
+            ArraysItem['UsedMemoryInPercent'] = np.hstack((
+                ArraysItem['UsedMemoryInPercent'].ravel(order='F'),
+                float(UsedMemoryPctg))).ravel(order='F')
+            ArraysItem['UsedMemory'] = np.hstack((
+                ArraysItem['UsedMemory'].ravel(order='F'),
+                float(UsedMemory))).ravel(order='F')
         except KeyError:
             del arrays[ZoneName]
     Cmpi.barrier()
@@ -1187,6 +1288,15 @@ def arraysDict2PyTree(arrays):
     if zones:
         Cmpi._setProc(zones, rank)
         t = C.newPyTree(['Base', zones])
+        for base in I.getBases(t): I._sortByName(base)
+
+        for zone in zones:
+            zone_name = I.getName(zone)
+            for e in setup.Extractions:
+                if e['type'] == 'Probe' and e['name'] == zone_name:
+                    J.set(zone, '.ExtractionInfo', **e)
+                    break
+            
     else:
         t = C.newPyTree(['Base'])
     Cmpi.barrier()
@@ -1215,14 +1325,100 @@ def appendDict2Arrays(arrays, dictToAppend, basename):
             Name of the base in which values will be appended.
 
     '''
-    if not basename in arrays:
-        arrays[basename] = dict()
+
+    if not dictToAppend or arrays is None: return
+
+    if not basename in arrays: arrays[basename] = dict()
 
     for var, value in dictToAppend.items():
+        np_value = np.array([value],ndmin=1).ravel(order='F')
         if var in arrays[basename]:
-            arrays[basename][var] = np.append(arrays[basename][var], value)
+            arrays[basename][var] = np.hstack(
+                                        (arrays[basename][var].ravel(order='F'),
+                                         np_value )
+                                              ).ravel(order='F')
         else:
-            arrays[basename][var] = np.array([value],ndmin=1)
+            arrays[basename][var] = np_value
+
+
+def _scatterArraysFromRootToLocal(arrays):
+    local_keys = [k for k in arrays]
+
+    # for debug
+    # for r in range(NumberOfProcessors):
+    #     Cmpi.barrier()
+    #     if r==rank: printCo('local_keys= %s'%str(local_keys),color=J.WARN)
+    #     Cmpi.barrier()
+
+    all_local_keys = comm.gather(local_keys, 0)
+    all_local_keys = comm.bcast(all_local_keys, 0)
+    comm.barrier()
+    i = -1
+    for rank_recv, local_keys in enumerate(all_local_keys):
+        for lk in local_keys:
+            i +=1
+            if rank==0:
+                if rank_recv == 0:
+                    root_item = arrays[lk]
+                else:
+                    obj = arrays[lk] if lk in arrays else None
+                    comm.send(obj, rank_recv, tag=i)
+                    if obj: del arrays[lk]
+            
+            if rank != 0:
+                if rank == rank_recv:
+                    root_item = comm.recv(source=0, tag=i)
+                    if not root_item: continue # nothing to append
+
+                else:
+                    continue # nothing to append
+
+            if lk not in arrays: continue 
+            
+            rootHasItNb = True if 'IterationNumber' in root_item else False
+
+            try:
+                localHasItNb = True if 'IterationNumber' in arrays[lk] else False
+            except:
+                printCo(traceback.format_exc(),color=J.FAIL)
+                printCo('FATAL: failed processing signal %s'%lk)
+                printCo('arrays keys are: %s'%','.join([k for k in arrays]),color=J.FAIL)
+                os._exit(0)
+
+            override_all = False
+            if rootHasItNb and localHasItNb:
+                RegisteredIterations = root_item['IterationNumber'].ravel(order='F')
+                IterationNumber = arrays[lk]['IterationNumber'].ravel(order='F')
+
+                try:
+                    if IterationNumber[0] <= RegisteredIterations[0]:
+                        override_all = True
+
+                    if not override_all:
+                        eps = 1e-12
+                        UpdatePortion = IterationNumber > (RegisteredIterations[-1] + eps)
+                        FirstIndex2Update = np.where(UpdatePortion)[0][0]
+
+                except:
+                    printCo(traceback.format_exc(),color=J.FAIL)
+                    printCo('processing signal %s'%lk,color=J.FAIL)
+                    printCo('RegisteredIterations',color=J.FAIL)
+                    printCo(str(RegisteredIterations),color=J.FAIL)
+                    printCo(str(type(RegisteredIterations)),color=J.FAIL)
+                    printCo('IterationNumber',color=J.FAIL)
+                    printCo(str(IterationNumber),color=J.FAIL)
+                    os._exit(0)
+            else:
+                FirstIndex2Update = 0
+            
+            for var, value in root_item.items():
+                if var in arrays[lk]:
+                    if override_all:
+                        arrays[lk][var] = np.array([value],ndmin=1).ravel(order='F')
+                    else:
+                        arrays[lk][var] = np.hstack((value, arrays[lk][var][FirstIndex2Update:])).ravel(order='F')
+                else:
+                    arrays[lk][var] = np.array([value],ndmin=1).ravel(order='F')
 
 
 def _appendIntegralDataNode2Arrays(arrays, IntegralDataNode):
@@ -2023,7 +2219,6 @@ def adaptEndOfRun(to):
     I._renameNode(to, 'cellnf', 'cellN')
     I._renameNode(to, 'FlowSolution#EndOfRun', 'FlowSolution#Init')
 
-
 def moveCoordsFromEndOfRunToGridCoords(to):
     '''
     This function is used to make adaptations of the coupling trigger tree
@@ -2265,7 +2460,7 @@ def loadSkeleton(Skeleton=None, PartTree=None):
     FScoords = I.getNodeFromName1(Skeleton, 'FlowSolution#EndOfRun#Coords')
     if FScoords: addCoordinates = False
 
-    I._rmNodesByName(Skeleton, 'FlowSolution*')
+    I._rmNodesByName(Skeleton, 'FlowSolution#EndOfRun*')
     I._rmNodesByName(Skeleton, 'ID_*')
 
     if PartTree:
@@ -2292,7 +2487,21 @@ def loadSkeleton(Skeleton=None, PartTree=None):
         I._rmNode(parent, oldNode)
         I._addChild(parent, newNode)
 
-    containers2read = ['FlowSolution#Height',':CGNS#Ppart', 'FlowSolution#DataSourceTerm']
+    # def replaceNodesByNameRecursively(parent, parentPath, name):
+    #     for child in parent[2]:
+
+
+    def replaceNodeValuesRecursively(node_skel, node_path):
+        new_node = readNodesFromPaths(node_path)[0]
+        node_skel[1] = new_node[1]
+        for child in node_skel[2]:
+            replaceNodeValuesRecursively(child, node_path+'/'+child[0])
+
+    containers2read = ['FlowSolution#Height',
+                       ':CGNS#Ppart',
+                       'FlowSolution#DataSourceTerm',
+                       'FlowSolution#Average']
+
     for base in I.getBases(Skeleton):
         basename = I.getName(base)
         for zone in I.getNodesFromType1(base, 'Zone_t'):
@@ -2324,17 +2533,12 @@ def loadSkeleton(Skeleton=None, PartTree=None):
                     GCpath = '{}/ZoneGridConnectivity/{}'.format(zonePath, I.getName(GC))
                     replaceNodeByName(GC, GCpath, 'PointList')
 
+
+
         # always require to fully read Mask nodes 
-        def readNodesFromPathRevursively(node_skel, node_path):
-            new_node = readNodesFromPaths(node_path)[0]
-            node_skel[1] = new_node[1]
-            for child in node_skel[2]:
-                readNodesFromPathRevursively(child, node_path+'/'+child[0])
-
-
         masks = I.getNodeFromName1(base, '.MOLA#Masks')
         if masks:
-            readNodesFromPathRevursively(masks, '/'.join([basename, masks[0]]))
+            replaceNodeValuesRecursively(masks, '/'.join([basename, masks[0]]))
 
     return Skeleton
 
@@ -2367,6 +2571,9 @@ def splitWithPyPart():
         Distribution : dict
             Correspondence between zones and processors.
 
+        PartTree : PyTree
+            Required for adequately saving tree using PyPart (see https://elsa.onera.fr/issues/11149)
+
     '''
 
     import etc.pypart.PyPart     as PPA
@@ -2375,16 +2582,18 @@ def splitWithPyPart():
                             lksearch=[DIRECTORY_OUTPUT, '.'],
                             loadoption='partial',
                             mpicomm=comm,
-                            LoggingInFile=False,
-                            LoggingFile='{}/partTree'.format(DIRECTORY_LOGS),
+                            LoggingInFile=False, 
+                            LoggingFile='{}/PYPART_partTree'.format(DIRECTORY_LOGS),
                             LoggingVerbose=40  # Filter: None=0, DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
                             )
     # reorder=[6, 2] is recommended by CLEF, mostly for unstructured mesh
-    # with modernized elsA. It is also mandatory to use lussorscawf on
-    # unstructured mesh.
-    PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[6, 2])
+    # with modernized elsA. 
+    # Mandatory arguments to use lussorscawf: reorder=[6,2], nCellPerCache!=0
+    # See http://elsa.onera.fr/restricted/MU_MT_tuto/latest/MU-98057/Textes/Attribute/numerics.html#numerics.implicit
+    PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[6, 2], nCellPerCache=1024)
     PyPartBase.finalise(PartTree, savePpart=True, method=1)
     Skeleton = PyPartBase.getPyPartSkeletonTree()
+    I._rmNodesByName(Skeleton,'ZoneBCGT') # https://elsa.onera.fr/issues/11149
     Distribution = PyPartBase.getDistribution()
 
     # Put Distribution into the Skeleton
@@ -2403,7 +2612,7 @@ def splitWithPyPart():
             J.set(zone, 'GridCoordinates', childType='GridCoordinates_t',
                 CoordinateX=None, CoordinateY=None, CoordinateZ=None)
         elif I.getZoneType(zone) == 2:
-            # For unstructured zone, correct the node NFaceElements/ElementConnectivity
+            # HACK For unstructured zone, correct the node NFaceElements/ElementConnectivity
             # Problem with PyPart: see issue https://elsa-e.onera.fr/issues/9002
             # C._convertArray2NGon(zone)
             NFaceElements = I.getNodeFromName(zone, 'NFaceElements')
@@ -2414,7 +2623,7 @@ def splitWithPyPart():
     if 'CoupledSurfaces' in setup.ReferenceValues['CoprocessOptions']:
         # This part is linked to the WorkflowAerothermalCoupling
         # For unstructured zones, AdditionnalFamilyName nodes are lost
-        # See Anomaly #10494 on elsA support
+        # See Anomaly #10494 on elsA support # TODO: Fixed since elsA v5.2.01
         # We need to restore them
         for i, famBCTrigger in enumerate(setup.ReferenceValues['CoprocessOptions']['CoupledSurfaces']):
             surfaceName = 'ExchangeSurface{}'.format(i)
@@ -2422,7 +2631,6 @@ def splitWithPyPart():
                 if I.getZoneType(zone) == 2:
                     for BC in C.getFamilyBCs(t, famBCTrigger):
                         I.createChild(BC, 'SurfaceName', 'AdditionalFamilyName_t', value=surfaceName)
-
 
     return t, Skeleton, PyPartBase, Distribution
 
@@ -2554,6 +2762,11 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
 #_______________________________________________________________________________
 # PROBES MANAGEMENT
 #_______________________________________________________________________________
+def hasProbes():
+    for Extraction in setup.Extractions:
+        if Extraction['type'] == 'Probe':
+            return True
+    return False
 
 def appendProbes2Arrays_extractMesh(t, arrays, Probes, order=2):
     '''
@@ -2572,7 +2785,6 @@ def appendProbes2Arrays_extractMesh(t, arrays, Probes, order=2):
         order : int
             order of interpolation
     '''
-    import Geom.PyTree as D
     import Post.Mpi as Pmpi
 
     t = Cmpi.convert2PartialTree(t)
@@ -2601,6 +2813,7 @@ def appendProbes2Arrays_extractMesh(t, arrays, Probes, order=2):
 
     probesTree = Cmpi.allgatherTree(probesTree)
 
+    ProbesDict = dict()
     for probeZone in I.getZones(probesTree):
         ProbesDict = dict( IterationNumber = CurrentIteration-1 )
         GC = I.getNodeByName1(probeZone, 'GridCoordinates')
@@ -2613,8 +2826,10 @@ def appendProbes2Arrays_extractMesh(t, arrays, Probes, order=2):
     return probesTree
 
 
-def appendProbes2Arrays(t, arrays, Probes):
+def appendProbes2Arrays(t, arrays):
     '''
+    Append probes with picked data in **arrays**.
+
     Parameter
     ---------
 
@@ -2622,41 +2837,108 @@ def appendProbes2Arrays(t, arrays, Probes):
 
         arrays : dict
 
-        Probes :
-            :py:class:`dict` of the form:
-
-            >>> Probes = dict(  )
     '''
-    for Probe in Probes:
+    for Probe in setup.Extractions:
+        if Probe['type'] != 'Probe':
+            continue
+        if Probe['rank'] != rank:
+            continue
         ProbesDict = dict( IterationNumber = CurrentIteration-1 )
-        zone = I.getNodeFromName2(t, Probe['zone'])
-        variables = Probe['variables']
-        for var in variables:
-            ProbesDict[var] = C.getValue(zone , 'centers:{}'.format(var), Probe['element'])
+        if setup.elsAkeysNumerics['time_algo'] != 'steady': 
+            ProbesDict['Time'] = ProbesDict['IterationNumber'] * setup.elsAkeysNumerics['timestep']
 
-        if 'name' not in Probe:
-            x, y, z = Probe['location']
-            Probe['name'] = 'Probe_{:.3g}_{:.3g}_{:.3g}'.format(x, y, z)
+        variables = Probe['variables']
+        if isinstance(variables, str):
+            variables = [variables]
+        zone = I.getNodeFromName2(t, Probe['zone'])
+        variablesDict = J.getVars2Dict(zone, VariablesName=variables, Container='FlowSolution#Init')
+        for var, value in variablesDict.items():
+            ProbesDict[var] = value.ravel('F')[Probe['element']]
+
         appendDict2Arrays(arrays, ProbesDict, Probe['name'])
 
-def searchZoneAndIndexForProbes(t, Probes, tol=1e-2):
-    for Probe in Probes:
+def searchZoneAndIndexForProbes(t, method='getNearestPointIndex', tol=1e-2):
+    
+    '''
+    Search for the nearest vertex from each probe in **setup.Extractions** in a PyTree.
+
+    Parameters
+    ----------
+    t : PyTree
+        Input PyTree.
+
+    method : str
+        One of 'getNearestPointIndex' (from Cassiopee Geom module) or 'nearestNodes' (from Converter module).
+
+    tol : float, optional
+        The tolerance for minimum distance. Default is 1e-2.
+
+    Notes
+    -----
+        - The function modifies the probe dictionaries by adding information about the zone, element, distance to the nearest vertex, and processor rank.
+        - Probes that are too far from the nearest vertex are removed from the list.
+    '''
+    # Put data at cell center, including coordinates
+    # IMPORTANT: In this function, the mesh will be now the dual mesh, with nodes corresponding cell centers of the input mesh
+    t = C.node2Center(t)
+
+    for Probe in setup.Extractions:
+        if Probe['type'] != 'Probe':
+            continue
 
         # Search the nearest points in all zones
         nearestElement = None
         minDistance = 1e20
         for zone in I.getZones(t):
-            element, distance = DP.getNearestPointIndex(zone, Probe['location'])
+            x = J.getx(zone)
+            if x is None:
+                # This zone is a skeleton zone, so the current processor is not in charge of this zone
+                continue
+
+            if method == 'getNearestPointIndex':
+                element, squaredDistance = D.getNearestPointIndex(zone, Probe['location'])
+                distance = np.sqrt(squaredDistance)
+
+            elif method == 'nearestNodes':
+                # Get the nearest node of the dual mesh 
+                # Prefer this function C.nearestNodes to D.getNearestPointIndex for performance
+                # (see https://elsa.onera.fr/issues/8236)
+                hook = C.createGlobalHook(zone, function='nodes')
+                nodes, distances = C.nearestNodes(hook, D.point(Probe['location']))
+                element, distance = nodes[0], distances[0]
+            
+            else:
+                raise Exception('method must be getNearestPointIndex or nearestNodes')
+
             if distance < minDistance:
+                minDistance = distance
                 nearestElement = element
-                probeZone = I.getName(zone)
+                probeZone = zone
+        
+        Probe['rank'] = -1
+        Cmpi.barrier()
+        minDistanceForAllProcessors = comm.allreduce(minDistance, op=MPI.MIN)
+        if minDistance == minDistanceForAllProcessors:
+            # Probe on this proc
+            Probe['rank'] = rank
+            Probe['zone'] = I.getName(probeZone)
+            Probe['element'] = nearestElement
+            Probe['distanceToNearestCellCenter'] = minDistance     
+            x, y, z = J.getxyz(probeZone)
+            Probe['location'] = x.ravel(order='F')[nearestElement], y.ravel(order='F')[nearestElement], z.ravel(order='F')[nearestElement]
+            if 'name' not in Probe:
+                Probe['name'] = 'Probe_{:.3g}_{:.3g}_{:.3g}'.format(Probe['location'][0], Probe['location'][1], Probe['location'][2])
+        Cmpi.barrier()
+        rankForComm = comm.allreduce(Probe['rank'], op=MPI.MAX)
+        Cmpi.barrier()
+        UpdatedProbe = comm.bcast(Probe, root=rankForComm)
+        Cmpi.barrier()
+        Probe.update(UpdatedProbe)
 
-        if minDistance > tol:
-            print('This probe is too far of one ')
-
-        Probe['zone'] = probeZone
-        Probe['element'] = nearestElement
-
+        if minDistanceForAllProcessors > tol:
+            printCo(f'The probe {Probe["name"]} is too far from the nearest vertex ({minDistanceForAllProcessors} m). It is removed.', 0, J.WARN)
+            setup.Extractions.remove(Probe)
+    
 
 def loadUnsteadyMasksForElsA(e, elsA_user, Skeleton):
     
@@ -2788,9 +3070,6 @@ def loadMotionForElsA(elsA_user, Skeleton):
             if isinstance(value, np.ndarray): value = value.tolist()
             Parameters[parameter_name] = value
         
-        # import pprint
-        # with open('motionParams.py','w') as f:
-        #     f.write(pprint.pformat(Parameters))
         printCo('setting elsA motion function %s at base %s'%(function_name,base[0]), proc=0)
         AllMotions.append(elsA_user.function(Parameters['type'],name=function_name))
         AllMotions[-1].setDict(Parameters)
@@ -2812,6 +3091,7 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
         PyTree
             Same as the input **surfaces** with eventual post-processed data.
     '''
+
     try:
         Workflow = setup.Workflow
     except AttributeError:
@@ -2842,44 +3122,55 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                 trees.insert(0, surfaces)
                 surfaces = I.merge(trees)
                 Cmpi._convert2PartialTree(surfaces)
-
                 # Ensure that bases are in the same order on all procs. 
                 # It is MANDATORY for next post-processings
                 J._reorderBases(surfaces)
+            Cmpi.barrier()
 
-            try:         
-                if not I.getNodeFromName(surfaces, 'ChannelHeight'):
-                    printCo('Postprocess cannot be done because ChannelHeight is missing', 0, color=J.WARN)
+            try:
+                LocalChannelHeight = bool(I.getNodeFromName(surfaces, 'ChannelHeight'))
+                GlobalChannelHeight = any(comm.allgather(LocalChannelHeight))
+                if not GlobalChannelHeight:
+                    printCo('Postprocess cannot be done because ChannelHeight is missing', color=J.WARN)
                     raise ChannelHeightError
-                WC.postprocess_turbomachinery(surfaces, computeRadialProfiles=computeRadialProfiles, **PostprocessOptions)
-                printCo('Postprocess done on surfaces', proc=0, color=J.MAGE)
+
+
+                printCo('making postprocess_turbomachinery...', proc=0, color=J.MAGE)
+                WC.postprocess_turbomachinery(surfaces,
+                    computeRadialProfiles=computeRadialProfiles, **PostprocessOptions)
+                printCo('making postprocess_turbomachinery... done', proc=0, color=J.MAGE)
 
                 if rank == 0:
                     # Move 0D averages to arrays
                     averagesDict = dict()
-                    Averages0D = I.getNodeFromName1(surfaces, 'Averages0D')
-                    for zone in I.getZones(Averages0D):
-                        for FS in I.getNodesFromType1(zone, 'FlowSolution_t'):
-                            zoneName = I.getName(zone)
-                            FSname = I.getName(FS)
+                    Averages0D = [I.getZones(b) for b in I.getBases(surfaces) \
+                                  if b[0].startswith('Averages0D')]
+                    for zones in Averages0D: 
+                        for zone in zones:
+                            for FS in I.getNodesFromType1(zone, 'FlowSolution_t'):
+                                FSname = I.getName(FS)
 
-                            if 'Comparison' in FSname:
-                                zoneName += '#' + I.getName(FS).split('#')[-1]
+                                if FSname.startswith('Comparison'):
+                                    zoneName = I.getName(zone) \
+                                               + FSname.replace('Comparison','')
+                                else:
+                                    zoneName = I.getName(zone) \
+                                               + FSname.replace('FlowSolution','')
 
-                            for node in I.getNodesFromType1(FS, 'DataArray_t'):
-                                averagesDict[I.getName(node)] = I.getValue(node)
-                            averagesDict['IterationNumber'] = CurrentIteration-1
-
-                            appendDict2Arrays(arrays, averagesDict, zoneName)
+                                for node in I.getNodesFromType1(FS, 'DataArray_t'):
+                                    averagesDict[I.getName(node)] = I.getValue(node)
+                                averagesDict['IterationNumber'] = CurrentIteration-1
+                                appendDict2Arrays(arrays, averagesDict, zoneName)
             
                 else:
                     # Remove RadialProfiles for all proc except one, because only proc 0 is up-to-date
                     I._rmNodesFromName1(surfaces, 'RadialProfiles')
 
                 # Remove 0D averages from surfaces tree for all procs
-                I._rmNodesFromName1(surfaces, 'Averages0D')
+                I._rmNodesFromName(surfaces, 'Averages0D*')
 
-            except ImportError:
+            except ImportError: # https://gitlab.onera.net/numerics/analysis/turbo/-/issues/1
+                printCo('Postprocess cannot be done (ImportError)', proc=0, color=J.WARN)
                 pass
             except ChannelHeightError:
                 pass
@@ -2910,3 +3201,148 @@ def checkAndUpdateMainCGNSforChoroRestart():
                 
                 C.convertPyTree2File(main, FILE_CGNS, links=AllCGNSLinks)
                 printCo('main.cgns updated with links to fields.cgns ChoroData nodes for restart.', proc=0, color=J.GREEN)
+
+def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
+    '''
+    use any pre-existing average fields contained in ``FlowSolution#Average``
+    nodes in order to resume the fields averaging process
+    '''
+    inititer = setup.elsAkeysNumerics['inititer']
+    firstiter = setup.ReferenceValues['CoprocessOptions']['FirstIterationForFieldsAveraging']
+    if firstiter is None: return
+    firstiter -= 1
+    setup.ReferenceValues['CoprocessOptions']['FirstIterationForFieldsAveraging']
+    cit = CurrentIteration
+
+    # adapt 3D fields:
+    old = _getDictofNodesFieldsPerZone(Skeleton, container_name)
+    tot = _getDictofNodesFieldsPerZone(t, container_name)
+    if cit == firstiter:
+        ini = _getDictofNodesFieldsPerZone(t, 'FlowSolution#Init')
+    for zone_name in tot:
+        for field_name in tot[zone_name]:
+            avg_old = old[zone_name][field_name] # BEWARE this is a CGNS node
+            avg_tot = tot[zone_name][field_name] # BEWARE this is a CGNS node
+            
+            if cit == firstiter:
+                avg_old[1] = np.copy(avg_tot[1], order='F')
+                avg_tot[1] = np.copy(ini[zone_name][field_name][1], order='F')
+                continue
+
+            if cit < firstiter: 
+                avg_old[1] = None
+                avg_new    = None
+            
+            else:
+                if avg_old[1] is None or avg_tot[1] is None: continue
+                if inititer < firstiter:
+                    avg_new =  (avg_tot[1]*(cit-inititer+1) \
+                            -avg_old[1]*(firstiter-inititer+1))/(cit-firstiter)
+                
+                else:
+                    avg_new =  (avg_old[1]*(inititer-(firstiter+1)) \
+                            +avg_tot[1]*(cit-inititer+1))/(cit-firstiter)
+
+            avg_tot[1] = avg_new # update of OUTPUT_TREE
+
+    # adapt BC fields:
+    old = _getDictofNodesBCFieldsPerZone(Skeleton, '.Solver#Output#Average')
+    tot = _getDictofNodesBCFieldsPerZone(t, '.Solver#Output#Average')
+    if cit == firstiter:
+        ini = _getDictofNodesBCFieldsPerZone(t, '.Solver#Output#Output')
+    for zone_name in tot:
+        for bcfamily_name in tot[zone_name]:
+            for field_name in tot[zone_name][bcfamily_name]:
+                avg_old = old[zone_name][bcfamily_name][field_name] # BEWARE this is a CGNS node
+                avg_tot = tot[zone_name][bcfamily_name][field_name] # BEWARE this is a CGNS node
+                
+                if cit == firstiter:
+                    avg_old[1] = np.copy(avg_tot[1], order='F')
+                    avg_tot[1] = np.copy(ini[zone_name][bcfamily_name][field_name][1], order='F')
+                    continue
+
+                if cit < firstiter: 
+                    avg_old[1] = None
+                    avg_new    = None
+                
+                else:
+                    if avg_old[1] is None or avg_tot[1] is None: continue
+                    if inititer < firstiter:
+                        avg_new =  (avg_tot[1]*(cit-inititer+1) \
+                                -avg_old[1]*(firstiter-inititer+1))/(cit-firstiter)
+                    
+                    else:
+                        avg_new =  (avg_old[1]*(inititer-(firstiter+1)) \
+                                +avg_tot[1]*(cit-inititer+1))/(cit-firstiter)
+
+                avg_tot[1] = avg_new # update of OUTPUT_TREE
+
+
+
+
+def _getDictofNodesFieldsPerZone(t, Container):
+    fields = dict()
+    for base in I.getNodesByType1(t, 'CGNSBase_t'):
+        for zone in I.getNodesByType1(base, 'Zone_t'):
+            zone_name = zone[0]
+            fields[zone_name] = dict()
+            fs = I.getNodeFromName1(zone, Container)
+            if not fs:
+                del fields[zone_name]
+                continue
+            for f in fs[2]:
+                if f[3] != 'DataArray_t': continue
+                fields[zone_name][f[0]] = f
+    return fields
+
+def _getDictofNodesBCFieldsPerZone(t, Container):
+    fields = dict()
+    for base in I.getNodesByType1(t, 'CGNSBase_t'):
+        for zone in I.getNodesByType1(base, 'Zone_t'):
+            zone_name = zone[0]
+            fields[zone_name] = dict()
+            for bc in I.getNodesFromType(zone,'BC_t'):
+                bcfamily_name = bc[0]
+                bcds = I.getNodeFromName1(bc, Container)
+                if bcds:
+                    data = I.getNodeFromName1(bcds,'NeumannData')
+                    for f in data[2]:
+                        if f[3] != 'DataArray_t': continue
+                        fields[zone_name][bcfamily_name][f[0]] = f
+    return fields
+
+def removeEmptyBCDataSet(t):
+    for z in I.getZones(t):
+        for zbc in I.getNodesFromType1(z,'ZoneBC_t'):
+            for bc in I.getNodesFromType1(zbc,'BC_t'):
+                for n in bc[2]:
+                    if n[0].startswith('BCDataSet') and not n[2]:
+                        I._rmNode(t, n)
+
+def migrateSolverOutputOfFlowSolutions(t_dnr, t_rcv):
+    # Required because of https://elsa.onera.fr/issues/11137
+    zones = I.getZones(t_dnr)
+    for zm in I.getZones(t_rcv):
+        for z in zones:
+            if z[0].startswith(zm[0]):
+                all_fs  = I.getNodesFromType(z, 'FlowSolution_t')
+                all_fsm = I.getNodesFromType(zm, 'FlowSolution_t')
+                for fsm in all_fsm:
+                    for fs in all_fs:
+                        if fs[0] == fsm[0]:
+                            SolverOutput = I.getNodeFromName(fs, '.Solver#Output')
+                            if SolverOutput:
+                                fsm[2].append( SolverOutput )
+                                continue
+
+
+def ravelBCDataSet(t):
+    # HACK https://elsa.onera.fr/issues/11219
+    # HACK https://elsa-e.onera.fr/issues/10750
+    for zone in I.getZones(t):
+        for zbc in I.getNodesFromType1(zone,'ZoneBC_t'):
+            for bc in I.getNodesFromType1(zbc,'BC_t'):
+                for bcds in I.getNodesFromType1(bc,'BCDataSet_t'):
+                    for bcd in I.getNodesFromType1(bcds,'BCData_t'):
+                        for da in I.getNodesFromType1(bcd,'DataArray_t'):
+                            da[1] = da[1].ravel(order='K')

@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+#
+# Show jobs currently in queue on sator
+
+import MOLA.JobManager as JM
+JM.getCurrentJobsStatus()

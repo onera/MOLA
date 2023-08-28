@@ -26,20 +26,24 @@ environment file found at :
 
 .. code-block:: bash
 
-    source /stck/lbernard/MOLA/v1.14/env_MOLA.sh
+    source /stck/lbernard/MOLA/v1.15/env_MOLA.sh
 
 You will see a message indicating the main available libraries:
 
 .. code-block:: text
 
-    MOLA version v1.14 at sator-new
-     --> Python 3.7.4
-     --> elsA v5.1.01
-     --> ETC v0.330f
-     --> Cassiopee 3.3
-     --> VPM 0.1
-     --> TreeLab dev
-     --> PUMA r337
+    MOLA version v1.15 at sator (avx2)
+    --> Python 3.7.4
+    --> elsA v5.1.03
+    --> ETC v0.331h
+    --> Cassiopee 3.5
+    --> OCC 3.6
+    --> Apps 3.1
+    --> VPM 0.2
+    --> PUMA UNAVAILABLE
+    --> turbo v1.2.2
+    --> Ersatz UNAVAILABLE
+    --> maia 1.0
     You are using the latest version of MOLA
 
 .. important::
@@ -59,7 +63,7 @@ You will see a message indicating the main available libraries:
   .. code-block:: bash
 
       ssh sator
-      rm /tmp_user/sator/$USER/.bashrc
+      mv /tmp_user/sator/$USER/.bashrc /tmp_user/sator/$USER/.bashrcBACKUP
 
 
 Autologin to SATOR machine

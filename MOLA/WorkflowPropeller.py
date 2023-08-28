@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -39,6 +39,8 @@ if not MOLA.__ONLY_DOC__:
     import Generator.PyTree    as G
     import Transform.PyTree    as T
     import Connector.PyTree    as X
+    import Intersector.PyTree  as XOR
+    import Geom.PyTree         as D
 
     from . import InternalShortcuts as J
     from . import Wireframe as W
@@ -46,8 +48,11 @@ if not MOLA.__ONLY_DOC__:
     from . import JobManager        as JM
     from . import WorkflowCompressor as WC
 
-def prepareMesh4ElsA(mesh='mesh.cgns', splitOptions={'maximum_allowed_nodes':3},
-                     match_tolerance=1e-7, periodic_match_tolerance=1e-7):
+def prepareMesh4ElsA(mesh='mesh.cgns', scale=None,
+                     match_tolerance=1e-7, periodic_match_tolerance=1e-7,
+                     blade_number=None, thrust_axis=[-1,0,0],
+                     RightHandRuleRotation=True,                      
+                     splitOptions=None, OverrideInputMeshes=None):
     '''
     An adaptation of  :py:func:`MOLA.Preprocess.prepareMesh4ElsA`.
 
@@ -57,14 +62,15 @@ def prepareMesh4ElsA(mesh='mesh.cgns', splitOptions={'maximum_allowed_nodes':3},
         mesh : :py:class:`str`
             Mesh filename issued from automatic mesh generation, including BC families.
 
-        splitOptions : dict
-            Exactly the keyword arguments of :py:func:`~MOLA.Preprocess.splitAndDistribute`
 
         match_tolerance : float
             small tolerance for constructing the match connectivity.
 
         periodic_match_tolerance : float
             small tolerance for constructing the periodic match connectivity
+
+        splitOptions : dict
+            Exactly the keyword arguments of :py:func:`~MOLA.Preprocess.splitAndDistribute`
 
     Returns
     -------
@@ -74,35 +80,55 @@ def prepareMesh4ElsA(mesh='mesh.cgns', splitOptions={'maximum_allowed_nodes':3},
     '''
 
     if isinstance(mesh,str):
-        t = C.convertFile2PyTree(mesh)
+        t = J.load(mesh)
     elif I.isTopTree(mesh):
         t = mesh
     else:
         raise ValueError('parameter mesh must be either a filename or a PyTree')
 
-    blade_number = getPropellerKinematic(t)[0]
-    InputMeshes = [dict(file='mesh.cgns',
-                        baseName='Base',
-                        SplitBlocks=True,
-                        BoundaryConditions=[
-                            dict(name='blade_wall',
-                                 type='FamilySpecified:BLADE',
-                                 familySpecifiedType='BCWall'),
-                            dict(name='spinner_wall',
-                                 type='FamilySpecified:SPINNER',
-                                 familySpecifiedType='BCWall'),
-                            dict(name='farfield',
-                                 type='FamilySpecified:FARFIELD',
-                                 familySpecifiedType='BCFarfield',
-                                 location='special',
-                                 specialLocation='fillEmpty')],
-                        Connection=[
-                            dict(type='Match',
-                                 tolerance=match_tolerance),
-                            dict(type='PeriodicMatch',
-                                 tolerance=periodic_match_tolerance,
-                                 rotationCenter=[0.,0.,0.],
-                                 rotationAngle=[360./float(blade_number),0.,0.])])]
+    if blade_number is None:
+        try:
+            blade_number = getPropellerKinematic(t)[0]
+        except:
+            raise ValueError(J.FAIL+'you must provide blade_number information'+J.ENDC)
+    
+    base = I.getBases(t)[0]
+    J.set(base,'.MeshingParameters',
+            blade_number=blade_number,
+            rotation_axis=thrust_axis,
+            RightHandRuleRotation=RightHandRuleRotation,
+            rotation_center=[0,0,0])
+
+    # NOTE familySpecifiedType can be overridden in prepareMainCGNS4ElsA
+    if OverrideInputMeshes is None:
+        meshInfo = dict(file=t,
+                baseName=I.getBases(t)[0][0],
+                SplitBlocks=True,
+                BoundaryConditions=[
+                    dict(name='blade_wall',
+                        type='FamilySpecified:BLADE',
+                        familySpecifiedType='BCWall'),
+                    dict(name='spinner_wall',
+                        type='FamilySpecified:SPINNER',
+                        familySpecifiedType='BCWall'),
+                    dict(name='farfield',
+                        type='FamilySpecified:FARFIELD',
+                        familySpecifiedType='BCFarfield',
+                        location='special',
+                        specialLocation='fillEmpty')],
+                Connection=[
+                    dict(type='Match',
+                        tolerance=match_tolerance),
+                    dict(type='PeriodicMatch',
+                        tolerance=periodic_match_tolerance,
+                        rotationCenter=[0.,0.,0.],
+                        rotationAngle=[360./float(blade_number),0.,0.])])
+        
+        if scale is not None: meshInfo['Transform'] = dict(scale=scale)
+
+        InputMeshes = [ meshInfo ]
+    else: 
+        InputMeshes = OverrideInputMeshes
 
 
 
@@ -117,7 +143,6 @@ def cleanMeshFromAutogrid(t, **kwargs):
 def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         RPM=0., AxialVelocity=0., ReferenceTurbulenceSetAtRelativeSpan=0.75,
         ReferenceValuesParams=dict(
-            FieldsAdditionalExtractions=['q_criterion'],
             CoprocessOptions=dict(
                 RequestedStatistics=['std-Thrust','std-Power'],
                 ConvergenceCriteria=[dict(Family='BLADE',
@@ -134,6 +159,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
                      dict(type='IsoSurface',field='CoordinateX',value=1.0),
                      dict(type='IsoSurface',field='CoordinateX',value=2.0),
                      dict(type='IsoSurface',field='q_criterion',value=20.0)],
+        BoundaryConditions=[],
         writeOutputFields=True,
         Initialization={'method':'uniform'},
         JobInformation={},
@@ -178,7 +204,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
 
         NumericalParams : dict
             dictionary containing the numerical
-            settings for elsA. For information on acceptable values, please see
+            settings for elsA. For informatsplitOptionsion on acceptable values, please see
             the documentation of function :func:`MOLA.Preprocess.getElsAkeysNumerics`
 
             .. note:: internally, this dictionary is passed as *kwargs* as follows:
@@ -191,6 +217,11 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         Extractions : :py:class:`list` of :py:class:`dict`
             List of extractions to perform during the simulation. See
             documentation of :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
+
+        BoundaryConditions : :py:class:`list` of :py:class:`dict`
+            List of boundary conditions to set on the given mesh.
+            For details, refer to documentation of
+            :func:`MOLA.WorkflowCompressor.setBoundaryConditions`
 
         writeOutputFields : bool
             if :py:obj:`True`, write initialized fields overriding
@@ -239,29 +270,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
                 ultra-light file containing all relevant info of the simulation
     '''
     toc = J.tic()
-    ReferenceValuesParamsDefault = dict(
-        FieldsAdditionalExtractions=['q_criterion'],
-        CoprocessOptions=dict(
-            RequestedStatistics=['std-Thrust','std-Power'],
-            ConvergenceCriteria=[dict(Family='BLADE',
-                                      Variable='std-Thrust',
-                                      Threshold=1e-3)],
-            AveragingIterations = 1000,
-            ItersMinEvenIfConverged = 1000,
-            UpdateArraysFrequency = 100,
-            UpdateSurfacesFrequency = 500,
-            UpdateFieldsFrequency = 2000))
 
-    ReferenceValuesParams.update(ReferenceValuesParamsDefault)
     ReferenceValuesParams['Velocity'] = AxialVelocity
-
-    def addFieldExtraction(fieldname):
-        print('adding %s'%fieldname)
-        try:
-            ReferenceValuesParams['FieldsAdditionalExtractions'].append(fieldname)
-        except:
-            ReferenceValuesParams['FieldsAdditionalExtractions'] = [fieldname]
-
 
     if isinstance(mesh,str):
         t = C.convertFile2PyTree(mesh)
@@ -270,13 +280,14 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
     else:
         raise ValueError('parameter mesh must be either a filename or a PyTree')
 
-    nb_blades, Dir = getPropellerKinematic(t)
+    nb_blades, Dir, rot_axis = getPropellerKinematic(t)
     span = maximumSpan(t)
-
 
     hasBCOverlap = True if C.extractBCOfType(t, 'BCOverlap') else False
 
-    if hasBCOverlap: addFieldExtraction('ChimeraCellType')
+    if hasBCOverlap:
+        PRE.addFieldExtraction(ReferenceValuesParams, 'ChimeraCellType')
+    PRE.appendAdditionalFieldExtractions(ReferenceValuesParams, Extractions)
 
     IsUnstructured = PRE.hasAnyUnstructuredZones(t)
 
@@ -308,7 +319,10 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
 
     ReferenceValues = PRE.computeReferenceValues(FluidProperties,
                                                  **ReferenceValuesParams)
+    PRE.appendAdditionalFieldExtractions(ReferenceValues, Extractions)
     ReferenceValues['RPM'] = RPM
+    ReferenceValues['RotationAxis'] = list(rot_axis)
+    ReferenceValues['RightHandRuleRotation'] = True if Dir == 1 else False
     ReferenceValues['NumberOfBlades'] = nb_blades
     ReferenceValues['AxialVelocity'] = AxialVelocity
     ReferenceValues['MaximumSpan'] = span
@@ -327,7 +341,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
     PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
 
     WC.setMotionForRowsFamilies(t, TurboConfiguration)
-    WC.setBC_Walls(t, TurboConfiguration)
+    WC.setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
+                            FluidProperties, ReferenceValues)
 
     WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
 
@@ -355,13 +370,22 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
                         Extractions=Extractions)
 
     PRE.addTrigger(t)
-    PRE.addExtractions(t, AllSetupDicts['ReferenceValues'],
-                          AllSetupDicts['elsAkeysModel'], extractCoords=False,
-                          BCExtractions=ReferenceValues['BCExtractions'])
 
-    if elsAkeysNumerics['time_algo'] != 'steady':
-        PRE.addAverageFieldExtractions(t, AllSetupDicts['ReferenceValues'],
-            AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
+    is_unsteady = AllSetupDicts['elsAkeysNumerics']['time_algo'] != 'steady'
+    avg_requested = AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'] is not None
+
+    if is_unsteady and not avg_requested:
+        msg =('WARNING: You are setting an unsteady simulation, but no field averaging\n'
+              'will be done since CoprocessOptions key "FirstIterationForFieldsAveraging"\n'
+              'is set to None. If you want fields average extraction, please set a finite\n'
+              'positive value to "FirstIterationForFieldsAveraging" and relaunch preprocess')
+        print(J.WARN+msg+J.ENDC)
+
+    PRE.addExtractions(t, AllSetupDicts['ReferenceValues'],
+                          AllSetupDicts['elsAkeysModel'],
+                          extractCoords=False,
+                          BCExtractions=ReferenceValues['BCExtractions'],
+                          add_time_average= is_unsteady and avg_requested)
 
     PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],
                          AllSetupDicts['ReferenceValues'])
@@ -374,7 +398,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         PRE.addElsAKeys2CGNS(t, [AllSetupDicts['elsAkeysCFD'],
                                  AllSetupDicts['elsAkeysModel'],
                                  AllSetupDicts['elsAkeysNumerics']])
-
+    PRE.adaptFamilyBCNamesToElsA(t)
     PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
     if not Splitter:
@@ -395,11 +419,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
             singleton = False if i==0 else True
             JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
 
-    ElapsedTime = str(PRE.datetime.timedelta(seconds=J.tic()-toc))
-    hours, minutes, seconds = ElapsedTime.split(':')
-    ElapsedTimeHuman = hours+' hours '+minutes+' minutes and '+seconds+' seconds'
-    msg = 'prepareMainCGNS took '+ElapsedTimeHuman
-    print(J.BOLD+msg+J.ENDC)
+    J.printElapsedTime('prepareMainCGNS4ElsA took ', toc)
 
 
 def getPropellerKinematic(t):
@@ -420,7 +440,14 @@ def getPropellerKinematic(t):
         ERRMSG = 'could not find .MeshingParameters/RightHandRuleRotation in tree'
         raise ValueError(J.FAIL+ERRMSG+J.ENDC)
 
-    return nb_blades, Dir
+    try:
+        rot_axis = I.getValue(I.getNodeFromName(mesh_params,'rotation_axis'))
+    except:
+        ERRMSG = 'could not find .MeshingParameters/rotation_axis in tree'
+        raise ValueError(J.FAIL+ERRMSG+J.ENDC)
+
+
+    return nb_blades, Dir, rot_axis
 
 def maximumSpan(t):
     zones = C.extractBCOfName(t,'FamilySpecified:BLADE')
@@ -429,11 +456,16 @@ def maximumSpan(t):
 
 def _extendArraysWithPropellerQuantities(arrays, IntegralDataName, setup):
     arraysSubset = arrays[IntegralDataName]
+    '''
+    RotationAxis must be along OX
+    '''
 
     try:
         FX = arraysSubset['MomentumXFlux']
         MX = arraysSubset['TorqueX']
         blade_number = setup.ReferenceValues['NumberOfBlades']
+        RHRR = setup.ReferenceValues['RightHandRuleRotation']
+        RA = setup.ReferenceValues['RotationAxis']
         RPM = setup.ReferenceValues['RPM']
         AxialVelocity = setup.ReferenceValues['AxialVelocity']
         Density = setup.ReferenceValues['Density']
@@ -441,11 +473,15 @@ def _extendArraysWithPropellerQuantities(arrays, IntegralDataName, setup):
     except KeyError:
         return
 
+    Dir = 1 if RHRR else -1
+
     RPS = RPM / 60.
     diameter = span * 2
 
-    Thrust = - blade_number * FX
-    Power = blade_number * MX * RPM * np.pi / 30.
+    sign_axis = np.sign(RA[0])
+
+    Thrust = sign_axis * blade_number * FX
+    Power = -Dir * sign_axis * blade_number * MX * RPM * np.pi / 30.
     CT = Thrust / (Density * RPS**2 * diameter**4)
     CP = Power / (Density * RPS**3 * diameter**5)
     FM = np.sqrt(2./np.pi)* np.sign(CT)*np.abs(CT)**1.5 / CP
@@ -457,3 +493,7 @@ def _extendArraysWithPropellerQuantities(arrays, IntegralDataName, setup):
     arraysSubset['CP']=CP
     arraysSubset['FigureOfMeritHover']=FM
     arraysSubset['PropulsiveEfficiency']=eta
+
+
+
+

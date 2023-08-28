@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -169,20 +169,37 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
                        material='Solid', color='White', blending=0.8,
                        colormap='Viridis', levels=[200,'min','max'], shadow=True,
                        additionalDisplayOptions={},
-                       additionalStateOptions={})]):
-
+                       additionalStateOptions={},
+                       vertex_container='FlowSolution#InitV',
+                       centers_container='BCDataSet',
+                       )],
+                ):
     machine = os.getenv('MAC')
-    if machine in ['spiro','ld']:
-        offscreen=5 # MESA TODO solve bug https://elsa.onera.fr/issues/10536 
-    elif machine in ['visung', 'visio', 'sator']:
-        offscreen=3 # openGL
-    else:
-        raise SystemError('machine "%s" not supported.'%machine)
+    external_centers_container = I.__FlowSolutionCenters__
+    external_vertex_container = I.__FlowSolutionNodes__
 
-    try:
-        import CPlotOffscreen.PyTree as CPlot
-    except:
+    # TODO solve bugs:
+    # https://elsa.onera.fr/issues/10536
+    # https://elsa.onera.fr/issues/11045
+
+    offscreen_mode = 'auto'
+
+    if offscreen_mode == 'auto':
         import CPlot.PyTree as CPlot
+        if machine in ['sator']:
+            offscreen=5 # MESA 
+        elif machine in ['ld','visung', 'visio', 'sator', 'spiro']:
+            offscreen=3 # openGL
+        else:
+            raise SystemError('machine "%s" not supported.'%machine)
+    elif offscreen_mode == 'mesa':
+        try: import CPlotOffscreen.PyTree as CPlot
+        except: import CPlot.PyTree as CPlot
+        offscreen=5 # MESA 
+    else:
+        raise SystemError('offscreen_mode "%s" not supported.'%offscreen_mode)
+
+
     cmap2int = dict(Blue2Red=1, Diverging=15, Black2White=15,
                     Viridis=17, Inferno=19, Magma=21, Plasma=23, Jet=25,
                     Greys=27, NiceBlue=29, Greens=31)
@@ -218,6 +235,13 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
         except KeyError: material = 'Solid'
         try: color = elt['color']
         except KeyError: color = 'White'
+        try: vertex_container = elt['vertex_container']
+        except KeyError: vertex_container = 'FlowSolution#InitV'
+        try: centers_container = elt['centers_container']
+        except KeyError: centers_container = 'BCDataSet'
+        I.__FlowSolutionNodes__ = vertex_container
+        I.__FlowSolutionCenters__ = centers_container
+
         zones = J.selectZones(t, **selection)
 
         if hasBlending(elt): zones = C.convertArray2Hexa(zones) # see cassiopee #8740
@@ -257,7 +281,9 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
         else:
             isoScales = []
 
-        if i>0 and i == len(Trees)-1 and offscreen > 1: offscreen += 1
+        increment_offscreen = i>0 and i == len(Trees)-1 and offscreen > 1
+
+        if increment_offscreen: offscreen += 1
 
         try: additionalDisplayOptions = elt['additionalDisplayOptions']
         except: additionalDisplayOptions = {}
@@ -287,9 +313,16 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
 
         CPlot.display(tree, offscreen=offscreen, colormap=cmap,
             isoScales=isoScales, **DisplayOptions, **additionalDisplayOptions)
-        CPlot.finalizeExport(offscreen)
+        if offscreen_mode == 'mesa':
+            if not increment_offscreen:
+                CPlot.finalizeExport(offscreen)
+        else:
+            CPlot.finalizeExport(offscreen)
     
         sleep(0.5)
+
+    I.__FlowSolutionCenters__ = external_centers_container
+    I.__FlowSolutionNodes__ = external_vertex_container
 
 
 class matplotlipOverlap():
@@ -1109,10 +1142,14 @@ class matplotlipOverlap():
         cbar_ticks = np.linspace(levels[1],levels[2],number_of_ticks)
         cbaxes = self.fig.add_axes([xmin,ymin,xmax-xmin,ymax-ymin])
 
+        if cmap == 'Jet':
+            colormap = self.colormaps[cmap].reversed()
+        else:
+            colormap = self.colormaps[cmap]
         cset = cm.ScalarMappable(norm=mplcolors.Normalize(levels[1],
                                                           levels[2],
                                                         clip=False),
-                                 cmap=self.colormaps[cmap].reversed())
+                                 cmap=colormap)
         cset.set_array(np.linspace(levels[1],levels[2],levels[0]))
         cbar = self.fig.colorbar(cset, cax=cbaxes, orientation=orientation,
                                        ticks=cbar_ticks, format=ticks_format)

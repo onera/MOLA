@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -689,7 +689,9 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
         currentLayer = ('{:0%d}'%nbOfDigits).format(l+1)
         Message = starting_message+' %s/%s | cost: %0.5f s'%(currentLayer,LastLayer,tic()-toc)
         toc = tic()
-        if printIters: print(Message)
+        if printIters:
+            print('{:s}\r'.format(''), end='', flush=True)
+            print(Message, end='')
 
         tok = tic()
         _transferDistributionData(tExtru,layer=l)
@@ -757,10 +759,10 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
             CPlot.setState(message=Message)
             # time.sleep(0.1)
     if printIters:
-        print('stacking layers...')
+        print('\nstacking layers... ',end='')
     _stackLayers(tExtru, AllLayersBases) # Stack layers
     if printIters:
-        print('stacking layers... OK')
+        print(J.GREEN+'ok'+J.ENDC)
 
     return tExtru
 
@@ -2436,7 +2438,12 @@ def multiSections(ProvidedSections, SpineDiscretization,InterpolationData={'Inte
     InterpYmatrix = np.zeros((NinterFoils,NPtsI,NPtsJ),dtype=np.float64,order='F')
     InterpZmatrix = np.zeros((NinterFoils,NPtsI,NPtsJ),dtype=np.float64,order='F')
     for k in range(NinterFoils):
-        InterpXmatrix[k,:,:] = J.getx(ProvidedSections[k])
+        try:
+            InterpXmatrix[k,:,:] = J.getx(ProvidedSections[k])
+        except BaseException as e:
+            J.save(ProvidedSections,'debug.cgns')
+            raise e
+
         InterpYmatrix[k,:,:] = J.gety(ProvidedSections[k])
         InterpZmatrix[k,:,:] = J.getz(ProvidedSections[k])
     if 'interp1d' in InterpolationData['InterpolationLaw'].lower():
@@ -3203,19 +3210,26 @@ def buildCartesianBackground(t, InputMeshes):
             some additional options are proposed for controlling the grid 
             generation:
 
-
-            * ``extension`` : :py:class:`float`
+            * extension : :py:class:`float`
                 the maximum extension (farfield) of the cartesian grid, in 
                 meters. If not provided, then next keyword ``extension_factor`` 
                 is employed.
 
-            * ``extension_factor`` : :py:class:`float`
+            * extension_factor : :py:class:`float`
                 If **extension** is not provided, then the extension is calculated
                 using the formula ``extension_factor * diag`` where ``diag`` is 
                 the cartesian diagonal of the bounding-box covering all overlaps
                 of the provided grid.
 
-            * ``AnalyticalRegions`` : :py:class:`list` of :py:class:`dict`
+            * MinimumNumberOfPointsPerDirection : :py:class:`int`
+                Minimum number of points per :math:`(x, y, z)` direction. 
+                Default value: ``5`` 
+
+            * MaximumNumberOfPoints : :py:class:`int`
+                Maximum number of points that can contain a zone block. 
+                Default value: ``90000`` 
+
+            * AnalyticalRegions : :py:class:`list` of :py:class:`dict`
                 Each item of this :py:class:`list` is a :py:class:`dict` that 
                 defines a region (analytically) where refinement is requested.
                 Pair of keyword/arguments of the :py:class:`dict` are:
@@ -3229,7 +3243,6 @@ def buildCartesianBackground(t, InputMeshes):
                         relevant parameters: ``snear``, ``diameter``, ``base_center``,
                         ``height``, ``direction`` and ``azimutal_resolution``.
                         
-
                     * ``'box'``
                         the refinement region is a box with the following 
                         relevant parameters: ``snear``, ``length``,
@@ -3285,7 +3298,7 @@ def buildCartesianBackground(t, InputMeshes):
                     vector direction of the height side of the box.
                     Only relevant if ``geometry='box'``.
     
-            * ``UserDefinedRegions`` : :py:class:`list` of :py:class:`dict`
+            * UserDefinedRegions : :py:class:`list` of :py:class:`dict`
                 Each item of this :py:class:`list` is a :py:class:`dict` that 
                 defines a region (existing file) where refinement is requested.
                 Pair of keyword/arguments of the :py:class:`dict` are:
@@ -3304,6 +3317,11 @@ def buildCartesianBackground(t, InputMeshes):
                 whose pair of keyword/arguments are literally the options of
                 :py:func:`trimCartesianGridAtOrigin`
 
+            * generateCartMesh_kwargs : :py:class:`dict`
+                pair of keyword/value arguments of optional parameters of 
+                Cassiopee function ``Apps.Mesh.Cart.generateCartMesh()``. 
+                Defaults to ``ext=0``, ``dimPb=3`` and ``expand=0``
+
     Returns
     -------
 
@@ -3314,6 +3332,7 @@ def buildCartesianBackground(t, InputMeshes):
     for meshInfo in InputMeshes:
         if meshInfo['file'] == 'GENERATE':
             GenerationInfo = meshInfo
+            GenerationInfo['SplitBlocks'] = False
     if not GenerationInfo: return
 
     
@@ -3641,3 +3660,15 @@ def _generateCartesianFromProcessedBodies(GenerationInfo, bodies):
     J.set(base,'.MOLA#InputMesh',**GenerationInfo)
 
     return t
+
+def checkNegativeVolumeCells(t, volume_threshold=0):
+    tR = G.getVolumeMap(t)
+    C._initVars(tR,'centers:tag={centers:vol}<%g'%volume_threshold)
+    tR = P.selectCells2(tR, 'centers:tag')
+    negative_volume_cells = []
+    for zone in I.getZones(tR):
+        if C.getNCells(zone) > 0:
+            negative_volume_cells += [zone]
+    if negative_volume_cells:
+        print(J.WARN+f'\nWARNING: mesh has {C.getNCells(negative_volume_cells)} negative cells'+J.ENDC)
+    return negative_volume_cells

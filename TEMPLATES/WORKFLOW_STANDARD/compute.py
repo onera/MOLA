@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -88,6 +88,8 @@ if rank==0:
 # --------------------------- END OF IMPORTS --------------------------- #
 
 # ----------------- DECLARE ADDITIONAL GLOBAL VARIABLES ----------------- #
+try: Splitter = setup.Splitter
+except: Splitter = None
 try: BodyForceInputData = setup.BodyForceInputData
 except: BodyForceInputData = None
 CO.invokeCoprocessLogFile()
@@ -99,7 +101,16 @@ if niter == 0:
 inititer = setup.elsAkeysNumerics['inititer']
 itmax    = inititer+niter-2 # BEWARE last iteration accessible trigger-state-16
 
-Skeleton = CO.loadSkeleton()
+if Splitter == 'PyPart':
+    t, Skeleton, PyPartBase, Distribution = CO.splitWithPyPart()
+    CO.PyPartBase = PyPartBase
+else:
+    Skeleton = CO.loadSkeleton()
+
+# ========================== INIT PROBES ========================== #
+HAS_PROBES = CO.hasProbes()
+if HAS_PROBES:
+    CO.searchZoneAndIndexForProbes(Skeleton)
 
 # ========================== LAUNCH ELSA ========================== #
 
@@ -135,7 +146,11 @@ import elsAxdt
 elsAxdt.trace(0)
 CO.elsAxdt = elsAxdt
 
-e=elsAxdt.XdtCGNS(FILE_CGNS)
+if Splitter == 'PyPart':
+    e = elsAxdt.XdtCGNS(tree=t, links=[], paths=[])
+    e.distribution = Distribution
+else:
+    e=elsAxdt.XdtCGNS(FILE_CGNS)
 
 
 # ------------------------------- BODYFORCE ------------------------------- #
@@ -183,6 +198,8 @@ CO.updateAndWriteSetup(setup)
 t = CO.extractFields(Skeleton)
 
 # save arrays
+if HAS_PROBES:
+    CO.appendProbes2Arrays(t, arrays)
 arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,
           Extractions=setup.Extractions, addMemoryUsage=True)
 CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))

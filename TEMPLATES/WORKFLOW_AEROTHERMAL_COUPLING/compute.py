@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -130,6 +130,11 @@ else:
     t = Cmpi.convertFile2PyTree('main.cgns')
     Skeleton = CO.loadSkeleton()
 
+# ========================== INIT PROBES ========================== #
+HAS_PROBES = CO.hasProbes()
+if HAS_PROBES:
+    CO.searchZoneAndIndexForProbes(Skeleton)
+
 ################################################################################
 # PREPARE VARIABLES TO LOCATE INTERFACES
 ################################################################################
@@ -155,6 +160,8 @@ CO.updateAndWriteSetup(setup)
 t = CO.extractFields(Skeleton)
 
 # save arrays
+if HAS_PROBES:
+    CO.appendProbes2Arrays(t, arrays)
 arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics,
           Extractions=setup.Extractions, addMemoryUsage=True)
 CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))

@@ -3,16 +3,16 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
@@ -215,7 +215,7 @@ def _launchSubprocess(Host,CMD):
     Error = readStderr(ssh)
     Output = readStdout(ssh)
     if len(Output)>0:
-        for o in Output: print(o)
+        print('\n'.join(Output))
     if len(Error)>0:
         WillRaise = False
         for e in Error:
@@ -227,7 +227,8 @@ def _launchSubprocess(Host,CMD):
                 print(FAIL+str(e)+ENDC)
 
         if WillRaise:
-            raise IOError(Error[-1])
+            msg = f'Host: {Host}\nCMD={CMD}\nerror message:\n' + '\n'.join(Error)
+            raise IOError(FAIL+msg+ENDC)
 
 def readStderr(ssh):
     '''

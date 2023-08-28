@@ -3,22 +3,22 @@
 #    This file is part of MOLA.
 #
 #    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
 #    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#    GNU Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
+#    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
 MOLA - Postprocess.py
 
-BETA Module
+Postprocess routines
 
 12/05/2021 - L. Bernardos - Creation from recycling
 '''
@@ -45,6 +45,11 @@ if not MOLA.__ONLY_DOC__:
     import Geom.PyTree as D
     import Post.PyTree as P
     import Converter.elsAProfile as eP
+
+    from mpi4py import MPI
+    comm   = MPI.COMM_WORLD
+    rank   = comm.Get_rank()
+
 
 # MOLA
 from . import InternalShortcuts as J
@@ -1116,3 +1121,631 @@ def getSubIterations():
     residualArray  = np.array(residualList)
 
     return iterationArray, dualIterationArray, residualArray
+
+def extractBC(t, Family=None, Name=None, Type=None):
+    '''
+    This is a multi-container wrapper of Cassiopee C.extractBC* functions, 
+    as requested in https://elsa.onera.fr/issues/10641. 
+
+    Parameters
+    ----------
+
+        t : PyTree
+            input tree where surfaces will be extracted
+
+        Family : str
+            (optional) family name of the BC to be extracted
+
+        Name : str
+            (optional) name of the BC to be extracted
+
+        Type : str
+            (optional) type of the BC to be extracted
+
+    Returns
+    -------
+
+        surfaces : :py:class:`list` of Zone_t
+            list of surfaces (zones) with multi-containers (including *BCData_t* 
+            transformed into *FlowSolution_t* nodes)    
+    '''
+    # HACK https://elsa.onera.fr/issues/10641
+    args = [Family, Name, Type]
+    if args.count(None) != len(args)-1:
+        raise AttributeError('must provide only one of: Name, Type or Family')
+
+    if Family is not None:
+        if Family.startswith('FamilySpecified:'):
+            Type = Family
+        else:
+            Type = 'FamilySpecified:'+Family
+        Name = None
+
+    elif Name.startswith('FamilySpecified:'):
+        Type = Name
+        Name = None
+
+    if Name:
+        extractBCarg = Name
+        extractBCfun = C.extractBCOfName
+    else:
+        extractBCarg = Type
+        extractBCfun = C.extractBCOfType
+    
+    t = mergeContainers(t, FlowSolutionVertexName=I.__FlowSolutionNodes__,
+                           FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
+
+    bases_children_except_zones = []
+    for base in I.getBases(t):
+        for n in base[2]:
+            if n[3] != 'Zone_t': 
+                bases_children_except_zones.append( n )
+
+    bcs = []
+    for zone in I.getZones(t):
+        extracted_bcs = I.getZones( extractBCfun(zone, extractBCarg))
+        if not extracted_bcs: continue
+        I._adaptZoneNamesForSlash(extracted_bcs)
+        for surf in extracted_bcs:
+            _mergeBCtagContainerWithFlowSolutionTagContainer(zone, surf)
+            bc_multi_container = recoverContainers(surf)
+            bcs += [ bc_multi_container ]
+        reshapeFieldsForStructuredGrid(bcs)
+
+    t_merged = C.newPyTree(['Base',bcs])
+    base = I.getBases(t_merged)[0]
+    base[2].extend( bases_children_except_zones )
+    zones = I.getZones(t_merged)
+
+    return zones
+
+def reshapeFieldsForStructuredGrid(t):
+    for zone in I.getZones(t):
+        topo, Ni, Nj, Nk, dim = I.getZoneDim(zone)
+        if topo != 'Structured' or dim==1: continue
+        for fs in I.getNodesFromType1(zone,'FlowSolution_t'):
+            loc = _getFlowSolutionLocation(fs)
+            for n in I.getNodesFromType1(fs,'DataArray_t'):
+                if len(n[1].shape) != dim:
+                    if dim == 2:
+                        if loc == 'Vertex':
+                            n[1] = n[1].reshape((Ni,Nj))
+                        elif loc == 'CellCenter':
+                            n[1] = n[1].reshape((Ni-1,Nj-1))
+                        else:
+                            raise NotImplementedError(f'loc must be "Vertex" or "CellCenter", but got: {loc}')
+                    elif dim == 3:
+                        if loc == 'Vertex':
+                            n[1] = n[1].reshape((Ni,Nj,Nk))
+                        elif loc == 'CellCenter':
+                            n[1] = n[1].reshape((Ni-1,Nj-1,Nk-1))
+                        else:
+                            raise NotImplementedError(f'loc must be "Vertex" or "CellCenter", but got: {loc}')
+
+
+def extractBC_old(t, Name=None, Type=None):
+    if Name is not None and Type is not None:
+        raise AttributeError('must provide either Name or Type, but not both.')
+    
+    t = I.copyRef(t)
+
+    bases_children_except_zones = []
+    for base in I.getBases(t):
+        for n in base[2]:
+            if n[3] != 'Zone_t': 
+                bases_children_except_zones.append( n )
+
+    # information must be in BCDataSet_t containers
+    I._rmNodesByType(t, 'FlowSolution_t')
+    BCDataSetNames = set()
+    for zone in I.getZones(t):
+        zbc = I.getNodeFromType1(zone, 'ZoneBC_t')
+        for bc in zbc[2]:
+            for bcds in I.getNodesFromType1(bc,'BCDataSet_t'):
+                BCDataSetNames.add( bcds[0] )
+ 
+    if len(BCDataSetNames) == 0:
+        # No fields extracted, only the surface geometry
+        if Name:
+            zones_merged = I.getZones( C.extractBCOfName(t, Name, extrapFlow=False) )
+        else:
+            zones_merged = I.getZones( C.extractBCOfType(t, Type, extrapFlow=False) )
+        I._adaptZoneNamesForSlash(zones_merged)
+
+    else:
+        zones_merged = []
+        for BCDataSetName in BCDataSetNames:
+            tR = I.copyRef(t)
+            for zone in I.getZones(tR):
+                zbc = I.getNodeFromType1(zone, 'ZoneBC_t')
+                LocalBCDataSetNames = set()
+                for bc in zbc[2]:
+                    for bcds in I.getNodesFromType1(bc,'BCDataSet_t'):
+                        LocalBCDataSetNames.add( bcds[0] )
+                for bc in zbc[2]:
+                    for LocalBCDataSetName in LocalBCDataSetNames:
+                        if LocalBCDataSetName != BCDataSetName:
+                            I._rmNodesByName1(bc, BCDataSetName)
+            if Name:
+                zones = I.getZones( C.extractBCOfName(tR, Name, extrapFlow=False) )
+            else:
+                zones = I.getZones( C.extractBCOfType(tR, Type, extrapFlow=False) )
+            
+            I._adaptZoneNamesForSlash(zones)
+
+            for z in zones:
+                fs = I.getNodeFromType1(z, 'FlowSolution_t')
+                if fs: 
+                    fs[0] = BCDataSetName
+                    
+                if zones_merged:
+                    if not fs: continue
+                    for zm in zones_merged:
+                        containers_names = [f[0] for f in I.getNodesFromType1(zm, 'FlowSolution_t')]
+                        if z[0] == zm[0]:                        
+                            if fs[0] not in containers_names: 
+                                zm[2] += [ fs ]
+                            break
+                else:
+                    zones_merged = zones
+
+                fs_nodes = I.getNodesFromType1(z, 'FlowSolution_t')
+                if len(fs_nodes) > 1:
+                    I.printTree(z, 'debug_extractBC_z.txt')
+                    raise ValueError('unexpected number of fs_nodes. Check debug_extractBC_z.txt')
+    
+    t_merged = C.newPyTree(['Base',zones_merged])
+    base = I.getBases(t_merged)[0]
+    base[2].extend( bases_children_except_zones )
+    zones = I.getZones(t_merged)
+        
+    return zones
+
+
+def isoSurface(t, fieldname=None, value=None, container='FlowSolution#Init'):
+    '''
+    This is a multi-container wrapper of Cassiopee Post.isoSurfMC function, as
+    requested in https://elsa.onera.fr/issues/11221.
+
+    .. attention::
+        all zones contained in **t** must have the same containers. If this is
+        not your case, you may want to first select the zones with same containers
+        before using this function (see :py:func:`MOLA.InternalShortcuts.selectZones`)
+
+    Parameters
+    ----------
+
+        t : PyTree
+            input tree where iso-surface will be performed
+
+        fieldname : str
+            name of the field used for making the iso-surface. It can be the
+            coordinates names such as ``'CoordinateX'``, ``'CoordinateY'`` or 
+            ``'CoordinateZ'`` (in such cases, parameter **container** is ignored)
+
+        value : float
+            value used for computing the iso-surface of field **fieldname**
+
+        container : str
+            name of the *FlowSolution_t* CGNS container where the field
+            **fieldname** is contained. This parameter is ignored if **fieldname**
+            is a coordinate.
+
+    Returns
+    -------
+
+        surfaces : :py:class:`list` of Zone_t
+            list of zones with fields arranged at multiple containers following
+            the original data structure.
+
+    '''
+    # HACK https://elsa.onera.fr/issues/11221
+    bases_children_except_zones = []
+    for base in I.getBases(t):
+        for n in base[2]:
+            if n[3] != 'Zone_t': 
+                bases_children_except_zones.append( n )
+    if not I.getNodeFromType3(t,'Zone_t'): return
+    tPrev = I.copyRef(t)
+    t = mergeContainers(t, FlowSolutionVertexName=I.__FlowSolutionNodes__,
+                           FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
+
+    isosurfs = []
+    for zone in I.getZones(t):
+
+        # NOTE slicing will provoque all containers to be located at Vertex
+        tags_containers = I.getNodeFromName1(zone, 'tags_containers')
+        tags_containers_dict = J.get(zone, 'tags_containers')
+
+        containers_names = I.getNodeFromName1(tags_containers, 'containers_names')
+        if fieldname not in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
+            fieldnameWithTag = None
+            for cn in containers_names[2]:
+                container_name = I.getValue(cn)
+                tag = cn[0]
+                if container_name == container:
+                    fieldnameWithTag = fieldname + tag
+                    break
+            if fieldnameWithTag is None:
+                C.convertPyTree2File(tPrev,f'debug_tPrev_{rank}.cgns')
+                C.convertPyTree2File(zone,f'debug_zone_{rank}.cgns')
+                raise ValueError(f'could not find tag <-> container "{container}" correspondance')
+        else:
+            fieldnameWithTag = fieldname
+
+        for n in containers_names[2]:
+            tag = n[0]
+            loc = tags_containers_dict['locations'][tag]
+            if loc == 'CellCenter':
+                cont_name = I.getValue(n)
+                I.setValue(n,cont_name+'V') # https://gitlab.onera.net/numerics/mola/-/issues/146#note_20639
+
+        for n in I.getNodeFromName1(tags_containers, 'locations')[2]:
+            if I.getValue(n) == 'CellCenter':
+                I.setValue(n,'Vertex')
+
+        # HACK https://elsa.onera.fr/issues/11255
+        if I.getZoneType(zone) == 2: # unstructured zone
+            if I.getNodeFromName1(zone,I.__FlowSolutionCenters__):
+                fieldnames = C.getVarNames(zone, excludeXYZ=True, loc='centers')[0]
+                for f in fieldnames:
+                    C._center2Node__(zone,f,0)
+                I._rmNodesByName1(zone,I.__FlowSolutionCenters__)
+
+            # HACK https://gitlab.onera.net/numerics/mola/-/issues/111
+            # HACK https://elsa.onera.fr/issues/10997#note-6
+            zone = T.breakElements(zone)
+
+        surfs = P.isoSurfMC(zone, fieldnameWithTag, value)
+        for surf in I.getZones(surfs):
+            surf[2] += [ tags_containers ]
+            isosurfs += [ recoverContainers(surf) ]
+
+    t_merged = C.newPyTree(['Base', isosurfs])
+    base = I.getBases(t_merged)[0]
+    base[2].extend( bases_children_except_zones )
+    surfs = I.getZones(t_merged)
+    
+    return surfs
+
+def convertToTetra(t):
+    tR = I.copyRef(t)
+    fs_per_zone = []
+    for z in I.getZones(tR):
+        fs_per_zone += [ I.getNodesFromType3(t, 'FlowSolution_t') ]
+        I._rmNodesFromType1(z, 'FlowSolution_t')
+    tetra = C.convertArray2Tetra(tR)
+
+    for z, fs_at_zone in zip( I.getZones(tetra), fs_per_zone ):
+        z[2].extend( fs_at_zone )
+
+    return tetra
+
+def mergeContainers(t, FlowSolutionVertexName='FlowSolution',
+        FlowSolutionCellCenterName='FlowSolution#Centers',
+        BCDataSetFaceCenterName='BCDataSet'):
+    '''
+    Merge all *FlowSolution_t* containers into a single one (one at Vertex, another
+    at CellCenter), adding a numerical tag suffix to flowfield name for easy
+    identification (e.g. ``<FlowfieldName>.<NumericTag>``). 
+
+    .. danger:: when adding the numeric tag, the number of characters of the 
+        resulting CGNS node can be higher than 32. This is not a problem for 
+        in-memory tree, but most CGNS writters/readers cannot support names longer
+        than 32 characters, which may result in loose of data if the flowfields 
+        names with tags are truncated when saving or reading a CGNS file
+
+    Also, this function merges all *BCDataSet_t/BCData_t* containers into a single
+    one named ``BCDataSet/NeumannData`` located at FaceCenter. 
+
+    .. caution:: input ``BCDataSet_t/BCData_t`` must be all contained in **FaceCenter**
+
+    New ``UserDefined_t`` CGNS nodes are added to ``Zone_t`` nodes and ``BC_t`` nodes,
+    named ``multi_containers``, which contains all the required information for
+    making the inverse operation (see :py:func:`recoverContainers`) for recovering
+    the original structure of the tree
+
+    Parameters
+    ----------
+
+        t : PyTree, Base, Zone or list of Zone
+            Input containing zones where containers are to be merged
+
+        FlowSolutionVertexName : str
+            the name of the resulting Vertex FlowSolution CGNS node
+
+        FlowSolutionCellCenterName : str
+            the name of the resulting CellCenter FlowSolution CGNS node
+
+        BCDataSetFaceCenterName : str
+            the name of the resulting BCDataSet CGNS node
+
+    Returns
+    -------
+
+        tR : PyTree, Base, Zone or list of Zone
+            copy as reference of **t**, but with merged containers 
+    '''
+    # HACK https://elsa.onera.fr/issues/11221
+    # HACK https://elsa.onera.fr/issues/10641
+
+
+    tR = I.copyRef(t)
+    for zone in I.getZones(tR):
+        _mergeFlowSolutions(zone, FlowSolutionVertexName, FlowSolutionCellCenterName)
+        _mergeBCData(zone, BCDataSetFaceCenterName)
+    return tR
+
+def _mergeFlowSolutions(zone, FlowSolutionVertexName='FlowSolution',
+        FlowSolutionCellCenterName='FlowSolution#Centers'):
+    '''
+    Merge all FlowSolution_t into one at Vertex and one at CellCenter
+    
+    Consider using higher-level function mergeContainers
+    '''
+    if zone[3] != 'Zone_t': return AttributeError('first argument must be a zone')
+    monoFlowSolutionNames = dict(Vertex=FlowSolutionVertexName,
+                                 CellCenter=FlowSolutionCellCenterName)
+    fields_names = dict()
+    containers_names = dict()
+    nodes = dict()
+    locations = dict()
+    FlowSolutions = I.getNodesFromType1(zone,'FlowSolution_t')
+    for fs in FlowSolutions:
+        if not I.getNodesFromType1(fs, 'DataArray_t'):
+            try:
+                FlowSolutions.pop(fs)
+            except:
+                pass
+    if not FlowSolutions: return
+    J.sortNodesByName(FlowSolutions)
+    for i, fs in enumerate(FlowSolutions):
+        if not I.getNodesFromType1(fs, 'DataArray_t'): continue
+        loc = _getFlowSolutionLocation(fs)
+        tag = '%d'%i
+        locations[tag] = loc
+        containers_names[tag] = fs[0]
+        fields = I.getNodesFromType1(fs,'DataArray_t')
+        for f in fields:
+            f[0] += tag
+            if tag in fields_names:
+                fields_names[tag] += [f[0]]
+                nodes[tag] += [f]
+            else:
+                fields_names[tag]  = [f[0]]
+                nodes[tag]  = [f]
+    
+    prev_zone = I.copyRef(zone)
+    I._rmNodesByType1(zone,'FlowSolution_t')
+    for tag, loc in locations.items():
+        try:
+            fields_nodes = nodes[tag]
+        except KeyError as e:
+            C.convertPyTree2File(prev_zone,f'debug_{zone[0]}.cgns')
+            raise e
+
+        if not fields_nodes: continue
+        fs = I.getNodeFromName1(zone, monoFlowSolutionNames[loc])
+        if not fs:
+            fs = I.createUniqueChild(zone, monoFlowSolutionNames[loc],
+                                        'FlowSolution_t', children=fields_nodes)
+            I.createUniqueChild(fs,'GridLocation','GridLocation_t', value=loc,pos=0)
+        else:
+            fs[2] += fields_nodes
+
+    J.set(zone, 'tags_containers', fields_names=fields_names,
+                    containers_names=containers_names, locations=locations)
+
+def _mergeBCData(zone, BCDataSetFaceCenterName='BCDataSet',
+                       BCDataFaceCenterName='NeumannData'):
+    '''
+    Merge all BCData_t into one at Vertex and one at CellCenter
+    
+    Consider using higher-level function mergeContainers
+    '''
+    if zone[3] != 'Zone_t': return AttributeError('first argument must be a zone')
+    monoBCDataSetNames = dict(FaceCenter=BCDataSetFaceCenterName)
+    zbc = I.getNodeFromName1(zone,'ZoneBC')
+    if not zbc: return
+    BCs = I.getNodesFromType(zbc,'BC_t')
+    if not BCs: return
+    J.sortNodesByName(BCs)
+    tags ='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    for bc in BCs:
+        nb = -1
+        fields_names = dict()
+        containers_names = dict()
+        nodes = dict()
+        locations = dict()
+        BCDataSets = I.getNodesFromType1(bc,'BCDataSet_t')
+        if not BCDataSets: continue
+        J.sortNodesByName(BCDataSets)
+        for bcds in BCDataSets:
+            loc = _getBCDataSetLocation(bcds)
+            if loc != 'FaceCenter':
+                path = '/'.join([zone[0],zbc[0],bc[0],bcds[0]])
+                raise NotImplementedError(f'BCDataSet {path} must be located at FaceCenter, got {loc} instead')
+
+            BCDatas = I.getNodesFromType1(bcds,'BCData_t')
+            if not BCDatas: continue
+            J.sortNodesByName(BCDatas)
+            for bcd in BCDatas:
+                nb += 1
+                tag = tags[nb]
+                locations[tag] = loc
+                containers_names[tag] = bcds[0]+'/'+bcd[0]
+                fields = I.getNodesFromType1(bcd,'DataArray_t')
+                for f in fields:
+                    f[0] += tag
+                    if tag in fields_names:
+                        fields_names[tag] += [f[0]]
+                        nodes[tag] += [f]
+                    else:
+                        fields_names[tag]  = [f[0]]
+                        nodes[tag]  = [f]
+
+        I._rmNodesByType1(bc,'BCDataSet_t')
+        for tag, loc in locations.items():
+            fields_nodes = nodes[tag]
+            if not fields_nodes: continue
+            bcds = I.getNodeFromName1(bc, monoBCDataSetNames[loc])
+            if not bcds:
+                bcds = I.createUniqueChild(bc, monoBCDataSetNames[loc],
+                                            'BCDataSet_t')
+                I.createUniqueChild(bcds,'GridLocation','GridLocation_t', value=loc)
+                I.createUniqueChild(bcds,BCDataFaceCenterName,'BCData_t',
+                                         children=fields_nodes)
+            else:
+                bcd = I.getNodeFromName(bcds, BCDataFaceCenterName)
+                bcd[2] += fields_nodes
+
+        J.set(bc, 'tags_containers', fields_names=fields_names,
+                   containers_names=containers_names, locations=locations)
+
+
+def recoverContainers(t):
+    tR = I.copyRef(t)
+    for zone in I.getZones(tR):
+        _recoverFlowSolutions(zone)
+        _recoverBCData(zone)
+
+    return tR
+
+
+def _getFlowSolutionLocation(FlowSolution_n):
+    GridLocation_n = I.getNodeFromType1(FlowSolution_n,'GridLocation_t')
+    if not GridLocation_n: return 'Vertex'
+    return I.getValue(GridLocation_n)
+
+def _getBCDataSetLocation(BCDataSet_n):
+    GridLocationNodes = I.getNodesFromType(BCDataSet_n,'GridLocation_t')
+    if not GridLocationNodes: return 'FaceCenter'
+    if len(GridLocationNodes) == 1: return I.getValue(GridLocationNodes[0])
+    first_name = GridLocationNodes[0][0]
+    if not all([n[0]==first_name for n in GridLocationNodes[1:]]):
+        print('WARNING: multiple grid locations found')
+        return 'Multiple'
+    return first_name
+
+def _recoverFlowSolutions(zone):
+    if zone[3] != 'Zone_t': return AttributeError('first argument must be a zone')
+    had_multi_containers = I.getNodeFromName1(zone,'tags_containers')
+    if not had_multi_containers: return
+    fields_containers = J.get(zone, 'tags_containers')
+    fields_names = fields_containers['fields_names']
+    containers_names = fields_containers['containers_names']
+    locations = fields_containers['locations']
+    nodes = dict()
+
+    MergedNodes = dict()
+    for fs in I.getNodesFromType1(zone, 'FlowSolution_t'):
+        merged_location = _getFlowSolutionLocation(fs)
+        fields = I.getNodesFromType1(fs,'DataArray_t')
+        if not fields: continue
+        if merged_location in MergedNodes:
+            MergedNodes[merged_location] += fields
+        else:
+            MergedNodes[merged_location] = fields
+
+    for tag, loc in locations.items():
+        for node_name in fields_names[tag].split():
+            node = I.getNodeFromName(MergedNodes[loc], node_name)
+            if not node:
+                J.save(zone,f'debug_zone_{rank}.cgns')
+                raise ValueError(f'UNEXPECTED: could not find node {node_name}')
+            if tag in nodes:
+                nodes[tag] += [ node ]
+            else:
+                nodes[tag]  = [ node ]
+    
+    I._rmNodesByType1(zone, 'FlowSolution_t')
+    for tag, fields in nodes.items():
+        for f in fields: f[0] = f[0][:-len(tag)] # remove sufix
+        fs = I.createUniqueChild(zone,containers_names[tag],'FlowSolution_t',
+                                      children=fields)
+        I.createUniqueChild(fs,'GridLocation','GridLocation_t',value=locations[tag], pos=0)
+    I._rmNodesByName1(zone,'tags_containers')
+
+
+def _recoverBCData(zone):
+    if zone[3] != 'Zone_t': return AttributeError('first argument must be a zone')
+    zbc = I.getNodeFromName1(zone,'ZoneBC')
+    if not zbc: return
+    for bc in I.getNodesFromType(zbc,'BC_t'):
+        had_multi_containers = I.getNodeFromName1(bc,'tags_containers')
+        if not had_multi_containers: return
+        fields_containers = J.get(bc, 'tags_containers')
+        fields_names = fields_containers['fields_names']
+        containers_names = fields_containers['containers_names']
+        locations = fields_containers['locations']
+        nodes = dict()
+
+        MergedNodes = dict()
+        for bcds in I.getNodesFromType1(bc, 'BCDataSet_t'):
+            merged_location = _getBCDataSetLocation(bcds)
+            for bcd in I.getNodesFromType1(bcds, 'BCData_t'):
+                fields = I.getNodesFromType1(bcd,'DataArray_t')
+                if not fields: continue
+                if merged_location in MergedNodes:
+                    MergedNodes[merged_location] += fields
+                else:
+                    MergedNodes[merged_location] = fields
+
+        for tag, loc in locations.items():
+            for node_name in fields_names[tag].split():
+                node = I.getNodeFromName(MergedNodes[loc], node_name)
+                if not node:
+                    J.save(zone,'debug.cgns')
+                    raise ValueError(f'UNEXPECTED: could not find node {node_name}')
+                if tag in nodes:
+                    nodes[tag] += [ node ]
+                else:
+                    nodes[tag]  = [ node ]
+        
+        I._rmNodesByType1(bc, 'BCDataSet_t')
+        for tag, fields in nodes.items():
+            for f in fields: f[0] = f[0][:-len(tag)] # remove sufix
+            bcds_name, bcd_name = containers_names[tag].split('/')
+            bcds = I.getNodeFromName1(bc, bcds_name)
+            if not bcds:
+                bcds = I.createUniqueChild(bc,bcds_name,'BCDataSet_t')
+                I.createUniqueChild(bcds,'GridLocation','GridLocation_t',value=locations[tag])
+
+            bcd = I.getNodeFromName1(bcds, bcd_name)
+            if not bcd:
+                I.createUniqueChild(bcds,bcd_name,'BCData_t', children=fields)
+            else:
+                bcd[2] += fields
+        I._rmNodesByName1(bc, 'tags_containers')
+
+def _mergeBCtagContainerWithFlowSolutionTagContainer(zone, surf_bc):
+    if zone[3] != 'Zone_t': return AttributeError('1st argument must be a zone')    
+    if surf_bc[3] != 'Zone_t': return AttributeError('2nd argument must be a zone')    
+
+    zone_tags = I.getNodeFromName1(surf_bc, 'tags_containers')
+    if not zone_tags: return
+    bcname = surf_bc[0].split('\\')[-1]
+    zbc = I.getNodeFromName1(zone,'ZoneBC')
+    if not zbc: return
+    bc_tags = None
+    for bc in I.getNodesFromType1(zbc,'BC_t'):
+        if bc[0] != bcname: continue
+        bc_tags = I.getNodeFromName1(bc,'tags_containers')
+        break
+    if not bc_tags: return
+    for n in zone_tags[2]:
+        bc_n = I.getNodeFromName1(bc_tags, n[0])
+        if not bc_n:
+            J.save(zone,'debug_zone.cgns')
+            J.save(surf_bc,'debug_bc.cgns')
+            raise ValueError(f'could not find tags_container child {n[0]}')
+        n[2] += bc_n[2]
+    
+    for n in I.getNodeFromName1(zone_tags, 'locations')[2]:
+        if I.getValue(n) == 'FaceCenter':
+            I.setValue(n,'CellCenter')
+
+    for n in I.getNodeFromName1(zone_tags, 'containers_names')[2]:
+        name = I.getValue(n)
+        I.setValue(n, name.replace('/NeumannData',''))
+
