@@ -1509,13 +1509,13 @@ def getRadialProfiles(surfaces='OUTPUT/surfaces.cgns'):
     RadialProfilesBase = I.getNodeFromName1(surfaces, 'RadialProfiles')
     for zone in I.getZones(RadialProfilesBase):
         surfaceName = I.getName(zone)
-        RadialProfiles[surfaceName] = J.getVars2Dict(zone, Container='FlowSolution#Centers')
+        RadialProfiles[surfaceName] = J.getVars2Dict(zone, Container='FlowSolution#InitV')
         extractionInfo = J.get(zone, '.ExtractionInfo')
         if extractionInfo:
             RadialProfiles[surfaceName]['.ExtractionInfo'] = extractionInfo
         
         for FS in I.getNodesFromNameAndType(zone, 'Comparison#*', 'FlowSolution_t'):
-            comparedPlane = I.getName(FS).split('#')[-1]
+            comparedPlane = I.getName(FS).split('#')[1]
             comparisonName = f'{surfaceName}#{comparedPlane}'
             RadialProfiles[comparisonName] = J.getVars2Dict(zone, Container=I.getName(FS))
 
