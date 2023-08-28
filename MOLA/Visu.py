@@ -61,7 +61,7 @@ if not MOLA.__ONLY_DOC__:
     import Converter.Internal as I
     import Transform.PyTree as T
 
-
+def exit(): os._exit(0)
 
 def xyz2Pixel(points,win,posCam,posEye,dirCam,viewAngle=50.0):
     '''
@@ -262,8 +262,6 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
         for i in range(len(Trees)):
             Trees[i] = I.merge([Trees[i]]+TreesBlending)
     
-
-
     for i in range(len(Trees)):
         tree = Trees[i]
         elt = Elements[i]
@@ -281,8 +279,7 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
         else:
             isoScales = []
 
-        increment_offscreen = i>0 and i == len(Trees)-1 and offscreen > 1
-
+        increment_offscreen = len(Trees)==1 or (i>0 and i == len(Trees)-1 and offscreen > 1)
         if increment_offscreen: offscreen += 1
 
         try: additionalDisplayOptions = elt['additionalDisplayOptions']

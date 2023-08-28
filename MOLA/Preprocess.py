@@ -746,6 +746,9 @@ def transform(t, InputMeshes):
 
         base = I.getNodeFromName1(t, meshInfo['baseName'])
 
+        if isinstance(meshInfo['Transform'], list):
+            raise AttributeError(J.FAIL+'Transform attribute must be a dict, not a list'+J.ENDC)
+
         if 'scale' in meshInfo['Transform']:
             s = float(meshInfo['Transform']['scale'])
             T._homothety(base,(0,0,0),s)
@@ -5680,7 +5683,7 @@ def convertUnstructuredMeshToNGon(t):
             maia.algo.dist.generate_ngon_from_std_elements(tRef, MPI.COMM_WORLD)
             t = tRef
         except BaseException as e:
-            print(J.WARN+f'could not convert to NGon using maia, received error:')
+            print(J.WARN+f'WARNING: could not convert to NGon using maia, received error:')
             print(e)
             print('attempting using Cassiopee...'+J.ENDC)
             try:
@@ -5725,11 +5728,9 @@ def convertUnstructuredMeshToNGon(t):
         try:
             maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD)
         except BaseException as e:
-            print(J.WARN+f'could not merge zones using maia, received error:')
-            print(e)
+            print(J.WARN+f'WARNING: could not merge zones using maia, received error:')
+            print(str(e))
             print('will not merge zones'+J.ENDC)
-
-
 
     print(' -> enforcing ngon_pe_local')
     maia.algo.seq.enforce_ngon_pe_local(t) # required by elsA ?
