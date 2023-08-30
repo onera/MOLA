@@ -143,7 +143,7 @@ class Figure():
             try: material = elt['material']
             except KeyError: material = 'Solid'
             try: color = elt['color']
-            except KeyError: color = 'White'
+            except KeyError: color = elt['color'] = 'White'
             try: vertex_container = elt['vertex_container']
             except KeyError: vertex_container = 'FlowSolution#InitV'
             try: centers_container = elt['centers_container']
