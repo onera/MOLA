@@ -19,6 +19,10 @@ display_help() {
 }
 
 get_working_directory() {
+    if [ ! -f JobsConfiguration.py ]; then
+        echo "File JobsConfiguration.py not found!"
+        exit 1
+    fi
     mola_wd=$(sed '/DIRECTORY_WORK/!d' JobsConfiguration.py | sed 's/DIRECTORY_WORK=//' | sed 's/"//g')
     wd_name=$(basename `pwd`)
     echo $mola_wd
