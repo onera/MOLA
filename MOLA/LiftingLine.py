@@ -955,7 +955,7 @@ def buildPropeller(LiftingLine, NBlades=2, InitialAzimutDirection=[0,1,0],
 
         # Reverse sweep if not direct
         # TODO dangerous as it supposes LiftingLine is in canonic position, which may not be the case !
-        if Dir == -1: C._initVars(LiftingLine,'{CoordinateY}=-{CoordinateY}')
+        if Dir == -1: C._initVars(NewBlade,'{CoordinateY}=-{CoordinateY}')
 
         # Apply azimuthal position
         AzPos = nb*(360./float(NBlades))
@@ -2554,9 +2554,9 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
         CanonicalAxial = np.array([0.,1.,0.])
         CanonicalSpanwise = np.array([xS[1]-xS[0], yS[1]-yS[0], zS[1]-zS[0]])
         CanonicalSpanwise /= np.linalg.norm(CanonicalSpanwise)
-        CanonicalTangential = sign * np.cross(CanonicalSpanwise, CanonicalAxial)
+        CanonicalTangential = np.cross(CanonicalSpanwise, CanonicalAxial)
         CanonicalTangential /= np.linalg.norm(CanonicalSpanwise)
-        CanonicalNormal = np.cross(CanonicalTangential, CanonicalSpanwise)
+        CanonicalNormal = sign*np.cross(CanonicalTangential, CanonicalSpanwise)
         CanonicalNormal /= np.linalg.norm(CanonicalNormal)
 
 
@@ -2867,9 +2867,8 @@ def setRPM(LiftingLines, newRPM):
         else:
             J.set(LiftingLine,'.Kinematics',RPM=np.atleast_1d(np.array(newRPM,dtype=np.float64)))
 
-def setVPMParameters(LiftingLines, GammaZeroAtRoot = True, GammaZeroAtTip = True, GhostParticleAtRoot = True,
-                  GhostParticleAtTip = True, IntegralLaw='linear',
-                  ParticleDistribution = dict(kind = 'uniform', Symmetrical=False)):
+def setVPMParameters(LiftingLines, IntegralLaw='linear',
+    ParticleDistribution = dict(kind = 'uniform', Symmetrical=False)):
     '''
     This function is a convenient wrap used for setting the ``.VPM#Parameters``
     and the ``.VPM#Parameters`` nodes of **LiftingLine** object.
@@ -2880,26 +2879,6 @@ def setVPMParameters(LiftingLines, GammaZeroAtRoot = True, GammaZeroAtTip = True
 
     Parameters
     ----------
-
-        GammaZeroAtRoot : bool
-            if :py:obj:`True`, the circulation at the root of the Lifting Line is
-            set to zero in :py:func:`buildVortexParticleSourcesOnLiftingLine`.
-            If :py:obj:`False` the root is clamped otherwise.
-
-        GammaZeroAtTip : bool
-            if :py:obj:`True`, the circulation at the tip of the Lifting Line is
-            set to zero in :py:func:`buildVortexParticleSourcesOnLiftingLine`.
-            If :py:obj:`False` the tip is clamped otherwise.
-
-        GhostParticleAtRoot : bool
-            if :py:obj:`True`, a particle is generated before the root to extend
-            the Lifting Line.
-            If :py:obj:`False` no particle are generated before the root otherwise.
-
-        GhostParticleAtTip : bool
-            if :py:obj:`True`, a particle is generated after the tip to extend
-            the Lifting Line.
-            If :py:obj:`False` no particle are generated after the tip otherwise.
 
         IntegralLaw : str
             interpolation law for the interpolation of data contained in the
@@ -2952,11 +2931,8 @@ def setVPMParameters(LiftingLines, GammaZeroAtRoot = True, GammaZeroAtTip = True
     '''
 
     for LiftingLine in I.getZones(LiftingLines):
-        J.set(LiftingLine, '.VPM#Parameters',
-                GammaZeroAtRoot = GammaZeroAtRoot, GammaZeroAtTip = GammaZeroAtTip,
-                GhostParticleAtRoot = GhostParticleAtRoot, GhostParticleAtTip = GhostParticleAtTip,
-                IntegralLaw='linear', ParticleDistribution = ParticleDistribution)
-
+        J.set(LiftingLine, '.VPM#Parameters', IntegralLaw='linear',
+            ParticleDistribution = ParticleDistribution)
 
 def setKinematicsUsingConstantRotationAndTranslation(LiftingLines, RotationCenter=[0,0,0],
                                   RotationAxis=[1,0,0], RPM=2500.0, RightHandRuleRotation=True,
@@ -3193,6 +3169,9 @@ def assembleAndProjectVelocities(t):
                           'VelocityInducedX',
                           'VelocityInducedY',
                           'VelocityInducedZ',
+                          'VelocityPerturbationX',
+                          'VelocityPerturbationY',
+                          'VelocityPerturbationZ',
                           'VelocityX',
                           'VelocityY',
                           'VelocityZ',
@@ -3236,13 +3215,14 @@ def assembleAndProjectVelocities(t):
 
         VelocityKinematic = np.vstack([v['VelocityKinematic'+i] for i in 'XYZ'])
         VelocityInduced = np.vstack([v['VelocityInduced'+i] for i in 'XYZ'])
+        VelocityPerturbation = np.vstack([v['VelocityPerturbation'+i] for i in 'XYZ'])
         TangentialDirection = np.vstack([v['tan'+i] for i in 'xyz'])
         nxyz = np.vstack([v['n'+i] for i in 'xyz'])
         bxyz = np.vstack([v['b'+i] for i in 'xyz'])
-        VelocityRelative = (VelocityInduced.T + VelocityFreestream - VelocityKinematic.T).T
-        v['VelocityX'][:] = VelocityInduced[0,:] + VelocityFreestream[0]
-        v['VelocityY'][:] = VelocityInduced[1,:] + VelocityFreestream[1]
-        v['VelocityZ'][:] = VelocityInduced[2,:] + VelocityFreestream[2]
+        VelocityRelative = (VelocityInduced.T + VelocityPerturbation.T + VelocityFreestream - VelocityKinematic.T).T
+        v['VelocityX'][:] = VelocityInduced[0,:] + VelocityPerturbation[0,:] + VelocityFreestream[0]
+        v['VelocityY'][:] = VelocityInduced[1,:] + VelocityPerturbation[1,:] + VelocityFreestream[1]
+        v['VelocityZ'][:] = VelocityInduced[2,:] + VelocityPerturbation[2,:] + VelocityFreestream[2]
         v['VelocityAxial'][:] = Vax = ( VelocityRelative.T.dot(-RotationAxis) ).T
         v['VelocityTangential'][:] = Vtan = np.diag(VelocityRelative.T.dot(TangentialDirection))
         # note the absence of radial velocity contribution to 2D flow
@@ -5367,15 +5347,12 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
 
     return tLL, AvrgThrust, AvrgPower
 
-
 def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
                                             IntegralLaw='linear'):
     '''
     Build a set of zones composed of particles with fields:
 
-    ``CoordinateX``,``CoordinateY``,``CoordinateZ``,
-    ``VelocityRelativeX``, ``VelocityRelativeY``, ``VelocityRelativeZ``,
-    ``Velocity2DX``, ``Velocity2DY``, ``Velocity2DZ``, ``Gamma``
+    ``CoordinateX``, ``CoordinateY``, ``CoordinateZ``, ``Gamma``
 
     Parameters
     ----------
@@ -5402,15 +5379,16 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
 
 
 
-    FieldsNames2Extract = ['CoordinateX','CoordinateY','CoordinateZ',
-                    'Velocity2DX', 'Velocity2DY', 'Velocity2DZ', 'Gamma']
+    FieldsNames2Extract = ['Coordinate' + v for v in 'XYZ'] + \
+                                        ['Velocity2D' + v for v in 'XYZ'] + ['Gamma', 'VelocityMagnitudeLocal']
     AllSourceZones = []
 
     LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
     NumberOfLiftingLines = len(LiftingLines)
     NumberOfAbscissaSegments = 0
     for AbscissaSegmentSubList in AbscissaSegments:
-        if not (isinstance(AbscissaSegmentSubList, list) or isinstance(AbscissaSegmentSubList, np.ndarray)):
+        if not (isinstance(AbscissaSegmentSubList, list) or \
+                                                   isinstance(AbscissaSegmentSubList, np.ndarray)):
             NewAbscissaSegments = [AbscissaSegments for _ in range(NumberOfLiftingLines)]
             AbscissaSegments = NewAbscissaSegments
             NumberOfAbscissaSegments = len(AbscissaSegments)
@@ -5425,28 +5403,10 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
 
     for LiftingLine, AbscissaSegment in zip(LiftingLines, AbscissaSegments):
         VPM_Parameters = J.get(LiftingLine,'.VPM#Parameters')
-        try:
-            GhostParticleAtRoot = bool(VPM_Parameters['GhostParticleAtRoot'])
-        except KeyError:
-            GhostParticleAtRoot = True
-        try:
-            GhostParticleAtTip = bool(VPM_Parameters['GhostParticleAtTip'])
-        except KeyError:
-            GhostParticleAtTip = True
-        try:
-            GammaZeroAtRoot = bool(VPM_Parameters['GammaZeroAtRoot'])
-        except KeyError:
-            GammaZeroAtRoot = True
-        try:
-            GammaZeroAtTip = bool(VPM_Parameters['GammaZeroAtTip'])
-        except KeyError:
-            GammaZeroAtTip = True
 
-        if GhostParticleAtRoot:
-            AbscissaSegment = np.append(2.*AbscissaSegment[0] - AbscissaSegment[1],
+        AbscissaSegment = np.append(2.*AbscissaSegment[0] - AbscissaSegment[1],
                                         AbscissaSegment)
-        if GhostParticleAtTip:
-            AbscissaSegment = np.append(AbscissaSegment ,
+        AbscissaSegment = np.append(AbscissaSegment ,
                                     2*AbscissaSegment[-1] - AbscissaSegment[-2])
         AbscissaSegment = np.array(AbscissaSegment, dtype=np.float64)
 
@@ -5472,12 +5432,10 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
                 sourcefields[fieldname] = np.interp(AbscissaSegment,
                                                     v['s'],
                                                     v[fieldname])
-                if GhostParticleAtRoot:
-                    sourcefields[fieldname][0] = 2*sourcefields[fieldname][0]-\
+                sourcefields[fieldname][0] = 2*sourcefields[fieldname][0]-\
                                                    sourcefields[fieldname][2]
 
-                if GhostParticleAtTip:
-                    sourcefields[fieldname][-1] =2*sourcefields[fieldname][-1]-\
+                sourcefields[fieldname][-1] = 2*sourcefields[fieldname][-1]-\
                                                    sourcefields[fieldname][-3]
 
 
@@ -5494,8 +5452,7 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
         else:
             raise AttributeError('IntegralLaw "%s" not supported'%IntegralLaw)
 
-        if GammaZeroAtRoot: sourcefields['Gamma'][0] = 0.
-        if GammaZeroAtTip: sourcefields['Gamma'][-1] = 0.
+
 
         Arrays = [sourcefields[fn] for fn in FieldsNames2Extract]
         ArraysNames = FieldsNames2Extract

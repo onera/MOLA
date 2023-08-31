@@ -60,6 +60,7 @@ if not MOLA.__ONLY_DOC__:
     import Converter.PyTree as C
     import Converter.Internal as I
     import Transform.PyTree as T
+    import Post.PyTree as P
 
 def exit(): os._exit(0)
 
@@ -143,11 +144,15 @@ class Figure():
             try: material = elt['material']
             except KeyError: material = 'Solid'
             try: color = elt['color']
-            except KeyError: color = 'White'
+            except KeyError: color = elt['color'] = 'White'
             try: vertex_container = elt['vertex_container']
             except KeyError: vertex_container = 'FlowSolution#InitV'
             try: centers_container = elt['centers_container']
             except KeyError: centers_container = 'BCDataSet'
+            elt.setdefault('iso_line', [])
+            if not isinstance(elt['iso_line'], (list, np.ndarray)):
+                elt['iso_line'] = [elt['iso_line']]
+            elt.setdefault('iso_line_color', 'Black')
             I.__FlowSolutionNodes__ = vertex_container
             I.__FlowSolutionCenters__ = centers_container
 
@@ -158,8 +163,14 @@ class Figure():
             
 
             for z in zones:
-                CPlot._addRender2Zone(z, material=material,color=color,
-                                        blending=blending)
+                CPlot._addRender2Zone(z, material=material,color=color, blending=blending)
+            
+            # Add iso lines if required
+            field_name = elt['color'].replace('Iso:','')
+            for value in elt['iso_line']: 
+                isoLine = P.isoLine(zones, field_name, value)
+                CPlot._addRender2Zone(isoLine, material='Solid', color=elt['iso_line_color'])
+                zones.append(isoLine)
 
             if hasBlending(elt):
                 TreesBlending += [ C.newPyTree(['blend.%d'%i, zones]) ]
@@ -1060,9 +1071,15 @@ class Figure():
         if orientation == 'vertical':
             if ticks_opposed_side: cbar.ax.yaxis.set_ticks_position("left")
             else: cbar.ax.yaxis.set_ticks_position("right")
+
+            for value in elt['iso_line']:
+                cbar.ax.axhline(y=value, c=elt['iso_line_color'])
         else:
             if ticks_opposed_side: cbar.ax.xaxis.set_ticks_position("top")
             else: cbar.ax.xaxis.set_ticks_position("bottom")
+
+            for value in elt['iso_line']:
+                cbar.ax.axvline(x=value, c=elt['iso_line_color'])
 
         if colorbar_title: cbar.ax.set_title(colorbar_title, color=font_color, fontsize=title_size)
         else:              cbar.ax.set_title(field_name,     color=font_color, fontsize=title_size)
