@@ -178,11 +178,8 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
     external_centers_container = I.__FlowSolutionCenters__
     external_vertex_container = I.__FlowSolutionNodes__
 
-    # TODO solve bugs:
-    # https://elsa.onera.fr/issues/10536
-    # https://elsa.onera.fr/issues/11045
 
-    offscreen_mode = 'auto'
+    offscreen_mode = 'mesa'
 
     if offscreen_mode == 'auto':
         import CPlot.PyTree as CPlot
@@ -193,8 +190,11 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
         else:
             raise SystemError('machine "%s" not supported.'%machine)
     elif offscreen_mode == 'mesa':
-        try: import CPlotOffscreen.PyTree as CPlot
-        except: import CPlot.PyTree as CPlot
+        try:
+            import CPlotOffscreen.PyTree as CPlot
+        except:
+            print(J.WARN+'CPlotOffscreen inexistent'+J.ENDC)
+            import CPlot.PyTree as CPlot
         offscreen=5 # MESA 
     else:
         raise SystemError('offscreen_mode "%s" not supported.'%offscreen_mode)
@@ -265,7 +265,14 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
     for i in range(len(Trees)):
         tree = Trees[i]
         elt = Elements[i]
-        
+
+        try: vertex_container = elt['vertex_container']
+        except KeyError: vertex_container = 'FlowSolution#InitV'
+        try: centers_container = elt['centers_container']
+        except KeyError: centers_container = 'BCDataSet'
+        I.__FlowSolutionNodes__ = vertex_container
+        I.__FlowSolutionCenters__ = centers_container
+
         if elt['color'].startswith('Iso:'):
             field_name = elt['color'].replace('Iso:','')
             if 'levels' not in elt: levels=[200,'min','max']
@@ -307,14 +314,22 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
             if 'shadow' not in elt: elt['shadow'] = True
             if not elt['shadow']: cmap -= 1
         except: pass
-
+        
+        # for debugging:
+        J.save(tree,f'tree_{i}.cgns')
+        import pprint
+        with open(f'params_{i}.txt','w') as f:
+            f.write(f'offscreen={offscreen}\n')
+            f.write(f'colormap={cmap}\n')
+            f.write(f'isoScales={isoScales}\n')
+            f.write(pprint.pformat(DisplayOptions)+'\n')
+            f.write(pprint.pformat(additionalDisplayOptions)+'\n')
+            f.write(f'I.__FlowSolutionNodes__={I.__FlowSolutionNodes__}\n')
+            f.write(f'I.__FlowSolutionCenters__={I.__FlowSolutionCenters__}\n')
+        
         CPlot.display(tree, offscreen=offscreen, colormap=cmap,
             isoScales=isoScales, **DisplayOptions, **additionalDisplayOptions)
-        if offscreen_mode == 'mesa':
-            if not increment_offscreen:
-                CPlot.finalizeExport(offscreen)
-        else:
-            CPlot.finalizeExport(offscreen)
+        CPlot.finalizeExport(offscreen)
     
         sleep(0.5)
 
