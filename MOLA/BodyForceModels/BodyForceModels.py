@@ -16,6 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
+from scipy.interpolate import interp1d, PchipInterpolator, Akima1DInterpolator, CubicSpline
 
 import Converter.PyTree as C
 import Converter.Internal as I
@@ -504,7 +505,7 @@ def BodyForceModel_ShockWaveLoss(t, BodyForceParameters):
     return NewSourceTermsGlobal
 
 
-def spreadLossAlongChord(t, BodyForceParameters):
+def spreadPressureLossAlongChord(t, BodyForceParameters):
     FluidProperties = BodyForceParameters.get('FluidProperties')
     TurboConfiguration = BodyForceParameters.get('TurboConfiguration')
     R = FluidProperties['IdealGasConstant']
@@ -533,5 +534,338 @@ def spreadLossAlongChord(t, BodyForceParameters):
             )
         
         NewSourceTermsGlobal[I.getName(zone)] = NewSourceTerms
+    
+    return NewSourceTermsGlobal
+
+def PtLossModel_Roberts1988_RotorTipClearance(r, rShroud, delta1, TipClearance, BladeSpan, alpha=0.01):
+    '''
+    Loss model (in total pressure) for endwall losses due to the rotor tip clearence.
+
+    From: Roberts, Serovy and Sandercock, 1988, "Design Point Variation of Three-Dimensional Loss and Deviation for Axial Compressor Middle Stages"
+
+    See equations (4), (5), (6) in this paper.
+
+    Parameters
+    ----------
+        r : np.ndarray
+            Radius values, in the current zone of interest for instance.
+
+        rShroud : float
+            Radius at Shroud (tip)
+
+        delta1 : np.ndarray
+            Displacement thickness normalized by blade span
+
+        TipClearance : float
+            Tip clearance at rotor tip, normalized by blade span
+
+        BladeSpan : float
+            Equal to the radius at shroud minus the radius at hub.
+
+        alpha : float, optional
+            Floor value to define the extent of the gaussian function, by default 0.01
+
+    Returns
+    -------
+        np.ndarray
+            Total pressure loss, with the same shape as the input radius **r**
+    '''
+    # We define a gaussian function of radius with its maximum value, its location and its width at alpha percents of the maximum
+    PtLossMaximum  = 0.25 * np.tanh(np.sqrt(delta1*TipClearance*1e3))   # eq (4) in the reference paper
+    PtLossDistanceOfMaxFromWall = 0.125 * np.tanh(np.sqrt(delta1*TipClearance*1e3)) * BladeSpan  # eq (5) in the reference paper
+    PtLossExtent   = 2.5 * PtLossDistanceOfMaxFromWall  # eq (6) in the reference paper
+    rmaxLoss = rShroud - PtLossDistanceOfMaxFromWall
+    sigma = PtLossExtent**2 / (-4*np.log(alpha))
+    PtLossDistrib = PtLossMaximum * np.exp( -(r-rmaxLoss)**2 / sigma )
+    return PtLossDistrib
+
+def PtLossModel_Roberts1988_EndWallWithoutClearance(r, rWall, WallType, delta1, Camber, ARc, Solidity, BladeSpan, alpha=0.01):
+    '''
+    Loss model (in total pressure) for endwall losses at rotor hub or stator endwalls.
+
+    From: Roberts, Serovy and Sandercock, 1988, "Design Point Variation of Three-Dimensional Loss and Deviation for Axial Compressor Middle Stages"
+
+    See equations (8), (9) and equation on Fig. 12 in this paper. Be careful, equation (7) seems to be wrong, prefer Fig. 12.
+
+    Parameters
+    ----------
+        r : np.ndarray
+            Radius values, in the current zone of interest for instance.
+
+        rWall : float
+            Radius at the endwall (hub or shroud, depending on **WallType**)
+        
+        WallType : str
+            Must be 'hub' or 'shroud'.
+
+        delta1 : np.ndarray
+            Displacement thickness normalized by blade span
+
+        Camber : float
+            Camber of the blade in degrees (noted phi in the reference paper)
+        
+        ARc : float
+            Channel Aspect Ratio = blade span / blade spacing at mid span
+        
+        Solidity : float
+            Solidity = blade chord / blade spacing (noted sigma in the reference paper)
+
+        BladeSpan : float
+            Equal to the radius at shroud minus the radius at hub.
+
+        alpha : float, optional
+            Floor value to define the extent of the gaussian function, by default 0.01
+
+    Returns
+    -------
+        np.ndarray
+            Total pressure loss, with the same shape as the input radius **r**
+    '''
+    PtLossMaximum  = 0.20 * np.tanh( np.sqrt( 15 * Camber * delta1**2 / (ARc * Solidity) ) )  # error in eq (7) in the reference paper, see eq on Fig. 12
+    PtLossDistanceOfMaxFromWall = 0.1 * BladeSpan  # eq (8) in the reference paper
+    PtLossExtent   = 2.5 * PtLossDistanceOfMaxFromWall  # eq (9) in the reference paper
+
+    if WallType.lower() == 'hub':
+        rmaxLoss = rWall + PtLossDistanceOfMaxFromWall
+    elif WallType.lower() == 'shroud':
+        rmaxLoss = rWall - PtLossDistanceOfMaxFromWall
+    else:
+        raise ValueError('WallType must be hub or shroud')
+    
+    sigma = PtLossExtent**2 / (-4*np.log(alpha))
+    PtLossDistrib = PtLossMaximum * np.exp( -(r-rmaxLoss)**2 / sigma )
+    return PtLossDistrib
+
+def DeviationModel_Roberts1988_StatorEndWalls(r, rHub, rShroud, delta1AtHub, delta1AtShroud, CamberAtHub, CamberAtShroud, SolidityAtHub, SolidityAtShroud, ARc, BladeSpan):
+    '''
+    Deviation model based on correlations at stator endwalls.
+
+    From: 
+        [1] Roberts, Serovy and Sandercock, 1988, "Design Point Variation of Three-Dimensional Loss and Deviation for Axial Compressor Middle Stages"
+        [2] Roberts, Serovy and Sandercock, 1986, "Modeling the 3-D Flow effects on Deviation angle for Axial Compressor Middle Stages"
+
+    Parameters
+    ----------
+        r : np.ndarray
+            Radius values, in the current zone of interest for instance.
+
+        rHub : float
+            Radius at the hub
+        
+        rShroud : float
+            Radius at the shroud
+
+        delta1AtHub : np.ndarray
+            Displacement thickness at hub normalized by blade span
+        
+        delta1AtShroud : np.ndarray
+            Displacement thickness at shroud normalized by blade span
+
+        CamberAtHub : float
+            Camber of the blade at hub in degrees (noted phi in the reference paper)
+        
+        CamberAtShroud : float
+            Camber of the blade at shroud in degrees (noted phi in the reference paper)
+        
+        SolidityAtHub : float
+            Solidity at hub = blade chord / blade spacing (noted sigma in the reference paper)
+
+        SolidityAtShroud : float
+            Solidity at shroud = blade chord / blade spacing (noted sigma in the reference paper)
+                
+        ARc : float
+            Channel Aspect Ratio = blade span / blade spacing at mid span
+
+        BladeSpan : float
+            Equal to the radius at shroud minus the radius at hub.
+
+    Returns
+    -------
+        np.ndarray
+            Underturning with respect to midspan flow angle, with the same shape as the input radius **r**
+    '''
+    # Same equations at hub and shroud, but different inputs
+    # At hub
+    arg1 = 0.5 * CamberAtHub * delta1AtHub**2 / (ARc*SolidityAtHub) * 1e3  
+    UnderturningMaximumNearHub = 15 * np.tanh( arg1 )  # eq (1-Rob.,'86) in [1]
+    rmaxNearHub = rHub + 0.125 * BladeSpan  # eq (2) in [2]
+    UnderturningMaximumMinusAtHubWall = 20 * np.tanh( arg1 )  # eq (2-Rob.,'86) in [1]
+
+    # At shroud
+    arg2 = 0.5 * CamberAtShroud * delta1AtShroud**2 / (ARc*SolidityAtShroud) * 1e3  
+    UnderturningMaximumNearShroud = 15 * np.tanh( arg2 )  # eq (1-Rob.,'86) in [1]
+    rmaxNearShroud = rHub + 0.875 * BladeSpan  # eq (2) in [2]
+    UnderturningMaximumMinusAtShroudWall = 20 * np.tanh( arg2 )  # eq (2-Rob.,'86) in [1]
+
+    # # Same equations at hub and shroud, but different inputs
+    # # At hub
+    # UnderturningMaximumNearHub = 420 * (CamberAtHub * delta1AtHub**2 / (ARc*SolidityAtHub))**0.75  # eq (1) in [1]
+    # rmaxNearHub = rHub + 0.125 * BladeSpan  # eq (2) in [2]
+    # UnderturningMaximumMinusAtHubWall = 570 * (CamberAtHub * delta1AtHub**2 / (ARc*SolidityAtHub))**0.75  # eq (3) in [1]
+
+    # # At shroud
+    # UnderturningMaximumNearShroud = 420 * (CamberAtShroud * delta1AtShroud**2 / (ARc*SolidityAtShroud))**0.75  # eq (1) in [1]
+    # rmaxNearShroud = rHub + 0.875 * BladeSpan  # eq (2) in [2]
+    # UnderturningMaximumMinusAtShroudWall = 570 * (CamberAtShroud * delta1AtShroud**2 / (ARc*SolidityAtShroud))**0.75  # eq (3) in [1]
+
+    Underturning = np.zeros(r.shape)
+    rmidspan = (rHub + rShroud) / 2
+    # Near hub
+    # Between mid span and max underturning location
+    where = (rmaxNearHub < r) & (r < rmidspan)
+    Underturning[where] = UnderturningMaximumNearHub * np.exp( -(6*(r[where]-rmaxNearHub)/BladeSpan)**2 )
+    # Between max underturning location and the endwall
+    where = r < rmaxNearHub
+    Underturning[where] = UnderturningMaximumNearHub - UnderturningMaximumMinusAtHubWall * np.exp( -(20*(r[where]-rHub)/BladeSpan)**2 )
+    
+    # Near shroud
+    # Between mid span and max underturning location
+    where = (rmidspan < r) & (r < rmaxNearShroud)
+    Underturning[where] = UnderturningMaximumNearShroud * np.exp( -(6*(r[where]-rmaxNearShroud)/BladeSpan)**2 )
+    # Between max underturning location and the endwall
+    where = rmaxNearShroud < r
+    Underturning[where] = UnderturningMaximumNearShroud - UnderturningMaximumMinusAtShroudWall * np.exp( -(20*(r[where]-rShroud)/BladeSpan)**2 )
+
+    return Underturning
+
+def DeviationModel_Roberts1988_RotorEndWalls(r, rHub, rShroud, delta1AtShroud, TipClearance, BladeSpan):
+    '''
+    Deviation model based on correlations at rotor endwalls.
+
+    From: 
+        [1] Roberts, Serovy and Sandercock, 1988, "Design Point Variation of Three-Dimensional Loss and Deviation for Axial Compressor Middle Stages"
+        [2] Roberts, Serovy and Sandercock, 1986, "Modeling the 3-D Flow effects on Deviation angle for Axial Compressor Middle Stages"
+
+    Parameters
+    ----------
+        r : np.ndarray
+            Radius values, in the current zone of interest for instance.
+
+        rHub : float
+            Radius at the hub
+        
+        rShroud : float
+            Radius at the shroud
+        
+        delta1AtShroud : np.ndarray
+            Displacement thickness at shroud normalized by blade span
+
+        TipClearance : float
+            Tip clearance of the rotor normalized by blade span.
+
+        BladeSpan : float
+            Equal to the radius at shroud minus the radius at hub.
+
+    Returns
+    -------
+        np.ndarray
+            Underturning with respect to midspan flow angle, with the same shape as the input radius **r**
+    '''
+    # Only for rotor
+    UnderturningAtTip = 30 * np.tanh( delta1AtShroud * TipClearance * 1e3 )  # eq (4-Rob.,'86) in [1]
+    UnderturningAtTipLocation = rShroud - 0.05 * BladeSpan   # eq (2) in [2]
+    OverturningAtTip = -1.25 # deg
+    OverturningAtTipLocation = rShroud - 0.15 * BladeSpan
+    OverturningAtHub = -2.0 # deg
+    OverturningAtHubLocation = rHub + 0.05 * BladeSpan
+    StartOverturningAtHubLocation = rHub + 0.15 * BladeSpan
+
+    Underturning = np.zeros(r.shape)
+    rmidspan = (rHub + rShroud) / 2
+    # # Between tip and max underturning location
+    # f = Akima1DInterpolator([OverturningAtTipLocation, UnderturningAtTipLocation], [OverturningAtTip, UnderturningAtTip])
+    # where = OverturningAtTipLocation < r
+    # Underturning[where] = f(r[where]) # smooth, through UnderturningAtTip
+    # # Between max underturning location and mid span
+    # where = (rmidspan < r) & (r < UnderturningAtTipLocation)
+    # Underturning[where] = OverturningAtTip * np.exp( -(6*(r[where]-OverturningAtTipLocation)/BladeSpan)**2 )
+    # # Between midspan and StartOverturningAtHubLocation
+    # # Underturning stays null
+    # # Between StartOverturningAtHubLocation to the hub
+    # # Underturning[r<StartOverturningAtHubLocation] = ... # smooth curve. Quasi-linear ? What is the value at the hub ? 
+
+    deviationInterpolator = PchipInterpolator(
+        [OverturningAtHubLocation, StartOverturningAtHubLocation, rmidspan, OverturningAtTipLocation, UnderturningAtTipLocation], 
+        [OverturningAtHub        ,                             0,        0, OverturningAtTip        , UnderturningAtTip        ]
+        )
+    Underturning = deviationInterpolator(r)
+    
+    return Underturning
+
+def BodyForceModel_Roberts1988(t, BodyForceParameters):
+    r"""
+    Compute source terms corresponding to end wall lossses and flow deviation.
+
+    From: 
+        [1] Roberts, Serovy and Sandercock, 1988, "Design Point Variation of Three-Dimensional Loss and Deviation for Axial Compressor Middle Stages"
+        [2] Roberts, Serovy and Sandercock, 1986, "Modeling the 3-D Flow effects on Deviation angle for Axial Compressor Middle Stages"
+
+    Parameters
+    ----------
+
+        t : PyTree
+            input tree (or zone, or list of zones) involved in source terms computations
+
+        BodyForceParameters : dict
+            Additional parameters for this body-force model.
+
+    Returns
+    -------
+
+        NewSourceTermsGlobal : dict
+            Computed source terms.
+    """
+    rShroud = BodyForceParameters['ShroudRadius']
+    rHub = BodyForceParameters['HubRadius']
+    BladeSpan = rShroud - rHub
+    ChannelAspectRatio = BodyForceParameters['AspectRatio'] # blade span / blade spacing at mid span
+    Solidity = BodyForceParameters['Solidity'] # chord / blade spacing
+    Camber = BodyForceParameters['Camber'] # In degrees
+
+    TurboConfiguration = BodyForceParameters.get('TurboConfiguration')
+
+    NewSourceTermsGlobal = dict()
+    for zone in I.getZones(t):
+
+        rowName = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+        RotationSpeed = TurboConfiguration['Rows'][rowName]['RotationSpeed']
+
+        DataSourceTerms = J.getVars2Dict(zone, Container='FlowSolution#DataSourceTerm')
+        r = DataSourceTerms['radius']
+
+        #####################################################################
+        # For Hub
+
+        # 1. Extract the BC
+        # 2. Get the displacement thickness
+        # Maybe first just take an average and broadcast it in zones
+        DisplacementThickness = ...
+        DisplacementThicknessAdim = DisplacementThickness / BladeSpan
+
+        # At hub        
+        PtLossAtHub = PtLossModel_Roberts1988_EndWallWithoutClearance(r, rHub, 'Hub', HubDisplacementThickness, Camber, ChannelAspectRatio, Solidity, BladeSpan)
+
+        # At Shroud
+        if RotationSpeed == 0.:
+            # Only for stator
+            PtLossAtShroud = PtLossModel_Roberts1988_EndWallWithoutClearance(r, rShroud, 'Shroud', ShroudDisplacementThickness, Camber, ChannelAspectRatio, Solidity, BladeSpan)
+        else:
+            # For rotor with tip clearance
+            PtLossAtShroud = PtLossModel_Roberts1988_RotorTipClearance(r, rShroud, ShroudDisplacementThickness, TipClearance, BladeSpan)
+
+        LossSourceTerms = spreadPressureLossAlongChord(PtLossAtHub + PtLossAtShroud)
+
+        ####################################################################
+        # Deviation with respect to flow angle at mid span
+        if RotationSpeed == 0.:
+            # Only for stators
+            Underturning = DeviationModel_Roberts1988_StatorEndWalls(r, rHub, rShroud, delta1AtHub, delta1AtShroud, CamberAtHub, CamberAtShroud, SolidityAtHub, SolidityAtShroud, ARc, BladeSpan)
+        else:
+            # Only for rotors
+            Underturning = DeviationModel_Roberts1988_RotorEndWalls(r, rHub, rShroud, delta1AtShroud, TipClearance, BladeSpan)
+
+        # Add deviation to the midspan angle, and convert that into a force...
+
+        NewSourceTermsGlobal[I.getName(zone)] = LossSourceTerms
     
     return NewSourceTermsGlobal
