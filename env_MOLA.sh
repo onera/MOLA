@@ -10,13 +10,14 @@ ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
 export MOLA=/stck/lbernard/MOLA/Dev
 export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
-export VPMVERSION=v0.2
+export VPMVERSION=v0.3
 export PUMAVERSION=v2.0.3
 export TURBOVERSION=v1.2.2
 export ERSTAZVERSION=v1.6.3
 export MOLAext=/stck/lbernard/MOLA/Dev/ext # you should not modify this line
 export MOLASATORext=/tmp_user/sator/lbernard/MOLA/Dev/ext # you should not modify this line
-export OWNCASSREV=rev4386
+export OWNCASSREV=rev4614
+export MAIAVERSION=1.2
 ###############################################################################
 
 
@@ -103,7 +104,7 @@ if [ "$MAC" = "sator" ]; then
 
     # maia
     module use --append /tmp_user/sator/sonics/usr/modules/
-    module load maia/1.2-dsi-cfd5_idx32
+    module load maia/$MAIAVERSION-dsi-cfd5_idx32
 
     # VPM
     export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator/$ARCH
@@ -160,7 +161,7 @@ elif [ "$MAC" = "spiro" ]; then
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
     # VPM
-    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro_el8/$ARCH
+    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro/$ARCH
     export PATH=$VPMPATH:$PATH
     export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
@@ -179,7 +180,7 @@ elif [ "$MAC" = "spiro" ]; then
 
     # maia 
     module use --append /scratchm/sonics/usr/modules/
-    module load maia/1.2-dsi-cfd5
+    module load maia/$MAIAVERSION-dsi-cfd5
 
     # own Cassiopee
     module load occt/7.6.1-gnu831
@@ -225,10 +226,10 @@ elif [ "$MAC" = "ld" ]; then
 
     # maia
     module use --append /home/sonics/LD8/modules/
-    module load maia/1.2-dsi-ompi405
+    module load maia/$MAIAVERSION-dsi-ompi405
 
     # VPM
-    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld8/$ARCH
+    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld/$ARCH
     export PATH=$VPMPATH:$VPMPATH/lib:$PATH
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
     export LD_LIBRARY_PATH=$VPMPATH:$VPMPATH/lib:$LD_LIBRARY_PATH
@@ -241,7 +242,7 @@ elif [ "$MAC" = "ld" ]; then
     
 
     # own Cassiopee
-    export OWNCASS=/stck/lbernard/Cassiopee/$OWNCASSREV/ld8
+    export OWNCASS=/stck/lbernard/Cassiopee/$OWNCASSREV/ld
     export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH
     export PYTHONPATH=$OWNCASS/lib/python3.8/site-packages:$PYTHONPATH
 

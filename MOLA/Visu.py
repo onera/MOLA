@@ -76,7 +76,9 @@ class Figure():
         
         self.fig = None
 
-    def plotSurfaces(self, surfaces, filename=None, Elements=None): 
+    def plotSurfaces(self, surfaces, filename=None, Elements=None,
+            default_vertex_container='FlowSolution#InitV',
+            default_centers_container='BCDataSet'):
         
         if filename:
             self.filename = filename
@@ -92,7 +94,7 @@ class Figure():
         # https://elsa.onera.fr/issues/10536
         # https://elsa.onera.fr/issues/11045
 
-        offscreen_mode = 'auto'
+        offscreen_mode = 'mesa'
 
         if offscreen_mode == 'auto':
             import CPlot.PyTree as CPlot
@@ -146,27 +148,35 @@ class Figure():
             try: color = elt['color']
             except KeyError: color = elt['color'] = 'White'
             try: vertex_container = elt['vertex_container']
-            except KeyError: vertex_container = 'FlowSolution#InitV'
+            except KeyError: vertex_container = default_vertex_container
             try: centers_container = elt['centers_container']
-            except KeyError: centers_container = 'BCDataSet'
+            except KeyError: centers_container = default_centers_container
+            I.__FlowSolutionNodes__ = vertex_container
+            I.__FlowSolutionCenters__ = centers_container
             elt.setdefault('iso_line', [])
             if not isinstance(elt['iso_line'], (list, np.ndarray)):
                 elt['iso_line'] = [elt['iso_line']]
             elt.setdefault('iso_line_color', 'Black')
-            I.__FlowSolutionNodes__ = vertex_container
-            I.__FlowSolutionCenters__ = centers_container
 
-            zones = J.selectZones(t, **selection)
+            field_name = elt['color'].replace('Iso:','')
+            if elt['color'].startswith('Iso:'):
+                zones = [z for z in J.selectZones(t, **selection) if 
+                    _fieldExistsAtNodesOrCentersAtZone(z, field_name,
+                        vertex_container, centers_container)]
+                if not zones:
+                    print(J.WARN+f'WARNING: visualization element [{i}]:')
+                    print(f'field "{field_name}" does not exist in container {vertex_container} nor {centers_container} of any selected zones')
+                    print('please adjust the vertex_container and centers_container options'+J.ENDC)
+                    continue
+            else:
+                zones = J.selectZones(t, **selection)
 
-            if hasBlending(elt): zones = C.convertArray2Hexa(zones) # see cassiopee #8740
-
-            
+            if hasBlending(elt): zones = C.convertArray2Hexa(zones) # see cassiopee #8740            
 
             for z in zones:
                 CPlot._addRender2Zone(z, material=material,color=color, blending=blending)
             
             # Add iso lines if required
-            field_name = elt['color'].replace('Iso:','')
             for value in elt['iso_line']: 
                 isoLine = P.isoLine(zones, field_name, value)
                 CPlot._addRender2Zone(isoLine, material='Solid', color=elt['iso_line_color'])
@@ -185,9 +195,18 @@ class Figure():
         for i in range(len(Trees)):
             tree = Trees[i]
             elt = self.Elements[i]
-            
+
+            try: vertex_container = elt['vertex_container']
+            except KeyError: vertex_container = default_vertex_container
+            try: centers_container = elt['centers_container']
+            except KeyError: centers_container = default_centers_container
+            I.__FlowSolutionNodes__ = vertex_container
+            I.__FlowSolutionCenters__ = centers_container
+
+
             if elt['color'].startswith('Iso:'):
                 field_name = elt['color'].replace('Iso:','')
+
                 if 'levels' not in elt: levels=[200,'min','max']
                 else: levels = elt['levels']
 
@@ -236,8 +255,6 @@ class Figure():
             else:
                 CPlot.finalizeExport(offscreen)
         
-            sleep(0.5)
-
         I.__FlowSolutionCenters__ = external_centers_container
         I.__FlowSolutionNodes__ = external_vertex_container
 
@@ -1360,14 +1377,15 @@ def makeShaftRotate(t, iteration):
                             vectors=vectors)
 
 
-def makeMovie(FRAMES_DIRECTORY='.', filename='animation.gif', fps=24, width=400):
+def makeMovie(FRAMES_DIRECTORY='FRAMES', fps=24, width=400,
+        resize_images=True, movie_filename='movie.avi', gif_filename=''):
     '''
     Make an gif animation easily from pre-existing frames (must be named 'frame*.png')
 
     Parameters
     ----------
     FRAMES_DIRECTORY : str, optional
-        Directory where the frames are, by default '.'
+        Directory where the frames are, by default 'FRAMES'
     filename : str, optional
         Name of the output file, by default 'animation.gif'
     fps : int, optional
@@ -1376,17 +1394,25 @@ def makeMovie(FRAMES_DIRECTORY='.', filename='animation.gif', fps=24, width=400)
         Width in pixels of the output animation file, by default 400
     '''
 
-    # first, resize your images to the width size desired for final video (e.g. 600 px)
-    os.system(
-        f'for img in frame*.png; do convert -resize 600 -quality 100 "{FRAMES_DIRECTORY}/$img" "{FRAMES_DIRECTORY}/resized-$img"; done')
-    
-    # second, create movie with (increase fps for having faster motion)
-    os.system(
-        f'mencoder  mf://{FRAMES_DIRECTORY}/resized-frame*.png -mf fps={fps}  -ovc x264 -x264encopts subq=6:partitions=all:8x8dct:me=umh:frameref=5:bframes=3:b_pyramid=normal:weight_b -o movie.avi')
+    # first, resize your images to the width size desired for final video 
+    if resize_images:
+        os.system(
+            f'for img in {FRAMES_DIRECTORY}/frame*.png; do convert -resize {width} -quality 100 "$img" "{FRAMES_DIRECTORY}/resized-${{img##*/}}"; done')
+            # f'for img in {FRAMES_DIRECTORY}/frame*.png; do echo ${{img##*/}}; done')
+        resized_image_name='resized-frame'
+    else:
+        resized_image_name=''
 
-    # then convert movie to gif, by scaling to desired pixels (e.g. width 400 px)
+    # second, create movie with (increase fps for having faster motion)
+    if gif_filename and not movie_filename:
+        movie_filename = gif_filename.replace('.gif','.avi')
     os.system(
-        f'ffmpeg -i movie.avi -vf "fps=10,scale={width}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 {filename}')
+        f'mencoder  mf://{FRAMES_DIRECTORY}/{resized_image_name}*.png -mf fps={fps}  -ovc x264 -x264encopts subq=6:partitions=all:8x8dct:me=umh:frameref=5:bframes=3:b_pyramid=normal:weight_b -o {movie_filename}')
+
+    if gif_filename:
+        # then convert movie to gif, by scaling to desired pixels (e.g. width 400 px)
+        os.system(
+            f'ffmpeg -i {movie_filename} -vf "fps=10,scale={width}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 {gif_filename}')
 
 def duplicateRows(t, setup=None, **RowsToDuplicate):
     '''
@@ -1757,3 +1783,26 @@ def _getMin(t, field_name):
             if not node or node[3] != 'DataArray_t': continue
             actual = np.minimum(actual, np.min(node[1]))
     return actual
+
+def _fieldExistsAtNodesOrCentersAtZone(z, field_name, vertex_container_name,
+        centers_container_name):
+    z = I.getZones(z)[0]
+    for fsname in [vertex_container_name, centers_container_name]:
+        fs = I.getNodeFromName1(z,fsname)
+        if not fs: continue
+        if fs[3] != 'FlowSolution_t':
+            print(f'WARNING: unexpected node {z[0]}/{vertex_container_name} of type {fs[3]}')
+            continue
+        for field in fs[2]:
+            if field[0] == field_name: return True
+    return False
+
+def _fieldExistsAtNodesOrCenters(t, field_name, vertex_container_name,
+        centers_container_name):
+
+    zone_ok = [_fieldExistsAtNodesOrCentersAtZone(z,field_name,
+        vertex_container_name,
+        centers_container_name) for z in I.getZones(t)]
+
+    return all(zone_ok)
+        

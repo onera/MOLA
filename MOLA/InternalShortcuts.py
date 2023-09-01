@@ -43,6 +43,7 @@ if not MOLA.__ONLY_DOC__:
     from itertools import product
     from timeit import default_timer as tic
     from fnmatch import fnmatch
+    from contextlib import contextmanager
 
 
     import Converter.PyTree as C
@@ -2143,6 +2144,36 @@ class OutputGrabber(object):
                 break
             self.capturedtext += char
 
+@contextmanager
+def stdout_redirected(to=os.devnull):
+    '''
+    import os
+
+    with stdout_redirected(to=filename):
+        print("from Python")
+        os.system("echo non-Python applications are also supported")
+    '''
+    fd = sys.stdout.fileno()
+
+    ##### assert that Python and C stdio write using the same file descriptor
+    ####assert libc.fileno(ctypes.c_void_p.in_dll(libc, "stdout")) == fd == 1
+
+    def _redirect_stdout(to):
+        sys.stdout.close() # + implicit flush()
+        os.dup2(to.fileno(), fd) # fd writes to 'to' file
+        sys.stdout = os.fdopen(fd, 'w') # Python writes to fd
+
+    with os.fdopen(os.dup(fd), 'w') as old_stdout:
+        with open(to, 'w') as file:
+            _redirect_stdout(to=file)
+        try:
+            yield # allow code to be run with the redirected stdout
+        finally:
+            _redirect_stdout(to=old_stdout) # restore stdout.
+                                            # buffering and flags such as
+                                            # CLOEXEC may be different
+
+
 def selectZonesExceptThatWithHighestNumberOfPoints(ListOfZones):
     '''
     return a list of zones excluding the zone yielding the highest number
@@ -2350,12 +2381,12 @@ def printEnvironment():
     print(v.ljust(20-len(tag))+printTime(toc))
 
     # Cassiopee
-    tag = ' --> Cassiopee '
+    tag = ' --> Cassiopee ' + os.getenv('OWNCASSREV','') + ' '
     print(tag,end='')
     toc = tic()
     try:
-        import Converter.PyTree as C
-        v = C.__version__
+        import KCore as K
+        v = K.__version__
     except:
         v = FAIL + 'UNAVAILABLE' + ENDC
     print(v.ljust(20-len(tag))+printTime(toc))

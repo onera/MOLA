@@ -4957,7 +4957,7 @@ def hasAnyNearMatch(t, InputMeshes):
     '''
     for meshInfo in InputMeshes:
         try: Connection = meshInfo['Connection']
-        except KeyError: pass
+        except KeyError: continue
 
         for ConnectionInfo in Connection:
             isNearMatch = ConnectionInfo['type'] == 'NearMatch'

@@ -35,6 +35,7 @@ if not MOLA.__ONLY_DOC__:
 
 from . import InternalShortcuts as J
 
+
 @J.mute_stdout
 def generateHLinesAxial(t, filename, nbslice=21, comm=MPI.COMM_WORLD, tol=1e-10, offset=4, hubFirst=False):
     print("generateHLinesAxial: Generation of Hub&Shroud lines")
@@ -92,7 +93,21 @@ def generateHLinesAxial(t, filename, nbslice=21, comm=MPI.COMM_WORLD, tol=1e-10,
 @J.mute_stdout
 def computeHeight(t,hLines,hFormat='bin_tp',constraint=5.,mode='accurate',isInterp=False,writeMask=None,writeMaskCart=None,writePyTreeCyl=None, fsname=None):
     t = trf.cartToCyl(t)
-    m = epost.createChannelMesh(t, hLines, format=hFormat) # This function is very verbose
+
+    fd = 2 # stderr file identifier
+    to = os.devnull # trash
+    def _redirect_stderr(to):
+        sys.stderr.close() # + implicit flush()
+        os.dup2(to.fileno(), fd) # fd writes to 'to' file
+        sys.stderr = os.fdopen(fd, 'w') # Python writes to fd
+
+    with os.fdopen(os.dup(fd), 'w') as old_stderr:
+        with open(to, 'w') as file:
+            _redirect_stderr(to=file)
+        m = epost.createChannelMesh(t, hLines, format=hFormat) # This function is very verbose
+        _redirect_stderr(to=old_stderr)
+    
+
     m = epost.computeChannelHeight(m, fsname=I.__FlowSolutionNodes__)
     if isInterp: m = C.initVars(m, '{isInterp}=1.0')
     t = P.extractMesh(m,t,constraint=constraint,mode=mode)
