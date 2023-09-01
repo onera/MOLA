@@ -5359,11 +5359,6 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
         omega = rowParams['RotationSpeed']
         beta1 = rowParams.get('FlowAngleAtRoot', 0.)
         beta2 = rowParams.get('FlowAngleAtTip', 0.)
-        for (beta, paramName) in [(beta1, 'FlowAngleAtRoot'), (beta2, 'FlowAngleAtTip')]:
-            if beta * omega < 0:
-                MSG=f'WARNING: {paramName} ({beta} deg) has not the same sign that the rotation speed in {row} ({omega} rad/s).\n'
-                MSG += '        Double check it is not a mistake.'
-                print(J.WARN + MSG + J.ENDC)
         Csir = 1. if omega == 0 else 0.95  # Total pressure loss is null for a rotor, 5% for a stator
         planes_data.append(
             dict(
