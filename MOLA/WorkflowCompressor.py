@@ -639,7 +639,7 @@ def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
         try: ParamHeight.plot_hub_and_shroud_lines(hlines)
         except: pass
         I._rmNodesByName(t, fsname)
-        t = ParamHeight.computeHeight(t, hlines, fsname=fsname, writeMask='mask.cgns')
+    t = ParamHeight.computeHeight(t, hlines, fsname=fsname, writeMask='mask.cgns')
 
     if excludeZones:
         OLD_FlowSolutionNodes = I.__FlowSolutionNodes__
