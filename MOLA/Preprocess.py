@@ -4912,7 +4912,7 @@ def adapt2elsA(t, InputMeshes):
     '''
 
     if hasAnyNearMatch(t, InputMeshes):
-        print('adapting NearMatch to elsA')
+        print(J.CYAN+'adapting NearMatch to elsA'+J.ENDC)
         EP._adaptNearMatch(t)
 
     if hasAnyOversetData(InputMeshes):
@@ -4963,10 +4963,15 @@ def hasAnyNearMatch(t, InputMeshes):
             isNearMatch = ConnectionInfo['type'] == 'NearMatch'
             if isNearMatch: return True
     
-    for GridConnectivityNode in I.getNodesFromType(t, 'GridConnectivity_t'):
-        if I.getNodesFromValue(GridConnectivityNode, 'Abbuting'):
-            return True
-
+    for base in I.getBases(t):
+        for zone in I.getZones(base):
+            for zgc in I.getNodesFromType1(zone,'ZoneGridConnectivity_t'):
+                for gc in I.getNodesFromType1(zgc, 'GridConnectivity_t'):
+                    gct = I.getNodeFromType1(gc, 'GridConnectivityType_t')
+                    if gct:
+                        gct_value = I.getValue(gct)
+                        if isinstance(gct_value,str) and gct_value == 'Abutting':
+                            return True
 
     return False
 
