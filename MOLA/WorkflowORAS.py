@@ -218,6 +218,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     AllSetupDicts = dict(Workflow='ORAS',
                         Splitter=Splitter,
+                        JobInformation=JobInformation,
                         TurboConfiguration=TurboConfiguration,
                         FluidProperties=FluidProperties,
                         ReferenceValues=ReferenceValues,
