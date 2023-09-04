@@ -1161,14 +1161,16 @@ def extractBC(t, Family=None, Name=None, Type=None):
             Type = 'FamilySpecified:'+Family
         Name = None
 
-    elif Name.startswith('FamilySpecified:'):
+    elif Name is not None and Name.startswith('FamilySpecified:'):
         Type = Name
         Name = None
+
 
     if Name:
         extractBCarg = Name
         extractBCfun = C.extractBCOfName
     else:
+        print(f'using C.extractBCOfType({Type})')
         extractBCarg = Type
         extractBCfun = C.extractBCOfType
     

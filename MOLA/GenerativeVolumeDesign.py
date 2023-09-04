@@ -3088,6 +3088,10 @@ def trimCartesianGridAtOrigin(t, trim_plane='XZ', reverse=False,
                           XY='CoordinateZ',
                           YZ='CoordinateX')
 
+    # destroy BC and connectivity, will be required to rebuild it.
+    # This is necessary, since after the trimming operation there will be 
+    # missing some BCMatch, and the trimming plane should be identified as 
+    # a new undefined BC, and not as a connectivity
     I._rmNodesByType(t, 'ZoneGridConnectivity_t')
     I._rmNodesByType(t, 'ZoneBC_t')
 
