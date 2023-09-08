@@ -161,6 +161,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     else:
         raise ValueError('parameter mesh must be either a filename or a PyTree')
 
+    IsUnstructured = PRE.hasAnyUnstructuredZones(t)
+
     FluidProperties = PRE.computeFluidProperties()
     if not 'Surface' in ReferenceValuesParams:
         ReferenceValuesParams['Surface'] = 1.0
@@ -188,9 +190,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     else:
         CHORO_TAG = False
 
-    elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-4)
-    elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues)
-    elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues, **NumericalParams)
+    elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-4, unstructured=IsUnstructured)
+    elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=IsUnstructured)
+    elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues, **NumericalParams, unstructured=IsUnstructured)
 
     if CHORO_TAG == True and Initialization['method'] != 'copy':
             MSG = 'Flow initialization failed. No initial solution provided. Chorochronic simulations must be initialized from a mixing plane solution obtained on the same mesh'

@@ -206,7 +206,6 @@ class Figure():
 
             if elt['color'].startswith('Iso:'):
                 field_name = elt['color'].replace('Iso:','')
-
                 if 'levels' not in elt: levels=[200,'min','max']
                 else: levels = elt['levels']
 
@@ -246,6 +245,14 @@ class Figure():
                 if 'shadow' not in elt: elt['shadow'] = True
                 if not elt['shadow']: cmap -= 1
             except: pass
+
+            # for debug:
+            # J.save(tree,f'tree_{i}.cgns')
+            # print(f'offscreen={offscreen}')
+            # print(f'colormap={cmap}')
+            # print(f'isoScales={isoScales}')
+            # print(DisplayOptions)
+            # print(additionalDisplayOptions)
 
             CPlot.display(tree, offscreen=offscreen, colormap=cmap,
                 isoScales=isoScales, **DisplayOptions, **additionalDisplayOptions)

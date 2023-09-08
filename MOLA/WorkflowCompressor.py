@@ -2215,7 +2215,11 @@ def setBC_Walls(t, TurboConfiguration,
                     ZoneFamilyName = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
             if ZoneFamilyName: break
 
-        assert ZoneFamilyName is not None, 'Cannot determine associated row for family {}. '.format(FamilyNameBC)
+        try:
+            assert ZoneFamilyName is not None, 'Cannot determine associated row for family {}. '.format(FamilyNameBC)
+        except AssertionError as e:
+            J.save(zones,'debug.cgns')
+            raise e
         return ZoneFamilyName
         
     # BLADES

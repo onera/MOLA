@@ -5732,6 +5732,8 @@ def convertUnstructuredMeshToNGon(t):
         print(f' --> merging zones of family {family}')
         try:
             maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD)
+            MergedZone = I.getNodeFromName3(t,'MergedZone')
+            MergedZone[0] = family + 'Zone'
         except BaseException as e:
             print(J.WARN+f'WARNING: could not merge zones using maia, received error:')
             print(str(e))
@@ -5743,6 +5745,9 @@ def convertUnstructuredMeshToNGon(t):
     t = maia.factory.dist_to_full_tree(t, MPI.COMM_WORLD, target=0)
     I._fixNGon(t) # required ?
     print('finished unstructured mesh adaptations for elsA')
+    print('zones names:')
+    for z in I.getZones(t):
+        print(z[0])
 
     return t
 
