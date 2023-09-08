@@ -40,6 +40,8 @@ def process_extractions_3d(workflow):
 
 
 def process_extractions_2d(workflow):
-    pass
+    for Extraction in workflow.Extractions:
+        if Extraction['type'] == 'bc':
+            Extraction.setdefault('fields', [])
     
 

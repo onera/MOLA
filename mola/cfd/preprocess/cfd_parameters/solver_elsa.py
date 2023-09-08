@@ -365,6 +365,8 @@ def set_numerics(workflow):
         CFLSetup = {
             'cfl_fct': 'f_cfl',
             '.Solver#Function': dict(
+                name  = 'f_cfl', 
+                function_type = 'linear',
                 iteri = workflow.Numerics['CFL']['StartIteration'],
                 iterf = workflow.Numerics['CFL']['EndIteration'],
                 vali  = workflow.Numerics['CFL']['StartValue'],

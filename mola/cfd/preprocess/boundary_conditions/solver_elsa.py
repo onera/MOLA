@@ -21,7 +21,7 @@ import Converter.PyTree as C
 import Converter.Internal as I
 
 from mola import cgns
-from ..extractions.solver_elsa import translate_to_elsa
+from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_to_elsa
 
 def define_bc_family(workflow, Family, Value):
     familyNode = workflow.tree.get(Name=Family, Type='Family', Depth=2)
@@ -170,10 +170,10 @@ def inj1(workflow, Family, ImposedVariables, bc=None, variableForInterpolation='
     '''
     if not bc and not all([np.ndim(v)==0 and not callable(v) for v in ImposedVariables.values()]):
         for bc in get_bcs(workflow.tree, Family):
-            setBCwithImposedVariables(workflow.tree, Family, ImposedVariables,
+            setBCwithImposedVariables(workflow, Family, ImposedVariables,
                 FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc, variableForInterpolation=variableForInterpolation)
     else:
-        setBCwithImposedVariables(workflow.tree, Family, ImposedVariables,
+        setBCwithImposedVariables(workflow, Family, ImposedVariables,
             FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc, variableForInterpolation=variableForInterpolation)
 
 def outpres(workflow, Family, Pressure, bc=None, variableForInterpolation='ChannelHeight'):
@@ -222,10 +222,10 @@ def outpres(workflow, Family, Pressure, bc=None, variableForInterpolation='Chann
 
     if not bc and not all([np.ndim(v) == 0 and not callable(v) for v in ImposedVariables.values()]):
         for bc in get_bcs(workflow.tree, Family):
-            setBCwithImposedVariables(workflow.tree, Family, ImposedVariables,
+            setBCwithImposedVariables(workflow, Family, ImposedVariables,
                                       FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc, variableForInterpolation=variableForInterpolation)
     else:
-        setBCwithImposedVariables(workflow.tree, Family, ImposedVariables,
+        setBCwithImposedVariables(workflow, Family, ImposedVariables,
                                 FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc, variableForInterpolation=variableForInterpolation)
 
 

@@ -184,6 +184,9 @@ def launch_elsa_computation(workflow, FILE_CGNS):
         if workflow.SplittingAndDistribution['Splitter'].lower() == 'pypart':
             from ..mesh.split import splitWithPyPart
             t, Skeleton, PyPartBase, Distribution = splitWithPyPart()
+        elif workflow.SplittingAndDistribution['Splitter'].lower() == 'maia':
+            from ..mesh.split import splitWithMaia
+            t, Distribution = splitWithMaia()
         else:
             raise Exception(f"Unkwown Splitter: {workflow.SplittingAndDistribution['Splitter']}")
         e = elsAxdt.XdtCGNS(tree=t, links=[], paths=[])

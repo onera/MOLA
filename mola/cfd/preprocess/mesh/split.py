@@ -624,7 +624,7 @@ def splitWithPyPart(comm=None):
     import Converter.Internal as I
     import etc.pypart.PyPart as PPA
     if comm is None:
-        import mpi4py as MPI
+        from mpi4py import MPI
         comm = MPI.COMM_WORLD
 
     PyPartBase = PPA.PyPart('main.cgns',
@@ -681,3 +681,37 @@ def splitWithPyPart(comm=None):
 
 
     return t, Skeleton, PyPartBase, Distribution
+
+def splitWithMaia(comm=None):
+    '''
+    Use Maia to split the mesh in ``main.cgns``. This function should be use
+    in ``compute.py`` to prepare the mesh before calling ``elsAxdt.XdtCGNS()``.
+
+    Returns
+    -------
+
+        t : PyTree
+            Split tree, merged with the skeleton. It will be the **tree**
+            argument of ``elsAxdt.XdtCGNS()`` in ``compute.py``
+
+        Skeleton : PyTree
+            Skeleton tree to use in ``coprocess.py``
+
+        PyPartBase : PyPart object
+            PyPart objet that is mandatory to use its method mergeAndSave latter
+
+        Distribution : dict
+            Correspondence between zones and processors.
+
+    '''
+    import maia
+    if comm is None:
+        from mpi4py import MPI
+        comm = MPI.COMM_WORLD
+
+    dist_tree = maia.io. file_to_dist_tree('main.cgns', comm)
+    # zone_to_parts = maia.factory.partitioning.compute_balanced_weights(dist_tree, comm)
+    part_tree = maia.factory.partition_dist_tree(dist_tree, comm)
+    maia.io.part_tree_to_file(part_tree, 'part_tree.cgns', comm)
+
+    return part_tree, Distribution

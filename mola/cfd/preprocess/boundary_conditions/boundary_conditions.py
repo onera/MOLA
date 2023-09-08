@@ -98,42 +98,13 @@ def WallInviscid(workflow, bc):
 def Farfield(workflow, bc):
     return [bc['Family']], dict() 
 
-def InflowStagnation(workflow, bc): #t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
+def InflowStagnation(workflow, bc): 
     '''
-    Set a Boundary Condition ``inj1`` with uniform inflow values. These values
-    are them in **ReferenceValues**.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            Tree to modify
-
-        FluidProperties : dict
-            as obtained from :py:func:`computeFluidProperties`
-
-        ReferenceValues : dict
-            as obtained from :py:func:`computeReferenceValues`
-
-        FamilyName : str
-            Name of the family on which the boundary condition will be imposed
-
-        kwargs : dict
-            Optional parameters, taken from **ReferenceValues** if not given:
-            PressureStagnation, TemperatureStagnation, EnthalpyStagnation,
-            VelocityUnitVectorX, VelocityUnitVectorY, VelocityUnitVectorZ, 
-            and primitive turbulent variables
-
-    See also
-    --------
-
-    setBC_inj1, setBC_inj1_interpFromFile, setBC_injmfr1
-
+    Set a Boundary Condition ``inj1``
     '''
-
     PressureStagnation    = bc.get('PressureStagnation', workflow.Flow['PressureStagnation'])
     TemperatureStagnation = bc.get('TemperatureStagnation', workflow.Flow['TemperatureStagnation'])
-    EnthalpyStagnation    = bc.get('EnthalpyStagnation', workflow.Flow['cp'] * TemperatureStagnation)
+    EnthalpyStagnation    = bc.get('EnthalpyStagnation', workflow.Fluid['cp'] * TemperatureStagnation)
     VelocityUnitVectorX   = bc.get('VelocityUnitVectorX', workflow.Flow['DragDirection'][0])
     VelocityUnitVectorY   = bc.get('VelocityUnitVectorY', workflow.Flow['DragDirection'][1])
     VelocityUnitVectorZ   = bc.get('VelocityUnitVectorZ', workflow.Flow['DragDirection'][2])
@@ -145,13 +116,59 @@ def InflowStagnation(workflow, bc): #t, FluidProperties, ReferenceValues, Family
         VelocityUnitVectorX = VelocityUnitVectorX,
         VelocityUnitVectorY = VelocityUnitVectorY,
         VelocityUnitVectorZ = VelocityUnitVectorZ,
-        **getPrimitiveTurbulentFieldForInjection(FluidProperties, ReferenceValues, **kwargs)
+        **getPrimitiveTurbulentFieldForInjection(workflow, bc)
         )
 
     return [bc['Family']], dict(ImposedVariables=ImposedVariables, variableForInterpolation=variableForInterpolation) 
 
 def OutflowPressure(workflow, bc):
     return [bc['Family']], dict(Pressure=bc['Pressure']) 
+
+
+def getPrimitiveTurbulentFieldForInjection(workflow, bc):
+        '''
+        Get the primitive (without the Density factor) turbulent variables (names and values) 
+        to inject in an inflow boundary condition.
+
+        For RSM models, see issue https://elsa.onera.fr/issues/5136 for the naming convention.
+
+        Parameters
+        ----------
+        workflow, bc
+
+        Returns
+        -------
+        dict
+            Imposed turbulent variables
+        '''
+        TurbulenceLevel = bc.get('TurbulenceLevel', None)
+        Viscosity_EddyMolecularRatio = bc.get('Viscosity_EddyMolecularRatio', None)
+        if TurbulenceLevel and Viscosity_EddyMolecularRatio:
+            
+            FlowGen = workflow._FlowGenerator() 
+            FlowGen.Turbulence.update(
+                dict(Level=TurbulenceLevel, Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio)
+            )
+            FlowGen.set_turbulence_properties()
+            Turbulence = FlowGen.Turbulence
+
+        else:
+            Turbulence = workflow.Turbulence
+
+        turbDict = dict()
+        for name, value in Turbulence['Conservatives'].items():
+            if name.endswith('Density'):
+                name = name.replace('Density', '')
+                value /= workflow.Flow['Density']
+            elif name == 'ReynoldsStressDissipationScale':
+                name = 'TurbulentDissipationRate'
+                value /= workflow.Flow['Density']
+            elif name.startswith('ReynoldsStress'):
+                name = name.replace('ReynoldsStress', 'VelocityCorrelation')
+                value /= workflow.Flow['Density']
+            turbDict[name] = value
+            
+        return turbDict
 
 
 def set_boundary_conditions_OLD(t, BoundaryConditions, TurboConfiguration,
@@ -678,54 +695,6 @@ def setBC_sym(t, FamilyName):
     I._rmNodesByName(symmetry, '.Solver#BC')
     I._rmNodesByType(symmetry, 'FamilyBC_t')
     I.newFamilyBC(value='BCSymmetryPlane', parent=symmetry)
-
-
-def getPrimitiveTurbulentFieldForInjection(FluidProperties, ReferenceValues, **kwargs):
-        '''
-        Get the primitive (without the Density factor) turbulent variables (names and values) 
-        to inject in an inflow boundary condition.
-
-        For RSM models, see issue https://elsa.onera.fr/issues/5136 for the naming convention.
-
-        Parameters
-        ----------
-        ReferenceValues : dict
-            as obtained from :py:func:`computeReferenceValues`
-
-        kwargs : dict
-            Optional parameters, taken from **ReferenceValues** if not given.
-
-        Returns
-        -------
-        dict
-            Imposed turbulent variables
-        '''
-        TurbulenceLevel = kwargs.get('TurbulenceLevel', None)
-        Viscosity_EddyMolecularRatio = kwargs.get('Viscosity_EddyMolecularRatio', None)
-        if TurbulenceLevel and Viscosity_EddyMolecularRatio:
-            ReferenceValuesForTurbulence = computeReferenceValues(FluidProperties,
-                    kwargs.get('MassFlow'), ReferenceValues['PressureStagnation'],
-                    kwargs.get('TemperatureStagnation'), kwargs.get('Surface'),
-                    TurbulenceLevel=TurbulenceLevel,
-                    Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio,
-                    TurbulenceModel=ReferenceValues['TurbulenceModel'])
-        else:
-            ReferenceValuesForTurbulence = ReferenceValues
-
-        turbDict = dict()
-        for name, value in zip(ReferenceValuesForTurbulence['FieldsTurbulence'], ReferenceValuesForTurbulence['ReferenceStateTurbulence']):
-            if name.endswith('Density'):
-                name = name.replace('Density', '')
-                value /= ReferenceValues['Density']
-            elif name == 'ReynoldsStressDissipationScale':
-                name = 'TurbulentDissipationRate'
-                value /= ReferenceValues['Density']
-            elif name.startswith('ReynoldsStress'):
-                name = name.replace('ReynoldsStress', 'VelocityCorrelation')
-                value /= ReferenceValues['Density']
-            turbDict[name] = kwargs.get(name, value)
-        return turbDict
-
 
 def setBC_inj1_interpFromFile(t, FluidProperties, ReferenceValues, FamilyName, filename, fileformat=None):
     '''
