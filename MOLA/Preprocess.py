@@ -36,6 +36,7 @@ if not MOLA.__ONLY_DOC__:
     import os
     import shutil
     import pprint
+    import glob
     import numpy as np
     from itertools import product
     import copy
@@ -4912,7 +4913,7 @@ def adapt2elsA(t, InputMeshes):
     '''
 
     if hasAnyNearMatch(t, InputMeshes):
-        print('adapting NearMatch to elsA')
+        print(J.CYAN+'adapting NearMatch to elsA'+J.ENDC)
         EP._adaptNearMatch(t)
 
     if hasAnyOversetData(InputMeshes):
@@ -4963,10 +4964,15 @@ def hasAnyNearMatch(t, InputMeshes):
             isNearMatch = ConnectionInfo['type'] == 'NearMatch'
             if isNearMatch: return True
     
-    for GridConnectivityNode in I.getNodesFromType(t, 'GridConnectivity_t'):
-        if I.getNodesFromValue(GridConnectivityNode, 'Abbuting'):
-            return True
-
+    for base in I.getBases(t):
+        for zone in I.getZones(base):
+            for zgc in I.getNodesFromType1(zone,'ZoneGridConnectivity_t'):
+                for gc in I.getNodesFromType1(zgc, 'GridConnectivity_t'):
+                    gct = I.getNodeFromType1(gc, 'GridConnectivityType_t')
+                    if gct:
+                        gct_value = I.getValue(gct)
+                        if isinstance(gct_value,str) and gct_value == 'Abutting':
+                            return True
 
     return False
 
@@ -5512,6 +5518,7 @@ def sendSimulationFiles(DIRECTORY_WORK, overrideFields=True):
     ElementsToSend = ['setup.py', 'main.cgns']
     if os.path.exists('OVERSET'): ElementsToSend += ['OVERSET']
     if overrideFields: ElementsToSend += ['OUTPUT/fields.cgns']
+    ElementsToSend += glob.glob('state_radius*') # https://elsa.onera.fr/issues/11304
     setup = J.load_source('setup','setup.py')
     try: BodyForceInputData = setup.BodyForceInputData
     except: BodyForceInputData = []
@@ -5727,6 +5734,8 @@ def convertUnstructuredMeshToNGon(t):
         print(f' --> merging zones of family {family}')
         try:
             maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD)
+            MergedZone = I.getNodeFromName3(t,'MergedZone')
+            MergedZone[0] = family + 'Zone'
         except BaseException as e:
             print(J.WARN+f'WARNING: could not merge zones using maia, received error:')
             print(str(e))
@@ -5738,6 +5747,9 @@ def convertUnstructuredMeshToNGon(t):
     t = maia.factory.dist_to_full_tree(t, MPI.COMM_WORLD, target=0)
     I._fixNGon(t) # required ?
     print('finished unstructured mesh adaptations for elsA')
+    print('zones names:')
+    for z in I.getZones(t):
+        print(z[0])
 
     return t
 

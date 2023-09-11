@@ -61,6 +61,7 @@ if not MOLA.__ONLY_DOC__:
     import Converter.Internal as I
     import Transform.PyTree as T
     import Post.PyTree as P
+    import CPlot.PyTree as CPlot
 
 def exit(): os._exit(0)
 
@@ -78,7 +79,9 @@ class Figure():
 
     def plotSurfaces(self, surfaces, filename=None, Elements=None,
             default_vertex_container='FlowSolution#InitV',
-            default_centers_container='BCDataSet'):
+            default_centers_container='BCDataSet',
+            offscreen=5 # https://elsa.onera.fr/issues/10948#note-14
+            ):
         
         if filename:
             self.filename = filename
@@ -86,31 +89,8 @@ class Figure():
         if Elements is not None:
             self.Elements = Elements
 
-        machine = os.getenv('MAC')
         external_centers_container = I.__FlowSolutionCenters__
         external_vertex_container = I.__FlowSolutionNodes__
-
-        # TODO solve bugs:
-        # https://elsa.onera.fr/issues/10536
-        # https://elsa.onera.fr/issues/11045
-
-        offscreen_mode = 'mesa'
-
-        if offscreen_mode == 'auto':
-            import CPlot.PyTree as CPlot
-            if machine in ['sator']:
-                offscreen=5 # MESA 
-            elif machine in ['ld','visung', 'visio', 'sator', 'spiro']:
-                offscreen=3 # openGL
-            else:
-                raise SystemError('machine "%s" not supported.'%machine)
-        elif offscreen_mode == 'mesa':
-            try: import CPlotOffscreen.PyTree as CPlot
-            except: import CPlot.PyTree as CPlot
-            offscreen=5 # MESA 
-        else:
-            raise SystemError('offscreen_mode "%s" not supported.'%offscreen_mode)
-
 
         cmap2int = dict(Blue2Red=1, Diverging=15, Black2White=15,
                         Viridis=17, Inferno=19, Magma=21, Plasma=23, Jet=25,
@@ -213,9 +193,6 @@ class Figure():
             try: additionalDisplayOptions = elt['additionalDisplayOptions']
             except: additionalDisplayOptions = {}
 
-            try: additionalStateOptions = elt['additionalStateOptions']
-            except: additionalStateOptions = {}
-
             if  'backgroundFile' not in additionalDisplayOptions and \
                 'bgColor' not in additionalDisplayOptions:
                 MOLA = os.getenv('MOLA')
@@ -223,10 +200,9 @@ class Figure():
                 for MOLAloc in [MOLA, MOLASATOR]:
                     backgroundFile = os.path.join(MOLAloc,'MOLA','GUIs','background.png')
                     if os.path.exists(backgroundFile):
-                        CPlot.setState(backgroundFile=backgroundFile)
-                        CPlot.setState(bgColor=13)
+                        DisplayOptions['backgroundFile']=backgroundFile
+                        DisplayOptions['bgColor']=13
                         break
-            if additionalStateOptions: CPlot.setState(**additionalStateOptions)
 
 
             try: cmap = cmap2int[elt['colormap']]
@@ -236,13 +212,20 @@ class Figure():
                 if not elt['shadow']: cmap -= 1
             except: pass
 
+            # for debug:
+            # J.save(tree,f'tree_{i}.cgns')
+            # print(CPlot.__file__)
+            # print(I.__FlowSolutionNodes__)
+            # print(I.__FlowSolutionCenters__)
+            # print(f'offscreen={offscreen}')
+            # print(f'colormap={cmap}')
+            # print(f'isoScales={isoScales}')
+            # print(f'DisplayOptions={DisplayOptions}')
+            # print(f'additionalDisplayOptions={additionalDisplayOptions}')
+
             CPlot.display(tree, offscreen=offscreen, colormap=cmap,
                 isoScales=isoScales, **DisplayOptions, **additionalDisplayOptions)
-            if offscreen_mode == 'mesa':
-                if not increment_offscreen:
-                    CPlot.finalizeExport(offscreen)
-            else:
-                CPlot.finalizeExport(offscreen)
+            CPlot.finalizeExport(offscreen)
         
         I.__FlowSolutionCenters__ = external_centers_container
         I.__FlowSolutionNodes__ = external_vertex_container
