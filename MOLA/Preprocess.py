@@ -36,6 +36,7 @@ if not MOLA.__ONLY_DOC__:
     import os
     import shutil
     import pprint
+    import glob
     import numpy as np
     from itertools import product
     import copy
@@ -5517,6 +5518,7 @@ def sendSimulationFiles(DIRECTORY_WORK, overrideFields=True):
     ElementsToSend = ['setup.py', 'main.cgns']
     if os.path.exists('OVERSET'): ElementsToSend += ['OVERSET']
     if overrideFields: ElementsToSend += ['OUTPUT/fields.cgns']
+    ElementsToSend += glob.glob('state_radius*') # https://elsa.onera.fr/issues/11304
     setup = J.load_source('setup','setup.py')
     try: BodyForceInputData = setup.BodyForceInputData
     except: BodyForceInputData = []
