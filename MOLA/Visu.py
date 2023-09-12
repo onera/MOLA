@@ -204,8 +204,12 @@ class Figure():
                 levels[1] = _getMin(tree, field_name) if levels[1] == 'min' else float(levels[1])
                 levels[2] = _getMax(tree, field_name) if levels[2] == 'max' else float(levels[2])
                 elt['levels'] = levels
-                isoScales += [field_name, levels[0], levels[1], levels[2]],
-                ['centers:'+field_name, levels[0], levels[1], levels[2]]
+                iso_nodes = [field_name, levels[0], levels[1], levels[2]]
+                iso_centers = ['centers:'+field_name, levels[0], levels[1], levels[2]]
+                if len(levels) == 5:
+                    iso_nodes.extend([levels[3],levels[4]])
+                    iso_centers.extend([levels[3],levels[4]])
+                isoScales += iso_nodes, iso_centers
 
         for i in range(len(Trees)):
             tree = Trees[i]
