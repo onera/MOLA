@@ -87,7 +87,14 @@ class Figure():
             self.filename = filename
             self.fig = None  # init fig to call createOverlap next time
         if Elements is not None:
-            self.Elements = Elements
+            no_blending_elts = []
+            blending_elts = []
+            for i, elt in enumerate(Elements):
+                if 'blending' in elt:
+                    blending_elts += [elt]
+                else:
+                    no_blending_elts += [elt]
+            self.Elements = no_blending_elts + blending_elts
 
         external_centers_container = I.__FlowSolutionCenters__
         external_vertex_container = I.__FlowSolutionNodes__
@@ -106,6 +113,7 @@ class Figure():
         DIRECTORY_FRAMES = self.filename.split(os.path.sep)[:-1]    
         try: os.makedirs(os.path.join(*DIRECTORY_FRAMES))
         except: pass
+
 
         DisplayOptions = dict(mode='Render', displayInfo=0, displayIsoLegend=0, 
                             win=self.window_in_pixels, export=self.filename, shadow=1,
@@ -146,7 +154,7 @@ class Figure():
             else:
                 zones = J.selectZones(t, **elt['selection'])
 
-            if hasBlending(elt): zones = C.convertArray2Hexa(zones) # see cassiopee #8740            
+            if hasBlending(elt): zones = C.convertArray2Hexa(zones) # see cassiopee #8740
 
             for z in zones:
                 CPlot._addRender2Zone(z, material=elt['material'],color=elt['color'], blending=elt['blending'])
@@ -163,10 +171,14 @@ class Figure():
                 Trees += [ C.newPyTree(['elt.%d'%i, zones]) ]
 
         # requires to append blended zones (see cassiopee #8740 and #8748)
+        # BEWARE of cassiopee #11311
         if TreesBlending:
             for i in range(len(Trees)):
                 Trees[i] = I.merge([Trees[i]]+TreesBlending)
-        
+        Trees.extend(TreesBlending)        
+
+
+        isoScales = [] # must be the same for all composite calls of CPlot.display
         for i in range(len(Trees)):
             tree = Trees[i]
             elt = self.Elements[i]
@@ -182,10 +194,23 @@ class Figure():
                 levels[1] = _getMin(tree, field_name) if levels[1] == 'min' else float(levels[1])
                 levels[2] = _getMax(tree, field_name) if levels[2] == 'max' else float(levels[2])
                 elt['levels'] = levels
-                isoScales = [[field_name, levels[0], levels[1], levels[2]],
-                ['centers:'+field_name, levels[0], levels[1], levels[2]]]
-            else:
-                isoScales = []
+                iso_nodes = [field_name, levels[0], levels[1], levels[2]]
+                iso_centers = ['centers:'+field_name, levels[0], levels[1], levels[2]]
+                if len(levels) == 5:
+                    iso_nodes.extend([levels[3],levels[4]])
+                    iso_centers.extend([levels[3],levels[4]])
+                isoScales += iso_nodes, iso_centers
+
+        for i in range(len(Trees)):
+            tree = Trees[i]
+            elt = self.Elements[i]
+
+            try: vertex_container = elt['vertex_container']
+            except KeyError: vertex_container = default_vertex_container
+            try: centers_container = elt['centers_container']
+            except KeyError: centers_container = default_centers_container
+            I.__FlowSolutionNodes__ = vertex_container
+            I.__FlowSolutionCenters__ = centers_container
 
             increment_offscreen = len(Trees)==1 or (i>0 and i == len(Trees)-1 and offscreen > 1)
             if increment_offscreen: offscreen += 1
@@ -1023,7 +1048,7 @@ class Figure():
                 levels = elt['levels']
                 cmap = elt['colormap']
                 break
-        if not levels:
+        if not levels or isinstance(levels[1],str) or isinstance(levels[2],str)  :
             raise ValueError('element with color=Iso:%s bad defined.'%field_name)
     
         if orientation not in ('vertical','horizontal'):
@@ -1043,10 +1068,7 @@ class Figure():
         cbar_ticks = np.linspace(levels[1],levels[2],number_of_ticks)
         cbaxes = self.fig.add_axes([xmin,ymin,xmax-xmin,ymax-ymin])
 
-        if cmap == 'Jet':
-            colormap = self.colormaps[cmap].reversed()
-        else:
-            colormap = self.colormaps[cmap]
+        colormap = self.colormaps[cmap]
         norm = mplcolors.BoundaryNorm(boundaries=np.linspace(levels[1],levels[2],levels[0]), ncolors=colormap.N, extend=extend) 
         cset = cm.ScalarMappable(norm=norm, cmap=colormap)
         cbar = self.fig.colorbar(cset, cax=cbaxes, orientation=orientation, ticks=cbar_ticks, format=ticks_format)
