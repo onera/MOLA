@@ -1233,7 +1233,10 @@ def computeReferenceValues(FluidProperties, PressureStagnation,
         'PressureStagnationRatio', 'TemperatureStagnationRatio', 'EfficiencyIsentropic',
         'PressureStagnationLossCoeff']]
     
-    CoprocessOptions = kwargs.pop('CoprocessOptions')
+    try: 
+        CoprocessOptions = kwargs.pop('CoprocessOptions')
+    except KeyError:
+        CoprocessOptions = dict()
     try:
         RequestedStatistics = CoprocessOptions['RequestedStatistics']
         for stat in TurboStatistics:

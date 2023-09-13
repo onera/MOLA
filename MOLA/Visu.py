@@ -127,42 +127,37 @@ class Figure():
         Trees = []
         TreesBlending = []
         for i, elt in enumerate(self.Elements):
-            try: selection = elt['selection']
-            except KeyError: selection = {}
-            try: blending = elt['blending']
-            except KeyError: blending = 1
-            try: material = elt['material']
-            except KeyError: material = 'Solid'
-            try: color = elt['color']
-            except KeyError: color = elt['color'] = 'White'
-            try: vertex_container = elt['vertex_container']
-            except KeyError: vertex_container = default_vertex_container
-            try: centers_container = elt['centers_container']
-            except KeyError: centers_container = default_centers_container
-            I.__FlowSolutionNodes__ = vertex_container
-            I.__FlowSolutionCenters__ = centers_container
+            elt.setdefault('selection', {})
+            elt.setdefault('blending', 1)
+            elt.setdefault('material', 'Solid')
+            elt.setdefault('color', 'White')
+            elt.setdefault('vertex_container', default_vertex_container)
+            elt.setdefault('centers_container', default_centers_container)
             elt.setdefault('iso_line', [])
             if not isinstance(elt['iso_line'], (list, np.ndarray)):
                 elt['iso_line'] = [elt['iso_line']]
             elt.setdefault('iso_line_color', 'Black')
 
+            I.__FlowSolutionNodes__ = elt['vertex_container']
+            I.__FlowSolutionCenters__ = elt['centers_container']
+
             field_name = elt['color'].replace('Iso:','')
             if elt['color'].startswith('Iso:'):
-                zones = [z for z in J.selectZones(t, **selection) if 
+                zones = [z for z in J.selectZones(t, **elt['selection']) if 
                     _fieldExistsAtNodesOrCentersAtZone(z, field_name,
-                        vertex_container, centers_container)]
+                        elt['vertex_container'], elt['centers_container'])]
                 if not zones:
                     print(J.WARN+f'WARNING: visualization element [{i}]:')
-                    print(f'field "{field_name}" does not exist in container {vertex_container} nor {centers_container} of any selected zones')
+                    print(f'field "{field_name}" does not exist in container {elt["vertex_container"]} nor {elt["centers_container"]} of any selected zones')
                     print('please adjust the vertex_container and centers_container options'+J.ENDC)
                     continue
             else:
-                zones = J.selectZones(t, **selection)
+                zones = J.selectZones(t, **elt['selection'])
 
             if hasBlending(elt): zones = C.convertArray2Hexa(zones) # see cassiopee #8740
 
             for z in zones:
-                CPlot._addRender2Zone(z, material=material,color=color, blending=blending)
+                CPlot._addRender2Zone(z, material=elt['material'],color=elt['color'], blending=elt['blending'])
             
             # Add iso lines if required
             for value in elt['iso_line']: 
@@ -188,18 +183,13 @@ class Figure():
             tree = Trees[i]
             elt = self.Elements[i]
 
-            try: vertex_container = elt['vertex_container']
-            except KeyError: vertex_container = default_vertex_container
-            try: centers_container = elt['centers_container']
-            except KeyError: centers_container = default_centers_container
-            I.__FlowSolutionNodes__ = vertex_container
-            I.__FlowSolutionCenters__ = centers_container
+            I.__FlowSolutionNodes__ = elt['vertex_container']
+            I.__FlowSolutionCenters__ = elt['centers_container']
 
 
             if elt['color'].startswith('Iso:'):
                 field_name = elt['color'].replace('Iso:','')
-                if 'levels' not in elt: levels=[200,'min','max']
-                else: levels = elt['levels']
+                levels = elt.get('levels', [200,'min','max'])
 
                 levels[1] = _getMin(tree, field_name) if levels[1] == 'min' else float(levels[1])
                 levels[2] = _getMax(tree, field_name) if levels[2] == 'max' else float(levels[2])

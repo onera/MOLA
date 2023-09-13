@@ -21,10 +21,20 @@ display_help() {
 get_source_and_target() {
     if [ -f setup.py ]; then
         mola_wd=$(sed "/DIRECTORY_WORK/!d" setup.py | sed "s/ 'DIRECTORY_WORK': '//" | sed "s/',//g")
+        # Test to check there are something in $mola_wd (else all the root /* will be copy !)
+        if [[ $mola_wd == "" ]]; then
+            echo "ERROR: DIRECTORY_WORK cannot be extracted from setup.py"
+            exit 1
+        fi
         source=$mola_wd/*
         target=.
     elif [ -f JobsConfiguration.py ]; then
         mola_wd=$(sed '/DIRECTORY_WORK/!d' JobsConfiguration.py | sed 's/DIRECTORY_WORK=//' | sed 's/"//g')
+        # Test to check there are something in $mola_wd (else all the root /* will be copy !)
+        if [[ $mola_wd == "" ]]; then
+            echo "ERROR: DIRECTORY_WORK cannot be extracted from JobsConfiguration.py"
+            exit 1
+        fi
         source=$mola_wd
         target=$(basename `pwd`)
     else

@@ -135,7 +135,7 @@ It contains the following first lines:
 
 .. literalinclude:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_SingleCase/prepare.py
     :language: python
-    :lines: -49
+    :lines: -44
 
 In this simple case, we just need to give the name  of the input mesh file
 (here ``'rotor37.cgns'``). :mod:`~MOLA.WorkflowCompressor.prepareMesh4ElsA`
@@ -186,7 +186,7 @@ continues with the following lines:
 
 .. literalinclude:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_SingleCase/prepare.py
     :language: python
-    :lines: 50-
+    :lines: 45-
 
 In a nutshell, we just need to define several dictionaries and lists with user-defined
 parameters (them that differ from the default parameters of the workflow), and
@@ -686,6 +686,31 @@ MOLA:
 Changing these parameters modifies other related parameters (for example,
 artificial viscosity parameters depend on the numerical scheme). If needed, you
 can set custom values for these default related parameters anyway.
+
+How to change any *elsA* parameter ?
+**********************************
+
+Any elsA key in the *elsA* objects ``cfdpb``, ``model`` and ``numerics`` may be overwritten by passing the optional 
+argument ``OverrideSolverKeys`` to the function :mod:`~MOLA.WorkflowCompressor.prepareMainCGNS4ElsA`:
+
+.. code-block:: python
+
+    # Override keys
+    OverrideSolverKeys = dict(
+        cfdpb    = dict(),
+        model    = dict(),
+        numerics = dict()
+    )
+
+For instance, to use a different algorithm to compute the distance to the walls, you can use: 
+
+.. code-block:: python
+
+    WF.prepareMainCGNS4ElsA(
+      ..., 
+      OverrideSolverKeys=dict(cfdpb=dict(walldistcompute='gridline'))
+      )
+
 
 How to duplicate the mesh ?
 ***************************
