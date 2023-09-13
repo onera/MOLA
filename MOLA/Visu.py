@@ -61,6 +61,7 @@ if not MOLA.__ONLY_DOC__:
     import Converter.Internal as I
     import Transform.PyTree as T
     import Post.PyTree as P
+    import CPlot.PyTree as CPlot
 
 def exit(): os._exit(0)
 
@@ -78,39 +79,25 @@ class Figure():
 
     def plotSurfaces(self, surfaces, filename=None, Elements=None,
             default_vertex_container='FlowSolution#InitV',
-            default_centers_container='BCDataSet'):
+            default_centers_container='BCDataSet',
+            offscreen=5 # https://elsa.onera.fr/issues/10948#note-14
+            ):
         
         if filename:
             self.filename = filename
             self.fig = None  # init fig to call createOverlap next time
         if Elements is not None:
-            self.Elements = Elements
+            no_blending_elts = []
+            blending_elts = []
+            for i, elt in enumerate(Elements):
+                if 'blending' in elt:
+                    blending_elts += [elt]
+                else:
+                    no_blending_elts += [elt]
+            self.Elements = no_blending_elts + blending_elts
 
-        machine = os.getenv('MAC')
         external_centers_container = I.__FlowSolutionCenters__
         external_vertex_container = I.__FlowSolutionNodes__
-
-        # TODO solve bugs:
-        # https://elsa.onera.fr/issues/10536
-        # https://elsa.onera.fr/issues/11045
-
-        offscreen_mode = 'mesa'
-
-        if offscreen_mode == 'auto':
-            import CPlot.PyTree as CPlot
-            if machine in ['sator']:
-                offscreen=5 # MESA 
-            elif machine in ['ld','visung', 'visio', 'sator', 'spiro']:
-                offscreen=3 # openGL
-            else:
-                raise SystemError('machine "%s" not supported.'%machine)
-        elif offscreen_mode == 'mesa':
-            try: import CPlotOffscreen.PyTree as CPlot
-            except: import CPlot.PyTree as CPlot
-            offscreen=5 # MESA 
-        else:
-            raise SystemError('offscreen_mode "%s" not supported.'%offscreen_mode)
-
 
         cmap2int = dict(Blue2Red=1, Diverging=15, Black2White=15,
                         Viridis=17, Inferno=19, Magma=21, Plasma=23, Jet=25,
@@ -127,6 +114,7 @@ class Figure():
         try: os.makedirs(os.path.join(*DIRECTORY_FRAMES))
         except: pass
 
+
         DisplayOptions = dict(mode='Render', displayInfo=0, displayIsoLegend=0, 
                             win=self.window_in_pixels, export=self.filename, shadow=1,
                             exportResolution='%gx%g'%self.window_in_pixels)
@@ -139,42 +127,37 @@ class Figure():
         Trees = []
         TreesBlending = []
         for i, elt in enumerate(self.Elements):
-            try: selection = elt['selection']
-            except KeyError: selection = {}
-            try: blending = elt['blending']
-            except KeyError: blending = 1
-            try: material = elt['material']
-            except KeyError: material = 'Solid'
-            try: color = elt['color']
-            except KeyError: color = elt['color'] = 'White'
-            try: vertex_container = elt['vertex_container']
-            except KeyError: vertex_container = default_vertex_container
-            try: centers_container = elt['centers_container']
-            except KeyError: centers_container = default_centers_container
-            I.__FlowSolutionNodes__ = vertex_container
-            I.__FlowSolutionCenters__ = centers_container
+            elt.setdefault('selection', {})
+            elt.setdefault('blending', 1)
+            elt.setdefault('material', 'Solid')
+            elt.setdefault('color', 'White')
+            elt.setdefault('vertex_container', default_vertex_container)
+            elt.setdefault('centers_container', default_centers_container)
             elt.setdefault('iso_line', [])
             if not isinstance(elt['iso_line'], (list, np.ndarray)):
                 elt['iso_line'] = [elt['iso_line']]
             elt.setdefault('iso_line_color', 'Black')
 
+            I.__FlowSolutionNodes__ = elt['vertex_container']
+            I.__FlowSolutionCenters__ = elt['centers_container']
+
             field_name = elt['color'].replace('Iso:','')
             if elt['color'].startswith('Iso:'):
-                zones = [z for z in J.selectZones(t, **selection) if 
+                zones = [z for z in J.selectZones(t, **elt['selection']) if 
                     _fieldExistsAtNodesOrCentersAtZone(z, field_name,
-                        vertex_container, centers_container)]
+                        elt['vertex_container'], elt['centers_container'])]
                 if not zones:
                     print(J.WARN+f'WARNING: visualization element [{i}]:')
-                    print(f'field "{field_name}" does not exist in container {vertex_container} nor {centers_container} of any selected zones')
+                    print(f'field "{field_name}" does not exist in container {elt["vertex_container"]} nor {elt["centers_container"]} of any selected zones')
                     print('please adjust the vertex_container and centers_container options'+J.ENDC)
                     continue
             else:
-                zones = J.selectZones(t, **selection)
+                zones = J.selectZones(t, **elt['selection'])
 
-            if hasBlending(elt): zones = C.convertArray2Hexa(zones) # see cassiopee #8740            
+            if hasBlending(elt): zones = C.convertArray2Hexa(zones) # see cassiopee #8740
 
             for z in zones:
-                CPlot._addRender2Zone(z, material=material,color=color, blending=blending)
+                CPlot._addRender2Zone(z, material=elt['material'],color=elt['color'], blending=elt['blending'])
             
             # Add iso lines if required
             for value in elt['iso_line']: 
@@ -188,10 +171,36 @@ class Figure():
                 Trees += [ C.newPyTree(['elt.%d'%i, zones]) ]
 
         # requires to append blended zones (see cassiopee #8740 and #8748)
+        # BEWARE of cassiopee #11311
         if TreesBlending:
             for i in range(len(Trees)):
                 Trees[i] = I.merge([Trees[i]]+TreesBlending)
-        
+        Trees.extend(TreesBlending)        
+
+
+        isoScales = [] # must be the same for all composite calls of CPlot.display
+        for i in range(len(Trees)):
+            tree = Trees[i]
+            elt = self.Elements[i]
+
+            I.__FlowSolutionNodes__ = elt['vertex_container']
+            I.__FlowSolutionCenters__ = elt['centers_container']
+
+
+            if elt['color'].startswith('Iso:'):
+                field_name = elt['color'].replace('Iso:','')
+                levels = elt.get('levels', [200,'min','max'])
+
+                levels[1] = _getMin(tree, field_name) if levels[1] == 'min' else float(levels[1])
+                levels[2] = _getMax(tree, field_name) if levels[2] == 'max' else float(levels[2])
+                elt['levels'] = levels
+                iso_nodes = [field_name, levels[0], levels[1], levels[2]]
+                iso_centers = ['centers:'+field_name, levels[0], levels[1], levels[2]]
+                if len(levels) == 5:
+                    iso_nodes.extend([levels[3],levels[4]])
+                    iso_centers.extend([levels[3],levels[4]])
+                isoScales += iso_nodes, iso_centers
+
         for i in range(len(Trees)):
             tree = Trees[i]
             elt = self.Elements[i]
@@ -203,29 +212,11 @@ class Figure():
             I.__FlowSolutionNodes__ = vertex_container
             I.__FlowSolutionCenters__ = centers_container
 
-
-            if elt['color'].startswith('Iso:'):
-                field_name = elt['color'].replace('Iso:','')
-
-                if 'levels' not in elt: levels=[200,'min','max']
-                else: levels = elt['levels']
-
-                levels[1] = _getMin(tree, field_name) if levels[1] == 'min' else float(levels[1])
-                levels[2] = _getMax(tree, field_name) if levels[2] == 'max' else float(levels[2])
-                elt['levels'] = levels
-                isoScales = [[field_name, levels[0], levels[1], levels[2]],
-                ['centers:'+field_name, levels[0], levels[1], levels[2]]]
-            else:
-                isoScales = []
-
             increment_offscreen = len(Trees)==1 or (i>0 and i == len(Trees)-1 and offscreen > 1)
             if increment_offscreen: offscreen += 1
 
             try: additionalDisplayOptions = elt['additionalDisplayOptions']
             except: additionalDisplayOptions = {}
-
-            try: additionalStateOptions = elt['additionalStateOptions']
-            except: additionalStateOptions = {}
 
             if  'backgroundFile' not in additionalDisplayOptions and \
                 'bgColor' not in additionalDisplayOptions:
@@ -234,10 +225,9 @@ class Figure():
                 for MOLAloc in [MOLA, MOLASATOR]:
                     backgroundFile = os.path.join(MOLAloc,'MOLA','GUIs','background.png')
                     if os.path.exists(backgroundFile):
-                        CPlot.setState(backgroundFile=backgroundFile)
-                        CPlot.setState(bgColor=13)
+                        DisplayOptions['backgroundFile']=backgroundFile
+                        DisplayOptions['bgColor']=13
                         break
-            if additionalStateOptions: CPlot.setState(**additionalStateOptions)
 
 
             try: cmap = cmap2int[elt['colormap']]
@@ -247,13 +237,20 @@ class Figure():
                 if not elt['shadow']: cmap -= 1
             except: pass
 
+            # for debug:
+            # J.save(tree,f'tree_{i}.cgns')
+            # print(CPlot.__file__)
+            # print(I.__FlowSolutionNodes__)
+            # print(I.__FlowSolutionCenters__)
+            # print(f'offscreen={offscreen}')
+            # print(f'colormap={cmap}')
+            # print(f'isoScales={isoScales}')
+            # print(f'DisplayOptions={DisplayOptions}')
+            # print(f'additionalDisplayOptions={additionalDisplayOptions}')
+
             CPlot.display(tree, offscreen=offscreen, colormap=cmap,
                 isoScales=isoScales, **DisplayOptions, **additionalDisplayOptions)
-            if offscreen_mode == 'mesa':
-                if not increment_offscreen:
-                    CPlot.finalizeExport(offscreen)
-            else:
-                CPlot.finalizeExport(offscreen)
+            CPlot.finalizeExport(offscreen)
         
         I.__FlowSolutionCenters__ = external_centers_container
         I.__FlowSolutionNodes__ = external_vertex_container
@@ -1051,7 +1048,7 @@ class Figure():
                 levels = elt['levels']
                 cmap = elt['colormap']
                 break
-        if not levels:
+        if not levels or isinstance(levels[1],str) or isinstance(levels[2],str)  :
             raise ValueError('element with color=Iso:%s bad defined.'%field_name)
     
         if orientation not in ('vertical','horizontal'):
@@ -1071,10 +1068,7 @@ class Figure():
         cbar_ticks = np.linspace(levels[1],levels[2],number_of_ticks)
         cbaxes = self.fig.add_axes([xmin,ymin,xmax-xmin,ymax-ymin])
 
-        if cmap == 'Jet':
-            colormap = self.colormaps[cmap].reversed()
-        else:
-            colormap = self.colormaps[cmap]
+        colormap = self.colormaps[cmap]
         norm = mplcolors.BoundaryNorm(boundaries=np.linspace(levels[1],levels[2],levels[0]), ncolors=colormap.N, extend=extend) 
         cset = cm.ScalarMappable(norm=norm, cmap=colormap)
         cbar = self.fig.colorbar(cset, cax=cbaxes, orientation=orientation, ticks=cbar_ticks, format=ticks_format)
