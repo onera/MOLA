@@ -1109,7 +1109,8 @@ class Figure():
             background_opacity=1.0, font_color='black', 
             curves=[dict(zone_name='BLADES',x='IterationNumber',y='MomentumXFlux',
                          plot_params={})], 
-            iterationTracer=None):
+            iterationTracer=None,
+            include_last_point_label=False):
         
         if not self.fig: 
             self.createOverlap()
@@ -1148,6 +1149,14 @@ class Figure():
                     ax.plot(x[index], y[index], **iterationTracer['plot_params'])
                 except:
                     pass
+            
+            curve.setdefault('include_last_point_label',False)
+            if curve['include_last_point_label']:
+                ax.text(x[-1], y[-1], "%g"%y[-1],
+                        horizontalalignment='left',
+                        verticalalignment='center',
+                        color=plt.gca().lines[-1].get_color())
+
 
         if xlim is not None: ax.set_xlim(xlim)
         if ylim is not None: ax.set_ylim(ylim)

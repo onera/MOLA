@@ -324,11 +324,12 @@ def compute(LL, NumberOfBlades=2, RPM=1500.,
 
     LL.computeSectionalCoefficients()
     DictOfIntegralData = LL.computeLoads(NumberOfBlades=NumberOfBlades)
+    DictOfIntegralData.update(LL.addPropellerLoads())
+    DictOfIntegralData.update(LL.addHelicopterRotorLoads())
     DictOfIntegralData['Converged'] = success
     DictOfIntegralData['Attempts']  = attempt
     DictOfIntegralData['Pitch']     = LL.Pitch
     DictOfIntegralData['RPM']       = LL.RPM
-    includePropellerLoads(DictOfIntegralData)
 
     return DictOfIntegralData
 
@@ -598,6 +599,13 @@ def design(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225,
 
     DictOfIntegralData = LL.computeLoads(NumberOfBlades=NumberOfBlades)
     DictOfIntegralData['Pitch'] = DesignPitch
+    relative_tolerance = 0.01
+    if DictOfIntegralData[Constraint] > ConstraintValue*(1+relative_tolerance) or \
+        DictOfIntegralData[Constraint] < ConstraintValue*(1-relative_tolerance):
+        print(RED+f'could not satisfy {Constraint}={ConstraintValue}, got {DictOfIntegralData[Constraint][0]}'+ENDC)
+        return None
+    else:
+        print(GREEN+f'verified {Constraint}={ConstraintValue}'+ENDC)
 
     return DictOfIntegralData
 
@@ -841,7 +849,7 @@ def designHover(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225
         # I1 = 4*xi*G*(1-varepsilon*tan_phi)
         # J1 = 4*xi*G*(1+varepsilon/tan_phi)
         # rotor
-        I1 = 2*xi*F/(Omega**2*Rmax**3)*(cos_phi**2*(1-varepsilon*tan_phi))**2.
+        I1 = 2*xi*F/(Omega**2*Rmax**3)*(cos_phi**2*(1-varepsilon*tan_phi))**2.*Rmax
         J1 = 2*xi*F/(Omega**2*Rmax**4)* cos_phi**3*(1-varepsilon*tan_phi)*sin_phi*(1+varepsilon/tan_phi)
 
         I2 = lambd*(0.5*I1/xi)*(1+varepsilon/tan_phi)*sin_phi*cos_phi
@@ -877,7 +885,6 @@ def designHover(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225
             new_vp = np.sqrt(Tc/I1int)
             Pc = J1int*new_vp**2
             Power = 0.5*Density*(Omega*Rmax)**3*np.pi*Rmax**2*Pc
-            print('Tc=%g ; Pc=%g'%(Tc,Pc))
 
         elif Constraint == 'Power':
             raise ValueError('Constrint="Power" not implemented yet')
@@ -911,7 +918,10 @@ def designHover(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225
         L2Prev = L2Residual
         print('it=%d | Thrust=%g, Power=%g, Efficiency=%g | L2 res = %g'%(it,Thrust,Power,Efficiency, L2Residual))
         loads = LL.computeLoads(NumberOfBlades=NumberOfBlades)
-        print(WARN+'integrated | Thrust=%g, Power=%g'%(loads['Thrust'],loads['Power'])+ENDC)
+        Tc = 2*loads['Thrust']/(Density*(Omega*Rmax)**2*np.pi*Rmax**2)
+        Pc = 2*loads['Power']/(Density*(Omega*Rmax)**3*np.pi*Rmax**2)
+        FoM = 1./np.sqrt(2.)/Pc * Tc**1.5
+        print(CYAN+'integrated | Thrust=%g, Power=%g, FM=%g'%(loads['Thrust'],loads['Power'],FoM)+ENDC)
         x1 = Residual+x0
         RelaxFactor = 0.
         x0 = (1.0-RelaxFactor)*x1+RelaxFactor*x0
@@ -922,6 +932,14 @@ def designHover(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225
     DictOfIntegralData = LL.addHelicopterRotorLoads()
     DesignPitch = LL.resetTwist()
     DictOfIntegralData['Pitch'] = DesignPitch
+
+    relative_tolerance = 0.01
+    if DictOfIntegralData[Constraint] > ConstraintValue*(1+relative_tolerance) or \
+        DictOfIntegralData[Constraint] < ConstraintValue*(1-relative_tolerance):
+        print(RED+f'could not satisfy {Constraint}={ConstraintValue}, got {DictOfIntegralData[Constraint][0]}'+ENDC)
+        return None
+    else:
+        print(GREEN+f'verified {Constraint}={ConstraintValue}'+ENDC)
 
     return DictOfIntegralData
 
@@ -985,6 +1003,7 @@ def optimalDesignByThrustAndFixedPitch(number_of_blades=2, Rmin=0.1, Rmax=1.0,
 
     for i in range(nb_envelope_points):
 
+        is_max_thrust_possible[i] = False
         RPM = (30/np.pi)*mach_tip[i]*SpeedOfSound/Rmax
 
         # design the propeller
@@ -1025,6 +1044,8 @@ def optimalDesignByThrustAndFixedPitch(number_of_blades=2, Rmin=0.1, Rmax=1.0,
                 NumberOfBlades=number_of_blades, AxialVelocity=VelocityAxial,
                 RPM=RPM, Temperature=Temperature, Density=Density,
                 Constraint='Thrust',ConstraintValue=NominalRequiredThrust)
+        
+        if not NominalDict: continue # cannot verify nominal condition
 
         Chord[:] = np.minimum(ChordMax,Chord)
         print('design Chord')
@@ -1062,7 +1083,6 @@ def optimalDesignByThrustAndFixedPitch(number_of_blades=2, Rmin=0.1, Rmax=1.0,
         print('')
 
 
-        is_max_thrust_possible[i] = False
 
         if FullThrottleDict['Thrust'] > MaximumRequiredThrust:
 
@@ -1103,6 +1123,7 @@ def optimalDesignByThrustAndFixedPitch(number_of_blades=2, Rmin=0.1, Rmax=1.0,
 
     if len(nominal_powers) == 0:
         # NO DESIGN CAN REACH MAXIMUM REQUIRED THRUST
+        print(RED+'NO DESIGN CAN VERIFY THE REQUESTED CONDITIONS. MODIFY YOUR PARAMETERS.'+ENDC)
         return None, outputs
 
     else:
@@ -1128,6 +1149,7 @@ def optimalDesignByThrustAndFixedPitch(number_of_blades=2, Rmin=0.1, Rmax=1.0,
         outputs['max_rpm'] = maximum_rpm
         outputs['nominal_power'] = nominal_power
         outputs['nominal_rpm'] = nominal_rpm
+        outputs['mean_geomatrical_chord'] = np.trapz(chord,radius)/(radius.max()-radius.min())
         outputs['pitch'] = DesignLiftingLine.Pitch
 
         return DesignLiftingLine, outputs

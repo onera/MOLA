@@ -984,7 +984,7 @@ class LiftingLine(Curve):
         rho = Conditions['Density']
         CT = 2*T/(rho*(Omega*R)**2*np.pi*R**2)
         CP = 2*P/(rho*(Omega*R)**3*np.pi*R**2)
-        FigureOfMeritHeli = 1./np.sqrt(2.)/CP * CT**1.5
+        FigureOfMeritHeli = 1./np.sqrt(2.)/CP * CT**1.5 
         loads['CTheli']=CT
         loads['CPheli']=CP
         loads['FigureOfMeritHeli']=FigureOfMeritHeli
