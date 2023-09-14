@@ -3119,14 +3119,6 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
             gridLocation='FaceCenter', parent=bc)
         J.set(BCDataSet, BCDataName, childType='BCData_t', **ImposedVariables)
 
-        # if bc[0]=='dom-90':
-        #     bc_ref = I.getNodeFromName3(zone,'dom-90')
-        #     BCDataSet = I.newBCDataSet(name=BCDataSetName, value='Null',
-        #         gridLocation='FaceCenter', parent=bc_ref)
-        #     J.set(BCDataSet, BCDataName, childType='BCData_t', **ImposedVariables)
-        #     J.save(zone,'debug.cgns')
-        #     raise ValueError
-
 def checkVariables(ImposedVariables):
     '''
     Check that variables in the input dictionary are well defined. Raise a
