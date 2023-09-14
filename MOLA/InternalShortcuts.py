@@ -2857,9 +2857,21 @@ def save(*args, **kwargs):
 
     C.convertPyTree2File(*args, **kwargs)
 
-def extractBCFromFamily(t, Family):        
+def extractBCFromFamily(t, Family, squeeze=False):  
+    '''
+    Like C.extractBCOfName or C.extractBCOfType, except two points:
+
+    #. **Family** is directly the name of the BC family (without 'FamilySpecified:')
+
+    #. the orientation of the BC is preserved through this operation (unlike C.extractBCOfName)
+    '''      
+    if I.isType(t, 'Zone_t'):
+        zones = [t]
+    else:
+        zones = I.getZones(t)
+
     BCList = []
-    for zone in I.getZones(t):
+    for zone in zones:
         zoneType = I.getValue(I.getNodeFromName1(zone, 'ZoneType'))
         
         if zoneType == 'Unstructured':
@@ -2880,10 +2892,12 @@ def extractBCFromFamily(t, Family):
                             indexBC = 0 # BC on imin
                         else:
                             indexBC = -1 # BC on imax
-                        SliceOnVertex = np.s_[[indexBC], 
+                        if not squeeze:
+                            indexBC = [indexBC]
+                        SliceOnVertex = np.s_[indexBC, 
                                                 PointRange[1, 0]-1:PointRange[1, 1], 
                                                 PointRange[2, 0]-1:PointRange[2, 1]]
-                        SliceOnCell = np.s_[[indexBC],
+                        SliceOnCell = np.s_[indexBC,
                                                 PointRange[1, 0]-1:PointRange[1, 1]-1, 
                                                 PointRange[2, 0]-1:PointRange[2, 1]-1]
 
@@ -2893,11 +2907,13 @@ def extractBCFromFamily(t, Family):
                             indexBC = 0 # BC on jmin
                         else:
                             indexBC = -1 # BC on jmax
+                        if not squeeze:
+                            indexBC = [indexBC]
                         SliceOnVertex = np.s_[PointRange[0, 0]-1:PointRange[0, 1],
-                                            [indexBC], 
+                                            indexBC, 
                                             PointRange[2, 0]-1:PointRange[2, 1]]
                         SliceOnCell = np.s_[PointRange[0, 0]-1:PointRange[0, 1]-1,
-                                            [indexBC], 
+                                            indexBC, 
                                             PointRange[2, 0]-1:PointRange[2, 1]-1]
                         
 
@@ -2907,22 +2923,32 @@ def extractBCFromFamily(t, Family):
                             indexBC = 0 # BC on kmin
                         else:
                             indexBC = -1 # BC on kmax
+                        if not squeeze:
+                            indexBC = [indexBC]
                         SliceOnVertex = np.s_[PointRange[0, 0]-1:PointRange[0, 1],
                                             PointRange[1, 0]-1:PointRange[1, 1],
-                                            [indexBC]]
+                                            indexBC]
                         SliceOnCell = np.s_[PointRange[0, 0]-1:PointRange[0, 1]-1,
                                             PointRange[1, 0]-1:PointRange[1, 1]-1,
-                                            [indexBC]]
+                                            indexBC]
 
-                    ni, nj, nk = x[SliceOnVertex].shape
-                    zsize = np.zeros((3,3),dtype=int)
-                    zsize[0,0] = ni
-                    zsize[1,0] = nj
-                    zsize[2,0] = nk
-                    zsize[0,1] = np.maximum(ni-1,1)
-                    zsize[1,1] = np.maximum(nj-1,1)
-                    zsize[2,1] = np.maximum(nk-1,1)
-                
+                    if squeeze:
+                        ni, nj = x[SliceOnVertex].shape
+                        zsize = np.zeros((2,2),dtype=int)
+                        zsize[0,0] = ni
+                        zsize[1,0] = nj
+                        zsize[0,1] = np.maximum(ni-1,1)
+                        zsize[1,1] = np.maximum(nj-1,1)
+                    else:
+                        ni, nj, nk = x[SliceOnVertex].shape
+                        zsize = np.zeros((3,3),dtype=int)
+                        zsize[0,0] = ni
+                        zsize[1,0] = nj
+                        zsize[2,0] = nk
+                        zsize[0,1] = np.maximum(ni-1,1)
+                        zsize[1,1] = np.maximum(nj-1,1)
+                        zsize[2,1] = np.maximum(nk-1,1)
+
                     newZoneForBC = I.newZone(f'{I.getName(zone)}\{I.getName(BC)}', zsize=zsize, ztype='Structured', family=Family)
                     set(newZoneForBC, 'GridCoordinates', childType='GridCoordinates_t', 
                         CoordinateX=x[SliceOnVertex], CoordinateY=y[SliceOnVertex], CoordinateZ=z[SliceOnVertex])
@@ -2959,7 +2985,10 @@ def extractBCFromFamily(t, Family):
                         BCData = dict()
                         for node in I.getNodesFromType(BCDataSet, 'DataArray_t'):
                             value = np.ravel(I.getValue(node), order='F')
-                            BCData[I.getName(node)] = value.reshape((zsize[0,1], zsize[1,1], zsize[2,1]))
+                            if squeeze:
+                                BCData[I.getName(node)] = value.reshape((zsize[0,1], zsize[1,1]))
+                            else:
+                                BCData[I.getName(node)] = value.reshape((zsize[0,1], zsize[1,1], zsize[2,1]))
 
                         set(newZoneForBC, BCDataSetName, childType='FlowSolution_t', **BCData)
                         newFS = I.getNodeFromNameAndType(newZoneForBC, BCDataSetName, 'FlowSolution_t')
