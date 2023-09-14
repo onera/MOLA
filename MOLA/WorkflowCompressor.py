@@ -3073,7 +3073,7 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
         zone = I.copyRef(zone)
         I._rmNodesFromName(zone, 'FlowSolution#Init')
         I._renameNode(zone, 'FlowSolution#Height', 'FlowSolution')
-        extractedBC = C.extractBCOfName(zone, I.getName(bc))
+        extractedBC = C.extractBCOfName(zone, I.getName(bc),reorder=False)
         extractedBC = C.node2Center(extractedBC)
 
         # Check if some data are functions to interpolate, to prepare the dedicated treatment
@@ -3100,19 +3100,15 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
         if varForInterp is None:
             varForInterp = I.getValue(I.getNodeFromName(extractedBC, 'CoordinateX'))
 
-        bc_shape = varForInterp.shape
         
         for var, value in ImposedVariables.items():
+            ImposedVariables[var] = np.atleast_1d(np.copy(varForInterp,order='K'))
             # Reshape data if needed to have a 2D map to impose on the BC at face centers
             if callable(value):
                 # value is a function to evaluate in each cell for the quantity varForInterp
-                ImposedVariables[var] = value(varForInterp) 
-            elif np.ndim(value)==0:
-                # scalar value --> uniform data
-                ImposedVariables[var] = value * np.ones(bc_shape) 
-            elif len(ImposedVariables[var].shape) == 3:
-                # data is a 3D array, supposed to be flat for one axis
-                ImposedVariables[var] = np.squeeze(ImposedVariables[var]) # remove the flat axis to be imposed as a 2D array on the BC
+                ImposedVariables[var][:] = value(varForInterp)
+            else:
+                ImposedVariables[var][:] = value
 
             # data shall be 1D https://elsa.onera.fr/issues/11219
             ImposedVariables[var] = ImposedVariables[var].ravel(order='K')
@@ -3122,6 +3118,14 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
         BCDataSet = I.newBCDataSet(name=BCDataSetName, value='Null',
             gridLocation='FaceCenter', parent=bc)
         J.set(BCDataSet, BCDataName, childType='BCData_t', **ImposedVariables)
+
+        # if bc[0]=='dom-90':
+        #     bc_ref = I.getNodeFromName3(zone,'dom-90')
+        #     BCDataSet = I.newBCDataSet(name=BCDataSetName, value='Null',
+        #         gridLocation='FaceCenter', parent=bc_ref)
+        #     J.set(BCDataSet, BCDataName, childType='BCData_t', **ImposedVariables)
+        #     J.save(zone,'debug.cgns')
+        #     raise ValueError
 
 def checkVariables(ImposedVariables):
     '''
