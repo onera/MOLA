@@ -55,7 +55,7 @@ if not MOLA.__ONLY_DOC__:
     from matplotlib import cm
     from matplotlib.colors import ListedColormap, LinearSegmentedColormap
     from matplotlib.backends.backend_pdf import PdfPages
-
+    import matplotlib.patches as patches
 
     import Converter.PyTree as C
     import Converter.Internal as I
@@ -121,16 +121,28 @@ class Figure():
         DisplayOptions.update(self.camera)
 
         def hasBlending(elt):
-            try: return elt['blending'] < 1
-            except: return False
+            try:
+                blend = elt['blending'] < 1
+            except:
+                return False
+            try:
+                mesh = elt['meshOverlay'] == True
+            except:
+                return False
+            return blend and not mesh
+
+
 
         Trees = []
         TreesBlending = []
+        baseName2elt = {}
         for i, elt in enumerate(self.Elements):
             elt.setdefault('selection', {})
             elt.setdefault('blending', 1)
             elt.setdefault('material', 'Solid')
             elt.setdefault('color', 'White')
+            elt.setdefault('meshOverlay', None)
+            elt.setdefault('shaderParameters', None)
             elt.setdefault('vertex_container', default_vertex_container)
             elt.setdefault('centers_container', default_centers_container)
             elt.setdefault('iso_line', [])
@@ -148,16 +160,22 @@ class Figure():
                         elt['vertex_container'], elt['centers_container'])]
                 if not zones:
                     print(J.WARN+f'WARNING: visualization element [{i}]:')
-                    print(f'field "{field_name}" does not exist in container {elt["vertex_container"]} nor {elt["centers_container"]} of any selected zones')
+                    print(f'field "{field_name}" does not exist in container {elt["vertex_container"]} nor {elt["centers_container"]} for selection {elt["selection"]}')
                     print('please adjust the vertex_container and centers_container options'+J.ENDC)
                     continue
             else:
                 zones = J.selectZones(t, **elt['selection'])
 
+            if not zones:
+                J.save(t,'debug.cgns')
+                raise ValueError(f'could not find selection={elt["selection"]}, check debug.cgns')
+
             if hasBlending(elt): zones = C.convertArray2Hexa(zones) # see cassiopee #8740
 
             for z in zones:
-                CPlot._addRender2Zone(z, material=elt['material'],color=elt['color'], blending=elt['blending'])
+                CPlot._addRender2Zone(z, material=elt['material'],
+                    color=elt['color'], blending=elt['blending'],
+                    meshOverlay=elt['meshOverlay'], shaderParameters=elt['shaderParameters'])
             
             # Add iso lines if required
             for value in elt['iso_line']: 
@@ -165,10 +183,13 @@ class Figure():
                 CPlot._addRender2Zone(isoLine, material='Solid', color=elt['iso_line_color'])
                 zones.append(isoLine)
 
+
             if hasBlending(elt):
                 TreesBlending += [ C.newPyTree(['blend.%d'%i, zones]) ]
             else:
-                Trees += [ C.newPyTree(['elt.%d'%i, zones]) ]
+                base_name = 'elt.%d'%i
+                baseName2elt[base_name] = elt
+                Trees += [ C.newPyTree([base_name, zones]) ]
 
         # requires to append blended zones (see cassiopee #8740 and #8748)
         # BEWARE of cassiopee #11311
@@ -176,16 +197,18 @@ class Figure():
             for i in range(len(Trees)):
                 Trees[i] = I.merge([Trees[i]]+TreesBlending)
         Trees.extend(TreesBlending)        
+        all_TreesMerged = I.merge(Trees)
 
 
         isoScales = [] # must be the same for all composite calls of CPlot.display
-        for i in range(len(Trees)):
-            tree = Trees[i]
-            elt = self.Elements[i]
+        for base_name, elt in baseName2elt.items():
+            tree = I.getNodeFromName1(all_TreesMerged,base_name)
+            if not tree:
+                J.save(all_TreesMerged,'debug.cgns')
+                raise ValueError(f'could not find base "{base_name}", check debug.cgns')
 
             I.__FlowSolutionNodes__ = elt['vertex_container']
             I.__FlowSolutionCenters__ = elt['centers_container']
-
 
             if elt['color'].startswith('Iso:'):
                 field_name = elt['color'].replace('Iso:','')
@@ -203,7 +226,18 @@ class Figure():
 
         for i in range(len(Trees)):
             tree = Trees[i]
-            elt = self.Elements[i]
+            prefix = 'elt.'
+            try:
+                elt_base = [b for b in I.getBases(tree) if b[0].startswith(prefix)][0]
+            except IndexError:
+                prefix = 'blend.'
+                try:
+                    elt_base = [b for b in I.getBases(tree) if b[0].startswith(prefix)][0]
+                except:
+                    J.save(tree,'debug.cgns')
+                    raise ValueError('FATAL: expected bases starting with "elt.*" or "blend.*", check debug.cgns')
+            elt_index = int(elt_base[0].replace(prefix,''))
+            elt = self.Elements[elt_index]
 
             try: vertex_container = elt['vertex_container']
             except KeyError: vertex_container = default_vertex_container
@@ -217,6 +251,7 @@ class Figure():
 
             try: additionalDisplayOptions = elt['additionalDisplayOptions']
             except: additionalDisplayOptions = {}
+            DisplayOptions.update(additionalDisplayOptions)
 
             if  'backgroundFile' not in additionalDisplayOptions and \
                 'bgColor' not in additionalDisplayOptions:
@@ -237,19 +272,8 @@ class Figure():
                 if not elt['shadow']: cmap -= 1
             except: pass
 
-            # for debug:
-            # J.save(tree,f'tree_{i}.cgns')
-            # print(CPlot.__file__)
-            # print(I.__FlowSolutionNodes__)
-            # print(I.__FlowSolutionCenters__)
-            # print(f'offscreen={offscreen}')
-            # print(f'colormap={cmap}')
-            # print(f'isoScales={isoScales}')
-            # print(f'DisplayOptions={DisplayOptions}')
-            # print(f'additionalDisplayOptions={additionalDisplayOptions}')
-
             CPlot.display(tree, offscreen=offscreen, colormap=cmap,
-                isoScales=isoScales, **DisplayOptions, **additionalDisplayOptions)
+                isoScales=isoScales, **DisplayOptions)
             CPlot.finalizeExport(offscreen)
         
         I.__FlowSolutionCenters__ = external_centers_container
@@ -1109,8 +1133,7 @@ class Figure():
             background_opacity=1.0, font_color='black', 
             curves=[dict(zone_name='BLADES',x='IterationNumber',y='MomentumXFlux',
                          plot_params={})], 
-            iterationTracer=None,
-            include_last_point_label=False):
+            iterationTracer=None):
         
         if not self.fig: 
             self.createOverlap()
@@ -1153,8 +1176,8 @@ class Figure():
             curve.setdefault('include_last_point_label',False)
             if curve['include_last_point_label']:
                 ax.text(x[-1], y[-1], "%g"%y[-1],
-                        horizontalalignment='left',
-                        verticalalignment='center',
+                        horizontalalignment='right',
+                        verticalalignment='bottom',
                         color=plt.gca().lines[-1].get_color())
 
 
@@ -1769,23 +1792,34 @@ def plotRadialProfiles(RadialProfiles, filename='RadialProfiles.pdf', assemble=F
                 plt.close()
 
 
-def _getMax(t, field_name):
-    actual = -np.inf
+def _getMax(t, field_name): return _getMinOrMax(t, field_name, Min=False)
+
+def _getMin(t, field_name): return _getMinOrMax(t, field_name, Min=True)
+
+def _getMinOrMax(t, field_name, Min=True):
+    if Min:
+        sign = 1
+        Fun = np.minimum
+        fun = np.min
+    else:
+        sign = -1
+        Fun = np.maximum
+        fun = np.max
+
+    actual = sign * np.inf
     for z in I.getZones(t):
         for fs in I.getNodesFromType1(z,'FlowSolution_t'):
-            node = I.getNodeFromName(z, field_name)
+            if fs[0] not in [I.__FlowSolutionNodes__, I.__FlowSolutionCenters__]:
+                continue
+            node = I.getNodeFromName(fs, field_name)
             if not node or node[3] != 'DataArray_t': continue
-            actual = np.maximum(actual, np.max(node[1]))
+            actual = Fun(actual, fun(node[1]))            
+
+    if not np.isfinite(actual): 
+        J.save(t,'debug.cgns')
+        raise ValueError(f'could not find min/max for {field_name} at {[I.__FlowSolutionNodes__, I.__FlowSolutionCenters__]}, check debug.cgns')
     return actual
 
-def _getMin(t, field_name):
-    actual = np.inf
-    for z in I.getZones(t):
-        for fs in I.getNodesFromType1(z,'FlowSolution_t'):
-            node = I.getNodeFromName(z, field_name)
-            if not node or node[3] != 'DataArray_t': continue
-            actual = np.minimum(actual, np.min(node[1]))
-    return actual
 
 def _fieldExistsAtNodesOrCentersAtZone(z, field_name, vertex_container_name,
         centers_container_name):

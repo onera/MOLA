@@ -23,7 +23,8 @@ from matplotlib.ticker import AutoMinorLocator
 Field2Plot = 'Cp'
 
 C, J = WA.C, WA.J
-SurfsTree = C.convertFile2PyTree( 'surfaces.cgns' )
+SurfsTree = C.convertFile2PyTree( 'OUTPUT/surfaces.cgns' )
+WA.I.__FlowSolutionCenters__ = 'BCDataSet'
 foil = WA.convertSurfaces2OrientedAirfoilCurveAtVertex(SurfsTree)
 WA.addRelevantWallFieldsFromElsAFieldsAtVertex(foil,
                                    setup.ReferenceValues['PressureDynamic'],

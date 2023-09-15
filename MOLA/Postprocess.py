@@ -142,7 +142,7 @@ def extractBoundaryLayer(t, rotation_scale_edge_threshold=0.003,
         AllFieldsNames, = C.getVarNames(z, excludeXYZ=True)
         for fn in AllFieldsNames:
             C.node2Center__(z, fn)
-    I._rmNodesByName(aux_grid, 'FlowSolution')
+    I._rmNodesByName(aux_grid, I.__FlowSolutionNodes__)
     C._normalize(aux_grid,['centers:nx','centers:ny','centers:nz'])
 
     return aux_grid
@@ -426,49 +426,8 @@ def _extractWalls(t):
     (WIP: PROOF OF CONCEPT)
     TODO refactorize with Coprocess extractSurfaces
     '''
-    t = I.copyRef(t)
-    cellDimOutputTree = I.getZoneDim(I.getZones(t)[0])[-1]
-
-    from .Coprocess import reshapeBCDatasetNodes, restoreFamilies
-
-
-    def addBase2SurfacesTree(basename):
-        if not zones: return
-        base = I.newCGNSBase(basename, cellDim=cellDimOutputTree-1, physDim=3,
-            parent=SurfacesTree)
-        I._addChild(base, zones)
-        J.set(base, '.ExtractionInfo', **ExtractionInfo)
-        return base
-
-    t = I.renameNode(t, 'FlowSolution#Init', 'FlowSolution#Centers') # or merge?
-    I._renameNode(t, 'FlowSolution#Height', 'FlowSolution')
-    I._rmNodesByName(t, 'FlowSolution#EndOfRun*')
-    reshapeBCDatasetNodes(t)
-    DictBCNames2Type = C.getFamilyBCNamesDict(t)
-    SurfacesTree = I.newCGNSTree()
-
-    # See Anomaly 8784 https://elsa.onera.fr/issues/8784
-    for BCDataSetNode in I.getNodesFromType(t, 'BCDataSet_t'):
-        for node in I.getNodesFromType(BCDataSetNode, 'DataArray_t'):
-            if I.getValue(node) is None:
-                I.rmNode(BCDataSetNode, node)
-
-    Extraction=dict(type='AllBCWall')
-    TypeOfExtraction = Extraction['type']
-    ExtractionInfo = copy.deepcopy(Extraction)
-    BCFilterName = TypeOfExtraction.replace('AllBC','')
-    for BCFamilyName in DictBCNames2Type:
-        BCType = DictBCNames2Type[BCFamilyName]
-        if BCFilterName.lower() in BCType.lower():
-            zones = C.extractBCOfName(t,'FamilySpecified:'+BCFamilyName)
-            ExtractionInfo['type'] = 'BC'
-            ExtractionInfo['BCType'] = BCType
-            addBase2SurfacesTree(BCFamilyName)
-
-    J.forceZoneDimensionsCoherency(SurfacesTree)
-    restoreFamilies(SurfacesTree, t)
-
-    return SurfacesTree
+    from .Coprocess import extractSurfaces
+    return extractSurfaces(t, [dict(type='AllBCWall')])
 
 
 def _buildAuxiliarWallExtrusion(t, MaximumBoundaryLayerDistance=0.5,
@@ -492,8 +451,8 @@ def _buildAuxiliarWallExtrusion(t, MaximumBoundaryLayerDistance=0.5,
 
     # grid needs to be located at Vertex, see: Cassiopee #10404
 
-    if container != 'FlowSolution':
-        I._rmNodesByName(tR, 'FlowSolution')
+    if container != I.__FlowSolutionNodes__:
+        I._rmNodesByName(tR, I.__FlowSolutionNodes__)
         zone = I.getNodeFromType3(tR, 'Zone_t')
         FlowSolution_n = I.getNodeFromName1(zone, container)
         GridLocation_n = I.getNodeFromName(FlowSolution_n, 'GridLocation')
@@ -533,18 +492,18 @@ def _buildAuxiliarWallExtrusion(t, MaximumBoundaryLayerDistance=0.5,
 
 
     else:
-        I.renameNode(tR, container, 'FlowSolution')
+        I.renameNode(tR, container, I.__FlowSolutionNodes__)
 
 
     AllFlowSolutionNodes = I.getNodesFromType(tR, 'FlowSolution_t')
     for FlowSolutionNode in AllFlowSolutionNodes:
-        if FlowSolutionNode[0] != 'FlowSolution':
+        if FlowSolutionNode[0] != I.__FlowSolutionNodes__:
             I.rmNode(tR, FlowSolutionNode)
 
 
+    from .Coprocess import extractSurfaces
 
-
-    walls_tree = _extractWalls(t)
+    walls_tree = extractSurfaces(t, [dict(type='AllBCWall')])
     I._rmNodesByType( walls_tree , 'FlowSolution_t')
 
     # workaround: see Cassiopee #10404
@@ -1170,7 +1129,6 @@ def extractBC(t, Family=None, Name=None, Type=None):
         extractBCarg = Name
         extractBCfun = C.extractBCOfName
     else:
-        print(f'using C.extractBCOfType({Type})')
         extractBCarg = Type
         extractBCfun = C.extractBCOfType
     
