@@ -5754,27 +5754,28 @@ def convertUnstructuredMeshToNGon(t):
     return t
 
 def addFieldExtraction(ReferenceValues, fieldname):
-    print('adding %s'%fieldname)
     try:
         if fieldname not in ReferenceValues['FieldsAdditionalExtractions']:
+            print('adding %s'%fieldname)
             ReferenceValues['FieldsAdditionalExtractions'].append(fieldname)
     except:
+        print('adding %s'%fieldname)
         ReferenceValues['FieldsAdditionalExtractions'] = [fieldname]
 
 def appendAdditionalFieldExtractions(ReferenceValues, Extractions):
+    field_names = set()
     for e in Extractions:
-        field_names = []
         if 'field' in e:
-            field_names += [e['field']]
+            field_names.update([e['field']])
         elif e['type'] == 'Probe':
-            field_names += e['variables']
+            field_names.update(e['variables'])
         else:
             continue
 
-        for field_name in field_names:
-            if field_name.startswith('Coordinate') or field_name == 'ChannelHeight':
-                continue
-            addFieldExtraction(ReferenceValues, field_name)
+    for field_name in field_names:
+        if field_name.startswith('Coordinate') or field_name == 'ChannelHeight':
+            continue
+        addFieldExtraction(ReferenceValues, field_name)
 
 def addBC2Zone(*args, **kwargs):
     '''
