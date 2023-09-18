@@ -27,10 +27,7 @@ import Generator.PyTree as G
 import Transform.PyTree as T
 import Connector.PyTree as CX
 import Post.PyTree as P
-try:
-    import CPlotOffscreen.PyTree as CPlot
-except:
-    import CPlot.PyTree as CPlot
+import CPlot.PyTree as CPlot
 from .. import LiftingLine as LL
 from .. import Wireframe as W
 from .. import InternalShortcuts as J
@@ -2063,7 +2060,6 @@ if True:
         if 'win' not in DisplayOptions: DisplayOptions['win'] = (700, 700)
         DisplayOptions['exportResolution'] = '%gx%g'%DisplayOptions['win']
 
-
         try: os.makedirs(ImagesDirectory)
         except: pass
 
@@ -2075,15 +2071,7 @@ if True:
         if ShowInScreen:
             DisplayOptions['offscreen'] = 0
         else:
-            machine = os.getenv('MAC')
-            if machine in ['spiro']:
-                DisplayOptions['offscreen']=2 # MESA
-            elif machine in ['ld', 'ld_eos8', 'visung', 'visio', 'sator']:
-                DisplayOptions['offscreen']=1 # openGL
-            else:
-                raise SystemError('machine "%s" not supported.'%machine)
-
-        CPlot.display(t, **DisplayOptions)
+            DisplayOptions['offscreen'] = 1
 
         if 'backgroundFile' not in DisplayOptions:
             MOLA = os.getenv('MOLA')
@@ -2091,9 +2079,15 @@ if True:
             for MOLAloc in [MOLA, MOLASATOR]:
                 backgroundFile = os.path.join(MOLAloc, 'MOLA', 'GUIs', 'background.png')
                 if os.path.exists(backgroundFile):
-                    CPlot.setState(backgroundFile=backgroundFile)
-                    CPlot.setState(bgColor =13)
+                    DisplayOptions['backgroundFile']=backgroundFile
+                    DisplayOptions['bgColor']=13
                     break
+
+        CPlot.display(t, **DisplayOptions)
+        if DisplayOptions['offscreen']:
+            CPlot.finalizeExport(DisplayOptions['offscreen'])
+
+
 
     def open(filename = ''):
         t = C.convertFile2PyTree(filename)

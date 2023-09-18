@@ -194,11 +194,10 @@ class Figure():
         # requires to append blended zones (see cassiopee #8740 and #8748)
         # BEWARE of cassiopee #11311
         if TreesBlending:
-            for i in range(len(Trees)):
-                Trees[i] = I.merge([Trees[i]]+TreesBlending)
-        Trees.extend(TreesBlending)        
+            bases_blending = I.getBases(TreesBlending)
+            for t in Trees:
+                t[2].extend(bases_blending)
         all_TreesMerged = I.merge(Trees)
-
 
         isoScales = [] # must be the same for all composite calls of CPlot.display
         for base_name, elt in baseName2elt.items():
@@ -271,6 +270,13 @@ class Figure():
                 if 'shadow' not in elt: elt['shadow'] = True
                 if not elt['shadow']: cmap -= 1
             except: pass
+            
+            # J.save(tree,'tree_%d.cgns'%i)
+            # print(f'offscreen={offscreen}')
+            # print(f'colormap={cmap}')
+            # print(f'isoScales={isoScales}')
+            # print(f'DisplayOptions={DisplayOptions}')
+
 
             CPlot.display(tree, offscreen=offscreen, colormap=cmap,
                 isoScales=isoScales, **DisplayOptions)
