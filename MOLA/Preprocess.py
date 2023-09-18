@@ -2700,7 +2700,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         CoprocessOptions={},
         FieldsAdditionalExtractions=['ViscosityMolecular','ViscosityEddy','Mach'],
         BCExtractions=dict(BCWall=['normalvector', 'frictionvector',
-                        'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue',
+                        'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue_vector',
                         'flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row'])):
     '''
     Compute ReferenceValues dictionary used for pre/co/postprocessing a CFD
@@ -4132,14 +4132,14 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={},
                     for zone in I.getZones(t):
                         if I.getZoneType(zone) == 2: # unstructured zone
                             # Remove extraction of bl_quantities, see https://elsa-e.onera.fr/issues/6479
-                            var2remove = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue']
+                            var2remove = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue_vector']
                             for var in var2remove:
                                 if var in ExtractVariablesList:
                                     ExtractVariablesList.remove(var)
                             break
 
                     if 'Inviscid' in BCType:
-                        ViscousKeys = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue',
+                        ViscousKeys = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue_vector',
                             'yplusmeshsize', 'frictionvector']
                         for vk in ViscousKeys:
                             try:
