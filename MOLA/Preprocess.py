@@ -3067,6 +3067,8 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         BottomTurbulentImposedFrom  = 0.995
         ))
 
+    ReferenceValues['PREPROCESS_SCRIPT'] = main_script_path = os.path.abspath(__import__('__main__').__file__)
+
     return ReferenceValues
 
 def getElsAkeysCFD(config='3d', unstructured=False, **kwargs):
