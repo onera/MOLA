@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-__version__ = 'Dev'
+__version__ = __file__.split(os.path.sep)[-3] # looks at directory name
 __MOLA_PATH__ = os.path.sep.join(__file__.split(os.path.sep)[:-2])
 __ONLY_DOC__ = 0 # set to True for sphinx compilation
 

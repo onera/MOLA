@@ -5,17 +5,19 @@ unset PYTHONPATH
 shopt -s expand_aliases
 ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
 
 ###############################################################################
 # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
-export MOLA=/stck/lbernard/MOLA/Dev
-export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
+export MOLAVER=${SCRIPT_DIR##*/} # looks to current directory name
+export MOLA=/stck/lbernard/MOLA/$MOLAVER
+export MOLASATOR=/tmp_user/sator/lbernard/MOLA/$MOLAVER
 export VPMVERSION=v0.3
 export PUMAVERSION=v2.0.3
 export TURBOVERSION=v1.2.2
 export ERSTAZVERSION=v1.6.3
-export MOLAext=/stck/lbernard/MOLA/Dev/ext # you should not modify this line
-export MOLASATORext=/tmp_user/sator/lbernard/MOLA/Dev/ext # you should not modify this line
+export MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
+export MOLASATORext=/tmp_user/sator/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
 export OWNCASSREV=rev4658
 export MAIAVERSION=1.2
 ###############################################################################
