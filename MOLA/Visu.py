@@ -132,7 +132,6 @@ class Figure():
             return blend and not mesh
 
 
-
         Trees = []
         TreesBlending = []
         baseName2elt = {}
@@ -271,15 +270,16 @@ class Figure():
                 if not elt['shadow']: cmap -= 1
             except: pass
             
-            # J.save(tree,'tree_%d.cgns'%i)
-            # print(f'offscreen={offscreen}')
-            # print(f'colormap={cmap}')
-            # print(f'isoScales={isoScales}')
-            # print(f'DisplayOptions={DisplayOptions}')
+            DisplayOptions['offscreen'] = offscreen
+            DisplayOptions['colormap'] = cmap
+            DisplayOptions['isoScales'] = isoScales
+            
+            J.save(tree,'tree_%d.cgns'%i)
+            print(f'I.__FlowSolutionNodes__="{I.__FlowSolutionNodes__}"')
+            print(f'I.__FlowSolutionCenters__="{I.__FlowSolutionCenters__}"')
+            print(f'DisplayOptions={DisplayOptions}\n')
 
-
-            CPlot.display(tree, offscreen=offscreen, colormap=cmap,
-                isoScales=isoScales, **DisplayOptions)
+            CPlot.display(tree, **DisplayOptions)
             CPlot.finalizeExport(offscreen)
         
         I.__FlowSolutionCenters__ = external_centers_container
