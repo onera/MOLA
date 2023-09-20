@@ -274,10 +274,10 @@ class Figure():
             DisplayOptions['colormap'] = cmap
             DisplayOptions['isoScales'] = isoScales
             
-            J.save(tree,'tree_%d.cgns'%i)
-            print(f'I.__FlowSolutionNodes__="{I.__FlowSolutionNodes__}"')
-            print(f'I.__FlowSolutionCenters__="{I.__FlowSolutionCenters__}"')
-            print(f'DisplayOptions={DisplayOptions}\n')
+            # J.save(tree,'tree_%d.cgns'%i)
+            # print(f'I.__FlowSolutionNodes__="{I.__FlowSolutionNodes__}"')
+            # print(f'I.__FlowSolutionCenters__="{I.__FlowSolutionCenters__}"')
+            # print(f'DisplayOptions={DisplayOptions}\n')
 
             CPlot.display(tree, **DisplayOptions)
             CPlot.finalizeExport(offscreen)
