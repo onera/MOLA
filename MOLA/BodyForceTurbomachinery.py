@@ -1141,7 +1141,7 @@ def filterDataSourceTermsAxial(t):
 
 import MOLA.BodyForceModels.BodyForceModels as BFM
 
-BodyForceModel = dict(
+AvailableBodyForceModels = dict(
     blockage = BFM.BodyForceModel_blockage,
     blockage_correction = BFM.BodyForceModel_blockage_correction,
     hall_without_blockage = BFM.BodyForceModel_hall_without_blockage,
@@ -1181,7 +1181,7 @@ def computeBodyForce(t, BodyForceParameters):
     TotalSourceTermsGlobal = dict()
     for modelParameters in BodyForceParameters:
         model = modelParameters.pop('model')
-        NewSourceTermsGlobal = BodyForceModel[model](t, modelParameters)
+        NewSourceTermsGlobal = AvailableBodyForceModels[model](t, modelParameters)
         # Add the computed source terms to the total source terms
         addDictionaries(TotalSourceTermsGlobal, NewSourceTermsGlobal)
 

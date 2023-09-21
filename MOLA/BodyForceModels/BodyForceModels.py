@@ -329,7 +329,7 @@ def BodyForceModel_EndWallsProtection(t, BodyForceParameters):
         )
         NewSourceTermsGlobal[I.getName(zone)] = BLProtectionSourceTerms
 
-    return BLProtectionSourceTerms
+    return NewSourceTermsGlobal
 
 
 def BodyForceModel_ThrustSpread(t, BodyForceParameters):

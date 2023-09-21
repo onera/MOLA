@@ -2917,6 +2917,12 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
         #     # read lines that follow in the loop
         #     continue
 
+        BFzones = []
+        for zone in I.getZones(newTreeWithSourceTerms):
+            DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
+            if DataSourceTermNode is not None:
+                BFzones.append(zone)
+
         # Add FluidProperties, ReferenceValues and TurboConfiguration in BodyForceParameters 
         # This latter could be a dict or a list of dict
         if isinstance(BodyForceParameters, list):
@@ -2929,12 +2935,9 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
             BodyForceParameters['ReferenceValues'] = setup.ReferenceValues
             BodyForceParameters['TurboConfiguration'] = setup.TurboConfiguration
 
-        # NewSourceTermsGlobal = BF.computeBodyForce(BFzones, BodyForceParameters)
+        NewSourceTermsGlobal = BF.computeBodyForce(BFzones, BodyForceParameters)
 
-        # for zone in BFzones:
-        NewSourceTermsGlobal = BF.computeBodyForce(newTreeWithSourceTerms, BodyForceParameters)
-
-        for zone in I.getZones(newTreeWithSourceTerms):
+        for zone in BFzones:
 
             DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
             NewSourceTerms = NewSourceTermsGlobal[I.getName(zone)]
