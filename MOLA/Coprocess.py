@@ -2904,12 +2904,12 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
         coeff_eff = J.rampFunction(BodyForceInitialIteration, BodyForceFinalIteration, 0., 1.)
 
         # Create a local communicator active only for processors that manage zones in BodyForceFamily
-        BFzones, subComm, procList = getBodyForceZones(newTreeWithSourceTerms, BodyForceFamily)
-        BodyForceParameters['communicator'] = subComm
-        if rank not in procList:
-            # Only processors involved in the computation of source terms for BodyForceFamily
-            # read lines that follow in the loop
-            continue
+        # BFzones, subComm, procList = getBodyForceZones(newTreeWithSourceTerms, BodyForceFamily)
+        # BodyForceParameters['communicator'] = subComm
+        # if rank not in procList:
+        #     # Only processors involved in the computation of source terms for BodyForceFamily
+        #     # read lines that follow in the loop
+        #     continue
 
         # Add FluidProperties, ReferenceValues and TurboConfiguration in BodyForceParameters 
         # This latter could be a dict or a list of dict
@@ -2923,9 +2923,12 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
             BodyForceParameters['ReferenceValues'] = setup.ReferenceValues
             BodyForceParameters['TurboConfiguration'] = setup.TurboConfiguration
 
-        NewSourceTermsGlobal = BF.computeBodyForce(BFzones, BodyForceParameters)
+        # NewSourceTermsGlobal = BF.computeBodyForce(BFzones, BodyForceParameters)
 
-        for zone in BFzones:
+        # for zone in BFzones:
+        NewSourceTermsGlobal = BF.computeBodyForce(newTreeWithSourceTerms, BodyForceParameters)
+
+        for zone in I.getZones(newTreeWithSourceTerms):
 
             DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
             NewSourceTerms = NewSourceTermsGlobal[I.getName(zone)]
@@ -2960,7 +2963,7 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
                 newSourceTerm *= ActiveSourceTerm
                 I.newDataArray(name=name, value=newSourceTerm, parent=FSSourceTerm)
             
-            subComm.Free()
+            # subComm.Free()
 
     I._rmNodesByName(newTreeWithSourceTerms, 'FlowSolution#Init')
     I._rmNodesByName(newTreeWithSourceTerms, 'FlowSolution#DataSourceTerm')
