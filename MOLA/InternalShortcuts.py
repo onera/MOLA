@@ -2477,7 +2477,7 @@ def printEnvironment():
         v = FAIL+'UNAVAILABLE'+ENDC
     print(v.ljust(20-len(tag))+printTime(toc))
 
-    if totoV in ['Dev', 'master']:
+    if totoV in ['Dev', 'master'] or 'dev' in totoV.lower():
         print(WARN+'WARNING: you are using an UNSTABLE version of MOLA.\nConsider using a stable version.'+ENDC)
     else:
         Major, Minor, Micro = getMajorMinorMicro(totoV)
