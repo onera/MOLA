@@ -266,7 +266,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlock
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, OverrideSolverKeys= {}, 
         TurboConfiguration={}, Extractions=[], BoundaryConditions=[],
-        PostprocessOptions={}, BodyForceInputData={}, writeOutputFields=True,
+        PostprocessOptions={}, BodyForceInputData=[], writeOutputFields=True,
         bladeFamilyNames=['BLADE', 'AUBE'], Initialization={'method':'uniform'},
         JobInformation={}, SubmitJob=False,
         FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
@@ -321,19 +321,13 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         PostprocessOptions : dict
             Dictionary for post-processing.
 
-        BodyForceInputData : :py:class:`dict`
-            if provided, each key in this :py:class:`dict` is the name of a row family to model
-            with body-force. The associated value is a sub-dictionary, with the following 
-            potential entries:
+        BodyForceInputData : list
+            if provided, each key in this :py:class:`list` is a dictionay that activate a body-force model,
+            described with the following entries:
 
-                * model (:py:class:`dict`): the name of the body-force model to apply. Available models 
-                  are: 'hall', 'blockage', 'Tspread', 'constant'.
+                * Family: the name of the row family on which the model is applied.
 
-                * rampIterations (:py:class:`dict`): The number of iterations to apply a ramp on source terms, 
-                  starting from `BodyForceInitialIteration` (in `ReferenceValues['CoprocessOptions']`). 
-                  If not given, there is no ramp (source terms are fully applied from the `BodyForceInitialIteration`).
-
-                * other optional parameters depending on the **model** 
+                * BodyForceParameters: a dict to provide the parameter of the model
                   (see dedicated functions in :mod:`MOLA.BodyForceTurbomachinery`).
 
 
@@ -1322,7 +1316,7 @@ def computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration):
             ReferenceValues['NormalizationCoefficient'][FamilyName] = dict(FluxCoef=fluxcoeff)
 
 def getTurboConfiguration(t, ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={},
-    PeriodicTranslation=None, BodyForceInputData={}):
+    PeriodicTranslation=None, BodyForceInputData=[]):
     '''
     Construct a dictionary concerning the compressor properties.
 
@@ -1385,7 +1379,7 @@ def getTurboConfiguration(t, ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}
             a periodicity in the direction **PeriodicTranslation**. This argument
             has to be used for linear cascade configurations.
         
-        BodyForceInputData : dict
+        BodyForceInputData : list
             see :py:func:`prepareMainCGNS4ElsA`
 
     Returns

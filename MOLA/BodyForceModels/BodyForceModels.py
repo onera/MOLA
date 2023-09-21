@@ -405,8 +405,10 @@ def BodyForceModel_constant(t, BodyForceParameters):
         NewSourceTermsGlobal : dict
             Computed source terms.
     """
+    ReferenceValues = BodyForceParameters.get('ReferenceValues')
+
     SourceTerms = dict()
-    for key in BodyForceParameters['ReferenceValues']['Fields']:
+    for key in ReferenceValues['Fields']:
 
         if key in BodyForceParameters:
             SourceTerms[key] = BodyForceParameters[key]
@@ -417,11 +419,22 @@ def BodyForceModel_constant(t, BodyForceParameters):
             FlowSolution = J.getVars2Dict(zone, Container='FlowSolution#Init')
             ones = np.ones(FlowSolution['Density'].shape)
 
+            if 'MomentumTheta' in BodyForceParameters or 'MomentumR' in BodyForceParameters:
+                DataSourceTerms = J.getVars2Dict(zone, Container='FlowSolution#DataSourceTerm')
+                theta = DataSourceTerms['theta']
+                BodyForceParameters.setdefault('MomentumTheta', 0.)
+                BodyForceParameters.setdefault('MomentumR', 0.)
+                SourceTerms['MomentumY'] = np.cos(theta) * BodyForceParameters['MomentumTheta'] + np.sin(theta) * BodyForceParameters['MomentumR']
+                SourceTerms['MomentumZ'] =-np.cos(theta) * BodyForceParameters['MomentumR'] + np.sin(theta) * BodyForceParameters['MomentumTheta']
+
             NewSourceTerms = dict()
             for key, value in SourceTerms.items():
-                NewSourceTerms[key] = value * ones
-            else:
-                NewSourceTermsGlobal[I.getName(zone)] = NewSourceTerms
+                if isinstance(value, (float, int)):
+                    NewSourceTerms[key] = value * ones
+                else:
+                    NewSourceTerms[key] = value
+            
+            NewSourceTermsGlobal[I.getName(zone)] = NewSourceTerms
 
     return NewSourceTermsGlobal
 
@@ -505,7 +518,8 @@ def BodyForceModel_ShockWaveLoss(t, BodyForceParameters):
     return NewSourceTermsGlobal
 
 
-def spreadPressureLossAlongChord(t, BodyForceParameters):
+def spreadPressureLossAlongChord(t, BodyForceParameters, Distribution='uniform'):
+
     FluidProperties = BodyForceParameters.get('FluidProperties')
     TurboConfiguration = BodyForceParameters.get('TurboConfiguration')
     R = FluidProperties['IdealGasConstant']
@@ -519,7 +533,12 @@ def spreadPressureLossAlongChord(t, BodyForceParameters):
         DataSourceTerms = J.getVars2Dict(zone, Container='FlowSolution#DataSourceTerm')
         tmpMOLAFlow = BF.getAdditionalFields(zone, FluidProperties, RotationSpeed)
 
-        gradPt = ... # Depends on the loss coefficent provided to the function
+        if Distribution == 'uniform':
+            gradPtLoss = tmpMOLAFlow['PtLoss'] / DataSourceTerms['ChordX'] / DataSourceTerms['dx']
+        else:
+            raise ValueError(f"Distribution='{Distribution}' is not implemented. Only 'uniform' is available.")
+
+        gradPt = 0.5 * tmpMOLAFlow['Density'] * tmpMOLAFlow['Wmag']**2 * gradPtLoss 
         fp = R * tmpMOLAFlow['Temperature'] / tmpMOLAFlow['Ptrel'] * np.cos(tmpMOLAFlow['incidence']) * gradPt
 
         # Get force in the cartesian frame
@@ -621,7 +640,7 @@ def PtLossModel_Roberts1988_EndWallWithoutClearance(r, rWall, WallType, delta1, 
         np.ndarray
             Total pressure loss, with the same shape as the input radius **r**
     '''
-    PtLossMaximum  = 0.20 * np.tanh( np.sqrt( 15 * Camber * delta1**2 / (ARc * Solidity) ) )  # error in eq (7) in the reference paper, see eq on Fig. 12
+    PtLossMaximum  = 0.20 * np.tanh( np.sqrt( 15 * abs(Camber) * delta1**2 / (ARc * Solidity) ) )  # error in eq (7) in the reference paper, see eq on Fig. 12
     PtLossDistanceOfMaxFromWall = 0.1 * BladeSpan  # eq (8) in the reference paper
     PtLossExtent   = 2.5 * PtLossDistanceOfMaxFromWall  # eq (9) in the reference paper
 
@@ -818,7 +837,7 @@ def BodyForceModel_Roberts1988(t, BodyForceParameters):
     rShroud = BodyForceParameters['ShroudRadius']
     rHub = BodyForceParameters['HubRadius']
     BladeSpan = rShroud - rHub
-    ChannelAspectRatio = BodyForceParameters['AspectRatio'] # blade span / blade spacing at mid span
+    ChannelAspectRatio = BodyForceParameters['ChannelAspectRatio'] # blade span / blade spacing at mid span
     Solidity = BodyForceParameters['Solidity'] # chord / blade spacing
     Camber = BodyForceParameters['Camber'] # In degrees
 
@@ -853,7 +872,8 @@ def BodyForceModel_Roberts1988(t, BodyForceParameters):
             # For rotor with tip clearance
             PtLossAtShroud = PtLossModel_Roberts1988_RotorTipClearance(r, rShroud, ShroudDisplacementThickness, TipClearance, BladeSpan)
 
-        LossSourceTerms = spreadPressureLossAlongChord(PtLossAtHub + PtLossAtShroud)
+        tmpMOLAFlowNode = I.getNodeFromName(zone, 'FlowSolution#tmpMOLAFlow')
+        I.createChild(tmpMOLAFlowNode, 'PtLoss', 'DataArray_t', value=PtLossAtHub + PtLossAtShroud)
 
         ####################################################################
         # Deviation with respect to flow angle at mid span
@@ -866,6 +886,11 @@ def BodyForceModel_Roberts1988(t, BodyForceParameters):
 
         # Add deviation to the midspan angle, and convert that into a force...
 
-        NewSourceTermsGlobal[I.getName(zone)] = LossSourceTerms
+
+    LossSourceTerms = spreadPressureLossAlongChord(t, BodyForceParameters)
+    BF.addDictionaries(NewSourceTermsGlobal, LossSourceTerms)
+
+    DeviationSourceTerms = ...
+    BF.addDictionaries(NewSourceTermsGlobal, DeviationSourceTerms)
     
     return NewSourceTermsGlobal

@@ -2888,8 +2888,6 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
 
     newTreeWithSourceTerms = I.copyRef(t)
     
-    FluidProperties    = setup.FluidProperties
-    TurboConfiguration = setup.TurboConfiguration
     BodyForceInitialIteration = setup.ReferenceValues['CoprocessOptions'].get('BodyForceInitialIteration', 1)
 
     for BodyForceComponent in setup.BodyForceInputData:
@@ -2913,14 +2911,17 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
             # read lines that follow in the loop
             continue
 
-        # Add FluidProperties and TurboConfiguration in BodyForceParameters, that could be a dict or a list of dict
+        # Add FluidProperties, ReferenceValues and TurboConfiguration in BodyForceParameters 
+        # This latter could be a dict or a list of dict
         if isinstance(BodyForceParameters, list):
             for BFParams in BodyForceParameters:
-                BFParams['FluidProperties'] = FluidProperties
-                BFParams['TurboConfiguration'] = TurboConfiguration
+                BFParams['FluidProperties'] = setup.FluidProperties
+                BFParams['ReferenceValues'] = setup.ReferenceValues
+                BFParams['TurboConfiguration'] = setup.TurboConfiguration
         else:
-            BodyForceParameters['FluidProperties'] = FluidProperties
-            BodyForceParameters['TurboConfiguration'] = TurboConfiguration
+            BodyForceParameters['FluidProperties'] = setup.FluidProperties
+            BodyForceParameters['ReferenceValues'] = setup.ReferenceValues
+            BodyForceParameters['TurboConfiguration'] = setup.TurboConfiguration
 
         NewSourceTermsGlobal = BF.computeBodyForce(BFzones, BodyForceParameters)
 
