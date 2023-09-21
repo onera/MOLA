@@ -2700,7 +2700,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         CoprocessOptions={},
         FieldsAdditionalExtractions=['ViscosityMolecular','ViscosityEddy','Mach'],
         BCExtractions=dict(BCWall=['normalvector', 'frictionvector',
-                        'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue',
+                        'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue_vector',
                         'flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row'])):
     '''
     Compute ReferenceValues dictionary used for pre/co/postprocessing a CFD
@@ -3066,6 +3066,8 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         BottomLaminarIfFailureUpTo  = 0.2,
         BottomTurbulentImposedFrom  = 0.995
         ))
+
+    ReferenceValues['PREPROCESS_SCRIPT'] = main_script_path = os.path.abspath(__import__('__main__').__file__)
 
     return ReferenceValues
 
@@ -4132,14 +4134,14 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={},
                     for zone in I.getZones(t):
                         if I.getZoneType(zone) == 2: # unstructured zone
                             # Remove extraction of bl_quantities, see https://elsa-e.onera.fr/issues/6479
-                            var2remove = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue']
+                            var2remove = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue_vector']
                             for var in var2remove:
                                 if var in ExtractVariablesList:
                                     ExtractVariablesList.remove(var)
                             break
 
                     if 'Inviscid' in BCType:
-                        ViscousKeys = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue',
+                        ViscousKeys = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue_vector',
                             'yplusmeshsize', 'frictionvector']
                         for vk in ViscousKeys:
                             try:
@@ -5754,27 +5756,28 @@ def convertUnstructuredMeshToNGon(t):
     return t
 
 def addFieldExtraction(ReferenceValues, fieldname):
-    print('adding %s'%fieldname)
     try:
         if fieldname not in ReferenceValues['FieldsAdditionalExtractions']:
+            print('adding %s'%fieldname)
             ReferenceValues['FieldsAdditionalExtractions'].append(fieldname)
     except:
+        print('adding %s'%fieldname)
         ReferenceValues['FieldsAdditionalExtractions'] = [fieldname]
 
 def appendAdditionalFieldExtractions(ReferenceValues, Extractions):
+    field_names = set()
     for e in Extractions:
-        field_names = []
         if 'field' in e:
-            field_names += [e['field']]
+            field_names.update([e['field']])
         elif e['type'] == 'Probe':
-            field_names += e['variables']
+            field_names.update(e['variables'])
         else:
             continue
 
-        for field_name in field_names:
-            if field_name.startswith('Coordinate') or field_name == 'ChannelHeight':
-                continue
-            addFieldExtraction(ReferenceValues, field_name)
+    for field_name in field_names:
+        if field_name.startswith('Coordinate') or field_name == 'ChannelHeight':
+            continue
+        addFieldExtraction(ReferenceValues, field_name)
 
 def addBC2Zone(*args, **kwargs):
     '''

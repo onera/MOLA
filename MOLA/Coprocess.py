@@ -684,6 +684,7 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
     I._rmNodesByType(tpt, 'IntegralData_t')
     Cmpi.barrier()
     printCo('will save %s ...' % filename, 0, color=J.CYAN)
+    Cmpi.barrier()
     PyPartBase.mergeAndSave(tpt, 'PyPart_fields')
     Cmpi.barrier()
     if rank == 0:
@@ -2629,9 +2630,6 @@ def loadSkeleton(Skeleton=None, PartTree=None):
         I._rmNode(parent, oldNode)
         I._addChild(parent, newNode)
 
-    # def replaceNodesByNameRecursively(parent, parentPath, name):
-    #     for child in parent[2]:
-
 
     def replaceNodeValuesRecursively(node_skel, node_path):
         new_node = readNodesFromPaths(node_path)[0]
@@ -2735,7 +2733,15 @@ def splitWithPyPart():
     PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[6, 2], nCellPerCache=1024)
     PyPartBase.finalise(PartTree, savePpart=True, method=1)
     Skeleton = PyPartBase.getPyPartSkeletonTree()
-    I._rmNodesByName(Skeleton,'ZoneBCGT') # https://elsa.onera.fr/issues/11149
+    is_unsteady = setup.elsAkeysNumerics['time_algo'] != 'steady'
+    try:
+        avg_requested = setup.ReferenceValues['CoprocessOptions']['FirstIterationForFieldsAveraging'] is not None
+    except:
+        avg_requested = False
+
+    if is_unsteady and avg_requested:
+        printCo('WARNING: removing "ZoneBCGT", but this may cause deadlock at fields.cgns save: https://elsa.onera.fr/issues/11149#note-11',0,J.WARN)
+        I._rmNodesByName(Skeleton,'ZoneBCGT') # https://elsa.onera.fr/issues/11149
     Distribution = PyPartBase.getDistribution()
 
     # Put Distribution into the Skeleton

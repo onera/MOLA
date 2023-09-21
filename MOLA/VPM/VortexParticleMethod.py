@@ -27,10 +27,7 @@ import Generator.PyTree as G
 import Transform.PyTree as T
 import Connector.PyTree as CX
 import Post.PyTree as P
-try:
-    import CPlotOffscreen.PyTree as CPlot
-except:
-    import CPlot.PyTree as CPlot
+import CPlot.PyTree as CPlot
 from .. import LiftingLine as LL
 from .. import Wireframe as W
 from .. import InternalShortcuts as J
@@ -2063,7 +2060,6 @@ if True:
         if 'win' not in DisplayOptions: DisplayOptions['win'] = (700, 700)
         DisplayOptions['exportResolution'] = '%gx%g'%DisplayOptions['win']
 
-
         try: os.makedirs(ImagesDirectory)
         except: pass
 
@@ -2075,15 +2071,7 @@ if True:
         if ShowInScreen:
             DisplayOptions['offscreen'] = 0
         else:
-            machine = os.getenv('MAC')
-            if machine in ['spiro']:
-                DisplayOptions['offscreen']=2 # MESA
-            elif machine in ['ld', 'ld_eos8', 'visung', 'visio', 'sator']:
-                DisplayOptions['offscreen']=1 # openGL
-            else:
-                raise SystemError('machine "%s" not supported.'%machine)
-
-        CPlot.display(t, **DisplayOptions)
+            DisplayOptions['offscreen'] = 1
 
         if 'backgroundFile' not in DisplayOptions:
             MOLA = os.getenv('MOLA')
@@ -2091,9 +2079,15 @@ if True:
             for MOLAloc in [MOLA, MOLASATOR]:
                 backgroundFile = os.path.join(MOLAloc, 'MOLA', 'GUIs', 'background.png')
                 if os.path.exists(backgroundFile):
-                    CPlot.setState(backgroundFile=backgroundFile)
-                    CPlot.setState(bgColor =13)
+                    DisplayOptions['backgroundFile']=backgroundFile
+                    DisplayOptions['bgColor']=13
                     break
+
+        CPlot.display(t, **DisplayOptions)
+        if DisplayOptions['offscreen']:
+            CPlot.finalizeExport(DisplayOptions['offscreen'])
+
+
 
     def open(filename = ''):
         t = C.convertFile2PyTree(filename)
@@ -2639,195 +2633,11 @@ if True:
         return ExctractionTree
 
     def extractperturbationField(t = [], Targets = [], PerturbationFieldCapsule = []):
+        # LB: TODO make doc; rename as extractPerturbationField
         if PerturbationFieldCapsule:
             TargetsBase = I.newCGNSBase('Targets', cellDim=1, physDim=3)
             TargetsBase[2] = I.getZones(Targets)
             PertubationFieldBase = I.newCGNSBase('PertubationFieldBase', cellDim=1, physDim=3)
-            PertubationFieldBase[2] = pickPerturbationFieldZone(t)
+            PertubationFieldBase[2] = pickPerturbationFieldZone(t) # LB: CAVEAT,  TODO make multi zones
             Theta, NumberOfNodes, TimeVelPert = getParameters(t, ['NearFieldOverlappingRatio', 'NumberOfNodes', 'TimeVelocityPerturbation'])
-            TimeVelPert[0] += vpm_cpp.extract_perturbation_velocity_field(TargetsBase, PertubationFieldBase, PerturbationFieldCapsule, NumberOfNodes, Theta)[0]
-
-
-
-    
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-'''
-def initialiseLiftingLinesAndGetShieldBoxes(LiftingLines, PolarsInterpolatorDict, Resolution):
-    LL.computeKinematicVelocity(LiftingLines)
-    LL.assembleAndProjectVelocities(LiftingLines)
-    LL._applyPolarOnLiftingLine(LiftingLines, PolarsInterpolatorDict, ['Cl', 'Cd'])
-    LL.computeGeneralLoadsOfLiftingLine(LiftingLines)
-    ShieldBoxes = buildShieldBoxesAroundLiftingLines(LiftingLines, Resolution)
-
-    return ShieldBoxes
-
-def buildShieldBoxesAroundLiftingLines(LiftingLines, Resolution):
-    ShieldBoxes = []
-    h = 2*Resolution
-    for LiftingLine in I.getZones(LiftingLines):
-        tx,ty,tz,bx,by,bz,nx,ny,nz = J.getVars(LiftingLine,
-            ['tx','ty','tz','bx','by','bz','nx','ny','nz'])
-        x,y,z = J.getxyz(LiftingLine)
-        quads = []
-        for i in range(len(tx)):
-            quad = G.cart((-h/2.,-h/2.,0),(h,h,1),(2,2,1))
-            T._rotate(quad,(0,0,0), ((1,0,0),(0,1,0),(0,0,1)),
-                ((nx[i],ny[i],nz[i]), (bx[i],by[i],bz[i]), (tx[i],ty[i],tz[i])))
-            T._translate(quad,(x[i],y[i],z[i]))
-            quads += [ quad ]
-        I._correctPyTree(quads, level=3)
-        ShieldBox = G.stack(quads)
-        ShieldBox[0] = LiftingLine[0] + '.shield'
-
-        # in theory, this get+set is a copy by reference (e.g.: in-place
-        # modification of RPM in LiftingLine will produce a modification of the
-        # RPM of its associated ShieldBoxes)
-        for paramsName in ['.Conditions','.Kinematics']:
-            params = J.get(LiftingLine, paramsName)
-            J.set(ShieldBox, paramsName, **params)
-        ShieldBoxes += [ ShieldBox ]
-
-    return ShieldBoxes
-
-def updateParticlesStrength(Particles, MaskShedParticles, Sources, SourcesM1, NumberParticlesShedPerStation, NumberSource):
-    Np = Particles[1][0]
-    CoordinateX       = I.getNodeFromName3(Particles, "CoordinateX")
-    CoordinateY       = I.getNodeFromName3(Particles, "CoordinateY")
-    CoordinateZ       = I.getNodeFromName3(Particles, "CoordinateZ")
-    AlphaX            = I.getNodeFromName3(Particles, "AlphaX")
-    AlphaY            = I.getNodeFromName3(Particles, "AlphaY")
-    AlphaZ            = I.getNodeFromName3(Particles, "AlphaZ")
-
-    Ns = 0
-    posEmbedded = Np[0] - NumberSource
-    for k in range(len(Sources)):
-        LLXj                  = I.getValue(I.getNodeFromName3(Sources[k], "CoordinateX"))
-        LLYj                  = I.getValue(I.getNodeFromName3(Sources[k], "CoordinateY"))
-        LLZj                  = I.getValue(I.getNodeFromName3(Sources[k], "CoordinateZ"))
-        Gamma                = I.getValue(I.getNodeFromName3(Sources[k], "Gamma"))
-        V2DXj                 = I.getValue(I.getNodeFromName3(Sources[k], "Velocity2DX"))
-        V2DYj                 = I.getValue(I.getNodeFromName3(Sources[k], "Velocity2DY"))
-        V2DZj                 = I.getValue(I.getNodeFromName3(Sources[k], "Velocity2DZ"))
-        GammaM1              = I.getValue(I.getNodeFromName3(SourcesM1[k], "Gamma"))
-
-        NsCurrent = len(LLXj)
-
-        for i in range(NsCurrent - 1):
-            Nshed = NumberParticlesShedPerStation[Ns + i] + 1
-            vecj2D = -np.array([V2DXj[i + 1] + V2DXj[i], V2DYj[i + 1] + V2DYj[i], V2DZj[i + 1] + V2DZj[i]])
-            dy = np.linalg.norm(vecj2D)
-            vecj2D /= dy
-
-            veci = np.array([(LLXj[i + 1] - LLXj[i]), (LLYj[i + 1] - LLYj[i]), (LLZj[i + 1] - LLZj[i])])
-            dx = np.linalg.norm(veci)
-            veci /= dx
-
-            pos = 0.5*np.array([LLXj[i + 1] + LLXj[i], LLYj[i + 1] + LLYj[i], LLZj[i + 1] + LLZj[i]])
-            vecj = np.array([CoordinateX[1][MaskShedParticles[Ns + i] - NumberSource], CoordinateY[1][MaskShedParticles[Ns + i] - NumberSource], CoordinateZ[1][MaskShedParticles[Ns + i] - NumberSource]]) - pos
-            dy = np.linalg.norm(vecj)
-            vecj /= Nshed
-            
-            GammaTrailing = (Gamma[i + 1] - Gamma[i])*dy/Nshed
-            GammaShedding = (GammaM1[i + 1] + GammaM1[i] - (Gamma[i + 1] + Gamma[i]))/2.*dx/Nshed
-            GammaBound = [GammaTrailing*vecj2D[0] + GammaShedding*veci[0], GammaTrailing*vecj2D[1] + GammaShedding*veci[1], GammaTrailing*vecj2D[2] + GammaShedding*veci[2]]
-            CoordinateX[1][posEmbedded] = pos[0]
-            CoordinateY[1][posEmbedded] = pos[1]
-            CoordinateZ[1][posEmbedded] = pos[2]
-            AlphaX[1][posEmbedded] = GammaBound[0]
-            AlphaY[1][posEmbedded] = GammaBound[1]
-            AlphaZ[1][posEmbedded] = GammaBound[2]
-            posEmbedded += 1
-            for j in range(1, Nshed):
-                CoordinateX[1][Np[0]] = pos[0] + (j + 0.)*vecj[0]
-                CoordinateY[1][Np[0]] = pos[1] + (j + 0.)*vecj[1]
-                CoordinateZ[1][Np[0]] = pos[2] + (j + 0.)*vecj[2]
-                AlphaX[1][Np[0]] = GammaBound[0]
-                AlphaY[1][Np[0]] = GammaBound[1]
-                AlphaZ[1][Np[0]] = GammaBound[2]
-
-                Np[0] += 1
-
-        Ns += NsCurrent - 1
-        
-        #for i in range(NsCurrent - 1):
-        #    Nshed = NumberParticlesShedPerStation[Ns + i] + 1
-        #    vecj2D = -dt*0.5*np.array([V2DXj[i + 1] + V2DXj[i], V2DYj[i + 1] + V2DYj[i], V2DZj[i + 1] + V2DZj[i]])
-        #    dy = np.linalg.norm(vecj2D)
-        #    vecj2D /= dy
-
-        #    veci = np.array([(LLXj[i + 1] - LLXj[i]), (LLYj[i + 1] - LLYj[i]), (LLZj[i + 1] - LLZj[i])])
-        #    dx = np.linalg.norm(veci)
-        #    veci /= dx
-
-        #    pos = 0.5*np.array([LLXj[i + 1] + LLXj[i], LLYj[i + 1] + LLYj[i], LLZj[i + 1] + LLZj[i]])
-        #    vecj = np.array([CoordinateX[1][MaskShedParticles[Ns + i] - NumberSource], CoordinateY[1][MaskShedParticles[Ns + i] - NumberSource], CoordinateZ[1][MaskShedParticles[Ns + i] - NumberSource]]) - pos
-        #    dy = np.linalg.norm(vecj)
-        #    vecj /= dy
-        #    
-        #    GammaTrailing = (Gamma[i + 1] - Gamma[i])*dy
-        #    GammaShedding = (GammaM1[i + 1] + GammaM1[i] - (Gamma[i + 1] + Gamma[i]))/2.*dx
-        #    MeanWeightX = (GammaTrailing*vecj2D[0] + GammaShedding*veci[0] + AlphaX[1][MaskShedParticles[Ns + i] - NumberSource])/(Nshed + 1)
-        #    slopeX = 2.*(AlphaX[1][MaskShedParticles[Ns + i] - NumberSource] - MeanWeightX)/dy
-        #    heightX = 2.*MeanWeightX - AlphaX[1][MaskShedParticles[Ns + i] - NumberSource]
-        #    MeanWeightY = (GammaTrailing*vecj2D[1] + GammaShedding*veci[1] + AlphaY[1][MaskShedParticles[Ns + i] - NumberSource])/(Nshed + 1)
-        #    slopeY = 2.*(AlphaY[1][MaskShedParticles[Ns + i] - NumberSource] - MeanWeightY)/dy
-        #    heightY = 2.*MeanWeightY - AlphaY[1][MaskShedParticles[Ns + i] - NumberSource]
-        #    MeanWeightZ = (GammaTrailing*vecj2D[2] + GammaShedding*veci[2] + AlphaZ[1][MaskShedParticles[Ns + i] - NumberSource])/(Nshed + 1)
-        #    slopeZ = 2.*(AlphaZ[1][MaskShedParticles[Ns + i] - NumberSource] - MeanWeightZ)/dy
-        #    heightZ = 2.*MeanWeightZ - AlphaZ[1][MaskShedParticles[Ns + i] - NumberSource]
-        #    CoordinateX[1][posEmbedded] = pos[0]
-        #    CoordinateY[1][posEmbedded] = pos[1]
-        #    CoordinateZ[1][posEmbedded] = pos[2]
-        #    AlphaX[1][posEmbedded] = 0.*slopeX + heightX
-        #    AlphaY[1][posEmbedded] = 0.*slopeY + heightY
-        #    AlphaZ[1][posEmbedded] = 0.*slopeZ + heightZ
-        #    posEmbedded += 1
-        #    for j in range(1, Nshed):
-        #        CoordinateX[1][Np[0]] = pos[0] + j*dy/Nshed*vecj[0]
-        #        CoordinateY[1][Np[0]] = pos[1] + j*dy/Nshed*vecj[1]
-        #        CoordinateZ[1][Np[0]] = pos[2] + j*dy/Nshed*vecj[2]
-        #        AlphaX[1][Np[0]] = j*dy/Nshed*slopeX + heightX
-        #        AlphaY[1][Np[0]] = j*dy/Nshed*slopeY + heightY
-        #        AlphaZ[1][Np[0]] = j*dy/Nshed*slopeZ + heightZ
-        #        Np[0] += 1
-        #Ns += NsCurrent - 1
- '''
+            TimeVelPert[0] += vpm_cpp.extract_perturbation_velocity_field(TargetsBase, PertubationFieldBase, PerturbationFieldCapsule, NumberOfNodes[0], Theta[0])[0]

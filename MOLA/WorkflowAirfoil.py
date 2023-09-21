@@ -458,7 +458,9 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                     OverrideSolverKeys={},
                     CoprocessOptions={'ConvergenceCriteria': [dict(Family='AIRFOIL',
                                                 Variable='std-CL',
-                                                Threshold=CONVERGENCE_THRESHOLD)]},
+                                                Threshold=CONVERGENCE_THRESHOLD)],
+                                      'RequestedStatistics':['std-CL','std-CD','std-Cm'],
+                                                },
                     ImposedWallFields=[], TransitionZones={},
                     FieldsAdditionalExtractions=['ViscosityMolecular',
                         'Viscosity_EddyMolecularRatio','Mach'],
@@ -707,7 +709,7 @@ def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
         CoprocessOptions={},
         FieldsAdditionalExtractions=[], BCExtractions=dict(
             BCWall=['normalvector', 'frictionvector', 'psta',
-                    'bl_quantities_2d', 'yplusmeshsize', 'bl_ue',
+                    'bl_quantities_2d', 'yplusmeshsize', 'bl_ue_vector',
                     'flux_rou','flux_rov','flux_row',
                     'torque_rou','torque_rov','torque_row'])):
     '''
@@ -1380,7 +1382,7 @@ def getAirfoilCurveFromSurfaces(t):
 
     # elsA bug : somme numpy have wrong sizes. To circumvent this problem:
     for zone in I.getZones(t):
-        for field_node in I.getNodeFromName(zone, 'FlowSolution#Centers')[2]:
+        for field_node in I.getNodeFromName(zone, I.__FlowSolutionCenters__)[2]:
             field = field_node[1]
             if isinstance(field, str): continue
             if len(field.shape) == 1:
@@ -1430,7 +1432,7 @@ def getBoundaryLayerEdgesFromAirfoilCurve(wall,
     C.center2Node__(z,'centers:nz',cellNType=0)
     for Thickness2Plot in Thicknesses2Plot:
         C.center2Node__(z,'centers:'+Thickness2Plot,cellNType=0)
-    I._rmNodesByName(z,'FlowSolution#Centers')
+    I._rmNodesByName(z,I.__FlowSolutionCenters__)
     C._normalize(z,['nx','ny','nz'])
 
     NewZones2add = []
@@ -1733,6 +1735,7 @@ def buildPolar(JobsConfiguration, PolarName='Polar',
 
 
             try:
+                I.__FlowSolutionCenters__ = 'BCDataSet'
                 distr = getCaseDistributions(config, CASE_LABEL)
             except:
                 for v in PolarsDict:
@@ -1851,7 +1854,7 @@ def convertSurfaces2OrientedAirfoilCurveAtVertex(SurfacesTree):
     for fieldname in C.getVarNames(wall,excludeXYZ=True,loc='centers')[0]:
         C.center2Node__(wall,fieldname,cellNType=0)
 
-    I._rmNodesByName(wall,'FlowSolution#Centers')
+    I._rmNodesByName(wall,I.__FlowSolutionCenters__)
 
     W.putAirfoilClockwiseOrientedAndStartingFromTrailingEdge(wall)
 

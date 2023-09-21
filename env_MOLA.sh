@@ -5,18 +5,20 @@ unset PYTHONPATH
 shopt -s expand_aliases
 ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
 
 ###############################################################################
 # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
-export MOLA=/stck/lbernard/MOLA/Dev
-export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
+export MOLAVER=${SCRIPT_DIR##*/} # looks to current directory name
+export MOLA=/stck/lbernard/MOLA/$MOLAVER
+export MOLASATOR=/tmp_user/sator/lbernard/MOLA/$MOLAVER
 export VPMVERSION=v0.3
 export PUMAVERSION=v2.0.3
 export TURBOVERSION=v1.2.2
 export ERSTAZVERSION=v1.6.3
-export MOLAext=/stck/lbernard/MOLA/Dev/ext # you should not modify this line
-export MOLASATORext=/tmp_user/sator/lbernard/MOLA/Dev/ext # you should not modify this line
-export OWNCASSREV=rev4632
+export MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
+export MOLASATORext=/tmp_user/sator/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
+export OWNCASSREV=rev4658
 export MAIAVERSION=1.2
 ###############################################################################
 
@@ -43,8 +45,7 @@ MAC0=$(echo $KC | grep 'ld'); if [ "$MAC0" != "" ]; then export MAC="ld"; fi
 MAC0=$(echo $KC | grep 'eos'); if [ "$MAC0" != "" ]; then export MAC="ld"; fi
 MAC0=$(echo $KC | grep 'spiro'); if [ "$MAC0" != "" ]; then export MAC="spiro"; fi
 MAC0=$(echo $KC | grep 'visung'); if [ "$MAC0" != "" ]; then export MAC="visung"; fi
-MAC0=$(echo $KC | grep 'visio'); if [ "$MAC0" != "" ]; then export MAC="visio"; fi
-MAC0=$(echo $KC | grep 'celeste'); if [ "$MAC0" != "" ]; then export MAC="visio"; fi
+MAC0=$(echo $KC | grep 'topaze'); if [ "$MAC0" != "" ]; then export MAC="topaze"; fi
 
 if [ "$MAC" = "ld" ] && [ ! "$EL8" ] ; then export MAC="visung"; fi
 
@@ -296,6 +297,9 @@ elif [ "$MAC" = "visio" ]; then
     export PYTHONPATH=$MOLAext/visio/lib/python3.6/site-packages/:$PYTHONPATH
     export PATH=$MOLAext/visio/bin:$PATH
     export LD_LIBRARY_PATH=$MOLAext/visio/lib/python3.6/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
+
+elif [ "$MAC" = "topaze" ]; then
+    source /ccc/work/cont001/saelsa/saelsa/Public/$ELSAVERSION/Dist/bin/topaze/.env_elsA
 
 else
     echo -e "\033[91mERROR: MACHINE $KC NOT INCLUDED IN MOLA ENVIRONMENT\033[0m"

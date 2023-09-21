@@ -25,6 +25,7 @@ File History:
 # ----------------------- IMPORT SYSTEM MODULES ----------------------- #
 import sys
 import os
+import glob
 import numpy as np
 import timeit
 LaunchTime = timeit.default_timer()
@@ -84,16 +85,12 @@ PyPartBase = PPA.PyPart(FILE_CGNS,
                         mpicomm=comm,
                         LoggingInFile=False, 
                         LoggingFile='{}/PYPART_partTree'.format(DIRECTORY_LOGS),
-                        LoggingVerbose=40  # Filter: None=0, DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
+                        LoggingVerbose=40  
                         )
-# reorder=[6, 2] is recommended by CLEF, mostly for unstructured mesh
-# with modernized elsA. 
-# Mandatory arguments to use lussorscawf: reorder=[6,2], nCellPerCache!=0
-# See http://elsa.onera.fr/restricted/MU_MT_tuto/latest/MU-98057/Textes/Attribute/numerics.html#numerics.implicit
 PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[6, 2], nCellPerCache=1024)
 PyPartBase.finalise(PartTree, savePpart=True, method=1)
 Skeleton = PyPartBase.getPyPartSkeletonTree()
-I._rmNodesByName(Skeleton,'ZoneBCGT') # https://elsa.onera.fr/issues/11149
+#I._rmNodesByName(Skeleton,'ZoneBCGT') # https://elsa.onera.fr/issues/11149
 Distribution = PyPartBase.getDistribution()
 
 # Put Distribution into the Skeleton
@@ -102,6 +99,108 @@ for zone in I.getZones(Skeleton):
     Cmpi._setProc(zone, Distribution[zonePath])
 
 t = I.merge([Skeleton, PartTree])
+
+# loadSkeleton
+addCoordinates = True
+if not Skeleton: Skeleton = Cmpi.convertFile2SkeletonTree(FILE_CGNS)
+
+FScoords = I.getNodeFromName1(Skeleton, 'FlowSolution#EndOfRun#Coords')
+if FScoords: addCoordinates = False
+
+I._rmNodesByName(Skeleton, 'FlowSolution#EndOfRun*')
+I._rmNodesByName(Skeleton, 'ID_*')
+
+if PartTree:
+    # Needed nodes are read from PartTree
+    def readNodesFromPaths(path):
+        split_path = path.split('/')
+        path_begining = '/'.join(split_path[:-1])
+        name = split_path[-1]
+        parent = I.getNodeFromPath(PartTree, path_begining)
+        return I.getNodesFromName(parent, name)
+
+    FScoords = I.getNodeFromName1(PartTree, 'FlowSolution#EndOfRun#Coords')
+    if FScoords: addCoordinates = False
+else:
+    # Needed nodes are read from FILE_CGNS with Converter.Filter
+    def readNodesFromPaths(path):
+        return Filter.readNodesFromPaths(FILE_CGNS, [path])
+
+
+def replaceNodeByName(parent, parentPath, name):
+    oldNode = I.getNodeFromName1(parent, name)
+    path = '{}/{}'.format(parentPath, name)
+    newNode = readNodesFromPaths(path)
+    I._rmNode(parent, oldNode)
+    I._addChild(parent, newNode)
+
+def replaceNodeValuesRecursively(node_skel, node_path):
+    new_node = readNodesFromPaths(node_path)[0]
+    node_skel[1] = new_node[1]
+    for child in node_skel[2]:
+        replaceNodeValuesRecursively(child, node_path+'/'+child[0])
+
+containers2read = ['FlowSolution#Height',
+                    ':CGNS#Ppart',
+                    'FlowSolution#DataSourceTerm',
+                    'FlowSolution#Average']
+
+for base in I.getBases(Skeleton):
+    basename = I.getName(base)
+    for zone in I.getNodesFromType1(base, 'Zone_t'):
+        # Only for local zones on proc
+        proc = I.getValue(I.getNodeFromName(zone, 'proc'))
+        if proc != rank: continue
+
+        zonePath = '{}/{}'.format(basename, I.getName(zone))
+        zoneInPartialTree = readNodesFromPaths(zonePath)[0]
+
+        # Coordinates
+        if addCoordinates: replaceNodeByName(zone, zonePath, 'GridCoordinates')
+
+        for nodeName2read in containers2read:
+            if I.getNodeFromName1(zoneInPartialTree, nodeName2read):
+                replaceNodeByName(zone, zonePath, nodeName2read)
+
+        # For unstructured mesh
+        if I.getZoneType(zone) == 2: # unstructured zone
+            replaceNodeByName(zone, zonePath, ':elsA#Hybrid')
+            # TODO: Add other types of Elements_t nodes if needed
+            replaceNodeByName(zone, zonePath, 'NGonElements')
+            replaceNodeByName(zone, zonePath, 'NFaceElements')
+            # PointList in BCs and GridConnectivities
+            for BC in I.getNodesFromType2(zone, 'BC_t'):
+                BCpath = '{}/ZoneBC/{}'.format(zonePath, I.getName(BC))
+                replaceNodeByName(BC, BCpath, 'PointList')
+            for GC in I.getNodesFromType2(zone, 'GridConnectivity_t'):
+                GCpath = '{}/ZoneGridConnectivity/{}'.format(zonePath, I.getName(GC))
+                replaceNodeByName(GC, GCpath, 'PointList')
+
+
+
+    # always require to fully read Mask nodes 
+    masks = I.getNodeFromName1(base, '.MOLA#Masks')
+    if masks:
+        replaceNodeValuesRecursively(masks, '/'.join([basename, masks[0]]))
+
+# Add empty Coordinates for skeleton zones
+# Needed to make Cmpi.convert2PartialTree work
+for zone in I.getZones(Skeleton):
+    GC = I.getNodeFromType1(zone, 'GridCoordinates_t')
+    if not GC:
+        GC = I.createUniqueChild(zone, 'GridCoordinates', 'GridCoordinates_t')
+        I.createUniqueChild(GC, 'CoordinateX', 'DataArray_t')
+        I.createUniqueChild(GC, 'CoordinateY', 'DataArray_t')
+        I.createUniqueChild(GC, 'CoordinateZ', 'DataArray_t')
+    elif I.getZoneType(zone) == 2:
+        # HACK For unstructured zone, correct the node NFaceElements/ElementConnectivity
+        # Problem with PyPart: see issue https://elsa-e.onera.fr/issues/9002
+        # C._convertArray2NGon(zone)
+        NFaceElements = I.getNodeFromName(zone, 'NFaceElements')
+        if NFaceElements:
+            node = I.getNodeFromName(NFaceElements, 'ElementConnectivity')
+            I.setValue(node, np.abs(I.getValue(node)))
+
 
 # ========================== LAUNCH ELSA ========================== #
 
@@ -146,9 +245,18 @@ e.action=elsAxdt.COMPUTE
 e.mode=elsAxdt.READ_ALL
 e.compute()
 
-Cmpi._convert2PartialTree(t)
-I._rmNodesByName(t, '.Solver#Param')
-I._rmNodesByType(t, 'IntegralData_t')
-Cmpi.barrier()
-PyPartBase.mergeAndSave(t, 'PyPart_fields')
 
+# extractFields
+t = elsAxdt.get(elsAxdt.OUTPUT_TREE)
+I._renameNode(t, 'FlowSolution#EndOfRun', 'FlowSolution#Init')
+t = I.merge([Skeleton, t])
+Cmpi.barrier()
+
+# save
+tpt = I.copyRef(t)
+Cmpi._convert2PartialTree(tpt)
+I._rmNodesByName(tpt, '.Solver#Param')
+I._rmNodesByType(tpt, 'IntegralData_t')
+Cmpi.barrier()
+PyPartBase.mergeAndSave(tpt, 'PyPart_fields')
+Cmpi.barrier()
