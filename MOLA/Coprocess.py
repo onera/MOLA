@@ -490,7 +490,7 @@ def deduceContainerForSlicing(Extraction):
         return 'GridCoordinates'
 
     elif Extraction['field'] in ['Radius', 'radius', 'CoordinateR', 'Slice']:
-        return 'FlowSolution#Height'
+        return 'FlowSolution'
 
     elif Extraction['field'] == 'ChannelHeight':
         return 'FlowSolution#Height'
