@@ -18,7 +18,7 @@ export TURBOVERSION=v1.2.2
 export ERSTAZVERSION=v1.6.3
 export MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
 export MOLASATORext=/tmp_user/sator/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
-export OWNCASSREV=rev4658
+export OWNCASSREV=rev4665
 export MAIAVERSION=1.2
 ###############################################################################
 
@@ -203,7 +203,7 @@ elif [ "$MAC" = "ld" ]; then
     # # module load paraview/5.11.0 # provokes python and libraries incompatibilities
     module load occt/7.6.1-gnu831
 
-    export OPENMPIOVERSUBSCRIBE='-oversubscribe'
+    export OPENMPIOVERSUBSCRIBE='--oversubscribe'
 
     unset I_MPI_PMI_LIBRARY
     export OMPI_MCA_mca_base_component_show_load_errors=0
