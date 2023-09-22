@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import pylab as pb
 import sys
 import os
 import numpy as np
@@ -26,16 +27,13 @@ import Generator.PyTree as G
 import Transform.PyTree as T
 import Connector.PyTree as CX
 import Post.PyTree as P
-try:
-    import CPlotOffscreen.PyTree as CPlot
-except:
-    import CPlot.PyTree as CPlot
+import CPlot.PyTree as CPlot
 from .. import LiftingLine as LL
 from .. import Wireframe as W
 from .. import InternalShortcuts as J
 from .. import ExtractSurfacesProcessor as ESP
 
-__version__ = '0.2'
+__version__ = '0.3'
 __author__ = 'Johan VALENTIN'
 
 if True:
@@ -60,6 +58,8 @@ if True:
 
     def extend(t = [], ExtendSize = 0, Offset = 0, ExtendAtTheEnd = True):
         Particles = pickParticlesZone(t)
+        Cvisq = getParameter(Particles, 'EddyViscosityConstant')
+        if not Cvisq: Cvisq = 0.
         GridCoordinatesNode = I.getNodeFromName1(Particles, 'GridCoordinates')
         FlowSolutionNode = I.getNodeFromName1(Particles, 'FlowSolution')
         Np = len(J.getx(Particles))
@@ -68,18 +68,42 @@ if True:
         if ExtendAtTheEnd:
             for node in GridCoordinatesNode[2] + FlowSolutionNode[2]:
                 if node[3] == 'DataArray_t':
-                    zeros = np.zeros(ExtendSize, dtype = node[1].dtype, order = 'F') + (node[0] == \
-                                                                                           'Active')
+                    zeros = np.array(np.zeros(ExtendSize) + (node[0] == 'Active') + Cvisq*(node[0] \
+                                                    == 'Cvisq'), dtype = node[1].dtype, order = 'F')
                     node[1] = np.append(np.append(node[1][:Np -Offset], zeros), node[1][Np-Offset:])
 
         else:
             for node in GridCoordinatesNode[2] + FlowSolutionNode[2]:
                 if node[3] == 'DataArray_t':
-                    zeros = np.zeros(ExtendSize, dtype = node[1].dtype, order = 'F') + (node[0] == \
-                                                                                           'Active')
+                    zeros = np.array(np.zeros(ExtendSize) + (node[0] == 'Active') + Cvisq*(node[0] \
+                                                    == 'Cvisq'), dtype = node[1].dtype, order = 'F')
                     node[1] = np.append(np.append(node[1][:Offset], zeros), node[1][Offset:])
 
         Particles[1].ravel(order = 'F')[0] = len(node[1])
+
+    def addParticlesToTree(t, NewX, NewY, NewZ, NewAX, NewAY, NewAZ, NewSigma):
+        Nnew = len(NewX)
+
+        extend(t, ExtendSize = Nnew, Offset = 0, ExtendAtTheEnd = False)
+        Particles = pickParticlesZone(t)
+
+        px, py, pz = J.getxyz(Particles)
+        px[:Nnew] = NewX
+        py[:Nnew] = NewY
+        pz[:Nnew] = NewZ
+        AX, AY, AZ, WX, WY, WZ, A, W, Nu, Volume, Sigma = J.getVars(Particles, \
+                                     ['Alpha'+i for i in 'XYZ'] + ['Vorticity'+i for i in 'XYZ'] + \
+                               ['StrengthMagnitude', 'VorticityMagnitude', 'Nu', 'Volume', 'Sigma'])
+        AX[:Nnew] = NewAX
+        AY[:Nnew] = NewAY
+        AZ[:Nnew] = NewAZ
+        A[:Nnew] = np.linalg.norm(np.vstack([NewAX, NewAY, NewAZ]),axis=0)
+        Sigma[:Nnew] = NewSigma
+        Volume[:Nnew] = NewSigma**3
+        Nu[:Nnew] = getParameter(Particles, 'KinematicViscosity')
+        WX[:Nnew] = NewAX/Volume[:Nnew]
+        WY[:Nnew] = NewAY/Volume[:Nnew]
+        WZ[:Nnew] = NewAZ/Volume[:Nnew]
 
     def trim(t = [], NumberToTrim = 0, Offset = 0, TrimAtTheEnd = True):
         Particles = pickParticlesZone(t)
@@ -133,16 +157,21 @@ if True:
                     Parameters[key] = np.atleast_1d(np.array(Parameters[key],
                                                             dtype = np.int32))
 
+    def getPerturbationFieldParameters(t = []): return J.get(pickParticlesZone(t), '.PerturbationField#Parameters')
+
     def getParameter(t = [], Name = ''):
         Particles = pickParticlesZone(t)
         Node = getVPMParameters(Particles)
         if Name in Node: ParameterNode = Node[Name]
         else :ParameterNode = None
-        if not ParameterNode:
+        if ParameterNode == None:
             Node = getLiftingLineParameters(Particles)
             if Node and Name in Node: ParameterNode = Node[Name]
-        if not ParameterNode:
+        if ParameterNode == None:
             Node = getHybridParameters(Particles)
+            if Node and Name in Node: ParameterNode = Node[Name]
+        if ParameterNode == None:
+            Node = getPerturbationFieldParameters(Particles)
             if Node and Name in Node: ParameterNode = Node[Name]
         return ParameterNode
 
@@ -162,20 +191,23 @@ if True:
                                                                                      'Mansour2': -2}
     RedistributionKernel_str2int = {'M4Prime': 5, 'M4': 4, 'M3': 3, 'M2': 2, 'M1': 1, None: 0,
                                                                                           'None': 0}
-    DiffusionScheme_str2int = {'PSE': 1, 'ParticleStrengthExchange': 1, 'pse': 1, 'CSM': 2, 'CS': 2,
-        'csm': 2, 'cs': 2, 'CoreSpreading': 2, 'CoreSpreadingMethod': 2, 'None': 0, None: 0}
+    DiffusionScheme_str2int = {'PSE': 1, 'ParticleStrengthExchange': 1, 'pse': 1, 'DVM': 2,'dvm': 2,
+        'DiffusionVelocityMethod': 2, 'CSM': 3, 'CS': 3, 'csm': 3, 'cs': 3, 'CoreSpreading': 3,
+        'CoreSpreadingMethod': 3, 'None': 0, None: 0}
 
     def buildEmptyVPMTree():
         Particles = C.convertArray2Node(D.line((0., 0., 0.), (0., 0., 0.), 2))
         Particles[0] = 'Particles'
 
 
-        FieldNames = ['VelocityInduced' + v for v in 'XYZ'] + ['Vorticity' + v for v in 'XYZ'] +\
-                        ['Alpha' + v for v in 'XYZ'] + ['gradxVelocity' + v for v in 'XYZ'] + \
-                        ['gradyVelocity' + v for v in 'XYZ']+ ['gradzVelocity' + v for v in 'XYZ']+\
-                        ['PSE' + v for v in 'XYZ'] + ['Stretching' + v for v in 'XYZ'] + ['Active',
-                        'Age', 'HybridFlag', 'Nu', 'Sigma', 'StrengthMagnitude', 'Volume',
-                                                                               'VorticityMagnitude']
+        FieldNames = ['VelocityInduced' + v for v in 'XYZ'] + ['Vorticity' + v for v in 'XYZ'] + \
+                     ['Alpha' + v for v in 'XYZ'] + ['gradxVelocity' + v for v in 'XYZ'] + \
+                     ['gradyVelocity' + v for v in 'XYZ']+ ['gradzVelocity' + v for v in 'XYZ'] + \
+                     ['PSE' + v for v in 'XYZ'] + ['Stretching' + v for v in 'XYZ'] + \
+                     ['VelocityDiffusion' + v for v in 'XYZ'] + ['Active', 'Age', 'HybridFlag', \
+                      'Nu', 'Sigma', 'StrengthMagnitude', 'Volume', 'VorticityMagnitude', 'divUd', \
+                      'Enstrophy', 'Enstrophyf', 'KineticEnergy', 'KineticEnergyf', 'SFS', 'Cvisq', \
+                      'KineticEnergyVariation', 'EnstrophyVariation'] + ['VelocityPerturbation' + v for v in 'XYZ']
         J.invokeFieldsDict(Particles, FieldNames)
 
         IntegerFieldNames = ['Active', 'Age', 'HybridFlag']
@@ -192,44 +224,38 @@ if True:
         I._sortByName(I.getNodeFromName1(Particles, 'FlowSolution'))
         return C.newPyTree(['ParticlesBase', Particles])
 
-    def initialiseVPM(EulerianMesh = [], LiftingLineTree = [], PolarInterpolator = [], VPMParameters = {}, HybridParameters = {}, LiftingLineParameters = {}):
+    def initialiseVPM(EulerianMesh = [], LiftingLineTree = [], PerturbationField = [], PolarInterpolator = [], VPMParameters = {}, HybridParameters = {}, LiftingLineParameters = {}, PerturbationFieldParameters = {}):
         int_Params =['MaxLiftingLineSubIterations', 'MaximumSubIteration','StrengthRampAtbeginning', 
             'MinNbShedParticlesPerLiftingLine', 'CurrentIteration', 'NumberOfHybridInterfaces',
             'MaximumAgeAllowed', 'RedistributionPeriod', 'NumberOfThreads', 'IntegrationOrder',
-            'IterationTuningFMM', 'IterationCounter', 'ShedParticlesIndex', 'OuterInterfaceCell',
+            'IterationTuningFMM', 'IterationCounter', 'OuterInterfaceCell', 'NumberOfNodes'
             'FarFieldApproximationOrder', 'NumberOfParticlesPerInterface', 'NumberOfSources']
 
         float_Params = ['Density', 'EddyViscosityConstant', 'Temperature', 'ResizeParticleFactor',
-            'Time', 'CutoffXmin', 'CutoffZmin', 'MaximumMergingVorticityFactor', 'RelaxationCutoff',
+            'Time', 'CutoffXmin', 'CutoffZmin', 'MaximumMergingVorticityFactor', 'RealignmentRelaxationFactor',
             'SFSContribution', 'SmoothingRatio', 'CirculationThreshold', 'RPM','KinematicViscosity',
             'CirculationRelaxation', 'Pitch', 'CutoffXmax', 'CutoffYmin', 'CutoffYmax', 'Sigma0',
             'CutoffZmax', 'ForcedDissipation','MaximumAngleForMerging', 'MinimumVorticityFactor', 
             'RelaxationFactor', 'MinimumOverlapForMerging', 'VelocityFreestream', 'AntiStretching',
             'RelaxationThreshold', 'RedistributeParticlesBeyond', 'RedistributeParticleSizeFactor',
             'TimeStep', 'Resolution', 'VelocityTranslation', 'NearFieldOverlappingRatio', 'TimeFMM',
-            'RemoveWeakParticlesBeyond', 'OuterDomainToWallDistance', 'InnerDomainToWallDistance']
+            'RemoveWeakParticlesBeyond', 'OuterDomainToWallDistance', 'InnerDomainToWallDistance',
+            'MagnitudeRelaxationFactor', 'EddyViscosityRelaxationFactor', 'TimeVelPert']
 
-        bool_Params = ['GammaZeroAtRoot', 'GammaZeroAtTip','MonitorInvariants','GhostParticleAtTip',
-            'LowStorageIntegration', 'GhostParticleAtRoot']
+        bool_Params = ['MonitorDiagnostics', 'LowStorageIntegration']
 
         defaultParameters = {
             ############################################################################################
-            ################################### Simulation conditions ##################################
+            ################################### Simulation Conditions ##################################
             ############################################################################################
-                'Density'                            : 1.225,         #]0., +inf[, in kg.m^-3
-                'EddyViscosityConstant'              : 0.1,           #[0., +inf[, constant for the eddy viscosity model, Cm(Mansour) around 0.1, Cs(Smagorinsky) around 0.15, Cr(Vreman) around 0.07
-                'EddyViscosityModel'                 : 'Vreman',      #Mansour, Mansour2, Smagorinsky, Vreman or None, select a LES model to compute the eddy viscosity
-                'KinematicViscosity'                 : 1.46e-5,       #[0., +inf[, in m^2.s^-1
-                'Temperature'                        : 288.15,        #]0., +inf[, in K
-                'VelocityFreestream'                 : [40., 0., 0.], #E |R^3, in m.s^-1
-                'Density'                       : 1.225,          #in kg.m^-3, 1.01325e5/((273.15 + 15)*287.05)
-                'EddyViscosityConstant'         : 0.1,            #constant for the eddy viscosity model, Cm(Mansour) around 0.1, Cs(Smagorinsky) around 0.15, Cr(Vreman) around 0.7
-                'EddyViscosityModel'            : 'Vreman',       #Mansour, Smagorinsky, Vreman or None, select a LES model to compute the eddy viscosity
-                'KinematicViscosity'            : 1.46e-5,        #in m^2.s^-1, kinematic viscosity, TODO must be inferred from atmospheric conditions
-                'Temperature'                   : 288.15,         #in K, 273.15 + 15.
+                'Density'                       : 1.225,          #]0., +inf[, in kg.m^-3
+                'EddyViscosityConstant'         : 0.15,            #[0., +inf[, constant for the eddy viscosity model, Cm(Mansour) around 0.1, Cs(Smagorinsky) around 0.15, Cr(Vreman) around 0.07
+                'EddyViscosityModel'            : 'Vreman',       #Mansour, Mansour2, Smagorinsky, Vreman or None, select a LES model to compute the eddy viscosity
+                'KinematicViscosity'            : 1.46e-5,        #[0., +inf[, in m^2.s^-1
+                'Temperature'                   : 288.15,         #]0., +inf[, in K
                 'Time'                          : 0.,             #in s, keep track of the physical time
             ############################################################################################
-            ###################################### VPM parameters ######################################
+            ###################################### VPM Parameters ######################################
             ############################################################################################
                 'AntiStretching'                : 0.,             #between 0 and 1, 0 means particle strength fully takes vortex stretching, 1 means the particle size fully takes the vortex stretching
                 'DiffusionScheme'               : 'PSE',          #PSE, CSM or None. gives the scheme used to compute the diffusion term of the vorticity equation
@@ -243,7 +269,7 @@ if True:
                 'CurrentIteration'              : 0,              #follows the current iteration
                 'IntegrationOrder'              : 3,              #[|1, 4|]1st, 2nd, 3rd or 4th order Runge Kutta. In the hybrid case, there must be at least as much Interfaces in the hybrid domain as the IntegrationOrder of the time integration scheme
                 'LowStorageIntegration'         : True,           #[|0, 1|], states if the classical or the low-storage Runge Kutta is used
-                'MonitorInvariants'             : False,          #must be linked with the invariants function
+                'MonitorDiagnostics'            : True,           #[|0, 1|], allows or not the computation of the diagnostics (kinetic energy, enstrophy, divergence-free kinetic energy, divergence-free enstrophy)
             ############################################################################################
             ##################################### Particles Control ####################################
             ############################################################################################
@@ -262,12 +288,14 @@ if True:
                 'RedistributeParticlesBeyond'   : np.inf,         #do not redistribute particles if closer than RedistributeParticlesBeyond*Resolution from a LL
                 'RedistributionKernel'          : None,           #M4Prime, M4, M3, M2, M1 or None, redistribution kernel used. the number gives the order preserved by the kernel, if None local splitting/merging is used
                 'RedistributionPeriod'          : 0,              #frequency at which particles are redistributed, if 0 the particles are never redistributed
-                'RelaxationCutoff'              : 0.,             #in Hz, is used during the relaxation process to realign the particles with the vorticity
+                'RealignmentRelaxationFactor'   : 0.,             #[0., 1.[, is used during the relaxation process to realign the particles with their voticity and avoid having a non null divergence of the vorticity field
+                'MagnitudeRelaxationFactor'     : 0.,             #[0., 1.[, is used during the relaxation process to change the magnitude of the particles to avoid having a non null divergence of the vorticity field
+                'EddyViscosityRelaxationFactor' : 0.,             #[0., 1.[, is used during the relaxation process when updating the eddy viscosity constant to satisfy the transfert of enstrophy to the kinetic energy
                 'RemoveWeakParticlesBeyond'     : np.inf,         #do not remove weak particles if closer than RemoveWeakParticlesBeyond*Resolution from a LL
                 'ResizeParticleFactor'          : 0.,             #[0, +inf[, resize particles that grow/shrink RedistributeParticleSizeFactor * Sigma0 (i.e. Resolution*SmoothingRatio), if 0 then no resizing is done
                 'StrengthRampAtbeginning'       : 25,             #[|0, +inf [|, limit the vorticity shed for the StrengthRampAtbeginning first iterations for the wake to stabilise
             ############################################################################################
-            ###################################### FMM parameters ######################################
+            ###################################### FMM Parameters ######################################
             ############################################################################################
                 'FarFieldApproximationOrder'    : 8,              #[|6, 12|], order of the polynomial which approximates the far field interactions, the higher the more accurate and the more costly
                 'IterationTuningFMM'            : 50,             #frequency at which the FMM is compared to the direct computation, gives the relative L2 error
@@ -277,7 +305,7 @@ if True:
         }
         defaultHybridParameters = {
             ############################################################################################
-            ################################ Hybrid Domain parameters ################################
+            ################################ Hybrid Domain Parameters ################################
             ############################################################################################
                 'BCFarFieldName'                   : 'farfield',#the name of the farfield boundary condition from which the Outer Interface is searched
                 'MaximumSubIteration'              : 100,       #[|0, +inf[|, gives the maximum number of sub-iterations when computing the strength of the particles generated from the vorticity on the Interfaces
@@ -290,20 +318,26 @@ if True:
         }
         defaultLiftingLineParameters = {
             ############################################################################################
-            ################################# Lifting Lines parameters #################################
+            ################################# Lifting Lines Parameters #################################
             ############################################################################################
                 'CirculationThreshold'             : 1e-4,                     #convergence criteria for the circulation sub-iteration process, somewhere between 1e-3 and 1e-6 is ok
                 'CirculationRelaxation'            : 1./5.,                    #relaxation parameter of the circulation sub-iterations, somwhere between 0.1 and 1 is good, the more unstable the simulation, the lower it should be
-                'GammaZeroAtRoot'                  : True,                     #[|0, 1|], sets the circulation of the root of the blade to zero
-                'GammaZeroAtTip'                   : True,                     #[|0, 1|], sets the circulation of the tip  of the blade to zero
-                'GhostParticleAtRoot'              : False,                    #[|0, 1|], add a particles at after the root of the blade
-                'GhostParticleAtTip'               : False,                    #[|0, 1|], add a particles at after the tip  of the blade
                 'IntegralLaw'                      : 'linear',                 #uniform, tanhOneSide, tanhTwoSides or ratio, gives the type of interpolation of the circulation on the lifting lines
                 'MaxLiftingLineSubIterations'      : 100,                      #max number of sub iteration when computing the LL circulations
                 'MinNbShedParticlesPerLiftingLine' : 27,                       #minimum number of station for every LL from which particles are shed
                 'Pitch'                            : 0.,                       #]-180., 180[ in deg, gives the pitch given to all the lifting lines, if 0 no pitch id added
         }
+        defaultVelocityPertParameters = {
+            ############################################################################################
+            ############################## Perturbation Field Parameters ###############################
+            ############################################################################################
+                'NumberOfNodes'                    : 0,
+                'NearFieldOverlappingRatio': 0.5,
+                'TimeVelocityPerturbation'         : 0.,
+        }
         defaultParameters.update(VPMParameters)
+        if PerturbationField: defaultVelocityPertParameters.update(PerturbationFieldParameters)
+        else: defaultVelocityPertParameters = {}
         if EulerianMesh: defaultHybridParameters.update(HybridParameters)
         else: defaultHybridParameters = {}
         if LiftingLineTree: defaultLiftingLineParameters.update(LiftingLineParameters)
@@ -312,8 +346,7 @@ if True:
         if defaultParameters['NumberOfThreads'] == 'auto':
             NbOfThreads = int(os.getenv('OMP_NUM_THREADS',len(os.sched_getaffinity(0))))
             defaultParameters['NumberOfThreads'] = NbOfThreads
-        else:
-            NbOfThreads = defaultParameters['NumberOfThreads']
+        else: NbOfThreads = defaultParameters['NumberOfThreads']
         os.environ['OMP_NUM_THREADS'] = str(NbOfThreads)
         #vpm_cpp.mpi_init(defaultParameters['NumberOfThreads']);
         checkParametersTypes([defaultParameters, defaultHybridParameters,
@@ -323,15 +356,11 @@ if True:
                                                                        defaultLiftingLineParameters)
         updateLiftingLines(LiftingLineTree, defaultParameters, defaultLiftingLineParameters)
         tE = []
-        if EulerianMesh: tE = generateMirrorWing(EulerianMesh, defaultParameters,
-                                                                            defaultHybridParameters)
         t = buildEmptyVPMTree()
         Particles = pickParticlesZone(t)
-
         if LiftingLineTree:
             print('||' + '{:=^50}'.format(' Initialisation of Lifting Lines '))
             LiftingLines = I.getZones(LiftingLineTree)
-            LL.moveLiftingLines(LiftingLines, -defaultParameters['TimeStep'])#for the simulation to start with the propeller at phi = 0
             initialiseParticlesOnLitingLine(t, LiftingLines, PolarInterpolator,
                                                     defaultParameters, defaultLiftingLineParameters)
             J.set(Particles, '.LiftingLine#Parameters', **defaultLiftingLineParameters)
@@ -342,6 +371,7 @@ if True:
             NumberOfSources = 0
             if 'NumberOfSources' in defaultLiftingLineParameters: NumberOfSources = \
                                                      defaultLiftingLineParameters['NumberOfSources']
+            tE = generateMirrorWing(EulerianMesh, defaultParameters, defaultHybridParameters)
             HybridDomain = generateHybridDomain(tE, defaultParameters, defaultHybridParameters)
             initialiseHybridParticles(t, tE, HybridDomain, defaultParameters, 
                                                   defaultHybridParameters, Offset = NumberOfSources)
@@ -349,34 +379,58 @@ if True:
             I._sortByName(I.getNodeFromName1(Particles, '.Hybrid#Parameters'))
             print('||' + '{:-^50}'.format(' Done '))
 
+
+
+        '''
+        #TODO set the number of nodes of the mesh to the parameters of the velocity perturbation base
+        #the perturbation field has to be created before launching the vpm, it is then incorporated in the main tree
+        defaultVelocityPertParameters['NumberOfNodes'] = np.array(, dtype = np.int32, order = 'F')
+        '''
         J.set(Particles, '.VPM#Parameters', **defaultParameters)
         I._sortByName(I.getNodeFromName1(Particles, '.VPM#Parameters'))
-        if defaultParameters['MonitorInvariants']:
-            J.set(Particles, '.VPM#Invariants', Omega = [0., 0., 0.], LinearImpulse = [0., 0., 0.],
+        if defaultParameters['MonitorDiagnostics']:
+            J.set(Particles, '.VPM#Diagnostics', Omega = [0., 0., 0.], LinearImpulse = [0., 0., 0.],
                                    AngularImpulse = [0., 0., 0.], Helicity = 0., KineticEnergy = 0.,
                                    KineticEnergyDivFree = 0., Enstrophy = 0., EnstrophyDivFree = 0.)
 
+        if PerturbationField:
+            print('||' + '{:=^50}'.format(' Initialisation of Perturbation Field '))
+            if type(PerturbationField) == str: PerturbationField = open(PerturbationField)
+            NumberOfNodes = np.array([0], dtype = np.int32, order = 'F')
+            defaultVelocityPertParameters['NumberOfNodes'] = NumberOfNodes
+            J.set(Particles, '.PerturbationField#Parameters', **defaultVelocityPertParameters)
+            t = I.merge([t, PerturbationField])
+
+            PerturbationFieldBase = I.newCGNSBase('PerturbationField', cellDim=1, physDim=3)
+            PerturbationFieldBase[2] = I.getZones(PerturbationField)
+            PerturbationFieldCapsule = vpm_cpp.build_perturbation_velocity_capsule(PerturbationFieldBase, NumberOfNodes)
+            print('||' + '{:-^50}'.format(' Done '))
+        else: PerturbationFieldCapsule = None
         if LiftingLineTree:
             print('||' + '{:=^50}'.format(' Generate Lifting Lines Particles '))
             t = I.merge([t, LiftingLineTree])
-            (t, PolarInterpolator)
+            ShedVorticitySourcesFromLiftingLines(t, PolarInterpolator, PerturbationFieldCapsule = PerturbationFieldCapsule)
         if EulerianMesh:
             print('||' + '{:=^50}'.format(' Generate Hybrid Particles '))
             t = I.merge([t, HybridDomain])
-
             solveParticleStrength(t)
             splitHybridParticles(t)
-        
-        solveVorticityEquation(t)
+        solveVorticityEquation(t, PerturbationFieldCapsule = PerturbationFieldCapsule)
         IterationCounter = I.getNodeFromName(t, 'IterationCounter')
         IterationCounter[1][0] = defaultParameters['IterationTuningFMM']*\
                                                                defaultParameters['IntegrationOrder']
-        return t, tE
+        return t, tE, PerturbationFieldCapsule
 
     def pickParticlesZone(t = []):
         for z in I.getZones(t):
             if z[0] == 'Particles':
                 return z
+        return []
+
+    def pickPerturbationFieldZone(t = []):
+        for z in I.getZones(t):
+            if z[0] == 'PerturbationField':
+                return [z]
         return []
 
     def getVPMParameters(t = []): return J.get(pickParticlesZone(t), '.VPM#Parameters')
@@ -397,11 +451,11 @@ if True:
         BoxesBase[2] = I.getZones(Boxes)
         return vpm_cpp.box_interaction(t, BoxesBase)
 
-    def getInducedVelocityFromWake(t = [], Target = [], TargetSigma = []):
-        TargetBase = I.newCGNSBase('Targets', cellDim=1, physDim=3)
-        TargetBase[2] = I.getZones(Target)
+    def getInducedVelocityFromWake(t = [], Targets = []):
+        TargetsBase = I.newCGNSBase('Targets', cellDim=1, physDim=3)
+        TargetsBase[2] = I.getZones(Targets)
         Kernel = Kernel_str2int[getParameter(t, 'RegularisationKernel')]
-        return vpm_cpp.induce_velocity_from_wake(t, TargetBase, Kernel, TargetSigma)
+        return vpm_cpp.induce_velocity_from_wake(t, TargetsBase, Kernel)
 
     def findMinimumDistanceBetweenParticles(X = [], Y = [], Z = []):
         return vpm_cpp.find_minimum_distance_between_particles(X, Y, Z)
@@ -409,53 +463,63 @@ if True:
     def findParticleClusters(X = [], Y = [], Z = [], ClusterSize = 0.):
         return vpm_cpp.find_particle_clusters(X, Y, Z, ClusterSize)
 
-    def solveVorticityEquation(t = [], IterationInfo = {}):
+    def solveVorticityEquation(t = [], IterationInfo = {}, PerturbationFieldCapsule = []):
         Kernel = Kernel_str2int[getParameter(t, 'RegularisationKernel')]
         Scheme = Scheme_str2int[getParameter(t, 'VorticityEquationScheme')]
         Diffusion = DiffusionScheme_str2int[getParameter(t, 'DiffusionScheme')]
         EddyViscosityModel = EddyViscosityModel_str2int[getParameter(t, 'EddyViscosityModel')]
-        NumberOfSources = getParameter(t, 'NumberOfSources')
-        if not NumberOfSources: NumberOfSources = 0
+        MonitorDiagnostics = getParameters(t, ['MonitorDiagnostics'])[0]
 
-        solveVorticityEquationInfo = vpm_cpp.wrap_vpm_solver(t, Kernel, Scheme, Diffusion,
-                                                                EddyViscosityModel, NumberOfSources[0])
+        PertubationFieldBase = I.newCGNSBase('PertubationFieldBase', cellDim=1, physDim=3)
+        PertubationFieldBase[2] = pickPerturbationFieldZone(t)
+        solveVorticityEquationInfo = vpm_cpp.wrap_vpm_solver(t, PertubationFieldBase, PerturbationFieldCapsule, Kernel, Scheme, Diffusion, EddyViscosityModel, int(MonitorDiagnostics))
         IterationInfo['Number of threads'] = int(solveVorticityEquationInfo[0])
         IterationInfo['SIMD vectorisation'] = int(solveVorticityEquationInfo[1])
         IterationInfo['Near field overlapping ratio'] = solveVorticityEquationInfo[2]
         IterationInfo['Far field polynomial order'] = int(solveVorticityEquationInfo[3])
         IterationInfo['FMM time'] = solveVorticityEquationInfo[4]
+        if PerturbationFieldCapsule:
+            IterationInfo['Perturbation time'] = solveVorticityEquationInfo[-1]
+            solveVorticityEquationInfo = solveVorticityEquationInfo[:-1]
         if len(solveVorticityEquationInfo) != 5:
             IterationInfo['Rel. err. of Velocity'] = solveVorticityEquationInfo[5]
-            IterationInfo['Rel. err. of Velocity Gradient'] = solveVorticityEquationInfo[6]
-            if len(solveVorticityEquationInfo) == 8: 
-                IterationInfo['Rel. err. of PSE'] = solveVorticityEquationInfo[7]
+            IterationInfo['Rel. err. of Vorticity'] = solveVorticityEquationInfo[6]
+            IterationInfo['Rel. err. of Velocity Gradient'] = solveVorticityEquationInfo[7]
+            if len(solveVorticityEquationInfo) == 9: 
+                IterationInfo['Rel. err. of PSE'] = solveVorticityEquationInfo[8]
+            if len(solveVorticityEquationInfo) == 10: 
+                IterationInfo['Rel. err. of PSE'] = solveVorticityEquationInfo[8]
+                IterationInfo['Rel. err. of Diffusion Velocity'] = solveVorticityEquationInfo[9]
 
         return IterationInfo
 
-    def computeNextTimeStep(t = [], NoDissipationRegions=[]):
+    def computeNextTimeStep(t = [], NoDissipationRegions=[], PerturbationFieldCapsule = []):
         Particles = pickParticlesZone(t)
         LiftingLines = LL.getLiftingLines(t)
         HybridInterface = pickHybridDomainOuterInterface(t)
         NoDissipationRegions.extend(LiftingLines)
         NoDissipationRegions.extend(HybridInterface)
+        
         time, dt, it, IntegOrder, lowstorage, NumberOfSources = getParameters(t,
                  ['Time','TimeStep', 'CurrentIteration', 'IntegrationOrder','LowStorageIntegration',
-                                                                                 'NumberOfSources'])
-        if not NumberOfSources: NumberOfSources = 0
-
+                                               'NumberOfSources'])
         if lowstorage:
             if IntegOrder == 1:
                 a = np.array([0.], dtype = np.float64)
                 b = np.array([1.], dtype = np.float64)
+                #c = np.array([1.], dtype = np.float64)
             elif IntegOrder == 2:
                 a = np.array([0., -0.5], dtype = np.float64)
                 b = np.array([0.5, 1.], dtype = np.float64)
+                #c = np.array([1./2., 1.], dtype = np.float64)
             elif IntegOrder == 3:
                 a = np.array([0., -5./9., -153./128.], dtype = np.float64)
                 b = np.array([1./3., 15./16., 8./15.], dtype = np.float64)
+                #c = np.array([1./3., 3./4., 1.], dtype = np.float64)
             elif IntegOrder == 4:
                 a = np.array([0., -1., -0.5, -4.], dtype = np.float64)
                 b = np.array([1./2., 1./2., 1., 1./6.], dtype = np.float64)
+                #c = np.array([1./2., 1./2., 3./2., 1.], dtype = np.float64)
             else:
                 raise AttributeError('This Integration Scheme Has Not Been Implemented Yet')
         else:
@@ -478,9 +542,12 @@ if True:
         Scheme = Scheme_str2int[getParameter(t, 'VorticityEquationScheme')]
         Diffusion = DiffusionScheme_str2int[getParameter(t, 'DiffusionScheme')]
         EddyViscosityModel = EddyViscosityModel_str2int[getParameter(t, 'EddyViscosityModel')]
-        if lowstorage: vpm_cpp.runge_kutta_low_storage(t, a, b, Kernel, Scheme, Diffusion,
-                                                    EddyViscosityModel, NumberOfSources[0])
-        else: vpm_cpp.runge_kutta(t, a, b, Kernel, Scheme, Diffusion,EddyViscosityModel,NumberOfSources[0])
+        PertubationFieldBase = I.newCGNSBase('PertubationFieldBase', cellDim=1, physDim=3)
+        PertubationFieldBase[2] = pickPerturbationFieldZone(t)
+        if lowstorage: vpm_cpp.runge_kutta_low_storage(t, PertubationFieldBase, PerturbationFieldCapsule, a, b, Kernel, Scheme, Diffusion,
+                                                    EddyViscosityModel)
+        else: vpm_cpp.runge_kutta(t, PertubationFieldBase, PerturbationFieldCapsule, a, b, Kernel, Scheme, Diffusion,EddyViscosityModel)
+        
 
         time += dt
         it += 1
@@ -509,22 +576,22 @@ if True:
         if RedistributedParticles.any():
             adjustTreeSize(t, NewSize = len(RedistributedParticles[0]), OldSize = N0)
             X, Y, Z = J.getxyz(Particles)
-            AX, AY, AZ, AMag, Vol, S, Age = J.getVars(Particles, ['Alpha' + v for v in 'XYZ'] + \
-                                                    ['StrengthMagnitude', 'Volume', 'Sigma', 'Age'])
+            AX, AY, AZ, AMag, Vol, S, Age, Cvisq, Enstrophy = J.getVars(Particles, \
+                                              ['Alpha' + v for v in 'XYZ'] + ['StrengthMagnitude', \
+                                                    'Volume', 'Sigma', 'Age', 'Cvisq', 'Enstrophy'])
 
-            X[:]    = RedistributedParticles[0][:]
-            Y[:]    = RedistributedParticles[1][:]
-            Z[:]    = RedistributedParticles[2][:]
-            AX[:]   = RedistributedParticles[3][:]
-            AY[:]   = RedistributedParticles[4][:]
-            AZ[:]   = RedistributedParticles[5][:]
-            AMag[:] = RedistributedParticles[6][:]
-            Vol[:]  = RedistributedParticles[7][:]
-            S[:]    = RedistributedParticles[8][:]
-
-            
-
-            Age[:]  = np.array([int(age) for age in RedistributedParticles[9]], dtype = np.int32)
+            X[:]         = RedistributedParticles[0][:]
+            Y[:]         = RedistributedParticles[1][:]
+            Z[:]         = RedistributedParticles[2][:]
+            AX[:]        = RedistributedParticles[3][:]
+            AY[:]        = RedistributedParticles[4][:]
+            AZ[:]        = RedistributedParticles[5][:]
+            AMag[:]      = RedistributedParticles[6][:]
+            Vol[:]       = RedistributedParticles[7][:]
+            S[:]         = RedistributedParticles[8][:]
+            Age[:]       = np.array([int(a) for a in RedistributedParticles[9]], dtype = np.int32)
+            Cvisq[:]     = RedistributedParticles[10][:]
+            Enstrophy[:] = RedistributedParticles[11][:]
         else:
            adjustTreeSize(t, NewSize = Np[0], OldSize = N0)
 
@@ -825,8 +892,8 @@ if True:
 
         s = findMinimumDistanceBetweenParticles(x, y, z)[Offset: Np]
         Sigma[Offset: Np] = s
-        h3 = s**3
-        Volume[Offset: Np] = (2.*np.pi)**1.5*h3
+        h3 = (Sigma[Offset: Np]/VPMParameters['SmoothingRatio'][0])**3
+        Volume[Offset: Np] = h3
 
         HybridParameters['AlphaX'] = VortX[Offset: Np]*h3
         HybridParameters['AlphaY'] = VortY[Offset: Np]*h3
@@ -1026,21 +1093,22 @@ if True:
         if type(t) == dict:
             t['TimeStep'] = NumberParticlesShedAtTip*Resolution/Urel
         else:
-            TimeStep = I.getNodeFromName(Particles, 'TimeStep')
-            TimeStep[1][0] = NumberParticlesShedAtTip*Resolution/Urel
+            VPMParameters = getVPMParameters(t)
+            VPMParameters['TimeStep'] = NumberParticlesShedAtTip*Resolution/Urel
 
     def setTimeStepFromBladeRotationAngle(t = [], LiftingLines = [], BladeRotationAngle = 5.):
         if not LiftingLines: raise AttributeError('The time step is not given and can not be \
                      computed without a Lifting Line. Specify the time step or give a Lifting Line')
+
         RPM = 0.
         for LiftingLine in LiftingLines:
             RPM = max(RPM, I.getValue(I.getNodeFromName(LiftingLine, 'RPM')))
-
+        
         if type(t) == dict:
             t['TimeStep'] = 1./6.*BladeRotationAngle/RPM
         else:
-            TimeStep = I.getNodeFromName(Particles, 'TimeStep')
-            TimeStep[1][0] = 1./6.*BladeRotationAngle/RPM
+            VPMParameters = getVPMParameters(t)
+            VPMParameters['TimeStep'] = 1./6.*BladeRotationAngle/RPM
 
     TimeStepFunction_str2int = {'setTimeStepFromBladeRotationAngle':
     setTimeStepFromBladeRotationAngle, 'shed': setTimeStepFromShedParticles,
@@ -1187,16 +1255,6 @@ if True:
             if not LLParameters:
                 LL.setVPMParameters(LiftingLine)
                 LLParameters = J.get(LiftingLine, '.VPM#Parameters')
-            if 'GammaZeroAtRoot' in LiftingLineParameters:
-                LLParameters['GammaZeroAtRoot'][0] = LiftingLineParameters['GammaZeroAtRoot'][0]
-            if 'GammaZeroAtTip'  in LiftingLineParameters:
-                LLParameters['GammaZeroAtTip'][0]  = LiftingLineParameters['GammaZeroAtTip'][0]
-            if 'GhostParticleAtRoot' in LiftingLineParameters:
-                LLParameters['GhostParticleAtRoot'][0] = \
-                                                    LiftingLineParameters['GhostParticleAtRoot'][0]
-            if 'GhostParticleAtTip'  in LiftingLineParameters:
-                LLParameters['GhostParticleAtTip'][0]  = \
-                                                    LiftingLineParameters['GhostParticleAtTip'][0]
             if 'IntegralLaw' in LiftingLineParameters:
                 LLParameters['IntegralLaw'] = LiftingLineParameters['IntegralLaw']
             if 'ParticleDistribution' in LiftingLineParameters:
@@ -1222,10 +1280,6 @@ if True:
             LLParameters['ParticleDistribution'] = ParticleDistribution
 
             J.set(LiftingLine, '.VPM#Parameters',
-                            GammaZeroAtRoot = LLParameters['GammaZeroAtRoot'],
-                            GammaZeroAtTip = LLParameters['GammaZeroAtTip'],
-                            GhostParticleAtRoot = LLParameters['GhostParticleAtRoot'],
-                            GhostParticleAtTip = LLParameters['GhostParticleAtTip'],
                             IntegralLaw = LLParameters['IntegralLaw'],
                             ParticleDistribution = LLParameters['ParticleDistribution'])
 
@@ -1239,15 +1293,16 @@ if True:
 
         Sources = []
         SourcesM1 = []
-        TotalNumberOfSources = 0
         X, Y, Z, S = [], [], [], []
         X0, Y0, Z0, S0 = [], [], [], []
         Np = 0
         for LiftingLine in LiftingLines:
+            #Gamma, GammaM1 = J.getVars(LiftingLine, ['Gamma', 'GammaM1'])
+            #GammaM1[:] = Gamma[:]
             L = W.getLength(LiftingLine)
             LLParameters = J.get(LiftingLine, '.VPM#Parameters')
             ParticleDistribution = LLParameters['ParticleDistribution']
-            NumberOfStations = int(np.round(L/VPMParameters['Resolution'])) + 1#n segments gives n + 1 stations on the LL
+            NumberOfStations = int(np.round(L/VPMParameters['Resolution']))#n segments gives n + 1 stations on the LL
 
             if ParticleDistribution['Symmetrical']:
                 HalfStations = int(NumberOfStations/2 + 1)
@@ -1263,7 +1318,9 @@ if True:
                                                         Distribution = ParticleDistribution))
                 ParticleDistribution = WingDiscretization/L
 
-            TotalNumberOfSources += len(ParticleDistribution) - 1
+            LLParameters = J.get(LiftingLine, '.VPM#Parameters')
+            LLParameters['ParticleDistribution'] = ParticleDistribution
+            J.set(LiftingLine, '.VPM#Parameters', **LLParameters)
             Source = LL.buildVortexParticleSourcesOnLiftingLine(LiftingLine,
                                                         AbscissaSegments = [ParticleDistribution],
                                                         IntegralLaw = LLParameters['IntegralLaw'])
@@ -1271,25 +1328,12 @@ if True:
             SourceX = I.getValue(I.getNodeFromName(Source, 'CoordinateX'))
             SourceY = I.getValue(I.getNodeFromName(Source, 'CoordinateY'))
             SourceZ = I.getValue(I.getNodeFromName(Source, 'CoordinateZ'))
-            dy = ((SourceX[1:] - SourceX[:-1])**2 + (SourceY[1:] - SourceY[:-1])**2 +\
-                                (SourceZ[1:] - SourceZ[:-1])**2)**0.5
-            SigmaDistribution = dy*VPMParameters['SmoothingRatio']#np.array([Parameters['Sigma0'][0]]*len(dy), order = 'F', dtype = np.float64)
-            x, y, z = J.getxyz(LiftingLine)
-            dy = ((x[1:] - x[:-1])**2 + (y[1:] - y[:-1])**2 + (z[1:] - z[:-1])**2)**0.5
-            mean_dy = np.insert((dy[1:] + dy[:-1])/2., [0, len(dy)-1], [dy[0], dy[-1]])
-            SigmaDistributionOnLiftingLine = mean_dy*VPMParameters['SmoothingRatio']
-            LLParameters = J.get(LiftingLine, '.VPM#Parameters')
-            LLParameters['ParticleDistribution'] = ParticleDistribution
-            LLParameters['SigmaDistribution'] = SigmaDistribution
-            LLParameters['SigmaDistributionOnLiftingLine'] = SigmaDistributionOnLiftingLine
-            J.set(LiftingLine, '.VPM#Parameters', **LLParameters)
-
-            X0 = np.append(X0, (SourceX[1:] + SourceX[:-1])/2.)
-            Y0 = np.append(Y0, (SourceY[1:] + SourceY[:-1])/2.)
-            Z0 = np.append(Z0, (SourceZ[1:] + SourceZ[:-1])/2.)
-            S0 = np.append(S0, SigmaDistribution)
-            Np += len(SourceX) - 1
-
+            dy = ((SourceX[2:-1] - SourceX[1:-2])**2 + (SourceY[2:-1] - SourceY[1:-2])**2 +\
+                                (SourceZ[2:-1] - SourceZ[1:-2])**2)**0.5
+            X0 = np.append(X0, 0.5*(SourceX[2:-1] + SourceX[1:-2]))
+            Y0 = np.append(Y0, 0.5*(SourceY[2:-1] + SourceY[1:-2]))
+            Z0 = np.append(Z0, 0.5*(SourceZ[2:-1] + SourceZ[1:-2]))
+            S0 = np.append(S0, dy*VPMParameters['SmoothingRatio'][0])
             Kinematics = J.get(LiftingLine, '.Kinematics')
             VelocityRelative = VPMParameters['VelocityFreestream']-Kinematics['VelocityTranslation']
             Dpsi = Kinematics['RPM']*6.*VPMParameters['TimeStep']
@@ -1300,41 +1344,43 @@ if True:
             SourceX = I.getValue(I.getNodeFromName(Source, 'CoordinateX'))
             SourceY = I.getValue(I.getNodeFromName(Source, 'CoordinateY'))
             SourceZ = I.getValue(I.getNodeFromName(Source, 'CoordinateZ'))
-            X = np.append(X, (SourceX[1:] + SourceX[:-1])/2.)
-            Y = np.append(Y, (SourceY[1:] + SourceY[:-1])/2.)
-            Z = np.append(Z, (SourceZ[1:] + SourceZ[:-1])/2.)
-            S = np.append(S, SigmaDistribution)
-            Np += len(SourceX) - 1
-
-        LiftingLineParameters['NumberOfSources'] = TotalNumberOfSources#is also Np/2
-        LiftingLineParameters['ShedParticlesIndex'] = np.array([i for i in range(
-                                   TotalNumberOfSources, 2*TotalNumberOfSources)], dtype = np.int32)
-
-        extend(t, Np, ExtendAtTheEnd = False, Offset = 0)
+            dy = 0.5*((SourceX[2:] - SourceX[:-2])**2 + (SourceY[2:] - SourceY[:-2])**2 +\
+                                (SourceZ[2:] - SourceZ[:-2])**2)**0.5
+            X = np.append(X, SourceX[1:-1])
+            Y = np.append(Y, SourceY[1:-1])
+            Z = np.append(Z, SourceZ[1:-1])
+            S = np.append(S, dy*VPMParameters['SmoothingRatio'][0])
+            
+        Nbound = len(X0)
+        LiftingLineParameters['NumberOfSources'] = Nbound
+        extend(t, len(X) + len(X0), ExtendAtTheEnd = False, Offset = 0)
         Particles = pickParticlesZone(t)
         x, y, z = J.getxyz(Particles)
-        x[:Np] = np.array(np.append(X0, X), dtype = np.float64, order = 'F')
-        y[:Np] = np.array(np.append(Y0, Y), dtype = np.float64, order = 'F')
-        z[:Np] = np.array(np.append(Z0, Z), dtype = np.float64, order = 'F')
-        Nu, Sigma, Volume = J.getVars(Particles, ['Nu', 'Sigma', 'Volume'])
-        Nu[:Np] = VPMParameters['KinematicViscosity']
-        Sigma[:Np] = np.array(np.append(S0, S), dtype = np.float64, order = 'F').reshape(Np)
-        Volume[:Np] = 4./3.*np.pi*Sigma[:]**3
+        x[:] = np.array(np.append(X0, X), dtype = np.float64, order = 'F')
+        y[:] = np.array(np.append(Y0, Y), dtype = np.float64, order = 'F')
+        z[:] = np.array(np.append(Z0, Z), dtype = np.float64, order = 'F')
+        Nu, Cvisq, Sigma, Volume = J.getVars(Particles, ['Nu', 'Cvisq', 'Sigma', 'Volume'])
+        Nu[:Nbound] = 0.
+        Nu[Nbound:] = VPMParameters['KinematicViscosity']
+        Cvisq[:Nbound] = 0.
+        Cvisq[Nbound:] = VPMParameters['EddyViscosityConstant']
+        Sigma[:] = np.array(np.append(S0, S), dtype = np.float64, order = 'F')
+        Volume[:Nbound] = 0.
+        Volume[Nbound:] = Sigma[Nbound:]**3
 
-    def computeInducedVelocityOnLiftinLines(t = [], Nsource = 0, Target = [], TargetSigma = [], WakeInducedVelocity = []):
+    def computeInducedVelocityOnLiftinLines(Target, x, y, z, ax, ay, az, s, WakeInducedVelocity, Nshed, s0):
         TargetBase = I.newCGNSBase('LiftingLine', cellDim=1, physDim=3)
         TargetBase[2] = I.getZones(Target)
-        Kernel = Kernel_str2int[getParameter(t, 'RegularisationKernel')]
-        return vpm_cpp.induce_total_velocity_on_lifting_line(t, Nsource, Kernel, TargetBase,TargetSigma,
-                                                                                WakeInducedVelocity)
+        return vpm_cpp.induce_total_velocity_on_lifting_line(TargetBase, x, y, z, ax, ay, az, s, 
+                                                                                WakeInducedVelocity, Nshed, s0)
 
-    def addParticlesFromLiftingLineSources(t = [], Sources = [], SourcesM1 = [], NumberParticlesShedPerStation = 0, NumberSource = 0):
+    def setShedParticleStrength(Dir, VeciX, VeciY, VeciZ, SheddingDistance, FilamentDistance, ax, ay, az, Sources, SourcesM1, NumberParticlesShedPerStation, NumberOfSources, dt):
         SourcesBase = I.newCGNSBase('Sources', cellDim=1, physDim=3)
         SourcesBase[2] = I.getZones(Sources)
         SourcesBaseM1 = I.newCGNSBase('SourcesM1', cellDim=1, physDim=3)
         SourcesBaseM1[2] = I.getZones(SourcesM1)
-        return vpm_cpp.generate_particles_on_lifting_lines(t, SourcesBase, SourcesBaseM1,
-                                                        NumberParticlesShedPerStation, NumberSource)
+        return vpm_cpp.shed_particles_from_lifting_lines(Dir, VeciX, VeciY, VeciZ, SheddingDistance, FilamentDistance, ax, ay, az, SourcesBase, SourcesBaseM1,
+                                                  NumberParticlesShedPerStation, NumberOfSources, dt)
 
     def getLiftingLineParameters(t = []): return J.get(pickParticlesZone(t), '.LiftingLine#Parameters')
 
@@ -1347,146 +1393,489 @@ if True:
             GammaOld[i][:] = GammaNew
         return GammaError
 
-    def shedParticlesFromLiftingLines(t = [], PolarsInterpolatorDict = {}, IterationInfo = {}):
-        timeLL = J.tic()
-        LiftingLines = LL.getLiftingLines(t)
-        if not LiftingLines: return IterationInfo
-        ShieldsBase = I.getNodeFromName2(t, 'ShieldsBase')
-        ShieldBoxes = I.getZones(ShieldsBase)
-        ParticlesBase = I.getNodeFromName2(t, 'ParticlesBase')
-        Particles = pickParticlesZone(t)
-
-        if not Particles: raise ValueError('"Particles" zone not found in ParticlesTree')
-
-        VPM_Params = getVPMParameters(Particles)
-        LL_Params = getLiftingLineParameters(Particles)
-
-        LiftingLinesM1 = [I.copyTree(ll) for ll in LiftingLines]
-        h = VPM_Params['Resolution'][0]
-        Sigma0 = VPM_Params['Sigma0'][0]
-        dt = VPM_Params['TimeStep']
-        U0 = VPM_Params['VelocityFreestream']
-        MaskShedParticles = LL_Params['ShedParticlesIndex']
-        for LiftingLineM1 in LiftingLinesM1:
-            x, y, z = J.getxyz(LiftingLineM1)
-            ui, vi, wi = J.getVars(LiftingLineM1, ['VelocityInduced' + i for i in 'XYZ'])
-            x += dt*(U0[0] + ui)
-            y += dt*(U0[1] + vi)
-            z += dt*(U0[2] + wi)
-
-        LL.computeKinematicVelocity(LiftingLinesM1)
+    def moveAndUpdateLiftingLines(t, LiftingLines, dt, PerturbationFieldCapsule = []):
+        LL.computeKinematicVelocity(LiftingLines)
         LL.moveLiftingLines(LiftingLines, dt)
+        extractperturbationField(t = t, Targets = LiftingLines, PerturbationFieldCapsule = PerturbationFieldCapsule)
         LL.assembleAndProjectVelocities(LiftingLines)
 
-        AllAbscissaSegments, SigmaDistributionOnLiftingLine, SigmaDistribution = [], [], []
-        for LiftingLine in LiftingLines:
-            VPM_Parameters = J.get(LiftingLine,'.VPM#Parameters')
-            AllAbscissaSegments += [VPM_Parameters['ParticleDistribution']]
-            SigmaDistributionOnLiftingLine.extend(np.array(VPM_Parameters['SigmaDistributionOnLiftingLine'], order='F', dtype=np.float64))
-            SigmaDistribution.extend(np.array(VPM_Parameters['SigmaDistribution'], order='F', dtype=np.float64))
-
-        Sources = LL.buildVortexParticleSourcesOnLiftingLine(LiftingLines, AbscissaSegments=AllAbscissaSegments, IntegralLaw='linear')
-        SourcesM1 = LL.buildVortexParticleSourcesOnLiftingLine(LiftingLinesM1, AbscissaSegments=AllAbscissaSegments, IntegralLaw='linear')
-
+    def initialiseShedParticles(LiftingLines, Particles, Sources, h, dt, Ramp, ratio, NumberOfSources):
+        ParticlesShedPerStation = []
+        ShedParticlesX, ShedParticlesY, ShedParticlesZ = [], [], []
+        FirstRowParticlesX, FirstRowParticlesY, FirstRowParticlesZ = [], [], []
+        BoundParticlesX, BoundParticlesY, BoundParticlesZ = [], [], []
+        ShedParticlesSigma, FirstRowParticlesSigma, BoundParticlesSigma = [], [], []
+        VeciX, VeciY, VeciZ, = [], [], []
+        Dir = []
+        SheddingDistance, FilamentDistance = [], []
         px, py, pz = J.getxyz(Particles)
-        NumberParticlesShedPerStation, NewSigma = [], []
-        NumberSource = 0
-        for Source in Sources:
+        for Source, LiftingLine in zip(Sources, LiftingLines):
+            Dir += [1 if I.getValue(I.getNodeFromName(LiftingLine, 'RightHandRuleRotation')) else -1]
             sx, sy, sz = J.getxyz(Source)
-            NumberSourceM1 = NumberSource
-            NumberSource = NumberSourceM1 + len(sx) - 1
-            px[NumberSourceM1: NumberSource] = (sx[1:] + sx[:-1])/2.
-            py[NumberSourceM1: NumberSource] = (sy[1:] + sy[:-1])/2.
-            pz[NumberSourceM1: NumberSource] = (sz[1:] + sz[:-1])/2.
-            mask = MaskShedParticles[NumberSourceM1: NumberSource]
-            TrailingDistance = np.linalg.norm(np.vstack([px[NumberSourceM1: NumberSource] - px[mask],
-                                                         py[NumberSourceM1: NumberSource] - py[mask],
-                                                         pz[NumberSourceM1: NumberSource] - pz[mask]]), axis = 0)
-            NumberParticlesShedPerStation += [[max(int(round(dy/h - 0.95)), 0) for dy in TrailingDistance]]
-            for i in range(len(sx) - 1): NewSigma += [SigmaDistribution[i + NumberSourceM1]]*NumberParticlesShedPerStation[-1][i]
+            s = 0.5*((sx[2:] - sx[:-2])**2 + (sy[2:] - sy[:-2])**2 + (sz[2:] - sz[:-2])**2)**0.5
+            FirstRowParticlesSigma.extend(np.array(s, order='F', dtype=np.float64))
+            BoundParticlesX.extend(0.5*(sx[2:-1] + sx[1:-2]))
+            BoundParticlesY.extend(0.5*(sy[2:-1] + sy[1:-2]))
+            BoundParticlesZ.extend(0.5*(sz[2:-1] + sz[1:-2]))
+            s = ratio*((sx[2:-1] - sx[1:-2])**2 + (sy[2:-1] - sy[1:-2])**2 + (sz[2:-1] - sz[1:-2])**2)**0.5
+            BoundParticlesSigma.extend(np.array(s, order='F', dtype=np.float64))
+            for i in range(1, len(sx) - 1):
+                xm = np.array([sx[i], sy[i], sz[i]])
+                vecj = np.array([px[len(ParticlesShedPerStation) + NumberOfSources], py[len(ParticlesShedPerStation) + NumberOfSources], pz[len(ParticlesShedPerStation) + NumberOfSources]]) - xm
+                dy = np.linalg.norm(vecj)
+                VeciX += [0.5*(sx[i + 1] - sx[i - 1])]
+                VeciY += [0.5*(sy[i + 1] - sy[i - 1])]
+                VeciZ += [0.5*(sz[i + 1] - sz[i - 1])]
+                SheddingDistance += [dy]
+                FilamentDistance += [np.linalg.norm([VeciX[-1], VeciY[-1], VeciZ[-1]])]
+                Nshed = max(int(round(dy/h - 0.95)), 0) + 1
+                ParticlesShedPerStation += [Nshed]
+                ShedParticlesSigma += [(VeciX[-1]**2 + VeciY[-1]**2 + VeciZ[-1]**2)**0.5]*(Nshed - 1)
+                FirstRowParticlesX += [xm[0]]
+                FirstRowParticlesY += [xm[1]]
+                FirstRowParticlesZ += [xm[2]]
+                for j in range(1, Nshed):
+                    ShedParticlesX += [xm[0] + j/Nshed*vecj[0]]
+                    ShedParticlesY += [xm[1] + j/Nshed*vecj[1]]
+                    ShedParticlesZ += [xm[2] + j/Nshed*vecj[2]]
 
-        NumberParticlesShedPerStation = np.hstack(np.array(NumberParticlesShedPerStation, dtype=np.int32, order = 'F'))
-        NumberParticlesShed = np.sum(NumberParticlesShedPerStation)
+        ParticlesShedPerStation = np.array(ParticlesShedPerStation, dtype=np.int32, order = 'F')
+        Ramp = Ramp/ParticlesShedPerStation
+        Dir = np.array(Dir, dtype = np.int32, order = 'F')
+        VeciX = np.array(VeciX, dtype = np.float64, order = 'F')*Ramp
+        VeciY = np.array(VeciY, dtype = np.float64, order = 'F')*Ramp
+        VeciZ = np.array(VeciZ, dtype = np.float64, order = 'F')*Ramp
+        SheddingDistance = np.array(SheddingDistance, dtype = np.float64, order = 'F')*Ramp + 1e-12
+        FilamentDistance = np.array(FilamentDistance, dtype = np.float64, order = 'F')*Ramp + 1e-12
+        Nshed = np.sum(ParticlesShedPerStation)
+        extend(Particles, ExtendSize = Nshed, Offset = NumberOfSources, ExtendAtTheEnd = False)
+        Sigma = J.getVars(Particles, ['Sigma'])[0]
+        Sigma[:NumberOfSources] = np.array(BoundParticlesSigma, dtype = np.float64, order = 'F')
+        Sigma[NumberOfSources: Nshed + NumberOfSources] = np.array(np.append(FirstRowParticlesSigma, ShedParticlesSigma), dtype = np.float64, order = 'F')
+        x, y, z = J.getxyz(Particles)
+        x[: NumberOfSources] = np.array(BoundParticlesX, dtype = np.float64, order = 'F')
+        y[: NumberOfSources] = np.array(BoundParticlesY, dtype = np.float64, order = 'F')
+        z[: NumberOfSources] = np.array(BoundParticlesZ, dtype = np.float64, order = 'F')
+        x[NumberOfSources: Nshed + NumberOfSources] = np.array(np.append(FirstRowParticlesX, ShedParticlesX), dtype = np.float64, order = 'F')
+        y[NumberOfSources: Nshed + NumberOfSources] = np.array(np.append(FirstRowParticlesY, ShedParticlesY), dtype = np.float64, order = 'F')
+        z[NumberOfSources: Nshed + NumberOfSources] = np.array(np.append(FirstRowParticlesZ, ShedParticlesZ), dtype = np.float64, order = 'F')
 
-        SigmaDistributionOnLiftingLine = np.hstack(np.array(SigmaDistributionOnLiftingLine, dtype=np.float64))
-        WakeInducedVelocity = getInducedVelocityFromWake(t, LiftingLines, SigmaDistributionOnLiftingLine)
+        return ParticlesShedPerStation, Dir, VeciX, VeciY, VeciZ, SheddingDistance, FilamentDistance
 
-        N0 = Particles[1][0][0] * 1
-
-        roll(Particles, N0 - NumberSource)
-        extend(Particles, NumberParticlesShed)
-
-
-        Particles[1][0][0] = N0
-        KinematicViscosity, Volume, Sigma = J.getVars(Particles, ['Nu', 'Volume', 'Sigma'])
-        Sigma[N0 - NumberSource:] = SigmaDistribution + NewSigma
+    def ShedParticlesFromLiftingLines(Particles, LiftingLines, PolarsInterpolatorDict, WakeInducedVelocity, GammaThreshold, GammaRelax, MaxIte, h, dt, ratio, Ramp, KinematicViscosity, EddyViscosityConstant, NumberOfSources):
+        ParticleDistribution = [I.getNodeFromName(LiftingLine, 'ParticleDistribution')[1] for \
+                                                                        LiftingLine in LiftingLines]
+        Sources = LL.buildVortexParticleSourcesOnLiftingLine(LiftingLines, AbscissaSegments = \
+                                                       ParticleDistribution, IntegralLaw = 'linear')
+        ParticlesShedPerStation, Dir, VeciX, VeciY, VeciZ, SheddingDistance, FilamentDistance = \
+                                                initialiseShedParticles(LiftingLines, Particles, Sources, h, dt, Ramp, ratio, NumberOfSources)
+        Nshed = np.sum(ParticlesShedPerStation) + NumberOfSources
+        SourcesM1 = [I.copyTree(Source) for Source in Sources]
+        
         GammaOld = [I.getNodeFromName3(Source, 'Gamma')[1] for Source in Sources]
 
-        GammaThreshold = LL_Params['CirculationThreshold']
-        GammaRelax = LL_Params['CirculationRelaxation']
-        GammaError = GammaThreshold + 1.
-
+        x, y, z = J.getxyz(Particles)
+        ax, ay, az, s = J.getVars(Particles, ['Alpha' + v for v in 'XYZ'] + ['Sigma'])
         ni = 0
-        for Ni in range(int(LL_Params['MaxLiftingLineSubIterations'])):
-            Particles[1][0][0] = N0
-            addParticlesFromLiftingLineSources(t, Sources, SourcesM1, NumberParticlesShedPerStation, NumberSource)
-            computeInducedVelocityOnLiftinLines(t, NumberParticlesShed + NumberSource, LiftingLines, SigmaDistributionOnLiftingLine, WakeInducedVelocity)
+        for _ in range(MaxIte):
+            setShedParticleStrength(Dir, VeciX, VeciY, VeciZ, SheddingDistance, FilamentDistance, ax, ay, \
+                                              az, Sources, SourcesM1, ParticlesShedPerStation, NumberOfSources, dt)
+            computeInducedVelocityOnLiftinLines(LiftingLines, x, y, z, ax, ay, az, s, \
+                                                                         WakeInducedVelocity, Nshed, h*ratio)
             LL.assembleAndProjectVelocities(LiftingLines)
             LL._applyPolarOnLiftingLine(LiftingLines, PolarsInterpolatorDict, ['Cl', 'Cd'])
             IntegralLoads = LL.computeGeneralLoadsOfLiftingLine(LiftingLines)
-            Sources = LL.buildVortexParticleSourcesOnLiftingLine(LiftingLines, AbscissaSegments=AllAbscissaSegments, IntegralLaw='linear')
+            Sources = LL.buildVortexParticleSourcesOnLiftingLine(LiftingLines, AbscissaSegments = \
+                                                       ParticleDistribution, IntegralLaw = 'linear')
             GammaError = relaxCirculationAndGetImbalance(GammaOld, GammaRelax, Sources)
 
             ni += 1
             if GammaError < GammaThreshold: break
 
+        wx, wy, wz, w, a, Volume, Nu, Cvisq = J.getVars(Particles, \
+                                            ['Vorticity'+i for i in 'XYZ'] + ['VorticityMagnitude',\
+                                                      'StrengthMagnitude', 'Volume', 'Nu', 'Cvisq'])
+        a[: Nshed] = np.linalg.norm(np.vstack([ax[:Nshed], ay[:Nshed], az[:Nshed]]), axis = 0)
+        s[NumberOfSources: Nshed] *= ratio
+        Volume[NumberOfSources: Nshed] = s[NumberOfSources: Nshed]**3
+        Nu[NumberOfSources: Nshed] = KinematicViscosity
+        Cvisq[NumberOfSources: Nshed] = EddyViscosityConstant
 
-        Particles[1][0][0] = N0 + NumberParticlesShed
+        #for LiftingLine in LiftingLines:
+        #    Gamma, GammaM1, dGammadt = J.getVars(LiftingLine, ['Gamma', 'GammaM1', 'dGammadt'])
+        #    dGammadt[:] = (Gamma[:] - GammaM1[:])/dt
+
+        return GammaError, ni, Nshed
+
+    def ShedVorticitySourcesFromLiftingLines(t = [], PolarsInterpolatorDict = {}, IterationInfo = {}, PerturbationFieldCapsule = []):
+        timeLL = J.tic()
+        LiftingLines = LL.getLiftingLines(t)
+        if not LiftingLines: return IterationInfo
+
+        #for LiftingLine in LiftingLines:
+        #    Gamma, GammaM1 = J.getVars(LiftingLine, ['Gamma', 'GammaM1'])
+        #    GammaM1[:] = Gamma[:].copy()
+
+        Particles = pickParticlesZone(t)
+        if not Particles: raise ValueError('"Particles" zone not found in ParticlesTree')
+
+        h, Sigma0, ratio, dt, time, it, Ramp, GammaThreshold, GammaRelax, MaxIte, KinematicViscosity, EddyViscosityConstant, NumberOfSources = \
+                getParameters(t, ['Resolution', 'Sigma0', 'SmoothingRatio', 'TimeStep', 'Time', 'CurrentIteration', \
+                       'StrengthRampAtbeginning', 'CirculationThreshold', 'CirculationRelaxation', \
+                                               'MaxLiftingLineSubIterations', 'KinematicViscosity', 'EddyViscosityConstant', 'NumberOfSources'])
+        Ramp = np.sin(min(it/Ramp, 1.)*np.pi/2.)
+        moveAndUpdateLiftingLines(t, LiftingLines, dt, PerturbationFieldCapsule)
+        WakeInducedVelocity = getInducedVelocityFromWake(t, Targets = LiftingLines)
+        timeExtract = J.tic()
+        timeExtract = J.tic() - timeExtract
+        Error, ni, Nshed = ShedParticlesFromLiftingLines(Particles, LiftingLines, PolarsInterpolatorDict, \
+                WakeInducedVelocity, GammaThreshold, GammaRelax, MaxIte[0], h[0], dt[0], ratio, Ramp, KinematicViscosity, EddyViscosityConstant, NumberOfSources[0])
+
         LL.computeGeneralLoadsOfLiftingLine(LiftingLines,
-                UnsteadyData={'IterationNumber':VPM_Params['CurrentIteration'],
-                              'Time':VPM_Params['Time'],
+                UnsteadyData={'IterationNumber':it[0],
+                              'Time':time[0],
                               'CirculationSubiterations':ni,
-                              'CirculationError':GammaError},
+                              'CirculationError':Error},
                                 UnsteadyDataIndependentAbscissa='IterationNumber')
-
-        AlphaXYZ = np.vstack(J.getVars(Particles, ['Alpha'+i for i in 'XYZ']))
-        AlphaNorm = np.linalg.norm(AlphaXYZ[:, N0 - NumberSource:],axis=0)
-        StrengthMagnitude = J.getVars(Particles, ['StrengthMagnitude'])[0]
-        StrengthMagnitude[N0 - NumberSource:] = AlphaNorm[:]
-
-        Volume[N0 - NumberSource:] = (2.*np.pi)**1.5*Sigma[N0 - NumberSource:]**3
-        KinematicViscosity[N0 - NumberSource:] = VPM_Params['KinematicViscosity'][0] + \
-            (Sigma0*VPM_Params['EddyViscosityConstant'][0])**2*2**0.5*\
-            AlphaNorm[:]/Volume[N0 - NumberSource:]
-
-        VorticityX, VorticityY, VorticityZ = J.getVars(Particles, ['Vorticity'+i for i in 'XYZ'])
-        VorticityX[N0 - NumberSource:] = AlphaXYZ[0,N0 - NumberSource:]/Volume[N0 - NumberSource:]
-        VorticityY[N0 - NumberSource:] = AlphaXYZ[1,N0 - NumberSource:]/Volume[N0 - NumberSource:]
-        VorticityZ[N0 - NumberSource:] = AlphaXYZ[2,N0 - NumberSource:]/Volume[N0 - NumberSource:]
-        VorticityXYZ = np.vstack([VorticityX, VorticityY, VorticityZ])
-        VorticityNorm = np.linalg.norm(VorticityXYZ[:, N0 - NumberSource:],axis=0)
-        VorticityMagnitude = J.getVars(Particles, ['VorticityMagnitude'])[0]
-        VorticityMagnitude[N0 - NumberSource:] = VorticityNorm[:]
-
-        Ns = 0
-        posNumberParticlesShed = 0
-        for Source in Sources:
-            SourceX = I.getValue(I.getNodeFromName(Source, 'CoordinateX'))
-            for i in range(Ns, Ns + len(SourceX) - 1):
-                if NumberParticlesShedPerStation[posNumberParticlesShed]:
-                    MaskShedParticles[i] = sum(NumberParticlesShedPerStation[:posNumberParticlesShed]) + NumberSource
-                else: 
-                    MaskShedParticles[i] += NumberParticlesShed
-
-                posNumberParticlesShed += 1
-            Ns += len(SourceX) - 1
-        roll(Particles, NumberSource + NumberParticlesShed)
         
-        IterationInfo['Circulation error'] = GammaError
+        IterationInfo['Circulation error'] = Error
         IterationInfo['Number of sub-iterations (LL)'] = ni
-        IterationInfo['Number of shed particles'] = NumberParticlesShed
-        IterationInfo['Lifting Line time'] = J.tic() - timeLL
+        IterationInfo['Number of shed particles'] = Nshed
+        IterationInfo['Lifting Line time'] = J.tic() - timeLL - timeExtract
         return IterationInfo
+
+####################################################################################################
+####################################################################################################
+########################################### Vortex Rings ###########################################
+####################################################################################################
+####################################################################################################
+    def createLambOseenVortexRing(t, VPMParameters, VortexParameters):
+        Gamma = VortexParameters['Intensity'][0]
+        sigma = VPMParameters['Sigma0'][0]
+        lmbd_s = VPMParameters['SmoothingRatio'][0]
+        nu = VPMParameters['KinematicViscosity'][0]
+        R = VortexParameters['RingRadius'][0]
+        nc = [0]
+        h = VPMParameters['Resolution'][0]
+        
+        if 'CoreRadius' in VortexParameters:
+            a = VortexParameters['CoreRadius'][0]
+            if nu != 0.: tau = a**2/4./nu
+            else: tau = 0.
+            VortexParameters['Tau'] = np.array([tau], dtype = np.float64, order = 'F')
+        elif 'Tau' in VortexParameters:
+            tau = VortexParameters['Tau'][0]
+            a = (4.*nu*tau)**0.5
+            VortexParameters['CoreRadius'] = np.array([a], dtype = np.float64, order = 'F')
+
+        a = VortexParameters['CoreRadius'][0]
+        w = lambda r : Gamma/(np.pi*a**2)*np.exp(-(r/a)**2)
+
+        if 'MinimumVorticityFraction' in VortexParameters:
+            r = a*(-np.log(VortexParameters['MinimumVorticityFraction'][0]))**0.5
+            nc = int(r/h)
+            VortexParameters['NumberLayers'] = np.array([nc], dtype = np.int32, order = 'F')
+        elif 'NumberLayers' in VortexParameters:
+            nc = VortexParameters['NumberLayers'][0]
+            frac = w(nc*h)
+            VortexParameters['MinimumVorticityFraction'] = \
+                                                  np.array([frac], dtype = np.float64, order = 'F')
+
+        N_s = 1 + 3*nc*(nc + 1)
+        N_phi = int(2.*np.pi*R/h)
+        N_phi += N_phi%4
+        Np = N_s*N_phi
+        extend(t, Np)
+        Particles = pickParticlesZone(t)
+        px, py, pz = J.getxyz(Particles)
+        AlphaX, AlphaY, AlphaZ, VorticityX, VorticityY, VorticityZ, Volume, Sigma, Nu = J.getVars(Particles,
+                       ['Alpha' + v for v in 'XYZ'] + ['Vorticity' + v for v in 'XYZ'] + ['Volume', 'Sigma', 'Nu'])
+        Nu[:] = nu
+        
+        r0 = h/2.
+        rc = r0*(2*nc + 1)
+        if (Np != N_phi*N_s): print("Achtung Bicyclette")
+        if (R - rc < 0): print("Beware of the initial ring radius " , R , " < " , rc)
+        else: print("R=", R, ", rc=", rc, ", a=", a, ", sigma=", sigma, ", nc=", nc, ", N_phi=", N_phi, ", N_s=", N_s, ", N=", Np)
+
+        X = [R]
+        Z = [0.]
+        W = [Gamma/(np.pi*a**2)]
+        V = [2.*np.pi**2*R/N_phi*r0**2]
+        for n in range(1, nc + 1):
+            for j in range(6*n):
+                theta = np.pi*(2.*j + 1.)/6./n
+                r = r0*(1. + 12.*n*n)/6./n
+                X.append(R + r*np.cos(theta))
+                Z.append(r*np.sin(theta))
+                V.append(4./3.*4.*np.pi*r0*r0/N_phi*(np.pi*R/2. + (np.sin(np.pi*(j + 1)/4./n) - np.sin(np.pi*j/4./n))*(4.*n*n + 1./3.)*r0))
+                W.append(W[0]*np.exp(-(r/a)**2))
+
+        print(W[0])
+        S = [lmbd_s*h]*len(X)
+        for i in range(N_phi):
+            phi = 2.*np.pi*i/N_phi
+            for j in range(N_s):
+                px[i*N_s + j] = X[j]*np.cos(phi)
+                py[i*N_s + j] = X[j]*np.sin(phi)
+                pz[i*N_s + j] = Z[j]
+                Volume[i*N_s + j] = V[j]
+                Sigma[i*N_s + j] = S[j]
+                VorticityX[i*N_s + j] = -W[j]*np.sin(phi)
+                VorticityY[i*N_s + j] = W[j]*np.cos(phi)
+                VorticityZ[i*N_s + j] = 0.
+                AlphaX[i*N_s + j] = V[j]*VorticityX[i*N_s + j]
+                AlphaY[i*N_s + j] = V[j]*VorticityY[i*N_s + j]
+                AlphaZ[i*N_s + j] = V[j]*VorticityZ[i*N_s + j]
+
+        VortexParameters['Nphi'] = N_phi
+        VortexParameters['Ns'] = N_s
+        VortexParameters['NumberLayers'] = nc
+        vpm_cpp.adjust_vortex_ring(t, N_s, N_phi, Gamma, np.pi*r0**2, np.pi*r0**2*4./3., nc)
+
+    def createLambOseenVortexBlob(t, VPMParameters, VortexParameters):
+        Gamma = VortexParameters['Intensity'][0]
+        sigma = VPMParameters['Sigma0'][0]
+        lmbd_s = VPMParameters['SmoothingRatio'][0]
+        nu = VPMParameters['KinematicViscosity'][0]
+        L = VortexParameters['Length'][0]
+        frac = VortexParameters['MinimumVorticityFraction'][0]
+        h = VPMParameters['Resolution'][0]
+        if 'CoreRadius' in VortexParameters:
+            a = VortexParameters['CoreRadius'][0]
+            tau = a**2/4./nu
+            VortexParameters['Tau'] = np.array([tau], dtype = np.float64, order = 'F')
+        elif 'Tau' in VortexParameters:
+            tau = VortexParameters['Tau'][0]
+            a = (4.*nu*tau)**0.5
+            VortexParameters['CoreRadius'] = np.array([a], dtype = np.float64, order = 'F')
+
+        w = lambda r : Gamma/(4.*np.pi*nu*tau)*np.exp(-r**2/(4.*nu*tau))
+        minw = w(0)*frac
+        l = a*(-np.log(frac))**0.5
+        l = int(l/h)*h
+        L = int(L/h)*h
+        NL = 2*int(L/h) + 1
+        nc = int(l/h + 0.5) + 1
+        Ns = 1 + 3*nc*(nc + 1)
+
+        l = nc*h
+        L = NL*h
+        VortexParameters['RingRadius'] = l
+        VortexParameters['Length'] = L
+        VortexParameters['Nphi'] = NL
+        VortexParameters['Ns'] = Ns
+        VortexParameters['NumberLayers'] = nc
+        Np = NL*Ns
+        extend(t, Np)
+        Particles = pickParticlesZone(t)
+        px, py, pz = J.getxyz(Particles)
+        AlphaX, AlphaY, AlphaZ, VorticityX, VorticityY, VorticityZ, Volume, Sigma, Nu = J.getVars(Particles,
+                       ['Alpha' + v for v in 'XYZ'] + ['Vorticity' + v for v in 'XYZ'] + ['Volume', 'Sigma', 'Nu'])
+        Nu[:] = nu
+        
+        r0 = h/2.
+        rc = r0*(2*nc + 1)
+        print("L=", L, ", tau=", tau, ", rc=", l, ", a=", a, ", sigma=", sigma, ", NL=", NL, ", Ns=", Ns, ", N=", Np)
+
+        X = [0]
+        Z = [0.]
+        W = [Gamma/np.pi/a**2]
+        V = [h*np.pi*r0**2]
+        for n in range(1, nc + 1):
+            for j in range(6*n):
+                theta = np.pi*(2.*j + 1.)/6./n
+                r = r0*(1. + 12.*n*n)/6./n
+                X.append(r*np.cos(theta))
+                Z.append(r*np.sin(theta))
+                V.append(V[0]*4./3.)
+                W.append(W[0]*np.exp(-(r/a)**2))
+        
+        print("W in", w(0), np.min(W))
+        S = [lmbd_s*h]*len(X)
+        px[:Ns] = X[:]
+        py[:Ns] = 0.
+        pz[:Ns] = Z[:]
+        Volume[:Ns] = V[:]
+        Sigma[:Ns] = S[:]
+        VorticityX[:Ns] = 0.
+        VorticityY[:Ns] = W[:]
+        VorticityZ[:Ns] = 0.
+        AlphaX[:Ns] = 0.
+        AlphaY[:Ns] = np.array(V[:])*np.array(W[:])
+        AlphaZ[:Ns] = 0.
+        for i in range(1, NL, 2):
+            for j in range(Ns):
+                px[i*Ns + j] = X[j]
+                py[i*Ns + j] = (i//2 + 1)*h
+                pz[i*Ns + j] = Z[j]
+                Volume[i*Ns + j] = V[j]
+                Sigma[i*Ns + j] = S[j]
+                VorticityX[i*Ns + j] = 0.
+                VorticityY[i*Ns + j] = W[j]
+                VorticityZ[i*Ns + j] = 0.
+                AlphaX[i*Ns + j] = 0.
+                AlphaY[i*Ns + j] = V[j]*VorticityY[i*Ns + j]
+                AlphaZ[i*Ns + j] = 0.
+            for j in range(Ns):
+                px[(i + 1)*Ns + j] = X[j]
+                py[(i + 1)*Ns + j] = -(i//2 + 1)*h
+                pz[(i + 1)*Ns + j] = Z[j]
+                Volume[(i + 1)*Ns + j] = V[j]
+                Sigma[(i + 1)*Ns + j] = S[j]
+                VorticityX[(i + 1)*Ns + j] = 0.
+                VorticityY[(i + 1)*Ns + j] = W[j]
+                VorticityZ[(i + 1)*Ns + j] = 0.
+                AlphaX[(i + 1)*Ns + j] = 0.
+                AlphaY[(i + 1)*Ns + j] = V[j]*VorticityY[(i + 1)*Ns + j]
+                AlphaZ[(i + 1)*Ns + j] = 0.
+        
+        vpm_cpp.adjust_vortex_tube(t, Ns, NL, Gamma, np.pi*r0**2, np.pi*r0**2*4./3., nc)
+    
+    def computeVortexRing(VPMParameters, VortexParameters, NumberOfIterations = 10000, SaveVPMPeriod = 10, DIRECTORY_OUTPUT = 'OUTPUT', LeapFrog = False):
+        int_Params =['StrengthRampAtbeginning', 
+            'CurrentIteration', 
+            'MaximumAgeAllowed', 'RedistributionPeriod', 'NumberOfThreads', 'IntegrationOrder',
+            'IterationTuningFMM', 'IterationCounter', 
+            'FarFieldApproximationOrder', 'NumberLayers']
+
+        float_Params = ['Density', 'EddyViscosityConstant', 'Temperature', 'ResizeParticleFactor',
+            'Time', 'CutoffXmin', 'CutoffZmin', 'MaximumMergingVorticityFactor', 'RealignmentRelaxationFactor',
+            'MagnitudeRelaxationFactor', 'SFSContribution', 'SmoothingRatio', 'RPM','KinematicViscosity',
+            'Pitch', 'CutoffXmax', 'CutoffYmin', 'CutoffYmax', 'Sigma0',
+            'CutoffZmax', 'ForcedDissipation','MaximumAngleForMerging', 'MinimumVorticityFactor', 
+            'MinimumOverlapForMerging', 'VelocityFreestream', 'AntiStretching',
+            'RedistributeParticlesBeyond', 'RedistributeParticleSizeFactor',
+            'TimeStep', 'Resolution', 'NearFieldOverlappingRatio', 'TimeFMM',
+            'RemoveWeakParticlesBeyond', 'Intensity', 'CoreRadius', 'RingRadius', 'Length', 'Tau',
+            'MinimumVorticityFraction', 'EddyViscosityRelaxationFactor']
+
+        bool_Params = ['MonitorDiagnostics', 'LowStorageIntegration']
+        
+        defaultParameters = {
+            ############################################################################################
+            ################################### Simulation conditions ##################################
+            ############################################################################################
+                'Density'                       : 1.225,          #]0., +inf[, in kg.m^-3
+                'EddyViscosityConstant'         : 0.15,            #[0., +inf[, constant for the eddy viscosity model, Cm(Mansour) around 0.1, Cs(Smagorinsky) around 0.15, Cr(Vreman) around 0.07
+                'EddyViscosityModel'            : 'Vreman',       #Mansour, Mansour2, Smagorinsky, Vreman or None, select a LES model to compute the eddy viscosity
+                'KinematicViscosity'            : 1.46e-5,        #[0., +inf[, in m^2.s^-1
+                'Temperature'                   : 288.15,         #]0., +inf[, in K
+                'Time'                          : 0.,             #in s, keep track of the physical time
+            ############################################################################################
+            ###################################### VPM parameters ######################################
+            ############################################################################################
+                'AntiStretching'                : 0.,             #between 0 and 1, 0 means particle strength fully takes vortex stretching, 1 means the particle size fully takes the vortex stretching
+                'DiffusionScheme'               : 'PSE',          #PSE, CSM or None. gives the scheme used to compute the diffusion term of the vorticity equation
+                'RegularisationKernel'          : 'Gaussian',     #The available smoothing kernels are Gaussian, HOA, LOA, Gaussian3 and SuperGaussian
+                'SFSContribution'               : 0.,             #between 0 and 1, the closer to 0, the more the viscosity affects the particle strength, the closer to 1, the more it affects the particle size
+                'SmoothingRatio'                : 2.,             #in m, anywhere between 1.5 and 2.5, the higher the NumberSource, the smaller the Resolution and the higher the SmoothingRatio should be to avoid blowups, the HOA kernel requires a higher smoothing
+                'VorticityEquationScheme'       : 'Transpose',    #Classical, Transpose or Mixed, The schemes used to compute the vorticity equation are the classical scheme, the transpose scheme (conserves total vorticity) and the mixed scheme (a fusion of the previous two)
+                'Sigma0'                        : 0.1,
+            ############################################################################################
+            ################################### Numerical Parameters ###################################
+            ############################################################################################
+                'CurrentIteration'              : 0,              #follows the current iteration
+                'IntegrationOrder'              : 3,              #[|1, 4|]1st, 2nd, 3rd or 4th order Runge Kutta. In the hybrid case, there must be at least as much Interfaces in the hybrid domain as the IntegrationOrder of the time integration scheme
+                'LowStorageIntegration'         : True,           #[|0, 1|], states if the classical or the low-storage Runge Kutta is used
+                'MonitorDiagnostics'            : True,           #[|0, 1|], allows or not the computation of the diagnostics (kinetic energy, enstrophy, divergence-free kinetic energy, divergence-free enstrophy)
+            ############################################################################################
+            ##################################### Particles Control ####################################
+            ############################################################################################
+                'CutoffXmin'                    : -np.inf,        #in m, spatial Cutoff
+                'CutoffXmax'                    : +np.inf,        #in m, spatial Cutoff
+                'CutoffYmin'                    : -np.inf,        #in m, spatial Cutoff
+                'CutoffYmax'                    : +np.inf,        #in m, spatial Cutoff
+                'CutoffZmin'                    : -np.inf,        #in m, spatial Cutoff
+                'CutoffZmax'                    : +np.inf,        #in m, spatial Cutoff
+                'ForcedDissipation'             : 0.,             #in %/s, gives the % of strength particles looses per sec, usefull to kill unnecessary particles without affecting the LLs
+                'MaximumAgeAllowed'             : 0,              #0 <=,  particles are eliminated after MaximumAgeAllowed iterations, if MaximumAgeAllowed == 0, they are not deleted
+                'MaximumAngleForMerging'        : 0.,             #[0., 180.[ in deg,   maximum angle   allowed between two particles to be merged
+                'MaximumMergingVorticityFactor' : 0.,             #in %, particles can be merged if their combined strength is below the given poucentage of the maximum strength on the blades
+                'MinimumOverlapForMerging'      : 0.,             #[0., +inf[, if two particles have at least an overlap of MinimumOverlapForMerging*SigmaRatio, they are considered for merging
+                'MinimumVorticityFactor'        : 0.,             #in %, sets the minimum strength kept as a percentage of the maximum strength on the blades
+                'RedistributeParticlesBeyond'   : np.inf,         #do not redistribute particles if closer than RedistributeParticlesBeyond*Resolution from a LL
+                'RedistributionKernel'          : None,           #M4Prime, M4, M3, M2, M1 or None, redistribution kernel used. the number gives the order preserved by the kernel, if None local splitting/merging is used
+                'RedistributionPeriod'          : 0,              #frequency at which particles are redistributed, if 0 the particles are never redistributed
+                'RealignmentRelaxationFactor'   : 0.,             #[0., 1.[, is used during the relaxation process to realign the particles with their voticity and avoid having a non null divergence of the vorticity field
+                'MagnitudeRelaxationFactor'     : 0.,             #[0., 1.[, is used during the relaxation process to change the magnitude of the particles to avoid having a non null divergence of the vorticity field
+                'EddyViscosityRelaxationFactor' : 0.,             #[0., 1.[, is used during the relaxation process when updating the eddy viscosity constant to satisfy the transfert of enstrophy to the kinetic energy
+                'RemoveWeakParticlesBeyond'     : np.inf,         #do not remove weak particles if closer than RemoveWeakParticlesBeyond*Resolution from a LL
+                'ResizeParticleFactor'          : 0.,             #[0, +inf[, resize particles that grow/shrink RedistributeParticleSizeFactor * Sigma0 (i.e. Resolution*SmoothingRatio), if 0 then no resizing is done
+                'StrengthRampAtbeginning'       : 25,             #[|0, +inf [|, limit the vorticity shed for the StrengthRampAtbeginning first iterations for the wake to stabilise
+            ############################################################################################
+            ###################################### FMM parameters ######################################
+            ############################################################################################
+                'FarFieldApproximationOrder'    : 8,              #[|6, 12|], order of the polynomial which approximates the far field interactions, the higher the more accurate and the more costly
+                'IterationTuningFMM'            : 50,             #frequency at which the FMM is compared to the direct computation, gives the relative L2 error
+                'NearFieldOverlappingRatio'     : 0.5,            #[0., 1.], Direct computation of the interactions between clusters that overlap by NearFieldOverlappingRatio, the smaller the more accurate and the more costly
+                'NumberOfThreads'               : 'auto',         #number of threads of the machine used. If 'auto', the highest number of threads is set
+                'TimeFMM'                       : 0.,             #in s, keep track of the CPU time spent for the FMM
+        }
+        defaultVortexParameters = {
+            ############################################################################################
+            ################################## Vortex Rings parameters #################################
+            ############################################################################################
+                'Intensity'      : 1.,
+                'NumberLayers'   : 6,
+        }
+        defaultParameters.update(VPMParameters)
+        defaultVortexParameters.update(VortexParameters)
+
+        if defaultParameters['NumberOfThreads'] == 'auto':
+            NbOfThreads = int(os.getenv('OMP_NUM_THREADS',len(os.sched_getaffinity(0))))
+            defaultParameters['NumberOfThreads'] = NbOfThreads
+        else:
+            NbOfThreads = defaultParameters['NumberOfThreads']
+        os.environ['OMP_NUM_THREADS'] = str(NbOfThreads)
+        #vpm_cpp.mpi_init(defaultParameters['NumberOfThreads']);
+        checkParametersTypes([defaultParameters, defaultVortexParameters], int_Params, float_Params,
+                                                                                        bool_Params)
+        defaultParameters['VelocityFreestream'] = np.array([0.]*3, dtype = float)
+        defaultParameters['Sigma0'] = np.array(defaultParameters['Resolution']*defaultParameters['SmoothingRatio'],
+                                                                    dtype = np.float64, order = 'F')
+        defaultParameters['IterationCounter'] = np.array([0], dtype = np.int32, order = 'F')
+        defaultParameters['StrengthRampAtbeginning'][0] = max(defaultParameters['StrengthRampAtbeginning'], 1)
+        defaultParameters['MinimumVorticityFactor'][0] = max(0., defaultParameters['MinimumVorticityFactor'])
+        t = buildEmptyVPMTree()
+        if 'Length' in defaultVortexParameters:
+            createLambOseenVortexBlob(t, defaultParameters, defaultVortexParameters)
+        else:
+            createLambOseenVortexRing(t, defaultParameters, defaultVortexParameters)
+            if LeapFrog:
+                Particles = pickParticlesZone(t)
+                Np = Particles[1][0][0]
+                extend(Particles, Np)
+                ax, ay, az, a, s, v, c, nu = J.getVars(Particles, ['Alpha' + v for v in 'XYZ'] + ['StrengthMagnitude', 'Sigma', 'Volume', 'Cvisq', 'Nu', ])
+                ax[Np:], ay[Np:], az[Np:], a[Np:], s[Np:], v[Np:], c[Np:], nu[Np:] = ax[:Np], ay[:Np], az[:Np], a[:Np], s[:Np], v[:Np], c[:Np], nu[:Np]
+                x, y, z = J.getxyz(Particles)
+                x[Np:], y[Np:], z[Np:] = x[:Np], y[:Np], z[:Np] + defaultVortexParameters['RingRadius']
+
+        
+        Particles = pickParticlesZone(t)
+        J.set(Particles, '.VPM#Parameters', **defaultParameters)
+        J.set(Particles, '.VortexRing#Parameters', **defaultVortexParameters)
+        I._sortByName(I.getNodeFromName1(Particles, '.VPM#Parameters'))
+        I._sortByName(I.getNodeFromName1(Particles, '.VortexRing#Parameters'))
+        if defaultParameters['MonitorDiagnostics']:
+            J.set(Particles, '.VPM#Diagnostics', Omega = [0., 0., 0.], LinearImpulse = [0., 0., 0.],
+                                   AngularImpulse = [0., 0., 0.], Helicity = 0., KineticEnergy = 0.,
+                                   KineticEnergyDivFree = 0., Enstrophy = 0., EnstrophyDivFree = 0.)
+
+        solveVorticityEquation(t)
+
+        IterationCounter = I.getNodeFromName(t, 'IterationCounter')
+        IterationCounter[1][0] = defaultParameters['IterationTuningFMM']*\
+                                                               defaultParameters['IntegrationOrder']
+
+        C.convertPyTree2File(t, DIRECTORY_OUTPUT + '.cgns')
+        compute(VPMParameters = {}, HybridParameters = {}, LiftingLineParameters = {},
+            PolarsFilename = None, EulerianPath = None, LiftingLinePath = None,
+            NumberOfIterations = NumberOfIterations, RestartPath = DIRECTORY_OUTPUT + '.cgns',
+            DIRECTORY_OUTPUT = DIRECTORY_OUTPUT,
+            VisualisationOptions = {'addLiftingLineSurfaces':False}, SaveVPMPeriod = SaveVPMPeriod,
+            Verbose = True, SaveImageOptions={}, Surface = 0., FieldsExtractionGrid = [],
+            SaveFieldsPeriod = np.inf, SaveImagePeriod = np.inf)
 
 ####################################################################################################
 ####################################################################################################
@@ -1496,15 +1885,12 @@ if True:
     def getAerodynamicCoefficientsOnLiftingLine(LiftingLines = [], StdDeviationSample = 50, IterationInfo = {}, Freestream = True, Wings = False, Surface = 0.):
         if LiftingLines:
             if Wings: IterationInfo = getAerodynamicCoefficientsOnWing(LiftingLines, Surface,
-                                            StdDeviationSample = StdDeviationSample, IterationInfo =
-                                                                                      IterationInfo)
+                      StdDeviationSample = StdDeviationSample, IterationInfo = IterationInfo)
             else:
                 if Freestream: IterationInfo = getAerodynamicCoefficientsOnPropeller(LiftingLines,
-                                            StdDeviationSample = StdDeviationSample, IterationInfo =
-                                                                                      IterationInfo)
+                      StdDeviationSample = StdDeviationSample, IterationInfo = IterationInfo)
                 else: IterationInfo = getAerodynamicCoefficientsOnRotor(LiftingLines,
-                                            StdDeviationSample = StdDeviationSample, IterationInfo =
-                                                                                      IterationInfo)
+                      StdDeviationSample = StdDeviationSample, IterationInfo = IterationInfo)
         return IterationInfo
 
     def getAerodynamicCoefficientsOnPropeller(LiftingLines = [], StdDeviationSample = 50, IterationInfo = {}):
@@ -1529,15 +1915,15 @@ if True:
         std_Thrust, std_Power = getStandardDeviationBlade(LiftingLines = LiftingLines,
                                                             StdDeviationSample = StdDeviationSample)
         IterationInfo['Thrust'] = T
-        IterationInfo['Thrust Standard Deviation'] = std_Thrust
+        IterationInfo['Thrust Standard Deviation'] = std_Thrust/(T + np.sign(T)*1e-12)*100.
         IterationInfo['Power'] = P
-        IterationInfo['Power Standard Deviation'] = std_Power
+        IterationInfo['Power Standard Deviation'] = std_Power/(P + np.sign(P)*1e-12)*100.
         IterationInfo['cT'] = cT
         IterationInfo['cP'] = cP
         IterationInfo['Eff'] = Eff
         return IterationInfo
 
-    def getAerodynamicCoefficientsOnRotor(LiftingLines = [], StdDeviationSample = 50,IterationInfo = {}):
+    def getAerodynamicCoefficientsOnRotor(LiftingLines = [], StdDeviationSample = 50, IterationInfo = {}):
         LiftingLine = I.getZones(LiftingLines)[0]
         RotationCenter = I.getValue(I.getNodeFromName(LiftingLine, 'RotationCenter'))
         RPM = I.getValue(I.getNodeFromName(LiftingLine, 'RPM'))
@@ -1552,41 +1938,41 @@ if True:
         cT = T/(Rho*n**2*D**4)
         cP = P/(Rho*n**3*D**5)
         cP = np.sign(cP)*np.maximum(1e-12,np.abs(cP))
-        Eff = np.sqrt(2./np.pi)*cT**1.5/cP
+        Eff = np.sqrt(2./np.pi)*np.abs(cT)**1.5/cP
 
         std_Thrust, std_Power = getStandardDeviationBlade(LiftingLines = LiftingLines, StdDeviationSample = StdDeviationSample)
         IterationInfo['Thrust'] = T
-        IterationInfo['Thrust Standard Deviation'] = std_Thrust
+        IterationInfo['Thrust Standard Deviation'] = std_Thrust/(T + np.sign(T)*1e-12)*100.
         IterationInfo['Power'] = P
-        IterationInfo['Power Standard Deviation'] = std_Power
+        IterationInfo['Power Standard Deviation'] = std_Power/(P + np.sign(P)*1e-12)*100.
         IterationInfo['cT'] = cT
         IterationInfo['cP'] = cP
         IterationInfo['Eff'] = Eff
         return IterationInfo
 
     def getAerodynamicCoefficientsOnWing(LiftingLines = [], Surface = 0., StdDeviationSample = 50, IterationInfo = {}):
-        LiftingLine = I.getZones(LiftingLines)[0]
-        Rho = I.getValue(I.getNodeFromName(LiftingLine, 'Density'))
-        U0 = I.getValue(I.getNodeFromName(LiftingLine, 'VelocityFreestream'))
-        V = I.getValue(I.getNodeFromName(LiftingLine, 'VelocityTranslation'))
-        x, y, z = J.getxyz(LiftingLine)
-        IntegralLoads = LL.computeGeneralLoadsOfLiftingLine(LiftingLine)
-        Rmax = (x[0]**2 + y[0]**2 + z[0]**2)**0.5
-        Rmin = (x[1]**2 + y[1]**2 + z[1]**2)**0.5
-        Fz = IntegralLoads['ForceZ'][0]
-        Fx = IntegralLoads['ForceX'][0]
-        q0 = 0.5*Rho*Surface*np.linalg.norm(U0 - V)**2
-        cL = Fz/(q0 + 1e-12)
-        cD = Fx/(q0 + 1e-12)
+        Fx, Fz, cL, cD = 0., 0., 0., 0.
+        for LiftingLine in LiftingLines:
+            Rho = I.getValue(I.getNodeFromName(LiftingLine, 'Density'))
+            U0 = I.getValue(I.getNodeFromName(LiftingLine, 'VelocityFreestream'))
+            V = I.getValue(I.getNodeFromName(LiftingLine, 'VelocityTranslation'))
+            IntegralLoads = LL.computeGeneralLoadsOfLiftingLine(LiftingLine)
+            Fz += IntegralLoads['ForceZ'][0]
+            Fx += IntegralLoads['ForceX'][0]
+            q0 = 0.5*Rho*Surface*np.linalg.norm(U0 - V)**2
+            cL += IntegralLoads['ForceZ'][0]/(q0 + 1e-12)
+            cD += IntegralLoads['ForceX'][0]/(q0 + 1e-12)
+
         std_Thrust, std_Drag = getStandardDeviationWing(LiftingLines = LiftingLines,
-                                                            StdDeviationSample = StdDeviationSample)
+                                                                StdDeviationSample = StdDeviationSample)
+
         IterationInfo['Lift'] = Fz
-        IterationInfo['Lift Standard Deviation'] = std_Thrust
+        IterationInfo['Lift Standard Deviation'] = std_Thrust/(Fz + np.sign(Fz)*1e-12)*100.
         IterationInfo['Drag'] = Fx
-        IterationInfo['Drag Standard Deviation'] = std_Drag
+        IterationInfo['Drag Standard Deviation'] = std_Drag/(Fx + np.sign(Fx)*1e-12)*100.
         IterationInfo['cL'] = cL
         IterationInfo['cD'] = cD
-        IterationInfo['f'] = cL/cD
+        IterationInfo['f'] = Fz/Fx
         return IterationInfo
 
     def getStandardDeviationWing(LiftingLines = [], StdDeviationSample = 50):
@@ -1642,38 +2028,37 @@ if True:
         C._initVars(Particles, 'radius=' + ParticlesRadius)
         if not ParticlesColorField: ParticlesColorField = 'VorticityMagnitude'
         CPlot._addRender2Zone(Particles, material = 'Sphere',
-            color = 'Iso:' + ParticlesColorField, blending=0.6, shaderParameters=[0.04, 0])
+            color = 'Iso:' + ParticlesColorField, blending = 0.6, shaderParameters = [0.04, 0])
         LiftingLines = LL.getLiftingLines(t)
         for zone in LiftingLines:
             CPlot._addRender2Zone(zone, material = 'Flat', color = 'White')
         Shields = I.getZones(I.getNodeFromName2(t, 'ShieldsBase'))
         for zone in Shields:
-            CPlot._addRender2Zone(zone, material = 'Glass', color = 'White', blending=0.6)
+            CPlot._addRender2Zone(zone, material = 'Glass', color = 'White', blending = 0.6)
         if addLiftingLineSurfaces:
             if not AirfoilPolarsFilename:
-                ERRMSG = J.FAIL+('production of surfaces from lifting-line requires'
-                    ' attribute AirfoilPolars')+J.ENDC
+                ERRMSG = J.FAIL + ('production of surfaces from lifting-line requires'
+                    ' attribute AirfoilPolars') + J.ENDC
                 raise AttributeError(ERRMSG)
             LiftingLineSurfaces = []
             for ll in LiftingLines:
                 surface = LL.postLiftingLine2Surface(ll, AirfoilPolarsFilename)
                 deletePrintedLines()
-                surface[0] = ll[0]+'.surf'
+                surface[0] = ll[0] + '.surf'
                 CPlot._addRender2Zone(surface, material = 'Solid', color = '#ECF8AB')
                 LiftingLineSurfaces += [surface]
             I.createUniqueChild(t, 'LiftingLineSurfaces', 'CGNSBase_t',
-                value=np.array([2, 3], order = 'F'), children=LiftingLineSurfaces)
+                value = np.array([2, 3], order = 'F'), children = LiftingLineSurfaces)
 
         CPlot._addRender2PyTree(t, mode = 'Render', colormap = 'Blue2Red', isoLegend=1,
-                                   scalarField=ParticlesColorField)
+                                   scalarField = ParticlesColorField)
 
-    def saveImage(t = [], ShowInScreen=False, ImagesDirectory = 'FRAMES', **DisplayOptions):
+    def saveImage(t = [], ShowInScreen = False, ImagesDirectory = 'FRAMES', **DisplayOptions):
         if 'mode' not in DisplayOptions: DisplayOptions['mode'] = 'Render'
         if 'displayInfo' not in DisplayOptions: DisplayOptions['displayInfo'] = 0
         if 'colormap' not in DisplayOptions: DisplayOptions['colormap'] = 0
         if 'win' not in DisplayOptions: DisplayOptions['win'] = (700, 700)
         DisplayOptions['exportResolution'] = '%gx%g'%DisplayOptions['win']
-
 
         try: os.makedirs(ImagesDirectory)
         except: pass
@@ -1686,15 +2071,7 @@ if True:
         if ShowInScreen:
             DisplayOptions['offscreen'] = 0
         else:
-            machine = os.getenv('MAC')
-            if machine in ['spiro']:
-                DisplayOptions['offscreen']=2 # MESA
-            elif machine in ['ld', 'visung', 'visio', 'sator']:
-                DisplayOptions['offscreen']=1 # openGL
-            else:
-                raise SystemError('machine "%s" not supported.'%machine)
-
-        CPlot.display(t, **DisplayOptions)
+            DisplayOptions['offscreen'] = 1
 
         if 'backgroundFile' not in DisplayOptions:
             MOLA = os.getenv('MOLA')
@@ -1702,9 +2079,15 @@ if True:
             for MOLAloc in [MOLA, MOLASATOR]:
                 backgroundFile = os.path.join(MOLAloc, 'MOLA', 'GUIs', 'background.png')
                 if os.path.exists(backgroundFile):
-                    CPlot.setState(backgroundFile=backgroundFile)
-                    CPlot.setState(bgColor =13)
+                    DisplayOptions['backgroundFile']=backgroundFile
+                    DisplayOptions['bgColor']=13
                     break
+
+        CPlot.display(t, **DisplayOptions)
+        if DisplayOptions['offscreen']:
+            CPlot.finalizeExport(DisplayOptions['offscreen'])
+
+
 
     def open(filename = ''):
         t = C.convertFile2PyTree(filename)
@@ -1730,7 +2113,7 @@ if True:
 
     def loadAirfoilPolars(filename = ''): return LL.loadPolarsInterpolatorDict(filename)
 
-    def printIterationInfo(IterationInfo = {}, PSE = False, Wings = False):
+    def printIterationInfo(IterationInfo = {}, PSE = False, DVM = False, Wings = False):
         msg = '||' + '{:-^50}'.format(' Iteration ' + '{:d}'.format(IterationInfo['Iteration']) + \
                         ' (' + '{:.1f}'.format(IterationInfo['Percentage']) + '%) ') + '\n'
         msg += '||' + '{:34}'.format('Physical time') + \
@@ -1747,11 +2130,11 @@ if True:
                 msg += '||' + '{:34}'.format('Lift') + \
                       ': ' + '{:.3g}'.format(IterationInfo['Lift']) + ' N' + '\n'
                 msg += '||' + '{:34}'.format('Lift Standard Deviation') + \
-                      ': ' + '{:.3g}'.format(IterationInfo['Lift Standard Deviation']) + ' N' + '\n'
+                      ': ' + '{:.2f}'.format(IterationInfo['Lift Standard Deviation']) + ' %' + '\n'
                 msg += '||' + '{:34}'.format('Drag') + \
                       ': ' + '{:.3g}'.format(IterationInfo['Drag']) + ' N' + '\n'
                 msg += '||' + '{:34}'.format('Drag Standard Deviation') + \
-                      ': ' + '{:.3g}'.format(IterationInfo['Drag Standard Deviation']) + ' N' + '\n'
+                      ': ' + '{:.2f}'.format(IterationInfo['Drag Standard Deviation']) + ' %' + '\n'
                 msg += '||' + '{:34}'.format('cL') + \
                       ': ' + '{:.4f}'.format(IterationInfo['cL']) + '\n'
                 msg += '||' + '{:34}'.format('cD') + \
@@ -1762,11 +2145,11 @@ if True:
                 msg += '||' + '{:34}'.format('Thrust') + \
                     ': ' + '{:.5g}'.format(IterationInfo['Thrust']) + ' N' + '\n'
                 msg += '||' + '{:34}'.format('Thrust Standard Deviation') + \
-                    ': ' + '{:.5g}'.format(IterationInfo['Thrust Standard Deviation']) + ' N' + '\n'
+                    ': ' + '{:.2f}'.format(IterationInfo['Thrust Standard Deviation']) + ' %' + '\n'
                 msg += '||' + '{:34}'.format('Power') + \
                     ': ' + '{:.3g}'.format(IterationInfo['Power']) + ' W' + '\n'
                 msg += '||' + '{:34}'.format('Power Standard Deviation') + \
-                    ': ' + '{:.3g}'.format(IterationInfo['Power Standard Deviation']) + ' W' + '\n'
+                    ': ' + '{:.2f}'.format(IterationInfo['Power Standard Deviation']) + ' %' + '\n'
                 msg += '||' + '{:34}'.format('cT') + \
                     ': ' + '{:.5f}'.format(IterationInfo['cT']) + '\n'
                 msg += '||' + '{:34}'.format('Cp') + \
@@ -1799,7 +2182,7 @@ if True:
                                                 '{:.1f}'.format(IterationInfo['Lifting Line time']/\
                                           IterationInfo['Total iteration time']*100.) + '%) ' + '\n'
 
-        if 'Rel. err. of Vorticity' in IterationInfo:
+        if 'Eulerian Vorticity lost' in IterationInfo:
             msg += '||' + '{:-^50}'.format(' Hybrid Solver ') + '\n'
             msg += '||' + '{:34}'.format('Eulerian Vorticity lost') + \
                           ': ' + '{:.1g}'.format(IterationInfo['Eulerian Vorticity lost']) + \
@@ -1830,12 +2213,25 @@ if True:
         msg += '||' + '{:34}'.format('Rel. err. of Velocity') + \
                         ': ' + '{:e}'.format(IterationInfo['Rel. err. of Velocity']) + '\n'
         msg += '||' + '{:34}'.format('Rel. err. of Velocity Gradient') + \
+                        ': ' + '{:e}'.format(IterationInfo['Rel. err. of Velocity']) + '\n'
+        msg += '||' + '{:34}'.format('Rel. err. of Vorticity') + \
                         ': ' + '{:e}'.format(IterationInfo['Rel. err. of Velocity Gradient']) + '\n'
         if PSE: msg += '||' + '{:34}'.format('Rel. err. of PSE') + \
                         ': ' + '{:e}'.format(IterationInfo['Rel. err. of PSE']) + '\n'
+        if DVM:
+            msg += '||' + '{:34}'.format('Rel. err. of PSE') + \
+                        ': ' + '{:e}'.format(IterationInfo['Rel. err. of PSE']) + '\n'
+            msg += '||' + '{:34}'.format('Rel. err. of Diffusion Velocity') + \
+                        ': ' + '{:e}'.format(IterationInfo['Rel. err. of Diffusion Velocity']) +'\n'
         msg += '||' + '{:34}'.format('FMM Computation time') + \
                         ': ' + '{:.2f}'.format(IterationInfo['FMM time']) + ' s (' + \
                                                          '{:.1f}'.format(IterationInfo['FMM time']/\
+                                          IterationInfo['Total iteration time']*100.) + '%) ' + '\n'
+        if "Perturbation time" in IterationInfo:
+            msg += '||' + '{:-^50}'.format(' Perturbation Field ') + '\n'
+            msg += '||' + '{:34}'.format('Interpolation time') + \
+                        ': ' + '{:.2f}'.format(IterationInfo['Perturbation time']) + ' s (' + \
+                                                         '{:.1f}'.format(IterationInfo['Perturbation time']/\
                                           IterationInfo['Total iteration time']*100.) + '%) ' + '\n'
         msg += '||' + '{:=^50}'.format('')
         print(msg)
@@ -1853,7 +2249,7 @@ if True:
 ############################################## Solver ##############################################
 ####################################################################################################
 ####################################################################################################
-    def compute(VPMParameters = {}, HybridParameters = {}, LiftingLineParameters = {}, PolarsFilename = None, EulerianPath = None, LiftingLinePath = None, NumberOfIterations = 1000, RestartPath = None, DIRECTORY_OUTPUT = 'OUTPUT', VisualisationOptions = {'addLiftingLineSurfaces':True}, StdDeviationSample = 50, SaveVPMPeriod = 100, Verbose = True, SaveImageOptions={}, Surface = 0., FieldsExtractionGrid = [], SaveFieldsPeriod = np.inf, SaveImagePeriod = np.inf):
+    def compute(VPMParameters = {}, HybridParameters = {}, LiftingLineParameters = {}, PerturbationFieldParameters = {}, PolarsFilename = None, EulerianPath = None, PerturbationFieldPath = None, LiftingLinePath = None, NumberOfIterations = 1000, RestartPath = None, DIRECTORY_OUTPUT = 'OUTPUT', VisualisationOptions = {'addLiftingLineSurfaces':True}, StdDeviationSample = 50, SaveVPMPeriod = 100, Verbose = True, SaveImageOptions={}, Surface = 0., FieldsExtractionGrid = [], SaveFieldsPeriod = np.inf, SaveImagePeriod = np.inf):
         try: os.makedirs(DIRECTORY_OUTPUT)
         except: pass
 
@@ -1862,6 +2258,10 @@ if True:
 
         if RestartPath:
             t = open(RestartPath)
+            if PerturbationFieldPath:
+                PerturbationField = open(PerturbationFieldPath)
+                PerturbationField = vpm_cpp.build_perturbation_velocity_capsule(PerturbationField, NumberOfNodes)
+            else: PerturbationField = []
             try: tE = open('tE.cgns') # LB: TODO dangerous; rather use os.path.isfile()
             except: tE = []
         else:
@@ -1869,14 +2269,13 @@ if True:
             else: LiftingLine = []
             #if EulerianPath: EulerianMesh = open(EulerianPath)
             #else: EulerianMesh = []
-            EulerianMesh = EulerianPath
-            t, tE = initialiseVPM(EulerianMesh = EulerianMesh, HybridParameters = HybridParameters,
-                        LiftingLineTree = LiftingLine,LiftingLineParameters = LiftingLineParameters,
+            t, tE, PerturbationFieldCapsule = initialiseVPM(EulerianMesh = EulerianPath, PerturbationField = PerturbationFieldPath, HybridParameters = HybridParameters,
+                        LiftingLineTree = LiftingLine, LiftingLineParameters = LiftingLineParameters, PerturbationFieldParameters = PerturbationFieldParameters,
                         PolarInterpolator = AirfoilPolars, VPMParameters = VPMParameters)
 
         
         IterationInfo = {'Rel. err. of Velocity': 0, 'Rel. err. of Velocity Gradient': 0,
-                            'Rel. err. of PSE': 0}
+                                        'Rel. err. of PSE': 0, 'Rel. err. of Diffusion Velocity': 0}
         TotalTime = J.tic()
         sp = getVPMParameters(t)
         Np = pickParticlesZone(t)[1][0]
@@ -1885,9 +2284,10 @@ if True:
         h = sp['Resolution'][0]
         it = sp['CurrentIteration']
         simuTime = sp['Time']
-        PSE = DiffusionScheme_str2int[sp['DiffusionScheme']] == 1
+        PSE = DiffusionScheme_str2int[sp['DiffusionScheme']] < 2
+        DVM = DiffusionScheme_str2int[sp['DiffusionScheme']] == 2
         Freestream = (np.linalg.norm(sp['VelocityFreestream']) != 0.)
-        Wing = (len(I.getZones(LiftingLines)) == 1)
+        Wing = (I.getValue(I.getNodeFromName(LiftingLines, 'RPM')) == 0)
         if AirfoilPolars: VisualisationOptions['AirfoilPolarsFilename'] = PolarsFilename
         else: VisualisationOptions['addLiftingLineSurfaces'] = False
 
@@ -1909,21 +2309,21 @@ if True:
                 SAVE_FIELDS = SAVE_VPM = True
             
             IterationTime = J.tic()
-            computeNextTimeStep(t)
+            computeNextTimeStep(t, PerturbationFieldCapsule = PerturbationFieldCapsule)
             IterationInfo['Iteration'] = it[0]
             IterationInfo['Percentage'] = it[0]/NumberOfIterations*100.
             IterationInfo['Physical time'] = simuTime[0]
             IterationInfo = generateParticlesInHybridInterfaces(t, tE, IterationInfo)
             IterationInfo = populationControl(t, [], IterationInfo)
-            IterationInfo = shedParticlesFromLiftingLines(t, AirfoilPolars, IterationInfo)
+            IterationInfo = ShedVorticitySourcesFromLiftingLines(t, AirfoilPolars, IterationInfo, PerturbationFieldCapsule = PerturbationFieldCapsule)
             IterationInfo['Number of particles'] = Np[0]
-            IterationInfo = solveVorticityEquation(t, IterationInfo = IterationInfo)
+            IterationInfo = solveVorticityEquation(t, IterationInfo = IterationInfo, PerturbationFieldCapsule = PerturbationFieldCapsule)
             IterationInfo['Total iteration time'] = J.tic() - IterationTime
             IterationInfo = getAerodynamicCoefficientsOnLiftingLine(LiftingLines, Wings = Wing,
                                    StdDeviationSample = StdDeviationSample, Freestream = Freestream, 
-                                                   IterationInfo = IterationInfo, Surface = Surface)
+                                            IterationInfo = IterationInfo, Surface = Surface)
             IterationInfo['Total simulation time'] = J.tic() - TotalTime
-            if Verbose: printIterationInfo(IterationInfo, PSE = PSE, Wings = Wing)
+            if Verbose: printIterationInfo(IterationInfo, PSE = PSE, DVM = DVM, Wings = Wing)
 
             if (SAVE_FIELDS or SAVE_ALL) and FieldsExtractionGrid:
                 extract(t, FieldsExtractionGrid, 5000)
@@ -1942,12 +2342,16 @@ if True:
 
             if CONVERGED: break
             
+        filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_It%d.cgns'%it)
+        save(t, filename, VisualisationOptions)
         save(t, DIRECTORY_OUTPUT + '.cgns', VisualisationOptions)
         for _ in range(3): print('||' + '{:=^50}'.format(''))
         print('||' + '{:-^50}'.format(' End of VPM computation '))
         for _ in range(3): print('||' + '{:=^50}'.format(''))
 
-    def computePolar(Parameters = {}, dictPolar = {}, PolarsFilename = '', LiftingLinePath = 'LiftingLine.cgns', DIRECTORY_OUTPUT = 'POLARS', RestartPath = None, MaxNumberOfIterationsPerPolar = 200, NumberOfIterationsForTransition = 0, StdDeviationSample = 10, Surface = 1., Verbose = True, MaxThrustStandardDeviation = 1, MaxPowerStandardDeviation = 100, VisualisationOptions = {'addLiftingLineSurfaces':True}):
+        return t
+
+    def computePolar(VPMParameters = {}, LiftingLineParameters = {}, PolarData = {}, PolarsFilename = '', LiftingLinePath = 'LiftingLine.cgns', DIRECTORY_OUTPUT = 'POLARS', RestartPath = None, MaxNumberOfIterationsPerPolar = 200, MinNumberOfIterationsPerPolar = 0, NumberOfIterationsForTransition = 0, StdDeviationSample = 10, Surface = 1., Verbose = True, MaxThrustStandardDeviation = 1, MaxPowerStandardDeviation = 100, VisualisationOptions = {'addLiftingLineSurfaces':True}):
         try: os.makedirs(DIRECTORY_OUTPUT)
         except: pass
 
@@ -1955,73 +2359,72 @@ if True:
         if RestartPath:
             PolarsTree = open(RestartPath)
             Polars = I.getNodeFromName(PolarsTree, 'Polars')[2]
-            OlddictPolar = {}
+            OldPolarData = {}
             for z in Polars:
                 if type(z[1][0]) == np.bytes_:
-                    OlddictPolar[z[0]] = ''
-                    for zi in z[1]: OlddictPolar[z[0]] += zi.decode('UTF-8')
-                else: OlddictPolar[z[0]] = z[1]
+                    OldPolarData[z[0]] = ''
+                    for zi in z[1]: OldPolarData[z[0]] += zi.decode('UTF-8')
+                else: OldPolarData[z[0]] = z[1]
             
-            for v in OlddictPolar['Variables']:
+            for v in OldPolarData['Variables']:
                 i = 0
-                while i < len(dictPolar['Variables']):
-                    if dictPolar['Variables'][i] == v:
-                        dictPolar['Variables'] = np.delete(dictPolar['Variables'], i)
+                while i < len(PolarData['Variables']):
+                    if PolarData['Variables'][i] == v:
+                        PolarData['Variables'] = np.delete(PolarData['Variables'], i)
                         i -= 1
                     i += 1
 
-            dictPolar['Variables'] = np.append(OlddictPolar['Variables'], dictPolar['Variables'])
-            OlddictPolar.update(dictPolar)
-            dictPolar = OlddictPolar
-            if dictPolar['VariableName'] == 'Pitch':
-                dictPolar['VariableName'] = 'Twist'
-                dictPolar['Pitch'] = True
+            PolarData['Variables'] = np.append(OldPolarData['Variables'], PolarData['Variables'])
+            OldPolarData.update(PolarData)
+            PolarData = OldPolarData
+            if PolarData['VariableName'] == 'Pitch':
+                PolarData['VariableName'] = 'Twist'
+                PolarData['Pitch'] = True
 
             N0 = 0
-            while (N0 < len(OlddictPolar['Variables']) and
-                                      OlddictPolar['Variables'][N0] != OlddictPolar['OldVariable']):
+            while (N0 < len(OldPolarData['Variables']) and
+                                      OldPolarData['Variables'][N0] != OldPolarData['OldVariable']):
                 N0 += 1
 
-            if N0 == len(OlddictPolar['Variables']): N0 = 0
+            if N0 == len(OldPolarData['Variables']): N0 = 0
             else: N0 += 1
 
-            t = open(os.path.join(DIRECTORY_OUTPUT, dictPolar['LastPolar']))
+            t = open(os.path.join(DIRECTORY_OUTPUT, PolarData['LastPolar']))
         else:
             LiftingLine = open(LiftingLinePath)
-            t = initialiseVPM(LiftingLineTree = LiftingLine, VPMParameters = Parameters,
-                    HybridParameters = {}, LiftingLineParameters = {}, PolarInterpolator = 
-                                                                                      AirfoilPolars)
-            if dictPolar['VariableName'] == 'Pitch':
-                dictPolar['VariableName'] = 'Twist'
-                dictPolar['Pitch'] = True
+            t, tE = initialiseVPM(LiftingLineTree = LiftingLine, VPMParameters = VPMParameters,
+                   LiftingLineParameters = LiftingLineParameters, PolarInterpolator = AirfoilPolars)
+            if PolarData['VariableName'] == 'Pitch':
+                PolarData['VariableName'] = 'Twist'
+                PolarData['Pitch'] = True
 
-            dictPolar['Offset'] = I.getValue(I.getNodeFromName(t, dictPolar['VariableName']))
-            if dictPolar['overwriteVPMWithVariables']: dictPolar['Offset'] *= 0.
+            PolarData['Offset'] = I.getValue(I.getNodeFromName(t, PolarData['VariableName']))
+            if PolarData['overwriteVPMWithVariables']: PolarData['Offset'] *= 0.
 
-            if not (isinstance(dictPolar['Offset'], list) or \
-                                                       isinstance(dictPolar['Offset'], np.ndarray)):
-                dictPolar['Offset'] = np.array([dictPolar['Offset']])
+            if not (isinstance(PolarData['Offset'], list) or \
+                                                       isinstance(PolarData['Offset'], np.ndarray)):
+                PolarData['Offset'] = np.array([PolarData['Offset']])
 
-            dictPolar['OldVariable'] = dictPolar['Variables'][0]
+            PolarData['OldVariable'] = PolarData['Variables'][0]
             if len(I.getZones(LiftingLine)) == 1:
-                dictPolar['Lift'] = np.array([], dtype = np.float64)
-                dictPolar['Drag'] = np.array([], dtype = np.float64)
-                dictPolar['cL'] = np.array([], dtype = np.float64)
-                dictPolar['cD'] = np.array([], dtype = np.float64)
-                dictPolar['f'] = np.array([], dtype = np.float64)
-                dictPolar['LiftStandardDeviation'] = np.array([], dtype = np.float64)
-                dictPolar['DragStandardDeviation'] = np.array([], dtype = np.float64)
+                PolarData['Lift'] = np.array([], dtype = np.float64)
+                PolarData['Drag'] = np.array([], dtype = np.float64)
+                PolarData['cL'] = np.array([], dtype = np.float64)
+                PolarData['cD'] = np.array([], dtype = np.float64)
+                PolarData['f'] = np.array([], dtype = np.float64)
+                PolarData['LiftStandardDeviation'] = np.array([], dtype = np.float64)
+                PolarData['DragStandardDeviation'] = np.array([], dtype = np.float64)
             else:
-                dictPolar['Thrust'] = np.array([], dtype = np.float64)
-                dictPolar['Power'] = np.array([], dtype = np.float64)
-                dictPolar['cT'] = np.array([], dtype = np.float64)
-                dictPolar['cP'] = np.array([], dtype = np.float64)
-                dictPolar['Efficiency'] = np.array([], dtype = np.float64)
-                dictPolar['ThrustStandardDeviation'] = np.array([], dtype = np.float64)
-                dictPolar['PowerStandardDeviation'] = np.array([], dtype = np.float64)
+                PolarData['Thrust'] = np.array([], dtype = np.float64)
+                PolarData['Power'] = np.array([], dtype = np.float64)
+                PolarData['cT'] = np.array([], dtype = np.float64)
+                PolarData['cP'] = np.array([], dtype = np.float64)
+                PolarData['Efficiency'] = np.array([], dtype = np.float64)
+                PolarData['ThrustStandardDeviation'] = np.array([], dtype = np.float64)
+                PolarData['PowerStandardDeviation'] = np.array([], dtype = np.float64)
 
             PolarsTree = C.newPyTree()
-            J.set(PolarsTree, 'Polars', **dictPolar)
+            J.set(PolarsTree, 'Polars', **PolarData)
             N0 = 0
 
         sp = getVPMParameters(t)
@@ -2035,7 +2438,6 @@ if True:
         dt = sp['TimeStep']
         U0 = np.linalg.norm(sp['VelocityFreestream'])
         simuTime = sp['Time']
-        PSE = DiffusionScheme_str2int[sp['DiffusionScheme']] == 1
         NbLL = len(I.getZones(LiftingLines))
         VisualisationOptions['AirfoilPolarsFilename'] = PolarsFilename
 
@@ -2044,26 +2446,26 @@ if True:
         for _ in range(3): print('||' + '{:=^50}'.format(''))
 
         TotalTime = J.tic()
-        for i, Variable in enumerate(dictPolar['Variables'][N0:]):
+        for i, Variable in enumerate(PolarData['Variables'][N0:]):
             i += N0
             if NumberOfIterationsForTransition or N0 == i:
                 for n in range(1, NumberOfIterationsForTransition + 1):
                     computeNextTimeStep(t)
 
-                    NewVariable = dictPolar['OldVariable'] + (Variable - dictPolar['OldVariable'])\
+                    NewVariable = PolarData['OldVariable'] + (Variable - PolarData['OldVariable'])\
                                                                   *n/NumberOfIterationsForTransition
                     for LiftingLine in LiftingLines:
-                        LLVariable = I.getNodeFromName(LiftingLine, dictPolar['VariableName'])
-                        LLVariable[1] = dictPolar['Offset'] + NewVariable
+                        LLVariable = I.getNodeFromName(LiftingLine, PolarData['VariableName'])
+                        LLVariable[1] = PolarData['Offset'] + NewVariable
 
-                    VPMVariable = I.getNodeFromName(Particles, dictPolar['VariableName'])
-                    if VPMVariable != None: VPMVariable[1] = dictPolar['Offset'] + NewVariable
-                    if 'TimeStepFunction' in dictPolar:
-                        TimeStepFunction_str2int[dictPolar['TimeStepFunction']](t, LiftingLines
-                                                           , dictPolar['TimeStepFunctionParameter'])
+                    VPMVariable = I.getNodeFromName(Particles, PolarData['VariableName'])
+                    if VPMVariable != None: VPMVariable[1] = PolarData['Offset'] + NewVariable
+                    if 'TimeStepFunction' in PolarData:
+                        TimeStepFunction_str2int[PolarData['TimeStepFunction']](t, LiftingLines
+                                                           , PolarData['TimeStepFunctionParameter'])
 
                     populationControl(t, NoRedistributionRegions=[])
-                    shedParticlesFromLiftingLines(t, AirfoilPolars)
+                    ShedVorticitySourcesFromLiftingLines(t, AirfoilPolars)
                     solveVorticityEquation(t)
 
                     if Verbose:
@@ -2072,38 +2474,41 @@ if True:
                                               NumberOfIterationsForTransition*100.) + '% ') + ' \r')
 
             for LiftingLine in LiftingLines:
-                LLVariable = I.getNodeFromName(LiftingLine, dictPolar['VariableName'])
-                LLVariable[1] = dictPolar['Offset'] + Variable
-            VPMVariable = I.getNodeFromName(Particles, dictPolar['VariableName'])
-            if VPMVariable != None: VPMVariable[1] = dictPolar['Offset'] + Variable
-            if 'TimeStepFunction' in dictPolar:
-                TimeStepFunction_str2int[dictPolar['TimeStepFunction']](t, LiftingLines, 
-                                                             dictPolar['TimeStepFunctionParameter'])
+                LLVariable = I.getNodeFromName(LiftingLine, PolarData['VariableName'])
+                LLVariable[1] = PolarData['Offset'] + Variable
+            VPMVariable = I.getNodeFromName(Particles, PolarData['VariableName'])
+            if VPMVariable != None: VPMVariable[1] = PolarData['Offset'] + Variable
+            if 'TimeStepFunction' in PolarData:
+                TimeStepFunction_str2int[PolarData['TimeStepFunction']](t, LiftingLines, 
+                                                             PolarData['TimeStepFunctionParameter'])
             it0 = it[0]
             stdThrust = MaxThrustStandardDeviation + 1
             stdPower = MaxPowerStandardDeviation + 1
 
             while (it[0] - it0 < MaxNumberOfIterationsPerPolar and (MaxThrustStandardDeviation < \
-                stdThrust or MaxPowerStandardDeviation < stdPower)) or \
-                                                                 (it[0] - it0 < StdDeviationSample):
+                stdThrust or MaxPowerStandardDeviation < stdPower)) or (it[0] - it0 < \
+                               MinNumberOfIterationsPerPolar) or (it[0] - it0 < StdDeviationSample):
                 msg = '||' + '{:-^50}'.format(' Iteration ' + '{:d}'.format(it[0] - it0) + ' ')+'\n'
                 computeNextTimeStep(t)
                 populationControl(t, NoRedistributionRegions=[])
-                shedParticlesFromLiftingLines(t, AirfoilPolars)
+                IterationInfo = ShedVorticitySourcesFromLiftingLines(t, AirfoilPolars)
                 solveVorticityEquation(t)
 
-                msg += '||' + '{:-^50}'.format(' Loads ') + '\n'
+                msg += '||' + '{:34}'.format('Circulation error') + \
+                             ': ' + '{:.5e}'.format(IterationInfo['Circulation error']) + '\n'
+                msg += '||' + '{:34}'.format('Number of sub-iterations') + \
+                             ': ' + '{:d}'.format(IterationInfo['Number of sub-iterations (LL)']) + '\n'
                 if NbLL == 1:
                     IterationInfo = getAerodynamicCoefficientsOnWing(LiftingLines, Surface,
-                                                            StdDeviationSample = StdDeviationSample)
+                                                     StdDeviationSample = StdDeviationSample)
                     msg += '||' + '{:34}'.format('Lift')
                     msg += ': ' + '{:.3f}'.format(IterationInfo['Lift']) + ' N' + '\n'
                     msg += '||' + '{:34}'.format('Lift Standard Deviation')
-                    msg += ': '+ '{:.3g}'.format(IterationInfo['Lift Standard Deviation'])+' N'+'\n'
+                    msg += ': '+ '{:.2f}'.format(IterationInfo['Lift Standard Deviation'])+' %'+'\n'
                     msg += '||' + '{:34}'.format('Drag')
                     msg += ': ' + '{:.3f}'.format(IterationInfo['Drag']) + ' N' + '\n'
                     msg += '||' + '{:34}'.format('Drag Standard Deviation')
-                    msg += ': '+ '{:.3g}'.format(IterationInfo['Drag Standard Deviation'])+' N'+'\n'
+                    msg += ': '+ '{:.2f}'.format(IterationInfo['Drag Standard Deviation'])+' %'+'\n'
                     msg += '||'+'{:34}'.format('cL')+': '+ '{:.4f}'.format(IterationInfo['cL'])+'\n'
                     msg += '||'+'{:34}'.format('cD')+': '+ '{:.5f}'.format(IterationInfo['cD'])+'\n'
                     msg += '||'+'{:34}'.format('f') +': ' + '{:.4f}'.format(IterationInfo['f'])+'\n'
@@ -2113,52 +2518,51 @@ if True:
                     U0 = np.linalg.norm(I.getNodeFromName(LiftingLines, 'VelocityFreestream')[1])
                     if U0 == 0:
                         IterationInfo = getAerodynamicCoefficientsOnRotor(LiftingLines,
-                                                            StdDeviationSample = StdDeviationSample)
+                                                     StdDeviationSample = StdDeviationSample)
                     else:
                         IterationInfo = getAerodynamicCoefficientsOnPropeller(LiftingLines,
-                                                            StdDeviationSample = StdDeviationSample)
+                                                     StdDeviationSample = StdDeviationSample)
                     msg += '||' + '{:34}'.format('Thrust')
                     msg += ': ' + '{:.3f}'.format(IterationInfo['Thrust']) + ' N' + '\n'
                     msg += '||' + '{:34}'.format('Thrust Standard Deviation')
-                    msg +=': '+'{:.3g}'.format(IterationInfo['Thrust Standard Deviation'])+' N'+'\n'
+                    msg +=': '+'{:.2f}'.format(IterationInfo['Thrust Standard Deviation'])+' %'+'\n'
                     msg += '||' + '{:34}'.format('Power')
                     msg += ': ' + '{:.3f}'.format(IterationInfo['Power']) + ' W' + '\n'
                     msg += '||' + '{:34}'.format('Power Standard Deviation')
-                    msg += ': '+'{:.3g}'.format(IterationInfo['Power Standard Deviation'])+' W'+'\n'
+                    msg += ': '+'{:.2f}'.format(IterationInfo['Power Standard Deviation'])+' %'+'\n'
                     msg += '||'+'{:34}'.format('cT') +': '+'{:.5f}'.format(IterationInfo['cT'])+'\n'
                     msg += '||'+'{:34}'.format('Cp') +': '+'{:.5f}'.format(IterationInfo['cP'])+'\n'
                     msg +='||'+'{:34}'.format('Eff')+': '+'{:.5f}'.format(IterationInfo['Eff'])+'\n'
                     stdThrust = IterationInfo['Thrust Standard Deviation']
                     stdPower = IterationInfo['Power Standard Deviation']
-                
                 if Verbose:
-                    if it[0] != it0 + 1: deletePrintedLines(10)
+                    if it[0] != it0 + 1: deletePrintedLines(11)
                     print(msg)
 
-            dictPolar['OldVariable'] = Variable
+            PolarData['OldVariable'] = Variable
             if NbLL == 1:
-                dictPolar['Lift'] = np.append(dictPolar['Lift'], IterationInfo['Lift'])
-                dictPolar['Drag'] = np.append(dictPolar['Drag'], IterationInfo['Drag'])
-                dictPolar['cL'] = np.append(dictPolar['cL'], IterationInfo['cL'])
-                dictPolar['cD'] = np.append(dictPolar['cD'], IterationInfo['cD'])
-                dictPolar['f'] = np.append(dictPolar['f'], IterationInfo['f'])
-                dictPolar['LiftStandardDeviation'] = np.append(dictPolar['LiftStandardDeviation'],
+                PolarData['Lift'] = np.append(PolarData['Lift'], IterationInfo['Lift'])
+                PolarData['Drag'] = np.append(PolarData['Drag'], IterationInfo['Drag'])
+                PolarData['cL'] = np.append(PolarData['cL'], IterationInfo['cL'])
+                PolarData['cD'] = np.append(PolarData['cD'], IterationInfo['cD'])
+                PolarData['f'] = np.append(PolarData['f'], IterationInfo['f'])
+                PolarData['LiftStandardDeviation'] = np.append(PolarData['LiftStandardDeviation'],
                                                            IterationInfo['Lift Standard Deviation'])
-                dictPolar['DragStandardDeviation'] = np.append(dictPolar['DragStandardDeviation'], 
+                PolarData['DragStandardDeviation'] = np.append(PolarData['DragStandardDeviation'], 
                                                            IterationInfo['Drag Standard Deviation'])
             else:
-                dictPolar['Thrust'] = np.append(dictPolar['Thrust'], IterationInfo['Thrust'])
-                dictPolar['Power'] = np.append(dictPolar['Power'], IterationInfo['Power'])
-                dictPolar['cT'] = np.append(dictPolar['cT'], IterationInfo['cT'])
-                dictPolar['cP'] = np.append(dictPolar['cP'], IterationInfo['cP'])
-                dictPolar['Efficiency'] = np.append(dictPolar['Efficiency'], IterationInfo['Eff'])
-                dictPolar['ThrustStandardDeviation'] =np.append(dictPolar['ThrustStandardDeviation']
+                PolarData['Thrust'] = np.append(PolarData['Thrust'], IterationInfo['Thrust'])
+                PolarData['Power'] = np.append(PolarData['Power'], IterationInfo['Power'])
+                PolarData['cT'] = np.append(PolarData['cT'], IterationInfo['cT'])
+                PolarData['cP'] = np.append(PolarData['cP'], IterationInfo['cP'])
+                PolarData['Efficiency'] = np.append(PolarData['Efficiency'], IterationInfo['Eff'])
+                PolarData['ThrustStandardDeviation'] =np.append(PolarData['ThrustStandardDeviation']
                                                        , IterationInfo['Thrust Standard Deviation'])
-                dictPolar['PowerStandardDeviation'] = np.append(dictPolar['PowerStandardDeviation']
+                PolarData['PowerStandardDeviation'] = np.append(PolarData['PowerStandardDeviation']
                                                         , IterationInfo['Power Standard Deviation'])
 
             if Verbose:
-                deletePrintedLines(1)
+                deletePrintedLines(3)
                 print('||' + '{:-^50}'.format(''))
 
             if (it[0] - it0 == MaxNumberOfIterationsPerPolar):
@@ -2166,22 +2570,22 @@ if True:
             else:
                 msg = ' Convergence criteria met for '
 
-            if 'Pitch' not in dictPolar:
-                dictPolar['LastPolar'] = 'VPM_Polar_' + dictPolar['VariableName'] + '_'+ str(round(\
+            if 'Pitch' not in PolarData:
+                PolarData['LastPolar'] = 'VPM_Polar_' + PolarData['VariableName'] + '_'+ str(round(\
                                                                              Variable, 2)) + '.cgns'
-                filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_Polars_' + dictPolar['VariableName']\
+                filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_Polars_' + PolarData['VariableName']\
                                                                                           + '.cgns')
-                msg += dictPolar['VariableName'] + ' = ' + str(round(Variable, 2)) + ' '
+                msg += PolarData['VariableName'] + ' = ' + str(round(Variable, 2)) + ' '
             else:
-                dictPolar['LastPolar'] = 'VPM_Polar_Pitch_' + str(round(Variable, 2)) + '.cgns'
+                PolarData['LastPolar'] = 'VPM_Polar_Pitch_' + str(round(Variable, 2)) + '.cgns'
                 filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_Polars_Pitch.cgns')
                 msg += 'Pitch = ' + str(round(Variable, 2)) + ' '
             if Verbose: print('||' + '{:-^50}'.format(msg))
 
-            J.set(PolarsTree, 'Polars', **dictPolar)
+            J.set(PolarsTree, 'Polars', **PolarData)
             save(PolarsTree, filename)
 
-            filename = os.path.join(DIRECTORY_OUTPUT, dictPolar['LastPolar'])
+            filename = os.path.join(DIRECTORY_OUTPUT, PolarData['LastPolar'])
             save(I.merge([PolarsTree, t]), filename, VisualisationOptions)
             J.createSymbolicLink(filename,  DIRECTORY_OUTPUT + '.cgns')
             
@@ -2195,7 +2599,7 @@ if True:
                                            + str(int(round(TotalTime - TotalTime//60*60))) + ' s '))
         for _ in range(3): print('||' + '{:=^50}'.format(''))
 
-    def extract(t = [], ExctractionTree = [], NbOfParticlesUsedForPrecisionEvaluation = 1000):
+    def extract(t = [], ExctractionTree = [], NbOfParticlesUsedForPrecisionEvaluation = 1000, FarFieldApproximationOrder = 12, NearFieldOverlappingRatio = 0.4):
         if not ExctractionTree: return
         newFieldNames = ['Velocity' + v for v in 'XYZ'] + ['Vorticity' + v for v in 'XYZ'] + \
                         ['gradxVelocity' + v for v in 'XYZ']+ ['gradyVelocity' + v for v in 'XYZ']+\
@@ -2216,7 +2620,8 @@ if True:
         Kernel = Kernel_str2int[getParameter(t, 'RegularisationKernel')]
         EddyViscosityModel = EddyViscosityModel_str2int[getParameter(t, 'EddyViscosityModel')]
         vpm_cpp.wrap_extract_plane(t, tmpTree, int(NbOfParticlesUsedForPrecisionEvaluation), Kernel,
-                                    EddyViscosityModel)
+                                    EddyViscosityModel, np.int32(FarFieldApproximationOrder), np.float64(NearFieldOverlappingRatio))
+        #TODO: add the extractperturbationField here
         tmpFields = J.getVars(I.getZones(tmpTree)[0], newFieldNames)
 
         for i, zone in enumerate(ExtractionZones):
@@ -2227,189 +2632,12 @@ if True:
 
         return ExctractionTree
 
-
-
-
-
-    
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-'''
-def initialiseLiftingLinesAndGetShieldBoxes(LiftingLines, PolarsInterpolatorDict, Resolution):
-    LL.computeKinematicVelocity(LiftingLines)
-    LL.assembleAndProjectVelocities(LiftingLines)
-    LL._applyPolarOnLiftingLine(LiftingLines, PolarsInterpolatorDict, ['Cl', 'Cd'])
-    LL.computeGeneralLoadsOfLiftingLine(LiftingLines)
-    ShieldBoxes = buildShieldBoxesAroundLiftingLines(LiftingLines, Resolution)
-
-    return ShieldBoxes
-
-def buildShieldBoxesAroundLiftingLines(LiftingLines, Resolution):
-    ShieldBoxes = []
-    h = 2*Resolution
-    for LiftingLine in I.getZones(LiftingLines):
-        tx,ty,tz,bx,by,bz,nx,ny,nz = J.getVars(LiftingLine,
-            ['tx','ty','tz','bx','by','bz','nx','ny','nz'])
-        x,y,z = J.getxyz(LiftingLine)
-        quads = []
-        for i in range(len(tx)):
-            quad = G.cart((-h/2.,-h/2.,0),(h,h,1),(2,2,1))
-            T._rotate(quad,(0,0,0), ((1,0,0),(0,1,0),(0,0,1)),
-                ((nx[i],ny[i],nz[i]), (bx[i],by[i],bz[i]), (tx[i],ty[i],tz[i])))
-            T._translate(quad,(x[i],y[i],z[i]))
-            quads += [ quad ]
-        I._correctPyTree(quads, level=3)
-        ShieldBox = G.stack(quads)
-        ShieldBox[0] = LiftingLine[0] + '.shield'
-
-        # in theory, this get+set is a copy by reference (e.g.: in-place
-        # modification of RPM in LiftingLine will produce a modification of the
-        # RPM of its associated ShieldBoxes)
-        for paramsName in ['.Conditions','.Kinematics']:
-            params = J.get(LiftingLine, paramsName)
-            J.set(ShieldBox, paramsName, **params)
-        ShieldBoxes += [ ShieldBox ]
-
-    return ShieldBoxes
-
-def updateParticlesStrength(Particles, MaskShedParticles, Sources, SourcesM1, NumberParticlesShedPerStation, NumberSource):
-    Np = Particles[1][0]
-    CoordinateX       = I.getNodeFromName3(Particles, "CoordinateX")
-    CoordinateY       = I.getNodeFromName3(Particles, "CoordinateY")
-    CoordinateZ       = I.getNodeFromName3(Particles, "CoordinateZ")
-    AlphaX            = I.getNodeFromName3(Particles, "AlphaX")
-    AlphaY            = I.getNodeFromName3(Particles, "AlphaY")
-    AlphaZ            = I.getNodeFromName3(Particles, "AlphaZ")
-
-    Ns = 0
-    posEmbedded = Np[0] - NumberSource
-    for k in range(len(Sources)):
-        LLXj                  = I.getValue(I.getNodeFromName3(Sources[k], "CoordinateX"))
-        LLYj                  = I.getValue(I.getNodeFromName3(Sources[k], "CoordinateY"))
-        LLZj                  = I.getValue(I.getNodeFromName3(Sources[k], "CoordinateZ"))
-        Gamma                = I.getValue(I.getNodeFromName3(Sources[k], "Gamma"))
-        V2DXj                 = I.getValue(I.getNodeFromName3(Sources[k], "Velocity2DX"))
-        V2DYj                 = I.getValue(I.getNodeFromName3(Sources[k], "Velocity2DY"))
-        V2DZj                 = I.getValue(I.getNodeFromName3(Sources[k], "Velocity2DZ"))
-        GammaM1              = I.getValue(I.getNodeFromName3(SourcesM1[k], "Gamma"))
-
-        NsCurrent = len(LLXj)
-
-        for i in range(NsCurrent - 1):
-            Nshed = NumberParticlesShedPerStation[Ns + i] + 1
-            vecj2D = -np.array([V2DXj[i + 1] + V2DXj[i], V2DYj[i + 1] + V2DYj[i], V2DZj[i + 1] + V2DZj[i]])
-            dy = np.linalg.norm(vecj2D)
-            vecj2D /= dy
-
-            veci = np.array([(LLXj[i + 1] - LLXj[i]), (LLYj[i + 1] - LLYj[i]), (LLZj[i + 1] - LLZj[i])])
-            dx = np.linalg.norm(veci)
-            veci /= dx
-
-            pos = 0.5*np.array([LLXj[i + 1] + LLXj[i], LLYj[i + 1] + LLYj[i], LLZj[i + 1] + LLZj[i]])
-            vecj = np.array([CoordinateX[1][MaskShedParticles[Ns + i] - NumberSource], CoordinateY[1][MaskShedParticles[Ns + i] - NumberSource], CoordinateZ[1][MaskShedParticles[Ns + i] - NumberSource]]) - pos
-            dy = np.linalg.norm(vecj)
-            vecj /= Nshed
-            
-            GammaTrailing = (Gamma[i + 1] - Gamma[i])*dy/Nshed
-            GammaShedding = (GammaM1[i + 1] + GammaM1[i] - (Gamma[i + 1] + Gamma[i]))/2.*dx/Nshed
-            GammaBound = [GammaTrailing*vecj2D[0] + GammaShedding*veci[0], GammaTrailing*vecj2D[1] + GammaShedding*veci[1], GammaTrailing*vecj2D[2] + GammaShedding*veci[2]]
-            CoordinateX[1][posEmbedded] = pos[0]
-            CoordinateY[1][posEmbedded] = pos[1]
-            CoordinateZ[1][posEmbedded] = pos[2]
-            AlphaX[1][posEmbedded] = GammaBound[0]
-            AlphaY[1][posEmbedded] = GammaBound[1]
-            AlphaZ[1][posEmbedded] = GammaBound[2]
-            posEmbedded += 1
-            for j in range(1, Nshed):
-                CoordinateX[1][Np[0]] = pos[0] + (j + 0.)*vecj[0]
-                CoordinateY[1][Np[0]] = pos[1] + (j + 0.)*vecj[1]
-                CoordinateZ[1][Np[0]] = pos[2] + (j + 0.)*vecj[2]
-                AlphaX[1][Np[0]] = GammaBound[0]
-                AlphaY[1][Np[0]] = GammaBound[1]
-                AlphaZ[1][Np[0]] = GammaBound[2]
-
-                Np[0] += 1
-
-        Ns += NsCurrent - 1
-        
-        #for i in range(NsCurrent - 1):
-        #    Nshed = NumberParticlesShedPerStation[Ns + i] + 1
-        #    vecj2D = -dt*0.5*np.array([V2DXj[i + 1] + V2DXj[i], V2DYj[i + 1] + V2DYj[i], V2DZj[i + 1] + V2DZj[i]])
-        #    dy = np.linalg.norm(vecj2D)
-        #    vecj2D /= dy
-
-        #    veci = np.array([(LLXj[i + 1] - LLXj[i]), (LLYj[i + 1] - LLYj[i]), (LLZj[i + 1] - LLZj[i])])
-        #    dx = np.linalg.norm(veci)
-        #    veci /= dx
-
-        #    pos = 0.5*np.array([LLXj[i + 1] + LLXj[i], LLYj[i + 1] + LLYj[i], LLZj[i + 1] + LLZj[i]])
-        #    vecj = np.array([CoordinateX[1][MaskShedParticles[Ns + i] - NumberSource], CoordinateY[1][MaskShedParticles[Ns + i] - NumberSource], CoordinateZ[1][MaskShedParticles[Ns + i] - NumberSource]]) - pos
-        #    dy = np.linalg.norm(vecj)
-        #    vecj /= dy
-        #    
-        #    GammaTrailing = (Gamma[i + 1] - Gamma[i])*dy
-        #    GammaShedding = (GammaM1[i + 1] + GammaM1[i] - (Gamma[i + 1] + Gamma[i]))/2.*dx
-        #    MeanWeightX = (GammaTrailing*vecj2D[0] + GammaShedding*veci[0] + AlphaX[1][MaskShedParticles[Ns + i] - NumberSource])/(Nshed + 1)
-        #    slopeX = 2.*(AlphaX[1][MaskShedParticles[Ns + i] - NumberSource] - MeanWeightX)/dy
-        #    heightX = 2.*MeanWeightX - AlphaX[1][MaskShedParticles[Ns + i] - NumberSource]
-        #    MeanWeightY = (GammaTrailing*vecj2D[1] + GammaShedding*veci[1] + AlphaY[1][MaskShedParticles[Ns + i] - NumberSource])/(Nshed + 1)
-        #    slopeY = 2.*(AlphaY[1][MaskShedParticles[Ns + i] - NumberSource] - MeanWeightY)/dy
-        #    heightY = 2.*MeanWeightY - AlphaY[1][MaskShedParticles[Ns + i] - NumberSource]
-        #    MeanWeightZ = (GammaTrailing*vecj2D[2] + GammaShedding*veci[2] + AlphaZ[1][MaskShedParticles[Ns + i] - NumberSource])/(Nshed + 1)
-        #    slopeZ = 2.*(AlphaZ[1][MaskShedParticles[Ns + i] - NumberSource] - MeanWeightZ)/dy
-        #    heightZ = 2.*MeanWeightZ - AlphaZ[1][MaskShedParticles[Ns + i] - NumberSource]
-        #    CoordinateX[1][posEmbedded] = pos[0]
-        #    CoordinateY[1][posEmbedded] = pos[1]
-        #    CoordinateZ[1][posEmbedded] = pos[2]
-        #    AlphaX[1][posEmbedded] = 0.*slopeX + heightX
-        #    AlphaY[1][posEmbedded] = 0.*slopeY + heightY
-        #    AlphaZ[1][posEmbedded] = 0.*slopeZ + heightZ
-        #    posEmbedded += 1
-        #    for j in range(1, Nshed):
-        #        CoordinateX[1][Np[0]] = pos[0] + j*dy/Nshed*vecj[0]
-        #        CoordinateY[1][Np[0]] = pos[1] + j*dy/Nshed*vecj[1]
-        #        CoordinateZ[1][Np[0]] = pos[2] + j*dy/Nshed*vecj[2]
-        #        AlphaX[1][Np[0]] = j*dy/Nshed*slopeX + heightX
-        #        AlphaY[1][Np[0]] = j*dy/Nshed*slopeY + heightY
-        #        AlphaZ[1][Np[0]] = j*dy/Nshed*slopeZ + heightZ
-        #        Np[0] += 1
-        #Ns += NsCurrent - 1
- '''
+    def extractperturbationField(t = [], Targets = [], PerturbationFieldCapsule = []):
+        # LB: TODO make doc; rename as extractPerturbationField
+        if PerturbationFieldCapsule:
+            TargetsBase = I.newCGNSBase('Targets', cellDim=1, physDim=3)
+            TargetsBase[2] = I.getZones(Targets)
+            PertubationFieldBase = I.newCGNSBase('PertubationFieldBase', cellDim=1, physDim=3)
+            PertubationFieldBase[2] = pickPerturbationFieldZone(t) # LB: CAVEAT,  TODO make multi zones
+            Theta, NumberOfNodes, TimeVelPert = getParameters(t, ['NearFieldOverlappingRatio', 'NumberOfNodes', 'TimeVelocityPerturbation'])
+            TimeVelPert[0] += vpm_cpp.extract_perturbation_velocity_field(TargetsBase, PertubationFieldBase, PerturbationFieldCapsule, NumberOfNodes[0], Theta[0])[0]

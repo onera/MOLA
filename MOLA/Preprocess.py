@@ -36,6 +36,7 @@ if not MOLA.__ONLY_DOC__:
     import os
     import shutil
     import pprint
+    import glob
     import numpy as np
     from itertools import product
     import copy
@@ -232,11 +233,8 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
     t = addOversetData(t, InputMeshes, **globalOversetOptions)
     adapt2elsA(t, InputMeshes)
     J.checkEmptyBC(t)
-    ElapsedTime = str(datetime.timedelta(seconds=tic()-toc))
-    hours, minutes, seconds = ElapsedTime.split(':')
-    ElapsedTimeHuman = hours+' hours '+minutes+' minutes and '+seconds+' seconds'
-    msg = 'prepareMesh took '+ElapsedTimeHuman
-    print(J.BOLD+msg+J.ENDC)
+
+    J.printElapsedTime('prepareMesh4ElsA took:', toc)
 
     return t
 
@@ -748,6 +746,9 @@ def transform(t, InputMeshes):
         if 'Transform' not in meshInfo: continue
 
         base = I.getNodeFromName1(t, meshInfo['baseName'])
+
+        if isinstance(meshInfo['Transform'], list):
+            raise AttributeError(J.FAIL+'Transform attribute must be a dict, not a list'+J.ENDC)
 
         if 'scale' in meshInfo['Transform']:
             s = float(meshInfo['Transform']['scale'])
@@ -2699,7 +2700,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         CoprocessOptions={},
         FieldsAdditionalExtractions=['ViscosityMolecular','ViscosityEddy','Mach'],
         BCExtractions=dict(BCWall=['normalvector', 'frictionvector',
-                        'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue',
+                        'psta', 'bl_quantities_2d', 'yplusmeshsize', 'bl_ue_vector',
                         'flux_rou','flux_rov','flux_row','torque_rou','torque_rov','torque_row'])):
     '''
     Compute ReferenceValues dictionary used for pre/co/postprocessing a CFD
@@ -3065,6 +3066,8 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
         BottomLaminarIfFailureUpTo  = 0.2,
         BottomTurbulentImposedFrom  = 0.995
         ))
+
+    ReferenceValues['PREPROCESS_SCRIPT'] = main_script_path = os.path.abspath(__import__('__main__').__file__)
 
     return ReferenceValues
 
@@ -4131,14 +4134,14 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={},
                     for zone in I.getZones(t):
                         if I.getZoneType(zone) == 2: # unstructured zone
                             # Remove extraction of bl_quantities, see https://elsa-e.onera.fr/issues/6479
-                            var2remove = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue']
+                            var2remove = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue_vector']
                             for var in var2remove:
                                 if var in ExtractVariablesList:
                                     ExtractVariablesList.remove(var)
                             break
 
                     if 'Inviscid' in BCType:
-                        ViscousKeys = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue',
+                        ViscousKeys = ['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue_vector',
                             'yplusmeshsize', 'frictionvector']
                         for vk in ViscousKeys:
                             try:
@@ -4912,7 +4915,7 @@ def adapt2elsA(t, InputMeshes):
     '''
 
     if hasAnyNearMatch(t, InputMeshes):
-        print('adapting NearMatch to elsA')
+        print(J.CYAN+'adapting NearMatch to elsA'+J.ENDC)
         EP._adaptNearMatch(t)
 
     if hasAnyOversetData(InputMeshes):
@@ -4957,16 +4960,21 @@ def hasAnyNearMatch(t, InputMeshes):
     '''
     for meshInfo in InputMeshes:
         try: Connection = meshInfo['Connection']
-        except KeyError: pass
+        except KeyError: continue
 
         for ConnectionInfo in Connection:
             isNearMatch = ConnectionInfo['type'] == 'NearMatch'
             if isNearMatch: return True
     
-    for GridConnectivityNode in I.getNodesFromType(t, 'GridConnectivity_t'):
-        if I.getNodesFromValue(GridConnectivityNode, 'Abbuting'):
-            return True
-
+    for base in I.getBases(t):
+        for zone in I.getZones(base):
+            for zgc in I.getNodesFromType1(zone,'ZoneGridConnectivity_t'):
+                for gc in I.getNodesFromType1(zgc, 'GridConnectivity_t'):
+                    gct = I.getNodeFromType1(gc, 'GridConnectivityType_t')
+                    if gct:
+                        gct_value = I.getValue(gct)
+                        if isinstance(gct_value,str) and gct_value == 'Abutting':
+                            return True
 
     return False
 
@@ -5512,6 +5520,7 @@ def sendSimulationFiles(DIRECTORY_WORK, overrideFields=True):
     ElementsToSend = ['setup.py', 'main.cgns']
     if os.path.exists('OVERSET'): ElementsToSend += ['OVERSET']
     if overrideFields: ElementsToSend += ['OUTPUT/fields.cgns']
+    ElementsToSend += glob.glob('state_radius*') # https://elsa.onera.fr/issues/11304
     setup = J.load_source('setup','setup.py')
     try: BodyForceInputData = setup.BodyForceInputData
     except: BodyForceInputData = []
@@ -5683,7 +5692,7 @@ def convertUnstructuredMeshToNGon(t):
             maia.algo.dist.generate_ngon_from_std_elements(tRef, MPI.COMM_WORLD)
             t = tRef
         except BaseException as e:
-            print(J.WARN+f'could not convert to NGon using maia, received error:')
+            print(J.WARN+f'WARNING: could not convert to NGon using maia, received error:')
             print(e)
             print('attempting using Cassiopee...'+J.ENDC)
             try:
@@ -5727,12 +5736,12 @@ def convertUnstructuredMeshToNGon(t):
         print(f' --> merging zones of family {family}')
         try:
             maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD)
+            MergedZone = I.getNodeFromName3(t,'MergedZone')
+            MergedZone[0] = family + 'Zone'
         except BaseException as e:
-            print(J.WARN+f'could not merge zones using maia, received error:')
-            print(e)
+            print(J.WARN+f'WARNING: could not merge zones using maia, received error:')
+            print(str(e))
             print('will not merge zones'+J.ENDC)
-
-
 
     print(' -> enforcing ngon_pe_local')
     maia.algo.seq.enforce_ngon_pe_local(t) # required by elsA ?
@@ -5740,31 +5749,35 @@ def convertUnstructuredMeshToNGon(t):
     t = maia.factory.dist_to_full_tree(t, MPI.COMM_WORLD, target=0)
     I._fixNGon(t) # required ?
     print('finished unstructured mesh adaptations for elsA')
+    print('zones names:')
+    for z in I.getZones(t):
+        print(z[0])
 
     return t
 
 def addFieldExtraction(ReferenceValues, fieldname):
-    print('adding %s'%fieldname)
     try:
         if fieldname not in ReferenceValues['FieldsAdditionalExtractions']:
+            print('adding %s'%fieldname)
             ReferenceValues['FieldsAdditionalExtractions'].append(fieldname)
     except:
+        print('adding %s'%fieldname)
         ReferenceValues['FieldsAdditionalExtractions'] = [fieldname]
 
 def appendAdditionalFieldExtractions(ReferenceValues, Extractions):
+    field_names = set()
     for e in Extractions:
-        field_names = []
         if 'field' in e:
-            field_names += [e['field']]
+            field_names.update([e['field']])
         elif e['type'] == 'Probe':
-            field_names += e['variables']
+            field_names.update(e['variables'])
         else:
             continue
 
-        for field_name in field_names:
-            if field_name.startswith('Coordinate') or field_name == 'ChannelHeight':
-                continue
-            addFieldExtraction(ReferenceValues, field_name)
+    for field_name in field_names:
+        if field_name.startswith('Coordinate') or field_name == 'ChannelHeight':
+            continue
+        addFieldExtraction(ReferenceValues, field_name)
 
 def addBC2Zone(*args, **kwargs):
     '''

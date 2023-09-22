@@ -1624,7 +1624,7 @@ def isSubzone(subzone,zone,tol=1.e-10):
     # TODO optimize this
     Res = D.getNearestPointIndex(zone,SubzonePoints)
     sqdist = np.array([i[1] for i in Res])
-    if np.any(sqdist>np.sqrt(tol)): return False
+    if np.any(sqdist>tol**2): return False
 
     return True
 
@@ -2472,7 +2472,7 @@ def pointwiseVectors(curve1, curve2, normalize=True, reverse=False):
                 **curve1** is modified, with new ``{sx}``, ``{sy}``, ``{sz}``
 
         curve2 : zone
-            zone with same points as **curve1** and equvalent indexing
+            zone with same points as **curve1** and equivalent indexing
 
     Returns
     -------
@@ -4842,13 +4842,207 @@ def extremum(curve, opposite_extremum=False):
     Returns
     -------
 
-        pt : numpy.array of 3 float
+        pt : :py:class:`numpy.ndarray` of 3-:py:class:`float`
             coordinates :math:`(x,y,z)`
     '''
     if opposite_extremum:
         return point(curve,-1)
     else:
         return point(curve)
+
+def extremumAsZone(curve, opposite_extremum=False):
+    '''
+    get the extremum point of a curve as a Zone_t
+
+    Parameters
+    ----------
+
+        curve : zone
+            structured curve
+
+        opposite_extremum : bool
+            if :py:obj:`False`, get the extremum at first index :math:`(i=0)`.
+            If :py:obj:`True`, get the extremum at last index :math:`(i=-1)`.
+
+    Returns
+    -------
+
+        pt : Zone
+            extremum
+    '''
+    if opposite_extremum:
+        pt = D.point(point(curve,-1))
+        pt[0] = 'end'
+    else:
+        pt = D.point(point(curve,0))
+        pt[0] = 'start'
+    return pt
+
+
+def extremumAsPointer(curve, opposite_extremum=False):
+    '''
+    get the extremum point of a curve as a list of 3 pointers (sharing data with
+    curve)
+
+    Parameters
+    ----------
+
+        curve : zone
+            structured curve
+
+        opposite_extremum : bool
+            if :py:obj:`False`, get the extremum at first index :math:`(i=0)`.
+            If :py:obj:`True`, get the extremum at last index :math:`(i=-1)`.
+
+    Returns
+    -------
+
+        pt : :py:class:`list` of 3 :py:class:`numpy.ndarray` of size 1
+            pointers of extremum of curve
+    '''
+    x, y, z = J.getxyz(curve)
+    if opposite_extremum:
+        return [x[-1:], y[-1:], z[-1:]]
+    else:
+        return [x[:1], y[:1], z[:1]]
+
+
+
+
+def extrema(curve):
+    '''
+    get the coordinates of both the extremum points of a curve
+
+    Parameters
+    ----------
+
+        curve : zone
+            structured curve
+
+
+    Returns
+    -------
+
+        pt : :py:class:`list` of 2 :py:class:`numpy.ndarray` of 3-:py:class:`float`
+            the two coordinates of extrema :math:`(x,y,z)`
+    '''
+    return point(curve), point(curve,-1)
+
+def extremaAsZones(curve):
+    '''
+    get the two extremum points of a curve as Zone_t
+
+    Parameters
+    ----------
+
+        curve : zone
+            structured curve
+
+    Returns
+    -------
+
+        pt : :py:class:`list` of 2 Zone
+            the two points of extrema
+    '''
+    return extremumAsZone(curve), extremumAsZone(curve,True)
+
+def extremaAsPointers(curve):
+    '''
+    get the two extremum points of a curve as a list of pointers
+
+    Parameters
+    ----------
+
+        curve : zone
+            structured curve
+
+    Returns
+    -------
+
+        pt : :py:class:`list` of result of :py:fun:`extremumAsPointer`
+            pointers of two points of extrema
+    '''
+    return extremumAsPointer(curve), extremumAsPointer(curve,True)
+
+def gluePointers(pointer1, pointer2, mode='1-towards-2'):
+    '''
+    Given two points as pointers glue them together to make them spatially 
+    coincident
+
+    Parameters
+    ----------
+
+        pointer1 : :py:class:`list` of 3 :py:class:`numpy.ndarray` of size 1
+            first point pointer as got using :py:fun:`extremumAsPointer`
+
+        pointer2 : :py:class:`list` of 3 :py:class:`numpy.ndarray` of size 1
+            second point pointer as got using :py:fun:`extremumAsPointer`
+
+        mode : str
+            one of:
+
+            * ``'1-towards-2'``
+                put coordinates of point1 into coordinates of point2
+
+            * ``'2-towards-1'``
+                put coordinates of point2 into coordinates of point1
+
+            * ``'average'`` or ``'mean'``
+                put both points into their equidistant point
+
+    '''
+    if mode == '1-towards-2':
+        for i in range(3): pointer1[i][0] = pointer2[i][0]
+    elif mode == '2-towards-1':
+        for i in range(3): pointer2[i][0] = pointer1[i][0]
+    elif mode in ['average','mean']:
+        for i in range(3):
+            avg = 0.5 * (pointer1[i][0] + pointer2[i][0])
+            pointer1[i][0] = avg
+            pointer2[i][0] = avg
+    else:
+        raise NotImplementedError(mode)
+
+
+def glueCurvesAtExtrema(curve1, curve2, curve1_extremum='start',
+        curve2_extremum='start', mode='1-towards-2'):
+    '''
+    Glue two curves at their extrema
+
+    Parameters
+    ----------
+
+        curve1 : zone
+            first structured curve
+
+        curve2 : zone
+            second structured curve
+
+        curve1_extremum : str
+            selects the extremum of **curve1** to glue. It may be ``'start'`` or ``'end'``.
+
+        curve2_extremum : str
+            selects the extremum of **curve2** to glue. It may be ``'start'`` or ``'end'``.
+
+        mode : str
+            mode of glue. See doc of :py:fun:`gluePointers`
+
+    '''
+    if curve1_extremum == 'start':
+        pointer1 = extremumAsPointer(curve1)
+    elif curve1_extremum == 'end':
+        pointer1 = extremumAsPointer(curve1, True)
+    else:
+        raise NotImplementedError(f'curve1_extremum="{curve1_extremum}" not implemented, must be "start" or "end"')
+
+    if curve2_extremum == 'start':
+        pointer2 = extremumAsPointer(curve2)
+    elif curve2_extremum == 'end':
+        pointer2 = extremumAsPointer(curve2, True)
+    else:
+        raise NotImplementedError(f'curve2_extremum="{curve2_extremum}" not implemented, must be "start" or "end"')
+
+    gluePointers(pointer1, pointer2, mode=mode)
 
 
 def reorderCurvesSequentially(curves):
@@ -5573,16 +5767,16 @@ def segment(curve,index=0):
         dz = z[index-1]-z[index]
     return np.sqrt( dx*dx + dy*dy + dz*dz )
 
-def splitAt(curve, indices_or_values, field='s'):
+def splitAt(curve, values, field='s'):
     import scipy.interpolate
     curve, = I.getZones(curve)
     NPts = C.getNPts(curve)
     pts_arange = np.arange(NPts)
-    if not isinstance(indices_or_values, list):
-        indices_or_values = [ indices_or_values ]
+    if not isinstance(values, list):
+        values = [ values ]
     parts = []
     last_i = 0
-    for i in indices_or_values:
+    for i in values:
         if isinstance(i, float):
             if field in ['s','length']:
                 try:
@@ -5624,3 +5818,5 @@ def tune(curve, point, index=0):
 def getLength(curve):
     xyz = np.vstack( J.getxyz(curve) )
     return np.linalg.norm(np.sum(np.abs(np.diff(xyz,axis=1)),axis=1))
+
+

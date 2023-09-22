@@ -42,303 +42,280 @@ File history:
 '''
 
 import MOLA
-from . import InternalShortcuts as J
+if not MOLA.__ONLY_DOC__:
+    import sys
+    import os
+
+    # avoids slow-down in MPI execution due to over threading
+    from mpi4py import MPI
+    comm   = MPI.COMM_WORLD
+    size = comm.Get_size()
+    rank = comm.Get_rank()
+    if size>2:
+        os.environ["MKL_NUM_THREADS"] = "1" 
+        os.environ["NUMEXPR_NUM_THREADS"] = "1" 
+        os.environ["OMP_NUM_THREADS"] = "1" 
+
+
 
 if not MOLA.__ONLY_DOC__:
     import sys
     import os
+
+    from mpi4py import MPI
+    comm   = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+
+    if size >2:
+        import os
+        os.environ['OMP_NUM_THREADS'] = '1'
+
+
     import numpy as np
-    from time import sleep
 
     import matplotlib.pyplot as plt
     import matplotlib.colors as mplcolors
     from matplotlib import cm
     from matplotlib.colors import ListedColormap, LinearSegmentedColormap
     from matplotlib.backends.backend_pdf import PdfPages
-
+    import matplotlib.patches as patches
 
     import Converter.PyTree as C
     import Converter.Internal as I
     import Transform.PyTree as T
+    import Post.PyTree as P
+    import CPlot.PyTree as CPlot
 
+from . import InternalShortcuts as J
 
+def exit(): os._exit(0)
 
-def xyz2Pixel(points,win,posCam,posEye,dirCam,viewAngle=50.0):
-    '''
-    Returns the two-component image-pixel positions of a set of points
-    located in the 3D world of CPlot.
+class Figure():
 
-    Parameters
-    ----------
-
-        points : :py:class:`list` of 3 :py:class:`float` :py:class:`tuple`
-            :math:`(x,y,z)` coordinates of points in 3D world
-
-        win : :py:class:`tuple` of 2 :py:class:`int`
-            Window resolution in pixels
-
-        posCam : :py:class:`tuple` of 3 :py:class:`float`
-            position of Camera (see CPlot doc)
-
-        posEye : :py:class:`tuple` of 3 :py:class:`float`
-            position of eye (see CPlot doc)
-
-        dirCam : :py:class:`tuple` of 3 :py:class:`float`
-            direction of Camera (see CPlot doc)
-
-        viewAngle : float
-            angle of Camera (see CPlot doc)
-
-    Returns
-    -------
-
-        width, height : :py:class:`tuple` of 2 :py:class:`float`
-            width and height in pixels using the convention of origin located at
-            upper left side of image
-
-    '''
-
-    # ------------------------------- #
-    # BUILD FRENET UNIT FRAME (b,n,c) #
-    # ------------------------------- #
-    # <c> is the Camera axes unit vector
-    c =  np.array(posCam) - np.array(posEye)
-    R = np.sqrt(c.dot(c)) # R is distance between posCam and posEye
-    c /= R
-
-    # <b> is binormal
-    b = np.cross(np.array(dirCam),c)
-    b /= np.sqrt(b.dot(b))
-
-    # <n> is normal
-    n = np.cross(c,b)
-    n /= np.sqrt(b.dot(b))
-
-    # <h> is the constant total height of the curvilinear window
-    va = np.deg2rad(viewAngle)
-    h = R * va
-    h = 2 * R * np.tan(va/2.)
-
-    # used to transform curvilinear unit to pixel
-    crv2Pixel = float(win[1]) / h
-
-    Pixels = []
-
-    # The window plane is defiend as a set of three points (p0, p1, p2)
-    p0 = np.array(posEye)
-    p1 = p0+b
-    p2 = p0+n
-    p01 = p1 - p0 # segment
-    p02 = p2 - p0 # segment
-
-    for point in points:
-        # ----------------------------------- #
-        # COMPUTE pixel-position of point <p> #
-        # ----------------------------------- #
-        p = np.array(point)
-
-        # Shall compute the intersection of the view of point <p> with the window plane
-
-        # Such line is defined through two points (la, lb) as
-        la, lb = np.array(posCam), p
-        lab = lb - la # segment
-
-        # Intersection is given by equation x = la + lab*t
-        den = -lab.dot(np.cross(p01,p02))
-
-        # Only for information (computation not required):
-        # t = np.cross(p01,p02).dot(la-p0) / den
-        # x = la + lab*t
-
-        # parametric components (u, v) are actually what we look for
-        u = np.cross(p02,-lab).dot(la-p0) / den
-        v = np.cross(-lab,p01).dot(la-p0) / den
-
-        # width and height in pixels are expressed in terms of (u, v)
-        # Pixel components relative to Figure origin (upper left)
-        pxP_w =  u*crv2Pixel + 0.5*float(win[0])
-        pxP_h = -v*crv2Pixel + 0.5*float(win[1])
-
-        Pixels += [[pxP_w, pxP_h]]
-    return Pixels
-
-
-def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={}, 
-        window_in_pixels=(1200,800),
-        Elements=[dict(selection=dict(baseName='BCWall'),
-                       material='Solid', color='White', blending=0.8,
-                       colormap='Viridis', levels=[200,'min','max'], shadow=True,
-                       additionalDisplayOptions={},
-                       additionalStateOptions={},
-                       vertex_container='FlowSolution#InitV',
-                       centers_container='BCDataSet',
-                       )],
-                ):
-    machine = os.getenv('MAC')
-    external_centers_container = I.__FlowSolutionCenters__
-    external_vertex_container = I.__FlowSolutionNodes__
-
-    # TODO solve bugs:
-    # https://elsa.onera.fr/issues/10536
-    # https://elsa.onera.fr/issues/11045
-
-    offscreen_mode = 'auto'
-
-    if offscreen_mode == 'auto':
-        import CPlot.PyTree as CPlot
-        if machine in ['sator']:
-            offscreen=5 # MESA 
-        elif machine in ['ld','visung', 'visio', 'sator', 'spiro']:
-            offscreen=3 # openGL
-        else:
-            raise SystemError('machine "%s" not supported.'%machine)
-    elif offscreen_mode == 'mesa':
-        try: import CPlotOffscreen.PyTree as CPlot
-        except: import CPlot.PyTree as CPlot
-        offscreen=5 # MESA 
-    else:
-        raise SystemError('offscreen_mode "%s" not supported.'%offscreen_mode)
-
-
-    cmap2int = dict(Blue2Red=1, Diverging=15, Black2White=15,
-                    Viridis=17, Inferno=19, Magma=21, Plasma=23, Jet=25,
-                    Greys=27, NiceBlue=29, Greens=31)
-
-    if isinstance(surfaces,str):
-        t = C.convertFile2PyTree(surfaces)
-    elif I.isTopTree(surfaces):
-        t = surfaces
-    else:
-        raise ValueError('parameter mesh must be either a filename or a PyTree')
-
-    DIRECTORY_FRAMES = frame.split(os.path.sep)[:-1]    
-    try: os.makedirs(os.path.join(*DIRECTORY_FRAMES))
-    except: pass
-
-    DisplayOptions = dict(mode='Render', displayInfo=0, displayIsoLegend=0, 
-                          win=window_in_pixels, export=frame, shadow=1,
-                          exportResolution='%gx%g'%window_in_pixels)
-    DisplayOptions.update(camera)
-
-    def hasBlending(elt):
-        try: return elt['blending'] < 1
-        except: return False
-
-    Trees = []
-    TreesBlending = []
-    for i, elt in enumerate(Elements):
-        try: selection = elt['selection']
-        except KeyError: selection = {}
-        try: blending = elt['blending']
-        except KeyError: blending = 1
-        try: material = elt['material']
-        except KeyError: material = 'Solid'
-        try: color = elt['color']
-        except KeyError: color = 'White'
-        try: vertex_container = elt['vertex_container']
-        except KeyError: vertex_container = 'FlowSolution#InitV'
-        try: centers_container = elt['centers_container']
-        except KeyError: centers_container = 'BCDataSet'
-        I.__FlowSolutionNodes__ = vertex_container
-        I.__FlowSolutionCenters__ = centers_container
-
-        zones = J.selectZones(t, **selection)
-
-        if hasBlending(elt): zones = C.convertArray2Hexa(zones) # see cassiopee #8740
-
-        
-
-        for z in zones:
-            CPlot._addRender2Zone(z, material=material,color=color,
-                                     blending=blending)
-
-        if hasBlending(elt):
-            TreesBlending += [ C.newPyTree(['blend.%d'%i, zones]) ]
-        else:
-            Trees += [ C.newPyTree(['elt.%d'%i, zones]) ]
-
-    # requires to append blended zones (see cassiopee #8740 and #8748)
-    if TreesBlending:
-        for i in range(len(Trees)):
-            Trees[i] = I.merge([Trees[i]]+TreesBlending)
-    
-
-
-    for i in range(len(Trees)):
-        tree = Trees[i]
-        elt = Elements[i]
-        
-        if elt['color'].startswith('Iso:'):
-            field_name = elt['color'].replace('Iso:','')
-            if 'levels' not in elt: levels=[200,'min','max']
-            else: levels = elt['levels']
-
-            levels[1] = _getMin(tree, field_name) if levels[1] == 'min' else float(levels[1])
-            levels[2] = _getMax(tree, field_name) if levels[2] == 'max' else float(levels[2])
-            elt['levels'] = levels
-            isoScales = [[field_name, levels[0], levels[1], levels[2]],
-              ['centers:'+field_name, levels[0], levels[1], levels[2]]]
-        else:
-            isoScales = []
-
-        increment_offscreen = i>0 and i == len(Trees)-1 and offscreen > 1
-
-        if increment_offscreen: offscreen += 1
-
-        try: additionalDisplayOptions = elt['additionalDisplayOptions']
-        except: additionalDisplayOptions = {}
-
-        try: additionalStateOptions = elt['additionalStateOptions']
-        except: additionalStateOptions = {}
-
-        if  'backgroundFile' not in additionalDisplayOptions and \
-            'bgColor' not in additionalDisplayOptions:
-            MOLA = os.getenv('MOLA')
-            MOLASATOR = os.getenv('MOLASATOR')
-            for MOLAloc in [MOLA, MOLASATOR]:
-                backgroundFile = os.path.join(MOLAloc,'MOLA','GUIs','background.png')
-                if os.path.exists(backgroundFile):
-                    CPlot.setState(backgroundFile=backgroundFile)
-                    CPlot.setState(bgColor=13)
-                    break
-        if additionalStateOptions: CPlot.setState(**additionalStateOptions)
-
-
-        try: cmap = cmap2int[elt['colormap']]
-        except KeyError: cmap=0
-        try:
-            if 'shadow' not in elt: elt['shadow'] = True
-            if not elt['shadow']: cmap -= 1
-        except: pass
-
-        CPlot.display(tree, offscreen=offscreen, colormap=cmap,
-            isoScales=isoScales, **DisplayOptions, **additionalDisplayOptions)
-        if offscreen_mode == 'mesa':
-            if not increment_offscreen:
-                CPlot.finalizeExport(offscreen)
-        else:
-            CPlot.finalizeExport(offscreen)
-    
-        sleep(0.5)
-
-    I.__FlowSolutionCenters__ = external_centers_container
-    I.__FlowSolutionNodes__ = external_vertex_container
-
-
-class matplotlipOverlap():
-    """docstring"""
-
-    def __init__(self, image_file='', Elements=[], dpi=100):
-        self.image_file = image_file
+    def __init__(self, window_in_pixels=(1200,800), dpi=100, camera={}, filename=None, Elements=[]):
+        self.window_in_pixels = window_in_pixels
         self.dpi = dpi
+        self.camera = camera
+        self.filename = filename
         self.Elements = Elements
         self.arrays = None
         
+        self.fig = None
 
-        img = plt.imread( image_file )
+    def plotSurfaces(self, surfaces, filename=None, Elements=None,
+            default_vertex_container='FlowSolution#InitV',
+            default_centers_container='BCDataSet',
+            offscreen=5 # https://elsa.onera.fr/issues/10948#note-14
+            ):
+        
+        if filename:
+            self.filename = filename
+            self.fig = None  # init fig to call createOverlap next time
+        if Elements is not None:
+            no_blending_elts = []
+            blending_elts = []
+            for i, elt in enumerate(Elements):
+                if 'blending' in elt:
+                    blending_elts += [elt]
+                else:
+                    no_blending_elts += [elt]
+            self.Elements = no_blending_elts + blending_elts
 
-        fig, ax = plt.subplots(figsize=(img.shape[1]/float(dpi),
-                                         img.shape[0]/float(dpi)), dpi=dpi)
+        external_centers_container = I.__FlowSolutionCenters__
+        external_vertex_container = I.__FlowSolutionNodes__
+
+        cmap2int = dict(Blue2Red=1, Diverging=15, Black2White=15,
+                        Viridis=17, Inferno=19, Magma=21, Plasma=23, Jet=25,
+                        Greys=27, NiceBlue=29, Greens=31)
+
+        if isinstance(surfaces,str):
+            t = C.convertFile2PyTree(surfaces)
+        elif I.isTopTree(surfaces):
+            t = surfaces
+        else:
+            raise ValueError('parameter mesh must be either a filename or a PyTree')
+
+        DIRECTORY_FRAMES = self.filename.split(os.path.sep)[:-1]    
+        try: os.makedirs(os.path.join(*DIRECTORY_FRAMES))
+        except: pass
+
+
+        DisplayOptions = dict(mode='Render', displayInfo=0, displayIsoLegend=0, 
+                            win=self.window_in_pixels, export=self.filename, shadow=1,
+                            exportResolution='%gx%g'%self.window_in_pixels)
+        DisplayOptions.update(self.camera)
+
+        def hasBlending(elt):
+            try:
+                blend = elt['blending'] < 1
+            except:
+                return False
+            try:
+                mesh = elt['meshOverlay'] == True
+            except:
+                return False
+            return blend and not mesh
+
+
+        Trees = []
+        TreesBlending = []
+        baseName2elt = {}
+        for i, elt in enumerate(self.Elements):
+            elt.setdefault('selection', {})
+            elt.setdefault('blending', 1)
+            elt.setdefault('material', 'Solid')
+            elt.setdefault('color', 'White')
+            elt.setdefault('meshOverlay', None)
+            elt.setdefault('shaderParameters', None)
+            elt.setdefault('vertex_container', default_vertex_container)
+            elt.setdefault('centers_container', default_centers_container)
+            elt.setdefault('iso_line', [])
+            if not isinstance(elt['iso_line'], (list, np.ndarray)):
+                elt['iso_line'] = [elt['iso_line']]
+            elt.setdefault('iso_line_color', 'Black')
+
+            I.__FlowSolutionNodes__ = elt['vertex_container']
+            I.__FlowSolutionCenters__ = elt['centers_container']
+
+            field_name = elt['color'].replace('Iso:','')
+            if elt['color'].startswith('Iso:'):
+                zones = [z for z in J.selectZones(t, **elt['selection']) if 
+                    _fieldExistsAtNodesOrCentersAtZone(z, field_name,
+                        elt['vertex_container'], elt['centers_container'])]
+                if not zones:
+                    print(J.WARN+f'WARNING: visualization element [{i}]:')
+                    print(f'field "{field_name}" does not exist in container {elt["vertex_container"]} nor {elt["centers_container"]} for selection {elt["selection"]}')
+                    print('please adjust the vertex_container and centers_container options'+J.ENDC)
+                    continue
+            else:
+                zones = J.selectZones(t, **elt['selection'])
+
+            if not zones:
+                J.save(t,'debug.cgns')
+                raise ValueError(f'could not find selection={elt["selection"]}, check debug.cgns')
+
+            if hasBlending(elt): zones = C.convertArray2Hexa(zones) # see cassiopee #8740
+
+            for z in zones:
+                CPlot._addRender2Zone(z, material=elt['material'],
+                    color=elt['color'], blending=elt['blending'],
+                    meshOverlay=elt['meshOverlay'], shaderParameters=elt['shaderParameters'])
+            
+            # Add iso lines if required
+            for value in elt['iso_line']: 
+                isoLine = P.isoLine(zones, field_name, value)
+                CPlot._addRender2Zone(isoLine, material='Solid', color=elt['iso_line_color'])
+                zones.append(isoLine)
+
+
+            if hasBlending(elt):
+                TreesBlending += [ C.newPyTree(['blend.%d'%i, zones]) ]
+            else:
+                base_name = 'elt.%d'%i
+                baseName2elt[base_name] = elt
+                Trees += [ C.newPyTree([base_name, zones]) ]
+
+        # requires to append blended zones (see cassiopee #8740 and #8748)
+        # BEWARE of cassiopee #11311
+        if TreesBlending:
+            bases_blending = I.getBases(TreesBlending)
+            for t in Trees:
+                t[2].extend(bases_blending)
+        all_TreesMerged = I.merge(Trees)
+
+        isoScales = [] # must be the same for all composite calls of CPlot.display
+        for base_name, elt in baseName2elt.items():
+            tree = I.getNodeFromName1(all_TreesMerged,base_name)
+            if not tree:
+                J.save(all_TreesMerged,'debug.cgns')
+                raise ValueError(f'could not find base "{base_name}", check debug.cgns')
+
+            I.__FlowSolutionNodes__ = elt['vertex_container']
+            I.__FlowSolutionCenters__ = elt['centers_container']
+
+            if elt['color'].startswith('Iso:'):
+                field_name = elt['color'].replace('Iso:','')
+                levels = elt.get('levels', [200,'min','max'])
+
+                levels[1] = _getMin(tree, field_name) if levels[1] == 'min' else float(levels[1])
+                levels[2] = _getMax(tree, field_name) if levels[2] == 'max' else float(levels[2])
+                elt['levels'] = levels
+                iso_nodes = [field_name, levels[0], levels[1], levels[2]]
+                iso_centers = ['centers:'+field_name, levels[0], levels[1], levels[2]]
+                if len(levels) == 5:
+                    iso_nodes.extend([levels[3],levels[4]])
+                    iso_centers.extend([levels[3],levels[4]])
+                isoScales += iso_nodes, iso_centers
+
+        for i in range(len(Trees)):
+            tree = Trees[i]
+            prefix = 'elt.'
+            try:
+                elt_base = [b for b in I.getBases(tree) if b[0].startswith(prefix)][0]
+            except IndexError:
+                prefix = 'blend.'
+                try:
+                    elt_base = [b for b in I.getBases(tree) if b[0].startswith(prefix)][0]
+                except:
+                    J.save(tree,'debug.cgns')
+                    raise ValueError('FATAL: expected bases starting with "elt.*" or "blend.*", check debug.cgns')
+            elt_index = int(elt_base[0].replace(prefix,''))
+            elt = self.Elements[elt_index]
+
+            try: vertex_container = elt['vertex_container']
+            except KeyError: vertex_container = default_vertex_container
+            try: centers_container = elt['centers_container']
+            except KeyError: centers_container = default_centers_container
+            I.__FlowSolutionNodes__ = vertex_container
+            I.__FlowSolutionCenters__ = centers_container
+
+            increment_offscreen = len(Trees)==1 or (i>0 and i == len(Trees)-1 and offscreen > 1)
+            if increment_offscreen: offscreen += 1
+
+            try: additionalDisplayOptions = elt['additionalDisplayOptions']
+            except: additionalDisplayOptions = {}
+            DisplayOptions.update(additionalDisplayOptions)
+
+            if  'backgroundFile' not in additionalDisplayOptions and \
+                'bgColor' not in additionalDisplayOptions:
+                MOLA = os.getenv('MOLA')
+                MOLASATOR = os.getenv('MOLASATOR')
+                for MOLAloc in [MOLA, MOLASATOR]:
+                    backgroundFile = os.path.join(MOLAloc,'MOLA','GUIs','background.png')
+                    if os.path.exists(backgroundFile):
+                        DisplayOptions['backgroundFile']=backgroundFile
+                        DisplayOptions['bgColor']=13
+                        break
+
+
+            try: cmap = cmap2int[elt['colormap']]
+            except KeyError: cmap=0
+            try:
+                if 'shadow' not in elt: elt['shadow'] = True
+                if not elt['shadow']: cmap -= 1
+            except: pass
+            
+            DisplayOptions['offscreen'] = offscreen
+            DisplayOptions['colormap'] = cmap
+            DisplayOptions['isoScales'] = isoScales
+            
+            # J.save(tree,'tree_%d.cgns'%i)
+            # print(f'I.__FlowSolutionNodes__="{I.__FlowSolutionNodes__}"')
+            # print(f'I.__FlowSolutionCenters__="{I.__FlowSolutionCenters__}"')
+            # print(f'DisplayOptions={DisplayOptions}\n')
+
+            CPlot.display(tree, **DisplayOptions)
+            CPlot.finalizeExport(offscreen)
+        
+        I.__FlowSolutionCenters__ = external_centers_container
+        I.__FlowSolutionNodes__ = external_vertex_container
+
+    def createOverlap(self):
+        img = plt.imread(self.filename)
+
+        fig, ax = plt.subplots(figsize=(img.shape[1]/float(self.dpi),
+                                         img.shape[0]/float(self.dpi)), dpi=self.dpi)
 
         self.fig = fig
         self.axes = [ax]
@@ -349,6 +326,7 @@ class matplotlipOverlap():
         ax.plot([],[])
         ax.set_axis_off()
         plt.subplots_adjust(left=0., bottom=0., right=1., top=1., wspace=0., hspace=0.)
+        return img
 
     def _buildCPlotColormaps(self):
         f = [0,0.03125,0.0625,0.09375, 0.125, 0.15625, 0.1875, 0.21875, 0.25,
@@ -1109,9 +1087,13 @@ class matplotlipOverlap():
                 self.color_codes[color_code])
 
     def addColorbar(self, field_name='', orientation='vertical', center=(0.90,0.5),
-                          width=0.025, length=0.8, number_of_ticks=5,
+                          width=0.025, length=0.8, number_of_ticks=5, extend='neither',
                           font_color='black', colorbar_title='',
-                          ticks_opposed_side=False, ticks_format='%g'):
+                          ticks_opposed_side=False, ticks_format='%g', 
+                          ticks_size='medium', title_size='large'):
+        # ticks_size and title_size can be: float or {'xx-small', 'x-small', 'small', 'medium', 'large', 'x-large', 'xx-large'}
+        if not self.fig: 
+            self.createOverlap()
         
         levels = None
         cmap = None
@@ -1122,7 +1104,7 @@ class matplotlipOverlap():
                 levels = elt['levels']
                 cmap = elt['colormap']
                 break
-        if not levels:
+        if not levels or isinstance(levels[1],str) or isinstance(levels[2],str)  :
             raise ValueError('element with color=Iso:%s bad defined.'%field_name)
     
         if orientation not in ('vertical','horizontal'):
@@ -1142,18 +1124,12 @@ class matplotlipOverlap():
         cbar_ticks = np.linspace(levels[1],levels[2],number_of_ticks)
         cbaxes = self.fig.add_axes([xmin,ymin,xmax-xmin,ymax-ymin])
 
-        if cmap == 'Jet':
-            colormap = self.colormaps[cmap].reversed()
-        else:
-            colormap = self.colormaps[cmap]
-        cset = cm.ScalarMappable(norm=mplcolors.Normalize(levels[1],
-                                                          levels[2],
-                                                        clip=False),
-                                 cmap=colormap)
-        cset.set_array(np.linspace(levels[1],levels[2],levels[0]))
-        cbar = self.fig.colorbar(cset, cax=cbaxes, orientation=orientation,
-                                       ticks=cbar_ticks, format=ticks_format)
-        cbar.ax.tick_params(which='major', length=4.0, width=0.5, color=font_color)
+        colormap = self.colormaps[cmap]
+        norm = mplcolors.BoundaryNorm(boundaries=np.linspace(levels[1],levels[2],levels[0]), ncolors=colormap.N, extend=extend) 
+        cset = cm.ScalarMappable(norm=norm, cmap=colormap)
+        cbar = self.fig.colorbar(cset, cax=cbaxes, orientation=orientation, ticks=cbar_ticks, format=ticks_format)
+        cbar.ax.tick_params(which='major', length=4.0, width=0.5, color=font_color, labelsize=ticks_size)
+        cbar.ax.tick_params(which='minor', length=0.)
         cbar.ax.xaxis.label.set_color(font_color)
         cbar.ax.yaxis.label.set_color(font_color)
         cbar.ax.tick_params(axis='x',colors=font_color)
@@ -1162,30 +1138,40 @@ class matplotlipOverlap():
         if orientation == 'vertical':
             if ticks_opposed_side: cbar.ax.yaxis.set_ticks_position("left")
             else: cbar.ax.yaxis.set_ticks_position("right")
+
+            for value in elt['iso_line']:
+                cbar.ax.axhline(y=value, c=elt['iso_line_color'])
         else:
             if ticks_opposed_side: cbar.ax.xaxis.set_ticks_position("top")
             else: cbar.ax.xaxis.set_ticks_position("bottom")
 
-        if colorbar_title: cbar.ax.set_title(colorbar_title, color=font_color)
-        else:              cbar.ax.set_title(field_name,     color=font_color)
+            for value in elt['iso_line']:
+                cbar.ax.axvline(x=value, c=elt['iso_line_color'])
+
+        if colorbar_title: cbar.ax.set_title(colorbar_title, color=font_color, fontsize=title_size)
+        else:              cbar.ax.set_title(field_name,     color=font_color, fontsize=title_size)
         cbar.update_ticks()
         
         return cbar
 
     def _loadArrays(self, arrays_file_or_tree):
-        if isinstance(arrays_file_or_tree,str):
+        if isinstance(arrays_file_or_tree, str):
             self.arrays = C.convertFile2PyTree( arrays_file_or_tree )
         else:
             self.arrays = arrays_file_or_tree
 
-    def plotArrays(self, arrays_file_or_tree, left=0.05, right=0.5, bottom=0.05, top=0.4,
+    def plotArrays(self, arrays_file_or_tree=None, left=0.05, right=0.5, bottom=0.05, top=0.4,
             xlim=None, ylim=None, xmax=None, xlabel=None, ylabel=None, figure_name=None,
             background_opacity=1.0, font_color='black', 
             curves=[dict(zone_name='BLADES',x='IterationNumber',y='MomentumXFlux',
                          plot_params={})], 
             iterationTracer=None):
+        
+        if not self.fig: 
+            self.createOverlap()
 
-        if not self.arrays: self._loadArrays(arrays_file_or_tree)
+        if not self.arrays or (arrays_file_or_tree is not None): 
+            self._loadArrays(arrays_file_or_tree)
         
         ax = self.fig.add_axes([left,bottom,right-left,top-bottom])
 
@@ -1218,6 +1204,14 @@ class matplotlipOverlap():
                     ax.plot(x[index], y[index], **iterationTracer['plot_params'])
                 except:
                     pass
+            
+            curve.setdefault('include_last_point_label',False)
+            if curve['include_last_point_label']:
+                ax.text(x[-1], y[-1], "%g"%y[-1],
+                        horizontalalignment='right',
+                        verticalalignment='bottom',
+                        color=plt.gca().lines[-1].get_color())
+
 
         if xlim is not None: ax.set_xlim(xlim)
         if ylim is not None: ax.set_ylim(ylim)
@@ -1246,20 +1240,139 @@ class matplotlipOverlap():
 
         return ax
 
+    def plot(self, x, y, z, *args, **kwargs):
+        if not self.fig: 
+            self.createOverlap()
+
+        x = np.array(x, ndmin=1)
+        if isinstance(y, (float, int)):
+            y = y * np.ones(x.size)
+        if isinstance(z, (float, int)):
+            z = z * np.ones(x.size)
+        points = zip(x, y, z)
+        pixels = xyz2Pixel(points, self.window_in_pixels, **self.camera)
+        pixels = np.array(pixels)
+        u, v = pixels[:,0], pixels[:,1]
+        self.axes[0].plot(u, v, *args, **kwargs)
+
+
     def save(self, output_filename=''):
         if not output_filename:
-            output_filename = self.image_file
+            output_filename = self.filename
 
         DIRECTORY_FRAMES = output_filename.split(os.path.sep)[:-1]    
         try: os.makedirs(os.path.join(*DIRECTORY_FRAMES))
         except: pass
 
-        print('saving %s ...'%output_filename,end=' ')
+        print(f'saving {output_filename} ...', end=' ')
         plt.savefig(output_filename, dpi=self.dpi)
         print('done')
         for ax in self.axes: ax.clear()
         self.fig.clear()
         plt.close('all')
+
+    def show(self):
+        plt.show()
+
+
+def xyz2Pixel(points,win,posCam,posEye,dirCam,viewAngle=50.0):
+    '''
+    Returns the two-component image-pixel positions of a set of points
+    located in the 3D world of CPlot.
+
+    Parameters
+    ----------
+
+        points : :py:class:`list` of 3 :py:class:`float` :py:class:`tuple`
+            :math:`(x,y,z)` coordinates of points in 3D world
+
+        win : :py:class:`tuple` of 2 :py:class:`int`
+            Window resolution in pixels
+
+        posCam : :py:class:`tuple` of 3 :py:class:`float`
+            position of Camera (see CPlot doc)
+
+        posEye : :py:class:`tuple` of 3 :py:class:`float`
+            position of eye (see CPlot doc)
+
+        dirCam : :py:class:`tuple` of 3 :py:class:`float`
+            direction of Camera (see CPlot doc)
+
+        viewAngle : float
+            angle of Camera (see CPlot doc)
+
+    Returns
+    -------
+
+        width, height : :py:class:`tuple` of 2 :py:class:`float`
+            width and height in pixels using the convention of origin located at
+            upper left side of image
+
+    '''
+
+    # ------------------------------- #
+    # BUILD FRENET UNIT FRAME (b,n,c) #
+    # ------------------------------- #
+    # <c> is the Camera axes unit vector
+    c =  np.array(posCam) - np.array(posEye)
+    R = np.sqrt(c.dot(c)) # R is distance between posCam and posEye
+    c /= R
+
+    # <b> is binormal
+    b = np.cross(np.array(dirCam),c)
+    b /= np.sqrt(b.dot(b))
+
+    # <n> is normal
+    n = np.cross(c,b)
+    n /= np.sqrt(b.dot(b))
+
+    # <h> is the constant total height of the curvilinear window
+    va = np.deg2rad(viewAngle)
+    h = R * va
+    h = 2 * R * np.tan(va/2.)
+
+    # used to transform curvilinear unit to pixel
+    crv2Pixel = float(win[1]) / h
+
+    Pixels = []
+
+    # The window plane is defiend as a set of three points (p0, p1, p2)
+    p0 = np.array(posEye)
+    p1 = p0+b
+    p2 = p0+n
+    p01 = p1 - p0 # segment
+    p02 = p2 - p0 # segment
+
+    for point in points:
+        # ----------------------------------- #
+        # COMPUTE pixel-position of point <p> #
+        # ----------------------------------- #
+        p = np.array(point)
+
+        # Shall compute the intersection of the view of point <p> with the window plane
+
+        # Such line is defined through two points (la, lb) as
+        la, lb = np.array(posCam), p
+        lab = lb - la # segment
+
+        # Intersection is given by equation x = la + lab*t
+        den = -lab.dot(np.cross(p01,p02))
+
+        # Only for information (computation not required):
+        # t = np.cross(p01,p02).dot(la-p0) / den
+        # x = la + lab*t
+
+        # parametric components (u, v) are actually what we look for
+        u = np.cross(p02,-lab).dot(la-p0) / den
+        v = np.cross(-lab,p01).dot(la-p0) / den
+
+        # width and height in pixels are expressed in terms of (u, v)
+        # Pixel components relative to Figure origin (upper left)
+        pxP_w =  u*crv2Pixel + 0.5*float(win[0])
+        pxP_h = -v*crv2Pixel + 0.5*float(win[1])
+
+        Pixels += [[pxP_w, pxP_h]]
+    return Pixels
 
 
 def makeShaftRotate(t, iteration):
@@ -1322,14 +1435,15 @@ def makeShaftRotate(t, iteration):
                             vectors=vectors)
 
 
-def makeMovie(FRAMES_DIRECTORY='.', filename='animation.gif', fps=24, width=400):
+def makeMovie(FRAMES_DIRECTORY='FRAMES', fps=24, width=400,
+        resize_images=True, movie_filename='movie.avi', gif_filename=''):
     '''
     Make an gif animation easily from pre-existing frames (must be named 'frame*.png')
 
     Parameters
     ----------
     FRAMES_DIRECTORY : str, optional
-        Directory where the frames are, by default '.'
+        Directory where the frames are, by default 'FRAMES'
     filename : str, optional
         Name of the output file, by default 'animation.gif'
     fps : int, optional
@@ -1338,17 +1452,25 @@ def makeMovie(FRAMES_DIRECTORY='.', filename='animation.gif', fps=24, width=400)
         Width in pixels of the output animation file, by default 400
     '''
 
-    # first, resize your images to the width size desired for final video (e.g. 600 px)
-    os.system(
-        f'for img in frame*.png; do convert -resize 600 -quality 100 "{FRAMES_DIRECTORY}/$img" "{FRAMES_DIRECTORY}/resized-$img"; done')
-    
-    # second, create movie with (increase fps for having faster motion)
-    os.system(
-        f'mencoder  mf://{FRAMES_DIRECTORY}/resized-frame*.png -mf fps={fps}  -ovc x264 -x264encopts subq=6:partitions=all:8x8dct:me=umh:frameref=5:bframes=3:b_pyramid=normal:weight_b -o movie.avi')
+    # first, resize your images to the width size desired for final video 
+    if resize_images:
+        os.system(
+            f'for img in {FRAMES_DIRECTORY}/frame*.png; do convert -resize {width} -quality 100 "$img" "{FRAMES_DIRECTORY}/resized-${{img##*/}}"; done')
+            # f'for img in {FRAMES_DIRECTORY}/frame*.png; do echo ${{img##*/}}; done')
+        resized_image_name='resized-frame'
+    else:
+        resized_image_name=''
 
-    # then convert movie to gif, by scaling to desired pixels (e.g. width 400 px)
+    # second, create movie with (increase fps for having faster motion)
+    if gif_filename and not movie_filename:
+        movie_filename = gif_filename.replace('.gif','.avi')
     os.system(
-        f'ffmpeg -i movie.avi -vf "fps=10,scale={width}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 {filename}')
+        f'mencoder  mf://{FRAMES_DIRECTORY}/{resized_image_name}*.png -mf fps={fps}  -ovc x264 -x264encopts subq=6:partitions=all:8x8dct:me=umh:frameref=5:bframes=3:b_pyramid=normal:weight_b -o {movie_filename}')
+
+    if gif_filename:
+        # then convert movie to gif, by scaling to desired pixels (e.g. width 400 px)
+        os.system(
+            f'ffmpeg -i {movie_filename} -vf "fps=10,scale={width}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 {gif_filename}')
 
 def duplicateRows(t, setup=None, **RowsToDuplicate):
     '''
@@ -1439,8 +1561,8 @@ def prettyName(var):
         ('EntropyDim',  '$s$'),
         ('Viscosity_EddyMolecularRatio', '$\mu_t / \mu$'),
         ('VelocityMeridianDim',  '$V_m$'),
-        ('VelocityThetaRelDim',  '$W_\theta$'),
-        ('VelocityThetaAbsDim', '$V_\theta$'),
+        ('VelocityThetaRelDim',  '$W_\\theta$'),
+        ('VelocityThetaAbsDim', '$V_\\theta$'),
         ('MachNumberRel',  '$M_{rel}$'),
         ('MachNumberAbs', '$M_{abs}$'),
         ('IsentropicMachNumber', '$M_{is}$'),
@@ -1509,13 +1631,13 @@ def getRadialProfiles(surfaces='OUTPUT/surfaces.cgns'):
     RadialProfilesBase = I.getNodeFromName1(surfaces, 'RadialProfiles')
     for zone in I.getZones(RadialProfilesBase):
         surfaceName = I.getName(zone)
-        RadialProfiles[surfaceName] = J.getVars2Dict(zone, Container='FlowSolution#Centers')
+        RadialProfiles[surfaceName] = J.getVars2Dict(zone, Container='FlowSolution#InitV')
         extractionInfo = J.get(zone, '.ExtractionInfo')
         if extractionInfo:
             RadialProfiles[surfaceName]['.ExtractionInfo'] = extractionInfo
         
         for FS in I.getNodesFromNameAndType(zone, 'Comparison#*', 'FlowSolution_t'):
-            comparedPlane = I.getName(FS).split('#')[-1]
+            comparedPlane = I.getName(FS).split('#')[1]
             comparisonName = f'{surfaceName}#{comparedPlane}'
             RadialProfiles[comparisonName] = J.getVars2Dict(zone, Container=I.getName(FS))
 
@@ -1702,20 +1824,54 @@ def plotRadialProfiles(RadialProfiles, filename='RadialProfiles.pdf', assemble=F
                 plt.close()
 
 
-def _getMax(t, field_name):
-    actual = -np.inf
+def _getMax(t, field_name): return _getMinOrMax(t, field_name, Min=False)
+
+def _getMin(t, field_name): return _getMinOrMax(t, field_name, Min=True)
+
+def _getMinOrMax(t, field_name, Min=True):
+    if Min:
+        sign = 1
+        Fun = np.minimum
+        fun = np.min
+    else:
+        sign = -1
+        Fun = np.maximum
+        fun = np.max
+
+    actual = sign * np.inf
     for z in I.getZones(t):
         for fs in I.getNodesFromType1(z,'FlowSolution_t'):
-            node = I.getNodeFromName(z, field_name)
+            if fs[0] not in [I.__FlowSolutionNodes__, I.__FlowSolutionCenters__]:
+                continue
+            node = I.getNodeFromName(fs, field_name)
             if not node or node[3] != 'DataArray_t': continue
-            actual = np.maximum(actual, np.max(node[1]))
+            actual = Fun(actual, fun(node[1]))            
+
+    if not np.isfinite(actual): 
+        J.save(t,'debug.cgns')
+        raise ValueError(f'could not find min/max for {field_name} at {[I.__FlowSolutionNodes__, I.__FlowSolutionCenters__]}, check debug.cgns')
     return actual
 
-def _getMin(t, field_name):
-    actual = np.inf
-    for z in I.getZones(t):
-        for fs in I.getNodesFromType1(z,'FlowSolution_t'):
-            node = I.getNodeFromName(z, field_name)
-            if not node or node[3] != 'DataArray_t': continue
-            actual = np.minimum(actual, np.min(node[1]))
-    return actual
+
+def _fieldExistsAtNodesOrCentersAtZone(z, field_name, vertex_container_name,
+        centers_container_name):
+    z = I.getZones(z)[0]
+    for fsname in [vertex_container_name, centers_container_name]:
+        fs = I.getNodeFromName1(z,fsname)
+        if not fs: continue
+        if fs[3] != 'FlowSolution_t':
+            print(f'WARNING: unexpected node {z[0]}/{vertex_container_name} of type {fs[3]}')
+            continue
+        for field in fs[2]:
+            if field[0] == field_name: return True
+    return False
+
+def _fieldExistsAtNodesOrCenters(t, field_name, vertex_container_name,
+        centers_container_name):
+
+    zone_ok = [_fieldExistsAtNodesOrCentersAtZone(z,field_name,
+        vertex_container_name,
+        centers_container_name) for z in I.getZones(t)]
+
+    return all(zone_ok)
+        

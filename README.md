@@ -50,29 +50,39 @@ You may adapt this script to simplify this operation (just replace `myMOLA` and 
 #   git checkout env_MOLA.sh && git checkout TEMPLATES/job_template.sh && chmod a+r env_MOLA.sh TEMPLATES/job_template.sh
 # You amy create an alias for this command in your .bash_aliases
 
+# MOLA version
+MOLAVER='Dev'
+
 # Custom paths for my dev version - TO MODIFY
-export myMOLA='/stck/tbontemp/softs/MOLA/Dev'
-export myMOLASATOR='/tmp_user/sator/tbontemp/MOLA/Dev'
+myMOLA='/stck/tbontemp/softs/MOLA/$MOLAVER'
+myMOLASATOR='/tmp_user/sator/tbontemp/MOLA/$MOLAVER'
+
+
+################################################################################
+################################################################################
+# DO NOT MODIFY THE LINES BELOW
+
+eval "myMOLAPATH=$myMOLA"
+eval "myMOLASATORPATH=$myMOLASATOR"
 
 # To be able to use your dev version on sator computation nodes, you must first
 # to copy your dev done on /stck on /tmp_user/sator
 # You may use the following command :
-#   rsync -rav $myMOLA $myMOLASATOR
-
-
-################################################################################
-# DO NOT MODIFY THE LINES BELOW
+#   rsync -rav $myMOLAPATH $myMOLASATORPATH
 
 # MOLA paths of for the master version
-MOLA='/stck/lbernard/MOLA/Dev'
-MOLASATOR='/tmp_user/sator/lbernard/MOLA/Dev'
+MOLA='/stck/lbernard/MOLA/$MOLAVER'
+MOLASATOR='/tmp_user/sator/lbernard/MOLA/$MOLAVER'
 
 # Modify paths to my custom MOLA dev version
-sed -i $myMOLA/env_MOLA.sh -e "s|MOLA=$MOLA|MOLA=$myMOLA|"
-sed -i $myMOLA/env_MOLA.sh -e "s|MOLASATOR=$MOLASATOR|MOLASATOR=$myMOLASATOR|"
+sed -i $myMOLAPATH/env_MOLA.sh -e "s|MOLA=$MOLA|MOLA=$myMOLA|"
+sed -i $myMOLAPATH/env_MOLA.sh -e "s|MOLASATOR=$MOLASATOR|MOLASATOR=$myMOLASATOR|"
+# Restore external librairies
+sed -i $myMOLAPATH/env_MOLA.sh -e 's|MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext|MOLAext=/stck/lbernard/MOLA/Dev/ext|'
+sed -i $myMOLAPATH/env_MOLA.sh -e 's|MOLASATORext=/tmp_user/sator/lbernard/MOLA/$MOLAVER/ext|MOLASATORext=/tmp_user/sator/lbernard/MOLA/Dev/ext|'
 # Modify paths to my custom MOLA dev version in the job template
-sed -i $myMOLA/TEMPLATES/job_template.sh -e "s|$MOLA|$myMOLA|"
-sed -i $myMOLA/TEMPLATES/job_template.sh -e "s|$MOLASATOR|$myMOLASATOR|"
+sed -i $myMOLAPATH/TEMPLATES/job_template.sh -e "s|$MOLA|$myMOLA|"
+sed -i $myMOLAPATH/TEMPLATES/job_template.sh -e "s|$MOLASATOR|$myMOLASATOR|"
 ```
 
 5. Copy MOLA directory on your `sator` space:

@@ -5,18 +5,21 @@ unset PYTHONPATH
 shopt -s expand_aliases
 ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
 
 ###############################################################################
 # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
-export MOLA=/stck/lbernard/MOLA/Dev
-export MOLASATOR=/tmp_user/sator/lbernard/MOLA/Dev
-export VPMVERSION=v0.2
+export MOLAVER=${SCRIPT_DIR##*/} # looks to current directory name
+export MOLA=/stck/lbernard/MOLA/$MOLAVER
+export MOLASATOR=/tmp_user/sator/lbernard/MOLA/$MOLAVER
+export VPMVERSION=v0.3
 export PUMAVERSION=v2.0.3
 export TURBOVERSION=v1.2.2
 export ERSTAZVERSION=v1.6.3
-export MOLAext=/stck/lbernard/MOLA/Dev/ext # you should not modify this line
-export MOLASATORext=/tmp_user/sator/lbernard/MOLA/Dev/ext # you should not modify this line
-export OWNCASSREV=rev4386
+export MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
+export MOLASATORext=/tmp_user/sator/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
+export OWNCASSREV=rev4665
+export MAIAVERSION=1.2
 ###############################################################################
 
 
@@ -42,8 +45,7 @@ MAC0=$(echo $KC | grep 'ld'); if [ "$MAC0" != "" ]; then export MAC="ld"; fi
 MAC0=$(echo $KC | grep 'eos'); if [ "$MAC0" != "" ]; then export MAC="ld"; fi
 MAC0=$(echo $KC | grep 'spiro'); if [ "$MAC0" != "" ]; then export MAC="spiro"; fi
 MAC0=$(echo $KC | grep 'visung'); if [ "$MAC0" != "" ]; then export MAC="visung"; fi
-MAC0=$(echo $KC | grep 'visio'); if [ "$MAC0" != "" ]; then export MAC="visio"; fi
-MAC0=$(echo $KC | grep 'celeste'); if [ "$MAC0" != "" ]; then export MAC="visio"; fi
+MAC0=$(echo $KC | grep 'topaze'); if [ "$MAC0" != "" ]; then export MAC="topaze"; fi
 
 if [ "$MAC" = "ld" ] && [ ! "$EL8" ] ; then export MAC="visung"; fi
 
@@ -103,7 +105,7 @@ if [ "$MAC" = "sator" ]; then
 
     # maia
     module use --append /tmp_user/sator/sonics/usr/modules/
-    module load maia/RC-dsi-cfd5
+    module load maia/$MAIAVERSION-dsi-cfd5_idx32
 
     # VPM
     export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator/$ARCH
@@ -160,7 +162,7 @@ elif [ "$MAC" = "spiro" ]; then
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
     # VPM
-    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro_el8/$ARCH
+    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro/$ARCH
     export PATH=$VPMPATH:$PATH
     export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
@@ -179,7 +181,7 @@ elif [ "$MAC" = "spiro" ]; then
 
     # maia 
     module use --append /scratchm/sonics/usr/modules/
-    module maia/load RC-dsi-cfd5
+    module load maia/$MAIAVERSION-dsi-cfd5
 
     # own Cassiopee
     module load occt/7.6.1-gnu831
@@ -201,9 +203,10 @@ elif [ "$MAC" = "ld" ]; then
     # # module load paraview/5.11.0 # provokes python and libraries incompatibilities
     module load occt/7.6.1-gnu831
 
-    export OPENMPIOVERSUBSCRIBE='-oversubscribe'
+    export OPENMPIOVERSUBSCRIBE='--oversubscribe'
 
     unset I_MPI_PMI_LIBRARY
+    export OMPI_MCA_mca_base_component_show_load_errors=0
 
     # PUMA
     export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_os8
@@ -224,10 +227,10 @@ elif [ "$MAC" = "ld" ]; then
 
     # maia
     module use --append /home/sonics/LD8/modules/
-    module load maia/RC-dsi-ompi405
+    module load maia/$MAIAVERSION-dsi-ompi405
 
     # VPM
-    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld8/$ARCH
+    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld/$ARCH
     export PATH=$VPMPATH:$VPMPATH/lib:$PATH
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
     export LD_LIBRARY_PATH=$VPMPATH:$VPMPATH/lib:$LD_LIBRARY_PATH
@@ -240,7 +243,8 @@ elif [ "$MAC" = "ld" ]; then
     
 
     # own Cassiopee
-    export OWNCASS=/stck/lbernard/Cassiopee/$OWNCASSREV/ld8
+    export OWNCASS=/stck/lbernard/Cassiopee/$OWNCASSREV/ld
+    export PATH=$OWNCASS:$OWNCASS/lib:$PATH
     export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH
     export PYTHONPATH=$OWNCASS/lib/python3.8/site-packages:$PYTHONPATH
 
@@ -294,6 +298,9 @@ elif [ "$MAC" = "visio" ]; then
     export PYTHONPATH=$MOLAext/visio/lib/python3.6/site-packages/:$PYTHONPATH
     export PATH=$MOLAext/visio/bin:$PATH
     export LD_LIBRARY_PATH=$MOLAext/visio/lib/python3.6/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
+
+elif [ "$MAC" = "topaze" ]; then
+    source /ccc/work/cont001/saelsa/saelsa/Public/$ELSAVERSION/Dist/bin/topaze/.env_elsA
 
 else
     echo -e "\033[91mERROR: MACHINE $KC NOT INCLUDED IN MOLA ENVIRONMENT\033[0m"

@@ -689,7 +689,9 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
         currentLayer = ('{:0%d}'%nbOfDigits).format(l+1)
         Message = starting_message+' %s/%s | cost: %0.5f s'%(currentLayer,LastLayer,tic()-toc)
         toc = tic()
-        if printIters: print(Message)
+        if printIters:
+            print('{:s}\r'.format(''), end='', flush=True)
+            print(Message, end='')
 
         tok = tic()
         _transferDistributionData(tExtru,layer=l)
@@ -757,10 +759,10 @@ def extrude(t, Distributions, Constraints=[], extractMesh=None,
             CPlot.setState(message=Message)
             # time.sleep(0.1)
     if printIters:
-        print('stacking layers...')
+        print('\nstacking layers... ',end='')
     _stackLayers(tExtru, AllLayersBases) # Stack layers
     if printIters:
-        print('stacking layers... OK')
+        print(J.GREEN+'ok'+J.ENDC)
 
     return tExtru
 
@@ -3086,6 +3088,10 @@ def trimCartesianGridAtOrigin(t, trim_plane='XZ', reverse=False,
                           XY='CoordinateZ',
                           YZ='CoordinateX')
 
+    # destroy BC and connectivity, will be required to rebuild it.
+    # This is necessary, since after the trimming operation there will be 
+    # missing some BCMatch, and the trimming plane should be identified as 
+    # a new undefined BC, and not as a connectivity
     I._rmNodesByType(t, 'ZoneGridConnectivity_t')
     I._rmNodesByType(t, 'ZoneBC_t')
 
@@ -3658,3 +3664,15 @@ def _generateCartesianFromProcessedBodies(GenerationInfo, bodies):
     J.set(base,'.MOLA#InputMesh',**GenerationInfo)
 
     return t
+
+def checkNegativeVolumeCells(t, volume_threshold=0):
+    tR = G.getVolumeMap(t)
+    C._initVars(tR,'centers:tag={centers:vol}<%g'%volume_threshold)
+    tR = P.selectCells2(tR, 'centers:tag')
+    negative_volume_cells = []
+    for zone in I.getZones(tR):
+        if C.getNCells(zone) > 0:
+            negative_volume_cells += [zone]
+    if negative_volume_cells:
+        print(J.WARN+f'\nWARNING: mesh has {C.getNCells(negative_volume_cells)} negative cells'+J.ENDC)
+    return negative_volume_cells

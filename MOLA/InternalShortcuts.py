@@ -39,9 +39,12 @@ if not MOLA.__ONLY_DOC__:
     import glob
     import numpy as np
     import pprint
+    import datetime
     from itertools import product
     from timeit import default_timer as tic
     from fnmatch import fnmatch
+    from contextlib import contextmanager
+
 
     import Converter.PyTree as C
     import Converter.Internal as I
@@ -2141,6 +2144,36 @@ class OutputGrabber(object):
                 break
             self.capturedtext += char
 
+@contextmanager
+def stdout_redirected(to=os.devnull):
+    '''
+    import os
+
+    with stdout_redirected(to=filename):
+        print("from Python")
+        os.system("echo non-Python applications are also supported")
+    '''
+    fd = sys.stdout.fileno()
+
+    ##### assert that Python and C stdio write using the same file descriptor
+    ####assert libc.fileno(ctypes.c_void_p.in_dll(libc, "stdout")) == fd == 1
+
+    def _redirect_stdout(to):
+        sys.stdout.close() # + implicit flush()
+        os.dup2(to.fileno(), fd) # fd writes to 'to' file
+        sys.stdout = os.fdopen(fd, 'w') # Python writes to fd
+
+    with os.fdopen(os.dup(fd), 'w') as old_stdout:
+        with open(to, 'w') as file:
+            _redirect_stdout(to=file)
+        try:
+            yield # allow code to be run with the redirected stdout
+        finally:
+            _redirect_stdout(to=old_stdout) # restore stdout.
+                                            # buffering and flags such as
+                                            # CLOEXEC may be different
+
+
 def selectZonesExceptThatWithHighestNumberOfPoints(ListOfZones):
     '''
     return a list of zones excluding the zone yielding the highest number
@@ -2348,12 +2381,12 @@ def printEnvironment():
     print(v.ljust(20-len(tag))+printTime(toc))
 
     # Cassiopee
-    tag = ' --> Cassiopee '
+    tag = ' --> Cassiopee ' + os.getenv('OWNCASSREV','') + ' '
     print(tag,end='')
     toc = tic()
     try:
-        import Converter.PyTree as C
-        v = C.__version__
+        import KCore as K
+        v = K.__version__
     except:
         v = FAIL + 'UNAVAILABLE' + ENDC
     print(v.ljust(20-len(tag))+printTime(toc))
@@ -2444,7 +2477,7 @@ def printEnvironment():
         v = FAIL+'UNAVAILABLE'+ENDC
     print(v.ljust(20-len(tag))+printTime(toc))
 
-    if totoV in ['Dev', 'master']:
+    if totoV in ['Dev', 'master'] or 'dev' in totoV.lower():
         print(WARN+'WARNING: you are using an UNSTABLE version of MOLA.\nConsider using a stable version.'+ENDC)
     else:
         Major, Minor, Micro = getMajorMinorMicro(totoV)
@@ -2754,15 +2787,27 @@ def load(*args, **kwargs):
     '''
     load a file using either Cassiopee convertFile2PyTree or maia
     file_to_dist_tree depending on the chosen backend (``'maia'`` or
-    ``'cassiopee'`` ). Keyword ``backend='auto'`` will use maia
+    ``'cassiopee'`` ). 
+    
+    Special keyword ``backend='auto'`` will use maia
     for  ``*.cgns`` and ``*.hdf`` formats; and Cassiopee for the rest.
     Default backend is Cassiopee
+
+    Special keyword ``return_type='zones'`` will return only a list of zones
+    contained in the file (if any). By default, ``return_type='tree'``
     '''
     try:
         backend = kwargs['backend'].lower()
         del kwargs['backend']
     except KeyError:
         backend = 'Cassiopee' # this is the default value 
+
+    try:
+        return_type = kwargs['return_type'].lower()
+        del kwargs['return_type']
+    except KeyError:
+        return_type = 'tree' # this is the default value 
+
 
     if backend == 'auto':
         filename = args[0]
@@ -2788,17 +2833,45 @@ def load(*args, **kwargs):
     else:
         raise NotImplementedError(f'backend {backend} unknown')
 
-    return t
+    if return_type == 'tree':
+        return t
+    elif return_type == 'zones':
+        return I.getZones(t)
+    else:
+        raise NotImplementedError(f'return_type must be "tree" or "zones", got "{return_type}"')
 
 def save(*args, **kwargs):
     '''
-    literally, a shortcut of C.convertPyTree2File
+    shortcut of C.convertPyTree2File.
+
+    If special keyword ``force_unique_zones_names=True`` then uses I.correctPyTree(level=3)
+    before saving file, in order to avoid loosing data
     '''
+    try:
+        force_unique_zones_names = kwargs['force_unique_zones_names']
+        del kwargs['force_unique_zones_names']
+    except KeyError:
+        force_unique_zones_names = False # this is the default value 
+
+    if force_unique_zones_names: I._correctPyTree(args[0],level=3)
+
     C.convertPyTree2File(*args, **kwargs)
 
-def extractBCFromFamily(t, Family):        
+def extractBCFromFamily(t, Family, squeeze=False):  
+    '''
+    Like C.extractBCOfName or C.extractBCOfType, except two points:
+
+    #. **Family** is directly the name of the BC family (without 'FamilySpecified:')
+
+    #. the orientation of the BC is preserved through this operation (unlike C.extractBCOfName)
+    '''      
+    if I.isType(t, 'Zone_t'):
+        zones = [t]
+    else:
+        zones = I.getZones(t)
+
     BCList = []
-    for zone in I.getZones(t):
+    for zone in zones:
         zoneType = I.getValue(I.getNodeFromName1(zone, 'ZoneType'))
         
         if zoneType == 'Unstructured':
@@ -2819,10 +2892,12 @@ def extractBCFromFamily(t, Family):
                             indexBC = 0 # BC on imin
                         else:
                             indexBC = -1 # BC on imax
-                        SliceOnVertex = np.s_[[indexBC], 
+                        if not squeeze:
+                            indexBC = [indexBC]
+                        SliceOnVertex = np.s_[indexBC, 
                                                 PointRange[1, 0]-1:PointRange[1, 1], 
                                                 PointRange[2, 0]-1:PointRange[2, 1]]
-                        SliceOnCell = np.s_[[indexBC],
+                        SliceOnCell = np.s_[indexBC,
                                                 PointRange[1, 0]-1:PointRange[1, 1]-1, 
                                                 PointRange[2, 0]-1:PointRange[2, 1]-1]
 
@@ -2832,11 +2907,13 @@ def extractBCFromFamily(t, Family):
                             indexBC = 0 # BC on jmin
                         else:
                             indexBC = -1 # BC on jmax
+                        if not squeeze:
+                            indexBC = [indexBC]
                         SliceOnVertex = np.s_[PointRange[0, 0]-1:PointRange[0, 1],
-                                            [indexBC], 
+                                            indexBC, 
                                             PointRange[2, 0]-1:PointRange[2, 1]]
                         SliceOnCell = np.s_[PointRange[0, 0]-1:PointRange[0, 1]-1,
-                                            [indexBC], 
+                                            indexBC, 
                                             PointRange[2, 0]-1:PointRange[2, 1]-1]
                         
 
@@ -2846,22 +2923,32 @@ def extractBCFromFamily(t, Family):
                             indexBC = 0 # BC on kmin
                         else:
                             indexBC = -1 # BC on kmax
+                        if not squeeze:
+                            indexBC = [indexBC]
                         SliceOnVertex = np.s_[PointRange[0, 0]-1:PointRange[0, 1],
                                             PointRange[1, 0]-1:PointRange[1, 1],
-                                            [indexBC]]
+                                            indexBC]
                         SliceOnCell = np.s_[PointRange[0, 0]-1:PointRange[0, 1]-1,
                                             PointRange[1, 0]-1:PointRange[1, 1]-1,
-                                            [indexBC]]
+                                            indexBC]
 
-                    ni, nj, nk = x[SliceOnVertex].shape
-                    zsize = np.zeros((3,3),dtype=int)
-                    zsize[0,0] = ni
-                    zsize[1,0] = nj
-                    zsize[2,0] = nk
-                    zsize[0,1] = np.maximum(ni-1,1)
-                    zsize[1,1] = np.maximum(nj-1,1)
-                    zsize[2,1] = np.maximum(nk-1,1)
-                
+                    if squeeze:
+                        ni, nj = x[SliceOnVertex].shape
+                        zsize = np.zeros((2,2),dtype=int)
+                        zsize[0,0] = ni
+                        zsize[1,0] = nj
+                        zsize[0,1] = np.maximum(ni-1,1)
+                        zsize[1,1] = np.maximum(nj-1,1)
+                    else:
+                        ni, nj, nk = x[SliceOnVertex].shape
+                        zsize = np.zeros((3,3),dtype=int)
+                        zsize[0,0] = ni
+                        zsize[1,0] = nj
+                        zsize[2,0] = nk
+                        zsize[0,1] = np.maximum(ni-1,1)
+                        zsize[1,1] = np.maximum(nj-1,1)
+                        zsize[2,1] = np.maximum(nk-1,1)
+
                     newZoneForBC = I.newZone(f'{I.getName(zone)}\{I.getName(BC)}', zsize=zsize, ztype='Structured', family=Family)
                     set(newZoneForBC, 'GridCoordinates', childType='GridCoordinates_t', 
                         CoordinateX=x[SliceOnVertex], CoordinateY=y[SliceOnVertex], CoordinateZ=z[SliceOnVertex])
@@ -2898,7 +2985,10 @@ def extractBCFromFamily(t, Family):
                         BCData = dict()
                         for node in I.getNodesFromType(BCDataSet, 'DataArray_t'):
                             value = np.ravel(I.getValue(node), order='F')
-                            BCData[I.getName(node)] = value.reshape((zsize[0,1], zsize[1,1], zsize[2,1]))
+                            if squeeze:
+                                BCData[I.getName(node)] = value.reshape((zsize[0,1], zsize[1,1]))
+                            else:
+                                BCData[I.getName(node)] = value.reshape((zsize[0,1], zsize[1,1], zsize[2,1]))
 
                         set(newZoneForBC, BCDataSetName, childType='FlowSolution_t', **BCData)
                         newFS = I.getNodeFromNameAndType(newZoneForBC, BCDataSetName, 'FlowSolution_t')
@@ -2934,3 +3024,36 @@ def hasAllNGon(t):
 
 def anyNotNGon(t):
     return any(elt_type not in ['NGON_n', 'NFACE_n'] for elt_type in elementTypes(t))
+
+def printElapsedTime(message='', previous_timer=0.0):
+    ElapsedTime = str(datetime.timedelta(seconds=tic()-previous_timer))
+    hours, minutes, seconds = ElapsedTime.split(':')
+    int_hours = int(hours)
+    int_minutes = int(minutes)
+    if int_hours < 1:
+        if int_minutes < 1:
+            ElapsedTimeHuman = f'{seconds} seconds'
+        else:
+            s = 's' if int_minutes!=1 else ''
+            ElapsedTimeHuman = f'{int_minutes} minute{s} and {seconds} seconds'
+    else:
+        sh = 's' if int_hours!=1 else ''
+        sm = 's' if int_hours!=1 else ''
+        ElapsedTimeHuman = f'{int_hours} hour{sh} {int_minutes} minute{sm} and {seconds} seconds'
+    msg = message + ' ' + ElapsedTimeHuman
+    print(BOLD+msg+ENDC)
+
+def checkUniqueChildren(t, recursive=False):
+    nodes_names_and_types = [(I.getName(child), I.getType(child)) for child in I.getChildren(t)]
+    # Check unicity of each child
+    # assert len(nodes_names_and_types) == len(set(nodes_names_and_types)) # Cannot do that because of the function set defined in the current module...
+    tmp_list = []
+    for name_type in nodes_names_and_types:
+        if name_type not in tmp_list:
+            tmp_list.append(name_type)
+        else:
+            save(t, 'debug.cgns')
+            raise Exception(FAIL+f'The node {name_type[0]} of type {name_type[1]} is defined twice'+ENDC)
+    if recursive:
+        for node in I.getChildren(t):
+            checkUniqueChildren(node, recursive=True)
