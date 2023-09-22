@@ -42,13 +42,37 @@ File history:
 '''
 
 import MOLA
-from . import InternalShortcuts as J
+if not MOLA.__ONLY_DOC__:
+    import sys
+    import os
+
+    # avoids slow-down in MPI execution due to over threading
+    from mpi4py import MPI
+    comm   = MPI.COMM_WORLD
+    size = comm.Get_size()
+    rank = comm.Get_rank()
+    if size>2:
+        os.environ["MKL_NUM_THREADS"] = "1" 
+        os.environ["NUMEXPR_NUM_THREADS"] = "1" 
+        os.environ["OMP_NUM_THREADS"] = "1" 
+
+
 
 if not MOLA.__ONLY_DOC__:
     import sys
     import os
+
+    from mpi4py import MPI
+    comm   = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+
+    if size >2:
+        import os
+        os.environ['OMP_NUM_THREADS'] = '1'
+
+
     import numpy as np
-    from time import sleep
 
     import matplotlib.pyplot as plt
     import matplotlib.colors as mplcolors
@@ -62,6 +86,8 @@ if not MOLA.__ONLY_DOC__:
     import Transform.PyTree as T
     import Post.PyTree as P
     import CPlot.PyTree as CPlot
+
+from . import InternalShortcuts as J
 
 def exit(): os._exit(0)
 
