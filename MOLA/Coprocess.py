@@ -2950,7 +2950,7 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
 
             # Get previous source terms
             previousSourceTerms = dict()
-            if CurrentIteration > BodyForceInitialIteration : 
+            if CurrentIteration > BodyForceInitialIteration and CurrentIteration > setup.elsAkeysNumerics['inititer']: 
                 previousFSSourceTerm = I.getNodeFromPath(previousTreeWithSourceTerms, SourceTermPath)
                 for name in NewSourceTerms:
                     previousSourceTerms[name] = I.getValue(I.getNodeFromName(previousFSSourceTerm, name))
