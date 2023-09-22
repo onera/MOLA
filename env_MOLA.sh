@@ -244,6 +244,7 @@ elif [ "$MAC" = "ld" ]; then
 
     # own Cassiopee
     export OWNCASS=/stck/lbernard/Cassiopee/$OWNCASSREV/ld
+    export PATH=$OWNCASS:$OWNCASS/lib:$PATH
     export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH
     export PYTHONPATH=$OWNCASS/lib/python3.8/site-packages:$PYTHONPATH
 
