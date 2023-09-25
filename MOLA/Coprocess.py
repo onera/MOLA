@@ -2597,8 +2597,16 @@ def splitWithPyPart():
     except:
         avg_requested = False
 
-    if is_unsteady and avg_requested:
-        printCo('WARNING: removing "ZoneBCGT", but this may cause deadlock at fields.cgns save: https://elsa.onera.fr/issues/11149#note-11',0,J.WARN)
+    try:
+        DeleteZoneBCGT = setup.ReferenceValues['CoprocessOptions']['DeleteZoneBCGT']
+    except:
+        DeleteZoneBCGT = False
+
+    if (is_unsteady and avg_requested) or DeleteZoneBCGT:
+        msg =  'WARNING: removing "ZoneBCGT", but this may cause deadlock at fields.cgns save:\n'
+        msg += 'more information: https://elsa.onera.fr/issues/11149#note-11\n'
+        msg += 'to force removal of ZoneBCGT, use CoprocessOptions=dict(DeleteZoneBCGT=True)'
+        printCo(msg,0,J.WARN)
         I._rmNodesByName(Skeleton,'ZoneBCGT') # https://elsa.onera.fr/issues/11149
     Distribution = PyPartBase.getDistribution()
 
