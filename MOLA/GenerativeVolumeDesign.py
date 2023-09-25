@@ -3364,6 +3364,7 @@ def buildCartesianBackground(t, InputMeshes):
                                                                 NCellsOffset)
         else:
             body = C.extractBCOfType(tR, 'BCOverlap', reorder=True)
+        I._rmNodesByType(body,'GridConnectivity1to1_t') # HACK https://elsa.onera.fr/issues/11338
         baseName2body[base[0]] = body
 
     print('generating refinement regions...')
