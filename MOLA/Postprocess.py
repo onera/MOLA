@@ -855,27 +855,22 @@ def _fitFields(donor, receiver, fields_names_to_fit=[], tol=1e-6):
                 fr[ receiver_indexes ] = fd[ close_enough_points ]
 
 
-def computeAndAddSpanToSurface(t, start_point, end_point):
+def addSpan(t, start_point, end_point):
     '''
     Computes the span of a surface based on 2 points and adds it as variable in the provided tree.
 
     Parameters
     ----------
 
-        t : PyTree, Base, Zone or :py:class:`list` of zone
+        t : PyTree, Base, Zone or :py:class:`list` of zone. 
+            .. note:: the input tree **t** is modified.
         
-        start_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy`
+        start_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
             :math:`(x,y,z)` coordinates of the starting point from which 
-            sectional loads are to be computed. Must be provided for SpanBased slicing.
+            sectional loads are to be computed. 
 
-        end_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy`
+        end_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
             :math:`(x,y,z)` coordinates of the end point up to which the span must be computed
-
-    Returns
-    -------
-
-        -
-
     '''
 
     start_point = np.array(start_point)
@@ -883,7 +878,6 @@ def computeAndAddSpanToSurface(t, start_point, end_point):
     span_direction = end_point - start_point
     total_scan_span = np.linalg.norm(span_direction)
     span_direction /= total_scan_span
-    print('Scan span',total_scan_span)
     Eqn = W.computePlaneEquation(start_point, span_direction)
     C._initVars(t, 'Span='+Eqn)
 
@@ -903,10 +897,10 @@ def computeIntegralLoads(t, torque_center=[0,0,0],reference_pressure=0.):
                 surfaces contained in **t** must contain the following fields
                 contained at centers: ``Pressure``, ``SkinFrictionX``,
                 ``SkinFrictionY``, ``SkinFrictionZ``. It may also contain 
-                normals ``nx``, ``ny``, ``nz``. Otherwise they are computed.
+                normals ``nx``, ``ny``, ``nz``. 
 
-        torque_center : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy`
-            center for computation the torque contributions
+        torque_center : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
+            center for the computation of the torque contributions
         
         reference_pressure : float
             Reference pressure. Put ambiant pressure as a reference for integration over a surface that is not closed (such as blades).
@@ -924,9 +918,9 @@ def computeIntegralLoads(t, torque_center=[0,0,0],reference_pressure=0.):
     _addNormalsIfAbsent(tR)
 
     # surfacic forces
-    C._initVars(tR, 'centers:fx=-({centers:Pressure}-%s)*{centers:nx}+{centers:SkinFrictionX}'%(reference_pressure))
-    C._initVars(tR, 'centers:fy=-({centers:Pressure}-%s)*{centers:ny}+{centers:SkinFrictionY}'%(reference_pressure))
-    C._initVars(tR, 'centers:fz=-({centers:Pressure}-%s)*{centers:nz}+{centers:SkinFrictionZ}'%(reference_pressure))
+    C._initVars(tR, 'centers:fx=-({centers:Pressure}-%.12g)*{centers:nx}+{centers:SkinFrictionX}'%(reference_pressure))
+    C._initVars(tR, 'centers:fy=-({centers:Pressure}-%.12g)*{centers:ny}+{centers:SkinFrictionY}'%(reference_pressure))
+    C._initVars(tR, 'centers:fz=-({centers:Pressure}-%.12g)*{centers:nz}+{centers:SkinFrictionZ}'%(reference_pressure))
 
     # computation of total forces
     ForceX = -P.integ(tR,'centers:fx')[0]
@@ -947,78 +941,103 @@ def computeIntegralLoads(t, torque_center=[0,0,0],reference_pressure=0.):
     
     return loads
 
-def computeSectionalLoads(surface, distribution = np.linspace(0,1,100), slicing_options=dict(slicing_method='SpanBased',custom_variable=None), geometrical_parameters=dict(start_point=None,end_point=None, axis_direction=None),
+def computeSectionalLoads(surface, distribution = None, slicing_options=dict(slicing_method='SpanBased',custom_variable=None), geometrical_parameters=dict(start_point=None,end_point=None, axis_direction=None),
         torque_center=[0,0,0], reference_pressure=0.):
     '''
     Compute the sectional loads (spanwise distributions) along a direction 
-    from a set of surfaces
+    from a surface.
 
     Parameters
     ----------
     
-        surface : PyTree, Base, Zone or :py:class:`list` of Zone
-            surfaces from which sectional loads are to be computed
+        surface : PyTree, Base, Zone
+
+            surface from which sectional loads are to be computed
 
             .. note::
-                surfaces contained in **t** must contain the following fields
-                 (preferrably at centers): ``Pressure``, ``SkinFrictionX``,
-                ``SkinFrictionY``, ``SkinFrictionZ``. It may also contain 
-                normals ``nx``, ``ny``, ``nz``. Otherwise they are computed.
 
-        slicing_options: dict with two keys
-            slicing_method : str
-                Options:
-                - SpanBased: Computes the span based on 2 points (see below) provided by the user. Each section corresponds to an isoSurface of the Span variable.
-                - AbscissaBased: computes the abscissa based on the distance d to the axis provided by the user. Each section corresponds to an isoSurface of the Abscissa variable.
-                  Abscissa = (d-dmin)/(dmax-dmin)
-                - Custom: uses the 'custom_variable' parameter provided by the user as the reference variable to perform the isoSurface for each section.
+                **surface** must contain the following fields (preferrably at centers): ``Pressure``, ``SkinFrictionX``, ``SkinFrictionY``, ``SkinFrictionZ``. 
+                It must also contain normals ``nx``, ``ny``, ``nz``. 
+
+        slicing_options : dict
+
+            dictionary providing the parameters to perform the slicing along the blade span. Two pairs of keywords and associated values can be provided:
             
-            custom_variable : str 
+            * slicing_method : str
+
+                Acceptable values are:
+
+                * SpanBased: Computes the span based on 2 points (see below) provided by the user. Each section corresponds to an isoSurface of the ``Span`` variable.
+
+                * AbscissaBased: computes the abscissa based on the distance d to the axis provided by the user. Each section corresponds to an isoSurface of the Abscissa variable.
+                  :math:`Abscissa = (d-dmin)/(dmax-dmin)`
+
+                * Custom: uses the ``custom_variable`` parameter provided by the user as the reference variable to perform the isoSurface for each section.
+            
+            * custom_variable : str 
+
                 Name of the variable used to perform slices.
-                Examples: 'CoordinateX', 'CoordinateY', 'CoordinateZ','Radius'
-                **Must be provided for Custom slicing.**
 
-        geometrical_parameters: dict with three keys
-            start_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy`
+                .. hint:: Examples: ``CoordinateX``, ``CoordinateY``, ``CoordinateZ``, ``Radius``.
+
+                .. important:: Must be provided for Custom slicing.
+
+        geometrical_parameters : :py:class:`dict`
+
+            dictionary providing the geometrical parameters required to compute the blade span with the chosen ``slicing_method``. Pairs of keywords and associated values can be the following:
+            
+            * start_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
+
                 :math:`(x,y,z)` coordinates of the starting point from which 
-                sectional loads are to be computed. Must be provided for SpanBased slicing.
-                    **Must be provided for SpanBased slicing.**
-                    **Must be provided for AbscissaBased slicing.**
+                sectional loads are to be computed.
 
-            end_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy`
+                .. warning:: 
+                    Must be provided for SpanBased slicing and AbscissaBased slicing.
+
+            * end_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
+
                 :math:`(x,y,z)` coordinates of the end point up to which 
                 sectional loads are to be computed. 
-                    **Must be provided for SpanBased slicing.**
-            
-            axis_direction : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy`
+
+                .. warning:: 
+                    Must be provided for SpanBased slicing.
+
+            * axis_direction : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
+
                 :math:`(x,y,z)` direction of the reference axis along which 
                 sectional loads are to be computed.
-                    **Must be provided for AbscissaBased slicing.**
+
+                .. warning:: Must be provided for AbscissaBased slicing.
         
-        
-        distribution : 1D :py:class:`float` list or :py:class:`numpy`
+        distribution : 1D :py:class:`float` list or :py:class:`numpy.ndarray`
+
             dimensionless coordinate (from *start_point* to *end_point*) used 
             for discretizing the sectional loads. This must be :math:`\in [0,1]`.
 
             .. hint:: for example 
 
-                >>> distribution = np.linspace(0,1,200)
+                >>> distribution = np.linspace(0,1,201)
 
-            .. note:: for slicing_method = 'custom', this function automatically recomputes the span :math:`\in [0,1]` 
-            to perform the slices. The span is based on the 'custom_variable' andi s computed as follows : 
-            (var-varMin)/(varMax-varMin)
+            .. note:: 
 
-        torque_center : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy`
-            center for computation the torque contributions
+                for slicing_method = ``Custom``, this function automatically recomputes the span :math:`\in [0,1]` 
+                to perform the slices. The span is based on the 'custom_variable' and is computed as follows : 
+                :math:`(var-min(var))/(max(var)-min(var))`
+
+        torque_center : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
+
+            center for the computation of the torque contributions
 
         ReferencePressure : float
+
             Reference pressure. Put ambiant pressure as a reference for integration over a surface that is not closed (such as blades).
 
     Returns
     -------
 
-        loads : Zone_t containing a FlowSolution node with the following variables: 
-        ``SectionalForceX``, ``SectionalForceY``, ``SectionalForceZ``,
+        sectionalLoads : zone 
+            Zone containing a FlowSolution node with the following variables: 
+            ``SectionalForceX``, ``SectionalForceY``, ``SectionalForceZ``,
             ``SectionalTorqueX``, ``SectionalTorqueY``, ``SectionalTorqueZ``
             and ``SectionalSpan``.
 
@@ -1026,14 +1045,16 @@ def computeSectionalLoads(surface, distribution = np.linspace(0,1,100), slicing_
     '''
 
     def Abscissa(d): return (d-dmin)/(dmax-dmin)
-  
+     
+    if distribution == None:
+        distribution = np.linspace(0,1,101)
     
     if slicing_options['slicing_method'] == 'SpanBased':
         if geometrical_parameters['start_point'] == None or geometrical_parameters['end_point'] == None:
             ERRMSG = 'Span based sectional load computation requires both start_point and end_point as input parameters'
             raise ValueError(ERRMSG)
         else:
-            computeAndAddSpanToSurface(surface, np.array(geometrical_parameters['start_point']), np.array(geometrical_parameters['end_point']))
+            addSpan(surface, np.array(geometrical_parameters['start_point']), np.array(geometrical_parameters['end_point']))
             dmin = C.getMinValue(surface, 'Span')
             dmax = C.getMaxValue(surface, 'Span')            
             surface = C.initVars(surface,'Span2', Abscissa, ['Span'])
@@ -1078,9 +1099,9 @@ def computeSectionalLoads(surface, distribution = np.linspace(0,1,100), slicing_
         section = P.isoSurfMC(surface, slicing_var, d)
         
         C._normalize(section,['nx','ny','nz'])
-        C._initVars(section, 'fx=-({Pressure}-%s)*{nx}+{SkinFrictionX}'%(reference_pressure))
-        C._initVars(section, 'fy=-({Pressure}-%s)*{ny}+{SkinFrictionY}'%(reference_pressure))
-        C._initVars(section, 'fz=-({Pressure}-%s)*{nz}+{SkinFrictionZ}'%(reference_pressure))
+        C._initVars(section, 'fx=-({Pressure}-%.12g)*{nx}+{SkinFrictionX}'%(reference_pressure))
+        C._initVars(section, 'fy=-({Pressure}-%.12g)*{ny}+{SkinFrictionY}'%(reference_pressure))
+        C._initVars(section, 'fz=-({Pressure}-%.12g)*{nz}+{SkinFrictionZ}'%(reference_pressure))
 
         # computation of sectional forces
         SectionalForceX += [ -P.integ(section,'fx')[0] ]
