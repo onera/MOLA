@@ -151,6 +151,14 @@ def buildJob(case, config, jobTemplate='job_template.sh', JobFile = 'job.sh', ro
     JobText = JobText.replace('<JobName>', case['JobName'])
     JobText = JobText.replace('<AERnumber>', case['JobInformation']['AER'])
     JobText = JobText.replace('<NumberOfProcessors>', str(case['JobInformation']['NumberOfProcessors']))
+    #print('JobInformation:',case['JobInformation']['TimeLimit'])
+    #
+    #if case['JobInformation']['TimeLimit'] is None:
+    #    JobText = JobText.replace('<TimeLimit>', '15:00')
+    #else:
+    #    JobText = JobText.replace('<TimeLimit>', str(case['JobInformation']['TimeLimit']))
+    # 
+
     JobText = JobText.split('mpirun ')[0]
 
     # Add source to /etc/bashrc
@@ -899,7 +907,7 @@ def getTemplates(Workflow, otherWorkflowFiles=[], otherFiles=[],
 
 
 def updateJobFile(jobTemplate='job_template.sh', JobName=None, AER=None,
-                TimeLimit='0-15:00', NumberOfProcessors=None, DIRECTORY_WORK=None):
+                TimeLimit='0-15:00', NumberOfProcessors=None, DIRECTORY_WORK=None, QOS=None):
     '''
     Update job file.
 
@@ -917,15 +925,20 @@ def updateJobFile(jobTemplate='job_template.sh', JobName=None, AER=None,
 
         TimeLimit : :py:class:`str` or py:obj:`None`
             Time limit for the job. The default value is '0-15:00' (15h).
+            Time limit is set according to queue (spiro) if provided
 
         NumberOfProcessors : :py:class:`str` or py:obj:`None`
             Number of processors
 
         DIRECTORY_WORK : :py:class:`str` or py:obj:`None`
-            if provided, the directory where updated job file is to be moved
+            if provided, the directory where updated job file is to be vsmoved
+
+        QOS : :py:class:`str` or py:obj:`None`
+            Name of the spiro queue
+
 
     '''
-    if any([JobName, AER, TimeLimit not in ['0-15:00', '15:00'], NumberOfProcessors]):
+    if any([JobName, AER, TimeLimit not in ['0-15:00', '15:00'], NumberOfProcessors,QOS]):
         with open(jobTemplate, 'r') as f:
             JobText = f.read()
 
@@ -934,10 +947,21 @@ def updateJobFile(jobTemplate='job_template.sh', JobName=None, AER=None,
         if AER:
             JobText = JobText.replace('<AERnumber>', str(AER))
         if TimeLimit:
-            JobText = JobText.replace('#SBATCH -t 0-15:00', '#SBATCH -t {}'.format(TimeLimit))
+            if QOS=='c1_long_opa':
+                JobText = JobText.replace('#SBATCH -t 0-15:00', '#SBATCH -t 0-24:00')
+            elif QOS=='c1_nuit_giga':
+                JobText = JobText.replace('#SBATCH -t 0-15:00', '#SBATCH -t 0-10:00')
+            elif QOS=='c1_test_giga':
+                JobText = JobText.replace('#SBATCH -t 0-15:00', '#SBATCH -t 0-6:00')
+            elif QOS=='c1_inter_giga':
+                JobText = JobText.replace('#SBATCH -t 0-15:00', '#SBATCH -t 0-14:00')
+            else:
+                JobText = JobText.replace('#SBATCH -t 0-15:00', '#SBATCH -t {}'.format(TimeLimit))
         if NumberOfProcessors:
             JobText = JobText.replace('<NumberOfProcessors>', str(NumberOfProcessors))
             JobText = JobText.replace('$NPROCMPI', str(NumberOfProcessors))
+        if QOS:
+            JobText = JobText.replace('# #SBATCH --qos <qos>', '#SBATCH --qos {}'.format(QOS))
 
         with open(jobTemplate, 'w') as f:
             f.write(JobText)
