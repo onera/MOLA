@@ -2089,7 +2089,7 @@ if True:
 
 
 
-    def open(filename = ''):
+    def open(filename = ''): # LB : FIXME forbidden !! it overrides python native open function !!
         t = C.convertFile2PyTree(filename)
         deletePrintedLines()
         return t
@@ -2260,8 +2260,13 @@ if True:
             t = open(RestartPath)
             if PerturbationFieldPath:
                 PerturbationField = open(PerturbationFieldPath)
-                PerturbationField = vpm_cpp.build_perturbation_velocity_capsule(PerturbationField, NumberOfNodes)
-            else: PerturbationField = []
+                if VPMParameters['NumberOfThreads'] == 'auto':
+                    NbOfThreads = int(os.getenv('OMP_NUM_THREADS',len(os.sched_getaffinity(0))))
+                    VPMParameters['NumberOfThreads'] = NbOfThreads
+                else: NbOfThreads = VPMParameters['NumberOfThreads']
+                os.environ['OMP_NUM_THREADS'] = str(NbOfThreads)
+                PerturbationFieldCapsule = vpm_cpp.build_perturbation_velocity_capsule(PerturbationField, NbOfThreads)
+            else: PerturbationFieldCapsule = []
             try: tE = open('tE.cgns') # LB: TODO dangerous; rather use os.path.isfile()
             except: tE = []
         else:
