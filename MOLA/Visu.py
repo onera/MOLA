@@ -1257,6 +1257,9 @@ class Figure():
 
 
     def save(self, output_filename=''):
+        if not self.fig: 
+            self.createOverlap()
+            
         if not output_filename:
             output_filename = self.filename
 
