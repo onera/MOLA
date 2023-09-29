@@ -31,7 +31,7 @@ Author: Mikel Balmaseda
 '''
 
 # System modules
-import sys
+import sys, os
 import numpy as np
 from numpy.linalg import norm
 
@@ -45,6 +45,15 @@ from . import ShortCuts as SJ
 from . import ModalAnalysis   as MA
 from . import NonlinearForcesModels as NFM
 
+import MOLA.Data as D
+import MOLA.Data.BEMT as BEMT
+#from MOLA.Data.LiftingLine import LiftingLine
+import MOLA.VPM.VortexParticleMethod as VPM
+import MOLA.LiftingLine as LL
+
+import Transform.PyTree as T
+
+
 # Notices/Warnings colors
 FAIL  = '\033[91m'
 GREEN = '\033[92m' 
@@ -55,7 +64,7 @@ ENDC  = '\033[0m'
 
 
 #### AERODYNAMICS:
-def Macro_BEMT(t, PolarsInterpFuns, RPM):
+def Macro_BEMT(t, LiftingLine, RPM):
     '''
     This is a macro-function used for getting the values calculated by the BEMT theory 
 
@@ -85,23 +94,27 @@ def Macro_BEMT(t, PolarsInterpFuns, RPM):
 
     DictAerodynamicProperties = J.get(t, '.AerodynamicProperties')
 
-    LiftingLine = I.getNodeFromName(t, 'LiftingLine')
+    #LiftingLine = I.getNodeFromName(t, 'LiftingLine')
+    ResultsDict = BEMT.compute(LiftingLine, model='Drela',
+                             AxialVelocity=DictAerodynamicProperties['FlightConditions']['Velocity'], RPM=RPM, Pitch=DictAerodynamicProperties['BladeParameters']['Pitch']['PitchAngle'], NumberOfBlades=DictAerodynamicProperties['BladeParameters']['NBlades'],
+                             Density=DictAerodynamicProperties['FlightConditions']['Density'], Temperature=DictAerodynamicProperties['FlightConditions']['Temperature'])
 
-    ResultsDict = PA.computeBEMTaxial3D(LiftingLine, PolarsInterpFuns,
-    NBlades=DictAerodynamicProperties['BladeParameters']['NBlades'],
-    Constraint=DictAerodynamicProperties['BladeParameters']['Constraint'],
-    ConstraintValue=DictAerodynamicProperties['BladeParameters']['ConstraintValue'],
-    AttemptCommandGuess=[],
 
-    Velocity=[0.,0.,-DictAerodynamicProperties['FlightConditions']['Velocity']],  # Propeller's advance velocity (m/s)
-    RPM=RPM,              # Propellers angular speed (rev per min.)
-    Temperature = DictAerodynamicProperties['FlightConditions']['Temperature'],     # Temperature (Kelvin)
-    Density=DictAerodynamicProperties['FlightConditions']['Density'],          # Air density (kg/m3)
-    model=DictAerodynamicProperties['BEMTParameters']['model'],          # BEMT kind (Drela, Adkins or Heene)
-    TipLosses=DictAerodynamicProperties['BEMTParameters']['TipLosses'],
-
-    FailedAsNaN=True,
-    )
+#    ResultsDict = PA.computeBEMTaxial3D(LiftingLine, PolarsInterpFuns,
+#    NBlades=DictAerodynamicProperties['BladeParameters']['NBlades'],
+#    Constraint=DictAerodynamicProperties['BladeParameters']['Constraint'],
+#    ConstraintValue=DictAerodynamicProperties['BladeParameters']['ConstraintValue'],
+#    AttemptCommandGuess=[],
+#
+#    Velocity=[0.,0.,-DictAerodynamicProperties['FlightConditions']['Velocity']],  # Propeller's advance velocity (m/s)
+#    RPM=RPM,              # Propellers angular speed (rev per min.)
+#    Temperature = DictAerodynamicProperties['FlightConditions']['Temperature'],     # Temperature (Kelvin)
+#    Density=DictAerodynamicProperties['FlightConditions']['Density'],          # Air density (kg/m3)
+#    model=DictAerodynamicProperties['BEMTParameters']['model'],          # BEMT kind (Drela, Adkins or Heene)
+#    TipLosses=DictAerodynamicProperties['BEMTParameters']['TipLosses'],
+#
+#    FailedAsNaN=True,
+#    )
 
     print("RPM: %g rpm, Thrust: %g N,  Power: %g W,  Prop. Eff.: %g, | Pitch: %g deg"%(RPM, ResultsDict['Thrust'],ResultsDict['Power'],ResultsDict['PropulsiveEfficiency'],ResultsDict['Pitch']))
     print(WARN + '3D BEMT computation COMPLETED'+ENDC)
@@ -109,7 +122,383 @@ def Macro_BEMT(t, PolarsInterpFuns, RPM):
     I._addChild(t, LiftingLine)
  
 
-    return ResultsDict, t 
+    return ResultsDict, t , LiftingLine
+
+
+
+def Macro_VPM(tStructure, LiftingLine, RPM):
+    '''
+    This is a macro-function used for getting the values calculated by the VPM theory 
+
+    Parameters
+    ----------
+
+        t : cgns tree 
+            Contains the LiftingLine information
+
+        RPM : float
+            rotational speed of the blade [revolutions per minute]
+
+        PolarsInterpFuns: 
+        
+    Returns
+    -------
+
+        DictOfIntegralData : :py:class:`dict`
+            dictionary including predictions
+
+        Prop.Loads.Data : PUMA object
+
+        SectionalLoadsLL : PUMA object
+    '''
+    #LiftingLine[0] = 'HAD1'
+    
+    #C.convertPyTree2File(LiftingLine, 'LLBeforeProper.cgns')
+    Propeller = LL.buildPropeller(LiftingLine, NBlades = 4, InitialAzimutDirection = [1, 0, 0])
+    #Propeller[0] = 'HAD1'
+
+    C.convertPyTree2File(Propeller, 'LiftingLineVPM.cgns', 'bin_adf')
+
+    
+    VPMParameters = {
+    ##############################################################################################
+    ############################## Atmospheric/Freestream conditions #############################
+    ##############################################################################################
+        'Density'                       : 1.225,              #]0., +inf[, in kg.m^-3
+        'EddyViscosityConstant'         : 0.1,                #[0., +inf[, constant for the eddy viscosity model, Cm(Mansour) around 0.1, Cs(Smagorinsky) around 0.15, Cr(Vreman) around 0.07
+        'EddyViscosityModel'            : 'Vreman',           #Mansour, Mansour2, Smagorinsky, Vreman or None, select a LES model to compute the eddy viscosity
+        'KinematicViscosity'            : 1.46e-5,            #[0., +inf[, in m^2.s^-1
+        'Temperature'                   : 288.15,             #]0., +inf[, in K
+        'VelocityFreestream'            : [0., 0., 0.], #in m.s^-1, freestream velocity
+    ##############################################################################################
+    ####################################### VPM parameters #######################################
+    ##############################################################################################
+        'AntiStretching'                : 0.6,                 #[0., 1.], 0 means particle strength fully takes vortex stretching, 1 means the particle size fully takes the vortex stretching
+        'DiffusionScheme'               : 'CSM',              #PSE, CSM or None. gives the scheme used to compute the diffusion term of the vorticity equation
+        'RegularisationKernel'          : 'Gaussian',         #The only available smoothing kernel for now is Gaussian. The others are on their way ;-)
+        'SFSContribution'               : 0.,                 #[0., 1.], the closer to 0, the more the viscosity affects the particle strength, the closer to 1, the more it affects the particle size
+        'SmoothingRatio'                : 2.,                 #[1., +inf[, in m, anywhere between 1. and 2.5 is good, the higher the NumberSource or the smaller the Resolution and the higher the SmoothingRatio should be to avoid blowups, the HOA kernel requires a higher smoothing
+        'VorticityEquationScheme'       : 'Transpose',        #Classical, Transpose or Mixed, The schemes used to compute the vorticity equation are the classical scheme, the transpose scheme (conserves total vorticity) and the mixed scheme (a fusion of the previous two)
+    ##############################################################################################
+    #################################### Simulation Parameters ###################################
+    ##############################################################################################
+        'IntegrationOrder'              : 2,                  #[|1, 4|]1st, 2nd, 3rd or 4th order Runge Kutta
+        'LowStorageIntegration'         : 1,                  #[|0, 1|], states if the classical or the low-storage Runge Kutta is used
+    ##############################################################################################
+    ###################################### Particles Control #####################################
+    ##############################################################################################
+        'CutoffXmin'                    : -1.4*10,           #]-inf, +inf[, in m, spatial Cutoff
+        'CutoffXmax'                    : +1.4*10,           #]-inf, +inf[, in m, spatial Cutoff
+        'CutoffYmin'                    : -1.4*10,           #]-inf, +inf[, in m, spatial Cutoff
+        'CutoffYmax'                    : +1.4*10,           #]-inf, +inf[, in m, spatial Cutoff
+        'CutoffZmin'                    : -1.4*10,           #]-inf, +inf[, in m, spatial Cutoff
+        'CutoffZmax'                    : +0.30,           #]-inf, +inf[, in m, spatial Cutoff
+        'ForcedDissipation'             : 0.,                #[0., +inf[, in %/s, gives the % of strength particles looses per sec, usefull to kill unnecessary particles without affecting the LLs
+        'MaximumAgeAllowed'             : 72,                 #[|0., +inf[|,  particles are eliminated after MaximumAgeAllowed iterations, if MaximumAgeAllowed == 0, the age is not checked
+        'MaximumAngleForMerging'        : 25.,               #[0., 180.[ in deg,   maximum angle   allowed between two particles to be merged
+        'MaximumMergingVorticityFactor' : 100.,              #[0., +inf[, in %, particles can be merged if their combined strength is below the given poucentage of the maximum strength on the blades
+        'MinimumOverlapForMerging'      : 2.,                #]0., +inf[, if two particles have at least an overlap of MinimumOverlapForMerging*SigmaRatio, they are considered for merging
+        'MinimumVorticityFactor'        : 0.1,               #[0., +inf[, in %, sets the minimum strength kept as a percentage of the maximum strength on the blades
+        'RedistributeParticlesBeyond'   : 0.7,               #[0., +inf[, do not redistribute particles if closer than RedistributeParticlesBeyond*Resolution from a LL
+        'RedistributionKernel'          : 'None',            #M4Prime, M4, M3, M2, M1 or None, redistribution kernel used. the number gives the order preserved by the kernel
+        'RedistributionPeriod'          : 5,                 #[|0., +inf[|, frequency at which particles are redistributed
+        'RelaxationCutoff'              : 0.10,              #[0., +inf[, in Hz, is used during the relaxation process to realign the particles with their voticity and avoid having a non null divergence of the vorticity field
+        'RemoveWeakParticlesBeyond'     : 0.7,               #[0., +inf[, do not remove weak particles if closer than RemoveWeakParticlesBeyond*Resolution from a LL
+        'ResizeParticleFactor'          : 3.,                #[0, +inf[, resize particles that grow/shrink ResizeParticleFactor * Sigma0 (Sigma0 = Resolution*SmoothingRatio), if 0 then no resizing is done
+        'StrengthRampAtbeginning'       : 72,                #[|0, +inf [|, limit the vorticity shed for the StrengthRampAtbeginning first iterations for the wake to stabilise
+    ##############################################################################################
+    ####################################### FMM parameters #######################################
+    ##############################################################################################
+        'FarFieldApproximationOrder'    : 6,                 #[|6, 12|], order of the polynomial which approximates the far field interactions, the higher the more accurate and the more costly
+        'IterationTuningFMM'            : 50,                #[|0., +inf[|, frequency at which the FMM is compared to the direct computation, gives the relative L2 error
+        'NearFieldOverlappingRatio'     : 0.5,               #[0., 1.], gives the overlap beyond which the interactions between groups of particles are approximated by the FMM. The smaller the more accurate and the more costly
+        'NumberOfThreads'               : 'auto',            #number of threads of the machine used. If 'auto', the highest number of threads is set
+    }
+    LiftingLineParameters = {
+    ##############################################################################################
+    ################################## Lifting Lines parameters ##################################
+    ##############################################################################################
+        'CirculationThreshold'             : 1e-4,                     #]0., +inf[, convergence criteria for the circulation sub-iteration process, somewhere between 1e-3 and 1e-6 is ok
+        'CirculationRelaxation'            : 1./4.,                    #]0., 1.], relaxation parameter of the circulation sub-iterations, somwhere between 0.1 and 1 is good, the more unstable the simulation, the lower it should be
+        'GammaZeroAtRoot'                  : 1,                        #[|0, 1|], sets the circulation of the root of the blade to zero
+        'GammaZeroAtTip'                   : 1,                        #[|0, 1|], sets the circulation of the tip  of the blade to zero
+        'GhostParticleAtRoot'              : 0,                        #[|0, 1|], add a particles after the root of the blade
+        'GhostParticleAtTip'               : 0,                        #[|0, 1|], add a particles after the tip  of the blade
+        'IntegralLaw'                      : 'linear',                 #linear, pchip, interp1d or akima, gives the type of interpolation of the circulation on the lifting lines
+        'MaxLiftingLineSubIterations'      : 100,                      #[|0, +inf[|, max number of sub iteration when computing the LL circulations
+        'MinNbShedParticlesPerLiftingLine' : 40,                       #[|10, +inf[|, minimum number of station for every LL from which particles are shed
+        'ParticleDistribution'             : dict(kind='tanhTwoSides', #uniform, tanhOneSide, tanhTwoSides or ratio, repatition law of the particles on the Lifting Lines
+                                                  #FirstCellHeight = 0.004,
+                                                  FirstSegmentRatio=2.,#]0., +inf[, size of the particles at the root of the blades relative to Sigma0 (i.e. Resolution*SmoothingRatio)
+                                                  LastSegmentRatio=0.5,#]0., +inf[, size of the particles at the tip  of the blades relative to Sigma0 (i.e. Resolution*SmoothingRatio)
+                                                  Symmetrical=False),  #[|0, 1|], gives a symmetrical repartition of particles along the blades or not, if symmetrical, MinNbShedParticlesPerLiftingLine should be even
+        'Pitch'                            : 0.,                      #]-180, 180[ in deg, gives the pitch added to all the lifting lines, if 0 no pitch is added
+        'RPM'                              : RPM,                    #]-inf, inf[in tr.min^-1, rotation per minute
+        'VelocityTranslation'              : [0., 0., 0.],             #E |R^3, in m.s^-1, kinematic velocity of the Lifting Lines
+    }
+
+    #b = 0.8 - 0.12
+    #VPMParameters['TimeStep'] = 5.*b/(VPMParameters['MinNbShedParticlesPerLiftingLine'] - 2.)\
+    #                            /(np.linalg.norm(VPMParameters['VelocityFreestream'] - LiftingLineParameters['VelocityTranslation'])**2\
+    #                            + (VPMParameters['RPM']*np.pi/30.*0.8)**2)**0.5
+    #b = 0.8
+    VPMParameters['TimeStep'] = 5./LiftingLineParameters['RPM']/6.
+
+    DIRECTORY_OUTPUT = 'OUTPUT_VPM_%s/'%RPM
+    RESTART = 0
+    RestartPath = None
+    EulerianPath = None
+    HybridParameters = {}
+
+    LiftingLinePath = 'LiftingLineVPM.cgns'
+    PolarsFilename = 'INPUT/Polars/Polars.cgns'
+
+    NumberOfIterations = 1080
+    VisualisationOptions = {'addLiftingLineSurfaces':True}
+    StdDeviationSample = 50
+    SaveVPMPeriod = 120
+    Verbose = True 
+    SaveImageOptions={'ImagesDirectory':'FRAMES_%s'%RPM}
+    Surface = 0. 
+    FieldsExtractionGrid = [] 
+    SaveFieldsPeriod = np.inf 
+    SaveImagePeriod = np.inf 
+
+
+    try: os.makedirs(DIRECTORY_OUTPUT)
+    except: pass
+    if PolarsFilename: AirfoilPolars = VPM.loadAirfoilPolars(PolarsFilename)
+    else: AirfoilPolars = None
+    if RestartPath:
+        t = open(RestartPath)
+        try: tE = open('tE.cgns') # LB: TODO dangerous; rather use os.path.isfile()
+        except: tE = []
+    else:
+        #LiftingLine = LiftingLine
+        if LiftingLinePath: LiftingLine = VPM.open(LiftingLinePath) # LB: TODO dangerous; rather use os.path.isfile()
+        else: LiftingLine = []
+        #if EulerianPath: EulerianMesh = open(EulerianPath)
+        #else: EulerianMesh = []
+        
+        EulerianMesh = EulerianPath
+        t, tE = VPM.initialiseVPM(EulerianMesh = EulerianMesh, HybridParameters = HybridParameters,
+                    LiftingLineTree = LiftingLine,LiftingLineParameters = LiftingLineParameters,
+                    PolarInterpolator = AirfoilPolars, VPMParameters = VPMParameters)
+    
+    IterationInfo = {'Rel. err. of Velocity': 0, 'Rel. err. of Velocity Gradient': 0,
+                        'Rel. err. of PSE': 0}
+    TotalTime = J.tic()
+    sp = VPM.getVPMParameters(t)
+    Np = VPM.pickParticlesZone(t)[1][0]
+    LiftingLines = LL.getLiftingLines(t)
+    h = sp['Resolution'][0]
+    it = sp['CurrentIteration']
+    simuTime = sp['Time']
+    maxAge = sp['MaximumAgeAllowed']
+    PSE = VPM.DiffusionScheme_str2int[sp['DiffusionScheme']] == 1
+    Freestream = (np.linalg.norm(sp['VelocityFreestream']) != 0.)
+    Wing = (len(I.getZones(LiftingLines)) == 1)
+    if AirfoilPolars: VisualisationOptions['AirfoilPolarsFilename'] = PolarsFilename
+    else: VisualisationOptions['addLiftingLineSurfaces'] = False
+    #filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_It%d.cgns'%it[0])
+    #VPM.save(t, filename, VisualisationOptions, 'bin_adf')
+    #filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_It%d.tp'%it[0])
+    #VPM.save(t, filename, VisualisationOptions, 'bin_tp')
+    #J.createSymbolicLink(filename,  DIRECTORY_OUTPUT + '.cgns')
+    for _ in range(3): print('||' + '{:=^50}'.format(''))
+    print('||' + '{:=^50}'.format(' Begin VPM Computation '))
+    for _ in range(3): print('||' + '{:=^50}'.format(''))
+    while it[0] < NumberOfIterations:
+        SAVE_ALL = J.getSignal('SAVE_ALL')
+        SAVE_FIELDS = ((it + 1)%SaveFieldsPeriod==0 and it>0) or J.getSignal('SAVE_FIELDS')
+        SAVE_IMAGE = ((it + 1)%SaveImagePeriod==0 and it>0) or J.getSignal('SAVE_IMAGE')
+        SAVE_VPM = ((it + 1)%SaveVPMPeriod==0) or J.getSignal('SAVE_VPM')
+        CONVERGED = J.getSignal('CONVERGED')
+        if CONVERGED: SAVE_ALL = True
+        if SAVE_ALL:
+            SAVE_FIELDS = SAVE_VPM = True
+        
+        IterationTime = J.tic()
+        VPM.computeNextTimeStep(t)
+        IterationInfo['Iteration'] = it[0] 
+        IterationInfo['Percentage'] = it[0]/NumberOfIterations*100.
+        IterationInfo['Physical time'] = simuTime[0]
+        IterationInfo = VPM.generateParticlesInHybridInterfaces(t, tE, IterationInfo)
+        
+        # Modify the age of the maximum old particles to ease the convergence 
+        if it[0]%2: maxAge[0] += 1
+
+        IterationInfo = VPM.populationControl(t, [], IterationInfo)
+        IterationInfo = VPM.shedParticlesFromLiftingLines(t, AirfoilPolars, IterationInfo)
+        IterationInfo['Number of particles'] = Np[0]
+        IterationInfo = VPM.solveVorticityEquation(t, IterationInfo = IterationInfo)
+        IterationInfo['Total iteration time'] = J.tic() - IterationTime
+        IterationInfo = VPM.getAerodynamicCoefficientsOnLiftingLine(LiftingLines, Wings = Wing,
+                               StdDeviationSample = StdDeviationSample, Freestream = Freestream, 
+                                               IterationInfo = IterationInfo, Surface = Surface)
+        IterationInfo['Total simulation time'] = J.tic() - TotalTime
+        if Verbose: VPM.printIterationInfo(IterationInfo, PSE = PSE, Wings = Wing)
+        if (SAVE_FIELDS or SAVE_ALL) and FieldsExtractionGrid:
+            VPM.extract(t, FieldsExtractionGrid, 5000)
+            filename = os.path.join(DIRECTORY_OUTPUT, 'fields_It%d.cgns'%it)
+            VPM.save(FieldsExtractionGrid, filename)
+            J.createSymbolicLink(filename, 'fields.cgns')
+        if SAVE_IMAGE or SAVE_ALL:
+            VPM.setVisualization(t, **VisualisationOptions)
+            VPM.saveImage(t, **SaveImageOptions)
+        if SAVE_VPM or SAVE_ALL:
+            filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_It%d.cgns'%it)
+            VPM.save(t, filename, VisualisationOptions)
+            J.createSymbolicLink(filename,  DIRECTORY_OUTPUT + '.cgns')
+        if CONVERGED: break
+        
+        
+
+
+    VPM.save(t, DIRECTORY_OUTPUT + '.cgns', VisualisationOptions)
+    for _ in range(3): print('||' + '{:=^50}'.format(''))
+    print('||' + '{:-^50}'.format(' End of VPM computation '))
+    for _ in range(3): print('||' + '{:=^50}'.format(''))
+
+    
+    LiftingLineSingle = I.copyTree(I.getNodesFromName(t, '*blade1')[0])
+    Azimuth = sp['Time'][-1]/60.*RPM*360 % 360
+    
+    LiftingLineSingle = T.rotate(LiftingLineSingle, (0,0,0),(0,0,1),-Azimuth, vectors = [['fx', 'fy', 'fz'], ['mx', 'my', 'mz'], ['bx', 'by', 'bz'], ['nx', 'ny', 'nz'], ['tx', 'ty', 'tz']])
+    print(Azimuth)
+    
+    LiftingLineSingle[0] = 'LiftingLine'
+
+    return LiftingLineSingle
+
+
+
+
+
+
+    def preprocessVPMforAEL():
+        try: os.makedirs(DIRECTORY_OUTPUT)
+        except: pass
+
+        if PolarsFilename: AirfoilPolars = loadAirfoilPolars(PolarsFilename)
+        else: AirfoilPolars = None
+
+        if RestartPath:
+            t = open(RestartPath)
+            try: tE = open('tE.cgns') # LB: TODO dangerous; rather use os.path.isfile()
+            except: tE = []
+        else:
+            if LiftingLinePath: LiftingLine = open(LiftingLinePath) # LB: TODO dangerous; rather use os.path.isfile()
+            else: LiftingLine = []
+            #if EulerianPath: EulerianMesh = open(EulerianPath)
+            #else: EulerianMesh = []
+            EulerianMesh = EulerianPath
+            t, tE = initialiseVPM(EulerianMesh = EulerianMesh, HybridParameters = HybridParameters,
+                        LiftingLineTree = LiftingLine,LiftingLineParameters = LiftingLineParameters,
+                        PolarInterpolator = AirfoilPolars, VPMParameters = VPMParameters)
+
+        
+        IterationInfo = {'Rel. err. of Velocity': 0, 'Rel. err. of Velocity Gradient': 0,
+                            'Rel. err. of PSE': 0}
+        TotalTime = J.tic()
+        sp = getVPMParameters(t)
+        Np = pickParticlesZone(t)[1][0]
+        LiftingLines = LL.getLiftingLines(t)
+
+        h = sp['Resolution'][0]
+        it = sp['CurrentIteration']
+        simuTime = sp['Time']
+        PSE = DiffusionScheme_str2int[sp['DiffusionScheme']] == 1
+        Freestream = (np.linalg.norm(sp['VelocityFreestream']) != 0.)
+        Wing = (len(I.getZones(LiftingLines)) == 1)
+        if AirfoilPolars: VisualisationOptions['AirfoilPolarsFilename'] = PolarsFilename
+        else: VisualisationOptions['addLiftingLineSurfaces'] = False
+
+        filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_It%d.cgns'%it[0])
+        save(t, filename, VisualisationOptions)
+        J.createSymbolicLink(filename,  DIRECTORY_OUTPUT + '.cgns')
+        for _ in range(3): print('||' + '{:=^50}'.format(''))
+        print('||' + '{:=^50}'.format(' Begin VPM Computation '))
+        for _ in range(3): print('||' + '{:=^50}'.format(''))
+        while it[0] < NumberOfIterations:
+            SAVE_ALL = J.getSignal('SAVE_ALL')
+            SAVE_FIELDS = ((it + 1)%SaveFieldsPeriod==0 and it>0) or J.getSignal('SAVE_FIELDS')
+            SAVE_IMAGE = ((it + 1)%SaveImagePeriod==0 and it>0) or J.getSignal('SAVE_IMAGE')
+            SAVE_VPM = ((it + 1)%SaveVPMPeriod==0) or J.getSignal('SAVE_VPM')
+            CONVERGED = J.getSignal('CONVERGED')
+            if CONVERGED: SAVE_ALL = True
+
+            if SAVE_ALL:
+                SAVE_FIELDS = SAVE_VPM = True
+            
+            IterationTime = J.tic()
+            computeNextTimeStep(t)
+            IterationInfo['Iteration'] = it[0]
+            IterationInfo['Percentage'] = it[0]/NumberOfIterations*100.
+            IterationInfo['Physical time'] = simuTime[0]
+            IterationInfo = generateParticlesInHybridInterfaces(t, tE, IterationInfo)
+            IterationInfo = populationControl(t, [], IterationInfo)
+            IterationInfo = shedParticlesFromLiftingLines(t, AirfoilPolars, IterationInfo)
+            IterationInfo['Number of particles'] = Np[0]
+            IterationInfo = solveVorticityEquation(t, IterationInfo = IterationInfo)
+            IterationInfo['Total iteration time'] = J.tic() - IterationTime
+            IterationInfo = getAerodynamicCoefficientsOnLiftingLine(LiftingLines, Wings = Wing,
+                                   StdDeviationSample = StdDeviationSample, Freestream = Freestream, 
+                                                   IterationInfo = IterationInfo, Surface = Surface)
+            IterationInfo['Total simulation time'] = J.tic() - TotalTime
+            if Verbose: printIterationInfo(IterationInfo, PSE = PSE, Wings = Wing)
+
+            if (SAVE_FIELDS or SAVE_ALL) and FieldsExtractionGrid:
+                extract(t, FieldsExtractionGrid, 5000)
+                filename = os.path.join(DIRECTORY_OUTPUT, 'fields_It%d.cgns'%it)
+                save(FieldsExtractionGrid, filename)
+                J.createSymbolicLink(filename, 'fields.cgns')
+
+            if SAVE_IMAGE or SAVE_ALL:
+                setVisualization(t, **VisualisationOptions)
+                saveImage(t, **SaveImageOptions)
+
+            if SAVE_VPM or SAVE_ALL:
+                filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_It%d.cgns'%it)
+                save(t, filename, VisualisationOptions)
+                J.createSymbolicLink(filename,  DIRECTORY_OUTPUT + '.cgns')
+
+            if CONVERGED: break
+            
+        save(t, DIRECTORY_OUTPUT + '.cgns', VisualisationOptions)
+        for _ in range(3): print('||' + '{:=^50}'.format(''))
+        print('||' + '{:-^50}'.format(' End of VPM computation '))
+        for _ in range(3): print('||' + '{:=^50}'.format(''))
+
+
+    XXXXX
+
+
+
+
+
+
+
+    print (CYAN+'Launching VPM computation...'+ENDC)
+
+    DictAerodynamicProperties = J.get(t, '.AerodynamicProperties')
+
+    #LiftingLine = I.getNodeFromName(t, 'LiftingLine')
+
+    ResultsDict = BEMT.compute(LL, model='Drela',
+                             AxialVelocity=DictAerodynamicProperties['FlightConditions']['Velocity'], RPM=RPM, Pitch=DictAerodynamicProperties['BladeParameters']['Pitch']['PitchAngle'], NumberOfBlades=DictAerodynamicProperties['BladeParameters']['NBlades'],
+                             Density=DictAerodynamicProperties['FlightConditions']['Density'], Temperature=DictAerodynamicProperties['FlightConditions']['Temperature'])
+
+
+    print("RPM: %g rpm, Thrust: %g N,  Power: %g W,  Prop. Eff.: %g, | Pitch: %g deg"%(RPM, ResultsDict['Thrust'],ResultsDict['Power'],ResultsDict['PropulsiveEfficiency'],ResultsDict['Pitch']))
+    print(WARN + '3D BEMT computation COMPLETED'+ENDC)
+
+    I._addChild(t, LL)
+ 
+
+    return ResultsDict, t , LL
+
+
 
 def ComputeExternalForce(t):
 
@@ -645,18 +1034,18 @@ def SolveStatic(t, RPM, ForceCoeff=1.):
                - 'FixPoint'
     '''
     DictSimulaParam = J.get(t, '.SimulationParameters')
-
+    
     if DictSimulaParam['IntegrationProperties']['IntegrationMethod']['MethodName'] == 'Newton_Raphson':
         
         q, fnl_q , Fext_q, time =  StaticSolver_Newton_Raphson(t, RPM, ForceCoeff)
         
     if DictSimulaParam['IntegrationProperties']['IntegrationMethod']['MethodName'] == 'AEL':
-        if DictSimulaParam['IntegrationProperties']['IntegrationMethod']['TypeAEL'] == 'Static_Newton1':
+        if DictSimulaParam['IntegrationProperties']['IntegrationMethod']['Parameters']['Type'] == 'Static_Newton1':
             # NewtonRhapson with one iteration:
             q, fnl_q , Fext_q =  StaticSolver_Newton_Raphson1IncrFext(t, RPM, ForceCoeff)
             time = None
             
-        if DictSimulaParam['IntegrationProperties']['IntegrationMethod']['TypeAEL'] == 'FOM':
+        if DictSimulaParam['IntegrationProperties']['IntegrationMethod']['Parameters']['Type'] == 'FOM':
             pass # ComputeStaticU4GivenLoading(t, RPM, LoadVector, **kwargs)
             
 
