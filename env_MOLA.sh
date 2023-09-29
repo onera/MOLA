@@ -18,7 +18,7 @@ export TURBOVERSION=v1.2.2
 export ERSTAZVERSION=v1.6.3
 export MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
 export MOLASATORext=/tmp_user/sator/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
-export OWNCASSREV=rev4665
+export OWNCASSREV=rev4670
 export MAIAVERSION=1.2
 ###############################################################################
 
