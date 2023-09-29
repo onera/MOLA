@@ -491,10 +491,10 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades, RowFamily='ROW',
             T._translate(Skeleton, (0,0,-0.5))
             P._extractMesh(Skeleton, bodyForce, order=2, extrapOrder=0) 
             bodyForce = computeBlockage(bodyForce, NumberOfBlades)
-            # bodyForce = P.computeGrad(bodyForce, 'x')
-            # I._rmNodesByName(t, 'gradyx')
-            # I._rmNodesByName(t, 'gradzx')
-            # I._renameNode(t, 'gradxx', 'dx')
+            bodyForce = P.computeGrad(bodyForce, 'CoordinateX')
+            I._rmNodesByName(bodyForce, 'gradyCoordinateX')
+            I._rmNodesByName(bodyForce, 'gradzCoordinateX')
+            I._renameNode(bodyForce, 'gradxCoordinateX', 'dx')
             # addMetalAngle(bodyForce)
             bodyForce = C.node2Center(bodyForce, I.__FlowSolutionNodes__)
             I._rmNodesByName1(bodyForce, I.__FlowSolutionNodes__)
@@ -1150,6 +1150,7 @@ AvailableBodyForceModels = dict(
     constant = BFM.BodyForceModel_constant,
     ShockWaveLoss = BFM.BodyForceModel_ShockWaveLoss,
     EndWallsProtection = BFM.BodyForceModel_EndWallsProtection,
+    spreadPressureLossAlongChord = BFM.spreadPressureLossAlongChord,
 )
 
 def computeBodyForce(t, BodyForceParameters):

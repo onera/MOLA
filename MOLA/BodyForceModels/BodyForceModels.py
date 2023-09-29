@@ -518,7 +518,7 @@ def BodyForceModel_ShockWaveLoss(t, BodyForceParameters):
     return NewSourceTermsGlobal
 
 
-def spreadPressureLossAlongChord(t, BodyForceParameters, Distribution='uniform'):
+def spreadPressureLossAlongChord(t, BodyForceParameters, Loss=None, Distribution='uniform'):
 
     FluidProperties = BodyForceParameters.get('FluidProperties')
     TurboConfiguration = BodyForceParameters.get('TurboConfiguration')
@@ -532,9 +532,12 @@ def spreadPressureLossAlongChord(t, BodyForceParameters, Distribution='uniform')
         FlowSolution = J.getVars2Dict(zone, Container='FlowSolution#Init')
         DataSourceTerms = J.getVars2Dict(zone, Container='FlowSolution#DataSourceTerm')
         tmpMOLAFlow = BF.getAdditionalFields(zone, FluidProperties, RotationSpeed)
+        
+        if Loss is None:
+            PtLoss = tmpMOLAFlow['PtLoss']
 
         if Distribution == 'uniform':
-            gradPtLoss = tmpMOLAFlow['PtLoss'] / DataSourceTerms['ChordX'] / DataSourceTerms['dx']
+            gradPtLoss = PtLoss / DataSourceTerms['ChordX'] / DataSourceTerms['dx']
         else:
             raise ValueError(f"Distribution='{Distribution}' is not implemented. Only 'uniform' is available.")
 
