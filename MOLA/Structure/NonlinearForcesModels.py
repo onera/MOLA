@@ -371,8 +371,6 @@ def combination_to_product(q, listcomb):
         temp = 1
         comb = listcomb[i]
         for j in range(nbelemcomb):
-            print(q)
-            print(comb)
             temp = temp*q[comb[j]]
         Qvect[i] = temp
 
@@ -381,18 +379,22 @@ def combination_to_product(q, listcomb):
 def QuadraticCombinationMatrix(q_Save):
 
     nf = np.shape(q_Save)[0]
-    nL = np.shape(q_Save)[1]
-
+    try:
+        nL = np.shape(q_Save)[1]
+    except:
+        nL = 1
     indexes = [i for i in range(nf)]
     comb2 = combinations_with_replacement(indexes, 2) # as the list [1,2,3] is given in growing order, the combinations will be in ordered (ex (1,2) and not (2,1) )
     listcomb2 = list(comb2)
 
     QuadraticComMatrix = np.zeros((len(listcomb2),nL))
     for i in range(nL):
-        qf = q_Save[:,i].reshape((nf,1))
-        
+        try:
+            qf = q_Save[:,i].reshape((nf,1))
+        except:
+            qf = q_Save.reshape(nf,1)
         QuadraticComMatrix[:,i] = combination_to_product(qf, listcomb2).reshape((len(listcomb2),))
-        
+    
     return QuadraticComMatrix
 
 
@@ -535,7 +537,7 @@ def CalcKnl_IC_kl(Beta,Gamma,qvect,k,l):
     
     # derivatives of the cubic terms ============================
     for i in range(nq):
-        for j in range(nq):
+        for j in range(i, nq):
             if j < l:
                 Knl3_IC_kl += Gamma[k,i,j,l]*q[i]*q[j]
             elif j == l:
