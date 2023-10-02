@@ -2811,7 +2811,8 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
                 BodyForceComputeFrequency = 50,
                 BodyForceSaveFrequency    = 100,
                 ConvergenceCriteria = [],
-                FirstIterationForFieldsAveraging=None
+                FirstIterationForFieldsAveraging=None,
+                DeleteZoneBCGT=False
 
         FieldsAdditionalExtractions : :py:class:`list` of :py:class:`str`
             elsA or CGNS keywords of fields to be extracted.

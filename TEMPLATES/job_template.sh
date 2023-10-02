@@ -5,7 +5,8 @@
 #SBATCH -e error.%j.log
 #SBATCH -t 0-15:00
 #SBATCH -n <NumberOfProcessors>
-# #SBATCH --constraint="csl"
+#SBATCH --constraint="csl"
+# #SBATCH --qos <qos>
 # NOTE : if job is used in SPIRO, then flag --qos (e.g. c1_test_giga)
 #        must also be provided
 

@@ -47,13 +47,14 @@ from . import WorkflowCompressor as WC
 
 def prepareMesh4ElsA(mesh, **kwargs):
     '''
-    Exactly like :py:func:`MOLA.Preprocess.prepareMesh4ElsA`
+    Exactly like :py:func:`MOLA.WorkflowCompressor.prepareMesh4ElsA`
     '''
     return WC.prepareMesh4ElsA(mesh, **kwargs)
 
 def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         NumericalParams={}, OverrideSolverKeys ={}, Extractions=[],
-        writeOutputFields=True, Initialization={'method':'uniform'}, TurboConfiguration={},
+        BodyForceInputData={}, writeOutputFields=True, Initialization={'method':'uniform'}, 
+        TurboConfiguration={},
         BoundaryConditions=[],bladeFamilyNames=['Blade'],
         JobInformation={}, SubmitJob=False, FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
     '''
@@ -98,6 +99,21 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         Extractions : :py:class:`list` of :py:class:`dict`
             List of extractions to perform during the simulation. See
             documentation of :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
+
+        BodyForceInputData : :py:class:`dict`
+            if provided, each key in this :py:class:`dict` is the name of a row family to model
+            with body-force. The associated value is a sub-dictionary, with the following 
+            potential entries:
+
+                * model (:py:class:`dict`): the name of the body-force model to apply. Available models 
+                  are: 'hall', 'blockage', 'Tspread', 'constant'.
+
+                * rampIterations (:py:class:`dict`): The number of iterations to apply a ramp on source terms, 
+                  starting from `BodyForceInitialIteration` (in `ReferenceValues['CoprocessOptions']`). 
+                  If not given, there is no ramp (source terms are fully applied from the `BodyForceInitialIteration`).
+
+                * other optional parameters depending on the **model** 
+                  (see dedicated functions in :mod:`MOLA.BodyForceTurbomachinery`).
 
         writeOutputFields : bool
             if :py:obj:`True`, write initialized fields overriding
@@ -146,14 +162,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                 ultra-light file containing all relevant info of the simulation
     '''
     toc = J.tic()
-    def addFieldExtraction(fieldname):
-        try:
-            FieldsExtr = ReferenceValuesParams['FieldsAdditionalExtractions']
-            if fieldname not in FieldsExtr.split():
-                FieldsExtr += ' '+fieldname
-        except:
-            ReferenceValuesParams['FieldsAdditionalExtractions'] = fieldname
-
+    
     if isinstance(mesh,str):
         t = J.load(mesh)
     elif I.isTopTree(mesh):
@@ -162,7 +171,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         raise ValueError('parameter mesh must be either a filename or a PyTree')
 
     IsUnstructured = PRE.hasAnyUnstructuredZones(t)
-
+    TurboConfiguration = WC.getTurboConfiguration(t, BodyForceInputData=BodyForceInputData, **TurboConfiguration)
     FluidProperties = PRE.computeFluidProperties()
     if not 'Surface' in ReferenceValuesParams:
         ReferenceValuesParams['Surface'] = 1.0
@@ -190,6 +199,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     else:
         CHORO_TAG = False
 
+    if BodyForceInputData: 
+        NumericalParams['useBodyForce'] = True
     elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-4, unstructured=IsUnstructured)
     elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=IsUnstructured)
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues, **NumericalParams, unstructured=IsUnstructured)
@@ -198,6 +209,12 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             MSG = 'Flow initialization failed. No initial solution provided. Chorochronic simulations must be initialized from a mixing plane solution obtained on the same mesh'
             print(J.FAIL + MSG + J.ENDC)
             raise Exception(J.FAIL + MSG + J.ENDC)
+    
+    if not 'PeriodicTranslation' in TurboConfiguration and \
+        any([rowParams['NumberOfBladesSimulated'] > rowParams['NumberOfBladesInInitialMesh'] \
+            for rowParams in TurboConfiguration['Rows'].values()]):
+        t = WC.duplicateFlowSolution(t, TurboConfiguration)
+
     PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
 
     WC.setMotionForRowsFamilies(t, TurboConfiguration)
@@ -205,6 +222,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                             FluidProperties,ReferenceValues, bladeFamilyNames=bladeFamilyNames)    
 
     WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
+
+    WC.addMonitoredRowsInExtractions(Extractions, TurboConfiguration)
 
     allowed_override_objects = ['cfdpb','numerics','model']
     for v in OverrideSolverKeys:
@@ -228,6 +247,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                         elsAkeysModel=elsAkeysModel,
                         elsAkeysNumerics=elsAkeysNumerics,
                         Extractions=Extractions)
+                         
+    if BodyForceInputData: 
+        AllSetupDicts['BodyForceInputData'] = BodyForceInputData
 
     PRE.addTrigger(t)
 

@@ -36,7 +36,9 @@ ENDC  = '\033[0m'
 
 # System modules
 import numpy as np
-import vg
+import copy
+#import vg
+import scipy.integrate as sint
 from scipy.sparse import csr_matrix, find, issparse
 from itertools import combinations_with_replacement
 import scipy.interpolate as inter
@@ -48,11 +50,17 @@ import Converter.PyTree as C
 
 from .. import InternalShortcuts as J
 from .. import Wireframe as W
-from .. import LiftingLine  as LL
-# from .  import Models as SM
-from .Models import IsMeshInCaracteristics, ListXYZFromVectFull
+#from .. import LiftingLine  as LL
+from .  import Models as SM
+#from .Models import IsMeshInCaracteristics, ListXYZFromVectFull
 from .  import NonlinearForcesModels as NFM
 from .  import PostProcess as SPT
+
+import MOLA.Data as D
+import MOLA.Data.BEMT as BEMT
+#from MOLA.Data.LiftingLine import LiftingLine
+import math 
+    
 
 try:
     #Code Aster:
@@ -61,71 +69,89 @@ try:
 except:
     print(WARN + 'Code_Aster modules are not loaded!!' + ENDC)
 
+def dotproduct(v1, v2): 
+        return sum((a*b) for a, b in zip(v1, v2)) 
+def length(v): 
+    return math.sqrt(dotproduct(v, v)) 
+
+def angle(v1, v2):
+    CompAngle =  math.acos(dotproduct(v1, v2) / (length(v1) * length(v2))) 
+    if CompAngle > np.pi/2.:
+        CompAngle -= np.pi/2.
+    return CompAngle
+
 def merge_dicts(a, b):
     m = a.copy()
     m.update(b)
     return m
 
-def FieldVarsName4Zone(t,FieldName, Type_Element):
+def FieldVarsName4Zone(t,FieldNames, Type_Element):
     DictStructParam = J.get(t, '.StructuralParameters')
-    ddlName =['x', 'y', 'z']
-    IsInCara, Caraddl = IsMeshInCaracteristics(t, DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['ListOfElem'][0])
-    if IsInCara and (FieldName != 'Gus'):
-        ddlName = Caraddl
-    FieldVarsName = [FieldName + x for x in ddlName]
-
+    FieldVarsName = []
+    for FieldName in FieldNames:
+        ddlName =['x', 'y', 'z']
+        IsInCara, Caraddl = SM.IsMeshInCaracteristics(t, DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['ListOfElem'][0])
+        if IsInCara and (FieldName != 'Gus'):
+            ddlName = Caraddl
+        for varName in [FieldName + x for x in ddlName]:
+            FieldVarsName.append(varName)  
     return FieldVarsName
 
-def CreateNewSolutionFromNdArray(t, FieldDataArray = [], ZoneName=[],
-                                    FieldName = 'U'
+def CreateNewSolutionFromNdArray(t, FieldDataArray = [], ZoneName='',
+                                    FieldName = ['U']
                                     ):
-
-
+    """Note that the first array will determine the shape of the zone"""
+    
     DictStructParam = J.get(t, '.StructuralParameters')
+    Data = []
+    
+    for FieldData in FieldDataArray:
+        for ArrayValue in SM.ListXYZFromVectFull(t, FieldData):
+            Data.append(ArrayValue)
 
-    InitMesh = I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t')
+    FieldDataArray = Data #SM.ListXYZFromVectFull(t, FieldDataArray)
+    
     NewZones = []
+    for InitMesh in I.getNodesFromNameAndType(t, 'Element*', 'Zone_t'):#DictStructParam['MeshProperties']['DictElements']['GroupOfElements']: #:
 
-    FieldDataArray = ListXYZFromVectFull(t, FieldDataArray)
+        Type_Element = InitMesh[0].split('.')[0][8:]
+        NewZoneName = ZoneName + '_'+InitMesh[0][8:]
 
-    for InitMesh in I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t'):
+        NewZone = I.getNodeFromNameAndType(t,NewZoneName, 'Zone_t')
 
-        Type_Element = InitMesh[0][12:]
-        NewZoneName = ZoneName + '_'+Type_Element
-        NewZone = I.getNodeFromNameAndType(t, NewZoneName, 'Zone_t')
-
-
-
-        if (NewZone is None):
-
+        if NewZone is None:
             NewZone = I.copyTree(InitMesh)
+            #print('NewZoneName:%s'%NewZoneName)
+            #print(InitMesh)
+            #I.printTree(t)
             NewZone[0] = NewZoneName
+
+
             #J._invokeFields(NewZone, ['NodesPosition'])
+            #Position = J.getVars(NewZone, ['NodesPosition'])
+            #Position[:] = DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']
+            #print(DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element])
+            #print(Position)
 
-        Position = J.getVars(NewZone, ['NodesPosition'])
-        Position[:] = DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']
-
-
-        if  'U' in FieldName:
             XCoord, YCoord, ZCoord = J.getxyz(NewZone)
 
-            FieldCoordX = np.array(FieldDataArray[0][Position])
-            FieldCoordY = np.array(FieldDataArray[1][Position])
-            FieldCoordZ = np.array(FieldDataArray[2][Position])
 
-            #print(FieldDataArray)
+            FieldCoordX = FieldDataArray[0][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]  #np.array(FieldDataTable.values()['DX'][:])
+            FieldCoordY = FieldDataArray[1][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]  #np.array(FieldDataTable.values()['DY'][:])
+            FieldCoordZ = FieldDataArray[2][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]  #np.array(FieldDataTable.values()['DZ'][:])
+
+
             XCoord[:] = XCoord + FieldCoordX
             YCoord[:] = YCoord + FieldCoordY
             ZCoord[:] = ZCoord + FieldCoordZ
 
-
-
         FieldVarsName = FieldVarsName4Zone(t, FieldName, Type_Element)
-        #print(FieldVarsName)
+        
         Vars = J.invokeFields(NewZone, FieldVarsName)
+        
         for Var, pos in zip(Vars, range(len(Vars))):
+            Var[:] = FieldDataArray[pos][DictStructParam['MeshProperties']['DictElements']['GroupOfElements'][Type_Element]['NodesPosition']]
 
-            Var[:] = FieldDataArray[pos][Position]
 
         NewZones.append(NewZone)
 
@@ -134,8 +160,7 @@ def CreateNewSolutionFromNdArray(t, FieldDataArray = [], ZoneName=[],
 
 def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
                                     FieldName = 'U',
-                                    Depl = True,
-                                    DefByField = None):
+                                    ):
 
     depl_sta = FieldDataTable.EXTR_TABLE()['NOEUD', 'DX', 'DY','DZ','DRX', 'DRY','DRZ']
     if depl_sta['NOEUD'].values() == {}:
@@ -155,10 +180,10 @@ def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
 
 
     NewZones = []
-    for InitMesh in I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t'):
+    for InitMesh in I.getNodesFromNameAndType(t, 'Element*', 'Zone_t'):#DictStructParam['MeshProperties']['DictElements']['GroupOfElements']: #:
 
-        Type_Element = InitMesh[0][12:]
-        NewZoneName = ZoneName + '_'+Type_Element
+        Type_Element = InitMesh[0].split('.')[0][8:]
+        NewZoneName = ZoneName + '_'+InitMesh[0][8:]
 
         NewZone = I.getNodeFromNameAndType(t,NewZoneName, 'Zone_t')
 
@@ -166,6 +191,9 @@ def CreateNewSolutionFromAsterTable(t, FieldDataTable, ZoneName,
 
         if NewZone is None:
             NewZone = I.copyTree(InitMesh)
+            #print(NewZoneName)
+            #print(InitMesh)
+            #I.printTree(t)
             NewZone[0] = NewZoneName
 
 
@@ -289,7 +317,7 @@ def getMatrixFromCGNS(t, MatrixName, RPM):
     return ReturnMatrix
 
 
-def getVectorFromCGNS(t, VectorName, RPM):
+def getUsFeiVectorsFromCGNS(t, VectorName, RPM):
     '''Read/Compute us and fei terms
 
     Implemented methods:
@@ -298,46 +326,52 @@ def getVectorFromCGNS(t, VectorName, RPM):
     
     '''
     DictVector = J.get(t, '.AssembledVectors')
+    #print(DictVector)
+    #print(RPM)
+    #print(VectorName)
+    #print('%sRPM'%np.round(RPM,2))
+    #print(DictVector['%sRPM'%RPM][VectorName])
     try:
-        DictVector[str(np.round(RPM,2))+'RPM'][VectorName]
+        DictVector['%sRPM'%np.round(RPM,2)][VectorName]
 
     except: #Parametric case
-        
+    
+        DictStructParam = J.get(t, '.StructuralParameters')
         DictSimulaParam = J.get(t, '.SimulationParameters')
-        #Rotational speeds for which the parametric model is defined)
+        #Rotational speeds for which the parametric model is defined)    # TODO Add the Parametric option for 1 single RPM add Parametric Type Node
         RPMs=DictSimulaParam['RotatingProperties']['RPMs']
-        DictAeroParam = J.get(t, '.AerodynamicProperties')
-        Rmax=DictAeroParam['BladeParameters']['Rmax']
-        Ndof=len(GetReducedBaseFromCGNS(t, RPMs[1]))
-        NNodes=np.arange(0,Ndof/3)   
+        #DictAeroParam = J.get(t, '.AerodynamicProperties')
+        #Rmax=DictAeroParam['BladeParameters']['Rmax']
+        Ndof= DictStructParam['MeshProperties']['Nddl'][0]  #len(GetReducedBaseFromCGNS(t, RPMs[1]))
+        NNodes=DictStructParam['MeshProperties']['NNodes']  #np.arange(0,Ndof/3)   
               
         ## Cuadratic law for fei [Stern2010]
         #####
         # The component is not important: the difference has been shown to be infimum
         if RPMs[0] < 0.1:
             print(WARN+'Be careful: fei computation might be erroneous ( RPMs[0] near 0)'+ ENDC)
-        feiOmega=getVectorFromCGNS(t, 'Fei', RPMs[0])/(RPMs[0]**2)
+            feiOmega=getUsFeiVectorsFromCGNS(t, 'Fei', RPMs[0])/(RPMs[0]**2)
 
         ## Cubic law (splines) for us
         #####
         if len(RPMs)==4:
-            usMatrix=np.zeros((len(GetReducedBaseFromCGNS(t, RPM)),5)) #0 rpm point is already included
+            usMatrix=np.zeros((Ndof,5)) #0 rpm point is already included
             print('RPMs for us interpolation (parametric 4 RPMs): 0 , '+str(RPMs))
         
             for idx in range(0,len(RPMs)):
                 #us is read for every one of the RPMS composing the parametric model 
-                usMatrix[:,idx+1]       = getVectorFromCGNS(t, 'Us', RPMs[idx])    
+                usMatrix[:,idx+1]       = getUsFeiVectorsFromCGNS(t, 'Us', RPMs[idx])    
             
             RPMsUs=np.concatenate((0,RPMs),axis=None)
             functionUsSplines=inter.interp1d(RPMsUs,usMatrix,kind='cubic',fill_value="extrapolate")
         else:
 
-            usMatrix=np.zeros((len(GetReducedBaseFromCGNS(t, RPM)),4)) #0 rpm point is already included
+            usMatrix=np.zeros((Ndof,4)) #0 rpm point is already included
             print('RPMs for us interpolation (parametric 3 RPMs): 0 , '+str(RPMs))
         
             for idx in range(0,len(RPMs)):
                 #us is read for every one of the RPMS composing the parametric FOM    
-                usMatrix[:,idx+1]       = getVectorFromCGNS(t, 'Us', RPMs[idx])    
+                usMatrix[:,idx+1]       = getUsFeiVectorsFromCGNS(t, 'Us', RPMs[idx])    
             
             RPMsUs=np.concatenate((0,RPMs),axis=None)
             functionUsSplines=inter.interp1d(RPMsUs,usMatrix,kind='cubic',fill_value="extrapolate")
@@ -348,7 +382,7 @@ def getVectorFromCGNS(t, VectorName, RPM):
         DictVector[str(np.round(RPM,2))+'RPM']={}
 
         DictVector[str(np.round(RPM,2))+'RPM']['Us']=functionUsSplines(RPM)
-        DictVector[str(np.round(RPM,2))+'RPM']['Fei']=feiOmega*(RPM**2)
+        #DictVector[str(np.round(RPM,2))+'RPM']['Fei']=feiOmega*(RPM**2)
         J.set(t, '.AssembledVectors', **DictVector)
       
     return DictVector[str(np.round(RPM,2))+'RPM'][VectorName]
@@ -370,15 +404,22 @@ def AddFOMVars2Tree(t, RPM, Vars = [], VarsName = [], Type = '.AssembledMatrices
     ''' Function for saving FOM size matrices into the cgsn file
         Type = ['Matrices'  | 'Vectors']
     '''
-
+    
     DictVars = J.get(t, Type)
+    
     if RPM == 'Parametric': #Parametric model
+        try:
+            DictVars['Parametric']
+        except:
+            DictVars['Parametric'] = {}
+
         print('Save parametric model')
         for Var, VarName in zip(Vars, VarsName):
             #for Var, VarName in zip(Vars, VarsName): #OVER-WRITTING
+            DictVars['Parametric'][VarName] = {}
             if issparse(Var):
                 print(str(VarName)+' is sparse')
-                DictVars['Parametric'][VarName] = {}
+                
                 #DictVars['Parametric'][VarName]['rows']=None
                 print(str(VarName)+'is read')
                 DictVars['Parametric'][VarName]['rows'], DictVars['Parametric'][VarName]['cols'], DictVars['Parametric'][VarName]['data'] = find(Var)
@@ -407,7 +448,6 @@ def AddFOMVars2Tree(t, RPM, Vars = [], VarsName = [], Type = '.AssembledMatrices
 
                 else:
                     DictVars[str(np.round(RPM,2))+'RPM'][VarName] = Var
-
 
     J.set(t, Type, **DictVars)
 
@@ -794,21 +834,21 @@ def GetCoordsOfTEandLE(t, RPM = None):
     DictStructParam = J.get(t, '.StructuralParameters')
     NLE = DictStructParam['MeshProperties']['NodesFamilies']['LeadingEdge']
     NTE = DictStructParam['MeshProperties']['NodesFamilies']['TrailingEdge']
-
-    for InitMesh in I.getNodesFromNameAndType(t, 'InitialMesh*', 'Zone_t'):
+    
+    for InitMesh in I.getNodesFromNameAndType(t, 'Element*', 'Zone_t'):
 
         Type_Element = InitMesh[0][12:]
-        NewZoneName = ZoneName + '_'+Type_Element
+        NewZoneName = 'Element_'+Type_Element
         NewZone = I.getNodeFromNameAndType(t, NewZoneName, 'Zone_t')
 
-        XCoords, YCoords, ZCoords = J.getxyz(InitZone)
+        XCoords, YCoords, ZCoords = J.getxyz(InitMesh)
         print('Read coordinates \n')
         if RPM is not None:
             
-            Us = getVectorFromCGNS(t, 'Us', RPM)
+            Us = getUsFeiVectorsFromCGNS(t, 'Us', RPM)
 
 
-            Usx, Usy, Usz = ListXYZFromVectFull(t, Us)
+            usx, usy, usz = SM.ListXYZFromVectFull(t, Us)
             XCoords += usx
             YCoords += usy
             ZCoords += usz
@@ -838,7 +878,7 @@ def GetCoordsOfTEandLE(t, RPM = None):
 
     return [XCoordsLE, YCoordsLE, ZCoordsLE], [XCoordsTE, YCoordsTE, ZCoordsTE]
 
-def GetCoordsOfTEandLEWithROMq(t, RPM = None, q = None):
+def GetCoordsOfTEandLEWithROMq(t, RPM = None, q = None, ActiveUs = True):
 
     DictStructParam = J.get(t, '.StructuralParameters')
     NLE = DictStructParam['MeshProperties']['NodesFamilies']['LeadingEdge']
@@ -847,69 +887,83 @@ def GetCoordsOfTEandLEWithROMq(t, RPM = None, q = None):
     # Get PHI:
     PHI = GetReducedBaseFromCGNS(t, RPM)
     # Get u vector u = PHI*q
-    u = PHI.dot(q)
 
+    u = PHI.dot(q)
+    
     # Get the mesh coordinates:
-    InitZone = I.getNodesFromNameAndType(t, 'InitialMesh', 'Zone_t')[0]
+    InitZone = I.getNodesFromNameAndType(t, 'Element_HEXA20.0', 'Zone_t')[0]
     XCoords, YCoords, ZCoords = J.getxyz(InitZone)
 
-    us = getVectorFromCGNS(t, 'Us', RPM)
+    us = getUsFeiVectorsFromCGNS(t, 'Us', RPM)
 
     # LE Up coordintes:
-    XCoordsLE = XCoords[NLE] + us[::3][NLE] + u[3*NLE]
-    YCoordsLE = YCoords[NLE] + us[1::3][NLE] + u[3*NLE+1]
-    ZCoordsLE = ZCoords[NLE] + us[2::3][NLE] + u[3*NLE+2]
+    if ActiveUs:
+        UsCoeff = 1.
+    else:
+        UsCoeff = 0.
+    print('Coeff', UsCoeff)
+    # LE Up coordintes:
+    XCoordsLE = XCoords[NLE] + us[::3][NLE]*UsCoeff + u[3*NLE]
+    YCoordsLE = YCoords[NLE] + us[1::3][NLE]*UsCoeff + u[3*NLE+1]
+    ZCoordsLE = ZCoords[NLE] + us[2::3][NLE]*UsCoeff + u[3*NLE+2]
 
     # TE Up coordinates:
-    XCoordsTE = XCoords[NTE] + us[::3][NTE] + u[3*NTE]
-    YCoordsTE = YCoords[NTE] + us[1::3][NTE] + u[3*NTE+1]
-    ZCoordsTE = ZCoords[NTE] + us[2::3][NTE] + u[3*NTE+2]
+    XCoordsTE = XCoords[NTE] + us[::3][NTE]*UsCoeff + u[3*NTE]
+    YCoordsTE = YCoords[NTE] + us[1::3][NTE]*UsCoeff + u[3*NTE+1]
+    ZCoordsTE = ZCoords[NTE] + us[2::3][NTE]*UsCoeff + u[3*NTE+2]
 
 
     return [XCoordsLE, YCoordsLE, ZCoordsLE], [XCoordsTE, YCoordsTE, ZCoordsTE]
 
 
 
-def GetCoordsOfTEandLEWithFOMu(t, RPM = None, u = None):
+def GetCoordsOfTEandLEWithFOMu(t, RPM = None, u = None, ActiveUs = True):
 
     DictStructParam = J.get(t, '.StructuralParameters')
     NLE = DictStructParam['MeshProperties']['NodesFamilies']['LeadingEdge']
     NTE = DictStructParam['MeshProperties']['NodesFamilies']['TrailingEdge']
 
     # Get the mesh coordinates:
-    InitZone = I.getNodesFromNameAndType(t, 'InitialMesh_HEXA8', 'Zone_t')[0]
+    InitZone = I.getNodesFromNameAndType(t, 'Element_HEXA20.0', 'Zone_t')[0] # TODO this is not general
     XCoords, YCoords, ZCoords = J.getxyz(InitZone)
+    
+    us = getUsFeiVectorsFromCGNS(t, 'Us', RPM)
+    print(max(abs(us)))
+    #print(NTE, NLE)
+    if ActiveUs:
+        UsCoeff = 1.
+    else:
+        UsCoeff = 0.
 
-    us = getVectorFromCGNS(t, 'Us', RPM)
-
+    print('Coeff', UsCoeff)
     # LE Up coordintes:
-    XCoordsLE = XCoords[NLE] + us[::3][NLE] + u[3*NLE]
-    YCoordsLE = YCoords[NLE] + us[1::3][NLE] + u[3*NLE+1]
-    ZCoordsLE = ZCoords[NLE] + us[2::3][NLE] + u[3*NLE+2]
+    XCoordsLE = XCoords[NLE] + us[::3][NLE]*UsCoeff + u[3*NLE]
+    YCoordsLE = YCoords[NLE] + us[1::3][NLE]*UsCoeff + u[3*NLE+1]
+    ZCoordsLE = ZCoords[NLE] + us[2::3][NLE]*UsCoeff + u[3*NLE+2]
 
     # TE Up coordinates:
-    XCoordsTE = XCoords[NTE] + us[::3][NTE] + u[3*NTE]
-    YCoordsTE = YCoords[NTE] + us[1::3][NTE] + u[3*NTE+1]
-    ZCoordsTE = ZCoords[NTE] + us[2::3][NTE] + u[3*NTE+2]
+    XCoordsTE = XCoords[NTE] + us[::3][NTE]*UsCoeff + u[3*NTE]
+    YCoordsTE = YCoords[NTE] + us[1::3][NTE]*UsCoeff + u[3*NTE+1]
+    ZCoordsTE = ZCoords[NTE] + us[2::3][NTE]*UsCoeff + u[3*NTE+2]
 
 
     return [XCoordsLE, YCoordsLE, ZCoordsLE], [XCoordsTE, YCoordsTE, ZCoordsTE]
 
 
-def ForcesAndMomentsFromLiftingLine2ForcesAtLETE(t, RPM, q = None):
+def ForcesAndMomentsFromLiftingLine2ForcesAtLETE(t, LiftingLine, RPM, q = None, ActiveUs = True):
 
-    LiftingLine = I.getNodeFromName(t, 'LiftingLine')
-
+    #LiftingLine = I.getNodeFromName(t, 'LiftingLine')
+    LECoord, TECoord = GetCoordsOfTEandLEWithROMq(t, RPM, q, ActiveUs = ActiveUs)
     # Compute the geometrical variables (Coordinates and s):
-    try:
-        LECoord, TECoord = GetCoordsOfTEandLE(t, RPM)
-    except:
-        DictStructParam = J.get(t, '.StructuralParameters')
-        if len(q) == DictStructParam['ROMProperties']['NModes'][0]:
-
-            LECoord, TECoord = GetCoordsOfTEandLEWithROMq(t, RPM, q)
-        else:
-            LECoord, TECoord = GetCoordsOfTEandLEWithFOMu(t, RPM, q)
+    #try:
+    #    XX # ToDO: Modify this function
+    #    LECoord, TECoord = GetCoordsOfTEandLE(t, RPM)
+    #except:
+    #    DictStructParam = J.get(t, '.StructuralParameters')
+    #    if len(q) == DictStructParam['ROMProperties']['NModes'][0]:
+    #        LECoord, TECoord = GetCoordsOfTEandLEWithROMq(t, RPM, q, ActiveUs = ActiveUs)
+    #    else:
+    #        LECoord, TECoord = GetCoordsOfTEandLEWithFOMu(t, RPM, q, ActiveUs = ActiveUs)
 
     LEZone = J.createZone('LEZone', LECoord, ['CoordinateX', 'CoordinateY', 'CoordinateZ'])
     sLE = W.gets(LEZone)
@@ -920,16 +974,60 @@ def ForcesAndMomentsFromLiftingLine2ForcesAtLETE(t, RPM, q = None):
     Span, s = J.getVars(LiftingLine, ['Span', 's'])
 
     sLL=J.interpolate__(AbscissaRequest=abs(LECoord[0]), AbscissaData=Span, ValuesData=s,
-                  Law='akima')
+                  Law='interp1d_linear')
 
 
     # First the LL forces (fx, fy, fz) are transferred to the LE and TE
 
     # Get and interpolate the forces in the LL:
+    
+
+    
+    try:
+        DimensionalAbscissaLL =LiftingLine.length() *LiftingLine.abscissa()
+    except:
+        DimensionalAbscissaLL =(Span[-1]-Span[0]) * s
+        
+    DimensionalAbscissa = J.interpolate__(AbscissaRequest=sLE,
+                                          AbscissaData=s,
+                                          ValuesData=DimensionalAbscissaLL,
+                                          Law='interp1d_linear'
+                                          )
+
+    # Transform forces from N/m to N:
+
+    DeltaR = np.diff(DimensionalAbscissaLL) 
+    LiftingLineInt = copy.deepcopy(LiftingLine)
+    # Put the nodes data 2 centers:
+    for var in ['fx', 'fy', 'fz', 'mx', 'my', 'mz']:
+        #print(LiftingLineInt)
+        C.node2Center__(LiftingLineInt, '%s'%var)
+        
+        #print(var)
+        f_LL_N = J.getVars(LiftingLineInt, ['%s'%var], Container = 'FlowSolution#Centers')[0]
+    
+        f_LL_N[:] *= DeltaR
+
+        print('Thrust %s'%var, 4*sum(f_LL_N))
+
+    LiftingLine = C.center2Node(LiftingLineInt, 'FlowSolution#Centers')
+    I._rmNodesByName(LiftingLine, 'FlowSolution#Centers')
+
+#    fx, fy, fz = J.getVars(LiftingLine, ['fx','fy', 'fz'])
+#    fxI, fyI, fzI = J.getVars(LiftingLine, ['fx','fy', 'fz'])
+#
+#    fx[:], fy[:], fz[:] = fxI, fyI, fzI
+#
+#    mx, my, mz = J.getVars(LiftingLine, ['mx','my', 'mz'])
+#    mxI, myI, mzI = J.getVars(LiftingLine, ['mx','my', 'mz'])
+#
+#    mx[:], my[:], mz[:] = mxI, myI, mzI
+
+
+    #C.convertPyTree2File(LiftingLine,'LiftingLine.cgns')
     DictInterpolatedVars = dict()
     InterpolatedNames = ['Chord','Twist','fx','fy','fz', 'mx','my','mz',
                          'tx', 'ty', 'tz', 'bx', 'by', 'bz', 'nx', 'ny', 'nz']
-
 
     for VarName in InterpolatedNames:
         VariableData = J.getVars(LiftingLine,[VarName])[0]
@@ -937,45 +1035,103 @@ def ForcesAndMomentsFromLiftingLine2ForcesAtLETE(t, RPM, q = None):
         DictInterpolatedVars[VarName] = J.interpolate__(AbscissaRequest=sLE,
                                                     AbscissaData=s,
                                                     ValuesData=VariableData,
-                                                    Law='akima'
+                                                    Law='interp1d_linear'
                                                     )
+    
+    #plt.plot(DimensionalAbscissa, DictInterpolatedVars['fz'], label = 'fzLL_struct')
+    #plt.plot(DimensionalAbscissaLL, J.getVars(LiftingLine, ['fz'])[0], label = 'fzLL')
+    #plt.scatter(DimensionalAbscissa, DictInterpolatedVars['fz'])
+    #plt.scatter(DimensionalAbscissaLL, J.getVars(LiftingLine, ['fz'])[0])
+    
+    #plt.legend()
+    #plt.grid()
+    #plt.show()
 
-
-    # Transfer the LL forces towards the LE and TE (No moment forces):
+    # Transfer the LL forces towards the LE and TE (No moment forces), compute the modulus:
 
     FxLE, FxTE = 3./4. * DictInterpolatedVars['fx'], 1./4. * DictInterpolatedVars['fx']
     FyLE, FyTE = 3./4. * DictInterpolatedVars['fy'], 1./4. * DictInterpolatedVars['fy']
     FzLE, FzTE = 3./4. * DictInterpolatedVars['fz'], 1./4. * DictInterpolatedVars['fz']
+    
+    #print('ThrustLL:', 4*sint.simps(J.getVars(LiftingLine, ['fz'])[0], DimensionalAbscissaLL))
+    
+    #print('Thrust:', 4*sint.simps(FzLE, DimensionalAbscissa)+4*sint.simps(FzTE, DimensionalAbscissa))
+    #print('Thrust:', 4*sint.trapz(FzLE, DimensionalAbscissa)+4*sint.trapz(FzTE, DimensionalAbscissa))    
+    #print('Thrust SommeLL:', sum(DictInterpolatedVars['fz']))
+    #print('Thrust SommeLETE:', sum(FzLE + FzTE))
+    #Thrust = J.get(LiftingLine, '.Loads')['Thrust']
+    #print('ThrustAero:', Thrust)
+    
+    #plt.plot(DimensionalAbscissaLL, J.getVars(LiftingLine, ['fz'])[0],label = 'FzLL')
+    #plt.plot(DimensionalAbscissa, DictInterpolatedVars['fz'], label = 'Fz_interp')
+    #plt.scatter(DimensionalAbscissaLL, J.getVars(LiftingLine, ['fz'])[0])
+    #plt.scatter(DimensionalAbscissa, DictInterpolatedVars['fz'])
+    #plt.legend()
+    #plt.grid()
+    #plt.show()
 
     # Second, the LL moments (mx, my, mz) are transferred to the LE and TE as forces
 
-    Mosc = np.sqrt(DictInterpolatedVars['mx']*DictInterpolatedVars['mx'] + DictInterpolatedVars['my']*DictInterpolatedVars['my'] + DictInterpolatedVars['mz']*DictInterpolatedVars['mz'])
+    # Transform into newtons meter:
+#    for var in ['mx', 'my', 'mz']:
+#        print(DictInterpolatedVars[var])
+#        IntegralList = integrate.cumtrapz(DictInterpolatedVars[var], sLE)
+#        DictInterpolatedVars[var] = np.insert(IntegralList, 0, IntegralList[0])
+#
+#        plt.plot(sLE, DictInterpolatedVars[var], label = var)
+#    plt.legend()
+#
+#
+#    plt.show()
+    # Transfer the moment with forces:
 
-    Cosdir = [DictInterpolatedVars['mx']/Mosc, DictInterpolatedVars['my']/Mosc, DictInterpolatedVars['mz']/Mosc]
-    #print(Cosdir)
+    Mosc = []
+    for i in range(len(DictInterpolatedVars['mx'])):
 
-    #print('t')
-    #print(DictInterpolatedVars['tx'])
-    #print(DictInterpolatedVars['ty'])
-    #print(DictInterpolatedVars['tz'])
-    #
-    #print('b')
-    #print(DictInterpolatedVars['bx'])
-    #print(DictInterpolatedVars['by'])
-    #print(DictInterpolatedVars['bz'])
-    #
-    #print('n')
-    #print(DictInterpolatedVars['nx'])
-    #print(DictInterpolatedVars['ny'])
-    #print(DictInterpolatedVars['nz'])
+        Mosc.append(dotproduct(np.array([DictInterpolatedVars['mx'][i], DictInterpolatedVars['my'][i], DictInterpolatedVars['mz'][i]]), np.array([DictInterpolatedVars['tx'][i], DictInterpolatedVars['ty'][i],DictInterpolatedVars['tz'][i]])))
 
 
     # Perpendicular forces with respect to the chord at TE and LE:
 
-    FoscLE,  FoscTE = -Mosc / DictInterpolatedVars['Chord'] , Mosc / DictInterpolatedVars['Chord']
+    FoscLE,  FoscTE = Mosc / DictInterpolatedVars['Chord'] , -1.*np.array(Mosc) / DictInterpolatedVars['Chord']
 
+    # Get the perpendicular vector with respect to the chord: 
+    Vars = J.getVars(LiftingLine, ['LETEx', 'LETEy', 'LETEz'])
+    
+    for i, var in enumerate(['LETEx', 'LETEy', 'LETEz']):
+        DictInterpolatedVars[var] = J.interpolate__(AbscissaRequest=sLE,
+                                                    AbscissaData=s,
+                                                    ValuesData=Vars[i],
+                                                    Law='interp1d_linear'
+                                                    )
 
+    pvect = [DictInterpolatedVars['LETEx'], DictInterpolatedVars['LETEz'], -1*DictInterpolatedVars['LETEx']]
 
+    FLEmx= []
+    FLEmy= []
+    FLEmz= []
+    FTEmx= []
+    FTEmy= []
+    FTEmz= []
+    for i in range(len(DictInterpolatedVars[var])):
+        FLEmx.append(FoscLE[i] * pvect[0][i])
+        FLEmy.append(FoscLE[i] * pvect[1][i])
+        FLEmz.append(FoscLE[i] * pvect[2][i])
+        
+        FTEmx.append(FoscTE[i] * pvect[0][i])
+        FTEmy.append(FoscTE[i] * pvect[1][i])
+        FTEmz.append(FoscTE[i] * pvect[2][i])
+    
+
+    
+
+    
+    #plt.plot(sLE, Mosc)
+    #plt.plot(sLE, FoscLE)
+    #plt.plot(sLE, FoscLE)
+    #plt.show()
+    
+    
     #import matplotlib.pyplot as plt
 #    import StructuralShortCuts as SJ
 #    #plt.plot(sLE, FoscLE, label = 'LE')
@@ -987,19 +1143,21 @@ def ForcesAndMomentsFromLiftingLine2ForcesAtLETE(t, RPM, q = None):
 #    #plt.close()
 #    # Change the coord system to b and n:
 #    #print(DictInterpolatedVars['Twist'])
-    FbLE, FnLE  =  FoscLE*np.sin(DictInterpolatedVars['Twist']*np.pi/180. ), FoscLE*np.cos(DictInterpolatedVars['Twist']*np.pi/180. ),
-    FbTE, FnTE  =  FoscTE*np.sin(DictInterpolatedVars['Twist']*np.pi/180. ), FoscTE*np.cos(DictInterpolatedVars['Twist']*np.pi/180. )
+    #FbLE, FnLE  =  FoscLE*np.sin(DictInterpolatedVars['Twist']*np.pi/180. ), FoscLE*np.cos(DictInterpolatedVars['Twist']*np.pi/180. ),
+    #FbTE, FnTE  =  FoscTE*np.sin(DictInterpolatedVars['Twist']*np.pi/180. ), FoscTE*np.cos(DictInterpolatedVars['Twist']*np.pi/180. )
 
+    
 
+    FxLEm = FLEmx  #FbLE * DictInterpolatedVars['bx'] + FnLE * DictInterpolatedVars['nx']
+    FyLEm = FLEmy #FbLE * DictInterpolatedVars['by'] + FnLE * DictInterpolatedVars['ny']
+    FzLEm = FLEmz #FbLE * DictInterpolatedVars['bz'] + FnLE * DictInterpolatedVars['nz']
+    FxTEm = FTEmx #FbTE * DictInterpolatedVars['bx'] + FnTE * DictInterpolatedVars['nx']
+    FyTEm = FTEmy #FbTE * DictInterpolatedVars['by'] + FnTE * DictInterpolatedVars['ny']
+    FzTEm = FTEmz #FbTE * DictInterpolatedVars['bz'] + FnTE * DictInterpolatedVars['nz']
 
-
-    FxLEm = FbLE * DictInterpolatedVars['bx'] + FnLE * DictInterpolatedVars['nx']
-    FyLEm = FbLE * DictInterpolatedVars['by'] + FnLE * DictInterpolatedVars['ny']
-    FzLEm = FbLE * DictInterpolatedVars['bz'] + FnLE * DictInterpolatedVars['nz']
-    FxTEm = FbTE * DictInterpolatedVars['bx'] + FnTE * DictInterpolatedVars['nx']
-    FyTEm = FbTE * DictInterpolatedVars['by'] + FnTE * DictInterpolatedVars['ny']
-    FzTEm = FbTE * DictInterpolatedVars['bz'] + FnTE * DictInterpolatedVars['nz']
-
+    #print(len(FxLE), len(FxLEm))
+    #print(FxLE+FxLEm)
+    #print(FxLE)
 
     return [FxLE+FxLEm, FyLE+FyLEm, FzLE+FzLEm],[FxTE+FxTEm, FyTE+FyTEm, FzTE+FzTEm], [[FxLE, FyLE, FzLE],[FxTE, FyTE, FzTE],[FxLEm, FyLEm, FzLEm],[FxTEm, FyTEm, FzTEm]]
 
@@ -1007,40 +1165,43 @@ def ForcesAndMomentsFromLiftingLine2ForcesAtLETE(t, RPM, q = None):
 def LLCoordsFromLETE(LECoord, TECoord, s,sLE):
 
     #_,sLE,_ = J.getDistributionFromHeterogeneousInput__(abs(LECoord[0])) # Span along X
-
+    print(len(LECoord[0]))
+    print(len(s))
+    print(sLE)
     LECoordLLx = J.interpolate__(AbscissaRequest=s,
                                 AbscissaData=sLE,
                                 ValuesData=LECoord[0],
-                                Law='akima'
+                                Law='interp1d_linear'
                                 )
 
     TECoordLLx = J.interpolate__(AbscissaRequest=s,
                                 AbscissaData=sLE,
                                 ValuesData=TECoord[0],
-                                Law='akima'
+                                Law='interp1d_linear'
                                 )
     LECoordLLy = J.interpolate__(AbscissaRequest=s,
                                 AbscissaData=sLE,
                                 ValuesData=LECoord[1],
-                                Law='akima'
+                                Law='interp1d_linear'
                                 )
 
     TECoordLLy = J.interpolate__(AbscissaRequest=s,
                                 AbscissaData=sLE,
                                 ValuesData=TECoord[1],
-                                Law='akima'
+                                Law='interp1d_linear'
                                 )
     LECoordLLz = J.interpolate__(AbscissaRequest=s,
                                 AbscissaData=sLE,
                                 ValuesData=LECoord[2],
-                                Law='akima'
+                                Law='interp1d_linear'
                                 )
 
     TECoordLLz = J.interpolate__(AbscissaRequest=s,
                                 AbscissaData=sLE,
                                 ValuesData=TECoord[2],
-                                Law='akima'
+                                Law='interp1d_linear'
                                 )
+
     LLx = TECoordLLx + 0.75 * (LECoordLLx - TECoordLLx)
     LLy = TECoordLLy + 0.75 * (LECoordLLy - TECoordLLy)
     LLz = TECoordLLz + 0.75 * (LECoordLLz - TECoordLLz)
@@ -1062,39 +1223,70 @@ def updateLLKinematics(t, RPM):
     return t
 
 
-def updateLiftingLineFromStructureLETE(t, RPM, q = None):
+def updateLiftingLineFromStructureLETE(t,LiftingLine, RPM, q = None, ActiveUs=True):
 
-    LiftingLine = I.getNodeFromName(t, 'LiftingLine')
+    #LiftingLine = I.getNodeFromName(t, 'PrelimaryPropeller')
+
     # Load the coodinates of the LE and TE:
-    Span, Chord, Twist, s, Dihedral, Sweep = J.getVars(LiftingLine, ["Span", "Chord", "Twist", "s", "Dihedral", "Sweep"])
-
-    try:
-        LECoord, TECoord = GetCoordsOfTEandLE(t, RPM)
-        print('LEE \n')
-    except:
-        DictStructParam = J.get(t, '.StructuralParameters')
-        if len(q) == DictStructParam['ROMProperties']['NModes'][0]:
-
-            LECoord, TECoord = GetCoordsOfTEandLEWithROMq(t, RPM, q)
-        else:
-            LECoord, TECoord = GetCoordsOfTEandLEWithFOMu(t, RPM, q)
+    Span, Chord, Twist, Dihedral, Sweep, s = J.getVars(LiftingLine, ["Span", "Chord", "Twist", "Dihedral", "Sweep", "s"])#, "Dihedral", "Sweep"])
+    
+    #try:
+    #    XX
+    #    LECoord, TECoord = GetCoordsOfTEandLE(t, RPM)
+    #    print('LEE \n')
+    #except:
+    DictStructParam = J.get(t, '.StructuralParameters')
+    if len(q) == DictStructParam['ROMProperties']['NModes'][0]:
+     
+        LECoord, TECoord = GetCoordsOfTEandLEWithROMq(t, RPM, q, ActiveUs=ActiveUs)
+    else:
+        LECoord, TECoord = GetCoordsOfTEandLEWithFOMu(t, RPM, q, ActiveUs=ActiveUs)
 
     LEZone = J.createZone('LEZone', LECoord, ['CoordinateX', 'CoordinateY', 'CoordinateZ'])
+    TEZone = J.createZone('TEZone', TECoord, ['CoordinateX', 'CoordinateY', 'CoordinateZ'])
     sLE = W.gets(LEZone)
 
+    #J.save(LEZone, 'LEZone.cgns')
+    #J.save(TEZone, 'TEZone.cgns')
+    #J.save(LiftingLine, 'LiftingLine.cgns')
+    
     x,y,z = J.getxyz(LiftingLine)
     LLx, LLy, LLz, sLE = LLCoordsFromLETE(LECoord, TECoord,s, sLE)
+    
 
     #x,y,z = J.getxyz(LiftingLine)
-
+    
     x[:], y[:], z[:] = LLx, LLy, LLz
-    J.invokeFields(LiftingLine, ['tx','ty','tz', 'nx', 'ny', 'nz', 'bx', 'by', 'bz'])
+    
+    #Span[:], Dihedral[:], Sweep[:] = LLx, LLz, -LLy
 
-    RotationAxis, RotationCenter, Dir = LL.getRotationAxisCenterAndDirFromKinematics(LiftingLine)
+    MagVecLL = np.sqrt(LLx*LLx+
+                        LLy*LLy+
+                        LLz*LLz)
+    UnitVecLL = np.array([LLx, LLy, LLz])/MagVecLL
+    #print(UnitVecLL)
+    
+    bxyz = J.getVars(LiftingLine, ['bx', 'by','bz'])
+    AzimuthInitLL = [] 
+    for i in range(len(bxyz[0])):
 
+        AzimuthInitLL.append(np.degrees(np.sign(UnitVecLL[2][i])*angle(np.array([-bxyz[0][i], -bxyz[1][i], -bxyz[2][i]]), np.array([UnitVecLL[0][i], UnitVecLL[1][i], UnitVecLL[2][i]]))))
+    
+    #print(AzimuthInitLL)
+    
 
-    _,bxyz,_ = LL.updateLocalFrame(LiftingLine)
+    #print(Dihedral, Sweep)
+    #C.convertPyTree2File(t, 'tree.cgns')
+    #C.convertPyTree2File(LiftingLine, 'Lifti.cgns')
+    #J.invokeFields(LiftingLine, ['tx','ty','tz', 'nx', 'ny', 'nz', 'bx', 'by', 'bz'])
+    
+    #LiftingLine.save('LiftingLine.cgns')
+    #J.save(LiftingLine, 'LiftingLine.cgns')
+    #RotationAxis, RotationCenter, Dir = LiftingLine.getRotationAxisCenterAndDirFromKinematics()
+    
 
+    #_,bxyz,_ = LL.updateLocalFrame(LiftingLine)
+    #_, bxyz, _= LiftingLine.updateFrame()
 
     #_,sLE,_ = J.getDistributionFromHeterogeneousInput__(abs(LECoord[0])) # Span along X
 
@@ -1107,7 +1299,7 @@ def updateLiftingLineFromStructureLETE(t, RPM, q = None):
 
     # Compute the local frame:
 
-
+    
 
 
     # Translate the structural LL towards the real LL and compute Twist:
@@ -1115,41 +1307,55 @@ def updateLiftingLineFromStructureLETE(t, RPM, q = None):
     ChordLL = J.interpolate__(AbscissaRequest=s,
                               AbscissaData=sLE,
                               ValuesData=ChordSMagLL,
-                              Law='akima'
+                              Law='interp1d_linear'
                               )
 
     VectChordLLx = J.interpolate__(AbscissaRequest=s,
                                    AbscissaData=sLE,
                                    ValuesData=VectChord[0],
-                                   Law='akima'
+                                   Law='interp1d_linear'
                                    )
     VectChordLLy = J.interpolate__(AbscissaRequest=s,
                                    AbscissaData=sLE,
                                    ValuesData=VectChord[1],
-                                   Law='akima'
+                                   Law='interp1d_linear'
                                    )
     VectChordLLz = J.interpolate__(AbscissaRequest=s,
                                    AbscissaData=sLE,
                                    ValuesData=VectChord[2],
-                                   Law='akima'
+                                   Law='interp1d_linear'
                                    )
-
-
+    
     UnitVectCordLL = [VectChordLLx, VectChordLLy, VectChordLLz]/ChordLL
 
+    LETEx, LETEy, LETEz = J.getVars(LiftingLine, ['LETEx', 'LETEy', 'LETEz']) 
+    LETEx[:],LETEy[:],LETEz[:] = UnitVectCordLL[0], UnitVectCordLL[1], UnitVectCordLL[2]
 
-    TwstVg = []
+    
+    bxyz = J.getVars(LiftingLine, ['bx', 'by','bz'])
+    
+    
+
+    #plt.plot(Span, Twist, label = 'Unmodified')
+    TwistLL = [] 
     for i in range(len(bxyz[0])):
-        TwstVg.append(90.-vg.angle(np.array([bxyz[0][i], bxyz[1][i], bxyz[2][i]]), np.array([UnitVectCordLL[0][i], UnitVectCordLL[1][i], UnitVectCordLL[2][i]])))
 
+        TwistLL.append(np.degrees(np.sign(UnitVectCordLL[2][i])*angle(np.array([-bxyz[0][i], -bxyz[1][i], -bxyz[2][i]]), np.array([UnitVectCordLL[0][i], UnitVectCordLL[1][i], UnitVectCordLL[2][i]]))))
+        
+    #Twist0 = J.getVars(LiftingLine, ['Twist0']) 
+    
+    Chord[:], Twist[:] = ChordLL, TwistLL
 
-    Chord[:], Twist[:] = ChordLL, TwstVg
-    Dihedral[:], Sweep[:] = LLx, -LLy
-
+    #plt.plot(Span, TwistLL, label = 'FromAngle')
+    #plt.plot(Span, Twist, ls = '--', label = 'Twist')
+    #plt.legend()
+    #plt.show()
+    #print('TwistLL:', TwistLL)    
 
     I._addChild(t, LiftingLine)
+    #C.convertPyTree2File(LiftingLine, 'LiftingLine.cgns')
 
-    return t
+    return t, LiftingLine
 
 def totuple(a):
     try:
@@ -1369,7 +1575,6 @@ def ComputeSolutionCGNS(t, Solution):
 
     try:
         MaxIt = np.shape(Solution[list(Solution.keys())[0]][list(Solution[list(Solution.keys())[0]].keys())[0]]['Displacement'])[1]
-        print(MaxIt)
         if MaxIt > 1:
             Matrice = True
         else:
@@ -1430,9 +1635,9 @@ def ComputeSolutionCGNS(t, Solution):
                         Type_Element = NewZone[0].split('_')[-1]
                         try:
                             try:
-                                ListXYZ = ListXYZFromVectFull(t, [Solution[RPMKey][FcoeffKey][SolName][:,Iteration]])
+                                ListXYZ = SM.ListXYZFromVectFull(t, [Solution[RPMKey][FcoeffKey][SolName][:,Iteration]])
                             except:
-                                ListXYZ = ListXYZFromVectFull(t, [Solution[RPMKey][FcoeffKey][SolName]])
+                                ListXYZ = SM.ListXYZFromVectFull(t, [Solution[RPMKey][FcoeffKey][SolName]])
                             FieldVarsName = FieldVarsName4Zone(t, VarN, Type_Element)
                             Vars = J.invokeFields(NewZone, FieldVarsName)
 

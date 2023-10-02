@@ -1163,6 +1163,7 @@ def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
 def computeReferenceValues(FluidProperties, PressureStagnation,
                            TemperatureStagnation, Surface, MassFlow=None, Mach=None,
                            YawAxis=[0.,0.,1.], PitchAxis=[0.,1.,0.],
+                           TurbulenceCutoff=1e-8,
                            FieldsAdditionalExtractions=[
                                 'ViscosityMolecular',
                                 'Viscosity_EddyMolecularRatio',
