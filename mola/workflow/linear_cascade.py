@@ -16,8 +16,21 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
-from mola.workflow.workflow import Workflow
+from mola.workflow.workflow import Workflow, deep_update
+# from mola.workflow.workflow import _workflow_defaults as _parent_workflow_defaults
 
+# _workflow_defaults = _parent_workflow_defaults
+# deep_update(_workflow_defaults, dict(
+
+#     # RawMeshComponents = dict(
+#     #     mesher = 'Autogrid',
+#     # ),
+
+#     Extractions = [
+#         dict(type='bc', BCType='BCInflow*', fields=['convflux_ro']),
+#         dict(type='bc', BCType='BCOutflow*', fields=['convflux_ro']),
+#     ],
+# ))
 
 class WorkflowLinearCascade(Workflow):
 

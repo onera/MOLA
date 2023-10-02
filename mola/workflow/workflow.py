@@ -17,6 +17,7 @@
 
 import os
 from .. import cgns as c
+from .. import misc
 from  mola.cfd.preprocess.mesh import (positioning,
                                        connect,
                                        split,
@@ -28,6 +29,16 @@ from  mola.cfd.preprocess import (flow_generators,
                                   cfd_parameters,
                                   extractions,
                                   write_cfd_files)
+
+def deep_update(d, u):
+    for k, v in u.items():
+        if isinstance(v, dict):
+            d[k] = deep_update(d.get(k, {}), v)
+        elif isinstance(v, list):
+            d[k].extent(v)
+        else:
+            d[k] = v
+    return d
 
 class Workflow(object):
 
@@ -146,6 +157,8 @@ class Workflow(object):
 
             FlowGenerator='External_rho_V_T',
 
+            # _defaults = dict(),
+
             ):
 
         self._workflow_parameters_container_ = 'WorkflowParameters'
@@ -157,6 +170,16 @@ class Workflow(object):
             self.get_workflow_parameters_from_tree()
 
         else:
+            # if isinstance(_defaults, str):
+            #     # Read file with defaults values
+            #     _defaults = ...
+            # else:
+            #     ERR_MSG = '_defaults must be either a dictionary or a string (path to a file)'
+            #     assert isinstance(_defaults, dict), misc.RED+ERR_MSG+misc.ENDC
+            # self._defaults = _workflow_defaults
+            # deep_update(self._defaults, _defaults)
+            # deep_update(self.__dict__, self._defaults)
+
             self.RawMeshComponents=RawMeshComponents
             self.Fluid=Fluid
             self.Flow=Flow
