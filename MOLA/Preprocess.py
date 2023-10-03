@@ -3944,8 +3944,8 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
                 zbc = I.getNodeFromType1(z,'ZoneBC_t')
                 if zbc:
                     for bc in I.getNodesFromType1(zbc, 'BC_t'):
-                        currentNodePath='/'.join([b[0], z[0], zbc[0], bc[0],
-                                                'BCDataSet#Average'])
+                        currentNodePath='/'.join([b[0], z[0], zbc[0], bc[0], 'BCDataSet#Average'])
+                        I.createNode('BCDataSet#Average', 'UserDefinedData_t', parent=bc)  # UserDefinedData, else bug in PyPart
                         targetNodePath=currentNodePath
                         AllCGNSLinks += [['.',
                                         DIRECTORY_OUTPUT+'/'+FieldsFilename,
