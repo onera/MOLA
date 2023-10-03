@@ -3121,7 +3121,12 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
         class ChannelHeightError(Exception):
             pass
 
-        if EndOfRun or setup.elsAkeysNumerics['time_algo'] != 'steady':
+        FirstIterationForFieldsAveraging = setup.ReferenceValues['CoprocessOptions'].get('FirstIterationForFieldsAveraging')
+        PostprocessUnsteadySimulation = setup.elsAkeysNumerics['time_algo'] != 'steady' and \
+            (not FirstIterationForFieldsAveraging  or \
+            (FirstIterationForFieldsAveraging and CurrentIteration >= FirstIterationForFieldsAveraging))
+
+        if EndOfRun or PostprocessUnsteadySimulation:
 
             if not EndOfRun and setup.elsAkeysNumerics['time_algo'] != 'steady':
                 computeRadialProfiles = False
