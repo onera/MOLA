@@ -2861,7 +2861,7 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
 
         # Create a subcommunicator for processors managing t
         procDict = Cmpi.getProcDict(zones)
-        procList = list(set(p for p in procDict.values()))
+        procList = list(set(procDict.values()))
         # printCo(f'{procList}', rank, J.MAGE)
         newGroup = comm.group.Incl(procList)
         subComm = comm.Create_group(newGroup)
@@ -2918,18 +2918,19 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
         coeff_eff = J.rampFunction(BodyForceInitialIteration, BodyForceFinalIteration, 0., 1.)
 
         # Create a local communicator active only for processors that manage zones in BodyForceFamily
-        # BFzones, subComm, procList = getBodyForceZones(newTreeWithSourceTerms, BodyForceFamily)
-        # BodyForceParameters['communicator'] = subComm
-        # if rank not in procList:
-        #     # Only processors involved in the computation of source terms for BodyForceFamily
-        #     # read lines that follow in the loop
-        #     continue
+        BFzones, subComm, procList = getBodyForceZones(newTreeWithSourceTerms, BodyForceFamily)
+        BodyForceParameters['communicator'] = subComm
+        BodyForceParameters['rankInvolvedInLocalSourceTerms'] = rank in procList
+        if rank not in procList:
+            # Only processors involved in the computation of source terms for BodyForceFamily
+            # read lines that follow in the loop
+            continue
 
-        BFzones = []
-        for zone in I.getZones(newTreeWithSourceTerms):
-            DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
-            if DataSourceTermNode is not None:
-                BFzones.append(zone)
+        # BFzones = []
+        # for zone in I.getZones(newTreeWithSourceTerms):
+        #     DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
+        #     if DataSourceTermNode is not None:
+        #         BFzones.append(zone)
 
         # Add FluidProperties, ReferenceValues and TurboConfiguration in BodyForceParameters 
         # This latter could be a dict or a list of dict
@@ -3338,7 +3339,7 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
             pass
 
         if EndOfRun or setup.elsAkeysNumerics['time_algo'] != 'steady':
-
+ 
             if not EndOfRun and setup.elsAkeysNumerics['time_algo'] != 'steady':
                 computeRadialProfiles = False
             else: 

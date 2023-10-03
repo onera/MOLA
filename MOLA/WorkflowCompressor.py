@@ -1404,6 +1404,8 @@ def getTurboConfiguration(t, ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}
             for key, value in rowParams.items():
                 if key == 'RotationSpeed' and value == 'auto':
                     rowParams[key] = ShaftRotationSpeed
+                ERR_MSG = f'The key RotationSpeed is not found for the Family {row}'
+                assert 'RotationSpeed' in rowParams, J.FAIL+ERR_MSG+J.ENDC
             for BodyForceComponent in BodyForceInputData:
                 if row == BodyForceComponent['Family']:
                     # Replace the number of blades to be consistant with the body-force mesh

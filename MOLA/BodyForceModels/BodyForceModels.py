@@ -518,7 +518,17 @@ def BodyForceModel_ShockWaveLoss(t, BodyForceParameters):
     return NewSourceTermsGlobal
 
 
-def spreadPressureLossAlongChord(t, BodyForceParameters, Loss=None, Distribution='uniform'):
+def spreadPressureLossAlongChord(t, BodyForceParameters):
+    '''
+    Warning: Careful to the definition of PressureLossCoefficient !!
+            Denominator is Pt-Ps or 0.5*rho*W**2  ??
+    '''
+
+    PressureLoss = BodyForceParameters.get('PressureLoss')
+    PressureLossCoefficient = BodyForceParameters.get('PressureLossCoefficient')
+    Distribution = BodyForceParameters.get('Distribution', 'uniform')
+    PtrelREF = BodyForceParameters.get('PtrelREF')
+
 
     FluidProperties = BodyForceParameters.get('FluidProperties')
     TurboConfiguration = BodyForceParameters.get('TurboConfiguration')
@@ -533,16 +543,23 @@ def spreadPressureLossAlongChord(t, BodyForceParameters, Loss=None, Distribution
         DataSourceTerms = J.getVars2Dict(zone, Container='FlowSolution#DataSourceTerm')
         tmpMOLAFlow = BF.getAdditionalFields(zone, FluidProperties, RotationSpeed)
         
-        if Loss is None:
-            PtLoss = tmpMOLAFlow['PtLoss']
-
+        if PressureLoss is None:
+            if PressureLossCoefficient is not None:
+                PressureLoss = 0.5 * FlowSolution['Density'] * tmpMOLAFlow['Wmag']**2 * PressureLossCoefficient
+            else:
+                if 'PressureLoss' in tmpMOLAFlow:
+                    PressureLoss = tmpMOLAFlow['PressureLoss']
+                elif 'PressureLossCoefficient' in tmpMOLAFlow:
+                    PressureLoss = 0.5 * FlowSolution['Density'] * tmpMOLAFlow['Wmag']**2 * tmpMOLAFlow['PressureLossCoefficient']
+                else:
+                    raise Exception('Either PressureLoss or PressureLossCoefficient must be provided')
+                
         if Distribution == 'uniform':
-            gradPtLoss = PtLoss / DataSourceTerms['ChordX'] / DataSourceTerms['dx']
+            gradPt = PressureLoss / DataSourceTerms['ChordX'] / DataSourceTerms['dx']
         else:
             raise ValueError(f"Distribution='{Distribution}' is not implemented. Only 'uniform' is available.")
 
-        gradPt = 0.5 * tmpMOLAFlow['Density'] * tmpMOLAFlow['Wmag']**2 * gradPtLoss 
-        fp = R * tmpMOLAFlow['Temperature'] / tmpMOLAFlow['Ptrel'] * np.cos(tmpMOLAFlow['incidence']) * gradPt
+        fp = R * tmpMOLAFlow['Temperature'] / PtrelREF * np.cos(tmpMOLAFlow['incidence']) * gradPt
 
         # Get force in the cartesian frame
         fx, fy, fz, fr, ft = BF.getForceComponents(0., fp, tmpMOLAFlow)
@@ -876,7 +893,7 @@ def BodyForceModel_Roberts1988(t, BodyForceParameters):
             PtLossAtShroud = PtLossModel_Roberts1988_RotorTipClearance(r, rShroud, ShroudDisplacementThickness, TipClearance, BladeSpan)
 
         tmpMOLAFlowNode = I.getNodeFromName(zone, 'FlowSolution#tmpMOLAFlow')
-        I.createChild(tmpMOLAFlowNode, 'PtLoss', 'DataArray_t', value=PtLossAtHub + PtLossAtShroud)
+        I.createChild(tmpMOLAFlowNode, 'PressureLossCoefficient', 'DataArray_t', value=PtLossAtHub + PtLossAtShroud)
 
         ####################################################################
         # Deviation with respect to flow angle at mid span
