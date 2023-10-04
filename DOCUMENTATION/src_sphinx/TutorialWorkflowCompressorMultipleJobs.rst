@@ -146,10 +146,10 @@ Monitor jobs
 ------------
 
 Staying in the submission directory on eos, spiro or visung, we can download
-:download:`JobsMonitor.py <../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/JobsMonitor.py>`.
+:download:`JobsMonitor.py <../../TEMPLATES/WORKFLOW_COMPRESSOR/JobsMonitor.py>`.
 It contains the following lines:
 
-.. literalinclude:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/JobsMonitor.py
+.. literalinclude:: ../../TEMPLATES/WORKFLOW_COMPRESSOR/JobsMonitor.py
     :language: python
 
 We have only to modify the path **DIRECTORY_WORK** if needed, and execute this script with

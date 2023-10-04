@@ -94,6 +94,92 @@ Generation of a O-H mesh surface
     OH grid around an airfoil, with imposed 3D boundaries and projection onto
     a cylinder surface
 
+WORKFLOW COMPRESSOR
+-------------------
+
+.. _Rotor37:
+
+Rotor 37
+********
+
+.. code-block:: bash
+
+    $MOLA/EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_SingleCase/
+
+
+**Short description**:
+
+The NASA 37 transonic rotor is a well known turbomachinery open test case.
+The rotor has 36 blades and a nominal speed of 17188.7 rpm.
+This test case is interesting to evaluate the robustness of a CFD solver since
+it presents a shock-wave/boundary-layer interaction leading to a flow separation.
+
+At design point, the mass flow rate is 20.5114 kg/s, the stagnation pressure ratio is 2.106,
+and the polytropic efficiency is 0.889.
+
+For more information on the configuration and experimental data,
+see:
+
+ * Agard-AR-355 , "CFD Validation for Propulsion System Components", May 1998:
+   https://apps.dtic.mil/sti/pdfs/ADA349027.pdf
+
+The mesh is very light (around 500 000 cells), which allow quick tests on few CPU.
+
+.. figure:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_SingleCase/flow_r37.png
+    :width: 80%
+    :align: center
+
+    flow around the rotor37 blade
+
+
+Rotor 37 - iso-speed line
+*************************
+
+.. code-block:: bash
+
+    $MOLA/EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/
+
+.. figure:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/isoSpeedLine_with_annotation.png
+    :width: 80%
+    :align: center
+
+    Performance on the iso-speed line
+
+**Short description**:
+
+This case is identical to :ref:`Rotor37`, except that several operating points
+are simulated for the design rotational speed, by varying the outflow condition.
+
+
+
+LMFA linear cascade
+*******************
+
+.. code-block:: bash
+
+    $MOLA/EXAMPLES/WORKFLOW_COMPRESSOR/LMFAcascade_NACA65009/
+
+.. figure:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/LMFAcascade_NACA65009/flow_lmfa.png
+    :width: 80%
+    :align: center
+
+    LMFAcascade_NACA65009 flow
+
+**Short description**:
+
+This is a linear cascade of NACA 65-009 profiles, previously installed in
+LMFA facilities.
+The width of the domain is 0.134m, with a periodicity by translation.
+The blade leading edge angle is 54.31 degrees and the flow incidence in the
+example is 4 degrees.
+The blade chord-based Reynolds number is :math:`3.8 \times 10^5`.
+
+The mesh has around 1.7 million cells.
+
+An experimental reference for this configuration is:
+
+* Zambonini, G., Ottavy, X., and Kriegseis, J. (March 22, 2017). "Corner Separation Dynamics in a Linear Compressor Cascade." ASME. J. Fluids Eng. June 2017; 139(6): 061101. https://doi.org/10.1115/1.4035876
+
 
 WORKFLOW AIRFOIL
 ----------------
@@ -110,7 +196,7 @@ showing the main steps of a MOLA computation using elsA, from mesh construction
 up to simple post-processed ``OUTPUT`` files. This case is very light, as it can
 run in a local machine.
 
-.. figure:: ../../EXAMPLES/WORKFLOW_AIRFOIL/LIGHT_SINGLE_CASE/MachContour.png
+.. figure:: ../../EXAMPLES/WORKFLOW_AIRFOIL/LIGHT_SINGLE_CASE/flow_airfoil.png
     :width: 80%
     :align: center
 
@@ -133,128 +219,43 @@ Airfoil Polar computation using light mesh
     :math:`c_L(\alpha)` of around OA309 airfoil
 
 
-WORKFLOW COMPRESSOR
--------------------
 
-.. _Rotor37:
+.. WORKFLOW AEROTHERMAL COUPLING
+.. -----------------------------
 
-Rotor 37
-********
+.. Channel with two heated walls
+.. *****************************
 
-.. code-block:: bash
+.. .. code-block:: bash
 
-    $MOLA/EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_SingleCase/
+..     $MOLA/EXAMPLES/WORKFLOW_AEROTHERMAL_COUPLING/channel_2HeatedWalls_structured/
 
-.. figure:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_SingleCase/OUTPUT/static_pressure.png
-    :width: 80%
-    :align: center
+.. .. figure:: ../../EXAMPLES/WORKFLOW_AEROTHERMAL_COUPLING/channel_2HeatedWalls_structured/Temperature.png
+..     :width: 100%
+..     :align: center
 
-    Static pressure at 10%, 50% and 90% of blade height
+..     Temperature inside the flow and the solid (top and bottom walls)
 
-**Short description**:
+.. **Short description**
 
-The NASA 37 transonic rotor is a well known turbomachinery open test case.
-The rotor has 36 blades and a nominal speed of 17188.7 rpm.
-This test case is interesting to evaluate the robustness of a CFD solver since
-it presents a shock-wave/boundary-layer interaction leading to a flow separation.
+.. This test case is a 2D (one cell in Z direction) flow channel with heated walls on both sides.
+.. elsA is used for the fluid domain (structured mesh), and Zset is used for the solid domain.
 
-At design point, the mass flow rate is 20.5114 kg/s, the stagnation pressure ratio is 2.106,
-and the polytropic efficiency is 0.889.
+.. Upstream the heated walls, walls are adiabatic and viscous.
+.. For the heated walls, a constant temperature (1500K for the bottom wall, 1300K
+.. for the top wall) is imposed for the boudary conditions of the solid domain
+.. (other than interfaces with the fluid domain).
+.. At the interfaces between the fluid and the solid domains, the coupling is done
+.. with a Dirichlet condition on the fluid side and a Robin condition on the solid side.
 
-For more information on the configuration and experimental data,
-see:
+.. Correspondance between elsA and Zset Families :
 
- * Agard-AR-355 , "CFD Validation for Propulsion System Components", May 1998:
-   https://apps.dtic.mil/sti/pdfs/ADA349027.pdf
-
-The mesh is very light (around 500 000 cells), which allow quick tests on few CPU.
-
-
-Rotor 37 - iso-speed line
-*************************
-
-.. code-block:: bash
-
-    $MOLA/EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/
-
-.. figure:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/isoSpeedLines.png
-    :width: 80%
-    :align: center
-
-    Performance on the iso-speed line
-
-**Short description**:
-
-This case is identical to :ref:`Rotor37`, except that several operating points
-are simulated for the design rotational speed, by varying the outflow condition.
-
-
-
-LMFA linear cascade
-*******************
-
-.. code-block:: bash
-
-    $MOLA/EXAMPLES/WORKFLOW_COMPRESSOR/LMFAcascade_NACA65009/
-
-.. figure:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/LMFAcascade_NACA65009/OUTPUT/LMFAcascade.png
-    :width: 80%
-    :align: center
-
-    Mach number under 4 degrees of incidence.
-
-**Short description**:
-
-This is a linear cascade of NACA 65-009 profiles, previously installed in
-LMFA facilities.
-The width of the domain is 0.134m, with a periodicity by translation.
-The blade leading edge angle is 54.31 degrees and the flow incidence in the
-example is 4 degrees.
-The blade chord-based Reynolds number is :math:`3.8 \times 10^5`.
-
-The mesh has around 1.7 million cells.
-
-An experimental reference for this configuration is:
-
-* Zambonini, G., Ottavy, X., and Kriegseis, J. (March 22, 2017). "Corner Separation Dynamics in a Linear Compressor Cascade." ASME. J. Fluids Eng. June 2017; 139(6): 061101. https://doi.org/10.1115/1.4035876
-
-
-WORKFLOW AEROTHERMAL COUPLING
------------------------------
-
-Channel with two heated walls
-*****************************
-
-.. code-block:: bash
-
-    $MOLA/EXAMPLES/WORKFLOW_AEROTHERMAL_COUPLING/channel_2HeatedWalls_structured/
-
-.. figure:: ../../EXAMPLES/WORKFLOW_AEROTHERMAL_COUPLING/channel_2HeatedWalls_structured/Temperature.png
-    :width: 100%
-    :align: center
-
-    Temperature inside the flow and the solid (top and bottom walls)
-
-**Short description**
-
-This test case is a 2D (one cell in Z direction) flow channel with heated walls on both sides.
-elsA is used for the fluid domain (structured mesh), and Zset is used for the solid domain.
-
-Upstream the heated walls, walls are adiabatic and viscous.
-For the heated walls, a constant temperature (1500K for the bottom wall, 1300K
-for the top wall) is imposed for the boudary conditions of the solid domain
-(other than interfaces with the fluid domain).
-At the interfaces between the fluid and the solid domains, the coupling is done
-with a Dirichlet condition on the fluid side and a Robin condition on the solid side.
-
-Correspondance between elsA and Zset Families :
-
-==========   =======
-elsA         Zset
-==========   =======
-BottomWall   nord
-TopWall      sud1
-==========   =======
+.. ==========   =======
+.. elsA         Zset
+.. ==========   =======
+.. BottomWall   nord
+.. TopWall      sud1
+.. ==========   =======
 
 WORKFLOW STANDARD
 -----------------
@@ -275,11 +276,11 @@ up to simple post-processed ``OUTPUT`` files. This case is very light, as it can
 run in a local machine. Thus, mesh is *VERY* coarse and must be refined for
 practical usage. This case can be used for rapid testing of MOLA functionalities.
 
-.. figure:: ../../EXAMPLES/WORKFLOW_STANDARD/LIGHT_WING/SurfacesContours.png
+.. figure:: ../../EXAMPLES/WORKFLOW_STANDARD/LIGHT_WING/flow_wing.png
     :width: 80%
     :align: center
 
-    Contour of Mach number around NACA0012 airfoil
+    LIGHT_WING
 
 Light wing case (overset)
 *************************
@@ -294,11 +295,11 @@ a cartesian octree-type grid is employed around a bodyfitted mesh component arou
 the wing. This small example simply shows an overset type (a.k.a. chimera technique)
 preprocessing. Mesh is *VERY* coarse and must be refined for practical usage.
 
-.. figure:: ../../EXAMPLES/WORKFLOW_STANDARD/LIGHT_OVERSET/arrays.svg
+.. figure:: ../../EXAMPLES/WORKFLOW_STANDARD/LIGHT_OVERSET/flow_wing_ovt.png
     :width: 80%
     :align: center
 
-    Evolution of :math:`C_L` and its statistics during the simulation
+    LIGHT_OVERSET
 
 
 Light Propeller using Bodyforce
@@ -313,11 +314,11 @@ Light Propeller using Bodyforce
 the Bodyforce Method. Mesh is *VERY* coarse and must be refined for practical
 usage. Only an octree grid is employed, with no overset components.
 
-.. figure:: ../../EXAMPLES/WORKFLOW_STANDARD/LIGHT_BODYFORCE/azimut.png
+.. figure:: ../../EXAMPLES/WORKFLOW_STANDARD/LIGHT_BODYFORCE/flow_bfm.png
     :width: 80%
     :align: center
 
-    azimutal cartography of the sectional axial force
+    LIGHT_BODYFORCE flow
 
 
 Propeller using Bodyforce and an Overset mesh refinement technique
@@ -331,11 +332,11 @@ Propeller using Bodyforce and an Overset mesh refinement technique
 **Short description:** CFD computation of a propeller using
 the Bodyforce Method using a local refinment mesh using the overset mesh technique.
 
-.. figure:: ../../EXAMPLES/WORKFLOW_STANDARD/OVERSET_BODYFORCE/slice.png
+.. figure:: ../../EXAMPLES/WORKFLOW_STANDARD/OVERSET_BODYFORCE/flow_bfm_ovt.png
     :width: 80%
     :align: center
 
-    contours of Momentum in the axial direction.
+    OVERSET_BODYFORCE flow
 
 Aircraft components with several propellers and rotors
 ******************************************************
@@ -353,7 +354,7 @@ by only two solids (wing and horizontal stabilizer) which includes a propulsive
 propeller on the wing-tip and two rotors for hovering. Only half configuration is
 simulated.
 
-.. figure:: ../../EXAMPLES/WORKFLOW_STANDARD/HEAVY_OVERSET_BODYFORCE/FieldsWithProps.png
+.. figure:: ../../EXAMPLES/WORKFLOW_STANDARD/HEAVY_OVERSET_BODYFORCE/flow_bfm_hvy.png
     :width: 80%
     :align: center
 
@@ -368,7 +369,7 @@ Light Helicopter Rotor
     $MOLA/EXAMPLES/WORKFLOW_STANDARD/LIGHT_ROTOR
 
 
-.. figure:: FIGURES/hvab_cfd.png
+.. figure:: ../../EXAMPLES/WORKFLOW_STANDARD/LIGHT_ROTOR/FRAMES/frame014400.png
     :width: 80%
     :align: center
 
@@ -376,7 +377,7 @@ Light Helicopter Rotor
 
 
 **Short description:** Simulation of a light rotor of a helicopter using unsteady
-overset technique.
+overset technique. This uses a very coarse mesh.
 
 WORKFLOW PROPELLER
 ------------------
@@ -391,6 +392,12 @@ HAD-1 Propeller
 .. code-block:: bash
 
     $MOLASATOR/EXAMPLES/WORKFLOW_PROPELLER/HAD-1
+
+.. figure:: ../../EXAMPLES/WORKFLOW_PROPELLER/HAD-1/flow_had1.png
+    :width: 80%
+    :align: center
+
+    HAD-1 flow
 
 **Short description:** Simulation of HAD-1 propeller in axial flight conditions.
 This case features automatic full-match grid generation.
@@ -408,18 +415,19 @@ Own designed propeller
 
     $MOLASATOR/EXAMPLES/WORKFLOW_PROPELLER/BLADE_NACA_AIRFOIL
 
+.. figure:: ../../EXAMPLES/WORKFLOW_PROPELLER/BLADE_NACA_AIRFOIL/flow_bladenaca.png
+    :width: 80%
+    :align: center
+
+    BLADE_NACA_AIRFOIL flow
+
+
 **Short description:** Simulation of a totally custom propeller in axial flight
 conditions.
 The case features automatic full-match grid generation.
 Blade geometry can be defined either by geometrical laws, an existing LiftingLine,
 or by passing sections interpolation.
 The spinner profile is automatically generated using geometrical parameters.
-
-.. figure:: ../../EXAMPLES/WORKFLOW_PROPELLER/BLADE_NACA_AIRFOIL/blade_naca.png
-    :width: 80%
-    :align: center
-
-    Propeller showing Q-criterion isosurfaces and Pressure contours
 
 
 WORKFLOW ORAS
@@ -437,8 +445,17 @@ ORAS case
 
     $MOLASATOR/EXAMPLES/WORKFLOW_ORAS/USF_NEXTAIR_SE
 
+.. figure:: ../../EXAMPLES/WORKFLOW_ORAS/USF_NEXTAIR_SE/flow_usf.png
+    :width: 80%
+    :align: center
+
+    USF_NEXTAIR_SE flow
+
+
 **Short description:** This example presents an Open Rotor and Stator (ORAS)
 configuration for steady RANS computations with mixing-plane.
+
+
 
 VPM
 ---
@@ -449,8 +466,8 @@ Several VPM examples of wings, rotors and propellers are available here:
 
     $MOLA/EXAMPLES/VPM/LIFTING_LINE
 
-.. figure:: ../../EXAMPLES/VPM/LIFTING_LINE/ROTORS/HAD1/particles.png
+.. figure:: ../../EXAMPLES/VPM/LIFTING_LINE/ROTORS/KDE_QuadRotor/flow_kde_quad.png
     :width: 80%
     :align: center
 
-    Particles around HAD-1 propeller
+    Flow around the KDE quadcopter drone

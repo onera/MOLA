@@ -35,30 +35,42 @@ using `elsA <https://elsa.onera.fr>`_ solver.
 Major changes
 =============
 
-Major changes with respect to previous version (``v1.14``):
+Major changes with respect to previous version (``v1.15``):
 
 General
 -------
-* MOLA is now released using `GNU LGPL v3 open-source license <http://www.gnu.org/licenses/>`_
+* Included mola command lines. More info in :ref:`Commands`
+* ONERA CentOS 6 machines not supported anymore
 
 CFD
 ---
-* use of elsA v5.1.03
-* cell-volume correction on lifting-line bodyforce method
-* major enhancements on internal aerodynamics bodyforce method
-* automatic turbomachinery post-processing using *turbo* module
-* dynamic overset suitable for unsteady rotor computations
-* chorochronic simulations on Workflow Compressor and ORAS
-* expansion of existing Airfoil Polars
-* automatic restart of any CFD run upon timeout
-* injection of user-defined radial profiles in turbomachinery simulations
+* use of elsA v5.2.02
+* enhanced unstructured compatibility using `maia <https://numerics.gitlab-pages.onera.net/mesh/maia/1.2/>`_ functions during preprocess (sequential only)
+* automatic handling of volume and surface fields time-averaging and restart procedure
+* allowed for multi-container behavior (extractions, slices, post-processing)
+* Standard workflow now accepts turbomachinery type boundary conditions
+* Standard workflow now accepts PyPart splitting (if no overset is done)
+* included simple probes extractions
+* Giles boundary conditions are now available
+* Body force (version from internal aerodynamics) available in workflow ORAS
+
+MESHING
+-------
+
+* enhanced automatic propeller meshing procedure, now allowing for narrow USF-type monochannel grids
+
+VPM
+---
+* use of elsA VPM v0.3 (still beta)
+* included multiple diffusion methods (DVM is current best choice)
+* included velocity perturbation technique (see new NREL5 wind turbine example)
+* included enstrophy-based dynamic control of turbulence viscosity
+* lifting-line self-induction modeled using particles
+
 
 Miscellaneous
 -------------
-* Release of Vortex Particle Method (VPM) stable version v0.2, including multiple examples
-* major enhancements of TreeLab 
 * enhanced visualisation techniques (Visu module)
-* new tools accessible from MOLA environment: turbo, ErsatZ, maia
 * bugs correction and improved general robustness
 
 Indices and tables

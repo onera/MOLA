@@ -4959,7 +4959,7 @@ def extremaAsPointers(curve):
     Returns
     -------
 
-        pt : :py:class:`list` of result of :py:fun:`extremumAsPointer`
+        pt : :py:class:`list` of result of :py:func:`extremumAsPointer`
             pointers of two points of extrema
     '''
     return extremumAsPointer(curve), extremumAsPointer(curve,True)
@@ -4973,10 +4973,10 @@ def gluePointers(pointer1, pointer2, mode='1-towards-2'):
     ----------
 
         pointer1 : :py:class:`list` of 3 :py:class:`numpy.ndarray` of size 1
-            first point pointer as got using :py:fun:`extremumAsPointer`
+            first point pointer as got using :py:func:`extremumAsPointer`
 
         pointer2 : :py:class:`list` of 3 :py:class:`numpy.ndarray` of size 1
-            second point pointer as got using :py:fun:`extremumAsPointer`
+            second point pointer as got using :py:func:`extremumAsPointer`
 
         mode : str
             one of:
@@ -5025,7 +5025,7 @@ def glueCurvesAtExtrema(curve1, curve2, curve1_extremum='start',
             selects the extremum of **curve2** to glue. It may be ``'start'`` or ``'end'``.
 
         mode : str
-            mode of glue. See doc of :py:fun:`gluePointers`
+            mode of glue. See doc of :py:func:`gluePointers`
 
     '''
     if curve1_extremum == 'start':

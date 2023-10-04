@@ -688,7 +688,7 @@ artificial viscosity parameters depend on the numerical scheme). If needed, you
 can set custom values for these default related parameters anyway.
 
 How to change any *elsA* parameter ?
-**********************************
+************************************
 
 Any elsA key in the *elsA* objects ``cfdpb``, ``model`` and ``numerics`` may be overwritten by passing the optional 
 argument ``OverrideSolverKeys`` to the function :mod:`~MOLA.WorkflowCompressor.prepareMainCGNS4ElsA`:
