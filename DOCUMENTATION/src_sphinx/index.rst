@@ -39,7 +39,7 @@ Major changes with respect to previous version (``v1.15``):
 
 General
 -------
-* Included mola command lines. See available commands using `mola_available`
+* Included mola command lines. More info in :ref:`Commands`
 * ONERA CentOS 6 machines not supported anymore
 
 CFD
@@ -51,6 +51,8 @@ CFD
 * Standard workflow now accepts turbomachinery type boundary conditions
 * Standard workflow now accepts PyPart splitting (if no overset is done)
 * included simple probes extractions
+* Giles boundary conditions are now available
+* Body force (version from internal aerodynamics) available in workflow ORAS
 
 MESHING
 -------

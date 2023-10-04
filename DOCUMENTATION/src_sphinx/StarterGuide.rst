@@ -10,13 +10,9 @@ MOLA environment is available on the following ONERA machines:
 
 * sator
 
-* ld (local linux in CentOS 7 or CentOS 8)
+* ld (local linux in CentOS 8)
 
-* visung
-
-* visio
-
-* celeste
+* visung (only CentOS 8)
 
 * spiro (partition ``spiro-daaa``)
 
@@ -26,25 +22,26 @@ environment file found at :
 
 .. code-block:: bash
 
-    source /stck/lbernard/MOLA/v1.15/env_MOLA.sh
+    source /stck/lbernard/MOLA/v1.16/env_MOLA.sh
 
 You will see a message indicating the main available libraries:
 
 .. code-block:: text
 
-    MOLA version v1.15 at sator (avx2)
+    MOLA version v1.16 at sator (avx512)
     --> Python 3.7.4
-    --> elsA v5.1.03
-    --> ETC v0.331h
-    --> Cassiopee 3.5
-    --> OCC 3.6
-    --> Apps 3.1
-    --> VPM 0.2
-    --> PUMA UNAVAILABLE
-    --> turbo v1.2.2
+    --> elsA v5.2.02
+    --> ETC v0.333b    
+    --> Cassiopee rev4670 3.7
+    ----> OCC 3.7       (took 1.98393 s : too long)
+    ----> Apps 3.1     
+    --> VPM 0.3        
+    --> PUMA v2.0.3_mod (took 6.42188 s : too long)
+    --> turbo dev-lb   
     --> Ersatz UNAVAILABLE
-    --> maia 1.0
+    --> maia 1.2        (took 2.74248 s : too long)
     You are using the latest version of MOLA
+
 
 .. important::
   If you encounter problems for sourcing the environment, this may be due to the
