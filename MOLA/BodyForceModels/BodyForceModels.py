@@ -542,15 +542,16 @@ def spreadPressureLossAlongChord(t, BodyForceParameters):
         FlowSolution = J.getVars2Dict(zone, Container='FlowSolution#Init')
         DataSourceTerms = J.getVars2Dict(zone, Container='FlowSolution#DataSourceTerm')
         tmpMOLAFlow = BF.getAdditionalFields(zone, FluidProperties, RotationSpeed)
+        DynamicPressure = 0.5 * FlowSolution['Density'] * tmpMOLAFlow['Wmag']**2
         
         if PressureLoss is None:
             if PressureLossCoefficient is not None:
-                PressureLoss = 0.5 * FlowSolution['Density'] * tmpMOLAFlow['Wmag']**2 * PressureLossCoefficient
+                PressureLoss = DynamicPressure * PressureLossCoefficient
             else:
                 if 'PressureLoss' in tmpMOLAFlow:
                     PressureLoss = tmpMOLAFlow['PressureLoss']
                 elif 'PressureLossCoefficient' in tmpMOLAFlow:
-                    PressureLoss = 0.5 * FlowSolution['Density'] * tmpMOLAFlow['Wmag']**2 * tmpMOLAFlow['PressureLossCoefficient']
+                    PressureLoss = DynamicPressure * tmpMOLAFlow['PressureLossCoefficient']
                 else:
                     raise Exception('Either PressureLoss or PressureLossCoefficient must be provided')
                 
