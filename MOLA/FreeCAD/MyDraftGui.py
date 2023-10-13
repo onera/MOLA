@@ -62,7 +62,7 @@ try:
 except ImportError:
     FreeCAD.Console.PrintMessage("Error: Python-pyside package must be installed on your system to use the Draft module.")
 
-print ('was here')
+print('was here')
 
 class todo:
     ''' static todo class, delays execution of functions.  Use todo.delay
