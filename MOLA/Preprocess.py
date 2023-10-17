@@ -3945,7 +3945,7 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
                 if zbc:
                     for bc in I.getNodesFromType1(zbc, 'BC_t'):
                         currentNodePath='/'.join([b[0], z[0], zbc[0], bc[0], 'BCDataSet#Average'])
-                        I.createNode('BCDataSet#Average', 'UserDefinedData_t', parent=bc)  # UserDefinedData, else bug in PyPart
+                        I.createNode('BCDataSet#Average', 'BCDataSet_t', parent=bc)
                         targetNodePath=currentNodePath
                         AllCGNSLinks += [['.',
                                         DIRECTORY_OUTPUT+'/'+FieldsFilename,
@@ -3955,6 +3955,7 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
     print('saving PyTrees with links')
     to = I.copyRef(t)
     I._renameNode(to, 'FlowSolution#Centers', 'FlowSolution#Init')
+    I._rmNodesByName(to,'BCDataSet#Average') # https://gitlab.onera.net/numerics/mola/-/issues/161
     if writeOutputFields:
         try: os.makedirs(DIRECTORY_OUTPUT)
         except: pass

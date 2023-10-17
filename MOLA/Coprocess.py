@@ -143,6 +143,9 @@ def extractFields(Skeleton):
             Coupling adapted PyTree
 
     '''
+    J.save(Skeleton,'Skeleton_%d.cgns'%rank)
+    Cmpi.barrier()
+    exit()
     t = elsAxdt.get(elsAxdt.OUTPUT_TREE)
     adaptEndOfRun(t)
     resumeFieldsAveraging(Skeleton, t)
@@ -689,11 +692,12 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
     Cmpi.barrier()
     if rank == 0:
         t_merged = C.convertFile2PyTree('PyPart_fields_all.hdf')
-        migrateSolverOutputOfFlowSolutions(tpt, t_merged)
-        removeEmptyBCDataSet(t_merged)
-        PRE.forceFamilyBCasFamilySpecified(t_merged) # https://elsa.onera.fr/issues/10928
-        ravelBCDataSet(t_merged) # HACK https://elsa.onera.fr/issues/11219
+        addLostFieldsExtractors(t_merged)
+        migrateSolverOutputOfFlowSolutions(t, t_merged)
         I._rmNodesByName(t_merged, 'FlowSolution#EndOfRun*')
+        ravelBCDataSet(t_merged)
+        PRE.forceFamilyBCasFamilySpecified(t_merged) 
+        addDummyBCDataSetAverage(t_merged)
         C.convertPyTree2File(t_merged, filename)
         for fn in glob.glob('PyPart_fields_*.hdf'):
             try:
@@ -704,6 +708,19 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
     Cmpi.barrier()
     if tagWithIteration and rank == 0:
         copyOutputFiles(filename)
+
+def addDummyBCDataSetAverage(t):
+    firstiter = setup.ReferenceValues['CoprocessOptions']['FirstIterationForFieldsAveraging']
+    if firstiter is None: return
+    if CurrentIteration < firstiter:
+        for base in I.getNodesFromType1(t, 'CGNSBase_t'):
+            for zone in I.getNodesFromType1(base, 'Zone_t'):
+                zone_bc = I.getNodeFromName1(zone, 'ZoneBC')
+                if not zone_bc:
+                    continue
+                for bc in I.getNodesFromType1(zone_bc,'BC_t'):
+                    I.createUniqueChild(bc, 'BCDataSet#Average', 'UserDefinedData_t')    
+
 
 def saveWithPyPart_NEW(t, filename, tagWithIteration=False):
     '''
@@ -2488,7 +2505,6 @@ def loadSkeleton(Skeleton=None, PartTree=None):
         I._rmNode(parent, oldNode)
         I._addChild(parent, newNode)
 
-
     def replaceNodeValuesRecursively(node_skel, node_path):
         new_node = readNodesFromPaths(node_path)[0]
         node_skel[1] = new_node[1]
@@ -2530,8 +2546,6 @@ def loadSkeleton(Skeleton=None, PartTree=None):
                 for GC in I.getNodesFromType2(zone, 'GridConnectivity_t'):
                     GCpath = '{}/ZoneGridConnectivity/{}'.format(zonePath, I.getName(GC))
                     replaceNodeByName(GC, GCpath, 'PointList')
-
-
 
         # always require to fully read Mask nodes 
         masks = I.getNodeFromName1(base, '.MOLA#Masks')
@@ -2605,7 +2619,7 @@ def splitWithPyPart():
     if (is_unsteady and avg_requested) or DeleteZoneBCGT:
         msg =  'WARNING: removing "ZoneBCGT", but this may cause deadlock at fields.cgns save:\n'
         msg += 'more information: https://elsa.onera.fr/issues/11149#note-11\n'
-        msg += 'to force removal of ZoneBCGT, use CoprocessOptions=dict(DeleteZoneBCGT=True)'
+        msg += 'ZoneBCGT is deleted automatically if simulation is unsteady and FirstIterationForFieldsAveraging is provided'
         printCo(msg,0,J.WARN)
         I._rmNodesByName(Skeleton,'ZoneBCGT') # https://elsa.onera.fr/issues/11149
     Distribution = PyPartBase.getDistribution()
@@ -3264,15 +3278,21 @@ def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
 
             avg_tot[1] = avg_new # update of OUTPUT_TREE
 
+    if cit < firstiter: return
+
     # adapt BC fields:
-    old = _getDictofNodesBCFieldsPerZone(Skeleton, '.Solver#Output#Average')
-    tot = _getDictofNodesBCFieldsPerZone(t, '.Solver#Output#Average')
+    tot = _getDictofNodesBCFieldsPerZone(t, 'BCDataSet#Average')
+    old = _getDictofNodesBCFieldsPerZoneAtSkeleton(Skeleton, 'BCDataSet#Average', tot)
     if cit == firstiter:
-        ini = _getDictofNodesBCFieldsPerZone(t, '.Solver#Output#Output')
+        ini = _getDictofNodesBCFieldsPerZone(t, 'BCDataSet')
     for zone_name in tot:
         for bcfamily_name in tot[zone_name]:
             for field_name in tot[zone_name][bcfamily_name]:
-                avg_old = old[zone_name][bcfamily_name][field_name] # BEWARE this is a CGNS node
+                try:
+                    avg_old = old[zone_name][bcfamily_name][field_name] # BEWARE this is a CGNS node
+                except KeyError:
+                    avg_old = [field_name,None,[],'DataArray_t']
+
                 avg_tot = tot[zone_name][bcfamily_name][field_name] # BEWARE this is a CGNS node
                 
                 if cit == firstiter:
@@ -3280,7 +3300,7 @@ def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
                     avg_tot[1] = np.copy(ini[zone_name][bcfamily_name][field_name][1], order='F')
                     continue
 
-                if cit < firstiter: 
+                if cit < firstiter:
                     avg_old[1] = None
                     avg_new    = None
                 
@@ -3295,14 +3315,13 @@ def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
                                 +avg_tot[1]*(cit-inititer+1))/(cit-firstiter)
 
                 avg_tot[1] = avg_new # update of OUTPUT_TREE
-
-
+                avg_old[1] = avg_new # update of OUTPUT_TREE
 
 
 def _getDictofNodesFieldsPerZone(t, Container):
     fields = dict()
-    for base in I.getNodesByType1(t, 'CGNSBase_t'):
-        for zone in I.getNodesByType1(base, 'Zone_t'):
+    for base in I.getNodesFromType1(t, 'CGNSBase_t'):
+        for zone in I.getNodesFromType1(base, 'Zone_t'):
             zone_name = zone[0]
             fields[zone_name] = dict()
             fs = I.getNodeFromName1(zone, Container)
@@ -3314,20 +3333,64 @@ def _getDictofNodesFieldsPerZone(t, Container):
                 fields[zone_name][f[0]] = f
     return fields
 
-def _getDictofNodesBCFieldsPerZone(t, Container):
+
+def _getDictofNodesBCFieldsPerZoneAtSkeleton(t, Container, tot):
     fields = dict()
-    for base in I.getNodesByType1(t, 'CGNSBase_t'):
-        for zone in I.getNodesByType1(base, 'Zone_t'):
+    for base in I.getNodesFromType1(t, 'CGNSBase_t'):
+        for zone in I.getNodesFromType1(base, 'Zone_t'):
             zone_name = zone[0]
             fields[zone_name] = dict()
             for bc in I.getNodesFromType(zone,'BC_t'):
                 bcfamily_name = bc[0]
+                if bcfamily_name not in fields[zone_name]:
+                    fields[zone_name][bcfamily_name] = dict()
+                bcds = I.getNodeFromName1(bc, Container)
+                if bcds:
+                    bcds[3] = 'BCDataSet_t'
+                    data = I.getNodeFromName1(bcds,'NeumannData')
+                    if data:
+                        for f in data[2]:
+                            if f[3] != 'DataArray_t': continue
+                            fields[zone_name][bcfamily_name][f[0]] = f
+                    else:
+                        try: fields_tot = tot[zone_name][bcfamily_name]
+                        except KeyError: continue
+                        if not fields_tot: continue
+                        nd = I.createUniqueChild(bcds,'NeumannData','BCData_t')
+                        for field_name, f in fields_tot.items():
+                            field_node = I.createUniqueChild(nd,f[0],'DataArray_t',np.copy(f[1],order='F'))
+                            fields[zone_name][bcfamily_name][f[0]] = field_node
+                else:
+                    try: fields_tot = tot[zone_name][bcfamily_name]
+                    except KeyError: continue
+                    if not fields_tot: continue
+                    bcds = I.createUniqueChild(bc,Container,'BCDataSet_t')
+                    nd = I.createUniqueChild(bcds,'NeumannData','BCData_t')
+                    for field_name, f in fields_tot.items():
+                        printCo(f'unexpected for {"/".join([zone_name,bcfamily_name])}',color=J.FAIL)
+                        field_node = I.createUniqueChild(nd,f[0],'DataArray_t',np.copy(f[1],order='F'))
+                        fields[zone_name][bcfamily_name][f[0]] = field_node
+
+    return fields
+
+
+def _getDictofNodesBCFieldsPerZone(t, Container):
+    fields = dict()
+    for base in I.getNodesFromType1(t, 'CGNSBase_t'):
+        for zone in I.getNodesFromType1(base, 'Zone_t'):
+            zone_name = zone[0]
+            fields[zone_name] = dict()
+            for bc in I.getNodesFromType(zone,'BC_t'):
+                bcfamily_name = bc[0]
+                if bcfamily_name not in fields[zone_name]:
+                    fields[zone_name][bcfamily_name] = dict()
                 bcds = I.getNodeFromName1(bc, Container)
                 if bcds:
                     data = I.getNodeFromName1(bcds,'NeumannData')
-                    for f in data[2]:
-                        if f[3] != 'DataArray_t': continue
-                        fields[zone_name][bcfamily_name][f[0]] = f
+                    if data:
+                        for f in data[2]:
+                            if f[3] != 'DataArray_t': continue
+                            fields[zone_name][bcfamily_name][f[0]] = f
     return fields
 
 def removeEmptyBCDataSet(t):
@@ -3337,6 +3400,19 @@ def removeEmptyBCDataSet(t):
                 for n in bc[2]:
                     if n[0].startswith('BCDataSet') and not n[2]:
                         I._rmNode(t, n)
+
+def addLostFieldsExtractors(t):
+    firstiter = setup.ReferenceValues['CoprocessOptions']['FirstIterationForFieldsAveraging']
+    if firstiter is None: return
+    if CurrentIteration >= firstiter: return
+    fields_to_extract = setup.ReferenceValues['Fields']+setup.ReferenceValues['FieldsAdditionalExtractions']
+    for base in I.getNodesFromType1(t, 'CGNSBase_t'):
+        for zone in I.getNodesFromType1(base, 'Zone_t'):
+            fs_extract = I.getNodeFromName1(zone,'FlowSolution#Average')
+            if not fs_extract: continue
+            for field_name in fields_to_extract:
+                I.createUniqueChild(fs_extract,field_name,'DataArray_t')
+
 
 def migrateSolverOutputOfFlowSolutions(t_dnr, t_rcv):
     # Required because of https://elsa.onera.fr/issues/11137
@@ -3364,4 +3440,5 @@ def ravelBCDataSet(t):
                 for bcds in I.getNodesFromType1(bc,'BCDataSet_t'):
                     for bcd in I.getNodesFromType1(bcds,'BCData_t'):
                         for da in I.getNodesFromType1(bcd,'DataArray_t'):
-                            da[1] = da[1].ravel(order='K')
+                            if da[1] is not None:
+                                da[1] = da[1].ravel(order='K')

@@ -3826,8 +3826,6 @@ def getAirfoilPropertiesAndCamber(AirfoilCurve, buildCamberOptions={},
         AirfoilCurve : zone
             structured curve of the airfoil.
 
-            .. note:: **AirfoilCurve** is modified
-
         buildCamberOptions : dict
             literally, options to pass to :py:func:`buildCamber` function
 
