@@ -80,6 +80,10 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows, saveGeometricalDataForBodyForc
                 If the parameter **meshType** is not given, it is 
                 automatically set depending on the initial mesh.
 
+            .. note:: 
+                You may include a dict **ErsatzParameters** in for a row in **BodyForceRows**.
+                If so, parameters are used as it for ertsaz profile parametrization (profile[-1].set(param, value))
+
         saveGeometricalDataForBodyForce : bool
             If :py:obj:`True`, save the intermediate files 'BodyForceData_{row}.cgns' for each row.
             These files contain a CGNS tree with :
@@ -148,17 +152,17 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows, saveGeometricalDataForBodyForc
             locateLE = BodyForceParams.pop('locateLE')
         else:
             locateLE = 'auto'
-        if 'NumberOfPointsOnSkeleton' in BodyForceParams:
-            NumberOfPointsOnSkeleton = BodyForceParams.pop('NumberOfPointsOnSkeleton')
+        if 'ErsatzParameters' in BodyForceParams:
+            ErsatzParameters = BodyForceParams.pop('ErsatzParameters')
         else:
-            NumberOfPointsOnSkeleton = None
+            ErsatzParameters = dict()
 
         # Get the meridional info from rowTree
         if os.path.isfile(f'BodyForceData_{row}.cgns'):
             print(J.CYAN + f'Find body-force input BodyForceData_{row}.cgns' + J.ENDC)
             meridionalMesh = C.convertFile2PyTree(f'BodyForceData_{row}.cgns')
         else:
-            meridionalMesh = extractRowGeometricalData(t, row, save=saveGeometricalDataForBodyForce, locateLE=locateLE, NumberOfPointsOnSkeleton=NumberOfPointsOnSkeleton)
+            meridionalMesh = extractRowGeometricalData(t, row, save=saveGeometricalDataForBodyForce, locateLE=locateLE, **ErsatzParameters)
 
         newRowMesh = buildBodyForceMeshForOneRow(meridionalMesh,
                                                  NumberOfBlades=BladeNumber,
@@ -808,7 +812,7 @@ def addReferenceFlowIncidence(t, tsource, omega):
     P._extractMesh(tsource, t, order=2, extrapOrder=0)
 
 
-def extractRowGeometricalData(mesh, row, save=False, locateLE='auto', NumberOfPointsOnSkeleton=None):
+def extractRowGeometricalData(mesh, row, save=False, locateLE='auto', **ErsatzParameters):
     '''
     Extract geometry data from the input **mesh** for the family **row**.
     The output tree may be passed to function :py:func:`buildBodyForceMeshForOneRow`.
@@ -827,9 +831,9 @@ def extractRowGeometricalData(mesh, row, save=False, locateLE='auto', NumberOfPo
         Must be 'auto' (default value) or 'from_index'. If 'from_index', the index of leading edge
         is set to :math:`N/2 + 1`, where :math:`N` is the number of points on the whole profile (suction
         and pressure sides).
-    NumberOfPointsOnSkeleton : :py:class:`int` or :py:obj:`None`
-        Number of points to write in the output from LE to TE. If :py:obj:`None`, then use the default value 
-        of Ersatz.
+
+    **ErsatzParameters : 
+        Parameters used as it for ertsaz profile parametrization (profile[-1].set(param, value))
 
     Returns
     -------
@@ -841,7 +845,7 @@ def extractRowGeometricalData(mesh, row, save=False, locateLE='auto', NumberOfPo
         'nx', 'nr', 'nt', 'thickness', 'AbscissaFromLE'
     '''
 
-    def profilesExtractionAndAnalysis(tree, row, directory_profiles='profiles', locateLE='auto', NumberOfPointsOnSkeleton=None):
+    def profilesExtractionAndAnalysis(tree, row, directory_profiles='profiles', locateLE='auto', **ErsatzParameters):
 
         import Ersatz as EZ
         import etc.geom.xr_features as XR
@@ -899,13 +903,13 @@ def extractRowGeometricalData(mesh, row, save=False, locateLE='auto', NumberOfPo
         # hub and shroud information (needed for the "height" variable calculation)
         ezpb.set('hub', 'hub.dat')
         ezpb.set('shroud', 'shroud.dat')
-        if NumberOfPointsOnSkeleton:
-            ezpb.set('extract_ninterp', NumberOfPointsOnSkeleton)
 
         profile = []
         for n in range(Nprofiles):
             profile.append(EZ.Profile(ezpb))
             profile[-1].set('file', f'{directory_profiles}/profile{n+1:03d}.dat')
+            for param, value in ErsatzParameters.items():
+                profile[-1].set(param, value)
             if locateLE == 'from_index':
                 profile[-1].set('LEindex', NptsOnProfile[n]/2+1)
             else:
@@ -954,7 +958,7 @@ def extractRowGeometricalData(mesh, row, save=False, locateLE='auto', NumberOfPo
 
 
     directory_profiles = 'profiles_{}'.format(row)
-    profilesExtractionAndAnalysis(mesh, row, directory_profiles=directory_profiles, locateLE=locateLE, NumberOfPointsOnSkeleton=NumberOfPointsOnSkeleton)
+    profilesExtractionAndAnalysis(mesh, row, directory_profiles=directory_profiles, locateLE=locateLE, **ErsatzParameters)
 
     chordTree = C.convertFile2PyTree('chord.dat')
     C._extractVars(chordTree, ['chord', 'chordx'])
