@@ -962,6 +962,7 @@ def updateJobFile(jobTemplate='job_template.sh', JobName=None, AER=None,
             JobText = JobText.replace('$NPROCMPI', str(NumberOfProcessors))
         if QOS:
             JobText = JobText.replace('# #SBATCH --qos <qos>', '#SBATCH --qos {}'.format(QOS))
+            JobText = JobText.replace('#SBATCH --constraint', '# #SBATCH --constraint')
 
         with open(jobTemplate, 'w') as f:
             f.write(JobText)
