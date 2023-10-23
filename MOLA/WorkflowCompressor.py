@@ -1137,22 +1137,6 @@ def getNumberOfBladesInMeshFromFamily(t, FamilyName, NumberOfBlades):
             Number of blades in **t** for row **FamilyName**
 
     '''
-    # # Extract zones in family
-    # zonesInFamily = C.getFamilyZones(t, FamilyName)
-    # # Slice in x direction at middle range
-    # xmin = C.getMinValue(zonesInFamily, 'CoordinateX')
-    # xmax = C.getMaxValue(zonesInFamily, 'CoordinateX')
-    # sliceX = P.isoSurfMC(zonesInFamily, 'CoordinateX', value=xmin+0.05*(xmax-xmin))
-    # # Compute Radius
-    # C._initVars(sliceX, '{Radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
-    # Rmin = C.getMinValue(sliceX, 'Radius')
-    # Rmax = C.getMaxValue(sliceX, 'Radius')
-    # # Compute surface
-    # SurfaceTree = C.convertArray2Tetra(sliceX)
-    # SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
-    # Surface = P.integ(SurfaceTree, var='ones')[0]
-    # # Compute deltaTheta
-    # deltaTheta = 2* Surface / (Rmax**2 - Rmin**2)
     deltaTheta = computeAzimuthalExtensionFromFamily(t, FamilyName)
     # Compute number of blades in the mesh
     Nb = NumberOfBlades * deltaTheta / (2*np.pi)
@@ -2670,6 +2654,7 @@ def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     if not Surface:
         # Compute surface of the inflow BC
         zones = C.extractBCOfName(t, 'FamilySpecified:'+FamilyName)
+        assert len(zones) != 0, f'{J.FAIL}Cannot extract BC {FamilyName}. Please check the name of the family.{J.ENDC}'
         SurfaceTree = C.convertArray2Tetra(zones)
         SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
         Surface = P.integ(SurfaceTree, var='ones')[0]
