@@ -2804,6 +2804,12 @@ def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
     DictKeysGilesOutlet['nscbc_velocity_scale'] = kwargs.get('nscbc_velocity_scale',kwargs['VelocityScale'])    # default value - reference sound velocity 
     DictKeysGilesOutlet['nscbc_viscwall_len'] = kwargs.get('nscbc_viscwall_len', 5.e-4)                         # default value, could be updated by the user if convergence issue
 
+    if kwargs.get('nscbc_viscwall_len_hub') is not None:
+        DictKeysGilesOutlet['nscbc_viscwall_len_hub'] = kwargs.get('nscbc_viscwall_len_hub')                    # value of nscbc_viscwall_len for the hub only
+    if kwargs.get('nscbc_viscwall_len_carter') is not None:
+        DictKeysGilesOutlet['nscbc_viscwall_len_carter'] = kwargs.get('nscbc_viscwall_len_carter')              # value of nscbc_viscwall_len for the hub only           
+
+
     # keys relative to the Giles treatment 
     DictKeysGilesOutlet['giles_opt'] = 'relax'                                                        # mandatory key for NSCBC-Giles treatment
     DictKeysGilesOutlet['giles_restric_relax'] = 'inactive'                                           # mandatory key for NSCBC-Giles treatment
@@ -2894,6 +2900,12 @@ def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwa
     DictKeysGilesInlet['nscbc_outwave'] = kwargs.get('nscbc_outwave',  'grad_etat')                           # recommended value - possible keys : 'grad_etat'; 'extrap_flux'
     DictKeysGilesInlet['nscbc_velocity_scale'] = kwargs.get('nscbc_velocity_scale',kwargs['VelocityScale'])   # default value - sound velocity
     DictKeysGilesInlet['nscbc_viscwall_len'] = kwargs.get('nscbc_viscwall_len', 5.e-4)                        # default value, could be updated by the user if convergence issue
+
+    if kwargs.get('nscbc_viscwall_len_hub') is not None:
+        DictKeysGilesInlet['nscbc_viscwall_len_hub'] = kwargs.get('nscbc_viscwall_len_hub')                    # value of nscbc_viscwall_len for the hub only
+    if kwargs.get('nscbc_viscwall_len_carter') is not None:
+        DictKeysGilesInlet['nscbc_viscwall_len_carter'] = kwargs.get('nscbc_viscwall_len_carter')              # value of nscbc_viscwall_len for the hub only           
+
 
     # keys relative to the Giles treatment 
     DictKeysGilesInlet['giles_opt'] = kwargs.get('giles_relax_opt', 'relax')                             # mandatory key for NSCBC-Giles treatment
@@ -3370,6 +3382,12 @@ def setBC_giles_stage_mxpl(t, left, right, method = 'Robust', **kwargs):
     DictKeysGilesMxpl['nscbc_outwave'] = kwargs.get('nscbc_outwave',  'grad_etat')                  # recommended value - possible keys : 'grad_etat'; 'extrap_flux'
     DictKeysGilesMxpl['nscbc_velocity_scale'] = kwargs.get('nscbc_velocity_scale',kwargs['VelocityScale'])    # default value - reference sound velocity 
     DictKeysGilesMxpl['nscbc_viscwall_len'] = kwargs.get('nscbc_viscwall_len', 5.e-4)               # default value, could be updated by the user if convergence issue
+
+    if kwargs.get('nscbc_viscwall_len_hub') is not None:
+        DictKeysGilesMxpl['nscbc_viscwall_len_hub'] = kwargs.get('nscbc_viscwall_len_hub')                    # value of nscbc_viscwall_len for the hub only
+    if kwargs.get('nscbc_viscwall_len_carter') is not None:
+        DictKeysGilesMxpl['nscbc_viscwall_len_carter'] = kwargs.get('nscbc_viscwall_len_carter')              # value of nscbc_viscwall_len for the hub only           
+
 
     # keys relative to the Giles treatment 
     DictKeysGilesMxpl['giles_opt'] = 'relax'                                                        # mandatory key for NSCBC-Giles treatment
