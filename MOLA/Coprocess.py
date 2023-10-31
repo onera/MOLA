@@ -836,13 +836,16 @@ def restoreFamilies(surfaces, skeleton):
         for zone in I.getZones(base):
             zoneName = I.getValue(I.getNodeFromName1(zone, '.parentZone'))
             zoneInFullTree = I.getNodeFromNameAndType(skeleton, zoneName, 'Zone_t')
+            if zoneInFullTree:  
+                fam = I.getNodeFromType1(zoneInFullTree, 'FamilyName_t')
+                I.addChild(zone, fam)
+                familiesInBase.append(I.getValue(fam))
+            else:
+                # This is an extracted BC
+                fam = I.getNodeFromType1(zone, 'FamilyName_t')
+                if not fam: continue
+                familiesInBase.append(I.getValue(fam))
             
-            # surface comes from extractBC => already contains all families
-            if not zoneInFullTree: continue 
-            
-            fam = I.getNodeFromType1(zoneInFullTree, 'FamilyName_t')
-            I.addChild(zone, fam)
-            familiesInBase.append(I.getValue(fam))
         for family in FamilyNodes:
             if I.getName(family) in familiesInBase:
                 I.addChild(base, family)
