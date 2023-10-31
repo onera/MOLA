@@ -511,16 +511,20 @@ def linelaw(P1=(0,0,0), P2=(1,0,0), N=100, Distribution = None, verbose=linelawV
             pass
 
         elif Distribution['kind'] == 'tanhOneSide':
+            # Check there is only one constraint in Distribution 
+            onlyFirstCell = 'FirstCellHeight' in Distribution and not 'LastCellHeight' in Distribution
+            onlyLastCell = 'LastCellHeight' in Distribution and not 'FirstCellHeight' in Distribution
+            MSG = 'tanhOneSide distribution requires "FirstCellHeight" or "LastCellHeight" (and only one of them).'
+            assert onlyFirstCell or onlyLastCell, J.FAIL+MSG+J.ENDC
+
             Length = distance(P1,P2)
 
             if 'FirstCellHeight' in Distribution:
                 dy = Distribution['FirstCellHeight']/Length
                 isCellEnd = False
-            elif 'LastCellHeight' in Distribution:
+            else:
                 dy = Distribution['LastCellHeight']/Length
                 isCellEnd = True
-            else:
-                raise ValueError('linelaw: kind %s requires "FirstCellHeight" or "LastCellHeight"')
 
             Dir = np.array([P2[0]-P1[0],P2[1]-P1[1],P2[2]-P1[2]])/Length
             S = getTanhDist__(N,dy,isCellEnd)*Length
