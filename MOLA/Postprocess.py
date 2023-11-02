@@ -1497,6 +1497,50 @@ def isoSurface(t, fieldname=None, value=None, container='FlowSolution#Init'):
     
     return surfs
 
+def isoSurfaceAllGather(t, fieldname, value, container='FlowSolution#Init', check=True):
+    '''
+    Extract an iso surface for a given **value** of **fieldname**. The extraction is gathered on all ranks.
+
+    Parameters
+    ----------
+        t : PyTree
+            Current PyTree given by the :py:mod:`BodyForceModels` module, restricted to zones belonging to 
+            the family involved in the body force modelling.
+
+        fieldname : str
+                name of the field used for making the iso-surface. It can be the
+                coordinates names such as ``'CoordinateX'``, ``'CoordinateY'`` or 
+                ``'CoordinateZ'`` (in such cases, parameter **container** is ignored)
+
+        value : float
+            value used for computing the iso-surface of field **fieldname**
+
+        container : str
+            name of the *FlowSolution_t* CGNS container where the field
+            **fieldname** is contained. This parameter is ignored if **fieldname**
+            is a coordinate.
+
+    Returns
+    -------
+        PyTree
+            2D surface, gathered on all ranks.
+
+    '''
+    zones = isoSurface(t, fieldname=fieldname, value=value, container=container)
+    # Put zones in a top tree
+    LocalSurface = I.newCGNSTree()
+    base = I.newCGNSBase('Base', parent=LocalSurface)
+    I._addChild(base, zones)
+    # Share information on all ranks
+    trees = comm.allgather( LocalSurface )
+    GlobalSurface = I.merge(trees)
+    comm.barrier()
+
+    if len(I.getZones(GlobalSurface)) == 0: 
+        raise Exception(J.FAIL +f'Error in the extraction of the all-gathered iso-surface for {fieldname}={value} in {container}'+ J.ENDC) 
+
+    return GlobalSurface
+
 def convertToTetra(t):
     tR = I.copyRef(t)
     fs_per_zone = []

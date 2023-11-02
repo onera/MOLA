@@ -36,6 +36,7 @@ if not MOLA.__ONLY_DOC__:
     import os
     import glob
     import numpy as np
+    import scipy
 
     import Converter.PyTree as C
     import Converter.Internal as I
@@ -499,8 +500,8 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades, RowFamily='ROW',
             T._translate(Skeleton, (0,0,-0.5))
             P._extractMesh(Skeleton, bodyForce, order=2, extrapOrder=0) 
             bodyForce = computeBlockage(bodyForce, NumberOfBlades)
-            bodyForce = P.computeDiff(bodyForce, 'CoordinateX')
-            I._renameNode(bodyForce, 'diffCoordinateX', 'dx')
+            # bodyForce = P.computeDiff(bodyForce, 'CoordinateX')
+            # I._renameNode(bodyForce, 'diffCoordinateX', 'dx')
             # addMetalAngle(bodyForce)
             bodyForce = C.node2Center(bodyForce, I.__FlowSolutionNodes__)
             I._rmNodesByName1(bodyForce, I.__FlowSolutionNodes__)
@@ -518,13 +519,24 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades, RowFamily='ROW',
             C._node2Center__(bodyForce, coord)
         C._initVars(bodyForce, '{centers:radius}=sqrt({centers:CoordinateY}**2+{centers:CoordinateZ}**2)')
         C._initVars(bodyForce, '{centers:theta}=arctan2({centers:CoordinateZ},{centers:CoordinateY})')
-        # Rename x,y,z at cell centers, otherwise Cassiopee and elsA have a problem reading the tree...
-        # Notice that renaming CoordinateX to x does not solve the problem because Cassiopee know x
-        # as an alias for CoordinateX, so it will fail to read the mesh anyway.
+
+        xhub, rhub = J.getxy(Hub)
+        rhubInterpolator = scipy.interpolate.interp1d(xhub, rhub, kind='cubic', bounds_error=False, fill_value='extrapolate')
+        xshroud, rshroud = J.getxy(Shroud)
+        rshroudInterpolator = scipy.interpolate.interp1d(xshroud, rshroud, kind='cubic', bounds_error=False, fill_value='extrapolate')
+        C._initVars(bodyForce, '{centers:ChannelHeight}=0')
+        h, r, x = J.getVars(bodyForce, ['ChannelHeight', 'radius', 'CoordinateX'], Container=I.__FlowSolutionCenters__)
+        h[:] = (r - rhubInterpolator(x)) / (rshroudInterpolator(x) - rhubInterpolator(x))
+        
         FS = I.getNodeFromType1(bodyForce, 'FlowSolution_t')
-        I._renameNode(FS, 'CoordinateX', 'xCell')
-        I._renameNode(FS, 'CoordinateY', 'yCell')
-        I._renameNode(FS, 'CoordinateZ', 'zCell')
+        # # Rename x,y,z at cell centers, otherwise Cassiopee and elsA have a problem reading the tree...
+        # # Notice that renaming CoordinateX to x does not solve the problem because Cassiopee know x
+        # # as an alias for CoordinateX, so it will fail to read the mesh anyway.
+        # I._renameNode(FS, 'CoordinateX', 'xCell')
+        # I._renameNode(FS, 'CoordinateY', 'yCell')
+        # I._renameNode(FS, 'CoordinateZ', 'zCell')
+        for coord in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
+            I._rmNodesFromName1(FS, coord)
 
     elif model == 'Tspread':
         G._getVolumeMap(bodyForce)
@@ -1188,6 +1200,9 @@ def computeBodyForce(t, BodyForceParameters):
 
             >>> TotalSourceTermsGloblal['zoneName'] = dict(Density=ndarray, MomentumX=ndarray, ...)
 
+            For each zone, Density, MomentumX, MomentumY, MomentumZ and EnergyStagnationDensity are 
+            body force source terms (corresponding to a volumic force, in N/m3)
+
     '''
     # Get the list of source terms to compute
     if not isinstance(BodyForceParameters, list):
@@ -1282,8 +1297,11 @@ def getAdditionalFields(zone, FluidProperties, RotationSpeed, tol=1e-5):
     Wx, Wr, Wt = Vx, Vy*cosTheta+Vz*sinTheta, -Vy*sinTheta + Vz*cosTheta - DataSourceTerms['radius'] * RotationSpeed
     Vmag = (Vx**2 + Vy**2 + Vz**2)**0.5
     Wmag = np.maximum(tol, (Wx**2 + Wr**2 + Wt**2)**0.5)
-    Temperature = np.maximum(tol, (FlowSolution['EnergyStagnationDensity']/Density-0.5*Vmag**2.)/FluidProperties['cp'])
+    Temperature = np.maximum(tol, (FlowSolution['EnergyStagnationDensity']/Density-0.5*Vmag**2.)/FluidProperties['cv'])
     Mrel = Wmag/(FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*Temperature)**0.5
+    Mabs = Vmag/(FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*Temperature)**0.5
+    funMach = lambda M: (1 + (FluidProperties['Gamma']-1)/2 * M**2) ** (FluidProperties['Gamma']/(FluidProperties['Gamma']-1))
+    PressureStagnationRel = FlowSolution['PressureStagnation'] * funMach(Mrel) / funMach(Mabs)
 
     # Velocity normal and parallel to the skeleton
     # See Cyril Dosnes bibliography synthesis for the local frame of reference
@@ -1320,7 +1338,10 @@ def getAdditionalFields(zone, FluidProperties, RotationSpeed, tol=1e-5):
         Wpr = Wpr,
         Wpt = Wpt,
 
+        # PressureDynamicRel = 0.5*Density*Wmag**2,
+        PressureDynamicRel = PressureStagnationRel - FlowSolution['Pressure'],
         Temperature = Temperature,
+        PressureStagnationRel = PressureStagnationRel,
         Mrel = Mrel,
 
         incidence = incidence,
@@ -1378,5 +1399,134 @@ def getForceComponents(fn, fp, tmpMOLAFlow):
 
     return fx, fy, fz, fr, ft 
 
-def getFieldsAtLeadingEdge(t):
-    ...
+def getFieldsAtLeadingEdge(t, abscissa=1e-3, save=False):
+    '''
+    Extract the leading edge surface (2D surface corresponding generated by a revolution around 
+    the shaft axis of the leading edge of the blade).
+
+    The extraction is gathered on all ranks.
+
+    Parameters
+    ----------
+    t : PyTree
+        Current PyTree given by the :py:mod:`BodyForceModels` module, restricted to zones belonging to 
+        the family involved in the body force modelling.
+
+    abscissa : float
+        Value of ``'AbscissaFromLE'`` to perform the iso-surface (should be near zero).
+
+        .. danger::
+
+            If this value is to low, the extraction could be not correctly performed.
+
+    save : bool
+        If :py:obj:`True`, save the extracted surface in a file 'LeadingEdgeSurface.cgns'. 
+        Only rank 0 writes this file, but all ranks have the whole data.
+
+    Returns
+    -------
+    PyTree
+        2D surface corresponding generated by a revolution around the shaft axis of the leading edge of the blade.
+
+    '''
+    from .Postprocess import isoSurfaceAllGather, rank, comm
+
+    LeadingEdgeSurface = isoSurfaceAllGather(t, fieldname='AbscissaFromLE', value=abscissa, container='FlowSolution#DataSourceTerm')
+
+    if save and rank == 0:
+        J.save(LeadingEdgeSurface, f'LeadingEdgeSurface.cgns')
+
+    return LeadingEdgeSurface
+
+def getFieldsAtTrailingEdge(t, abscissa=1-1e-3, save=False):
+    '''
+    Extract the trailing edge surface (2D surface corresponding generated by a revolution around 
+    the shaft axis of the trailing edge of the blade).
+
+    The extraction is gathered on all ranks.
+
+    Parameters
+    ----------
+    t : PyTree
+        Current PyTree given by the :py:mod:`BodyForceModels` module, restricted to zones belonging to 
+        the family involved in the body force modelling.
+
+    abscissa : float
+        Value of ``'AbscissaFromLE'`` to perform the iso-surface (should be near one).
+
+        .. danger::
+
+            If this value is to low, the extraction could be not correctly performed.
+
+    save : bool
+        If :py:obj:`True`, save the extracted surface in a file 'TrailingEdgeSurface.cgns'. 
+        Only rank 0 writes this file, but all ranks have the whole data.
+
+    Returns
+    -------
+    PyTree
+        2D surface corresponding generated by a revolution around the shaft axis of the trailing edge of the blade.
+
+    '''
+    from .Postprocess import isoSurfaceAllGather, rank
+
+    TrailingEdgeSurface = isoSurfaceAllGather(t, fieldname='AbscissaFromLE', value=abscissa, container='FlowSolution#DataSourceTerm')
+
+    if save and rank == 0:
+        J.save(TrailingEdgeSurface, f'TrailingEdgeSurface.cgns')
+
+    return TrailingEdgeSurface
+
+def getInterpolatorsInHeightAndTheta(surface, variables, Container='FlowSolution#tmpMOLAFlowV'):
+    '''
+    Build 2D interpolators for the required **variables** depending on ``ChannelHeight`` and ``theta``. 
+    Starting from a 2D **surface** that could be a revolution of the leading edge (got from 
+    :py:func:`getFieldsAtLeadingEdge`) or representing averaged quantities on a row, this function 
+    allows to use these quantities on the whole multi-zones, 3D domain of the current row.
+
+    .. note::
+
+        Interpolators are built with ``scipy.interpolate.NearestNDInterpolator``.
+
+    Parameters
+    ----------
+    surface : PyTree
+        Must be a 2D tree.
+
+    variables : list
+        List of variables to build interpolators.
+
+    Container : str, optional
+        Container which contains **variables**, by default 'FlowSolution#tmpMOLAFlowV'
+
+    Returns
+    -------
+    dict
+        Dictionary of 2D interpolators. Each key corresponds to a variable. To call
+        an interpolator for given values of ChannelHeight and theta, use for instance:
+
+        >> interpDict['MomentumX'](h, theta)
+
+    '''
+
+    hlist = []
+    thetalist = []
+    varDict = dict((var, []) for var in variables)
+    for zone in I.getZones(surface):
+        FS = I.getNodeFromName1(zone, 'FlowSolution#DataSourceTermV')
+        h = I.getValue(I.getNodeFromName1(FS, 'ChannelHeight'))
+        theta = I.getValue(I.getNodeFromName1(FS, 'theta'))
+
+        hlist.extend(list(h))
+        thetalist.extend(list(theta))
+
+        FlowSolution = J.getVars2Dict(zone, VariablesName=variables, Container=Container)
+        for var in variables:
+            assert FlowSolution[var][0] is not None, J.FAIL+f'{var} is not found in {Container}'+J.ENDC
+            varDict[var].extend(list(FlowSolution[var]))
+
+    interpDict = dict()
+    for var in variables:
+        interpDict[var] = scipy.interpolate.NearestNDInterpolator(list(zip(hlist, thetalist)), varDict[var])
+
+    return interpDict

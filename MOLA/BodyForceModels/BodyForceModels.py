@@ -524,15 +524,31 @@ def spreadPressureLossAlongChord(t, BodyForceParameters):
             Denominator is Pt-Ps or 0.5*rho*W**2  ??
     '''
 
-    PressureLoss = BodyForceParameters.get('PressureLoss')
-    PressureLossCoefficient = BodyForceParameters.get('PressureLossCoefficient')
-    Distribution = BodyForceParameters.get('Distribution', 'uniform')
-    PtrelREF = BodyForceParameters.get('PtrelREF')
-
+    from ..Coprocess import printCo, rank
 
     FluidProperties = BodyForceParameters.get('FluidProperties')
     TurboConfiguration = BodyForceParameters.get('TurboConfiguration')
-    R = FluidProperties['IdealGasConstant']
+
+    PressureLoss = BodyForceParameters.get('PressureLoss')
+    PressureLossCoefficient = BodyForceParameters.get('PressureLossCoefficient')
+    Distribution = BodyForceParameters.get('Distribution', 'uniform')
+
+    for zone in I.getZones(t):
+        rowName = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+        RotationSpeed = TurboConfiguration['Rows'][rowName]['RotationSpeed']
+        tmpMOLAFlow = BF.getAdditionalFields(zone, FluidProperties, RotationSpeed)
+
+    # Extract Leading edge revolution surface, with flow quantities
+    LeadingEdgeSurface = BF.getFieldsAtLeadingEdge(t)
+
+    # Create interpolators based on their values at the leading edge
+    variablesToInterp = ['Temperature', 'PressureStagnationRel']
+    if PressureLoss is None:
+        if PressureLossCoefficient is not None or 'PressureLossCoefficient' in tmpMOLAFlow:
+            # In this case, the dynamic pressure will be needed in 2D
+            # --> Add 'PressureDynamicRel' to the list of interpolated values
+            variablesToInterp.append('PressureDynamicRel')
+    interpDict = BF.getInterpolatorsInHeightAndTheta(LeadingEdgeSurface, variablesToInterp)
 
     NewSourceTermsGlobal = dict()
     for zone in I.getZones(t):
@@ -542,25 +558,49 @@ def spreadPressureLossAlongChord(t, BodyForceParameters):
         FlowSolution = J.getVars2Dict(zone, Container='FlowSolution#Init')
         DataSourceTerms = J.getVars2Dict(zone, Container='FlowSolution#DataSourceTerm')
         tmpMOLAFlow = BF.getAdditionalFields(zone, FluidProperties, RotationSpeed)
-        DynamicPressure = 0.5 * FlowSolution['Density'] * tmpMOLAFlow['Wmag']**2
+
+        Temperature_LE = interpDict['Temperature'](DataSourceTerms['ChannelHeight'], DataSourceTerms['theta'])
+        Ptel_LE = interpDict['PressureStagnationRel'](DataSourceTerms['ChannelHeight'], DataSourceTerms['theta'])
+
+        # # Extract value at LE (to be replaced)
+        # Temperature_LE    = FlowSolution['Temperature'][0,:,:]
+        # Ptel_LE = FlowSolution['PressureStagnation'][0,:,:]
+        # # stack this 2D field into a 3d field (uniform in x)
+        # Temperature_LE_old = np.broadcast_to(Temperature_LE, FlowSolution['Temperature'].shape)
+        # Ptel_LE_old = np.broadcast_to(Ptel_LE, FlowSolution['Temperature'].shape)
+
+        # delta = I.copyTree(zone)
+        # FS = I.newFlowSolution('delta', 'CellCenter', parent=delta)
+        # I.newDataArray('delta_Temperature', value=Temperature_LE - Temperature_LE_old, parent=FS)
+        # I.newDataArray('delta_PressureStagnationRel', value=Ptel_LE - Ptel_LE_old, parent=FS)
+
+        # J.save(delta, f'error_on_zone_{zone[0]}.cgns')
         
         if PressureLoss is None:
             if PressureLossCoefficient is not None:
-                PressureLoss = DynamicPressure * PressureLossCoefficient
+                PressureDynamicRel_LE = interpDict['PressureDynamicRel'](DataSourceTerms['ChannelHeight'], DataSourceTerms['theta'])
+                PressureLoss = PressureDynamicRel_LE * PressureLossCoefficient
             else:
                 if 'PressureLoss' in tmpMOLAFlow:
                     PressureLoss = tmpMOLAFlow['PressureLoss']
                 elif 'PressureLossCoefficient' in tmpMOLAFlow:
-                    PressureLoss = DynamicPressure * tmpMOLAFlow['PressureLossCoefficient']
+                    PressureDynamicRel_LE = interpDict['PressureDynamicRel'](DataSourceTerms['ChannelHeight'], DataSourceTerms['theta'])
+                    PressureLoss = PressureDynamicRel_LE * tmpMOLAFlow['PressureLossCoefficient']
                 else:
                     raise Exception('Either PressureLoss or PressureLossCoefficient must be provided')
                 
         if Distribution == 'uniform':
-            gradPt = PressureLoss / DataSourceTerms['ChordX'] / DataSourceTerms['dx']
+            distributionFunction = 1 / DataSourceTerms['ChordX']
         else:
-            raise ValueError(f"Distribution='{Distribution}' is not implemented. Only 'uniform' is available.")
+            raise ValueError(f"Distribution='{Distribution}' is not implemented. Only 'uniform' is available.")   
 
-        fp = R * tmpMOLAFlow['Temperature'] / PtrelREF * np.cos(tmpMOLAFlow['incidence']) * gradPt
+        gradPt = PressureLoss * distributionFunction
+        Wm = ( tmpMOLAFlow['Wx']**2 + tmpMOLAFlow['Wr']**2 )**0.5
+        beta = np.arctan2(tmpMOLAFlow['Wt'], Wm)  
+        # TODO Add the term on Temperature Stagnation for rotors
+        fp = FluidProperties['IdealGasConstant'] * Temperature_LE / Ptel_LE * np.cos(beta) * gradPt
+
+        # printCo(f'mean fp = {np.mean(fp)}', proc=rank)
 
         # Get force in the cartesian frame
         fx, fy, fz, fr, ft = BF.getForceComponents(0., fp, tmpMOLAFlow)

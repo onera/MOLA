@@ -1257,10 +1257,9 @@ def volumicAverage(t, container='FlowSolution#Init', localComm=comm):
     # Rename (cell-centered) variables for Cassiopee
     varList = [f'centers:{v}' for v in varList]
 
-    # integratedData = integrateVariablesOnVolume(t, [(varList, volumicIntegral)], container=container, localComm=localComm)
-    integratedData = dict((var, 0.) for var in varList)
+    integratedData = integrateVariablesOnVolume(t, [(varList, volumicIntegral)], container=container, localComm=localComm)
     integratedData['Volume'] = 1.
-    # localComm.barrier()
+    localComm.barrier()
 
     averagedData = dict()
     for k, v in integratedData.items():
@@ -2904,7 +2903,8 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
     printCo('Update body force...', 0, color=J.CYAN)
 
     newTreeWithSourceTerms = I.copyRef(t)
-    
+    basename = I.getBases(t)[0][0] # TODO Handle the case with several bases. Currently it will produce a bug searching the path in previousTreeWithSourceTerms 
+
     BodyForceInitialIteration = setup.ReferenceValues['CoprocessOptions'].get('BodyForceInitialIteration', 1)
 
     for BodyForceComponent in setup.BodyForceInputData:
@@ -2912,28 +2912,36 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
         BFtype = BodyForceComponent.get('type', 'AnalyticalByFamily')
         assert BFtype =='AnalyticalByFamily', 'Body-force "type" must be "AnalyticalByFamily" for now'
 
-        BodyForceFamily = BodyForceComponent['Family']
         BodyForceParameters = copy.deepcopy(BodyForceComponent['BodyForceParameters'])
+        BodyForceParameters['Family'] = BodyForceComponent['Family']
         CouplingOptions = copy.deepcopy(BodyForceComponent.get('CouplingOptions', dict()))
 
         relax = CouplingOptions.get('relax', 0.5)
         BodyForceFinalIteration = BodyForceInitialIteration + CouplingOptions.get('rampIterations', 50.)
         coeff_eff = J.rampFunction(BodyForceInitialIteration, BodyForceFinalIteration, 0., 1.)
 
-        # Create a local communicator active only for processors that manage zones in BodyForceFamily
-        BFzones, subComm, procList = getBodyForceZones(newTreeWithSourceTerms, BodyForceFamily)
-        BodyForceParameters['communicator'] = subComm
-        BodyForceParameters['rankInvolvedInLocalSourceTerms'] = rank in procList
-        if rank not in procList:
-            # Only processors involved in the computation of source terms for BodyForceFamily
-            # read lines that follow in the loop
-            continue
+        # # Create a local communicator active only for processors that manage zones in BodyForceFamily
+        # BFzones, subComm, procList = getBodyForceZones(newTreeWithSourceTerms, BodyForceFamily)
+        # BodyForceParameters['communicator'] = subComm
+        # BodyForceParameters['rankInvolvedInLocalSourceTerms'] = rank in procList
+        # if rank not in procList:
+        #     # Only processors involved in the computation of source terms for BodyForceFamily
+        #     # read lines that follow in the loop
+        #     continue
 
-        # BFzones = []
-        # for zone in I.getZones(newTreeWithSourceTerms):
-        #     DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
-        #     if DataSourceTermNode is not None:
-        #         BFzones.append(zone)
+        # Filter tree to get a tree restricted to body force zones in the current family, and for the current rank
+        BFzones = []
+        for zone in I.getZones(t):
+            # Firstly, check that there is a FlowSolution#DataSourceTerm node
+            DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
+            if DataSourceTermNode is not None:
+                # Secondly, check that it is not a skeleton FlowSolution 
+                data = I.getValue(I.getNodeFromType1(DataSourceTermNode, 'DataArray_t'))
+                if data is not None:
+                    BFzones.append(zone)
+        treeRestrictedToBodyForceFamily = I.newCGNSTree()
+        base = I.newCGNSBase(basename, parent=treeRestrictedToBodyForceFamily)
+        I._addChild(base, BFzones)
 
         # Add FluidProperties, ReferenceValues and TurboConfiguration in BodyForceParameters 
         # This latter could be a dict or a list of dict
@@ -2947,9 +2955,14 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
             BodyForceParameters['ReferenceValues'] = setup.ReferenceValues
             BodyForceParameters['TurboConfiguration'] = setup.TurboConfiguration
 
-        NewSourceTermsGlobal = BF.computeBodyForce(BFzones, BodyForceParameters)
+        NewSourceTermsGlobal = BF.computeBodyForce(treeRestrictedToBodyForceFamily, BodyForceParameters)
 
-        for zone in BFzones:
+        # for zone in BFzones:
+        for zone in I.getZones(treeRestrictedToBodyForceFamily):
+
+            FamilyName = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+            if FamilyName != BodyForceParameters['Family']:
+                continue
 
             DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
             NewSourceTerms = NewSourceTermsGlobal[I.getName(zone)]
@@ -2958,7 +2971,7 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
                 NewSourceTerms[key] = coeff_eff(CurrentIteration) * value
 
             FSSourceTerm = I.newFlowSolution('FlowSolution#SourceTerm', gridLocation='CellCenter', parent=zone)
-            SourceTermPath = I.getPath(newTreeWithSourceTerms, FSSourceTerm)
+            SourceTermPath = I.getPath(treeRestrictedToBodyForceFamily, FSSourceTerm)
 
             # Get previous source terms
             previousSourceTerms = dict()
@@ -2984,12 +2997,14 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
                 newSourceTerm *= ActiveSourceTerm
                 I.newDataArray(name=name, value=newSourceTerm, parent=FSSourceTerm)
             
-            # subComm.Free()
+            zoneWithoutSourceTerms = I.getNodeFromNameAndType(newTreeWithSourceTerms, I.getName(zone), 'Zone_t')
+            I._addChild(zoneWithoutSourceTerms, FSSourceTerm)
 
     I._rmNodesByName(newTreeWithSourceTerms, 'FlowSolution#Init')
     I._rmNodesByName(newTreeWithSourceTerms, 'FlowSolution#DataSourceTerm')
     I._rmNodesByName(newTreeWithSourceTerms, 'FlowSolution#tmpMOLAFlow')
     Cmpi.barrier()
+    printCo('-> end of updating body force.', 0, color=J.CYAN)
     return newTreeWithSourceTerms
 
 
