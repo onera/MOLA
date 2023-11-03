@@ -608,7 +608,7 @@ def save(t, filename, tagWithIteration=False):
         return
 
     t = I.copyRef(t) if I.isTopTree(t) else C.newPyTree(['Base', J.getZones(t)])
-    Cmpi._convert2PartialTree(t)
+    removeNonLocalZones(t) # HACK https://elsa.onera.fr/issues/11397
     I._adaptZoneNamesForSlash(t)
     for z in I.getZones(t):
         SolverParam = I.getNodeFromName(z,'.Solver#Param')
@@ -621,7 +621,7 @@ def save(t, filename, tagWithIteration=False):
 
     UseMerge = False
     try:
-        trees = comm.allgather( Skel )
+        trees = comm.allgather( Skel )        
         trees.insert( 0, t )
         tWithSkel = I.merge( trees )
         renameTooLongZones(tWithSkel)
@@ -645,7 +645,7 @@ def save(t, filename, tagWithIteration=False):
     Cmpi.barrier()
 
     printCo('will save %s ...'%filename,0, color=J.CYAN)
-    Cmpi.convertPyTree2File(tWithSkel, filename, merge=UseMerge)
+    Cmpi.convertPyTree2File(tWithSkel, filename, merge=UseMerge) # BUG https://elsa.onera.fr/issues/11398
     printCo('... saved %s'%filename,0, color=J.CYAN)
     Cmpi.barrier()
     if tagWithIteration and Cmpi.rank == 0: copyOutputFiles(filename)
@@ -679,7 +679,7 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
     '''
 
     tpt = I.copyRef(t)
-    Cmpi._convert2PartialTree(tpt)
+    removeNonLocalZones(tpt)
     I._rmNodesByName(tpt, '.Solver#Param')
     I._rmNodesByType(tpt, 'IntegralData_t')
     Cmpi.barrier()
@@ -3290,7 +3290,7 @@ def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
                     avg_new =  (avg_old[1]*(inititer-(firstiter+1)) \
                             +avg_tot[1]*(cit-inititer+1))/(cit-firstiter)
 
-            avg_tot[1] = avg_new # update of OUTPUT_TREE
+                avg_tot[1] = avg_new # update of OUTPUT_TREE
 
     if cit < firstiter: return
 
@@ -3470,3 +3470,27 @@ def ravelBCDataSet(t):
                         for da in I.getNodesFromType1(bcd,'DataArray_t'):
                             if da[1] is not None:
                                 da[1] = da[1].ravel(order='K')
+
+def removeNonLocalZones(t):
+    # HACK https://elsa.onera.fr/issues/11397
+    for base in I.getBases(t):
+        children_to_keep = []
+        for child in base[2]:
+            if child[3] != 'Zone_t':
+                children_to_keep += [ child ]
+            else:
+                gc = I.getNodeFromName1(child, 'GridCoordinates')
+                if not gc: continue
+                x = I.getNodeFromName(gc, 'CoordinateX')
+                if x and x[1] is not None:
+                    children_to_keep += [ child ]
+                    continue
+                y = I.getNodeFromName(gc, 'CoordinateY')
+                if y and y[1] is not None:
+                    children_to_keep += [ child ]
+                    continue
+                z = I.getNodeFromName(gc, 'CoordinateZ')
+                if z and z[1] is not None:
+                    children_to_keep += [ child ]
+                    continue
+        base[2] = children_to_keep
