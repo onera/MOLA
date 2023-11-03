@@ -2247,7 +2247,9 @@ def load_source(ModuleName, filename, safe=True):
         for fn in [filename, current_path_file]:
             try: os.remove(fn+'c')
             except: pass
-        try: shutil.rmtree('__pycache__')
+        try:
+            import shutil
+            shutil.rmtree('__pycache__')
         except: pass
 
     if sys.version_info[0] == 3 and sys.version_info[1] >= 5:

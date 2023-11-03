@@ -143,16 +143,13 @@ def extractFields(Skeleton):
             Coupling adapted PyTree
 
     '''
-    J.save(Skeleton,'Skeleton_%d.cgns'%rank)
-    Cmpi.barrier()
-    exit()
     t = elsAxdt.get(elsAxdt.OUTPUT_TREE)
     adaptEndOfRun(t)
+    for tree in [t, Skeleton]: ravelBCDataSet(tree) # HACK https://elsa.onera.fr/issues/11219
     resumeFieldsAveraging(Skeleton, t)
     t = I.merge([Skeleton, t])
     removeEmptyBCDataSet(t)
     PRE.forceFamilyBCasFamilySpecified(t) # HACK https://elsa.onera.fr/issues/10928
-    ravelBCDataSet(t) # HACK https://elsa.onera.fr/issues/11219
 
     return t
 
@@ -2547,10 +2544,27 @@ def loadSkeleton(Skeleton=None, PartTree=None):
                     GCpath = '{}/ZoneGridConnectivity/{}'.format(zonePath, I.getName(GC))
                     replaceNodeByName(GC, GCpath, 'PointList')
 
+            if not PartTree: # put BCDataSet#Average data from file in Skeleton
+                for zonebc in I.getNodesFromType1(zone,'ZoneBC_t'):
+                    for bc in I.getNodesFromType1(zonebc,'BC_t'):
+                        bcds_avg = I.getNodeFromName1(bc,'BCDataSet#Average')
+                        if bcds_avg is None: continue
+                        for bcdata in I.getNodesFromType1(bcds_avg,'BCData_t'):
+                            bcdatapath = '/'.join([basename,
+                                                   zone[0],
+                                                   zonebc[0],
+                                                   bc[0],
+                                                   bcds_avg[0],
+                                                   bcdata[0]])
+                            for data in I.getNodesFromType1(bcdata,'DataArray_t'):
+                                replaceNodeByName(bcdata, bcdatapath, data[0])
+
         # always require to fully read Mask nodes 
         masks = I.getNodeFromName1(base, '.MOLA#Masks')
         if masks:
             replaceNodeValuesRecursively(masks, '/'.join([basename, masks[0]]))
+
+
 
     return Skeleton
 
@@ -3282,7 +3296,9 @@ def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
 
     # adapt BC fields:
     tot = _getDictofNodesBCFieldsPerZone(t, 'BCDataSet#Average')
+    Cmpi.barrier()
     old = _getDictofNodesBCFieldsPerZoneAtSkeleton(Skeleton, 'BCDataSet#Average', tot)
+    Cmpi.barrier()
     if cit == firstiter:
         ini = _getDictofNodesBCFieldsPerZone(t, 'BCDataSet')
     for zone_name in tot:
@@ -3290,8 +3306,10 @@ def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
             for field_name in tot[zone_name][bcfamily_name]:
                 try:
                     avg_old = old[zone_name][bcfamily_name][field_name] # BEWARE this is a CGNS node
+                    printCo(f'got avg_old for {zone_name}/{bcfamily_name}/{field_name}', color=J.GREEN)
                 except KeyError:
                     avg_old = [field_name,None,[],'DataArray_t']
+                    printCo(f'did not get avg_old for {zone_name}/{bcfamily_name}/{field_name}', color=J.FAIL)
 
                 avg_tot = tot[zone_name][bcfamily_name][field_name] # BEWARE this is a CGNS node
                 
@@ -3305,12 +3323,19 @@ def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
                     avg_new    = None
                 
                 else:
-                    if avg_old[1] is None or avg_tot[1] is None: continue
+                    if avg_old[1] is None or avg_tot[1] is None:
+                        if avg_old[1] is None:
+                            printCo(f'avg_old[1] is None {zone_name}/{bcfamily_name}/{field_name}',color=J.FAIL)
+                        elif avg_tot[1] is None:
+                            printCo(f'avg_tot[1] is None {zone_name}/{bcfamily_name}/{field_name}',color=J.FAIL)
+                        continue
                     if inititer < firstiter:
+                        printCo(f'inititer < firstiter {zone_name}/{bcfamily_name}/{field_name}',color=J.CYAN)
                         avg_new =  (avg_tot[1]*(cit-inititer+1) \
                                 -avg_old[1]*(firstiter-inititer+1))/(cit-firstiter)
                     
                     else:
+                        printCo(f'updating {zone_name}/{bcfamily_name}/{field_name}')
                         avg_new =  (avg_old[1]*(inititer-(firstiter+1)) \
                                 +avg_tot[1]*(cit-inititer+1))/(cit-firstiter)
 
@@ -3352,6 +3377,7 @@ def _getDictofNodesBCFieldsPerZoneAtSkeleton(t, Container, tot):
                         for f in data[2]:
                             if f[3] != 'DataArray_t': continue
                             fields[zone_name][bcfamily_name][f[0]] = f
+                            printCo(f'skeleton got data {zone_name}/{bcfamily_name}/{f[0]}')
                     else:
                         try: fields_tot = tot[zone_name][bcfamily_name]
                         except KeyError: continue
@@ -3360,6 +3386,7 @@ def _getDictofNodesBCFieldsPerZoneAtSkeleton(t, Container, tot):
                         for field_name, f in fields_tot.items():
                             field_node = I.createUniqueChild(nd,f[0],'DataArray_t',np.copy(f[1],order='F'))
                             fields[zone_name][bcfamily_name][f[0]] = field_node
+                            printCo(f'skeleton got data 2 {zone_name}/{bcfamily_name}/{f[0]}')
                 else:
                     try: fields_tot = tot[zone_name][bcfamily_name]
                     except KeyError: continue
@@ -3391,6 +3418,7 @@ def _getDictofNodesBCFieldsPerZone(t, Container):
                         for f in data[2]:
                             if f[3] != 'DataArray_t': continue
                             fields[zone_name][bcfamily_name][f[0]] = f
+                            printCo(f'xdt-output-tree {zone_name}/{bcfamily_name}/{f[0]}')
     return fields
 
 def removeEmptyBCDataSet(t):
