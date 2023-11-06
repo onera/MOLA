@@ -223,7 +223,9 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
     '''
     toc = tic()
     t = getMeshesAssembled(InputMeshes)
-    if hasAnyUnstructuredZones(t): t = convertUnstructuredMeshToNGon(t)
+    if hasAnyUnstructuredZones(t):
+        t = convertUnstructuredMeshToNGon(t,
+                mergeZonesByFamily=False if splitOptions else True)
     transform(t, InputMeshes)
     t = connectMesh(t, InputMeshes)
     setBoundaryConditions(t, InputMeshes)
@@ -855,7 +857,9 @@ def connectMesh(t, InputMeshes):
             except KeyError:
                 print('connection tolerance not defined. Using tol=1e-8')
                 tolerance = 1e-8
+
             if ConnectionType == 'Match':
+                C._rmBCOfType(base,'BCMatch') # HACK https://elsa.onera.fr/issues/11400
                 base_out = X.connectMatch(base, tol=tolerance, dim=baseDim)
             elif ConnectionType == 'NearMatch':
                 try: ratio = ConnectParams['ratio']
@@ -3945,7 +3949,8 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
                 if zbc:
                     for bc in I.getNodesFromType1(zbc, 'BC_t'):
                         currentNodePath='/'.join([b[0], z[0], zbc[0], bc[0], 'BCDataSet#Average'])
-                        I.createNode('BCDataSet#Average', 'UserDefinedData_t', parent=bc)  # UserDefinedData, else bug in PyPart
+                        bcdsavg = I.createNode('BCDataSet#Average', 'BCDataSet_t', parent=bc)
+
                         targetNodePath=currentNodePath
                         AllCGNSLinks += [['.',
                                         DIRECTORY_OUTPUT+'/'+FieldsFilename,
@@ -3955,6 +3960,18 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
     print('saving PyTrees with links')
     to = I.copyRef(t)
     I._renameNode(to, 'FlowSolution#Centers', 'FlowSolution#Init')
+
+    # HACK required in order to avoid AssertionError at line 771 in
+    # etc/pypart/PpartCGNS/LayoutsS.pxi, Layouts.splitBCDataSet 
+    for b in I.getBases(to):
+        for z in b[2]:
+            if z[3] != 'Zone_t': continue
+            zbc = I.getNodeFromType1(z,'ZoneBC_t')
+            if zbc:
+                for bc in I.getNodesFromType1(zbc, 'BC_t'):
+                    bcdsavg = I.getNodeFromName1(bc, 'BCDataSet#Average')
+                    if bcdsavg: bcdsavg[3] = 'UserDefinedData_t'
+
     if writeOutputFields:
         try: os.makedirs(DIRECTORY_OUTPUT)
         except: pass
@@ -5679,7 +5696,7 @@ def adaptFamilyBCNamesToElsA(t):
     for n in I.getNodesFromType(t, 'FamilyBC_t'):
         n[0] = 'FamilyBC'
 
-def convertUnstructuredMeshToNGon(t):
+def convertUnstructuredMeshToNGon(t, mergeZonesByFamily=True):
     print('making unstructured mesh adaptations for elsA:')
     from mpi4py import MPI
     import maia
@@ -5713,36 +5730,37 @@ def convertUnstructuredMeshToNGon(t):
                 print(J.GREEN+'OK'+J.ENDC)
 
 
-    print(' -> merging zones by family')
-    zonePathsByFamily = dict()
-    for base in I.getBases(t):
-        for zone in I.getZones(base):
-            if I.getZoneType(zone) == 1: continue # structured zone
-            zone_path = base[0] + '/' + zone[0]
-            FamilyNameNode = I.getNodeFromType1(zone, 'FamilyName_t')
-            if FamilyNameNode: 
-                FamilyName = I.getValue(FamilyNameNode)
-                if FamilyName not in zonePathsByFamily:
-                    zonePathsByFamily[FamilyName] = [zone_path]
+    if mergeZonesByFamily:
+        print(' -> merging zones by family')
+        zonePathsByFamily = dict()
+        for base in I.getBases(t):
+            for zone in I.getZones(base):
+                if I.getZoneType(zone) == 1: continue # structured zone
+                zone_path = base[0] + '/' + zone[0]
+                FamilyNameNode = I.getNodeFromType1(zone, 'FamilyName_t')
+                if FamilyNameNode: 
+                    FamilyName = I.getValue(FamilyNameNode)
+                    if FamilyName not in zonePathsByFamily:
+                        zonePathsByFamily[FamilyName] = [zone_path]
+                    else:
+                        zonePathsByFamily[FamilyName] += [zone_path]
                 else:
-                    zonePathsByFamily[FamilyName] += [zone_path]
-            else:
-                if 'unspecified' not in zonePathsByFamily:
-                    zonePathsByFamily['unspecified'] = [zone_path]
-                else:
-                    zonePathsByFamily['unspecified'] += [zone_path]
+                    if 'unspecified' not in zonePathsByFamily:
+                        zonePathsByFamily['unspecified'] = [zone_path]
+                    else:
+                        zonePathsByFamily['unspecified'] += [zone_path]
 
-    for family, zone_paths in zonePathsByFamily.items():
-        if len(zone_paths) < 2: continue
-        print(f' --> merging zones of family {family}')
-        try:
-            maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD)
-            MergedZone = I.getNodeFromName3(t,'MergedZone')
-            MergedZone[0] = family + 'Zone'
-        except BaseException as e:
-            print(J.WARN+f'WARNING: could not merge zones using maia, received error:')
-            print(str(e))
-            print('will not merge zones'+J.ENDC)
+        for family, zone_paths in zonePathsByFamily.items():
+            if len(zone_paths) < 2: continue
+            print(f' --> merging zones of family {family}')
+            try:
+                maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD)
+                MergedZone = I.getNodeFromName3(t,'MergedZone')
+                MergedZone[0] = family + 'Zone'
+            except BaseException as e:
+                print(J.WARN+f'WARNING: could not merge zones using maia, received error:')
+                print(str(e))
+                print('will not merge zones'+J.ENDC)
 
     print(' -> enforcing ngon_pe_local')
     maia.algo.seq.enforce_ngon_pe_local(t) # required by elsA ?

@@ -2247,7 +2247,9 @@ def load_source(ModuleName, filename, safe=True):
         for fn in [filename, current_path_file]:
             try: os.remove(fn+'c')
             except: pass
-        try: shutil.rmtree('__pycache__')
+        try:
+            import shutil
+            shutil.rmtree('__pycache__')
         except: pass
 
     if sys.version_info[0] == 3 and sys.version_info[1] >= 5:
@@ -3057,3 +3059,14 @@ def checkUniqueChildren(t, recursive=False):
     if recursive:
         for node in I.getChildren(t):
             checkUniqueChildren(node, recursive=True)
+
+def zoneHasData(zone):
+    if zone[3] != 'Zone_t': raise AttributeError('argument must be a zone')
+    gcs = I.getNodesFromType1(zone, 'GridCoordinates_t')
+    fss = I.getNodesFromType1(zone, 'FlowSolution_t')
+    containers = gcs + fss
+    if not containers: return False
+    for container in containers:
+        for data in I.getNodesFromType1(container,'DataArray_t'):
+            if data[1] is not None: 
+                return True

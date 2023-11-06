@@ -196,7 +196,6 @@ CO.CurrentIteration += 1
 CO.printCo('iteration %d -> end of run'%CO.CurrentIteration, proc=0, color=J.MAGE)
 CO.updateAndWriteSetup(setup)
 t = CO.extractFields(Skeleton)
-
 # save arrays
 if HAS_PROBES:
     CO.appendProbes2Arrays(t, arrays)

@@ -206,7 +206,9 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlock
         raise ValueError('parameter mesh must be either a filename or a PyTree')
 
 
-    if PRE.hasAnyUnstructuredZones(t): t = PRE.convertUnstructuredMeshToNGon(t)
+    if PRE.hasAnyUnstructuredZones(t):
+        t = PRE.convertUnstructuredMeshToNGon(t,
+                mergeZonesByFamily=False if splitOptions else True)
 
     if InputMeshes is None:
         InputMeshes = generateInputMeshesFromAG5(t,
