@@ -694,7 +694,6 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
         I._rmNodesByName(t_merged, 'FlowSolution#EndOfRun*')
         ravelBCDataSet(t_merged)
         PRE.forceFamilyBCasFamilySpecified(t_merged) 
-        addDummyBCDataSetAverage(t_merged)
         C.convertPyTree2File(t_merged, filename)
         for fn in glob.glob('PyPart_fields_*.hdf'):
             try:
@@ -705,18 +704,6 @@ def saveWithPyPart(t, filename, tagWithIteration=False):
     Cmpi.barrier()
     if tagWithIteration and rank == 0:
         copyOutputFiles(filename)
-
-def addDummyBCDataSetAverage(t):
-    firstiter = setup.ReferenceValues['CoprocessOptions']['FirstIterationForFieldsAveraging']
-    if firstiter is None: return
-    if CurrentIteration < firstiter:
-        for base in I.getNodesFromType1(t, 'CGNSBase_t'):
-            for zone in I.getNodesFromType1(base, 'Zone_t'):
-                zone_bc = I.getNodeFromName1(zone, 'ZoneBC')
-                if not zone_bc:
-                    continue
-                for bc in I.getNodesFromType1(zone_bc,'BC_t'):
-                    I.createUniqueChild(bc, 'BCDataSet#Average', 'UserDefinedData_t')    
 
 
 def saveWithPyPart_NEW(t, filename, tagWithIteration=False):
@@ -2544,7 +2531,8 @@ def loadSkeleton(Skeleton=None, PartTree=None):
                     GCpath = '{}/ZoneGridConnectivity/{}'.format(zonePath, I.getName(GC))
                     replaceNodeByName(GC, GCpath, 'PointList')
 
-            if not PartTree: # put BCDataSet#Average data from file in Skeleton
+            # put BCDataSet#Average in Skeleton
+            if not PartTree: # from file
                 for zonebc in I.getNodesFromType1(zone,'ZoneBC_t'):
                     for bc in I.getNodesFromType1(zonebc,'BC_t'):
                         bcds_avg = I.getNodeFromName1(bc,'BCDataSet#Average')
@@ -2558,13 +2546,16 @@ def loadSkeleton(Skeleton=None, PartTree=None):
                                                    bcdata[0]])
                             for data in I.getNodesFromType1(bcdata,'DataArray_t'):
                                 replaceNodeByName(bcdata, bcdatapath, data[0])
+            else: # from PartTree
+                for zonebc in I.getNodesFromType1(zone,'ZoneBC_t'):
+                    for bc in I.getNodesFromType1(zonebc,'BC_t'):
+                        bcpath = '/'.join([basename, zone[0], zonebc[0], bc[0]])
+                        replaceNodeByName(bc, bcpath, 'BCDataSet#Average')
 
         # always require to fully read Mask nodes 
         masks = I.getNodeFromName1(base, '.MOLA#Masks')
         if masks:
             replaceNodeValuesRecursively(masks, '/'.join([basename, masks[0]]))
-
-
 
     return Skeleton
 
@@ -2673,7 +2664,6 @@ def splitWithPyPart():
                 if I.getZoneType(zone) == 2:
                     for BC in C.getFamilyBCs(t, famBCTrigger):
                         I.createChild(BC, 'SurfaceName', 'AdditionalFamilyName_t', value=surfaceName)
-
     return t, Skeleton, PyPartBase, Distribution
 
 def moveLogFiles():
@@ -3306,10 +3296,8 @@ def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
             for field_name in tot[zone_name][bcfamily_name]:
                 try:
                     avg_old = old[zone_name][bcfamily_name][field_name] # BEWARE this is a CGNS node
-                    printCo(f'got avg_old for {zone_name}/{bcfamily_name}/{field_name}', color=J.GREEN)
                 except KeyError:
                     avg_old = [field_name,None,[],'DataArray_t']
-                    printCo(f'did not get avg_old for {zone_name}/{bcfamily_name}/{field_name}', color=J.FAIL)
 
                 avg_tot = tot[zone_name][bcfamily_name][field_name] # BEWARE this is a CGNS node
                 
@@ -3323,19 +3311,12 @@ def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
                     avg_new    = None
                 
                 else:
-                    if avg_old[1] is None or avg_tot[1] is None:
-                        if avg_old[1] is None:
-                            printCo(f'avg_old[1] is None {zone_name}/{bcfamily_name}/{field_name}',color=J.FAIL)
-                        elif avg_tot[1] is None:
-                            printCo(f'avg_tot[1] is None {zone_name}/{bcfamily_name}/{field_name}',color=J.FAIL)
-                        continue
+                    if avg_old[1] is None or avg_tot[1] is None: continue
                     if inititer < firstiter:
-                        printCo(f'inititer < firstiter {zone_name}/{bcfamily_name}/{field_name}',color=J.CYAN)
                         avg_new =  (avg_tot[1]*(cit-inititer+1) \
                                 -avg_old[1]*(firstiter-inititer+1))/(cit-firstiter)
                     
                     else:
-                        printCo(f'updating {zone_name}/{bcfamily_name}/{field_name}')
                         avg_new =  (avg_old[1]*(inititer-(firstiter+1)) \
                                 +avg_tot[1]*(cit-inititer+1))/(cit-firstiter)
 
@@ -3377,7 +3358,6 @@ def _getDictofNodesBCFieldsPerZoneAtSkeleton(t, Container, tot):
                         for f in data[2]:
                             if f[3] != 'DataArray_t': continue
                             fields[zone_name][bcfamily_name][f[0]] = f
-                            printCo(f'skeleton got data {zone_name}/{bcfamily_name}/{f[0]}')
                     else:
                         try: fields_tot = tot[zone_name][bcfamily_name]
                         except KeyError: continue
@@ -3386,7 +3366,6 @@ def _getDictofNodesBCFieldsPerZoneAtSkeleton(t, Container, tot):
                         for field_name, f in fields_tot.items():
                             field_node = I.createUniqueChild(nd,f[0],'DataArray_t',np.copy(f[1],order='F'))
                             fields[zone_name][bcfamily_name][f[0]] = field_node
-                            printCo(f'skeleton got data 2 {zone_name}/{bcfamily_name}/{f[0]}')
                 else:
                     try: fields_tot = tot[zone_name][bcfamily_name]
                     except KeyError: continue
@@ -3394,7 +3373,6 @@ def _getDictofNodesBCFieldsPerZoneAtSkeleton(t, Container, tot):
                     bcds = I.createUniqueChild(bc,Container,'BCDataSet_t')
                     nd = I.createUniqueChild(bcds,'NeumannData','BCData_t')
                     for field_name, f in fields_tot.items():
-                        printCo(f'unexpected for {"/".join([zone_name,bcfamily_name])}',color=J.FAIL)
                         field_node = I.createUniqueChild(nd,f[0],'DataArray_t',np.copy(f[1],order='F'))
                         fields[zone_name][bcfamily_name][f[0]] = field_node
 
@@ -3418,7 +3396,6 @@ def _getDictofNodesBCFieldsPerZone(t, Container):
                         for f in data[2]:
                             if f[3] != 'DataArray_t': continue
                             fields[zone_name][bcfamily_name][f[0]] = f
-                            printCo(f'xdt-output-tree {zone_name}/{bcfamily_name}/{f[0]}')
     return fields
 
 def removeEmptyBCDataSet(t):
@@ -3426,8 +3403,9 @@ def removeEmptyBCDataSet(t):
         for zbc in I.getNodesFromType1(z,'ZoneBC_t'):
             for bc in I.getNodesFromType1(zbc,'BC_t'):
                 for n in bc[2]:
-                    if n[0].startswith('BCDataSet') and not n[2]:
-                        I._rmNode(t, n)
+                    if n[0].startswith('BCDataSet'):
+                        if not n[2]:
+                            I._rmNode(t, n)
 
 def addLostFieldsExtractors(t):
     firstiter = setup.ReferenceValues['CoprocessOptions']['FirstIterationForFieldsAveraging']
@@ -3478,19 +3456,6 @@ def removeNonLocalZones(t):
         for child in base[2]:
             if child[3] != 'Zone_t':
                 children_to_keep += [ child ]
-            else:
-                gc = I.getNodeFromName1(child, 'GridCoordinates')
-                if not gc: continue
-                x = I.getNodeFromName(gc, 'CoordinateX')
-                if x and x[1] is not None:
-                    children_to_keep += [ child ]
-                    continue
-                y = I.getNodeFromName(gc, 'CoordinateY')
-                if y and y[1] is not None:
-                    children_to_keep += [ child ]
-                    continue
-                z = I.getNodeFromName(gc, 'CoordinateZ')
-                if z and z[1] is not None:
-                    children_to_keep += [ child ]
-                    continue
+            elif J.zoneHasData(child):
+                children_to_keep += [ child ]
         base[2] = children_to_keep
