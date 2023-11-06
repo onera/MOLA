@@ -2867,7 +2867,7 @@ def setRPM(LiftingLines, newRPM):
         else:
             J.set(LiftingLine,'.Kinematics',RPM=np.atleast_1d(np.array(newRPM,dtype=np.float64)))
 
-def setVPMParameters(LiftingLines, IntegralLaw='linear',
+def setVPMParameters(LiftingLines, IntegralLaw='linear', NumberOfParticleSources = 25,
     ParticleDistribution = dict(kind = 'uniform', Symmetrical=False)):
     '''
     This function is a convenient wrap used for setting the ``.VPM#Parameters``
@@ -2883,6 +2883,9 @@ def setVPMParameters(LiftingLines, IntegralLaw='linear',
         IntegralLaw : str
             interpolation law for the interpolation of data contained in the
             lifting line
+
+        NumberOfShedParticle : int
+            Gives the number of stations on the Lifting Line from where particles are shed
 
         ParticleDistribution : dict
             Python dictionary specifying distribution instructions.
@@ -2931,8 +2934,8 @@ def setVPMParameters(LiftingLines, IntegralLaw='linear',
     '''
 
     for LiftingLine in I.getZones(LiftingLines):
-        J.set(LiftingLine, '.VPM#Parameters', IntegralLaw='linear',
-            ParticleDistribution = ParticleDistribution)
+        J.set(LiftingLine, '.VPM#Parameters', IntegralLaw='linear', NumberOfParticleSources = 
+                               NumberOfParticleSources, ParticleDistribution = ParticleDistribution)
 
 def setKinematicsUsingConstantRotationAndTranslation(LiftingLines, RotationCenter=[0,0,0],
                                   RotationAxis=[1,0,0], RPM=2500.0, RightHandRuleRotation=True,
@@ -5348,7 +5351,7 @@ def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
     return tLL, AvrgThrust, AvrgPower
 
 def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
-                                            IntegralLaw='linear'):
+    IntegralLaw='linear'):
     '''
     Build a set of zones composed of particles with fields:
 
