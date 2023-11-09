@@ -5832,3 +5832,18 @@ def addBC2Zone(*args, **kwargs):
     for n in I.getNodesFromType(zone,'Elements_t'): n[0] = n[0].replace('/','_')
 
 _addBC2Zone = addBC2Zone
+
+def _convert_mesh_to_ngon(filename_in, filename_out):
+
+    from mpi4py import MPI
+    import maia
+
+    if not filename_in:
+        raise AttributeError('must provide input filename as first argument')
+
+    if not filename_out:
+        filename_out = filename_in.replace('.cgns','_ngon.cgns')
+
+    t = maia.io.file_to_dist_tree(filename_in, MPI.COMM_WORLD)
+    maia.algo.dist.generate_ngon_from_std_elements(t, MPI.COMM_WORLD)
+    maia.io.dist_tree_to_file(t, filename_out, MPI.COMM_WORLD)
