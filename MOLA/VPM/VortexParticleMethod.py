@@ -2829,7 +2829,7 @@ if True:
 
             if SAVE_IMAGE or SAVE_ALL:
                 setVisualization(t, **VisualisationOptions)
-                saveImage(t, **SaveImageOptions)
+                saveImage(t, **SaveImageOptions)    
 
             if SAVE_VPM or SAVE_ALL:
                 filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_It%d.cgns'%it)
