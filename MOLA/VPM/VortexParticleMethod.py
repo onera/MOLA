@@ -552,7 +552,6 @@ if True:
                 b = np.array([1./6., 1./3., 1./3., 1./6.], dtype = np.float64)
             else:
                 raise AttributeError('This Integration Scheme Has Not Been Implemented Yet')
-
         Kernel = Kernel_str2int[getParameter(t, 'RegularisationKernel')]
         Scheme = Scheme_str2int[getParameter(t, 'VorticityEquationScheme')]
         Diffusion = DiffusionScheme_str2int[getParameter(t, 'DiffusionScheme')]
@@ -565,11 +564,9 @@ if True:
         else:
             vpm_cpp.runge_kutta(t, PertubationFieldBase, PerturbationFieldCapsule, a, b, Kernel,
                                                                Scheme, Diffusion,EddyViscosityModel)
-        
         for LiftingLine in LiftingLines:
             TimeShed = I.getNodeFromName(LiftingLine, 'TimeSinceLastShedding')
             TimeShed[1][0] += dt[0]
-
         time += dt
         it += 1
 
@@ -1609,7 +1606,6 @@ if True:
             Source = LL.buildVortexParticleSourcesOnLiftingLine(LiftingLine,
                                                           AbscissaSegments = [ParticleDistribution],
                                                           IntegralLaw = LLParameters['IntegralLaw'])
-            C.convertPyTree2File(Source, LiftingLine[0] + '.cgns')
             SourceX = I.getValue(I.getNodeFromName(Source, 'CoordinateX'))
             SourceY = I.getValue(I.getNodeFromName(Source, 'CoordinateY'))
             SourceZ = I.getValue(I.getNodeFromName(Source, 'CoordinateZ'))
@@ -2745,9 +2741,14 @@ if True:
             t = open(RestartPath)
             if PerturbationFieldPath:
                 PerturbationField = open(PerturbationFieldPath)
-                PerturbationFieldCapsule = vpm_cpp.build_perturbation_velocity_capsule(\
-                                                                   PerturbationField, NumberOfNodes)
+                if VPMParameters['NumberOfThreads'] == 'auto':
+                    NbOfThreads = int(os.getenv('OMP_NUM_THREADS',len(os.sched_getaffinity(0))))
+                    VPMParameters['NumberOfThreads'] = NbOfThreads
+                else: NbOfThreads = VPMParameters['NumberOfThreads']
+                os.environ['OMP_NUM_THREADS'] = str(NbOfThreads)
+                PerturbationFieldCapsule = vpm_cpp.build_perturbation_velocity_capsule(PerturbationField, NbOfThreads)
             else: PerturbationFieldCapsule = []
+
             if EulerianPath:
                 try:
                     tE = open(EulerianPath)
@@ -2874,7 +2875,6 @@ if True:
                         PolarData['Variables'] = np.delete(PolarData['Variables'], i)
                         i -= 1
                     i += 1
-
             PolarData['Variables'] = np.append(OldPolarData['Variables'], PolarData['Variables'])
             OldPolarData.update(PolarData)
             PolarData = OldPolarData
@@ -2891,6 +2891,7 @@ if True:
             else: N0 += 1
 
             t = open(os.path.join(DIRECTORY_OUTPUT, PolarData['LastPolar']))
+
         else:
             LiftingLine = open(LiftingLinePath)
             t, tE = initialiseVPM(LiftingLineTree = LiftingLine, VPMParameters = VPMParameters,
