@@ -27,6 +27,7 @@ import Transform.PyTree as T
 import Connector.PyTree as CX
 import Post.PyTree as P
 import CPlot.PyTree as CPlot
+
 from .. import LiftingLine as LL
 from .. import Wireframe as W
 from .. import InternalShortcuts as J
@@ -42,6 +43,18 @@ if True:
 ####################################################################################################
 ####################################################################################################
     def delete(t = [], mask = []):
+        '''
+        Deletes the particles inside t that are flagged by mask.
+
+        Parameters
+        ----------
+            t : Tree, Base, Zone or list of Zone
+                Containes a zone of particles named 'Particles'.
+
+            mask : :py:class:`list` or numpy.ndarray
+                List of booleans of the same size as the particle zone. A true flag will delete a 
+                particle, a false flag will leave it.
+        '''
         Particles = pickParticlesZone(t)
         GridCoordinatesNode = I.getNodeFromName1(Particles, 'GridCoordinates')
         FlowSolutionNode = I.getNodeFromName1(Particles, 'FlowSolution')
@@ -56,6 +69,24 @@ if True:
         Particles[1].ravel(order = 'F')[0] = len(node[1])
 
     def extend(t = [], ExtendSize = 0, Offset = 0, ExtendAtTheEnd = True):
+        '''
+        Add empty particles in t.
+
+        Parameters
+        ----------
+            t : Tree, Base, Zone or list of Zone
+                Containes a zone of particles named 'Particles'.
+
+            ExtendSize : :py:class:`int`
+                Number of particles to add.
+
+            Offset : :py:class:`int`
+                Position where the particles are added.
+
+            ExtendAtTheEnd : :py:class:`boolean`
+                If True the particles are added at the end of t, by an offset of Offset, if False
+                the particles are added at the beginning of t at the position Offset.
+        '''
         Particles = pickParticlesZone(t)
         Cvisq = getParameter(Particles, 'EddyViscosityConstant')
         if not Cvisq: Cvisq = 0.
@@ -67,14 +98,14 @@ if True:
         if ExtendAtTheEnd:
             for node in GridCoordinatesNode[2] + FlowSolutionNode[2]:
                 if node[3] == 'DataArray_t':
-                    zeros = np.array(np.zeros(ExtendSize) + (node[0] == 'Active') + Cvisq*(node[0] \
+                    zeros = np.array(np.zeros(ExtendSize) + Cvisq*(node[0] \
                                                     == 'Cvisq'), dtype = node[1].dtype, order = 'F')
                     node[1] = np.append(np.append(node[1][:Np -Offset], zeros), node[1][Np-Offset:])
 
         else:
             for node in GridCoordinatesNode[2] + FlowSolutionNode[2]:
                 if node[3] == 'DataArray_t':
-                    zeros = np.array(np.zeros(ExtendSize) + (node[0] == 'Active') + Cvisq*(node[0] \
+                    zeros = np.array(np.zeros(ExtendSize) + Cvisq*(node[0] \
                                                     == 'Cvisq'), dtype = node[1].dtype, order = 'F')
                     node[1] = np.append(np.append(node[1][:Offset], zeros), node[1][Offset:])
 
@@ -82,6 +113,42 @@ if True:
 
     def addParticlesToTree(t, NewX = [], NewY = [], NewZ = [], NewAX = [], NewAY = [], NewAZ = [],
         NewSigma = [], Offset = 0, ExtendAtTheEnd = False):
+        '''
+        Add particles in t.
+
+        Parameters
+        ----------
+            t : Tree, Base, Zone or list of Zone
+                Containes a zone of particles named 'Particles'.
+
+            NewX : :py:class:`list` or numpy.ndarray
+                Positions along the x axis of the particles to add.
+
+            NewY : :py:class:`list` or numpy.ndarray
+                Positions along the y axis of the particles to add.
+
+            NewZ : :py:class:`list` or numpy.ndarray
+                Positions along the z axis of the particles to add.
+
+            NewAX : :py:class:`list` or numpy.ndarray
+                Strength along the x axis of the particles to add.
+
+            NewAY : :py:class:`list` or numpy.ndarray
+                Strength along the y axis of the particles to add.
+
+            NewAZ : :py:class:`list` or numpy.ndarray
+                Strength along the z axis of the particles to add.
+
+            NewSigma : :py:class:`list` or numpy.ndarray
+                Size of the particles to add.
+
+            Offset : :py:class:`int`
+                Position where the particles are added.
+
+            ExtendAtTheEnd : :py:class:`boolean`
+                If True the particles are added at the end of t, by an offset of Offset, if False
+                the particles are added at the beginning of t at the position Offset.
+        '''
         Nnew = len(NewX)
         extend(t, ExtendSize = Nnew, Offset = Offset, ExtendAtTheEnd = ExtendAtTheEnd)
         Particles = pickParticlesZone(t)
@@ -105,6 +172,24 @@ if True:
         #WZ[Offset: Nnew] = NewAZ/Volume[Offset: Nnew]
 
     def trim(t = [], NumberToTrim = 0, Offset = 0, TrimAtTheEnd = True):
+        '''
+        Removes a set of particles in t.
+
+        Parameters
+        ----------
+            t : Tree, Base, Zone or list of Zone
+                Containes a zone of particles named 'Particles'.
+
+            NumberToTrim : :py:class:`int`
+                Number of particles to remove.
+
+            Offset : :py:class:`int`
+                Position from where the particles are removed.
+
+            ExtendAtTheEnd : :py:class:`boolean`
+                If True the particles are removed from the end of t, by an offset of Offset, if
+                False the particles are removed from the beginning of t from the position Offset.
+        '''
         Particles = pickParticlesZone(t)
         GridCoordinatesNode = I.getNodeFromName1(Particles, 'GridCoordinates')
         FlowSolutionNode = I.getNodeFromName1(Particles, 'FlowSolution')
@@ -123,6 +208,29 @@ if True:
         Particles[1].ravel(order = 'F')[0] = len(node[1])
 
     def adjustTreeSize(t = [], NewSize = 0, OldSize = -1, Offset = 0, AtTheEnd = True):
+        '''
+        Adds (Offset < NewSize) or removes (NewSize < Offset) a set of particles in t to adjust its
+        size. If OldSize is not given, the current size of t is used.
+
+        Parameters
+        ----------
+            t : Tree, Base, Zone or list of Zone
+                Containes a zone of particles named 'Particles'.
+
+            NewSize : :py:class:`int`
+                New number of particles.
+
+            OldSize : :py:class:`int`
+                Old number of particles.
+
+            Offset : :py:class:`int`
+                Position from where the particles are added or removed.
+
+            ExtendAtTheEnd : :py:class:`boolean`
+                If True the particles are added or removed from the end of t, by an offset of
+                Offset, if False the particles are added or removed from the beginning of t from
+                the position Offset.
+        '''
         Particles = pickParticlesZone(t)
         if OldSize == -1: OldSize = len(J.getx(Particles))
         SizeDiff = NewSize - OldSize
@@ -131,6 +239,17 @@ if True:
         else: trim(t, NumberToTrim = -SizeDiff, Offset = Offset, TrimAtTheEnd = AtTheEnd)
 
     def roll(t = [], PivotNumber = 0):
+        '''
+        Moves a set of particles at the end of t
+
+        Parameters
+        ----------
+            t : Tree, Base, Zone or list of Zone
+                Containes a zone of particles named 'Particles'.
+
+            PivotNumber : :py:class:`int`
+                Position of the new first particle
+        '''
         Particles = pickParticlesZone(t)
         Np = Particles[1].ravel(order = 'F')[0]
         if PivotNumber == 0 or PivotNumber == Np: return
@@ -145,6 +264,24 @@ if True:
 
     def checkParametersTypes(ParametersList = [], int_Params = [], float_Params = [],
         bool_Params = []):
+        '''
+        Sets the types of parameters according to a given list of parameter types
+
+        Parameters
+        ----------
+            ParametersList : :py:class:`list` or numpy.ndarray of :py:class:`dict`
+                List of the parameters to check. The parameters must be integer, loats or booleans
+                and must be contained within int_Params, float_Params or bool_Params to be checked.
+
+            int_Params : :py:class:`list` or numpy.ndarray
+                List of the integer parameters.
+
+            float_Params : :py:class:`list` or numpy.ndarray
+                List of the float parameters.
+
+            bool_Params : :py:class:`list` or numpy.ndarray
+                List of the boolean parameters.
+        '''
         for Parameters in ParametersList:
             for key in Parameters:
                 if key in int_Params:
@@ -158,9 +295,38 @@ if True:
                                                             dtype = np.int32))
 
     def getPerturbationFieldParameters(t = []):
+        '''
+        Gets the parameters regarding the perturbation field.
+
+        Parameters
+        ----------
+            t : Tree, Base, Zone
+                Containes a node of parameters named '.PerturbationField#Parameters'.
+
+        Returns
+        -------
+            PerturbationFieldParameters : :py:class:`dict` of numpy.ndarray
+                Dictionnary of parameters. The parameters are pointers inside numpy ndarrays.
+        '''
         return J.get(pickParticlesZone(t), '.PerturbationField#Parameters')
 
     def getParameter(t = [], Name = ''):
+        '''
+        Get a parameter.
+
+        Parameters
+        ----------
+            t : Tree, Base, Zone
+                Containes a node of parameters where one of them is named Name.
+
+            Name : :py:class:`str`
+                Name of the parameter to get.
+
+        Returns
+        -------
+            ParameterNode : :py:class:`dict` of numpy.ndarray
+                The parameter is a pointer inside a numpy ndarray.
+        '''
         Particles = pickParticlesZone(t)
         Node = getVPMParameters(Particles)
         if Name in Node:
@@ -180,6 +346,22 @@ if True:
         return ParameterNode
 
     def getParameters(t = [], Names = []):
+        '''
+        Get a list of parameters.
+
+        Parameters
+        ----------
+            t : Tree, Base, Zone
+                Containes a node of parameters with their names in Names.
+
+            Names : :py:class:`list` or numpy.ndarray of :py:class:`str`
+                List of parameter names
+
+        Returns
+        -------
+            ParameterNode : :py:class:`dict` of numpy.ndarray
+                The parameter is a pointer inside a numpy ndarray
+        '''
         Particles = pickParticlesZone(t)
         return [getParameter(Particles, Name) for Name in Names]
 
@@ -202,20 +384,15 @@ if True:
     def buildEmptyVPMTree():
         Particles = C.convertArray2Node(D.line((0., 0., 0.), (0., 0., 0.), 2))
         Particles[0] = 'Particles'
-
-
-        FieldNames = ['VelocityInduced' + v for v in 'XYZ'] + ['Vorticity' + v for v in 'XYZ'] + \
-                     ['Alpha' + v for v in 'XYZ'] + ['gradxVelocity' + v for v in 'XYZ'] + \
-                     ['gradyVelocity' + v for v in 'XYZ']+ ['gradzVelocity' + v for v in 'XYZ'] + \
-                     ['PSE' + v for v in 'XYZ'] + ['Stretching' + v for v in 'XYZ'] + \
-                     ['VelocityDiffusion' + v for v in 'XYZ'] + ['Active', 'Age', 'HybridFlag', \
-                      'Nu', 'Sigma', 'StrengthMagnitude', 'Volume', 'VorticityMagnitude', 'divUd', \
-                      'Enstrophy', 'Enstrophyf', 'KineticEnergy', 'KineticEnergyf', 'SFS', 'Cvisq',\
-                      'KineticEnergyVariation', 'EnstrophyVariation'] + ['VelocityPerturbation' + \
-                      v for v in 'XYZ']
-        J.invokeFieldsDict(Particles, FieldNames)
-
-        IntegerFieldNames = ['Active', 'Age', 'HybridFlag']
+        J.invokeFieldsDict(Particles, ['VelocityInduced' + v for v in 'XYZ'] + \
+            ['VelocityBEM' + v for v in 'XYZ'] + ['VelocityInterface' + v for v in 'XYZ'] + \
+            ['VelocityDiffusion' + v for v in 'XYZ'] + ['VelocityPerturbation' + v for v in 'XYZ']+\
+            ['Vorticity' + v for v in 'XYZ'] + ['Alpha' + v for v in 'XYZ'] + \
+            ['gradxVelocity' + v for v in 'XYZ'] + ['gradyVelocity' + v for v in 'XYZ'] + \
+            ['gradzVelocity' + v for v in 'XYZ'] + ['PSE' + v for v in 'XYZ'] + \
+            ['Stretching' + v for v in 'XYZ'] + ['Age', 'Nu', 'Sigma', 'Volume', \
+             'StrengthMagnitude', 'VorticityMagnitude', 'divUd', 'Enstrophy', 'Enstrophyf','Cvisq'])
+        IntegerFieldNames = ['Age']
         GridCoordinatesNode = I.getNodeFromName1(Particles, 'GridCoordinates')
         FlowSolutionNode = I.getNodeFromName1(Particles, 'FlowSolution')
         for node in GridCoordinatesNode[2] + FlowSolutionNode[2]:
@@ -236,7 +413,7 @@ if True:
             'MinNbShedParticlesPerLiftingLine', 'CurrentIteration', 'NumberOfHybridInterfaces',
             'MaximumAgeAllowed', 'RedistributionPeriod', 'NumberOfThreads', 'IntegrationOrder',
             'IterationTuningFMM', 'IterationCounter', 'NumberOfNodes',
-            'NumberOfParticlesPerInterface', 'ClusterSize',
+            'NumberOfParticlesPerInterface', 'ClusterSize', 'NumberOfLiftingLines'
             'FarFieldApproximationOrder', 'NumberOfLiftingLineSources', 'NumberOfHybridSources']
 
         float_Params = ['Density', 'EddyViscosityConstant', 'Temperature', 'ResizeParticleFactor',
@@ -339,6 +516,7 @@ if True:
                 'MinNbShedParticlesPerLiftingLine' : 25,       #minimum number of station for every LL from which particles are shed
                 'NumberOfLiftingLineSources'       : 0,        #total number of particle sources on the lifting lines
                 'Pitch'                            : 0.,       #]-180., 180[ in deg, gives the pitch given to all the lifting lines, if 0 no pitch id added
+                'NumberOfLiftingLines'             : 0,        #[0, +inf[, number of LiftingLines
         }
         defaultVelocityPertParameters = {
             ############################################################################################
@@ -384,11 +562,12 @@ if True:
                 NumberOfLiftingLineSources = 0
                 if 'NumberOfLiftingLineSources' in defaultLiftingLineParameters:
                     NumberOfLiftingLineSources = \
-                                        defaultLiftingLineParameters['NumberOfLiftingLineSources'][0]
+                                       defaultLiftingLineParameters['NumberOfLiftingLineSources'][0]
                 if type(EulerianMesh) == str: tE = open(EulerianMesh)
                 #tE = updateField(tE, defaultParameters, defaultHybridParameters)
                 tE = generateMirrorWing(tE, defaultParameters, defaultHybridParameters)
                 HybridDomain = generateHybridDomain(tE, defaultParameters, defaultHybridParameters)
+                C.convertPyTree2File(HybridDomain, 'HybridDomain.cgns')
                 initialiseHybridParticles(t, tE, defaultParameters, 
                                         defaultHybridParameters, Offset = NumberOfLiftingLineSources)
                 J.set(Particles, '.Hybrid#Parameters', **defaultHybridParameters)
@@ -466,11 +645,17 @@ if True:
         BoxesBase[2] = I.getZones(Boxes)
         return vpm_cpp.box_interaction(t, BoxesBase)
 
-    def getInducedVelocityFromWake(t = [], Targets = []):
+    def extractTotalInducedVelocity(t = [], Targets = [], Offset = 0):
         TargetsBase = I.newCGNSBase('Targets', cellDim=1, physDim=3)
         TargetsBase[2] = I.getZones(Targets)
-        Kernel = Kernel_str2int[getParameter(t, 'RegularisationKernel')]
-        return vpm_cpp.induce_velocity_from_wake(t, TargetsBase, Kernel)
+        return vpm_cpp.extract_total_induced_velocity(t, TargetsBase, Offset)
+
+    def SetBoundAndShedVelocityOnLiftingLines(t = [], LiftingLines = [], WakeInducedVelocity = [],
+        Nshed = 0):
+        LiftingLinesBase = I.newCGNSBase('LiftingLines', cellDim=1, physDim=3)
+        LiftingLinesBase[2] = I.getZones(LiftingLines)
+        return vpm_cpp.extract_bound_and_shed_velocity_on_lifting_lines(t, LiftingLinesBase, 
+                                                                         WakeInducedVelocity, Nshed)
 
     def findMinimumDistanceBetweenParticles(X = [], Y = [], Z = []):
         return vpm_cpp.find_minimum_distance_between_particles(X, Y, Z)
@@ -552,6 +737,7 @@ if True:
                 b = np.array([1./6., 1./3., 1./3., 1./6.], dtype = np.float64)
             else:
                 raise AttributeError('This Integration Scheme Has Not Been Implemented Yet')
+
         Kernel = Kernel_str2int[getParameter(t, 'RegularisationKernel')]
         Scheme = Scheme_str2int[getParameter(t, 'VorticityEquationScheme')]
         Diffusion = DiffusionScheme_str2int[getParameter(t, 'DiffusionScheme')]
@@ -564,9 +750,11 @@ if True:
         else:
             vpm_cpp.runge_kutta(t, PertubationFieldBase, PerturbationFieldCapsule, a, b, Kernel,
                                                                Scheme, Diffusion,EddyViscosityModel)
+        
         for LiftingLine in LiftingLines:
             TimeShed = I.getNodeFromName(LiftingLine, 'TimeSinceLastShedding')
             TimeShed[1][0] += dt[0]
+
         time += dt
         it += 1
 
@@ -858,10 +1046,17 @@ if True:
     def setHybridDonors(Mesh = [], Interfaces = [], VPMParameters = {}, HybridParameters = {}):
         print('||'+'{:-^50}'.format(' Generate Hybrid Sources '))
         Sigma0 = VPMParameters['Resolution'][0]*VPMParameters['SmoothingRatio'][0]
+        print(Interfaces[0][0])
+        C.convertPyTree2File(Interfaces[0], 'out.cgns')
+        print(Interfaces[-1][0])
+        C.convertPyTree2File(Interfaces[-1], 'in.cgns')
         Grid = getRegularGridInHybridDomain(Interfaces[0], Interfaces[-1], Sigma0)
+        C.convertPyTree2File(Grid, 'Grid.cgns')
         donors, receivers = findDonorsIndex(Mesh, Grid)
         Fields = findDonorFields(Mesh, donors, receivers, ['Center' + v for v in 'XYZ'] + \
                                                                               ['TurbulentDistance'])
+        C.convertPyTree2File(C.convertArray2Node(J.createZone('Zone', [Fields['CenterX'], Fields['CenterY'], \
+                                                                         Fields['CenterZ']], 'xyz')), 'Field.cgns')
         OuterDomainToWallDistance = HybridParameters['OuterDomainToWallDistance'][0]
         NumberOfHybridInterfaces = HybridParameters['NumberOfHybridInterfaces'][0]
         InnerDomainToWallDistance = OuterDomainToWallDistance - Sigma0*NumberOfHybridInterfaces
@@ -869,8 +1064,10 @@ if True:
         for n in range(NumberOfHybridInterfaces + 1):
             d = OuterDomainToWallDistance - n*Sigma0
             flags += [Fields['TurbulentDistance'] <= d]#flags everything inside current interface
+            print("a", np.sum(flags[-1]), d)
 
         Domain_Flag = flags[0]*np.logical_not(flags[-1])#Particles inside OuterInterface and outside InnerInterface
+        print("ab", np.sum(Domain_Flag))
         Resolution = findMinimumDistanceBetweenParticles(Fields['CenterX'][Domain_Flag], Fields['CenterY'][Domain_Flag], Fields['CenterZ'][Domain_Flag])
         while np.min(Resolution) < Sigma0/2.:
             CurrentFlag = Domain_Flag[Domain_Flag]
@@ -879,12 +1076,14 @@ if True:
                 CurrentFlag[np.min(np.where(Resolution == hmin[i]))] = False#get rid of one particle for each h that is too small. that is because if one h is too small, then at least one other has the same value. when the 1st h is taken out, the others will increase.
 
             Domain_Flag[Domain_Flag] = CurrentFlag
+            print("b", np.sum(CurrentFlag), np.sum(Domain_Flag))
             Resolution = findMinimumDistanceBetweenParticles(Fields['CenterX'][Domain_Flag], Fields['CenterY'][Domain_Flag], Fields['CenterZ'][Domain_Flag])
 
         InterfacesFlags = {}
         for i in range(len(flags) - 1):
             InterfacesFlags['Interface_' + str(i)] = np.array(flags[i][Domain_Flag]*\
                            np.logical_not(flags[i + 1][Domain_Flag]), dtype = np.int32, order = 'F')#seperates the particles for each interface
+            print("c", np.sum(InterfacesFlags['Interface_' + str(i)]))
 
         HybridParameters['NumberOfHybridSources'] = np.array([0], order = 'F', dtype = np.int32)
         HybridParameters['HybridDonors']          = np.array(donors[Domain_Flag],    order = 'F',
@@ -1032,7 +1231,10 @@ if True:
 
     def generateHybridDomain(tE = [], VPMParameters = {}, HybridParameters = {}):
         Interfaces = generateHybridDomainInterfaces(tE, VPMParameters, HybridParameters)
+        C.convertPyTree2File(Interfaces, 'Interfaces.cgns')
+        print(Interfaces[-1][0])
         setBEMDonors(tE, Interfaces[-1], VPMParameters, HybridParameters)
+        print(Interfaces[-2][0])
         setCFDDonors(tE, Interfaces[-2], VPMParameters, HybridParameters)
         setHybridDonors(tE, Interfaces, VPMParameters, HybridParameters)
         HybridParameters['BEMMatrix'] = np.array([0.]*9*\
@@ -1115,10 +1317,15 @@ if True:
         ParticleSeparationPerInterface = HybridParameters['ParticleSeparationPerInterface']
         VorticityFactor = HybridParameters['FactorOfCFDVorticityShed'][0]
         hybrid = np.array([False]*len(ParticleSeparationPerInterface['Interface_0']))
+        C.convertPyTree2File(tL, 'tL.cgns')
+        print(ParticleSeparationPerInterface)
+        for i, InterfaceFlag in enumerate(ParticleSeparationPerInterface):
+            print(InterfaceFlag, np.sum(ParticleSeparationPerInterface[InterfaceFlag]))
         if 0. < VorticityFactor:
             for i, InterfaceFlag in enumerate(ParticleSeparationPerInterface):
                 flag = (ParticleSeparationPerInterface[InterfaceFlag] == 1)
                 wi = wp[flag]
+                print("aaa", wi, np.sum(flag), len(flag))
                 wmin = findMinHybridParticleVorticityToShed(wi, VorticityFactor)
                 flag[flag] = wmin < wi#only the strongest will survive
                 hybrid += np.array(flag)
@@ -1152,35 +1359,39 @@ if True:
         HybridParameters['AlphaHybridZ'] = apz
         HybridParameters['NumberOfHybridSources'][0] = Nh
 
-        HybridFlag, s = J.getVars(pickParticlesZone(tL), ['HybridFlag', 'Sigma'])
-        HybridFlag[:Offset]                           = 0
-        HybridFlag[Offset: Offset + Nbem + Ncfd + Nh] = 1
-        HybridFlag[Offset + Nbem + Ncfd + Nh:]        = 0
+    def flagParticlesInsideSurface(t = [], Surface = [], flagSources = False):
+        Particles = pickParticlesZone(t)
+        if Surface:
+            box = [np.inf, np.inf, np.inf, -np.inf, -np.inf, -np.inf]
+            for BC in I.getZones(Surface):
+                x, y, z = J.getxyz(BC)
+                box = [min(box[0], np.min(x)), min(box[1], np.min(y)), min(box[2], np.min(z)),
+                                 max(box[3], np.max(x)), max(box[4], np.max(y)), max(box[5], np.max(z))]
+
+            x, y, z = J.getxyz(Particles)
+            inside = (box[0] < x)*(box[1] < y)*(box[2] < z)*(x < box[3])*(y < box[4])*(z < box[5])#does a first cleansing to avoid checking far away particles
+            x, y, z = x[inside], y[inside], z[inside]
+            mask = C.convertArray2Node(J.createZone('Zone', [x, y, z], 'xyz'))
+            mask = I.getZones(CX.blankCells(C.newPyTree(['Base', mask]), [[Surface]],
+                          np.array([[1]]),  blankingType = 'node_in', delta = 0., dim = 3, tol = 0.))[0]
+            cellN = J.getVars(mask, ['cellN'], 'FlowSolution')[0]
+            inside[inside] = (cellN == 0)
+            if not flagSources:
+                Nll, Nbem, Ncfd = getParameters(Particles, ['NumberOfLiftingLineSources',
+                                                            'NumberOfBEMSources', 'NumberOfCFDSources'])
+                if not Nll  : Nll  = [0]
+                if not Nbem : Nbem = [0]
+                if not Ncfd : Ncfd = [0]
+                inside[:Nll[0] + Nbem[0] + Ncfd[0]] = False
+        else:
+            inside = [False]*Particles[1][0][0]
+
+        return np.array(inside, order = 'F', dtype = np.int32)
 
     def eraseParticlesInHybridDomain(t = []):
-        Particles = pickParticlesZone(t)
-        Nll, Nbem, Ncfd = getParameters(Particles, ['NumberOfLiftingLineSources',
-                                                        'NumberOfBEMSources', 'NumberOfCFDSources'])
-        if not Nll : Nll  = np.array([0])
-        Offset = Nll[0] + Nbem[0] + Ncfd[0]
-        OuterInterface = pickHybridDomainOuterInterface(t)
-        box = [np.inf, np.inf, np.inf, -np.inf, -np.inf, -np.inf]
-        for BC in I.getZones(OuterInterface):
-            x, y, z = J.getxyz(BC)
-            box = [min(box[0], np.min(x)), min(box[1], np.min(y)), min(box[2], np.min(z)),
-                             max(box[3], np.max(x)), max(box[4], np.max(y)), max(box[5], np.max(z))]
-
-        x, y, z = J.getxyz(Particles)
-        inside = (box[0] < x)*(box[1] < y)*(box[2] < z)*(x < box[3])*(y < box[4])*(z < box[5])#does a first cleansing to avoid checking far away particles
-        x, y, z = x[inside], y[inside], z[inside]
-        mask = C.convertArray2Node(J.createZone('Zone', [x, y, z], 'xyz'))
-        mask = I.getZones(CX.blankCells(C.newPyTree(['Base', mask]), [[OuterInterface]],
-                      np.array([[1]]),  blankingType = 'node_in', delta = 0., dim = 3, tol = 0.))[0]
-        cellN = J.getVars(mask, ['cellN'], 'FlowSolution')[0]
-        inside[inside] = (cellN == 0)
-        inside[:Offset] = False
-        delete(t, inside)
-        return np.sum(inside)
+        flag = flagParticlesInsideSurface(t, pickHybridDomainOuterInterface(t))
+        delete(t, flag)
+        return np.sum(flag)
 
     def splitHybridParticles(t = []):
         Particles = pickParticlesZone(t)
@@ -1194,9 +1405,8 @@ if True:
             Nsplit = len(splitParticles[0])
             adjustTreeSize(t, NewSize = Nsplit, OldSize =  Nh, AtTheEnd = False, Offset = Offset)
             X, Y, Z = J.getxyz(Particles)
-            AX, AY, AZ, A, Vol, S, HybridFlag = J.getVars(Particles, ['Alpha' + v for v in 'XYZ'] +\
-                                             ['StrengthMagnitude', 'Volume', 'Sigma', 'HybridFlag'])
-            HybridFlag[Offset: Nsplit + Offset] = 1
+            AX, AY, AZ, A, Vol, S = J.getVars(Particles, ['Alpha' + v for v in 'XYZ'] +\
+                                                           ['StrengthMagnitude', 'Volume', 'Sigma'])
             X[Offset: Offset + Nsplit]          = splitParticles[0][:]
             Y[Offset: Offset + Nsplit]          = splitParticles[1][:]
             Z[Offset: Offset + Nsplit]          = splitParticles[2][:]
@@ -1296,11 +1506,6 @@ if True:
 
         addParticlesToTree(tL, Fields['CenterX'][hybrid], Fields['CenterY'][hybrid], Fields['CenterZ'][hybrid], apx[hybrid], apy[hybrid],
                          apz[hybrid], HybridParameters['HybridSigma'][hybrid], Offset + Nbem + Ncfd)
-
-        HybridFlag = J.getVars(Particles, ['HybridFlag'])[0]
-        HybridFlag[:Offset]                           = 0
-        HybridFlag[Offset: Offset + Nbem + Ncfd + Nh] = 1
-        HybridFlag[Offset + Nbem + Ncfd + Nh:]        = 0
 
         solveParticleStrength(tL, Fields['VorticityX'][hybrid]*Ramp, Fields['VorticityY'][hybrid]*Ramp, Fields['VorticityZ'][hybrid]*Ramp, Offset + Nbem + Ncfd)
         ax, ay, az = J.getVars(Particles, ['Alpha' + v for v in 'XYZ'])
@@ -1470,8 +1675,10 @@ if True:
                                   str(LiftingLineParameters['MinNbShedParticlesPerLiftingLine'][0]))
                 print('||' + '{:=^50}'.format(''))
 
-        Nsmin = LiftingLineParameters['MinNbShedParticlesPerLiftingLine'][0]
+        LiftingLineParameters['NumberOfLiftingLines'] = np.array([len(LiftingLines)], \
+                                                                      dtype = np.int32, order = 'F')
         if 'Resolution' not in Parameters and LiftingLines:
+            Nsmin = LiftingLineParameters['MinNbShedParticlesPerLiftingLine'][0]
             Resolution = W.getLength(LiftingLines[0])/max(Nsmin, \
                                 I.getNodeFromName(LiftingLines[0], 'NumberOfParticleSources')[1][0])
             hmax, hmin = Resolution, Resolution
@@ -1485,15 +1692,16 @@ if True:
         elif 'Resolution' in Parameters:
             Parameters['Resolution'] = np.array([min(Parameters['Resolution']),
                                     max(Parameters['Resolution'])], dtype = np.float64, order = 'F')
-        elif 'Resolution' not in Parameters:
-            raise ValueError('The Resolution can not be computed. The Resolution or a Lifting Line \
-                                                                                 must be specified')
+        elif 'Resolution' not in Parameters: raise ValueError('The Resolution can not be computed. \
+                                                The Resolution or a Lifting Line must be specified')
 
         if 'VelocityFreestream' not in Parameters: Parameters['VelocityFreestream'] = \
                                                    np.array([0.]*3, dtype = np.float64, order = 'F')
 
-        if 'TimeStep' not in Parameters: setTimeStepFromShedParticles(Parameters, LiftingLines,
-                                                                      NumberParticlesShedAtTip = 1.)
+        if 'TimeStep' not in Parameters and LiftingLines: setTimeStepFromShedParticles(Parameters,
+                                                        LiftingLines, NumberParticlesShedAtTip = 1.)
+        elif 'TimeStep' not in Parameters: raise ValueError('The TimeStep can not be computed. The \
+                                                      TimeStep or a Lifting Line must be specified')
 
         Parameters['Sigma0'] = np.array(Parameters['Resolution']*Parameters['SmoothingRatio'],
                                                                     dtype = np.float64, order = 'F')
@@ -1587,7 +1795,7 @@ if True:
             LLParameters = J.get(LiftingLine, '.VPM#Parameters')
             ParticleDistribution = LLParameters['ParticleDistribution']
             if ParticleDistribution['Symmetrical']:
-                HalfStations = int(LLParameters['NumberOfParticleSources']/2 + 1)
+                HalfStations = int(LLParameters['NumberOfParticleSources'][0]/2 + 1)
                 SemiWing = W.linelaw(P1 = (0., 0., 0.), P2 = (L/2., 0., 0.), N = HalfStations,
                                                                 Distribution = ParticleDistribution)# has to give +1 point because one point is lost with T.symetrize()
                 WingDiscretization = J.getx(T.join(T.symetrize(SemiWing, (0, 0, 0), (0, 1, 0), \
@@ -1596,8 +1804,8 @@ if True:
                 ParticleDistribution = WingDiscretization/L
             else:
                 WingDiscretization = J.getx(W.linelaw(P1 = (0., 0., 0.), P2 = (L, 0., 0.),
-                                                        N = LLParameters['NumberOfParticleSources'][0],
-                                                            Distribution = ParticleDistribution))
+                                                     N = LLParameters['NumberOfParticleSources'][0],
+                                                               Distribution = ParticleDistribution))
                 ParticleDistribution = WingDiscretization/L
 
             LLParameters = J.get(LiftingLine, '.VPM#Parameters')
@@ -1606,6 +1814,7 @@ if True:
             Source = LL.buildVortexParticleSourcesOnLiftingLine(LiftingLine,
                                                           AbscissaSegments = [ParticleDistribution],
                                                           IntegralLaw = LLParameters['IntegralLaw'])
+
             SourceX = I.getValue(I.getNodeFromName(Source, 'CoordinateX'))
             SourceY = I.getValue(I.getNodeFromName(Source, 'CoordinateY'))
             SourceZ = I.getValue(I.getNodeFromName(Source, 'CoordinateZ'))
@@ -1777,11 +1986,9 @@ if True:
 
             index += 1
 
+        newLL = I.getZones(I.copyRef(LiftingLines))
         for index in SheddingLiftingLine[::-1]:
-            Sources.pop(index)
-            LiftingLines.pop(index)
-            ParticleDistribution.pop(index)
-            Dir.pop(index)
+            newLL.pop(index)
 
         ParticlesShedPerStation = np.array(ParticlesShedPerStation, dtype=np.int32, order = 'F')
         Ramp = Ramp/(ParticlesShedPerStation + 2*(ParticlesShedPerStation == -1))
@@ -1810,52 +2017,44 @@ if True:
                                                    ShedParticlesZ), dtype = np.float64, order = 'F')
 
 
-        return ParticlesShedPerStation, Dir, VeciX, VeciY, VeciZ, SheddingDistance, FilamentDistance
+        return newLL, ParticlesShedPerStation, Dir, VeciX, VeciY, VeciZ, SheddingDistance, FilamentDistance
 
-    def ShedParticlesFromLiftingLines(Particles, LiftingLines, PolarsInterpolatorDict,
+    def ShedParticlesFromLiftingLines(t, LiftingLines, PolarsInterpolatorDict,
         WakeInducedVelocity, GammaThreshold, GammaRelax, MaxIte, dt, ratio, Ramp,
-        KinematicViscosity, EddyViscosityConstant, VelocityLimitor, NumberOfLiftingLineSources,
+        KinematicViscosity, EddyViscosityConstant, NumberOfLiftingLineSources,
         NumberOfSources):
-        it = getParameter(Particles, 'CurrentIteration')[0]
-
-        #C.convertPyTree2File(Particles, 't' + str(it) + '_av.cgns')
+        Particles = pickParticlesZone(t)        
         ParticleDistribution = [I.getNodeFromName(LiftingLine, 'ParticleDistribution')[1] for \
                                                                         LiftingLine in LiftingLines]
         Sources = LL.buildVortexParticleSourcesOnLiftingLine(LiftingLines, AbscissaSegments = \
                                                        ParticleDistribution, IntegralLaw = 'linear')
         x, y, z = J.getxyz(Particles)
-        #print('tot before ini', len(x), len(Sources), [ll[0] for ll in LiftingLines])
-        ParticlesShedPerStation, Dir, VeciX, VeciY, VeciZ, SheddingDistance, FilamentDistance = \
+        SheddingLiftingLines, ParticlesShedPerStation, Dir, VeciX, VeciY, VeciZ, SheddingDistance, FilamentDistance = \
                                      initialiseShedParticles(LiftingLines, Particles, Sources,
                  dt, Ramp, ratio, NumberOfLiftingLineSources, NumberOfSources, ParticleDistribution)
+
         TimeShed = np.array([I.getNodeFromName(LiftingLine, 'TimeSinceLastShedding')[1][0] for \
                                       LiftingLine in LiftingLines], order = 'F', dtype = np.float64)
         Nshed = np.sum(ParticlesShedPerStation) + 2*np.sum(ParticlesShedPerStation == -1)
         SourcesM1 = [I.copyTree(Source) for Source in Sources]
         GammaOld = [I.getNodeFromName3(Source, 'Gamma')[1] for Source in Sources]
         x, y, z = J.getxyz(Particles)
-        #print('tot after ini', len(x), len(Sources), [ll[0] for ll in LiftingLines])
         ax, ay, az, s = J.getVars(Particles, ['Alpha' + v for v in 'XYZ'] + ['Sigma'])
-
         ni = 0
         for _ in range(MaxIte):
-            #print(ax[: NumberOfLiftingLineSources])
             setShedParticleStrength(Dir, VeciX, VeciY, VeciZ, SheddingDistance, FilamentDistance,
                                             ax, ay, az, Sources, SourcesM1, ParticlesShedPerStation,
                                               NumberOfLiftingLineSources, NumberOfSources, TimeShed)
-            computeInducedVelocityOnLiftinLines(LiftingLines, x, y, z, ax, ay, az, s, \
-                           VelocityLimitor, WakeInducedVelocity, Nshed + NumberOfLiftingLineSources)
-            LL.assembleAndProjectVelocities(LiftingLines)
-            LL._applyPolarOnLiftingLine(LiftingLines, PolarsInterpolatorDict, ['Cl', 'Cd'])
-            IntegralLoads = LL.computeGeneralLoadsOfLiftingLine(LiftingLines)
+            SetBoundAndShedVelocityOnLiftingLines(t, SheddingLiftingLines, WakeInducedVelocity, Nshed)
+            LL.assembleAndProjectVelocities(SheddingLiftingLines)
+            LL._applyPolarOnLiftingLine(SheddingLiftingLines, PolarsInterpolatorDict, ['Cl', 'Cd'])
+            IntegralLoads = LL.computeGeneralLoadsOfLiftingLine(SheddingLiftingLines)
             Sources = LL.buildVortexParticleSourcesOnLiftingLine(LiftingLines, AbscissaSegments = \
                                                        ParticleDistribution, IntegralLaw = 'linear')
             GammaError = relaxCirculationAndGetImbalance(GammaOld, GammaRelax, Sources)
 
             ni += 1
             if GammaError < GammaThreshold: break
-
-        #C.convertPyTree2File(Particles, 't' + str(it) + '_ap.cgns')
 
         wx, wy, wz, w, a, Volume, Nu, Cvisq = J.getVars(Particles, \
                                             ['Vorticity'+i for i in 'XYZ'] + ['VorticityMagnitude',\
@@ -1864,7 +2063,7 @@ if True:
                                                         ax[:NumberOfLiftingLineSources],
                                                         ay[:NumberOfLiftingLineSources],
                                                         az[:NumberOfLiftingLineSources]]), axis = 0)
-        #print('a bound', a[: NumberOfLiftingLineSources])
+
         a[NumberOfSources: NumberOfSources + Nshed] = np.linalg.norm(np.vstack([\
                                            ax[NumberOfSources: NumberOfSources + Nshed],
                                            ay[NumberOfSources: NumberOfSources + Nshed],
@@ -1885,14 +2084,12 @@ if True:
                 y[NumberOfSources + i]  =  y[NumberOfSources + Nshed + i]
                 z[NumberOfSources + i]  =  z[NumberOfSources + Nshed + i]
                 flag[NumberOfSources + Nshed + i] = True
+
         delete(Particles, np.array(flag))
-        #print('a shed', a[NumberOfSources: NumberOfSources + NumberOfSources])
 
         for LiftingLine in LiftingLines:
             TimeShed = I.getNodeFromName(LiftingLine, 'TimeSinceLastShedding')
             TimeShed[1][0] = 0
-
-        #C.convertPyTree2File(Particles, 't' + str(it) + '_del.cgns')
 
         #for LiftingLine in LiftingLines:
         #    Gamma, GammaM1, dGammadt = J.getVars(LiftingLine, ['Gamma', 'GammaM1', 'dGammadt'])
@@ -1914,7 +2111,7 @@ if True:
         if not Particles: raise ValueError('"Particles" zone not found in ParticlesTree')
         ratio, dt, time, it, Ramp, GammaThreshold, GammaRelax, MaxIte, \
         KinematicViscosity, EddyViscosityConstant, MachLimitor, Temperature, \
-        NumberOfLiftingLineSources, \
+        NumberOfLLSources, \
         NumberOfHybridSources, NumberOfBEMSources, NumberOfCFDSources = getParameters(t, \
                 ['SmoothingRatio', 'TimeStep', 'Time', 'CurrentIteration', \
                  'StrengthRampAtbeginning', 'CirculationThreshold', 'CirculationRelaxation', \
@@ -1928,12 +2125,13 @@ if True:
         if not NumberOfCFDSources: NumberOfCFDSources = [0]
         Ramp = np.sin(min(it/Ramp, 1.)*np.pi/2.)
         moveAndUpdateLiftingLines(t, LiftingLines, dt, PerturbationFieldCapsule)
-        WakeInducedVelocity = getInducedVelocityFromWake(t, Targets = LiftingLines)
+        WakeInducedVelocity = extractTotalInducedVelocity(t, LiftingLines, Offset = \
+                                                                               NumberOfLLSources[0])
 
-        Error, ni, Nshed = ShedParticlesFromLiftingLines(Particles, LiftingLines,
+        Error, ni, Nshed = ShedParticlesFromLiftingLines(t, LiftingLines,
               PolarsInterpolatorDict, WakeInducedVelocity, GammaThreshold, GammaRelax, MaxIte[0],
-              dt[0], ratio, Ramp, KinematicViscosity, EddyViscosityConstant, VelLimitor[0],
-              NumberOfLiftingLineSources[0], NumberOfLiftingLineSources[0] + \
+              dt[0], ratio, Ramp, KinematicViscosity, EddyViscosityConstant, 
+              NumberOfLLSources[0], NumberOfLLSources[0] + \
               NumberOfHybridSources[0] + NumberOfCFDSources[0] + NumberOfBEMSources[0])
 
         LL.computeGeneralLoadsOfLiftingLine(LiftingLines,
@@ -2394,8 +2592,8 @@ if True:
         IterationInfo['Lift Standard Deviation'] = std_Thrust/(Fz + np.sign(Fz)*1e-12)*100.
         IterationInfo['Drag'] = Fx
         IterationInfo['Drag Standard Deviation'] = std_Drag/(Fx + np.sign(Fx)*1e-12)*100.
-        IterationInfo['cL'] = cL
-        IterationInfo['cD'] = cD
+        IterationInfo['cL'] = cL if 1e-12 < q0 else 0.
+        IterationInfo['cD'] = cD if 1e-12 < q0 else 0.
         IterationInfo['f'] = Fz/Fx
         return IterationInfo
 
@@ -2457,7 +2655,7 @@ if True:
                  color = 'Iso:' + ParticlesColorField, blending = 0.6, shaderParameters = [0.04, 0])
         LiftingLines = LL.getLiftingLines(t)
         for zone in LiftingLines:
-            CPlot._addRender2Zone(zone, material = 'Flat', color = 'White')
+            CPlot._addRender2Zone(zone, material = 'Flat', color = 'White', blending = 0.2)
 
         if addLiftingLineSurfaces:
             if not AirfoilPolarsFilename:
@@ -2479,7 +2677,6 @@ if True:
         CPlot._addRender2PyTree(t, mode = 'Render', colormap = 'Blue2Red', isoLegend=1,
                                                                   scalarField = ParticlesColorField)
 
-
     def saveImage(t = [], ShowInScreen = False, ImagesDirectory = 'FRAMES', **DisplayOptions):
         if 'mode' not in DisplayOptions: DisplayOptions['mode'] = 'Render'
         if 'displayInfo' not in DisplayOptions: DisplayOptions['displayInfo'] = 0
@@ -2500,14 +2697,16 @@ if True:
         else:
             DisplayOptions['offscreen'] = 1
 
+        CPlot.display(t, **DisplayOptions)
+
         if 'backgroundFile' not in DisplayOptions:
             MOLA = os.getenv('MOLA')
             MOLASATOR = os.getenv('MOLASATOR')
             for MOLAloc in [MOLA, MOLASATOR]:
                 backgroundFile = os.path.join(MOLAloc, 'MOLA', 'GUIs', 'background.png')
                 if os.path.exists(backgroundFile):
-                    DisplayOptions['backgroundFile']=backgroundFile
-                    DisplayOptions['bgColor']=13
+                    DisplayOptions['backgroundFile'] = backgroundFile
+                    DisplayOptions['bgColor'] = 13
                     break
 
         CPlot.display(t, **DisplayOptions)
@@ -2515,19 +2714,29 @@ if True:
             CPlot.finalizeExport(DisplayOptions['offscreen'])
 
 
-
     def open(filename = ''):
         t = C.convertFile2PyTree(filename)
         Particles = pickParticlesZone(t)
+
         if Particles:
-            FieldNames = ['gradxVelocity' + v for v in 'XYZ'] + \
-                         ['gradyVelocity' + v for v in 'XYZ'] + \
-                         ['gradzVelocity' + v for v in 'XYZ'] + \
-                         ['PSE' + v for v in 'XYZ'] + ['Stretching' + v for v in 'XYZ'] + \
-                         ['VelocityDiffusion' + v for v in 'XYZ'] + ['Active', 'Age', \
-                          'HybridFlag', 'Nu', 'divUd', 'Enstrophy', 'Enstrophyf', 'KineticEnergy', \
-                          'KineticEnergyf', 'SFS', 'KineticEnergyVariation', \
-                          'EnstrophyVariation'] + ['VelocityPerturbation' + v for v in 'XYZ']
+            FieldNames = ['VelocityInduced' + v for v in 'XYZ'] + \
+                     ['VelocityBEM' + v for v in 'XYZ'] + \
+                     ['VelocityInterface' + v for v in 'XYZ'] + \
+                     ['VelocityDiffusion' + v for v in 'XYZ'] + \
+                     ['VelocityPerturbation' + v for v in 'XYZ'] + \
+                     ['Vorticity' + v for v in 'XYZ'] + \
+                     ['gradxVelocity' + v for v in 'XYZ'] + \
+                     ['gradyVelocity' + v for v in 'XYZ'] + \
+                     ['gradzVelocity' + v for v in 'XYZ'] + \
+                     ['PSE' + v for v in 'XYZ'] + \
+                     ['Stretching' + v for v in 'XYZ'] + \
+                     ['Nu', 'StrengthMagnitude', 'VorticityMagnitude', \
+                      'divUd', 'Enstrophy', 'Enstrophyf']
+            rmNodes = ['RotU', 'VelocityMagnitude', 'AlphaN'] + ['RotU' + v for v in 'XYZ'] + \
+                                                        ['Velocity' + v for v in 'XYZ'] + ['radius']
+
+            for Nodes in rmNodes: I._rmNodesByName(Particles, Nodes)
+
             J.invokeFieldsDict(Particles, FieldNames)
             solveVorticityEquation(t)
             HybridParameters = I.getNodeFromName(t, '.Hybrid#Parameters')
@@ -2537,49 +2746,109 @@ if True:
                                                                    order = 'F'), [], 'DataArray_t']]
                 updateBEMMatrix(t)
 
-        deletePrintedLines()
+        #deletePrintedLines()
         return t
 
-    def save(t = [], filename = '', VisualisationOptions = {}):
+    def checkSaveFields(SaveFields = ['all']):
+        VectorFieldNames = ['VelocityInduced'] + ['Vorticity'] + ['Alpha'] + ['gradxVelocity'] + \
+                                ['gradyVelocity'] + ['gradzVelocity'] + ['PSE'] + ['Stretching'] + \
+                                                     ['VelocityDiffusion'] + ['RotU'] + ['Velocity']
+        ScalarFieldNames = ['Age', 'AlphaN', 'Nu', 'Sigma', 'StrengthMagnitude', 'Volume', \
+                            'VelocityMagnitude', 'VorticityMagnitude', 'divUd', 'Enstrophy', \
+                                                                              'Enstrophyf', 'Cvisq']
+        if 'all' in SaveFields:
+            FieldNames = []
+            for VectorFieldName in VectorFieldNames:
+                FieldNames += [VectorFieldName + v for v in 'XYZ']
+
+            for ScalarFieldName in ScalarFieldNames:
+                FieldNames += [ScalarFieldName]
+        else:
+            if not (isinstance(SaveFields, list) or isinstance(SaveFields, np.ndarray)):
+                SaveFields = [SaveFields]
+
+            SaveFields = np.array(SaveFields)
+            FieldNames = []
+            for VectorFieldName in VectorFieldNames:
+                if (VectorFieldName in SaveFields) or (VectorFieldName + 'X' in SaveFields):
+                    FieldNames += [VectorFieldName + v for v in 'XYZ']
+
+            for ScalarFieldName in ScalarFieldNames:
+                if (ScalarFieldName in SaveFields) or (ScalarFieldName[:-1] in SaveFields):
+                    FieldNames += [ScalarFieldName]
+
+            if 'RotUX' in FieldNames: FieldNames += ['RotU']
+
+
+        FieldNames += ['Alpha' + v for v in 'XYZ'] + ['Age', 'Sigma', 'Volume', 'Cvisq']
+        IntegerFieldNames = ['Age']
+
+        return np.unique(FieldNames)
+
+    def save(t = [], filename = '', VisualisationOptions = {}, SaveFields = ['all']):
         tref = I.copyRef(t)
-        rmNodesFlowSolution = ['gradxVelocity' + v for v in 'XYZ'] + \
-                     ['gradyVelocity' + v for v in 'XYZ'] + ['gradzVelocity' + v for v in 'XYZ'] + \
-                     ['PSE' + v for v in 'XYZ'] + ['Stretching' + v for v in 'XYZ'] + \
-                     ['VelocityDiffusion' + v for v in 'XYZ'] + ['Active', 'Age', 'HybridFlag', \
-                      'Nu', 'divUd', 'Enstrophy', 'Enstrophyf', 'KineticEnergy',\
-                      'KineticEnergyf', 'SFS', 'KineticEnergyVariation', \
-                      'EnstrophyVariation'] + ['VelocityPerturbation' + v for v in 'XYZ']
+
         Particles = pickParticlesZone(tref)
         if Particles:
             I._rmNodesByName(Particles, 'BEMMatrix')
-            FlowSolution = I.getNodeFromName(Particles, 'FlowSolution')
-            for node in rmNodesFlowSolution: I._rmNodesByName(FlowSolution, node)
-            # an, nx, ny, nz, t1x, t1y, t1z, t2x, t2y, t2z = J.invokeFields(Particles, ['AlphaN'] + ['Normal' + v for v in 'XYZ'] + ['Tangent1' + v for v in 'XYZ'] + ['Tangent2' + v for v in 'XYZ'])
-            # acfdn = np.append(I.getNodeFromName(Particles, 'AlphaBEMN')[1], \
-            #                                          I.getNodeFromName(Particles, 'AlphaCFDN')[1])
-            # an[:len(acfdn)] = acfdn
-            # s = np.linalg.norm(np.vstack([I.getNodeFromName(Particles, 'SurfaceCFDX')[1], I.getNodeFromName(Particles, 'SurfaceCFDY')[1], I.getNodeFromName(Particles, 'SurfaceCFDZ')[1]]), axis = 0)
-            # ncfdx = np.append(I.getNodeFromName(Particles, 'NormalBEMX')[1], \
-            #                                          I.getNodeFromName(Particles, 'SurfaceCFDX')[1]/s)
-            # ncfdy = np.append(I.getNodeFromName(Particles, 'NormalBEMY')[1], \
-            #                                          I.getNodeFromName(Particles, 'SurfaceCFDY')[1]/s)
-            # ncfdz = np.append(I.getNodeFromName(Particles, 'NormalBEMZ')[1], \
-            #                                          I.getNodeFromName(Particles, 'SurfaceCFDZ')[1]/s)
-            # nx[:len(ncfdx)] = ncfdx
-            # ny[:len(ncfdy)] = ncfdy
-            # nz[:len(ncfdz)] = ncfdz
-            # t1cfdx = I.getNodeFromName(Particles, 'Tangential1BEMX')[1]
-            # t1cfdy = I.getNodeFromName(Particles, 'Tangential1BEMY')[1]
-            # t1cfdz = I.getNodeFromName(Particles, 'Tangential1BEMZ')[1]
-            # t1x[:len(t1cfdx)] = t1cfdx
-            # t1y[:len(t1cfdy)] = t1cfdy
-            # t1z[:len(t1cfdz)] = t1cfdz
-            # t2cfdx = I.getNodeFromName(Particles, 'Tangential2BEMX')[1]
-            # t2cfdy = I.getNodeFromName(Particles, 'Tangential2BEMY')[1]
-            # t2cfdz = I.getNodeFromName(Particles, 'Tangential2BEMZ')[1]
-            # t2x[:len(t2cfdx)] = t2cfdx
-            # t2y[:len(t2cfdy)] = t2cfdy
-            # t2z[:len(t2cfdz)] = t2cfdz
+            if ('AlphaN' in SaveFields) and pickHybridDomain(t):
+                an = J.invokeFields(Particles, ['AlphaN'])[0]
+                acfdn = np.append(J.getVars(Particles, 'AlphaBEMN')[0], \
+                                                               J.getVars(Particles, 'AlphaCFDN')[0])
+                an[:len(acfdn)] = acfdn
+
+            if 'VelocityX' in SaveFields:
+                u, ux, uy, uz = J.invokeFields(Particles, ['VelocityMagnitude'] + \
+                                                                    ['Velocity' + v for v in 'XYZ'])
+                u0 = getParameter(Particles, 'VelocityFreestream')
+                uix, uiy, uiz, upertx, uperty, upertz, udiffx, udiffy, udiffz, ubemx, ubemy, ubemz,\
+                                                       usurfx, usurfy, usurfz = J.getVars(Particles,
+                                                      ['VelocityInduced'      + v for v in 'XYZ'] +\
+                                                      ['VelocityPerturbation' + v for v in 'XYZ'] +\
+                                                      ['VelocityDiffusion'    + v for v in 'XYZ'] +\
+                                                      ['VelocityBEM'          + v for v in 'XYZ'] +\
+                                                      ['VelocityInterface'    + v for v in 'XYZ'])
+                ux[:] = u0[0] + uix + upertx + udiffx + ubemx + usurfx
+                uy[:] = u0[1] + uiy + uperty + udiffy + ubemy + usurfy
+                uz[:] = u0[2] + uiz + upertz + udiffz + ubemz + usurfz
+                u[:] = np.linalg.norm(np.vstack([ux, uy, uz]), axis = 0)
+
+            elif 'VelocityMagnitude' in SaveFields:
+                u = J.invokeFields(Particles, ['VelocityMagnitude'])[0]
+                u0 = getParameter(Particles, 'VelocityFreestream')
+                uix, uiy, uiz, upertx, uperty, upertz, udiffx, udiffy, udiffz, ubemx, ubemy, ubemz,\
+                                                       usurfx, usurfy, usurfz = J.getVars(Particles,
+                                                      ['VelocityInduced'      + v for v in 'XYZ'] +\
+                                                      ['VelocityPerturbation' + v for v in 'XYZ'] +\
+                                                      ['VelocityDiffusion'    + v for v in 'XYZ'] +\
+                                                      ['VelocityBEM'          + v for v in 'XYZ'] +\
+                                                      ['VelocityInterface'    + v for v in 'XYZ'])
+                u[:] = np.linalg.norm(
+                              np.vstack([u0[0] + uix + upertx + udiffx + ubemx + usurfx,
+                                         u0[1] + uiy + uperty + udiffy + ubemy + usurfy,
+                                         u0[2] + uiz + upertz + udiffz + ubemz + usurfz]), axis = 0)
+
+            if 'RotUX' in SaveFields:
+                rotux, rotuy, rotuz, rotu = J.invokeFields(Particles, ['RotU' + v for v in 'XYZ'] +\
+                                                                                           ['RotU'])
+                duxdx, duxdy, duxdz, duydx, duydy, duydz, duzdx, duzdy, duzdz = J.getVars(Particles,
+                     ['gradxVelocity' + v for v in 'XYZ'] + ['gradyVelocity' + v for v in 'XYZ'] + \
+                                                               ['gradzVelocity' + v for v in 'XYZ'])
+                rotux[:] = duzdy - duydz
+                rotuy[:] = duxdz - duzdx
+                rotuz[:] = duydx - duxdy
+
+                rotu[:] = np.linalg.norm(np.vstack([rotux, rotuy, rotuz]), axis = 0)
+
+            FlowSolution = I.getNodeFromName(Particles, 'FlowSolution')[2]
+            rmNodes = []
+            for Field in FlowSolution:
+                if Field[0] not in SaveFields: rmNodes += [Field[0]]
+
+            for Node in rmNodes: I._rmNodesByNameAndType(Particles, Node, 'FlowSolution_t')
+
+            I._sortByName(Particles)
+
         try:
             if os.path.islink(filename):
                 os.unlink(filename)
@@ -2727,7 +2996,7 @@ if True:
     def compute(VPMParameters = {}, HybridParameters = {}, LiftingLineParameters = {},
         PerturbationFieldParameters = {}, PolarsFilename = None, EulerianPath = None,
         PerturbationFieldPath = None, LiftingLinePath = None, NumberOfIterations = 1000,
-        RestartPath = None, DIRECTORY_OUTPUT = 'OUTPUT',
+        RestartPath = None, DIRECTORY_OUTPUT = 'OUTPUT', SaveFields = ['all'],
         VisualisationOptions = {'addLiftingLineSurfaces':True}, StdDeviationSample = 50,
         SaveVPMPeriod = 100, Verbose = True, SaveImageOptions={}, Surface = 0.,
         FieldsExtractionGrid = [], SaveFieldsPeriod = np.inf, SaveImagePeriod = np.inf):
@@ -2741,14 +3010,9 @@ if True:
             t = open(RestartPath)
             if PerturbationFieldPath:
                 PerturbationField = open(PerturbationFieldPath)
-                if VPMParameters['NumberOfThreads'] == 'auto':
-                    NbOfThreads = int(os.getenv('OMP_NUM_THREADS',len(os.sched_getaffinity(0))))
-                    VPMParameters['NumberOfThreads'] = NbOfThreads
-                else: NbOfThreads = VPMParameters['NumberOfThreads']
-                os.environ['OMP_NUM_THREADS'] = str(NbOfThreads)
-                PerturbationFieldCapsule = vpm_cpp.build_perturbation_velocity_capsule(PerturbationField, NbOfThreads)
+                PerturbationFieldCapsule = vpm_cpp.build_perturbation_velocity_capsule(\
+                                                                   PerturbationField, NumberOfNodes)
             else: PerturbationFieldCapsule = []
-
             if EulerianPath:
                 try:
                     tE = open(EulerianPath)
@@ -2766,7 +3030,7 @@ if True:
                 PerturbationFieldParameters = PerturbationFieldParameters, PolarInterpolator = \
                                                        AirfoilPolars, VPMParameters = VPMParameters)
 
-        
+        SaveFields = checkSaveFields(SaveFields)
         IterationInfo = {'Rel. err. of Velocity': 0, 'Rel. err. of Velocity Gradient': 0,
                                         'Rel. err. of PSE': 0, 'Rel. err. of Diffusion Velocity': 0}
         TotalTime = J.tic()
@@ -2787,7 +3051,7 @@ if True:
         else: VisualisationOptions['addLiftingLineSurfaces'] = False
 
         filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_It%d.cgns'%it[0])
-        save(t, filename, VisualisationOptions)
+        save(t, filename, VisualisationOptions, SaveFields)
         J.createSymbolicLink(filename,  DIRECTORY_OUTPUT + '.cgns')
         for _ in range(3): print('||' + '{:=^50}'.format(''))
         print('||' + '{:=^50}'.format(' Begin VPM Computation '))
@@ -2825,23 +3089,23 @@ if True:
             if (SAVE_FIELDS or SAVE_ALL) and FieldsExtractionGrid:
                 extract(t, FieldsExtractionGrid, 5000)
                 filename = os.path.join(DIRECTORY_OUTPUT, 'fields_It%d.cgns'%it)
-                save(FieldsExtractionGrid, filename)
+                save(FieldsExtractionGrid, filename, SaveFields)
                 J.createSymbolicLink(filename, 'fields.cgns')
 
             if SAVE_IMAGE or SAVE_ALL:
                 setVisualization(t, **VisualisationOptions)
-                saveImage(t, **SaveImageOptions)    
+                saveImage(t, **SaveImageOptions)
 
             if SAVE_VPM or SAVE_ALL:
                 filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_It%d.cgns'%it)
-                save(t, filename, VisualisationOptions)
+                save(t, filename, VisualisationOptions, SaveFields)
                 J.createSymbolicLink(filename,  DIRECTORY_OUTPUT + '.cgns')
 
             if CONVERGED: break
             
         filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_It%d.cgns'%it)
-        save(t, filename, VisualisationOptions)
-        save(t, DIRECTORY_OUTPUT + '.cgns', VisualisationOptions)
+        save(t, filename, VisualisationOptions, SaveFields)
+        save(t, DIRECTORY_OUTPUT + '.cgns', VisualisationOptions, SaveFields)
         for _ in range(3): print('||' + '{:=^50}'.format(''))
         print('||' + '{:-^50}'.format(' End of VPM computation '))
         for _ in range(3): print('||' + '{:=^50}'.format(''))
@@ -2875,6 +3139,7 @@ if True:
                         PolarData['Variables'] = np.delete(PolarData['Variables'], i)
                         i -= 1
                     i += 1
+
             PolarData['Variables'] = np.append(OldPolarData['Variables'], PolarData['Variables'])
             OldPolarData.update(PolarData)
             PolarData = OldPolarData
@@ -2891,7 +3156,6 @@ if True:
             else: N0 += 1
 
             t = open(os.path.join(DIRECTORY_OUTPUT, PolarData['LastPolar']))
-
         else:
             LiftingLine = open(LiftingLinePath)
             t, tE = initialiseVPM(LiftingLineTree = LiftingLine, VPMParameters = VPMParameters,
@@ -3017,8 +3281,9 @@ if True:
                     stdThrust = IterationInfo['Lift Standard Deviation']
                     stdPower = IterationInfo['Drag Standard Deviation']
                 else:
-                    U0 = np.linalg.norm(I.getNodeFromName(LiftingLines, 'VelocityFreestream')[1])
-                    if U0 == 0:
+                    U0 = np.linalg.norm(I.getNodeFromName(LiftingLines, 'VelocityFreestream')[1] - 
+                                          I.getNodeFromName(LiftingLines, 'VelocityTranslation')[1])
+                    if 1 < U0:
                         IterationInfo = getAerodynamicCoefficientsOnRotor(LiftingLines,
                                                      StdDeviationSample = StdDeviationSample)
                     else:
@@ -3122,9 +3387,13 @@ if True:
         tmpTree = C.newPyTree(['Base', tmpZone])
         Kernel = Kernel_str2int[getParameter(t, 'RegularisationKernel')]
         EddyViscosityModel = EddyViscosityModel_str2int[getParameter(t, 'EddyViscosityModel')]
+
+        inside = flagParticlesInsideSurface(t = t, Surface = pickHybridDomainInnerInterface(t),
+                                                                                 flagSources = True)
+
         vpm_cpp.wrap_extract_plane(t, tmpTree, int(NbOfParticlesUsedForPrecisionEvaluation), Kernel,
                                            EddyViscosityModel, np.int32(FarFieldApproximationOrder),
-                                                              np.float64(NearFieldOverlappingRatio))
+                                                      np.float64(NearFieldOverlappingRatio), inside)
         #TODO: add the extractperturbationField here
         tmpFields = J.getVars(I.getZones(tmpTree)[0], newFieldNames)
 
