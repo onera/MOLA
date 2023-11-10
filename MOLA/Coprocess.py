@@ -316,7 +316,6 @@ def extractSurfaces(t, Extractions, arrays=None):
 
     '''
 
-    cellDimOutputTree = I.getZoneDim(I.getZones(t)[0])[-1]
 
     def addBase2SurfacesTree(basename):
         if not zones: return
@@ -328,6 +327,7 @@ def extractSurfaces(t, Extractions, arrays=None):
             zoneName = I.getName(zone).split('/')[0]
             I.createNode('.parentZone', 'UserDefinedData_t', value=zoneName, parent=zone)
             I.setName(zone, f'{basename}_R{rank}N{i}')
+        cellDimOutputTree = I.getZoneDim(I.getZones(t)[0])[-1]
         base = I.newCGNSBase(basename, cellDim=cellDimOutputTree-1, physDim=3,
             parent=SurfacesTree)
         I._addChild(base, zones)
@@ -451,11 +451,11 @@ def extractSurfaces(t, Extractions, arrays=None):
     
     Cmpi._convert2PartialTree(SurfacesTree)
     J.forceZoneDimensionsCoherency(SurfacesTree)
-    Cmpi.barrier()
+    Cmpi.barrier() # TODO LB: really required ? may create deadlock at successive calls of extractSurfaces
     restoreFamilies(SurfacesTree, t)
     I._rmNodesFromName(SurfacesTree, '.parentZone')
     I._rmNodesFromName(SurfacesTree, ':CGNS#Ppart')
-    Cmpi.barrier()
+    Cmpi.barrier() # TODO LB: really required ? may create deadlock at successive calls of extractSurfaces
 
     # Workflow specific postprocessings
     SurfacesTree = _extendSurfacesWithWorkflowQuantities(SurfacesTree, arrays=arrays)

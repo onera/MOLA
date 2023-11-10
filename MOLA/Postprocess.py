@@ -1434,7 +1434,7 @@ def isoSurface(t, fieldname=None, value=None, container='FlowSolution#Init'):
         for n in base[2]:
             if n[3] != 'Zone_t': 
                 bases_children_except_zones.append( n )
-    if not I.getNodeFromType3(t,'Zone_t'): return
+    if not t or not I.getNodeFromType3(t,'Zone_t'): return
     tPrev = I.copyRef(t)
     t = mergeContainers(t, FlowSolutionVertexName=I.__FlowSolutionNodes__,
                            FlowSolutionCellCenterName=I.__FlowSolutionCenters__)

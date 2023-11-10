@@ -162,6 +162,7 @@ elif [ "$MAC" = "spiro" ]; then
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
     # VPM
+    export VPMVERSION=Dev # TODO -> use stable
     export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro/$ARCH
     export PATH=$VPMPATH:$PATH
     export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
