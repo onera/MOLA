@@ -2463,7 +2463,7 @@ if True:
 
         LL.computeKinematicVelocity(LiftingLines)
         LL.assembleAndProjectVelocities(LiftingLines)
-        LL._applyPolarOnLiftingLine(LiftingLines, PolarInterpolator, ['Cl', 'Cd', 'Cm'])
+        LL._applyPolarOnLiftingLine(LiftingLines, PolarInterpolator, ['Cl', 'Cd','Cm'])
         LL.computeGeneralLoadsOfLiftingLine(LiftingLines)
 
         X0, Y0, Z0, AX0, AY0, AZ0, S0 = [], [], [], [], [], [], []
