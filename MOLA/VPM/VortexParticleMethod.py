@@ -1573,7 +1573,7 @@ if True:
 
         LL.computeKinematicVelocity(LiftingLines)
         LL.assembleAndProjectVelocities(LiftingLines)
-        LL._applyPolarOnLiftingLine(LiftingLines, PolarInterpolator, ['Cl', 'Cd'])
+        LL._applyPolarOnLiftingLine(LiftingLines, PolarInterpolator, ['Cl', 'Cd','Cm'])
         LL.computeGeneralLoadsOfLiftingLine(LiftingLines)
 
         X, Y, Z, S = [], [], [], []
@@ -1846,7 +1846,7 @@ if True:
             computeInducedVelocityOnLiftinLines(LiftingLines, x, y, z, ax, ay, az, s, \
                            VelocityLimitor, WakeInducedVelocity, Nshed + NumberOfLiftingLineSources)
             LL.assembleAndProjectVelocities(LiftingLines)
-            LL._applyPolarOnLiftingLine(LiftingLines, PolarsInterpolatorDict, ['Cl', 'Cd'])
+            LL._applyPolarOnLiftingLine(LiftingLines, PolarsInterpolatorDict, ['Cl', 'Cd','Cm'])
             IntegralLoads = LL.computeGeneralLoadsOfLiftingLine(LiftingLines)
             Sources = LL.buildVortexParticleSourcesOnLiftingLine(LiftingLines, AbscissaSegments = \
                                                        ParticleDistribution, IntegralLaw = 'linear')
