@@ -18,6 +18,7 @@ __pycache__
 *.odt
 *.log
 *.html
+*.nfs*
 *elsA_MPI_Pid*
 EXAMPLES*
 ExternalPythonPackages
