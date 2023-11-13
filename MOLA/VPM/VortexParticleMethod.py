@@ -2884,7 +2884,7 @@ if True:
         #    GammaM1[:] = Gamma[:].copy()
 
         Particles = pickParticlesZone(t)
-        if not Particles: raise ValueError('"Particles" zone not found in ParticlesTree')
+        Np0 = Particles[1][0][0]
         SmoothingRatio, dt, time, it, Ramp, GammaThreshold, GammaRelax, MaxIte, \
         KinematicViscosity, EddyViscosityConstant, NumberOfLLSources, NumberOfBEMSources, \
         NumberOfCFDSources = getParameters(t, ['SmoothingRatio', 'TimeStep', 'Time', \
@@ -2921,31 +2921,60 @@ if True:
         for index in frozenLiftingLines[::-1]:
             SheddingLiftingLines.pop(index)
             ParticleDistribution.pop(index)
+            GammaOld.pop(index)
 
-        Particles = pickParticlesZone(t)
         ax, ay, az, s = J.getVars(Particles, ['Alpha' + v for v in 'XYZ'] + ['Sigma'])
         WakeInducedVelocity = extractWakeInducedVelocityOnLiftingLines(t, SheddingLiftingLines,
                                                                                               Nshed)
         ni = 0
+        t0 = t1 = t2 = t3 = t4 = t5 = t6 = t7 = 0.
         for _ in range(MaxIte[0]):
+            dt0 = J.tic()
             setShedParticleStrength(Dir, VeciX, VeciY, VeciZ, SheddingDistance, ax, ay, az, \
                                      Sources, SourcesM1, ParticlesShedPerStation, NumberOfLLSources,
                                                       NumberOfSources, TimeShed, frozenLiftingLines)
+            t0 += J.tic() - dt0
+            dt0 = J.tic()
             BoundAndShedInducedVelocity = extractBoundAndShedVelocityOnLiftingLines(t,
                                                                         SheddingLiftingLines, Nshed)
+            t1 += J.tic() - dt0
+            dt0 = J.tic()
             setLiftingLinesInducedVelocity(SheddingLiftingLines,
                                                   WakeInducedVelocity + BoundAndShedInducedVelocity)
+            t2 += J.tic() - dt0
+            dt0 = J.tic()
             LL.assembleAndProjectVelocities(SheddingLiftingLines)
+            t3 += J.tic() - dt0
+            dt0 = J.tic()
             LL._applyPolarOnLiftingLine(SheddingLiftingLines, PolarsInterpolator, ['Cl'])
+            t4 += J.tic() - dt0
+            dt0 = J.tic()
             IntegralLoads = LL.computeGeneralLoadsOfLiftingLine(SheddingLiftingLines)
+            t5 += J.tic() - dt0
+            dt0 = J.tic()
             Sources = LL.buildVortexParticleSourcesOnLiftingLine(SheddingLiftingLines,
                                     AbscissaSegments = ParticleDistribution, IntegralLaw = 'linear')
+            t6 += J.tic() - dt0
+            dt0 = J.tic()
+            GammaError = relaxCirculationAndGetImbalance(GammaOld, GammaRelax[0]*(1. + (1/10. - 1.)*ni/MaxIte[0]), Sources)
+
             for index in frozenLiftingLines: Sources.insert(index, SourcesM1[index])
-            GammaError = relaxCirculationAndGetImbalance(GammaOld, GammaRelax[0], Sources)
 
             ni += 1
             if GammaError < GammaThreshold: break
 
+            t7 += J.tic() - dt0
+            dt0 = J.tic()
+
+        tot = t0 + t1 + t2 + t3 + t4 + t5 + t6 + t7
+        print("setShedParticleStrength", round(t0/tot*100., 2), "%")
+        print("extractBoundAndShedVelocityOnLiftingLines", round(t1/tot*100., 2), "%")
+        print("setLiftingLinesInducedVelocity", round(t2/tot*100., 2), "%")
+        print("assembleAndProjectVelocities", round(t3/tot*100., 2), "%")
+        print("_applyPolarOnLiftingLine", round(t4/tot*100., 2), "%")
+        print("computeGeneralLoadsOfLiftingLine", round(t5/tot*100., 2), "%")
+        print("buildVortexParticleSourcesOnLiftingLine", round(t6/tot*100., 2), "%")
+        print("relaxCirculationAndGetImbalance", round(t7/tot*100., 2), "%")
         wx, wy, wz, w, a, Volume, Nu, Cvisq = J.getVars(Particles, \
                                             ['Vorticity'+i for i in 'XYZ'] + ['VorticityMagnitude',\
                                                       'StrengthMagnitude', 'Volume', 'Nu', 'Cvisq'])
@@ -2984,7 +3013,7 @@ if True:
 
         IterationInfo['Circulation error'] = GammaError
         IterationInfo['Number of sub-iterations (LL)'] = ni
-        IterationInfo['Number of shed particles'] = Nshed
+        IterationInfo['Number of shed particles'] = Particles[1][0][0] - Np0
         IterationInfo['Lifting Line time'] = J.tic() - timeLL
         return IterationInfo        
 
