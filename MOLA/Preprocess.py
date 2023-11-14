@@ -4778,9 +4778,9 @@ def getFlowDirections(AngleOfAttackDeg, AngleOfSlipDeg, YawAxis, PitchAxis):
     PitchAxis /= np.sqrt(PitchAxis.dot(PitchAxis))
 
     # FlowLines are used to infer the final flow direction
-    DragLine = D.line((0,0,0),(1,0,0),2)
-    SideLine = D.line((0,0,0),(0,1,0),2)
-    LiftLine = D.line((0,0,0),(0,0,1),2)
+    DragLine = D.line((0,0,0),(1,0,0),2);DragLine[0]='Drag'
+    SideLine = D.line((0,0,0),(0,1,0),2);SideLine[0]='Side'
+    LiftLine = D.line((0,0,0),(0,0,1),2);LiftLine[0]='Lift'
     FlowLines = [DragLine, SideLine, LiftLine]
 
     # Put FlowLines in Aircraft's frame
@@ -4788,11 +4788,17 @@ def getFlowDirections(AngleOfAttackDeg, AngleOfSlipDeg, YawAxis, PitchAxis):
     InitialFrame =  [       [1,0,0],         [0,1,0],       [0,0,1]]
     AircraftFrame = [list(RollAxis), list(PitchAxis), list(YawAxis)]
     T._rotate(FlowLines, zero, InitialFrame, AircraftFrame)
+    DragDirection = getDirectionFromLine(DragLine)
+    SideDirection = getDirectionFromLine(SideLine)
+    LiftDirection = getDirectionFromLine(LiftLine)
 
     # Apply Flow angles with respect to Airfraft's frame
-    T._rotate(FlowLines, zero, list(PitchAxis), -AngleOfAttackDeg)
-    T._rotate(FlowLines, zero,   list(YawAxis),  AngleOfSlipDeg)
+    T._rotate(FlowLines, zero, SideDirection, -AngleOfAttackDeg)
+    DragDirection = getDirectionFromLine(DragLine)
+    SideDirection = getDirectionFromLine(SideLine)
+    LiftDirection = getDirectionFromLine(LiftLine)
 
+    T._rotate(FlowLines, zero, LiftDirection,  AngleOfSlipDeg)
     DragDirection = getDirectionFromLine(DragLine)
     SideDirection = getDirectionFromLine(SideLine)
     LiftDirection = getDirectionFromLine(LiftLine)
