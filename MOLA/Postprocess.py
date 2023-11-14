@@ -1499,14 +1499,14 @@ def isoSurface(t, fieldname=None, value=None, container='FlowSolution#Init'):
 
 def convertToTetra(t):
     tR = I.copyRef(t)
-    fs_per_zone = []
+    fs_per_zone = dict()
     for z in I.getZones(tR):
-        fs_per_zone += [ I.getNodesFromType3(t, 'FlowSolution_t') ]
+        fs_per_zone[z[0]] = I.getNodesFromType1(z, 'FlowSolution_t')
         I._rmNodesFromType1(z, 'FlowSolution_t')
     tetra = C.convertArray2Tetra(tR)
 
-    for z, fs_at_zone in zip( I.getZones(tetra), fs_per_zone ):
-        z[2].extend( fs_at_zone )
+    for z in I.getZones(tetra):
+        z[2].extend( fs_per_zone[z[0]] )
 
     return tetra
 
