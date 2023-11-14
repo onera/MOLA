@@ -1,0 +1,5 @@
+#!/usr/bin/bash
+#
+# Convert an unstructured mesh of standard elements into NGON
+
+mpirun $OPENMPIOVERSUBSCRIBE -np $NPROCMPI python3 -c "import MOLA.Preprocess as P;P._convert_mesh_to_ngon('$1', '$2')"
