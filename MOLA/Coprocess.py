@@ -2850,16 +2850,24 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
             _description_
     '''
 
-    def getBodyForceZones(t, BodyForceFamily):
+    def getTreeRestrictedToBodyForceFamily(t, BodyForceFamily):
         '''
         Return zones in BodyForceFamily and processors that manage them, and create also 
         a sub-commnunicator with these processors
         '''
         zones = []
         for zone in C.getFamilyZones(t, BodyForceFamily):
+            # Firstly, check that there is a FlowSolution#DataSourceTerm node
             DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
-            if DataSourceTermNode:
-                zones.append(zone)
+            if DataSourceTermNode is not None:
+                # Secondly, check that it is not a skeleton FlowSolution 
+                data = I.getValue(I.getNodeFromType1(DataSourceTermNode, 'DataArray_t'))
+                if data is not None:
+                    zones.append(zone)
+
+        treeRestrictedToBodyForceFamily = I.newCGNSTree()
+        base = I.newCGNSBase(basename, parent=treeRestrictedToBodyForceFamily)
+        I._addChild(base, zones)
 
         # Create a subcommunicator for processors managing t
         procDict = Cmpi.getProcDict(zones)
@@ -2868,24 +2876,8 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
         newGroup = comm.group.Incl(procList)
         subComm = comm.Create_group(newGroup)
 
-        return zones, subComm, procList
+        return treeRestrictedToBodyForceFamily, subComm, procList
     
-    # def splitCommunicatorByBodyForceFamily(t, BodyForceFamilies):
-    #     zones = []
-    #     color = -1
-    #     for famColor, BodyForceFamily in enumerate(BodyForceFamilies):
-    #         for zone in C.getFamilyZones(t, BodyForceFamily):
-    #             DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
-    #             if DataSourceTermNode:
-    #                 zones.append(zone)
-    #                 if color == -1: 
-    #                     color = famColor
-    #                 else:
-    #                     assert color == famColor
-
-    #     commBF = comm.Split(color=color, key=0)
-    #     return zones, commBF
-
     def compute_optimal_relaxation(NewSourceTerms, previousSourceTerms, relax):
         # Optimal relaxation coefficient
         NormOfNewSourceTerms = sum([x**2 for x in NewSourceTerms.values()])**0.5
@@ -2920,28 +2912,27 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
         BodyForceFinalIteration = BodyForceInitialIteration + CouplingOptions.get('rampIterations', 50.)
         coeff_eff = J.rampFunction(BodyForceInitialIteration, BodyForceFinalIteration, 0., 1.)
 
-        # # Create a local communicator active only for processors that manage zones in BodyForceFamily
-        # BFzones, subComm, procList = getBodyForceZones(newTreeWithSourceTerms, BodyForceFamily)
-        # BodyForceParameters['communicator'] = subComm
-        # BodyForceParameters['rankInvolvedInLocalSourceTerms'] = rank in procList
-        # if rank not in procList:
-        #     # Only processors involved in the computation of source terms for BodyForceFamily
-        #     # read lines that follow in the loop
-        #     continue
+        # Create a local communicator active only for processors that manage zones in BodyForceFamily
+        treeRestrictedToBodyForceFamily, subComm, procList = getTreeRestrictedToBodyForceFamily(newTreeWithSourceTerms, BodyForceParameters['Family'])
+        BodyForceParameters['communicator'] = subComm
+        if rank not in procList:
+            # Only processors involved in the computation of source terms for BodyForceFamily
+            # read lines that follow in the loop
+            continue
 
-        # Filter tree to get a tree restricted to body force zones in the current family, and for the current rank
-        BFzones = []
-        for zone in I.getZones(t):
-            # Firstly, check that there is a FlowSolution#DataSourceTerm node
-            DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
-            if DataSourceTermNode is not None:
-                # Secondly, check that it is not a skeleton FlowSolution 
-                data = I.getValue(I.getNodeFromType1(DataSourceTermNode, 'DataArray_t'))
-                if data is not None:
-                    BFzones.append(zone)
-        treeRestrictedToBodyForceFamily = I.newCGNSTree()
-        base = I.newCGNSBase(basename, parent=treeRestrictedToBodyForceFamily)
-        I._addChild(base, BFzones)
+        # # Filter tree to get a tree restricted to body force zones in the current family, and for the current rank
+        # BFzones = []
+        # for zone in C.getFamilyZones(t, BodyForceParameters['Family']):
+        #     # Firstly, check that there is a FlowSolution#DataSourceTerm node
+        #     DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
+        #     if DataSourceTermNode is not None:
+        #         # Secondly, check that it is not a skeleton FlowSolution 
+        #         data = I.getValue(I.getNodeFromType1(DataSourceTermNode, 'DataArray_t'))
+        #         if data is not None:
+        #             BFzones.append(zone)
+        # treeRestrictedToBodyForceFamily = I.newCGNSTree()
+        # base = I.newCGNSBase(basename, parent=treeRestrictedToBodyForceFamily)
+        # I._addChild(base, BFzones)
 
         # Add FluidProperties, ReferenceValues and TurboConfiguration in BodyForceParameters 
         # This latter could be a dict or a list of dict
@@ -3382,10 +3373,10 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
             Cmpi.barrier()
 
             try:
-                LocalChannelHeight = bool(I.getNodeFromName(surfaces, 'ChannelHeight'))
+                LocalChannelHeight = bool(I.getNodeFromName(surfaces, 'FlowSolution#Height'))
                 GlobalChannelHeight = any(comm.allgather(LocalChannelHeight))
                 if not GlobalChannelHeight:
-                    printCo('Postprocess cannot be done because ChannelHeight is missing', color=J.WARN)
+                    printCo('Postprocess cannot be done because ChannelHeight is missing', proc=0, color=J.WARN)
                     raise ChannelHeightError
 
 

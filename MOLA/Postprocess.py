@@ -1497,7 +1497,7 @@ def isoSurface(t, fieldname=None, value=None, container='FlowSolution#Init'):
     
     return surfs
 
-def isoSurfaceAllGather(t, fieldname, value, container='FlowSolution#Init', check=True):
+def isoSurfaceAllGather(t, fieldname, value, container='FlowSolution#Init', localComm=comm):
     '''
     Extract an iso surface for a given **value** of **fieldname**. The extraction is gathered on all ranks.
 
@@ -1532,9 +1532,9 @@ def isoSurfaceAllGather(t, fieldname, value, container='FlowSolution#Init', chec
     base = I.newCGNSBase('Base', parent=LocalSurface)
     I._addChild(base, zones)
     # Share information on all ranks
-    trees = comm.allgather( LocalSurface )
+    trees = localComm.allgather( LocalSurface )
     GlobalSurface = I.merge(trees)
-    comm.barrier()
+    localComm.barrier()
 
     if len(I.getZones(GlobalSurface)) == 0: 
         raise Exception(J.FAIL +f'Error in the extraction of the all-gathered iso-surface for {fieldname}={value} in {container}'+ J.ENDC) 

@@ -539,7 +539,7 @@ def spreadPressureLossAlongChord(t, BodyForceParameters):
         tmpMOLAFlow = BF.getAdditionalFields(zone, FluidProperties, RotationSpeed)
 
     # Extract Leading edge revolution surface, with flow quantities
-    LeadingEdgeSurface = BF.getFieldsAtLeadingEdge(t)
+    LeadingEdgeSurface = BF.getFieldsAtLeadingEdge(t, localComm=BodyForceParameters['communicator'], filename=f'{BodyForceParameters["Family"]}_LeadingEdge.cgns')
 
     # Create interpolators based on their values at the leading edge
     variablesToInterp = ['Temperature', 'PressureStagnationRel']
@@ -597,7 +597,7 @@ def spreadPressureLossAlongChord(t, BodyForceParameters):
         gradPt = PressureLoss * distributionFunction
         Wm = ( tmpMOLAFlow['Wx']**2 + tmpMOLAFlow['Wr']**2 )**0.5
         beta = np.arctan2(tmpMOLAFlow['Wt'], Wm)  
-        # TODO Add the term on Temperature Stagnation for rotors
+        # TODO Add the term on Temperature Stagnation for centrifugal rotors ?
         fp = FluidProperties['IdealGasConstant'] * Temperature_LE / Ptel_LE * np.cos(beta) * gradPt
 
         # printCo(f'mean fp = {np.mean(fp)}', proc=rank)
