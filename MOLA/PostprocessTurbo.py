@@ -37,7 +37,7 @@ if not MOLA.__ONLY_DOC__:
     import turbo.machis   as TMis
     import turbo.meridian as TM
     import turbo.perfos   as TP
-    import turbo.radial_future  as TR
+    import turbo.radial   as TR
     import turbo.slicesAt as TS
     import turbo.user     as TUS
     import turbo.utils    as TU
@@ -444,10 +444,10 @@ def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_
     for surface in surfacesIsoX:
         surfaceName = I.getName(surface)
         tmp_surface = C.convertArray2NGon(surface, recoverBC=0)
-        radial_surf = TR.computeRadialProfile_future(
+        radial_surf = TR.computeRadialProfile(
             tmp_surface, surfaceName, variablesByAverage['surface'], 'surface',
             fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis)
-        radial_massflow = TR.computeRadialProfile_future(
+        radial_massflow = TR.computeRadialProfile(
             tmp_surface, surfaceName, variablesByAverage['massflow'], 'massflow',
             fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis)
         t_radial = I.merge([radial_surf, radial_massflow])

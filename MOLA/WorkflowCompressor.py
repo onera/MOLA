@@ -585,77 +585,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     J.printElapsedTime('prepareMainCGNS4ElsA took ', toc)
 
-
-def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
-    hlines='hub_shroud_lines.plt', subTree=None):
-    '''
-    Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
-    relies on the ETC module.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            input mesh tree
-
-        nbslice : int
-            Number of axial positions used to compute the iso-lines in
-            *ChannelHeight*. Change the axial discretization.
-
-        fsname : str
-            Name of the ``FlowSolution_t`` container to stock the variable at
-            nodes *ChannelHeight*.
-
-        hlines : str
-            Name of the intermediate file that contains (x,r) coordinates of hub
-            and shroud lines.
-
-        subTree : PyTree
-            Part of the main tree **t** used to compute *ChannelHeigth*. For
-            zones in **t** but not in **subTree**, *ChannelHeigth* will be equal
-            to -1. This option is useful to exclude irelevant zones for height
-            computation, for example the domain (if it exists) around the
-            nacelle with the external flow. To extract **subTree** based on a
-            Family, one may use:
-
-            >>> subTree = C.getFamilyZones(t, Family)
-
-    Returns
-    -------
-
-        t : PyTree
-            modified tree
-
-    '''
-    from . import ParametrizeChannelHeight as ParamHeight
-
-    print(J.CYAN + 'Add ChannelHeight in the mesh...' + J.ENDC)
-    excludeZones = True
-    if not subTree:
-        subTree = t
-        excludeZones = False
-
-    silence = J.OutputGrabber()
-    with silence:
-        ParamHeight.generateHLinesAxial(subTree, hlines, nbslice=nbslice)
-        try: ParamHeight.plot_hub_and_shroud_lines(hlines)
-        except: pass
-        I._rmNodesByName(t, fsname)
-    t = ParamHeight.computeHeight(t, hlines, fsname=fsname, writeMask='mask.cgns')
-
-    if excludeZones:
-        OLD_FlowSolutionNodes = I.__FlowSolutionNodes__
-        I.__FlowSolutionNodes__ = fsname
-        zonesInSubTree = [I.getName(z) for z in I.getZones(subTree)]
-        for zone in I.getZones(t):
-            if I.getName(zone) not in zonesInSubTree:
-                C._initVars(zone, 'ChannelHeight=-1')
-        I.__FlowSolutionNodes__ = OLD_FlowSolutionNodes
-
-    print(J.GREEN + 'done.' + J.ENDC)
-    return t
-
-def parametrizeChannelHeight_future(t, nbslice=101, lin_axis=None):
+def parametrizeChannelHeight(t, lin_axis=None):
     '''
     Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
     relies on the turbo module.
@@ -669,10 +599,6 @@ def parametrizeChannelHeight_future(t, nbslice=101, lin_axis=None):
 
         t : PyTree
             input mesh tree
-
-        nbslice : int
-            Number of axial positions used to compute the iso-lines in
-            *ChannelHeight*. Change the axial discretization.
 
         lin_axis : :py:obj:`None` or :py:class:`str`
             Axis for linear configuration.
@@ -690,35 +616,77 @@ def parametrizeChannelHeight_future(t, nbslice=101, lin_axis=None):
     '''
     import turbo.height as TH
 
+    def plot_hub_and_shroud_lines(t):
+        # Get geometry
+        hub     = I.getNodeFromName(t, 'Hub')
+        xHub    = I.getValue(I.getNodeFromName(hub, 'CoordinateX'))
+        yHub    = I.getValue(I.getNodeFromName(hub, 'CoordinateY'))
+        shroud  = I.getNodeFromName(t, 'Shroud')
+        xShroud = I.getValue(I.getNodeFromName(shroud, 'CoordinateX'))
+        yShroud = I.getValue(I.getNodeFromName(shroud, 'CoordinateY'))
+        # Import matplotlib
+        import matplotlib.pyplot as plt
+        # Plot
+        plt.figure()
+        plt.plot(xHub, yHub, '-', label='Hub')
+        plt.plot(xShroud, yShroud, '-', label='Shroud')
+        plt.axis('equal')
+        plt.grid()
+        plt.xlabel('x (m)')
+        plt.ylabel('y (m)')
+        # Save
+        plt.savefig('shroud_hub_lines.png', dpi=150, bbox_inches='tight')
+        return 0
+
     print(J.CYAN + 'Add ChannelHeight in the mesh...' + J.ENDC)
     OLD_FlowSolutionNodes = I.__FlowSolutionNodes__
     I.__FlowSolutionNodes__ = 'FlowSolution#Height'
 
-    elines = 'shroud_hub_lines.plt'
+    fd = 2 # stderr file identifier
+    def _redirect_stderr(to):
+        sys.stderr.close() # + implicit flush()
+        os.dup2(to.fileno(), fd) # fd writes to 'to' file
+        sys.stderr = os.fdopen(fd, 'w') # Python writes to fd
 
-    silence = J.OutputGrabber()
-    with silence:
+
+    silence_stdout = J.OutputGrabber(stream=sys.stdout)
+    silence_stderr = J.OutputGrabber(stream=sys.stderr)
+    message = None
+
+    with silence_stdout:
+
         if not lin_axis:
-            # - Generation of hub/shroud lines (axial configuration only)
-            endlinesTree = TH.generateHLinesAxial(t, elines, nbslice=nbslice)
-
-            # # see in turbo v1.3
-            # print(f'PRE.hasAnyUnstructuredZones(subTree)={PRE.hasAnyUnstructuredZones(subTree)}')
-            # if PRE.hasAnyUnstructuredZones(subTree):
-            #     # for structured and unstructured mesh, only for axial configurations
-            #     method = 0
-            # else:
-            #     # only for structured mesh, but faster and works for axial and centrifugal configurations
-            #     method = 1
-            #     print('use method=1')
-            # endlinesTree = TH.generateHLinesAxial(subTree, method=method, nbslice=nbslice)
+            numpy_major, numpy_minor, numpy_micro = np.__version__.split('.')
+            if int(numpy_major) < 2 and int(numpy_minor) > 23:
+                # HACK see https://elsa-e.onera.fr/issues/11277
+                if PRE.hasAnyUnstructuredZones(t):
+                    message = J.WARN + 'Cannot use method=2 of generateHLinesAxial because of https://elsa-e.onera.fr/issues/11277.\n'
+                    message += 'Use the function parametrizeChannelHeight on spiro (not on the login machine!).' + J.ENDC
+                    raise Exception(message)
+                else:
+                    message = J.WARN + 'Cannot use method=2 of generateHLinesAxial because of https://elsa-e.onera.fr/issues/11277.\n'
+                    message += 'Switch to method=1 (only for structured grids).\n'
+                    message += 'To use method=2, use the function parametrizeChannelHeight on spiro (not on the login machine!).' + J.ENDC
+                    print(message)
+                    endlinesTree = TH.generateHLinesAxial(t, filename='shroud_hub_lines.plt', method=1)
+            else:
+                endlinesTree = TH.generateHLinesAxial(t, filename='shroud_hub_lines.plt', method=2)
+            try: 
+                plot_hub_and_shroud_lines(endlinesTree)
+            except: 
+                pass
 
             # - Generation of the mask file
-            m = TH.generateMaskWithChannelHeight(t, elines, 'bin_tp')
+            with silence_stderr:
+                m = TH.generateMaskWithChannelHeight(t, 'shroud_hub_lines.plt')
+            os.remove('shroud_hub_lines.plt')
         else:
             m = TH.generateMaskWithChannelHeightLinear(t, lin_axis=lin_axis)
+
         # - Generation of the ChannelHeight field
         TH._computeHeightFromMask(t, m, writeMask='mask.cgns', lin_axis=lin_axis)
+    
+    if message: print(message)
 
     I.__FlowSolutionNodes__ = OLD_FlowSolutionNodes
     print(J.GREEN + 'done.' + J.ENDC)
