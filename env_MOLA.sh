@@ -116,11 +116,7 @@ if [ "$MAC" = "sator" ]; then
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
     # # turbo
-    # export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
-
-    # turbo 
-    export PYTHONPATH=/tmp_user/sator/lbernard/turbo/dev:$PYTHONPATH
-
+    export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/turbo_dev_etc_py3_el8_gamma_5202_sator/lib/python3.7/site-packages:$PYTHONPATH
 
     # ErstaZ
     export EZPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/bin/sator
@@ -172,9 +168,7 @@ elif [ "$MAC" = "spiro" ]; then
     export PYTHONPATH=$VPMPATH/lib/python3.7/site-packages:$PYTHONPATH
 
     # # turbo
-    # export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/spiro3_mpi/lib/python3.7/site-packages/:$PYTHONPATH
-    # turbo 
-    export PYTHONPATH=/stck/lbernard/turbo/dev:$PYTHONPATH
+    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/turbo_dev_etc_py3_el8_gamma_5202/lib/python3.7/site-packages:$PYTHONPATH
 
     # ErstaZ
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
@@ -217,10 +211,8 @@ elif [ "$MAC" = "ld" ]; then
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
     # # turbo 
-    # export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/local-os8_mpi/lib/python3.8/site-packages/:$PYTHONPATH
-
-    # turbo 
-    export PYTHONPATH=/stck/lbernard/turbo/dev:$PYTHONPATH
+    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/turbo_dev_etc_py3_el8_gamma_5202_localos8/lib/python3.8/site-packages:$PYTHONPATH
+    export TURBO_COMPILER='gcc'
 
     # ErstaZ
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/eos
