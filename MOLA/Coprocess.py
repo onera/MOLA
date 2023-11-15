@@ -2549,6 +2549,8 @@ def loadSkeleton(Skeleton=None, PartTree=None):
             else: # from PartTree
                 for zonebc in I.getNodesFromType1(zone,'ZoneBC_t'):
                     for bc in I.getNodesFromType1(zonebc,'BC_t'):
+                        bcds_avg = I.getNodeFromName1(bc,'BCDataSet#Average')
+                        if bcds_avg is None: continue
                         bcpath = '/'.join([basename, zone[0], zonebc[0], bc[0]])
                         replaceNodeByName(bc, bcpath, 'BCDataSet#Average')
 
@@ -3168,7 +3170,7 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                 LocalChannelHeight = bool(I.getNodeFromName(surfaces, 'ChannelHeight'))
                 GlobalChannelHeight = any(comm.allgather(LocalChannelHeight))
                 if not GlobalChannelHeight:
-                    printCo('Postprocess cannot be done because ChannelHeight is missing', color=J.WARN)
+                    printCo('Postprocess cannot be done because ChannelHeight is missing', proc=0, color=J.WARN)
                     raise ChannelHeightError
 
 
