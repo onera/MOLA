@@ -292,6 +292,7 @@ def computeVariablesOnIsosurface(surfaces, variables, config='annular', lin_axis
     
     for surface in surfacesIso:
         for fsname in [I.__FlowSolutionNodes__, I.__FlowSolutionCenters__]:
+            variables = TUS.getFilteredFields(surface, variables, fsname=fsname)
             # BUG https://gitlab.onera.net/numerics/analysis/turbo/-/issues/1
             TF._computeOtherFields(surface, RefState(setup), variables,
                                         fsname=fsname, useSI=True, velocity='absolute',
@@ -351,11 +352,13 @@ def compute0DPerformances(surfaces, variablesByAverage):
         fluxcoeff = getFluxCoeff(surface)
         info = getExtractionInfo(surface)
 
+        filtered_variables = TUS.getFilteredFields(surface, variablesByAverage['massflow'], fsname=I.__FlowSolutionCenters__)
         perfTreeMassflow = TP.computePerformances(surface, surfaceName,
-                                                  variables=variablesByAverage['massflow'], average='massflow',
+                                                  variables=filtered_variables, average='massflow',
                                                   compute_massflow=False, fluxcoef=fluxcoeff, fsname=I.__FlowSolutionCenters__)
+        filtered_variables = TUS.getFilteredFields(surface, variablesByAverage['surface'], fsname=I.__FlowSolutionCenters__)
         perfTreeSurface = TP.computePerformances(surface, surfaceName,
-                                                 variables=variablesByAverage['surface'], average='surface',
+                                                 variables=filtered_variables, average='surface',
                                                  compute_massflow=True, fluxcoef=fluxcoeff, fsname=I.__FlowSolutionCenters__)
 
         perfos = I.merge([perfTreeMassflow, perfTreeSurface])
@@ -444,12 +447,17 @@ def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_
     for surface in surfacesIsoX:
         surfaceName = I.getName(surface)
         tmp_surface = C.convertArray2NGon(surface, recoverBC=0)
+
+        filtered_variables = TUS.getFilteredFields(tmp_surface, variablesByAverage['surface'], fsname=I.__FlowSolutionCenters__)
         radial_surf = TR.computeRadialProfile(
-            tmp_surface, surfaceName, variablesByAverage['surface'], 'surface',
+            tmp_surface, surfaceName, filtered_variables, 'surface',
             fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis)
+        
+        filtered_variables = TUS.getFilteredFields(tmp_surface, variablesByAverage['massflow'], fsname=I.__FlowSolutionCenters__)
         radial_massflow = TR.computeRadialProfile(
-            tmp_surface, surfaceName, variablesByAverage['massflow'], 'massflow',
+            tmp_surface, surfaceName, filtered_variables, 'massflow',
             fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis)
+        
         t_radial = I.merge([radial_surf, radial_massflow])
         z_radial = I.getNodeFromType2(t_radial, 'Zone_t')
         previous_z_radial = I.getNodeFromName1(RadialProfiles, z_radial[0])
