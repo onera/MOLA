@@ -2640,6 +2640,8 @@ def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     VelocityUnitVectorY   = kwargs.get('VelocityUnitVectorY', ReferenceValues['DragDirection'][1])
     VelocityUnitVectorZ   = kwargs.get('VelocityUnitVectorZ', ReferenceValues['DragDirection'][2])
     variableForInterpolation = kwargs.get('variableForInterpolation', 'ChannelHeight')   
+    TurbulenceLevel = kwargs.get('TurbulenceLevel', None)
+    Viscosity_EddyMolecularRatio = kwargs.get('Viscosity_EddyMolecularRatio', None)
 
     ImposedVariables = dict(
         SurfacicMassFlow    = SurfacicMassFlow,
@@ -2651,7 +2653,9 @@ def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
                                                  ReferenceValues,
                                                  Surface=Surface,
                                                  MassFlow=MassFlow,
-                                                 TemperatureStagnation=TemperatureStagnation
+                                                 TemperatureStagnation=TemperatureStagnation,
+                                                 TurbulenceLevel=TurbulenceLevel,
+                                                 Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio
                                                 )
         )
 
