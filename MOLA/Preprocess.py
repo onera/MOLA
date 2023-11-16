@@ -3611,6 +3611,13 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
 
     elsAkeysNumerics.update(kwargs)
 
+    # Handle incompatibilities
+    if (elsAkeysNumerics['implicit'] == 'lussorscawf') and (ReferenceValues['TurbulenceModel'] == 'SSG/LRR-RSM-w2012'):
+        # HACK see elsA issue https://elsa.onera.fr/issues/11312
+        raise Exception(J.FAIL+'lussorscawf and SSG/LRR-RSM-w2012 turbulence model are incompatible'+J.ENDC)
+    if unstructured and (elsAkeysNumerics['implicit'] == 'lussorsca') and ('LM2009' in ReferenceValues['TurbulenceModel']):
+        raise Exception(J.FAIL+'With unstructured mesh, lussorsca and LM2009 transition model are incompatible.'+J.ENDC)
+
     return elsAkeysNumerics
 
 def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
