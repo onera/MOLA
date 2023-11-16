@@ -1244,6 +1244,7 @@ def computeReferenceValues(FluidProperties, PressureStagnation,
         BCExtractions=BCExtractions,
         YawAxis=YawAxis,
         PitchAxis=PitchAxis,
+        TurbulenceCutoff=TurbulenceCutoff,
         **kwargs)
 
     ReferenceValues.update(
