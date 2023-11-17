@@ -837,13 +837,16 @@ def restoreFamilies(surfaces, skeleton):
         for zone in I.getZones(base):
             zoneName = I.getValue(I.getNodeFromName1(zone, '.parentZone'))
             zoneInFullTree = I.getNodeFromNameAndType(skeleton, zoneName, 'Zone_t')
+            if zoneInFullTree:  
+                fam = I.getNodeFromType1(zoneInFullTree, 'FamilyName_t')
+                I.addChild(zone, fam)
+                familiesInBase.append(I.getValue(fam))
+            else:
+                # This is an extracted BC
+                fam = I.getNodeFromType1(zone, 'FamilyName_t')
+                if not fam: continue
+                familiesInBase.append(I.getValue(fam))
             
-            # surface comes from extractBC => already contains all families
-            if not zoneInFullTree: continue 
-            
-            fam = I.getNodeFromType1(zoneInFullTree, 'FamilyName_t')
-            I.addChild(zone, fam)
-            familiesInBase.append(I.getValue(fam))
         for family in FamilyNodes:
             if I.getName(family) in familiesInBase:
                 I.addChild(base, family)
@@ -2549,6 +2552,8 @@ def loadSkeleton(Skeleton=None, PartTree=None):
             else: # from PartTree
                 for zonebc in I.getNodesFromType1(zone,'ZoneBC_t'):
                     for bc in I.getNodesFromType1(zonebc,'BC_t'):
+                        bcds_avg = I.getNodeFromName1(bc,'BCDataSet#Average')
+                        if bcds_avg is None: continue
                         bcpath = '/'.join([basename, zone[0], zonebc[0], bc[0]])
                         replaceNodeByName(bc, bcpath, 'BCDataSet#Average')
 
@@ -3168,7 +3173,7 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                 LocalChannelHeight = bool(I.getNodeFromName(surfaces, 'ChannelHeight'))
                 GlobalChannelHeight = any(comm.allgather(LocalChannelHeight))
                 if not GlobalChannelHeight:
-                    printCo('Postprocess cannot be done because ChannelHeight is missing', color=J.WARN)
+                    printCo('Postprocess cannot be done because ChannelHeight is missing', proc=0, color=J.WARN)
                     raise ChannelHeightError
 
 

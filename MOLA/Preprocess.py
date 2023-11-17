@@ -3611,6 +3611,13 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
 
     elsAkeysNumerics.update(kwargs)
 
+    # Handle incompatibilities
+    if (elsAkeysNumerics['implicit'] == 'lussorscawf') and (ReferenceValues['TurbulenceModel'] == 'SSG/LRR-RSM-w2012'):
+        # HACK see elsA issue https://elsa.onera.fr/issues/11312
+        raise Exception(J.FAIL+'lussorscawf and SSG/LRR-RSM-w2012 turbulence model are incompatible'+J.ENDC)
+    if unstructured and (elsAkeysNumerics['implicit'] == 'lussorsca') and ('LM2009' in ReferenceValues['TurbulenceModel']):
+        raise Exception(J.FAIL+'With unstructured mesh, lussorsca and LM2009 transition model are incompatible.'+J.ENDC)
+
     return elsAkeysNumerics
 
 def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
@@ -4778,9 +4785,9 @@ def getFlowDirections(AngleOfAttackDeg, AngleOfSlipDeg, YawAxis, PitchAxis):
     PitchAxis /= np.sqrt(PitchAxis.dot(PitchAxis))
 
     # FlowLines are used to infer the final flow direction
-    DragLine = D.line((0,0,0),(1,0,0),2)
-    SideLine = D.line((0,0,0),(0,1,0),2)
-    LiftLine = D.line((0,0,0),(0,0,1),2)
+    DragLine = D.line((0,0,0),(1,0,0),2);DragLine[0]='Drag'
+    SideLine = D.line((0,0,0),(0,1,0),2);SideLine[0]='Side'
+    LiftLine = D.line((0,0,0),(0,0,1),2);LiftLine[0]='Lift'
     FlowLines = [DragLine, SideLine, LiftLine]
 
     # Put FlowLines in Aircraft's frame
@@ -4788,11 +4795,17 @@ def getFlowDirections(AngleOfAttackDeg, AngleOfSlipDeg, YawAxis, PitchAxis):
     InitialFrame =  [       [1,0,0],         [0,1,0],       [0,0,1]]
     AircraftFrame = [list(RollAxis), list(PitchAxis), list(YawAxis)]
     T._rotate(FlowLines, zero, InitialFrame, AircraftFrame)
+    DragDirection = getDirectionFromLine(DragLine)
+    SideDirection = getDirectionFromLine(SideLine)
+    LiftDirection = getDirectionFromLine(LiftLine)
 
     # Apply Flow angles with respect to Airfraft's frame
-    T._rotate(FlowLines, zero, list(PitchAxis), -AngleOfAttackDeg)
-    T._rotate(FlowLines, zero,   list(YawAxis),  AngleOfSlipDeg)
+    T._rotate(FlowLines, zero, SideDirection, -AngleOfAttackDeg)
+    DragDirection = getDirectionFromLine(DragLine)
+    SideDirection = getDirectionFromLine(SideLine)
+    LiftDirection = getDirectionFromLine(LiftLine)
 
+    T._rotate(FlowLines, zero, LiftDirection,  AngleOfSlipDeg)
     DragDirection = getDirectionFromLine(DragLine)
     SideDirection = getDirectionFromLine(SideLine)
     LiftDirection = getDirectionFromLine(LiftLine)
