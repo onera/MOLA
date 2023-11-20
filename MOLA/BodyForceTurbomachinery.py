@@ -1179,6 +1179,7 @@ AvailableBodyForceModels = dict(
     ShockWaveLoss = BFM.BodyForceModel_ShockWaveLoss,
     EndWallsProtection = BFM.BodyForceModel_EndWallsProtection,
     spreadPressureLossAlongChord = BFM.spreadPressureLossAlongChord,
+    Roberts1988 = BFM.BodyForceModel_Roberts1988,
 )
 
 def computeBodyForce(t, BodyForceParameters):

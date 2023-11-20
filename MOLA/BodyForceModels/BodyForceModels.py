@@ -518,7 +518,7 @@ def BodyForceModel_ShockWaveLoss(t, BodyForceParameters):
     return NewSourceTermsGlobal
 
 
-def spreadPressureLossAlongChord(t, BodyForceParameters):
+def spreadPressureLossAlongChord(t, BodyForceParameters, LeadingEdgeSurface=None):
     '''
     Warning: Careful to the definition of PressureLossCoefficient !!
             Denominator is Pt-Ps or 0.5*rho*W**2  ??
@@ -538,8 +538,9 @@ def spreadPressureLossAlongChord(t, BodyForceParameters):
         RotationSpeed = TurboConfiguration['Rows'][rowName]['RotationSpeed']
         tmpMOLAFlow = BF.getAdditionalFields(zone, FluidProperties, RotationSpeed)
 
-    # Extract Leading edge revolution surface, with flow quantities
-    LeadingEdgeSurface = BF.getFieldsAtLeadingEdge(t, localComm=BodyForceParameters['communicator'], filename=f'{BodyForceParameters["Family"]}_LeadingEdge.cgns')
+    if not LeadingEdgeSurface:
+        # Extract Leading edge revolution surface, with flow quantities
+        LeadingEdgeSurface = BF.getFieldsAtLeadingEdge(t, localComm=BodyForceParameters['communicator'], filename=f'{BodyForceParameters["Family"]}_LeadingEdge.cgns')
 
     # Create interpolators based on their values at the leading edge
     variablesToInterp = ['Temperature', 'PressureStagnationRel']
@@ -659,7 +660,7 @@ def PtLossModel_Roberts1988_RotorTipClearance(r, rShroud, delta1, TipClearance, 
     PtLossDistrib = PtLossMaximum * np.exp( -(r-rmaxLoss)**2 / sigma )
     return PtLossDistrib
 
-def PtLossModel_Roberts1988_EndWallWithoutClearance(r, rWall, WallType, delta1, Camber, ARc, Solidity, BladeSpan, alpha=0.01):
+def PtLossModel_Roberts1988_EndWallWithoutClearance(WallType, r, rWall, delta1, Camber, ChannelAspectRatio, Solidity, BladeSpan, alpha=0.01):
     '''
     Loss model (in total pressure) for endwall losses at rotor hub or stator endwalls.
 
@@ -669,14 +670,14 @@ def PtLossModel_Roberts1988_EndWallWithoutClearance(r, rWall, WallType, delta1, 
 
     Parameters
     ----------
+        WallType : str
+            Must be 'hub' or 'shroud'.
+
         r : np.ndarray
             Radius values, in the current zone of interest for instance.
 
         rWall : float
             Radius at the endwall (hub or shroud, depending on **WallType**)
-        
-        WallType : str
-            Must be 'hub' or 'shroud'.
 
         delta1 : np.ndarray
             Displacement thickness normalized by blade span
@@ -684,7 +685,7 @@ def PtLossModel_Roberts1988_EndWallWithoutClearance(r, rWall, WallType, delta1, 
         Camber : float
             Camber of the blade in degrees (noted phi in the reference paper)
         
-        ARc : float
+        ChannelAspectRatio : float
             Channel Aspect Ratio = blade span / blade spacing at mid span
         
         Solidity : float
@@ -701,10 +702,10 @@ def PtLossModel_Roberts1988_EndWallWithoutClearance(r, rWall, WallType, delta1, 
         np.ndarray
             Total pressure loss, with the same shape as the input radius **r**
     '''
-    PtLossMaximum  = 0.20 * np.tanh( np.sqrt( 15 * abs(Camber) * delta1**2 / (ARc * Solidity) ) )  # error in eq (7) in the reference paper, see eq on Fig. 12
+    PtLossMaximum  = 0.20 * np.tanh( np.sqrt( 15 * abs(Camber) * delta1**2 / (ChannelAspectRatio * Solidity) ) )  # error in eq (7) in the reference paper, see eq on Fig. 12
     PtLossDistanceOfMaxFromWall = 0.1 * BladeSpan  # eq (8) in the reference paper
     PtLossExtent   = 2.5 * PtLossDistanceOfMaxFromWall  # eq (9) in the reference paper
-
+    
     if WallType.lower() == 'hub':
         rmaxLoss = rWall + PtLossDistanceOfMaxFromWall
     elif WallType.lower() == 'shroud':
@@ -716,7 +717,7 @@ def PtLossModel_Roberts1988_EndWallWithoutClearance(r, rWall, WallType, delta1, 
     PtLossDistrib = PtLossMaximum * np.exp( -(r-rmaxLoss)**2 / sigma )
     return PtLossDistrib
 
-def DeviationModel_Roberts1988_StatorEndWalls(r, rHub, rShroud, delta1AtHub, delta1AtShroud, CamberAtHub, CamberAtShroud, SolidityAtHub, SolidityAtShroud, ARc, BladeSpan):
+def DeviationModel_Roberts1988_StatorEndWalls(r, rHub, rShroud, delta1AtHub, delta1AtShroud, CamberAtHub, CamberAtShroud, SolidityAtHub, SolidityAtShroud, ChannelAspectRatio, BladeSpan):
     '''
     Deviation model based on correlations at stator endwalls.
 
@@ -753,7 +754,7 @@ def DeviationModel_Roberts1988_StatorEndWalls(r, rHub, rShroud, delta1AtHub, del
         SolidityAtShroud : float
             Solidity at shroud = blade chord / blade spacing (noted sigma in the reference paper)
                 
-        ARc : float
+        ChannelAspectRatio : float
             Channel Aspect Ratio = blade span / blade spacing at mid span
 
         BladeSpan : float
@@ -766,27 +767,27 @@ def DeviationModel_Roberts1988_StatorEndWalls(r, rHub, rShroud, delta1AtHub, del
     '''
     # Same equations at hub and shroud, but different inputs
     # At hub
-    arg1 = 0.5 * CamberAtHub * delta1AtHub**2 / (ARc*SolidityAtHub) * 1e3  
+    arg1 = 0.5 * CamberAtHub * delta1AtHub**2 / (ChannelAspectRatio*SolidityAtHub) * 1e3  
     UnderturningMaximumNearHub = 15 * np.tanh( arg1 )  # eq (1-Rob.,'86) in [1]
     rmaxNearHub = rHub + 0.125 * BladeSpan  # eq (2) in [2]
     UnderturningMaximumMinusAtHubWall = 20 * np.tanh( arg1 )  # eq (2-Rob.,'86) in [1]
 
     # At shroud
-    arg2 = 0.5 * CamberAtShroud * delta1AtShroud**2 / (ARc*SolidityAtShroud) * 1e3  
+    arg2 = 0.5 * CamberAtShroud * delta1AtShroud**2 / (ChannelAspectRatio*SolidityAtShroud) * 1e3  
     UnderturningMaximumNearShroud = 15 * np.tanh( arg2 )  # eq (1-Rob.,'86) in [1]
     rmaxNearShroud = rHub + 0.875 * BladeSpan  # eq (2) in [2]
     UnderturningMaximumMinusAtShroudWall = 20 * np.tanh( arg2 )  # eq (2-Rob.,'86) in [1]
 
     # # Same equations at hub and shroud, but different inputs
     # # At hub
-    # UnderturningMaximumNearHub = 420 * (CamberAtHub * delta1AtHub**2 / (ARc*SolidityAtHub))**0.75  # eq (1) in [1]
+    # UnderturningMaximumNearHub = 420 * (CamberAtHub * delta1AtHub**2 / (ChannelAspectRatio*SolidityAtHub))**0.75  # eq (1) in [1]
     # rmaxNearHub = rHub + 0.125 * BladeSpan  # eq (2) in [2]
-    # UnderturningMaximumMinusAtHubWall = 570 * (CamberAtHub * delta1AtHub**2 / (ARc*SolidityAtHub))**0.75  # eq (3) in [1]
+    # UnderturningMaximumMinusAtHubWall = 570 * (CamberAtHub * delta1AtHub**2 / (ChannelAspectRatio*SolidityAtHub))**0.75  # eq (3) in [1]
 
     # # At shroud
-    # UnderturningMaximumNearShroud = 420 * (CamberAtShroud * delta1AtShroud**2 / (ARc*SolidityAtShroud))**0.75  # eq (1) in [1]
+    # UnderturningMaximumNearShroud = 420 * (CamberAtShroud * delta1AtShroud**2 / (ChannelAspectRatio*SolidityAtShroud))**0.75  # eq (1) in [1]
     # rmaxNearShroud = rHub + 0.875 * BladeSpan  # eq (2) in [2]
-    # UnderturningMaximumMinusAtShroudWall = 570 * (CamberAtShroud * delta1AtShroud**2 / (ARc*SolidityAtShroud))**0.75  # eq (3) in [1]
+    # UnderturningMaximumMinusAtShroudWall = 570 * (CamberAtShroud * delta1AtShroud**2 / (ChannelAspectRatio*SolidityAtShroud))**0.75  # eq (3) in [1]
 
     Underturning = np.zeros(r.shape)
     rmidspan = (rHub + rShroud) / 2
@@ -895,12 +896,28 @@ def BodyForceModel_Roberts1988(t, BodyForceParameters):
         NewSourceTermsGlobal : dict
             Computed source terms.
     """
-    rShroud = BodyForceParameters['ShroudRadius']
-    rHub = BodyForceParameters['HubRadius']
-    BladeSpan = rShroud - rHub
-    ChannelAspectRatio = BodyForceParameters['ChannelAspectRatio'] # blade span / blade spacing at mid span
-    Solidity = BodyForceParameters['Solidity'] # chord / blade spacing
-    Camber = BodyForceParameters['Camber'] # In degrees
+    # TODO Except DisplacementThickness and TipClearance, all other parameters can be got from ersatz analysis
+    ParametersGlobal = dict(
+        BladeSpan = BodyForceParameters['RadiusAtShroud'] - BodyForceParameters['RadiusAtHub'],
+        ChannelAspectRatio = BodyForceParameters['ChannelAspectRatio'],
+    )
+
+    ParametersAtHub = dict(
+        Radius = BodyForceParameters['RadiusAtHub'],
+        DisplacementThickness = BodyForceParameters['DisplacementThicknessAtHub'],
+        Camber = BodyForceParameters['CamberAtHub'],
+        Solidity = BodyForceParameters['SolidityAtHub'],
+    )
+    ParametersAtHub.update(ParametersGlobal)
+
+    ParametersAtShroud = dict(
+        Radius = BodyForceParameters['RadiusAtShroud'],
+        DisplacementThickness = BodyForceParameters['DisplacementThicknessAtShroud'],
+        Camber = BodyForceParameters['CamberAtShroud'],
+        Solidity = BodyForceParameters['SolidityAtShroud'],
+        TipClearance = BodyForceParameters.get('TipClearance', 0.),
+    )
+    ParametersAtShroud.update(ParametersGlobal)
 
     TurboConfiguration = BodyForceParameters.get('TurboConfiguration')
 
@@ -919,39 +936,60 @@ def BodyForceModel_Roberts1988(t, BodyForceParameters):
         # 1. Extract the BC
         # 2. Get the displacement thickness
         # Maybe first just take an average and broadcast it in zones
-        DisplacementThickness = ...
-        DisplacementThicknessAdim = DisplacementThickness / BladeSpan
+        # DisplacementThickness = ...
+        # DisplacementThicknessAdim = DisplacementThickness / BladeSpan
 
         # At hub        
-        PtLossAtHub = PtLossModel_Roberts1988_EndWallWithoutClearance(r, rHub, 'Hub', HubDisplacementThickness, Camber, ChannelAspectRatio, Solidity, BladeSpan)
+        PtLossAtHub = PtLossModel_Roberts1988_EndWallWithoutClearance('hub', 
+                                                                      r, 
+                                                                      ParametersAtHub['Radius'], 
+                                                                      ParametersAtHub['DisplacementThickness'],  
+                                                                      ParametersAtHub['Camber'], 
+                                                                      ParametersAtHub['ChannelAspectRatio'],  
+                                                                      ParametersAtHub['Solidity'], 
+                                                                      ParametersAtHub['BladeSpan'], 
+                                                                      )
 
         # At Shroud
         if RotationSpeed == 0.:
             # Only for stator
-            PtLossAtShroud = PtLossModel_Roberts1988_EndWallWithoutClearance(r, rShroud, 'Shroud', ShroudDisplacementThickness, Camber, ChannelAspectRatio, Solidity, BladeSpan)
+            PtLossAtShroud = PtLossModel_Roberts1988_EndWallWithoutClearance('shroud', 
+                                                                              r, 
+                                                                              ParametersAtShroud['Radius'], 
+                                                                              ParametersAtShroud['DisplacementThickness'],  
+                                                                              ParametersAtShroud['Camber'], 
+                                                                              ParametersAtShroud['ChannelAspectRatio'],  
+                                                                              ParametersAtShroud['Solidity'], 
+                                                                              ParametersAtShroud['BladeSpan'], 
+                                                                              )
         else:
             # For rotor with tip clearance
-            PtLossAtShroud = PtLossModel_Roberts1988_RotorTipClearance(r, rShroud, ShroudDisplacementThickness, TipClearance, BladeSpan)
+            PtLossAtShroud = PtLossModel_Roberts1988_RotorTipClearance(r, 
+                                                                       ParametersAtShroud['Radius'], 
+                                                                       ParametersAtShroud['DisplacementThickness'],  
+                                                                       ParametersAtShroud['TipClearance'], 
+                                                                       ParametersAtShroud['BladeSpan'],
+                                                                       )
 
         tmpMOLAFlowNode = I.getNodeFromName(zone, 'FlowSolution#tmpMOLAFlow')
         I.createChild(tmpMOLAFlowNode, 'PressureLossCoefficient', 'DataArray_t', value=PtLossAtHub + PtLossAtShroud)
 
         ####################################################################
-        # Deviation with respect to flow angle at mid span
-        if RotationSpeed == 0.:
-            # Only for stators
-            Underturning = DeviationModel_Roberts1988_StatorEndWalls(r, rHub, rShroud, delta1AtHub, delta1AtShroud, CamberAtHub, CamberAtShroud, SolidityAtHub, SolidityAtShroud, ARc, BladeSpan)
-        else:
-            # Only for rotors
-            Underturning = DeviationModel_Roberts1988_RotorEndWalls(r, rHub, rShroud, delta1AtShroud, TipClearance, BladeSpan)
+        # # Deviation with respect to flow angle at mid span
+        # if RotationSpeed == 0.:
+        #     # Only for stators
+        #     Underturning = DeviationModel_Roberts1988_StatorEndWalls(r, rHub, rShroud, delta1AtHub, delta1AtShroud, CamberAtHub, CamberAtShroud, SolidityAtHub, SolidityAtShroud, ChannelAspectRatio, BladeSpan)
+        # else:
+        #     # Only for rotors
+        #     Underturning = DeviationModel_Roberts1988_RotorEndWalls(r, rHub, rShroud, delta1AtShroud, TipClearance, BladeSpan)
 
-        # Add deviation to the midspan angle, and convert that into a force...
+        # # Add deviation to the midspan angle, and convert that into a force...
 
 
     LossSourceTerms = spreadPressureLossAlongChord(t, BodyForceParameters)
     BF.addDictionaries(NewSourceTermsGlobal, LossSourceTerms)
 
-    DeviationSourceTerms = ...
-    BF.addDictionaries(NewSourceTermsGlobal, DeviationSourceTerms)
+    # DeviationSourceTerms = ...
+    # BF.addDictionaries(NewSourceTermsGlobal, DeviationSourceTerms)
     
     return NewSourceTermsGlobal

@@ -2828,7 +2828,7 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
     For each row modelled with body force, the following parameters are optional:
 
     * **relax** (=0.5 by default): Relaxation coefficient for the source terms. 
-       Should be less than 1 (the new source terms are equal to the previous ones).
+       Should be less than 1 (if equal to 1, the new source terms are equal to the previous ones).
 
     * **rampIterations** (=50 by default): Number of iterations (starting from **BodyForceInitialIteration**)
        to activate body force progressively, with a coefficient ramping from 0 to 1.
@@ -2904,17 +2904,13 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
         BFtype = BodyForceComponent.get('type', 'AnalyticalByFamily')
         assert BFtype =='AnalyticalByFamily', 'Body-force "type" must be "AnalyticalByFamily" for now'
 
-        BodyForceParameters = copy.deepcopy(BodyForceComponent['BodyForceParameters'])
-        BodyForceParameters['Family'] = BodyForceComponent['Family']
         CouplingOptions = copy.deepcopy(BodyForceComponent.get('CouplingOptions', dict()))
-
         relax = CouplingOptions.get('relax', 0.5)
         BodyForceFinalIteration = BodyForceInitialIteration + CouplingOptions.get('rampIterations', 50.)
         coeff_eff = J.rampFunction(BodyForceInitialIteration, BodyForceFinalIteration, 0., 1.)
 
         # Create a local communicator active only for processors that manage zones in BodyForceFamily
-        treeRestrictedToBodyForceFamily, subComm, procList = getTreeRestrictedToBodyForceFamily(newTreeWithSourceTerms, BodyForceParameters['Family'])
-        BodyForceParameters['communicator'] = subComm
+        treeRestrictedToBodyForceFamily, subComm, procList = getTreeRestrictedToBodyForceFamily(newTreeWithSourceTerms, BodyForceComponent['Family'])
         if rank not in procList:
             # Only processors involved in the computation of source terms for BodyForceFamily
             # read lines that follow in the loop
@@ -2922,7 +2918,7 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
 
         # # Filter tree to get a tree restricted to body force zones in the current family, and for the current rank
         # BFzones = []
-        # for zone in C.getFamilyZones(t, BodyForceParameters['Family']):
+        # for zone in C.getFamilyZones(t, BodyForceComponent['Family']):
         #     # Firstly, check that there is a FlowSolution#DataSourceTerm node
         #     DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
         #     if DataSourceTermNode is not None:
@@ -2936,15 +2932,19 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
 
         # Add FluidProperties, ReferenceValues and TurboConfiguration in BodyForceParameters 
         # This latter could be a dict or a list of dict
+        updatedParameters = dict(
+            Family = BodyForceComponent['Family'],
+            communicator = subComm,
+            FluidProperties = setup.FluidProperties,
+            ReferenceValues = setup.ReferenceValues,
+            TurboConfiguration = setup.TurboConfiguration,
+        )
+        BodyForceParameters = copy.deepcopy(BodyForceComponent['BodyForceParameters'])
         if isinstance(BodyForceParameters, list):
-            for BFParams in BodyForceParameters:
-                BFParams['FluidProperties'] = setup.FluidProperties
-                BFParams['ReferenceValues'] = setup.ReferenceValues
-                BFParams['TurboConfiguration'] = setup.TurboConfiguration
+            for bfparam in BodyForceParameters:
+                bfparam.update(updatedParameters)
         else:
-            BodyForceParameters['FluidProperties'] = setup.FluidProperties
-            BodyForceParameters['ReferenceValues'] = setup.ReferenceValues
-            BodyForceParameters['TurboConfiguration'] = setup.TurboConfiguration
+            BodyForceParameters.update(updatedParameters)
 
         NewSourceTermsGlobal = BF.computeBodyForce(treeRestrictedToBodyForceFamily, BodyForceParameters)
 
@@ -2952,7 +2952,7 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
         for zone in I.getZones(treeRestrictedToBodyForceFamily):
 
             FamilyName = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
-            if FamilyName != BodyForceParameters['Family']:
+            if FamilyName != BodyForceComponent['Family']:
                 continue
 
             DataSourceTermNode = I.getNodeByName1(zone, 'FlowSolution#DataSourceTerm')
