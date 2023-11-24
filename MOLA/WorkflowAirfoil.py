@@ -677,9 +677,10 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                         elsAkeysNumerics=elsAkeysNumerics,
                         Extractions=Extractions)
 
-
+    secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
     t = PRE.newCGNSfromSetup(t, AllSetupDicts, Initialization=Initialization,
-                            FULL_CGNS_MODE=False, BCExtractions=BCExtractions)
+                            FULL_CGNS_MODE=False, BCExtractions=BCExtractions, 
+                            secondOrderRestart=secondOrderRestart)
     PRE.saveMainCGNSwithLinkToOutputFields(t, writeOutputFields=writeOutputFields)
 
 

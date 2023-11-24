@@ -76,7 +76,7 @@ def checkDependencies():
     print('\nVERIFICATIONS TERMINATED')
 
 
-def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlocks=False),
+def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, 
                     duplicationInfos={}, zonesToRename={},
                     scale=1., rotation='fromAG5', tol=1e-8, PeriodicTranslation=None,
                     BodyForceRows=None, families2Remove=[], saveGeometricalDataForBodyForce=True):
@@ -442,20 +442,27 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         updateChoroTimestep(t, Rows = TurboConfiguration['Rows'], NumericalParams = NumericalParams)
     else:
         CHORO_TAG = False
-
     
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues,
                             unstructured=IsUnstructured, **NumericalParams)
+    
+    # Restart with second order automatically for unsteady simulation
+    secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
 
     if Initialization['method'] == 'turbo':
         t = initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboConfiguration)
+        if secondOrderRestart:
+            for zone in I.getZones(t):
+                FSnode = I.copyTree(I.getNodeFromName1(zone, 'FlowSolution#Init'))
+                I.setName(FSnode, 'FlowSolution#Init-1')
+                I.addChild(zone, FSnode)
     else:
         if CHORO_TAG and Initialization['method'] != 'copy':
             MSG = 'Flow initialization failed. No initial solution provided. Chorochronic simulations must be initialized from a mixing plane solution obtained on the same mesh'
             print(J.FAIL + MSG + J.ENDC)
             raise Exception(J.FAIL + MSG + J.ENDC)
 
-        PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
+        PRE.initializeFlowSolution(t, Initialization, ReferenceValues, secondOrderRestart=secondOrderRestart)
 
     if not 'PeriodicTranslation' in TurboConfiguration and \
         any([rowParams['NumberOfBladesSimulated'] > rowParams['NumberOfBladesInInitialMesh'] \
@@ -548,7 +555,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                           AllSetupDicts['elsAkeysModel'],
                           extractCoords=False,
                           BCExtractions=ReferenceValues['BCExtractions'],
-                          add_time_average= is_unsteady and avg_requested)
+                          add_time_average= is_unsteady and avg_requested,
+                          secondOrderRestart=secondOrderRestart)
 
 
     PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],

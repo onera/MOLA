@@ -210,12 +210,14 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             print(J.FAIL + MSG + J.ENDC)
             raise Exception(J.FAIL + MSG + J.ENDC)
     
+    secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
+    
     if not 'PeriodicTranslation' in TurboConfiguration and \
         any([rowParams['NumberOfBladesSimulated'] > rowParams['NumberOfBladesInInitialMesh'] \
             for rowParams in TurboConfiguration['Rows'].values()]):
         t = WC.duplicateFlowSolution(t, TurboConfiguration)
 
-    PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
+    PRE.initializeFlowSolution(t, Initialization, ReferenceValues, secondOrderRestart=secondOrderRestart)
 
     WC.setMotionForRowsFamilies(t, TurboConfiguration)
     WC.setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
@@ -267,7 +269,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                           AllSetupDicts['elsAkeysModel'],
                           extractCoords=False,
                           BCExtractions=ReferenceValues['BCExtractions'],
-                          add_time_average= is_unsteady and avg_requested)
+                          add_time_average= is_unsteady and avg_requested,
+                          secondOrderRestart=secondOrderRestart)
 
 
     PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],

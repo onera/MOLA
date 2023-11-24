@@ -338,7 +338,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues,
                             unstructured=IsUnstructured, **NumericalParams)
 
-    PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
+    secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
+    PRE.initializeFlowSolution(t, Initialization, ReferenceValues, secondOrderRestart=secondOrderRestart)
 
     WC.setMotionForRowsFamilies(t, TurboConfiguration)
     WC.setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
@@ -385,7 +386,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
                           AllSetupDicts['elsAkeysModel'],
                           extractCoords=False,
                           BCExtractions=ReferenceValues['BCExtractions'],
-                          add_time_average= is_unsteady and avg_requested)
+                          add_time_average= is_unsteady and avg_requested, 
+                          secondOrderRestart=secondOrderRestart)
 
     PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],
                          AllSetupDicts['ReferenceValues'])

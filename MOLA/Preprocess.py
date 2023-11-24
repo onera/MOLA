@@ -537,6 +537,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
     elsAkeysNumerics = getElsAkeysNumerics(ReferenceValues,
                                 unstructured=IsUnstructured, **NumericalParams)
     
+    secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
 
     if useBCOverlap and not OversetMotion:
         elsAkeysNumerics['chm_interpcoef_frozen'] = 'active'
@@ -588,7 +589,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
     if BodyForceInputData: AllSetupDicts['BodyForceInputData'] = BodyForceInputData
 
     t = newCGNSfromSetup(t, AllSetupDicts, Initialization=Initialization,
-                         FULL_CGNS_MODE=False, BCExtractions=BCExtractions)
+                         FULL_CGNS_MODE=False, BCExtractions=BCExtractions, secondOrderRestart=secondOrderRestart)
     saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
 
@@ -3621,7 +3622,8 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     return elsAkeysNumerics
 
 def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
-                     FULL_CGNS_MODE=False,  extractCoords=True, BCExtractions={}):
+                     FULL_CGNS_MODE=False,  extractCoords=True, BCExtractions={},
+                     secondOrderRestart=False):
     '''
     Given a preprocessed grid using :py:func:`prepareMesh4ElsA` and setup information
     dictionaries, this function creates the main CGNS tree and writes the
@@ -3660,6 +3662,11 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
 
             To see default extracted variables, see :py:func:`addSurfacicExtractions`
 
+        secondOrderRestart : bool
+            if :py:obj:`True`, duplicate the node ``'FlowSolution#Init'`` into a
+            new node ``'FlowSolution#Init-1'`` to mimic the expected
+            behavior for the next restart.
+
     Returns
     -------
 
@@ -3691,13 +3698,14 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
                       AllSetupDictionaries['elsAkeysModel'],
                       extractCoords=extractCoords, BCExtractions=BCExtractions,
                       includeRelativeFieldsForRestart=includeRelativeFieldsForRestart,
-                      add_time_average= is_unsteady and avg_requested )
+                      add_time_average= is_unsteady and avg_requested,
+                      secondOrderRestart=secondOrderRestart)
     addReferenceState(t, AllSetupDictionaries['FluidProperties'],
                          AllSetupDictionaries['ReferenceValues'])
     dim = int(AllSetupDictionaries['elsAkeysCFD']['config'][0])
     addGoverningEquations(t, dim=dim)
     if Initialization:
-        initializeFlowSolution(t, Initialization, AllSetupDictionaries['ReferenceValues'])
+        initializeFlowSolution(t, Initialization, AllSetupDictionaries['ReferenceValues'], secondOrderRestart=secondOrderRestart)
 
     if FULL_CGNS_MODE:
         addElsAKeys2CGNS(t, [AllSetupDictionaries['elsAkeysCFD'],
@@ -3875,8 +3883,6 @@ def _setMobileCoefAtBCsExceptOverlap(t, mobile_coef=-1.0):
 def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
                                MainCGNSFilename='main.cgns',
                                FieldsFilename='fields.cgns',
-                               MainCGNS_FlowSolutionName='FlowSolution#Init',
-                               Fields_FlowSolutionName='FlowSolution#Init',
                                writeOutputFields=True):
     '''
     Saves the ``main.cgns`` file including linsk towards ``OUTPUT/fields.cgns``
@@ -3903,16 +3909,6 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
 
             .. note:: it is advised to use ``'fields.cgns'``
 
-        MainCGNS_FlowSolutionName : str
-            name of container of initial fields at ``main.cgns``
-
-            .. important:: it is strongly recommended using ``'FlowSolution#Init'``
-
-        Fields_FlowSolutionName : str
-            name of container of initial fields at ``fields.cgns``
-
-            .. important:: it is strongly recommended using ``'FlowSolution#Init'``
-
         writeOutputFields : bool
             if :py:obj:`True`, write ``fields.cgns`` file
 
@@ -3928,22 +3924,7 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
     for b in I.getBases(t):
         for z in b[2]:
             if z[3] != 'Zone_t': continue
-            fs = I.getNodeFromName1(z,MainCGNS_FlowSolutionName)
-            if fs:
-                for field in I.getChildren(fs):
-                    if I.getType(field) == 'DataArray_t':
-                        currentNodePath='/'.join([b[0], z[0], fs[0], field[0]])
-                        targetNodePath=currentNodePath.replace(MainCGNS_FlowSolutionName,
-                                                            Fields_FlowSolutionName)
-                        # TODO: Cassiopee BUG ! targetNodePath must be identical
-                        # to currentNodePath...
-                        AllCGNSLinks += [['.',
-                                        DIRECTORY_OUTPUT+'/'+FieldsFilename,
-                                        '/'+targetNodePath,
-                                        currentNodePath]]
-
-            fs = I.getNodeFromName1(z,'FlowSolution#Average')
-            if fs:
+            for fs in I.getNodesFromName(z, 'FlowSolution#Init*') + I.getNodesFromName(z, 'FlowSolution#Average'):
                 currentNodePath='/'.join([b[0], z[0], fs[0]])
                 targetNodePath=currentNodePath
                 AllCGNSLinks += [['.',
@@ -4013,7 +3994,7 @@ def addTrigger(t, coprocessFilename='coprocess.py'):
 
 def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
         BCExtractions=dict(), includeRelativeFieldsForRestart=False,
-        add_time_average=False):
+        add_time_average=False, secondOrderRestart=False):
     '''
     Include surfacic and field extraction information to CGNS tree using
     information contained in dictionaries **ReferenceValues** and
@@ -4057,15 +4038,20 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
             if :py:obj:`True`, include additional ``FlowSolution#Average`` for 
             time-averaged field extraction and ``.Solver#Output#Average`` 
             for time-averaging fields at boundary-conditions.
+        
+        secondOrderRestart : bool
+            if :py:obj:`True`, activate the saving of the flow solution at the
+            penultimate iteration to allow a second order restart.
+
     '''
     addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
         BCExtractions=BCExtractions, add_time_average=add_time_average)
     addFieldExtractions(t, ReferenceValues, extractCoords=extractCoords,
-        add_time_average=add_time_average)
+        add_time_average=add_time_average, secondOrderRestart=secondOrderRestart)
     if includeRelativeFieldsForRestart:
         addFieldExtractions(t, ReferenceValues, extractCoords=False,
         includeAdditionalExtractions=False, container='FlowSolution#EndOfRun#Relative',
-        ReferenceFrame='relative')
+        ReferenceFrame='relative', secondOrderRestart=secondOrderRestart)
     EP._addGlobalConvergenceHistory(t)
 
 
@@ -4218,7 +4204,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={},
 
 def addFieldExtractions(t, ReferenceValues, extractCoords=False,
         includeAdditionalExtractions=True, container='FlowSolution#EndOfRun',
-        ReferenceFrame='absolute', add_time_average=False):
+        ReferenceFrame='absolute', add_time_average=False, secondOrderRestart=False):
     '''
     Include fields extraction information to CGNS tree using
     information contained in dictionary **ReferenceValues**.
@@ -4251,6 +4237,10 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False,
         add_time_average : bool
             if :py:obj:`True`, include additional ``FlowSolution#Average`` for 
             time-averaged field extraction
+        
+        secondOrderRestart : bool
+            if :py:obj:`True`, activate the saving of the flow solution at the
+            penultimate iteration to allow a second order restart.
 
     '''
 
@@ -4269,15 +4259,17 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False,
                   writingmode=2,
                   writingframe='absolute')
 
-        EoRnode = I.createNode(container, 'FlowSolution_t',
-                                parent=zone)
+        EoRnode = I.createNode(container, 'FlowSolution_t', parent=zone)
         I.createNode('GridLocation','GridLocation_t', value='CellCenter', parent=EoRnode)
         for fieldName in Fields2Extract:
-            I.createNode(fieldName, 'DataArray_t', value=None, parent=EoRnode)
-        J.set(EoRnode, '.Solver#Output',
-              period=1,
-              writingmode=2,
-              writingframe=ReferenceFrame)
+            I.createNode(fieldName, 'DataArray_t', value=None, parent=EoRnode)       
+        SolverOutputKeys = dict(
+            period=1,
+            writingmode=2,
+            writingframe=ReferenceFrame)
+        if secondOrderRestart:
+            SolverOutputKeys['exact_restart'] = 'active'
+        J.set(EoRnode, '.Solver#Output', **SolverOutputKeys)
 
         if add_time_average:
             Fields2Extract = ReferenceValues['Fields'] + \
@@ -4341,7 +4333,7 @@ def addElsAKeys2CGNS(t, AllElsAKeys):
     for ElsAKeys in AllElsAKeys: AllComputeModels.update(ElsAKeys)
     for b in I.getBases(t): J.set(b, '.Solver#Compute', **AllComputeModels)
 
-def initializeFlowSolution(t, Initialization, ReferenceValues):
+def initializeFlowSolution(t, Initialization, ReferenceValues, secondOrderRestart=False):
     '''
     Initialize the flow solution in tree **t**.
 
@@ -4376,6 +4368,11 @@ def initializeFlowSolution(t, Initialization, ReferenceValues):
         ReferenceValues : dict
             dictionary as got from :py:func:`computeReferenceValues`
 
+        secondOrderRestart : bool
+            if :py:obj:`True`, duplicate the node ``'FlowSolution#Init'`` into a
+            new node ``'FlowSolution#Init-1'`` to mimic the expected
+            behavior for the next restart.
+
     '''
     if not 'container' in Initialization:
         Initialization['container'] = 'FlowSolution#Init'
@@ -4403,6 +4400,12 @@ def initializeFlowSolution(t, Initialization, ReferenceValues):
         if not I.getNodeFromName1(zone, 'FlowSolution#Init'):
             MSG = 'FlowSolution#Init is missing in zone {}'.format(I.getName(zone))
             raise ValueError(J.FAIL + MSG + J.ENDC)
+    
+    if secondOrderRestart:
+        for zone in I.getZones(t):
+            FSnode = I.copyTree(I.getNodeFromName1(zone, 'FlowSolution#Init'))
+            I.setName(FSnode, 'FlowSolution#Init-1')
+            I.addChild(zone, FSnode)
         
 
 def initializeFlowSolutionFromReferenceValues(t, ReferenceValues):
