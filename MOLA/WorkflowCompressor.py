@@ -3781,7 +3781,7 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
             valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget',
                               3: 'QLinear', 4: 'QHyperbolic'}
             bc.valve_law(valve_law_dict[valve_type], valve_ref_pres,
-                         valve_ref_mflow, valve_relax=valve_relax)
+                         valve_ref_mflow, valve_relax=valve_relax, valve_file=f'prespiv_{FamilyName}.log')
         globborder = bc.glob_border(current=FamilyName)
         globborder.i_poswin = gbd[bcpath]['i_poswin']
         globborder.j_poswin = gbd[bcpath]['j_poswin']
@@ -3886,13 +3886,52 @@ def setBC_outradeqhyb(t, FamilyName, valve_type=0, valve_ref_pres=None,
     valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget',
                       3: 'QLinear', 4: 'QHyperbolic'}
     bc.valve_law(valve_law_dict[valve_type], valve_ref_pres,
-                 valve_ref_mflow, valve_relax=valve_relax)
+                 valve_ref_mflow, valve_relax=valve_relax, valve_file=f'prespiv_{FamilyName}.log')
     bc.dirorder = -1
     radius_filename = "state_radius_{}_{}.plt".format(FamilyName, nbband)
     radius = bc.repartition(filename=radius_filename, fileformat="bin_tp")
     radius.compute(t, nbband=nbband, c=c)
     radius.write()
     bc.create()
+
+
+def updatePressurePivotForRestart(t, FamilyName):
+    '''
+    Based on previous log files named ``'LOGS/prespiv_<FamilyName>-*.log'``, update the pivot pressure 
+    for an outradeq/outradeqhyb condition for a restart.
+
+    Parameters
+    ----------
+    t : PyTree
+        main tree
+
+    FamilyName : str
+        Name of the BC Family
+    '''
+    # HACK add prespiv_restart argument to bc.valve_law in etc
+    # Find all prespiv log files for the current Family
+    import glob
+    prespiv_files = glob.glob(f'LOGS/prespiv_{FamilyName}-*.log')
+    if len(prespiv_files) == 0: 
+        return
+
+    prespiv_file = sorted(prespiv_files, key=lambda s: int(s.replace(f'LOGS/prespiv_{FamilyName}-', '').replace('.log', '')))[-1]
+
+    prespiv_data_tree = C.convertFile2PyTree(prespiv_file)
+    zone = I.getZones(prespiv_data_tree)[0]
+    iteration, pres_piv = J.getVars(zone,['iteration', 'pres_piv'])
+    print(J.CYAN + f'Update prespiv_restart for Family {FamilyName} to {pres_piv[-1]}' + J.ENDC)
+    # For outradeq --> in BC_t
+    for bc in C.getFamilyBCs(t, FamilyName):
+        solverBC = I.getNodeFromName(bc, '.Solver#BC')
+        I._rmNodesByName(solverBC, 'prespiv_restart')
+        I.newDataArray(name='prespiv_restart', value=pres_piv[-1], parent=solverBC)
+    # For outradeqhyb --> in Family_t
+    for bc in I.getNodesFromNameAndType(t, FamilyName, 'Family_t'):
+        solverBC = I.getNodeFromName(bc, '.Solver#BC')
+        if solverBC:
+            I._rmNodesByName(solverBC, 'prespiv_restart')
+            I.newDataArray(name='prespiv_restart', value=pres_piv[-1], parent=solverBC)
 
 
 def setRotorStatorFamilyBC(t, left, right):
