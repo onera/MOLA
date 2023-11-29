@@ -58,6 +58,7 @@ def compute(LL, NumberOfBlades=None, RPM=None,
         AxialVelocity = - Velocity.dot(RotationAxis)
     else:
         Velocity = - RotationAxis * AxialVelocity
+        LL.get('Conditions').get('VelocityFreestream').setValue(Velocity)
 
     if Density is None:
         Density = LL.get('Conditions').get('Density').value()
@@ -742,6 +743,7 @@ def designHover(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225
 
     RotationAxis = LL.getRotationAxisCenterAndDirFromKinematics()[0]
     VelocityVector = - RotationAxis * AxialVelocity
+    LL.setNumberOfModeledBlades(int(NumberOfBlades))
     Velocity = AxialVelocity
     LL.setConditions(VelocityFreestream=VelocityVector, Density=Density,
                      Temperature=Temperature)

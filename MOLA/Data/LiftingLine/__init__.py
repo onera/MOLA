@@ -91,6 +91,7 @@ class LiftingLine(Curve):
                                                   MOLAversion=__version__,
                                                   NumberOfModeledBlades=1,
                                                   GeometricalLaws=GeometricalLaws)
+            self.setConditions()
 
             if SpanwiseDistribution: self.discretize( **SpanwiseDistribution )
 
