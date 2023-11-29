@@ -29,20 +29,48 @@ import scipy.optimize as so
 import scipy.integrate as sint
 import scipy.signal as ss
 
-def compute(LL, NumberOfBlades=2, RPM=1500.,
-        Pitch=0., AxialVelocity=0., Density=1.225, Temperature=288.15,
+def compute(LL, NumberOfBlades=None, RPM=None,
+        Pitch=None, AxialVelocity=None, Density=None, Temperature=None,
         model='Drela', TipLossesModel='Adkins',
-        TrimQuantity=None, TrimCommand='Pitch', TrimValue=0.,
+        TrimQuantity=None, TrimCommand='Pitch', TrimValue=0.0,
         TrimValueTolerance=0.1,
         TrimCommandGuess=[[0.8,1.2],[0.5,1.5],[0.25,1.75]]):
 
     RotationAxis, RotationCenter, Dir = LL.getRotationAxisCenterAndDirFromKinematics()
-    Velocity = - RotationAxis * AxialVelocity
+
+    if NumberOfBlades is None:
+        NumberOfBlades = LL.getNumberOfModeledBlades()
+    else:
+        LL.setNumberOfModeledBlades(NumberOfBlades)
+
+    if RPM is None:
+        RPM = LL.RPM[0]
+    else:
+        LL.setRPM(float(RPM))
+
+    if Pitch is None:
+        Pitch = LL.Pitch
+    else: 
+        LL.setPitch(float(Pitch))
+
+    if AxialVelocity is None:
+        Velocity = LL.get('Conditions').get('VelocityFreestream').value()
+        AxialVelocity = - Velocity.dot(RotationAxis)
+    else:
+        Velocity = - RotationAxis * AxialVelocity
+
+    if Density is None:
+        Density = LL.get('Conditions').get('Density').value()
+    else:
+        LL.get('Conditions').get('Density').setValue(float(Density))
+
+    if Temperature is None:
+        Temperature = LL.get('Conditions').get('Temperature').value()
+    else:
+        LL.get('Conditions').get('Temperature').setValue(float(Temperature))
+
+
     AdvanceVelocityNorm = np.linalg.norm(Velocity)
-    LL.setConditions(VelocityFreestream=Velocity, Density=Density,
-                     Temperature=Temperature)
-    LL.setPitch(Pitch)
-    LL.setRPM(RPM)
     LL.updateFrame()
     LL.computeKinematicVelocity()
     LL.assembleAndProjectVelocities()
@@ -94,7 +122,7 @@ def compute(LL, NumberOfBlades=2, RPM=1500.,
         f['Reynolds'][i] = Density * W * f['Chord'][i] / Mu
 
         # Compute tip losses factor, F
-        F = LL.computeTipLossFactor(NumberOfBlades, model=TipLossesModel)
+        F = LL.computeTipLossFactor( model=TipLossesModel )
 
         LL.computeSectionalCoefficients()
 
@@ -138,7 +166,7 @@ def compute(LL, NumberOfBlades=2, RPM=1500.,
         f['Mach'][i] = W / SoundSpeed
 
         # Compute tip losses factor, F
-        F = LL.computeTipLossFactor(NumberOfBlades, model=TipLossesModel)
+        F = LL.computeTipLossFactor( model=TipLossesModel )
 
         LL.computeSectionalCoefficients()
 
@@ -213,6 +241,7 @@ def compute(LL, NumberOfBlades=2, RPM=1500.,
             LL.setPitch(cmd)
         elif TrimCommand == 'RPM':
             LL.setRPM(cmd)
+            LL.computeKinematicVelocity()
         else:
             raise AttributeError("TrimCommand '%s' not recognized. Please use 'Pitch' or 'RPM'."%TrimCommand)
 
@@ -273,7 +302,7 @@ def compute(LL, NumberOfBlades=2, RPM=1500.,
         BEMTsolver(tipsol,NPts-1)
 
         # Compute the arrays
-        DictOfIntegralData = LL.computeLoads(NumberOfBlades=NumberOfBlades)
+        DictOfIntegralData = LL.computeLoads()
         includePropellerLoads(DictOfIntegralData)
 
         if TrimQuantity:
@@ -313,6 +342,7 @@ def compute(LL, NumberOfBlades=2, RPM=1500.,
 
         if TrimCommand == 'RPM':
             LL.setRPM(BestCmd[0])
+            LL.computeKinematicVelocity()
         elif TrimCommand == 'Pitch':
             LL.setPitch(BestCmd[0])
 
@@ -323,7 +353,7 @@ def compute(LL, NumberOfBlades=2, RPM=1500.,
         success = True
 
     LL.computeSectionalCoefficients()
-    DictOfIntegralData = LL.computeLoads(NumberOfBlades=NumberOfBlades)
+    DictOfIntegralData = LL.computeLoads()
     DictOfIntegralData.update(LL.addPropellerLoads())
     DictOfIntegralData.update(LL.addHelicopterRotorLoads())
     DictOfIntegralData['Converged'] = success
@@ -438,6 +468,7 @@ def design(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225,
     RotationAxis, RotationCenter, Dir = LL.getRotationAxisCenterAndDirFromKinematics()
     VelocityVector = - RotationAxis * AxialVelocity
     Velocity = AxialVelocity
+    LL.setNumberOfModeledBlades(int(NumberOfBlades))
     LL.setConditions(VelocityFreestream=VelocityVector, Density=Density,
                      Temperature=Temperature)
     LL.setRPM(RPM)
@@ -499,7 +530,7 @@ def design(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225,
         tan_phi = sin_phi / cos_phi
 
 
-        F = LL.computeTipLossFactor(NumberOfBlades, model=TipLossesModel)
+        F = LL.computeTipLossFactor( model=TipLossesModel )
 
         G = F * xfact * cos_phi * sin_phi # Eqn. 5
 
@@ -588,7 +619,7 @@ def design(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225,
         L2Variation = L2Prev-L2Residual
         L2Prev = L2Residual
         print ('it=%d | Thrust=%g, Power=%g, PropulsiveEfficiency=%g | L2 res = %g'%(it,Thrust,Power,PropulsiveEfficiency, L2Residual))
-        loads = LL.computeLoads(NumberOfBlades=NumberOfBlades)
+        loads = LL.computeLoads()
         print(WARN+'integrated | Thrust=%g, Power=%g'%(loads['Thrust'],loads['Power'])+ENDC)
         zeta1 = Residual+zeta0
         RelaxFactor = 0.
@@ -597,7 +628,7 @@ def design(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225,
     # Prepare output
     DesignPitch = LL.resetTwist()
 
-    DictOfIntegralData = LL.computeLoads(NumberOfBlades=NumberOfBlades)
+    DictOfIntegralData = LL.computeLoads()
     DictOfIntegralData['Pitch'] = DesignPitch
     relative_tolerance = 0.01
     if DictOfIntegralData[Constraint] > ConstraintValue*(1+relative_tolerance) or \
@@ -784,7 +815,7 @@ def designHover(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225
         tan_phi = sin_phi / cos_phi
 
 
-        F = LL.computeTipLossFactor(NumberOfBlades, model=TipLossesModel)
+        F = LL.computeTipLossFactor( model=TipLossesModel )
 
         # advance
         # G = F * xfact * cos_phi * sin_phi # Eqn. 5
@@ -917,7 +948,7 @@ def designHover(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225
         L2Variation = L2Prev-L2Residual
         L2Prev = L2Residual
         print('it=%d | Thrust=%g, Power=%g, Efficiency=%g | L2 res = %g'%(it,Thrust,Power,Efficiency, L2Residual))
-        loads = LL.computeLoads(NumberOfBlades=NumberOfBlades)
+        loads = LL.computeLoads()
         Tc = 2*loads['Thrust']/(Density*(Omega*Rmax)**2*np.pi*Rmax**2)
         Pc = 2*loads['Power']/(Density*(Omega*Rmax)**3*np.pi*Rmax**2)
         FoM = 1./np.sqrt(2.)/Pc * Tc**1.5
@@ -928,7 +959,7 @@ def designHover(LL, NumberOfBlades=2, RPM=1500., AxialVelocity=0., Density=1.225
 
     # Prepare output
 
-    LL.computeLoads(NumberOfBlades=NumberOfBlades)
+    LL.computeLoads()
     DictOfIntegralData = LL.addHelicopterRotorLoads()
     DesignPitch = LL.resetTwist()
     DictOfIntegralData['Pitch'] = DesignPitch
@@ -1048,10 +1079,10 @@ def optimalDesignByThrustAndFixedPitch(number_of_blades=2, Rmin=0.1, Rmax=1.0,
         if not NominalDict: continue # cannot verify nominal condition
 
         Chord[:] = np.minimum(ChordMax,Chord)
-        print('design Chord')
-        print(Chord)
-        print('design Twist')
-        print(Twist + LL.Pitch)
+        # print('design Chord')
+        # print(Chord)
+        # print('design Twist')
+        # print(Twist + LL.Pitch)
 
         print('analysis...')
         NominalDict = compute(LL, model='Drela',
@@ -1060,7 +1091,7 @@ def optimalDesignByThrustAndFixedPitch(number_of_blades=2, Rmin=0.1, Rmax=1.0,
              TrimCommand='RPM', TrimQuantity='Thrust', TrimValue=NominalRequiredThrust)
 
         CopiedLL = LL.copy(deep=True)
-        print("CopiedLL.Pitch",CopiedLL.Pitch)
+        print(CYAN,"CopiedLL.Pitch",CopiedLL.Pitch,'Thrust',NominalDict['Thrust'],ENDC)
         DesignLiftingLines.append( CopiedLL )
 
         nominal_rpms[i] = NominalDict['RPM']
@@ -1091,7 +1122,7 @@ def optimalDesignByThrustAndFixedPitch(number_of_blades=2, Rmin=0.1, Rmax=1.0,
 
             MaxThrustDict = compute(LL, model='Drela',
                 NumberOfBlades=number_of_blades, Density=Density, Temperature=Temperature,
-                RPM=LL.RPM,Pitch=NominalDict['Pitch'], AxialVelocity=VelocityAxial,
+                RPM=LL.RPM,Pitch=NominalDict['Pitch'], AxialVelocity=VelocityAxialForMaxThrust,
                 TrimCommand='RPM', TrimQuantity='Thrust', TrimValue=MaximumRequiredThrust,
                 TrimCommandGuess=[[0.8,1.03],[0.5,1.03]])
 
