@@ -1901,13 +1901,13 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     It defines an outflow condition imposing a uniform static pressure ('outpres' in
     *elsA*).
 
-    >>> dict(type='OutflowMassflow', FamilyName='row_2_OUTFLOW', Massflow=5.)
+    >>> dict(type='OutflowMassFlow', FamilyName='row_2_OUTFLOW', MassFlow=5.)
 
-    It defines an outflow condition imposing the massflow ('outmfr2' in *elsA*).
-    Be careful, **Massflow** should be the massflow through the given family BC
+    It defines an MassFlow condition imposing the massflow ('outmfr2' in *elsA*).
+    Be careful, **assFlow** should be the massflow through the given family BC
     *in the simulated domain* (not the 360 degrees configuration, except if it
     is simulated).
-    If **Massflow** is not given, the massflow given in the **ReferenceValues**
+    If **MassFlow** is not given, the massflow given in the **ReferenceValues**
     is automatically taken and normalized by the appropriate section.
 
     >>> dict(type='OutflowRadialEquilibrium', FamilyName='row_2_OUTFLOW', valve_type=4, valve_ref_pres=0.75*Pt, valve_ref_mflow=5., valve_relax=0.3*Pt)
