@@ -2867,75 +2867,95 @@ def setRPM(LiftingLines, newRPM):
         else:
             J.set(LiftingLine,'.Kinematics',RPM=np.atleast_1d(np.array(newRPM,dtype=np.float64)))
 
-def setVPMParameters(LiftingLines, IntegralLaw='linear', NumberOfParticleSources = 25,
-    ParticleDistribution = dict(kind = 'uniform', Symmetrical=False)):
+def setVPMParameters(LiftingLines, **kwargs):
     '''
-    This function is a convenient wrap used for setting the ``.VPM#Parameters``
-    and the ``.VPM#Parameters`` nodes of **LiftingLine** object.
+    This function is a convenient wrap used for setting the ``.VPM#Parameters`` nodes of
+    **LiftingLine** object.
 
     .. note::
-        information contained in ``.VPM#Parameters`` is used by
-        :py:func:`buildVortexParticleSourcesOnLiftingLine`
+        information contained in ``.VPM#Parameters`` is used by the VPM solver and in
+        :py:func:`buildVortexParticleSourcesOnLiftingLine`.
 
     Parameters
     ----------
+    
+        LiftingLines : PyTree, base, zone or list of zones
+            Container with Lifting lines where ``.Kinematics`` node is to be set.
 
-        IntegralLaw : str
-            interpolation law for the interpolation of data contained in the
-            lifting line
+            .. note:: zones contained in **LiftingLines** are modified.
 
-        NumberOfShedParticle : int
-            Gives the number of stations on the Lifting Line from where particles are shed
+        kwargs : This is an arbitrary number of input arguments for the VPM solver. Those are
+            possible parameters:
 
-        ParticleDistribution : dict
-            Python dictionary specifying distribution instructions.
-            Default value produces a uniform distribution of particles
-            provided by a linear interpolation.
-            Accepted keys are:
+            ::
 
-            * kind : :py:class:`str`
-                Can be one of:
+                IntegralLaw : :py:class:`str`
+                    Gives the Interpolation law of the particle sources on the Lifting Line(s). This
+                    is used in :py:func:`buildVortexParticleSourcesOnLiftingLine`.
 
-                * ``'uniform'``
-                    Makes an uniform spacing.
+                NumberOfParticleSources : :py:class:`int`
+                    Gives the number of particle sources on the Lifting Line(s) from where particles
+                    are shed.
 
-                * ``'tanhOneSide'``
-                    Specifies the ratio of the first segment.
+                ParticleDistribution : :py:class:`dict`
+                    Python dictionary specifying distribution instructions.
+                    Default value produces a uniform distribution of particles provided by a linear
+                    interpolation. Accepted keys are:
 
-                * ``'tanhTwoSides'``
-                    Specifies the ratio of the first and last segment.
+                    * kind : :py:class:`str`
+                        Can be one of:
 
-                * ``'ratio'``
-                    Employs a geometrical-growth type of law
+                        * ``'uniform'``
+                            Makes an uniform spacing.
 
-            * FirstSegmentRatio : :py:class:`float`
-                Specifies the ratio of the first segment regarding the VPM resolution
+                        * ``'tanhOneSide'``
+                            Specifies the ratio of the first segment.
 
-                .. note::
-                    only relevant if **kind** is ``'tanhOneSide'`` , ``'tanhTwoSides'``
-                    or ``'ratio'``
+                        * ``'tanhTwoSides'``
+                            Specifies the ratio of the first and last segment.
 
-            * LastSegmentRatio : :py:class:`float`
-                Specifies the ratio of the last segment regarding the VPM resolution
+                        * ``'ratio'``
+                            Employs a geometrical-growth type of law
 
-                .. note::
-                    only relevant if **kind** is ``'tanhOneSide'`` or
-                    ``'tanhTwoSides'``
+                    * FirstSegmentRatio : :py:class:`float`
+                        Specifies the size of the first segment as a ratio of the VPM resolution.
 
-            * growthRatio : :py:class:`float`
-                geometrical growth rate ratio regarding the VPM resolution
+                        .. note::
+                            only relevant if **kind** is ``'tanhOneSide'`` , ``'tanhTwoSides'``
+                            or ``'ratio'``
 
-                .. note::
-                    only relevant if **kind** is ``'ratio'``
+                    * LastSegmentRatio : :py:class:`float`
+                        Specifies the size of the last segment as a ratio of the VPM resolution.
 
-            * Symmetrical : bool
-                if :py:obj:`True`, the particle distribution becomes symmetrical.
-                :py:obj:`False` otherwise.
+                        .. note::
+                            only relevant if **kind** is ``'tanhOneSide'`` or
+                            ``'tanhTwoSides'``
+
+                    * growthRatio : :py:class:`float`
+                        Geometrical growth rate ratio regarding the VPM resolution.
+
+                        .. note::
+                            only relevant if **kind** is ``'ratio'``
+
+                    * Symmetrical : bool
+                        If :py:obj:`True`, the particle distribution becomes symmetrical.
+                        :py:obj:`False` otherwise.
+
+                CirculationThreshold : :py:class:`float`
+                    Maximum circulation error for the iteration process when shedding particles from
+                    the Lifting Line(s).
+
+                CirculationRelaxationFactor : :py:class:`float`
+                    Relaxation factor used to update the circulation during the iteration process
+                    when shedding particles from the Lifting Line(s).
+
+                MaxLiftingLineSubIterations : :py:class:`int`
+                    Gives the maximum number of iteration used during the shedding process.
     '''
 
+
     for LiftingLine in I.getZones(LiftingLines):
-        J.set(LiftingLine, '.VPM#Parameters', IntegralLaw='linear', NumberOfParticleSources = 
-                               NumberOfParticleSources, ParticleDistribution = ParticleDistribution)
+        J.set(LiftingLine, '.VPM#Parameters', **kwargs)
 
 def setKinematicsUsingConstantRotationAndTranslation(LiftingLines, RotationCenter=[0,0,0],
                                   RotationAxis=[1,0,0], RPM=2500.0, RightHandRuleRotation=True,
