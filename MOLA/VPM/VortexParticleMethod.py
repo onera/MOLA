@@ -2319,7 +2319,7 @@ if True:
                                                                                                   1)
         VPMParameters['MinimumVorticityFactor'][0] = max(0.,VPMParameters['MinimumVorticityFactor'])
 
-    def updateLiftingLines(LiftingLineTree = [], LiftingLineParameters = {}, dt = 0.):
+    def updateLiftingLines(LiftingLineTree = [], VPMParameters = {}, LiftingLineParameters = {}):
         '''
         Checks the and updates the parameters in the Lifting Line(s).
         .
