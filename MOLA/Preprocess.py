@@ -3673,9 +3673,9 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
 
     if 'OversetMotion' in AllSetupDictionaries and AllSetupDictionaries['OversetMotion']:
         addOversetMotion(t, AllSetupDictionaries['OversetMotion'])
-        includeRelativeFieldsForRestart = True
+        includeAbsoluteFieldsForSurfacesPostprocessing = True
     else:
-        includeRelativeFieldsForRestart = False
+        includeAbsoluteFieldsForSurfacesPostprocessing = False
 
     is_unsteady = AllSetupDictionaries['elsAkeysNumerics']['time_algo'] != 'steady'
     avg_requested = AllSetupDictionaries['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'] is not None
@@ -3690,7 +3690,7 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
     addExtractions(t, AllSetupDictionaries['ReferenceValues'],
                       AllSetupDictionaries['elsAkeysModel'],
                       extractCoords=extractCoords, BCExtractions=BCExtractions,
-                      includeRelativeFieldsForRestart=includeRelativeFieldsForRestart,
+                      includeAbsoluteFieldsForSurfacesPostprocessing=includeAbsoluteFieldsForSurfacesPostprocessing,
                       add_time_average= is_unsteady and avg_requested )
     addReferenceState(t, AllSetupDictionaries['FluidProperties'],
                          AllSetupDictionaries['ReferenceValues'])
@@ -4012,7 +4012,7 @@ def addTrigger(t, coprocessFilename='coprocess.py'):
                  file=coprocessFilename)
 
 def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
-        BCExtractions=dict(), includeRelativeFieldsForRestart=False,
+        BCExtractions=dict(), includeAbsoluteFieldsForSurfacesPostprocessing=False,
         add_time_average=False):
     '''
     Include surfacic and field extraction information to CGNS tree using
@@ -4048,9 +4048,9 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
 
             To see default extracted variables, see :py:func:`addSurfacicExtractions`
         
-        includeRelativeFieldsForRestart : bool
+        includeAbsoluteFieldsForSurfacesPostprocessing : bool
             if :py:obj:`True`, then creates an additional container
-            'FlowSolution#EndOfRun#Relative' where restart fields will be 
+            'FlowSolution#EndOfRun#Absolute' where restart fields will be 
             extracted
 
         add_time_average : bool
@@ -4062,10 +4062,10 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
         BCExtractions=BCExtractions, add_time_average=add_time_average)
     addFieldExtractions(t, ReferenceValues, extractCoords=extractCoords,
         add_time_average=add_time_average)
-    if includeRelativeFieldsForRestart:
+    if includeAbsoluteFieldsForSurfacesPostprocessing:
         addFieldExtractions(t, ReferenceValues, extractCoords=False,
-        includeAdditionalExtractions=False, container='FlowSolution#EndOfRun#Relative',
-        ReferenceFrame='relative')
+        includeAdditionalExtractions=True, container='FlowSolution#EndOfRun#Absolute',
+        ReferenceFrame='absolute')
     EP._addGlobalConvergenceHistory(t)
 
 
@@ -4218,7 +4218,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={},
 
 def addFieldExtractions(t, ReferenceValues, extractCoords=False,
         includeAdditionalExtractions=True, container='FlowSolution#EndOfRun',
-        ReferenceFrame='absolute', add_time_average=False):
+        ReferenceFrame='relative', add_time_average=False):
     '''
     Include fields extraction information to CGNS tree using
     information contained in dictionary **ReferenceValues**.
@@ -4291,7 +4291,7 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False,
             J.set(EoRnode, '.Solver#Output',
                 period=1,
                 writingmode=2,
-                writingframe='absolute',
+                writingframe=ReferenceFrame,
                 average='time',
                 period_init='inactive')
 
