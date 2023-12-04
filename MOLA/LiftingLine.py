@@ -301,17 +301,13 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
             addPitch(tLL, cmd)
         elif CommandType == 'RPM':
             addPitch(tLL, Pitch)
-
             RPM_n[1] = cmd
 
         setRPM(tLL, RPM_n[1])
         [updateLocalFrame(ll) for ll in I.getZones(tLL)]
         computeKinematicVelocity(tLL)
         assembleAndProjectVelocities(tLL)
-        
-
         _applyPolarOnLiftingLine(tLL,PolarsInterpolatorsDict)
-
 
         if TipLossFactorOptions:
             TipLossFactorOptions['NumberOfBlades']=NBlades
@@ -370,8 +366,6 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         else:
             singleShotMOLA__(Pitch)
             addPitch(tLL,Pitch)
-
-
 
     elif Constraint in ('Power','Thrust'):
         singleShotFcn = singleShotPUMA__ if usePUMA else singleShotMOLA__
@@ -3305,14 +3299,14 @@ def assembleAndProjectVelocities(t):
                           'Velocity2DZ',
                           'VelocityAxial',
                           'VelocityTangential',
-                          'VelocityNormal2D',
-                          'VelocityTangential2D',
                           'VelocityMagnitudeLocal',
+                          'VelocityChordwise',
+                          'VelocityThickwise',
                           'Chord','Twist','AoA','phiRad','Mach','Reynolds',
-                          'tx','ty','tz',
-                          'nx','ny','nz',
-                          'bx','by','bz',
                           'tanx','tany','tanz',
+                          'ChordwiseX','ChordwiseY','ChordwiseZ',
+                          'SpanwiseX','SpanwiseY','SpanwiseZ',
+                          'ThickwiseX','ThickwiseY','ThickwiseZ',
                           ]
 
     LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
@@ -3342,34 +3336,41 @@ def assembleAndProjectVelocities(t):
         VelocityInduced = np.vstack([v['VelocityInduced'+i] for i in 'XYZ'])
         VelocityPerturbation = np.vstack([v['VelocityPerturbation'+i] for i in 'XYZ'])
         TangentialDirection = np.vstack([v['tan'+i] for i in 'xyz'])
-        nxyz = np.vstack([v['n'+i] for i in 'xyz'])
-        bxyz = np.vstack([v['b'+i] for i in 'xyz'])
+
         VelocityRelative = (VelocityInduced.T + VelocityPerturbation.T + VelocityFreestream - VelocityKinematic.T).T
         v['VelocityX'][:] = VelocityInduced[0,:] + VelocityPerturbation[0,:] + VelocityFreestream[0]
         v['VelocityY'][:] = VelocityInduced[1,:] + VelocityPerturbation[1,:] + VelocityFreestream[1]
         v['VelocityZ'][:] = VelocityInduced[2,:] + VelocityPerturbation[2,:] + VelocityFreestream[2]
         v['VelocityAxial'][:] = Vax = ( VelocityRelative.T.dot(-RotationAxis) ).T
         v['VelocityTangential'][:] = Vtan = np.diag(VelocityRelative.T.dot(TangentialDirection))
-        # note the absence of radial velocity contribution to 2D flow
-        V2D = np.vstack((Vax * RotationAxis[0] + Vtan * TangentialDirection[0,:],
-                         Vax * RotationAxis[1] + Vtan * TangentialDirection[1,:],
-                         Vax * RotationAxis[2] + Vtan * TangentialDirection[2,:]))
-        Vax_rel = np.diag(VelocityRelative.T.dot(nxyz))
-        Vtan_rel = np.diag(VelocityRelative.T.dot(bxyz))
-        V2D_rel = np.vstack((Vax_rel * nxyz[0, :] + Vtan_rel * bxyz[0,:],
-                             Vax_rel * nxyz[1, :] + Vtan_rel * bxyz[1,:],
-                             Vax_rel * nxyz[2, :] + Vtan_rel * bxyz[2,:]))
-        v['Velocity2DX'][:] = V2D_rel[0, :]
-        v['Velocity2DY'][:] = V2D_rel[1, :]
-        v['Velocity2DZ'][:] = V2D_rel[2, :]
-        v['VelocityNormal2D'][:] = V2Dn = np.diag( V2D.T.dot( nxyz) )
-        v['VelocityTangential2D'][:] = V2Dt = dir * np.diag( V2D.T.dot( bxyz) )
-        v['phiRad'][:] = phi = np.arctan2( V2Dn, V2Dt )
-        v['AoA'][:] = v['Twist'] - np.rad2deg(phi)
-        v['VelocityMagnitudeLocal'][:] = W = np.sqrt( V2Dn**2 + V2Dt**2 )
-        # note the absence of radial velocity contribution to Mach and Reynolds
+
+
+        ### BEGIN MODIF LL ###
+        ChordwiseDirection = np.vstack([v['Chordwise'+i] for i in 'XYZ'])
+        ThickwiseDirection = np.vstack([v['Thickwise'+i] for i in 'XYZ'])
+        v['VelocityChordwise'][:] = Vchord = np.diag( VelocityRelative.T.dot(ChordwiseDirection) )
+        v['VelocityThickwise'][:] = Vthick = np.diag( VelocityRelative.T.dot(ThickwiseDirection) )
+        # note the absence of radial velocity contribution to 2D flow (Spanwise component is cut)
+        V2D = np.vstack((Vchord * ChordwiseDirection[0,:] + Vthick * ThickwiseDirection[0,:],
+                         Vchord * ChordwiseDirection[1,:] + Vthick * ThickwiseDirection[1,:],
+                         Vchord * ChordwiseDirection[2,:] + Vthick * ThickwiseDirection[2,:]))
+
+        v['Velocity2DX'][:] = V2D[0, :] #Used for VPM
+        v['Velocity2DY'][:] = V2D[1, :]
+        v['Velocity2DZ'][:] = V2D[2, :]
+
+
+        v['AoA'][:] = np.arctan(Vthick/Vchord) * 180/np.pi #CAREFULL IF VCHORD IS 0
+        # note the absence of radial velocity contribution to Velocity Magnitude, Mach and Reynolds
+        v['VelocityMagnitudeLocal'][:] = W = np.sqrt( Vchord**2 + Vthick**2 )
         v['Mach'][:] = W / SoundSpeed
         v['Reynolds'][:] = Density[0] * W * v['Chord'] / Mu
+
+
+        V2Da = ( V2D.T.dot(-RotationAxis) ).T
+        V2Dt = dir * np.diag( V2D.T.dot(TangentialDirection))
+        v['phiRad'][:] = np.arctan2( V2Da, V2Dt ) #Used for Tip-Loss corrections
+        ### END MODIF LL ###
 
 
 def moveLiftingLines(t, TimeStep):
@@ -3946,15 +3947,20 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
     '''
     import scipy.integrate as sint
 
-    FrenetFields = ('tx','ty','tz','nx','ny','nz','bx','by','bz',
-        'tanx','tany','tanz')
-    MinimumRequiredFields = ('phiRad','Cl','Cd','Cm','Chord',
-        'VelocityMagnitudeLocal','s','Span')
-    NewFields = ('fx','fy','fz', 'fa','ft','fn','fb',
+    FrenetFields = ('tanx','tany','tanz')
+    MinimumRequiredFields = ('Cl','Cd','Cm','Chord',
+        'VelocityMagnitudeLocal','s','Span',
+        'AoA',
+        'ChordwiseX', 'ChordwiseY', 'ChordwiseZ',
+        'ThickwiseX', 'ThickwiseY', 'ThickwiseZ',
+        'SpanwiseX', 'SpanwiseY', 'SpanwiseZ')
+    NewFields = ('fx','fy','fz', 'fa','ft',
         'mx','my','mz',
         'm0x','m0y','m0z',
-        'Lx','Ly','Lz','La','Lt','Ln','Lb',
-        'Dx','Dy','Dz','Da','Dt','Dn','Db',
+        'Lx','Ly','Lz','La','Lt',
+        'Lthickwise', 'Lchordwise',
+        'Dx','Dy','Dz','Da','Dt',
+        'Dthickwise', 'Dchordwise',
         'Gamma',
         'GammaX','GammaY','GammaZ',
         )
@@ -4010,21 +4016,19 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         Lift = FluxC*v['Cl']
         Drag = FluxC*v['Cd']
 
+        v['Lchordwise'][:] = -Lift*np.sin(np.deg2rad(v['AoA']))
+        v['Lthickwise'][:] =  Lift*np.cos(np.deg2rad(v['AoA']))
 
+        v['Dchordwise'][:] = Drag*np.cos(np.deg2rad(v['AoA']))
+        v['Dthickwise'][:] = Drag*np.sin(np.deg2rad(v['AoA']))
 
+        v['Lx'][:] = v['Lchordwise']*v['ChordwiseX'] + v['Lthickwise']*v['ThickwiseX']
+        v['Ly'][:] = v['Lchordwise']*v['ChordwiseY'] + v['Lthickwise']*v['ThickwiseY']
+        v['Lz'][:] = v['Lchordwise']*v['ChordwiseZ'] + v['Lthickwise']*v['ThickwiseZ']
+        v['Dx'][:] = v['Dchordwise']*v['ChordwiseX'] + v['Dthickwise']*v['ThickwiseX']
+        v['Dy'][:] = v['Dchordwise']*v['ChordwiseY'] + v['Dthickwise']*v['ThickwiseY']
+        v['Dz'][:] = v['Dchordwise']*v['ChordwiseZ'] + v['Dthickwise']*v['ThickwiseZ']
 
-        v['Ln'][:] = Lift*np.cos(v['phiRad'])
-        v['Lb'][:] = Lift*np.sin(v['phiRad'])
-
-        v['Dn'][:] =-Drag*np.sin(v['phiRad'])
-        v['Db'][:] = Drag*np.cos(v['phiRad'])
-
-        v['Lx'][:] = v['Ln']*v['nx'] + dir*v['Lb']*v['bx']
-        v['Ly'][:] = v['Ln']*v['ny'] + dir*v['Lb']*v['by']
-        v['Lz'][:] = v['Ln']*v['nz'] + dir*v['Lb']*v['bz']
-        v['Dx'][:] = v['Dn']*v['nx'] + dir*v['Db']*v['bx']
-        v['Dy'][:] = v['Dn']*v['ny'] + dir*v['Db']*v['by']
-        v['Dz'][:] = v['Dn']*v['nz'] + dir*v['Db']*v['bz']
 
         v['La'][:] = v['Lx']*RotationAxis[0] + \
                      v['Ly']*RotationAxis[1] + \
@@ -4051,9 +4055,9 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
 
         # ----------------------- COMPUTE LINEAR TORQUE ----------------------- #
         FluxM = FluxC*v['Chord']*v['Cm']
-        v['mx'][:] = dir * FluxM * v['tx']
-        v['my'][:] = dir * FluxM * v['ty']
-        v['mz'][:] = dir * FluxM * v['tz']
+        v['mx'][:] = dir * FluxM * v['SpanwiseX']
+        v['my'][:] = dir * FluxM * v['SpanwiseY']
+        v['mz'][:] = dir * FluxM * v['SpanwiseZ']
         v['m0x'][:] = v['mx'] + ry*v['fz'] - rz*v['fy']
         v['m0y'][:] = v['my'] + rz*v['fx'] - rx*v['fz']
         v['m0z'][:] = v['mz'] + rx*v['fy'] - ry*v['fx']
@@ -4065,9 +4069,9 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         Flowing = abs(w)>0
         FluxKJ[Flowing] /= w[Flowing]
         FluxKJ[~Flowing] = 0.
-        v['GammaX'][:] = dir * FluxKJ * v['tx']
-        v['GammaY'][:] = dir * FluxKJ * v['ty']
-        v['GammaZ'][:] = dir * FluxKJ * v['tz']
+        v['GammaX'][:] = dir * FluxKJ * v['SpanwiseX']
+        v['GammaY'][:] = dir * FluxKJ * v['SpanwiseY']
+        v['GammaZ'][:] = dir * FluxKJ * v['SpanwiseZ']
         v['Gamma'][:] = FluxKJ
         # ------------------------- INTEGRAL LOADS ------------------------- #
         length = norm(np.sum(np.abs(np.diff(xyz,axis=1)),axis=1)) # faster than D.getLength
@@ -5758,7 +5762,19 @@ def addPitch(LiftingLine, pitch=0.0):
 
         PitchAxis = J.getVars(LL, ['PitchAxisX','PitchAxisY','PitchAxisZ'])
 
+
+        Kinematics_n = I.getNodeFromName(LL,'.Kinematics')
+        if not Kinematics_n:
+            raise ValueError('missing ".Kinematics" node')
+
+        Dir_n = I.getNodeFromName1(Kinematics_n,'RightHandRuleRotation')
+        if not Dir_n:
+            raise ValueError('missing "RightHandRuleRotation" node in ".Kinematics"')
+        Dir = I.getValue( Dir_n )
+        if not Dir: Dir = -1
+
+
         PitchCtr_pt = (PitchCtr[0][0]*1.0, PitchCtr[1][0]*1.0, PitchCtr[2][0]*1.0)
-        PitchAxis_vec = (PitchAxis[0][0]*1.0, PitchAxis[1][0]*1.0, PitchAxis[2][0]*1.0)
+        PitchAxis_vec = (PitchAxis[0][0]*Dir, PitchAxis[1][0]*Dir, PitchAxis[2][0]*Dir)
         T._rotate(LL, PitchCtr_pt, PitchAxis_vec, pitch, 
                 vectors=NamesOfChordSpanThickwiseFrame)
