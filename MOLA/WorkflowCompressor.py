@@ -2015,6 +2015,14 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
             BCkwargs['TurboConfiguration'] = TurboConfiguration
             setBC_outmfr2(t, **BCkwargs)
 
+        elif BCparam['type'] == 'OutflowMassFlowFromMach':
+            print(J.CYAN + 'set BC outmfr2 on ' + BCparam['FamilyName'] + J.ENDC)
+            BCkwargs['ReferenceValues'] = ReferenceValues
+            BCkwargs['TurboConfiguration'] = TurboConfiguration
+            BCkwargs['FluidProperties'] = FluidProperties
+            setBC_MachFromMassFlow(t, **BCkwargs)
+
+
         elif BCparam['type'] == 'outradeq':
             print(J.CYAN + 'set BC outradeq on ' + BCparam['FamilyName'] + J.ENDC)
             BCkwargs['ReferenceValues'] = ReferenceValues
@@ -2524,6 +2532,9 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs
     setBC_inj1, setBC_inj1_imposeFromFile, setBC_injmfr1
 
     '''
+    # HACK to handle this function called by a workflow for external aerodynamics
+    ReferenceValues.setdefault('PressureStagnation', None)
+    ReferenceValues.setdefault('TemperatureStagnation', None)
 
     PressureStagnation    = kwargs.get('PressureStagnation', ReferenceValues['PressureStagnation'])
     TemperatureStagnation = kwargs.get('TemperatureStagnation', ReferenceValues['TemperatureStagnation'])
@@ -2981,6 +2992,73 @@ def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues
 
     setBCwithImposedVariables(t, FamilyName, ImposedVariables,
         FamilyBC='BCOutflowSubsonic', BCType='outmfr2', bc=bc)
+
+def setBC_MachFromMassFlow(t, FamilyName, Mach=None, PressureStagnation=None, TemperatureStagnation=None, Surface=None, groupmassflow=1, ReferenceValues=None, TurboConfiguration=None, FluidProperties=None):
+    '''
+    Set an outflow boundary condition of type ``outmfr2``.
+
+    .. note:: see `elsA Tutorial about outmfr2 condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#outmfr2/>`_
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+        Mach : :py:class:`float` or :py:obj:`None`
+            If :py:obj:`None`, the reference Mach in **ReferenceValues** is taken.
+        
+        PressureStagnation : :py:class:`float` or :py:obj:`None`
+            If :py:obj:`None`, the reference PressureStagnation in **ReferenceValues** is taken.
+
+        TemperatureStagnation : :py:class:`float` or :py:obj:`None`
+            If :py:obj:`None`, the reference TemperatureStagnation in **ReferenceValues** is taken.
+
+        Surface : :py:class:`float` or :py:obj:`None`
+            If :py:obj:`None`, the reference Surface in **ReferenceValues** is taken.
+
+        groupmassflow : int
+            Index used to link participating patches to this boundary condition.
+            If several BC ``outmfr2`` are defined, **groupmassflow** has to be
+            incremented for each family.
+
+        ReferenceValues : :py:class:`dict` or :py:obj:`None`
+            dictionary as obtained from :py:func:`computeReferenceValues`.
+        
+        TurboConfiguration : :py:class:`dict` or :py:obj:`None`
+            dictionary as obtained from :py:func:`getTurboConfiguration`. Can
+            be :py:obj:`None` only if **MassFlow** is not :py:obj:`None`.
+
+        FluidProperties : :py:class:`dict` or :py:obj:`None`
+            dictionary as obtained from :py:func:`computeFluidProperties`. 
+    '''
+    if Mach is None:
+        Mach = ReferenceValues['Mach']
+    if PressureStagnation is None:
+        PressureStagnation = ReferenceValues['PressureStagnation']
+    if TemperatureStagnation is None:
+        TemperatureStagnation = ReferenceValues['TemperatureStagnation']
+    if Surface is None:
+        Surface = ReferenceValues['Surface']
+
+    # Massflow on 360°
+    MassFlow = massflowFromMach(Mach, S=Surface, Pt=PressureStagnation, Tt=TemperatureStagnation, r=FluidProperties['IdealGasConstant'], gamma=FluidProperties['Gamma'])
+    # Compute massflow on the required section on Family
+    bc = C.getFamilyBCs(t, FamilyName)[0]
+    zone = I.getParentFromType(t, bc, 'Zone_t')
+    row = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+    try:
+        rowParams = TurboConfiguration['Rows'][row]
+        fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+    except KeyError:
+        # To handle workflows without TurboConfiguration
+        fluxcoeff = 1
+    MassFlow /= fluxcoeff
+
+    setBC_outmfr2(t, FamilyName, MassFlow=MassFlow, groupmassflow=groupmassflow)
 
 def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
     bc=None, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData', variableForInterpolation='ChannelHeight'):
