@@ -1157,10 +1157,8 @@ def updateAndWriteSetup(setup, t=None):
                 setup.elsAkeysNumerics['itime'] = CurrentIteration * setup.elsAkeysNumerics['timestep']
             if setup.elsAkeysNumerics['time_algo'] in ['gear', 'dts']:
                 if t is not None and I.getNodeFromName(t, 'FlowSolution#Init-1'):
-                    if not I.getNodeFromName(t, 'choro_file'): 
-                        # Second order restart not adapted yet for chorochronic simulations
-                        printCo('Prepare a second order restart', 0, color=J.CYAN)
-                        setup.elsAkeysNumerics['exact_restart'] = 'active'
+                    printCo('Prepare a second order restart', 0, color=J.CYAN)
+                    setup.elsAkeysNumerics['exact_restart'] = 'active'
                 else:
                     printCo('Cannot perform a second order restart from this simulation: FlowSolution#Init-1 is missing.', 0, color=J.WARN)
         PRE.writeSetupFromModuleObject(setup)
