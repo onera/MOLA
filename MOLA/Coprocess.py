@@ -348,6 +348,7 @@ def extractSurfaces(t, Extractions, arrays=None):
                             fields2remove += [ field ]
                     for field in fields2remove: I.rmNode(fs,field)
 
+    t = replaceMainContainerByAbsoluteContainerIfExisting(t)
     I._rmNodesByName(t, 'FlowSolution#EndOfRun*')
     reshapeBCDatasetNodes(t)
     I._rmNodesByName(t, 'BCDataSet#Init') # see MOLA #75 and Cassiopee #10641
@@ -3464,3 +3465,47 @@ def removeNonLocalZones(t):
             elif J.zoneHasData(child):
                 children_to_keep += [ child ]
         base[2] = children_to_keep
+
+def replaceMainContainerByAbsoluteContainerIfExisting(t,
+        main_container_name='FlowSolution#Init',
+        absolute_container_name='FlowSolution#EndOfRun#Absolute'):
+    '''
+    Returns a new tree such that for each zone contained in provided **t**,
+    if container **absolute_container_name** exists, then it overrides the
+    existing **main_container_name**. Note that the returned tree will not have 
+    any container named **absolute_container_name** but **main_container_name**.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Input tree possibly containing **main_container_name** and
+            **main_container_name** FlowSolution containers.
+
+        main_container_name : str
+            the name of the main container to be overriden
+
+        absolute_container_name : str
+            the name of the container that will override **main_container_name**
+
+    Returns
+    -------
+
+        tRef : PyTree
+            reference copy of **t** where existing containers **absolute_container_name**
+            have overriden the containers **main_container_name**    
+    '''
+    tRef = I.copyRef(t)
+    for zone in I.getZones(tRef):
+        
+        absolute_container = I.getNodeFromName1(zone, absolute_container_name)
+        if not absolute_container: continue
+
+        main_container = I.getNodeFromName1(zone, main_container_name)
+        if main_container:
+            I._rmNode(zone, main_container)
+
+        absolute_container[0] = main_container_name
+
+    return tRef
+    
