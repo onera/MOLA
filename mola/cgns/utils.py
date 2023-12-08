@@ -173,6 +173,13 @@ def load(filename, only_skeleton=False, backend='h5py2cgns'):
         for link in links:
             t.addLink(path=link[3], target_file=link[1], target_path=link[2])
 
+    elif backend == 'maia':
+        import maia
+        from mpi4py import MPI
+        t = maia.io.file_to_dist_tree(filename, MPI.COMM_WORLD)
+        t = Tree(t)
+        # TODO add links
+        print('Links are not handle with the maia backend for now.')
 
     else:
         raise ModuleNotFoundError('%s backend not supported'%backend)

@@ -142,3 +142,30 @@ def initialize_flow_from_file_by_copy(workflow):
         except AttributeError:
             ERROR_MSG = f"The node {FSpath} is not found in {workflow.Initialization['file']}"
             raise Exception(misc.RED+ERROR_MSG+misc.ENDC)
+
+def compute_turbulent_distance_with_maia(workflow):
+    '''
+    The input tree has to be distributed, read by maia.
+    '''
+    import maia
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+
+    # TODO Add test to check that the tree was read with maia
+    # This function needs to be after the definition of boundary conditions
+
+    part_tree = maia.factory.partition_dist_tree(workflow.tree, comm)
+    maia.algo.part.compute_wall_distance(part_tree, comm, out_fs_name='FlowSolution#Init')  # create a FlowSolution container named WallDistance
+    maia.transfer.part_tree_to_dist_tree_all(workflow.tree, part_tree, comm)
+    cgns.castNode(workflow.tree)
+
+    # FIXME there is a issue with the PointRange: data are stored in 1D either if the mesh is structured
+
+    ## If out_fs_name='FlowSolution#Init' is not used, we need to move the TurbulentDistance node
+    # for zone in workflow.tree.zones():
+    #     FlowSolution = zone.get(Name='FlowSolution#Init', Depth=1)
+    #     WallDistance = zone.get(Name='WallDistance', Depth=1)
+    #     TurbulentDistance = WallDistance.get(Name='TurbulentDistance')
+    #     TurbulentDistance.moveTo(FlowSolution)
+    #     WallDistance.remove()
+
