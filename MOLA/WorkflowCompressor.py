@@ -1168,7 +1168,8 @@ def computeReferenceValues(FluidProperties, PressureStagnation,
                            BCExtractions=dict(
                              BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
                              BCInflow = ['convflux_ro'],
-                             BCOutflow = ['convflux_ro']),
+                             BCOutflow = ['convflux_ro'],
+                             BCGilesMxPl = ['convflux_ro']),
                             **kwargs):
     '''
     This function is the Compressor's equivalent of :func:`MOLA.Preprocess.computeReferenceValues`.
@@ -2096,9 +2097,9 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                 # computation of sound velocity for Giles
                 BCkwargs['VelocityScale'] =  (FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*ReferenceValues['TemperatureStagnation'])**0.5 
 
-            BCkwargs['nscbc_mxpl_flag'] = GilesMonitoringFlag
-            BCkwargs['GilesMonitoringFlag_left'] = GilesMonitoringFlag
-            BCkwargs['GilesMonitoringFlag_right'] = GilesMonitoringFlag+1
+            BCkwargs['nscbc_mxpl_flag'] = GilesMonitoringFlag                   # index gathering left and right BCs for one given Mxpl interface
+            BCkwargs['GilesMonitoringFlag_left'] = GilesMonitoringFlag         # index gathering all BCs "left" for one given Mxpl interface
+            BCkwargs['GilesMonitoringFlag_right'] = GilesMonitoringFlag+1      # index gathering all BCs "right" for one given Mxpl interface
             
             setBC_giles_stage_mxpl(t, **BCkwargs)
             GilesMonitoringFlag += 2
@@ -3354,8 +3355,11 @@ def setBC_giles_stage_mxpl(t, left, right, method = 'Robust', **kwargs):
             
     '''
 
-    # give a FamilyName for the Mxpl (upstream and downstream)
-    MxplFamilyName = 'Mxpl_%i_%i'%(kwargs['GilesMonitoringFlag_left'],kwargs['GilesMonitoringFlag_right']) # + counter
+    # add BCGilesMxpl in family left and family right
+    MxplLeftNode = I.getNodeFromNameAndType(t, left, 'Family_t')
+    I.createChild(MxplLeftNode,'FamilyBC','FamilyBC_t',value='BCGilesMxPl')
+    MxplRightNode = I.getNodeFromNameAndType(t, right, 'Family_t')
+    I.createChild(MxplRightNode,'FamilyBC','FamilyBC_t',value='BCGilesMxPl')
 
     # creation of dictionnary of keys for Giles mxpl left 
     DictKeysGilesMxpl = {}
@@ -3407,38 +3411,27 @@ def setBC_giles_stage_mxpl(t, left, right, method = 'Robust', **kwargs):
     DictKeysGilesMxpl['monitoring_period'] = kwargs.get('monitoring_period',  20)                   # recommended value   
 
     # define parameter for left and right interface
+    
+    LogRootName = 'Mxpl_%i_%i'%(kwargs['GilesMonitoringFlag_left'],kwargs['GilesMonitoringFlag_right']) # give a common LogRootName for the Mxpl interface (upstream and downstream)
     DictKeysGilesMxpl_left = DictKeysGilesMxpl.copy()
     DictKeysGilesMxpl_left['monitoring_flag'] = kwargs['GilesMonitoringFlag_left']                  # automatically computed, must be different from other Giles BC, including right BC of Mxpl
-    DictKeysGilesMxpl_left['monitoring_file'] = 'LOGS/%s_%i_'%(MxplFamilyName,kwargs['GilesMonitoringFlag_left'])
+    DictKeysGilesMxpl_left['monitoring_file'] = 'LOGS/%s_%i_'%(LogRootName,kwargs['GilesMonitoringFlag_left'])
     DictKeysGilesMxpl_right = DictKeysGilesMxpl.copy()
     DictKeysGilesMxpl_right['monitoring_flag'] = kwargs['GilesMonitoringFlag_right']                # automatically computed, must be different from other Giles BC, including left BC of Mxpl
-    DictKeysGilesMxpl_right['monitoring_file'] = 'LOGS/%s_%i_'%(MxplFamilyName,kwargs['GilesMonitoringFlag_right'])
+    DictKeysGilesMxpl_right['monitoring_file'] = 'LOGS/%s_%i_'%(LogRootName,kwargs['GilesMonitoringFlag_right'])
 
-
-    # set the BCs left with keys
+     # set the BCs left with keys
     ListBCNodes_left = C.getFamilyBCs(t,left)
     for BCNode_left in ListBCNodes_left:
         print(I.getPath(t,BCNode_left))       
         J.set(BCNode_left, '.Solver#BC',**DictKeysGilesMxpl_left)
-        # add BC node to the Mxpl Family
-        FamilyNameNode = I.getNodeFromName(BCNode_left,'FamilyName')
-        I.setValue(FamilyNameNode,MxplFamilyName)
 
     # set the BCs right with keys
     ListBCNodes_right = C.getFamilyBCs(t,right)
     for BCNode_right in ListBCNodes_right:
         print(I.getPath(t,BCNode_right))
         J.set(BCNode_right, '.Solver#BC',**DictKeysGilesMxpl_right)
-        # add BC node to the Mxpl Family
-        FamilyNameNode = I.getNodeFromName(BCNode_right,'FamilyName')
-        I.setValue(FamilyNameNode,MxplFamilyName)
 
-    # create a node Family_t for the Mxpl
-    bases = I.getBases(t)
-    base0 = bases[0]
-    NodeMxplFamily = I.createNode(MxplFamilyName,'Family_t',value=None)
-    I.createChild(NodeMxplFamily,'FamilyBC','FamilyBC_t',value='BCGilesMxPl')
-    I.addChild(base0,NodeMxplFamily,pos=-1)
 
 
 @J.mute_stdout
