@@ -1124,6 +1124,7 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
 
     LiftingLine = D.line((0,0,0),(1,0,0),Ns)
     LLx, LLy, LLz = J.getxyz(LiftingLine)
+    NPts = len(LLx)
 
     SpecialTreatment = ['Airfoils','Span','s']
     Variables2Invoke = [v for v in kwargs if v not in SpecialTreatment]
@@ -1186,7 +1187,8 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
     LLfields = ['AoA', 'Mach', 'Reynolds', 'Cl', 'Cd','Cm',
         'PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ',
         'PitchAxisX','PitchAxisY','PitchAxisZ',
-        'TangentialX', 'TangentialY', 'TangentialZ']
+        'TangentialX', 'TangentialY', 'TangentialZ',
+        'SweepAngleDeg', 'DihedralAngleDeg']
     if 'ChordwiseX' not in LLDict: LLfields += ['ChordwiseX','ChordwiseY','ChordwiseZ']
     if 'SpanwiseX' not in LLDict: LLfields += ['SpanwiseX','SpanwiseY','SpanwiseZ']
     if 'ThickwiseX' not in LLDict: LLfields += ['ThickwiseX','ThickwiseY','ThickwiseZ']
@@ -1200,9 +1202,11 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
     v['PitchAxisX'][:] = PitchAxis[0]
     v['PitchAxisY'][:] = PitchAxis[1]
     v['PitchAxisZ'][:] = PitchAxis[2]
+    
 
     # infer the airfoil directions if not explicitly provided by user
     if 'ChordwiseX' not in LLDict:
+        if 'Twist' not in LLDict: LLDict['Twist'] = 0.0
         if RightHandRuleRotation:
             v['ChordwiseY'][:] = -np.cos(np.deg2rad(LLDict['Twist']))
         else:
@@ -1211,7 +1215,7 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
 
     # normalize
     direction = 'Chordwise'
-    for i in range(len(v[direction+'X'])):
+    for i in range(NPts):
         norm = np.linalg.norm([v[direction+''+j][i] for j in 'XYZ'])
         v[direction+'X'][i] /= norm
         v[direction+'Y'][i] /= norm
@@ -1222,7 +1226,7 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
 
     # normalize
     direction = 'Spanwise'
-    for i in range(len(v[direction+'X'])):
+    for i in range(NPts):
         norm = np.linalg.norm([v[direction+''+j][i] for j in 'XYZ'])
         v[direction+'X'][i] /= norm
         v[direction+'Y'][i] /= norm
@@ -1250,7 +1254,7 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
         v['TangentialY'] *= -1
 
     direction = 'Tangential'
-    for i in range(len(v[direction+'X'])):
+    for i in range(NPts):
         norm = np.linalg.norm([v[direction+''+j][i] for j in 'XYZ'])
         v[direction+'X'][i] /= norm
         v[direction+'Y'][i] /= norm
@@ -1262,6 +1266,12 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
                                         MOLAversion=__version__,
                                         GeometricalLaws=kwargs)
     LiftingLine[0] = 'LiftingLine'
+
+    # add sweep and dihedral angles
+    LeadingEdge = I.getZones(getLeadingEdge(LiftingLine))[0]
+    xLE, yLE, zLE = J.getxyz(LeadingEdge)
+    v['SweepAngleDeg'][:] = np.rad2deg(np.arctan2(-np.gradient(yLE,xLE),1))
+    v['DihedralAngleDeg'][:] = np.rad2deg(np.arctan2(np.gradient(LLz,LLx),1))
 
     return LiftingLine
 
@@ -5123,12 +5133,13 @@ def getTrailingEdge(t):
         TrailingEdge = I.copyTree(LiftingLine)
         x, y, z = J.getxyz(TrailingEdge)
         Chord, ChordwiseX, ChordwiseY, ChordwiseZ = J.getVars(TrailingEdge,
-            ['Chord','ChordwiseX', 'ChordwiseY', 'ChordwiseZ'])[0]
+            ['Chord','ChordwiseX', 'ChordwiseY', 'ChordwiseZ'])
 
         Distance2TrailingEdge = 0.75 * Chord
         x += Distance2TrailingEdge * ChordwiseX
         y += Distance2TrailingEdge * ChordwiseY
         z += Distance2TrailingEdge * ChordwiseZ
+        TrailingEdgeLines += [TrailingEdge]
 
     TrailingEdgeBase = I.newCGNSBase('TrailingEdge',cellDim=1,physDim=3)
     TrailingEdgeBase[2] = TrailingEdgeLines # Add Blades
@@ -5168,12 +5179,13 @@ def getLeadingEdge(t):
         x, y, z = J.getxyz(LeadingEdge)
 
         Chord, ChordwiseX, ChordwiseY, ChordwiseZ = J.getVars(LeadingEdge,
-            ['Chord','ChordwiseX', 'ChordwiseY', 'ChordwiseZ'])[0]
+            ['Chord','ChordwiseX', 'ChordwiseY', 'ChordwiseZ'])
 
         Distance2TrailingEdge = 0.25 * Chord
         x -= Distance2TrailingEdge * ChordwiseX
         y -= Distance2TrailingEdge * ChordwiseY
         z -= Distance2TrailingEdge * ChordwiseZ
+        LeadingEdgeLines += [LeadingEdge]
 
     LeadingEdgeBase = I.newCGNSBase('LeadingEdge',cellDim=1,physDim=3)
     LeadingEdgeBase[2] = LeadingEdgeLines # Add Blades
