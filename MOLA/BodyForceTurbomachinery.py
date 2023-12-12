@@ -387,6 +387,43 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades, RowFamily='ROW',
     TrailingEdge = I.getNodeFromName2(t, 'TrailingEdge')
     Inlet = I.getNodeFromName2(t, 'Inlet')
     Outlet = I.getNodeFromName2(t, 'Outlet')
+    
+    try:
+        Farfield = I.getNodeFromName2(t, 'Farfield')
+        farfieldFound = True
+        print('Farfield found. Setting bodyforce for propeller/ORAS configurations.')
+    except:
+        farfieldFound = False
+        print('No Farfield found. Setting bodyforce for turbomachinery.')
+
+    
+    if farfieldFound:
+        try:
+            InletBulbHub = I.getNodeFromName2(t, 'InletBulbHub')
+            InletBulbShroud = I.getNodeFromName2(t, 'InletBulbShroud')
+            UpstreamInlet = I.getNodeFromName2(t, 'UpstreamInlet')
+            FFInlet = I.getNodeFromName2(t, 'FFInlet')
+            UpstreamCentralLine = I.getNodeFromName2(t, 'UpstreamCentralLine')
+            upstreamDomainFound = True
+            print('Domain found upstream of stage inlet (inlet bulb part).')
+        except:
+            upstreamDomainFound = False
+            print('No domain found upstream of stage inlet')        
+
+
+        try:
+            OutletBulbHub = I.getNodeFromName2(t, 'OutletBulbHub')
+            OutletBulbShroud = I.getNodeFromName2(t, 'OutletBulbShroud')
+            DownstreamOutlet = I.getNodeFromName2(t, 'DownstreamOutlet')
+            FFOutlet = I.getNodeFromName2(t, 'FFOutlet')
+            DownstreamCentralLine = I.getNodeFromName2(t, 'downstreamCentralLine')
+            downstreamDomainFound = True
+            print('Domain found downstream of stage outlet (outlet bulb part).')
+        except:
+            downStreamDomainFound = False
+            print('No domain found downstream of stage outlet') 
+
+
 
     # Extrapolate LE and TE lines to be sure that they intersect hub and shroud lines
     ExtrapDistance = 0.05 * W.getLength(LeadingEdge)
@@ -456,6 +493,7 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades, RowFamily='ROW',
         AxialDistributionBetweenLEAndTE = HubBetweenLEAndTE
     if not AxialDistributionAfterTE:
         AxialDistributionAfterTE = HubBetweenTEAndOutlet
+     
 
     # Apply the points distribution for each line
     Inlet = W.discretize(Inlet, N=NumberOfRadialPoints, Distribution=RadialDistribution)
@@ -480,6 +518,65 @@ def buildBodyForceMeshForOneRow(t, NumberOfBlades, RowFamily='ROW',
     I.setName(upstream, f'{RowFamily}_upstream')
     I.setName(bodyForce, f'{RowFamily}_bodyForce')
     I.setName(downstream, f'{RowFamily}_downstream')
+
+    if farfieldFound:
+        LeadingEdgeTmp = D.getCurvilinearAbscissa(LeadingEdge)
+        s = I.getValue(I.getNodeFromName(LeadingEdgeTmp, 's')) * D.getLength(LeadingEdgeTmp)
+        ds = s[1:]-s[:-1]
+        CellWidthAtShroud = ds[-1]   
+    
+        FullRowShroudTmp= W.glueCurvesAtExtrema(ShroudBetweenInletAndLE, ShroudBetweenLEAndTE, curve1_extremum = 'end',curve2_extremum = 'start')
+        FullRowShroud = W.glueCurvesAtExtrema(FullRowShroudTmp,ShroudBetweenTEAndOutlet,curve1_extremum = 'end',curve2_extremum = 'start')
+    
+        if upstreamDomainFound:
+            if not InletBulbHubDistribution:
+                InletBulbHubDistribution = InletBulbHub
+            if not InletBulbShroudDistribution:
+                InletBulbShroudDistribution = InletBulbShroud
+            if not FarfieldRadialDistribution:
+                FarfieldRadialDistribution = dict(kind='tanhOneSides',FirstCellHeight=CellWidthAtShroud)
+            if not FarfieldAxialDistribution:
+                FullRowShroud = W.glueCurvesAtExtrema(InletBulbShroud,FullRowShroud,curve1_extremum = 'end',curve2_extremum = 'start')
+            
+            UpstreamInletNumberOfPoints = J.getx(W.glueCurvesAtExtrema(InletBulbHub,Inlet,curve1_extremum = 'end',curve2_extremum = 'start')).size
+            UpstreamCenterLineDistribution = InletBulbShroudDistribution
+
+            InletBulbHub = W.discretize(InletBulbHub, N=None, Distribution=InletBulbHubDistribution)
+            InletBulbHubNumberOfPoints = J.getx(InletBulbHub).size
+            InletBulbShroud = W.discretize(InletBulbShroud, N=None, Distribution=InletBulbShroudDistribution)
+            UpstreamInlet = W.discretize(UpstreamInlet, N=UpstreamInletNumberOfPoints, Distribution=None)
+            UpstreamInletBottomPart = T.subzone(UpstreamInlet,(1,1,1),(-1,InletBulbHubNumberOfPoints,-1))
+            UpstreamInletTopPart = T.subzone(UpstreamInlet,(1,InletBulbHubNumberOfPoints,1),(-1,-1,-1))
+            UpstreamCenterLine = W.discretize(UpstreamCenterLine, N=None, Distribution=UpstreamCenterLineDistribution)
+            ##############A COMPLETER###################
+            ############################################
+            UpstreamLineBetweenBulbandInlet = curve('UpstreamLineBetweenBulbandInlet', np.array([XMIN,XMAX]), np.array([RMIN[-1],RMAX]))
+            UpstreamLineBetweenBulbandInlet = J.createZone('UpstreamLineBetweenBulbandInlet', [J.getx(UpstreamInletBottomPart), J.gety(UpstreamInletBottomPart)], ['x', 'r'])
+            UpstreamBulbDomain= G.TFI([UpstreamInletBottomPart, InletBulbHub, HubBetweenInletAndLE, ShroudBetweenInletAndLE])
+
+        if downstreamDomainFound:
+            if not OutletBulbHubDistribution:
+                OutletBulbHubDistribution = OutletBulbHub
+            if not OutletBulbShroudDistribution:
+                OutletBulbShroudDistribution = OutletBulbShroud
+            if not FarfieldRadialDistribution:
+                FarfieldRadialDistribution = dict(kind='tanhOneSides',FirstCellHeight=CellWidthAtShroud)
+            if not FarfieldAxialDistribution:        
+                FullRowShroud = W.glueCurvesAtExtrema(FullRowShroud,OutletBulbShroud,curve1_extremum = 'end',curve2_extremum = 'start')
+
+            DownstreamOutletDistribution = W.glueCurvesAtExtrema(OutletBulbHub,Outlet,curve1_extremum = 'end',curve2_extremum = 'start')
+            DownstreamCenterLineDistribution = OutletBulbShroud
+
+            OutletBulbHub = W.discretize(OutletBulbHub, N=None, Distribution=OutletBulbHubDistribution)
+            OutletBulbShroud = W.discretize(OutletBulbShroud, N=None, Distribution=OutletBulbShroudDistribution)
+            DownstreamOutlet = W.discretize(DownstreamOutlet, N=None, Distribution=DownstreamOutletDistribution)
+            DownstreamCenterLine = W.discretize(DownstreamCenterLine, N=None, Distribution=DownstreamCenterLineDistribution)           
+
+        FarfieldAxialDistribution = FullRowShroud
+        Farfield = W.discretize(Farfield, N=None, Distribution=FarfieldAxialDistribution)
+        domainFarfield = G.TFI([FFInlet, FFOutlet, FullRowShroud, Farfield])
+
+
 
     if model == 'hall':
         # Interpolate skeleton data
@@ -1006,6 +1103,275 @@ def extractRowGeometricalData(mesh, row, save=False, locateLE='auto'):
         C.convertPyTree2File(t, f'BodyForceData_{row}.cgns')
 
     return t
+
+
+def extractRowGeometricalDataORAS(mesh, row, save=False, locateLE='auto'):
+    '''
+    Extract geometry data from the input **mesh** for the family **row**.
+    The output tree may be passed to function :py:func:`buildBodyForceMeshForOneRow`.
+
+    .. important:: Dependency to Ersatz
+
+    Parameters
+    ----------
+    mesh : PyTree
+        input mesh
+    row : str
+        Name of the family of the blade of interest
+    save : bool, optional
+        If :py:obj:`True`, save the output tree with the name 'BodyForceData_{row}.cgns'. 
+
+    Returns
+    -------
+    PyTree
+        The ouput tree has the following 1D zones (lines): 
+        Hub, Shroud, LeadingEdge, TrailingEdge, Inlet, Outlet.
+        The last zone 'Skeleton' is a 2D zone, located between the LE and the TE, 
+        with geometrical data on the blade:
+        'nx', 'nr', 'nt', 'thickness', 'AbscissaFromLE'
+    '''
+
+    def profilesExtractionAndAnalysis(tree, row, directory_profiles='profiles', locateLE='auto'):
+
+        import Ersatz as EZ
+        import etc.geom.xr_features as XR
+
+        # if directory doesnt exist create it
+        if (not(os.path.isdir(directory_profiles))):
+            os.mkdir(directory_profiles)
+
+        familyNames = []
+        familyNamesInletBulb = []
+        familyNamesOutletBulb = []
+        for pattern in ['HUB', 'hub', 'Hub']: 
+            families = I.getNodesFromNameAndType(tree, f'{row}_*{pattern}*', 'Family_t')
+            for fam in families:
+                if 'inlet_bulb' in I.getName(fam):
+                    familyNamesInletBulb += [I.getName(fam)]
+                if 'outlet_bulb' in I.getName(fam):
+                    familyNamesOutletBulb += [I.getName(fam)]
+                else: 
+                    familyNames += [I.getName(fam)]
+
+        x, r = XR.extract_xr_family(tree, familyNames)
+        curve = J.createZone('hub', [x, r], ['x', 'r'])
+        C.convertPyTree2File(curve, 'hub.dat')
+
+
+        familyNames = [] 
+        for pattern in ['CON']: 
+            families = I.getNodesFromNameAndType(tree, f'{row}_*{pattern}*', 'Family_t')
+            familyNames += [I.getName(fam) for fam in families]
+        x, r = XR.extract_xr_family(tree, familyNames)
+        shroud_curve= J.createZone('shroud', [x, r], ['x', 'r'])
+
+        if familyNamesInletBulb:
+            xinletBulbHub, rinletBulbHub = XR.extract_xr_family(tree, familyNames)
+            curve = J.createZone('inletBulb_hub', [xinletBulbHub, rinletBulbHub], ['x', 'r'])
+            C.convertPyTree2File(curve, 'inletBulb_hub.dat')
+            inletBulbShroud =  W.trimCurveAlongDirection(shroud_curve, np.array([1., 0, 0]), np.array([-999, 0, 0]), xinletBulbHub[0])
+            C.convertPyTree2File(inletBulbShroud, 'inletBulb_shroud.dat')
+            shroud_curve = W.trimCurveAlongDirection(shroud_curve, np.array([1., 0, 0]), xinletBulbHub[0], np.array([999, 0, 0]))
+
+        if familyNamesOutletBulb:
+            xoutletBulbHub, routletBulbHub = XR.extract_xr_family(tree, familyNames)
+            curve = J.createZone('outletBulb_hub', [xoutletBulbHub, routletBulbHub], ['x', 'r'])
+            C.convertPyTree2File(curve, 'outletBulb_hub.dat')
+            outletBulbShroud =  W.trimCurveAlongDirection(shroud_curve, np.array([1., 0, 0]), xinletBulbHub[-1], np.array([999, 0, 0]))
+            C.convertPyTree2File(outletBulbShroud, 'outletBulb_shroud.dat')
+            shroud_curve = outletBulbShroud =  W.trimCurveAlongDirection(shroud_curve, np.array([1., 0, 0]), np.array([-999, 0, 0]), xinletBulbHub[-1])
+
+        C.convertPyTree2File(shroud_curve, 'shroud.dat')
+
+        # Get blade profiles, assuming that there is only one zone around the blade skin (O-block)
+        for zone in C.getFamilyZones(tree, row):
+            # Search a Blade BC
+            FOUND_BLADE = False
+            for bc in I.getNodesFromType2(zone, 'BC_t'):
+                FamilyNameNode = I.getNodeFromType1(bc, 'FamilyName_t')
+                if not FamilyNameNode: continue
+                FamilyName = I.getValue(FamilyNameNode)
+                if any([pattern in FamilyName for pattern in ['BLADE', 'blade', 'Blade']]):
+                    FOUND_BLADE = True
+                    break
+            if not FOUND_BLADE: 
+                continue
+
+            # Get dimension
+            _, _, zone_j_dim, zone_k_dim, _ = I.getZoneDim(zone)
+            NptsOnProfile = []
+            for j in range(zone_j_dim):
+                zone_t = T.subzone(zone, (1, j+1, 1), (1, j+1, zone_k_dim))
+                x, y, z = J.getxyz(zone_t)
+                curve = J.createZone('profile', [x, y, z], ['x', 'y', 'z'])
+                C.convertPyTree2File(curve, f'{directory_profiles}/profile{j+1:03d}.dat')
+                NptsOnProfile.append(x.size)
+            
+            # Because of the assumption that there is only one zone around the blade skin,
+            # the loop can be broken
+            Nprofiles = zone_j_dim
+            break
+
+        ezpb = EZ.Ersatz()
+        # hub and shroud information (needed for the "height" variable calculation)
+        ezpb.set('hub', 'hub.dat')
+        ezpb.set('shroud', 'shroud.dat')
+
+        profile = []
+        for n in range(Nprofiles):
+            profile.append(EZ.Profile(ezpb))
+            profile[-1].set('file', f'{directory_profiles}/profile{n+1:03d}.dat')
+            if locateLE == 'from_index':
+                profile[-1].set('LEindex', NptsOnProfile[n]/2+1)
+            else:
+                assert locateLE =='auto'
+
+        # geometric analysis
+        ezpb.set('extract_skeleton', 1)
+        ezpb.set('extract_thickness', 1)
+        ezpb.set('extract_chord', 1)
+        ezpb.set('extract_TE', 1)
+        ezpb.set('extract_LE', 1)
+
+        ezpb.submit()
+        ezpb.compute()
+
+        os.system('rm -f EZMesh*.plt')
+
+
+    def readEndWallLine(filenane):
+        tree = C.convertFile2PyTree(filenane)
+        x_zones = []
+        r_zones = []
+        for zone in I.getZones(tree):
+            x_zones.append(I.getValue(I.getNodeFromName(zone, 'CoordinateX')))
+            r_zones.append(I.getValue(I.getNodeFromName(zone, 'r')))
+        # Sort by x
+        ind_xmin = sorted(enumerate(x_zones), key=lambda x: np.amin(x[1]))
+
+        xhub = []
+        rhub = []
+        for i, xp in ind_xmin:
+            xhub += list(xp)
+            rhub += list(r_zones[i])
+        return np.array(xhub), np.array(rhub)
+
+    def readLEorTE(filename):
+        tree = C.convertFile2PyTree(filename)
+        x, y, z = J.getxyz(I.getNodeFromType(tree, 'Zone_t'))
+        r = np.sqrt(y**2 + z**2)
+        return x, r
+
+    def curve(name, x, y, z=None):
+        if z is None: z = np.zeros(x.size)
+        curve = J.createZone(name, [x, y, z], ['CoordinateX', 'CoordinateY', 'CoordinateZ'])
+        return curve
+
+
+    directory_profiles = 'profiles_{}'.format(row)
+    profilesExtractionAndAnalysis(mesh, row, directory_profiles=directory_profiles, locateLE=locateLE)
+
+    chordTree = C.convertFile2PyTree('chord.dat')
+    C._extractVars(chordTree, ['chord', 'chordx'])
+
+    thicknessTree = C.convertFile2PyTree('thickness.dat')
+    C._extractVars(thicknessTree, ['xsc', 'thickness', 'mnorm'])
+
+    skeletonTree = C.convertFile2PyTree('skeleton.dat')
+    G._getNormalMap(skeletonTree)
+    skeletonTree = C.center2Node(skeletonTree, 'centers:sx')
+    skeletonTree = C.center2Node(skeletonTree, 'centers:sy')
+    skeletonTree = C.center2Node(skeletonTree, 'centers:sz')
+    I._rmNodesByName(skeletonTree, 'FlowSolution#Centers')
+    C._initVars(skeletonTree, '{theta}=arctan2({CoordinateZ}, {CoordinateY})')
+    C._initVars(skeletonTree, '{CoordinateY}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
+    C._initVars(skeletonTree, '{CoordinateZ}=0.')
+    C._initVars(skeletonTree, '{sr}= cos({theta})*{sy} + sin({theta})*{sz}') 
+    C._initVars(skeletonTree, '{st}=-sin({theta})*{sy} + cos({theta})*{sz}')
+    C._initVars(skeletonTree, '{nx}={sx}/({sx}**2+{sy}**2+{sz}**2)**0.5')
+    C._initVars(skeletonTree, '{nr}={sr}/({sx}**2+{sy}**2+{sz}**2)**0.5')
+    C._initVars(skeletonTree, '{nt}={st}/({sx}**2+{sy}**2+{sz}**2)**0.5')
+    C._extractVars(skeletonTree, ['CoordinateX', 'CoordinateY', 'CoordinateZ', 'nx', 'nr', 'nt'])
+
+    skeletonZone = I.getZones(skeletonTree)[0]
+
+    I.setName(skeletonZone, 'Skeleton')
+    FlowSolution = I.getNodeFromType1(skeletonZone, 'FlowSolution_t')
+
+    for node in I.getNodesFromType(thicknessTree, 'DataArray_t'):
+        I.addChild(FlowSolution, node)
+
+    shape = I.getValue(I.getNodeFromType(FlowSolution, 'DataArray_t')).shape
+    for node in I.getNodesFromType(chordTree, 'DataArray_t'):
+        value = I.getValue(node)
+        reshapedValue = np.zeros(shape)
+        for i in range(shape[0]):
+            reshapedValue[i, :] = value
+        I.newDataArray(name=I.getName(node), value=reshapedValue, parent=FlowSolution)
+
+    C._initVars(skeletonTree, '{AbscissaFromLE}={mnorm}*{chord}')
+    C._rmVars(skeletonTree, ['xsc', 'mnorm', 'chord', 'chordx'])
+
+    xhub, rhub = readEndWallLine('hub.dat')
+    xshroud, rshroud = readEndWallLine('shroud.dat')
+
+    xLE, rLE = readLEorTE('LE.dat')
+    xTE, rTE = readLEorTE('TE.dat')
+    assert rTE.size > 5, J.FAIL+f'Building of body-force mesh in MOLA assumes that the Autogrid mesh contains more than 5 points in the radial direction ({rTE.size} points detected in the current AG5 mesh)'+J.ENDC
+    
+
+    Hub          = curve('Hub', xhub, rhub)
+    Shroud       = curve('Shroud', xshroud, rshroud)
+    LeadingEdge  = curve('LeadingEdge', xLE, rLE)
+    TrailingEdge = curve('TrailingEdge', xTE, rTE)
+    Inlet   = curve('Inlet', np.array([xhub[0], xshroud[0]]), np.array([rhub[0], rshroud[0]]))
+    Outlet  = curve('Outlet', np.array([xhub[-1], xshroud[-1]]), np.array([rhub[-1], rshroud[-1]]))
+
+    FFUpstreamX = np.absolute(xshroud[0])
+    FFDownstreamX = np.absolute(xshroud[-1])
+    FFDistance = np.absolute(np.mean(np.array([FFUpstreamX,FFDownstreamX])))
+
+    Farfield = curve('Farfield', np.array([FFUpstreamX,FFDownstreamX]), np.array([FFDistance,FFDistance]))
+    
+    zoneList = [Farfield, Hub, Shroud, LeadingEdge,
+                    TrailingEdge, Inlet, Outlet, skeletonZone]
+    try:
+        xinletBulbHub, rinletBulbHub = readEndWallLine('inletBulb_hub.dat')
+        InletBulbHub = curve('inletBulb_Hub', xinletBulbHub, rinletBulbHub)
+        xinletBulbShroud, rinletBulbShroud = readEndWallLine('inletBulb_shroud.dat')   
+        InletBulbShroud = curve('inletBulb_Shroud', xinletBulbShroud, rinletBulbShroud)
+        UpstreamInlet = curve('UpstreamInlet', np.array([xinletBulbHub[0], xinletBulbShroud[0]]), np.array([rinletBulbHub[0], rinletBulbShroud[0]]))
+        FFInlet = curve('FFInlet', np.array([FFUpstreamX,FFUpstreamX]), np.array([rinletBulbShroud[0],FFDistance]))
+        UpstreamCenterLine = curve('UpstreamCenterLine', np.array([FFUpstreamX, xinletBulbHub[0]]), np.array([rinletBulbHub[0], rinletBulbHub[0]]))
+        zoneList += [UpstreamInlet, UpstreamCenterlLine, InletBulbHub, InletBulbShroud,FFInlet]
+    except Exception as err:
+        print('Could not treat the inlet bulb. Please check that inletBulb_hub.dat exists')
+
+    try:
+        OutletBulbHub       = curve('outletBulb_Hub', xoutletBulbHub, routletBulbHub)
+        xoutletBulbHub, routletBulbHub = readEndWallLine('outletBulb_hub.dat')
+        OutletBulbShroud = curve('outletBulb_Shroud', xoutletBulbShroud, routletBulbShroud)
+        xoutletBulbShroud, routletBulbShroud = readEndWallLine('outletBulb_shroud.dat')
+        DownstreamOutlet = curve('DownstreamOutlet', np.array([xoutletBulbHub[0], xoutletBulbShroud[0]]), np.array([routletBulbHub[0], routletBulbShroud[0]]))
+        FFOutlet = curve('FFOutlet', np.array([FFDownstreamX,FFDownstreamX]), np.array([routletBulbShroud[-1],FFDistance]))
+        DownstreamCenterLine = curve('DownstreamCenterlLine', np.array([xoutletBulbHub[-1], FFDownstreamX]), np.array([routletBulbHub[-1], routletBulbHub[-1]]))
+        zoneList += [DownstreamOutlet, DownstreamCenterlLine, OutletBulbHub, OutletBulbShroud,FFOutlet]
+    except Exception as err:
+        print('Could not treat the outlet bulb. Please check that outletBulb_hub.dat exists')
+
+
+
+    t = C.newPyTree(['Base', zoneList])
+
+    os.system(f'rm -f hub.dat shroud.dat')
+    os.system(f'rm -rf {directory_profiles}')
+    os.system('rm -f LE.dat TE.dat chord.dat thickness.dat skeleton.dat')
+
+    if save:
+        C.convertPyTree2File(t, f'BodyForceData_{row}.cgns')
+
+    return t
+
 
 
 def computeBlockage(t, Nblades, eps=1e-6):
