@@ -248,7 +248,7 @@ def extractSurfaces(t, Extractions, arrays=None):
 
                     .. code-block:: python
 
-                            dict(name='probeTest', location=(0.012, 0.24, -0.007), variables=['Temperature', 'Pressure'])
+                            dict(type='Probe', name='probeTest', location=(0.012, 0.24, -0.007), variables=['Temperature', 'Pressure'])
 
                     .. note:: If not provided, defaut name will be 'Probe_X_Y_Z'
               
