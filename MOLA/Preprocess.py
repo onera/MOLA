@@ -252,7 +252,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
         Extractions=[{'type':'AllBCWall'}], BoundaryConditions=[],
         Initialization=dict(method='uniform'),
         BodyForceInputData=[], writeOutputFields=True,
-        JobInformation={}, SubmitJob=False, COPY_TEMPLATES=True):
+        JobInformation={}, SubmitJob=False, COPY_TEMPLATES=True, secondOrderRestart=True):
     r'''
     This macro-function takes as input a preprocessed grid file (as produced
     by function :py:func:`prepareMesh4ElsA` ) and adds all remaining information
@@ -537,7 +537,8 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
     elsAkeysNumerics = getElsAkeysNumerics(ReferenceValues,
                                 unstructured=IsUnstructured, **NumericalParams)
     
-    secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
+    if secondOrderRestart:
+        secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
 
     if useBCOverlap and not OversetMotion:
         elsAkeysNumerics['chm_interpcoef_frozen'] = 'active'

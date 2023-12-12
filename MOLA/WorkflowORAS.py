@@ -56,7 +56,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         BodyForceInputData={}, writeOutputFields=True, Initialization={'method':'uniform'}, 
         TurboConfiguration={},
         BoundaryConditions=[],bladeFamilyNames=['Blade'],
-        JobInformation={}, SubmitJob=False, FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
+        JobInformation={}, SubmitJob=False, FULL_CGNS_MODE=False, COPY_TEMPLATES=True, 
+        secondOrderRestart=True):
     '''
     This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to ORAS mono-chanel computations. Its purpose is adapting
@@ -210,7 +211,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             print(J.FAIL + MSG + J.ENDC)
             raise Exception(J.FAIL + MSG + J.ENDC)
     
-    secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
+    if secondOrderRestart:
+        secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
     
     if not 'PeriodicTranslation' in TurboConfiguration and \
         any([rowParams['NumberOfBladesSimulated'] > rowParams['NumberOfBladesInInitialMesh'] \

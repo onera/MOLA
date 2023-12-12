@@ -271,7 +271,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         PostprocessOptions={}, BodyForceInputData={}, writeOutputFields=True,
         bladeFamilyNames=['BLADE', 'AUBE'], Initialization={'method':'uniform'},
         JobInformation={}, SubmitJob=False,
-        FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
+        FULL_CGNS_MODE=False, COPY_TEMPLATES=True, secondOrderRestart=True):
     '''
     This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to compressor computations. Its purpose is adapting the CGNS to
@@ -447,7 +447,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                             unstructured=IsUnstructured, **NumericalParams)
     
     # Restart with second order automatically for unsteady simulation
-    secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
+    if secondOrderRestart:
+        secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
 
     if Initialization['method'] == 'turbo':
         t = initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboConfiguration)

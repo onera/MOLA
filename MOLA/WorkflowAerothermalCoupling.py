@@ -90,7 +90,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         TurboConfiguration={}, Extractions=[], BoundaryConditions=[],
         BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade'],
         Initialization={'method':'uniform'}, JobInformation={}, SubmitJob=False,
-        FULL_CGNS_MODE=True, COPY_TEMPLATES=True):
+        FULL_CGNS_MODE=True, COPY_TEMPLATES=True, secondOrderRestart=True):
     '''
     This is mainly a function similar to :func:`MOLA.WorkflowCompressor.prepareMainCGNS4ElsA`
     but adapted to aerothermal simulations with CWIPI coupling.
@@ -243,7 +243,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues,
                             unstructured=IsUnstructured, **NumericalParams)
 
-    secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
+    if secondOrderRestart:
+        secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
     PRE.initializeFlowSolution(t, Initialization, ReferenceValues, secondOrderRestart=secondOrderRestart)
 
     if not 'PeriodicTranslation' in TurboConfiguration and \

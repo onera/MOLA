@@ -468,7 +468,8 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                     Initialization={'method':'uniform'},
                     JobInformation={},
                     SubmitJob=False,
-                    COPY_TEMPLATES=True):
+                    COPY_TEMPLATES=True, 
+                    secondOrderRestart=True):
     '''
     This is mainly a function similar to :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to airfoil computations. Its purpose is adapting the CGNS to
@@ -677,7 +678,8 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                         elsAkeysNumerics=elsAkeysNumerics,
                         Extractions=Extractions)
 
-    secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
+    if secondOrderRestart:
+        secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
     t = PRE.newCGNSfromSetup(t, AllSetupDicts, Initialization=Initialization,
                             FULL_CGNS_MODE=False, BCExtractions=BCExtractions, 
                             secondOrderRestart=secondOrderRestart)

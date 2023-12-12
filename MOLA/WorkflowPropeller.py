@@ -165,7 +165,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
         JobInformation={},
         SubmitJob=False,
         FULL_CGNS_MODE=False,
-        COPY_TEMPLATES=True):
+        COPY_TEMPLATES=True, 
+        secondOrderRestart=True):
     '''
     This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to propeller mono-chanel computations. Its purpose is adapting
@@ -338,7 +339,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns',
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues,
                             unstructured=IsUnstructured, **NumericalParams)
 
-    secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
+    if secondOrderRestart:
+        secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
     PRE.initializeFlowSolution(t, Initialization, ReferenceValues, secondOrderRestart=secondOrderRestart)
 
     WC.setMotionForRowsFamilies(t, TurboConfiguration)
