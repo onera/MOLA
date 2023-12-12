@@ -15,8 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import numpy as np
 from mola.workflow.workflow import Workflow
-from .internal_flow import FlowGenerator as InternalFlowGenerator
 import mola.application.turbomachine as Turb
 
 
@@ -26,7 +26,7 @@ class WorkflowTurbomachinery(Workflow):
                 
                  Splitter='PyPart',
 
-                 FlowGenerator=InternalFlowGenerator,
+                 FlowGenerator='Internal',
 
                  **kwargs
                  ):
@@ -53,8 +53,8 @@ class WorkflowTurbomachinery(Workflow):
             # )
 
             self.Extractions.append(
-                dict(type='bc', BCType='BCInflow*', fields=['convflux_ro']),
-                dict(type='bc', BCType='BCOutflow*', fields=['convflux_ro']),
+                dict(type='bc', BCType='BCInflow*', fields=['MassFlow']),
+                dict(type='bc', BCType='BCOutflow*', fields=['MassFlow']),
             )
         
 
@@ -288,3 +288,88 @@ class WorkflowTurbomachinery(Workflow):
         J.joinFamilies(t, 'HUB')
         J.joinFamilies(t, 'SHROUD')
         return t
+
+    def set_motion(self):
+        for row, rowParams in self.TurboConfiguration['Rows'].items():
+            try: 
+                omega = rowParams['RotationSpeed']
+            except KeyError:
+                # No RotationSpeed --> zones attached to this family are not moving
+                continue
+
+            try: 
+                # Test if zones in that family are modelled with Body Force
+                for zone in self.zones():
+                    if zone.get(Type='FamilyName', Depth=1).value() == row:
+                        if zone.get(Name='FlowSolution#DataSourceTerm', Depth=1):
+                            # If this node is present, body force is used
+                            # Then the frame of this row must be the absolute frame
+                            assert False
+            except AssertionError:
+                # zones attached to this family are not moving
+                continue
+
+            if not row in self.Motion:
+                RotationAxis = [1, 0, 0]  # TODO Allow a different rotation axis
+                self.Motion[row] = dict(
+                    RotationSpeed = omega * np.array(RotationAxis),
+                )
+
+
+        super().set_motion(self)
+
+    def set_boundary_conditions(self):
+
+        def extendListOfFamilies(FamilyNames):
+            '''
+            For each <NAME> in the list **FamilyNames**, add Name, name and NAME.
+            '''
+            ExtendedFamilyNames = copy.deepcopy(FamilyNames)
+            for fam in FamilyNames:
+                newNames = [fam.lower(), fam.upper(), fam.capitalize()]
+                for name in newNames:
+                    if name not in ExtendedFamilyNames:
+                        ExtendedFamilyNames.append(name)
+            return ExtendedFamilyNames
+
+        for blade_family in extendListOfFamilies(['blade', 'aube']):
+            for famNode in self.tree.group(Type='Family', Name=f'*{blade_family}*'):
+                FamilyBoundary = famNode.name()
+                if FamilyBoundary in self.BoundaryConditions: 
+                    # BC already defined by user
+                    continue
+                if FamilyBoundary.startswith('F_OV_') or FamilyBoundary.endswith('Zones'): continue  # TODO Is it possible to remove this condition ?
+                
+                # Get one bc attached to this family
+                one_bc_FamilyName = self.tree.get(Type='FamilyName', Value=FamilyBoundary)
+                zone = one_bc_FamilyName.getParent(Type='Zone')
+                row_family = zone.get(Type='FamilyName').value()
+
+                self.BoundaryConditions.append(
+                    dict(Motion=self.Motion[row_family])
+                    )
+        
+        def hub_rotation_function(CoordinateX):
+            RotationAxis = [1, 0, 0]  # TODO Allow a different rotation axis
+            omega = np.zeros(CoordinateX.shape, dtype=float)
+            for (x1, x2) in self.TurboConfiguration['HubRotationSpeed']:
+                omega[(x1<=CoordinateX) & (CoordinateX<=x2)] = self.TurboConfiguration['ShaftRotationSpeed']
+            return dict(
+                RotationSpeed = omega * np.array(RotationAxis)
+                )
+                
+        for hub_family in extendListOfFamilies(['hub', 'moyeu']):
+            for famNode in self.tree.group(Type='Family', Name=f'*{hub_family}*'):
+                FamilyBoundary = famNode.name()
+                if FamilyBoundary in self.BoundaryConditions: 
+                    # BC already defined by user
+                    continue
+                if FamilyBoundary.startswith('F_OV_') or FamilyBoundary.endswith('Zones'): continue  # TODO Is it possible to remove this condition ?
+                
+                self.BoundaryConditions.append(
+                    dict(Motion=hub_rotation_function)
+                    )
+
+        # Note: nothing is done on shroud, because default values will impose a zero motion later in super().set_boundary_conditions(self)
+
+        super().set_boundary_conditions(self)

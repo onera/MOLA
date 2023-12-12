@@ -277,9 +277,9 @@ class Workflow(object):
         self.split_and_distribute() # FIXME: the tree is wrong after this method (see printPaths, name of bases are wrong)
         self.process_overset()
         self.compute_reference_values()
+        self.set_motion()
         self.initialize_flow() # eventually + distance to wall
         self.set_boundary_conditions()
-        self.set_motion()
         self.set_cfd_parameters() # model, numerics, others...
         self.set_extractions()
         # self.adapt_tree_to_solver()

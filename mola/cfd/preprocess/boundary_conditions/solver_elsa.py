@@ -351,6 +351,10 @@ def setBCwithImposedVariables(workflow, Family, ImposedVariables, FamilyBC, BCTy
             gridLocation='FaceCenter', parent=bc)
         J.set(BCDataSet, BCDataName, childType='BCData_t', **ImposedVariables)
 
+def impose_bc_fields(workflow, bc_path, ImposedVariables):
+    bc_node = workflow.tree.getAtPath(bc_path)
+    BCDataSet = c.Node( Name='BCDataSet#Init', Value='Null', Type='BCDataSet', Parent=bc_node )
+    BCDataSet.setParameters('NeumannData', ContainerType='BCData', **ImposedVariables)
 
 def checkVariables(ImposedVariables):
     '''

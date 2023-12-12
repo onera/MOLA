@@ -74,6 +74,70 @@ def apply(workflow):
         else:
             solverSpecificFunction(workflow, *args, **kwargs)
 
+def apply_function_to_BCDataSet(workflow, Family, functions_to_apply):
+    '''
+    Apply a function to all face centers in the BC attached to **Family**
+
+    Parameters
+    ----------
+    workflow : Workflow object
+
+    Family: str
+        Name of the Family attached to the given boundary condition
+
+    function_to_apply: fun
+        Function to apply to all face centers of BC. The arguments of the function must be variables names
+        present in the tree. 
+
+    Return
+    ------
+    ???
+
+    Example
+    -------
+    To define the wall velocity at the hub, a function could be defined: 
+
+    .. code-block::python
+
+        def hub_function(CoordinateX):
+            omega = np.zeros(CoordinateX.shape, dtype=float)
+            omega[(x1<=CoordinateX) & (CoordinateX<=x2)] = 500.
+            return dict(Motion = omega * np.array(RotationAxis))
+
+        apply_function_to_BCDataSet(workflow, 'Hub', hub_function)
+    '''
+    bc_list = C.extractBCOfName(workflow.tree, f'FamilySpecified:{Family}')
+    bc_list = C.node2Center(bc_list)
+
+    bc_dict = dict()
+    for bc in bc_list:
+
+        VarDictToImpose = dict()
+        for variable_name, function_to_apply in functions_to_apply.items():
+            # args_names is the tuple of the names of arguments of function_to_apply
+            args_names = function_to_apply.__code__.co_varnames[:function_to_apply.__code__.co_argcount]
+            kwargs = dict()
+            for arg_name in args_names:
+                nodes = bc.group(Name=arg_name, Type='DataArray')
+                if len(nodes) == 0:
+                    raise Exception(f'{arg_name} is not found in {bc.name()}')
+                elif len(nodes) == 1:
+                    node = nodes[0]
+                else:
+                    pass
+
+                kwargs[arg_name] = node.value()
+
+            VarDictToImpose[variable_name] = function_to_apply(kwargs)
+
+        # Get BC path in the main tree
+        zname, wname = bc.name().split(os.sep)
+        bc_path = f'{zname}/ZoneBC/{wname}'
+
+        bc_dict[bc_path] = VarDictToImpose
+
+    return [bc['Family']], dict(non_uniform_fields=bc_dict)                 
+
 def Wall(workflow, bc):
     return WallViscous(workflow, bc)
 
