@@ -252,7 +252,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
         Extractions=[{'type':'AllBCWall'}], BoundaryConditions=[],
         Initialization=dict(method='uniform'),
         BodyForceInputData=[], writeOutputFields=True,
-        JobInformation={}, SubmitJob=False, COPY_TEMPLATES=True, secondOrderRestart=True):
+        JobInformation={}, SubmitJob=False, COPY_TEMPLATES=True, secondOrderRestart=False):
     r'''
     This macro-function takes as input a preprocessed grid file (as produced
     by function :py:func:`prepareMesh4ElsA` ) and adds all remaining information
@@ -478,6 +478,17 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
         COPY_TEMPLATES : bool
             If :py:obj:`True` (default value), copy templates files in the
             current directory.
+
+        secondOrderRestart : bool
+            If :py:obj:`True`, and if NumericalParams['time_algo'] is 'gear' or 'DualTimeStep' 
+            (second order time integration schemes), prepare a second order restart, and allow 
+            the automatic restart of such a case. By default, the value is :py:obj:`False`.
+
+            .. important:: 
+            
+                This behavior works only if elsA reaches the final iteration given by ``niter``.
+                If the simulation stops because of the time limit or because all convergence criteria
+                have been reached, then the restart will be done at the first order, without raising an error.
 
     Returns
     -------
