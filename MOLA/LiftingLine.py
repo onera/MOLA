@@ -79,7 +79,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     AttemptCommandGuess=[],
     PerturbationFields=None,
     LiftingLineSolver='MOLA', StackOptions={}, WeightEqns=[],
-    SourceTermScale=1.0, TipLossFactorOptions={}):
+    SourceTermScale=1.0, TipLossFactorOptions={}, SweepCorrection = {},DihedralCorrection = {}):
     '''
     Macro-function used to generate the ready-to-use BodyForce
     element for interfacing with a CFD solver.
@@ -107,7 +107,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
             Propeller's pitch. If not
             :py:obj:`None`, then this value overrides the possibly existing
             one contained in special CGNS node ``.Kinematics`` associated to
-            a *LiftingLine* zone
+            a *LiftingLine* zoneLLnameInitial
 
         CommandType : str
             Type of command used for trim. May be ``'Pitch'`` or ``'RPM'``
@@ -176,6 +176,36 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
             This :py:class:`dict` defines a pair of keyword-arguments of the 
             function :py:func:`applyTipLossFactorToBladeEfforts`.
 
+        SweepCorrection : :py:class:`dict` of :py:class:`binary`
+            Kind of sweep correction to be used. Keys are the following:
+
+            * ``'Speed'``
+                Correction of the speed magnitude
+
+            * ``'AOA'``
+                Correction of the angle of attack. TOB BE IMPLEMENTED
+
+            * ``'Chord'``
+                Correction of the chord value   TO BE IMPLEMENTED
+
+            * ``'Effort'``
+                Correction of the lift and drag coefficients TO BE IMPLEMENTED
+
+        DihedralCorrection : :py:class:`dict` of :py:class:`binary`
+            Kind of dihedral correction to be used. Keys are the following:
+
+            * ``'Speed'``
+                Correction of the speed magnitude
+
+            * ``'AOA'``
+                Correction of the angle of attack. TOB BE IMPLEMENTED
+
+            * ``'Chord'``
+                Correction of the chord value   TO BE IMPLEMENTED
+
+            * ``'Effort'``
+                Correction of the lift and drag coefficients TO BE IMPLEMENTED
+
     Returns
     -------
 
@@ -196,6 +226,13 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
             raise ValueError('Must provide Propeller or PerturbationFields')
         addPerturbationFields([], PerturbationFields=PerturbationFields)
         return [] # BEWARE: CANNOT USE BARRIERS IN THIS FUNCTION FROM THIS LINE
+
+    ListOfSweepAndDihedralCorrectionTypes = ['Speed','AOA', 'Chord', 'Effort']
+    for cor in ListOfSweepAndDihedralCorrectionTypes:
+        if cor not in SweepCorrection.keys():
+            SweepCorrection[cor] = False
+        if cor not in DihedralCorrection.keys():
+            DihedralCorrection[cor] = False
 
 
     usePUMA = LiftingLineSolver == 'PUMA'
@@ -306,10 +343,11 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         elif CommandType == 'RPM':
             addPitch(tLL, Pitch)
             RPM_n[1] = cmd
+            
 
         setRPM(tLL, RPM_n[1])
         computeKinematicVelocity(tLL)
-        assembleAndProjectVelocities(tLL)
+        assembleAndProjectVelocities(tLL, SweepVelocityCorrection = SweepCorrection['Speed'])
         _applyPolarOnLiftingLine(tLL,PolarsInterpolatorsDict)
 
         if TipLossFactorOptions:
@@ -3214,7 +3252,7 @@ def computeKinematicVelocity(t):
             v['VelocityKinematicY'][i] = VelocityKinematic[1]
             v['VelocityKinematicZ'][i] = VelocityKinematic[2]
 
-def assembleAndProjectVelocities(t):
+def assembleAndProjectVelocities(t, SweepVelocityCorrection = False):
     '''
     This function updates a series of veolicity (and other fields) of
     LiftingLines provided a given kinematic and flow conditions.
@@ -3293,6 +3331,7 @@ def assembleAndProjectVelocities(t):
                           'SpanwiseX','SpanwiseY','SpanwiseZ',
                           'ThickwiseX','ThickwiseY','ThickwiseZ',
                           'TangentialX','TangentialY','TangentialZ',
+                          'SweepAngleDeg', 'DihedralAngleDeg'
                           ]
 
     LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
@@ -3345,6 +3384,11 @@ def assembleAndProjectVelocities(t):
         v['AoA'][:] = np.rad2deg( np.arctan2(Vthick,Vchord) )
         # NOTE the absence of radial velocity contribution to Velocity Magnitude, Mach and Reynolds
         v['VelocityMagnitudeLocal'][:] = W = np.sqrt( Vchord**2 + Vthick**2 )
+
+        if SweepVelocityCorrection:
+            W *= np.cos(np.deg2rad(v['SweepAngleDeg']))
+        
+
         v['Mach'][:] = W / SoundSpeed
         v['Reynolds'][:] = Density[0] * W * v['Chord'] / Mu
 
@@ -5279,3 +5323,5 @@ def addPitch(LiftingLine, pitch=0.0):
         PitchAxis_vec = (PitchAxis[0][0]*Dir, PitchAxis[1][0]*Dir, PitchAxis[2][0]*Dir)
         T._rotate(LL, PitchCtr_pt, PitchAxis_vec, pitch, 
                 vectors=NamesOfChordSpanThickwiseFrameNoTangential)
+
+   
