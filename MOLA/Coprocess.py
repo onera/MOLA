@@ -2827,7 +2827,7 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
 
     For each row modelled with body force, the following parameters are optional:
 
-    * **relax** (=0.5 by default): Relaxation coefficient for the source terms. 
+    * **relax** (=0 by default, no relaxation): Relaxation coefficient for the source terms. 
        Should be less than 1 (if equal to 1, the new source terms are equal to the previous ones).
 
     * **rampIterations** (=50 by default): Number of iterations (starting from **BodyForceInitialIteration**)
@@ -2905,7 +2905,7 @@ def updateBodyForce(t, previousTreeWithSourceTerms=[]):
         assert BFtype =='AnalyticalByFamily', 'Body-force "type" must be "AnalyticalByFamily" for now'
 
         CouplingOptions = copy.deepcopy(BodyForceComponent.get('CouplingOptions', dict()))
-        relax = CouplingOptions.get('relax', 0.5)
+        relax = CouplingOptions.get('relax', 0.)
         BodyForceFinalIteration = BodyForceInitialIteration + CouplingOptions.get('rampIterations', 50.)
         coeff_eff = J.rampFunction(BodyForceInitialIteration, BodyForceFinalIteration, 0., 1.)
 
