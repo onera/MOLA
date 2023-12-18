@@ -1488,10 +1488,9 @@ def multiSections(ProvidedSections, SpineDiscretization,
 
     return Surface, SpineCurve
 
-
-
 def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
           RotationAxis, BladeDirection, RelativeChordReference=0.25,
+          PitchAxis=None, PitchRelativeCenter=[0,0,0],
           buildCamberOptions={}, splitAirfoilOptions={}):
     '''
     Make a scanner of a blade surface in order to construct the sections,
@@ -1524,6 +1523,17 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
             Inferred geometrical laws are meaningful considering the stacking
             **RelativeChordReference**.
 
+        PitchAxis : :py:obj:`None` or 3-:py:class:`float` array
+            If provided (not :py:obj:`None`), then it specifies the direction
+            of the pitch axis. If not provided (:py:obj:`None`) it takes the 
+            value of **BladeDirection**
+
+        PitchRelativeCenter : 3-:py:class:`float` array
+            Relative direction of the passing point of the **PitchAxis** relative
+            to the position of the **RotationCenter**. By default,
+            **PitchRelativeCenter** = :math:`(0,0,0)`, which means that the 
+            pitch point coincides with **RotationCenter**
+
         buildCamberOptions : dict
             Optional argument passed to :py:func:`MOLA.Wireframe.buildCamber`
             function. Parameters may influence precision of the geometrical laws
@@ -1546,26 +1556,45 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
         v /= np.sqrt(v.dot(v))
         return v
 
-    # Blade = convertSurfaces2SingleTriangular(BladeSurface)
-    Blade = BladeSurface
+    Blade = I.copyRef(BladeSurface)
+    I._rmNodesByType(Blade,'FlowSolution_t')
 
     NumberOfSections = len(RelativeSpanDistribution)
 
     RotationCenter = np.array(RotationCenter, dtype=np.float64)
-    RotationCenterX, RotationCenterY, RotationCenterZ = RotationCenter
 
     RotationAxis = getUnitVector(RotationAxis)
-    RotationAxisX, RotationAxisY, RotationAxisZ = RotationAxis
 
     BladeDirection = getUnitVector(BladeDirection)
-    BladeDirectionX, BladeDirectionY, BladeDirectionZ = BladeDirection
+
+    if PitchAxis is None: PitchAxis = BladeDirection
+
 
     AdvanceDirection = np.cross(RotationAxis, BladeDirection)
+    AdvanceDirection /= np.linalg.norm(AdvanceDirection)
 
-    Fields2StoreInLine = ['Span', 'Chord', 'Twist', 'MaxRelativeThickness',
+    TopDirection = -AdvanceDirection
+
+    splitAirfoilOptions.setdefault('FieldCriterion','TopDirection')
+    buildCamberOptions.setdefault('splitAirfoilOptions',splitAirfoilOptions)
+    buildCamberOptions.setdefault('FinalDistribution',dict(N=201,
+                                  kind='trigonometric', parameter=1))
+
+    if splitAirfoilOptions['FieldCriterion']=='TopDirection':
+        Eqn = W.computePlaneEquation(RotationCenter, TopDirection)
+        C._initVars(Blade, 'TopDirection='+Eqn)
+
+    Fields2StoreInLine = ['Span', 'Chord', 'Twist',
+        'MaxRelativeThickness',
         'MaxThickness', 'MaxThicknessRelativeLocation',
         'MaxCamber','MaxRelativeCamber','MaxCamberRelativeLocation',
-        'MinCamber','MinRelativeCamber','MinCamberRelativeLocation']
+        'MinCamber','MinRelativeCamber','MinCamberRelativeLocation',
+        'ChordwiseX','ChordwiseY','ChordwiseZ',
+         'SpanwiseX', 'SpanwiseY', 'SpanwiseZ',
+        'ThickwiseX','ThickwiseY','ThickwiseZ',
+        'PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ',
+        'PitchAxisX','PitchAxisY','PitchAxisZ']
+    
     BladeLine = D.line((0,0,0),(0,0,0),NumberOfSections)
     I.setName(BladeLine,'BladeLine')
     BladeLineFields = J.invokeFieldsDict(BladeLine, Fields2StoreInLine)
@@ -1574,16 +1603,22 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
     Eqn = W.computePlaneEquation(RotationCenter, BladeDirection)
     C._initVars(Blade, 'Span='+Eqn)
     MaximumSpan = C.getMaxValue(Blade,'Span')
+    MinimumSpan = C.getMinValue(Blade,'Span')
 
     Sections = []
     Cambers  = []
     NormalizedAirfoils = []
     NormalizedCambers  = []
+    RightHandRuleRotation = None
     for i in range(NumberOfSections):
-        Span = MaximumSpan * RelativeSpanDistribution[i]
-        print('scanning section %d at Span=%g...'%(i+1,Span))
+        Span = np.interp(RelativeSpanDistribution[i],[0,1],[MinimumSpan, MaximumSpan])
+        print('scanning section %d at Span = %g ...'%(i+1,Span))
 
-        SliceResult = P.isoSurfMC(Blade,'Span',value=Span)
+        # TODO accept different topologies of BladeDirection
+        SpanwiseVector = np.array([BladeDirection[0], BladeDirection[1], BladeDirection[2]])
+        SpanwiseVector /= np.linalg.norm(SpanwiseVector)
+
+        SliceResult = P.isoSurfMC(Blade,'Span',value=Span) # NOTE most expensive part of algorithm
         if not SliceResult:
             print('No blade found at Span=%g. Skipping section.'%Span)
             continue
@@ -1592,8 +1627,8 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
             s = C.convertBAR2Struct(s)
             Structs.append(T.oneovern(s,(2,1,1)))
         Slice = T.join(Structs)
-
         AirfoilCurve = C.convertBAR2Struct(Slice)
+
         I.setName(AirfoilCurve, 'Section-rR%0.3f'%RelativeSpanDistribution[i])
         Sections += [AirfoilCurve]
         AirfoilProperties, CamberLine = W.getAirfoilPropertiesAndCamber(
@@ -1603,24 +1638,26 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
         I.setName(CamberLine, 'Camber-rR%0.3f'%RelativeSpanDistribution[i])
         Cambers += [CamberLine]
 
-        LeadingEdge      = AirfoilProperties['LeadingEdge']
-        TrailingEdge     = AirfoilProperties['TrailingEdge']
-        ChordDirection   = AirfoilProperties['ChordDirection']
-        Chord            = AirfoilProperties['Chord']
+        LeadingEdge        = AirfoilProperties['LeadingEdge']
+        ChordDirection     = AirfoilProperties['ChordDirection']
+        Chord              = AirfoilProperties['Chord']
 
-        if ChordDirection.dot(AdvanceDirection) > 0:
-            LeadingEdge, TrailingEdge = TrailingEdge, LeadingEdge
-            ChordDirection *= -1
-            AirfoilProperties['LeadingEdge'] = LeadingEdge
-            AirfoilProperties['TrailingEdge'] = TrailingEdge
-            AirfoilProperties['ChordDirection'] = ChordDirection
+        if RightHandRuleRotation is None: # first section
+            if ChordDirection.dot(RotationAxis) < 0:
+                RightHandRuleRotation = True
+                Dir = 1
+                print(J.CYAN+'Twist will be computed according to detected RightHandRuleRotation'+J.ENDC)
+            else:
+                RightHandRuleRotation = False
+                Dir = -1
+                print(J.CYAN+'Twist will be computed according to detected LeftHandRuleRotation'+J.ENDC)
 
-        ChordProjectionHeight = (LeadingEdge-TrailingEdge).dot(RotationAxis)
-        ChordProjectionLength = (LeadingEdge-TrailingEdge).dot(AdvanceDirection)
-        if ChordProjectionLength < 0: ChordProjectionLength *= -1
-
-        Twist = np.arctan2(ChordProjectionHeight, ChordProjectionLength)
-        Twist = np.rad2deg(Twist)
+        # project vector ChordDirection into plane defined by SpanwiseVector
+        ChordwiseProjected = ChordDirection - ChordDirection.dot(SpanwiseVector)*SpanwiseVector
+        Twist = np.rad2deg(np.arccos(-ChordwiseProjected.dot(AdvanceDirection)))
+        sign = np.sign(ChordDirection.dot(RotationAxis))
+        Twist*= -Dir*sign
+        print(f'Twist = {Twist}')
 
         ControlPointAirfoil = (LeadingEdge +
                                RelativeChordReference*ChordDirection*Chord)
@@ -1628,10 +1665,10 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
         BladeLineY[i] = ControlPointAirfoil[1]
         BladeLineZ[i] = ControlPointAirfoil[2]
 
-
         NormalizedAirfoil = I.copyTree(AirfoilCurve)
         I.setName(NormalizedAirfoil, 'NormAirfoil-rR%0.3f'%RelativeSpanDistribution[i])
         W.normalizeFromAirfoilProperties(NormalizedAirfoil, AirfoilProperties)
+        W.putAirfoilClockwiseOrientedAndStartingFromTrailingEdge(NormalizedAirfoil)
         NormalizedAirfoils += [NormalizedAirfoil]
 
         NormalizedCamber = I.copyTree(CamberLine)
@@ -1641,19 +1678,44 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
 
         BladeLineFields['Span'][i] = Span
         BladeLineFields['Twist'][i] = Twist
+        BladeLineFields['ThickwiseX'][i] = AirfoilProperties['NormalDirection'][0]
+        BladeLineFields['ThickwiseY'][i] = AirfoilProperties['NormalDirection'][1]
+        BladeLineFields['ThickwiseZ'][i] = AirfoilProperties['NormalDirection'][2]
+        BladeLineFields['ChordwiseX'][i] = AirfoilProperties['ChordDirection'][0]
+        BladeLineFields['ChordwiseY'][i] = AirfoilProperties['ChordDirection'][1]
+        BladeLineFields['ChordwiseZ'][i] = AirfoilProperties['ChordDirection'][2]
+        BladeLineFields['SpanwiseX'][i] = SpanwiseVector[0]
+        BladeLineFields['SpanwiseY'][i] = SpanwiseVector[1]
+        BladeLineFields['SpanwiseZ'][i] = SpanwiseVector[2]
+        BladeLineFields['PitchRelativeCenterX'][i] = PitchRelativeCenter[0]
+        BladeLineFields['PitchRelativeCenterY'][i] = PitchRelativeCenter[1]
+        BladeLineFields['PitchRelativeCenterZ'][i] = PitchRelativeCenter[2]
+        BladeLineFields['PitchAxisX'][i] = PitchAxis[0]
+        BladeLineFields['PitchAxisY'][i] = PitchAxis[1]
+        BladeLineFields['PitchAxisZ'][i] = PitchAxis[2]
+
         for prop in AirfoilProperties:
             if prop in BladeLineFields:
                 BladeLineFields[prop][i] = AirfoilProperties[prop]
 
+    J.set(BladeLine,'ScanInformation', RotationCenter=RotationCenter,
+            RightHandRuleRotation=RightHandRuleRotation,
+            PitchAxis=PitchAxis,
+            RotationAxis=RotationAxis)
+
+    CamberSurface = G.stack(Cambers)
+    CamberSurface[0] = 'CamberSurface'
 
     # Save the result as a PyTree
+    # HACK need to prepend "Base" to name of the base https://elsa.onera.fr/issues/11458
     t = C.newPyTree([
-        'BladeSurface',I.getZones(Blade),
-        'BladeLine', [BladeLine],
-        'Sections',Sections,
-        'Cambers',Cambers,
-        'NormalizedAirfoils',NormalizedAirfoils,
-        'NormalizedCambers', NormalizedCambers,
+        'BaseBladeSurface',2,I.getZones(Blade),
+        'BaseBladeLine', 1,[BladeLine],
+        'BaseSections',1,Sections,
+        'BaseCambers',1,Cambers,
+        'BaseCamberSurface',2,CamberSurface,
+        'BaseNormalizedAirfoils',1,NormalizedAirfoils,
+        'BaseNormalizedCambers',1, NormalizedCambers,
         ])
     t = I.correctPyTree(t, level=3)
 
