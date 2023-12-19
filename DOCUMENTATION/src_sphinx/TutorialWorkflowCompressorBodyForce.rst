@@ -105,13 +105,15 @@ for each row:
 
 .. code-block:: python 
 
-    BodyForceInputData = dict(
-    R37 = dict(
-        model='hall',
-    ))
+    BodyForceInputData = [
+            dict(
+                Family = 'R37',
+                BodyForceParameters = dict(model = 'HallThollet')
+            ),
+        ]
     
 
-The available models are:
+The main available models are:
 
 * 'blockage': blockage term Sb.
 

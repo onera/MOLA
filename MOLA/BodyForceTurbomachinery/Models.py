@@ -23,8 +23,8 @@ import Converter.Internal as I
 
 import MOLA.InternalShortcuts as J
 import MOLA.Coprocess as CO
-import MOLA.BodyForceTurbomachinery as BF
 import MOLA.Postprocess as POST
+from . import Generic as BF
 
 def BodyForceModel_HallThollet(t, BodyForceParameters):
     NewSourceTermsGlobal = BodyForceModel_blockage(t, BodyForceParameters)
@@ -515,10 +515,10 @@ def BodyForceModel_ShockWaveLoss(t, BodyForceParameters):
 
 
 def spreadPressureLossAlongChord(t, BodyForceParameters, LeadingEdgeSurface=None):
-    '''
+    r'''
     Compute source terms to apply total pressure losses on zones in **t**.
 
-    Total pressure loss is defined as : :math:`\bar{omega} = \frac{P_{t1}-P_{t2}}{P_{t1}-P_{s1}}`
+    Total pressure loss is defined as : :math:`\bar{\omega} = \frac{P_{t1}-P_{t2}}{P_{t1}-P_{s1}}`
 
     Losses may be prescribed by several means (by order of priority):
 
@@ -526,9 +526,9 @@ def spreadPressureLossAlongChord(t, BodyForceParameters, LeadingEdgeSurface=None
     
     #. `PressureLossCoefficient` is given in **BodyForceParameters**
 
-    #. The node `PressureLoss` is available in the container 'FlowSolution#tmpMOLAFlow'
+    #. The node `PressureLoss` is available in the container ``FlowSolution#tmpMOLAFlow``
 
-    #. The node `PressureLossCoefficient` is available in the container 'FlowSolution#tmpMOLAFlow' 
+    #. The node `PressureLossCoefficient` is available in the container ``FlowSolution#tmpMOLAFlow`` 
 
     Parameters
     ----------
@@ -545,7 +545,7 @@ def spreadPressureLossAlongChord(t, BodyForceParameters, LeadingEdgeSurface=None
                     * communicator (MPI communicator): sub-communicator to use to compte **LeadingEdgeSurface** if necessary
 
         LeadingEdgeSurface : PyTree, optional
-            iso-surface as got from :func:`MOLA.BodyForceModels.BodyForceModels.getFieldsAtLeadingEdge`. If the value is :py:obj:`None`, 
+            iso-surface as got from :func:`MOLA.BodyForceTurbomachinery.Generic.getFieldsAtLeadingEdge`. If the value is :py:obj:`None`, 
             it is automatically computed, else the surface is used as it.
 
     Returns

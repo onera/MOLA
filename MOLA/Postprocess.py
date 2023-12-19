@@ -1504,8 +1504,7 @@ def isoSurfaceAllGather(t, fieldname, value, container='FlowSolution#Init', loca
     Parameters
     ----------
         t : PyTree
-            Current PyTree given by the :py:mod:`BodyForceModels` module, restricted to zones belonging to 
-            the family involved in the body force modelling.
+            Current tree
 
         fieldname : str
                 name of the field used for making the iso-surface. It can be the
