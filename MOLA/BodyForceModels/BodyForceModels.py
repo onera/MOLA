@@ -382,10 +382,6 @@ def BodyForceModel_ThrustSpread(t, BodyForceParameters):
 def BodyForceModel_constant(t, BodyForceParameters):
     """
     Compute constant source terms (reshape given source terms if they are uniform).
-        
-        SourceTerms : dict
-            Source terms to apply. For each value, the given value may be a 
-            float or a numpy array (the shape must correspond to the zone shape).
 
     Parameters
     ----------
@@ -520,12 +516,44 @@ def BodyForceModel_ShockWaveLoss(t, BodyForceParameters):
 
 def spreadPressureLossAlongChord(t, BodyForceParameters, LeadingEdgeSurface=None):
     '''
-    Warning: Careful to the definition of PressureLossCoefficient !!
-            Denominator is Pt-Ps or 0.5*rho*W**2  ??
+    Compute source terms to apply total pressure losses on zones in **t**.
+
+    Total pressure loss is defined as : :math:`\bar{omega} = \frac{P_{t1}-P_{t2}}{P_{t1}-P_{s1}}`
+
+    Losses may be prescribed by several means (by order of priority):
+
+    #. `PressureLoss` is given in **BodyForceParameters**
+    
+    #. `PressureLossCoefficient` is given in **BodyForceParameters**
+
+    #. The node `PressureLoss` is available in the container 'FlowSolution#tmpMOLAFlow'
+
+    #. The node `PressureLossCoefficient` is available in the container 'FlowSolution#tmpMOLAFlow' 
+
+    Parameters
+    ----------
+
+        t : PyTree
+            input tree (or zone, or list of zones) involved in source terms computations
+            
+        BodyForceParameters : dict
+                Additional parameters for this body-force model.
+                For that model, available parameters are:
+                    * PressureLoss (float): uniform value fot total pressure loss to apply.
+                    * PressureLossCoefficient (float): uniform value fot total pressure loss coefficient to apply, if **PressureLoss** is not given.
+                    * Distribution (str): how to distribute the losses along the chord. The default value is 'uniform' (only value available for now).
+                    * communicator (MPI communicator): sub-communicator to use to compte **LeadingEdgeSurface** if necessary
+
+        LeadingEdgeSurface : PyTree, optional
+            iso-surface as got from :func:`MOLA.BodyForceModels.BodyForceModels.getFieldsAtLeadingEdge`. If the value is :py:obj:`None`, 
+            it is automatically computed, else the surface is used as it.
+
+    Returns
+    -------
+
+        NewSourceTermsGlobal : dict
+            Computed source terms.
     '''
-
-    from ..Coprocess import printCo, rank
-
     FluidProperties = BodyForceParameters.get('FluidProperties')
     TurboConfiguration = BodyForceParameters.get('TurboConfiguration')
 
@@ -540,7 +568,7 @@ def spreadPressureLossAlongChord(t, BodyForceParameters, LeadingEdgeSurface=None
 
     if not LeadingEdgeSurface:
         # Extract Leading edge revolution surface, with flow quantities
-        LeadingEdgeSurface = BF.getFieldsAtLeadingEdge(t, localComm=BodyForceParameters['communicator'], filename=f'{BodyForceParameters["Family"]}_LeadingEdge.cgns')
+        LeadingEdgeSurface = BF.getFieldsAtLeadingEdge(t, localComm=BodyForceParameters['communicator']) #, filename=f'{BodyForceParameters["Family"]}_LeadingEdge.cgns')
 
     # Create interpolators based on their values at the leading edge
     variablesToInterp = ['Temperature', 'PressureStagnationRel']
@@ -562,20 +590,6 @@ def spreadPressureLossAlongChord(t, BodyForceParameters, LeadingEdgeSurface=None
 
         Temperature_LE = interpDict['Temperature'](DataSourceTerms['ChannelHeight'], DataSourceTerms['theta'])
         Ptel_LE = interpDict['PressureStagnationRel'](DataSourceTerms['ChannelHeight'], DataSourceTerms['theta'])
-
-        # # Extract value at LE (to be replaced)
-        # Temperature_LE    = FlowSolution['Temperature'][0,:,:]
-        # Ptel_LE = FlowSolution['PressureStagnation'][0,:,:]
-        # # stack this 2D field into a 3d field (uniform in x)
-        # Temperature_LE_old = np.broadcast_to(Temperature_LE, FlowSolution['Temperature'].shape)
-        # Ptel_LE_old = np.broadcast_to(Ptel_LE, FlowSolution['Temperature'].shape)
-
-        # delta = I.copyTree(zone)
-        # FS = I.newFlowSolution('delta', 'CellCenter', parent=delta)
-        # I.newDataArray('delta_Temperature', value=Temperature_LE - Temperature_LE_old, parent=FS)
-        # I.newDataArray('delta_PressureStagnationRel', value=Ptel_LE - Ptel_LE_old, parent=FS)
-
-        # J.save(delta, f'error_on_zone_{zone[0]}.cgns')
         
         if PressureLoss is None:
             if PressureLossCoefficient is not None:
@@ -600,8 +614,6 @@ def spreadPressureLossAlongChord(t, BodyForceParameters, LeadingEdgeSurface=None
         beta = np.arctan2(tmpMOLAFlow['Wt'], Wm)  
         # TODO Add the term on Temperature Stagnation for centrifugal rotors ?
         fp = FluidProperties['IdealGasConstant'] * Temperature_LE / Ptel_LE * np.cos(beta) * gradPt
-
-        # printCo(f'mean fp = {np.mean(fp)}', proc=rank)
 
         # Get force in the cartesian frame
         fx, fy, fz, fr, ft = BF.getForceComponents(0., fp, tmpMOLAFlow)
