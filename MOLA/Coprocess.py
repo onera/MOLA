@@ -350,6 +350,7 @@ def extractSurfaces(t, Extractions, arrays=None):
 
     t = replaceMainContainerByAbsoluteContainerIfExisting(t)
     I._rmNodesByName(t, 'FlowSolution#EndOfRun*')
+    I._rmNodesByName(t, 'FlowSolution#Init-1')
     reshapeBCDatasetNodes(t)
     I._rmNodesByName(t, 'BCDataSet#Init') # see MOLA #75 and Cassiopee #10641
     DictBCNames2Type = C.getFamilyBCNamesDict(t)
@@ -1132,7 +1133,7 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
     I.__FlowSolutionNodes__ = previous_container
     return data
 
-def updateAndWriteSetup(setup):
+def updateAndWriteSetup(setup, t=None):
     '''
     This function is used for adapting ``setup.py`` information for a new run.
 
@@ -1143,6 +1144,9 @@ def updateAndWriteSetup(setup):
             Python module object as obtained from command
 
             >>> import setup
+
+        t : PyTree
+            Output tree. If provided, allow to test if a restart with second order is possible
     '''
     if rank == 0:
         printCo('updating setup.py ...', proc=0, color=GREEN)
@@ -1151,6 +1155,12 @@ def updateAndWriteSetup(setup):
             setup.elsAkeysNumerics['inititer'] = CurrentIteration + 1 
             if 'itime' in setup.elsAkeysNumerics:
                 setup.elsAkeysNumerics['itime'] = CurrentIteration * setup.elsAkeysNumerics['timestep']
+            if setup.elsAkeysNumerics['time_algo'] in ['gear', 'dts']:
+                if t is not None and I.getNodeFromName(t, 'FlowSolution#Init-1'):
+                    printCo('Prepare a second order restart', 0, color=J.CYAN)
+                    setup.elsAkeysNumerics['exact_restart'] = 'active'
+                else:
+                    printCo('Cannot perform a second order restart from this simulation: FlowSolution#Init-1 is missing.', 0, color=J.WARN)
         PRE.writeSetupFromModuleObject(setup)
         printCo('updating setup.py ... OK', proc=0, color=GREEN)
     comm.Barrier()
@@ -2224,6 +2234,9 @@ def adaptEndOfRun(to):
     moveCoordsFromEndOfRunToGridCoords(to)
     I._renameNode(to, 'cellnf', 'cellN')
     I._renameNode(to, 'FlowSolution#EndOfRun', 'FlowSolution#Init')
+    I._rmNodesByName(to, 'FlowSolution#Init-1')
+    I._renameNode(to, f'FlowSolution#EndOfRun{CurrentIteration-1:04d}', 'FlowSolution#Init-1')
+
 
 def moveCoordsFromEndOfRunToGridCoords(to):
     '''

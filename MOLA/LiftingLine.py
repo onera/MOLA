@@ -1075,10 +1075,10 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
     '''
     Make a PyTree-Line zone defining a Lifting-line. The construction
     procedure of this element is the same as in function
-    :py:func:`MOLA.GenerativeShapeDesign.wing`, same logic is used here !
+    :py:func:`MOLA.GenerativeShapeDesign.wing`, same logic is used here!
 
 
-    .. important:: The native lifting line location is set towards:
+    .. important:: The native canonical lifting line location is set towards:
 
         :math:`+X` spanwise
 
@@ -1313,6 +1313,120 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
 
     return LiftingLine
 
+
+def buildLiftingLineFromScan(t, Span, resetPitchRelativeSpan=0.75,
+        GeometricalLawsInterpolations={}, OverridingKinematics={}, ):
+    '''
+    This function takes as input the result of :py:func:`MOLA.GenerativeShapeDesign.scanBlade`
+    and builds a LiftingLine in its canonical position. The resulting LiftingLine
+    can be used directly (polars file is required) as element for BFM or VPM
+    modeling, for instance. 
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Rigorously, the result of :py:func:`MOLA.GenerativeShapeDesign.scanBlade`
+
+        Span : multiple
+            This polymorphic input is used to infer the spanwise
+            dimensions and discretization that new lifting-line will use.
+
+            For detailed information on possible inputs of **Span**, please see
+            :py:func:`MOLA.InternalShortcuts.getDistributionFromHeterogeneousInput__` doc.
+
+            .. tip:: typical use is ``np.linspace(MinimumSpan, MaximumSpan, NbOfSpanwisePoints)``
+
+            .. note:: identical as **Span** parameter of :py:func:`buildLiftingLine`
+
+        resetPitchRelativeSpan : float
+            This is the relative span (or :math:`r/R`) used to relocate the blade
+            such that the section at **resetPitchRelativeSpan** yields zero twist.
+            This is important, since the actual sweep and dihedral directions
+            depend on the pitch value of the blade. In order to circumvent this
+            ambiguity, sweep and dihedral positions are defined using as reference
+            a relocation of the blade such that the section located at
+            **resetPitchRelativeSpan** has zero twist.
+
+
+        GeometricalLawsInterpolations : dict
+            Each keyword correspond to a GeometricalLaw name that can be passed to
+            :py:func:`buildLiftingLine`. Also, such keyword must correspond to 
+            a field named contained in **t** zone *BladeLine*. The value 
+            associated to each keyword is a :py:class:`str` specifying the 
+            type of interpolation law. By default, if not specified all 
+            geometrical laws are set using the interpolation law ``'interp1d_linear'``
+
+        OverridingKinematics : dict
+            By default (if **OverridingKinematics** is an empty 
+            :py:class:`dict`) function :py:func:`setKinematicsUsingConstantRotationAndTranslation`
+            will be applied using the scanned RotationCenter, axis and direction.
+            If **OverridingKinematics** is provided by user, then such options 
+            will override the scanned ones.
+
+    Returns
+    -------
+
+        LiftingLine : zone
+            The new lifting-line located at canonical position. 
+
+        PyZonePolars : :py:class:`list` of zones
+            The airfoil polars (only coordinates, no fields), which can be used
+            to make a 3D reconstruction of the blade using :py:func:`postLiftingLine2Surface`
+        
+        scanPitch : float
+            The pitch of the section at **resetPitchRelativeSpan**
+    '''
+
+    BaseBladeLine = I.getNodeFromName1(t,'BaseBladeLine')
+    if not BaseBladeLine:
+        msg = 'could not find base "BaseBladeLine"\n'
+        msg += 'Please make sure the first argument is the output of GSD.scanBlade'
+        raise IOError(J.FAIL+msg+J.ENDC)
+
+    BladeLine = I.getNodeFromName1(BaseBladeLine,'BladeLine')
+    if not BaseBladeLine:
+        msg = 'could not find zone "BladeLine"\n'
+        msg += 'Please make sure the first argument is the output of GSD.scanBlade'
+        raise IOError(J.FAIL+msg+J.ENDC)
+
+    scan_info = J.get(BladeLine,'ScanInformation')
+    
+    # PUT BLADELINE IN CANONICAL POSITION ROTATING RELEVANT FIELDS
+    # put blade line into rotation center (0,0,0)
+    T._translate(BladeLine, -scan_info['RotationCenter'])
+
+    Dir = 1 if bool(scan_info['RightHandRuleRotation']) else -1
+
+    # put blade line into canonical orientation
+    FinalFrame = [(1,0,0),(0,1,0),(0,0,1)]
+    InitialFrame = [tuple(scan_info['PitchAxis']),
+        tuple(np.cross(Dir*scan_info['RotationAxis'],scan_info['PitchAxis'])),
+        tuple(Dir*scan_info['RotationAxis'])]
+    T._rotate(BladeLine, (0,0,0), InitialFrame, FinalFrame,
+        vectors=NamesOfChordSpanThickwiseFrameNoTangential)
+
+    # determine the pitch of the blade-line
+    Twist, SpanScan = J.getVars(BladeLine,['Twist','Span'])
+    pitch = np.interp(resetPitchRelativeSpan, Twist, SpanScan)
+    print(f'scanned pitch is {pitch} deg')
+
+    # substract pitch to put blade line in canonical position
+    PitchCtr = J.getVars(BladeLine,
+                    ['PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ'])
+
+    PitchAxis = J.getVars(BladeLine, ['PitchAxisX','PitchAxisY','PitchAxisZ'])
+    PitchCtr_pt = (PitchCtr[0][0]*1.0, PitchCtr[1][0]*1.0, PitchCtr[2][0]*1.0)
+    PitchAxis_vec = (PitchAxis[0][0]*Dir, PitchAxis[1][0]*Dir, PitchAxis[2][0]*Dir)
+    T._rotate(BladeLine, PitchCtr_pt, PitchAxis_vec, -pitch, 
+            vectors=NamesOfChordSpanThickwiseFrameNoTangential)
+    
+    # INFER GEOMETRICALLAWS, INCLUDING SWEEP AND DIHEDRAL FROM COORDINATES
+    # BUILD AIRFOIL GEOMETRICALLAW
+    # BUILDLIFTINGLINE
+    # CONSTRUCT COORDINATE-ONLY PYZONE POLARS
+    # RETURN LIFTINGLINE AND PYZONEPOLARS
+    ...
 
 def checkComponentKind(component, kind='LiftingLine'):
     '''
