@@ -649,21 +649,7 @@ def parametrizeChannelHeight(t, lin_axis=None):
     with silence_stdout:
 
         if not lin_axis:
-            numpy_major, numpy_minor, numpy_micro = np.__version__.split('.')
-            if int(numpy_major) < 2 and int(numpy_minor) > 23:
-                # HACK see https://elsa-e.onera.fr/issues/11277
-                if PRE.hasAnyUnstructuredZones(t):
-                    message = J.WARN + 'Cannot use method=2 of generateHLinesAxial because of https://elsa-e.onera.fr/issues/11277.\n'
-                    message += 'Use the function parametrizeChannelHeight on spiro (not on the login machine!).' + J.ENDC
-                    raise Exception(message)
-                else:
-                    message = J.WARN + 'Cannot use method=2 of generateHLinesAxial because of https://elsa-e.onera.fr/issues/11277.\n'
-                    message += 'Switch to method=1 (only for structured grids).\n'
-                    message += 'To use method=2, use the function parametrizeChannelHeight on spiro (not on the login machine!).' + J.ENDC
-                    print(message)
-                    endlinesTree = TH.generateHLinesAxial(t, filename='shroud_hub_lines.plt', method=1)
-            else:
-                endlinesTree = TH.generateHLinesAxial(t, filename='shroud_hub_lines.plt', method=2)
+            endlinesTree = TH.generateHLinesAxial(t, filename='shroud_hub_lines.plt', method=2)
             try: 
                 plot_hub_and_shroud_lines(endlinesTree)
             except: 
