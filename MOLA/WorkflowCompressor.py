@@ -642,13 +642,6 @@ def parametrizeChannelHeight(t, lin_axis=None):
     OLD_FlowSolutionNodes = I.__FlowSolutionNodes__
     I.__FlowSolutionNodes__ = 'FlowSolution#Height'
 
-    fd = 2 # stderr file identifier
-    def _redirect_stderr(to):
-        sys.stderr.close() # + implicit flush()
-        os.dup2(to.fileno(), fd) # fd writes to 'to' file
-        sys.stderr = os.fdopen(fd, 'w') # Python writes to fd
-
-
     silence_stdout = J.OutputGrabber(stream=sys.stdout)
     silence_stderr = J.OutputGrabber(stream=sys.stderr)
     message = None
