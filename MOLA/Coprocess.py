@@ -2933,6 +2933,8 @@ def searchZoneAndIndexForProbes(t, method='getNearestPointIndex', tol=1e-2):
     # IMPORTANT: In this function, the mesh will be now the dual mesh, with nodes corresponding cell centers of the input mesh
     t = C.node2Center(t)
 
+    probesToKeep = []
+
     for Probe in setup.Extractions:
         if Probe['type'] != 'Probe':
             continue
@@ -2988,7 +2990,12 @@ def searchZoneAndIndexForProbes(t, method='getNearestPointIndex', tol=1e-2):
 
         if minDistanceForAllProcessors > tol:
             printCo(f'The probe {Probe["name"]} is too far from the nearest vertex ({minDistanceForAllProcessors} m). It is removed.', 0, J.WARN)
-            setup.Extractions.remove(Probe)
+        else:
+            probesToKeep.append(Probe)
+
+    # Overwrite extractions to keep only applicable probes
+    setup.Extractions = [extraction for extraction in setup.Extractions if extraction['type'] != 'Probe']  # all extractions except probes
+    setup.Extractions.extend(probesToKeep)  # add applicable probes
     
 
 def loadUnsteadyMasksForElsA(e, elsA_user, Skeleton):
