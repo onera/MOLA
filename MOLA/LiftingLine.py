@@ -79,7 +79,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     AttemptCommandGuess=[],
     PerturbationFields=None,
     LiftingLineSolver='MOLA', StackOptions={}, WeightEqns=[],
-    SourceTermScale=1.0, TipLossFactorOptions={}, SweepCorrection = {},DihedralCorrection = {}):
+    SourceTermScale=1.0, TipLossFactorOptions={}, SweepCorrectionOptions = {}, DihedralCorrectionOptions = {}):
     '''
     Macro-function used to generate the ready-to-use BodyForce
     element for interfacing with a CFD solver.
@@ -176,14 +176,14 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
             This :py:class:`dict` defines a pair of keyword-arguments of the 
             function :py:func:`applyTipLossFactorToBladeEfforts`.
 
-        SweepCorrection : :py:class:`dict` of :py:class:`binary`
+        SweepCorrectionOptions : :py:class:`dict` of :py:class:`binary`
             Kind of sweep correction to be used. Keys are the following:
 
             * ``'Speed'``
                 Correction of the speed magnitude
 
             * ``'AOA'``
-                Correction of the angle of attack. TOB BE IMPLEMENTED
+                Correction of the angle of attack. TO BE IMPLEMENTED
 
             * ``'Chord'``
                 Correction of the chord value   TO BE IMPLEMENTED
@@ -191,14 +191,14 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
             * ``'Effort'``
                 Correction of the lift and drag coefficients TO BE IMPLEMENTED
 
-        DihedralCorrection : :py:class:`dict` of :py:class:`binary`
+        DihedralCorrectionOptions : :py:class:`dict` of :py:class:`binary`
             Kind of dihedral correction to be used. Keys are the following:
 
             * ``'Speed'``
-                Correction of the speed magnitude
+                Correction of the speed magnitude TO BE IMPLEMENTED
 
             * ``'AOA'``
-                Correction of the angle of attack. TOB BE IMPLEMENTED
+                Correction of the angle of attack. TO BE IMPLEMENTED
 
             * ``'Chord'``
                 Correction of the chord value   TO BE IMPLEMENTED
@@ -229,10 +229,10 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
     ListOfSweepAndDihedralCorrectionTypes = ['Speed','AOA', 'Chord', 'Effort']
     for cor in ListOfSweepAndDihedralCorrectionTypes:
-        if cor not in SweepCorrection.keys():
-            SweepCorrection[cor] = False
-        if cor not in DihedralCorrection.keys():
-            DihedralCorrection[cor] = False
+        if cor not in SweepCorrectionOptions.keys():
+            SweepCorrectionOptions[cor] = False
+        if cor not in DihedralCorrectionOptions.keys():
+            DihedralCorrectionOptions[cor] = False
 
 
     usePUMA = LiftingLineSolver == 'PUMA'
@@ -347,13 +347,13 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
         setRPM(tLL, RPM_n[1])
         computeKinematicVelocity(tLL)
-        assembleAndProjectVelocities(tLL, SweepVelocityCorrection = SweepCorrection['Speed'])
+        assembleAndProjectVelocities(tLL)
         _applyPolarOnLiftingLine(tLL,PolarsInterpolatorsDict)
 
         if TipLossFactorOptions:
             TipLossFactorOptions['NumberOfBlades']=NBlades
 
-        computeGeneralLoadsOfLiftingLine(tLL, TipLossFactorOptions=TipLossFactorOptions)
+        computeGeneralLoadsOfLiftingLine(tLL, TipLossFactorOptions=TipLossFactorOptions, SweepCorrectionOptions = SweepCorrectionOptions, DihedralCorrectionOptions = DihedralCorrectionOptions)
 
         if CommandType == 'Pitch':
             addPitch(tLL,-cmd)
@@ -3252,7 +3252,7 @@ def computeKinematicVelocity(t):
             v['VelocityKinematicY'][i] = VelocityKinematic[1]
             v['VelocityKinematicZ'][i] = VelocityKinematic[2]
 
-def assembleAndProjectVelocities(t, SweepVelocityCorrection = False):
+def assembleAndProjectVelocities(t):
     '''
     This function updates a series of veolicity (and other fields) of
     LiftingLines provided a given kinematic and flow conditions.
@@ -3384,11 +3384,6 @@ def assembleAndProjectVelocities(t, SweepVelocityCorrection = False):
         v['AoA'][:] = np.rad2deg( np.arctan2(Vthick,Vchord) )
         # NOTE the absence of radial velocity contribution to Velocity Magnitude, Mach and Reynolds
         v['VelocityMagnitudeLocal'][:] = W = np.sqrt( Vchord**2 + Vthick**2 )
-
-        if SweepVelocityCorrection:
-            W *= np.cos(np.deg2rad(v['SweepAngleDeg']))
-        
-
         v['Mach'][:] = W / SoundSpeed
         v['Reynolds'][:] = Density[0] * W * v['Chord'] / Mu
 
@@ -3640,7 +3635,7 @@ def migratePerturbationsFromAuxiliarDisc2LiftingLines(AuxiliarDisc, LiftingLines
 
 def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         UnsteadyDataIndependentAbscissa='IterationNumber',
-        TipLossFactorOptions={}):
+        TipLossFactorOptions={}, SweepCorrectionOptions = {}, DihedralCorrectionOptions = {}):
     '''
     This function is used to compute local and integral arrays of a lifting line
     with general orientation and shape (including sweep and dihedral).
@@ -3731,7 +3726,7 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         'ChordwiseX', 'ChordwiseY', 'ChordwiseZ',
         'ThickwiseX', 'ThickwiseY', 'ThickwiseZ',
         'SpanwiseX', 'SpanwiseY', 'SpanwiseZ',
-        'TangentialX', 'TangentialY', 'TangentialZ')
+        'TangentialX', 'TangentialY', 'TangentialZ','SweepAngleDeg', 'DihedralAngleDeg')
     NewFields = (
         'ForceX','ForceY','ForceZ', # previously 'ForceX','ForceY','ForceZ'
         'ForceAxial','ForceTangential', # previously 'ForceAxial','ForceTangential'
@@ -3787,6 +3782,8 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         r2y = y - TorqueOrigin[1]
         r2z = z - TorqueOrigin[2]
 
+        if SweepCorrectionOptions['Speed']:
+            v['VelocityMagnitudeLocal'] *= np.cos(np.deg2rad(v['SweepAngleDeg']))
 
         # ----------------------- COMPUTE LINEAR FORCES ----------------------- #
         FluxC = 0.5*Density*v['VelocityMagnitudeLocal']**2*v['Chord']
@@ -3847,6 +3844,7 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         # Compute linear bound circulation using Kutta-Joukowski
         # theorem:  Lift = Density * ( Velocity x Gamma )
         w = v['VelocityMagnitudeLocal']
+
         FluxKJ = Lift/Density
         Flowing = abs(w)>0
         FluxKJ[Flowing] /= w[Flowing]
