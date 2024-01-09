@@ -108,10 +108,28 @@ def apply(workflow):
             new distributed *(and possibly split)* tree
 
     '''
+    if isinstance(workflow.SplittingAndDistribution, str):
+        if workflow.SplittingAndDistribution.lower() == 'pypart':
+            workflow.SplittingAndDistribution = dict(
+                Strategy='AtComputation', 
+                Splitter='PyPart', 
+                Distributor='PyPart', 
+                ComponentsToSplit='all',
+                )
+        elif workflow.SplittingAndDistribution.lower() == 'maia':
+            workflow.SplittingAndDistribution = dict(
+                Strategy='AtComputation', 
+                Splitter='maia', 
+                Distributor='maia', 
+                ComponentsToSplit='all',
+                )
+        else:
+            raise Exception(misc.RED + 'More parameters must be given with the splitter {workflow.SplittingAndDistribution}. See the doc.' + misc.ENDC)
+    
     t = workflow.tree
     splitAndDistribUser = workflow.SplittingAndDistribution
 
-    if splitAndDistribUser['Strategy'].lower() == 'atcomputation': return
+    if not splitAndDistribUser['Strategy'].lower() == 'atpreprocess': return
     
     if splitAndDistribUser['NumberOfProcessors'] == 'auto':
         mode = 'auto'
@@ -572,3 +590,128 @@ def getProc(t):
         solverParam = zone.get(Name='.Solver#Param',Depth=1)
         procs += [ int(solverParam.get(Name='proc').value()) ]
     return np.array(procs, order='F', ndmin=1)
+
+def splitWithPyPart(comm=None):
+    '''
+    Use PyPart to split the mesh in ``main.cgns``. This function should be use
+    in ``compute.py`` to prepare the mesh before calling ``elsAxdt.XdtCGNS()``.
+
+    .. note:: For more details on PyPart, see the dedicated pages on elsA
+        support:
+        `PyPart alone <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/etc_pypart_alone.html>`_
+        and
+        `PyPart with elsA <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/etc_pypart_elsa.html>`_
+
+    .. important:: Dependence to ETC module
+
+    Returns
+    -------
+
+        t : PyTree
+            Split tree, merged with the skeleton. It will be the **tree**
+            argument of ``elsAxdt.XdtCGNS()`` in ``compute.py``
+
+        Skeleton : PyTree
+            Skeleton tree to use in ``coprocess.py``
+
+        PyPartBase : PyPart object
+            PyPart objet that is mandatory to use its method mergeAndSave latter
+
+        Distribution : dict
+            Correspondence between zones and processors.
+
+    '''
+    import Converter.Internal as I
+    import etc.pypart.PyPart as PPA
+    if comm is None:
+        from mpi4py import MPI
+        comm = MPI.COMM_WORLD
+
+    PyPartBase = PPA.PyPart('main.cgns',
+                            lksearch=['OUTPUT', '.'],
+                            loadoption='partial',
+                            mpicomm=comm,
+                            LoggingInFile=False,
+                            LoggingFile='LOGS/partTree',
+                            LoggingVerbose=40  # Filter: None=0, DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
+                            )
+    # reorder=[6, 2] is recommended by CLEF, mostly for unstructured mesh
+    # with modernized elsA. It is also mandatory to use lussorscawf on
+    # unstructured mesh.
+    PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[6, 2])
+    PyPartBase.finalise(PartTree, savePpart=True, method=1)
+    Skeleton = PyPartBase.getPyPartSkeletonTree()
+    Distribution = PyPartBase.getDistribution()
+
+    # # Put Distribution into the Skeleton
+    # for zone in I.getZones(Skeleton):
+    #     zonePath = I.getPath(Skeleton, zone, pyCGNSLike=True)[1:]
+    #     Cmpi._setProc(zone, Distribution[zonePath])
+
+    t = I.merge([Skeleton, PartTree])
+
+    # Skeleton = loadSkeleton(Skeleton, PartTree)
+    # # Add empty Coordinates for skeleton zones
+    # # Needed to make Cmpi.convert2PartialTree work
+    # for zone in I.getZones(Skeleton):
+    #     GC = I.getNodeFromType1(zone, 'GridCoordinates_t')
+    #     if not GC:
+    #         J.set(zone, 'GridCoordinates', childType='GridCoordinates_t',
+    #             CoordinateX=None, CoordinateY=None, CoordinateZ=None)
+    #     elif I.getZoneType(zone) == 2:
+    #         # For unstructured zone, correct the node NFaceElements/ElementConnectivity
+    #         # Problem with PyPart: see issue https://elsa-e.onera.fr/issues/9002
+    #         # C._convertArray2NGon(zone)
+    #         NFaceElements = I.getNodeFromName(zone, 'NFaceElements')
+    #         if NFaceElements:
+    #             node = I.getNodeFromName(NFaceElements, 'ElementConnectivity')
+    #             I.setValue(node, np.abs(I.getValue(node)))
+
+    # if 'CoupledSurfaces' in setup.ReferenceValues['CoprocessOptions']:
+    #     # This part is linked to the WorkflowAerothermalCoupling
+    #     # For unstructured zones, AdditionnalFamilyName nodes are lost
+    #     # See Anomaly #10494 on elsA support
+    #     # We need to restore them
+    #     for i, famBCTrigger in enumerate(setup.ReferenceValues['CoprocessOptions']['CoupledSurfaces']):
+    #         surfaceName = 'ExchangeSurface{}'.format(i)
+    #         for zone in I.getZones(t):
+    #             if I.getZoneType(zone) == 2:
+    #                 for BC in C.getFamilyBCs(t, famBCTrigger):
+    #                     I.createChild(BC, 'SurfaceName', 'AdditionalFamilyName_t', value=surfaceName)
+
+
+    return t, Skeleton, PyPartBase, Distribution
+
+def splitWithMaia(comm=None):
+    '''
+    Use Maia to split the mesh in ``main.cgns``. This function should be use
+    in ``compute.py`` to prepare the mesh before calling ``elsAxdt.XdtCGNS()``.
+
+    Returns
+    -------
+
+        t : PyTree
+            Split tree, merged with the skeleton. It will be the **tree**
+            argument of ``elsAxdt.XdtCGNS()`` in ``compute.py``
+
+        Skeleton : PyTree
+            Skeleton tree to use in ``coprocess.py``
+
+        PyPartBase : PyPart object
+            PyPart objet that is mandatory to use its method mergeAndSave latter
+
+        Distribution : dict
+            Correspondence between zones and processors.
+
+    '''
+    import maia
+    if comm is None:
+        from mpi4py import MPI
+        comm = MPI.COMM_WORLD
+
+    dist_tree = maia.io. file_to_dist_tree('main.cgns', comm)
+    # zone_to_parts = maia.factory.partitioning.compute_balanced_weights(dist_tree, comm)
+    part_tree = maia.factory.partition_dist_tree(dist_tree, comm)
+    maia.io.part_tree_to_file(part_tree, 'part_tree.cgns', comm)
+
+    return part_tree, Distribution

@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from mola import (cgns, misc)
-from mola.cfd.preprocess.boundary_conditions.solver_elsa import getFamilyBCTypeFromFamilyBCName
+from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_to_elsa
 
 import copy
 
@@ -241,7 +241,8 @@ def process_extractions_2d(workflow):
                                 newVarList.append(var)
                         varNode.setValue(' '.join(newVarList))
                 else:
-                    raise ValueError(misc.RED+f'Did not added anything since:\nExtractVariablesList={ExtractVariablesList}'+misc.ENDC)
+                    print(misc.YELLOW+f'Caution: the list of fields to extract on {FamilyNode.name()} is empty'+misc.ENDC)
+                    # raise ValueError(misc.RED+f'Did not added anything since:\nExtractVariablesList={ExtractVariablesList}'+misc.ENDC)
 
 
 def add_trigger(t, coprocessFilename='coprocess.py'):
@@ -274,88 +275,4 @@ def add_trigger(t, coprocessFilename='coprocess.py'):
                  next_state=16,
                  next_iteration=1,
                  file=coprocessFilename)
-
-
-def translate_to_elsa(Variables):
-    '''
-    Translate names in **Variables** from CGNS standards to elsA names for
-    boundary conditions.
-
-    Parameters
-    ----------
-
-        Variables : :py:class:`dict` or :py:class:`list` or :py:class:`str`
-            Could be eiter:
-
-                * a :py:class:`dict` with keys corresponding to variables names
-
-                * a :py:class:`list` of variables names
-
-                * a :py:class:`str` as a single variable name
-
-    Returns
-    -------
-
-        NewVariables : :py:class:`dict` or :py:class:`list` or :py:class:`str`
-            Depending on the input type, return the same object with variable
-            names translated to elsA standards.
-
-    '''
-    CGNS2ElsaDict = dict(
-        PressureStagnation       = 'stagnation_pressure',
-        EnthalpyStagnation       = 'stagnation_enthalpy',
-        TemperatureStagnation    = 'stagnation_temperature',
-        Pressure                 = 'pressure',
-        MassFlow                 = 'globalmassflow',
-        SurfacicMassFlow         = 'surf_massflow',
-        VelocityUnitVectorX      = 'txv',
-        VelocityUnitVectorY      = 'tyv',
-        VelocityUnitVectorZ      = 'tzv',
-        TurbulentSANuTilde       = 'inj_tur1',
-        TurbulentEnergyKinetic   = 'inj_tur1',
-        TurbulentDissipationRate = 'inj_tur2',
-        TurbulentDissipation     = 'inj_tur2',
-        TurbulentLengthScale     = 'inj_tur2',
-        VelocityCorrelationXX    = 'inj_tur1',
-        VelocityCorrelationXY    = 'inj_tur2', 
-        VelocityCorrelationXZ    = 'inj_tur3',
-        VelocityCorrelationYY    = 'inj_tur4', 
-        VelocityCorrelationYZ    = 'inj_tur5', 
-        VelocityCorrelationZZ    = 'inj_tur6',
-        
-        BoundaryLayer            = 'bl_quantities_2d bl_quantities_3d bl_ue',
-        NormalVector             = 'normalvector',
-        Friction                 = 'frictionvector', 
-        yPlus                    = 'yplusmeshsize',
-        MomentumFlux             = 'flux_rou flux_rov flux_row',
-        TorqueFlux               = 'torque_rou torque_rov torque_row',
-
-    )
-    if 'VelocityCorrelationXX' in Variables:
-        # For RSM models
-        CGNS2ElsaDict['TurbulentDissipationRate'] = 'inj_tur7'
-
-    elsAVariables = CGNS2ElsaDict.values()
-
-    if isinstance(Variables, dict):
-        NewVariables = dict()
-        for var, value in Variables.items():
-            if var in CGNS2ElsaDict:
-                NewVariables[CGNS2ElsaDict[var]] = value
-            else:
-                NewVariables[var] = value
-        return NewVariables
-    elif isinstance(Variables, list):
-        NewVariables = []
-        for var in Variables:
-            if var in elsAVariables:
-                NewVariables.append(var)
-            else:
-                NewVariables.append(CGNS2ElsaDict[var])
-        return NewVariables
-    elif isinstance(Variables, str):
-        if Variables in elsAVariables:
-            return CGNS2ElsaDict[Variables]
-    else:
-        raise TypeError('Variables must be of type dict, list or string')
 

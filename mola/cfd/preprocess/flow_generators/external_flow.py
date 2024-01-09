@@ -27,9 +27,12 @@ K_OMEGA_MODELS = K_OMEGA_TWO_EQN_MODELS + [ 'SST-2003-LM2009',
 
 AvailableTurbulenceModels = K_OMEGA_MODELS + ['smith', 'SA']
 
-class FlowGenerator(object):
+class ExternalFlowGenerator(object):
 
     def __init__(self, workflow):
+
+        self.name = 'External_rho_T_V'
+
         # Set attributes
         self.Fluid = workflow.Fluid
         self.Flow = workflow.Flow
@@ -148,7 +151,7 @@ class FlowGenerator(object):
                 return Nut_Nu - computeEddyViscosityFromNuTilde(Nu, NuTilde) / Nu
 
             sol = math_tools.secant(residualEddyViscosityRatioFromGivenNuTilde, x0=Nut_Nu*Nu, x1=1.5*Nut_Nu*Nu, ftol=Nut_Nu*0.001, bounds=(1e-14,1.e6))
-            return sol['root']
+            return float(sol['root'])
 
         TurbulentSANuTilde = computeTurbulentSANuTilde(
                                                     Nu=self.Flow['ViscosityMolecular']/self.Flow['Density'],

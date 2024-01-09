@@ -15,73 +15,9 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-def parametrize_channel_height(t, nbslice=101, fsname='FlowSolution#Height',
-    hlines='hub_shroud_lines.plt', subTree=None):
-    '''
-    Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
-    relies on the ETC module.
 
-    Parameters
-    ----------
 
-        t : PyTree
-            input mesh tree
-
-        nbslice : int
-            Number of axial positions used to compute the iso-lines in
-            *ChannelHeight*. Change the axial discretization.
-
-        fsname : str
-            Name of the ``FlowSolution_t`` container to stock the variable at
-            nodes *ChannelHeight*.
-
-        hlines : str
-            Name of the intermediate file that contains (x,r) coordinates of hub
-            and shroud lines.
-
-        subTree : PyTree
-            Part of the main tree **t** used to compute *ChannelHeigth*. For
-            zones in **t** but not in **subTree**, *ChannelHeigth* will be equal
-            to -1. This option is useful to exclude irelevant zones for height
-            computation, for example the domain (if it exists) around the
-            nacelle with the external flow. To extract **subTree** based on a
-            Family, one may use:
-
-            >>> subTree = C.getFamilyZones(t, Family)
-
-    Returns
-    -------
-
-        t : PyTree
-            modified tree
-
-    '''
-    print(J.CYAN + 'Add ChannelHeight in the mesh...' + J.ENDC)
-    excludeZones = True
-    if not subTree:
-        subTree = t
-        excludeZones = False
-
-    ParamHeight.generateHLinesAxial(subTree, hlines, nbslice=nbslice)
-    try: ParamHeight.plot_hub_and_shroud_lines(hlines)
-    except: pass
-    I._rmNodesByName(t, fsname)
-    t = ParamHeight.computeHeight(t, hlines, fsname=fsname, writeMask='mask.cgns')
-
-    if excludeZones:
-        OLD_FlowSolutionNodes = I.__FlowSolutionNodes__
-        I.__FlowSolutionNodes__ = fsname
-        zonesInSubTree = [I.getName(z) for z in I.getZones(subTree)]
-        for zone in I.getZones(t):
-            if I.getName(zone) not in zonesInSubTree:
-                C._initVars(zone, 'ChannelHeight=-1')
-        I.__FlowSolutionNodes__ = OLD_FlowSolutionNodes
-
-    print(J.GREEN + 'done.' + J.ENDC)
-    return t
-
-def parametrize_channel_height_future(t, nbslice=101, tol=1e-10, offset=1e-10,
-                                elines='shroud_hub_lines.plt', lin_axis=None):
+def parametrizeChannelHeight(t, lin_axis=None):
     '''
     Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
     relies on the turbo module.
@@ -95,22 +31,6 @@ def parametrize_channel_height_future(t, nbslice=101, tol=1e-10, offset=1e-10,
 
         t : PyTree
             input mesh tree
-
-        nbslice : int
-            Number of axial positions used to compute the iso-lines in
-            *ChannelHeight*. Change the axial discretization.
-
-        tol : float
-            Tolerance to offset the min (+tol) / max (-tol) value for CoordinateX
-
-        offset : float
-            Offset value to add an articifial point (not based on real geometry)
-            to be sure that the mesh is fully included. 'tol' and 'offset' must
-            be consistent.
-
-        elines : str
-            Name of the intermediate file that contains (x,r) coordinates of hub
-            and shroud lines.
 
         lin_axis : :py:obj:`None` or :py:class:`str`
             Axis for linear configuration.
@@ -128,44 +48,81 @@ def parametrize_channel_height_future(t, nbslice=101, tol=1e-10, offset=1e-10,
     '''
     import turbo.height as TH
 
+    def plot_hub_and_shroud_lines(t):
+        # Get geometry
+        hub     = I.getNodeFromName(t, 'Hub')
+        xHub    = I.getValue(I.getNodeFromName(hub, 'CoordinateX'))
+        yHub    = I.getValue(I.getNodeFromName(hub, 'CoordinateY'))
+        shroud  = I.getNodeFromName(t, 'Shroud')
+        xShroud = I.getValue(I.getNodeFromName(shroud, 'CoordinateX'))
+        yShroud = I.getValue(I.getNodeFromName(shroud, 'CoordinateY'))
+        # Import matplotlib
+        import matplotlib.pyplot as plt
+        # Plot
+        plt.figure()
+        plt.plot(xHub, yHub, '-', label='Hub')
+        plt.plot(xShroud, yShroud, '-', label='Shroud')
+        plt.axis('equal')
+        plt.grid()
+        plt.xlabel('x (m)')
+        plt.ylabel('y (m)')
+        # Save
+        plt.savefig('shroud_hub_lines.png', dpi=150, bbox_inches='tight')
+        return 0
+
     print(J.CYAN + 'Add ChannelHeight in the mesh...' + J.ENDC)
     OLD_FlowSolutionNodes = I.__FlowSolutionNodes__
     I.__FlowSolutionNodes__ = 'FlowSolution#Height'
 
-    silence = J.OutputGrabber()
-    with silence:
-        if not lin_axis:
-            # - Generation of hub/shroud lines (axial configuration only)
-            endlinesTree = TH.generateHLinesAxial(t, elines, nbslice=nbslice, tol=tol, offset=offset)
+    fd = 2 # stderr file identifier
+    def _redirect_stderr(to):
+        sys.stderr.close() # + implicit flush()
+        os.dup2(to.fileno(), fd) # fd writes to 'to' file
+        sys.stderr = os.fdopen(fd, 'w') # Python writes to fd
 
-            try:
-                import matplotlib.pyplot as plt
-                # Get geometry
-                xHub, yHub = J.getxy(I.getNodeFromName(endlinesTree, 'Hub'))
-                xShroud, yShroud = J.getxy(I.getNodeFromName(endlinesTree, 'Shroud'))
-                # Plot
-                plt.figure()
-                plt.plot(xHub, yHub, '-', label='Hub')
-                plt.plot(xShroud, yShroud, '-', label='Shroud')
-                plt.axis('equal')
-                plt.grid()
-                plt.xlabel('x (m)')
-                plt.ylabel('y (m)')
-                plt.savefig(elines.replace('.plt', '.png'), dpi=150, bbox_inches='tight')
-            except:
+
+    silence_stdout = J.OutputGrabber(stream=sys.stdout)
+    silence_stderr = J.OutputGrabber(stream=sys.stderr)
+    message = None
+
+    with silence_stdout:
+
+        if not lin_axis:
+            numpy_major, numpy_minor, numpy_micro = np.__version__.split('.')
+            if int(numpy_major) < 2 and int(numpy_minor) > 23:
+                # HACK see https://elsa-e.onera.fr/issues/11277
+                if PRE.hasAnyUnstructuredZones(t):
+                    message = J.WARN + 'Cannot use method=2 of generateHLinesAxial because of https://elsa-e.onera.fr/issues/11277.\n'
+                    message += 'Use the function parametrizeChannelHeight on spiro (not on the login machine!).' + J.ENDC
+                    raise Exception(message)
+                else:
+                    message = J.WARN + 'Cannot use method=2 of generateHLinesAxial because of https://elsa-e.onera.fr/issues/11277.\n'
+                    message += 'Switch to method=1 (only for structured grids).\n'
+                    message += 'To use method=2, use the function parametrizeChannelHeight on spiro (not on the login machine!).' + J.ENDC
+                    print(message)
+                    endlinesTree = TH.generateHLinesAxial(t, filename='shroud_hub_lines.plt', method=1)
+            else:
+                endlinesTree = TH.generateHLinesAxial(t, filename='shroud_hub_lines.plt', method=2)
+            try: 
+                plot_hub_and_shroud_lines(endlinesTree)
+            except: 
                 pass
 
             # - Generation of the mask file
-            m = TH.generateMaskWithChannelHeight(t, elines, 'bin_tp')
+            with silence_stderr:
+                m = TH.generateMaskWithChannelHeight(t, 'shroud_hub_lines.plt')
+            os.remove('shroud_hub_lines.plt')
         else:
             m = TH.generateMaskWithChannelHeightLinear(t, lin_axis=lin_axis)
+
         # - Generation of the ChannelHeight field
-        t = TH.computeHeightFromMask(t, m, writeMask='mask.cgns')
+        TH._computeHeightFromMask(t, m, writeMask='mask.cgns', lin_axis=lin_axis)
+    
+    if message: print(message)
 
     I.__FlowSolutionNodes__ = OLD_FlowSolutionNodes
     print(J.GREEN + 'done.' + J.ENDC)
     return t
-
 
 def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0),
     verbose=1, container='FlowSolution#Init',
@@ -585,45 +542,6 @@ def computeDistance2Walls(t, WallFamilies=[], verbose=True, wallFilename=None):
     WallFamilies += ['WALL', 'HUB', 'SHROUD', 'BLADE', 'MOYEU', 'CARTER', 'AUBE']
     PRE.computeDistance2Walls(t, WallFamilies=WallFamilies, verbose=verbose, wallFilename=wallFilename)
 
-def setMotionForRowsFamilies(t, TurboConfiguration):
-    '''
-    Set the rotation speed for all families related to row domains. It is defined in:
-
-        >>> TurboConfiguration['Rows'][rowName]['RotationSpeed'] = float
-
-    Parameters
-    ----------
-
-        t : PyTree
-            Tree to modify
-
-        TurboConfiguration : dict
-            as produced :py:func:`getTurboConfiguration`
-            
-    '''
-    # Add info on row movement (.Solver#Motion)
-    for row, rowParams in TurboConfiguration['Rows'].items():
-        famNode = I.getNodeFromNameAndType(t, row, 'Family_t')
-        try: 
-            omega = rowParams['RotationSpeed']
-        except KeyError:
-            # No RotationSpeed --> zones attached to this family are not moving
-            continue
-
-        # Test if zones in that family are modelled with Body Force
-        for zone in C.getFamilyZones(t, row):
-            if I.getNodeFromName1(zone, 'FlowSolution#DataSourceTerm'):
-                # If this node is present, body force is used
-                # Then the frame of this row must be the absolute frame
-                omega = 0.
-                break
-        
-        print(f'setting .Solver#Motion at family {row} (omega={omega}rad/s)')
-        J.set(famNode, '.Solver#Motion',
-                motion='mobile',
-                omega=omega,
-                axis_pnt_x=0., axis_pnt_y=0., axis_pnt_z=0.,
-                axis_vct_x=1., axis_vct_y=0., axis_vct_z=0.)
 
 def initialize_flow_solution_with_turbo(t, FluidProperties, ReferenceValues, TurboConfiguration, mask=None):
     '''

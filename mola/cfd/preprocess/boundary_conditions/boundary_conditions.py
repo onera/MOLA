@@ -74,6 +74,70 @@ def apply(workflow):
         else:
             solverSpecificFunction(workflow, *args, **kwargs)
 
+def apply_function_to_BCDataSet(workflow, Family, functions_to_apply):
+    '''
+    Apply a function to all face centers in the BC attached to **Family**
+
+    Parameters
+    ----------
+    workflow : Workflow object
+
+    Family: str
+        Name of the Family attached to the given boundary condition
+
+    function_to_apply: fun
+        Function to apply to all face centers of BC. The arguments of the function must be variables names
+        present in the tree. 
+
+    Return
+    ------
+    ???
+
+    Example
+    -------
+    To define the wall velocity at the hub, a function could be defined: 
+
+    .. code-block::python
+
+        def hub_function(CoordinateX):
+            omega = np.zeros(CoordinateX.shape, dtype=float)
+            omega[(x1<=CoordinateX) & (CoordinateX<=x2)] = 500.
+            return dict(Motion = omega * np.array(RotationAxis))
+
+        apply_function_to_BCDataSet(workflow, 'Hub', hub_function)
+    '''
+    bc_list = C.extractBCOfName(workflow.tree, f'FamilySpecified:{Family}')
+    bc_list = C.node2Center(bc_list)
+
+    bc_dict = dict()
+    for bc in bc_list:
+
+        VarDictToImpose = dict()
+        for variable_name, function_to_apply in functions_to_apply.items():
+            # args_names is the tuple of the names of arguments of function_to_apply
+            args_names = function_to_apply.__code__.co_varnames[:function_to_apply.__code__.co_argcount]
+            kwargs = dict()
+            for arg_name in args_names:
+                nodes = bc.group(Name=arg_name, Type='DataArray')
+                if len(nodes) == 0:
+                    raise Exception(f'{arg_name} is not found in {bc.name()}')
+                elif len(nodes) == 1:
+                    node = nodes[0]
+                else:
+                    pass
+
+                kwargs[arg_name] = node.value()
+
+            VarDictToImpose[variable_name] = function_to_apply(kwargs)
+
+        # Get BC path in the main tree
+        zname, wname = bc.name().split(os.sep)
+        bc_path = f'{zname}/ZoneBC/{wname}'
+
+        bc_dict[bc_path] = VarDictToImpose
+
+    return [bc['Family']], dict(non_uniform_fields=bc_dict)                 
+
 def Wall(workflow, bc):
     return WallViscous(workflow, bc)
 
@@ -98,6 +162,77 @@ def WallInviscid(workflow, bc):
 def Farfield(workflow, bc):
     return [bc['Family']], dict() 
 
+def InflowStagnation(workflow, bc): 
+    '''
+    Set a Boundary Condition ``inj1``
+    '''
+    PressureStagnation    = bc.get('PressureStagnation', workflow.Flow['PressureStagnation'])
+    TemperatureStagnation = bc.get('TemperatureStagnation', workflow.Flow['TemperatureStagnation'])
+    EnthalpyStagnation    = bc.get('EnthalpyStagnation', workflow.Fluid['cp'] * TemperatureStagnation)
+    VelocityUnitVectorX   = bc.get('VelocityUnitVectorX', workflow.Flow['DragDirection'][0])
+    VelocityUnitVectorY   = bc.get('VelocityUnitVectorY', workflow.Flow['DragDirection'][1])
+    VelocityUnitVectorZ   = bc.get('VelocityUnitVectorZ', workflow.Flow['DragDirection'][2])
+    variableForInterpolation = bc.get('variableForInterpolation', 'ChannelHeight')   
+
+    ImposedVariables = dict(
+        PressureStagnation  = PressureStagnation,
+        EnthalpyStagnation  = EnthalpyStagnation,
+        VelocityUnitVectorX = VelocityUnitVectorX,
+        VelocityUnitVectorY = VelocityUnitVectorY,
+        VelocityUnitVectorZ = VelocityUnitVectorZ,
+        **getPrimitiveTurbulentFieldForInjection(workflow, bc)
+        )
+
+    return [bc['Family']], dict(ImposedVariables=ImposedVariables, variableForInterpolation=variableForInterpolation) 
+
+def OutflowPressure(workflow, bc):
+    return [bc['Family']], dict(Pressure=bc['Pressure']) 
+
+
+def getPrimitiveTurbulentFieldForInjection(workflow, bc):
+        '''
+        Get the primitive (without the Density factor) turbulent variables (names and values) 
+        to inject in an inflow boundary condition.
+
+        For RSM models, see issue https://elsa.onera.fr/issues/5136 for the naming convention.
+
+        Parameters
+        ----------
+        workflow, bc
+
+        Returns
+        -------
+        dict
+            Imposed turbulent variables
+        '''
+        TurbulenceLevel = bc.get('TurbulenceLevel', None)
+        Viscosity_EddyMolecularRatio = bc.get('Viscosity_EddyMolecularRatio', None)
+        if TurbulenceLevel and Viscosity_EddyMolecularRatio:
+            
+            FlowGen = workflow._FlowGenerator() 
+            FlowGen.Turbulence.update(
+                dict(Level=TurbulenceLevel, Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio)
+            )
+            FlowGen.set_turbulence_properties()
+            Turbulence = FlowGen.Turbulence
+
+        else:
+            Turbulence = workflow.Turbulence
+
+        turbDict = dict()
+        for name, value in Turbulence['Conservatives'].items():
+            if name.endswith('Density'):
+                name = name.replace('Density', '')
+                value /= workflow.Flow['Density']
+            elif name == 'ReynoldsStressDissipationScale':
+                name = 'TurbulentDissipationRate'
+                value /= workflow.Flow['Density']
+            elif name.startswith('ReynoldsStress'):
+                name = name.replace('ReynoldsStress', 'VelocityCorrelation')
+                value /= workflow.Flow['Density']
+            turbDict[name] = value
+            
+        return turbDict
 
 
 def set_boundary_conditions_OLD(t, BoundaryConditions, TurboConfiguration,
@@ -625,105 +760,6 @@ def setBC_sym(t, FamilyName):
     I._rmNodesByType(symmetry, 'FamilyBC_t')
     I.newFamilyBC(value='BCSymmetryPlane', parent=symmetry)
 
-
-def getPrimitiveTurbulentFieldForInjection(FluidProperties, ReferenceValues, **kwargs):
-        '''
-        Get the primitive (without the Density factor) turbulent variables (names and values) 
-        to inject in an inflow boundary condition.
-
-        For RSM models, see issue https://elsa.onera.fr/issues/5136 for the naming convention.
-
-        Parameters
-        ----------
-        ReferenceValues : dict
-            as obtained from :py:func:`computeReferenceValues`
-
-        kwargs : dict
-            Optional parameters, taken from **ReferenceValues** if not given.
-
-        Returns
-        -------
-        dict
-            Imposed turbulent variables
-        '''
-        TurbulenceLevel = kwargs.get('TurbulenceLevel', None)
-        Viscosity_EddyMolecularRatio = kwargs.get('Viscosity_EddyMolecularRatio', None)
-        if TurbulenceLevel and Viscosity_EddyMolecularRatio:
-            ReferenceValuesForTurbulence = computeReferenceValues(FluidProperties,
-                    kwargs.get('MassFlow'), ReferenceValues['PressureStagnation'],
-                    kwargs.get('TemperatureStagnation'), kwargs.get('Surface'),
-                    TurbulenceLevel=TurbulenceLevel,
-                    Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio,
-                    TurbulenceModel=ReferenceValues['TurbulenceModel'])
-        else:
-            ReferenceValuesForTurbulence = ReferenceValues
-
-        turbDict = dict()
-        for name, value in zip(ReferenceValuesForTurbulence['FieldsTurbulence'], ReferenceValuesForTurbulence['ReferenceStateTurbulence']):
-            if name.endswith('Density'):
-                name = name.replace('Density', '')
-                value /= ReferenceValues['Density']
-            elif name == 'ReynoldsStressDissipationScale':
-                name = 'TurbulentDissipationRate'
-                value /= ReferenceValues['Density']
-            elif name.startswith('ReynoldsStress'):
-                name = name.replace('ReynoldsStress', 'VelocityCorrelation')
-                value /= ReferenceValues['Density']
-            turbDict[name] = kwargs.get(name, value)
-        return turbDict
-
-def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
-    '''
-    Set a Boundary Condition ``inj1`` with uniform inflow values. These values
-    are them in **ReferenceValues**.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            Tree to modify
-
-        FluidProperties : dict
-            as obtained from :py:func:`computeFluidProperties`
-
-        ReferenceValues : dict
-            as obtained from :py:func:`computeReferenceValues`
-
-        FamilyName : str
-            Name of the family on which the boundary condition will be imposed
-
-        kwargs : dict
-            Optional parameters, taken from **ReferenceValues** if not given:
-            PressureStagnation, TemperatureStagnation, EnthalpyStagnation,
-            VelocityUnitVectorX, VelocityUnitVectorY, VelocityUnitVectorZ, 
-            and primitive turbulent variables
-
-    See also
-    --------
-
-    setBC_inj1, setBC_inj1_interpFromFile, setBC_injmfr1
-
-    '''
-
-    PressureStagnation    = kwargs.get('PressureStagnation', ReferenceValues['PressureStagnation'])
-    TemperatureStagnation = kwargs.get('TemperatureStagnation', ReferenceValues['TemperatureStagnation'])
-    EnthalpyStagnation    = kwargs.get('EnthalpyStagnation', FluidProperties['cp'] * TemperatureStagnation)
-    VelocityUnitVectorX   = kwargs.get('VelocityUnitVectorX', ReferenceValues['DragDirection'][0])
-    VelocityUnitVectorY   = kwargs.get('VelocityUnitVectorY', ReferenceValues['DragDirection'][1])
-    VelocityUnitVectorZ   = kwargs.get('VelocityUnitVectorZ', ReferenceValues['DragDirection'][2])
-    variableForInterpolation = kwargs.get('variableForInterpolation', 'ChannelHeight')   
-
-    ImposedVariables = dict(
-        PressureStagnation  = PressureStagnation,
-        EnthalpyStagnation  = EnthalpyStagnation,
-        VelocityUnitVectorX = VelocityUnitVectorX,
-        VelocityUnitVectorY = VelocityUnitVectorY,
-        VelocityUnitVectorZ = VelocityUnitVectorZ,
-        **getPrimitiveTurbulentFieldForInjection(FluidProperties, ReferenceValues, **kwargs)
-        )
-
-    setBC_inj1(t, FamilyName, ImposedVariables, variableForInterpolation=variableForInterpolation)
-
 def setBC_inj1_interpFromFile(t, FluidProperties, ReferenceValues, FamilyName, filename, fileformat=None):
     '''
     Set a Boundary Condition ``inj1`` using the field map in the file
@@ -880,62 +916,6 @@ def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     setBCwithImposedVariables(t, FamilyName, ImposedVariables,
         FamilyBC='BCInflowSubsonic', BCType='injmfr1', variableForInterpolation=variableForInterpolation)
 
-def setBC_outpres(t, FamilyName, Pressure, bc=None, variableForInterpolation='ChannelHeight'):
-    '''
-    Impose a Boundary Condition ``outpres``.
-
-    .. note::
-        see `elsA Tutorial about outpres condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#outpres/>`_
-
-    Parameters
-    ----------
-
-        t : PyTree
-            Tree to modify
-
-        FamilyName : str
-            Name of the family on which the boundary condition will be imposed
-
-        Pressure : :py:class:`float` or :py:class:`numpy.ndarray` or :py:class:`dict`
-            Value of pressure to impose on the boundary conditions. May be:
-
-                * either a scalar: in that case it is imposed once for the
-                  family **FamilyName** in the corresponding ``Family_t`` node.
-
-                * or a numpy array: in that case it is imposed for the ``BC_t``
-                  node **bc**.
-
-            Alternatively, **Pressure** may be a :py:class:`dict` of the form:
-
-            >>> Pressure = dict(Pressure=value)
-
-            In that case, the same requirements that before stands for *value*.
-
-        bc : PyTree
-            ``BC_t`` node on which the boundary condition will be imposed. Must
-            be :py:obj:`None` if the condition must be imposed once in the
-            ``Family_t`` node.
-        
-        variableForInterpolation : str
-            When using a function to impose the radial profile of one or several quantities, 
-            it defines the variable used as the argument of this function.
-            Must be 'ChannelHeight' (default value) or 'Radius'.
-
-    '''
-    if isinstance(Pressure, dict):
-        assert 'Pressure' in Pressure or 'pressure' in Pressure
-        assert len(Pressure.keys() == 1)
-        ImposedVariables = Pressure
-    else:
-        ImposedVariables = dict(Pressure=Pressure)
-
-    if not bc and not all([np.ndim(v) == 0 and not callable(v) for v in ImposedVariables.values()]):
-        for bc in C.getFamilyBCs(t, FamilyName):
-            setBCwithImposedVariables(t, FamilyName, ImposedVariables,
-                                      FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc, variableForInterpolation=variableForInterpolation)
-    else:
-        setBCwithImposedVariables(t, FamilyName, ImposedVariables,
-                                FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc, variableForInterpolation=variableForInterpolation)
 
 def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues=None, TurboConfiguration=None):
     '''

@@ -14,13 +14,3 @@
 #
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
-
-def adapt_to_solver(workflow):
-    # Remove ChimeraCellType nodes
-    groupOfNodes = workflow.tree.group(Name='FlowSolution#Init')
-    for node in groupOfNodes:
-        node.findAndRemoveNodes(Name='ChimeraCellType')     
-    
-    if workflow.tree.get(Name='TurbulentDistance', Type='DataArray'):
-        import Converter.elsAProfile as elsAProfile
-        elsAProfile._addTurbulentDistanceIndex(workflow.tree)

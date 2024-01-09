@@ -1,0 +1,24 @@
+#!/usr/bin/bash
+#
+# Display the updated content of coprocess.log
+
+display_help() {
+    echo "Usage: $0 [option...]" >&2
+    echo
+    echo "   display the updated content of coprocess.log"
+    echo "   it following the last line when the file is written"
+    echo "   press CTRL+C to unfollow the file tail, and press F to follow it again" 
+    echo
+    echo "   -h, --help           display help"
+    echo "   --description        display a short description"
+    echo
+    exit 1
+}
+
+case $1 in
+    -h|--help) 
+        display_help;
+        exit;;
+esac
+
+less -rf +F coprocess.log

@@ -16,19 +16,29 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-from ..cfd import preprocess as PRE
-from .external_flow import FlowGenerator as ExternalFlowGenerator
 from .. import cgns as c
+from .. import misc
 from  mola.cfd.preprocess.mesh import (positioning,
                                        connect,
                                        split,
                                        families)
-from  mola.cfd.preprocess import (boundary_conditions,
+from  mola.cfd.preprocess import (flow_generators,
+                                  boundary_conditions,
                                   initialization,
                                   motion,
                                   cfd_parameters,
                                   extractions,
                                   write_cfd_files)
+
+def deep_update(d, u):
+    for k, v in u.items():
+        if isinstance(v, dict):
+            d[k] = deep_update(d.get(k, {}), v)
+        elif isinstance(v, list):
+            d[k].extent(v)
+        else:
+            d[k] = v
+    return d
 
 class Workflow(object):
 
@@ -145,7 +155,9 @@ class Workflow(object):
                 LauncherCommand = 'auto', # or 'sbatch job.sh', './job.sh'...
                 SecondsMargin4QuitBeforeTimeOut = 180.0),
 
-            FlowGenerator=ExternalFlowGenerator,
+            FlowGenerator='External_rho_V_T',
+
+            # _defaults = dict(),
 
             ):
 
@@ -155,13 +167,23 @@ class Workflow(object):
         self.tree = tree
 
         if self.tree is not None:
-            self.read_workflow_parameters_from_tree()
+            self.get_workflow_parameters_from_tree()
 
         else:
+            # if isinstance(_defaults, str):
+            #     # Read file with defaults values
+            #     _defaults = ...
+            # else:
+            #     ERR_MSG = '_defaults must be either a dictionary or a string (path to a file)'
+            #     assert isinstance(_defaults, dict), misc.RED+ERR_MSG+misc.ENDC
+            # self._defaults = _workflow_defaults
+            # deep_update(self._defaults, _defaults)
+            # deep_update(self.__dict__, self._defaults)
+
             self.RawMeshComponents=RawMeshComponents
             self.Fluid=Fluid
             self.Flow=Flow
-            self._FlowGenerator=FlowGenerator
+            self._FlowGenerator=self.get_flow_generator(FlowGenerator)
             self.Turbulence=Turbulence
             self.BoundaryConditions=BoundaryConditions
             self.Solver=Solver
@@ -195,6 +217,22 @@ class Workflow(object):
         if not self.tree: self.tree = c.Tree()
         self.tree.save(filename)
 
+    def convert_to_dict(self):
+        params= dict()
+        for a in list(self.__dict__):
+            if not a.startswith('_') and a != 'tree':
+                att = getattr(self,a)
+                if not callable(att):
+                    params[a] = att
+        return params
+
+    def print(self):
+        print(self.__str__())
+    
+    def __str__(self):
+        params= self.convert_to_dict()
+        import pprint
+        return pprint.pformat(params)
 
     def get_workflow_parameters_from_tree(self):
         
@@ -209,32 +247,45 @@ class Workflow(object):
     def set_workflow_parameters_in_tree(self):
         if not self.tree: self.tree = c.Tree()
 
-        params= dict()
-        for a in list(self.__dict__):
-            if not a.startswith('_') and a != 'tree':
-                att = getattr(self,a)
-                if not callable(att):
-                    params[a] = att
-
+        params= self.convert_to_dict()
         self.tree.setParameters(self._workflow_parameters_container_,
                                 **params)
+    
+    def set_workflow_parameters_in_file(self, filename='setup.py'):
+
+        import mola
+        import pprint
+        Lines = '#!/usr/bin/env python3\n'
+        Lines+= f"'''\nMOLA {mola.__version__} setup.py file automatically generated in PREPROCESS\n"
+        Lines+= f"Path to MOLA: {mola.__MOLA_PATH__}\n"
+        Lines+= f"Commit SHA: {mola.__SHA__}\n'''\n\n"
+
+        params = self.convert_to_dict()
+        for key, value in params.items():
+            Lines += f"{key}={pprint.pformat(value)}\n\n"
+
+        with open(filename,'w') as f: f.write(Lines)
+
+        try: os.remove(filename+'c')
+        except: pass
             
     def prepare(self):
         self.assemble()
         self.positioning()
         self.connect()
         self.define_families()
-        self.split_and_distribute()
+        self.split_and_distribute() # FIXME: the tree is wrong after this method (see printPaths, name of bases are wrong)
         self.process_overset()
         self.compute_reference_values()
+        self.set_motion()
         self.initialize_flow() # eventually + distance to wall
         self.set_boundary_conditions()
-        self.set_motion()
         self.set_cfd_parameters() # model, numerics, others...
         self.set_extractions()
         # self.adapt_tree_to_solver()
         # self.check_preprocess() # empty BCs... maybe solver-specific
         self.set_workflow_parameters_in_tree()
+        # self.set_workflow_parameters_in_file()
 
     def assemble(self):
         self.read_meshes()
@@ -279,6 +330,12 @@ class Workflow(object):
     def process_overset(self):
         pass
 
+    def get_flow_generator(self, fg):
+        if isinstance(fg, str):
+            return flow_generators.AvailableFlowGenerators[fg]
+        else:
+            return fg
+        
     def compute_reference_values(self):
         # mola-generic set of parameters
         FlowGen = self._FlowGenerator(self)
@@ -323,3 +380,4 @@ class Workflow(object):
             if component['OversetOptions']:
                 return True
         return False
+

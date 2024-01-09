@@ -82,149 +82,149 @@ def set_model(workflow):
     TurbulenceSetup = {
 
         'SA': dict(
-        turbmod        = 'spalart',
+            turbmod        = 'spalart',
         ),
 
         'Wilcox2006-klim': dict(
-        turbmod        = 'komega_kok',
-        kok_diff_cor   = 'wilcox2006',
-        sst_cor        = 'active',
-        sst_version    = 'wilcox2006',
-        k_prod_limiter = 20.,
-        k_prod_compute = 'from_sij',
-        zhenglim       = 'inactive',
-        omega_prolong  = 'linear_extrap',
+            turbmod        = 'komega_kok',
+            kok_diff_cor   = 'wilcox2006',
+            sst_cor        = 'active',
+            sst_version    = 'wilcox2006',
+            k_prod_limiter = 20.,
+            k_prod_compute = 'from_sij',
+            zhenglim       = 'inactive',
+            omega_prolong  = 'linear_extrap',
         ),
         
         'Wilcox2006-klim-V': dict(
-        turbmod        = 'komega_kok',
-        kok_diff_cor   = 'wilcox2006',
-        sst_cor        = 'active',
-        sst_version    = 'wilcox2006',
-        k_prod_limiter = 20.,
-        k_prod_compute = 'from_vorticity',
-        zhenglim       = 'inactive',
-        omega_prolong  = 'linear_extrap',
+            turbmod        = 'komega_kok',
+            kok_diff_cor   = 'wilcox2006',
+            sst_cor        = 'active',
+            sst_version    = 'wilcox2006',
+            k_prod_limiter = 20.,
+            k_prod_compute = 'from_vorticity',
+            zhenglim       = 'inactive',
+            omega_prolong  = 'linear_extrap',
         ),
 
         'Wilcox2006': dict(
-        turbmod        = 'komega_kok',
-        kok_diff_cor   = 'wilcox2006',
-        sst_cor        = 'active',
-        sst_version    = 'wilcox2006',
-        k_prod_compute = 'from_sij',
-        zhenglim       = 'inactive',
-        omega_prolong  = 'linear_extrap',
+            turbmod        = 'komega_kok',
+            kok_diff_cor   = 'wilcox2006',
+            sst_cor        = 'active',
+            sst_version    = 'wilcox2006',
+            k_prod_compute = 'from_sij',
+            zhenglim       = 'inactive',
+            omega_prolong  = 'linear_extrap',
         ),
         
         'Wilcox2006-V': dict(
-        turbmod        = 'komega_kok',
-        kok_diff_cor   = 'wilcox2006',
-        sst_cor        = 'active',
-        sst_version    = 'wilcox2006',
-        k_prod_compute = 'from_vorticity',
-        zhenglim       = 'inactive',
-        omega_prolong  = 'linear_extrap',
+            turbmod        = 'komega_kok',
+            kok_diff_cor   = 'wilcox2006',
+            sst_cor        = 'active',
+            sst_version    = 'wilcox2006',
+            k_prod_compute = 'from_vorticity',
+            zhenglim       = 'inactive',
+            omega_prolong  = 'linear_extrap',
         ),
 
         'SST-2003': dict(
-        turbmod        = 'komega_menter',
-        sst_cor        = 'active',
-        sst_version    = 'std_sij',
-        k_prod_limiter = 10.,
-        k_prod_compute = 'from_sij',
-        zhenglim       = 'inactive',
-        omega_prolong  = 'linear_extrap',
+            turbmod        = 'komega_menter',
+            sst_cor        = 'active',
+            sst_version    = 'std_sij',
+            k_prod_limiter = 10.,
+            k_prod_compute = 'from_sij',
+            zhenglim       = 'inactive',
+            omega_prolong  = 'linear_extrap',
         ),
 
         'SST-V2003': dict(
-        turbmod        = 'komega_menter',
-        sst_cor        = 'active',
-        sst_version    = 'std_sij',
-        k_prod_limiter = 10.,
-        k_prod_compute = 'from_vorticity',
-        zhenglim       = 'inactive',
-        omega_prolong  = 'linear_extrap',        
+            turbmod        = 'komega_menter',
+            sst_cor        = 'active',
+            sst_version    = 'std_sij',
+            k_prod_limiter = 10.,
+            k_prod_compute = 'from_vorticity',
+            zhenglim       = 'inactive',
+            omega_prolong  = 'linear_extrap',        
         ),
 
         'SST': dict(
-        turbmod        = 'komega_menter',
-        sst_cor        = 'active',
-        sst_version    = 'standard',
-        k_prod_limiter = 20.,
-        k_prod_compute = 'from_sij',
-        zhenglim       = 'inactive',
-        omega_prolong  = 'linear_extrap',
+            turbmod        = 'komega_menter',
+            sst_cor        = 'active',
+            sst_version    = 'standard',
+            k_prod_limiter = 20.,
+            k_prod_compute = 'from_sij',
+            zhenglim       = 'inactive',
+            omega_prolong  = 'linear_extrap',
         ),
 
         'SST-V': dict(
-        turbmod        = 'komega_menter',
-        sst_cor        = 'active',
-        sst_version    = 'standard',
-        k_prod_limiter = 20.,
-        k_prod_compute = 'from_vorticity',
-        zhenglim       = 'inactive',
-        omega_prolong  = 'linear_extrap',
+            turbmod        = 'komega_menter',
+            sst_cor        = 'active',
+            sst_version    = 'standard',
+            k_prod_limiter = 20.,
+            k_prod_compute = 'from_vorticity',
+            zhenglim       = 'inactive',
+            omega_prolong  = 'linear_extrap',
         ),
 
         'BSL': dict(
-        turbmod        = 'komega_menter',
-        sst_cor        = 'inactive',
-        k_prod_limiter = 20.,
-        k_prod_compute = 'from_sij',
-        zhenglim       = 'inactive',
-        omega_prolong  = 'linear_extrap',        
+            turbmod        = 'komega_menter',
+            sst_cor        = 'inactive',
+            k_prod_limiter = 20.,
+            k_prod_compute = 'from_sij',
+            zhenglim       = 'inactive',
+            omega_prolong  = 'linear_extrap',        
         ),
 
         'BSL-V': dict(
-        turbmod        = 'komega_menter',
-        sst_cor        = 'inactive',
-        k_prod_limiter = 20.,
-        k_prod_compute = 'from_vorticity',
-        zhenglim       = 'inactive',
-        omega_prolong  = 'linear_extrap',
+            turbmod        = 'komega_menter',
+            sst_cor        = 'inactive',
+            k_prod_limiter = 20.,
+            k_prod_compute = 'from_vorticity',
+            zhenglim       = 'inactive',
+            omega_prolong  = 'linear_extrap',
         ),
 
         'smith': dict(
-        turbmod        = 'smith',
-        k_prod_compute = 'from_sij',
-        # TODO: uncomment the following line ?
-        # k_prod_limiter = 20.,
+            turbmod        = 'smith',
+            k_prod_compute = 'from_sij',
+            # TODO: uncomment the following line ?
+            # k_prod_limiter = 20.,
         ),
 
         'smith-V': dict(
-        turbmod        = 'smith',
-        k_prod_compute = 'from_vorticity',
+            turbmod        = 'smith',
+            k_prod_compute = 'from_vorticity',
         ),
 
         'SST-2003-LM2009': dict(
-        turbmod        = 'komega_menter',
-        sst_cor        = 'active',
-        sst_version    = 'std_sij',
-        k_prod_limiter = 10.,
-        k_prod_compute = 'from_sij',
-        zhenglim       = 'inactive',
-        omega_prolong  = 'linear_extrap',
-        trans_mod      = 'menter',
+            turbmod        = 'komega_menter',
+            sst_cor        = 'active',
+            sst_version    = 'std_sij',
+            k_prod_limiter = 10.,
+            k_prod_compute = 'from_sij',
+            zhenglim       = 'inactive',
+            omega_prolong  = 'linear_extrap',
+            trans_mod      = 'menter',
         ),
 
         'SST-V2003-LM2009': dict(
-        turbmod        = 'komega_menter',
-        sst_cor        = 'active',
-        sst_version    = 'std_sij',
-        k_prod_limiter = 10.,
-        k_prod_compute = 'from_vorticity',
-        zhenglim       = 'inactive',
-        omega_prolong  = 'linear_extrap',
-        trans_mod      = 'menter',
+            turbmod        = 'komega_menter',
+            sst_cor        = 'active',
+            sst_version    = 'std_sij',
+            k_prod_limiter = 10.,
+            k_prod_compute = 'from_vorticity',
+            zhenglim       = 'inactive',
+            omega_prolong  = 'linear_extrap',
+            trans_mod      = 'menter',
         ),
 
         'SSG/LRR-RSM-w2012': dict(
-        turbmod          = 'rsm',
-        rsm_name         = 'ssg_lrr_bsl',
-        rsm_diffusion    = 'isotropic',
-        rsm_bous_limiter = 10.0,
-        omega_prolong    = 'linear_extrap',
+            turbmod          = 'rsm',
+            rsm_name         = 'ssg_lrr_bsl',
+            rsm_diffusion    = 'isotropic',
+            rsm_bous_limiter = 10.0,
+            omega_prolong    = 'linear_extrap',
         ),
 
     }
@@ -312,12 +312,6 @@ def set_numerics(workflow):
         avcoef_k2          = 0.5,
         avcoef_k4          = 0.016,
         avcoef_sigma       = 1.0,
-        filter             = 'incr_new+prolong',
-        cutoff_dens        = 0.005,
-        cutoff_pres        = 0.005,
-        cutoff_eint        = 0.005,
-        artviscosity       = 'dismrt',
-        av_mrt             = 0.3,
         av_border          = 'current', # default elsA is 'dif0null', but JCB, JM, LC use 'current' see https://elsa.onera.fr/issues/10624
         av_formul          = 'current', # default elsA is 'new', but JCB, JM, LC use 'current' see https://elsa.onera.fr/issues/10624
         )
@@ -351,12 +345,19 @@ def set_numerics(workflow):
     
     SchemeSetup['t_harten'] = 0.01
 
-    # Viscous flux 
-    if workflow.tree.isStructured():
-        SchemeSetup['viscous_fluxes']  = '5p_cor'
-    else:
-        SchemeSetup['viscous_fluxes']  = '5p_cor2' # adapted to unstructured mesh
-        SchemeSetup['implconvectname'] = 'vleer' # only available for unstructured mesh, see https://elsa-e.onera.fr/issues/6492
+    # Viscous flux
+    # TODO Put in CHANGELOG: parameters for unstructured meshes are now used for structured meshes
+    SchemeSetup['viscous_fluxes']  = '5p_cor2' # adapted to unstructured mesh
+    SchemeSetup['implconvectname'] = 'vleer' # only available for unstructured mesh, see https://elsa-e.onera.fr/issues/6492
+
+    # TODO Put in CHANGELOG: same filtering parameters for all schemes
+    FilteringSetup = dict(
+        filter             = 'incr_new+prolong',
+        cutoff_dens        = 0.005,
+        cutoff_pres        = 0.005,
+        cutoff_eint        = 0.005,
+        )
+    SchemeSetup.update(FilteringSetup)
 
     # _____________________________________________________________________________
     # CFL 
@@ -364,6 +365,8 @@ def set_numerics(workflow):
         CFLSetup = {
             'cfl_fct': 'f_cfl',
             '.Solver#Function': dict(
+                name  = 'f_cfl', 
+                function_type = 'linear',
                 iteri = workflow.Numerics['CFL']['StartIteration'],
                 iterf = workflow.Numerics['CFL']['EndIteration'],
                 vali  = workflow.Numerics['CFL']['StartValue'],

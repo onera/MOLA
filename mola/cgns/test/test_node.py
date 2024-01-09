@@ -183,3 +183,34 @@ def test_getParameters(filename=''):
         msg+= pprint.pformat(get_params)
         raise ValueError(msg)
 
+def test_remove():
+    # create a node and attach it to another node 
+    a = cgns.Node( Name='TheParent')
+    b = cgns.Node( Name='TheChild', Parent=a )
+    b.remove()
+    assert a == ['TheParent', None, [], 'DataArray_t']
+
+def test_findAndRemoveNode():
+    # create a node and attach it to another node 
+    a = cgns.Node( Name='TheParent')
+    b = cgns.Node( Name='TheChild', Value=1, Type='DataArray', Parent=a )
+
+    a.findAndRemoveNode(Name='TheChild', Value=1, Type='DataArray', Depth=1)
+    assert a == ['TheParent', None, [], 'DataArray_t']
+    
+def test_findAndRemoveNodes():
+    # create a node and attach it to another node 
+    a = cgns.Node( Name='TheParent')
+    b = cgns.Node( Name='TheChild', Value=1, Type='DataArray', Parent=a )
+
+    a.findAndRemoveNodes(Name='TheChild', Value=1, Type='DataArray', Depth=1)
+    assert a == ['TheParent', None, [], 'DataArray_t']
+
+def test_getPaths():
+    parent = cgns.Node( Name='Parent')
+    for n in range(2):
+        child = cgns.Node( Name=f'Child{n}', Parent=parent)
+    for n in range(2):
+        cgns.Node( Name=f'GrandChild{n}', Parent=child)
+    paths = parent.getPaths()
+    assert paths == ['Parent', 'Parent/Child0', 'Parent/Child1', 'Parent/Child1/GrandChild0', 'Parent/Child1/GrandChild1']

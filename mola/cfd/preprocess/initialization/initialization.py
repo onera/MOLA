@@ -15,7 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 import os
-from mola import misc
+from mola import misc, cgns
 
 import Converter.PyTree as C
 import Converter.Internal as I
@@ -37,13 +37,11 @@ def apply(workflow):
         workflow.tree.newFields(workflow.Flow['ReferenceState'], Container='FlowSolution#Init')
 
     elif workflow.Initialization['method'] == 'interpolate':
-        print(misc.CYAN + 'Initialize FlowSolution by interpolation from {}'.format(workflow.Initialization['file']) + misc.ENDC)
+        print(misc.CYAN + f"Initialize FlowSolution by interpolation from {workflow.Initialization['file']}" + misc.ENDC)
         initialize_flow_from_file_by_interpolation(workflow)
         
     elif workflow.Initialization['method'] == 'copy':
-        print(misc.CYAN + 'Initialize FlowSolution by copy of {}'.format(workflow.Initialization['file']) + misc.ENDC)
-        if not 'keepTurbulentDistance' in workflow.Initialization:
-            workflow.Initialization['keepTurbulentDistance'] = False
+        print(misc.CYAN + f"Initialize FlowSolution by copy of {workflow.Initialization['file']}" + misc.ENDC)
         initialize_flow_from_file_by_copy(workflow)
     else:
         raise Exception(misc.RED+'The key "method" of the dictionary workflow.Initialization is mandatory'+misc.ENDC)
@@ -95,8 +93,7 @@ def initialize_flow_from_file_by_interpolation(t, ReferenceValues, sourceFilenam
         I.renameNode(t, container, 'FlowSolution#Init')
     I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
 
-def initialize_flow_from_file_by_copy(t, ReferenceValues, sourceFilename,
-        container='FlowSolution#Init', keepTurbulentDistance=False):
+def initialize_flow_from_file_by_copy(workflow):
     '''
     Initialize the flow solution of **t** by copying the flow solution in the file
     **sourceFilename**.
@@ -129,30 +126,46 @@ def initialize_flow_from_file_by_copy(t, ReferenceValues, sourceFilename,
                 nearest wall, and this index varies with the distribution.
 
     '''
-    sourceTree = C.convertFile2PyTree(sourceFilename)
-    OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
-    I.__FlowSolutionCenters__ = container
-    varNames = copy.deepcopy(ReferenceValues['Fields'])
+    keepTurbulentDistance = workflow.Initialization.get('keepTurbulentDistance', False)
+
+    sourceTree = cgns.load(workflow.Initialization['file'])
+
+    varNames = list(workflow.Flow['ReferenceState'])
     if keepTurbulentDistance:
         varNames += ['TurbulentDistance', 'TurbulentDistanceIndex']
 
-    sourceTree = C.extractVars(sourceTree, ['centers:{}'.format(var) for var in varNames])
+    for zone in workflow.tree.zones():
+        FSpath = zone.path() + '/FlowSolution#Init'
+        try:
+            FlowSolutionInSourceTree = sourceTree.getAtPath(FSpath)
+            zone.addChild(FlowSolutionInSourceTree, override_brother_by_name=True)
+        except AttributeError:
+            ERROR_MSG = f"The node {FSpath} is not found in {workflow.Initialization['file']}"
+            raise Exception(misc.RED+ERROR_MSG+misc.ENDC)
 
-    for base in I.getBases(t):
-        basename = I.getName(base)
-        for zone in I.getNodesFromType1(base, 'Zone_t'):
-            zonename = I.getName(zone)
-            zonepath = '{}/{}'.format(basename, zonename)
-            FSpath = '{}/{}'.format(zonepath, container)
-            FlowSolutionInSourceTree = I.getNodeFromPath(sourceTree, FSpath)
-            if FlowSolutionInSourceTree:
-                I._rmNodesByNameAndType(zone, container, 'FlowSolution_t')
-                I._append(t, FlowSolutionInSourceTree, zonepath)
-            else:
-                ERROR_MSG = 'The node {} is not found in {}'.format(FSpath, sourceFilename)
-                raise Exception(misc.RED+ERROR_MSG+misc.ENDC)
+def compute_turbulent_distance_with_maia(workflow):
+    '''
+    The input tree has to be distributed, read by maia.
+    '''
+    import maia
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
 
-    if container != 'FlowSolution#Init':
-        I.renameNode(t, container, 'FlowSolution#Init')
+    # TODO Add test to check that the tree was read with maia
+    # This function needs to be after the definition of boundary conditions
 
-    I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
+    part_tree = maia.factory.partition_dist_tree(workflow.tree, comm)
+    maia.algo.part.compute_wall_distance(part_tree, comm, out_fs_name='FlowSolution#Init')  # create a FlowSolution container named WallDistance
+    maia.transfer.part_tree_to_dist_tree_all(workflow.tree, part_tree, comm)
+    cgns.castNode(workflow.tree)
+
+    # FIXME there is a issue with the PointRange: data are stored in 1D either if the mesh is structured
+
+    ## If out_fs_name='FlowSolution#Init' is not used, we need to move the TurbulentDistance node
+    # for zone in workflow.tree.zones():
+    #     FlowSolution = zone.get(Name='FlowSolution#Init', Depth=1)
+    #     WallDistance = zone.get(Name='WallDistance', Depth=1)
+    #     TurbulentDistance = WallDistance.get(Name='TurbulentDistance')
+    #     TurbulentDistance.moveTo(FlowSolution)
+    #     WallDistance.remove()
+
