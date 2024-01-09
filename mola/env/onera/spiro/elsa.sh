@@ -15,6 +15,14 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
+export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net
+
+export FORT_BUFFERED=true
+export MPI_GROUP_MAX=8192
+export MPI_COMM_MAX=8192
+export PYTHONUNBUFFERED=true # cf ticket 9685
+
 export ELSAVERSION=v5.2.03
 export ELSA_VERBOSE_LEVEL=0 # cf elsA ticket 9689
 export ELSA_MPI_LOG_FILES=OFF
@@ -27,6 +35,41 @@ export TURBOVERSION=v1.3
 export ERSTAZVERSION=v1.6.3
 export OWNCASSREV=rev4670
 export MAIAVERSION=1.2
+
+# architecture
+if lscpu | grep -q 'avx512' ; then
+    export ARCH='avx512'
+elif lscpu | grep -q 'avx2' ; then
+    export ARCH='avx2'
+elif lscpu | grep -q 'avx' ; then
+    export ARCH='avx'
+elif lscpu | grep -q 'sse4_2' ; then
+    export ARCH='sse4_2'
+elif lscpu | grep -q 'sse4_1' ; then
+    export ARCH='sse4_1'
+elif lscpu | grep -q 'ssse3' ; then
+    export ARCH='ssse3'
+elif lscpu | grep -q 'sse3' ; then
+    export ARCH='sse3'
+else
+    export ARCH='sse2'
+fi
+
+if [ -n "$SLURM_NTASKS" ] ; then
+    if [ $SLURM_NTASKS == 1 ] ; then
+        if [ -n "$SLURM_CPUS_PER_TASK" ] ; then
+            export NPROCMPI=$SLURM_CPUS_PER_TASK
+        elif [ -n "$SLURM_CPUS_ON_NODE" ] ; then
+            export NPROCMPI=$SLURM_CPUS_ON_NODE
+        else
+            export NPROCMPI=$(nproc)
+        fi
+    else
+        export NPROCMPI=$SLURM_NTASKS
+    fi
+else
+    export NPROCMPI=$(nproc)
+fi
 
 source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro-el8_mpi/.env_elsA &>/dev/null
 
@@ -76,3 +119,9 @@ export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/:$PYTHONPATH
 export PATH=$MOLAext/spiro_el8/bin:$PATH
 export LD_LIBRARY_PATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
 
+
+export PYTHONPATH=$MOLA:$PYTHONPATH
+export PATH=$MOLA/bin:$PATH
+
+export PYTHONEXE=python3
+alias python=python3
