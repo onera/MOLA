@@ -53,6 +53,13 @@ def setdefault(workflow):
         # FIXME For now, it is spiro but it may be changed once a dedicated module for file and server management is ready
         workflow.RunManagement['Machine'] = 'spiro'
 
+    if 'Network' not in workflow.RunManagement:
+        # TODO: Make a search on available machines in env/
+        # if there is only one machine with the given name, 
+        # it is possible to deduce Network
+        # For now, set default Network to 'onera'
+        workflow.RunManagement['Network'] = 'onera'
+
     if 'TimeLimit' not in workflow.RunManagement:
         # To update depending on the cluster
         if workflow.RunManagement['Machine'] in ['sator', 'spiro']:

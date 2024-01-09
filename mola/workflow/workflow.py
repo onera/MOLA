@@ -29,6 +29,7 @@ from  mola.cfd.preprocess import (flow_generators,
                                   cfd_parameters,
                                   extractions,
                                   write_cfd_files)
+from  mola.cfd.compute import compute
 
 def deep_update(d, u):
     for k, v in u.items():
@@ -364,6 +365,9 @@ class Workflow(object):
         # self.write_setup()
         # self.write_run_scripts() # including job bash file(s)
         # self.write_data_files() # CGNS, FSDM...
+
+    def compute(self):
+        compute.apply(self)
 
     def visu(self):
         pass
