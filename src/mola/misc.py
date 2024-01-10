@@ -286,3 +286,61 @@ class OutputGrabber(object):
             if not char or self.escape_char in char:
                 break
             self.capturedtext += char
+
+
+def allclose_dict(d1, d2, tol_abs=None, tol_rel=1e-6):
+    '''
+    taken from https://gist.github.com/durden/4236551
+
+    Compare two dicts recursively (just as standard '==' except floating point
+    values are compared within given precision.
+    A kind of `numpy.allclose()` function applied to dictionaries.
+
+    Parameters
+    ----------
+    d1 : dict
+        first dictionary
+    d2 : dict
+        second dictionary to compre to **d1**
+    tol_abs : float or None, optional
+        If not None, the absolute tolerance to use. By default None
+    tol_rel : _type_, optional
+        If **tol_abs** if None, the relative tolerance to use for the comparison. 
+        Thus applicated absolute tolerance will be :py:math:`tol_{abs} = e \times tol_{rel}`, 
+        where :py:math:`e` is the compared element in **d1**.
+        By default 1e-6
+
+    Returns
+    -------
+    bool
+        result of the comparison
+    '''
+
+    if len(d1) != len(d2):
+        return False
+
+    for k, v in d1.items():
+        # Make sure all the keys are equal
+        if k not in d2:
+            return False
+
+        # Fuzzy float comparison
+        if isinstance(v, float) and isinstance(d2[k], float):
+            if tol_abs is not None:
+                precision = tol_abs
+            elif abs(v) < tol_rel:
+                precision = tol_rel
+            else:
+                precision = abs(v) * tol_rel
+            if not abs(v - d2[k]) < precision:
+                return False
+        # Recursive compare if there are nested dicts
+        elif isinstance(v, dict):
+            if not allclose_dict(v, d2[k], tol_abs, tol_rel):
+                return False
+        # Fall back to default
+        elif v != d2[k]:
+            return False
+
+    return True
+
