@@ -15,6 +15,10 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+export MOLA=${SCRIPT_DIR%/mola/env/*}  # retain the part before /mola/env/*
+export MOLAext=$MOLA/ext # TODO check that !!
+
 export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
 export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net
 
@@ -55,22 +59,6 @@ else
     export ARCH='sse2'
 fi
 
-if [ -n "$SLURM_NTASKS" ] ; then
-    if [ $SLURM_NTASKS == 1 ] ; then
-        if [ -n "$SLURM_CPUS_PER_TASK" ] ; then
-            export NPROCMPI=$SLURM_CPUS_PER_TASK
-        elif [ -n "$SLURM_CPUS_ON_NODE" ] ; then
-            export NPROCMPI=$SLURM_CPUS_ON_NODE
-        else
-            export NPROCMPI=$(nproc)
-        fi
-    else
-        export NPROCMPI=$SLURM_NTASKS
-    fi
-else
-    export NPROCMPI=$(nproc)
-fi
-
 
 source /stck/elsa/Public/$ELSAVERSION/Dist/bin/local-os8_mpi/.env_elsA &>/dev/null
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
@@ -91,7 +79,7 @@ export PYTHONPATH=$PumaRootDir/lib/python3.8/site-packages/PUMA:$PYTHONPATH
 export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.8:$LD_LIBRARY_PATH
 export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
-# # turbo 
+# turbo 
 export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/local-os8_mpi/lib/python3.8/site-packages/:$PYTHONPATH
 
 # ErstaZ

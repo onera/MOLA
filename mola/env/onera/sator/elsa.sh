@@ -15,6 +15,10 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+export MOLA=${SCRIPT_DIR%/mola/env/*}  # retain the part before /mola/env/*
+export MOLAext=$MOLA/ext # TODO check that !!
+
 export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
 export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net
 
@@ -53,22 +57,6 @@ elif lscpu | grep -q 'sse3' ; then
     export ARCH='sse3'
 else
     export ARCH='sse2'
-fi
-
-if [ -n "$SLURM_NTASKS" ] ; then
-    if [ $SLURM_NTASKS == 1 ] ; then
-        if [ -n "$SLURM_CPUS_PER_TASK" ] ; then
-            export NPROCMPI=$SLURM_CPUS_PER_TASK
-        elif [ -n "$SLURM_CPUS_ON_NODE" ] ; then
-            export NPROCMPI=$SLURM_CPUS_ON_NODE
-        else
-            export NPROCMPI=$(nproc)
-        fi
-    else
-        export NPROCMPI=$SLURM_NTASKS
-    fi
-else
-    export NPROCMPI=$(nproc)
 fi
 
 

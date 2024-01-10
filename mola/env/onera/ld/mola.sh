@@ -15,6 +15,10 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+export MOLA=${SCRIPT_DIR%/mola/env/*}  # retain the part before /mola/env/*
+export MOLAext=$MOLA/ext # TODO check that !!
+
 source /etc/bashrc
 module purge &>/dev/null
 unset PYTHONPATH
@@ -28,22 +32,6 @@ export FORT_BUFFERED=true
 export MPI_GROUP_MAX=8192
 export MPI_COMM_MAX=8192
 export PYTHONUNBUFFERED=true # cf ticket 9685
-
-if [ -n "$SLURM_NTASKS" ] ; then
-    if [ $SLURM_NTASKS == 1 ] ; then
-        if [ -n "$SLURM_CPUS_PER_TASK" ] ; then
-            export NPROCMPI=$SLURM_CPUS_PER_TASK
-        elif [ -n "$SLURM_CPUS_ON_NODE" ] ; then
-            export NPROCMPI=$SLURM_CPUS_ON_NODE
-        else
-            export NPROCMPI=$(nproc)
-        fi
-    else
-        export NPROCMPI=$SLURM_NTASKS
-    fi
-else
-    export NPROCMPI=$(nproc)
-fi
 
 
 module load python/3.10.8-gnu831
