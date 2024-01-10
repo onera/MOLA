@@ -15,9 +15,9 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 export MOLA=${SCRIPT_DIR%/mola/env/*}  # retain the part before /mola/env/*
-export MOLAext=$MOLA/ext # TODO check that !!
+export MOLAext=/stck/lbernard/MOLA/Dev/ext
 
 source /etc/bashrc
 module purge &>/dev/null

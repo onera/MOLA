@@ -15,9 +15,9 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 export MOLA=${SCRIPT_DIR%/mola/env/*}  # retain the part before /mola/env/*
-export MOLAext=$MOLA/ext # TODO check that !!
+export MOLAext=/stck/lbernard/MOLA/Dev/ext
 
 export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
 export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net
@@ -62,7 +62,6 @@ fi
 
 source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA &>/dev/null
 unset I_MPI_PMI_LIBRARY
-export MOLA=$MOLASATOR
 
 # PUMA
 export PUMAVERSION=v2.0.3_mod
@@ -100,9 +99,9 @@ export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH
 export PYTHONPATH=$OWNCASS/lib/python3.7/site-packages:$PYTHONPATH
 
 
-export PYTHONPATH=$MOLASATORext/sator/lib/python3.7/site-packages/:$PYTHONPATH
-export PATH=$MOLASATORext/sator/bin:$PATH
-export LD_LIBRARY_PATH=$MOLASATORext/sator/lib/python3.7/site-packages/PyQt5/Qt5/lib:$LD_LIBRARY_PATH
+export PYTHONPATH=$MOLAext/sator/lib/python3.7/site-packages/:$PYTHONPATH
+export PATH=$MOLAext/sator/bin:$PATH
+export LD_LIBRARY_PATH=$MOLAext/sator/lib/python3.7/site-packages/PyQt5/Qt5/lib:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=/tmp_user/sator/lbernard/lib:$LD_LIBRARY_PATH
 
 
