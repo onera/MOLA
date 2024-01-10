@@ -261,7 +261,7 @@ def add_trigger(t, coprocessFilename='coprocess.py'):
             .. note:: it is recommended using ``'coprocess.py'``
 
     '''
-    FamilyName = cgns.Node(Name='ELSA_TRIGGER', Type='FamilyName', Value='ELSA_TRIGGER')
+    FamilyName = cgns.Node(Name='ELSA_TRIGGER', Type='AdditionalFamilyName', Value='ELSA_TRIGGER')
     for zone in t.zones():
         zone.addChild(FamilyName)
 
