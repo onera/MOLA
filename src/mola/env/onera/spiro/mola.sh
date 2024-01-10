@@ -51,7 +51,7 @@ export LD_LIBRARY_PATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/PyQt5/Qt5/
 
 
 export PYTHONPATH=$MOLA:$PYTHONPATH
-export PATH=$MOLA/bin:$PATH
+export PATH=$MOLA/mola/bin:$PATH
 
 export PYTHONEXE=python3
 alias python=python3
