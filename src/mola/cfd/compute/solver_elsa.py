@@ -112,3 +112,22 @@ def launch_elsa_computation(workflow, FILE_CGNS):
     e.mode=elsAxdt.READ_ALL
     e.compute()
     e.save('solution.cgns')
+
+def moveLogFiles():
+    if rank == 0:
+        try: os.makedirs(DIRECTORY_LOGS)
+        except: pass
+
+        for fn in glob.glob('*.log'):
+            FilenameBase = fn[:-4]
+            i = 1
+            NewFilename = FilenameBase+'-%d'%i+'.log'
+            while os.path.isfile(os.path.join('LOGS', NewFilename)):
+                i += 1
+                NewFilename = FilenameBase+'-%d'%i+'.log'
+
+            shutil.move(fn, os.path.join('LOGS', NewFilename))
+        for fn in glob.glob('elsA_MPI*'):
+            shutil.move(fn, os.path.join('LOGS', fn))
+
+    Cmpi.barrier()

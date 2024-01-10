@@ -49,6 +49,7 @@ SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 export MOLA=${SCRIPT_DIR%/mola/env/*}  # retain the part before /mola/env/*
 export MOLAext=/stck/lbernard/MOLA/Dev/ext
 
+
 # source the environment associated to the current machine and solver
 echo "source $MOLA/mola/env/onera/$MAC/$solver.sh"
 source $MOLA/mola/env/onera/$MAC/$solver.sh &>/dev/null
