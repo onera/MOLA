@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mola-workflow"
+version = "0.0.1"
+authors = [
+  { name="Luis Bernardos", email="luisfco.bernardos@gmail.com" },
+  { name="Thomas Bontemps", email="thomas.bontemps@hotmail.fr" }
+]
+description = "MOLA is an ONERA Python code that implements user-level workflows and tools for aerodynamic analysis"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/onera/MOLA"
+Issues = "https://github.com/onera/MOLA/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mola"]
+
