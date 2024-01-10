@@ -259,6 +259,8 @@ def apply(workflow):
 
     showStatisticsAndCheckDistribution(tRef, CoresPerNode=cores_per_node)
 
+    tRef = cgns.castNode(tRef)
+
     workflow.tree = tRef
 
     if 'NumberOfProcessors' not in workflow.RunManagement \
