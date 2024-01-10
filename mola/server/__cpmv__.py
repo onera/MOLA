@@ -14,3 +14,25 @@
 #
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
+import os
+import socket
+import getpass
+
+def guess_host(Network):
+    '''
+    Returns the host name. For example:   'sator', 'spiro', 'visio' or 'celeste'
+    '''
+    HostName = socket.gethostname()
+    if Network == 'onera':
+        PossibleMachineNamesInHostName = ('sator','spiro','visio','celeste', 'ld')
+        for name in PossibleMachineNamesInHostName:
+            if name in HostName: return name
+            if HostName.startswith('n'): return 'sator'
+        UserName = getpass.getuser()
+        if not os.path.exists(os.path.join(os.path.sep,'stck',UserName)):
+            HostName = 'StckInvisible'
+        return HostName
+
+    else:
+        raise Exception(f'Unknown Network: {Network}')

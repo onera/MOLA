@@ -123,26 +123,6 @@ def write_job_launcher(workflow, jobFile='job.sh'):
 
     # shutil.copy2(f'{__MOLA_PATH__}/TEMPLATES/job_template.sh', 'job.sh')
 
-    # with open(f'{__MOLA_PATH__}/TEMPLATES/job_template.sh', 'r') as f:
-    #     JobText = f.read()
-
-    # JobText = JobText.replace('<JobName>', workflow.RunManagement['JobName'])
-    # JobText = JobText.replace('<AERnumber>', str(workflow.RunManagement['AER']))
-    # JobText = JobText.replace('<TimeLimit>', str(workflow.RunManagement["TimeLimit"]))
-    # JobText = JobText.replace('<NumberOfProcessors>', str(workflow.RunManagement['NumberOfProcessors']))
-    # JobText = JobText.replace('$NPROCMPI', str(workflow.RunManagement['NumberOfProcessors']))
-
-    # if workflow.RunManagement['SlurmConstraint'] is None:
-    #     JobText = JobText.replace('#SBATCH --constraint=<SlurmConstraint>', '')
-    # else:
-    #     JobText = JobText.replace('<SlurmConstraint>', workflow.RunManagement['SlurmConstraint']) 
-
-    # if workflow.RunManagement['SlurmQualityOfService'] is None:
-    #     JobText = JobText.replace('#SBATCH --qos=<SlurmQualityOfService>', '')
-    # else:
-    #     JobText = JobText.replace('<SlurmQualityOfService>', workflow.RunManagement['SlurmQualityOfService']) 
-
-
     JobText = f'''#!/bin/bash
 #SBATCH -J {workflow.RunManagement['JobName']}
 #SBATCH --comment {workflow.RunManagement['AER']}
@@ -154,16 +134,15 @@ def write_job_launcher(workflow, jobFile='job.sh'):
     if workflow.RunManagement['SlurmConstraint'] is not None:
         JobText += f"#SBATCH --constraint={workflow.RunManagement['SlurmConstraint']}\n"
     
-    if workflow.RunManagement['SlurmQualityOfService'] is not None:
+    if 'SlurmQualityOfService' in workflow.RunManagement and workflow.RunManagement['SlurmQualityOfService'] is not None:
         JobText += f"#SBATCH --qos={workflow.RunManagement['SlurmQualityOfService']}\n\n"
 
-    JobText += f'source {__MOLA_PATH__}/mola/env/{workflow.RunManagement["Network"]}/{workflow.RunManagement["Machine"]}/{workflow.Solver}.sh\n\n'
+    JobText += f'source {workflow.RunManagement["mola_target_path"]}/mola/env/{workflow.RunManagement["Network"]}/{workflow.RunManagement["Machine"]}/{workflow.Solver}.sh\n\n'
 
-
-    JobText += 'mpirun $OPENMPIOVERSUBSCRIBE -np $NPROCMPI elsA.x -C xdt-runtime-tree compute.py 1>stdout.log 2>stderr.log\n'
+    JobText += f'mpirun $OPENMPIOVERSUBSCRIBE -np {workflow.RunManagement["NumberOfProcessors"]} elsA.x -C xdt-runtime-tree compute.py 1>stdout.log 2>stderr.log\n'
 
     # Write job file
-    job_filename = os.path.join(workflow.RunManagement['RunDirectory'], 'jobFile.py')
+    job_filename = os.path.join(workflow.RunManagement['RunDirectory'], jobFile)
     with open(job_filename, 'w') as f:
         f.write(JobText)
     os.chmod(job_filename, 0o777)

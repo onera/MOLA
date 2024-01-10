@@ -16,6 +16,8 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 import os
 from mola import misc
+from mola import __MOLA_PATH__
+from mola.server.__cpmv__ import guess_host
 
 def apply(workflow):
 
@@ -36,9 +38,15 @@ def setdefault(workflow):
         FilesAndDirectories=[f"{os.getenv('MOLA')}/templates/compute.py"],
         SubmitJob=False,
         TimeOutInSeconds = 'auto',
+        # TODO: Make a search on available machines in env/
+        # if there is only one machine with the given name, 
+        # it is possible to deduce Network
+        # For now, set default Network to 'onera'
+        Network = 'onera',
         Machine = 'auto', # or 'spiro-dtis', 'topaze'...
         LauncherCommand = 'auto', # or 'sbatch job.sh', './job.sh'...
-        SecondsMargin4QuitBeforeTimeOut = 180.0
+        SecondsMargin4QuitBeforeTimeOut = 180.0,
+        mola_target_path = __MOLA_PATH__
         )
     for key, default_value in RunManagementDefault.items():
         workflow.RunManagement.setdefault(key, default_value)
@@ -49,23 +57,15 @@ def setdefault(workflow):
     assert isinstance(workflow.RunManagement['NumberOfProcessors'], int), ERR_NPROC
 
     if workflow.RunManagement['Machine'] == 'auto':
-        # TODO 'auto' may be too generic. Writing Machine='ONERA' may be better to redirect to sator, spiro, etc.
-        # FIXME For now, it is spiro but it may be changed once a dedicated module for file and server management is ready
-        workflow.RunManagement['Machine'] = 'spiro'
-
-    if 'Network' not in workflow.RunManagement:
-        # TODO: Make a search on available machines in env/
-        # if there is only one machine with the given name, 
-        # it is possible to deduce Network
-        # For now, set default Network to 'onera'
-        workflow.RunManagement['Network'] = 'onera'
+        workflow.RunManagement['Machine'] = guess_host(Network=workflow.RunManagement['Network'])
+        print(misc.CYAN+f"The detected Machine on Network {workflow.RunManagement['Network']} is {workflow.RunManagement['Machine']}"+misc.ENDC)
 
     if 'TimeLimit' not in workflow.RunManagement:
         # To update depending on the cluster
         if workflow.RunManagement['Machine'] in ['sator', 'spiro']:
             workflow.RunManagement['TimeLimit'] = '0-15:00'
         else:
-            print(misc.YELLOW + f'The machine {workflow.RunManagement["Machine"]} is unknown' + misc.ENDC)
+            # print(misc.YELLOW + f'The machine {workflow.RunManagement["Machine"]} is unknown' + misc.ENDC)
             workflow.RunManagement['TimeLimit'] = '0-24:00'
 
     if 'SlurmConstraint' not in workflow.RunManagement:
