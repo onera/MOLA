@@ -19,7 +19,8 @@ __pycache__
 *.log
 *.html
 *elsA_MPI_Pid*
-EXAMPLES
+dist
+EXAMPLES*
 ExternalPythonPackages
 ext
 DOCUMENTATION/html
