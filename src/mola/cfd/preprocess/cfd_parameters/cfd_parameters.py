@@ -20,7 +20,7 @@ from mola import misc
 
 def apply(workflow):
     
-    set_modelling_parameters(workflow)
+    set_problem_dimension(workflow)
     set_numerical_parameters(workflow)
 
     workflow.SolverParameters = dict()
@@ -29,7 +29,7 @@ def apply(workflow):
     solverModule.adapt_to_solver(workflow)
 
 
-def set_modelling_parameters(workflow):
+def set_problem_dimension(workflow):
     
     # Check that all bases have the same dimension
     dimOfBases = set(base.dim() for base in workflow.tree.bases())
@@ -56,12 +56,12 @@ def set_numerical_parameters(workflow):
 
     # CFL
     if workflow.Numerics['CFL'] is None:
-        print(misc.RED+'CFL is not defined. Please give a value or function in Workflow.Numerics'+misc.ENDC)     
+        raise Exception(misc.RED+'CFL is not defined. Please give a value or function in Workflow.Numerics'+misc.ENDC)     
     elif isinstance(workflow.Numerics['CFL'], float):
         pass
     elif isinstance(workflow.Numerics['CFL'], int):
         workflow.Numerics['CFL'] = float(workflow.Numerics['CFL'])
-    elif dict(workflow.Numerics['CFL']):
+    elif isinstance(workflow.Numerics['CFL'], dict):
         workflow.Numerics['CFL'].setdefault('StartIteration', workflow.Numerics['IterationAtInitialState'])
         mandatoryKeys = ['EndIteration', 'StartValue', 'EndValue']
         ERROR = f'If CFL is a dict, it must contains at least {", ".join(mandatoryKeys)}. \
@@ -69,5 +69,5 @@ You may also define StartIteration, otherwise it will be equal to IterationAtIni
         assert all([(key in workflow.Numerics['CFL']) for key in mandatoryKeys]), \
             misc.RED + ERROR + misc.ENDC
     else:
-        print(misc.RED+'CFL must be a scalar or a dict'+misc.ENDC)
+        raise Exception(misc.RED+'CFL must be a scalar or a dict'+misc.ENDC)
 
