@@ -23,4 +23,6 @@ def adapt_to_solver(workflow):
     
     if workflow.tree.get(Name='TurbulentDistance', Type='DataArray'):
         import Converter.elsAProfile as elsAProfile
+        import Converter.Internal as I
+        I.__FlowSolutionCenters__ = 'FlowSolution#Init'
         elsAProfile._addTurbulentDistanceIndex(workflow.tree)

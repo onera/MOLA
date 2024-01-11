@@ -187,7 +187,7 @@ class Workflow(object):
             self._FlowGenerator=self.get_flow_generator(FlowGenerator)
             self.Turbulence=Turbulence
             self.BoundaryConditions=BoundaryConditions
-            self.Solver=Solver
+            self.Solver=Solver.lower()
 
             default_splitAndDist = dict(
                 Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
@@ -237,7 +237,7 @@ class Workflow(object):
 
     def get_workflow_parameters_from_tree(self):
         
-        if isinstance(self.tree,str): self.tree = c.load(self.tree)
+        self.tree = c.load(self.tree)
         
         workflow_parameters = self.tree.getParameters(self._workflow_parameters_container_)
         
@@ -275,7 +275,7 @@ class Workflow(object):
         self.positioning()
         self.connect()
         self.define_families()
-        self.split_and_distribute() # FIXME: the tree is wrong after this method (see printPaths, name of bases are wrong)
+        self.split_and_distribute()
         self.process_overset()
         self.compute_reference_values()
         self.set_motion()
@@ -306,10 +306,7 @@ class Workflow(object):
         meshes = []
         for component in self.RawMeshComponents:
             src = component['Source']
-            if isinstance(src,str):
-                mesh = c.load(src)
-            else:
-                mesh = c.merge(src)
+            mesh = c.load(src)
             nb_of_bases = len(mesh.bases())
             if nb_of_bases != 1:
                 msg = f"component {component['Name']} must have exactly 1 base (got {nb_of_bases})"
