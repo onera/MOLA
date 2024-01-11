@@ -20,10 +20,19 @@ from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_to_e
 
 import copy
 
+# FIXME Check the writingframe, following what has been done in mola v1
+
 def adapt_to_solver(workflow):
 
+    add_extractions_for_overset_components(workflow)
+    process_extractions_3d(workflow)
+    process_extractions_2d(workflow)
+    add_trigger(workflow.tree)
+    add_global_convergence_history(workflow)
+
+def add_extractions_for_overset_components(workflow):
     if workflow.has_overset_component():
-        workflow.extractions.append(
+        workflow.Extractions.append(
             dict(
                 type      = '3D', 
                 fields    = workflow.Flow['Conservatives'], 
@@ -31,11 +40,6 @@ def adapt_to_solver(workflow):
                 Frame     = 'relative'
             )
         )
-
-    process_extractions_3d(workflow)
-    process_extractions_2d(workflow)
-    add_trigger(workflow.tree)
-    add_global_convergence_history(workflow)
 
 def add_global_convergence_history(workflow):
     for base in workflow.tree.bases():
@@ -92,47 +96,6 @@ def process_extractions_3d(workflow):
                 for field in Fields2Extract:
                     if not EoRnode.get(Name=field, Type='DataArray', Depth=1):
                         cgns.Node(Parent=EoRnode, Name=field, Type='DataArray')
-
-
-def addAverageFieldExtractions(t, ReferenceValues, firstIterationForAverage=1):
-    '''
-    Include time averaged fields extraction information to CGNS tree using
-    information contained in dictionary **ReferenceValues**.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            prepared grid as produced by :py:func:`prepareMesh4ElsA` function.
-
-            .. note:: tree **t** is modified
-
-        ReferenceValues : dict
-            dictionary as produced by :py:func:`computeReferenceValues` function
-
-        firstIterationForAverage : int
-            Iteration to start the computation of time average. All the following iterations
-            will be taken into account to compute the average.
-
-    '''
-
-    Fields2Extract = ReferenceValues['Fields'] + ReferenceValues['FieldsAdditionalExtractions']
-
-    for zone in I.getZones(t):
-
-        EoRnode = I.createNode('FlowSolution#EndOfRun#Average', 'FlowSolution_t',
-                                parent=zone)
-        I.createNode('GridLocation','GridLocation_t', value='CellCenter', parent=EoRnode)
-        for fieldName in Fields2Extract:
-            I.createNode(fieldName, 'DataArray_t', value=None, parent=EoRnode)
-        J.set(EoRnode, '.Solver#Output',
-              period=1,
-              writingmode=2,
-              writingframe='absolute',
-              average='time',
-              period_init=firstIterationForAverage,  #First iteration to consider to compute time average
-               )
-
 
 def process_extractions_2d(workflow):
 

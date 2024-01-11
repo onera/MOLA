@@ -19,3 +19,13 @@ from mola import cgns
 from mola.cfd.preprocess.cfd_parameters import solver_elsa
 
 # TODO There must be tests with structured, unstructured and hybrid meshes
+
+
+def test_set_cfdpb():
+    assert False, 'Not implemented yet'
+
+def test_set_model():
+    assert False, 'Not implemented yet'
+
+def test_set_numerics():
+    assert False, 'Not implemented yet'
