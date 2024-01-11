@@ -23,18 +23,17 @@ def adapt_to_solver(workflow):
 
     .. code-block:: python
         Motion = dict(
-            RotationSpeed = [1000., 0., 0.],
-            RotationAxisOrigin = [0., 0., 0.],
-            TranslationSpeed = [0., 0., 0.]
+            Rotor = dict(
+                RotationSpeed = [1000., 0., 0.],
+                RotationAxisOrigin = [0., 0., 0.],
+                TranslationSpeed = [0., 0., 0.]
             )
+        )
 
     Parameters
     ----------
 
         workflow : Workflow object
-
-        Family : str
-            Name of the family on which the boundary condition will be imposed
 
     '''
   
@@ -54,7 +53,7 @@ def adapt_to_solver(workflow):
             assert onlyOneRotationComponent, 'For elsA, the rotation must be around one axis only'
             omega = sum(MotionOnFamily['RotationSpeed'])
 
-            if omega != 0. or any(MotionOnFamily['TranslationSpeed']!=0.):
+            if omega != 0. or any([v!=0. for v in MotionOnFamily['TranslationSpeed']]):
             
                 print(f'setting .Solver#Motion at family {family} (omega={omega}rad/s)')
                 famNode.setParameters('.Solver#Motion',
