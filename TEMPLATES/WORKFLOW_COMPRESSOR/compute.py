@@ -166,8 +166,8 @@ e.compute()
 
 CO.CurrentIteration += 1
 CO.printCo('iteration %d -> end of run'%CO.CurrentIteration, proc=0, color=J.MAGE)
-CO.updateAndWriteSetup(setup)
 t = CO.extractFields(Skeleton)
+CO.updateAndWriteSetup(setup, t)
 
 # save surfaces
 surfs = CO.extractSurfaces(t, setup.Extractions, arrays=arrays)

@@ -76,7 +76,7 @@ def checkDependencies():
     print('\nVERIFICATIONS TERMINATED')
 
 
-def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, #dict(SplitBlocks=False),
+def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, 
                     duplicationInfos={}, zonesToRename={},
                     scale=1., rotation='fromAG5', tol=1e-8, PeriodicTranslation=None,
                     BodyForceRows=None, families2Remove=[], saveGeometricalDataForBodyForce=True):
@@ -271,7 +271,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         PostprocessOptions={}, BodyForceInputData={}, writeOutputFields=True,
         bladeFamilyNames=['BLADE', 'AUBE'], Initialization={'method':'uniform'},
         JobInformation={}, SubmitJob=False,
-        FULL_CGNS_MODE=False, COPY_TEMPLATES=True):
+        FULL_CGNS_MODE=False, COPY_TEMPLATES=True, secondOrderRestart=False):
     '''
     This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
     but adapted to compressor computations. Its purpose is adapting the CGNS to
@@ -374,6 +374,17 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             If :py:obj:`True` (default value), copy templates files in the
             current directory.
 
+        secondOrderRestart : bool
+            If :py:obj:`True`, and if NumericalParams['time_algo'] is 'gear' or 'DualTimeStep' 
+            (second order time integration schemes), prepare a second order restart, and allow 
+            the automatic restart of such a case. By default, the value is :py:obj:`False`.
+
+            .. important:: 
+            
+                This behavior works only if elsA reaches the final iteration given by ``niter``.
+                If the simulation stops because of the time limit or because all convergence criteria
+                have been reached, then the restart will be done at the first order, without raising an error.
+
     Returns
     -------
 
@@ -442,20 +453,28 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         updateChoroTimestep(t, Rows = TurboConfiguration['Rows'], NumericalParams = NumericalParams)
     else:
         CHORO_TAG = False
-
     
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues,
                             unstructured=IsUnstructured, **NumericalParams)
+    
+    # Restart with second order automatically for unsteady simulation
+    if secondOrderRestart:
+        secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
 
     if Initialization['method'] == 'turbo':
         t = initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboConfiguration)
+        if secondOrderRestart:
+            for zone in I.getZones(t):
+                FSnode = I.copyTree(I.getNodeFromName1(zone, 'FlowSolution#Init'))
+                I.setName(FSnode, 'FlowSolution#Init-1')
+                I.addChild(zone, FSnode)
     else:
         if CHORO_TAG and Initialization['method'] != 'copy':
             MSG = 'Flow initialization failed. No initial solution provided. Chorochronic simulations must be initialized from a mixing plane solution obtained on the same mesh'
             print(J.FAIL + MSG + J.ENDC)
             raise Exception(J.FAIL + MSG + J.ENDC)
 
-        PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
+        PRE.initializeFlowSolution(t, Initialization, ReferenceValues, secondOrderRestart=secondOrderRestart)
 
     if not 'PeriodicTranslation' in TurboConfiguration and \
         any([rowParams['NumberOfBladesSimulated'] > rowParams['NumberOfBladesInInitialMesh'] \
@@ -548,7 +567,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                           AllSetupDicts['elsAkeysModel'],
                           extractCoords=False,
                           BCExtractions=ReferenceValues['BCExtractions'],
-                          add_time_average= is_unsteady and avg_requested)
+                          add_time_average= is_unsteady and avg_requested,
+                          secondOrderRestart=secondOrderRestart)
 
 
     PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],
@@ -1191,6 +1211,7 @@ def computeReferenceValues(FluidProperties, PressureStagnation,
         BCExtractions=BCExtractions,
         YawAxis=YawAxis,
         PitchAxis=PitchAxis,
+        TurbulenceCutoff=TurbulenceCutoff,
         **kwargs)
 
     ReferenceValues.update(
@@ -1847,13 +1868,13 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     It defines an outflow condition imposing a uniform static pressure ('outpres' in
     *elsA*).
 
-    >>> dict(type='OutflowMassflow', FamilyName='row_2_OUTFLOW', Massflow=5.)
+    >>> dict(type='OutflowMassFlow', FamilyName='row_2_OUTFLOW', MassFlow=5.)
 
-    It defines an outflow condition imposing the massflow ('outmfr2' in *elsA*).
-    Be careful, **Massflow** should be the massflow through the given family BC
+    It defines an MassFlow condition imposing the massflow ('outmfr2' in *elsA*).
+    Be careful, **assFlow** should be the massflow through the given family BC
     *in the simulated domain* (not the 360 degrees configuration, except if it
     is simulated).
-    If **Massflow** is not given, the massflow given in the **ReferenceValues**
+    If **MassFlow** is not given, the massflow given in the **ReferenceValues**
     is automatically taken and normalized by the appropriate section.
 
     >>> dict(type='OutflowRadialEquilibrium', FamilyName='row_2_OUTFLOW', valve_type=4, valve_ref_pres=0.75*Pt, valve_ref_mflow=5., valve_relax=0.3*Pt)
@@ -1960,6 +1981,14 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
             BCkwargs['ReferenceValues'] = ReferenceValues
             BCkwargs['TurboConfiguration'] = TurboConfiguration
             setBC_outmfr2(t, **BCkwargs)
+
+        elif BCparam['type'] == 'OutflowMassFlowFromMach':
+            print(J.CYAN + 'set BC outmfr2 on ' + BCparam['FamilyName'] + J.ENDC)
+            BCkwargs['ReferenceValues'] = ReferenceValues
+            BCkwargs['TurboConfiguration'] = TurboConfiguration
+            BCkwargs['FluidProperties'] = FluidProperties
+            setBC_MachFromMassFlow(t, **BCkwargs)
+
 
         elif BCparam['type'] == 'outradeq':
             print(J.CYAN + 'set BC outradeq on ' + BCparam['FamilyName'] + J.ENDC)
@@ -2470,6 +2499,9 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs
     setBC_inj1, setBC_inj1_imposeFromFile, setBC_injmfr1
 
     '''
+    # HACK to handle this function called by a workflow for external aerodynamics
+    ReferenceValues.setdefault('PressureStagnation', None)
+    ReferenceValues.setdefault('TemperatureStagnation', None)
 
     PressureStagnation    = kwargs.get('PressureStagnation', ReferenceValues['PressureStagnation'])
     TemperatureStagnation = kwargs.get('TemperatureStagnation', ReferenceValues['TemperatureStagnation'])
@@ -2931,6 +2963,73 @@ def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues
 
     setBCwithImposedVariables(t, FamilyName, ImposedVariables,
         FamilyBC='BCOutflowSubsonic', BCType='outmfr2', bc=bc)
+
+def setBC_MachFromMassFlow(t, FamilyName, Mach=None, PressureStagnation=None, TemperatureStagnation=None, Surface=None, groupmassflow=1, ReferenceValues=None, TurboConfiguration=None, FluidProperties=None):
+    '''
+    Set an outflow boundary condition of type ``outmfr2``.
+
+    .. note:: see `elsA Tutorial about outmfr2 condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#outmfr2/>`_
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+        Mach : :py:class:`float` or :py:obj:`None`
+            If :py:obj:`None`, the reference Mach in **ReferenceValues** is taken.
+        
+        PressureStagnation : :py:class:`float` or :py:obj:`None`
+            If :py:obj:`None`, the reference PressureStagnation in **ReferenceValues** is taken.
+
+        TemperatureStagnation : :py:class:`float` or :py:obj:`None`
+            If :py:obj:`None`, the reference TemperatureStagnation in **ReferenceValues** is taken.
+
+        Surface : :py:class:`float` or :py:obj:`None`
+            If :py:obj:`None`, the reference Surface in **ReferenceValues** is taken.
+
+        groupmassflow : int
+            Index used to link participating patches to this boundary condition.
+            If several BC ``outmfr2`` are defined, **groupmassflow** has to be
+            incremented for each family.
+
+        ReferenceValues : :py:class:`dict` or :py:obj:`None`
+            dictionary as obtained from :py:func:`computeReferenceValues`.
+        
+        TurboConfiguration : :py:class:`dict` or :py:obj:`None`
+            dictionary as obtained from :py:func:`getTurboConfiguration`. Can
+            be :py:obj:`None` only if **MassFlow** is not :py:obj:`None`.
+
+        FluidProperties : :py:class:`dict` or :py:obj:`None`
+            dictionary as obtained from :py:func:`computeFluidProperties`. 
+    '''
+    if Mach is None:
+        Mach = ReferenceValues['Mach']
+    if PressureStagnation is None:
+        PressureStagnation = ReferenceValues['PressureStagnation']
+    if TemperatureStagnation is None:
+        TemperatureStagnation = ReferenceValues['TemperatureStagnation']
+    if Surface is None:
+        Surface = ReferenceValues['Surface']
+
+    # Massflow on 360°
+    MassFlow = massflowFromMach(Mach, S=Surface, Pt=PressureStagnation, Tt=TemperatureStagnation, r=FluidProperties['IdealGasConstant'], gamma=FluidProperties['Gamma'])
+    # Compute massflow on the required section on Family
+    bc = C.getFamilyBCs(t, FamilyName)[0]
+    zone = I.getParentFromType(t, bc, 'Zone_t')
+    row = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+    try:
+        rowParams = TurboConfiguration['Rows'][row]
+        fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+    except KeyError:
+        # To handle workflows without TurboConfiguration
+        fluxcoeff = 1
+    MassFlow /= fluxcoeff
+
+    setBC_outmfr2(t, FamilyName, MassFlow=MassFlow, groupmassflow=groupmassflow)
 
 def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
     bc=None, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData', variableForInterpolation='ChannelHeight'):
@@ -3723,7 +3822,7 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
             valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget',
                               3: 'QLinear', 4: 'QHyperbolic'}
             bc.valve_law(valve_law_dict[valve_type], valve_ref_pres,
-                         valve_ref_mflow, valve_relax=valve_relax)
+                         valve_ref_mflow, valve_relax=valve_relax, valve_file=f'prespiv_{FamilyName}.log')
         globborder = bc.glob_border(current=FamilyName)
         globborder.i_poswin = gbd[bcpath]['i_poswin']
         globborder.j_poswin = gbd[bcpath]['j_poswin']
@@ -3828,13 +3927,52 @@ def setBC_outradeqhyb(t, FamilyName, valve_type=0, valve_ref_pres=None,
     valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget',
                       3: 'QLinear', 4: 'QHyperbolic'}
     bc.valve_law(valve_law_dict[valve_type], valve_ref_pres,
-                 valve_ref_mflow, valve_relax=valve_relax)
+                 valve_ref_mflow, valve_relax=valve_relax, valve_file=f'prespiv_{FamilyName}.log')
     bc.dirorder = -1
     radius_filename = "state_radius_{}_{}.plt".format(FamilyName, nbband)
     radius = bc.repartition(filename=radius_filename, fileformat="bin_tp")
     radius.compute(t, nbband=nbband, c=c)
     radius.write()
     bc.create()
+
+
+def updatePressurePivotForRestart(t, FamilyName):
+    '''
+    Based on previous log files named ``'LOGS/prespiv_<FamilyName>-*.log'``, update the pivot pressure 
+    for an outradeq/outradeqhyb condition for a restart.
+
+    Parameters
+    ----------
+    t : PyTree
+        main tree
+
+    FamilyName : str
+        Name of the BC Family
+    '''
+    # HACK add prespiv_restart argument to bc.valve_law in etc
+    # Find all prespiv log files for the current Family
+    import glob
+    prespiv_files = glob.glob(f'LOGS/prespiv_{FamilyName}-*.log')
+    if len(prespiv_files) == 0: 
+        return
+
+    prespiv_file = sorted(prespiv_files, key=lambda s: int(s.replace(f'LOGS/prespiv_{FamilyName}-', '').replace('.log', '')))[-1]
+
+    prespiv_data_tree = C.convertFile2PyTree(prespiv_file)
+    zone = I.getZones(prespiv_data_tree)[0]
+    iteration, pres_piv = J.getVars(zone,['iteration', 'pres_piv'])
+    print(J.CYAN + f'Update prespiv_restart for Family {FamilyName} to {pres_piv[-1]}' + J.ENDC)
+    # For outradeq --> in BC_t
+    for bc in C.getFamilyBCs(t, FamilyName):
+        solverBC = I.getNodeFromName(bc, '.Solver#BC')
+        I._rmNodesByName(solverBC, 'prespiv_restart')
+        I.newDataArray(name='prespiv_restart', value=pres_piv[-1], parent=solverBC)
+    # For outradeqhyb --> in Family_t
+    for bc in I.getNodesFromNameAndType(t, FamilyName, 'Family_t'):
+        solverBC = I.getNodeFromName(bc, '.Solver#BC')
+        if solverBC:
+            I._rmNodesByName(solverBC, 'prespiv_restart')
+            I.newDataArray(name='prespiv_restart', value=pres_piv[-1], parent=solverBC)
 
 
 def setRotorStatorFamilyBC(t, left, right):

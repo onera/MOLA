@@ -248,7 +248,7 @@ def extractSurfaces(t, Extractions, arrays=None):
 
                     .. code-block:: python
 
-                            dict(name='probeTest', location=(0.012, 0.24, -0.007), variables=['Temperature', 'Pressure'])
+                            dict(type='Probe', name='probeTest', location=(0.012, 0.24, -0.007), variables=['Temperature', 'Pressure'])
 
                     .. note:: If not provided, defaut name will be 'Probe_X_Y_Z'
               
@@ -348,7 +348,9 @@ def extractSurfaces(t, Extractions, arrays=None):
                             fields2remove += [ field ]
                     for field in fields2remove: I.rmNode(fs,field)
 
+    t = replaceMainContainerByAbsoluteContainerIfExisting(t)
     I._rmNodesByName(t, 'FlowSolution#EndOfRun*')
+    I._rmNodesByName(t, 'FlowSolution#Init-1')
     reshapeBCDatasetNodes(t)
     I._rmNodesByName(t, 'BCDataSet#Init') # see MOLA #75 and Cassiopee #10641
     DictBCNames2Type = C.getFamilyBCNamesDict(t)
@@ -1131,7 +1133,7 @@ def integrateVariablesOnPlane(surface, VarAndMeanList):
     I.__FlowSolutionNodes__ = previous_container
     return data
 
-def updateAndWriteSetup(setup):
+def updateAndWriteSetup(setup, t=None):
     '''
     This function is used for adapting ``setup.py`` information for a new run.
 
@@ -1142,6 +1144,9 @@ def updateAndWriteSetup(setup):
             Python module object as obtained from command
 
             >>> import setup
+
+        t : PyTree
+            Output tree. If provided, allow to test if a restart with second order is possible
     '''
     if rank == 0:
         printCo('updating setup.py ...', proc=0, color=GREEN)
@@ -1150,6 +1155,12 @@ def updateAndWriteSetup(setup):
             setup.elsAkeysNumerics['inititer'] = CurrentIteration + 1 
             if 'itime' in setup.elsAkeysNumerics:
                 setup.elsAkeysNumerics['itime'] = CurrentIteration * setup.elsAkeysNumerics['timestep']
+            if setup.elsAkeysNumerics['time_algo'] in ['gear', 'dts']:
+                if t is not None and I.getNodeFromName(t, 'FlowSolution#Init-1'):
+                    printCo('Prepare a second order restart', 0, color=J.CYAN)
+                    setup.elsAkeysNumerics['exact_restart'] = 'active'
+                else:
+                    printCo('Cannot perform a second order restart from this simulation: FlowSolution#Init-1 is missing.', 0, color=J.WARN)
         PRE.writeSetupFromModuleObject(setup)
         printCo('updating setup.py ... OK', proc=0, color=GREEN)
     comm.Barrier()
@@ -2223,6 +2234,9 @@ def adaptEndOfRun(to):
     moveCoordsFromEndOfRunToGridCoords(to)
     I._renameNode(to, 'cellnf', 'cellN')
     I._renameNode(to, 'FlowSolution#EndOfRun', 'FlowSolution#Init')
+    I._rmNodesByName(to, 'FlowSolution#Init-1')
+    I._renameNode(to, f'FlowSolution#EndOfRun{CurrentIteration-1:04d}', 'FlowSolution#Init-1')
+
 
 def moveCoordsFromEndOfRunToGridCoords(to):
     '''
@@ -2919,6 +2933,8 @@ def searchZoneAndIndexForProbes(t, method='getNearestPointIndex', tol=1e-2):
     # IMPORTANT: In this function, the mesh will be now the dual mesh, with nodes corresponding cell centers of the input mesh
     t = C.node2Center(t)
 
+    probesToKeep = []
+
     for Probe in setup.Extractions:
         if Probe['type'] != 'Probe':
             continue
@@ -2974,7 +2990,12 @@ def searchZoneAndIndexForProbes(t, method='getNearestPointIndex', tol=1e-2):
 
         if minDistanceForAllProcessors > tol:
             printCo(f'The probe {Probe["name"]} is too far from the nearest vertex ({minDistanceForAllProcessors} m). It is removed.', 0, J.WARN)
-            setup.Extractions.remove(Probe)
+        else:
+            probesToKeep.append(Probe)
+
+    # Overwrite extractions to keep only applicable probes
+    setup.Extractions = [extraction for extraction in setup.Extractions if extraction['type'] != 'Probe']  # all extractions except probes
+    setup.Extractions.extend(probesToKeep)  # add applicable probes
     
 
 def loadUnsteadyMasksForElsA(e, elsA_user, Skeleton):
@@ -3464,3 +3485,47 @@ def removeNonLocalZones(t):
             elif J.zoneHasData(child):
                 children_to_keep += [ child ]
         base[2] = children_to_keep
+
+def replaceMainContainerByAbsoluteContainerIfExisting(t,
+        main_container_name='FlowSolution#Init',
+        absolute_container_name='FlowSolution#EndOfRun#Absolute'):
+    '''
+    Returns a new tree such that for each zone contained in provided **t**,
+    if container **absolute_container_name** exists, then it overrides the
+    existing **main_container_name**. Note that the returned tree will not have 
+    any container named **absolute_container_name** but **main_container_name**.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Input tree possibly containing **main_container_name** and
+            **main_container_name** FlowSolution containers.
+
+        main_container_name : str
+            the name of the main container to be overriden
+
+        absolute_container_name : str
+            the name of the container that will override **main_container_name**
+
+    Returns
+    -------
+
+        tRef : PyTree
+            reference copy of **t** where existing containers **absolute_container_name**
+            have overriden the containers **main_container_name**    
+    '''
+    tRef = I.copyRef(t)
+    for zone in I.getZones(tRef):
+        
+        absolute_container = I.getNodeFromName1(zone, absolute_container_name)
+        if not absolute_container: continue
+
+        main_container = I.getNodeFromName1(zone, main_container_name)
+        if main_container:
+            I._rmNode(zone, main_container)
+
+        absolute_container[0] = main_container_name
+
+    return tRef
+    

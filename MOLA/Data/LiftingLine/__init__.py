@@ -89,7 +89,9 @@ class LiftingLine(Curve):
 
             self.setParameters('.Component#Info', kind='LiftingLine',
                                                   MOLAversion=__version__,
+                                                  NumberOfModeledBlades=1,
                                                   GeometricalLaws=GeometricalLaws)
+            self.setConditions()
 
             if SpanwiseDistribution: self.discretize( **SpanwiseDistribution )
 
@@ -504,7 +506,15 @@ class LiftingLine(Curve):
         f['VelocityKinematicY'][:] = VelocityKinematic[1,:]
         f['VelocityKinematicZ'][:] = VelocityKinematic[2,:]
 
-    def computeLoads(self, NumberOfBlades=1.):
+
+    def getNumberOfModeledBlades(self):
+        return int(self.get('.Component#Info').get('NumberOfModeledBlades').value())
+
+    def setNumberOfModeledBlades(self, NumberOfModeledBlades):
+        self.get('.Component#Info').get('NumberOfModeledBlades').setValue(int(NumberOfModeledBlades))
+
+
+    def computeLoads(self):
         '''
         This function is used to compute local and integral arrays of a lifting line
         with general orientation and shape (including sweep and dihedral).
@@ -606,8 +616,7 @@ class LiftingLine(Curve):
 
                 .. note::
                     LiftingLine zones contained in **t** are modified
-            NumberOfBlades : float
-                Multiplication factor of integral arrays
+
         '''
 
         FrenetFields = ['tx','ty','tz','nx','ny','nz','bx','by','bz',
@@ -723,6 +732,7 @@ class LiftingLine(Curve):
 
 
         # Store computed integral Loads
+        NumberOfBlades = self.getNumberOfModeledBlades()
         IntegralData = self.setParameters('.Loads',
                                           Thrust=NumberOfBlades*Thrust,
                                           Power=NumberOfBlades*Power,
@@ -753,8 +763,9 @@ class LiftingLine(Curve):
     def setRightHandRuleRotation(self, newRightHandRuleRotation):
         self.RightHandRuleRotation[0] = newRightHandRuleRotation
 
-    def computeTipLossFactor(self, NumberOfBlades, model='Adkins'):
+    def computeTipLossFactor(self, model='Adkins'):
         r, phi = self.fields(['Span','phiRad'])
+        NumberOfBlades = self.getNumberOfModeledBlades()
         Rmax = r.max()
         xi = r/Rmax
         # phiEff avoids possible overflow (division by zero)

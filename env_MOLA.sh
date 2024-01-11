@@ -12,7 +12,7 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
 export MOLAVER=${SCRIPT_DIR##*/} # looks to current directory name
 export MOLA=/stck/lbernard/MOLA/$MOLAVER
 export MOLASATOR=/tmp_user/sator/lbernard/MOLA/$MOLAVER
-export VPMVERSION=v0.3
+export VPMVERSION=Dev
 export PUMAVERSION=v2.0.3
 export TURBOVERSION=v1.3
 export ERSTAZVERSION=v1.6.3
@@ -158,7 +158,6 @@ elif [ "$MAC" = "spiro" ]; then
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
     # VPM
-    export VPMVERSION=Dev # TODO -> use stable
     export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro/$ARCH
     export PATH=$VPMPATH:$PATH
     export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
