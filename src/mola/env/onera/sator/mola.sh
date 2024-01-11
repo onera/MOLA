@@ -44,7 +44,7 @@ export LD_LIBRARY_PATH=/tmp_user/sator/lbernard/lib:$LD_LIBRARY_PATH
 
 
 export PYTHONPATH=$MOLA:$PYTHONPATH
-export PATH=$MOLA/bin:$PATH
+export PATH=$MOLA/mola/bin:$PATH
 
 export PYTHONEXE=python3
 alias python=python3
