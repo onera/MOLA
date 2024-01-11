@@ -37,11 +37,17 @@ def apply(workflow):
         workflow.tree.newFields(workflow.Flow['ReferenceState'], Container='FlowSolution#Init')
 
     elif workflow.Initialization['method'] == 'interpolate':
-        print(misc.CYAN + f"Initialize FlowSolution by interpolation from {workflow.Initialization['file']}" + misc.ENDC)
+        if isinstance(workflow.Initialization['source'], str):
+            print(misc.CYAN + f"Initialize FlowSolution by interpolation from {workflow.Initialization['source']}" + misc.ENDC)
+        else:
+            print(misc.CYAN + f"Initialize FlowSolution by interpolation from the given tree" + misc.ENDC)
         initialize_flow_from_file_by_interpolation(workflow)
         
     elif workflow.Initialization['method'] == 'copy':
-        print(misc.CYAN + f"Initialize FlowSolution by copy of {workflow.Initialization['file']}" + misc.ENDC)
+        if isinstance(workflow.Initialization['source'], str):
+            print(misc.CYAN + f"Initialize FlowSolution by copy of {workflow.Initialization['source']}" + misc.ENDC)
+        else:
+            print(misc.CYAN + f"Initialize FlowSolution by copy of the given tree" + misc.ENDC)
         initialize_flow_from_file_by_copy(workflow)
     else:
         raise Exception(misc.RED+'The key "method" of the dictionary workflow.Initialization is mandatory'+misc.ENDC)
@@ -57,7 +63,7 @@ def apply(workflow):
 
 
 
-def initialize_flow_from_file_by_interpolation(t, ReferenceValues, sourceFilename, container='FlowSolution#Init'):
+def initialize_flow_from_file_by_interpolation(workflow):
     '''
     Initialize the flow solution of **t** from the flow solution in the file
     **sourceFilename**.
@@ -66,69 +72,24 @@ def initialize_flow_from_file_by_interpolation(t, ReferenceValues, sourceFilenam
     Parameters
     ----------
 
-        t : PyTree
-            Tree to initialize
-
-        ReferenceValues : dict
-            as produced by :py:func:`computeReferenceValues`
-
-        sourceFilename : str
-            Name of the source file for the interpolation.
-
-        container : str
-            Name of the ``'FlowSolution_t'`` node use for the interpolation.
-            Default is 'FlowSolution#Init'
-
+        workflow : :py:obj:`mola.workflow.worflow.Workflow`
     '''
-    sourceTree = C.convertFile2PyTree(sourceFilename)
-    OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
-    I.__FlowSolutionCenters__ = container
-    sourceTree = C.extractVars(sourceTree, ['centers:{}'.format(var) for var in ReferenceValues['Fields']])
-
-    I._rmNodesByType(sourceTree, 'BCDataSet_t')
-    I._rmNodesByNameAndType(sourceTree, '*EndOfRun*', 'FlowSolution_t')
-    P._extractMesh(sourceTree, t, mode='accurate', extrapOrder=0)
-    if container != 'FlowSolution#Init':
-        I._rmNodesByName(t, 'FlowSolution#Init')
-        I.renameNode(t, container, 'FlowSolution#Init')
-    I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
+    raise Exception('Not yet implemented')
 
 def initialize_flow_from_file_by_copy(workflow):
     '''
-    Initialize the flow solution of **t** by copying the flow solution in the file
-    **sourceFilename**.
-    Modify the tree **t** in-place.
+    Initialize the flow solution of **workflow.tree** by copying the flow solution in the file or tree
+    **workflow.Initialization['source']**.
+    Modify the tree in-place.
 
     Parameters
     ----------
 
-        t : PyTree
-            Tree to initialize
-
-        ReferenceValues : dict
-            as produced by :py:func:`computeReferenceValues`
-
-        sourceFilename : str
-            Name of the source file.
-
-        container : str
-            Name of the ``'FlowSolution_t'`` node to copy.
-            Default is 'FlowSolution#Init'
-
-        keepTurbulentDistance : bool
-            if :py:obj:`True`, copy also fields ``'TurbulentDistance'`` and
-            ``'TurbulentDistanceIndex'``.
-
-            .. danger::
-                The restarted simulation must be submitted with the same
-                CPU distribution that the previous one ! It is due to the field
-                ``'TurbulentDistanceIndex'`` that indicates the index of the
-                nearest wall, and this index varies with the distribution.
-
+        workflow : :py:obj:`mola.workflow.worflow.Workflow`
     '''
     keepTurbulentDistance = workflow.Initialization.get('keepTurbulentDistance', False)
 
-    sourceTree = cgns.load(workflow.Initialization['file'])
+    sourceTree = cgns.load(workflow.Initialization['source'])
 
     varNames = list(workflow.Flow['ReferenceState'])
     if keepTurbulentDistance:
@@ -140,7 +101,7 @@ def initialize_flow_from_file_by_copy(workflow):
             FlowSolutionInSourceTree = sourceTree.getAtPath(FSpath)
             zone.addChild(FlowSolutionInSourceTree, override_brother_by_name=True)
         except AttributeError:
-            ERROR_MSG = f"The node {FSpath} is not found in {workflow.Initialization['file']}"
+            ERROR_MSG = f"The node {FSpath} is not found in {workflow.Initialization['source']}"
             raise Exception(misc.RED+ERROR_MSG+misc.ENDC)
 
 def compute_turbulent_distance_with_maia(workflow):

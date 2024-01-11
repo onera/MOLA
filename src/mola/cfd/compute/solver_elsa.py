@@ -15,14 +15,18 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+# ----------------------- IMPORT SYSTEM MODULES ----------------------- #
+import os
+from mpi4py import MPI
+comm   = MPI.COMM_WORLD
+rank   = comm.Get_rank()
+NumberOfProcessors = comm.Get_size()
+
+import glob
+import shutil
+
+
 def adapt_to_solver(workflow):
-    
-    # ----------------------- IMPORT SYSTEM MODULES ----------------------- #
-    import os
-    from mpi4py import MPI
-    comm   = MPI.COMM_WORLD
-    rank   = comm.Get_rank()
-    NumberOfProcessors = comm.Get_size()
 
     # ------------------------- IMPORT  CASSIOPEE ------------------------- #
     import Converter.PyTree as C
@@ -61,6 +65,7 @@ def adapt_to_solver(workflow):
     # ========================== LAUNCH ELSA ========================== #
 
     launch_elsa_computation(workflow, FILE_CGNS)
+    moveLogFiles(DIRECTORY_LOGS)
 
 
 def launch_elsa_computation(workflow, FILE_CGNS):
@@ -111,9 +116,10 @@ def launch_elsa_computation(workflow, FILE_CGNS):
     e.action=elsAxdt.COMPUTE
     e.mode=elsAxdt.READ_ALL
     e.compute()
-    e.save('solution.cgns')
+    e.save(f'solution_{rank}.cgns', rank)
 
-def moveLogFiles():
+
+def moveLogFiles(DIRECTORY_LOGS):
     if rank == 0:
         try: os.makedirs(DIRECTORY_LOGS)
         except: pass
@@ -130,4 +136,4 @@ def moveLogFiles():
         for fn in glob.glob('elsA_MPI*'):
             shutil.move(fn, os.path.join('LOGS', fn))
 
-    Cmpi.barrier()
+    comm.barrier()
