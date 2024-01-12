@@ -79,7 +79,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     AttemptCommandGuess=[],
     PerturbationFields=None,
     LiftingLineSolver='MOLA', StackOptions={}, WeightEqns=[],
-    SourceTermScale=1.0, TipLossFactorOptions={}, SweepCorrectionOptions = {}, DihedralCorrectionOptions = {}):
+    SourceTermScale=1.0, TipLossFactorOptions={}):
     '''
     Macro-function used to generate the ready-to-use BodyForce
     element for interfacing with a CFD solver.
@@ -176,36 +176,6 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
             This :py:class:`dict` defines a pair of keyword-arguments of the 
             function :py:func:`applyTipLossFactorToBladeEfforts`.
 
-        SweepCorrectionOptions : :py:class:`dict` of :py:class:`binary`
-            Kind of sweep correction to be used. Keys are the following:
-
-            * ``'Speed'``
-                Correction of the speed magnitude
-
-            * ``'AOA'``
-                Correction of the angle of attack. TO BE IMPLEMENTED
-
-            * ``'Chord'``
-                Correction of the chord value   TO BE IMPLEMENTED
-
-            * ``'Effort'``
-                Correction of the lift and drag coefficients TO BE IMPLEMENTED
-
-        DihedralCorrectionOptions : :py:class:`dict` of :py:class:`binary`
-            Kind of dihedral correction to be used. Keys are the following:
-
-            * ``'Speed'``
-                Correction of the speed magnitude TO BE IMPLEMENTED
-
-            * ``'AOA'``
-                Correction of the angle of attack. TO BE IMPLEMENTED
-
-            * ``'Chord'``
-                Correction of the chord value   TO BE IMPLEMENTED
-
-            * ``'Effort'``
-                Correction of the lift and drag coefficients TO BE IMPLEMENTED
-
     Returns
     -------
 
@@ -226,14 +196,6 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
             raise ValueError('Must provide Propeller or PerturbationFields')
         addPerturbationFields([], PerturbationFields=PerturbationFields)
         return [] # BEWARE: CANNOT USE BARRIERS IN THIS FUNCTION FROM THIS LINE
-
-    ListOfSweepAndDihedralCorrectionTypes = ['Speed','AOA', 'Chord', 'Effort']
-    for cor in ListOfSweepAndDihedralCorrectionTypes:
-        if cor not in SweepCorrectionOptions.keys():
-            SweepCorrectionOptions[cor] = False
-        if cor not in DihedralCorrectionOptions.keys():
-            DihedralCorrectionOptions[cor] = False
-
 
     usePUMA = LiftingLineSolver == 'PUMA'
 
@@ -285,7 +247,8 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     RPM_n[1] = RPM
 
     Comp_n = I.getNodeFromName1(Propeller,'.Component#Info')
-
+    Correc_n = I.getNodeFromName(Propeller,'Corrections3D')
+    
     # Get the freestream conditions
     Cond_n = I.getNodeFromName1(LLnameInitial,'.Conditions')
 
@@ -353,7 +316,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         if TipLossFactorOptions:
             TipLossFactorOptions['NumberOfBlades']=NBlades
 
-        computeGeneralLoadsOfLiftingLine(tLL, TipLossFactorOptions=TipLossFactorOptions, SweepCorrectionOptions = SweepCorrectionOptions, DihedralCorrectionOptions = DihedralCorrectionOptions)
+        computeGeneralLoadsOfLiftingLine(tLL, TipLossFactorOptions=TipLossFactorOptions)
 
         if CommandType == 'Pitch':
             addPitch(tLL,-cmd)
@@ -1071,7 +1034,7 @@ def buildPropeller(LiftingLine, NBlades=2, InitialAzimutDirection=[0,1,0],
 
 def buildLiftingLine(Span, RightHandRuleRotation=True, 
         PitchRelativeCenter=[0,0,0], PitchAxis=[1,0,0],
-        RotationCenter=[0,0,0], **kwargs):
+        RotationCenter=[0,0,0], SweepCorrection = True, DihedralCorrection = True, **kwargs):
     '''
     Make a PyTree-Line zone defining a Lifting-line. The construction
     procedure of this element is the same as in function
@@ -1120,6 +1083,12 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
             
             .. note::
                 canonical rotation axis is :math:`(0,0,1)`
+
+        SweepCorrection : bool
+            Account for the effect of blade sweep on incident Mach number, Reynolds number, angle of attack and force/torque projection.
+
+        DihedralCorrection : bool
+            Account for the effect of blade dihedral on incident Mach number, Reynolds number, angle of attack and force/torque projection.
 
         kwargs : pairs of **attribute** = :py:class:`dict`
             This is an arbitrary number of input arguments following the same
@@ -1302,6 +1271,7 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
     # Add Information node
     J.set(LiftingLine,'.Component#Info',kind='LiftingLine',
                                         MOLAversion=__version__,
+                                        Corrections3D= dict(Sweep=SweepCorrection,Dihedral=DihedralCorrection),
                                         GeometricalLaws=kwargs)
     LiftingLine[0] = 'LiftingLine'
 
@@ -3448,6 +3418,11 @@ def assembleAndProjectVelocities(t):
                           'SweepAngleDeg', 'DihedralAngleDeg'
                           ]
 
+    #Collecting prescribed polar corrections
+    Correc_n = I.getNodeFromName(t,'Corrections3D')
+    SweepCorrection = I.getValue(I.getNodeFromName(Correc_n,'Sweep'))
+    DihedralCorrection = I.getValue(I.getNodeFromName(Correc_n,'Dihedral'))
+
     LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
     for LiftingLine in LiftingLines:
         Conditions = J.get(LiftingLine,'.Conditions')
@@ -3483,6 +3458,8 @@ def assembleAndProjectVelocities(t):
 
         ChordwiseDirection = np.vstack([v['Chordwise'+i] for i in 'XYZ'])
         ThickwiseDirection = np.vstack([v['Thickwise'+i] for i in 'XYZ'])
+
+
         v['VelocityChordwise'][:] = Vchord = np.diag( VelocityRelative.T.dot(ChordwiseDirection) )
         v['VelocityThickwise'][:] = Vthick = np.diag( VelocityRelative.T.dot(ThickwiseDirection) )
         # note the absence of radial velocity contribution to 2D flow (Spanwise component is cut)
@@ -3494,8 +3471,18 @@ def assembleAndProjectVelocities(t):
         v['Velocity2DY'][:] = V2D[1, :]
         v['Velocity2DZ'][:] = V2D[2, :]
 
-
         v['AoA'][:] = np.rad2deg( np.arctan2(Vthick,Vchord) )
+
+        if SweepCorrection:
+            v['VelocityChordwise'][:] = Vchord = np.diag( VelocityRelative.T.dot(ChordwiseDirection) ) * np.cos(np.deg2rad(v['SweepAngleDeg'])) * np.cos(np.deg2rad(v['AoA']))
+            v['Chord'] *=  np.cos(np.deg2rad(v['SweepAngleDeg']))
+
+        if DihedralCorrection:
+            v['VelocityThickwise'][:] = Vthick = np.diag( VelocityRelative.T.dot(ChordwiseDirection) ) * np.cos(np.deg2rad(v['DihedralAngleDeg'])) * np.sin(np.deg2rad(v['AoA']))
+
+        # Updating the Angle of Attack considering the new velocity components.    
+        v['AoA'][:] = np.rad2deg( np.arctan2(Vthick,Vchord) )
+                 
         # NOTE the absence of radial velocity contribution to Velocity Magnitude, Mach and Reynolds
         v['VelocityMagnitudeLocal'][:] = W = np.sqrt( Vchord**2 + Vthick**2 )
         v['Mach'][:] = W / SoundSpeed
@@ -3749,7 +3736,7 @@ def migratePerturbationsFromAuxiliarDisc2LiftingLines(AuxiliarDisc, LiftingLines
 
 def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         UnsteadyDataIndependentAbscissa='IterationNumber',
-        TipLossFactorOptions={}, SweepCorrectionOptions = {}, DihedralCorrectionOptions = {}):
+        TipLossFactorOptions={}):
     '''
     This function is used to compute local and integral arrays of a lifting line
     with general orientation and shape (including sweep and dihedral).
@@ -3857,6 +3844,10 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         'GammaX','GammaY','GammaZ',
         )
 
+    Correc_n = I.getNodeFromName(t,'Corrections3D')
+    SweepCorrection = I.getValue(I.getNodeFromName(Correc_n,'Sweep'))
+    DihedralCorrection = I.getValue(I.getNodeFromName(Correc_n,'Dihedral'))
+
     LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
     NumberOfLiftingLines = len(LiftingLines)
     AllIntegralData = {}
@@ -3896,15 +3887,21 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         r2y = y - TorqueOrigin[1]
         r2z = z - TorqueOrigin[2]
 
-        if SweepCorrectionOptions['Speed']:
-            v['VelocityMagnitudeLocal'] *= np.cos(np.deg2rad(v['SweepAngleDeg']))
 
         # ----------------------- COMPUTE LINEAR FORCES ----------------------- #
         FluxC = 0.5*Density*v['VelocityMagnitudeLocal']**2*v['Chord']
         if TipLossFactorOptions:
             applyTipLossFactorToBladeEfforts(LiftingLine, **TipLossFactorOptions)
-        Lift = FluxC*v['Cl']
-        Drag = FluxC*v['Cd']
+
+        if DihedralCorrection:
+            LiftDihedralCorrectionCoefficient = np.cos(np.deg2rad(v['DihedralAngleDeg']))
+            Lift = FluxC*v['Cl']*LiftDihedralCorrectionCoefficient
+        else: Lift = FluxC*v['Cl']
+
+        if SweepCorrection:
+            DragSweepCorrectionCoefficient = np.cos(np.deg2rad(v['SweepAngleDeg']))
+            Drag = FluxC*v['Cd']*DragSweepCorrectionCoefficient
+        else: Drag= FluxC*v['Cd']
 
         v['LiftChordwise'][:] = -Lift*np.sin(np.deg2rad(v['AoA']))
         v['LiftThickwise'][:] =  Lift*np.cos(np.deg2rad(v['AoA']))
@@ -3944,7 +3941,17 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         v['ForceZ'][:] = v['LiftZ'] + v['DragZ']
 
         # ----------------------- COMPUTE LINEAR TORQUE ----------------------- #
+
         FluxM = FluxC*v['Chord']*v['Cm']
+
+        if DihedralCorrection:
+            TorqueDihedralCorrectionCoefficient = np.cos(np.deg2rad(v['DihedralAngleDeg']))
+            FluxM = FluxM*TorqueDihedralCorrectionCoefficient
+
+        if SweepCorrection:
+            TorqueSweepCorrectionCoefficient = np.cos(np.deg2rad(v['SweepAngleDeg']))
+            FluxM = FluxM*TorqueSweepCorrectionCoefficient
+
         v['TorqueAtAirfoilX'][:] = dir * FluxM * v['SpanwiseX']
         v['TorqueAtAirfoilY'][:] = dir * FluxM * v['SpanwiseY']
         v['TorqueAtAirfoilZ'][:] = dir * FluxM * v['SpanwiseZ']
