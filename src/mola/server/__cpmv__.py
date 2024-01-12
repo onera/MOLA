@@ -21,14 +21,19 @@ import getpass
 
 def guess_host(Network):
     '''
-    Returns the host name. For example:   'sator', 'spiro', 'visio' or 'celeste'
+    Returns the host name. For example:   'sator', 'spiro' or 'ld'
     '''
     HostName = socket.gethostname()
     if Network == 'onera':
-        PossibleMachineNamesInHostName = ('sator','spiro','visio','celeste', 'ld')
+        PossibleMachineNamesInHostName = ('sator','spiro','visung','ld')
         for name in PossibleMachineNamesInHostName:
-            if name in HostName: return name
-            if HostName.startswith('n'): return 'sator'
+            if name in HostName: 
+                if name == 'visung': 
+                    return 'ld'
+                else:
+                    return name
+            if HostName.startswith('n'): 
+                return 'sator'
         UserName = getpass.getuser()
         if not os.path.exists(os.path.join(os.path.sep,'stck',UserName)):
             HostName = 'StckInvisible'
