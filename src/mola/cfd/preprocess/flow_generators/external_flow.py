@@ -56,6 +56,9 @@ class ExternalFlowGenerator(object):
         self.Flow.setdefault('YawAxis', [0.,0.,1.])
         self.Flow.setdefault('PitchAxis', [0.,-1.,0.])
 
+        self.Turbulence.setdefault('Level', 0.001)
+        self.Turbulence.setdefault('Viscosity_EddyMolecularRatio', 0.1)
+
     def generate(self):
         # Compute flow and turbulence properties
         self.set_flow_properties()
@@ -237,17 +240,17 @@ class ExternalFlowGenerator(object):
         else:
             raise AttributeError(f'Turbulence model {self.Turbulence["Model"]} not implemented in workflow. Must be in: {AvailableTurbulenceModels}')
 
-        if self.Turbulence['TransitionMode'] is not None:
-            self.Turbulence['TransitionZones'] = dict(
-                TopOrigin                   = 0.002,
-                BottomOrigin                = 0.010,
-                TopLaminarImposedUpTo       = 0.001,
-                TopLaminarIfFailureUpTo     = 0.2,
-                TopTurbulentImposedFrom     = 0.995,
-                BottomLaminarImposedUpTo    = 0.001,
-                BottomLaminarIfFailureUpTo  = 0.2,
-                BottomTurbulentImposedFrom  = 0.995,
-            )
+        # if self.Turbulence['TransitionMode'] is not None:
+        #     self.Turbulence['TransitionZones'] = dict(
+        #         TopOrigin                   = 0.002,
+        #         BottomOrigin                = 0.010,
+        #         TopLaminarImposedUpTo       = 0.001,
+        #         TopLaminarIfFailureUpTo     = 0.2,
+        #         TopTurbulentImposedFrom     = 0.995,
+        #         BottomLaminarImposedUpTo    = 0.001,
+        #         BottomLaminarIfFailureUpTo  = 0.2,
+        #         BottomTurbulentImposedFrom  = 0.995,
+        #     )
 
     @staticmethod
     def get_flow_directions(AngleOfAttackDeg, AngleOfSlipDeg, YawAxis, PitchAxis):

@@ -21,6 +21,7 @@ from mola import misc
 def apply(workflow):
     
     set_problem_dimension(workflow)
+    set_physical_parameters(workflow)
     set_numerical_parameters(workflow)
 
     workflow.SolverParameters = dict()
@@ -35,6 +36,12 @@ def set_problem_dimension(workflow):
     dimOfBases = set(base.dim() for base in workflow.tree.bases())
     assert len(dimOfBases) == 1, 'All bases have not the same physical dimension'
     workflow.ProblemDimension = int(list(dimOfBases)[0])
+
+def set_physical_parameters(workflow):
+
+    workflow.Turbulence.setdefault('Model', 'Wilcox2006-klim')
+    workflow.Turbulence.setdefault('TurbulenceCutOffRatio', 1e-8)
+    workflow.Turbulence.setdefault('TransitionMode', None)
 
 
 def set_numerical_parameters(workflow):

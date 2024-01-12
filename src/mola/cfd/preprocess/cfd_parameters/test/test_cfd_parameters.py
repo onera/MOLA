@@ -57,6 +57,10 @@ def test_set_problem_dimension_2():
         raise AssertionError('set_problem_dimension should raise an error if bases have different dimensions')
     
 
+def test_set_physical_parameters_default():
+    assert False, 'Not yet implemented'
+
+
 
 default_numerical_parameters = dict(
     CFL = 1.0,
