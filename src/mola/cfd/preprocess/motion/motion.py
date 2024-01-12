@@ -29,7 +29,7 @@ def apply(workflow):
     solverModule.adapt_to_solver(workflow)
 
 def set_default_motion(Motion):
-    if callable(Motion):
+    if callable(Motion) or any([callable(v) for v in Motion.values()]):
         # complex motion given as a function
         return
 
@@ -41,10 +41,22 @@ def set_default_motion(Motion):
     Motion.setdefault('TranslationSpeed', [0., 0., 0.])
 
 def is_mobile(Motion):
-    if callable(Motion):
+    return is_rotating(Motion) or is_translating(Motion)
+
+def is_rotating(Motion):
+    if callable(Motion) or any([callable(v) for v in Motion.values()]):
         # complex motion given as a function
         return True
-    if sum(Motion['RotationSpeed']) == 0 and all([v==0 for v in Motion['TranslationSpeed']]):
+    if sum(Motion['RotationSpeed']) == 0:
+        return False
+    else:
+        return True
+
+def is_translating(Motion):
+    if callable(Motion) or any([callable(v) for v in Motion.values()]):
+        # complex motion given as a function
+        return True
+    if all([v==0 for v in Motion['TranslationSpeed']]):
         return False
     else:
         return True

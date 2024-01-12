@@ -67,7 +67,6 @@ class Workflow(object):
 
             Turbulence=dict(Model='Wilcox2006-klim',
                             Level=0.001,
-                            ReferenceVelocity='auto',
                             Viscosity_EddyMolecularRatio=0.1,
                             TurbulenceCutOffRatio=1e-8,
                             TransitionMode=None),

@@ -116,7 +116,7 @@ def launch_elsa_computation(workflow, FILE_CGNS):
     e.action=elsAxdt.COMPUTE
     e.mode=elsAxdt.READ_ALL
     e.compute()
-    e.save(f'solution_{rank}.cgns', rank)
+    e.save(f'OUTPUT/solution_{rank}.cgns', rank)
 
 
 def moveLogFiles(DIRECTORY_LOGS):

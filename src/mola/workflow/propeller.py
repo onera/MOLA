@@ -19,8 +19,6 @@ import numpy as np
 
 from mola.workflow.workflow import Workflow
 import mola.cfd.preprocess as PRE
-import mola.application.internal_flow as IntFlow
-import mola.application.turbomachine as Turb
 
 
 class WorkflowPropeller(Workflow):

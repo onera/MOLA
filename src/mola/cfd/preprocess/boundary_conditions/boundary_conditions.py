@@ -16,6 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 import os
 from mola import (misc, cgns)
+from mola.cfd.preprocess.motion import motion
 
 BoundaryConditionsNames = dict(
     Farfield                     = dict(elsa='nref'),
@@ -106,58 +107,54 @@ def apply_function_to_BCDataSet(workflow, Family, functions_to_apply):
 
         apply_function_to_BCDataSet(workflow, 'Hub', hub_function)
     '''
-    bc_list = C.extractBCOfName(workflow.tree, f'FamilySpecified:{Family}')
-    bc_list = C.node2Center(bc_list)
+    import Converter.PyTree as C
+    import Converter.Internal as I
 
     bc_dict = dict()
-    for bc in bc_list:
 
-        VarDictToImpose = dict()
-        for variable_name, function_to_apply in functions_to_apply.items():
-            # args_names is the tuple of the names of arguments of function_to_apply
-            args_names = function_to_apply.__code__.co_varnames[:function_to_apply.__code__.co_argcount]
-            kwargs = dict()
-            for arg_name in args_names:
-                nodes = bc.group(Name=arg_name, Type='DataArray')
-                if len(nodes) == 0:
-                    raise Exception(f'{arg_name} is not found in {bc.name()}')
-                elif len(nodes) == 1:
-                    node = nodes[0]
-                else:
-                    pass
+    for base in workflow.tree.bases():
+        bc_list = C.extractBCOfName(base, f'FamilySpecified:{Family}')
+        bc_list = C.node2Center(bc_list)
 
-                kwargs[arg_name] = node.value()
+        for bc in bc_list:
 
-            VarDictToImpose[variable_name] = function_to_apply(kwargs)
+            VarDictToImpose = dict()
+            for variable_name, function_to_apply in functions_to_apply.items():
+                # args_names is the tuple of the names of arguments of function_to_apply
+                args_names = function_to_apply.__code__.co_varnames[:function_to_apply.__code__.co_argcount]
+                kwargs = dict()
+                for arg_name in args_names:
+                    # nodes = bc.group(Name=arg_name, Type='DataArray')
+                    nodes = I.getNodesFromNameAndType(bc, arg_name, 'DataArray_t')
+                    if len(nodes) == 0:
+                        raise Exception(f'{arg_name} is not found in {bc.name()}')
+                    elif len(nodes) == 1:
+                        node = nodes[0]
+                    else:
+                        pass
 
-        # Get BC path in the main tree
-        zname, wname = bc.name().split(os.sep)
-        bc_path = f'{zname}/ZoneBC/{wname}'
+                    kwargs[arg_name] = node[1]
 
-        bc_dict[bc_path] = VarDictToImpose
+                VarDictToImpose[variable_name] = function_to_apply(**kwargs)
 
-    return [bc['Family']], dict(non_uniform_fields=bc_dict)                 
+            # Get BC path in the main tree
+            zname, wname = bc[0].split(os.sep)
+            bc_path = f'CGNSTree/{base[0]}/{zname}/ZoneBC/{wname}'
+
+            bc_dict[bc_path] = VarDictToImpose
+
+    return bc_dict      
 
 def Wall(workflow, bc):
-    return WallViscous(workflow, bc)
-
-def WallViscous(workflow, bc):
-    RotationSpeed = bc.get('RotationSpeed', [0., 0., 0.])
-    if isinstance(RotationSpeed, (int, float)):
-        print(f'No rotation axis for WallViscous condition on {bc["Family"]}: set to x-axis by default.')
-        RotationSpeed = [RotationSpeed, 0., 0.]
-    RotationAxisOrigin = bc.get('RotationAxisOrigin', [0., 0., 0.])
-    TranslationSpeed = bc.get('TranslationSpeed', [0., 0., 0.])
-
-    Motion = dict(
-        RotationSpeed = RotationSpeed,
-        RotationAxisOrigin = RotationAxisOrigin,
-        TranslationSpeed = TranslationSpeed
-    )
+    Motion = bc.get('Motion', dict())
+    motion.set_default_motion(Motion)
     return [bc['Family']], dict(Motion=Motion) 
 
+def WallViscous(workflow, bc):
+    return Wall(workflow, bc)
+
 def WallInviscid(workflow, bc):
-    return [bc['Family']], dict() 
+    return Wall(workflow, bc) 
     
 def Farfield(workflow, bc):
     return [bc['Family']], dict() 
