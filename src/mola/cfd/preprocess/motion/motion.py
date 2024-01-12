@@ -21,18 +21,30 @@ def apply(workflow):
     '''
     Set Motion for each families
     '''
-    set_default_motion(workflow.Motion)
+    for family, MotionOnFamily in workflow.Motion.items():
+        set_default_motion(MotionOnFamily)
 
     current_path = os.path.dirname(os.path.realpath(__file__))
     solverModule = misc.load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
     solverModule.adapt_to_solver(workflow)
 
 def set_default_motion(Motion):
-    for family, MotionOnFamily in Motion.items():
+    if callable(Motion):
+        # complex motion given as a function
+        return
 
-        RotationSpeed = MotionOnFamily.setdefault('RotationSpeed', [0., 0., 0.])
-        if isinstance(RotationSpeed, (int, float)):
-            print(misc.RED+f'No rotation axis for motion on {family}: set to x-axis by default.'+misc.ENDC)
-            MotionOnFamily['RotationSpeed'] = [RotationSpeed, 0., 0.]
-        MotionOnFamily.setdefault('RotationAxisOrigin', [0., 0., 0.])
-        MotionOnFamily.setdefault('TranslationSpeed', [0., 0., 0.])
+    RotationSpeed = Motion.setdefault('RotationSpeed', [0., 0., 0.])
+    if isinstance(RotationSpeed, (int, float)):
+        print(misc.YELLOW+f'No rotation axis for motion: set to x-axis by default.'+misc.ENDC)
+        Motion['RotationSpeed'] = [RotationSpeed, 0., 0.]
+    Motion.setdefault('RotationAxisOrigin', [0., 0., 0.])
+    Motion.setdefault('TranslationSpeed', [0., 0., 0.])
+
+def is_mobile(Motion):
+    if callable(Motion):
+        # complex motion given as a function
+        return True
+    if sum(Motion['RotationSpeed']) == 0 and all([v==0 for v in Motion['TranslationSpeed']]):
+        return False
+    else:
+        return True
