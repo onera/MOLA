@@ -68,9 +68,9 @@ def translate_to_elsa(Variables):
         yPlus                    = 'yplusmeshsize',
         MomentumFlux             = 'flux_rou flux_rov flux_row',
         TorqueFlux               = 'torque_rou torque_rov torque_row',
-
     )
-    if 'VelocityCorrelationXX' in Variables:
+
+    if isinstance(Variables, (dict, list)) and 'VelocityCorrelationXX' in Variables:
         # For RSM models
         CGNS2ElsaDict['TurbulentDissipationRate'] = 'inj_tur7'
 
@@ -93,7 +93,7 @@ def translate_to_elsa(Variables):
                 NewVariables.append(CGNS2ElsaDict[var])
         return NewVariables
     elif isinstance(Variables, str):
-        if Variables in elsAVariables:
+        if Variables in CGNS2ElsaDict:
             return CGNS2ElsaDict[Variables]
     else:
         raise TypeError('Variables must be of type dict, list or string')
