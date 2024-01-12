@@ -107,7 +107,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
             Propeller's pitch. If not
             :py:obj:`None`, then this value overrides the possibly existing
             one contained in special CGNS node ``.Kinematics`` associated to
-            a *LiftingLine* zoneLLnameInitial
+            a *LiftingLine* 
 
         CommandType : str
             Type of command used for trim. May be ``'Pitch'`` or ``'RPM'``
@@ -247,7 +247,6 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     RPM_n[1] = RPM
 
     Comp_n = I.getNodeFromName1(Propeller,'.Component#Info')
-    Correc_n = I.getNodeFromName(Propeller,'Corrections3D')
     
     # Get the freestream conditions
     Cond_n = I.getNodeFromName1(LLnameInitial,'.Conditions')
@@ -1085,10 +1084,12 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
                 canonical rotation axis is :math:`(0,0,1)`
 
         SweepCorrection : bool
-            Account for the effect of blade sweep on incident Mach number, Reynolds number, angle of attack and force/torque projection.
+            Account for the effect of blade sweep on incident Mach number, 
+            Reynolds number, angle of attack and force/torque projection.
 
         DihedralCorrection : bool
-            Account for the effect of blade dihedral on incident Mach number, Reynolds number, angle of attack and force/torque projection.
+            Account for the effect of blade dihedral on incident Mach number, 
+            Reynolds number, angle of attack and force/torque projection.
 
         kwargs : pairs of **attribute** = :py:class:`dict`
             This is an arbitrary number of input arguments following the same
@@ -1280,6 +1281,7 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
     xLE, yLE, zLE = J.getxyz(LeadingEdge)
     v['SweepAngleDeg'][:] = np.rad2deg(np.arctan2(-np.gradient(yLE,xLE),1))
     v['DihedralAngleDeg'][:] = np.rad2deg(np.arctan2(np.gradient(LLz,LLx),1))
+    v['ChordVirtualWithSweep'][:] = v['Chord'] * np.cos(np.deg2rad(v['SweepAngleDeg']))
 
     return LiftingLine
 
@@ -3410,7 +3412,8 @@ def assembleAndProjectVelocities(t):
                           'VelocityMagnitudeLocal',
                           'VelocityChordwise',
                           'VelocityThickwise',
-                          'Chord','Twist','AoA','phiRad','Mach','Reynolds',
+                          'Chord','ChordVirtualWithSweep', 
+                          'Twist','AoA','phiRad','Mach','Reynolds',
                           'ChordwiseX','ChordwiseY','ChordwiseZ',
                           'SpanwiseX','SpanwiseY','SpanwiseZ',
                           'ThickwiseX','ThickwiseY','ThickwiseZ',
@@ -3460,8 +3463,8 @@ def assembleAndProjectVelocities(t):
         ThickwiseDirection = np.vstack([v['Thickwise'+i] for i in 'XYZ'])
 
 
-        v['VelocityChordwise'][:] = Vchord = np.diag( VelocityRelative.T.dot(ChordwiseDirection) )
-        v['VelocityThickwise'][:] = Vthick = np.diag( VelocityRelative.T.dot(ThickwiseDirection) )
+        v['VelocityChordwise'][:] = Vchord = Vchord_Base = np.diag( VelocityRelative.T.dot(ChordwiseDirection) )
+        v['VelocityThickwise'][:] = Vthick = Vthick_Base = np.diag( VelocityRelative.T.dot(ThickwiseDirection) )
         # note the absence of radial velocity contribution to 2D flow (Spanwise component is cut)
         V2D = np.vstack((Vchord * ChordwiseDirection[0,:] + Vthick * ThickwiseDirection[0,:],
                          Vchord * ChordwiseDirection[1,:] + Vthick * ThickwiseDirection[1,:],
@@ -3474,11 +3477,10 @@ def assembleAndProjectVelocities(t):
         v['AoA'][:] = np.rad2deg( np.arctan2(Vthick,Vchord) )
 
         if SweepCorrection:
-            v['VelocityChordwise'][:] = Vchord = np.diag( VelocityRelative.T.dot(ChordwiseDirection) ) * np.cos(np.deg2rad(v['SweepAngleDeg'])) * np.cos(np.deg2rad(v['AoA']))
-            v['Chord'] *=  np.cos(np.deg2rad(v['SweepAngleDeg']))
+            v['VelocityChordwise'][:] = Vchord = Vchord_Base * np.cos(np.deg2rad(v['SweepAngleDeg'])) * np.cos(np.deg2rad(v['AoA']))
 
         if DihedralCorrection:
-            v['VelocityThickwise'][:] = Vthick = np.diag( VelocityRelative.T.dot(ChordwiseDirection) ) * np.cos(np.deg2rad(v['DihedralAngleDeg'])) * np.sin(np.deg2rad(v['AoA']))
+            v['VelocityThickwise'][:] = Vthick = Vthick_Base * np.cos(np.deg2rad(v['DihedralAngleDeg'])) * np.sin(np.deg2rad(v['AoA']))
 
         # Updating the Angle of Attack considering the new velocity components.    
         v['AoA'][:] = np.rad2deg( np.arctan2(Vthick,Vchord) )
@@ -3486,8 +3488,11 @@ def assembleAndProjectVelocities(t):
         # NOTE the absence of radial velocity contribution to Velocity Magnitude, Mach and Reynolds
         v['VelocityMagnitudeLocal'][:] = W = np.sqrt( Vchord**2 + Vthick**2 )
         v['Mach'][:] = W / SoundSpeed
-        v['Reynolds'][:] = Density[0] * W * v['Chord'] / Mu
 
+        if SweepCorrection:
+            v['Reynolds'][:] = Density[0] * W * v['ChordVirtualWithSweep'] / Mu
+        else:
+            v['Reynolds'][:] = Density[0] * W * v['Chord'] / Mu
 
         V2Da = ( V2D.T.dot(-RotationAxis) ).T
         V2Dt = dir * np.diag( V2D.T.dot(TangentialDirection))
@@ -3821,7 +3826,7 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
     '''
     import scipy.integrate as sint
 
-    MinimumRequiredFields = ('Cl','Cd','Cm','Chord',
+    MinimumRequiredFields = ('Cl','Cd','Cm','Chord','ChordVirtualWithSweep'
         'VelocityMagnitudeLocal','s','Span',
         'AoA',
         'ChordwiseX', 'ChordwiseY', 'ChordwiseZ',
@@ -3890,18 +3895,20 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
 
         # ----------------------- COMPUTE LINEAR FORCES ----------------------- #
         FluxC = 0.5*Density*v['VelocityMagnitudeLocal']**2*v['Chord']
-        if TipLossFactorOptions:
-            applyTipLossFactorToBladeEfforts(LiftingLine, **TipLossFactorOptions)
-
-        if DihedralCorrection:
-            LiftDihedralCorrectionCoefficient = np.cos(np.deg2rad(v['DihedralAngleDeg']))
-            Lift = FluxC*v['Cl']*LiftDihedralCorrectionCoefficient
-        else: Lift = FluxC*v['Cl']
 
         if SweepCorrection:
-            DragSweepCorrectionCoefficient = np.cos(np.deg2rad(v['SweepAngleDeg']))
-            Drag = FluxC*v['Cd']*DragSweepCorrectionCoefficient
+            FluxC = 0.5*Density*v['VelocityMagnitudeLocal']**2*v['ChordVirtualWithSweep']
+            SweepCorrectionCoefficient = np.cos(np.deg2rad(v['SweepAngleDeg']))
+            Drag = FluxC*v['Cd']*SweepCorrectionCoefficient
         else: Drag= FluxC*v['Cd']
+
+        if DihedralCorrection:
+            DihedralCorrectionCoefficient = np.cos(np.deg2rad(v['DihedralAngleDeg']))
+            Lift = FluxC*v['Cl']*DihedralCorrectionCoefficient
+        else: Lift = FluxC*v['Cl']
+
+        if TipLossFactorOptions:
+            applyTipLossFactorToBladeEfforts(LiftingLine, **TipLossFactorOptions)
 
         v['LiftChordwise'][:] = -Lift*np.sin(np.deg2rad(v['AoA']))
         v['LiftThickwise'][:] =  Lift*np.cos(np.deg2rad(v['AoA']))
@@ -3944,13 +3951,11 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
 
         FluxM = FluxC*v['Chord']*v['Cm']
 
-        if DihedralCorrection:
-            TorqueDihedralCorrectionCoefficient = np.cos(np.deg2rad(v['DihedralAngleDeg']))
-            FluxM = FluxM*TorqueDihedralCorrectionCoefficient
-
         if SweepCorrection:
-            TorqueSweepCorrectionCoefficient = np.cos(np.deg2rad(v['SweepAngleDeg']))
-            FluxM = FluxM*TorqueSweepCorrectionCoefficient
+            FluxM = FluxC*v['ChordVirtualWithSweep']*v['Cm']*SweepCorrectionCoefficient
+
+        if DihedralCorrection:
+            FluxM = FluxM*DihedralCorrectionCoefficient
 
         v['TorqueAtAirfoilX'][:] = dir * FluxM * v['SpanwiseX']
         v['TorqueAtAirfoilY'][:] = dir * FluxM * v['SpanwiseY']
