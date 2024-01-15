@@ -42,18 +42,22 @@ def test_adapt_to_solver():
     workflow = FakeWorkflow(Motion)
     solver_elsa.adapt_to_solver(workflow)
 
-    ref_tree = ['Rotor', None, [[
-                '.Solver#Motion', None, [
+    ref_tree = ['Rotor', None, [
+                ['.Solver#Motion', None, [
                     ['motion', np.array([b'm', b'o', b'b', b'i', b'l', b'e'], dtype='|S1'), [], 'DataArray_t'], 
                     ['omega', np.array([500.]), [], 'DataArray_t'], 
                     ['axis_pnt_x', np.array([3.]), [], 'DataArray_t'], 
                     ['axis_pnt_y', np.array([2.]), [], 'DataArray_t'], 
                     ['axis_pnt_z', np.array([-1.]), [], 'DataArray_t'], 
-                    ['axis_vct_x', np.array([5.]), [], 'DataArray_t'], 
+                    ['axis_vct_x', np.array([1.]), [], 'DataArray_t'], 
                     ['axis_vct_y', np.array([0.]), [], 'DataArray_t'], 
-                    ['axis_vct_z', np.array([8.]), [], 'DataArray_t']
+                    ['axis_vct_z', np.array([0.]), [], 'DataArray_t'],
+                    ['transl_vct_x', np.array([0.52999894]), [], 'DataArray_t'], 
+                    ['transl_vct_y', np.array([0.]), [], 'DataArray_t'], 
+                    ['transl_vct_z', np.array([0.8479983]), [], 'DataArray_t'], 
+                    ['transl_speed', np.array([9.43398113]), [], 'DataArray_t']
                 ], 'UserDefinedData_t']], 'Family_t']
-
+    
     assert str(workflow.tree.get(Type='Family')) == str(ref_tree)
 
     
@@ -69,13 +73,11 @@ def test_adapt_to_solver_no_motion():
     workflow = FakeWorkflow(Motion)
     solver_elsa.adapt_to_solver(workflow)
 
-    print(workflow.tree.get(Type='Family'))
-
     assert str(workflow.tree.get(Type='Family')) == "['Rotor', None, [], 'Family_t']"
 
 
 @pytest.mark.parametrize("RotationSpeed", [[1.,3.,0.], [1.,0.,4.], [1.,1.,1.]])
-def test_adapt_to_solver_error(RotationSpeed):
+def test_adapt_to_solver_invalid_axis(RotationSpeed):
     Motion = dict(
         Rotor = dict(
             RotationSpeed=RotationSpeed,
