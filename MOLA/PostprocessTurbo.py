@@ -449,18 +449,19 @@ def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_
         tmp_surface = C.convertArray2NGon(surface, recoverBC=0)
 
         filtered_variables = TUS.getFilteredFields(tmp_surface, variablesByAverage['surface'], fsname=I.__FlowSolutionCenters__)
-        radial_surf = TR.computeRadialProfile(
+        radial_surf, radius_dist = TR.computeRadialProfile(
             tmp_surface, surfaceName, filtered_variables, 'surface',
-            fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis)
+            fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis, save_radius='return')
         
         filtered_variables = TUS.getFilteredFields(tmp_surface, variablesByAverage['massflow'], fsname=I.__FlowSolutionCenters__)
         radial_massflow = TR.computeRadialProfile(
             tmp_surface, surfaceName, filtered_variables, 'massflow',
-            fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis)
+            fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis, load_radius=radius_dist)
         
         t_radial = I.merge([radial_surf, radial_massflow])
         z_radial = I.getNodeFromType2(t_radial, 'Zone_t')
-        previous_z_radial = I.getNodeFromName1(RadialProfiles, z_radial[0])
+        previous_z_radial = I.getNodeFromName1(RadialProfiles, surfaceName)
+
         if not previous_z_radial:
             PostprocessInfo = {'averageType': variablesByAverage, 
                                 'surfaceName': surfaceName,
