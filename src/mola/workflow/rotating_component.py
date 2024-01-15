@@ -41,6 +41,8 @@ class WorkflowRotatingComponent(Workflow):
         # extract reference surface and flux computation
         # duplication
         # motion
+        
+        # Put YawAxis and PitchAxis in another attribute that Flow ? Geometry ? 
 
         if self.tree is None:
             self.get_yaw_and_pitch_axes()
@@ -94,7 +96,18 @@ class WorkflowRotatingComponent(Workflow):
             if not 'NumberOfBladesInInitialMesh' in rowParams:
                 rowParams['NumberOfBladesInInitialMesh'] = getNumberOfBladesInMeshFromFamily(self.tree, row, rowParams['NumberOfBlades'])
 
-            
+    def duplicate(self):
+        jns_paths = PT.predicates_to_paths(dist_tree, 'CGNSBase_t/Zone_t/ZoneGridConnectivity_t/GridConnectivity_t')
+        maia.algo.dist.duplicate_from_periodic_jns(dist_tree, 
+                                                   ['Base/ZoneRotor'], 
+                                                   [[jns_paths[0]], [jns_paths[1]]], 
+                                                   number_of_duplications, 
+                                                   comm, 
+                                                   apply_to_fields=True)
+        # if is_unstructured:
+        #     maia.algo.dist.merge_connected_zones(dist_tree, comm)    
+
+
     # def set_motion(self):
     #     for row, rowParams in self.TurboConfiguration['Rows'].items():
     #         try: 
@@ -183,3 +196,94 @@ class WorkflowRotatingComponent(Workflow):
                     )
 
         super().set_boundary_conditions()
+
+    @staticmethod
+    def get_number_of_blades_in_mesh_from_family(t, FamilyName, NumberOfBlades):
+        '''
+        Compute the number of blades for the row **FamilyName** in the mesh **t**.
+
+        .. warning:: This function needs to calculate the surface of the slice in X
+                    at Xmin + 5% (Xmax - Xmin). If this surface is crossed by a
+                    solid (e.g. a blade) or by the inlet boundary, the function
+                    will compute a wrong value of the number of blades inside the
+                    mesh.
+
+        Parameters
+        ----------
+
+            t : PyTree
+                mesh tree
+
+            FamilyName : str
+                Name of the row, identified by a ``FamilyName``.
+
+            NumberOfBlades : int
+                Number of blades of the row **FamilyName** on 360 degrees.
+
+        Returns
+        -------
+
+            Nb : int
+                Number of blades in **t** for row **FamilyName**
+
+        '''
+        from mola.cfd.preprocess.mesh import tools 
+        deltaTheta = tools.compute_azimuthal_extension_from_family(t, FamilyName)
+        # Compute number of blades in the mesh
+        Nb = NumberOfBlades * deltaTheta / (2*np.pi)
+        Nb = int(np.round(Nb))
+        print(f'Number of blades in initial mesh for {FamilyName}: {Nb}')
+        return Nb
+    
+    @staticmethod
+    def computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration):
+        '''
+        Compute the parameter **FluxCoef** for boundary conditions (except wall BC)
+        and rotor/stator intefaces (``GridConnectivity_t`` nodes).
+        **FluxCoef** will be used later to normalize the massflow.
+
+        Modify **ReferenceValues** by adding:
+
+        >>> ReferenceValues['NormalizationCoefficient'][<FamilyName>]['FluxCoef'] = FluxCoef
+
+        for <FamilyName> in the list of BC families, except families of type 'BCWall*'.
+
+        Parameters
+        ----------
+
+            t : PyTree
+                Mesh tree with boudary conditions families, with a BCType.
+
+            ReferenceValues : dict
+                as produced by :py:func:`computeReferenceValues`
+
+            TurboConfiguration : dict
+                as produced by :py:func:`getTurboConfiguration`
+
+        '''
+        for zone in I.getZones(t):
+            FamilyNode = I.getNodeFromType1(zone, 'FamilyName_t')
+            if FamilyNode is None:
+                continue
+            if 'PeriodicTranslation' in TurboConfiguration:
+                fluxcoeff = 1.
+            else:
+                row = I.getValue(FamilyNode)
+                try:
+                    rowParams = TurboConfiguration['Rows'][row]
+                    fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+                except KeyError:
+                    # since a FamilyNode does not necessarily belong to a row
+                    fluxcoeff = 1.
+
+            for bc in I.getNodesFromType2(zone, 'BC_t')+I.getNodesFromType2(zone, 'GridConnectivity_t'):
+                FamilyNameNode = I.getNodeFromType1(bc, 'FamilyName_t')
+                if FamilyNameNode is None:
+                    continue
+                FamilyName = I.getValue(FamilyNameNode)
+                BCType = PRE.getFamilyBCTypeFromFamilyBCName(t, FamilyName)
+                if BCType is None or 'BCWall' in BCType:
+                    continue
+                if not 'NormalizationCoefficient' in ReferenceValues:
+                    ReferenceValues['NormalizationCoefficient'] = dict()
+                ReferenceValues['NormalizationCoefficient'][FamilyName] = dict(FluxCoef=fluxcoeff)

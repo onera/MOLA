@@ -17,11 +17,11 @@
 
 import numpy as np
 
-from mola.workflow.workflow import Workflow
+from mola.workflow import WorkflowRotatingComponent
 import mola.cfd.preprocess as PRE
 
 
-class WorkflowPropeller(Workflow):
+class WorkflowPropeller(WorkflowRotatingComponent):
 
     def __init__(self, RPM=0., AxialVelocity=0., ReferenceTurbulenceSetAtRelativeSpan=0.75, **UserParameters):
         super(WorkflowPropeller, self).__init__(**UserParameters)

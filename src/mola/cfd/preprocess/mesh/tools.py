@@ -43,11 +43,11 @@ def get_surface_of_inflow(workflow):
     
     InflowFamily = InflowBCs[0]['Family']
     
-    return get_surface_of_family(workflow, InflowFamily)
+    return get_surface_of_family(workflow.tree, InflowFamily)
 
-def get_surface_of_family(workflow, Family):
+def get_surface_of_family(tree, Family):
 
-    zones = C.extractBCOfName(workflow.tree, f'FamilySpecified:{Family}')
+    zones = C.extractBCOfName(tree, f'FamilySpecified:{Family}')
     SurfaceTree = C.convertArray2Tetra(zones)
     SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
     Surface = P.integ(SurfaceTree, var='ones')[0]        # Compute normalization coefficient
@@ -55,3 +55,46 @@ def get_surface_of_family(workflow, Family):
 
     return Surface
 
+def compute_azimuthal_extension_from_family(t, FamilyName):
+    '''
+    Compute the azimuthal extension in radians of the mesh **t** for the row **FamilyName**.
+
+    .. warning:: This function needs to calculate the surface of the slice in X
+                 at Xmin + 5% (Xmax - Xmin). If this surface is crossed by a
+                 solid (e.g. a blade) or by the inlet boundary, the function
+                 will compute a wrong value of the number of blades inside the
+                 mesh.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            mesh tree
+
+        FamilyName : str
+            Name of the row, identified by a ``FamilyName``.
+
+    Returns
+    -------
+
+        deltaTheta : float
+            Azimuthal extension in radians
+
+    '''
+    # Extract zones in family
+    zonesInFamily = C.getFamilyZones(t, FamilyName)
+    # Slice in x direction at middle range
+    xmin = C.getMinValue(zonesInFamily, 'CoordinateX')
+    xmax = C.getMaxValue(zonesInFamily, 'CoordinateX')
+    sliceX = P.isoSurfMC(zonesInFamily, 'CoordinateX', value=xmin+0.05*(xmax-xmin))
+    # Compute Radius
+    C._initVars(sliceX, '{Radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
+    Rmin = C.getMinValue(sliceX, 'Radius')
+    Rmax = C.getMaxValue(sliceX, 'Radius')
+    # Compute surface
+    SurfaceTree = C.convertArray2Tetra(sliceX)
+    SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
+    Surface = P.integ(SurfaceTree, var='ones')[0]
+    # Compute deltaTheta
+    deltaTheta = 2* Surface / (Rmax**2 - Rmin**2)
+    return deltaTheta
