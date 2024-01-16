@@ -5471,6 +5471,7 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
 def postprocess_turbomachinery(surfaces, stages=[], 
                                 var4comp_repart=None, var4comp_perf=None, var2keep=None, 
                                 computeRadialProfiles=True, 
+                                heightListForIsentropicMach='all',
                                 config='annular', 
                                 lin_axis='XY',
                                 RowType='compressor',
@@ -5480,18 +5481,16 @@ def postprocess_turbomachinery(surfaces, stages=[],
 
     #. Compute extra variables, in relative and absolute frames of reference
 
-    #. Compute averaged values for all iso-X planes (results are in the `.Average` node), and
+    #. Compute averaged values for all iso-X planes, and
        compare inlet and outlet planes for each row if available, to get row performance (total 
-       pressure ratio, isentropic efficiency, etc) (results are in the `.Average#ComparisonXX` of
-       the inlet plane, `XX` being the numerotation starting at `01`)
+       pressure ratio, isentropic efficiency, etc) 
 
-    #. Compute radial profiles for all iso-X planes (results are in the `.RadialProfile` node), and
+    #. Compute radial profiles for all iso-X planes (results are in the `RadialProfiles` base), and
        compare inlet and outlet planes for each row if available, to get row performance (total 
-       pressure ratio, isentropic efficiency, etc) (results are in the `.RadialProfile#ComparisonXX` of
-       the inlet plane, `XX` being the numerotation starting at `01`)
+       pressure ratio, isentropic efficiency, etc) 
 
     #. Compute isentropic Mach number on blades, slicing at constant height, for all values of height 
-       already extracted as iso-surfaces. Results are in the `.Iso_H_XX` nodes.
+       already extracted as iso-surfaces.
 
     Parameters
     ----------
@@ -5532,6 +5531,11 @@ def postprocess_turbomachinery(surfaces, stages=[],
         
         computeRadialProfiles : bool
             Choose or not to compute radial profiles.
+        
+        heightListForIsentropicMach : list or str, optional
+            List of heights to make slices on blades. 
+            If 'all' (by default), the list is got by taking the values of the existing 
+            iso-height surfaces in the input tree.
         
         config : str
             see :py:func:`MOLA.PostprocessTurbo.compute1DRadialProfiles`
@@ -5619,7 +5623,8 @@ def postprocess_turbomachinery(surfaces, stages=[],
         if computeRadialProfiles: 
             Post.compute1DRadialProfiles(
                 surfaces, variablesByAverage, config=config, lin_axis=lin_axis)
-        # Post.computeVariablesOnBladeProfiles(surfaces, hList='all')
+        if heightListForIsentropicMach:
+            Post.computeVariablesOnBladeProfiles(surfaces, height_list=heightListForIsentropicMach)
         #______________________________________________________________________________#
 
         if Cmpi.rank == 0:

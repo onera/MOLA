@@ -30,6 +30,7 @@ if not MOLA.__ONLY_DOC__:
     import Post.PyTree        as P
     import Transform.PyTree   as T
 
+    import MOLA.Postprocess as POST
 
     ########################
     import turbo.fields   as TF
@@ -533,7 +534,7 @@ def compareRadialProfilesPlane2Plane(surfaces, var4comp_repart, stages=[], confi
             I.addChild(OutletPlane, fsBudget)
 
 
-def computeVariablesOnBladeProfiles(surfaces, hList='all'):
+def computeVariablesOnBladeProfiles(surfaces, height_list='all'):
     '''
     Make height-constant slices on the blades to compute the isentropic Mach number and other
     variables at blade wall.
@@ -544,7 +545,7 @@ def computeVariablesOnBladeProfiles(surfaces, hList='all'):
         surfaces : PyTree
             as produced by :py:func:`extractSurfaces`
 
-        hList : list or str, optional
+        height_list : list or str, optional
             List of heights to make slices on blades. 
             If 'all' (by default), the list is got by taking the values of the existing 
             iso-height surfaces in the input tree.
@@ -559,13 +560,13 @@ def computeVariablesOnBladeProfiles(surfaces, hList='all'):
                     return bladeSurface
         return
 
-    if hList == 'all':
-        hList = []
+    if height_list == 'all':
+        height_list = []
         surfacesIsoH = getSurfacesFromInfo(surfaces, type='IsoSurface', field='ChannelHeight')
         for surface in surfacesIsoH:
             ExtractionInfo = I.getNodeFromName(surface, '.ExtractionInfo')
             valueH = I.getValue(I.getNodeFromName(ExtractionInfo, 'value'))
-            hList.append(valueH)
+            height_list.append(valueH)
         
     RadialProfiles = I.getNodeByName1(surfaces, 'RadialProfiles')
 
@@ -575,22 +576,28 @@ def computeVariablesOnBladeProfiles(surfaces, hList='all'):
         if not InletPlane:
             continue
 
-        blade = searchBladeInTree(row)
+        blade_ref = searchBladeInTree(row)
+        blade = I.copyRef(blade_ref)
         if not blade:
             print(f'No blade family (or more than one) has been found for row {row}')
             continue
 
-        I._renameNode(blade, 'FlowSolution#Centers', I.__FlowSolutionCenters__)
+        I._renameNode(blade, 'BCDataSet', I.__FlowSolutionCenters__)
         C._initVars(blade, 'Radius=sqrt({CoordinateY}**2+{CoordinateZ}**2)')
         blade = C.center2Node(blade, I.__FlowSolutionCenters__)
         C._initVars(blade, 'StaticPressureDim={Pressure}')
 
-        blade = TMis.computeIsentropicMachNumber(InletPlane, blade, RefState(setup))
+        blade_with_Mis = TMis.computeIsentropicMachNumber(InletPlane, blade, RefState(setup), fsname=I.__FlowSolutionNodes__ )
 
-        BladeSlices = I.newCGNSBase(f'{row}_Slices', cellDim=1, physDim=3, parent=surfaces)
-        for h in hList:
-            bladeIsoH = T.join(P.isoSurfMC(blade, 'ChannelHeight', h))
-            # bladeIsoH = P.isoSurfMC(blade, 'ChannelHeight', h)
-            I.setName(bladeIsoH, 'Iso_H_{}'.format(h))
+        for zone in I.getZones(blade_with_Mis):
+            FS = I.getNodeFromName(zone, I.__FlowSolutionNodes__)
+            I.newGridLocation(value='Vertex', parent=FS)
+            zone_ref = I.getNodeFromName1(blade_ref, zone[0])
+            I.addChild(zone_ref, FS)
+
+        BladeSlices = I.newCGNSBase(f'{I.getName(blade_ref)}_Slices', cellDim=1, physDim=3, parent=surfaces)
+        for h in height_list:
+            bladeIsoH = T.join(POST.isoSurface(blade_with_Mis, fieldname='ChannelHeight', value=h, container='FlowSolution#Height'))
+            I.setName(bladeIsoH, f'Iso_H_{h}')
             I._addChild(BladeSlices, bladeIsoH)
 
