@@ -17,30 +17,6 @@
 
 from mola.cfd.preprocess.solver_specific_tools import solver_elsa
 
-CGNS2ElsaDict = dict(
-        PressureStagnation       = 'stagnation_pressure',
-        EnthalpyStagnation       = 'stagnation_enthalpy',
-        TemperatureStagnation    = 'stagnation_temperature',
-        Pressure                 = 'pressure',
-        MassFlow                 = 'globalmassflow',
-        SurfacicMassFlow         = 'surf_massflow',
-        VelocityUnitVectorX      = 'txv',
-        VelocityUnitVectorY      = 'tyv',
-        VelocityUnitVectorZ      = 'tzv',
-        TurbulentSANuTilde       = 'inj_tur1',
-        TurbulentEnergyKinetic   = 'inj_tur1',
-        TurbulentDissipationRate = 'inj_tur2',
-        TurbulentDissipation     = 'inj_tur2',
-        TurbulentLengthScale     = 'inj_tur2',
-        
-        BoundaryLayer            = 'bl_quantities_2d bl_quantities_3d bl_ue',
-        NormalVector             = 'normalvector',
-        Friction                 = 'frictionvector', 
-        yPlus                    = 'yplusmeshsize',
-        MomentumFlux             = 'flux_rou flux_rov flux_row',
-        TorqueFlux               = 'torque_rou torque_rov torque_row',
-    )
-
 RSM_CGNS2ElsaDict = dict(
         TurbulentDissipationRate = 'inj_tur7',
         VelocityCorrelationXX    = 'inj_tur1',
@@ -52,9 +28,9 @@ RSM_CGNS2ElsaDict = dict(
     )
 
 def test_translate_to_elsa_dict():
-    d = dict((key, 0) for key in CGNS2ElsaDict)
+    d = dict((key, 0) for key in solver_elsa.CGNS2ElsaInCGNSNode)
     res = solver_elsa.translate_to_elsa(d)
-    assert res == dict((value, 0) for value in CGNS2ElsaDict.values())
+    assert res == dict((value, 0) for value in solver_elsa.CGNS2ElsaInCGNSNode.values())
 
 def test_translate_to_elsa_dict_rsm():
     d = dict((key, 0) for key in RSM_CGNS2ElsaDict)
@@ -63,11 +39,11 @@ def test_translate_to_elsa_dict_rsm():
     assert res == dict((value, 0) for value in RSM_CGNS2ElsaDict.values())
 
 def test_translate_to_elsa_list():
-    res = solver_elsa.translate_to_elsa(list(CGNS2ElsaDict))
-    assert res == list(CGNS2ElsaDict.values())
+    res = solver_elsa.translate_to_elsa(list(solver_elsa.CGNS2ElsaInCGNSNode))
+    assert res == list(solver_elsa.CGNS2ElsaInCGNSNode.values())
 
 def test_translate_to_elsa_str():
-    for cgns_name, elsa_name in CGNS2ElsaDict.items():
+    for cgns_name, elsa_name in solver_elsa.CGNS2ElsaInCGNSNode.items():
         res = solver_elsa.translate_to_elsa(cgns_name)
         assert res == elsa_name
 

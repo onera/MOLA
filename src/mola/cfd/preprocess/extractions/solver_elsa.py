@@ -48,6 +48,12 @@ def add_global_convergence_history(workflow):
 
 def process_extractions_3d(workflow):
 
+    # For 3D averaged field : 
+    #   dict(type='3D', Container='FlowSolution#Average', fields=[...], options=dict(average='time', period_init='inactive'))
+
+    # For coordinates : 
+    #    dict(type='3D', Container='FlowSolution#EndOfRun#Coords', fields=['CoordinateX', 'CoordinateY', 'CoordinateZ'], GridLocation='Vertex', Frame='absolute')
+
     workflow.tree.findAndRemoveNodes(Name='FlowSolution#EndOfRun', Type='FlowSolution')
 
     for zone in workflow.tree.zones():
@@ -65,8 +71,9 @@ def process_extractions_3d(workflow):
 
             Container = Extraction.get('Container', 'FlowSolution#EndOfRun')
             GridLocation = Extraction.get('GridLocation', 'CellCenter')
-            Frame = Extraction.get('Frame', 'absolute')
+            Frame = Extraction.get('Frame', 'relative')
             Fields2Extract = Extraction['fields']
+            options = Extraction.get('options', dict())
 
             EoRnode = zone.get(Name=Container, Type='FlowSolution', Depth=1) 
             if not EoRnode:
@@ -79,7 +86,8 @@ def process_extractions_3d(workflow):
                 EoRnode.setParameters('.Solver#Output',
                                         period=1,
                                         writingmode=2,
-                                        writingframe=Frame)
+                                        writingframe=Frame,
+                                        **options)
             else:
                 # Check compatibility
                 try:
@@ -99,9 +107,38 @@ def process_extractions_3d(workflow):
 
 def process_extractions_2d(workflow):
 
+    # Get elsA parameters for extractions, depending on the type of the BC
+    default_bc_parameters, default_bc_wall_parameters = get_default_parameters_for_2d_extractions(workflow.SolverParameters, workflow.Flow['Pressure'])
+    
+    FamilyNodes = workflow.tree.group(Type='Family', Depth=2)
+
+    # Among all extractions, get all the BCType that are asked
+    AllBCExtractions = []
+    for Extraction in workflow.Extractions:
+        if Extraction['type'] == 'bc':
+            AllBCExtractions.append(Extraction['BCType'])
+
+    for Extraction in workflow.Extractions:
+
+        if Extraction['type'] != 'bc':
+            # extraction not handled with that function
+            continue
+
+        # TODO : manage the case with no BCType given but a Family instead
+        ExtractBCTypeRequired = Extraction['BCType'] # It may contain *
+
+        for FamilyNode in FamilyNodes:
+            FamilyBCNode = FamilyNode.get(Type='FamilyBC', Value=ExtractBCTypeRequired, Depth=1)
+            if FamilyBCNode:
+                ExtractBCType = FamilyBCNode.value()
+
+                ExtractVariablesList = adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType)
+                add_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesList, default_bc_parameters, default_bc_wall_parameters)
+
+def get_default_parameters_for_2d_extractions(SolverParameters, pinf):
     # Default keys to write in the .Solver#Output of the Family node
     # The node 'var' will be fill later depending on the BCType
-    BCKeys = dict(
+    default_bc_parameters = dict(
         period        = 1,
 
         # TODO make ticket:
@@ -119,93 +156,80 @@ def process_extractions_2d(workflow):
     )
 
     # Keys to write in the .Solver#Output for wall Families
-    BCWallKeys = dict()
-    BCWallKeys.update(BCKeys)
-    BCWallKeys.update(dict(
-        delta_compute = workflow.SolverParameters['model']['delta_compute'],
-        vortratiolim  = workflow.SolverParameters['model']['vortratiolim'],
-        shearratiolim = workflow.SolverParameters['model']['shearratiolim'],
-        pressratiolim = workflow.SolverParameters['model']['pressratiolim'],
-        pinf          = workflow.Flow['Pressure'],
+    default_bc_wall_parameters = dict()
+    default_bc_wall_parameters.update(default_bc_parameters)
+    default_bc_wall_parameters.update(dict(
+        delta_compute = SolverParameters['model']['delta_compute'],
+        vortratiolim  = SolverParameters['model']['vortratiolim'],
+        shearratiolim = SolverParameters['model']['shearratiolim'],
+        pressratiolim = SolverParameters['model']['pressratiolim'],
+        pinf          = pinf,
         torquecoeff   = 1.0,
         xtorque       = 0.0,
         ytorque       = 0.0,
         ztorque       = 0.0,
         writingframe  = 'relative', # absolute incompatible with unstructured mesh
     ))
+    return default_bc_parameters, default_bc_wall_parameters
+
+def adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType):
+    ExtractVariablesList = copy.deepcopy(Extraction['fields'])
+
+    if not workflow.tree.isStructured():
+        print('not structured')
+        if 'BoundaryLayer' in ExtractVariablesList:
+            print('remove BoundaryLayer')
+            ExtractVariablesList.remove('BoundaryLayer')
+
+    if ExtractBCType == 'BCWallInviscid':
+        ViscousKeys = ['BoundaryLayer', 'yPlus', 
+                       'geomdepdom','delta_cell_max','delta_compute',
+                       'vortratiolim','shearratiolim','pressratiolim']
+        for vk in ViscousKeys:
+            try:
+                ExtractVariablesList.remove(vk)
+            except ValueError:
+                pass
+    else:
+
+        if workflow.Turbulence['TransitionMode'] == 'NonLocalCriteria-LSTT':
+            extraVariables = ['intermittency', 'clim', 'how', 'origin',
+                              'lambda2', 'turb_level', 'n_tot_ag', 'n_crit_ag',
+                              'r_tcrit_ahd', 'r_theta_t1', 'line_status', 'crit_indicator']
+            ExtractVariablesList.extend(extraVariables)
+
+        elif workflow.Turbulence['TransitionMode'] == 'Imposed':
+            extraVariables = ['intermittency', 'clim']
+            ExtractVariablesList.extend(extraVariables)
     
-    FamilyNodes = workflow.tree.group(Type='Family', Depth=2)
+    return ExtractVariablesList
 
-    AllBCExtractions = []
-    for Extraction in workflow.Extractions:
-        if Extraction['type'] == 'bc':
-            AllBCExtractions.append(Extraction['BCType'])
-
-    for Extraction in workflow.Extractions:
-
-        if Extraction['type'] != 'bc':
-            continue
-
-        # TODO : manage the case with no BCType given but a Family instead
-        ExtractBCTypeRequired = Extraction['BCType'] # It may contain *
-        ExtractVariablesListDefault = Extraction['fields']
-
-        for FamilyNode in FamilyNodes:
-            FamilyBCNode = FamilyNode.get(Type='FamilyBC', Value=ExtractBCTypeRequired, Depth=1)
-            if FamilyBCNode:
-                ExtractVariablesList = copy.deepcopy(ExtractVariablesListDefault)
-                ExtractBCType = FamilyBCNode.value()
-
-                if not workflow.tree.isStructured():
-                    if 'BoundaryLayer' in Extraction['fields']:
-                        Extraction['fields'].remove('BoundaryLayer')
-
-                if ExtractBCType == 'BCWallInviscid':
-                    ViscousKeys = [
-                        'BoundaryLayer', 'yPlus',
-                        'geomdepdom','delta_cell_max','delta_compute',
-                        'vortratiolim','shearratiolim','pressratiolim']
-                    for vk in ViscousKeys:
-                        try:
-                            ExtractVariablesList.remove(vk)
-                        except ValueError:
-                            pass
-                else:
-
-                    if workflow.Turbulence['TransitionMode'] == 'NonLocalCriteria-LSTT':
-                        extraVariables = ['intermittency', 'clim', 'how', 'origin',
-                            'lambda2', 'turb_level', 'n_tot_ag', 'n_crit_ag',
-                            'r_tcrit_ahd', 'r_theta_t1', 'line_status', 'crit_indicator']
-                        ExtractVariablesList.extend(extraVariables)
-
-                    elif workflow.Turbulence['TransitionMode'] == 'Imposed':
-                        extraVariables = ['intermittency', 'clim']
-                        ExtractVariablesList.extend(extraVariables)
-
-                if ExtractVariablesList != []:
-                    varList = translate_to_elsa(ExtractVariablesList)
-                    SolverOutput = FamilyNode.get(Name='.Solver#Output', Depth=1) 
-                    
-                    if not SolverOutput:
-                        print('setting .Solver#Output to FamilyNode '+FamilyNode.name())
-                        if 'BCWall' in ExtractBCType:
-                            SolverOutputKeys = dict(**BCWallKeys, var=' '.join(varList))
-                        else:
-                            SolverOutputKeys = dict(**BCKeys, var=' '.join(varList))
-                        FamilyNode.setParameters('.Solver#Output', **SolverOutputKeys)
-                    else:
-                        print('adding variables in .Solver#Output to FamilyNode '+FamilyNode.name())
-                        # Add variables that are not already in the node
-                        varNode = SolverOutput.get(Name='var', Depth=1)
-                        varListAlreadyPresent = varNode.value().split() 
-                        newVarList = copy.deepcopy(varListAlreadyPresent)
-                        for var in varList:
-                            if not var in varListAlreadyPresent:
-                                newVarList.append(var)
-                        varNode.setValue(' '.join(newVarList))
-                else:
-                    print(misc.YELLOW+f'Caution: the list of fields to extract on {FamilyNode.name()} is empty'+misc.ENDC)
-                    # raise ValueError(misc.RED+f'Did not added anything since:\nExtractVariablesList={ExtractVariablesList}'+misc.ENDC)
+def add_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesList, default_bc_parameters, default_bc_wall_parameters):
+    if ExtractVariablesList != []:
+        varList = translate_to_elsa(ExtractVariablesList, type='var')
+        SolverOutput = FamilyNode.get(Name='.Solver#Output', Depth=1) 
+        
+        if not SolverOutput:
+            print('setting .Solver#Output to FamilyNode '+FamilyNode.name())
+            if 'BCWall' in ExtractBCType:
+                SolverOutputKeys = dict(**default_bc_wall_parameters, var=' '.join(varList))
+            else:
+                SolverOutputKeys = dict(**default_bc_parameters, var=' '.join(varList))
+            FamilyNode.setParameters('.Solver#Output', **SolverOutputKeys)
+        else:
+            print('adding variables in .Solver#Output to FamilyNode '+FamilyNode.name())
+            # Add variables that are not already in the node
+            varNode = SolverOutput.get(Name='var', Depth=1)
+            varListAlreadyPresent = varNode.value().split() 
+            newVarList = copy.deepcopy(varListAlreadyPresent)
+            for var in varList:
+                if not var in varListAlreadyPresent:
+                    print(f'  add {var}')
+                    newVarList.append(var)
+            print(newVarList)
+            varNode.setValue(' '.join(newVarList))
+    else:
+        print(misc.YELLOW+f'Caution: the list of fields to extract on {FamilyNode.name()} is empty'+misc.ENDC)
 
 
 def add_trigger(t, coprocessFilename='coprocess.py'):

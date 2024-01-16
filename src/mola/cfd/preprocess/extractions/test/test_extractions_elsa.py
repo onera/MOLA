@@ -28,10 +28,12 @@ class FakeWorkflow():
             Conservatives = dict(Density=1.2,Momentum=10.,Energy=5.)
         )
 
+        self.Turbulence = dict(TransitionMode=None)
+
         self.Extractions = [
             dict(type='fake'),
             dict(type='bc', BCType='BCWallViscous', fields=['Pressure']),
-            dict(type='3D', fields=dict(Density=1.2,Momentum=10.,Energy=5.)),
+            dict(type='3D', fields=['Density', 'Momentum', 'Energy']),
         ]
 
         self.tree = cgns.Tree()
@@ -69,13 +71,6 @@ def test_add_extractions_for_overset_components():
     solver_elsa.add_extractions_for_overset_components(workflow)
     assert workflow.Extractions == ref_Extractions
 
-    
-
-def test_process_extractions_3d():
-    assert False, 'Not implemented yet'
-
-def test_process_extractions_2d():
-    assert False, 'Not implemented yet'
 
 def test_add_trigger():
     ref_trigger = ['ELSA_TRIGGER', None, [
@@ -105,6 +100,263 @@ def test_global_convergence_history():
     solver_elsa.add_global_convergence_history(workflow)
     for base in workflow.tree.bases():
         conv_node = base.get(Name='GlobalConvergenceHistory')       
-        assert str(conv_node) == str(ref_node)
+        assert str(conv_node) == str(ref_node)  
+
+
+def test_process_extractions_3d():
+    # assert False, 'Not implemented yet'
+    workflow = FakeWorkflow()
+    workflow.Extractions = [dict(type='3D', fields=['Density', 'Momentum', 'Energy'])]
+    solver_elsa.process_extractions_3d(workflow)
+
+    zone = workflow.tree.zones()[0]
+    FS = zone.get(Name='FlowSolution#EndOfRun', Type='FlowSolution')
+    assert FS
+
+    FS_ref = ['FlowSolution#EndOfRun', None, [
+                ['Density', None, [], 'DataArray_t'], 
+                ['Momentum', None, [], 'DataArray_t'], 
+                ['Energy', None, [], 'DataArray_t'], 
+                ['GridLocation', np.array([b'C', b'e', b'l', b'l', b'C', b'e', b'n', b't', b'e', b'r'], dtype='|S1'), [], 'GridLocation_t'], 
+                ['.Solver#Output', None, [
+                    ['period', np.array([1], dtype=np.int32), [], 'DataArray_t'], 
+                    ['writingmode', np.array([2], dtype=np.int32), [], 'DataArray_t'], 
+                    ['writingframe', np.array([b'r', b'e', b'l', b'a', b't', b'i', b'v', b'e'], dtype='|S1'), [], 'DataArray_t']
+                ], 'UserDefinedData_t']], 'FlowSolution_t']
+
+    assert str(FS) == str(FS_ref)
+
+def test_process_extractions_3d_additional_variables():
+    # assert False, 'Not implemented yet'
+    workflow = FakeWorkflow()
+    workflow.Extractions = [
+        dict(type='3D', fields=['Density', 'Momentum', 'Energy']),
+        dict(type='3D', fields=['Mach', 'Pressure']),
+        ]
+    solver_elsa.process_extractions_3d(workflow)
+
+    zone = workflow.tree.zones()[0]
+    FS = zone.get(Name='FlowSolution#EndOfRun', Type='FlowSolution')
+    assert FS
+
+    FS_ref = ['FlowSolution#EndOfRun', None, [
+                ['Density', None, [], 'DataArray_t'], 
+                ['Momentum', None, [], 'DataArray_t'], 
+                ['Energy', None, [], 'DataArray_t'], 
+                ['GridLocation', np.array([b'C', b'e', b'l', b'l', b'C', b'e', b'n', b't', b'e', b'r'], dtype='|S1'), [], 'GridLocation_t'], 
+                ['.Solver#Output', None, [
+                    ['period', np.array([1], dtype=np.int32), [], 'DataArray_t'], 
+                    ['writingmode', np.array([2], dtype=np.int32), [], 'DataArray_t'], 
+                    ['writingframe', np.array([b'r', b'e', b'l', b'a', b't', b'i', b'v', b'e'], dtype='|S1'), [], 'DataArray_t']
+                ], 'UserDefinedData_t'],
+                ['Mach', None, [], 'DataArray_t'], 
+                ['Pressure', None, [], 'DataArray_t'], 
+            ], 'FlowSolution_t']
+    
+    assert str(FS) == str(FS_ref)
+
+def test_process_extractions_3d_coords():
+    # assert False, 'Not implemented yet'
+    workflow = FakeWorkflow()
+    workflow.Extractions = [dict(type='3D', Container='FlowSolution#EndOfRun#Coords', fields=['CoordinateX', 'CoordinateY', 'CoordinateZ'], GridLocation='Vertex', Frame='absolute')]
+    solver_elsa.process_extractions_3d(workflow)
+
+    zone = workflow.tree.zones()[0]
+    FS = zone.get(Name='FlowSolution#EndOfRun#Coords', Type='FlowSolution')
+    assert FS
+
+    FS_ref = ['FlowSolution#EndOfRun#Coords', None, [
+                ['CoordinateX', None, [], 'DataArray_t'], 
+                ['CoordinateY', None, [], 'DataArray_t'], 
+                ['CoordinateZ', None, [], 'DataArray_t'], 
+                ['GridLocation', np.array([b'V', b'e', b'r', b't', b'e', b'x'], dtype='|S1'), [], 'GridLocation_t'], 
+                ['.Solver#Output', None, [
+                    ['period', np.array([1], dtype=np.int32), [], 'DataArray_t'], 
+                    ['writingmode', np.array([2], dtype=np.int32), [], 'DataArray_t'], 
+                    ['writingframe', np.array([b'a', b'b', b's', b'o', b'l', b'u', b't', b'e'], dtype='|S1'), [], 'DataArray_t']
+                ], 'UserDefinedData_t']], 'FlowSolution_t']
+
+    assert str(FS) == str(FS_ref)
+
+def test_process_extractions_3d_average():
+    # assert False, 'Not implemented yet'
+    workflow = FakeWorkflow()
+    workflow.Extractions = [dict(type='3D', Container='FlowSolution#Average', fields=['Density', 'Momentum'], options=dict(average='time', period_init='inactive'))]
+    solver_elsa.process_extractions_3d(workflow)
+
+    zone = workflow.tree.zones()[0]
+    FS = zone.get(Name='FlowSolution#Average', Type='FlowSolution')
+    assert FS
+
+    FS_ref = ['FlowSolution#Average', None, [
+                ['Density', None, [], 'DataArray_t'], 
+                ['Momentum', None, [], 'DataArray_t'], 
+                ['GridLocation', np.array([b'C', b'e', b'l', b'l', b'C', b'e', b'n', b't', b'e', b'r'], dtype='|S1'), [], 'GridLocation_t'], 
+                ['.Solver#Output', None, [
+                    ['period', np.array([1], dtype=np.int32), [], 'DataArray_t'], 
+                    ['writingmode', np.array([2], dtype=np.int32), [], 'DataArray_t'], 
+                    ['writingframe', np.array([b'r', b'e', b'l', b'a', b't', b'i', b'v', b'e'], dtype='|S1'), [], 'DataArray_t'],
+                    ['average', np.array([b't', b'i', b'm', b'e'], dtype='|S1'), [], 'DataArray_t'],
+                    ['period_init', np.array([b'i', b'n', b'a', b'c', b't', b'i', b'v', b'e'], dtype='|S1'), [], 'DataArray_t'],
+                ], 'UserDefinedData_t']], 'FlowSolution_t']
+
+    assert str(FS) == str(FS_ref)
+
+
+
+def test_adapt_variables_for_2d_extraction_wall():
+
+    workflow = FakeWorkflow()
+    for zone in workflow.tree.zones():
+        cgns.Node(Name='ZoneType', Type='ZoneType', Value='Structured', Parent=zone)
+
+    Extraction = dict(type='bc', BCType='BCWall', fields=['Pressure', 'BoundaryLayer', 'yPlus', 
+                                                          'geomdepdom','delta_cell_max','delta_compute',
+                                                          'vortratiolim','shearratiolim','pressratiolim'])  # BCType is not used by adapt_variables_for_2d_extraction
+    ExtractBCType = 'BCWall'
+    ExtractVariablesList = solver_elsa.adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType)
+
+    assert ExtractVariablesList == ['Pressure', 'BoundaryLayer', 'yPlus', 
+                                    'geomdepdom','delta_cell_max','delta_compute',
+                                    'vortratiolim','shearratiolim','pressratiolim']
+
+def test_adapt_variables_for_2d_extraction_BCWallInviscid():
+
+    workflow = FakeWorkflow()
+    for zone in workflow.tree.zones():
+        cgns.Node(Name='ZoneType', Type='ZoneType', Value='Structured', Parent=zone)
+
+    Extraction = dict(type='bc', BCType='BCWall', fields=['Pressure', 'BoundaryLayer', 'yPlus', 
+                                                          'geomdepdom','delta_cell_max','delta_compute',
+                                                          'vortratiolim','shearratiolim','pressratiolim'])  # BCType is not used by adapt_variables_for_2d_extraction
+    ExtractBCType = 'BCWallInviscid'
+    ExtractVariablesList = solver_elsa.adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType)
+
+    assert ExtractVariablesList == ['Pressure']
+
+def test_adapt_variables_for_2d_extraction_unstructured():
+
+    workflow = FakeWorkflow()
+    for zone in workflow.tree.zones():
+        ZoneType = cgns.Node(Name='ZoneType', Type='ZoneType', Value='Unstructured') 
+        zone.addChild(ZoneType)
+
+    Extraction = dict(type='bc', BCType='BCWall', fields=['Pressure', 'BoundaryLayer', 'yPlus', 
+                                                          'geomdepdom','delta_cell_max','delta_compute',
+                                                          'vortratiolim','shearratiolim','pressratiolim'])  # BCType is not used by adapt_variables_for_2d_extraction
+    ExtractBCType = 'BCWall'
+    ExtractVariablesList = solver_elsa.adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType)
+
+    assert ExtractVariablesList == ['Pressure', 'yPlus', 
+                                    'geomdepdom','delta_cell_max','delta_compute',
+                                    'vortratiolim','shearratiolim','pressratiolim']
+    
+def test_adapt_variables_for_2d_extraction_TransitionMode_NonLocalCriteria_LSTT():
+
+    workflow = FakeWorkflow()
+    for zone in workflow.tree.zones():
+        cgns.Node(Name='ZoneType', Type='ZoneType', Value='Structured', Parent=zone)
+    workflow.Turbulence = dict(TransitionMode='NonLocalCriteria-LSTT')
+
+    Extraction = dict(type='bc', BCType='BCWall', fields=['Pressure'])  # BCType is not used by adapt_variables_for_2d_extraction
+    ExtractBCType = 'BCWall'
+    ExtractVariablesList = solver_elsa.adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType)
+    
+    assert ExtractVariablesList == ['Pressure', 'intermittency', 'clim', 'how', 
+                                    'origin','lambda2', 'turb_level', 'n_tot_ag', 
+                                    'n_crit_ag', 'r_tcrit_ahd', 'r_theta_t1', 
+                                    'line_status', 'crit_indicator']
+
+def test_adapt_variables_for_2d_extraction_TransitionMode_imposed():
+
+    workflow = FakeWorkflow()
+    for zone in workflow.tree.zones():
+        cgns.Node(Name='ZoneType', Type='ZoneType', Value='Structured', Parent=zone)
+    workflow.Turbulence = dict(TransitionMode='Imposed')
+
+    Extraction = dict(type='bc', BCType='BCWall', fields=['Pressure'])  # BCType is not used by adapt_variables_for_2d_extraction
+    ExtractBCType = 'BCWall'
+    ExtractVariablesList = solver_elsa.adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType)
+    
+    assert ExtractVariablesList == ['Pressure', 'intermittency', 'clim']
+
+def test_add_extractions_in_SolverOutput_1():
+    SolverParameters = dict(
+        model = dict(
+            delta_compute   = 'first_order_bl',
+            vortratiolim    = 1e-3,
+            shearratiolim   = 2e-2,
+            pressratiolim   = 1e-3,
+        )
+    )
+    pinf = 1e5
+    default_bc_parameters, default_bc_wall_parameters = solver_elsa.get_default_parameters_for_2d_extractions(SolverParameters, pinf)
+    
+    ExtractBCType = 'BCWall'
+    FamilyNode = cgns.Node(Name='Family', Type='Family')
+    cgns.Node(Name='FamilyBC', Type='FamilyBC', Value=ExtractBCType, Parent=FamilyNode)
+
+    ExtractVariablesList = ['Pressure', 'BoundaryLayer']
+
+    solver_elsa.add_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesList, default_bc_parameters, default_bc_wall_parameters)
+
+    solver_output = FamilyNode.getParameters('.Solver#Output')
+    solver_output_ref = dict(**default_bc_wall_parameters)
+    solver_output_ref['var'] = ['psta', 'bl_quantities_2d', 'bl_quantities_3d', 'bl_ue']
+
+    assert solver_output == solver_output_ref
+
+def test_add_extractions_in_SolverOutput_2():
+    SolverParameters = dict(
+        model = dict(
+            delta_compute   = 'first_order_bl',
+            vortratiolim    = 1e-3,
+            shearratiolim   = 2e-2,
+            pressratiolim   = 1e-3,
+        )
+    )
+    pinf = 1e5
+    default_bc_parameters, default_bc_wall_parameters = solver_elsa.get_default_parameters_for_2d_extractions(SolverParameters, pinf)
+    
+    ExtractBCType = 'BCInflow'
+    FamilyNode = cgns.Node(Name='Family', Type='Family')
+    cgns.Node(Name='FamilyBC', Type='FamilyBC', Value=ExtractBCType, Parent=FamilyNode)
+
+    ExtractVariablesList = ['Pressure']
+
+    solver_elsa.add_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesList, default_bc_parameters, default_bc_wall_parameters)
+
+    solver_output = FamilyNode.getParameters('.Solver#Output')
+    solver_output_ref = dict(**default_bc_parameters)
+    solver_output_ref['var'] = 'psta'
+
+    assert solver_output == solver_output_ref
+
+def test_add_extractions_in_SolverOutput_3():
+    SolverParameters = dict(
+        model = dict(
+            delta_compute   = 'first_order_bl',
+            vortratiolim    = 1e-3,
+            shearratiolim   = 2e-2,
+            pressratiolim   = 1e-3,
+        )
+    )
+    pinf = 1e5
+    default_bc_parameters, default_bc_wall_parameters = solver_elsa.get_default_parameters_for_2d_extractions(SolverParameters, pinf)
+    
+    ExtractBCType = 'BCInflow'
+    FamilyNode = cgns.Node(Name='Family', Type='Family')
+    cgns.Node(Name='FamilyBC', Type='FamilyBC', Value=ExtractBCType, Parent=FamilyNode)
+    solver_output = {'period': 1, 'writingmode': 2, 'loc': 'interface', 'fluxcoeff': 1.0, 'writingframe': 'absolute', 'geomdepdom': 2, 'delta_cell_max': 300, 'var': 'psta'}
+    FamilyNode.setParameters('.Solver#Output', **solver_output)
+
+    solver_output_ref = copy.deepcopy(FamilyNode.getParameters('.Solver#Output'))
+    solver_output_ref['var'] = ['psta', 'tsta']
+
+    ExtractVariablesList = ['Temperature']
+
+    solver_elsa.add_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesList, default_bc_parameters, default_bc_wall_parameters)
+    solver_output = FamilyNode.getParameters('.Solver#Output')
+    assert solver_output == solver_output_ref
 
     
