@@ -224,9 +224,7 @@ def add_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesL
             newVarList = copy.deepcopy(varListAlreadyPresent)
             for var in varList:
                 if not var in varListAlreadyPresent:
-                    print(f'  add {var}')
                     newVarList.append(var)
-            print(newVarList)
             varNode.setValue(' '.join(newVarList))
     else:
         print(misc.YELLOW+f'Caution: the list of fields to extract on {FamilyNode.name()} is empty'+misc.ENDC)

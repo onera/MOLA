@@ -21,12 +21,12 @@ from mola.workflow import WorkflowRotatingComponent
 class WorkflowTurbomachinery(WorkflowRotatingComponent):
 
     def __init__(self, 
-                 Splitter='PyPart',
+                 SplittingAndDistribution='PyPart',
                  FlowGenerator='Internal',
                  **kwargs
                  ):
         
-        super().__init__(Splitter=Splitter, FlowGenerator=FlowGenerator, **kwargs)
+        super().__init__(SplittingAndDistribution=SplittingAndDistribution, FlowGenerator=FlowGenerator, **kwargs)
 
         self.name = 'Turbomachinery'
 
@@ -40,20 +40,3 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
                 dict(type='bc', BCType='BCInflow*', fields=['MassFlow']),
                 dict(type='bc', BCType='BCOutflow*', fields=['MassFlow']),
             )
-
-    def set_turbo_configuration(self):
-        for row, rowParams in self.TurboConfiguration['Rows'].items():
-            for key, value in rowParams.items():
-                if key == 'RotationSpeed' and value == 'auto':
-                    rowParams[key] = self.TurboConfiguration['ShaftRotationSpeed']
-            if hasattr(self, 'BodyForceInputData') and row in self.BodyForceInputData:
-                # Replace the number of blades to be consistant with the body-force mesh
-                deltaTheta = computeAzimuthalExtensionFromFamily(self.tree, row)
-                rowParams['NumberOfBlades'] = int(2*np.pi / deltaTheta)
-                rowParams['NumberOfBladesInInitialMesh'] = 1
-                print(f'Number of blades for {row}: {rowParams["NumberOfBlades"]} (got from the body-force mesh)')
-            if not 'NumberOfBladesSimulated' in rowParams:
-                rowParams['NumberOfBladesSimulated'] = 1
-            if not 'NumberOfBladesInInitialMesh' in rowParams:
-                rowParams['NumberOfBladesInInitialMesh'] = getNumberOfBladesInMeshFromFamily(self.tree, row, rowParams['NumberOfBlades'])
-            

@@ -139,3 +139,11 @@ def get_job_text(RunManagement, Solver):
     job_text += f'\nsource {RunManagement["mola_target_path"]}/mola/env/{RunManagement["Network"]}/{RunManagement["Machine"]}/{Solver}.sh\n'
 
     return job_text
+
+def save_file(filename, text, RunManagement):
+    os.makedirs(RunManagement['RunDirectory'], exist_ok=True)
+    filename = os.path.join(RunManagement['RunDirectory'], filename)
+    with open(filename, 'w') as f:
+        f.write(text)
+    os.chmod(filename, 0o777)
+

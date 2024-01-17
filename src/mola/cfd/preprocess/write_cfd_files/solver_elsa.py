@@ -206,23 +206,16 @@ workflow = Workflow('main.cgns')
 workflow.print()
 workflow.compute()
 '''
-    compute_filename = os.path.join(RunManagement['RunDirectory'], 'compute.py')
-    with open(compute_filename, 'w') as File:
-        File.write(txt)
-    os.chmod(compute_filename, 0o777)
+    write_cfd_files.save_file('compute.py', txt, RunManagement)
 
 def write_coprocess(RunManagement):
-    with open(os.path.join(RunManagement['RunDirectory'], 'coprocess.py'), 'w') as File:
-        File.write('# do nothing')
+    write_cfd_files.save_file('coprocess.py', '# do nothing', RunManagement)
 
-def write_job_launcher(RunManagement, jobFile='job.sh'):
+def write_job_launcher(RunManagement):
 
     # shutil.copy2(f'{__MOLA_PATH__}/TEMPLATES/job_template.sh', 'job.sh')
     job_text = write_cfd_files.get_job_text(RunManagement, 'elsa')
     job_text += f'mpirun $OPENMPIOVERSUBSCRIBE -np {RunManagement["NumberOfProcessors"]} elsA.x -C xdt-runtime-tree compute.py 1>stdout.log 2>stderr.log\n'
     
     # Write job file
-    job_filename = os.path.join(RunManagement['RunDirectory'], jobFile)
-    with open(job_filename, 'w') as f:
-        f.write(job_text)
-    os.chmod(job_filename, 0o777)
+    write_cfd_files.save_file('job.sh', job_text, RunManagement)
