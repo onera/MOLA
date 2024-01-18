@@ -587,7 +587,7 @@ def computeVariablesOnBladeProfiles(surfaces, height_list='all'):
         blade = C.center2Node(blade, I.__FlowSolutionCenters__)
         C._initVars(blade, 'StaticPressureDim={Pressure}')
 
-        blade_with_Mis = TMis.computeIsentropicMachNumber(InletPlane, blade, RefState(setup), fsname=I.__FlowSolutionNodes__ )
+        blade_with_Mis = TMis.computeIsentropicMachNumber(InletPlane, blade, RefState(setup), kind='rotor', fsname=I.__FlowSolutionNodes__ )
 
         for zone in I.getZones(blade_with_Mis):
             FS = I.getNodeFromName(zone, I.__FlowSolutionNodes__)
