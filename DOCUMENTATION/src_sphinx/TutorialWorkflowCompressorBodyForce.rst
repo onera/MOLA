@@ -121,7 +121,7 @@ The main available models are:
   Thollet: compressibility and viscous loss based on a analytical friction coefficient.
   The quadratic loss term based on the flow angle is not taken into account. 
 
-* 'hall': a macro to give `['blockage', 'hall_without_blockage']`
+* 'HallThollet': a macro to give `['blockage', 'hall_without_blockage']`
 
 * 'EndWallsProtection': a protection function near end walls. The distance defined in height percentage with 
   the additional parameter `ProtectedHeight` (by default 0.05).
