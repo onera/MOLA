@@ -223,7 +223,9 @@ def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
     '''
     toc = tic()
     t = getMeshesAssembled(InputMeshes)
-    if hasAnyUnstructuredZones(t): t = convertUnstructuredMeshToNGon(t)
+    if hasAnyUnstructuredZones(t):
+        t = convertUnstructuredMeshToNGon(t,
+                mergeZonesByFamily=False if splitOptions else True)
     transform(t, InputMeshes)
     t = connectMesh(t, InputMeshes)
     setBoundaryConditions(t, InputMeshes)
@@ -250,7 +252,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
         Extractions=[{'type':'AllBCWall'}], BoundaryConditions=[],
         Initialization=dict(method='uniform'),
         BodyForceInputData=[], writeOutputFields=True,
-        JobInformation={}, SubmitJob=False, COPY_TEMPLATES=True):
+        JobInformation={}, SubmitJob=False, COPY_TEMPLATES=True, secondOrderRestart=False):
     r'''
     This macro-function takes as input a preprocessed grid file (as produced
     by function :py:func:`prepareMesh4ElsA` ) and adds all remaining information
@@ -477,6 +479,17 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
             If :py:obj:`True` (default value), copy templates files in the
             current directory.
 
+        secondOrderRestart : bool
+            If :py:obj:`True`, and if NumericalParams['time_algo'] is 'gear' or 'DualTimeStep' 
+            (second order time integration schemes), prepare a second order restart, and allow 
+            the automatic restart of such a case. By default, the value is :py:obj:`False`.
+
+            .. important:: 
+            
+                This behavior works only if elsA reaches the final iteration given by ``niter``.
+                If the simulation stops because of the time limit or because all convergence criteria
+                have been reached, then the restart will be done at the first order, without raising an error.
+
     Returns
     -------
 
@@ -537,6 +550,8 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
     elsAkeysNumerics = getElsAkeysNumerics(ReferenceValues,
                                 unstructured=IsUnstructured, **NumericalParams)
     
+    if secondOrderRestart:
+        secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
 
     if useBCOverlap and not OversetMotion:
         elsAkeysNumerics['chm_interpcoef_frozen'] = 'active'
@@ -588,7 +603,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
     if BodyForceInputData: AllSetupDicts['BodyForceInputData'] = BodyForceInputData
 
     t = newCGNSfromSetup(t, AllSetupDicts, Initialization=Initialization,
-                         FULL_CGNS_MODE=False, BCExtractions=BCExtractions)
+                         FULL_CGNS_MODE=False, BCExtractions=BCExtractions, secondOrderRestart=secondOrderRestart)
     saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
 
 
@@ -871,7 +886,9 @@ def connectMesh(t, InputMeshes):
             except KeyError:
                 print('connection tolerance not defined. Using tol=1e-8')
                 tolerance = 1e-8
+
             if ConnectionType == 'Match':
+                C._rmBCOfType(base,'BCMatch') # HACK https://elsa.onera.fr/issues/11400
                 base_out = X.connectMatch(base, tol=tolerance, dim=baseDim)
             elif ConnectionType == 'NearMatch':
                 try: ratio = ConnectParams['ratio']
@@ -3633,7 +3650,8 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     return elsAkeysNumerics
 
 def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
-                     FULL_CGNS_MODE=False,  extractCoords=True, BCExtractions={}):
+                     FULL_CGNS_MODE=False,  extractCoords=True, BCExtractions={},
+                     secondOrderRestart=False):
     '''
     Given a preprocessed grid using :py:func:`prepareMesh4ElsA` and setup information
     dictionaries, this function creates the main CGNS tree and writes the
@@ -3672,6 +3690,11 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
 
             To see default extracted variables, see :py:func:`addSurfacicExtractions`
 
+        secondOrderRestart : bool
+            if :py:obj:`True`, duplicate the node ``'FlowSolution#Init'`` into a
+            new node ``'FlowSolution#Init-1'`` to mimic the expected
+            behavior for the next restart.
+
     Returns
     -------
 
@@ -3685,9 +3708,9 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
 
     if 'OversetMotion' in AllSetupDictionaries and AllSetupDictionaries['OversetMotion']:
         addOversetMotion(t, AllSetupDictionaries['OversetMotion'])
-        includeRelativeFieldsForRestart = True
+        includeAbsoluteFieldsForSurfacesPostprocessing = True
     else:
-        includeRelativeFieldsForRestart = False
+        includeAbsoluteFieldsForSurfacesPostprocessing = False
 
     is_unsteady = AllSetupDictionaries['elsAkeysNumerics']['time_algo'] != 'steady'
     avg_requested = AllSetupDictionaries['ReferenceValues']['CoprocessOptions']['FirstIterationForFieldsAveraging'] is not None
@@ -3702,14 +3725,15 @@ def newCGNSfromSetup(t, AllSetupDictionaries, Initialization=None,
     addExtractions(t, AllSetupDictionaries['ReferenceValues'],
                       AllSetupDictionaries['elsAkeysModel'],
                       extractCoords=extractCoords, BCExtractions=BCExtractions,
-                      includeRelativeFieldsForRestart=includeRelativeFieldsForRestart,
-                      add_time_average= is_unsteady and avg_requested )
+                      includeAbsoluteFieldsForSurfacesPostprocessing=includeAbsoluteFieldsForSurfacesPostprocessing,
+                      add_time_average= is_unsteady and avg_requested,
+                      secondOrderRestart=secondOrderRestart)
     addReferenceState(t, AllSetupDictionaries['FluidProperties'],
                          AllSetupDictionaries['ReferenceValues'])
     dim = int(AllSetupDictionaries['elsAkeysCFD']['config'][0])
     addGoverningEquations(t, dim=dim)
     if Initialization:
-        initializeFlowSolution(t, Initialization, AllSetupDictionaries['ReferenceValues'])
+        initializeFlowSolution(t, Initialization, AllSetupDictionaries['ReferenceValues'], secondOrderRestart=secondOrderRestart)
 
     if FULL_CGNS_MODE:
         addElsAKeys2CGNS(t, [AllSetupDictionaries['elsAkeysCFD'],
@@ -3887,8 +3911,6 @@ def _setMobileCoefAtBCsExceptOverlap(t, mobile_coef=-1.0):
 def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
                                MainCGNSFilename='main.cgns',
                                FieldsFilename='fields.cgns',
-                               MainCGNS_FlowSolutionName='FlowSolution#Init',
-                               Fields_FlowSolutionName='FlowSolution#Init',
                                writeOutputFields=True):
     '''
     Saves the ``main.cgns`` file including linsk towards ``OUTPUT/fields.cgns``
@@ -3915,16 +3937,6 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
 
             .. note:: it is advised to use ``'fields.cgns'``
 
-        MainCGNS_FlowSolutionName : str
-            name of container of initial fields at ``main.cgns``
-
-            .. important:: it is strongly recommended using ``'FlowSolution#Init'``
-
-        Fields_FlowSolutionName : str
-            name of container of initial fields at ``fields.cgns``
-
-            .. important:: it is strongly recommended using ``'FlowSolution#Init'``
-
         writeOutputFields : bool
             if :py:obj:`True`, write ``fields.cgns`` file
 
@@ -3940,22 +3952,7 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
     for b in I.getBases(t):
         for z in b[2]:
             if z[3] != 'Zone_t': continue
-            fs = I.getNodeFromName1(z,MainCGNS_FlowSolutionName)
-            if fs:
-                for field in I.getChildren(fs):
-                    if I.getType(field) == 'DataArray_t':
-                        currentNodePath='/'.join([b[0], z[0], fs[0], field[0]])
-                        targetNodePath=currentNodePath.replace(MainCGNS_FlowSolutionName,
-                                                            Fields_FlowSolutionName)
-                        # TODO: Cassiopee BUG ! targetNodePath must be identical
-                        # to currentNodePath...
-                        AllCGNSLinks += [['.',
-                                        DIRECTORY_OUTPUT+'/'+FieldsFilename,
-                                        '/'+targetNodePath,
-                                        currentNodePath]]
-
-            fs = I.getNodeFromName1(z,'FlowSolution#Average')
-            if fs:
+            for fs in I.getNodesFromName(z, 'FlowSolution#Init*') + I.getNodesFromName(z, 'FlowSolution#Average'):
                 currentNodePath='/'.join([b[0], z[0], fs[0]])
                 targetNodePath=currentNodePath
                 AllCGNSLinks += [['.',
@@ -3968,7 +3965,8 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
                 if zbc:
                     for bc in I.getNodesFromType1(zbc, 'BC_t'):
                         currentNodePath='/'.join([b[0], z[0], zbc[0], bc[0], 'BCDataSet#Average'])
-                        I.createNode('BCDataSet#Average', 'UserDefinedData_t', parent=bc)  # UserDefinedData, else bug in PyPart
+                        bcdsavg = I.createNode('BCDataSet#Average', 'BCDataSet_t', parent=bc)
+
                         targetNodePath=currentNodePath
                         AllCGNSLinks += [['.',
                                         DIRECTORY_OUTPUT+'/'+FieldsFilename,
@@ -3978,6 +3976,18 @@ def saveMainCGNSwithLinkToOutputFields(t, DIRECTORY_OUTPUT='OUTPUT',
     print('saving PyTrees with links')
     to = I.copyRef(t)
     I._renameNode(to, 'FlowSolution#Centers', 'FlowSolution#Init')
+
+    # HACK required in order to avoid AssertionError at line 771 in
+    # etc/pypart/PpartCGNS/LayoutsS.pxi, Layouts.splitBCDataSet 
+    for b in I.getBases(to):
+        for z in b[2]:
+            if z[3] != 'Zone_t': continue
+            zbc = I.getNodeFromType1(z,'ZoneBC_t')
+            if zbc:
+                for bc in I.getNodesFromType1(zbc, 'BC_t'):
+                    bcdsavg = I.getNodeFromName1(bc, 'BCDataSet#Average')
+                    if bcdsavg: bcdsavg[3] = 'UserDefinedData_t'
+
     if writeOutputFields:
         try: os.makedirs(DIRECTORY_OUTPUT)
         except: pass
@@ -4011,8 +4021,8 @@ def addTrigger(t, coprocessFilename='coprocess.py'):
                  file=coprocessFilename)
 
 def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
-        BCExtractions=dict(), includeRelativeFieldsForRestart=False,
-        add_time_average=False):
+        BCExtractions=dict(), includeAbsoluteFieldsForSurfacesPostprocessing=False,
+        add_time_average=False, secondOrderRestart=False):
     '''
     Include surfacic and field extraction information to CGNS tree using
     information contained in dictionaries **ReferenceValues** and
@@ -4047,24 +4057,29 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
 
             To see default extracted variables, see :py:func:`addSurfacicExtractions`
         
-        includeRelativeFieldsForRestart : bool
+        includeAbsoluteFieldsForSurfacesPostprocessing : bool
             if :py:obj:`True`, then creates an additional container
-            'FlowSolution#EndOfRun#Relative' where restart fields will be 
+            'FlowSolution#EndOfRun#Absolute' where restart fields will be 
             extracted
 
         add_time_average : bool
             if :py:obj:`True`, include additional ``FlowSolution#Average`` for 
             time-averaged field extraction and ``.Solver#Output#Average`` 
             for time-averaging fields at boundary-conditions.
+        
+        secondOrderRestart : bool
+            if :py:obj:`True`, activate the saving of the flow solution at the
+            penultimate iteration to allow a second order restart.
+
     '''
     addSurfacicExtractions(t, ReferenceValues, elsAkeysModel,
         BCExtractions=BCExtractions, add_time_average=add_time_average)
     addFieldExtractions(t, ReferenceValues, extractCoords=extractCoords,
-        add_time_average=add_time_average)
-    if includeRelativeFieldsForRestart:
+        add_time_average=add_time_average, secondOrderRestart=secondOrderRestart)
+    if includeAbsoluteFieldsForSurfacesPostprocessing:
         addFieldExtractions(t, ReferenceValues, extractCoords=False,
-        includeAdditionalExtractions=False, container='FlowSolution#EndOfRun#Relative',
-        ReferenceFrame='relative')
+        includeAdditionalExtractions=True, container='FlowSolution#EndOfRun#Absolute',
+        ReferenceFrame='absolute', secondOrderRestart=secondOrderRestart)
     EP._addGlobalConvergenceHistory(t)
 
 
@@ -4217,7 +4232,7 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={},
 
 def addFieldExtractions(t, ReferenceValues, extractCoords=False,
         includeAdditionalExtractions=True, container='FlowSolution#EndOfRun',
-        ReferenceFrame='absolute', add_time_average=False):
+        ReferenceFrame='relative', add_time_average=False, secondOrderRestart=False):
     '''
     Include fields extraction information to CGNS tree using
     information contained in dictionary **ReferenceValues**.
@@ -4250,6 +4265,10 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False,
         add_time_average : bool
             if :py:obj:`True`, include additional ``FlowSolution#Average`` for 
             time-averaged field extraction
+        
+        secondOrderRestart : bool
+            if :py:obj:`True`, activate the saving of the flow solution at the
+            penultimate iteration to allow a second order restart.
 
     '''
 
@@ -4268,15 +4287,17 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False,
                   writingmode=2,
                   writingframe='absolute')
 
-        EoRnode = I.createNode(container, 'FlowSolution_t',
-                                parent=zone)
+        EoRnode = I.createNode(container, 'FlowSolution_t', parent=zone)
         I.createNode('GridLocation','GridLocation_t', value='CellCenter', parent=EoRnode)
         for fieldName in Fields2Extract:
-            I.createNode(fieldName, 'DataArray_t', value=None, parent=EoRnode)
-        J.set(EoRnode, '.Solver#Output',
-              period=1,
-              writingmode=2,
-              writingframe=ReferenceFrame)
+            I.createNode(fieldName, 'DataArray_t', value=None, parent=EoRnode)       
+        SolverOutputKeys = dict(
+            period=1,
+            writingmode=2,
+            writingframe=ReferenceFrame)
+        if secondOrderRestart:
+            SolverOutputKeys['exact_restart'] = 'active'
+        J.set(EoRnode, '.Solver#Output', **SolverOutputKeys)
 
         if add_time_average:
             Fields2Extract = ReferenceValues['Fields'] + \
@@ -4290,7 +4311,7 @@ def addFieldExtractions(t, ReferenceValues, extractCoords=False,
             J.set(EoRnode, '.Solver#Output',
                 period=1,
                 writingmode=2,
-                writingframe='absolute',
+                writingframe=ReferenceFrame,
                 average='time',
                 period_init='inactive')
 
@@ -4340,7 +4361,7 @@ def addElsAKeys2CGNS(t, AllElsAKeys):
     for ElsAKeys in AllElsAKeys: AllComputeModels.update(ElsAKeys)
     for b in I.getBases(t): J.set(b, '.Solver#Compute', **AllComputeModels)
 
-def initializeFlowSolution(t, Initialization, ReferenceValues):
+def initializeFlowSolution(t, Initialization, ReferenceValues, secondOrderRestart=False):
     '''
     Initialize the flow solution in tree **t**.
 
@@ -4375,6 +4396,11 @@ def initializeFlowSolution(t, Initialization, ReferenceValues):
         ReferenceValues : dict
             dictionary as got from :py:func:`computeReferenceValues`
 
+        secondOrderRestart : bool
+            if :py:obj:`True`, duplicate the node ``'FlowSolution#Init'`` into a
+            new node ``'FlowSolution#Init-1'`` to mimic the expected
+            behavior for the next restart.
+
     '''
     if not 'container' in Initialization:
         Initialization['container'] = 'FlowSolution#Init'
@@ -4402,6 +4428,12 @@ def initializeFlowSolution(t, Initialization, ReferenceValues):
         if not I.getNodeFromName1(zone, 'FlowSolution#Init'):
             MSG = 'FlowSolution#Init is missing in zone {}'.format(I.getName(zone))
             raise ValueError(J.FAIL + MSG + J.ENDC)
+    
+    if secondOrderRestart:
+        for zone in I.getZones(t):
+            FSnode = I.copyTree(I.getNodeFromName1(zone, 'FlowSolution#Init'))
+            I.setName(FSnode, 'FlowSolution#Init-1')
+            I.addChild(zone, FSnode)
         
 
 def initializeFlowSolutionFromReferenceValues(t, ReferenceValues):
@@ -4784,9 +4816,9 @@ def getFlowDirections(AngleOfAttackDeg, AngleOfSlipDeg, YawAxis, PitchAxis):
     PitchAxis /= np.sqrt(PitchAxis.dot(PitchAxis))
 
     # FlowLines are used to infer the final flow direction
-    DragLine = D.line((0,0,0),(1,0,0),2)
-    SideLine = D.line((0,0,0),(0,1,0),2)
-    LiftLine = D.line((0,0,0),(0,0,1),2)
+    DragLine = D.line((0,0,0),(1,0,0),2);DragLine[0]='Drag'
+    SideLine = D.line((0,0,0),(0,1,0),2);SideLine[0]='Side'
+    LiftLine = D.line((0,0,0),(0,0,1),2);LiftLine[0]='Lift'
     FlowLines = [DragLine, SideLine, LiftLine]
 
     # Put FlowLines in Aircraft's frame
@@ -4794,11 +4826,17 @@ def getFlowDirections(AngleOfAttackDeg, AngleOfSlipDeg, YawAxis, PitchAxis):
     InitialFrame =  [       [1,0,0],         [0,1,0],       [0,0,1]]
     AircraftFrame = [list(RollAxis), list(PitchAxis), list(YawAxis)]
     T._rotate(FlowLines, zero, InitialFrame, AircraftFrame)
+    DragDirection = getDirectionFromLine(DragLine)
+    SideDirection = getDirectionFromLine(SideLine)
+    LiftDirection = getDirectionFromLine(LiftLine)
 
     # Apply Flow angles with respect to Airfraft's frame
-    T._rotate(FlowLines, zero, list(PitchAxis), -AngleOfAttackDeg)
-    T._rotate(FlowLines, zero,   list(YawAxis),  AngleOfSlipDeg)
+    T._rotate(FlowLines, zero, SideDirection, -AngleOfAttackDeg)
+    DragDirection = getDirectionFromLine(DragLine)
+    SideDirection = getDirectionFromLine(SideLine)
+    LiftDirection = getDirectionFromLine(LiftLine)
 
+    T._rotate(FlowLines, zero, LiftDirection,  AngleOfSlipDeg)
     DragDirection = getDirectionFromLine(DragLine)
     SideDirection = getDirectionFromLine(SideLine)
     LiftDirection = getDirectionFromLine(LiftLine)
@@ -5702,7 +5740,7 @@ def adaptFamilyBCNamesToElsA(t):
     for n in I.getNodesFromType(t, 'FamilyBC_t'):
         n[0] = 'FamilyBC'
 
-def convertUnstructuredMeshToNGon(t):
+def convertUnstructuredMeshToNGon(t, mergeZonesByFamily=True):
     print('making unstructured mesh adaptations for elsA:')
     from mpi4py import MPI
     import maia
@@ -5736,36 +5774,37 @@ def convertUnstructuredMeshToNGon(t):
                 print(J.GREEN+'OK'+J.ENDC)
 
 
-    print(' -> merging zones by family')
-    zonePathsByFamily = dict()
-    for base in I.getBases(t):
-        for zone in I.getZones(base):
-            if I.getZoneType(zone) == 1: continue # structured zone
-            zone_path = base[0] + '/' + zone[0]
-            FamilyNameNode = I.getNodeFromType1(zone, 'FamilyName_t')
-            if FamilyNameNode: 
-                FamilyName = I.getValue(FamilyNameNode)
-                if FamilyName not in zonePathsByFamily:
-                    zonePathsByFamily[FamilyName] = [zone_path]
+    if mergeZonesByFamily:
+        print(' -> merging zones by family')
+        zonePathsByFamily = dict()
+        for base in I.getBases(t):
+            for zone in I.getZones(base):
+                if I.getZoneType(zone) == 1: continue # structured zone
+                zone_path = base[0] + '/' + zone[0]
+                FamilyNameNode = I.getNodeFromType1(zone, 'FamilyName_t')
+                if FamilyNameNode: 
+                    FamilyName = I.getValue(FamilyNameNode)
+                    if FamilyName not in zonePathsByFamily:
+                        zonePathsByFamily[FamilyName] = [zone_path]
+                    else:
+                        zonePathsByFamily[FamilyName] += [zone_path]
                 else:
-                    zonePathsByFamily[FamilyName] += [zone_path]
-            else:
-                if 'unspecified' not in zonePathsByFamily:
-                    zonePathsByFamily['unspecified'] = [zone_path]
-                else:
-                    zonePathsByFamily['unspecified'] += [zone_path]
+                    if 'unspecified' not in zonePathsByFamily:
+                        zonePathsByFamily['unspecified'] = [zone_path]
+                    else:
+                        zonePathsByFamily['unspecified'] += [zone_path]
 
-    for family, zone_paths in zonePathsByFamily.items():
-        if len(zone_paths) < 2: continue
-        print(f' --> merging zones of family {family}')
-        try:
-            maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD)
-            MergedZone = I.getNodeFromName3(t,'MergedZone')
-            MergedZone[0] = family + 'Zone'
-        except BaseException as e:
-            print(J.WARN+f'WARNING: could not merge zones using maia, received error:')
-            print(str(e))
-            print('will not merge zones'+J.ENDC)
+        for family, zone_paths in zonePathsByFamily.items():
+            if len(zone_paths) < 2: continue
+            print(f' --> merging zones of family {family}')
+            try:
+                maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD)
+                MergedZone = I.getNodeFromName3(t,'MergedZone')
+                MergedZone[0] = family + 'Zone'
+            except BaseException as e:
+                print(J.WARN+f'WARNING: could not merge zones using maia, received error:')
+                print(str(e))
+                print('will not merge zones'+J.ENDC)
 
     print(' -> enforcing ngon_pe_local')
     maia.algo.seq.enforce_ngon_pe_local(t) # required by elsA ?
@@ -5837,3 +5876,18 @@ def addBC2Zone(*args, **kwargs):
     for n in I.getNodesFromType(zone,'Elements_t'): n[0] = n[0].replace('/','_')
 
 _addBC2Zone = addBC2Zone
+
+def _convert_mesh_to_ngon(filename_in, filename_out):
+
+    from mpi4py import MPI
+    import maia
+
+    if not filename_in:
+        raise AttributeError('must provide input filename as first argument')
+
+    if not filename_out:
+        filename_out = filename_in.replace('.cgns','_ngon.cgns')
+
+    t = maia.io.file_to_dist_tree(filename_in, MPI.COMM_WORLD)
+    maia.algo.dist.generate_ngon_from_std_elements(t, MPI.COMM_WORLD)
+    maia.io.dist_tree_to_file(t, filename_out, MPI.COMM_WORLD)

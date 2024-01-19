@@ -1028,7 +1028,7 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
 
             center for the computation of the torque contributions
 
-        ReferencePressure : float
+        reference_pressure : float
 
             Reference pressure. Put ambiant pressure as a reference for integration over a surface that is not closed (such as blades).
 
@@ -1046,7 +1046,7 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
 
     def Abscissa(d): return (d-dmin)/(dmax-dmin)
      
-    if distribution == None:
+    if distribution is None:
         distribution = np.linspace(0,1,101)
     
     if slicing_options['slicing_method'] == 'SpanBased':
@@ -1434,7 +1434,7 @@ def isoSurface(t, fieldname=None, value=None, container='FlowSolution#Init'):
         for n in base[2]:
             if n[3] != 'Zone_t': 
                 bases_children_except_zones.append( n )
-    if not I.getNodeFromType3(t,'Zone_t'): return
+    if not t or not I.getNodeFromType3(t,'Zone_t'): return
     tPrev = I.copyRef(t)
     t = mergeContainers(t, FlowSolutionVertexName=I.__FlowSolutionNodes__,
                            FlowSolutionCellCenterName=I.__FlowSolutionCenters__)

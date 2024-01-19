@@ -90,7 +90,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         TurboConfiguration={}, Extractions=[], BoundaryConditions=[],
         BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade'],
         Initialization={'method':'uniform'}, JobInformation={}, SubmitJob=False,
-        FULL_CGNS_MODE=True, COPY_TEMPLATES=True):
+        FULL_CGNS_MODE=True, COPY_TEMPLATES=True, secondOrderRestart=False):
     '''
     This is mainly a function similar to :func:`MOLA.WorkflowCompressor.prepareMainCGNS4ElsA`
     but adapted to aerothermal simulations with CWIPI coupling.
@@ -174,6 +174,17 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         COPY_TEMPLATES : bool
             If :py:obj:`True` (default value), copy templates files in the
             current directory.
+        
+        secondOrderRestart : bool
+            If :py:obj:`True`, and if NumericalParams['time_algo'] is 'gear' or 'DualTimeStep' 
+            (second order time integration schemes), prepare a second order restart, and allow 
+            the automatic restart of such a case. By default, the value is :py:obj:`False`.
+
+            .. important:: 
+            
+                This behavior works only if elsA reaches the final iteration given by ``niter``.
+                If the simulation stops because of the time limit or because all convergence criteria
+                have been reached, then the restart will be done at the first order, without raising an error.
 
     Returns
     -------
@@ -245,7 +256,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues,
                             unstructured=IsUnstructured, **NumericalParams)
 
-    PRE.initializeFlowSolution(t, Initialization, ReferenceValues)
+    if secondOrderRestart:
+        secondOrderRestart = True if elsAkeysNumerics['time_algo'] in ['gear', 'dts'] else False
+    PRE.initializeFlowSolution(t, Initialization, ReferenceValues, secondOrderRestart=secondOrderRestart)
 
     if not 'PeriodicTranslation' in TurboConfiguration and \
         any([rowParams['NumberOfBladesSimulated'] > rowParams['NumberOfBladesInInitialMesh'] \
@@ -309,7 +322,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                       AllSetupDicts['elsAkeysModel'],
                       extractCoords=False,
                       BCExtractions=ReferenceValues['BCExtractions'],
-                      add_time_average= is_unsteady and avg_requested)
+                      add_time_average= is_unsteady and avg_requested,
+                      secondOrderRestart=secondOrderRestart)
 
 
     PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],

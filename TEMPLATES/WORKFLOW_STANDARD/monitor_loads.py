@@ -42,6 +42,9 @@ for z in Zones2Remove: zones.remove(z)
 
 NbOfZones = len(zones)
 
+if NbOfZones==0: 
+    raise ValueError(J.FAIL+f'no zone in {FILE_ARRAYS} contains the request field: {FluxName}'+J.ENDC)
+
 fig, axes = plt.subplots(NbOfZones,2,figsize=(8.,8.),dpi=120, sharex=True)
 
 if NbOfZones == 1: axes = [axes]

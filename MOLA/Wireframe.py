@@ -3299,8 +3299,8 @@ def closeStructCurve(AirfoilCurve, tol=1e-10):
 
 
 
-def splitAirfoil(AirfoilCurve, FirstEdgeSearchPortion = 0.50,
-        SecondEdgeSearchPortion = -0.50, RelativeRadiusTolerance = 1e-2,
+def splitAirfoil(AirfoilCurve, FirstEdgeSearchPortion = 0.95,
+        SecondEdgeSearchPortion = -0.95, RelativeRadiusTolerance = 1e-2,
         MergePointsTolerance = 1e-10,  DistanceCriterionTolerance = 1e-5,
         FieldCriterion='CoordinateY',
         SideChoiceCriteriaPriorities=['field','distance']):
@@ -3344,6 +3344,28 @@ def splitAirfoil(AirfoilCurve, FirstEdgeSearchPortion = 0.50,
             Small value used to infer if  characteristic points are to be merged
             on final sides result or not. It is also used for determining if
             input airfoil shall be closed or not.
+
+        DistanceCriterionTolerance : float
+            Small value used as threshold in order to determine if the distance
+            criterion can be used in order to identify top and bottom sides of 
+            the airfoil. If the absolute maximum distance between top and bottom
+            sides with respect to the camber curve is lower than **DistanceCriterionTolerance**,
+            then criterion ``'distance'`` is not suitable, a warning is raised, 
+            and next geometrical criterion is employed.
+
+        FieldCriterion : str
+            Coordinate, or field name contained as FlowSolution, used to indicate
+            the position of the top side of the airfoil, when the employed criterion 
+            is ``'field'``
+
+        SideChoiceCriteriaPriorities : :py:class:`list` of :py:class:`str`
+            List of geometrical criteria used to identify the top and bottom
+            sides of the airfoil. Criterion ``'distance'`` consists in identifying
+            as top side the airfoil subpart that presents the maximum distance
+            with respect to the camber line. This is not suitable for symmetrical
+            or pseudo-symmetrical airfoils. Criterion ``'field'`` uses **FieldCriterion**
+            as indicator of the top side (subpart having maximum value of **FieldCriterion**
+            is identified as being the top side).
 
     Returns
     -------
@@ -3493,7 +3515,11 @@ def splitAirfoil(AirfoilCurve, FirstEdgeSearchPortion = 0.50,
                            < DistanceCriterionTolerance
 
             if TooClose:
-                print('sides are too close to camber for using "distance criterion for naming top/bottom sides. Skipping.')
+                msg = ('sides are too close to camber for using "distance"'
+                 f' criterion for identifying top/bottom sides using'
+                 f'FieldCriterion {FieldCriterion}. Skipping to next criterion.\n'
+                 f'or you may retry using different FieldCriterion')
+                print(J.WARN+msg+J.ENDC)
                 continue
 
             if BottomSideMaxDistanceToChordLine > TopSideMaxDistanceToChordLine:
@@ -3830,8 +3856,6 @@ def getAirfoilPropertiesAndCamber(AirfoilCurve, buildCamberOptions={},
         AirfoilCurve : zone
             structured curve of the airfoil.
 
-            .. note:: **AirfoilCurve** is modified
-
         buildCamberOptions : dict
             literally, options to pass to :py:func:`buildCamber` function
 
@@ -3850,13 +3874,10 @@ def getAirfoilPropertiesAndCamber(AirfoilCurve, buildCamberOptions={},
 
     AirfoilProperties = dict()
     AirfoilCurve = I.copyRef(AirfoilCurve)
-    TopSide, BottomSide = splitAirfoil(AirfoilCurve, **splitAirfoilOptions)
-    TopX, TopY, TopZ = J.getxyz(TopSide)
-    BottomX, BottomY, BottomZ = J.getxyz(BottomSide)
+    TopSide, _ = splitAirfoil(AirfoilCurve, **splitAirfoilOptions)
 
-    buildCamberOptions['splitAirfoilOptions'] = splitAirfoilOptions
+    buildCamberOptions.setdefault('splitAirfoilOptions', splitAirfoilOptions)
     CamberLine = buildCamber(AirfoilCurve, **buildCamberOptions)
-    InitialCamberLine = I.copyTree(CamberLine)
     CamberLineX, CamberLineY, CamberLineZ = J.getxyz(CamberLine)
     RelativeThickness, = J.getVars(CamberLine, ['RelativeThickness'])
 
@@ -3968,6 +3989,7 @@ def normalizeFromAirfoilProperties(t, AirfoilProperties, Fields2Rotate=[]):
     T._translate(t,-LeadingEdge)
     T._rotate(t,(0,0,0),Frenet,arg2=FrenetDestination, vectors=Fields2Rotate)
     T._homothety(t,(0,0,0),1./Chord)
+    
 
 
 def addDistanceRespectToLine(t, LinePassingPoint, LineDirection,
