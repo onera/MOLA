@@ -290,12 +290,11 @@ def computeVariablesOnIsosurface(surfaces, variables, config='annular', lin_axis
         variables = []
     else:
         for v in varAtNodes: C._node2Center__(surfacesIso, v)
-    
+
     for surface in surfacesIso:
         for fsname in [I.__FlowSolutionNodes__, I.__FlowSolutionCenters__]:
-            variables = TUS.getFilteredFields(surface, variables, fsname=fsname)
-            # BUG https://gitlab.onera.net/numerics/analysis/turbo/-/issues/1
-            TF._computeOtherFields(surface, RefState(setup), variables,
+            filtered_variables = TUS.getFilteredFields(surface, variables, fsname=fsname)
+            TF._computeOtherFields(surface, RefState(setup), filtered_variables,
                                         fsname=fsname, useSI=True, velocity='absolute',
                                         config=config, lin_axis=lin_axis) # FIXME: to be adapted if user can perform relative computation (vel_formulation)
 
@@ -583,8 +582,10 @@ def computeVariablesOnBladeProfiles(surfaces, height_list='all'):
 
         blade = I.copyRef(blade_ref)
         I._renameNode(blade, 'BCDataSet', I.__FlowSolutionCenters__)
-        C._initVars(blade, 'Radius=sqrt({CoordinateY}**2+{CoordinateZ}**2)')
-        C._initVars(InletPlane, 'Radius=sqrt({CoordinateY}**2+{CoordinateZ}**2)')
+        if not I.getNodeFromName(blade, 'Radius'):
+            C._initVars(blade, 'Radius=sqrt({CoordinateY}**2+{CoordinateZ}**2)')
+        if not I.getNodeFromName(InletPlane, 'Radius'):
+            C._initVars(InletPlane, 'Radius=sqrt({CoordinateY}**2+{CoordinateZ}**2)')
         blade = C.center2Node(blade, I.__FlowSolutionCenters__)
         C._initVars(blade, 'StaticPressureDim={Pressure}')
 
