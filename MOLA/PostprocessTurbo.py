@@ -577,13 +577,14 @@ def computeVariablesOnBladeProfiles(surfaces, height_list='all'):
             continue
 
         blade_ref = searchBladeInTree(row)
-        blade = I.copyRef(blade_ref)
-        if not blade:
+        if not blade_ref:
             print(f'No blade family (or more than one) has been found for row {row}')
             continue
 
+        blade = I.copyRef(blade_ref)
         I._renameNode(blade, 'BCDataSet', I.__FlowSolutionCenters__)
         C._initVars(blade, 'Radius=sqrt({CoordinateY}**2+{CoordinateZ}**2)')
+        C._initVars(InletPlane, 'Radius=sqrt({CoordinateY}**2+{CoordinateZ}**2)')
         blade = C.center2Node(blade, I.__FlowSolutionCenters__)
         C._initVars(blade, 'StaticPressureDim={Pressure}')
 
@@ -598,6 +599,9 @@ def computeVariablesOnBladeProfiles(surfaces, height_list='all'):
         BladeSlices = I.newCGNSBase(f'{I.getName(blade_ref)}_Slices', cellDim=1, physDim=3, parent=surfaces)
         for h in height_list:
             bladeIsoH = T.join(POST.isoSurface(blade_with_Mis, fieldname='ChannelHeight', value=h, container='FlowSolution#Height'))
+            if bladeIsoH == []:
+                # empty slice
+                continue
             I.setName(bladeIsoH, f'Iso_H_{h}')
             I._addChild(BladeSlices, bladeIsoH)
 
