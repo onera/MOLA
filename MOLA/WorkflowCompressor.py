@@ -417,6 +417,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     
     if BodyForceInputData: 
         NumericalParams['useBodyForce'] = True
+        PRE.tag_zones_with_sourceterm(t)
     if not 'NumericalScheme' in NumericalParams:
         NumericalParams['NumericalScheme'] = 'roe'
  

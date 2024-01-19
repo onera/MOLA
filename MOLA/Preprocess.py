@@ -531,7 +531,9 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
     elsAkeysModel    = getElsAkeysModel(FluidProperties, ReferenceValues,
                                         unstructured=IsUnstructured)
     if useBCOverlap: NumericalParams['useChimera'] = True
-    if BodyForceInputData: NumericalParams['useBodyForce'] = True
+    if BodyForceInputData: 
+        NumericalParams['useBodyForce'] = True
+        tag_zones_with_sourceterm(t)
     elsAkeysNumerics = getElsAkeysNumerics(ReferenceValues,
                                 unstructured=IsUnstructured, **NumericalParams)
     
@@ -613,6 +615,20 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
     msg = 'prepareMainCGNS took '+ElapsedTimeHuman
     print(J.BOLD+msg+J.ENDC)
 
+def tag_zones_with_sourceterm(t):
+    '''
+    Add node xdt_nature='sourceterm' that is mandatory to use body force.
+    See https://elsa.onera.fr/issues/11496#note-6
+    '''
+    if I.getNodeFromName(t, 'FlowSolution#DataSourceTerm'):
+        zones = [z for z in I.getZones(t) if I.getNodeFromName1(z, 'FlowSolution#DataSourceTerm')]
+    else:
+        zones = I.getZones(t)
+    for zone in zones:
+        solverParam = I.getNodeFromName1(zone, '.Solver#Param')
+        if not solverParam:
+            solverParam = I.createChild(zone, '.Solver#Param', 'UserDefinedData_t')
+        I.newDataArray('xdt_nature', value='sourceterm', parent=solverParam)
 
 def getMeshesAssembled(InputMeshes):
     '''

@@ -201,6 +201,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     if BodyForceInputData: 
         NumericalParams['useBodyForce'] = True
+        PRE.tag_zones_with_sourceterm(t)
     elsAkeysCFD      = PRE.getElsAkeysCFD(nomatch_linem_tol=1e-4, unstructured=IsUnstructured)
     elsAkeysModel    = PRE.getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=IsUnstructured)
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues, **NumericalParams, unstructured=IsUnstructured)
