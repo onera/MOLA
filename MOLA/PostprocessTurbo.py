@@ -30,6 +30,7 @@ if not MOLA.__ONLY_DOC__:
     import Post.PyTree        as P
     import Transform.PyTree   as T
 
+    import MOLA.Postprocess as POST
 
     ########################
     import turbo.fields   as TF
@@ -37,7 +38,7 @@ if not MOLA.__ONLY_DOC__:
     import turbo.machis   as TMis
     import turbo.meridian as TM
     import turbo.perfos   as TP
-    import turbo.radial_future  as TR
+    import turbo.radial   as TR
     import turbo.slicesAt as TS
     import turbo.user     as TUS
     import turbo.utils    as TU
@@ -289,11 +290,11 @@ def computeVariablesOnIsosurface(surfaces, variables, config='annular', lin_axis
         variables = []
     else:
         for v in varAtNodes: C._node2Center__(surfacesIso, v)
-    
+
     for surface in surfacesIso:
         for fsname in [I.__FlowSolutionNodes__, I.__FlowSolutionCenters__]:
-            # BUG https://gitlab.onera.net/numerics/analysis/turbo/-/issues/1
-            TF._computeOtherFields(surface, RefState(setup), variables,
+            filtered_variables = TUS.getFilteredFields(surface, variables, fsname=fsname)
+            TF._computeOtherFields(surface, RefState(setup), filtered_variables,
                                         fsname=fsname, useSI=True, velocity='absolute',
                                         config=config, lin_axis=lin_axis) # FIXME: to be adapted if user can perform relative computation (vel_formulation)
 
@@ -351,11 +352,13 @@ def compute0DPerformances(surfaces, variablesByAverage):
         fluxcoeff = getFluxCoeff(surface)
         info = getExtractionInfo(surface)
 
+        filtered_variables = TUS.getFilteredFields(surface, variablesByAverage['massflow'], fsname=I.__FlowSolutionCenters__)
         perfTreeMassflow = TP.computePerformances(surface, surfaceName,
-                                                  variables=variablesByAverage['massflow'], average='massflow',
+                                                  variables=filtered_variables, average='massflow',
                                                   compute_massflow=False, fluxcoef=fluxcoeff, fsname=I.__FlowSolutionCenters__)
+        filtered_variables = TUS.getFilteredFields(surface, variablesByAverage['surface'], fsname=I.__FlowSolutionCenters__)
         perfTreeSurface = TP.computePerformances(surface, surfaceName,
-                                                 variables=variablesByAverage['surface'], average='surface',
+                                                 variables=filtered_variables, average='surface',
                                                  compute_massflow=True, fluxcoef=fluxcoeff, fsname=I.__FlowSolutionCenters__)
 
         perfos = I.merge([perfTreeMassflow, perfTreeSurface])
@@ -444,15 +447,21 @@ def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_
     for surface in surfacesIsoX:
         surfaceName = I.getName(surface)
         tmp_surface = C.convertArray2NGon(surface, recoverBC=0)
-        radial_surf = TR.computeRadialProfile_future(
-            tmp_surface, surfaceName, variablesByAverage['surface'], 'surface',
-            fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis)
-        radial_massflow = TR.computeRadialProfile_future(
-            tmp_surface, surfaceName, variablesByAverage['massflow'], 'massflow',
-            fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis)
+
+        filtered_variables = TUS.getFilteredFields(tmp_surface, variablesByAverage['surface'], fsname=I.__FlowSolutionCenters__)
+        radial_surf, radius_dist = TR.computeRadialProfile(
+            tmp_surface, surfaceName, filtered_variables, 'surface',
+            fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis, save_radius='return')
+        
+        filtered_variables = TUS.getFilteredFields(tmp_surface, variablesByAverage['massflow'], fsname=I.__FlowSolutionCenters__)
+        radial_massflow = TR.computeRadialProfile(
+            tmp_surface, surfaceName, filtered_variables, 'massflow',
+            fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis, load_radius=radius_dist)
+        
         t_radial = I.merge([radial_surf, radial_massflow])
         z_radial = I.getNodeFromType2(t_radial, 'Zone_t')
-        previous_z_radial = I.getNodeFromName1(RadialProfiles, z_radial[0])
+        previous_z_radial = I.getNodeFromName1(RadialProfiles, surfaceName)
+
         if not previous_z_radial:
             PostprocessInfo = {'averageType': variablesByAverage, 
                                 'surfaceName': surfaceName,
@@ -524,7 +533,7 @@ def compareRadialProfilesPlane2Plane(surfaces, var4comp_repart, stages=[], confi
             I.addChild(OutletPlane, fsBudget)
 
 
-def computeVariablesOnBladeProfiles(surfaces, hList='all'):
+def computeVariablesOnBladeProfiles(surfaces, height_list='all'):
     '''
     Make height-constant slices on the blades to compute the isentropic Mach number and other
     variables at blade wall.
@@ -535,7 +544,7 @@ def computeVariablesOnBladeProfiles(surfaces, hList='all'):
         surfaces : PyTree
             as produced by :py:func:`extractSurfaces`
 
-        hList : list or str, optional
+        height_list : list or str, optional
             List of heights to make slices on blades. 
             If 'all' (by default), the list is got by taking the values of the existing 
             iso-height surfaces in the input tree.
@@ -550,13 +559,13 @@ def computeVariablesOnBladeProfiles(surfaces, hList='all'):
                     return bladeSurface
         return
 
-    if hList == 'all':
-        hList = []
+    if height_list == 'all':
+        height_list = []
         surfacesIsoH = getSurfacesFromInfo(surfaces, type='IsoSurface', field='ChannelHeight')
         for surface in surfacesIsoH:
             ExtractionInfo = I.getNodeFromName(surface, '.ExtractionInfo')
             valueH = I.getValue(I.getNodeFromName(ExtractionInfo, 'value'))
-            hList.append(valueH)
+            height_list.append(valueH)
         
     RadialProfiles = I.getNodeByName1(surfaces, 'RadialProfiles')
 
@@ -566,22 +575,34 @@ def computeVariablesOnBladeProfiles(surfaces, hList='all'):
         if not InletPlane:
             continue
 
-        blade = searchBladeInTree(row)
-        if not blade:
+        blade_ref = searchBladeInTree(row)
+        if not blade_ref:
             print(f'No blade family (or more than one) has been found for row {row}')
             continue
 
-        I._renameNode(blade, 'FlowSolution#Centers', I.__FlowSolutionCenters__)
-        C._initVars(blade, 'Radius=sqrt({CoordinateY}**2+{CoordinateZ}**2)')
+        blade = I.copyRef(blade_ref)
+        I._renameNode(blade, 'BCDataSet', I.__FlowSolutionCenters__)
+        if not I.getNodeFromName(blade, 'Radius'):
+            C._initVars(blade, 'Radius=sqrt({CoordinateY}**2+{CoordinateZ}**2)')
+        if not I.getNodeFromName(InletPlane, 'Radius'):
+            C._initVars(InletPlane, 'Radius=sqrt({CoordinateY}**2+{CoordinateZ}**2)')
         blade = C.center2Node(blade, I.__FlowSolutionCenters__)
         C._initVars(blade, 'StaticPressureDim={Pressure}')
 
-        blade = TMis.computeIsentropicMachNumber(InletPlane, blade, RefState(setup))
+        blade_with_Mis = TMis.computeIsentropicMachNumber(InletPlane, blade, RefState(setup), kind='rotor', fsname=I.__FlowSolutionNodes__ )
 
-        BladeSlices = I.newCGNSBase(f'{row}_Slices', cellDim=1, physDim=3, parent=surfaces)
-        for h in hList:
-            bladeIsoH = T.join(P.isoSurfMC(blade, 'ChannelHeight', h))
-            # bladeIsoH = P.isoSurfMC(blade, 'ChannelHeight', h)
-            I.setName(bladeIsoH, 'Iso_H_{}'.format(h))
+        for zone in I.getZones(blade_with_Mis):
+            FS = I.getNodeFromName(zone, I.__FlowSolutionNodes__)
+            I.newGridLocation(value='Vertex', parent=FS)
+            zone_ref = I.getNodeFromName1(blade_ref, zone[0])
+            I.addChild(zone_ref, FS)
+
+        BladeSlices = I.newCGNSBase(f'{I.getName(blade_ref)}_Slices', cellDim=1, physDim=3, parent=surfaces)
+        for h in height_list:
+            bladeIsoH = T.join(POST.isoSurface(blade_with_Mis, fieldname='ChannelHeight', value=h, container='FlowSolution#Height'))
+            if bladeIsoH == []:
+                # empty slice
+                continue
+            I.setName(bladeIsoH, f'Iso_H_{h}')
             I._addChild(BladeSlices, bladeIsoH)
 

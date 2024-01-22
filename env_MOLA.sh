@@ -14,7 +14,7 @@ export MOLA=/stck/lbernard/MOLA/$MOLAVER
 export MOLASATOR=/tmp_user/sator/lbernard/MOLA/$MOLAVER
 export VPMVERSION=Dev
 export PUMAVERSION=v2.0.3
-export TURBOVERSION=v1.2.2
+export TURBOVERSION=v1.3
 export ERSTAZVERSION=v1.6.3
 export MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
 export MOLASATORext=/tmp_user/sator/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
@@ -115,12 +115,8 @@ if [ "$MAC" = "sator" ]; then
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
-    # # turbo
-    # export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
-
-    # turbo 
-    export PYTHONPATH=/tmp_user/sator/lbernard/turbo/dev:$PYTHONPATH
-
+    # turbo
+    export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
 
     # ErstaZ
     export EZPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/bin/sator
@@ -170,10 +166,8 @@ elif [ "$MAC" = "spiro" ]; then
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python3.7/site-packages:$PYTHONPATH
 
-    # # turbo
-    # export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/spiro3_mpi/lib/python3.7/site-packages/:$PYTHONPATH
-    # turbo 
-    export PYTHONPATH=/stck/lbernard/turbo/dev:$PYTHONPATH
+    # turbo
+    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/spiro-el8_mpi/lib/python3.7/site-packages/:$PYTHONPATH
 
     # ErstaZ
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
@@ -215,11 +209,9 @@ elif [ "$MAC" = "ld" ]; then
     export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.8:$LD_LIBRARY_PATH
     export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
-    # # turbo 
-    # export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/local-os8_mpi/lib/python3.8/site-packages/:$PYTHONPATH
-
     # turbo 
-    export PYTHONPATH=/stck/lbernard/turbo/dev:$PYTHONPATH
+    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/local-os8_mpi/lib/python3.8/site-packages/:$PYTHONPATH
+    export TURBO_COMPILER='gcc'
 
     # ErstaZ
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/eos
@@ -275,13 +267,6 @@ elif [ "$MAC" = "visio" ]; then
     module load gcc/4.8.1
     module load intel/17.0.4
     module load impi/17
-
-    # # turbo 
-    # export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.1.03/eos-intel3_mpi/lib/python3.6/site-packages/:$PYTHONPATH 
-
-    # turbo 
-    export PYTHONPATH=/stck/lbernard/turbo/dev:$PYTHONPATH
-
 
     # ErstaZ
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/visio

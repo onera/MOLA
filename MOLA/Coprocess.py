@@ -248,7 +248,7 @@ def extractSurfaces(t, Extractions, arrays=None):
 
                     .. code-block:: python
 
-                            dict(name='probeTest', location=(0.012, 0.24, -0.007), variables=['Temperature', 'Pressure'])
+                            dict(type='Probe', name='probeTest', location=(0.012, 0.24, -0.007), variables=['Temperature', 'Pressure'])
 
                     .. note:: If not provided, defaut name will be 'Probe_X_Y_Z'
               
@@ -3428,12 +3428,12 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
 
                 if rank == 0:
                     # Move 0D averages to arrays
-                    averagesDict = dict()
                     Averages0D = [I.getZones(b) for b in I.getBases(surfaces) \
                                   if b[0].startswith('Averages0D')]
                     for zones in Averages0D: 
                         for zone in zones:
                             for FS in I.getNodesFromType1(zone, 'FlowSolution_t'):
+                                averagesDict = dict()
                                 FSname = I.getName(FS)
 
                                 if FSname.startswith('Comparison'):
@@ -3445,6 +3445,7 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
 
                                 for node in I.getNodesFromType1(FS, 'DataArray_t'):
                                     averagesDict[I.getName(node)] = I.getValue(node)
+
                                 averagesDict['IterationNumber'] = CurrentIteration-1
                                 appendDict2Arrays(arrays, averagesDict, zoneName)
             

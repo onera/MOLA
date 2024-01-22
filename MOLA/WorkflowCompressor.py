@@ -600,77 +600,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     J.printElapsedTime('prepareMainCGNS4ElsA took ', toc)
 
-
-def parametrizeChannelHeight(t, nbslice=101, fsname='FlowSolution#Height',
-    hlines='hub_shroud_lines.plt', subTree=None):
-    '''
-    Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
-    relies on the ETC module.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            input mesh tree
-
-        nbslice : int
-            Number of axial positions used to compute the iso-lines in
-            *ChannelHeight*. Change the axial discretization.
-
-        fsname : str
-            Name of the ``FlowSolution_t`` container to stock the variable at
-            nodes *ChannelHeight*.
-
-        hlines : str
-            Name of the intermediate file that contains (x,r) coordinates of hub
-            and shroud lines.
-
-        subTree : PyTree
-            Part of the main tree **t** used to compute *ChannelHeigth*. For
-            zones in **t** but not in **subTree**, *ChannelHeigth* will be equal
-            to -1. This option is useful to exclude irelevant zones for height
-            computation, for example the domain (if it exists) around the
-            nacelle with the external flow. To extract **subTree** based on a
-            Family, one may use:
-
-            >>> subTree = C.getFamilyZones(t, Family)
-
-    Returns
-    -------
-
-        t : PyTree
-            modified tree
-
-    '''
-    from . import ParametrizeChannelHeight as ParamHeight
-
-    print(J.CYAN + 'Add ChannelHeight in the mesh...' + J.ENDC)
-    excludeZones = True
-    if not subTree:
-        subTree = t
-        excludeZones = False
-
-    silence = J.OutputGrabber()
-    with silence:
-        ParamHeight.generateHLinesAxial(subTree, hlines, nbslice=nbslice)
-        try: ParamHeight.plot_hub_and_shroud_lines(hlines)
-        except: pass
-        I._rmNodesByName(t, fsname)
-    t = ParamHeight.computeHeight(t, hlines, fsname=fsname, writeMask='mask.cgns')
-
-    if excludeZones:
-        OLD_FlowSolutionNodes = I.__FlowSolutionNodes__
-        I.__FlowSolutionNodes__ = fsname
-        zonesInSubTree = [I.getName(z) for z in I.getZones(subTree)]
-        for zone in I.getZones(t):
-            if I.getName(zone) not in zonesInSubTree:
-                C._initVars(zone, 'ChannelHeight=-1')
-        I.__FlowSolutionNodes__ = OLD_FlowSolutionNodes
-
-    print(J.GREEN + 'done.' + J.ENDC)
-    return t
-
-def parametrizeChannelHeight_future(t, nbslice=101, lin_axis=None):
+def parametrizeChannelHeight(t, lin_axis=None):
     '''
     Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
     relies on the turbo module.
@@ -684,10 +614,6 @@ def parametrizeChannelHeight_future(t, nbslice=101, lin_axis=None):
 
         t : PyTree
             input mesh tree
-
-        nbslice : int
-            Number of axial positions used to compute the iso-lines in
-            *ChannelHeight*. Change the axial discretization.
 
         lin_axis : :py:obj:`None` or :py:class:`str`
             Axis for linear configuration.
@@ -705,35 +631,56 @@ def parametrizeChannelHeight_future(t, nbslice=101, lin_axis=None):
     '''
     import turbo.height as TH
 
+    def plot_hub_and_shroud_lines(t):
+        # Get geometry
+        hub     = I.getNodeFromName(t, 'Hub')
+        xHub    = I.getValue(I.getNodeFromName(hub, 'CoordinateX'))
+        yHub    = I.getValue(I.getNodeFromName(hub, 'CoordinateY'))
+        shroud  = I.getNodeFromName(t, 'Shroud')
+        xShroud = I.getValue(I.getNodeFromName(shroud, 'CoordinateX'))
+        yShroud = I.getValue(I.getNodeFromName(shroud, 'CoordinateY'))
+        # Import matplotlib
+        import matplotlib.pyplot as plt
+        # Plot
+        plt.figure()
+        plt.plot(xHub, yHub, '-', label='Hub')
+        plt.plot(xShroud, yShroud, '-', label='Shroud')
+        plt.axis('equal')
+        plt.grid()
+        plt.xlabel('x (m)')
+        plt.ylabel('y (m)')
+        # Save
+        plt.savefig('shroud_hub_lines.png', dpi=150, bbox_inches='tight')
+        return 0
+
     print(J.CYAN + 'Add ChannelHeight in the mesh...' + J.ENDC)
     OLD_FlowSolutionNodes = I.__FlowSolutionNodes__
     I.__FlowSolutionNodes__ = 'FlowSolution#Height'
 
-    elines = 'shroud_hub_lines.plt'
+    silence_stdout = J.OutputGrabber(stream=sys.stdout)
+    silence_stderr = J.OutputGrabber(stream=sys.stderr)
+    message = None
 
-    silence = J.OutputGrabber()
-    with silence:
+    with silence_stdout:
+
         if not lin_axis:
-            # - Generation of hub/shroud lines (axial configuration only)
-            endlinesTree = TH.generateHLinesAxial(t, elines, nbslice=nbslice)
-
-            # # see in turbo v1.3
-            # print(f'PRE.hasAnyUnstructuredZones(subTree)={PRE.hasAnyUnstructuredZones(subTree)}')
-            # if PRE.hasAnyUnstructuredZones(subTree):
-            #     # for structured and unstructured mesh, only for axial configurations
-            #     method = 0
-            # else:
-            #     # only for structured mesh, but faster and works for axial and centrifugal configurations
-            #     method = 1
-            #     print('use method=1')
-            # endlinesTree = TH.generateHLinesAxial(subTree, method=method, nbslice=nbslice)
+            endlinesTree = TH.generateHLinesAxial(t, filename='shroud_hub_lines.plt', method=2)
+            try: 
+                plot_hub_and_shroud_lines(endlinesTree)
+            except: 
+                pass
 
             # - Generation of the mask file
-            m = TH.generateMaskWithChannelHeight(t, elines, 'bin_tp')
+            with silence_stderr:
+                m = TH.generateMaskWithChannelHeight(t, 'shroud_hub_lines.plt')
+            os.remove('shroud_hub_lines.plt')
         else:
             m = TH.generateMaskWithChannelHeightLinear(t, lin_axis=lin_axis)
+
         # - Generation of the ChannelHeight field
         TH._computeHeightFromMask(t, m, writeMask='mask.cgns', lin_axis=lin_axis)
+    
+    if message: print(message)
 
     I.__FlowSolutionNodes__ = OLD_FlowSolutionNodes
     print(J.GREEN + 'done.' + J.ENDC)
@@ -1919,13 +1866,13 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     It defines an outflow condition imposing a uniform static pressure ('outpres' in
     *elsA*).
 
-    >>> dict(type='OutflowMassflow', FamilyName='row_2_OUTFLOW', Massflow=5.)
+    >>> dict(type='OutflowMassFlow', FamilyName='row_2_OUTFLOW', MassFlow=5.)
 
-    It defines an outflow condition imposing the massflow ('outmfr2' in *elsA*).
-    Be careful, **Massflow** should be the massflow through the given family BC
+    It defines an MassFlow condition imposing the massflow ('outmfr2' in *elsA*).
+    Be careful, **assFlow** should be the massflow through the given family BC
     *in the simulated domain* (not the 360 degrees configuration, except if it
     is simulated).
-    If **Massflow** is not given, the massflow given in the **ReferenceValues**
+    If **MassFlow** is not given, the massflow given in the **ReferenceValues**
     is automatically taken and normalized by the appropriate section.
 
     >>> dict(type='OutflowRadialEquilibrium', FamilyName='row_2_OUTFLOW', valve_type=4, valve_ref_pres=0.75*Pt, valve_ref_mflow=5., valve_relax=0.3*Pt)
@@ -2032,6 +1979,14 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
             BCkwargs['ReferenceValues'] = ReferenceValues
             BCkwargs['TurboConfiguration'] = TurboConfiguration
             setBC_outmfr2(t, **BCkwargs)
+
+        elif BCparam['type'] == 'OutflowMassFlowFromMach':
+            print(J.CYAN + 'set BC outmfr2 on ' + BCparam['FamilyName'] + J.ENDC)
+            BCkwargs['ReferenceValues'] = ReferenceValues
+            BCkwargs['TurboConfiguration'] = TurboConfiguration
+            BCkwargs['FluidProperties'] = FluidProperties
+            setBC_MachFromMassFlow(t, **BCkwargs)
+
 
         elif BCparam['type'] == 'outradeq':
             print(J.CYAN + 'set BC outradeq on ' + BCparam['FamilyName'] + J.ENDC)
@@ -2542,6 +2497,9 @@ def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs
     setBC_inj1, setBC_inj1_imposeFromFile, setBC_injmfr1
 
     '''
+    # HACK to handle this function called by a workflow for external aerodynamics
+    ReferenceValues.setdefault('PressureStagnation', None)
+    ReferenceValues.setdefault('TemperatureStagnation', None)
 
     PressureStagnation    = kwargs.get('PressureStagnation', ReferenceValues['PressureStagnation'])
     TemperatureStagnation = kwargs.get('TemperatureStagnation', ReferenceValues['TemperatureStagnation'])
@@ -2691,6 +2649,8 @@ def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     VelocityUnitVectorY   = kwargs.get('VelocityUnitVectorY', ReferenceValues['DragDirection'][1])
     VelocityUnitVectorZ   = kwargs.get('VelocityUnitVectorZ', ReferenceValues['DragDirection'][2])
     variableForInterpolation = kwargs.get('variableForInterpolation', 'ChannelHeight')   
+    TurbulenceLevel = kwargs.get('TurbulenceLevel', None)
+    Viscosity_EddyMolecularRatio = kwargs.get('Viscosity_EddyMolecularRatio', None)
 
     ImposedVariables = dict(
         SurfacicMassFlow    = SurfacicMassFlow,
@@ -2702,7 +2662,9 @@ def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
                                                  ReferenceValues,
                                                  Surface=Surface,
                                                  MassFlow=MassFlow,
-                                                 TemperatureStagnation=TemperatureStagnation
+                                                 TemperatureStagnation=TemperatureStagnation,
+                                                 TurbulenceLevel=TurbulenceLevel,
+                                                 Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio
                                                 )
         )
 
@@ -2999,6 +2961,73 @@ def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues
 
     setBCwithImposedVariables(t, FamilyName, ImposedVariables,
         FamilyBC='BCOutflowSubsonic', BCType='outmfr2', bc=bc)
+
+def setBC_MachFromMassFlow(t, FamilyName, Mach=None, PressureStagnation=None, TemperatureStagnation=None, Surface=None, groupmassflow=1, ReferenceValues=None, TurboConfiguration=None, FluidProperties=None):
+    '''
+    Set an outflow boundary condition of type ``outmfr2``.
+
+    .. note:: see `elsA Tutorial about outmfr2 condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#outmfr2/>`_
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+        Mach : :py:class:`float` or :py:obj:`None`
+            If :py:obj:`None`, the reference Mach in **ReferenceValues** is taken.
+        
+        PressureStagnation : :py:class:`float` or :py:obj:`None`
+            If :py:obj:`None`, the reference PressureStagnation in **ReferenceValues** is taken.
+
+        TemperatureStagnation : :py:class:`float` or :py:obj:`None`
+            If :py:obj:`None`, the reference TemperatureStagnation in **ReferenceValues** is taken.
+
+        Surface : :py:class:`float` or :py:obj:`None`
+            If :py:obj:`None`, the reference Surface in **ReferenceValues** is taken.
+
+        groupmassflow : int
+            Index used to link participating patches to this boundary condition.
+            If several BC ``outmfr2`` are defined, **groupmassflow** has to be
+            incremented for each family.
+
+        ReferenceValues : :py:class:`dict` or :py:obj:`None`
+            dictionary as obtained from :py:func:`computeReferenceValues`.
+        
+        TurboConfiguration : :py:class:`dict` or :py:obj:`None`
+            dictionary as obtained from :py:func:`getTurboConfiguration`. Can
+            be :py:obj:`None` only if **MassFlow** is not :py:obj:`None`.
+
+        FluidProperties : :py:class:`dict` or :py:obj:`None`
+            dictionary as obtained from :py:func:`computeFluidProperties`. 
+    '''
+    if Mach is None:
+        Mach = ReferenceValues['Mach']
+    if PressureStagnation is None:
+        PressureStagnation = ReferenceValues['PressureStagnation']
+    if TemperatureStagnation is None:
+        TemperatureStagnation = ReferenceValues['TemperatureStagnation']
+    if Surface is None:
+        Surface = ReferenceValues['Surface']
+
+    # Massflow on 360°
+    MassFlow = massflowFromMach(Mach, S=Surface, Pt=PressureStagnation, Tt=TemperatureStagnation, r=FluidProperties['IdealGasConstant'], gamma=FluidProperties['Gamma'])
+    # Compute massflow on the required section on Family
+    bc = C.getFamilyBCs(t, FamilyName)[0]
+    zone = I.getParentFromType(t, bc, 'Zone_t')
+    row = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+    try:
+        rowParams = TurboConfiguration['Rows'][row]
+        fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+    except KeyError:
+        # To handle workflows without TurboConfiguration
+        fluxcoeff = 1
+    MassFlow /= fluxcoeff
+
+    setBC_outmfr2(t, FamilyName, MassFlow=MassFlow, groupmassflow=groupmassflow)
 
 def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
     bc=None, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData', variableForInterpolation='ChannelHeight'):
@@ -5440,6 +5469,7 @@ def initializeFlowSolutionWithTurbo(t, FluidProperties, ReferenceValues, TurboCo
 def postprocess_turbomachinery(surfaces, stages=[], 
                                 var4comp_repart=None, var4comp_perf=None, var2keep=None, 
                                 computeRadialProfiles=True, 
+                                heightListForIsentropicMach='all',
                                 config='annular', 
                                 lin_axis='XY',
                                 RowType='compressor',
@@ -5449,18 +5479,16 @@ def postprocess_turbomachinery(surfaces, stages=[],
 
     #. Compute extra variables, in relative and absolute frames of reference
 
-    #. Compute averaged values for all iso-X planes (results are in the `.Average` node), and
+    #. Compute averaged values for all iso-X planes, and
        compare inlet and outlet planes for each row if available, to get row performance (total 
-       pressure ratio, isentropic efficiency, etc) (results are in the `.Average#ComparisonXX` of
-       the inlet plane, `XX` being the numerotation starting at `01`)
+       pressure ratio, isentropic efficiency, etc) 
 
-    #. Compute radial profiles for all iso-X planes (results are in the `.RadialProfile` node), and
+    #. Compute radial profiles for all iso-X planes (results are in the `RadialProfiles` base), and
        compare inlet and outlet planes for each row if available, to get row performance (total 
-       pressure ratio, isentropic efficiency, etc) (results are in the `.RadialProfile#ComparisonXX` of
-       the inlet plane, `XX` being the numerotation starting at `01`)
+       pressure ratio, isentropic efficiency, etc) 
 
     #. Compute isentropic Mach number on blades, slicing at constant height, for all values of height 
-       already extracted as iso-surfaces. Results are in the `.Iso_H_XX` nodes.
+       already extracted as iso-surfaces.
 
     Parameters
     ----------
@@ -5501,6 +5529,11 @@ def postprocess_turbomachinery(surfaces, stages=[],
         
         computeRadialProfiles : bool
             Choose or not to compute radial profiles.
+        
+        heightListForIsentropicMach : list or str, optional
+            List of heights to make slices on blades. 
+            If 'all' (by default), the list is got by taking the values of the existing 
+            iso-height surfaces in the input tree.
         
         config : str
             see :py:func:`MOLA.PostprocessTurbo.compute1DRadialProfiles`
@@ -5588,7 +5621,8 @@ def postprocess_turbomachinery(surfaces, stages=[],
         if computeRadialProfiles: 
             Post.compute1DRadialProfiles(
                 surfaces, variablesByAverage, config=config, lin_axis=lin_axis)
-        # Post.computeVariablesOnBladeProfiles(surfaces, hList='all')
+        if heightListForIsentropicMach:
+            Post.computeVariablesOnBladeProfiles(surfaces, height_list=heightListForIsentropicMach)
         #______________________________________________________________________________#
 
         if Cmpi.rank == 0:

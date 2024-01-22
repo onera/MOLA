@@ -20,6 +20,7 @@ remove_inputs() {
     rm -f compute.py coprocess.py job_template.sh 
     rm -f dispatcherJob.sh JobsConfiguration.py
     rm -f mask.cgns hub_shroud_lines*
+    rm -f monitor_perfos.py
 }
 
 remove_outputs() {

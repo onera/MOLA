@@ -1423,7 +1423,11 @@ def makeShaftRotate(t, iteration):
             solverMotion = I.getNodeFromName(Family, '.Solver#Motion')
             if not solverMotion: 
                 # Not a zone family or a zone family without movement
-                continue
+                rowFrame[I.getName(Family)] = dict(
+                    omega  =  0.,
+                    center = (0, 0, 0),
+                    axis   = (1, 0, 0)   
+                )
             solverMotionDict = dict((I.getName(node), I.getValue(node))
                                     for node in I.getNodesFromType(solverMotion, 'DataArray_t'))
             rowFrame[I.getName(Family)] = dict(
