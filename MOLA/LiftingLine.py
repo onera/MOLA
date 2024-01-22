@@ -1124,11 +1124,16 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
         'PitchAxisX','PitchAxisY','PitchAxisZ',
         'TangentialX', 'TangentialY', 'TangentialZ',
         'SweepAngleDeg', 'DihedralAngleDeg']
-    if 'ChordwiseX' not in LLDict: LLfields += ['ChordwiseX','ChordwiseY','ChordwiseZ']
-    if 'SpanwiseX' not in LLDict: LLfields += ['SpanwiseX','SpanwiseY','SpanwiseZ']
-    if 'ThickwiseX' not in LLDict: LLfields += ['ThickwiseX','ThickwiseY','ThickwiseZ']
-
-    v = J.invokeFieldsDict(LiftingLine,LLfields)
+    addLLfields = ['ChordwiseX','ChordwiseY','ChordwiseZ',
+                   'SpanwiseX','SpanwiseY','SpanwiseZ',
+                   'ThickwiseX','ThickwiseY','ThickwiseZ']
+    existing_fields = C.getVarNames(LiftingLine)[0]
+    for fn in addLLfields:
+        if fn not in existing_fields:
+            print(fn)
+            LLfields.append(fn)
+    J._invokeFields(LiftingLine,LLfields)
+    v = J.getVars2Dict(LiftingLine, LLfields + addLLfields)
 
     v['PitchRelativeCenterX'][:] = PitchRelativeCenter[0]
     v['PitchRelativeCenterY'][:] = PitchRelativeCenter[1]
@@ -1138,7 +1143,6 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
     v['PitchAxisY'][:] = PitchAxis[1]
     v['PitchAxisZ'][:] = PitchAxis[2]
     
-
     # infer the airfoil directions if not explicitly provided by user
     if 'ChordwiseX' not in LLDict:
         if 'Twist' not in LLDict: LLDict['Twist'] = 0.0
@@ -1147,6 +1151,9 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
         else:
             v['ChordwiseY'][:] =  np.cos(np.deg2rad(LLDict['Twist']))
         v['ChordwiseZ'][:] = -np.sin(np.deg2rad(LLDict['Twist']))
+    else:
+        for j in 'XYZ': v['Chordwise'+j][:] = LLDict['Chordwise'+j]
+
 
     # normalize
     direction = 'Chordwise'
@@ -1158,6 +1165,8 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
 
     if 'SpanwiseX' not in LLDict:
         v['SpanwiseX'][:] = 1.0
+    else:
+        for j in 'XYZ': v['Spanwise'+j][:] = LLDict['Spanwise'+j]
 
     # normalize
     direction = 'Spanwise'
@@ -1177,7 +1186,17 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
             thickwise_vector = np.cross(spanwise_vector, chordwise_vector,axisa=0,axisb=0,axisc=0)
         v['ThickwiseX'][:] = thickwise_vector[0,:] 
         v['ThickwiseY'][:] = thickwise_vector[1,:] 
-        v['ThickwiseZ'][:] = thickwise_vector[2,:] 
+        v['ThickwiseZ'][:] = thickwise_vector[2,:]
+    else:
+        for j in 'XYZ': v['Thickwise'+j][:] = LLDict['Thickwise'+j]
+
+    # normalize
+    direction = 'Thickwise'
+    for i in range(NPts):
+        norm = np.linalg.norm([v[direction+''+j][i] for j in 'XYZ'])
+        v[direction+'X'][i] /= norm
+        v[direction+'Y'][i] /= norm
+        v[direction+'Z'][i] /= norm
 
     c = np.array(RotationCenter,dtype=float)
     rx = LLx - c[0]
@@ -1236,6 +1255,9 @@ def buildLiftingLineFromScan(t, Span, resetPitchRelativeSpan=0.75,
 
             .. note:: identical as **Span** parameter of :py:func:`buildLiftingLine`
 
+            .. hint:: use simply an :py:class:`int`, and resulting **Span** will 
+                be a uniform vector ranging from min(Span) to max(Span)
+
         resetPitchRelativeSpan : float
             This is the relative span (or :math:`r/R`) used to relocate the blade
             such that the section at **resetPitchRelativeSpan** yields zero twist.
@@ -1274,6 +1296,7 @@ def buildLiftingLineFromScan(t, Span, resetPitchRelativeSpan=0.75,
         scanPitch : float
             The pitch of the section at **resetPitchRelativeSpan**
     '''
+    t = I.copyRef(t)
 
     BaseBladeLine = I.getNodeFromName1(t,'BaseBladeLine')
     if not BaseBladeLine:
@@ -1293,37 +1316,73 @@ def buildLiftingLineFromScan(t, Span, resetPitchRelativeSpan=0.75,
     # put blade line into rotation center (0,0,0)
     T._translate(BladeLine, -scan_info['RotationCenter'])
 
-    Dir = 1 if bool(scan_info['RightHandRuleRotation']) else -1
+    RightHandRuleRotation=bool(scan_info['RightHandRuleRotation'])
+    Dir = 1 if RightHandRuleRotation else -1
 
     # put blade line into canonical orientation
     FinalFrame = [(1,0,0),(0,1,0),(0,0,1)]
     InitialFrame = [tuple(scan_info['PitchAxis']),
         tuple(np.cross(Dir*scan_info['RotationAxis'],scan_info['PitchAxis'])),
-        tuple(Dir*scan_info['RotationAxis'])]
+        tuple(-Dir*scan_info['RotationAxis'])]
     T._rotate(BladeLine, (0,0,0), InitialFrame, FinalFrame,
         vectors=NamesOfChordSpanThickwiseFrameNoTangential)
 
     # determine the pitch of the blade-line
     Twist, SpanScan = J.getVars(BladeLine,['Twist','Span'])
-    pitch = np.interp(resetPitchRelativeSpan, Twist, SpanScan)
-    print(f'scanned pitch is {pitch} deg')
+    RelativeSpanScan = SpanScan/SpanScan.max()
+    pitch = np.interp(resetPitchRelativeSpan, RelativeSpanScan, Twist)
+    print(f'scanned pitch at r/R={resetPitchRelativeSpan} is {pitch} deg')
 
     # substract pitch to put blade line in canonical position
     PitchCtr = J.getVars(BladeLine,
-                    ['PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ'])
-
+        ['PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ'])
     PitchAxis = J.getVars(BladeLine, ['PitchAxisX','PitchAxisY','PitchAxisZ'])
     PitchCtr_pt = (PitchCtr[0][0]*1.0, PitchCtr[1][0]*1.0, PitchCtr[2][0]*1.0)
     PitchAxis_vec = (PitchAxis[0][0]*Dir, PitchAxis[1][0]*Dir, PitchAxis[2][0]*Dir)
     T._rotate(BladeLine, PitchCtr_pt, PitchAxis_vec, -pitch, 
             vectors=NamesOfChordSpanThickwiseFrameNoTangential)
     
-    # INFER GEOMETRICALLAWS, INCLUDING SWEEP AND DIHEDRAL FROM COORDINATES
-    # BUILD AIRFOIL GEOMETRICALLAW
-    # BUILDLIFTINGLINE
+    # INFER SWEEP AND DIHEDRAL FROM COORDINATES
+    _, y, z = J.getxyz(BladeLine)
+    Sweep, Dihedral = J.invokeFields(BladeLine, ['Sweep','Dihedral'])
+    Sweep[:] = -y
+    Dihedral[:] = z
+    
+    
+    # BUILD GEOMETRICALLAWS 
+    airfoils = I.getZones(I.getNodeFromName1(t,'BaseNormalizedAirfoils'))
+    GeometricalLawsNamesList = ['Chord','Sweep','Dihedral', 'Airfoils',
+        'ChordwiseX','ChordwiseY','ChordwiseZ',
+         'SpanwiseX', 'SpanwiseY', 'SpanwiseZ',
+        'ThickwiseX','ThickwiseY','ThickwiseZ']
+    
+    GeometricalLawsDict = {}
+    for geom in GeometricalLawsNamesList:
+        GeometricalLawsDict[geom] = {'RelativeSpan' : RelativeSpanScan}
+        if geom == 'Airfoils':
+            GeometricalLawsDict[geom]['PyZonePolarNames'] = [a[0] for a in airfoils]
+        else:
+            GeometricalLawsDict[geom][geom] = J.getVars(BladeLine,[geom])[0]
+        try:
+            GeometricalLawsDict[geom]['InterpolationLaw'] = GeometricalLawsInterpolations[geom]
+        except KeyError:
+            GeometricalLawsDict[geom]['InterpolationLaw'] = 'interp1d_linear'       
+
+    # Create the lifting line
+    PitchCtr = J.getVars(BladeLine,
+        ['PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ'])
+    PitchAxis = J.getVars(BladeLine, ['PitchAxisX','PitchAxisY','PitchAxisZ'])
+    PitchCtr_pt = (PitchCtr[0][0]*1.0, PitchCtr[1][0]*1.0, PitchCtr[2][0]*1.0)
+    PitchAxis_vec = (PitchAxis[0][0]*Dir, PitchAxis[1][0]*Dir, PitchAxis[2][0]*Dir)
+    if isinstance(Span,int): Span=np.linspace(SpanScan.min(), SpanScan.max(), Span)
+    LiftingLine = buildLiftingLine(Span, RightHandRuleRotation=RightHandRuleRotation,
+        PitchRelativeCenter=PitchCtr_pt, PitchAxis=PitchAxis_vec,
+        RotationCenter=[0,0,0], **GeometricalLawsDict)
+
     # CONSTRUCT COORDINATE-ONLY PYZONE POLARS
     # RETURN LIFTINGLINE AND PYZONEPOLARS
-    ...
+    
+    return LiftingLine
 
 def checkComponentKind(component, kind='LiftingLine'):
     '''
