@@ -1098,10 +1098,9 @@ def getFrenetFromRotationAxisAndPhaseDirection(RotationAxis, PhaseDirection):
     return FrenetFrame
 
 
-def getEulerAngles4PUMA(RotationAxis, PhaseDirection=(0,1,0)):
+def getEulerAngles(RotationAxis, PhaseDirection=(0,1,0)):
     '''
-    Given a RotationAxis and a Phase Direction, produce the Euler angles that
-    can be provided to PUMA in order to position the propeller.
+    Given a RotationAxis and a Phase Direction, produce the Euler angles.
 
     Parameters
     ----------
@@ -1127,7 +1126,7 @@ def getEulerAngles4PUMA(RotationAxis, PhaseDirection=(0,1,0)):
     FrenetDEST = getFrenetFromRotationAxisAndPhaseDirection(RotationAxis,PhaseDirection)
 
 
-    FrenetPUMA = np.array([[1.,0.,0.],  # Rotation Axis
+    FrenetEULER = np.array([[1.,0.,0.],  # Rotation Axis
                            [0.,1.,0.],  # Phase Dir
                            [0.,0.,1.]]) # Binormal
 
@@ -1135,7 +1134,7 @@ def getEulerAngles4PUMA(RotationAxis, PhaseDirection=(0,1,0)):
                            list(FrenetDEST[0]),
                            list(FrenetDEST[1])])
 
-    RotationMatrix = FrenetDEST.T.dot(npla.inv(FrenetPUMA.T))
+    RotationMatrix = FrenetDEST.T.dot(npla.inv(FrenetEULER.T))
 
     try:
         Rotator = ScipyRotation.from_matrix(RotationMatrix) # new scipy

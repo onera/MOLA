@@ -13,12 +13,10 @@ export MOLAVER=${SCRIPT_DIR##*/} # looks to current directory name
 export MOLA=/stck/lbernard/MOLA/$MOLAVER
 export MOLASATOR=/tmp_user/sator/lbernard/MOLA/$MOLAVER
 export VPMVERSION=Dev
-export PUMAVERSION=v2.0.3
 export TURBOVERSION=v1.3
 export ERSTAZVERSION=v1.6.3
 export MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
 export MOLASATORext=/tmp_user/sator/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
-export OWNCASSREV=rev4670
 export MAIAVERSION=1.2
 ###############################################################################
 
@@ -94,15 +92,6 @@ if [ "$MAC" = "sator" ]; then
     unset I_MPI_PMI_LIBRARY
     export MOLA=$MOLASATOR
 
-    # PUMA
-    export PUMAVERSION=v2.0.3_mod
-    export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_${PUMAVERSION}
-    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
-    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH
-    export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
-    export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
-
-
     # maia
     module use --append /tmp_user/sator/sonics/usr/modules/
     module load maia/$MAIAVERSION-dsi-cfd5_idx32
@@ -121,14 +110,6 @@ if [ "$MAC" = "sator" ]; then
     # ErstaZ
     export EZPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/bin/sator
     export PYTHONPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
-
-    # own Cassiopee
-    module load occt/7.6.1-gnu831
-    export OWNCASS=/tmp_user/sator/lbernard/Cassiopee/$OWNCASSREV/sator
-    export PATH=$PATH:$OWNCASS
-    export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH
-    export PYTHONPATH=$OWNCASS/lib/python3.7/site-packages:$PYTHONPATH
-
 
     export PYTHONPATH=$MOLASATORext/sator/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$MOLASATORext/sator/bin:$PATH
@@ -150,13 +131,6 @@ elif [ "$MAC" = "spiro" ]; then
     unset I_MPI_TCP_NETMASK
     unset I_MPI_FABRICS_LIST
 
-    # PUMA
-    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro3
-    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
-    export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH
-    export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
-    export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
-
     # VPM
     export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro/$ARCH
     export PATH=$VPMPATH:$PATH
@@ -177,12 +151,6 @@ elif [ "$MAC" = "spiro" ]; then
     module use --append /scratchm/sonics/usr/modules/
     module load maia/$MAIAVERSION-dsi-cfd5
 
-    # own Cassiopee
-    module load occt/7.6.1-gnu831
-    export OWNCASS=/stck/lbernard/Cassiopee/$OWNCASSREV/spiro
-    export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH
-    export PYTHONPATH=$OWNCASS/lib/python3.7/site-packages:$PYTHONPATH
-
     # external python packages
     export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/:$PYTHONPATH
     export PATH=$MOLAext/spiro_el8/bin:$PATH
@@ -201,13 +169,6 @@ elif [ "$MAC" = "ld" ]; then
 
     unset I_MPI_PMI_LIBRARY
     export OMPI_MCA_mca_base_component_show_load_errors=0
-
-    # PUMA
-    export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_os8
-    export PYTHONPATH=$PumaRootDir/lib/python3.8/site-packages:$PYTHONPATH
-    export PYTHONPATH=$PumaRootDir/lib/python3.8/site-packages/PUMA:$PYTHONPATH
-    export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.8:$LD_LIBRARY_PATH
-    export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
     # turbo 
     export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/local-os8_mpi/lib/python3.8/site-packages/:$PYTHONPATH
@@ -232,13 +193,6 @@ elif [ "$MAC" = "ld" ]; then
     # brakes MPI https://elsa.onera.fr/issues/10933#note-16
     export LD_LIBRARY_PATH=/opt/tools/intel/oneapi/compiler/2021.2.0/linux/compiler/lib/intel64_lin/:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=/opt/tools/intel/oneapi/mpi/2021.6.0/lib/release:$LD_LIBRARY_PATH
-    
-
-    # own Cassiopee
-    export OWNCASS=/stck/lbernard/Cassiopee/$OWNCASSREV/ld
-    export PATH=$OWNCASS:$OWNCASS/lib:$PATH
-    export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH
-    export PYTHONPATH=$OWNCASS/lib/python3.8/site-packages:$PYTHONPATH
 
     # external python dependencies
     export PYTHONPATH=$MOLAext/ld8/lib/python3.8/site-packages/:$PYTHONPATH
@@ -253,36 +207,6 @@ elif [ "$MAC" = "ld" ]; then
       okular "$1" &
       export LD_LIBRARY_PATH=$OLD_LD_LIBRARY_PATH
     }
-
-
-elif [ "$MAC" = "visio" ]; then
-    export ELSAVERSION=UNAVAILABLE # TODO adapt this once #10587 fixed
-    echo -e "\033[93mWARNING: elsA is not installed yet in VISIO CentOS 6\033[0m"
-    echo -e "\033[93mwatch https://elsa.onera.fr/issues/10587 for more information\033[0m"
-
-    . /etc/profile.d/modules-dri.sh &>/dev/null
-    module load subversion/1.7.6
-    module load python/3.6.1
-    module unload $(module -t list 2>&1 | grep -i intel)
-    module load gcc/4.8.1
-    module load intel/17.0.4
-    module load impi/17
-
-    # ErstaZ
-    export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/visio
-    export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
-
-    # own Cassiopee (includes OCC, Apps, VPM)
-    export OWNCASS=/stck/lbernard/Cassiopee/$OWNCASSREV/visio
-    export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH
-    export LD_LIBRARY_PATH=/stck/benoit/opencascade2/lib:$CASSIOPEE/Dist/bin/"$ELSAPROD":$CASSIOPEE/Dist/bin/"$ELSAPROD"/lib:/usr/local/hdf5-intel-1.8.8/lib:/usr/local/gtk+3/lib:$LD_LIBRARY_PATH
-    export PYTHONPATH=$OWNCASS/lib/python3.6/site-packages:$PYTHONPATH
-    export PATH=/stck/lbernard/Cassiopee/rev4386/visio:$PATH
-
-    # external python dependencies
-    export PYTHONPATH=$MOLAext/visio/lib/python3.6/site-packages/:$PYTHONPATH
-    export PATH=$MOLAext/visio/bin:$PATH
-    export LD_LIBRARY_PATH=$MOLAext/visio/lib/python3.6/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
 
 elif [ "$MAC" = "topaze" ]; then
     source /ccc/work/cont001/saelsa/saelsa/Public/$ELSAVERSION/Dist/bin/topaze/.env_elsA

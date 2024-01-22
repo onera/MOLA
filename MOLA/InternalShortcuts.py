@@ -2393,28 +2393,6 @@ def printEnvironment():
         v = FAIL + 'UNAVAILABLE' + ENDC
     print(v.ljust(20-len(tag))+printTime(toc))
 
-
-    # OCC # TODO CAUTION https://elsa.onera.fr/issues/10950
-    tag = ' ----> OCC '
-    print(tag,end='')
-    toc = tic()
-    try:
-        import OCC
-        v = OCC.__version__
-    except:
-        v = FAIL + 'UNAVAILABLE' + ENDC
-    print(v.ljust(20-len(tag))+printTime(toc))
-
-    tag = ' ----> Apps '
-    print(tag,end='')
-    toc = tic()
-    try:
-        import Apps
-        v = Apps.__version__
-    except:
-        v = FAIL + 'UNAVAILABLE' + ENDC
-    print(v.ljust(20-len(tag))+printTime(toc))
-
     # Vortex Particle Method
     tag = ' --> VPM '
     print(tag,end='')
@@ -2425,22 +2403,6 @@ def printEnvironment():
         v = VPM.__version__
     except:
         v = FAIL + 'UNAVAILABLE' + ENDC
-    print(v.ljust(20-len(tag))+printTime(toc))
-
-    # PUMA
-    tag = ' --> PUMA '
-    print(tag,end='')
-    toc = tic()
-    v = os.getenv('PUMAVERSION', 'UNAVAILABLE')
-    if v == 'UNAVAILABLE':
-        v = FAIL + v + ENDC
-    else:
-        try:
-            silence = OutputGrabber()
-            with silence:
-                import PUMA
-        except:
-            v = FAIL + 'UNAVAILABLE' + ENDC
     print(v.ljust(20-len(tag))+printTime(toc))
 
     # turbo

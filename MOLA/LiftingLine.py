@@ -78,7 +78,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     Constraint='Pitch', ConstraintValue=None, ValueTol=1.0,
     AttemptCommandGuess=[],
     PerturbationFields=None,
-    LiftingLineSolver='MOLA', StackOptions={}, WeightEqns=[],
+    StackOptions={}, WeightEqns=[],
     SourceTermScale=1.0, TipLossFactorOptions={}):
     '''
     Macro-function used to generate the ready-to-use BodyForce
@@ -143,9 +143,6 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
             These values typically comes from CFD.
 
-        LiftingLineSolver : str
-            The Lifting Line solver technique: ``'MOLA'`` or ``'PUMA'``
-
         StackOptions : dict
             Optional parameters to be passed to the function
             :py:func:`stackBodyForceComponent`
@@ -197,9 +194,6 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         addPerturbationFields([], PerturbationFields=PerturbationFields)
         return [] # BEWARE: CANNOT USE BARRIERS IN THIS FUNCTION FROM THIS LINE
 
-
-    usePUMA = LiftingLineSolver == 'PUMA'
-
     # this guarantees backwards compatibility
     if Constraint == 'Pitch':
         if Pitch is None:
@@ -226,10 +220,6 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         AttemptCommandGuess.append([0.95*InitialGuessCMD, 1.05*InitialGuessCMD])
         AttemptCommandGuess.append([0.90*InitialGuessCMD, 1.10*InitialGuessCMD])
         AttemptCommandGuess.append([0.85*InitialGuessCMD, 1.15*InitialGuessCMD])
-
-
-
-    if usePUMA: DIRECTORY_PUMA = 'PUMA_'+Propeller[0]
 
 
     isProp = checkComponentKind(Propeller,'Propeller')
@@ -328,57 +318,19 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
 
         return AvrgLoad-ConstraintValue/float(NBlades)
 
-
-    # PUMA LiftingLine solver :
-    def singleShotPUMA__(cmd):
-        '''
-        Single-shot private function. Enters a control command
-        (either Pitch or RPM, defined by CommandType) and returns
-        the 1-revolution averaged requested load residual:
-        Thrust (default)
-        Power (if Constraint=='Power')
-        '''
-        if CommandType == 'Pitch':
-            _,Thrust,Power=perturbateLiftingLineUsingPUMA(PerturbationDisk,
-                                            DIRECTORY_PUMA, RotCenter, RotAxis,
-                                            RightHandRuleRotation, NPtsAzimut,
-                                            RPM, cmd)
-
-        elif CommandType == 'RPM':
-            _,Thrust,Power=perturbateLiftingLineUsingPUMA(PerturbationDisk,
-                                            DIRECTORY_PUMA, RotCenter, RotAxis,
-                                            RightHandRuleRotation, NPtsAzimut,
-                                            cmd, Pitch)
-            RPM_n[1] = cmd
-
-        # TODO: UPDATE INFO NODES ON PROPELLER ?
-
-        if Constraint == 'Thrust':
-            return Thrust-ConstraintValue/float(NBlades)
-        elif Constraint == 'Power':
-            return Power-ConstraintValue/float(NBlades)
-
     if Constraint == 'Pitch':
         # Just 1 call required
-        if usePUMA:
-            PUMA_OUTPUT = perturbateLiftingLineUsingPUMA(PerturbationDisk,
-                                             DIRECTORY_PUMA, RotCenter, RotAxis,
-                                             RightHandRuleRotation, NPtsAzimut,
-                                             RPM, Pitch)
-            tLL, AvrgThrust, AvrgPower = PUMA_OUTPUT
-        else:
-            singleShotMOLA__(Pitch)
-            addPitch(tLL,Pitch)
+        singleShotMOLA__(Pitch)
+        addPitch(tLL,Pitch)
 
     elif Constraint in ('Power','Thrust'):
-        singleShotFcn = singleShotPUMA__ if usePUMA else singleShotMOLA__
         # SEARCH TRIM CONDITION
         AttMat = np.array(AttemptCommandGuess) # AttemptMatrix
         MinBound, MaxBound = AttMat.min(), AttMat.max()
         AttVals, AttCmds = [], []
 
         for a in AttemptCommandGuess:
-            sol = J.secant(singleShotFcn, x0=a[0], x1=a[1],
+            sol = J.secant(singleShotMOLA__, x0=a[0], x1=a[1],
                             ftol=ValueTol/NBlades,
                             bounds=(MinBound, MaxBound), maxiter=20)
             if sol['converged']:
@@ -399,25 +351,11 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         if CommandType == 'Pitch': Pitch = Trim
         elif CommandType == 'RPM': RPM = Trim
 
-        if usePUMA:
-            PUMA_OUTPUT=perturbateLiftingLineUsingPUMA(PerturbationDisk,
-                                         DIRECTORY_PUMA, RotCenter, RotAxis,
-                                         RightHandRuleRotation, NPtsAzimut,
-                                         RPM, Pitch)
-
-            tLL, AvrgThrust, AvrgPower = PUMA_OUTPUT
-
-        else:
-            singleShotMOLA__(Trim)
-            addPitch(tLL,Pitch)
+        singleShotMOLA__(Trim)
+        addPitch(tLL,Pitch)
 
     else:
         raise AttributeError("Could not recognize Constraint '%s'"%Constraint)
-
-
-    if not usePUMA:
-        AvrgThrust= np.mean([n[1] for n in I.getNodesFromName(tLL,'Thrust')])
-        AvrgPower = np.mean([n[1] for n in I.getNodesFromName(tLL,'Power')])
 
     AvrgThrust *= NBlades
     AvrgPower  *= NBlades
@@ -494,27 +432,24 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
             # LB TODO write more clearly:
             # f *= (dr * NBlades / ((Nj-1) * vol_tot_val))
 
+    AzimutalLoads = dict()
+    for ll in LLs:
+        LL_loads = J.get(ll,'.Loads')
+        for l in LL_loads:
+            try: AzimutalLoads[l].append( LL_loads[l] )
+            except KeyError: AzimutalLoads[l] = [ LL_loads[l] ]
 
-    if not usePUMA:
-        AzimutalLoads = dict()
-        for ll in LLs:
-            LL_loads = J.get(ll,'.Loads')
-            for l in LL_loads:
-                try: AzimutalLoads[l].append( LL_loads[l] )
-                except KeyError: AzimutalLoads[l] = [ LL_loads[l] ]
-
-        for l in AzimutalLoads:
-            AzimutalLoads[l] = np.array(AzimutalLoads[l])
+    for l in AzimutalLoads:
+        AzimutalLoads[l] = np.array(AzimutalLoads[l])
 
 
-        for elt in Propeller, Stacked:
-            J.set(elt,'.AzimutalLoads', **AzimutalLoads)
+    for elt in Propeller, Stacked:
+        J.set(elt,'.AzimutalLoads', **AzimutalLoads)
 
-        AzimutallyAveragedLoads = dict()
-        for l in AzimutalLoads:
-            AzimutallyAveragedLoads[l] =  np.mean( AzimutalLoads[l] ) * NBlades
-    else:
-        AzimutallyAveragedLoads = dict(Thrust=AvrgThrust, Power=AvrgPower)
+    AzimutallyAveragedLoads = dict()
+    for l in AzimutalLoads:
+        AzimutallyAveragedLoads[l] =  np.mean( AzimutalLoads[l] ) * NBlades
+
 
     for elt in Propeller, Stacked:
         J.set(elt,'.AzimutalAveragedLoads', **AzimutallyAveragedLoads)
@@ -2508,15 +2443,13 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
     '''
     Post-process a **LiftingLine** element using enhanced **PyZonePolars** data
     in order to build surface fields (like ``Cp``, ``theta``...) from a BEMT
-    solution *(or alternatively from PUMA solution converted into a LiftingLine
-    equivalent CGNS object with adequate renaming of fields)*.
+    solution.
 
     Parameters
     ----------
 
         LiftingLine : zone
-            Result of a BEMT computation (or PUMA result
-            adapted to CGNS following the same convention).
+            Result of a BEMT, VPM or BodyForce computation.
 
         PyZonePolars : :py:func:`list` of :py:func:`zone` or :py:class:`str`
             Enhanced **PyZonePolars** for each airfoil, containing also foilwise
@@ -4396,82 +4329,6 @@ def convertHOSTPolarFile2PyZonePolar(filename):
     return PyZonePolar
 
 
-def convertLiftingLine2PUMABladeDef(LiftingLine, PolarName2FileDict,
-                                    OutputFile='GeomBlade.py'):
-    """
-    Write PUMA's GeomBlade definition from a CGNS Lifting-Line CGNS object.
-
-    Parameters
-    ----------
-
-        LiftingLine : zone
-            lifting-line used for the conversion
-
-        PolarName2FileDict : dict
-            indicates the relative paths
-            of the HOST polars to the new GeomBlade python file.
-            The syntax is:
-
-            >>> PolarName2FileDict['<PolarName>'] = 'FullPathString'
-
-        OutputFile : str
-            name of the new GeomBlade python file
-    """
-    import pprint
-
-    Span,Sweep,Dihedral,Chord, Twist = J.getVars(LiftingLine,
-                                    ['Span','Sweep','Dihedral','Chord','Twist'])
-    s = W.gets(LiftingLine)
-
-    if Sweep is None:       Sweep = Span*0.
-    if Dihedral is None: Dihedral = Span*0.
-
-    Abscissa = I.getNodeFromName(LiftingLine,'Abscissa')[1]
-    PolarNames = I.getValue(I.getNodeFromName(LiftingLine,'PyZonePolarNames')).split()
-
-    # Build Airfoil list:
-    tol=1.e-6
-    NPts = len(s)
-    AirfoilsList = [PolarNames[0]]
-    j = 1
-    for i in range(1,NPts):
-        if s[i]+tol >= Abscissa[j]:
-            AirfoilsList += [PolarNames[j]]
-            j+=1
-        else:
-            AirfoilsList += [None]
-
-
-    # Make MainBodyText
-    MainBodyText = "'''\nPUMA GeomBlade.py file automatically generated by MOLA's LiftingLine\nmodule from CGNS Lifting Line object named: '%s'.\n'''\n\nimport sys\nimport numpy as np\nimport PUMA.Fluid as Fluid\n\n"%LiftingLine[0]
-
-
-    MainBodyText += "def GetBladeDef():\n\n"
-    for pn in PolarNames:
-        MainBodyText += "    %s=Fluid.AirfoilTable_HOST('%s')\n"%(pn, PolarName2FileDict[pn])
-
-    width = 0
-    MainBodyText+="\n    BladeDef={\n"
-    MainBodyText+="'Span':%s,\n\n"%(pprint.pformat(Span.tolist(),width))
-    MainBodyText+="'Airfoil':%s,\n\n"%(pprint.pformat(AirfoilsList,width).replace("'",""))
-    MainBodyText+="'Chord':%s,\n\n"%(pprint.pformat(Chord.tolist(),width))
-    MainBodyText+="'Sweep':%s,\n\n"%(pprint.pformat((-Sweep).tolist(),width))
-    MainBodyText+="'Dihedral':%s,\n\n"%(pprint.pformat(Dihedral.tolist(),width))
-    MainBodyText+="'Twist':%s,\n\n"%(pprint.pformat(Twist.tolist(),width))
-    MainBodyText+="\n             }\n\n"
-
-
-
-    MainBodyText+="\n    return BladeDef\n\n"
-
-    MainBodyText+="if __name__=='__main__': GetBladeDef()\n"
-
-    print ('Writing %s...'%OutputFile)
-    with open(OutputFile,'w') as f: f.write(MainBodyText)
-    os.chmod(OutputFile, 0o755)
-    print ('done')
-
-
 def getLocalBodyForceInputData(BodyForceInputData):
     '''
     .. warning:: Private function.
@@ -4514,7 +4371,7 @@ def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
     .. attention:: this is a private function employed in BODYFORCE technique.
 
     It builds and append local objects used for bodyforce (propeller,
-    lifting-lines, interpolators, PUMA folders and files if PUMA is used)
+    lifting-lines, interpolators)
 
     Parameters
     ----------
@@ -4603,11 +4460,6 @@ def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
         Propeller[0] = RotorName
         Rotor['Propeller'] = Propeller
 
-        try: usePUMA = Rotor['buildBodyForceDiskOptions']['LiftingLineSolver'] == 'PUMA'
-        except KeyError: usePUMA = False
-
-        if usePUMA:
-            raise ValueError(J.FAIL+'LiftingLineSolver="PUMA" deprecated, use "MOLA" instead'+J.ENDC)
 
 def getNumberOfSerialRuns(BodyForceInputData, NumberOfProcessors):
     '''
@@ -4712,63 +4564,8 @@ def write4Debug(MSG):
     import Converter.Mpi as Cmpi
     with open('LOGS/rank%d.log'%Cmpi.rank,'a') as f: f.write('%s\n'%MSG)
 
-
-def prepareComputeDirectoryPUMA(FILE_LiftingLine, FILE_Polars,
-        DIRECTORY_PUMA='PUMA_DIR', GeomBladeFilename='GeomBlade.py',
-        OutputFileNamePreffix='HOST_'):
-    '''
-    This function is used for creating a working directory and files
-    required by PUMA from CGNS objects employed by MOLA.
-
-    Parameters
-    ----------
-
-        FILE_LiftingLine : str
-            full path of CGNS file containing the LiftingLine
-
-        FILE_Polars : str
-            full path of CGNS file containing the 2D polars data
-
-        DIRECTORY_PUMA : str
-            name of the new working directory that will contain relevant PUMA files
-
-        GeomBladeFilename : str
-            name of the python file where the BladeDef dictionary required by
-            PUMA is writen
-
-        OutputFileNamePreffix : str
-            A preffix to append to the name of the HOST files
-
-    Returns
-    -------
-
-        None : None
-            files created in **DIRECTORY_PUMA**
-    '''
-
-    if not os.path.isdir(DIRECTORY_PUMA): os.makedirs(DIRECTORY_PUMA)
-
-    LiftingLine = C.convertFile2PyTree(FILE_LiftingLine)
-    LiftingLine, = I.getZones(LiftingLine)
-
-    Polars = C.convertFile2PyTree(FILE_Polars)
-
-    PolarName2FileDict = {}
-    for polarZone in I.getZones(Polars):
-        PolarName2FileDict[polarZone[0]] = os.path.join(DIRECTORY_PUMA,
-                                            OutputFileNamePreffix+polarZone[0])
-
-    convertLiftingLine2PUMABladeDef(LiftingLine,PolarName2FileDict,
-                    OutputFile=os.path.join(DIRECTORY_PUMA,GeomBladeFilename))
-
-    convertPolarsCGNS2HOSTformat(Polars,
-                                 DIRECTORY_SAVE=DIRECTORY_PUMA,
-                                 OutputFileNamePreffix=OutputFileNamePreffix)
-
-
-
 def convertPolarsCGNS2HOSTformat(PyZonePolars,
-                                 DIRECTORY_SAVE='PUMA_DIR',
+                                 DIRECTORY_SAVE='POLARS',
                                  OutputFileNamePreffix='HOST_'):
     '''
     This function performs a conversion from CGNS *PyZonePolar* files towards
@@ -4895,211 +4692,6 @@ def convertPolarsCGNS2HOSTformat(PyZonePolars,
         os.chmod(FileFullPath, 0o755)
 
 
-
-def perturbateLiftingLineUsingPUMA(perturbationField, DIRECTORY_PUMA,
-        RotationCenter, RotationAxis, RightHandRuleRotation,
-        NumberOfAzimutalPoints, RPM, Pitch):
-    '''
-
-    .. warning:: this private function is employed in the BODYFORCE context
-        using PUMA.
-
-    This function employs PUMA for making the perturbation and inferring
-    LiftingLine's local section characteristics and blade's integral arrays
-
-    Parameters
-    ----------
-
-        perturbationField : zone
-            Perturbation disk as obtained from :py:func:`addPerturbationFields`
-            function
-
-        DIRECTORY_PUMA : str
-            path of the working directory where PUMA is executed
-
-        RotationCenter : :py:class:`tuple` of 3 :py:class:`float`
-            Rotation Center location coordinates :math:`(x,y,z)` of the rotor
-
-        RotationAxis : :py:class:`tuple` of 3 :py:class:`float`
-            Rotation Axis direction :math:`(x,y,z)` of the rotor
-
-        RightHandRuleRotation : bool
-            :py:obj:`True` if right hand rule convention rotation around
-            **RotationAxis**
-
-        NumberOfAzimutalPoints : int
-            discretization of the disk
-
-        RPM : float
-            revolution per minute of the blade
-
-        Pitch : float
-            employed pitch of the blades
-    '''
-
-    from .RotatoryWings import getEulerAngles4PUMA
-    from .GenerativeVolumeDesign import stackSurfacesWithFields
-    silence = J.OutputGrabber()
-    with silence:
-        import PUMA
-
-    Density = C.getMeanValue(perturbationField,'Density')
-    Temperature = C.getMeanValue(perturbationField,'Temperature')
-
-    tPF = I.copyRef(perturbationField)
-
-    Fields2Keep = ['VelocityInducedX', 'VelocityInducedY', 'VelocityInducedZ']
-    Fields2Remove = []
-    for field in I.getNodeFromName(tPF,'FlowSolution')[2]:
-        FieldName = I.getName(field)
-        if FieldName not in Fields2Keep:
-            Fields2Remove.append(FieldName)
-    for FieldName in Fields2Remove: I._rmNodesByName(tPF, FieldName)
-
-    I._renameNode(tPF, 'VelocityInducedX', 'VelocityX')
-    I._renameNode(tPF, 'VelocityInducedY', 'VelocityY')
-    I._renameNode(tPF, 'VelocityInducedZ', 'VelocityZ')
-
-    PerturbationZone, = I.getZones(tPF)
-    Vx,Vy,Vz = J.getVars(PerturbationZone,['VelocityX','VelocityY','VelocityZ'])
-    # Vx *= -1
-    # Vy *= -1
-    # Vz *= -1
-    for v in [Vx, Vy, Vz]:
-        isNotFinite = np.logical_not(np.isfinite(v))
-        v[isNotFinite] = 0.
-
-    if not RightHandRuleRotation: #MODIF debug counter
-        tPF=T.reorder(tPF, (1,-2,3)) #MODIF debug counter
-
-    TrailingEdge = T.translate(tPF,(-RotationAxis[0],
-                                    -RotationAxis[1],
-                                    -RotationAxis[2]))
-
-    LeadingEdge = T.translate(tPF,(RotationAxis[0],
-                                   RotationAxis[1],
-                                   RotationAxis[2]))
-
-    TrailingEdge, = I.getZones(TrailingEdge)
-    LeadingEdge, = I.getZones(LeadingEdge)
-    VolumePerturbation = stackSurfacesWithFields(TrailingEdge, LeadingEdge,
-                                                     np.array([0.0,1.0]))
-
-
-    PUMADir = DIRECTORY_PUMA
-
-    BladeGeom = J.load_source('Geom', os.path.join(PUMADir,'GeomBlade.py'))
-    BladeDef = BladeGeom.GetBladeDef()
-
-    Pb = PUMA.Problem('Propeller')
-    Pb.set('OutputDir',PUMADir)
-    Pb.set('FreeStream',dict(VelocityX=0.0,
-                             VelocityY=0.0,
-                             VelocityZ=0.0,
-                             Density=Density,
-                             Temperature=Temperature))
-
-    Wake=Pb.add_Wake('Wake', Prescribed_Opt=True)
-    Wake.set('NbAges', 0)
-    Wake.attachFroudeVelocity(dict(VelocityX=0.0,VelocityY=0.0,VelocityZ=0.0,))
-
-    EulerAngles = getEulerAngles4PUMA(RotationAxis)
-    ModelSupport=Pb.add_Root('ModelSupport',State={
-        'CoordinateX':RotationCenter[0],
-        'CoordinateY':RotationCenter[1],
-        'CoordinateZ':RotationCenter[2],
-        'Phi':EulerAngles[0],
-        'Theta':EulerAngles[1],
-        'Psi':EulerAngles[2]})
-    print('EulerAngles:')
-    print(EulerAngles)
-    ModelSupport.Cmds.set('Motion',{'VelocityX':0.,'VelocityY':0.,'VelocityZ':0.})
-
-    Direct = 1 if RightHandRuleRotation else -1
-
-    Prop = ModelSupport.add_Propeller('Prop',
-                                      [[0,0,0], [0,0,0]],
-                                      Direct=Direct)
-
-    NBlades = 1
-    Prop.add_Blades(NBlades, Aerodynamics=dict(Definition=BladeDef,
-                                               IndVeloModel=Wake,
-                                               NbSections=50,
-                                               Options=dict(
-                                                    Interpolate='linear',
-                                                    Correction3D='Mach_Wind',
-                                                    Boundaries=[False, False],
-                                                    BoundMach=0.9)))
-
-    # These are direct arguments of the function:
-    Prop.Cmds.set('Omega',RPM)
-
-    Num=Pb.get_Numerics()
-    Dpsi = 360.0 / float(NumberOfAzimutalPoints-1)
-    TimeStep = float(Dpsi)/(360.*RPM/60.)
-    Num.set('TimeStep',TimeStep)
-    Num.set('NbSubIterations',1)
-
-    Pb.set('PerturbationField',VolumePerturbation)
-    Prop.Cmds.set('Pitch',Pitch)
-    Pb.initialize()
-
-    Niters = NumberOfAzimutalPoints
-    LLs = []
-    for it in range(Niters):
-        Pb.advance(TimeStep)
-
-        CurrentLiftingLine = Pb.Fluid.objects['LiftingElement'][0]
-
-        LLgeom = CurrentLiftingLine.getGeom3D()
-        LLgeom = I.copyTree(I.getNodeFromName(LLgeom,'QC'))
-        LLfields = I.copyTree(Prop.Blades.Blades[0].Fluid.BladeLLSectionalLoads.getDataAsTree())
-        FlowSol_n = I.getNodeFromName(LLfields,'FlowSolution')
-        LLgeom[2].append(FlowSol_n)
-
-        NewVars = ['ForceX', 'ForceY', 'ForceZ',
-                   'ForceTangential', 'ForceAxial', 'VelocityTangential',
-                   'Density',
-                   'MomentumX',
-                   'MomentumY',
-                   'MomentumZ',
-                   'EnergyStagnationDensity']
-        v = J.invokeFieldsDict(LLgeom, NewVars)
-        print ("euler angles")
-        print((EulerAngles[0],EulerAngles[1],EulerAngles[2]))
-        # updateLocalFrame(LLgeom, RotationAxis, RightHandRuleRotation) # REMOVED
-        FxMBS,FzMBS,VYLL=J.getVars(LLgeom,['Fx_Rotor_MBS_Prop',
-                                           'Fz_Rotor_MBS_Prop',
-                                           'VY_LL'])
-
-
-        v['Density'][:] = Density
-        v['VelocityTangential'][:] = np.abs(VYLL)
-        v['ForceTangential'][:] = (-Direct)*FzMBS
-        v['ForceAxial'][:] =  FxMBS
-
-        v['ForceX'][:] = v['ForceAxial']*RotationAxis[0] - v['ForceTangential']*v['bx']
-        v['ForceY'][:] = v['ForceAxial']*RotationAxis[1] - v['ForceTangential']*v['by']
-        v['ForceZ'][:] = v['ForceAxial']*RotationAxis[2] - v['ForceTangential']*v['bz']
-
-        PitchField, Span = J.getVars(LLgeom, ['Pitch', 'Span'])
-        Twist, = J.invokeFields(LLgeom, ['Twist'])
-        Twist[:] = J.interpolate__(Span, BladeDef['Span'], BladeDef['Twist'])
-        Twist += Direct*PitchField
-
-        LLs += [LLgeom]
-
-
-    Pb.finalize()
-
-    AvrgThrust = np.mean(Prop.LoadsBuff.Data['Thrust'])
-    AvrgPower = np.mean(Prop.LoadsBuff.Data['Power'])
-
-    tLL = C.newPyTree(['Base',I.getZones(LLs)])
-    I._correctPyTree(tLL, level=3)
-
-
-    return tLL, AvrgThrust, AvrgPower
 
 def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
     IntegralLaw='linear'):

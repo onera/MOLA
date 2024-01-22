@@ -403,7 +403,7 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
     # 6. Apply the Dihedral using a Translation along tangent.
     # 7. Put sections along span.
 
-    DistributionResult = {} # Here the 1D data of the distributions will be stored as PUMA-compatible dictionnary.
+    DistributionResult = {}
 
     # STEP 0: Re-descretize airfoils if required
     if AirfoilDiscretization is not None:
