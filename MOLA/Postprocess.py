@@ -1497,16 +1497,59 @@ def isoSurface(t, fieldname=None, value=None, container='FlowSolution#Init'):
     
     return surfs
 
+def isoSurfaceAllGather(t, fieldname, value, container='FlowSolution#Init', localComm=comm):
+    '''
+    Extract an iso surface for a given **value** of **fieldname**. The extraction is gathered on all ranks.
+
+    Parameters
+    ----------
+        t : PyTree
+            Current tree
+
+        fieldname : str
+                name of the field used for making the iso-surface. It can be the
+                coordinates names such as ``'CoordinateX'``, ``'CoordinateY'`` or 
+                ``'CoordinateZ'`` (in such cases, parameter **container** is ignored)
+
+        value : float
+            value used for computing the iso-surface of field **fieldname**
+
+        container : str
+            name of the *FlowSolution_t* CGNS container where the field
+            **fieldname** is contained. This parameter is ignored if **fieldname**
+            is a coordinate.
+
+    Returns
+    -------
+        PyTree
+            2D surface, gathered on all ranks.
+
+    '''
+    zones = isoSurface(t, fieldname=fieldname, value=value, container=container)
+    # Put zones in a top tree
+    LocalSurface = I.newCGNSTree()
+    base = I.newCGNSBase('Base', parent=LocalSurface)
+    I._addChild(base, zones)
+    # Share information on all ranks
+    trees = localComm.allgather( LocalSurface )
+    GlobalSurface = I.merge(trees)
+    localComm.barrier()
+
+    if len(I.getZones(GlobalSurface)) == 0: 
+        raise Exception(J.FAIL +f'Error in the extraction of the all-gathered iso-surface for {fieldname}={value} in {container}'+ J.ENDC) 
+
+    return GlobalSurface
+
 def convertToTetra(t):
     tR = I.copyRef(t)
-    fs_per_zone = []
+    fs_per_zone = dict()
     for z in I.getZones(tR):
-        fs_per_zone += [ I.getNodesFromType3(t, 'FlowSolution_t') ]
+        fs_per_zone[z[0]] = I.getNodesFromType1(z, 'FlowSolution_t')
         I._rmNodesFromType1(z, 'FlowSolution_t')
     tetra = C.convertArray2Tetra(tR)
 
-    for z, fs_at_zone in zip( I.getZones(tetra), fs_per_zone ):
-        z[2].extend( fs_at_zone )
+    for z in I.getZones(tetra):
+        z[2].extend( fs_per_zone[z[0]] )
 
     return tetra
 

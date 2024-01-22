@@ -105,13 +105,15 @@ for each row:
 
 .. code-block:: python 
 
-    BodyForceInputData = dict(
-    R37 = dict(
-        model='hall',
-    ))
+    BodyForceInputData = [
+            dict(
+                Family = 'R37',
+                BodyForceParameters = dict(model = 'HallThollet')
+            ),
+        ]
     
 
-The available models are:
+The main available models are:
 
 * 'blockage': blockage term Sb.
 
@@ -119,7 +121,7 @@ The available models are:
   Thollet: compressibility and viscous loss based on a analytical friction coefficient.
   The quadratic loss term based on the flow angle is not taken into account. 
 
-* 'hall': a macro to give `['blockage', 'hall_without_blockage']`
+* 'HallThollet': a macro to give `['blockage', 'hall_without_blockage']`
 
 * 'EndWallsProtection': a protection function near end walls. The distance defined in height percentage with 
   the additional parameter `ProtectedHeight` (by default 0.05).
