@@ -1231,7 +1231,7 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
 
 
 def buildLiftingLineFromScan(t, Span, resetPitchRelativeSpan=0.75,
-        GeometricalLawsInterpolations={}, OverridingKinematics={}, ):
+        GeometricalLawsInterpolations={}, OverridingKinematics={}):
     '''
     This function takes as input the result of :py:func:`MOLA.GenerativeShapeDesign.scanBlade`
     and builds a LiftingLine in its canonical position. The resulting LiftingLine
@@ -1323,9 +1323,10 @@ def buildLiftingLineFromScan(t, Span, resetPitchRelativeSpan=0.75,
     FinalFrame = [(1,0,0),(0,1,0),(0,0,1)]
     InitialFrame = [tuple(scan_info['PitchAxis']),
         tuple(np.cross(Dir*scan_info['RotationAxis'],scan_info['PitchAxis'])),
-        tuple(-Dir*scan_info['RotationAxis'])]
+        tuple(Dir*scan_info['RotationAxis'])]
     T._rotate(BladeLine, (0,0,0), InitialFrame, FinalFrame,
         vectors=NamesOfChordSpanThickwiseFrameNoTangential)
+
 
     # determine the pitch of the blade-line
     Twist, SpanScan = J.getVars(BladeLine,['Twist','Span'])
@@ -1341,6 +1342,7 @@ def buildLiftingLineFromScan(t, Span, resetPitchRelativeSpan=0.75,
     PitchAxis_vec = (PitchAxis[0][0]*Dir, PitchAxis[1][0]*Dir, PitchAxis[2][0]*Dir)
     T._rotate(BladeLine, PitchCtr_pt, PitchAxis_vec, -pitch, 
             vectors=NamesOfChordSpanThickwiseFrameNoTangential)
+    
     
     # INFER SWEEP AND DIHEDRAL FROM COORDINATES
     _, y, z = J.getxyz(BladeLine)
@@ -1369,20 +1371,37 @@ def buildLiftingLineFromScan(t, Span, resetPitchRelativeSpan=0.75,
             GeometricalLawsDict[geom]['InterpolationLaw'] = 'interp1d_linear'       
 
     # Create the lifting line
+    if not RightHandRuleRotation: mirrorBlade(BladeLine)
     PitchCtr = J.getVars(BladeLine,
         ['PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ'])
     PitchAxis = J.getVars(BladeLine, ['PitchAxisX','PitchAxisY','PitchAxisZ'])
     PitchCtr_pt = (PitchCtr[0][0]*1.0, PitchCtr[1][0]*1.0, PitchCtr[2][0]*1.0)
-    PitchAxis_vec = (PitchAxis[0][0]*Dir, PitchAxis[1][0]*Dir, PitchAxis[2][0]*Dir)
+    PitchAxis_vec = (PitchAxis[0][0]*1.0, PitchAxis[1][0]*1.0, PitchAxis[2][0]*1.0)
     if isinstance(Span,int): Span=np.linspace(SpanScan.min(), SpanScan.max(), Span)
     LiftingLine = buildLiftingLine(Span, RightHandRuleRotation=RightHandRuleRotation,
         PitchRelativeCenter=PitchCtr_pt, PitchAxis=PitchAxis_vec,
         RotationCenter=[0,0,0], **GeometricalLawsDict)
 
+
+    # propagate kinematics information, but keep canonical position
+    scan_info['RotationAxis'] *= Dir # since in kinematics it is actually ThrustAxis
+    scan_info.update(OverridingKinematics)
+    del scan_info['PitchAxis']
+    setKinematicsUsingConstantRotationAndTranslation(LiftingLine, **scan_info)
+
     # CONSTRUCT COORDINATE-ONLY PYZONE POLARS
-    # RETURN LIFTINGLINE AND PYZONEPOLARS
+    PyZonePolarsGeometryOnly = []
+    for zone in I.getZones(I.getNodeFromName1(t,'BaseNormalizedAirfoils')):
+        airfoil = I.copyRef(zone)
+        node = I.getNodeFromName1(airfoil, 'GridCoordinates')
+        node[0] = '.Polar#FoilGeometry'
+        node[3] = 'UserDefinedData_t'
+        I._rmNodesByName1(node,'CoordinateZ')
+        I._rmNodesByType1(airfoil,'FlowSolution_t')
+        PyZonePolarsGeometryOnly.append(airfoil)
     
-    return LiftingLine
+
+    return LiftingLine, PyZonePolarsGeometryOnly, pitch
 
 def checkComponentKind(component, kind='LiftingLine'):
     '''
@@ -4997,8 +5016,11 @@ def mirrorBlade(LiftingLine):
     C._initVars(LiftingLine,'{SpanwiseY}=-{SpanwiseY}')
     C._initVars(LiftingLine,'{ThickwiseY}=-{ThickwiseY}')
     C._initVars(LiftingLine,'{PitchRelativeCenterY}=-{PitchRelativeCenterY}')
-    C._initVars(LiftingLine,'{PitchAxisY}=-{PitchAxisY}')
     C._initVars(LiftingLine,'{TangentialY}=-{TangentialY}')
+
+    C._initVars(LiftingLine,'{PitchAxisX}=-{PitchAxisX}')
+    C._initVars(LiftingLine,'{PitchAxisY}=-{PitchAxisY}')
+    C._initVars(LiftingLine,'{PitchAxisZ}=-{PitchAxisZ}')
 
 
 def addPitch(LiftingLine, pitch=0.0):
@@ -5044,3 +5066,47 @@ def addPitch(LiftingLine, pitch=0.0):
         PitchAxis_vec = (PitchAxis[0][0]*Dir, PitchAxis[1][0]*Dir, PitchAxis[2][0]*Dir)
         T._rotate(LL, PitchCtr_pt, PitchAxis_vec, pitch, 
                 vectors=NamesOfChordSpanThickwiseFrameNoTangential)
+        
+def getLocalFrameLines(LiftingLines, Length=0.05):
+    '''
+    Construct the Chordwise, Thickwise, Spanwise lines at LiftingLines for 
+    verification purposes (visualization)
+
+    Parameters
+    ----------
+
+        LiftingLines : PyTree, Base, Zone or :py:class:`list` of zone
+            variable including LitingLine objects
+
+        Length : float
+            dimension of the lines used for visualization
+
+    Returns
+    -------
+
+        Lines : :py:class:`list` of zones
+            lines of the frame, ready for visualization        
+    '''
+    Lines = []
+    for LiftingLine in getLiftingLines(LiftingLines):
+        xyz = np.vstack(J.getxyz(LiftingLine))
+        chordwise = np.vstack(J.getVars(LiftingLine,['Chordwise'+i for i in 'XYZ']))
+        spanwise  = np.vstack(J.getVars(LiftingLine,[ 'Spanwise'+i for i in 'XYZ']))
+        thickwise = np.vstack(J.getVars(LiftingLine,['Thickwise'+i for i in 'XYZ']))
+
+        for i in range(C.getNPts(LiftingLine)):
+            chordwise_line = D.line(tuple(xyz[:,i]),tuple(xyz[:,i]+chordwise[:,i]*Length),2)
+            chordwise_line[0] = 'Chordwise.%d'%i
+            Lines += [chordwise_line]
+
+            spanwise_line = D.line(tuple(xyz[:,i]),tuple(xyz[:,i]+spanwise[:,i]*Length),2)
+            spanwise_line[0] = 'Spanwise.%d'%i
+            Lines += [spanwise_line]
+
+            thickwise_line = D.line(tuple(xyz[:,i]),tuple(xyz[:,i]+thickwise[:,i]*Length),2)
+            thickwise_line[0] = 'Thickwise.%d'%i
+            Lines += [chordwise_line, spanwise_line, thickwise_line]
+
+    I._correctPyTree(Lines,level=3)
+    return Lines
+
