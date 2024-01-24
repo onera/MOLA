@@ -371,6 +371,16 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
 
     # Verify the Geometrical variables arguments
     if 'Airfoil' not in GeometricalParameters: raise AttributeError('wing(): Requires at least one Airfoil')
+    AirfoilList = kwargs['Airfoil']['Airfoil']
+
+    anyOpen = False
+    anyClosed = False
+    for airfoil in AirfoilList:
+        if W.isCurveClosed(airfoil): anyClosed = True
+        else: anyOpen = True
+        if anyOpen == anyClosed == True: 
+            raise AttributeError('provided airfoils must be all closed or all open')
+
     for GeomParam in kwargs:
         for MustKey in ['RelativeSpan','InterpolationLaw',GeomParam]:
             if MustKey not in kwargs[GeomParam]: raise AttributeError('wing(): Airfoil dictionnary MUST contain "%s" key.'%MustKey)
@@ -384,10 +394,15 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
 
     if AirfoilDiscretization is None:
         # Verify if all airfoils have the same number of points:
-        AirfoilList = kwargs['Airfoil']['Airfoil']
         ListOfNPts = np.array([C.getNPts(a) for a in AirfoilList])
         NPts = ListOfNPts[0]
-        if not all(NPts == ListOfNPts): raise AttributeError('wing(): All Airfoils MUST have the SAME number of points.')
+        if not all(NPts == ListOfNPts):
+            msg = 'WARNING: GSD.wing(): all Airfoils MUST have the SAME number of points.\n'
+            msg+= 'Adjust using AirfoilDiscretization if required.\n'
+            msg+= 'Will impose same number of points using first airfoil distribution.'
+            print(J.WARN+msg+J.ENDC)
+            AirfoilList = W.useEqualNumberOfPointsOrSameDiscretization(AirfoilList)
+            NPts = C.getNPts(AirfoilList[0])
     # ----------------- END OF VERIFICATIONS ----------------- #
 
 
@@ -408,136 +423,28 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
     # STEP 0: Re-descretize airfoils if required
     if AirfoilDiscretization is not None:
         # Start with a re-discretization of airfoils
-        AirfoilList = kwargs['Airfoil']['Airfoil']
         for i in range(len(AirfoilList)):
             AirfoilList[i] = W.discretizeAirfoil(AirfoilList[i], **AirfoilDiscretization)
 
         # Verify if all airfoils have the same number of points:
         ListOfNPts = np.array([C.getNPts(a) for a in AirfoilList])
         NPts = ListOfNPts[0]
-        if not all(NPts == ListOfNPts): raise AttributeError('wing(): All Airfoils MUST have the SAME number of points.')
+        if not all(NPts == ListOfNPts):
+            raise ValueError(J.FAIL+'FATAL: airfoils after rediscretization do not have same nb of pts. Please notify bug'+J.ENDC)
 
 
-    # STEP 1: Interpolate each airfoil.
-    #         This step is mandatory.
-    # Sections = map(lambda s: D.line((0,0,0),(1,0,0),NPts),range(Ns)) # Invoke all sections
-
-    Sections = [D.line((0,0,0),(1,0,0),NPts) for isec in range(Ns)] # Invoke all sections
     Spine = D.line((0,0,0),(1,0,0),Ns)
     SpineX, SpineY, SpineZ = J.getxyz(Spine)
 
-    # Make the interpolation matrices based upon the PROVIDED sections
-    GeomParam = 'Airfoil'
-    FoilInterpLaw = kwargs[GeomParam]['InterpolationLaw'].lower()
-    if FoilInterpLaw == 'interp1d_linear':
-        FoilInterpLaw = 'rectbivariatespline_1'
-    elif FoilInterpLaw == 'interp1d_quadratic':
-        FoilInterpLaw = 'rectbivariatespline_2'
-    elif FoilInterpLaw in ['interp1d_cubic', 'pchip', 'akima', 'cubic']:
-        FoilInterpLaw = 'rectbivariatespline_3'
+    # STEP 1: Interpolate each airfoil: this step is mandatory.
+    order = J._inferOrderFromInterpLawName(kwargs['Airfoil']['InterpolationLaw'])
+    Airfoils = kwargs['Airfoil']['Airfoil']
+    Positions = kwargs['Airfoil']['RelativeSpan']
 
-    NinterFoils = len(kwargs[GeomParam]['Airfoil'])
-    if FoilInterpLaw.startswith('rectbivariatespline'):
-        RediscretizedAirfoils = [kwargs[GeomParam]['Airfoil'][0]]
-        foil_Distri = D.getDistribution(RediscretizedAirfoils[0])
-        for foil in kwargs[GeomParam]['Airfoil'][1:]:
-            RediscretizedAirfoils += [G.map(foil, foil_Distri)]
-    else:
-        RediscretizedAirfoils = kwargs[GeomParam]['Airfoil']
-
-
-    InterpXmatrix = np.zeros((NinterFoils,NPts),dtype=np.float64,order='F')
-    InterpYmatrix = np.zeros((NinterFoils,NPts),dtype=np.float64,order='F')
-    for j in range(NinterFoils):
-        InterpXmatrix[j,:] = J.getx(RediscretizedAirfoils[j])
-        InterpYmatrix[j,:] = J.gety(RediscretizedAirfoils[j])
-
-    if FoilInterpLaw.startswith('rectbivariatespline'):
-        u = W.gets(RediscretizedAirfoils[0])
-        v = kwargs[GeomParam]['RelativeSpan']
-        order = int(FoilInterpLaw[-1])
-        interpX = scipy.interpolate.RectBivariateSpline(v,u,InterpXmatrix,
-                                                        kx=order, ky=order)
-        interpY = scipy.interpolate.RectBivariateSpline(v,u,InterpYmatrix,
-                                                        kx=order, ky=order)
-
-        InterpolatedX = interpX(RelWingSpan, u)
-        InterpolatedY = interpY(RelWingSpan, u)
-
-        for j in range(Ns):
-            Section = Sections[j]
-            SecX,SecY = J.getxy(Section)
-            SecX[:] = InterpolatedX[j,:]
-            SecY[:] = InterpolatedY[j,:]
-
-
-    elif 'interp1d' in kwargs[GeomParam]['InterpolationLaw'].lower():
-        ScipyLaw = kwargs[GeomParam]['InterpolationLaw'].split('_')[1]
-        interpX = scipy.interpolate.interp1d( kwargs[GeomParam]['RelativeSpan'],
-                                                InterpXmatrix, axis=0,
-                                                kind=ScipyLaw,
-                                                bounds_error=False,
-                                                fill_value='extrapolate')
-        interpY = scipy.interpolate.interp1d( kwargs[GeomParam]['RelativeSpan'],
-                                                InterpYmatrix,
-                                                axis=0,
-                                                kind=ScipyLaw,
-                                                bounds_error=False,
-                                                fill_value='extrapolate')
-        for j in range(Ns):
-            Section = Sections[j]
-            SecX,SecY = J.getxy(Section)
-            SecX[:] = interpX(RelWingSpan[j])
-            SecY[:] = interpY(RelWingSpan[j])
-    elif 'pchip' == kwargs[GeomParam]['InterpolationLaw'].lower():
-        interpX = scipy.interpolate.PchipInterpolator( kwargs[GeomParam]['RelativeSpan'],
-                                                InterpXmatrix,
-                                                axis=0,
-                                                extrapolate=True)
-        interpY = scipy.interpolate.PchipInterpolator( kwargs[GeomParam]['RelativeSpan'],
-                                                InterpYmatrix,
-                                                axis=0,
-                                                extrapolate=True)
-        for j in range(Ns):
-            Section = Sections[j]
-            SecX,SecY = J.getxy(Section)
-            SecX[:] = interpX(RelWingSpan[j])
-            SecY[:] = interpY(RelWingSpan[j])
-    elif 'akima' == kwargs[GeomParam]['InterpolationLaw'].lower():
-        interpX = scipy.interpolate.Akima1DInterpolator( kwargs[GeomParam]['RelativeSpan'],
-                                                        InterpXmatrix,
-                                                        axis=0)
-        interpY = scipy.interpolate.Akima1DInterpolator( kwargs[GeomParam]['RelativeSpan'],
-                                                        InterpYmatrix,
-                                                        axis=0)
-        for j in range(Ns):
-            Section = Sections[j]
-            SecX,SecY = J.getxy(Section)
-            SecX[:] = interpX(RelWingSpan[j],extrapolate=True)
-            SecY[:] = interpY(RelWingSpan[j],extrapolate=True)
-    elif 'cubic' == kwargs[GeomParam]['InterpolationLaw'].lower():
-        try: bc_type = kwargs[GeomParam]['CubicSplineBoundaryConditions']
-        except KeyError: bc_type = 'not-a-knot'
-        interpX = scipy.interpolate.CubicSpline( kwargs[GeomParam]['RelativeSpan'],
-                                                InterpXmatrix,
-                                                axis=0,
-                                                bc_type=bc_type,
-                                                extrapolate=True)
-        interpY = scipy.interpolate.CubicSpline( kwargs[GeomParam]['RelativeSpan'],
-                                                InterpYmatrix,
-                                                axis=0,
-                                                bc_type=bc_type,
-                                                extrapolate=True)
-        for j in range(Ns):
-            Section = Sections[j]
-            SecX,SecY = J.getxy(Section)
-            SecX[:] = interpX(RelWingSpan[j],extrapolate=True)
-            SecY[:] = interpY(RelWingSpan[j],extrapolate=True)
-    else:
-        raise AttributeError('wing(): InterpolationLaw %s not recognized.\nAllowed values are: %s.'%(kwargs[GeomParam]['InterpolationLaw'],str(AllowedInterpolationLaws)))
+    Sections = W.interpolateAirfoils(Airfoils, Positions, RelWingSpan, order=order)
 
     # STEP 2: Modify each airfoil based upon the distributions
-    # contained in AirfoilParameters tupple. Optional step.
+    # contained in AirfoilParameters tuple. Optional step.
     AirfoilParameters = ('Chord',
                          'MaxThickness',
                          'MaxRelativeThickness',
@@ -3944,3 +3851,5 @@ def getSectionsForAutogrid(mesh, indexLE=None):
             Blades[bladeName]['pressure'].append(coordsPS)
     
     return Blades
+
+

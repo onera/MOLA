@@ -2332,31 +2332,50 @@ def pyZonePolar2AirfoilZone(pyzonename, PyZonePolars):
     Parameters
     ----------
 
-        pyzonename : str
-            name to be employed in new curve zone defining the airfoil geometry.
+        pyzonename : :py:class:`str` or :py:class:`list` of :py:class:`str`
+            name(s) to be employed in new curve(s) zone(s) defining the airfoil
+            geometry.
 
-        PyZonePolars : :py:class:`list` of zone
+        PyZonePolars : :py:class:`list` of zone or :py:class:`str`
             list of special **PyZonePolar** zones
             containing 2D polar information as well as the geometry. Specifically,
             the polars must contain the node ``.Polar#FoilGeometry`` with the
             children nodes ``CoordinateX`` and ``CoordinateY``.
 
+            .. hint:: 
+                if **PyZonePolars** is a :py:class:`str`, then it will be
+                interpreted as a file name, and it will attempt to open it and
+                return the zones
+
     Returns
     -------
 
-        AirfoilGeom : zone
-            the 1D curve of the airfoil.
+        AirfoilGeom : zone or :py:class:`list` of zone
+            the 1D curve(s) of the airfoil.
     '''
-    zone = [z for z in PyZonePolars if z[0]==pyzonename][0]
-    FoilGeom_n = I.getNodeFromName1(zone,'.Polar#FoilGeometry')
-    Xcoord = I.getNodeFromName(FoilGeom_n,'CoordinateX')[1]
-    Ycoord = I.getNodeFromName(FoilGeom_n,'CoordinateY')[1]
+    if isinstance(PyZonePolars,str):
+        PyZonePolars = J.load(PyZonePolars, return_type='zones')
 
-    AirfoilGeom = J.createZone(pyzonename,
-                               [Xcoord,Ycoord,Ycoord*0],
-                               ['CoordinateX','CoordinateY','CoordinateZ'])
+    if isinstance(pyzonename,str):
+        pyzonenames = [pyzonename]
+    else:
+        pyzonenames = pyzonename
+    
+    AirfoilGeoms = []
+    for pzn in pyzonenames:
+        zone = J.getZoneFromListByName(PyZonePolars, pzn)
+        FoilGeom_n = I.getNodeFromName1(zone,'.Polar#FoilGeometry')
+        Xcoord = I.getNodeFromName1(FoilGeom_n,'CoordinateX')[1]
+        Ycoord = I.getNodeFromName1(FoilGeom_n,'CoordinateY')[1]
 
-    return AirfoilGeom
+        AirfoilGeoms.append( J.createZone(pzn,
+                                [Xcoord,Ycoord,Ycoord*0],
+                                ['CoordinateX','CoordinateY','CoordinateZ']) )
+
+    if len(AirfoilGeoms) == 1:
+        return AirfoilGeoms[0]
+    else:
+        return AirfoilGeoms
 
 
 def resetPitch(LiftingLine, ZeroPitchRelativeSpan=0.75, modifyLiftingLine=True):
@@ -2520,8 +2539,8 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
                             ImposeWingCanonicalPosition=False):
     '''
     Post-process a **LiftingLine** element using enhanced **PyZonePolars** data
-    in order to build surface fields (like ``Cp``, ``theta``...) from a BEMT
-    solution.
+    in order to build surface fields (like ``Cp``, ``theta``...) from a BEMT, 
+    VPM or BodyForce solution.
 
     Parameters
     ----------
@@ -2546,35 +2565,9 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
         ChordRelRef : float
             Reference chordwise used for stacking the sections.
 
-        FoilDistribution : zone
-            Indicates the dimensionless curvilinear abscissa to be
-            employed for each section in the newly created surface.
-            Hence, each airfoil section is rediscretized.
-            This is useful if the number of points or the
-            distribution of points of the input data of airfoils
-            contained in PyZonePolars is not homogeneous.
-            If :py:obj:`None` is provided, then no re-distribution is
-            performed on existing data, and all airfoil sections
-            should be be homogeneous (should have the same number
-            of points). If not, the distribution of the first
-            airfoil in PyZonePolars is used for remapping the
-            sections which yield different number of points.
+        FoilDistribution : zone or :py:obj:`None`
+            As established in :py:func:`MOLA.Wireframe.useEqualNumberOfPointsOrSameDiscretization`
 
-            .. note:: as obtained from applying
-                :py:func:`Geom.PyTree.getDistribution` to an airfoil curve with
-                the desired distribution
-
-        OrderInterpolationAirfoils : int
-            order of interpolation of the geometry between airfoils
-
-        splitAirfoilOptions : dict
-            argument to be passed to :py:func:`MOLA.GenerativeShapeDesign.wing`
-            function defining the optional parameters
-
-        ImposeWingCanonicalPosition : bool
-            if :py:obj:`True`, then the newly generated surface is positioned
-            in the same *canonical* position as the generation of a wing
-            surface using :py:func:`MOLA.GenerativeShapeDesign.wing`
 
     Returns
     -------
@@ -2584,7 +2577,7 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
             variables requested by the user are interpolated.
     '''
     import scipy.interpolate as si
-    def _applyInterpolationFunction__(VariableArray, Var, InterpolationLaw):
+    def _applyInterpolationFunctionToSpanwiseVariableAtLiftingLine(VariableArray, Var, InterpolationLaw):
         '''
         Perform spanwise interpolation of PyZonePolar data
         contained in AllValues dictionary. For this, use
@@ -2599,7 +2592,7 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
                                       kind=ScipyLaw, bounds_error=False,
                                       fill_value='extrapolate', assume_sorted=True)
             except ValueError:
-                ErrMsg = 'FATAL ERROR during _applyInterpolationFunction__() call with Var=%s\n'%Var
+                ErrMsg = 'FATAL ERROR during _applyInterpolationFunctionToSpanwiseVariableAtLiftingLine() call with Var=%s\n'%Var
                 ErrMsg+= 'Shapes x and y = %d and %d\n'%(len(x),len(y))
                 raise ValueError(ErrMsg)
 
@@ -2622,251 +2615,120 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
         MyArr = MyArr.T
         SurfVars[Var][:] = MyArr
 
-
-    # ---------------------------------------------------- #
-    #     INVOKE THE BLADE'S SURFACE USING GSD.wing()      #
-    # ---------------------------------------------------- #
-
-    LiftingLine, = I.getZones(LiftingLine)
-
-    # Get geometrical laws and store them as
-    # GSD.wing() -compliant dictionaries
-    Span, Chord, Dihedral, Sweep, Twist = J.getVars(LiftingLine,
-        ["Span", "Chord", "Dihedral", "Sweep", "Twist"])
-    s = W.gets(LiftingLine)
-    RelSpan = Span/Span.max()
-    InterpLaws = J.get(LiftingLine,'.Component#Info')
-
-    try: ChordLaw = InterpLaws['Chord_law']
-    except KeyError: ChordLaw = 'interp1d_linear'
-    ChordDict = dict(RelativeSpan=RelSpan,Chord=Chord,InterpolationLaw=ChordLaw)
-
-    try: TwistLaw = InterpLaws['Twist_law']
-    except KeyError: TwistLaw = 'interp1d_linear'
-    TwistDict = dict(RelativeSpan=RelSpan,Twist=Twist,InterpolationLaw=TwistLaw)
-
-    if Dihedral is not None:
-        try: DihedralLaw = InterpLaws['Dihedral_law']
-        except KeyError: DihedralLaw = 'interp1d_linear'
-        DihedralDict = dict(RelativeSpan=RelSpan,Dihedral=Dihedral,InterpolationLaw=DihedralLaw)
-    else:
-        DihedralDict = dict(RelativeSpan=[RelSpan[0],1],Dihedral=[0,0],InterpolationLaw='interp1d_linear')
-    if Sweep is not None:
-        try: SweepLaw = InterpLaws['Sweep_law']
-        except KeyError: SweepLaw = 'interp1d_linear'
-        SweepDict = dict(RelativeSpan=RelSpan,Sweep=Sweep,InterpolationLaw=SweepLaw)
-    else:
-        SweepDict = dict(RelativeSpan=[RelSpan[0],1],Sweep=[0,0],InterpolationLaw='interp1d_linear')
-
-    # Produce a list of airfoil PyZones at each point of
-    # the lifting line, including both GridCoordinates and
-    # FlowSolutions of requested variables (interpolated)
-    PolarInfoNode = getAirfoilsNodeOfLiftingLine(LiftingLine)
-    Abscissa = I.getValue(I.getNodeFromName1(PolarInfoNode, 'Abscissa'))
-    PyZonePolarNames = I.getValue(I.getNodeFromName1(PolarInfoNode, 'PyZonePolarNames')).split(' ')
-    FoilInterpLaw = 'rectbivariatespline_%d'%OrderInterpolationAirfoils
-
-    # Build a list of Control Airfoils. They must have the
-    # same number of points. If not the case, then use
-    # input attribute FoilDistribution as new distribution.
-    # If FoilDistribution is None, then use the first airfoil
-    # as driving FoilDistribution
-
-    if isinstance(PyZonePolars, str):
-        PyZonePolars = I.getZones(C.convertFile2PyTree(PyZonePolars))
-    PyZonePolars = I.getZones(PyZonePolars)
-    AirfoilsGeom = []
-    for pzn in PyZonePolarNames:
-        AirfoilsGeom += [pyZonePolar2AirfoilZone(pzn,PyZonePolars)]
-
-    # Check if all Airfoils have the same number of points
-    foilsNPtsArray = np.array([C.getNPts(a) for a in AirfoilsGeom])
-    NAirfoils = len(AirfoilsGeom)
-    AllSameNPts = np.unique(foilsNPtsArray).size == 1
-
-    # if not all airfoils have the same nb. of points or new foilwise
-    # distributio is required, re-map:
-
-    if not AllSameNPts or FoilDistribution:
-        RootFoil = AirfoilsGeom[0]
-        SmoothParts = T.splitCurvatureAngle(RootFoil, 30.)
-        indLongestEdge = np.argmax([D.getLength(c) for c in SmoothParts])
-        RootFoil = SmoothParts[indLongestEdge]
-
-        if FoilDistribution is None:
-            Mapping = D.getDistribution(RootFoil)
-
-        elif isinstance(FoilDistribution,dict):
-            NewRootFoil = W.discretize(RootFoil, N=FoilDistribution['N'],
-                                       Distribution=FoilDistribution)
-            Mapping = D.getDistribution(NewRootFoil)
-
-        elif isinstance(FoilDistribution,list) and isinstance(FoilDistribution[0],dict):
-            NewRootFoil = W.polyDiscretize(RootFoil, FoilDistribution)
-            Mapping = D.getDistribution(NewRootFoil)
-
-        else:
-            InputType = I.isStdNode(FoilDistribution)
-            if InputType == -1:
-                Mapping = D.getDistribution(FoilDistribution)
-            elif InputType == 0:
-                Mapping = D.getDistribution(FoilDistribution[0])
-            else:
-                raise ValueError('FoilDistribution not recognized')
-
-        AllFoilNPts = newFoilNPts = C.getNPts(Mapping)
-        newAirfoilsGeom = []
-        for ia in range(NAirfoils):
-            SmoothParts = T.splitCurvatureAngle(AirfoilsGeom[ia], 30.)
-            indLongestEdge = np.argmax([D.getLength(c) for c in SmoothParts])
-            LongestEdge = SmoothParts[indLongestEdge]
-            newFoil = G.map(LongestEdge,Mapping)
-            newAirfoilsGeom += [newFoil]
-        AirfoilsGeom = newAirfoilsGeom
-    else:
-        AllFoilNPts = foilsNPtsArray[0]
-
-
-    # Store a reference Airfoil's curvilinear abscissa
-    RefCurvAbs = W.gets(AirfoilsGeom[0])
-
-    # Build Control Airfoil dictionary
-    RelSpanPosOfFoils = J.interpolate__(Abscissa, s, RelSpan,
-                      Law='interp1d_linear', axis=-1)
-
-    Airfoil = dict(RelativeSpan=RelSpanPosOfFoils,
-                   Airfoil=AirfoilsGeom,
-                   InterpolationLaw=FoilInterpLaw)
-
-
-    # Invoke blade surface (with empty FlowSolutions)
-    _, Surf, distrWing = GSD.wing(Span,
-                          ChordRelRef = ChordRelRef,
-                          NPtsTrailingEdge = 0,
-                          AvoidAirfoilModification = True,
-                          splitAirfoilOptions = splitAirfoilOptions,
-                          Chord = ChordDict,
-                          Dihedral =  DihedralDict,
-                          Sweep =  SweepDict,
-                          Twist =  TwistDict,
-                          Airfoil =  Airfoil,)
-
-    Kinematics = J.get(LiftingLine,'.Kinematics')
-    if Kinematics and not ImposeWingCanonicalPosition:
-        sign = +1 if Kinematics['RightHandRuleRotation'] else -1
-        xS = distrWing['SpineX']
-        yS = distrWing['SpineY']
-        zS = distrWing['SpineZ']
-        CanonicalAxial = np.array([0.,1.,0.])
-        CanonicalSpanwise = np.array([xS[1]-xS[0], yS[1]-yS[0], zS[1]-zS[0]])
-        CanonicalSpanwise /= np.linalg.norm(CanonicalSpanwise)
-        CanonicalTangential = np.cross(CanonicalSpanwise, CanonicalAxial)
-        CanonicalTangential /= np.linalg.norm(CanonicalSpanwise)
-        CanonicalNormal = sign*np.cross(CanonicalTangential, CanonicalSpanwise)
-        CanonicalNormal /= np.linalg.norm(CanonicalNormal)
-
-
-        FrenetWing = (CanonicalSpanwise,
-                      CanonicalTangential,
-                      CanonicalNormal)
-
-        RotationCenter = Kinematics['RotationCenter']
-        BladeAxial = Kinematics['RotationAxis']
+    Surfs = []
+    for LiftingLine in getLiftingLines(LiftingLine):
+        v = J.getAllVars(LiftingLine)
         x,y,z = J.getxyz(LiftingLine)
 
-        CurrentSpanwise = np.array([x[1]-x[0], y[1]-y[0], z[1]-z[0]])
-        CurrentSpanwise /= np.linalg.norm(CurrentSpanwise)
-        CurrentTangential = sign * np.cross(CurrentSpanwise, BladeAxial)
-        CurrentTangential /= np.linalg.norm(CurrentSpanwise)
-        CurrentNormal = np.cross(CurrentTangential, CurrentSpanwise)
-        CurrentNormal /= np.linalg.norm(CurrentNormal)
+        # recover the airfoils at each node of the LiftingLine
+        PolarInfoNode = getAirfoilsNodeOfLiftingLine(LiftingLine)
+        Abscissa = I.getValue(I.getNodeFromName1(PolarInfoNode, 'Abscissa'))
+        PyZonePolarNames = I.getValue(I.getNodeFromName1(PolarInfoNode, 'PyZonePolarNames')).split(' ')
+        InterpLaw = I.getValue(I.getNodeFromName1(PolarInfoNode, 'InterpolationLaw'))
+        order = J._inferOrderFromInterpLawName(InterpLaw)
+        AirfoilsGeom = pyZonePolar2AirfoilZone(PyZonePolarNames,PyZonePolars)
+        AirfoilsGeom = W.useEqualNumberOfPointsOrSameDiscretization(AirfoilsGeom, FoilDistribution)
+        AirfoilsGeom = W.interpolateAirfoils(AirfoilsGeom, Abscissa, v['s'], order=order)
 
-        FrenetLiftingLine = (CurrentSpanwise,
-                             CurrentTangential,
-                             CurrentNormal)
+        # position and resize airfoils
+        AirfoilFrame = [(1,0,0),(0,1,0),(0,0,1)]
+        for i, foil in enumerate(AirfoilsGeom):
+            foil_x = J.getx(foil)
+            foil_y = J.gety(foil)
+            
+            # center at stacking point
+            foil_x -= ChordRelRef
 
-        T._translate(Surf,(-xS[0],-yS[0],-zS[0]))
-        T._rotate(Surf, (0,0,0), FrenetWing, FrenetLiftingLine)
-        T._translate(Surf,(x[0],y[0],z[0]))
+            # resize using chord
+            foil_x *= v['Chord'][i]
+            foil_y *= v['Chord'][i]
 
+            # rotate to match the actual position in the lifting-line
+            LLframe = [(v['ChordwiseX'][i],v['ChordwiseY'][i],v['ChordwiseZ'][i]),
+                    (v['ThickwiseX'][i],v['ThickwiseY'][i],v['ThickwiseZ'][i]),
+                    (-v['SpanwiseX'][i],-v['SpanwiseY'][i],-v['SpanwiseZ'][i])]
+            T._rotate(foil, (0,0,0), AirfoilFrame, LLframe)
 
-    if len(Variables) == 0: return Surf
-
-    # Invoke the new variables in surface
-    SurfVars = J.invokeFieldsDict(Surf,Variables)
-
-    # Build interpolator functions and store them as dict:
-    # usage: InterpDict[<PyZonePolarName>](AoA,Mach,Reynolds,[])
-    InterpDict = buildPolarsInterpolatorDict(PyZonePolars,InterpFields=Variables)
-
-    AoA, Mach, Reynolds = J.getVars(LiftingLine,["AoA", "Mach", "Reynolds"])
-
-    # TODO use same idea as GSD.wing() ?
-    # InterpYmatrix = np.zeros((NinterFoils,NPts),dtype=np.float64,order='F')
-    # for j in range(NinterFoils):
-    #     InterpXmatrix[j,:] = J.getx(RediscretizedAirfoils[j])
-    #     InterpYmatrix[j,:] = J.gety(RediscretizedAirfoils[j])
-
-    # if FoilInterpLaw.startswith('rectbivariatespline'):
-    #     u = W.gets(RediscretizedAirfoils[0])
-    #     v = kwargs[GeomParam]['RelativeSpan']
-    #     order = int(FoilInterpLaw[-1])
-    #     interpX = si.RectBivariateSpline(v,u,InterpXmatrix,
-    #                                                     kx=order, ky=order)
+            # center at the actual Lifting-Line node
+            T._translate(foil,(x[i],y[i],z[i]))
+        
+        # stack all sections
+        Surf = G.stack(AirfoilsGeom)
+        Surf[0] = LiftingLine[0]+'_surf'
+        Surfs.append( Surf )
 
 
-    # Apply polar interpolations and store them in a dict
-    AllValues = {}
-    for pzn in PyZonePolarNames:
-        InterpolatedSet = InterpDict[pzn](AoA,Mach,Reynolds)
-        # NOTA BENE: InterpolatedSet is a list of arrays.
-        # Each element is a (FoilNPts x LLNpts) array of the
-        # interpolated variable in the same order as contained
-        # in list Variables.
 
-        # Adapt the interpolated data if necessary (adaptedSet)
-        adaptedSet = []
+    if len(Variables) == 0:
+        if len(Surfs) == 1: return Surfs[0]
+        else: return Surfs
+
+    for Surf in Surfs:
+        # Invoke the new variables in surface
+        SurfVars = J.invokeFieldsDict(Surf,Variables)
+
+        # Build interpolator functions and store them as dict:
+        # usage: InterpDict[<PyZonePolarName>](AoA,Mach,Reynolds,[])
+        InterpDict = buildPolarsInterpolatorDict(PyZonePolars,InterpFields=Variables)
+
+        AoA, Mach, Reynolds = J.getVars(LiftingLine,["AoA", "Mach", "Reynolds"])
+
+
+        # Apply polar interpolations and store them in a dict
+        AllFoilNPts = C.getNPts(AirfoilsGeom[0])
+        RefCurvAbs = W.gets(AirfoilsGeom[0])
+        AllValues = {}
+        for pzn in PyZonePolarNames:
+            InterpolatedSet = InterpDict[pzn](AoA,Mach,Reynolds)
+            # NOTA BENE: InterpolatedSet is a list of arrays.
+            # Each element is a (FoilNPts x LLNpts) array of the
+            # interpolated variable in the same order as contained
+            # in list Variables.
+
+            # Adapt the interpolated data if necessary (adaptedSet)
+            adaptedSet = []
+            for v in range(len(Variables)):
+                InterpolatedArray = InterpolatedSet[v]
+                IntArrayShape = InterpolatedArray.shape
+                print('Variable %s at polar %s has shape: %s'%(Variables[v],pzn,str(IntArrayShape)))
+                if len(IntArrayShape)==2:
+
+                    # Compute the PyZonePolar foilwise abscissa
+                    # For that, build an auxiliar foil and
+                    # compute its abcissa coordinate
+                    AuxFoil = pyZonePolar2AirfoilZone(pzn,PyZonePolars)
+                    CurrentCurvAbs = W.gets(AuxFoil)
+
+                    interpFoilwise = si.interp1d(CurrentCurvAbs, InterpolatedArray,
+                                        kind='cubic', copy=False, axis=0,
+                                        assume_sorted=True)
+
+                    NewInterpArray = interpFoilwise(RefCurvAbs)
+
+                    # TODO: Check orientation of foil and data
+                    adaptedSet += [NewInterpArray]
+
+                elif len(IntArrayShape)==1:
+                    # Integral data. Simply broadcast.
+                    print('BROADCAST')
+                    adaptedSet += [np.broadcast_to(InterpolatedArray,(AllFoilNPts,IntArrayShape[0]))]
+                else:
+                    raise ValueError('Interpolated data for variable %s yields not supported shape %s'%(v,str(IntArrayShape)))
+
+            # Store dimensionally-coherent interpolated data
+            AllValues[pzn] = adaptedSet
+
+
         for v in range(len(Variables)):
-            InterpolatedArray = InterpolatedSet[v]
-            IntArrayShape = InterpolatedArray.shape
-            print('Variable %s at polar %s has shape: %s'%(Variables[v],pzn,str(IntArrayShape)))
-            if len(IntArrayShape)==2:
+            # Build a 3D matrix containing all data.
+            # 1st dimension: Foilwise data
+            # 2nd dimension: Spanwise data
+            # 3rd dimension: slices corresponding to PyZonePolars
+            AllValues3D = np.dstack([AllValues[pzn][v] for pzn in PyZonePolarNames])
+            _applyInterpolationFunctionToSpanwiseVariableAtLiftingLine(AllValues3D, Variables[v], 'interp1d_linear')
 
-                # Compute the PyZonePolar foilwise abscissa
-                # For that, build an auxiliar foil and
-                # compute its abcissa coordinate
-                AuxFoil = pyZonePolar2AirfoilZone(pzn,PyZonePolars)
-                CurrentCurvAbs = W.gets(AuxFoil)
-
-                interpFoilwise = si.interp1d(CurrentCurvAbs, InterpolatedArray,
-                                    kind='cubic', copy=False, axis=0,
-                                    assume_sorted=True)
-
-                NewInterpArray = interpFoilwise(RefCurvAbs)
-
-                # TODO: Check orientation of foil and data
-                adaptedSet += [NewInterpArray]
-
-            elif len(IntArrayShape)==1:
-                # Integral data. Simply broadcast.
-                print('BROADCAST')
-                adaptedSet += [np.broadcast_to(InterpolatedArray,(AllFoilNPts,IntArrayShape[0]))]
-            else:
-                raise ValueError('Interpolated data for variable %s yields not supported shape %s'%(v,str(IntArrayShape)))
-
-        # Store dimensionally-coherent interpolated data
-        AllValues[pzn] = adaptedSet
-
-
-    for v in range(len(Variables)):
-        # Build a 3D matrix containing all data.
-        # 1st dimension: Foilwise data
-        # 2nd dimension: Spanwise data
-        # 3rd dimension: slices corresponding to PyZonePolars
-        AllValues3D = np.dstack([AllValues[pzn][v] for pzn in PyZonePolarNames])
-        _applyInterpolationFunction__(AllValues3D, Variables[v], 'interp1d_linear')
-
-    return Surf
+    if len(Surfs) == 1: return Surfs[0]
+    else: return Surfs
 
 
 def addAccurateSectionArea2LiftingLine(LiftingLine, PyZonePolars):
