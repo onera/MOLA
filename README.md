@@ -35,7 +35,7 @@ For documentation, examples, major changes, please consult the [documentation si
 
 ## Contributing
 
-See CONTRIBUTING file
+See ![CONTRIBUTING](CONTRIBUTING.md)
 
 ## License
-See LICENCE file
+See ![LICENSE](LICENSE)
