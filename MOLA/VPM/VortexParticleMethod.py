@@ -3762,6 +3762,16 @@ if True:
         else:
             DisplayOptions['offscreen'] = 1
 
+        if 'backgroundFile' not in DisplayOptions:
+            MOLA = os.getenv('MOLA')
+            MOLASATOR = os.getenv('MOLASATOR')
+            for MOLAloc in [MOLA, MOLASATOR]:
+                backgroundFile = os.path.join(MOLAloc, 'MOLA', 'GUIs', 'background_gradient.png')
+                if os.path.exists(backgroundFile):
+                    DisplayOptions['backgroundFile']=backgroundFile
+                    DisplayOptions['bgColor']=13
+                    break
+
         CPlot.display(t, **DisplayOptions)
         if DisplayOptions['offscreen']:
             CPlot.finalizeExport(DisplayOptions['offscreen'])

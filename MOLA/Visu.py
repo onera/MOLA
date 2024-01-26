@@ -93,13 +93,14 @@ def exit(): os._exit(0)
 
 class Figure():
 
-    def __init__(self, window_in_pixels=(1200,800), dpi=100, camera={}, filename=None, Elements=[]):
+    def __init__(self, window_in_pixels=(1200,800), dpi=100, camera={}, filename=None, background='gradient', Elements=[]):
         self.window_in_pixels = window_in_pixels
         self.dpi = dpi
         self.camera = camera
         self.filename = filename
         self.Elements = Elements
         self.arrays = None
+        self.background = background
         
         self.fig = None
 
@@ -248,6 +249,14 @@ class Figure():
                     iso_centers.extend([levels[3],levels[4]])
                 isoScales += iso_nodes, iso_centers
 
+        # Get default background
+        backgroundFile = None
+        for MOLAloc in [os.getenv('MOLA'), os.getenv('MOLASATOR')]:
+            path_background = os.path.join(MOLAloc,'MOLA','GUIs',f'background_{self.background}.png')
+            if os.path.exists(path_background):
+                backgroundFile = path_background
+                break 
+
         for i in range(len(Trees)):
             tree = Trees[i]
             prefix = 'elt.'
@@ -277,16 +286,11 @@ class Figure():
             except: additionalDisplayOptions = {}
             DisplayOptions.update(additionalDisplayOptions)
 
-            if  'backgroundFile' not in additionalDisplayOptions and \
+            if  backgroundFile and \
+                'backgroundFile' not in additionalDisplayOptions and \
                 'bgColor' not in additionalDisplayOptions:
-                MOLA = os.getenv('MOLA')
-                MOLASATOR = os.getenv('MOLASATOR')
-                for MOLAloc in [MOLA, MOLASATOR]:
-                    backgroundFile = os.path.join(MOLAloc,'MOLA','GUIs','background.png')
-                    if os.path.exists(backgroundFile):
-                        DisplayOptions['backgroundFile']=backgroundFile
-                        DisplayOptions['bgColor']=13
-                        break
+                DisplayOptions['backgroundFile'] = backgroundFile
+                DisplayOptions['bgColor'] = 13
 
 
             try: cmap = cmap2int[elt['colormap']]
@@ -1419,7 +1423,11 @@ def makeShaftRotate(t, iteration):
             solverMotion = I.getNodeFromName(Family, '.Solver#Motion')
             if not solverMotion: 
                 # Not a zone family or a zone family without movement
-                continue
+                rowFrame[I.getName(Family)] = dict(
+                    omega  =  0.,
+                    center = (0, 0, 0),
+                    axis   = (1, 0, 0)   
+                )
             solverMotionDict = dict((I.getName(node), I.getValue(node))
                                     for node in I.getNodesFromType(solverMotion, 'DataArray_t'))
             rowFrame[I.getName(Family)] = dict(

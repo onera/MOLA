@@ -36,7 +36,6 @@ You will see a message indicating the main available libraries:
     ----> OCC 3.7       (took 1.98393 s : too long)
     ----> Apps 3.1     
     --> VPM 0.3        
-    --> PUMA v2.0.3_mod (took 6.42188 s : too long)
     --> turbo dev-lb   
     --> Ersatz UNAVAILABLE
     --> maia 1.2        (took 2.74248 s : too long)

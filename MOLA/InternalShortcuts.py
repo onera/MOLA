@@ -2393,28 +2393,6 @@ def printEnvironment():
         v = FAIL + 'UNAVAILABLE' + ENDC
     print(v.ljust(20-len(tag))+printTime(toc))
 
-
-    # OCC # TODO CAUTION https://elsa.onera.fr/issues/10950
-    tag = ' ----> OCC '
-    print(tag,end='')
-    toc = tic()
-    try:
-        import OCC
-        v = OCC.__version__
-    except:
-        v = FAIL + 'UNAVAILABLE' + ENDC
-    print(v.ljust(20-len(tag))+printTime(toc))
-
-    tag = ' ----> Apps '
-    print(tag,end='')
-    toc = tic()
-    try:
-        import Apps
-        v = Apps.__version__
-    except:
-        v = FAIL + 'UNAVAILABLE' + ENDC
-    print(v.ljust(20-len(tag))+printTime(toc))
-
     # Vortex Particle Method
     tag = ' --> VPM '
     print(tag,end='')
@@ -2425,22 +2403,6 @@ def printEnvironment():
         v = VPM.__version__
     except:
         v = FAIL + 'UNAVAILABLE' + ENDC
-    print(v.ljust(20-len(tag))+printTime(toc))
-
-    # PUMA
-    tag = ' --> PUMA '
-    print(tag,end='')
-    toc = tic()
-    v = os.getenv('PUMAVERSION', 'UNAVAILABLE')
-    if v == 'UNAVAILABLE':
-        v = FAIL + v + ENDC
-    else:
-        try:
-            silence = OutputGrabber()
-            with silence:
-                import PUMA
-        except:
-            v = FAIL + 'UNAVAILABLE' + ENDC
     print(v.ljust(20-len(tag))+printTime(toc))
 
     # turbo
@@ -3026,6 +2988,21 @@ def hasAllNGon(t):
 
 def anyNotNGon(t):
     return any(elt_type not in ['NGON_n', 'NFACE_n'] for elt_type in elementTypes(t))
+
+def checkUniqueChildren(t, recursive=False):
+    nodes_names_and_types = [(I.getName(child), I.getType(child)) for child in I.getChildren(t)]
+    # Check unicity of each child
+    # assert len(nodes_names_and_types) == len(set(nodes_names_and_types)) # Cannot do that because of the function set defined in the current module...
+    tmp_list = []
+    for name_type in nodes_names_and_types:
+        if name_type not in tmp_list:
+            tmp_list.append(name_type)
+        else:
+            save(t, 'debug.cgns')
+            raise Exception(FAIL+f'The node {name_type[0]} of type {name_type[1]} is defined twice'+ENDC)
+    if recursive:
+        for node in I.getChildren(t):
+            checkUniqueChildren(node, recursive=True)
 
 def printElapsedTime(message='', previous_timer=0.0):
     ElapsedTime = str(datetime.timedelta(seconds=tic()-previous_timer))

@@ -85,9 +85,9 @@ def Macro_BEMT(t, LiftingLine, RPM):
         DictOfIntegralData : :py:class:`dict`
             dictionary including predictions
 
-        Prop.Loads.Data : PUMA object
+        t : PyTree
 
-        SectionalLoadsLL : PUMA object
+        LiftingLine : zone
     '''
 
     print (CYAN+'Launching 3D BEMT computation...'+ENDC)
@@ -147,9 +147,9 @@ def Macro_VPM(tStructure, LiftingLine, RPM):
         DictOfIntegralData : :py:class:`dict`
             dictionary including predictions
 
-        Prop.Loads.Data : PUMA object
+        t : PyTree
 
-        SectionalLoadsLL : PUMA object
+        LiftingLine : zone
     '''
     #LiftingLine[0] = 'HAD1'
     
