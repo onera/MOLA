@@ -43,8 +43,13 @@ def add_extractions_for_overset_components(workflow):
 
 def add_global_convergence_history(workflow):
     for base in workflow.tree.bases():
-        GlobalConvergenceHistory = cgns.Node(Parent=base, Name='GlobalConvergenceHistory', Value=0, Type='ConvergenceHistory')
+        GlobalConvergenceHistory = cgns.Node(Parent=base, Name='GlobalConvergenceHistory', Value=0, Type='UserDefinedData')
         cgns.Node(Parent=GlobalConvergenceHistory, Name='NormDefinitions', Value='ConvergenceHistory', Type='Descriptor')
+        GlobalConvergenceHistory.setParameters('.Solver#Output',
+                                        period=1,
+                                        writingmode=0,
+                                        var='residual_cons residual_turb'
+                                        )
 
 def process_extractions_3d(workflow):
 
