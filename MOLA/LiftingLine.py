@@ -1079,11 +1079,14 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
                                                 InterpLaws[GeomParam+'_law'],
                                                 **kwargs[GeomParam])
             elif 'Abscissa' in kwargs[GeomParam]:
-                LLDict[GeomParam][:] = J.interpolate__(s,
+                try:
+                    LLDict[GeomParam][:] = J.interpolate__(s,
                                                 kwargs[GeomParam]['Abscissa'],
                                                 kwargs[GeomParam][GeomParam],
                                                 InterpLaws[GeomParam+'_law'],
                                                 **kwargs[GeomParam])
+                except BaseException as e:
+                    raise ValueError(J.FAIL+f'failed for GeomParam={GeomParam} with parameters:{kwargs[GeomParam]}'+J.ENDC) from e
             else:
                 raise AttributeError("Attribute %s (dict) must contain 'RelativeSpan' or 'Abscissa' key"%GeomParam)
 
@@ -1119,13 +1122,13 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
         raise ValueError(ErrMsg)
 
     # Initialize some variables
-    LLfields = ['AoA', 'Mach', 'Reynolds', 'Cl', 'Cd','Cm',
+    LLfields = ['RelativeSpan', 'AoA', 'Mach', 'Reynolds', 'Cl', 'Cd','Cm',
         'PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ',
         'PitchAxisX','PitchAxisY','PitchAxisZ',
         'TangentialX', 'TangentialY', 'TangentialZ',
         'SweepAngleDeg', 'DihedralAngleDeg']
     addLLfields = ['ChordwiseX','ChordwiseY','ChordwiseZ',
-                   'SpanwiseX','SpanwiseY','SpanwiseZ',
+                    'SpanwiseX', 'SpanwiseY', 'SpanwiseZ',
                    'ThickwiseX','ThickwiseY','ThickwiseZ']
     existing_fields = C.getVarNames(LiftingLine)[0]
     for fn in addLLfields:
@@ -1134,6 +1137,8 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
             LLfields.append(fn)
     J._invokeFields(LiftingLine,LLfields)
     v = J.getVars2Dict(LiftingLine, LLfields + addLLfields)
+
+    v['RelativeSpan'][:] = RelSpan
 
     v['PitchRelativeCenterX'][:] = PitchRelativeCenter[0]
     v['PitchRelativeCenterY'][:] = PitchRelativeCenter[1]
@@ -1223,14 +1228,22 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
 
     # add sweep and dihedral angles
     LeadingEdge = I.getZones(getLeadingEdge(LiftingLine))[0]
-    xLE, yLE, zLE = J.getxyz(LeadingEdge)
-    v['SweepAngleDeg'][:] = np.rad2deg(np.arctan2(-np.gradient(yLE,xLE),1))
-    v['DihedralAngleDeg'][:] = np.rad2deg(np.arctan2(np.gradient(LLz,LLx),1))
+    LeadingEdgeTangentCurve = D.getTangent(LeadingEdge)
+    LiftingLineTangentCurve = D.getTangent(LiftingLine)
+    tLEx, tLEy, tLEz = J.getxyz(LeadingEdgeTangentCurve)
+    tLLx, tLLy, tLLz = J.getxyz(LeadingEdgeTangentCurve)
+    for i in range(len(tLEx)):
+        LedingEdgeTangentVector = np.array([tLEx[i], tLEy[i], tLEz[i]])
+        LiftingLineTangentVector = np.array([tLLx[i], tLLy[i], tLLz[i]])
+        ChordwiseVector = np.array([v['ChordwiseX'][:][i], v['ChordwiseY'][:][i], v['ChordwiseZ'][:][i]])
+        ThickwiseVector = np.array([v['ThickwiseX'][:][i], v['ThickwiseY'][:][i], v['ThickwiseZ'][:][i]])
+        v['SweepAngleDeg'][i] = 90-np.rad2deg(np.arccos(LedingEdgeTangentVector.dot(ChordwiseVector)))
+        v['DihedralAngleDeg'][i] = 90-np.rad2deg(np.arccos(LiftingLineTangentVector.dot(ThickwiseVector)))
 
     return LiftingLine
 
 
-def buildLiftingLineFromScan(t, Span, resetPitchRelativeSpan=0.75,
+def buildLiftingLineFromScan(t, SpanwiseRediscretization=None, resetPitchRelativeSpan=0.75,
         GeometricalLawsInterpolations={}, OverridingKinematics={}):
     '''
     This function takes as input the result of :py:func:`MOLA.GenerativeShapeDesign.scanBlade`
@@ -1244,19 +1257,8 @@ def buildLiftingLineFromScan(t, Span, resetPitchRelativeSpan=0.75,
         t : PyTree
             Rigorously, the result of :py:func:`MOLA.GenerativeShapeDesign.scanBlade`
 
-        Span : multiple
-            This polymorphic input is used to infer the spanwise
-            dimensions and discretization that new lifting-line will use.
-
-            For detailed information on possible inputs of **Span**, please see
-            :py:func:`MOLA.InternalShortcuts.getDistributionFromHeterogeneousInput__` doc.
-
-            .. tip:: typical use is ``np.linspace(MinimumSpan, MaximumSpan, NbOfSpanwisePoints)``
-
-            .. note:: identical as **Span** parameter of :py:func:`buildLiftingLine`
-
-            .. hint:: use simply an :py:class:`int`, and resulting **Span** will 
-                be a uniform vector ranging from min(Span) to max(Span)
+        SpanwiseRediscretization : multiple
+            **doc this**
 
         resetPitchRelativeSpan : float
             This is the relative span (or :math:`r/R`) used to relocate the blade
@@ -1329,6 +1331,7 @@ def buildLiftingLineFromScan(t, Span, resetPitchRelativeSpan=0.75,
 
 
     # determine the pitch of the blade-line
+    Abscissa = W.gets(BladeLine)
     Twist, SpanScan = J.getVars(BladeLine,['Twist','Span'])
     RelativeSpanScan = SpanScan/SpanScan.max()
     pitch = np.interp(resetPitchRelativeSpan, RelativeSpanScan, Twist)
@@ -1345,22 +1348,24 @@ def buildLiftingLineFromScan(t, Span, resetPitchRelativeSpan=0.75,
     
     
     # INFER SWEEP AND DIHEDRAL FROM COORDINATES
-    _, y, z = J.getxyz(BladeLine)
-    Sweep, Dihedral = J.invokeFields(BladeLine, ['Sweep','Dihedral'])
+    x, y, z = J.getxyz(BladeLine)
+    Span, Sweep, Dihedral = J.invokeFields(BladeLine, ['Span', 'Sweep','Dihedral'])
+    Span[:]=x
     Sweep[:] = -y
     Dihedral[:] = z
     
     
     # BUILD GEOMETRICALLAWS 
     airfoils = I.getZones(I.getNodeFromName1(t,'BaseNormalizedAirfoils'))
-    GeometricalLawsNamesList = ['Chord','Sweep','Dihedral', 'Airfoils',
+    GeometricalLawsNamesList = ['Chord', 'Twist', 'Sweep','Dihedral', 'Airfoils',
         'ChordwiseX','ChordwiseY','ChordwiseZ',
          'SpanwiseX', 'SpanwiseY', 'SpanwiseZ',
         'ThickwiseX','ThickwiseY','ThickwiseZ']
     
     GeometricalLawsDict = {}
     for geom in GeometricalLawsNamesList:
-        GeometricalLawsDict[geom] = {'RelativeSpan' : RelativeSpanScan}
+        # GeometricalLawsDict[geom] = {'RelativeSpan' : RelativeSpanScan}
+        GeometricalLawsDict[geom] = {'Abscissa' : Abscissa} # better this (monotonically increasing)
         if geom == 'Airfoils':
             GeometricalLawsDict[geom]['PyZonePolarNames'] = [a[0] for a in airfoils]
         else:
@@ -1377,11 +1382,21 @@ def buildLiftingLineFromScan(t, Span, resetPitchRelativeSpan=0.75,
     PitchAxis = J.getVars(BladeLine, ['PitchAxisX','PitchAxisY','PitchAxisZ'])
     PitchCtr_pt = (PitchCtr[0][0]*1.0, PitchCtr[1][0]*1.0, PitchCtr[2][0]*1.0)
     PitchAxis_vec = (PitchAxis[0][0]*1.0, PitchAxis[1][0]*1.0, PitchAxis[2][0]*1.0)
-    if isinstance(Span,int): Span=np.linspace(SpanScan.min(), SpanScan.max(), Span)
-    LiftingLine = buildLiftingLine(Span, RightHandRuleRotation=RightHandRuleRotation,
+
+    # build auxiliar curve from user-defined SpanwiseRediscretization
+    if isinstance(SpanwiseRediscretization, int):
+        SpanwiseCurve = W.discretize(BladeLine, SpanwiseRediscretization)
+    elif W.isStructuredCurve(SpanwiseRediscretization):
+        SpanwiseCurve = G.map(BladeLine, D.getDistribution(SpanwiseRediscretization))
+    elif SpanwiseRediscretization is None:
+        SpanwiseCurve = BladeLine
+    else:
+        dist = J.getDistributionFromHeterogeneousInput__(SpanwiseRediscretization)[-1]
+        SpanwiseCurve = G.map(BladeLine,dist)
+
+    LiftingLine = buildLiftingLine(SpanwiseCurve, RightHandRuleRotation=RightHandRuleRotation,
         PitchRelativeCenter=PitchCtr_pt, PitchAxis=PitchAxis_vec,
         RotationCenter=[0,0,0], **GeometricalLawsDict)
-
 
     # propagate kinematics information, but keep canonical position
     scan_info['RotationAxis'] *= Dir # since in kinematics it is actually ThrustAxis

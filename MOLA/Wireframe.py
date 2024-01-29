@@ -3167,15 +3167,15 @@ def findLeadingOrTrailingEdge(AirfoilCurve, ChordwiseRegion='> +0.5',
     SelectedRegion = P.selectCells(AirfoilCurve,'{ChordwiseIndicator}'+
                                                   ChordwiseRegion)
 
-
     x = J.getx(SelectedRegion)
     if len(x) == 0:
         ci, = J.getVars(AirfoilCurve,['ChordwiseIndicator'])
         ERRMSG = ('requested chordwise region (%s) was outside the '
                   'available boundaries (%g,%g).'
-                  'Please decrase the value of EdgeSearchPortion.')%(ChordwiseRegion,ci.min(),ci.max())
+                  'Please decrase the value of ChordwiseRegion.')%(ChordwiseRegion,ci.min(),ci.max())
         raise ValueError(ERRMSG)
     SelectedRegion = C.convertBAR2Struct( SelectedRegion )
+    removeMultiplePoints(SelectedRegion)
 
     # rediscretize the selected region
     region_npts = 101
@@ -3187,7 +3187,12 @@ def findLeadingOrTrailingEdge(AirfoilCurve, ChordwiseRegion='> +0.5',
         npts_subpart = int(Length_subpart / delta_s)
         new_subpart = discretize(sp, N=np.maximum(npts_subpart,3))
         NewSmoothParts.append( new_subpart )
-    SelectedRegion = T.join( NewSmoothParts )
+
+    try:
+        SelectedRegion = T.join( NewSmoothParts )
+    except BaseException as e:
+        J.save(NewSmoothParts,'debug.cgns')
+        raise ValueError(J.FAIL+'could not join NewSmoothParts, check debug.cgns'+J.ENDC) from e
 
     D._getCurvatureRadius( SelectedRegion )
     aux_s = gets( SelectedRegion )
@@ -6009,4 +6014,49 @@ def interpolateAirfoils(Airfoils, Positions, RequestedPositions, order=1):
         return InterpolatedAirfoils[0]
     else:
         return InterpolatedAirfoils
+
+def isStructuredCurve(arg):
+    '''
+    return :py:obj:`True` if **arg** is a structured curve.
+    Otherwise return :py:obj:`False`
+    '''
+    if I.isStdNode(arg)==-1 and arg[3]=='Zone_t':
+        Topo, Ni,Nj,Nk, dim = I.getZoneDim(arg)
+        if dim == 1 and Topo[0] == 'S': return True
+    return False
+
+
+def removeMultiplePoints(curve, reltol=1e-5):
+    if not isStructuredCurve(curve):
+        raise AttributeError(J.FAIL+'curve must be a structured curve'+J.ENDC)
+    
+    xyz = np.vstack(J.getxyz(curve)).T
+    NPts = xyz.shape[0]
+    delta = np.diff(xyz,axis=0)
+    relative_distances = np.linalg.norm(delta,axis=1)
+    relative_distances/= np.max(relative_distances)
+    boolean_mask_cells = relative_distances > reltol
+    if all(boolean_mask_cells): return # no duplicated points
+    boolean_mask_nodes = np.hstack((boolean_mask_cells,True))
+    containers = I.getNodesFromType1(curve,'GridCoordinates_t') + \
+                 I.getNodesFromType1(curve,'FlowSolution_t')
+    for container in containers:
+        for child in container[2]:
+            if child[3] == 'DataArray_t':
+                elts = len(child[1])
+                if elts==NPts:
+                    child[1] = child[1][boolean_mask_nodes]
+                elif elts==(NPts-1):
+                    child[1] = child[1][boolean_mask_cells]
+                else:
+                    path= '/'.join([curve[0],container[0],child[0]])
+                    try: J.save(curve,'debug.cgns')
+                    except: pass
+                    raise ValueError(f'FATAL: unexpected dimensions of node {path}, check debug.cgns')
+    newNCell = np.sum(boolean_mask_cells)
+    curve[1][0][0] = newNCell+1
+    curve[1][0][1] = newNCell
+
+
+        
 

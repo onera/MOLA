@@ -1044,9 +1044,9 @@ def getDistributionFromHeterogeneousInput__(InputDistrib):
         Abscissa, = getVars(zone,['s'])
         Distribution = D.getDistribution(zone)
         x,y,z = getxyz(zone)
-        Span = np.sqrt(x*x+y*y+z*z)
+        # Span = np.sqrt(x*x+y*y+z*z) # wrong
 
-        return Span, Abscissa, Distribution
+        return x, Abscissa, Distribution
 
 
     typeInput=type(InputDistrib)
@@ -2791,7 +2791,8 @@ def load(*args, **kwargs):
     Default backend is Cassiopee
 
     Special keyword ``return_type='zones'`` will return only a list of zones
-    contained in the file (if any). By default, ``return_type='tree'``
+    contained in the file (if any). By default, ``return_type='tree'``. If
+    ``return_type='zone'`` (singular) only the first zone in tree is returned.
     '''
     try:
         backend = kwargs['backend'].lower()
@@ -2834,8 +2835,25 @@ def load(*args, **kwargs):
         return t
     elif return_type == 'zones':
         return I.getZones(t)
+    elif return_type == 'zone':
+        return I.getZones(t)[0]
     else:
         raise NotImplementedError(f'return_type must be "tree" or "zones", got "{return_type}"')
+
+def loadZone(*args, **kwargs):
+    '''
+    shortcut for :py:func:`load` using option ``return_type='zone'``
+    '''
+    kwargs['return_type']='zone'
+    return load(*args,**kwargs)
+
+def loadZones(*args, **kwargs):
+    '''
+    shortcut for :py:func:`load` using option ``return_type='zones'``
+    '''
+    kwargs['return_type']='zones'
+    return load(*args,**kwargs)
+
 
 def save(*args, **kwargs):
     '''

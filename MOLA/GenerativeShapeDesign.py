@@ -129,7 +129,7 @@ def sweepSections(sections=[], SpanPositions=None,
     if Ns == 1:
         sections.append(sections)
         Ns+=1
-    Ntot = len(getx(spine))
+    Ntot = len(J.getx(spine))
     spine_x, spine_y, spine_z = J.getxyz(spine)
 
     if not SpanPositions: SpanPositions = np.linspace(0,1,Ns)
@@ -383,7 +383,8 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
 
     for GeomParam in kwargs:
         for MustKey in ['RelativeSpan','InterpolationLaw',GeomParam]:
-            if MustKey not in kwargs[GeomParam]: raise AttributeError('wing(): Airfoil dictionnary MUST contain "%s" key.'%MustKey)
+            if MustKey not in kwargs[GeomParam]:
+                raise AttributeError('wing(): %s dictionnary MUST contain "%s" key.'%(GeomParam,MustKey))
         if len(kwargs[GeomParam]['RelativeSpan']) != len(kwargs[GeomParam][GeomParam]): raise AttributeError('wing(): There MUST be the SAME amount of elements in "RelativeSpan" and "%s" lists'%GeomParam)
         if len(kwargs[GeomParam]['RelativeSpan'])==1:
             kwargs[GeomParam]['RelativeSpan'] = [0,kwargs[GeomParam]['RelativeSpan'][0]]
@@ -1395,7 +1396,7 @@ def multiSections(ProvidedSections, SpineDiscretization,
 
     return Surface, SpineCurve
 
-def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
+def scanBlade(BladeSurface, SpanwiseInput, RotationCenter,
           RotationAxis, BladeDirection, RelativeChordReference=0.25,
           PitchAxis=None, PitchRelativeCenter=[0,0,0],
           buildCamberOptions={}, splitAirfoilOptions={}):
@@ -1411,8 +1412,21 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
             Tree containing the blade surface. It can be
             mono- or multi-block, unstructured or structured, or both.
 
-        RelativeSpanDistribution : 1D numpy array
-            array between 0 and 1 used to discretize the scanner distribution
+        SpanwiseInput : multiple types
+            Specifies the spanwise scanning distribution. Can be one of the
+            following types:
+            
+            * 1D :py:class:`numpy.ndarray` or :py:class:`list` of :py:class:`float`
+                Specifies the relative scan points along **BladeDirection**. Hence,
+                it must be an array between 0 and 1.
+
+            * :py:class:`list` of 3-:py:class:`float` list
+                specifies the :math:`(x,y,z)` coordinates of each point of the
+                scan. The scan is done in the normal direction of each point.
+            
+            * zone
+                A user-defined 3D curve given as a structured curve. The scan is
+                done in the normal direction of each point.
 
         RotationCenter : 3-:py:class:`float` array
             coordinates of the blade rotation center
@@ -1466,8 +1480,6 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
     Blade = I.copyRef(BladeSurface)
     I._rmNodesByType(Blade,'FlowSolution_t')
 
-    NumberOfSections = len(RelativeSpanDistribution)
-
     RotationCenter = np.array(RotationCenter, dtype=np.float64)
 
     RotationAxis = getUnitVector(RotationAxis)
@@ -1491,6 +1503,42 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
         Eqn = W.computePlaneEquation(RotationCenter, TopDirection)
         C._initVars(Blade, 'TopDirection='+Eqn)
 
+    Eqn = W.computePlaneEquation(RotationCenter, BladeDirection)
+    C._initVars(Blade, 'Span='+Eqn)
+    MaximumSpan = C.getMaxValue(Blade,'Span')
+    MinimumSpan = C.getMinValue(Blade,'Span')
+
+    # build auxiliar scanning SpanwiseCurve
+    if W.isStructuredCurve(SpanwiseInput):
+        SpanwiseCurve = SpanwiseInput
+    else:
+        try:
+            SpanwiseArray = np.array(SpanwiseInput)
+        except BaseException as e:
+            raise TypeError('could not transform SpanwiseInput to a numpy array') from e
+        if len(SpanwiseArray.shape) == 1:
+            if not np.all(np.diff(SpanwiseArray)>0):
+                msg = 'SpanwiseInput is not monotonically increasing (detected as a flat array)'
+                raise AttributeError(J.FAIL+msg+J.ENDC)
+            elif SpanwiseArray[0] < 0 or SpanwiseArray[-1] > 1:
+                msg = 'SpanwiseInput is not bounded between 0 and 1 (detected as a flat array)'
+                raise AttributeError(J.FAIL+msg+J.ENDC)
+            SpanwiseArray = SpanwiseArray*(MaximumSpan-MinimumSpan)+MinimumSpan
+            SpanwiseArrayT = SpanwiseArray.reshape((len(SpanwiseArray),1))
+            coords = RotationCenter + BladeDirection*SpanwiseArrayT
+            SpanwiseCurve = D.polyline([tuple(c) for c in coords])
+        elif len(SpanwiseArray.shape) == 2:
+            if not (SpanwiseArray.shape[1] == 3 and SpanwiseArray.shape[0]>1):
+                msg = 'SpanwiseInput (detected as a matrix) is not a Nx3 matrix with N>=2'
+                raise AttributeError(J.FAIL+msg+J.ENDC)
+            SpanwiseCurve = D.polyline([tuple(c) for c in coords])
+        else:
+            raise TypeError(J.FAIL+'unsupported SpanwiseInput, see doc of scanBlade'+J.ENDC)
+    SpanwiseCurve[0] = 'SpanwiseCurve'
+    SpanwiseAbscissa = W.gets(SpanwiseCurve)
+    SpanwiseCurveX, SpanwiseCurveY, SpanwiseCurveZ = J.getxyz(SpanwiseCurve)
+    ScanPlaneX, ScanPlaneY, ScanPlaneZ = J.getxyz(D.getTangent(SpanwiseCurve))
+
     Fields2StoreInLine = ['Span', 'Chord', 'Twist',
         'MaxRelativeThickness',
         'MaxThickness', 'MaxThicknessRelativeLocation',
@@ -1501,16 +1549,13 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
         'ThickwiseX','ThickwiseY','ThickwiseZ',
         'PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ',
         'PitchAxisX','PitchAxisY','PitchAxisZ']
-    
+
+    NumberOfSections = C.getNPts(SpanwiseCurve)
     BladeLine = D.line((0,0,0),(0,0,0),NumberOfSections)
     I.setName(BladeLine,'BladeLine')
     BladeLineFields = J.invokeFieldsDict(BladeLine, Fields2StoreInLine)
     BladeLineX, BladeLineY, BladeLineZ = J.getxyz(BladeLine)
 
-    Eqn = W.computePlaneEquation(RotationCenter, BladeDirection)
-    C._initVars(Blade, 'Span='+Eqn)
-    MaximumSpan = C.getMaxValue(Blade,'Span')
-    MinimumSpan = C.getMinValue(Blade,'Span')
 
     Sections = []
     Cambers  = []
@@ -1518,31 +1563,41 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
     NormalizedCambers  = []
     RightHandRuleRotation = None
     for i in range(NumberOfSections):
-        Span = np.interp(RelativeSpanDistribution[i],[0,1],[MinimumSpan, MaximumSpan])
-        print('scanning section %d at Span = %g ...'%(i+1,Span))
+        Span = np.interp(SpanwiseAbscissa[i],[0,1],[MinimumSpan, MaximumSpan])
+        print('scanning section %d of %d (s=%g)...'%(i+1,NumberOfSections,SpanwiseAbscissa[i]))
 
-        # TODO accept different topologies of BladeDirection
-        SpanwiseVector = np.array([BladeDirection[0], BladeDirection[1], BladeDirection[2]])
-        SpanwiseVector /= np.linalg.norm(SpanwiseVector)
-
-        SliceResult = P.isoSurfMC(Blade,'Span',value=Span) # NOTE most expensive part of algorithm
+        SpanwiseVector = n = np.array([ScanPlaneX[i], ScanPlaneY[i], ScanPlaneZ[i]])
+        Pt = np.array([SpanwiseCurveX[i], SpanwiseCurveY[i], SpanwiseCurveZ[i]])
+        PlaneCoefs = n[0],n[1],n[2],-n.dot(Pt)
+        C._initVars(Blade,'Slice=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
+        SliceResult = P.isoSurfMC(Blade,'Slice',value=0) # NOTE most expensive part of algorithm
+        SliceResult = T.join(SliceResult)
+        SliceResult = T.splitConnexity(SliceResult)
+        SliceResult = J.getNearestZone(SliceResult, Pt)[0]
         if not SliceResult:
-            print('No blade found at Span=%g. Skipping section.'%Span)
+            print('No blade found, skipping section.')
             continue
+        Span = C.getMeanValue(SliceResult,'Span')
+        print('Span = %g'%Span)
+
         Structs = []
         for s in SliceResult:
             s = C.convertBAR2Struct(s)
             Structs.append(T.oneovern(s,(2,1,1)))
         Slice = T.join(Structs)
         AirfoilCurve = C.convertBAR2Struct(Slice)
-
-        I.setName(AirfoilCurve, 'Section-rR%0.3f'%RelativeSpanDistribution[i])
+        W.removeMultiplePoints(AirfoilCurve)
+        I.setName(AirfoilCurve, 'Section-s%0.3f'%SpanwiseAbscissa[i])
         Sections += [AirfoilCurve]
-        AirfoilProperties, CamberLine = W.getAirfoilPropertiesAndCamber(
+        try:
+            AirfoilProperties, CamberLine = W.getAirfoilPropertiesAndCamber(
                                         AirfoilCurve,
                                         buildCamberOptions=buildCamberOptions,
                                         splitAirfoilOptions=splitAirfoilOptions)
-        I.setName(CamberLine, 'Camber-rR%0.3f'%RelativeSpanDistribution[i])
+        except BaseException as e:
+            J.save(AirfoilCurve,'debug.cgns')
+            raise ValueError('could not extract airfoil properties, check debug.cgns') from e
+        I.setName(CamberLine, 'Camber-s%0.3f'%SpanwiseAbscissa[i])
         Cambers += [CamberLine]
 
         LeadingEdge        = AirfoilProperties['LeadingEdge']
@@ -1573,13 +1628,13 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
         BladeLineZ[i] = ControlPointAirfoil[2]
 
         NormalizedAirfoil = I.copyTree(AirfoilCurve)
-        I.setName(NormalizedAirfoil, 'NormAirfoil-rR%0.3f'%RelativeSpanDistribution[i])
+        I.setName(NormalizedAirfoil, 'NormAirfoil-s%0.3f'%SpanwiseAbscissa[i])
         W.normalizeFromAirfoilProperties(NormalizedAirfoil, AirfoilProperties)
         W.putAirfoilClockwiseOrientedAndStartingFromTrailingEdge(NormalizedAirfoil)
         NormalizedAirfoils += [NormalizedAirfoil]
 
         NormalizedCamber = I.copyTree(CamberLine)
-        I.setName(NormalizedCamber, 'NormCamber-rR%0.3f'%RelativeSpanDistribution[i])
+        I.setName(NormalizedCamber, 'NormCamber-s%0.3f'%SpanwiseAbscissa[i])
         W.normalizeFromAirfoilProperties(NormalizedCamber, AirfoilProperties)
         NormalizedCambers += [NormalizedCamber]
 
