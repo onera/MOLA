@@ -40,6 +40,7 @@ def set_problem_dimension(workflow):
 def set_physical_parameters(workflow):
 
     workflow.Turbulence.setdefault('Model', 'Wilcox2006-klim')
+    # TODO: TurbulenceCutOffRatio=1e-8 : Change this value for workflows for external aerodynamics 
     workflow.Turbulence.setdefault('TurbulenceCutOffRatio', 1e-8)
     workflow.Turbulence.setdefault('TransitionMode', None)
 

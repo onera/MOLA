@@ -40,8 +40,6 @@ class FakeWorkflow():
             Level=0.001,
             ReferenceVelocity='auto',
             Viscosity_EddyMolecularRatio=0.1,
-            TurbulenceCutOffRatio=1e-8,
-            TransitionMode=None
             )
 
 def test_get_flow_directions():
@@ -128,8 +126,6 @@ def test_ExternalFlowGenerator():
                     'ReynoldsStressYY': 0.0001225,
                     'ReynoldsStressYZ': 0.0,
                     'ReynoldsStressZZ': 0.0001225,
-                    'TransitionMode': None,
-                    'TurbulenceCutOffRatio': 1e-08,
                     'TurbulentDissipationRateDensity': 125.7942695235221,
                     'TurbulentEnergyKineticDensity': 0.00018375,
                     'TurbulentEnergyKineticPLSDensity': 4.061228067453527e-08,
