@@ -4080,7 +4080,13 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
         addFieldExtractions(t, ReferenceValues, extractCoords=False,
         includeAdditionalExtractions=True, container='FlowSolution#EndOfRun#Absolute',
         ReferenceFrame='absolute', secondOrderRestart=secondOrderRestart)
-    EP._addGlobalConvergenceHistory(t)
+    
+    for base in I.getBases(t):
+        # Create GlobalConvergenceHistory to follow convergence in the OUTPUT8TREE during and at the end of simulation
+        # see https://elsa.onera.fr/issues/9703
+        GlobalConvergenceHistory = I.createNode('GlobalConvergenceHistory', 'UserDefinedData_t', value=0, parent=base)
+        I.createNode('NormDefinitions', 'Descriptor_t', value='ConvergenceHistory', parent=GlobalConvergenceHistory)
+        J.set(GlobalConvergenceHistory, '.Solver#Output', period=1, writingmode=0, var='residual_cons residual_turb')
 
 
 def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={},
