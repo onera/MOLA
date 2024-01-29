@@ -1231,7 +1231,7 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
     LeadingEdgeTangentCurve = D.getTangent(LeadingEdge)
     LiftingLineTangentCurve = D.getTangent(LiftingLine)
     tLEx, tLEy, tLEz = J.getxyz(LeadingEdgeTangentCurve)
-    tLLx, tLLy, tLLz = J.getxyz(LeadingEdgeTangentCurve)
+    tLLx, tLLy, tLLz = J.getxyz(LiftingLineTangentCurve)
     for i in range(len(tLEx)):
         LedingEdgeTangentVector = np.array([tLEx[i], tLEy[i], tLEz[i]])
         LiftingLineTangentVector = np.array([tLLx[i], tLLy[i], tLLz[i]])
