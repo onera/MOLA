@@ -329,6 +329,15 @@ def getVars2Dict(zone, VariablesName=None, Container='FlowSolution'):
             print ("Field %s not found in container %s of zone %s. Check spelling or data."%(v,Container,zone[0]))
     return Pointers
 
+def getAllVars(zone, Container='FlowSolution'):
+    '''
+    get all fields of a zone stored in a dict
+    '''
+    fs = I.getNodeFromName1(zone,Container)
+    field_names = [n[0] for n in fs[2] if n[3]=='DataArray_t']
+    return getVars2Dict(zone, field_names, Container=Container)
+
+
 def getVars2DictPerZone(t, **getVars2DictOpts):
     '''
     higher-level version of :py:func:`getVars2Dict`, where a new level is provided
@@ -748,6 +757,31 @@ def createZone(Name, Arrays, Vars):
 
     return zone
 
+def getZoneFromListByName(ZoneList, ZoneName):
+    '''
+    Extract a zone from list of nodes (children are not parsed)
+
+    Parameters
+    ----------
+
+        ZoneList : list
+            list of nodes
+
+        ZoneName : str
+            name of the zone to extract from the list
+
+    Returns
+    -------
+
+        zone : zone
+            zone named **ZoneName**
+    '''
+    for zone in ZoneList:
+        if I.getType(zone) != 'Zone_t': continue
+        if I.getName(zone) == ZoneName:
+            return zone
+
+
 
 def _addSetOfNodes(parent, name, ListOfNodes, type1='UserDefinedData_t', type2='DataArray_t'):
     '''
@@ -1010,9 +1044,9 @@ def getDistributionFromHeterogeneousInput__(InputDistrib):
         Abscissa, = getVars(zone,['s'])
         Distribution = D.getDistribution(zone)
         x,y,z = getxyz(zone)
-        Span = np.sqrt(x*x+y*y+z*z)
+        # Span = np.sqrt(x*x+y*y+z*z) # wrong
 
-        return Span, Abscissa, Distribution
+        return x, Abscissa, Distribution
 
 
     typeInput=type(InputDistrib)
@@ -1827,16 +1861,15 @@ def migrateFields(Donor, Receiver, keepMigrationDataForReuse=False,
                         mask[i] = 1
                         break
 
-    def getZoneFromListByName(ZoneList, ZoneName):
-        for zone in ZoneList:
-            if I.getName(zone) == ZoneName:
-                return zone
-
     MigrateDataNodeReservedName = '.MigrateData'
 
     Donor = I.copyRef( Donor )
     DonorZones = I.getZones( Donor )
     ReceiverZones = I.getZones( Receiver )
+
+    # https://gitlab.onera.net/numerics/mola/-/issues/191#note_24456
+    I._correctPyTree(DonorZones,level=3)
+    I._correctPyTree(ReceiverZones,level=3)
 
     raiseErrorIfNotValidDonorZoneNames( DonorZones )
 
@@ -2758,7 +2791,8 @@ def load(*args, **kwargs):
     Default backend is Cassiopee
 
     Special keyword ``return_type='zones'`` will return only a list of zones
-    contained in the file (if any). By default, ``return_type='tree'``
+    contained in the file (if any). By default, ``return_type='tree'``. If
+    ``return_type='zone'`` (singular) only the first zone in tree is returned.
     '''
     try:
         backend = kwargs['backend'].lower()
@@ -2801,8 +2835,25 @@ def load(*args, **kwargs):
         return t
     elif return_type == 'zones':
         return I.getZones(t)
+    elif return_type == 'zone':
+        return I.getZones(t)[0]
     else:
         raise NotImplementedError(f'return_type must be "tree" or "zones", got "{return_type}"')
+
+def loadZone(*args, **kwargs):
+    '''
+    shortcut for :py:func:`load` using option ``return_type='zone'``
+    '''
+    kwargs['return_type']='zone'
+    return load(*args,**kwargs)
+
+def loadZones(*args, **kwargs):
+    '''
+    shortcut for :py:func:`load` using option ``return_type='zones'``
+    '''
+    kwargs['return_type']='zones'
+    return load(*args,**kwargs)
+
 
 def save(*args, **kwargs):
     '''
@@ -3047,3 +3098,16 @@ def zoneHasData(zone):
         for data in I.getNodesFromType1(container,'DataArray_t'):
             if data[1] is not None: 
                 return True
+
+def _inferOrderFromInterpLawName(InterpolationLaw):
+    InterpLaw = InterpolationLaw.lower()
+    if InterpLaw == 'interp1d_linear':
+        InterpLaw = 'rectbivariatespline_1'
+    elif InterpLaw == 'interp1d_quadratic':
+        InterpLaw = 'rectbivariatespline_2'
+    elif InterpLaw in ['interp1d_cubic', 'pchip', 'akima', 'cubic']:
+        InterpLaw = 'rectbivariatespline_3'
+    elif not InterpLaw.startswith('rectbivariatespline'):
+        raise AttributeError(f'unknown law "{InterpLaw}"')
+    order = int(InterpLaw.split('_')[-1])
+    return order

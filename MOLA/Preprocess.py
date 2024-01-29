@@ -318,7 +318,6 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
             List of boundary conditions to set on the given mesh.
             For details, refer to documentation of :py:func:`MOLA.WorfklowCompressor.setBoundaryConditions`
 
-
         NumericalParams : dict
             dictionary containing the numerical
             settings for elsA. For information on acceptable values, please see
