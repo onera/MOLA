@@ -129,7 +129,7 @@ def sweepSections(sections=[], SpanPositions=None,
     if Ns == 1:
         sections.append(sections)
         Ns+=1
-    Ntot = len(getx(spine))
+    Ntot = len(J.getx(spine))
     spine_x, spine_y, spine_z = J.getxyz(spine)
 
     if not SpanPositions: SpanPositions = np.linspace(0,1,Ns)
@@ -371,9 +371,20 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
 
     # Verify the Geometrical variables arguments
     if 'Airfoil' not in GeometricalParameters: raise AttributeError('wing(): Requires at least one Airfoil')
+    AirfoilList = kwargs['Airfoil']['Airfoil']
+
+    anyOpen = False
+    anyClosed = False
+    for airfoil in AirfoilList:
+        if W.isCurveClosed(airfoil): anyClosed = True
+        else: anyOpen = True
+        if anyOpen == anyClosed == True: 
+            raise AttributeError('provided airfoils must be all closed or all open')
+
     for GeomParam in kwargs:
         for MustKey in ['RelativeSpan','InterpolationLaw',GeomParam]:
-            if MustKey not in kwargs[GeomParam]: raise AttributeError('wing(): Airfoil dictionnary MUST contain "%s" key.'%MustKey)
+            if MustKey not in kwargs[GeomParam]:
+                raise AttributeError('wing(): %s dictionnary MUST contain "%s" key.'%(GeomParam,MustKey))
         if len(kwargs[GeomParam]['RelativeSpan']) != len(kwargs[GeomParam][GeomParam]): raise AttributeError('wing(): There MUST be the SAME amount of elements in "RelativeSpan" and "%s" lists'%GeomParam)
         if len(kwargs[GeomParam]['RelativeSpan'])==1:
             kwargs[GeomParam]['RelativeSpan'] = [0,kwargs[GeomParam]['RelativeSpan'][0]]
@@ -384,10 +395,15 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
 
     if AirfoilDiscretization is None:
         # Verify if all airfoils have the same number of points:
-        AirfoilList = kwargs['Airfoil']['Airfoil']
         ListOfNPts = np.array([C.getNPts(a) for a in AirfoilList])
         NPts = ListOfNPts[0]
-        if not all(NPts == ListOfNPts): raise AttributeError('wing(): All Airfoils MUST have the SAME number of points.')
+        if not all(NPts == ListOfNPts):
+            msg = 'WARNING: GSD.wing(): all Airfoils MUST have the SAME number of points.\n'
+            msg+= 'Adjust using AirfoilDiscretization if required.\n'
+            msg+= 'Will impose same number of points using first airfoil distribution.'
+            print(J.WARN+msg+J.ENDC)
+            AirfoilList = W.useEqualNumberOfPointsOrSameDiscretization(AirfoilList)
+            NPts = C.getNPts(AirfoilList[0])
     # ----------------- END OF VERIFICATIONS ----------------- #
 
 
@@ -408,136 +424,28 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
     # STEP 0: Re-descretize airfoils if required
     if AirfoilDiscretization is not None:
         # Start with a re-discretization of airfoils
-        AirfoilList = kwargs['Airfoil']['Airfoil']
         for i in range(len(AirfoilList)):
             AirfoilList[i] = W.discretizeAirfoil(AirfoilList[i], **AirfoilDiscretization)
 
         # Verify if all airfoils have the same number of points:
         ListOfNPts = np.array([C.getNPts(a) for a in AirfoilList])
         NPts = ListOfNPts[0]
-        if not all(NPts == ListOfNPts): raise AttributeError('wing(): All Airfoils MUST have the SAME number of points.')
+        if not all(NPts == ListOfNPts):
+            raise ValueError(J.FAIL+'FATAL: airfoils after rediscretization do not have same nb of pts. Please notify bug'+J.ENDC)
 
 
-    # STEP 1: Interpolate each airfoil.
-    #         This step is mandatory.
-    # Sections = map(lambda s: D.line((0,0,0),(1,0,0),NPts),range(Ns)) # Invoke all sections
-
-    Sections = [D.line((0,0,0),(1,0,0),NPts) for isec in range(Ns)] # Invoke all sections
     Spine = D.line((0,0,0),(1,0,0),Ns)
     SpineX, SpineY, SpineZ = J.getxyz(Spine)
 
-    # Make the interpolation matrices based upon the PROVIDED sections
-    GeomParam = 'Airfoil'
-    FoilInterpLaw = kwargs[GeomParam]['InterpolationLaw'].lower()
-    if FoilInterpLaw == 'interp1d_linear':
-        FoilInterpLaw = 'rectbivariatespline_1'
-    elif FoilInterpLaw == 'interp1d_quadratic':
-        FoilInterpLaw = 'rectbivariatespline_2'
-    elif FoilInterpLaw in ['interp1d_cubic', 'pchip', 'akima', 'cubic']:
-        FoilInterpLaw = 'rectbivariatespline_3'
+    # STEP 1: Interpolate each airfoil: this step is mandatory.
+    order = J._inferOrderFromInterpLawName(kwargs['Airfoil']['InterpolationLaw'])
+    Airfoils = kwargs['Airfoil']['Airfoil']
+    Positions = kwargs['Airfoil']['RelativeSpan']
 
-    NinterFoils = len(kwargs[GeomParam]['Airfoil'])
-    if FoilInterpLaw.startswith('rectbivariatespline'):
-        RediscretizedAirfoils = [kwargs[GeomParam]['Airfoil'][0]]
-        foil_Distri = D.getDistribution(RediscretizedAirfoils[0])
-        for foil in kwargs[GeomParam]['Airfoil'][1:]:
-            RediscretizedAirfoils += [G.map(foil, foil_Distri)]
-    else:
-        RediscretizedAirfoils = kwargs[GeomParam]['Airfoil']
-
-
-    InterpXmatrix = np.zeros((NinterFoils,NPts),dtype=np.float64,order='F')
-    InterpYmatrix = np.zeros((NinterFoils,NPts),dtype=np.float64,order='F')
-    for j in range(NinterFoils):
-        InterpXmatrix[j,:] = J.getx(RediscretizedAirfoils[j])
-        InterpYmatrix[j,:] = J.gety(RediscretizedAirfoils[j])
-
-    if FoilInterpLaw.startswith('rectbivariatespline'):
-        u = W.gets(RediscretizedAirfoils[0])
-        v = kwargs[GeomParam]['RelativeSpan']
-        order = int(FoilInterpLaw[-1])
-        interpX = scipy.interpolate.RectBivariateSpline(v,u,InterpXmatrix,
-                                                        kx=order, ky=order)
-        interpY = scipy.interpolate.RectBivariateSpline(v,u,InterpYmatrix,
-                                                        kx=order, ky=order)
-
-        InterpolatedX = interpX(RelWingSpan, u)
-        InterpolatedY = interpY(RelWingSpan, u)
-
-        for j in range(Ns):
-            Section = Sections[j]
-            SecX,SecY = J.getxy(Section)
-            SecX[:] = InterpolatedX[j,:]
-            SecY[:] = InterpolatedY[j,:]
-
-
-    elif 'interp1d' in kwargs[GeomParam]['InterpolationLaw'].lower():
-        ScipyLaw = kwargs[GeomParam]['InterpolationLaw'].split('_')[1]
-        interpX = scipy.interpolate.interp1d( kwargs[GeomParam]['RelativeSpan'],
-                                                InterpXmatrix, axis=0,
-                                                kind=ScipyLaw,
-                                                bounds_error=False,
-                                                fill_value='extrapolate')
-        interpY = scipy.interpolate.interp1d( kwargs[GeomParam]['RelativeSpan'],
-                                                InterpYmatrix,
-                                                axis=0,
-                                                kind=ScipyLaw,
-                                                bounds_error=False,
-                                                fill_value='extrapolate')
-        for j in range(Ns):
-            Section = Sections[j]
-            SecX,SecY = J.getxy(Section)
-            SecX[:] = interpX(RelWingSpan[j])
-            SecY[:] = interpY(RelWingSpan[j])
-    elif 'pchip' == kwargs[GeomParam]['InterpolationLaw'].lower():
-        interpX = scipy.interpolate.PchipInterpolator( kwargs[GeomParam]['RelativeSpan'],
-                                                InterpXmatrix,
-                                                axis=0,
-                                                extrapolate=True)
-        interpY = scipy.interpolate.PchipInterpolator( kwargs[GeomParam]['RelativeSpan'],
-                                                InterpYmatrix,
-                                                axis=0,
-                                                extrapolate=True)
-        for j in range(Ns):
-            Section = Sections[j]
-            SecX,SecY = J.getxy(Section)
-            SecX[:] = interpX(RelWingSpan[j])
-            SecY[:] = interpY(RelWingSpan[j])
-    elif 'akima' == kwargs[GeomParam]['InterpolationLaw'].lower():
-        interpX = scipy.interpolate.Akima1DInterpolator( kwargs[GeomParam]['RelativeSpan'],
-                                                        InterpXmatrix,
-                                                        axis=0)
-        interpY = scipy.interpolate.Akima1DInterpolator( kwargs[GeomParam]['RelativeSpan'],
-                                                        InterpYmatrix,
-                                                        axis=0)
-        for j in range(Ns):
-            Section = Sections[j]
-            SecX,SecY = J.getxy(Section)
-            SecX[:] = interpX(RelWingSpan[j],extrapolate=True)
-            SecY[:] = interpY(RelWingSpan[j],extrapolate=True)
-    elif 'cubic' == kwargs[GeomParam]['InterpolationLaw'].lower():
-        try: bc_type = kwargs[GeomParam]['CubicSplineBoundaryConditions']
-        except KeyError: bc_type = 'not-a-knot'
-        interpX = scipy.interpolate.CubicSpline( kwargs[GeomParam]['RelativeSpan'],
-                                                InterpXmatrix,
-                                                axis=0,
-                                                bc_type=bc_type,
-                                                extrapolate=True)
-        interpY = scipy.interpolate.CubicSpline( kwargs[GeomParam]['RelativeSpan'],
-                                                InterpYmatrix,
-                                                axis=0,
-                                                bc_type=bc_type,
-                                                extrapolate=True)
-        for j in range(Ns):
-            Section = Sections[j]
-            SecX,SecY = J.getxy(Section)
-            SecX[:] = interpX(RelWingSpan[j],extrapolate=True)
-            SecY[:] = interpY(RelWingSpan[j],extrapolate=True)
-    else:
-        raise AttributeError('wing(): InterpolationLaw %s not recognized.\nAllowed values are: %s.'%(kwargs[GeomParam]['InterpolationLaw'],str(AllowedInterpolationLaws)))
+    Sections = W.interpolateAirfoils(Airfoils, Positions, RelWingSpan, order=order)
 
     # STEP 2: Modify each airfoil based upon the distributions
-    # contained in AirfoilParameters tupple. Optional step.
+    # contained in AirfoilParameters tuple. Optional step.
     AirfoilParameters = ('Chord',
                          'MaxThickness',
                          'MaxRelativeThickness',
@@ -1488,7 +1396,7 @@ def multiSections(ProvidedSections, SpineDiscretization,
 
     return Surface, SpineCurve
 
-def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
+def scanBlade(BladeSurface, SpanwiseInput, RotationCenter,
           RotationAxis, BladeDirection, RelativeChordReference=0.25,
           PitchAxis=None, PitchRelativeCenter=[0,0,0],
           buildCamberOptions={}, splitAirfoilOptions={}):
@@ -1504,8 +1412,21 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
             Tree containing the blade surface. It can be
             mono- or multi-block, unstructured or structured, or both.
 
-        RelativeSpanDistribution : 1D numpy array
-            array between 0 and 1 used to discretize the scanner distribution
+        SpanwiseInput : multiple types
+            Specifies the spanwise scanning distribution. Can be one of the
+            following types:
+            
+            * 1D :py:class:`numpy.ndarray` or :py:class:`list` of :py:class:`float`
+                Specifies the relative scan points along **BladeDirection**. Hence,
+                it must be an array between 0 and 1.
+
+            * :py:class:`list` of 3-:py:class:`float` list
+                specifies the :math:`(x,y,z)` coordinates of each point of the
+                scan. The scan is done in the normal direction of each point.
+            
+            * zone
+                A user-defined 3D curve given as a structured curve. The scan is
+                done in the normal direction of each point.
 
         RotationCenter : 3-:py:class:`float` array
             coordinates of the blade rotation center
@@ -1559,8 +1480,6 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
     Blade = I.copyRef(BladeSurface)
     I._rmNodesByType(Blade,'FlowSolution_t')
 
-    NumberOfSections = len(RelativeSpanDistribution)
-
     RotationCenter = np.array(RotationCenter, dtype=np.float64)
 
     RotationAxis = getUnitVector(RotationAxis)
@@ -1584,6 +1503,42 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
         Eqn = W.computePlaneEquation(RotationCenter, TopDirection)
         C._initVars(Blade, 'TopDirection='+Eqn)
 
+    Eqn = W.computePlaneEquation(RotationCenter, BladeDirection)
+    C._initVars(Blade, 'Span='+Eqn)
+    MaximumSpan = C.getMaxValue(Blade,'Span')
+    MinimumSpan = C.getMinValue(Blade,'Span')
+
+    # build auxiliar scanning SpanwiseCurve
+    if W.isStructuredCurve(SpanwiseInput):
+        SpanwiseCurve = SpanwiseInput
+    else:
+        try:
+            SpanwiseArray = np.array(SpanwiseInput)
+        except BaseException as e:
+            raise TypeError('could not transform SpanwiseInput to a numpy array') from e
+        if len(SpanwiseArray.shape) == 1:
+            if not np.all(np.diff(SpanwiseArray)>0):
+                msg = 'SpanwiseInput is not monotonically increasing (detected as a flat array)'
+                raise AttributeError(J.FAIL+msg+J.ENDC)
+            elif SpanwiseArray[0] < 0 or SpanwiseArray[-1] > 1:
+                msg = 'SpanwiseInput is not bounded between 0 and 1 (detected as a flat array)'
+                raise AttributeError(J.FAIL+msg+J.ENDC)
+            SpanwiseArray = SpanwiseArray*(MaximumSpan-MinimumSpan)+MinimumSpan
+            SpanwiseArrayT = SpanwiseArray.reshape((len(SpanwiseArray),1))
+            coords = RotationCenter + BladeDirection*SpanwiseArrayT
+            SpanwiseCurve = D.polyline([tuple(c) for c in coords])
+        elif len(SpanwiseArray.shape) == 2:
+            if not (SpanwiseArray.shape[1] == 3 and SpanwiseArray.shape[0]>1):
+                msg = 'SpanwiseInput (detected as a matrix) is not a Nx3 matrix with N>=2'
+                raise AttributeError(J.FAIL+msg+J.ENDC)
+            SpanwiseCurve = D.polyline([tuple(c) for c in coords])
+        else:
+            raise TypeError(J.FAIL+'unsupported SpanwiseInput, see doc of scanBlade'+J.ENDC)
+    SpanwiseCurve[0] = 'SpanwiseCurve'
+    SpanwiseAbscissa = W.gets(SpanwiseCurve)
+    SpanwiseCurveX, SpanwiseCurveY, SpanwiseCurveZ = J.getxyz(SpanwiseCurve)
+    ScanPlaneX, ScanPlaneY, ScanPlaneZ = J.getxyz(D.getTangent(SpanwiseCurve))
+
     Fields2StoreInLine = ['Span', 'Chord', 'Twist',
         'MaxRelativeThickness',
         'MaxThickness', 'MaxThicknessRelativeLocation',
@@ -1594,16 +1549,13 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
         'ThickwiseX','ThickwiseY','ThickwiseZ',
         'PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ',
         'PitchAxisX','PitchAxisY','PitchAxisZ']
-    
+
+    NumberOfSections = C.getNPts(SpanwiseCurve)
     BladeLine = D.line((0,0,0),(0,0,0),NumberOfSections)
     I.setName(BladeLine,'BladeLine')
     BladeLineFields = J.invokeFieldsDict(BladeLine, Fields2StoreInLine)
     BladeLineX, BladeLineY, BladeLineZ = J.getxyz(BladeLine)
 
-    Eqn = W.computePlaneEquation(RotationCenter, BladeDirection)
-    C._initVars(Blade, 'Span='+Eqn)
-    MaximumSpan = C.getMaxValue(Blade,'Span')
-    MinimumSpan = C.getMinValue(Blade,'Span')
 
     Sections = []
     Cambers  = []
@@ -1611,31 +1563,41 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
     NormalizedCambers  = []
     RightHandRuleRotation = None
     for i in range(NumberOfSections):
-        Span = np.interp(RelativeSpanDistribution[i],[0,1],[MinimumSpan, MaximumSpan])
-        print('scanning section %d at Span = %g ...'%(i+1,Span))
+        Span = np.interp(SpanwiseAbscissa[i],[0,1],[MinimumSpan, MaximumSpan])
+        print('scanning section %d of %d (s=%g)...'%(i+1,NumberOfSections,SpanwiseAbscissa[i]))
 
-        # TODO accept different topologies of BladeDirection
-        SpanwiseVector = np.array([BladeDirection[0], BladeDirection[1], BladeDirection[2]])
-        SpanwiseVector /= np.linalg.norm(SpanwiseVector)
-
-        SliceResult = P.isoSurfMC(Blade,'Span',value=Span) # NOTE most expensive part of algorithm
+        SpanwiseVector = n = np.array([ScanPlaneX[i], ScanPlaneY[i], ScanPlaneZ[i]])
+        Pt = np.array([SpanwiseCurveX[i], SpanwiseCurveY[i], SpanwiseCurveZ[i]])
+        PlaneCoefs = n[0],n[1],n[2],-n.dot(Pt)
+        C._initVars(Blade,'Slice=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
+        SliceResult = P.isoSurfMC(Blade,'Slice',value=0) # NOTE most expensive part of algorithm
+        SliceResult = T.join(SliceResult)
+        SliceResult = T.splitConnexity(SliceResult)
+        SliceResult = J.getNearestZone(SliceResult, Pt)[0]
         if not SliceResult:
-            print('No blade found at Span=%g. Skipping section.'%Span)
+            print('No blade found, skipping section.')
             continue
+        Span = C.getMeanValue(SliceResult,'Span')
+        print('Span = %g'%Span)
+
         Structs = []
         for s in SliceResult:
             s = C.convertBAR2Struct(s)
             Structs.append(T.oneovern(s,(2,1,1)))
         Slice = T.join(Structs)
         AirfoilCurve = C.convertBAR2Struct(Slice)
-
-        I.setName(AirfoilCurve, 'Section-rR%0.3f'%RelativeSpanDistribution[i])
+        W.removeMultiplePoints(AirfoilCurve)
+        I.setName(AirfoilCurve, 'Section-s%0.3f'%SpanwiseAbscissa[i])
         Sections += [AirfoilCurve]
-        AirfoilProperties, CamberLine = W.getAirfoilPropertiesAndCamber(
+        try:
+            AirfoilProperties, CamberLine = W.getAirfoilPropertiesAndCamber(
                                         AirfoilCurve,
                                         buildCamberOptions=buildCamberOptions,
                                         splitAirfoilOptions=splitAirfoilOptions)
-        I.setName(CamberLine, 'Camber-rR%0.3f'%RelativeSpanDistribution[i])
+        except BaseException as e:
+            J.save(AirfoilCurve,'debug.cgns')
+            raise ValueError('could not extract airfoil properties, check debug.cgns') from e
+        I.setName(CamberLine, 'Camber-s%0.3f'%SpanwiseAbscissa[i])
         Cambers += [CamberLine]
 
         LeadingEdge        = AirfoilProperties['LeadingEdge']
@@ -1666,13 +1628,13 @@ def scanBlade(BladeSurface, RelativeSpanDistribution, RotationCenter,
         BladeLineZ[i] = ControlPointAirfoil[2]
 
         NormalizedAirfoil = I.copyTree(AirfoilCurve)
-        I.setName(NormalizedAirfoil, 'NormAirfoil-rR%0.3f'%RelativeSpanDistribution[i])
+        I.setName(NormalizedAirfoil, 'NormAirfoil-s%0.3f'%SpanwiseAbscissa[i])
         W.normalizeFromAirfoilProperties(NormalizedAirfoil, AirfoilProperties)
         W.putAirfoilClockwiseOrientedAndStartingFromTrailingEdge(NormalizedAirfoil)
         NormalizedAirfoils += [NormalizedAirfoil]
 
         NormalizedCamber = I.copyTree(CamberLine)
-        I.setName(NormalizedCamber, 'NormCamber-rR%0.3f'%RelativeSpanDistribution[i])
+        I.setName(NormalizedCamber, 'NormCamber-s%0.3f'%SpanwiseAbscissa[i])
         W.normalizeFromAirfoilProperties(NormalizedCamber, AirfoilProperties)
         NormalizedCambers += [NormalizedCamber]
 
@@ -3944,3 +3906,5 @@ def getSectionsForAutogrid(mesh, indexLE=None):
             Blades[bladeName]['pressure'].append(coordsPS)
     
     return Blades
+
+

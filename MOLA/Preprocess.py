@@ -318,7 +318,6 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
             List of boundary conditions to set on the given mesh.
             For details, refer to documentation of :py:func:`MOLA.WorfklowCompressor.setBoundaryConditions`
 
-
         NumericalParams : dict
             dictionary containing the numerical
             settings for elsA. For information on acceptable values, please see
@@ -1392,7 +1391,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                 cores_per_node, maximum_number_of_points_per_node, raise_error=True)[0]
 
         I._correctPyTree(tRef,level=3)
-        tRef = connectMesh(tRef, InputMeshes)
+        # tRef = connectMesh(tRef, InputMeshes)
 
     elif mode == 'imposed':
 
@@ -1400,7 +1399,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                                  maximum_number_of_points_per_node, raise_error=True)[0]
 
         I._correctPyTree(tRef,level=3)
-        tRef = connectMesh(tRef, InputMeshes)
+        # tRef = connectMesh(tRef, InputMeshes)
 
     showStatisticsAndCheckDistribution(tRef, CoresPerNode=cores_per_node)
 
@@ -1430,7 +1429,8 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per
 
         tToSplit = I.merge([C.newPyTree([b[0],I.getZones(b)]) for b in basesToSplit])
 
-        removeMatchAndNearMatch(tToSplit)
+        # removeMatchAndNearMatch(tToSplit)
+        C.registerAllNames(tToSplit) # HACK https://gitlab.onera.net/numerics/mola/-/issues/143
         tSplit = T.splitSize(tToSplit, 0, type=0, R=remainingNProcs,
                              minPtsPerDir=5)
         NbOfZonesAfterSplit = len(I.getZones(tSplit))
@@ -4982,7 +4982,7 @@ def adapt2elsA(t, InputMeshes):
     This function is similar to :py:func:`Converter.elsAProfile.convert2elsAxdt`,
     except that it employs **InputMeshes** information in order to precondition
     unnecessary operations. It also cleans spurious 0-length data CGNS nodes that
-    can be generated during overset preprocessing.
+    can be generated during overset preprocessing and other general adaptations.
     '''
 
     if hasAnyNearMatch(t, InputMeshes):
@@ -5006,8 +5006,13 @@ def forceFamilyBCasFamilySpecified(t):
         for zone in I.getZones(base):
             for ZoneBC in I.getNodesFromType1(zone,'ZoneBC_t'):
                 for BC in I.getNodesFromType1(ZoneBC,'BC_t'):
-                    if I.getNodeFromType1(BC,'FamilyName_t') is not None:
+                    FamilyNameNode = I.getNodeFromType1(BC,'FamilyName_t')
+                    if FamilyNameNode is not None:
                         I.setValue(BC,'FamilySpecified')
+                        FamilyName = I.getName(FamilyNameNode)
+                        if not I.getNodeFromName1(base,FamilyName):
+                            FamilyAtBase = I.createNode(FamilyName,'Family_t',parent=base)
+                            I.createNode('FamilyBC','FamilyBC_t',value='UserDefined',parent=FamilyAtBase)
                         continue
 
 def hasAnyNearMatch(t, InputMeshes):
