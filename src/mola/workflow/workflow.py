@@ -166,21 +166,6 @@ class Workflow(object):
         self.Name = 'Standard'
         self.tree = tree
 
-        self._prepare_sequence = [
-            self.assemble,
-            self.positioning,
-            self.connect,
-            self.define_families,
-            self.split_and_distribute,
-            self.process_overset,
-            self.compute_reference_values,
-            self.set_motion,
-            self.set_boundary_conditions,
-            self.set_cfd_parameters, # model, numerics, others...
-            self.set_extractions,
-            self.initialize_flow, # eventually + distance to wall
-        ]
-
         if self.tree is not None:
             self.get_workflow_parameters_from_tree()
 
@@ -285,9 +270,18 @@ class Workflow(object):
         except: pass
             
     def prepare(self):
-        for method in self._prepare_sequence:
-            method()
-
+        self.assemble()
+        self.positioning()
+        self.connect()
+        self.define_families()
+        self.split_and_distribute()
+        self.process_overset()
+        self.compute_reference_values()
+        self.set_motion()
+        self.set_boundary_conditions()
+        self.set_cfd_parameters()  # model, numerics, others...
+        self.set_extractions()
+        self.initialize_flow()  # eventually + distance to wall
         # self.check_preprocess() # empty BCs... maybe solver-specific
         self.set_workflow_parameters_in_tree()
         # self.set_workflow_parameters_in_file()
