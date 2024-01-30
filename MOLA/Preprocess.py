@@ -252,7 +252,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
         Extractions=[{'type':'AllBCWall'}], BoundaryConditions=[],
         Initialization=dict(method='uniform'),
         BodyForceInputData=[], writeOutputFields=True,
-        JobInformation={}, SubmitJob=False, COPY_TEMPLATES=True, secondOrderRestart=False):
+        JobInformation={}, SubmitJob=False, templates=dict(), secondOrderRestart=False):
     r'''
     This macro-function takes as input a preprocessed grid file (as produced
     by function :py:func:`prepareMesh4ElsA` ) and adds all remaining information
@@ -471,13 +471,18 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
             then will submit the specified number of jobs in queue with singleton
             dependency (useful for long simulations).
 
-            .. note::
-                only relevant if **COPY_TEMPLATES** is py:obj:`True` and
-                **JobInformation** is provided
+        templates : dict
+            Main files to copy for the workflow. 
+            By default, it is filled with the following values:
 
-        COPY_TEMPLATES : bool
-            If :py:obj:`True` (default value), copy templates files in the
-            current directory.
+            .. code-block::python
+
+                templates = dict(
+                    job_template = '$MOLA/TEMPLATES/job_template.sh',
+                    compute = '$MOLA/TEMPLATES/<WORKFLOW>/compute.py',
+                    coprocess = '$MOLA/TEMPLATES/<WORKFLOW>/coprocess.py',
+                    otherWorkflowFiles = [],
+                )
 
         secondOrderRestart : bool
             If :py:obj:`True`, and if NumericalParams['time_algo'] is 'gear' or 'DualTimeStep' 
@@ -614,15 +619,13 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
         print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
             Splitter + J.ENDC))
 
-    if COPY_TEMPLATES:
-        JM.getTemplates('Standard', JobInformation=JobInformation)
-        if 'DIRECTORY_WORK' in JobInformation:
-            sendSimulationFiles(JobInformation['DIRECTORY_WORK'],
-                                    overrideFields=writeOutputFields)
+    JM.getTemplates('Standard', templates, JobInformation=JobInformation)
+    if 'DIRECTORY_WORK' in JobInformation:
+        sendSimulationFiles(JobInformation['DIRECTORY_WORK'], overrideFields=writeOutputFields)
 
-        for i in range(SubmitJob):
-            singleton = False if i==0 else True
-            JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
+    for i in range(SubmitJob):
+        singleton = False if i==0 else True
+        JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
 
     ElapsedTime = str(datetime.timedelta(seconds=tic()-toc))
     hours, minutes, seconds = ElapsedTime.split(':')
