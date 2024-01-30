@@ -4972,7 +4972,7 @@ def adapt2elsA(t, InputMeshes):
     This function is similar to :py:func:`Converter.elsAProfile.convert2elsAxdt`,
     except that it employs **InputMeshes** information in order to precondition
     unnecessary operations. It also cleans spurious 0-length data CGNS nodes that
-    can be generated during overset preprocessing.
+    can be generated during overset preprocessing and other general adaptations.
     '''
 
     if hasAnyNearMatch(t, InputMeshes):
@@ -4996,8 +4996,13 @@ def forceFamilyBCasFamilySpecified(t):
         for zone in I.getZones(base):
             for ZoneBC in I.getNodesFromType1(zone,'ZoneBC_t'):
                 for BC in I.getNodesFromType1(ZoneBC,'BC_t'):
-                    if I.getNodeFromType1(BC,'FamilyName_t') is not None:
+                    FamilyNameNode = I.getNodeFromType1(BC,'FamilyName_t')
+                    if FamilyNameNode is not None:
                         I.setValue(BC,'FamilySpecified')
+                        FamilyName = I.getName(FamilyNameNode)
+                        if not I.getNodeFromName1(base,FamilyName):
+                            FamilyAtBase = I.createNode(FamilyName,'Family_t',parent=base)
+                            I.createNode('FamilyBC','FamilyBC_t',value='UserDefined',parent=FamilyAtBase)
                         continue
 
 def hasAnyNearMatch(t, InputMeshes):
