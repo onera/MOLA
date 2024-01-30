@@ -1388,7 +1388,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                 cores_per_node, maximum_number_of_points_per_node, raise_error=True)[0]
 
         I._correctPyTree(tRef,level=3)
-        tRef = connectMesh(tRef, InputMeshes)
+        # tRef = connectMesh(tRef, InputMeshes)
 
     elif mode == 'imposed':
 
@@ -1396,7 +1396,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                                  maximum_number_of_points_per_node, raise_error=True)[0]
 
         I._correctPyTree(tRef,level=3)
-        tRef = connectMesh(tRef, InputMeshes)
+        # tRef = connectMesh(tRef, InputMeshes)
 
     showStatisticsAndCheckDistribution(tRef, CoresPerNode=cores_per_node)
 
@@ -1426,7 +1426,8 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per
 
         tToSplit = I.merge([C.newPyTree([b[0],I.getZones(b)]) for b in basesToSplit])
 
-        removeMatchAndNearMatch(tToSplit)
+        # removeMatchAndNearMatch(tToSplit)
+        C.registerAllNames(tToSplit) # HACK https://gitlab.onera.net/numerics/mola/-/issues/143
         tSplit = T.splitSize(tToSplit, 0, type=0, R=remainingNProcs,
                              minPtsPerDir=5)
         NbOfZonesAfterSplit = len(I.getZones(tSplit))
