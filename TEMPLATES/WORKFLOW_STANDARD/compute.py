@@ -31,6 +31,7 @@ import numpy as np
 # np.seterr(all='raise')
 import shutil
 import timeit
+import pprint
 from MOLA.Coprocess import printCo
 LaunchTime = timeit.default_timer()
 from mpi4py import MPI
@@ -182,6 +183,12 @@ e.mode |= elsAxdt.SKIP_GHOSTMASK # NOTE https://elsa.onera.fr/issues/3480
 e.action=elsAxdt.TRANSLATE
 
 e.compute()
+
+if rank==0:
+    table = e.symboltable()
+    with open(os.path.join(DIRECTORY_LOGS,f'symbol_table.log'), 'w') as f:
+        f.write(pprint.pformat(table))
+
 CO.readStaticMasksForElsA(e, elsA_user, Skeleton)
 CO.loadUnsteadyMasksForElsA(e, elsA_user, Skeleton)
 
