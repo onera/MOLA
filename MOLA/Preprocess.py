@@ -4217,6 +4217,13 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={},
                             extraVariables = ['intermittency', 'clim']
                             ExtractVariablesList.extend(extraVariables)
 
+                    # decision https://gitlab.onera.net/numerics/mola/-/issues/190
+                    fluxes = ['flux_rou','flux_rov','flux_row',
+                              'torque_rou','torque_rov','torque_row']
+                    for f in fluxes:
+                        if f not in ExtractVariablesList:
+                            ExtractVariablesList.append(f)
+
                 if ExtractVariablesList != []:
                     varDict = dict(var=' '.join(ExtractVariablesList))
                     print('setting .Solver#Output to FamilyNode '+FamilyNode[0])
