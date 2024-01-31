@@ -16,15 +16,6 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-# ###############################################################################
-# # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
-# export MOLAVER=Dev # looks to current directory name
-# export MOLA=/stck/tbontemp/softs/MOLA/Dev
-# export MOLASATOR=/tmp_user/sator/tbontemp/MOLA/Dev
-# export MOLAext=/stck/lbernard/MOLA/Dev/ext # you should not modify this line
-# export MOLASATORext=/tmp_user/sator/lbernard/MOLA/Dev/ext # you should not modify this line
-# ###############################################################################
-
 # Detection machine
 KC=`uname -n`
 EL8=`uname -r|grep el8`
@@ -52,4 +43,4 @@ export MOLAext=/stck/lbernard/MOLA/Dev/ext
 
 # source the environment associated to the current machine and solver
 echo "source $MOLA/mola/env/onera/$MAC/$solver.sh"
-source $MOLA/mola/env/onera/$MAC/$solver.sh &>/dev/null
+source $MOLA/mola/env/onera/$MAC/$solver.sh &>/dev/null || echo 'Error: Cannot source this environment!'
