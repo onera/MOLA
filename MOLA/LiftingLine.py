@@ -1340,8 +1340,9 @@ def buildLiftingLineFromScan(t, SpanwiseRediscretization=None, resetPitchRelativ
     PitchCtr = J.getVars(BladeLine,
         ['PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ'])
     PitchAxis = J.getVars(BladeLine, ['PitchAxisX','PitchAxisY','PitchAxisZ'])
+    for i in range(3): PitchAxis[i][:] *= Dir
     PitchCtr_pt = (PitchCtr[0][0]*1.0, PitchCtr[1][0]*1.0, PitchCtr[2][0]*1.0)
-    PitchAxis_vec = (PitchAxis[0][0]*Dir, PitchAxis[1][0]*Dir, PitchAxis[2][0]*Dir)
+    PitchAxis_vec = (PitchAxis[0][0], PitchAxis[1][0], PitchAxis[2][0])
     T._rotate(BladeLine, PitchCtr_pt, PitchAxis_vec, -pitch, 
             vectors=NamesOfChordSpanThickwiseFrameNoTangential)
     
@@ -2375,9 +2376,15 @@ def pyZonePolar2AirfoilZone(pyzonename, PyZonePolars):
     else:
         pyzonenames = pyzonename
     
+    PyZonePolars = I.getZones(PyZonePolars)
+    if not PyZonePolars: raise ValueError('not PyZonePolars')
+
+
     AirfoilGeoms = []
     for pzn in pyzonenames:
         zone = J.getZoneFromListByName(PyZonePolars, pzn)
+        if not zone:
+            raise ValueError('not zone')
         FoilGeom_n = I.getNodeFromName1(zone,'.Polar#FoilGeometry')
         Xcoord = I.getNodeFromName1(FoilGeom_n,'CoordinateX')[1]
         Ycoord = I.getNodeFromName1(FoilGeom_n,'CoordinateY')[1]
@@ -2543,14 +2550,7 @@ def makeBladeSurfaceFromLiftingLineAndAirfoilsPolars(LiftingLine, AirfoilsPolars
 
 
 def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
-                            ChordRelRef=0.25, FoilDistribution=None,
-                            OrderInterpolationAirfoils=1,
-                            splitAirfoilOptions=dict(
-                                     FirstEdgeSearchPortion=0.99,
-                                     SecondEdgeSearchPortion=-0.99,
-                                     RelativeRadiusTolerance = 1e-1,
-                                     ),
-                            ImposeWingCanonicalPosition=False):
+                            ChordRelRef=0.25, FoilDistribution=None):
     '''
     Post-process a **LiftingLine** element using enhanced **PyZonePolars** data
     in order to build surface fields (like ``Cp``, ``theta``...) from a BEMT, 
@@ -4924,22 +4924,8 @@ def addPitch(LiftingLine, pitch=0.0):
 
         PitchAxis = J.getVars(LL, ['PitchAxisX','PitchAxisY','PitchAxisZ'])
 
-
-        Kinematics_n = I.getNodeFromName(LL,'.Kinematics')
-        if not Kinematics_n:
-            print(J.WARN,'missing ".Kinematics" node, assuming RightHandRuleRotation=True',J.ENDC)
-            Dir = 1
-        else:
-            Dir_n = I.getNodeFromName1(Kinematics_n,'RightHandRuleRotation')
-            if not Dir_n:
-               print(J.WARN,'missing ".Kinematics/RightHandRuleRotation" node, assuming RightHandRuleRotation=True',J.ENDC)
-               Dir = 1
-            else:
-                Dir = I.getValue( Dir_n )
-                if not Dir: Dir = -1
-
         PitchCtr_pt = (PitchCtr[0][0]*1.0, PitchCtr[1][0]*1.0, PitchCtr[2][0]*1.0)
-        PitchAxis_vec = (PitchAxis[0][0]*Dir, PitchAxis[1][0]*Dir, PitchAxis[2][0]*Dir)
+        PitchAxis_vec = (PitchAxis[0][0], PitchAxis[1][0], PitchAxis[2][0])
         T._rotate(LL, PitchCtr_pt, PitchAxis_vec, pitch, 
                 vectors=NamesOfChordSpanThickwiseFrameNoTangential)
         
