@@ -357,8 +357,8 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     else:
         raise AttributeError("Could not recognize Constraint '%s'"%Constraint)
 
-    AvrgThrust *= NBlades
-    AvrgPower  *= NBlades
+    AvrgThrust= np.mean([n[1] for n in I.getNodesFromName(tLL,'Thrust')]) * NBlades
+    AvrgPower = np.mean([n[1] for n in I.getNodesFromName(tLL,'Power')]) * NBlades
 
     # -------------------------------------------------------------------- #
     # -------------------- FINALIZATION OF COMPUTATION -------------------- #
@@ -1079,11 +1079,14 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
                                                 InterpLaws[GeomParam+'_law'],
                                                 **kwargs[GeomParam])
             elif 'Abscissa' in kwargs[GeomParam]:
-                LLDict[GeomParam][:] = J.interpolate__(s,
+                try:
+                    LLDict[GeomParam][:] = J.interpolate__(s,
                                                 kwargs[GeomParam]['Abscissa'],
                                                 kwargs[GeomParam][GeomParam],
                                                 InterpLaws[GeomParam+'_law'],
                                                 **kwargs[GeomParam])
+                except BaseException as e:
+                    raise ValueError(J.FAIL+f'failed for GeomParam={GeomParam} with parameters:{kwargs[GeomParam]}'+J.ENDC) from e
             else:
                 raise AttributeError("Attribute %s (dict) must contain 'RelativeSpan' or 'Abscissa' key"%GeomParam)
 
@@ -1119,16 +1122,22 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
         raise ValueError(ErrMsg)
 
     # Initialize some variables
-    LLfields = ['AoA', 'Mach', 'Reynolds', 'Cl', 'Cd','Cm',
+    LLfields = ['RelativeSpan', 'AoA', 'Mach', 'Reynolds', 'Cl', 'Cd','Cm',
         'PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ',
         'PitchAxisX','PitchAxisY','PitchAxisZ',
         'TangentialX', 'TangentialY', 'TangentialZ',
         'SweepAngleDeg', 'DihedralAngleDeg']
-    if 'ChordwiseX' not in LLDict: LLfields += ['ChordwiseX','ChordwiseY','ChordwiseZ']
-    if 'SpanwiseX' not in LLDict: LLfields += ['SpanwiseX','SpanwiseY','SpanwiseZ']
-    if 'ThickwiseX' not in LLDict: LLfields += ['ThickwiseX','ThickwiseY','ThickwiseZ']
+    addLLfields = ['ChordwiseX','ChordwiseY','ChordwiseZ',
+                    'SpanwiseX', 'SpanwiseY', 'SpanwiseZ',
+                   'ThickwiseX','ThickwiseY','ThickwiseZ']
+    existing_fields = C.getVarNames(LiftingLine)[0]
+    for fn in addLLfields:
+        if fn not in existing_fields:
+            LLfields.append(fn)
+    J._invokeFields(LiftingLine,LLfields)
+    v = J.getVars2Dict(LiftingLine, LLfields + addLLfields)
 
-    v = J.invokeFieldsDict(LiftingLine,LLfields)
+    v['RelativeSpan'][:] = RelSpan
 
     v['PitchRelativeCenterX'][:] = PitchRelativeCenter[0]
     v['PitchRelativeCenterY'][:] = PitchRelativeCenter[1]
@@ -1138,7 +1147,6 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
     v['PitchAxisY'][:] = PitchAxis[1]
     v['PitchAxisZ'][:] = PitchAxis[2]
     
-
     # infer the airfoil directions if not explicitly provided by user
     if 'ChordwiseX' not in LLDict:
         if 'Twist' not in LLDict: LLDict['Twist'] = 0.0
@@ -1147,6 +1155,9 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
         else:
             v['ChordwiseY'][:] =  np.cos(np.deg2rad(LLDict['Twist']))
         v['ChordwiseZ'][:] = -np.sin(np.deg2rad(LLDict['Twist']))
+    else:
+        for j in 'XYZ': v['Chordwise'+j][:] = LLDict['Chordwise'+j]
+
 
     # normalize
     direction = 'Chordwise'
@@ -1158,6 +1169,8 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
 
     if 'SpanwiseX' not in LLDict:
         v['SpanwiseX'][:] = 1.0
+    else:
+        for j in 'XYZ': v['Spanwise'+j][:] = LLDict['Spanwise'+j]
 
     # normalize
     direction = 'Spanwise'
@@ -1177,7 +1190,17 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
             thickwise_vector = np.cross(spanwise_vector, chordwise_vector,axisa=0,axisb=0,axisc=0)
         v['ThickwiseX'][:] = thickwise_vector[0,:] 
         v['ThickwiseY'][:] = thickwise_vector[1,:] 
-        v['ThickwiseZ'][:] = thickwise_vector[2,:] 
+        v['ThickwiseZ'][:] = thickwise_vector[2,:]
+    else:
+        for j in 'XYZ': v['Thickwise'+j][:] = LLDict['Thickwise'+j]
+
+    # normalize
+    direction = 'Thickwise'
+    for i in range(NPts):
+        norm = np.linalg.norm([v[direction+''+j][i] for j in 'XYZ'])
+        v[direction+'X'][i] /= norm
+        v[direction+'Y'][i] /= norm
+        v[direction+'Z'][i] /= norm
 
     c = np.array(RotationCenter,dtype=float)
     rx = LLx - c[0]
@@ -1204,15 +1227,23 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
 
     # add sweep and dihedral angles
     LeadingEdge = I.getZones(getLeadingEdge(LiftingLine))[0]
-    xLE, yLE, zLE = J.getxyz(LeadingEdge)
-    v['SweepAngleDeg'][:] = np.rad2deg(np.arctan2(-np.gradient(yLE,xLE),1))
-    v['DihedralAngleDeg'][:] = np.rad2deg(np.arctan2(np.gradient(LLz,LLx),1))
+    LeadingEdgeTangentCurve = D.getTangent(LeadingEdge)
+    LiftingLineTangentCurve = D.getTangent(LiftingLine)
+    tLEx, tLEy, tLEz = J.getxyz(LeadingEdgeTangentCurve)
+    tLLx, tLLy, tLLz = J.getxyz(LiftingLineTangentCurve)
+    for i in range(len(tLEx)):
+        LedingEdgeTangentVector = np.array([tLEx[i], tLEy[i], tLEz[i]])
+        LiftingLineTangentVector = np.array([tLLx[i], tLLy[i], tLLz[i]])
+        ChordwiseVector = np.array([v['ChordwiseX'][:][i], v['ChordwiseY'][:][i], v['ChordwiseZ'][:][i]])
+        ThickwiseVector = np.array([v['ThickwiseX'][:][i], v['ThickwiseY'][:][i], v['ThickwiseZ'][:][i]])
+        v['SweepAngleDeg'][i] = 90-np.rad2deg(np.arccos(LedingEdgeTangentVector.dot(ChordwiseVector)))
+        v['DihedralAngleDeg'][i] = 90-np.rad2deg(np.arccos(LiftingLineTangentVector.dot(ThickwiseVector)))
 
     return LiftingLine
 
 
-def buildLiftingLineFromScan(t, Span, resetPitchRelativeSpan=0.75,
-        GeometricalLawsInterpolations={}, OverridingKinematics={}, ):
+def buildLiftingLineFromScan(t, SpanwiseRediscretization=None, resetPitchRelativeSpan=0.75,
+        GeometricalLawsInterpolations={}, OverridingKinematics={}):
     '''
     This function takes as input the result of :py:func:`MOLA.GenerativeShapeDesign.scanBlade`
     and builds a LiftingLine in its canonical position. The resulting LiftingLine
@@ -1225,16 +1256,8 @@ def buildLiftingLineFromScan(t, Span, resetPitchRelativeSpan=0.75,
         t : PyTree
             Rigorously, the result of :py:func:`MOLA.GenerativeShapeDesign.scanBlade`
 
-        Span : multiple
-            This polymorphic input is used to infer the spanwise
-            dimensions and discretization that new lifting-line will use.
-
-            For detailed information on possible inputs of **Span**, please see
-            :py:func:`MOLA.InternalShortcuts.getDistributionFromHeterogeneousInput__` doc.
-
-            .. tip:: typical use is ``np.linspace(MinimumSpan, MaximumSpan, NbOfSpanwisePoints)``
-
-            .. note:: identical as **Span** parameter of :py:func:`buildLiftingLine`
+        SpanwiseRediscretization : multiple
+            **doc this**
 
         resetPitchRelativeSpan : float
             This is the relative span (or :math:`r/R`) used to relocate the blade
@@ -1274,6 +1297,7 @@ def buildLiftingLineFromScan(t, Span, resetPitchRelativeSpan=0.75,
         scanPitch : float
             The pitch of the section at **resetPitchRelativeSpan**
     '''
+    t = I.copyRef(t)
 
     BaseBladeLine = I.getNodeFromName1(t,'BaseBladeLine')
     if not BaseBladeLine:
@@ -1293,7 +1317,8 @@ def buildLiftingLineFromScan(t, Span, resetPitchRelativeSpan=0.75,
     # put blade line into rotation center (0,0,0)
     T._translate(BladeLine, -scan_info['RotationCenter'])
 
-    Dir = 1 if bool(scan_info['RightHandRuleRotation']) else -1
+    RightHandRuleRotation=bool(scan_info['RightHandRuleRotation'])
+    Dir = 1 if RightHandRuleRotation else -1
 
     # put blade line into canonical orientation
     FinalFrame = [(1,0,0),(0,1,0),(0,0,1)]
@@ -1303,27 +1328,95 @@ def buildLiftingLineFromScan(t, Span, resetPitchRelativeSpan=0.75,
     T._rotate(BladeLine, (0,0,0), InitialFrame, FinalFrame,
         vectors=NamesOfChordSpanThickwiseFrameNoTangential)
 
+
     # determine the pitch of the blade-line
+    Abscissa = W.gets(BladeLine)
     Twist, SpanScan = J.getVars(BladeLine,['Twist','Span'])
-    pitch = np.interp(resetPitchRelativeSpan, Twist, SpanScan)
-    print(f'scanned pitch is {pitch} deg')
+    RelativeSpanScan = SpanScan/SpanScan.max()
+    pitch = np.interp(resetPitchRelativeSpan, RelativeSpanScan, Twist)
+    print(f'scanned pitch at r/R={resetPitchRelativeSpan} is {pitch} deg')
 
     # substract pitch to put blade line in canonical position
     PitchCtr = J.getVars(BladeLine,
-                    ['PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ'])
-
+        ['PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ'])
     PitchAxis = J.getVars(BladeLine, ['PitchAxisX','PitchAxisY','PitchAxisZ'])
+    for i in range(3): PitchAxis[i][:] *= Dir
     PitchCtr_pt = (PitchCtr[0][0]*1.0, PitchCtr[1][0]*1.0, PitchCtr[2][0]*1.0)
-    PitchAxis_vec = (PitchAxis[0][0]*Dir, PitchAxis[1][0]*Dir, PitchAxis[2][0]*Dir)
+    PitchAxis_vec = (PitchAxis[0][0], PitchAxis[1][0], PitchAxis[2][0])
     T._rotate(BladeLine, PitchCtr_pt, PitchAxis_vec, -pitch, 
             vectors=NamesOfChordSpanThickwiseFrameNoTangential)
     
-    # INFER GEOMETRICALLAWS, INCLUDING SWEEP AND DIHEDRAL FROM COORDINATES
-    # BUILD AIRFOIL GEOMETRICALLAW
-    # BUILDLIFTINGLINE
+    
+    # INFER SWEEP AND DIHEDRAL FROM COORDINATES
+    x, y, z = J.getxyz(BladeLine)
+    Span, Sweep, Dihedral = J.invokeFields(BladeLine, ['Span', 'Sweep','Dihedral'])
+    Span[:]=x
+    Sweep[:] = -y
+    Dihedral[:] = z
+    
+    
+    # BUILD GEOMETRICALLAWS 
+    airfoils = I.getZones(I.getNodeFromName1(t,'BaseNormalizedAirfoils'))
+    GeometricalLawsNamesList = ['Chord', 'Twist', 'Sweep','Dihedral', 'Airfoils',
+        'ChordwiseX','ChordwiseY','ChordwiseZ',
+         'SpanwiseX', 'SpanwiseY', 'SpanwiseZ',
+        'ThickwiseX','ThickwiseY','ThickwiseZ']
+    
+    GeometricalLawsDict = {}
+    for geom in GeometricalLawsNamesList:
+        # GeometricalLawsDict[geom] = {'RelativeSpan' : RelativeSpanScan}
+        GeometricalLawsDict[geom] = {'Abscissa' : Abscissa} # better this (monotonically increasing)
+        if geom == 'Airfoils':
+            GeometricalLawsDict[geom]['PyZonePolarNames'] = [a[0] for a in airfoils]
+        else:
+            GeometricalLawsDict[geom][geom] = J.getVars(BladeLine,[geom])[0]
+        try:
+            GeometricalLawsDict[geom]['InterpolationLaw'] = GeometricalLawsInterpolations[geom]
+        except KeyError:
+            GeometricalLawsDict[geom]['InterpolationLaw'] = 'interp1d_linear'       
+
+    # Create the lifting line
+    if not RightHandRuleRotation: mirrorBlade(BladeLine)
+    PitchCtr = J.getVars(BladeLine,
+        ['PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ'])
+    PitchAxis = J.getVars(BladeLine, ['PitchAxisX','PitchAxisY','PitchAxisZ'])
+    PitchCtr_pt = (PitchCtr[0][0]*1.0, PitchCtr[1][0]*1.0, PitchCtr[2][0]*1.0)
+    PitchAxis_vec = (PitchAxis[0][0]*1.0, PitchAxis[1][0]*1.0, PitchAxis[2][0]*1.0)
+
+    # build auxiliar curve from user-defined SpanwiseRediscretization
+    if isinstance(SpanwiseRediscretization, int):
+        SpanwiseCurve = W.discretize(BladeLine, SpanwiseRediscretization)
+    elif W.isStructuredCurve(SpanwiseRediscretization):
+        SpanwiseCurve = G.map(BladeLine, D.getDistribution(SpanwiseRediscretization))
+    elif SpanwiseRediscretization is None:
+        SpanwiseCurve = BladeLine
+    else:
+        dist = J.getDistributionFromHeterogeneousInput__(SpanwiseRediscretization)[-1]
+        SpanwiseCurve = G.map(BladeLine,dist)
+
+    LiftingLine = buildLiftingLine(SpanwiseCurve, RightHandRuleRotation=RightHandRuleRotation,
+        PitchRelativeCenter=PitchCtr_pt, PitchAxis=PitchAxis_vec,
+        RotationCenter=[0,0,0], **GeometricalLawsDict)
+
+    # propagate kinematics information, but keep canonical position
+    scan_info['RotationAxis'] *= Dir # since in kinematics it is actually ThrustAxis
+    scan_info.update(OverridingKinematics)
+    del scan_info['PitchAxis']
+    setKinematicsUsingConstantRotationAndTranslation(LiftingLine, **scan_info)
+
     # CONSTRUCT COORDINATE-ONLY PYZONE POLARS
-    # RETURN LIFTINGLINE AND PYZONEPOLARS
-    ...
+    PyZonePolarsGeometryOnly = []
+    for zone in I.getZones(I.getNodeFromName1(t,'BaseNormalizedAirfoils')):
+        airfoil = I.copyRef(zone)
+        node = I.getNodeFromName1(airfoil, 'GridCoordinates')
+        node[0] = '.Polar#FoilGeometry'
+        node[3] = 'UserDefinedData_t'
+        I._rmNodesByName1(node,'CoordinateZ')
+        I._rmNodesByType1(airfoil,'FlowSolution_t')
+        PyZonePolarsGeometryOnly.append(airfoil)
+    
+
+    return LiftingLine, PyZonePolarsGeometryOnly, pitch
 
 def checkComponentKind(component, kind='LiftingLine'):
     '''
@@ -2254,31 +2347,56 @@ def pyZonePolar2AirfoilZone(pyzonename, PyZonePolars):
     Parameters
     ----------
 
-        pyzonename : str
-            name to be employed in new curve zone defining the airfoil geometry.
+        pyzonename : :py:class:`str` or :py:class:`list` of :py:class:`str`
+            name(s) to be employed in new curve(s) zone(s) defining the airfoil
+            geometry.
 
-        PyZonePolars : :py:class:`list` of zone
+        PyZonePolars : :py:class:`list` of zone or :py:class:`str`
             list of special **PyZonePolar** zones
             containing 2D polar information as well as the geometry. Specifically,
             the polars must contain the node ``.Polar#FoilGeometry`` with the
             children nodes ``CoordinateX`` and ``CoordinateY``.
 
+            .. hint:: 
+                if **PyZonePolars** is a :py:class:`str`, then it will be
+                interpreted as a file name, and it will attempt to open it and
+                return the zones
+
     Returns
     -------
 
-        AirfoilGeom : zone
-            the 1D curve of the airfoil.
+        AirfoilGeom : zone or :py:class:`list` of zone
+            the 1D curve(s) of the airfoil.
     '''
-    zone = [z for z in PyZonePolars if z[0]==pyzonename][0]
-    FoilGeom_n = I.getNodeFromName1(zone,'.Polar#FoilGeometry')
-    Xcoord = I.getNodeFromName(FoilGeom_n,'CoordinateX')[1]
-    Ycoord = I.getNodeFromName(FoilGeom_n,'CoordinateY')[1]
+    if isinstance(PyZonePolars,str):
+        PyZonePolars = J.load(PyZonePolars, return_type='zones')
 
-    AirfoilGeom = J.createZone(pyzonename,
-                               [Xcoord,Ycoord,Ycoord*0],
-                               ['CoordinateX','CoordinateY','CoordinateZ'])
+    if isinstance(pyzonename,str):
+        pyzonenames = [pyzonename]
+    else:
+        pyzonenames = pyzonename
+    
+    PyZonePolars = I.getZones(PyZonePolars)
+    if not PyZonePolars: raise ValueError('not PyZonePolars')
 
-    return AirfoilGeom
+
+    AirfoilGeoms = []
+    for pzn in pyzonenames:
+        zone = J.getZoneFromListByName(PyZonePolars, pzn)
+        if not zone:
+            raise ValueError('not zone')
+        FoilGeom_n = I.getNodeFromName1(zone,'.Polar#FoilGeometry')
+        Xcoord = I.getNodeFromName1(FoilGeom_n,'CoordinateX')[1]
+        Ycoord = I.getNodeFromName1(FoilGeom_n,'CoordinateY')[1]
+
+        AirfoilGeoms.append( J.createZone(pzn,
+                                [Xcoord,Ycoord,Ycoord*0],
+                                ['CoordinateX','CoordinateY','CoordinateZ']) )
+
+    if len(AirfoilGeoms) == 1:
+        return AirfoilGeoms[0]
+    else:
+        return AirfoilGeoms
 
 
 def resetPitch(LiftingLine, ZeroPitchRelativeSpan=0.75, modifyLiftingLine=True):
@@ -2432,18 +2550,11 @@ def makeBladeSurfaceFromLiftingLineAndAirfoilsPolars(LiftingLine, AirfoilsPolars
 
 
 def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
-                            ChordRelRef=0.25, FoilDistribution=None,
-                            OrderInterpolationAirfoils=1,
-                            splitAirfoilOptions=dict(
-                                     FirstEdgeSearchPortion=0.99,
-                                     SecondEdgeSearchPortion=-0.99,
-                                     RelativeRadiusTolerance = 1e-1,
-                                     ),
-                            ImposeWingCanonicalPosition=False):
+                            ChordRelRef=0.25, FoilDistribution=None):
     '''
     Post-process a **LiftingLine** element using enhanced **PyZonePolars** data
-    in order to build surface fields (like ``Cp``, ``theta``...) from a BEMT
-    solution.
+    in order to build surface fields (like ``Cp``, ``theta``...) from a BEMT, 
+    VPM or BodyForce solution.
 
     Parameters
     ----------
@@ -2468,35 +2579,9 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
         ChordRelRef : float
             Reference chordwise used for stacking the sections.
 
-        FoilDistribution : zone
-            Indicates the dimensionless curvilinear abscissa to be
-            employed for each section in the newly created surface.
-            Hence, each airfoil section is rediscretized.
-            This is useful if the number of points or the
-            distribution of points of the input data of airfoils
-            contained in PyZonePolars is not homogeneous.
-            If :py:obj:`None` is provided, then no re-distribution is
-            performed on existing data, and all airfoil sections
-            should be be homogeneous (should have the same number
-            of points). If not, the distribution of the first
-            airfoil in PyZonePolars is used for remapping the
-            sections which yield different number of points.
+        FoilDistribution : zone or :py:obj:`None`
+            As established in :py:func:`MOLA.Wireframe.useEqualNumberOfPointsOrSameDiscretization`
 
-            .. note:: as obtained from applying
-                :py:func:`Geom.PyTree.getDistribution` to an airfoil curve with
-                the desired distribution
-
-        OrderInterpolationAirfoils : int
-            order of interpolation of the geometry between airfoils
-
-        splitAirfoilOptions : dict
-            argument to be passed to :py:func:`MOLA.GenerativeShapeDesign.wing`
-            function defining the optional parameters
-
-        ImposeWingCanonicalPosition : bool
-            if :py:obj:`True`, then the newly generated surface is positioned
-            in the same *canonical* position as the generation of a wing
-            surface using :py:func:`MOLA.GenerativeShapeDesign.wing`
 
     Returns
     -------
@@ -2506,7 +2591,7 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
             variables requested by the user are interpolated.
     '''
     import scipy.interpolate as si
-    def _applyInterpolationFunction__(VariableArray, Var, InterpolationLaw):
+    def _applyInterpolationFunctionToSpanwiseVariableAtLiftingLine(VariableArray, Var, InterpolationLaw):
         '''
         Perform spanwise interpolation of PyZonePolar data
         contained in AllValues dictionary. For this, use
@@ -2521,7 +2606,7 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
                                       kind=ScipyLaw, bounds_error=False,
                                       fill_value='extrapolate', assume_sorted=True)
             except ValueError:
-                ErrMsg = 'FATAL ERROR during _applyInterpolationFunction__() call with Var=%s\n'%Var
+                ErrMsg = 'FATAL ERROR during _applyInterpolationFunctionToSpanwiseVariableAtLiftingLine() call with Var=%s\n'%Var
                 ErrMsg+= 'Shapes x and y = %d and %d\n'%(len(x),len(y))
                 raise ValueError(ErrMsg)
 
@@ -2544,251 +2629,120 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
         MyArr = MyArr.T
         SurfVars[Var][:] = MyArr
 
-
-    # ---------------------------------------------------- #
-    #     INVOKE THE BLADE'S SURFACE USING GSD.wing()      #
-    # ---------------------------------------------------- #
-
-    LiftingLine, = I.getZones(LiftingLine)
-
-    # Get geometrical laws and store them as
-    # GSD.wing() -compliant dictionaries
-    Span, Chord, Dihedral, Sweep, Twist = J.getVars(LiftingLine,
-        ["Span", "Chord", "Dihedral", "Sweep", "Twist"])
-    s = W.gets(LiftingLine)
-    RelSpan = Span/Span.max()
-    InterpLaws = J.get(LiftingLine,'.Component#Info')
-
-    try: ChordLaw = InterpLaws['Chord_law']
-    except KeyError: ChordLaw = 'interp1d_linear'
-    ChordDict = dict(RelativeSpan=RelSpan,Chord=Chord,InterpolationLaw=ChordLaw)
-
-    try: TwistLaw = InterpLaws['Twist_law']
-    except KeyError: TwistLaw = 'interp1d_linear'
-    TwistDict = dict(RelativeSpan=RelSpan,Twist=Twist,InterpolationLaw=TwistLaw)
-
-    if Dihedral is not None:
-        try: DihedralLaw = InterpLaws['Dihedral_law']
-        except KeyError: DihedralLaw = 'interp1d_linear'
-        DihedralDict = dict(RelativeSpan=RelSpan,Dihedral=Dihedral,InterpolationLaw=DihedralLaw)
-    else:
-        DihedralDict = dict(RelativeSpan=[RelSpan[0],1],Dihedral=[0,0],InterpolationLaw='interp1d_linear')
-    if Sweep is not None:
-        try: SweepLaw = InterpLaws['Sweep_law']
-        except KeyError: SweepLaw = 'interp1d_linear'
-        SweepDict = dict(RelativeSpan=RelSpan,Sweep=Sweep,InterpolationLaw=SweepLaw)
-    else:
-        SweepDict = dict(RelativeSpan=[RelSpan[0],1],Sweep=[0,0],InterpolationLaw='interp1d_linear')
-
-    # Produce a list of airfoil PyZones at each point of
-    # the lifting line, including both GridCoordinates and
-    # FlowSolutions of requested variables (interpolated)
-    PolarInfoNode = getAirfoilsNodeOfLiftingLine(LiftingLine)
-    Abscissa = I.getValue(I.getNodeFromName1(PolarInfoNode, 'Abscissa'))
-    PyZonePolarNames = I.getValue(I.getNodeFromName1(PolarInfoNode, 'PyZonePolarNames')).split(' ')
-    FoilInterpLaw = 'rectbivariatespline_%d'%OrderInterpolationAirfoils
-
-    # Build a list of Control Airfoils. They must have the
-    # same number of points. If not the case, then use
-    # input attribute FoilDistribution as new distribution.
-    # If FoilDistribution is None, then use the first airfoil
-    # as driving FoilDistribution
-
-    if isinstance(PyZonePolars, str):
-        PyZonePolars = I.getZones(C.convertFile2PyTree(PyZonePolars))
-    PyZonePolars = I.getZones(PyZonePolars)
-    AirfoilsGeom = []
-    for pzn in PyZonePolarNames:
-        AirfoilsGeom += [pyZonePolar2AirfoilZone(pzn,PyZonePolars)]
-
-    # Check if all Airfoils have the same number of points
-    foilsNPtsArray = np.array([C.getNPts(a) for a in AirfoilsGeom])
-    NAirfoils = len(AirfoilsGeom)
-    AllSameNPts = np.unique(foilsNPtsArray).size == 1
-
-    # if not all airfoils have the same nb. of points or new foilwise
-    # distributio is required, re-map:
-
-    if not AllSameNPts or FoilDistribution:
-        RootFoil = AirfoilsGeom[0]
-        SmoothParts = T.splitCurvatureAngle(RootFoil, 30.)
-        indLongestEdge = np.argmax([D.getLength(c) for c in SmoothParts])
-        RootFoil = SmoothParts[indLongestEdge]
-
-        if FoilDistribution is None:
-            Mapping = D.getDistribution(RootFoil)
-
-        elif isinstance(FoilDistribution,dict):
-            NewRootFoil = W.discretize(RootFoil, N=FoilDistribution['N'],
-                                       Distribution=FoilDistribution)
-            Mapping = D.getDistribution(NewRootFoil)
-
-        elif isinstance(FoilDistribution,list) and isinstance(FoilDistribution[0],dict):
-            NewRootFoil = W.polyDiscretize(RootFoil, FoilDistribution)
-            Mapping = D.getDistribution(NewRootFoil)
-
-        else:
-            InputType = I.isStdNode(FoilDistribution)
-            if InputType == -1:
-                Mapping = D.getDistribution(FoilDistribution)
-            elif InputType == 0:
-                Mapping = D.getDistribution(FoilDistribution[0])
-            else:
-                raise ValueError('FoilDistribution not recognized')
-
-        AllFoilNPts = newFoilNPts = C.getNPts(Mapping)
-        newAirfoilsGeom = []
-        for ia in range(NAirfoils):
-            SmoothParts = T.splitCurvatureAngle(AirfoilsGeom[ia], 30.)
-            indLongestEdge = np.argmax([D.getLength(c) for c in SmoothParts])
-            LongestEdge = SmoothParts[indLongestEdge]
-            newFoil = G.map(LongestEdge,Mapping)
-            newAirfoilsGeom += [newFoil]
-        AirfoilsGeom = newAirfoilsGeom
-    else:
-        AllFoilNPts = foilsNPtsArray[0]
-
-
-    # Store a reference Airfoil's curvilinear abscissa
-    RefCurvAbs = W.gets(AirfoilsGeom[0])
-
-    # Build Control Airfoil dictionary
-    RelSpanPosOfFoils = J.interpolate__(Abscissa, s, RelSpan,
-                      Law='interp1d_linear', axis=-1)
-
-    Airfoil = dict(RelativeSpan=RelSpanPosOfFoils,
-                   Airfoil=AirfoilsGeom,
-                   InterpolationLaw=FoilInterpLaw)
-
-
-    # Invoke blade surface (with empty FlowSolutions)
-    _, Surf, distrWing = GSD.wing(Span,
-                          ChordRelRef = ChordRelRef,
-                          NPtsTrailingEdge = 0,
-                          AvoidAirfoilModification = True,
-                          splitAirfoilOptions = splitAirfoilOptions,
-                          Chord = ChordDict,
-                          Dihedral =  DihedralDict,
-                          Sweep =  SweepDict,
-                          Twist =  TwistDict,
-                          Airfoil =  Airfoil,)
-
-    Kinematics = J.get(LiftingLine,'.Kinematics')
-    if Kinematics and not ImposeWingCanonicalPosition:
-        sign = +1 if Kinematics['RightHandRuleRotation'] else -1
-        xS = distrWing['SpineX']
-        yS = distrWing['SpineY']
-        zS = distrWing['SpineZ']
-        CanonicalAxial = np.array([0.,1.,0.])
-        CanonicalSpanwise = np.array([xS[1]-xS[0], yS[1]-yS[0], zS[1]-zS[0]])
-        CanonicalSpanwise /= np.linalg.norm(CanonicalSpanwise)
-        CanonicalTangential = np.cross(CanonicalSpanwise, CanonicalAxial)
-        CanonicalTangential /= np.linalg.norm(CanonicalSpanwise)
-        CanonicalNormal = sign*np.cross(CanonicalTangential, CanonicalSpanwise)
-        CanonicalNormal /= np.linalg.norm(CanonicalNormal)
-
-
-        FrenetWing = (CanonicalSpanwise,
-                      CanonicalTangential,
-                      CanonicalNormal)
-
-        RotationCenter = Kinematics['RotationCenter']
-        BladeAxial = Kinematics['RotationAxis']
+    Surfs = []
+    for LiftingLine in getLiftingLines(LiftingLine):
+        v = J.getAllVars(LiftingLine)
         x,y,z = J.getxyz(LiftingLine)
 
-        CurrentSpanwise = np.array([x[1]-x[0], y[1]-y[0], z[1]-z[0]])
-        CurrentSpanwise /= np.linalg.norm(CurrentSpanwise)
-        CurrentTangential = sign * np.cross(CurrentSpanwise, BladeAxial)
-        CurrentTangential /= np.linalg.norm(CurrentSpanwise)
-        CurrentNormal = np.cross(CurrentTangential, CurrentSpanwise)
-        CurrentNormal /= np.linalg.norm(CurrentNormal)
+        # recover the airfoils at each node of the LiftingLine
+        PolarInfoNode = getAirfoilsNodeOfLiftingLine(LiftingLine)
+        Abscissa = I.getValue(I.getNodeFromName1(PolarInfoNode, 'Abscissa'))
+        PyZonePolarNames = I.getValue(I.getNodeFromName1(PolarInfoNode, 'PyZonePolarNames')).split(' ')
+        InterpLaw = I.getValue(I.getNodeFromName1(PolarInfoNode, 'InterpolationLaw'))
+        order = J._inferOrderFromInterpLawName(InterpLaw)
+        AirfoilsGeom = pyZonePolar2AirfoilZone(PyZonePolarNames,PyZonePolars)
+        AirfoilsGeom = W.useEqualNumberOfPointsOrSameDiscretization(AirfoilsGeom, FoilDistribution)
+        AirfoilsGeom = W.interpolateAirfoils(AirfoilsGeom, Abscissa, v['s'], order=order)
 
-        FrenetLiftingLine = (CurrentSpanwise,
-                             CurrentTangential,
-                             CurrentNormal)
+        # position and resize airfoils
+        AirfoilFrame = [(1,0,0),(0,1,0),(0,0,1)]
+        for i, foil in enumerate(AirfoilsGeom):
+            foil_x = J.getx(foil)
+            foil_y = J.gety(foil)
+            
+            # center at stacking point
+            foil_x -= ChordRelRef
 
-        T._translate(Surf,(-xS[0],-yS[0],-zS[0]))
-        T._rotate(Surf, (0,0,0), FrenetWing, FrenetLiftingLine)
-        T._translate(Surf,(x[0],y[0],z[0]))
+            # resize using chord
+            foil_x *= v['Chord'][i]
+            foil_y *= v['Chord'][i]
 
+            # rotate to match the actual position in the lifting-line
+            LLframe = [(v['ChordwiseX'][i],v['ChordwiseY'][i],v['ChordwiseZ'][i]),
+                    (v['ThickwiseX'][i],v['ThickwiseY'][i],v['ThickwiseZ'][i]),
+                    (-v['SpanwiseX'][i],-v['SpanwiseY'][i],-v['SpanwiseZ'][i])]
+            T._rotate(foil, (0,0,0), AirfoilFrame, LLframe)
 
-    if len(Variables) == 0: return Surf
-
-    # Invoke the new variables in surface
-    SurfVars = J.invokeFieldsDict(Surf,Variables)
-
-    # Build interpolator functions and store them as dict:
-    # usage: InterpDict[<PyZonePolarName>](AoA,Mach,Reynolds,[])
-    InterpDict = buildPolarsInterpolatorDict(PyZonePolars,InterpFields=Variables)
-
-    AoA, Mach, Reynolds = J.getVars(LiftingLine,["AoA", "Mach", "Reynolds"])
-
-    # TODO use same idea as GSD.wing() ?
-    # InterpYmatrix = np.zeros((NinterFoils,NPts),dtype=np.float64,order='F')
-    # for j in range(NinterFoils):
-    #     InterpXmatrix[j,:] = J.getx(RediscretizedAirfoils[j])
-    #     InterpYmatrix[j,:] = J.gety(RediscretizedAirfoils[j])
-
-    # if FoilInterpLaw.startswith('rectbivariatespline'):
-    #     u = W.gets(RediscretizedAirfoils[0])
-    #     v = kwargs[GeomParam]['RelativeSpan']
-    #     order = int(FoilInterpLaw[-1])
-    #     interpX = si.RectBivariateSpline(v,u,InterpXmatrix,
-    #                                                     kx=order, ky=order)
+            # center at the actual Lifting-Line node
+            T._translate(foil,(x[i],y[i],z[i]))
+        
+        # stack all sections
+        Surf = G.stack(AirfoilsGeom)
+        Surf[0] = LiftingLine[0]+'_surf'
+        Surfs.append( Surf )
 
 
-    # Apply polar interpolations and store them in a dict
-    AllValues = {}
-    for pzn in PyZonePolarNames:
-        InterpolatedSet = InterpDict[pzn](AoA,Mach,Reynolds)
-        # NOTA BENE: InterpolatedSet is a list of arrays.
-        # Each element is a (FoilNPts x LLNpts) array of the
-        # interpolated variable in the same order as contained
-        # in list Variables.
 
-        # Adapt the interpolated data if necessary (adaptedSet)
-        adaptedSet = []
+    if len(Variables) == 0:
+        if len(Surfs) == 1: return Surfs[0]
+        else: return Surfs
+
+    for Surf in Surfs:
+        # Invoke the new variables in surface
+        SurfVars = J.invokeFieldsDict(Surf,Variables)
+
+        # Build interpolator functions and store them as dict:
+        # usage: InterpDict[<PyZonePolarName>](AoA,Mach,Reynolds,[])
+        InterpDict = buildPolarsInterpolatorDict(PyZonePolars,InterpFields=Variables)
+
+        AoA, Mach, Reynolds = J.getVars(LiftingLine,["AoA", "Mach", "Reynolds"])
+
+
+        # Apply polar interpolations and store them in a dict
+        AllFoilNPts = C.getNPts(AirfoilsGeom[0])
+        RefCurvAbs = W.gets(AirfoilsGeom[0])
+        AllValues = {}
+        for pzn in PyZonePolarNames:
+            InterpolatedSet = InterpDict[pzn](AoA,Mach,Reynolds)
+            # NOTA BENE: InterpolatedSet is a list of arrays.
+            # Each element is a (FoilNPts x LLNpts) array of the
+            # interpolated variable in the same order as contained
+            # in list Variables.
+
+            # Adapt the interpolated data if necessary (adaptedSet)
+            adaptedSet = []
+            for v in range(len(Variables)):
+                InterpolatedArray = InterpolatedSet[v]
+                IntArrayShape = InterpolatedArray.shape
+                print('Variable %s at polar %s has shape: %s'%(Variables[v],pzn,str(IntArrayShape)))
+                if len(IntArrayShape)==2:
+
+                    # Compute the PyZonePolar foilwise abscissa
+                    # For that, build an auxiliar foil and
+                    # compute its abcissa coordinate
+                    AuxFoil = pyZonePolar2AirfoilZone(pzn,PyZonePolars)
+                    CurrentCurvAbs = W.gets(AuxFoil)
+
+                    interpFoilwise = si.interp1d(CurrentCurvAbs, InterpolatedArray,
+                                        kind='cubic', copy=False, axis=0,
+                                        assume_sorted=True)
+
+                    NewInterpArray = interpFoilwise(RefCurvAbs)
+
+                    # TODO: Check orientation of foil and data
+                    adaptedSet += [NewInterpArray]
+
+                elif len(IntArrayShape)==1:
+                    # Integral data. Simply broadcast.
+                    print('BROADCAST')
+                    adaptedSet += [np.broadcast_to(InterpolatedArray,(AllFoilNPts,IntArrayShape[0]))]
+                else:
+                    raise ValueError('Interpolated data for variable %s yields not supported shape %s'%(v,str(IntArrayShape)))
+
+            # Store dimensionally-coherent interpolated data
+            AllValues[pzn] = adaptedSet
+
+
         for v in range(len(Variables)):
-            InterpolatedArray = InterpolatedSet[v]
-            IntArrayShape = InterpolatedArray.shape
-            print('Variable %s at polar %s has shape: %s'%(Variables[v],pzn,str(IntArrayShape)))
-            if len(IntArrayShape)==2:
+            # Build a 3D matrix containing all data.
+            # 1st dimension: Foilwise data
+            # 2nd dimension: Spanwise data
+            # 3rd dimension: slices corresponding to PyZonePolars
+            AllValues3D = np.dstack([AllValues[pzn][v] for pzn in PyZonePolarNames])
+            _applyInterpolationFunctionToSpanwiseVariableAtLiftingLine(AllValues3D, Variables[v], 'interp1d_linear')
 
-                # Compute the PyZonePolar foilwise abscissa
-                # For that, build an auxiliar foil and
-                # compute its abcissa coordinate
-                AuxFoil = pyZonePolar2AirfoilZone(pzn,PyZonePolars)
-                CurrentCurvAbs = W.gets(AuxFoil)
-
-                interpFoilwise = si.interp1d(CurrentCurvAbs, InterpolatedArray,
-                                    kind='cubic', copy=False, axis=0,
-                                    assume_sorted=True)
-
-                NewInterpArray = interpFoilwise(RefCurvAbs)
-
-                # TODO: Check orientation of foil and data
-                adaptedSet += [NewInterpArray]
-
-            elif len(IntArrayShape)==1:
-                # Integral data. Simply broadcast.
-                print('BROADCAST')
-                adaptedSet += [np.broadcast_to(InterpolatedArray,(AllFoilNPts,IntArrayShape[0]))]
-            else:
-                raise ValueError('Interpolated data for variable %s yields not supported shape %s'%(v,str(IntArrayShape)))
-
-        # Store dimensionally-coherent interpolated data
-        AllValues[pzn] = adaptedSet
-
-
-    for v in range(len(Variables)):
-        # Build a 3D matrix containing all data.
-        # 1st dimension: Foilwise data
-        # 2nd dimension: Spanwise data
-        # 3rd dimension: slices corresponding to PyZonePolars
-        AllValues3D = np.dstack([AllValues[pzn][v] for pzn in PyZonePolarNames])
-        _applyInterpolationFunction__(AllValues3D, Variables[v], 'interp1d_linear')
-
-    return Surf
+    if len(Surfs) == 1: return Surfs[0]
+    else: return Surfs
 
 
 def addAccurateSectionArea2LiftingLine(LiftingLine, PyZonePolars):
@@ -4938,8 +4892,11 @@ def mirrorBlade(LiftingLine):
     C._initVars(LiftingLine,'{SpanwiseY}=-{SpanwiseY}')
     C._initVars(LiftingLine,'{ThickwiseY}=-{ThickwiseY}')
     C._initVars(LiftingLine,'{PitchRelativeCenterY}=-{PitchRelativeCenterY}')
-    C._initVars(LiftingLine,'{PitchAxisY}=-{PitchAxisY}')
     C._initVars(LiftingLine,'{TangentialY}=-{TangentialY}')
+
+    C._initVars(LiftingLine,'{PitchAxisX}=-{PitchAxisX}')
+    C._initVars(LiftingLine,'{PitchAxisY}=-{PitchAxisY}')
+    C._initVars(LiftingLine,'{PitchAxisZ}=-{PitchAxisZ}')
 
 
 def addPitch(LiftingLine, pitch=0.0):
@@ -4967,21 +4924,51 @@ def addPitch(LiftingLine, pitch=0.0):
 
         PitchAxis = J.getVars(LL, ['PitchAxisX','PitchAxisY','PitchAxisZ'])
 
-
-        Kinematics_n = I.getNodeFromName(LL,'.Kinematics')
-        if not Kinematics_n:
-            print(J.WARN,'missing ".Kinematics" node, assuming RightHandRuleRotation=True',J.ENDC)
-            Dir = 1
-        else:
-            Dir_n = I.getNodeFromName1(Kinematics_n,'RightHandRuleRotation')
-            if not Dir_n:
-               print(J.WARN,'missing ".Kinematics/RightHandRuleRotation" node, assuming RightHandRuleRotation=True',J.ENDC)
-               Dir = 1
-            else:
-                Dir = I.getValue( Dir_n )
-                if not Dir: Dir = -1
-
         PitchCtr_pt = (PitchCtr[0][0]*1.0, PitchCtr[1][0]*1.0, PitchCtr[2][0]*1.0)
-        PitchAxis_vec = (PitchAxis[0][0]*Dir, PitchAxis[1][0]*Dir, PitchAxis[2][0]*Dir)
+        PitchAxis_vec = (PitchAxis[0][0], PitchAxis[1][0], PitchAxis[2][0])
         T._rotate(LL, PitchCtr_pt, PitchAxis_vec, pitch, 
                 vectors=NamesOfChordSpanThickwiseFrameNoTangential)
+        
+def getLocalFrameLines(LiftingLines, Length=0.05):
+    '''
+    Construct the Chordwise, Thickwise, Spanwise lines at LiftingLines for 
+    verification purposes (visualization)
+
+    Parameters
+    ----------
+
+        LiftingLines : PyTree, Base, Zone or :py:class:`list` of zone
+            variable including LitingLine objects
+
+        Length : float
+            dimension of the lines used for visualization
+
+    Returns
+    -------
+
+        Lines : :py:class:`list` of zones
+            lines of the frame, ready for visualization        
+    '''
+    Lines = []
+    for LiftingLine in getLiftingLines(LiftingLines):
+        xyz = np.vstack(J.getxyz(LiftingLine))
+        chordwise = np.vstack(J.getVars(LiftingLine,['Chordwise'+i for i in 'XYZ']))
+        spanwise  = np.vstack(J.getVars(LiftingLine,[ 'Spanwise'+i for i in 'XYZ']))
+        thickwise = np.vstack(J.getVars(LiftingLine,['Thickwise'+i for i in 'XYZ']))
+
+        for i in range(C.getNPts(LiftingLine)):
+            chordwise_line = D.line(tuple(xyz[:,i]),tuple(xyz[:,i]+chordwise[:,i]*Length),2)
+            chordwise_line[0] = 'Chordwise.%d'%i
+            Lines += [chordwise_line]
+
+            spanwise_line = D.line(tuple(xyz[:,i]),tuple(xyz[:,i]+spanwise[:,i]*Length),2)
+            spanwise_line[0] = 'Spanwise.%d'%i
+            Lines += [spanwise_line]
+
+            thickwise_line = D.line(tuple(xyz[:,i]),tuple(xyz[:,i]+thickwise[:,i]*Length),2)
+            thickwise_line[0] = 'Thickwise.%d'%i
+            Lines += [chordwise_line, spanwise_line, thickwise_line]
+
+    I._correctPyTree(Lines,level=3)
+    return Lines
+

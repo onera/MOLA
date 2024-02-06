@@ -468,7 +468,7 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
                     Initialization={'method':'uniform'},
                     JobInformation={},
                     SubmitJob=False,
-                    COPY_TEMPLATES=True, 
+                    templates=dict(), 
                     secondOrderRestart=False):
     '''
     This is mainly a function similar to :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
@@ -588,13 +588,18 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
             if :py:obj:`True`, submit the SLURM job based on information contained
             in **JobInformation**
 
-            .. note::
-                only relevant if **COPY_TEMPLATES** is py:obj:`True` and
-                **JobInformation** is provided
+        templates : dict
+            Main files to copy for the workflow. 
+            By default, it is filled with the following values:
 
-        COPY_TEMPLATES : bool
-            If :py:obj:`True` (default value), copy templates files in the
-            current directory.
+            .. code-block::python
+
+                templates = dict(
+                    job_template = '$MOLA/TEMPLATES/job_template.sh',
+                    compute = '$MOLA/TEMPLATES/<WORKFLOW>/compute.py',
+                    coprocess = '$MOLA/TEMPLATES/<WORKFLOW>/coprocess.py',
+                    otherWorkflowFiles = ['monitor_loads.py'],
+                )
         
         secondOrderRestart : bool
             If :py:obj:`True`, and if NumericalParams['time_algo'] is 'gear' or 'DualTimeStep' 
@@ -702,14 +707,14 @@ def prepareMainCGNS4ElsA(mesh, meshParams={},
 
     print(J.CYAN+'REMEMBER : configuration shall be run using %d procs'%JobInformation['NumberOfProcessors']+J.ENDC)
 
-    if COPY_TEMPLATES:
-        JM.getTemplates('Airfoil', otherWorkflowFiles=['monitor_loads.py'],
-                JobInformation=JobInformation)
-        if 'DIRECTORY_WORK' in JobInformation:
-            PRE.sendSimulationFiles(JobInformation['DIRECTORY_WORK'],
-                                    overrideFields=writeOutputFields)
+    templates.setdefault('otherWorkflowFiles', [])
+    if 'monitor_loads.py' not in templates['otherWorkflowFiles']:
+        templates['otherWorkflowFiles'].append('monitor_loads.py')
+    JM.getTemplates('Airfoil', templates, JobInformation=JobInformation)
+    if 'DIRECTORY_WORK' in JobInformation:
+        PRE.sendSimulationFiles(JobInformation['DIRECTORY_WORK'], overrideFields=writeOutputFields)
 
-        if SubmitJob: JM.submitJob(JobInformation['DIRECTORY_WORK'])
+    if SubmitJob: JM.submitJob(JobInformation['DIRECTORY_WORK'])
 
     J.printElapsedTime('prepareMainCGNS4ElsA took ', toc)
 

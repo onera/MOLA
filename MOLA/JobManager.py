@@ -817,7 +817,12 @@ def repatriate(SourcePath, DestinationPath, removeExistingDestinationPath=True,
     Defaultwait4FileFromServerOptions = dict(requestInterval=0.5,
                                              timeout=60.,)
     Defaultwait4FileFromServerOptions.update(wait4FileFromServerOptions)
+    if SourcePath.startswith('./'): SourcePath = SourcePath[2:]
     if DestinationPath.startswith('./'): DestinationPath = DestinationPath[2:]
+
+    if SourcePath == DestinationPath:
+        # nothing to do 
+        return
 
     if removeExistingDestinationPath:
         # Removing pre-existing file
@@ -848,8 +853,8 @@ def fileExists(*path): return os.path.isfile(os.path.join(*path))
 def anyFile(*path): return any(glob.glob(os.path.join(*path)))
 
 
-def getTemplates(Workflow, otherWorkflowFiles=[], otherFiles=[],
-        DIRECTORY_WORK='.', JobInformation={}, jobFile='job_template.sh'):
+def getTemplates(Workflow, templates=dict(), otherFiles=[],
+        JobInformation={}):
     '''
     Copy templates files ('job_template.sh', 'compute.py', 'coprocess.py') and
     others on demand in the current directory.
@@ -860,18 +865,27 @@ def getTemplates(Workflow, otherWorkflowFiles=[], otherFiles=[],
         Workflow : str
             Name of the Workflow
 
-        otherWorkflowFiles : list
-            Paths of others files to copy, relative to the workflow templates
-            directory.
+        templates : dict
+            Main files to copy for the workflow. 
+            By default, it is filled with the following values:
+
+            .. code-block::python
+
+                templates = dict(
+                    job_template = '$MOLA/TEMPLATES/job_template.sh',
+                    compute = '$MOLA/TEMPLATES/<WORKFLOW>/compute.py',
+                    coprocess = '$MOLA/TEMPLATES/<WORKFLOW>/coprocess.py',
+                    otherWorkflowFiles = [],
+                )
+
+            If for example ``otherWorkflowFiles = ['monitor_loads.py']``, the file 
+            ``'$MOLA/TEMPLATES/<WORKFLOW>/monitor_loads.py'`` will be copied.
 
         otherFiles : list
             Absolute paths of other files to copy.
 
         JobInformation : dict
             arguments (kwargs) for the function :func:`updateJobFile`
-
-        jobFile : str
-            Name of the job file.
 
     '''
     WORKFLOW_FOLDER = 'WORKFLOW_' + ''.join(['_'+ s.upper() if s.isupper() \
@@ -880,28 +894,36 @@ def getTemplates(Workflow, otherWorkflowFiles=[], otherFiles=[],
 
     DIRECTORY_WORK = JobInformation.get('DIRECTORY_WORK','.')
 
-    repatriate(os.path.join(templatesFolder, 'job_template.sh'), 'job_template.sh')
+    templates.setdefault('job_template', os.path.join(templatesFolder, 'job_template.sh'))
+    templates.setdefault('compute', os.path.join(templatesFolder, WORKFLOW_FOLDER, 'compute.py'))
+    templates.setdefault('coprocess', os.path.join(templatesFolder, WORKFLOW_FOLDER, 'coprocess.py'))
+    templates.setdefault('otherWorkflowFiles', [])
+
+    repatriate(templates['job_template'], 'job_template.sh')
     updateJobFile(**JobInformation)
 
+    # files2copy is a list like [(SourceFile, DestinationFile), ...]
     files2copy = [
-        os.path.join(templatesFolder, WORKFLOW_FOLDER, 'compute.py'),
-        os.path.join(templatesFolder, WORKFLOW_FOLDER, 'coprocess.py'),
+        ('job_template.sh', os.path.join(DIRECTORY_WORK, 'job_template.sh')),
+        (templates['compute'], os.path.join(DIRECTORY_WORK, 'compute.py')),
+        (templates['coprocess'], os.path.join(DIRECTORY_WORK, 'coprocess.py')),
         ]
-
-    for filename in otherWorkflowFiles:
-        files2copy.append(os.path.join(templatesFolder, WORKFLOW_FOLDER, filename))
+    
+    for filename in templates['otherWorkflowFiles']:
+        files2copy.append(
+            (os.path.join(templatesFolder, WORKFLOW_FOLDER, filename), os.path.join(DIRECTORY_WORK, filename))
+            )
 
     for filename in otherFiles:
-        files2copy.append(filename)
+        files2copy.append(
+            (filename, os.path.join(DIRECTORY_WORK, filename))
+            )
 
     CopyDestination = DIRECTORY_WORK
     if CopyDestination in ['.', './']: CopyDestination = 'the current directory'
-    files2copyString = ', '.join([s.split('/')[-1] for s in files2copy])
-    print(f'Copying templates of Workflow {Workflow} ({files2copyString}) to {CopyDestination}')
-
-    for SourcePath in files2copy:
-        filename = SourcePath.split(os.path.sep)[-1]
-        DestinationPath = os.path.join(DIRECTORY_WORK, filename)
+    print(f'Copying templates to {CopyDestination}:')
+    for SourcePath, DestinationPath in files2copy:
+        print(f'  > {SourcePath} to {DestinationPath}')
         repatriate(SourcePath, DestinationPath)
 
 
@@ -968,9 +990,6 @@ def updateJobFile(jobTemplate='job_template.sh', JobName=None, AER=None,
             f.write(JobText)
         os.chmod(jobTemplate, 0o777)
 
-    if DIRECTORY_WORK:
-        repatriate(jobTemplate, os.path.join(DIRECTORY_WORK, jobTemplate),
-                   moveInsteadOfCopy=True)
 
 def submitJob(DIRECTORY_WORK, JobFilename='job_template.sh', singleton=False):
     '''

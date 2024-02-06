@@ -27,6 +27,7 @@ import sys
 import os
 import numpy as np
 import timeit
+import pprint
 LaunchTime = timeit.default_timer()
 from mpi4py import MPI
 comm   = MPI.COMM_WORLD
@@ -162,6 +163,11 @@ if BodyForceInputData:
 e.action=elsAxdt.COMPUTE
 e.mode=elsAxdt.READ_ALL
 e.compute()
+
+if rank==0:
+    table = e.symboltable()
+    with open(os.path.join(DIRECTORY_LOGS,f'symbol_table.log'), 'w') as f:
+        f.write(pprint.pformat(table))
 
 
 CO.CurrentIteration += 1

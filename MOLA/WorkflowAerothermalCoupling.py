@@ -90,7 +90,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         TurboConfiguration={}, Extractions=[], BoundaryConditions=[],
         BodyForceInputData=[], writeOutputFields=True, bladeFamilyNames=['Blade'],
         Initialization={'method':'uniform'}, JobInformation={}, SubmitJob=False,
-        FULL_CGNS_MODE=True, COPY_TEMPLATES=True, secondOrderRestart=False):
+        FULL_CGNS_MODE=True, templates=dict(), secondOrderRestart=False):
     '''
     This is mainly a function similar to :func:`MOLA.WorkflowCompressor.prepareMainCGNS4ElsA`
     but adapted to aerothermal simulations with CWIPI coupling.
@@ -163,17 +163,22 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             if :py:obj:`True`, submit the SLURM job based on information contained
             in **JobInformation**
 
-            .. note::
-                only relevant if **COPY_TEMPLATES** is py:obj:`True` and
-                **JobInformation** is provided
-
         FULL_CGNS_MODE : bool
             if :py:obj:`True`, put all elsA keys in a node ``.Solver#Compute``
             to run in full CGNS mode.
 
-        COPY_TEMPLATES : bool
-            If :py:obj:`True` (default value), copy templates files in the
-            current directory.
+        templates : dict
+            Main files to copy for the workflow. 
+            By default, it is filled with the following values:
+
+            .. code-block::python
+
+                templates = dict(
+                    job_template = '$MOLA/TEMPLATES/job_template.sh',
+                    compute = '$MOLA/TEMPLATES/<WORKFLOW>/compute.py',
+                    coprocess = '$MOLA/TEMPLATES/<WORKFLOW>/coprocess.py',
+                    otherWorkflowFiles = ['monitor_perfos.py'],
+                )
         
         secondOrderRestart : bool
             If :py:obj:`True`, and if NumericalParams['time_algo'] is 'gear' or 'DualTimeStep' 
@@ -350,17 +355,16 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
             Splitter + J.ENDC))
 
-    if COPY_TEMPLATES:
-        JM.getTemplates('AerothermalCoupling', otherWorkflowFiles=['monitor_perfos.py'],
-                JobInformation=JobInformation)
+    templates.setdefault('otherWorkflowFiles', [])
+    if 'monitor_perfos.py' not in templates['otherWorkflowFiles']:
+        templates['otherWorkflowFiles'].append('monitor_perfos.py')
+    JM.getTemplates('AerothermalCoupling', templates, JobInformation=JobInformation)
+    if 'DIRECTORY_WORK' in JobInformation:
+        PRE.sendSimulationFiles(JobInformation['DIRECTORY_WORK'], overrideFields=writeOutputFields)
 
-        if 'DIRECTORY_WORK' in JobInformation:
-            PRE.sendSimulationFiles(JobInformation['DIRECTORY_WORK'],
-                                    overrideFields=writeOutputFields)
-
-        for i in range(SubmitJob):
-            singleton = False if i==0 else True
-            JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
+    for i in range(SubmitJob):
+        singleton = False if i==0 else True
+        JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
 
     J.printElapsedTime('prepareMainCGNS4ElsA took ', toc)
 

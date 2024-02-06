@@ -252,7 +252,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
         Extractions=[{'type':'AllBCWall'}], BoundaryConditions=[],
         Initialization=dict(method='uniform'),
         BodyForceInputData=[], writeOutputFields=True,
-        JobInformation={}, SubmitJob=False, COPY_TEMPLATES=True, secondOrderRestart=False):
+        JobInformation={}, SubmitJob=False, templates=dict(), secondOrderRestart=False):
     r'''
     This macro-function takes as input a preprocessed grid file (as produced
     by function :py:func:`prepareMesh4ElsA` ) and adds all remaining information
@@ -317,7 +317,6 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
         BoundaryConditions : :py:class:`list` of :py:class:`dict`
             List of boundary conditions to set on the given mesh.
             For details, refer to documentation of :py:func:`MOLA.WorfklowCompressor.setBoundaryConditions`
-
 
         NumericalParams : dict
             dictionary containing the numerical
@@ -471,13 +470,18 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
             then will submit the specified number of jobs in queue with singleton
             dependency (useful for long simulations).
 
-            .. note::
-                only relevant if **COPY_TEMPLATES** is py:obj:`True` and
-                **JobInformation** is provided
+        templates : dict
+            Main files to copy for the workflow. 
+            By default, it is filled with the following values:
 
-        COPY_TEMPLATES : bool
-            If :py:obj:`True` (default value), copy templates files in the
-            current directory.
+            .. code-block::python
+
+                templates = dict(
+                    job_template = '$MOLA/TEMPLATES/job_template.sh',
+                    compute = '$MOLA/TEMPLATES/<WORKFLOW>/compute.py',
+                    coprocess = '$MOLA/TEMPLATES/<WORKFLOW>/coprocess.py',
+                    otherWorkflowFiles = [],
+                )
 
         secondOrderRestart : bool
             If :py:obj:`True`, and if NumericalParams['time_algo'] is 'gear' or 'DualTimeStep' 
@@ -614,15 +618,13 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
         print('REMEMBER : configuration shall be run using %s'%(J.CYAN + \
             Splitter + J.ENDC))
 
-    if COPY_TEMPLATES:
-        JM.getTemplates('Standard', JobInformation=JobInformation)
-        if 'DIRECTORY_WORK' in JobInformation:
-            sendSimulationFiles(JobInformation['DIRECTORY_WORK'],
-                                    overrideFields=writeOutputFields)
+    JM.getTemplates('Standard', templates, JobInformation=JobInformation)
+    if 'DIRECTORY_WORK' in JobInformation:
+        sendSimulationFiles(JobInformation['DIRECTORY_WORK'], overrideFields=writeOutputFields)
 
-        for i in range(SubmitJob):
-            singleton = False if i==0 else True
-            JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
+    for i in range(SubmitJob):
+        singleton = False if i==0 else True
+        JM.submitJob(JobInformation['DIRECTORY_WORK'], singleton=singleton)
 
     ElapsedTime = str(datetime.timedelta(seconds=tic()-toc))
     hours, minutes, seconds = ElapsedTime.split(':')
@@ -1389,7 +1391,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                 cores_per_node, maximum_number_of_points_per_node, raise_error=True)[0]
 
         I._correctPyTree(tRef,level=3)
-        tRef = connectMesh(tRef, InputMeshes)
+        # tRef = connectMesh(tRef, InputMeshes)
 
     elif mode == 'imposed':
 
@@ -1397,7 +1399,7 @@ def splitAndDistribute(t, InputMeshes, mode='auto', cores_per_node=48,
                                  maximum_number_of_points_per_node, raise_error=True)[0]
 
         I._correctPyTree(tRef,level=3)
-        tRef = connectMesh(tRef, InputMeshes)
+        # tRef = connectMesh(tRef, InputMeshes)
 
     showStatisticsAndCheckDistribution(tRef, CoresPerNode=cores_per_node)
 
@@ -1427,7 +1429,8 @@ def _splitAndDistributeUsingNProcs(t, InputMeshes, NumberOfProcessors, cores_per
 
         tToSplit = I.merge([C.newPyTree([b[0],I.getZones(b)]) for b in basesToSplit])
 
-        removeMatchAndNearMatch(tToSplit)
+        # removeMatchAndNearMatch(tToSplit)
+        C.registerAllNames(tToSplit) # HACK https://gitlab.onera.net/numerics/mola/-/issues/143
         tSplit = T.splitSize(tToSplit, 0, type=0, R=remainingNProcs,
                              minPtsPerDir=5)
         NbOfZonesAfterSplit = len(I.getZones(tSplit))
@@ -4080,7 +4083,13 @@ def addExtractions(t, ReferenceValues, elsAkeysModel, extractCoords=True,
         addFieldExtractions(t, ReferenceValues, extractCoords=False,
         includeAdditionalExtractions=True, container='FlowSolution#EndOfRun#Absolute',
         ReferenceFrame='absolute', secondOrderRestart=secondOrderRestart)
-    EP._addGlobalConvergenceHistory(t)
+    
+    for base in I.getBases(t):
+        # Create GlobalConvergenceHistory to follow convergence in the OUTPUT8TREE during and at the end of simulation
+        # see https://elsa.onera.fr/issues/9703
+        GlobalConvergenceHistory = I.createNode('GlobalConvergenceHistory', 'UserDefinedData_t', value=0, parent=base)
+        I.createNode('NormDefinitions', 'Descriptor_t', value='ConvergenceHistory', parent=GlobalConvergenceHistory)
+        J.set(GlobalConvergenceHistory, '.Solver#Output', period=1, writingmode=0, var='residual_cons residual_turb')
 
 
 def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={},
@@ -4207,6 +4216,13 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={},
                         elif TransitionMode == 'Imposed':
                             extraVariables = ['intermittency', 'clim']
                             ExtractVariablesList.extend(extraVariables)
+
+                    # decision https://gitlab.onera.net/numerics/mola/-/issues/190
+                    fluxes = ['flux_rou','flux_rov','flux_row',
+                              'torque_rou','torque_rov','torque_row']
+                    for f in fluxes:
+                        if f not in ExtractVariablesList:
+                            ExtractVariablesList.append(f)
 
                 if ExtractVariablesList != []:
                     varDict = dict(var=' '.join(ExtractVariablesList))
@@ -4973,7 +4989,7 @@ def adapt2elsA(t, InputMeshes):
     This function is similar to :py:func:`Converter.elsAProfile.convert2elsAxdt`,
     except that it employs **InputMeshes** information in order to precondition
     unnecessary operations. It also cleans spurious 0-length data CGNS nodes that
-    can be generated during overset preprocessing.
+    can be generated during overset preprocessing and other general adaptations.
     '''
 
     if hasAnyNearMatch(t, InputMeshes):
@@ -4997,8 +5013,13 @@ def forceFamilyBCasFamilySpecified(t):
         for zone in I.getZones(base):
             for ZoneBC in I.getNodesFromType1(zone,'ZoneBC_t'):
                 for BC in I.getNodesFromType1(ZoneBC,'BC_t'):
-                    if I.getNodeFromType1(BC,'FamilyName_t') is not None:
+                    FamilyNameNode = I.getNodeFromType1(BC,'FamilyName_t')
+                    if FamilyNameNode is not None:
                         I.setValue(BC,'FamilySpecified')
+                        FamilyName = I.getName(FamilyNameNode)
+                        if not I.getNodeFromName1(base,FamilyName):
+                            FamilyAtBase = I.createNode(FamilyName,'Family_t',parent=base)
+                            I.createNode('FamilyBC','FamilyBC_t',value='UserDefined',parent=FamilyAtBase)
                         continue
 
 def hasAnyNearMatch(t, InputMeshes):
@@ -5846,6 +5867,8 @@ def addBC2Zone(*args, **kwargs):
     '''
     Workaround of Converter._addBC2Zone (in-place) function in order to circumvent 
     https://elsa.onera.fr/issues/11236
+
+    TODO remove for elsA > v5.2.03
 
     '''
     zone = args[0]
