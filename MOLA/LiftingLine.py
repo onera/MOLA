@@ -357,8 +357,8 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     else:
         raise AttributeError("Could not recognize Constraint '%s'"%Constraint)
 
-    AvrgThrust *= NBlades
-    AvrgPower  *= NBlades
+    AvrgThrust= np.mean([n[1] for n in I.getNodesFromName(tLL,'Thrust')]) * NBlades
+    AvrgPower = np.mean([n[1] for n in I.getNodesFromName(tLL,'Power')]) * NBlades
 
     # -------------------------------------------------------------------- #
     # -------------------- FINALIZATION OF COMPUTATION -------------------- #
