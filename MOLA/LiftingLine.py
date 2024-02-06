@@ -1133,7 +1133,6 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
     existing_fields = C.getVarNames(LiftingLine)[0]
     for fn in addLLfields:
         if fn not in existing_fields:
-            print(fn)
             LLfields.append(fn)
     J._invokeFields(LiftingLine,LLfields)
     v = J.getVars2Dict(LiftingLine, LLfields + addLLfields)
