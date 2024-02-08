@@ -2020,6 +2020,10 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                 BCkwargs['VelocityScale'] =  (FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*ReferenceValues['TemperatureStagnation'])**0.5 
 
             BCkwargs['GilesMonitoringFlag'] = GilesMonitoringFlag
+            BCkwargs['option'] = BCparam['option']
+            if BCparam['option'] == 'file':
+                BCkwargs['filename'] = BCparam['filename']
+                
             for bc in C.getFamilyBCs(t,BCparam['FamilyName']):
                 setBC_giles_outlet(t, bc, **BCkwargs)
             GilesMonitoringFlag += 1
@@ -2038,6 +2042,10 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                 BCkwargs['VelocityScale'] =  (FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*ReferenceValues['TemperatureStagnation'])**0.5 
 
             BCkwargs['GilesMonitoringFlag'] = GilesMonitoringFlag
+            BCkwargs['option'] = BCparam['option']
+            if BCparam['option'] == 'file':
+                BCkwargs['filename'] = BCparam['filename']
+
             for bc in C.getFamilyBCs(t,BCparam['FamilyName']):
                 setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, **BCkwargs)
             GilesMonitoringFlag += 1
@@ -2762,9 +2770,6 @@ def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
                2. add cartography
     '''
 
-    # option: RadialEquilibrium or file
-    option = 'RadialEquilibrium'                # default option
-
     # creation of dictionnary of keys for Giles outlet BC  
     DictKeysGilesOutlet = {}
 
@@ -2804,7 +2809,7 @@ def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
     DictKeysGilesOutlet['giles_relaxo'] = kwargs.get('giles_relaxo',  200.)                           # recommended value
 
     # default option: RadialEquilibrium
-    if option == 'RadialEquilibrium':
+    if kwargs['option'] == 'RadialEquilibrium':
         DictKeysGilesOutlet['monitoring_indpiv'] = kwargs.get('IndexPivot',1)                         # default value
         DictKeysGilesOutlet['monitoring_pressure'] = kwargs.get('Pressure',None)                      # given by the user
 
@@ -2817,8 +2822,33 @@ def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
             DictKeysGilesOutlet['monitoring_valve_relax'] = valve_relax
             
     # imposed cartography from a CGNS file
-    elif option == 'file':
-        raise Exception('Giles BC with file imposed not implemented yet')
+    elif kwargs['option'] == 'file':
+
+        # get the data from the file
+        bnd_data = C.convertFile2PyTree(kwargs['filename'])
+
+        # get Node FlowSolutionCenters
+        # we suppose here that the variable names are correctly set for Giles outpres
+        FS = I.getNodeFromName(bnd_data, I.__FlowSolutionCenters__)
+
+        # store data in a dictionnary
+        ImposedVariables = dict()
+        for child in I.getChildren(FS):
+            childname = I.getName(child)            
+            if childname != 'GridLocation':
+                ImposedVariables[childname] = np.asfortranarray(I.getValue(child))
+
+        #print(ImposedVariables)
+        
+        # build node for BCDataSet
+        BCDataSet = I.newBCDataSet(name='BCDataSet#Init', value='Null',
+            gridLocation='FaceCenter', parent=bc)
+        
+        # add the data in BCDataSet
+        J.set(BCDataSet, 'DirichletData', childType='BCData_t', **ImposedVariables)
+
+
+        #raise Exception('Giles BC with file imposed not implemented yet')
 
 
     # set the BC with keys
@@ -2853,14 +2883,8 @@ def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwa
 
             kwargs : dict
                 Parameters defined by the user: FamilyName, NbModesFourierGiles, monitoring_flag, option
-
-            TO DO: 
-               1. add a cartography
             
     '''
-
-    # option: uniform or file
-    option = 'uniform'                # default option
 
     # creation of dictionnary of keys for Giles inlet BC  
     DictKeysGilesInlet = {}
@@ -2906,7 +2930,7 @@ def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwa
     DictKeysGilesInlet['giles_relax_in2'] = giles_relax_in[1]
     DictKeysGilesInlet['giles_relax_in3'] = giles_relax_in[2]
     DictKeysGilesInlet['giles_relax_in4'] = giles_relax_in[3]    
-    if option == 'uniform':
+    if kwargs['option'] == 'uniform':
         # - physical quantities -
         DictKeysGilesInlet['stagnation_enthalpy'] = kwargs.get('stagnation_enthalpy',FluidProperties['cp'] * ReferenceValues['TemperatureStagnation'])   # to be given by the user
         DictKeysGilesInlet['stagnation_pressure'] = kwargs.get('stagnation_pressure',ReferenceValues['PressureStagnation'])                              # to be given by the user
@@ -2918,8 +2942,37 @@ def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwa
         for CGNSTurbVariable in turbDict.keys():
             elsATurbVariable = translateVariablesFromCGNS2Elsa([CGNSTurbVariable])[0]
             DictKeysGilesInlet[elsATurbVariable] = turbDict[CGNSTurbVariable]
-    elif option == 'file':
-        raise Exception('Giles BC with file imposed not implemented yet')
+
+    elif kwargs['option'] == 'file':
+
+        # get the data from the file
+        bnd_data = C.convertFile2PyTree(kwargs['filename'])
+
+        # get Node FlowSolutionCenters
+        # we suppose here that the variable names are correctly set for Giles inj1
+        FS = I.getNodeFromName(bnd_data, I.__FlowSolutionCenters__)
+
+        # store data in a dictionnary
+        ImposedVariables = dict()
+        for child in I.getChildren(FS):
+            childname = I.getName(child)            
+            if childname != 'GridLocation':
+                ImposedVariables[childname] = np.asfortranarray(I.getValue(child))
+
+        #print(ImposedVariables)
+        
+        # build node for BCDataSet
+        BCDataSet = I.newBCDataSet(name='BCDataSet#Init', value='Null',
+            gridLocation='FaceCenter', parent=bc)
+        
+        # add the data in BCDataSet
+        J.set(BCDataSet, 'DirichletData', childType='BCData_t', **ImposedVariables)
+
+        
+
+        
+        
+        #raise Exception('Giles BC with file imposed not implemented yet')
 
     # set the BC with keys
     J.set(bc, '.Solver#BC',**DictKeysGilesInlet)
@@ -3171,6 +3224,9 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
 
         BCDataSet = I.newBCDataSet(name=BCDataSetName, value='Null',
             gridLocation='FaceCenter', parent=bc)
+
+        print('ImposedVariables:',ImposedVariables)
+
         J.set(BCDataSet, BCDataName, childType='BCData_t', **ImposedVariables)
 
 def checkVariables(ImposedVariables):
