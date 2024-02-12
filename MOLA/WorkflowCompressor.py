@@ -3225,8 +3225,6 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
         BCDataSet = I.newBCDataSet(name=BCDataSetName, value='Null',
             gridLocation='FaceCenter', parent=bc)
 
-        print('ImposedVariables:',ImposedVariables)
-
         J.set(BCDataSet, BCDataName, childType='BCData_t', **ImposedVariables)
 
 def checkVariables(ImposedVariables):
@@ -3532,13 +3530,11 @@ def setBC_giles_stage_mxpl(t, left, right, method = 'Robust', **kwargs):
      # set the BCs left with keys
     ListBCNodes_left = C.getFamilyBCs(t,left)
     for BCNode_left in ListBCNodes_left:
-        print(I.getPath(t,BCNode_left))       
         J.set(BCNode_left, '.Solver#BC',**DictKeysGilesMxpl_left)
 
     # set the BCs right with keys
     ListBCNodes_right = C.getFamilyBCs(t,right)
     for BCNode_right in ListBCNodes_right:
-        print(I.getPath(t,BCNode_right))
         J.set(BCNode_right, '.Solver#BC',**DictKeysGilesMxpl_right)
 
 
