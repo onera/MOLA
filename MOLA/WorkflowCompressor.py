@@ -1135,7 +1135,8 @@ def computeReferenceValues(FluidProperties, PressureStagnation,
                            BCExtractions=dict(
                              BCWall = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
                              BCInflow = ['convflux_ro'],
-                             BCOutflow = ['convflux_ro']),
+                             BCOutflow = ['convflux_ro'],
+                             BCGilesMxPl = ['convflux_ro']),
                             **kwargs):
     '''
     This function is the Compressor's equivalent of :func:`MOLA.Preprocess.computeReferenceValues`.
@@ -2019,6 +2020,10 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                 BCkwargs['VelocityScale'] =  (FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*ReferenceValues['TemperatureStagnation'])**0.5 
 
             BCkwargs['GilesMonitoringFlag'] = GilesMonitoringFlag
+            BCkwargs['option'] = BCparam['option']
+            if BCparam['option'] == 'file':
+                BCkwargs['filename'] = BCparam['filename']
+                
             for bc in C.getFamilyBCs(t,BCparam['FamilyName']):
                 setBC_giles_outlet(t, bc, **BCkwargs)
             GilesMonitoringFlag += 1
@@ -2037,6 +2042,10 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                 BCkwargs['VelocityScale'] =  (FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*ReferenceValues['TemperatureStagnation'])**0.5 
 
             BCkwargs['GilesMonitoringFlag'] = GilesMonitoringFlag
+            BCkwargs['option'] = BCparam['option']
+            if BCparam['option'] == 'file':
+                BCkwargs['filename'] = BCparam['filename']
+
             for bc in C.getFamilyBCs(t,BCparam['FamilyName']):
                 setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, **BCkwargs)
             GilesMonitoringFlag += 1
@@ -2075,9 +2084,9 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                 # computation of sound velocity for Giles
                 BCkwargs['VelocityScale'] =  (FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*ReferenceValues['TemperatureStagnation'])**0.5 
 
-            BCkwargs['nscbc_mxpl_flag'] = GilesMonitoringFlag
-            BCkwargs['GilesMonitoringFlag_left'] = GilesMonitoringFlag
-            BCkwargs['GilesMonitoringFlag_right'] = GilesMonitoringFlag+1
+            BCkwargs['nscbc_mxpl_flag'] = GilesMonitoringFlag                   # index gathering left and right BCs for one given Mxpl interface
+            BCkwargs['GilesMonitoringFlag_left'] = GilesMonitoringFlag         # index gathering all BCs "left" for one given Mxpl interface
+            BCkwargs['GilesMonitoringFlag_right'] = GilesMonitoringFlag+1      # index gathering all BCs "right" for one given Mxpl interface
             
             setBC_giles_stage_mxpl(t, **BCkwargs)
             GilesMonitoringFlag += 2
@@ -2761,9 +2770,6 @@ def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
                2. add cartography
     '''
 
-    # option: RadialEquilibrium or file
-    option = 'RadialEquilibrium'                # default option
-
     # creation of dictionnary of keys for Giles outlet BC  
     DictKeysGilesOutlet = {}
 
@@ -2776,6 +2782,12 @@ def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
     DictKeysGilesOutlet['nscbc_outwave'] = kwargs.get('nscbc_outwave',  'grad_etat')                            # recommended value - possible keys : 'grad_etat'; 'extrap_flux'
     DictKeysGilesOutlet['nscbc_velocity_scale'] = kwargs.get('nscbc_velocity_scale',kwargs['VelocityScale'])    # default value - reference sound velocity 
     DictKeysGilesOutlet['nscbc_viscwall_len'] = kwargs.get('nscbc_viscwall_len', 5.e-4)                         # default value, could be updated by the user if convergence issue
+
+    if kwargs.get('nscbc_viscwall_len_hub') is not None:
+        DictKeysGilesOutlet['nscbc_viscwall_len_hub'] = kwargs.get('nscbc_viscwall_len_hub')                    # value of nscbc_viscwall_len for the hub only
+    if kwargs.get('nscbc_viscwall_len_carter') is not None:
+        DictKeysGilesOutlet['nscbc_viscwall_len_carter'] = kwargs.get('nscbc_viscwall_len_carter')              # value of nscbc_viscwall_len for the hub only           
+
 
     # keys relative to the Giles treatment 
     DictKeysGilesOutlet['giles_opt'] = 'relax'                                                        # mandatory key for NSCBC-Giles treatment
@@ -2797,7 +2809,7 @@ def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
     DictKeysGilesOutlet['giles_relaxo'] = kwargs.get('giles_relaxo',  200.)                           # recommended value
 
     # default option: RadialEquilibrium
-    if option == 'RadialEquilibrium':
+    if kwargs['option'] == 'RadialEquilibrium':
         DictKeysGilesOutlet['monitoring_indpiv'] = kwargs.get('IndexPivot',1)                         # default value
         DictKeysGilesOutlet['monitoring_pressure'] = kwargs.get('Pressure',None)                      # given by the user
 
@@ -2810,8 +2822,33 @@ def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
             DictKeysGilesOutlet['monitoring_valve_relax'] = valve_relax
             
     # imposed cartography from a CGNS file
-    elif option == 'file':
-        raise Exception('Giles BC with file imposed not implemented yet')
+    elif kwargs['option'] == 'file':
+
+        # get the data from the file
+        bnd_data = C.convertFile2PyTree(kwargs['filename'])
+
+        # get Node FlowSolutionCenters
+        # we suppose here that the variable names are correctly set for Giles outpres
+        FS = I.getNodeFromName(bnd_data, I.__FlowSolutionCenters__)
+
+        # store data in a dictionnary
+        ImposedVariables = dict()
+        for child in I.getChildren(FS):
+            childname = I.getName(child)            
+            if childname != 'GridLocation':
+                ImposedVariables[childname] = np.asfortranarray(I.getValue(child))
+
+        #print(ImposedVariables)
+        
+        # build node for BCDataSet
+        BCDataSet = I.newBCDataSet(name='BCDataSet#Init', value='Null',
+            gridLocation='FaceCenter', parent=bc)
+        
+        # add the data in BCDataSet
+        J.set(BCDataSet, 'DirichletData', childType='BCData_t', **ImposedVariables)
+
+
+        #raise Exception('Giles BC with file imposed not implemented yet')
 
 
     # set the BC with keys
@@ -2846,14 +2883,8 @@ def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwa
 
             kwargs : dict
                 Parameters defined by the user: FamilyName, NbModesFourierGiles, monitoring_flag, option
-
-            TO DO: 
-               1. add a cartography
             
     '''
-
-    # option: uniform or file
-    option = 'uniform'                # default option
 
     # creation of dictionnary of keys for Giles inlet BC  
     DictKeysGilesInlet = {}
@@ -2867,6 +2898,12 @@ def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwa
     DictKeysGilesInlet['nscbc_outwave'] = kwargs.get('nscbc_outwave',  'grad_etat')                           # recommended value - possible keys : 'grad_etat'; 'extrap_flux'
     DictKeysGilesInlet['nscbc_velocity_scale'] = kwargs.get('nscbc_velocity_scale',kwargs['VelocityScale'])   # default value - sound velocity
     DictKeysGilesInlet['nscbc_viscwall_len'] = kwargs.get('nscbc_viscwall_len', 5.e-4)                        # default value, could be updated by the user if convergence issue
+
+    if kwargs.get('nscbc_viscwall_len_hub') is not None:
+        DictKeysGilesInlet['nscbc_viscwall_len_hub'] = kwargs.get('nscbc_viscwall_len_hub')                    # value of nscbc_viscwall_len for the hub only
+    if kwargs.get('nscbc_viscwall_len_carter') is not None:
+        DictKeysGilesInlet['nscbc_viscwall_len_carter'] = kwargs.get('nscbc_viscwall_len_carter')              # value of nscbc_viscwall_len for the hub only           
+
 
     # keys relative to the Giles treatment 
     DictKeysGilesInlet['giles_opt'] = kwargs.get('giles_relax_opt', 'relax')                             # mandatory key for NSCBC-Giles treatment
@@ -2893,7 +2930,7 @@ def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwa
     DictKeysGilesInlet['giles_relax_in2'] = giles_relax_in[1]
     DictKeysGilesInlet['giles_relax_in3'] = giles_relax_in[2]
     DictKeysGilesInlet['giles_relax_in4'] = giles_relax_in[3]    
-    if option == 'uniform':
+    if kwargs['option'] == 'uniform':
         # - physical quantities -
         DictKeysGilesInlet['stagnation_enthalpy'] = kwargs.get('stagnation_enthalpy',FluidProperties['cp'] * ReferenceValues['TemperatureStagnation'])   # to be given by the user
         DictKeysGilesInlet['stagnation_pressure'] = kwargs.get('stagnation_pressure',ReferenceValues['PressureStagnation'])                              # to be given by the user
@@ -2905,8 +2942,37 @@ def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwa
         for CGNSTurbVariable in turbDict.keys():
             elsATurbVariable = translateVariablesFromCGNS2Elsa([CGNSTurbVariable])[0]
             DictKeysGilesInlet[elsATurbVariable] = turbDict[CGNSTurbVariable]
-    elif option == 'file':
-        raise Exception('Giles BC with file imposed not implemented yet')
+
+    elif kwargs['option'] == 'file':
+
+        # get the data from the file
+        bnd_data = C.convertFile2PyTree(kwargs['filename'])
+
+        # get Node FlowSolutionCenters
+        # we suppose here that the variable names are correctly set for Giles inj1
+        FS = I.getNodeFromName(bnd_data, I.__FlowSolutionCenters__)
+
+        # store data in a dictionnary
+        ImposedVariables = dict()
+        for child in I.getChildren(FS):
+            childname = I.getName(child)            
+            if childname != 'GridLocation':
+                ImposedVariables[childname] = np.asfortranarray(I.getValue(child))
+
+        #print(ImposedVariables)
+        
+        # build node for BCDataSet
+        BCDataSet = I.newBCDataSet(name='BCDataSet#Init', value='Null',
+            gridLocation='FaceCenter', parent=bc)
+        
+        # add the data in BCDataSet
+        J.set(BCDataSet, 'DirichletData', childType='BCData_t', **ImposedVariables)
+
+        
+
+        
+        
+        #raise Exception('Giles BC with file imposed not implemented yet')
 
     # set the BC with keys
     J.set(bc, '.Solver#BC',**DictKeysGilesInlet)
@@ -3158,6 +3224,7 @@ def setBCwithImposedVariables(t, FamilyName, ImposedVariables, FamilyBC, BCType,
 
         BCDataSet = I.newBCDataSet(name=BCDataSetName, value='Null',
             gridLocation='FaceCenter', parent=bc)
+
         J.set(BCDataSet, BCDataName, childType='BCData_t', **ImposedVariables)
 
 def checkVariables(ImposedVariables):
@@ -3395,8 +3462,11 @@ def setBC_giles_stage_mxpl(t, left, right, method = 'Robust', **kwargs):
             
     '''
 
-    # give a FamilyName for the Mxpl (upstream and downstream)
-    MxplFamilyName = 'Mxpl_%i_%i'%(kwargs['GilesMonitoringFlag_left'],kwargs['GilesMonitoringFlag_right']) # + counter
+    # add BCGilesMxpl in family left and family right
+    MxplLeftNode = I.getNodeFromNameAndType(t, left, 'Family_t')
+    I.createChild(MxplLeftNode,'FamilyBC','FamilyBC_t',value='BCGilesMxPl')
+    MxplRightNode = I.getNodeFromNameAndType(t, right, 'Family_t')
+    I.createChild(MxplRightNode,'FamilyBC','FamilyBC_t',value='BCGilesMxPl')
 
     # creation of dictionnary of keys for Giles mxpl left 
     DictKeysGilesMxpl = {}
@@ -3410,6 +3480,12 @@ def setBC_giles_stage_mxpl(t, left, right, method = 'Robust', **kwargs):
     DictKeysGilesMxpl['nscbc_outwave'] = kwargs.get('nscbc_outwave',  'grad_etat')                  # recommended value - possible keys : 'grad_etat'; 'extrap_flux'
     DictKeysGilesMxpl['nscbc_velocity_scale'] = kwargs.get('nscbc_velocity_scale',kwargs['VelocityScale'])    # default value - reference sound velocity 
     DictKeysGilesMxpl['nscbc_viscwall_len'] = kwargs.get('nscbc_viscwall_len', 5.e-4)               # default value, could be updated by the user if convergence issue
+
+    if kwargs.get('nscbc_viscwall_len_hub') is not None:
+        DictKeysGilesMxpl['nscbc_viscwall_len_hub'] = kwargs.get('nscbc_viscwall_len_hub')                    # value of nscbc_viscwall_len for the hub only
+    if kwargs.get('nscbc_viscwall_len_carter') is not None:
+        DictKeysGilesMxpl['nscbc_viscwall_len_carter'] = kwargs.get('nscbc_viscwall_len_carter')              # value of nscbc_viscwall_len for the hub only           
+
 
     # keys relative to the Giles treatment 
     DictKeysGilesMxpl['giles_opt'] = 'relax'                                                        # mandatory key for NSCBC-Giles treatment
@@ -3442,38 +3518,25 @@ def setBC_giles_stage_mxpl(t, left, right, method = 'Robust', **kwargs):
     DictKeysGilesMxpl['monitoring_period'] = kwargs.get('monitoring_period',  20)                   # recommended value   
 
     # define parameter for left and right interface
+    
+    LogRootName = 'Mxpl_%i_%i'%(kwargs['GilesMonitoringFlag_left'],kwargs['GilesMonitoringFlag_right']) # give a common LogRootName for the Mxpl interface (upstream and downstream)
     DictKeysGilesMxpl_left = DictKeysGilesMxpl.copy()
     DictKeysGilesMxpl_left['monitoring_flag'] = kwargs['GilesMonitoringFlag_left']                  # automatically computed, must be different from other Giles BC, including right BC of Mxpl
-    DictKeysGilesMxpl_left['monitoring_file'] = 'LOGS/%s_%i_'%(MxplFamilyName,kwargs['GilesMonitoringFlag_left'])
+    DictKeysGilesMxpl_left['monitoring_file'] = 'LOGS/%s_%i_'%(LogRootName,kwargs['GilesMonitoringFlag_left'])
     DictKeysGilesMxpl_right = DictKeysGilesMxpl.copy()
     DictKeysGilesMxpl_right['monitoring_flag'] = kwargs['GilesMonitoringFlag_right']                # automatically computed, must be different from other Giles BC, including left BC of Mxpl
-    DictKeysGilesMxpl_right['monitoring_file'] = 'LOGS/%s_%i_'%(MxplFamilyName,kwargs['GilesMonitoringFlag_right'])
+    DictKeysGilesMxpl_right['monitoring_file'] = 'LOGS/%s_%i_'%(LogRootName,kwargs['GilesMonitoringFlag_right'])
 
-
-    # set the BCs left with keys
+     # set the BCs left with keys
     ListBCNodes_left = C.getFamilyBCs(t,left)
     for BCNode_left in ListBCNodes_left:
-        print(I.getPath(t,BCNode_left))       
         J.set(BCNode_left, '.Solver#BC',**DictKeysGilesMxpl_left)
-        # add BC node to the Mxpl Family
-        FamilyNameNode = I.getNodeFromName(BCNode_left,'FamilyName')
-        I.setValue(FamilyNameNode,MxplFamilyName)
 
     # set the BCs right with keys
     ListBCNodes_right = C.getFamilyBCs(t,right)
     for BCNode_right in ListBCNodes_right:
-        print(I.getPath(t,BCNode_right))
         J.set(BCNode_right, '.Solver#BC',**DictKeysGilesMxpl_right)
-        # add BC node to the Mxpl Family
-        FamilyNameNode = I.getNodeFromName(BCNode_right,'FamilyName')
-        I.setValue(FamilyNameNode,MxplFamilyName)
 
-    # create a node Family_t for the Mxpl
-    bases = I.getBases(t)
-    base0 = bases[0]
-    NodeMxplFamily = I.createNode(MxplFamilyName,'Family_t',value=None)
-    I.createChild(NodeMxplFamily,'FamilyBC','FamilyBC_t',value='BCGilesMxPl')
-    I.addChild(base0,NodeMxplFamily,pos=-1)
 
 
 @J.mute_stdout
