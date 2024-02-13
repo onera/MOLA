@@ -357,8 +357,8 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
     else:
         raise AttributeError("Could not recognize Constraint '%s'"%Constraint)
 
-    AvrgThrust *= NBlades
-    AvrgPower  *= NBlades
+    AvrgThrust= np.mean([n[1] for n in I.getNodesFromName(tLL,'Thrust')]) * NBlades
+    AvrgPower = np.mean([n[1] for n in I.getNodesFromName(tLL,'Power')]) * NBlades
 
     # -------------------------------------------------------------------- #
     # -------------------- FINALIZATION OF COMPUTATION -------------------- #
@@ -968,7 +968,7 @@ def buildPropeller(LiftingLine, NBlades=2, InitialAzimutDirection=[0,1,0],
 
 def buildLiftingLine(Span, RightHandRuleRotation=True, 
         PitchRelativeCenter=[0,0,0], PitchAxis=[1,0,0],
-        RotationCenter=[0,0,0], **kwargs):
+        RotationCenter=[0,0,0], SweepCorrection = True, DihedralCorrection = True, AngleSmoothingLaw = None, **kwargs):
     '''
     Make a PyTree-Line zone defining a Lifting-line. The construction
     procedure of this element is the same as in function
@@ -1018,6 +1018,13 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
             .. note::
                 canonical rotation axis is :math:`(0,0,1)`
 
+        AngleSmoothingLaw : str
+            Smoothes the SweepAngleDeg and DihedralAngleDeg values to avoid discontinuities.
+            Default : None
+            Options: 'UnivariateSpline', 'Pchip', 'Akima', 'SavgolFilter'.
+
+            Please refer to the corresponding scipy package for a full description of the functions
+
         kwargs : pairs of **attribute** = :py:class:`dict`
             This is an arbitrary number of input arguments following the same
             structure as :py:func:`MOLA.GenerativeShapeDesign.wing` function.
@@ -1051,6 +1058,9 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
             structured curve zone corresponding to the new lifting line
 
     '''
+    import scipy.interpolate as si
+    from scipy.signal import savgol_filter
+
     # ------------ PERFORM SOME VERIFICATIONS ------------ #
 
     # Verify the Span argument
@@ -1126,14 +1136,13 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
         'PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ',
         'PitchAxisX','PitchAxisY','PitchAxisZ',
         'TangentialX', 'TangentialY', 'TangentialZ',
-        'SweepAngleDeg', 'DihedralAngleDeg']
+        'SweepAngleDeg', 'DihedralAngleDeg', 'ChordVirtualWithSweep']
     addLLfields = ['ChordwiseX','ChordwiseY','ChordwiseZ',
                     'SpanwiseX', 'SpanwiseY', 'SpanwiseZ',
                    'ThickwiseX','ThickwiseY','ThickwiseZ']
     existing_fields = C.getVarNames(LiftingLine)[0]
     for fn in addLLfields:
         if fn not in existing_fields:
-            print(fn)
             LLfields.append(fn)
     J._invokeFields(LiftingLine,LLfields)
     v = J.getVars2Dict(LiftingLine, LLfields + addLLfields)
@@ -1223,6 +1232,7 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
     # Add Information node
     J.set(LiftingLine,'.Component#Info',kind='LiftingLine',
                                         MOLAversion=__version__,
+                                        Corrections3D= dict(Sweep=SweepCorrection,Dihedral=DihedralCorrection),
                                         GeometricalLaws=kwargs)
     LiftingLine[0] = 'LiftingLine'
 
@@ -1233,12 +1243,46 @@ def buildLiftingLine(Span, RightHandRuleRotation=True,
     tLEx, tLEy, tLEz = J.getxyz(LeadingEdgeTangentCurve)
     tLLx, tLLy, tLLz = J.getxyz(LiftingLineTangentCurve)
     for i in range(len(tLEx)):
-        LedingEdgeTangentVector = np.array([tLEx[i], tLEy[i], tLEz[i]])
+        LeadingEdgeTangentVector = np.array([tLEx[i], tLEy[i], tLEz[i]])
         LiftingLineTangentVector = np.array([tLLx[i], tLLy[i], tLLz[i]])
         ChordwiseVector = np.array([v['ChordwiseX'][:][i], v['ChordwiseY'][:][i], v['ChordwiseZ'][:][i]])
         ThickwiseVector = np.array([v['ThickwiseX'][:][i], v['ThickwiseY'][:][i], v['ThickwiseZ'][:][i]])
-        v['SweepAngleDeg'][i] = 90-np.rad2deg(np.arccos(LedingEdgeTangentVector.dot(ChordwiseVector)))
+        v['SweepAngleDeg'][i] = 90-np.rad2deg(np.arccos(LeadingEdgeTangentVector.dot(ChordwiseVector)))
         v['DihedralAngleDeg'][i] = 90-np.rad2deg(np.arccos(LiftingLineTangentVector.dot(ThickwiseVector)))
+
+    if AngleSmoothingLaw is None or AngleSmoothingLaw == 'None':
+        print(J.WARN+'WARNING: no AngleSmoothingLaw has been prescribed. Please check SweepAngleDeg and DihedralAngleDeg to see if there are any curve discontinuities before launching the simulation.'+J.ENDC)
+
+    elif AngleSmoothingLaw == 'UnivariateSpline':
+        spl_sweep = si.UnivariateSpline(Span,v['SweepAngleDeg'][:], k=5)
+        spl_dihedral = si.UnivariateSpline(Span,v['DihedralAngleDeg'][:], k=5)
+        v['SweepAngleDeg'][:] = spl_sweep(Span)
+        v['DihedralAngleDeg'][:] = spl_dihedral(Span)
+
+    elif AngleSmoothingLaw == 'Pchip':
+        pchip_sweep = si.PchipInterpolator(Span,v['SweepAngleDeg'][:])
+        pchip_dihedral = si.PchipInterpolator(Span,v['DihedralAngleDeg'][:])
+        v['SweepAngleDeg'][:] = pchip_sweep(Span)
+        v['DihedralAngleDeg'][:] = pchip_dihedral(Span)
+
+    elif AngleSmoothingLaw == 'Akima':
+        akima_sweep = si.Akima1DInterpolator(Span,v['SweepAngleDeg'][:])
+        akima_dihedral = si.Akima1DInterpolator(Span,v['DihedralAngleDeg'][:])
+        v['SweepAngleDeg'][:] = akima_sweep(Span)
+        v['DihedralAngleDeg'][:] = akima_dihedral(Span)
+
+    elif AngleSmoothingLaw == 'SavgolFilter':
+        sf_sweep = savgol_filter((Span,v['SweepAngleDeg'][:]), window_length=31, polyorder=5)
+        sf_dihedral = savgol_filter((Span,v['DihedralAngleDeg'][:]),  window_length=31, polyorder=5)
+        v['SweepAngleDeg'][:] = sf_sweep[1]
+        v['DihedralAngleDeg'][:] = sf_dihedral[1]
+
+    else:
+        raise AttributeError('AngleSmoothingLaw "%s" not supported'%AngleSmoothingLaw)
+
+
+    v['ChordVirtualWithSweep'][:] = LLDict['Chord'] * np.cos(np.deg2rad(v['SweepAngleDeg']))
+
 
     return LiftingLine
 
@@ -1341,8 +1385,9 @@ def buildLiftingLineFromScan(t, SpanwiseRediscretization=None, resetPitchRelativ
     PitchCtr = J.getVars(BladeLine,
         ['PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ'])
     PitchAxis = J.getVars(BladeLine, ['PitchAxisX','PitchAxisY','PitchAxisZ'])
+    for i in range(3): PitchAxis[i][:] *= Dir
     PitchCtr_pt = (PitchCtr[0][0]*1.0, PitchCtr[1][0]*1.0, PitchCtr[2][0]*1.0)
-    PitchAxis_vec = (PitchAxis[0][0]*Dir, PitchAxis[1][0]*Dir, PitchAxis[2][0]*Dir)
+    PitchAxis_vec = (PitchAxis[0][0], PitchAxis[1][0], PitchAxis[2][0])
     T._rotate(BladeLine, PitchCtr_pt, PitchAxis_vec, -pitch, 
             vectors=NamesOfChordSpanThickwiseFrameNoTangential)
     
@@ -2376,9 +2421,15 @@ def pyZonePolar2AirfoilZone(pyzonename, PyZonePolars):
     else:
         pyzonenames = pyzonename
     
+    PyZonePolars = I.getZones(PyZonePolars)
+    if not PyZonePolars: raise ValueError('not PyZonePolars')
+
+
     AirfoilGeoms = []
     for pzn in pyzonenames:
         zone = J.getZoneFromListByName(PyZonePolars, pzn)
+        if not zone:
+            raise ValueError('not zone')
         FoilGeom_n = I.getNodeFromName1(zone,'.Polar#FoilGeometry')
         Xcoord = I.getNodeFromName1(FoilGeom_n,'CoordinateX')[1]
         Ycoord = I.getNodeFromName1(FoilGeom_n,'CoordinateY')[1]
@@ -2544,14 +2595,7 @@ def makeBladeSurfaceFromLiftingLineAndAirfoilsPolars(LiftingLine, AirfoilsPolars
 
 
 def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
-                            ChordRelRef=0.25, FoilDistribution=None,
-                            OrderInterpolationAirfoils=1,
-                            splitAirfoilOptions=dict(
-                                     FirstEdgeSearchPortion=0.99,
-                                     SecondEdgeSearchPortion=-0.99,
-                                     RelativeRadiusTolerance = 1e-1,
-                                     ),
-                            ImposeWingCanonicalPosition=False):
+                            ChordRelRef=0.25, FoilDistribution=None):
     '''
     Post-process a **LiftingLine** element using enhanced **PyZonePolars** data
     in order to build surface fields (like ``Cp``, ``theta``...) from a BEMT, 
@@ -3290,15 +3334,22 @@ def assembleAndProjectVelocities(t):
                           'VelocityMagnitudeLocal',
                           'VelocityChordwise',
                           'VelocityThickwise',
-                          'Chord','Twist','AoA','phiRad','Mach','Reynolds',
+                          'Chord','ChordVirtualWithSweep',
+                          'Twist','AoA','phiRad','Mach','Reynolds',
                           'ChordwiseX','ChordwiseY','ChordwiseZ',
                           'SpanwiseX','SpanwiseY','SpanwiseZ',
                           'ThickwiseX','ThickwiseY','ThickwiseZ',
                           'TangentialX','TangentialY','TangentialZ',
+                          'SweepAngleDeg', 'DihedralAngleDeg'
                           ]
 
     LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
     for LiftingLine in LiftingLines:
+        #Collecting prescribed polar corrections
+        Correc_n = I.getNodeFromName(LiftingLine,'Corrections3D')
+        SweepCorrection = I.getValue(I.getNodeFromName(Correc_n,'Sweep'))
+        DihedralCorrection = I.getValue(I.getNodeFromName(Correc_n,'Dihedral'))
+
         Conditions = J.get(LiftingLine,'.Conditions')
         Temperature = Conditions['Temperature']
         Density = Conditions['Density']
@@ -3332,8 +3383,8 @@ def assembleAndProjectVelocities(t):
 
         ChordwiseDirection = np.vstack([v['Chordwise'+i] for i in 'XYZ'])
         ThickwiseDirection = np.vstack([v['Thickwise'+i] for i in 'XYZ'])
-        v['VelocityChordwise'][:] = Vchord = np.diag( VelocityRelative.T.dot(ChordwiseDirection) )
-        v['VelocityThickwise'][:] = Vthick = np.diag( VelocityRelative.T.dot(ThickwiseDirection) )
+        v['VelocityChordwise'][:] = Vchord = Vchord_Base = np.diag( VelocityRelative.T.dot(ChordwiseDirection) )
+        v['VelocityThickwise'][:] = Vthick = Vthick_Base = np.diag( VelocityRelative.T.dot(ThickwiseDirection) )
         # note the absence of radial velocity contribution to 2D flow (Spanwise component is cut)
         V2D = np.vstack((Vchord * ChordwiseDirection[0,:] + Vthick * ThickwiseDirection[0,:],
                          Vchord * ChordwiseDirection[1,:] + Vthick * ThickwiseDirection[1,:],
@@ -3346,6 +3397,16 @@ def assembleAndProjectVelocities(t):
 
         v['AoA'][:] = np.rad2deg( np.arctan2(Vthick,Vchord) )
         # NOTE the absence of radial velocity contribution to Velocity Magnitude, Mach and Reynolds
+
+        if SweepCorrection:
+            v['VelocityChordwise'][:] = Vchord = Vchord_Base * np.cos(np.deg2rad(v['SweepAngleDeg']))
+            
+        if DihedralCorrection:
+            v['VelocityThickwise'][:] = Vthick = Vthick_Base * np.cos(np.deg2rad(v['DihedralAngleDeg']))
+
+        # Updating the Angle of Attack considering the new velocity components.    
+        v['AoA'][:] = np.rad2deg( np.arctan2(Vthick,Vchord) )
+
         v['VelocityMagnitudeLocal'][:] = W = np.sqrt( Vchord**2 + Vthick**2 )
         v['Mach'][:] = W / SoundSpeed
         v['Reynolds'][:] = Density[0] * W * v['Chord'] / Mu
@@ -3683,13 +3744,13 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
     '''
     import scipy.integrate as sint
 
-    MinimumRequiredFields = ('Cl','Cd','Cm','Chord',
+    MinimumRequiredFields = ('Cl','Cd','Cm','Chord','ChordVirtualWithSweep',
         'VelocityMagnitudeLocal','s','Span',
         'AoA',
         'ChordwiseX', 'ChordwiseY', 'ChordwiseZ',
         'ThickwiseX', 'ThickwiseY', 'ThickwiseZ',
         'SpanwiseX', 'SpanwiseY', 'SpanwiseZ',
-        'TangentialX', 'TangentialY', 'TangentialZ')
+        'TangentialX', 'TangentialY', 'TangentialZ','SweepAngleDeg', 'DihedralAngleDeg')
     NewFields = (
         'ForceX','ForceY','ForceZ', # previously 'ForceX','ForceY','ForceZ'
         'ForceAxial','ForceTangential', # previously 'ForceAxial','ForceTangential'
@@ -3710,6 +3771,10 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
     NumberOfLiftingLines = len(LiftingLines)
     AllIntegralData = {}
     for LiftingLine in LiftingLines:
+        Correc_n = I.getNodeFromName(LiftingLine,'Corrections3D')
+        SweepCorrection = I.getValue(I.getNodeFromName(Correc_n,'Sweep'))
+        DihedralCorrection = I.getValue(I.getNodeFromName(Correc_n,'Dihedral'))
+
         Kinematics = J.get(LiftingLine,'.Kinematics')
         RotationCenter = Kinematics['RotationCenter']
         TorqueOrigin = Kinematics['TorqueOrigin']
@@ -3748,6 +3813,18 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
 
         # ----------------------- COMPUTE LINEAR FORCES ----------------------- #
         FluxC = 0.5*Density*v['VelocityMagnitudeLocal']**2*v['Chord']
+
+        if SweepCorrection:
+            FluxC = 0.5*Density*v['VelocityMagnitudeLocal']**2*v['ChordVirtualWithSweep']
+            SweepCorrectionCoefficient = np.cos(np.deg2rad(v['SweepAngleDeg']))
+            Drag = FluxC*v['Cd']*SweepCorrectionCoefficient
+        else: Drag= FluxC*v['Cd']
+
+        if DihedralCorrection:
+            DihedralCorrectionCoefficient = np.cos(np.deg2rad(v['DihedralAngleDeg']))
+            Lift = FluxC*v['Cl']*DihedralCorrectionCoefficient
+        else: Lift = FluxC*v['Cl']
+
         if TipLossFactorOptions:
             applyTipLossFactorToBladeEfforts(LiftingLine, **TipLossFactorOptions)
         Lift = FluxC*v['Cl']
@@ -3792,6 +3869,13 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
 
         # ----------------------- COMPUTE LINEAR TORQUE ----------------------- #
         FluxM = FluxC*v['Chord']*v['Cm']
+
+        if SweepCorrection:
+            FluxM = FluxC*v['ChordVirtualWithSweep']*v['Cm']*SweepCorrectionCoefficient
+
+        if DihedralCorrection:
+            FluxM = FluxM*DihedralCorrectionCoefficient
+        
         v['TorqueAtAirfoilX'][:] = dir * FluxM * v['SpanwiseX']
         v['TorqueAtAirfoilY'][:] = dir * FluxM * v['SpanwiseY']
         v['TorqueAtAirfoilZ'][:] = dir * FluxM * v['SpanwiseZ']
@@ -4925,22 +5009,8 @@ def addPitch(LiftingLine, pitch=0.0):
 
         PitchAxis = J.getVars(LL, ['PitchAxisX','PitchAxisY','PitchAxisZ'])
 
-
-        Kinematics_n = I.getNodeFromName(LL,'.Kinematics')
-        if not Kinematics_n:
-            print(J.WARN,'missing ".Kinematics" node, assuming RightHandRuleRotation=True',J.ENDC)
-            Dir = 1
-        else:
-            Dir_n = I.getNodeFromName1(Kinematics_n,'RightHandRuleRotation')
-            if not Dir_n:
-               print(J.WARN,'missing ".Kinematics/RightHandRuleRotation" node, assuming RightHandRuleRotation=True',J.ENDC)
-               Dir = 1
-            else:
-                Dir = I.getValue( Dir_n )
-                if not Dir: Dir = -1
-
         PitchCtr_pt = (PitchCtr[0][0]*1.0, PitchCtr[1][0]*1.0, PitchCtr[2][0]*1.0)
-        PitchAxis_vec = (PitchAxis[0][0]*Dir, PitchAxis[1][0]*Dir, PitchAxis[2][0]*Dir)
+        PitchAxis_vec = (PitchAxis[0][0], PitchAxis[1][0], PitchAxis[2][0])
         T._rotate(LL, PitchCtr_pt, PitchAxis_vec, pitch, 
                 vectors=NamesOfChordSpanThickwiseFrameNoTangential)
         

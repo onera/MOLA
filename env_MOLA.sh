@@ -18,6 +18,7 @@ export ERSTAZVERSION=v1.6.3
 export MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
 export MOLASATORext=/tmp_user/sator/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
 export MAIAVERSION=1.3
+export TREELABVERSION=v0.0.2
 ###############################################################################
 
 
@@ -160,7 +161,7 @@ elif [ "$MAC" = "ld" ]; then
 
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/local-os8_mpi/.env_elsA &>/dev/null
     module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
-    module load vscode/1.74.3
+    module load vscode/1.85.2
     module load pointwise/2022.1.2
     # # module load paraview/5.11.0 # provokes python and libraries incompatibilities
     module load occt/7.6.1-gnu831
@@ -193,6 +194,10 @@ elif [ "$MAC" = "ld" ]; then
     # brakes MPI https://elsa.onera.fr/issues/10933#note-16
     export LD_LIBRARY_PATH=/opt/tools/intel/oneapi/compiler/2021.2.0/linux/compiler/lib/intel64_lin/:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=/opt/tools/intel/oneapi/mpi/2021.6.0/lib/release:$LD_LIBRARY_PATH
+
+    export TREELABPATH=/stck/mola/treelab/v0.0.2/ld_elsA
+    export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
+    export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 
     # external python dependencies
     export PYTHONPATH=$MOLAext/ld8/lib/python3.8/site-packages/:$PYTHONPATH

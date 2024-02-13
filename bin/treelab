@@ -1,8 +1,0 @@
-#!/usr/bin/env python3
-# 
-# Open the Treelab interface to read and manipulate CGNS tree
-
-import MOLA.GUIs.TreeLab as t
-import sys
-
-t.launch(sys.argv)

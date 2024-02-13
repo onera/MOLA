@@ -5868,6 +5868,8 @@ def addBC2Zone(*args, **kwargs):
     Workaround of Converter._addBC2Zone (in-place) function in order to circumvent 
     https://elsa.onera.fr/issues/11236
 
+    TODO remove for elsA > v5.2.03
+
     '''
     zone = args[0]
     if len(zone) != 4: 
