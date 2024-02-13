@@ -3387,8 +3387,6 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
 
     if Workflow == 'Compressor' and PostprocessOptions is not None:
         import MOLA.WorkflowCompressor as WC
-        class ChannelHeightError(Exception):
-            pass
 
         FirstIterationForFieldsAveraging = setup.ReferenceValues['CoprocessOptions'].get('FirstIterationForFieldsAveraging')
         PostprocessUnsteadySimulation = setup.elsAkeysNumerics['time_algo'] != 'steady' and \
@@ -3398,9 +3396,9 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
         if EndOfRun or PostprocessUnsteadySimulation:
 
             if not EndOfRun and setup.elsAkeysNumerics['time_algo'] != 'steady':
-                computeRadialProfiles = False
+                PostprocessOptions.setdefault('computeRadialProfiles', False)
             else: 
-                computeRadialProfiles = True
+                PostprocessOptions.setdefault('computeRadialProfiles', True)
 
             if NumberOfProcessors > 1:
                 # Share the skeleton on all procs
@@ -3419,13 +3417,10 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                 LocalChannelHeight = bool(I.getNodeFromName(surfaces, 'FlowSolution#Height'))
                 GlobalChannelHeight = any(comm.allgather(LocalChannelHeight))
                 if not GlobalChannelHeight:
-                    printCo('Postprocess cannot be done because ChannelHeight is missing', proc=0, color=J.WARN)
-                    raise ChannelHeightError
-
+                    PostprocessOptions['heightListForIsentropicMach'] = False
 
                 printCo('making postprocess_turbomachinery...', proc=0, color=J.MAGE)
-                WC.postprocess_turbomachinery(surfaces,
-                    computeRadialProfiles=computeRadialProfiles, **PostprocessOptions)
+                WC.postprocess_turbomachinery(surfaces, **PostprocessOptions)
                 printCo('making postprocess_turbomachinery... done', proc=0, color=J.MAGE)
 
                 if rank == 0:
@@ -3461,8 +3456,7 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
             except ImportError: # https://gitlab.onera.net/numerics/analysis/turbo/-/issues/1
                 printCo('Postprocess cannot be done (ImportError)', proc=0, color=J.WARN)
                 pass
-            except ChannelHeightError:
-                pass
+
     return surfaces
 
 def checkAndUpdateMainCGNSforChoroRestart():
