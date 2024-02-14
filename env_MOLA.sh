@@ -18,7 +18,7 @@ export ERSTAZVERSION=v1.6.3
 export MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
 export MOLASATORext=/tmp_user/sator/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
 export MAIAVERSION=1.3
-export TREELABVERSION=v0.0.2
+export TREELABVERSION=v0.1.0
 ###############################################################################
 
 
@@ -117,6 +117,12 @@ if [ "$MAC" = "sator" ]; then
     export LD_LIBRARY_PATH=$MOLASATORext/sator/lib/python3.7/site-packages/PyQt5/Qt5/lib:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=/tmp_user/sator/lbernard/lib:$LD_LIBRARY_PATH
 
+    # NOTE installation hint:
+    # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
+    export TREELABPATH=/tmp_user/sator/mola/treelab/$TREELABVERSION/sator_elsA
+    export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
+    export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
+
 elif [ "$MAC" = "spiro" ]; then
     if [ ! "$EL8" ]; then
         echo -e "\033[91mERROR: SPIRO CENTOS 7 NOT SUPPORTED ANYMORE\033[0m"
@@ -151,6 +157,13 @@ elif [ "$MAC" = "spiro" ]; then
     # maia 
     module use --append /scratchm/sonics/usr/modules/
     module load maia/$MAIAVERSION-dsi-cfd5
+
+    # NOTE installation hint:
+    # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
+    export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/spiro_elsA
+    export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
+    export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
+
 
     # external python packages
     export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/:$PYTHONPATH
@@ -195,7 +208,11 @@ elif [ "$MAC" = "ld" ]; then
     export LD_LIBRARY_PATH=/opt/tools/intel/oneapi/compiler/2021.2.0/linux/compiler/lib/intel64_lin/:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=/opt/tools/intel/oneapi/mpi/2021.6.0/lib/release:$LD_LIBRARY_PATH
 
-    export TREELABPATH=/stck/mola/treelab/v0.0.2/ld_elsA
+    # NOTE installation hint:
+    # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
+    export DIST="ld"
+    MAC0=$(echo $KC | grep 'visung'); if [ "$MAC0" != "" ]; then export DIST="visung"; fi
+    export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/${DIST}_elsA
     export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
     export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 
