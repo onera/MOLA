@@ -3801,22 +3801,26 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         r2z = z - TorqueOrigin[2]
 
 
-        # ----------------------- COMPUTE LINEAR FORCES ----------------------- #
-        FluxC = 0.5*Density*np.square(v['VelocityMagnitudeLocal'])
+        CorrectionCoefficient = 1.
         if SweepCorrection:
-            FluxC *= v['ChordVirtualWithSweep']
-            SweepCorrectionCoefficient = np.cos(np.deg2rad(v['SweepAngleDeg']))
-        else:
-            FluxC *= v['Chord']
+            RelativeChord = v['ChordVirtualWithSweep']
+            CorrectionCoefficient *= np.cos(np.deg2rad(v['SweepAngleDeg']))
+        else: RelativeChord = v['Chord']
 
         if DihedralCorrection:
-            DihedralCorrectionCoefficient = np.cos(np.deg2rad(v['DihedralAngleDeg']))
+              CorrectionCoefficient *= np.cos(np.deg2rad(v['DihedralAngleDeg']))
 
         if TipLossFactorOptions:
             applyTipLossFactorToBladeEfforts(LiftingLine, **TipLossFactorOptions)
 
-        Lift = FluxC*v['Cl']
-        Drag = FluxC*v['Cd']
+        FluxKJ = 0.5*v['VelocityMagnitudeLocal']*RelativeChord*CorrectionCoefficient            #The sweep and dihedral corrections are passed on the other fluxes
+        FluxC = Density*v['VelocityMagnitudeLocal']*FluxKJ                                   
+        Momentum = FluxC *v['Cm']*RelativeChord                                                 #Momentum      0.5*rho*U^2*c^2*cm
+        Gamma    = FluxKJ*v['Cl']                                                               #Circulation   0.5*    U  *c  *cl
+        Lift     = FluxC *v['Cl']                                                               #Lift          0.5*rho*U^2*c  *cl
+        Drag     = FluxC *v['Cd']                                                               #Drag          0.5*rho*U^2*c  *cd
+
+        # ----------------------- COMPUTE LINEAR FORCES ----------------------- #
         sinAoA = np.sin(np.deg2rad(v['AoA']))
         cosAoA = np.cos(np.deg2rad(v['AoA']))
 
@@ -3858,17 +3862,10 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         v['ForceZ'][:] = v['LiftZ'] + v['DragZ']
 
         # ----------------------- COMPUTE LINEAR TORQUE ----------------------- #
-        FluxM = FluxC*v['Chord']*v['Cm']
-
-        if SweepCorrection:
-            FluxM = FluxC*v['ChordVirtualWithSweep']*v['Cm']*SweepCorrectionCoefficient
-
-        if DihedralCorrection:
-            FluxM = FluxM*DihedralCorrectionCoefficient
         
-        v['TorqueAtAirfoilX'][:] = dir*FluxM*v['SpanwiseX']
-        v['TorqueAtAirfoilY'][:] = dir*FluxM*v['SpanwiseY']
-        v['TorqueAtAirfoilZ'][:] = dir*FluxM*v['SpanwiseZ']
+        v['TorqueAtAirfoilX'][:] = dir*Momentum*v['SpanwiseX']
+        v['TorqueAtAirfoilY'][:] = dir*Momentum*v['SpanwiseY']
+        v['TorqueAtAirfoilZ'][:] = dir*Momentum*v['SpanwiseZ']
         v['TorqueAtRotationAxisX'][:] = v['TorqueAtAirfoilX'] + ry*v['ForceZ'] - rz*v['ForceY']
         v['TorqueAtRotationAxisY'][:] = v['TorqueAtAirfoilY'] + rz*v['ForceX'] - rx*v['ForceZ']
         v['TorqueAtRotationAxisZ'][:] = v['TorqueAtAirfoilZ'] + rx*v['ForceY'] - ry*v['ForceX']
@@ -3876,16 +3873,12 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         v['TorqueAtOriginCenterY'][:] = v['TorqueAtAirfoilY'] + r2z*v['ForceX'] - r2x*v['ForceZ']
         v['TorqueAtOriginCenterZ'][:] = v['TorqueAtAirfoilZ'] + r2x*v['ForceY'] - r2y*v['ForceX']
 
-        # Compute linear bound circulation using Kutta-Joukowski
-        # theorem:  Lift = Density * ( Velocity x Gamma )
-        W = v['VelocityMagnitudeLocal']
-        Flowing = 1e-12 < W
-        FluxKJ[Flowing] = Lift/(W*Density)
-        FluxKJ[~Flowing]  = 0.
-        v['GammaX'][:] = dir * FluxKJ * v['SpanwiseX']
-        v['GammaY'][:] = dir * FluxKJ * v['SpanwiseY']
-        v['GammaZ'][:] = dir * FluxKJ * v['SpanwiseZ']
-        v['Gamma'][:] = FluxKJ
+        # ----------------------- COMPUTE CIRCULATION ------------------------- #
+        v['GammaX'][:] = dir*Gamma*v['SpanwiseX']
+        v['GammaY'][:] = dir*Gamma*v['SpanwiseY']
+        v['GammaZ'][:] = dir*Gamma*v['SpanwiseZ']
+        v['Gamma'][:] = Gamma
+
         # ------------------------- INTEGRAL LOADS ------------------------- #
         length = norm(np.sum(np.abs(np.diff(xyz, axis = 1)), axis = 1)) # faster than D.getLength
         DimensionalAbscissa = length*v['s'] # TODO check if v['s'] is updated!
