@@ -3818,10 +3818,10 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
 
         FluxKJ = 0.5*v['VelocityMagnitudeLocal']*RelativeChord
         FluxC  = Density*v['VelocityMagnitudeLocal']*FluxKJ                                   
-        Momentum = FluxC *v['Cm']*RelativeChord*DihedralCorr*SweepCorr                          #Momentum      0.5*rho*U^2*c^2*cm*Sweep*Dihedral
-        Gamma    = FluxKJ*v['Cl']*SweepCorr                                                     #Circulation   0.5*    U  *c  *cl*Sweep
-        Lift     = FluxC *v['Cl']*DihedralCorr                                                  #Lift          0.5*rho*U^2*c  *cl      *Dihedral
-        Drag     = FluxC *v['Cd']*SweepCorr                                                     #Drag          0.5*rho*U^2*c  *cd*Sweep
+        FluxM  = FluxC *v['Cm']*RelativeChord*DihedralCorr*SweepCorr     #Momentum     0.5*rho*U^2*c^2*cm*Sweep*Dihedral
+        Gamma  = FluxKJ*v['Cl']*DihedralCorr                             #Circulation  0.5*    U  *c  *cl      *Dihedral
+        Lift   = FluxC *v['Cl']*DihedralCorr                             #Lift         0.5*rho*U^2*c  *cl      *Dihedral
+        Drag   = FluxC *v['Cd']*SweepCorr                                #Drag         0.5*rho*U^2*c  *cd*Sweep
 
         # ----------------------- COMPUTE LINEAR FORCES ----------------------- #
         sinAoA = np.sin(np.deg2rad(v['AoA']))
@@ -3866,9 +3866,9 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
 
         # ----------------------- COMPUTE LINEAR TORQUE ----------------------- #
         
-        v['TorqueAtAirfoilX'][:] = dir*Momentum*v['SpanwiseX']
-        v['TorqueAtAirfoilY'][:] = dir*Momentum*v['SpanwiseY']
-        v['TorqueAtAirfoilZ'][:] = dir*Momentum*v['SpanwiseZ']
+        v['TorqueAtAirfoilX'][:] = dir*FluxM*v['SpanwiseX']
+        v['TorqueAtAirfoilY'][:] = dir*FluxM*v['SpanwiseY']
+        v['TorqueAtAirfoilZ'][:] = dir*FluxM*v['SpanwiseZ']
         v['TorqueAtRotationAxisX'][:] = v['TorqueAtAirfoilX'] + ry*v['ForceZ'] - rz*v['ForceY']
         v['TorqueAtRotationAxisY'][:] = v['TorqueAtAirfoilY'] + rz*v['ForceX'] - rx*v['ForceZ']
         v['TorqueAtRotationAxisZ'][:] = v['TorqueAtAirfoilZ'] + rx*v['ForceY'] - ry*v['ForceX']
