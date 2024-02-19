@@ -524,6 +524,7 @@ def initialiseVPM(EulerianMesh = [], LiftingLineTree = [], PerturbationField = [
             'NumberOfBEMSources'            : 0,              #[0, +inf[, total number of embedded Boundary Element Method particles on the solid boundaries
             'NumberOfCFDSources'            : 0,              #[0, +inf[, total number of embedded cfd particles on the Hybrid Inner Interface
             'NumberOfHybridSources'         : 0,              #[0, +inf[, total number of hybrid particles generated in the hybrid Domain
+            'NumberOfNodes'                 : 0,              #[0, +inf[, total number of nodes in the velocity perturbation field grid
         ############################################################################################
         ##################################### Particles Control ####################################
         ############################################################################################
@@ -558,6 +559,11 @@ def initialiseVPM(EulerianMesh = [], LiftingLineTree = [], PerturbationField = [
             'NumberOfThreads'               : 'auto',         #number of threads of the machine used. If 'auto', the highest number of threads is set
             'TimeFMM'                       : 0.,             #in s, keep track of the CPU time spent for the FMM
             'ClusterSize'                   : 2**9,           #[|0, +inf[|, maximum number of particles per FMM cluster, better as a power of 2
+        ############################################################################################
+        ############################## Perturbation Field Parameters ###############################
+        ############################################################################################
+            'FMMPerturbationOverlappingRatio' : 0.5,
+            'TimeVelocityPerturbation'        : 0.,
     }
     defaultHybridParameters = {
         ############################################################################################
@@ -586,23 +592,14 @@ def initialiseVPM(EulerianMesh = [], LiftingLineTree = [], PerturbationField = [
                                                   LastSegmentRatio=0.5, #]0., +inf[, size of the particles at the tip  of the blades relative to Sigma0 (i.e. Resolution*SmoothingRatio)
                                                   Symmetrical = False), #[|0, 1|], gives a symmetrical repartition of particles along the blades or not, if symmetrical, MinNbShedParticlesPerLiftingLine should be even
     }
-    defaultVelocityPertParameters = {
-        ############################################################################################
-        ############################## Perturbation Field Parameters ###############################
-        ############################################################################################
-            'NumberOfNodes'             : 0,
-            'NearFieldOverlappingRatio' : 0.5,
-            'TimeVelocityPerturbation'  : 0.,
-    }
     defaultParameters.update(VPMParameters)
+    defaultParameters.update(PerturbationFieldParameters)
     if defaultParameters['NumberOfThreads'] == 'auto':
         defaultParameters['NumberOfThreads'] = int(os.getenv('OMP_NUM_THREADS', \
                                                                   len(os.sched_getaffinity(0))))
     else:
         defaultParameters['NumberOfThreads'] = min(defaultParameters['NumberOfThreads'], \
                                 int(os.getenv('OMP_NUM_THREADS', len(os.sched_getaffinity(0)))))
-    if PerturbationField: defaultVelocityPertParameters.update(PerturbationFieldParameters)
-    else: defaultVelocityPertParameters = {}
     if EulerianMesh: defaultHybridParameters.update(HybridParameters)
     else: defaultHybridParameters = {}
     if LiftingLineTree: defaultLiftingLineParameters.update(LiftingLineParameters)
@@ -658,10 +655,8 @@ def initialiseVPM(EulerianMesh = [], LiftingLineTree = [], PerturbationField = [
 
     if PerturbationField:
         print(f"{'||':>57}\r" + '||' + '{:=^53}'.format(' Initialisation of Perturbation Field '))
-        NumberOfNodes = np.array([0], dtype = np.int32, order = 'F')
-        defaultVelocityPertParameters['NumberOfNodes'] = NumberOfNodes
-        J.set(Particles, '.PerturbationField#Parameters', **defaultVelocityPertParameters)
         t = I.merge([t, PerturbationField])
+        NumberOfNodes = getParameter(t, 'NumberOfNodes')
         PerturbationFieldCapsule = V.build_perturbation_velocity_capsule(PerturbationField, NumberOfNodes)
         print(f"{'||':>57}\r" + '||' + '{:-^53}'.format(' Done '))
     else: PerturbationFieldCapsule = None
@@ -745,6 +740,29 @@ def getVPMParameters(t = []):
     '''
     return J.get(pickParticlesZone(t), '.VPM#Parameters')
 
+
+def extractperturbationField(t = [], Targets = [], PerturbationFieldCapsule = []):
+    '''
+    Extract the Perturbation field velocities onto given nodes.
+
+    Parameters
+    ----------
+        t : Tree, Base, Zone or list of Zone
+            Containes the Perturbation Field.
+
+        Targets : Tree, Base, Zone(s)
+            Liftinglines.
+
+        PerturbationFieldCapsule : :py:class:`capsule`
+            Stores the FMM octree used to interpolate the Perturbation Mesh onto the particles.
+    '''
+    if PerturbationFieldCapsule:
+        Theta, NumberOfNodes, TimeVelPert = getParameters(t, ['FMMPerturbationOverlappingRatio',
+                                                       'NumberOfNodes', 'TimeVelocityPerturbation'])
+        TimeVelPert[0] += V.extract_perturbation_velocity_field(C.newPyTree(I.getZones(Targets)),
+                                        C.newPyTree(I.getZones(pickPerturbationFieldZone(t))),
+                                              PerturbationFieldCapsule, NumberOfNodes[0], Theta[0])
+
 def induceVPMField(t = [], IterationInfo = {}, PerturbationFieldCapsule = []):
     '''
     Computes the current velocity, velocity gradients, vorticity, diffusion and stretching of
@@ -768,9 +786,7 @@ def induceVPMField(t = [], IterationInfo = {}, PerturbationFieldCapsule = []):
     '''
     Scheme = Scheme_str2int[getParameter(t, 'VorticityEquationScheme')]
     Diffusion = DiffusionScheme_str2int[getParameter(t, 'DiffusionScheme')]
-    PertubationFieldBase = I.newCGNSBase('PertubationFieldBase', cellDim=1, physDim=3)
-    PertubationFieldBase[2] = pickPerturbationFieldZone(t)
-    solveVorticityEquationInfo = V.induce_vpm_field(t, PertubationFieldBase,
+    solveVorticityEquationInfo = V.induce_vpm_field(t, C.newPyTree(I.getZones(pickPerturbationFieldZone(t))),
                                             PerturbationFieldCapsule, Scheme, Diffusion)
     IterationInfo['FMM time'] = solveVorticityEquationInfo[0]
     if PerturbationFieldCapsule:
@@ -882,13 +898,11 @@ def computeNextTimeStep(t = [], PerturbationFieldCapsule = []):
     Scheme = Scheme_str2int[getParameter(t, 'VorticityEquationScheme')]
     Diffusion = DiffusionScheme_str2int[getParameter(t, 'DiffusionScheme')]
     EddyViscosityModel = EddyViscosityModel_str2int[getParameter(t, 'EddyViscosityModel')]
-    PertubationFieldBase = I.newCGNSBase('PertubationFieldBase', cellDim=1, physDim=3)
-    PertubationFieldBase[2] = pickPerturbationFieldZone(t)
     if lowstorage:
-        V.runge_kutta_low_storage(t, PertubationFieldBase, PerturbationFieldCapsule, a, b,
+        V.runge_kutta_low_storage(t, C.newPyTree(I.getZones(pickPerturbationFieldZone(t))), PerturbationFieldCapsule, a, b,
                                                c, Scheme, Diffusion, EddyViscosityModel)
     else:
-        V.runge_kutta(t, PertubationFieldBase, PerturbationFieldCapsule, a, b, c,
+        V.runge_kutta(t, C.newPyTree(I.getZones(pickPerturbationFieldZone(t))), PerturbationFieldCapsule, a, b, c,
                                                            Scheme, Diffusion,EddyViscosityModel)
     
     for LiftingLine in LiftingLines:

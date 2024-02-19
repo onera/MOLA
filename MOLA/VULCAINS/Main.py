@@ -169,7 +169,7 @@ def compute(VPMParameters = {}, HybridParameters = {}, LiftingLineParameters = {
                 #tE = H.generateMirrorWing(tE, VPM.getVPMParameters(t), H.getHybridParameters(t))
         else: tE = []
     else:
-        if isinstance(LiftingLineTree, str): LiftingLineTree = load(LiftingLineTree)
+        if isinstance(LiftingLineTree, str): LiftingLineTree = C.newPyTree(I.getZones(load(LiftingLineTree)))
         elif LiftingLineTree: LiftingLineTree = C.newPyTree(I.getZones(LiftingLineTree))
         else: LiftingLineTree = None
         if isinstance(PerturbationField, str): PerturbationField = load(PerturbationField)

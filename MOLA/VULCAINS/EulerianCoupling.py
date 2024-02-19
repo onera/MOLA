@@ -870,7 +870,7 @@ def flagNodesInsideSurface(X = [], Y = [], Z = [], Surface = []):
     else:
         inside = [False]*len(X)
 
-    return np.array(inside, order = 'F', dtype = np.int32)
+    return np.array(inside, order = 'F', dtype = np.float64)
 
 def eraseParticlesInHybridDomain(t = []):
     '''

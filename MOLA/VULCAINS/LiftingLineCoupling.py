@@ -324,6 +324,68 @@ def updateParametersFromLiftingLines(LiftingLineTree = [], VPMParameters = {}):
                                                                                               1)
     VPMParameters['MinimumVorticityFactor'][0] = max(0.,VPMParameters['MinimumVorticityFactor'])
 
+def setLiftingLinesInducedVelocity(LiftingLines, InducedVelocity):
+    '''
+    Sets the Lifting Line(s) induced velocities fields.
+
+    Parameters
+    ----------
+        LiftingLines : Zone, :py:class:`list` or numpy.ndarray of Zone
+            Containes the Lifting Lines.
+
+        InducedVelocity : numpy.ndarray of 3 numpy.ndarray
+            Induced Velocities [Ux, Uy, Uz].
+    '''
+    pos = 0
+    for LiftingLine in I.getZones(LiftingLines):
+        Ux, Uy, Uz = J.getVars(LiftingLine, ['VelocityInduced' + v for v in 'XYZ'])
+        Nll = len(Ux)
+        Ux[:] = InducedVelocity[0][pos: pos + Nll]
+        Uy[:] = InducedVelocity[1][pos: pos + Nll]
+        Uz[:] = InducedVelocity[2][pos: pos + Nll]
+        pos += Nll
+
+def resetLiftingLinesInducedVelocity(LiftingLines):
+    '''
+    Resets the Lifting Line(s) induced velocities fields to zero.
+
+    Parameters
+    ----------
+        LiftingLines : Zone, :py:class:`list` or numpy.ndarray of Zone
+            Containes the Lifting Lines.
+    '''
+    pos = 0
+    for LiftingLine in I.getZones(LiftingLines):
+        Ux, Uy, Uz = J.getVars(LiftingLine, ['VelocityInduced' + v for v in 'XYZ'])
+        Nll = len(Ux)
+        Ux[:] = 0.
+        Uy[:] = 0.
+        Uz[:] = 0.
+        pos += Nll
+
+def getLiftingLinesInducedVelocity(LiftingLines):
+    '''
+    Gets the Lifting Line(s) induced velocities fields to zero.
+
+    Parameters
+    ----------
+        LiftingLines : Zone, :py:class:`list` or numpy.ndarray of Zone
+            Containes the Lifting Lines.
+
+    Parameters
+    ----------
+        InducedVelocity : numpy.ndarray of 3 numpy.ndarray
+            Induced Velocities [Ux, Uy, Uz].
+    '''
+    UX, UY, UZ = [], [], []
+    for LiftingLine in I.getZones(LiftingLines):
+        ux, uy, uz = J.getVars(LiftingLine, ['VelocityInduced' + v for v in 'XYZ'])
+        UX.extend(ux)
+        UY.extend(uy)
+        UZ.extend(uz)
+
+    return np.array([UX, UY, UZ], order = 'F', dtype = np.float64)
+
 def extractWakeInducedVelocityOnLiftingLines(t = [], LiftingLines = [], Nshed = 0):
     '''
     Gives the velocity induced by the particles in the wake, the hybrid domain and the bem
@@ -342,9 +404,9 @@ def extractWakeInducedVelocityOnLiftingLines(t = [], LiftingLines = [], Nshed = 
         WakeInducedVelocity : numpy.ndarray of 3 numpy.ndarray
             Induced Velocities [Ux, Uy, Uz].
     '''
-    LiftingLinesBase = I.newCGNSBase('LiftingLines', cellDim=1, physDim=3)
-    LiftingLinesBase[2] = I.getZones(LiftingLines)
-    return V.extract_wake_induced_velocity_on_lifting_lines(t, LiftingLinesBase, Nshed)
+    resetLiftingLinesInducedVelocity(LiftingLines)
+    V.extract_wake_induced_velocity_on_lifting_lines(t, Nshed)
+    return getLiftingLinesInducedVelocity(LiftingLines)
 
 def extractBoundAndShedVelocityOnLiftingLines(t = [], LiftingLines = [], Nshed = 0):
     '''
@@ -366,31 +428,9 @@ def extractBoundAndShedVelocityOnLiftingLines(t = [], LiftingLines = [], Nshed =
         BoundAndShedInducedVelocity : numpy.ndarray of 3 numpy.ndarray
             Induced Velocities [Ux, Uy, Uz].
     '''
-    LiftingLinesBase = I.newCGNSBase('LiftingLines', cellDim=1, physDim=3)
-    LiftingLinesBase[2] = I.getZones(LiftingLines)
-    return V.extract_bound_and_shed_velocity_on_lifting_lines(t, LiftingLinesBase, Nshed)
-
-def setLiftingLinesInducedVelocity(LiftingLines, InducedVelocity):
-    '''
-    Sets the Lifting Line(s) induced velocities fields.
-
-    Parameters
-    ----------
-        LiftingLines : Zone, :py:class:`list` or numpy.ndarray of Zone
-            Containes the Lifting Lines.
-
-        InducedVelocity : numpy.ndarray of 3 numpy.ndarray
-            Induced Velocities [Ux, Uy, Uz].
-    '''
-    pos = 0
-    Ux = InducedVelocity[0]
-    for LiftingLine in I.getZones(LiftingLines):
-        Ux, Uy, Uz = J.getVars(LiftingLine, ['VelocityInduced' + v for v in 'XYZ'])
-        Nll = len(Ux)
-        Ux[:] = InducedVelocity[0][pos: pos + Nll]
-        Uy[:] = InducedVelocity[1][pos: pos + Nll]
-        Uz[:] = InducedVelocity[2][pos: pos + Nll]
-        pos += Nll
+    resetLiftingLinesInducedVelocity(LiftingLines)
+    V.extract_bound_and_shed_velocity_on_lifting_lines(t, Nshed)
+    return getLiftingLinesInducedVelocity(LiftingLines)
 
 def updateLiftingLines(LiftingLineTree = [], VPMParameters = {}, LiftingLineParameters = {}):
     '''
@@ -765,27 +805,67 @@ def relaxCirculationAndGetImbalance(GammaOld = [], GammaRelax = [0.], Sources = 
 
     return np.array(GammaError, dtype = np.float64, order = 'F')
 
-def extractperturbationFieldOnLiftingLines(t = [], Targets = [], PerturbationFieldCapsule = []):
-    '''
-    Extract the Perturbation field velocities onto given nodes.
+def updateLiftingLinesCirculation(LiftingLines):
+    for LiftingLine in I.getZones(LiftingLines):
+        Correc_n   = J.get(LiftingLine, '.Component#Info')['Corrections3D']
+        Kinematics = J.get(LiftingLine, '.Kinematics')
+        SweepCorrection    = Correc_n['Sweep']
+        DihedralCorrection = Correc_n['Dihedral']
+        RotationCenter = Kinematics['RotationCenter']
+        TorqueOrigin   = Kinematics['TorqueOrigin']
+        RotationAxis   = Kinematics['RotationAxis']
+        dir            = 1 if Kinematics['RightHandRuleRotation'] else -1
+        RPM            = Kinematics['RPM']
 
-    Parameters
-    ----------
-        t : Tree, Base, Zone or list of Zone
-            Containes the Perturbation Field.
+        U, ChordCorr, Chord, Cl, Gamma = J.getVars(LiftingLine, ['VelocityMagnitudeLocal',
+                                                   'ChordVirtualWithSweep', 'Chord', 'Cl', 'Gamma'])
 
-        Targets : Tree, Base, Zone(s)
-            Liftinglines.
+        Flux = 0.5*U*Cl
+        if SweepCorrection: Flux *= ChordCorr
+        else:               Flux *= Chord
+        Gamma[:] = Flux
 
-        PerturbationFieldCapsule : :py:class:`capsule`
-            Stores the FMM octree used to interpolate the Perturbation Mesh onto the particles.
-    '''
-    if PerturbationFieldCapsule:
-        Theta, NumberOfNodes, TimeVelPert = VPM.getParameters(t, ['NearFieldOverlappingRatio',
-                                                       'NumberOfNodes', 'TimeVelocityPerturbation'])
-        V.extract_perturbation_velocity_field_on_lifting_lines(C.newPyTree(I.getZones(Targets)),
-                                        C.newPyTree(I.getZones(VPM.pickPerturbationFieldZone(t))),
-                                              PerturbationFieldCapsule, NumberOfNodes[0], Theta[0])
+
+def projectLiftingLinesVelocities(LiftingLines):
+    for LiftingLine in I.getZones(LiftingLines):
+        Correc_n = J.get(LiftingLine, '.Component#Info')['Corrections3D']
+        Conditions = J.get(LiftingLine, '.Conditions')
+        SweepCorrection    = Correc_n['Sweep']
+        DihedralCorrection = Correc_n['Dihedral']
+        T0  = Conditions['Temperature']
+        Rho = Conditions['Density']
+        U0  = Conditions['VelocityFreestream']
+
+        Ux, Uy, Uz, Uix, Uiy, Uiz, Upx, Upy, Upz, Ukx, Uky, Ukz, U2Dx, U2Dy, U2Dz, \
+        chordX, chordY, chordZ, thickX, thickY, thickZ, U, Mach, Reynolds, AoA, Chord, SweepCorr, \
+        DihedralCorr = J.getVars(LiftingLine, VPM.vectorise(['Velocity', 'VelocityInduced', \
+            'VelocityPerturbation', 'VelocityKinematic', 'Velocity2D', 'Chordwise', 'Thickwise']) +\
+            ['VelocityMagnitudeLocal', 'Mach', 'Reynolds', 'AoA', 'Chord', 'SweepAngleDeg', \
+                                                                            'DihedralAngleDeg'])
+
+        Ux[:] = Uix + Upx + U0[0]
+        Uy[:] = Uiy + Upy + U0[1]
+        Uz[:] = Uiz + Upz + U0[2]
+        Urelx = Ux - Ukx
+        Urely = Uy - Uky
+        Urelz = Uz - Ukz
+
+        Uchord = Urelx*chordX + Urely*chordY + Urelz*chordZ
+        Uthick = Urelx*thickX + Urely*thickY + Urelz*thickZ
+
+        if SweepCorrection:    Uchord *= np.cos(np.deg2rad(SweepCorr))
+        if DihedralCorrection: Uthick *= np.cos(np.deg2rad(DihedralCorr))
+
+        U2Dx[:] = Uchord*chordX + Uthick*thickX
+        U2Dy[:] = Uchord*chordY + Uthick*thickY
+        U2Dz[:] = Uchord*chordZ + Uthick*thickZ
+        # Updating the Angle of Attack considering the new velocity components.
+        AoA[:] = np.rad2deg(np.arctan2(Uthick,Uchord))
+
+        U[:] = np.linalg.norm(np.vstack([Uchord, Uthick]), axis = 0)
+        Mach[:] = U/np.sqrt(1.4*287.058*T0)
+        Mu = 1.711e-5*np.sqrt(T0/273.)*(1. + 110.4/273.)/(1. + 110.4/T0)
+        Reynolds[:] = Conditions['Density']*U*Chord/Mu
 
 def moveAndUpdateLiftingLines(t = [], LiftingLines = [], dt = 0.,
     PerturbationFieldCapsule = []):
@@ -809,9 +889,9 @@ def moveAndUpdateLiftingLines(t = [], LiftingLines = [], dt = 0.,
     '''
     LL.computeKinematicVelocity(LiftingLines)
     LL.moveLiftingLines(LiftingLines, dt)
-    extractperturbationFieldOnLiftingLines(t = t, Targets = LiftingLines,
+    VPM.extractperturbationField(t = t, Targets = LiftingLines,
                                             PerturbationFieldCapsule = PerturbationFieldCapsule)
-    LL.assembleAndProjectVelocities(LiftingLines)
+    projectLiftingLinesVelocities(LiftingLines)
 
 def initialiseShedParticles(t = [], LiftingLines = [], Sources = [], Ramp = 1.,
     SmoothingRatio = 2., NumberOfLLSources = 0., NumberOfSources = 0., it = []):
@@ -1061,35 +1141,20 @@ def ShedVorticitySourcesFromLiftingLines(t = [], PolarsInterpolators = {},
     WakeInducedVelocity = extractWakeInducedVelocityOnLiftingLines(t, SheddingLiftingLines,
                                                                                           Nshed)
     ni = 0
-    #t0 = t1 = t2 = t3 = t4 = t5 = t6 = t7 = 0.
     for _ in range(MaxIte):
-        #dt0 = J.tic()
         setShedParticleStrength(Dir, VeciX, VeciY, VeciZ, SheddingDistance, ax, ay, az, \
                                  Sources, SourcesM1, ParticlesShedPerStation, NumberOfLLSources,
                                                   NumberOfSources, TimeShed, frozenLiftingLines)
-        #t0 += J.tic() - dt0
-        #dt0 = J.tic()
         BoundAndShedInducedVelocity = extractBoundAndShedVelocityOnLiftingLines(t,
                                                                     SheddingLiftingLines, Nshed)
-        #t1 += J.tic() - dt0
-        #dt0 = J.tic()
+        
         setLiftingLinesInducedVelocity(SheddingLiftingLines,
                                               WakeInducedVelocity + BoundAndShedInducedVelocity)
-        #t2 += J.tic() - dt0
-        #dt0 = J.tic()
-        LL.assembleAndProjectVelocities(SheddingLiftingLines)
-        #t3 += J.tic() - dt0
-        #dt0 = J.tic()
+        projectLiftingLinesVelocities(SheddingLiftingLines)
         LL._applyPolarOnLiftingLine(SheddingLiftingLines, PolarsInterpolators, ['Cl'])
-        #t4 += J.tic() - dt0
-        #dt0 = J.tic()
-        IntegralLoads = LL.computeGeneralLoadsOfLiftingLine(SheddingLiftingLines)
-        #t5 += J.tic() - dt0
-        #dt0 = J.tic()
+        updateLiftingLinesCirculation(SheddingLiftingLines)
         Sources = LL.buildVortexParticleSourcesOnLiftingLine(SheddingLiftingLines,
                                 AbscissaSegments = ParticleDistribution, IntegralLaw = 'linear')
-        #t6 += J.tic() - dt0
-        #dt0 = J.tic()
         GammaError = relaxCirculationAndGetImbalance(GammaOld, GammaRelax, Sources, GammaError,
                                                                                  GammaDampening)
         ni += 1
@@ -1097,21 +1162,8 @@ def ShedVorticitySourcesFromLiftingLines(t = [], PolarsInterpolators = {},
 
         for index in frozenLiftingLines: Sources.insert(index, SourcesM1[index])
 
-        #t7 += J.tic() - dt0
-        #dt0 = J.tic()
-
     #if (GammaError < GammaThreshold).any():
-        #safeLiftingLinesIterations(t, SheddingLiftingLines, frozenLiftingLines, ParticleDistribution, GammaThreshold, GammaRelax, Dir, VeciX, VeciY, VeciZ, SheddingDistance, ax, ay, az)
-
-    #tot = t0 + t1 + t2 + t3 + t4 + t5 + t6 + t7 + 1e-30
-    #print("setShedParticleStrength", round(t0/tot*100., 2), "%")
-    #print("extractBoundAndShedVelocityOnLiftingLines", round(t1/tot*100., 2), "%")
-    #print("setLiftingLinesInducedVelocity", round(t2/tot*100., 2), "%")
-    #print("assembleAndProjectVelocities", round(t3/tot*100., 2), "%")
-    #print("_applyPolarOnLiftingLine", round(t4/tot*100., 2), "%")
-    #print("computeGeneralLoadsOfLiftingLine", round(t5/tot*100., 2), "%")
-    #print("buildVortexParticleSourcesOnLiftingLine", round(t6/tot*100., 2), "%")
-    #print("relaxCirculationAndGetImbalance", round(t7/tot*100., 2), "%")
+    #    safeLiftingLinesIterations(t, SheddingLiftingLines, frozenLiftingLines, ParticleDistribution, GammaThreshold, GammaRelax, Dir, VeciX, VeciY, VeciZ, SheddingDistance, ax, ay, az)
 
     Nu, Cvisq = J.getVars(Particles, ['Nu', 'Cvisq'])
     offset = NumberOfSources + Nshed
@@ -1126,6 +1178,7 @@ def ShedVorticitySourcesFromLiftingLines(t = [], PolarsInterpolators = {},
     #    Gamma, GammaM1, dGammadt = J.getVars(LiftingLine, ['Gamma', 'GammaM1', 'dGammadt'])
     #    dGammadt[:] = (Gamma[:] - GammaM1[:])/dt
 
+    LL.assembleAndProjectVelocities(SheddingLiftingLines)
     LL._applyPolarOnLiftingLine(SheddingLiftingLines, PolarsInterpolators, ['Cl', 'Cd', 'Cm'])
     if len(GammaError) == 0: GammaError = np.array([0])
     LL.computeGeneralLoadsOfLiftingLine(LiftingLines,
