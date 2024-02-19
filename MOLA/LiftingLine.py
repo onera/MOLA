@@ -3801,24 +3801,27 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         r2z = z - TorqueOrigin[2]
 
 
-        CorrectionCoefficient = 1.
         if SweepCorrection:
             RelativeChord = v['ChordVirtualWithSweep']
-            CorrectionCoefficient *= np.cos(np.deg2rad(v['SweepAngleDeg']))
-        else: RelativeChord = v['Chord']
+            SweepCorr     = np.cos(np.deg2rad(v['SweepAngleDeg']))
+        else:
+            RelativeChord = v['Chord']
+            SweepCorr     = 1.
 
         if DihedralCorrection:
-              CorrectionCoefficient *= np.cos(np.deg2rad(v['DihedralAngleDeg']))
+            DihedralCorr  = np.cos(np.deg2rad(v['DihedralAngleDeg']))
+        else: 
+            DihedralCorr  = 1.
 
         if TipLossFactorOptions:
             applyTipLossFactorToBladeEfforts(LiftingLine, **TipLossFactorOptions)
 
-        FluxKJ = 0.5*v['VelocityMagnitudeLocal']*RelativeChord*CorrectionCoefficient            #The sweep and dihedral corrections are passed on the other fluxes
-        FluxC = Density*v['VelocityMagnitudeLocal']*FluxKJ                                   
-        Momentum = FluxC *v['Cm']*RelativeChord                                                 #Momentum      0.5*rho*U^2*c^2*cm
-        Gamma    = FluxKJ*v['Cl']                                                               #Circulation   0.5*    U  *c  *cl
-        Lift     = FluxC *v['Cl']                                                               #Lift          0.5*rho*U^2*c  *cl
-        Drag     = FluxC *v['Cd']                                                               #Drag          0.5*rho*U^2*c  *cd
+        FluxKJ = 0.5*v['VelocityMagnitudeLocal']*RelativeChord
+        FluxC  = Density*v['VelocityMagnitudeLocal']*FluxKJ                                   
+        Momentum = FluxC *v['Cm']*RelativeChord*DihedralCorr*SweepCorr                          #Momentum      0.5*rho*U^2*c^2*cm*Sweep*Dihedral
+        Gamma    = FluxKJ*v['Cl']*SweepCorr                                                     #Circulation   0.5*    U  *c  *cl*Sweep
+        Lift     = FluxC *v['Cl']*DihedralCorr                                                  #Lift          0.5*rho*U^2*c  *cl      *Dihedral
+        Drag     = FluxC *v['Cd']*SweepCorr                                                     #Drag          0.5*rho*U^2*c  *cd*Sweep
 
         # ----------------------- COMPUTE LINEAR FORCES ----------------------- #
         sinAoA = np.sin(np.deg2rad(v['AoA']))
