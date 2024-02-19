@@ -966,9 +966,9 @@ def buildPropeller(LiftingLine, NBlades=2, InitialAzimutDirection=[0,1,0],
     return PropBase
 
 
-def buildLiftingLine(Span, RightHandRuleRotation=True, 
-        PitchRelativeCenter=[0,0,0], PitchAxis=[1,0,0],
-        RotationCenter=[0,0,0], SweepCorrection = True, DihedralCorrection = True, AngleSmoothingLaw = None, **kwargs):
+def buildLiftingLine(Span, RightHandRuleRotation = True, PitchRelativeCenter = [0,0,0],
+    PitchAxis = [1,0,0], RotationCenter = [0,0,0], SweepCorrection = True,
+    DihedralCorrection = True, AngleSmoothingLaw = None, **kwargs):
     '''
     Make a PyTree-Line zone defining a Lifting-line. The construction
     procedure of this element is the same as in function
@@ -2189,7 +2189,7 @@ def RbfInterpFromPyZonePolar(PyZonePolar, InterpFields=['Cl', 'Cd', 'Cm']):
     return interpolationFunction
 
 def _applyPolarOnLiftingLine(LiftingLines, PolarsInterpolatorDict,
-                             InterpFields=['Cl', 'Cd','Cm']):
+                             InterpFields=['Cl', 'Cd', 'Cm']):
     """
     This function computes aerodynamic characteristics of each section of the
     LiftingLine using the local conditions defined by ``AoA``, ``Mach`` and
@@ -2477,7 +2477,7 @@ def resetPitch(LiftingLine, ZeroPitchRelativeSpan=0.75, modifyLiftingLine=True):
             to verify :math:`Twist=0` at the location requested by **ZeroPitchRelativeSpan**
     '''
     r, Twist = J.getVars(LiftingLine,['Span','Twist'])
-    DeltaTwist = J.interpolate__(np.array([0.75]), r/r.max(), Twist)
+    DeltaTwist = J.interpolate__(np.array([ZeroPitchRelativeSpan]), r/r.max(), Twist)
     if modifyLiftingLine: Twist -= DeltaTwist
 
     return DeltaTwist
@@ -3334,10 +3334,9 @@ def assembleAndProjectVelocities(t):
                           'VelocityMagnitudeLocal',
                           'VelocityChordwise',
                           'VelocityThickwise',
-                          'Chord','ChordVirtualWithSweep',
-                          'Twist','AoA','phiRad','Mach','Reynolds',
+                          'Chord',
+                          'AoA','phiRad','Mach','Reynolds',
                           'ChordwiseX','ChordwiseY','ChordwiseZ',
-                          'SpanwiseX','SpanwiseY','SpanwiseZ',
                           'ThickwiseX','ThickwiseY','ThickwiseZ',
                           'TangentialX','TangentialY','TangentialZ',
                           'SweepAngleDeg', 'DihedralAngleDeg'
@@ -3357,10 +3356,10 @@ def assembleAndProjectVelocities(t):
         Kinematics = J.get(LiftingLine,'.Kinematics')
         RotationAxis = Kinematics['RotationAxis']
         dir = 1 if Kinematics['RightHandRuleRotation'] else -1
-        Mu=Mus*((Temperature/Ts)**0.5)*((1.+Cs/Ts)/(1.+Cs/Temperature))
+        Mu = Mus*np.sqrt(Temperature/Ts)*(1. + Cs/Ts)/(1. + Cs/Temperature)
         SoundSpeed = np.sqrt(Gamma * Rgp * Temperature)
         
-        ExistingFieldNames = C.getVarNames(LiftingLine,excludeXYZ=True)[0]
+        ExistingFieldNames = C.getVarNames(LiftingLine, excludeXYZ = True)[0]
         v = dict()
         for fieldname in RequiredFieldNames:
             if fieldname in ExistingFieldNames:
@@ -3368,55 +3367,46 @@ def assembleAndProjectVelocities(t):
             else:
                 v[fieldname] = J.invokeFields(LiftingLine,[fieldname])[0]
 
-        VelocityKinematic = np.vstack([v['VelocityKinematic'+i] for i in 'XYZ'])
-        VelocityInduced = np.vstack([v['VelocityInduced'+i] for i in 'XYZ'])
-        VelocityPerturbation = np.vstack([v['VelocityPerturbation'+i] for i in 'XYZ'])
-        TangentialDirection = np.vstack([v['Tangential'+i] for i in 'XYZ'])
+        VelocityKinematic = np.vstack([v['VelocityKinematic' + i] for i in 'XYZ'])
+        VelocityInduced = np.vstack([v['VelocityInduced' + i] for i in 'XYZ'])
+        VelocityPerturbation = np.vstack([v['VelocityPerturbation' + i] for i in 'XYZ'])
+        TangentialDirection = np.vstack([v['Tangential' + i] for i in 'XYZ'])
 
-        VelocityRelative = (VelocityInduced.T + VelocityPerturbation.T + VelocityFreestream - VelocityKinematic.T).T
-        v['VelocityX'][:] = VelocityInduced[0,:] + VelocityPerturbation[0,:] + VelocityFreestream[0]
-        v['VelocityY'][:] = VelocityInduced[1,:] + VelocityPerturbation[1,:] + VelocityFreestream[1]
-        v['VelocityZ'][:] = VelocityInduced[2,:] + VelocityPerturbation[2,:] + VelocityFreestream[2]
-        v['VelocityAxial'][:] = ( VelocityRelative.T.dot(-RotationAxis) ).T
+        Velocity = VelocityInduced.T + VelocityPerturbation.T + VelocityFreestream
+        VelocityRelative = (Velocity - VelocityKinematic.T).T
+        v['VelocityX'][:] = Velocity[:, 0]
+        v['VelocityY'][:] = Velocity[:, 1]
+        v['VelocityZ'][:] = Velocity[:, 2]
+        v['VelocityAxial'][:] = (VelocityRelative.T.dot(-RotationAxis)).T
         v['VelocityTangential'][:] = np.diag(VelocityRelative.T.dot(TangentialDirection))
 
+        ChordwiseDirection = np.vstack([v['Chordwise' + i] for i in 'XYZ'])
+        ThickwiseDirection = np.vstack([v['Thickwise' + i] for i in 'XYZ'])
+        Vchord = np.diag(VelocityRelative.T.dot(ChordwiseDirection))
+        Vthick = np.diag(VelocityRelative.T.dot(ThickwiseDirection))
 
-        ChordwiseDirection = np.vstack([v['Chordwise'+i] for i in 'XYZ'])
-        ThickwiseDirection = np.vstack([v['Thickwise'+i] for i in 'XYZ'])
-        v['VelocityChordwise'][:] = Vchord = Vchord_Base = np.diag( VelocityRelative.T.dot(ChordwiseDirection) )
-        v['VelocityThickwise'][:] = Vthick = Vthick_Base = np.diag( VelocityRelative.T.dot(ThickwiseDirection) )
-        # note the absence of radial velocity contribution to 2D flow (Spanwise component is cut)
-        V2D = np.vstack((Vchord * ChordwiseDirection[0,:] + Vthick * ThickwiseDirection[0,:],
-                         Vchord * ChordwiseDirection[1,:] + Vthick * ThickwiseDirection[1,:],
-                         Vchord * ChordwiseDirection[2,:] + Vthick * ThickwiseDirection[2,:]))
+        if SweepCorrection:    Vchord *= np.cos(np.deg2rad(v['SweepAngleDeg']))
+        if DihedralCorrection: Vthick *= np.cos(np.deg2rad(v['DihedralAngleDeg']))
 
+        # NOTE the absence of radial velocity contribution to Velocity Magnitude, Mach and Reynolds
+        v['VelocityChordwise'][:] = Vchord
+        v['VelocityThickwise'][:] = Vthick
+        V2D = np.vstack((Vchord * ChordwiseDirection[0, :] + Vthick * ThickwiseDirection[0, :],
+                         Vchord * ChordwiseDirection[1, :] + Vthick * ThickwiseDirection[1, :],
+                         Vchord * ChordwiseDirection[2, :] + Vthick * ThickwiseDirection[2, :]))
         v['Velocity2DX'][:] = V2D[0, :] #Used for VPM
         v['Velocity2DY'][:] = V2D[1, :]
         v['Velocity2DZ'][:] = V2D[2, :]
+        # Updating the Angle of Attack considering the new velocity components.
+        v['AoA'][:] = np.rad2deg(np.arctan2(Vthick, Vchord))
 
+        v['VelocityMagnitudeLocal'][:] = W = np.linalg.norm(np.vstack([Vchord, Vthick]), axis = 0)
+        v['Mach'][:] = W/SoundSpeed
+        v['Reynolds'][:] = Density[0]*W*v['Chord']/Mu
 
-        v['AoA'][:] = np.rad2deg( np.arctan2(Vthick,Vchord) )
-        # NOTE the absence of radial velocity contribution to Velocity Magnitude, Mach and Reynolds
-
-        if SweepCorrection:
-            v['VelocityChordwise'][:] = Vchord = Vchord_Base * np.cos(np.deg2rad(v['SweepAngleDeg']))
-            
-        if DihedralCorrection:
-            v['VelocityThickwise'][:] = Vthick = Vthick_Base * np.cos(np.deg2rad(v['DihedralAngleDeg']))
-
-        # Updating the Angle of Attack considering the new velocity components.    
-        v['AoA'][:] = np.rad2deg( np.arctan2(Vthick,Vchord) )
-
-        v['VelocityMagnitudeLocal'][:] = W = np.sqrt( Vchord**2 + Vthick**2 )
-        v['Mach'][:] = W / SoundSpeed
-        v['Reynolds'][:] = Density[0] * W * v['Chord'] / Mu
-
-
-        V2Da = ( V2D.T.dot(-RotationAxis) ).T
-        V2Dt = dir * np.diag( V2D.T.dot(TangentialDirection))
-        v['phiRad'][:] = np.arctan2( V2Da, V2Dt ) #Used for Tip-Loss corrections
-
-
+        V2Da = (V2D.T.dot(-RotationAxis)).T
+        V2Dt = dir*np.diag(V2D.T.dot(TangentialDirection))
+        v['phiRad'][:] = np.arctan2(V2Da, V2Dt) #Used for Tip-Loss corrections
 
 def moveLiftingLines(t, TimeStep):
     '''
@@ -3745,7 +3735,7 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
     import scipy.integrate as sint
 
     MinimumRequiredFields = ('Cl','Cd','Cm','Chord','ChordVirtualWithSweep',
-        'VelocityMagnitudeLocal','s','Span',
+        'VelocityMagnitudeLocal','s',
         'AoA',
         'ChordwiseX', 'ChordwiseY', 'ChordwiseZ',
         'ThickwiseX', 'ThickwiseY', 'ThickwiseZ',
@@ -3771,9 +3761,9 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
     NumberOfLiftingLines = len(LiftingLines)
     AllIntegralData = {}
     for LiftingLine in LiftingLines:
-        Correc_n = I.getNodeFromName(LiftingLine,'Corrections3D')
-        SweepCorrection = I.getValue(I.getNodeFromName(Correc_n,'Sweep'))
-        DihedralCorrection = I.getValue(I.getNodeFromName(Correc_n,'Dihedral'))
+        Correc_n = I.getNodeFromName(LiftingLine, 'Corrections3D')
+        SweepCorrection = I.getValue(I.getNodeFromName(Correc_n, 'Sweep'))
+        DihedralCorrection = I.getValue(I.getNodeFromName(Correc_n, 'Dihedral'))
 
         Kinematics = J.get(LiftingLine,'.Kinematics')
         RotationCenter = Kinematics['RotationCenter']
@@ -3800,7 +3790,7 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
             try: v[fn] = I.getNodeFromName1(FlowSolution_n,fn)[1]
             except: v[fn] = J.invokeFields(LiftingLine,[fn])[0]
 
-        x,y,z = J.getxyz(LiftingLine)
+        x, y, z = J.getxyz(LiftingLine)
         xyz = np.vstack((x,y,z))
         rx = x - RotationCenter[0]
         ry = y - RotationCenter[1]
@@ -3812,29 +3802,29 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
 
 
         # ----------------------- COMPUTE LINEAR FORCES ----------------------- #
-        FluxC = 0.5*Density*v['VelocityMagnitudeLocal']**2*v['Chord']
-
+        FluxC = 0.5*Density*np.square(v['VelocityMagnitudeLocal'])
         if SweepCorrection:
-            FluxC = 0.5*Density*v['VelocityMagnitudeLocal']**2*v['ChordVirtualWithSweep']
+            FluxC *= v['ChordVirtualWithSweep']
             SweepCorrectionCoefficient = np.cos(np.deg2rad(v['SweepAngleDeg']))
-            Drag = FluxC*v['Cd']*SweepCorrectionCoefficient
-        else: Drag= FluxC*v['Cd']
+        else:
+            FluxC *= v['Chord']
 
         if DihedralCorrection:
             DihedralCorrectionCoefficient = np.cos(np.deg2rad(v['DihedralAngleDeg']))
-            Lift = FluxC*v['Cl']*DihedralCorrectionCoefficient
-        else: Lift = FluxC*v['Cl']
 
         if TipLossFactorOptions:
             applyTipLossFactorToBladeEfforts(LiftingLine, **TipLossFactorOptions)
+
         Lift = FluxC*v['Cl']
         Drag = FluxC*v['Cd']
+        sinAoA = np.sin(np.deg2rad(v['AoA']))
+        cosAoA = np.cos(np.deg2rad(v['AoA']))
 
-        v['LiftChordwise'][:] = -Lift*np.sin(np.deg2rad(v['AoA']))
-        v['LiftThickwise'][:] =  Lift*np.cos(np.deg2rad(v['AoA']))
+        v['LiftChordwise'][:] = -Lift*sinAoA
+        v['LiftThickwise'][:] =  Lift*cosAoA
 
-        v['DragChordwise'][:] = Drag*np.cos(np.deg2rad(v['AoA']))
-        v['DragThickwise'][:] = Drag*np.sin(np.deg2rad(v['AoA']))
+        v['DragChordwise'][:] = Drag*cosAoA
+        v['DragThickwise'][:] = Drag*sinAoA
 
         v['LiftX'][:] = v['LiftChordwise']*v['ChordwiseX'] + v['LiftThickwise']*v['ThickwiseX']
         v['LiftY'][:] = v['LiftChordwise']*v['ChordwiseY'] + v['LiftThickwise']*v['ThickwiseY']
@@ -3860,7 +3850,7 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
                                  v['DragY']*v['TangentialY'] + \
                                  v['DragZ']*v['TangentialZ']
 
-        v['ForceAxial'][:] = v['LiftAxial'] + v['DragAxial']
+        v['ForceAxial'][:]      = v['LiftAxial']      + v['DragAxial']
         v['ForceTangential'][:] = v['LiftTangential'] + v['DragTangential']
 
         v['ForceX'][:] = v['LiftX'] + v['DragX']
@@ -3876,9 +3866,9 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         if DihedralCorrection:
             FluxM = FluxM*DihedralCorrectionCoefficient
         
-        v['TorqueAtAirfoilX'][:] = dir * FluxM * v['SpanwiseX']
-        v['TorqueAtAirfoilY'][:] = dir * FluxM * v['SpanwiseY']
-        v['TorqueAtAirfoilZ'][:] = dir * FluxM * v['SpanwiseZ']
+        v['TorqueAtAirfoilX'][:] = dir*FluxM*v['SpanwiseX']
+        v['TorqueAtAirfoilY'][:] = dir*FluxM*v['SpanwiseY']
+        v['TorqueAtAirfoilZ'][:] = dir*FluxM*v['SpanwiseZ']
         v['TorqueAtRotationAxisX'][:] = v['TorqueAtAirfoilX'] + ry*v['ForceZ'] - rz*v['ForceY']
         v['TorqueAtRotationAxisY'][:] = v['TorqueAtAirfoilY'] + rz*v['ForceX'] - rx*v['ForceZ']
         v['TorqueAtRotationAxisZ'][:] = v['TorqueAtAirfoilZ'] + rx*v['ForceY'] - ry*v['ForceX']
@@ -3888,18 +3878,17 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
 
         # Compute linear bound circulation using Kutta-Joukowski
         # theorem:  Lift = Density * ( Velocity x Gamma )
-        w = v['VelocityMagnitudeLocal']
-        FluxKJ = Lift/Density
-        Flowing = abs(w)>0
-        FluxKJ[Flowing] /= w[Flowing]
-        FluxKJ[~Flowing] = 0.
+        W = v['VelocityMagnitudeLocal']
+        Flowing = 1e-12 < W
+        FluxKJ[Flowing] = Lift/(W*Density)
+        FluxKJ[~Flowing]  = 0.
         v['GammaX'][:] = dir * FluxKJ * v['SpanwiseX']
         v['GammaY'][:] = dir * FluxKJ * v['SpanwiseY']
         v['GammaZ'][:] = dir * FluxKJ * v['SpanwiseZ']
         v['Gamma'][:] = FluxKJ
         # ------------------------- INTEGRAL LOADS ------------------------- #
-        length = norm(np.sum(np.abs(np.diff(xyz,axis=1)),axis=1)) # faster than D.getLength
-        DimensionalAbscissa = length * v['s'] # TODO check if v['s'] is updated!
+        length = norm(np.sum(np.abs(np.diff(xyz, axis = 1)), axis = 1)) # faster than D.getLength
+        DimensionalAbscissa = length*v['s'] # TODO check if v['s'] is updated!
 
         # Integrate linear axial force <fa> to get Thrust
         FA = Thrust = sint.simps(v['ForceAxial'], DimensionalAbscissa)
@@ -3918,7 +3907,6 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         # Torque = sint.simps(v['ForceTangential']*v['Span'],DimensionalAbscissa) # equivalent
         Torque = MX*RotationAxis[0]+MY*RotationAxis[1]+MZ*RotationAxis[2]
         Power  = dir*(RPM*np.pi/30.)*Torque
-
 
         # Store computed integral Loads
         Loads = dict(Thrust=NBlades*Thrust,Power=NBlades*Power,
@@ -4732,8 +4720,8 @@ def convertPolarsCGNS2HOSTformat(PyZonePolars,
 
 
 
-def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
-    IntegralLaw='linear'):
+def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0, 0.5, 1.],
+    IntegralLaw = 'linear'):
     '''
     Build a set of zones composed of particles with fields:
 
@@ -4761,8 +4749,6 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
         AllSourceZones : :py:class:`list` of zone
             list of zones composed of particles element type (*NODE*)
     '''
-
-
 
     FieldsNames2Extract = ['Coordinate' + v for v in 'XYZ'] + \
                                         ['Velocity2D' + v for v in 'XYZ'] + ['Gamma', 'VelocityMagnitudeLocal']
@@ -4793,26 +4779,16 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
                                         AbscissaSegment)
         AbscissaSegment = np.append(AbscissaSegment ,
                                     2*AbscissaSegment[-1] - AbscissaSegment[-2])
-        AbscissaSegment = np.array(AbscissaSegment, dtype=np.float64)
+        AbscissaSegment = np.array(AbscissaSegment, dtype = np.float64)
 
-        v = J.getVars2Dict(LiftingLine,['s']+FieldsNames2Extract[3:])
+        v = J.getVars2Dict(LiftingLine,['s'] + FieldsNames2Extract[3:])
         x,y,z = J.getxyz(LiftingLine)
         v['CoordinateX'] = x
         v['CoordinateY'] = y
         v['CoordinateZ'] = z
 
         sourcefields = {}
-        if IntegralLaw.startswith('interp1d'):
-            kind = IntegralLaw.replace('interp1d_','')
-            for fieldname in FieldsNames2Extract:
-                interpolator = si.interp1d(v['s'], v[fieldname],
-                                           kind=kind,
-                                           bounds_error=False,
-                                           fill_value='extrapolate',
-                                           assume_sorted=True, copy=False)
-                sourcefields[fieldname] = interpolator(AbscissaSegment)
-
-        elif IntegralLaw == 'linear':
+        if IntegralLaw == 'linear':
             for fieldname in FieldsNames2Extract:
                 sourcefields[fieldname] = np.interp(AbscissaSegment,
                                                     v['s'],
@@ -4823,26 +4799,31 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0,0.5,1.],
                 sourcefields[fieldname][-1] = 2*sourcefields[fieldname][-1]-\
                                                    sourcefields[fieldname][-3]
 
+        elif IntegralLaw.startswith('interp1d'):
+            kind = IntegralLaw.replace('interp1d_','')
+            for fieldname in FieldsNames2Extract:
+                interpolator = si.interp1d(v['s'], v[fieldname],
+                                           kind = kind,
+                                           bounds_error = False,
+                                           fill_value = 'extrapolate',
+                                           assume_sorted = True, copy = False)
+                sourcefields[fieldname] = interpolator(AbscissaSegment)
 
         elif IntegralLaw == 'pchip':
             for fieldname in FieldsNames2Extract:
                 interpolator = si.PchipInterpolator(v['s'], v[fieldname],
-                                                    extrapolate=True)
+                                                    extrapolate = True)
                 sourcefields[fieldname] = interpolator(AbscissaSegment)
 
         elif IntegralLaw == 'akima':
                 interpolator = si.PchipInterpolator(v['s'], v[fieldname])
-                sourcefields[fieldname] = interpolator(AbscissaSegment,extrapolate=True)
+                sourcefields[fieldname] = interpolator(AbscissaSegment, extrapolate = True)
 
         else:
             raise AttributeError('IntegralLaw "%s" not supported'%IntegralLaw)
 
-
-
-        Arrays = [sourcefields[fn] for fn in FieldsNames2Extract]
-        ArraysNames = FieldsNames2Extract
-
-        Sources = J.createZone(LiftingLine[0]+'.Sources',Arrays, ArraysNames)
+        Sources = J.createZone(LiftingLine[0]+'.Sources',
+                        [sourcefields[fn] for fn in FieldsNames2Extract], FieldsNames2Extract)
         Sources = C.convertArray2Node(Sources)
         AllSourceZones.append(Sources)
 
