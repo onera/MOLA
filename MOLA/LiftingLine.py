@@ -4059,7 +4059,18 @@ def applyTipLossFactorToBladeEfforts(LiftingLine, kind='Prandtl', NumberOfBlades
             Conditions = J.get(LiftingLine,'.Conditions')
             VelocityFreestream = Conditions['VelocityFreestream']
             U = np.linalg.norm(VelocityFreestream)
-            g = np.exp(-0.125*(NumberOfBlades*span*omega/U-21))+0.1
+            g = 7.488956809131997 
+            # Value obtained from Shen tip loss relationship applied to 
+            # HAD1 case in cruise condition as the F function shape seems to fit all configurations.
+            # 
+            # g = np.exp(-0.125*(NumberOfBlades*span*omega/VelocityFreeStream-21))+0.1
+            # NumberOfBlades = 3
+            # span = 0.80 m
+            # omega = 212.685822648 rad/s
+            # VelocityFreeStream = 102.087
+            # Applying Shen formula on cases radically different from wind turbine leads
+            # wrong F function shape, hence the requirement to keep a universal
+            #  tip loss function shape.
         else:
             g = g1_parameter
         F = 2/np.pi*np.arccos(np.exp( -g*NumberOfBlades*(span-v['Span'])/  \
