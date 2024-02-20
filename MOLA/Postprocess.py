@@ -915,6 +915,7 @@ def computeIntegralLoads(t, torque_center=[0,0,0],reference_pressure=0.):
     '''
 
     tR = I.copyRef(t)
+    I.__FlowSolutionCenters__ = 'BCDataSet'
     _addNormalsIfAbsent(tR)
 
     # surfacic forces
@@ -1078,11 +1079,9 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
                 ERRMSG = 'The user needs to provide a custom_variable value when performing custom variable based sectional load computation.'
                 raise ValueError(ERRMSG)
             else:
-            
                 dmin = C.getMinValue(surface, slicing_options['custom_variable'])
                 dmax = C.getMaxValue(surface, slicing_options['custom_variable'])
-                surface = C.initVars(surface,'Span', Abscissa, [slicing_options['custom_variable']]) 
-                slicing_var = 'Span'
+                slicing_var = slicing_options['custom_variable']
                
         
     SectionalForceX      = []
@@ -1094,10 +1093,19 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
     SectionalSpan        = []
 
     sectionalLoads = I.newCGNSBase('SectionalLoads', cellDim=1, physDim=3, parent=None)
+    # print('Surface before isosurf')
+    # I.printTree(surface)
     for d in distribution:
 
-        section = P.isoSurfMC(surface, slicing_var, d)
-        
+        if slicing_options['slicing_method'] != 'Custom':
+            section = isoSurface(surface, fieldname=slicing_var, value=d, container='FlowSolution')
+        else:
+            value = d*(dmax-dmin)+dmin
+            section = isoSurface(surface, fieldname=slicing_var, value=value, container='FlowSolution')
+        if not section: continue
+
+        I.__FlowSolutionNodes__ = 'BCDataSetV'
+
         C._normalize(section,['nx','ny','nz'])
         C._initVars(section, 'fx=-({Pressure}-%.12g)*{nx}+{SkinFrictionX}'%(reference_pressure))
         C._initVars(section, 'fy=-({Pressure}-%.12g)*{ny}+{SkinFrictionY}'%(reference_pressure))
@@ -1116,10 +1124,10 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
         SectionalTorqueY     += [ -STorqueY ]
         SectionalTorqueZ     += [ -STorqueZ ]
 
-        # if slicing_options['slicing_method'] != 'Custom':
-        SectionalSpan        += [ d ]
-        # else:
-        #     SectionalSpan        += [ value ]
+        if slicing_options['slicing_method'] != 'CustomVariable':
+            SectionalSpan        += [ d ]
+        else:
+            SectionalSpan        += [ value ]
     
     sloads = dict(SectionalForceX=np.array(SectionalForceX),SectionalForceY=np.array(SectionalForceY),SectionalForceZ=np.array(SectionalForceZ),
                  SectionalTorqueX=np.array(SectionalTorqueX),SectionalTorqueY=np.array(SectionalTorqueY),SectionalTorqueZ=np.array(SectionalTorqueZ),SectionalSpan=np.array(SectionalSpan))
@@ -1135,6 +1143,125 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
     sectionalLoads = J.createZone('SectionalLoads',Arrays=varValues,Vars=varNames) 
 
     return sectionalLoads
+
+
+def computeCp(surface, distribution, slicing_options=dict(slicing_method='SpanBased',custom_variable=None), geometrical_parameters=dict(start_point=None,end_point=None, axis_direction=None), reference_state = dict(reference_pressure=None, reference_density=None, reference_mach=None, gamma=1.4,rotation_speed = 0.)):
+
+    def Abscissa(d): return (d-dmin)/(dmax-dmin)
+    def Cp(Pressure):
+        return -(Pressure-Pinf)/((1/2)*Roinf*(Minf*c)**2)
+    def CpRot(Pressure,Radius):
+        return -(Pressure-Pinf)/((1/2)*Roinf*((Radius*omega)**2+(Minf*c)**2))
+    
+    Pinf = reference_state['reference_pressure']
+    Roinf = reference_state['reference_density']
+    Minf = reference_state['reference_mach']
+    Gamma = reference_state['gamma']
+    R = 287.052874
+    Tinf = Pinf/(Roinf*R)
+    c = np.sqrt(Gamma*R*Tinf)
+    omega = reference_state['rotation_speed']
+
+    # if I.getValue(I.getNodeFromName(surface,'omega')):
+    #     RotatingSpeed = I.getValue(I.getNodeFromName(surface,'omega'))
+
+    surface = mergeContainers(surface, FlowSolutionVertexName='FlowSolution',
+    FlowSolutionCellCenterName='FlowSolution#Centers',
+    BCDataSetFaceCenterName='BCDataSet')
+
+    containersNames_n = I.getNodeFromName(surface,'containers_names')
+    for child in I.getChildren(containersNames_n):
+        if 'BCDataSet' == I.getValue(child):
+            varSuffix = I.getName(child)
+    print('varSuffix=',varSuffix)
+
+    if slicing_options['slicing_method'] == 'SpanBased':
+        if geometrical_parameters['start_point'] == None or geometrical_parameters['end_point'] == None:
+            ERRMSG = 'Span based Cp computation requires both start_point and end_point as input parameters'
+            raise ValueError(ERRMSG)
+        if omega != 0. :
+            ERRMSG = 'Span based Cp computation cannot take into account rotating motions. Please use AbscissaBased or CustomVariable slicing methods to account for the rotation of the surface.'
+            raise ValueError(ERRMSG)
+        else:
+            addSpan(surface, np.array(geometrical_parameters['start_point']), np.array(geometrical_parameters['end_point']))
+            dmin = C.getMinValue(surface, 'Span')
+            dmax = C.getMaxValue(surface, 'Span')            
+            surface = C.initVars(surface,'Span2', Abscissa, ['Span'])
+            slicing_var = 'Span2'
+
+    elif slicing_options['slicing_method'] == 'AbscissaBased':
+        if geometrical_parameters['start_point'] == None or geometrical_parameters['axis_direction'] == None:
+            ERRMSG = 'Abscissa based Cp sectional load computation requires both start_point and axis_direction as input parameters'
+            raise ValueError(ERRMSG)
+        else:
+            W.addDistanceRespectToLine(surface, np.array(geometrical_parameters['start_point']), np.array(geometrical_parameters['axis_direction']), FieldNameToAdd='Distance2Axis')
+            dmin = C.getMinValue(surface, 'Distance2Axis')
+            dmax = C.getMaxValue(surface, 'Distance2Axis')
+            surface = C.initVars(surface,'Abscissa', Abscissa, ['Distance2Axis']) 
+            slicing_var = 'Abscissa'
+
+    elif slicing_options['slicing_method'] == 'Custom':
+        if slicing_options['custom_variable'] == None:
+            ERRMSG = 'The user needs to provide a custom_variable value when performing custom variable based sectional load computation.'
+            raise ValueError(ERRMSG)
+        else:
+                dmin = C.getMinValue(surface, slicing_options['custom_variable'])
+                dmax = C.getMaxValue(surface, slicing_options['custom_variable'])
+                surface = C.initVars(surface,'Span', Abscissa, [slicing_options['custom_variable']]) 
+                slicing_var = 'Span'
+
+    BladeSlices = I.newCGNSBase('Slices', cellDim=1, physDim=3, parent=None)
+    for d in distribution:
+        if slicing_options['slicing_method'] == 'SpanBased':
+            slice = T.join(P.isoSurfMC(surface, 'Span', d))
+            if not slice:continue
+            slice = C.initVars(slice,'nodes:-Cp', Cp, ['Pressure'])
+            slice = C.convertBAR2Struct(slice)
+            I.setName(slice, 'Iso{}_{}'.format(slicing_var,d))         
+        elif slicing_options['slicing_method'] == 'AbscissaBased':
+            slice = T.join(P.isoSurfMC(surface, slicing_var, d))
+            if not slice:continue   
+            slice = C.initVars(slice,'nodes:-Cp', CpRot, ['Pressure'+varSuffix,'Distance2Axis'])
+            slice = C.convertBAR2Struct(slice)        
+            I.setName(slice, 'Iso{}_{}'.format(slicing_var,d)) 
+
+        elif slicing_options['slicing_method'] == 'Custom':
+            customVarValue = d*(dmax-dmin)+dmin
+            slice =  T.join(P.isoSurfMC(surface,slicing_var, value=customVarValue))
+            if not slice: continue 
+            slice = C.initVars(slice,'nodes:-Cp', CpRot, ['Pressure',CustomVariable])
+            slice = C.convertBAR2Struct(slice)
+            # else:
+                # surface = C.initVars(slice,'centers:-Cp', Cp, ['centers:Pressure'])
+            I.setName(slice, 'Iso{}_{}'.format(slicing_var,customVarValue))
+        I._addChild(BladeSlices, slice,pos=-1)
+    return BladeSlices
+        # I.printTree(BladeSlices)
+    
+
+def computeCpRotOnSurface(surface ,reference_state = dict(reference_pressure=None, reference_density=None, reference_mach=None, gamma=1.4,rotation_speed = 0.),axis_parameters=dict(point=[0.,0.,0.],axis_direction=[1.,0.,0.])):
+
+    def CpRot(Pressure,Radius):
+        return -(Pressure-Pinf)/((1/2)*Roinf*((Radius*omega)**2+(Minf*c)**2))
+    
+    Pinf = reference_state['reference_pressure']
+    Roinf = reference_state['reference_density']
+    Minf = reference_state['reference_mach']
+    Gamma = reference_state['gamma']
+    R = 287.052874
+    Tinf = Pinf/(Roinf*R)
+    c = np.sqrt(Gamma*R*Tinf)
+    omega = reference_state['rotation_speed']
+     
+    surface = T.join(surface)
+
+    W.addDistanceRespectToLine(surface, np.array(axis_parameters['point']), np.array(axis_parameters['axis_direction']),
+                                FieldNameToAdd='Distance2Axis')  
+    surface = C.initVars(surface,'nodes:-Cp', CpRot, ['Pressure','Distance2Axis'])
+    
+    return surface
+
+
 
 
 def _addNormalsIfAbsent(t):
@@ -1438,6 +1565,8 @@ def isoSurface(t, fieldname=None, value=None, container='FlowSolution#Init'):
     tPrev = I.copyRef(t)
     t = mergeContainers(t, FlowSolutionVertexName=I.__FlowSolutionNodes__,
                            FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
+    # print('AfterMerge:')
+    # I.printTree(t)
 
     isosurfs = []
     for zone in I.getZones(t):

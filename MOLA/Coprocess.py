@@ -403,6 +403,23 @@ def extractSurfaces(t, Extractions, arrays=None):
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction == 'IsoSurface':
+            PartialTree4Iso = Cmpi.convert2PartialTree(t)
+            if 'ClippingParameters' in Extraction.keys():
+                ClippingField = Extraction['ClippingParameters']['field']
+                if ClippingField in ['Radius', 'radius', 'CoordinateR']:
+                    C._initVars(Tree4Extraction, '{}=({{CoordinateY}}**2+{{CoordinateZ}}**2)**0.5'.format(ClippingField))
+                if 'min_value' in Extraction['ClippingParameters'].keys():
+                    min_value = Extraction['ClippingParameters']['min_value']
+                    def F(x):
+                        if ( x > min_value): return True
+                        else: return False
+                    PartialTree4Iso = P.selectCells(PartialTree4Iso,F,[ClippingField],strict =1)
+                if 'max_value' in Extraction['ClippingParameters'].keys():
+                    max_value = Extraction['ClippingParameters']['max_value']
+                    def F(x):
+                        if ( x < max_value): return True
+                        else: return False
+                    PartialTree4Iso = P.selectCells(PartialTree4Iso,F,[ClippingField],strict =1)
             if Extraction['field'] in ['Radius', 'radius', 'CoordinateR']:
                 C._initVars(Tree4Extraction, '{}=({{CoordinateY}}**2+{{CoordinateZ}}**2)**0.5'.format(Extraction['field']))
             container = deduceContainerForSlicing(Extraction)

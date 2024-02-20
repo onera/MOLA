@@ -50,13 +50,27 @@ except:
     
 class RefState(object):
     def __init__(self, setup):
-      self.Gamma = setup.FluidProperties['Gamma']
-      self.Rgaz  = setup.FluidProperties['IdealGasConstant']
-      self.Pio   = setup.ReferenceValues['PressureStagnation']
-      self.Tio   = setup.ReferenceValues['TemperatureStagnation']
-      self.roio  = self.Pio / self.Tio / self.Rgaz
-      self.aio   = (self.Gamma * self.Rgaz * self.Tio)**0.5
-      self.Lref  = 1.
+      if setup.Workflow == 'Compressor':
+          self.Gamma = setup.FluidProperties['Gamma']
+          self.Rgaz  = setup.FluidProperties['IdealGasConstant']
+          self.Pio   = setup.ReferenceValues['PressureStagnation']
+          self.Tio   = setup.ReferenceValues['TemperatureStagnation']
+          self.roio  = self.Pio / self.Tio / self.Rgaz
+          self.aio   = (self.Gamma * self.Rgaz * self.Tio)**0.5
+          self.Lref  = 1.
+      if setup.Workflow == 'ORAS':
+          self.Gamma = setup.FluidProperties['Gamma']
+          self.Rgaz  = setup.FluidProperties['IdealGasConstant']
+          self.P     = setup.ReferenceValues['Pressure']
+          self.T     = setup.ReferenceValues['Temperature']
+          self.ro    = setup.ReferenceValues['Density']
+          self.a     = (self.Gamma * self.Rgaz * self.T)**0.5
+          self.Mach  = setup.ReferenceValues['Mach']
+          self.Pio   = self.P*(1.+0.5*(self.Gamma-1.)*self.Mach**2)**(self.Gamma/(self.Gamma-1.))
+          self.Tio   = self.T*(1.+0.5*(self.Gamma-1.)*self.Mach**2)
+          self.roio  = self.Pio / self.Tio / self.Rgaz
+          self.aio   = (self.Gamma * self.Rgaz * self.Tio)**0.5
+          self.Lref  = 1.
 
 def getExtractionInfo(surface):
     '''
