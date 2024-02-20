@@ -3382,8 +3382,8 @@ def assembleAndProjectVelocities(t):
 
         ChordwiseDirection = np.vstack([v['Chordwise' + i] for i in 'XYZ'])
         ThickwiseDirection = np.vstack([v['Thickwise' + i] for i in 'XYZ'])
-        Vchord = np.diag(VelocityRelative.T.dot(ChordwiseDirection))
-        Vthick = np.diag(VelocityRelative.T.dot(ThickwiseDirection))
+        Vchord = np.diag(VelocityRelative.T.dot(ChordwiseDirection))[:]
+        Vthick = np.diag(VelocityRelative.T.dot(ThickwiseDirection))[:]
 
         if SweepCorrection:    Vchord *= np.cos(np.deg2rad(v['SweepAngleDeg']))
         if DihedralCorrection: Vthick *= np.cos(np.deg2rad(v['DihedralAngleDeg']))
