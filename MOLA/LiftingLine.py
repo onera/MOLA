@@ -3385,8 +3385,8 @@ def assembleAndProjectVelocities(t):
         Vchord = np.diag(VelocityRelative.T.dot(ChordwiseDirection))
         Vthick = np.diag(VelocityRelative.T.dot(ThickwiseDirection))
 
-        if SweepCorrection:    Vchord *= np.cos(np.deg2rad(v['SweepAngleDeg']))
-        if DihedralCorrection: Vthick *= np.cos(np.deg2rad(v['DihedralAngleDeg']))
+        if SweepCorrection:    Vchord = Vchord*np.cos(np.deg2rad(v['SweepAngleDeg']))
+        if DihedralCorrection: Vthick = Vthick*np.cos(np.deg2rad(v['DihedralAngleDeg']))
 
         # NOTE the absence of radial velocity contribution to Velocity Magnitude, Mach and Reynolds
         v['VelocityChordwise'][:] = Vchord

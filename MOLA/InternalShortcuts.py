@@ -2427,13 +2427,11 @@ def printEnvironment():
     print(v.ljust(20-len(tag))+printTime(toc))
 
     # Vortex Particle Method
-    tag = ' --> VPM '
+    tag = ' --> Vulcains (VPM) '
     print(tag,end='')
     toc = tic()
     try:
-        import VortexParticleMethod.vortexparticlemethod
-        import MOLA.VPM as VPM
-        v = VPM.__version__
+        from VULCAINS.__init__ import __version__ as v
     except:
         v = FAIL + 'UNAVAILABLE' + ENDC
     print(v.ljust(20-len(tag))+printTime(toc))

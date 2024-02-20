@@ -628,7 +628,6 @@ def initialiseVPM(EulerianMesh = [], LiftingLineTree = [], PerturbationField = [
     else: print(f"{'||':>57}\r" + '|| ' + '{:32}'.format('Precison') + ': ' + 'single (32 bits)')
     print(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
     
-    VPMLL.rotateLiftingLineSections(LiftingLineTree)
     VPMLL.renameLiftingLineTree(LiftingLineTree)
     VPMLL.updateLiftingLines(LiftingLineTree, defaultParameters, defaultLiftingLineParameters)
     VPMLL.updateParametersFromLiftingLines(LiftingLineTree, defaultParameters)

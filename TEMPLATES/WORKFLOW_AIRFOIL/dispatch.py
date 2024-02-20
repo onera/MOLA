@@ -54,11 +54,7 @@ for case in config.JobsQueues:
                        ImposedWallFields=case['ImposedWallFields'],
                        TransitionZones=case['TransitionZones'],
                        JobInformation=case['JobInformation'],
-                       COPY_TEMPLATES=False,
                        **case['elsAParams'])
-    JM.getTemplates('Airfoil',
-            otherWorkflowFiles=['monitor_loads.py', 'preprocess.py', 'postprocess.py'],
-            JobInformation=case['JobInformation'])
 
     os.chdir(DIRECTORY_DISPATCHER)
 

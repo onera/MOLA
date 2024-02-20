@@ -12,7 +12,7 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
 export MOLAVER=${SCRIPT_DIR##*/} # looks to current directory name
 export MOLA=/stck/lbernard/MOLA/$MOLAVER
 export MOLASATOR=/tmp_user/sator/lbernard/MOLA/$MOLAVER
-export VPMVERSION=Dev
+export VPMVERSION=v0.4
 export TURBOVERSION=v1.3
 export ERSTAZVERSION=v1.6.3
 export MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
@@ -98,7 +98,7 @@ if [ "$MAC" = "sator" ]; then
     module load maia/$MAIAVERSION-dsi-cfd5_idx32
 
     # VPM
-    export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator/$ARCH
+    export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator_elsA/$ARCH
     export PATH=$VPMPATH:$PATH
     export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=$VPMPATH:$LD_LIBRARY_PATH
@@ -139,7 +139,7 @@ elif [ "$MAC" = "spiro" ]; then
     unset I_MPI_FABRICS_LIST
 
     # VPM
-    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro/$ARCH
+    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro_elsA/$ARCH
     export PATH=$VPMPATH:$PATH
     export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
@@ -197,7 +197,7 @@ elif [ "$MAC" = "ld" ]; then
     module load maia/$MAIAVERSION-dsi-ompi405
 
     # VPM
-    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld/$ARCH
+    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld_elsA/$ARCH
     export PATH=$VPMPATH:$VPMPATH/lib:$PATH
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
     export LD_LIBRARY_PATH=$VPMPATH:$VPMPATH/lib:$LD_LIBRARY_PATH
@@ -207,6 +207,8 @@ elif [ "$MAC" = "ld" ]; then
     # brakes MPI https://elsa.onera.fr/issues/10933#note-16
     export LD_LIBRARY_PATH=/opt/tools/intel/oneapi/compiler/2021.2.0/linux/compiler/lib/intel64_lin/:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=/opt/tools/intel/oneapi/mpi/2021.6.0/lib/release:$LD_LIBRARY_PATH
+    # requires mkl in ld
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/tools/intel/oneapi/mkl/2021.2.0/lib/intel64
 
     # NOTE installation hint:
     # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab

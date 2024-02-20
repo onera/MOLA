@@ -37,16 +37,12 @@ for case in config.JobsQueues:
     for key, value in case.items():
         if key not in ['ID', 'CASE_LABEL', 'NewJob', 'JobName']:
             WorkflowParams[key] = case[key]
-    WorkflowParams['COPY_TEMPLATES'] = False
 
     caseDir = os.path.join(config.DIRECTORY_WORK, case['JobName'], case['CASE_LABEL'])
     os.makedirs(caseDir, exist_ok=True)
     os.chdir(caseDir)
 
     WF.prepareMainCGNS4ElsA(**WorkflowParams)
-    JM.getTemplates('Compressor',
-            otherWorkflowFiles=['monitor_perfos.py', 'preprocess.py', 'postprocess.py'],
-            JobInformation=case['JobInformation'])
 
     os.chdir(DIRECTORY_DISPATCHER)
 
