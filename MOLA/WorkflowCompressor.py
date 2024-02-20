@@ -223,6 +223,16 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None,
         # Remesh rows to model with body-force
         t, newRowMeshes = BF.replaceRowWithBodyForceMesh(
             t, BodyForceRows, saveGeometricalDataForBodyForce=saveGeometricalDataForBodyForce)
+        
+        for row, BodyForceParams in BodyForceRows.items():
+            if 'AzimutalAngleDeg' in BodyForceParams:
+                InputMeshes[0]['Connection'].append(
+                    dict(type='PeriodicMatch', tolerance=tol, rotationAngle=[BodyForceParams['AzimutalAngleDeg'],0.,0.])
+                )
+        # Default value
+        InputMeshes[0]['Connection'].append(
+                dict(type='PeriodicMatch', tolerance=tol, rotationAngle=[2.,0.,0.])
+            )
 
     t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], zonesToRename=zonesToRename)
 
@@ -4486,6 +4496,14 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
             dict(ID=i, CASE_LABEL=CASE_LABEL, NewJob=NewJob, JobName=JobName, **WorkflowParams)
             )
 
+        # adapt custom templates
+        if 'templates' in WorkflowParams:
+            for key, filename in WorkflowParams['templates'].items():
+                if isinstance(filename, str):
+                    WorkflowParams['templates'][key] = adaptPathForDispatcher(filename)
+                elif isinstance(filename, list):
+                    WorkflowParams['templates'][key] = [adaptPathForDispatcher(f) for f in filename]
+
     JM.saveJobsConfiguration(JobsQueues, machine, DIRECTORY_WORK)
 
     def findElementsInCollection(collec, searchKey, elements=[]):
@@ -4532,6 +4550,15 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
         if 'method' in kwargs['Initialization']:
             if 'turbo' in kwargs['Initialization']['method']:
                 otherFiles.append('mask.cgns')
+    # get custom templates
+    if 'templates' in kwargs:
+        for key, filename in kwargs['templates'].items():
+            if isinstance(filename, str):
+                otherFiles.append(filename)
+            elif isinstance(filename, list):
+                otherFiles.extend(filename)
+            else: 
+                raise TypeError(f'Values in the dict templates must be either strings or list of strings. Current value of template is: {kwargs["templates"]}')
 
     JM.launchJobsConfiguration(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_COMPRESSOR', otherFiles=otherFiles)
 
