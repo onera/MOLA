@@ -223,6 +223,16 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None,
         # Remesh rows to model with body-force
         t, newRowMeshes = BF.replaceRowWithBodyForceMesh(
             t, BodyForceRows, saveGeometricalDataForBodyForce=saveGeometricalDataForBodyForce)
+        
+        for row, BodyForceParams in BodyForceRows.items():
+            if 'AzimutalAngleDeg' in BodyForceParams:
+                InputMeshes[0]['Connection'].append(
+                    dict(type='PeriodicMatch', tolerance=tol, rotationAngle=[BodyForceParams['AzimutalAngleDeg'],0.,0.])
+                )
+        # Default value
+        InputMeshes[0]['Connection'].append(
+                dict(type='PeriodicMatch', tolerance=tol, rotationAngle=[2.,0.,0.])
+            )
 
     t = cleanMeshFromAutogrid(t, basename=InputMeshes[0]['baseName'], zonesToRename=zonesToRename)
 
