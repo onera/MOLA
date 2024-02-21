@@ -4882,7 +4882,7 @@ def getPostprocessQuantitiesLocal(basename, configJobsQueues, root_path, rename=
                 for v in lastarrays: lastarrays[v] = lastarrays[v][-1]
                 if not 'Massflow' in lastarrays:
                     try:
-                        ArraysZone = I.getNodeFromName2(ArraysTree, basename.split('#')[1])
+                        ArraysZone = I.getNodeFromName2(ArraysTree, '#'.join(basename.split('#')[1:]))
                         lastarrays['Massflow'] = J.getVars(ArraysZone, ['Massflow'])[0][-1]
                     except:
                         pass
