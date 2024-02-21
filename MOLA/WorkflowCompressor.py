@@ -2463,30 +2463,40 @@ def getPrimitiveTurbulentFieldForInjection(FluidProperties, ReferenceValues, **k
         dict
             Imposed turbulent variables
         '''
-        TurbulenceLevel = kwargs.get('TurbulenceLevel', None)
-        Viscosity_EddyMolecularRatio = kwargs.get('Viscosity_EddyMolecularRatio', None)
-        if TurbulenceLevel and Viscosity_EddyMolecularRatio:
-            ReferenceValuesForTurbulence = computeReferenceValues(FluidProperties,
-                    kwargs.get('MassFlow'), ReferenceValues['PressureStagnation'],
-                    kwargs.get('TemperatureStagnation'), kwargs.get('Surface'),
-                    TurbulenceLevel=TurbulenceLevel,
-                    Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio,
-                    TurbulenceModel=ReferenceValues['TurbulenceModel'])
+        if 'TurbulenceLevel' in kwargs or 'Viscosity_EddyMolecularRatio' in kwargs:   
+            print('  recomputing turbulent variables for this BC...')        
+            ReferenceValuesForTurbulence = computeReferenceValues(
+                FluidProperties,
+                MassFlow=kwargs.get('MassFlow', ReferenceValues['MassFlow']),
+                PressureStagnation=kwargs.get('PressureStagnation', ReferenceValues['PressureStagnation']),
+                TemperatureStagnation=kwargs.get('TemperatureStagnation', ReferenceValues['TemperatureStagnation']),
+                Surface=kwargs.get('Surface', ReferenceValues['Surface']),
+                TurbulenceLevel=kwargs.get('TurbulenceLevel', ReferenceValues['TurbulenceLevel']),
+                Viscosity_EddyMolecularRatio=kwargs.get('Viscosity_EddyMolecularRatio', ReferenceValues['Viscosity_EddyMolecularRatio']),
+                VelocityUsedForScalingAndTurbulence=kwargs.get('VelocityUsedForScalingAndTurbulence', None),
+                TurbulenceModel=ReferenceValues['TurbulenceModel']
+                )
         else:
             ReferenceValuesForTurbulence = ReferenceValues
 
         turbDict = dict()
         for name, value in zip(ReferenceValuesForTurbulence['FieldsTurbulence'], ReferenceValuesForTurbulence['ReferenceStateTurbulence']):
+            # If the 'conservative' value is given in kwargs
+            value = kwargs.get(name, value)
+
             if name.endswith('Density'):
                 name = name.replace('Density', '')
-                value /= ReferenceValues['Density']
+                value /= ReferenceValuesForTurbulence['Density']
             elif name == 'ReynoldsStressDissipationScale':
                 name = 'TurbulentDissipationRate'
-                value /= ReferenceValues['Density']
+                value /= ReferenceValuesForTurbulence['Density']
             elif name.startswith('ReynoldsStress'):
                 name = name.replace('ReynoldsStress', 'VelocityCorrelation')
-                value /= ReferenceValues['Density']
+                value /= ReferenceValuesForTurbulence['Density']
+
+            # If the 'primitive' value is given in kwargs
             turbDict[name] = kwargs.get(name, value)
+            
         return turbDict
 
 def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
@@ -2672,9 +2682,10 @@ def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     VelocityUnitVectorX   = kwargs.get('VelocityUnitVectorX', ReferenceValues['DragDirection'][0])
     VelocityUnitVectorY   = kwargs.get('VelocityUnitVectorY', ReferenceValues['DragDirection'][1])
     VelocityUnitVectorZ   = kwargs.get('VelocityUnitVectorZ', ReferenceValues['DragDirection'][2])
-    variableForInterpolation = kwargs.get('variableForInterpolation', 'ChannelHeight')   
-    TurbulenceLevel = kwargs.get('TurbulenceLevel', None)
-    Viscosity_EddyMolecularRatio = kwargs.get('Viscosity_EddyMolecularRatio', None)
+    variableForInterpolation = kwargs.get('variableForInterpolation', 'ChannelHeight')  
+    if not 'MassFlow' in kwargs:
+        # used for getPrimitiveTurbulentFieldForInjection
+        kwargs['MassFlow'] = SurfacicMassFlow * Surface
 
     ImposedVariables = dict(
         SurfacicMassFlow    = SurfacicMassFlow,
@@ -2682,14 +2693,7 @@ def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
         VelocityUnitVectorX = VelocityUnitVectorX,
         VelocityUnitVectorY = VelocityUnitVectorY,
         VelocityUnitVectorZ = VelocityUnitVectorZ,
-        **getPrimitiveTurbulentFieldForInjection(FluidProperties, 
-                                                 ReferenceValues,
-                                                 Surface=Surface,
-                                                 MassFlow=MassFlow,
-                                                 TemperatureStagnation=TemperatureStagnation,
-                                                 TurbulenceLevel=TurbulenceLevel,
-                                                 Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio
-                                                )
+        **getPrimitiveTurbulentFieldForInjection(FluidProperties, ReferenceValues, **kwargs)
         )
 
     setBCwithImposedVariables(t, FamilyName, ImposedVariables,
@@ -4878,7 +4882,7 @@ def getPostprocessQuantitiesLocal(basename, configJobsQueues, root_path, rename=
                 for v in lastarrays: lastarrays[v] = lastarrays[v][-1]
                 if not 'Massflow' in lastarrays:
                     try:
-                        ArraysZone = I.getNodeFromName2(ArraysTree, basename.split('#')[1])
+                        ArraysZone = I.getNodeFromName2(ArraysTree, '#'.join(basename.split('#')[1:]))
                         lastarrays['Massflow'] = J.getVars(ArraysZone, ['Massflow'])[0][-1]
                     except:
                         pass
