@@ -615,7 +615,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     J.printElapsedTime('prepareMainCGNS4ElsA took ', toc)
 
-def parametrizeChannelHeight(t, lin_axis=None):
+def parametrizeChannelHeight(t, lin_axis=None, method=2):
     '''
     Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
     relies on the turbo module.
@@ -636,6 +636,9 @@ def parametrizeChannelHeight(t, lin_axis=None):
             the configuration is linear.
             'XY' means that X-axis is the streamwise direction and Y-axis is the
             spanwise direction.(see turbo documentation)
+        
+        method : int
+            Method used for ``turbo.height.generateHLinesAxial()``. Default value is 2.
 
     Returns
     -------
@@ -679,7 +682,7 @@ def parametrizeChannelHeight(t, lin_axis=None):
     with silence_stdout:
 
         if not lin_axis:
-            endlinesTree = TH.generateHLinesAxial(t, filename='shroud_hub_lines.plt', method=2)
+            endlinesTree = TH.generateHLinesAxial(t, filename='shroud_hub_lines.plt', method=method)
             try: 
                 plot_hub_and_shroud_lines(endlinesTree)
             except: 
