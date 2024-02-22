@@ -5001,6 +5001,7 @@ def adapt2elsA(t, InputMeshes):
         EP._overlapGC2BC(t)
         EP._rmGCOverlap(t)
         EP._fillNeighbourList(t, sameBase=0)
+        _hackChimGroupFamilies(t)
         EP._prefixDnrInSubRegions(t)
         removeEmptyOversetData(t, silent=False)
 
@@ -5914,3 +5915,12 @@ def _convert_mesh_to_ngon(filename_in, filename_out):
     t = maia.io.file_to_dist_tree(filename_in, MPI.COMM_WORLD)
     maia.algo.dist.generate_ngon_from_std_elements(t, MPI.COMM_WORLD)
     maia.io.dist_tree_to_file(t, filename_out, MPI.COMM_WORLD)
+
+def _hackChimGroupFamilies(t):
+    '''
+    This is a HACK for circumventing https://elsa.onera.fr/issues/11552
+    also check https://gitlab.onera.net/numerics/mola/-/issues/196
+    '''
+    for family_name_node in I.getNodesFromType(t,'FamilyName_t'):
+        if family_name_node[0].startswith('ChimGroup'):
+            family_name_node[3] = 'AdditionalFamilyName_t'
