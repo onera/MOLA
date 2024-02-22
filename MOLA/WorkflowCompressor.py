@@ -2030,9 +2030,10 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                 BCkwargs['VelocityScale'] =  (FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*ReferenceValues['TemperatureStagnation'])**0.5 
 
             BCkwargs['GilesMonitoringFlag'] = GilesMonitoringFlag
-            BCkwargs['option'] = BCparam['option']
-            if BCparam['option'] == 'file':
-                BCkwargs['filename'] = BCparam['filename']
+            if 'option' in BCparam:
+                BCkwargs['option'] = BCparam['option']
+            else:
+                BCkwargs['option'] = 'RadialEquilibrium'
                 
             for bc in C.getFamilyBCs(t,BCparam['FamilyName']):
                 setBC_giles_outlet(t, bc, **BCkwargs)
@@ -2052,9 +2053,10 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                 BCkwargs['VelocityScale'] =  (FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*ReferenceValues['TemperatureStagnation'])**0.5 
 
             BCkwargs['GilesMonitoringFlag'] = GilesMonitoringFlag
-            BCkwargs['option'] = BCparam['option']
-            if BCparam['option'] == 'file':
-                BCkwargs['filename'] = BCparam['filename']
+            if 'option' in BCparam:
+                BCkwargs['option'] = BCparam['option']
+            else:
+                BCkwargs['option'] = 'uniform'
 
             for bc in C.getFamilyBCs(t,BCparam['FamilyName']):
                 setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, **BCkwargs)
