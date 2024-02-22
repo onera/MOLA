@@ -64,15 +64,6 @@ def checkDependencies():
         MSG = 'Fail to import ETC module: Some functions of {} are unavailable'.format(__name__)
         print(J.FAIL + MSG + J.ENDC)
 
-    print('Checking MOLA.ParametrizeChannelHeight...')
-    try:
-        from . import ParametrizeChannelHeight
-    except ImportError:
-        MSG = 'Fail to import ParametrizeChannelHeight: function parametrizeChannelHeight is unavailable'
-        print(J.WARN + MSG + J.ENDC)
-    else:
-        print(J.GREEN+'MOLA.ParametrizeChannelHeight module is available'+J.ENDC)
-
     print('\nVERIFICATIONS TERMINATED')
 
 
@@ -615,7 +606,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     J.printElapsedTime('prepareMainCGNS4ElsA took ', toc)
 
-def parametrizeChannelHeight(t, lin_axis=None):
+def parametrizeChannelHeight(t, lin_axis=None, method=2):
     '''
     Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
     relies on the turbo module.
@@ -636,6 +627,9 @@ def parametrizeChannelHeight(t, lin_axis=None):
             the configuration is linear.
             'XY' means that X-axis is the streamwise direction and Y-axis is the
             spanwise direction.(see turbo documentation)
+        
+        method : int
+            Method used for ``turbo.height.generateHLinesAxial()``. Default value is 2.
 
     Returns
     -------
@@ -679,7 +673,7 @@ def parametrizeChannelHeight(t, lin_axis=None):
     with silence_stdout:
 
         if not lin_axis:
-            endlinesTree = TH.generateHLinesAxial(t, filename='shroud_hub_lines.plt', method=2)
+            endlinesTree = TH.generateHLinesAxial(t, filename='shroud_hub_lines.plt', method=method)
             try: 
                 plot_hub_and_shroud_lines(endlinesTree)
             except: 
@@ -5556,7 +5550,8 @@ def postprocess_turbomachinery(surfaces, stages=[],
         if computeRadialProfiles: 
             Post.compute1DRadialProfiles(
                 surfaces, variablesByAverage, config=config, lin_axis=lin_axis)
-        if heightListForIsentropicMach:
+        if config == 'annular' and heightListForIsentropicMach:
+            # TODO compute Machis also for linear cascade. Is this available in turbo ? 
             Post.computeVariablesOnBladeProfiles(surfaces, height_list=heightListForIsentropicMach)
         #______________________________________________________________________________#
 

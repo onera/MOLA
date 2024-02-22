@@ -3397,6 +3397,7 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
 
             if not EndOfRun and setup.elsAkeysNumerics['time_algo'] != 'steady':
                 PostprocessOptions.setdefault('computeRadialProfiles', False)
+                PostprocessOptions.setdefault('heightListForIsentropicMach', False)
             else: 
                 PostprocessOptions.setdefault('computeRadialProfiles', True)
 

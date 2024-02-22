@@ -533,7 +533,7 @@ def compareRadialProfilesPlane2Plane(surfaces, var4comp_repart, stages=[], confi
             I.addChild(OutletPlane, fsBudget)
 
 
-def computeVariablesOnBladeProfiles(surfaces, height_list='all'):
+def computeVariablesOnBladeProfiles(surfaces, height_list='all', kind='rotor'):
     '''
     Make height-constant slices on the blades to compute the isentropic Mach number and other
     variables at blade wall.
@@ -551,11 +551,9 @@ def computeVariablesOnBladeProfiles(surfaces, height_list='all'):
     '''
 
     def searchBladeInTree(row):
-        famnames = ['*BLADE*'.format(row), '*Blade*'.format(row),
-                    '*AUBE*'.format(row), '*Aube*'.format(row)]
-        for famname in famnames:
+        for famname in ['*BLADE*', '*Blade*', '*AUBE*', '*Aube*']:
             for bladeSurface in I.getNodesFromNameAndType(surfaces, famname, 'CGNSBase_t'):
-                if I.getNodeFromNameAndType(bladeSurface, row, 'Family_t') and I.getZones(bladeSurface) != []:
+                if I.getNodeFromNameAndType(bladeSurface, row, 'Family_t') and len(I.getZones(bladeSurface)) != 0:
                     return bladeSurface
         return
 
@@ -589,7 +587,7 @@ def computeVariablesOnBladeProfiles(surfaces, height_list='all'):
         blade = C.center2Node(blade, I.__FlowSolutionCenters__)
         C._initVars(blade, 'StaticPressureDim={Pressure}')
 
-        blade_with_Mis = TMis.computeIsentropicMachNumber(InletPlane, blade, RefState(setup), kind='rotor', fsname=I.__FlowSolutionNodes__ )
+        blade_with_Mis = TMis.computeIsentropicMachNumber(InletPlane, blade, RefState(setup), kind=kind, fsname=I.__FlowSolutionNodes__ )
 
         for zone in I.getZones(blade_with_Mis):
             FS = I.getNodeFromName(zone, I.__FlowSolutionNodes__)
