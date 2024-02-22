@@ -664,10 +664,10 @@ def load(filename = ''):
         IterationCounter[0] -= 1
         NumberOfNodes = VPM.getParameter(VPM.pickParticlesZone(t), 'NumberOfNodes')
         if NumberOfNodes:
-        	PerturbationFieldCapsule = V.build_perturbation_velocity_capsule(\
+            PerturbationFieldCapsule = V.build_perturbation_velocity_capsule(\
                            C.newPyTree(I.getZones(VPM.pickPerturbationFieldZone(t))), NumberOfNodes)
         else:
-        	PerturbationFieldCapsule = None
+            PerturbationFieldCapsule = None
         Old_esM1 = I.getValue(I.getNodeFromName(t, 'EnstrophyM1'))
         VPM.induceVPMField(t, PerturbationFieldCapsule = PerturbationFieldCapsule)
         esM1 = I.getNodeFromName(t, 'EnstrophyM1')
