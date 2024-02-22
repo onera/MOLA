@@ -5016,7 +5016,7 @@ def forceFamilyBCasFamilySpecified(t):
                     FamilyNameNode = I.getNodeFromType1(BC,'FamilyName_t')
                     if FamilyNameNode is not None:
                         I.setValue(BC,'FamilySpecified')
-                        FamilyName = I.getName(FamilyNameNode)
+                        FamilyName = I.getValue(FamilyNameNode)
                         if not I.getNodeFromName1(base,FamilyName):
                             FamilyAtBase = I.createNode(FamilyName,'Family_t',parent=base)
                             I.createNode('FamilyBC','FamilyBC_t',value='UserDefined',parent=FamilyAtBase)
