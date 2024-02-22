@@ -64,15 +64,6 @@ def checkDependencies():
         MSG = 'Fail to import ETC module: Some functions of {} are unavailable'.format(__name__)
         print(J.FAIL + MSG + J.ENDC)
 
-    print('Checking MOLA.ParametrizeChannelHeight...')
-    try:
-        from . import ParametrizeChannelHeight
-    except ImportError:
-        MSG = 'Fail to import ParametrizeChannelHeight: function parametrizeChannelHeight is unavailable'
-        print(J.WARN + MSG + J.ENDC)
-    else:
-        print(J.GREEN+'MOLA.ParametrizeChannelHeight module is available'+J.ENDC)
-
     print('\nVERIFICATIONS TERMINATED')
 
 
@@ -5559,7 +5550,8 @@ def postprocess_turbomachinery(surfaces, stages=[],
         if computeRadialProfiles: 
             Post.compute1DRadialProfiles(
                 surfaces, variablesByAverage, config=config, lin_axis=lin_axis)
-        if heightListForIsentropicMach:
+        if config == 'annular' and heightListForIsentropicMach:
+            # TODO compute Machis also for linear cascade. Is this available in turbo ? 
             Post.computeVariablesOnBladeProfiles(surfaces, height_list=heightListForIsentropicMach)
         #______________________________________________________________________________#
 
