@@ -915,6 +915,10 @@ def computeIntegralLoads(t, torque_center=[0,0,0],reference_pressure=0.):
     '''
 
     tR = I.copyRef(t)
+
+    FlowSolutionNodesOld  = I.__FlowSolutionNodes__
+    FlowSolutionCentersOld = I.__FlowSolutionCenters__
+
     I.__FlowSolutionCenters__ = 'BCDataSet'
     _addNormalsIfAbsent(tR)
 
@@ -940,6 +944,8 @@ def computeIntegralLoads(t, torque_center=[0,0,0],reference_pressure=0.):
     loads = dict(ForceX=ForceX,ForceY=ForceY,ForceZ=ForceZ,
                  TorqueX=TorqueX,TorqueY=TorqueY,TorqueZ=TorqueZ)
     
+    I.__FlowSolutionNodes__ = FlowSolutionNodesOld
+    I.__FlowSolutionCenters__ = FlowSolutionCentersOld
     return loads
 
 def computeSectionalLoads(surface, distribution = None, slicing_options=dict(slicing_method='SpanBased',custom_variable=None), geometrical_parameters=dict(start_point=None,end_point=None, axis_direction=None),
@@ -982,6 +988,8 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
                 .. hint:: Examples: ``CoordinateX``, ``CoordinateY``, ``CoordinateZ``, ``Radius``.
 
                 .. important:: Must be provided for Custom slicing.
+
+                .. warning:: variable must be unique 
 
         geometrical_parameters : :py:class:`dict`
 
@@ -1046,10 +1054,14 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
     '''
 
     def Abscissa(d): return (d-dmin)/(dmax-dmin)
-     
+
+    FlowSolutionNodesOld  = I.__FlowSolutionNodes__
+    FlowSolutionCentersOld = I.__FlowSolutionCenters__
+
     if distribution is None:
         distribution = np.linspace(0,1,101)
     
+    I.__FlowSolutionCenters__ = 'BCDataSet'
     if slicing_options['slicing_method'] == 'SpanBased':
         if geometrical_parameters['start_point'] == None or geometrical_parameters['end_point'] == None:
             ERRMSG = 'Span based sectional load computation requires both start_point and end_point as input parameters'
@@ -1059,6 +1071,7 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
             dmin = C.getMinValue(surface, 'Span')
             dmax = C.getMaxValue(surface, 'Span')            
             surface = C.initVars(surface,'Span2', Abscissa, ['Span'])
+            surface = C.node2Center(surface, ['Span','Span2'])
             slicing_var = 'Span2'
 
     elif slicing_options['slicing_method'] == 'AbscissaBased':
@@ -1071,7 +1084,8 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
             dmin = C.getMinValue(surface, 'Distance2Axis')
             dmax = C.getMaxValue(surface, 'Distance2Axis')
             surface = C.initVars(surface,'Abscissa', Abscissa, ['Distance2Axis']) 
-            slicing_var = 'Abscissa'
+            surface = C.node2Center(surface, ['Distance2Axis','Abscissa'])
+            slicing_var = 'Abscissa'            
 
     
     elif slicing_options['slicing_method'] == 'Custom':
@@ -1079,18 +1093,38 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
                 ERRMSG = 'The user needs to provide a custom_variable value when performing custom variable based sectional load computation.'
                 raise ValueError(ERRMSG)
             else:
-                dmin = C.getMinValue(surface, slicing_options['custom_variable'])
-                dmax = C.getMaxValue(surface, slicing_options['custom_variable'])
                 slicing_var = slicing_options['custom_variable']
-               
-        
-    SectionalForceX      = []
-    SectionalForceY      = []
-    SectionalForceZ      = []
-    SectionalTorqueX     = []
-    SectionalTorqueY     = []
-    SectionalTorqueZ     = []
-    SectionalSpan        = []
+
+                surface = mergeContainers(surface, FlowSolutionVertexName='FlowSolution',
+                FlowSolutionCellCenterName='FlowSolution#Centers',
+                BCDataSetFaceCenterName='BCDataSet')
+            
+                fieldsNames_n = I.getNodeFromName(surface,'fields_names')
+                containersNames_n = I.getNodeFromName(surface,'containers_names')
+              
+                for child in I.getChildren(fieldsNames_n):
+                    if  slicing_var in I.getValue(child):
+                        customVarContainerTag = I.getName(child)
+                        customVarContainerName = I.getValue(I.getNodeFromName(containersNames_n,customVarContainerTag))
+                    if slicing_var in ['CoordinateX','CoordinateY','CoordinateZ']:
+                        customVarContainerTag = ''
+                        customVarContainerName = ''
+
+                dmin = C.getMinValue(surface, slicing_options['custom_variable']+customVarContainerTag)
+                dmax = C.getMaxValue(surface, slicing_options['custom_variable']+customVarContainerTag)
+                surface = recoverContainers(surface) 
+                
+
+    SectionalForceX             = []
+    SectionalForceY             = []
+    SectionalForceZ             = []
+    SectionalTorqueX            = []
+    SectionalTorqueY            = []
+    SectionalTorqueZ            = []
+    SectionalSpan               = []
+    SectionalCustomVar          = []
+    SectionalCustomVarOverMax   = []
+
 
     sectionalLoads = I.newCGNSBase('SectionalLoads', cellDim=1, physDim=3, parent=None)
     # print('Surface before isosurf')
@@ -1098,10 +1132,11 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
     for d in distribution:
 
         if slicing_options['slicing_method'] != 'Custom':
-            section = isoSurface(surface, fieldname=slicing_var, value=d, container='FlowSolution')
+            section = isoSurface(surface, fieldname=slicing_var, value=d, container='BCDataSet')
         else:
             value = d*(dmax-dmin)+dmin
-            section = isoSurface(surface, fieldname=slicing_var, value=value, container='FlowSolution')
+            section = isoSurface(surface, fieldname=slicing_var, value=value, container=customVarContainerName)
+        
         if not section: continue
 
         I.__FlowSolutionNodes__ = 'BCDataSetV'
@@ -1123,16 +1158,19 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
         SectionalTorqueX     += [ -STorqueX ]
         SectionalTorqueY     += [ -STorqueY ]
         SectionalTorqueZ     += [ -STorqueZ ]
+        SectionalSpan        += [ d ]
 
-        if slicing_options['slicing_method'] != 'CustomVariable':
-            SectionalSpan        += [ d ]
-        else:
-            SectionalSpan        += [ value ]
-    
+        if slicing_options['slicing_method'] == 'Custom':
+            SectionalCustomVar          += [ value ]
+            SectionalCustomVarOverMax   += [ value/dmax ]  
+
     sloads = dict(SectionalForceX=np.array(SectionalForceX),SectionalForceY=np.array(SectionalForceY),SectionalForceZ=np.array(SectionalForceZ),
                  SectionalTorqueX=np.array(SectionalTorqueX),SectionalTorqueY=np.array(SectionalTorqueY),SectionalTorqueZ=np.array(SectionalTorqueZ),SectionalSpan=np.array(SectionalSpan))
      
- 
+    if slicing_options['slicing_method'] == 'Custom':
+        sloads['SectionalCustomVar'] = np.array(SectionalCustomVar)
+        sloads['SectionalCustomVarOverMax'] = np.array(SectionalCustomVarOverMax)
+
     varValues = []
     varNames = []
 
@@ -1141,7 +1179,8 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
         varValues.append(sloads[key])
         
     sectionalLoads = J.createZone('SectionalLoads',Arrays=varValues,Vars=varNames) 
-
+    I.__FlowSolutionNodes__ = FlowSolutionNodesOld
+    I.__FlowSolutionCenters__ = FlowSolutionCentersOld
     return sectionalLoads
 
 
@@ -1170,10 +1209,15 @@ def computeCp(surface, distribution, slicing_options=dict(slicing_method='SpanBa
     BCDataSetFaceCenterName='BCDataSet')
 
     containersNames_n = I.getNodeFromName(surface,'containers_names')
+    fieldsNames_n = I.getNodeFromName(surface,'fields_names')
+
     for child in I.getChildren(containersNames_n):
         if 'BCDataSet' == I.getValue(child):
-            varSuffix = I.getName(child)
-    print('varSuffix=',varSuffix)
+            bcDataSetContainerTag = I.getName(child)
+
+    for child in I.getChildren(containersNames_n):
+        if 'FlowSolution#Height' == I.getValue(child):
+            heightContainerTag = I.getName(child)
 
     if slicing_options['slicing_method'] == 'SpanBased':
         if geometrical_parameters['start_point'] == None or geometrical_parameters['end_point'] == None:
@@ -1205,10 +1249,15 @@ def computeCp(surface, distribution, slicing_options=dict(slicing_method='SpanBa
             ERRMSG = 'The user needs to provide a custom_variable value when performing custom variable based sectional load computation.'
             raise ValueError(ERRMSG)
         else:
-                dmin = C.getMinValue(surface, slicing_options['custom_variable'])
-                dmax = C.getMaxValue(surface, slicing_options['custom_variable'])
-                surface = C.initVars(surface,'Span', Abscissa, [slicing_options['custom_variable']]) 
-                slicing_var = 'Span'
+
+                slicing_var = slicing_options['custom_variable']            
+              
+                for child in I.getChildren(fieldsNames_n):
+                    if  slicing_var in I.getValue(child):
+                        customVarContainerTag = I.getName(child)
+                dmin = C.getMinValue(surface, slicing_var+customVarContainerTag)
+                dmax = C.getMaxValue(surface, slicing_var+customVarContainerTag)
+
 
     BladeSlices = I.newCGNSBase('Slices', cellDim=1, physDim=3, parent=None)
     for d in distribution:
@@ -1221,20 +1270,28 @@ def computeCp(surface, distribution, slicing_options=dict(slicing_method='SpanBa
         elif slicing_options['slicing_method'] == 'AbscissaBased':
             slice = T.join(P.isoSurfMC(surface, slicing_var, d))
             if not slice:continue   
-            slice = C.initVars(slice,'nodes:-Cp', CpRot, ['Pressure'+varSuffix,'Distance2Axis'])
+            slice = C.initVars(slice,'nodes:-Cp', CpRot, ['Pressure'+bcDataSetContainerTag,'Distance2Axis'])
             slice = C.convertBAR2Struct(slice)        
             I.setName(slice, 'Iso{}_{}'.format(slicing_var,d)) 
 
         elif slicing_options['slicing_method'] == 'Custom':
             customVarValue = d*(dmax-dmin)+dmin
-            slice =  T.join(P.isoSurfMC(surface,slicing_var, value=customVarValue))
+
+            slice =  T.join(P.isoSurfMC(surface,slicing_var+customVarContainerTag, value=customVarValue))
             if not slice: continue 
-            slice = C.initVars(slice,'nodes:-Cp', CpRot, ['Pressure',CustomVariable])
+            slice = C.initVars(slice,'nodes:-Cp', CpRot, ['Pressure'+bcDataSetContainerTag, slicing_var+customVarContainerTag])
             slice = C.convertBAR2Struct(slice)
             # else:
                 # surface = C.initVars(slice,'centers:-Cp', Cp, ['centers:Pressure'])
             I.setName(slice, 'Iso{}_{}'.format(slicing_var,customVarValue))
+
+        print('slice before extract')
+        I.printTree(slice)
+        I._renameNode(slice, 'ChannelHeight'+heightContainerTag, 'ChannelHeight')
+        var2keepOnCpProfiles = ['CoordinateX', 'CoordinateY', 'CoordinateZ','-Cp','ChannelHeight',slicing_var,'Span', 'Abscissa','Distance2Axis']
+        C._extractVars(slice, var2keepOnCpProfiles)
         I._addChild(BladeSlices, slice,pos=-1)
+
     return BladeSlices
         # I.printTree(BladeSlices)
     

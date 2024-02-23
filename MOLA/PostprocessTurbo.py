@@ -431,7 +431,7 @@ def comparePerfoPlane2Plane(surfaces, var4comp_perf, stages=[]):
         I.addChild(OutletPlane, fsBudget)
 
 
-def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_axis='XY'):
+def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_axis='XY',NumberOfRadialPoints=121):
     '''
     Compute radial profiles for all iso-X surfaces
 
@@ -451,6 +451,8 @@ def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_
             For ‘linear’ configuration, streamwise and spanwise directions. 
             ‘XZ’ means: streamwise = X-axis, spanwise = Z-axis
 
+        nbband : int
+            Number of radial crowns used to compute radial profile
     '''
     RadialProfiles = I.getNodeFromName1(surfaces,'RadialProfiles')
     if not RadialProfiles:
