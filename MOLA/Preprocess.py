@@ -3782,7 +3782,7 @@ def addOversetMotion(t, OversetMotion):
 
         FamilyMotionName = 'MOTION_'+base[0]
         for z in I.getZones(base):
-            I.createUniqueChild(z,FamilyMotionName,'FamilyName_t',
+            I.createUniqueChild(z,'FamilyName','FamilyName_t',
                                     value=FamilyMotionName)
         family = I.createChild(base, FamilyMotionName, 'Family_t')
         I.createChild(family,'FamilyBC','FamilyBC_t',value='UserDefined')
