@@ -170,9 +170,8 @@ if ENTER_COUPLING:
         Cmpi.barrier()
         elsAxdt.safeInterrupt()
 
-
-
 if BODYFORCE_INITIATED:
+    CO._hackAddNullSourceTermIfXdtNaturePresent(toWithSourceTerms)
     Cmpi.barrier()
     CO.printCo('sending source terms to elsA...', proc=0)
     elsAxdt.xdt(elsAxdt.PYTHON, ('xdt-runtime-tree', toWithSourceTerms, 1) )
