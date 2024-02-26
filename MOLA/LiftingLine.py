@@ -965,6 +965,176 @@ def buildPropeller(LiftingLine, NBlades=2, InitialAzimutDirection=[0,1,0],
 
     return PropBase
 
+def getLocalFramePerpendicularToLiftingLine(line = [0., 1.],
+    RightHandRuleRotation = True, Symmetrical = False, Twist = {}, Sweep = {}, Dihedral = {}):
+    '''
+    Builds the referential of each section perpendicular to the Lifting Line.
+
+
+    .. important:: The native canonical lifting line location is set towards:
+
+        :math:`+X` spanwise
+
+        :math:`-Y` sweepwise
+
+        :math:`+Z` dihedralwise
+
+        and centered at :math:`(0,0,0)`
+
+
+    Parameters
+    ----------
+
+        Line : zone or :py:class:`float`
+            Discretisation of the Lifting Line. Starts and ends with the Lifting Line geometry.
+        
+        RightHandRuleRotation : bool
+            Determines wether the LiftingLine is taken as a rotating blade 
+            following the right-hand-rule rotation or not.
+        
+        Symmetrical : bool
+            Determines if the Lifting Line is symmetrised. A symmetrical extention is added to the
+            build Lifting Line.
+
+        Twist : :py:class:`dict`
+            Gives the distribution of twist (in degree) with the according interpolation law.
+            For example:
+            ::
+                Twist = dict(RelativeSpan = [0.2,  0.6,  1.0],
+                                    Twist = [30.,  6.0, -7.0],
+                             InterpolationLaw = 'akima')
+
+        Sweep : :py:class:`dict`
+            Gives the distribution of sweep (in degree) with the according interpolation law.
+
+        Dihedral : :py:class:`dict`
+            Gives the distribution of dihedral (in degree) with the according interpolation law.
+
+
+    Returns
+    -------
+
+        Frame : :py:class:`dict`
+            Containes the positions and vectors of the sections
+
+    '''
+    
+    Span, s ,_ = J.getDistributionFromHeterogeneousInput__(line)
+    NumberOfSections = len(Span)
+    if NumberOfSections%2 == 0:
+        raise AttributeError(J.FAIL + 'An even number of sections has been given: %i'\
+                                                                         %len(TwistAngles) + J.ENDC)
+
+    s = Span/Span[-1]
+    RelSpan = Span/Span.max()
+    #in case the user did not give any angle
+    if not Twist:
+        print(J.WARN + 'WARNING: no Twist has been prescribed. Set to zero.' + J.ENDC)
+        Twist = {'RelativeSpan': s, 'Twist': [0.]*len(s), 'InterpolationLaw': 'interp1d_linear'}
+    if not Sweep:
+        print(J.WARN + 'WARNING: no Sweep has been prescribed. Set to zero.' + J.ENDC)
+        Sweep = {'RelativeSpan': s, 'Sweep': [0.]*len(s), 'InterpolationLaw': 'interp1d_linear'}
+    if not Dihedral:
+        print(J.WARN + 'WARNING: no Dihedral has been prescribed. Set to zero.' + J.ENDC)
+        Dihedral = {'RelativeSpan': s, 'Dihedral': [0.]*len(s), 'InterpolationLaw': 'interp1d_linear'}
+
+    #translates the angles into cooridnates
+    for dico, v in zip([Sweep, Dihedral], ['Sweep', 'Dihedral']):
+        if 'RelativeSpan' in dico: xs = np.array(dico['RelativeSpan'])*np.max(Span)
+        elif 'Abscissa' in dico:   xs = np.array(dico['Abscissa'])*np.max(Span)
+        else: raise AttributeError("Attribute " + v + " (dict) must contain 'RelativeSpan' or \
+                                                                                    'Abscissa' key")
+        dxs = np.append(np.append(xs[1] - xs[0], 0.5*(xs[2:] - xs[:-2])), xs[-1] - xs[-2])
+        if not RightHandRuleRotation: dxs *= -1.
+        dl = dxs*np.tan(np.deg2rad(dico[v]))
+        l = [0]
+        for dli in dl: l.extend([l[-1] - dli])
+    
+        dico[v] = l[1:]
+
+    Interp = {}
+    #interpolates the twist and the coordinates
+    for dico, v in zip([Twist, Sweep, Dihedral], ['Twist', 'Sweep', 'Dihedral']):
+        if 'RelativeSpan' in dico:
+            Interp[v] = J.interpolate__(RelSpan, dico['RelativeSpan'], dico[v],
+                                                             dico['InterpolationLaw'], **dico)
+        elif 'Abscissa' in dico:
+            try:
+                Interp[v] = J.interpolate__(s, dico['Abscissa'], dico[v],
+                                                             dico['InterpolationLaw'], **dico)
+            except BaseException as e:
+                raise ValueError(J.FAIL + f'failed for GeomParam={v} with parameters:{dico}' + \
+                                                                                      J.ENDC) from e
+        else:
+            raise AttributeError("Attribute %s (dict) must contain 'RelativeSpan' or 'Abscissa' \
+                                                                                             key"%v)
+
+    x = Span[:]
+    y = Interp['Sweep'][:]
+    z = Interp['Dihedral'][:]
+
+    #get the vectors
+    import scipy
+    Rotate = lambda v, theta, axis: scipy.spatial.transform.Rotation.from_rotvec(\
+                                                                    np.deg2rad(theta)*axis).apply(v)
+    xyz = np.vstack([x, y, z])
+    txyz = np.hstack([ (xyz[:, 1] - xyz[:, 0])[np.newaxis].T, 
+                        0.5*(np.diff(xyz[:, :-1], axis = 1) + np.diff(xyz[:, 1:], axis = 1)),
+                       (xyz[:, -1]-xyz[:, -2])[np.newaxis].T ])
+
+    txyz /= np.linalg.norm(txyz, axis = 0)
+    SpanwiseX  = txyz[0,:]
+    SpanwiseY  = txyz[1,:]
+    SpanwiseZ  = txyz[2,:]
+    bxyz = np.cross(txyz, np.vstack((0., 0., 1.)), axisa = 0, axisb = 0, axisc = 0)
+    bxyz /= np.linalg.norm(bxyz, axis = 0)
+    ChordwiseX = bxyz[0,:]
+    ChordwiseY = bxyz[1,:]
+    ChordwiseZ = bxyz[2,:]
+    for i in range(NumberOfSections):
+      Chordwise = Rotate(np.array([ChordwiseX[i], ChordwiseY[i], ChordwiseZ[i]]), Interp['Twist'][i],
+                                               np.array([SpanwiseX[i], SpanwiseY[i], SpanwiseZ[i]]))
+      ChordwiseX[i] = Chordwise[0]
+      ChordwiseY[i] = Chordwise[1]
+      ChordwiseZ[i] = Chordwise[2]
+
+    Thickwise = np.cross(np.vstack([ChordwiseX, ChordwiseY, ChordwiseZ]), txyz, axisa= 0 ,
+                                                                               axisb = 0, axisc = 0)
+    if not RightHandRuleRotation: Thickwise *= -1.
+    ThickwiseX = Thickwise[0,:] 
+    ThickwiseY = Thickwise[1,:] 
+    ThickwiseZ = Thickwise[2,:]
+
+    #get the symmetrical part if asked
+    if Symmetrical:
+        sym = -Span[::-1]
+        sym[-1] = 0.5*(sym[-1] + Span[0])
+        x = np.append(sym, Span[1:]) - sym[0]
+        y = np.append(y[::-1], y[1:])
+        z = np.append(z[::-1], z[1:])
+        sym = -ChordwiseX[::-1]
+        sym[-1] = 0.5*(sym[-1] + ChordwiseX[0])
+        ChordwiseX = np.append(sym, ChordwiseX[1:])
+        ChordwiseY = np.append(ChordwiseY[::-1], ChordwiseY[1:])
+        ChordwiseZ = np.append(ChordwiseZ[::-1], ChordwiseZ[1:])
+        sym = -ThickwiseX[::-1]
+        sym[-1] = 0.5*(sym[-1] + ThickwiseX[0])
+        ThickwiseX = np.append(sym, ThickwiseX[1:])
+        ThickwiseY = np.append(ThickwiseY[::-1], ThickwiseY[1:])
+        ThickwiseZ = np.append(ThickwiseZ[::-1], ThickwiseZ[1:])
+        SpanwiseX  = np.append(SpanwiseX[::-1],  SpanwiseX[1:])
+        sym = -SpanwiseY[::-1]
+        sym[-1] = 0.5*(sym[-1] + SpanwiseY[0])
+        SpanwiseY = np.append(sym, SpanwiseY[1:])
+        SpanwiseZ  = np.append(SpanwiseZ[::-1],  SpanwiseZ[1:])
+        s = (x - np.min(x))/(np.max(x) - np.min(x))
+
+    def cv(array) : return np.array(array, dtype = np.float64, order = 'F')
+
+    return {'x': cv(x), 'y': cv(y), 'z': cv(z), 's': cv(s),
+            'SpanwiseX':  cv(SpanwiseX),  'SpanwiseY':  cv(SpanwiseY),  'SpanwiseZ':  cv(SpanwiseZ),
+           'ChordwiseX': cv(ChordwiseX), 'ChordwiseY': cv(ChordwiseY), 'ChordwiseZ': cv(ChordwiseZ),
+           'ThickwiseX': cv(ThickwiseX), 'ThickwiseY': cv(ThickwiseY), 'ThickwiseZ': cv(ThickwiseZ)}
 
 def buildLiftingLine(Span, RightHandRuleRotation = True, PitchRelativeCenter = [0,0,0],
     PitchAxis = [1,0,0], RotationCenter = [0,0,0], SweepCorrection = True,
@@ -2587,7 +2757,8 @@ def makeBladeSurfaceFromLiftingLineAndAirfoilsPolars(LiftingLine, AirfoilsPolars
     LiftingLine = remapLiftingLine(LiftingLine, RadialRelativeDiscretization)
     blade = postLiftingLine2Surface(LiftingLine, AirfoilsPolars,
                                        ChordRelRef = airfoil_stacking_point_relative2chord,
-                                       FoilDistribution=FoilDistribution)
+                                       FoilDistribution=FoilDistribution,
+                                       ImposeWingCanonicalPosition=True)
     blade[0] = 'blade'
 
     return blade
@@ -3266,38 +3437,72 @@ def assembleAndProjectVelocities(t):
 
     The new or updated fields are the following :
 
+    * ``VelocityRelativeX`` ``VelocityRelativeY`` ``VelocityRelativeZ``
+        Three components of the VelocityInduced + VelocityFreestream + VelocityPerturbation - 
+            VelocityKinematic, i.e. of the Relative Velocity.
+
     * ``VelocityX`` ``VelocityY`` ``VelocityZ``
-        Three components of the VelocityInduced + VelocityFreestream
+        Three components of the VelocityInduced + VelocityFreestream + VelocityPerturbation.
+
+    * ``VelocityInducedX`` ``VelocityInducedY`` ``VelocityInducedZ``
+        Three components of the Velocity Induced by the Flow.
+
+    * ``VelocityPerturbationX`` ``VelocityPerturbationY`` ``VelocityPerturbationZ``
+        Three components of the Perturbation Velocity given by a Perturbation Field.
+
+    * ``VelocityKinematicX`` ``VelocityKinematicY`` ``VelocityKinematicZ``
+        Three components of the Kinematic Velocity due to the kinematic movement of the Lifting 
+        Lines.
 
     * ``VelocityAxial``
-        Relative velocity in -RotationAxis direction
+        Relative velocity in -RotationAxis direction.
 
     * ``VelocityTangential``
-        Relative velocity in the rotation plane direction
+        Relative velocity in the rotation plane direction.
 
-    * ``VelocityNormal2D``
-        This is the normal-wise (in ``nx`` ``ny`` ``nz`` direction)
-        of the 2D velocity
+    * ``VelocityChordwise``
+        This is the projection of the VelocityRelative upon the Chordwise direction.
 
-    * ``VelocityTangential2D``
-        This is the tangential (in ``bx`` ``by`` ``bz`` direction)
-        of the 2D velocity
-
-    * ``phiRad``
-        Angle of the flow with respect to rotation plane as
-        ``np.arctan2( VelocityNormal2D, VelocityTangential2D )``
-
-    * ``AoA``
-        Local angle-of-attack of the blade section
+    * ``VelocityThickwise``
+        This is the projection of the VelocityRelative upon the Thickwise direction.
 
     * ``VelocityMagnitudeLocal``
-        Magnitude of the local velocity neglecting the radial contribution
+        Magnitude of the local velocity neglecting the radial contribution.
+
+    * ``Chord``
+        Chord of the local sections.
+
+    * ``ChordVirtualWithSweep``
+        Chord of the local sections with the sweep angle correction as
+        ``Chord * np.cos(SweepAngleDeg)``
+
+    * ``AoA``
+        Local angle-of-attack of the blade section in degree.
+        ``np.rad2deg(np.arctan2( VelocityThickwise, VelocityChordwise ))``
+
+    * ``phiRad``
+        Local angle-of-attack of the blade section with respect to rotation plane.
 
     * ``Mach``
-        Mach number neglecting the radial contribution
+        Mach number neglecting the radial contribution.
 
     * ``Reynolds``
-        Reynolds number neglecting the radial contribution
+        Reynolds number neglecting the radial contribution.
+
+    * ``ChordwiseX`` ``ChordwiseY`` ``ChordwiseZ``
+        Three components of the local Chord direction of each section.
+
+    * ``ThickwiseX`` ``ThickwiseY`` ``ThickwiseZ``
+        Three components of the local direction normal to the chord of each section.
+
+    * ``TangentialwiseX`` ``TangentialwiseY`` ``TangentialwiseZ``
+        Three components of the local direction tangential to rotation trajectory.
+
+    * ``SweepAngleDeg``
+        Local sweep angle (in degree) of the blade section relative to the Lifting Line.
+
+    * ``DihedralAngleDeg``
+        Local Dihedral angle (in degree) of the blade section relative to the Lifting Line.
 
     .. attention:: please note that this function requires the LiftingLine to
         have the fields: ``VelocityKinematicX``, ``VelocityKinematicY``, ``VelocityKinematicZ``,
@@ -3313,27 +3518,28 @@ def assembleAndProjectVelocities(t):
             .. note:: Lifting-lines contained in **t** are modified.
 
     '''
-    RequiredFieldNames = ['VelocityKinematicX',
-                          'VelocityKinematicY',
-                          'VelocityKinematicZ',
+    RequiredFieldNames = [
+                          'VelocityRelativeX',
+                          'VelocityRelativeY',
+                          'VelocityRelativeZ',
+                          'VelocityX',
+                          'VelocityY',
+                          'VelocityZ',
                           'VelocityInducedX',
                           'VelocityInducedY',
                           'VelocityInducedZ',
                           'VelocityPerturbationX',
                           'VelocityPerturbationY',
                           'VelocityPerturbationZ',
-                          'VelocityX',
-                          'VelocityY',
-                          'VelocityZ',
-                          'Velocity2DX',
-                          'Velocity2DY',
-                          'Velocity2DZ',
+                          'VelocityKinematicX',
+                          'VelocityKinematicY',
+                          'VelocityKinematicZ',
                           'VelocityAxial',
                           'VelocityTangential',
-                          'VelocityMagnitudeLocal',
                           'VelocityChordwise',
                           'VelocityThickwise',
-                          'Chord',
+                          'VelocityMagnitudeLocal',
+                          'Chord', 'ChordVirtualWithSweep',
                           'AoA','phiRad','Mach','Reynolds',
                           'ChordwiseX','ChordwiseY','ChordwiseZ',
                           'ThickwiseX','ThickwiseY','ThickwiseZ',
@@ -3366,45 +3572,46 @@ def assembleAndProjectVelocities(t):
             else:
                 v[fieldname] = J.invokeFields(LiftingLine,[fieldname])[0]
 
-        VelocityKinematic = np.vstack([v['VelocityKinematic' + i] for i in 'XYZ'])
         VelocityInduced = np.vstack([v['VelocityInduced' + i] for i in 'XYZ'])
         VelocityPerturbation = np.vstack([v['VelocityPerturbation' + i] for i in 'XYZ'])
+        VelocityKinematic = np.vstack([v['VelocityKinematic' + i] for i in 'XYZ'])
+        ChordwiseDirection = np.vstack([v['Chordwise' + i] for i in 'XYZ'])
+        ThickwiseDirection = np.vstack([v['Thickwise' + i] for i in 'XYZ'])
         TangentialDirection = np.vstack([v['Tangential' + i] for i in 'XYZ'])
 
-        Velocity = VelocityInduced.T + VelocityPerturbation.T + VelocityFreestream
-        VelocityRelative = (Velocity - VelocityKinematic.T).T
+        Velocity          = (VelocityInduced + VelocityPerturbation).T + VelocityFreestream
         v['VelocityX'][:] = Velocity[:, 0]
         v['VelocityY'][:] = Velocity[:, 1]
         v['VelocityZ'][:] = Velocity[:, 2]
-        v['VelocityAxial'][:] = (VelocityRelative.T.dot(-RotationAxis)).T
-        v['VelocityTangential'][:] = np.diag(VelocityRelative.T.dot(TangentialDirection))
 
-        ChordwiseDirection = np.vstack([v['Chordwise' + i] for i in 'XYZ'])
-        ThickwiseDirection = np.vstack([v['Thickwise' + i] for i in 'XYZ'])
-        Vchord = np.diag(VelocityRelative.T.dot(ChordwiseDirection))
-        Vthick = np.diag(VelocityRelative.T.dot(ThickwiseDirection))
+        VelocityRelative          = Velocity - VelocityKinematic.T
+        v['VelocityRelativeX'][:] = VelocityRelative[:, 0]
+        v['VelocityRelativeY'][:] = VelocityRelative[:, 1]
+        v['VelocityRelativeZ'][:] = VelocityRelative[:, 2]
+
+        v['VelocityAxial'][:]      = VelocityRelative.dot(-RotationAxis)
+        v['VelocityTangential'][:] = np.diag(VelocityRelative.dot(TangentialDirection))
+
+        Vchord = np.diag(VelocityRelative.dot(ChordwiseDirection))
+        Vthick = np.diag(VelocityRelative.dot(ThickwiseDirection))
 
         if SweepCorrection:    Vchord = Vchord*np.cos(np.deg2rad(v['SweepAngleDeg']))
         if DihedralCorrection: Vthick = Vthick*np.cos(np.deg2rad(v['DihedralAngleDeg']))
 
-        # NOTE the absence of radial velocity contribution to Velocity Magnitude, Mach and Reynolds
         v['VelocityChordwise'][:] = Vchord
         v['VelocityThickwise'][:] = Vthick
-        V2D = np.vstack((Vchord * ChordwiseDirection[0, :] + Vthick * ThickwiseDirection[0, :],
-                         Vchord * ChordwiseDirection[1, :] + Vthick * ThickwiseDirection[1, :],
-                         Vchord * ChordwiseDirection[2, :] + Vthick * ThickwiseDirection[2, :]))
-        v['Velocity2DX'][:] = V2D[0, :] #Used for VPM
-        v['Velocity2DY'][:] = V2D[1, :]
-        v['Velocity2DZ'][:] = V2D[2, :]
         # Updating the Angle of Attack considering the new velocity components.
         v['AoA'][:] = np.rad2deg(np.arctan2(Vthick, Vchord))
 
+        # NOTE the absence of radial velocity contribution to Velocity Magnitude, Mach and Reynolds
         v['VelocityMagnitudeLocal'][:] = W = np.linalg.norm(np.vstack([Vchord, Vthick]), axis = 0)
         v['Mach'][:] = W/SoundSpeed
-        v['Reynolds'][:] = Density[0]*W*v['Chord']/Mu
+        if SweepCorrection: v['Reynolds'][:] = Density[0]/Mu*W*v['ChordVirtualWithSweep']
+        else:               v['Reynolds'][:] = Density[0]/Mu*W*v['Chord']
 
-        V2Da = (V2D.T.dot(-RotationAxis)).T
-        V2Dt = dir*np.diag(V2D.T.dot(TangentialDirection))
+        V2D = (Vchord*ChordwiseDirection + Vthick*ThickwiseDirection).T
+        V2Da = V2D.dot(-RotationAxis)
+        V2Dt = dir*np.diag(V2D.dot(TangentialDirection))
         v['phiRad'][:] = np.arctan2(V2Da, V2Dt) #Used for Tip-Loss corrections
 
 def moveLiftingLines(t, TimeStep):
@@ -4746,7 +4953,7 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0, 0.5, 1.],
     '''
 
     FieldsNames2Extract = ['Coordinate' + v for v in 'XYZ'] + \
-                                        ['Velocity2D' + v for v in 'XYZ'] + ['Gamma', 'VelocityMagnitudeLocal']
+                                                 ['VelocityRelative' + v for v in 'XYZ'] + ['Gamma']
     AllSourceZones = []
 
     LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
