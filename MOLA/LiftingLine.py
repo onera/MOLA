@@ -2757,8 +2757,7 @@ def makeBladeSurfaceFromLiftingLineAndAirfoilsPolars(LiftingLine, AirfoilsPolars
     LiftingLine = remapLiftingLine(LiftingLine, RadialRelativeDiscretization)
     blade = postLiftingLine2Surface(LiftingLine, AirfoilsPolars,
                                        ChordRelRef = airfoil_stacking_point_relative2chord,
-                                       FoilDistribution=FoilDistribution,
-                                       ImposeWingCanonicalPosition=True)
+                                       FoilDistribution=FoilDistribution)
     blade[0] = 'blade'
 
     return blade
