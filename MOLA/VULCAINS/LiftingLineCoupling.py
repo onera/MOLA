@@ -163,6 +163,74 @@ def setMinNbShedParticlesPerLiftingLine(LiftingLines = [], Parameters = {},
     Parameters['MinNbShedParticlesPerLiftingLine'] = int(round(2. + NumberParticlesShedAtTip*L/\
                                                                    Urel/Parameters['TimeStep']))
 
+def rotateLiftingLineSections(LiftingLines):
+    Rotation = lambda v, theta, axis: \
+                               scipy.spatial.transform.Rotation.from_rotvec(theta*axis).apply(v)
+    for LiftingLine in I.getZones(LiftingLines):
+        Corrections3D = I.getNodeFromName(LiftingLine, 'Corrections3D')
+        try: SweepCorr = I.getValue(I.getNodeFromName(Corrections3D, 'Sweep')) == 0
+        except: SweepCorr = 1
+        try: DihedralCorr = I.getValue(I.getNodeFromName(Corrections3D, 'Dihedral')) == 0
+        except: DihedralCorr = 1
+        x, y, z = J.getxyz(LiftingLine)
+        xyz = np.vstack((x,y,z))
+        tanX, tanY, tanZ, chordX, chordY, chordZ, spanX, spanY, spanZ, thickX, thickY, thickZ, \
+            PitchAxisX, PitchAxisY, PitchAxisZ, sweep, dihedral, chord, chordsweep = J.getVars(\
+            LiftingLine, ['Tangential' + v for v in 'XYZ'] + ['Chordwise' + v for v in 'XYZ'] +\
+                          ['Spanwise' + v for v in 'XYZ'] + ['Thickwise' + v for v in 'XYZ'] + \
+                                          ['PitchAxis' + v for v in 'XYZ'] + ['SweepAngleDeg', \
+                                          'DihedralAngleDeg', 'Chord', 'ChordVirtualWithSweep'])
+        if SweepCorr: chordsweep[:] = chord
+        RotationAxis = I.getValue(I.getNodeFromName(LiftingLine, 'RotationAxis'))
+        RotationAxis /= np.linalg.norm(RotationAxis, axis = 0)
+
+        PitchAxis = np.array([np.mean(PitchAxisX), np.mean(PitchAxisY), np.mean(PitchAxisZ)])
+        PitchAxis /= np.linalg.norm(PitchAxis, axis = 0)
+
+        spanxyz = np.hstack(( (xyz[:, 1] - xyz[:, 0])[np.newaxis].T, 
+                            0.5*(np.diff(xyz[:, :-1], axis = 1) + np.diff(xyz[:, 1:], axis = 1)),
+                           (xyz[:, -1]-xyz[:, -2])[np.newaxis].T))
+        spanxyz /= np.linalg.norm(spanxyz, axis = 0)
+        spanX[:] = spanxyz[0,:]
+        spanY[:] = spanxyz[1,:]
+        spanZ[:] = spanxyz[2,:]
+        tanX[:] = spanxyz[1, :]*RotationAxis[2] - spanxyz[2, :]*RotationAxis[1]
+        tanY[:] = spanxyz[2, :]*RotationAxis[0] - spanxyz[0, :]*RotationAxis[2]
+        tanZ[:] = spanxyz[0, :]*RotationAxis[1] - spanxyz[1, :]*RotationAxis[0]
+        for i in range(len(chordX)):
+            if SweepCorr:
+                chord = Rotation(np.array([chordX[i], chordY[i], chordZ[i]]), sweep[i]*np.pi/180.,
+                                                                                      -RotationAxis)
+                norm = np.linalg.norm(chord, axis = 0)
+                chordX[i] = chord[0]/norm
+                chordY[i] = chord[1]/norm
+                chordZ[i] = chord[2]/norm
+                thick = Rotation(np.array([thickX[i], thickY[i], thickZ[i]]), sweep[i]*np.pi/180.,
+                                                                                      -RotationAxis)
+                norm = np.linalg.norm(thick, axis = 0)
+                thickX[i] = thick[0]/norm
+                thickY[i] = thick[1]/norm
+                thickZ[i] = thick[2]/norm
+
+            if DihedralCorr:
+                RollAxis = np.cross(np.array([PitchAxisX[i], PitchAxisY[i], PitchAxisZ[i]]),
+                                                                                       RotationAxis)
+                chord = Rotation(np.array([chordX[i], chordY[i], chordZ[i]]),
+                                                                   dihedral[i]*np.pi/180., RollAxis)
+                norm = np.linalg.norm(chord, axis = 0)
+                chordX[i] = chord[0]/norm
+                chordY[i] = chord[1]/norm
+                chordZ[i] = chord[2]/norm
+                thick = Rotation(np.array([thickX[i], thickY[i], thickZ[i]]),
+                                                                   dihedral[i]*np.pi/180., RollAxis)
+                norm = np.linalg.norm(thick, axis = 0)
+                thickX[i] = thick[0]/norm
+                thickY[i] = thick[1]/norm
+                thickZ[i] = thick[2]/norm
+
+        if DihedralCorr: dihedral[:] = 0.
+        if SweepCorr: sweep[:] = 0.
+
 def renameLiftingLineTree(LiftingLineTree = []):
     '''
     Checks the and updates the types of the nodes of the Lifting Line(s).
@@ -383,7 +451,7 @@ def updateLiftingLines(LiftingLineTree = [], VPMParameters = {}, LiftingLinePara
     '''
     if not LiftingLineTree: return
 
-    if 'TimeStep' in VPMParameters: dt = np.copy(VPMParameters['TimeStep'])
+    if 'TimeStep' in VPMParameters: dt = VPMParameters['TimeStep'][0]
     else: dt = np.array([np.inf], order = 'F', dtype = np.float64)
 
     NLLmin = LiftingLineParameters['MinNbShedParticlesPerLiftingLine'][0]
@@ -619,9 +687,9 @@ def initialiseParticlesOnLitingLine(t = [], LiftingLines = [], PolarsInterpolato
                                                           'CirculationError'        : 0},
                                             UnsteadyDataIndependentAbscissa = 'IterationNumber')
 
-def setShedParticleStrength(Dir, VeciX, VeciY, VeciZ, SheddingDistance, ax, ay, az, Sources,
-    SourcesM1, NumberParticlesShedPerStation, NumberOfLiftingLineSources, NumberOfSources,
-    TimeShed, frozenLiftingLine):
+def setShedParticleStrength(Dir, VeciX, VeciY, VeciZ, Ramp, SheddingDistance, FilamentLength, ax,
+    ay, az, Sources, SourcesM1, NumberParticlesShedPerStation, NumberOfLiftingLineSources,
+    NumberOfSources, TimeShed, frozenLiftingLine):
     '''
     Updates the strength of the bound, the first row and the shed particles by the Lifting
     Line(s).
@@ -639,6 +707,12 @@ def setShedParticleStrength(Dir, VeciX, VeciY, VeciZ, SheddingDistance, ax, ay, 
 
         VeciZ : :py:class:`list` or numpy.ndarray of :py:class:`float`
             Tangential vector to the Lifting Line(s) component along the z axis.
+
+        Ramp : :py:class:`float`
+            Initiale ramp for the particle strength.
+
+        FilamentLength : :py:class:`list` or numpy.ndarray of :py:class:`float`
+            Distance between the source stations on the Lifting Line(s).
 
         SheddingDistance : :py:class:`list` or numpy.ndarray of :py:class:`float`
             Distance between the source stations on the Lifting Line(s) and the first row of
@@ -682,10 +756,9 @@ def setShedParticleStrength(Dir, VeciX, VeciY, VeciZ, SheddingDistance, ax, ay, 
         SourcesBaseM1[2] = I.getZones(SourcesM1)
         flag = np.array([1]*len(Dir), order = 'F', dtype = np.int32)
         for i in frozenLiftingLine: flag[i] = 0
-        return V.shed_particles_from_lifting_lines(Dir, VeciX, VeciY, VeciZ,
-                                       SheddingDistance, ax, ay, az, SourcesBase, SourcesBaseM1,
-                                      NumberParticlesShedPerStation, NumberOfLiftingLineSources,
-                                                                NumberOfSources, TimeShed, flag)
+        return V.shed_particles_from_lifting_lines(Dir, VeciX, VeciY, VeciZ, Ramp, SheddingDistance,
+              FilamentLength, ax, ay, az, SourcesBase, SourcesBaseM1, NumberParticlesShedPerStation,
+                                        NumberOfLiftingLineSources, NumberOfSources, TimeShed, flag)
     else: return None
 
 def getLiftingLineParameters(t = []):
@@ -749,16 +822,16 @@ def updateLiftingLinesCirculation(LiftingLines):
         dir            = 1 if Kinematics['RightHandRuleRotation'] else -1
         RPM            = Kinematics['RPM']
 
-        U, ChordCorr, Chord, Cl, Gamma = J.getVars(LiftingLine, ['VelocityMagnitudeLocal',
-                                                   'ChordVirtualWithSweep', 'Chord', 'Cl', 'Gamma'])
-
+        U, ChordCorr, Chord, Cl, Gamma, DihedralCorr = J.getVars(LiftingLine,
+                        ['VelocityMagnitudeLocal', 'ChordVirtualWithSweep', 'Chord', 'Cl', 'Gamma',
+                                                                                'DihedralAngleDeg'])
         Flux = 0.5*U*Cl
         if SweepCorrection: Flux *= ChordCorr
         else:               Flux *= Chord
+        if DihedralCorrection: Flux *= np.cos(np.deg2rad(DihedralCorr))
         Gamma[:] = Flux
 
-
-def projectLiftingLinesVelocities(LiftingLines):
+def updateLiftingLinesVelocitiesAndAoA(LiftingLines):
     for LiftingLine in I.getZones(LiftingLines):
         Correc_n = J.get(LiftingLine, '.Component#Info')['Corrections3D']
         Conditions = J.get(LiftingLine, '.Conditions')
@@ -768,36 +841,41 @@ def projectLiftingLinesVelocities(LiftingLines):
         Rho = Conditions['Density']
         U0  = Conditions['VelocityFreestream']
 
-        Ux, Uy, Uz, Uix, Uiy, Uiz, Upx, Upy, Upz, Ukx, Uky, Ukz, U2Dx, U2Dy, U2Dz, \
-        chordX, chordY, chordZ, thickX, thickY, thickZ, U, Mach, Reynolds, AoA, Chord, SweepCorr, \
-        DihedralCorr = J.getVars(LiftingLine, VPM.vectorise(['Velocity', 'VelocityInduced', \
-            'VelocityPerturbation', 'VelocityKinematic', 'Velocity2D', 'Chordwise', 'Thickwise']) +\
-            ['VelocityMagnitudeLocal', 'Mach', 'Reynolds', 'AoA', 'Chord', 'SweepAngleDeg', \
-                                                                            'DihedralAngleDeg'])
+        Urelx, Urely, Urelz, Uix, Uiy, Uiz, Upx, Upy, Upz, Ukx, Uky, Ukz, chordX, chordY, chordZ, \
+        thickX, thickY, thickZ, Mach, Reynolds, U, AoA, Chord, ChordSweep, SweepCorr, DihedralCorr \
+                    = J.getVars(LiftingLine, VPM.vectorise(['VelocityRelative', 'VelocityInduced', \
+                           'VelocityPerturbation', 'VelocityKinematic', 'Chordwise', 'Thickwise']) \
+                                  + ['Mach', 'Reynolds', 'VelocityMagnitudeLocal', 'AoA', 'Chord', \
+                                      'ChordVirtualWithSweep', 'SweepAngleDeg', 'DihedralAngleDeg'])
 
-        Ux[:] = Uix + Upx + U0[0]
-        Uy[:] = Uiy + Upy + U0[1]
-        Uz[:] = Uiz + Upz + U0[2]
-        Urelx = Ux - Ukx
-        Urely = Uy - Uky
-        Urelz = Uz - Ukz
-
+        Urelx[:] = Uix + Upx + U0[0] - Ukx
+        Urely[:] = Uiy + Upy + U0[1] - Uky
+        Urelz[:] = Uiz + Upz + U0[2] - Ukz
         Uchord = Urelx*chordX + Urely*chordY + Urelz*chordZ
         Uthick = Urelx*thickX + Urely*thickY + Urelz*thickZ
 
         if SweepCorrection:    Uchord *= np.cos(np.deg2rad(SweepCorr))
         if DihedralCorrection: Uthick *= np.cos(np.deg2rad(DihedralCorr))
-
-        U2Dx[:] = Uchord*chordX + Uthick*thickX
-        U2Dy[:] = Uchord*chordY + Uthick*thickY
-        U2Dz[:] = Uchord*chordZ + Uthick*thickZ
         # Updating the Angle of Attack considering the new velocity components.
-        AoA[:] = np.rad2deg(np.arctan2(Uthick,Uchord))
-
-        U[:] = np.linalg.norm(np.vstack([Uchord, Uthick]), axis = 0)
+        AoA[:] = np.rad2deg(np.arctan2(Uthick, Uchord))
+        U[:] = np.linalg.norm(np.vstack([Uthick, Uchord]), axis = 0)
         Mach[:] = U/np.sqrt(1.4*287.058*T0)
         Mu = 1.711e-5*np.sqrt(T0/273.)*(1. + 110.4/273.)/(1. + 110.4/T0)
-        Reynolds[:] = Conditions['Density']*U*Chord/Mu
+        if SweepCorrection: Reynolds[:] = Rho*U*Chord/Mu    
+        else:               Reynolds[:] = Rho*U*ChordSweep/Mu
+
+def updateLiftingLinesVelocities(LiftingLines):
+    for LiftingLine in I.getZones(LiftingLines):
+        Conditions = J.get(LiftingLine, '.Conditions')
+        U0  = Conditions['VelocityFreestream']
+
+        Urelx, Urely, Urelz, Uix, Uiy, Uiz, Upx, Upy, Upz, Ukx, Uky, Ukz, U = J.getVars(\
+                                LiftingLine, VPM.vectorise(['VelocityRelative', 'VelocityInduced', \
+                         'VelocityPerturbation', 'VelocityKinematic']) + ['VelocityMagnitudeLocal'])
+
+        Urelx[:] = Uix + Upx + U0[0] - Ukx
+        Urely[:] = Uiy + Upy + U0[1] - Uky
+        Urelz[:] = Uiz + Upz + U0[2] - Ukz
 
 def moveAndUpdateLiftingLines(t = [], LiftingLines = [], dt = 0.,
     PerturbationFieldCapsule = []):
@@ -823,7 +901,7 @@ def moveAndUpdateLiftingLines(t = [], LiftingLines = [], dt = 0.,
     LL.moveLiftingLines(LiftingLines, dt)
     VPM.extractperturbationField(t = t, Targets = LiftingLines,
                                             PerturbationFieldCapsule = PerturbationFieldCapsule)
-    projectLiftingLinesVelocities(LiftingLines)
+    updateLiftingLinesVelocities(LiftingLines)
 
 def initialiseShedParticles(t = [], LiftingLines = [], Sources = [], Ramp = 1.,
     SmoothingRatio = 2., NumberOfLLSources = 0., NumberOfSources = 0., it = []):
@@ -868,7 +946,7 @@ def initialiseShedParticles(t = [], LiftingLines = [], Sources = [], Ramp = 1.,
                                                np.array([px[pos], py[pos],  pz[pos]]), axis = 0)
             pos += 1
 
-        if dy/(len(sx) - 2) < h*0.95: frozenLiftingLines += [index]#on average there is not enough space to shed particles
+        if dy/(len(sx) - 2) < h*0.85: frozenLiftingLines += [index]#on average there is not enough space to shed particles
 
         index += 1
 
@@ -931,7 +1009,7 @@ def initialiseShedParticles(t = [], LiftingLines = [], Sources = [], Ramp = 1.,
 
     ParticlesShedPerStation = []
     VeciX, VeciY, VeciZ, = [], [], []
-    SheddingDistance = []
+    SheddingDistance, FilamentLength = [], []
     index = 0
     pos = NumberOfSources
     for Source, LiftingLine in zip(Sources, LiftingLines):#remaining particles shed in the wake
@@ -941,11 +1019,13 @@ def initialiseShedParticles(t = [], LiftingLines = [], Sources = [], Ramp = 1.,
             for i in range(1, len(sx) - 1):
                 xm = np.array([sx[i], sy[i], sz[i]])
                 vecj = np.array([px[pos], py[pos], pz[pos]]) - xm
-                dy = np.linalg.norm(vecj, axis = 0)
                 VeciX += [0.5*(sx[i + 1] - sx[i - 1])]
                 VeciY += [0.5*(sy[i + 1] - sy[i - 1])]
                 VeciZ += [0.5*(sz[i + 1] - sz[i - 1])]
+                dy = np.linalg.norm(vecj, axis = 0)
+                dx = np.linalg.norm([VeciX[-1], VeciY[-1], VeciZ[-1]], axis = 0)
                 SheddingDistance += [dy]
+                FilamentLength += [dx]
                 Nshed = max(int(round(dy/h - 0.95)), 0)
                 for j in range(Nshed):
                     NewX += [xm[0] + (j + 1)/(Nshed + 1)*vecj[0]]
@@ -955,7 +1035,7 @@ def initialiseShedParticles(t = [], LiftingLines = [], Sources = [], Ramp = 1.,
                 NewAX += [0.]*Nshed
                 NewAY += [0.]*Nshed
                 NewAZ += [0.]*Nshed
-                NewS += [SmoothingRatio*np.linalg.norm([VeciX[-1], VeciY[-1], VeciZ[-1]], axis = 0)]*Nshed
+                NewS += [SmoothingRatio*dx]*Nshed
                 NewNu += [nup[pos]]*Nshed
 
                 ParticlesShedPerStation += [Nshed]
@@ -966,13 +1046,13 @@ def initialiseShedParticles(t = [], LiftingLines = [], Sources = [], Ramp = 1.,
         index += 1
 
     ParticlesShedPerStation = np.array(ParticlesShedPerStation, dtype=np.int32, order = 'F')
-    Ramp = Ramp/(ParticlesShedPerStation + 1)
     Dir = np.array(Dir, dtype = np.int32, order = 'F')
     frozenLiftingLines = np.array(frozenLiftingLines, dtype = np.int32, order = 'F')
-    VeciX = np.array(VeciX, dtype = np.float64, order = 'F')*Ramp
-    VeciY = np.array(VeciY, dtype = np.float64, order = 'F')*Ramp
-    VeciZ = np.array(VeciZ, dtype = np.float64, order = 'F')*Ramp
-    SheddingDistance = np.array(SheddingDistance, dtype = np.float64, order = 'F')*Ramp + 1e-12
+    SheddingDistance = np.array(SheddingDistance, dtype = np.float64, order = 'F')
+    FilamentLength = np.array(FilamentLength, dtype = np.float64, order = 'F')
+    VeciX = np.array(VeciX, dtype = np.float64, order = 'F')/FilamentLength
+    VeciY = np.array(VeciY, dtype = np.float64, order = 'F')/FilamentLength
+    VeciZ = np.array(VeciZ, dtype = np.float64, order = 'F')/FilamentLength
     VPM.delete(Particles, deleteFlag)
     VPM.addParticlesToTree(Particles, NewX = NewX[:NumberOfLLSources],
         NewY = NewY[:NumberOfLLSources], NewZ = NewZ[:NumberOfLLSources],
@@ -990,7 +1070,7 @@ def initialiseShedParticles(t = [], LiftingLines = [], Sources = [], Ramp = 1.,
     nup[NumberOfSources:NumberOfSources + len(NewNu) - NumberOfLLSources] = NewNu[NumberOfLLSources:]
 
     return frozenLiftingLines, ParticlesShedPerStation, Dir, VeciX, VeciY, VeciZ, \
-                                                 SheddingDistance, len(NewX[NumberOfLLSources:])
+                                     SheddingDistance, FilamentLength, len(NewX[NumberOfLLSources:])
 
 def ShedVorticitySourcesFromLiftingLines(t = [], PolarsInterpolators = {},
     IterationInfo = {}, PerturbationFieldCapsule = []):
@@ -1022,12 +1102,11 @@ def ShedVorticitySourcesFromLiftingLines(t = [], PolarsInterpolators = {},
 
     Particles = VPM.pickParticlesZone(t)
     Np0 = Particles[1][0][0]
-    SmoothingRatio, dt, time, it, Ramp, \
-    KinematicViscosity, EddyViscosityConstant, NumberOfLLSources, NumberOfBEMSources, \
-    NumberOfCFDSources = VPM.getParameters(t, ['SmoothingRatio', 'TimeStep', 'Time', \
-                 'CurrentIteration', 'StrengthRampAtbeginning', 'KinematicViscosity', \
-                 'EddyViscosityConstant', 'NumberOfLiftingLineSources', 'NumberOfBEMSources', \
-                 'NumberOfCFDSources'])
+    SmoothingRatio, dt, time, it, Ramp, KinematicViscosity, EddyViscosityConstant, \
+    NumberOfLLSources, NumberOfBEMSources, NumberOfCFDSources = VPM.getParameters(t, \
+             ['SmoothingRatio', 'TimeStep', 'Time', 'CurrentIteration', 'StrengthRampAtbeginning', \
+                      'KinematicViscosity', 'EddyViscosityConstant', 'NumberOfLiftingLineSources', \
+                                                        'NumberOfBEMSources', 'NumberOfCFDSources'])
     if not NumberOfBEMSources: NumberOfBEMSources = [0]
     if not NumberOfCFDSources: NumberOfCFDSources = [0]
     NumberOfSources = NumberOfLLSources[0] + NumberOfCFDSources[0] + NumberOfBEMSources[0]
@@ -1036,9 +1115,9 @@ def ShedVorticitySourcesFromLiftingLines(t = [], PolarsInterpolators = {},
     moveAndUpdateLiftingLines(t, LiftingLines, dt[0], PerturbationFieldCapsule)
 
     ParticleDistribution = [I.getNodeFromName(LiftingLine, 'ParticleDistribution')[1] for \
-                                                                    LiftingLine in LiftingLines]
+                                                                        LiftingLine in LiftingLines]
     Sources = LL.buildVortexParticleSourcesOnLiftingLine(LiftingLines, AbscissaSegments = \
-                                                   ParticleDistribution, IntegralLaw = 'linear')
+                                                       ParticleDistribution, IntegralLaw = 'linear')
     TimeShed, GammaThreshold, GammaRelax, MaxIte = [], [], [], 0
     for LiftingLine in LiftingLines:
         LLParameters = J.get(LiftingLine, '.VPM#Parameters')
@@ -1053,8 +1132,8 @@ def ShedVorticitySourcesFromLiftingLines(t = [], PolarsInterpolators = {},
 
 
     frozenLiftingLines, ParticlesShedPerStation, Dir, VeciX, VeciY, VeciZ, SheddingDistance, \
-              Nshed = initialiseShedParticles(t, LiftingLines, Sources, Ramp, SmoothingRatio[0],
-                                                             NumberOfLLSources, NumberOfSources, it[0])
+                     FilamentLength, Nshed = initialiseShedParticles(t, LiftingLines, Sources, Ramp,
+                                       SmoothingRatio[0], NumberOfLLSources, NumberOfSources, it[0])
     SheddingLiftingLines = I.getZones(I.copyRef(LiftingLines))
     for index in frozenLiftingLines[::-1]:
         SheddingLiftingLines.pop(index)
@@ -1070,25 +1149,24 @@ def ShedVorticitySourcesFromLiftingLines(t = [], PolarsInterpolators = {},
     GammaRelax = np.array(GammaRelax, dtype = np.float64, order = 'F')
 
     ax, ay, az, s = J.getVars(Particles, ['Alpha' + v for v in 'XYZ'] + ['Sigma'])
-    WakeInducedVelocity = extractWakeInducedVelocityOnLiftingLines(t, SheddingLiftingLines,
-                                                                                          Nshed)
+    WakeInducedVelocity = extractWakeInducedVelocityOnLiftingLines(t, SheddingLiftingLines, Nshed)
     ni = 0
     for _ in range(MaxIte):
-        setShedParticleStrength(Dir, VeciX, VeciY, VeciZ, SheddingDistance, ax, ay, az, \
-                                 Sources, SourcesM1, ParticlesShedPerStation, NumberOfLLSources,
-                                                  NumberOfSources, TimeShed, frozenLiftingLines)
+        setShedParticleStrength(Dir, VeciX, VeciY, VeciZ, Ramp, SheddingDistance, FilamentLength,
+                         ax, ay, az, Sources, SourcesM1, ParticlesShedPerStation, NumberOfLLSources,
+                                                      NumberOfSources, TimeShed, frozenLiftingLines)
         BoundAndShedInducedVelocity = extractBoundAndShedVelocityOnLiftingLines(t,
-                                                                    SheddingLiftingLines, Nshed)
+                                                                        SheddingLiftingLines, Nshed)
         
         setLiftingLinesInducedVelocity(SheddingLiftingLines,
-                                              WakeInducedVelocity + BoundAndShedInducedVelocity)
-        projectLiftingLinesVelocities(SheddingLiftingLines)
+                                                  WakeInducedVelocity + BoundAndShedInducedVelocity)
+        updateLiftingLinesVelocitiesAndAoA(SheddingLiftingLines)
         LL._applyPolarOnLiftingLine(SheddingLiftingLines, PolarsInterpolators, ['Cl'])
         updateLiftingLinesCirculation(SheddingLiftingLines)
         Sources = LL.buildVortexParticleSourcesOnLiftingLine(SheddingLiftingLines,
-                                AbscissaSegments = ParticleDistribution, IntegralLaw = 'linear')
+                                    AbscissaSegments = ParticleDistribution, IntegralLaw = 'linear')
         GammaError = relaxCirculationAndGetImbalance(GammaOld, GammaRelax, Sources, GammaError,
-                                                                                 GammaDampening)
+                                                                                     GammaDampening)
         ni += 1
         if (GammaError < GammaThreshold).all(): break
 
@@ -1114,11 +1192,11 @@ def ShedVorticitySourcesFromLiftingLines(t = [], PolarsInterpolators = {},
     LL._applyPolarOnLiftingLine(SheddingLiftingLines, PolarsInterpolators, ['Cl', 'Cd', 'Cm'])
     if len(GammaError) == 0: GammaError = np.array([0])
     LL.computeGeneralLoadsOfLiftingLine(LiftingLines,
-            UnsteadyData={'IterationNumber':it[0],
-                          'Time':time[0],
-                          'CirculationSubiterations':ni,
-                          'CirculationError':np.max(GammaError)},
-                            UnsteadyDataIndependentAbscissa='IterationNumber')
+            UnsteadyData = {'IterationNumber': it[0],
+                            'Time': time[0],
+                            'CirculationSubiterations': ni,
+                            'CirculationError': np.max(GammaError)},
+                            UnsteadyDataIndependentAbscissa = 'IterationNumber')
 
     IterationInfo['Circulation error'] = np.max(GammaError)
     IterationInfo['Number of sub-iterations (LL)'] = ni
@@ -1324,6 +1402,7 @@ def getStandardDeviationWing(LiftingLines = [], StdDeviationSample = 50):
     if type(Thrust) == np.ndarray or type(Thrust) == list:
         StdDeviationSample = max(min(StdDeviationSample,len(Thrust)), 1)
     else: return 0., 0.
+    
 
     Thrust = np.array([0.]*StdDeviationSample)
     Drag = np.array([0.]*StdDeviationSample)
