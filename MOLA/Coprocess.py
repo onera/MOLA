@@ -3749,4 +3749,30 @@ def replaceMainContainerByAbsoluteContainerIfExisting(t,
         absolute_container[0] = main_container_name
 
     return tRef
-    
+
+def _hackAddNullSourceTermIfXdtNaturePresent(t):
+    '''
+    This is HACK for avoiding issue
+    https://gitlab.onera.net/numerics/mola/-/issues/197
+    '''
+    SourceTermContainer = 'FlowSolution#SourceTerm'
+    old_centers = I.__FlowSolutionCenters__
+    I.__FlowSolutionCenters__ = SourceTermContainer
+    ConservativeFields = ['Density',
+                          'MomentumX',
+                          'MomentumY',
+                          'MomentumZ',
+                          'EnergyStagnationDensity']
+    for zone in I.getZones(t):
+        if I.getNodeFromName1(zone, SourceTermContainer): continue
+        solver_param = I.getNodeFromName1(zone,'.Solver#Param')
+        if not solver_param: continue
+        xdt_nature = I.getNodeFromName1(solver_param,'xdt_nature')
+        if not xdt_nature: continue
+
+        if I.getValue(xdt_nature) == 'sourceterm':
+            J.invokeFields(zone, ConservativeFields,'centers:')
+    I.__FlowSolutionCenters__ = old_centers
+
+def touch(filename):
+    with open(filename,'w') as f: f.write(filename)

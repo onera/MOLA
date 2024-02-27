@@ -3782,7 +3782,7 @@ def addOversetMotion(t, OversetMotion):
 
         FamilyMotionName = 'MOTION_'+base[0]
         for z in I.getZones(base):
-            I.createUniqueChild(z,FamilyMotionName,'FamilyName_t',
+            I.createUniqueChild(z,'FamilyName','FamilyName_t',
                                     value=FamilyMotionName)
         family = I.createChild(base, FamilyMotionName, 'Family_t')
         I.createChild(family,'FamilyBC','FamilyBC_t',value='UserDefined')
@@ -4137,13 +4137,11 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={},
         # BEWARE : contradiction in doc :  http://elsa.onera.fr/restricted/MU_tuto/latest/MU-98057/Textes/Attribute/extract.html#extract.writingmode 
         #                        versus :  http://elsa.onera.fr/restricted/MU_tuto/latest/MU_Annexe/CGNS/CGNS.html#Solver-Output
         writingmode   = 2, # NOTE requires extract_filtering='inactive'
-
         loc           = 'interface',
-        fluxcoeff     = 1.0,
-        writingframe  = 'absolute',
-        geomdepdom    = 2, # see #8127#note-26
-        delta_cell_max= 300,
     )
+
+    # https://gitlab.onera.net/numerics/mola/-/issues/187
+    writingframe = 'absolute' if hasMOLAMotion(t) else 'relative' 
 
     # Keys to write in the .Solver#Output for wall Families
     BCWallKeysDefault = dict()
@@ -4154,11 +4152,12 @@ def addSurfacicExtractions(t, ReferenceValues, elsAkeysModel, BCExtractions={},
         shearratiolim = elsAkeysModel['shearratiolim'],
         pressratiolim = elsAkeysModel['pressratiolim'],
         pinf          = ReferenceValues['Pressure'],
+        fluxcoeff     = 1.0,
         torquecoeff   = 1.0,
         xtorque       = 0.0,
         ytorque       = 0.0,
         ztorque       = 0.0,
-        writingframe  = 'relative', # absolute incompatible with unstructured mesh
+        writingframe  = writingframe,
         geomdepdom    = 2,  # see #8127#note-26
         delta_cell_max= 300,
     ))
@@ -5001,6 +5000,7 @@ def adapt2elsA(t, InputMeshes):
         EP._overlapGC2BC(t)
         EP._rmGCOverlap(t)
         EP._fillNeighbourList(t, sameBase=0)
+        _hackChimGroupFamilies(t)
         EP._prefixDnrInSubRegions(t)
         removeEmptyOversetData(t, silent=False)
 
@@ -5914,3 +5914,22 @@ def _convert_mesh_to_ngon(filename_in, filename_out):
     t = maia.io.file_to_dist_tree(filename_in, MPI.COMM_WORLD)
     maia.algo.dist.generate_ngon_from_std_elements(t, MPI.COMM_WORLD)
     maia.io.dist_tree_to_file(t, filename_out, MPI.COMM_WORLD)
+
+def _hackChimGroupFamilies(t):
+    '''
+    This is a HACK for circumventing https://elsa.onera.fr/issues/11552
+    also check https://gitlab.onera.net/numerics/mola/-/issues/196
+    '''
+    for family_name_node in I.getNodesFromType(t,'FamilyName_t'):
+        if family_name_node[0].startswith('ChimGroup'):
+            family_name_node[3] = 'AdditionalFamilyName_t'
+
+def hasMOLAMotion(t):
+    '''
+    determines if tree has any family with .MOLA#Motion node
+    '''
+    for base in I.getBases(t):
+        for family in I.getNodesFromType1(base,'Family_t'):
+            if I.getNodeFromName1(family,'.MOLA#Motion'):
+                return True
+    return False
