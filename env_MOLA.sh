@@ -15,7 +15,7 @@ export TURBOVERSION=v1.3
 export ERSTAZVERSION=v1.6.3
 export MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
 export MOLASATORext=/tmp_user/sator/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
-export MAIAVERSION=1.3
+export MAIAVERSION=1.2
 export TREELABVERSION=v0.1.0
 ###############################################################################
 
@@ -91,9 +91,9 @@ if [ "$MAC" = "sator" ]; then
     unset I_MPI_PMI_LIBRARY
     export MOLA=$MOLASATOR
 
-    # maia
-    module use --append /tmp_user/sator/sonics/usr/modules/
-    module load maia/$MAIAVERSION-dsi-cfd5_idx32
+    # # maia
+    # module use --append /tmp_user/sator/sonics/usr/modules/
+    # module load maia/$MAIAVERSION-dsi-cfd5_idx32
 
     # VPM
     export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator_elsA/$ARCH
@@ -152,9 +152,9 @@ elif [ "$MAC" = "spiro" ]; then
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
     export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
 
-    # maia 
-    module use --append /scratchm/sonics/usr/modules/
-    module load maia/$MAIAVERSION-dsi-cfd5
+    # # maia 
+    # module use --append /scratchm/sonics/usr/modules/
+    # module load maia/$MAIAVERSION-dsi-cfd5
 
     # NOTE installation hint:
     # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
