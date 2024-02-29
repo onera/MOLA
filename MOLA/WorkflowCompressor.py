@@ -4376,6 +4376,11 @@ def getGlobDir(tree, bc):
 #############  Multiple jobs submission  #######################################
 ################################################################################
 
+def getRangesOfIsospeedLines(config):
+    ThrottleRange = sorted(list(set([float(case['CASE_LABEL'].split('_')[0]) for case in config.JobsQueues])))
+    RotationSpeedRange = sorted(list(set(case['TurboConfiguration']['ShaftRotationSpeed'] for case in config.JobsQueues)))
+    return ThrottleRange, RotationSpeedRange
+
 def launchIsoSpeedLines(machine, DIRECTORY_WORK,
                     ThrottleRange, RotationSpeedRange=None, **kwargs):
     '''
@@ -4422,9 +4427,24 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
     if not RotationSpeedRange:
         RotationSpeedRange = [kwargs['TurboConfiguration']['ShaftRotationSpeed']]
 
-    ThrottleRange = sorted(list(ThrottleRange))
+    try:
+        prev_config = JM.getJobsConfiguration('./',useLocalConfig=True)
+        prev_ThrottleRange, prev_RotationSpeedRange = getRangesOfIsospeedLines(prev_config) #WARNING : la presence du fichier config ne garantit pas que la config a ete lancee... Il vaudrait peut etre mieux checker si des fichiers sont presents sur le cluster...
+        ThrottleRange = list(ThrottleRange) + prev_ThrottleRange
+        RotationSpeedRange = list(RotationSpeedRange) + prev_RotationSpeedRange 
+        EXTEND = True
+        MSG = 'Extending previous iso-speed line.'
+        print(J.WARN + MSG + J.ENDC)  
+    except:
+        MSG = 'Building new iso-speed line from scratch.'
+        print(J.CYAN + MSG + J.ENDC) 
+        EXTEND = False
+
+    ThrottleRange = list(np.unique(ThrottleRange))
+    RotationSpeedRange = list(np.unique(RotationSpeedRange))
+
+    ThrottleRange = sorted(ThrottleRange)
     # Sort Rotation speeds (and mesh files, if a list is given) 
-    RotationSpeedRange = list(RotationSpeedRange)
     index2sortRSpeed = sorted(range(len(RotationSpeedRange)), key=lambda i: abs(RotationSpeedRange[i]))
     RotationSpeedRange = [RotationSpeedRange[i] for i in index2sortRSpeed]
     if isinstance(kwargs['mesh'], list):
@@ -4560,7 +4580,7 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
             else: 
                 raise TypeError(f'Values in the dict templates must be either strings or list of strings. Current value of template is: {kwargs["templates"]}')
 
-    JM.launchJobsConfiguration(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_COMPRESSOR', otherFiles=otherFiles)
+    JM.launchJobsConfiguration(templatesFolder=MOLA.__MOLA_PATH__+'/TEMPLATES/WORKFLOW_COMPRESSOR', otherFiles=otherFiles, ExtendPreviousConfig=EXTEND)
 
 def printConfigurationStatus(DIRECTORY_WORK, useLocalConfig=False):
     '''
