@@ -413,7 +413,42 @@ def extractSurfaces(t, Extractions, arrays=None):
 
         elif TypeOfExtraction == 'IsoSurface':
             PartialTree4Iso = Cmpi.convert2PartialTree(t)
+            print('PartialTree4ISO')
+            I.printTree(PartialTree4Iso)
+
             if 'ClippingParameters' in Extraction.keys():
+                # print('IN CLIPPING:')
+                # ClippingField = Extraction['ClippingParameters']['field']
+                # container = deduceContainerForClipping(Extraction['ClippingParameters'])
+
+                # PartialTree4Iso = POST.mergeContainers(PartialTree4Iso, FlowSolutionVertexName='FlowSolution',
+                # FlowSolutionCellCenterName='FlowSolution#Centers',
+                # BCDataSetFaceCenterName='BCDataSet')
+                # containersNames_n = I.getNodeFromName(PartialTree4Iso,'containers_names')
+                # if container == 'GridCoordinates':
+                #     clippingFieldContainerTag = ''
+                # else:
+                #     for child in I.getChildren(containersNames_n):
+                #         if container == I.getValue(child):
+                #             clippingFieldContainerTag = I.getName(child)
+
+                # if ClippingField in ['Radius', 'radius', 'CoordinateR']:
+                #     C._initVars(Tree4Extraction, '{}=({{CoordinateY}}**2+{{CoordinateZ}}**2)**0.5'.format(ClippingField))
+                # if 'min_value' in Extraction['ClippingParameters'].keys():
+                #     min_value = Extraction['ClippingParameters']['min_value']
+                #     def F(x):
+                #         if ( x > min_value): return True
+                #         else: return False
+                #     PartialTree4Iso = P.selectCells(PartialTree4Iso,F,[ClippingField+clippingFieldContainerTag],strict =1)
+                # if 'max_value' in Extraction['ClippingParameters'].keys():
+                #     max_value = Extraction['ClippingParameters']['max_value']
+                #     def F(x):
+                #         if ( x < max_value): return True
+                #         else: return False
+                #     PartialTree4Iso = P.selectCells(PartialTree4Iso,F,[ClippingField+clippingFieldContainerTag],strict =1)
+                # POST.recoverContainers(PartialTree4Iso)
+
+                print('IN CLIPPING:')
                 ClippingField = Extraction['ClippingParameters']['field']
                 container = deduceContainerForClipping(Extraction['ClippingParameters'])
 
@@ -448,11 +483,14 @@ def extractSurfaces(t, Extractions, arrays=None):
             if Extraction['field'] in ['Radius', 'radius', 'CoordinateR']:
                 C._initVars(PartialTree4Iso, '{}=({{CoordinateY}}**2+{{CoordinateZ}}**2)**0.5'.format(Extraction['field']))
             container = deduceContainerForSlicing(Extraction)
-            print(container)
+            # print('Container')
+            # print(container)
             zones = POST.isoSurface(PartialTree4Iso,
                                     fieldname=Extraction['field'],
                                     value=Extraction['value'],
                                     container=container)
+            # print('Zone')
+            # I.printTree(zones)
             try: basename = Extraction['name']
             except KeyError:
                 FieldName = Extraction['field'].replace('Coordinate','').replace('Radius', 'R').replace('ChannelHeight', 'H')
