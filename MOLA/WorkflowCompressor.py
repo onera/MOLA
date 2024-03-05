@@ -64,15 +64,6 @@ def checkDependencies():
         MSG = 'Fail to import ETC module: Some functions of {} are unavailable'.format(__name__)
         print(J.FAIL + MSG + J.ENDC)
 
-    print('Checking MOLA.ParametrizeChannelHeight...')
-    try:
-        from . import ParametrizeChannelHeight
-    except ImportError:
-        MSG = 'Fail to import ParametrizeChannelHeight: function parametrizeChannelHeight is unavailable'
-        print(J.WARN + MSG + J.ENDC)
-    else:
-        print(J.GREEN+'MOLA.ParametrizeChannelHeight module is available'+J.ENDC)
-
     print('\nVERIFICATIONS TERMINATED')
 
 
@@ -615,7 +606,7 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     J.printElapsedTime('prepareMainCGNS4ElsA took ', toc)
 
-def parametrizeChannelHeight(t, lin_axis=None):
+def parametrizeChannelHeight(t, lin_axis=None, method=2):
     '''
     Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
     relies on the turbo module.
@@ -636,6 +627,9 @@ def parametrizeChannelHeight(t, lin_axis=None):
             the configuration is linear.
             'XY' means that X-axis is the streamwise direction and Y-axis is the
             spanwise direction.(see turbo documentation)
+        
+        method : int
+            Method used for ``turbo.height.generateHLinesAxial()``. Default value is 2.
 
     Returns
     -------
@@ -679,7 +673,7 @@ def parametrizeChannelHeight(t, lin_axis=None):
     with silence_stdout:
 
         if not lin_axis:
-            endlinesTree = TH.generateHLinesAxial(t, filename='shroud_hub_lines.plt', method=2)
+            endlinesTree = TH.generateHLinesAxial(t, filename='shroud_hub_lines.plt', method=method)
             try: 
                 plot_hub_and_shroud_lines(endlinesTree)
             except: 
@@ -2030,9 +2024,10 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                 BCkwargs['VelocityScale'] =  (FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*ReferenceValues['TemperatureStagnation'])**0.5 
 
             BCkwargs['GilesMonitoringFlag'] = GilesMonitoringFlag
-            BCkwargs['option'] = BCparam['option']
-            if BCparam['option'] == 'file':
-                BCkwargs['filename'] = BCparam['filename']
+            if 'option' in BCparam:
+                BCkwargs['option'] = BCparam['option']
+            else:
+                BCkwargs['option'] = 'RadialEquilibrium'
                 
             for bc in C.getFamilyBCs(t,BCparam['FamilyName']):
                 setBC_giles_outlet(t, bc, **BCkwargs)
@@ -2052,9 +2047,10 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                 BCkwargs['VelocityScale'] =  (FluidProperties['Gamma']*FluidProperties['IdealGasConstant']*ReferenceValues['TemperatureStagnation'])**0.5 
 
             BCkwargs['GilesMonitoringFlag'] = GilesMonitoringFlag
-            BCkwargs['option'] = BCparam['option']
-            if BCparam['option'] == 'file':
-                BCkwargs['filename'] = BCparam['filename']
+            if 'option' in BCparam:
+                BCkwargs['option'] = BCparam['option']
+            else:
+                BCkwargs['option'] = 'uniform'
 
             for bc in C.getFamilyBCs(t,BCparam['FamilyName']):
                 setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, **BCkwargs)
@@ -2463,30 +2459,40 @@ def getPrimitiveTurbulentFieldForInjection(FluidProperties, ReferenceValues, **k
         dict
             Imposed turbulent variables
         '''
-        TurbulenceLevel = kwargs.get('TurbulenceLevel', None)
-        Viscosity_EddyMolecularRatio = kwargs.get('Viscosity_EddyMolecularRatio', None)
-        if TurbulenceLevel and Viscosity_EddyMolecularRatio:
-            ReferenceValuesForTurbulence = computeReferenceValues(FluidProperties,
-                    kwargs.get('MassFlow'), ReferenceValues['PressureStagnation'],
-                    kwargs.get('TemperatureStagnation'), kwargs.get('Surface'),
-                    TurbulenceLevel=TurbulenceLevel,
-                    Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio,
-                    TurbulenceModel=ReferenceValues['TurbulenceModel'])
+        if 'TurbulenceLevel' in kwargs or 'Viscosity_EddyMolecularRatio' in kwargs:   
+            print('  recomputing turbulent variables for this BC...')        
+            ReferenceValuesForTurbulence = computeReferenceValues(
+                FluidProperties,
+                MassFlow=kwargs.get('MassFlow', ReferenceValues['MassFlow']),
+                PressureStagnation=kwargs.get('PressureStagnation', ReferenceValues['PressureStagnation']),
+                TemperatureStagnation=kwargs.get('TemperatureStagnation', ReferenceValues['TemperatureStagnation']),
+                Surface=kwargs.get('Surface', ReferenceValues['Surface']),
+                TurbulenceLevel=kwargs.get('TurbulenceLevel', ReferenceValues['TurbulenceLevel']),
+                Viscosity_EddyMolecularRatio=kwargs.get('Viscosity_EddyMolecularRatio', ReferenceValues['Viscosity_EddyMolecularRatio']),
+                VelocityUsedForScalingAndTurbulence=kwargs.get('VelocityUsedForScalingAndTurbulence', None),
+                TurbulenceModel=ReferenceValues['TurbulenceModel']
+                )
         else:
             ReferenceValuesForTurbulence = ReferenceValues
 
         turbDict = dict()
         for name, value in zip(ReferenceValuesForTurbulence['FieldsTurbulence'], ReferenceValuesForTurbulence['ReferenceStateTurbulence']):
+            # If the 'conservative' value is given in kwargs
+            value = kwargs.get(name, value)
+
             if name.endswith('Density'):
                 name = name.replace('Density', '')
-                value /= ReferenceValues['Density']
+                value /= ReferenceValuesForTurbulence['Density']
             elif name == 'ReynoldsStressDissipationScale':
                 name = 'TurbulentDissipationRate'
-                value /= ReferenceValues['Density']
+                value /= ReferenceValuesForTurbulence['Density']
             elif name.startswith('ReynoldsStress'):
                 name = name.replace('ReynoldsStress', 'VelocityCorrelation')
-                value /= ReferenceValues['Density']
+                value /= ReferenceValuesForTurbulence['Density']
+
+            # If the 'primitive' value is given in kwargs
             turbDict[name] = kwargs.get(name, value)
+            
         return turbDict
 
 def setBC_inj1_uniform(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
@@ -2672,9 +2678,10 @@ def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     VelocityUnitVectorX   = kwargs.get('VelocityUnitVectorX', ReferenceValues['DragDirection'][0])
     VelocityUnitVectorY   = kwargs.get('VelocityUnitVectorY', ReferenceValues['DragDirection'][1])
     VelocityUnitVectorZ   = kwargs.get('VelocityUnitVectorZ', ReferenceValues['DragDirection'][2])
-    variableForInterpolation = kwargs.get('variableForInterpolation', 'ChannelHeight')   
-    TurbulenceLevel = kwargs.get('TurbulenceLevel', None)
-    Viscosity_EddyMolecularRatio = kwargs.get('Viscosity_EddyMolecularRatio', None)
+    variableForInterpolation = kwargs.get('variableForInterpolation', 'ChannelHeight')  
+    if not 'MassFlow' in kwargs:
+        # used for getPrimitiveTurbulentFieldForInjection
+        kwargs['MassFlow'] = SurfacicMassFlow * Surface
 
     ImposedVariables = dict(
         SurfacicMassFlow    = SurfacicMassFlow,
@@ -2682,14 +2689,7 @@ def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
         VelocityUnitVectorX = VelocityUnitVectorX,
         VelocityUnitVectorY = VelocityUnitVectorY,
         VelocityUnitVectorZ = VelocityUnitVectorZ,
-        **getPrimitiveTurbulentFieldForInjection(FluidProperties, 
-                                                 ReferenceValues,
-                                                 Surface=Surface,
-                                                 MassFlow=MassFlow,
-                                                 TemperatureStagnation=TemperatureStagnation,
-                                                 TurbulenceLevel=TurbulenceLevel,
-                                                 Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio
-                                                )
+        **getPrimitiveTurbulentFieldForInjection(FluidProperties, ReferenceValues, **kwargs)
         )
 
     setBCwithImposedVariables(t, FamilyName, ImposedVariables,
@@ -4878,7 +4878,7 @@ def getPostprocessQuantitiesLocal(basename, configJobsQueues, root_path, rename=
                 for v in lastarrays: lastarrays[v] = lastarrays[v][-1]
                 if not 'Massflow' in lastarrays:
                     try:
-                        ArraysZone = I.getNodeFromName2(ArraysTree, basename.split('#')[1])
+                        ArraysZone = I.getNodeFromName2(ArraysTree, '#'.join(basename.split('#')[1:]))
                         lastarrays['Massflow'] = J.getVars(ArraysZone, ['Massflow'])[0][-1]
                     except:
                         pass
@@ -5550,7 +5550,8 @@ def postprocess_turbomachinery(surfaces, stages=[],
         if computeRadialProfiles: 
             Post.compute1DRadialProfiles(
                 surfaces, variablesByAverage, config=config, lin_axis=lin_axis)
-        if heightListForIsentropicMach:
+        if config == 'annular' and heightListForIsentropicMach:
+            # TODO compute Machis also for linear cascade. Is this available in turbo ? 
             Post.computeVariablesOnBladeProfiles(surfaces, height_list=heightListForIsentropicMach)
         #______________________________________________________________________________#
 

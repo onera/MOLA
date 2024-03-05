@@ -252,7 +252,7 @@ class Figure():
         # Get default background
         backgroundFile = None
         for MOLAloc in [os.getenv('MOLA'), os.getenv('MOLASATOR')]:
-            path_background = os.path.join(MOLAloc,'MOLA','GUIs',f'background_{self.background}.png')
+            path_background = os.path.join(MOLAloc,'MOLA','backgrounds',f'background_{self.background}.png')
             if os.path.exists(path_background):
                 backgroundFile = path_background
                 break 

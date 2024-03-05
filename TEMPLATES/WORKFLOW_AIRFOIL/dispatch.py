@@ -54,6 +54,7 @@ for case in config.JobsQueues:
                        ImposedWallFields=case['ImposedWallFields'],
                        TransitionZones=case['TransitionZones'],
                        JobInformation=case['JobInformation'],
+                       templates=dict(otherWorkflowFiles=['preprocess.py', 'postprocess.py']),
                        **case['elsAParams'])
 
     os.chdir(DIRECTORY_DISPATCHER)

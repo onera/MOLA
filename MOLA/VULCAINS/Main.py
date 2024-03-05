@@ -48,19 +48,19 @@ Vector_VPM_FlowSolution = VPM.Vector_VPM_FlowSolution
 Scalar_VPM_FlowSolution = VPM.Scalar_VPM_FlowSolution
 VPM_FlowSolution = VPM.VPM_FlowSolution
 
+
 ####################################################################################################
 ####################################################################################################
 ############################################## Solver ##############################################
 ####################################################################################################
 ####################################################################################################
 def compute(VPMParameters = {}, HybridParameters = {}, LiftingLineParameters = {},
-    PerturbationFieldParameters = {}, Polars  = [], EulerianMesh = None,
-    PerturbationField = [], LiftingLineTree = [], NumberOfIterations = 1000,
-    RestartPath = None, DIRECTORY_OUTPUT = 'OUTPUT', SaveFields = ['all'],
-    VisualisationOptions = {'addLiftingLineSurfaces':True}, StdDeviationSample = 53,
-    SaveVPMPeriod = 100, Verbose = True, SaveImageOptions={}, Surface = 0.,
-    FieldsExtractionGrid = [], SaveFieldsPeriod = np.inf, SaveImagePeriod = np.inf,
-    NoRedistributionZones = []):
+    PerturbationFieldParameters = {}, Polars  = [], EulerianMesh = None, PerturbationField = [],
+    LiftingLineTree = [], NumberOfIterations = 1000, RestartPath = None,
+    DIRECTORY_OUTPUT = 'OUTPUT', SaveFields = ['all'], StdDeviationSample = 50,
+    VisualisationOptions = {'addLiftingLineSurfaces':True}, SaveVPMPeriod = 100, Verbose = True,
+    SaveImageOptions={}, Surface = 0., FieldsExtractionGrid = [], SaveFieldsPeriod = np.inf,
+    SaveImagePeriod = np.inf, NoRedistributionZones = []):
     '''
     Launches the VPM solver.
 
@@ -152,7 +152,30 @@ def compute(VPMParameters = {}, HybridParameters = {}, LiftingLineParameters = {
         PolarsInterpolators = LL.buildPolarsInterpolatorDict(Polars,
                                                                   InterpFields = ['Cl', 'Cd', 'Cm'])
     if RestartPath:
-
+        architecture = V.mpi_init(int(os.getenv('OMP_NUM_THREADS', len(os.sched_getaffinity(0)))))
+        print(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
+        print(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
+        print(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
+        print(f"{'||':>57}\r" + '||' + '{:=^53}'.format(' Launching VULCAINS ' + __version__ + ' '))
+        print(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
+        print(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
+        print(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
+        print(f"{'||':>57}\r" + '||' + '{:-^53}'.format(' CPU Architecture '))
+        print(f"{'||':>57}\r" + '|| ' + '{:32}'.format('Number of threads') + ': ' + \
+                                                                     '{:d}'.format(architecture[0]))
+        if architecture[1] == 2: print(f"{'||':>57}\r" + '|| ' + '{:32}'.format('SIMD') + ': ' + \
+                                                          '{:d}'.format(architecture[1]) + ' (SSE)')
+        elif architecture[1] == 4: print(f"{'||':>57}\r" + '|| ' + '{:32}'.format('SIMD') + ': ' + \
+                                                          '{:d}'.format(architecture[1]) + ' (AVX)')
+        elif architecture[1] == 8: print(f"{'||':>57}\r" + '|| ' + '{:32}'.format('SIMD') + ': ' + \
+                                                       '{:d}'.format(architecture[1]) + ' (AVX512)')
+        else: print(f"{'||':>57}\r" + '|| ' + '{:32}'.format('') + ': ' + \
+                                                                     '{:d}'.format(architecture[1]))
+        if architecture[2]: print(f"{'||':>57}\r" + '|| ' + '{:32}'.format('Precison') + ': ' + \
+                                                                                 'double (64 bits)')
+        else: print(f"{'||':>57}\r" + '|| ' + '{:32}'.format('Precison') +': ' + 'single (32 bits)')
+        print(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
+        
         if isinstance(RestartPath, str): t = load(RestartPath)
 
         if PerturbationField:
@@ -166,7 +189,8 @@ def compute(VPMParameters = {}, HybridParameters = {}, LiftingLineParameters = {
                 #tE = H.generateMirrorWing(tE, VPM.getVPMParameters(t), H.getHybridParameters(t))
         else: tE = []
     else:
-        if isinstance(LiftingLineTree, str): LiftingLineTree = C.newPyTree(I.getZones(load(LiftingLineTree)))
+        if isinstance(LiftingLineTree, str):
+            LiftingLineTree = C.newPyTree(I.getZones(load(LiftingLineTree)))
         elif LiftingLineTree: LiftingLineTree = C.newPyTree(I.getZones(LiftingLineTree))
         else: LiftingLineTree = None
         if isinstance(PerturbationField, str): PerturbationField = load(PerturbationField)

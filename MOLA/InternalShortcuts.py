@@ -2437,6 +2437,18 @@ def printEnvironment():
     print(v.ljust(20-len(tag))+printTime(toc))
 
     # turbo
+    tag = ' --> treelab '
+    print(tag,end='')
+    toc = tic()
+    try:
+        import treelab
+        v = treelab.__version__
+    except:
+        v = FAIL + 'UNAVAILABLE' + ENDC 
+    print(v.ljust(20-len(tag))+printTime(toc))
+
+
+    # turbo
     tag = ' --> turbo '
     print(tag,end='')
     toc = tic()
