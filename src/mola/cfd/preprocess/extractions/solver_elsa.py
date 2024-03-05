@@ -63,53 +63,65 @@ def process_extractions_3d(workflow):
     workflow.tree.findAndRemoveNodes(Name='FlowSolution#EndOfRun', Type='FlowSolution')
 
     for zone in workflow.tree.zones():
-
         for Extraction in workflow.Extractions:
-            if Extraction['type'] != '3D':
-                continue
+            if Extraction['type'] == '3D' and is_zone_in_extraction_family(zone, Extraction):
+                add_3d_extraction_to_zone(zone)
 
-            # Filter by Family
-            Family = Extraction.get('Family', None)
-            if Family:
-                if not zone.get(Type='FamilyName', Value=Family, Depth=1) \
-                 and not zone.get(Type='AditionnalFamilyName', Value=Family, Depth=1):
-                    continue
+def is_zone_in_extraction_family(zone, Extraction):
+    try:
+        has_a_corresponding_FamilyName = zone.get(Type='FamilyName', Value=Extraction['Family'], Depth=1)
+        has_a_corresponding_AditionnalFamilyName = zone.get(Type='AditionnalFamilyName', Value=Extraction['Family'], Depth=1)
+        if has_a_corresponding_FamilyName or has_a_corresponding_AditionnalFamilyName:
+            return True
+        else:
+            return False
+    except KeyError:
+        # No Family is given as a filter: no filter is applied
+        return True
 
-            Container = Extraction.get('Container', 'FlowSolution#EndOfRun')
-            GridLocation = Extraction.get('GridLocation', 'CellCenter')
-            Frame = Extraction.get('Frame', 'relative')
-            Fields2Extract = Extraction['fields']
-            options = Extraction.get('options', dict())
+def add_3d_extraction_to_zone(Extraction, zone):
 
-            EoRnode = zone.get(Name=Container, Type='FlowSolution', Depth=1) 
-            if not EoRnode:
-                # Creation of a new FlowSolution node
-                EoRnode = zone.setParameters(Container, 
-                                            ContainerType='FlowSolution', 
-                                            **dict((field, None) for field in Fields2Extract)
-                                            )
-                cgns.Node(Parent=EoRnode, Name='GridLocation', Type='GridLocation', Value=GridLocation)
-                EoRnode.setParameters('.Solver#Output',
-                                        period=1,
-                                        writingmode=2,
-                                        writingframe=Frame,
-                                        **options)
-            else:
-                # Check compatibility
-                try:
-                    ExistingGridLocation = EoRnode.get(Type='GridLocation', Depth=1)
-                    assert GridLocation == ExistingGridLocation.value()
+    Container = Extraction.get('Container', 'FlowSolution#EndOfRun')
+    GridLocation = Extraction.get('GridLocation', 'CellCenter')
+    Frame = Extraction.get('Frame', 'relative')
+    Fields2Extract = Extraction['fields']
+    options = Extraction.get('options', dict())
 
-                    writingframe = EoRnode.get(Name='writingframe')
-                    assert Frame == writingframe.value()
+    EoRnode = zone.get(Name=Container, Type='FlowSolution', Depth=1) 
+    if not EoRnode:
+        create_new_container_for_3d_extraction(zone, Fields2Extract, Container, GridLocation, Frame, options)
+    else:
+        add_3d_extraction_to_existing_container(EoRnode, Fields2Extract, GridLocation, Frame)
 
-                except AssertionError:
-                    print(misc.RED+'several 3D extractions are incompatible together'+misc.ENDC)
+def create_new_container_for_3d_extraction(zone, Fields2Extract, container_name, GridLocation, frame, options):
+    EoRnode = zone.setParameters(container_name, 
+                                ContainerType='FlowSolution', 
+                                **dict((field, None) for field in Fields2Extract)
+                                )
+    cgns.Node(Parent=EoRnode, Name='GridLocation', Type='GridLocation', Value=GridLocation)
+    EoRnode.setParameters('.Solver#Output',
+                            period=1,
+                            writingmode=2,
+                            writingframe=frame,
+                            **options)
+    
+def add_3d_extraction_to_existing_container(Container, Fields2Extract, GridLocation, frame):
+    try:
+        # Check compatibility
+        ExistingGridLocation = Container.get(Type='GridLocation', Depth=1)
+        assert GridLocation == ExistingGridLocation.value()
 
-                # Add variables that are not already in this FlowSolution
-                for field in Fields2Extract:
-                    if not EoRnode.get(Name=field, Type='DataArray', Depth=1):
-                        cgns.Node(Parent=EoRnode, Name=field, Type='DataArray')
+        writingframe = Container.get(Name='writingframe')
+        assert frame == writingframe.value()
+
+        # Add variables that are not already in this FlowSolution
+        for field in Fields2Extract:
+            if not Container.get(Name=field, Type='DataArray', Depth=1):
+                cgns.Node(Parent=Container, Name=field, Type='DataArray')
+
+    except AssertionError:
+        raise Exception(misc.RED+'several 3D extractions are incompatible together'+misc.ENDC)
+
 
 def process_extractions_2d(workflow):
 
