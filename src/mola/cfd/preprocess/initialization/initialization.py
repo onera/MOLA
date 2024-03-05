@@ -58,9 +58,7 @@ def apply(workflow):
             MSG = 'FlowSolution#Init is missing in zone {}'.format(zone.name)
             raise ValueError(misc.RED + MSG + misc.ENDC)
     
-    current_path = os.path.dirname(os.path.realpath(__file__))
-    solverModule = misc.load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
-    solverModule.adapt_to_solver(workflow)
+    misc.apply_to_solver(workflow)
 
 
 

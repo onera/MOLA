@@ -25,9 +25,7 @@ def apply(workflow):
     set_numerical_parameters(workflow)
 
     workflow.SolverParameters = dict()
-    current_path = os.path.dirname(os.path.realpath(__file__))
-    solverModule = misc.load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
-    solverModule.adapt_to_solver(workflow)
+    misc.apply_to_solver(workflow)
 
 
 def set_problem_dimension(workflow):

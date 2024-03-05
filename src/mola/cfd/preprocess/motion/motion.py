@@ -24,9 +24,7 @@ def apply(workflow):
     for family, MotionOnFamily in workflow.Motion.items():
         set_default_motion(MotionOnFamily)
 
-    current_path = os.path.dirname(os.path.realpath(__file__))
-    solverModule = misc.load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
-    solverModule.adapt_to_solver(workflow)
+    misc.apply_to_solver(workflow)
 
 def set_default_motion(Motion):
     if callable(Motion) or any([callable(v) for v in Motion.values()]):

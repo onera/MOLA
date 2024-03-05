@@ -18,6 +18,4 @@ import os
 from mola import misc
 
 def apply(workflow):
-    current_path = os.path.dirname(os.path.realpath(__file__))
-    solverModule = misc.load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
-    solverModule.adapt_to_solver(workflow)
+    misc.apply_to_solver(workflow)
