@@ -33,6 +33,7 @@ export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849
 export ELSA_NOLOG=ON
 
+export TREELABVERSION=v0.1.0
 export VPMVERSION=Dev
 export PUMAVERSION=v2.0.3
 export TURBOVERSION=v1.3
@@ -62,6 +63,14 @@ fi
 
 source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA &>/dev/null
 unset I_MPI_PMI_LIBRARY
+
+# Treelab
+# NOTE installation hint:
+# python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
+export TREELABPATH=/tmp_user/sator/mola/treelab/$TREELABVERSION/sator_elsA
+export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
+export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
+
 
 # PUMA
 export PUMAVERSION=v2.0.3_mod

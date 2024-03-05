@@ -16,7 +16,8 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
-from mola import misc, cgns, math_tools
+from treelab import cgns
+from mola import misc, math_tools
 
 K_OMEGA_TWO_EQN_MODELS = ['Wilcox2006-klim', 'Wilcox2006-klim-V',
             'Wilcox2006', 'Wilcox2006-V', 'SST-2003', 

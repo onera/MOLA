@@ -16,8 +16,8 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
+from treelab import cgns
 from mola.cfd.preprocess.initialization import solver_elsa
-from mola import cgns
 
 class FakeWorkflow():
     def __init__(self, t):

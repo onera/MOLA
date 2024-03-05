@@ -15,7 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import mola.cgns as cgns
+import treelab.cgns as cgns
 import Connector.PyTree as X
 
 def apply(workflow):

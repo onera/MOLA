@@ -16,8 +16,8 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-from .. import cgns as c
-from .. import misc
+from treelab import cgns
+from mola import misc
 from  mola.cfd.preprocess.mesh import (positioning,
                                        connect,
                                        split,
@@ -214,7 +214,7 @@ class Workflow(object):
             self.RunManagement=RunManagement
 
     def write_tree(self, filename='main.cgns'):
-        if not self.tree: self.tree = c.Tree()
+        if not self.tree: self.tree = cgns.Tree()
         self.tree.save(filename)
 
     def convert_to_dict(self):
@@ -236,7 +236,7 @@ class Workflow(object):
 
     def get_workflow_parameters_from_tree(self):
         
-        self.tree = c.load(self.tree)
+        self.tree = cgns.load(self.tree)
         
         workflow_parameters = self.tree.getParameters(self._workflow_parameters_container_)
         
@@ -245,7 +245,7 @@ class Workflow(object):
 
 
     def set_workflow_parameters_in_tree(self):
-        if not self.tree: self.tree = c.Tree()
+        if not self.tree: self.tree = cgns.Tree()
 
         params= self.convert_to_dict()
         self.tree.setParameters(self._workflow_parameters_container_,
@@ -304,7 +304,7 @@ class Workflow(object):
         meshes = []
         for component in self.RawMeshComponents:
             src = component['Source']
-            mesh = c.load(src)
+            mesh = cgns.load(src)
             nb_of_bases = len(mesh.bases())
             if nb_of_bases != 1:
                 msg = f"component {component['Name']} must have exactly 1 base (got {nb_of_bases})"
@@ -313,7 +313,7 @@ class Workflow(object):
             base = mesh.bases()[0]
             base.setName( component['Name'] )
             meshes += [base]
-        self.tree = c.merge(meshes)
+        self.tree = cgns.merge(meshes)
 
 
     def clean_mesh(self):

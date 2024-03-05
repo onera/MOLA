@@ -18,7 +18,7 @@
 import pytest 
 
 import numpy as np
-from mola import cgns
+from treelab import cgns
 from mola.cfd.preprocess.motion import solver_elsa
 
 class FakeWorkflow():

@@ -19,7 +19,8 @@ import pytest
 import copy
 import numpy as np
 
-from mola import cgns, misc
+from treelab import cgns
+from mola import misc
 from mola.cfd.preprocess.cfd_parameters import cfd_parameters
 
 

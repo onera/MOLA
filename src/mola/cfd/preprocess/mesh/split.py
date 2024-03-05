@@ -16,7 +16,8 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
-from mola import misc, cgns
+from treelab import cgns
+from mola import misc
 
 import Transform.PyTree as T
 import Distributor2.PyTree as D2

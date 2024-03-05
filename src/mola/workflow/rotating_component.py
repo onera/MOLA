@@ -17,7 +17,7 @@
 
 import numpy as np
 import copy
-from mola import cgns
+from treelab import cgns
 from mola.workflow.workflow import Workflow
 
 

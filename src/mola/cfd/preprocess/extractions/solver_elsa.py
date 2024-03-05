@@ -15,7 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from mola import (cgns, misc)
+from treelab import cgns
+from mola import misc
 from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_to_elsa
 
 import copy

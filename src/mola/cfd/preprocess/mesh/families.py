@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import Converter.PyTree as C # TODO _addBC2Zone, _fillEmptyBCWith
-import mola.cgns as cgns
+import treelab.cgns as cgns
 # from mola.cfd.preprocess.boundary_conditions import BoundaryConditionsNames
 
 structured_locations = ('imin','imax','jmin','jmax','kmin','kmax')

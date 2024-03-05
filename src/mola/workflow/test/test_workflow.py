@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from mola.workflow.workflow import Workflow
-import mola.cgns as cgns
+import treelab.cgns as cgns
 
 def test_init():
     w = Workflow()

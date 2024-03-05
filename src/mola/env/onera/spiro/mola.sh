@@ -18,6 +18,7 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 export MOLA=${SCRIPT_DIR%/mola/env/*}  # retain the part before /mola/env/*
 export MOLAext=/stck/lbernard/MOLA/Dev/ext
+export TREELABVERSION=v0.1.0
 
 source /etc/bashrc
 module purge &>/dev/null
@@ -43,6 +44,13 @@ unset I_MPI_PMI_LIBRARY
 
 unset I_MPI_TCP_NETMASK
 unset I_MPI_FABRICS_LIST
+
+# Treelab
+# NOTE installation hint:
+# python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
+export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/spiro_elsA
+export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
+export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
 
 # external python packages
 export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/:$PYTHONPATH

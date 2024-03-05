@@ -17,7 +17,7 @@
 
 import copy
 import numpy as np
-from mola import cgns
+from treelab import cgns
 from mola.cfd.preprocess.extractions import solver_elsa
 
 class FakeWorkflow():

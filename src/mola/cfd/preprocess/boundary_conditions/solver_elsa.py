@@ -20,7 +20,7 @@ import numpy as np
 import Converter.PyTree as C
 import Converter.Internal as I
 
-from mola import cgns
+from treelab import cgns
 from mola.cfd.preprocess.solver_specific_tools import solver_elsa
 from mola.cfd.preprocess.motion import motion
 from mola.cfd.preprocess.motion.solver_elsa import assert_rotation_axis_is_correct, translate_motion_to_elsa

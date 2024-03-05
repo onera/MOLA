@@ -17,7 +17,8 @@
 
 import os
 import shutil 
-from mola import (cgns, misc)
+from treelab import cgns
+from mola import misc
 from mola import __MOLA_PATH__
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
 
