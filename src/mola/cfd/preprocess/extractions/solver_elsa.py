@@ -65,7 +65,7 @@ def process_extractions_3d(workflow):
     for zone in workflow.tree.zones():
         for Extraction in workflow.Extractions:
             if Extraction['type'] == '3D' and is_zone_in_extraction_family(zone, Extraction):
-                add_3d_extraction_to_zone(zone)
+                add_3d_extraction_to_zone(zone, Extraction)
 
 def is_zone_in_extraction_family(zone, Extraction):
     try:
@@ -79,7 +79,7 @@ def is_zone_in_extraction_family(zone, Extraction):
         # No Family is given as a filter: no filter is applied
         return True
 
-def add_3d_extraction_to_zone(Extraction, zone):
+def add_3d_extraction_to_zone(zone, Extraction):
 
     Container = Extraction.get('Container', 'FlowSolution#EndOfRun')
     GridLocation = Extraction.get('GridLocation', 'CellCenter')
