@@ -52,11 +52,13 @@ def apply(workflow):
     ----------
     workflow : Workflow object
     '''
+    if len(workflow.BoundaryConditions) != 0:
+        mola_logger.info(f'Set boundary conditions:')
 
     for bc in workflow.BoundaryConditions:
         
         bcName = bc['type']
-        mola_logger.info(f'Set boundary condition {bcName} on family {bc["Family"]}')
+        mola_logger.info(f'  > {bcName} on family {bc["Family"]}')
         
         if bcName in BoundaryConditionsNames:
             # Define in the main MOLA preprocess, lower in this file

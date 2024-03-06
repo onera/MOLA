@@ -16,19 +16,27 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
+import os
 import logging
 
-LOG_LEVEL = 'INFO'  # TODO This value should be modificable with python parser for example
-log_level = getattr(logging, LOG_LEVEL)
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('-v', '--verbosity', help='Level of verbosity', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], default='INFO')
+parser.add_argument('-l', '--logfile', help='Name of log file', type=str)
+args = parser.parse_args()
+
+LOG_LEVEL = args.verbosity
+LOG_FILE  = args.logfile
 
 class MolaLogger(logging.Logger):
     
-    def __init__(self, name='mola_logger', level=LOG_LEVEL, stream=True, filename=None):
+    def __init__(self, name='mola_logger', level=LOG_LEVEL, stream=True, filename=LOG_FILE):
         super().__init__(name, level)
         formatter = CustomFormatter()
         if stream:
             self.add_stream_handler(formatter)
         if filename:
+            os.remove(filename)
             self.add_file_handler(formatter, filename)
 
     def set_level(self, level):
@@ -100,7 +108,7 @@ class ParallelLogger(MolaLogger):
     '''
 
     def __init__(self, name='mola_logger.parallel', level=LOG_LEVEL, stream=False, filename='coprocess.log'):
-        super().__init__(name, level=LOG_LEVEL, stream=stream, filename=filename)
+        super().__init__(name, level=level, stream=stream, filename=filename)
         try:
             import numpy as np
             from mpi4py import MPI
@@ -141,4 +149,4 @@ class ParallelLogger(MolaLogger):
     
     fatal = critical
     
-mola_logger = MolaLogger(filename='mola.log')
+mola_logger = MolaLogger()
