@@ -62,7 +62,6 @@ def apply(workflow):
                                             dim=base.dim())
             else:
                 mola_logger.error(f'Connection type {ConnectionType} not implemented')
-                raise AttributeError
 
     workflow.tree = cgns.castNode(t)
 

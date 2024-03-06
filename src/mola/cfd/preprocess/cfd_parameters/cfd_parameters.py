@@ -16,6 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 import os
 from mola import misc
+from mola.logging import mola_logger
 
 
 def apply(workflow):
@@ -49,31 +50,39 @@ def set_numerical_parameters(workflow):
     workflow.Numerics.setdefault('TimeMarching', 'Steady')
     workflow.Numerics.setdefault('NumberOfIterations', 10000)
     workflow.Numerics.setdefault('MinimumNumberOfIterations', 1000)
-    workflow.Numerics.setdefault('TimeStep', None)
 
     workflow.Numerics.setdefault('IterationAtInitialState', 1)
     workflow.Numerics.setdefault('TimeAtInitialState', 0.)
 
     # Time marching
     if workflow.Numerics['TimeMarching'] != 'Steady':
-        assert workflow.Numerics['TimeStep'] is not None, misc.RED+f'TimeStep must be defined to perform a simulation with TimeMarching={workflow.Numerics["TimeMarching"]}'+misc.ENDC
-
+        if 'TimeStep' not in workflow.Numerics:
+            mola_logger.error(f'TimeStep must be defined to perform a simulation with TimeMarching={workflow.Numerics["TimeMarching"]}')
+        
         workflow.Numerics.setdefault('TimeMarchingOrder', 2)
 
-    # CFL
-    if workflow.Numerics['CFL'] is None:
-        raise Exception(misc.RED+'CFL is not defined. Please give a value or function in Workflow.Numerics'+misc.ENDC)     
-    elif isinstance(workflow.Numerics['CFL'], float):
-        pass
-    elif isinstance(workflow.Numerics['CFL'], int):
-        workflow.Numerics['CFL'] = float(workflow.Numerics['CFL'])
-    elif isinstance(workflow.Numerics['CFL'], dict):
-        workflow.Numerics['CFL'].setdefault('StartIteration', workflow.Numerics['IterationAtInitialState'])
-        mandatoryKeys = ['EndIteration', 'StartValue', 'EndValue']
-        ERROR = f'If CFL is a dict, it must contains at least {", ".join(mandatoryKeys)}. \
-You may also define StartIteration, otherwise it will be equal to IterationAtInitialState (1 by default).'
-        assert all([(key in workflow.Numerics['CFL']) for key in mandatoryKeys]), \
-            misc.RED + ERROR + misc.ENDC
-    else:
-        raise Exception(misc.RED+'CFL must be a scalar or a dict'+misc.ENDC)
+    check_cfl(workflow)
+    
 
+def check_cfl(workflow):
+
+    try:
+        cfl = workflow.Numerics['CFL']
+    except:
+        mola_logger.error('CFL is not defined. Please give a value or function in Workflow.Numerics')
+
+    if isinstance(cfl, float):
+        pass
+    elif isinstance(cfl, int):
+        cfl = float(cfl)
+    elif isinstance(cfl, dict):
+        cfl.setdefault('StartIteration', workflow.Numerics['IterationAtInitialState'])
+        mandatoryKeys = ['EndIteration', 'StartValue', 'EndValue']
+        CFL_dict_has_all_mandatory_keys = all([(key in cfl) for key in mandatoryKeys])
+
+        if not CFL_dict_has_all_mandatory_keys:
+            mola_logger.error(f'If CFL is a dict, it must contains at least {", ".join(mandatoryKeys)}. \
+    You may also define StartIteration, otherwise it will be equal to IterationAtInitialState (1 by default).')
+        
+    else:
+        mola_logger.error('CFL must be a scalar or a dict')

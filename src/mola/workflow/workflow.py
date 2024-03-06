@@ -176,7 +176,7 @@ class Workflow(object):
             #     _defaults = ...
             # else:
             #     ERR_MSG = '_defaults must be either a dictionary or a string (path to a file)'
-            #     assert isinstance(_defaults, dict), misc.RED+ERR_MSG+misc.ENDC
+            #     assert isinstance(_defaults, dict), ERR_MSG
             # self._defaults = _workflow_defaults
             # deep_update(self._defaults, _defaults)
             # deep_update(self.__dict__, self._defaults)

@@ -34,9 +34,7 @@ def get_surface_of_inflow(workflow):
 
     # Check unicity
     if len(InflowBCs) != 1:
-        MSG = 'Please provide a reference surface as "Surface" in '
-        MSG += 'ReferenceValues or provide a unique inflow BC in BoundaryConditions'
-        raise Exception(misc.RED + MSG + misc.ENDC)
+        mola_logger.error( 'Please provide a reference surface as "Surface" in ReferenceValues or provide a unique inflow BC in BoundaryConditions')
     
     InflowFamily = InflowBCs[0]['Family']
     

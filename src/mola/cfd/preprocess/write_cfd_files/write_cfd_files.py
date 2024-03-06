@@ -47,9 +47,9 @@ def set_default(RunManagement):
 
     # NumberOfProcessors must be set before this stage
     # It may have been set during an automatic splitting operation
-    ERR_NPROC = misc.RED+f'The value {RunManagement["NumberOfProcessors"]} for NumberOfProcessors is not allowed. It must be an integer'+misc.ENDC
-    assert isinstance(RunManagement['NumberOfProcessors'], int), ERR_NPROC
-
+    if not isinstance(RunManagement['NumberOfProcessors'], int):
+        mola_logger.error(f'The value {RunManagement["NumberOfProcessors"]} for NumberOfProcessors is not allowed. It must be an integer')
+    
     if RunManagement['Machine'] == 'auto':
         RunManagement['Machine'] = guess_host(Network=RunManagement['Network'])
         mola_logger.info(f"The detected Machine on Network {RunManagement['Network']} is {RunManagement['Machine']}")

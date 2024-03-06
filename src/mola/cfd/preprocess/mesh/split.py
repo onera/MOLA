@@ -123,7 +123,7 @@ def apply(workflow):
                 ComponentsToSplit='all',
                 )
         else:
-            raise Exception(misc.RED + 'More parameters must be given with the splitter {workflow.SplittingAndDistribution}. See the doc.' + misc.ENDC)
+            mola_logger.error(f'More parameters must be given with the splitter {workflow.SplittingAndDistribution}. See the doc.')
     
     t = workflow.tree
     splitAndDistribUser = workflow.SplittingAndDistribution
@@ -163,11 +163,9 @@ def apply(workflow):
 
         elif minimum_number_of_nodes > maximum_allowed_nodes:
             mola_logger.error('minimum_number_of_nodes > maximum_allowed_nodes')
-            raise ValueError
 
         elif minimum_number_of_nodes < 1:
             mola_logger.error('minimum_number_of_nodes must be at least equal to 1')
-            raise ValueError
 
         if only_consider_full_node_nproc:
             NProcCandidates = np.array(list(range(startNProc-1,
@@ -181,7 +179,6 @@ def apply(workflow):
 
         if len(NProcCandidates) < 1:
             mola_logger.error('maximum_number_of_points_per_node is too likely to be exceeded.\nTry increasing maximum_allowed_nodes and/or maximum_number_of_points_per_node')
-            raise ValueError
 
         Title1= ' number of  | number of  | max pts at | max pts at | percent of | average pts|'
         Title = ' processors | zones      | any proc   | any node   | imbalance  | per proc   |'
@@ -315,13 +312,11 @@ def _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors, raise_error=Fal
                 tSplit = cgns.castNode(tSplit)
             else:
                 mola_logger.error(f'splitter {splitter} not implemented yet')
-                raise ValueError
 
             splitZones = tSplit.zones()
             if len(splitZones) < remainingNProcs:
                 mola_logger.error(('could not split sufficiently. Try manually splitting '
                                    'mesh and set SplittingAndDistribution["ComponentsToSplit"]=None'))
-                raise ValueError
 
             for zone in splitZones:
                 if zone.isStructured():
@@ -329,14 +324,13 @@ def _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors, raise_error=Fal
                     for NPts, dir in zip(dims, ['i', 'j', 'k']):
                         if NPts < 5:
                             if NPts < 3:
-                                mola_logger.error('zone {zone[0]} has {NPts} pts in {dir} direction')
+                                mola_logger.error('zone {zone[0]} has {NPts} pts in {dir} direction', exit=False)
                                 HasDegeneratedZones = True
                             else:
                                 mola_logger.warning('zone {zone[0]} has {NPts} pts in {dir} direction')
 
         if HasDegeneratedZones:
             mola_logger.error('grid has degenerated zones. See previous print error messages')
-            raise ValueError
 
         for splitbase in tSplit.bases():
             base = tRef.get(Name=splitbase.name(), Type='CGNSBase_t', Depth=1)
@@ -350,7 +344,6 @@ def _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors, raise_error=Fal
                        'You may try the following:\n'
                        ' - Reduce the number of procs\n'
                        ' - increase the number of grid points'))
-                raise ValueError
             return tRef, 0, np.inf, np.inf, np.inf, np.inf
 
     NZones = tRef.numberOfZones()
@@ -361,7 +354,6 @@ def _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors, raise_error=Fal
                    ' - set SplitBlocks=True to more grid components\n'
                    ' - Reduce the number of procs\n'
                    ' - increase the number of grid points'))
-            raise ValueError
         else:
             return tRef, 0, np.inf, np.inf, np.inf, np.inf
 
@@ -376,7 +368,6 @@ def _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors, raise_error=Fal
         stats.update(stats)
     else: 
         mola_logger.error(f'distributor {distributor} not implemented yet')
-        raise ValueError
    
     behavior = 'raise' if raise_error else 'silent'
 
@@ -394,7 +385,6 @@ def _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors, raise_error=Fal
     if HighestLoad > maximum_number_of_points_per_node:
         if raise_error:
             mola_logger.error(f'exceeded maximum_number_of_points_per_node ({HighestLoad}>{maximum_number_of_points_per_node})')
-            raise ValueError
         return tRef, 0, np.inf, np.inf, np.inf, np.inf
 
 
@@ -466,6 +456,9 @@ def hasAnyEmptyProc(t, NumberOfProcessors, behavior='raise', debug_filename=''):
         hasAnyEmptyProc : bool
             :py:obj:`True` if any processor has no attributed zones
     '''
+    if behavior not in ['raise', 'print', 'silent']:
+        mola_logger.error('behavior %s not recognized'%behavior)
+    
     Proc2Zones = dict()
     UnaffectedProcs = list(range(NumberOfProcessors))
 
@@ -486,14 +479,9 @@ def hasAnyEmptyProc(t, NumberOfProcessors, behavior='raise', debug_filename=''):
 
     if UnaffectedProcs:
         hasAnyEmptyProc = True
-        MSG = misc.RED+'THERE ARE UNAFFECTED PROCS IN DISTRIBUTION!!\n'
-        MSG+= 'Empty procs: %s'%str(UnaffectedProcs)+misc.ENDC
-        if behavior == 'raise':
-            raise ValueError(MSG)
-        elif behavior == 'print':
-            print(MSG)
-        elif behavior != 'silent':
-            raise ValueError('behavior %s not recognized'%behavior)
+        MSG = 'THERE ARE UNAFFECTED PROCS IN DISTRIBUTION!!\n'
+        MSG+= 'Empty procs: %s'%str(UnaffectedProcs)
+        mola_logger.error(MSG, exit=(behavior == 'raise'))
     else:
         hasAnyEmptyProc = False
 
@@ -587,7 +575,7 @@ def _getBasesBasedOnSplitPolicy(t, workflow):
             msg+= 'nor in notToSplit:\n'
             msg+= str(notToSplit)+'\n'
             msg+= 'please contact the support'
-            ValueError(misc.RED+msg+misc.ENDC)
+            mola_logger.error(msg)
     return basesToSplit, basesNotToSplit
 
 def getProc(t):

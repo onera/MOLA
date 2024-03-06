@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import sys
 import logging
 
 LOG_LEVEL = 'INFO'  # TODO This value should be modificable with python parser for example
@@ -46,6 +47,17 @@ class MolaLogger(logging.Logger):
         file_handler = logging.FileHandler(filename)
         file_handler.setFormatter(formatter)
         self.addHandler(file_handler)
+    
+    def error(self, msg, exit=True, *args, **kwargs):
+        super().error(msg, *args, **kwargs)
+        if exit:
+            sys.exit(1)
+    
+    def critical(self, msg, *args, **kwargs):
+        super().critical(msg, *args, **kwargs)
+        sys.exit(1)
+    
+    fatal = critical
 
 class CustomFormatter(logging.Formatter):
     '''
@@ -63,9 +75,9 @@ class CustomFormatter(logging.Formatter):
 
     FORMATS = {
         logging.DEBUG: grey + format + reset,
-        logging.INFO: grey + format + reset,
+        logging.INFO: grey + "%(message)s" + reset,
         logging.WARNING: yellow + format + reset,
-        logging.ERROR: red + format + reset,
+        logging.ERROR: red + 'MOLA %(levelname)s: %(message)s' + reset,
         logging.CRITICAL: bold_red + format + reset
     }
 
@@ -105,27 +117,27 @@ class ParallelLogger(MolaLogger):
         
     def debug(self, msg, rank=None, *args, **kwargs):
         if self.has_something_to_write(rank): 
-            return super().debug(self.preffix+msg, *args, **kwargs)
+            super().debug(self.preffix+msg, *args, **kwargs)
     
     def info(self, msg, rank=None, *args, **kwargs):
         if self.has_something_to_write(rank): 
-            return super().info(self.preffix+msg, *args, **kwargs)
+            super().info(self.preffix+msg, *args, **kwargs)
     
     def warning(self, msg, rank=None, *args, **kwargs):
         if self.has_something_to_write(rank): 
-            return super().warning(self.preffix+msg, *args, **kwargs)
+            super().warning(self.preffix+msg, *args, **kwargs)
     
-    def error(self, msg, rank=None, *args, **kwargs):
+    def error(self, msg, rank=None, exit=False, *args, **kwargs):
         if self.has_something_to_write(rank): 
-            return super().error(self.preffix+msg, *args, **kwargs)
+            super().error(self.preffix+msg, exit=exit, *args, **kwargs)
     
     def exception(self, msg, rank=None, *args, **kwargs):
         if self.has_something_to_write(rank): 
-            return super().exception(self.preffix+msg, *args, **kwargs)
+            super().exception(self.preffix+msg, *args, **kwargs)
     
     def critical(self, msg, rank=None, *args, **kwargs):
         if self.has_something_to_write(rank): 
-            return super().critical(self.preffix+msg, *args, **kwargs)
+            super().critical(self.preffix+msg, *args, **kwargs)
     
     fatal = critical
     

@@ -39,11 +39,9 @@ def apply(workflow):
     except KeyError:
         if 'method' not in workflow.Initialization:
             mola_logger.error('The key "method" is mandotory in the dictionary workflow.Initialization.')
-            raise Exception
         else:
             init_method = workflow.Initialization['method']
             mola_logger.error(f'The initialization method "{init_method}" is unknown. Available methods are: {list(initialization_functions)}')
-            raise Exception
 
     check_initial_flow_is_in_all_zones(workflow)
     
@@ -101,14 +99,12 @@ def initialize_flow_from_file_by_copy(workflow):
             FlowSolutionInSourceTree = sourceTree.getAtPath(FSpath)
             zone.addChild(FlowSolutionInSourceTree, override_brother_by_name=True)
         except AttributeError:
-            ERROR_MSG = f"The node {FSpath} is not found in {workflow.Initialization['source']}"
-            raise Exception(misc.RED+ERROR_MSG+misc.ENDC)
+            mola_logger.error(f"The node {FSpath} is not found in {workflow.Initialization['source']}")
 
 def check_initial_flow_is_in_all_zones(workflow):
     for zone in workflow.tree.zones():
         if not zone.get(Name='FlowSolution#Init', Type='FlowSolution', Depth=1):
             mola_logger.error(f'FlowSolution#Init is missing in zone {zone.name()}')
-            raise Exception
 
 def compute_turbulent_distance_with_maia(workflow):
     '''
