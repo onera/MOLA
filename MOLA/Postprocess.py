@@ -1285,8 +1285,6 @@ def computeCp(surface, distribution, slicing_options=dict(slicing_method='SpanBa
                 # surface = C.initVars(slice,'centers:-Cp', Cp, ['centers:Pressure'])
             I.setName(slice, 'Iso{}_{}'.format(slicing_var,customVarValue))
 
-        print('slice before extract')
-        I.printTree(slice)
         I._renameNode(slice, 'ChannelHeight'+heightContainerTag, 'ChannelHeight')
         var2keepOnCpProfiles = ['CoordinateX', 'CoordinateY', 'CoordinateZ','-Cp','ChannelHeight',slicing_var,'Span', 'Abscissa','Distance2Axis']
         C._extractVars(slice, var2keepOnCpProfiles)
@@ -1622,8 +1620,7 @@ def isoSurface(t, fieldname=None, value=None, container='FlowSolution#Init'):
     tPrev = I.copyRef(t)
     t = mergeContainers(t, FlowSolutionVertexName=I.__FlowSolutionNodes__,
                            FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
-    # print('AfterMerge:')
-    # I.printTree(t)
+#COntainers OK at this point on FLowSolution and FlowSOlutionCenters
 
     isosurfs = []
     for zone in I.getZones(t):

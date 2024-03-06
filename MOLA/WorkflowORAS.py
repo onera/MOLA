@@ -585,7 +585,7 @@ def computeLoadRadialDistributionInAnnularConfiguration(surface, distribution, s
             ERRMSG = 'Span based sectional load computation requires both start_point and end_point as input parameters'
             raise ValueError(ERRMSG)
         else:
-            addSpan(surface, np.array(geometrical_parameters['start_point']), np.array(geometrical_parameters['end_point']))
+            Post.addSpan(surface, np.array(geometrical_parameters['start_point']), np.array(geometrical_parameters['end_point']))
             dmin = C.getMinValue(surface, 'Span')
             dmax = C.getMaxValue(surface, 'Span')            
             surface = C.initVars(surface,'Span2', Abscissa, ['Span'])
@@ -613,7 +613,7 @@ def computeLoadRadialDistributionInAnnularConfiguration(surface, distribution, s
             else:
                 slicing_var = slicing_options['custom_variable']
 
-                surface = mergeContainers(surface, FlowSolutionVertexName='FlowSolution',
+                surface = Post.mergeContainers(surface, FlowSolutionVertexName='FlowSolution',
                 FlowSolutionCellCenterName='FlowSolution#Centers',
                 BCDataSetFaceCenterName='BCDataSet')
             
