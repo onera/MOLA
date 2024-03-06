@@ -14,8 +14,9 @@
 #
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
-import os
+
 from mola import misc
+from mola.logging import mola_logger
 
 def apply(workflow):
     '''
@@ -33,7 +34,7 @@ def set_default_motion(Motion):
 
     RotationSpeed = Motion.setdefault('RotationSpeed', [0., 0., 0.])
     if isinstance(RotationSpeed, (int, float)):
-        print(misc.YELLOW+f'No rotation axis for motion: set to x-axis by default.'+misc.ENDC)
+        mola_logger.warning('No rotation axis for motion: set to x-axis by default.')
         Motion['RotationSpeed'] = [RotationSpeed, 0., 0.]
     Motion.setdefault('RotationAxisOrigin', [0., 0., 0.])
     Motion.setdefault('TranslationSpeed', [0., 0., 0.])

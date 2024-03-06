@@ -17,6 +17,7 @@
 
 from treelab import cgns
 from mola import misc
+from mola.logging import mola_logger
 from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_to_elsa
 
 import copy
@@ -194,9 +195,7 @@ def adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType):
     ExtractVariablesList = copy.deepcopy(Extraction['fields'])
 
     if not workflow.tree.isStructured():
-        print('not structured')
         if 'BoundaryLayer' in ExtractVariablesList:
-            print('remove BoundaryLayer')
             ExtractVariablesList.remove('BoundaryLayer')
 
     if ExtractBCType == 'BCWallInviscid':
@@ -228,14 +227,14 @@ def add_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesL
         SolverOutput = FamilyNode.get(Name='.Solver#Output', Depth=1) 
         
         if not SolverOutput:
-            print('setting .Solver#Output to FamilyNode '+FamilyNode.name())
+            mola_logger.debug('setting .Solver#Output to FamilyNode '+FamilyNode.name())
             if 'BCWall' in ExtractBCType:
                 SolverOutputKeys = dict(**default_bc_wall_parameters, var=' '.join(varList))
             else:
                 SolverOutputKeys = dict(**default_bc_parameters, var=' '.join(varList))
             FamilyNode.setParameters('.Solver#Output', **SolverOutputKeys)
         else:
-            print('adding variables in .Solver#Output to FamilyNode '+FamilyNode.name())
+            mola_logger.debug('adding variables in .Solver#Output to FamilyNode '+FamilyNode.name())
             # Add variables that are not already in the node
             varNode = SolverOutput.get(Name='var', Depth=1)
             varListAlreadyPresent = varNode.value().split() 
@@ -245,7 +244,7 @@ def add_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesL
                     newVarList.append(var)
             varNode.setValue(' '.join(newVarList))
     else:
-        print(misc.YELLOW+f'Caution: the list of fields to extract on {FamilyNode.name()} is empty'+misc.ENDC)
+        mola_logger.warning(f'Caution: the list of fields to extract on {FamilyNode.name()} is empty')
 
 
 def add_trigger(t, coprocessFilename='coprocess.py'):

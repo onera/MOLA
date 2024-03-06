@@ -16,6 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from mola import misc
+from mola.logging import mola_logger
 
 def get_surface_of_inflow(workflow):
     '''
@@ -49,7 +50,7 @@ def get_surface_of_family(tree, Family):
     SurfaceTree = C.convertArray2Tetra(zones)
     SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
     Surface = P.integ(SurfaceTree, var='ones')[0]        # Compute normalization coefficient
-    print(f'Reference surface = {Surface} m^2 (computed from family {Family})')
+    mola_logger.info(f'Reference surface = {Surface} m^2 (computed from family {Family})')
 
     return Surface
 

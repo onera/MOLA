@@ -17,6 +17,7 @@
 import os
 from mola import misc
 from mola import __MOLA_PATH__
+from mola.logging import mola_logger
 from mola.server.__cpmv__ import guess_host
 
 def apply(workflow):
@@ -51,14 +52,13 @@ def set_default(RunManagement):
 
     if RunManagement['Machine'] == 'auto':
         RunManagement['Machine'] = guess_host(Network=RunManagement['Network'])
-        print(misc.CYAN+f"The detected Machine on Network {RunManagement['Network']} is {RunManagement['Machine']}"+misc.ENDC)
+        mola_logger.info(f"The detected Machine on Network {RunManagement['Network']} is {RunManagement['Machine']}")
 
     if RunManagement['TimeLimit'] == 'auto':
         # To update depending on the cluster
         if RunManagement['Machine'] in ['sator', 'spiro']:
             RunManagement['TimeLimit'] = '0-15:00'
         else:
-            # print(misc.YELLOW + f'The machine {RunManagement["Machine"]} is unknown' + misc.ENDC)
             RunManagement['TimeLimit'] = '0-24:00'
 
     if 'SlurmConstraint' not in RunManagement:

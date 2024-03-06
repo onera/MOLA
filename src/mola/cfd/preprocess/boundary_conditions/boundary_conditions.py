@@ -17,6 +17,7 @@
 import os
 from treelab import cgns
 from mola import misc
+from mola.logging import mola_logger
 from mola.cfd.preprocess.motion import motion
 
 BoundaryConditionsNames = dict(
@@ -55,7 +56,7 @@ def apply(workflow):
     for bc in workflow.BoundaryConditions:
         
         bcName = bc['type']
-        print(misc.CYAN+f'Set boundary condition {bcName} on family {bc["Family"]}'+misc.ENDC)
+        mola_logger.info(f'Set boundary condition {bcName} on family {bc["Family"]}')
         
         if bcName in BoundaryConditionsNames:
             # Define in the main MOLA preprocess, lower in this file
@@ -72,7 +73,7 @@ def apply(workflow):
         try:
             solverSpecificFunction = getattr(solverModule, solverSpecificFunctionName)
         except AttributeError:
-            print(misc.RED+f'The function {solverSpecificFunctionName} does not exist for the solver {workflow.Solver}.'+misc.ENDC)
+            mola_logger.error(f'The function {solverSpecificFunctionName} does not exist for the solver {workflow.Solver}.')
         else:
             solverSpecificFunction(workflow, *args, **kwargs)
 
