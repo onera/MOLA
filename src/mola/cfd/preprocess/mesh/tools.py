@@ -15,10 +15,6 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import Converter.PyTree as C
-import Converter.Internal as I
-import Post.PyTree as P
-
 from mola import misc
 
 def get_surface_of_inflow(workflow):
@@ -46,6 +42,8 @@ def get_surface_of_inflow(workflow):
     return get_surface_of_family(workflow.tree, InflowFamily)
 
 def get_surface_of_family(tree, Family):
+    import Converter.PyTree as C
+    import Post.PyTree as P
 
     zones = C.extractBCOfName(tree, f'FamilySpecified:{Family}')
     SurfaceTree = C.convertArray2Tetra(zones)
@@ -81,6 +79,9 @@ def compute_azimuthal_extension_from_family(t, FamilyName):
             Azimuthal extension in radians
 
     '''
+    import Converter.PyTree as C
+    import Post.PyTree as P
+
     # Extract zones in family
     zonesInFamily = C.getFamilyZones(t, FamilyName)
     # Slice in x direction at middle range

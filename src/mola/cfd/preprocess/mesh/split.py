@@ -19,9 +19,6 @@ import numpy as np
 from treelab import cgns
 from mola import misc
 
-import Transform.PyTree as T
-import Distributor2.PyTree as D2
-
 def apply(workflow):
     '''
     Distribute a PyTree **t**, with optional splitting.
@@ -271,6 +268,9 @@ def apply(workflow):
     return tRef
 
 def _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors, raise_error=False):
+
+    import Distributor2.PyTree as D2
+    import Transform.PyTree as T
 
     t = workflow.tree
     tRef = t.copy()

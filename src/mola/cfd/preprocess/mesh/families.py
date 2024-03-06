@@ -15,7 +15,6 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import Converter.PyTree as C # TODO _addBC2Zone, _fillEmptyBCWith
 import treelab.cgns as cgns
 # from mola.cfd.preprocess.boundary_conditions import BoundaryConditionsNames
 
@@ -32,6 +31,8 @@ def apply(workflow):
             FamilyName = operation['Name']
             location   = operation['Location']
             print(f'setting Family {FamilyName} at base {base.name()}')
+
+            import Converter.PyTree as C  # TODO _addBC2Zone, _fillEmptyBCWith
             
             if location in structured_locations:
                 for zone in base.zones():
