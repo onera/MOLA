@@ -19,7 +19,7 @@ import os
 import logging
 import io
 import contextlib
-from .formatting import CustomFormatter
+from .formatters import CustomFormatter
 
 class MolaLogger(logging.Logger):
     

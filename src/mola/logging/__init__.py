@@ -28,7 +28,7 @@ LOG_FILE  = None
 
 from .loggers import *
 from .exceptions import *
-from .formatting import compare_with_expected_message_at_level
+from .formatters import compare_with_expected_message_at_level
 
 mola_logger = MolaLogger(level=LOG_LEVEL, filename=LOG_FILE)
 

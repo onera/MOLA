@@ -15,7 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from .formatting import format_message_according_level
+from .formatters import format_message_according_level
 
 class MolaException(Exception):
 
