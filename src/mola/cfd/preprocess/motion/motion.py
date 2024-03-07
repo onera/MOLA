@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from mola import misc
-from mola.logging import mola_logger
+from mola.logging import mola_logger, MolaException
 
 def apply(workflow):
     '''

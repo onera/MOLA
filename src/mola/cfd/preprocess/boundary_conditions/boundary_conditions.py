@@ -17,7 +17,7 @@
 import os
 from treelab import cgns
 from mola import misc
-from mola.logging import mola_logger
+from mola.logging import mola_logger, MolaException
 from mola.cfd.preprocess.motion import motion
 
 BoundaryConditionsNames = dict(
@@ -75,7 +75,7 @@ def apply(workflow):
         try:
             solverSpecificFunction = getattr(solverModule, solverSpecificFunctionName)
         except AttributeError:
-            mola_logger.error(f'The function {solverSpecificFunctionName} does not exist for the solver {workflow.Solver}.')
+            raise MolaException(f'The function {solverSpecificFunctionName} does not exist for the solver {workflow.Solver}.')
         else:
             solverSpecificFunction(workflow, *args, **kwargs)
 

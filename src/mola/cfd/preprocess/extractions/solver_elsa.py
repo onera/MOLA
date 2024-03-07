@@ -17,7 +17,7 @@
 
 from treelab import cgns
 from mola import misc
-from mola.logging import mola_logger
+from mola.logging import mola_logger, MolaException
 from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_to_elsa
 
 import copy
@@ -152,7 +152,7 @@ def process_extractions_2d(workflow):
                 ExtractBCType = FamilyBCNode.value()
 
                 ExtractVariablesList = adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType)
-                add_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesList, default_bc_parameters, default_bc_wall_parameters)
+                add_2d_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesList, default_bc_parameters, default_bc_wall_parameters)
 
 def get_default_parameters_for_2d_extractions(SolverParameters, pinf):
     # Default keys to write in the .Solver#Output of the Family node
@@ -221,7 +221,7 @@ def adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType):
     
     return ExtractVariablesList
 
-def add_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesList, default_bc_parameters, default_bc_wall_parameters):
+def add_2d_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesList, default_bc_parameters, default_bc_wall_parameters):
     if ExtractVariablesList != []:
         varList = translate_to_elsa(ExtractVariablesList, type='var')
         SolverOutput = FamilyNode.get(Name='.Solver#Output', Depth=1) 
@@ -237,7 +237,12 @@ def add_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesL
             mola_logger.debug('adding variables in .Solver#Output to FamilyNode '+FamilyNode.name())
             # Add variables that are not already in the node
             varNode = SolverOutput.get(Name='var', Depth=1)
-            varListAlreadyPresent = varNode.value().split() 
+            varListAlreadyPresent = varNode.value()
+            if isinstance(varListAlreadyPresent, str):
+                # only one variable in node var, so varListAlreadyPresent is a str
+                # Careful, doing list(varListAlreadyPresent) gives a wrong result!
+                # For example, list('psta') = ['p', 's', 't', 'a']
+                varListAlreadyPresent = [varListAlreadyPresent]
             newVarList = copy.deepcopy(varListAlreadyPresent)
             for var in varList:
                 if not var in varListAlreadyPresent:

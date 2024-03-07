@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import treelab.cgns as cgns
-from mola.logging import mola_logger
+from mola.logging import mola_logger, MolaException
 import Connector.PyTree as X
 
 def apply(workflow):
@@ -61,7 +61,7 @@ def apply(workflow):
                                             tol=tolerance,
                                             dim=base.dim())
             else:
-                mola_logger.error(f'Connection type {ConnectionType} not implemented')
+                raise MolaException(f'Connection type {ConnectionType} not implemented')
 
     workflow.tree = cgns.castNode(t)
 

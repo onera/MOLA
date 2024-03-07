@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from mola import misc
-from mola.logging import mola_logger
+from mola.logging import mola_logger, MolaException
 
 def get_surface_of_inflow(workflow):
     '''
@@ -34,7 +34,7 @@ def get_surface_of_inflow(workflow):
 
     # Check unicity
     if len(InflowBCs) != 1:
-        mola_logger.error( 'Please provide a reference surface as "Surface" in ReferenceValues or provide a unique inflow BC in BoundaryConditions')
+        raise MolaException( 'Please provide a reference surface as "Surface" in ReferenceValues or provide a unique inflow BC in BoundaryConditions')
     
     InflowFamily = InflowBCs[0]['Family']
     

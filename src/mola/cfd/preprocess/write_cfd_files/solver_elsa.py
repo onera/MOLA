@@ -19,7 +19,7 @@ import os
 import shutil 
 from treelab import cgns
 from mola import misc
-from mola.logging import mola_logger, redirect_streams_to_logger
+from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola import __MOLA_PATH__
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
 

@@ -17,7 +17,7 @@
 import os
 from mola import misc
 from mola import __MOLA_PATH__
-from mola.logging import mola_logger
+from mola.logging import mola_logger, MolaException
 from mola.server.__cpmv__ import guess_host
 
 def apply(workflow):
@@ -48,7 +48,7 @@ def set_default(RunManagement):
     # NumberOfProcessors must be set before this stage
     # It may have been set during an automatic splitting operation
     if not isinstance(RunManagement['NumberOfProcessors'], int):
-        mola_logger.error(f'The value {RunManagement["NumberOfProcessors"]} for NumberOfProcessors is not allowed. It must be an integer')
+        raise MolaException(f'The value {RunManagement["NumberOfProcessors"]} for NumberOfProcessors is not allowed. It must be an integer')
     
     if RunManagement['Machine'] == 'auto':
         RunManagement['Machine'] = guess_host(Network=RunManagement['Network'])

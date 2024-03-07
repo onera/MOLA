@@ -18,7 +18,7 @@
 import numpy as np
 from treelab import cgns
 from mola import misc, math_tools
-from mola.logging import mola_logger
+from mola.logging import mola_logger, MolaException
 
 K_OMEGA_TWO_EQN_MODELS = ['Wilcox2006-klim', 'Wilcox2006-klim-V',
             'Wilcox2006', 'Wilcox2006-V', 'SST-2003', 
@@ -82,12 +82,12 @@ class ExternalFlowGenerator(object):
         if FreestreamIsTooLow and self.Flow['VelocityUsedForScalingAndTurbulence'] is None:
             ERRMSG = f'Velocity is too low ({self.Flow["Velocity"]}).'
             ERRMSG+= 'You must provide a non-zero value for VelocityUsedForScalingAndTurbulence'
-            mola_logger.error(ERRMSG)
+            raise MolaException(ERRMSG)
 
         if self.Flow['VelocityUsedForScalingAndTurbulence'] is not None:
             if self.Flow['VelocityUsedForScalingAndTurbulence'] <= 0:
                 ERRMSG = 'VelocityUsedForScalingAndTurbulence must be positive'
-                mola_logger.error(ERRMSG)
+                raise MolaException(ERRMSG)
         else:
             self.Flow['VelocityUsedForScalingAndTurbulence'] = np.abs(self.Flow['Velocity'])
 

@@ -19,6 +19,7 @@ import pytest
 import os
 import copy
 from mola import __MOLA_PATH__
+from mola.logging import check_error_message
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
 
 
@@ -59,12 +60,9 @@ RunManagement_default = dict(
 @pytest.mark.parametrize("NumberOfProcessors", [None, 10., 'number', [5, 6]])
 def test_set_default_error_NumberOfProcessors(NumberOfProcessors):
     RunManagement = dict(NumberOfProcessors=NumberOfProcessors)
-    try:
-        write_cfd_files.set_default(RunManagement)
-    except AssertionError:
-        return
-    else:
-        raise AssertionError(f'set_default should raise an AssertionError if NumberOfProcessors={NumberOfProcessors}')
+
+    expected_error_msg = f'The value {RunManagement["NumberOfProcessors"]} for NumberOfProcessors is not allowed. It must be an integer'
+    check_error_message(expected_error_msg, write_cfd_files.set_default, RunManagement)
 
 def test_set_default_default_spiro():
     RunManagement = dict(

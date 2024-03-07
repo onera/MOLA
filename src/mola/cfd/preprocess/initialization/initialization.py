@@ -17,7 +17,7 @@
 
 from treelab import cgns
 from mola import misc
-from mola.logging import mola_logger
+from mola.logging import mola_logger, MolaException
 
 def apply(workflow):
     '''
@@ -38,10 +38,10 @@ def apply(workflow):
         initialize_flow_with_given_method(workflow)
     except KeyError:
         if 'method' not in workflow.Initialization:
-            mola_logger.error('The key "method" is mandotory in the dictionary workflow.Initialization.')
+            raise MolaException('The key "method" is mandotory in the dictionary workflow.Initialization.')
         else:
             init_method = workflow.Initialization['method']
-            mola_logger.error(f'The initialization method "{init_method}" is unknown. Available methods are: {list(initialization_functions)}')
+            raise MolaException(f'The initialization method "{init_method}" is unknown. Available methods are: {list(initialization_functions)}')
 
     check_initial_flow_is_in_all_zones(workflow)
     
@@ -97,14 +97,14 @@ def initialize_flow_from_file_by_copy(workflow):
         FSpath = zone.path() + '/FlowSolution#Init'
         try:
             FlowSolutionInSourceTree = sourceTree.getAtPath(FSpath)
-            zone.addChild(FlowSolutionInSourceTree, override_brother_by_name=True)
+            zone.addChild(FlowSolutionInSourceTree, override_sibling_by_name=True)
         except AttributeError:
-            mola_logger.error(f"The node {FSpath} is not found in {workflow.Initialization['source']}")
+            raise MolaException(f"The node {FSpath} is not found in {workflow.Initialization['source']}")
 
 def check_initial_flow_is_in_all_zones(workflow):
     for zone in workflow.tree.zones():
         if not zone.get(Name='FlowSolution#Init', Type='FlowSolution', Depth=1):
-            mola_logger.error(f'FlowSolution#Init is missing in zone {zone.name()}')
+            raise MolaException(f'FlowSolution#Init is missing in zone {zone.name()}')
 
 def compute_turbulent_distance_with_maia(workflow):
     '''

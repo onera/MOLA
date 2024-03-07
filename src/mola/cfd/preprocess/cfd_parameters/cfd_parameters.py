@@ -16,8 +16,9 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 import os
 from mola import misc
-from mola.logging import mola_logger
+from mola.logging import mola_logger, MolaException, MolaAssertionError
 
+MANDATORY_KEYS_FOR_CFL_DICT = ['EndIteration', 'StartValue', 'EndValue']
 
 def apply(workflow):
     
@@ -33,7 +34,8 @@ def set_problem_dimension(workflow):
     
     # Check that all bases have the same dimension
     dimOfBases = set(base.dim() for base in workflow.tree.bases())
-    assert len(dimOfBases) == 1, 'All bases have not the same physical dimension'
+    if len(dimOfBases) != 1:
+        raise MolaAssertionError('All bases have not the same physical dimension')
     workflow.ProblemDimension = int(list(dimOfBases)[0])
 
 def set_physical_parameters(workflow):
@@ -57,7 +59,7 @@ def set_numerical_parameters(workflow):
     # Time marching
     if workflow.Numerics['TimeMarching'] != 'Steady':
         if 'TimeStep' not in workflow.Numerics:
-            mola_logger.error(f'TimeStep must be defined to perform a simulation with TimeMarching={workflow.Numerics["TimeMarching"]}')
+            raise MolaException(f'TimeStep must be defined to perform a simulation with TimeMarching={workflow.Numerics["TimeMarching"]}')
         
         workflow.Numerics.setdefault('TimeMarchingOrder', 2)
 
@@ -69,7 +71,7 @@ def check_cfl(workflow):
     try:
         cfl = workflow.Numerics['CFL']
     except:
-        mola_logger.error('CFL is not defined. Please give a value or function in Workflow.Numerics')
+        raise MolaException('CFL is not defined. Please give a value or function in Workflow.Numerics')
 
     if isinstance(cfl, float):
         pass
@@ -77,12 +79,10 @@ def check_cfl(workflow):
         cfl = float(cfl)
     elif isinstance(cfl, dict):
         cfl.setdefault('StartIteration', workflow.Numerics['IterationAtInitialState'])
-        mandatoryKeys = ['EndIteration', 'StartValue', 'EndValue']
-        CFL_dict_has_all_mandatory_keys = all([(key in cfl) for key in mandatoryKeys])
-
+        CFL_dict_has_all_mandatory_keys = all([(key in cfl) for key in MANDATORY_KEYS_FOR_CFL_DICT])
         if not CFL_dict_has_all_mandatory_keys:
-            mola_logger.error(f'If CFL is a dict, it must contains at least {", ".join(mandatoryKeys)}. \
+            raise MolaException(f'If CFL is a dict, it must contains at least {", ".join(MANDATORY_KEYS_FOR_CFL_DICT)}. \
     You may also define StartIteration, otherwise it will be equal to IterationAtInitialState (1 by default).')
         
     else:
-        mola_logger.error('CFL must be a scalar or a dict')
+        raise MolaException('CFL must be a scalar or a dict')

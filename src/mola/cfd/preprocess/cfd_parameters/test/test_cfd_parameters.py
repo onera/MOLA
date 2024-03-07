@@ -21,6 +21,7 @@ import numpy as np
 
 from treelab import cgns
 from mola import misc
+from mola.logging import check_error_message
 from mola.cfd.preprocess.cfd_parameters import cfd_parameters
 
 
@@ -50,17 +51,7 @@ def test_set_problem_dimension_2():
     base2.setCellDimension(2)
     workflow = FakeWorkflow(tree=tree) 
 
-    try:
-        cfd_parameters.set_problem_dimension(workflow)
-    except AssertionError as e:
-        assert e.args[0] == 'All bases have not the same physical dimension'
-    else:
-        raise AssertionError('set_problem_dimension should raise an error if bases have different dimensions')
-    
-
-def test_set_physical_parameters_default():
-    assert False, 'Not yet implemented'
-
+    check_error_message('All bases have not the same physical dimension', cfd_parameters.set_problem_dimension, workflow)
 
 
 default_numerical_parameters = dict(
@@ -71,7 +62,6 @@ default_numerical_parameters = dict(
     Scheme = 'Jameson',
     TimeAtInitialState = 0.0,
     TimeMarching = 'Steady',
-    TimeStep = None
 )
 
 def test_set_numerical_parameters_default():
@@ -103,13 +93,9 @@ def test_set_numerical_parameters_unsteady_error():
         TimeMarching = 'gear',
     )
     workflow = FakeWorkflow(Numerics=new_parameters)
-    
-    try:
-        cfd_parameters.set_numerical_parameters(workflow)
-    except AssertionError as e:
-        assert e.args[0] == misc.RED+f'TimeStep must be defined to perform a simulation with TimeMarching={workflow.Numerics["TimeMarching"]}'+misc.ENDC
-    else:
-        raise AssertionError('set_numerical_parameters should raise an AssertionError if TimeMarching is not Steady and TimeStep is not defined')
+
+    expected_error_msg = f'TimeStep must be defined to perform a simulation with TimeMarching={workflow.Numerics["TimeMarching"]}'
+    check_error_message(expected_error_msg, cfd_parameters.set_numerical_parameters, workflow)
 
 def test_set_numerical_parameters_unsteady():
     new_parameters = dict(
@@ -125,18 +111,18 @@ def test_set_numerical_parameters_unsteady():
     ref_numerical_parameters['TimeMarchingOrder'] = 2
     assert workflow.Numerics == ref_numerical_parameters
 
+def test_check_cfl_not_defined():
+    workflow = FakeWorkflow(Numerics=dict())
+    expected_error_msg = 'CFL is not defined. Please give a value or function in Workflow.Numerics'
+    check_error_message(expected_error_msg, cfd_parameters.check_cfl, workflow)
+
 def test_set_numerical_parameters_cfl_None():
     workflow = FakeWorkflow(Numerics=dict(
         CFL = None
     ))
     
-    try:
-        cfd_parameters.set_numerical_parameters(workflow)
-    except Exception as e:
-        assert e.args[0] == misc.RED+'CFL is not defined. Please give a value or function in Workflow.Numerics'+misc.ENDC
-    else:
-        raise AssertionError('set_numerical_parameters should raise an Exception if CFL is None')
-
+    expected_error_msg = 'CFL must be a scalar or a dict'
+    check_error_message(expected_error_msg, cfd_parameters.set_numerical_parameters, workflow)
 
 @pytest.mark.parametrize("CFL", ['cfl', [1], np.empty(3)])
 def test_set_numerical_parameters_invalid_cfl(CFL):
@@ -144,13 +130,8 @@ def test_set_numerical_parameters_invalid_cfl(CFL):
         CFL = CFL
     ))
 
-    try:
-        cfd_parameters.set_numerical_parameters(workflow)
-    except Exception as e:
-        assert e.args[0] == misc.RED+'CFL must be a scalar or a dict'+misc.ENDC
-    else:
-        raise AssertionError('set_numerical_parameters should raise an Exception if CFL is None')
-
+    expected_error_msg = 'CFL must be a scalar or a dict'
+    check_error_message(expected_error_msg, cfd_parameters.set_numerical_parameters, workflow)
 
 def test_set_numerical_parameters_cfl_dict():
     workflow = FakeWorkflow(Numerics=dict(
@@ -172,9 +153,8 @@ def test_set_numerical_parameters_cfl_dict():
 @pytest.mark.parametrize("CFL", [dict(StartValue=1,EndValue=3), dict(EndIteration=100,EndValue=3), dict(EndIteration=100,StartValue=1)])
 def test_set_numerical_parameters_cfl_dict_invalid(CFL):
     workflow = FakeWorkflow(Numerics=dict(CFL=CFL))
-    try:
-        cfd_parameters.set_numerical_parameters(workflow)
-    except AssertionError:
-        return
-    else:
-        raise AssertionError('set_numerical_parameters should raise an AssertionError if CFL dict is invalid')
+
+    expected_error_msg = f'If CFL is a dict, it must contains at least {", ".join(cfd_parameters.MANDATORY_KEYS_FOR_CFL_DICT)}. \
+    You may also define StartIteration, otherwise it will be equal to IterationAtInitialState (1 by default).'
+
+    check_error_message(expected_error_msg, cfd_parameters.set_numerical_parameters, workflow)

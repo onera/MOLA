@@ -93,13 +93,18 @@ def test_add_trigger():
 
 def test_global_convergence_history():
     ref_node = ['GlobalConvergenceHistory', np.array([0], dtype=np.int32), [
-            ['NormDefinitions', np.array([b'C', b'o', b'n', b'v', b'e', b'r', b'g', b'e', b'n', b'c', b'e', b'H', b'i', b's', b't', b'o', b'r', b'y'], dtype='|S1'), [], 'Descriptor_t']
-            ], 'ConvergenceHistory_t']
+        ['NormDefinitions', np.array([b'C', b'o', b'n', b'v', b'e', b'r', b'g', b'e', b'n', b'c', b'e', b'H', b'i', b's', b't', b'o', b'r', b'y'], dtype='|S1'), [], 'Descriptor_t'], 
+        ['.Solver#Output', None, [
+            ['period', np.array([1], dtype=np.int32), [], 'DataArray_t'], 
+            ['writingmode', np.array([0], dtype=np.int32), [], 'DataArray_t'], 
+            ['var', np.array([b'r', b'e', b's', b'i', b'd', b'u', b'a', b'l', b'_', b'c', b'o', b'n', b's', b' ', b'r', b'e', b's', b'i', b'd', b'u', b'a', b'l', b'_', b't', b'u', b'r', b'b'], dtype='|S1'), [], 'DataArray_t']
+        ], 'UserDefinedData_t']
+        ], 'UserDefinedData_t']
     
     workflow = FakeWorkflow()
     solver_elsa.add_global_convergence_history(workflow)
     for base in workflow.tree.bases():
-        conv_node = base.get(Name='GlobalConvergenceHistory')       
+        conv_node = base.get(Name='GlobalConvergenceHistory')   
         assert str(conv_node) == str(ref_node)  
 
 
@@ -280,7 +285,8 @@ def test_adapt_variables_for_2d_extraction_TransitionMode_imposed():
     
     assert ExtractVariablesList == ['Pressure', 'intermittency', 'clim']
 
-def test_add_extractions_in_SolverOutput_1():
+
+def get_test_parameters_1():
     SolverParameters = dict(
         model = dict(
             delta_compute   = 'first_order_bl',
@@ -290,7 +296,10 @@ def test_add_extractions_in_SolverOutput_1():
         )
     )
     pinf = 1e5
-    default_bc_parameters, default_bc_wall_parameters = solver_elsa.get_default_parameters_for_2d_extractions(SolverParameters, pinf)
+    return solver_elsa.get_default_parameters_for_2d_extractions(SolverParameters, pinf)
+    
+def test_add_2d_extractions_in_SolverOutput_1():
+    default_bc_parameters, default_bc_wall_parameters = get_test_parameters_1()
     
     ExtractBCType = 'BCWall'
     FamilyNode = cgns.Node(Name='Family', Type='Family')
@@ -298,7 +307,7 @@ def test_add_extractions_in_SolverOutput_1():
 
     ExtractVariablesList = ['Pressure', 'BoundaryLayer']
 
-    solver_elsa.add_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesList, default_bc_parameters, default_bc_wall_parameters)
+    solver_elsa.add_2d_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesList, default_bc_parameters, default_bc_wall_parameters)
 
     solver_output = FamilyNode.getParameters('.Solver#Output')
     solver_output_ref = dict(**default_bc_wall_parameters)
@@ -306,25 +315,16 @@ def test_add_extractions_in_SolverOutput_1():
 
     assert solver_output == solver_output_ref
 
-def test_add_extractions_in_SolverOutput_2():
-    SolverParameters = dict(
-        model = dict(
-            delta_compute   = 'first_order_bl',
-            vortratiolim    = 1e-3,
-            shearratiolim   = 2e-2,
-            pressratiolim   = 1e-3,
-        )
-    )
-    pinf = 1e5
-    default_bc_parameters, default_bc_wall_parameters = solver_elsa.get_default_parameters_for_2d_extractions(SolverParameters, pinf)
-    
+def test_add_2d_extractions_in_SolverOutput_2():
+    default_bc_parameters, default_bc_wall_parameters = get_test_parameters_1()
+
     ExtractBCType = 'BCInflow'
     FamilyNode = cgns.Node(Name='Family', Type='Family')
     cgns.Node(Name='FamilyBC', Type='FamilyBC', Value=ExtractBCType, Parent=FamilyNode)
 
     ExtractVariablesList = ['Pressure']
 
-    solver_elsa.add_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesList, default_bc_parameters, default_bc_wall_parameters)
+    solver_elsa.add_2d_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesList, default_bc_parameters, default_bc_wall_parameters)
 
     solver_output = FamilyNode.getParameters('.Solver#Output')
     solver_output_ref = dict(**default_bc_parameters)
@@ -332,18 +332,9 @@ def test_add_extractions_in_SolverOutput_2():
 
     assert solver_output == solver_output_ref
 
-def test_add_extractions_in_SolverOutput_3():
-    SolverParameters = dict(
-        model = dict(
-            delta_compute   = 'first_order_bl',
-            vortratiolim    = 1e-3,
-            shearratiolim   = 2e-2,
-            pressratiolim   = 1e-3,
-        )
-    )
-    pinf = 1e5
-    default_bc_parameters, default_bc_wall_parameters = solver_elsa.get_default_parameters_for_2d_extractions(SolverParameters, pinf)
-    
+def test_add_2d_extractions_in_SolverOutput_3():
+    default_bc_parameters, default_bc_wall_parameters = get_test_parameters_1()
+
     ExtractBCType = 'BCInflow'
     FamilyNode = cgns.Node(Name='Family', Type='Family')
     cgns.Node(Name='FamilyBC', Type='FamilyBC', Value=ExtractBCType, Parent=FamilyNode)
@@ -355,8 +346,25 @@ def test_add_extractions_in_SolverOutput_3():
 
     ExtractVariablesList = ['Temperature']
 
-    solver_elsa.add_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesList, default_bc_parameters, default_bc_wall_parameters)
+    solver_elsa.add_2d_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesList, default_bc_parameters, default_bc_wall_parameters)
     solver_output = FamilyNode.getParameters('.Solver#Output')
     assert solver_output == solver_output_ref
 
+def test_add_2d_extractions_in_SolverOutput_4():
+    default_bc_parameters, default_bc_wall_parameters = get_test_parameters_1()
+    
+    ExtractBCType = 'BCInflow'
+    FamilyNode = cgns.Node(Name='Family', Type='Family')
+    cgns.Node(Name='FamilyBC', Type='FamilyBC', Value=ExtractBCType, Parent=FamilyNode)
+    solver_output = {'period': 1, 'writingmode': 2, 'loc': 'interface', 'fluxcoeff': 1.0, 'writingframe': 'absolute', 'geomdepdom': 2, 'delta_cell_max': 300, 'var': ['psta', 'pgen']}
+    FamilyNode.setParameters('.Solver#Output', **solver_output)
+
+    solver_output_ref = copy.deepcopy(FamilyNode.getParameters('.Solver#Output'))
+    solver_output_ref['var'] = ['psta', 'pgen', 'tsta']
+
+    ExtractVariablesList = ['Temperature']
+
+    solver_elsa.add_2d_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesList, default_bc_parameters, default_bc_wall_parameters)
+    solver_output = FamilyNode.getParameters('.Solver#Output')
+    assert solver_output == solver_output_ref
     

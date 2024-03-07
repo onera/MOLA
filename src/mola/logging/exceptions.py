@@ -15,17 +15,13 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from treelab import cgns
-from mola.cfd.preprocess.cfd_parameters import solver_elsa
+from .formatting import format_message_according_level
 
-# TODO There must be tests with structured, unstructured and hybrid meshes
+class MolaException(Exception):
 
+    def __init__(self, message=''):
+        message = format_message_according_level(message, level='ERROR')
+        super().__init__(message)
 
-# def test_set_cfdpb():
-#     assert False, 'Not implemented yet'
-
-# def test_set_model():
-#     assert False, 'Not implemented yet'
-
-# def test_set_numerics():
-#     assert False, 'Not implemented yet'
+class MolaAssertionError(MolaException):
+    pass

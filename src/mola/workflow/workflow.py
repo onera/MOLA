@@ -18,7 +18,7 @@
 import os
 from treelab import cgns
 from mola import misc
-from mola.logging import mola_logger, redirect_streams_to_logger
+from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from  mola.cfd.preprocess.mesh import (positioning,
                                        connect,
                                        split,
