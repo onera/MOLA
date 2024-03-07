@@ -18,7 +18,7 @@
 import os
 from treelab import cgns
 from mola import misc
-from mola.logging import mola_logger
+from mola.logging import mola_logger, redirect_streams_to_logger
 from  mola.cfd.preprocess.mesh import (positioning,
                                        connect,
                                        split,
@@ -216,7 +216,8 @@ class Workflow(object):
 
     def write_tree(self, filename='main.cgns'):
         if not self.tree: self.tree = cgns.Tree()
-        self.tree.save(filename)
+        with redirect_streams_to_logger(mola_logger):
+            self.tree.save(filename)
 
     def convert_to_dict(self):
         params= dict()

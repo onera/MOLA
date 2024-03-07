@@ -18,6 +18,8 @@
 import sys
 import os
 import logging
+import io
+import contextlib
 
 import argparse
 parser = argparse.ArgumentParser()
@@ -28,6 +30,38 @@ args = parser.parse_args()
 LOG_LEVEL = args.verbosity
 LOG_FILE  = args.logfile
 
+class CustomFormatter(logging.Formatter):
+    '''
+    This class defines the format for all loggers in MOLA.
+    '''
+
+    grey = "\x1b[38;20m"
+    yellow = "\x1b[33;20m"
+    red = "\x1b[31;20m"
+    bold_red = "\x1b[31;1m"
+    green = '\033[92m'
+    pink  = '\033[95m'
+    cyan  = '\033[96m'
+    underline = '\033[4m'
+    reset = "\x1b[0m"
+    format='%(levelname)s: %(message)s'
+    # format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
+    # format = "%(message)s"
+
+    FORMATS = {
+        logging.DEBUG: grey + format + reset,
+        logging.INFO: grey + "%(message)s" + reset,
+        logging.WARNING: yellow + format + reset,
+        logging.ERROR: red + 'MOLA %(levelname)s: %(message)s' + reset,
+        logging.CRITICAL: bold_red + format + reset
+    }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
+    
+
 class MolaLogger(logging.Logger):
     
     def __init__(self, name='mola_logger', level=LOG_LEVEL, stream=True, filename=LOG_FILE):
@@ -36,7 +70,8 @@ class MolaLogger(logging.Logger):
         if stream:
             self.add_stream_handler(formatter)
         if filename:
-            os.remove(filename)
+            if os.path.exists(filename):
+                os.remove(filename)
             self.add_file_handler(formatter, filename)
 
     def set_level(self, level):
@@ -67,33 +102,6 @@ class MolaLogger(logging.Logger):
     
     fatal = critical
 
-class CustomFormatter(logging.Formatter):
-    '''
-    This class defines the format for all loggers in MOLA.
-    '''
-
-    grey = "\x1b[38;20m"
-    yellow = "\x1b[33;20m"
-    red = "\x1b[31;20m"
-    bold_red = "\x1b[31;1m"
-    reset = "\x1b[0m"
-    format='%(levelname)s: %(message)s'
-    # format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
-    # format = "%(message)s"
-
-    FORMATS = {
-        logging.DEBUG: grey + format + reset,
-        logging.INFO: grey + "%(message)s" + reset,
-        logging.WARNING: yellow + format + reset,
-        logging.ERROR: red + 'MOLA %(levelname)s: %(message)s' + reset,
-        logging.CRITICAL: bold_red + format + reset
-    }
-
-    def format(self, record):
-        log_fmt = self.FORMATS.get(record.levelno)
-        formatter = logging.Formatter(log_fmt)
-        return formatter.format(record)
-    
 
 class ParallelLogger(MolaLogger):
     '''
@@ -148,5 +156,25 @@ class ParallelLogger(MolaLogger):
             super().critical(self.preffix+msg, *args, **kwargs)
     
     fatal = critical
+
+@contextlib.contextmanager
+def redirect_streams_to_logger(logger, stdout_level=logging.INFO, stderr_level=logging.ERROR):
+    tmp_stdout = io.StringIO()
+    tmp_stderr = io.StringIO()
     
+    # Redirect stdout to the temporary temporary object
+    with contextlib.redirect_stdout(tmp_stdout), contextlib.redirect_stderr(tmp_stderr):
+        yield tmp_stdout, tmp_stderr
+
+    # Next lines are executed when leaving context ('with')
+    
+    def write_with_logger_if_needed(tmp_StringIO, level):
+        std_str = tmp_StringIO.getvalue().rstrip('\n')
+        if len(std_str) > 0 and not std_str.isspace(): 
+            logger.log(level, std_str)
+
+    write_with_logger_if_needed(tmp_stdout, stdout_level)
+    write_with_logger_if_needed(tmp_stderr, stderr_level)
+
+
 mola_logger = MolaLogger()

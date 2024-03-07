@@ -19,6 +19,7 @@ import os
 import shutil 
 from treelab import cgns
 from mola import misc
+from mola.logging import mola_logger, redirect_streams_to_logger
 from mola import __MOLA_PATH__
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
 
@@ -93,7 +94,9 @@ def write_data_files(workflow):
 
     # Save fields.cgns with the 3D fields
     os.makedirs(os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT'), exist_ok=True)
-    t.save(os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT', 'fields.cgns'))
+
+    with redirect_streams_to_logger(mola_logger):
+        t.save(os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT', 'fields.cgns'))
 
     # Save main.cgns with links to OUTPUT/fields.cgns for 
     NodesToLink = t.group(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3) # for initial field(s) (possible second order restart)
@@ -104,7 +107,9 @@ def write_data_files(workflow):
         path = FlowSolutionInit.path()
         FlowSolutionInit.remove()
         t.addLink(path=path, target_file='OUTPUT/fields.cgns', target_path=path)
-    t.save(os.path.join(workflow.RunManagement['RunDirectory'], 'main.cgns'))
+        
+    with redirect_streams_to_logger(mola_logger):
+        t.save(os.path.join(workflow.RunManagement['RunDirectory'], 'main.cgns'))
 
 def write_run_scripts(workflow):
     write_compute(workflow.RunManagement)
