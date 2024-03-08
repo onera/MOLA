@@ -18,7 +18,7 @@
 import numpy as np
 from treelab import cgns
 from mola import misc
-from mola.logging import mola_logger, MolaException, MolaAssertionError, redirect_streams_to_null, print
+from mola.logging import mola_logger, MolaException, MolaAssertionError, redirect_streams_to_null, print, GREEN, ENDC
 
 def apply(workflow):
     '''
@@ -258,13 +258,13 @@ def split_with_auto_mode(workflow):
 
     for i, NumberOfProcessors in enumerate(NProcCandidates):
         if i == BestOption and AllNZones[i] > 0:
-            Line = misc.GREEN + ColFmt.format(NumberOfProcessors)
+            Line = GREEN + ColFmt.format(NumberOfProcessors)
             Line += ColFmt.format(AllNZones[i])
             Line += ColFmt.format(AllMaxPtsPerProc[i])
             Line += ColFmt.format(AllMaxPtsPerNode[i])
             Line += ColFmt.format(AllVarMax[i] * 100)
             Line += ColFmt.format(AllAvgPts[i])
-            Line += '  <== BEST'+misc.ENDC
+            Line += '  <== BEST'+ENDC
             print(Line)
             break
     tRef = _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors,

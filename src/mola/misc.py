@@ -21,15 +21,6 @@ import os
 import pprint
 import shutil
 
-RED  = '\033[91m'
-GREEN = '\033[92m'
-YELLOW = '\033[93m'
-PINK  = '\033[95m'
-CYAN  = '\033[96m'
-BOLD = '\033[1m'
-UNDERLINE = '\033[4m'
-ENDC  = '\033[0m'
-
 AutoGridLocation = {'FlowSolution':'Vertex',
                     'FlowSolution#Centers':'CellCenter',
                     'FlowSolution#Height':'Vertex',
