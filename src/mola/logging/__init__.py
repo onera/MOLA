@@ -15,20 +15,12 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-# import argparse
-# parser = argparse.ArgumentParser()
-# parser.add_argument('-v', '--verbosity', help='Level of verbosity', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], default='INFO')
-# parser.add_argument('-l', '--logfile', help='Name of log file', type=str)
-# args = parser.parse_args()
-
-# LOG_LEVEL = args.verbosity
-# LOG_FILE  = args.logfile
-LOG_LEVEL = 'INFO'
-LOG_FILE  = None
-
 from .loggers import *
 from .exceptions import *
 from .formatters import compare_with_expected_message_at_level
+from .parsers import get_log_level_and_log_file
+
+LOG_LEVEL, LOG_FILE = get_log_level_and_log_file()
 
 mola_logger = MolaLogger(level=LOG_LEVEL, filename=LOG_FILE)
 
