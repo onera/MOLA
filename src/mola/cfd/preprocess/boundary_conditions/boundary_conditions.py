@@ -17,7 +17,7 @@
 import os
 from treelab import cgns
 from mola import misc
-from mola.logging import mola_logger, MolaException
+from mola.logging import mola_logger, MolaException, mute_stdout
 from mola.cfd.preprocess.motion import motion
 
 BoundaryConditionsNames = dict(
@@ -973,7 +973,7 @@ def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues
         FamilyBC='BCOutflowSubsonic', BCType='outmfr2', bc=bc)
 
 
-@misc.mute_stdout
+@mute_stdout
 def setBC_stage_mxpl(t, left, right, method='globborder_dict'):
     '''
     Set a mixing plane condition between families **left** and **right**.
@@ -1050,7 +1050,7 @@ def setBC_stage_mxpl(t, left, right, method='globborder_dict'):
     setRotorStatorFamilyBC(t, left, right)
 
 
-@misc.mute_stdout
+@mute_stdout
 def setBC_stage_mxpl_hyb(t, left, right, nbband=100, c=0.3):
     '''
     Set a hybrid mixing plane condition between families **left** and **right**.
@@ -1102,7 +1102,7 @@ def setBC_stage_mxpl_hyb(t, left, right, nbband=100, c=0.3):
     setRotorStatorFamilyBC(t, left, right)
 
 
-@misc.mute_stdout
+@mute_stdout
 def setBC_stage_red(t, left, right, stage_ref_time):
     '''
     Set a RNA condition between families **left** and **right**.
@@ -1137,7 +1137,7 @@ def setBC_stage_red(t, left, right, stage_ref_time):
     setRotorStatorFamilyBC(t, left, right)
 
 
-@misc.mute_stdout
+@mute_stdout
 def setBC_stage_red_hyb(t, left, right, stage_ref_time):
     '''
     Set a hybrid RNA condition between families **left** and **right**.
@@ -1174,7 +1174,7 @@ def setBC_stage_red_hyb(t, left, right, stage_ref_time):
         I._rmNodesByType(gc, 'FamilyBC_t')
 
 
-@misc.mute_stdout
+@mute_stdout
 def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
     valve_ref_mflow=None, valve_relax=0.1, indpiv=1, 
     ReferenceValues=None, TurboConfiguration=None, method='globborder_dict'):
@@ -1307,7 +1307,7 @@ def setBC_outradeq(t, FamilyName, valve_type=0, valve_ref_pres=None,
         bc.create()
 
 
-@misc.mute_stdout
+@mute_stdout
 def setBC_outradeqhyb(t, FamilyName, valve_type=0, valve_ref_pres=None,
                       valve_ref_mflow=None, valve_relax=0.1, indpiv=1, nbband=100, c=0.3, 
                       ReferenceValues=None, TurboConfiguration=None):

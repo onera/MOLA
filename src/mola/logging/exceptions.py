@@ -15,6 +15,11 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+''' 
+This module defines internal Exceptions. 
+It should only contains class named <something>Exception or <something>Error.
+Each class should inherites from the parent class MolaException.
+'''
 from .formatters import format_message_according_level
 
 class MolaException(Exception):

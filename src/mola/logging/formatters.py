@@ -15,6 +15,9 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+''' 
+This module defines Formatters (used by Loggers) and useful related functions.
+'''
 import logging
 
 class CustomFormatter(logging.Formatter):

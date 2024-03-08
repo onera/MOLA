@@ -17,6 +17,7 @@
 
 from .loggers import *
 from .exceptions import *
+from .catchers import *
 from .formatters import compare_with_expected_message_at_level
 from .parsers import get_log_level_and_log_file
 

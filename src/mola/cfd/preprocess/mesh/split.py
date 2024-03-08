@@ -18,7 +18,7 @@
 import numpy as np
 from treelab import cgns
 from mola import misc
-from mola.logging import mola_logger, MolaException
+from mola.logging import mola_logger, MolaException, redirect_streams_to_null
 
 def apply(workflow):
     '''
@@ -361,8 +361,7 @@ def _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors, raise_error=Fal
     stats = dict()
     if distributor.lower() == 'cassiopee':
         # NOTE see Cassiopee BUG #8244 -> need algorithm='fast'
-        silence = misc.OutputGrabber()
-        with silence:
+        with redirect_streams_to_null():
             tRef, stats = D2.distribute(tRef, NumberOfProcessors, algorithm='fast', useCom='all')
             tRef = cgns.castNode(tRef)
         stats.update(stats)

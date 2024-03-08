@@ -15,6 +15,11 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+''' 
+This module defines Loggers only. 
+It should only contains class named <something>Logger  
+'''
+
 import os
 import logging
 import io
@@ -50,17 +55,6 @@ class MolaLogger(logging.Logger):
         file_handler.setFormatter(formatter)
         self.addHandler(file_handler)
     
-    # def error(self, msg, exit=True, *args, **kwargs):
-    #     super().error(msg, *args, **kwargs)
-    #     if exit:
-    #         raise MolaException
-    
-    # def critical(self, msg, *args, **kwargs):
-    #     super().critical(msg, *args, **kwargs)
-    #     raise MolaException
-    
-    # fatal = critical
-
 
 class ParallelLogger(MolaLogger):
     '''
@@ -115,24 +109,4 @@ class ParallelLogger(MolaLogger):
             super().critical(self.preffix+msg, *args, **kwargs)
     
     fatal = critical
-
-
-@contextlib.contextmanager
-def redirect_streams_to_logger(logger, stdout_level=logging.INFO, stderr_level=logging.ERROR):
-    tmp_stdout = io.StringIO()
-    tmp_stderr = io.StringIO()
-    
-    # Redirect stdout to the temporary temporary object
-    with contextlib.redirect_stdout(tmp_stdout), contextlib.redirect_stderr(tmp_stderr):
-        yield tmp_stdout, tmp_stderr
-
-    # Next lines are executed when leaving context ('with')
-    
-    def write_with_logger_if_needed(tmp_StringIO, level):
-        std_str = tmp_StringIO.getvalue().rstrip('\n')
-        if len(std_str) > 0 and not std_str.isspace(): 
-            logger.log(level, std_str)
-
-    write_with_logger_if_needed(tmp_stdout, stdout_level)
-    write_with_logger_if_needed(tmp_stderr, stderr_level)
 
