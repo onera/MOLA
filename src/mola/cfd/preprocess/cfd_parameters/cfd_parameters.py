@@ -14,9 +14,9 @@
 #
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
-import os
-from mola import misc
+
 from mola.logging import mola_logger, MolaException, MolaAssertionError
+from mola.cfd import apply_to_solver
 
 MANDATORY_KEYS_FOR_CFL_DICT = ['EndIteration', 'StartValue', 'EndValue']
 
@@ -27,7 +27,7 @@ def apply(workflow):
     set_numerical_parameters(workflow)
 
     workflow.SolverParameters = dict()
-    misc.apply_to_solver(workflow)
+    apply_to_solver(workflow)
 
 
 def set_problem_dimension(workflow):

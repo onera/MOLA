@@ -20,30 +20,30 @@ This module defines Formatters (used by Loggers) and useful related functions.
 '''
 import logging
 
+GREY = "\x1b[38;20m"
+RED  = '\033[91m'
+BOLD_RED = "\x1b[31;1m"
+GREEN = '\033[92m'
+YELLOW = '\033[93m'
+PINK  = '\033[95m'
+CYAN  = '\033[96m'
+BOLD = '\033[1m'
+UNDERLINE = '\033[4m'
+ENDC  = '\033[0m'
+
 class CustomFormatter(logging.Formatter):
     '''
     This class defines the format for all loggers in MOLA.
     '''
-
-    grey = "\x1b[38;20m"
-    yellow = "\x1b[33;20m"
-    red = "\x1b[31;20m"
-    bold_red = "\x1b[31;1m"
-    green = '\033[92m'
-    pink  = '\033[95m'
-    cyan  = '\033[96m'
-    underline = '\033[4m'
-    reset = "\x1b[0m"
     format='%(levelname)s: %(message)s'
     # format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
-    # format = "%(message)s"
 
     FORMATS = {
-        logging.DEBUG: grey + format + reset,
-        logging.INFO: grey + "%(message)s" + reset,
-        logging.WARNING: yellow + format + reset,
-        logging.ERROR: red + format + reset,
-        logging.CRITICAL: bold_red + format + reset
+        logging.DEBUG: GREY + format + ENDC,
+        logging.INFO: GREY + "%(message)s" + ENDC,
+        logging.WARNING: YELLOW + format + ENDC,
+        logging.ERROR: RED + format + ENDC,
+        logging.CRITICAL: BOLD_RED + format + ENDC
     }
 
     def format(self, record):

@@ -17,7 +17,7 @@
 
 import numpy as np
 from treelab import cgns
-from mola import misc, math_tools
+from mola import math_tools
 from mola.logging import mola_logger, MolaException
 
 K_OMEGA_TWO_EQN_MODELS = ['Wilcox2006-klim', 'Wilcox2006-klim-V',

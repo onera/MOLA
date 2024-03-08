@@ -15,7 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from mola import misc
+from mola.cfd import apply_to_solver
 from mola.logging import mola_logger, MolaException
 
 def apply(workflow):
@@ -25,7 +25,7 @@ def apply(workflow):
     for family, MotionOnFamily in workflow.Motion.items():
         set_default_motion(MotionOnFamily)
 
-    misc.apply_to_solver(workflow)
+    apply_to_solver(workflow)
 
 def set_default_motion(Motion):
     if callable(Motion) or any([callable(v) for v in Motion.values()]):

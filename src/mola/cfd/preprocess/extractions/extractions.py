@@ -14,16 +14,15 @@
 #
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
-import os
-from mola import misc
 
+from mola.cfd import apply_to_solver
 
 def apply(workflow):
 
     process_extractions_3d(workflow)
     process_extractions_2d(workflow)
 
-    misc.apply_to_solver(workflow)
+    apply_to_solver(workflow)
 
 
 def process_extractions_3d(workflow):

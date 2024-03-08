@@ -15,7 +15,6 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from mola import misc
 from mola.logging import mola_logger, MolaException
 
 def get_surface_of_inflow(workflow):

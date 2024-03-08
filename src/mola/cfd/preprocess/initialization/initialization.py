@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from treelab import cgns
-from mola import misc
+from mola.cfd import apply_to_solver
 from mola.logging import mola_logger, MolaException
 
 def apply(workflow):
@@ -45,7 +45,7 @@ def apply(workflow):
 
     check_initial_flow_is_in_all_zones(workflow)
     
-    misc.apply_to_solver(workflow)
+    apply_to_solver(workflow)
 
 def initialize_flow_with_reference_state(workflow):
     mola_logger.info('Initialize FlowSolution with uniform reference values')

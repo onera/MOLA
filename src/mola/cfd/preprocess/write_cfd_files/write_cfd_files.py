@@ -15,7 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 import os
-from mola import misc
+from mola.cfd import apply_to_solver
 from mola import __MOLA_PATH__
 from mola.logging import mola_logger, MolaException
 from mola.server.__cpmv__ import guess_host
@@ -23,7 +23,7 @@ from mola.server.__cpmv__ import guess_host
 def apply(workflow):
 
     set_default(workflow.RunManagement)
-    misc.apply_to_solver(workflow)
+    apply_to_solver(workflow)
 
 def set_default(RunManagement):
 

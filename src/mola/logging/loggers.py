@@ -22,8 +22,6 @@ It should only contains class named <something>Logger
 
 import os
 import logging
-import io
-import contextlib
 from .formatters import CustomFormatter
 
 class MolaLogger(logging.Logger):

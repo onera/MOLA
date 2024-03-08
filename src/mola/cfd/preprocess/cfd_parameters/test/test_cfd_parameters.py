@@ -20,7 +20,6 @@ import copy
 import numpy as np
 
 from treelab import cgns
-from mola import misc
 from mola.logging import check_error_message
 from mola.cfd.preprocess.cfd_parameters import cfd_parameters
 
