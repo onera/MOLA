@@ -18,7 +18,7 @@
 import numpy as np
 from treelab import cgns
 from mola import misc
-from mola.logging import mola_logger, MolaException, redirect_streams_to_null
+from mola.logging import mola_logger, MolaException, MolaAssertionError, redirect_streams_to_null, print
 
 def apply(workflow):
     '''
@@ -107,165 +107,189 @@ def apply(workflow):
             new distributed *(and possibly split)* tree
 
     '''
-    if isinstance(workflow.SplittingAndDistribution, str):
-        if workflow.SplittingAndDistribution.lower() == 'pypart':
-            workflow.SplittingAndDistribution = dict(
+    set_default_splitting_parameters(workflow.SplittingAndDistribution)
+    
+    if not workflow.SplittingAndDistribution['Strategy'].lower() == 'atpreprocess': 
+        return
+        
+    mola_logger.info('splitting and distributing mesh...')
+    mode = get_and_check_splitting_mode(workflow.SplittingAndDistribution)
+    if mode == 'auto':
+        split_with_auto_mode(workflow)
+    else:
+        split_with_imposed_mode(workflow)
+
+    showStatisticsAndCheckDistribution(workflow.tree, CoresPerNode=workflow.SplittingAndDistribution['CoresPerNode'])
+    set_default_NumberOfProcessors_in_RunManagement(workflow)
+    workflow.tree = cgns.castNode(workflow.tree)
+
+def set_default_splitting_parameters(SplittingAndDistribution):
+    
+    if isinstance(SplittingAndDistribution, str):
+        if SplittingAndDistribution.lower() == 'pypart':
+            SplittingAndDistribution = dict(
                 Strategy='AtComputation', 
                 Splitter='PyPart', 
                 Distributor='PyPart', 
                 ComponentsToSplit='all',
                 )
-        elif workflow.SplittingAndDistribution.lower() == 'maia':
-            workflow.SplittingAndDistribution = dict(
+        elif SplittingAndDistribution.lower() == 'maia':
+            SplittingAndDistribution = dict(
                 Strategy='AtComputation', 
                 Splitter='maia', 
                 Distributor='maia', 
                 ComponentsToSplit='all',
                 )
         else:
-            raise MolaException(f'More parameters must be given with the splitter {workflow.SplittingAndDistribution}. See the doc.')
-    
+            raise MolaException(f'More parameters must be given with the splitter {SplittingAndDistribution}. See the doc.')
+        
+    default_splitAndDist = dict(
+            Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
+            Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
+            Distributor='Cassiopee', 
+            ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
+            NumberOfProcessors='auto', 
+            MinimumAllowedNodes=1,
+            MaximumAllowedNodes=1,
+            MaximumNumberOfPointsPerNode=1e9,
+            CoresPerNode=48, # FIXME Should depend on the machine, and so on the Network. Otherwise, don't set a default value
+            DistributeExclusivelyOnFullNodes=True
+            )
+
+    for key, value in default_splitAndDist.items():
+        SplittingAndDistribution.setdefault(key, value)
+
+
+def get_and_check_splitting_mode(SplittingParameters):
+
+    the_number_of_processors_is_given = \
+        'NumberOfProcessors' in SplittingParameters \
+        and isinstance(SplittingParameters['NumberOfProcessors'], int)
+    if the_number_of_processors_is_given:
+        return 'imposed'
+
+    if SplittingParameters['MinimumAllowedNodes'] == SplittingParameters['MaximumAllowedNodes']:
+        if SplittingParameters['DistributeExclusivelyOnFullNodes']:
+            SplittingParameters['NumberOfProcessors'] = SplittingParameters['MinimumAllowedNodes'] * SplittingParameters['CoresPerNode']
+            mola_logger.warning(f'User constrained to NumberOfProcessors={SplittingParameters["NumberOfProcessors"]}, switching to mode="imposed"')
+            return 'imposed'
+
+    elif SplittingParameters['MinimumAllowedNodes'] > SplittingParameters['MaximumAllowedNodes']:
+        raise MolaException('minimum_number_of_nodes > maximum_allowed_nodes')
+
+    elif SplittingParameters['MinimumAllowedNodes'] < 1:
+        raise MolaException('minimum_number_of_nodes must be at least equal to 1')
+
+    return 'auto'
+
+def split_with_auto_mode(workflow):
+
     t = workflow.tree
     splitAndDistribUser = workflow.SplittingAndDistribution
 
-    if not splitAndDistribUser['Strategy'].lower() == 'atpreprocess': return
-    
-    if splitAndDistribUser['NumberOfProcessors'] == 'auto':
-        mode = 'auto'
-    else:
-        mode = 'imposed'
-        NumberOfProcessors = splitAndDistribUser['NumberOfProcessors']
-        
-    mola_logger.info('splitting and distributing mesh...')
-    
     cores_per_node = splitAndDistribUser['CoresPerNode']
     minimum_number_of_nodes = splitAndDistribUser['MinimumAllowedNodes']
     maximum_allowed_nodes = splitAndDistribUser['MaximumAllowedNodes']
     only_consider_full_node_nproc = splitAndDistribUser['DistributeExclusivelyOnFullNodes']
     maximum_number_of_points_per_node = splitAndDistribUser['MaximumNumberOfPointsPerNode']
 
-    if mode == 'auto':
+    TotalNPts = t.numberOfPoints()
+    startNProc = cores_per_node*minimum_number_of_nodes+1
+    if not only_consider_full_node_nproc: startNProc -= cores_per_node 
+    endNProc = maximum_allowed_nodes*cores_per_node+1
 
-        TotalNPts = t.numberOfPoints()
-        startNProc = cores_per_node*minimum_number_of_nodes+1
-        if not only_consider_full_node_nproc: startNProc -= cores_per_node 
-        endNProc = maximum_allowed_nodes*cores_per_node+1
+    if only_consider_full_node_nproc:
+        NProcCandidates = np.array(list(range(startNProc-1,
+                                                (endNProc-1)+cores_per_node,
+                                                cores_per_node)))
+    else:
+        NProcCandidates = np.array(list(range(startNProc, endNProc)))
 
-        if NumberOfProcessors is not None and NumberOfProcessors > 0:
-            mola_logger.warning(f'User requested NumberOfProcessors={NumberOfProcessors}, switching to mode=="imposed"')
-            mode = 'imposed'
+    EstimatedAverageNodeLoad = TotalNPts / (NProcCandidates / cores_per_node)
+    NProcCandidates = NProcCandidates[EstimatedAverageNodeLoad < maximum_number_of_points_per_node]
 
-        elif minimum_number_of_nodes == maximum_allowed_nodes:
-            if only_consider_full_node_nproc:
-                NumberOfProcessors = minimum_number_of_nodes*cores_per_node
-                mola_logger.warning('User constrained to NumberOfProcessors={NumberOfProcessors}, switching to mode=="imposed"')
-                mode = 'imposed'
+    if len(NProcCandidates) < 1:
+        raise MolaException('maximum_number_of_points_per_node is too likely to be exceeded.\nTry increasing maximum_allowed_nodes and/or maximum_number_of_points_per_node')
 
-        elif minimum_number_of_nodes > maximum_allowed_nodes:
-            raise MolaException('minimum_number_of_nodes > maximum_allowed_nodes')
+    Title1= ' number of  | number of  | max pts at | max pts at | percent of | average pts|'
+    Title = ' processors | zones      | any proc   | any node   | imbalance  | per proc   |'
+    
+    Ncol = len(Title)
+    print('-'*Ncol)
+    print(Title1)
+    print(Title)
+    print('-'*Ncol)
+    Ndigs = len(Title.split('|')[0]) + 1
+    ColFmt = r'{:^'+str(Ndigs)+'g}'
 
-        elif minimum_number_of_nodes < 1:
-            raise MolaException('minimum_number_of_nodes must be at least equal to 1')
+    AllNZones = []
+    AllVarMax = []
+    AllAvgPts = []
+    AllMaxPtsPerNode = []
+    AllMaxPtsPerProc = []
+    for i, NumberOfProcessors in enumerate(NProcCandidates):
+        _, NZones, varMax, meanPtsPerProc, MaxPtsPerNode, MaxPtsPerProc = \
+            _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors,
+                                            raise_error=False)
+        AllNZones.append( NZones )
+        AllVarMax.append( varMax )
+        AllAvgPts.append( meanPtsPerProc )
+        AllMaxPtsPerNode.append( MaxPtsPerNode )
+        AllMaxPtsPerProc.append( MaxPtsPerProc )
 
-        if only_consider_full_node_nproc:
-            NProcCandidates = np.array(list(range(startNProc-1,
-                                                  (endNProc-1)+cores_per_node,
-                                                  cores_per_node)))
-        else:
-            NProcCandidates = np.array(list(range(startNProc, endNProc)))
-
-        EstimatedAverageNodeLoad = TotalNPts / (NProcCandidates / cores_per_node)
-        NProcCandidates = NProcCandidates[EstimatedAverageNodeLoad < maximum_number_of_points_per_node]
-
-        if len(NProcCandidates) < 1:
-            raise MolaException('maximum_number_of_points_per_node is too likely to be exceeded.\nTry increasing maximum_allowed_nodes and/or maximum_number_of_points_per_node')
-
-        Title1= ' number of  | number of  | max pts at | max pts at | percent of | average pts|'
-        Title = ' processors | zones      | any proc   | any node   | imbalance  | per proc   |'
+        log_level = 'INFO'
+        Line = ColFmt.format(NumberOfProcessors)
+        try:
+            Line += ColFmt.format(AllNZones[i])
+            Line += ColFmt.format(AllMaxPtsPerProc[i])
+            Line += ColFmt.format(AllMaxPtsPerNode[i])
+            Line += ColFmt.format(AllVarMax[i] * 100)
+            Line += ColFmt.format(AllAvgPts[i])
+        except IndexError:
+            log_level = 'ERROR'
+            Line += f'  <== EXCEEDED nb. pts. per node with {AllMaxPtsPerNode[i]}'
         
-        Ncol = len(Title)
-        print('-'*Ncol)
-        print(Title1)
-        print(Title)
-        print('-'*Ncol)
-        Ndigs = len(Title.split('|')[0]) + 1
-        ColFmt = r'{:^'+str(Ndigs)+'g}'
+        print(Line, level=log_level)
+        if cores_per_node>1 and (NumberOfProcessors%cores_per_node==0):
+            print('-'*Ncol)
+        
 
-        AllNZones = []
-        AllVarMax = []
-        AllAvgPts = []
-        AllMaxPtsPerNode = []
-        AllMaxPtsPerProc = []
-        for i, NumberOfProcessors in enumerate(NProcCandidates):
-            _, NZones, varMax, meanPtsPerProc, MaxPtsPerNode, MaxPtsPerProc = \
-                _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors,
-                                               raise_error=False)
-            AllNZones.append( NZones )
-            AllVarMax.append( varMax )
-            AllAvgPts.append( meanPtsPerProc )
-            AllMaxPtsPerNode.append( MaxPtsPerNode )
-            AllMaxPtsPerProc.append( MaxPtsPerProc )
+    BestOption = np.argmin( AllMaxPtsPerProc )
 
-            if AllNZones[i] == 0:
-                start = misc.RED
-                end = '  <== EXCEEDED nb. pts. per node with %d'%AllMaxPtsPerNode[i]+misc.ENDC
-            else:
-                start = end = ''
-            Line = start + ColFmt.format(NumberOfProcessors)
-            if AllNZones[i] == 0:
-                Line += end
-            else:
-                Line += ColFmt.format(AllNZones[i])
-                Line += ColFmt.format(AllMaxPtsPerProc[i])
-                Line += ColFmt.format(AllMaxPtsPerNode[i])
-                Line += ColFmt.format(AllVarMax[i] * 100)
-                Line += ColFmt.format(AllAvgPts[i])
-                Line += end
-
+    for i, NumberOfProcessors in enumerate(NProcCandidates):
+        if i == BestOption and AllNZones[i] > 0:
+            Line = misc.GREEN + ColFmt.format(NumberOfProcessors)
+            Line += ColFmt.format(AllNZones[i])
+            Line += ColFmt.format(AllMaxPtsPerProc[i])
+            Line += ColFmt.format(AllMaxPtsPerNode[i])
+            Line += ColFmt.format(AllVarMax[i] * 100)
+            Line += ColFmt.format(AllAvgPts[i])
+            Line += '  <== BEST'+misc.ENDC
             print(Line)
-            if cores_per_node>1 and (NumberOfProcessors%cores_per_node==0):
-                print('-'*Ncol)
-            
+            break
+    tRef = _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors,
+                                            raise_error=True)[0]
 
-        BestOption = np.argmin( AllMaxPtsPerProc )
+    tRef.setUniqueZoneNames()
+    # tRef = connectMesh(tRef, InputMeshes) # TODO do it after split&dist
 
-        for i, NumberOfProcessors in enumerate(NProcCandidates):
-            if i == BestOption and AllNZones[i] > 0:
-                Line = start = misc.GREEN + ColFmt.format(NumberOfProcessors)
-                end = '  <== BEST'+misc.ENDC
-                Line += ColFmt.format(AllNZones[i])
-                Line += ColFmt.format(AllMaxPtsPerProc[i])
-                Line += ColFmt.format(AllMaxPtsPerNode[i])
-                Line += ColFmt.format(AllVarMax[i] * 100)
-                Line += ColFmt.format(AllAvgPts[i])
-                Line += end
-                print(Line)
-                break
-        tRef = _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors,
-                                              raise_error=True)[0]
+    # update NumberOfProcessors in workflow
+    # This is mandatory for function set_default_NumberOfProcessors_in_RunManagement
+    workflow.SplittingAndDistribution['NumberOfProcessors'] = NumberOfProcessors
 
-        tRef.setUniqueZoneNames()
-        # tRef = connectMesh(tRef, InputMeshes) # TODO do it after split&dist
+    workflow.tree = cgns.castNode(tRef)
 
-    elif mode == 'imposed':
-
-        tRef = _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors,
-                                              raise_error=True)[0]
-
-        tRef.setUniqueZoneNames()
-        # tRef = connectMesh(tRef, InputMeshes) # TODO do it after split&dist
-
-    showStatisticsAndCheckDistribution(tRef, CoresPerNode=cores_per_node)
-
-    tRef = cgns.castNode(tRef)
-
-    workflow.tree = tRef
-
+def split_with_imposed_mode(workflow):
+    NumberOfProcessors = workflow.SplittingAndDistribution['NumberOfProcessors']
+    tRef = _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors, raise_error=True)[0]
+    tRef.setUniqueZoneNames()
+    # tRef = connectMesh(tRef, InputMeshes) # TODO do it after split&dist
+    workflow.tree = cgns.castNode(tRef)
+    
+def set_default_NumberOfProcessors_in_RunManagement(workflow):
     if 'NumberOfProcessors' not in workflow.RunManagement \
         or workflow.RunManagement['NumberOfProcessors'] is None:
-        workflow.RunManagement['NumberOfProcessors'] = NumberOfProcessors
-
-    return tRef
+        workflow.RunManagement['NumberOfProcessors'] = workflow.SplittingAndDistribution['NumberOfProcessors']
 
 def _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors, raise_error=False):
 
@@ -537,7 +561,7 @@ def showStatisticsAndCheckDistribution(tNew, CoresPerNode=48):
 
     for p in range(ResultingNProc):
         if p not in ProcDistributed:
-            raise ValueError('Bad proc distribution! rank %d is empty'%p)
+            raise MolaException(f'Bad proc distribution! Rank {p} is empty')
 
 
 def _getComponentsNamesBasedOnSplitPolicy(workflow):
