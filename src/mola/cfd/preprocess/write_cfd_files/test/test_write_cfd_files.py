@@ -45,16 +45,16 @@ def test_convert_to_seconds_j_hh():
     assert write_cfd_files.convert_to_seconds('1-10') == 3600*24 + 36000
 
 RunManagement_default = dict(
-        JobName='MOLAjob',
+        # JobName='MOLAjob',
         RunDirectory='.',
         NumberOfProcessors=None,
         SubmitJob=False,
-        Machine = 'auto', 
-        TimeLimit = 'auto',
+        # Machine = 'auto', 
+        # TimeLimit = 'auto',
         LauncherCommand = 'auto', # or 'sbatch job.sh', './job.sh'...
         mola_target_path = __MOLA_PATH__,
         FilesAndDirectories=[],
-        AER='not_given',
+        # AER='not_given',
         )
 
 @pytest.mark.parametrize("NumberOfProcessors", [None, 10., 'number', [5, 6]])
@@ -161,15 +161,15 @@ def test_get_job_text_sator():
     job_text = write_cfd_files.get_job_text(RunManagement, 'my_solver')
 
     assert job_text == f'''#!/bin/bash
-#SBATCH -J MOLAjob
-#SBATCH --comment 000X111A
-#SBATCH -o output.%j.log
-#SBATCH -e error.%j.log
-#SBATCH -t 0-15:00
-#SBATCH -n 5
+#SBATCH --time=15:00:00
 #SBATCH --constraint=csl
+#SBATCH --job-name=mola
+#SBATCH --comment=000X111A
+#SBATCH --ntasks=5
+#SBATCH --output=output.%j.log
+#SBATCH --error=error.%j.log
 
-source {RunManagement["mola_target_path"]}/mola/env/{RunManagement["Network"]}/{RunManagement["Machine"]}/my_solver.sh
+source {RunManagement["mola_target_path"]}/mola/env/onera/sator/my_solver.sh
 '''
 
 def test_get_job_text_spiro():
@@ -183,13 +183,13 @@ def test_get_job_text_spiro():
     job_text = write_cfd_files.get_job_text(RunManagement, 'my_solver')
 
     assert job_text == f'''#!/bin/bash
-#SBATCH -J MOLAjob
-#SBATCH --comment 000X111A
-#SBATCH -o output.%j.log
-#SBATCH -e error.%j.log
-#SBATCH -t 0-15:00
-#SBATCH -n 5
+#SBATCH --time=24:00:00
 #SBATCH --qos=c1_test_giga
+#SBATCH --job-name=mola
+#SBATCH --comment=000X111A
+#SBATCH --ntasks=5
+#SBATCH --output=output.%j.log
+#SBATCH --error=error.%j.log
 
-source {RunManagement["mola_target_path"]}/mola/env/{RunManagement["Network"]}/{RunManagement["Machine"]}/my_solver.sh
+source {RunManagement["mola_target_path"]}/mola/env/onera/spiro/my_solver.sh
 '''
