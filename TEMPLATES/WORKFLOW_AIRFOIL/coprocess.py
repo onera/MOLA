@@ -53,6 +53,7 @@ ItersMinEvenIfConverged = CO.getOption('ItersMinEvenIfConverged', default=1e3)
 ConvergenceCriteria     = CO.getOption('ConvergenceCriteria', default=[])
 RegisterTransitionFrequency = CO.getOption('RegisterTransitionFrequency', default=10)
 RequestedStatistics       = CO.getOption('RequestedStatistics', default=[])
+TagSurfacesWithIteration  = CO.getOption('TagSurfacesWithIteration', default=False)
 FirstIterForFieldsStats  = CO.getOption('FirstIterationForFieldsAveraging', default=1e12)
 
 if FirstIterForFieldsStats is None: FirstIterForFieldsStats = 1e12
@@ -109,7 +110,8 @@ if ENTER_COUPLING:
 
     if SAVE_FIELDS:
         J.moveFields(t)
-        CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
+        CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS),
+                tagWithIteration=TagSurfacesWithIteration)
 
     if REGISTER_TRANSITION:
         CO.printCo('updating transition...', color=J.CYAN, proc=0)
@@ -133,7 +135,8 @@ if ENTER_COUPLING:
 
     if SAVE_SURFACES:
         surfs = CO.extractSurfaces(t, setup.Extractions)
-        CO.save(surfs, os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES))
+        CO.save(surfs, os.path.join(DIRECTORY_OUTPUT,FILE_SURFACES),
+                tagWithIteration=TagSurfacesWithIteration)
 
 
     if CONVERGED or it >= itmax or ReachedTimeOutMargin:
