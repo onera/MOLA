@@ -3492,12 +3492,9 @@ def _generateAnalyticalRegions(GenerationInfo, mean_snear):
                 flat_bodies.extend(body_set)
             bodies = flat_bodies
             I._correctPyTree(bodies, level=3)
-            print(direction)
             NewFrame = _getFrameFromInitialAxis(direction)
-            print(NewFrame)
             T._rotate(bodies, (0,0,0), ((1,0,0),(0,1,0),(0,0,1)), NewFrame)
             T._translate(bodies, base_center)
-            J.save(bodies,'discs.cgns'); exit()
 
         elif geom == 'box':
 
