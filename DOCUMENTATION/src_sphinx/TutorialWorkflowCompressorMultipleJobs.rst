@@ -19,7 +19,7 @@ Firstly, take a look at section :ref:`Environment and machine` and check that
 you are able to source the environment correctly. Also read section
 :ref:`Autologin to SATOR machine` to fill the requirements for this tutorial.
 
-This tutorial follows the same example case that the tutorial :ref:`workflow Compressor<_TutorialWorkflowCompressor>`.
+This tutorial follows the same example case that the tutorial :ref:`workflow Compressor<TutorialWorkflowCompressor>`.
 The directory of interest is *EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine*.
 
 Prepare the simulations

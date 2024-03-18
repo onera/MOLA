@@ -11,8 +11,8 @@ using the workflow Compressor.
     Be sure to be comfortable with the :ref:`workflow Compressor<Workflow Compressor>` 
     before following this tutorial.
 
-This tutorial follows the same example case that the tutorial :ref:`workflow Compressor<Workflow Compressor>`.
-The directory of interest is *EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_BodyForce*.
+This tutorial follows the same example case that the tutorial :ref:`workflow Compressor<Workflow Compressor>`,
+and you may start from the same input files.
 
 
 1. Preparation of the mesh
@@ -30,6 +30,12 @@ generate a mesh adapted for the body force method (BFM). There are two main oper
    and then by making a revolution around the row axis. Geometrical data are also interpolated and stored in the node
    `FlowSolution#DataSourceTerm`.
 
+.. danger::
+
+    If the files `BodyForceData_ROW.cgns` already exist, they will be read directly 
+    instead of performing the first operation (analysis with ErstaZ). If you modify your input mesh for some reason, 
+    you **SHOULD** remove files `BodyForceData_ROW.cgns`, so as they can be generated again.
+
 The figure below illustrates this procedure:
 
 .. figure:: FIGURES_WORKFLOW_COMPRESSOR/mesh_generation_process_BFM.png
@@ -44,7 +50,6 @@ In the user script, the mesh can be defined this way:
 
     CellWidthAtWall = 2e-6 
     CellWidthAtLE = 5e-6
-    CellWidthAtInlet = 1e-3
     mesh = WF.prepareMesh4ElsA('r37.cgns', 
         BodyForceRows = dict(
             R37 = dict(
@@ -53,9 +58,9 @@ In the user script, the mesh can be defined this way:
                 NumberOfAxialPointsBetweenLEAndTE=41,
                 NumberOfAxialPointsAfterTE=41,
                 RadialDistribution=dict(kind='tanhTwoSides', FirstCellHeight=CellWidthAtWall, LastCellHeight=CellWidthAtWall),
-                AxialDistributionBeforeLE=dict(kind='tanhTwoSides', FirstCellHeight=CellWidthAtInlet, LastCellHeight=CellWidthAtLE),
+                AxialDistributionBeforeLE=dict(kind='tanhOneSide', LastCellHeight=CellWidthAtLE),
                 AxialDistributionBetweenLEAndTE=dict(kind='tanhTwoSides', FirstCellHeight=CellWidthAtLE, LastCellHeight=CellWidthAtLE),
-                AxialDistributionAfterTE=dict(kind='tanhTwoSides', FirstCellHeight=CellWidthAtLE, LastCellHeight=CellWidthAtInlet),
+                AxialDistributionAfterTE=dict(kind='tanhOneSide', FirstCellHeight=CellWidthAtLE),
             )
         )
     )
@@ -176,7 +181,7 @@ compressor row using body-force.
 
 Because BFM allows fast simulations, you may be interested in submitting several 
 simulations at once to plot a iso-speed line. To do that, take a look at the 
-:ref:`dedicated tutorial<_TutorialWorkflowCompressorMultipleJobs>`. 
+:ref:`dedicated tutorial<TutorialWorkflowCompressorMultipleJobs>`. 
 
 As a user, please report bugs on the `GitLab of the projet <https://gitlab.onera.net/numerics/mola/-/issues?sort=created_date&state=opened>`_).
 Alternatively, developers may be interested in exploring the sources in order to
