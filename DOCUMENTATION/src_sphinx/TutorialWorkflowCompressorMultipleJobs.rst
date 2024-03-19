@@ -185,7 +185,7 @@ It gives the status of simulations and an overview of performance of the
 monitored row (inlet massflow, total pressure ratio and isentropic efficiency)
 for completed simulations, and plot the following figure:
 
-.. figure:: FIGURES_WORKFLOW_COMPRESSOR/isoSpeedLines.png
+.. figure:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/isoSpeedLines.png
    :width: 90%
    :align: center
 
