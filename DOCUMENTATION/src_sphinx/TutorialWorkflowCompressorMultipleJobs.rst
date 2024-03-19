@@ -19,7 +19,7 @@ Firstly, take a look at section :ref:`Environment and machine` and check that
 you are able to source the environment correctly. Also read section
 :ref:`Autologin to SATOR machine` to fill the requirements for this tutorial.
 
-This tutorial follows the same example case that the tutorial :ref:`workflow Compressor<_TutorialWorkflowCompressor>`.
+This tutorial follows the same example case that the tutorial :ref:`workflow Compressor<TutorialWorkflowCompressor>`.
 The directory of interest is *EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine*.
 
 Prepare the simulations
@@ -40,9 +40,9 @@ to define some additional parameters and apply
 :mod:`~MOLA.WorkflowCompressor.launchIsoSpeedLines`.
 
 Here there is the last lines of the example file
-:download:`launchIsoSpeedLines.py <../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/launchIsoSpeedLines.py>`:
+:download:`prepare.py <../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/prepare.py>`:
 
-.. literalinclude:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/launchIsoSpeedLines.py
+.. literalinclude:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/prepare.py
     :language: python
     :lines: 123-
 
@@ -185,7 +185,7 @@ It gives the status of simulations and an overview of performance of the
 monitored row (inlet massflow, total pressure ratio and isentropic efficiency)
 for completed simulations, and plot the following figure:
 
-.. figure:: FIGURES_WORKFLOW_COMPRESSOR/isoSpeedLines.png
+.. figure:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/isoSpeedLines.png
    :width: 90%
    :align: center
 

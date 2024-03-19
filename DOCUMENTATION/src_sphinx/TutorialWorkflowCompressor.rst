@@ -486,7 +486,7 @@ It results in the creation of several figures:
 * the first set of figures allows to monitor the performance of each row (one
   figure per row). Each figure is displayed and also saved as ``perfos_<ROW>.png``:
 
-  .. figure:: FIGURES_WORKFLOW_COMPRESSOR/perfos_R37.png
+  .. figure:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_SingleCase/perfos_R37.png
       :width: 100%
       :align: center
 
@@ -505,15 +505,15 @@ It results in the creation of several figures:
   * the planes identified as ``PERFOS_R37_In`` and ``PERFOS_R37_Out``, corresponding
     to the *InletPlane* and *OutletPlane* for the row *R37*.
 
-  .. figure:: FIGURES_WORKFLOW_COMPRESSOR/massflow.png
+  .. figure:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_SingleCase/massflow.png
       :width: 60%
       :align: center
 
       Massflow
 
-* the figure ``residuals.png`` (only when the simulation is over):
+* the figure ``residuals.png``:
 
-  .. figure:: FIGURES_WORKFLOW_COMPRESSOR/residuals.png
+  .. figure:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_SingleCase/residuals.png
       :width: 60%
       :align: center
 
