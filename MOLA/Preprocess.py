@@ -5005,6 +5005,7 @@ def adapt2elsA(t, InputMeshes):
         removeEmptyOversetData(t, silent=False)
 
     forceFamilyBCasFamilySpecified(t) # https://elsa.onera.fr/issues/10928
+    avoidSameFamilyBCNameAsBase(t) # https://elsa.onera.fr/issues/11584
     I._createElsaHybrid(t, method=1)
 
 def forceFamilyBCasFamilySpecified(t):
@@ -5933,3 +5934,16 @@ def hasMOLAMotion(t):
             if I.getNodeFromName1(family,'.MOLA#Motion'):
                 return True
     return False
+
+def avoidSameFamilyBCNameAsBase(t):
+    '''
+    This is a HACK for preventing from problem https://elsa.onera.fr/issues/11552
+    Also check https://gitlab.onera.net/numerics/mola/-/issues/198
+    '''
+    for base in I.getBases(t):
+        for family in I.getNodesFromType1(base,'Family_t'):
+            if family[0] == base[0]:
+                msg = f'Cannot use identical names for FamilyBC and base {base[0]}.'
+                msg += ' Please choose different names.\n'
+                msg += 'More information here: https://elsa.onera.fr/issues/11584'
+                raise NameError(J.FAIL+msg+J.ENDC)

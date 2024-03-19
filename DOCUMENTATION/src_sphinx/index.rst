@@ -4,7 +4,7 @@ MOLA documentation
 Welcome to **MO**\ dular workf\ **L**\ ows for **A**\ erodynamics (MOLA)
 documentation website.
 
-Current documentation version is: ``Dev``
+Current documentation version is: ``v1.17``.
 
 Please note the `GitLab page <https://gitlab.onera.net/numerics/mola>`_ of MOLA
 and its associated `Issues <https://gitlab.onera.net/numerics/mola/-/issues>`_ section where
@@ -35,43 +35,44 @@ using `elsA <https://elsa.onera.fr>`_ solver.
 Major changes
 =============
 
-Major changes with respect to previous version (``v1.15``):
-
-General
--------
-* Included mola command lines. More info in :ref:`Commands`
-* ONERA CentOS 6 machines not supported anymore
+Major changes with respect to previous version (``v1.16``):
 
 CFD
 ---
-* use of elsA v5.2.02
-* enhanced unstructured compatibility using `maia <https://numerics.gitlab-pages.onera.net/mesh/maia/1.2/>`_ functions during preprocess (sequential only)
-* automatic handling of volume and surface fields time-averaging and restart procedure
-* allowed for multi-container behavior (extractions, slices, post-processing)
-* Standard workflow now accepts turbomachinery type boundary conditions
-* Standard workflow now accepts PyPart splitting (if no overset is done)
-* included simple probes extractions
-* Giles boundary conditions are now available
-* Body force (version from internal aerodynamics) available in workflow ORAS
+* use of elsA v5.2.03
+* corrected major bug involving the restart procedure when time-averaging
+* many new examples in `$MOLA/EXAMPLES` and `$MOLA/EXAMPLES_RESTRICTED` directories
+* new inlet and outlet Giles conditions including relevant examples
+* residuals are now accessible during the simulation in file arrays.cgns
 
-MESHING
--------
 
-* enhanced automatic propeller meshing procedure, now allowing for narrow USF-type monochannel grids
+LIFTING-LINE
+------------
+* DISCLAIMER: LiftingLines files generated with MOLA < v1.17 are not compatible. They shall be regenerated.
+* new sweep and dihedral corrections implemented
+* enhancements on the collective pitch variations
+* included new examples showing lifting-line generation from a blade scan in `$MOLA/EXAMPLES/LIFTING_LINE`
+* multiple new and more readable spanwise loads contained in FlowSolution
 
 VPM
 ---
-* use of elsA VPM v0.3 (still beta)
-* included multiple diffusion methods (DVM is current best choice)
-* included velocity perturbation technique (see new NREL5 wind turbine example)
-* included enstrophy-based dynamic control of turbulence viscosity
-* lifting-line self-induction modeled using particles
+* use of VPM v0.4 now called VULCAINS
+* fixed memory leaks
+* multiple lifting-line resolution approach implemented
+* enhanced lifting-line circulation subiterations algorithm
+* included new examples in `$MOLA/EXAMPLES/VPM`
 
+TreeLab
+-------
+* Extracted the repository of `TreeLab <https://github.com/Luispain/treelab>`_, which is now a fully independent package
+* multi-tab approach, allowing for copying nodes from one tree to another
+* new look with selectable themes (light and dark modes)
+* fully portable and cross-platform, included in `PyPi <https://pypi.org/project/mola-treelab>`_
 
-Miscellaneous
--------------
-* enhanced visualisation techniques (Visu module)
-* bugs correction and improved general robustness
+More details
+------------
+* See `here <https://gitlab.onera.net/numerics/mola/-/issues/?sort=created_date&state=closed&milestone_title=v1.17&first_page_size=100>`_ a full list of relevant actions related to v1.17 release
+
 
 Indices and tables
 ==================

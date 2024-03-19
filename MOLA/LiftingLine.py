@@ -413,8 +413,6 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         fieldsCorrVars_CC = J.getVars(Stacked,CorrVars,Container='FlowSolution#Centers')
         for f in fieldsCorrVars_CC:
             f *= dr * NBlades / (Nj-1) / vol_tot_val * weight_val / weight_tot_val
-            # LB TODO write more clearly:
-            # f *= (dr * NBlades / ((Nj-1) * vol_tot_val)) * (weight_val / weight_tot_val)
 
     else:
         for corrVar in CorrVars: C.node2Center__(Stacked, corrVar)
@@ -429,8 +427,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         fieldsCorrVars_CC = J.getVars(Stacked,CorrVars,Container='FlowSolution#Centers')
         for f in fieldsCorrVars_CC:
             f *= dr * NBlades / (Nj-1) / vol_tot_val
-            # LB TODO write more clearly:
-            # f *= (dr * NBlades / ((Nj-1) * vol_tot_val))
+
 
     AzimutalLoads = dict()
     for ll in LLs:
@@ -5186,12 +5183,16 @@ def addPitch(LiftingLine, pitch=0.0):
             `PitchRelativeCenter`, previously defined in :py:func:`buildLiftingLine`
     '''
     for LL in getLiftingLines(LiftingLine):
+        Kin_n = I.getNodeFromName(LL,'.Kinematics')
+        rc = I.getValue(I.getNodeFromName1(Kin_n,'RotationCenter'))
+
         PitchCtr = J.getVars(LL,
                         ['PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ'])
 
+
         PitchAxis = J.getVars(LL, ['PitchAxisX','PitchAxisY','PitchAxisZ'])
 
-        PitchCtr_pt = (PitchCtr[0][0]*1.0, PitchCtr[1][0]*1.0, PitchCtr[2][0]*1.0)
+        PitchCtr_pt = (PitchCtr[0][0]+rc[0], PitchCtr[1][0]+rc[1], PitchCtr[2][0]+rc[2])
         PitchAxis_vec = (PitchAxis[0][0], PitchAxis[1][0], PitchAxis[2][0])
         T._rotate(LL, PitchCtr_pt, PitchAxis_vec, pitch, 
                 vectors=NamesOfChordSpanThickwiseFrameNoTangential)

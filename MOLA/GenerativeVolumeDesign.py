@@ -3394,8 +3394,7 @@ def buildCartesianBackground(t, InputMeshes):
         if not solver_define: continue
         try: all_snear+=[I.getValue(I.getNodeFromName1(solver_define,'snear'))]
         except: continue
-    mean_snear = np.mean(all_snear)
-
+    mean_snear = np.mean(all_snear) if all_snear else 0
     
     bodies.extend(_generateAnalyticalRegions(GenerationInfo, mean_snear))
     bodies.extend(_addUserDefinedRegions(GenerationInfo, mean_snear))
@@ -3427,7 +3426,7 @@ def _getFrameFromInitialAxis(direction):
 
     InitialAzimutDirection = np.array([1.0,0.0,0.0])
     angle = misalignmentInDegrees(InitialAzimutDirection, direction)
-    while angle < 5.:
+    while angle < 5 or angle > 175:
         InitialAzimutDirection[0] += 0.01
         InitialAzimutDirection[1] += 0.02
         InitialAzimutDirection[2] += 0.03
@@ -3473,15 +3472,20 @@ def _generateAnalyticalRegions(GenerationInfo, mean_snear):
             try: azimutal_resolution = region['azimutal_resolution']
             except: azimutal_resolution = 20.0
 
-            try: snear = region['snear']
-            except: snear = mean_snear
+            if 'snear' in region:
+                snear = region['snear']
+            else:
+                if mean_snear == 0:
+                    raise ValueError('must define a snear value')
+                snear = mean_snear
+
 
             nb_parts = int(90.0/azimutal_resolution)-1
             disc = D.disc((0,0,0), 0.5*diameter, N=nb_parts)
             T._reorder(disc,(1,-2,3))
             spacing_factor_snear = 5
             spacing = spacing_factor_snear * snear
-            nb_disc = int(np.round(height/spacing))
+            nb_disc = np.maximum(int(np.round(height/spacing)),2)
             bodies = [T.translate(disc,(0,0,spacing*i)) for i in range(nb_disc)]
             flat_bodies = []
             for body_set in bodies:
@@ -3496,8 +3500,12 @@ def _generateAnalyticalRegions(GenerationInfo, mean_snear):
 
             length = region['length']
 
-            try: snear = region['snear']
-            except: snear = mean_snear
+            if 'snear' in region:
+                snear = region['snear']
+            else:
+                if mean_snear == 0:
+                    raise ValueError('must define a snear value')
+                snear = mean_snear
 
             try: base_center = np.array(region['base_center'],dtype=float)
             except: base_center = np.array([0,0,0],dtype=float)
