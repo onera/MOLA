@@ -22,23 +22,22 @@ environment file found at :
 
 .. code-block:: bash
 
-    source /stck/lbernard/MOLA/v1.16/env_MOLA.sh
+    source /stck/mola/v1.17/env_MOLA.sh
 
 You will see a message indicating the main available libraries:
 
 .. code-block:: text
 
-    MOLA version v1.16 at sator (avx512)
+    MOLA version v1.17 at sator (avx512)
     --> Python 3.7.4
-    --> elsA v5.2.02
-    --> ETC v0.333b    
-    --> Cassiopee rev4670 3.7
-    ----> OCC 3.7       (took 1.98393 s : too long)
-    ----> Apps 3.1     
-    --> VPM 0.3        
-    --> turbo dev-lb   
+    --> elsA v5.2.03
+    --> ETC v0.334a    
+    --> Cassiopee  3.7 
+    --> Vulcains (VPM) 0.4
+    --> treelab 0.1.0  
+    --> turbo 1.3      
     --> Ersatz UNAVAILABLE
-    --> maia 1.2        (took 2.74248 s : too long)
+    --> maia 1.2        (took 1.09247 s : too long)
     You are using the latest version of MOLA
 
 

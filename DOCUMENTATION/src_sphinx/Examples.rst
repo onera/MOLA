@@ -3,7 +3,9 @@
 Examples
 ========
 
-This page summarizes all examples that can be found on ``EXAMPLES`` directory.
+This page summarizes the main examples that can be found on ``EXAMPLES`` directory.
+Please explore ``$MOLA/EXAMPLES`` and ``$MOLA/EXAMPLES_RESTRICTED`` for full details
+and find all available examples.
 
 BEMT
 ----
@@ -87,7 +89,7 @@ Generation of a O-H mesh surface
 
 **Short description:** create a O-H surface grid with arbitrary orientation
 
-.. figure:: ../../EXAMPLES/MESHING/PERIODIC_O-H/mesh3D.png
+.. figure:: ../../EXAMPLES/MESHING/PERIODIC_O-H/FRAMES/frame0039.png
     :width: 80%
     :align: center
 
@@ -466,7 +468,7 @@ Several VPM examples of wings, rotors and propellers are available here:
 
     $MOLA/EXAMPLES/VPM/LIFTING_LINE
 
-.. figure:: ../../EXAMPLES/VPM/LIFTING_LINE/ROTORS/KDE_QuadRotor/flow_kde_quad.png
+.. figure:: ../../EXAMPLES/VPM/QUADROTOR_KDE/flow_kde_quad.png
     :width: 80%
     :align: center
 

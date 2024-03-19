@@ -993,27 +993,28 @@ def getLocalFramePerpendicularToLiftingLine(line = [0., 1.],
             Determines if the Lifting Line is symmetrised. A symmetrical extention is added to the
             build Lifting Line.
 
-        Twist : :py:class:`dict`
+        Twist : dict
             Gives the distribution of twist (in degree) with the according interpolation law.
             For example:
+
             ::
+
                 Twist = dict(RelativeSpan = [0.2,  0.6,  1.0],
                                     Twist = [30.,  6.0, -7.0],
                              InterpolationLaw = 'akima')
 
-        Sweep : :py:class:`dict`
+
+        Sweep : dict
             Gives the distribution of sweep (in degree) with the according interpolation law.
 
-        Dihedral : :py:class:`dict`
+        Dihedral : dict
             Gives the distribution of dihedral (in degree) with the according interpolation law.
-
 
     Returns
     -------
 
-        Frame : :py:class:`dict`
-            Containes the positions and vectors of the sections
-
+        Frame : dict
+            Contains the positions and vectors of the sections
     '''
     
     Span, s ,_ = J.getDistributionFromHeterogeneousInput__(line)
