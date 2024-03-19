@@ -1,3 +1,5 @@
+.. _TutorialWorkflowCompressorBodyForce:
+
 Workflow Compressor - Body force
 ================================
 .. _cgnsview: https://cgns.github.io/CGNS_docs_current/cgnstools/cgnsview/index.html

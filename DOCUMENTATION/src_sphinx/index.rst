@@ -54,6 +54,10 @@ LIFTING-LINE
 * included new examples showing lifting-line generation from a blade scan in `$MOLA/EXAMPLES/LIFTING_LINE`
 * multiple new and more readable spanwise loads contained in FlowSolution
 
+BODY-FORCE
+----------
+* the API for body-force applied to internal aerodynamics has changed. See the :ref:`dedicated tutorial <TutorialWorkflowCompressorBodyForce>`.
+
 VPM
 ---
 * use of VPM v0.4 now called VULCAINS
