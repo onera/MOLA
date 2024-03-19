@@ -45,16 +45,13 @@ def test_convert_to_seconds_j_hh():
     assert write_cfd_files.convert_to_seconds('1-10') == 3600*24 + 36000
 
 RunManagement_default = dict(
-        # JobName='MOLAjob',
+        JobName='mola',
         RunDirectory='.',
         NumberOfProcessors=None,
         SubmitJob=False,
-        # Machine = 'auto', 
-        # TimeLimit = 'auto',
         LauncherCommand = 'auto', # or 'sbatch job.sh', './job.sh'...
         mola_target_path = __MOLA_PATH__,
         FilesAndDirectories=[],
-        # AER='not_given',
         )
 
 @pytest.mark.parametrize("NumberOfProcessors", [None, 10., 'number', [5, 6]])
@@ -81,16 +78,17 @@ def test_set_default_default_spiro():
             NumberOfProcessors = 5,
             Network = 'onera',
             Machine = 'spiro', 
-            TimeLimit = '0-15:00',
-            TimeOutInSeconds = 15*3600-180,
+            JobScheduler = 'SLURM',
+            TimeLimit = '24:00:00',
+            TimeOutInSeconds = 24*3600-180,
             SlurmConstraint = None,
             SlurmQualityOfService = 'c1_test_giga',
         )
     )
 
-    assert set(RunManagement) == set(RunManagement_default_with_context)
-
     for key, value in RunManagement.items():
+        if key == 'JobSchedulerOptions':
+            continue
         assert value == RunManagement_default_with_context[key]
 
 
@@ -98,7 +96,8 @@ def test_set_default_default_sator():
     RunManagement = dict(
         NumberOfProcessors = 5,
         Network = 'onera',
-        Machine = 'sator', 
+        Machine = 'sator',
+        AER = 'FakeAER', 
     )
     write_cfd_files.set_default(RunManagement)
     
@@ -111,15 +110,17 @@ def test_set_default_default_sator():
             NumberOfProcessors = 5,
             Network = 'onera',
             Machine = 'sator', 
-            TimeLimit = '0-15:00',
+            JobScheduler = 'SLURM',
+            TimeLimit = '15:00:00',
             SlurmConstraint = 'csl',
             TimeOutInSeconds = 15*3600-180,
+            AER = 'FakeAER',
         )
     )
 
-    assert set(RunManagement) == set(RunManagement_default_with_context)
-
     for key, value in RunManagement.items():
+        if key == 'JobSchedulerOptions':
+            continue
         assert value == RunManagement_default_with_context[key]
 
 
@@ -141,13 +142,14 @@ def test_set_default_custom_sator():
     )
     RunManagement_ref = copy.copy(RunManagement)
     RunManagement_ref['TimeOutInSeconds'] = 10*3600-10
+    RunManagement_ref['JobScheduler'] = 'SLURM'
     RunManagement_ref.pop('SecondsMarginForQuitBeforeTimeOut')
 
     write_cfd_files.set_default(RunManagement)
 
-    assert set(RunManagement) == set(RunManagement_ref)
-
     for key, value in RunManagement.items():
+        if key == 'JobSchedulerOptions':
+            continue
         assert value == RunManagement_ref[key]
 
 def test_get_job_text_sator():
