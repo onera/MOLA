@@ -69,18 +69,23 @@ def replaceRowWithBodyForceMesh(t, BodyForceRows, saveGeometricalDataForBodyForc
             this function.
 
             .. note:: 
+
                 If the parameter **meshType** is not given, it is 
                 automatically set depending on the initial mesh.
 
             .. note:: 
+
                 You may include a dict **ErsatzParameters** in for a row in **BodyForceRows**.
                 If so, parameters are used as it for ertsaz profile parametrization (profile[-1].set(param, value))
 
         saveGeometricalDataForBodyForce : bool
+
             If :py:obj:`True`, save the intermediate files 'BodyForceData_{row}.cgns' for each row.
             These files contain a CGNS tree with :
-                #. 4 lines (1D zones) corresponding to Hub, Shroud, Leading edge and Trailing Edge.
-                #. The zone'Skeleton' with geometrical data on blade profile (used for interpolation later). 
+
+            #. 4 lines (1D zones) corresponding to Hub, Shroud, Leading edge and Trailing Edge.
+            
+            #. The zone'Skeleton' with geometrical data on blade profile (used for interpolation later). 
     
     Returns
     -------
