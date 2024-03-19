@@ -3046,8 +3046,8 @@ def hasProbes():
 
 def appendProbes2Arrays_extractMesh(t, arrays, Probes, order=2):
     '''
-    Parameter
-    ---------
+    Parameters
+    ----------
 
         t : PyTree
 
@@ -3106,8 +3106,8 @@ def appendProbes2Arrays(t, arrays):
     '''
     Append probes with picked data in **arrays**.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
 
         t : PyTree
 

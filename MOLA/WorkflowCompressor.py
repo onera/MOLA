@@ -931,10 +931,11 @@ def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0),
             >>> vectors2rotate = [['VelocityX','VelocityY','VelocityZ'],
             >>>                   ['MomentumX','MomentumY','MomentumZ']]
 
-            .. note:: Rotation of vectors is done with Cassiopee function
-                      Transform.rotate. However, it is not useful to put the
-                      prefix 'centers:'. It will be added automatically in the
-                      function.
+            .. note:: 
+            
+                Rotation of vectors is done with Cassiopee function Transform.rotate. 
+                However, it is not useful to put the prefix 'centers:'. It will be 
+                added automatically in the function.
 
     '''
     OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
@@ -1735,6 +1736,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                   * SymmetryPlane
 
                   .. note::
+
                     elsA names are also available (``nref``, ``inj1``, ``injfmr1``,
                     ``outpres``, ``outmfr2``, ``outradeq``,
                     ``stage_mxpl``, ``stage_red``,
@@ -2753,15 +2755,15 @@ def setBC_outpres(t, FamilyName, Pressure, bc=None, variableForInterpolation='Ch
                                 FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc, variableForInterpolation=variableForInterpolation)
 
 def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
-
     '''
     Impose a Boundary Condition ``giles_out``.
 
     .. note::
-    see theoretical report: /home/bfrancoi/NSCBC/RapportsONERA/SONICE-TF-S2.1.4.1.2_NSCBCgilesInletSteadyStructured_Final3.pdf
+    
+        see theoretical report: /home/bfrancoi/NSCBC/RapportsONERA/SONICE-TF-S2.1.4.1.2_NSCBCgilesInletSteadyStructured_Final3.pdf
 
     Parameters
-        ----------
+    ----------
 
             t : PyTree
                 Tree to modify
@@ -2871,10 +2873,11 @@ def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwa
     Impose a Boundary Condition ``giles_in``.
 
     .. note::
-    see theoretical report: /home/bfrancoi/NSCBC/RapportsONERA/SONICE-TF-S2.1.4.1.2_NSCBCgilesInletSteadyStructured_Final3.pdf
+    
+        see theoretical report: /home/bfrancoi/NSCBC/RapportsONERA/SONICE-TF-S2.1.4.1.2_NSCBCgilesInletSteadyStructured_Final3.pdf
 
     Parameters
-        ----------
+    ----------
 
             t : PyTree
                 Tree to modify
@@ -3438,13 +3441,13 @@ def setBC_stage_mxpl(t, left, right, method='globborder_dict'):
 
 def setBC_giles_stage_mxpl(t, left, right, method = 'Robust', **kwargs):
     '''
-    /home/bfrancoi/NSCBC/RapportsONERA/SONICE-TF-S2.1.4.1.2_NSCBCgilesMxplStructured.pdf
-
     Set a mixing plane condition between families **left** and **right** using the Giles treatment.
-
     The setting of the mixing plane with giles is different from classical mixing plane. Therefore, 
-
     a dedicated function is used. 
+
+    .. note:: 
+     
+        see theoretical report: /home/bfrancoi/NSCBC/RapportsONERA/SONICE-TF-S2.1.4.1.2_NSCBCgilesMxplStructured.pdf
 
     Parameters
     ----------
@@ -3460,16 +3463,15 @@ def setBC_giles_stage_mxpl(t, left, right, method = 'Robust', **kwargs):
 
         method : optional, str
             Add the type of mxpl treatment here.
-            Robust : 
-                simplified notation to indicate the Alpha method (see technical report above). Non conservative treatement but non reflective. 
-                Averaging of the quantities: PsPtHt and direction of speed (as inlet and outlet). Works as inlet and outlet are combined.
 
-            Conservative: 
-                simplified notation to indicate the Cons2 method (see technical report above). Conservative and non-reflective treatment.
-                Maybe tricky to converge. Avoid coarse grid.
+            * Robust : 
+              simplified notation to indicate the Alpha method (see technical report above). Non conservative treatement but non reflective. 
+              Averaging of the quantities: PsPtHt and direction of speed (as inlet and outlet). Works as inlet and outlet are combined.
 
+            * Conservative: 
+              simplified notation to indicate the Cons2 method (see technical report above). Conservative and non-reflective treatment.
+              Maybe tricky to converge. Avoid coarse grid.
 
-            
     '''
 
     # add BCGilesMxpl in family left and family right
@@ -4397,8 +4399,7 @@ def launchIsoSpeedLines(machine, DIRECTORY_WORK,
         DIRECTORY_WORK : str
             the working directory at computation server.
 
-            .. note:: indicated directory may not exist. In this case, it will
-                be created.
+            .. note:: indicated directory may not exist. In this case, it will be created.
 
         ThrottleRange : list
             Throttle values to consider (depend on the valve law)
