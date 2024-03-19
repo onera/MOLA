@@ -13,6 +13,7 @@ __pycache__
 !MOLA/backgrounds/**/*.png
 !MOLA/DOCUMENTATION/src_sphinx/**/*.png
 *.svg
+!MOLA/DOCUMENTATION/src_sphinx/**/*.svg
 *.ppt
 *.doc
 *.odt

@@ -40,9 +40,9 @@ to define some additional parameters and apply
 :mod:`~MOLA.WorkflowCompressor.launchIsoSpeedLines`.
 
 Here there is the last lines of the example file
-:download:`launchIsoSpeedLines.py <../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/launchIsoSpeedLines.py>`:
+:download:`prepare.py <../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/prepare.py>`:
 
-.. literalinclude:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/launchIsoSpeedLines.py
+.. literalinclude:: ../../EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_IsoSpeedLine/prepare.py
     :language: python
     :lines: 123-
 
