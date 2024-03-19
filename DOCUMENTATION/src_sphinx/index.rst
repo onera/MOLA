@@ -43,6 +43,8 @@ CFD
 * corrected major bug involving the restart procedure when time-averaging
 * many new examples in `$MOLA/EXAMPLES` and `$MOLA/EXAMPLES_RESTRICTED` directories
 * new inlet and outlet Giles conditions including relevant examples
+* residuals are now accessible during the simulation in file arrays.cgns
+
 
 LIFTING-LINE
 ------------
