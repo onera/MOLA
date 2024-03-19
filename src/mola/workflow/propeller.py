@@ -26,16 +26,15 @@ class WorkflowPropeller(WorkflowRotatingComponent):
     def __init__(self, RPM=0., AxialVelocity=0., ReferenceTurbulenceSetAtRelativeSpan=0.75, **UserParameters):
         super(WorkflowPropeller, self).__init__(**UserParameters)
 
-        self.name = 'Propeller'
         self.Splitter = 'PyPart'
         self.TurboConfiguration = dict()
         self.BodyForceInputData = None
 
         self.BCExtractions = UserParameters.get('BCExtractions', 
             dict(
-                BCWall    = ['normalvector', 'frictionvector','psta', 'bl_quantities_2d', 'yplusmeshsize'],
-                BCInflow  = ['convflux_ro'],
-                BCOutflow = ['convflux_ro']
+                BCWall    = ['NormalVector', 'Friction', 'Pressure', 'BoundaryLayer', 'yPlus'],
+                BCInflow  = ['MassFlow'],
+                BCOutflow = ['MassFlow']
             )
         )
 

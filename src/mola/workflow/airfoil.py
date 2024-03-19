@@ -23,5 +23,3 @@ class WorkflowAirfoil(Workflow):
 
     def __init__(self, **UserParameters):
         super(WorkflowAirfoil, self).__init__(**UserParameters)
-
-        self.name = 'Airfoil'

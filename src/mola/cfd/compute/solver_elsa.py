@@ -69,45 +69,15 @@ def adapt_to_solver(workflow):
 
 
 def launch_elsa_computation(workflow, FILE_CGNS):
-    import elsA_user
-    if not hasattr(workflow, '_FULL_CGNS_MODE'):
-
-        Cfdpb = elsA_user.cfdpb(name='cfd')
-        Mod   = elsA_user.model(name='Mod')
-        Num   = elsA_user.numerics(name='Num')
-
-        CfdDict  = workflow.SolverParameters['cfdpb']
-        ModDict  = workflow.SolverParameters['model']
-        NumDict  = workflow.SolverParameters['numerics']
-
-        elsAobjs = [Cfdpb,   Mod,     Num]
-        elsAdics = [CfdDict, ModDict, NumDict]
-
-        for obj, dic in zip(elsAobjs, elsAdics):
-            [obj.set(v,dic[v]) for v in dic if not isinstance(dic[v], dict)]
-
-        for k in NumDict:
-            if '.Solver#Function' in k:
-                funDict = NumDict[k]
-                funName = funDict['name']
-                if funName == 'f_cfl':
-                    f_cfl=elsA_user.function(funDict['function_type'],name=funName)
-                    for v in funDict:
-                        if v in ('iterf','iteri','valf','vali'):
-                            f_cfl.set(v,  funDict[v])
-                    Num.attach('cfl', function=f_cfl)
 
     import elsAxdt
     elsAxdt.trace(0)
 
+    if not hasattr(workflow, '_FULL_CGNS_MODE'):
+        set_parameters_in_elsa_objects(workflow.SolverParameters)
+        
     if workflow.SplittingAndDistribution['Strategy'].lower() == 'atcomputation':
-        from mola.cfd.preprocess.mesh import split
-        if workflow.SplittingAndDistribution['Splitter'].lower() == 'pypart':
-            t, Skeleton, PyPartBase, Distribution = split.splitWithPyPart()
-        elif workflow.SplittingAndDistribution['Splitter'].lower() == 'maia':
-            t, Distribution = split.splitWithMaia()
-        else:
-            raise Exception(f"Unkwown Splitter: {workflow.SplittingAndDistribution['Splitter']}")
+        t, Distribution = split_mesh(workflow.SplittingAndDistribution['Splitter'])
         e = elsAxdt.XdtCGNS(tree=t, links=[], paths=[])
         e.distribution = Distribution
     else:
@@ -118,7 +88,54 @@ def launch_elsa_computation(workflow, FILE_CGNS):
     e.compute()
     e.save(f'OUTPUT/solution_{rank}.cgns', rank)
 
+def set_parameters_in_elsa_objects(SolverParameters):
+    import elsA_user
 
+    Cfdpb = elsA_user.cfdpb(name='cfd')
+    Mod   = elsA_user.model(name='Mod')
+    Num   = elsA_user.numerics(name='Num')
+
+    CfdDict  = SolverParameters['cfdpb']
+    ModDict  = SolverParameters['model']
+    NumDict  = SolverParameters['numerics']
+
+    elsAobjs = [Cfdpb,   Mod,     Num]
+    elsAdics = [CfdDict, ModDict, NumDict]
+
+    for obj, dic in zip(elsAobjs, elsAdics):
+        [obj.set(v,dic[v]) for v in dic if not isinstance(dic[v], dict)]
+
+    funDict = get_cfl_function(NumDict)
+    if funDict:
+        set_cfl_function(elsA_user, Num, funDict)
+
+def get_cfl_function(NumDict):
+    for k in NumDict:
+        if '.Solver#Function' in k:
+            funDict = NumDict[k]
+            if funDict['name'] == NumDict['cfl_fct']:
+                return funDict
+    
+    return None
+
+def set_cfl_function(elsA_user, Num, funDict):
+    f_cfl = elsA_user.function(funDict['function_type'], name=funDict['name'])
+    for v in ('iterf','iteri','valf','vali'):
+        f_cfl.set(v,  funDict[v])
+    Num.attach('cfl', function=f_cfl)
+
+def split_mesh(Splitter):
+    from mola.cfd.preprocess.mesh import split
+
+    if Splitter.lower() == 'pypart':
+        t, Skeleton, PyPartBase, Distribution = split.splitWithPyPart()
+    elif Splitter.lower() == 'maia':
+        t, Distribution = split.splitWithMaia()
+    else:
+        raise Exception(f"Unkwown Splitter: {Splitter}")
+    
+    return t, Distribution
+    
 def moveLogFiles(DIRECTORY_LOGS):
     if rank == 0:
         try: os.makedirs(DIRECTORY_LOGS)

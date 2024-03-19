@@ -123,6 +123,7 @@ CGNS2ElsaInVarNode.update(dict(
     yPlus                    = 'yplusmeshsize',
     MomentumFlux             = 'flux_rou flux_rov flux_row',
     TorqueFlux               = 'torque_rou torque_rov torque_row',
+    MassFlow                 = 'convflux_ro',
 ))
 
 

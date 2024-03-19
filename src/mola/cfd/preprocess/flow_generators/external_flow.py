@@ -203,6 +203,10 @@ class ExternalFlowGenerator(object):
             ReynoldsStressDissipationScale   = TurbulentDissipationRateDensity,
         ))
 
+        self.set_turbulence_conservatives_depending_on_model()
+    
+    def set_turbulence_conservatives_depending_on_model(self):
+
         if self.Turbulence['Model'] == 'SA':
             self.Turbulence['Conservatives'] = dict(
                 TurbulentSANuTildeDensity = self.Turbulence['TurbulentSANuTilde'] * self.Flow['Density']

@@ -17,20 +17,7 @@
 
 import numpy as np
 from mola.workflow.workflow import Workflow, deep_update
-# from mola.workflow.workflow import _workflow_defaults as _parent_workflow_defaults
 
-# _workflow_defaults = _parent_workflow_defaults
-# deep_update(_workflow_defaults, dict(
-
-#     # RawMeshComponents = dict(
-#     #     mesher = 'Autogrid',
-#     # ),
-
-#     Extractions = [
-#         dict(type='bc', BCType='BCInflow*', fields=['convflux_ro']),
-#         dict(type='bc', BCType='BCOutflow*', fields=['convflux_ro']),
-#     ],
-# ))
 
 class WorkflowLinearCascade(Workflow):
 
@@ -41,8 +28,6 @@ class WorkflowLinearCascade(Workflow):
                  ):
         
         super().__init__(SplittingAndDistribution=SplittingAndDistribution, FlowGenerator=FlowGenerator, **kwargs)
-
-        self.name = 'LinearCascade'
 
         # channel height computation
         # postprocess on internal component, between two planes
@@ -55,19 +40,21 @@ class WorkflowLinearCascade(Workflow):
             self.get_yaw_and_pitch_axes()
 
             self.Extractions.extend([
-                dict(type='bc', BCType='BCInflow*', fields=['convflux_ro']),
-                dict(type='bc', BCType='BCOutflow*', fields=['convflux_ro']),
+                dict(type='bc', BCType='BCInflow*', fields=['MassFlow']),
+                dict(type='bc', BCType='BCOutflow*', fields=['MassFlow']),
             ])
     
-    def get_yaw_and_pitch_axes(self):
-
-        # Fisrtly, get YawAxis 
+    def set_yaw_and_pitch_axes(self):
+        self.set_yaw_axis()
+        self.set_pitch_axis()
+        
+    def set_yaw_axis(self):
         if 'YawAxis' not in self.Flow:
             # Get periodic match connections
             perio_connections = [connec for connec in self.RawMeshComponents['Connection'] if connec['Type'] == 'PeriodicMatch']
             if len(perio_connections) == 1:
                 YawAxis = np.array(perio_connections[0]['Translation'])
-                YawAxis /= np.sqrt(np.sum(YawAxis**2))
+                self.YawAxis = YawAxis / np.sqrt(np.sum(YawAxis**2))
             elif len(perio_connections) == 0:
                 # Check that Periodicity already given in the mesh and adapt it if necessary
                 # For now raise an exception
@@ -75,15 +62,9 @@ class WorkflowLinearCascade(Workflow):
             else:
                 raise Exception('More than one PeriodicMatch: Please give both YawAxis and PitchAxis')
 
-        # Secondly, get PitchAxis 
+    def set_pitch_axis(self):
         if 'SpanwiseDirection' in self.Flow:
-            PitchAxis = self.Flow['SpanwiseDirection']
+            self.PitchAxis = self.Flow['SpanwiseDirection']
         else:
             RollAxis = np.array([1,0,0]) # Strong assumption here
-            PitchAxis = np.cross(YawAxis, RollAxis)
-
-        self.Flow.update(dict(
-            PitchAxis=PitchAxis, 
-            YawAxis=YawAxis
-        ))
-        
+            self.PitchAxis = np.cross(self.YawAxis, RollAxis)

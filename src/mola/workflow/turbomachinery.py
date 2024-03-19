@@ -28,8 +28,6 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
         
         super().__init__(SplittingAndDistribution=SplittingAndDistribution, FlowGenerator=FlowGenerator, **kwargs)
 
-        self.name = 'Turbomachinery'
-
         if self.tree is not None:
             for meshInfo in self.RawMeshComponents:
                 meshInfo.setdefault('mesher', 'Autogrid')

@@ -34,8 +34,6 @@ class WorkflowRotatingComponent(Workflow):
         
         super().__init__(**kwargs)
 
-        self.name = 'RotatingComponent'
-
         # New TurboConfiguration ? 
         # Very important : axis of the machine
         # extract reference surface and flux computation

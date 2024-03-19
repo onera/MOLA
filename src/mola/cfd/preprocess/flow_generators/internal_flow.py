@@ -32,6 +32,10 @@ class InternalFlowGenerator(ExternalFlowGenerator):
             self.Surface = get_surface_of_inflow(workflow)
 
     def set_flow_properties(self):
+        self.compute_external_quantities_from_internal_quantities()        
+        super().set_flow_properties()
+
+    def compute_external_quantities_from_internal_quantities(self):
         assert not('MassFlow' in self.Flow and 'Mach' in self.Flow), 'MassFlow and Mach cannot be given together in Flow. Choose one'
         if 'MassFlow' in self.Flow:
             self.Flow['Mach'] = self.MachFromMassFlow(self.Flow['MassFlow'], 
@@ -66,8 +70,6 @@ class InternalFlowGenerator(ExternalFlowGenerator):
             SoundSpeed = SoundSpeed,
             Velocity = Velocity,
         ))
-
-        super().set_flow_properties()
 
     @staticmethod
     def MassFlowFromMach(Mx, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
