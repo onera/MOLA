@@ -45,7 +45,8 @@ def BodyForceModel_blockage(t, BodyForceParameters):
         BodyForceParameters : dict
             Additional parameters for this body-force model.
             For that model, available parameters are:
-              * tol (float, default=1e-5): minimum value for quantities used as a denominator.
+            
+            * tol (float, default=1e-5): minimum value for quantities used as a denominator.
 
     Returns
     -------
@@ -93,7 +94,8 @@ def BodyForceModel_blockage_correction(t, BodyForceParameters):
         BodyForceParameters : dict
             Additional parameters for this body-force model.
             For that model, available parameters are:
-              * tol (float, default=1e-5): minimum value for quantities used as a denominator.
+
+            * tol (float, default=1e-5): minimum value for quantities used as a denominator.
 
     Returns
     -------
@@ -156,16 +158,16 @@ def BodyForceModel_hall_without_blockage(t, BodyForceParameters):
             Additional parameters for this body-force model.
             For that model, available parameters are:
 
-                * FluidProperties (dict): as read in `setup.py`
+            * FluidProperties (dict): as read in `setup.py`
 
-                * TurboConfiguration (dict): as read in `setup.py`
+            * TurboConfiguration (dict): as read in `setup.py`
 
-                * incidenceLoss (bool, default=False): apply or not the source term related to loss due to 
-                  the deviation of the flow compared with the reference angle: 
-                  :math:`2 \pi (\delta - \delta_0)^2 / H` 
-                  where H is the blade to blade distance.
+            * incidenceLoss (bool, default=False): apply or not the source term related to loss due to 
+                the deviation of the flow compared with the reference angle: 
+                :math:`2 \pi (\delta - \delta_0)^2 / H` 
+                where H is the blade to blade distance.
 
-                * tol (float, default=1e-5): minimum value for quantities used as a denominator.
+            * tol (float, default=1e-5): minimum value for quantities used as a denominator.
 
     Returns
     -------
@@ -236,13 +238,13 @@ def BodyForceModel_EndWallsProtection(t, BodyForceParameters):
             Additional parameters for this body-force model.
             For that model, available parameters are:
 
-                * FluidProperties (dict): as read in `setup.py`
+            * FluidProperties (dict): as read in `setup.py`
 
-                * TurboConfiguration (dict): as read in `setup.py`
+            * TurboConfiguration (dict): as read in `setup.py`
 
-                * ProtectedHeight (float, default=0.05): Height of the channel flow corresponding to the boundary layer. 
+            * ProtectedHeight (float, default=0.05): Height of the channel flow corresponding to the boundary layer. 
 
-                * EndWallsCoefficient (float, default=10.): Multiplicative factor to apply on source terms. 
+            * EndWallsCoefficient (float, default=10.): Multiplicative factor to apply on source terms. 
 
     Returns
     -------
@@ -345,8 +347,10 @@ def BodyForceModel_ThrustSpread(t, BodyForceParameters):
         BodyForceParameters : dict
             Additional parameters for this body-force model.
             For that model, available parameters are:
-              * tol (float, default=1e-5): minimum value for quantities used as a denominator.
-              * Thust (float): Value of the total thrust to spread on the control volume.
+
+            * tol (float, default=1e-5): minimum value for quantities used as a denominator.
+            
+            * Thust (float): Value of the total thrust to spread on the control volume.
 
     Returns
     -------
@@ -464,11 +468,11 @@ def BodyForceModel_ShockWaveLoss(t, BodyForceParameters):
             Additional parameters for this body-force model.
             For that model, available parameters are:
 
-                * FluidProperties (dict): as read in `setup.py`
+            * FluidProperties (dict): as read in `setup.py`
 
-                * TurboConfiguration (dict): as read in `setup.py`
+            * TurboConfiguration (dict): as read in `setup.py`
 
-                * tol (float, default=1e-5): minimum value for quantities used as a denominator.
+            * tol (float, default=1e-5): minimum value for quantities used as a denominator.
 
     Returns
     -------
@@ -539,10 +543,14 @@ def spreadPressureLossAlongChord(t, BodyForceParameters, LeadingEdgeSurface=None
         BodyForceParameters : dict
                 Additional parameters for this body-force model.
                 For that model, available parameters are:
-                    * PressureLoss (float): uniform value fot total pressure loss to apply.
-                    * PressureLossCoefficient (float): uniform value fot total pressure loss coefficient to apply, if **PressureLoss** is not given.
-                    * Distribution (str): how to distribute the losses along the chord. The default value is 'uniform' (only value available for now).
-                    * communicator (MPI communicator): sub-communicator to use to compte **LeadingEdgeSurface** if necessary
+            
+                * PressureLoss (float): uniform value fot total pressure loss to apply.
+
+                * PressureLossCoefficient (float): uniform value fot total pressure loss coefficient to apply, if **PressureLoss** is not given.
+                
+                * Distribution (str): how to distribute the losses along the chord. The default value is 'uniform' (only value available for now).
+                
+                * communicator (MPI communicator): sub-communicator to use to compte **LeadingEdgeSurface** if necessary
 
         LeadingEdgeSurface : PyTree, optional
             iso-surface as got from :func:`MOLA.BodyForceTurbomachinery.Generic.getFieldsAtLeadingEdge`. If the value is :py:obj:`None`, 
