@@ -37,22 +37,13 @@ def set_default(RunManagement):
 
     # Set default parameters
     RunManagementDefault = dict(
-        # JobName='MOLAjob',
         RunDirectory='.',
         NumberOfProcessors=None,
         SubmitJob=False,
-        # Network = 'onera',
-
-        # Machine = 'auto', 
-
-        # TimeLimit = 'auto',
-        # AER='not_given',
-
         SecondsMarginForQuitBeforeTimeOut = 180,
         LauncherCommand = 'auto', # or 'sbatch job.sh', './job.sh'...
         mola_target_path = __MOLA_PATH__,
         FilesAndDirectories=[],
-
         )
     for key, default_value in RunManagementDefault.items():
         RunManagement.setdefault(key, default_value)
@@ -81,6 +72,15 @@ def guess_machine_from_path(network, path):
     raise Exception
 
 def set_job_scheduler_options(RunManagement):
+    scheduler, scheduler_options = get_scheduler_and_default_options(RunManagement)
+
+    if scheduler == 'SLURM':
+        set_slurm_options_and_update_RunManagement(RunManagement, scheduler_options)
+
+    RunManagement['JobScheduler'] = scheduler
+    RunManagement['JobSchedulerOptions'] = scheduler_options
+
+def get_scheduler_and_default_options(RunManagement):
     try:
         path = os.path.join(__MOLA_PATH__, 'mola', 'env', RunManagement['Network'], RunManagement['Machine'], 'scheduler_defaults.py')
         scheduler_defaults = misc.load_source('scheduler_defaults', path)
@@ -98,29 +98,27 @@ def set_job_scheduler_options(RunManagement):
         scheduler = None
         scheduler_options = dict()
 
-    if scheduler == 'SLURM':
-        MolaToSlurm = dict(
+    return scheduler, scheduler_options
+
+def set_slurm_options_and_update_RunManagement(RunManagement, scheduler_options):
+    MolaToSlurm = dict(
             JobName = 'job-name',
             Comment = 'comment',
             AER = 'comment',
             NumberOfProcessors = 'ntasks',
             TimeLimit = 'time',
         )
-        scheduler_options.setdefault('job-name', 'mola')
+    scheduler_options.setdefault('job-name', 'mola')
 
-        for key, option in MolaToSlurm.items():
-            if key in RunManagement:
-                scheduler_options[option] = RunManagement[key]
-            elif option in scheduler_options:
-                RunManagement[key] = scheduler_options[option]
-        
-        scheduler_options['output'] = 'output.%j.log'
-        scheduler_options['error'] = 'error.%j.log'
-
-    RunManagement['JobScheduler'] = scheduler
-    RunManagement['JobSchedulerOptions'] = scheduler_options
-
-
+    for key, option in MolaToSlurm.items():
+        if key in RunManagement:
+            scheduler_options[option] = RunManagement[key]
+        elif option in scheduler_options:
+            RunManagement[key] = scheduler_options[option]
+    
+    scheduler_options['output'] = 'output.%j.log'
+    scheduler_options['error'] = 'error.%j.log'
+    
 def convert_to_seconds(time_value):
     '''
     Convert a time in seconds.
