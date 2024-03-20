@@ -152,7 +152,31 @@ Rotor 37 - iso-speed line
 This case is identical to :ref:`Rotor37`, except that several operating points
 are simulated for the design rotational speed, by varying the outflow condition.
 
+.. _Rotor37_uniform_Giles:
 
+Rotor 37 - uniform Giles conditions
+***********************************
+
+.. code-block:: bash
+
+    $MOLA/EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_Giles_uniform/
+
+**Short description**:
+
+This case is based on the case :ref:`Rotor37`, except that inflow and outflow conditions
+are set as Giles boundary conditions.
+
+Rotor 37 - non-uniform Giles conditions
+***************************************
+
+.. code-block:: bash
+
+    $MOLA/EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_Giles_non-uniform/
+
+**Short description**:
+
+This case is based on the case :ref:`Rotor37_uniform_Giles`, except that the inflow is set 
+with a non-uniform map read from a file.
 
 LMFA linear cascade
 *******************
