@@ -39,8 +39,8 @@ For making contributions, please follow these general rules:
 ### 1. Create a *new branch* for your development
 
 ```bash
-git branch $USER-mydevname
-git checkout $USER-mydevname
+git branch <mydevname>
+git checkout <mydevname>
 ```
 
 ### 2. Make your developments, and regularly update your sources onto GitLab:
@@ -49,17 +49,18 @@ Make your developments following [guidelines](#guidelines).
 
 Associate a commit short message to your major modifications:
 ```bash
+git add <files>
 git commit -m "this is a commit message"
 ```
 
 Before commit, you could run pytest to check that nothing is broken:
 ```bash
-pytest $MOLA/mola
+pytest $MOLA
 ```
 
 Update regularly your sources towards GitLab:
 ```bash
-git push origin $USER-mydevname
+git push origin <mydevname>
 ```
 
 ### 3. Check your developments and add examples
@@ -75,9 +76,12 @@ Before asking for the integration of your new developments into the `master` bra
 :warning: Before pushing a development, you must be sure that it is compatible with ![MOLA licence](LICENSE), 
 and above all **check that it can be disseminated freely**.
 
-After `commit` + `push`, request a merge towards `master` branch using GitLab's web interface.
+After `commit` + `push`, request a merge towards `master` branch using GitLab's web interface. 
+The merge-request allows reviewing your development, discussing and possibly requesting modifications. 
+In this case, you may fix the issue, commit again and push again your branch on GitLab. 
+The merge-request will be automatically updated.
 
-You will be automatically notified by e-mail once MOLA's maintainer has integrated your contribution.
+You will be automatically notified by e-mail once MOLA maintainer has integrated your contribution.
 
 You can update your own branch sources using master's branch with:
 
