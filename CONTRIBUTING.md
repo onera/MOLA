@@ -72,6 +72,8 @@ Before asking for the integration of your new developments into the `master` bra
 
 ### 4. Push your development
 
+:warning: Before pushing a development, you must be sure that it is compatible with ![MOLA licence](LICENSE), 
+and above all **check that it can be disseminated freely**.
 
 After `commit` + `push`, request a merge towards `master` branch using GitLab's web interface.
 
@@ -90,23 +92,34 @@ This is specially recommended once your development has been merged by MOLA's ma
 Guidelines
 ==========
 
+Except files handling environment, documentation, and GitLab/GitHub related features, the source code of MOLA is exclusively in Python.
+
+As a first general advice about coding style, make your best to follow [PEP 8](https://pep8.org/). 
+May the [Zen of Python](https://peps.python.org/pep-0020/#the-zen-of-python) be an inspiration for your developments !
+
+
 Syntax
 ------
 
-* Files names follow snake-case convention, like 'my_new_file.py'.
+* **Files** names follow **snake-case** :snake: convention, like 'my_new_file.py'.
 
-* Functions names follow snake-case convention, like 'specific_function()'.
+* **Functions** and **methods** names follow **snake-case** :snake: convention, like 'specific_function()'.
 
-* Classes names follow camel-case convention, like 'WorkflowPropeller()'.
+* **Classes** names follow **camel-case** :camel: convention, like 'WorkflowPropeller()'.
+
+* For **variables** names, there is no global recommandation. However, for physical quantities, follow the [CGNS standard](http://cgns.github.io/CGNS_docs_current/sids/dataname.html) if possible.
 
 
 Architecture
 ------------
 
-* Code lines specific to one solver should be written in files called 'solver_<SOLVER_NAME>.py', in the folder dedicated to the current feature. For instance, functions that specify boundary conditions for the elsA solver are in ``mola/cfd/preprocess/boundary_conditions/solver_elsa.py``. The name of the solver should be in lower case ('elsa', not 'elsA'; 'sonics', not 'SoNICS'). 
+* Code lines specific to one solver should be written in files called `solver_<SOLVER_NAME>.py`, in the folder dedicated to the current feature. For instance, functions that specify boundary conditions for the elsA solver are in ``mola/cfd/preprocess/boundary_conditions/solver_elsa.py``. The name of the solver should be in lower case ('elsa', not 'elsA'; 'sonics', not 'SoNICS'). 
 
 Development
 -----------
 
-* In parallel of the development, unit tests must be written in a 'test' repository in the current module to be tested. To test functions in the file 'file_with_bugs.py', the test file must be called 'test_file_with_bugs.py'. For instance, to test the functions or methods in ``mola/workflow/workflow.py``, the test file should be ``mola/workflow/test/test_workflow.py``.
+* In parallel of the development, unit tests must be written in a `test` repository in the current module to be tested. To test functions in the file `file_with_bugs.py`, the test file must be called `test_file_with_bugs.py`. For instance, to test the functions or methods in ``mola/workflow/workflow.py``, the test file should be ``mola/workflow/test/test_workflow.py``.
+  Tests must be written to work with [pytest](https://docs.pytest.org/en/8.0.x/).
 
+* Documentation and information files (``README.md``, ``CONTRIBUTING.md``, ...), are written in [Markdown](https://www.markdownguide.org/cheat-sheet/).
+  
