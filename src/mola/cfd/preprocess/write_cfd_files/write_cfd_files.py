@@ -191,9 +191,9 @@ source {RunManagement["mola_target_path"]}/mola/env/{RunManagement["Network"]}/{
 
     return job_text
 
-def save_file(filename, text, RunManagement):
-    os.makedirs(RunManagement['RunDirectory'], exist_ok=True)
-    filename = os.path.join(RunManagement['RunDirectory'], filename)
+def save_file(filename, text, directory='.'):
+    os.makedirs(directory, exist_ok=True)
+    filename = os.path.join(directory, filename)
     with open(filename, 'w') as f:
         f.write(text)
     os.chmod(filename, 0o777)

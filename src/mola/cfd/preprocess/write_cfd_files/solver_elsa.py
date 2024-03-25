@@ -125,10 +125,10 @@ workflow = Workflow('main.cgns')
 workflow.print()
 workflow.compute()
 '''
-    write_cfd_files.save_file('compute.py', txt, RunManagement)
+    write_cfd_files.save_file('compute.py', txt, RunManagement['RunDirectory'])
 
 def write_coprocess(RunManagement):
-    write_cfd_files.save_file('coprocess.py', '# do nothing', RunManagement)
+    write_cfd_files.save_file('coprocess.py', '# do nothing', RunManagement['RunDirectory'])
 
 def write_job_launcher(RunManagement):
 
@@ -137,4 +137,4 @@ def write_job_launcher(RunManagement):
     job_text += f'mpirun $OPENMPIOVERSUBSCRIBE -np {RunManagement["NumberOfProcessors"]} elsA.x -C xdt-runtime-tree compute.py 1>stdout.log 2>stderr.log\n'
     
     # Write job file
-    write_cfd_files.save_file('job.sh', job_text, RunManagement)
+    write_cfd_files.save_file('job.sh', job_text, RunManagement['RunDirectory'])
