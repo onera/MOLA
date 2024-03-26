@@ -42,8 +42,8 @@ for case in $SEQUENCE_OF_PATHS; do
 
     while [ ! -f "COMPLETED" ] && [ ! -f "FAILED" ]; do
 
-        echo "preprocess case $case at $SECONDS s"
-        python preprocess.py $SECONDS
+        # echo "preprocess case $case at $SECONDS s"
+        # python preprocess.py $SECONDS
 
         if [ -f "FAILED" ]; then
             echo "WARNING: case $case cannot be launched"
@@ -52,7 +52,7 @@ for case in $SEQUENCE_OF_PATHS; do
 
         echo "compute case $case at $SECONDS s"
         {launch_command}
-        python postprocess.py
+        # python postprocess.py
 
         if [ -f "NEWJOB_REQUIRED" ]; then
             rm NEWJOB_REQUIRED
@@ -129,41 +129,97 @@ def get_value_on_leaf(node, path):
 
 class WorkflowDispatcher():
 
-    def __init__(self, workflow):
+    # def __init__(self, workflow):
 
-        self.base_workflow = workflow
-        self.workflows = [self.base_workflow]
+    #     self.base_workflow = workflow
+    #     self.workflows = [self.base_workflow]
     
-    def add_variations(self, variations):
+    # def add_variations(self, variations):
+    #     new_workflow = copy.deepcopy(self.base_workflow)
+
+    #     for request, value in variations:
+    #         path_in_workflow = self.request_to_paths(request)
+    #         set_value_on_leaf(new_workflow, path_in_workflow, value)
+
+    #     self.workflows.append(new_workflow)
+
+    def __init__(self, workflow):
+        self.base_workflow = workflow
+        self.table_of_workflows = []
+        self.workflows_in_current_job = None
+        self.root_directories = []
+    
+    def new_job(self, directory):
+        self.workflows_in_current_job = []
+        self.table_of_workflows.append(self.workflows_in_current_job)
+        self.root_directories.append(directory)
+    
+    def add_variations(self, variations, initialize_from_previous=True):
+        self._check_new_job_is_declared()
         new_workflow = copy.deepcopy(self.base_workflow)
+
+        if initialize_from_previous:
+            self._add_variations_to_initialize_from_previous(variations)
 
         for request, value in variations:
             path_in_workflow = self.request_to_paths(request)
             set_value_on_leaf(new_workflow, path_in_workflow, value)
 
-        self.workflows.append(new_workflow)
+        self.workflows_in_current_job.append(new_workflow)
 
-    def reorder(self, request, reverse=False):
-        path_in_workflow = self.request_to_paths(request)
-        leaves = [get_value_on_leaf(workflow, path_in_workflow) for workflow in self.workflows]
-        # Sort workflows accordind leaves
-        self.workflows = [w for _, w in sorted(zip(leaves, self.workflows))]
-        if reverse:
-            self.workflows = self.workflows[::-1]
+    # def reorder(self, request, reverse=False):
+    #     path_in_workflow = self.request_to_paths(request)
+    #     leaves = [get_value_on_leaf(workflow, path_in_workflow) for workflow in self.workflows]
+    #     # Sort workflows accordind leaves
+    #     self.workflows = [w for _, w in sorted(zip(leaves, self.workflows))]
+    #     if reverse:
+    #         self.workflows = self.workflows[::-1]
     
+    def _check_new_job_is_declared(self):
+        if self.workflows_in_current_job is None:
+            raise MolaAssertionError('Before calling `add_variations`, `new_job` must be called first to declare directory.')
+    
+    def _add_variations_to_initialize_from_previous(self, variations):
+        try:
+            previous_workflow = self.workflows_in_current_job[-1]
+            previous_case_path = previous_workflow.RunManagement['RunDirectory']
+            init_variations = [
+                ('Initialization|method', 'copy'),
+                ('Initialization|filename', f'../{previous_case_path}/OUTPUT/fields.cgns'),
+            ]
+            variations += init_variations
+        except IndexError:
+            mola_logger.warning(f'Cannot initialize the first case of a sequence ({self.root_directories[-1]}) from a previous case')
+
     @staticmethod
     def request_to_paths(request):
         if isinstance(request, str):
             request = request.split('|')
         return request
 
+    def get_directories_in_current_job(self, worflows_sequence=None):
+        if worflows_sequence is None:
+            worflows_sequence = self.workflows_in_current_job
+        return [workflow.RunManagement['RunDirectory'] for workflow in worflows_sequence]
+
+    def get_local_directories(self):
+        directories = []
+        for worflows_sequence in self.table_of_workflows:
+            job_directories = self.get_directories_in_current_job(worflows_sequence)
+            directories.append(job_directories)
+        return directories
+
     def get_directories(self):
-        return [workflow.RunManagement['RunDirectory'] for workflow in self.workflows]
+        directories = []
+        for root, worflows_sequence in zip(self.root_directories, self.table_of_workflows):
+            job_directories = self.get_directories_in_current_job(worflows_sequence)
+            directories.extend([os.path.join(root, d) for d in job_directories])
+        return directories
 
 
 class WorkflowParallelScheduler():
 
-    def __init__(self, table_of_workflows, root_directory, sequences_directories):
+    def __init__(self, dispatcher, root_directory='.'):
 
         # table_of_workflows = [[A1, B1, ...], [A2, B2, ...], ...]
         #   several jobs in parallel: 
@@ -174,8 +230,8 @@ class WorkflowParallelScheduler():
         # Warning: if A1 == A2 (same Python object, without copy), then it will bug without raising an error
 
         self.root_directory = root_directory
-        self.sequences_directories = sequences_directories
-        self._set_table_of_workflows(table_of_workflows)
+        self.sequences_directories = dispatcher.root_directories
+        self._set_table_of_workflows(dispatcher.table_of_workflows)
 
     def _set_table_of_workflows(self, table_of_workflows):
         assert isinstance(table_of_workflows, list)
@@ -184,6 +240,11 @@ class WorkflowParallelScheduler():
             root_directory = os.path.join(self.root_directory, self.sequences_directories[i])
             sequential_scheduler = WorkflowSequentialScheduler(sequence, root_directory)
             self.table_of_workflows.append(sequential_scheduler)
+        
+    def _update_filenames(self):
+        # need to grab all workflow parameters that are filenames, and update their paths 
+        # following the attributes of the Scheduler 
+        pass
 
     def prepare(self):
         os.makedirs(self.root_directory, exist_ok=True)
@@ -233,13 +294,17 @@ class WorkflowSequentialScheduler():
         os.makedirs(self.root_directory, exist_ok=True)
         for workflow in self.workflows:
             mola_logger.info(f"\n{CYAN}  > preparing {workflow.RunManagement['RunDirectory']}...{ENDC}")
+            os.makedirs(workflow.RunManagement['RunDirectory'], exist_ok=True)
             # with redirect_streams_to_logger(mola_logger, stdout_level='WARNING'):
-            workflow.prepare()
-            workflow.write_cfd_files()
+            # workflow.prepare()
+            # workflow.write_cfd_files()
+            workflow.set_workflow_parameters_in_tree()
+            workflow.write_tree(filename=os.path.join(workflow.RunManagement['RunDirectory'], 'workflow.cgns'))
         self.write_sequence_job()
     
     def write_sequence_job(self):
         first_workflow = self.workflows[0]      
+        write_cfd_files.set_default(first_workflow.RunManagement)
         job_text = write_cfd_files.get_job_text(first_workflow.RunManagement, first_workflow.Solver)
 
         paths_in_bash = '"{}"'.format(' '.join(self.cases_local_paths))
