@@ -1768,7 +1768,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     setBC_Walls, setBC_walladia, setBC_wallisoth, setBC_wallslip, setBC_sym,
     setBC_nref,
     setBC_inj1, setBC_inj1_uniform, setBC_inj1_imposeFromFile,
-    setBC_outpres, setBC_outmfr2,
+    setBC_outpres, setBC_outpres_imposeFromFile, setBC_outmfr2,
     setBC_outradeq, setBC_outradeqhyb,
     setBC_stage_mxpl, setBC_stage_mxpl_hyb,
     setBC_stage_red, setBC_stage_red_hyb,
@@ -1983,8 +1983,20 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
             setBC_injmfr1(t, FluidProperties, ReferenceValues, **BCkwargs)
 
         elif BCparam['type'] == 'outpres':
-            print(J.CYAN + 'set BC outpres on ' + BCparam['FamilyName'] + J.ENDC)
-            setBC_outpres(t, **BCkwargs)
+
+            if 'option' not in BCparam:
+                if 'filename' in BCkwargs:
+                    BCparam['option'] = 'file'
+                else:
+                    BCparam['option'] = 'uniform'
+
+            if BCparam['option'] == 'uniform':
+                print(J.CYAN + 'set BC outpres (uniform) on ' + BCparam['FamilyName'] + J.ENDC)
+                setBC_outpres(t, **BCkwargs)
+
+            elif BCparam['option'] == 'file':
+                print(J.CYAN + 'set BC outpres (file) on ' + BCparam['FamilyName'] + J.ENDC)
+                setBC_outpres_imposeFromFile(t, **BCkwargs)
 
         elif BCparam['type'] == 'outmfr2':
             print(J.CYAN + 'set BC outmfr2 on ' + BCparam['FamilyName'] + J.ENDC)
@@ -2741,7 +2753,7 @@ def setBC_outpres(t, FamilyName, Pressure, bc=None, variableForInterpolation='Ch
     '''
     if isinstance(Pressure, dict):
         assert 'Pressure' in Pressure or 'pressure' in Pressure
-        assert len(Pressure.keys() == 1)
+        assert len(Pressure.keys()) == 1
         ImposedVariables = Pressure
     else:
         ImposedVariables = dict(Pressure=Pressure)
@@ -2753,6 +2765,74 @@ def setBC_outpres(t, FamilyName, Pressure, bc=None, variableForInterpolation='Ch
     else:
         setBCwithImposedVariables(t, FamilyName, ImposedVariables,
                                 FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc, variableForInterpolation=variableForInterpolation)
+
+def setBC_outpres_imposeFromFile(t, FamilyName, filename, fileformat=None):
+    '''
+    Set a Boundary Condition ``outpres`` using the field map in the file
+    **filename**. It is expected to be a surface with the following variables
+    defined at cell centers (in the container 'FlowSolution#Centers'):
+
+        * the coordinates
+
+        * the static pressure ``'Pressure'``
+
+    Field variables are just read in **filename** and written in
+    BCs of **t** attached to the family **FamilyName**.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        ReferenceValues : dict
+            as obtained from :py:func:`computeReferenceValues`
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+        filename : str
+            name of the input filename
+
+        fileformat : optional, str
+            format of the input file to be passed to Converter.convertFile2PyTree
+            Cassiopee function.
+
+            .. note:: see `available file formats <http://elsa.onera.fr/Cassiopee/Converter.html?highlight=initvars#fileformats>`_
+
+    See also
+    --------
+
+    setBC_outpres
+
+    '''
+
+    var2interp = ['Pressure']
+ 
+    donor_tree = C.convertFile2PyTree(filename, format=fileformat)
+    inlet_BC_nodes = C.extractBCOfName(t, f'FamilySpecified:{FamilyName}', reorder=False)
+
+    I._adaptZoneNamesForSlash(inlet_BC_nodes)
+    I._rmNodesByType(inlet_BC_nodes,'FlowSolution_t')
+    J.migrateFields(donor_tree, inlet_BC_nodes)
+
+    for w in inlet_BC_nodes:
+        bcLongName = I.getName(w)  # from C.extractBCOfName: <zone>\<bc>
+        zname, wname = bcLongName.split('\\')
+        znode = I.getNodeFromNameAndType(t, zname, 'Zone_t')
+        bcnode = I.getNodeFromNameAndType(znode, wname, 'BC_t')
+        ImposedVariables = dict()
+        for var in var2interp:
+            FS = I.getNodeFromName(w, I.__FlowSolutionCenters__)
+            varNode = I.getNodeFromName(FS, var) 
+            if varNode:
+                ImposedVariables[var] = np.asfortranarray(I.getValue(varNode))
+            else:
+                raise TypeError('variable {} not found in {}'.format(var, filename))
+
+        setBC_outpres(t, FamilyName, ImposedVariables, bc=bcnode)
+
+
 
 def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
     '''
@@ -2865,8 +2945,6 @@ def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
 
     # set the BC with keys
     J.set(bc, '.Solver#BC',**DictKeysGilesOutlet)
-
-
 
 def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     '''
