@@ -17,8 +17,11 @@
 
 import os
 import shutil 
-from mola import (cgns, misc)
+from treelab import cgns
+from mola import misc
+from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola import __MOLA_PATH__
+from mola.cfd.preprocess.write_cfd_files import write_cfd_files
 
 def adapt_to_solver(workflow):
 
@@ -80,28 +83,40 @@ def add_elsa_keys_to_cgns(workflow):
     for base in workflow.tree.bases(): 
         base.setParameters('.Solver#Compute', **AllElsAKeys)
 
-def write_run_scripts(workflow):
-    write_compute(workflow)
-    write_coprocess(workflow)
-    write_job_launcher(workflow)
-
 def write_data_files(workflow):
 
     t = workflow.tree
 
+    # HACK required in order to avoid AssertionError at line 771 in
+    # etc/pypart/PpartCGNS/LayoutsS.pxi, Layouts.splitBCDataSet 
+    for node in t.group(Name='BCDataSet#Average', Type='BCDataSet'):
+        node.setType('UserDefinedData')
+
     # Save fields.cgns with the 3D fields
     os.makedirs(os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT'), exist_ok=True)
-    t.save(os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT', 'fields.cgns'))
 
-    # Save main.cgns with links to fields.cgns for FlowSolution#Init nodes
-    # --> Replace all FlowSolution#Init nodes with paths to OUTPUT/fields.cgns
-    for FlowSolutionInit in t.group(Name='FlowSolution#Init', Type='FlowSolution', Depth=3):
+    with redirect_streams_to_logger(mola_logger):
+        t.save(os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT', 'fields.cgns'))
+
+    # Save main.cgns with links to OUTPUT/fields.cgns for 
+    NodesToLink = t.group(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3) # for initial field(s) (possible second order restart)
+    NodesToLink += t.group(Name='FlowSolution#Average', Type='FlowSolution', Depth=3) 
+    NodesToLink += t.group(Name='BCDataSet#Average') 
+    
+    for FlowSolutionInit in NodesToLink:
         path = FlowSolutionInit.path()
         FlowSolutionInit.remove()
         t.addLink(path=path, target_file='OUTPUT/fields.cgns', target_path=path)
-    t.save(os.path.join(workflow.RunManagement['RunDirectory'], 'main.cgns'))
+        
+    with redirect_streams_to_logger(mola_logger):
+        t.save(os.path.join(workflow.RunManagement['RunDirectory'], 'main.cgns'))
 
-def write_compute(workflow):
+def write_run_scripts(workflow):
+    write_compute(workflow.RunManagement)
+    write_coprocess(workflow.RunManagement)
+    write_job_launcher(workflow.RunManagement)
+
+def write_compute(RunManagement):
 
     txt = '''
 from mola.workflow.workflow import Workflow
@@ -110,39 +125,16 @@ workflow = Workflow('main.cgns')
 workflow.print()
 workflow.compute()
 '''
-    compute_filename = os.path.join(workflow.RunManagement['RunDirectory'], 'compute.py')
-    with open(compute_filename, 'w') as File:
-        File.write(txt)
-    os.chmod(compute_filename, 0o777)
+    write_cfd_files.save_file('compute.py', txt, RunManagement['RunDirectory'])
 
-def write_coprocess(workflow):
-    with open(os.path.join(workflow.RunManagement['RunDirectory'], 'coprocess.py'), 'w') as File:
-        File.write('# do nothing')
+def write_coprocess(RunManagement):
+    write_cfd_files.save_file('coprocess.py', '# do nothing', RunManagement['RunDirectory'])
 
-def write_job_launcher(workflow, jobFile='job.sh'):
+def write_job_launcher(RunManagement):
 
     # shutil.copy2(f'{__MOLA_PATH__}/TEMPLATES/job_template.sh', 'job.sh')
-
-    JobText = f'''#!/bin/bash
-#SBATCH -J {workflow.RunManagement['JobName']}
-#SBATCH --comment {workflow.RunManagement['AER']}
-#SBATCH -o output.%j.log
-#SBATCH -e error.%j.log
-#SBATCH -t {workflow.RunManagement['TimeLimit']}
-#SBATCH -n {workflow.RunManagement['NumberOfProcessors']}
-'''
-    if workflow.RunManagement['SlurmConstraint'] is not None:
-        JobText += f"#SBATCH --constraint={workflow.RunManagement['SlurmConstraint']}\n"
+    job_text = write_cfd_files.get_job_text(RunManagement, 'elsa')
+    job_text += f'mpirun $OPENMPIOVERSUBSCRIBE -np {RunManagement["NumberOfProcessors"]} elsA.x -C xdt-runtime-tree compute.py 1>stdout.log 2>stderr.log\n'
     
-    if 'SlurmQualityOfService' in workflow.RunManagement and workflow.RunManagement['SlurmQualityOfService'] is not None:
-        JobText += f"#SBATCH --qos={workflow.RunManagement['SlurmQualityOfService']}\n\n"
-
-    JobText += f'source {workflow.RunManagement["mola_target_path"]}/mola/env/{workflow.RunManagement["Network"]}/{workflow.RunManagement["Machine"]}/{workflow.Solver}.sh\n\n'
-
-    JobText += f'mpirun $OPENMPIOVERSUBSCRIBE -np {workflow.RunManagement["NumberOfProcessors"]} elsA.x -C xdt-runtime-tree compute.py 1>stdout.log 2>stderr.log\n'
-
     # Write job file
-    job_filename = os.path.join(workflow.RunManagement['RunDirectory'], jobFile)
-    with open(job_filename, 'w') as f:
-        f.write(JobText)
-    os.chmod(job_filename, 0o777)
+    write_cfd_files.save_file('job.sh', job_text, RunManagement['RunDirectory'])

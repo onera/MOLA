@@ -14,3 +14,22 @@
 #
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
+import os 
+from mola import misc
+
+def apply_to_solver(workflow):
+    '''
+    If this function is called from /path/filename.py, it calls the function 
+    ``adapt_to_solver(workflow)`` in ``/path/solver_<workflow.Solver>``.
+    '''
+    current_path = get_path_back_in_traceback()
+    solverModule = misc.load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
+    solverModule.adapt_to_solver(workflow)
+
+def get_path_back_in_traceback(step=3):
+    import traceback
+    stack = traceback.extract_stack()
+    previous_filename = stack[-step].filename
+    previous_path = '/'.join(previous_filename.split('/')[:-1])
+    return previous_path

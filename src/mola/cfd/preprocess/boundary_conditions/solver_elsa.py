@@ -20,8 +20,11 @@ import numpy as np
 import Converter.PyTree as C
 import Converter.Internal as I
 
-from mola import cgns
-from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_to_elsa
+from treelab import cgns
+from mola.cfd.preprocess.solver_specific_tools import solver_elsa
+from mola.cfd.preprocess.motion import motion
+from mola.cfd.preprocess.motion.solver_elsa import assert_rotation_axis_is_correct, translate_motion_to_elsa
+from mola.cfd.preprocess.boundary_conditions import boundary_conditions
 
 def define_bc_family(workflow, Family, Value):
     familyNode = workflow.tree.get(Name=Family, Type='Family', Depth=2)
@@ -30,11 +33,14 @@ def define_bc_family(workflow, Family, Value):
     cgns.Node( Name='FamilyBC', Value=Value, Type='FamilyBC', Parent=familyNode )
     return familyNode
 
-def walladia(workflow, Family, Motion=None):
-    '''
-    Set a viscous wall boundary condition.
+def impose_bc_fields(workflow, bc_path, ImposedVariables):
+    bc_node = workflow.tree.getAtPath(bc_path)
+    BCDataSet = cgns.Node( Name='BCDataSet#Init', Value='Null', Type='BCDataSet', Parent=bc_node )
+    BCDataSet.setParameters('NeumannData', ContainerType='BCData', **ImposedVariables)
 
-    .. note:: see `elsA Tutorial about wall conditions <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#wall-conditions/>`_
+def wall(workflow, Family, Motion=None, bctype_cgns='BCWallViscous', bctype_elsa='walladia'):
+    '''
+    Set a wall boundary condition.
 
     Parameters
     ----------
@@ -44,7 +50,7 @@ def walladia(workflow, Family, Motion=None):
         Family : str
             Name of the family on which the boundary condition will be imposed
 
-        Motion : dict
+        Motion : dict, optional
             Example:
 
             .. code-block:: python
@@ -54,33 +60,44 @@ def walladia(workflow, Family, Motion=None):
                     TranslationSpeed = [0., 0., 0.]
                     )
 
+        bctype_cgns : str, optional
+            Type of the bc in CGNS standard, value of the node 'FamilyBC'.  
+
+        bctype_elsa : str, optional
+            Type of the bc in elsA convention, value of the node 'type'.    
     '''
-    wall = define_bc_family(workflow, Family, 'BCWallViscous')
+    wall = define_bc_family(workflow, Family, bctype_cgns)
 
-    if Motion:
-        # For elsA, the rotation must be around one axis only
-        onlyOneRotationComponent = \
-            (Motion['RotationSpeed'][0] == Motion['RotationSpeed'][1] == 0) \
-        or (Motion['RotationSpeed'][0] == Motion['RotationSpeed'][2] == 0) \
-        or (Motion['RotationSpeed'][1] == Motion['RotationSpeed'][2] == 0)
-        
-        assert onlyOneRotationComponent, 'For elsA, the rotation must be around one axis only'
-        omega = sum(Motion['RotationSpeed'])
+    if not motion.is_mobile(Motion):
+        return
 
-        if omega != 0. or any(Motion['TranslationSpeed']):
-            wall.setParameters('.Solver#BC',
-                                type='walladia',
-                                data_frame='user',
-                                omega=omega,
-                                axis_pnt_x=Motion['RotationAxisOrigin'][0], 
-                                axis_pnt_y=Motion['RotationAxisOrigin'][1], 
-                                axis_pnt_z=Motion['RotationAxisOrigin'][2],
-                                axis_vct_x=Motion['TranslationSpeed'][0], 
-                                axis_vct_y=Motion['TranslationSpeed'][1], 
-                                axis_vct_z=Motion['TranslationSpeed'][2]
-                                )
+    if callable(Motion) or any([callable(v) for v in Motion.values()]):
+        # Put global parameters in the family
+        Motion_default = dict(RotationSpeed=workflow.ComponentAxis)
+        motion.set_default_motion(Motion_default)
+        assert_rotation_axis_is_correct(Motion_default)
+        Motion_elsa = translate_motion_to_elsa(Motion_default)
+        Motion_elsa.pop('omega')
+        wall.setParameters('.Solver#BC',
+                            type=bctype_elsa,
+                            data_frame='user',
+                            **Motion_elsa
+                            )
+        # Put omega values in each bc
+        non_uniform_fields = boundary_conditions.apply_function_to_BCDataSet(workflow, Family, Motion)
+        for bc_path, ImposedVariables in non_uniform_fields.items():
+            assert list(ImposedVariables) == ['RotationSpeed'], f'list(ImposedVariables)={list(ImposedVariables)}'
+            impose_bc_fields(workflow, bc_path, dict(omega = ImposedVariables['RotationSpeed']))
 
-def wallslip(workflow, Family):
+    else:
+        assert_rotation_axis_is_correct(Motion)
+        wall.setParameters('.Solver#BC',
+                            type=bctype_elsa,
+                            data_frame='user',
+                            **translate_motion_to_elsa(Motion)
+                            )
+
+def wallslip(workflow, Family, Motion=None):
     '''
     Set an inviscid wall boundary condition.
 
@@ -94,9 +111,47 @@ def wallslip(workflow, Family):
 
         Family : str
             Name of the family on which the boundary condition will be imposed
+        
+        Motion : dict, optional
+            Example:
+
+            .. code-block:: python
+                Motion = dict(
+                    RotationSpeed = [1000., 0., 0.],
+                    RotationAxisOrigin = [0., 0., 0.],
+                    TranslationSpeed = [0., 0., 0.]
+                    )
 
     '''
-    define_bc_family(workflow, Family, 'BCWallInviscid')
+    wall(workflow, Family, Motion=Motion, bctype_cgns='BCWallInviscid', bctype_elsa='wallslip')
+
+def walladia(workflow, Family, Motion=None):
+    '''
+    Set a viscous wall boundary condition.
+
+    .. note:: see `elsA Tutorial about wall conditions <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#wall-conditions/>`_
+
+    Parameters
+    ----------
+
+        workflow.tree : PyTree
+            Tree to modify
+
+        Family : str
+            Name of the family on which the boundary condition will be imposed
+        
+        Motion : dict, optional
+            Example:
+
+            .. code-block:: python
+                Motion = dict(
+                    RotationSpeed = [1000., 0., 0.],
+                    RotationAxisOrigin = [0., 0., 0.],
+                    TranslationSpeed = [0., 0., 0.]
+                    )
+
+    '''
+    wall(workflow, Family, Motion=Motion, bctype_cgns='BCWallViscous', bctype_elsa='walladia')
 
 def nref(workflow, Family):
     '''
@@ -288,7 +343,7 @@ def setBCwithImposedVariables(workflow, Family, ImposedVariables, FamilyBC, BCTy
 
     if all([np.ndim(v)==0 and not callable(v) for v in ImposedVariables.values()]):
         checkVariables(ImposedVariables)
-        ImposedVariables = translate_to_elsa(ImposedVariables)
+        ImposedVariables = solver_elsa.translate_to_elsa(ImposedVariables)
         FamilyNode.setParameters('.Solver#BC', type=BCType, **ImposedVariables)
 
     else:
@@ -351,10 +406,6 @@ def setBCwithImposedVariables(workflow, Family, ImposedVariables, FamilyBC, BCTy
             gridLocation='FaceCenter', parent=bc)
         J.set(BCDataSet, BCDataName, childType='BCData_t', **ImposedVariables)
 
-def impose_bc_fields(workflow, bc_path, ImposedVariables):
-    bc_node = workflow.tree.getAtPath(bc_path)
-    BCDataSet = c.Node( Name='BCDataSet#Init', Value='Null', Type='BCDataSet', Parent=bc_node )
-    BCDataSet.setParameters('NeumannData', ContainerType='BCData', **ImposedVariables)
 
 def checkVariables(ImposedVariables):
     '''

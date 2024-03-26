@@ -15,6 +15,9 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import numpy as np
+from mola.cfd.preprocess.motion import motion
+
 def adapt_to_solver(workflow):
     '''
     Set Motion for each families for the solver elsA.
@@ -23,18 +26,17 @@ def adapt_to_solver(workflow):
 
     .. code-block:: python
         Motion = dict(
-            RotationSpeed = [1000., 0., 0.],
-            RotationAxisOrigin = [0., 0., 0.],
-            TranslationSpeed = [0., 0., 0.]
+            Rotor = dict(
+                RotationSpeed = [1000., 0., 0.],
+                RotationAxisOrigin = [0., 0., 0.],
+                TranslationSpeed = [0., 0., 0.]
             )
+        )
 
     Parameters
     ----------
 
         workflow : Workflow object
-
-        Family : str
-            Name of the family on which the boundary condition will be imposed
 
     '''
   
@@ -44,31 +46,56 @@ def adapt_to_solver(workflow):
         # TODO Test if zones in that family are modelled with Body Force
         # If yes, they must be with a rotation speed equal to zero
 
-        if MotionOnFamily:
-            # For elsA, the rotation must be around one axis only
-            onlyOneRotationComponent = \
-                (MotionOnFamily['RotationSpeed'][0] == MotionOnFamily['RotationSpeed'][1] == 0) \
-             or (MotionOnFamily['RotationSpeed'][0] == MotionOnFamily['RotationSpeed'][2] == 0) \
-             or (MotionOnFamily['RotationSpeed'][1] == MotionOnFamily['RotationSpeed'][2] == 0)
-            
-            assert onlyOneRotationComponent, 'For elsA, the rotation must be around one axis only'
-            omega = sum(MotionOnFamily['RotationSpeed'])
+        print(f'test {family}: {MotionOnFamily}')
 
-            if omega != 0. or any(MotionOnFamily['TranslationSpeed']!=0.):
-            
-                print(f'setting .Solver#Motion at family {family} (omega={omega}rad/s)')
-                famNode.setParameters('.Solver#Motion',
-                                        motion='mobile',
-                                        omega=omega,
-                                        axis_pnt_x=MotionOnFamily['RotationAxisOrigin'][0], 
-                                        axis_pnt_y=MotionOnFamily['RotationAxisOrigin'][1], 
-                                        axis_pnt_z=MotionOnFamily['RotationAxisOrigin'][2],
-                                        axis_vct_x=MotionOnFamily['TranslationSpeed'][0], 
-                                        axis_vct_y=MotionOnFamily['TranslationSpeed'][1], 
-                                        axis_vct_z=MotionOnFamily['TranslationSpeed'][2]
-                                        )
+        if not motion.is_mobile(MotionOnFamily):
+            print(f'immobile')
+            continue
+        assert_rotation_axis_is_correct(MotionOnFamily)
+
+        print(f'set motion on {family}')
+        famNode.setParameters('.Solver#Motion',
+                                motion='mobile',
+                                **translate_motion_to_elsa(MotionOnFamily)
+                                )
  
+def assert_rotation_axis_is_correct(Motion):
+    # For elsA, the rotation must be around one axis only
+    onlyOneRotationComponent = \
+        (Motion['RotationSpeed'][0] == Motion['RotationSpeed'][1] == 0) \
+    or (Motion['RotationSpeed'][0] == Motion['RotationSpeed'][2] == 0) \
+    or (Motion['RotationSpeed'][1] == Motion['RotationSpeed'][2] == 0)
     
+    assert onlyOneRotationComponent, 'For elsA, the rotation must be around one axis only'    
 
+def translate_motion_to_elsa(Motion):
+    if callable(Motion) or any([callable(v) for v in Motion.values()]):
+        raise Exception('Cannot translate a function')
+    
+    RotationAxis = np.array(Motion['RotationSpeed'])
+    RotationSpeed = np.sqrt(RotationAxis.dot(RotationAxis))
+    RotationAxis = np.absolute(RotationAxis) / RotationSpeed
 
+    TranslationVector = np.array(Motion['TranslationSpeed'])
+    TranslationSpeed = np.sqrt(TranslationVector.dot(TranslationVector))
+    if TranslationSpeed != 0:
+        TranslationVector /= TranslationSpeed
+    else:
+        TranslationVector = [1., 0., 0.]
+
+    motion_elsa = dict(
+        omega        = RotationSpeed,
+        axis_pnt_x   = Motion['RotationAxisOrigin'][0], 
+        axis_pnt_y   = Motion['RotationAxisOrigin'][1], 
+        axis_pnt_z   = Motion['RotationAxisOrigin'][2],
+        axis_vct_x   = RotationAxis[0], 
+        axis_vct_y   = RotationAxis[1], 
+        axis_vct_z   = RotationAxis[2], 
+        transl_vct_x = TranslationVector[0],
+        transl_vct_y = TranslationVector[1],
+        transl_vct_z = TranslationVector[2],
+        transl_speed = TranslationSpeed,
+    )
+
+    return motion_elsa
         

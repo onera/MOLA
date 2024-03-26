@@ -14,22 +14,48 @@
 #
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
-import os
-from mola import misc
+
+from mola.cfd import apply_to_solver
+from mola.logging import mola_logger, MolaException
 
 def apply(workflow):
     '''
     Set Motion for each families
     '''
     for family, MotionOnFamily in workflow.Motion.items():
+        set_default_motion(MotionOnFamily)
 
-        RotationSpeed = MotionOnFamily.setdefault('RotationSpeed', [0., 0., 0.])
-        if isinstance(RotationSpeed, (int, float)):
-            print(misc.RED+f'No rotation axis for motion on {family}: set to x-axis by default.'+misc.ENDC)
-            MotionOnFamily['RotationSpeed'] = [RotationSpeed, 0., 0.]
-        MotionOnFamily.setdefault('RotationAxisOrigin', [0., 0., 0.])
-        MotionOnFamily.setdefault('TranslationSpeed', [0., 0., 0.])
+    apply_to_solver(workflow)
 
-    current_path = os.path.dirname(os.path.realpath(__file__))
-    solverModule = misc.load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
-    solverModule.adapt_to_solver(workflow)
+def set_default_motion(Motion):
+    if callable(Motion) or any([callable(v) for v in Motion.values()]):
+        # complex motion given as a function
+        return
+
+    RotationSpeed = Motion.setdefault('RotationSpeed', [0., 0., 0.])
+    if isinstance(RotationSpeed, (int, float)):
+        mola_logger.warning('No rotation axis for motion: set to x-axis by default.')
+        Motion['RotationSpeed'] = [RotationSpeed, 0., 0.]
+    Motion.setdefault('RotationAxisOrigin', [0., 0., 0.])
+    Motion.setdefault('TranslationSpeed', [0., 0., 0.])
+
+def is_mobile(Motion):
+    return is_rotating(Motion) or is_translating(Motion)
+
+def is_rotating(Motion):
+    if callable(Motion) or any([callable(v) for v in Motion.values()]):
+        # complex motion given as a function
+        return True
+    if sum(Motion['RotationSpeed']) == 0:
+        return False
+    else:
+        return True
+
+def is_translating(Motion):
+    if callable(Motion) or any([callable(v) for v in Motion.values()]):
+        # complex motion given as a function
+        return True
+    if all([v==0 for v in Motion['TranslationSpeed']]):
+        return False
+    else:
+        return True

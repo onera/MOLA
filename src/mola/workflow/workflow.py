@@ -16,8 +16,8 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-from .. import cgns as c
-from .. import misc
+from treelab import cgns
+from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from  mola.cfd.preprocess.mesh import (positioning,
                                        connect,
                                        split,
@@ -67,7 +67,6 @@ class Workflow(object):
 
             Turbulence=dict(Model='Wilcox2006-klim',
                             Level=0.001,
-                            ReferenceVelocity='auto',
                             Viscosity_EddyMolecularRatio=0.1,
                             TurbulenceCutOffRatio=1e-8,
                             TransitionMode=None),
@@ -176,7 +175,7 @@ class Workflow(object):
             #     _defaults = ...
             # else:
             #     ERR_MSG = '_defaults must be either a dictionary or a string (path to a file)'
-            #     assert isinstance(_defaults, dict), misc.RED+ERR_MSG+misc.ENDC
+            #     assert isinstance(_defaults, dict), ERR_MSG
             # self._defaults = _workflow_defaults
             # deep_update(self._defaults, _defaults)
             # deep_update(self.__dict__, self._defaults)
@@ -188,22 +187,7 @@ class Workflow(object):
             self.Turbulence=Turbulence
             self.BoundaryConditions=BoundaryConditions
             self.Solver=Solver.lower()
-
-            default_splitAndDist = dict(
-                Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
-                Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
-                Distributor='Cassiopee', 
-                ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
-                NumberOfProcessors='auto', 
-                MinimumAllowedNodes=1,
-                MaximumAllowedNodes=1,
-                MaximumNumberOfPointsPerNode=1e9,
-                CoresPerNode=48,
-                DistributeExclusivelyOnFullNodes=True)
-
-            default_splitAndDist.update(SplittingAndDistribution)
-
-            self.SplittingAndDistribution=default_splitAndDist
+            self.SplittingAndDistribution=SplittingAndDistribution
             self.Numerics=Numerics
             self.BodyForceModeling=BodyForceModeling
             self.Motion=Motion
@@ -215,8 +199,9 @@ class Workflow(object):
             self.RunManagement=RunManagement
 
     def write_tree(self, filename='main.cgns'):
-        if not self.tree: self.tree = c.Tree()
-        self.tree.save(filename)
+        if not self.tree: self.tree = cgns.Tree()
+        with redirect_streams_to_logger(mola_logger):
+            self.tree.save(filename)
 
     def convert_to_dict(self):
         params= dict()
@@ -237,7 +222,7 @@ class Workflow(object):
 
     def get_workflow_parameters_from_tree(self):
         
-        self.tree = c.load(self.tree)
+        self.tree = cgns.load(self.tree)
         
         workflow_parameters = self.tree.getParameters(self._workflow_parameters_container_)
         
@@ -246,7 +231,7 @@ class Workflow(object):
 
 
     def set_workflow_parameters_in_tree(self):
-        if not self.tree: self.tree = c.Tree()
+        if not self.tree: self.tree = cgns.Tree()
 
         params= self.convert_to_dict()
         self.tree.setParameters(self._workflow_parameters_container_,
@@ -279,11 +264,10 @@ class Workflow(object):
         self.process_overset()
         self.compute_reference_values()
         self.set_motion()
-        self.initialize_flow() # eventually + distance to wall
         self.set_boundary_conditions()
-        self.set_cfd_parameters() # model, numerics, others...
+        self.set_cfd_parameters()  # model, numerics, others...
         self.set_extractions()
-        # self.adapt_tree_to_solver()
+        self.initialize_flow()  # eventually + distance to wall
         # self.check_preprocess() # empty BCs... maybe solver-specific
         self.set_workflow_parameters_in_tree()
         # self.set_workflow_parameters_in_file()
@@ -306,7 +290,7 @@ class Workflow(object):
         meshes = []
         for component in self.RawMeshComponents:
             src = component['Source']
-            mesh = c.load(src)
+            mesh = cgns.load(src)
             nb_of_bases = len(mesh.bases())
             if nb_of_bases != 1:
                 msg = f"component {component['Name']} must have exactly 1 base (got {nb_of_bases})"
@@ -315,7 +299,7 @@ class Workflow(object):
             base = mesh.bases()[0]
             base.setName( component['Name'] )
             meshes += [base]
-        self.tree = c.merge(meshes)
+        self.tree = cgns.merge(meshes)
 
 
     def clean_mesh(self):

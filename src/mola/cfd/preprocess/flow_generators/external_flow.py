@@ -16,7 +16,9 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
-from mola import misc, cgns, math_tools
+from treelab import cgns
+from mola import math_tools
+from mola.logging import mola_logger, MolaException
 
 K_OMEGA_TWO_EQN_MODELS = ['Wilcox2006-klim', 'Wilcox2006-klim-V',
             'Wilcox2006', 'Wilcox2006-V', 'SST-2003', 
@@ -56,6 +58,9 @@ class ExternalFlowGenerator(object):
         self.Flow.setdefault('YawAxis', [0.,0.,1.])
         self.Flow.setdefault('PitchAxis', [0.,-1.,0.])
 
+        self.Turbulence.setdefault('Level', 0.001)
+        self.Turbulence.setdefault('Viscosity_EddyMolecularRatio', 0.1)
+
     def generate(self):
         # Compute flow and turbulence properties
         self.set_flow_properties()
@@ -77,12 +82,12 @@ class ExternalFlowGenerator(object):
         if FreestreamIsTooLow and self.Flow['VelocityUsedForScalingAndTurbulence'] is None:
             ERRMSG = f'Velocity is too low ({self.Flow["Velocity"]}).'
             ERRMSG+= 'You must provide a non-zero value for VelocityUsedForScalingAndTurbulence'
-            raise ValueError(misc.RED+ERRMSG+misc.ENDC)
+            raise MolaException(ERRMSG)
 
         if self.Flow['VelocityUsedForScalingAndTurbulence'] is not None:
             if self.Flow['VelocityUsedForScalingAndTurbulence'] <= 0:
                 ERRMSG = 'VelocityUsedForScalingAndTurbulence must be positive'
-                raise ValueError(misc.RED+ERRMSG+misc.ENDC)
+                raise MolaException(ERRMSG)
         else:
             self.Flow['VelocityUsedForScalingAndTurbulence'] = np.abs(self.Flow['Velocity'])
 
@@ -198,6 +203,10 @@ class ExternalFlowGenerator(object):
             ReynoldsStressDissipationScale   = TurbulentDissipationRateDensity,
         ))
 
+        self.set_turbulence_conservatives_depending_on_model()
+    
+    def set_turbulence_conservatives_depending_on_model(self):
+
         if self.Turbulence['Model'] == 'SA':
             self.Turbulence['Conservatives'] = dict(
                 TurbulentSANuTildeDensity = self.Turbulence['TurbulentSANuTilde'] * self.Flow['Density']
@@ -237,17 +246,17 @@ class ExternalFlowGenerator(object):
         else:
             raise AttributeError(f'Turbulence model {self.Turbulence["Model"]} not implemented in workflow. Must be in: {AvailableTurbulenceModels}')
 
-        if self.Turbulence['TransitionMode'] is not None:
-            self.Turbulence['TransitionZones'] = dict(
-                TopOrigin                   = 0.002,
-                BottomOrigin                = 0.010,
-                TopLaminarImposedUpTo       = 0.001,
-                TopLaminarIfFailureUpTo     = 0.2,
-                TopTurbulentImposedFrom     = 0.995,
-                BottomLaminarImposedUpTo    = 0.001,
-                BottomLaminarIfFailureUpTo  = 0.2,
-                BottomTurbulentImposedFrom  = 0.995,
-            )
+        # if self.Turbulence['TransitionMode'] is not None:
+        #     self.Turbulence['TransitionZones'] = dict(
+        #         TopOrigin                   = 0.002,
+        #         BottomOrigin                = 0.010,
+        #         TopLaminarImposedUpTo       = 0.001,
+        #         TopLaminarIfFailureUpTo     = 0.2,
+        #         TopTurbulentImposedFrom     = 0.995,
+        #         BottomLaminarImposedUpTo    = 0.001,
+        #         BottomLaminarIfFailureUpTo  = 0.2,
+        #         BottomTurbulentImposedFrom  = 0.995,
+        #     )
 
     @staticmethod
     def get_flow_directions(AngleOfAttackDeg, AngleOfSlipDeg, YawAxis, PitchAxis):

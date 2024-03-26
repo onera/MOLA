@@ -15,8 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import Converter.PyTree as C # TODO _addBC2Zone, _fillEmptyBCWith
-import mola.cgns as cgns
+import treelab.cgns as cgns
+from mola.logging import mola_logger, MolaException
 # from mola.cfd.preprocess.boundary_conditions import BoundaryConditionsNames
 
 structured_locations = ('imin','imax','jmin','jmax','kmin','kmax')
@@ -26,12 +26,15 @@ def apply(workflow):
     for base in t.bases():
         component = workflow.get_component(base.name())
 
-        if 'Families' not in component: continue
+        if 'Families' not in component: 
+            continue
+        
+        import Converter.PyTree as C  # TODO _addBC2Zone, _fillEmptyBCWith
 
         for operation in component['Families']:
             FamilyName = operation['Name']
             location   = operation['Location']
-            print(f'setting Family {FamilyName} at base {base.name()}')
+            mola_logger.info(f'setting Family {FamilyName} in base {base.name()}')
             
             if location in structured_locations:
                 for zone in base.zones():

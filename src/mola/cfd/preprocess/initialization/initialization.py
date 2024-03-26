@@ -14,12 +14,10 @@
 #
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
-import os
-from mola import misc, cgns
 
-import Converter.PyTree as C
-import Converter.Internal as I
-
+from treelab import cgns
+from mola.cfd import apply_to_solver
+from mola.logging import mola_logger, MolaException
 
 def apply(workflow):
     '''
@@ -29,39 +27,29 @@ def apply(workflow):
     
     #. Adapt this node to the solver
     '''
+    initialization_functions = dict(
+        uniform = initialize_flow_with_reference_state,
+        copy = initialize_flow_from_file_by_copy,
+        interpolate = initialize_flow_from_file_by_interpolation,
+    )
 
-    if workflow.Initialization['method'] is None:
-        pass
-    elif workflow.Initialization['method'] == 'uniform':
-        print(misc.CYAN + 'Initialize FlowSolution with uniform reference values' + misc.ENDC)
-        workflow.tree.newFields(workflow.Flow['ReferenceState'], Container='FlowSolution#Init')
-
-    elif workflow.Initialization['method'] == 'interpolate':
-        if isinstance(workflow.Initialization['source'], str):
-            print(misc.CYAN + f"Initialize FlowSolution by interpolation from {workflow.Initialization['source']}" + misc.ENDC)
+    try:
+        initialize_flow_with_given_method = initialization_functions[workflow.Initialization['method']]
+        initialize_flow_with_given_method(workflow)
+    except KeyError:
+        if 'method' not in workflow.Initialization:
+            raise MolaException('The key "method" is mandotory in the dictionary workflow.Initialization.')
         else:
-            print(misc.CYAN + f"Initialize FlowSolution by interpolation from the given tree" + misc.ENDC)
-        initialize_flow_from_file_by_interpolation(workflow)
-        
-    elif workflow.Initialization['method'] == 'copy':
-        if isinstance(workflow.Initialization['source'], str):
-            print(misc.CYAN + f"Initialize FlowSolution by copy of {workflow.Initialization['source']}" + misc.ENDC)
-        else:
-            print(misc.CYAN + f"Initialize FlowSolution by copy of the given tree" + misc.ENDC)
-        initialize_flow_from_file_by_copy(workflow)
-    else:
-        raise Exception(misc.RED+'The key "method" of the dictionary workflow.Initialization is mandatory'+misc.ENDC)
+            init_method = workflow.Initialization['method']
+            raise MolaException(f'The initialization method "{init_method}" is unknown. Available methods are: {list(initialization_functions)}')
 
-    for zone in workflow.tree.zones():
-        if not zone.get(Name='FlowSolution#Init', Type='FlowSolution', Depth=1):
-            MSG = 'FlowSolution#Init is missing in zone {}'.format(zone.name)
-            raise ValueError(misc.RED + MSG + misc.ENDC)
+    check_initial_flow_is_in_all_zones(workflow)
     
-    current_path = os.path.dirname(os.path.realpath(__file__))
-    solverModule = misc.load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
-    solverModule.adapt_to_solver(workflow)
+    apply_to_solver(workflow)
 
-
+def initialize_flow_with_reference_state(workflow):
+    mola_logger.info('Initialize FlowSolution with uniform reference values')
+    workflow.tree.newFields(workflow.Flow['ReferenceState'], Container='FlowSolution#Init')
 
 def initialize_flow_from_file_by_interpolation(workflow):
     '''
@@ -74,6 +62,11 @@ def initialize_flow_from_file_by_interpolation(workflow):
 
         workflow : :py:obj:`mola.workflow.worflow.Workflow`
     '''
+    if isinstance(workflow.Initialization['source'], str):
+        mola_logger.info(f"Initialize FlowSolution by interpolation from {workflow.Initialization['source']}")
+    else:
+        mola_logger.info(f"Initialize FlowSolution by interpolation from the given tree")
+    
     raise Exception('Not yet implemented')
 
 def initialize_flow_from_file_by_copy(workflow):
@@ -87,6 +80,11 @@ def initialize_flow_from_file_by_copy(workflow):
 
         workflow : :py:obj:`mola.workflow.worflow.Workflow`
     '''
+    if isinstance(workflow.Initialization['source'], str):
+        mola_logger.info(f"Initialize FlowSolution by copy of {workflow.Initialization['source']}")
+    else:
+        mola_logger.info(f"Initialize FlowSolution by copy of the given tree")
+
     keepTurbulentDistance = workflow.Initialization.get('keepTurbulentDistance', False)
 
     sourceTree = cgns.load(workflow.Initialization['source'])
@@ -99,10 +97,14 @@ def initialize_flow_from_file_by_copy(workflow):
         FSpath = zone.path() + '/FlowSolution#Init'
         try:
             FlowSolutionInSourceTree = sourceTree.getAtPath(FSpath)
-            zone.addChild(FlowSolutionInSourceTree, override_brother_by_name=True)
+            zone.addChild(FlowSolutionInSourceTree, override_sibling_by_name=True)
         except AttributeError:
-            ERROR_MSG = f"The node {FSpath} is not found in {workflow.Initialization['source']}"
-            raise Exception(misc.RED+ERROR_MSG+misc.ENDC)
+            raise MolaException(f"The node {FSpath} is not found in {workflow.Initialization['source']}")
+
+def check_initial_flow_is_in_all_zones(workflow):
+    for zone in workflow.tree.zones():
+        if not zone.get(Name='FlowSolution#Init', Type='FlowSolution', Depth=1):
+            raise MolaException(f'FlowSolution#Init is missing in zone {zone.name()}')
 
 def compute_turbulent_distance_with_maia(workflow):
     '''

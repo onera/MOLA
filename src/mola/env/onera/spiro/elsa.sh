@@ -33,6 +33,7 @@ export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849
 export ELSA_NOLOG=ON
 
+export TREELABVERSION=v0.1.0
 export VPMVERSION=Dev
 export PUMAVERSION=v2.0.3
 export TURBOVERSION=v1.3
@@ -69,6 +70,13 @@ unset I_MPI_PMI_LIBRARY
 
 unset I_MPI_TCP_NETMASK
 unset I_MPI_FABRICS_LIST
+
+# Treelab
+# NOTE installation hint:
+# python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
+export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/spiro_elsA
+export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
+export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
 
 # PUMA
 export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro3

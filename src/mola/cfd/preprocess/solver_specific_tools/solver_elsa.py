@@ -15,32 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-def translate_to_elsa(Variables):
-    '''
-    Translate names in **Variables** from CGNS standards to elsA names for
-    boundary conditions.
-
-    Parameters
-    ----------
-
-        Variables : :py:class:`dict` or :py:class:`list` or :py:class:`str`
-            Could be eiter:
-
-                * a :py:class:`dict` with keys corresponding to variables names
-
-                * a :py:class:`list` of variables names
-
-                * a :py:class:`str` as a single variable name
-
-    Returns
-    -------
-
-        NewVariables : :py:class:`dict` or :py:class:`list` or :py:class:`str`
-            Depending on the input type, return the same object with variable
-            names translated to elsA standards.
-
-    '''
-    CGNS2ElsaDict = dict(
+CGNS2ElsaInCGNSNode = dict(
         PressureStagnation       = 'stagnation_pressure',
         EnthalpyStagnation       = 'stagnation_enthalpy',
         TemperatureStagnation    = 'stagnation_temperature',
@@ -61,18 +36,132 @@ def translate_to_elsa(Variables):
         VelocityCorrelationYY    = 'inj_tur4', 
         VelocityCorrelationYZ    = 'inj_tur5', 
         VelocityCorrelationZZ    = 'inj_tur6',
-        
-        BoundaryLayer            = 'bl_quantities_2d bl_quantities_3d bl_ue',
-        NormalVector             = 'normalvector',
-        Friction                 = 'frictionvector', 
-        yPlus                    = 'yplusmeshsize',
-        MomentumFlux             = 'flux_rou flux_rov flux_row',
-        TorqueFlux               = 'torque_rou torque_rov torque_row',
-
     )
-    if 'VelocityCorrelationXX' in Variables:
-        # For RSM models
-        CGNS2ElsaDict['TurbulentDissipationRate'] = 'inj_tur7'
+
+CGNS2ElsaInVarNode = {
+ 'CoordinateX': 'x',
+ 'CoordinateY': 'y',
+ 'CoordinateZ': 'z',
+ 'Density': 'ro',
+ 'EnergyStagnationDensity': 'roE',
+ 'Enthalpy': 'enthalpy',
+ 'EnthalpyStagnation': 'stagnation_enthalpy',
+ 'Entropy': 'entropy',
+ 'IntermittencyDensity': 'rotrans1',
+ 'Mach': 'mach',
+ 'MomentumThicknessReynoldsDensity': 'rotrans2',
+ 'MomentumX': 'rovx',
+ 'MomentumY': 'rovy',
+ 'MomentumZ': 'rovz',
+ 'Pressure': 'psta',
+ 'PressureStagnation': 'pgen',
+ 'ReynoldsStressDissipationScale': 'roscale',
+ 'ReynoldsStressXX': 'rouu',
+ 'ReynoldsStressXY': 'rouv',
+ 'ReynoldsStressXZ': 'rouw',
+ 'ReynoldsStressYY': 'rovv',
+ 'ReynoldsStressYZ': 'rovw',
+ 'ReynoldsStressZZ': 'roww',
+ 'SkinFrictionMagnitude': 'frictionmodulus',
+ 'SkinFrictionX': 'frictionvectorx',
+ 'SkinFrictionY': 'frictionvectory',
+ 'SkinFrictionZ': 'frictionvectorz',
+ 'SpecificHeatPressure': 'cp',
+ 'SpecificHeatRatio': 'gamma',
+ 'SpecificHeatVolume': 'cv',
+ 'SpectralFluxProdTransDensity': 'rof1',
+ 'SpectralFluxTransDissDensity': 'rof2',
+ 'Temperature': 'tsta',
+ 'TemperatureStagnation': 'tgen',
+ 'TurbulentDissipation': 'eps',
+ 'TurbulentDissipationDensity': 'roeps',
+ 'TurbulentDissipationRate': 'omega',
+ 'TurbulentDissipationRateDensity': 'roomega',
+ 'TurbulentDistance': 'walldistance',
+ 'TurbulentDistanceIndex': 'wallglobalindex',
+ 'TurbulentEnergyKinetic': 'k',
+ 'TurbulentEnergyKineticDensity': 'rok',
+ 'TurbulentEnergyKineticPLS': 'kl',
+ 'TurbulentEnergyKineticPLSDensity': 'rokl',
+ 'TurbulentEnergyKineticPZDensity': 'rok1',
+ 'TurbulentEnergyKineticTZDensity': 'rok2',
+ 'TurbulentLengthScale': 'l',
+ 'TurbulentLengthScaleDensity': 'rol',
+ 'TurbulentSANuTildeDensity': 'ronutilde',
+ 'TurbulentTimeScaleVar': 'phi',
+ 'TurbulentTimeScaleVarDensity': 'rophi',
+ 'VelocityCorrelationXX': 'uu',
+ 'VelocityCorrelationXY': 'uv',
+ 'VelocityCorrelationXZ': 'uw',
+ 'VelocityCorrelationYY': 'vv',
+ 'VelocityCorrelationYZ': 'vw',
+ 'VelocityCorrelationZZ': 'ww',
+ 'VelocitySound': 'soundspeed',
+ 'VelocityUnitVectorX': 'd0x',
+ 'VelocityUnitVectorY': 'd0y',
+ 'VelocityUnitVectorZ': 'd0z',
+ 'VelocityX': 'u',
+ 'VelocityY': 'v',
+ 'VelocityZ': 'w',
+ 'ViscosityEddy': 'viscturb',
+ 'ViscosityMolecular': 'visclam',
+ 'VorticityX': 'vorticity_x',
+ 'VorticityY': 'vorticity_y',
+ 'VorticityZ': 'vorticity_z',
+ 'v10': 'rotur5',
+ 'v11': 'rotur6',
+ 'v12': 'rotur7',
+ 'v6': 'rotur1',
+ 'v7': 'rotur2',
+ 'v8': 'rotur3',
+ 'v9': 'rotur4'}
+
+CGNS2ElsaInVarNode.update(dict(
+    BoundaryLayer            = 'bl_quantities_2d bl_quantities_3d bl_ue',
+    NormalVector             = 'normalvector',
+    Friction                 = 'frictionvector', 
+    yPlus                    = 'yplusmeshsize',
+    MomentumFlux             = 'flux_rou flux_rov flux_row',
+    TorqueFlux               = 'torque_rou torque_rov torque_row',
+    MassFlow                 = 'convflux_ro',
+))
+
+
+def translate_to_elsa(Variables, type='node'):
+    '''
+    Translate names in **Variables** from CGNS standards to elsA names for
+    boundary conditions.
+
+    Parameters
+    ----------
+
+        Variables : :py:class:`dict` or :py:class:`list` or :py:class:`str`
+            Could be eiter:
+
+                * a :py:class:`dict` with keys corresponding to variables names
+
+                * a :py:class:`list` of variables names
+
+                * a :py:class:`str` as a single variable name
+        
+        type : 'node' or 'var'
+            Context to translate CGNS names to elsA names.
+
+    Returns
+    -------
+
+        NewVariables : :py:class:`dict` or :py:class:`list` or :py:class:`str`
+            Depending on the input type, return the same object with variable
+            names translated to elsA standards.
+
+    '''
+    if type == 'node':
+        CGNS2ElsaDict = CGNS2ElsaInCGNSNode
+        if isinstance(Variables, (dict, list)) and 'VelocityCorrelationXX' in Variables:
+            # For RSM models
+            CGNS2ElsaDict['TurbulentDissipationRate'] = 'inj_tur7'
+    else:
+        CGNS2ElsaDict = CGNS2ElsaInVarNode
 
     elsAVariables = CGNS2ElsaDict.values()
 
@@ -93,9 +182,8 @@ def translate_to_elsa(Variables):
                 NewVariables.append(CGNS2ElsaDict[var])
         return NewVariables
     elif isinstance(Variables, str):
-        if Variables in elsAVariables:
+        if Variables in CGNS2ElsaDict:
             return CGNS2ElsaDict[Variables]
     else:
         raise TypeError('Variables must be of type dict, list or string')
 
- 

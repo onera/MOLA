@@ -15,11 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import Converter.PyTree as C
-import Converter.Internal as I
-import Post.PyTree as P
-
-from mola import misc
+from mola.logging import mola_logger, MolaException
 
 def get_surface_of_inflow(workflow):
     '''
@@ -37,21 +33,67 @@ def get_surface_of_inflow(workflow):
 
     # Check unicity
     if len(InflowBCs) != 1:
-        MSG = 'Please provide a reference surface as "Surface" in '
-        MSG += 'ReferenceValues or provide a unique inflow BC in BoundaryConditions'
-        raise Exception(misc.RED + MSG + misc.ENDC)
+        raise MolaException( 'Please provide a reference surface as "Surface" in ReferenceValues or provide a unique inflow BC in BoundaryConditions')
     
     InflowFamily = InflowBCs[0]['Family']
     
-    return get_surface_of_family(workflow, InflowFamily)
+    return get_surface_of_family(workflow.tree, InflowFamily)
 
-def get_surface_of_family(workflow, Family):
+def get_surface_of_family(tree, Family):
+    import Converter.PyTree as C
+    import Post.PyTree as P
 
-    zones = C.extractBCOfName(workflow.tree, f'FamilySpecified:{Family}')
+    zones = C.extractBCOfName(tree, f'FamilySpecified:{Family}')
     SurfaceTree = C.convertArray2Tetra(zones)
     SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
     Surface = P.integ(SurfaceTree, var='ones')[0]        # Compute normalization coefficient
-    print(f'Reference surface = {Surface} m^2 (computed from family {Family})')
+    mola_logger.info(f'Reference surface = {Surface} m^2 (computed from family {Family})')
 
     return Surface
 
+def compute_azimuthal_extension_from_family(t, FamilyName):
+    '''
+    Compute the azimuthal extension in radians of the mesh **t** for the row **FamilyName**.
+
+    .. warning:: This function needs to calculate the surface of the slice in X
+                 at Xmin + 5% (Xmax - Xmin). If this surface is crossed by a
+                 solid (e.g. a blade) or by the inlet boundary, the function
+                 will compute a wrong value of the number of blades inside the
+                 mesh.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            mesh tree
+
+        FamilyName : str
+            Name of the row, identified by a ``FamilyName``.
+
+    Returns
+    -------
+
+        deltaTheta : float
+            Azimuthal extension in radians
+
+    '''
+    import Converter.PyTree as C
+    import Post.PyTree as P
+
+    # Extract zones in family
+    zonesInFamily = C.getFamilyZones(t, FamilyName)
+    # Slice in x direction at middle range
+    xmin = C.getMinValue(zonesInFamily, 'CoordinateX')
+    xmax = C.getMaxValue(zonesInFamily, 'CoordinateX')
+    sliceX = P.isoSurfMC(zonesInFamily, 'CoordinateX', value=xmin+0.05*(xmax-xmin))
+    # Compute Radius
+    C._initVars(sliceX, '{Radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
+    Rmin = C.getMinValue(sliceX, 'Radius')
+    Rmax = C.getMaxValue(sliceX, 'Radius')
+    # Compute surface
+    SurfaceTree = C.convertArray2Tetra(sliceX)
+    SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
+    Surface = P.integ(SurfaceTree, var='ones')[0]
+    # Compute deltaTheta
+    deltaTheta = 2* Surface / (Rmax**2 - Rmin**2)
+    return deltaTheta

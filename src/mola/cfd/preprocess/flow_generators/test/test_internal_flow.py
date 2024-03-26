@@ -46,8 +46,6 @@ class FakeWorkflow():
             Level=0.001,
             ReferenceVelocity='auto',
             Viscosity_EddyMolecularRatio=0.1,
-            TurbulenceCutOffRatio=1e-8,
-            TransitionMode=None
             )
 
 def test_MassFlowFromMach():
@@ -158,8 +156,6 @@ def test_InternalFlowGenerator():
                     'ReynoldsStressYY': 0.008901198401827098,
                     'ReynoldsStressYZ': 0.0,
                     'ReynoldsStressZZ': 0.008901198401827098,
-                    'TransitionMode': None,
-                    'TurbulenceCutOffRatio': 1e-08,
                     'TurbulentDissipationRateDensity': 8208.910340124454,
                     'TurbulentEnergyKineticDensity': 0.013351797602740648,
                     'TurbulentEnergyKineticPLSDensity': 3.691552321470374e-07,

@@ -23,5 +23,3 @@ class WorkflowORAS(Workflow):
 
     def __init__(self, **UserParameters):
         super(WorkflowORAS, self).__init__(**UserParameters)
-
-        self.name = 'ORAS'

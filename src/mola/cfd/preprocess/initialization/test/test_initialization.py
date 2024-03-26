@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
-from mola import cgns
+from treelab import cgns
 from mola.workflow.workflow import Workflow
 from mola.cfd.preprocess.initialization import initialization
 

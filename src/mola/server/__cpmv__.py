@@ -18,21 +18,38 @@
 import os
 import socket
 import getpass
+from fnmatch import fnmatch
+from mola import misc
+from mola.logging import MolaException
+from mola import __MOLA_PATH__
+
+# def guess_host(Network):
+#     '''
+#     Returns the host name. For example:   'sator', 'spiro' or 'ld'
+#     '''
+#     HostName = socket.gethostname()
+#     if Network == 'onera':
+#         PossibleMachineNamesInHostName = ('sator','spiro','visung','ld')
+#         for name in PossibleMachineNamesInHostName:
+#             if name in HostName: 
+#                 if name == 'visung': 
+#                     return 'ld'
+#                 else:
+#                     return name
+#             if HostName.startswith('n'): 
+#                 return 'sator'
+#         UserName = getpass.getuser()
+#         if not os.path.exists(os.path.join(os.path.sep,'stck',UserName)):
+#             HostName = 'StckInvisible'
+#         return HostName
+
+#     else:
+#         raise Exception(f'Unknown Network: {Network}')
 
 def guess_host(Network):
-    '''
-    Returns the host name. For example:   'sator', 'spiro', 'visio' or 'celeste'
-    '''
+    env_params = misc.load_source('config', os.path.join(__MOLA_PATH__, 'mola', 'env', Network, 'config.py'))
     HostName = socket.gethostname()
-    if Network == 'onera':
-        PossibleMachineNamesInHostName = ('sator','spiro','visio','celeste', 'ld')
-        for name in PossibleMachineNamesInHostName:
-            if name in HostName: return name
-            if HostName.startswith('n'): return 'sator'
-        UserName = getpass.getuser()
-        if not os.path.exists(os.path.join(os.path.sep,'stck',UserName)):
-            HostName = 'StckInvisible'
-        return HostName
-
-    else:
-        raise Exception(f'Unknown Network: {Network}')
+    for pattern, env in env_params.PatternsToEnvironments.items():
+        if fnmatch(HostName, pattern):
+            return env
+    raise MolaException(f'Host name {HostName} is unknown')

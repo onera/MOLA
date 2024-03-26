@@ -15,73 +15,186 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 import os
-from mola import misc
+from mola.cfd import apply_to_solver
 from mola import __MOLA_PATH__
+from mola.logging import mola_logger, MolaException
 from mola.server.__cpmv__ import guess_host
+from mola import misc
 
 def apply(workflow):
 
-    setdefault(workflow)
+    set_default(workflow.RunManagement)
+    apply_to_solver(workflow)
 
-    current_path = os.path.dirname(os.path.realpath(__file__))
-    solverModule = misc.load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
-    solverModule.adapt_to_solver(workflow)
+def set_default(RunManagement):
 
-def setdefault(workflow):
+    set_network(RunManagement)
+    set_machine(RunManagement)
+    set_job_scheduler_options(RunManagement)
+
+    if RunManagement['Machine'] == 'sator' and not RunManagement['JobSchedulerOptions']['comment']:
+        raise MolaException('AER is needed to run a job on sator') 
 
     # Set default parameters
     RunManagementDefault = dict(
-        JobName='MOLAjob',
         RunDirectory='.',
         NumberOfProcessors=None,
-        AER='not_given',
-        FilesAndDirectories=[f"{os.getenv('MOLA')}/templates/compute.py"],
         SubmitJob=False,
-        TimeOutInSeconds = 'auto',
-        # TODO: Make a search on available machines in env/
-        # if there is only one machine with the given name, 
-        # it is possible to deduce Network
-        # For now, set default Network to 'onera'
-        Network = 'onera',
-        Machine = 'auto', # or 'spiro-dtis', 'topaze'...
+        SecondsMarginForQuitBeforeTimeOut = 180,
         LauncherCommand = 'auto', # or 'sbatch job.sh', './job.sh'...
-        SecondsMargin4QuitBeforeTimeOut = 180.0,
-        mola_target_path = __MOLA_PATH__
+        mola_target_path = __MOLA_PATH__,
+        FilesAndDirectories=[],
         )
     for key, default_value in RunManagementDefault.items():
-        workflow.RunManagement.setdefault(key, default_value)
+        RunManagement.setdefault(key, default_value)
 
     # NumberOfProcessors must be set before this stage
     # It may have been set during an automatic splitting operation
-    ERR_NPROC = misc.RED+f'The value {workflow.RunManagement["NumberOfProcessors"]} for NumberOfProcessors is not allowed. It must be an integer'+misc.ENDC
-    assert isinstance(workflow.RunManagement['NumberOfProcessors'], int), ERR_NPROC
+    if not isinstance(RunManagement['NumberOfProcessors'], int):
+        raise MolaException(f'The value {RunManagement["NumberOfProcessors"]} for NumberOfProcessors is not allowed. It must be an integer')
+    
+    # Time margin
+    RunManagement.setdefault('TimeLimit', '24:00:00')
+    RunManagement['TimeOutInSeconds'] = convert_to_seconds(RunManagement['TimeLimit']) - convert_to_seconds(RunManagement['SecondsMarginForQuitBeforeTimeOut'])
+    RunManagement.pop('SecondsMarginForQuitBeforeTimeOut')
 
-    if workflow.RunManagement['Machine'] == 'auto':
-        workflow.RunManagement['Machine'] = guess_host(Network=workflow.RunManagement['Network'])
-        print(misc.CYAN+f"The detected Machine on Network {workflow.RunManagement['Network']} is {workflow.RunManagement['Machine']}"+misc.ENDC)
+def set_network(RunManagement):
+    RunManagement['Network'] = os.getenv('MOLA_NETWORK')
 
-    if 'TimeLimit' not in workflow.RunManagement:
-        # To update depending on the cluster
-        if workflow.RunManagement['Machine'] in ['sator', 'spiro']:
-            workflow.RunManagement['TimeLimit'] = '0-15:00'
+def set_machine(RunManagement):
+    if 'Machine' not in RunManagement:
+        try:
+            RunManagement['Machine'] = guess_machine_from_path(RunManagement['Network'], RunManagement['RunDirectory'])
+        except:
+            RunManagement['Machine'] = guess_host(RunManagement['Network'])
+
+def guess_machine_from_path(network, path):
+    raise Exception
+
+def set_job_scheduler_options(RunManagement):
+    scheduler, scheduler_options = get_scheduler_and_default_options(RunManagement)
+
+    if scheduler == 'SLURM':
+        set_slurm_options_and_update_RunManagement(RunManagement, scheduler_options)
+
+    RunManagement['JobScheduler'] = scheduler
+    RunManagement['JobSchedulerOptions'] = scheduler_options
+
+def get_scheduler_and_default_options(RunManagement):
+    try:
+        path = os.path.join(__MOLA_PATH__, 'mola', 'env', RunManagement['Network'], RunManagement['Machine'], 'scheduler_defaults.py')
+        scheduler_defaults = misc.load_source('scheduler_defaults', path)
+        try:
+            scheduler = scheduler_defaults.JOB_SCHEDULER
+        except AttributeError:
+            scheduler = None
+            
+        try:
+            scheduler_options = scheduler_defaults.JOB_SCHEDULER_OPTIONS
+        except AttributeError:
+            scheduler_options = dict()
+
+    except FileNotFoundError:
+        scheduler = None
+        scheduler_options = dict()
+
+    return scheduler, scheduler_options
+
+def set_slurm_options_and_update_RunManagement(RunManagement, scheduler_options):
+    MolaToSlurm = dict(
+            JobName = 'job-name',
+            Comment = 'comment',
+            AER = 'comment',
+            NumberOfProcessors = 'ntasks',
+            TimeLimit = 'time',
+        )
+    scheduler_options.setdefault('job-name', 'mola')
+
+    for key, option in MolaToSlurm.items():
+        if key in RunManagement:
+            scheduler_options[option] = RunManagement[key]
+        elif option in scheduler_options:
+            RunManagement[key] = scheduler_options[option]
+    
+    scheduler_options['output'] = 'output.%j.log'
+    scheduler_options['error'] = 'error.%j.log'
+    
+def convert_to_seconds(time_value):
+    '''
+    Convert a time in seconds.
+
+    Parameters
+    ----------
+    time_value : str or int
+        Could be seconds, as an int or str, or a str with one of the following formats :
+        'mm:ss', 'hh:mm:ss', 'j-hh:mm:ss', 'j-hh:mm', 'j-hh'.
+
+    Returns
+    -------
+    int
+        number of seconds in **time_value**
+    '''
+    time_value = str(time_value)
+    if '-' in time_value:
+        # The number of days is given
+        days, daytime_value = time_value.split('-')
+        number_of_columns = daytime_value.count(':')
+        if number_of_columns == 0:
+            daytime_value += ':00:00'
+        elif number_of_columns == 1:
+            daytime_value += ':00'
         else:
-            # print(misc.YELLOW + f'The machine {workflow.RunManagement["Machine"]} is unknown' + misc.ENDC)
-            workflow.RunManagement['TimeLimit'] = '0-24:00'
+            assert number_of_columns == 2
+    else:
+        # No day is given
+        days = 0
+        daytime_value = time_value
 
-    if 'SlurmConstraint' not in workflow.RunManagement:
-        if workflow.RunManagement['Machine'] == 'sator':
-            # TODO Remove this constraint if it is not useful anymore
-            workflow.RunManagement['SlurmConstraint'] = 'csl'
-        else:
-            workflow.RunManagement['SlurmConstraint'] = None
+    l = list(map(int, daytime_value.split(':')))
+    return int(days)*3600*24 + sum(n * sec for n, sec in zip(l[::-1], (1, 60, 3600)))
 
-    if workflow.RunManagement['Machine'] == 'spiro':
-        workflow.RunManagement.setdefault('SlurmQualityOfService', 'c1_test_giga')
-        
-    if workflow.RunManagement['AER'] == '':
-        # if an empty string is written in the tree, elsA is bugging with the following error message:
-        #   File "/stck/elsa/Public/v5.1.03/Dist/lib/py/elsA/Parse/loadCGNSPython.py", line 143, in loadOne
-        #     if not isinstance(data[0], np.string_) and not isinstance(data[0], np.str_) and data.dtype not in [np.float32,np.float64,np.int32,np.int64,'|S1']:
-        #   IndexError: index 0 is out of bounds for axis 0 with size 0
-        workflow.RunManagement['AER'] == 'not_given' 
+
+def build_job_scheduler_header(job_scheduler, job_scheduler_options):
+    header = ''
+    if job_scheduler == 'SLURM':
+        for option, value in job_scheduler_options.items():
+            header += f"#SBATCH --{option}={value}\n"
+    return header
+
+def get_job_text(RunManagement, Solver):
+
+    job_scheduler = RunManagement['JobScheduler']
+    job_scheduler_options = RunManagement['JobSchedulerOptions']
+
+    header = build_job_scheduler_header(job_scheduler, job_scheduler_options)
+
+    job_text = f'''#!/bin/bash
+{header}
+source {RunManagement["mola_target_path"]}/mola/env/{RunManagement["Network"]}/{RunManagement["Machine"]}/{Solver}.sh
+'''
+
+#     job_text = f'''#!/bin/bash
+# #SBATCH --job-name {RunManagement['JobName']}
+# #SBATCH --comment {RunManagement['AER']}
+# #SBATCH --output output.%j.log
+# #SBATCH --error error.%j.log
+# #SBATCH --time {RunManagement['TimeLimit']}
+# #SBATCH --ntasks {RunManagement['NumberOfProcessors']}
+# '''
+#     if RunManagement['SlurmConstraint'] is not None:
+#         job_text += f"#SBATCH --constraint={RunManagement['SlurmConstraint']}\n"
+    
+#     if 'SlurmQualityOfService' in RunManagement and RunManagement['SlurmQualityOfService'] is not None:
+#         job_text += f"#SBATCH --qos={RunManagement['SlurmQualityOfService']}\n"
+    
+#     job_text += f'\nsource {RunManagement["mola_target_path"]}/mola/env/{RunManagement["Network"]}/{RunManagement["Machine"]}/{Solver}.sh\n'
+
+    return job_text
+
+def save_file(filename, text, directory='.'):
+    os.makedirs(directory, exist_ok=True)
+    filename = os.path.join(directory, filename)
+    with open(filename, 'w') as f:
+        f.write(text)
+    os.chmod(filename, 0o777)
 
