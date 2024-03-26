@@ -163,7 +163,7 @@ class Workflow(object):
 
         self._workflow_parameters_container_ = 'WorkflowParameters'
 
-        self.Name = 'Standard'
+        self.Name = self.__class__.__name__
         self.tree = tree
 
         if self.tree is not None:
