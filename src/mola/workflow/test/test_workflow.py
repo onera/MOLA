@@ -1,17 +1,61 @@
 import os
 import shutil
+import subprocess
 import numpy as np
 from mola.workflow.workflow import Workflow
+from mola.logging import mola_logger, MolaException, mute_stdout
 import treelab.cgns as cgns
+
+def launch_compute_subprocess():
+    cwd = os.path.dirname(os.path.realpath(__file__))
+    ssh = subprocess.Popen(
+        './job.sh',
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=cwd,
+        env=os.environ.copy())
+    ssh.wait()
+    
+    Error = ssh.stderr.readlines()
+    for i, e in enumerate(Error):
+        if isinstance(e, bytes):
+            Error[i] = e.decode('utf-8')
+    
+    Output = ssh.stdout.readlines()
+    for i, o in enumerate(Output):
+        if isinstance(o, bytes):
+            Output[i] = o.decode('utf-8')
+    
+    if len(Output)>0:
+        for o in Output:
+            mola_logger.info(o)
+    
+    Error_solver = []
+    try:
+        with open('stderr.log','r') as f:
+            Error_solver = f.read()
+    except FileNotFoundError:
+        pass
+    Error.append(Error_solver)
+
+    if len(Error)>0:
+        for e in Error:
+            if 'warning:' in e:
+                if not 'bind:' in e:
+                    mola_logger.warning(e)
+            else:
+                mola_logger.error(e)
 
 def test_init():
     w = Workflow()
 
 
-def remove_cfd_files(files_to_remove = ['compute.py','coprocess.py','job.sh',
-        'main.cgns'], directories_to_remove = ['OUTPUT']):
-    for file in files_to_remove: os.unlink(file)
-    for directory in directories_to_remove: shutil.rmtree(directory)
+def remove_cfd_files_and_directories(files = ['compute.py',
+        'coprocess.py','job.sh', 'main.cgns'],
+        directories = ['OUTPUT']):
+    for file in files: os.unlink(file)
+    for directory in directories: shutil.rmtree(directory)
 
 
 def get_workflow1():
@@ -241,14 +285,20 @@ def get_workflow_sphere_struct():
     
     return w
 
+
 def test_prepare_workflow2():
     w = get_workflow2()
     w.prepare()
     w.write_cfd_files()
-    remove_cfd_files()
+    remove_cfd_files_and_directories()
 
-def test_prepare_workflow_sphere_struct():
-    w = get_workflow2()
+def test_workflow_sphere_struct():
+    w = get_workflow_sphere_struct()
     w.prepare()
     w.write_cfd_files()
-    # remove_cfd_files()
+    launch_compute_subprocess()
+    if not os.path.exists('COMPLETED'):
+        raise MolaException('simulation did not ended as expected')
+    remove_cfd_files_and_directories(
+        files = ['compute.py','coprocess.py','job.sh', 'main.cgns', 'COMPLETED'],
+        directories = ['LOGS', 'OUTPUT'])
