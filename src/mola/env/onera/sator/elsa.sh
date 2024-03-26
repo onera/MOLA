@@ -70,7 +70,7 @@ unset I_MPI_PMI_LIBRARY
 export TREELABPATH=/tmp_user/sator/mola/treelab/$TREELABVERSION/sator_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
-
+export PYTHONPATH=/tmp_user/sator/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
 # PUMA
 export PUMAVERSION=v2.0.3_mod

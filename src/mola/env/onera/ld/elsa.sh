@@ -81,6 +81,7 @@ MAC0=$(echo $KC | grep 'visung'); if [ "$MAC0" != "" ]; then export DIST="visung
 export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/${DIST}_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
+export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
 # PUMA
 export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_os8

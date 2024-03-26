@@ -133,7 +133,7 @@ def write_coprocess(RunManagement):
 def write_job_launcher(RunManagement):
 
     # shutil.copy2(f'{__MOLA_PATH__}/TEMPLATES/job_template.sh', 'job.sh')
-    job_text = write_cfd_files.get_job_text(RunManagement, 'elsa')
+    job_text = write_cfd_files.get_job_text(RunManagement, 'elsa')+'\n\n'
     job_text += f'mpirun $OPENMPIOVERSUBSCRIBE -np {RunManagement["NumberOfProcessors"]} elsA.x -C xdt-runtime-tree compute.py 1>stdout.log 2>stderr.log\n'
     
     # Write job file
