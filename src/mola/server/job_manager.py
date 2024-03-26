@@ -18,6 +18,8 @@
 import os
 from typing import List
 import copy
+from fnmatch import fnmatch
+import shutil
 
 from mola import __MOLA_PATH__
 from mola.logging import mola_logger, MolaAssertionError, MolaException, CYAN, ENDC
@@ -125,7 +127,83 @@ def get_value_on_leaf(node, path):
     
     else:
         raise MolaException(f'Unknown type: {type(node)}')
-  
+
+def get_values_in_collection_from_key(collec, patterns, elements=[]):
+    '''
+    In the nested collection **collec** (may be a dictionary or a list),
+    find all the values corresponding to the key **searchKey**.
+
+    Parameters
+    ----------
+
+        collec : :py:class:`dict` or :py:class:`list`
+            Nested dictionary or list where **searchKey** is searched
+
+        searchKey : str
+            Key to find in **collec**
+
+        elements : list
+            accumulated list of found values. Works as an accumulator in the
+            recursive function
+
+    Returns
+    -------
+
+        elements : list
+            list of the found values correspondingto **searchKey**
+    '''
+    if not isinstance(patterns, list): 
+        patterns = [patterns]
+    
+    if isinstance(collec, Workflow):
+        collec = collec.convert_to_dict()
+    
+    if isinstance(collec, dict):
+        for key, value in collec.items():
+            if isinstance(value, (dict, list)):
+                get_values_in_collection_from_key(value, patterns, elements=elements)
+            elif any([match_pattern(key, pattern) for pattern in patterns]):
+                elements.append(value)
+
+    elif isinstance(collec, list):
+        for elem in collec:
+            get_values_in_collection_from_key(elem, patterns, elements=elements)
+
+    return elements
+
+def get_values_in_collection_from_pattern(collec, patterns, elements=[]):
+    if not isinstance(patterns, list): 
+        patterns = [patterns]
+    
+    # if isinstance(collec, Workflow):
+    #     collec = collec.convert_to_dict()
+    if isinstance(collec, Workflow):
+        for attr_name in collec.__dict__:
+            attr = getattr(collec, attr_name)
+            if isinstance(attr, (dict, list)):
+                get_values_in_collection_from_pattern(attr, patterns, elements=elements)
+
+    elif isinstance(collec, dict):
+        for key, value in collec.items():
+            if isinstance(value, (dict, list)):
+                get_values_in_collection_from_pattern(value, patterns, elements=elements)
+            elif any([match_pattern(value, pattern) for pattern in patterns]):
+                elements.append(value)
+
+    elif isinstance(collec, list):
+        for elem in collec:
+            get_values_in_collection_from_pattern(elem, patterns, elements=elements)
+
+    return elements
+
+def match_pattern(value, pattern):
+    if isinstance(pattern, str):
+        return fnmatch(str(value), pattern) 
+    elif isinstance(pattern, (int, float)):
+        return value == pattern
+    else:
+        raise TypeError
+
 
 class WorkflowDispatcher():
 
@@ -219,7 +297,7 @@ class WorkflowDispatcher():
 
 class WorkflowParallelScheduler():
 
-    def __init__(self, dispatcher, root_directory='.'):
+    def __init__(self, dispatcher, root_directory='.', data_directory='SHARED_DATA'):
 
         # table_of_workflows = [[A1, B1, ...], [A2, B2, ...], ...]
         #   several jobs in parallel: 
@@ -230,8 +308,10 @@ class WorkflowParallelScheduler():
         # Warning: if A1 == A2 (same Python object, without copy), then it will bug without raising an error
 
         self.root_directory = root_directory
+        self.data_directory = data_directory
         self.sequences_directories = dispatcher.root_directories
         self._set_table_of_workflows(dispatcher.table_of_workflows)
+        self._update_filenames()
 
     def _set_table_of_workflows(self, table_of_workflows):
         assert isinstance(table_of_workflows, list)
@@ -243,8 +323,28 @@ class WorkflowParallelScheduler():
         
     def _update_filenames(self):
         # need to grab all workflow parameters that are filenames, and update their paths 
-        # following the attributes of the Scheduler 
-        pass
+        # following the attributes of the Scheduler
+        workflows_list_flatten = [w for scheduler in self.table_of_workflows for w in scheduler.workflows] 
+        for workflow in workflows_list_flatten:
+            # files2copy = get_values_in_collection_from_pattern(workflow, ['*.cgns'], [])
+
+            for Component in workflow.RawMeshComponents:
+                if Component['Source'].endswith('.cgns'):
+                    self.copy_file_to_data_directory(Component['Source'])
+                    Component['Source'] = self.get_adapted_path(Component['Source'])
+
+    def copy_file_to_data_directory(self, path):
+        filename = path.split(os.path.sep)[-1]
+        data_dir = os.path.join(self.root_directory, self.data_directory)
+        new_filename = os.path.join(data_dir, filename)
+        if not os.path.exists(new_filename):
+            os.makedirs(data_dir, exist_ok=True)
+            mola_logger.info(f'copy {path} to {data_dir}')
+            shutil.copy2(path, new_filename)
+    
+    def get_adapted_path(self, path):
+        filename = path.split(os.path.sep)[-1]
+        return os.path.join('..', '..', self.data_directory, filename)
 
     def prepare(self):
         os.makedirs(self.root_directory, exist_ok=True)
