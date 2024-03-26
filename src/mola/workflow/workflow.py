@@ -163,11 +163,12 @@ class Workflow(object):
 
         self._workflow_parameters_container_ = 'WorkflowParameters'
 
-        self.Name = 'Standard'
+        self.Name = self.__class__.__name__
         self.tree = tree
 
         if self.tree is not None:
             self.get_workflow_parameters_from_tree()
+            self._FlowGenerator=self.get_flow_generator(self.FlowGenerator)
 
         else:
             # if isinstance(_defaults, str):
@@ -183,7 +184,8 @@ class Workflow(object):
             self.RawMeshComponents=RawMeshComponents
             self.Fluid=Fluid
             self.Flow=Flow
-            self._FlowGenerator=self.get_flow_generator(FlowGenerator)
+            self.FlowGenerator=FlowGenerator
+            self._FlowGenerator=self.get_flow_generator(self.FlowGenerator)
             self.Turbulence=Turbulence
             self.BoundaryConditions=BoundaryConditions
             self.Solver=Solver.lower()

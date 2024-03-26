@@ -22,6 +22,8 @@ def apply(workflow):
     '''
     Set Motion for each families
     '''
+    if workflow.Motion is None:
+        workflow.Motion = dict()
     for family, MotionOnFamily in workflow.Motion.items():
         set_default_motion(MotionOnFamily)
 
