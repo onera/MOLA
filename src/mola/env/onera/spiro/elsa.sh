@@ -77,6 +77,7 @@ unset I_MPI_FABRICS_LIST
 export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/spiro_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
+export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
 # PUMA
 export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro3
