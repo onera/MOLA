@@ -226,7 +226,8 @@ class Workflow(object):
         
         self.tree = cgns.load(self.tree)
         
-        workflow_parameters = self.tree.getParameters(self._workflow_parameters_container_)
+        workflow_parameters = self.tree.getParameters(
+            self._workflow_parameters_container_, transform_numpy_scalars=True)
         
         for parameter in workflow_parameters:
             setattr(self, parameter, workflow_parameters[parameter])

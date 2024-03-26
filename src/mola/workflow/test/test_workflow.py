@@ -251,4 +251,4 @@ def test_prepare_workflow_sphere_struct():
     w = get_workflow2()
     w.prepare()
     w.write_cfd_files()
-    remove_cfd_files()
+    # remove_cfd_files()
