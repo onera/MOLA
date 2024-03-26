@@ -62,7 +62,8 @@ def set_network(RunManagement):
     RunManagement['Network'] = os.getenv('MOLA_NETWORK')
 
 def set_machine(RunManagement):
-    if 'Machine' not in RunManagement:
+    if 'Machine' not in RunManagement \
+        or RunManagement['Machine']=='auto':
         try:
             RunManagement['Machine'] = guess_machine_from_path(RunManagement['Network'], RunManagement['RunDirectory'])
         except:
@@ -167,11 +168,18 @@ def get_job_text(RunManagement, Solver):
     job_scheduler_options = RunManagement['JobSchedulerOptions']
 
     header = build_job_scheduler_header(job_scheduler, job_scheduler_options)
+    env = os.path.join(
+        RunManagement["mola_target_path"],
+        "mola",
+        "env",
+        RunManagement["Network"],
+        RunManagement["Machine"],
+        Solver+'.sh')
 
-    job_text = f'''#!/bin/bash
-{header}
-source {RunManagement["mola_target_path"]}/mola/env/{RunManagement["Network"]}/{RunManagement["Machine"]}/{Solver}.sh
-'''
+    job_text = ('#!/bin/bash\n'
+               f'{header}\n'
+               f'source {env}')
+
     return job_text
 
 def save_file(filename, text, directory='.'):
