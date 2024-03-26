@@ -21,7 +21,7 @@ import copy
 from mola import __MOLA_PATH__
 from mola.logging import check_error_message
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
-
+from mola import misc
 
 def test_convert_to_seconds_ss_int():
     assert write_cfd_files.convert_to_seconds(50) == 50
@@ -53,6 +53,16 @@ RunManagement_default = dict(
         mola_target_path = __MOLA_PATH__,
         FilesAndDirectories=[],
         )
+
+
+def test_set_machine_auto():
+    Network = os.environ.get('MOLA_NETWORK')
+    config_path = os.path.join(__MOLA_PATH__,'mola','env',Network,'config.py')
+    config = misc.load_source('config', config_path)
+    RunManagement = dict( Network = Network, Machine = 'auto')
+    write_cfd_files.set_machine(RunManagement)
+    assert RunManagement['Machine'] in config.AvailableEnvironments
+
 
 @pytest.mark.parametrize("NumberOfProcessors", [None, 10., 'number', [5, 6]])
 def test_set_default_error_NumberOfProcessors(NumberOfProcessors):
@@ -162,17 +172,19 @@ def test_get_job_text_sator():
     write_cfd_files.set_default(RunManagement)
     job_text = write_cfd_files.get_job_text(RunManagement, 'my_solver')
 
-    assert job_text == f'''#!/bin/bash
-#SBATCH --time=15:00:00
-#SBATCH --constraint=csl
-#SBATCH --job-name=mola
-#SBATCH --comment=000X111A
-#SBATCH --ntasks=5
-#SBATCH --output=output.%j.log
-#SBATCH --error=error.%j.log
+    expected_job_text=(
+        '#!/bin/bash\n'
+        '#SBATCH --time=15:00:00\n'
+        '#SBATCH --constraint=csl\n'
+        '#SBATCH --job-name=mola\n'
+        '#SBATCH --comment=000X111A\n'
+        '#SBATCH --ntasks=5\n'
+        '#SBATCH --output=output.%j.log\n'
+        '#SBATCH --error=error.%j.log\n'
+        '\n'
+       f'source {RunManagement["mola_target_path"]}/mola/env/onera/sator/my_solver.sh')
 
-source {RunManagement["mola_target_path"]}/mola/env/onera/sator/my_solver.sh
-'''
+    assert job_text == expected_job_text
 
 def test_get_job_text_spiro():
     RunManagement = dict(
@@ -184,14 +196,17 @@ def test_get_job_text_spiro():
     write_cfd_files.set_default(RunManagement)
     job_text = write_cfd_files.get_job_text(RunManagement, 'my_solver')
 
-    assert job_text == f'''#!/bin/bash
-#SBATCH --time=24:00:00
-#SBATCH --qos=c1_test_giga
-#SBATCH --job-name=mola
-#SBATCH --comment=000X111A
-#SBATCH --ntasks=5
-#SBATCH --output=output.%j.log
-#SBATCH --error=error.%j.log
+    expected_job_text = (
+        '#!/bin/bash\n'
+        '#SBATCH --time=24:00:00\n'
+        '#SBATCH --qos=c1_test_giga\n'
+        '#SBATCH --job-name=mola\n'
+        '#SBATCH --comment=000X111A\n'
+        '#SBATCH --ntasks=5\n'
+        '#SBATCH --output=output.%j.log\n'
+        '#SBATCH --error=error.%j.log\n'
+        '\n'
+       f'source {RunManagement["mola_target_path"]}/mola/env/onera/spiro/my_solver.sh'
+        )
 
-source {RunManagement["mola_target_path"]}/mola/env/onera/spiro/my_solver.sh
-'''
+    assert job_text == expected_job_text

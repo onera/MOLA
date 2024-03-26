@@ -1,10 +1,18 @@
 import os
+import shutil
 import numpy as np
 from mola.workflow.workflow import Workflow
 import treelab.cgns as cgns
 
 def test_init():
     w = Workflow()
+
+
+def remove_cfd_files(files_to_remove = ['compute.py','coprocess.py','job.sh',
+        'main.cgns'], directories_to_remove = ['OUTPUT']):
+    for file in files_to_remove: os.unlink(file)
+    for directory in directories_to_remove: shutil.rmtree(directory)
+
 
 def get_workflow1():
 
@@ -180,7 +188,67 @@ def get_workflow2():
         )
     return w
 
+
+def get_workflow_sphere_struct():
+    w = Workflow(
+        RawMeshComponents=[
+            dict(
+                Name='sphere',
+                Source='/stck/mola/data/mesh/sphere/sphere_struct.cgns',
+                Families=[
+                    dict(Name='Wall', Location='kmin'),
+                    dict(Name='Farfield', Location='remaining'),
+                ],
+                )
+        ],
+
+        SplittingAndDistribution=dict(
+            Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
+            Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
+            Distributor='Cassiopee', 
+            ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
+            NumberOfProcessors=1, 
+            ),
+
+        Flow=dict(
+            Density = 0.2,
+            Temperature = 100.,
+            Velocity = 50.,
+                 ),
+
+        Solver='elsa',
+
+        Numerics = dict(
+            NumberOfIterations=10,
+            CFL=1.,
+        ),
+
+        BoundaryConditions=[
+            dict(Family='Wall', type='Wall'),
+            dict(Family='Farfield', type='Farfield'),
+        ],
+
+        Extractions=[
+            dict(type='bc', BCType='*', storage='ByFamily', fields=['Pressure']),
+            dict(type='bc', BCType='BCWall*', storage='ByFamily', fields=['NormalVector', 'Friction', 'BoundaryLayer']),
+            dict(type='IsoSurface', name='MySurface', field='CoordinateZ', value=1.e-6),
+            ],
+
+        RunManagement=dict(
+            NumberOfProcessors=1,
+            ),
+        )
+    
+    return w
+
 def test_prepare_workflow2():
     w = get_workflow2()
     w.prepare()
     w.write_cfd_files()
+    remove_cfd_files()
+
+def test_prepare_workflow_sphere_struct():
+    w = get_workflow2()
+    w.prepare()
+    w.write_cfd_files()
+    remove_cfd_files()

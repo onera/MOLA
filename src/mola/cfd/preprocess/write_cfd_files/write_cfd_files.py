@@ -62,7 +62,8 @@ def set_network(RunManagement):
     RunManagement['Network'] = os.getenv('MOLA_NETWORK')
 
 def set_machine(RunManagement):
-    if 'Machine' not in RunManagement:
+    if 'Machine' not in RunManagement \
+        or RunManagement['Machine']=='auto':
         try:
             RunManagement['Machine'] = guess_machine_from_path(RunManagement['Network'], RunManagement['RunDirectory'])
         except:
@@ -167,27 +168,17 @@ def get_job_text(RunManagement, Solver):
     job_scheduler_options = RunManagement['JobSchedulerOptions']
 
     header = build_job_scheduler_header(job_scheduler, job_scheduler_options)
+    env = os.path.join(
+        RunManagement["mola_target_path"],
+        "mola",
+        "env",
+        RunManagement["Network"],
+        RunManagement["Machine"],
+        Solver+'.sh')
 
-    job_text = f'''#!/bin/bash
-{header}
-source {RunManagement["mola_target_path"]}/mola/env/{RunManagement["Network"]}/{RunManagement["Machine"]}/{Solver}.sh
-'''
-
-#     job_text = f'''#!/bin/bash
-# #SBATCH --job-name {RunManagement['JobName']}
-# #SBATCH --comment {RunManagement['AER']}
-# #SBATCH --output output.%j.log
-# #SBATCH --error error.%j.log
-# #SBATCH --time {RunManagement['TimeLimit']}
-# #SBATCH --ntasks {RunManagement['NumberOfProcessors']}
-# '''
-#     if RunManagement['SlurmConstraint'] is not None:
-#         job_text += f"#SBATCH --constraint={RunManagement['SlurmConstraint']}\n"
-    
-#     if 'SlurmQualityOfService' in RunManagement and RunManagement['SlurmQualityOfService'] is not None:
-#         job_text += f"#SBATCH --qos={RunManagement['SlurmQualityOfService']}\n"
-    
-#     job_text += f'\nsource {RunManagement["mola_target_path"]}/mola/env/{RunManagement["Network"]}/{RunManagement["Machine"]}/{Solver}.sh\n'
+    job_text = ('#!/bin/bash\n'
+               f'{header}\n'
+               f'source {env}')
 
     return job_text
 
