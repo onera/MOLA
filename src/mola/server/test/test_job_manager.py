@@ -1,4 +1,7 @@
 import pytest
+
+import os
+import shutil
 import copy
 import numpy as np
 from dataclasses import dataclass
@@ -129,17 +132,26 @@ def test_dispatcher_directories():
     assert directories == ['root/test_10', 'root/test_20', 'root/test_30', 'root2/test_40', 'root2/test_50']
 
 
+def test_WorkflowParallelScheduler():
 
-# w = get_fake_workflow()
-# dispatcher = JM.WorkflowDispatcher(w)
+    w = get_fake_workflow()
+    dispatcher = JM.WorkflowDispatcher(w)
 
-# for model in ['model1', 'model2']:
-#     dispatcher.new_job(model)
-#     for pressure in [10, 20, 30]:
-#         dispatcher.add_variations([('RunManagement|RunDirectory', f'test_{pressure}')])
+    for model in ['model1', 'model2']:
+        dispatcher.new_job(model)
+        for pressure in [10, 20, 30]:
+            dispatcher.add_variations([('RunManagement|RunDirectory', f'test_{pressure}')])
 
-# print(dispatcher.root_directories)
-# print(dispatcher.get_directories())
-# scheduler = JM.WorkflowParallelScheduler(dispatcher, 'root_parallel')
-# scheduler.prepare()
-# # scheduler.submit()
+    scheduler = JM.WorkflowParallelScheduler(dispatcher, '.tmp_test_root')
+    scheduler.prepare()
+
+    root_dirs = []
+    files_list = []
+    for root, dirs, files in os.walk('.tmp_test_root'):
+        root_dirs.append(root)
+        files_list.append(files)
+
+    assert root_dirs == ['.tmp_test_root', '.tmp_test_root/model1', '.tmp_test_root/model1/test_10', '.tmp_test_root/model1/test_30', '.tmp_test_root/model1/test_20', '.tmp_test_root/model2', '.tmp_test_root/model2/test_10', '.tmp_test_root/model2/test_30', '.tmp_test_root/model2/test_20']
+    assert files_list == [[], ['job_sequence.sh'], ['workflow.cgns'], ['workflow.cgns'], ['workflow.cgns'], ['job_sequence.sh'], ['workflow.cgns'], ['workflow.cgns'], ['workflow.cgns']]
+    
+    shutil.rmtree('.tmp_test_root')

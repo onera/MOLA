@@ -44,25 +44,19 @@ for case in $SEQUENCE_OF_PATHS; do
 
     while [ ! -f "COMPLETED" ] && [ ! -f "FAILED" ]; do
 
-        # echo "preprocess case $case at $SECONDS s"
-        # python preprocess.py $SECONDS
-
-        if [ -f "FAILED" ]; then
-            echo "WARNING: case $case cannot be launched"
-            break
-        fi
+        mola_prepare workflow.cgns
 
         echo "compute case $case at $SECONDS s"
-        {launch_command}
-        # python postprocess.py
+        # {launch_command}
+        # # python postprocess.py
 
-        if [ -f "NEWJOB_REQUIRED" ]; then
-            rm NEWJOB_REQUIRED
-            echo "LAUNCHING THIS JOB AGAIN"
-            cd ..
-            sbatch job_sequence.sh --dependency=singleton
-            exit 0
-        fi
+        # if [ -f "NEWJOB_REQUIRED" ]; then
+        #     rm NEWJOB_REQUIRED
+        #     echo "LAUNCHING THIS JOB AGAIN"
+        #     cd ..
+        #     sbatch job_sequence.sh --dependency=singleton
+        #     exit 0
+        # fi
     done
 
     cd ..
@@ -207,20 +201,6 @@ def match_pattern(value, pattern):
 
 class WorkflowDispatcher():
 
-    # def __init__(self, workflow):
-
-    #     self.base_workflow = workflow
-    #     self.workflows = [self.base_workflow]
-    
-    # def add_variations(self, variations):
-    #     new_workflow = copy.deepcopy(self.base_workflow)
-
-    #     for request, value in variations:
-    #         path_in_workflow = self.request_to_paths(request)
-    #         set_value_on_leaf(new_workflow, path_in_workflow, value)
-
-    #     self.workflows.append(new_workflow)
-
     def __init__(self, workflow):
         self.base_workflow = workflow
         self.table_of_workflows = []
@@ -328,10 +308,25 @@ class WorkflowParallelScheduler():
         for workflow in workflows_list_flatten:
             # files2copy = get_values_in_collection_from_pattern(workflow, ['*.cgns'], [])
 
+            # TODO for now, the solution is working but it paths in the workflows are hardcoded.
+            # It would be better to have a function to do:
+            # for path in paths:
+            #     leaf = get_leaf(workflow, path)
+            #     adapt(leaf)
+            #
+            # path = ['RawMeshComponents', 'Source']
+            # leaf = get_value_on_leaf(workflow, path)
+            # if leaf.endswith('.cgns'):
+            #     self.copy_file_to_data_directory(leaf)
+            #     set_value_on_leaf(workflow, path, self.get_adapted_path(leaf))
+
             for Component in workflow.RawMeshComponents:
-                if Component['Source'].endswith('.cgns'):
-                    self.copy_file_to_data_directory(Component['Source'])
-                    Component['Source'] = self.get_adapted_path(Component['Source'])
+                try:
+                    if Component['Source'].endswith('.cgns'):
+                        self.copy_file_to_data_directory(Component['Source'])
+                        Component['Source'] = self.get_adapted_path(Component['Source'])
+                except AttributeError:
+                    pass
 
     def copy_file_to_data_directory(self, path):
         filename = path.split(os.path.sep)[-1]
@@ -395,12 +390,21 @@ class WorkflowSequentialScheduler():
         for workflow in self.workflows:
             mola_logger.info(f"\n{CYAN}  > preparing {workflow.RunManagement['RunDirectory']}...{ENDC}")
             os.makedirs(workflow.RunManagement['RunDirectory'], exist_ok=True)
-            # with redirect_streams_to_logger(mola_logger, stdout_level='WARNING'):
-            # workflow.prepare()
-            # workflow.write_cfd_files()
-            workflow.set_workflow_parameters_in_tree()
-            workflow.write_tree(filename=os.path.join(workflow.RunManagement['RunDirectory'], 'workflow.cgns'))
+            self.write_workflow_without_prepare(workflow)
+
         self.write_sequence_job()
+    
+    @staticmethod
+    def prepare_workflow(workflow):
+        workflow.prepare()
+        workflow.write_cfd_files()
+
+    @staticmethod
+    def write_workflow_without_prepare(workflow):
+        RunDirectory = copy.deepcopy(workflow.RunManagement['RunDirectory'])
+        workflow.RunManagement['RunDirectory'] = '.'
+        workflow.set_workflow_parameters_in_tree()
+        workflow.write_tree(filename=os.path.join(RunDirectory, 'workflow.cgns'))
     
     def write_sequence_job(self):
         first_workflow = self.workflows[0]      
@@ -415,4 +419,5 @@ class WorkflowSequentialScheduler():
 
     def submit(self):
         print(f'{CYAN}  > fake submission of job sequence in {self.root_directory}')
+        # os.system(f'bash {self.root_directory}/job_sequence.sh')
 
