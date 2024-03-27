@@ -87,6 +87,11 @@ def launch_elsa_computation(workflow, FILE_CGNS):
     e.mode=elsAxdt.READ_ALL
     e.compute()
     e.save(f'OUTPUT/solution_{rank}.cgns', rank)
+    
+    # TODO move this operation to coprocess.py once implemented
+    if rank==0:
+        with open('COMPLETED','w') as f: f.write('COMPLETED')
+
 
 def set_parameters_in_elsa_objects(SolverParameters):
     import elsA_user
