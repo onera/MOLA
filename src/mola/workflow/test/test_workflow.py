@@ -51,13 +51,6 @@ def test_init():
     w = Workflow()
 
 
-def remove_cfd_files_and_directories(files = ['compute.py',
-        'coprocess.py','job.sh', 'main.cgns'],
-        directories = ['OUTPUT']):
-    for file in files: os.unlink(file)
-    for directory in directories: shutil.rmtree(directory)
-
-
 def get_workflow1():
 
     x, y, z = np.meshgrid( np.linspace(0,1,21),
@@ -290,7 +283,7 @@ def test_prepare_workflow2():
     w = get_workflow2()
     w.prepare()
     w.write_cfd_files()
-    remove_cfd_files_and_directories()
+    w.remove_cfd_files()
 
 def test_workflow_sphere_struct():
     w = get_workflow_sphere_struct()
@@ -299,6 +292,4 @@ def test_workflow_sphere_struct():
     launch_compute_subprocess()
     if not os.path.exists('COMPLETED'):
         raise MolaException('simulation did not ended as expected')
-    remove_cfd_files_and_directories(
-        files = ['compute.py','coprocess.py','job.sh', 'main.cgns', 'COMPLETED'],
-        directories = ['LOGS', 'OUTPUT'])
+    w.remove_cfd_files()

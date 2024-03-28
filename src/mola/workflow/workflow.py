@@ -29,6 +29,9 @@ from  mola.cfd.preprocess import (flow_generators,
                                   cfd_parameters,
                                   extractions,
                                   write_cfd_files)
+
+from mola.cfd.postprocess import remove_cfd_files
+
 from  mola.cfd.compute import compute
 
 def deep_update(d, u):
@@ -346,9 +349,9 @@ class Workflow(object):
 
     def write_cfd_files(self):
         write_cfd_files.apply(self)
-        # self.write_setup()
-        # self.write_run_scripts() # including job bash file(s)
-        # self.write_data_files() # CGNS, FSDM...
+    
+    def remove_cfd_files(self):
+        remove_cfd_files.apply(self)
 
     def compute(self):
         compute.apply(self)
@@ -368,4 +371,3 @@ class Workflow(object):
             if component['OversetOptions']:
                 return True
         return False
-
