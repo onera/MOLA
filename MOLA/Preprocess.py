@@ -69,7 +69,7 @@ K_OMEGA_TWO_EQN_MODELS = ['Wilcox2006-klim', 'Wilcox2006-klim-V',
 K_OMEGA_MODELS = K_OMEGA_TWO_EQN_MODELS + [ 'SST-2003-LM2009',
                  'SST-V2003-LM2009', 'SSG/LRR-RSM-w2012']
 
-AvailableTurbulenceModels = K_OMEGA_MODELS + ['smith', 'SA']
+AvailableTurbulenceModels = K_OMEGA_MODELS + ['smith', 'SA','keps-LS1974']
 
 
 def prepareMesh4ElsA(InputMeshes, splitOptions={}, globalOversetOptions={}):
@@ -2807,6 +2807,9 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
             ``'SST-V2003'``, ``'SST'``, ``'SST-V'``,  ``'BSL'``, ``'BSL-V'``,
             ``'SST-2003-LM2009'``, ``'SST-V2003-LM2009'``, ``'SSG/LRR-RSM-w2012'``.
 
+            k-epsilon models:
+            keps-LS1974 -> reference <https://doi.org/10.1016/0094-4548(74)90150-7>
+
             other non-conventional turbulence models:
             ``'smith'`` and ``'smith-V'`` reference `doi:10.2514/6.1995-232 <http://doi.org/10.2514/6.1995-232>`_
 
@@ -2955,6 +2958,9 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     omega = TurbulentDissipationRateDensity/Density
     TurbulentLengthScaleDensity = Density*k*18.0**(1./3.)/(np.sqrt(2*k)*omega)
 
+    # for k-epsilon model
+    TurbulentDissipationDensity = 0.09 * k * TurbulentDissipationRateDensity
+ 
     # -> for k-kL model
     TurbulentEnergyKineticPLSDensity = TurbulentLengthScaleDensity*k
 
@@ -3013,6 +3019,10 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     elif TurbulenceModel in K_OMEGA_TWO_EQN_MODELS:
         FieldsTurbulence  = ['TurbulentEnergyKineticDensity','TurbulentDissipationRateDensity']
         ReferenceStateTurbulence = [float(TurbulentEnergyKineticDensity), float(TurbulentDissipationRateDensity)]
+
+    elif TurbulenceModel == 'keps-LS1974':
+        FieldsTurbulence  = ['TurbulentEnergyKineticDensity','TurbulentDissipationDensity']
+        ReferenceStateTurbulence = [float(TurbulentEnergyKineticDensity), float(TurbulentDissipationDensity)]
 
     elif TurbulenceModel == 'smith':
         FieldsTurbulence  = ['TurbulentEnergyKineticDensity','TurbulentLengthScaleDensity']
@@ -3073,6 +3083,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
     TurbulentSANuTilde               = TurbulentSANuTilde,
     TurbulentEnergyKineticDensity    = TurbulentEnergyKineticDensity,
     TurbulentDissipationRateDensity  = TurbulentDissipationRateDensity,
+    TurbulentDissipationDensity      = TurbulentDissipationDensity,
     TurbulentLengthScaleDensity      = TurbulentLengthScaleDensity,
     TurbulentEnergyKineticPLSDensity = TurbulentEnergyKineticPLSDensity,
     IntermittencyDensity             = IntermittencyDensity,
@@ -3317,6 +3328,12 @@ def getElsAkeysModel(FluidProperties, ReferenceValues, unstructured=False, **kwa
         k_prod_compute = 'from_vorticity',
         zhenglim       = 'inactive',
         omega_prolong  = 'linear_extrap',
+            )
+
+    elif TurbulenceModel == 'keps-LS1974':
+        addKeys4Model = dict(
+        turbmod        = 'kepsls',
+        k_prod_compute = 'from_sij',
             )
 
     elif TurbulenceModel == 'smith':
