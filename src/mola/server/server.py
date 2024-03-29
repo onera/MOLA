@@ -50,9 +50,7 @@ def guess_machine_from_path(path):
     try:
         network_config = get_network_config()
         for pattern, machine in network_config.PathsToEnvironments.items():
-            print(f'pattern={pattern}')
             if fnmatch(path, pattern):
-                print("found")
                 return machine
         raise
     except:

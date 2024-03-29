@@ -68,7 +68,7 @@ def save_file(filename, text, directory='.'):
         f.write(text)
     os.chmod(filename, 0o777)
 
-def is_path_exists(path, machine=None, user=None, file_only=False):
+def is_existing_path(path, machine=None, user=None, file_only=False):
     '''
     Check is the given path exists. If the machine (and optionally the user) is provided, 
     then check it on the given remote machine.
@@ -109,37 +109,38 @@ def is_path_exists(path, machine=None, user=None, file_only=False):
         return False
 
 def is_file(path, machine=None, user=None):
-    return is_path_exists(path, machine, user, file_only=True)
+    return is_existing_path(path, machine, user, file_only=True)
    
 def is_directory(path, machine=None, user=None):
-    return is_path_exists(path, machine, user, file_only=False) and not is_path_exists(path, machine, user, file_only=True)
+    return is_existing_path(path, machine, user, file_only=False) and not is_existing_path(path, machine, user, file_only=True)
     
 def makedirs_remote(path, machine=None, user=None):
     if machine is not None:
         if user is not None:
             machine = f'{user}@{machine}'
-        print(f'ssh {machine} mkdir -p {path}')
         subprocess.run([f'ssh {machine} mkdir -p {path}'], shell=True)
     else:
-        print(f'mkdir -p {path}')
         subprocess.run([f'mkdir -p {path}'], shell=True)
 
 def scp(source_path, destination_path, source_machine=None, destination_machine=None, source_user=None, destination_user=None, force_copy=False, timeout=60):
 
-    if not is_path_exists(source_path, source_machine, source_user) :
+    if not is_existing_path(source_path, source_machine, source_user) :
         precision_if_needed = f' on {source_machine}' if source_machine is not None else ''
         raise MolaException(f'The source path {source_path} does not exist{precision_if_needed}.')
+    
+    if (source_machine == destination_machine) and (source_path == destination_path):
+        raise MolaException(f'The source path and the destination path are the same ({source_path}).')
     
     raise_error = (
         not force_copy 
         and not destination_path.endswith('/')
-        and is_path_exists(destination_path, destination_machine, destination_user) 
+        and is_existing_path(destination_path, destination_machine, destination_user) 
     )
     if raise_error:
         precision_if_needed = f' on {destination_machine}' if destination_machine is not None else ''
         raise MolaException(
             f'The destination path {destination_path} already exists{precision_if_needed}.'
-            'To force copy and erase previous path, use force_copy=True.'
+            ' To force copy and erase previous path, use force_copy=True.'
             )
     
     def get_path_with_machine(path, machine=None, user=None):
@@ -157,7 +158,11 @@ def scp(source_path, destination_path, source_machine=None, destination_machine=
     try:
         subprocess.run([f'scp -r {source} {destination}'], shell=True, check=True, capture_output=True, timeout=timeout)
     except:
-        makedirs_remote(destination_path, machine=destination_machine, user=destination_user)
+        if destination_path.endswith(os.path.sep):
+            destination_dir = destination_path
+        else:
+            destination_dir = os.path.sep.join(destination_path.split(os.path.sep)[:-1])
+        makedirs_remote(destination_dir, machine=destination_machine, user=destination_user)
         subprocess.run([f'scp -r {source} {destination}'], shell=True, check=True, capture_output=True, timeout=timeout)
 
 def copy_remote(source_path, destination_path, source_machine=None, destination_machine=None, source_user=None, destination_user=None, force_copy=False):
