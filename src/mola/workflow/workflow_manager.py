@@ -25,179 +25,7 @@ from mola import __MOLA_PATH__
 from mola.logging import mola_logger, MolaAssertionError, MolaException, CYAN, ENDC
 from mola.workflow import Workflow
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
-from mola.server import job_writer
-
-def build_loop_on_cases(sequence_of_paths, solver):
-
-    if solver == 'elsa':
-        launch_command = 'mpirun -np $SLURM_NTASKS elsA.x -C xdt-runtime-tree -- compute.py 1>stdout.log 2>stderr.log'
-    else:
-        raise MolaException('Not yet implemented')
-    
-    loop_on_cases = f'''
-SECONDS=0
-SEQUENCE_OF_PATHS={sequence_of_paths}
-
-for case in $SEQUENCE_OF_PATHS; do
-
-    echo "entering $case"
-    cd $case
-
-    while [ ! -f "COMPLETED" ] && [ ! -f "FAILED" ]; do
-
-        mola_prepare workflow.cgns
-
-        echo "compute case $case at $SECONDS s"
-        # {launch_command}
-        # # python postprocess.py
-
-        # if [ -f "NEWJOB_REQUIRED" ]; then
-        #     rm NEWJOB_REQUIRED
-        #     echo "LAUNCHING THIS JOB AGAIN"
-        #     cd ..
-        #     sbatch job_sequence.sh --dependency=singleton
-        #     exit 0
-        # fi
-    done
-
-    cd ..
-
-done
-'''
-    return loop_on_cases
-
-def set_value_on_leaf(node, path, value):
-    current_path = path[0]
-
-    if isinstance(node, Workflow):
-        assert len(path) > 1
-        attr = getattr(node, current_path)
-        set_value_on_leaf(attr, path[1:], value)
-
-    elif isinstance(node, dict):
-        if len(path) == 1:
-            node[current_path] = value
-        else:
-            set_value_on_leaf(node[current_path], path[1:], value)
-    
-    elif isinstance(node, (list, tuple)):
-        assert len(path) > 1
-        assert current_path.count('=') == 1
-        # search the good element 
-        name, search_value = current_path.split('=')
-        found = False
-        for dico in node:
-            if name in dico and str(dico[name]) == search_value:
-                found = True
-                break
-        assert found
-        set_value_on_leaf(dico, path[1:], value)
-    
-    else:
-        raise MolaException(f'Unknown type: {type(node)}')
-          
-def get_value_on_leaf(node, path):
-    try:
-        current_path = path[0]
-    except IndexError:
-        return node
-    
-    if isinstance(node, Workflow):
-        return get_value_on_leaf(getattr(node, current_path), path[1:])
-
-    elif isinstance(node, dict):
-        return get_value_on_leaf(node[current_path], path[1:])
-    
-    elif isinstance(node, (list, tuple)):
-        assert current_path.count('=') == 1
-        # search the good element 
-        name, search_value = current_path.split('=')
-        found = False
-        for dico in node:
-            if name in dico and str(dico[name]) == search_value:
-                found = True
-                break
-        assert found
-        return get_value_on_leaf(dico, path[1:])
-    
-    else:
-        raise MolaException(f'Unknown type: {type(node)}')
-
-def get_values_in_collection_from_key(collec, patterns, elements=[]):
-    '''
-    In the nested collection **collec** (may be a dictionary or a list),
-    find all the values corresponding to the key **searchKey**.
-
-    Parameters
-    ----------
-
-        collec : :py:class:`dict` or :py:class:`list`
-            Nested dictionary or list where **searchKey** is searched
-
-        searchKey : str
-            Key to find in **collec**
-
-        elements : list
-            accumulated list of found values. Works as an accumulator in the
-            recursive function
-
-    Returns
-    -------
-
-        elements : list
-            list of the found values correspondingto **searchKey**
-    '''
-    if not isinstance(patterns, list): 
-        patterns = [patterns]
-    
-    if isinstance(collec, Workflow):
-        collec = collec.convert_to_dict()
-    
-    if isinstance(collec, dict):
-        for key, value in collec.items():
-            if isinstance(value, (dict, list)):
-                get_values_in_collection_from_key(value, patterns, elements=elements)
-            elif any([match_pattern(key, pattern) for pattern in patterns]):
-                elements.append(value)
-
-    elif isinstance(collec, list):
-        for elem in collec:
-            get_values_in_collection_from_key(elem, patterns, elements=elements)
-
-    return elements
-
-def get_values_in_collection_from_pattern(collec, patterns, elements=[]):
-    if not isinstance(patterns, list): 
-        patterns = [patterns]
-    
-    # if isinstance(collec, Workflow):
-    #     collec = collec.convert_to_dict()
-    if isinstance(collec, Workflow):
-        for attr_name in collec.__dict__:
-            attr = getattr(collec, attr_name)
-            if isinstance(attr, (dict, list)):
-                get_values_in_collection_from_pattern(attr, patterns, elements=elements)
-
-    elif isinstance(collec, dict):
-        for key, value in collec.items():
-            if isinstance(value, (dict, list)):
-                get_values_in_collection_from_pattern(value, patterns, elements=elements)
-            elif any([match_pattern(value, pattern) for pattern in patterns]):
-                elements.append(value)
-
-    elif isinstance(collec, list):
-        for elem in collec:
-            get_values_in_collection_from_pattern(elem, patterns, elements=elements)
-
-    return elements
-
-def match_pattern(value, pattern):
-    if isinstance(pattern, str):
-        return fnmatch(str(value), pattern) 
-    elif isinstance(pattern, (int, float)):
-        return value == pattern
-    else:
-        raise TypeError
+from mola import server as SV
 
 
 class WorkflowDispatcher():
@@ -410,15 +238,188 @@ class WorkflowSequentialScheduler():
     def write_sequence_job(self):
         first_workflow = self.workflows[0]      
         write_cfd_files.set_default(first_workflow.RunManagement)
-        job_text = job_writer.get_job_text(first_workflow.RunManagement, first_workflow.Solver)
+        job_text = SV.get_job_text(first_workflow.RunManagement, first_workflow.Solver)
 
         paths_in_bash = '"{}"'.format(' '.join(self.cases_local_paths))
         loop_on_cases = build_loop_on_cases(paths_in_bash, first_workflow.Solver)
         job_text += loop_on_cases
         
-        job_writer.save_file('job_sequence.sh', job_text, self.root_directory)
+        SV.save_file('job_sequence.sh', job_text, self.root_directory)
 
     def submit(self):
         print(f'{CYAN}  > fake submission of job sequence in {self.root_directory}')
         # os.system(f'bash {self.root_directory}/job_sequence.sh')
+
+
+def build_loop_on_cases(sequence_of_paths, solver):
+
+    if solver == 'elsa':
+        launch_command = 'mpirun -np $SLURM_NTASKS elsA.x -C xdt-runtime-tree -- compute.py 1>stdout.log 2>stderr.log'
+    else:
+        raise MolaException('Not yet implemented')
+    
+    loop_on_cases = f'''
+SECONDS=0
+SEQUENCE_OF_PATHS={sequence_of_paths}
+
+for case in $SEQUENCE_OF_PATHS; do
+
+    echo "entering $case"
+    cd $case
+
+    while [ ! -f "COMPLETED" ] && [ ! -f "FAILED" ]; do
+
+        mola_prepare workflow.cgns
+
+        echo "compute case $case at $SECONDS s"
+        # {launch_command}
+        # # python postprocess.py
+
+        # if [ -f "NEWJOB_REQUIRED" ]; then
+        #     rm NEWJOB_REQUIRED
+        #     echo "LAUNCHING THIS JOB AGAIN"
+        #     cd ..
+        #     sbatch job_sequence.sh --dependency=singleton
+        #     exit 0
+        # fi
+    done
+
+    cd ..
+
+done
+'''
+    return loop_on_cases
+
+def set_value_on_leaf(node, path, value):
+    current_path = path[0]
+
+    if isinstance(node, Workflow):
+        assert len(path) > 1
+        attr = getattr(node, current_path)
+        set_value_on_leaf(attr, path[1:], value)
+
+    elif isinstance(node, dict):
+        if len(path) == 1:
+            node[current_path] = value
+        else:
+            set_value_on_leaf(node[current_path], path[1:], value)
+    
+    elif isinstance(node, (list, tuple)):
+        assert len(path) > 1
+        assert current_path.count('=') == 1
+        # search the good element 
+        name, search_value = current_path.split('=')
+        found = False
+        for dico in node:
+            if name in dico and str(dico[name]) == search_value:
+                found = True
+                break
+        assert found
+        set_value_on_leaf(dico, path[1:], value)
+    
+    else:
+        raise MolaException(f'Unknown type: {type(node)}')
+          
+def get_value_on_leaf(node, path):
+    try:
+        current_path = path[0]
+    except IndexError:
+        return node
+    
+    if isinstance(node, Workflow):
+        return get_value_on_leaf(getattr(node, current_path), path[1:])
+
+    elif isinstance(node, dict):
+        return get_value_on_leaf(node[current_path], path[1:])
+    
+    elif isinstance(node, (list, tuple)):
+        assert current_path.count('=') == 1
+        # search the good element 
+        name, search_value = current_path.split('=')
+        found = False
+        for dico in node:
+            if name in dico and str(dico[name]) == search_value:
+                found = True
+                break
+        assert found
+        return get_value_on_leaf(dico, path[1:])
+    
+    else:
+        raise MolaException(f'Unknown type: {type(node)}')
+
+def get_values_in_collection_from_key(collec, patterns, elements=[]):
+    '''
+    In the nested collection **collec** (may be a dictionary or a list),
+    find all the values corresponding to the key **searchKey**.
+
+    Parameters
+    ----------
+
+        collec : :py:class:`dict` or :py:class:`list`
+            Nested dictionary or list where **searchKey** is searched
+
+        searchKey : str
+            Key to find in **collec**
+
+        elements : list
+            accumulated list of found values. Works as an accumulator in the
+            recursive function
+
+    Returns
+    -------
+
+        elements : list
+            list of the found values correspondingto **searchKey**
+    '''
+    if not isinstance(patterns, list): 
+        patterns = [patterns]
+    
+    if isinstance(collec, Workflow):
+        collec = collec.convert_to_dict()
+    
+    if isinstance(collec, dict):
+        for key, value in collec.items():
+            if isinstance(value, (dict, list)):
+                get_values_in_collection_from_key(value, patterns, elements=elements)
+            elif any([match_pattern(key, pattern) for pattern in patterns]):
+                elements.append(value)
+
+    elif isinstance(collec, list):
+        for elem in collec:
+            get_values_in_collection_from_key(elem, patterns, elements=elements)
+
+    return elements
+
+def get_values_in_collection_from_pattern(collec, patterns, elements=[]):
+    if not isinstance(patterns, list): 
+        patterns = [patterns]
+    
+    # if isinstance(collec, Workflow):
+    #     collec = collec.convert_to_dict()
+    if isinstance(collec, Workflow):
+        for attr_name in collec.__dict__:
+            attr = getattr(collec, attr_name)
+            if isinstance(attr, (dict, list)):
+                get_values_in_collection_from_pattern(attr, patterns, elements=elements)
+
+    elif isinstance(collec, dict):
+        for key, value in collec.items():
+            if isinstance(value, (dict, list)):
+                get_values_in_collection_from_pattern(value, patterns, elements=elements)
+            elif any([match_pattern(value, pattern) for pattern in patterns]):
+                elements.append(value)
+
+    elif isinstance(collec, list):
+        for elem in collec:
+            get_values_in_collection_from_pattern(elem, patterns, elements=elements)
+
+    return elements
+
+def match_pattern(value, pattern):
+    if isinstance(pattern, str):
+        return fnmatch(str(value), pattern) 
+    elif isinstance(pattern, (int, float)):
+        return value == pattern
+    else:
+        raise TypeError
 

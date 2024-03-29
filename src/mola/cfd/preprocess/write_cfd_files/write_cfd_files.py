@@ -18,7 +18,7 @@ import os
 from mola.cfd import apply_to_solver
 from mola import __MOLA_PATH__
 from mola.logging import mola_logger, MolaException
-from mola.server import server as SV
+from mola import server as SV
 from mola import misc
 
 def apply(workflow):

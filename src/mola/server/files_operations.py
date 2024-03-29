@@ -54,10 +54,19 @@ First creation:
 28/07/2020 - L. Bernardos - creation
 '''
 
+import os
 import subprocess
 
 from mola.logging import mola_logger, MolaException
 from mola import __MOLA_PATH__
+from . import server
+
+def save_file(filename, text, directory='.'):
+    os.makedirs(directory, exist_ok=True)
+    filename = os.path.join(directory, filename)
+    with open(filename, 'w') as f:
+        f.write(text)
+    os.chmod(filename, 0o777)
 
 def is_path_exists(path, machine=None, user=None, file_only=False):
     '''
@@ -105,7 +114,6 @@ def is_file(path, machine=None, user=None):
 def is_directory(path, machine=None, user=None):
     return is_path_exists(path, machine, user, file_only=False) and not is_path_exists(path, machine, user, file_only=True)
     
-    
 def makedirs_remote(path, machine=None, user=None):
     if machine is not None:
         if user is not None:
@@ -151,4 +159,55 @@ def scp(source_path, destination_path, source_machine=None, destination_machine=
     except:
         makedirs_remote(destination_path, machine=destination_machine, user=destination_user)
         subprocess.run([f'scp -r {source} {destination}'], shell=True, check=True, capture_output=True, timeout=timeout)
+
+def copy_remote(source_path, destination_path, source_machine=None, destination_machine=None, source_user=None, destination_user=None, force_copy=False):
+    '''
+    Repatriate a file or directory towards a destination location.
+
+    Parameters
+    ----------
+    source_path : str
+        Path string of the source to be copied.
+        May correspond to a directory or a file.
+    destination_path : str
+        Path string of the destination where the source
+        will be copied. If it makes reference to an inexistent directory,
+        then all required paths are automatically created in order to
+        satisfy the destination path (if permissions allow for it).
+    machine : str, optional
+        Remote machine corresponding to **source_path**. 
+        If not given, try to guess it with :py:func:`guess_machine_from_path`
+    user : str, optional
+        Useful only if the username is not the same on the remote **machine** that on the local host. 
+    force_copy : bool, optional
+        If :py:obj:`True`, force the copy and erase the previous **destination_path**.
+        By default False.
+    '''
+
+    if source_path.startswith('./'): 
+        source_path = source_path[2:]
+    if destination_path.startswith('./'): 
+        destination_path = destination_path[2:]
+
+    if source_path == destination_path:
+        # nothing to do 
+        return
+
+    if source_machine is None:
+        try:
+            source_machine = server.guess_machine_from_path(source_path) 
+        except:
+            pass
+    
+    if destination_machine is None:
+        try:
+            destination_machine = server.guess_machine_from_path(destination_path) 
+        except:
+            pass
+
+    scp(source_path, destination_path, 
+               source_machine, destination_machine, 
+               source_user, destination_user, 
+               force_copy=force_copy
+               )
 

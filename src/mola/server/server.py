@@ -23,7 +23,6 @@ from fnmatch import fnmatch
 from mola import misc
 from mola.logging import mola_logger, MolaException
 from mola import __MOLA_PATH__
-from mola.server import _cpmv_
 
 def get_network():
     return os.getenv('MOLA_NETWORK')
@@ -66,56 +65,4 @@ def guess_machine(path=None):
         # assume machine is localhost
         machine = guess_localhost()
     return machine
-
-
-def copy_remote(source_path, destination_path, source_machine=None, destination_machine=None, source_user=None, destination_user=None, force_copy=False):
-    '''
-    Repatriate a file or directory towards a destination location.
-
-    Parameters
-    ----------
-    source_path : str
-        Path string of the source to be copied.
-        May correspond to a directory or a file.
-    destination_path : str
-        Path string of the destination where the source
-        will be copied. If it makes reference to an inexistent directory,
-        then all required paths are automatically created in order to
-        satisfy the destination path (if permissions allow for it).
-    machine : str, optional
-        Remote machine corresponding to **source_path**. 
-        If not given, try to guess it with :py:func:`guess_machine_from_path`
-    user : str, optional
-        Useful only if the username is not the same on the remote **machine** that on the local host. 
-    force_copy : bool, optional
-        If :py:obj:`True`, force the copy and erase the previous **destination_path**.
-        By default False.
-    '''
-
-    if source_path.startswith('./'): 
-        source_path = source_path[2:]
-    if destination_path.startswith('./'): 
-        destination_path = destination_path[2:]
-
-    if source_path == destination_path:
-        # nothing to do 
-        return
-
-    if source_machine is None:
-        try:
-            source_machine = guess_machine_from_path(source_path) 
-        except:
-            pass
-    
-    if destination_machine is None:
-        try:
-            destination_machine = guess_machine_from_path(destination_path) 
-        except:
-            pass
-
-    _cpmv_.scp(source_path, destination_path, 
-               source_machine, destination_machine, 
-               source_user, destination_user, 
-               force_copy=force_copy
-               )
 

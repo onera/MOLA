@@ -16,7 +16,6 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import copy
 
 from . import server as SV 
 from mola import misc
@@ -38,14 +37,6 @@ SchedulerDefaults = dict(
         'error' : 'error.%j.log',
     },
 )
-
-
-def save_file(filename, text, directory='.'):
-    os.makedirs(directory, exist_ok=True)
-    filename = os.path.join(directory, filename)
-    with open(filename, 'w') as f:
-        f.write(text)
-    os.chmod(filename, 0o777)
 
 
 def get_job_text(RunManagement, solver):
