@@ -22,6 +22,7 @@ from mola import misc
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola import __MOLA_PATH__
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
+from mola.server import job_writer
 
 def apply_to_solver(workflow):
 
@@ -125,15 +126,15 @@ workflow = Workflow('main.cgns')
 workflow.print()
 workflow.compute()
 '''
-    write_cfd_files.save_file('compute.py', txt, RunManagement['RunDirectory'])
+    job_writer.save_file('compute.py', txt, RunManagement['RunDirectory'])
 
 def write_coprocess(RunManagement):
-    write_cfd_files.save_file('coprocess.py', '# do nothing', RunManagement['RunDirectory'])
+    job_writer.save_file('coprocess.py', '# do nothing', RunManagement['RunDirectory'])
 
 def write_job_launcher(RunManagement):
 
     # shutil.copy2(f'{__MOLA_PATH__}/TEMPLATES/job_template.sh', 'job.sh')
-    job_text = write_cfd_files.get_job_text(RunManagement, 'elsa')+'\n\n'
+    job_text = job_writer.get_job_text(RunManagement, 'elsa')+'\n\n'
     job_text += f'mpirun $OPENMPIOVERSUBSCRIBE -np {RunManagement["NumberOfProcessors"]} elsA.x -C xdt-runtime-tree compute.py 1>stdout.log 2>stderr.log\n'
     # Write job file
-    write_cfd_files.save_file('job.sh', job_text, RunManagement['RunDirectory'])
+    job_writer.save_file('job.sh', job_text, RunManagement['RunDirectory'])

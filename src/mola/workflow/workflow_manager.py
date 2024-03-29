@@ -25,6 +25,7 @@ from mola import __MOLA_PATH__
 from mola.logging import mola_logger, MolaAssertionError, MolaException, CYAN, ENDC
 from mola.workflow import Workflow
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
+from mola.server import job_writer
 
 def build_loop_on_cases(sequence_of_paths, solver):
 
@@ -409,13 +410,13 @@ class WorkflowSequentialScheduler():
     def write_sequence_job(self):
         first_workflow = self.workflows[0]      
         write_cfd_files.set_default(first_workflow.RunManagement)
-        job_text = write_cfd_files.get_job_text(first_workflow.RunManagement, first_workflow.Solver)
+        job_text = job_writer.get_job_text(first_workflow.RunManagement, first_workflow.Solver)
 
         paths_in_bash = '"{}"'.format(' '.join(self.cases_local_paths))
         loop_on_cases = build_loop_on_cases(paths_in_bash, first_workflow.Solver)
         job_text += loop_on_cases
         
-        write_cfd_files.save_file('job_sequence.sh', job_text, self.root_directory)
+        job_writer.save_file('job_sequence.sh', job_text, self.root_directory)
 
     def submit(self):
         print(f'{CYAN}  > fake submission of job sequence in {self.root_directory}')

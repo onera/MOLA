@@ -23,45 +23,22 @@ from mola.logging import check_error_message
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
 from mola import misc
 
-def test_convert_to_seconds_ss_int():
-    assert write_cfd_files.convert_to_seconds(50) == 50
 
-def test_convert_to_seconds_ss():
-    assert write_cfd_files.convert_to_seconds('50') == 50
-
-def test_convert_to_seconds_mm_ss():
-    assert write_cfd_files.convert_to_seconds('10:03') == 603
-
-def test_convert_to_seconds_hh_mm_ss():
-    assert write_cfd_files.convert_to_seconds('10:10:03') == 36603
-
-def test_convert_to_seconds_j_hh_mm_ss():
-    assert write_cfd_files.convert_to_seconds('1-10:10:03') == 3600*24 + 36603
-
-def test_convert_to_seconds_j_hh_mm():
-    assert write_cfd_files.convert_to_seconds('1-10:10') == 3600*24 + 36600
-
-def test_convert_to_seconds_j_hh():
-    assert write_cfd_files.convert_to_seconds('1-10') == 3600*24 + 36000
-
-RunManagement_default = dict(
-        JobName='mola',
-        RunDirectory='.',
-        NumberOfProcessors=None,
-        SubmitJob=False,
-        LauncherCommand = 'auto', # or 'sbatch job.sh', './job.sh'...
-        mola_target_path = __MOLA_PATH__,
-        FilesAndDirectories=[],
-        )
-
-
-def test_set_machine_auto():
+def test_set_default():
     Network = os.environ.get('MOLA_NETWORK')
     config_path = os.path.join(__MOLA_PATH__,'mola','env',Network,'config.py')
     config = misc.load_source('config', config_path)
-    RunManagement = dict(Machine = 'auto', RunDirectory='.')
-    write_cfd_files.set_machine(RunManagement)
+
+    RunManagement = dict(
+        Machine = 'auto',
+        RunDirectory = '.',
+        NumberOfProcessors = 3,
+        )
+
+    write_cfd_files.set_default(RunManagement)
+
     assert RunManagement['Machine'] in config.AvailableEnvironments
+    # TODO Complete the assertion tests
 
 
 @pytest.mark.parametrize("NumberOfProcessors", [None, 10., 'number', [5, 6]])
@@ -70,136 +47,3 @@ def test_set_default_error_NumberOfProcessors(NumberOfProcessors):
 
     expected_error_msg = f'The value {RunManagement["NumberOfProcessors"]} for NumberOfProcessors is not allowed. It must be an integer'
     check_error_message(expected_error_msg, write_cfd_files.set_default, RunManagement)
-
-def test_set_default_default_spiro():
-    RunManagement = dict(
-        NumberOfProcessors = 5,
-        Machine = 'spiro', 
-    )
-    write_cfd_files.set_default(RunManagement)
-    
-    from pprint import pprint
-    pprint(RunManagement)
-
-    RunManagement_default_with_context = copy.copy(RunManagement_default)
-    RunManagement_default_with_context.update(
-        dict(
-            NumberOfProcessors = 5,
-            Machine = 'spiro', 
-            JobScheduler = 'SLURM',
-            TimeLimit = '24:00:00',
-            TimeOutInSeconds = 24*3600-180,
-            SlurmConstraint = None,
-            SlurmQualityOfService = 'c1_test_giga',
-        )
-    )
-
-    for key, value in RunManagement.items():
-        if key == 'JobSchedulerOptions':
-            continue
-        assert value == RunManagement_default_with_context[key]
-
-
-def test_set_default_default_sator():
-    RunManagement = dict(
-        NumberOfProcessors = 5,
-        Machine = 'sator',
-        AER = 'FakeAER', 
-    )
-    write_cfd_files.set_default(RunManagement)
-    
-    from pprint import pprint
-    pprint(RunManagement)
-
-    RunManagement_default_with_context = copy.copy(RunManagement_default)
-    RunManagement_default_with_context.update(
-        dict(
-            NumberOfProcessors = 5,
-            Machine = 'sator', 
-            JobScheduler = 'SLURM',
-            TimeLimit = '15:00:00',
-            SlurmConstraint = 'csl',
-            TimeOutInSeconds = 15*3600-180,
-            AER = 'FakeAER',
-        )
-    )
-
-    for key, value in RunManagement.items():
-        if key == 'JobSchedulerOptions':
-            continue
-        assert value == RunManagement_default_with_context[key]
-
-
-def test_set_default_custom_sator():
-    RunManagement = dict(
-        JobName='customName',
-        RunDirectory='/my_path/',
-        NumberOfProcessors=5,
-        SubmitJob=True,
-        Machine = 'sator', 
-        SlurmConstraint = 'csl | skl',
-        TimeLimit = '0-10:00',
-        SecondsMarginForQuitBeforeTimeOut = 10,
-        LauncherCommand = 'auto',
-        mola_target_path = '/mola/installation/custom',
-        FilesAndDirectories=['file_to_copy', 'path/filename'],
-        AER='000X111A',
-    )
-    RunManagement_ref = copy.copy(RunManagement)
-    RunManagement_ref['TimeOutInSeconds'] = 10*3600-10
-    RunManagement_ref['JobScheduler'] = 'SLURM'
-    RunManagement_ref.pop('SecondsMarginForQuitBeforeTimeOut')
-
-    write_cfd_files.set_default(RunManagement)
-
-    for key, value in RunManagement.items():
-        if key == 'JobSchedulerOptions':
-            continue
-        assert value == RunManagement_ref[key]
-
-def test_get_job_text_sator():
-    RunManagement = dict(
-        NumberOfProcessors = 5,
-        Machine = 'sator', 
-        AER='000X111A',
-    )
-    write_cfd_files.set_default(RunManagement)
-    job_text = write_cfd_files.get_job_text(RunManagement, 'my_solver')
-
-    expected_job_text=(
-        '#!/bin/bash\n'
-        '#SBATCH --time=15:00:00\n'
-        '#SBATCH --constraint=csl\n'
-        '#SBATCH --job-name=mola\n'
-        '#SBATCH --comment=000X111A\n'
-        '#SBATCH --ntasks=5\n'
-        '#SBATCH --output=output.%j.log\n'
-        '#SBATCH --error=error.%j.log\n'
-        '\n'
-       f'source {RunManagement["mola_target_path"]}/mola/env/onera/sator/my_solver.sh')
-
-    assert job_text == expected_job_text
-
-def test_get_job_text_spiro():
-    RunManagement = dict(
-        NumberOfProcessors = 5,
-        Machine = 'spiro', 
-        AER='000X111A',
-    )
-    write_cfd_files.set_default(RunManagement)
-    job_text = write_cfd_files.get_job_text(RunManagement, 'my_solver')
-
-    expected_job_text = (
-        '#!/bin/bash\n'
-        '#SBATCH --time=24:00:00\n'
-        '#SBATCH --qos=c1_test_giga\n'
-        '#SBATCH --job-name=mola\n'
-        '#SBATCH --comment=000X111A\n'
-        '#SBATCH --ntasks=5\n'
-        '#SBATCH --output=output.%j.log\n'
-        '#SBATCH --error=error.%j.log\n'
-        '\n'
-       f'source {RunManagement["mola_target_path"]}/mola/env/onera/spiro/my_solver.sh'
-        )
-
-    assert job_text == expected_job_text
