@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from treelab import cgns
 
 from mola.workflow import Workflow
-import mola.server.job_manager as JM
+import mola.workflow.workflow_manager as WM
 from mola.logging import check_error_message
 
 def get_fake():
@@ -29,27 +29,27 @@ def get_fake():
 
 def test_set_value_on_leaf_1():
     d = dict(x=1, y=dict(z=3))
-    JM.set_value_on_leaf(d, ['y', 'z'], 2)
+    WM.set_value_on_leaf(d, ['y', 'z'], 2)
     assert d['y']['z'] == 2
 
 def test_set_value_on_leaf_2():
     l = [dict(x=1), dict(y=2, z=3)]
-    JM.set_value_on_leaf(l, ['y=2', 'z'], 5)
+    WM.set_value_on_leaf(l, ['y=2', 'z'], 5)
     assert l[1]['z'] == 5
 
 def test_set_value_on_leaf_3():
     fake = get_fake()
-    JM.set_value_on_leaf(fake, ['RunManagement', 'RunDirectory'], 'other_test')
+    WM.set_value_on_leaf(fake, ['RunManagement', 'RunDirectory'], 'other_test')
     assert fake.RunManagement['RunDirectory'] == 'other_test'
 
 def test_set_value_on_leaf_4():
     fake = get_fake()
-    JM.set_value_on_leaf(fake, ['BoundaryConditions', 'Family=OUTFLOW', 'Pressure'], 20)
+    WM.set_value_on_leaf(fake, ['BoundaryConditions', 'Family=OUTFLOW', 'Pressure'], 20)
     assert fake.BoundaryConditions[1]['Pressure'] == 20
 
 def test_get_value_on_leaf():
     fake = get_fake()
-    value = JM.get_value_on_leaf(fake, ['BoundaryConditions', 'Family=OUTFLOW', 'Pressure'])
+    value = WM.get_value_on_leaf(fake, ['BoundaryConditions', 'Family=OUTFLOW', 'Pressure'])
     assert value == 10
 
 
@@ -106,14 +106,14 @@ def get_fake_workflow():
 def test_dispatcher_error_new_job_empty():
 
     w = object()
-    dispatcher = JM.WorkflowDispatcher(w)
+    dispatcher = WM.WorkflowDispatcher(w)
     err_msg = 'Before calling `add_variations`, `new_job` must be called first to declare directory.'
     check_error_message(err_msg, dispatcher.add_variations, ['fake'])
 
 def test_dispatcher_directories():
 
     w = get_fake_workflow()
-    dispatcher = JM.WorkflowDispatcher(w)
+    dispatcher = WM.WorkflowDispatcher(w)
 
     dispatcher.new_job('root')
     for index in [10, 20, 30]:
@@ -135,14 +135,14 @@ def test_dispatcher_directories():
 def test_WorkflowParallelScheduler():
 
     w = get_fake_workflow()
-    dispatcher = JM.WorkflowDispatcher(w)
+    dispatcher = WM.WorkflowDispatcher(w)
 
     for model in ['model1', 'model2']:
         dispatcher.new_job(model)
         for pressure in [10, 20, 30]:
             dispatcher.add_variations([('RunManagement|RunDirectory', f'test_{pressure}')])
 
-    scheduler = JM.WorkflowParallelScheduler(dispatcher, '.tmp_test_root')
+    scheduler = WM.WorkflowParallelScheduler(dispatcher, '.tmp_test_root')
     scheduler.prepare()
 
     root_dirs = []
