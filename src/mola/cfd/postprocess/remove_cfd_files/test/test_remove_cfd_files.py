@@ -21,6 +21,8 @@ from mola.workflow.workflow import Workflow
 from mola.cfd.postprocess.remove_cfd_files import remove_cfd_files
 
 def test_write_and_remove_files():
-    w = Workflow()
+    w = Workflow( RunManagement=dict(
+                    RunDirectory=os.path.dirname(os.path.realpath(__file__))),
+                )
     remove_cfd_files.write_dummy_files_for_testing(w)
     remove_cfd_files.apply(w)

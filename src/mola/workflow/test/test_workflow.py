@@ -25,6 +25,7 @@ import treelab.cgns as cgns
 
 def launch_compute_subprocess():
     cwd = os.path.dirname(os.path.realpath(__file__))
+    print(cwd)
     ssh = subprocess.Popen(
         './job.sh',
         shell=True,
@@ -290,6 +291,7 @@ def get_workflow_sphere_struct():
 
         RunManagement=dict(
             NumberOfProcessors=1,
+            RunDirectory=os.path.dirname(os.path.realpath(__file__)),
             ),
         )
     
@@ -307,6 +309,7 @@ def test_workflow_sphere_struct():
     w.prepare()
     w.write_cfd_files()
     launch_compute_subprocess()
-    if not os.path.exists('COMPLETED'):
+    COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
+    if not os.path.exists(COMPLETED_PATH):
         raise MolaException('simulation did not ended as expected')
     w.remove_cfd_files()
