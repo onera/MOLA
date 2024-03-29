@@ -28,13 +28,6 @@ def apply(workflow):
 
 def set_default(RunManagement):
 
-    set_network(RunManagement)
-    set_machine(RunManagement)
-    set_job_scheduler_options(RunManagement)
-
-    if RunManagement['Machine'] == 'sator' and not RunManagement['JobSchedulerOptions']['comment']:
-        raise MolaException('AER is needed to run a job on sator') 
-
     # Set default parameters
     RunManagementDefault = dict(
         RunDirectory='.',
@@ -48,6 +41,12 @@ def set_default(RunManagement):
     for key, default_value in RunManagementDefault.items():
         RunManagement.setdefault(key, default_value)
 
+    set_machine(RunManagement)
+    set_job_scheduler_options(RunManagement)
+
+    if RunManagement['Machine'] == 'sator' and not RunManagement['JobSchedulerOptions']['comment']:
+        raise MolaException('AER is needed to run a job on sator') 
+
     # NumberOfProcessors must be set before this stage
     # It may have been set during an automatic splitting operation
     if not isinstance(RunManagement['NumberOfProcessors'], int):
@@ -58,19 +57,12 @@ def set_default(RunManagement):
     RunManagement['TimeOutInSeconds'] = convert_to_seconds(RunManagement['TimeLimit']) - convert_to_seconds(RunManagement['SecondsMarginForQuitBeforeTimeOut'])
     RunManagement.pop('SecondsMarginForQuitBeforeTimeOut')
 
-def set_network(RunManagement):
-    RunManagement['Network'] = server.get_network()
-
 def set_machine(RunManagement):
-    if 'Machine' not in RunManagement \
-        or RunManagement['Machine']=='auto':
-        try:
-            RunManagement['Machine'] = server.guess_machine_from_path(RunManagement['Network'], RunManagement['RunDirectory'])
-        except:
-            RunManagement['Machine'] = server.guess_host(RunManagement['Network'])
+    if ('Machine' not in RunManagement) or (RunManagement['Machine'] == 'auto'):
+        RunManagement['Machine'] = server.guess_machine(RunManagement['RunDirectory'])
 
 def set_job_scheduler_options(RunManagement):
-    scheduler, scheduler_options = get_scheduler_and_default_options(RunManagement)
+    scheduler, scheduler_options = server.get_scheduler_and_default_options(RunManagement['Machine'])
 
     if scheduler == 'SLURM':
         set_slurm_options_and_update_RunManagement(RunManagement, scheduler_options)
@@ -78,26 +70,7 @@ def set_job_scheduler_options(RunManagement):
     RunManagement['JobScheduler'] = scheduler
     RunManagement['JobSchedulerOptions'] = scheduler_options
 
-def get_scheduler_and_default_options(RunManagement):
-    try:
-        path = os.path.join(__MOLA_PATH__, 'mola', 'env', RunManagement['Network'], RunManagement['Machine'], 'scheduler_defaults.py')
-        scheduler_defaults = misc.load_source('scheduler_defaults', path)
-        try:
-            scheduler = scheduler_defaults.JOB_SCHEDULER
-        except AttributeError:
-            scheduler = None
-            
-        try:
-            scheduler_options = scheduler_defaults.JOB_SCHEDULER_OPTIONS
-        except AttributeError:
-            scheduler_options = dict()
-
-    except FileNotFoundError:
-        scheduler = None
-        scheduler_options = dict()
-
-    return scheduler, scheduler_options
-
+# TODO move this function in server ?
 def set_slurm_options_and_update_RunManagement(RunManagement, scheduler_options):
     MolaToSlurm = dict(
             JobName = 'job-name',
@@ -161,6 +134,8 @@ def build_job_scheduler_header(job_scheduler, job_scheduler_options):
 
 def get_job_text(RunManagement, Solver):
 
+    network = server.get_network()
+
     job_scheduler = RunManagement['JobScheduler']
     job_scheduler_options = RunManagement['JobSchedulerOptions']
 
@@ -169,7 +144,7 @@ def get_job_text(RunManagement, Solver):
         RunManagement["mola_target_path"],
         "mola",
         "env",
-        RunManagement["Network"],
+        network,
         RunManagement["Machine"],
         Solver+'.sh')
 

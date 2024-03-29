@@ -59,7 +59,7 @@ def test_set_machine_auto():
     Network = os.environ.get('MOLA_NETWORK')
     config_path = os.path.join(__MOLA_PATH__,'mola','env',Network,'config.py')
     config = misc.load_source('config', config_path)
-    RunManagement = dict( Network = Network, Machine = 'auto')
+    RunManagement = dict(Machine = 'auto', RunDirectory='.')
     write_cfd_files.set_machine(RunManagement)
     assert RunManagement['Machine'] in config.AvailableEnvironments
 
@@ -74,7 +74,6 @@ def test_set_default_error_NumberOfProcessors(NumberOfProcessors):
 def test_set_default_default_spiro():
     RunManagement = dict(
         NumberOfProcessors = 5,
-        Network = 'onera',
         Machine = 'spiro', 
     )
     write_cfd_files.set_default(RunManagement)
@@ -86,7 +85,6 @@ def test_set_default_default_spiro():
     RunManagement_default_with_context.update(
         dict(
             NumberOfProcessors = 5,
-            Network = 'onera',
             Machine = 'spiro', 
             JobScheduler = 'SLURM',
             TimeLimit = '24:00:00',
@@ -105,7 +103,6 @@ def test_set_default_default_spiro():
 def test_set_default_default_sator():
     RunManagement = dict(
         NumberOfProcessors = 5,
-        Network = 'onera',
         Machine = 'sator',
         AER = 'FakeAER', 
     )
@@ -118,7 +115,6 @@ def test_set_default_default_sator():
     RunManagement_default_with_context.update(
         dict(
             NumberOfProcessors = 5,
-            Network = 'onera',
             Machine = 'sator', 
             JobScheduler = 'SLURM',
             TimeLimit = '15:00:00',
@@ -140,7 +136,6 @@ def test_set_default_custom_sator():
         RunDirectory='/my_path/',
         NumberOfProcessors=5,
         SubmitJob=True,
-        Network = 'onera',
         Machine = 'sator', 
         SlurmConstraint = 'csl | skl',
         TimeLimit = '0-10:00',
@@ -165,7 +160,6 @@ def test_set_default_custom_sator():
 def test_get_job_text_sator():
     RunManagement = dict(
         NumberOfProcessors = 5,
-        Network = 'onera',
         Machine = 'sator', 
         AER='000X111A',
     )
@@ -189,7 +183,6 @@ def test_get_job_text_sator():
 def test_get_job_text_spiro():
     RunManagement = dict(
         NumberOfProcessors = 5,
-        Network = 'onera',
         Machine = 'spiro', 
         AER='000X111A',
     )

@@ -32,7 +32,7 @@ def get_network_config():
     network = get_network()
     return misc.load_source('config', os.path.join(__MOLA_PATH__, 'mola', 'env', network, 'config.py'))
 
-def guess_host():
+def guess_localhost():
     HostName = socket.gethostname()
     try:
         network_config = get_network_config()
@@ -51,11 +51,42 @@ def guess_machine_from_path(path):
     try:
         network_config = get_network_config()
         for pattern, machine in network_config.PathsToEnvironments.items():
+            print(f'pattern={pattern}')
             if fnmatch(path, pattern):
+                print("found")
                 return machine
+        raise
     except:
         raise MolaException(f'Cannot guess machine from path {path}')
 
+def guess_machine(path=None):
+    try:
+        machine = guess_machine_from_path(path)
+    except:
+        # assume machine is localhost
+        machine = guess_localhost()
+    return machine
+
+def get_scheduler_and_default_options(machine):
+    try:
+        network = get_network()
+        path = os.path.join(__MOLA_PATH__, 'mola', 'env', network, machine, 'scheduler_defaults.py')
+        scheduler_defaults = misc.load_source('scheduler_defaults', path)
+        try:
+            scheduler = scheduler_defaults.JOB_SCHEDULER
+        except AttributeError:
+            scheduler = None
+            
+        try:
+            scheduler_options = scheduler_defaults.JOB_SCHEDULER_OPTIONS
+        except AttributeError:
+            scheduler_options = dict()
+
+    except FileNotFoundError:
+        scheduler = None
+        scheduler_options = dict()
+
+    return scheduler, scheduler_options
 
 def copy_remote(source_path, destination_path, source_machine=None, destination_machine=None, source_user=None, destination_user=None, force_copy=False):
     '''
