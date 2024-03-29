@@ -18,7 +18,7 @@
 import numpy as np
 from mola.cfd.preprocess.motion import motion
 
-def adapt_to_solver(workflow):
+def apply_to_solver(workflow):
     '''
     Set Motion for each families for the solver elsA.
 

@@ -14,15 +14,10 @@
 #
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+from mola.cfd import call_solver_specific_function
 
-def apply_to_solver(workflow):
-    # Remove ChimeraCellType nodes
-    groupOfNodes = workflow.tree.group(Name='FlowSolution#Init')
-    for node in groupOfNodes:
-        node.findAndRemoveNodes(Name='ChimeraCellType')     
-    
-    if workflow.tree.get(Name='TurbulentDistance', Type='DataArray'):
-        import Converter.elsAProfile as elsAProfile
-        import Converter.Internal as I
-        I.__FlowSolutionCenters__ = 'FlowSolution#Init'
-        elsAProfile._addTurbulentDistanceIndex(workflow.tree)
+def apply(workflow):
+    call_solver_specific_function(workflow, 'apply')
+
+def write_dummy_files_for_testing(workflow):
+    call_solver_specific_function(workflow, 'write_dummy_files_for_testing')
