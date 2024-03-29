@@ -14,8 +14,10 @@
 #
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
-from mola.cfd import apply_to_solver
+from mola.cfd import call_solver_specific_function
 
 def apply(workflow):
-    apply_to_solver(workflow)
+    call_solver_specific_function(workflow, 'apply')
 
+def write_dummy_files_for_testing(workflow):
+    call_solver_specific_function(workflow, 'write_dummy_files_for_testing')

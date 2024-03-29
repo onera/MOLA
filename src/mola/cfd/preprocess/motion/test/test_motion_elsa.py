@@ -30,7 +30,7 @@ class FakeWorkflow():
         self.Motion = Motion
 
 
-def test_adapt_to_solver():
+def test_apply_to_solver():
     Motion = dict(
         Rotor = dict(
             RotationSpeed=[500., 0., 0.],
@@ -40,7 +40,7 @@ def test_adapt_to_solver():
     )
 
     workflow = FakeWorkflow(Motion)
-    solver_elsa.adapt_to_solver(workflow)
+    solver_elsa.apply_to_solver(workflow)
 
     ref_tree = ['Rotor', None, [
                 ['.Solver#Motion', None, [
@@ -61,7 +61,7 @@ def test_adapt_to_solver():
     assert str(workflow.tree.get(Type='Family')) == str(ref_tree)
 
     
-def test_adapt_to_solver_no_motion():
+def test_apply_to_solver_no_motion():
     Motion = dict(
         Rotor = dict(
             RotationSpeed=[0., 0., 0.],
@@ -71,13 +71,13 @@ def test_adapt_to_solver_no_motion():
     )
 
     workflow = FakeWorkflow(Motion)
-    solver_elsa.adapt_to_solver(workflow)
+    solver_elsa.apply_to_solver(workflow)
 
     assert str(workflow.tree.get(Type='Family')) == "['Rotor', None, [], 'Family_t']"
 
 
 @pytest.mark.parametrize("RotationSpeed", [[1.,3.,0.], [1.,0.,4.], [1.,1.,1.]])
-def test_adapt_to_solver_invalid_axis(RotationSpeed):
+def test_apply_to_solver_invalid_axis(RotationSpeed):
     Motion = dict(
         Rotor = dict(
             RotationSpeed=RotationSpeed,
@@ -89,8 +89,8 @@ def test_adapt_to_solver_invalid_axis(RotationSpeed):
     workflow = FakeWorkflow(Motion)
 
     try: 
-        solver_elsa.adapt_to_solver(workflow)
+        solver_elsa.apply_to_solver(workflow)
     except AssertionError as e:
         assert e.args[0] == 'For elsA, the rotation must be around one axis only'
     else:
-        raise AssertionError('adapt_to_solver must raise an AssertionError if the rotation is not around one cartesian axis')
+        raise AssertionError('apply_to_solver must raise an AssertionError if the rotation is not around one cartesian axis')

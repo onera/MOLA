@@ -23,7 +23,7 @@ from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola import __MOLA_PATH__
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
 
-def adapt_to_solver(workflow):
+def apply_to_solver(workflow):
 
     add_reference_state(workflow)
     add_governing_equations(workflow)

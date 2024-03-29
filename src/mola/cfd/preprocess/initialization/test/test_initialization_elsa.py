@@ -23,7 +23,7 @@ class FakeWorkflow():
     def __init__(self, t):
         self.tree = t
 
-def test_adapt_to_solver():
+def test_apply_to_solver():
     # Build a base with two identical zones
     base = cgns.Node( Name='Base', Type='Base')
     z1 = cgns.Node( Name='Zone1', Type='Zone', Parent=base)
@@ -35,7 +35,7 @@ def test_adapt_to_solver():
         cgns.Node( Name='OtherChild', Parent=fs )
 
     workflow = FakeWorkflow(base)
-    solver_elsa.adapt_to_solver(workflow)
+    solver_elsa.apply_to_solver(workflow)
 
     RefTree = ['Base', None, [
         ['Zone1', None, [

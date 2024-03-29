@@ -76,7 +76,7 @@ class Workflow(object):
 
             BoundaryConditions=[],
             
-            Solver='elsA',
+            Solver=os.environ.get('MOLA_SOLVER'),
 
             SplittingAndDistribution=dict(
                 Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"

@@ -26,7 +26,7 @@ import glob
 import shutil
 
 
-def adapt_to_solver(workflow):
+def apply_to_solver(workflow):
 
     # ------------------------- IMPORT  CASSIOPEE ------------------------- #
     import Converter.PyTree as C

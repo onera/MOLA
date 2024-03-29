@@ -31,9 +31,9 @@ if [ "$MAC" = "ld" ] && [ ! "$EL8" ] ; then export MAC="visung"; fi
 if [ "$MAC" = "visung" ] && [ "$EL8" ] ; then export MAC="ld"; fi
 
 if [ "$1" = "" ]; then
-    solver=mola
+    export MOLA_SOLVER=mola
 else
-    solver=$1
+    export MOLA_SOLVER=$1
 fi
 
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
@@ -41,6 +41,6 @@ export MOLA=${SCRIPT_DIR%/mola/env/*}  # retain the part before /mola/env/*
 export MOLAext=/stck/lbernard/MOLA/Dev/ext
 export MOLA_NETWORK=${SCRIPT_DIR##*/} # get only the last part of SCRIPT_DIR, so here 'onera'
 
-# source the environment associated to the current machine and solver
-echo "source $MOLA/mola/env/onera/$MAC/$solver.sh"
-source $MOLA/mola/env/onera/$MAC/$solver.sh &>/dev/null || echo 'Error: Cannot source this environment!'
+# source the environment associated to the current machine and MOLA_SOLVER
+echo "source $MOLA/mola/env/onera/$MAC/$MOLA_SOLVER.sh"
+source $MOLA/mola/env/onera/$MAC/$MOLA_SOLVER.sh &>/dev/null || echo 'Error: Cannot source this environment!'

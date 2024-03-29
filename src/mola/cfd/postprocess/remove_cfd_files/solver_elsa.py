@@ -18,27 +18,40 @@
 import os
 import shutil 
 
-def adapt_to_solver(workflow):
-
-    files_to_remove = [
+solver_specific_files = [
         'COMPLETED',
+        'FAILED',
+        'NEWJOB_REQUIRED',
         'compute.py',
         'coprocess.py',
         'job.sh',
         'main.cgns']
-    directories_to_remove = [
+
+solver_specific_directories = [
         'OUTPUT',
         'LOGS',
         'OVERSET']
-    
-    for file in files_to_remove:
+
+def apply(workflow):
+
+    for file in solver_specific_files:
         try:
             os.unlink(file)
         except:
             pass
 
-    for directory in directories_to_remove:
+    for directory in solver_specific_directories:
         try:
             shutil.rmtree(directory)
         except:
             pass
+
+def write_dummy_files_for_testing(workflow):
+    for file in solver_specific_files:
+        with open(file,'w') as f: f.write(f'test for {workflow.Solver}')
+
+    for directory in solver_specific_directories:
+        os.makedirs(directory, exist_ok=True)
+        with open(os.path.join(directory, 'toto.py'),'w') as f:
+            f.write(f'test for {workflow.Solver}')
+
