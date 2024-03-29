@@ -1,3 +1,20 @@
+#    Copyright 2023 ONERA - contact luis.bernardos@onera.fr
+#
+#    This file is part of MOLA.
+#
+#    MOLA is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU Lesser General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    MOLA is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU Lesser General Public License for more details.
+#
+#    You should have received a copy of the GNU Lesser General Public License
+#    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
 import os
 import shutil
 import subprocess
@@ -49,13 +66,6 @@ def launch_compute_subprocess():
 
 def test_init():
     w = Workflow()
-
-
-def remove_cfd_files_and_directories(files = ['compute.py',
-        'coprocess.py','job.sh', 'main.cgns'],
-        directories = ['OUTPUT']):
-    for file in files: os.unlink(file)
-    for directory in directories: shutil.rmtree(directory)
 
 
 def get_workflow1():
@@ -207,7 +217,7 @@ def get_workflow2():
             Velocity = 100.,
         ),
 
-        Solver='elsa',
+        Solver=os.environ.get('MOLA_SOLVER'),
 
         Numerics = dict(
             CFL=1.,
@@ -260,7 +270,7 @@ def get_workflow_sphere_struct():
             Velocity = 50.,
                  ),
 
-        Solver='elsa',
+        Solver=os.environ.get('MOLA_SOLVER'),
 
         Numerics = dict(
             NumberOfIterations=10,
@@ -290,7 +300,7 @@ def test_prepare_workflow2():
     w = get_workflow2()
     w.prepare()
     w.write_cfd_files()
-    remove_cfd_files_and_directories()
+    w.remove_cfd_files()
 
 def test_workflow_sphere_struct():
     w = get_workflow_sphere_struct()
@@ -299,6 +309,4 @@ def test_workflow_sphere_struct():
     launch_compute_subprocess()
     if not os.path.exists('COMPLETED'):
         raise MolaException('simulation did not ended as expected')
-    remove_cfd_files_and_directories(
-        files = ['compute.py','coprocess.py','job.sh', 'main.cgns', 'COMPLETED'],
-        directories = ['LOGS', 'OUTPUT'])
+    w.remove_cfd_files()

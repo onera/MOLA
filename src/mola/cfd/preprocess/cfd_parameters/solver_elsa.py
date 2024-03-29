@@ -27,7 +27,7 @@ K_OMEGA_MODELS = K_OMEGA_TWO_EQN_MODELS + [ 'SST-2003-LM2009',
 AvailableTurbulenceModels = K_OMEGA_MODELS + ['smith', 'SA']
 
 
-def adapt_to_solver(workflow):
+def apply_to_solver(workflow):
 
     set_cfdpb(workflow)
     set_model(workflow)

@@ -24,7 +24,7 @@ import copy
 
 # FIXME Check the writingframe, following what has been done in mola v1
 
-def adapt_to_solver(workflow):
+def apply_to_solver(workflow):
 
     add_extractions_for_overset_components(workflow)
     process_extractions_3d(workflow)
