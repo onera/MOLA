@@ -18,7 +18,7 @@ import os
 from mola.cfd import apply_to_solver
 from mola import __MOLA_PATH__
 from mola.logging import mola_logger, MolaException
-from mola.server.__cpmv__ import guess_host
+from mola.server import server
 from mola import misc
 
 def apply(workflow):
@@ -59,18 +59,15 @@ def set_default(RunManagement):
     RunManagement.pop('SecondsMarginForQuitBeforeTimeOut')
 
 def set_network(RunManagement):
-    RunManagement['Network'] = os.getenv('MOLA_NETWORK')
+    RunManagement['Network'] = server.get_network()
 
 def set_machine(RunManagement):
     if 'Machine' not in RunManagement \
         or RunManagement['Machine']=='auto':
         try:
-            RunManagement['Machine'] = guess_machine_from_path(RunManagement['Network'], RunManagement['RunDirectory'])
+            RunManagement['Machine'] = server.guess_machine_from_path(RunManagement['Network'], RunManagement['RunDirectory'])
         except:
-            RunManagement['Machine'] = guess_host(RunManagement['Network'])
-
-def guess_machine_from_path(network, path):
-    raise Exception
+            RunManagement['Machine'] = server.guess_host(RunManagement['Network'])
 
 def set_job_scheduler_options(RunManagement):
     scheduler, scheduler_options = get_scheduler_and_default_options(RunManagement)

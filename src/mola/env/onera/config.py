@@ -7,3 +7,8 @@ PatternsToEnvironments = {
     'sator*' : 'sator',
     'n*' : 'sator',
 }
+
+PathsToEnvironments = {
+    '/scratch*' : 'spiro',
+    '/tmp_user/sator/*' : 'sator',
+}
