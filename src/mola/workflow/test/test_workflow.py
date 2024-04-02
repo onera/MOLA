@@ -23,47 +23,6 @@ from mola.workflow.workflow import Workflow
 from mola.logging import mola_logger, MolaException, mute_stdout
 import treelab.cgns as cgns
 
-def launch_compute_subprocess():
-    cwd = os.path.dirname(os.path.realpath(__file__))
-    print(cwd)
-    ssh = subprocess.Popen(
-        './job.sh',
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        cwd=cwd,
-        env=os.environ.copy())
-    ssh.wait()
-    
-    Error = ssh.stderr.readlines()
-    for i, e in enumerate(Error):
-        if isinstance(e, bytes):
-            Error[i] = e.decode('utf-8')
-    
-    Output = ssh.stdout.readlines()
-    for i, o in enumerate(Output):
-        if isinstance(o, bytes):
-            Output[i] = o.decode('utf-8')
-    
-    if len(Output)>0:
-        for o in Output:
-            mola_logger.info(o)
-    
-    Error_solver = []
-    try:
-        with open('stderr.log','r') as f:
-            Error_solver = f.read()
-    except FileNotFoundError:
-        pass
-    Error.append(Error_solver)
-
-    if len(Error)>0:
-        for e in Error:
-            if 'warning:' in e:
-                if not 'bind:' in e:
-                    mola_logger.warning(e)
-            else:
-                mola_logger.error(e)
 
 def test_init():
     w = Workflow()
@@ -308,8 +267,7 @@ def test_workflow_sphere_struct():
     w = get_workflow_sphere_struct()
     w.prepare()
     w.write_cfd_files()
-    # w.submit()
-    launch_compute_subprocess()
+    w.submit()
     COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
     if not os.path.exists(COMPLETED_PATH):
         raise MolaException('simulation did not ended as expected')

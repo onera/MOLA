@@ -24,7 +24,7 @@ from mola import misc
 from mola.logging import mola_logger, MolaException
 from mola import __MOLA_PATH__
 
-def submit_command(command, machine, user=None, env=None):
+def submit_command(command, machine, user=None, envfile=None):
 
     if not run_on_localhost(machine):
         if user is not None:
@@ -32,13 +32,13 @@ def submit_command(command, machine, user=None, env=None):
         else:
             ssh_host = f"ssh {machine}"
 
-        if env is not None:
-            command = f'{ssh_host} "{env}; {command}"'
+        if envfile is not None:
+            command = f'{ssh_host} "source {envfile}; {command}"'
         else:
             command = f'{ssh_host} "{command}"'
 
     mola_logger.debug(command)
-    subprocess.run([command], shell=True)
+    subprocess.run([command], shell=True, check=True, env=os.environ.copy())
 
 def get_network():
     return os.getenv('MOLA_NETWORK')

@@ -66,6 +66,8 @@ def apply_to_solver(workflow):
 
     launch_elsa_computation(workflow, FILE_CGNS)
     moveLogFiles(DIRECTORY_LOGS)
+    # TODO move this operation to coprocess.py once implemented
+    check_stderr_and_create_COMPLETED()
 
 
 def launch_elsa_computation(workflow, FILE_CGNS):
@@ -87,10 +89,6 @@ def launch_elsa_computation(workflow, FILE_CGNS):
     e.mode=elsAxdt.READ_ALL
     e.compute()
     e.save(f'OUTPUT/solution_{rank}.cgns', rank)
-    
-    # TODO move this operation to coprocess.py once implemented
-    if rank==0:
-        with open('COMPLETED','w') as f: f.write('COMPLETED')
 
 
 def set_parameters_in_elsa_objects(SolverParameters):
@@ -159,3 +157,19 @@ def moveLogFiles(DIRECTORY_LOGS):
             shutil.move(fn, os.path.join('LOGS', fn))
 
     comm.barrier()
+
+def check_stderr_and_create_COMPLETED():
+    check_stderr()
+    if rank==0:
+        with open('COMPLETED','w') as f: 
+            f.write('COMPLETED')
+    
+def check_stderr():
+    # TODO Simple check for now, but it should be different if this function is called in coprocess.py
+    if rank==0:
+        try:
+            with open('stderr.log','r') as f:
+                Error = f.read()
+            raise Exception(Error)
+        except FileNotFoundError:
+            pass
