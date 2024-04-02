@@ -30,6 +30,21 @@ def save_file(filename, text, directory='.'):
         f.write(text)
     os.chmod(filename, 0o777)
 
+def save_file_maybe_remote(filename, txt, directory='.', machine=None):
+    if not directory.endswith('/'):
+        directory += '/'
+
+    if SV.run_on_localhost(machine, directory):
+        save_file(filename, txt, directory)
+        
+    else:
+        save_file(filename, txt, '.')
+        copy_remote(
+            source_path=filename, 
+            destination_path=directory, 
+            destination_machine=machine,
+            )
+
 def is_existing_path(path, machine=None, user=None, file_only=False):
     '''
     Check is the given path exists. If the machine (and optionally the user) is provided, 
@@ -81,9 +96,30 @@ def is_file(path, machine=None, user=None):
    
 def is_directory(path, machine=None, user=None):
     return is_existing_path(path, machine, user, file_only=False) and not is_existing_path(path, machine, user, file_only=True)
+
+def remove_path(path, machine=None, user=None, file_only=True):
+
+    if machine is None:
+        ssh_host = ''
+    else:
+        if user is None:
+            ssh_host = f'ssh {machine}'
+        else:
+            ssh_host = f'ssh {user}@{machine}'
+
+    if file_only:
+        recursive_option = ''
+    else:
+        recursive_option = 'r'
+
+    try:
+        subprocess.run([f'{ssh_host} rm -f{recursive_option} {path} || exit 1'], shell=True, check=True)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        precision_if_needed = f' on {machine}' if machine is not None else ''
+        raise MolaException(f'Cannot remove {path}{precision_if_needed}.')
     
 def makedirs_remote(path, machine=None, user=None):
-    if machine is not None:
+    if not SV.run_on_localhost(machine, path):
         if user is not None:
             machine = f'{user}@{machine}'
         subprocess.run([f'ssh {machine} mkdir -p {path}'], shell=True)
@@ -112,7 +148,7 @@ def scp(source_path, destination_path, source_machine=None, destination_machine=
             )
     
     def get_path_with_machine(path, machine=None, user=None):
-        if machine is not None:
+        if not SV.run_on_localhost(machine, path):
             if destination_user is None:
                 return f'{machine}:{path}'
             else:

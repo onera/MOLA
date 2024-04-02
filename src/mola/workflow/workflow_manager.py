@@ -116,6 +116,7 @@ class WorkflowParallelScheduler():
         #
         # Warning: if A1 == A2 (same Python object, without copy), then it will bug without raising an error
 
+        self.machine = None
         self.root_directory = root_directory
         self.data_directory = data_directory
         self.sequences_directories = dispatcher.root_directories
@@ -129,6 +130,8 @@ class WorkflowParallelScheduler():
             root_directory = os.path.join(self.root_directory, self.sequences_directories[i])
             sequential_scheduler = WorkflowSequentialScheduler(sequence, root_directory)
             self.table_of_workflows.append(sequential_scheduler)
+
+        self.machine = sequential_scheduler.machine
         
     def _update_filenames(self):
         # need to grab all workflow parameters that are filenames, and update their paths 
@@ -161,17 +164,21 @@ class WorkflowParallelScheduler():
         filename = path.split(os.path.sep)[-1]
         data_dir = os.path.join(self.root_directory, self.data_directory)
         new_filename = os.path.join(data_dir, filename)
-        if not os.path.exists(new_filename):
-            os.makedirs(data_dir, exist_ok=True)
+        if not SV.is_existing_path(new_filename, machine=self.machine):
             mola_logger.info(f'copy {path} to {data_dir}')
-            shutil.copy2(path, new_filename)
+            SV.makedirs_remote(data_dir, machine=self.machine)
+            SV.copy_remote(
+                source_path=path,
+                destination_path=new_filename,
+                destination_machine=self.machine
+            )
     
     def get_adapted_path(self, path):
         filename = path.split(os.path.sep)[-1]
         return os.path.join('..', '..', self.data_directory, filename)
 
     def prepare(self):
-        os.makedirs(self.root_directory, exist_ok=True)
+        SV.makedirs_remote(self.root_directory, machine=self.machine)
         for sequence_of_workflows in self.table_of_workflows:
             sequence_of_workflows.prepare()
 
@@ -221,12 +228,13 @@ class WorkflowSequentialScheduler():
         first_workflow = self.workflows[0]      
         write_cfd_files.set_default(first_workflow.RunManagement)
         self.machine = first_workflow.RunManagement['Machine']
+        self.run_on_localhost = SV.run_on_localhost(self.machine, first_workflow.RunManagement['RunDirectory'])
 
     def prepare(self):
-        os.makedirs(self.root_directory, exist_ok=True)
+        SV.makedirs_remote(self.root_directory, machine=self.machine)
         for workflow in self.workflows:
             mola_logger.info(f"\n{CYAN}  > preparing {workflow.RunManagement['RunDirectory']}...{ENDC}")
-            os.makedirs(workflow.RunManagement['RunDirectory'], exist_ok=True)
+            SV.makedirs_remote(workflow.RunManagement['RunDirectory'], machine=self.machine)
             self.write_workflow_without_prepare(workflow)
 
         self.write_sequence_job()
@@ -236,12 +244,23 @@ class WorkflowSequentialScheduler():
         workflow.prepare()
         workflow.write_cfd_files()
 
-    @staticmethod
-    def write_workflow_without_prepare(workflow):
+    def write_workflow_without_prepare(self, workflow):
         RunDirectory = copy.deepcopy(workflow.RunManagement['RunDirectory'])
+        if not RunDirectory.endswith('/'):
+            RunDirectory += '/'
         workflow.RunManagement['RunDirectory'] = '.'
         workflow.set_workflow_parameters_in_tree()
-        workflow.write_tree(filename=os.path.join(RunDirectory, 'workflow.cgns'))
+
+        SV.makedirs_remote(RunDirectory, machine=self.machine)
+        if self.run_on_localhost:            
+            workflow.write_tree(filename=os.path.join(RunDirectory, 'workflow.cgns'))
+        else:
+            workflow.write_tree(filename='workflow.cgns')
+            SV.copy_remote(
+                source_path='workflow.cgns', 
+                destination_path=RunDirectory, 
+                destination_machine=self.machine,
+                )
     
     def write_sequence_job(self):
         first_workflow = self.workflows[0]      
@@ -252,8 +271,8 @@ class WorkflowSequentialScheduler():
         paths_in_bash = '"{}"'.format(' '.join(self.cases_local_paths))
         loop_on_cases = build_loop_on_cases(paths_in_bash, self._sequential_job_filename)
         job_text += loop_on_cases
-        
-        SV.save_file(self._sequential_job_filename, job_text, self.root_directory)
+
+        SV.save_file_maybe_remote(self._sequential_job_filename, job_text, self.root_directory, machine=self.machine)
 
     def submit(self):
         mola_logger.info(f'  > submission of job sequence in {self.root_directory}')
@@ -282,7 +301,6 @@ for case in $SEQUENCE_OF_PATHS; do
 
         echo "compute case $case at $SECONDS s"
         ./job.sh
-        # # python postprocess.py
 
         if [ -f "NEWJOB_REQUIRED" ]; then
             rm NEWJOB_REQUIRED

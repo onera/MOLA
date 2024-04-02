@@ -16,13 +16,16 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import shutil
-import subprocess
 import numpy as np
-from mola.workflow.workflow import Workflow
-from mola.logging import mola_logger, MolaException, mute_stdout
+
 import treelab.cgns as cgns
 
+from mola.workflow.workflow import Workflow
+from mola.logging import mola_logger, MolaException, mute_stdout
+from mola import server as SV
+
+import pytest
+onera_only = pytest.mark.skipif(SV.get_network() != 'onera', reason="test on ONERA machines")
 
 def test_init():
     w = Workflow()
@@ -272,3 +275,21 @@ def test_workflow_sphere_struct():
     if not os.path.exists(COMPLETED_PATH):
         raise MolaException('simulation did not ended as expected')
     w.remove_cfd_files()
+
+# @onera_only
+# def test_workflow_sphere_struct_remote_sator():
+#     w = get_workflow_sphere_struct()
+#     w.RunManagement['RunDirectory'] = '/tmp_user/sator/$USER/.test/tmp_MOLA_test/'
+#     w.RunManagement['mola_target_path'] = '/tmp_user/sator/$USER/MOLA/mola_v2/src/'
+#     w.RunManagement['AER'] = '34790002F' # PDEV MOLA 2024
+
+#     SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
+
+#     w.prepare()
+#     w.write_cfd_files()
+#     w.submit()
+
+#     COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
+#     if not SV.is_existing_path(COMPLETED_PATH, machine='sator'):
+#         raise MolaException('simulation did not ended as expected')
+#     SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)

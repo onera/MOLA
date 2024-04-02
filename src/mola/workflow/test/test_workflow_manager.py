@@ -11,6 +11,9 @@ from treelab import cgns
 from mola.workflow import Workflow
 import mola.workflow.workflow_manager as WM
 from mola.logging import check_error_message, MolaException
+from mola import server as SV
+
+from mola.workflow.test.test_workflow import onera_only
 
 def get_fake():
     @dataclass
@@ -200,4 +203,45 @@ def test_WorkflowParallelScheduler_sphere():
                 raise MolaException(f'simulation did not ended as expected: unable to found file {COMPLETED_PATH}')
 
     shutil.rmtree(test_dir)
+
+# @onera_only
+# def test_WorkflowParallelScheduler_sphere_remote_sator():
+
+#     from mola.workflow.test.test_workflow import get_workflow_sphere_struct
+#     w = get_workflow_sphere_struct()
+#     w.RunManagement['mola_target_path'] = '/tmp_user/sator/$USER/MOLA/mola_v2/src/'
+#     w.RunManagement['AER'] = '34790002F' # PDEV MOLA 2024
+
+#     dispatcher = WM.WorkflowDispatcher(w)
+#     for BCWall in ['WallViscous', 'WallInviscid']:
+#         dispatcher.new_job(BCWall)
+#         for velocity in [50., 20., 80.]:
+#             dispatcher.add_variations(
+#                 [
+#                     ('RunManagement|JobName', f'test_{BCWall}'),
+#                     ('RunManagement|RunDirectory', f'Velocity_{velocity}'),
+#                     ('Flow|Velocity', velocity),
+#                     ('BoundaryConditions|Family=Wall|type', BCWall),
+#                 ], 
+#                 initialize_from_previous=False
+#                 )
+    
+#     test_dir = '/tmp_user/sator/$USER/.test/tmp_MOLA_test/'
+#     try:
+#         # remove this directory in case it exists already (e.g. because of a previous error)
+#         SV.remove_path(test_dir, machine='sator', file_only=False)
+#     except FileNotFoundError:
+#         pass
+        
+#     scheduler = WM.WorkflowParallelScheduler(dispatcher, test_dir)
+#     scheduler.prepare()
+#     scheduler.submit()
+
+#     for BCWall in ['WallViscous', 'WallInviscid']:
+#         for velocity in [50., 20., 80.]:
+#             COMPLETED_PATH = os.path.join(test_dir, BCWall, f'Velocity_{velocity}', 'COMPLETED')
+#             if not SV.is_existing_path(COMPLETED_PATH, machine='sator'):
+#                 raise MolaException(f'simulation did not ended as expected: unable to found file {COMPLETED_PATH}')
+
+#     SV.remove_path(test_dir, machine='sator', file_only=False)
 

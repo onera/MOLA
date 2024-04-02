@@ -32,7 +32,6 @@ def set_default(RunManagement):
     RunManagementDefault = dict(
         RunDirectory='.',
         NumberOfProcessors=None,
-        SubmitJob=False,
         SecondsMarginForQuitBeforeTimeOut = 180,
         LauncherCommand = 'auto', # or 'sbatch job.sh', './job.sh'...
         mola_target_path = __MOLA_PATH__,

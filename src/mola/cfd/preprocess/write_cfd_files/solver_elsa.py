@@ -145,26 +145,13 @@ workflow = Workflow('main.cgns')
 workflow.print()
 workflow.compute()
 '''
-    save_file_maybe_remote(RunManagement, 'compute.py', txt)
+    SV.save_file_maybe_remote('compute.py', txt, RunManagement['RunDirectory'], machine=RunManagement['Machine'])
 
 def write_coprocess(RunManagement):
-    save_file_maybe_remote(RunManagement, 'coprocess.py', '# do nothing')
+    SV.save_file_maybe_remote('coprocess.py', '# do nothing', RunManagement['RunDirectory'], machine=RunManagement['Machine'])
 
 def write_job_launcher(RunManagement):
 
-    # shutil.copy2(f'{__MOLA_PATH__}/TEMPLATES/job_template.sh', 'job.sh')
     job_text = SV.get_job_text(RunManagement, 'elsa')+'\n\n'
     job_text += f'mpirun $OPENMPIOVERSUBSCRIBE -np {RunManagement["NumberOfProcessors"]} elsA.x -C xdt-runtime-tree compute.py 1>stdout.log 2>stderr.log\n'
-    # Write job file
-    save_file_maybe_remote(RunManagement, 'job.sh', job_text)
-
-def save_file_maybe_remote(RunManagement, filename, txt):
-    if SV.run_on_localhost(RunManagement['Machine'], RunManagement['RunDirectory']):
-        SV.save_file(filename, txt, RunManagement['RunDirectory'])
-    else:
-        SV.save_file(filename, txt, '.')
-        SV.copy_remote(
-            source_path=filename, 
-            destination_path=RunManagement['RunDirectory'], 
-            destination_machine=RunManagement['Machine'],
-            )
+    SV.save_file_maybe_remote('job.sh', job_text, RunManagement['RunDirectory'], machine=RunManagement['Machine'])

@@ -154,7 +154,6 @@ class Workflow(object):
                 NumberOfProcessors=None,
                 AER='',
                 FilesAndDirectories=[f"{os.getenv('MOLA')}/templates/compute.py"],
-                SubmitJob=False,
                 TimeOutInSeconds = 'auto',
                 Machine = 'auto', # or 'spiro-dtis', 'topaze'...
                 LauncherCommand = 'auto', # or 'sbatch job.sh', './job.sh'...

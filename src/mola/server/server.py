@@ -80,13 +80,14 @@ def guess_machine(path=None):
         machine = guess_localhost()
     return machine
 
-def run_on_localhost(machine=None, run_directory='.'):
+def run_on_localhost(machine=None, run_directory='.'):   
+    if machine is None:
+        machine = guess_machine(path=run_directory)
+        
     try:
         localhost = guess_localhost()
         return (localhost == machine)
     except:
-        if run_directory == '.':
-            return True
-        else:
-            return False
+        return True
+    
     
