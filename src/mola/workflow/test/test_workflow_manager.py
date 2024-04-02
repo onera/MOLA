@@ -10,7 +10,7 @@ from treelab import cgns
 
 from mola.workflow import Workflow
 import mola.workflow.workflow_manager as WM
-from mola.logging import check_error_message
+from mola.logging import check_error_message, MolaException
 
 def get_fake():
     @dataclass
@@ -142,23 +142,29 @@ def test_WorkflowParallelScheduler_prepare():
         for pressure in [10, 20, 30]:
             dispatcher.add_variations([('RunManagement|RunDirectory', f'test_{pressure}')])
 
-    scheduler = WM.WorkflowParallelScheduler(dispatcher, '.tmp_test_root')
+    test_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'tmp_test_WorkflowParallelScheduler_prepare_root')
+    try:
+        # remove this directory in case it exists already (e.g. because of a previous error)
+        shutil.rmtree(test_dir)
+    except FileNotFoundError:
+        pass
+
+    scheduler = WM.WorkflowParallelScheduler(dispatcher, test_dir)
     scheduler.prepare()
 
     root_dirs = []
     files_list = []
-    for root, dirs, files in os.walk('.tmp_test_root'):
+    for root, dirs, files in os.walk(test_dir):
         root_dirs.append(root)
         files_list.append(files)
 
-    assert root_dirs == ['.tmp_test_root', '.tmp_test_root/model1', '.tmp_test_root/model1/test_10', '.tmp_test_root/model1/test_30', '.tmp_test_root/model1/test_20', '.tmp_test_root/model2', '.tmp_test_root/model2/test_10', '.tmp_test_root/model2/test_30', '.tmp_test_root/model2/test_20']
+    assert root_dirs == [test_dir, f'{test_dir}/model1', f'{test_dir}/model1/test_10', f'{test_dir}/model1/test_30', f'{test_dir}/model1/test_20', f'{test_dir}/model2', f'{test_dir}/model2/test_10', f'{test_dir}/model2/test_30', f'{test_dir}/model2/test_20']
     assert files_list == [[], ['job_sequence.sh'], ['workflow.cgns'], ['workflow.cgns'], ['workflow.cgns'], ['job_sequence.sh'], ['workflow.cgns'], ['workflow.cgns'], ['workflow.cgns']]
     
-    shutil.rmtree('.tmp_test_root')
+    shutil.rmtree(test_dir)
 
 
-
-def deselected_test_WorkflowParallelScheduler_sphere():
+def test_WorkflowParallelScheduler_sphere():
 
     from mola.workflow.test.test_workflow import get_workflow_sphere_struct
     w = get_workflow_sphere_struct()
@@ -173,20 +179,25 @@ def deselected_test_WorkflowParallelScheduler_sphere():
                     ('Flow|Velocity', velocity),
                     ('BoundaryConditions|Family=Wall|type', BCWall),
                 ], 
-                initialize_from_previous=True
+                initialize_from_previous=False
                 )
-
-    scheduler = WM.WorkflowParallelScheduler(dispatcher, '.tmp_test_root')
+    
+    test_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'tmp_test_WorkflowParallelScheduler_root')
+    try:
+        # remove this directory in case it exists already (e.g. because of a previous error)
+        shutil.rmtree(test_dir)
+    except FileNotFoundError:
+        pass
+        
+    scheduler = WM.WorkflowParallelScheduler(dispatcher, test_dir)
     scheduler.prepare()
-    # scheduler.submit()
+    scheduler.submit()
 
-    root_dirs = []
-    files_list = []
-    for root, dirs, files in os.walk('.tmp_test_root'):
-        root_dirs.append(root)
-        files_list.append(files)
+    for BCWall in ['WallViscous', 'WallInviscid']:
+        for velocity in [50., 20., 80.]:
+            COMPLETED_PATH = os.path.join(scheduler.root_directory, BCWall, f'Velocity_{velocity}', 'COMPLETED')
+            if not os.path.exists(COMPLETED_PATH):
+                raise MolaException(f'simulation did not ended as expected: unable to found file {COMPLETED_PATH}')
 
-    assert root_dirs == ['.tmp_test_root', '.tmp_test_root/SHARED_DATA', '.tmp_test_root/WallInviscid', '.tmp_test_root/WallInviscid/Velocity_50.0', '.tmp_test_root/WallInviscid/Velocity_80.0', '.tmp_test_root/WallInviscid/Velocity_20.0', '.tmp_test_root/WallViscous', '.tmp_test_root/WallViscous/Velocity_50.0', '.tmp_test_root/WallViscous/Velocity_80.0', '.tmp_test_root/WallViscous/Velocity_20.0']
-    assert files_list == [[], ['sphere_struct.cgns'], ['job_sequence.sh'], ['workflow.cgns'], ['workflow.cgns'], ['workflow.cgns'], ['job_sequence.sh'], ['workflow.cgns'], ['workflow.cgns'], ['workflow.cgns']]
+    shutil.rmtree(test_dir)
 
-    shutil.rmtree('.tmp_test_root')
