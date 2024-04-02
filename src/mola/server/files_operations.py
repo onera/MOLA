@@ -15,51 +15,13 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-'''
-MOLA - _cpmv_.py
-
-AUXILIARY COPY/MOVE MODULE
-
-Python wrapper of convenient copy and move operations for
-files and directories, including between localhost and a remote server.
-
-May be used in MODULE MODE or in TERMINAL MODE.
-
-
-Example: Move an entire directory from sator to spiro.
-
--------------- Example of usage in MODULE MODE --------------
-python3
->>> import MOLA._cpmv_ as cpmv
->>> cpmv.cpmvWrap4MultiServer('mv',
-'/tmp_user/sator/username/sandbox/',
-'/scratchm/username/sandbox/')
-
-
-------------- Example of usage in TERMINAL MODE -------------
-# REMEMBER: environment variables must be properly set
-alias cpmv='python3 $MOLA/_cpmv_.py'
-
-# Then in terminal one may tape this:
-cpmv mv /tmp_user/sator/username/sandbox/ /scratchm/username/sandbox/
-
--------------------------- IMPORTANT --------------------------
-This module must import standard python3 libraries only !!!
-Otherwise, calling this module in TERMINAL MODE will produce
-an error. Remember that even a usage as a MODULE will lead to
-a usage in TERMINAL MODE because of the function cpmvWrap4MultiServer
----------------------------------------------------------------
-
-First creation:
-28/07/2020 - L. Bernardos - creation
-'''
-
+import sys
 import os
 import subprocess
 
 from mola.logging import mola_logger, MolaException
 from mola import __MOLA_PATH__
-from . import server
+from . import server as SV
 
 def save_file(filename, text, directory='.'):
     os.makedirs(directory, exist_ok=True)
@@ -99,6 +61,12 @@ def is_existing_path(path, machine=None, user=None, file_only=False):
         option = '-f'
     else:
         option = '-e'
+
+    # mola_target_path = RunManagement['mola_target_path']
+    # network = SV.get_network()
+    # env = os.path.join(mola_target_path, 'mola', 'env', network, 'env.sh')
+    # python_command = f"{sys.executable} -c 'import os; os.path.exits({path})'"
+    # source_env = f"source {env}"
     
     try:
         subprocess.run([f'{ssh_host} test {option} {path} || exit 1'], shell=True, check=True)
@@ -200,13 +168,13 @@ def copy_remote(source_path, destination_path, source_machine=None, destination_
 
     if source_machine is None:
         try:
-            source_machine = server.guess_machine_from_path(source_path) 
+            source_machine = SV.guess_machine_from_path(source_path) 
         except:
             pass
     
     if destination_machine is None:
         try:
-            destination_machine = server.guess_machine_from_path(destination_path) 
+            destination_machine = SV.guess_machine_from_path(destination_path) 
         except:
             pass
 

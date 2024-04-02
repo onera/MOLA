@@ -30,6 +30,8 @@ from  mola.cfd.preprocess import (flow_generators,
                                   extractions,
                                   write_cfd_files)
 
+from mola import server as SV 
+
 from mola.cfd.postprocess import remove_cfd_files
 
 from  mola.cfd.compute import compute
@@ -371,3 +373,13 @@ class Workflow(object):
             if component['OversetOptions']:
                 return True
         return False
+    
+    def submit(self, command=None):
+        if command is None:
+            command = self.RunManagement['LauncherCommand']
+        try:
+            self.RunManagement['User']
+        except:
+            user = None
+        SV.submit_command(command, self.RunManagement['Machine'], user=user)
+

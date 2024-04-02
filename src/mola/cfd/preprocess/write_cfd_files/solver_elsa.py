@@ -85,6 +85,8 @@ def add_elsa_keys_to_cgns(workflow):
 
 def write_data_files(workflow):
 
+    run_on_localhost = SV.run_on_localhost(workflow.RunManagement)
+
     t = workflow.tree
 
     # HACK required in order to avoid AssertionError at line 771 in
@@ -93,10 +95,13 @@ def write_data_files(workflow):
         node.setType('UserDefinedData')
 
     # Save fields.cgns with the 3D fields
-    os.makedirs(os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT'), exist_ok=True)
-
     with redirect_streams_to_logger(mola_logger):
-        t.save(os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT', 'fields.cgns'))
+        if run_on_localhost:
+            os.makedirs(os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT'), exist_ok=True)
+            t.save(os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT', 'fields.cgns'))
+        else:
+            os.makedirs('OUTPUT', exist_ok=True)
+            t.save(os.path.join('OUTPUT', 'fields.cgns'))
 
     # Save main.cgns with links to OUTPUT/fields.cgns for 
     NodesToLink = t.group(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3) # for initial field(s) (possible second order restart)
@@ -109,7 +114,22 @@ def write_data_files(workflow):
         t.addLink(path=path, target_file='OUTPUT/fields.cgns', target_path=path)
         
     with redirect_streams_to_logger(mola_logger):
-        t.save(os.path.join(workflow.RunManagement['RunDirectory'], 'main.cgns'))
+        if run_on_localhost:
+            t.save(os.path.join(workflow.RunManagement['RunDirectory'], 'main.cgns'))
+        else:
+            t.save('main.cgns')
+    
+    if not run_on_localhost:
+        SV.copy_remote(
+            source_path='main.cgns', 
+            destination_path=os.path.join(workflow.RunManagement['RunDirectory'], 'main.cgns'), 
+            destination_machine=workflow.RunManagement['Machine'],
+            )
+        SV.copy_remote(
+            source_path=os.path.join('OUTPUT', 'fields.cgns'), 
+            destination_path=os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT', 'fields.cgns'), 
+            destination_machine=workflow.RunManagement['Machine'],
+            )
 
 def write_run_scripts(workflow):
     write_compute(workflow.RunManagement)
@@ -125,10 +145,10 @@ workflow = Workflow('main.cgns')
 workflow.print()
 workflow.compute()
 '''
-    SV.save_file('compute.py', txt, RunManagement['RunDirectory'])
+    save_file_maybe_remote(RunManagement, 'compute.py', txt)
 
 def write_coprocess(RunManagement):
-    SV.save_file('coprocess.py', '# do nothing', RunManagement['RunDirectory'])
+    save_file_maybe_remote(RunManagement, 'coprocess.py', '# do nothing')
 
 def write_job_launcher(RunManagement):
 
@@ -136,4 +156,15 @@ def write_job_launcher(RunManagement):
     job_text = SV.get_job_text(RunManagement, 'elsa')+'\n\n'
     job_text += f'mpirun $OPENMPIOVERSUBSCRIBE -np {RunManagement["NumberOfProcessors"]} elsA.x -C xdt-runtime-tree compute.py 1>stdout.log 2>stderr.log\n'
     # Write job file
-    SV.save_file('job.sh', job_text, RunManagement['RunDirectory'])
+    save_file_maybe_remote(RunManagement, 'job.sh', job_text)
+
+def save_file_maybe_remote(RunManagement, filename, txt):
+    if SV.run_on_localhost(RunManagement):
+        SV.save_file(filename, txt, RunManagement['RunDirectory'])
+    else:
+        SV.save_file(filename, txt, '.')
+        SV.copy_remote(
+            source_path=filename, 
+            destination_path=RunManagement['RunDirectory'], 
+            destination_machine=RunManagement['Machine'],
+            )

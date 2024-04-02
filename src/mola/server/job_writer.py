@@ -64,6 +64,7 @@ def build_job_scheduler_header(RunManagement):
     header = ''
     scheduler, scheduler_options = get_scheduler_and_options(RunManagement)
     set_time_margin(RunManagement, scheduler_options)
+    set_launcher_command(RunManagement)
     if scheduler == 'SLURM':
         for option, value in scheduler_options.items():
             header += f"#SBATCH --{option}={value}\n"
@@ -121,6 +122,16 @@ def set_time_margin(RunManagement, scheduler_options):
         margin = 600
     RunManagement['TimeOutInSeconds'] = convert_to_seconds(time_limit) - convert_to_seconds(margin)
 
+def set_launcher_command(RunManagement):
+    if 'LauncherCommand' not in RunManagement \
+        or RunManagement['LauncherCommand'] == 'auto':
+        scheduler, scheduler_options = get_scheduler_and_options(RunManagement)
+        job_path = os.path.join(RunManagement['RunDirectory'], 'job.sh')
+        if scheduler == 'SLURM':
+            # RunManagement['LauncherCommand'] = f'sbatch {job_path}'
+            RunManagement['LauncherCommand'] = f"cd {RunManagement['RunDirectory']}; sbatch job.sh"
+        else:
+            RunManagement['LauncherCommand'] = f'bash {job_path}'
 
 def convert_to_seconds(time_value):
     '''

@@ -50,6 +50,7 @@ def test_onera_get_job_text():
         Machine = 'sator',
         JobName = 'mytest',
         AER = 'myAER',
+        RunDirectory = '.',
     )
     job_text = job_writer.get_job_text(RunManagement, 'fake_solver')
 

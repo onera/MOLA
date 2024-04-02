@@ -18,11 +18,33 @@
 import os
 import socket
 from fnmatch import fnmatch
-
+import subprocess
 
 from mola import misc
 from mola.logging import mola_logger, MolaException
 from mola import __MOLA_PATH__
+
+def submit_command(command, machine, user=None, env=None):
+
+    try:
+        localhost = guess_localhost()
+        run_on_localhost = (localhost == machine)
+    except:
+        run_on_localhost = False
+
+    if not run_on_localhost:
+        if user is not None:
+            ssh_host = f"ssh {user}@{machine}"
+        else:
+            ssh_host = f"ssh {machine}"
+
+        if env is not None:
+            command = f'{ssh_host} "{env}; {command}"'
+        else:
+            command = f'{ssh_host} "{command}"'
+
+    mola_logger.debug(command)
+    subprocess.run([command], shell=True)
 
 def get_network():
     return os.getenv('MOLA_NETWORK')
@@ -64,3 +86,13 @@ def guess_machine(path=None):
         machine = guess_localhost()
     return machine
 
+def run_on_localhost(RunManagement):
+    try:
+        localhost = guess_localhost()
+        return (localhost == RunManagement['Machine'])
+    except:
+        if RunManagement['RunDirectory'] == '.':
+            return True
+        else:
+            return False
+    

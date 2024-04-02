@@ -49,3 +49,5 @@ def set_default(RunManagement):
     if ('Machine' not in RunManagement) or (RunManagement['Machine'] == 'auto'):
         RunManagement['Machine'] = SV.guess_machine(RunManagement['RunDirectory'])
         
+    if not SV.run_on_localhost(RunManagement):
+        mola_logger.info(f"> Run on a remote machine ({RunManagement['Machine']}) on path {RunManagement['RunDirectory']}")
