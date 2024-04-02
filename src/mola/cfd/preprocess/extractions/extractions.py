@@ -40,5 +40,7 @@ def process_extractions_2d(workflow):
     for Extraction in workflow.Extractions:
         if Extraction['type'] == 'bc':
             Extraction.setdefault('fields', [])
+            if isinstance(Extraction['fields'], str):
+                Extraction['fields'] = [Extraction['fields']]
     
 
