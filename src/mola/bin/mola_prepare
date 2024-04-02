@@ -4,11 +4,17 @@
 
 import sys
 from mola.workflow import Workflow
+from mola.logging import MolaException
 
 err1 = 'must specify an input file name, e.g.: "mola_prepare workflow.cgns"'
 if len(sys.argv) != 2: raise AttributeError(err1)
 filename = str(sys.argv[1])
 
-w = Workflow(filename)
-w.prepare()
-w.write_cfd_files()
+try:
+    w = Workflow(filename)
+    w.prepare()  
+    w.write_cfd_files()
+except Exception as exception:
+    with open('ERROR_PREPARING_WORKFLOW','w') as f: 
+        f.write(str(exception))
+    raise MolaException('Unable to prepare workflow')

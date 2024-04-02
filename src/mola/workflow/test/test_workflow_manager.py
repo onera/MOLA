@@ -132,7 +132,7 @@ def test_dispatcher_directories():
     assert directories == ['root/test_10', 'root/test_20', 'root/test_30', 'root2/test_40', 'root2/test_50']
 
 
-def test_WorkflowParallelScheduler():
+def test_WorkflowParallelScheduler_prepare():
 
     w = get_fake_workflow()
     dispatcher = WM.WorkflowDispatcher(w)
@@ -154,4 +154,39 @@ def test_WorkflowParallelScheduler():
     assert root_dirs == ['.tmp_test_root', '.tmp_test_root/model1', '.tmp_test_root/model1/test_10', '.tmp_test_root/model1/test_30', '.tmp_test_root/model1/test_20', '.tmp_test_root/model2', '.tmp_test_root/model2/test_10', '.tmp_test_root/model2/test_30', '.tmp_test_root/model2/test_20']
     assert files_list == [[], ['job_sequence.sh'], ['workflow.cgns'], ['workflow.cgns'], ['workflow.cgns'], ['job_sequence.sh'], ['workflow.cgns'], ['workflow.cgns'], ['workflow.cgns']]
     
+    shutil.rmtree('.tmp_test_root')
+
+
+
+def deselected_test_WorkflowParallelScheduler_sphere():
+
+    from mola.workflow.test.test_workflow import get_workflow_sphere_struct
+    w = get_workflow_sphere_struct()
+
+    dispatcher = WM.WorkflowDispatcher(w)
+    for BCWall in ['WallViscous', 'WallInviscid']:
+        dispatcher.new_job(BCWall)
+        for velocity in [50., 20., 80.]:
+            dispatcher.add_variations(
+                [
+                    ('RunManagement|RunDirectory', f'Velocity_{velocity}'),
+                    ('Flow|Velocity', velocity),
+                    ('BoundaryConditions|Family=Wall|type', BCWall),
+                ], 
+                initialize_from_previous=True
+                )
+
+    scheduler = WM.WorkflowParallelScheduler(dispatcher, '.tmp_test_root')
+    scheduler.prepare()
+    # scheduler.submit()
+
+    root_dirs = []
+    files_list = []
+    for root, dirs, files in os.walk('.tmp_test_root'):
+        root_dirs.append(root)
+        files_list.append(files)
+
+    assert root_dirs == ['.tmp_test_root', '.tmp_test_root/SHARED_DATA', '.tmp_test_root/WallInviscid', '.tmp_test_root/WallInviscid/Velocity_50.0', '.tmp_test_root/WallInviscid/Velocity_80.0', '.tmp_test_root/WallInviscid/Velocity_20.0', '.tmp_test_root/WallViscous', '.tmp_test_root/WallViscous/Velocity_50.0', '.tmp_test_root/WallViscous/Velocity_80.0', '.tmp_test_root/WallViscous/Velocity_20.0']
+    assert files_list == [[], ['sphere_struct.cgns'], ['job_sequence.sh'], ['workflow.cgns'], ['workflow.cgns'], ['workflow.cgns'], ['job_sequence.sh'], ['workflow.cgns'], ['workflow.cgns'], ['workflow.cgns']]
+
     shutil.rmtree('.tmp_test_root')

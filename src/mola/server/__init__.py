@@ -16,5 +16,5 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from .files_operations import copy_remote, save_file
-from .job_writer import get_job_text
+from .job_writer import get_job_text, get_scheduler_and_options
 from .server import *

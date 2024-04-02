@@ -26,13 +26,7 @@ from mola import __MOLA_PATH__
 
 def submit_command(command, machine, user=None, env=None):
 
-    try:
-        localhost = guess_localhost()
-        run_on_localhost = (localhost == machine)
-    except:
-        run_on_localhost = False
-
-    if not run_on_localhost:
+    if not run_on_localhost(machine):
         if user is not None:
             ssh_host = f"ssh {user}@{machine}"
         else:
@@ -86,12 +80,12 @@ def guess_machine(path=None):
         machine = guess_localhost()
     return machine
 
-def run_on_localhost(RunManagement):
+def run_on_localhost(machine=None, run_directory='.'):
     try:
         localhost = guess_localhost()
-        return (localhost == RunManagement['Machine'])
+        return (localhost == machine)
     except:
-        if RunManagement['RunDirectory'] == '.':
+        if run_directory == '.':
             return True
         else:
             return False

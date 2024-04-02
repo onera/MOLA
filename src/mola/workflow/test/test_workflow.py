@@ -308,6 +308,7 @@ def test_workflow_sphere_struct():
     w = get_workflow_sphere_struct()
     w.prepare()
     w.write_cfd_files()
+    # w.submit()
     launch_compute_subprocess()
     COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
     if not os.path.exists(COMPLETED_PATH):

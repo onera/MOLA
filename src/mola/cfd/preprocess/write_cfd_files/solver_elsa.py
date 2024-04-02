@@ -85,7 +85,7 @@ def add_elsa_keys_to_cgns(workflow):
 
 def write_data_files(workflow):
 
-    run_on_localhost = SV.run_on_localhost(workflow.RunManagement)
+    run_on_localhost = SV.run_on_localhost(workflow.RunManagement['Machine'], workflow.RunManagement['RunDirectory'])
 
     t = workflow.tree
 
@@ -159,7 +159,7 @@ def write_job_launcher(RunManagement):
     save_file_maybe_remote(RunManagement, 'job.sh', job_text)
 
 def save_file_maybe_remote(RunManagement, filename, txt):
-    if SV.run_on_localhost(RunManagement):
+    if SV.run_on_localhost(RunManagement['Machine'], RunManagement['RunDirectory']):
         SV.save_file(filename, txt, RunManagement['RunDirectory'])
     else:
         SV.save_file(filename, txt, '.')

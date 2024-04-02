@@ -131,7 +131,7 @@ def set_launcher_command(RunManagement):
             # RunManagement['LauncherCommand'] = f'sbatch {job_path}'
             RunManagement['LauncherCommand'] = f"cd {RunManagement['RunDirectory']}; sbatch job.sh"
         else:
-            RunManagement['LauncherCommand'] = f'bash {job_path}'
+            RunManagement['LauncherCommand'] = f"cd {RunManagement['RunDirectory']}; ./job.sh"
 
 def convert_to_seconds(time_value):
     '''

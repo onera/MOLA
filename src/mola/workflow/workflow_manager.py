@@ -189,6 +189,9 @@ class WorkflowSequentialScheduler():
         self._check_structure_of_workflows()
         self._check_and_set_local_paths()
         self._check_all_workflows_have_different_working_directories()
+        self._set_machine()
+        self.scheduler = None
+        self._sequential_job_filename = 'job_sequence.sh'
 
     def _check_structure_of_workflows(self):
         assert isinstance(self.workflows, list)
@@ -213,6 +216,11 @@ class WorkflowSequentialScheduler():
                         f'RunDirectory {path} is not consistent with the root path {self.root_directory}.'
                         )
                 self.cases_local_paths.append(path.replace(self.root_directory, ''))
+
+    def _set_machine(self):
+        first_workflow = self.workflows[0]      
+        write_cfd_files.set_default(first_workflow.RunManagement)
+        self.machine = first_workflow.RunManagement['Machine']
 
     def prepare(self):
         os.makedirs(self.root_directory, exist_ok=True)
@@ -239,25 +247,26 @@ class WorkflowSequentialScheduler():
         first_workflow = self.workflows[0]      
         write_cfd_files.set_default(first_workflow.RunManagement)
         job_text = SV.get_job_text(first_workflow.RunManagement, first_workflow.Solver)
+        self.scheduler, _ = SV.get_scheduler_and_options(first_workflow.RunManagement)
 
         paths_in_bash = '"{}"'.format(' '.join(self.cases_local_paths))
-        loop_on_cases = build_loop_on_cases(paths_in_bash, first_workflow.Solver)
+        loop_on_cases = build_loop_on_cases(paths_in_bash, self._sequential_job_filename)
         job_text += loop_on_cases
         
-        SV.save_file('job_sequence.sh', job_text, self.root_directory)
+        SV.save_file(self._sequential_job_filename, job_text, self.root_directory)
 
     def submit(self):
-        print(f'{CYAN}  > fake submission of job sequence in {self.root_directory}')
-        # os.system(f'bash {self.root_directory}/job_sequence.sh')
+        mola_logger.info(f'  > submission of job sequence in {self.root_directory}')
+        if self.scheduler == 'SLURM':
+            command = f"cd {self.root_directory}; sbatch {self._sequential_job_filename}"
+        else:
+            command = f"cd {self.root_directory}; ./{self._sequential_job_filename}"
+
+        SV.submit_command(command, self.machine)
 
 
-def build_loop_on_cases(sequence_of_paths, solver):
+def build_loop_on_cases(sequence_of_paths, sequential_job_filename):
 
-    if solver == 'elsa':
-        launch_command = 'mpirun -np $SLURM_NTASKS elsA.x -C xdt-runtime-tree -- compute.py 1>stdout.log 2>stderr.log'
-    else:
-        raise MolaException('Not yet implemented')
-    
     loop_on_cases = f'''
 SECONDS=0
 SEQUENCE_OF_PATHS={sequence_of_paths}
@@ -272,16 +281,18 @@ for case in $SEQUENCE_OF_PATHS; do
         mola_prepare workflow.cgns
 
         echo "compute case $case at $SECONDS s"
-        # {launch_command}
+        ./job.sh
         # # python postprocess.py
 
-        # if [ -f "NEWJOB_REQUIRED" ]; then
-        #     rm NEWJOB_REQUIRED
-        #     echo "LAUNCHING THIS JOB AGAIN"
-        #     cd ..
-        #     sbatch job_sequence.sh --dependency=singleton
-        #     exit 0
-        # fi
+        if [ -f "NEWJOB_REQUIRED" ]; then
+            rm NEWJOB_REQUIRED
+            echo "LAUNCHING THIS JOB AGAIN"
+            cd ..
+            sbatch {sequential_job_filename} --dependency=singleton
+            exit 0
+        elif [ -f "ERROR_PREPARING_WORKFLOW" ]; then
+            exit 0
+        fi
     done
 
     cd ..
@@ -305,7 +316,11 @@ def set_value_on_leaf(node, path, value):
             set_value_on_leaf(node[current_path], path[1:], value)
     
     elif isinstance(node, (list, tuple)):
-        assert len(path) > 1
+        if not len(path) > 1:
+            raise MolaAssertionError(
+                f'Path cannot end with a list (current path is {path}). '
+                'You must add the key of the selected dictionary to set.'
+                )
         assert current_path.count('=') == 1
         # search the good element 
         name, search_value = current_path.split('=')
