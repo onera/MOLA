@@ -16,6 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
+import os
 import argparse
 
 def parse_args(args):
@@ -31,7 +32,12 @@ def get_log_level_and_log_file():
         log_level = parser.verbosity
         log_file  = parser.logfile
     except:
-        log_level = 'INFO'
-        log_file  = None
+        script_name = os.path.basename(sys.argv[0])
+        if script_name in ['pytest', 'py.test']:
+            log_level = 'DEBUG'
+            log_file  = None
+        else:
+            log_level = 'INFO'
+            log_file  = None
 
     return log_level, log_file
