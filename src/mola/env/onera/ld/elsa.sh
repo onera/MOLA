@@ -33,12 +33,11 @@ export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849
 export ELSA_NOLOG=ON
 
-export TREELABVERSION=v0.1.0
+export TREELABVERSION=v0.1.1
 export VPMVERSION=Dev
 export PUMAVERSION=v2.0.3
 export TURBOVERSION=v1.3
 export ERSTAZVERSION=v1.6.3
-export OWNCASSREV=rev4670
 export MAIAVERSION=1.2
 
 # architecture
@@ -113,12 +112,6 @@ export PYTHONPATH=$VPMPATH/lib/python3.8/site-packages:$PYTHONPATH
 export LD_LIBRARY_PATH=/opt/tools/intel/oneapi/compiler/2021.2.0/linux/compiler/lib/intel64_lin/:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=/opt/tools/intel/oneapi/mpi/2021.6.0/lib/release:$LD_LIBRARY_PATH
 
-
-# own Cassiopee
-export OWNCASS=/stck/lbernard/Cassiopee/$OWNCASSREV/ld
-export PATH=$OWNCASS:$OWNCASS/lib:$PATH
-export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH
-export PYTHONPATH=$OWNCASS/lib/python3.8/site-packages:$PYTHONPATH
 
 # external python dependencies
 export PYTHONPATH=$MOLAext/ld8/lib/python3.8/site-packages/:$PYTHONPATH

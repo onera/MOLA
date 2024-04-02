@@ -33,12 +33,11 @@ export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849
 export ELSA_NOLOG=ON
 
-export TREELABVERSION=v0.1.0
+export TREELABVERSION=v0.1.1
 export VPMVERSION=Dev
 export PUMAVERSION=v2.0.3
 export TURBOVERSION=v1.3
 export ERSTAZVERSION=v1.6.3
-export OWNCASSREV=rev4670
 export MAIAVERSION=1.2
 
 # architecture
@@ -105,12 +104,6 @@ export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/python_module:$PY
 # maia 
 module use --append /scratchm/sonics/usr/modules/
 module load maia/$MAIAVERSION-dsi-cfd5
-
-# own Cassiopee
-module load occt/7.6.1-gnu831
-export OWNCASS=/stck/lbernard/Cassiopee/$OWNCASSREV/spiro
-export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH
-export PYTHONPATH=$OWNCASS/lib/python3.7/site-packages:$PYTHONPATH
 
 # external python packages
 export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/:$PYTHONPATH

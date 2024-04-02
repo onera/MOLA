@@ -33,13 +33,12 @@ export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849
 export ELSA_NOLOG=ON
 
-export TREELABVERSION=v0.1.0
+export TREELABVERSION=v0.1.1
 export VPMVERSION=Dev
 export PUMAVERSION=v2.0.3
 export TURBOVERSION=v1.3
 export ERSTAZVERSION=v1.6.3
-export OWNCASSREV=rev4670
-export MAIAVERSION=1.2
+# export MAIAVERSION=1.2
 
 # architecture
 if lscpu | grep -q 'avx512' ; then
@@ -81,9 +80,9 @@ export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
 export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
 
-# maia
-module use --append /tmp_user/sator/sonics/usr/modules/
-module load maia/$MAIAVERSION-dsi-cfd5_idx32
+# # maia
+# module use --append /tmp_user/sator/sonics/usr/modules/
+# module load maia/$MAIAVERSION-dsi-cfd5_idx32
 
 # VPM
 export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator/$ARCH
@@ -99,13 +98,6 @@ export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_e
 # ErstaZ
 export EZPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/bin/sator
 export PYTHONPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
-
-# own Cassiopee
-module load occt/7.6.1-gnu831
-export OWNCASS=/tmp_user/sator/lbernard/Cassiopee/$OWNCASSREV/sator
-export PATH=$PATH:$OWNCASS
-export LD_LIBRARY_PATH=$OWNCASS/lib:$LD_LIBRARY_PATH
-export PYTHONPATH=$OWNCASS/lib/python3.7/site-packages:$PYTHONPATH
 
 
 export PYTHONPATH=$MOLAext/sator/lib/python3.7/site-packages/:$PYTHONPATH

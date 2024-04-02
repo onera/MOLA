@@ -18,7 +18,7 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 export MOLA=${SCRIPT_DIR%/mola/env/*}  # retain the part before /mola/env/*
 export MOLAext=/stck/lbernard/MOLA/Dev/ext
-export TREELABVERSION=v0.1.0
+export TREELABVERSION=v0.1.1
 
 source /etc/bashrc
 module purge &>/dev/null
