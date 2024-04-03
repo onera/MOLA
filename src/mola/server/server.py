@@ -59,9 +59,7 @@ def guess_localhost():
 
 def guess_machine_from_path(path):
 
-    cwd = os.getcwd()
-    if path[0] != os.path.sep: 
-        path = os.path.join(cwd, path)
+    path = os.path.abspath(path)
 
     try:
         network_config = get_network_config()

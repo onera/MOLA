@@ -31,8 +31,8 @@ def save_file(filename, text, directory='.'):
     os.chmod(filename, 0o777)
 
 def save_file_maybe_remote(filename, txt, directory='.', machine=None):
-    if not directory.endswith('/'):
-        directory += '/'
+    if not directory.endswith(os.path.sep):
+        directory += os.path.sep
 
     if SV.run_on_localhost(machine, directory):
         save_file(filename, txt, directory)
@@ -63,14 +63,7 @@ def is_existing_path(path, machine=None, user=None, file_only=False):
     -------
     bool
     '''
-
-    if machine is None:
-        ssh_host = ''
-    else:
-        if user is None:
-            ssh_host = f'ssh {machine}'
-        else:
-            ssh_host = f'ssh {user}@{machine}'
+    ssh_host = get_ssh_host_command(path, machine, user)
 
     if file_only:
         option = '-f'
@@ -99,13 +92,7 @@ def is_directory(path, machine=None, user=None):
 
 def remove_path(path, machine=None, user=None, file_only=True):
 
-    if machine is None:
-        ssh_host = ''
-    else:
-        if user is None:
-            ssh_host = f'ssh {machine}'
-        else:
-            ssh_host = f'ssh {user}@{machine}'
+    ssh_host = get_ssh_host_command(path, machine, user)
 
     if file_only:
         recursive_option = ''
@@ -119,12 +106,8 @@ def remove_path(path, machine=None, user=None, file_only=True):
         raise MolaException(f'Cannot remove {path}{precision_if_needed}.')
     
 def makedirs_remote(path, machine=None, user=None):
-    if not SV.run_on_localhost(machine, path):
-        if user is not None:
-            machine = f'{user}@{machine}'
-        subprocess.run([f'ssh {machine} mkdir -p {path}'], shell=True)
-    else:
-        subprocess.run([f'mkdir -p {path}'], shell=True)
+    ssh_host = get_ssh_host_command(path, machine, user)
+    subprocess.run([f'{ssh_host} mkdir -p {path}'], shell=True)
 
 def scp(source_path, destination_path, source_machine=None, destination_machine=None, source_user=None, destination_user=None, force_copy=False, timeout=60):
 
@@ -132,12 +115,12 @@ def scp(source_path, destination_path, source_machine=None, destination_machine=
         precision_if_needed = f' on {source_machine}' if source_machine is not None else ''
         raise MolaException(f'The source path {source_path} does not exist{precision_if_needed}.')
     
-    if (source_machine == destination_machine) and (source_path == destination_path):
+    if (source_machine == destination_machine) and (os.path.realpath(source_path) == os.path.realpath(destination_path)):
         raise MolaException(f'The source path and the destination path are the same ({source_path}).')
     
     raise_error = (
         not force_copy 
-        and not destination_path.endswith('/')
+        and not destination_path.endswith(os.path.sep)
         and is_existing_path(destination_path, destination_machine, destination_user) 
     )
     if raise_error:
@@ -149,7 +132,7 @@ def scp(source_path, destination_path, source_machine=None, destination_machine=
     
     def get_path_with_machine(path, machine=None, user=None):
         if not SV.run_on_localhost(machine, path):
-            if destination_user is None:
+            if user is None:
                 return f'{machine}:{path}'
             else:
                 return f'{user}@{machine}:{path}'
@@ -192,15 +175,9 @@ def copy_remote(source_path, destination_path, source_machine=None, destination_
         If :py:obj:`True`, force the copy and erase the previous **destination_path**.
         By default False.
     '''
-
-    if source_path.startswith('./'): 
-        source_path = source_path[2:]
-    if destination_path.startswith('./'): 
-        destination_path = destination_path[2:]
-
-    if source_path == destination_path:
-        # nothing to do 
-        return
+    # normalize paths, for instance on linux './toto' becomes 'toto'
+    source_path = os.path.normpath(source_path)
+    destination_path = os.path.normpath(destination_path)
 
     if source_machine is None:
         try:
@@ -220,3 +197,13 @@ def copy_remote(source_path, destination_path, source_machine=None, destination_
                force_copy=force_copy
                )
 
+
+def get_ssh_host_command(path, machine=None, user=None):
+    if not SV.run_on_localhost(machine, path):
+        if user is None:
+            ssh_host = f'ssh {machine}'
+        else:
+            ssh_host = f'ssh {user}@{machine}'
+    else:
+        ssh_host = ''
+    return ssh_host
