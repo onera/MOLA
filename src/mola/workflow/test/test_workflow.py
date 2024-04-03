@@ -27,6 +27,9 @@ from mola import server as SV
 import pytest
 onera_only = pytest.mark.skipif(SV.get_network() != 'onera', reason="test on ONERA machines")
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_init():
     w = Workflow()
 
@@ -99,16 +102,22 @@ def get_workflow1():
         )
     return w
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_write_tree():
     w = Workflow()
     w.write_tree('main.cgns')
     os.unlink('main.cgns')
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_set_workflow_parameters_in_tree(filename=''):
     w = Workflow()
     w.set_workflow_parameters_in_tree()
     if filename: w.write_tree(filename)
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_get_workflow_parameters_from_tree(filename=''):
     w = Workflow()
     w.set_workflow_parameters_in_tree()
@@ -118,6 +127,8 @@ def test_get_workflow_parameters_from_tree(filename=''):
     os.unlink('test.cgns')
     if filename: w.write_tree(filename)
 
+@pytest.mark.cost_level_1
+@pytest.mark.sequence
 def test_prepare_workflow1():
     w = get_workflow1()
     w.assemble()
@@ -259,13 +270,16 @@ def get_workflow_sphere_struct():
     
     return w
 
-
+@pytest.mark.sequence
+@pytest.mark.cost_level_1
 def test_prepare_workflow2():
     w = get_workflow2()
     w.prepare()
     w.write_cfd_files()
     w.remove_cfd_files()
 
+@pytest.mark.sequence
+@pytest.mark.cost_level_3
 def test_workflow_sphere_struct():
     w = get_workflow_sphere_struct()
     w.prepare()

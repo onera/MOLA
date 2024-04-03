@@ -15,11 +15,14 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import pytest
 import copy
 import numpy as np
 from mola.cfd.preprocess.motion import motion
 
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_set_default_motion():
     Motion = dict()
     motion.set_default_motion(Motion)
@@ -29,6 +32,9 @@ def test_set_default_motion():
         TranslationSpeed   = [0., 0., 0.],
     )
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_set_default_motion2():
     Motion = dict(RotationSpeed=500)
     motion.set_default_motion(Motion)
@@ -39,6 +45,9 @@ def test_set_default_motion2():
         TranslationSpeed   = [0., 0., 0.],
     )
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_set_default_motion3():
     Motion = dict(
         RotationSpeed=np.empty(3),
@@ -50,6 +59,9 @@ def test_set_default_motion3():
 
     assert Motion == Motion_Ref
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_set_default_motion_function():
     Motion = lambda x: x
     Motion_Ref = copy.copy(Motion)
@@ -57,16 +69,26 @@ def test_set_default_motion_function():
 
     assert Motion == Motion_Ref
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_is_mobile1():
     Motion = dict()
     motion.set_default_motion(Motion)
     assert not motion.is_mobile(Motion)
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_is_mobile2():
     Motion = lambda x: x
     motion.set_default_motion(Motion)
     assert motion.is_mobile(Motion)
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_is_mobile3():
     Motion = dict(
         RotationSpeed      = [500., 0., 0.],
@@ -74,6 +96,10 @@ def test_is_mobile3():
     motion.set_default_motion(Motion)
     assert motion.is_mobile(Motion)
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_is_mobile4():
     Motion = dict(
         TranslationSpeed   = [0., 1., 0.],
@@ -81,6 +107,10 @@ def test_is_mobile4():
     motion.set_default_motion(Motion)
     assert motion.is_mobile(Motion)
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_is_mobile5():
     Motion = dict(
         RotationAxisOrigin = [1., 0., 0.],

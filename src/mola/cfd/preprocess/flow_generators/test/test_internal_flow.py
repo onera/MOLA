@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import pytest
 import numpy as np
 from mola import misc
 from mola.cfd.preprocess.flow_generators.internal_flow import InternalFlowGenerator
@@ -48,18 +49,25 @@ class FakeWorkflow():
             Viscosity_EddyMolecularRatio=0.1,
             )
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_MassFlowFromMach():
     workflow = FakeWorkflow()
     FlowGen = InternalFlowGenerator(workflow)
     Massflow = FlowGen.MassFlowFromMach(0.5, 0.01)
     np.testing.assert_allclose(Massflow, 1.80018457)
 
+@pytest.mark.unit
+@pytest.mark.cost_level_1
 def test_MachFromMassFlow():
     workflow = FakeWorkflow()
     FlowGen = InternalFlowGenerator(workflow)
     Mach = FlowGen.MachFromMassFlow(1.80018457, 0.01)
     np.testing.assert_allclose(Mach, 0.5)
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_InternalFlowGenerator_Mach_and_MassFlow():
     workflow = FakeWorkflow()
     workflow.Flow['MassFlow'] = 1.
@@ -72,6 +80,9 @@ def test_InternalFlowGenerator_Mach_and_MassFlow():
     else:
         raise AssertionError('Giving a Massflow and a Mach, InternalFlowGenerator should raise an error, and it does not.')
     
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_InternalFlowGenerator_without_Mach_and_MassFlow():
     workflow = FakeWorkflow()
     workflow.Flow.pop('MassFlow')
@@ -85,6 +96,10 @@ def test_InternalFlowGenerator_without_Mach_and_MassFlow():
     else:
         raise AssertionError('Giving no Massflow nor Mach, InternalFlowGenerator should raise an error, and it does not.')
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_InternalFlowGenerator():
     workflow = FakeWorkflow()
     FlowGen = InternalFlowGenerator(workflow)

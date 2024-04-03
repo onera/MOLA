@@ -17,13 +17,14 @@
 
 import pytest
 import os
-import copy
 from mola import __MOLA_PATH__
 from mola.logging import check_error_message
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
 from mola import misc
 
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_set_default():
     Network = os.environ.get('MOLA_NETWORK')
     config_path = os.path.join(__MOLA_PATH__,'mola','env',Network,'config.py')
@@ -41,6 +42,8 @@ def test_set_default():
     # TODO Complete the assertion tests
 
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 @pytest.mark.parametrize("NumberOfProcessors", [None, 10., 'number', [5, 6]])
 def test_set_default_error_NumberOfProcessors(NumberOfProcessors):
     RunManagement = dict(NumberOfProcessors=NumberOfProcessors)

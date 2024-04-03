@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import pytest
 import numpy as np
 from treelab import cgns
 from mola.workflow.workflow import Workflow
@@ -42,6 +43,8 @@ def apply_all_previous_stages(workflow):
     workflow.set_motion()
 
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_initialization_uniform():
     mesh = get_debug_mesh()
     workflow = Workflow(
@@ -65,6 +68,9 @@ def test_initialization_uniform():
 
     assert str(workflow.tree.get(Name='FlowSolution#Init')) == str(ref_fs)
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_initialization_copy_not_existing_file():
     mesh = get_debug_mesh()
     workflow = Workflow(
@@ -82,6 +88,10 @@ def test_initialization_copy_not_existing_file():
     else:
         raise AssertionError('Should raise an exception when the source file for initialization does not exist.')
     
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_initialization_copy():    
     ref_fs = cgns.Node(['FlowSolution#Init', None, [
         ['GridLocation', 'CellCenter', [], 'GridLocation_t'], 

@@ -25,3 +25,5 @@ Issues = "https://github.com/onera/MOLA/issues"
 [tool.hatch.build.targets.wheel]
 packages = ["src/mola"]
 
+[tool.pytest.ini_options]
+addopts = "--strict-markers"

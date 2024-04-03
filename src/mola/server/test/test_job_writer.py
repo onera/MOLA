@@ -23,6 +23,9 @@ from mola.server import server
 
 onera_only = pytest.mark.skipif(server.get_network() != 'onera', reason="test on ONERA machines")
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 @pytest.mark.parametrize('in_out', [
     (50, 50),
     ('50', 50),
@@ -36,6 +39,9 @@ def test_convert_to_seconds_ss_int(in_out):
     input, output = in_out[0], in_out[1]
     assert job_writer.convert_to_seconds(input) == output
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_time_margin():
     RunManagement = dict(SecondsMarginForQuitBeforeTimeOut=600)
     scheduler_options = dict(time='00:30:00')
@@ -44,6 +50,8 @@ def test_time_margin():
 
 
 @onera_only
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_onera_get_job_text():
     RunManagement = dict(
         mola_target_path = __MOLA_PATH__,
