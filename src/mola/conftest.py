@@ -15,7 +15,7 @@ def pytest_configure(config):
         "markers", "unit: unit test of an isolated operation, usually fast")
 
     config.addinivalue_line(
-        "markers", "sequence: test of a sequence of operations, usually slow")
+        "markers", "integration: test of a sequence of operations, usually slow")
 
     config.addinivalue_line(
         "markers", "user_case: application representative test, user-oriented, usually very costly")

@@ -151,7 +151,7 @@ def test_dispatcher_directories():
     directories = dispatcher.get_directories()
     assert directories == ['root/test_10', 'root/test_20', 'root/test_30', 'root2/test_40', 'root2/test_50']
 
-@pytest.mark.sequence
+@pytest.mark.integration
 @pytest.mark.cost_level_1
 def test_WorkflowParallelScheduler_prepare():
 
@@ -184,7 +184,7 @@ def test_WorkflowParallelScheduler_prepare():
     
     shutil.rmtree(test_dir)
 
-@pytest.mark.sequence
+@pytest.mark.integration
 @pytest.mark.cost_level_4
 def test_WorkflowParallelScheduler_sphere():
 

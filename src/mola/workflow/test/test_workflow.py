@@ -128,7 +128,7 @@ def test_get_workflow_parameters_from_tree(filename=''):
     if filename: w.write_tree(filename)
 
 @pytest.mark.cost_level_1
-@pytest.mark.sequence
+@pytest.mark.integration
 def test_prepare_workflow1():
     w = get_workflow1()
     w.assemble()
@@ -270,7 +270,7 @@ def get_workflow_sphere_struct():
     
     return w
 
-@pytest.mark.sequence
+@pytest.mark.integration
 @pytest.mark.cost_level_1
 def test_prepare_workflow2():
     w = get_workflow2()
@@ -278,7 +278,7 @@ def test_prepare_workflow2():
     w.write_cfd_files()
     w.remove_cfd_files()
 
-@pytest.mark.sequence
+@pytest.mark.integration
 @pytest.mark.cost_level_3
 def test_workflow_sphere_struct():
     w = get_workflow_sphere_struct()
