@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import pytest
 import copy
 import numpy as np
 from treelab import cgns
@@ -49,6 +50,8 @@ class FakeWorkflow():
 
 
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_add_extractions_for_overset_components():
     workflow = FakeWorkflow()
 
@@ -72,6 +75,9 @@ def test_add_extractions_for_overset_components():
     assert workflow.Extractions == ref_Extractions
 
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_add_trigger():
     ref_trigger = ['ELSA_TRIGGER', None, [
         ['.Solver#Trigger', None, [
@@ -91,6 +97,9 @@ def test_add_trigger():
         assert str(trigger_fam_node) == str(ref_trigger)
     
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_global_convergence_history():
     ref_node = ['GlobalConvergenceHistory', np.array([0], dtype=np.int32), [
         ['NormDefinitions', np.array([b'C', b'o', b'n', b'v', b'e', b'r', b'g', b'e', b'n', b'c', b'e', b'H', b'i', b's', b't', b'o', b'r', b'y'], dtype='|S1'), [], 'Descriptor_t'], 
@@ -108,6 +117,8 @@ def test_global_convergence_history():
         assert str(conv_node) == str(ref_node)  
 
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_process_extractions_3d():
     # assert False, 'Not implemented yet'
     workflow = FakeWorkflow()
@@ -131,6 +142,10 @@ def test_process_extractions_3d():
 
     assert str(FS) == str(FS_ref)
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_process_extractions_3d_additional_variables():
     # assert False, 'Not implemented yet'
     workflow = FakeWorkflow()
@@ -160,6 +175,10 @@ def test_process_extractions_3d_additional_variables():
     
     assert str(FS) == str(FS_ref)
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_process_extractions_3d_coords():
     # assert False, 'Not implemented yet'
     workflow = FakeWorkflow()
@@ -183,6 +202,10 @@ def test_process_extractions_3d_coords():
 
     assert str(FS) == str(FS_ref)
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_process_extractions_3d_average():
     # assert False, 'Not implemented yet'
     workflow = FakeWorkflow()
@@ -209,6 +232,8 @@ def test_process_extractions_3d_average():
 
 
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_adapt_variables_for_2d_extraction_wall():
 
     workflow = FakeWorkflow()
@@ -225,6 +250,10 @@ def test_adapt_variables_for_2d_extraction_wall():
                                     'geomdepdom','delta_cell_max','delta_compute',
                                     'vortratiolim','shearratiolim','pressratiolim']
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_adapt_variables_for_2d_extraction_BCWallInviscid():
 
     workflow = FakeWorkflow()
@@ -239,6 +268,10 @@ def test_adapt_variables_for_2d_extraction_BCWallInviscid():
 
     assert ExtractVariablesList == ['Pressure']
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_adapt_variables_for_2d_extraction_unstructured():
 
     workflow = FakeWorkflow()
@@ -255,7 +288,11 @@ def test_adapt_variables_for_2d_extraction_unstructured():
     assert ExtractVariablesList == ['Pressure', 'yPlus', 
                                     'geomdepdom','delta_cell_max','delta_compute',
                                     'vortratiolim','shearratiolim','pressratiolim']
-    
+
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_adapt_variables_for_2d_extraction_TransitionMode_NonLocalCriteria_LSTT():
 
     workflow = FakeWorkflow()
@@ -272,6 +309,10 @@ def test_adapt_variables_for_2d_extraction_TransitionMode_NonLocalCriteria_LSTT(
                                     'n_crit_ag', 'r_tcrit_ahd', 'r_theta_t1', 
                                     'line_status', 'crit_indicator']
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_adapt_variables_for_2d_extraction_TransitionMode_imposed():
 
     workflow = FakeWorkflow()
@@ -297,7 +338,11 @@ def get_test_parameters_1():
     )
     pinf = 1e5
     return solver_elsa.get_default_parameters_for_2d_extractions(SolverParameters, pinf)
-    
+
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_add_2d_extractions_in_SolverOutput_1():
     default_bc_parameters, default_bc_wall_parameters = get_test_parameters_1()
     
@@ -315,6 +360,10 @@ def test_add_2d_extractions_in_SolverOutput_1():
 
     assert solver_output == solver_output_ref
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_add_2d_extractions_in_SolverOutput_2():
     default_bc_parameters, default_bc_wall_parameters = get_test_parameters_1()
 
@@ -332,6 +381,10 @@ def test_add_2d_extractions_in_SolverOutput_2():
 
     assert solver_output == solver_output_ref
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_add_2d_extractions_in_SolverOutput_3():
     default_bc_parameters, default_bc_wall_parameters = get_test_parameters_1()
 
@@ -350,6 +403,10 @@ def test_add_2d_extractions_in_SolverOutput_3():
     solver_output = FamilyNode.getParameters('.Solver#Output')
     assert solver_output == solver_output_ref
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_add_2d_extractions_in_SolverOutput_4():
     default_bc_parameters, default_bc_wall_parameters = get_test_parameters_1()
     

@@ -30,6 +30,8 @@ class FakeWorkflow():
         self.Motion = Motion
 
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_apply_to_solver():
     Motion = dict(
         Rotor = dict(
@@ -61,6 +63,8 @@ def test_apply_to_solver():
     assert str(workflow.tree.get(Type='Family')) == str(ref_tree)
 
     
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_apply_to_solver_no_motion():
     Motion = dict(
         Rotor = dict(
@@ -76,6 +80,8 @@ def test_apply_to_solver_no_motion():
     assert str(workflow.tree.get(Type='Family')) == "['Rotor', None, [], 'Family_t']"
 
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 @pytest.mark.parametrize("RotationSpeed", [[1.,3.,0.], [1.,0.,4.], [1.,1.,1.]])
 def test_apply_to_solver_invalid_axis(RotationSpeed):
     Motion = dict(

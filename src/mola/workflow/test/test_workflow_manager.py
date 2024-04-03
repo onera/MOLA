@@ -30,26 +30,39 @@ def get_fake():
         )
     return Fake()
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_set_value_on_leaf_1():
     d = dict(x=1, y=dict(z=3))
     WM.set_value_on_leaf(d, ['y', 'z'], 2)
     assert d['y']['z'] == 2
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_set_value_on_leaf_2():
     l = [dict(x=1), dict(y=2, z=3)]
     WM.set_value_on_leaf(l, ['y=2', 'z'], 5)
     assert l[1]['z'] == 5
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_set_value_on_leaf_3():
     fake = get_fake()
     WM.set_value_on_leaf(fake, ['RunManagement', 'RunDirectory'], 'other_test')
     assert fake.RunManagement['RunDirectory'] == 'other_test'
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_set_value_on_leaf_4():
     fake = get_fake()
     WM.set_value_on_leaf(fake, ['BoundaryConditions', 'Family=OUTFLOW', 'Pressure'], 20)
     assert fake.BoundaryConditions[1]['Pressure'] == 20
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_get_value_on_leaf():
     fake = get_fake()
     value = WM.get_value_on_leaf(fake, ['BoundaryConditions', 'Family=OUTFLOW', 'Pressure'])
@@ -105,7 +118,8 @@ def get_fake_workflow():
 
     return w
 
-
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_dispatcher_error_new_job_empty():
 
     w = object()
@@ -113,6 +127,9 @@ def test_dispatcher_error_new_job_empty():
     err_msg = 'Before calling `add_variations`, `new_job` must be called first to declare directory.'
     check_error_message(err_msg, dispatcher.add_variations, ['fake'])
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_dispatcher_directories():
 
     w = get_fake_workflow()
@@ -134,7 +151,8 @@ def test_dispatcher_directories():
     directories = dispatcher.get_directories()
     assert directories == ['root/test_10', 'root/test_20', 'root/test_30', 'root2/test_40', 'root2/test_50']
 
-
+@pytest.mark.sequence
+@pytest.mark.cost_level_1
 def test_WorkflowParallelScheduler_prepare():
 
     w = get_fake_workflow()
@@ -166,7 +184,8 @@ def test_WorkflowParallelScheduler_prepare():
     
     shutil.rmtree(test_dir)
 
-
+@pytest.mark.sequence
+@pytest.mark.cost_level_4
 def test_WorkflowParallelScheduler_sphere():
 
     from mola.workflow.test.test_workflow import get_workflow_sphere_struct

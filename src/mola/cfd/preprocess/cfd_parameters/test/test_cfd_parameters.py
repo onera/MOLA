@@ -30,6 +30,8 @@ class FakeWorkflow():
         self.Numerics = Numerics
 
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 @pytest.mark.parametrize("CellDimension", [1,2,3])
 def test_set_problem_dimension(CellDimension):
     tree = cgns.Tree()
@@ -43,6 +45,9 @@ def test_set_problem_dimension(CellDimension):
 
     assert workflow.ProblemDimension == CellDimension
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_set_problem_dimension_2():
     tree = cgns.Tree()
     base1 = cgns.Base(Name='Base1', Parent=tree)  
@@ -63,6 +68,9 @@ default_numerical_parameters = dict(
     TimeMarching = 'Steady',
 )
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_set_numerical_parameters_default():
     workflow = FakeWorkflow(
         Numerics = dict(
@@ -73,6 +81,8 @@ def test_set_numerical_parameters_default():
     assert workflow.Numerics == default_numerical_parameters
 
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_set_numerical_parameters_custom():
     new_parameters = dict(
         CFL = 5.0,
@@ -86,6 +96,9 @@ def test_set_numerical_parameters_custom():
     ref_numerical_parameters.update(new_parameters)
     assert workflow.Numerics == ref_numerical_parameters
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_set_numerical_parameters_unsteady_error():
     new_parameters = dict(
         CFL = 5.0,
@@ -96,6 +109,10 @@ def test_set_numerical_parameters_unsteady_error():
     expected_error_msg = f'TimeStep must be defined to perform a simulation with TimeMarching={workflow.Numerics["TimeMarching"]}'
     check_error_message(expected_error_msg, cfd_parameters.set_numerical_parameters, workflow)
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_set_numerical_parameters_unsteady():
     new_parameters = dict(
         CFL = 5.0,
@@ -110,11 +127,19 @@ def test_set_numerical_parameters_unsteady():
     ref_numerical_parameters['TimeMarchingOrder'] = 2
     assert workflow.Numerics == ref_numerical_parameters
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_check_cfl_not_defined():
     workflow = FakeWorkflow(Numerics=dict())
     expected_error_msg = 'CFL is not defined. Please give a value or function in Workflow.Numerics'
     check_error_message(expected_error_msg, cfd_parameters.check_cfl, workflow)
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_set_numerical_parameters_cfl_None():
     workflow = FakeWorkflow(Numerics=dict(
         CFL = None
@@ -123,6 +148,9 @@ def test_set_numerical_parameters_cfl_None():
     expected_error_msg = 'CFL must be a scalar or a dict'
     check_error_message(expected_error_msg, cfd_parameters.set_numerical_parameters, workflow)
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 @pytest.mark.parametrize("CFL", ['cfl', [1], np.empty(3)])
 def test_set_numerical_parameters_invalid_cfl(CFL):
     workflow = FakeWorkflow(Numerics=dict(
@@ -132,6 +160,10 @@ def test_set_numerical_parameters_invalid_cfl(CFL):
     expected_error_msg = 'CFL must be a scalar or a dict'
     check_error_message(expected_error_msg, cfd_parameters.set_numerical_parameters, workflow)
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_set_numerical_parameters_cfl_dict():
     workflow = FakeWorkflow(Numerics=dict(
         IterationAtInitialState = 3,
@@ -149,6 +181,9 @@ def test_set_numerical_parameters_cfl_dict():
             EndValue = 3,
         )
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 @pytest.mark.parametrize("CFL", [dict(StartValue=1,EndValue=3), dict(EndIteration=100,EndValue=3), dict(EndIteration=100,StartValue=1)])
 def test_set_numerical_parameters_cfl_dict_invalid(CFL):
     workflow = FakeWorkflow(Numerics=dict(CFL=CFL))

@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import pytest
 import numpy as np
 from mola import misc
 from mola.cfd.preprocess.flow_generators.external_flow import ExternalFlowGenerator
@@ -42,6 +43,9 @@ class FakeWorkflow():
             Viscosity_EddyMolecularRatio=0.1,
             )
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_get_flow_directions():
     AngleOfAttackDeg = 15
     AngleOfSlipDeg   = 2
@@ -54,6 +58,9 @@ def test_get_flow_directions():
     assert np.allclose(side_dir, [ 0.        , -0.99939083, -0.0348995 ]) 
     assert np.allclose(lift_dir, [ 0.96592583,  0.00903265, -0.25866138]) 
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_ExternalFlowGenerator():
     workflow = FakeWorkflow()
     FlowGen = ExternalFlowGenerator(workflow)

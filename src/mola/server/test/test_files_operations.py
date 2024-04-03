@@ -24,6 +24,9 @@ from mola.logging import check_error_message
 
 LOCAL_TEST_DIR = os.path.dirname(os.path.realpath(__file__))
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_is_existing_path_local_file():
     filepath = os.path.join(LOCAL_TEST_DIR, 'test_is_existing_path_FILE')
     with open(filepath, 'w') as fi:
@@ -34,6 +37,9 @@ def test_is_existing_path_local_file():
     os.unlink(filepath)
     assert not FOP.is_existing_path(filepath)
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_is_existing_path_local_directory():
     dirpath = os.path.join(LOCAL_TEST_DIR, 'test_is_existing_path_DIR')
     os.makedirs(dirpath)
@@ -43,6 +49,10 @@ def test_is_existing_path_local_directory():
     shutil.rmtree(dirpath)
     assert not FOP.is_existing_path(dirpath)
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_scp_local_destination_is_a_directory():
     source = os.path.join(LOCAL_TEST_DIR, '.dummy_test_file')
     with open(source, 'w') as fi:
@@ -60,6 +70,10 @@ def test_scp_local_destination_is_a_directory():
     os.unlink(source)
     assert not FOP.is_existing_path(source)
     
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_scp_local_destination_is_a_file():
     source = os.path.join(LOCAL_TEST_DIR, '.dummy_test_file')
     with open(source, 'w') as fi:
@@ -77,6 +91,10 @@ def test_scp_local_destination_is_a_file():
     os.unlink(source)
     assert not FOP.is_existing_path(source)
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_scp_local_destination_is_an_existing_file():
     source = os.path.join(LOCAL_TEST_DIR, '.dummy_test_file')
     with open(source, 'w') as fi:
@@ -98,6 +116,10 @@ def test_scp_local_destination_is_an_existing_file():
     assert not FOP.is_existing_path(source)
     assert not FOP.is_existing_path(destination)
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_scp_local_destination_and_source_are_the_same():
     source = os.path.join(LOCAL_TEST_DIR, '.dummy_test_file')
     with open(source, 'w') as fi:
