@@ -175,9 +175,14 @@ def copy_remote(source_path, destination_path, source_machine=None, destination_
         If :py:obj:`True`, force the copy and erase the previous **destination_path**.
         By default False.
     '''
-    # normalize paths, for instance on linux './toto' becomes 'toto'
-    source_path = os.path.normpath(source_path)
-    destination_path = os.path.normpath(destination_path)
+    def normalize_path_by_removing_current_dir_at_beginning(path):
+        cwd = f'.{os.path.sep}'
+        if path.startswith(cwd): 
+            path = path[len(cwd):]
+        return path
+
+    source_path = normalize_path_by_removing_current_dir_at_beginning(source_path)
+    destination_path = normalize_path_by_removing_current_dir_at_beginning(destination_path)
 
     if source_machine is None:
         try:
