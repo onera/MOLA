@@ -376,9 +376,6 @@ class Workflow(object):
     def submit(self, command=None):
         if command is None:
             command = self.RunManagement['LauncherCommand']
-        try:
-            self.RunManagement['User']
-        except:
-            user = None
+        user = self.RunManagement.get('User')
         SV.submit_command(command, self.RunManagement['Machine'], user=user)
 

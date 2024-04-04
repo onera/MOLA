@@ -25,21 +25,19 @@ from mola import misc
 from mola.logging import mola_logger, MolaException
 from mola import __MOLA_PATH__
 
-def submit_command(command, machine, input=None, user=None, envfile=None):
+def submit_command(command, machine, input=None, user=None):
 
-    if not run_on_localhost(machine):
-        if user is not None:
-            ssh_host = f"ssh {user}@{machine}"
-        else:
-            ssh_host = f"ssh {machine}"
+    ssh_host = get_ssh_host_command(machine=machine, user=user)
+    if ssh_host != '':
+        command = f'{ssh_host} "{command}"'
 
-        if envfile is not None:
-            command = f'{ssh_host} "source {envfile}; {command}"'
-        else:
-            command = f'{ssh_host} "{command}"'
-
-    mola_logger.debug(command)
+    if input is None:
+        mola_logger.debug(f'run command: {command}')
+    else:
+        mola_logger.debug(f'run command: {command} with input {input}')
+    
     subprocess.run([command], input=input, shell=True, check=True, env=os.environ.copy(), encoding='UTF-8')
+
 
 def get_network():
     return os.getenv('MOLA_NETWORK')
@@ -103,6 +101,16 @@ def run_on_localhost(machine=None, run_directory='.'):
         return (localhost == machine)
     except:
         return True
+    
+def get_ssh_host_command(machine=None, user=None, path='.'):
+    if not run_on_localhost(machine, path):
+        if user is None:
+            ssh_host = f'ssh {machine}'
+        else:
+            ssh_host = f'ssh {user}@{machine}'
+    else:
+        ssh_host = ''
+    return ssh_host
     
 def get_mola_installation_path(machine):
     try:

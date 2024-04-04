@@ -63,7 +63,7 @@ def is_existing_path(path, machine=None, user=None, file_only=False):
     -------
     bool
     '''
-    ssh_host = get_ssh_host_command(path, machine, user)
+    ssh_host = SV.get_ssh_host_command(machine, user, path)
 
     if file_only:
         option = '-f'
@@ -92,7 +92,7 @@ def is_directory(path, machine=None, user=None):
 
 def remove_path(path, machine=None, user=None, file_only=True):
 
-    ssh_host = get_ssh_host_command(path, machine, user)
+    ssh_host = SV.get_ssh_host_command(machine, user, path)
 
     if file_only:
         recursive_option = ''
@@ -106,7 +106,7 @@ def remove_path(path, machine=None, user=None, file_only=True):
         raise MolaException(f'Cannot remove {path}{precision_if_needed}.')
     
 def makedirs_remote(path, machine=None, user=None):
-    ssh_host = get_ssh_host_command(path, machine, user)
+    ssh_host = SV.get_ssh_host_command(machine, user, path)
     subprocess.run([f'{ssh_host} mkdir -p {path}'], shell=True)
 
 def scp(source_path, destination_path, source_machine=None, destination_machine=None, source_user=None, destination_user=None, force_copy=False, timeout=60):
@@ -201,14 +201,3 @@ def copy_remote(source_path, destination_path, source_machine=None, destination_
                source_user, destination_user, 
                force_copy=force_copy
                )
-
-
-def get_ssh_host_command(path, machine=None, user=None):
-    if not SV.run_on_localhost(machine, path):
-        if user is None:
-            ssh_host = f'ssh {machine}'
-        else:
-            ssh_host = f'ssh {user}@{machine}'
-    else:
-        ssh_host = ''
-    return ssh_host

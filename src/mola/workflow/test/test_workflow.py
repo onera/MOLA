@@ -291,11 +291,14 @@ def test_workflow_sphere_struct():
     w.remove_cfd_files()
 
 # @onera_only
+# @pytest.mark.integration
+# @pytest.mark.cost_level_3
 # def test_workflow_sphere_struct_remote_sator():
 #     w = get_workflow_sphere_struct()
-#     w.RunManagement['RunDirectory'] = '/tmp_user/sator/$USER/.test/tmp_MOLA_test/'
-#     w.RunManagement['mola_target_path'] = '/tmp_user/sator/$USER/MOLA/mola_v2/src/'
+#     w.RunManagement['RunDirectory'] = f'/tmp_user/sator/$USER/.test/tmp_MOLA_test/'
+#     w.RunManagement['mola_target_path'] = f'/tmp_user/sator/$USER/MOLA/mola_v2/src/'
 #     w.RunManagement['AER'] = '34790002F' # PDEV MOLA 2024
+#     w.RunManagement['TimeLimit'] = '00:30:00'
 
 #     SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
 
@@ -304,6 +307,5 @@ def test_workflow_sphere_struct():
 #     w.submit()
 
 #     COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
-#     if not SV.is_existing_path(COMPLETED_PATH, machine='sator'):
-#         raise MolaException('simulation did not ended as expected')
+#     SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=30)
 #     SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
