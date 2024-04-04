@@ -34,7 +34,6 @@ def set_default(RunManagement):
         NumberOfProcessors=None,
         SecondsMarginForQuitBeforeTimeOut = 180,
         LauncherCommand = 'auto', # or 'sbatch job.sh', './job.sh'...
-        mola_target_path = __MOLA_PATH__,
         FilesAndDirectories=[],
         )
     for key, default_value in RunManagementDefault.items():
@@ -47,6 +46,11 @@ def set_default(RunManagement):
 
     if ('Machine' not in RunManagement) or (RunManagement['Machine'] == 'auto'):
         RunManagement['Machine'] = SV.guess_machine(RunManagement['RunDirectory'])
+    
+    RunManagement.setdefault('mola_target_path', SV.get_mola_installation_path(RunManagement['Machine']))
         
     if not SV.run_on_localhost(RunManagement['Machine'], RunManagement['RunDirectory']):
-        mola_logger.info(f"> Run on a remote machine ({RunManagement['Machine']}) on path {RunManagement['RunDirectory']}")
+        mola_logger.info(f"> Run on a remote machine ({RunManagement['Machine']}):\n"
+                         f"    on path {RunManagement['RunDirectory']}\n"
+                         f"    sourcing {RunManagement['mola_target_path']}"
+                         )

@@ -24,7 +24,7 @@ from mola import misc
 from mola.logging import mola_logger, MolaException
 from mola import __MOLA_PATH__
 
-def submit_command(command, machine, user=None, envfile=None):
+def submit_command(command, machine, input=None, user=None, envfile=None):
 
     if not run_on_localhost(machine):
         if user is not None:
@@ -38,7 +38,7 @@ def submit_command(command, machine, user=None, envfile=None):
             command = f'{ssh_host} "{command}"'
 
     mola_logger.debug(command)
-    subprocess.run([command], shell=True, check=True, env=os.environ.copy())
+    subprocess.run([command], input=input, shell=True, check=True, env=os.environ.copy(), encoding='UTF-8')
 
 def get_network():
     return os.getenv('MOLA_NETWORK')
@@ -78,7 +78,22 @@ def guess_machine(path=None):
         machine = guess_localhost()
     return machine
 
-def run_on_localhost(machine=None, run_directory='.'):   
+def run_on_localhost(machine=None, run_directory='.'): 
+    '''
+    Parameters
+    ----------
+    machine : str or None
+        Name of a machine, that will be test to check if that is the localhost or not.
+        If :py:obj:`None` (default value), then try to guess the machine with :py:fun:`guess_machine`.
+    run_directory : str
+        Path that can be used to guess the machine, if **machine** is None.
+    
+    Returns
+    -------
+    bool
+        True if the machine is given or can be guessed, and that is compared to localhost with success.
+        False if not or if :py:fun:`guess_localhost` return an error.
+    '''  
     if machine is None:
         machine = guess_machine(path=run_directory)
         
@@ -88,4 +103,16 @@ def run_on_localhost(machine=None, run_directory='.'):
     except:
         return True
     
-    
+def get_mola_installation_path(machine):
+    try:
+        network = get_network()
+        path = os.path.join(__MOLA_PATH__, 'mola', 'env', network, machine, 'scheduler_defaults.py')
+        scheduler_defaults = misc.load_source('scheduler_defaults', path)
+        try:
+            return scheduler_defaults.MOLA_PATH
+        except AttributeError:
+            raise
+            
+    except:
+        # By default, return the current installation path, assuming it will be accessible from the specified machine
+        return __MOLA_PATH__
