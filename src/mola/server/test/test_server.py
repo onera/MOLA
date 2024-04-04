@@ -18,6 +18,7 @@
 import pytest
 import sys
 import os
+import time
 from mola import __MOLA_PATH__
 from mola.server import server as SV
 from mola.server import files_operations as FOP
@@ -84,4 +85,22 @@ with open('{filename}', 'w') as f:
     
     FOP.remove_path(filename, machine=machine)
 
-
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_wait_until():
+    def sleep(duration):
+        elapsed_time = time.time() - tic 
+        if elapsed_time < duration:
+            return False
+        else:
+            return True
+    tic = time.time()
+    SV.wait_until(sleep, duration=0.03, period=0.01)
+    # Call the function and overshoot timeout
+    try:
+        SV.wait_until(sleep, duration=10, timeout=0.001, period=0.01)
+        assert False
+    except MolaException:
+        return
+    except:
+        assert False

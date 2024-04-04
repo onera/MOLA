@@ -19,6 +19,7 @@ import os
 import socket
 from fnmatch import fnmatch
 import subprocess
+import time
 
 from mola import misc
 from mola.logging import mola_logger, MolaException
@@ -116,3 +117,11 @@ def get_mola_installation_path(machine):
     except:
         # By default, return the current installation path, assuming it will be accessible from the specified machine
         return __MOLA_PATH__
+
+def wait_until(predicate, timeout=30., period=1.0, *args, **kwargs):
+    must_end = time.time() + timeout
+    while time.time() < must_end:
+        if predicate(*args, **kwargs): 
+            return 
+        time.sleep(period)
+    raise MolaException('Reach TimeOut')
