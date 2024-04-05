@@ -121,7 +121,7 @@ def add_3d_extraction_to_existing_container(Container, Fields2Extract, GridLocat
                 cgns.Node(Parent=Container, Name=field, Type='DataArray')
 
     except AssertionError:
-        raise Exception(misc.RED+'several 3D extractions are incompatible together'+misc.ENDC)
+        raise MolaException('several 3D extractions are incompatible together')
 
 
 def process_extractions_2d(workflow):

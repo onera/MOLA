@@ -15,7 +15,9 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from mola import misc
+from mola.logging import mola_logger, MolaException
+
+from treelab import cgns
 
 K_OMEGA_TWO_EQN_MODELS = ['Wilcox2006-klim', 'Wilcox2006-klim-V',
             'Wilcox2006', 'Wilcox2006-V', 'SST-2003', 
@@ -25,6 +27,156 @@ K_OMEGA_MODELS = K_OMEGA_TWO_EQN_MODELS + [ 'SST-2003-LM2009',
                  'SST-V2003-LM2009', 'SSG/LRR-RSM-w2012']
 
 AvailableTurbulenceModels = K_OMEGA_MODELS + ['smith', 'SA']
+
+TURBULENCE_ELSA_KEYS = {
+
+    'SA': dict(
+        turbmod        = 'spalart',
+    ),
+
+    'Wilcox2006-klim': dict(
+        turbmod        = 'komega_kok',
+        kok_diff_cor   = 'wilcox2006',
+        sst_cor        = 'active',
+        sst_version    = 'wilcox2006',
+        k_prod_limiter = 20.,
+        k_prod_compute = 'from_sij',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',
+    ),
+    
+    'Wilcox2006-klim-V': dict(
+        turbmod        = 'komega_kok',
+        kok_diff_cor   = 'wilcox2006',
+        sst_cor        = 'active',
+        sst_version    = 'wilcox2006',
+        k_prod_limiter = 20.,
+        k_prod_compute = 'from_vorticity',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',
+    ),
+
+    'Wilcox2006': dict(
+        turbmod        = 'komega_kok',
+        kok_diff_cor   = 'wilcox2006',
+        sst_cor        = 'active',
+        sst_version    = 'wilcox2006',
+        k_prod_compute = 'from_sij',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',
+    ),
+    
+    'Wilcox2006-V': dict(
+        turbmod        = 'komega_kok',
+        kok_diff_cor   = 'wilcox2006',
+        sst_cor        = 'active',
+        sst_version    = 'wilcox2006',
+        k_prod_compute = 'from_vorticity',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',
+    ),
+
+    'SST-2003': dict(
+        turbmod        = 'komega_menter',
+        sst_cor        = 'active',
+        sst_version    = 'std_sij',
+        k_prod_limiter = 10.,
+        k_prod_compute = 'from_sij',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',
+    ),
+
+    'SST-V2003': dict(
+        turbmod        = 'komega_menter',
+        sst_cor        = 'active',
+        sst_version    = 'std_sij',
+        k_prod_limiter = 10.,
+        k_prod_compute = 'from_vorticity',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',        
+    ),
+
+    'SST': dict(
+        turbmod        = 'komega_menter',
+        sst_cor        = 'active',
+        sst_version    = 'standard',
+        k_prod_limiter = 20.,
+        k_prod_compute = 'from_sij',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',
+    ),
+
+    'SST-V': dict(
+        turbmod        = 'komega_menter',
+        sst_cor        = 'active',
+        sst_version    = 'standard',
+        k_prod_limiter = 20.,
+        k_prod_compute = 'from_vorticity',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',
+    ),
+
+    'BSL': dict(
+        turbmod        = 'komega_menter',
+        sst_cor        = 'inactive',
+        k_prod_limiter = 20.,
+        k_prod_compute = 'from_sij',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',        
+    ),
+
+    'BSL-V': dict(
+        turbmod        = 'komega_menter',
+        sst_cor        = 'inactive',
+        k_prod_limiter = 20.,
+        k_prod_compute = 'from_vorticity',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',
+    ),
+
+    'smith': dict(
+        turbmod        = 'smith',
+        k_prod_compute = 'from_sij',
+        # TODO: uncomment the following line ?
+        # k_prod_limiter = 20.,
+    ),
+
+    'smith-V': dict(
+        turbmod        = 'smith',
+        k_prod_compute = 'from_vorticity',
+    ),
+
+    'SST-2003-LM2009': dict(
+        turbmod        = 'komega_menter',
+        sst_cor        = 'active',
+        sst_version    = 'std_sij',
+        k_prod_limiter = 10.,
+        k_prod_compute = 'from_sij',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',
+        trans_mod      = 'menter',
+    ),
+
+    'SST-V2003-LM2009': dict(
+        turbmod        = 'komega_menter',
+        sst_cor        = 'active',
+        sst_version    = 'std_sij',
+        k_prod_limiter = 10.,
+        k_prod_compute = 'from_vorticity',
+        zhenglim       = 'inactive',
+        omega_prolong  = 'linear_extrap',
+        trans_mod      = 'menter',
+    ),
+
+    'SSG/LRR-RSM-w2012': dict(
+        turbmod          = 'rsm',
+        rsm_name         = 'ssg_lrr_bsl',
+        rsm_diffusion    = 'isotropic',
+        rsm_bous_limiter = 10.0,
+        omega_prolong    = 'linear_extrap',
+    ),
+
+}
 
 
 def apply_to_solver(workflow):
@@ -49,18 +201,33 @@ def set_cfdpb(workflow):
     
 def set_model(workflow):
 
-    # _____________________________________________________________________________
+    workflow.SolverParameters['model'] = dict(
+        **get_fluid_setup(workflow.Fluid),
+        **get_wall_distance_setup(workflow.tree) ,
+        **get_turbulent_setup(workflow.Turbulence),
+    )
+
+def set_numerics(workflow):
+
+    workflow.SolverParameters['numerics'] = dict(
+        **get_spatial_fluxes(workflow.Numerics, workflow.tree, workflow.Flow),
+        **get_time_marching_setup(workflow.Numerics),
+        **get_turbulence_cutoff_setup(workflow.Turbulence),
+        **get_miscellaneous_setup(workflow),
+    )
+
+def get_fluid_setup(Fluid):
     FluidSetup = dict(
-        cv               = workflow.Fluid['cv'],
+        cv               = Fluid['cv'],
         fluid            = 'pg',
-        gamma            = workflow.Fluid['Gamma'],
+        gamma            = Fluid['Gamma'],
         phymod           = 'nstur',
-        prandtl          = workflow.Fluid['Prandtl'],
-        prandtltb        = workflow.Fluid['PrandtlTurbulent'],
+        prandtl          = Fluid['Prandtl'],
+        prandtltb        = Fluid['PrandtlTurbulent'],
         visclaw          = 'sutherland',
-        suth_const       = workflow.Fluid['SutherlandConstant'],
-        suth_muref       = workflow.Fluid['SutherlandViscosity'],
-        suth_tref        = workflow.Fluid['SutherlandTemperature'],
+        suth_const       = Fluid['SutherlandConstant'],
+        suth_muref       = Fluid['SutherlandViscosity'],
+        suth_tref        = Fluid['SutherlandTemperature'],
 
         # Boundary-layer computation parameters
         vortratiolim    = 1e-3,
@@ -70,178 +237,32 @@ def set_model(workflow):
         delta_compute   = 'first_order_bl',
 
     )
+    return FluidSetup
 
-    # _____________________________________________________________________________
-    # Wall distance computation
-    if workflow.tree.isStructured():
+def get_wall_distance_setup(tree):
+    if tree.isStructured():
         WallDistanceSetup = dict(walldistcompute='mininterf_ortho')
     else:
         WallDistanceSetup = dict(walldistcompute='mininterf')
+    return WallDistanceSetup
 
-    # _____________________________________________________________________________
-    TurbulenceSetup = {
+def get_turbulent_setup(Turbulence):
+    TurbulenceSetup = TURBULENCE_ELSA_KEYS[Turbulence['Model']]
+    TurbulenceSetup.update(get_transition_setup(Turbulence))
+    return TurbulenceSetup
 
-        'SA': dict(
-            turbmod        = 'spalart',
-        ),
-
-        'Wilcox2006-klim': dict(
-            turbmod        = 'komega_kok',
-            kok_diff_cor   = 'wilcox2006',
-            sst_cor        = 'active',
-            sst_version    = 'wilcox2006',
-            k_prod_limiter = 20.,
-            k_prod_compute = 'from_sij',
-            zhenglim       = 'inactive',
-            omega_prolong  = 'linear_extrap',
-        ),
-        
-        'Wilcox2006-klim-V': dict(
-            turbmod        = 'komega_kok',
-            kok_diff_cor   = 'wilcox2006',
-            sst_cor        = 'active',
-            sst_version    = 'wilcox2006',
-            k_prod_limiter = 20.,
-            k_prod_compute = 'from_vorticity',
-            zhenglim       = 'inactive',
-            omega_prolong  = 'linear_extrap',
-        ),
-
-        'Wilcox2006': dict(
-            turbmod        = 'komega_kok',
-            kok_diff_cor   = 'wilcox2006',
-            sst_cor        = 'active',
-            sst_version    = 'wilcox2006',
-            k_prod_compute = 'from_sij',
-            zhenglim       = 'inactive',
-            omega_prolong  = 'linear_extrap',
-        ),
-        
-        'Wilcox2006-V': dict(
-            turbmod        = 'komega_kok',
-            kok_diff_cor   = 'wilcox2006',
-            sst_cor        = 'active',
-            sst_version    = 'wilcox2006',
-            k_prod_compute = 'from_vorticity',
-            zhenglim       = 'inactive',
-            omega_prolong  = 'linear_extrap',
-        ),
-
-        'SST-2003': dict(
-            turbmod        = 'komega_menter',
-            sst_cor        = 'active',
-            sst_version    = 'std_sij',
-            k_prod_limiter = 10.,
-            k_prod_compute = 'from_sij',
-            zhenglim       = 'inactive',
-            omega_prolong  = 'linear_extrap',
-        ),
-
-        'SST-V2003': dict(
-            turbmod        = 'komega_menter',
-            sst_cor        = 'active',
-            sst_version    = 'std_sij',
-            k_prod_limiter = 10.,
-            k_prod_compute = 'from_vorticity',
-            zhenglim       = 'inactive',
-            omega_prolong  = 'linear_extrap',        
-        ),
-
-        'SST': dict(
-            turbmod        = 'komega_menter',
-            sst_cor        = 'active',
-            sst_version    = 'standard',
-            k_prod_limiter = 20.,
-            k_prod_compute = 'from_sij',
-            zhenglim       = 'inactive',
-            omega_prolong  = 'linear_extrap',
-        ),
-
-        'SST-V': dict(
-            turbmod        = 'komega_menter',
-            sst_cor        = 'active',
-            sst_version    = 'standard',
-            k_prod_limiter = 20.,
-            k_prod_compute = 'from_vorticity',
-            zhenglim       = 'inactive',
-            omega_prolong  = 'linear_extrap',
-        ),
-
-        'BSL': dict(
-            turbmod        = 'komega_menter',
-            sst_cor        = 'inactive',
-            k_prod_limiter = 20.,
-            k_prod_compute = 'from_sij',
-            zhenglim       = 'inactive',
-            omega_prolong  = 'linear_extrap',        
-        ),
-
-        'BSL-V': dict(
-            turbmod        = 'komega_menter',
-            sst_cor        = 'inactive',
-            k_prod_limiter = 20.,
-            k_prod_compute = 'from_vorticity',
-            zhenglim       = 'inactive',
-            omega_prolong  = 'linear_extrap',
-        ),
-
-        'smith': dict(
-            turbmod        = 'smith',
-            k_prod_compute = 'from_sij',
-            # TODO: uncomment the following line ?
-            # k_prod_limiter = 20.,
-        ),
-
-        'smith-V': dict(
-            turbmod        = 'smith',
-            k_prod_compute = 'from_vorticity',
-        ),
-
-        'SST-2003-LM2009': dict(
-            turbmod        = 'komega_menter',
-            sst_cor        = 'active',
-            sst_version    = 'std_sij',
-            k_prod_limiter = 10.,
-            k_prod_compute = 'from_sij',
-            zhenglim       = 'inactive',
-            omega_prolong  = 'linear_extrap',
-            trans_mod      = 'menter',
-        ),
-
-        'SST-V2003-LM2009': dict(
-            turbmod        = 'komega_menter',
-            sst_cor        = 'active',
-            sst_version    = 'std_sij',
-            k_prod_limiter = 10.,
-            k_prod_compute = 'from_vorticity',
-            zhenglim       = 'inactive',
-            omega_prolong  = 'linear_extrap',
-            trans_mod      = 'menter',
-        ),
-
-        'SSG/LRR-RSM-w2012': dict(
-            turbmod          = 'rsm',
-            rsm_name         = 'ssg_lrr_bsl',
-            rsm_diffusion    = 'isotropic',
-            rsm_bous_limiter = 10.0,
-            omega_prolong    = 'linear_extrap',
-        ),
-
-    }
-    
-    # _____________________________________________________________________________
-    # Transition Settings
+def get_transition_setup(Turbulence):
     TransitionModeSetup = dict()
-    if workflow.Turbulence['TransitionMode'] == 'NonLocalCriteria-LSTT':
+    if Turbulence['TransitionMode'] == 'NonLocalCriteria-LSTT':
 
-        if 'LM2009' in workflow.Turbulence['Model']:
-            raise AttributeError(misc.RED+"Modeling incoherency! cannot make Non-local transition criteria with Menter-Langtry turbulence model"+misc.ENDC)
+        if 'LM2009' in Turbulence['Model']:
+            raise MolaException('Modeling incoherency! cannot make Non-local transition criteria with Menter-Langtry turbulence model')
         
         TransitionModeSetup = dict(
             freqcomptrans     = 1,
             trans_crit        = 'in_ahd_gl_comp',
             trans_max_bubble  = 'inactive',
-            ext_turb_lev      = workflow.Turbulence['Level'] * 100,
+            ext_turb_lev      = Turbulence['Level'] * 100,
             intermittency     = 'limited',
             interm_thick_coef = 1.2,
             ext_turb_lev_lim  = 'constant_tu',
@@ -261,14 +282,14 @@ def set_model(workflow):
             ahd_n_extract          = 'active',
         )
 
-    elif workflow.Turbulence['TransitionMode'] == 'NonLocalCriteria-Step':
-        if 'LM2009' in workflow.Turbulence['Model']:
-            raise AttributeError(misc.RED+"Modeling incoherency! cannot make Non-local transition criteria with Menter-Langtry turbulence model"+misc.ENDC)
+    elif Turbulence['TransitionMode'] == 'NonLocalCriteria-Step':
+        if 'LM2009' in Turbulence['Model']:
+            raise MolaException('Modeling incoherency! cannot make Non-local transition criteria with Menter-Langtry turbulence model')
         TransitionModeSetup = dict(
             freqcomptrans     = 1,
             trans_crit        = 'in_ahd_comp',
             trans_max_bubble  = 'inactive',
-            ext_turb_lev      = workflow.Turbulence['Level'] * 100,
+            ext_turb_lev      = Turbulence['Level'] * 100,
             intermittency     = 'limited',
             interm_thick_coef = 1.2,
             ext_turb_lev_lim  = 'constant_tu',
@@ -281,32 +302,23 @@ def set_model(workflow):
             ahd_n_extract          = 'active',
         )
 
-    elif workflow.Turbulence['TransitionMode'] == 'Imposed':
-        if 'LM2009' in workflow.Turbulence['Model']:
-            raise AttributeError(misc.RED+"Modeling incoherency! cannot make imposed transition with Menter-Langtry turbulence model"+misc.ENDC)
+    elif Turbulence['TransitionMode'] == 'Imposed':
+        if 'LM2009' in Turbulence['Model']:
+            raise MolaException('Modeling incoherency! cannot make imposed transition with Menter-Langtry turbulence model')
         TransitionModeSetup = dict(
             intermittency       = 'full',
             interm_thick_coef   = 1.2,
             intermittency_form  = 'LSTT19',
         )
     
-    if workflow.Turbulence['TransitionMode'] and workflow.Turbulence['Model'] in K_OMEGA_MODELS:  
+    if Turbulence['TransitionMode'] and Turbulence['Model'] in K_OMEGA_MODELS:  
         TransitionModeSetup['prod_omega_red'] = 'active'
 
-    # _____________________________________________________________________________
-    workflow.SolverParameters['model'] = dict(
-        **FluidSetup,
-        **WallDistanceSetup,
-        **TurbulenceSetup[workflow.Turbulence['Model']],
-        **TransitionModeSetup,
-    )
+    return TransitionModeSetup
 
-
-def set_numerics(workflow):
-
-    # _____________________________________________________________________________
+def get_spatial_fluxes(Numerics, tree, Flow):
     # Convective flux 
-    if workflow.Numerics['Scheme'] == 'Jameson':
+    if Numerics['Scheme'] == 'Jameson':
         SchemeSetup = dict(
         flux               = 'jameson',
         avcoef_k2          = 0.5,
@@ -315,7 +327,7 @@ def set_numerics(workflow):
         av_border          = 'current', # default elsA is 'dif0null', but JCB, JM, LC use 'current' see https://elsa.onera.fr/issues/10624
         av_formul          = 'current', # default elsA is 'new', but JCB, JM, LC use 'current' see https://elsa.onera.fr/issues/10624
         )
-        if workflow.tree.isStructured():
+        if tree.isStructured():
             SchemeSetup.update(dict(
                 artviscosity       = 'dismrt',
                 av_mrt             = 0.3,
@@ -323,25 +335,25 @@ def set_numerics(workflow):
         else:
             # Martinelli correction not available for unstructured grids
             SchemeSetup['artviscosity'] = 'dissca'
-    elif workflow.Numerics['Scheme'] == 'ausm+':
+    elif Numerics['Scheme'] == 'ausm+':
         SchemeSetup = dict(
         flux               = 'ausmplus_pmiles',
         ausm_wiggle        = 'inactive',
         ausmp_diss_cst     = 0.04,
         ausmp_press_vel_cst= 0.04,
-        ausm_tref          = workflow.Flow['Temperature'],
-        ausm_pref          = workflow.Flow['Pressure'],
-        ausm_mref          = workflow.Flow['Mach'],
+        ausm_tref          = Flow['Temperature'],
+        ausm_pref          = Flow['Pressure'],
+        ausm_mref          = Flow['Mach'],
         limiter            = 'third_order',
         )
-    elif workflow.Numerics['Scheme'] == 'Roe':
+    elif Numerics['Scheme'] == 'Roe':
         SchemeSetup = dict(
         flux               = 'roe',
         limiter            = 'valbada',
         psiroe             = 0.01,
         )
     else:
-        raise AttributeError(f'Numerical scheme {workflow.Numerics["Scheme"]} not recognized for the solver elsA')
+        raise AttributeError(f'Numerical scheme {Numerics["Scheme"]} not recognized for the solver elsA')
     
     SchemeSetup['t_harten'] = 0.01
 
@@ -359,53 +371,54 @@ def set_numerics(workflow):
         )
     SchemeSetup.update(FilteringSetup)
 
-    # _____________________________________________________________________________
-    # CFL 
-    if isinstance(workflow.Numerics['CFL'], dict):
+    return SchemeSetup
+
+def get_cfl_setup(cfl):
+    if isinstance(cfl, dict):
         CFLSetup = {
             'cfl_fct': 'f_cfl',
             '.Solver#Function': dict(
                 name  = 'f_cfl', 
                 function_type = 'linear',
-                iteri = workflow.Numerics['CFL']['StartIteration'],
-                iterf = workflow.Numerics['CFL']['EndIteration'],
-                vali  = workflow.Numerics['CFL']['StartValue'],
-                valf  = workflow.Numerics['CFL']['EndValue'],
+                iteri = cfl['StartIteration'],
+                iterf = cfl['EndIteration'],
+                vali  = cfl['StartValue'],
+                valf  = cfl['EndValue'],
             )
         }
     else:
-        CFLSetup = dict(cfl=workflow.Numerics['CFL'])
+        CFLSetup = dict(cfl=cfl)
+    return CFLSetup
 
-    # _____________________________________________________________________________
-    # Time marching 
+def get_time_marching_setup(Numerics):
     TimeMarchingSetup = dict(
-        inititer           = workflow.Numerics['IterationAtInitialState'],
-        niter              = workflow.Numerics['NumberOfIterations'],
+        inititer           = Numerics['IterationAtInitialState'],
+        niter              = Numerics['NumberOfIterations'],
         ode                = 'backwardeuler',
         implicit           = 'lussorsca',
         ssorcycle          = 4,
         freqcompres        = 1,
     )
 
-    if workflow.Numerics['TimeMarching'] == 'Steady':
+    if Numerics['TimeMarching'] == 'Steady':
 
         TimeMarchingSetup.update({
             'time_algo'        : 'steady',
             'global_timestep'  : 'inactive',
             'timestep_div'     : 'divided',  # timestep divided by 2 at the boundaries ; should not be used in unsteady simulations
             'residual_type'    : 'explicit_novolum',
-            **CFLSetup,
+            **get_cfl_setup(Numerics['CFL']),
         })
 
     else:
 
         TimeMarchingSetup.update(dict(
-            timestep           = workflow.Numerics['TimeStep'],
-            itime              = workflow.Numerics['TimeAtInitialState'],
+            timestep           = Numerics['TimeStep'],
+            itime              = Numerics['TimeAtInitialState'],
             restoreach_cons    = 1e-2,
         ))
 
-        if workflow.Numerics['TimeMarchingOrder'] == 1:
+        if Numerics['TimeMarchingOrder'] == 1:
 
             TimeMarchingSetup['time_algo'] = 'unsteady'
 
@@ -414,29 +427,30 @@ def set_numerics(workflow):
             TimeMarchingSetup['time_algo']      = 'gear'
             TimeMarchingSetup['gear_iteration'] = 20
 
-   
-    # _____________________________________________________________________________
+    return TimeMarchingSetup
+
+def get_turbulence_cutoff_setup(Turbulence):
     # Definition of cut-off values for turbulence 
-    turbValues = workflow.Turbulence['Conservatives'].values()
+    turbValues = list(Turbulence['Conservatives'].values())
     if len(turbValues) == 7:  # RSM
         TurbulenceCutOffSetup = dict(
-            t_cutvar1 = workflow.Turbulence['TurbulenceCutOffRatio'] * turbValues[0],
-            t_cutvar2 = workflow.Turbulence['TurbulenceCutOffRatio'] * turbValues[3],
-            t_cutvar3 = workflow.Turbulence['TurbulenceCutOffRatio'] * turbValues[5],
-            t_cutvar4 = workflow.Turbulence['TurbulenceCutOffRatio'] * turbValues[6],
+            t_cutvar1 = Turbulence['TurbulenceCutOffRatio'] * turbValues[0],
+            t_cutvar2 = Turbulence['TurbulenceCutOffRatio'] * turbValues[3],
+            t_cutvar3 = Turbulence['TurbulenceCutOffRatio'] * turbValues[5],
+            t_cutvar4 = Turbulence['TurbulenceCutOffRatio'] * turbValues[6],
         )
 
     elif len(turbValues) > 4: # unsupported 
-        raise ValueError('UNSUPPORTED NUMBER OF TURBULENT FIELDS')
+        raise MolaException('Unsupported number of turbulent fields')
     
     else:
         TurbulenceCutOffSetup = dict()
         for i, value in enumerate(turbValues):
-            TurbulenceCutOffSetup[f't_cutvar{i+1}'] = workflow.Turbulence['TurbulenceCutOffRatio'] * value
+            TurbulenceCutOffSetup[f't_cutvar{i+1}'] = Turbulence['TurbulenceCutOffRatio'] * value
 
+    return TurbulenceCutOffSetup
 
-    # _____________________________________________________________________________
-    # Miscellaneous 
+def get_miscellaneous_setup(workflow):
     MiscellaneousSetup = dict(
         multigrid        = 'none',
         misc_source_term = 'inactive',
@@ -445,6 +459,7 @@ def set_numerics(workflow):
     # TODO Check implementation for BodyForce and Chimera
     if hasattr(workflow, 'BodyForce'):
         MiscellaneousSetup['misc_source_term'] = 'active'
+        tag_zones_with_sourceterm(workflow.tree)
 
     # Chimera parameters
     if workflow.has_overset_component():
@@ -455,12 +470,20 @@ def set_numerics(workflow):
             chm_impl_interp      = 'none',
             chm_interp_depth     = 2
         ))
-        
-    # _____________________________________________________________________________
-    workflow.SolverParameters['numerics'] = dict(
-        **SchemeSetup,
-        **TimeMarchingSetup,
-        **TurbulenceCutOffSetup,
-        **MiscellaneousSetup,
-    )
 
+    return MiscellaneousSetup
+
+def tag_zones_with_sourceterm(t):
+    '''
+    Add node xdt_nature='sourceterm' that is mandatory to use body force.
+    See https://elsa.onera.fr/issues/11496#note-6
+    '''
+    zones = t.zones()
+    if t.get(Name='FlowSolution#DataSourceTerm'):
+        zones = [z for z in zones if z.get(Name='FlowSolution#DataSourceTerm')]
+
+    for zone in zones:
+        solverParam = zone.get(Name='.Solver#Param', Depth=1)
+        if not solverParam:
+            solverParam = cgns.Node(Parent=zone, Name='.Solver#Param', Type='UserDefinedData_t')
+        cgns.Node(Parent=solverParam, Name='xdt_nature', Value='sourceterm', Type='DataArray')

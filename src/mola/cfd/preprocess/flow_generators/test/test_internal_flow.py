@@ -99,7 +99,7 @@ def test_InternalFlowGenerator_without_Mach_and_MassFlow():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
+@pytest.mark.cost_level_1
 def test_InternalFlowGenerator():
     workflow = FakeWorkflow()
     FlowGen = InternalFlowGenerator(workflow)
