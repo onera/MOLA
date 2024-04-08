@@ -107,7 +107,7 @@ def apply(workflow):
             new distributed *(and possibly split)* tree
 
     '''
-    set_default_splitting_parameters(workflow.SplittingAndDistribution)
+    workflow.SplittingAndDistribution = set_default_splitting_parameters(workflow.SplittingAndDistribution)
     
     if not workflow.SplittingAndDistribution['Strategy'].lower() == 'atpreprocess': 
         return
@@ -158,6 +158,8 @@ def set_default_splitting_parameters(SplittingAndDistribution):
 
     for key, value in default_splitAndDist.items():
         SplittingAndDistribution.setdefault(key, value)
+    
+    return SplittingAndDistribution
 
 
 def get_and_check_splitting_mode(SplittingParameters):

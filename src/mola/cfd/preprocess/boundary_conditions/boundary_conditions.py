@@ -170,9 +170,9 @@ def InflowStagnation(workflow, bc):
     PressureStagnation    = bc.get('PressureStagnation', workflow.Flow['PressureStagnation'])
     TemperatureStagnation = bc.get('TemperatureStagnation', workflow.Flow['TemperatureStagnation'])
     EnthalpyStagnation    = bc.get('EnthalpyStagnation', workflow.Fluid['cp'] * TemperatureStagnation)
-    VelocityUnitVectorX   = bc.get('VelocityUnitVectorX', workflow.Flow['DragDirection'][0])
-    VelocityUnitVectorY   = bc.get('VelocityUnitVectorY', workflow.Flow['DragDirection'][1])
-    VelocityUnitVectorZ   = bc.get('VelocityUnitVectorZ', workflow.Flow['DragDirection'][2])
+    VelocityUnitVectorX   = bc.get('VelocityUnitVectorX', workflow.Flow['Direction'][0])
+    VelocityUnitVectorY   = bc.get('VelocityUnitVectorY', workflow.Flow['Direction'][1])
+    VelocityUnitVectorZ   = bc.get('VelocityUnitVectorZ', workflow.Flow['Direction'][2])
     variableForInterpolation = bc.get('variableForInterpolation', 'ChannelHeight')   
 
     ImposedVariables = dict(

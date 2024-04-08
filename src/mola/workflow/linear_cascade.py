@@ -26,6 +26,8 @@ class WorkflowLinearCascade(Workflow):
                  FlowGenerator='Internal',
                  **kwargs
                  ):
+    
+        super().__init__(SplittingAndDistribution=SplittingAndDistribution, FlowGenerator=FlowGenerator, **kwargs)
         
         # channel height computation
         # postprocess on internal component, between two planes
@@ -34,15 +36,12 @@ class WorkflowLinearCascade(Workflow):
         if self.tree is not None:
             for meshInfo in self.RawMeshComponents:
                 meshInfo.setdefault('mesher', 'Autogrid')
-
-            self.ApplicationContext.setdefault('')
             
             self.Extractions.extend([
                 dict(type='bc', BCType='BCInflow*', fields=['MassFlow']),
                 dict(type='bc', BCType='BCOutflow*', fields=['MassFlow']),
             ])
         
-        super().__init__(SplittingAndDistribution=SplittingAndDistribution, FlowGenerator=FlowGenerator, **kwargs)
 
 
     # def get_periodic_direction(self):

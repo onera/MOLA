@@ -17,6 +17,7 @@
 
 import numpy as np
 from mola.cfd.preprocess.motion import motion
+from mola.logging import mola_logger
 
 def apply_to_solver(workflow):
     '''
@@ -43,17 +44,12 @@ def apply_to_solver(workflow):
     for family, MotionOnFamily in workflow.Motion.items():
         famNode = workflow.tree.get(Name=family, Type='Family', Depth=2)
 
-        # TODO Test if zones in that family are modelled with Body Force
-        # If yes, they must be with a rotation speed equal to zero
-
-        print(f'test {family}: {MotionOnFamily}')
-
         if not motion.is_mobile(MotionOnFamily):
-            print(f'immobile')
             continue
         assert_rotation_axis_is_correct(MotionOnFamily)
 
-        print(f'set motion on {family}')
+        mola_logger.debug(f'set motion on {family}: {MotionOnFamily}')
+
         famNode.setParameters('.Solver#Motion',
                                 motion='mobile',
                                 **translate_motion_to_elsa(MotionOnFamily)
