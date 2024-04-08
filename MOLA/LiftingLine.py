@@ -15,7 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
+'''
 MOLA - LiftingLine.py
 
 This module proposes a set of functions for use with LiftingLine-based methods
@@ -25,7 +25,7 @@ Test modification MOLA-VPM
 
 First creation:
 24/11/2019 - L. Bernardos
-"""
+'''
 
 import MOLA
 from . import InternalShortcuts as J
@@ -39,7 +39,6 @@ import re
 import copy
 import traceback
 import numpy as np
-
 if not MOLA.__ONLY_DOC__:
     from numpy.linalg import norm
 
@@ -54,46 +53,34 @@ if not MOLA.__ONLY_DOC__:
 # Global constants
 # -> Fluid constants
 Gamma, Rgp = 1.4, 287.058
-Mus, Cs, Ts = 1.711e-5, 110.4, 273.0  # Sutherland const.
+Mus, Cs, Ts= 1.711e-5, 110.4, 273.0 # Sutherland const.
 
-FAIL = "\033[91m"
-GREEN = "\033[92m"
-WARN = "\033[93m"
-MAGE = "\033[95m"
-CYAN = "\033[96m"
-ENDC = "\033[0m"
+FAIL  = '\033[91m'
+GREEN = '\033[92m'
+WARN  = '\033[93m'
+MAGE  = '\033[95m'
+CYAN  = '\033[96m'
+ENDC  = '\033[0m'
 
 NamesOfChordSpanThickwiseFrameNoTangential = [
-    ["ChordwiseX", "ChordwiseY", "ChordwiseZ"],
-    ["SpanwiseX", "SpanwiseY", "SpanwiseZ"],
-    ["ThickwiseX", "ThickwiseY", "ThickwiseZ"],
-    ["PitchRelativeCenterX", "PitchRelativeCenterY", "PitchRelativeCenterZ"],
-    ["PitchAxisX", "PitchAxisY", "PitchAxisZ"],
-]
+    ['ChordwiseX','ChordwiseY','ChordwiseZ'],
+    ['SpanwiseX','SpanwiseY','SpanwiseZ'],
+    ['ThickwiseX','ThickwiseY','ThickwiseZ'],
+    ['PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ'],
+    ['PitchAxisX','PitchAxisY','PitchAxisZ'],
+    ]
 
-NamesOfChordSpanThickwiseFrame = NamesOfChordSpanThickwiseFrameNoTangential + [
-    ["TangentialX", "TangentialY", "TangentialZ"]
-]
+NamesOfChordSpanThickwiseFrame = NamesOfChordSpanThickwiseFrameNoTangential + \
+    [['TangentialX', 'TangentialY', 'TangentialZ']]
 
-
-def buildBodyForceDisk(
-    Propeller,
-    PolarsInterpolatorsDict,
-    NPtsAzimut,
-    RPM=None,
-    Pitch=None,
-    CommandType=None,
-    Constraint="Pitch",
-    ConstraintValue=None,
-    ValueTol=1.0,
+def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
+    RPM=None, Pitch=None, CommandType=None,
+    Constraint='Pitch', ConstraintValue=None, ValueTol=1.0,
     AttemptCommandGuess=[],
     PerturbationFields=None,
-    StackOptions={},
-    WeightEqns=[],
-    SourceTermScale=1.0,
-    TipLossFactorOptions={},
-):
-    """
+    StackOptions={}, WeightEqns=[],
+    SourceTermScale=1.0, TipLossFactorOptions={}):
+    '''
     Macro-function used to generate the ready-to-use BodyForce
     element for interfacing with a CFD solver.
 
@@ -183,7 +170,7 @@ def buildBodyForceDisk(
 
         TipLossFactorOptions : dict
             Use a tip-loss factor function to the aerodynamic coefficients.
-            This :py:class:`dict` defines a pair of keyword-arguments of the
+            This :py:class:`dict` defines a pair of keyword-arguments of the 
             function :py:func:`applyTipLossFactorToBladeEfforts`.
 
     Returns
@@ -196,173 +183,163 @@ def buildBodyForceDisk(
             .. hint:: by means of :py:func:`Post.PyTree.extractMesh`,
                 **BodyForceElement** can be used to inject source terms into a
                 CFD solver.
-    """
+    '''
     import Converter.Mpi as Cmpi
-
     Cmpi.barrier()
+
 
     if not Propeller:
         if not PerturbationFields:
-            raise ValueError("Must provide Propeller or PerturbationFields")
+            raise ValueError('Must provide Propeller or PerturbationFields')
         addPerturbationFields([], PerturbationFields=PerturbationFields)
-        return []  # BEWARE: CANNOT USE BARRIERS IN THIS FUNCTION FROM THIS LINE
+        return [] # BEWARE: CANNOT USE BARRIERS IN THIS FUNCTION FROM THIS LINE
 
     # this guarantees backwards compatibility
-    if Constraint == "Pitch":
+    if Constraint == 'Pitch':
         if Pitch is None:
             if ConstraintValue is None:
-                raise ValueError("Must provide Pitch value")
+                raise ValueError('Must provide Pitch value')
             Pitch = ConstraintValue
         else:
             ConstraintValue = Pitch
-        CommandType = "Pitch"
+        CommandType = 'Pitch'
 
-    if CommandType == "RPM":
+
+    if CommandType == 'RPM':
         InitialGuessCMD = RPM
 
-    elif CommandType == "Pitch":
+    elif CommandType == 'Pitch':
         InitialGuessCMD = Pitch
 
-    makeTrim = True if Constraint in ("Thrust", "Power") else False
+    makeTrim = True if Constraint in ('Thrust', 'Power') else False
 
     if makeTrim and len(AttemptCommandGuess) == 0:
         if InitialGuessCMD is None:
-            raise ValueError("Must provide initial guess %s" % CommandType)
+            raise ValueError('Must provide initial guess %s'%CommandType)
 
-        AttemptCommandGuess.append([0.95 * InitialGuessCMD, 1.05 * InitialGuessCMD])
-        AttemptCommandGuess.append([0.90 * InitialGuessCMD, 1.10 * InitialGuessCMD])
-        AttemptCommandGuess.append([0.85 * InitialGuessCMD, 1.15 * InitialGuessCMD])
+        AttemptCommandGuess.append([0.95*InitialGuessCMD, 1.05*InitialGuessCMD])
+        AttemptCommandGuess.append([0.90*InitialGuessCMD, 1.10*InitialGuessCMD])
+        AttemptCommandGuess.append([0.85*InitialGuessCMD, 1.15*InitialGuessCMD])
 
-    isProp = checkComponentKind(Propeller, "Propeller")
-    if not isProp:
-        raise AttributeError("A Propeller component is required.")
+
+    isProp = checkComponentKind(Propeller,'Propeller')
+    if not isProp: raise AttributeError('A Propeller component is required.')
+
 
     # Get some relevant data from Propeller
     LLs = I.getZones(Propeller)
     LLnameInitial = LLs[0]
     NBlades = len(LLs)
-    Kin_n = I.getNodeFromName(LLnameInitial, ".Kinematics")
-    RotAxis = I.getValue(I.getNodeFromName1(Kin_n, "RotationAxis"))
-    RotCenter = I.getValue(I.getNodeFromName1(Kin_n, "RotationCenter"))
-    RightHandRuleRotation = I.getValue(
-        I.getNodeFromName1(Kin_n, "RightHandRuleRotation")
-    )
-    RPM_n = I.getNodeFromName1(Kin_n, "RPM")
+    Kin_n = I.getNodeFromName(LLnameInitial,'.Kinematics')
+    RotAxis = I.getValue(I.getNodeFromName1(Kin_n,'RotationAxis'))
+    RotCenter = I.getValue(I.getNodeFromName1(Kin_n,'RotationCenter'))
+    RightHandRuleRotation = I.getValue(I.getNodeFromName1(Kin_n,'RightHandRuleRotation'))
+    RPM_n = I.getNodeFromName1(Kin_n,'RPM')
     RPM_n[1] = RPM
 
-    Comp_n = I.getNodeFromName1(Propeller, ".Component#Info")
+    Comp_n = I.getNodeFromName1(Propeller,'.Component#Info')
 
     # Get the freestream conditions
-    Cond_n = I.getNodeFromName1(LLnameInitial, ".Conditions")
+    Cond_n = I.getNodeFromName1(LLnameInitial,'.Conditions')
+
 
     if not Cond_n:
-        write4Debug(".Conditions not found in propeller")
-        C.convertPyTree2File(Propeller, "debug.cgns")
+        write4Debug('.Conditions not found in propeller')
+        C.convertPyTree2File(Propeller,'debug.cgns')
         os._exit(0)
 
-    fVxyz = I.getNodeFromName1(Cond_n, "VelocityFreestream")[1]
+    fVxyz = I.getNodeFromName1(Cond_n,'VelocityFreestream')[1]
 
-    if np.any(fVxyz != 0.0) and PerturbationFields is not None:
-        fVxyz *= 0.0
-        MSG = (
-            WARN
-            + "WARNING: found non-zero freestream velocity vector AND PerturbationFields is not None. Setting freestream to zero."
-            + ENDC
-        )
+    if np.any(fVxyz!=0.) and PerturbationFields is not None:
+        fVxyz *= 0.
+        MSG = WARN+'WARNING: found non-zero freestream velocity vector AND PerturbationFields is not None. Setting freestream to zero.'+ENDC
         print(MSG)
 
     # Initialize the set of LiftingLines used to further
     # sample the BodyForce element
     RotAxis, RotCenter, Dir = getRotationAxisCenterAndDirFromKinematics(LLs[0])
     AllItersLLs = []
-    Dpsi = 360.0 / float(NPtsAzimut - 1)
+    Dpsi = 360./float(NPtsAzimut-1)
     for it in range(NPtsAzimut):
-        LiftingLine = I.copyTree(LLs[0])
-        LiftingLine[0] = "Blade_it%d" % (it)
-        T._rotate(
-            LiftingLine,
-            tuple(RotCenter),
-            tuple(RotAxis),
-            it * Dir * Dpsi,
-            vectors=NamesOfChordSpanThickwiseFrame,
-        )
+        LiftingLine = I.copyTree( LLs[0] )
+        LiftingLine[0] = 'Blade_it%d'%(it)
+        T._rotate(LiftingLine,tuple(RotCenter),tuple(RotAxis),it*Dir*Dpsi,
+                  vectors=NamesOfChordSpanThickwiseFrame)
         AllItersLLs += [LiftingLine]
 
     # Put all LLs in a PyTree/Base structure
-    tLL = C.newPyTree(["Base", AllItersLLs])  # Tree
-    bLL = I.getBases(tLL)[0]  # Base
-    I.createUniqueChild(bLL, ".Kinematics", "UserDefinedData_t", children=Kin_n[2])
-    I.createUniqueChild(bLL, ".Conditions", "UserDefinedData_t", children=Cond_n[2])
-    I.createUniqueChild(bLL, ".Component#Info", "UserDefinedData_t", children=Comp_n[2])
+    tLL = C.newPyTree(['Base',AllItersLLs]) # Tree
+    bLL = I.getBases(tLL)[0] # Base
+    I.createUniqueChild(bLL,'.Kinematics','UserDefinedData_t',children=Kin_n[2])
+    I.createUniqueChild(bLL,'.Conditions','UserDefinedData_t',children=Cond_n[2])
+    I.createUniqueChild(bLL,'.Component#Info','UserDefinedData_t',children=Comp_n[2])
 
-    setRPM(tLL, RPM_n[1])  # useless, since done later ?
-    computeKinematicVelocity(tLL)  # useless, since done later ?
+    setRPM(tLL, RPM_n[1]) # useless, since done later ?
+    computeKinematicVelocity(tLL) # useless, since done later ?
 
     PerturbationDisk = addPerturbationFields(tLL, PerturbationFields)
 
+
+
+
     # MOLA LiftingLine solver :
     def singleShotMOLA__(cmd):
-        """
+        '''
         Single-shot private function. Enters a control command
         (either Pitch or RPM, defined by CommandType) and returns
         the 1-revolution averaged requested load:
         Thrust (default)
         Power (if Constraint=='Power')
-        """
-        if CommandType == "Pitch":
+        '''
+        if CommandType == 'Pitch':
             addPitch(tLL, cmd)
-        elif CommandType == "RPM":
+        elif CommandType == 'RPM':
             addPitch(tLL, Pitch)
             RPM_n[1] = cmd
 
         setRPM(tLL, RPM_n[1])
         computeKinematicVelocity(tLL)
         assembleAndProjectVelocities(tLL)
-        _applyPolarOnLiftingLine(tLL, PolarsInterpolatorsDict)
+        _applyPolarOnLiftingLine(tLL,PolarsInterpolatorsDict)
 
         if TipLossFactorOptions:
-            TipLossFactorOptions["NumberOfBlades"] = NBlades
+            TipLossFactorOptions['NumberOfBlades']=NBlades
 
         computeGeneralLoadsOfLiftingLine(tLL, TipLossFactorOptions=TipLossFactorOptions)
 
-        if CommandType == "Pitch":
-            addPitch(tLL, -cmd)
+        if CommandType == 'Pitch':
+            addPitch(tLL,-cmd)
         else:
-            addPitch(tLL, -Pitch)
+            addPitch(tLL,-Pitch)
 
-        RequestedLoad = "Power" if Constraint == "Power" else "Thrust"
-        Loads = [I.getValue(n) for n in I.getNodesFromName(tLL, RequestedLoad)]
+        RequestedLoad = 'Power' if Constraint == 'Power' else 'Thrust'
+        Loads = [I.getValue(n) for n in I.getNodesFromName(tLL,RequestedLoad)]
         AvrgLoad = np.mean(Loads)
 
-        return AvrgLoad - ConstraintValue / float(NBlades)
+        return AvrgLoad-ConstraintValue/float(NBlades)
 
-    if Constraint == "Pitch":
+    if Constraint == 'Pitch':
         # Just 1 call required
         singleShotMOLA__(Pitch)
-        addPitch(tLL, Pitch)
+        addPitch(tLL,Pitch)
 
-    elif Constraint in ("Power", "Thrust"):
+    elif Constraint in ('Power','Thrust'):
         # SEARCH TRIM CONDITION
-        AttMat = np.array(AttemptCommandGuess)  # AttemptMatrix
+        AttMat = np.array(AttemptCommandGuess) # AttemptMatrix
         MinBound, MaxBound = AttMat.min(), AttMat.max()
         AttVals, AttCmds = [], []
 
         for a in AttemptCommandGuess:
-            sol = J.secant(
-                singleShotMOLA__,
-                x0=a[0],
-                x1=a[1],
-                ftol=ValueTol / NBlades,
-                bounds=(MinBound, MaxBound),
-                maxiter=20,
-            )
-            if sol["converged"]:
+            sol = J.secant(singleShotMOLA__, x0=a[0], x1=a[1],
+                            ftol=ValueTol/NBlades,
+                            bounds=(MinBound, MaxBound), maxiter=20)
+            if sol['converged']:
                 # Trim found within tolerance
-                AttVals += [sol["froot"]]
-                AttCmds += [sol["root"]]
+                AttVals += [sol['froot']]
+                AttCmds += [sol['root']]
                 break
-            AttVals += [sol["froot"]]
-            AttCmds += [sol["root"]]
+            AttVals += [sol['froot']]
+            AttCmds += [sol['root']]
 
         AttVals = np.hstack(AttVals)
         AttCmds = np.hstack(AttCmds)
@@ -371,25 +348,23 @@ def buildBodyForceDisk(
         iTrim = np.argmin(np.abs(AttVals))
         Trim = AttCmds[iTrim]
 
-        if CommandType == "Pitch":
-            Pitch = Trim
-        elif CommandType == "RPM":
-            RPM = Trim
+        if CommandType == 'Pitch': Pitch = Trim
+        elif CommandType == 'RPM': RPM = Trim
 
         singleShotMOLA__(Trim)
-        addPitch(tLL, Pitch)
+        addPitch(tLL,Pitch)
 
     else:
-        raise AttributeError("Could not recognize Constraint '%s'" % Constraint)
+        raise AttributeError("Could not recognize Constraint '%s'"%Constraint)
 
-    AvrgThrust = np.mean([n[1] for n in I.getNodesFromName(tLL, "Thrust")]) * NBlades
-    AvrgPower = np.mean([n[1] for n in I.getNodesFromName(tLL, "Power")]) * NBlades
+    AvrgThrust= np.mean([n[1] for n in I.getNodesFromName(tLL,'Thrust')]) * NBlades
+    AvrgPower = np.mean([n[1] for n in I.getNodesFromName(tLL,'Power')]) * NBlades
 
     # -------------------------------------------------------------------- #
     # -------------------- FINALIZATION OF COMPUTATION -------------------- #
 
     LLs = I.getZones(tLL)
-    BodyForceSurface = G.stack(LLs)  # Stack LLs to surf
+    BodyForceSurface = G.stack(LLs) # Stack LLs to surf
 
     Stacked = stackBodyForceComponent(BodyForceSurface, RotAxis, **StackOptions)
 
@@ -398,10 +373,9 @@ def buildBodyForceDisk(
     Stacked[0] = RotorName
 
     addThickwiseCoordinate2BodyForceDisk(Stacked, RotAxis)
-    if Dir == -1:
-        T._reorder(Stacked, (1, 2, -3))
+    if Dir == -1: T._reorder( Stacked, (1,2,-3))
 
-    """
+    '''
     For use with Biel Ortun distribution employing Weibull :
     output=gamma/alpha*((x-mu)/alpha)**(gamma-1.) * np.exp(-((x-mu)/alpha)**gamma)
 
@@ -409,85 +383,77 @@ def buildBodyForceDisk(
 
     Introduce:
     "weight=2.0/0.3*(({InverseThickwiseCoordinate})/0.3)**(2.0-1.)*exp(-(({InverseThickwiseCoordinate})/0.3)**2.0)"
-    """
-    for eqn in WeightEqns:
-        C._initVars(Stacked, eqn)
+    '''
+    for eqn in WeightEqns: C._initVars(Stacked, eqn)
 
-    CorrVars = ["ForceAxial", "ForceTangential", "ForceX", "ForceY", "ForceZ"]
+    CorrVars = ['ForceAxial','ForceTangential','ForceX','ForceY','ForceZ']
 
     _keepSectionalForces(Stacked)
 
     Ni, Nj, Nk, dr = getStackedDimensions(Stacked)
 
-    weightNode = I.getNodeFromName2(Stacked, "weight")
+    weightNode = I.getNodeFromName2(Stacked, 'weight')
     if weightNode:
-        for corrVar in CorrVars + ["weight"]:
-            C.node2Center__(Stacked, corrVar)
+        for corrVar in CorrVars+['weight']: C.node2Center__(Stacked, corrVar)
         G._getVolumeMap(Stacked)
 
-        vol_val, weight_val = J.getVars(
-            Stacked, ["vol", "weight"], Container="FlowSolution#Centers"
-        )
+        vol_val, weight_val = J.getVars(Stacked, ['vol','weight'], Container='FlowSolution#Centers')
 
-        vol_tot_val = np.zeros_like(vol_val)
-        weight_tot_val = np.zeros_like(vol_val)
+        vol_tot_val=np.zeros_like(vol_val)
+        weight_tot_val=np.zeros_like(vol_val)
 
         # TODO investigate fully vectorial technique, something similar to (this is bugged):
         # vol_tot_val[:,:,:] = np.sum(vol_val[:,1,:],axis=(1,2))
         # weight_tot_val[:,:,:] = np.sum(weight_val[:,1,:]*vol_val[:,1,:],axis=(1,2))/vol_tot_val[:,:,:]
-        for i in range(Ni - 1):
-            vol_tot_val[i, :, :] = np.sum(vol_val[i, 1, :])
-            weight_tot_val[i, :, :] = (
-                np.sum(weight_val[i, 1, :] * vol_val[i, 1, :]) / vol_tot_val[i, :, :]
-            )
+        for i in range(Ni-1):
+            vol_tot_val[i,:,:] = np.sum(vol_val[i,1,:])
+            weight_tot_val[i,:,:] = np.sum(weight_val[i,1,:]*vol_val[i,1,:])/vol_tot_val[i,:,:]
 
-        fieldsCorrVars_CC = J.getVars(
-            Stacked, CorrVars, Container="FlowSolution#Centers"
-        )
+
+        fieldsCorrVars_CC = J.getVars(Stacked,CorrVars,Container='FlowSolution#Centers')
         for f in fieldsCorrVars_CC:
-            f *= dr * NBlades / (Nj - 1) / vol_tot_val * weight_val / weight_tot_val
+            f *= dr * NBlades / (Nj-1) / vol_tot_val * weight_val / weight_tot_val
 
     else:
-        for corrVar in CorrVars:
-            C.node2Center__(Stacked, corrVar)
+        for corrVar in CorrVars: C.node2Center__(Stacked, corrVar)
         G._getVolumeMap(Stacked)
 
-        vol_val = J.getVars(Stacked, ["vol"], Container="FlowSolution#Centers")[0]
+        vol_val = J.getVars(Stacked, ['vol'], Container='FlowSolution#Centers')[0]
 
-        vol_tot_val = np.zeros_like(vol_val)
-        for i in range(Ni - 1):
-            vol_tot_val[i, :, :] = np.sum(vol_val[i, 1, :])
+        vol_tot_val=np.zeros_like(vol_val)
+        for i in range(Ni-1):
+            vol_tot_val[i,:,:] = np.sum(vol_val[i,1,:])
 
-        fieldsCorrVars_CC = J.getVars(
-            Stacked, CorrVars, Container="FlowSolution#Centers"
-        )
+        fieldsCorrVars_CC = J.getVars(Stacked,CorrVars,Container='FlowSolution#Centers')
         for f in fieldsCorrVars_CC:
-            f *= dr * NBlades / (Nj - 1) / vol_tot_val
+            f *= dr * NBlades / (Nj-1) / vol_tot_val
+
 
     AzimutalLoads = dict()
     for ll in LLs:
-        LL_loads = J.get(ll, ".Loads")
+        LL_loads = J.get(ll,'.Loads')
         for l in LL_loads:
-            try:
-                AzimutalLoads[l].append(LL_loads[l])
-            except KeyError:
-                AzimutalLoads[l] = [LL_loads[l]]
+            try: AzimutalLoads[l].append( LL_loads[l] )
+            except KeyError: AzimutalLoads[l] = [ LL_loads[l] ]
 
     for l in AzimutalLoads:
         AzimutalLoads[l] = np.array(AzimutalLoads[l])
 
+
     for elt in Propeller, Stacked:
-        J.set(elt, ".AzimutalLoads", **AzimutalLoads)
+        J.set(elt,'.AzimutalLoads', **AzimutalLoads)
 
     AzimutallyAveragedLoads = dict()
     for l in AzimutalLoads:
-        AzimutallyAveragedLoads[l] = np.mean(AzimutalLoads[l]) * NBlades
+        AzimutallyAveragedLoads[l] =  np.mean( AzimutalLoads[l] ) * NBlades
+
 
     for elt in Propeller, Stacked:
-        J.set(elt, ".AzimutalAveragedLoads", **AzimutallyAveragedLoads)
-        J.set(elt, ".Commands", Pitch=Pitch, RPM=RPM)
+        J.set(elt,'.AzimutalAveragedLoads', **AzimutallyAveragedLoads)
+        J.set(elt,'.Commands', Pitch=Pitch, RPM=RPM)
 
-    I.createUniqueChild(Stacked, ".Kinematics", "UserDefinedData_t", children=Kin_n[2])
+    I.createUniqueChild(Stacked,'.Kinematics','UserDefinedData_t',
+                                 children=Kin_n[2])
 
     computeSourceTerms(Stacked, SourceTermScale=SourceTermScale)
 
@@ -495,70 +461,60 @@ def buildBodyForceDisk(
 
 
 def _keepSectionalForces(t):
-    """
+    '''
     TODO : change SectionalForces at source (computeGeneralLoads) and propagate
     this is a temporary fix
-    """
-    newFields = [
-        "SectionalForceAxial",
-        "SectionalForceTangential",
-        "SectionalForceX",
-        "SectionalForceY",
-        "SectionalForceZ",
-    ]
+    '''
+    newFields = ['SectionalForceAxial',
+                 'SectionalForceTangential',
+                 'SectionalForceX',
+                 'SectionalForceY',
+                 'SectionalForceZ']
 
     for z in I.getZones(t):
+        
+        FlSol = I.getNodeFromName1(z,'FlowSolution')
+        if not FlSol: continue
 
-        FlSol = I.getNodeFromName1(z, "FlowSolution")
-        if not FlSol:
-            continue
-
-        for fn in newFields:
-            I._rmNodesByName1(FlSol, fn)
+        for fn in newFields: I._rmNodesByName1(FlSol, fn)
 
         for n in FlSol[2][:]:
-            if n[0] == "ForceAxial":
+            if n[0] == 'ForceAxial':
                 n_new = I.copyTree(n)
-                n_new[0] = "SectionalForceAxial"
-                FlSol[2] += [n_new]
+                n_new[0] = 'SectionalForceAxial'
+                FlSol[2] += [ n_new ]
 
-            elif n[0] == "ForceTangential":
+            elif n[0] == 'ForceTangential':
                 n_new = I.copyTree(n)
-                n_new[0] = "SectionalForceTangential"
-                FlSol[2] += [n_new]
+                n_new[0] = 'SectionalForceTangential'
+                FlSol[2] += [ n_new ]
 
-            elif n[0] == "ForceX":
+            elif n[0] == 'ForceX':
                 n_new = I.copyTree(n)
-                n_new[0] = "SectionalForceX"
-                FlSol[2] += [n_new]
+                n_new[0] = 'SectionalForceX'
+                FlSol[2] += [ n_new ]
 
-            elif n[0] == "ForceY":
+            elif n[0] == 'ForceY':
                 n_new = I.copyTree(n)
-                n_new[0] = "SectionalForceY"
-                FlSol[2] += [n_new]
+                n_new[0] = 'SectionalForceY'
+                FlSol[2] += [ n_new ]
 
-            elif n[0] == "ForceZ":
+            elif n[0] == 'ForceZ':
                 n_new = I.copyTree(n)
-                n_new[0] = "SectionalForceZ"
-                FlSol[2] += [n_new]
+                n_new[0] = 'SectionalForceZ'
+                FlSol[2] += [ n_new ]
 
 
 def getStackedDimensions(BF_block):
     Ni, Nj, Nk = I.getZoneDim(BF_block)[1:4]
-    span = J.getVars(BF_block, ["Span"])[0]
-    dr = span[1:, 1:, 1:] - span[:-1, :-1, :-1]
+    span = J.getVars(BF_block, ['Span'])[0]
+    dr = span[1:,1:,1:] - span[:-1,:-1,:-1]
     return Ni, Nj, Nk, dr
 
 
-def stackBodyForceComponent(
-    Component,
-    RotationAxis,
-    StackStrategy="constant",
-    StackRelativeChord=1.0,
-    ExtrusionDistance=None,
-    StackDistribution=None,
-):
-    """
+def stackBodyForceComponent(Component, RotationAxis, StackStrategy='constant',
+        StackRelativeChord=1.0, ExtrusionDistance=None, StackDistribution=None):
+    '''
     Transform a body-force 2D surface disc into a 3D volume grid suitable for
     transfer data towards CFD grid.
 
@@ -611,38 +567,36 @@ def stackBodyForceComponent(
 
         VolumeMesh : zone
             the bodyforce volume grid
-    """
+    '''
     from .GenerativeVolumeDesign import stackSurfacesWithFields
-
     LeadingEdge = I.copyTree(Component)
-    xLE, yLE, zLE = J.getxyz(LeadingEdge)
-    Chord, Twist = J.getVars(LeadingEdge, ["Chord", "Twist"])
+    xLE,yLE,zLE = J.getxyz(LeadingEdge)
+    Chord, Twist = J.getVars(LeadingEdge, ['Chord', 'Twist'])
     sinTwist = np.sin(np.deg2rad(Twist))
 
     TrailingEdge = I.copyTree(Component)
     xTE, yTE, zTE = J.getxyz(TrailingEdge)
 
+
     if StackDistribution is None:
-        StackDistribution = np.linspace(0, 1, 21)
+        StackDistribution = np.linspace(0,1,21)
     else:
-        StackDistribution = J.getDistributionFromHeterogeneousInput__(
-            StackDistribution
-        )[1]
+        StackDistribution = J.getDistributionFromHeterogeneousInput__(StackDistribution)[1]
 
-    if not ExtrusionDistance:
-        ExtrusionDistance = 1.5 * Chord.max()
+    if not ExtrusionDistance: ExtrusionDistance = 1.5 * Chord.max()
 
-    if StackStrategy == "silhouette":
-        LeadingEdgeDisplacement = StackRelativeChord * Chord * sinTwist
-        TrailingEdgeDisplacement = -(1.0 - StackRelativeChord) * Chord * sinTwist
+    if StackStrategy == 'silhouette':
+        LeadingEdgeDisplacement =         StackRelativeChord * Chord * sinTwist
+        TrailingEdgeDisplacement = - (1.-StackRelativeChord) * Chord * sinTwist
 
-    elif StackStrategy == "constant":
 
-        LeadingEdgeDisplacement = StackRelativeChord * ExtrusionDistance
-        TrailingEdgeDisplacement = -(1.0 - StackRelativeChord) * ExtrusionDistance
+    elif StackStrategy == 'constant':
+
+        LeadingEdgeDisplacement =         StackRelativeChord * ExtrusionDistance
+        TrailingEdgeDisplacement = - (1.-StackRelativeChord) * ExtrusionDistance
 
     else:
-        raise AttributeError("StackStrategy %s not recognized" % str(StackStrategy))
+        raise AttributeError('StackStrategy %s not recognized'%str(StackStrategy))
 
     xLE += LeadingEdgeDisplacement * RotationAxis[0]
     yLE += LeadingEdgeDisplacement * RotationAxis[1]
@@ -652,15 +606,15 @@ def stackBodyForceComponent(
     yTE += TrailingEdgeDisplacement * RotationAxis[1]
     zTE += TrailingEdgeDisplacement * RotationAxis[2]
 
-    VolumeBodyForce = stackSurfacesWithFields(
-        TrailingEdge, LeadingEdge, StackDistribution
-    )
+    VolumeBodyForce = stackSurfacesWithFields(TrailingEdge, LeadingEdge,
+                                                  StackDistribution)
 
     return VolumeBodyForce
 
 
+
 def addThickwiseCoordinate2BodyForceDisk(disk, RotationAxis):
-    """
+    '''
     This function adds the fields ``ThickwiseCoordinate`` and
     ``InverseThickwiseCoordinate`` to the volume grid of a bodyforce disk.
     These fields can be used for applying distributions of source terms in an
@@ -677,56 +631,57 @@ def addThickwiseCoordinate2BodyForceDisk(disk, RotationAxis):
 
         RotationAxis : :py:class:`tuple` of 3 :py:class:`float`
             the rotation axis vector components of the rotor.
-    """
-    ThickwiseCoordinate, InverseThickwiseCoordinate = J.invokeFields(
-        disk, ["ThickwiseCoordinate", "InverseThickwiseCoordinate"]
-    )
+    '''
+    ThickwiseCoordinate, InverseThickwiseCoordinate = J.invokeFields(disk,
+                           ['ThickwiseCoordinate','InverseThickwiseCoordinate'])
 
     x, y, z = J.getxyz(disk)
     Ni, Nj, Nk = x.shape
 
-    ThickwiseCoordinate[:, :, :] = (
-        x * RotationAxis[0] + y * RotationAxis[1] + z * RotationAxis[2]
-    )
+    ThickwiseCoordinate[:,:,:] =    x * RotationAxis[0] \
+                                  + y * RotationAxis[1] \
+                                  + z * RotationAxis[2]
+
 
     for i in range(Ni):
-        ThickwiseCoordinateSlice = ThickwiseCoordinate[i, :, :]
+        ThickwiseCoordinateSlice = ThickwiseCoordinate[i,:,:]
         InverseThickwiseCoordinateSlice = ThickwiseCoordinateSlice * 1.0
 
-        isReversed = ThickwiseCoordinate[i, 0, -1] < ThickwiseCoordinate[i, 0, 0]
+        isReversed = ThickwiseCoordinate[i,0,-1] < ThickwiseCoordinate[i,0,0]
 
         MinThickness = ThickwiseCoordinateSlice.min()
         MaxThickness = ThickwiseCoordinateSlice.max()
 
         if isReversed:
 
-            x[i, :, :] = x[i, :, ::-1]
-            y[i, :, :] = y[i, :, ::-1]
-            z[i, :, :] = z[i, :, ::-1]
-            ThickwiseCoordinateSlice[:, :] = ThickwiseCoordinateSlice[:, ::-1]
+            x[i,:,:] = x[i,:,::-1]
+            y[i,:,:] = y[i,:,::-1]
+            z[i,:,:] = z[i,:,::-1]
+            ThickwiseCoordinateSlice[:,:] =  ThickwiseCoordinateSlice[:,::-1]
             InverseThickwiseCoordinateSlice = ThickwiseCoordinateSlice * 1.0
 
             ThickwiseCoordinateSlice -= MaxThickness
-            ThickwiseCoordinateSlice /= MinThickness - MaxThickness
-            ThickwiseCoordinate[i, :, :] = ThickwiseCoordinateSlice
+            ThickwiseCoordinateSlice /= ( MinThickness - MaxThickness )
+            ThickwiseCoordinate[i,:,:] = ThickwiseCoordinateSlice
 
             InverseThickwiseCoordinateSlice -= MinThickness
-            InverseThickwiseCoordinateSlice /= MaxThickness - MinThickness
-            InverseThickwiseCoordinate[i, :, :] = InverseThickwiseCoordinateSlice
+            InverseThickwiseCoordinateSlice /= ( MaxThickness - MinThickness )
+            InverseThickwiseCoordinate[i,:,:] = InverseThickwiseCoordinateSlice
 
         else:
 
             ThickwiseCoordinateSlice -= MinThickness
-            ThickwiseCoordinateSlice /= MaxThickness - MinThickness
-            ThickwiseCoordinate[i, :, :] = ThickwiseCoordinateSlice
+            ThickwiseCoordinateSlice /= ( MaxThickness - MinThickness )
+            ThickwiseCoordinate[i,:,:] = ThickwiseCoordinateSlice
 
             InverseThickwiseCoordinateSlice -= MaxThickness
-            InverseThickwiseCoordinateSlice /= MinThickness - MaxThickness
-            InverseThickwiseCoordinate[i, :, :] = InverseThickwiseCoordinateSlice
+            InverseThickwiseCoordinateSlice /= ( MinThickness - MaxThickness )
+            InverseThickwiseCoordinate[i,:,:] = InverseThickwiseCoordinateSlice
+
 
 
 def computeSourceTerms(zone, SourceTermScale=1.0):
-    """
+    '''
     This function computes the source terms of a bodyforce disk using the
     *required fields* ``VelocityTangential``, ``ForceX``, ``ForceY``, ``ForceZ``, ``ForceTangential``.
 
@@ -738,7 +693,7 @@ def computeSourceTerms(zone, SourceTermScale=1.0):
 
             .. important:: It must contain the fields:
                 ``ForceX``, ``ForceY``, ``ForceZ``, ``ForceTangential`` located at centers
-                (``FlowSolution#Centers`` container); ``VelocityTangential``
+                (``FlowSolution#Centers`` container); ``VelocityTangential`` 
                 located at nodes (``FlowSolution`` container)
 
             .. note:: **zone** is modified (new cell-centered fields are added in
@@ -749,59 +704,43 @@ def computeSourceTerms(zone, SourceTermScale=1.0):
             User can use values slightly higher than ``1`` in order to compensate
             dissipation effects provoked by the transfer of fields from the disk
             towards the CFD computational grid.
-    """
+    '''
     from .Coprocess import printCo
 
-    ConservativeFields = [
-        "Density",
-        "MomentumX",
-        "MomentumY",
-        "MomentumZ",
-        "EnergyStagnationDensity",
-    ]
-    I.__FlowSolutionCenters__ = "FlowSolution#SourceTerm"
-    v1 = ro, rou, rov, row, roe = J.invokeFields(
-        zone, ConservativeFields, locationTag="centers:"
-    )
 
+    ConservativeFields = ['Density', 'MomentumX','MomentumY', 'MomentumZ',
+                        'EnergyStagnationDensity']
+    I.__FlowSolutionCenters__ = 'FlowSolution#SourceTerm'
+    v1= ro, rou, rov, row, roe = J.invokeFields(zone, ConservativeFields,
+                                                locationTag='centers:')
+    
     for v in v1:
         if np.any(np.logical_not(np.isfinite(v))):
-            printCo(
-                "ERROR: NaN were found in conservative quantities !! Ignoring current bodyforce...",
-                color=J.FAIL,
-            )
+            printCo("ERROR: NaN were found in conservative quantities !! Ignoring current bodyforce...",color=J.FAIL)
             v[:] = 0
 
-    I.__FlowSolutionCenters__ = "FlowSolution#Centers"
-    C.node2Center__(zone, "nodes:VelocityTangential")
-    PropellerFields = [
-        "VelocityTangential",
-        "ForceX",
-        "ForceY",
-        "ForceZ",
-        "ForceTangential",
-    ]
-    v2 = VelocityTangential, fx, fy, fz, ft = J.getVars(
-        zone, PropellerFields, Container="FlowSolution#Centers"
-    )
+    I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
+    C.node2Center__(zone, 'nodes:VelocityTangential')
+    PropellerFields = ['VelocityTangential', 'ForceX', 'ForceY', 'ForceZ', 'ForceTangential']
+    v2 = VelocityTangential, fx, fy, fz, ft = J.getVars(zone, PropellerFields,
+                                                Container='FlowSolution#Centers')
 
     for v in v2:
         if np.any(np.logical_not(np.isfinite(v))):
-            printCo(
-                "ERROR: NaN were found in source terms !! Ignoring current bodyforce...",
-                color=J.FAIL,
-            )
+            printCo("ERROR: NaN were found in source terms !! Ignoring current bodyforce...",color=J.FAIL)
             v[:] = 0
 
-    ro[:] = 0.0
-    rou[:] = -fx * SourceTermScale
-    rov[:] = -fy * SourceTermScale
-    row[:] = -fz * SourceTermScale
-    roe[:] = np.abs(ft * VelocityTangential) * SourceTermScale
+
+    ro[:]  = 0.0
+    rou[:] = - fx * SourceTermScale
+    rov[:] = - fy * SourceTermScale
+    row[:] = - fz * SourceTermScale
+    roe[:] = np.abs( ft * VelocityTangential ) * SourceTermScale
+    
 
 
 def migrateSourceTerms2MainPyTree(donor, receiver):
-    """
+    '''
     Migrate by interpolation the source terms of a donor *(typically, a bodyforce
     disk)* towards a receiver *(typically a CFD grid)*.
 
@@ -832,51 +771,47 @@ def migrateSourceTerms2MainPyTree(donor, receiver):
 
             .. note:: if no receiver is present at a given rank, then an empty list is
                 returned
-    """
+    '''
     import Converter.Mpi as Cmpi
     import Post.Mpi as Pmpi
-
     Cmpi.barrier()
     BodyForceDisks = I.getZones(donor)
-    BodyForceDisksTree = C.newPyTree(["BODYFORCE", BodyForceDisks])
+    BodyForceDisksTree = C.newPyTree(['BODYFORCE', BodyForceDisks])
     Cmpi._setProc(BodyForceDisksTree, Cmpi.rank)
     I._adaptZoneNamesForSlash(BodyForceDisksTree)
 
     donor = I.copyRef(BodyForceDisksTree)
-    I._rmNodesByName(donor, "FlowSolution")
-    I._rmNodesByName(donor, ".Info")
-    I._rmNodesByName(donor, ".Kinematics")
+    I._rmNodesByName(donor, 'FlowSolution')
+    I._rmNodesByName(donor, '.Info')
+    I._rmNodesByName(donor, '.Kinematics')
 
     Cmpi.barrier()
     tRec = I.copyRef(receiver)
 
-    I._rmNodesByType(tRec, "FlowSolution_t")
+    I._rmNodesByType(tRec, 'FlowSolution_t')
 
-    I.__FlowSolutionCenters__ = "FlowSolution#SourceTerm"
+    I.__FlowSolutionCenters__ = 'FlowSolution#SourceTerm'
+
 
     # need to make try/except (see Cassiopee #7754)
     Cmpi.barrier()
     try:
-        tRec = Pmpi.extractMesh(
-            donor, tRec, mode="accurate", extrapOrder=0, constraint=0.0
-        )
+        tRec = Pmpi.extractMesh(donor, tRec, mode='accurate',
+                                extrapOrder=0, constraint=0.)
     except:
         tRec = []
     Cmpi.barrier()
 
-    I.__FlowSolutionCenters__ = "FlowSolution#Centers"
+    I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
 
     return tRec
 
 
-def buildPropeller(
-    LiftingLine,
-    NBlades=2,
-    InitialAzimutDirection=[0, 1, 0],
-    InitialAzimutPhase=0.0,
-    MirrorBlade="OnlyIfLeftHandRuleRotation",
-):
-    """
+
+def buildPropeller(LiftingLine, NBlades=2, InitialAzimutDirection=[0,1,0],
+                                InitialAzimutPhase=0., 
+                                MirrorBlade='OnlyIfLeftHandRuleRotation'):
+    '''
     Construct a propeller object using a **LiftingLine** with native location, i.e.
     as generated by :py:func:`buildLiftingLine` function.
     Also, **LiftingLine** must contain `.Kinematics` information as provided by,
@@ -918,7 +853,7 @@ def buildPropeller(
             ``.Kinematics`` node of **LiftingLine**).
 
         MirrorBlade : :py:class:`str` or :py:class:`bool`
-            Parameter controlling in which conditions the blade may (or not) be
+            Parameter controlling in which conditions the blade may (or not) be 
             mirrored. Available options are:
 
             * :py:obj:`False`
@@ -951,31 +886,27 @@ def buildPropeller(
 
         Propeller : base
             ``CGNSBase_t`` object with lifting-line zones representing the propeller
-    """
+    '''
     norm = np.linalg.norm
-    (LiftingLine,) = I.getZones(LiftingLine)
+    LiftingLine, = I.getZones(LiftingLine)
     LiftingLine = I.copyTree(LiftingLine)
-    InitialAzimutDirection = np.array(
-        InitialAzimutDirection, order="F", dtype=np.float64
-    )
-    InitialAzimutDirection /= np.sqrt(
-        InitialAzimutDirection.dot(InitialAzimutDirection)
-    )
+    InitialAzimutDirection = np.array(InitialAzimutDirection, order='F', dtype=np.float64)
+    InitialAzimutDirection/= np.sqrt(InitialAzimutDirection.dot(InitialAzimutDirection))
 
-    RotAxis, RotCenter, Dir = getRotationAxisCenterAndDirFromKinematics(LiftingLine)
+    RotAxis, RotCenter,Dir=getRotationAxisCenterAndDirFromKinematics(LiftingLine)
 
     # Force RotAxis to be unitary
     RotAxis /= np.sqrt(RotAxis.dot(RotAxis))
 
     def misalignmentInDegrees(a, b):
-        return np.abs(np.rad2deg(np.arccos(a.dot(b) / (norm(a) * norm(b)))))
+        return np.abs(np.rad2deg( np.arccos( a.dot(b) / (norm(a)*norm(b)) ) ))
 
     angle = misalignmentInDegrees(InitialAzimutDirection, RotAxis)
-    while angle < 5.0:
+    while angle < 5.:
         InitialAzimutDirection[0] += 0.01
         InitialAzimutDirection[1] += 0.02
         InitialAzimutDirection[2] += 0.03
-        InitialAzimutDirection /= norm(InitialAzimutDirection)
+        InitialAzimutDirection/= norm(InitialAzimutDirection)
         angle = misalignmentInDegrees(InitialAzimutDirection, RotAxis)
 
     # Force initial azimut direction to be on the Rotation plane
@@ -984,18 +915,12 @@ def buildPropeller(
     InitialAzimutDirection /= norm(InitialAzimutDirection)
 
     # Mirror the Lifting-Line
-    if isinstance(MirrorBlade, str):
-        if MirrorBlade not in [
-            "OnlyIfLeftHandRuleRotation",
-            "OnlyIfRightHandRuleRotation",
-        ]:
-            raise AttributeError(
-                "MirrorBlade must be bool or in ['OnlyIfLeftHandRuleRotation','OnlyIfRightHandRuleRotation']"
-            )
+    if isinstance(MirrorBlade,str):
+        if MirrorBlade not in ['OnlyIfLeftHandRuleRotation','OnlyIfRightHandRuleRotation']:
+            raise AttributeError("MirrorBlade must be bool or in ['OnlyIfLeftHandRuleRotation','OnlyIfRightHandRuleRotation']")
 
-        if (Dir == -1 and MirrorBlade == "OnlyIfLeftHandRuleRotation") or (
-            Dir == 1 and MirrorBlade == "OnlyIfRightHandRuleRotation"
-        ):
+        if  (Dir == -1 and MirrorBlade=='OnlyIfLeftHandRuleRotation') or \
+            (Dir ==  1 and MirrorBlade=='OnlyIfRightHandRuleRotation'):
             mirrorBlade(LiftingLine)
     elif MirrorBlade is True:
         mirrorBlade(LiftingLine)
@@ -1004,60 +929,42 @@ def buildPropeller(
     LLs = []
     for nb in range(NBlades):
         NewBlade = I.copyTree(LiftingLine)
-        NewBlade[0] += "_blade%d" % (nb + 1)
+        NewBlade[0] += '_blade%d'%(nb+1)
 
         # Apply azimuthal position
-        AzPos = nb * (360.0 / float(NBlades))
-        T._rotate(
-            NewBlade,
-            (0, 0, 0),
-            (0, 0, 1),
-            AzPos + Dir * InitialAzimutPhase,
-            vectors=NamesOfChordSpanThickwiseFrame,
-        )
+        AzPos = nb*(360./float(NBlades))
+        T._rotate(NewBlade,(0,0,0),(0,0,1),AzPos+Dir*InitialAzimutPhase,
+                  vectors=NamesOfChordSpanThickwiseFrame)
         LLs += [NewBlade]
 
     # ======= PUT THE PROPELLER IN ITS NEW LOCATION ======= #
 
     # This is the LiftingLine's reference frame ats its canonical position
-    LLFrame = (
-        (1, 0, 0),  # Blade-wise
-        (0, 1, 0),  # sweep-wise
-        (0, 0, 1),
-    )  # Rotation axis
+    LLFrame = ((1,0,0), # Blade-wise
+               (0,1,0), # sweep-wise
+               (0,0,1)) # Rotation axis
 
     # Compute destination propeller's Frame
-    sweepwise = np.cross(RotAxis, InitialAzimutDirection)
-    PropFrame = (
-        tuple(InitialAzimutDirection),  # Blade-wise
-        tuple(sweepwise),  # sweep-wise
-        tuple(RotAxis),
-    )  # Rotation axis
+    sweepwise = np.cross(RotAxis,InitialAzimutDirection)
+    PropFrame = (tuple(InitialAzimutDirection),     # Blade-wise
+                 tuple(sweepwise), # sweep-wise
+                 tuple(RotAxis))   # Rotation axis
 
-    T._rotate(
-        LLs, (0, 0, 0), LLFrame, arg2=PropFrame, vectors=NamesOfChordSpanThickwiseFrame
-    )
-    T._translate(LLs, tuple(RotCenter))
+    T._rotate(LLs,(0,0,0),LLFrame,arg2=PropFrame,vectors=NamesOfChordSpanThickwiseFrame)
+    T._translate(LLs,tuple(RotCenter))
 
     # ============= INVOKE BASE AND ADD BLADES ============= #
-    PropBase = I.newCGNSBase("Propeller", cellDim=1, physDim=3)
-    PropBase[2] = LLs  # Add Blades
+    PropBase = I.newCGNSBase('Propeller',cellDim=1,physDim=3)
+    PropBase[2] = LLs # Add Blades
 
     # Sets component general information
-    J.set(PropBase, ".Component#Info", kind="Propeller")
+    J.set(PropBase,'.Component#Info',kind='Propeller')
 
     return PropBase
 
-
-def getLocalFramePerpendicularToLiftingLine(
-    line=[0.0, 1.0],
-    RightHandRuleRotation=True,
-    Symmetrical=False,
-    Twist={},
-    Sweep={},
-    Dihedral={},
-):
-    """
+def getLocalFramePerpendicularToLiftingLine(line = [0., 1.],
+    RightHandRuleRotation = True, Symmetrical = False, Twist = {}, Sweep = {}, Dihedral = {}):
+    '''
     Builds the referential of each section perpendicular to the Lifting Line.
 
 
@@ -1077,11 +984,11 @@ def getLocalFramePerpendicularToLiftingLine(
 
         Line : zone or :py:class:`float`
             Discretisation of the Lifting Line. Starts and ends with the Lifting Line geometry.
-
+        
         RightHandRuleRotation : bool
-            Determines wether the LiftingLine is taken as a rotating blade
+            Determines wether the LiftingLine is taken as a rotating blade 
             following the right-hand-rule rotation or not.
-
+        
         Symmetrical : bool
             Determines if the Lifting Line is symmetrised. A symmetrical extention is added to the
             build Lifting Line.
@@ -1108,195 +1015,129 @@ def getLocalFramePerpendicularToLiftingLine(
 
         Frame : dict
             Contains the positions and vectors of the sections
-    """
-
-    Span, s, _ = J.getDistributionFromHeterogeneousInput__(line)
+    '''
+    
+    Span, s ,_ = J.getDistributionFromHeterogeneousInput__(line)
     NumberOfSections = len(Span)
-    if NumberOfSections % 2 == 0:
-        raise AttributeError(
-            J.FAIL
-            + "An even number of sections has been given: %i" % len(TwistAngles)
-            + J.ENDC
-        )
+    if NumberOfSections%2 == 0:
+        raise AttributeError(J.FAIL + 'An even number of sections has been given: %i'\
+                                                                         %len(TwistAngles) + J.ENDC)
 
-    s = Span / Span[-1]
-    RelSpan = Span / Span.max()
-    # in case the user did not give any angle
+    s = Span/Span[-1]
+    RelSpan = Span/Span.max()
+    #in case the user did not give any angle
     if not Twist:
-        print(J.WARN + "WARNING: no Twist has been prescribed. Set to zero." + J.ENDC)
-        Twist = {
-            "RelativeSpan": s,
-            "Twist": [0.0] * len(s),
-            "InterpolationLaw": "interp1d_linear",
-        }
+        print(J.WARN + 'WARNING: no Twist has been prescribed. Set to zero.' + J.ENDC)
+        Twist = {'RelativeSpan': s, 'Twist': [0.]*len(s), 'InterpolationLaw': 'interp1d_linear'}
     if not Sweep:
-        print(J.WARN + "WARNING: no Sweep has been prescribed. Set to zero." + J.ENDC)
-        Sweep = {
-            "RelativeSpan": s,
-            "Sweep": [0.0] * len(s),
-            "InterpolationLaw": "interp1d_linear",
-        }
+        print(J.WARN + 'WARNING: no Sweep has been prescribed. Set to zero.' + J.ENDC)
+        Sweep = {'RelativeSpan': s, 'Sweep': [0.]*len(s), 'InterpolationLaw': 'interp1d_linear'}
     if not Dihedral:
-        print(
-            J.WARN + "WARNING: no Dihedral has been prescribed. Set to zero." + J.ENDC
-        )
-        Dihedral = {
-            "RelativeSpan": s,
-            "Dihedral": [0.0] * len(s),
-            "InterpolationLaw": "interp1d_linear",
-        }
+        print(J.WARN + 'WARNING: no Dihedral has been prescribed. Set to zero.' + J.ENDC)
+        Dihedral = {'RelativeSpan': s, 'Dihedral': [0.]*len(s), 'InterpolationLaw': 'interp1d_linear'}
 
-    # translates the angles into cooridnates
-    for dico, v in zip([Sweep, Dihedral], ["Sweep", "Dihedral"]):
-        if "RelativeSpan" in dico:
-            xs = np.array(dico["RelativeSpan"]) * np.max(Span)
-        elif "Abscissa" in dico:
-            xs = np.array(dico["Abscissa"]) * np.max(Span)
-        else:
-            raise AttributeError(
-                "Attribute "
-                + v
-                + " (dict) must contain 'RelativeSpan' or \
-                                                                                    'Abscissa' key"
-            )
-        dxs = np.append(
-            np.append(xs[1] - xs[0], 0.5 * (xs[2:] - xs[:-2])), xs[-1] - xs[-2]
-        )
-        if not RightHandRuleRotation:
-            dxs *= -1.0
-        dl = dxs * np.tan(np.deg2rad(dico[v]))
+    #translates the angles into cooridnates
+    for dico, v in zip([Sweep, Dihedral], ['Sweep', 'Dihedral']):
+        if 'RelativeSpan' in dico: xs = np.array(dico['RelativeSpan'])*np.max(Span)
+        elif 'Abscissa' in dico:   xs = np.array(dico['Abscissa'])*np.max(Span)
+        else: raise AttributeError("Attribute " + v + " (dict) must contain 'RelativeSpan' or \
+                                                                                    'Abscissa' key")
+        dxs = np.append(np.append(xs[1] - xs[0], 0.5*(xs[2:] - xs[:-2])), xs[-1] - xs[-2])
+        if not RightHandRuleRotation: dxs *= -1.
+        dl = dxs*np.tan(np.deg2rad(dico[v]))
         l = [0]
-        for dli in dl:
-            l.extend([l[-1] - dli])
-
+        for dli in dl: l.extend([l[-1] - dli])
+    
         dico[v] = l[1:]
 
     Interp = {}
-    # interpolates the twist and the coordinates
-    for dico, v in zip([Twist, Sweep, Dihedral], ["Twist", "Sweep", "Dihedral"]):
-        if "RelativeSpan" in dico:
-            Interp[v] = J.interpolate__(
-                RelSpan, dico["RelativeSpan"], dico[v], dico["InterpolationLaw"], **dico
-            )
-        elif "Abscissa" in dico:
+    #interpolates the twist and the coordinates
+    for dico, v in zip([Twist, Sweep, Dihedral], ['Twist', 'Sweep', 'Dihedral']):
+        if 'RelativeSpan' in dico:
+            Interp[v] = J.interpolate__(RelSpan, dico['RelativeSpan'], dico[v],
+                                                             dico['InterpolationLaw'], **dico)
+        elif 'Abscissa' in dico:
             try:
-                Interp[v] = J.interpolate__(
-                    s, dico["Abscissa"], dico[v], dico["InterpolationLaw"], **dico
-                )
+                Interp[v] = J.interpolate__(s, dico['Abscissa'], dico[v],
+                                                             dico['InterpolationLaw'], **dico)
             except BaseException as e:
-                raise ValueError(
-                    J.FAIL + f"failed for GeomParam={v} with parameters:{dico}" + J.ENDC
-                ) from e
+                raise ValueError(J.FAIL + f'failed for GeomParam={v} with parameters:{dico}' + \
+                                                                                      J.ENDC) from e
         else:
-            raise AttributeError(
-                "Attribute %s (dict) must contain 'RelativeSpan' or 'Abscissa' \
-                                                                                             key"
-                % v
-            )
+            raise AttributeError("Attribute %s (dict) must contain 'RelativeSpan' or 'Abscissa' \
+                                                                                             key"%v)
 
     x = Span[:]
-    y = Interp["Sweep"][:]
-    z = Interp["Dihedral"][:]
+    y = Interp['Sweep'][:]
+    z = Interp['Dihedral'][:]
 
-    # get the vectors
+    #get the vectors
     import scipy
-
-    Rotate = lambda v, theta, axis: scipy.spatial.transform.Rotation.from_rotvec(
-        np.deg2rad(theta) * axis
-    ).apply(v)
+    Rotate = lambda v, theta, axis: scipy.spatial.transform.Rotation.from_rotvec(\
+                                                                    np.deg2rad(theta)*axis).apply(v)
     xyz = np.vstack([x, y, z])
-    txyz = np.hstack(
-        [
-            (xyz[:, 1] - xyz[:, 0])[np.newaxis].T,
-            0.5 * (np.diff(xyz[:, :-1], axis=1) + np.diff(xyz[:, 1:], axis=1)),
-            (xyz[:, -1] - xyz[:, -2])[np.newaxis].T,
-        ]
-    )
+    txyz = np.hstack([ (xyz[:, 1] - xyz[:, 0])[np.newaxis].T, 
+                        0.5*(np.diff(xyz[:, :-1], axis = 1) + np.diff(xyz[:, 1:], axis = 1)),
+                       (xyz[:, -1]-xyz[:, -2])[np.newaxis].T ])
 
-    txyz /= np.linalg.norm(txyz, axis=0)
-    SpanwiseX = txyz[0, :]
-    SpanwiseY = txyz[1, :]
-    SpanwiseZ = txyz[2, :]
-    bxyz = np.cross(txyz, np.vstack((0.0, 0.0, 1.0)), axisa=0, axisb=0, axisc=0)
-    bxyz /= np.linalg.norm(bxyz, axis=0)
-    ChordwiseX = bxyz[0, :]
-    ChordwiseY = bxyz[1, :]
-    ChordwiseZ = bxyz[2, :]
+    txyz /= np.linalg.norm(txyz, axis = 0)
+    SpanwiseX  = txyz[0,:]
+    SpanwiseY  = txyz[1,:]
+    SpanwiseZ  = txyz[2,:]
+    bxyz = np.cross(txyz, np.vstack((0., 0., 1.)), axisa = 0, axisb = 0, axisc = 0)
+    bxyz /= np.linalg.norm(bxyz, axis = 0)
+    ChordwiseX = bxyz[0,:]
+    ChordwiseY = bxyz[1,:]
+    ChordwiseZ = bxyz[2,:]
     for i in range(NumberOfSections):
-        Chordwise = Rotate(
-            np.array([ChordwiseX[i], ChordwiseY[i], ChordwiseZ[i]]),
-            Interp["Twist"][i],
-            np.array([SpanwiseX[i], SpanwiseY[i], SpanwiseZ[i]]),
-        )
-        ChordwiseX[i] = Chordwise[0]
-        ChordwiseY[i] = Chordwise[1]
-        ChordwiseZ[i] = Chordwise[2]
+      Chordwise = Rotate(np.array([ChordwiseX[i], ChordwiseY[i], ChordwiseZ[i]]), Interp['Twist'][i],
+                                               np.array([SpanwiseX[i], SpanwiseY[i], SpanwiseZ[i]]))
+      ChordwiseX[i] = Chordwise[0]
+      ChordwiseY[i] = Chordwise[1]
+      ChordwiseZ[i] = Chordwise[2]
 
-    Thickwise = np.cross(
-        np.vstack([ChordwiseX, ChordwiseY, ChordwiseZ]), txyz, axisa=0, axisb=0, axisc=0
-    )
-    if not RightHandRuleRotation:
-        Thickwise *= -1.0
-    ThickwiseX = Thickwise[0, :]
-    ThickwiseY = Thickwise[1, :]
-    ThickwiseZ = Thickwise[2, :]
+    Thickwise = np.cross(np.vstack([ChordwiseX, ChordwiseY, ChordwiseZ]), txyz, axisa= 0 ,
+                                                                               axisb = 0, axisc = 0)
+    if not RightHandRuleRotation: Thickwise *= -1.
+    ThickwiseX = Thickwise[0,:] 
+    ThickwiseY = Thickwise[1,:] 
+    ThickwiseZ = Thickwise[2,:]
 
-    # get the symmetrical part if asked
+    #get the symmetrical part if asked
     if Symmetrical:
         sym = -Span[::-1]
-        sym[-1] = 0.5 * (sym[-1] + Span[0])
+        sym[-1] = 0.5*(sym[-1] + Span[0])
         x = np.append(sym, Span[1:]) - sym[0]
         y = np.append(y[::-1], y[1:])
         z = np.append(z[::-1], z[1:])
         sym = -ChordwiseX[::-1]
-        sym[-1] = 0.5 * (sym[-1] + ChordwiseX[0])
+        sym[-1] = 0.5*(sym[-1] + ChordwiseX[0])
         ChordwiseX = np.append(sym, ChordwiseX[1:])
         ChordwiseY = np.append(ChordwiseY[::-1], ChordwiseY[1:])
         ChordwiseZ = np.append(ChordwiseZ[::-1], ChordwiseZ[1:])
         sym = -ThickwiseX[::-1]
-        sym[-1] = 0.5 * (sym[-1] + ThickwiseX[0])
+        sym[-1] = 0.5*(sym[-1] + ThickwiseX[0])
         ThickwiseX = np.append(sym, ThickwiseX[1:])
         ThickwiseY = np.append(ThickwiseY[::-1], ThickwiseY[1:])
         ThickwiseZ = np.append(ThickwiseZ[::-1], ThickwiseZ[1:])
-        SpanwiseX = np.append(SpanwiseX[::-1], SpanwiseX[1:])
+        SpanwiseX  = np.append(SpanwiseX[::-1],  SpanwiseX[1:])
         sym = -SpanwiseY[::-1]
-        sym[-1] = 0.5 * (sym[-1] + SpanwiseY[0])
+        sym[-1] = 0.5*(sym[-1] + SpanwiseY[0])
         SpanwiseY = np.append(sym, SpanwiseY[1:])
-        SpanwiseZ = np.append(SpanwiseZ[::-1], SpanwiseZ[1:])
-        s = (x - np.min(x)) / (np.max(x) - np.min(x))
+        SpanwiseZ  = np.append(SpanwiseZ[::-1],  SpanwiseZ[1:])
+        s = (x - np.min(x))/(np.max(x) - np.min(x))
 
-    def cv(array):
-        return np.array(array, dtype=np.float64, order="F")
+    def cv(array) : return np.array(array, dtype = np.float64, order = 'F')
 
-    return {
-        "x": cv(x),
-        "y": cv(y),
-        "z": cv(z),
-        "s": cv(s),
-        "SpanwiseX": cv(SpanwiseX),
-        "SpanwiseY": cv(SpanwiseY),
-        "SpanwiseZ": cv(SpanwiseZ),
-        "ChordwiseX": cv(ChordwiseX),
-        "ChordwiseY": cv(ChordwiseY),
-        "ChordwiseZ": cv(ChordwiseZ),
-        "ThickwiseX": cv(ThickwiseX),
-        "ThickwiseY": cv(ThickwiseY),
-        "ThickwiseZ": cv(ThickwiseZ),
-    }
+    return {'x': cv(x), 'y': cv(y), 'z': cv(z), 's': cv(s),
+            'SpanwiseX':  cv(SpanwiseX),  'SpanwiseY':  cv(SpanwiseY),  'SpanwiseZ':  cv(SpanwiseZ),
+           'ChordwiseX': cv(ChordwiseX), 'ChordwiseY': cv(ChordwiseY), 'ChordwiseZ': cv(ChordwiseZ),
+           'ThickwiseX': cv(ThickwiseX), 'ThickwiseY': cv(ThickwiseY), 'ThickwiseZ': cv(ThickwiseZ)}
 
-
-def buildLiftingLine(
-    Span,
-    RightHandRuleRotation=True,
-    PitchRelativeCenter=[0, 0, 0],
-    PitchAxis=[1, 0, 0],
-    RotationCenter=[0, 0, 0],
-    SweepCorrection=True,
-    DihedralCorrection=True,
-    AngleSmoothingLaw=None,
-    **kwargs,
-):
-    """
+def buildLiftingLine(Span, RightHandRuleRotation = True, PitchRelativeCenter = [0,0,0],
+    PitchAxis = [1,0,0], RotationCenter = [0,0,0], SweepCorrection = True,
+    DihedralCorrection = True, AngleSmoothingLaw = None, **kwargs):
+    '''
     Make a PyTree-Line zone defining a Lifting-line. The construction
     procedure of this element is the same as in function
     :py:func:`MOLA.GenerativeShapeDesign.wing`, same logic is used here!
@@ -1324,9 +1165,9 @@ def buildLiftingLine(
             :py:func:`MOLA.InternalShortcuts.getDistributionFromHeterogeneousInput__` doc.
 
             .. tip:: typical use is ``np.linspace(MinimumSpan, MaximumSpan, NbOfSpanwisePoints)``
-
+        
         RightHandRuleRotation : bool
-            Determines wether the LiftingLine is taken as a rotating blade
+            Determines wether the LiftingLine is taken as a rotating blade 
             following the right-hand-rule rotation or not.
 
         PitchRelativeCenter : :py:class:`list` of 3 :py:class:`float`
@@ -1339,9 +1180,9 @@ def buildLiftingLine(
 
         RotationCenter : :py:class:`list` of 3 :py:class:`float`
             If the resulting LiftingLine will be used as a rotatory wing
-            (propeller, rotor), then this parameter sets the employed
+            (propeller, rotor), then this parameter sets the employed 
             rotation center position in meters.
-
+            
             .. note::
                 canonical rotation axis is :math:`(0,0,1)`
 
@@ -1384,231 +1225,184 @@ def buildLiftingLine(
         LiftingLine : zone
             structured curve zone corresponding to the new lifting line
 
-    """
+    '''
     import scipy.interpolate as si
     from scipy.signal import savgol_filter
 
     # ------------ PERFORM SOME VERIFICATIONS ------------ #
 
     # Verify the Span argument
-    Span, s, _ = J.getDistributionFromHeterogeneousInput__(Span)
+    Span,s,_ = J.getDistributionFromHeterogeneousInput__(Span)
     Ns = len(Span)
 
-    LiftingLine = D.line((0, 0, 0), (1, 0, 0), Ns)
+    LiftingLine = D.line((0,0,0),(1,0,0),Ns)
     LLx, LLy, LLz = J.getxyz(LiftingLine)
     NPts = len(LLx)
 
-    SpecialTreatment = ["Airfoils", "Span", "s"]
+    SpecialTreatment = ['Airfoils','Span','s']
     Variables2Invoke = [v for v in kwargs if v not in SpecialTreatment]
-    LLDict = J.invokeFieldsDict(LiftingLine, Variables2Invoke + ["Span", "s"])
-    LLDict["Span"][:] = Span
-    LLDict["s"][:] = s
-    RelSpan = Span / Span.max()
+    LLDict = J.invokeFieldsDict(LiftingLine,Variables2Invoke+['Span','s'])
+    LLDict['Span'][:] = Span
+    LLDict['s'][:] = s
+    RelSpan = Span/Span.max()
 
     InterpLaws = {}
     for GeomParam in LLDict:
         if GeomParam not in SpecialTreatment:
-            InterpLaws[GeomParam + "_law"] = kwargs[GeomParam]["InterpolationLaw"]
-            if "RelativeSpan" in kwargs[GeomParam]:
-                LLDict[GeomParam][:] = J.interpolate__(
-                    RelSpan,
-                    kwargs[GeomParam]["RelativeSpan"],
-                    kwargs[GeomParam][GeomParam],
-                    InterpLaws[GeomParam + "_law"],
-                    **kwargs[GeomParam],
-                )
-            elif "Abscissa" in kwargs[GeomParam]:
+            InterpLaws[GeomParam+'_law']=kwargs[GeomParam]['InterpolationLaw']
+            if 'RelativeSpan' in kwargs[GeomParam]:
+                LLDict[GeomParam][:] = J.interpolate__(RelSpan,
+                                                kwargs[GeomParam]['RelativeSpan'],
+                                                kwargs[GeomParam][GeomParam],
+                                                InterpLaws[GeomParam+'_law'],
+                                                **kwargs[GeomParam])
+            elif 'Abscissa' in kwargs[GeomParam]:
                 try:
-                    LLDict[GeomParam][:] = J.interpolate__(
-                        s,
-                        kwargs[GeomParam]["Abscissa"],
-                        kwargs[GeomParam][GeomParam],
-                        InterpLaws[GeomParam + "_law"],
-                        **kwargs[GeomParam],
-                    )
+                    LLDict[GeomParam][:] = J.interpolate__(s,
+                                                kwargs[GeomParam]['Abscissa'],
+                                                kwargs[GeomParam][GeomParam],
+                                                InterpLaws[GeomParam+'_law'],
+                                                **kwargs[GeomParam])
                 except BaseException as e:
-                    raise ValueError(
-                        J.FAIL
-                        + f"failed for GeomParam={GeomParam} with parameters:{kwargs[GeomParam]}"
-                        + J.ENDC
-                    ) from e
+                    raise ValueError(J.FAIL+f'failed for GeomParam={GeomParam} with parameters:{kwargs[GeomParam]}'+J.ENDC) from e
             else:
-                raise AttributeError(
-                    "Attribute %s (dict) must contain 'RelativeSpan' or 'Abscissa' key"
-                    % GeomParam
-                )
+                raise AttributeError("Attribute %s (dict) must contain 'RelativeSpan' or 'Abscissa' key"%GeomParam)
 
     # Apply geometrical distribution
     LLx[:] = Span
 
-    if "Sweep" in LLDict:
+    if 'Sweep' in LLDict:
         if RightHandRuleRotation:
-            LLy[:] = -LLDict["Sweep"]
+            LLy[:] = -LLDict['Sweep']
         else:
-            LLy[:] = LLDict["Sweep"]
-
-    if "Dihedral" in LLDict:
-        LLz[:] = LLDict["Dihedral"]
+            LLy[:] =  LLDict['Sweep']
+    
+    if 'Dihedral' in LLDict: LLz[:] =  LLDict['Dihedral']
 
     # Add Airfoils node
     D._getCurvilinearAbscissa(LiftingLine)
-    if "RelativeSpan" in kwargs["Airfoils"]:
-        AbscissaPolar = J.interpolate__(kwargs["Airfoils"]["RelativeSpan"], RelSpan, s)
-        kwargs["Airfoils"]["Abscissa"] = AbscissaPolar
-    elif "Abscissa" in kwargs["Airfoils"]:
-        AbscissaPolar = kwargs["Airfoils"]["Abscissa"]
+    if 'RelativeSpan' in kwargs['Airfoils']:
+        AbscissaPolar = J.interpolate__(kwargs['Airfoils']['RelativeSpan'], RelSpan, s)
+        kwargs['Airfoils']['Abscissa'] = AbscissaPolar
+    elif 'Abscissa' in kwargs['Airfoils']:
+        AbscissaPolar = kwargs['Airfoils']['Abscissa']
     else:
-        raise ValueError(
-            "Attribute Polars (dict) must contain 'RelativeSpan' or 'Abscissa' key"
-        )
+        raise ValueError("Attribute Polars (dict) must contain 'RelativeSpan' or 'Abscissa' key")
 
     nSecsPolars = len(AbscissaPolar)
-    nSecsNamesPolars = len(kwargs["Airfoils"]["PyZonePolarNames"])
+    nSecsNamesPolars = len(kwargs['Airfoils']['PyZonePolarNames'])
     if nSecsPolars != nSecsNamesPolars:
-        ErrMsg = "USER ERROR during LiftingLine construction,\n"
-        ErrMsg += "Nb of relative span position for airfoils is: %d\n" % nSecsPolars
-        ErrMsg += "Nb of polar names keys is: %d\n" % nSecsNamesPolars
-        ErrMsg += "which are not the same.\n"
-        ErrMsg += "Please check your Polars dictionnary data coherency before calling buildLiftingLine()"
+        ErrMsg = 'USER ERROR during LiftingLine construction,\n'
+        ErrMsg+= 'Nb of relative span position for airfoils is: %d\n'%nSecsPolars
+        ErrMsg+= 'Nb of polar names keys is: %d\n'%nSecsNamesPolars
+        ErrMsg+= 'which are not the same.\n'
+        ErrMsg+= 'Please check your Polars dictionnary data coherency before calling buildLiftingLine()'
         raise ValueError(ErrMsg)
 
     # Initialize some variables
-    LLfields = [
-        "RelativeSpan",
-        "AoA",
-        "Mach",
-        "Reynolds",
-        "Cl",
-        "Cd",
-        "Cm",
-        "PitchRelativeCenterX",
-        "PitchRelativeCenterY",
-        "PitchRelativeCenterZ",
-        "PitchAxisX",
-        "PitchAxisY",
-        "PitchAxisZ",
-        "TangentialX",
-        "TangentialY",
-        "TangentialZ",
-        "SweepAngleDeg",
-        "DihedralAngleDeg",
-        "ChordVirtualWithSweep",
-    ]
-    addLLfields = [
-        "ChordwiseX",
-        "ChordwiseY",
-        "ChordwiseZ",
-        "SpanwiseX",
-        "SpanwiseY",
-        "SpanwiseZ",
-        "ThickwiseX",
-        "ThickwiseY",
-        "ThickwiseZ",
-    ]
+    LLfields = ['RelativeSpan', 'AoA', 'Mach', 'Reynolds', 'Cl', 'Cd','Cm',
+        'PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ',
+        'PitchAxisX','PitchAxisY','PitchAxisZ',
+        'TangentialX', 'TangentialY', 'TangentialZ',
+        'SweepAngleDeg', 'DihedralAngleDeg', 'ChordVirtualWithSweep']
+    addLLfields = ['ChordwiseX','ChordwiseY','ChordwiseZ',
+                    'SpanwiseX', 'SpanwiseY', 'SpanwiseZ',
+                   'ThickwiseX','ThickwiseY','ThickwiseZ']
     existing_fields = C.getVarNames(LiftingLine)[0]
     for fn in addLLfields:
         if fn not in existing_fields:
             LLfields.append(fn)
-    J._invokeFields(LiftingLine, LLfields)
+    J._invokeFields(LiftingLine,LLfields)
     v = J.getVars2Dict(LiftingLine, LLfields + addLLfields)
 
-    v["RelativeSpan"][:] = RelSpan
+    v['RelativeSpan'][:] = RelSpan
 
-    v["PitchRelativeCenterX"][:] = PitchRelativeCenter[0]
-    v["PitchRelativeCenterY"][:] = PitchRelativeCenter[1]
-    v["PitchRelativeCenterZ"][:] = PitchRelativeCenter[2]
+    v['PitchRelativeCenterX'][:] = PitchRelativeCenter[0]
+    v['PitchRelativeCenterY'][:] = PitchRelativeCenter[1]
+    v['PitchRelativeCenterZ'][:] = PitchRelativeCenter[2]
 
-    v["PitchAxisX"][:] = PitchAxis[0]
-    v["PitchAxisY"][:] = PitchAxis[1]
-    v["PitchAxisZ"][:] = PitchAxis[2]
-
+    v['PitchAxisX'][:] = PitchAxis[0]
+    v['PitchAxisY'][:] = PitchAxis[1]
+    v['PitchAxisZ'][:] = PitchAxis[2]
+    
     # infer the airfoil directions if not explicitly provided by user
-    if "ChordwiseX" not in LLDict:
-        if "Twist" not in LLDict:
-            LLDict["Twist"] = 0.0
+    if 'ChordwiseX' not in LLDict:
+        if 'Twist' not in LLDict: LLDict['Twist'] = 0.0
         if RightHandRuleRotation:
-            v["ChordwiseY"][:] = -np.cos(np.deg2rad(LLDict["Twist"]))
+            v['ChordwiseY'][:] = -np.cos(np.deg2rad(LLDict['Twist']))
         else:
-            v["ChordwiseY"][:] = np.cos(np.deg2rad(LLDict["Twist"]))
-        v["ChordwiseZ"][:] = -np.sin(np.deg2rad(LLDict["Twist"]))
+            v['ChordwiseY'][:] =  np.cos(np.deg2rad(LLDict['Twist']))
+        v['ChordwiseZ'][:] = -np.sin(np.deg2rad(LLDict['Twist']))
     else:
-        for j in "XYZ":
-            v["Chordwise" + j][:] = LLDict["Chordwise" + j]
+        for j in 'XYZ': v['Chordwise'+j][:] = LLDict['Chordwise'+j]
+
 
     # normalize
-    direction = "Chordwise"
+    direction = 'Chordwise'
     for i in range(NPts):
-        norm = np.linalg.norm([v[direction + "" + j][i] for j in "XYZ"])
-        v[direction + "X"][i] /= norm
-        v[direction + "Y"][i] /= norm
-        v[direction + "Z"][i] /= norm
+        norm = np.linalg.norm([v[direction+''+j][i] for j in 'XYZ'])
+        v[direction+'X'][i] /= norm
+        v[direction+'Y'][i] /= norm
+        v[direction+'Z'][i] /= norm
 
-    if "SpanwiseX" not in LLDict:
-        v["SpanwiseX"][:] = 1.0
+    if 'SpanwiseX' not in LLDict:
+        v['SpanwiseX'][:] = 1.0
     else:
-        for j in "XYZ":
-            v["Spanwise" + j][:] = LLDict["Spanwise" + j]
+        for j in 'XYZ': v['Spanwise'+j][:] = LLDict['Spanwise'+j]
 
     # normalize
-    direction = "Spanwise"
+    direction = 'Spanwise'
     for i in range(NPts):
-        norm = np.linalg.norm([v[direction + "" + j][i] for j in "XYZ"])
-        v[direction + "X"][i] /= norm
-        v[direction + "Y"][i] /= norm
-        v[direction + "Z"][i] /= norm
+        norm = np.linalg.norm([v[direction+''+j][i] for j in 'XYZ'])
+        v[direction+'X'][i] /= norm
+        v[direction+'Y'][i] /= norm
+        v[direction+'Z'][i] /= norm
 
-    if "ThickwiseX" not in LLDict:
-        chordwise_vector = np.vstack([v["Chordwise" + i] for i in "XYZ"])
-        spanwise_vector = np.vstack([v["Spanwise" + i] for i in "XYZ"])
+
+    if 'ThickwiseX' not in LLDict:
+        chordwise_vector = np.vstack( [v['Chordwise'+i] for i in 'XYZ'] )
+        spanwise_vector = np.vstack( [v['Spanwise'+i] for i in 'XYZ'] )
         if RightHandRuleRotation:
-            thickwise_vector = np.cross(
-                chordwise_vector, spanwise_vector, axisa=0, axisb=0, axisc=0
-            )
+            thickwise_vector = np.cross(chordwise_vector, spanwise_vector,axisa=0,axisb=0,axisc=0)
         else:
-            thickwise_vector = np.cross(
-                spanwise_vector, chordwise_vector, axisa=0, axisb=0, axisc=0
-            )
-        v["ThickwiseX"][:] = thickwise_vector[0, :]
-        v["ThickwiseY"][:] = thickwise_vector[1, :]
-        v["ThickwiseZ"][:] = thickwise_vector[2, :]
+            thickwise_vector = np.cross(spanwise_vector, chordwise_vector,axisa=0,axisb=0,axisc=0)
+        v['ThickwiseX'][:] = thickwise_vector[0,:] 
+        v['ThickwiseY'][:] = thickwise_vector[1,:] 
+        v['ThickwiseZ'][:] = thickwise_vector[2,:]
     else:
-        for j in "XYZ":
-            v["Thickwise" + j][:] = LLDict["Thickwise" + j]
+        for j in 'XYZ': v['Thickwise'+j][:] = LLDict['Thickwise'+j]
 
     # normalize
-    direction = "Thickwise"
+    direction = 'Thickwise'
     for i in range(NPts):
-        norm = np.linalg.norm([v[direction + "" + j][i] for j in "XYZ"])
-        v[direction + "X"][i] /= norm
-        v[direction + "Y"][i] /= norm
-        v[direction + "Z"][i] /= norm
+        norm = np.linalg.norm([v[direction+''+j][i] for j in 'XYZ'])
+        v[direction+'X'][i] /= norm
+        v[direction+'Y'][i] /= norm
+        v[direction+'Z'][i] /= norm
 
-    c = np.array(RotationCenter, dtype=float)
+    c = np.array(RotationCenter,dtype=float)
     rx = LLx - c[0]
     ry = LLy - c[1]
-    v["TangentialX"][:] = -ry
-    v["TangentialY"][:] = rx
+    v['TangentialX'][:] = -ry
+    v['TangentialY'][:] =  rx
     if not RightHandRuleRotation:
-        v["TangentialX"] *= -1
-        v["TangentialY"] *= -1
+        v['TangentialX'] *= -1
+        v['TangentialY'] *= -1
 
-    direction = "Tangential"
+    direction = 'Tangential'
     for i in range(NPts):
-        norm = np.linalg.norm([v[direction + "" + j][i] for j in "XYZ"])
-        v[direction + "X"][i] /= norm
-        v[direction + "Y"][i] /= norm
-        v[direction + "Z"][i] /= norm
+        norm = np.linalg.norm([v[direction+''+j][i] for j in 'XYZ'])
+        v[direction+'X'][i] /= norm
+        v[direction+'Y'][i] /= norm
+        v[direction+'Z'][i] /= norm
+
 
     # Add Information node
-    J.set(
-        LiftingLine,
-        ".Component#Info",
-        kind="LiftingLine",
-        MOLAversion=__version__,
-        Corrections3D=dict(Sweep=SweepCorrection, Dihedral=DihedralCorrection),
-        GeometricalLaws=kwargs,
-    )
-    LiftingLine[0] = "LiftingLine"
+    J.set(LiftingLine,'.Component#Info',kind='LiftingLine',
+                                        MOLAversion=__version__,
+                                        Corrections3D= dict(Sweep=SweepCorrection,Dihedral=DihedralCorrection),
+                                        GeometricalLaws=kwargs)
+    LiftingLine[0] = 'LiftingLine'
 
     # add sweep and dihedral angles
     LeadingEdge = I.getZones(getLeadingEdge(LiftingLine))[0]
@@ -1619,76 +1413,55 @@ def buildLiftingLine(
     for i in range(len(tLEx)):
         LeadingEdgeTangentVector = np.array([tLEx[i], tLEy[i], tLEz[i]])
         LiftingLineTangentVector = np.array([tLLx[i], tLLy[i], tLLz[i]])
-        ChordwiseVector = np.array(
-            [v["ChordwiseX"][:][i], v["ChordwiseY"][:][i], v["ChordwiseZ"][:][i]]
-        )
-        ThickwiseVector = np.array(
-            [v["ThickwiseX"][:][i], v["ThickwiseY"][:][i], v["ThickwiseZ"][:][i]]
-        )
-        v["SweepAngleDeg"][i] = 90 - np.rad2deg(
-            np.arccos(LeadingEdgeTangentVector.dot(ChordwiseVector))
-        )
-        v["DihedralAngleDeg"][i] = 90 - np.rad2deg(
-            np.arccos(LiftingLineTangentVector.dot(ThickwiseVector))
-        )
+        ChordwiseVector = np.array([v['ChordwiseX'][:][i], v['ChordwiseY'][:][i], v['ChordwiseZ'][:][i]])
+        ThickwiseVector = np.array([v['ThickwiseX'][:][i], v['ThickwiseY'][:][i], v['ThickwiseZ'][:][i]])
+        v['SweepAngleDeg'][i] = 90-np.rad2deg(np.arccos(LeadingEdgeTangentVector.dot(ChordwiseVector)))
+        v['DihedralAngleDeg'][i] = 90-np.rad2deg(np.arccos(LiftingLineTangentVector.dot(ThickwiseVector)))
 
-    if AngleSmoothingLaw is None or AngleSmoothingLaw == "None":
-        print(
-            J.WARN
-            + "WARNING: no AngleSmoothingLaw has been prescribed. Please check SweepAngleDeg and DihedralAngleDeg to see if there are any curve discontinuities before launching the simulation."
-            + J.ENDC
-        )
+    if AngleSmoothingLaw is None or AngleSmoothingLaw == 'None':
+        print(J.WARN+'WARNING: no AngleSmoothingLaw has been prescribed. Please check SweepAngleDeg and DihedralAngleDeg to see if there are any curve discontinuities before launching the simulation.'+J.ENDC)
 
-    elif AngleSmoothingLaw == "UnivariateSpline":
-        spl_sweep = si.UnivariateSpline(Span, v["SweepAngleDeg"][:], k=5)
-        spl_dihedral = si.UnivariateSpline(Span, v["DihedralAngleDeg"][:], k=5)
-        v["SweepAngleDeg"][:] = spl_sweep(Span)
-        v["DihedralAngleDeg"][:] = spl_dihedral(Span)
+    elif AngleSmoothingLaw == 'UnivariateSpline':
+        spl_sweep = si.UnivariateSpline(Span,v['SweepAngleDeg'][:], k=5)
+        spl_dihedral = si.UnivariateSpline(Span,v['DihedralAngleDeg'][:], k=5)
+        v['SweepAngleDeg'][:] = spl_sweep(Span)
+        v['DihedralAngleDeg'][:] = spl_dihedral(Span)
 
-    elif AngleSmoothingLaw == "Pchip":
-        pchip_sweep = si.PchipInterpolator(Span, v["SweepAngleDeg"][:])
-        pchip_dihedral = si.PchipInterpolator(Span, v["DihedralAngleDeg"][:])
-        v["SweepAngleDeg"][:] = pchip_sweep(Span)
-        v["DihedralAngleDeg"][:] = pchip_dihedral(Span)
+    elif AngleSmoothingLaw == 'Pchip':
+        pchip_sweep = si.PchipInterpolator(Span,v['SweepAngleDeg'][:])
+        pchip_dihedral = si.PchipInterpolator(Span,v['DihedralAngleDeg'][:])
+        v['SweepAngleDeg'][:] = pchip_sweep(Span)
+        v['DihedralAngleDeg'][:] = pchip_dihedral(Span)
 
-    elif AngleSmoothingLaw == "Akima":
-        akima_sweep = si.Akima1DInterpolator(Span, v["SweepAngleDeg"][:])
-        akima_dihedral = si.Akima1DInterpolator(Span, v["DihedralAngleDeg"][:])
-        v["SweepAngleDeg"][:] = akima_sweep(Span)
-        v["DihedralAngleDeg"][:] = akima_dihedral(Span)
+    elif AngleSmoothingLaw == 'Akima':
+        akima_sweep = si.Akima1DInterpolator(Span,v['SweepAngleDeg'][:])
+        akima_dihedral = si.Akima1DInterpolator(Span,v['DihedralAngleDeg'][:])
+        v['SweepAngleDeg'][:] = akima_sweep(Span)
+        v['DihedralAngleDeg'][:] = akima_dihedral(Span)
 
-    elif AngleSmoothingLaw == "SavgolFilter":
-        sf_sweep = savgol_filter(
-            (Span, v["SweepAngleDeg"][:]), window_length=31, polyorder=5
-        )
-        sf_dihedral = savgol_filter(
-            (Span, v["DihedralAngleDeg"][:]), window_length=31, polyorder=5
-        )
-        v["SweepAngleDeg"][:] = sf_sweep[1]
-        v["DihedralAngleDeg"][:] = sf_dihedral[1]
+    elif AngleSmoothingLaw == 'SavgolFilter':
+        sf_sweep = savgol_filter((Span,v['SweepAngleDeg'][:]), window_length=31, polyorder=5)
+        sf_dihedral = savgol_filter((Span,v['DihedralAngleDeg'][:]),  window_length=31, polyorder=5)
+        v['SweepAngleDeg'][:] = sf_sweep[1]
+        v['DihedralAngleDeg'][:] = sf_dihedral[1]
 
     else:
-        raise AttributeError('AngleSmoothingLaw "%s" not supported' % AngleSmoothingLaw)
+        raise AttributeError('AngleSmoothingLaw "%s" not supported'%AngleSmoothingLaw)
 
-    v["ChordVirtualWithSweep"][:] = LLDict["Chord"] * np.cos(
-        np.deg2rad(v["SweepAngleDeg"])
-    )
+
+    v['ChordVirtualWithSweep'][:] = LLDict['Chord'] * np.cos(np.deg2rad(v['SweepAngleDeg']))
+
 
     return LiftingLine
 
 
-def buildLiftingLineFromScan(
-    t,
-    SpanwiseRediscretization=None,
-    resetPitchRelativeSpan=0.75,
-    GeometricalLawsInterpolations={},
-    OverridingKinematics={},
-):
-    """
+def buildLiftingLineFromScan(t, SpanwiseRediscretization=None, resetPitchRelativeSpan=0.75,
+        GeometricalLawsInterpolations={}, OverridingKinematics={}):
+    '''
     This function takes as input the result of :py:func:`MOLA.GenerativeShapeDesign.scanBlade`
     and builds a LiftingLine in its canonical position. The resulting LiftingLine
     can be used directly (polars file is required) as element for BFM or VPM
-    modeling, for instance.
+    modeling, for instance. 
 
     Parameters
     ----------
@@ -1711,152 +1484,117 @@ def buildLiftingLineFromScan(
 
         GeometricalLawsInterpolations : dict
             Each keyword correspond to a GeometricalLaw name that can be passed to
-            :py:func:`buildLiftingLine`. Also, such keyword must correspond to
-            a field named contained in **t** zone *BladeLine*. The value
-            associated to each keyword is a :py:class:`str` specifying the
-            type of interpolation law. By default, if not specified all
+            :py:func:`buildLiftingLine`. Also, such keyword must correspond to 
+            a field named contained in **t** zone *BladeLine*. The value 
+            associated to each keyword is a :py:class:`str` specifying the 
+            type of interpolation law. By default, if not specified all 
             geometrical laws are set using the interpolation law ``'interp1d_linear'``
 
         OverridingKinematics : dict
-            By default (if **OverridingKinematics** is an empty
+            By default (if **OverridingKinematics** is an empty 
             :py:class:`dict`) function :py:func:`setKinematicsUsingConstantRotationAndTranslation`
             will be applied using the scanned RotationCenter, axis and direction.
-            If **OverridingKinematics** is provided by user, then such options
+            If **OverridingKinematics** is provided by user, then such options 
             will override the scanned ones.
 
     Returns
     -------
 
         LiftingLine : zone
-            The new lifting-line located at canonical position.
+            The new lifting-line located at canonical position. 
 
         PyZonePolars : :py:class:`list` of zones
             The airfoil polars (only coordinates, no fields), which can be used
             to make a 3D reconstruction of the blade using :py:func:`postLiftingLine2Surface`
-
+        
         scanPitch : float
             The pitch of the section at **resetPitchRelativeSpan**
-    """
+    '''
     t = I.copyRef(t)
 
-    BaseBladeLine = I.getNodeFromName1(t, "BaseBladeLine")
+    BaseBladeLine = I.getNodeFromName1(t,'BaseBladeLine')
     if not BaseBladeLine:
         msg = 'could not find base "BaseBladeLine"\n'
-        msg += "Please make sure the first argument is the output of GSD.scanBlade"
-        raise IOError(J.FAIL + msg + J.ENDC)
+        msg += 'Please make sure the first argument is the output of GSD.scanBlade'
+        raise IOError(J.FAIL+msg+J.ENDC)
 
-    BladeLine = I.getNodeFromName1(BaseBladeLine, "BladeLine")
+    BladeLine = I.getNodeFromName1(BaseBladeLine,'BladeLine')
     if not BaseBladeLine:
         msg = 'could not find zone "BladeLine"\n'
-        msg += "Please make sure the first argument is the output of GSD.scanBlade"
-        raise IOError(J.FAIL + msg + J.ENDC)
+        msg += 'Please make sure the first argument is the output of GSD.scanBlade'
+        raise IOError(J.FAIL+msg+J.ENDC)
 
-    scan_info = J.get(BladeLine, "ScanInformation")
-
+    scan_info = J.get(BladeLine,'ScanInformation')
+    
     # PUT BLADELINE IN CANONICAL POSITION ROTATING RELEVANT FIELDS
     # put blade line into rotation center (0,0,0)
-    T._translate(BladeLine, -scan_info["RotationCenter"])
+    T._translate(BladeLine, -scan_info['RotationCenter'])
 
-    RightHandRuleRotation = bool(scan_info["RightHandRuleRotation"])
+    RightHandRuleRotation=bool(scan_info['RightHandRuleRotation'])
     Dir = 1 if RightHandRuleRotation else -1
 
     # put blade line into canonical orientation
-    FinalFrame = [(1, 0, 0), (0, 1, 0), (0, 0, 1)]
-    InitialFrame = [
-        tuple(scan_info["PitchAxis"]),
-        tuple(np.cross(Dir * scan_info["RotationAxis"], scan_info["PitchAxis"])),
-        tuple(Dir * scan_info["RotationAxis"]),
-    ]
-    T._rotate(
-        BladeLine,
-        (0, 0, 0),
-        InitialFrame,
-        FinalFrame,
-        vectors=NamesOfChordSpanThickwiseFrameNoTangential,
-    )
+    FinalFrame = [(1,0,0),(0,1,0),(0,0,1)]
+    InitialFrame = [tuple(scan_info['PitchAxis']),
+        tuple(np.cross(Dir*scan_info['RotationAxis'],scan_info['PitchAxis'])),
+        tuple(Dir*scan_info['RotationAxis'])]
+    T._rotate(BladeLine, (0,0,0), InitialFrame, FinalFrame,
+        vectors=NamesOfChordSpanThickwiseFrameNoTangential)
+
 
     # determine the pitch of the blade-line
     Abscissa = W.gets(BladeLine)
-    Twist, SpanScan = J.getVars(BladeLine, ["Twist", "Span"])
-    RelativeSpanScan = SpanScan / SpanScan.max()
+    Twist, SpanScan = J.getVars(BladeLine,['Twist','Span'])
+    RelativeSpanScan = SpanScan/SpanScan.max()
     pitch = np.interp(resetPitchRelativeSpan, RelativeSpanScan, Twist)
-    print(f"scanned pitch at r/R={resetPitchRelativeSpan} is {pitch} deg")
+    print(f'scanned pitch at r/R={resetPitchRelativeSpan} is {pitch} deg')
 
     # substract pitch to put blade line in canonical position
-    PitchCtr = J.getVars(
-        BladeLine,
-        ["PitchRelativeCenterX", "PitchRelativeCenterY", "PitchRelativeCenterZ"],
-    )
-    PitchAxis = J.getVars(BladeLine, ["PitchAxisX", "PitchAxisY", "PitchAxisZ"])
-    for i in range(3):
-        PitchAxis[i][:] *= Dir
-    PitchCtr_pt = (PitchCtr[0][0] * 1.0, PitchCtr[1][0] * 1.0, PitchCtr[2][0] * 1.0)
+    PitchCtr = J.getVars(BladeLine,
+        ['PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ'])
+    PitchAxis = J.getVars(BladeLine, ['PitchAxisX','PitchAxisY','PitchAxisZ'])
+    for i in range(3): PitchAxis[i][:] *= Dir
+    PitchCtr_pt = (PitchCtr[0][0]*1.0, PitchCtr[1][0]*1.0, PitchCtr[2][0]*1.0)
     PitchAxis_vec = (PitchAxis[0][0], PitchAxis[1][0], PitchAxis[2][0])
-    T._rotate(
-        BladeLine,
-        PitchCtr_pt,
-        PitchAxis_vec,
-        -pitch,
-        vectors=NamesOfChordSpanThickwiseFrameNoTangential,
-    )
-
+    T._rotate(BladeLine, PitchCtr_pt, PitchAxis_vec, -pitch, 
+            vectors=NamesOfChordSpanThickwiseFrameNoTangential)
+    
+    
     # INFER SWEEP AND DIHEDRAL FROM COORDINATES
     x, y, z = J.getxyz(BladeLine)
-    Span, Sweep, Dihedral = J.invokeFields(BladeLine, ["Span", "Sweep", "Dihedral"])
-    Span[:] = x
+    Span, Sweep, Dihedral = J.invokeFields(BladeLine, ['Span', 'Sweep','Dihedral'])
+    Span[:]=x
     Sweep[:] = -y
     Dihedral[:] = z
-
-    # BUILD GEOMETRICALLAWS
-    airfoils = I.getZones(I.getNodeFromName1(t, "BaseNormalizedAirfoils"))
-    GeometricalLawsNamesList = [
-        "Chord",
-        "Twist",
-        "Sweep",
-        "Dihedral",
-        "Airfoils",
-        "ChordwiseX",
-        "ChordwiseY",
-        "ChordwiseZ",
-        "SpanwiseX",
-        "SpanwiseY",
-        "SpanwiseZ",
-        "ThickwiseX",
-        "ThickwiseY",
-        "ThickwiseZ",
-    ]
-
+    
+    
+    # BUILD GEOMETRICALLAWS 
+    airfoils = I.getZones(I.getNodeFromName1(t,'BaseNormalizedAirfoils'))
+    GeometricalLawsNamesList = ['Chord', 'Twist', 'Sweep','Dihedral', 'Airfoils',
+        'ChordwiseX','ChordwiseY','ChordwiseZ',
+         'SpanwiseX', 'SpanwiseY', 'SpanwiseZ',
+        'ThickwiseX','ThickwiseY','ThickwiseZ']
+    
     GeometricalLawsDict = {}
     for geom in GeometricalLawsNamesList:
         # GeometricalLawsDict[geom] = {'RelativeSpan' : RelativeSpanScan}
-        GeometricalLawsDict[geom] = {
-            "Abscissa": Abscissa
-        }  # better this (monotonically increasing)
-        if geom == "Airfoils":
-            GeometricalLawsDict[geom]["PyZonePolarNames"] = [a[0] for a in airfoils]
+        GeometricalLawsDict[geom] = {'Abscissa' : Abscissa} # better this (monotonically increasing)
+        if geom == 'Airfoils':
+            GeometricalLawsDict[geom]['PyZonePolarNames'] = [a[0] for a in airfoils]
         else:
-            GeometricalLawsDict[geom][geom] = J.getVars(BladeLine, [geom])[0]
+            GeometricalLawsDict[geom][geom] = J.getVars(BladeLine,[geom])[0]
         try:
-            GeometricalLawsDict[geom]["InterpolationLaw"] = (
-                GeometricalLawsInterpolations[geom]
-            )
+            GeometricalLawsDict[geom]['InterpolationLaw'] = GeometricalLawsInterpolations[geom]
         except KeyError:
-            GeometricalLawsDict[geom]["InterpolationLaw"] = "interp1d_linear"
+            GeometricalLawsDict[geom]['InterpolationLaw'] = 'interp1d_linear'       
 
     # Create the lifting line
-    if not RightHandRuleRotation:
-        mirrorBlade(BladeLine)
-    PitchCtr = J.getVars(
-        BladeLine,
-        ["PitchRelativeCenterX", "PitchRelativeCenterY", "PitchRelativeCenterZ"],
-    )
-    PitchAxis = J.getVars(BladeLine, ["PitchAxisX", "PitchAxisY", "PitchAxisZ"])
-    PitchCtr_pt = (PitchCtr[0][0] * 1.0, PitchCtr[1][0] * 1.0, PitchCtr[2][0] * 1.0)
-    PitchAxis_vec = (
-        PitchAxis[0][0] * 1.0,
-        PitchAxis[1][0] * 1.0,
-        PitchAxis[2][0] * 1.0,
-    )
+    if not RightHandRuleRotation: mirrorBlade(BladeLine)
+    PitchCtr = J.getVars(BladeLine,
+        ['PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ'])
+    PitchAxis = J.getVars(BladeLine, ['PitchAxisX','PitchAxisY','PitchAxisZ'])
+    PitchCtr_pt = (PitchCtr[0][0]*1.0, PitchCtr[1][0]*1.0, PitchCtr[2][0]*1.0)
+    PitchAxis_vec = (PitchAxis[0][0]*1.0, PitchAxis[1][0]*1.0, PitchAxis[2][0]*1.0)
 
     # build auxiliar curve from user-defined SpanwiseRediscretization
     if isinstance(SpanwiseRediscretization, int):
@@ -1867,39 +1605,34 @@ def buildLiftingLineFromScan(
         SpanwiseCurve = BladeLine
     else:
         dist = J.getDistributionFromHeterogeneousInput__(SpanwiseRediscretization)[-1]
-        SpanwiseCurve = G.map(BladeLine, dist)
+        SpanwiseCurve = G.map(BladeLine,dist)
 
-    LiftingLine = buildLiftingLine(
-        SpanwiseCurve,
-        RightHandRuleRotation=RightHandRuleRotation,
-        PitchRelativeCenter=PitchCtr_pt,
-        PitchAxis=PitchAxis_vec,
-        RotationCenter=[0, 0, 0],
-        **GeometricalLawsDict,
-    )
+    LiftingLine = buildLiftingLine(SpanwiseCurve, RightHandRuleRotation=RightHandRuleRotation,
+        PitchRelativeCenter=PitchCtr_pt, PitchAxis=PitchAxis_vec,
+        RotationCenter=[0,0,0], **GeometricalLawsDict)
 
     # propagate kinematics information, but keep canonical position
-    scan_info["RotationAxis"] *= Dir  # since in kinematics it is actually ThrustAxis
+    scan_info['RotationAxis'] *= Dir # since in kinematics it is actually ThrustAxis
     scan_info.update(OverridingKinematics)
-    del scan_info["PitchAxis"]
+    del scan_info['PitchAxis']
     setKinematicsUsingConstantRotationAndTranslation(LiftingLine, **scan_info)
 
     # CONSTRUCT COORDINATE-ONLY PYZONE POLARS
     PyZonePolarsGeometryOnly = []
-    for zone in I.getZones(I.getNodeFromName1(t, "BaseNormalizedAirfoils")):
+    for zone in I.getZones(I.getNodeFromName1(t,'BaseNormalizedAirfoils')):
         airfoil = I.copyRef(zone)
-        node = I.getNodeFromName1(airfoil, "GridCoordinates")
-        node[0] = ".Polar#FoilGeometry"
-        node[3] = "UserDefinedData_t"
-        I._rmNodesByName1(node, "CoordinateZ")
-        I._rmNodesByType1(airfoil, "FlowSolution_t")
+        node = I.getNodeFromName1(airfoil, 'GridCoordinates')
+        node[0] = '.Polar#FoilGeometry'
+        node[3] = 'UserDefinedData_t'
+        I._rmNodesByName1(node,'CoordinateZ')
+        I._rmNodesByType1(airfoil,'FlowSolution_t')
         PyZonePolarsGeometryOnly.append(airfoil)
+    
 
     return LiftingLine, PyZonePolarsGeometryOnly, pitch
 
-
-def checkComponentKind(component, kind="LiftingLine"):
-    """
+def checkComponentKind(component, kind='LiftingLine'):
+    '''
     Function to determine whether a component (CGNS Base or zone) is of kind
     given by attribute **kind**.
 
@@ -1917,23 +1650,19 @@ def checkComponentKind(component, kind="LiftingLine"):
 
         Result : bool
             :py:obj:`True` if node kind corresponds to the requested one
-    """
-    ZoneInfo = I.getNodeFromName1(component, ".Component#Info")
-    if ZoneInfo is None:
-        return False
-    kindC = I.getNodeFromName1(ZoneInfo, "kind")
+    '''
+    ZoneInfo = I.getNodeFromName1(component,'.Component#Info')
+    if ZoneInfo is None: return False
+    kindC = I.getNodeFromName1(ZoneInfo,'kind')
     kindC = I.getValue(kindC)
 
     return kind == kindC
 
-
 def getLiftingLines(t):
-    return [c for c in I.getZones(t) if checkComponentKind(c, kind="LiftingLine")]
+    return [c for c in I.getZones(t) if checkComponentKind(c, kind='LiftingLine')]
 
-
-def buildPolarsInterpolatorDict(
-    PyZonePolars, InterpFields=["Cl", "Cd", "Cm"], Nrequest=None
-):
+def buildPolarsInterpolatorDict(PyZonePolars, InterpFields=['Cl', 'Cd','Cm'],
+        Nrequest=None):
     """
     Build a Python dictionary of interpolation functions of polars from a list
     of **PyZonePolars**. Each key is the name of the **PyZonePolar**
@@ -1975,42 +1704,25 @@ def buildPolarsInterpolatorDict(
     """
     InterpDict = {}
     for polar in I.getZones(PyZonePolars):
-        PolarInterpNode = I.getNodeFromName1(polar, ".Polar#Interp")
-        if PolarInterpNode is None:
-            continue
-        mode = I.getValue(I.getNodeFromName1(PolarInterpNode, "Algorithm"))
+        PolarInterpNode = I.getNodeFromName1(polar,'.Polar#Interp')
+        if PolarInterpNode is None: continue
+        mode = I.getValue(I.getNodeFromName1(PolarInterpNode,'Algorithm'))
 
-        if mode == "RbfInterpolator":
-            InterpDict[polar[0]] = RbfInterpFromPyZonePolar(
-                polar, InterpFields=InterpFields
-            )
-        elif mode == "PyZoneExtractMesh":
-            InterpDict[polar[0]] = extractorFromPyZonePolar(
-                polar, Nrequest, InterpFields=InterpFields
-            )
-        elif mode == "RectBivariateSpline":
-            InterpDict[polar[0]] = interpolatorFromPyZonePolar(
-                polar, InterpFields=InterpFields
-            )
+        if mode == 'RbfInterpolator':
+            InterpDict[polar[0]] = RbfInterpFromPyZonePolar(polar, InterpFields=InterpFields)
+        elif mode == 'PyZoneExtractMesh':
+            InterpDict[polar[0]] = extractorFromPyZonePolar(polar, Nrequest, InterpFields=InterpFields)
+        elif mode == 'RectBivariateSpline':
+            InterpDict[polar[0]] = interpolatorFromPyZonePolar(polar, InterpFields=InterpFields)
         else:
-            raise AttributeError("Mode %s not implemented." % mode)
+            raise AttributeError('Mode %s not implemented.'%mode)
 
     return InterpDict
 
 
-def buildPolarsAnalyticalDict(
-    Name="MyPolar",
-    CLmin=-1.0,
-    CLmax=1.5,
-    CL0=0.0,
-    CLa=2 * np.pi,
-    CD0=0.011,
-    CD2u=0.004,
-    CD2l=0.013,
-    CLCD0=0.013,
-    REref=1.0e6,
-    REexp=0.0,
-):
+def buildPolarsAnalyticalDict(Name='MyPolar', CLmin=-1.0, CLmax=1.5, CL0=0.0, CLa=2*np.pi,
+        CD0 = 0.011, CD2u = 0.004, CD2l = 0.013, CLCD0 = 0.013, REref = 1.e6,
+        REexp = 0.):
     """
     Construct a python dictionary of analytical functions allowing for
     determination of aerodynamic coefficients :math:`(c_l,\, c_d,\, c_m)`.
@@ -2042,33 +1754,28 @@ def buildPolarsAnalyticalDict(
         AnalyticalDict : dict
             dictionary containing the analytical functions.
     """
-
-    def analyticalPolar(AoA, Mach, Reynolds):
+    def analyticalPolar(AoA,Mach,Reynolds):
         # Linear for CL(AoA)
-        CL = np.minimum(
-            np.maximum((CL0 + CLa * np.deg2rad(AoA)) / np.sqrt(1 - Mach**2), CLmin),
-            CLmax,
-        )
+        CL = np.minimum(np.maximum((CL0 + CLa*np.deg2rad(AoA))/np.sqrt(1-Mach**2),CLmin),CLmax)
 
         # Double parabola for CD(CL)
-        CD2 = CL * 0
-        CD2[CL > CLCD0] = CD2u
-        CD2[CL <= CLCD0] = CD2l
-        CD = (CD0 + CD2 * (CL - CLCD0) ** 2) * (Reynolds / REref) ** REexp
+        CD2 = CL*0
+        CD2[CL>CLCD0]  = CD2u
+        CD2[CL<=CLCD0] = CD2l
+        CD = (CD0+CD2*(CL-CLCD0)**2)*(Reynolds/REref)**REexp
 
-        CM = 0.0
+        CM = 0.
 
         DictOfVals = dict(Cl=CL, Cd=CD, Cm=CM)
 
-        return DictOfVals["Cl"], DictOfVals["Cd"], DictOfVals["Cm"]
+        return DictOfVals['Cl'], DictOfVals['Cd'], DictOfVals['Cm']
 
     InterpDict = dict(Name=analyticalPolar)
 
     return InterpDict
 
-
-def buildLiftingLineInterpolator(LiftingLine, InterpFields=["Cl", "Cd", "Cm"]):
-    """
+def buildLiftingLineInterpolator(LiftingLine, InterpFields=['Cl', 'Cd', 'Cm']):
+    '''
 
     .. danger:: this function is to be deprecated (replaced by
         :py:func:`_applyPolarOnLiftingLine`).
@@ -2093,60 +1800,51 @@ def buildLiftingLineInterpolator(LiftingLine, InterpFields=["Cl", "Cd", "Cm"]):
 
         RequestLine : zone
             curve zone yielding the request points
-    """
+    '''
 
     # Get curvilinear abscissa of actual LiftingLine
-    (s,) = J.getVars(LiftingLine, ["s"])
+    s, = J.getVars(LiftingLine,['s'])
 
     # Get Airfoils data
-    ComponentInfoNode = I.getNodeFromName1(LiftingLine, "Airfoils")
-    PolarInfo = I.getNodeFromName1(LiftingLine, "Airfoils")
-    Abscissa = I.getValue(I.getNodeFromName1(PolarInfo, "Abscissa"))
-    InterpolationLaw = I.getValue(I.getNodeFromName1(PolarInfo, "InterpolationLaw"))
+    ComponentInfoNode = I.getNodeFromName1(LiftingLine,'Airfoils')
+    PolarInfo= I.getNodeFromName1(LiftingLine,'Airfoils')
+    Abscissa= I.getValue(I.getNodeFromName1(PolarInfo,'Abscissa'))
+    InterpolationLaw = I.getValue(I.getNodeFromName1(PolarInfo,'InterpolationLaw'))
 
     # Dimensions of interpolation
-    Ns = len(s)  # = number of pts of LiftingLine
+    Ns = len(s)         # = number of pts of LiftingLine
     Na = len(Abscissa)  # = Number of PyZonePolars
 
     # Build DataSurface:
-    DataSurface = G.cart((0, 0, 0), (1, 1, 1), (Ns, Na, 1))
+    DataSurface = G.cart((0,0,0), (1,1,1),(Ns,Na,1))
     DSx, DSy = J.getxy(DataSurface)
-    DSx[:] = np.broadcast_to(s, (Na, Ns)).T
-    DSy[:] = np.broadcast_to(Abscissa, (Ns, Na))
+    DSx[:] = np.broadcast_to(s,(Na,Ns)).T
+    DSy[:] = np.broadcast_to(Abscissa,(Ns,Na))
     T._addkplane(DataSurface)
-    T._translate(DataSurface, (0, 0, -0.5))
-    J._invokeFields(DataSurface, InterpFields)
+    T._translate(DataSurface,(0,0,-0.5))
+    J._invokeFields(DataSurface,InterpFields)
 
     # Build RequestLine
-    RequestLine = D.line((0, 0, 0), (1, 1, 0), Ns)
+    RequestLine = D.line((0,0,0),(1,1,0),Ns)
     RLx, RLy = J.getxy(RequestLine)
-    RLx[:] = RLy[:] = s
-    J._invokeFields(RequestLine, InterpFields)
+    RLx[:]= RLy[:] = s
+    J._invokeFields(RequestLine,InterpFields)
 
     # Prepare interpolation data
-    C._initVars(RequestLine, "cellN", 2)
-    C._initVars(DataSurface, "cellN", 1)
-    X._setInterpData(
-        RequestLine,
-        [DataSurface],
-        order=2,
-        nature=1,
-        loc="nodes",
-        storage="direct",
-        hook=None,
-        method="lagrangian",
-        dim=2,
-    )
+    C._initVars(RequestLine,'cellN',2)
+    C._initVars(DataSurface,'cellN',1)
+    X._setInterpData(RequestLine, [DataSurface], order=2,
+                     nature=1, loc='nodes', storage='direct', hook=None,
+                     method='lagrangian', dim=2)
 
     LiftingLineInterpolator = DataSurface, RequestLine
 
     return LiftingLineInterpolator
 
 
-def interpolatorFromPyZonePolar(
-    PyZonePolar, interpOptions=None, InterpFields=["Cl", "Cd", "Cm"]
-):
-    """
+def interpolatorFromPyZonePolar(PyZonePolar, interpOptions=None,
+        InterpFields=['Cl', 'Cd', 'Cm']):
+    '''
     This function create the interpolation function of Polar
     data of an airfoil stored as a PyTree Zone.
 
@@ -2175,50 +1873,48 @@ def interpolatorFromPyZonePolar(
 
             >>> InterpolationFunctions(AoA, Mach, Reynolds, ListOfEquations=[])
 
-    """
+    '''
     import scipy.interpolate as si
+
 
     # Get the fields to interpolate
     Data = {}
     DataRank = {}
-    FS_n = I.getNodeFromName1(PyZonePolar, "FlowSolution")
-    FV_n = I.getNodeFromName1(PyZonePolar, ".Polar#FoilValues")
+    FS_n = I.getNodeFromName1(PyZonePolar,'FlowSolution')
+    FV_n = I.getNodeFromName1(PyZonePolar,'.Polar#FoilValues')
     for IntField in InterpFields:
-        Field_n = I.getNodeFromName1(FS_n, IntField)
+        Field_n = I.getNodeFromName1(FS_n,IntField)
         if Field_n:
             Data[IntField] = I.getValue(Field_n)
             DataRank[IntField] = len(Data[IntField].shape)
         else:
-            Field_n = I.getNodeFromName1(FV_n, IntField)
+            Field_n = I.getNodeFromName1(FV_n,IntField)
             if Field_n:
                 Data[IntField] = I.getValue(Field_n)
                 DataRank[IntField] = len(Data[IntField].shape)
 
-    PR_n = I.getNodeFromName1(PyZonePolar, ".Polar#Range")
-    AoARange = I.getValue(I.getNodeFromName1(PR_n, "AngleOfAttack"))
-    NAoARange = len(AoARange)
-    MachRange = I.getValue(I.getNodeFromName1(PR_n, "Mach"))
+    PR_n = I.getNodeFromName1(PyZonePolar,'.Polar#Range')
+    AoARange=I.getValue(I.getNodeFromName1(PR_n,'AngleOfAttack'))
+    NAoARange=len(AoARange)
+    MachRange=I.getValue(I.getNodeFromName1(PR_n,'Mach'))
     MachRangeMax = MachRange.max()
     MachRangeMin = MachRange.min()
-    NMachRange = len(MachRange)
+    NMachRange=len(MachRange)
 
-    OutOfRangeValues_ParentNode = I.getNodeFromName1(
-        PyZonePolar, ".Polar#OutOfRangeValues"
-    )
+    OutOfRangeValues_ParentNode = I.getNodeFromName1(PyZonePolar,'.Polar#OutOfRangeValues')
 
-    BigAoARange = {}
+    BigAoARange      = {}
     OutOfRangeValues = {}
     for IntField in InterpFields:
-        BigAoARangeVar_n = I.getNodeFromName1(PR_n, "BigAngleOfAttack%s" % IntField)
+        BigAoARangeVar_n = I.getNodeFromName1(PR_n,'BigAngleOfAttack%s'%IntField)
         if BigAoARangeVar_n is None:
-            BigAoARangeVar_n = I.getNodeFromName1(PR_n, "BigAngleOfAttackCl")
+            BigAoARangeVar_n = I.getNodeFromName1(PR_n,'BigAngleOfAttackCl')
         BigAoARange[IntField] = I.getValue(BigAoARangeVar_n)
 
-        OutOfRangeValues_n = I.getNodeFromName1(
-            OutOfRangeValues_ParentNode, "BigAngleOfAttack%s" % IntField
-        )
+        OutOfRangeValues_n = I.getNodeFromName1(OutOfRangeValues_ParentNode,'BigAngleOfAttack%s'%IntField)
         if OutOfRangeValues_n is not None:
             OutOfRangeValues[IntField] = I.getValue(OutOfRangeValues_n)
+
 
     # -------------- BUILD INTERPOLATOR -------------- #
     # Currently, only scipy.interpolator based objects
@@ -2227,68 +1923,53 @@ def interpolatorFromPyZonePolar(
 
     # 2D interpolation
     try:
-        ReynoldsOverMach = I.getNodeFromName(PyZonePolar, "ReynoldsOverMach")[1][0]
+        ReynoldsOverMach = I.getNodeFromName(PyZonePolar,'ReynoldsOverMach')[1][0]
     except TypeError:
         ReynoldsOverMach = None
-        ReynoldsRange = I.getNodeFromName(PyZonePolar, "Reynolds")[1]
+        ReynoldsRange= I.getNodeFromName(PyZonePolar,'Reynolds')[1]
 
-    if interpOptions is None:
-        interpOptions = dict(kx=1, ky=1)
+    if interpOptions is None: interpOptions = dict(kx=1, ky=1)
+
 
     # (AoA, Mach) interpolation
     # using si.RectBivariateSpline()
     tableInterpFuns = {}
     for IntField in InterpFields:
 
+
         if DataRank[IntField] == 2:
             # Integral quantity: Cl, Cd, Cm, Xtr...
 
             # Create extended angle-of-attack and data range
-            lowAoA = BigAoARange[IntField] < 0
+            lowAoA  = BigAoARange[IntField] < 0
             highAoA = BigAoARange[IntField] > 0
-            ExtAoARange = np.hstack(
-                (
-                    BigAoARange[IntField][lowAoA],
-                    AoARange,
-                    BigAoARange[IntField][highAoA],
-                )
-            )
-            DataLow = np.zeros(
-                (np.count_nonzero(lowAoA), NMachRange), dtype=np.float64, order="F"
-            )
-            DataHigh = np.zeros(
-                (np.count_nonzero(highAoA), NMachRange), dtype=np.float64, order="F"
-            )
+            ExtAoARange = np.hstack((BigAoARange[IntField][lowAoA],AoARange,BigAoARange[IntField][highAoA]))
+            DataLow = np.zeros((np.count_nonzero(lowAoA),NMachRange),dtype=np.float64,order='F')
+            DataHigh = np.zeros((np.count_nonzero(highAoA),NMachRange),dtype=np.float64,order='F')
             for m in range(NMachRange):
                 if IntField in OutOfRangeValues:
-                    DataLow[:, m] = OutOfRangeValues[IntField][lowAoA]
-                    DataHigh[:, m] = OutOfRangeValues[IntField][highAoA]
+                    DataLow[:,m]  = OutOfRangeValues[IntField][lowAoA]
+                    DataHigh[:,m] = OutOfRangeValues[IntField][highAoA]
                 else:
-                    DataLow[:, m] = 0
-                    DataHigh[:, m] = 0
+                    DataLow[:,m]  = 0
+                    DataHigh[:,m] = 0
 
-            ExtData = np.vstack((DataLow, Data[IntField], DataHigh))
+            ExtData = np.vstack((DataLow,Data[IntField],DataHigh))
             # Create Extended data range
-            tableInterpFuns[IntField] = si.RectBivariateSpline(
-                ExtAoARange, MachRange, ExtData, **interpOptions
-            )
+            tableInterpFuns[IntField] = si.RectBivariateSpline(ExtAoARange,MachRange, ExtData, **interpOptions)
             # tableInterpFuns[IntField] is a function
 
         elif DataRank[IntField] == 3:
             # Foil-distributed quantity: Cp, delta*, theta...
             tableInterpFuns[IntField] = []
             for k in range(Data[IntField].shape[2]):
-                interpFun = si.RectBivariateSpline(
-                    AoARange, MachRange, Data[IntField][:, :, k], **interpOptions
-                )
+                interpFun = si.RectBivariateSpline(AoARange,MachRange, Data[IntField][:,:,k], **interpOptions)
                 tableInterpFuns[IntField] += [interpFun]
             # tableInterpFuns[IntField] is a list of functions
 
         else:
-            raise ValueError(
-                'FATAL ERROR: Rank of data named "%s" to be interpolated is %d, and must be 2 (for integral quantities like Cl, Cd...) or 3 (for foil-distributed quantities like Cp, theta...).\nCheck your PyZonePolar data.'
-                % (IntField, DataRank[IntField])
-            )
+            raise ValueError('FATAL ERROR: Rank of data named "%s" to be interpolated is %d, and must be 2 (for integral quantities like Cl, Cd...) or 3 (for foil-distributed quantities like Cp, theta...).\nCheck your PyZonePolar data.'%(IntField,DataRank[IntField]))
+
 
     def interpolationFunction(AoA, Mach, Reynolds):
         # This function should be as efficient as possible
@@ -2296,34 +1977,32 @@ def interpolatorFromPyZonePolar(
         # BEWARE : RectBiVariate ignores Reynolds at
         # interpolation step
 
-        Mach = np.clip(Mach, MachRangeMin, MachRangeMax)
+
+        Mach = np.clip(Mach,MachRangeMin,MachRangeMax)
 
         # Apply RectBiVariate interpolator
         ListOfValues = []
         for IntField in InterpFields:
 
+
             if DataRank[IntField] == 2:
-                ListOfValues += [tableInterpFuns[IntField](AoA, Mach, grid=False)]
+                ListOfValues += [tableInterpFuns[IntField](AoA, Mach,grid=False)]
             else:
                 # DataRank[IntField] == 3
                 FoilValues = []
                 for tableIntFun in tableInterpFuns[IntField]:
-                    FoilValues += [
-                        [
-                            tableIntFun(AoA[ir], Mach[ir], grid=False)
-                            for ir in range(len(AoA))
-                        ]
-                    ]
+                    FoilValues += [[tableIntFun(AoA[ir], Mach[ir], grid=False) for ir in range(len(AoA))]]
 
-                ListOfValues += [np.array(FoilValues, dtype=np.float64, order="F")]
+                ListOfValues += [np.array(FoilValues,dtype=np.float64,order='F')]
+
 
         return ListOfValues
 
     return interpolationFunction
 
-
-def extractorFromPyZonePolar(PyZonePolar, Nrequest, InterpFields=["Cl", "Cd", "Cm"]):
-    """
+def extractorFromPyZonePolar(PyZonePolar, Nrequest,
+        InterpFields=['Cl', 'Cd', 'Cm']):
+    '''
 
     .. danger:: this function is being deprecated
 
@@ -2356,72 +2035,65 @@ def extractorFromPyZonePolar(PyZonePolar, Nrequest, InterpFields=["Cl", "Cd", "C
 
             >>> InterpolationFunctions(AoA, Mach, Reynolds, ListOfEquations=[])
 
-    """
+    '''
+
 
     # Get the fields to interpolate
     Data = {}
     DataRank = {}
     for IntField in InterpFields:
-        Data[IntField] = I.getNodeFromName(PyZonePolar, IntField)[1]
+        Data[IntField] = I.getNodeFromName(PyZonePolar,IntField)[1]
         DataRank[IntField] = len(Data[IntField].shape)
 
-    AoARange = I.getNodeFromName(PyZonePolar, "AngleOfAttack")[1]
+    AoARange = I.getNodeFromName(PyZonePolar,'AngleOfAttack')[1]
     NAoARange = len(AoARange)
-    MachRange = I.getNodeFromName(PyZonePolar, "Mach")[1]
+    MachRange= I.getNodeFromName(PyZonePolar,'Mach')[1]
     NMachRange = len(MachRange)
 
     BigAoARange = {}
     for IntField in InterpFields:
-        BigAoARangeVar_n = I.getNodeFromName(
-            PyZonePolar, "BigAngleOfAttack%s" % IntField
-        )
+        BigAoARangeVar_n = I.getNodeFromName(PyZonePolar,'BigAngleOfAttack%s'%IntField)
         if BigAoARangeVar_n is None:
-            BigAoARangeVar_n = I.getNodeFromName(PyZonePolar, "BigAngleOfAttackCl")
+            BigAoARangeVar_n = I.getNodeFromName(PyZonePolar,'BigAngleOfAttackCl')
         BigAoARange[IntField] = BigAoARangeVar_n[1]
+
 
     # (AoA, Mach) interpolation
     # using P._extractMesh() --> only for DataRank == 2 !
 
     # Create PolarDataSurface
-    PolarDataSurface = G.cart((0, 0, -0.5), (1, 1, 1), (NMachRange, NAoARange, 2))
-    PolarDataSurface[0] = "DataSurf_%s" % PyZonePolar[0]
+    PolarDataSurface = G.cart((0,0,-0.5), (1,1,1),(NMachRange,NAoARange,2))
+    PolarDataSurface[0] = 'DataSurf_%s'%PyZonePolar[0]
     DSx, DSy = J.getxy(PolarDataSurface)
-    DSx[:, :, 0] = DSx[:, :, 1] = np.broadcast_to(MachRange, (NAoARange, NMachRange)).T
-    DSy[:, :, 0] = DSy[:, :, 1] = np.broadcast_to(AoARange, (NMachRange, NAoARange))
-    PZVarsDict = J.getVars2Dict(PyZonePolar, InterpFields)
-    PDSVarsDict = J.invokeFieldsDict(PolarDataSurface, InterpFields)
+    DSx[:,:,0] = DSx[:,:,1]  = np.broadcast_to(MachRange,(NAoARange,NMachRange)).T
+    DSy[:,:,0] = DSy[:,:,1] = np.broadcast_to(AoARange,(NMachRange,NAoARange))
+    PZVarsDict = J.getVars2Dict(PyZonePolar,InterpFields)
+    PDSVarsDict = J.invokeFieldsDict(PolarDataSurface,InterpFields)
     for pzvar in InterpFields:
-        PDSVarsDict[pzvar][:, :, 0] = PDSVarsDict[pzvar][:, :, 1] = PZVarsDict[pzvar].T
+        PDSVarsDict[pzvar][:,:,0] = PDSVarsDict[pzvar][:,:,1] = PZVarsDict[pzvar].T
 
     # Create PolarRequestLine
-    PolarRequestLine = D.line(
-        (MachRange[0], AoARange[0], 0), (MachRange[-1], AoARange[-1], 0), Nrequest
-    )
-    PolarRequestLine[0] = "ReqLine_%s" % PyZonePolar[0]
-    J._invokeFields(PolarRequestLine, InterpFields)
+    PolarRequestLine = D.line((MachRange[0],AoARange[0],0),(MachRange[-1],AoARange[-1],0),Nrequest)
+    PolarRequestLine[0] = 'ReqLine_%s'%PyZonePolar[0]
+    J._invokeFields(PolarRequestLine,InterpFields)
 
-    C._initVars(PolarRequestLine, "cellN", 2)
-    C._initVars(PolarDataSurface, "cellN", 1)
-    hook = C.createHook(PolarDataSurface, "extractMesh")
+    C._initVars(PolarRequestLine,'cellN',2)
+    C._initVars(PolarDataSurface,'cellN',1)
+    hook = C.createHook(PolarDataSurface,'extractMesh')
 
     def interpolationFunction(AoA, Mach, Reynolds):
 
-        if isinstance(AoA, list):
-            AoA = np.array(AoA, dtype=np.float64, order="F")
-        if isinstance(Mach, list):
-            Mach = np.array(Mach, dtype=np.float64, order="F")
-        if isinstance(Reynolds, list):
-            Reynolds = np.array(Reynolds, dtype=np.float64, order="F")
+        if isinstance(AoA,list): AoA = np.array(AoA,dtype=np.float64, order='F')
+        if isinstance(Mach,list): Mach = np.array(Mach,dtype=np.float64, order='F')
+        if isinstance(Reynolds,list): Reynolds = np.array(Reynolds,dtype=np.float64, order='F')
 
-        if all(np.isnan(Reynolds)):
-            raise ValueError("all-NaN Found in Reynolds")
-        elif any(np.isnan(Reynolds)):
-            Reynolds[np.isnan(Reynolds)] = 0
 
-        if all(np.isnan(Mach)):
-            raise ValueError("all-NaN Found in Mach")
-        elif any(np.isnan(Mach)):
-            Mach[np.isnan(Mach)] = 0
+        if all(np.isnan(Reynolds)): raise ValueError('all-NaN Found in Reynolds')
+        elif any(np.isnan(Reynolds)): Reynolds[np.isnan(Reynolds)] = 0
+
+        if all(np.isnan(Mach)): raise ValueError('all-NaN Found in Mach')
+        elif any(np.isnan(Mach)): Mach[np.isnan(Mach)] = 0
+
 
         Npts = len(AoA)
 
@@ -2432,54 +2104,35 @@ def extractorFromPyZonePolar(PyZonePolar, Nrequest, InterpFields=["Cl", "Cd", "C
 
         # Interpolate in-range AoA values
         # P._extractMesh([PolarDataSurface],PolarRequestLine, order=2, extrapOrder=1, constraint=1e6, tol=1e-4, mode='robust', hook=None)
-        X._setInterpData(
-            PolarRequestLine,
-            [PolarDataSurface],
-            order=2,
-            nature=1,
-            loc="nodes",
-            storage="RightHandRuleRotation",
-            hook=[hook],
-            method="lagrangian",
-            dim=2,
-        )
-        X._setInterpTransfers(
-            PolarRequestLine, [PolarDataSurface], variables=InterpFields
-        )
+        X._setInterpData(PolarRequestLine, [PolarDataSurface], order=2, nature=1, loc='nodes', storage='RightHandRuleRotation', hook=[hook],  method='lagrangian',dim=2)
+        X._setInterpTransfers(PolarRequestLine, [PolarDataSurface], variables=InterpFields)
         # print('ElapsedTime _setInterpTransfers: %g s'%ElapsedTime)
         # sys.exit()
-        Values = J.getVars2Dict(PolarRequestLine, InterpFields)
+        Values = J.getVars2Dict(PolarRequestLine,InterpFields)
 
         # Interpolate in out-of-range AoA values
-        InOfRange = np.zeros(Npts, dtype=np.bool)
+        InOfRange = np.zeros(Npts,dtype=np.bool)
         for i in range(Npts):
-            InOfRange[i] = (
-                True if (AoA[i] > AoARange[0]) and (AoA[i] < AoARange[-1]) else False
-            )
+            InOfRange[i] = True if (AoA[i] > AoARange[0]) and (AoA[i] < AoARange[-1]) else False
         OutOfRange = np.logical_not(InOfRange)
-        OutOfRangeValues_ParentNode = I.getNodeFromName(
-            PyZonePolar, ".Polar#OutOfRangeValues"
-        )
+        OutOfRangeValues_ParentNode = I.getNodeFromName(PyZonePolar,'.Polar#OutOfRangeValues')
 
         if np.any(OutOfRange):
             for IntField in InterpFields:
-                OutOfRangeValues_n = I.getNodeFromName(
-                    OutOfRangeValues_ParentNode, "BigAngleOfAttack%s" % IntField
-                )
+                OutOfRangeValues_n = I.getNodeFromName(OutOfRangeValues_ParentNode,'BigAngleOfAttack%s'%IntField)
                 if OutOfRangeValues_n is not None:
-                    Values[IntField][OutOfRange] = np.interp(
-                        AoA[OutOfRange], BigAoARange[IntField], OutOfRangeValues_n[1]
-                    )
+                    Values[IntField][OutOfRange] = np.interp(AoA[OutOfRange], BigAoARange[IntField],OutOfRangeValues_n[1])
 
         ListOfValues = [Values[IntField] for IntField in InterpFields]
 
+
         return ListOfValues
+
 
     return interpolationFunction
 
-
-def RbfInterpFromPyZonePolar(PyZonePolar, InterpFields=["Cl", "Cd", "Cm"]):
-    """
+def RbfInterpFromPyZonePolar(PyZonePolar, InterpFields=['Cl', 'Cd', 'Cm']):
+    '''
     This function creates the interpolation function of Polar
     data of an airfoil stored as a PyTree Zone, using radial-basis-functions.
 
@@ -2506,61 +2159,51 @@ def RbfInterpFromPyZonePolar(PyZonePolar, InterpFields=["Cl", "Cd", "Cm"]):
             function of interpolation, with expected usage:
 
             >>> Cl, Cd, Cm = InterpolationFunction(AoA, Mach, Reynolds)
-    """
+    '''
     from scipy.spatial import Delaunay
     import scipy.interpolate as si
 
     # Check kind of PyZonePolar
-    PolarInterpNode = I.getNodeFromName1(PyZonePolar, ".Polar#Interp")
-    PyZonePolarKind = I.getValue(I.getNodeFromName1(PolarInterpNode, "PyZonePolarKind"))
-    Algorithm = I.getValue(I.getNodeFromName1(PolarInterpNode, "Algorithm"))
-    if PyZonePolarKind != "Unstr_AoA_Mach_Reynolds":
-        raise AttributeError(
-            'RbfInterpolator object can only be associated with a PyZonePolar of type "Unstr_AoA_Mach_Reynolds". Check PyZonePolar "%s"'
-            % PyZonePolar[0]
-        )
-    if Algorithm != "RbfInterpolator":
-        raise ValueError(
-            "Attempted to use RbfInterpolator, but Algorithm node in PyZonePolar named '%s' was '%s'"
-            % (PyZonePolar[0], Algorithm)
-        )
+    PolarInterpNode = I.getNodeFromName1(PyZonePolar,'.Polar#Interp')
+    PyZonePolarKind = I.getValue(I.getNodeFromName1(PolarInterpNode,'PyZonePolarKind'))
+    Algorithm = I.getValue(I.getNodeFromName1(PolarInterpNode,'Algorithm'))
+    if PyZonePolarKind != 'Unstr_AoA_Mach_Reynolds':
+        raise AttributeError('RbfInterpolator object can only be associated with a PyZonePolar of type "Unstr_AoA_Mach_Reynolds". Check PyZonePolar "%s"'%PyZonePolar[0])
+    if Algorithm != 'RbfInterpolator':
+        raise ValueError("Attempted to use RbfInterpolator, but Algorithm node in PyZonePolar named '%s' was '%s'"%(PyZonePolar[0], Algorithm))
 
     # Get the fields to interpolate
-    Data = {}
-    DataRank = {}
-    DataShape = {}
+    Data       = {}
+    DataRank   = {}
+    DataShape  = {}
     for IntField in InterpFields:
-        Data[IntField] = I.getNodeFromName(PyZonePolar, IntField)[1]
-        DataShape[IntField] = Data[IntField].shape
+        Data[IntField] = I.getNodeFromName(PyZonePolar,IntField)[1]
+        DataShape[IntField]  = Data[IntField].shape
         DataRank[IntField] = len(DataShape[IntField])
 
     # Get polar independent variables (AoA, Mach, Reynolds)
-    PolarRangeNode = I.getNodeFromName1(PyZonePolar, ".Polar#Range")
-    AoARange = I.getNodeFromName1(PolarRangeNode, "AngleOfAttack")[1]
-    MachRange = I.getNodeFromName1(PolarRangeNode, "Mach")[1]
-    ReRange = I.getNodeFromName1(PolarRangeNode, "Reynolds")[1]
+    PolarRangeNode = I.getNodeFromName1(PyZonePolar,'.Polar#Range')
+    AoARange = I.getNodeFromName1(PolarRangeNode,'AngleOfAttack')[1]
+    MachRange = I.getNodeFromName1(PolarRangeNode,'Mach')[1]
+    ReRange = I.getNodeFromName1(PolarRangeNode,'Reynolds')[1]
 
     # Compute bounding box of independent variables
-    AoAMin, AoAMax = AoARange.min(), AoARange.max()
-    ReMin, ReMax = ReRange.min(), ReRange.max()
-    MachMin, MachMax = MachRange.min(), MachRange.max()
+    AoAMin,  AoAMax =  AoARange.min(),  AoARange.max()
+    ReMin,    ReMax =   ReRange.min(),   ReRange.max()
+    MachMin,MachMax = MachRange.min(), MachRange.max()
 
     # Compute ranges of big angle-of-attack
     BigAoARange = {}
-    OutOfRangeValues_ParentNode = I.getNodeFromName(
-        PyZonePolar, ".Polar#OutOfRangeValues"
-    )
+    OutOfRangeValues_ParentNode = I.getNodeFromName(PyZonePolar,'.Polar#OutOfRangeValues')
     for IntField in InterpFields:
-        BigAoARangeVar_n = I.getNodeFromName(
-            PyZonePolar, "BigAngleOfAttack%s" % IntField
-        )
+        BigAoARangeVar_n = I.getNodeFromName(PyZonePolar,'BigAngleOfAttack%s'%IntField)
         if BigAoARangeVar_n is None:
-            BigAoARangeVar_n = I.getNodeFromName(PyZonePolar, "BigAngleOfAttackCl")
+            BigAoARangeVar_n = I.getNodeFromName(PyZonePolar,'BigAngleOfAttackCl')
         BigAoARange[IntField] = BigAoARangeVar_n[1]
 
     # Compute Delaunay triangulation of independent variables
     # (AoA, Mach, Reynolds)
-    points = np.vstack((AoARange, MachRange, ReRange)).T
+    points = np.vstack((AoARange,MachRange,ReRange)).T
     triDelaunay = Delaunay(points)
 
     # CONSTRUCT INTERPOLATORS
@@ -2571,16 +2214,15 @@ def RbfInterpFromPyZonePolar(PyZonePolar, InterpFields=["Cl", "Cd", "Cm"]):
     #       on Big angle-of-attack data, if available
 
     inQhullFun, outQhullFun, outMaxAoAFun, outMinAoAFun = {}, {}, {}, {}
-
     def makeNaNFun(dummyArray):
-        newArray = dummyArray * 0.0
+        newArray = dummyArray*0.
         newArray[:] = np.nan
         return newArray
 
     for IntField in InterpFields:
         if DataRank[IntField] == 1:
             # Integral quantity: Cl, Cd, Cm, Top_Xtr...
-            """
+            '''
             Rbf functions:
             'multiquadric' # ok
             'inverse'      # bit expensive
@@ -2589,101 +2231,55 @@ def RbfInterpFromPyZonePolar(PyZonePolar, InterpFields=["Cl", "Cd", "Cm"]):
             'cubic'        # expensive
             'quintic'      # expensive
             'thin_plate'   # bit expensive
-            """
-            inQhullFun[IntField] = si.Rbf(
-                0.1 * AoARange,
-                MachRange,
-                1e-6 * ReRange,
-                Data[IntField],
-                function="multiquadric",
-                smooth=1,  # TODO: control through PyTree node
-            )
-            outQhullFun[IntField] = si.NearestNDInterpolator(points, Data[IntField])
-            outBBRangeValues_n = I.getNodeFromName(
-                OutOfRangeValues_ParentNode, "BigAngleOfAttack%s" % IntField
-            )
+            '''
+            inQhullFun[IntField] = si.Rbf(0.1*AoARange, MachRange,1e-6*ReRange, Data[IntField], function='multiquadric',
+                smooth=1, # TODO: control through PyTree node
+                )
+            outQhullFun[IntField] = si.NearestNDInterpolator(points,Data[IntField])
+            outBBRangeValues_n = I.getNodeFromName(OutOfRangeValues_ParentNode,'BigAngleOfAttack%s'%IntField)
             if outBBRangeValues_n is not None:
-                MaxAoAIndices = BigAoARange[IntField] > 0
-                outMaxAoAFun[IntField] = si.interp1d(
-                    BigAoARange[IntField][MaxAoAIndices],
-                    outBBRangeValues_n[1][MaxAoAIndices],
-                    assume_sorted=True,
-                    copy=False,
-                    fill_value="extrapolate",
-                )
-                MinAoAIndices = BigAoARange[IntField] < 0
-                outMinAoAFun[IntField] = si.interp1d(
-                    BigAoARange[IntField][MinAoAIndices],
-                    outBBRangeValues_n[1][MinAoAIndices],
-                    assume_sorted=True,
-                    copy=False,
-                    fill_value="extrapolate",
-                )
+                MaxAoAIndices = BigAoARange[IntField]>0
+                outMaxAoAFun[IntField] = si.interp1d( BigAoARange[IntField][MaxAoAIndices], outBBRangeValues_n[1][MaxAoAIndices], assume_sorted=True, copy=False,fill_value='extrapolate')
+                MinAoAIndices = BigAoARange[IntField]<0
+                outMinAoAFun[IntField] = si.interp1d( BigAoARange[IntField][MinAoAIndices], outBBRangeValues_n[1][MinAoAIndices], assume_sorted=True, copy=False,fill_value='extrapolate')
             else:
                 outMaxAoAFun[IntField] = makeNaNFun
                 outMinAoAFun[IntField] = makeNaNFun
 
         elif DataRank[IntField] == 2:
             # Foil-distributed quantity: Cp, delta1, theta...
-            inQhullFun[IntField] = []
+            inQhullFun[IntField]  = []
             outQhullFun[IntField] = []
-            outBBFun[IntField] = []
+            outBBFun[IntField]    = []
 
-            outBBRangeValues_n = I.getNodeFromName(
-                OutOfRangeValues_ParentNode, "BigAngleOfAttack%s" % IntField
-            )
+            outBBRangeValues_n = I.getNodeFromName(OutOfRangeValues_ParentNode,'BigAngleOfAttack%s'%IntField)
             for k in range(DataShape[IntField][1]):
-                inQhullFun[IntField] += [
-                    si.Rbf(
-                        0.1 * AoARange,
-                        MachRange,
-                        1e-6 * ReRange,
-                        Data[IntField][:, k],
-                        function="multiquadric",
-                        smooth=0,  # TODO: control through PyTree node
-                    )
-                ]
-                outQhullFun[IntField] += [
-                    si.NearestNDInterpolator(points, Data[IntField][:, k])
-                ]
+                inQhullFun[IntField] += [si.Rbf(0.1*AoARange, MachRange,1e-6*ReRange, Data[IntField][:,k], function='multiquadric',
+                smooth=0, # TODO: control through PyTree node
+                )]
+                outQhullFun[IntField] += [si.NearestNDInterpolator(points,Data[IntField][:,k])]
                 if outBBRangeValues_n is not None:
-                    outBBFun[IntField] += [
-                        si.interp1d(
-                            BigAoARange[IntField][:, k],
-                            outBBRangeValues_n[1][:, k],
-                            assume_sorted=True,
-                            copy=False,
-                        )
-                    ]
+                    outBBFun[IntField] += [si.interp1d( BigAoARange[IntField][:,k], outBBRangeValues_n[1][:,k], assume_sorted=True, copy=False)]
                 else:
                     outBBFun[IntField] += [makeNaNFun]
 
         else:
-            raise ValueError(
-                'FATAL ERROR: Rank of data named "%s" to be interpolated is %d, and must be 1 (for integral quantities like Cl, Cd...) or 2 (for foil-distributed quantities like Cp, theta...).\nCheck your PyZonePolar data.'
-                % (IntField, DataRank[IntField])
-            )
+            raise ValueError('FATAL ERROR: Rank of data named "%s" to be interpolated is %d, and must be 1 (for integral quantities like Cl, Cd...) or 2 (for foil-distributed quantities like Cp, theta...).\nCheck your PyZonePolar data.'%(IntField,DataRank[IntField]))
+
 
     def interpolationFunction(AoA, Mach, Reynolds):
 
         # Check input data structure
-        if isinstance(AoA, list):
-            AoA = np.array(AoA, dtype=np.float64, order="F")
-        if isinstance(Mach, list):
-            Mach = np.array(Mach, dtype=np.float64, order="F")
-        if isinstance(Reynolds, list):
-            Reynolds = np.array(Reynolds, dtype=np.float64, order="F")
+        if isinstance(AoA,list): AoA = np.array(AoA,dtype=np.float64, order='F')
+        if isinstance(Mach,list): Mach = np.array(Mach,dtype=np.float64, order='F')
+        if isinstance(Reynolds,list): Reynolds = np.array(Reynolds,dtype=np.float64, order='F')
 
         # Replace some NaN in Mach or Reynolds number by 0
-        if all(np.isnan(Mach)):
-            raise ValueError("all-NaN Found in Mach")
-        elif any(np.isnan(Mach)):
-            Mach[np.isnan(Mach)] = 0
+        if all(np.isnan(Mach)): raise ValueError('all-NaN Found in Mach')
+        elif any(np.isnan(Mach)): Mach[np.isnan(Mach)] = 0
 
-        if all(np.isnan(Reynolds)):
-            raise ValueError("all-NaN Found in Reynolds")
-        elif any(np.isnan(Reynolds)):
-            Reynolds[np.isnan(Reynolds)] = 0
+        if all(np.isnan(Reynolds)): raise ValueError('all-NaN Found in Reynolds')
+        elif any(np.isnan(Reynolds)): Reynolds[np.isnan(Reynolds)] = 0
 
         # Find boolean ranges depending on requested data:
         OutAoAMax = AoA > AoAMax
@@ -2693,7 +2289,7 @@ def RbfInterpFromPyZonePolar(PyZonePolar, InterpFields=["Cl", "Cd", "Cm"]):
         outBB = OutAoAMax + OutAoAMin
         AllOutBB = np.all(outBB)
         AnyOutBB = np.any(outBB)
-        inBB = np.logical_not(outBB)
+        inBB  = np.logical_not(outBB)
 
         # Interpolate for each requested field "IntField"
         Values = {}
@@ -2701,13 +2297,11 @@ def RbfInterpFromPyZonePolar(PyZonePolar, InterpFields=["Cl", "Cd", "Cm"]):
         for IntField in InterpFields:
 
             if DataRank[IntField] == 1:
-                Values[IntField] = AoA * 0  # Declare array
+                Values[IntField] = AoA*0 # Declare array
 
                 if not AllOutBB:
                     # Compute values inside Bounding-Box
-                    Values[IntField][inBB] = inQhullFun[IntField](
-                        0.1 * AoA[inBB], Mach[inBB], 1e-6 * Reynolds[inBB]
-                    )
+                    Values[IntField][inBB] = inQhullFun[IntField](0.1*AoA[inBB], Mach[inBB], 1e-6*Reynolds[inBB])
 
                     # Determine compute points outside Qhull but
                     # still inside Bounding-Box
@@ -2718,33 +2312,24 @@ def RbfInterpFromPyZonePolar(PyZonePolar, InterpFields=["Cl", "Cd", "Cm"]):
                     # Compute outside-Qhull points by nearest
                     # point algorithm
                     if someInBBoutQhull:
-                        Values[IntField][inBBoutQhull] = outQhullFun[IntField](
-                            AoA[inBBoutQhull],
-                            Mach[inBBoutQhull],
-                            Reynolds[inBBoutQhull],
-                        )
+                        Values[IntField][inBBoutQhull] = outQhullFun[IntField](AoA[inBBoutQhull], Mach[inBBoutQhull], Reynolds[inBBoutQhull])
 
                 # Compute outside big-angle of attack values
                 if AnyOutAoAMax:
-                    Values[IntField][OutAoAMax] = outMaxAoAFun[IntField](
-                        np.minimum(np.maximum(AoA[OutAoAMax], -180.0), +180.0)
-                    )
+                    Values[IntField][OutAoAMax] = outMaxAoAFun[IntField](np.minimum(np.maximum(AoA[OutAoAMax],-180.),+180.))
                 if AnyOutAoAMin:
-                    Values[IntField][OutAoAMax] = outMinAoAFun[IntField](
-                        np.minimum(np.maximum(AoA[OutAoAMax], -180.0), +180.0)
-                    )
+                    Values[IntField][OutAoAMax] = outMinAoAFun[IntField](np.minimum(np.maximum(AoA[OutAoAMax],-180.),+180.))
+
 
             else:
                 # DataRank[IntField] == 2
                 FoilValues = []
                 for k in range(DataShape[IntField][1]):
-                    CurrentValues = AoA * 0  # Declare array
+                    CurrentValues = AoA*0 # Declare array
 
                     if not AllOutBB:
                         # Compute values inside Bounding-Box
-                        CurrentValues[inBB] = inQhullFun[IntField](
-                            AoA[inBB], Mach[inBB], Reynolds[inBB]
-                        )
+                        CurrentValues[inBB] = inQhullFun[IntField](AoA[inBB], Mach[inBB], Reynolds[inBB])
 
                         # Determine compute points outside Qhull but
                         # still inside Bounding-Box
@@ -2755,11 +2340,7 @@ def RbfInterpFromPyZonePolar(PyZonePolar, InterpFields=["Cl", "Cd", "Cm"]):
                         # Compute outside-Qhull points by nearest
                         # point algorithm
                         if someInBBoutQhull:
-                            CurrentValues[inBBoutQhull] = outQhullFun[IntField](
-                                AoA[inBBoutQhull],
-                                Mach[inBBoutQhull],
-                                Reynolds[inBBoutQhull],
-                            )
+                            CurrentValues[inBBoutQhull] = outQhullFun[IntField](AoA[inBBoutQhull], Mach[inBBoutQhull], Reynolds[inBBoutQhull])
 
                     # Compute outside big-angle of attack values
                     if AnyOutBB:
@@ -2767,7 +2348,7 @@ def RbfInterpFromPyZonePolar(PyZonePolar, InterpFields=["Cl", "Cd", "Cm"]):
 
                     FoilValues += [CurrentValues]
 
-                Values[IntField] = np.vstack(FoilValues, dtype=np.float64, order="F")
+                Values[IntField] = np.vstack(FoilValues,dtype=np.float64,order='F')
             FirstField = False
         ListOfValues = [Values[IntField] for IntField in InterpFields]
 
@@ -2775,10 +2356,8 @@ def RbfInterpFromPyZonePolar(PyZonePolar, InterpFields=["Cl", "Cd", "Cm"]):
 
     return interpolationFunction
 
-
-def _applyPolarOnLiftingLine(
-    LiftingLines, PolarsInterpolatorDict, InterpFields=["Cl", "Cd", "Cm"]
-):
+def _applyPolarOnLiftingLine(LiftingLines, PolarsInterpolatorDict,
+                             InterpFields=['Cl', 'Cd', 'Cm']):
     """
     This function computes aerodynamic characteristics of each section of the
     LiftingLine using the local conditions defined by ``AoA``, ``Mach`` and
@@ -2806,52 +2385,45 @@ def _applyPolarOnLiftingLine(
 
     # TODO remove starting "_" from function name
 
-    LiftingLines = [
-        z for z in I.getZones(LiftingLines) if checkComponentKind(z, "LiftingLine")
-    ]
+    LiftingLines = [z for z in I.getZones(LiftingLines) if checkComponentKind(z,'LiftingLine')]
     for LiftingLine in LiftingLines:
 
         # Get the required fields
-        FlowSolution = I.getNodeFromName1(LiftingLine, "FlowSolution")
+        FlowSolution = I.getNodeFromName1(LiftingLine,'FlowSolution')
         DictOfVars = {}
-        for Var in ["AoA", "Mach", "Reynolds", "s"] + InterpFields:
-            DictOfVars[Var] = I.getNodeFromName1(FlowSolution, Var)[1]
+        for Var in ['AoA', 'Mach', 'Reynolds', 's']+InterpFields:
+            DictOfVars[Var] = I.getNodeFromName1(FlowSolution,Var)[1]
 
         # Get Airfoils data
-        PolarInfo = getAirfoilsNodeOfLiftingLine(LiftingLine)
-        Abscissa = I.getNodeFromName1(PolarInfo, "Abscissa")[1]
-        NodeStr = I.getValue(I.getNodeFromName1(PolarInfo, "PyZonePolarNames"))
-        PyZonePolarNames = NodeStr.split(" ")
-        InterpolationLaw = I.getValue(I.getNodeFromName1(PolarInfo, "InterpolationLaw"))
+        PolarInfo= getAirfoilsNodeOfLiftingLine(LiftingLine)
+        Abscissa = I.getNodeFromName1(PolarInfo,'Abscissa')[1]
+        NodeStr = I.getValue(I.getNodeFromName1(PolarInfo,'PyZonePolarNames'))
+        PyZonePolarNames = NodeStr.split(' ')
+        InterpolationLaw = I.getValue(I.getNodeFromName1(PolarInfo,'InterpolationLaw'))
 
         # Interpolates IntField (Cl, Cd,...) from polars to LiftingLine
-        NVars = len(InterpFields)
+        NVars   = len(InterpFields)
         VarArrays = {}
         for IntField in InterpFields:
             VarArrays[IntField] = []
 
         for PolarName in PyZonePolarNames:
-            ListOfVals = PolarsInterpolatorDict[PolarName](
-                DictOfVars["AoA"], DictOfVars["Mach"], DictOfVars["Reynolds"]
-            )
+            ListOfVals = PolarsInterpolatorDict[PolarName](DictOfVars['AoA'],
+                DictOfVars['Mach'],
+                DictOfVars['Reynolds'])
 
             for i in range(NVars):
                 try:
                     VarArrays[InterpFields[i]] += [ListOfVals[i]]
                 except IndexError as e:
-                    C.convertPyTree2File(LiftingLine, "testLL.cgns")
+                    C.convertPyTree2File(LiftingLine,'testLL.cgns')
                     raise IndexError(e)
 
         for IntField in InterpFields:
             VarArrays[IntField] = np.vstack(VarArrays[IntField])
-            Res = J.interpolate__(
-                DictOfVars["s"],
-                Abscissa,
-                VarArrays[IntField],
-                Law=InterpolationLaw,
-                axis=0,
-            )
+            Res = J.interpolate__(DictOfVars['s'],Abscissa,VarArrays[IntField],Law=InterpolationLaw, axis=0)
             DictOfVars[IntField][:] = np.diag(Res)
+
 
         # Bit faster approach:
         # tic = timeit.default_timer()
@@ -2866,16 +2438,9 @@ def _applyPolarOnLiftingLine(
         # toc = timeit.default_timer()
         # CostApplyPolar[0] = CostApplyPolar[0]+(toc-tic)
 
-
-def _findOptimumAngleOfAttackOnLiftLine(
-    LiftingLine,
-    PolarsInterpolatorDict,
-    Aim="Cl",
-    AimValue=0.5,
-    AoASearchBounds=(-2, 6),
-    SpecificSections=None,
-    ListOfEquations=[],
-):
+def _findOptimumAngleOfAttackOnLiftLine(LiftingLine, PolarsInterpolatorDict,
+        Aim='Cl', AimValue=0.5, AoASearchBounds=(-2,6),
+        SpecificSections=None, ListOfEquations=[]):
     """
     Update ``AoA`` field with the optimum angle of attack based on a given
     **Aim**, using the provided **PolarsInterpolatorDict** as well as the existing
@@ -2930,88 +2495,65 @@ def _findOptimumAngleOfAttackOnLiftLine(
     """
 
     import scipy.optimize as so
+    AoA, Cl, Cd, Mach, Reynolds = J.getVars(LiftingLine,['AoA','Cl','Cd','Mach', 'Reynolds'])
 
-    AoA, Cl, Cd, Mach, Reynolds = J.getVars(
-        LiftingLine, ["AoA", "Cl", "Cd", "Mach", "Reynolds"]
-    )
+    if SpecificSections is None: SpecificSections = range(len(AoA))
 
-    if SpecificSections is None:
-        SpecificSections = range(len(AoA))
-
-    if Aim == "Cl":
+    if Aim == 'Cl':
         for i in SpecificSections:
-
-            def searchAoA(x, i):
+            def searchAoA(x,i):
                 AoA[i] = x
-                _applyPolarOnLiftingLine(LiftingLine, PolarsInterpolatorDict)
+                _applyPolarOnLiftingLine(LiftingLine,PolarsInterpolatorDict)
                 [C._initVars(LiftingLine, eq) for eq in ListOfEquations]
 
-                Residual = Cl[i] - AimValue
+                Residual = Cl[i]-AimValue
                 return Residual
 
-            sol = so.root_scalar(
-                searchAoA,
-                bracket=AoASearchBounds,
-                x0=AoA[i],
-                args=(i),
-                method="toms748",
-            )
+            sol=so.root_scalar(searchAoA, bracket=AoASearchBounds, x0=AoA[i], args=(i),  method='toms748')
 
             if sol.converged:
-                searchAoA(sol.root, i)
+                searchAoA(sol.root,i)
             else:
-                print("Not found optimum AoA at section %d" % i)
-                print(sol)
+                print ("Not found optimum AoA at section %d"%i)
+                print (sol)
                 continue
-    elif Aim == "maxClCd":
+    elif Aim == 'maxClCd':
         for i in SpecificSections:
-
-            def searchAoA(x, i):
+            def searchAoA(x,i):
                 AoA[i] = x
-                _applyPolarOnLiftingLine(LiftingLine, PolarsInterpolatorDict)
+                _applyPolarOnLiftingLine(LiftingLine,PolarsInterpolatorDict)
                 [C._initVars(LiftingLine, eq) for eq in ListOfEquations]
-                MinimizeThis = -Cl[i] / Cd[i]
+                MinimizeThis = -Cl[i]/Cd[i]
                 return MinimizeThis
 
-            sol = so.minimize_scalar(
-                searchAoA,
-                bracket=[0, 2],
-                args=(i),
-                method="Golden",
-                options=dict(xtol=0.01),
-            )
+            sol=so.minimize_scalar(searchAoA, bracket=[0,2], args=(i),  method='Golden',
+                options=dict(xtol=0.01))
+
 
             if not sol.success:
-                print("Not found optimum AoA at section %d" % i)
-                print(sol)
+                print ("Not found optimum AoA at section %d"%i)
+                print (sol)
                 continue
-    elif Aim == "minCd":
+    elif Aim == 'minCd':
         for i in SpecificSections:
-
-            def searchAoA(x, i):
+            def searchAoA(x,i):
                 AoA[i] = x
-                _applyPolarOnLiftingLine(LiftingLine, PolarsInterpolatorDict)
+                _applyPolarOnLiftingLine(LiftingLine,PolarsInterpolatorDict)
                 [C._initVars(LiftingLine, eq) for eq in ListOfEquations]
 
                 MinimizeThis = Cd[i]
                 return MinimizeThis
 
-            sol = so.minimize_scalar(
-                searchAoA,
-                bracket=AoASearchBounds,
-                args=(i),
-                method="Golden",
-                options=dict(xtol=0.01),
-            )
+            sol=so.minimize_scalar(searchAoA, bracket=AoASearchBounds, args=(i),  method='Golden',
+                options=dict(xtol=0.01))
 
             if not sol.success:
-                print("Not found optimum AoA at section %d" % i)
-                print(sol)
+                print ("Not found optimum AoA at section %d"%i)
+                print (sol)
                 continue
 
-
 def pyZonePolar2AirfoilZone(pyzonename, PyZonePolars):
-    """
+    '''
     Conveniently use ``.Polar#FoilGeometry`` coordinates of a **PyZonePolar** in
     order to build a structured curve zone.
 
@@ -3028,7 +2570,7 @@ def pyZonePolar2AirfoilZone(pyzonename, PyZonePolars):
             the polars must contain the node ``.Polar#FoilGeometry`` with the
             children nodes ``CoordinateX`` and ``CoordinateY``.
 
-            .. hint::
+            .. hint:: 
                 if **PyZonePolars** is a :py:class:`str`, then it will be
                 interpreted as a file name, and it will attempt to open it and
                 return the zones
@@ -3038,35 +2580,31 @@ def pyZonePolar2AirfoilZone(pyzonename, PyZonePolars):
 
         AirfoilGeom : zone or :py:class:`list` of zone
             the 1D curve(s) of the airfoil.
-    """
-    if isinstance(PyZonePolars, str):
-        PyZonePolars = J.load(PyZonePolars, return_type="zones")
+    '''
+    if isinstance(PyZonePolars,str):
+        PyZonePolars = J.load(PyZonePolars, return_type='zones')
 
-    if isinstance(pyzonename, str):
+    if isinstance(pyzonename,str):
         pyzonenames = [pyzonename]
     else:
         pyzonenames = pyzonename
-
+    
     PyZonePolars = I.getZones(PyZonePolars)
-    if not PyZonePolars:
-        raise ValueError("not PyZonePolars")
+    if not PyZonePolars: raise ValueError('not PyZonePolars')
+
 
     AirfoilGeoms = []
     for pzn in pyzonenames:
         zone = J.getZoneFromListByName(PyZonePolars, pzn)
         if not zone:
-            raise ValueError("not zone")
-        FoilGeom_n = I.getNodeFromName1(zone, ".Polar#FoilGeometry")
-        Xcoord = I.getNodeFromName1(FoilGeom_n, "CoordinateX")[1]
-        Ycoord = I.getNodeFromName1(FoilGeom_n, "CoordinateY")[1]
+            raise ValueError('not zone')
+        FoilGeom_n = I.getNodeFromName1(zone,'.Polar#FoilGeometry')
+        Xcoord = I.getNodeFromName1(FoilGeom_n,'CoordinateX')[1]
+        Ycoord = I.getNodeFromName1(FoilGeom_n,'CoordinateY')[1]
 
-        AirfoilGeoms.append(
-            J.createZone(
-                pzn,
-                [Xcoord, Ycoord, Ycoord * 0],
-                ["CoordinateX", "CoordinateY", "CoordinateZ"],
-            )
-        )
+        AirfoilGeoms.append( J.createZone(pzn,
+                                [Xcoord,Ycoord,Ycoord*0],
+                                ['CoordinateX','CoordinateY','CoordinateZ']) )
 
     if len(AirfoilGeoms) == 1:
         return AirfoilGeoms[0]
@@ -3075,7 +2613,7 @@ def pyZonePolar2AirfoilZone(pyzonename, PyZonePolars):
 
 
 def resetPitch(LiftingLine, ZeroPitchRelativeSpan=0.75, modifyLiftingLine=True):
-    """
+    '''
     Given an existing LiftingLine object, reset the pitch taking
     as reference the value in attribute **ZeroPitchRelativeSpan**,
     which modifies in-place the **LiftingLine** object (update of ``Twist``
@@ -3105,19 +2643,17 @@ def resetPitch(LiftingLine, ZeroPitchRelativeSpan=0.75, modifyLiftingLine=True):
         DeltaTwist : float
             Value required to be added to ``Twist`` field in order
             to verify :math:`Twist=0` at the location requested by **ZeroPitchRelativeSpan**
-    """
-    r, Twist = J.getVars(LiftingLine, ["Span", "Twist"])
-    DeltaTwist = J.interpolate__(np.array([ZeroPitchRelativeSpan]), r / r.max(), Twist)
-    if modifyLiftingLine:
-        Twist -= DeltaTwist
+    '''
+    r, Twist = J.getVars(LiftingLine,['Span','Twist'])
+    DeltaTwist = J.interpolate__(np.array([ZeroPitchRelativeSpan]), r/r.max(), Twist)
+    if modifyLiftingLine: Twist -= DeltaTwist
 
     return DeltaTwist
 
 
-def remapLiftingLine(
-    LiftingLine, NewRelativeDistribution, InterpolationLaw="interp1d_linear"
-):
-    """
+def remapLiftingLine(LiftingLine, NewRelativeDistribution,
+                     InterpolationLaw='interp1d_linear'):
+    '''
     From an existing **LiftingLine**, this function generates a new
     one with user-defined spanwise discretization. If the
     existing **LiftingLine** had fields in ``FlowSolutions``, those are also
@@ -3151,57 +2687,47 @@ def remapLiftingLine(
         NewLiftingLine : zone
             The newly discretized LiftingLine, including remapped fields
             located at ``FlowSolution``
-    """
+    '''
 
-    (LiftingLine,) = I.getZones(LiftingLine)
+    LiftingLine, = I.getZones(LiftingLine)
 
     # List of variables to remap
     VarsNames = C.getVarNames(LiftingLine)[0]
 
     # Get the list of arrays, including coordinates
-    OldVars = [I.getValue(I.getNodeFromName2(LiftingLine, vn)) for vn in VarsNames]
-    if "s" in VarsNames:
-        OldAbscissa = J.getVars(LiftingLine, ["s"])[0]
+    OldVars = [I.getValue(I.getNodeFromName2(LiftingLine,vn)) for vn in VarsNames]
+    if 's' in VarsNames:
+        OldAbscissa = J.getVars(LiftingLine,['s'])[0]
     else:
         OldAbscissa = W.gets(LiftingLine)
 
     # Get the newly user-defined abscissa
-    _, NewAbscissa, _ = J.getDistributionFromHeterogeneousInput__(
-        NewRelativeDistribution
-    )
+    _,NewAbscissa,_ = J.getDistributionFromHeterogeneousInput__(NewRelativeDistribution)
 
     # Perform remapping (interpolation)
-    VarsArrays = [
-        J.interpolate__(NewAbscissa, OldAbscissa, OldVar, Law=InterpolationLaw)
-        for OldVar in OldVars
-    ]
+    VarsArrays = [J.interpolate__(NewAbscissa,OldAbscissa,OldVar, Law=InterpolationLaw) for OldVar in OldVars]
 
     # Invoke newly remapped LiftingLine
-    NewLiftingLine = J.createZone(LiftingLine[0], VarsArrays, VarsNames)
+    NewLiftingLine = J.createZone(LiftingLine[0],VarsArrays,VarsNames)
 
     # Migrate additional special nodes
-    SpecialNodesNames = [".Component#Info", ".Loads", ".Kinematics"]
+    SpecialNodesNames = ['.Component#Info','.Loads','.Kinematics']
     for snm in SpecialNodesNames:
-        SpecialNode = I.getNodeFromName1(LiftingLine, snm)
-        if SpecialNode:
-            I.addChild(NewLiftingLine, SpecialNode)
+        SpecialNode = I.getNodeFromName1(LiftingLine,snm)
+        if SpecialNode: I.addChild(NewLiftingLine,SpecialNode)
 
     return NewLiftingLine
 
 
-def makeBladeSurfaceFromLiftingLineAndAirfoilsPolars(
-    LiftingLine,
-    AirfoilsPolars,
-    blade_radial_NPts=100,
-    blade_root_cellwidth=0.02,
-    blade_tip_cellwidth=1e-3,
-    airfoil_NPts_top=99,
-    airfoil_NPts_bottom=99,
-    airfoil_LeadingEdge_width_relative2chord=0.001,
-    airfoil_TrailingEdge_width_relative2chord=0.01,
-    airfoil_LeadingEdge_abscissa=0.49,
-    airfoil_stacking_point_relative2chord=0.25,
-):
+def makeBladeSurfaceFromLiftingLineAndAirfoilsPolars(LiftingLine, AirfoilsPolars,
+        blade_radial_NPts=100,
+        blade_root_cellwidth=0.02, blade_tip_cellwidth=1e-3,
+        airfoil_NPts_top=99, airfoil_NPts_bottom=99,
+        airfoil_LeadingEdge_width_relative2chord=0.001,
+        airfoil_TrailingEdge_width_relative2chord=0.01,
+        airfoil_LeadingEdge_abscissa=0.49,
+        airfoil_stacking_point_relative2chord=0.25,
+        ):
 
     if isinstance(LiftingLine, str):
         LiftingLine = C.convertFile2PyTree(LiftingLine)
@@ -3210,49 +2736,36 @@ def makeBladeSurfaceFromLiftingLineAndAirfoilsPolars(
 
     LiftingLine = I.getZones(LiftingLine)[0]
     AirfoilsPolars = I.getZones(AirfoilsPolars)
-    (Span,) = J.getVars(LiftingLine, ["Span"])
-    RadialRelativeDiscretization = dict(
-        N=blade_radial_NPts,
-        kind="tanhTwoSides",
-        FirstCellHeight=blade_root_cellwidth / Span.max(),
-        LastCellHeight=blade_tip_cellwidth / Span.max(),
-    )
+    Span, = J.getVars(LiftingLine, ['Span'])
+    RadialRelativeDiscretization = dict( N=blade_radial_NPts, kind='tanhTwoSides',
+                                 FirstCellHeight=blade_root_cellwidth/Span.max(),
+                                 LastCellHeight=blade_tip_cellwidth/Span.max() )
 
-    FoilDistribution = [
-        dict(
-            N=airfoil_NPts_bottom,
-            BreakPoint=airfoil_LeadingEdge_abscissa,
-            kind="tanhTwoSides",
-            FirstCellHeight=airfoil_TrailingEdge_width_relative2chord,
-            LastCellHeight=airfoil_LeadingEdge_width_relative2chord,
-        ),
-        dict(
-            N=airfoil_NPts_top,
-            BreakPoint=1.0,
-            kind="tanhTwoSides",
-            FirstCellHeight=airfoil_LeadingEdge_width_relative2chord,
-            LastCellHeight=airfoil_TrailingEdge_width_relative2chord,
-        ),
-    ]
+    FoilDistribution=[dict(N=airfoil_NPts_bottom,
+                           BreakPoint=airfoil_LeadingEdge_abscissa,
+                           kind='tanhTwoSides',
+                           FirstCellHeight=airfoil_TrailingEdge_width_relative2chord,
+                           LastCellHeight=airfoil_LeadingEdge_width_relative2chord),
+                      dict(N=airfoil_NPts_top,
+                           BreakPoint=1.0,
+                           kind='tanhTwoSides',
+                           FirstCellHeight=airfoil_LeadingEdge_width_relative2chord,
+                           LastCellHeight=airfoil_TrailingEdge_width_relative2chord),]
 
     LiftingLine = remapLiftingLine(LiftingLine, RadialRelativeDiscretization)
-    blade = postLiftingLine2Surface(
-        LiftingLine,
-        AirfoilsPolars,
-        ChordRelRef=airfoil_stacking_point_relative2chord,
-        FoilDistribution=FoilDistribution,
-    )
-    blade[0] = "blade"
+    blade = postLiftingLine2Surface(LiftingLine, AirfoilsPolars,
+                                       ChordRelRef = airfoil_stacking_point_relative2chord,
+                                       FoilDistribution=FoilDistribution)
+    blade[0] = 'blade'
 
     return blade
 
 
-def postLiftingLine2Surface(
-    LiftingLine, PyZonePolars, Variables=[], ChordRelRef=0.25, FoilDistribution=None
-):
-    """
+def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
+                            ChordRelRef=0.25, FoilDistribution=None):
+    '''
     Post-process a **LiftingLine** element using enhanced **PyZonePolars** data
-    in order to build surface fields (like ``Cp``, ``theta``...) from a BEMT,
+    in order to build surface fields (like ``Cp``, ``theta``...) from a BEMT, 
     VPM or BodyForce solution.
 
     Parameters
@@ -3288,61 +2801,42 @@ def postLiftingLine2Surface(
         Surface : zone
             structured surface containing fields at ``FlowSolution``, where the
             variables requested by the user are interpolated.
-    """
+    '''
     import scipy.interpolate as si
-
-    def _applyInterpolationFunctionToSpanwiseVariableAtLiftingLine(
-        VariableArray, Var, InterpolationLaw
-    ):
-        """
+    def _applyInterpolationFunctionToSpanwiseVariableAtLiftingLine(VariableArray, Var, InterpolationLaw):
+        '''
         Perform spanwise interpolation of PyZonePolar data
         contained in AllValues dictionary. For this, use
         the general-purpose macro interpolation function:
         Define a general-purpose macro interpolation function.
-        """
+        '''
         InterpAxis = 2
-        if "interp1d" in InterpolationLaw.lower():
-            ScipyLaw = InterpolationLaw.split("_")[1]
+        if 'interp1d' in InterpolationLaw.lower():
+            ScipyLaw = InterpolationLaw.split('_')[1]
             try:
-                interp = si.interp1d(
-                    Abscissa,
-                    VariableArray,
-                    axis=InterpAxis,
-                    kind=ScipyLaw,
-                    bounds_error=False,
-                    fill_value="extrapolate",
-                    assume_sorted=True,
-                )
+                interp = si.interp1d( Abscissa, VariableArray, axis=InterpAxis,
+                                      kind=ScipyLaw, bounds_error=False,
+                                      fill_value='extrapolate', assume_sorted=True)
             except ValueError:
-                ErrMsg = (
-                    "FATAL ERROR during _applyInterpolationFunctionToSpanwiseVariableAtLiftingLine() call with Var=%s\n"
-                    % Var
-                )
-                ErrMsg += "Shapes x and y = %d and %d\n" % (len(x), len(y))
+                ErrMsg = 'FATAL ERROR during _applyInterpolationFunctionToSpanwiseVariableAtLiftingLine() call with Var=%s\n'%Var
+                ErrMsg+= 'Shapes x and y = %d and %d\n'%(len(x),len(y))
                 raise ValueError(ErrMsg)
 
-        elif "pchip" == InterpolationLaw.lower():
-            interp = si.PchipInterpolator(
-                Abscissa, VariableArray, axis=InterpAxis, extrapolate=True
-            )
+        elif 'pchip' == InterpolationLaw.lower():
+            interp = si.PchipInterpolator(Abscissa, VariableArray, axis=InterpAxis, extrapolate=True)
 
-        elif "akima" == InterpolationLaw.lower():
+        elif 'akima' == InterpolationLaw.lower():
             interp = si.Akima1DInterpolator(Abscissa, VariableArray, axis=InterpAxis)
 
-        elif "cubic" == InterpolationLaw.lower():
-            interp = si.CubicSpline(
-                Abscissa, VariableArray, axis=InterpAxis, extrapolate=True
-            )
+        elif 'cubic' == InterpolationLaw.lower():
+            interp = si.CubicSpline(Abscissa, VariableArray, axis=InterpAxis, extrapolate=True)
 
         else:
-            raise AttributeError(
-                "applyPolarOnLiftingLine(): InterpolationLaw %s not recognized."
-                % InterpolationLaw
-            )
+            raise AttributeError('applyPolarOnLiftingLine(): InterpolationLaw %s not recognized.'%InterpolationLaw)
 
         # Prepare data and ship them to SurfVars
-        Res = interp(s)  # Apply spanwise interpolation function
-        ResultSlices = [Res[:, isec, isec] for isec in range(len(s))]
+        Res = interp(s) # Apply spanwise interpolation function
+        ResultSlices = [Res[:,isec,isec] for isec in range(len(s))]
         MyArr = np.vstack(ResultSlices)
         MyArr = MyArr.T
         SurfVars[Var][:] = MyArr
@@ -3350,75 +2844,68 @@ def postLiftingLine2Surface(
     Surfs = []
     for LiftingLine in getLiftingLines(LiftingLine):
         v = J.getAllVars(LiftingLine)
-        x, y, z = J.getxyz(LiftingLine)
+        x,y,z = J.getxyz(LiftingLine)
 
         # recover the airfoils at each node of the LiftingLine
         PolarInfoNode = getAirfoilsNodeOfLiftingLine(LiftingLine)
-        Abscissa = I.getValue(I.getNodeFromName1(PolarInfoNode, "Abscissa"))
-        PyZonePolarNames = I.getValue(
-            I.getNodeFromName1(PolarInfoNode, "PyZonePolarNames")
-        ).split(" ")
-        InterpLaw = I.getValue(I.getNodeFromName1(PolarInfoNode, "InterpolationLaw"))
+        Abscissa = I.getValue(I.getNodeFromName1(PolarInfoNode, 'Abscissa'))
+        PyZonePolarNames = I.getValue(I.getNodeFromName1(PolarInfoNode, 'PyZonePolarNames')).split(' ')
+        InterpLaw = I.getValue(I.getNodeFromName1(PolarInfoNode, 'InterpolationLaw'))
         order = J._inferOrderFromInterpLawName(InterpLaw)
-        AirfoilsGeom = pyZonePolar2AirfoilZone(PyZonePolarNames, PyZonePolars)
-        AirfoilsGeom = W.useEqualNumberOfPointsOrSameDiscretization(
-            AirfoilsGeom, FoilDistribution
-        )
-        AirfoilsGeom = W.interpolateAirfoils(
-            AirfoilsGeom, Abscissa, v["s"], order=order
-        )
+        AirfoilsGeom = pyZonePolar2AirfoilZone(PyZonePolarNames,PyZonePolars)
+        AirfoilsGeom = W.useEqualNumberOfPointsOrSameDiscretization(AirfoilsGeom, FoilDistribution)
+        AirfoilsGeom = W.interpolateAirfoils(AirfoilsGeom, Abscissa, v['s'], order=order)
 
         # position and resize airfoils
-        AirfoilFrame = [(1, 0, 0), (0, 1, 0), (0, 0, 1)]
+        AirfoilFrame = [(1,0,0),(0,1,0),(0,0,1)]
         for i, foil in enumerate(AirfoilsGeom):
             foil_x = J.getx(foil)
             foil_y = J.gety(foil)
-
+            
             # center at stacking point
             foil_x -= ChordRelRef
 
             # resize using chord
-            foil_x *= v["Chord"][i]
-            foil_y *= v["Chord"][i]
+            foil_x *= v['Chord'][i]
+            foil_y *= v['Chord'][i]
 
             # rotate to match the actual position in the lifting-line
-            LLframe = [
-                (v["ChordwiseX"][i], v["ChordwiseY"][i], v["ChordwiseZ"][i]),
-                (v["ThickwiseX"][i], v["ThickwiseY"][i], v["ThickwiseZ"][i]),
-                (-v["SpanwiseX"][i], -v["SpanwiseY"][i], -v["SpanwiseZ"][i]),
-            ]
-            T._rotate(foil, (0, 0, 0), AirfoilFrame, LLframe)
+            LLframe = [(v['ChordwiseX'][i],v['ChordwiseY'][i],v['ChordwiseZ'][i]),
+                    (v['ThickwiseX'][i],v['ThickwiseY'][i],v['ThickwiseZ'][i]),
+                    (-v['SpanwiseX'][i],-v['SpanwiseY'][i],-v['SpanwiseZ'][i])]
+            T._rotate(foil, (0,0,0), AirfoilFrame, LLframe)
 
             # center at the actual Lifting-Line node
-            T._translate(foil, (x[i], y[i], z[i]))
-
+            T._translate(foil,(x[i],y[i],z[i]))
+        
         # stack all sections
         Surf = G.stack(AirfoilsGeom)
-        Surf[0] = LiftingLine[0] + "_surf"
-        Surfs.append(Surf)
+        Surf[0] = LiftingLine[0]+'_surf'
+        Surfs.append( Surf )
+
+
 
     if len(Variables) == 0:
-        if len(Surfs) == 1:
-            return Surfs[0]
-        else:
-            return Surfs
+        if len(Surfs) == 1: return Surfs[0]
+        else: return Surfs
 
     for Surf in Surfs:
         # Invoke the new variables in surface
-        SurfVars = J.invokeFieldsDict(Surf, Variables)
+        SurfVars = J.invokeFieldsDict(Surf,Variables)
 
         # Build interpolator functions and store them as dict:
         # usage: InterpDict[<PyZonePolarName>](AoA,Mach,Reynolds,[])
-        InterpDict = buildPolarsInterpolatorDict(PyZonePolars, InterpFields=Variables)
+        InterpDict = buildPolarsInterpolatorDict(PyZonePolars,InterpFields=Variables)
 
-        AoA, Mach, Reynolds = J.getVars(LiftingLine, ["AoA", "Mach", "Reynolds"])
+        AoA, Mach, Reynolds = J.getVars(LiftingLine,["AoA", "Mach", "Reynolds"])
+
 
         # Apply polar interpolations and store them in a dict
         AllFoilNPts = C.getNPts(AirfoilsGeom[0])
         RefCurvAbs = W.gets(AirfoilsGeom[0])
         AllValues = {}
         for pzn in PyZonePolarNames:
-            InterpolatedSet = InterpDict[pzn](AoA, Mach, Reynolds)
+            InterpolatedSet = InterpDict[pzn](AoA,Mach,Reynolds)
             # NOTA BENE: InterpolatedSet is a list of arrays.
             # Each element is a (FoilNPts x LLNpts) array of the
             # interpolated variable in the same order as contained
@@ -3429,48 +2916,34 @@ def postLiftingLine2Surface(
             for v in range(len(Variables)):
                 InterpolatedArray = InterpolatedSet[v]
                 IntArrayShape = InterpolatedArray.shape
-                print(
-                    "Variable %s at polar %s has shape: %s"
-                    % (Variables[v], pzn, str(IntArrayShape))
-                )
-                if len(IntArrayShape) == 2:
+                print('Variable %s at polar %s has shape: %s'%(Variables[v],pzn,str(IntArrayShape)))
+                if len(IntArrayShape)==2:
 
                     # Compute the PyZonePolar foilwise abscissa
                     # For that, build an auxiliar foil and
                     # compute its abcissa coordinate
-                    AuxFoil = pyZonePolar2AirfoilZone(pzn, PyZonePolars)
+                    AuxFoil = pyZonePolar2AirfoilZone(pzn,PyZonePolars)
                     CurrentCurvAbs = W.gets(AuxFoil)
 
-                    interpFoilwise = si.interp1d(
-                        CurrentCurvAbs,
-                        InterpolatedArray,
-                        kind="cubic",
-                        copy=False,
-                        axis=0,
-                        assume_sorted=True,
-                    )
+                    interpFoilwise = si.interp1d(CurrentCurvAbs, InterpolatedArray,
+                                        kind='cubic', copy=False, axis=0,
+                                        assume_sorted=True)
 
                     NewInterpArray = interpFoilwise(RefCurvAbs)
 
                     # TODO: Check orientation of foil and data
                     adaptedSet += [NewInterpArray]
 
-                elif len(IntArrayShape) == 1:
+                elif len(IntArrayShape)==1:
                     # Integral data. Simply broadcast.
-                    print("BROADCAST")
-                    adaptedSet += [
-                        np.broadcast_to(
-                            InterpolatedArray, (AllFoilNPts, IntArrayShape[0])
-                        )
-                    ]
+                    print('BROADCAST')
+                    adaptedSet += [np.broadcast_to(InterpolatedArray,(AllFoilNPts,IntArrayShape[0]))]
                 else:
-                    raise ValueError(
-                        "Interpolated data for variable %s yields not supported shape %s"
-                        % (v, str(IntArrayShape))
-                    )
+                    raise ValueError('Interpolated data for variable %s yields not supported shape %s'%(v,str(IntArrayShape)))
 
             # Store dimensionally-coherent interpolated data
             AllValues[pzn] = adaptedSet
+
 
         for v in range(len(Variables)):
             # Build a 3D matrix containing all data.
@@ -3478,18 +2951,14 @@ def postLiftingLine2Surface(
             # 2nd dimension: Spanwise data
             # 3rd dimension: slices corresponding to PyZonePolars
             AllValues3D = np.dstack([AllValues[pzn][v] for pzn in PyZonePolarNames])
-            _applyInterpolationFunctionToSpanwiseVariableAtLiftingLine(
-                AllValues3D, Variables[v], "interp1d_linear"
-            )
+            _applyInterpolationFunctionToSpanwiseVariableAtLiftingLine(AllValues3D, Variables[v], 'interp1d_linear')
 
-    if len(Surfs) == 1:
-        return Surfs[0]
-    else:
-        return Surfs
+    if len(Surfs) == 1: return Surfs[0]
+    else: return Surfs
 
 
 def addAccurateSectionArea2LiftingLine(LiftingLine, PyZonePolars):
-    """
+    '''
     Add a field named ``SectionArea`` info the **LiftingLine** using the airfoil's
     geometry contained in **PyZonePolars**.
 
@@ -3513,27 +2982,27 @@ def addAccurateSectionArea2LiftingLine(LiftingLine, PyZonePolars):
         LiftingLineSurface : zone
             the corresponding surface of the lifting line, that has been
             generated as an auxiliar item during the function call
-    """
+    '''
     Surf = postLiftingLine2Surface(LiftingLine, PyZonePolars)
-    (SectionArea,) = J.invokeFields(LiftingLine, ["SectionArea"])
+    SectionArea, = J.invokeFields(LiftingLine, ['SectionArea'])
     x = J.getx(Surf)
     NbOfSections = x.shape[1]
     for isec in range(NbOfSections):
-        Section = GSD.getBoundary(Surf, "jmin", layer=isec)
-        Section = W.closeCurve(Section, NPts4closingGap=3, tol=1e-10)
+        Section = GSD.getBoundary(Surf, 'jmin', layer=isec)
+        Section = W.closeCurve(Section,NPts4closingGap=3, tol=1e-10)
         SectSurf = G.T3mesher2D(Section, triangulateOnly=1)
         G._getVolumeMap(SectSurf)
-        (PatchesAreas,) = J.getVars(SectSurf, ["vol"], Container="FlowSolution#Centers")
+        PatchesAreas, = J.getVars(SectSurf, ['vol'],
+                                    Container='FlowSolution#Centers')
         CurrentSectionArea = np.sum(PatchesAreas)
         SectionArea[isec] = CurrentSectionArea
 
     return SectSurf
 
 
-def plotStructPyZonePolars(
-    PyZonePolars, addiationalQuantities=[], filesuffix="", fileformat="svg"
-):
-    """
+def plotStructPyZonePolars(PyZonePolars, addiationalQuantities=[],
+        filesuffix='', fileformat='svg'):
+    '''
     Convenient matplotlib function employed for plotting 2D airfoil's polar
     characteristics.
 
@@ -3563,44 +3032,44 @@ def plotStructPyZonePolars(
 
         None : None
             A series of files (figures and legends) are written
-    """
+    '''
 
     import matplotlib.pyplot as plt
     from matplotlib.ticker import AutoMinorLocator
+
 
     # if __PLOT_STIX_LATEX__:
     #     plt.rc('text', usetex=True)
     #     plt.rc('text.latex', preamble=r'\usepackage[notextcomp]{stix}')
     #     plt.rc('font',family='stix')
 
+
     for pzp in I.getZones(PyZonePolars):
 
         # Declare figures
-        fig1, ax1 = plt.subplots(1, 1, figsize=(4.75, 4.25))  # CL
-        fig2, ax2 = plt.subplots(1, 1, figsize=(4.75, 4.25))  # CL/CD
-        fig3, ax3 = plt.subplots(1, 1, figsize=(9.0, 2.0))  # CL/CD
+        fig1, ax1 = plt.subplots(1,1,figsize=(4.75,4.25)) # CL
+        fig2, ax2 = plt.subplots(1,1,figsize=(4.75,4.25)) # CL/CD
+        fig3, ax3 = plt.subplots(1,1,figsize=(9.0,2.0)) # CL/CD
 
-        FS_n = I.getNodeFromName1(pzp, "FlowSolution")
-        Cl = I.getNodeFromName1(FS_n, "Cl")[1]
-        Cd = I.getNodeFromName1(FS_n, "Cd")[1]
-        CloCd = Cl / Cd
-        PolRange_n = I.getNodeFromName1(pzp, ".Polar#Range")
-        AoA = I.getNodeFromName1(PolRange_n, "AngleOfAttack")[1]
-        Mach = I.getNodeFromName1(PolRange_n, "Mach")[1]
-        Reynolds = I.getNodeFromName1(PolRange_n, "Reynolds")[1]
+        FS_n = I.getNodeFromName1(pzp,'FlowSolution')
+        Cl = I.getNodeFromName1(FS_n,'Cl')[1]
+        Cd = I.getNodeFromName1(FS_n,'Cd')[1]
+        CloCd = Cl/Cd
+        PolRange_n = I.getNodeFromName1(pzp,'.Polar#Range')
+        AoA = I.getNodeFromName1(PolRange_n,'AngleOfAttack')[1]
+        Mach = I.getNodeFromName1(PolRange_n,'Mach')[1]
+        Reynolds = I.getNodeFromName1(PolRange_n,'Reynolds')[1]
         FoilID = pzp[0]
         nMach = len(Mach)
-        Colors = plt.cm.jet(np.linspace(0, 1, nMach))
+        Colors = plt.cm.jet(np.linspace(0,1,nMach))
         for i in range(nMach):
             if nMach > 1:
-                ax1.plot(AoA, Cl[:, i], color=Colors[i])
-                ax2.plot(AoA, CloCd[:, i], color=Colors[i])
+                ax1.plot(AoA,Cl[:,i],color=Colors[i])
+                ax2.plot(AoA,CloCd[:,i],color=Colors[i])
             else:
-                ax1.plot(AoA, Cl, color=Colors[i])
-                ax2.plot(AoA, CloCd, color=Colors[i])
-            ax3.plot(
-                [], [], color=Colors[i], label="M=%g, Re=%g" % (Mach[i], Reynolds[i])
-            )
+                ax1.plot(AoA,Cl,color=Colors[i])
+                ax2.plot(AoA,CloCd,color=Colors[i])
+            ax3.plot([],[],color=Colors[i],label='M=%g, Re=%g'%(Mach[i],Reynolds[i]))
 
         minLocX = AutoMinorLocator()
         ax1.xaxis.set_minor_locator(minLocX)
@@ -3612,105 +3081,88 @@ def plotStructPyZonePolars(
         minLocY2 = AutoMinorLocator()
         ax2.yaxis.set_minor_locator(minLocY2)
 
-        ax1.spines["top"].set_visible(False)
-        ax2.spines["top"].set_visible(False)
-        ax1.spines["right"].set_visible(False)
-        ax2.spines["right"].set_visible(False)
+        ax1.spines['top'].set_visible(False)
+        ax2.spines['top'].set_visible(False)
+        ax1.spines['right'].set_visible(False)
+        ax2.spines['right'].set_visible(False)
 
-        ax1.set_xlabel(r"$\alpha$ (deg)")
-        ax1.set_ylabel("$c_L$")
+        ax1.set_xlabel(r'$\alpha$ (deg)')
+        ax1.set_ylabel('$c_L$')
         ax1.set_title(FoilID)
 
-        ax2.set_xlabel(r"$\alpha$ (deg)")
-        ax2.set_ylabel("$c_L/c_D$")
+        ax2.set_xlabel(r'$\alpha$ (deg)')
+        ax2.set_ylabel('$c_L/c_D$')
         ax2.set_title(FoilID)
 
         plt.sca(ax1)
         plt.tight_layout()
-        filename = "PolarsCL_%s%s.%s" % (FoilID, filesuffix, fileformat)
-        print("Saving %s ..." % filename)
+        filename = 'PolarsCL_%s%s.%s'%(FoilID,filesuffix,fileformat)
+        print('Saving %s ...'%filename)
         plt.savefig(filename)
-        print("ok")
+        print('ok')
 
         plt.sca(ax2)
         plt.tight_layout()
-        filename = "PolarsEff_%s%s.%s" % (FoilID, filesuffix, fileformat)
-        print("Saving %s ..." % filename)
+        filename = 'PolarsEff_%s%s.%s'%(FoilID,filesuffix,fileformat)
+        print('Saving %s ...'%filename)
         plt.savefig(filename)
-        print("ok")
+        print('ok')
 
         plt.sca(ax3)
-        ax3.legend(
-            loc="upper left",
-            ncol=4,
-            bbox_to_anchor=(0.00, 1.00),
-            bbox_transform=fig3.transFigure,
-            title=FoilID,
-            frameon=False,
-        )
-        plt.axis("off")
-        filename = "PolarsLegend_%s%s.%s" % (FoilID, filesuffix, fileformat)
-        print("Saving %s ..." % filename)
+        ax3.legend(loc='upper left', ncol=4, bbox_to_anchor=(0.00, 1.00),bbox_transform=fig3.transFigure, title=FoilID, frameon=False)
+        plt.axis('off')
+        filename = 'PolarsLegend_%s%s.%s'%(FoilID,filesuffix,fileformat)
+        print('Saving %s ...'%filename)
         plt.savefig(filename)
-        print("ok")
-        plt.close("all")
+        print('ok')
+        plt.close('all')
 
         for addQty in addiationalQuantities:
-            fig1, ax1 = plt.subplots(1, 1, figsize=(4.75, 4.25))
-            (Field,) = J.getVars(pzp, [addQty])
+            fig1, ax1 = plt.subplots(1,1,figsize=(4.75,4.25))
+            Field, = J.getVars(pzp,[addQty])
             for i in range(nMach):
-                if nMach > 1:
-                    ax1.plot(AoA, Field[:, i], color=Colors[i])
-                else:
-                    ax1.plot(AoA, Field, color=Colors[i])
+                if nMach>1:
+                    ax1.plot(AoA,Field[:,i],color=Colors[i])
+                else: ax1.plot(AoA,Field,color=Colors[i])
             minLocX = AutoMinorLocator()
             ax1.xaxis.set_minor_locator(minLocX)
             minLocY1 = AutoMinorLocator()
             ax1.yaxis.set_minor_locator(minLocY1)
 
-            ax1.spines["top"].set_visible(False)
-            ax1.spines["right"].set_visible(False)
+            ax1.spines['top'].set_visible(False)
+            ax1.spines['right'].set_visible(False)
 
-            ax1.set_xlabel(r"$\alpha$ (deg)")
+            ax1.set_xlabel(r'$\alpha$ (deg)')
             ax1.set_ylabel(addQty)
             ax1.set_title(FoilID)
 
             plt.tight_layout()
-            filename = "Polars%s_%s%s.%s" % (addQty, FoilID, filesuffix, fileformat)
-            print("Saving %s ..." % filename)
+            filename = 'Polars%s_%s%s.%s'%(addQty,FoilID,filesuffix,fileformat)
+            print('Saving %s ...'%filename)
             plt.savefig(filename)
-            print("ok")
-            plt.close("all")
+            print('ok')
+            plt.close('all')
 
 
 def setRPM(LiftingLines, newRPM):
     for LiftingLine in I.getZones(LiftingLines):
-        if not checkComponentKind(LiftingLine, "LiftingLine"):
-            continue
-        Kin_n = I.getNodeFromName1(LiftingLine, ".Kinematics")
+        if not checkComponentKind(LiftingLine,'LiftingLine'): continue
+        Kin_n = I.getNodeFromName1(LiftingLine,'.Kinematics')
         if Kin_n:
-            RPM = I.getNodeFromName1(Kin_n, "RPM")
+            RPM = I.getNodeFromName1(Kin_n,'RPM')
 
             if RPM:
                 RPMvalue = np.atleast_1d(RPM[1])
                 RPMvalue[:] = newRPM
             else:
-                I.createNode(
-                    "RPM",
-                    "DataArray_t",
-                    value=np.atleast_1d(np.array(newRPM, dtype=np.float64)),
-                    parent=Kin_n,
-                )
+                I.createNode('RPM','DataArray_t',
+                             value=np.atleast_1d(np.array(newRPM,dtype=np.float64)),
+                             parent=Kin_n)
         else:
-            J.set(
-                LiftingLine,
-                ".Kinematics",
-                RPM=np.atleast_1d(np.array(newRPM, dtype=np.float64)),
-            )
-
+            J.set(LiftingLine,'.Kinematics',RPM=np.atleast_1d(np.array(newRPM,dtype=np.float64)))
 
 def setVPMParameters(LiftingLines, **kwargs):
-    """
+    '''
     This function is a convenient wrap used for setting the ``.VPM#Parameters`` nodes of
     **LiftingLine** object.
 
@@ -3720,7 +3172,7 @@ def setVPMParameters(LiftingLines, **kwargs):
 
     Parameters
     ----------
-
+    
         LiftingLines : PyTree, base, zone or list of zones
             Container with Lifting lines where ``.Kinematics`` node is to be set.
 
@@ -3793,22 +3245,16 @@ def setVPMParameters(LiftingLines, **kwargs):
 
                 MaxLiftingLineSubIterations : :py:class:`int`
                     Gives the maximum number of iteration used during the shedding process.
-    """
+    '''
+
 
     for LiftingLine in I.getZones(LiftingLines):
-        J.set(LiftingLine, ".VPM#Parameters", **kwargs)
+        J.set(LiftingLine, '.VPM#Parameters', **kwargs)
 
-
-def setKinematicsUsingConstantRotationAndTranslation(
-    LiftingLines,
-    RotationCenter=[0, 0, 0],
-    RotationAxis=[1, 0, 0],
-    RPM=2500.0,
-    RightHandRuleRotation=True,
-    VelocityTranslation=[0, 0, 0],
-    TorqueOrigin=[0, 0, 0],
-):
-    """
+def setKinematicsUsingConstantRotationAndTranslation(LiftingLines, RotationCenter=[0,0,0],
+                                  RotationAxis=[1,0,0], RPM=2500.0, RightHandRuleRotation=True,
+                                  VelocityTranslation=[0,0,0], TorqueOrigin=[0,0,0]):
+    '''
     This function is a convenient wrap used for setting the ``.Kinematics`` node of **LiftingLine** object.
 
     .. note:: information contained in ``.Kinematics`` node
@@ -3841,25 +3287,20 @@ def setKinematicsUsingConstantRotationAndTranslation(
             Constant velocity translation of the LiftingLine
             along the :math:`(x,y,z)` coordinates in :math:`(m/s)`
 
-    """
+    '''
 
-    for LiftingLine in I.getZones(LiftingLines):
-        J.set(
-            LiftingLine,
-            ".Kinematics",
-            RotationCenter=np.array(RotationCenter, dtype=np.float64),
-            RotationAxis=np.array(RotationAxis, dtype=np.float64),
-            RPM=np.atleast_1d(np.array(RPM, dtype=np.float64)),
-            RightHandRuleRotation=RightHandRuleRotation,
-            VelocityTranslation=np.array(VelocityTranslation, dtype=np.float64),
-            TorqueOrigin=np.array(TorqueOrigin, dtype=np.float64),
-        )
+    for LiftingLine in I.getZones( LiftingLines ):
+        J.set(LiftingLine,'.Kinematics',
+                RotationCenter=np.array(RotationCenter,dtype=np.float64),
+                RotationAxis=np.array(RotationAxis,dtype=np.float64),
+                RPM=np.atleast_1d(np.array(RPM,dtype=np.float64)),
+                RightHandRuleRotation=RightHandRuleRotation,
+                VelocityTranslation=np.array(VelocityTranslation,dtype=np.float64),
+                TorqueOrigin=np.array(TorqueOrigin,dtype=np.float64))
 
-
-def setConditions(
-    LiftingLines, VelocityFreestream=[0, 0, 0], Density=1.225, Temperature=288.15
-):
-    """
+def setConditions(LiftingLines, VelocityFreestream=[0,0,0], Density=1.225,
+                  Temperature=288.15):
+    '''
     This function is a convenient wrap used for setting the ``.Conditions``
     node of **LiftingLine** object.
 
@@ -3884,20 +3325,18 @@ def setConditions(
         Temperature : float
             air temperature in [K]
 
-    """
+    '''
 
-    for LiftingLine in I.getZones(LiftingLines):
-        J.set(
-            LiftingLine,
-            ".Conditions",
-            VelocityFreestream=np.array(VelocityFreestream, dtype=float),
-            Density=np.atleast_1d(float(Density)),
-            Temperature=np.atleast_1d(float(Temperature)),
-        )
+    for LiftingLine in I.getZones( LiftingLines ):
+        J.set(LiftingLine,'.Conditions',
+              VelocityFreestream=np.array(VelocityFreestream,dtype=float),
+              Density=np.atleast_1d(float(Density)),
+              Temperature=np.atleast_1d(float(Temperature)))
+
 
 
 def getRotationAxisCenterAndDirFromKinematics(LiftingLine):
-    """
+    '''
 
     .. note:: this is a private function
 
@@ -3912,33 +3351,34 @@ def getRotationAxisCenterAndDirFromKinematics(LiftingLine):
             using :py:func:`setKinematicsUsingConstantRotationAndTranslation`
 
             .. note:: zone **LiftingLine** is modified
-    """
-    Kinematics_n = I.getNodeFromName(LiftingLine, ".Kinematics")
+    '''
+    Kinematics_n = I.getNodeFromName(LiftingLine,'.Kinematics')
     if not Kinematics_n:
         raise ValueError('missing ".Kinematics" node')
 
-    RotationAxis_n = I.getNodeFromName1(Kinematics_n, "RotationAxis")
+
+    RotationAxis_n = I.getNodeFromName1(Kinematics_n,'RotationAxis')
     if not RotationAxis_n:
         raise ValueError('missing "RotationAxis" node in ".Kinematics"')
-    RotationAxis = I.getValue(RotationAxis_n)
+    RotationAxis = I.getValue( RotationAxis_n )
 
-    RotationCenter_n = I.getNodeFromName1(Kinematics_n, "RotationCenter")
+    RotationCenter_n = I.getNodeFromName1(Kinematics_n,'RotationCenter')
     if not RotationCenter_n:
         raise ValueError('missing "RotationCenter" node in ".Kinematics"')
-    RotationCenter = I.getValue(RotationCenter_n)
+    RotationCenter = I.getValue( RotationCenter_n )
 
-    Dir_n = I.getNodeFromName1(Kinematics_n, "RightHandRuleRotation")
+    Dir_n = I.getNodeFromName1(Kinematics_n,'RightHandRuleRotation')
     if not Dir_n:
         raise ValueError('missing "RightHandRuleRotation" node in ".Kinematics"')
-    Dir = I.getValue(Dir_n)
-    if not Dir:
-        Dir = -1
+    Dir = I.getValue( Dir_n )
+    if not Dir: Dir = -1
+
 
     return RotationAxis, RotationCenter, Dir
 
 
 def computeKinematicVelocity(t):
-    """
+    '''
     Compute or update ``VelocityKinematicX``, ``VelocityKinematicY`` and
     ``VelocityKinematicZ`` fields of LiftingLines provided to function using
     information contained in ``.Kinematics`` node attached to each LiftingLine.
@@ -3950,62 +3390,52 @@ def computeKinematicVelocity(t):
             container with LiftingLines
 
             .. note:: LiftingLines contained in **t** are modified.
-    """
+    '''
 
-    RequiredFieldNames = [
-        "VelocityKinematicX",
-        "VelocityKinematicY",
-        "VelocityKinematicZ",
-    ]
+    RequiredFieldNames = ['VelocityKinematicX',
+                          'VelocityKinematicY',
+                          'VelocityKinematicZ',]
 
-    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z, "LiftingLine")]
+    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
     for LiftingLine in LiftingLines:
-        Kinematics = J.get(LiftingLine, ".Kinematics")
-        VelocityTranslation = Kinematics["VelocityTranslation"]
-        RotationCenter = Kinematics["RotationCenter"]
-        RotationAxis = Kinematics["RotationAxis"]
-        RPM = Kinematics["RPM"]
-        Dir = 1 if Kinematics["RightHandRuleRotation"] else -1
-        Omega = RPM * np.pi / 30.0
-        x, y, z = J.getxyz(LiftingLine)
-        ExistingFieldNames = C.getVarNames(LiftingLine, excludeXYZ=True)[0]
+        Kinematics = J.get(LiftingLine,'.Kinematics')
+        VelocityTranslation = Kinematics['VelocityTranslation']
+        RotationCenter = Kinematics['RotationCenter']
+        RotationAxis = Kinematics['RotationAxis']
+        RPM = Kinematics['RPM']
+        Dir = 1 if Kinematics['RightHandRuleRotation'] else -1
+        Omega = RPM*np.pi/30.
+        x,y,z = J.getxyz(LiftingLine)
+        ExistingFieldNames = C.getVarNames(LiftingLine,excludeXYZ=True)[0]
         v = dict()
         for fieldname in RequiredFieldNames:
             if fieldname in ExistingFieldNames:
-                v[fieldname] = J.getVars(LiftingLine, [fieldname])[0]
+                v[fieldname] = J.getVars(LiftingLine,[fieldname])[0]
             else:
-                v[fieldname] = J.invokeFields(LiftingLine, [fieldname])[0]
+                v[fieldname] = J.invokeFields(LiftingLine,[fieldname])[0]
 
         NPts = len(x)
         # TODO vectorize this
         for i in range(NPts):
-            rvec = np.array(
-                [
-                    x[i] - RotationCenter[0],
-                    y[i] - RotationCenter[1],
-                    z[i] - RotationCenter[2],
-                ],
-                dtype=np.float64,
-            )
+            rvec = np.array([x[i] - RotationCenter[0],
+                             y[i] - RotationCenter[1],
+                             z[i] - RotationCenter[2]],dtype=np.float64)
 
-            VelocityKinematic = (
-                np.cross(Dir * Omega * RotationAxis, rvec) + VelocityTranslation
-            )
+            VelocityKinematic = np.cross( Dir * Omega * RotationAxis, rvec) + VelocityTranslation
 
-            v["VelocityKinematicX"][i] = VelocityKinematic[0]
-            v["VelocityKinematicY"][i] = VelocityKinematic[1]
-            v["VelocityKinematicZ"][i] = VelocityKinematic[2]
-
+            v['VelocityKinematicX'][i] = VelocityKinematic[0]
+            v['VelocityKinematicY'][i] = VelocityKinematic[1]
+            v['VelocityKinematicZ'][i] = VelocityKinematic[2]
 
 def assembleAndProjectVelocities(t):
-    """
+    '''
     This function updates a series of veolicity (and other fields) of
     LiftingLines provided a given kinematic and flow conditions.
 
     The new or updated fields are the following :
 
     * ``VelocityRelativeX`` ``VelocityRelativeY`` ``VelocityRelativeZ``
-        Three components of the VelocityInduced + VelocityFreestream + VelocityPerturbation -
+        Three components of the VelocityInduced + VelocityFreestream + VelocityPerturbation - 
             VelocityKinematic, i.e. of the Relative Velocity.
 
     * ``VelocityX`` ``VelocityY`` ``VelocityZ``
@@ -4018,7 +3448,7 @@ def assembleAndProjectVelocities(t):
         Three components of the Perturbation Velocity given by a Perturbation Field.
 
     * ``VelocityKinematicX`` ``VelocityKinematicY`` ``VelocityKinematicZ``
-        Three components of the Kinematic Velocity due to the kinematic movement of the Lifting
+        Three components of the Kinematic Velocity due to the kinematic movement of the Lifting 
         Lines.
 
     * ``VelocityAxial``
@@ -4084,125 +3514,105 @@ def assembleAndProjectVelocities(t):
 
             .. note:: Lifting-lines contained in **t** are modified.
 
-    """
+    '''
     RequiredFieldNames = [
-        "VelocityRelativeX",
-        "VelocityRelativeY",
-        "VelocityRelativeZ",
-        "VelocityX",
-        "VelocityY",
-        "VelocityZ",
-        "VelocityInducedX",
-        "VelocityInducedY",
-        "VelocityInducedZ",
-        "VelocityPerturbationX",
-        "VelocityPerturbationY",
-        "VelocityPerturbationZ",
-        "VelocityKinematicX",
-        "VelocityKinematicY",
-        "VelocityKinematicZ",
-        "VelocityAxial",
-        "VelocityTangential",
-        "VelocityChordwise",
-        "VelocityThickwise",
-        "VelocityMagnitudeLocal",
-        "Chord",
-        "ChordVirtualWithSweep",
-        "AoA",
-        "phiRad",
-        "Mach",
-        "Reynolds",
-        "ChordwiseX",
-        "ChordwiseY",
-        "ChordwiseZ",
-        "ThickwiseX",
-        "ThickwiseY",
-        "ThickwiseZ",
-        "TangentialX",
-        "TangentialY",
-        "TangentialZ",
-        "SweepAngleDeg",
-        "DihedralAngleDeg",
-    ]
+                          'VelocityRelativeX',
+                          'VelocityRelativeY',
+                          'VelocityRelativeZ',
+                          'VelocityX',
+                          'VelocityY',
+                          'VelocityZ',
+                          'VelocityInducedX',
+                          'VelocityInducedY',
+                          'VelocityInducedZ',
+                          'VelocityPerturbationX',
+                          'VelocityPerturbationY',
+                          'VelocityPerturbationZ',
+                          'VelocityKinematicX',
+                          'VelocityKinematicY',
+                          'VelocityKinematicZ',
+                          'VelocityAxial',
+                          'VelocityTangential',
+                          'VelocityChordwise',
+                          'VelocityThickwise',
+                          'VelocityMagnitudeLocal',
+                          'Chord', 'ChordVirtualWithSweep',
+                          'AoA','phiRad','Mach','Reynolds',
+                          'ChordwiseX','ChordwiseY','ChordwiseZ',
+                          'ThickwiseX','ThickwiseY','ThickwiseZ',
+                          'TangentialX','TangentialY','TangentialZ',
+                          'SweepAngleDeg', 'DihedralAngleDeg'
+                          ]
 
-    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z, "LiftingLine")]
+    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
     for LiftingLine in LiftingLines:
-        # Collecting prescribed polar corrections
-        Correc_n = I.getNodeFromName(LiftingLine, "Corrections3D")
-        SweepCorrection = I.getValue(I.getNodeFromName(Correc_n, "Sweep"))
-        DihedralCorrection = I.getValue(I.getNodeFromName(Correc_n, "Dihedral"))
+        #Collecting prescribed polar corrections
+        Correc_n = I.getNodeFromName(LiftingLine,'Corrections3D')
+        SweepCorrection = I.getValue(I.getNodeFromName(Correc_n,'Sweep'))
+        DihedralCorrection = I.getValue(I.getNodeFromName(Correc_n,'Dihedral'))
 
-        Conditions = J.get(LiftingLine, ".Conditions")
-        Temperature = Conditions["Temperature"]
-        Density = Conditions["Density"]
-        VelocityFreestream = Conditions["VelocityFreestream"]
-        Kinematics = J.get(LiftingLine, ".Kinematics")
-        RotationAxis = Kinematics["RotationAxis"]
-        dir = 1 if Kinematics["RightHandRuleRotation"] else -1
-        Mu = (
-            Mus * np.sqrt(Temperature / Ts) * (1.0 + Cs / Ts) / (1.0 + Cs / Temperature)
-        )
+        Conditions = J.get(LiftingLine,'.Conditions')
+        Temperature = Conditions['Temperature']
+        Density = Conditions['Density']
+        VelocityFreestream = Conditions['VelocityFreestream']
+        Kinematics = J.get(LiftingLine,'.Kinematics')
+        RotationAxis = Kinematics['RotationAxis']
+        dir = 1 if Kinematics['RightHandRuleRotation'] else -1
+        Mu = Mus*np.sqrt(Temperature/Ts)*(1. + Cs/Ts)/(1. + Cs/Temperature)
         SoundSpeed = np.sqrt(Gamma * Rgp * Temperature)
-
-        ExistingFieldNames = C.getVarNames(LiftingLine, excludeXYZ=True)[0]
+        
+        ExistingFieldNames = C.getVarNames(LiftingLine, excludeXYZ = True)[0]
         v = dict()
         for fieldname in RequiredFieldNames:
             if fieldname in ExistingFieldNames:
-                v[fieldname] = J.getVars(LiftingLine, [fieldname])[0]
+                v[fieldname] = J.getVars(LiftingLine,[fieldname])[0]
             else:
-                v[fieldname] = J.invokeFields(LiftingLine, [fieldname])[0]
+                v[fieldname] = J.invokeFields(LiftingLine,[fieldname])[0]
 
-        VelocityInduced = np.vstack([v["VelocityInduced" + i] for i in "XYZ"])
-        VelocityPerturbation = np.vstack([v["VelocityPerturbation" + i] for i in "XYZ"])
-        VelocityKinematic = np.vstack([v["VelocityKinematic" + i] for i in "XYZ"])
-        ChordwiseDirection = np.vstack([v["Chordwise" + i] for i in "XYZ"])
-        ThickwiseDirection = np.vstack([v["Thickwise" + i] for i in "XYZ"])
-        TangentialDirection = np.vstack([v["Tangential" + i] for i in "XYZ"])
+        VelocityInduced = np.vstack([v['VelocityInduced' + i] for i in 'XYZ'])
+        VelocityPerturbation = np.vstack([v['VelocityPerturbation' + i] for i in 'XYZ'])
+        VelocityKinematic = np.vstack([v['VelocityKinematic' + i] for i in 'XYZ'])
+        ChordwiseDirection = np.vstack([v['Chordwise' + i] for i in 'XYZ'])
+        ThickwiseDirection = np.vstack([v['Thickwise' + i] for i in 'XYZ'])
+        TangentialDirection = np.vstack([v['Tangential' + i] for i in 'XYZ'])
 
-        Velocity = (VelocityInduced + VelocityPerturbation).T + VelocityFreestream
-        v["VelocityX"][:] = Velocity[:, 0]
-        v["VelocityY"][:] = Velocity[:, 1]
-        v["VelocityZ"][:] = Velocity[:, 2]
+        Velocity          = (VelocityInduced + VelocityPerturbation).T + VelocityFreestream
+        v['VelocityX'][:] = Velocity[:, 0]
+        v['VelocityY'][:] = Velocity[:, 1]
+        v['VelocityZ'][:] = Velocity[:, 2]
 
-        VelocityRelative = Velocity - VelocityKinematic.T
-        v["VelocityRelativeX"][:] = VelocityRelative[:, 0]
-        v["VelocityRelativeY"][:] = VelocityRelative[:, 1]
-        v["VelocityRelativeZ"][:] = VelocityRelative[:, 2]
+        VelocityRelative          = Velocity - VelocityKinematic.T
+        v['VelocityRelativeX'][:] = VelocityRelative[:, 0]
+        v['VelocityRelativeY'][:] = VelocityRelative[:, 1]
+        v['VelocityRelativeZ'][:] = VelocityRelative[:, 2]
 
-        v["VelocityAxial"][:] = VelocityRelative.dot(-RotationAxis)
-        v["VelocityTangential"][:] = np.diag(VelocityRelative.dot(TangentialDirection))
+        v['VelocityAxial'][:]      = VelocityRelative.dot(-RotationAxis)
+        v['VelocityTangential'][:] = np.diag(VelocityRelative.dot(TangentialDirection))
 
         Vchord = np.diag(VelocityRelative.dot(ChordwiseDirection))
         Vthick = np.diag(VelocityRelative.dot(ThickwiseDirection))
 
-        if SweepCorrection:
-            Vchord = Vchord * np.cos(np.deg2rad(v["SweepAngleDeg"]))
-        if DihedralCorrection:
-            Vthick = Vthick * np.cos(np.deg2rad(v["DihedralAngleDeg"]))
+        if SweepCorrection:    Vchord = Vchord*np.cos(np.deg2rad(v['SweepAngleDeg']))
+        if DihedralCorrection: Vthick = Vthick*np.cos(np.deg2rad(v['DihedralAngleDeg']))
 
-        v["VelocityChordwise"][:] = Vchord
-        v["VelocityThickwise"][:] = Vthick
+        v['VelocityChordwise'][:] = Vchord
+        v['VelocityThickwise'][:] = Vthick
         # Updating the Angle of Attack considering the new velocity components.
-        v["AoA"][:] = np.rad2deg(np.arctan2(Vthick, Vchord))
+        v['AoA'][:] = np.rad2deg(np.arctan2(Vthick, Vchord))
 
         # NOTE the absence of radial velocity contribution to Velocity Magnitude, Mach and Reynolds
-        v["VelocityMagnitudeLocal"][:] = W = np.linalg.norm(
-            np.vstack([Vchord, Vthick]), axis=0
-        )
-        v["Mach"][:] = W / SoundSpeed
-        if SweepCorrection:
-            v["Reynolds"][:] = Density[0] / Mu * W * v["ChordVirtualWithSweep"]
-        else:
-            v["Reynolds"][:] = Density[0] / Mu * W * v["Chord"]
+        v['VelocityMagnitudeLocal'][:] = W = np.linalg.norm(np.vstack([Vchord, Vthick]), axis = 0)
+        v['Mach'][:] = W/SoundSpeed
+        if SweepCorrection: v['Reynolds'][:] = Density[0]/Mu*W*v['ChordVirtualWithSweep']
+        else:               v['Reynolds'][:] = Density[0]/Mu*W*v['Chord']
 
-        V2D = (Vchord * ChordwiseDirection + Vthick * ThickwiseDirection).T
+        V2D = (Vchord*ChordwiseDirection + Vthick*ThickwiseDirection).T
         V2Da = V2D.dot(-RotationAxis)
-        V2Dt = dir * np.diag(V2D.dot(TangentialDirection))
-        v["phiRad"][:] = np.arctan2(V2Da, V2Dt)  # Used for Tip-Loss corrections
-
+        V2Dt = dir*np.diag(V2D.dot(TangentialDirection))
+        v['phiRad'][:] = np.arctan2(V2Da, V2Dt) #Used for Tip-Loss corrections
 
 def moveLiftingLines(t, TimeStep):
-    """
+    '''
     Move the lifting lines following their ``.Kinematics`` law.
 
     It also updates the local frame quantities of the lifting lines and
@@ -4218,42 +3628,32 @@ def moveLiftingLines(t, TimeStep):
 
         TimeStep : float
             time step for the movement of the lifting-lines in [s]
-    """
-    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z, "LiftingLine")]
+    '''
+    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
     for LiftingLine in LiftingLines:
-        Kinematics = J.get(LiftingLine, ".Kinematics")
-        VelocityTranslation = Kinematics["VelocityTranslation"]
-        RotationCenter = Kinematics["RotationCenter"]
-        RotationAxis = Kinematics["RotationAxis"]
-        RightHandRuleRotation = Kinematics["RightHandRuleRotation"]
-        RPM = Kinematics["RPM"]
-        Omega = RPM * np.pi / 30.0
-        Dpsi = np.rad2deg(Omega * TimeStep)
-        try:
-            Dpsi = Dpsi[0]
-        except:
-            pass
-        if not RightHandRuleRotation:
-            Dpsi *= -1
+        Kinematics = J.get(LiftingLine,'.Kinematics')
+        VelocityTranslation = Kinematics['VelocityTranslation']
+        RotationCenter = Kinematics['RotationCenter']
+        RotationAxis = Kinematics['RotationAxis']
+        RightHandRuleRotation = Kinematics['RightHandRuleRotation']
+        RPM = Kinematics['RPM']
+        Omega = RPM * np.pi / 30.
+        Dpsi = np.rad2deg( Omega * TimeStep )
+        try: Dpsi = Dpsi[0]
+        except: pass
+        if not RightHandRuleRotation: Dpsi *= -1
 
-        if Dpsi:
-            T._rotate(
-                LiftingLine,
-                RotationCenter,
-                RotationAxis,
-                Dpsi,
-                vectors=NamesOfChordSpanThickwiseFrame,
-            )
+        if Dpsi: T._rotate(LiftingLine, RotationCenter, RotationAxis, Dpsi,
+                           vectors=NamesOfChordSpanThickwiseFrame)
 
         if VelocityTranslation.any():
-            T._translate(LiftingLine, TimeStep * VelocityTranslation)
-            RotationCenter += TimeStep * VelocityTranslation
+            T._translate(LiftingLine, TimeStep*VelocityTranslation)
+            RotationCenter += TimeStep*VelocityTranslation
 
         computeKinematicVelocity(LiftingLine)
 
-
 def moveObject(t, TimeStep):
-    """
+    '''
     Move the lifting lines following their ``.Kinematics`` law.
 
     It also updates the local frame quantities of the lifting lines and
@@ -4269,40 +3669,30 @@ def moveObject(t, TimeStep):
 
         TimeStep : float
             time step for the movement of the lifting-lines in [s]
-    """
+    '''
 
     for LiftingLine in I.getZones(t):
-        Kinematics = J.get(LiftingLine, ".Kinematics")
-        VelocityTranslation = Kinematics["VelocityTranslation"]
-        RotationCenter = Kinematics["RotationCenter"]
-        RotationAxis = Kinematics["RotationAxis"]
-        RightHandRuleRotation = Kinematics["RightHandRuleRotation"]
-        RPM = Kinematics["RPM"]
-        Omega = RPM * np.pi / 30.0
-        Dpsi = np.rad2deg(Omega * TimeStep)
-        try:
-            Dpsi = Dpsi[0]
-        except:
-            pass
-        if not RightHandRuleRotation:
-            Dpsi *= -1
+        Kinematics = J.get(LiftingLine,'.Kinematics')
+        VelocityTranslation = Kinematics['VelocityTranslation']
+        RotationCenter = Kinematics['RotationCenter']
+        RotationAxis = Kinematics['RotationAxis']
+        RightHandRuleRotation = Kinematics['RightHandRuleRotation']
+        RPM = Kinematics['RPM']
+        Omega = RPM * np.pi / 30.
+        Dpsi = np.rad2deg( Omega * TimeStep )
+        try: Dpsi = Dpsi[0]
+        except: pass
+        if not RightHandRuleRotation: Dpsi *= -1
 
-        if Dpsi:
-            T._rotate(
-                LiftingLine,
-                RotationCenter,
-                RotationAxis,
-                Dpsi,
-                vectors=NamesOfChordSpanThickwiseFrame,
-            )
+        if Dpsi: T._rotate(LiftingLine, RotationCenter, RotationAxis, Dpsi,
+                           vectors=NamesOfChordSpanThickwiseFrame)
 
         if VelocityTranslation.any():
-            T._translate(LiftingLine, TimeStep * VelocityTranslation)
-            RotationCenter += TimeStep * VelocityTranslation
-
+            T._translate(LiftingLine, TimeStep*VelocityTranslation)
+            RotationCenter += TimeStep*VelocityTranslation
 
 def addPerturbationFields(t, PerturbationFields=None):
-    """
+    '''
     Sets the existing ``VelocityInducedX``, ``VelocityInducedY``,
     ``VelocityInducedZ`` fields of Lifting Lines contained in **t** the
     perturbation contribution contained in **PerturbationFields**.
@@ -4325,93 +3715,89 @@ def addPerturbationFields(t, PerturbationFields=None):
             .. attention:: **PerturbationFields**  must contain the following
                 fields: ``Density`` , ``MomentumX``, ``MomentumY``, ``MomentumZ``
 
-    """
+    '''
     import Converter.Mpi as Cmpi
     import Post.Mpi as Pmpi
-
     Cmpi.barrier()
 
     if PerturbationFields:
 
-        tPert = I.renameNode(
-            PerturbationFields, "FlowSolution#Init", "FlowSolution#Centers"
-        )
-        I._rmNodesByName(tPert, "FlowSolution#EndOfRun#Relative")
+        tPert = I.renameNode(PerturbationFields,
+                             'FlowSolution#Init', 'FlowSolution#Centers')
+        I._rmNodesByName(tPert,'FlowSolution#EndOfRun#Relative')
 
         if t:
             LLs = I.getZones(t)
-            SpanMax = C.getMaxValue(LLs[0], "Span")
-            SpanMin = C.getMinValue(LLs[0], "Span")
+            SpanMax = C.getMaxValue(LLs[0],'Span')
+            SpanMin = C.getMinValue(LLs[0],'Span')
             ExtrapolateSpanMax = 0.05 * SpanMax
             ExtrapolateSpanMin = 0.1 * SpanMin
             auxLLs = []
             for auxLL in LLs:
                 auxLL = W.extrapolate(auxLL, ExtrapolateSpanMax)
-                auxLL = W.extrapolate(auxLL, ExtrapolateSpanMin, opposedExtremum=True)
+                auxLL = W.extrapolate(auxLL, ExtrapolateSpanMin,
+                                      opposedExtremum=True)
                 auxLLs.append(auxLL)
 
             AuxiliarDisc = G.stack(auxLLs)
-            AuxiliarDisc[0] = "AuxDisc.%d" % Cmpi.rank
+            AuxiliarDisc[0] = 'AuxDisc.%d'%Cmpi.rank
             AuxiliarDiscs = [AuxiliarDisc]
             Cmpi._setProc(AuxiliarDiscs, Cmpi.rank)
             I._adaptZoneNamesForSlash(AuxiliarDiscs)
         else:
             AuxiliarDiscs = []
 
-        tAux = C.newPyTree(["Base", AuxiliarDiscs])
+        tAux = C.newPyTree(['Base',AuxiliarDiscs])
 
-        I.__FlowSolutionCenters__ = "FlowSolution#Centers"
+
+
+        I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
 
         Cmpi.barrier()
         # need to make try/except (see Cassiopee #7754)
-        try:
-            tAux = Pmpi.extractMesh(tPert, tAux, constraint=0.0)
-        except:
-            tAux = None
+        try: tAux = Pmpi.extractMesh(tPert, tAux, constraint=0.)
+        except: tAux = None
         Cmpi.barrier()
 
-        if not tAux:
-            return  # BEWARE cannot use barriers from this point
+        if not tAux: return # BEWARE cannot use barriers from this point
 
         AuxiliarDisc = I.getZones(tAux)[0]
-        C._initVars(AuxiliarDisc, "VelocityInducedX={MomentumX}")
-        C._initVars(AuxiliarDisc, "VelocityInducedY={MomentumY}")
-        C._initVars(AuxiliarDisc, "VelocityInducedZ={MomentumZ}")
-        iVx, iVy, iVz, ro, rou, rov, row, Temp = J.getVars(
-            AuxiliarDisc,
-            [
-                "VelocityInducedX",
-                "VelocityInducedY",
-                "VelocityInducedZ",
-                "Density",
-                "MomentumX",
-                "MomentumY",
-                "MomentumZ",
-                "Temperature",
-            ],
-        )
+        C._initVars(AuxiliarDisc,'VelocityInducedX={MomentumX}')
+        C._initVars(AuxiliarDisc,'VelocityInducedY={MomentumY}')
+        C._initVars(AuxiliarDisc,'VelocityInducedZ={MomentumZ}')
+        iVx, iVy, iVz, ro, rou, rov, row, Temp = J.getVars(AuxiliarDisc,
+                                               ['VelocityInducedX',
+                                                'VelocityInducedY',
+                                                'VelocityInducedZ',
+                                                'Density',
+                                                'MomentumX',
+                                                'MomentumY',
+                                                'MomentumZ',
+                                                'Temperature',
+                                                ])
+
 
         PositiveDensity = ro > 1e-3
-        iVx[PositiveDensity] = rou[PositiveDensity] / ro[PositiveDensity]
-        iVy[PositiveDensity] = rov[PositiveDensity] / ro[PositiveDensity]
-        iVz[PositiveDensity] = row[PositiveDensity] / ro[PositiveDensity]
+        iVx[PositiveDensity] = rou[PositiveDensity]/ro[PositiveDensity]
+        iVy[PositiveDensity] = rov[PositiveDensity]/ro[PositiveDensity]
+        iVz[PositiveDensity] = row[PositiveDensity]/ro[PositiveDensity]
 
         for v in [iVx, iVy, iVz]:
             isNotFinite = np.logical_not(np.isfinite(v))
-            v[isNotFinite] = 0.0
+            v[isNotFinite] = 0.
 
         migratePerturbationsFromAuxiliarDisc2LiftingLines(AuxiliarDisc, t)
 
         return AuxiliarDisc
 
     else:
-        C._initVars(t, "VelocityInducedX", 0.0)
-        C._initVars(t, "VelocityInducedY", 0.0)
-        C._initVars(t, "VelocityInducedZ", 0.0)
+        C._initVars(t,'VelocityInducedX',0.)
+        C._initVars(t,'VelocityInducedY',0.)
+        C._initVars(t,'VelocityInducedZ',0.)
 
 
 def migratePerturbationsFromAuxiliarDisc2LiftingLines(AuxiliarDisc, LiftingLines):
-    """
+    '''
     Migrate the perturbation fields :
     ``Density``,
     ``MomentumX``, ``MomentumY``, ``MomentumZ``,
@@ -4442,44 +3828,32 @@ def migratePerturbationsFromAuxiliarDisc2LiftingLines(AuxiliarDisc, LiftingLines
                 #. the spanwise discretization **must be** the same as the
                    radial discretization of the auxiliar disc (except the root and tip
                    points of auxiliar disc, which lies outside of lifting line).
-    """
-    PerturbationFields = (
-        "Density",
-        "MomentumX",
-        "MomentumY",
-        "MomentumZ",
-        "EnergyStagnationDensity",
-        "Temperature",
-        "VelocityInducedX",
-        "VelocityInducedY",
-        "VelocityInducedZ",
-    )
+    '''
+    PerturbationFields = ('Density', 'MomentumX', 'MomentumY', 'MomentumZ',
+        'EnergyStagnationDensity', 'Temperature',
+        'VelocityInducedX', 'VelocityInducedY', 'VelocityInducedZ')
 
-    (AuxiliarDisc,) = I.getZones(AuxiliarDisc)
+    AuxiliarDisc, = I.getZones(AuxiliarDisc)
     LLs = I.getZones(LiftingLines)
 
     fieldsDisc = J.getVars(AuxiliarDisc, PerturbationFields)
     for j in range(len(LLs)):
         fieldsLL = J.getVars(LLs[j], PerturbationFields)
         for fieldLL, fieldDisc in zip(fieldsLL, fieldsDisc):
-            fieldLL[:] = fieldDisc[1:-1, j]
+            fieldLL[:] = fieldDisc[1:-1,j]
 
-        Conds = J.get(LLs[j], ".Conditions")
+        Conds = J.get(LLs[j],'.Conditions')
         if Conds:
-            AverageFieldNames = ["Temperature", "Density"]
+            AverageFieldNames = ['Temperature', 'Density']
             v = J.getVars2Dict(LLs[j], AverageFieldNames)
             for fn in AverageFieldNames:
                 Conds[fn][:] = np.mean(v[fn])
 
 
-def computeGeneralLoadsOfLiftingLine(
-    t,
-    NBlades=1.0,
-    UnsteadyData={},
-    UnsteadyDataIndependentAbscissa="IterationNumber",
-    TipLossFactorOptions={},
-):
-    """
+def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
+        UnsteadyDataIndependentAbscissa='IterationNumber',
+        TipLossFactorOptions={}):
+    '''
     This function is used to compute local and integral arrays of a lifting line
     with general orientation and shape (including sweep and dihedral).
 
@@ -4558,108 +3932,69 @@ def computeGeneralLoadsOfLiftingLine(
 
         TipLossFactorOptions : dict
             Use a tip-loss factor function to the aerodynamic coefficients.
-            This :py:class:`dict` defines a pair of keyword-arguments of the
+            This :py:class:`dict` defines a pair of keyword-arguments of the 
             function :py:func:`applyTipLossFactorToBladeEfforts`.
-    """
+    '''
     import scipy.integrate as sint
 
-    MinimumRequiredFields = (
-        "Cl",
-        "Cd",
-        "Cm",
-        "Chord",
-        "ChordVirtualWithSweep",
-        "VelocityMagnitudeLocal",
-        "s",
-        "AoA",
-        "ChordwiseX",
-        "ChordwiseY",
-        "ChordwiseZ",
-        "ThickwiseX",
-        "ThickwiseY",
-        "ThickwiseZ",
-        "SpanwiseX",
-        "SpanwiseY",
-        "SpanwiseZ",
-        "TangentialX",
-        "TangentialY",
-        "TangentialZ",
-        "SweepAngleDeg",
-        "DihedralAngleDeg",
-    )
+    MinimumRequiredFields = ('Cl','Cd','Cm','Chord','ChordVirtualWithSweep',
+        'VelocityMagnitudeLocal','s',
+        'AoA',
+        'ChordwiseX', 'ChordwiseY', 'ChordwiseZ',
+        'ThickwiseX', 'ThickwiseY', 'ThickwiseZ',
+        'SpanwiseX', 'SpanwiseY', 'SpanwiseZ',
+        'TangentialX', 'TangentialY', 'TangentialZ','SweepAngleDeg', 'DihedralAngleDeg')
     NewFields = (
-        "ForceX",
-        "ForceY",
-        "ForceZ",  # previously 'ForceX','ForceY','ForceZ'
-        "ForceAxial",
-        "ForceTangential",  # previously 'ForceAxial','ForceTangential'
-        "TorqueAtAirfoilX",
-        "TorqueAtAirfoilY",
-        "TorqueAtAirfoilZ",  # previously 'mx', 'my', 'mz'
-        "TorqueAtRotationAxisX",
-        "TorqueAtRotationAxisY",
-        "TorqueAtRotationAxisZ",  # previously 'm0x', 'm0y', 'm0z'
-        "TorqueAtOriginCenterX",
-        "TorqueAtOriginCenterY",
-        "TorqueAtOriginCenterZ",
-        "LiftX",
-        "LiftY",
-        "LiftZ",  # previously 'Lx','Ly','Lz'
-        "LiftAxial",
-        "LiftTangential",  # previously 'La', 'Lt'
-        "LiftThickwise",
-        "LiftChordwise",  # previsouly 'Lthickwise', 'Lchordwise'
-        "DragX",
-        "DragY",
-        "DragZ",  # previously 'Dx', 'Dy', 'Dz'
-        "DragAxial",
-        "DragTangential",  # previously 'Da', 'Dt'
-        "DragThickwise",
-        "DragChordwise",  # 'Dthickwise', 'Dchordwise',
-        "Gamma",
-        "GammaX",
-        "GammaY",
-        "GammaZ",
-    )
+        'ForceX','ForceY','ForceZ', # previously 'ForceX','ForceY','ForceZ'
+        'ForceAxial','ForceTangential', # previously 'ForceAxial','ForceTangential'
+        'TorqueAtAirfoilX','TorqueAtAirfoilY','TorqueAtAirfoilZ', # previously 'mx', 'my', 'mz'
+        'TorqueAtRotationAxisX','TorqueAtRotationAxisY','TorqueAtRotationAxisZ', # previously 'm0x', 'm0y', 'm0z'
+        'TorqueAtOriginCenterX','TorqueAtOriginCenterY','TorqueAtOriginCenterZ',
+        'LiftX','LiftY','LiftZ', # previously 'Lx','Ly','Lz'
+        'LiftAxial','LiftTangential', # previously 'La', 'Lt'
+        'LiftThickwise', 'LiftChordwise', # previsouly 'Lthickwise', 'Lchordwise'
+        'DragX','DragY','DragZ', # previously 'Dx', 'Dy', 'Dz'
+        'DragAxial','DragTangential', # previously 'Da', 'Dt'
+        'DragThickwise', 'DragChordwise', # 'Dthickwise', 'Dchordwise',
+        'Gamma',
+        'GammaX','GammaY','GammaZ',
+        )
 
-    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z, "LiftingLine")]
+    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
     NumberOfLiftingLines = len(LiftingLines)
     AllIntegralData = {}
     for LiftingLine in LiftingLines:
-        Correc_n = I.getNodeFromName(LiftingLine, "Corrections3D")
-        SweepCorrection = I.getValue(I.getNodeFromName(Correc_n, "Sweep"))
-        DihedralCorrection = I.getValue(I.getNodeFromName(Correc_n, "Dihedral"))
+        Correc_n = I.getNodeFromName(LiftingLine, 'Corrections3D')
+        SweepCorrection = I.getValue(I.getNodeFromName(Correc_n, 'Sweep'))
+        DihedralCorrection = I.getValue(I.getNodeFromName(Correc_n, 'Dihedral'))
 
-        Kinematics = J.get(LiftingLine, ".Kinematics")
-        RotationCenter = Kinematics["RotationCenter"]
-        TorqueOrigin = Kinematics["TorqueOrigin"]
-        RotationAxis = Kinematics["RotationAxis"]
-        RightHandRuleRotation = Kinematics["RightHandRuleRotation"]
-        RPM = Kinematics["RPM"]
-        Conditions = J.get(LiftingLine, ".Conditions")
-        Temperature = Conditions["Temperature"]
-        Density = Conditions["Density"]
-        VelocityFreestream = Conditions["VelocityFreestream"]
+        Kinematics = J.get(LiftingLine,'.Kinematics')
+        RotationCenter = Kinematics['RotationCenter']
+        TorqueOrigin = Kinematics['TorqueOrigin']
+        RotationAxis = Kinematics['RotationAxis']
+        RightHandRuleRotation = Kinematics['RightHandRuleRotation']
+        RPM = Kinematics['RPM']
+        Conditions = J.get(LiftingLine,'.Conditions')
+        Temperature = Conditions['Temperature']
+        Density = Conditions['Density']
+        VelocityFreestream = Conditions['VelocityFreestream']
 
         dir = 1 if RightHandRuleRotation else -1
 
         # Construct general container v for storing pointers of fields
-        FlowSolution_n = I.getNodeFromName1(LiftingLine, "FlowSolution")
+        FlowSolution_n = I.getNodeFromName1(LiftingLine,'FlowSolution')
         v = {}
         for fn in MinimumRequiredFields:
-            try:
-                v[fn] = I.getNodeFromName1(FlowSolution_n, fn)[1]
+            try: v[fn] = I.getNodeFromName1(FlowSolution_n,fn)[1]
             except:
-                raise ValueError("need %s in FlowSolution of LiftingLine" % fn)
+                raise ValueError('need %s in FlowSolution of LiftingLine'%fn)
 
         for fn in NewFields:
-            try:
-                v[fn] = I.getNodeFromName1(FlowSolution_n, fn)[1]
-            except:
-                v[fn] = J.invokeFields(LiftingLine, [fn])[0]
+            try: v[fn] = I.getNodeFromName1(FlowSolution_n,fn)[1]
+            except: v[fn] = J.invokeFields(LiftingLine,[fn])[0]
 
         x, y, z = J.getxyz(LiftingLine)
-        xyz = np.vstack((x, y, z))
+        xyz = np.vstack((x,y,z))
         rx = x - RotationCenter[0]
         ry = y - RotationCenter[1]
         rz = z - RotationCenter[2]
@@ -4668,198 +4003,138 @@ def computeGeneralLoadsOfLiftingLine(
         r2y = y - TorqueOrigin[1]
         r2z = z - TorqueOrigin[2]
 
+
         if SweepCorrection:
-            RelativeChord = v["ChordVirtualWithSweep"]
-            SweepCorr = np.cos(np.deg2rad(v["SweepAngleDeg"]))
+            RelativeChord = v['ChordVirtualWithSweep']
+            SweepCorr     = np.cos(np.deg2rad(v['SweepAngleDeg']))
         else:
-            RelativeChord = v["Chord"]
-            SweepCorr = 1.0
+            RelativeChord = v['Chord']
+            SweepCorr     = 1.
 
         if DihedralCorrection:
-            DihedralCorr = np.cos(np.deg2rad(v["DihedralAngleDeg"]))
-        else:
-            DihedralCorr = 1.0
+            DihedralCorr  = np.cos(np.deg2rad(v['DihedralAngleDeg']))
+        else: 
+            DihedralCorr  = 1.
 
         if TipLossFactorOptions:
             applyTipLossFactorToBladeEfforts(LiftingLine, **TipLossFactorOptions)
 
-        FluxKJ = 0.5 * v["VelocityMagnitudeLocal"] * RelativeChord
-        FluxC = Density * v["VelocityMagnitudeLocal"] * FluxKJ
-        FluxM = (
-            FluxC * v["Cm"] * RelativeChord * DihedralCorr * SweepCorr
-        )  # Momentum     0.5*rho*U^2*c^2*cm*Sweep*Dihedral
-        Gamma = (
-            FluxKJ * v["Cl"] * DihedralCorr
-        )  # Circulation  0.5*    U  *c  *cl      *Dihedral
-        Lift = (
-            FluxC * v["Cl"] * DihedralCorr
-        )  # Lift         0.5*rho*U^2*c  *cl      *Dihedral
-        Drag = FluxC * v["Cd"] * SweepCorr  # Drag         0.5*rho*U^2*c  *cd*Sweep
+        FluxKJ = 0.5*v['VelocityMagnitudeLocal']*RelativeChord
+        FluxC  = Density*v['VelocityMagnitudeLocal']*FluxKJ                                   
+        FluxM  = FluxC *v['Cm']*RelativeChord*DihedralCorr*SweepCorr     #Momentum     0.5*rho*U^2*c^2*cm*Sweep*Dihedral
+        Gamma  = FluxKJ*v['Cl']*DihedralCorr                             #Circulation  0.5*    U  *c  *cl      *Dihedral
+        Lift   = FluxC *v['Cl']*DihedralCorr                             #Lift         0.5*rho*U^2*c  *cl      *Dihedral
+        Drag   = FluxC *v['Cd']*SweepCorr                                #Drag         0.5*rho*U^2*c  *cd*Sweep
 
         # ----------------------- COMPUTE LINEAR FORCES ----------------------- #
-        sinAoA = np.sin(np.deg2rad(v["AoA"]))
-        cosAoA = np.cos(np.deg2rad(v["AoA"]))
+        sinAoA = np.sin(np.deg2rad(v['AoA']))
+        cosAoA = np.cos(np.deg2rad(v['AoA']))
 
-        v["LiftChordwise"][:] = -Lift * sinAoA
-        v["LiftThickwise"][:] = Lift * cosAoA
+        v['LiftChordwise'][:] = -Lift*sinAoA
+        v['LiftThickwise'][:] =  Lift*cosAoA
 
-        v["DragChordwise"][:] = Drag * cosAoA
-        v["DragThickwise"][:] = Drag * sinAoA
+        v['DragChordwise'][:] = Drag*cosAoA
+        v['DragThickwise'][:] = Drag*sinAoA
 
-        v["LiftX"][:] = (
-            v["LiftChordwise"] * v["ChordwiseX"] + v["LiftThickwise"] * v["ThickwiseX"]
-        )
-        v["LiftY"][:] = (
-            v["LiftChordwise"] * v["ChordwiseY"] + v["LiftThickwise"] * v["ThickwiseY"]
-        )
-        v["LiftZ"][:] = (
-            v["LiftChordwise"] * v["ChordwiseZ"] + v["LiftThickwise"] * v["ThickwiseZ"]
-        )
-        v["DragX"][:] = (
-            v["DragChordwise"] * v["ChordwiseX"] + v["DragThickwise"] * v["ThickwiseX"]
-        )
-        v["DragY"][:] = (
-            v["DragChordwise"] * v["ChordwiseY"] + v["DragThickwise"] * v["ThickwiseY"]
-        )
-        v["DragZ"][:] = (
-            v["DragChordwise"] * v["ChordwiseZ"] + v["DragThickwise"] * v["ThickwiseZ"]
-        )
+        v['LiftX'][:] = v['LiftChordwise']*v['ChordwiseX'] + v['LiftThickwise']*v['ThickwiseX']
+        v['LiftY'][:] = v['LiftChordwise']*v['ChordwiseY'] + v['LiftThickwise']*v['ThickwiseY']
+        v['LiftZ'][:] = v['LiftChordwise']*v['ChordwiseZ'] + v['LiftThickwise']*v['ThickwiseZ']
+        v['DragX'][:] = v['DragChordwise']*v['ChordwiseX'] + v['DragThickwise']*v['ThickwiseX']
+        v['DragY'][:] = v['DragChordwise']*v['ChordwiseY'] + v['DragThickwise']*v['ThickwiseY']
+        v['DragZ'][:] = v['DragChordwise']*v['ChordwiseZ'] + v['DragThickwise']*v['ThickwiseZ']
 
-        v["LiftAxial"][:] = (
-            v["LiftX"] * RotationAxis[0]
-            + v["LiftY"] * RotationAxis[1]
-            + v["LiftZ"] * RotationAxis[2]
-        )
 
-        v["DragAxial"][:] = (
-            v["DragX"] * RotationAxis[0]
-            + v["DragY"] * RotationAxis[1]
-            + v["DragZ"] * RotationAxis[2]
-        )
+        v['LiftAxial'][:] = v['LiftX']*RotationAxis[0] + \
+                            v['LiftY']*RotationAxis[1] + \
+                            v['LiftZ']*RotationAxis[2]
 
-        v["LiftTangential"][:] = (
-            v["LiftX"] * v["TangentialX"]
-            + v["LiftY"] * v["TangentialY"]
-            + v["LiftZ"] * v["TangentialZ"]
-        )
+        v['DragAxial'][:] = v['DragX']*RotationAxis[0] + \
+                            v['DragY']*RotationAxis[1] + \
+                            v['DragZ']*RotationAxis[2]
 
-        v["DragTangential"][:] = (
-            v["DragX"] * v["TangentialX"]
-            + v["DragY"] * v["TangentialY"]
-            + v["DragZ"] * v["TangentialZ"]
-        )
+        v['LiftTangential'][:] = v['LiftX']*v['TangentialX'] + \
+                                 v['LiftY']*v['TangentialY'] + \
+                                 v['LiftZ']*v['TangentialZ']
 
-        v["ForceAxial"][:] = v["LiftAxial"] + v["DragAxial"]
-        v["ForceTangential"][:] = v["LiftTangential"] + v["DragTangential"]
+        v['DragTangential'][:] = v['DragX']*v['TangentialX'] + \
+                                 v['DragY']*v['TangentialY'] + \
+                                 v['DragZ']*v['TangentialZ']
 
-        v["ForceX"][:] = v["LiftX"] + v["DragX"]
-        v["ForceY"][:] = v["LiftY"] + v["DragY"]
-        v["ForceZ"][:] = v["LiftZ"] + v["DragZ"]
+        v['ForceAxial'][:]      = v['LiftAxial']      + v['DragAxial']
+        v['ForceTangential'][:] = v['LiftTangential'] + v['DragTangential']
+
+        v['ForceX'][:] = v['LiftX'] + v['DragX']
+        v['ForceY'][:] = v['LiftY'] + v['DragY']
+        v['ForceZ'][:] = v['LiftZ'] + v['DragZ']
 
         # ----------------------- COMPUTE LINEAR TORQUE ----------------------- #
-
-        v["TorqueAtAirfoilX"][:] = dir * FluxM * v["SpanwiseX"]
-        v["TorqueAtAirfoilY"][:] = dir * FluxM * v["SpanwiseY"]
-        v["TorqueAtAirfoilZ"][:] = dir * FluxM * v["SpanwiseZ"]
-        v["TorqueAtRotationAxisX"][:] = (
-            v["TorqueAtAirfoilX"] + ry * v["ForceZ"] - rz * v["ForceY"]
-        )
-        v["TorqueAtRotationAxisY"][:] = (
-            v["TorqueAtAirfoilY"] + rz * v["ForceX"] - rx * v["ForceZ"]
-        )
-        v["TorqueAtRotationAxisZ"][:] = (
-            v["TorqueAtAirfoilZ"] + rx * v["ForceY"] - ry * v["ForceX"]
-        )
-        v["TorqueAtOriginCenterX"][:] = (
-            v["TorqueAtAirfoilX"] + r2y * v["ForceZ"] - r2z * v["ForceY"]
-        )
-        v["TorqueAtOriginCenterY"][:] = (
-            v["TorqueAtAirfoilY"] + r2z * v["ForceX"] - r2x * v["ForceZ"]
-        )
-        v["TorqueAtOriginCenterZ"][:] = (
-            v["TorqueAtAirfoilZ"] + r2x * v["ForceY"] - r2y * v["ForceX"]
-        )
+        
+        v['TorqueAtAirfoilX'][:] = dir*FluxM*v['SpanwiseX']
+        v['TorqueAtAirfoilY'][:] = dir*FluxM*v['SpanwiseY']
+        v['TorqueAtAirfoilZ'][:] = dir*FluxM*v['SpanwiseZ']
+        v['TorqueAtRotationAxisX'][:] = v['TorqueAtAirfoilX'] + ry*v['ForceZ'] - rz*v['ForceY']
+        v['TorqueAtRotationAxisY'][:] = v['TorqueAtAirfoilY'] + rz*v['ForceX'] - rx*v['ForceZ']
+        v['TorqueAtRotationAxisZ'][:] = v['TorqueAtAirfoilZ'] + rx*v['ForceY'] - ry*v['ForceX']
+        v['TorqueAtOriginCenterX'][:] = v['TorqueAtAirfoilX'] + r2y*v['ForceZ'] - r2z*v['ForceY']
+        v['TorqueAtOriginCenterY'][:] = v['TorqueAtAirfoilY'] + r2z*v['ForceX'] - r2x*v['ForceZ']
+        v['TorqueAtOriginCenterZ'][:] = v['TorqueAtAirfoilZ'] + r2x*v['ForceY'] - r2y*v['ForceX']
 
         # ----------------------- COMPUTE CIRCULATION ------------------------- #
-        v["GammaX"][:] = dir * Gamma * v["SpanwiseX"]
-        v["GammaY"][:] = dir * Gamma * v["SpanwiseY"]
-        v["GammaZ"][:] = dir * Gamma * v["SpanwiseZ"]
-        v["Gamma"][:] = Gamma
+        v['GammaX'][:] = dir*Gamma*v['SpanwiseX']
+        v['GammaY'][:] = dir*Gamma*v['SpanwiseY']
+        v['GammaZ'][:] = dir*Gamma*v['SpanwiseZ']
+        v['Gamma'][:] = Gamma
 
         # ------------------------- INTEGRAL LOADS ------------------------- #
-        length = norm(
-            np.sum(np.abs(np.diff(xyz, axis=1)), axis=1)
-        )  # faster than D.getLength
-        DimensionalAbscissa = length * v["s"]  # TODO check if v['s'] is updated!
+        length = norm(np.sum(np.abs(np.diff(xyz, axis = 1)), axis = 1)) # faster than D.getLength
+        DimensionalAbscissa = length*v['s'] # TODO check if v['s'] is updated!
 
         # Integrate linear axial force <fa> to get Thrust
-        FA = Thrust = sint.simps(v["ForceAxial"], DimensionalAbscissa)
-        FT = sint.simps(v["ForceTangential"], DimensionalAbscissa)
-        FX = sint.simps(v["ForceX"], DimensionalAbscissa)
-        FY = sint.simps(v["ForceY"], DimensionalAbscissa)
-        FZ = sint.simps(v["ForceZ"], DimensionalAbscissa)
-        MX = -sint.simps(v["TorqueAtRotationAxisX"], DimensionalAbscissa)
-        MY = -sint.simps(v["TorqueAtRotationAxisY"], DimensionalAbscissa)
-        MZ = -sint.simps(v["TorqueAtRotationAxisZ"], DimensionalAbscissa)
-        MoX = sint.simps(v["TorqueAtOriginCenterX"], DimensionalAbscissa)
-        MoY = sint.simps(v["TorqueAtOriginCenterY"], DimensionalAbscissa)
-        MoZ = sint.simps(v["TorqueAtOriginCenterZ"], DimensionalAbscissa)
+        FA = Thrust = sint.simps(v['ForceAxial'], DimensionalAbscissa)
+        FT =          sint.simps(v['ForceTangential'], DimensionalAbscissa)
+        FX =          sint.simps(v['ForceX'], DimensionalAbscissa)
+        FY =          sint.simps(v['ForceY'], DimensionalAbscissa)
+        FZ =          sint.simps(v['ForceZ'], DimensionalAbscissa)
+        MX =         -sint.simps(v['TorqueAtRotationAxisX'], DimensionalAbscissa)
+        MY =         -sint.simps(v['TorqueAtRotationAxisY'], DimensionalAbscissa)
+        MZ =         -sint.simps(v['TorqueAtRotationAxisZ'], DimensionalAbscissa)
+        MoX =         sint.simps(v['TorqueAtOriginCenterX'], DimensionalAbscissa)
+        MoY =         sint.simps(v['TorqueAtOriginCenterY'], DimensionalAbscissa)
+        MoZ =         sint.simps(v['TorqueAtOriginCenterZ'], DimensionalAbscissa)
 
         # # Integrate tangential moment <ft>*Span to get Power
         # Torque = sint.simps(v['ForceTangential']*v['Span'],DimensionalAbscissa) # equivalent
-        Torque = MX * RotationAxis[0] + MY * RotationAxis[1] + MZ * RotationAxis[2]
-        Power = dir * (RPM * np.pi / 30.0) * Torque
+        Torque = MX*RotationAxis[0]+MY*RotationAxis[1]+MZ*RotationAxis[2]
+        Power  = dir*(RPM*np.pi/30.)*Torque
 
         # Store computed integral Loads
-        Loads = dict(
-            Thrust=NBlades * Thrust,
-            Power=NBlades * Power,
-            Torque=NBlades * Torque,
-            ForceTangential=NBlades * FT,
-            ForceX=NBlades * FX,
-            ForceY=NBlades * FY,
-            ForceZ=NBlades * FZ,
-            TorqueX=NBlades * MX,
-            TorqueY=NBlades * MY,
-            TorqueZ=NBlades * MZ,
-            TorqueAtOriginCenterX=NBlades * MoX,
-            TorqueAtOriginCenterY=NBlades * MoY,
-            TorqueAtOriginCenterZ=NBlades * MoZ,
-        )
+        Loads = dict(Thrust=NBlades*Thrust,Power=NBlades*Power,
+                     Torque=NBlades*Torque, ForceTangential=NBlades*FT,
+                     ForceX=NBlades*FX, ForceY=NBlades*FY, ForceZ=NBlades*FZ,
+                     TorqueX=NBlades*MX, TorqueY=NBlades*MY, TorqueZ=NBlades*MZ,
+                     TorqueAtOriginCenterX=NBlades*MoX,
+                     TorqueAtOriginCenterY=NBlades*MoY,
+                     TorqueAtOriginCenterZ=NBlades*MoZ)
 
-        IntegralData = J.set(LiftingLine, ".Loads", **Loads)
+        IntegralData = J.set(LiftingLine,'.Loads', **Loads)
 
         if UnsteadyData:
             IntegralData.update(UnsteadyData)
             try:
                 IndependentAbscissa = UnsteadyData[UnsteadyDataIndependentAbscissa]
             except KeyError:
-                raise KeyError(
-                    FAIL
-                    + 'UnsteadyData dict must contain key "%s"'
-                    % UnsteadyDataIndependentAbscissa
-                    + ENDC
-                )
+                raise KeyError(FAIL+'UnsteadyData dict must contain key "%s"'%UnsteadyDataIndependentAbscissa+ENDC)
 
-            UnsteadyLoads = J.get(LiftingLine, ".UnsteadyLoads")
+            UnsteadyLoads = J.get(LiftingLine,'.UnsteadyLoads')
 
             if UnsteadyLoads:
                 try:
-                    PreviousIndependentAbscissa = UnsteadyLoads[
-                        UnsteadyDataIndependentAbscissa
-                    ]
+                    PreviousIndependentAbscissa = UnsteadyLoads[UnsteadyDataIndependentAbscissa]
                 except KeyError:
-                    raise KeyError(
-                        FAIL
-                        + 'UnsteadyLoads must contain"%s"'
-                        % UnsteadyDataIndependentAbscissa
-                        + ENDC
-                    )
+                    raise KeyError(FAIL+'UnsteadyLoads must contain"%s"'%UnsteadyDataIndependentAbscissa+ENDC)
                 AppendFrom = PreviousIndependentAbscissa > (IndependentAbscissa + 1e-12)
-                try:
-                    FirstIndex2Update = np.where(AppendFrom)[0][0]
-                except IndexError:
-                    FirstIndex2Update = len(PreviousIndependentAbscissa)
+                try: FirstIndex2Update = np.where(AppendFrom)[0][0]
+                except IndexError: FirstIndex2Update = len(PreviousIndependentAbscissa)
                 for k in IntegralData:
                     PreviousArray = UnsteadyLoads[k][:FirstIndex2Update]
                     AppendArray = IntegralData[k]
@@ -4869,10 +4144,9 @@ def computeGeneralLoadsOfLiftingLine(
                 UnsteadyLoads.update(IntegralData)
                 UnsteadyLoads.update(UnsteadyData)
 
-            UnsteadyLoads = J.set(LiftingLine, ".UnsteadyLoads", **UnsteadyLoads)
+            UnsteadyLoads = J.set(LiftingLine,'.UnsteadyLoads',**UnsteadyLoads)
 
-        if NumberOfLiftingLines == 1:
-            return IntegralData
+        if NumberOfLiftingLines == 1:  return IntegralData
 
         AllIntegralData[LiftingLine[0]] = IntegralData
 
@@ -4880,30 +4154,19 @@ def computeGeneralLoadsOfLiftingLine(
     for LiftingLineLoad in AllIntegralData:
         for LoadName in AllIntegralData[LiftingLineLoad]:
             try:
-                TotalIntegralData[LoadName] += AllIntegralData[LiftingLineLoad][
-                    LoadName
-                ]
+                TotalIntegralData[LoadName] += AllIntegralData[LiftingLineLoad][LoadName]
             except KeyError:
-                TotalIntegralData[LoadName] = np.copy(
-                    AllIntegralData[LiftingLineLoad][LoadName]
-                )
+                TotalIntegralData[LoadName] = np.copy(AllIntegralData[LiftingLineLoad][LoadName])
 
-    AllIntegralData["Total"] = TotalIntegralData
+    AllIntegralData['Total'] = TotalIntegralData
 
     return AllIntegralData
 
-
-def applyTipLossFactorToBladeEfforts(
-    LiftingLine,
-    kind="Prandtl",
-    NumberOfBlades=3,
-    g1_parameter="default",
-    g2_parameter=20.0,
-    composite_factor=0.8,
-):
-    """
-    Apply a tip loss factor function to :math:`C_l` and :math:`C_d` quantities
-    of a LiftingLine.
+def applyTipLossFactorToBladeEfforts(LiftingLine, kind='Prandtl', NumberOfBlades=3,
+        g1_parameter='default', g2_parameter=20.0, composite_factor=0.8):
+    '''
+    Apply a tip loss factor function to :math:`C_l` and :math:`C_d` quantities 
+    of a LiftingLine. 
 
     .. note:: this function is optionally called used in the context of :py:func:`computeGeneralLoadsOfLiftingLine`
 
@@ -4924,7 +4187,7 @@ def applyTipLossFactorToBladeEfforts(
 
             * ``'Pantel'``
                 Use Pantel's composite function
-
+        
         NumberOfBlades : int
             Number of blades used for modeling the tip loss factor
 
@@ -4934,132 +4197,87 @@ def applyTipLossFactorToBladeEfforts(
             or if **kind** = ``'Pantel'`` then defaults to ``0.75``.
 
         g2_parameter : float
-            second parameter :math:`g` of the second composite function of
+            second parameter :math:`g` of the second composite function of 
             Pantel's function.
 
         composite_factor : float
             spanwise portion of application of composite function of Pantel.
-    """
+    '''
 
+    
     # TODO reuse a call to PropellerAnalysis.TipLossFactor() for obtaining F ?
 
-    required_fields = ["Cl", "Cd", "Span", "phiRad"]
-    new_fields = ["F", "Cl_without_F", "Cd_without_F"]
-    FlowSolution_n = I.getNodeFromName1(LiftingLine, "FlowSolution")
+    required_fields = ['Cl', 'Cd', 'Span', 'phiRad']
+    new_fields = ['F', 'Cl_without_F', 'Cd_without_F']
+    FlowSolution_n = I.getNodeFromName1(LiftingLine, 'FlowSolution')
     v = {}
-    for fn in required_fields:
-        v[fn] = I.getNodeFromName1(FlowSolution_n, fn)[1]
+    for fn in required_fields: v[fn] = I.getNodeFromName1(FlowSolution_n,fn)[1]
     for fn in new_fields:
-        try:
-            v[fn] = I.getNodeFromName1(FlowSolution_n, fn)[1]
-        except:
-            v[fn] = J.invokeFields(LiftingLine, [fn])[0]
-    span = v["Span"].max()
+        try: v[fn] = I.getNodeFromName1(FlowSolution_n,fn)[1]
+        except: v[fn] = J.invokeFields(LiftingLine,[fn])[0]    
+    span = v['Span'].max()
 
-    v["Cl_without_F"][:] = v["Cl"]
-    v["Cd_without_F"][:] = v["Cd"]
+    v['Cl_without_F'][:] = v['Cl']
+    v['Cd_without_F'][:] = v['Cd']
 
-    Kinematics = J.get(LiftingLine, ".Kinematics")
-    omega = Kinematics["RPM"] * np.pi / 30.0
+    Kinematics = J.get(LiftingLine,'.Kinematics')
+    omega = Kinematics['RPM'] * np.pi / 30.0
+    
+    if kind == 'Prandtl':
+        F = 2/np.pi*np.arccos(np.exp(  -NumberOfBlades*(span-v['Span'])/  \
+                                     (2*v['Span']*np.sin(v['phiRad']))))
 
-    if kind == "Prandtl":
-        F = (
-            2
-            / np.pi
-            * np.arccos(
-                np.exp(
-                    -NumberOfBlades
-                    * (span - v["Span"])
-                    / (2 * v["Span"] * np.sin(v["phiRad"]))
-                )
-            )
-        )
-
-    elif kind == "Pantel":
-        if g1_parameter == "default":
+    elif kind == 'Pantel':
+        if g1_parameter == 'default':
             g1 = 0.75
         else:
             g1 = g1_parameter
         g2 = g2_parameter
-        fix1 = span / composite_factor
+        fix1 = span/composite_factor
         fix2 = span
-        F1 = (
-            2
-            / np.pi
-            * np.arccos(
-                np.exp(
-                    -g1
-                    * NumberOfBlades
-                    * (fix1 - v["Span"])
-                    / (2 * v["Span"] * np.sin(v["phiRad"]))
-                )
-            )
-        )
-        F2 = (
-            2
-            / np.pi
-            * np.arccos(
-                np.exp(
-                    -g2
-                    * NumberOfBlades
-                    * (fix2 - v["Span"])
-                    / (2 * v["Span"] * np.sin(v["phiRad"]))
-                )
-            )
-        )
+        F1 = 2/np.pi*np.arccos(np.exp(-g1*NumberOfBlades*(fix1-v['Span'])/  \
+                                     (2*v['Span']*np.sin(v['phiRad']))))
+        F2 = 2/np.pi*np.arccos(np.exp(-g2*NumberOfBlades*(fix2-v['Span'])/  \
+                                     (2*v['Span']*np.sin(v['phiRad']))))
         F = F1 * F2
 
-    elif kind == "Shen":
-        if g1_parameter == "default":
-            Conditions = J.get(LiftingLine, ".Conditions")
-            VelocityFreestream = Conditions["VelocityFreestream"]
+    elif kind == 'Shen':
+        if g1_parameter == 'default':
+            Conditions = J.get(LiftingLine,'.Conditions')
+            VelocityFreestream = Conditions['VelocityFreestream']
             U = np.linalg.norm(VelocityFreestream)
-            g = np.exp(-0.125 * (NumberOfBlades * span * omega / U - 21)) + 0.1
+            g = np.exp(-0.125*(NumberOfBlades*span*omega/U-21))+0.1
         else:
             g = g1_parameter
-        F = (
-            2
-            / np.pi
-            * np.arccos(
-                np.exp(
-                    -g
-                    * NumberOfBlades
-                    * (span - v["Span"])
-                    / (2 * v["Span"] * np.sin(v["phiRad"]))
-                )
-            )
-        )
+        F = 2/np.pi*np.arccos(np.exp( -g*NumberOfBlades*(span-v['Span'])/  \
+                                     (2*v['Span']*np.sin(v['phiRad']))))
 
     else:
-        raise AttributeError("TipLossFactor kind %s not recognized" % kind)
+        raise AttributeError('TipLossFactor kind %s not recognized'%kind)
 
-    v["F"][:] = F
-    v["Cl"][:] = F * v["Cl"]
-    v["Cd"][:] = F * v["Cd"]
-
+    v['F'][:] = F
+    v['Cl'][:] = F*v['Cl']
+    v['Cd'][:] = F*v['Cd']
 
 def _makeFormat__(current, other):
     # current and other are axes
     def format_coord(x, y):
         # x, y are data coordinates
         # convert to display coords
-        display_coord = current.transData.transform((x, y))
+        display_coord = current.transData.transform((x,y))
         inv = other.transData.inverted()
         # convert back to data coords with respect to ax
         ax_coord = inv.transform(display_coord)
         coords = [ax_coord, (x, y)]
-        return "Left: {:<40}    Right: {:<}".format(
-            *["({:.3f}, {:.3f})".format(x, y) for x, y in coords]
-        )
-
+        return ('Left: {:<40}    Right: {:<}'
+                .format(*['({:.3f}, {:.3f})'.format(x, y) for x,y in coords]))
     return format_coord
 
-
 def _plotChordAndTwist(LiftingLines, savefigname=None):
-    """
+    '''
     Convenient function for interactively plot chord and twist
     geometrical laws of a list of Lifting Lines
-    """
+    '''
 
     # TODO remove "_"
 
@@ -5067,29 +4285,27 @@ def _plotChordAndTwist(LiftingLines, savefigname=None):
 
     fig, ax1 = plt.subplots()
     ax2 = ax1.twinx()
-    Markers = ("o", "+", "s", ".", "v", "^", "x")
-    for LiftingLine, m in zip(LiftingLines, Markers):
-        r, Chord, Twist = J.getVars(LiftingLine, ["Span", "Chord", "Twist"])
-        ax1.plot(r / r.max(), Chord, "-", marker=m, mfc="None", label=LiftingLine[0])
-        ax2.plot(r / r.max(), Twist, "--", marker=m, mfc="None")
+    Markers = ('o','+','s','.','v','^','x')
+    for LiftingLine,m in zip(LiftingLines,Markers):
+        r, Chord, Twist =  J.getVars(LiftingLine,['Span','Chord','Twist'])
+        ax1.plot(r/r.max(),Chord,'-',marker=m,mfc='None',label=LiftingLine[0])
+        ax2.plot(r/r.max(),Twist,'--',marker=m,mfc='None')
 
-    ax1.set_xlabel("$r/R$")
-    ax1.set_ylabel("Chord (m) (-)")
-    ax2.set_ylabel("Twist (deg) (- - -)")
+    ax1.set_xlabel('$r/R$')
+    ax1.set_ylabel('Chord (m) (-)')
+    ax2.set_ylabel('Twist (deg) (- - -)')
 
     ax2.format_coord = _makeFormat__(ax2, ax1)
-    ax1.legend(loc="best")
+    ax1.legend(loc='best')
     plt.tight_layout()
-    if savefigname is not None:
-        plt.savefig(savefigname)
+    if savefigname is not None: plt.savefig(savefigname)
     plt.show()
 
-
 def _plotAoAAndCl(LiftingLines, savefigname=None):
-    """
+    '''
     Convenient function for interactively plot AoA and Cl
     geometrical laws of a list of Lifting Lines
-    """
+    '''
 
     # TODO remove "_"
 
@@ -5099,28 +4315,25 @@ def _plotAoAAndCl(LiftingLines, savefigname=None):
 
     fig, ax1 = plt.subplots()
     ax2 = ax1.twinx()
-    Markers = ("o", "+", "s", ".", "v", "^", "x")
+    Markers = ('o','+','s','.','v','^','x')
     for LiftingLine in LiftingLines:
-        if not checkComponentKind(LiftingLine, kind="LiftingLine"):
-            continue
-        r, AoA, Cl = J.getVars(LiftingLine, ["Span", "AoA", "Cl"])
-        ax1.plot(r / r.max(), AoA, "-", marker=".", label=LiftingLine[0])
-        ax2.plot(r / r.max(), Cl, "--", marker=".")
+        if not checkComponentKind(LiftingLine, kind='LiftingLine'): continue
+        r, AoA, Cl =  J.getVars(LiftingLine,['Span','AoA','Cl'])
+        ax1.plot(r/r.max(),AoA,'-',marker='.',label=LiftingLine[0])
+        ax2.plot(r/r.max(),Cl,'--',marker='.')
 
-    ax1.set_xlabel("$r/R$")
-    ax1.set_ylabel("AoA (deg) (-)")
-    ax2.set_ylabel("Cl (- - -)")
+    ax1.set_xlabel('$r/R$')
+    ax1.set_ylabel('AoA (deg) (-)')
+    ax2.set_ylabel('Cl (- - -)')
 
     ax2.format_coord = _makeFormat__(ax2, ax1)
-    ax1.legend(loc="upper left")
+    ax1.legend(loc='upper left')
     plt.tight_layout()
-    if savefigname is not None:
-        plt.savefig(savefigname)
+    if savefigname is not None: plt.savefig(savefigname)
     plt.show()
 
-
 def convertHOSTPolarFile2Dict(filename):
-    """
+    '''
     Extract airfoil polar information and convert it to Python
     Dictionnary, given a filename including path of a HOST
     formatted file.
@@ -5136,24 +4349,15 @@ def convertHOSTPolarFile2Dict(filename):
 
         Result : dict
             Python Dictionnary containing the numerical values
-    """
-
-    def scan(
-        line,
-        OutputType=float,
-        RegExpr=r"[-+]?(?:(?:\d*\.\d+)|(?:\d+\.?))(?:[Ee][+-]?\d+)?",
-    ):
-        scanned = re.findall(RegExpr, line)
+    '''
+    def scan(line,OutputType=float, RegExpr=r'[-+]?(?:(?:\d*\.\d+)|(?:\d+\.?))(?:[Ee][+-]?\d+)?'):
+        scanned = re.findall(RegExpr,line)
         return [OutputType(item) for item in scanned]
 
-    with open(filename, "r") as f:
+    with open(filename,'r') as f:
         lines = f.readlines()
 
-    Data = {
-        "Cl": {},
-        "Cd": {},
-        "Cm": {},
-    }
+    Data = {'Cl':{}, 'Cd':{},'Cm':{},}
 
     Aliases = {"cl": "Cl", "cd": "Cd", "cm": "Cm", "cz": "Cl", "cx": "Cd"}
     AllowedVars = [
@@ -5162,7 +4366,7 @@ def convertHOSTPolarFile2Dict(filename):
 
     LinesQty = len(lines)
 
-    Data["Title"] = "_".join(lines[0].split()[1:])
+    Data['Title']='_'.join(lines[0].split()[1:])
 
     # Read Allowed Variables:
 
@@ -5171,36 +4375,36 @@ def convertHOSTPolarFile2Dict(filename):
         if (len(lS) >= 2) and (lS[1].lower() in AllowedVars):
             Var = Aliases[lS[1].lower()]
 
-            AoAQty, MachQty = scan(lines[i + 1], int)
+            AoAQty, MachQty = scan(lines[i+1],int)
 
             # Get Angles of Attack
             AoA = []
-            j = i + 1
+            j = i+1
             while len(AoA) < AoAQty:
                 j += 1
-                AoA += scan(lines[j], float)
-            Data[Var]["AoA"] = np.array(AoA, order="F")
+                AoA += scan(lines[j],float)
+            Data[Var]['AoA'] = np.array(AoA,order='F')
 
             # Get Mach numbers
             Mach = []
             while len(Mach) < MachQty:
                 j += 1
-                Mach += scan(lines[j], float)
-            Data[Var]["Mach"] = np.array(Mach, order="F")
+                Mach += scan(lines[j],float)
+            Data[Var]['Mach'] = np.array(Mach,order='F')
 
             # Get Variable
-            VarNumpy = np.empty((AoAQty, MachQty), order="F")
+            VarNumpy = np.empty((AoAQty,MachQty),order='F')
             VarNumpy[:] = 1
             for a in range(AoAQty):
                 VarLine = []
                 while len(VarLine) < MachQty:
                     j += 1
-                    VarLine += scan(lines[j], float)
-                VarNumpy[a, :] = np.array(VarLine, order="F")
-            Data[Var]["Array"] = VarNumpy
+                    VarLine += scan(lines[j],float)
+                VarNumpy[a,:] = np.array(VarLine,order='F')
+            Data[Var]['Array'] = VarNumpy
 
             # Read big angles
-            j += 1
+            j+=1
             NextTag = lines[j].split()
             SetOfBigAoA = []
             SetOfBigAoAValues = []
@@ -5209,50 +4413,45 @@ def convertHOSTPolarFile2Dict(filename):
                 BigAoAQty = int(NextTag[0])
                 while len(BigAoA) < BigAoAQty:
                     j += 1
-                    BigAoA += scan(lines[j], float)
+                    BigAoA += scan(lines[j],float)
                 while len(BigAoAValues) < BigAoAQty:
                     j += 1
-                    BigAoAValues += scan(lines[j], float)
+                    BigAoAValues += scan(lines[j],float)
                 SetOfBigAoA += BigAoA
                 SetOfBigAoAValues += BigAoAValues
-                j += 1
+                j+=1
                 try:
                     NextTag = lines[j].split()
                 except IndexError:
                     break
 
-            SortInd = np.argsort(SetOfBigAoA)
-            SetOfBigAoA = np.array([SetOfBigAoA[i] for i in SortInd], order="F")
-            SetOfBigAoAValues = np.array(
-                [SetOfBigAoAValues[i] for i in SortInd], order="F"
-            )
 
-            Data[Var]["BigAoA"] = SetOfBigAoA
-            Data[Var]["BigAoAValues"] = SetOfBigAoAValues
-        elif "(C*L/NU)I0" in lines[i]:
-            j = i
-            ReynoldsOverMach = scan(lines[j], float)
-            Data["ReynoldsOverMach"] = ReynoldsOverMach[-1]
-            Data["Cl"]["Reynolds"] = Data["ReynoldsOverMach"] * Data["Cl"]["Mach"]
-        elif (len(lS) == 2) and (lS[1] == "Reynolds"):
+            SortInd = np.argsort(SetOfBigAoA)
+            SetOfBigAoA= np.array([SetOfBigAoA[i] for i in SortInd], order='F')
+            SetOfBigAoAValues= np.array([SetOfBigAoAValues[i] for i in SortInd], order='F')
+
+            Data[Var]['BigAoA'] = SetOfBigAoA
+            Data[Var]['BigAoAValues'] = SetOfBigAoAValues
+        elif '(C*L/NU)I0' in lines[i]:
+            j=i
+            ReynoldsOverMach = scan(lines[j],float)
+            Data['ReynoldsOverMach'] = ReynoldsOverMach[-1]
+            Data['Cl']['Reynolds'] = Data['ReynoldsOverMach']*Data['Cl']['Mach']
+        elif (len(lS) == 2) and (lS[1] == 'Reynolds'):
             # Get Reynolds
-            j = i + 1
-            ReynoldsQty = scan(lines[j], int)[0]
+            j = i+1
+            ReynoldsQty = scan(lines[j],int)[0]
             if ReynoldsQty != MachQty:
-                raise ValueError(
-                    "ReynoldsQty (%g) is not equal to MachQty (%g). Check your HOST file."
-                    % (ReynoldsQty, MachQty)
-                )
+                raise ValueError('ReynoldsQty (%g) is not equal to MachQty (%g). Check your HOST file.'%(ReynoldsQty,MachQty))
             Reynolds = []
             while len(Reynolds) < ReynoldsQty:
                 j += 1
-                Reynolds += scan(lines[j], float)
+                Reynolds += scan(lines[j],float)
             for Var in AllowedVars:
-                Data[Var]["Reynolds"] = np.array(Reynolds, order="F")
-    Data["PyZonePolarKind"] = "Struct_AoA_Mach"
+                Data[Var]['Reynolds'] = np.array(Reynolds,order='F')
+    Data['PyZonePolarKind'] = 'Struct_AoA_Mach'
 
     return Data
-
 
 def convertDict2PyZonePolar(HostDictionnary):
     """
@@ -5276,76 +4475,70 @@ def convertDict2PyZonePolar(HostDictionnary):
 
     # Get the size of the main data array
     Data = HostDictionnary
-    DataDims = Data["Cl"]["Array"].shape
+    DataDims = Data['Cl']['Array'].shape
 
-    if len(DataDims) < 3:
+    if len(DataDims)<3:
         Ni, Nj = DataDims
         Dims2Set = Ni, Nj, 1
     else:
         Dims2Set = Ni, Nj, Nk = DataDims
 
     # Produce an auxiliar zone where data will be stored
-    PyZonePolar = G.cart((0, 0, 0), (1, 1, 1), Dims2Set)
-    for var in ("Cl", "Cd", "Cm"):
+    PyZonePolar = G.cart((0,0,0),(1,1,1),Dims2Set)
+    for var in ('Cl', 'Cd', 'Cm'):
         try:
-            ArrayValues = Data[var]["Array"]
+            ArrayValues = Data[var]['Array']
         except KeyError:
             continue
-        C._initVars(PyZonePolar, var, 0.0)
-        Array = I.getNodeFromName(PyZonePolar, var)[1]
+        C._initVars(PyZonePolar,var,0.)
+        Array = I.getNodeFromName(PyZonePolar,var)[1]
         Array[:] = ArrayValues
 
     try:
-        Title = Data["Title"]
+        Title = Data['Title']
     except KeyError:
-        print(
-            "WARNING: convertDict2PyZonePolar() ->\n Provided data has no airfoil title.\nThis may produce future interpolation errors."
-        )
-        Title = "Untitled"
+        print("WARNING: convertDict2PyZonePolar() ->\n Provided data has no airfoil title.\nThis may produce future interpolation errors.")
+        Title = 'Untitled'
 
-    PyZonePolar[0] = Title
-    I._rmNodesByName(PyZonePolar, "GridCoordinates")
+    PyZonePolar[0]= Title
+    I._rmNodesByName(PyZonePolar,'GridCoordinates')
 
     # Add information on data range
     children = [
-        ["AngleOfAttack", Data["Cl"]["AoA"]],
-        ["Mach", Data["Cl"]["Mach"]],
-        ["BigAngleOfAttackCl", Data["Cl"]["BigAoA"]],
-        ["BigAngleOfAttackCd", Data["Cd"]["BigAoA"]],
-        ["BigAngleOfAttackCm", Data["Cm"]["BigAoA"]],
+    ['AngleOfAttack', Data['Cl']['AoA']],
+    ['Mach', Data['Cl']['Mach']],
+    ['BigAngleOfAttackCl', Data['Cl']['BigAoA']],
+    ['BigAngleOfAttackCd', Data['Cd']['BigAoA']],
+    ['BigAngleOfAttackCm', Data['Cm']['BigAoA']],
     ]
 
-    if "Reynolds" in Data["Cl"]:
-        children += [
-            ["Reynolds", Data["Cl"]["Reynolds"]],
-        ]
-    if "ReynoldsOverMach" in Data:
-        children += [
-            ["ReynoldsOverMach", Data["ReynoldsOverMach"]],
-        ]
+    if 'Reynolds' in Data['Cl']:
+        children += [ ['Reynolds', Data['Cl']['Reynolds']], ]
+    if 'ReynoldsOverMach' in Data:
+        children += [ ['ReynoldsOverMach', Data['ReynoldsOverMach']], ]
 
-    J._addSetOfNodes(PyZonePolar, ".Polar#Range", children)
+    J._addSetOfNodes(PyZonePolar,'.Polar#Range',children)
+
 
     # Add out-of-range big Angle Of Attack values
     children = [
-        ["BigAngleOfAttackCl", Data["Cl"]["BigAoAValues"]],
-        ["BigAngleOfAttackCd", Data["Cd"]["BigAoAValues"]],
-        ["BigAngleOfAttackCm", Data["Cm"]["BigAoAValues"]],
+    ['BigAngleOfAttackCl', Data['Cl']['BigAoAValues']],
+    ['BigAngleOfAttackCd', Data['Cd']['BigAoAValues']],
+    ['BigAngleOfAttackCm', Data['Cm']['BigAoAValues']],
     ]
-    J._addSetOfNodes(PyZonePolar, ".Polar#OutOfRangeValues", children)
+    J._addSetOfNodes(PyZonePolar,'.Polar#OutOfRangeValues',children)
 
     # Add .Polar#Interp node
-    children = [
-        ["PyZonePolarKind", Data["PyZonePolarKind"]],
-        ["Algorithm", "RectBivariateSpline"],
+    children=[
+    ['PyZonePolarKind',Data['PyZonePolarKind']],
+    ['Algorithm','RectBivariateSpline'],
     ]
-    J._addSetOfNodes(PyZonePolar, ".Polar#Interp", children)
+    J._addSetOfNodes(PyZonePolar,'.Polar#Interp',children)
 
     return PyZonePolar
 
-
 def convertHOSTPolarFile2PyZonePolar(filename):
-    """
+    '''
     Convert a HOST-format 2D polar file into a CGNS-structured polar.
 
     Parameters
@@ -5359,14 +4552,14 @@ def convertHOSTPolarFile2PyZonePolar(filename):
 
         PyZonePolar : zone
             specific zone including 2D polar predictions
-    """
-    Data = convertHOSTPolarFile2Dict(filename)
+    '''
+    Data        = convertHOSTPolarFile2Dict(filename)
     PyZonePolar = convertDict2PyZonePolar(Data)
     return PyZonePolar
 
 
 def getLocalBodyForceInputData(BodyForceInputData):
-    """
+    '''
     .. warning:: Private function.
 
     This function appends the bodyforce input data into a local list if
@@ -5386,27 +4579,23 @@ def getLocalBodyForceInputData(BodyForceInputData):
         LocalBodyForceInputData : list
             only of rotor such that ``proc = rank``. Otherwise
             the list is empty.
-    """
+    '''
     import Converter.Mpi as Cmpi
-
     LocalBodyForceInputData = []
     for Rotor in BodyForceInputData:
         # TODO: first determine proc, then make deepcopy only if condition
         # is fulfilled
         CopiedRotor = copy.deepcopy(Rotor)
-        try:
-            proc = CopiedRotor["proc"]
-        except KeyError:
-            proc = -1
+        try: proc = CopiedRotor['proc']
+        except KeyError: proc = -1
 
-        if proc == Cmpi.rank:
-            LocalBodyForceInputData.append(CopiedRotor)
+        if proc == Cmpi.rank: LocalBodyForceInputData.append(CopiedRotor)
 
     return LocalBodyForceInputData
 
 
 def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
-    """
+    '''
 
     .. attention:: this is a private function employed in BODYFORCE technique.
 
@@ -5418,7 +4607,7 @@ def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
 
         LocalBodyForceInputData : list
             as obtained from the function :py:func:`getLocalBodyForceInputData`
-    """
+    '''
     import Converter.Mpi as Cmpi
     from .Coprocess import printCo
 
@@ -5426,100 +4615,83 @@ def invokeAndAppendLocalObjectsForBodyForce(LocalBodyForceInputData):
         try:
             item = Rotor[itemName]
         except KeyError:
-            try:
-                name = Rotor["name"]
-            except KeyError:
-                name = "<UndefinedName>"
-            MSG = "WARNING: {} of rotor {} not found at proc {}".format(
-                itemName, name, Cmpi.rank
-            )
+            try: name = Rotor['name']
+            except KeyError: name = '<UndefinedName>'
+            MSG = 'WARNING: {} of rotor {} not found at proc {}'.format(
+                            itemName,  name,  Cmpi.rank)
             printCo(MSG)
 
             item = None
             # CAVEAT default value
-            if itemName == "RightHandRuleRotation":
-                item = True
+            if itemName == 'RightHandRuleRotation': item = True
 
         return item
 
+
     for Rotor in LocalBodyForceInputData:
 
-        RotorName = getItemOrRaiseWarning("name")
+        RotorName = getItemOrRaiseWarning('name')
 
-        FILE_LiftingLine = getItemOrRaiseWarning("FILE_LiftingLine")
-        if not FILE_LiftingLine:
-            continue
+        FILE_LiftingLine = getItemOrRaiseWarning('FILE_LiftingLine')
+        if not FILE_LiftingLine: continue
 
         LiftingLine = C.convertFile2PyTree(FILE_LiftingLine)
-        (LiftingLine,) = I.getZones(LiftingLine)
-        if not I.getNodeFromName1(LiftingLine, ".Component#Info"):
-            J.set(
-                LiftingLine, ".Component#Info", kind="LiftingLine"
-            )  # related to MOLA #48
+        LiftingLine, = I.getZones(LiftingLine)
+        if not I.getNodeFromName1(LiftingLine,'.Component#Info'):
+            J.set(LiftingLine,'.Component#Info', kind='LiftingLine') # related to MOLA #48
 
-        LiftingLine[0] = "LL.%s.r%d" % (RotorName, Cmpi.rank)
-        Rotor["LiftingLine"] = LiftingLine
+        LiftingLine[0] = 'LL.%s.r%d'%(RotorName,Cmpi.rank)
+        Rotor['LiftingLine'] = LiftingLine
 
-        FILE_Polars = getItemOrRaiseWarning("FILE_Polars")
-        if not FILE_Polars:
-            continue
+
+        FILE_Polars = getItemOrRaiseWarning('FILE_Polars')
+        if not FILE_Polars: continue
 
         PyZonePolars = C.convertFile2PyTree(FILE_Polars)
         PyZonePolars = I.getZones(PyZonePolars)
         PolarsInterpolatorsDict = buildPolarsInterpolatorDict(PyZonePolars)
 
-        Rotor["PolarsInterpolatorsDict"] = PolarsInterpolatorsDict
+        Rotor['PolarsInterpolatorsDict'] = PolarsInterpolatorsDict
 
-        NumberOfBlades = getItemOrRaiseWarning("NumberOfBlades")
-        RotationCenter = getItemOrRaiseWarning("RotationCenter")
-        RotationAxis = getItemOrRaiseWarning("RotationAxis")
-        InitialAzimutDirection = getItemOrRaiseWarning("InitialAzimutDirection")
-        InitialAzimutPhase = getItemOrRaiseWarning("InitialAzimutPhase")
-        RightHandRuleRotation = getItemOrRaiseWarning("RightHandRuleRotation")
+        NumberOfBlades = getItemOrRaiseWarning('NumberOfBlades')
+        RotationCenter = getItemOrRaiseWarning('RotationCenter')
+        RotationAxis = getItemOrRaiseWarning('RotationAxis')
+        InitialAzimutDirection = getItemOrRaiseWarning('InitialAzimutDirection')
+        InitialAzimutPhase = getItemOrRaiseWarning('InitialAzimutPhase')
+        RightHandRuleRotation = getItemOrRaiseWarning('RightHandRuleRotation')
 
         buildPropeller_kwargs = dict(NBlades=NumberOfBlades)
         if InitialAzimutDirection is not None:
-            buildPropeller_kwargs["InitialAzimutDirection"] = InitialAzimutDirection
+            buildPropeller_kwargs['InitialAzimutDirection'] = InitialAzimutDirection
         if InitialAzimutPhase is not None:
-            buildPropeller_kwargs["InitialAzimutPhase"] = InitialAzimutPhase
+            buildPropeller_kwargs['InitialAzimutPhase'] = InitialAzimutPhase
 
-        setKinematicsUsingConstantRotationAndTranslation(
-            LiftingLine,
-            RotationCenter=RotationCenter,
-            RotationAxis=RotationAxis,
-            RPM=0.0,
-            RightHandRuleRotation=RightHandRuleRotation,
-        )
 
-        RequiredVariables = NumberOfBlades, RotationCenter, RotationAxis
 
-        if not all(RequiredVariables):
-            continue
+        setKinematicsUsingConstantRotationAndTranslation(LiftingLine,
+                                      RotationCenter=RotationCenter,
+                                      RotationAxis=RotationAxis,
+                                      RPM=0.0,
+                                      RightHandRuleRotation=RightHandRuleRotation)
+
+        RequiredVariables = NumberOfBlades,RotationCenter,RotationAxis
+
+        if not all( RequiredVariables ): continue
 
         Propeller = buildPropeller(LiftingLine, **buildPropeller_kwargs)
         setConditions(Propeller)
-        MandatoryFields = (
-            "Density",
-            "MomentumX",
-            "MomentumY",
-            "MomentumZ",
-            "EnergyStagnationDensity",
-            "Temperature",
-            "AoA",
-            "Mach",
-            "Reynolds",
-            "VelocityInducedX",
-            "VelocityInducedY",
-            "VelocityInducedZ",
-        )
-        [C._initVars(Propeller, f, 0.0) for f in MandatoryFields]
+        MandatoryFields = ('Density', 'MomentumX', 'MomentumY', 'MomentumZ',
+                            'EnergyStagnationDensity', 'Temperature',
+                            'AoA', 'Mach', 'Reynolds',
+                    'VelocityInducedX', 'VelocityInducedY', 'VelocityInducedZ')
+        [C._initVars(Propeller, f, 0.) for f in MandatoryFields]
 
         Propeller[0] = RotorName
-        Rotor["Propeller"] = Propeller
+        Rotor['Propeller'] = Propeller
 
 
 def getNumberOfSerialRuns(BodyForceInputData, NumberOfProcessors):
-    """
+    '''
     Determine the number of serial runs employed given the employed number
     of procs and the **BodyForceInputData**.
 
@@ -5538,16 +4710,17 @@ def getNumberOfSerialRuns(BodyForceInputData, NumberOfProcessors):
 
         NumberOfSerialRuns : int
             Required number of serial runs
-    """
+    '''
     NRunsPerProc = np.zeros(NumberOfProcessors, dtype=np.int32)
     for inputData in BodyForceInputData:
-        NRunsPerProc[inputData["proc"]] += 1
+        NRunsPerProc[inputData['proc']] += 1
     NumberOfSerialRuns = np.max(NRunsPerProc)
     return NumberOfSerialRuns
 
 
+
 def computePropellerBodyForce(to, NumberOfSerialRuns, LocalBodyForceInputData):
-    """
+    '''
     This is a user-level function called in the BodyForce technique context
     in elsA trigger computation. It is used to construct the bodyforce disks.
 
@@ -5570,9 +4743,8 @@ def computePropellerBodyForce(to, NumberOfSerialRuns, LocalBodyForceInputData):
             list of zones containing fields in ``FlowSolution#SourceTerm``
             container, ready to be migrated into CFD grid
             ( see :py:func:`migrateSourceTerms2MainPyTree` )
-    """
+    '''
     from .Coprocess import printCo
-
     BodyForceDisks = []
     BodyForcePropellers = []
 
@@ -5581,12 +4753,10 @@ def computePropellerBodyForce(to, NumberOfSerialRuns, LocalBodyForceInputData):
             try:
                 SerialBFdata = LocalBodyForceInputData[iBF]
                 try:
-                    Propeller = SerialBFdata["Propeller"]
-                    PolarsInterpolatorsDict = SerialBFdata["PolarsInterpolatorsDict"]
-                    NumberOfAzimutalPoints = SerialBFdata["NumberOfAzimutalPoints"]
-                    buildBodyForceDiskOptions = SerialBFdata[
-                        "buildBodyForceDiskOptions"
-                    ]
+                    Propeller = SerialBFdata['Propeller']
+                    PolarsInterpolatorsDict = SerialBFdata['PolarsInterpolatorsDict']
+                    NumberOfAzimutalPoints = SerialBFdata['NumberOfAzimutalPoints']
+                    buildBodyForceDiskOptions = SerialBFdata['buildBodyForceDiskOptions']
                 except KeyError:
                     Propeller = []
                     PolarsInterpolatorsDict = None
@@ -5599,41 +4769,34 @@ def computePropellerBodyForce(to, NumberOfSerialRuns, LocalBodyForceInputData):
                 NumberOfAzimutalPoints = None
                 buildBodyForceDiskOptions = {}
 
+
             BodyForceOptions = dict(PerturbationFields=to)
             BodyForceOptions.update(buildBodyForceDiskOptions)
 
-            BFdisk = buildBodyForceDisk(
-                Propeller,
-                PolarsInterpolatorsDict,
-                NumberOfAzimutalPoints,
-                **BodyForceOptions,
-            )
-            if BFdisk:
-                BodyForceDisks.append(BFdisk)
+            BFdisk = buildBodyForceDisk(Propeller,
+                                        PolarsInterpolatorsDict,
+                                        NumberOfAzimutalPoints,
+                                        **BodyForceOptions)
+            if BFdisk: BodyForceDisks.append(BFdisk)
 
             # TODO:
             # Examine if returning BodyForcePropellers or not: is it really useful?
-            if Propeller:
-                BodyForcePropellers.append(Propeller)
+            if Propeller: BodyForcePropellers.append(Propeller)
 
     except BaseException:
-        printCo(traceback.format_exc(), color=J.FAIL)
+        printCo(traceback.format_exc(),color=J.FAIL)
         os._exit(0)
 
     return BodyForceDisks
 
-
 def write4Debug(MSG):
     import Converter.Mpi as Cmpi
+    with open('LOGS/rank%d.log'%Cmpi.rank,'a') as f: f.write('%s\n'%MSG)
 
-    with open("LOGS/rank%d.log" % Cmpi.rank, "a") as f:
-        f.write("%s\n" % MSG)
-
-
-def convertPolarsCGNS2HOSTformat(
-    PyZonePolars, DIRECTORY_SAVE="POLARS", OutputFileNamePreffix="HOST_"
-):
-    """
+def convertPolarsCGNS2HOSTformat(PyZonePolars,
+                                 DIRECTORY_SAVE='POLARS',
+                                 OutputFileNamePreffix='HOST_'):
+    '''
     This function performs a conversion from CGNS *PyZonePolar* files towards
     HOST ascii format (neglecting special information that cannot be translated
     into HOST format)
@@ -5655,116 +4818,113 @@ def convertPolarsCGNS2HOSTformat(
 
         None : None
             HOST files
-    """
+    '''
 
-    AllowedQuantities = ("Cl", "Cd", "Cm")
+    AllowedQuantities = ('Cl','Cd','Cm')
 
-    if not os.path.isdir(DIRECTORY_SAVE):
-        os.makedirs(DIRECTORY_SAVE)
+    if not os.path.isdir(DIRECTORY_SAVE): os.makedirs(DIRECTORY_SAVE)
 
     for FoilZone in I.getZones(PyZonePolars):
-        FoilName = I.getName(FoilZone)
+        FoilName = I.getName( FoilZone )
 
-        FileFullPath = os.path.join(DIRECTORY_SAVE, OutputFileNamePreffix + FoilName)
-        print("writing %s" % FileFullPath)
-        with open(FileFullPath, "w+") as f:
+        FileFullPath=os.path.join(DIRECTORY_SAVE,OutputFileNamePreffix+FoilName)
+        print('writing %s'%FileFullPath)
+        with open(FileFullPath,'w+') as f:
 
-            FlowSol_n = I.getNodeFromName1(FoilZone, "FlowSolution")
+            FlowSol_n = I.getNodeFromName1(FoilZone,'FlowSolution')
 
-            PolarRange = I.getNodeFromName1(FoilZone, ".Polar#Range")
+            PolarRange = I.getNodeFromName1(FoilZone,'.Polar#Range')
 
-            AngleOfAttackRange = I.getNodeFromName1(PolarRange, "AngleOfAttack")[1]
+            AngleOfAttackRange = I.getNodeFromName1(PolarRange,
+                                                    'AngleOfAttack')[1]
             AoAQty = len(AngleOfAttackRange)
 
-            MachRange = I.getNodeFromName1(PolarRange, "Mach")[1]
+            MachRange = I.getNodeFromName1(PolarRange,'Mach')[1]
             MachQty = len(MachRange)
 
-            ReynoldsRange = I.getNodeFromName1(PolarRange, "Reynolds")[1]
+            ReynoldsRange = I.getNodeFromName1(PolarRange,'Reynolds')[1]
 
-            AvrgReOverMach = np.mean(ReynoldsRange / MachRange)
+            AvrgReOverMach = np.mean(ReynoldsRange/MachRange)
 
-            BigAoAsRange_nodes = I.getNodesFromName(PolarRange, "BigAngleOfAttack*")
+            BigAoAsRange_nodes = I.getNodesFromName(PolarRange,
+                                                    'BigAngleOfAttack*')
             BigAoAsRangesDict = {}
             for BigAoAsRange in BigAoAsRange_nodes:
-                KeyName = BigAoAsRange[0].replace("BigAngleOfAttack", "")
+                KeyName = BigAoAsRange[0].replace('BigAngleOfAttack','')
                 BigAoAsRangesDict[KeyName] = BigAoAsRange[1]
 
-            OutOfRange = I.getNodeFromName1(FoilZone, ".Polar#OutOfRangeValues")
 
-            BigAoAsValue_nodes = I.getNodesFromName(OutOfRange, "BigAngleOfAttack*")
+
+            OutOfRange = I.getNodeFromName1(FoilZone,'.Polar#OutOfRangeValues')
+
+            BigAoAsValue_nodes = I.getNodesFromName(OutOfRange,
+                                                    'BigAngleOfAttack*')
             BigAoAsValuesDict = {}
             for BigAoAsValue in BigAoAsValue_nodes:
-                KeyName = BigAoAsValue[0].replace("BigAngleOfAttack", "")
+                KeyName = BigAoAsValue[0].replace('BigAngleOfAttack','')
                 BigAoAsValuesDict[KeyName] = BigAoAsValue[1]
 
-            f.write("      78      %s\n" % FoilName)
-            f.write("%5i\n" % MachQty)
+            f.write('      78      %s\n'%FoilName)
+            f.write('%5i\n' %MachQty)
 
             for var in AllowedQuantities:
-                var_n = I.getNodeFromName1(FlowSol_n, var)
-                varName = var
-                varValues = I.getValue(var_n)
+                var_n = I.getNodeFromName1(FlowSol_n,var)
+                varName   = var
+                varValues = I.getValue( var_n )
 
-                f.write("    1 %s %s\n" % (varName, FoilName))
-                f.write("%5i%5i\n" % (AoAQty, MachQty))
-                inc = 1
-                for i in AngleOfAttackRange:
-                    f.write("%10.5f" % i)
-                    if inc % 8 == 0 or inc == len(AngleOfAttackRange):
-                        f.write("\n")
-                    inc += 1
-                inc = 1
-                for i in MachRange:
-                    f.write("%10.5f" % i)
-                    if inc % 8 == 0 or inc == len(MachRange):
-                        f.write("\n")
-                    inc += 1
+                f.write('    1 %s %s\n'%(varName,FoilName))
+                f.write('%5i%5i\n'%(AoAQty, MachQty))
+                inc=1
+                for i in AngleOfAttackRange: 
+                    f.write('%10.5f'%i)
+                    if inc%8==0 or inc==len(AngleOfAttackRange) :
+                        f.write('\n')
+                    inc+=1
+                inc=1
+                for i in MachRange: 
+                    f.write('%10.5f'%i)
+                    if inc%8==0 or inc==len(MachRange):
+                        f.write('\n')
+                    inc+=1
                 for row in varValues:
-                    inc = 1
-                    for i in row:
-                        f.write("%10.5f" % i)
-                        if inc == len(MachRange):
-                            f.write("\n")
-                        inc += 1
+                    inc=1
+                    for i in row: 
+                        f.write('%10.5f'%i)
+                        if inc==len(MachRange) :
+                            f.write('\n')
+                        inc+=1
                 BigAoARange = BigAoAsRangesDict[varName]
                 BigAoAValue = BigAoAsValuesDict[varName]
-                LowAoABool = BigAoARange < 0
+                LowAoABool  = BigAoARange < 0
                 HighAoABool = BigAoARange > 0
 
                 for BoolRange in (HighAoABool, LowAoABool):
                     # f.write('  ')
-                    f.write("%5i\n" % len(BigAoARange[BoolRange]))
-                    inc = 1
-                    for i in BigAoARange[BoolRange]:
-                        f.write("%10.5f" % i)
-                        if inc % 8 == 0 or inc == len(BigAoARange[BoolRange]):
-                            f.write("\n")
-                        inc += 1
+                    f.write('%5i\n'%len(BigAoARange[BoolRange]))
+                    inc=1
+                    for i in BigAoARange[BoolRange]: 
+                        f.write('%10.5f'%i)
+                        if inc%8==0 or inc==len(BigAoARange[BoolRange]) :
+                            f.write('\n')
+                        inc+=1
                     # f.write('  ')
-                    inc = 1
-                    for i in BigAoAValue[BoolRange]:
-                        f.write("%10.5f" % i)
-                        if inc % 8 == 0 or inc == len(BigAoAValue[BoolRange]):
-                            f.write("\n")
-                        inc += 1
+                    inc=1
+                    for i in BigAoAValue[BoolRange]: 
+                        f.write('%10.5f'%i)
+                        if inc%8==0 or inc==len(BigAoAValue[BoolRange]) :
+                            f.write('\n')
+                        inc+=1
 
-            f.write(
-                "COEFFICIENT (C*L/NU)I0 (OU BIEN REYNOLDS/MACH) ............ %10.1f\n"
-                % AvrgReOverMach
-            )
-            f.write(
-                "CORRECTION DE PRESSION GENERATRICE REYNOLDS/MACH=CSTE. .... SANS\n"
-            )
-            f.write(
-                "EXPOSANT POUR CORRECTION DE REYNOLDS ( EXPREY) ............   -0.16667"
-            )
+            f.write('COEFFICIENT (C*L/NU)I0 (OU BIEN REYNOLDS/MACH) ............ %10.1f\n' %AvrgReOverMach)
+            f.write('CORRECTION DE PRESSION GENERATRICE REYNOLDS/MACH=CSTE. .... SANS\n')
+            f.write('EXPOSANT POUR CORRECTION DE REYNOLDS ( EXPREY) ............   -0.16667')
         os.chmod(FileFullPath, 0o755)
 
 
-def buildVortexParticleSourcesOnLiftingLine(
-    t, AbscissaSegments=[0, 0.5, 1.0], IntegralLaw="linear"
-):
-    """
+
+def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0, 0.5, 1.],
+    IntegralLaw = 'linear'):
+    '''
     Build a set of zones composed of particles with fields:
 
     ``CoordinateX``, ``CoordinateY``, ``CoordinateZ``, ``Gamma``
@@ -5790,109 +4950,89 @@ def buildVortexParticleSourcesOnLiftingLine(
 
         AllSourceZones : :py:class:`list` of zone
             list of zones composed of particles element type (*NODE*)
-    """
+    '''
 
-    FieldsNames2Extract = (
-        ["Coordinate" + v for v in "XYZ"]
-        + ["VelocityRelative" + v for v in "XYZ"]
-        + ["Gamma"]
-    )
+    FieldsNames2Extract = ['Coordinate' + v for v in 'XYZ'] + \
+                                                 ['VelocityRelative' + v for v in 'XYZ'] + ['Gamma']
     AllSourceZones = []
 
-    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z, "LiftingLine")]
+    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
     NumberOfLiftingLines = len(LiftingLines)
     NumberOfAbscissaSegments = 0
     for AbscissaSegmentSubList in AbscissaSegments:
-        if not (
-            isinstance(AbscissaSegmentSubList, list)
-            or isinstance(AbscissaSegmentSubList, np.ndarray)
-        ):
-            NewAbscissaSegments = [
-                AbscissaSegments for _ in range(NumberOfLiftingLines)
-            ]
+        if not (isinstance(AbscissaSegmentSubList, list) or \
+                                                   isinstance(AbscissaSegmentSubList, np.ndarray)):
+            NewAbscissaSegments = [AbscissaSegments for _ in range(NumberOfLiftingLines)]
             AbscissaSegments = NewAbscissaSegments
             NumberOfAbscissaSegments = len(AbscissaSegments)
             break
         NumberOfAbscissaSegments += 1
     if NumberOfAbscissaSegments != NumberOfLiftingLines:
-        MSG = (
-            "abscissa segments sublists number ({}) must be equal to the"
-            ' total number of lifting lines contained in "t" ({})'
-        ).format(NumberOfAbscissaSegments, NumberOfLiftingLines)
-        raise AttributeError(FAIL + MSG + ENDC)
+        MSG = ('abscissa segments sublists number ({}) must be equal to the'
+              ' total number of lifting lines contained in "t" ({})').format(
+                NumberOfAbscissaSegments, NumberOfLiftingLines)
+        raise AttributeError(FAIL+MSG+ENDC)
+
 
     for LiftingLine, AbscissaSegment in zip(LiftingLines, AbscissaSegments):
-        VPM_Parameters = J.get(LiftingLine, ".VPM#Parameters")
+        VPM_Parameters = J.get(LiftingLine,'.VPM#Parameters')
 
-        AbscissaSegment = np.append(
-            2.0 * AbscissaSegment[0] - AbscissaSegment[1], AbscissaSegment
-        )
-        AbscissaSegment = np.append(
-            AbscissaSegment, 2 * AbscissaSegment[-1] - AbscissaSegment[-2]
-        )
-        AbscissaSegment = np.array(AbscissaSegment, dtype=np.float64)
+        AbscissaSegment = np.append(2.*AbscissaSegment[0] - AbscissaSegment[1],
+                                        AbscissaSegment)
+        AbscissaSegment = np.append(AbscissaSegment ,
+                                    2*AbscissaSegment[-1] - AbscissaSegment[-2])
+        AbscissaSegment = np.array(AbscissaSegment, dtype = np.float64)
 
-        v = J.getVars2Dict(LiftingLine, ["s"] + FieldsNames2Extract[3:])
-        x, y, z = J.getxyz(LiftingLine)
-        v["CoordinateX"] = x
-        v["CoordinateY"] = y
-        v["CoordinateZ"] = z
+        v = J.getVars2Dict(LiftingLine,['s'] + FieldsNames2Extract[3:])
+        x,y,z = J.getxyz(LiftingLine)
+        v['CoordinateX'] = x
+        v['CoordinateY'] = y
+        v['CoordinateZ'] = z
 
         sourcefields = {}
-        if IntegralLaw == "linear":
+        if IntegralLaw == 'linear':
             for fieldname in FieldsNames2Extract:
-                sourcefields[fieldname] = np.interp(
-                    AbscissaSegment, v["s"], v[fieldname]
-                )
-                sourcefields[fieldname][0] = (
-                    2 * sourcefields[fieldname][0] - sourcefields[fieldname][2]
-                )
+                sourcefields[fieldname] = np.interp(AbscissaSegment,
+                                                    v['s'],
+                                                    v[fieldname])
+                sourcefields[fieldname][0] = 2*sourcefields[fieldname][0]-\
+                                                   sourcefields[fieldname][2]
 
-                sourcefields[fieldname][-1] = (
-                    2 * sourcefields[fieldname][-1] - sourcefields[fieldname][-3]
-                )
+                sourcefields[fieldname][-1] = 2*sourcefields[fieldname][-1]-\
+                                                   sourcefields[fieldname][-3]
 
-        elif IntegralLaw.startswith("interp1d"):
-            kind = IntegralLaw.replace("interp1d_", "")
+        elif IntegralLaw.startswith('interp1d'):
+            kind = IntegralLaw.replace('interp1d_','')
             for fieldname in FieldsNames2Extract:
-                interpolator = si.interp1d(
-                    v["s"],
-                    v[fieldname],
-                    kind=kind,
-                    bounds_error=False,
-                    fill_value="extrapolate",
-                    assume_sorted=True,
-                    copy=False,
-                )
+                interpolator = si.interp1d(v['s'], v[fieldname],
+                                           kind = kind,
+                                           bounds_error = False,
+                                           fill_value = 'extrapolate',
+                                           assume_sorted = True, copy = False)
                 sourcefields[fieldname] = interpolator(AbscissaSegment)
 
-        elif IntegralLaw == "pchip":
+        elif IntegralLaw == 'pchip':
             for fieldname in FieldsNames2Extract:
-                interpolator = si.PchipInterpolator(
-                    v["s"], v[fieldname], extrapolate=True
-                )
+                interpolator = si.PchipInterpolator(v['s'], v[fieldname],
+                                                    extrapolate = True)
                 sourcefields[fieldname] = interpolator(AbscissaSegment)
 
-        elif IntegralLaw == "akima":
-            interpolator = si.PchipInterpolator(v["s"], v[fieldname])
-            sourcefields[fieldname] = interpolator(AbscissaSegment, extrapolate=True)
+        elif IntegralLaw == 'akima':
+                interpolator = si.PchipInterpolator(v['s'], v[fieldname])
+                sourcefields[fieldname] = interpolator(AbscissaSegment, extrapolate = True)
 
         else:
-            raise AttributeError('IntegralLaw "%s" not supported' % IntegralLaw)
+            raise AttributeError('IntegralLaw "%s" not supported'%IntegralLaw)
 
-        Sources = J.createZone(
-            LiftingLine[0] + ".Sources",
-            [sourcefields[fn] for fn in FieldsNames2Extract],
-            FieldsNames2Extract,
-        )
+        Sources = J.createZone(LiftingLine[0]+'.Sources',
+                        [sourcefields[fn] for fn in FieldsNames2Extract], FieldsNames2Extract)
         Sources = C.convertArray2Node(Sources)
         AllSourceZones.append(Sources)
 
     return AllSourceZones
 
-
 def getTrailingEdge(t):
-    """
+    '''
     construct the curve corresponding to the TrailingEdge from a LiftingLine,
     conserving all original fields and data.
 
@@ -5911,18 +5051,17 @@ def getTrailingEdge(t):
 
         TrailingEdgeLines : base
             ``CGNSBase_t`` of zones  corresponding to trailing edge
-    """
+    '''
 
-    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z, "LiftingLine")]
+    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
     TrailingEdgeLines = []
     for LiftingLine in LiftingLines:
-        if not checkComponentKind(LiftingLine, "LiftingLine"):
-            raise AttributeError("input must be a LiftingLine")
+        if not checkComponentKind(LiftingLine,'LiftingLine'):
+            raise AttributeError('input must be a LiftingLine')
         TrailingEdge = I.copyTree(LiftingLine)
         x, y, z = J.getxyz(TrailingEdge)
-        Chord, ChordwiseX, ChordwiseY, ChordwiseZ = J.getVars(
-            TrailingEdge, ["Chord", "ChordwiseX", "ChordwiseY", "ChordwiseZ"]
-        )
+        Chord, ChordwiseX, ChordwiseY, ChordwiseZ = J.getVars(TrailingEdge,
+            ['Chord','ChordwiseX', 'ChordwiseY', 'ChordwiseZ'])
 
         Distance2TrailingEdge = 0.75 * Chord
         x += Distance2TrailingEdge * ChordwiseX
@@ -5930,17 +5069,16 @@ def getTrailingEdge(t):
         z += Distance2TrailingEdge * ChordwiseZ
         TrailingEdgeLines += [TrailingEdge]
 
-    TrailingEdgeBase = I.newCGNSBase("TrailingEdge", cellDim=1, physDim=3)
-    TrailingEdgeBase[2] = TrailingEdgeLines  # Add Blades
+    TrailingEdgeBase = I.newCGNSBase('TrailingEdge',cellDim=1,physDim=3)
+    TrailingEdgeBase[2] = TrailingEdgeLines # Add Blades
 
     # Sets component general information
-    J.set(TrailingEdgeBase, ".Component#Info", kind="TrailingEdge")
+    J.set(TrailingEdgeBase,'.Component#Info',kind='TrailingEdge')
 
     return TrailingEdgeBase
 
-
 def getLeadingEdge(t):
-    """
+    '''
     construct the curve corresponding to the LeadingEdge from a LiftingLine,
     conserving all original fields and data.
 
@@ -5959,18 +5097,17 @@ def getLeadingEdge(t):
 
         LeadingEdgeLines : base
             ``CGNSBase_t`` of zones  corresponding to leading edge
-    """
-    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z, "LiftingLine")]
+    '''
+    LiftingLines = [z for z in I.getZones(t) if checkComponentKind(z,'LiftingLine')]
     LeadingEdgeLines = []
     for LiftingLine in LiftingLines:
-        if not checkComponentKind(LiftingLine, "LiftingLine"):
-            raise AttributeError("input must be a LiftingLine")
+        if not checkComponentKind(LiftingLine,'LiftingLine'):
+            raise AttributeError('input must be a LiftingLine')
         LeadingEdge = I.copyTree(LiftingLine)
         x, y, z = J.getxyz(LeadingEdge)
 
-        Chord, ChordwiseX, ChordwiseY, ChordwiseZ = J.getVars(
-            LeadingEdge, ["Chord", "ChordwiseX", "ChordwiseY", "ChordwiseZ"]
-        )
+        Chord, ChordwiseX, ChordwiseY, ChordwiseZ = J.getVars(LeadingEdge,
+            ['Chord','ChordwiseX', 'ChordwiseY', 'ChordwiseZ'])
 
         Distance2TrailingEdge = 0.25 * Chord
         x -= Distance2TrailingEdge * ChordwiseX
@@ -5978,39 +5115,35 @@ def getLeadingEdge(t):
         z -= Distance2TrailingEdge * ChordwiseZ
         LeadingEdgeLines += [LeadingEdge]
 
-    LeadingEdgeBase = I.newCGNSBase("LeadingEdge", cellDim=1, physDim=3)
-    LeadingEdgeBase[2] = LeadingEdgeLines  # Add Blades
+    LeadingEdgeBase = I.newCGNSBase('LeadingEdge',cellDim=1,physDim=3)
+    LeadingEdgeBase[2] = LeadingEdgeLines # Add Blades
 
     # Sets component general information
-    J.set(LeadingEdgeBase, ".Component#Info", kind="LeadingEdge")
+    J.set(LeadingEdgeBase,'.Component#Info',kind='LeadingEdge')
 
     return LeadingEdgeBase
 
-
 def getAirfoilsNodeOfLiftingLine(LiftingLine):
-    (LiftingLine,) = I.getZones(LiftingLine)
-    ComponentInfo = I.getNodeFromName1(LiftingLine, ".Component#Info")
-    GeometricalLaws = I.getNodeFromName1(ComponentInfo, "GeometricalLaws")
-    if not GeometricalLaws:
-        return I.getNodeFromName1(LiftingLine, ".Polar#Info")
-    return I.getNodeFromName1(GeometricalLaws, "Airfoils")
+    LiftingLine, = I.getZones(LiftingLine)
+    ComponentInfo = I.getNodeFromName1(LiftingLine, '.Component#Info')
+    GeometricalLaws = I.getNodeFromName1(ComponentInfo, 'GeometricalLaws')
+    if not GeometricalLaws: return I.getNodeFromName1(LiftingLine,'.Polar#Info')
+    return I.getNodeFromName1(GeometricalLaws, 'Airfoils')
 
-
-def loadPolarsInterpolatorDict(filenames, InterpFields=["Cl", "Cd", "Cm"]):
+def loadPolarsInterpolatorDict( filenames, InterpFields=['Cl', 'Cd','Cm'] ):
     if isinstance(filenames, str):
-        filenames = [filenames]
+        filenames = [ filenames ]
     elif not isinstance(filenames, list):
-        raise TypeError("filenames %s not recognized" % str(type(filenames)))
+        raise TypeError('filenames %s not recognized'%str(type(filenames)))
 
     PyZonePolars = []
     for filename in filenames:
-        PyZonePolars.extend(I.getZones(C.convertFile2PyTree(filename)))
+        PyZonePolars.extend( I.getZones( C.convertFile2PyTree(filename) ) )
 
     return buildPolarsInterpolatorDict(PyZonePolars, InterpFields=InterpFields)
 
-
 def mirrorBlade(LiftingLine):
-    """
+    '''
     Given a Lifting-Line in canonical position (as produced using :py:func:`buildLiftingLine`),
     mirrors its geometry, such that it can be used for an opposite rotation.
 
@@ -6020,22 +5153,22 @@ def mirrorBlade(LiftingLine):
         LiftingLine : zone
             A Lifting Line object, as generated from
             function :py:func:`buildLiftingLine`
-    """
+    '''
 
-    C._initVars(LiftingLine, "{CoordinateY}=-{CoordinateY}")
-    C._initVars(LiftingLine, "{ChordwiseY}=-{ChordwiseY}")
-    C._initVars(LiftingLine, "{SpanwiseY}=-{SpanwiseY}")
-    C._initVars(LiftingLine, "{ThickwiseY}=-{ThickwiseY}")
-    C._initVars(LiftingLine, "{PitchRelativeCenterY}=-{PitchRelativeCenterY}")
-    C._initVars(LiftingLine, "{TangentialY}=-{TangentialY}")
+    C._initVars(LiftingLine,'{CoordinateY}=-{CoordinateY}')
+    C._initVars(LiftingLine,'{ChordwiseY}=-{ChordwiseY}')
+    C._initVars(LiftingLine,'{SpanwiseY}=-{SpanwiseY}')
+    C._initVars(LiftingLine,'{ThickwiseY}=-{ThickwiseY}')
+    C._initVars(LiftingLine,'{PitchRelativeCenterY}=-{PitchRelativeCenterY}')
+    C._initVars(LiftingLine,'{TangentialY}=-{TangentialY}')
 
-    C._initVars(LiftingLine, "{PitchAxisX}=-{PitchAxisX}")
-    C._initVars(LiftingLine, "{PitchAxisY}=-{PitchAxisY}")
-    C._initVars(LiftingLine, "{PitchAxisZ}=-{PitchAxisZ}")
+    C._initVars(LiftingLine,'{PitchAxisX}=-{PitchAxisX}')
+    C._initVars(LiftingLine,'{PitchAxisY}=-{PitchAxisY}')
+    C._initVars(LiftingLine,'{PitchAxisZ}=-{PitchAxisZ}')
 
 
 def addPitch(LiftingLine, pitch=0.0):
-    """
+    '''
     Given a Lifting-Line (at any arbitrary position) add a pitch angle (in degrees),
     resulting in a rotation of the LiftingLine and its meaningful fields
 
@@ -6046,41 +5179,31 @@ def addPitch(LiftingLine, pitch=0.0):
             A Lifting Line object, as generated from
             function :py:func:`buildLiftingLine`.
 
-            .. note::
+            .. note:: 
                 **LitingLine** is modified in-place
 
         pitch : float
             angle in degrees of the rotation around `PitchAxis` passing through
             `PitchRelativeCenter`, previously defined in :py:func:`buildLiftingLine`
-    """
+    '''
     for LL in getLiftingLines(LiftingLine):
-        Kin_n = I.getNodeFromName(LL, ".Kinematics")
-        rc = I.getValue(I.getNodeFromName1(Kin_n, "RotationCenter"))
+        Kin_n = I.getNodeFromName(LL,'.Kinematics')
+        rc = I.getValue(I.getNodeFromName1(Kin_n,'RotationCenter'))
 
-        PitchCtr = J.getVars(
-            LL, ["PitchRelativeCenterX", "PitchRelativeCenterY", "PitchRelativeCenterZ"]
-        )
+        PitchCtr = J.getVars(LL,
+                        ['PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ'])
 
-        PitchAxis = J.getVars(LL, ["PitchAxisX", "PitchAxisY", "PitchAxisZ"])
 
-        PitchCtr_pt = (
-            PitchCtr[0][0] + rc[0],
-            PitchCtr[1][0] + rc[1],
-            PitchCtr[2][0] + rc[2],
-        )
+        PitchAxis = J.getVars(LL, ['PitchAxisX','PitchAxisY','PitchAxisZ'])
+
+        PitchCtr_pt = (PitchCtr[0][0]+rc[0], PitchCtr[1][0]+rc[1], PitchCtr[2][0]+rc[2])
         PitchAxis_vec = (PitchAxis[0][0], PitchAxis[1][0], PitchAxis[2][0])
-        T._rotate(
-            LL,
-            PitchCtr_pt,
-            PitchAxis_vec,
-            pitch,
-            vectors=NamesOfChordSpanThickwiseFrameNoTangential,
-        )
-
-
+        T._rotate(LL, PitchCtr_pt, PitchAxis_vec, pitch, 
+                vectors=NamesOfChordSpanThickwiseFrameNoTangential)
+        
 def getLocalFrameLines(LiftingLines, Length=0.05):
-    """
-    Construct the Chordwise, Thickwise, Spanwise lines at LiftingLines for
+    '''
+    Construct the Chordwise, Thickwise, Spanwise lines at LiftingLines for 
     verification purposes (visualization)
 
     Parameters
@@ -6096,33 +5219,28 @@ def getLocalFrameLines(LiftingLines, Length=0.05):
     -------
 
         Lines : :py:class:`list` of zones
-            lines of the frame, ready for visualization
-    """
+            lines of the frame, ready for visualization        
+    '''
     Lines = []
     for LiftingLine in getLiftingLines(LiftingLines):
         xyz = np.vstack(J.getxyz(LiftingLine))
-        chordwise = np.vstack(J.getVars(LiftingLine, ["Chordwise" + i for i in "XYZ"]))
-        spanwise = np.vstack(J.getVars(LiftingLine, ["Spanwise" + i for i in "XYZ"]))
-        thickwise = np.vstack(J.getVars(LiftingLine, ["Thickwise" + i for i in "XYZ"]))
+        chordwise = np.vstack(J.getVars(LiftingLine,['Chordwise'+i for i in 'XYZ']))
+        spanwise  = np.vstack(J.getVars(LiftingLine,[ 'Spanwise'+i for i in 'XYZ']))
+        thickwise = np.vstack(J.getVars(LiftingLine,['Thickwise'+i for i in 'XYZ']))
 
         for i in range(C.getNPts(LiftingLine)):
-            chordwise_line = D.line(
-                tuple(xyz[:, i]), tuple(xyz[:, i] + chordwise[:, i] * Length), 2
-            )
-            chordwise_line[0] = "Chordwise.%d" % i
+            chordwise_line = D.line(tuple(xyz[:,i]),tuple(xyz[:,i]+chordwise[:,i]*Length),2)
+            chordwise_line[0] = 'Chordwise.%d'%i
             Lines += [chordwise_line]
 
-            spanwise_line = D.line(
-                tuple(xyz[:, i]), tuple(xyz[:, i] + spanwise[:, i] * Length), 2
-            )
-            spanwise_line[0] = "Spanwise.%d" % i
+            spanwise_line = D.line(tuple(xyz[:,i]),tuple(xyz[:,i]+spanwise[:,i]*Length),2)
+            spanwise_line[0] = 'Spanwise.%d'%i
             Lines += [spanwise_line]
 
-            thickwise_line = D.line(
-                tuple(xyz[:, i]), tuple(xyz[:, i] + thickwise[:, i] * Length), 2
-            )
-            thickwise_line[0] = "Thickwise.%d" % i
+            thickwise_line = D.line(tuple(xyz[:,i]),tuple(xyz[:,i]+thickwise[:,i]*Length),2)
+            thickwise_line[0] = 'Thickwise.%d'%i
             Lines += [chordwise_line, spanwise_line, thickwise_line]
 
-    I._correctPyTree(Lines, level=3)
+    I._correctPyTree(Lines,level=3)
     return Lines
+
