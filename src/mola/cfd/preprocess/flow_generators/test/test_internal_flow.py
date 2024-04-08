@@ -17,6 +17,8 @@
 
 import pytest
 import numpy as np
+import time
+
 from mola import misc
 from mola.cfd.preprocess.flow_generators.internal_flow import InternalFlowGenerator
 
@@ -24,7 +26,7 @@ class FakeWorkflow():
 
     def __init__(self):
 
-        self.Surface = 0.1
+        self.ApplicationContext = dict(Surface = 0.1)
 
         self.Fluid = dict(
             Gamma=1.4,
@@ -118,67 +120,71 @@ def test_InternalFlowGenerator():
         cv=717.6325,
         )
     
-    RefFlow = {'AngleOfAttackDeg': 0.0,
-                'AngleOfSlipDeg': 0.0,
-                'Conservatives': {'Density': 1.123444231728095,
-                                'EnergyStagnationDensity': 243137.62755937327,
-                                'MomentumX': -99.99999999999996,
-                                'MomentumY': 0.0,
-                                'MomentumZ': 0.0},
-                'Density': 1.123444231728095,
-                'DragDirection': [-1.0, 0.0, 0.0],
-                'EnergyStagnationDensity': 243137.62755937327,
-                'LiftDirection': [0.0, 0.0, 1.0],
-                'Mach': 0.25805710351588457,
-                'MassFlow': 10.0,
-                'MomentumX': -99.99999999999996,
-                'MomentumY': 0.0,
-                'MomentumZ': 0.0,
-                'PitchAxis': [0.0, -1.0, 0.0],
-                'Pressure': 95474.81134338387,
-                'PressureDynamic': 4450.599200913549,
-                'PressureStagnation': 100000.0,
-                'ReferenceState': {'Density': 1.123444231728095,
-                                    'EnergyStagnationDensity': 243137.62755937327,
-                                    'MomentumX': -99.99999999999996,
-                                    'MomentumY': 0.0,
-                                    'MomentumZ': 0.0,
-                                    'TurbulentDissipationRateDensity': 8208.910340124454,
-                                    'TurbulentEnergyKineticDensity': 0.013351797602740648},
-                'Reynolds': 5472606.893416305,
-                'SideDirection': [0.0, -1.0, 0.0],
-                'SoundSpeed': 344.93134583598834,
-                'Temperature': 296.056908704829,
-                'TemperatureStagnation': 300.0,
-                'Velocity': 89.01198401827102,
-                'VelocityUsedForScalingAndTurbulence': 89.01198401827102,
-                'ViscosityEddy': 1.8272827182289063e-06,
-                'ViscosityMolecular': 1.8272827182289062e-05,
-                'YawAxis': [0.0, 0.0, 1.0]}
+    RefFlow = dict(
+        Conservatives = dict(
+            Density = 1.123444231728095,
+            EnergyStagnationDensity = 243137.62755937327,
+            MomentumX = 99.99999999999996,
+            MomentumY = 0.0,
+            MomentumZ = 0.0
+        ),
+        Density = 1.123444231728095,
+        Direction = [1.0, 0.0, 0.0],
+        EnergyStagnationDensity = 243137.62755937327,
+        Mach = 0.25805710351588457,
+        MassFlow = 10.0,
+        MomentumX = 99.99999999999996,
+        MomentumY = 0.0,
+        MomentumZ = 0.0,
+        Pressure = 95474.81134338387,
+        PressureDynamic = 4450.599200913549,
+        PressureStagnation = 100000.0,
+        ReferenceState = dict(
+            Density = 1.123444231728095,
+            EnergyStagnationDensity = 243137.62755937327,
+            MomentumX = 99.99999999999996,
+            MomentumY = 0.0,
+            MomentumZ = 0.0,
+            TurbulentDissipationRateDensity = 8208.910340124454,
+            TurbulentEnergyKineticDensity = 0.013351797602740648
+        ),
+        SoundSpeed = 344.93134583598834,
+        Temperature = 296.056908704829,
+        TemperatureStagnation = 300.0,
+        Velocity = 89.01198401827102,
+        VelocityUsedForScalingAndTurbulence = 89.01198401827102,
+        ViscosityEddy = 1.8272827182289063e-06,
+        ViscosityMolecular = 1.8272827182289062e-05,
+        )
 
 
-    RefTurbulence = {'Conservatives': {'TurbulentDissipationRateDensity': 8208.910340124454,
-                   'TurbulentEnergyKineticDensity': 0.013351797602740648},
-                    'IntermittencyDensity': 1.123444231728095,
-                    'Level': 0.001,
-                    'Model': 'Wilcox2006-klim',
-                    'MomentumThicknessReynoldsDensity': 1276.8249270420831,
-                    'ReferenceVelocity': 'auto',
-                    'ReynoldsStressDissipationScale': 8208.910340124454,
-                    'ReynoldsStressXX': 0.008901198401827098,
-                    'ReynoldsStressXY': 0.0,
-                    'ReynoldsStressXZ': 0.0,
-                    'ReynoldsStressYY': 0.008901198401827098,
-                    'ReynoldsStressYZ': 0.0,
-                    'ReynoldsStressZZ': 0.008901198401827098,
-                    'TurbulentDissipationRateDensity': 8208.910340124454,
-                    'TurbulentEnergyKineticDensity': 0.013351797602740648,
-                    'TurbulentEnergyKineticPLSDensity': 3.691552321470374e-07,
-                    'TurbulentLengthScaleDensity': 3.106138428002434e-05,
-                    'TurbulentSANuTilde': 4.0148671272018605e-05,
-                    'Viscosity_EddyMolecularRatio': 0.1}
+    RefTurbulence = dict(
+        Conservatives = dict(
+            TurbulentDissipationRateDensity=8208.910340124454, 
+            TurbulentEnergyKineticDensity = 0.013351797602740648
+        ),
+        IntermittencyDensity = 1.123444231728095,
+        Level = 0.001,
+        Model = 'Wilcox2006-klim',
+        MomentumThicknessReynoldsDensity = 1276.8249270420831,
+        ReferenceVelocity = 'auto',
+        ReynoldsStressDissipationScale = 8208.910340124454,
+        ReynoldsStressXX = 0.008901198401827098,
+        ReynoldsStressXY = 0.0,
+        ReynoldsStressXZ = 0.0,
+        ReynoldsStressYY = 0.008901198401827098,
+        ReynoldsStressYZ = 0.0,
+        ReynoldsStressZZ = 0.008901198401827098,
+        TurbulentDissipationRateDensity = 8208.910340124454,
+        TurbulentEnergyKineticDensity = 0.013351797602740648,
+        TurbulentEnergyKineticPLSDensity = 3.691552321470374e-07,
+        TurbulentLengthScaleDensity = 3.106138428002434e-05,
+        TurbulentSANuTilde = 4.0148671272018605e-05,
+        Viscosity_EddyMolecularRatio = 0.1
+    )
 
     assert misc.allclose_dict(FlowGen.Fluid, RefFluid)
     assert misc.allclose_dict(FlowGen.Flow, RefFlow)
     assert misc.allclose_dict(FlowGen.Turbulence, RefTurbulence)
+    time.sleep(0.5) # to be sure to be in categoy pytest.mark.cost_level_1
 

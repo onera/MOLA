@@ -161,6 +161,8 @@ class Workflow(object):
 
             FlowGenerator='External_rho_V_T',
 
+            ApplicationContext=dict(),
+
             # _defaults = dict(),
 
             ):
@@ -186,6 +188,7 @@ class Workflow(object):
             # deep_update(self.__dict__, self._defaults)
 
             self.RawMeshComponents=RawMeshComponents
+            self.ApplicationContext = ApplicationContext
             self.Fluid=Fluid
             self.Flow=Flow
             self.FlowGenerator=FlowGenerator

@@ -58,7 +58,7 @@ def test_initialization_uniform():
     ref_fs = ['FlowSolution#Init', None, [
         ['GridLocation', np.array([b'C', b'e', b'l', b'l', b'C', b'e', b'n', b't', b'e', b'r'],dtype='|S1'), [], 'GridLocation_t'], 
         ['Density', np.array([[[1.225]],[[1.225]]]), [], 'DataArray_t'], 
-        ['MomentumX', np.array([[[-12.25]],[[-12.25]]]), [], 'DataArray_t'], 
+        ['MomentumX', np.array([[[12.25]],[[12.25]]]), [], 'DataArray_t'], 
         ['MomentumY', np.array([[[0.]],[[0.]]]), [], 'DataArray_t'], 
         ['MomentumZ', np.array([[[0.]],[[0.]]]), [], 'DataArray_t'], 
         ['EnergyStagnationDensity', np.array([[[253373.86097188]],[[253373.86097188]]]), [], 'DataArray_t'], 

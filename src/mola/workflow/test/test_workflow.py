@@ -20,7 +20,7 @@ import numpy as np
 
 import treelab.cgns as cgns
 
-from mola.workflow.workflow import Workflow
+from mola.workflow import Workflow
 from mola.logging import mola_logger, MolaException, mute_stdout
 from mola import server as SV
 

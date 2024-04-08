@@ -25,9 +25,9 @@ class InternalFlowGenerator(ExternalFlowGenerator):
         super().__init__(workflow)
         self.name = 'Internal'
 
-        if hasattr(workflow, 'Surface'):
-            self.Surface = workflow.Surface
-        else:
+        try:
+            self.Surface = workflow.ApplicationContext['Surface']
+        except KeyError:
             from..mesh.tools import get_surface_of_inflow
             self.Surface = get_surface_of_inflow(workflow)
 

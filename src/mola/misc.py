@@ -20,6 +20,7 @@ import sys
 import os
 import pprint
 import shutil
+from mola.logging import mola_logger
 
 AutoGridLocation = {'FlowSolution':'Vertex',
                     'FlowSolution#Centers':'CellCenter',
@@ -207,11 +208,13 @@ def allclose_dict(d1, d2, tol_abs=None, tol_rel=1e-6):
     '''
 
     if len(d1) != len(d2):
+        mola_logger.debug(f'Both dictionary have not the same length ({len(d1)} and {len(d2)} respectively)')
         return False
 
     for k, v in d1.items():
         # Make sure all the keys are equal
         if k not in d2:
+            mola_logger.debug(f'{k}: {k} not in {d2}')
             return False
 
         # Fuzzy float comparison
@@ -223,13 +226,19 @@ def allclose_dict(d1, d2, tol_abs=None, tol_rel=1e-6):
             else:
                 precision = abs(v) * tol_rel
             if not abs(v - d2[k]) < precision:
+                mola_logger.debug(f'{k}: {v} != {d2[k]}')
                 return False
         # Recursive compare if there are nested dicts
         elif isinstance(v, dict):
             if not allclose_dict(v, d2[k], tol_abs, tol_rel):
+                mola_logger.debug(f'{k}: {v} != {d2[k]}')
                 return False
+        elif isinstance(v, np.ndarray) and np.all(v != d2[k]):
+            mola_logger.debug(f'{k}: {v} != {d2[k]}')
+            return False
         # Fall back to default
         elif v != d2[k]:
+            mola_logger.debug(f'{k}: {v} != {d2[k]}')
             return False
 
     return True

@@ -27,8 +27,6 @@ class WorkflowLinearCascade(Workflow):
                  **kwargs
                  ):
         
-        super().__init__(SplittingAndDistribution=SplittingAndDistribution, FlowGenerator=FlowGenerator, **kwargs)
-
         # channel height computation
         # postprocess on internal component, between two planes
         # automatic postprocess with turbo for cascade
@@ -36,35 +34,29 @@ class WorkflowLinearCascade(Workflow):
         if self.tree is not None:
             for meshInfo in self.RawMeshComponents:
                 meshInfo.setdefault('mesher', 'Autogrid')
-            
-            self.get_yaw_and_pitch_axes()
 
+            self.ApplicationContext.setdefault('')
+            
             self.Extractions.extend([
                 dict(type='bc', BCType='BCInflow*', fields=['MassFlow']),
                 dict(type='bc', BCType='BCOutflow*', fields=['MassFlow']),
             ])
-    
-    def set_yaw_and_pitch_axes(self):
-        self.set_yaw_axis()
-        self.set_pitch_axis()
         
-    def set_yaw_axis(self):
-        if 'YawAxis' not in self.Flow:
-            # Get periodic match connections
-            perio_connections = [connec for connec in self.RawMeshComponents['Connection'] if connec['Type'] == 'PeriodicMatch']
-            if len(perio_connections) == 1:
-                YawAxis = np.array(perio_connections[0]['Translation'])
-                self.YawAxis = YawAxis / np.sqrt(np.sum(YawAxis**2))
-            elif len(perio_connections) == 0:
-                # Check that Periodicity already given in the mesh and adapt it if necessary
-                # For now raise an exception
-                raise Exception('Not yet implemented')
-            else:
-                raise Exception('More than one PeriodicMatch: Please give both YawAxis and PitchAxis')
+        super().__init__(SplittingAndDistribution=SplittingAndDistribution, FlowGenerator=FlowGenerator, **kwargs)
 
-    def set_pitch_axis(self):
-        if 'SpanwiseDirection' in self.Flow:
-            self.PitchAxis = self.Flow['SpanwiseDirection']
-        else:
-            RollAxis = np.array([1,0,0]) # Strong assumption here
-            self.PitchAxis = np.cross(self.YawAxis, RollAxis)
+
+    # def get_periodic_direction(self):
+    #     # Get periodic match connections
+    #     perio_connections = [connec for connec in self.RawMeshComponents['Connection'] if connec['Type'] == 'PeriodicMatch']
+    #     if len(perio_connections) == 1:
+    #         periodic_direction = np.array(perio_connections[0]['Translation'])
+    #         periodic_direction /= np.sqrt(np.sum(periodic_direction**2))
+    #     elif len(perio_connections) == 0:
+    #         # Check that Periodicity already given in the mesh and adapt it if necessary
+    #         # For now raise an exception
+    #         raise Exception('Not yet implemented')
+    #     else:
+    #         raise Exception('More than one PeriodicMatch')
+        
+    #     return periodic_direction
+

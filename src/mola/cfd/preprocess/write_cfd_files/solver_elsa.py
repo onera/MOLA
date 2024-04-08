@@ -40,7 +40,7 @@ def add_reference_state(workflow):
 
     ReferenceState = dict(**workflow.Flow['ReferenceState'])
 
-    for var in ['Reynolds','Mach','Pressure','Temperature']:
+    for var in ['Mach','Pressure','Temperature']:
         ReferenceState[var] = workflow.Flow[var]
  
     namesForCassiopee = dict(
