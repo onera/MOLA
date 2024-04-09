@@ -33,6 +33,7 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
                 meshInfo.setdefault('mesher', 'Autogrid')
 
             self.Extractions.append(
+                dict(type='bc', BCType='BCWall*', fields=['Pressure', 'BoundaryLayer', 'yPlus']),
                 dict(type='bc', BCType='BCInflow*', fields=['MassFlow']),
                 dict(type='bc', BCType='BCOutflow*', fields=['MassFlow']),
             )

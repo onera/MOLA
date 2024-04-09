@@ -1,0 +1,96 @@
+#    Copyright 2023 ONERA - contact luis.bernardos@onera.fr
+#
+#    This file is part of MOLA.
+#
+#    MOLA is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU Lesser General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    MOLA is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU Lesser General Public License for more details.
+#
+#    You should have received a copy of the GNU Lesser General Public License
+#    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
+import pytest
+import os
+
+from mola.logging import MolaException
+from mola.workflow import WorkflowTurbomachinery
+
+def get_workflow_rotor37():
+    w = WorkflowTurbomachinery( 
+        RawMeshComponents=[
+            dict(
+                Name='Base#1',
+                Source='/stck/mola/data/mesh/rotor37/mesh.cgns',
+                #Connection = [
+                #   dict(Type='PeriodicMatch', Rotation=[10.,0, 0]),
+                #],
+                )
+        ],
+
+        ApplicationContext = dict(
+            ShaftRotationSpeed = -1800., 
+            Rows = dict(
+                R37 = dict(
+                    IsRotating = True,
+                    NumberOfBlades = 36,
+                )
+            )
+        ),
+
+        Flow = dict(
+            MassFlow              = 20.5114/36,  # for the 360 degrees section, even it is simulated entirely
+            TemperatureStagnation = 288.15,
+            PressureStagnation    = 101330.,
+        ),
+
+        Turbulence = dict(
+            Level = 0.03,
+            Viscosity_EddyMolecularRatio = 0.1,
+            Model='smith',
+        ),
+
+        Numerics = dict(
+            NumberOfIterations = 5,
+            CFL = dict(EndIteration=300, StartValue=1., EndValue=30.)
+        ),
+
+        BoundaryConditions = [
+            dict(Family='R37_INFLOW', type='InflowStagnation'),
+            dict(Family='R37_OUTFLOW', type='OutflowPressure', Pressure=0.9936*1e5),
+            #dict(Family='Outlet', type='OutflowRadialEquilibrium'),
+        ],
+
+        Extractions = [
+            dict(type='IsoSurface', field='ChannelHeight', value=0.9)
+        ],
+
+        RunManagement=dict(
+            JobName='rotor37',
+            RunDirectory=os.path.dirname(os.path.realpath(__file__)),
+            NumberOfProcessors=24,
+            ),
+
+        )
+    return w
+
+
+
+@pytest.mark.user_case
+@pytest.mark.cost_level_4
+def test_rotor37():
+    w = get_workflow_rotor37()
+    w.prepare()
+    w.write_cfd_files()
+    w.submit()
+    COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
+    if not os.path.exists(COMPLETED_PATH):
+        raise MolaException('simulation did not ended as expected')
+    w.remove_cfd_files()
+
+
