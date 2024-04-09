@@ -44,8 +44,8 @@ def apply_to_solver(workflow):
     for family, MotionOnFamily in workflow.Motion.items():
         famNode = workflow.tree.get(Name=family, Type='Family', Depth=2)
 
-        if not motion.is_mobile(MotionOnFamily):
-            continue
+        # if not motion.is_mobile(MotionOnFamily):
+        #     continue
         assert_rotation_axis_is_correct(MotionOnFamily)
 
         mola_logger.debug(f'set motion on {family}: {MotionOnFamily}')
@@ -70,7 +70,10 @@ def translate_motion_to_elsa(Motion):
     
     RotationAxis = np.array(Motion['RotationSpeed'])
     RotationSpeed = np.sqrt(RotationAxis.dot(RotationAxis))
-    RotationAxis = np.absolute(RotationAxis) / RotationSpeed
+    if RotationSpeed != 0:
+        RotationAxis = np.absolute(RotationAxis) / RotationSpeed
+    else:
+        RotationAxis = [1., 0., 0.]
 
     TranslationVector = np.array(Motion['TranslationSpeed'])
     TranslationSpeed = np.sqrt(TranslationVector.dot(TranslationVector))

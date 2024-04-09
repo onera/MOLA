@@ -39,7 +39,7 @@ def apply_all_previous_stages(workflow):
     workflow.define_families()
     workflow.split_and_distribute() 
     workflow.process_overset()
-    workflow.compute_reference_values()
+    workflow.compute_flow_and_turbulence()
     workflow.set_motion()
 
 

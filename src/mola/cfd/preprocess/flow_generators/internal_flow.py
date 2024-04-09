@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
-import scipy
+import scipy.optimize
 from .external_flow import ExternalFlowGenerator 
 
 class InternalFlowGenerator(ExternalFlowGenerator):

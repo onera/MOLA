@@ -60,7 +60,7 @@ def test_MassFlowFromMach():
     np.testing.assert_allclose(Massflow, 1.80018457)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_1
+@pytest.mark.cost_level_0
 def test_MachFromMassFlow():
     workflow = FakeWorkflow()
     FlowGen = InternalFlowGenerator(workflow)

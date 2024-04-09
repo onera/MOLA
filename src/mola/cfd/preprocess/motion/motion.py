@@ -22,14 +22,22 @@ def apply(workflow):
     '''
     Set Motion for each families
     '''
-    if workflow.Motion is None:
-        workflow.Motion = dict()
-    for family, MotionOnFamily in workflow.Motion.items():
-        set_default_motion(MotionOnFamily)
-
+    set_default_motion_on_families(workflow)
     apply_to_solver(workflow)
 
-def set_default_motion(Motion):
+def set_default_motion_on_families(workflow):
+    if workflow.Motion is None:
+        workflow.Motion = dict()
+
+    for zone in workflow.tree.zones():
+        FamilyName = zone.get(Type='FamilyName')
+        if FamilyName and FamilyName.value() not in workflow.Motion:
+            workflow.Motion[FamilyName.value()] = dict()
+
+    for family, MotionOnFamily in workflow.Motion.items():
+        update_motion_with_defaults(MotionOnFamily) 
+
+def update_motion_with_defaults(Motion):
     if callable(Motion) or any([callable(v) for v in Motion.values()]):
         # complex motion given as a function
         return

@@ -144,7 +144,7 @@ def apply_function_to_BCDataSet(workflow, Family, functions_to_apply):
                     else:
                         pass
 
-                    kwargs[arg_name] = node[1]
+                    kwargs[arg_name] = I.getValue(node)
 
                 VarDictToImpose[variable_name] = function_to_apply(**kwargs)
 
@@ -158,7 +158,7 @@ def apply_function_to_BCDataSet(workflow, Family, functions_to_apply):
 
 def Wall(workflow, bc):
     Motion = bc.get('Motion', dict())
-    motion.set_default_motion(Motion)
+    motion.update_motion_with_defaults(Motion)
     return [bc['Family']], dict(Motion=Motion) 
 
 def WallViscous(workflow, bc):

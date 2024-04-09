@@ -69,15 +69,31 @@ def test_apply_to_solver_no_motion():
     Motion = dict(
         Rotor = dict(
             RotationSpeed=[0., 0., 0.],
-            RotationAxisOrigin=np.empty(3),
+            RotationAxisOrigin=[0., 0., 0.],
             TranslationSpeed=[0.,0.,0.],
         )
     )
 
+    ref_tree = ['Rotor', None, [
+                ['.Solver#Motion', None, [
+                    ['motion', np.array([b'm', b'o', b'b', b'i', b'l', b'e'], dtype='|S1'), [], 'DataArray_t'], 
+                    ['omega', np.array([0.]), [], 'DataArray_t'], 
+                    ['axis_pnt_x', np.array([0.]), [], 'DataArray_t'], 
+                    ['axis_pnt_y', np.array([0.]), [], 'DataArray_t'], 
+                    ['axis_pnt_z', np.array([0.]), [], 'DataArray_t'], 
+                    ['axis_vct_x', np.array([1.]), [], 'DataArray_t'], 
+                    ['axis_vct_y', np.array([0.]), [], 'DataArray_t'], 
+                    ['axis_vct_z', np.array([0.]), [], 'DataArray_t'],
+                    ['transl_vct_x', np.array([1.]), [], 'DataArray_t'], 
+                    ['transl_vct_y', np.array([0.]), [], 'DataArray_t'], 
+                    ['transl_vct_z', np.array([0.]), [], 'DataArray_t'], 
+                    ['transl_speed', np.array([0.]), [], 'DataArray_t']
+                ], 'UserDefinedData_t']], 'Family_t']
+
     workflow = FakeWorkflow(Motion)
     solver_elsa.apply_to_solver(workflow)
 
-    assert str(workflow.tree.get(Type='Family')) == "['Rotor', None, [], 'Family_t']"
+    assert str(workflow.tree.get(Type='Family')) == str(ref_tree)
 
 
 @pytest.mark.unit

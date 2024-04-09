@@ -23,9 +23,9 @@ from mola.cfd.preprocess.motion import motion
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_set_default_motion():
+def test_update_motion_with_defaults():
     Motion = dict()
-    motion.set_default_motion(Motion)
+    motion.update_motion_with_defaults(Motion)
     assert Motion == dict(
         RotationSpeed      = [0., 0., 0.],
         RotationAxisOrigin = [0., 0., 0.],
@@ -35,9 +35,9 @@ def test_set_default_motion():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_set_default_motion2():
+def test_update_motion_with_defaults2():
     Motion = dict(RotationSpeed=500)
-    motion.set_default_motion(Motion)
+    motion.update_motion_with_defaults(Motion)
 
     assert Motion == dict(
         RotationSpeed      = [500., 0., 0.],
@@ -48,24 +48,24 @@ def test_set_default_motion2():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_set_default_motion3():
+def test_update_motion_with_defaults3():
     Motion = dict(
         RotationSpeed=np.empty(3),
         RotationAxisOrigin=np.empty(3),
         TranslationSpeed=np.empty(3),
     )
     Motion_Ref = copy.copy(Motion)
-    motion.set_default_motion(Motion)
+    motion.update_motion_with_defaults(Motion)
 
     assert Motion == Motion_Ref
 
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_set_default_motion_function():
+def test_update_motion_with_defaults_function():
     Motion = lambda x: x
     Motion_Ref = copy.copy(Motion)
-    motion.set_default_motion(Motion)
+    motion.update_motion_with_defaults(Motion)
 
     assert Motion == Motion_Ref
 
@@ -74,7 +74,7 @@ def test_set_default_motion_function():
 @pytest.mark.cost_level_0
 def test_is_mobile1():
     Motion = dict()
-    motion.set_default_motion(Motion)
+    motion.update_motion_with_defaults(Motion)
     assert not motion.is_mobile(Motion)
 
 
@@ -82,7 +82,7 @@ def test_is_mobile1():
 @pytest.mark.cost_level_0
 def test_is_mobile2():
     Motion = lambda x: x
-    motion.set_default_motion(Motion)
+    motion.update_motion_with_defaults(Motion)
     assert motion.is_mobile(Motion)
 
 
@@ -93,7 +93,7 @@ def test_is_mobile3():
     Motion = dict(
         RotationSpeed      = [500., 0., 0.],
     )
-    motion.set_default_motion(Motion)
+    motion.update_motion_with_defaults(Motion)
     assert motion.is_mobile(Motion)
 
 
@@ -104,7 +104,7 @@ def test_is_mobile4():
     Motion = dict(
         TranslationSpeed   = [0., 1., 0.],
     )
-    motion.set_default_motion(Motion)
+    motion.update_motion_with_defaults(Motion)
     assert motion.is_mobile(Motion)
 
 
@@ -115,5 +115,5 @@ def test_is_mobile5():
     Motion = dict(
         RotationAxisOrigin = [1., 0., 0.],
     )
-    motion.set_default_motion(Motion)
+    motion.update_motion_with_defaults(Motion)
     assert not motion.is_mobile(Motion)

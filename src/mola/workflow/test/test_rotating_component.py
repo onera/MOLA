@@ -55,7 +55,7 @@ Base CGNSBase_t:
             ]
         
         self.Motion = dict(
-            Rotor = motion.set_default_motion(dict(RotationSpeed=100.)),
+            Rotor = motion.update_motion_with_defaults(dict(RotationSpeed=100.)),
         )
         self.ApplicationContext = dict(
             ShaftAxis = [1., 0., 0.],

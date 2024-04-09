@@ -75,7 +75,7 @@ def wall(workflow, Family, Motion=None, bctype_cgns='BCWallViscous', bctype_elsa
     if callable(Motion) or any([callable(v) for v in Motion.values()]):
         # Put global parameters in the family
         Motion_default = dict(RotationSpeed=workflow.ComponentAxis)
-        motion.set_default_motion(Motion_default)
+        motion.update_motion_with_defaults(Motion_default)
         assert_rotation_axis_is_correct(Motion_default)
         Motion_elsa = translate_motion_to_elsa(Motion_default)
         Motion_elsa.pop('omega')
@@ -647,27 +647,18 @@ def stage_mxpl(workflow, left, right):
     import etc.transform as trf
 
     # HACK: must change the type of all FamilyName to array
-    def change_FamilyName_to_array():
-        for bc in workflow.tree.group(Type='BC'):
-            FamilyName = bc.get(Type='FamilyName')
-            FamilyName.setValue(np.array(FamilyName.value()))
-    def change_back_FamilyName_to_str():
-        for FamilyName in workflow.tree.group(Type='FamilyName'):
-            fam = FamilyName.value()
-            if isinstance(fam, np.ndarray):
-                FamilyName.setValue(FamilyName.value()[0])
+    # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
+    # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
+    for FamilyName in workflow.tree.group(Type='FamilyName'):
+        FamilyName.setValue(FamilyName.value())
 
-    change_FamilyName_to_array()
-    workflow.tree = trf.defineBCStageFromBC(workflow.tree, left)
-    workflow.tree = trf.defineBCStageFromBC(workflow.tree, right)
-    change_back_FamilyName_to_str()
+    workflow.tree = trf.defineBCStageFromBC(workflow.tree, (left, right))
     workflow.tree, stage = trf.newStageMxPlFromFamily(workflow.tree, left, right)
 
     stage.jtype = 'nomatch_rad_line'
     stage.create()
 
     workflow.tree = cgns.castNode(workflow.tree)
-
     set_turbomachinery_interface_FamilyBC(workflow.tree, left, right)
 
 
