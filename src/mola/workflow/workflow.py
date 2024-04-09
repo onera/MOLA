@@ -30,11 +30,8 @@ from  mola.cfd.preprocess import (flow_generators,
                                   cfd_parameters,
                                   extractions,
                                   write_cfd_files)
-
 from mola import server as SV 
-
 from mola.cfd.postprocess import remove_cfd_files
-
 from  mola.cfd.compute import compute
 
 def deep_update(d, u):
@@ -49,71 +46,26 @@ def deep_update(d, u):
 
 class Workflow(object):
 
-    def __init__(self, tree=None,
-
-            RawMeshComponents=[],
-            # RawMeshComponent with:
-            # -> component name
-            # -> file or tree
-            # -> mesher type
-            # -> family_bc definition
-            # -> Overset Options
-            # -> Connection
-            # -> Positioning (previously Tranform)
-
-            Fluid=dict(Gamma=1.4,
-                       IdealGasConstant=287.053,
-                       Prandtl=0.72,
-                       PrandtlTurbulent=0.9,
-                       SutherlandConstant=110.4,
-                       SutherlandViscosity=1.78938e-05,
-                       SutherlandTemperature=288.15),
-
-            Flow=dict(),
-
-            Turbulence=dict(Model='Wilcox2006-klim',
-                            Level=0.001,
-                            Viscosity_EddyMolecularRatio=0.1,
-                            TurbulenceCutOffRatio=1e-8,
-                            TransitionMode=None),
-
-            BoundaryConditions=[],
-            
+    def __init__(self, 
+            tree=None,
+            RawMeshComponents=None,
+            Fluid=None,
+            Flow=None,
+            Turbulence=None,
+            BoundaryConditions=None,
             Solver=os.environ.get('MOLA_SOLVER'),
-
-            SplittingAndDistribution=dict(
-                Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
-                Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
-                Distributor='Cassiopee', 
-                ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
-                NumberOfProcessors='auto', 
-                MinimumAllowedNodes=1,
-                MaximumAllowedNodes=20,
-                MaximumNumberOfPointsPerNode=1e9,
-                CoresPerNode=48,
-                DistributeExclusivelyOnFullNodes=True,
-                ),
-
-            Numerics=dict(Scheme='Jameson',
-                          TimeMarching='Steady',
-                          NumberOfIterations=10000,
-                          MinimumNumberOfIterations = 1000,
-                          TimeStep=None,
-                          CFL=None),
-
-            BodyForceModeling=dict(),
-
-            Motion=dict(),
-
-            Initialization=dict(method='uniform'),
-
-            ExtractionsDefaults=dict(
-                                    #  signals=dict(Surface=, Length=, Period=,
-                                    #  TorqueOrigin=, AveragingIterations=
-                                     ),
-
-            Extractions=[],
-
+            SplittingAndDistribution=None,
+            Numerics=None,
+            BodyForceModeling=None,
+            Motion=None,
+            Initialization=None,
+            Extractions=None,
+            ConvergenceCriteria=None,
+            Monitoring=None,
+            RunManagement=None,
+            FlowGenerator='External_rho_V_T',
+            ApplicationContext=None
+            ):
             # Extractions=[
             #     dict(type='signals', name='Integrals', fields=['CL', 'std-CL'],
             #          Period=10),
@@ -140,33 +92,11 @@ class Workflow(object):
             #         value=1.e-6,
             #         AllowedFields=['Mach','cellN']),
             # ]
-
-            ConvergenceCriteria=[],
-
-            Monitoring=dict(SaveSignalsPeriod=30,
-                            SaveExtractionsPeriod=30,
-                            SaveFieldsPeriod=30,
-                            SaveBodyForcePeriod=2000,
-                            TagExtractionsWithIteration='auto'),
-
-            RunManagement=dict(
-                JobName='MOLAjob',
-                RunDirectory='.',
-                NumberOfProcessors=None,
-                AER='',
-                FilesAndDirectories=[f"{os.getenv('MOLA')}/templates/compute.py"],
-                TimeOutInSeconds = 'auto',
-                Machine = 'auto', # or 'spiro-dtis', 'topaze'...
-                LauncherCommand = 'auto', # or 'sbatch job.sh', './job.sh'...
-                SecondsMargin4QuitBeforeTimeOut = 180.0),
-
-            FlowGenerator='External_rho_V_T',
-
-            ApplicationContext=dict(),
-
-            # _defaults = dict(),
-
-            ):
+            # Monitoring=dict(SaveSignalsPeriod=30,
+            #                 SaveExtractionsPeriod=30,
+            #                 SaveFieldsPeriod=30,
+            #                 SaveBodyForcePeriod=2000,
+            #                 TagExtractionsWithIteration='auto'),
 
         self._workflow_parameters_container_ = 'WorkflowParameters'
 
@@ -188,25 +118,24 @@ class Workflow(object):
             # deep_update(self._defaults, _defaults)
             # deep_update(self.__dict__, self._defaults)
 
-            self.RawMeshComponents=RawMeshComponents
-            self.ApplicationContext = ApplicationContext
-            self.Fluid=Fluid
-            self.Flow=Flow
-            self.FlowGenerator=FlowGenerator
-            self._FlowGenerator=self.get_flow_generator(self.FlowGenerator)
-            self.Turbulence=Turbulence
-            self.BoundaryConditions=BoundaryConditions
-            self.Solver=Solver.lower()
-            self.SplittingAndDistribution=SplittingAndDistribution
-            self.Numerics=Numerics
-            self.BodyForceModeling=BodyForceModeling
-            self.Motion=Motion
-            self.Initialization=Initialization
-            self.ExtractionsDefaults=ExtractionsDefaults
-            self.Extractions=Extractions
-            self.ConvergenceCriteria=ConvergenceCriteria
-            self.Monitoring=Monitoring
-            self.RunManagement=RunManagement
+            self.RawMeshComponents = RawMeshComponents if RawMeshComponents is not None else []
+            self.ApplicationContext = ApplicationContext if ApplicationContext is not None else dict()
+            self.Fluid = Fluid if Fluid is not None else dict()
+            self.Flow = Flow if Flow is not None else dict()
+            self.Turbulence = Turbulence if Turbulence is not None else dict()
+            self.FlowGenerator = FlowGenerator
+            self._FlowGenerator = self.get_flow_generator(self.FlowGenerator)
+            self.BoundaryConditions = BoundaryConditions if BoundaryConditions is not None else []
+            self.Solver = Solver.lower()
+            self.SplittingAndDistribution = SplittingAndDistribution if SplittingAndDistribution is not None else dict()
+            self.Numerics = Numerics if Numerics is not None else dict()
+            self.BodyForceModeling = BodyForceModeling if BodyForceModeling is not None else []
+            self.Motion = Motion if Motion is not None else dict()
+            self.Initialization = Initialization if Initialization is not None else dict(method='uniform')
+            self.Extractions = Extractions if Extractions is not None else []
+            self.ConvergenceCriteria = ConvergenceCriteria if ConvergenceCriteria is not None else []
+            self.Monitoring = Monitoring if Monitoring is not None else dict()
+            self.RunManagement = RunManagement if RunManagement is not None else dict()
 
     def write_tree(self, filename='main.cgns'):
         if not self.tree: self.tree = cgns.Tree()

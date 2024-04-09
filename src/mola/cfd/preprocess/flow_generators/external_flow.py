@@ -36,12 +36,9 @@ class ExternalFlowGenerator(object):
         self.name = 'External_rho_T_V'
 
         # Set attributes
-        self.Fluid = workflow.Fluid
-        self.Flow = workflow.Flow
-        self.Turbulence = workflow.Turbulence
-
-        self.Fluid['cv'] = self.Fluid['IdealGasConstant']/(self.Fluid['Gamma']-1.0)
-        self.Fluid['cp'] = self.Fluid['Gamma'] * self.Fluid['cv']
+        self.Fluid = workflow.Fluid if workflow.Fluid is not None else dict()
+        self.Flow = workflow.Flow if workflow.Flow is not None else dict()
+        self.Turbulence = workflow.Turbulence if workflow.Turbulence is not None else dict()
 
         # Set default values 
         self.Flow.setdefault('Direction', [1., 0., 0.])
@@ -56,6 +53,7 @@ class ExternalFlowGenerator(object):
 
     def generate(self):
         # Compute flow and turbulence properties
+        self.set_fluid_properties()
         self.set_flow_properties()
         self.set_turbulence_properties()
         self.Flow['ReferenceState'] = dict(**self.Flow['Conservatives'], **self.Turbulence['Conservatives'])
@@ -68,6 +66,20 @@ class ExternalFlowGenerator(object):
         #     FluxCoef        = 1./(self.Flow['PressureDynamic'] * Surface),
         #     TorqueCoef      = 1./(self.Flow['PressureDynamic'] * Surface * Length),
         # ))
+    
+    def set_fluid_properties(self):
+        defaults = dict(
+            Gamma=1.4,
+            IdealGasConstant=287.053,
+            Prandtl=0.72,
+            PrandtlTurbulent=0.9,
+            SutherlandConstant=110.4,
+            SutherlandViscosity=1.78938e-05,
+            SutherlandTemperature=288.15
+            )
+        self.Fluid.update(defaults)
+        self.Fluid['cv'] = self.Fluid['IdealGasConstant'] / (self.Fluid['Gamma']-1.0)
+        self.Fluid['cp'] = self.Fluid['Gamma'] * self.Fluid['cv']
 
     def set_flow_properties(self):
 

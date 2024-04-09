@@ -25,12 +25,8 @@ def get_workflow_rotor37():
     w = WorkflowTurbomachinery( 
         RawMeshComponents=[
             dict(
-                Name='Base#1',
-                Source='/stck/mola/data/mesh/rotor37/mesh.cgns',
-                #Connection = [
-                #   dict(Type='PeriodicMatch', Rotation=[10.,0, 0]),
-                #],
-                )
+                Source = '/stck/mola/data/mesh/rotor37/mesh.cgns',
+                ) 
         ],
 
         ApplicationContext = dict(
@@ -52,7 +48,7 @@ def get_workflow_rotor37():
         Turbulence = dict(
             Level = 0.03,
             Viscosity_EddyMolecularRatio = 0.1,
-            Model='smith',
+            Model = 'smith',
         ),
 
         Numerics = dict(

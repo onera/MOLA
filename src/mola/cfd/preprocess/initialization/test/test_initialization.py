@@ -49,8 +49,9 @@ def test_initialization_uniform():
     mesh = get_debug_mesh()
     workflow = Workflow(
         RawMeshComponents = [dict(Name='cart', Source=mesh)],
-        SplittingAndDistribution = dict(NumberOfProcessors=1),
+        SplittingAndDistribution = 'PyPart',
         Flow = dict(Velocity=10),
+        Turbulence = dict(Model='SA'),
     )
     apply_all_previous_stages(workflow)
     initialization.apply(workflow)
@@ -62,8 +63,7 @@ def test_initialization_uniform():
         ['MomentumY', np.array([[[0.]],[[0.]]]), [], 'DataArray_t'], 
         ['MomentumZ', np.array([[[0.]],[[0.]]]), [], 'DataArray_t'], 
         ['EnergyStagnationDensity', np.array([[[253373.86097188]],[[253373.86097188]]]), [], 'DataArray_t'], 
-        ['TurbulentEnergyKineticDensity', np.array([[[0.00018375]],[[0.00018375]]]), [], 'DataArray_t'], 
-        ['TurbulentDissipationRateDensity', np.array([[[125.79426952]],[[125.79426952]]]), [], 'DataArray_t']
+        ['TurbulentSANuTildeDensity', np.array([[[4.41691234e-05]],[[4.41691234e-05]]]), [], 'DataArray_t'], 
     ], 'FlowSolution_t']
 
     assert str(workflow.tree.get(Name='FlowSolution#Init')) == str(ref_fs)
@@ -75,8 +75,9 @@ def test_initialization_copy_not_existing_file():
     mesh = get_debug_mesh()
     workflow = Workflow(
         RawMeshComponents = [dict(Name='cart', Source=mesh)],
-        SplittingAndDistribution = dict(NumberOfProcessors=1),
+        SplittingAndDistribution = 'PyPart',
         Flow = dict(Velocity=10),
+        Turbulence = dict(Model='SA'),
         Initialization=dict(method='copy', source='not_existing_file.cgns'),
     )
     apply_all_previous_stages(workflow)
@@ -111,8 +112,9 @@ def test_initialization_copy():
 
     workflow = Workflow(
         RawMeshComponents = [dict(Name='cart', Source=mesh)],
-        SplittingAndDistribution = dict(NumberOfProcessors=1),
+        SplittingAndDistribution = 'PyPart',
         Flow = dict(Velocity=10),
+        Turbulence = dict(Model='SA'),
         Initialization=dict(method='copy', source=source),
     )
     apply_all_previous_stages(workflow)

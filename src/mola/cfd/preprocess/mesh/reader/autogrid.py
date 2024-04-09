@@ -65,7 +65,7 @@ def reader(component):
     try:
         base.setName(component['Name'])
     except KeyError:
-        pass
+        component['Name'] = base.name()
 
     # Only if grid connectivities are not already in the mesh
     # TODO: Test on the presence of GC

@@ -191,6 +191,10 @@ def get_workflow2():
             Velocity = 100.,
         ),
 
+        Turbulence = dict(
+            Model = 'SA',
+        ),
+
         Solver=os.environ.get('MOLA_SOLVER'),
 
         Numerics = dict(
@@ -243,6 +247,10 @@ def get_workflow_sphere_struct():
             Temperature = 100.,
             Velocity = 50.,
                  ),
+
+        Turbulence = dict(
+            Model = 'SA',
+        ),
 
         Solver=os.environ.get('MOLA_SOLVER'),
 
